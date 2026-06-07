@@ -1,0 +1,2 @@
+less-nowrap:abcde
+SHAPE_RESTORE_OK shape=064-less-no-wrap-long-line-cli target=arm64 result=42

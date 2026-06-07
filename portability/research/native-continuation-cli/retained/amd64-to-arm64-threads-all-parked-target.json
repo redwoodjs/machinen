@@ -1,0 +1,332 @@
+{
+  "kind": "machinen.research.native-continuation-cli.proof-row",
+  "version": 1,
+  "case": "threads-all-parked",
+  "rowKind": "support",
+  "mode": "target",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "command": {
+    "args": [
+      "python3",
+      "continuation_cli.py",
+      "materialize",
+      "--descriptor",
+      "retained/amd64-to-arm64-threads-all-parked-source.json",
+      "--out",
+      "retained/amd64-to-arm64-threads-all-parked-target.json"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "materialized": {
+    "case": "threads-all-parked",
+    "kind": "support",
+    "description": "materialize parked thread roles and wake one role",
+    "mode": "target",
+    "role": "target",
+    "hostArch": "aarch64",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "decision": "accepted",
+    "descriptor": {
+      "kind": "machinen.research.native-continuation.capture-descriptor",
+      "version": 1,
+      "shapeId": "shape-threads-all-parked-known-waits",
+      "architectureNeutral": true,
+      "observationConsistency": "live-procfs-best-effort",
+      "cpu": {
+        "wait": "multi-thread-parked-waits",
+        "sourceArch": "x86_64",
+        "sourceSyscallNumber": "230",
+        "sourceWchan": "hrtimer_nanosleep",
+        "targetNativeReconstruction": true,
+        "sourceIsaEmulationRequired": false
+      },
+      "memory": {
+        "mode": "semantic-resource-descriptor-only",
+        "rawHeapCaptured": false,
+        "rawStackCaptured": false,
+        "rawRegistersCaptured": false,
+        "rawHeapStackRegistersCaptured": false,
+        "threadStacksCaptured": false
+      },
+      "resources": {
+        "process": {
+          "threads": 3,
+          "tracerPid": 0,
+          "ppid": 4095855,
+          "pgrp": 4095856,
+          "session": 4095856
+        },
+        "fds": [
+          {
+            "fd": 0,
+            "target": "pipe:[66664340]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 1,
+            "target": "pipe:[66656531]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 2,
+            "target": "pipe:[66656532]",
+            "kind": "pipe",
+            "queueBytes": 0
+          }
+        ],
+        "pty": {
+          "fdCount": 0,
+          "queueBytesKnownEmpty": true,
+          "fds": []
+        },
+        "pipes": {
+          "fdCount": 3,
+          "bufferBytesKnownEmpty": true,
+          "endpoints": [
+            {
+              "fd": 0,
+              "target": "pipe:[66664340]",
+              "kind": "pipe",
+              "queueBytes": 0
+            },
+            {
+              "fd": 1,
+              "target": "pipe:[66656531]",
+              "kind": "pipe",
+              "queueBytes": 0
+            },
+            {
+              "fd": 2,
+              "target": "pipe:[66656532]",
+              "kind": "pipe",
+              "queueBytes": 0
+            }
+          ],
+          "processTreeCaptured": true
+        },
+        "sockets": {
+          "fdCount": 0,
+          "fds": [],
+          "bindOrReconnectPolicy": null,
+          "kernelSocketIdentityPreserved": false
+        },
+        "threads": {
+          "tasks": [
+            {
+              "tid": 4095856,
+              "state": "S",
+              "wchan": "hrtimer_nanosleep",
+              "syscall": {
+                "raw": "230 0x1 0x1 0x7fff02dcc260 0x0 0x0 0x0 0x7fff02dcc220 0x725b40918545",
+                "wchan": "hrtimer_nanosleep",
+                "number": "230",
+                "readLikeWait": false,
+                "pollLikeWait": false
+              }
+            },
+            {
+              "tid": 4095857,
+              "state": "S",
+              "wchan": "hrtimer_nanosleep",
+              "syscall": {
+                "raw": "230 0x1 0x1 0x725b402ddc00 0x0 0x0 0xa5c368 0x725b402ddbc0 0x725b40918545",
+                "wchan": "hrtimer_nanosleep",
+                "number": "230",
+                "readLikeWait": false,
+                "pollLikeWait": false
+              }
+            },
+            {
+              "tid": 4095858,
+              "state": "S",
+              "wchan": "hrtimer_nanosleep",
+              "syscall": {
+                "raw": "230 0x1 0x1 0x725b3fadcc00 0x0 0x0 0x0 0x725b3fadcbc0 0x725b40918545",
+                "wchan": "hrtimer_nanosleep",
+                "number": "230",
+                "readLikeWait": false,
+                "pollLikeWait": false
+              }
+            }
+          ],
+          "roles": "parked-wait-descriptors",
+          "threadStacksCaptured": false
+        }
+      },
+      "materializer": {
+        "strategy": "target-native-reexec-or-shape-adapter",
+        "requires": [
+          "single accepted shape",
+          "empty accepted queues",
+          "no ptrace owner",
+          "target-native resources"
+        ],
+        "rawProcessMemoryMaterialization": false
+      }
+    },
+    "evidence": {
+      "wokenRoles": ["worker-a", "worker-b"],
+      "threadStacksCaptured": false
+    },
+    "interface": "machinen.research.native-continuation-cli.materialize",
+    "inputDescriptorUnchanged": true
+  },
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-threads-all-parked-known-waits",
+    "architectureNeutral": true,
+    "observationConsistency": "live-procfs-best-effort",
+    "cpu": {
+      "wait": "multi-thread-parked-waits",
+      "sourceArch": "x86_64",
+      "sourceSyscallNumber": "230",
+      "sourceWchan": "hrtimer_nanosleep",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false,
+      "threadStacksCaptured": false
+    },
+    "resources": {
+      "process": {
+        "threads": 3,
+        "tracerPid": 0,
+        "ppid": 4095855,
+        "pgrp": 4095856,
+        "session": 4095856
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[66664340]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[66656531]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[66656532]",
+          "kind": "pipe",
+          "queueBytes": 0
+        }
+      ],
+      "pty": {
+        "fdCount": 0,
+        "queueBytesKnownEmpty": true,
+        "fds": []
+      },
+      "pipes": {
+        "fdCount": 3,
+        "bufferBytesKnownEmpty": true,
+        "endpoints": [
+          {
+            "fd": 0,
+            "target": "pipe:[66664340]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 1,
+            "target": "pipe:[66656531]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 2,
+            "target": "pipe:[66656532]",
+            "kind": "pipe",
+            "queueBytes": 0
+          }
+        ],
+        "processTreeCaptured": true
+      },
+      "sockets": {
+        "fdCount": 0,
+        "fds": [],
+        "bindOrReconnectPolicy": null,
+        "kernelSocketIdentityPreserved": false
+      },
+      "threads": {
+        "tasks": [
+          {
+            "tid": 4095856,
+            "state": "S",
+            "wchan": "hrtimer_nanosleep",
+            "syscall": {
+              "raw": "230 0x1 0x1 0x7fff02dcc260 0x0 0x0 0x0 0x7fff02dcc220 0x725b40918545",
+              "wchan": "hrtimer_nanosleep",
+              "number": "230",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 4095857,
+            "state": "S",
+            "wchan": "hrtimer_nanosleep",
+            "syscall": {
+              "raw": "230 0x1 0x1 0x725b402ddc00 0x0 0x0 0xa5c368 0x725b402ddbc0 0x725b40918545",
+              "wchan": "hrtimer_nanosleep",
+              "number": "230",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 4095858,
+            "state": "S",
+            "wchan": "hrtimer_nanosleep",
+            "syscall": {
+              "raw": "230 0x1 0x1 0x725b3fadcc00 0x0 0x0 0x0 0x725b3fadcbc0 0x725b40918545",
+              "wchan": "hrtimer_nanosleep",
+              "number": "230",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "roles": "parked-wait-descriptors",
+        "threadStacksCaptured": false
+      }
+    },
+    "materializer": {
+      "strategy": "target-native-reexec-or-shape-adapter",
+      "requires": [
+        "single accepted shape",
+        "empty accepted queues",
+        "no ptrace owner",
+        "target-native resources"
+      ],
+      "rawProcessMemoryMaterialization": false
+    }
+  }
+}

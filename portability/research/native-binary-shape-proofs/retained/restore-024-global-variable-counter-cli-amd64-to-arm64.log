@@ -1,0 +1,2 @@
+global:42
+SHAPE_RESTORE_OK shape=024-global-variable-counter-cli target=arm64 result=42

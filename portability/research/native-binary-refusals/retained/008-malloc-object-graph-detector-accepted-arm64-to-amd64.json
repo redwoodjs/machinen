@@ -1,0 +1,16 @@
+{
+  "shape": "008-malloc-object-graph",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point malloc object graph with declared inter-object pointers",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_graph",
+    "sourcePc": "0xc6d62bde1990",
+    "sourceSp": "0xffffc95de0f0",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

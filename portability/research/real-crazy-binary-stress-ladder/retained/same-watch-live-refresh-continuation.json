@@ -1,0 +1,22 @@
+{
+  "case": "watch-live-refresh-continuation",
+  "kind": "support",
+  "description": "watch reaches a live render safe point and target-native watch continues with quit input",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "binary": "/usr/bin/watch",
+    "continuedFrom": "live-watch-rendered-frame",
+    "rendered": true,
+    "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[1;24r\u001b(B\u001b[m\u001b[4l\u001b[?7h\u001b[H\u001b[2JEvery 1.0s: echo watch-live-ok\u001b[1;44Hp4p8-server: Sat Jun  6 13:51:44 2026\u001b[3;1Hwatch-live-ok\u001b[24;80H"
+  }
+}

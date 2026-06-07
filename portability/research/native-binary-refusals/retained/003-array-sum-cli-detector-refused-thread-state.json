@@ -1,0 +1,7 @@
+{
+  "shape": "003-array-sum-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "native-shape-unsupported-live-state",
+  "reason": "active syscall, thread, or socket state is outside this supported subset"
+}

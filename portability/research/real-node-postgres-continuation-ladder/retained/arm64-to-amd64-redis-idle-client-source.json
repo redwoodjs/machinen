@@ -1,0 +1,502 @@
+{
+  "kind": "machinen.research.real-node-postgres-continuation.proof-row",
+  "version": 1,
+  "case": "redis-idle-client",
+  "rowKind": "support",
+  "mode": "source",
+  "application": "redis",
+  "description": "real Redis client connection idle with empty socket queues",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false,
+    "runtimeHeapRestoreClaimed": false,
+    "kernelSocketIdentityPreserved": false
+  },
+  "decision": "captured",
+  "spawned": {
+    "container": "machinen-rnp-613dfc68f1-redis",
+    "pid": 30,
+    "logs": "1:C 06 Jun 2026 20:33:12.920 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.\n1:C 06 Jun 2026 20:33:12.921 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo\n1:C 06 Jun 2026 20:33:12.921 * Redis version=7.4.9, bits=64, commit=00000000, modified=0, pid=1, just started\n1:C 06 Jun 2026 20:33:12.921 * Configuration loaded\n1:M 06 Jun 2026 20:33:12.921 * Increased maximum number of open files to 10032 (it was originally set to 1024).\n1:M 06 Jun 2026 20:33:12.921 * monotonic clock: POSIX clock_gettime\n1:M 06 Jun 2026 20:33:12.922 * Running mode=standalone, port=6379.\n1:M 06 Jun 2026 20:33:12.922 * Server initialized\n1:M 06 Jun 2026 20:33:12.922 * Ready to accept connections tcp\n",
+    "provisioning": {
+      "image": "redis:7-alpine",
+      "alreadyPresent": true
+    },
+    "application": "redis"
+  },
+  "classifierResult": {
+    "kind": "machinen.research.native-continuation-classifier.result",
+    "version": 1,
+    "decision": "accepted",
+    "shapeId": "shape-socket-connected-local-empty-queues",
+    "reason": "loopback connected sockets have empty queues and can use semantic reconnect",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "observation": {
+      "pid": 30,
+      "hostArch": "aarch64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": "/usr/local/bin/redis-cli",
+      "cmdline": ["redis-cli", "-h", "127.0.0.1"],
+      "processTree": {
+        "ppid": 23,
+        "pgrp": 23,
+        "session": 23
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 1,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 30,
+          "state": "S",
+          "wchan": "anon_pipe_read",
+          "syscall": {
+            "raw": null,
+            "wchan": "anon_pipe_read",
+            "number": null,
+            "readLikeWait": true,
+            "pollLikeWait": false
+          }
+        }
+      ],
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[29333163]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[29328298]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[29328299]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 3,
+          "target": "socket:[29342997]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "29342997",
+          "socket": {
+            "family": "tcp4",
+            "state": "ESTABLISHED",
+            "stateHex": "01",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 32908,
+            "remoteAddressHex": "0100007F",
+            "remotePort": 6379
+          }
+        }
+      ],
+      "fdKinds": ["pipe", "socket"],
+      "syscall": {
+        "raw": null,
+        "wchan": "anon_pipe_read",
+        "number": null,
+        "readLikeWait": true,
+        "pollLikeWait": false
+      }
+    },
+    "descriptor": {
+      "kind": "machinen.research.native-continuation.capture-descriptor",
+      "version": 1,
+      "shapeId": "shape-socket-connected-local-empty-queues",
+      "architectureNeutral": true,
+      "observationConsistency": "live-procfs-best-effort",
+      "cpu": {
+        "wait": "socket-local-connected-empty-queues",
+        "sourceArch": "aarch64",
+        "sourceSyscallNumber": null,
+        "sourceWchan": "anon_pipe_read",
+        "targetNativeReconstruction": true,
+        "sourceIsaEmulationRequired": false
+      },
+      "memory": {
+        "mode": "semantic-resource-descriptor-only",
+        "rawHeapCaptured": false,
+        "rawStackCaptured": false,
+        "rawRegistersCaptured": false,
+        "rawHeapStackRegistersCaptured": false,
+        "threadStacksCaptured": false
+      },
+      "resources": {
+        "process": {
+          "threads": 1,
+          "tracerPid": 0,
+          "ppid": 23,
+          "pgrp": 23,
+          "session": 23
+        },
+        "fds": [
+          {
+            "fd": 0,
+            "target": "pipe:[29333163]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 1,
+            "target": "pipe:[29328298]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 2,
+            "target": "pipe:[29328299]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 3,
+            "target": "socket:[29342997]",
+            "kind": "socket",
+            "queueBytes": null,
+            "socketInode": "29342997",
+            "socket": {
+              "family": "tcp4",
+              "state": "ESTABLISHED",
+              "stateHex": "01",
+              "txQueue": 0,
+              "rxQueue": 0,
+              "localAddressHex": "0100007F",
+              "localPort": 32908,
+              "remoteAddressHex": "0100007F",
+              "remotePort": 6379
+            }
+          }
+        ],
+        "pty": {
+          "fdCount": 0,
+          "queueBytesKnownEmpty": true,
+          "fds": []
+        },
+        "pipes": {
+          "fdCount": 3,
+          "bufferBytesKnownEmpty": true,
+          "endpoints": [
+            {
+              "fd": 0,
+              "target": "pipe:[29333163]",
+              "kind": "pipe",
+              "queueBytes": 0
+            },
+            {
+              "fd": 1,
+              "target": "pipe:[29328298]",
+              "kind": "pipe",
+              "queueBytes": 0
+            },
+            {
+              "fd": 2,
+              "target": "pipe:[29328299]",
+              "kind": "pipe",
+              "queueBytes": 0
+            }
+          ],
+          "processTreeCaptured": true
+        },
+        "sockets": {
+          "fdCount": 1,
+          "fds": [
+            {
+              "fd": 3,
+              "target": "socket:[29342997]",
+              "kind": "socket",
+              "queueBytes": null,
+              "socketInode": "29342997",
+              "socket": {
+                "family": "tcp4",
+                "state": "ESTABLISHED",
+                "stateHex": "01",
+                "txQueue": 0,
+                "rxQueue": 0,
+                "localAddressHex": "0100007F",
+                "localPort": 32908,
+                "remoteAddressHex": "0100007F",
+                "remotePort": 6379
+              }
+            }
+          ],
+          "bindOrReconnectPolicy": "semantic-rebind-or-reconnect-not-kernel-identity",
+          "kernelSocketIdentityPreserved": false
+        },
+        "threads": {
+          "tasks": [
+            {
+              "tid": 30,
+              "state": "S",
+              "wchan": "anon_pipe_read",
+              "syscall": {
+                "raw": null,
+                "wchan": "anon_pipe_read",
+                "number": null,
+                "readLikeWait": true,
+                "pollLikeWait": false
+              }
+            }
+          ],
+          "roles": "parked-wait-descriptors",
+          "threadStacksCaptured": false
+        }
+      },
+      "materializer": {
+        "strategy": "target-native-reexec-or-shape-adapter",
+        "requires": [
+          "single accepted shape",
+          "empty accepted queues",
+          "no ptrace owner",
+          "target-native resources"
+        ],
+        "rawProcessMemoryMaterialization": false
+      }
+    }
+  },
+  "applicationShapeResult": {
+    "kind": "machinen.research.native-continuation.app-adapter-result",
+    "version": 1,
+    "decision": "accepted",
+    "case": "redis-idle-client",
+    "application": "redis",
+    "shapeId": "shape-socket-connected-local-empty-queues",
+    "reason": "application connected socket queues are empty",
+    "observation": {
+      "pid": 30,
+      "hostArch": "aarch64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": "/usr/local/bin/redis-cli",
+      "cmdline": ["redis-cli", "-h", "127.0.0.1"],
+      "processTree": {
+        "ppid": 23,
+        "pgrp": 23,
+        "session": 23
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 1,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 30,
+          "state": "S",
+          "wchan": "anon_pipe_read",
+          "syscall": {
+            "raw": null,
+            "wchan": "anon_pipe_read",
+            "number": null,
+            "readLikeWait": true,
+            "pollLikeWait": false
+          }
+        }
+      ],
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[29333163]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[29328298]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[29328299]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 3,
+          "target": "socket:[29342997]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "29342997",
+          "socket": {
+            "family": "tcp4",
+            "state": "ESTABLISHED",
+            "stateHex": "01",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 32908,
+            "remoteAddressHex": "0100007F",
+            "remotePort": 6379
+          }
+        }
+      ],
+      "fdKinds": ["pipe", "socket"],
+      "syscall": {
+        "raw": null,
+        "wchan": "anon_pipe_read",
+        "number": null,
+        "readLikeWait": true,
+        "pollLikeWait": false
+      }
+    },
+    "evidence": {},
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false,
+      "runtimeHeapRestoreClaimed": false,
+      "kernelSocketIdentityPreserved": false
+    }
+  },
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-socket-connected-local-empty-queues",
+    "architectureNeutral": true,
+    "observationConsistency": "live-procfs-best-effort",
+    "cpu": {
+      "wait": "socket-local-connected-empty-queues",
+      "sourceArch": "aarch64",
+      "sourceSyscallNumber": null,
+      "sourceWchan": "anon_pipe_read",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false,
+      "threadStacksCaptured": false,
+      "runtimeHeapCaptured": false,
+      "runtimeHeapRestored": false
+    },
+    "resources": {
+      "process": {
+        "ppid": 23,
+        "pgrp": 23,
+        "session": 23
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[29333163]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[29328298]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[29328299]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 3,
+          "target": "socket:[29342997]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "29342997",
+          "socket": {
+            "family": "tcp4",
+            "state": "ESTABLISHED",
+            "stateHex": "01",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 32908,
+            "remoteAddressHex": "0100007F",
+            "remotePort": 6379
+          }
+        }
+      ],
+      "sockets": {
+        "fds": [
+          {
+            "fd": 3,
+            "target": "socket:[29342997]",
+            "kind": "socket",
+            "queueBytes": null,
+            "socketInode": "29342997",
+            "socket": {
+              "family": "tcp4",
+              "state": "ESTABLISHED",
+              "stateHex": "01",
+              "txQueue": 0,
+              "rxQueue": 0,
+              "localAddressHex": "0100007F",
+              "localPort": 32908,
+              "remoteAddressHex": "0100007F",
+              "remotePort": 6379
+            }
+          }
+        ],
+        "kernelSocketIdentityPreserved": false
+      },
+      "threads": {
+        "tasks": [
+          {
+            "tid": 30,
+            "state": "S",
+            "wchan": "anon_pipe_read",
+            "syscall": {
+              "raw": null,
+              "wchan": "anon_pipe_read",
+              "number": null,
+              "readLikeWait": true,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "threadStacksCaptured": false
+      },
+      "runtimeInternalPipes": {
+        "treatedAsExternalContinuationResources": false
+      }
+    },
+    "application": {
+      "name": "redis",
+      "case": "redis-idle-client",
+      "safePoint": "Redis connected client idle with empty socket queues",
+      "runtimeHeapCaptured": false,
+      "runtimeHeapRestored": false,
+      "databaseMemoryCaptured": false,
+      "databaseMemoryRestored": false
+    },
+    "materializer": {
+      "strategy": "target-native-application-reexec-at-accepted-resource-boundary",
+      "rawProcessMemoryMaterialization": false,
+      "sourceIsaEmulationRequired": false,
+      "kernelSocketIdentityPreserved": false
+    }
+  }
+}

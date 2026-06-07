@@ -1,0 +1,175 @@
+{
+  "case": "most-quit",
+  "adapter": "most",
+  "description": "most q exits as an alternate pager",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "binary": {
+    "path": "/tmp/machinen-pager-watcher-ladder-bqtirrgq/most-pkg/extract/usr/bin/most",
+    "versionLine": "MOST version 5.0.0 (S-Lang version 2.3.3)",
+    "packageEvidence": {
+      "method": "apt-download-extract",
+      "package": "most",
+      "deb": "most_5.0.0a-4+b1_amd64.deb"
+    }
+  },
+  "processRoot": {
+    "pid": 3768960,
+    "argv": [
+      "/tmp/machinen-pager-watcher-ladder-bqtirrgq/most-pkg/extract/usr/bin/most",
+      "/tmp/machinen-pager-watcher-ladder-bqtirrgq/most-input.txt"
+    ]
+  },
+  "processTree": [
+    {
+      "pid": 3768960,
+      "state": {
+        "pid": 3768960,
+        "comm": "most",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3768949,
+        "statPgrp": 3768960,
+        "statSession": 3768960,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "270 0x4 0x73ba4c092e40 0x0 0x0 0x7fff744cbce0 0x0 0x7fff744cbcd0 0x73ba4bd1c954",
+          "parsed": true,
+          "number": 270,
+          "name": "pselect6",
+          "args": [4, 127243976781376, 0, 0, 140735144574176, 0],
+          "fd": 4
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/dev/tty"
+        },
+        {
+          "fd": 4,
+          "target": "/tmp/machinen-pager-watcher-ladder-bqtirrgq/most-input.txt"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/tmp/machinen-pager-watcher-ladder-bqtirrgq/most-input.txt",
+      "allStdioOnControlledPty": true,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": true
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3768960,
+    "state": {
+      "pid": 3768960,
+      "comm": "most",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 3768949,
+      "statPgrp": 3768960,
+      "statSession": 3768960,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "270 0x4 0x73ba4c092e40 0x0 0x0 0x7fff744cbce0 0x0 0x7fff744cbcd0 0x73ba4bd1c954",
+        "parsed": true,
+        "number": 270,
+        "name": "pselect6",
+        "args": [4, 127243976781376, 0, 0, 140735144574176, 0],
+        "fd": 4
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/dev/tty"
+      },
+      {
+        "fd": 4,
+        "target": "/tmp/machinen-pager-watcher-ladder-bqtirrgq/most-input.txt"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/tmp/machinen-pager-watcher-ladder-bqtirrgq/most-input.txt",
+    "allStdioOnControlledPty": true,
+    "hasSignalfd": false,
+    "hasRegularAdapterFile": true
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3768960
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true,
+    "regularFilePresent": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[1;24r\u001b[4l\u001b(B\u001b[m\u001b[39m\u001b[49m\u001b[1;24r\u001b[H\u001b[2J\u001b[1;1Hline-001\r\r\nline-002\r\r\nline-003\r\r\nline-004\r\r\nline-005\r\r\nline-006\r\r\nline-007\r\r\nline-008\r\r\nline-009\r\r\nline-010\r\r\nline-011\r\r\nline-012\r\r\nline-013\r\r\nline-014\r\r\nline-015\r\r\nline-016\r\r\nline-017\r\r\nline-018\r\r\nline-019\r\r\nline-020\r\r\nline-021\r\r\nline-022\r\r\n\u001b[1m\u001b[33m\u001b[44m-- MOST: /tmp/machinen-pager-watcher-ladder-bqtirrgq/most-input.txt (1,1) 0%    \u001b[24;1H\u001b(B\u001b[m\u001b[39m\u001b[49mPress `Q' to quit, `H' for help, and SPACE to scroll.\u001b[1;1H"
+  },
+  "inputOrResource": {
+    "expect": "process-exit",
+    "file": "/tmp/machinen-pager-watcher-ladder-bqtirrgq/most-input.txt",
+    "base64": "cQ=="
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": true,
+    "sample": "\u001b[24;1H\u001b(B\u001b[m\u001b[39;49m\r\u001b[K\r\u001b[?1049l\u001b[23;0;0t"
+  },
+  "decision": "accepted"
+}

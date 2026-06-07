@@ -1,0 +1,93 @@
+{
+  "case": "refuse-nonempty-pty-queue",
+  "kind": "refusal",
+  "description": "classifier refuses non-empty pty queue and emits no descriptor",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "refused",
+  "classifierResult": {
+    "kind": "machinen.research.native-continuation-classifier.result",
+    "version": 1,
+    "decision": "refused",
+    "shapeId": "refuse-nonempty-pty-queue",
+    "reason": "pty fd 0 has queued bytes",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "observation": {
+      "pid": 3964497,
+      "hostArch": "x86_64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": "/usr/bin/python3.11",
+      "cmdline": ["python3", "-c", "import time; time.sleep(30)"],
+      "processTree": {
+        "ppid": 3964496,
+        "pgrp": 3964497,
+        "session": 3964497
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 1,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 3964497,
+          "state": "S",
+          "wchan": "hrtimer_nanosleep",
+          "syscall": {
+            "raw": "230 0x1 0x1 0x7ffcaeeb8c80 0x0 0x0 0x0 0x7ffcaeeb8c68 0x77988d5ed503",
+            "wchan": "hrtimer_nanosleep",
+            "number": "230",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        }
+      ],
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 13
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 13
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 13
+        }
+      ],
+      "fdKinds": ["pty"],
+      "syscall": {
+        "raw": "230 0x1 0x1 0x7ffcaeeb8c80 0x0 0x0 0x0 0x7ffcaeeb8c68 0x77988d5ed503",
+        "wchan": "hrtimer_nanosleep",
+        "number": "230",
+        "readLikeWait": false,
+        "pollLikeWait": false
+      }
+    }
+  },
+  "descriptor": null,
+  "materializerAvailable": false
+}

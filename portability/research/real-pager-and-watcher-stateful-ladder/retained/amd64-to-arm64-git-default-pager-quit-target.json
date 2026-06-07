@@ -1,0 +1,203 @@
+{
+  "case": "git-default-pager-quit",
+  "adapter": "git-default",
+  "description": "git log --paginate with default pager exits on q",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "binary": {
+    "path": "/usr/bin/git",
+    "versionLine": "git version 2.43.0",
+    "packageEvidence": null
+  },
+  "processRoot": {
+    "pid": 1069835,
+    "argv": [
+      "/usr/bin/git",
+      "--paginate",
+      "--no-optional-locks",
+      "log",
+      "--oneline",
+      "--decorate=short"
+    ]
+  },
+  "processTree": [
+    {
+      "pid": 1069835,
+      "state": {
+        "pid": 1069835,
+        "comm": "git",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 1069591,
+        "statPgrp": 1069835,
+        "statSession": 1069835,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "260 0x10530c 0xfffffc5f7ca4 0x0 0x0 0x1 0xb6588f234a90 0xfffffc5f7c70 0xef96f0037b30",
+          "parsed": true,
+          "number": 260,
+          "name": "syscall-260",
+          "args": [1069836, 281474915859620, 0, 0, 1, 200491474832016],
+          "fd": 1069836
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": null,
+        "2": null
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": false,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": false
+    },
+    {
+      "pid": 1069836,
+      "state": {
+        "pid": 1069836,
+        "comm": "pager",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 1069835,
+        "statPgrp": 1069835,
+        "statSession": 1069835,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "63 0x3 0xffffd3d08b87 0x1 0x1 0xffffd3d08a90 0x40917c32a672928 0xffffd3d08a60 0xeb2283991248",
+          "parsed": true,
+          "number": 63,
+          "name": "read",
+          "args": [3, 281474235403143, 1, 1, 281474235402896, 290789777939573032],
+          "fd": 3
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[27556515]"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "pipe:[27556515]",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/pts/0",
+      "allStdioOnControlledPty": false,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 1069836,
+    "state": {
+      "pid": 1069836,
+      "comm": "pager",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 1069835,
+      "statPgrp": 1069835,
+      "statSession": 1069835,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "63 0x3 0xffffd3d08b87 0x1 0x1 0xffffd3d08a90 0x40917c32a672928 0xffffd3d08a60 0xeb2283991248",
+        "parsed": true,
+        "number": 63,
+        "name": "read",
+        "args": [3, 281474235403143, 1, 1, 281474235402896, 290789777939573032],
+        "fd": 3
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "pipe:[27556515]"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/dev/pts/0"
+      }
+    ],
+    "stdioTargets": {
+      "0": "pipe:[27556515]",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": false,
+    "hasSignalfd": false,
+    "hasRegularAdapterFile": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 1069835
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "\u001b[?1h\u001b=\r\u001b[33m68c95c2\u001b[m\u001b[33m (\u001b[m\u001b[1;36mHEAD\u001b[m\u001b[33m -> \u001b[m\u001b[1;32mmaster\u001b[m\u001b[33m)\u001b[m commit-080\u001b[m\r\n\u001b[33m0cf92ab\u001b[m commit-079\u001b[m\r\n\u001b[33md1dd9a2\u001b[m commit-078\u001b[m\r\n\u001b[33mc22181b\u001b[m commit-077\u001b[m\r\n\u001b[33m2b68a45\u001b[m commit-076\u001b[m\r\n\u001b[33m2408291\u001b[m commit-075\u001b[m\r\n\u001b[33m2c9b6d1\u001b[m commit-074\u001b[m\r\n\u001b[33m1462cbf\u001b[m commit-073\u001b[m\r\n\u001b[33md2d6a48\u001b[m commit-072\u001b[m\r\n\u001b[33m82d4e45\u001b[m commit-071\u001b[m\r\n\u001b[33md6d9284\u001b[m commit-070\u001b[m\r\n\u001b[33m32d6105\u001b[m commit-069\u001b[m\r\n\u001b[33mb49aa0f\u001b[m commit-068\u001b[m\r\n\u001b[33m48e89bd\u001b[m commit-067\u001b[m\r\n\u001b[33mc5ce9f6\u001b[m commit-066\u001b[m\r\n\u001b[33m15171cb\u001b[m commit-065\u001b[m\r\n\u001b[33m72fdd7f\u001b[m commit-064\u001b[m\r\n\u001b[33m6b1af50\u001b[m commit-063\u001b[m\r\n\u001b[33mb21fda7\u001b[m commit-062\u001b[m\r\n\u001b[33m430a6a5\u001b[m commit-061\u001b[m\r\n\u001b[33mb2796fd\u001b[m commit-060\u001b[m\r\n\u001b[33m2f123be\u001b[m commit-059\u001b[m\r\n\u001b[33m0cc5c12\u001b[m commit-058\u001b[m\r\n:\u001b[K"
+  },
+  "inputOrResource": {
+    "expect": "process-exit",
+    "file": "/tmp/machinen-pager-watcher-ladder-afeg6emc/repo",
+    "base64": "cQ=="
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": true,
+    "sample": "\r\u001b[K\u001b[?1l\u001b>"
+  },
+  "decision": "accepted"
+}

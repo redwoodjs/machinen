@@ -1,0 +1,16 @@
+{
+  "shape": "030-malloc-free-boundary-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point malloc/free ownership boundary descriptor",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_malloc_free_boundary",
+    "sourcePc": "0xba074d9a1990",
+    "sourceSp": "0xffffd55fbb40",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "case": "deleted-open-file-refusal",
+  "kind": "refusal",
+  "description": "deleted-but-open regular file refused",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "pid": 3806714,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "deleted-open-file",
+    "fdTarget": "/tmp/machinen-resource-state-batch-1by0fcxq/deleted.txt (deleted)"
+  }
+}

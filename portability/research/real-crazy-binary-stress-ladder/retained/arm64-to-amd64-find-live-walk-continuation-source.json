@@ -1,0 +1,25 @@
+{
+  "case": "find-live-walk-continuation",
+  "kind": "support",
+  "description": "find reaches a live controlled walk gate and target-native find continues the stable traversal",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "binary": "/usr/bin/find",
+    "continuationDescriptor": {
+      "safePoint": "live-find-controlled-exec-gate",
+      "files": ["a.txt", "sub/b.txt"],
+      "expect": ["a.txt", "sub/b.txt"],
+      "processAliveAtSafePoint": true
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "shape": "019-binary-tree-traversal-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point binary tree traversal with declared child pointers",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_tree",
+    "sourcePc": "0xb89789f51990",
+    "sourceSp": "0xffffd56a0a90",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

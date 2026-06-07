@@ -1,0 +1,27 @@
+{
+  "kind": "machinen.research.native-binary-shape-ir",
+  "version": 1,
+  "shape": "042-tokenizer-state-machine-cli",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "safePoint": "declared_shape_ready",
+  "entrySymbol": "continue_tokenizer_state_machine",
+  "sourceCpu": { "pc": "0x5f08b1036c12", "sp": "0x7ffc4d37c760", "arg0": "0x1000" },
+  "targetCpuPlan": {
+    "pcSymbol": "continue_tokenizer_state_machine",
+    "argumentRegister": "x0",
+    "stackBytes": 65536
+  },
+  "shapeDescriptor": {
+    "threads": 1,
+    "activeSyscall": false,
+    "sockets": 0,
+    "usesSourceIsaEmulation": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

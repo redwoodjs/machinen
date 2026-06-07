@@ -1,0 +1,52 @@
+{
+  "case": "tcp-listener-new-port",
+  "description": "TCP listener with no pending accepts is reconstructed on a new ephemeral port",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "pid": 3798836,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false,
+    "preservesKernelSocketIdentity": false
+  },
+  "decision": "accepted",
+  "capture": {
+    "family": "AF_INET",
+    "type": "SOCK_STREAM",
+    "localAddress": "127.0.0.1",
+    "localPort": 38945,
+    "queuedBytes": 0,
+    "pendingAcceptsCreatedByHarness": 0,
+    "fdFacts": [
+      {
+        "fd": 0,
+        "target": "pipe:[64753825]"
+      },
+      {
+        "fd": 1,
+        "target": "pipe:[64753826]"
+      },
+      {
+        "fd": 2,
+        "target": "pipe:[64753827]"
+      },
+      {
+        "fd": 3,
+        "target": "socket:[64753828]"
+      },
+      {
+        "fd": 4,
+        "target": "unreadable"
+      }
+    ]
+  },
+  "materialization": {
+    "samePortPreserved": false,
+    "targetPort": 34065,
+    "clientConnected": true
+  }
+}

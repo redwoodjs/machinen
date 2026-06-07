@@ -1,0 +1,21 @@
+{
+  "case": "terminal-raw-mode",
+  "kind": "support",
+  "description": "pty raw/cbreak terminal mode descriptor",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "pid": 3810689,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "icanonDisabled": true,
+    "echoDisabled": true
+  }
+}

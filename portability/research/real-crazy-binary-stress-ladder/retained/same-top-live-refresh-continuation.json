@@ -1,0 +1,22 @@
+{
+  "case": "top-live-refresh-continuation",
+  "kind": "support",
+  "description": "top reaches a live render safe point and target-native top continues with quit input",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "binary": "/usr/bin/top",
+    "continuedFrom": "live-top-rendered-frame",
+    "rendered": true,
+    "returncode": 0
+  }
+}

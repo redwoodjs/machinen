@@ -1,0 +1,15 @@
+{
+  "shape": "010-libc-boundary-fixture",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared-safe-point fixture that reconstructs target CPU/heap/stack state and calls target-native continuation code that crosses only into target-native libc after restore",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "sourcePc": "0xad44ff850e50",
+    "sourceSp": "0xffffdcda5960",
+    "sourceArg0": "0xad4500a082a0",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

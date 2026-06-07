@@ -1,0 +1,2 @@
+csv:3
+SHAPE_RESTORE_OK shape=031-csv-record-parser-cli target=arm64 result=42

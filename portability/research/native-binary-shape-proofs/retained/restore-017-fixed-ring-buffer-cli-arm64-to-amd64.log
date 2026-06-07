@@ -1,0 +1,2 @@
+ring:9
+SHAPE_RESTORE_OK shape=017-fixed-ring-buffer-cli target=amd64 result=42

@@ -1,0 +1,16 @@
+{
+  "shape": "022-cycle-list-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point cyclic list with bounded traversal descriptor",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_cycle_list",
+    "sourcePc": "0xafe6f8eb1990",
+    "sourceSp": "0xffffdad26860",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

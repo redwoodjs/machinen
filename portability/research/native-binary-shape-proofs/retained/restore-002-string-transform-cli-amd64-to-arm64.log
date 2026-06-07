@@ -1,0 +1,2 @@
+string:hello!
+SHAPE_RESTORE_OK shape=002-string-transform-cli target=arm64 result=42

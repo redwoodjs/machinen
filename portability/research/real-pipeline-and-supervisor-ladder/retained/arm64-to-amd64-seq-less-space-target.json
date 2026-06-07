@@ -1,0 +1,183 @@
+{
+  "case": "seq-less-space",
+  "adapter": "seq-less",
+  "description": "seq producer pipe into less, then SPACE",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "processRoot": {
+    "pid": 3788765,
+    "argv": ["/bin/sh", "-c", "seq -f 'line-%03g' 1 200 | less"]
+  },
+  "processTree": [
+    {
+      "pid": 3788765,
+      "state": {
+        "pid": 3788765,
+        "comm": "sh",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 3788764,
+        "pgrp": 3788765,
+        "session": 3788765,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "61 0xffffffff 0x7ffc8c36e39c 0x0 0x0 0x0 0x62ba9b578740 0x7ffc8c36e388 0x75df56764bd3",
+          "parsed": true,
+          "number": 61,
+          "name": "wait4",
+          "args": [4294967295, 140722660893596, 0, 0, 0, 108553609643840],
+          "fd": 4294967295
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasPipeFd": false,
+      "hasSocketFd": false
+    },
+    {
+      "pid": 3788767,
+      "state": {
+        "pid": 3788767,
+        "comm": "less",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 3788765,
+        "pgrp": 3788765,
+        "session": 3788765,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "0 0x3 0x7ffe51bfea77 0x1 0x24 0x623cdcb07238 0x7ffe51bfe480 0x7ffe51bfe998 0x76c194e862ad",
+          "parsed": true,
+          "number": 0,
+          "name": "read",
+          "args": [3, 140730269952631, 1, 36, 108013540110904, 140730269951104],
+          "fd": 3
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[64664054]"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "pipe:[64664054]",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/pts/0",
+      "allStdioOnControlledPty": false,
+      "hasPipeFd": true,
+      "hasSocketFd": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3788765,
+    "state": {
+      "pid": 3788765,
+      "comm": "sh",
+      "state": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "ppid": 3788764,
+      "pgrp": 3788765,
+      "session": 3788765,
+      "ttyNr": 34816,
+      "syscall": {
+        "raw": "61 0xffffffff 0x7ffc8c36e39c 0x0 0x0 0x0 0x62ba9b578740 0x7ffc8c36e388 0x75df56764bd3",
+        "parsed": true,
+        "number": 61,
+        "name": "wait4",
+        "args": [4294967295, 140722660893596, 0, 0, 0, 108553609643840],
+        "fd": 4294967295
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": null,
+    "allStdioOnControlledPty": true,
+    "hasPipeFd": false,
+    "hasSocketFd": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "inputQueueBytesOnMaster": 0
+  },
+  "checks": {
+    "expectedRendered": true,
+    "modeledProcessTree": true,
+    "queuesEmpty": true,
+    "producerDrainedWhenRequired": true
+  },
+  "screenAtCandidate": {
+    "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[?1h\u001b=\rline-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n:\u001b[K"
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "input": {
+    "base64": "IA==",
+    "expect": "line-024"
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": false,
+    "sample": "\r\u001b[Kline-024\r\nline-025\r\nline-026\r\nline-027\r\nline-028\r\nline-029\r\nline-030\r\nline-031\r\nline-032\r\nline-033\r\nline-034\r\nline-035\r\nline-036\r\nline-037\r\nline-038\r\nline-039\r\nline-040\r\nline-041\r\nline-042\r\nline-043\r\nline-044\r\nline-045\r\nline-046\r\n:\u001b[K"
+  },
+  "decision": "accepted"
+}

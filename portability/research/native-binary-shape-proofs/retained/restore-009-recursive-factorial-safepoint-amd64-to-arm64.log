@@ -1,0 +1,2 @@
+factorial:120 frames:5
+SHAPE_RESTORE_OK shape=009-recursive-factorial-safepoint target=arm64 result=42

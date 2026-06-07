@@ -1,0 +1,20 @@
+{
+  "case": "pipe-writer-closed-eof",
+  "kind": "support",
+  "description": "pipe writer closed EOF descriptor",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "pid": 3807271,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "eof": true
+  }
+}

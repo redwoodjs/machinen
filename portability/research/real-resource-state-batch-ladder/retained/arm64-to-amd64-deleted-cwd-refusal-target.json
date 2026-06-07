@@ -1,0 +1,21 @@
+{
+  "case": "deleted-cwd-refusal",
+  "kind": "refusal",
+  "description": "deleted cwd refused",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "pid": 3808626,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "deleted-cwd",
+    "getcwd": "[Errno 2] No such file or directory"
+  }
+}

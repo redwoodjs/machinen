@@ -1,0 +1,84 @@
+{
+  "kind": "machinen.research.real-less-detector.report",
+  "version": 2,
+  "hostArch": "x86_64",
+  "accepted": ["accepted-ready-outside-syscall", "accepted-blocked-pty-read"],
+  "classified": [],
+  "refused": [
+    {
+      "case": "refused-wrong-binary",
+      "refusalCode": "real-less-wrong-binary"
+    },
+    {
+      "case": "refused-pipe-or-stdin-input",
+      "refusalCode": "real-less-input-not-regular-file"
+    },
+    {
+      "case": "refused-nonempty-pty-input",
+      "refusalCode": "real-less-pty-input-queue-not-empty"
+    },
+    {
+      "case": "refused-socket-fd",
+      "refusalCode": "real-less-socket-fd-present"
+    },
+    {
+      "case": "refused-wrong-less-version",
+      "refusalCode": "real-less-version-buildid-mismatch"
+    },
+    {
+      "case": "refused-missing-regular-file-fd",
+      "refusalCode": "real-less-missing-regular-file"
+    },
+    {
+      "case": "refused-missing-pty",
+      "refusalCode": "real-less-missing-controlled-pty"
+    },
+    {
+      "case": "refused-extra-thread",
+      "refusalCode": "real-less-extra-thread"
+    },
+    {
+      "case": "refused-pending-signal",
+      "refusalCode": "real-less-pending-signal"
+    },
+    {
+      "case": "refused-pgrp-session-mismatch",
+      "refusalCode": "real-less-process-session-pgrp-mismatch"
+    },
+    {
+      "case": "refused-sigwinch-or-resize",
+      "refusalCode": "real-less-terminal-resize-pending"
+    },
+    {
+      "case": "refused-unmodeled-active-syscall",
+      "refusalCode": "real-less-active-syscall-not-modeled"
+    },
+    {
+      "case": "refused-no-safe-point-evidence",
+      "refusalCode": "real-less-no-safe-point-evidence"
+    },
+    {
+      "case": "refused-source-isa-emulation",
+      "refusalCode": "real-less-source-isa-emulation"
+    },
+    {
+      "case": "refused-metadata-only-success",
+      "refusalCode": "real-less-metadata-only-success"
+    },
+    {
+      "case": "refused-dynamic-library-mismatch",
+      "refusalCode": "real-less-dynamic-library-mismatch"
+    },
+    {
+      "case": "refused-unknown-heap-state",
+      "refusalCode": "real-less-unknown-app-owned-heap-state"
+    }
+  ],
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  },
+  "status": "passed"
+}

@@ -1,0 +1,197 @@
+{
+  "kind": "machinen.research.real-pager-and-watcher-binary-ladder.report",
+  "version": 1,
+  "status": "all-present-accepted",
+  "rows": [
+    {
+      "case": "more-space",
+      "adapter": "more",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "more-back",
+      "adapter": "more",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "more-quit",
+      "adapter": "more",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "pg-quit",
+      "adapter": "pg",
+      "status": "skipped-not-installed",
+      "sameArch": "skipped-not-installed",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "skipped-not-installed",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "skipped-not-installed",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "most-quit",
+      "adapter": "most",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "man-quit",
+      "adapter": "man",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "git-log-space",
+      "adapter": "git-log",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "git-log-quit",
+      "adapter": "git-log",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "tail-f-append",
+      "adapter": "tail-f",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    }
+  ],
+  "acceptedRows": 8,
+  "failedRows": 0,
+  "skippedRows": 1,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  }
+}

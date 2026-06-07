@@ -1,0 +1,32 @@
+{
+  "case": "finite-yes-head",
+  "adapter": "finite",
+  "description": "finite yes|head pipeline completes and cleans up",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "processRoot": {
+    "pid": null,
+    "argv": ["/bin/sh", "-c", "yes line | head -n 50 | awk '{printf \"line-%03d\\n\", NR}'"]
+  },
+  "processTree": [],
+  "candidateProcess": null,
+  "pty": null,
+  "checks": {
+    "completed": true,
+    "returncodeZero": true,
+    "lineCount": true,
+    "expectedOutput": true
+  },
+  "screenAtCandidate": {
+    "sample": ""
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "decision": "captured"
+}

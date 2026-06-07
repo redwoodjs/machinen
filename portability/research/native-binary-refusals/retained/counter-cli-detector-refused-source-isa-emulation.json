@@ -1,0 +1,7 @@
+{
+  "shape": "001-counter-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "counter-cli-claim-guard-not-false",
+  "reason": "claim guard sourceIsaEmulationUsed must be false"
+}

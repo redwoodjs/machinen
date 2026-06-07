@@ -1,0 +1,23 @@
+{
+  "kind": "machinen.research.native-binary-shape-ir",
+  "version": 1,
+  "shape": "019-binary-tree-traversal-cli",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "safePoint": "declared_shape_ready",
+  "entrySymbol": "continue_tree",
+  "sourceCpu": { "pc": "0x5f36190c1c12", "sp": "0x7ffdf8bc2f50", "arg0": "0x1000" },
+  "targetCpuPlan": { "pcSymbol": "continue_tree", "argumentRegister": "x0", "stackBytes": 65536 },
+  "shapeDescriptor": {
+    "threads": 1,
+    "activeSyscall": false,
+    "sockets": 0,
+    "usesSourceIsaEmulation": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

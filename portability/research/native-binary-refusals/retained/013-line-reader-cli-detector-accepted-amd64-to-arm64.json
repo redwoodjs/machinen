@@ -1,0 +1,16 @@
+{
+  "shape": "013-line-reader-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point line reader with regular file offset descriptor",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "facts": {
+    "entrySymbol": "continue_line_reader",
+    "sourcePc": "0x582dee7e9c12",
+    "sourceSp": "0x7fff7603fca0",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "x0",
+    "targetStackBytes": 65536
+  }
+}

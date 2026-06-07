@@ -1,0 +1,21 @@
+{
+  "case": "anonymous-mmap-refusal",
+  "kind": "refusal",
+  "description": "anonymous mmap refused unless declared",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "pid": 3809622,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "anonymous-mmap-undeclared",
+    "declared": false
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "shape": "005-regular-file-reader",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point regular file descriptor descriptor with target reopen/seek and no non-file fd",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_file_reader",
+    "sourcePc": "0xbadc772e1990",
+    "sourceSp": "0xffffe8fae0f0",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

@@ -1,0 +1,237 @@
+{
+  "kind": "machinen.research.real-pager-and-watcher-stateful-ladder.report",
+  "version": 1,
+  "status": "all-present-accepted",
+  "rows": [
+    {
+      "case": "less-space-then-back",
+      "adapter": "less",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "more-space-then-back",
+      "adapter": "more",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "less-search-then-next",
+      "adapter": "less",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "most-search-then-next",
+      "adapter": "most",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "man-default-pager-quit",
+      "adapter": "man-default",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "git-default-pager-quit",
+      "adapter": "git-default",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "man-git-log-doc-quit",
+      "adapter": "man-git-log",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "tail-f-truncate",
+      "adapter": "tail-truncate",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "tail-f-rotate",
+      "adapter": "tail-rotate",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "tail-f-multiple-files",
+      "adapter": "tail-multiple",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    },
+    {
+      "case": "sleep-signal-wakeup",
+      "adapter": "sleep-signal",
+      "status": "accepted",
+      "sameArch": "accepted",
+      "directions": [
+        {
+          "direction": "amd64-to-arm64",
+          "decision": "accepted",
+          "sourceArch": "x86_64",
+          "targetArch": "aarch64"
+        },
+        {
+          "direction": "arm64-to-amd64",
+          "decision": "accepted",
+          "sourceArch": "aarch64",
+          "targetArch": "x86_64"
+        }
+      ]
+    }
+  ],
+  "acceptedRows": 11,
+  "failedRows": 0,
+  "skippedRows": 0,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  }
+}

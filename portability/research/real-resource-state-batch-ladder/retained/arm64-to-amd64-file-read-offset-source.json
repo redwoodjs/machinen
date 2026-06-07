@@ -1,0 +1,22 @@
+{
+  "case": "file-read-offset",
+  "kind": "support",
+  "description": "regular file read offset descriptor",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "pid": 1124645,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "path": "/tmp/machinen-resource-state-batch-lqhsljgw/file.txt",
+    "offset": 6,
+    "nextBytes": "beta"
+  }
+}

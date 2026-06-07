@@ -1,0 +1,7 @@
+{
+  "shape": "026-multiple-stack-frames-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "native-shape-unsupported-entry-symbol",
+  "reason": "entry symbol is not the proven target-native continuation"
+}

@@ -1,0 +1,22 @@
+{
+  "case": "sqlite-prompt-continuation",
+  "kind": "support",
+  "description": "sqlite3 reaches a live prompt after writes and target-native sqlite continues the query",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "binary": "/usr/bin/sqlite3",
+    "continuedFrom": "live-sqlite-prompt-after-durable-writes",
+    "sawExpected": true,
+    "sample": "SQLite version 3.40.1 2022-12-28 14:03:47\r\nEnter \".help\" for usage hints.\r\nsqlite> create table t(v text);\r\nsqlite> insert into t values('sqlite-less-level');\r\nsqlite> select v from t;\r\nsqlite-less-level\r\nsqlite> .quit\r\n"
+  }
+}

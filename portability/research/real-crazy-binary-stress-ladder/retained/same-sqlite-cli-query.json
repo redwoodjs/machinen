@@ -1,0 +1,21 @@
+{
+  "case": "sqlite-cli-query",
+  "kind": "support",
+  "description": "sqlite3 CLI opens a db, writes a row, and continues with a query",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "binary": "/usr/bin/sqlite3",
+    "dbSize": 8192,
+    "stdout": "sqlite-ok\n"
+  }
+}

@@ -1,0 +1,639 @@
+{
+  "kind": "machinen.research.real-node-postgres-continuation.proof-row",
+  "version": 1,
+  "case": "node-active-worker",
+  "rowKind": "refusal",
+  "mode": "source",
+  "application": "nodejs",
+  "description": "real Node.js worker thread is actively executing CPU work",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false,
+    "runtimeHeapRestoreClaimed": false,
+    "kernelSocketIdentityPreserved": false
+  },
+  "decision": "refused",
+  "spawned": {
+    "container": "machinen-rnp-8ab9ab79c9-node-active",
+    "pid": 66474,
+    "logs": "",
+    "provisioning": {
+      "image": "node:22-alpine",
+      "alreadyPresent": true
+    },
+    "application": "nodejs"
+  },
+  "classifierResult": {
+    "kind": "machinen.research.native-continuation-classifier.result",
+    "version": 1,
+    "decision": "refused",
+    "shapeId": "refuse-pipe-unread-bytes",
+    "reason": "pipe fd 5 has unread bytes",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "observation": {
+      "pid": 66474,
+      "hostArch": "x86_64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": "/usr/local/bin/node",
+      "cmdline": [
+        "node",
+        "-e",
+        "const {Worker}=require('worker_threads'); new Worker('let x=0; while(true){x=(x+1)%1000003}', {eval:true}); setInterval(()=>{},1000);"
+      ],
+      "processTree": {
+        "ppid": 66451,
+        "pgrp": 66474,
+        "session": 66474
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 8,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 66474,
+          "state": "S",
+          "wchan": "do_epoll_wait",
+          "syscall": {
+            "raw": "281 0xf 0x7fff22373920 0x400 0x3e8 0x0 0x8 0x7fff22372b48 0x72387c3c8dbb",
+            "wchan": "do_epoll_wait",
+            "number": "281",
+            "readLikeWait": false,
+            "pollLikeWait": true
+          }
+        },
+        {
+          "tid": 66530,
+          "state": "S",
+          "wchan": "do_epoll_wait",
+          "syscall": {
+            "raw": "281 0xa 0x72387bfab830 0x400 0xffffffffffffffff 0x0 0x8 0x72387bfaaa58 0x72387c3c8dbb",
+            "wchan": "do_epoll_wait",
+            "number": "281",
+            "readLikeWait": false,
+            "pollLikeWait": true
+          }
+        },
+        {
+          "tid": 66531,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": "202 0x72387b7a4864 0x80 0x2 0x0 0x0 0x0 0x72387b7a47a8 0x72387c3c8dbb",
+            "wchan": "futex_wait_queue",
+            "number": "202",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 66532,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": "202 0x72387afa1864 0x80 0x2 0x0 0x0 0x0 0x72387afa17a8 0x72387c3c8dbb",
+            "wchan": "futex_wait_queue",
+            "number": "202",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 66533,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": "202 0x72387a79e864 0x80 0x2 0x0 0x0 0x0 0x72387a79e7a8 0x72387c3c8dbb",
+            "wchan": "futex_wait_queue",
+            "number": "202",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 66534,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": "202 0x723879f9b864 0x80 0x2 0x0 0x0 0x0 0x723879f9b7a8 0x72387c3c8dbb",
+            "wchan": "futex_wait_queue",
+            "number": "202",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 66535,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": "202 0x60fe99881680 0x80 0xffffffff80000000 0x0 0x0 0x0 0x72387964e838 0x72387c3c8dbb",
+            "wchan": "futex_wait_queue",
+            "number": "202",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 66536,
+          "state": "R",
+          "wchan": "0",
+          "syscall": {
+            "raw": "running",
+            "wchan": "0",
+            "number": "running",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        }
+      ],
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[67733069]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[67733070]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 4,
+          "target": "anon_inode:[io_uring]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 5,
+          "target": "pipe:[67733108]",
+          "kind": "pipe",
+          "queueBytes": 1
+        },
+        {
+          "fd": 6,
+          "target": "pipe:[67733108]",
+          "kind": "pipe",
+          "queueBytes": 1
+        },
+        {
+          "fd": 7,
+          "target": "pipe:[67733109]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 8,
+          "target": "pipe:[67733109]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 9,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 10,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 11,
+          "target": "anon_inode:[io_uring]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 12,
+          "target": "pipe:[67733111]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 13,
+          "target": "pipe:[67733111]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 14,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 15,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 16,
+          "target": "anon_inode:[io_uring]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 17,
+          "target": "pipe:[67754009]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 18,
+          "target": "pipe:[67754009]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 19,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 20,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 21,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 22,
+          "target": "anon_inode:[io_uring]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 23,
+          "target": "pipe:[67741989]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 24,
+          "target": "pipe:[67741989]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 25,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        }
+      ],
+      "fdKinds": ["anon_inode", "file", "pipe"],
+      "syscall": {
+        "raw": "281 0xf 0x7fff22373920 0x400 0x3e8 0x0 0x8 0x7fff22372b48 0x72387c3c8dbb",
+        "wchan": "do_epoll_wait",
+        "number": "281",
+        "readLikeWait": false,
+        "pollLikeWait": true
+      }
+    }
+  },
+  "applicationShapeResult": {
+    "kind": "machinen.research.native-continuation.app-adapter-result",
+    "version": 1,
+    "decision": "refused",
+    "case": "node-active-worker",
+    "application": "nodejs",
+    "shapeId": "refuse-active-or-unclassified-thread",
+    "reason": "application has a runnable thread/backend",
+    "observation": {
+      "pid": 66474,
+      "hostArch": "x86_64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": "/usr/local/bin/node",
+      "cmdline": [
+        "node",
+        "-e",
+        "const {Worker}=require('worker_threads'); new Worker('let x=0; while(true){x=(x+1)%1000003}', {eval:true}); setInterval(()=>{},1000);"
+      ],
+      "processTree": {
+        "ppid": 66451,
+        "pgrp": 66474,
+        "session": 66474
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 8,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 66474,
+          "state": "S",
+          "wchan": "do_epoll_wait",
+          "syscall": {
+            "raw": "281 0xf 0x7fff22373920 0x400 0x3e8 0x0 0x8 0x7fff22372b48 0x72387c3c8dbb",
+            "wchan": "do_epoll_wait",
+            "number": "281",
+            "readLikeWait": false,
+            "pollLikeWait": true
+          }
+        },
+        {
+          "tid": 66530,
+          "state": "S",
+          "wchan": "do_epoll_wait",
+          "syscall": {
+            "raw": "281 0xa 0x72387bfab830 0x400 0xffffffffffffffff 0x0 0x8 0x72387bfaaa58 0x72387c3c8dbb",
+            "wchan": "do_epoll_wait",
+            "number": "281",
+            "readLikeWait": false,
+            "pollLikeWait": true
+          }
+        },
+        {
+          "tid": 66531,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": "202 0x72387b7a4864 0x80 0x2 0x0 0x0 0x0 0x72387b7a47a8 0x72387c3c8dbb",
+            "wchan": "futex_wait_queue",
+            "number": "202",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 66532,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": "202 0x72387afa1864 0x80 0x2 0x0 0x0 0x0 0x72387afa17a8 0x72387c3c8dbb",
+            "wchan": "futex_wait_queue",
+            "number": "202",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 66533,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": "202 0x72387a79e864 0x80 0x2 0x0 0x0 0x0 0x72387a79e7a8 0x72387c3c8dbb",
+            "wchan": "futex_wait_queue",
+            "number": "202",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 66534,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": "202 0x723879f9b864 0x80 0x2 0x0 0x0 0x0 0x723879f9b7a8 0x72387c3c8dbb",
+            "wchan": "futex_wait_queue",
+            "number": "202",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 66535,
+          "state": "S",
+          "wchan": "futex_wait_queue",
+          "syscall": {
+            "raw": "202 0x60fe99881680 0x80 0xffffffff80000000 0x0 0x0 0x0 0x72387964e838 0x72387c3c8dbb",
+            "wchan": "futex_wait_queue",
+            "number": "202",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 66536,
+          "state": "R",
+          "wchan": "0",
+          "syscall": {
+            "raw": "running",
+            "wchan": "0",
+            "number": "running",
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        }
+      ],
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[67733069]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[67733070]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 4,
+          "target": "anon_inode:[io_uring]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 5,
+          "target": "pipe:[67733108]",
+          "kind": "pipe",
+          "queueBytes": 1
+        },
+        {
+          "fd": 6,
+          "target": "pipe:[67733108]",
+          "kind": "pipe",
+          "queueBytes": 1
+        },
+        {
+          "fd": 7,
+          "target": "pipe:[67733109]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 8,
+          "target": "pipe:[67733109]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 9,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 10,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 11,
+          "target": "anon_inode:[io_uring]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 12,
+          "target": "pipe:[67733111]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 13,
+          "target": "pipe:[67733111]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 14,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 15,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 16,
+          "target": "anon_inode:[io_uring]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 17,
+          "target": "pipe:[67754009]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 18,
+          "target": "pipe:[67754009]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 19,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 20,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 21,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 22,
+          "target": "anon_inode:[io_uring]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 23,
+          "target": "pipe:[67741989]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 24,
+          "target": "pipe:[67741989]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 25,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        }
+      ],
+      "fdKinds": ["anon_inode", "file", "pipe"],
+      "syscall": {
+        "raw": "281 0xf 0x7fff22373920 0x400 0x3e8 0x0 0x8 0x7fff22372b48 0x72387c3c8dbb",
+        "wchan": "do_epoll_wait",
+        "number": "281",
+        "readLikeWait": false,
+        "pollLikeWait": true
+      }
+    },
+    "evidence": {},
+    "descriptor": null,
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false,
+      "runtimeHeapRestoreClaimed": false,
+      "kernelSocketIdentityPreserved": false
+    }
+  },
+  "descriptor": null
+}

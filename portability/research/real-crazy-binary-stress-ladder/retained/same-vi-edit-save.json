@@ -1,0 +1,22 @@
+{
+  "case": "vi-edit-save",
+  "kind": "support",
+  "description": "vi edits a temp file and saves through target-native scripted pty state",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "binary": "/usr/bin/vi",
+    "content": "hello-from-vi\n",
+    "returncode": 0,
+    "saved": true
+  }
+}

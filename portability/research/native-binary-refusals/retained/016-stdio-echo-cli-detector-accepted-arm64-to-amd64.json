@@ -1,0 +1,16 @@
+{
+  "shape": "016-stdio-echo-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point stdio echo descriptor with no live terminal state",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_stdio_echo",
+    "sourcePc": "0xbbf5dc081990",
+    "sourceSp": "0xfffff9d49230",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

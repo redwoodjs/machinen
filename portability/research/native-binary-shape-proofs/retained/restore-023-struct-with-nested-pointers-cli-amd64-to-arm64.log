@@ -1,0 +1,2 @@
+nested:child
+SHAPE_RESTORE_OK shape=023-struct-with-nested-pointers-cli target=arm64 result=42

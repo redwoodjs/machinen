@@ -1,0 +1,74 @@
+{
+  "kind": "machinen.research.native-binary-refusal.counter-cli-detector-report",
+  "version": 1,
+  "row": "001-counter-cli",
+  "lifecycleStage": "4-supported-subset",
+  "supportDecision": "supported-subset",
+  "supportScope": "single-threaded declared-safe-point counter fixture with source pc/sp/arg0, one declared heap state region, one in-region pointer relocation, target-native final jump, and no live kernel resources",
+  "accepted": [
+    {
+      "label": "arm64-to-amd64",
+      "decision": "accepted",
+      "supportStage": "4-supported-subset"
+    },
+    {
+      "label": "amd64-to-arm64",
+      "decision": "accepted",
+      "supportStage": "4-supported-subset"
+    }
+  ],
+  "refused": [
+    {
+      "label": "missing-safe-point",
+      "decision": "refused",
+      "refusalCode": "counter-cli-missing-safe-point"
+    },
+    {
+      "label": "bad-entry-symbol",
+      "decision": "refused",
+      "refusalCode": "counter-cli-unsupported-entry-symbol"
+    },
+    {
+      "label": "same-architecture",
+      "decision": "refused",
+      "refusalCode": "counter-cli-not-cross-architecture"
+    },
+    {
+      "label": "bad-arg0",
+      "decision": "refused",
+      "refusalCode": "counter-cli-arg0-not-state-base"
+    },
+    {
+      "label": "bad-relocation",
+      "decision": "refused",
+      "refusalCode": "counter-cli-wrong-pointer-relocation"
+    },
+    {
+      "label": "source-isa-emulation",
+      "decision": "refused",
+      "refusalCode": "counter-cli-claim-guard-not-false"
+    },
+    {
+      "label": "active-syscall",
+      "decision": "refused",
+      "refusalCode": "counter-cli-unsupported-live-state"
+    },
+    {
+      "label": "thread-state",
+      "decision": "refused",
+      "refusalCode": "counter-cli-unsupported-live-state"
+    },
+    {
+      "label": "socket-state",
+      "decision": "refused",
+      "refusalCode": "counter-cli-unsupported-live-state"
+    }
+  ],
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  },
+  "status": "passed"
+}

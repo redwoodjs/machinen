@@ -1,0 +1,20 @@
+{
+  "case": "pgrp-session-descriptor",
+  "kind": "support",
+  "description": "process group/session descriptor",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "pid": 1142279,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "pidPgrpSession": "1142280 1142280 1142280"
+  }
+}

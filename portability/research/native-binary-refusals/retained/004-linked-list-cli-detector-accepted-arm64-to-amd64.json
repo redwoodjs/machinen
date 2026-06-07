@@ -1,0 +1,16 @@
+{
+  "shape": "004-linked-list-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point linked list with in-region next pointers and no live kernel resources",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_list",
+    "sourcePc": "0xc44c13d41990",
+    "sourceSp": "0xffffe8b9fa80",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

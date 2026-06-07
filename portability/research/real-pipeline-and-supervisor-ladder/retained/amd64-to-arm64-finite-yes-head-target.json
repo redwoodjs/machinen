@@ -1,0 +1,36 @@
+{
+  "case": "finite-yes-head",
+  "adapter": "finite",
+  "description": "finite yes|head pipeline completes and cleans up",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "processRoot": {
+    "pid": null,
+    "argv": ["/bin/sh", "-c", "yes line | head -n 50 | awk '{printf \"line-%03d\\n\", NR}'"]
+  },
+  "processTree": [],
+  "candidateProcess": null,
+  "pty": null,
+  "checks": {
+    "completed": true,
+    "returncodeZero": true,
+    "lineCount": true,
+    "expectedOutput": true
+  },
+  "screenAtCandidate": {
+    "sample": ""
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "sample": "line-001\nline-002\nline-003\nline-004\nline-005\nline-006\nline-007\nline-008\nline-009\nline-010\nline-011\nline-012\nline-013\nline-014\nline-015\nline-016\nline-017\nline-018\nline-019\nline-020\nline-021\nline-022\nline-023\nline-024\nline-025\nline-026\nline-027\nline-028\nline-029\nline-030\nline-031\nline-032\nline-033\nline-034\nline-035\nline-036\nline-037\nline-038\nline-039\nline-040\nline-041\nline-042\nline-043\nline-044\nline-045\nline-046\nline-047\nline-048\nline-049\nline-050\n"
+  },
+  "decision": "accepted"
+}

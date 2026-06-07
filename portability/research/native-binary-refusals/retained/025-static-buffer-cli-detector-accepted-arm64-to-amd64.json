@@ -1,0 +1,16 @@
+{
+  "shape": "025-static-buffer-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point static buffer descriptor",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_static_buffer",
+    "sourcePc": "0xb9f1e9221990",
+    "sourceSp": "0xffffd80f80e0",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "shape": "022-cycle-list-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "native-shape-descriptor-outside-supported-subset",
+  "reason": "shape descriptor is outside the supported single-thread/no-socket subset"
+}

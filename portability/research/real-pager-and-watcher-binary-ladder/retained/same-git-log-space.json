@@ -1,0 +1,203 @@
+{
+  "case": "git-log-space",
+  "adapter": "git-log",
+  "description": "git log --paginate renders through a pager child and SPACE advances",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "binary": {
+    "path": "/usr/bin/git",
+    "versionLine": "git version 2.39.5",
+    "packageEvidence": null
+  },
+  "processRoot": {
+    "pid": 3769693,
+    "argv": [
+      "/usr/bin/git",
+      "--paginate",
+      "--no-optional-locks",
+      "log",
+      "--oneline",
+      "--decorate=short"
+    ]
+  },
+  "processTree": [
+    {
+      "pid": 3769693,
+      "state": {
+        "pid": 3769693,
+        "comm": "git",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3769449,
+        "statPgrp": 3769693,
+        "statSession": 3769693,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "61 0x39855e 0x7ffc5e66c6d4 0x0 0x0 0x0 0x5a4869e877b0 0x7ffc5e66c6c8 0x7bb8f63f1bd3",
+          "parsed": true,
+          "number": 61,
+          "name": "syscall-61",
+          "args": [3769694, 140721892280020, 0, 0, 0, 99267060987824],
+          "fd": 3769694
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": null,
+        "2": null
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": false,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": false
+    },
+    {
+      "pid": 3769694,
+      "state": {
+        "pid": 3769694,
+        "comm": "more",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3769693,
+        "statPgrp": 3769693,
+        "statSession": 3769693,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "0 0x2 0x7ffd22a712b0 0x8 0x0 0x73c47c18ea80 0x0 0x7ffd22a71218 0x73c47c0b22ad",
+          "parsed": true,
+          "number": 0,
+          "name": "read",
+          "args": [2, 140725184828080, 8, 0, 127287732791936, 0],
+          "fd": 2
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[64530771]"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[signalfd]"
+        }
+      ],
+      "stdioTargets": {
+        "0": "pipe:[64530771]",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/pts/0",
+      "allStdioOnControlledPty": false,
+      "hasSignalfd": true,
+      "hasRegularAdapterFile": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3769694,
+    "state": {
+      "pid": 3769694,
+      "comm": "more",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 3769693,
+      "statPgrp": 3769693,
+      "statSession": 3769693,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "0 0x2 0x7ffd22a712b0 0x8 0x0 0x73c47c18ea80 0x0 0x7ffd22a71218 0x73c47c0b22ad",
+        "parsed": true,
+        "number": 0,
+        "name": "read",
+        "args": [2, 140725184828080, 8, 0, 127287732791936, 0],
+        "fd": 2
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "pipe:[64530771]"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "anon_inode:[signalfd]"
+      }
+    ],
+    "stdioTargets": {
+      "0": "pipe:[64530771]",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": false,
+    "hasSignalfd": true,
+    "hasRegularAdapterFile": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3769693
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "\u001b[33m710ddb5\u001b[m\u001b[33m (\u001b[m\u001b[1;36mHEAD -> \u001b[m\u001b[1;32mmaster\u001b[m\u001b[33m)\u001b[m commit-080\r\n\u001b[33m2cbcdc9\u001b[m commit-079\r\n\u001b[33m39b59ba\u001b[m commit-078\r\n\u001b[33mfbfae28\u001b[m commit-077\r\n\u001b[33m315bc58\u001b[m commit-076\r\n\u001b[33me1825d3\u001b[m commit-075\r\n\u001b[33m56abaa9\u001b[m commit-074\r\n\u001b[33m0bacabe\u001b[m commit-073\r\n\u001b[33m132e498\u001b[m commit-072\r\n\u001b[33m61ebd84\u001b[m commit-071\r\n\u001b[33ma999914\u001b[m commit-070\r\n\u001b[33m6d3e0f9\u001b[m commit-069\r\n\u001b[33me62e2e9\u001b[m commit-068\r\n\u001b[33m407e6f6\u001b[m commit-067\r\n\u001b[33m9b1d465\u001b[m commit-066\r\n\u001b[33m30f2ffc\u001b[m commit-065\r\n\u001b[33m0180fe0\u001b[m commit-064\r\n\u001b[33md7d2dae\u001b[m commit-063\r\n\u001b[33m5dbee37\u001b[m commit-062\r\n\u001b[33mf798fce\u001b[m commit-061\r\n\u001b[33md317a5a\u001b[m commit-060\r\n\u001b[33md7746e2\u001b[m commit-059\r\n\u001b[33m60dd5ec\u001b[m commit-058\r\n\u001b[7m--More--\u001b[27m"
+  },
+  "inputOrResource": {
+    "expect": "commit-050",
+    "file": "/tmp/machinen-pager-watcher-ladder-cixisbc_/repo",
+    "base64": "IA=="
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": false,
+    "sample": "\r\u001b[33mf9beb1d\u001b[m commit-057\r\n\u001b[33mf63996e\u001b[m commit-056\r\n\u001b[33mbb06d7c\u001b[m commit-055\r\n\u001b[33md72d16e\u001b[m commit-054\r\n\u001b[33m513a8c1\u001b[m commit-053\r\n\u001b[33me501e5f\u001b[m commit-052\r\n\u001b[33mc4ad296\u001b[m commit-051\r\n\u001b[33me30f160\u001b[m commit-050\r\n\u001b[33m8605036\u001b[m commit-049\r\n\u001b[33me07977c\u001b[m commit-048\r\n\u001b[33mdd7b379\u001b[m commit-047\r\n\u001b[33mde1f107\u001b[m commit-046\r\n\u001b[33m96e8924\u001b[m commit-045\r\n\u001b[33ma7b41bf\u001b[m commit-044\r\n\u001b[33m97e4267\u001b[m commit-043\r\n\u001b[33mf110d6f\u001b[m commit-042\r\n\u001b[33md3fdbee\u001b[m commit-041\r\n\u001b[33m8777ad8\u001b[m commit-040\r\n\u001b[33me4a1405\u001b[m commit-039\r\n\u001b[33mba26f3c\u001b[m commit-038\r\n\u001b[33m2bd7fd4\u001b[m commit-037\r\n\u001b[33m6d8255a\u001b[m commit-036\r\n\u001b[33m8602973\u001b[m commit-035\r\n\u001b[7m--More--\u001b[27m"
+  },
+  "decision": "accepted"
+}

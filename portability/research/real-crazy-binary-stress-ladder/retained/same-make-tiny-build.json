@@ -1,0 +1,21 @@
+{
+  "case": "make-tiny-build",
+  "kind": "support",
+  "description": "make builds a tiny deterministic target",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "binary": "/usr/bin/make",
+    "content": "make-ok\n",
+    "returncode": 0
+  }
+}

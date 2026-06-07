@@ -1,0 +1,1 @@
+CAPTURE_OK shape=028-float-simd-scalar-cli source=arm64 target=amd64

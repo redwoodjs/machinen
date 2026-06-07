@@ -1,0 +1,7 @@
+{
+  "shape": "007-argv-env-printer",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "native-shape-not-cross-architecture",
+  "reason": "source and target architectures must differ"
+}

@@ -1,0 +1,960 @@
+{
+  "kind": "machinen.research.real-node-postgres-continuation.proof-row",
+  "version": 1,
+  "case": "node-repl-prompt",
+  "rowKind": "support",
+  "mode": "source",
+  "application": "nodejs",
+  "description": "real Node.js REPL prompt waiting on an empty pty",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false,
+    "runtimeHeapRestoreClaimed": false,
+    "kernelSocketIdentityPreserved": false
+  },
+  "decision": "captured",
+  "spawned": {
+    "container": "machinen-rnp-6a7f219fd2-node-repl",
+    "pid": 1784691,
+    "logs": "Welcome to Node.js v22.22.3.\nType \".help\" for more information.\n\u001b[1G\u001b[0J> \u001b[3G\nError: Could not open history file.\nREPL session history will not be persisted.\n",
+    "provisioning": {
+      "image": "node:22-alpine",
+      "alreadyPresent": true
+    },
+    "application": "nodejs"
+  },
+  "classifierResult": {
+    "kind": "machinen.research.native-continuation-classifier.result",
+    "version": 1,
+    "decision": "refused",
+    "shapeId": "refuse-pipe-unread-bytes",
+    "reason": "pipe fd 4 has unread bytes",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "observation": {
+      "pid": 1784691,
+      "hostArch": "aarch64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": "/usr/local/bin/node",
+      "cmdline": ["node", "-i"],
+      "processTree": {
+        "ppid": 1784667,
+        "pgrp": 1784691,
+        "session": 1784691
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 11,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 1784691,
+          "state": "S",
+          "wchan": "ep_poll",
+          "syscall": {
+            "raw": null,
+            "wchan": "ep_poll",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": true
+          }
+        },
+        {
+          "tid": 1784752,
+          "state": "S",
+          "wchan": "ep_poll",
+          "syscall": {
+            "raw": null,
+            "wchan": "ep_poll",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": true
+          }
+        },
+        {
+          "tid": 1784753,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784754,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784755,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784756,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784757,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784758,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784759,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784760,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784761,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        }
+      ],
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 4,
+          "target": "pipe:[29321526]",
+          "kind": "pipe",
+          "queueBytes": 1
+        },
+        {
+          "fd": 5,
+          "target": "pipe:[29321526]",
+          "kind": "pipe",
+          "queueBytes": 1
+        },
+        {
+          "fd": 6,
+          "target": "pipe:[29321527]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 7,
+          "target": "pipe:[29321527]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 8,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 9,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 10,
+          "target": "pipe:[29323401]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 11,
+          "target": "pipe:[29323401]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 12,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 13,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 14,
+          "target": "pipe:[29321529]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 15,
+          "target": "pipe:[29321529]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 16,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 17,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 18,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 19,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 20,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        }
+      ],
+      "fdKinds": ["anon_inode", "file", "pipe", "pty"],
+      "syscall": {
+        "raw": null,
+        "wchan": "ep_poll",
+        "number": null,
+        "readLikeWait": false,
+        "pollLikeWait": true
+      }
+    }
+  },
+  "applicationShapeResult": {
+    "kind": "machinen.research.native-continuation.app-adapter-result",
+    "version": 1,
+    "decision": "accepted",
+    "case": "node-repl-prompt",
+    "application": "nodejs",
+    "shapeId": "shape-controlled-pty-read-empty-queue",
+    "reason": "Node.js REPL prompt has an empty pty input queue",
+    "observation": {
+      "pid": 1784691,
+      "hostArch": "aarch64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": "/usr/local/bin/node",
+      "cmdline": ["node", "-i"],
+      "processTree": {
+        "ppid": 1784667,
+        "pgrp": 1784691,
+        "session": 1784691
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 11,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 1784691,
+          "state": "S",
+          "wchan": "ep_poll",
+          "syscall": {
+            "raw": null,
+            "wchan": "ep_poll",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": true
+          }
+        },
+        {
+          "tid": 1784752,
+          "state": "S",
+          "wchan": "ep_poll",
+          "syscall": {
+            "raw": null,
+            "wchan": "ep_poll",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": true
+          }
+        },
+        {
+          "tid": 1784753,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784754,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784755,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784756,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784757,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784758,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784759,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784760,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        },
+        {
+          "tid": 1784761,
+          "state": "S",
+          "wchan": "futex_do_wait",
+          "syscall": {
+            "raw": null,
+            "wchan": "futex_do_wait",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": false
+          }
+        }
+      ],
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 4,
+          "target": "pipe:[29321526]",
+          "kind": "pipe",
+          "queueBytes": 1
+        },
+        {
+          "fd": 5,
+          "target": "pipe:[29321526]",
+          "kind": "pipe",
+          "queueBytes": 1
+        },
+        {
+          "fd": 6,
+          "target": "pipe:[29321527]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 7,
+          "target": "pipe:[29321527]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 8,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 9,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 10,
+          "target": "pipe:[29323401]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 11,
+          "target": "pipe:[29323401]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 12,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 13,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 14,
+          "target": "pipe:[29321529]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 15,
+          "target": "pipe:[29321529]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 16,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 17,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 18,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 19,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 20,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        }
+      ],
+      "fdKinds": ["anon_inode", "file", "pipe", "pty"],
+      "syscall": {
+        "raw": null,
+        "wchan": "ep_poll",
+        "number": null,
+        "readLikeWait": false,
+        "pollLikeWait": true
+      }
+    },
+    "evidence": {},
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false,
+      "runtimeHeapRestoreClaimed": false,
+      "kernelSocketIdentityPreserved": false
+    }
+  },
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-controlled-pty-read-empty-queue",
+    "architectureNeutral": true,
+    "observationConsistency": "live-procfs-best-effort",
+    "cpu": {
+      "wait": "pty-read-or-poll",
+      "sourceArch": "aarch64",
+      "sourceSyscallNumber": null,
+      "sourceWchan": "ep_poll",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false,
+      "threadStacksCaptured": false,
+      "runtimeHeapCaptured": false,
+      "runtimeHeapRestored": false
+    },
+    "resources": {
+      "process": {
+        "ppid": 1784667,
+        "pgrp": 1784691,
+        "session": 1784691
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 4,
+          "target": "pipe:[29321526]",
+          "kind": "pipe",
+          "queueBytes": 1
+        },
+        {
+          "fd": 5,
+          "target": "pipe:[29321526]",
+          "kind": "pipe",
+          "queueBytes": 1
+        },
+        {
+          "fd": 6,
+          "target": "pipe:[29321527]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 7,
+          "target": "pipe:[29321527]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 8,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 9,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 10,
+          "target": "pipe:[29323401]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 11,
+          "target": "pipe:[29323401]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 12,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 13,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 14,
+          "target": "pipe:[29321529]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 15,
+          "target": "pipe:[29321529]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 16,
+          "target": "anon_inode:[eventfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 17,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 18,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 19,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        },
+        {
+          "fd": 20,
+          "target": "/dev/pts/0",
+          "kind": "pty",
+          "queueBytes": 0
+        }
+      ],
+      "sockets": {
+        "fds": [],
+        "kernelSocketIdentityPreserved": false
+      },
+      "threads": {
+        "tasks": [
+          {
+            "tid": 1784691,
+            "state": "S",
+            "wchan": "ep_poll",
+            "syscall": {
+              "raw": null,
+              "wchan": "ep_poll",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": true
+            }
+          },
+          {
+            "tid": 1784752,
+            "state": "S",
+            "wchan": "ep_poll",
+            "syscall": {
+              "raw": null,
+              "wchan": "ep_poll",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": true
+            }
+          },
+          {
+            "tid": 1784753,
+            "state": "S",
+            "wchan": "futex_do_wait",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_do_wait",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 1784754,
+            "state": "S",
+            "wchan": "futex_do_wait",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_do_wait",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 1784755,
+            "state": "S",
+            "wchan": "futex_do_wait",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_do_wait",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 1784756,
+            "state": "S",
+            "wchan": "futex_do_wait",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_do_wait",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 1784757,
+            "state": "S",
+            "wchan": "futex_do_wait",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_do_wait",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 1784758,
+            "state": "S",
+            "wchan": "futex_do_wait",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_do_wait",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 1784759,
+            "state": "S",
+            "wchan": "futex_do_wait",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_do_wait",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 1784760,
+            "state": "S",
+            "wchan": "futex_do_wait",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_do_wait",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 1784761,
+            "state": "S",
+            "wchan": "futex_do_wait",
+            "syscall": {
+              "raw": null,
+              "wchan": "futex_do_wait",
+              "number": null,
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "threadStacksCaptured": false
+      },
+      "runtimeInternalPipes": {
+        "treatedAsExternalContinuationResources": false
+      }
+    },
+    "application": {
+      "name": "nodejs",
+      "case": "node-repl-prompt",
+      "safePoint": "Node.js REPL prompt waiting for input on an empty pty",
+      "runtimeHeapCaptured": false,
+      "runtimeHeapRestored": false,
+      "databaseMemoryCaptured": false,
+      "databaseMemoryRestored": false
+    },
+    "materializer": {
+      "strategy": "target-native-application-reexec-at-accepted-resource-boundary",
+      "rawProcessMemoryMaterialization": false,
+      "sourceIsaEmulationRequired": false,
+      "kernelSocketIdentityPreserved": false
+    }
+  }
+}

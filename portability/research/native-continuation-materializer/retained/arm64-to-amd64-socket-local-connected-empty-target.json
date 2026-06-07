@@ -1,0 +1,49 @@
+{
+  "case": "socket-local-connected-empty",
+  "kind": "support",
+  "description": "materialize local connected socket pair by semantic reconnect",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-socket-connected-local-empty-queues",
+    "architectureNeutral": true,
+    "cpu": {
+      "wait": "socket-local-connected-empty-queues",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false
+    },
+    "resources": {
+      "sockets": {
+        "bindOrReconnectPolicy": "semantic-reconnect",
+        "kernelSocketIdentityPreserved": false
+      }
+    },
+    "materializer": {
+      "strategy": "target-native-shape-materializer",
+      "rawProcessMemoryMaterialization": false
+    }
+  },
+  "evidence": {
+    "received": "reconnect-ok",
+    "echo": "echo-reconnect-ok",
+    "kernelSocketIdentityPreserved": false
+  }
+}

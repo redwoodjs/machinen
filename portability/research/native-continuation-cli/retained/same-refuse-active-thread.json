@@ -1,0 +1,139 @@
+{
+  "kind": "machinen.research.native-continuation-cli.proof-row",
+  "version": 1,
+  "case": "refuse-active-thread",
+  "rowKind": "refusal",
+  "mode": "source",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "refused",
+  "command": {
+    "args": [
+      "python3",
+      "continuation_cli.py",
+      "capture",
+      "--pid",
+      "4096460",
+      "--allow-refused",
+      "--out",
+      "retained/same-refuse-active-thread.json"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "capture": {
+    "kind": "machinen.research.native-continuation-cli.capture",
+    "version": 1,
+    "decision": "refused",
+    "shapeId": "refuse-active-or-unclassified-thread",
+    "reason": "at least one live thread is runnable or not in a known wait",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "descriptor": null,
+    "classifierResult": {
+      "kind": "machinen.research.native-continuation-classifier.result",
+      "version": 1,
+      "decision": "refused",
+      "shapeId": "refuse-active-or-unclassified-thread",
+      "reason": "at least one live thread is runnable or not in a known wait",
+      "claimGuard": {
+        "arbitraryProcessRestoreClaimed": false,
+        "rawVmReplayUsed": false,
+        "sourceIsaEmulationUsed": false,
+        "metadataOnlySuccess": false,
+        "rawHeapStackRegisterRestore": false
+      },
+      "observation": {
+        "pid": 4096460,
+        "hostArch": "x86_64",
+        "pausedVmObservation": false,
+        "observationConsistency": "live-procfs-best-effort",
+        "alive": true,
+        "exe": "/usr/bin/python3.11",
+        "cmdline": [
+          "python3",
+          "-c",
+          "\nimport threading, time\ndef burn():\n    x=0\n    while True:\n        x=(x+1)%1000003\nthreading.Thread(target=burn,daemon=True).start()\ntime.sleep(30)\n"
+        ],
+        "processTree": {
+          "ppid": 4096459,
+          "pgrp": 4096460,
+          "session": 4096460
+        },
+        "status": {
+          "state": "S (sleeping)",
+          "threads": 2,
+          "tracerPid": 0
+        },
+        "tasks": [
+          {
+            "tid": 4096460,
+            "state": "S",
+            "wchan": "hrtimer_nanosleep",
+            "syscall": {
+              "raw": "230 0x1 0x1 0x7ffddba77040 0x0 0x0 0xa5c368 0x7ffddba77000 0x745d6c6c8545",
+              "wchan": "hrtimer_nanosleep",
+              "number": "230",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          },
+          {
+            "tid": 4096461,
+            "state": "R",
+            "wchan": "0",
+            "syscall": {
+              "raw": "running",
+              "wchan": "0",
+              "number": "running",
+              "readLikeWait": false,
+              "pollLikeWait": false
+            }
+          }
+        ],
+        "fds": [
+          {
+            "fd": 0,
+            "target": "pipe:[66646766]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 1,
+            "target": "pipe:[66669413]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 2,
+            "target": "pipe:[66669414]",
+            "kind": "pipe",
+            "queueBytes": 0
+          }
+        ],
+        "fdKinds": ["pipe"],
+        "syscall": {
+          "raw": "230 0x1 0x1 0x7ffddba77040 0x0 0x0 0xa5c368 0x7ffddba77000 0x745d6c6c8545",
+          "wchan": "hrtimer_nanosleep",
+          "number": "230",
+          "readLikeWait": false,
+          "pollLikeWait": false
+        }
+      }
+    },
+    "descriptorSource": "native-continuation-classifier/classify.py"
+  },
+  "descriptor": null
+}

@@ -1,0 +1,20 @@
+{
+  "case": "env-var-continuation",
+  "kind": "support",
+  "description": "environment variable descriptor",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "pid": 3808867,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "envValue": "env-ok"
+  }
+}

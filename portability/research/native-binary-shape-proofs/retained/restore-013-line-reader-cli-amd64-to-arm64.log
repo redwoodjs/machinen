@@ -1,0 +1,2 @@
+line:second
+SHAPE_RESTORE_OK shape=013-line-reader-cli target=arm64 result=42

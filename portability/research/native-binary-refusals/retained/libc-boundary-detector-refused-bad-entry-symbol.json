@@ -1,0 +1,7 @@
+{
+  "shape": "010-libc-boundary-fixture",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "libc-boundary-unsupported-entry-symbol",
+  "reason": "entry symbol is not the proven target-native continuation"
+}

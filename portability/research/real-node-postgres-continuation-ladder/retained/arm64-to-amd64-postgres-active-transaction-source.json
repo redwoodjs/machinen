@@ -1,0 +1,523 @@
+{
+  "kind": "machinen.research.real-node-postgres-continuation.proof-row",
+  "version": 1,
+  "case": "postgres-active-transaction",
+  "rowKind": "refusal",
+  "mode": "source",
+  "application": "postgresql",
+  "description": "real PostgreSQL backend is idle inside an open transaction",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false,
+    "runtimeHeapRestoreClaimed": false,
+    "kernelSocketIdentityPreserved": false
+  },
+  "decision": "refused",
+  "spawned": {
+    "container": "machinen-rnp-520e599f1c-postgres",
+    "pid": 82,
+    "logs": "/var/run/postgresql/.s.PGSQL.5432\"\n2026-06-06 20:34:35.017 UTC [45] LOG:  database system was shut down at 2026-06-06 20:34:34 UTC\n2026-06-06 20:34:35.020 UTC [42] LOG:  database system is ready to accept connections\n done\nserver started\n\n/usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*\n\nwaiting for server to shut down....2026-06-06 20:34:35.107 UTC [42] LOG:  received fast shutdown request\n2026-06-06 20:34:35.108 UTC [42] LOG:  aborting any active transactions\n2026-06-06 20:34:35.109 UTC [42] LOG:  background worker \"logical replication launcher\" (PID 48) exited with exit code 1\n2026-06-06 20:34:35.111 UTC [43] LOG:  shutting down\n2026-06-06 20:34:35.111 UTC [43] LOG:  checkpoint starting: shutdown immediate\n2026-06-06 20:34:35.115 UTC [43] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.004 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/14F2618, redo lsn=0/14F2618\n2026-06-06 20:34:35.118 UTC [42] LOG:  database system is shut down\n done\nserver stopped\n\nPostgreSQL init process complete; ready for start up.\n\nsh: locale: not found\n2026-06-06 20:34:34.762 UTC [36] WARNING:  no usable system locales were found\ninitdb: warning: enabling \"trust\" authentication for local connections\ninitdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.\n2026-06-06 20:34:35.225 UTC [1] LOG:  starting PostgreSQL 16.14 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit\n2026-06-06 20:34:35.225 UTC [1] LOG:  listening on IPv4 address \"127.0.0.1\", port 5432\n2026-06-06 20:34:35.227 UTC [1] LOG:  listening on Unix socket \"/var/run/postgresql/.s.PGSQL.5432\"\n2026-06-06 20:34:35.230 UTC [62] LOG:  database system was shut down at 2026-06-06 20:34:35 UTC\n2026-06-06 20:34:35.234 UTC [1] LOG:  database system is ready to accept connections\n",
+    "provisioning": {
+      "image": "postgres:16-alpine",
+      "alreadyPresent": true
+    },
+    "dataDir": "/tmp/machinen-real-node-postgres-arm64-20260606T202852Z-69273/machinen-rnp-520e599f1c-postgres-data-ool41bl3",
+    "application": "postgresql"
+  },
+  "classifierResult": {
+    "kind": "machinen.research.native-continuation-classifier.result",
+    "version": 1,
+    "decision": "accepted",
+    "shapeId": "shape-socket-connected-local-empty-queues",
+    "reason": "loopback connected sockets have empty queues and can use semantic reconnect",
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false
+    },
+    "observation": {
+      "pid": 82,
+      "hostArch": "aarch64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": "/usr/local/bin/postgres",
+      "cmdline": ["postgres: postgres postgres 127.0.0.1(58748) idle in transaction"],
+      "processTree": {
+        "ppid": 1,
+        "pgrp": 82,
+        "session": 82
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 1,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 82,
+          "state": "S",
+          "wchan": "ep_poll",
+          "syscall": {
+            "raw": null,
+            "wchan": "ep_poll",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": true
+          }
+        }
+      ],
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[29351300]",
+          "kind": "pipe",
+          "queueBytes": null
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[29351301]",
+          "kind": "pipe",
+          "queueBytes": null
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[signalfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 4,
+          "target": "pipe:[29341671]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 5,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 6,
+          "target": "/pgdata/global/2676",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 7,
+          "target": "/pgdata/global/2677",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 8,
+          "target": "/pgdata/global/2671",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 9,
+          "target": "socket:[29341680]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "29341680",
+          "socket": {
+            "family": "tcp4",
+            "state": "ESTABLISHED",
+            "stateHex": "01",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 5432,
+            "remoteAddressHex": "0100007F",
+            "remotePort": 58748
+          }
+        },
+        {
+          "fd": 10,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 11,
+          "target": "/pgdata/base/5/2601",
+          "kind": "file",
+          "queueBytes": null
+        }
+      ],
+      "fdKinds": ["anon_inode", "file", "pipe", "socket"],
+      "syscall": {
+        "raw": null,
+        "wchan": "ep_poll",
+        "number": null,
+        "readLikeWait": false,
+        "pollLikeWait": true
+      }
+    },
+    "descriptor": {
+      "kind": "machinen.research.native-continuation.capture-descriptor",
+      "version": 1,
+      "shapeId": "shape-socket-connected-local-empty-queues",
+      "architectureNeutral": true,
+      "observationConsistency": "live-procfs-best-effort",
+      "cpu": {
+        "wait": "socket-local-connected-empty-queues",
+        "sourceArch": "aarch64",
+        "sourceSyscallNumber": null,
+        "sourceWchan": "ep_poll",
+        "targetNativeReconstruction": true,
+        "sourceIsaEmulationRequired": false
+      },
+      "memory": {
+        "mode": "semantic-resource-descriptor-only",
+        "rawHeapCaptured": false,
+        "rawStackCaptured": false,
+        "rawRegistersCaptured": false,
+        "rawHeapStackRegistersCaptured": false,
+        "threadStacksCaptured": false
+      },
+      "resources": {
+        "process": {
+          "threads": 1,
+          "tracerPid": 0,
+          "ppid": 1,
+          "pgrp": 82,
+          "session": 82
+        },
+        "fds": [
+          {
+            "fd": 0,
+            "target": "/dev/null",
+            "kind": "file",
+            "queueBytes": null
+          },
+          {
+            "fd": 1,
+            "target": "pipe:[29351300]",
+            "kind": "pipe",
+            "queueBytes": null
+          },
+          {
+            "fd": 2,
+            "target": "pipe:[29351301]",
+            "kind": "pipe",
+            "queueBytes": null
+          },
+          {
+            "fd": 3,
+            "target": "anon_inode:[signalfd]",
+            "kind": "anon_inode",
+            "queueBytes": null
+          },
+          {
+            "fd": 4,
+            "target": "pipe:[29341671]",
+            "kind": "pipe",
+            "queueBytes": 0
+          },
+          {
+            "fd": 5,
+            "target": "anon_inode:[eventpoll]",
+            "kind": "anon_inode",
+            "queueBytes": null
+          },
+          {
+            "fd": 6,
+            "target": "/pgdata/global/2676",
+            "kind": "file",
+            "queueBytes": null
+          },
+          {
+            "fd": 7,
+            "target": "/pgdata/global/2677",
+            "kind": "file",
+            "queueBytes": null
+          },
+          {
+            "fd": 8,
+            "target": "/pgdata/global/2671",
+            "kind": "file",
+            "queueBytes": null
+          },
+          {
+            "fd": 9,
+            "target": "socket:[29341680]",
+            "kind": "socket",
+            "queueBytes": null,
+            "socketInode": "29341680",
+            "socket": {
+              "family": "tcp4",
+              "state": "ESTABLISHED",
+              "stateHex": "01",
+              "txQueue": 0,
+              "rxQueue": 0,
+              "localAddressHex": "0100007F",
+              "localPort": 5432,
+              "remoteAddressHex": "0100007F",
+              "remotePort": 58748
+            }
+          },
+          {
+            "fd": 10,
+            "target": "anon_inode:[eventpoll]",
+            "kind": "anon_inode",
+            "queueBytes": null
+          },
+          {
+            "fd": 11,
+            "target": "/pgdata/base/5/2601",
+            "kind": "file",
+            "queueBytes": null
+          }
+        ],
+        "pty": {
+          "fdCount": 0,
+          "queueBytesKnownEmpty": true,
+          "fds": []
+        },
+        "pipes": {
+          "fdCount": 3,
+          "bufferBytesKnownEmpty": true,
+          "endpoints": [
+            {
+              "fd": 1,
+              "target": "pipe:[29351300]",
+              "kind": "pipe",
+              "queueBytes": null
+            },
+            {
+              "fd": 2,
+              "target": "pipe:[29351301]",
+              "kind": "pipe",
+              "queueBytes": null
+            },
+            {
+              "fd": 4,
+              "target": "pipe:[29341671]",
+              "kind": "pipe",
+              "queueBytes": 0
+            }
+          ],
+          "processTreeCaptured": true
+        },
+        "sockets": {
+          "fdCount": 1,
+          "fds": [
+            {
+              "fd": 9,
+              "target": "socket:[29341680]",
+              "kind": "socket",
+              "queueBytes": null,
+              "socketInode": "29341680",
+              "socket": {
+                "family": "tcp4",
+                "state": "ESTABLISHED",
+                "stateHex": "01",
+                "txQueue": 0,
+                "rxQueue": 0,
+                "localAddressHex": "0100007F",
+                "localPort": 5432,
+                "remoteAddressHex": "0100007F",
+                "remotePort": 58748
+              }
+            }
+          ],
+          "bindOrReconnectPolicy": "semantic-rebind-or-reconnect-not-kernel-identity",
+          "kernelSocketIdentityPreserved": false
+        },
+        "threads": {
+          "tasks": [
+            {
+              "tid": 82,
+              "state": "S",
+              "wchan": "ep_poll",
+              "syscall": {
+                "raw": null,
+                "wchan": "ep_poll",
+                "number": null,
+                "readLikeWait": false,
+                "pollLikeWait": true
+              }
+            }
+          ],
+          "roles": "parked-wait-descriptors",
+          "threadStacksCaptured": false
+        }
+      },
+      "materializer": {
+        "strategy": "target-native-reexec-or-shape-adapter",
+        "requires": [
+          "single accepted shape",
+          "empty accepted queues",
+          "no ptrace owner",
+          "target-native resources"
+        ],
+        "rawProcessMemoryMaterialization": false
+      }
+    }
+  },
+  "applicationShapeResult": {
+    "kind": "machinen.research.native-continuation.app-adapter-result",
+    "version": 1,
+    "decision": "refused",
+    "case": "postgres-active-transaction",
+    "application": "postgresql",
+    "shapeId": "refuse-postgres-active-transaction",
+    "reason": "PostgreSQL backend is idle in an open transaction",
+    "observation": {
+      "pid": 82,
+      "hostArch": "aarch64",
+      "pausedVmObservation": false,
+      "observationConsistency": "live-procfs-best-effort",
+      "alive": true,
+      "exe": "/usr/local/bin/postgres",
+      "cmdline": ["postgres: postgres postgres 127.0.0.1(58748) idle in transaction"],
+      "processTree": {
+        "ppid": 1,
+        "pgrp": 82,
+        "session": 82
+      },
+      "status": {
+        "state": "S (sleeping)",
+        "threads": 1,
+        "tracerPid": 0
+      },
+      "tasks": [
+        {
+          "tid": 82,
+          "state": "S",
+          "wchan": "ep_poll",
+          "syscall": {
+            "raw": null,
+            "wchan": "ep_poll",
+            "number": null,
+            "readLikeWait": false,
+            "pollLikeWait": true
+          }
+        }
+      ],
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[29351300]",
+          "kind": "pipe",
+          "queueBytes": null
+        },
+        {
+          "fd": 2,
+          "target": "pipe:[29351301]",
+          "kind": "pipe",
+          "queueBytes": null
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[signalfd]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 4,
+          "target": "pipe:[29341671]",
+          "kind": "pipe",
+          "queueBytes": 0
+        },
+        {
+          "fd": 5,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 6,
+          "target": "/pgdata/global/2676",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 7,
+          "target": "/pgdata/global/2677",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 8,
+          "target": "/pgdata/global/2671",
+          "kind": "file",
+          "queueBytes": null
+        },
+        {
+          "fd": 9,
+          "target": "socket:[29341680]",
+          "kind": "socket",
+          "queueBytes": null,
+          "socketInode": "29341680",
+          "socket": {
+            "family": "tcp4",
+            "state": "ESTABLISHED",
+            "stateHex": "01",
+            "txQueue": 0,
+            "rxQueue": 0,
+            "localAddressHex": "0100007F",
+            "localPort": 5432,
+            "remoteAddressHex": "0100007F",
+            "remotePort": 58748
+          }
+        },
+        {
+          "fd": 10,
+          "target": "anon_inode:[eventpoll]",
+          "kind": "anon_inode",
+          "queueBytes": null
+        },
+        {
+          "fd": 11,
+          "target": "/pgdata/base/5/2601",
+          "kind": "file",
+          "queueBytes": null
+        }
+      ],
+      "fdKinds": ["anon_inode", "file", "pipe", "socket"],
+      "syscall": {
+        "raw": null,
+        "wchan": "ep_poll",
+        "number": null,
+        "readLikeWait": false,
+        "pollLikeWait": true
+      }
+    },
+    "evidence": {
+      "transactionState": "idle-in-transaction"
+    },
+    "descriptor": null,
+    "claimGuard": {
+      "arbitraryProcessRestoreClaimed": false,
+      "rawVmReplayUsed": false,
+      "sourceIsaEmulationUsed": false,
+      "metadataOnlySuccess": false,
+      "rawHeapStackRegisterRestore": false,
+      "runtimeHeapRestoreClaimed": false,
+      "kernelSocketIdentityPreserved": false
+    }
+  },
+  "descriptor": null
+}

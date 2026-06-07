@@ -1,0 +1,7 @@
+{
+  "shape": "002-string-transform-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "native-shape-not-cross-architecture",
+  "reason": "source and target architectures must differ"
+}

@@ -1,0 +1,2 @@
+less-file:file2
+SHAPE_RESTORE_OK shape=069-less-multiple-file-index-cli target=amd64 result=42

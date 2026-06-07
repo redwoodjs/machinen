@@ -1,0 +1,23 @@
+{
+  "kind": "machinen.research.native-binary-shape-ir",
+  "version": 1,
+  "shape": "008-malloc-object-graph",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "safePoint": "declared_shape_ready",
+  "entrySymbol": "continue_graph",
+  "sourceCpu": { "pc": "0x63430283ac12", "sp": "0x7ffdec1a4ab0", "arg0": "0x1000" },
+  "targetCpuPlan": { "pcSymbol": "continue_graph", "argumentRegister": "x0", "stackBytes": 65536 },
+  "shapeDescriptor": {
+    "threads": 1,
+    "activeSyscall": false,
+    "sockets": 0,
+    "usesSourceIsaEmulation": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

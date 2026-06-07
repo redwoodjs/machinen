@@ -1,0 +1,21 @@
+{
+  "case": "file-append-offset",
+  "kind": "support",
+  "description": "regular file append offset descriptor",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "pid": 3806639,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "accepted",
+  "evidence": {
+    "path": "/tmp/machinen-resource-state-batch-n_gewejm/append.txt",
+    "content": "one\ntwo\n"
+  }
+}

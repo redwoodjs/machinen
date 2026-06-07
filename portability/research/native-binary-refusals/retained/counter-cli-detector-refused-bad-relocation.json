@@ -1,0 +1,7 @@
+{
+  "shape": "001-counter-cli",
+  "decision": "refused",
+  "supportStage": "1-refused",
+  "refusalCode": "counter-cli-wrong-pointer-relocation",
+  "reason": "pointer relocation table does not match the proven layout"
+}

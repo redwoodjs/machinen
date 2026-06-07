@@ -1,0 +1,2 @@
+rle:aaabb
+SHAPE_RESTORE_OK shape=034-rle-decoder-cli target=amd64 result=42

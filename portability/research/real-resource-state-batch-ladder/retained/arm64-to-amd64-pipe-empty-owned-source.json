@@ -1,0 +1,22 @@
+{
+  "case": "pipe-empty-owned",
+  "kind": "support",
+  "description": "owned empty pipe reconstructed",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "pid": 1127273,
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "kernelObjectIdentityPreserved": false
+  },
+  "decision": "captured",
+  "evidence": {
+    "readFdTarget": "pipe:[27716693]",
+    "writeFdTarget": "pipe:[27716693]",
+    "queuedBytes": 0
+  }
+}

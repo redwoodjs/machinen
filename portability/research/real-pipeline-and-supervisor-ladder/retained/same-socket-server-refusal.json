@@ -1,0 +1,131 @@
+{
+  "case": "socket-server-refusal",
+  "adapter": "socket-refusal",
+  "description": "socket listener is classified and refused",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "processRoot": {
+    "pid": 3790315,
+    "argv": [
+      "/usr/bin/python3",
+      "/tmp/machinen-pipeline-supervisor-ladder-x9o0ncrf/socket_server.py"
+    ]
+  },
+  "processTree": [
+    {
+      "pid": 3790315,
+      "state": {
+        "pid": 3790315,
+        "comm": "python3",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 3790314,
+        "pgrp": 3790315,
+        "session": 3790315,
+        "ttyNr": 0,
+        "syscall": {
+          "raw": "230 0x1 0x1 0x7ffcee5b9210 0x0 0x0 0x0 0x7ffcee5b91f8 0x7974f2d55503",
+          "parsed": true,
+          "number": 230,
+          "name": "syscall-230",
+          "args": [1, 1, 140724307464720, 0, 0, 0],
+          "fd": 1
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[64686231]"
+        },
+        {
+          "fd": 1,
+          "target": "pipe:[64682822]"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/null"
+        },
+        {
+          "fd": 3,
+          "target": "socket:[64678122]"
+        }
+      ],
+      "stdioTargets": {
+        "0": "pipe:[64686231]",
+        "1": "pipe:[64682822]",
+        "2": "/dev/null"
+      },
+      "syscallFdTarget": "pipe:[64682822]",
+      "allStdioOnControlledPty": false,
+      "hasPipeFd": true,
+      "hasSocketFd": true
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3790315,
+    "state": {
+      "pid": 3790315,
+      "comm": "python3",
+      "state": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "ppid": 3790314,
+      "pgrp": 3790315,
+      "session": 3790315,
+      "ttyNr": 0,
+      "syscall": {
+        "raw": "230 0x1 0x1 0x7ffcee5b9210 0x0 0x0 0x0 0x7ffcee5b91f8 0x7974f2d55503",
+        "parsed": true,
+        "number": 230,
+        "name": "syscall-230",
+        "args": [1, 1, 140724307464720, 0, 0, 0],
+        "fd": 1
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "pipe:[64686231]"
+      },
+      {
+        "fd": 1,
+        "target": "pipe:[64682822]"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/null"
+      },
+      {
+        "fd": 3,
+        "target": "socket:[64678122]"
+      }
+    ],
+    "stdioTargets": {
+      "0": "pipe:[64686231]",
+      "1": "pipe:[64682822]",
+      "2": "/dev/null"
+    },
+    "syscallFdTarget": "pipe:[64682822]",
+    "allStdioOnControlledPty": false,
+    "hasPipeFd": true,
+    "hasSocketFd": true
+  },
+  "pty": null,
+  "checks": {
+    "socketFdDetected": true,
+    "refuseSocketBoundary": true
+  },
+  "screenAtCandidate": {
+    "sample": ""
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "decision": "refused"
+}

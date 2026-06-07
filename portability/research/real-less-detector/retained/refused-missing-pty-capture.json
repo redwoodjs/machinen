@@ -1,0 +1,14 @@
+{
+  "kind": "machinen.research.real-less-detector.capture",
+  "version": 2,
+  "case": "refused-missing-pty",
+  "decision": "refused",
+  "stateKind": "synthetic-refusal",
+  "refusalCode": "real-less-missing-controlled-pty",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

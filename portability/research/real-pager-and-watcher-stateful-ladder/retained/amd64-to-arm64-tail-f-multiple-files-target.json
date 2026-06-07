@@ -1,0 +1,180 @@
+{
+  "case": "tail-f-multiple-files",
+  "adapter": "tail-multiple",
+  "description": "tail -f follows multiple regular files and emits append from second file",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "aarch64",
+  "binary": {
+    "path": "/usr/bin/tail",
+    "versionLine": "tail (GNU coreutils) 9.4",
+    "packageEvidence": null
+  },
+  "processRoot": {
+    "pid": 1072764,
+    "argv": [
+      "/usr/bin/tail",
+      "-f",
+      "/tmp/machinen-pager-watcher-ladder-3erx2ua9/watched.txt",
+      "/tmp/machinen-pager-watcher-ladder-3erx2ua9/watched2.txt"
+    ]
+  },
+  "processTree": [
+    {
+      "pid": 1072764,
+      "state": {
+        "pid": 1072764,
+        "comm": "tail",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 1072763,
+        "statPgrp": 1072764,
+        "statSession": 1072764,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "73 0xffffcc56e298 0x1 0x0 0x0 0x0 0x60 0xffffcc56e180 0xf02441a30bbc",
+          "parsed": true,
+          "number": 73,
+          "name": "ppoll",
+          "args": [281474109989528, 1, 0, 0, 0, 96],
+          "fd": 281474109989528
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "/tmp/machinen-pager-watcher-ladder-3erx2ua9/watched.txt"
+        },
+        {
+          "fd": 4,
+          "target": "/tmp/machinen-pager-watcher-ladder-3erx2ua9/watched2.txt"
+        },
+        {
+          "fd": 5,
+          "target": "anon_inode:inotify"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": true
+    }
+  ],
+  "candidateProcess": {
+    "pid": 1072764,
+    "state": {
+      "pid": 1072764,
+      "comm": "tail",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 1072763,
+      "statPgrp": 1072764,
+      "statSession": 1072764,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "73 0xffffcc56e298 0x1 0x0 0x0 0x0 0x60 0xffffcc56e180 0xf02441a30bbc",
+        "parsed": true,
+        "number": 73,
+        "name": "ppoll",
+        "args": [281474109989528, 1, 0, 0, 0, 96],
+        "fd": 281474109989528
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/tmp/machinen-pager-watcher-ladder-3erx2ua9/watched.txt"
+      },
+      {
+        "fd": 4,
+        "target": "/tmp/machinen-pager-watcher-ladder-3erx2ua9/watched2.txt"
+      },
+      {
+        "fd": 5,
+        "target": "anon_inode:inotify"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": null,
+    "allStdioOnControlledPty": true,
+    "hasSignalfd": false,
+    "hasRegularAdapterFile": true
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 1072764
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true,
+    "regularFilePresent": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "==> /tmp/machinen-pager-watcher-ladder-3erx2ua9/watched.txt <==\r\ninitial-001\r\n\r\n==> /tmp/machinen-pager-watcher-ladder-3erx2ua9/watched2.txt <==\r\ninitial-002\r\n"
+  },
+  "inputOrResource": {
+    "expect": "multi-002",
+    "file": "/tmp/machinen-pager-watcher-ladder-3erx2ua9/watched.txt"
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": false,
+    "sample": "multi-002\r\n"
+  },
+  "decision": "accepted"
+}

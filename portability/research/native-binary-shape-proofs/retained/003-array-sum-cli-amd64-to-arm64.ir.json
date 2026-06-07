@@ -1,0 +1,23 @@
+{
+  "kind": "machinen.research.native-binary-shape-ir",
+  "version": 1,
+  "shape": "003-array-sum-cli",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "safePoint": "declared_shape_ready",
+  "entrySymbol": "continue_array",
+  "sourceCpu": { "pc": "0x61a1a5a6fc12", "sp": "0x7ffe938057f0", "arg0": "0x1000" },
+  "targetCpuPlan": { "pcSymbol": "continue_array", "argumentRegister": "x0", "stackBytes": 65536 },
+  "shapeDescriptor": {
+    "threads": 1,
+    "activeSyscall": false,
+    "sockets": 0,
+    "usesSourceIsaEmulation": false
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  }
+}

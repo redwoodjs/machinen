@@ -1,0 +1,196 @@
+{
+  "kind": "machinen.research.native-continuation-shape-matrix",
+  "version": 1,
+  "claim": "Target-native continuation from retained CPU/memory/resource shape descriptors at accepted safe points; binaries are proof vehicles, not the support axis.",
+  "requiredClaimGuardFalse": [
+    "arbitraryProcessRestoreClaimed",
+    "rawVmReplayUsed",
+    "sourceIsaEmulationUsed",
+    "metadataOnlySuccess",
+    "rawHeapStackRegisterRestore"
+  ],
+  "classifier": {
+    "report": "portability/research/native-continuation-classifier/retained/report.json",
+    "requiredShapeIds": [
+      "shape-controlled-pty-read-empty-queue",
+      "shape-pipe-empty-blocked-endpoint",
+      "shape-socket-listener-empty-accept-queue",
+      "shape-socket-connected-local-empty-queues",
+      "shape-threads-all-parked-known-waits",
+      "refuse-socket-queued-or-inflight-bytes",
+      "refuse-active-or-unclassified-thread",
+      "refuse-unclassified-process-shape"
+    ]
+  },
+  "rows": [
+    {
+      "id": "shape-pty-pager-blocked-input-empty-queue",
+      "shape": {
+        "cpu": "blocked in terminal input wait; no source ISA execution on target",
+        "memory": "screen/file position represented as semantic descriptor, not raw stack/heap",
+        "resources": ["controlled pty", "regular input file", "empty pty input queue"],
+        "acceptedSafePoint": "after first render, before next key"
+      },
+      "proofBinary": "less",
+      "proofReport": "portability/research/real-less-unmodified-key-matrix/retained/report.json",
+      "proofCase": "space-page-down",
+      "decision": "supported-subset"
+    },
+    {
+      "id": "shape-editor-unsaved-buffer-command-mode",
+      "shape": {
+        "cpu": "live editor waiting for pty command/input; target restarts native editor action",
+        "memory": "unsaved buffer captured as semantic text descriptor",
+        "resources": ["controlled pty", "target file path", "empty host file before save"],
+        "acceptedSafePoint": "live unsaved buffer before save"
+      },
+      "proofBinary": "vi",
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "proofCase": "vi-mid-edit-continuation",
+      "decision": "supported-subset"
+    },
+    {
+      "id": "shape-editor-unsaved-buffer-control-key",
+      "shape": {
+        "cpu": "live editor waiting for pty control command; target restarts native save sequence",
+        "memory": "unsaved buffer captured as semantic text descriptor",
+        "resources": ["controlled pty", "target file path", "empty host file before save"],
+        "acceptedSafePoint": "live unsaved buffer before writeout"
+      },
+      "proofBinary": "nano",
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "proofCase": "nano-mid-edit-continuation",
+      "decision": "supported-subset"
+    },
+    {
+      "id": "shape-repl-primary-prompt-semantic-state",
+      "shape": {
+        "cpu": "interpreter at prompt; target-native interpreter evaluates next expression",
+        "memory": "accepted variables/statements captured as semantic descriptor, not raw interpreter heap",
+        "resources": ["controlled pty", "prompt transcript"],
+        "acceptedSafePoint": "live primary prompt after accepted statements"
+      },
+      "proofBinary": "python3 -i",
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "proofCase": "python-repl-prompt-continuation",
+      "decision": "supported-subset"
+    },
+    {
+      "id": "shape-database-cli-durable-prompt",
+      "shape": {
+        "cpu": "database CLI at prompt; target-native CLI continues query",
+        "memory": "durable database file plus SQL transcript, not raw process heap",
+        "resources": ["controlled pty", "database file", "no active transaction claimed"],
+        "acceptedSafePoint": "live prompt after durable writes"
+      },
+      "proofBinary": "sqlite3",
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "proofCase": "sqlite-prompt-continuation",
+      "decision": "supported-subset"
+    },
+    {
+      "id": "shape-build-controlled-recipe-gate",
+      "shape": {
+        "cpu": "build driver blocked at controlled recipe gate; target-native make runs remaining work",
+        "memory": "makefile, prerequisites, and completed phase captured as files/descriptors",
+        "resources": ["working directory", "makefile", "completed prerequisite stamp", "gate file"],
+        "acceptedSafePoint": "live recipe gate before final output mutation"
+      },
+      "proofBinary": "make",
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "proofCase": "make-active-recipe-continuation",
+      "decision": "supported-subset"
+    },
+    {
+      "id": "shape-tui-rendered-frame-quit",
+      "shape": {
+        "cpu": "TUI rendered and waiting for pty input; target-native TUI accepts next key",
+        "memory": "rendered-frame proof only; no arbitrary process table heap restored",
+        "resources": ["controlled pty", "terminal size", "empty input queue"],
+        "acceptedSafePoint": "live rendered frame"
+      },
+      "proofBinary": "top",
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "proofCase": "top-live-refresh-continuation",
+      "decision": "supported-subset"
+    },
+    {
+      "id": "shape-periodic-tui-rendered-frame-quit",
+      "shape": {
+        "cpu": "periodic TUI rendered and waiting for pty input; target-native TUI accepts next key",
+        "memory": "command descriptor and rendered-frame proof only",
+        "resources": ["controlled pty", "terminal size", "empty input queue"],
+        "acceptedSafePoint": "live rendered frame"
+      },
+      "proofBinary": "watch",
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "proofCase": "watch-live-refresh-continuation",
+      "decision": "supported-subset"
+    },
+    {
+      "id": "shape-filesystem-walk-controlled-gate",
+      "shape": {
+        "cpu": "walker paused at controlled exec gate; target-native walk restarts stable traversal",
+        "memory": "stable directory tree descriptor, not raw traversal stack",
+        "resources": ["directory tree", "stable file set", "no concurrent mutation"],
+        "acceptedSafePoint": "live controlled walk gate"
+      },
+      "proofBinary": "find",
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "proofCase": "find-live-walk-continuation",
+      "decision": "supported-subset"
+    },
+    {
+      "id": "refuse-live-tcp-partial-body",
+      "shape": {
+        "cpu": "native client mid-transfer",
+        "memory": "partial protocol/body state exists outside an accepted descriptor",
+        "resources": ["TCP socket", "partial response bytes"],
+        "refusalBoundary": "kernel TCP identity and in-flight body are not preserved"
+      },
+      "proofBinary": "curl",
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "proofCase": "curl-mid-transfer-refusal",
+      "decision": "refused"
+    },
+    {
+      "id": "refuse-live-archive-stream",
+      "shape": {
+        "cpu": "archiver mid-stream",
+        "memory": "partial stream/checkpoint state exists outside an accepted descriptor",
+        "resources": ["partial archive stream"],
+        "refusalBoundary": "partial output stream identity is not continued"
+      },
+      "proofBinary": "tar",
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "proofCase": "tar-mid-stream-refusal",
+      "decision": "refused"
+    },
+    {
+      "id": "refuse-live-copy-partial-destination",
+      "shape": {
+        "cpu": "sync tool mid-copy",
+        "memory": "delta/checksum/copy cursor not captured as accepted descriptor",
+        "resources": ["partial destination file"],
+        "refusalBoundary": "partial destination mutation is refused"
+      },
+      "proofBinary": "rsync",
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "proofCase": "rsync-mid-copy-refusal",
+      "decision": "refused"
+    },
+    {
+      "id": "refuse-live-cipher-stream",
+      "shape": {
+        "cpu": "cipher process mid-stream",
+        "memory": "cipher chaining/PBKDF/input cursor state is not reconstructed from raw process memory",
+        "resources": ["partial input/output stream"],
+        "refusalBoundary": "live cipher state is refused"
+      },
+      "proofBinary": "openssl enc",
+      "proofReport": "portability/research/real-crazy-binary-stress-ladder/retained/report.json",
+      "proofCase": "openssl-enc-mid-stream-refusal",
+      "decision": "refused"
+    }
+  ]
+}

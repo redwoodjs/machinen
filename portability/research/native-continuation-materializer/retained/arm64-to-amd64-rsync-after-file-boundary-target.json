@@ -1,0 +1,49 @@
+{
+  "case": "rsync-after-file-boundary",
+  "kind": "support",
+  "description": "materialize rsync file-boundary descriptor by completing remaining files",
+  "mode": "target",
+  "role": "target",
+  "hostArch": "x86_64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "accepted",
+  "descriptor": {
+    "kind": "machinen.research.native-continuation.capture-descriptor",
+    "version": 1,
+    "shapeId": "shape-rsync-after-file-boundary",
+    "architectureNeutral": true,
+    "cpu": {
+      "wait": "after-copy-file-boundary",
+      "targetNativeReconstruction": true,
+      "sourceIsaEmulationRequired": false
+    },
+    "memory": {
+      "mode": "semantic-resource-descriptor-only",
+      "rawHeapCaptured": false,
+      "rawStackCaptured": false,
+      "rawRegistersCaptured": false,
+      "rawHeapStackRegistersCaptured": false
+    },
+    "resources": {
+      "copy": {
+        "atFileBoundary": true,
+        "completedFiles": ["a.txt"],
+        "remainingFiles": ["b.txt"]
+      }
+    },
+    "materializer": {
+      "strategy": "target-native-shape-materializer",
+      "rawProcessMemoryMaterialization": false
+    }
+  },
+  "evidence": {
+    "returncode": 0,
+    "resumedAtFileBoundary": true
+  }
+}

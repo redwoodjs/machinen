@@ -1,0 +1,16 @@
+{
+  "shape": "012-seek-overwrite-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "declared safe-point seek and overwrite regular file descriptor",
+  "sourceArch": "arm64",
+  "targetArch": "amd64",
+  "facts": {
+    "entrySymbol": "continue_seek_overwrite",
+    "sourcePc": "0xae1b629b1990",
+    "sourceSp": "0xffffe41b8550",
+    "sourceArg0": "0x1000",
+    "targetArgumentRegister": "rdi",
+    "targetStackBytes": 65536
+  }
+}

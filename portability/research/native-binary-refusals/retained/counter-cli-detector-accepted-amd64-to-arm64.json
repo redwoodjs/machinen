@@ -1,0 +1,17 @@
+{
+  "shape": "001-counter-cli",
+  "decision": "accepted",
+  "supportStage": "4-supported-subset",
+  "supportScope": "single-threaded declared-safe-point counter fixture with source pc/sp/arg0, one declared heap state region, one in-region pointer relocation, target-native final jump, and no live kernel resources",
+  "sourceArch": "amd64",
+  "targetArch": "arm64",
+  "facts": {
+    "sourcePc": "0x60de91c5324e",
+    "sourceSp": "0x7ffd782fb1b0",
+    "sourceArg0": "0x60dec2c6a2a0",
+    "stateRegion": "heap:captured-state",
+    "stateBytes": 80,
+    "relocatedPointerOffset": 16,
+    "targetArgumentRegister": "x0"
+  }
+}

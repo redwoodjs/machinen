@@ -1,0 +1,219 @@
+{
+  "case": "supervisor-two-sleeps-term",
+  "adapter": "supervisor-two",
+  "description": "supervisor traps TERM and kills two sleep children",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "x86_64",
+  "processRoot": {
+    "pid": 3790163,
+    "argv": ["/tmp/machinen-pipeline-supervisor-ladder-dqpu75b2/script.sh"]
+  },
+  "processTree": [
+    {
+      "pid": 3790163,
+      "state": {
+        "pid": 3790163,
+        "comm": "script.sh",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 3790162,
+        "pgrp": 3790163,
+        "session": 3790163,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "130 0x7ffd7ed808e0 0x8 0x0 0x8 0x1999999999999999 0x0 0x7ffd7ed808c8 0x710b659b42d5",
+          "parsed": true,
+          "number": 130,
+          "name": "syscall-130",
+          "args": [140726731540704, 8, 0, 8, 1844674407370955161, 0],
+          "fd": 140726731540704
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 10,
+          "target": "/tmp/machinen-pipeline-supervisor-ladder-dqpu75b2/script.sh"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": true,
+      "hasPipeFd": false,
+      "hasSocketFd": false
+    },
+    {
+      "pid": 3790164,
+      "state": {
+        "pid": 3790164,
+        "comm": "sleep",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 3790163,
+        "pgrp": 3790163,
+        "session": 3790163,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "230 0x0 0x0 0x7fff45d58ee0 0x7fff45d58f20 0x0 0x0 0x7fff45d58ec8 0x79eba18b3503",
+          "parsed": true,
+          "number": 230,
+          "name": "syscall-230",
+          "args": [0, 0, 140734365011680, 140734365011744, 0, 0],
+          "fd": 0
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/null",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/null",
+      "allStdioOnControlledPty": false,
+      "hasPipeFd": false,
+      "hasSocketFd": false
+    },
+    {
+      "pid": 3790165,
+      "state": {
+        "pid": 3790165,
+        "comm": "sleep",
+        "state": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "ppid": 3790163,
+        "pgrp": 3790163,
+        "session": 3790163,
+        "ttyNr": 34816,
+        "syscall": {
+          "raw": "230 0x0 0x0 0x7fff44b37880 0x7fff44b378c0 0x0 0x0 0x7fff44b37868 0x78d1c4ab9503",
+          "parsed": true,
+          "number": 230,
+          "name": "syscall-230",
+          "args": [0, 0, 140734346000512, 140734346000576, 0, 0],
+          "fd": 0
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/null"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/null",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/null",
+      "allStdioOnControlledPty": false,
+      "hasPipeFd": false,
+      "hasSocketFd": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3790164,
+    "state": {
+      "pid": 3790164,
+      "comm": "sleep",
+      "state": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "ppid": 3790163,
+      "pgrp": 3790163,
+      "session": 3790163,
+      "ttyNr": 34816,
+      "syscall": {
+        "raw": "230 0x0 0x0 0x7fff45d58ee0 0x7fff45d58f20 0x0 0x0 0x7fff45d58ec8 0x79eba18b3503",
+        "parsed": true,
+        "number": 230,
+        "name": "syscall-230",
+        "args": [0, 0, 140734365011680, 140734365011744, 0, 0],
+        "fd": 0
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/null"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/null",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/null",
+    "allStdioOnControlledPty": false,
+    "hasPipeFd": false,
+    "hasSocketFd": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "inputQueueBytesOnMaster": 0
+  },
+  "checks": {
+    "expectedRendered": true,
+    "modeledProcessTree": true,
+    "queuesEmpty": true,
+    "producerDrainedWhenRequired": true
+  },
+  "screenAtCandidate": {
+    "sample": ""
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "decision": "captured"
+}

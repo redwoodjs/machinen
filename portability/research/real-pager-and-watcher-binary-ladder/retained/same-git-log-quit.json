@@ -1,0 +1,203 @@
+{
+  "case": "git-log-quit",
+  "adapter": "git-log",
+  "description": "git log --paginate pager child exits on q",
+  "mode": "same",
+  "role": "same",
+  "hostArch": "x86_64",
+  "binary": {
+    "path": "/usr/bin/git",
+    "versionLine": "git version 2.39.5",
+    "packageEvidence": null
+  },
+  "processRoot": {
+    "pid": 3770692,
+    "argv": [
+      "/usr/bin/git",
+      "--paginate",
+      "--no-optional-locks",
+      "log",
+      "--oneline",
+      "--decorate=short"
+    ]
+  },
+  "processTree": [
+    {
+      "pid": 3770692,
+      "state": {
+        "pid": 3770692,
+        "comm": "git",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3770448,
+        "statPgrp": 3770692,
+        "statSession": 3770692,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "61 0x398945 0x7ffcce321cb4 0x0 0x0 0x0 0x5780b01ab7b0 0x7ffcce321ca8 0x7d97415b3bd3",
+          "parsed": true,
+          "number": 61,
+          "name": "syscall-61",
+          "args": [3770693, 140723767876788, 0, 0, 0, 96210221971376],
+          "fd": 3770693
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "/dev/pts/0"
+        }
+      ],
+      "stdioTargets": {
+        "0": "/dev/pts/0",
+        "1": null,
+        "2": null
+      },
+      "syscallFdTarget": null,
+      "allStdioOnControlledPty": false,
+      "hasSignalfd": false,
+      "hasRegularAdapterFile": false
+    },
+    {
+      "pid": 3770693,
+      "state": {
+        "pid": 3770693,
+        "comm": "more",
+        "statusState": "S",
+        "threads": 1,
+        "signalPendingMask": "0000000000000000",
+        "statPpid": 3770692,
+        "statPgrp": 3770692,
+        "statSession": 3770692,
+        "statTtyNr": 34816,
+        "syscall": {
+          "raw": "0 0x2 0x7fff4aa16c10 0x8 0x0 0x7541020d8a80 0x0 0x7fff4aa16b78 0x754101ffc2ad",
+          "parsed": true,
+          "number": 0,
+          "name": "read",
+          "args": [2, 140734445480976, 8, 0, 128922067765888, 0],
+          "fd": 2
+        }
+      },
+      "fds": [
+        {
+          "fd": 0,
+          "target": "pipe:[64549761]"
+        },
+        {
+          "fd": 1,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 2,
+          "target": "/dev/pts/0"
+        },
+        {
+          "fd": 3,
+          "target": "anon_inode:[signalfd]"
+        }
+      ],
+      "stdioTargets": {
+        "0": "pipe:[64549761]",
+        "1": "/dev/pts/0",
+        "2": "/dev/pts/0"
+      },
+      "syscallFdTarget": "/dev/pts/0",
+      "allStdioOnControlledPty": false,
+      "hasSignalfd": true,
+      "hasRegularAdapterFile": false
+    }
+  ],
+  "candidateProcess": {
+    "pid": 3770693,
+    "state": {
+      "pid": 3770693,
+      "comm": "more",
+      "statusState": "S",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "statPpid": 3770692,
+      "statPgrp": 3770692,
+      "statSession": 3770692,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "0 0x2 0x7fff4aa16c10 0x8 0x0 0x7541020d8a80 0x0 0x7fff4aa16b78 0x754101ffc2ad",
+        "parsed": true,
+        "number": 0,
+        "name": "read",
+        "args": [2, 140734445480976, 8, 0, 128922067765888, 0],
+        "fd": 2
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "pipe:[64549761]"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "anon_inode:[signalfd]"
+      }
+    ],
+    "stdioTargets": {
+      "0": "pipe:[64549761]",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": "/dev/pts/0",
+    "allStdioOnControlledPty": false,
+    "hasSignalfd": true,
+    "hasRegularAdapterFile": false
+  },
+  "pty": {
+    "slavePath": "/dev/pts/0",
+    "rows": 24,
+    "cols": 80,
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3770692
+  },
+  "candidateChecks": {
+    "expectedOutputRendered": true,
+    "modeledWait": true,
+    "controlledPtyIo": true,
+    "sessionPgrp": true,
+    "queuesEmpty": true,
+    "singleThreadCandidate": true,
+    "noPendingSignalCandidate": true
+  },
+  "screenAtCandidate": {
+    "containsExpectedOutput": true,
+    "sample": "\u001b[33m2ce35e0\u001b[m\u001b[33m (\u001b[m\u001b[1;36mHEAD -> \u001b[m\u001b[1;32mmaster\u001b[m\u001b[33m)\u001b[m commit-080\r\n\u001b[33ma148af6\u001b[m commit-079\r\n\u001b[33m77baa65\u001b[m commit-078\r\n\u001b[33m64b2fe5\u001b[m commit-077\r\n\u001b[33m2e41b89\u001b[m commit-076\r\n\u001b[33md3ad858\u001b[m commit-075\r\n\u001b[33m2d5a614\u001b[m commit-074\r\n\u001b[33ma21c6d8\u001b[m commit-073\r\n\u001b[33m596bbfe\u001b[m commit-072\r\n\u001b[33m4435864\u001b[m commit-071\r\n\u001b[33m1b5afab\u001b[m commit-070\r\n\u001b[33m2bc73d8\u001b[m commit-069\r\n\u001b[33ma65e846\u001b[m commit-068\r\n\u001b[33ma799c27\u001b[m commit-067\r\n\u001b[33mb19e6e8\u001b[m commit-066\r\n\u001b[33mcf61089\u001b[m commit-065\r\n\u001b[33mc60ddff\u001b[m commit-064\r\n\u001b[33m5309ad8\u001b[m commit-063\r\n\u001b[33mcad8971\u001b[m commit-062\r\n\u001b[33m9b9bf01\u001b[m commit-061\r\n\u001b[33m2fe2590\u001b[m commit-060\r\n\u001b[33m889defe\u001b[m commit-059\r\n\u001b[33m1ccd1e5\u001b[m commit-058\r\n\u001b[7m--More--\u001b[27m"
+  },
+  "inputOrResource": {
+    "expect": "process-exit",
+    "file": "/tmp/machinen-pager-watcher-ladder-0s34h3as/repo",
+    "base64": "cQ=="
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "markerSymbolsUsed": false
+  },
+  "behavior": {
+    "matchedExpectation": true,
+    "processExited": true,
+    "sample": "\r\u001b[K"
+  },
+  "decision": "accepted"
+}

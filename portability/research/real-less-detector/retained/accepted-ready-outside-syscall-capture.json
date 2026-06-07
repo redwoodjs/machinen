@@ -1,0 +1,137 @@
+{
+  "kind": "machinen.research.real-less-detector.capture",
+  "version": 2,
+  "case": "accepted-ready-outside-syscall",
+  "decision": "accepted",
+  "stateKind": "ready-outside-syscall",
+  "hostArch": "x86_64",
+  "binary": {
+    "path": "/mnt/shared-500G/machinen-real-less-detector-20260605T224925Z-63950/known-less/prefix/bin/less"
+  },
+  "process": {
+    "pid": 3479454,
+    "state": {
+      "statusState": "T",
+      "threads": 1,
+      "signalPendingMask": "0000000000000000",
+      "signalBlockedMask": "0000000000000000",
+      "signalIgnoredMask": "0000000000000004",
+      "signalCaughtMask": "0000000008084002",
+      "statPgrp": 3479454,
+      "statSession": 3479454,
+      "statTtyNr": 34816,
+      "syscall": {
+        "raw": "-1 0x7ffe56512c20 0x5596b39fd198",
+        "parsed": true,
+        "number": -1,
+        "name": "syscall--1",
+        "args": [140730346581024, 94105747050904],
+        "fd": 140730346581024
+      }
+    },
+    "fds": [
+      {
+        "fd": 0,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 1,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 2,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 3,
+        "target": "/dev/pts/0"
+      },
+      {
+        "fd": 4,
+        "target": "/tmp/machinen-real-less-detector-7iihmmmb/less-input.txt"
+      }
+    ],
+    "stdioTargets": {
+      "0": "/dev/pts/0",
+      "1": "/dev/pts/0",
+      "2": "/dev/pts/0"
+    },
+    "syscallFdTarget": null,
+    "allStdioOnControlledPty": true,
+    "socketFds": []
+  },
+  "pty": {
+    "rows": 24,
+    "cols": 80,
+    "identity": {
+      "path": "/dev/pts/0",
+      "device": 24,
+      "inode": 3,
+      "rdev": 34816,
+      "mode": "0o20620"
+    },
+    "inputQueueBytesOnMaster": 0,
+    "inputQueueBytesOnSlave": {
+      "available": true,
+      "bytes": 0
+    },
+    "foregroundPgrpFromMaster": 3479454,
+    "controlledPty": true,
+    "harnessPendingInputBytes": 0
+  },
+  "screenEvidence": {
+    "containsFirstLine": true,
+    "containsPipeFirstLine": false,
+    "sample": "\u001b[?1049h\u001b[22;0;0t\u001b[24;1H\u001b[?1h\u001b=\rline-001\r\nline-002\r\nline-003\r\nline-004\r\nline-005\r\nline-006\r\nline-007\r\nline-008\r\nline-009\r\nline-010\r\nline-011\r\nline-012\r\nline-013\r\nline-014\r\nline-015\r\nline-016\r\nline-017\r\nline-018\r\nline-019\r\nline-020\r\nline-021\r\nline-022\r\nline-023\r\n\u001b[7m/tmp/machinen-real-less-detector-7iihmmmb/less-input.txt\u001b[27m\u001b[K"
+  },
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  },
+  "less": {
+    "path": "/mnt/shared-500G/machinen-real-less-detector-20260605T224925Z-63950/known-less/prefix/bin/less",
+    "versionLine": "less 643 (POSIX regular expressions)"
+  },
+  "regularFile": {
+    "path": "/tmp/machinen-real-less-detector-7iihmmmb/less-input.txt",
+    "device": 64513,
+    "inode": 5811613,
+    "size": 711,
+    "mtimeNs": 1780699769932466481,
+    "mode": "0o100644"
+  },
+  "markerSafePoint": {
+    "mode": "source-marker-spin-before-getcc",
+    "environment": "MACHINEN_LESS_SPIN_AT_READY=1",
+    "symbolEvidence": {
+      "available": true,
+      "required": [
+        "machinen_less_ready_before_input_marker",
+        "machinen_less_ready_before_input_gate"
+      ],
+      "present": [
+        "machinen_less_ready_before_input_gate",
+        "machinen_less_ready_before_input_marker"
+      ],
+      "lines": [
+        "000000000000d179 T machinen_less_ready_before_input_marker",
+        "000000000003b350 B machinen_less_ready_before_input_gate"
+      ],
+      "allRequiredPresent": true
+    }
+  },
+  "detector": {
+    "acceptedBecause": [
+      "known marker-symbol less build launched under controlled pty",
+      "screen evidence contains first page",
+      "marker function is compiled into target-native less",
+      "marker safe point is in the command loop after prompt rendering and before getcc/read input",
+      "process was stopped while held at the marker safe-point spin, not by source-ISA emulation or VM replay",
+      "regular input file has stable identity descriptor"
+    ],
+    "accepted": true,
+    "outsideSyscallPolicy": "accepted only for known debug/marker less builds that spin at machinen_less_ready_before_input_marker before reading the next command byte"
+  }
+}

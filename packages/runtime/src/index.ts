@@ -1193,6 +1193,26 @@ export {
   restoreProductLevel4PingSocketSnapshot,
 } from "./product-level4-ping-socket.ts";
 export {
+  MOVE_PID_GRAPH_KIND,
+  captureMovePidDependencyGraph,
+  classifyMovePidDependencyGraph,
+} from "./move-pid-graph.ts";
+export type {
+  MovePidDependencyGraph,
+  MovePidGraphAdapterCandidate,
+  MovePidGraphCaptureOptions,
+  MovePidGraphClassification,
+  MovePidGraphDecision,
+  MovePidGraphDependency,
+  MovePidGraphFd,
+  MovePidGraphObservationConsistency,
+  MovePidGraphProcess,
+  MovePidGraphRefusal,
+  MovePidGraphSocket,
+  MovePidGraphSyscall,
+  MovePidGraphThread,
+} from "./move-pid-graph.ts";
+export {
   TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
   TargetGuestRestoreLoaderValidationError,
   buildNativeActualResumeTrampolineArgs,

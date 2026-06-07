@@ -1,0 +1,21 @@
+{
+  "case": "openssl-s-client-refusal",
+  "kind": "refusal",
+  "description": "openssl s_client live TLS socket/session state is refused",
+  "mode": "source",
+  "role": "source",
+  "hostArch": "aarch64",
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false,
+    "rawHeapStackRegisterRestore": false
+  },
+  "decision": "refused",
+  "refusal": {
+    "reason": "openssl-s-client-live-tls-socket-session",
+    "binary": "/usr/bin/openssl",
+    "socketBoundaryProbe": "socket-bound:48789"
+  }
+}

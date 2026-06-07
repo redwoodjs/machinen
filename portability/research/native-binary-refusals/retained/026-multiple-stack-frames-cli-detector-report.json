@@ -1,0 +1,74 @@
+{
+  "kind": "machinen.research.native-binary-refusal.native-shape-detector-report",
+  "version": 1,
+  "row": "026-multiple-stack-frames-cli",
+  "lifecycleStage": "4-supported-subset",
+  "supportDecision": "supported-subset",
+  "supportScope": "declared safe-point multiple stack-frame descriptor subset",
+  "accepted": [
+    {
+      "label": "arm64-to-amd64",
+      "decision": "accepted",
+      "supportStage": "4-supported-subset"
+    },
+    {
+      "label": "amd64-to-arm64",
+      "decision": "accepted",
+      "supportStage": "4-supported-subset"
+    }
+  ],
+  "refused": [
+    {
+      "label": "missing-safe-point",
+      "decision": "refused",
+      "refusalCode": "native-shape-missing-safe-point"
+    },
+    {
+      "label": "bad-entry-symbol",
+      "decision": "refused",
+      "refusalCode": "native-shape-unsupported-entry-symbol"
+    },
+    {
+      "label": "same-architecture",
+      "decision": "refused",
+      "refusalCode": "native-shape-not-cross-architecture"
+    },
+    {
+      "label": "source-isa-emulation",
+      "decision": "refused",
+      "refusalCode": "native-shape-claim-guard-not-false"
+    },
+    {
+      "label": "metadata-only",
+      "decision": "refused",
+      "refusalCode": "native-shape-claim-guard-not-false"
+    },
+    {
+      "label": "active-syscall",
+      "decision": "refused",
+      "refusalCode": "native-shape-unsupported-live-state"
+    },
+    {
+      "label": "thread-state",
+      "decision": "refused",
+      "refusalCode": "native-shape-unsupported-live-state"
+    },
+    {
+      "label": "socket-state",
+      "decision": "refused",
+      "refusalCode": "native-shape-unsupported-live-state"
+    },
+    {
+      "label": "descriptor-thread",
+      "decision": "refused",
+      "refusalCode": "native-shape-descriptor-outside-supported-subset"
+    }
+  ],
+  "claimGuard": {
+    "arbitraryProcessRestoreClaimed": false,
+    "rawVmReplayUsed": false,
+    "sourceIsaEmulationUsed": false,
+    "metadataOnlySuccess": false
+  },
+  "status": "passed"
+}
