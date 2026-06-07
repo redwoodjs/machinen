@@ -9,7 +9,7 @@
     "typecheck": "tsgo --noEmit",
     "pretest": "pnpm build",
     "test": "vitest run",
-    "lint": "oxlint --deny-warnings",
+    "lint": "oxlint --deny-warnings && node scripts/fallow-health-guard.mjs",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:fix": "oxfmt",
@@ -131,7 +131,8 @@
     "archive-node-ecosystem-restore": "node scripts/archived-smoke.mjs scripts/smoke/node-ecosystem-restore.sh",
     "archive-non-node-cross-arch": "node scripts/archived-smoke.mjs scripts/smoke/non-node-cross-arch.sh",
     "archive-go-quiescent-runtime": "node scripts/archived-smoke.mjs scripts/smoke/go-quiescent-runtime.sh",
-    "product-claim-registry-matrix": "node scripts/product-claim-registry-matrix.mjs"
+    "product-claim-registry-matrix": "node scripts/product-claim-registry-matrix.mjs",
+    "fallow:health": "node scripts/fallow-health-guard.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
