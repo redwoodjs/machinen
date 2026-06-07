@@ -18,10 +18,10 @@ type Summary = {
   profile: {
     name: "ping-level4-socket-reconstruction-v1";
     evidenceStatus: "support";
-    productSupport: "supported";
-    implementationLevel: "level-4-kernel-resource-reconstruction";
-    graduationTargetLevel: "level-4-kernel-resource-reconstruction";
-    productClaim: "portable machine snapshot supports this ping workload at Level 4";
+    productSupport: "deprecated";
+    implementationLevel: "deprecated-level-4-kernel-resource-reconstruction";
+    graduationTargetLevel: "level-5-cross-arch-process-continuation";
+    productClaim: "portable machine Level 4 ping evidence is deprecated legacy support";
     publicSurfaces: string[];
   };
   retiredLevel2: {
@@ -78,8 +78,8 @@ try {
   const level4 = registry.entries.find(
     (entry) => entry.name === "ping-level4-socket-reconstruction-v1",
   );
-  if (!level4 || level4.productStatus !== "implemented-product-support") {
-    throw new Error("Level 4 ping is not implemented product support");
+  if (!level4 || level4.productStatus !== "deprecated-legacy-support") {
+    throw new Error("Level 4 ping is not deprecated legacy support");
   }
   const level2Implemented = registry.entries.some(
     (entry) =>
@@ -108,10 +108,10 @@ try {
     profile: {
       name: "ping-level4-socket-reconstruction-v1",
       evidenceStatus: "support",
-      productSupport: "supported",
-      implementationLevel: "level-4-kernel-resource-reconstruction",
-      graduationTargetLevel: "level-4-kernel-resource-reconstruction",
-      productClaim: "portable machine snapshot supports this ping workload at Level 4",
+      productSupport: "deprecated",
+      implementationLevel: "deprecated-level-4-kernel-resource-reconstruction",
+      graduationTargetLevel: "level-5-cross-arch-process-continuation",
+      productClaim: "portable machine Level 4 ping evidence is deprecated legacy support",
       publicSurfaces: [
         "MACHINEN_SNAPSHOT_ENGINE=portable machinen snapshot <vm> <bundle>",
         "machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]",

@@ -16,10 +16,15 @@ pnpm run smoke-product-support-discovery
 machinen support --json
 ```
 
-Current product-facing families are documented in:
+Current product-facing taxonomy is documented in:
 
 - [Product claim registry](./product-claim-registry.md)
 - [Cross-ISA support levels](./cross-isa-support-levels.md)
+
+Legacy Level 1 through Level 4 docs remain below for archaeology and regression
+context. They are not active product support unless the product claim registry
+says so:
+
 - [Clean service product snapshot/restore](./clean-service-product-snapshot-restore.md)
 - [Node product snapshot/restore](./node-product-snapshot-restore.md)
 - [Level 4 ping machine workload](./level4-ping-machine-workload.md)

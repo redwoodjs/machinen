@@ -17,10 +17,10 @@ type Summary = {
   profile: {
     name: string;
     evidenceStatus: "support";
-    productSupport: "supported";
-    implementationLevel: "level-4-kernel-resource-reconstruction";
-    graduationTargetLevel: "level-4-kernel-resource-reconstruction";
-    migrationCompleted: true;
+    productSupport: "deprecated";
+    implementationLevel: "deprecated-level-4-kernel-resource-reconstruction";
+    graduationTargetLevel: "level-5-cross-arch-process-continuation";
+    migrationCompleted: false;
     publicSurfaces: string[];
   };
   productRegistry: {
@@ -77,11 +77,11 @@ const entry = registry.entries.find((item) => item.name === "ping-level4-socket-
 if (!entry) {
   throw new Error("missing ping-level4-socket-reconstruction-v1 registry entry");
 }
-if (entry.productStatus !== "implemented-product-support") {
-  throw new Error(`ping Level 4 registry entry is not support: ${entry.productStatus}`);
+if (entry.productStatus !== "deprecated-legacy-support") {
+  throw new Error(`ping Level 4 registry entry is not deprecated: ${entry.productStatus}`);
 }
-if (entry.supportLevel !== "level-4-kernel-resource-reconstruction") {
-  throw new Error(`ping Level 4 registry entry has wrong level: ${entry.supportLevel}`);
+if (entry.supportLevel !== "level-0-fail-closed-discovery") {
+  throw new Error(`deprecated ping Level 4 registry entry has wrong level: ${entry.supportLevel}`);
 }
 const refusalNames = [
   "ping-socket-known-unread-reply-v3-multiple-replies-refusal",
@@ -111,10 +111,10 @@ const summary: Summary = {
   profile: {
     name: "ping-level4-socket-reconstruction-v1",
     evidenceStatus: "support",
-    productSupport: "supported",
-    implementationLevel: "level-4-kernel-resource-reconstruction",
-    graduationTargetLevel: "level-4-kernel-resource-reconstruction",
-    migrationCompleted: true,
+    productSupport: "deprecated",
+    implementationLevel: "deprecated-level-4-kernel-resource-reconstruction",
+    graduationTargetLevel: "level-5-cross-arch-process-continuation",
+    migrationCompleted: false,
     publicSurfaces: [
       "machinen capture ping-socket",
       "machinen restore <bundle> --target-arch <arch> [--target-verifier-output <file>]",

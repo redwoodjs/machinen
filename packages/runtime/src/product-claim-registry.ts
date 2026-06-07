@@ -2,16 +2,13 @@ export const PRODUCT_CLAIM_REGISTRY_FORMAT_VERSION = 1 as const;
 
 export const productSupportLevels = [
   "level-0-fail-closed-discovery",
-  "level-1-semantic-restart",
-  "level-2-semantic-continuation",
-  "level-3-runtime-aware-continuation",
-  "level-4-kernel-resource-reconstruction",
   "level-5-cross-arch-process-continuation",
 ] as const;
 export type ProductSupportLevel = (typeof productSupportLevels)[number];
 
 export const productClaimStatuses = [
   "implemented-product-support",
+  "deprecated-legacy-support",
   "stable-product-refusal",
   "proof-only-fixture",
   "obsolete-invalid-claim",
@@ -32,6 +29,7 @@ export const productClaimFamilies = [
 export type ProductClaimFamily = (typeof productClaimFamilies)[number];
 
 export const PRODUCT_CLAIM_PROOF_ONLY_REFUSAL_CODE = "product-surface-not-implemented" as const;
+export const PRODUCT_CLAIM_DEPRECATED_LEGACY_REFUSAL_CODE = "deprecated-cross-isa-level" as const;
 
 export interface ProductClaimObservableStateDecision {
   name: string;
@@ -99,6 +97,7 @@ export interface ProductClaimRegistrySummary {
   byStatus: Record<ProductClaimStatus, number>;
   byFamily: Record<ProductClaimFamily, number>;
   implementedProductSupport: number;
+  deprecatedLegacySupport: number;
   stableProductRefusals: number;
   proofOnlyFixtures: number;
   obsoleteInvalidClaims: number;
@@ -114,7 +113,9 @@ export interface ProductClaimRegistryFilter {
   supportLevel?: ProductSupportLevel;
 }
 
-const IMPLEMENTED_PRODUCT_PROFILES = new Set([
+const IMPLEMENTED_PRODUCT_PROFILES = new Set<string>();
+
+const DEPRECATED_LEGACY_PRODUCT_PROFILES = new Set([
   "node-app-http-server-recreate",
   "python-cross-arch-runtime-policy",
   "go-cross-arch-runtime-policy",
@@ -193,7 +194,6 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
     sourceFixture: "portable-restore-adapter:tcp-listener-v1-loopback-empty-accept-queue",
     expectedResult: "success",
     supportStatus: "implemented-product-support",
-    productSupportLevel: "level-4-kernel-resource-reconstruction",
     unsafeStateFamily: "tcp-listener",
     capabilities: [
       "goal018:portable-restore-adapter",
@@ -242,7 +242,6 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
     sourceFixture: "portable-restore-adapter:timerfd-relative-oneshot-v1-monotonic",
     expectedResult: "success",
     supportStatus: "implemented-product-support",
-    productSupportLevel: "level-4-kernel-resource-reconstruction",
     unsafeStateFamily: "timerfd-relative-oneshot",
     capabilities: [
       "goal017:portable-restore-adapter",
@@ -291,7 +290,6 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
     sourceFixture: "portable-restore-adapter:pipe-pair-v1-empty-no-waiters",
     expectedResult: "success",
     supportStatus: "implemented-product-support",
-    productSupportLevel: "level-4-kernel-resource-reconstruction",
     unsafeStateFamily: "pipe-pair",
     capabilities: [
       "goal016:portable-restore-adapter",
@@ -341,7 +339,6 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
     sourceFixture: "portable-restore-adapter:eventfd-counter-v1-nonsemaphore-no-waiters",
     expectedResult: "success",
     supportStatus: "implemented-product-support",
-    productSupportLevel: "level-4-kernel-resource-reconstruction",
     unsafeStateFamily: "eventfd-counter",
     capabilities: [
       "goal015:portable-restore-adapter",
@@ -390,7 +387,6 @@ const BUILTIN_PRODUCT_PROFILES: ProductClaimProofProfileInput[] = [
     sourceFixture: "portable-machine-transport:ping-level4-socket-reconstruction-v1",
     expectedResult: "success",
     supportStatus: "implemented-product-support",
-    productSupportLevel: "level-4-kernel-resource-reconstruction",
     unsafeStateFamily: "network-ping-socket",
     capabilities: [
       "goal011:portable-machine-transport",
@@ -476,6 +472,7 @@ export function productClaimEntryFromProofProfile(
 ): ProductClaimEntry {
   const family = classifyProductClaimFamily(profile);
   const implemented = IMPLEMENTED_PRODUCT_PROFILES.has(profile.name);
+  const deprecatedLegacy = DEPRECATED_LEGACY_PRODUCT_PROFILES.has(profile.name);
   const expectedResult =
     profile.expectedResult === "success" || profile.expectedResult === "refusal"
       ? profile.expectedResult
@@ -484,12 +481,16 @@ export function productClaimEntryFromProofProfile(
     profile.expectedRefusalCode ?? profile.refusalSupportContract?.currentRefusalCode;
   const productStatus = implemented
     ? "implemented-product-support"
-    : expectedResult === "refusal"
-      ? "stable-product-refusal"
-      : "proof-only-fixture";
+    : deprecatedLegacy
+      ? "deprecated-legacy-support"
+      : expectedResult === "refusal"
+        ? "stable-product-refusal"
+        : "proof-only-fixture";
   const productRefusalCode = implemented
     ? undefined
-    : (refusalCode ?? PRODUCT_CLAIM_PROOF_ONLY_REFUSAL_CODE);
+    : deprecatedLegacy
+      ? PRODUCT_CLAIM_DEPRECATED_LEGACY_REFUSAL_CODE
+      : (refusalCode ?? PRODUCT_CLAIM_PROOF_ONLY_REFUSAL_CODE);
   const supportLevel = productSupportLevelForProfile(profile, productStatus);
   return {
     name: profile.name,
@@ -500,7 +501,9 @@ export function productClaimEntryFromProofProfile(
     productStatus,
     supportLevel,
     supportLevelName: productSupportLevelName(supportLevel),
-    proofStatus: profile.supportStatus ?? "unknown",
+    proofStatus: deprecatedLegacy
+      ? "deprecated-legacy-support"
+      : (profile.supportStatus ?? "unknown"),
     expectedResult,
     sourceGoal: sourceGoal(profile),
     unsafeStateFamily: profile.unsafeStateFamily,
@@ -514,10 +517,14 @@ export function productClaimEntryFromProofProfile(
     sourceFixture: profile.sourceFixture,
     graduationRequirements: implemented
       ? []
-      : (profile.refusalSupportContract?.graduationRequires ??
-        defaultGraduationRequirements(profile)),
-    observableStateDecisions:
-      profile.observableStateDecisions ?? defaultObservableStateDecisions(profile, supportLevel),
+      : deprecatedLegacy
+        ? ["replace-legacy-level-with-move-pid-graph-translator"]
+        : (profile.refusalSupportContract?.graduationRequires ??
+          defaultGraduationRequirements(profile)),
+    observableStateDecisions: deprecatedLegacy
+      ? deprecatedLegacyObservableStateDecisions(profile)
+      : (profile.observableStateDecisions ??
+        defaultObservableStateDecisions(profile, supportLevel)),
     message: productClaimMessage(profile, productStatus, productRefusalCode),
   };
 }
@@ -542,6 +549,7 @@ export function summarizeProductClaimRegistry(
     byStatus,
     byFamily,
     implementedProductSupport: byStatus["implemented-product-support"],
+    deprecatedLegacySupport: byStatus["deprecated-legacy-support"],
     stableProductRefusals: byStatus["stable-product-refusal"],
     proofOnlyFixtures: byStatus["proof-only-fixture"],
     obsoleteInvalidClaims: byStatus["obsolete-invalid-claim"],
@@ -611,67 +619,44 @@ function productSupportLevelForProfile(
   profile: ProductClaimProofProfileInput,
   status: ProductClaimStatus,
 ): ProductSupportLevel {
-  if (profile.productSupportLevel) {
-    return profile.productSupportLevel;
-  }
   if (status !== "implemented-product-support") {
     return "level-0-fail-closed-discovery";
   }
-  if (profile.name === "ping-sequence-counter-semantic-continuation-v1") {
-    return "level-2-semantic-continuation";
-  }
-  return "level-1-semantic-restart";
+  return profile.productSupportLevel ?? "level-5-cross-arch-process-continuation";
 }
 
 function productSupportLevelName(level: ProductSupportLevel): string {
   switch (level) {
     case "level-0-fail-closed-discovery":
       return "Level 0 — Fail-closed discovery";
-    case "level-1-semantic-restart":
-      return "Level 1 — Semantic restart";
-    case "level-2-semantic-continuation":
-      return "Level 2 — Semantic continuation";
-    case "level-3-runtime-aware-continuation":
-      return "Level 3 — Runtime-aware continuation";
-    case "level-4-kernel-resource-reconstruction":
-      return "Level 4 — Kernel-resource reconstruction";
     case "level-5-cross-arch-process-continuation":
       return "Level 5 — Cross-arch process continuation";
   }
 }
 
+function deprecatedLegacyObservableStateDecisions(
+  profile: ProductClaimProofProfileInput,
+): ProductClaimObservableStateDecision[] {
+  return [
+    {
+      name: profile.unsafeStateFamily ?? profile.name,
+      decision: "refused",
+      rationale:
+        "legacy Level 1 through Level 4 support is deprecated and no longer reported as a product migration",
+    },
+    {
+      name: "replacement-path",
+      decision: "refused",
+      rationale:
+        "support must be rebuilt through a move-owned PID dependency graph translator before it can graduate",
+    },
+  ];
+}
+
 function defaultObservableStateDecisions(
   profile: ProductClaimProofProfileInput,
-  level: ProductSupportLevel,
+  _level: ProductSupportLevel,
 ): ProductClaimObservableStateDecision[] {
-  if (level === "level-1-semantic-restart") {
-    return [
-      {
-        name: "process",
-        decision: "recreated",
-        rationale: "clean-service product support starts a target-native process and verifies it",
-      },
-      {
-        name: "unsafe-kernel-state",
-        decision: "refused",
-        rationale: "state outside the clean-service contract refuses before success is reported",
-      },
-    ];
-  }
-  if (level === "level-2-semantic-continuation") {
-    return [
-      {
-        name: "logical-state",
-        decision: "logically-restored",
-        rationale: "selected user-visible state is carried through an explicit descriptor",
-      },
-      {
-        name: "kernel-private-state",
-        decision: "refused",
-        rationale: "kernel-exact state remains outside the Level 2 contract",
-      },
-    ];
-  }
   return [
     {
       name: profile.unsafeStateFamily ?? profile.name,
@@ -838,6 +823,9 @@ function productClaimMessage(
 ): string {
   if (status === "implemented-product-support") {
     return "Implemented product support with descriptor integrity checks and target-native verification.";
+  }
+  if (status === "deprecated-legacy-support") {
+    return `Deprecated legacy cross-ISA level; product restore is refused with ${productRefusalCode} and must be replaced by a move-owned PID graph translator before support can be reintroduced.`;
   }
   if (status === "stable-product-refusal") {
     return `Product restore is refused with ${productRefusalCode}; the proof/refusal profile remains fail-closed with migrationCompleted=false.`;

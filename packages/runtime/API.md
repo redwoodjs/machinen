@@ -15558,7 +15558,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### productSupportLevel?
 
-> `optional` **productSupportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> `optional` **productSupportLevel?**: `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"`
 
 ##### observableStateDecisions?
 
@@ -15592,11 +15592,11 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### productStatus
 
-> **productStatus**: `"implemented-product-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
+> **productStatus**: `"implemented-product-support"` \| `"deprecated-legacy-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
 
 ##### supportLevel
 
-> **supportLevel**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> **supportLevel**: `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"`
 
 ##### supportLevelName
 
@@ -15706,6 +15706,10 @@ pids that aren't machinen-managed; those fall back to ps.
 
 > **implementedProductSupport**: `number`
 
+##### deprecatedLegacySupport
+
+> **deprecatedLegacySupport**: `number`
+
 ##### stableProductRefusals
 
 > **stableProductRefusals**: `number`
@@ -15726,7 +15730,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### status?
 
-> `optional` **status?**: `"implemented-product-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
+> `optional` **status?**: `"implemented-product-support"` \| `"deprecated-legacy-support"` \| `"stable-product-refusal"` \| `"proof-only-fixture"` \| `"obsolete-invalid-claim"`
 
 ##### family?
 
@@ -15750,7 +15754,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ##### supportLevel?
 
-> `optional` **supportLevel?**: `"level-4-kernel-resource-reconstruction"` \| `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"` \| `"level-1-semantic-restart"` \| `"level-2-semantic-continuation"` \| `"level-3-runtime-aware-continuation"`
+> `optional` **supportLevel?**: `"level-0-fail-closed-discovery"` \| `"level-5-cross-arch-process-continuation"`
 
 ***
 
@@ -32769,13 +32773,13 @@ loops; anything looser stops being a meaningful gate.
 
 ### productSupportLevels
 
-> `const` **productSupportLevels**: readonly \[`"level-0-fail-closed-discovery"`, `"level-1-semantic-restart"`, `"level-2-semantic-continuation"`, `"level-3-runtime-aware-continuation"`, `"level-4-kernel-resource-reconstruction"`, `"level-5-cross-arch-process-continuation"`\]
+> `const` **productSupportLevels**: readonly \[`"level-0-fail-closed-discovery"`, `"level-5-cross-arch-process-continuation"`\]
 
 ***
 
 ### productClaimStatuses
 
-> `const` **productClaimStatuses**: readonly \[`"implemented-product-support"`, `"stable-product-refusal"`, `"proof-only-fixture"`, `"obsolete-invalid-claim"`\]
+> `const` **productClaimStatuses**: readonly \[`"implemented-product-support"`, `"deprecated-legacy-support"`, `"stable-product-refusal"`, `"proof-only-fixture"`, `"obsolete-invalid-claim"`\]
 
 ***
 
