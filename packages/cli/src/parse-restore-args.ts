@@ -51,26 +51,9 @@ export interface ParsedRestoreCommandArgs {
     guest: string;
     mode: "ro" | "rw";
   }>;
-  /** Product portable restore target architecture for semantic bundles. */
-  targetArch?: "arm64" | "amd64";
-  /** File containing target-native verifier output for semantic bundles. */
-  targetVerifierOutput?: string;
-  /** Compatibility flag; Node Level 5 proof bundles now run the verifier by default. */
-  verifyProofOnly?: boolean;
-  /** Return 0 for a passed proof-only verifier while still reporting proof-only status. */
-  allowProofOnlySuccess?: boolean;
 }
 
-type RestoreFlag =
-  | "lazy"
-  | "name"
-  | "image"
-  | "liveMount"
-  | "portForward"
-  | "targetArch"
-  | "targetVerifierOutput"
-  | "verifyProofOnly"
-  | "allowProofOnlySuccess";
+type RestoreFlag = "lazy" | "name" | "image" | "liveMount" | "portForward";
 
 type RestoreFlagHandler = (
   state: RestoreParseState,
@@ -87,10 +70,6 @@ interface RestoreParseState {
   portForward: Array<{ hostPort: number; guestPort: number }>;
   lazy: boolean;
   liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
-  targetArch?: "arm64" | "amd64";
-  targetVerifierOutput?: string;
-  verifyProofOnly?: boolean;
-  allowProofOnlySuccess?: boolean;
   seenLiveGuests: Set<string>;
   seenHostPorts: Set<number>;
 }
@@ -101,15 +80,9 @@ const RESTORE_VALUE_FLAGS = new Map<string, RestoreFlag>([
   ["--mount-live", "liveMount"],
   ["-p", "portForward"],
   ["--publish", "portForward"],
-  ["--target-arch", "targetArch"],
-  ["--target-verifier-output", "targetVerifierOutput"],
 ]);
 
-const RESTORE_BARE_FLAGS = new Map<string, RestoreFlag>([
-  ["--lazy", "lazy"],
-  ["--verify-proof-only", "verifyProofOnly"],
-  ["--allow-proof-only-success", "allowProofOnlySuccess"],
-]);
+const RESTORE_BARE_FLAGS = new Map<string, RestoreFlag>([["--lazy", "lazy"]]);
 
 const RESTORE_FLAG_HANDLERS: Record<RestoreFlag, RestoreFlagHandler> = {
   lazy: handleRestoreLazy,
@@ -117,10 +90,6 @@ const RESTORE_FLAG_HANDLERS: Record<RestoreFlag, RestoreFlagHandler> = {
   image: handleRestoreImage,
   liveMount: handleRestoreLiveMount,
   portForward: handleRestorePortForward,
-  targetArch: handleRestoreTargetArch,
-  targetVerifierOutput: handleRestoreTargetVerifierOutput,
-  verifyProofOnly: handleRestoreVerifyProofOnly,
-  allowProofOnlySuccess: handleRestoreAllowProofOnlySuccess,
 };
 
 export function parseRestoreArgs(argv: string[]): ParsedRestoreCommandArgs {
@@ -169,10 +138,6 @@ function finishRestoreArgs(state: RestoreParseState): ParsedRestoreCommandArgs {
     portForward: state.portForward,
     lazy: state.lazy,
     liveMounts: state.liveMounts,
-    targetArch: state.targetArch,
-    targetVerifierOutput: state.targetVerifierOutput,
-    verifyProofOnly: state.verifyProofOnly,
-    allowProofOnlySuccess: state.allowProofOnlySuccess,
   };
 }
 
@@ -207,59 +172,6 @@ function handleRestoreImage(
   const { spec, next } = takeRestoreValue(flag, args, index, "a value", "--image");
   assertRestoreFlagUnused(state.image !== undefined, "--image");
   state.image = spec;
-  return next;
-}
-
-function handleRestoreVerifyProofOnly(
-  state: RestoreParseState,
-  _flag: string,
-  _args: string[],
-  index: number,
-): number {
-  state.verifyProofOnly = true;
-  return index;
-}
-
-function handleRestoreAllowProofOnlySuccess(
-  state: RestoreParseState,
-  _flag: string,
-  _args: string[],
-  index: number,
-): number {
-  state.allowProofOnlySuccess = true;
-  return index;
-}
-
-function handleRestoreTargetArch(
-  state: RestoreParseState,
-  flag: string,
-  args: string[],
-  index: number,
-): number {
-  const { spec, next } = takeRestoreValue(flag, args, index, "arm64 or amd64", "--target-arch");
-  assertRestoreFlagUnused(state.targetArch !== undefined, "--target-arch");
-  if (spec !== "arm64" && spec !== "amd64") {
-    throw new ParseError("PARSE_FLAG_MALFORMED", "--target-arch must be arm64 or amd64");
-  }
-  state.targetArch = spec;
-  return next;
-}
-
-function handleRestoreTargetVerifierOutput(
-  state: RestoreParseState,
-  flag: string,
-  args: string[],
-  index: number,
-): number {
-  const { spec, next } = takeRestoreValue(
-    flag,
-    args,
-    index,
-    "a file path",
-    "--target-verifier-output",
-  );
-  assertRestoreFlagUnused(state.targetVerifierOutput !== undefined, "--target-verifier-output");
-  state.targetVerifierOutput = spec;
   return next;
 }
 

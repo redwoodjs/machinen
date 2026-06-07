@@ -27,17 +27,8 @@ machinen move load <descriptor>
 
 `move` records the PID graph and refuses state classes that do not have a target-native reconstruction path.
 
-## Product support discovery
+## Product boundary
 
-```sh
-machinen support --json
-```
-
-Use this as the source of truth for supported, refused, deprecated, and proof-only rows. See [Product claim registry](./product-claim-registry.md).
-
-## Product subsets
-
-- [Clean service snapshot/restore](./clean-service-product-snapshot-restore.md)
-- [Node snapshot/restore](./node-product-snapshot-restore.md)
+Snapshot and restore are whole-VM operations. Runtime-specific, clean-service, portable descriptor, and proof-only routes are not part of the public snapshot/restore workflow.
 
 Proofs, checked summaries, and historical design notes are kept in [`../../research/snapshot/`](../../research/snapshot/) so this directory stays product-focused.

@@ -1,142 +1,31 @@
-import {
-  isNodeLevel5ProductSnapshotBundle,
-  restore,
-  restoreNodeLevel5DeclaredSubset,
-  restoreNodeLevel5ProductSnapshot,
-  type VmHandle,
-} from "@machinen/runtime";
+import { restore, type VmHandle } from "@machinen/runtime";
 import { resolve } from "node:path";
 import {
-  cmdRestoreCleanService as restoreCleanServiceBundle,
-  shouldRestoreCleanService as shouldRestoreCleanServiceBundle,
-} from "../clean-service/restore.ts";
-import { consumeJsonFlag, emitJson, emitJsonError } from "../args.ts";
-import {
   deriveBootName,
-  guestCpu,
   resolveCliBaseAssets,
   resolveOptionalImageOverride,
   type CliBaseAssetPaths,
 } from "../base-assets.ts";
-import {
-  detectLevel5RestoreAdapter,
-  restoreLevel5RuntimeBundle,
-} from "../level5-runtime-adapters.ts";
 import { describeError, die, failQuiet, handleError } from "../errors.ts";
 import { parseRestoreArgs } from "../parse-restore-args.ts";
-import {
-  parseNodeLevel5DeclaredSubsetRestoreArgs,
-  reportNodeLevel5DeclaredSubsetCliRefusal,
-  reportNodeLevel5DeclaredSubsetSummary,
-} from "./node-level5-shared.ts";
 import { formatElapsed, isQuiet, NoiseFilter, printHeadline, RingBuffer } from "../quiet.ts";
 import { guestConsoleOnLog, runAttachedVmSession, type QuietRunState } from "../session.ts";
-import {
-  cmdRestorePortableNode,
-  shouldPreferVmstateRestore,
-  shouldRestorePortableNode,
-} from "./restore-portable-node.ts";
 
 type ParsedRestoreCommandArgs = ReturnType<typeof parseRestoreArgs>;
-
-function cmdRestoreNodeLevel5DeclaredSubset(input: { json: boolean; rest: string[] }): number {
-  const options = parseNodeLevel5DeclaredSubsetRestoreArgs(input.rest);
-  if (!options.manifest) {
-    reportNodeLevel5DeclaredSubsetCliRefusal(
-      input.json,
-      "node-level5-declared-subset-manifest-required",
-      "machinen restore node-level5 requires <manifest> or --manifest <file>",
-    );
-  }
-  const summary = restoreNodeLevel5DeclaredSubset({
-    manifestPath: resolve(options.manifest),
-    experimental: options.experimental,
-    rawCpuRestore: options.rawCpuRestore,
-    productSupportClaimed: options.productSupportClaimed,
-  });
-  return reportNodeLevel5DeclaredSubsetSummary(input.json, summary, {
-    accepted: (value) =>
-      `accepted experimental node-level5 restore manifest: ${value.manifestPath}\n`,
-    refused: (value) => `refused experimental node-level5 restore: ${value.refusal?.code}\n`,
-  });
-}
 
 // fallow-ignore-next-line complexity
 export async function cmdRestore(args: string[]): Promise<number> {
   // `machinen restore <snap-dir> [--image <tarball>] [--name <name>]
   // [--lazy] [-p <hostPort>:<guestPort>]`. Restore is eager by
   // default; `--lazy` opts into the #266 CRIU lazy-pages path.
-  const { json, rest } = consumeJsonFlag(args);
-  if (rest[0] === "node-level5") {
-    return cmdRestoreNodeLevel5DeclaredSubset({ json, rest: rest.slice(1) });
-  }
-  const parsed = parseRestoreCommandArgs(rest);
+  const parsed = parseRestoreCommandArgs(args);
   validateRestoreCommandArgs(parsed);
   const snapDir = resolve(parsed.positional[0]!);
-  if (isNodeLevel5ProductSnapshotBundle(snapDir)) {
-    return cmdRestoreNodeLevel5ProductSnapshot(snapDir, json);
-  }
-  if (!shouldPreferVmstateRestore(snapDir)) {
-    if (isNodeLevel5ProofCompositionBundle(snapDir)) {
-      return await cmdRestoreNodeLevel5ProofComposition(snapDir, json, parsed);
-    }
-    if (shouldRestoreCleanServiceBundle(snapDir, guestCpu)) {
-      return restoreCleanServiceBundle({
-        snapDir,
-        json,
-        name: parsed.name,
-        resolveCliBaseAssets,
-        guestCpu,
-        deriveBootName,
-        emitJson,
-        shellQuote,
-      });
-    }
-    if (shouldRestorePortableNode(snapDir)) {
-      return cmdRestorePortableNode(parsed, snapDir, json);
-    }
-  }
-  if (json) {
-    die("restore --json is only supported for supported descriptor restore paths");
-  }
   const paths = await resolveCliBaseAssets();
   const quiet = createRestoreQuietState(parsed, snapDir);
   const vm = await startRestoreVm(parsed, snapDir, paths, quiet);
   reportRestoreSuccess(vm, quiet);
   return runRestoreAttachedSession(vm, quiet);
-}
-
-function cmdRestoreNodeLevel5ProductSnapshot(snapDir: string, json: boolean): number {
-  try {
-    return reportNodeLevel5ProductSnapshotRestore(
-      restoreNodeLevel5ProductSnapshot({ snapshotDir: snapDir }),
-      json,
-    );
-  } catch (error) {
-    return reportNodeLevel5ProductSnapshotRestoreError(error, json);
-  }
-}
-
-function reportNodeLevel5ProductSnapshotRestore(
-  summary: ReturnType<typeof restoreNodeLevel5ProductSnapshot>,
-  json: boolean,
-): number {
-  if (json) {
-    emitJson(summary);
-  } else {
-    process.stdout.write(`restored node snapshot: ${summary.familyId} ${summary.direction}\n`);
-  }
-  return summary.accepted ? 0 : 1;
-}
-
-function reportNodeLevel5ProductSnapshotRestoreError(error: unknown, json: boolean): number {
-  const message = error instanceof Error ? error.message : String(error);
-  if (json) {
-    emitJsonError("node-level5-product-snapshot-invalid", message);
-  } else {
-    process.stderr.write(`machinen restore: ${message}\n`);
-  }
-  return 1;
 }
 
 function parseRestoreCommandArgs(args: string[]): ParsedRestoreCommandArgs {
@@ -157,53 +46,8 @@ function restoreUsage(): string {
   return (
     "usage: machinen restore <snap-dir> [--image <tarball>] [--name <name>] " +
     "[--lazy] [-p <hostPort>:<guestPort>] " +
-    "[--mount-live <host>:<guest>[:<mode>]]\n" +
-    "       machinen restore <node-level5-proof-bundle> " +
-    "[--allow-proof-only-success] [--json]\n" +
-    "       machinen restore node-level5 --experimental-node-level5 <manifest> [--json]"
+    "[--mount-live <host>:<guest>[:<mode>]]\n"
   );
-}
-
-function isNodeLevel5ProofCompositionBundle(snapDir: string): boolean {
-  return detectLevel5RestoreAdapter(snapDir) !== undefined;
-}
-
-async function cmdRestoreNodeLevel5ProofComposition(
-  snapDir: string,
-  json: boolean,
-  parsed: ParsedRestoreCommandArgs,
-): Promise<number> {
-  const result = await restoreLevel5RuntimeBundle(snapDir, {
-    verifyProofOnly: parsed.verifyProofOnly,
-    allowProofOnlySuccess: parsed.allowProofOnlySuccess,
-    targetRestore: {
-      name: parsed.name,
-      portForward: parsed.portForward,
-      resolveCliBaseAssets,
-      deriveBootName,
-      shellQuote,
-    },
-  });
-  if (json) {
-    emitJson({ schema_version: 1, ...result.summary });
-  } else {
-    const targetProof = result.summary.targetProof;
-    process.stderr.write(
-      `Node Level 5 proof verifier: ${targetProof.status}; target-native Node continuation observed=${targetProof.targetVerifierObservedActualNodeContinuation}; noSourceIsaEmulation=${targetProof.noSourceIsaEmulation}; noSidecarOutput=${targetProof.noSidecarOutput}; noMetadataOnlySuccess=${targetProof.noMetadataOnlySuccess}\n`,
-    );
-    if (result.summary.refusal) {
-      process.stderr.write(`${result.summary.refusal.message}\n`);
-    } else {
-      process.stderr.write(
-        "Node Level 5 HTTP profile restore completed selected state continuation\n",
-      );
-    }
-  }
-  return result.exitCode;
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
 function createRestoreQuietState(parsed: ParsedRestoreCommandArgs, snapDir: string): QuietRunState {

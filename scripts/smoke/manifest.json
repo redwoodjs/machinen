@@ -36,34 +36,6 @@
       "requires": ["built-runtime"]
     },
     {
-      "path": "scripts/smoke/clean-service-cross-arch.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-clean-service-cross-arch"],
-      "reason": "matrix wrapper for clean Node/Python service product routes",
-      "requires": ["local-hvf-or-kvm", "release-assets"]
-    },
-    {
-      "path": "scripts/smoke/clean-service-go-product-snapshot-restore.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-clean-service-go-product-snapshot-restore"],
-      "reason": "clean Go service product snapshot/restore boundary",
-      "requires": ["local-hvf-or-kvm", "release-assets"]
-    },
-    {
-      "path": "scripts/smoke/clean-service-kernel-state.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-clean-service-kernel-state"],
-      "reason": "product refusal for unsafe active kernel state in clean services",
-      "requires": ["local-hvf-or-kvm", "release-assets"]
-    },
-    {
-      "path": "scripts/smoke/clean-service-python-product-snapshot-restore.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-clean-service-python-product-snapshot-restore"],
-      "reason": "clean Python service product snapshot/restore boundary and refusals",
-      "requires": ["local-hvf-or-kvm", "release-assets"]
-    },
-    {
       "path": "scripts/smoke/go-quiescent-runtime.sh",
       "classification": "archived",
       "packageScripts": ["archive-go-quiescent-runtime"],
@@ -164,34 +136,6 @@
       "packageScripts": [],
       "reason": "existing proof smoke script retained outside product smoke surface",
       "requires": ["proof-environment"]
-    },
-    {
-      "path": "scripts/smoke/node-level5-generic-vm-corpus.sh",
-      "classification": "proof-audit",
-      "packageScripts": [],
-      "reason": "existing proof smoke script retained outside product smoke surface",
-      "requires": ["proof-environment"]
-    },
-    {
-      "path": "scripts/smoke/node-level5-generic-vm-refusal-artifacts.sh",
-      "classification": "proof-audit",
-      "packageScripts": [],
-      "reason": "existing proof smoke script retained outside product smoke surface",
-      "requires": ["proof-environment"]
-    },
-    {
-      "path": "scripts/smoke/node-level5-generic-vm-row-artifacts.sh",
-      "classification": "proof-audit",
-      "packageScripts": [],
-      "reason": "existing proof smoke script retained outside product smoke surface",
-      "requires": ["proof-environment"]
-    },
-    {
-      "path": "scripts/smoke/node-level5-http-harness-proof.sh",
-      "classification": "proof-audit",
-      "packageScripts": ["proof-node-level5-http-harness-proof"],
-      "reason": "selected-state Node HTTP harness proof; not Level 5 product support",
-      "requires": ["local-hvf-or-kvm", "release-assets"]
     },
     {
       "path": "scripts/smoke/node-level5-http-request-shape.sh",
@@ -299,20 +243,6 @@
       "requires": ["proof-environment"]
     },
     {
-      "path": "scripts/smoke/node-level5-product-support-85-claim-ready.sh",
-      "classification": "proof-audit",
-      "packageScripts": [],
-      "reason": "existing proof smoke script retained outside product smoke surface",
-      "requires": ["proof-environment"]
-    },
-    {
-      "path": "scripts/smoke/node-level5-product-support-85-readiness.sh",
-      "classification": "proof-audit",
-      "packageScripts": [],
-      "reason": "existing proof smoke script retained outside product smoke surface",
-      "requires": ["proof-environment"]
-    },
-    {
       "path": "scripts/smoke/node-level5-real-app-behavioral-corpus.sh",
       "classification": "proof-audit",
       "packageScripts": [],
@@ -404,25 +334,11 @@
       "requires": ["proof-environment"]
     },
     {
-      "path": "scripts/smoke/node-level5-vm-detected-product-snapshot.sh",
-      "classification": "proof-audit",
-      "packageScripts": [],
-      "reason": "existing proof smoke script retained outside product smoke surface",
-      "requires": ["proof-environment"]
-    },
-    {
       "path": "scripts/smoke/node-live-restore.sh",
       "classification": "archived",
       "packageScripts": ["archive-node-live-restore"],
       "reason": "runtime-profile live Node restore proof is stale and conflicts with current product boundary if treated as support",
       "requires": ["remote-arm64", "remote-amd64"]
-    },
-    {
-      "path": "scripts/smoke/node-product-snapshot-restore.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-node-product-snapshot-restore"],
-      "reason": "clean Node service product snapshot/restore boundary and refusals",
-      "requires": ["local-hvf-or-kvm", "release-assets"]
     },
     {
       "path": "scripts/smoke/node-production-repeatability.sh",
@@ -510,13 +426,6 @@
       "packageScripts": ["proof-postgres-machinen-restore"],
       "reason": "PostgreSQL Machinen restore proof harness",
       "requires": ["docker", "built-cli"]
-    },
-    {
-      "path": "scripts/smoke/product-support-discovery.sh",
-      "classification": "product-smoke",
-      "packageScripts": ["smoke-product-support-discovery"],
-      "reason": "public product support registry and proof-only/refusal boundaries",
-      "requires": ["built-cli"]
     },
     {
       "path": "scripts/smoke/runtime-confidence-profile-matrix.sh",

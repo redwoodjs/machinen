@@ -28,10 +28,6 @@ export function printHelp(): void {
       `  machinen move save <pid> <out> [--issue]     Write a move descriptor or refusal evidence.\n` +
       `  machinen move load <descriptor> [--json]     Validate a move descriptor fail-closed.\n` +
       `\n` +
-      `  machinen support [--family <family>] [--status <status>] [--level <level>] [--json]\n` +
-      `                                                 Discover product support/refusal level\n` +
-      `                                                 status for every proof profile.\n` +
-      `\n` +
       `  machinen restore <snap-dir> [--image <tar.gz>] [--name <name>] [-p ...]\n` +
       `                              [--mount-live <host>:<guest>[:<mode>]]\n` +
       `                                                 Restore a VM from a snapshot bundle.\n` +
@@ -62,6 +58,11 @@ export function printHelp(): void {
       `                                                 pipes (good for one-shot commands).\n` +
       `                                                 Example:\n` +
       `                                                   machinen exec <name|pid> --tty -- bash -i\n` +
+      `  machinen attach   <name|pid> [--shell <c>]    Drop into an interactive PTY shell\n` +
+      `                                                 in the running VM (default \`bash -i\`).\n` +
+      `                                                 \`cd\`, env vars, history, job control\n` +
+      `                                                 and full-screen TUIs all work. Exit\n` +
+      `                                                 the shell (Ctrl-D) to detach.\n` +
       `  machinen snapshot <name|pid> <out-dir> [--keep-alive]\n` +
       `  machinen snapshot <name|pid> --out <dir> [--keep-alive]\n` +
       `                                                 Checkpoint a running VM into <d>.\n` +
@@ -91,11 +92,6 @@ export function printHelp(): void {
       `                                                 --mount-live, --env, --cwd, --memory)\n` +
       `                                                 take effect on the forked sibling, not\n` +
       `                                                 the source.\n` +
-      `  machinen attach   <name|pid> [--shell <c>]    Drop into an interactive PTY shell\n` +
-      `                                                 in the running VM (default \`bash -i\`).\n` +
-      `                                                 \`cd\`, env vars, history, job control\n` +
-      `                                                 and full-screen TUIs all work. Exit\n` +
-      `                                                 the shell (Ctrl-D) to detach.\n` +
       `  machinen repl     <name|pid>                   Per-line exec REPL: each line is a\n` +
       `                                                 fresh one-shot \`exec\`, no persistent\n` +
       `                                                 state. Useful for piping a script of\n` +
@@ -119,7 +115,7 @@ export function printHelp(): void {
       `  --json                                         Emit machine-readable JSON to stdout.\n` +
       `                                                 Supported on: list, gc, install,\n` +
       `                                                 snapshot, stop, fork --detach,\n` +
-      `                                                 boot --detach, support, move, feedback,\n` +
+      `                                                 boot --detach, move, feedback,\n` +
       `                                                 agent-context.\n` +
       `  --dry-run                                      Preview a mutating command without\n` +
       `                                                 side effects. Supported on: gc, stop,\n` +
@@ -130,13 +126,13 @@ export function printHelp(): void {
       `  machinen ls\n` +
       `  machinen exec worker -- ps aux                       # one-off command\n` +
       `  machinen exec worker --tty -- bash -i                # interactive shell w/ job control\n` +
+      `  machinen attach worker                              # persistent interactive shell\n` +
       `  machinen exec worker --tty -- vim /etc/passwd        # full-screen TUI in a PTY\n` +
       `  machinen snapshot worker ./warm                      # CRIU snapshot bundle\n` +
       `  machinen restore ./warm\n` +
       `  machinen move scan --json\n` +
       `  machinen move save 1234 ./move.json --issue\n` +
       `  machinen move load ./move.json --json\n` +
-      `  machinen support --family network-ping-socket --json\n` +
       `\n` +
       `Environment:\n` +
       `  MACHINEN_VMM                             Override the VMM binary path (dev)\n` +

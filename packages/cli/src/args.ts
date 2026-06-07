@@ -1,3 +1,5 @@
+import { die } from "./errors.ts";
+
 /**
  * Strip `--json` (a top-level CLI convention — every data-returning
  * command supports it) from the arg list and report whether it was set.
@@ -45,4 +47,12 @@ export function argValue(argv: string[], name: string): string | undefined {
     return undefined;
   }
   return argv[i + 1];
+}
+
+export function takeFlagValue(args: string[], index: number, flag: string): string {
+  const value = args[index];
+  if (!value || value.startsWith("-")) {
+    die(`${flag} requires a value`);
+  }
+  return value;
 }
