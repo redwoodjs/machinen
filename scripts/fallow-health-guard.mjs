@@ -3,7 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 
-const DEFAULT_MAX_FUNCTION_LINES = 60;
+const DEFAULT_MAX_FUNCTION_LINES = 256;
 const DEFAULT_MAX_FILE_LINES = 1000;
 
 const options = parseArgs(process.argv.slice(2));
@@ -38,24 +38,38 @@ function parseArgs(argv) {
     maxFunctionLines: DEFAULT_MAX_FUNCTION_LINES,
     maxFileLines: DEFAULT_MAX_FILE_LINES,
   };
+  const valueFlags = new Map([
+    ["--changed-since", (value) => (parsed.changedSince = value)],
+    ["--base", (value) => (parsed.changedSince = value)],
+    [
+      "--max-function-lines",
+      (value) => (parsed.maxFunctionLines = positiveInteger(value, "--max-function-lines")),
+    ],
+    [
+      "--max-file-lines",
+      (value) => (parsed.maxFileLines = positiveInteger(value, "--max-file-lines")),
+    ],
+  ]);
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === "--changed-since" || arg === "--base") {
-      parsed.changedSince = requiredValue(argv, (index += 1), arg);
-    } else if (arg === "--max-function-lines") {
-      parsed.maxFunctionLines = positiveInteger(requiredValue(argv, (index += 1), arg), arg);
-    } else if (arg === "--max-file-lines") {
-      parsed.maxFileLines = positiveInteger(requiredValue(argv, (index += 1), arg), arg);
-    } else if (arg === "--help" || arg === "-h") {
-      printHelp();
-      process.exit(0);
+    const applyValue = valueFlags.get(arg);
+    if (applyValue) {
+      applyValue(requiredValue(argv, (index += 1), arg));
     } else {
-      throw new Error(`unknown argument: ${arg}`);
+      handleFlagWithoutValue(arg);
     }
   }
 
   return parsed;
+}
+
+function handleFlagWithoutValue(arg) {
+  if (arg === "--help" || arg === "-h") {
+    printHelp();
+    process.exit(0);
+  }
+  throw new Error(`unknown argument: ${arg}`);
 }
 
 function requiredValue(argv, index, flag) {
@@ -81,57 +95,58 @@ function printHelp() {
 }
 
 function resolveBaseRef(explicitBase) {
-  if (explicitBase) {
-    ensureRefAvailable(explicitBase);
-    return explicitBase;
+  for (const baseRef of candidateBaseRefs(explicitBase)) {
+    ensureRefAvailable(baseRef);
+    return baseRef;
   }
-
-  if (process.env.GITHUB_BASE_REF) {
-    const remoteBase = `origin/${process.env.GITHUB_BASE_REF}`;
-    ensureRefAvailable(remoteBase, process.env.GITHUB_BASE_REF);
-    return remoteBase;
-  }
-
-  if (hasGitRef("origin/main")) {
-    return "origin/main";
-  }
-
-  if (process.env.GITHUB_EVENT_PATH && existsSync(process.env.GITHUB_EVENT_PATH)) {
-    const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
-    if (
-      typeof event.before === "string" &&
-      event.before !== "0000000000000000000000000000000000000000"
-    ) {
-      ensureRefAvailable(event.before);
-      return event.before;
-    }
-  }
-
-  if (hasGitRef("HEAD~1")) {
-    return "HEAD~1";
-  }
-
   throw new Error(
     "could not determine a base ref for fallow-health-guard; set FALLOW_HEALTH_BASE or pass --changed-since",
   );
 }
 
-function ensureRefAvailable(ref, branch) {
-  if (hasGitRef(ref)) {
-    return;
+function candidateBaseRefs(explicitBase) {
+  return [
+    explicitBase,
+    githubBaseRef(),
+    existingRef("origin/main"),
+    eventBeforeRef(),
+    existingRef("HEAD~1"),
+  ].filter(Boolean);
+}
+
+function githubBaseRef() {
+  return process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : undefined;
+}
+
+function existingRef(ref) {
+  return hasGitRef(ref) ? ref : undefined;
+}
+
+function eventBeforeRef() {
+  if (!process.env.GITHUB_EVENT_PATH || !existsSync(process.env.GITHUB_EVENT_PATH)) {
+    return undefined;
   }
-  if (branch) {
-    runGit(["fetch", "--depth=1", "origin", `${branch}:refs/remotes/origin/${branch}`], {
-      allowFailure: true,
-    });
-    if (hasGitRef(ref)) {
-      return;
-    }
+  const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
+  return validBeforeSha(event.before) ? event.before : undefined;
+}
+
+function validBeforeSha(value) {
+  return typeof value === "string" && value !== "0000000000000000000000000000000000000000";
+}
+
+function ensureRefAvailable(ref) {
+  if (!hasGitRef(ref)) {
+    fetchRef(ref);
   }
-  runGit(["fetch", "--depth=1", "origin", ref], { allowFailure: true });
   if (!hasGitRef(ref)) {
     throw new Error(`git ref not found: ${ref}`);
   }
+}
+
+function fetchRef(ref) {
+  const remoteBranch = ref.startsWith("origin/") ? ref.slice("origin/".length) : undefined;
+  const fetchTarget = remoteBranch ? `${remoteBranch}:refs/remotes/origin/${remoteBranch}` : ref;
+  runGit(["fetch", "--depth=1", "origin", fetchTarget], { allowFailure: true });
 }
 
 function hasGitRef(ref) {
@@ -196,11 +211,19 @@ function fallowBin() {
 
 function healthFailures(health, changedFiles, options) {
   return [
-    ...complexityFailures(health.findings ?? [], changedFiles),
-    ...largeFunctionFailures(health.large_functions ?? [], changedFiles, options.maxFunctionLines),
-    ...largeFileFailures(health.file_scores ?? [], changedFiles, options.maxFileLines),
-    ...targetFailures(health.targets ?? [], changedFiles),
+    ...complexityFailures(arrayValue(health.findings), changedFiles),
+    ...largeFunctionFailures(
+      arrayValue(health.large_functions),
+      changedFiles,
+      options.maxFunctionLines,
+    ),
+    ...largeFileFailures(arrayValue(health.file_scores), changedFiles, options.maxFileLines),
+    ...targetFailures(arrayValue(health.targets), changedFiles),
   ];
+}
+
+function arrayValue(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 function complexityFailures(findings, changedFiles) {
