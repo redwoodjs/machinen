@@ -24,9 +24,11 @@ export function printHelp(): void {
       `                                                 when the host supports it.\n` +
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
       `\n` +
-      `  machinen move scan [--json]                  Scan host PID graph state classes.\n` +
-      `  machinen move save <pid> <out> [--issue]     Write a move descriptor or refusal evidence.\n` +
-      `  machinen move load <descriptor> [--json]     Validate a move descriptor fail-closed.\n` +
+      `  machinen move scan <vm> [--json]             Scan a VM's PID graph state classes.\n` +
+      `  machinen move save <vm> <pid> <out-dir> [--issue]\n` +
+      `                                                 Write a VM move descriptor or refusal evidence.\n` +
+      `  machinen move load <vm> <bundle-dir> [--json]\n` +
+      `                                                 Validate a move descriptor against a VM.\n` +
       `\n` +
       `  machinen restore <snap-dir> [--image <tar.gz>] [--name <name>] [-p ...]\n` +
       `                              [--mount-live <host>:<guest>[:<mode>]]\n` +
@@ -130,9 +132,9 @@ export function printHelp(): void {
       `  machinen exec worker --tty -- vim /etc/passwd        # full-screen TUI in a PTY\n` +
       `  machinen snapshot worker ./warm                      # CRIU snapshot bundle\n` +
       `  machinen restore ./warm\n` +
-      `  machinen move scan --json\n` +
-      `  machinen move save 1234 ./move.json --issue\n` +
-      `  machinen move load ./move.json --json\n` +
+      `  machinen move scan worker --json\n` +
+      `  machinen move save worker 1234 ./move.json --issue\n` +
+      `  machinen move load worker ./move.json --json\n` +
       `\n` +
       `Environment:\n` +
       `  MACHINEN_VMM                             Override the VMM binary path (dev)\n` +

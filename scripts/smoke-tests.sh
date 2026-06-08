@@ -208,6 +208,11 @@ if ! grep -q "sbin/machinen-memdirty" <<<"$ROOTFS_ENTRIES"; then
   echo "smoke: WARN rootfs lacks /sbin/machinen-memdirty — S5 (headline RSS) will be skipped"
   ROOTFS_SUPPORTS_MEMDIRTY=0
 fi
+ROOTFS_SUPPORTS_MOVE_CAPTURE=1
+if ! grep -q "sbin/machinen-move-capture" <<<"$ROOTFS_ENTRIES"; then
+  echo "smoke: WARN rootfs lacks /sbin/machinen-move-capture — move-capture helpers unavailable"
+  ROOTFS_SUPPORTS_MOVE_CAPTURE=0
+fi
 
 # ----------------------------------------------------------------
 # Tests

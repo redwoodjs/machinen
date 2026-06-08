@@ -91,6 +91,7 @@ rootfs_input_files() {
     "${ASSETS}/machinen-dump.sh" \
     "${ASSETS}/machinen-netup.c" \
     "${ASSETS}/machinen-restore.sh" \
+    "${ASSETS}/move-capture.c" \
     "${ASSETS}/machinen-supervisor.sh" \
     "${ASSETS}/memdirty.zig" \
     "${ASSETS}/net-bench-probe.zig" \

@@ -211,8 +211,9 @@ describe("move-only cross-ISA product route convention", () => {
     expect(CLI_SRC).not.toContain("const pingPortableRestoreAdapter");
     expect(CLI_SRC).not.toContain("detectPortableRestoreAdapter(snapDir)");
     expect(MOVE_COMMAND_SRC).toContain("function cmdMove(");
-    expect(MOVE_COMMAND_SRC).toContain("saveMoveDescriptor");
+    expect(MOVE_COMMAND_SRC).toContain("createMoveDescriptorInVm");
     expect(MOVE_COMMAND_SRC).toContain("loadMoveDescriptor");
+    expect(MOVE_COMMAND_SRC).toContain("runMoveTargetDirectLoaderInVm");
     expect(CLI_SRC).toContain('["move", cmdMove]');
     expect(PORTABLE_RESTORE_ADAPTER_SRC).toContain("PortableRestoreAdapter");
   });

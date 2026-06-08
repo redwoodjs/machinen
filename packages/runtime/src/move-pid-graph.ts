@@ -1,5 +1,13 @@
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, readlinkSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
+
+import type {
+  NativeProcessImageArchitecture,
+  NativeProcessImageRefusal,
+  NativeProcessResource,
+} from "./native-process-image.ts";
+import type { NativeTargetFdTableEntry } from "./native-resource-translation.ts";
+import type { TargetGuestRestoreResourceRecipe } from "./target-guest-restore-loader.ts";
 
 export const MOVE_DESCRIPTOR_FORMAT_VERSION = 1 as const;
 export const MOVE_REFUSAL_CODE = "move-unproven-state-class" as const;
@@ -18,6 +26,7 @@ export interface MovePidGraphNode {
   command: string;
   argv: string[];
   cwd: string | undefined;
+  exe?: string;
 }
 
 export interface MovePidGraphEdge {
@@ -48,6 +57,46 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
   kind: "machinen.move.descriptor";
   target: "cross-isa-target-native-pid-translation";
   productSurface: "machinen move";
+  resourcePlan?: {
+    kind: "machinen.move.resource-plan";
+    source: "guest-procfs" | "host-procfs";
+    sourceArch?: NativeProcessImageArchitecture;
+    resources: NativeProcessResource[];
+    fdTableEntries: NativeTargetFdTableEntry[];
+    targetGuestResources: TargetGuestRestoreResourceRecipe[];
+    refusals: NativeProcessImageRefusal[];
+    acceptedSubsets: string[];
+    capture?: {
+      sourceVm?: { pid: number; name?: string };
+      executablePackage?: {
+        path: string;
+        realPath?: string;
+        packageName?: string;
+        version?: string;
+        architecture?: string;
+      };
+      pingState?: {
+        ntransmitted: number;
+        nreceived: number;
+        nerrors: number;
+        lastSequence?: number;
+      };
+      safeBoundary?: { state: "sleep-timer" | "pre-send-icmp" | "refused"; detail: string };
+      freeze?: { state: "ptrace-attached" | "refused"; detail: string };
+      tasks?: number;
+      wchan?: string;
+      syscall?: string;
+      maps?: string[];
+      registers?: Record<string, unknown>;
+    };
+  };
+  nativeContinuation?: {
+    kind: "machinen.move.native-continuation";
+    bundlePath: ".";
+    activeSyscallPlan: "active-syscall-plan.json";
+    state: "planned" | "refused";
+    refusals: NativeProcessImageRefusal[];
+  };
 }
 
 export interface MoveSaveResult {
@@ -180,7 +229,16 @@ function readProcNode(pid: number): MovePidGraphNode {
     command: basename(command),
     argv,
     cwd: undefined,
+    exe: readlinkProcExe(pid),
   };
+}
+
+function readlinkProcExe(pid: number): string | undefined {
+  try {
+    return readlinkSync(`/proc/${pid}/exe`);
+  } catch {
+    return undefined;
+  }
 }
 
 function fallbackNode(pid: number): MovePidGraphNode {
@@ -190,6 +248,7 @@ function fallbackNode(pid: number): MovePidGraphNode {
     command: pid === process.pid ? basename(process.argv[0] ?? "node") : `pid-${pid}`,
     argv: pid === process.pid ? process.argv : [],
     cwd: pid === process.pid ? process.cwd() : undefined,
+    exe: pid === process.pid ? process.execPath : undefined,
   };
 }
 

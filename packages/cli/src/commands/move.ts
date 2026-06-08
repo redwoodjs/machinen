@@ -1,9 +1,38 @@
-import { loadMoveDescriptor, saveMoveDescriptor, scanMovePidGraph } from "@machinen/runtime";
+import {
+  attach,
+  loadMoveDescriptor,
+  MOVE_DESCRIPTOR_FORMAT_VERSION,
+  MOVE_REFUSAL_CODE,
+  validateNativeProcessImageBundle,
+  type MoveDescriptor,
+  type MovePidGraph,
+  type MovePidGraphNode,
+  type MoveRefusalEvidence,
+  type NativeProcessImageRefusal,
+  type VmHandle,
+} from "@machinen/runtime";
+import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { basename, join, resolve } from "node:path";
 
 import { consumeJsonFlag } from "../args.ts";
-import { die } from "../errors.ts";
+import {
+  readMoveExecutableIdentityInVm,
+  validateMoveLoadTargetInVm,
+  type MoveLoadTargetValidation,
+} from "../move-executable-identity.ts";
+import {
+  attachNativeContinuation,
+  moveActiveSyscallPlan,
+  writeNativeProcessImageScaffold,
+} from "../move-native-bundle.ts";
+import { buildMoveResourcePlan, parseGuestMoveResourceScan } from "../move-resource-plan.ts";
+import { runMoveTargetDirectLoaderInVm, type MoveLoadDirectLoader } from "../move-rendezvous.ts";
+import { die, handleError } from "../errors.ts";
+import type { Target } from "../parse-target.ts";
+import { parseTargetFlags, resolveTarget } from "./target.ts";
 
-type MoveHandler = (args: string[], json: boolean) => number;
+type MoveHandler = (args: string[], json: boolean) => Promise<number> | number;
+type MoveResourcePlan = NonNullable<MoveDescriptor["resourcePlan"]>;
 
 const MOVE_HANDLERS = new Map<string, MoveHandler>([
   ["scan", cmdMoveScan],
@@ -11,7 +40,7 @@ const MOVE_HANDLERS = new Map<string, MoveHandler>([
   ["load", cmdMoveLoad],
 ]);
 
-export function cmdMove(args: string[]): number {
+export function cmdMove(args: string[]): Promise<number> | number {
   const { json, rest } = consumeJsonFlag(args);
   const handler = MOVE_HANDLERS.get(rest[0] ?? "");
   if (!handler) {
@@ -20,51 +49,159 @@ export function cmdMove(args: string[]): number {
   return handler(rest.slice(1), json);
 }
 
-function cmdMoveScan(_args: string[], json: boolean): number {
-  const graph = scanMovePidGraph();
-  if (json) {
-    emitJson({ schema_version: 1, ...graph });
-  } else {
-    process.stdout.write(
-      `move scan: ${graph.nodes.length} processes; refused=${graph.refusedStateClasses.length}\n`,
-    );
-  }
-  return graph.refusedStateClasses.length === 0 ? 0 : 1;
+async function cmdMoveScan(args: string[], json: boolean): Promise<number> {
+  const target = parseTargetFlags(args, "move scan");
+  return withMoveVm(target, async (vm) => {
+    const graph = await scanMovePidGraphInVm(vm);
+    if (json) {
+      emitJson({ schema_version: 1, ...graph });
+    } else {
+      process.stdout.write(
+        `move scan: ${graph.nodes.length} in-VM processes; refused=${graph.refusedStateClasses.length}\n`,
+      );
+    }
+    return graph.refusedStateClasses.length === 0 ? 0 : 1;
+  });
 }
 
-function cmdMoveSave(args: string[], json: boolean): number {
+async function cmdMoveSave(args: string[], json: boolean): Promise<number> {
   const options = parseMoveSaveArgs(args);
-  const result = saveMoveDescriptor(options);
-  reportMoveSaveResult(result, json);
-  return result.accepted ? 0 : 1;
+  return withMoveVm(options.target, async (vm) => {
+    const descriptor = await createMoveDescriptorInVm(vm, options.pid);
+    const result = writeMoveDescriptorResult(descriptor, options);
+    reportMoveSaveResult(result, json);
+    return moveAcceptedExitCode(result.accepted);
+  });
 }
 
-type MoveSaveOptions = Parameters<typeof saveMoveDescriptor>[0];
-type MoveSaveResult = ReturnType<typeof saveMoveDescriptor>;
+type MoveSaveOptions = {
+  target: Target;
+  pid: number;
+  outPath: string;
+  issue: boolean;
+  issueRepo?: string;
+};
+
+type MoveSaveResult = {
+  accepted: boolean;
+  descriptorPath: string;
+  descriptor: MoveDescriptor;
+  refusalCode?: typeof MOVE_REFUSAL_CODE;
+  issueReport?: MoveIssueReport;
+};
+
+type MoveIssueReport = {
+  title: string;
+  body: string;
+  repository: string;
+};
 
 function parseMoveSaveArgs(args: string[]): MoveSaveOptions {
-  if (args.length < 2) {
+  const { target, rest } = resolveTarget(args, "move save");
+  if (rest.length < 2) {
     die(moveUsage());
   }
-  const issueRepo = parseIssueRepo(args);
+  const { issue, issueRepo } = parseMoveSaveFlags(rest.slice(2));
   return {
-    pid: parsePositiveInteger(args[0]!, "pid"),
-    outPath: args[1]!,
-    issue: args.includes("--issue"),
+    target,
+    pid: parsePositiveInteger(rest[0]!, "pid"),
+    outPath: rest[1]!,
+    issue,
     issueRepo,
   };
 }
 
-function parseIssueRepo(args: string[]): string | undefined {
-  const issueRepoIndex = args.indexOf("--issue-repo");
-  if (issueRepoIndex === -1) {
-    return undefined;
+function parseMoveSaveFlags(args: string[]): { issue: boolean; issueRepo?: string } {
+  let flags = newMoveSaveFlags();
+  for (let index = 0; index < args.length; index += 1) {
+    const parsed = parseMoveSaveFlag(args, index, flags);
+    flags = parsed.flags;
+    index = parsed.index;
   }
-  const issueRepo = args[issueRepoIndex + 1];
+  return flags;
+}
+
+function newMoveSaveFlags(): { issue: boolean; issueRepo?: string } {
+  return { issue: false };
+}
+
+function parseMoveSaveFlag(
+  args: string[],
+  index: number,
+  flags: { issue: boolean; issueRepo?: string },
+): { index: number; flags: { issue: boolean; issueRepo?: string } } {
+  const arg = args[index]!;
+  if (arg === "--issue") {
+    return { index, flags: { ...flags, issue: true } };
+  }
+  if (arg !== "--issue-repo") {
+    die(`unknown argument: ${arg}`);
+  }
+  return parseMoveSaveIssueRepoFlag(args, index, flags);
+}
+
+function parseMoveSaveIssueRepoFlag(
+  args: string[],
+  index: number,
+  flags: { issue: boolean; issueRepo?: string },
+): { index: number; flags: { issue: boolean; issueRepo?: string } } {
+  const issueRepo = args[index + 1];
   if (!issueRepo) {
     die("move save --issue-repo requires <owner/repo>");
   }
-  return issueRepo;
+  return { index: index + 1, flags: { ...flags, issueRepo } };
+}
+
+function writeMoveDescriptorResult(
+  descriptor: MoveDescriptor,
+  options: MoveSaveOptions,
+): MoveSaveResult {
+  const bundlePath = prepareMoveBundleDir(options.outPath);
+  const bundleDescriptor = attachNativeContinuation(descriptor);
+  writeNativeProcessImageScaffold(bundlePath, bundleDescriptor);
+  const descriptorPath = join(bundlePath, "move.json");
+  writeFileSync(descriptorPath, `${JSON.stringify(bundleDescriptor, null, 2)}\n`);
+  writeFileSync(
+    join(bundlePath, "active-syscall-plan.json"),
+    `${JSON.stringify(moveActiveSyscallPlan(bundleDescriptor), null, 2)}\n`,
+  );
+  const accepted =
+    descriptor.refusedStateClasses.length === 0 &&
+    bundleDescriptor.nativeContinuation?.state !== "refused";
+  return {
+    accepted,
+    descriptorPath: bundlePath,
+    descriptor: bundleDescriptor,
+    refusalCode: moveRefusalCode(accepted),
+    issueReport: moveIssueReport(descriptor, options),
+  };
+}
+
+function prepareMoveBundleDir(outPath: string): string {
+  const bundlePath = resolve(outPath);
+  if (existsSync(bundlePath) && !statSync(bundlePath).isDirectory()) {
+    die("move save output must be a directory");
+  }
+  mkdirSync(bundlePath, { recursive: true });
+  return bundlePath;
+}
+
+function moveRefusalCode(accepted: boolean): typeof MOVE_REFUSAL_CODE | undefined {
+  return accepted ? undefined : MOVE_REFUSAL_CODE;
+}
+
+function moveIssueReport(
+  descriptor: MoveDescriptor,
+  options: MoveSaveOptions,
+): MoveIssueReport | undefined {
+  if (!options.issue) {
+    return undefined;
+  }
+  return buildMoveIssueReport(descriptor, options.issueRepo ?? "redwoodjs/machinen");
+}
+
+function moveAcceptedExitCode(accepted: boolean): 0 | 1 {
+  return accepted ? 0 : 1;
 }
 
 function reportMoveSaveResult(result: MoveSaveResult, json: boolean): void {
@@ -87,29 +224,116 @@ function printIssueReport(result: MoveSaveResult): void {
   );
 }
 
-function cmdMoveLoad(args: string[], json: boolean): number {
-  if (args.length !== 1) {
+async function cmdMoveLoad(args: string[], json: boolean): Promise<number> {
+  const { target, rest } = resolveTarget(args, "move load");
+  if (rest.length !== 1) {
     die(moveUsage());
   }
-  const descriptor = loadMoveDescriptor(args[0]!);
-  const accepted = descriptor.refusedStateClasses.length === 0;
-  reportMoveLoadResult(descriptor, accepted, json);
-  return accepted ? 0 : 1;
+  return withMoveVm(target, async (vm) => {
+    const bundlePath = resolve(rest[0]!);
+    const descriptor = loadMoveDescriptor(moveLoadDescriptorPath(bundlePath));
+    const targetValidation = await validateMoveLoadTargetInVm(
+      vm,
+      descriptor,
+      moveLoadExecutablePath(descriptor),
+    );
+    const loader =
+      targetValidation.state === "ready"
+        ? await runMoveTargetDirectLoaderInVm(vm, descriptor)
+        : undefined;
+    const accepted = moveLoadAccepted(descriptor, bundlePath, targetValidation, loader);
+    reportMoveLoadResult(descriptor, accepted, json, targetValidation, loader);
+    return accepted ? 0 : 1;
+  });
 }
 
-type MoveDescriptor = ReturnType<typeof loadMoveDescriptor>;
+function moveLoadDescriptorPath(bundlePath: string): string {
+  if (existsSync(bundlePath) && statSync(bundlePath).isDirectory()) {
+    return join(bundlePath, "move.json");
+  }
+  return bundlePath;
+}
 
-function reportMoveLoadResult(descriptor: MoveDescriptor, accepted: boolean, json: boolean): void {
+function moveLoadAccepted(
+  descriptor: MoveDescriptor,
+  bundlePath: string,
+  targetValidation: MoveLoadTargetValidation,
+  loader: MoveLoadDirectLoader | undefined,
+): boolean {
+  return moveLoadGates(descriptor, bundlePath, targetValidation, loader).every(Boolean);
+}
+
+function moveLoadGates(
+  descriptor: MoveDescriptor,
+  bundlePath: string,
+  targetValidation: MoveLoadTargetValidation,
+  loader: MoveLoadDirectLoader | undefined,
+): boolean[] {
+  return [
+    moveBundleValid(bundlePath),
+    moveDescriptorContinuationPlanned(descriptor),
+    targetValidation.state === "ready",
+    loader?.state === "ready" || false,
+  ];
+}
+
+function moveLoadExecutablePath(descriptor: MoveDescriptor): string {
+  return savedExecutablePath(descriptor) ?? descriptorExecutablePath(descriptor) ?? "/usr/bin/ping";
+}
+
+function savedExecutablePath(descriptor: MoveDescriptor): string | undefined {
+  return descriptor.resourcePlan?.capture?.executablePackage?.path;
+}
+
+function descriptorExecutablePath(descriptor: MoveDescriptor): string | undefined {
+  return descriptor.nodes[0]?.exe;
+}
+
+function moveBundleValid(bundlePath: string): boolean {
+  if (!existsSync(bundlePath)) {
+    return false;
+  }
+  if (!statSync(bundlePath).isDirectory()) {
+    return false;
+  }
+  validateNativeProcessImageBundle(bundlePath);
+  return true;
+}
+
+function moveDescriptorContinuationPlanned(descriptor: MoveDescriptor): boolean {
+  if (descriptor.refusedStateClasses.every((refusal) => refusal.stateClass === "sockets")) {
+    return true;
+  }
+  if (descriptor.refusedStateClasses.length !== 0) {
+    return false;
+  }
+  return descriptor.nativeContinuation?.state !== "refused";
+}
+
+function reportMoveLoadResult(
+  descriptor: MoveDescriptor,
+  accepted: boolean,
+  json: boolean,
+  targetValidation: MoveLoadTargetValidation,
+  loader: MoveLoadDirectLoader | undefined,
+): void {
   if (json) {
-    emitJson({ schema_version: 1, accepted, descriptor });
+    emitJson({
+      schema_version: 1,
+      accepted,
+      descriptor,
+      targetValidation,
+      loader,
+      rendezvous: loader,
+    });
     return;
   }
   if (accepted) {
-    process.stdout.write(`move load accepted descriptor for PID ${descriptor.rootPid}\n`);
+    process.stdout.write(`move load accepted descriptor for in-VM PID ${descriptor.rootPid}\n`);
     return;
   }
   process.stderr.write(
-    `move load refused descriptor for PID ${descriptor.rootPid}: ${refusedStateClasses(descriptor)}\n`,
+    `move load refused descriptor for in-VM PID ${descriptor.rootPid}: ${refusedStateClasses(descriptor)}\n`,
   );
 }
 
@@ -117,8 +341,425 @@ function refusedStateClasses(descriptor: MoveDescriptor): string {
   return descriptor.refusedStateClasses.map((item) => item.stateClass).join(", ");
 }
 
+async function withMoveVm<T>(target: Target, run: (vm: VmHandle) => Promise<T> | T): Promise<T> {
+  const vm = await attach(target).catch(handleError);
+  try {
+    return await run(vm);
+  } finally {
+    await vm.detach();
+  }
+}
+
+async function createMoveDescriptorInVm(vm: VmHandle, pid: number): Promise<MoveDescriptor> {
+  const nodes = await readMoveProcNodesInVm(vm, pid);
+  const resourcePlan = await scanMoveResourcePlanInVm(vm, nodes[0]!);
+  await attachMoveSourceIdentity(vm, nodes[0]!, resourcePlan);
+  const graph = buildMovePidGraph(pid, nodes, resourcePlan);
+  return {
+    ...graph,
+    kind: "machinen.move.descriptor",
+    target: "cross-isa-target-native-pid-translation",
+    productSurface: "machinen move",
+    resourcePlan,
+  };
+}
+
+async function attachMoveSourceIdentity(
+  vm: VmHandle,
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): Promise<void> {
+  resourcePlan.capture = {
+    ...resourcePlan.capture,
+    sourceVm: { pid: vm.pid, name: vm.name },
+    executablePackage: await readMoveExecutableIdentityInVm(vm, node.exe ?? moveProcessPath(node)),
+    pingState: await readMovePingStateInVm(vm, resourcePlan),
+  };
+}
+
+async function readMovePingStateInVm(
+  vm: VmHandle,
+  resourcePlan: MoveResourcePlan,
+): Promise<NonNullable<MoveResourcePlan["capture"]>["pingState"]> {
+  const path = moveStdoutFilePath(resourcePlan);
+  if (!path) {
+    return undefined;
+  }
+  const result = await vm.execRaw(`tail -n 500 ${shellQuote(path)} 2>/dev/null || true`, {
+    execTimeoutMs: 10_000,
+  });
+  return parsePingStateFromOutput(result.stdout);
+}
+
+function moveStdoutFilePath(resourcePlan: MoveResourcePlan): string | undefined {
+  const stdout = resourcePlan.resources.find((resource) => resource.fd === 1);
+  return stdout?.kind === "file" && typeof stdout.path === "string" ? stdout.path : undefined;
+}
+
+function parsePingStateFromOutput(
+  stdout: string,
+): NonNullable<MoveResourcePlan["capture"]>["pingState"] {
+  const sequences = Array.from(stdout.matchAll(/icmp_seq=(\d+)/g), (match) => Number(match[1]));
+  const replies = stdout.split("\n").filter((line) => /bytes from .*icmp_seq=\d+/.test(line));
+  const errors = stdout.split("\n").filter((line) => /^From .*icmp_seq=\d+/.test(line));
+  const lastSequence = sequences.at(-1);
+  if (!lastSequence) {
+    return undefined;
+  }
+  return {
+    ntransmitted: lastSequence,
+    nreceived: replies.length,
+    nerrors: errors.length,
+    lastSequence,
+  };
+}
+
+function moveProcessPath(node: MovePidGraphNode): string {
+  return node.argv[0]?.startsWith("/") ? node.argv[0]! : `/usr/bin/${node.command}`;
+}
+
+async function scanMovePidGraphInVm(vm: VmHandle, rootPid?: number): Promise<MovePidGraph> {
+  const nodes = await readMoveProcNodesInVm(vm, rootPid);
+  return buildMovePidGraph(rootPid, nodes);
+}
+
+function buildMovePidGraph(
+  rootPid: number | undefined,
+  nodes: MovePidGraphNode[],
+  resourcePlan?: MoveResourcePlan,
+): MovePidGraph {
+  const pidSet = new Set(nodes.map((node) => node.pid));
+  const edges = nodes
+    .filter((node) => node.ppid !== undefined && pidSet.has(node.ppid))
+    .map((node) => ({ fromPid: node.ppid!, toPid: node.pid, kind: "parent-child" as const }));
+  return {
+    formatVersion: MOVE_DESCRIPTOR_FORMAT_VERSION,
+    kind: "machinen.move.pid-graph",
+    rootPid,
+    scannedAt: new Date().toISOString(),
+    nodes,
+    edges,
+    translatedStateClasses: translatedStateClasses(resourcePlan),
+    refusedStateClasses: buildRefusals(rootPid, nodes, resourcePlan),
+  };
+}
+
+async function readMoveProcNodesInVm(vm: VmHandle, rootPid?: number): Promise<MovePidGraphNode[]> {
+  const result = await vm.execRaw(guestProcScanCommand(rootPid), { execTimeoutMs: 30_000 });
+  if (result.exitCode !== 0) {
+    die(`move proc scan failed inside VM: ${moveProcScanError(result)}`);
+  }
+  return parseGuestProcRows(result.stdout, rootPid);
+}
+
+function moveProcScanError(result: { stderr: string; stdout: string; exitCode: number }): string {
+  return result.stderr || result.stdout || String(result.exitCode);
+}
+
+async function scanMoveResourcePlanInVm(
+  vm: VmHandle,
+  node: MovePidGraphNode,
+): Promise<MoveResourcePlan> {
+  const result = await vm.execRaw(guestMoveResourceScanCommand(node.pid), {
+    execTimeoutMs: 30_000,
+  });
+  if (result.exitCode !== 0) {
+    die(`move resource scan failed inside VM: ${moveProcScanError(result)}`);
+  }
+  return buildMoveResourcePlan(node, parseGuestMoveResourceScan(result.stdout));
+}
+
+function guestMoveResourceScanCommand(pid: number): string {
+  return `pid=${pid}
+if [ -x /sbin/machinen-move-capture ]; then
+  exec /sbin/machinen-move-capture "$pid" --timeout-ms 10000
+fi
+printf 'UNAME\t%s\n' "$(uname -m 2>/dev/null || true)"
+status="/proc/$pid/status"
+uid=""
+gid=""
+if [ -r "$status" ]; then
+  while IFS= read -r line; do
+    case "$line" in
+      Uid:*) set -- $line; uid="$2" ;;
+      Gid:*) set -- $line; gid="$2" ;;
+    esac
+  done < "$status"
+fi
+printf 'STATUS\t%s\t%s\n' "$uid" "$gid"
+if [ -r /proc/sys/net/ipv4/ping_group_range ]; then
+  set -- $(cat /proc/sys/net/ipv4/ping_group_range 2>/dev/null || true)
+  printf 'PING_RANGE\t%s\t%s\n' "$1" "$2"
+fi
+for f in /proc/$pid/fd/*; do
+  [ -e "$f" ] || continue
+  fd="\${f##*/}"
+  target=$(readlink "$f" 2>/dev/null || true)
+  printf 'FD\t%s\t%s\n' "$fd" "$target"
+  if [ -r "/proc/$pid/fdinfo/$fd" ]; then
+    while IFS= read -r line; do
+      case "$line" in
+        pos:*|flags:*) printf 'FDINFO\t%s\t%s\n' "$fd" "$line" ;;
+      esac
+    done < "/proc/$pid/fdinfo/$fd"
+  fi
+done
+if [ -r /proc/net/icmp ]; then
+  while IFS= read -r line; do printf 'NET_ICMP\t%s\n' "$line"; done < /proc/net/icmp
+fi
+if [ -r /proc/net/raw ]; then
+  while IFS= read -r line; do printf 'NET_RAW\t%s\n' "$line"; done < /proc/net/raw
+fi`;
+}
+
+function guestProcScanCommand(rootPid?: number): string {
+  const pidSelector =
+    rootPid === undefined
+      ? 'for d in /proc/[0-9]*; do scan_pid "${d##*/}"; done'
+      : `scan_pid ${rootPid}`;
+  return `scan_pid() {
+  pid="$1"
+  d="/proc/$pid"
+  [ -d "$d" ] || return 0
+  stat=$(cat "$d/stat" 2>/dev/null || true)
+  cmd=$(tr '\\000' '\\037' <"$d/cmdline" 2>/dev/null || true)
+  cwd=$(readlink "$d/cwd" 2>/dev/null || true)
+  exe=$(readlink "$d/exe" 2>/dev/null || true)
+  printf '%s	%s	%s	%s	%s\n' "$pid" "$stat" "$cmd" "$cwd" "$exe"
+}
+${pidSelector}`;
+}
+
+function parseGuestProcRows(stdout: string, rootPid?: number): MovePidGraphNode[] {
+  const nodes = stdout
+    .split("\n")
+    .filter(Boolean)
+    .slice(0, rootPid === undefined ? 250 : 1)
+    .map(parseGuestProcRow)
+    .filter((node): node is MovePidGraphNode => node !== undefined)
+    .sort((left, right) => left.pid - right.pid);
+  if (rootPid !== undefined && nodes.length === 0) {
+    die(`in-VM pid ${rootPid} was not found`);
+  }
+  return nodes;
+}
+
+function parseGuestProcRow(row: string): MovePidGraphNode | undefined {
+  const [pidText, stat = "", cmdline = "", cwd = "", exe = ""] = row.split("\t");
+  const pid = parseOptionalPositiveInteger(pidText ?? "");
+  if (pid === undefined) {
+    return undefined;
+  }
+  const argv = cmdline.split("\x1f").filter(Boolean);
+  const command = moveProcCommand(argv, stat, pid);
+  return {
+    pid,
+    ppid: parsePpid(stat),
+    command,
+    argv,
+    cwd: emptyToUndefined(cwd),
+    exe: emptyToUndefined(exe),
+  };
+}
+
+function moveProcCommand(argv: string[], stat: string, pid: number): string {
+  if (argv[0]) {
+    return basename(argv[0]);
+  }
+  return parseStatCommand(stat) ?? `pid-${pid}`;
+}
+
+function emptyToUndefined(value: string): string | undefined {
+  return value === "" ? undefined : value;
+}
+
+function translatedStateClasses(
+  resourcePlan?: MoveResourcePlan,
+): MovePidGraph["translatedStateClasses"] {
+  const base: MovePidGraph["translatedStateClasses"] = ["process-identity", "argv-env-cwd"];
+  if (resourcePlan && resourcePlan.refusals.length === 0) {
+    return [...base, "open-files", "sockets"];
+  }
+  return base;
+}
+
+function buildRefusals(
+  rootPid: number | undefined,
+  nodes: MovePidGraphNode[],
+  resourcePlan?: MoveResourcePlan,
+): MoveRefusalEvidence[] {
+  if (rootPid === undefined || !resourcePlan) {
+    return genericMoveRefusals(rootPid, nodes);
+  }
+  return resourcePlanRefusals(rootPid, resourcePlan);
+}
+
+function genericMoveRefusals(
+  rootPid: number | undefined,
+  nodes: MovePidGraphNode[],
+): MoveRefusalEvidence[] {
+  return [
+    {
+      stateClass: "open-files",
+      reason: "open file descriptor identity is not translated by this descriptor yet",
+      evidence:
+        rootPid === undefined ? "scan-only-no-root-pid" : `pid:${rootPid}:fd-audit-required`,
+      nextAction: "add a move-owned fd detector and target-native file/socket reconstruction proof",
+    },
+    {
+      stateClass: "sockets",
+      reason:
+        "kernel socket identity is not preserved across ISA and must be reconstructed or refused",
+      evidence: `nodes:${nodes.length}:socket-audit-required`,
+      nextAction: "attach socket-family evidence and a target-native reconstruction verifier",
+    },
+  ];
+}
+
+function resourcePlanRefusals(
+  rootPid: number,
+  resourcePlan: MoveResourcePlan,
+): MoveRefusalEvidence[] {
+  const refusals = [
+    openFileResourceRefusal(resourcePlan),
+    socketResourceRefusal(resourcePlan),
+    threadResourceRefusal(resourcePlan),
+  ].filter((refusal): refusal is MoveRefusalEvidence => refusal !== undefined);
+  if (resourcePlan.refusals.length > 0 && refusals.length === 0) {
+    return genericMoveRefusals(rootPid, []);
+  }
+  return refusals;
+}
+
+function openFileResourceRefusal(resourcePlan: MoveResourcePlan): MoveRefusalEvidence | undefined {
+  if (!resourcePlan.refusals.some(isOpenFileMoveRefusal)) {
+    return undefined;
+  }
+  return {
+    stateClass: "open-files",
+    reason: "one or more open file descriptors still lack a target-native recipe",
+    evidence: JSON.stringify(moveRefusalEvidenceSummary(resourcePlan, "open-files")),
+    nextAction:
+      "model or broker every inherited fd, including stdin/PTY state, before target execution",
+  };
+}
+
+function socketResourceRefusal(resourcePlan: MoveResourcePlan): MoveRefusalEvidence | undefined {
+  if (!resourcePlan.refusals.some(isSocketMoveRefusal)) {
+    return undefined;
+  }
+  return {
+    stateClass: "sockets",
+    reason: "one or more socket descriptors still lack proven target-native reconstruction",
+    evidence: JSON.stringify(moveRefusalEvidenceSummary(resourcePlan, "sockets")),
+    nextAction:
+      "graduate the captured socket into a supported ping/raw-ICMP loopback descriptor or keep it refused",
+  };
+}
+
+function threadResourceRefusal(resourcePlan: MoveResourcePlan): MoveRefusalEvidence | undefined {
+  if (!resourcePlan.refusals.some(isThreadMoveRefusal)) {
+    return undefined;
+  }
+  return {
+    stateClass: "threads",
+    reason: "the process was not captured at the supported single-thread sleep/timer boundary",
+    evidence: JSON.stringify({ capture: resourcePlan.capture }),
+    nextAction:
+      "wait for the ping sleep/timer boundary and freeze the single thread before translation",
+  };
+}
+
+function isOpenFileMoveRefusal(refusal: NativeProcessImageRefusal): boolean {
+  return !isSocketMoveRefusal(refusal) && !isThreadMoveRefusal(refusal);
+}
+
+function isSocketMoveRefusal(refusal: NativeProcessImageRefusal): boolean {
+  const kind = refusal.detail?.kind;
+  return kind === "socket" || kind === "raw-socket";
+}
+
+function isThreadMoveRefusal(refusal: NativeProcessImageRefusal): boolean {
+  return refusal.detail?.kind === "thread";
+}
+
+function moveRefusalEvidenceSummary(
+  resourcePlan: MoveResourcePlan,
+  stateClass: "open-files" | "sockets",
+): Record<string, unknown> {
+  const predicate = stateClass === "sockets" ? isSocketMoveRefusal : isOpenFileMoveRefusal;
+  const refusals = resourcePlan.refusals.filter(predicate);
+  return {
+    resourceRefusals: refusals.map((refusal) => ({
+      code: refusal.code,
+      fd: refusal.detail?.fd,
+      kind: refusal.detail?.kind,
+      requiredModel: refusal.detail?.requiredModel,
+    })),
+    acceptedSubsets: resourcePlan.acceptedSubsets,
+  };
+}
+
+function buildMoveIssueReport(
+  descriptor: MoveDescriptor,
+  repository = "redwoodjs/machinen",
+): MoveIssueReport {
+  const stateClasses = descriptor.refusedStateClasses.map((item) => item.stateClass).join(", ");
+  const rootPid = moveDescriptorRootPidLabel(descriptor);
+  return {
+    repository,
+    title: `move refused in-VM PID ${rootPid}: ${moveStateClassLabel(stateClasses, "no refusals")}`,
+    body: [
+      "## Problem",
+      "`machinen move` refused this in-VM PID graph because some state classes are not proven yet.",
+      "",
+      "## Redacted evidence",
+      `- root pid: ${rootPid}`,
+      `- process count: ${descriptor.nodes.length}`,
+      `- refused classes: ${moveStateClassLabel(stateClasses, "none")}`,
+      "",
+      "## Next action",
+      ...descriptor.refusedStateClasses.map((item) => `- ${item.stateClass}: ${item.nextAction}`),
+    ].join("\n"),
+  };
+}
+
+function moveDescriptorRootPidLabel(descriptor: MoveDescriptor): string {
+  return descriptor.rootPid === undefined ? "unknown" : String(descriptor.rootPid);
+}
+
+function moveStateClassLabel(value: string, fallback: string): string {
+  return value === "" ? fallback : value;
+}
+
+function parseStatCommand(stat: string): string | undefined {
+  const match = stat.match(/^\d+\s+\((.*)\)\s+\S+/);
+  return match?.[1];
+}
+
+function parsePpid(stat: string): number | undefined {
+  const match = stat.match(/^\d+\s+\(.*\)\s+\S+\s+(\d+)/);
+  if (!match) {
+    return undefined;
+  }
+  const parsed = Number(match[1]);
+  return Number.isInteger(parsed) ? parsed : undefined;
+}
+
 function moveUsage(): string {
-  return "usage: machinen move scan [--json] | machinen move save <pid> <out> [--issue] [--issue-repo <owner/repo>] [--json] | machinen move load <descriptor> [--json]";
+  return "usage: machinen move scan <vm> [--json] | machinen move save <vm> <pid> <out-dir> [--issue] [--issue-repo <owner/repo>] [--json] | machinen move load <vm> <bundle-dir> [--json]";
+}
+
+function parseOptionalPositiveInteger(value: string): number | undefined {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return undefined;
+  }
+  return parsed;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
 function parsePositiveInteger(value: string, flag: string): number {
