@@ -75,6 +75,13 @@
       "requires": ["local-arm64-vm", "remote-amd64-vm", "release-assets"]
     },
     {
+      "path": "scripts/smoke/move-envelope-matrix.sh",
+      "classification": "proof-audit",
+      "packageScripts": ["proof-move-envelope-matrix"],
+      "reason": "local machinen move envelope proof for sleep remaining-time and tail offset continuation",
+      "requires": ["local-vm", "built-runtime", "release-assets"]
+    },
+    {
       "path": "scripts/smoke/nested-virtualization-stretch-proof.sh",
       "classification": "proof-audit",
       "packageScripts": ["proof-nested-virtualization-stretch"],

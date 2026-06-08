@@ -4894,6 +4894,98 @@ Size in bytes the file was allocated at.
 
 > `optional` **lastSequence?**: `number`
 
+###### capture.sleepState?
+
+> `optional` **sleepState?**: `object`
+
+###### capture.sleepState.originalMs
+
+> **originalMs**: `number`
+
+###### capture.sleepState.elapsedMs
+
+> **elapsedMs**: `number`
+
+###### capture.sleepState.remainingMs
+
+> **remainingMs**: `number`
+
+###### capture.sleepState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.tailState?
+
+> `optional` **tailState?**: `object`
+
+###### capture.tailState.path
+
+> **path**: `string`
+
+###### capture.tailState.offset
+
+> **offset**: `number`
+
+###### capture.tailState.followMode
+
+> **followMode**: `"poll-or-inotify"`
+
+###### capture.tailState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.lessState?
+
+> `optional` **lessState?**: `object`
+
+###### capture.lessState.path
+
+> **path**: `string`
+
+###### capture.lessState.line
+
+> **line**: `number`
+
+###### capture.lessState.terminal
+
+> **terminal**: `"script-pty"`
+
+###### capture.lessState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.viState?
+
+> `optional` **viState?**: `object`
+
+###### capture.viState.path
+
+> **path**: `string`
+
+###### capture.viState.line
+
+> **line**: `number`
+
+###### capture.viState.mode
+
+> **mode**: `"normal-read-only"` \| `"normal-dirty-buffer"`
+
+###### capture.viState.terminal
+
+> **terminal**: `"script-pty"`
+
+###### capture.viState.dirtyText?
+
+> `optional` **dirtyText?**: `string`
+
+###### capture.viState.searchPattern?
+
+> `optional` **searchPattern?**: `string`
+
+###### capture.viState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
 ###### capture.safeBoundary?
 
 > `optional` **safeBoundary?**: `object`

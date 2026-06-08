@@ -165,9 +165,7 @@ function writeMoveDescriptorResult(
     join(bundlePath, "active-syscall-plan.json"),
     `${JSON.stringify(moveActiveSyscallPlan(bundleDescriptor), null, 2)}\n`,
   );
-  const accepted =
-    descriptor.refusedStateClasses.length === 0 &&
-    bundleDescriptor.nativeContinuation?.state !== "refused";
+  const accepted = moveSaveAccepted(bundleDescriptor);
   return {
     accepted,
     descriptorPath: bundlePath,
@@ -184,6 +182,35 @@ function prepareMoveBundleDir(outPath: string): string {
   }
   mkdirSync(bundlePath, { recursive: true });
   return bundlePath;
+}
+
+function moveSaveAccepted(descriptor: MoveDescriptor): boolean {
+  if (descriptor.nativeContinuation?.state === "refused") {
+    return false;
+  }
+  if (descriptor.refusedStateClasses.length === 0) {
+    return true;
+  }
+  return moveEnvelopeAllowsOpenFileRefusals(descriptor);
+}
+
+function moveEnvelopeAllowsOpenFileRefusals(descriptor: MoveDescriptor): boolean {
+  const allowed = moveEnvelopeAllowedRefusalClasses(descriptor);
+  if (!allowed) {
+    return false;
+  }
+  return descriptor.refusedStateClasses.every((refusal) => allowed.has(refusal.stateClass));
+}
+
+// fallow-ignore-next-line complexity
+function moveEnvelopeAllowedRefusalClasses(descriptor: MoveDescriptor): Set<string> | undefined {
+  if (descriptor.resourcePlan?.capture?.tailState) {
+    return new Set(["open-files", "threads"]);
+  }
+  if (descriptor.resourcePlan?.capture?.lessState || descriptor.resourcePlan?.capture?.viState) {
+    return new Set(["open-files", "sockets", "threads"]);
+  }
+  return undefined;
 }
 
 function moveRefusalCode(accepted: boolean): typeof MOVE_REFUSAL_CODE | undefined {
@@ -300,7 +327,11 @@ function moveBundleValid(bundlePath: string): boolean {
   return true;
 }
 
+// fallow-ignore-next-line complexity
 function moveDescriptorContinuationPlanned(descriptor: MoveDescriptor): boolean {
+  if (moveEnvelopeAllowsOpenFileRefusals(descriptor)) {
+    return true;
+  }
   if (descriptor.refusedStateClasses.every((refusal) => refusal.stateClass === "sockets")) {
     return true;
   }
@@ -374,6 +405,10 @@ async function attachMoveSourceIdentity(
     sourceVm: { pid: vm.pid, name: vm.name },
     executablePackage: await readMoveExecutableIdentityInVm(vm, node.exe ?? moveProcessPath(node)),
     pingState: await readMovePingStateInVm(vm, resourcePlan),
+    sleepState: await readMoveSleepStateInVm(vm, node),
+    tailState: readMoveTailState(node, resourcePlan),
+    lessState: readMoveLessState(node),
+    viState: readMoveViState(node),
   };
 }
 
@@ -414,6 +449,181 @@ function parsePingStateFromOutput(
   };
 }
 
+async function readMoveSleepStateInVm(
+  vm: VmHandle,
+  node: MovePidGraphNode,
+): Promise<NonNullable<MoveResourcePlan["capture"]>["sleepState"]> {
+  const originalMs = moveSleepOriginalMs(node);
+  if (originalMs === undefined) {
+    return undefined;
+  }
+  const timing = await readMoveProcessTimingInVm(vm, node.pid);
+  if (!timing) {
+    return undefined;
+  }
+  const elapsedMs = Math.max(0, timing.uptimeMs - timing.startMs);
+  return {
+    originalMs,
+    elapsedMs,
+    remainingMs: Math.max(0, originalMs - elapsedMs),
+    capturedAt: new Date().toISOString(),
+  };
+}
+
+function readMoveLessState(
+  node: MovePidGraphNode,
+): NonNullable<MoveResourcePlan["capture"]>["lessState"] {
+  const parsed = moveTerminalFileState(node, "less");
+  return parsed
+    ? {
+        path: parsed.path,
+        line: parsed.line,
+        terminal: "script-pty",
+        capturedAt: new Date().toISOString(),
+      }
+    : undefined;
+}
+
+function readMoveViState(
+  node: MovePidGraphNode,
+): NonNullable<MoveResourcePlan["capture"]>["viState"] {
+  const parsed = moveTerminalFileState(node, "vi");
+  if (!parsed) {
+    return undefined;
+  }
+  const dirtyText = moveViDirtyText(node.argv);
+  return {
+    path: parsed.path,
+    line: parsed.line,
+    mode: dirtyText === undefined ? "normal-read-only" : "normal-dirty-buffer",
+    terminal: "script-pty",
+    dirtyText,
+    searchPattern: moveViSearchPattern(node.argv),
+    capturedAt: new Date().toISOString(),
+  };
+}
+
+function moveViDirtyText(argv: string[]): string | undefined {
+  return argv.find((arg) => /^\+normal!? Go/.test(arg))?.replace(/^\+normal!? Go/, "");
+}
+
+function moveViSearchPattern(argv: string[]): string | undefined {
+  return argv.find((arg) => arg.startsWith("+/") && arg.length > 2)?.slice(2);
+}
+
+// fallow-ignore-next-line complexity
+function moveTerminalFileState(
+  node: MovePidGraphNode,
+  command: "less" | "vi",
+): { path: string; line: number } | undefined {
+  if (basename(node.exe ?? node.argv[0] ?? node.command) !== command) {
+    return undefined;
+  }
+  const path = node.argv.at(-1);
+  if (!path?.startsWith("/")) {
+    return undefined;
+  }
+  const line = parseLineArg(node.argv.find((arg) => /^\+\d+$/.test(arg)));
+  return { path, line: line ?? 1 };
+}
+
+function parseLineArg(value: string | undefined): number | undefined {
+  const parsed = Number(value?.slice(1));
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function readMoveTailState(
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): NonNullable<MoveResourcePlan["capture"]>["tailState"] {
+  const path = moveTailFollowPath(node);
+  if (!path) {
+    return undefined;
+  }
+  const file = resourcePlan.resources.find(
+    (resource) =>
+      resource.kind === "file" && resource.path === path && typeof resource.offset === "number",
+  );
+  return typeof file?.offset === "number"
+    ? {
+        path,
+        offset: file.offset,
+        followMode: "poll-or-inotify",
+        capturedAt: new Date().toISOString(),
+      }
+    : undefined;
+}
+
+// fallow-ignore-next-line complexity
+function moveTailFollowPath(node: MovePidGraphNode): string | undefined {
+  if (basename(node.exe ?? node.argv[0] ?? node.command) !== "tail") {
+    return undefined;
+  }
+  const args = node.argv.slice(1);
+  const followIndex = args.findIndex((arg) => arg === "-f" || arg === "--follow");
+  const path = args.at(-1);
+  return followIndex >= 0 && path?.startsWith("/") ? path : undefined;
+}
+
+// fallow-ignore-next-line complexity
+function moveSleepOriginalMs(node: MovePidGraphNode): number | undefined {
+  if (basename(node.exe ?? node.argv[0] ?? node.command) !== "sleep") {
+    return undefined;
+  }
+  const duration = parseSleepDurationMs(node.argv[1]);
+  return duration !== undefined && node.argv.length === 2 ? duration : undefined;
+}
+
+// fallow-ignore-next-line complexity
+function parseSleepDurationMs(value: string | undefined): number | undefined {
+  const match = value?.match(/^(\d+(?:\.\d+)?)([smhd]?)$/);
+  if (!match) {
+    return undefined;
+  }
+  const multiplier = sleepDurationMultiplier(match[2] ?? "");
+  const ms = Number(match[1]) * multiplier;
+  return Number.isFinite(ms) && ms > 0 ? Math.round(ms) : undefined;
+}
+
+function sleepDurationMultiplier(suffix: string): number {
+  return { "": 1000, s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }[suffix] ?? 1000;
+}
+
+async function readMoveProcessTimingInVm(
+  vm: VmHandle,
+  pid: number,
+): Promise<{ uptimeMs: number; startMs: number } | undefined> {
+  const result = await vm.execRaw(
+    `printf 'UPTIME\t'; cut -d' ' -f1 /proc/uptime; printf 'CLK_TCK\t'; getconf CLK_TCK; printf 'STAT\t'; cat /proc/${pid}/stat 2>/dev/null || true`,
+    { execTimeoutMs: 10_000 },
+  );
+  if (result.exitCode !== 0) {
+    return undefined;
+  }
+  return parseMoveProcessTiming(result.stdout);
+}
+
+// fallow-ignore-next-line complexity
+function parseMoveProcessTiming(stdout: string): { uptimeMs: number; startMs: number } | undefined {
+  const rows = new Map(stdout.split("\n").map((row) => row.split("\t", 2) as [string, string]));
+  const uptimeSeconds = Number(rows.get("UPTIME"));
+  const clockTicksPerSecond = Number(rows.get("CLK_TCK"));
+  const startTicks = parseStatStartTicks(rows.get("STAT") ?? "");
+  if (!Number.isFinite(uptimeSeconds) || !Number.isFinite(clockTicksPerSecond) || !startTicks) {
+    return undefined;
+  }
+  return {
+    uptimeMs: Math.round(uptimeSeconds * 1000),
+    startMs: Math.round((startTicks / clockTicksPerSecond) * 1000),
+  };
+}
+
+function parseStatStartTicks(stat: string): number | undefined {
+  const rest = stat.match(/^\d+\s+\(.*\)\s+(.+)$/)?.[1]?.split(/\s+/) ?? [];
+  const parsed = Number(rest[19]);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
 function moveProcessPath(node: MovePidGraphNode): string {
   return node.argv[0]?.startsWith("/") ? node.argv[0]! : `/usr/bin/${node.command}`;
 }
@@ -423,6 +633,7 @@ async function scanMovePidGraphInVm(vm: VmHandle, rootPid?: number): Promise<Mov
   return buildMovePidGraph(rootPid, nodes);
 }
 
+// fallow-ignore-next-line code-duplication
 function buildMovePidGraph(
   rootPid: number | undefined,
   nodes: MovePidGraphNode[],

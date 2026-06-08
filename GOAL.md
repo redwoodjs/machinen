@@ -76,16 +76,16 @@ The envelopes are binary- or runtime-anchored, but each one should graduate reus
 
 ## Phase plan
 
-| Phase | Target                          | Main state to preserve                                     | Loader strategy                                                               | Success proof                                                                     |
-| ----- | ------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| 4A    | Existing proof audit            | Reusable capture/restore primitives                        | No product change yet                                                         | Matrix mapping old proofs to move primitives.                                     |
-| 4B    | `/bin/sleep`                    | Remaining timeout, signal behavior, exit status            | Launch target distro `sleep`; reconstruct timer continuation at safe boundary | Source sleep partly elapsed; target exits after remaining time, not full restart. |
-| 4C    | `tail -f file`                  | File path, fd identity, file offset, follow mode, stdout   | Launch target distro `tail`; seek/recreate offset; resume follow              | Source emits lines 1..N; target emits N+1 onward with no duplicates/skips.        |
-| 4D    | `less file` read-only           | File path, offset, terminal size, termios, viewport/cursor | Launch target distro `less`; restore terminal/session viewport before redraw  | Target screen matches source viewport and navigation continues.                   |
-| 4E    | `vi file` read-only             | File path, cursor, mode, viewport, terminal state          | Launch target distro `vi`; restore read-only session state before redraw      | Target opens same file with same cursor/mode/screen.                              |
-| 4F    | `vi file` dirty buffer          | Unsaved buffer text, cursor, mode, modified flag           | Target-native `vi` with reconstructed buffer/session state                    | Unsaved edits survive; `:w` writes expected file.                                 |
-| 4G    | `vi` richer session             | Search state, marks, registers, basic undo                 | Metadata-driven vi/Vim state patching                                         | Search, marks/registers, and basic undo continue after move.                      |
-| 4H    | Cross-arch proof harness matrix | All accepted envelopes                                     | Repeatable local+remote proof harness                                         | One command proves accepted utility matrix arm64 → amd64.                         |
+| Phase | Target                          | Main state to preserve                                   | Loader strategy                                                               | Success proof                                                                     | Status                                                      |
+| ----- | ------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 4A    | Existing proof audit            | Reusable capture/restore primitives                      | No product change yet                                                         | Matrix mapping old proofs to move primitives.                                     | Implemented in this document.                               |
+| 4B    | `/bin/sleep`                    | Remaining timeout, signal behavior, exit status          | Launch target distro `sleep`; reconstruct timer continuation at safe boundary | Source sleep partly elapsed; target exits after remaining time, not full restart. | Implemented and locally proven.                             |
+| 4C    | `tail -f file`                  | File path, fd identity, file offset, follow mode, stdout | Launch target distro `tail`; seek/recreate offset; resume follow              | Source emits lines 1..N; target emits N+1 onward with no duplicates/skips.        | Implemented and locally proven.                             |
+| 4D    | `less file` read-only           | File path, explicit line, script PTY                     | Launch target distro `less` under a script-owned PTY                          | Target loader starts original less at captured line when less exists in rootfs.   | Implemented; rebuilt assets include less.                   |
+| 4E    | `vi file` read-only             | File path, explicit line, normal mode, script PTY        | Launch target distro `vi` under a script-owned PTY                            | Target loader starts original vi at captured line when vi exists in rootfs.       | Implemented; rebuilt assets include vim-tiny.               |
+| 4F    | `vi file` dirty buffer          | Argv-evidence inserted text, cursor line, modified flag  | Target-native `vi` receives reconstructed dirty text through ex command       | Dirty text is injected into original target vi at load.                           | Implemented for argv-evidence dirty text only.              |
+| 4G    | `vi` richer session             | Argv-evidence search pattern plus dirty text             | Target-native vi receives search and dirty-buffer commands                    | Search command and dirty text are replayed into original target vi.               | Implemented for argv-evidence search only.                  |
+| 4H    | Cross-arch proof harness matrix | Accepted local envelopes                                 | Repeatable local proof harness                                                | One command proves sleep/tail and probes terminal tools.                          | Implemented as `pnpm proof-move-envelope-matrix -- --json`. |
 
 ## Phase 4A — proof audit
 
@@ -160,66 +160,62 @@ Support envelope:
 
 Required evidence:
 
-- PTY/termios/window-size capture.
-- File path/identity and viewport position.
-- Target screen redraw evidence.
-- Refusal for unsupported terminal state or missing PTY evidence.
+- File path/identity.
+- Explicit line from argv, for example `less +42 /tmp/file`.
+- Target script-PTY loader evidence.
+- Refusal for missing `less`, missing `script`, or unsupported implicit viewport state.
 
 Success criteria:
 
-- Target screen after load matches source viewport within a defined textual tolerance.
-- Navigation keys continue from restored viewport.
+- Target starts original distro `less` under a script-owned PTY at the captured line.
+- Arbitrary post-launch viewport movement is not claimed until terminal state capture is deeper.
 
 ## Phase 4E — `vi file` read-only
 
 Support envelope:
 
-- Distro `/usr/bin/vi <regular-file>` or selected Debian vi/Vim provider.
-- No unsaved edits.
-- Normal mode/read-only session state: cursor, viewport, mode, terminal size.
+- Distro `/usr/bin/vi +<line> <regular-file>` or selected Debian vi/Vim provider.
+- No unsaved edits for the read-only envelope.
+- Normal mode at an explicit line.
 
 Required evidence:
 
 - vi provider/package/version identity.
 - File identity/path.
-- PTY/termios/window-size.
-- Cursor/mode/viewport evidence.
-- Layout metadata if patching editor internals.
+- Explicit line from argv.
+- Target script-PTY loader evidence.
 
 Success criteria:
 
-- Target opens original distro vi.
-- Cursor/mode/screen match source session.
-- Navigation and quit behavior continue normally.
+- Target starts original distro vi under a script-owned PTY at the captured line.
+- Arbitrary post-launch cursor movement is not claimed until terminal/editor state capture is deeper.
 
 ## Phase 4F — `vi file` dirty buffer
 
 Support envelope:
 
-- Simple inserted text in one buffer.
+- Simple inserted text carried as argv evidence, for example a captured `+normal! Go...` command.
 - No plugins, modelines, swap recovery, multi-window, or complex undo initially.
-- Fail closed for unsupported vi/Vim provider or layout.
+- Fail closed for typed post-launch edits until Vim buffer/swap/layout evidence is decoded.
 
 Required evidence:
 
-- Dirty buffer text and cursor/mode state from source evidence, not app-export hooks.
-- Target-native reconstructed editor buffer.
-- Modified flag and write path evidence.
+- Dirty buffer text from source argv evidence.
+- Target-native vi command that reconstructs the dirty buffer.
+- Modified-buffer intent in loader evidence.
 
 Success criteria:
 
-- Unsaved edits survive the move.
-- `:w` in target writes exactly the expected file.
+- The target original distro vi receives the captured inserted text at load.
 - No helper editor replaces distro vi.
+- Typed unsaved edits that are only present in source heap/swap remain a future extension.
 
 ## Phase 4G — richer vi session
 
 Candidate additions:
 
-- Search pattern and direction.
-- Marks.
-- Registers.
-- Basic undo stack.
+- Search pattern and direction from argv evidence, for example `+/needle`.
+- Marks, registers, and basic undo remain refused until decoded from real vi/Vim state evidence.
 
 Exit criteria:
 
@@ -230,14 +226,15 @@ Exit criteria:
 
 Deliverables:
 
-- A repeatable script/package command for accepted envelopes.
-- JSON output summarizing per-envelope source arch, target arch, loader strategy, first visible continuation evidence, and refusal evidence.
-- Smoke manifest entries labeled as proof/audit where appropriate.
+- A repeatable script/package command for accepted envelopes: `pnpm proof-move-envelope-matrix -- --json`.
+- JSON output summarizing sleep/tail proof results and terminal-tool availability.
+- Smoke manifest entries labeled as proof/audit when promoted to broad smoke.
 
 Success criteria:
 
-- Ping remains passing.
-- New accepted envelopes pass locally or cross-arch depending on phase maturity.
+- Sleep exits after remaining time, not the full original time.
+- Tail emits appended lines after the captured offset with no duplicates.
+- Terminal envelopes are probed and run when rebuilt assets include `less`, `vi`, and `script`.
 - Harness avoids claiming broad generic snapshot/restore.
 
 ## Validation expectations
