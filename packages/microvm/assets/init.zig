@@ -78,6 +78,7 @@ const DT_LNK: u8 = 10;
 
 const O_RDONLY: c_int = 0;
 const O_RDWR: c_int = 2;
+const O_NONBLOCK: c_int = 0o4000;
 const SEEK_END: c_int = 2;
 const SEEK_SET: c_int = 0;
 const F_OK: c_int = 0;
@@ -273,12 +274,12 @@ fn bring_up_network() void {
 fn wait_for_console() c_int {
     var i: u32 = 0;
     while (i < 100) : (i += 1) {
-        const fd_ttyS0 = open("/dev/ttyS0", O_RDWR);
+        const fd_console = open("/dev/console", O_RDWR);
+        if (fd_console >= 0) return fd_console;
+        const fd_ttyS0 = open("/dev/ttyS0", O_RDWR | O_NONBLOCK);
         if (fd_ttyS0 >= 0) return fd_ttyS0;
-        const fd = open("/dev/ttyAMA0", O_RDWR);
-        if (fd >= 0) return fd;
-        const fd2 = open("/dev/console", O_RDWR);
-        if (fd2 >= 0) return fd2;
+        const fd_ttyAMA0 = open("/dev/ttyAMA0", O_RDWR | O_NONBLOCK);
+        if (fd_ttyAMA0 >= 0) return fd_ttyAMA0;
         sleep_ms(50);
     }
     return -1;

@@ -178,7 +178,7 @@ fi
 #    (all statically linked against musl)
 # ------------------------------------------------------------
 
-echo "==> Building guest binaries (init, exec-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe) for ${ZIG_GUEST_TARGET}"
+echo "==> Building guest binaries (init, exec-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe, move-capture) for ${ZIG_GUEST_TARGET}"
 # STAGE has to live inside ROOT, not /tmp, because the mmdebstrap step
 # below runs docker with `-v "$STAGE":/stage:ro`. When build-base-assets
 # itself runs inside a container (agent-ci's local runner, dev shell
@@ -218,6 +218,12 @@ zig cc "${ASSETS}/machinen-netup.c" \
   -static \
   -Os \
   -o "${STAGE}/machinen-netup"
+
+zig cc "${ASSETS}/move-capture.c" \
+  -target "${ZIG_GUEST_TARGET}" \
+  -static \
+  -Os \
+  -o "${STAGE}/move-capture"
 
 zig cc "${ASSETS}/vmstate-reseed.c" \
   -target aarch64-linux-musl \
@@ -443,6 +449,64 @@ install -m 0755 /tmp/criu-build/criu/criu /work/rootfs/usr/sbin/criu
 chroot /work/rootfs /usr/sbin/criu --version | tee /dev/stderr | grep -qE "Version: ${CRIU_TAG#v}" \
   || { echo "criu overlay version mismatch — expected ${CRIU_TAG#v}"; exit 1; }
 
+# Generate the move ping-state layout from Debian's source/debug
+# artifacts instead of baking iputils offsets into machinen-move-capture.
+# The guest patcher reads this compact metadata file at load time and
+# refuses if it is absent/incomplete.
+echo "==> Generating iputils-ping move layout metadata"
+cat > /etc/apt/sources.list.d/machinen-iputils-debug.list <<'EOF'
+deb http://deb.debian.org/debian-debug bookworm-debug main
+deb-src http://ftp.debian.org/debian bookworm main contrib
+deb-src http://ftp.debian.org/debian bookworm-updates main contrib
+deb-src http://security.debian.org bookworm-security main contrib
+EOF
+apt-get update -qq > /dev/null
+PING_VERSION=$(chroot /work/rootfs dpkg-query -W -f='${Version}' iputils-ping)
+PING_BUILD_ID=$(readelf -n /work/rootfs/usr/bin/ping | awk '/Build ID:/ {print $3; exit}')
+rm -rf /tmp/iputils-dbgsym /tmp/iputils-source
+mkdir -p /tmp/iputils-dbgsym /tmp/iputils-source
+(
+  cd /tmp/iputils-dbgsym
+  apt-get download -qq "iputils-ping-dbgsym=${PING_VERSION}"
+  dpkg-deb -x iputils-ping-dbgsym_*.deb .
+)
+PING_DEBUG="/tmp/iputils-dbgsym/usr/lib/debug/.build-id/${PING_BUILD_ID:0:2}/${PING_BUILD_ID:2}.debug"
+PING_RTS_SYMBOL=$(nm -an "$PING_DEBUG" | awk '/ [bB] rts\./ {print "0x" $1; exit}')
+if [ -z "$PING_RTS_SYMBOL" ]; then
+  echo "could not resolve iputils ping_rts symbol from $PING_DEBUG" >&2
+  exit 1
+fi
+(
+  cd /tmp/iputils-source
+  apt-get source -qq "iputils-ping=${PING_VERSION}"
+)
+PING_SRC=$(find /tmp/iputils-source -mindepth 1 -maxdepth 1 -type d -name 'iputils-*' | head -1)
+cat > /tmp/ping-offsets.c <<'EOF'
+#include <stddef.h>
+#include <stdio.h>
+#define HAVE_LIBCAP 1
+#include "ping/ping.h"
+int main(void) {
+  printf("npackets=%zu\n", offsetof(struct ping_rts, npackets));
+  printf("nreceived=%zu\n", offsetof(struct ping_rts, nreceived));
+  printf("ntransmitted=%zu\n", offsetof(struct ping_rts, ntransmitted));
+  printf("nerrors=%zu\n", offsetof(struct ping_rts, nerrors));
+  printf("interval=%zu\n", offsetof(struct ping_rts, interval));
+  printf("pipesize=%zu\n", offsetof(struct ping_rts, pipesize));
+  printf("min_size=%zu\n", sizeof(struct ping_rts));
+  return 0;
+}
+EOF
+gcc -I"$PING_SRC" -I"$PING_SRC/ping" /tmp/ping-offsets.c -o /tmp/ping-offsets
+install -m 0755 -d /work/rootfs/usr/share/machinen/move
+{
+  echo "package=iputils-ping"
+  echo "version=${PING_VERSION}"
+  echo "build_id=${PING_BUILD_ID}"
+  echo "symbol_vaddr=${PING_RTS_SYMBOL}"
+  /tmp/ping-offsets
+} > /work/rootfs/usr/share/machinen/move/iputils-ping.state
+
 # Belt-and-braces cleanup for things path-exclude doesn't cover.
 # Also drop the second copy of the kernel image and initrd hooks we
 # don't use (we boot Image-arm64 from release-assets, not from
@@ -500,6 +564,7 @@ install -m 1777 -d /work/rootfs/tmp
 install -m 0755 /stage/init       /work/rootfs/init
 install -m 0755 /stage/exec-agent /work/rootfs/exec-agent
 install -m 0755 -D /stage/machinen-netup    /work/rootfs/sbin/machinen-netup
+install -m 0755 -D /stage/move-capture      /work/rootfs/sbin/machinen-move-capture
 install -m 0755 -D /stage/vmstate-reseed    /work/rootfs/sbin/machinen-vmstate-reseed
 install -m 0755 -D /stage/lo-up             /work/rootfs/sbin/machinen-lo-up
 install -m 0755 -D /stage/no-iou            /work/rootfs/sbin/machinen-no-iou

@@ -102,6 +102,7 @@
     "proof-non-node-runtime": "bash scripts/smoke/non-node-runtime-proof.sh",
     "proof-goal40-hard-runtime-state": "bash scripts/smoke/goal40-hard-runtime-state.sh",
     "proof-hard-runtime-refusal-contract": "bash scripts/smoke/hard-runtime-refusal-contract.sh",
+    "proof-move-ping-cross-arch": "bash scripts/smoke/move-ping-cross-arch.sh",
     "proof-stateful-services": "bash scripts/smoke/stateful-services-proof.sh",
     "proof-stateful-database-portable-restore": "bash scripts/smoke/stateful-database-portable-restore.sh",
     "proof-guest-checkpoint-substrate": "bash scripts/smoke/guest-checkpoint-substrate.sh",

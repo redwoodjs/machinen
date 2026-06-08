@@ -68,6 +68,13 @@
       "requires": ["local-node"]
     },
     {
+      "path": "scripts/smoke/move-ping-cross-arch.sh",
+      "classification": "proof-audit",
+      "packageScripts": ["proof-move-ping-cross-arch"],
+      "reason": "arm64 to amd64 machinen move proof for distro /usr/bin/ping direct-loader continuation",
+      "requires": ["local-arm64-vm", "remote-amd64-vm", "release-assets"]
+    },
+    {
       "path": "scripts/smoke/nested-virtualization-stretch-proof.sh",
       "classification": "proof-audit",
       "packageScripts": ["proof-nested-virtualization-stretch"],

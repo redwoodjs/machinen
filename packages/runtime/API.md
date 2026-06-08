@@ -4638,6 +4638,10 @@ Size in bytes the file was allocated at.
 
 > **cwd**: `string`
 
+##### exe?
+
+> `optional` **exe?**: `string`
+
 ***
 
 ### MovePidGraphEdge
@@ -4793,6 +4797,170 @@ Size in bytes the file was allocated at.
 ##### productSurface
 
 > **productSurface**: `"machinen move"`
+
+##### resourcePlan?
+
+> `optional` **resourcePlan?**: `object`
+
+###### kind
+
+> **kind**: `"machinen.move.resource-plan"`
+
+###### source
+
+> **source**: `"guest-procfs"` \| `"host-procfs"`
+
+###### sourceArch?
+
+> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+
+###### resources
+
+> **resources**: [`NativeProcessResource`](#nativeprocessresource)[]
+
+###### fdTableEntries
+
+> **fdTableEntries**: [`NativeTargetFdTableEntry`](#nativetargetfdtableentry)[]
+
+###### targetGuestResources
+
+> **targetGuestResources**: [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)[]
+
+###### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+###### acceptedSubsets
+
+> **acceptedSubsets**: `string`[]
+
+###### capture?
+
+> `optional` **capture?**: `object`
+
+###### capture.sourceVm?
+
+> `optional` **sourceVm?**: `object`
+
+###### capture.sourceVm.pid
+
+> **pid**: `number`
+
+###### capture.sourceVm.name?
+
+> `optional` **name?**: `string`
+
+###### capture.executablePackage?
+
+> `optional` **executablePackage?**: `object`
+
+###### capture.executablePackage.path
+
+> **path**: `string`
+
+###### capture.executablePackage.realPath?
+
+> `optional` **realPath?**: `string`
+
+###### capture.executablePackage.packageName?
+
+> `optional` **packageName?**: `string`
+
+###### capture.executablePackage.version?
+
+> `optional` **version?**: `string`
+
+###### capture.executablePackage.architecture?
+
+> `optional` **architecture?**: `string`
+
+###### capture.pingState?
+
+> `optional` **pingState?**: `object`
+
+###### capture.pingState.ntransmitted
+
+> **ntransmitted**: `number`
+
+###### capture.pingState.nreceived
+
+> **nreceived**: `number`
+
+###### capture.pingState.nerrors
+
+> **nerrors**: `number`
+
+###### capture.pingState.lastSequence?
+
+> `optional` **lastSequence?**: `number`
+
+###### capture.safeBoundary?
+
+> `optional` **safeBoundary?**: `object`
+
+###### capture.safeBoundary.state
+
+> **state**: `"refused"` \| `"sleep-timer"` \| `"pre-send-icmp"`
+
+###### capture.safeBoundary.detail
+
+> **detail**: `string`
+
+###### capture.freeze?
+
+> `optional` **freeze?**: `object`
+
+###### capture.freeze.state
+
+> **state**: `"refused"` \| `"ptrace-attached"`
+
+###### capture.freeze.detail
+
+> **detail**: `string`
+
+###### capture.tasks?
+
+> `optional` **tasks?**: `number`
+
+###### capture.wchan?
+
+> `optional` **wchan?**: `string`
+
+###### capture.syscall?
+
+> `optional` **syscall?**: `string`
+
+###### capture.maps?
+
+> `optional` **maps?**: `string`[]
+
+###### capture.registers?
+
+> `optional` **registers?**: `Record`\<`string`, `unknown`\>
+
+##### nativeContinuation?
+
+> `optional` **nativeContinuation?**: `object`
+
+###### kind
+
+> **kind**: `"machinen.move.native-continuation"`
+
+###### bundlePath
+
+> **bundlePath**: `"."`
+
+###### activeSyscallPlan
+
+> **activeSyscallPlan**: `"active-syscall-plan.json"`
+
+###### state
+
+> **state**: `"refused"` \| `"planned"`
+
+###### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
 
 ***
 
