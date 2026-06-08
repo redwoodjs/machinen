@@ -81,6 +81,33 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
         nerrors: number;
         lastSequence?: number;
       };
+      sleepState?: {
+        originalMs: number;
+        elapsedMs: number;
+        remainingMs: number;
+        capturedAt?: string;
+      };
+      tailState?: {
+        path: string;
+        offset: number;
+        followMode: "poll-or-inotify";
+        capturedAt?: string;
+      };
+      lessState?: {
+        path: string;
+        line: number;
+        terminal: "script-pty";
+        capturedAt?: string;
+      };
+      viState?: {
+        path: string;
+        line: number;
+        mode: "normal-read-only" | "normal-dirty-buffer";
+        terminal: "script-pty";
+        dirtyText?: string;
+        searchPattern?: string;
+        capturedAt?: string;
+      };
       safeBoundary?: { state: "sleep-timer" | "pre-send-icmp" | "refused"; detail: string };
       freeze?: { state: "ptrace-attached" | "refused"; detail: string };
       tasks?: number;
