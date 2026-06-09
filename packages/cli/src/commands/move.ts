@@ -27,6 +27,18 @@ import {
 } from "../move-native-bundle.ts";
 import { buildMoveResourcePlan, parseGuestMoveResourceScan } from "../move-resource-plan.ts";
 import { runMoveTargetDirectLoaderInVm, type MoveLoadDirectLoader } from "../move-rendezvous.ts";
+import {
+  readMoveGrepState,
+  readMoveHttpState,
+  readMoveLessState,
+  readMovePingStateInVm,
+  readMoveReaderStateInVm,
+  readMoveShellState,
+  readMoveSleepStateInVm,
+  readMoveTailState,
+  readMoveViState,
+  readMoveWatchState,
+} from "../move-envelope-capture.ts";
 import { die, handleError } from "../errors.ts";
 import type { Target } from "../parse-target.ts";
 import { parseTargetFlags, resolveTarget } from "./target.ts";
@@ -207,8 +219,20 @@ function moveEnvelopeAllowedRefusalClasses(descriptor: MoveDescriptor): Set<stri
   if (descriptor.resourcePlan?.capture?.tailState) {
     return new Set(["open-files", "threads"]);
   }
-  if (descriptor.resourcePlan?.capture?.lessState || descriptor.resourcePlan?.capture?.viState) {
+  if (
+    descriptor.resourcePlan?.capture?.lessState ||
+    descriptor.resourcePlan?.capture?.viState ||
+    descriptor.resourcePlan?.capture?.watchState ||
+    descriptor.resourcePlan?.capture?.shellState ||
+    descriptor.resourcePlan?.capture?.httpState
+  ) {
     return new Set(["open-files", "sockets", "threads"]);
+  }
+  if (
+    descriptor.resourcePlan?.capture?.readerState ||
+    descriptor.resourcePlan?.capture?.grepState
+  ) {
+    return new Set(["open-files", "threads"]);
   }
   return undefined;
 }
@@ -409,219 +433,12 @@ async function attachMoveSourceIdentity(
     tailState: readMoveTailState(node, resourcePlan),
     lessState: readMoveLessState(node),
     viState: readMoveViState(node),
+    readerState: await readMoveReaderStateInVm(vm, node, resourcePlan),
+    grepState: readMoveGrepState(node, resourcePlan),
+    watchState: readMoveWatchState(node),
+    shellState: readMoveShellState(node),
+    httpState: readMoveHttpState(node),
   };
-}
-
-async function readMovePingStateInVm(
-  vm: VmHandle,
-  resourcePlan: MoveResourcePlan,
-): Promise<NonNullable<MoveResourcePlan["capture"]>["pingState"]> {
-  const path = moveStdoutFilePath(resourcePlan);
-  if (!path) {
-    return undefined;
-  }
-  const result = await vm.execRaw(`tail -n 500 ${shellQuote(path)} 2>/dev/null || true`, {
-    execTimeoutMs: 10_000,
-  });
-  return parsePingStateFromOutput(result.stdout);
-}
-
-function moveStdoutFilePath(resourcePlan: MoveResourcePlan): string | undefined {
-  const stdout = resourcePlan.resources.find((resource) => resource.fd === 1);
-  return stdout?.kind === "file" && typeof stdout.path === "string" ? stdout.path : undefined;
-}
-
-function parsePingStateFromOutput(
-  stdout: string,
-): NonNullable<MoveResourcePlan["capture"]>["pingState"] {
-  const sequences = Array.from(stdout.matchAll(/icmp_seq=(\d+)/g), (match) => Number(match[1]));
-  const replies = stdout.split("\n").filter((line) => /bytes from .*icmp_seq=\d+/.test(line));
-  const errors = stdout.split("\n").filter((line) => /^From .*icmp_seq=\d+/.test(line));
-  const lastSequence = sequences.at(-1);
-  if (!lastSequence) {
-    return undefined;
-  }
-  return {
-    ntransmitted: lastSequence,
-    nreceived: replies.length,
-    nerrors: errors.length,
-    lastSequence,
-  };
-}
-
-async function readMoveSleepStateInVm(
-  vm: VmHandle,
-  node: MovePidGraphNode,
-): Promise<NonNullable<MoveResourcePlan["capture"]>["sleepState"]> {
-  const originalMs = moveSleepOriginalMs(node);
-  if (originalMs === undefined) {
-    return undefined;
-  }
-  const timing = await readMoveProcessTimingInVm(vm, node.pid);
-  if (!timing) {
-    return undefined;
-  }
-  const elapsedMs = Math.max(0, timing.uptimeMs - timing.startMs);
-  return {
-    originalMs,
-    elapsedMs,
-    remainingMs: Math.max(0, originalMs - elapsedMs),
-    capturedAt: new Date().toISOString(),
-  };
-}
-
-function readMoveLessState(
-  node: MovePidGraphNode,
-): NonNullable<MoveResourcePlan["capture"]>["lessState"] {
-  const parsed = moveTerminalFileState(node, "less");
-  return parsed
-    ? {
-        path: parsed.path,
-        line: parsed.line,
-        terminal: "script-pty",
-        capturedAt: new Date().toISOString(),
-      }
-    : undefined;
-}
-
-function readMoveViState(
-  node: MovePidGraphNode,
-): NonNullable<MoveResourcePlan["capture"]>["viState"] {
-  const parsed = moveTerminalFileState(node, "vi");
-  if (!parsed) {
-    return undefined;
-  }
-  const dirtyText = moveViDirtyText(node.argv);
-  return {
-    path: parsed.path,
-    line: parsed.line,
-    mode: dirtyText === undefined ? "normal-read-only" : "normal-dirty-buffer",
-    terminal: "script-pty",
-    dirtyText,
-    searchPattern: moveViSearchPattern(node.argv),
-    capturedAt: new Date().toISOString(),
-  };
-}
-
-function moveViDirtyText(argv: string[]): string | undefined {
-  return argv.find((arg) => /^\+normal!? Go/.test(arg))?.replace(/^\+normal!? Go/, "");
-}
-
-function moveViSearchPattern(argv: string[]): string | undefined {
-  return argv.find((arg) => arg.startsWith("+/") && arg.length > 2)?.slice(2);
-}
-
-// fallow-ignore-next-line complexity
-function moveTerminalFileState(
-  node: MovePidGraphNode,
-  command: "less" | "vi",
-): { path: string; line: number } | undefined {
-  if (basename(node.exe ?? node.argv[0] ?? node.command) !== command) {
-    return undefined;
-  }
-  const path = node.argv.at(-1);
-  if (!path?.startsWith("/")) {
-    return undefined;
-  }
-  const line = parseLineArg(node.argv.find((arg) => /^\+\d+$/.test(arg)));
-  return { path, line: line ?? 1 };
-}
-
-function parseLineArg(value: string | undefined): number | undefined {
-  const parsed = Number(value?.slice(1));
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
-}
-
-function readMoveTailState(
-  node: MovePidGraphNode,
-  resourcePlan: MoveResourcePlan,
-): NonNullable<MoveResourcePlan["capture"]>["tailState"] {
-  const path = moveTailFollowPath(node);
-  if (!path) {
-    return undefined;
-  }
-  const file = resourcePlan.resources.find(
-    (resource) =>
-      resource.kind === "file" && resource.path === path && typeof resource.offset === "number",
-  );
-  return typeof file?.offset === "number"
-    ? {
-        path,
-        offset: file.offset,
-        followMode: "poll-or-inotify",
-        capturedAt: new Date().toISOString(),
-      }
-    : undefined;
-}
-
-// fallow-ignore-next-line complexity
-function moveTailFollowPath(node: MovePidGraphNode): string | undefined {
-  if (basename(node.exe ?? node.argv[0] ?? node.command) !== "tail") {
-    return undefined;
-  }
-  const args = node.argv.slice(1);
-  const followIndex = args.findIndex((arg) => arg === "-f" || arg === "--follow");
-  const path = args.at(-1);
-  return followIndex >= 0 && path?.startsWith("/") ? path : undefined;
-}
-
-// fallow-ignore-next-line complexity
-function moveSleepOriginalMs(node: MovePidGraphNode): number | undefined {
-  if (basename(node.exe ?? node.argv[0] ?? node.command) !== "sleep") {
-    return undefined;
-  }
-  const duration = parseSleepDurationMs(node.argv[1]);
-  return duration !== undefined && node.argv.length === 2 ? duration : undefined;
-}
-
-// fallow-ignore-next-line complexity
-function parseSleepDurationMs(value: string | undefined): number | undefined {
-  const match = value?.match(/^(\d+(?:\.\d+)?)([smhd]?)$/);
-  if (!match) {
-    return undefined;
-  }
-  const multiplier = sleepDurationMultiplier(match[2] ?? "");
-  const ms = Number(match[1]) * multiplier;
-  return Number.isFinite(ms) && ms > 0 ? Math.round(ms) : undefined;
-}
-
-function sleepDurationMultiplier(suffix: string): number {
-  return { "": 1000, s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }[suffix] ?? 1000;
-}
-
-async function readMoveProcessTimingInVm(
-  vm: VmHandle,
-  pid: number,
-): Promise<{ uptimeMs: number; startMs: number } | undefined> {
-  const result = await vm.execRaw(
-    `printf 'UPTIME\t'; cut -d' ' -f1 /proc/uptime; printf 'CLK_TCK\t'; getconf CLK_TCK; printf 'STAT\t'; cat /proc/${pid}/stat 2>/dev/null || true`,
-    { execTimeoutMs: 10_000 },
-  );
-  if (result.exitCode !== 0) {
-    return undefined;
-  }
-  return parseMoveProcessTiming(result.stdout);
-}
-
-// fallow-ignore-next-line complexity
-function parseMoveProcessTiming(stdout: string): { uptimeMs: number; startMs: number } | undefined {
-  const rows = new Map(stdout.split("\n").map((row) => row.split("\t", 2) as [string, string]));
-  const uptimeSeconds = Number(rows.get("UPTIME"));
-  const clockTicksPerSecond = Number(rows.get("CLK_TCK"));
-  const startTicks = parseStatStartTicks(rows.get("STAT") ?? "");
-  if (!Number.isFinite(uptimeSeconds) || !Number.isFinite(clockTicksPerSecond) || !startTicks) {
-    return undefined;
-  }
-  return {
-    uptimeMs: Math.round(uptimeSeconds * 1000),
-    startMs: Math.round((startTicks / clockTicksPerSecond) * 1000),
-  };
-}
-
-function parseStatStartTicks(stat: string): number | undefined {
-  const rest = stat.match(/^\d+\s+\(.*\)\s+(.+)$/)?.[1]?.split(/\s+/) ?? [];
-  const parsed = Number(rest[19]);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 function moveProcessPath(node: MovePidGraphNode): string {
@@ -967,10 +784,6 @@ function parseOptionalPositiveInteger(value: string): number | undefined {
     return undefined;
   }
   return parsed;
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
 function parsePositiveInteger(value: string, flag: string): number {

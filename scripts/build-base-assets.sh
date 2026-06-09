@@ -370,14 +370,10 @@ chmod +x /tmp/setup-hook.sh
 #   iputils-ping: baked in so users can sanity-check connectivity
 #   without an `apt install`. Over gvproxy ICMP works via unprivileged
 #   ping sockets (sysctl is enabled in cloud kernels).
-#
-#   less + vim-tiny: small distro terminal apps used by the `machinen move`
-#   envelope proofs. They let the proof harness launch the original target
-#   `/usr/bin/less` and `/usr/bin/vi` instead of a Machinen replacement.
 mmdebstrap \
   --variant=minbase \
   --architectures="${DEBIAN_ARCH}" \
-  --include=criu,e2fsprogs,iputils-ping,less,vim-tiny \
+  --include=criu,e2fsprogs,iputils-ping \
   --setup-hook=/tmp/setup-hook.sh \
   bookworm /work/rootfs
 

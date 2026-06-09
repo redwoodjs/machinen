@@ -136,6 +136,44 @@ const dirtyViDescriptor: MoveDescriptor = {
   },
 };
 
+const readerDescriptor = moveDescriptorWithCapture(
+  76,
+  "cat",
+  ["cat", "/tmp/cat.txt"],
+  "/usr/bin/cat",
+  {
+    readerState: { command: "cat", path: "/tmp/cat.txt", offset: 131_072 },
+  },
+);
+
+const grepDescriptor = moveDescriptorWithCapture(
+  77,
+  "grep",
+  ["grep", "match", "/tmp/grep.txt"],
+  "/usr/bin/grep",
+  { grepState: { pattern: "match", path: "/tmp/grep.txt", offset: 294_912 } },
+);
+
+const watchDescriptor = moveDescriptorWithCapture(
+  78,
+  "watch",
+  ["watch", "-n", "1", "date"],
+  "/usr/bin/watch",
+  { watchState: { intervalSeconds: 1, command: ["date"] } },
+);
+
+const shellDescriptor = moveDescriptorWithCapture(79, "sh", ["/bin/sh"], "/usr/bin/dash", {
+  shellState: { shell: "dash", cwd: "/work", terminal: "script-pty" },
+});
+
+const httpDescriptor = moveDescriptorWithCapture(
+  80,
+  "python3",
+  ["python3", "-m", "http.server", "8123"],
+  "/usr/bin/python3.11",
+  { httpState: { executable: "python3", port: 8123, cwd: "/tmp/web" } },
+);
+
 describe("move target direct loader", () => {
   it("launches original target sleep with only the remaining duration", async () => {
     const commands: string[] = [];
@@ -267,6 +305,101 @@ describe("move target direct loader", () => {
     });
   });
 
+  it("launches original target cat from the captured regular-file offset", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t801\nLOAD_LOG\t/tmp/cat.log\nPATCH\treader-offset\tready\t/tmp/cat.txt\t131072\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, readerDescriptor);
+
+    expect(commands[0]).toContain("dd bs=1 count=131072");
+    expect(commands[0]).toContain("'/usr/bin/cat' <&3");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-cat-offset-loader",
+      targetPid: 801,
+      refusals: [],
+    });
+  });
+
+  it("launches original target grep from the captured regular-file offset", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t802\nLOAD_LOG\t/tmp/grep.log\nPATCH\tgrep-offset\tready\t/tmp/grep.txt\t294912\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, grepDescriptor);
+
+    expect(commands[0]).toContain("dd bs=1 count=294912");
+    expect(commands[0]).toContain("'/usr/bin/grep' -- 'match' <&3");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-grep-offset-loader",
+      targetPid: 802,
+      refusals: [],
+    });
+  });
+
+  it("launches original target watch under a script PTY", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t803\nLOAD_LOG\t/tmp/watch.typescript\nPATCH\twatch-loop\tready\t1\tdate\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, watchDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/watch");
+    expect(commands[0]).toContain("date");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-watch-loop-loader",
+      targetPid: 803,
+      refusals: [],
+    });
+  });
+
+  it("launches original target shell under a script PTY in the captured cwd", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t804\nLOAD_LOG\t/tmp/sh.typescript\nPATCH\tsh-script-pty\tready\t/work\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, shellDescriptor);
+
+    expect(commands[0]).toContain("/work");
+    expect(commands[0]).toContain("/usr/bin/dash");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-sh-script-pty-loader",
+      targetPid: 804,
+      refusals: [],
+    });
+  });
+
+  it("launches original target Python HTTP server in the captured cwd and port", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t805\nLOAD_LOG\t/tmp/http.log\nPATCH\tpython-http-server\tready\t/tmp/web\t8123\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, httpDescriptor);
+
+    expect(commands[0]).toContain("cd '/tmp/web'");
+    expect(commands[0]).toContain("'/usr/bin/python3.11' -m http.server 8123 --bind 127.0.0.1");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-python-http-server-loader",
+      targetPid: 805,
+      refusals: [],
+    });
+  });
+
   it("launches original target ping and accepts a frozen pre-send capture", async () => {
     const commands: string[] = [];
     const vm = mockVm(
@@ -304,6 +437,21 @@ describe("move target direct loader", () => {
     expect(loader.refusals).toContainEqual(expect.objectContaining({ code: "active-syscall" }));
   });
 });
+
+function moveDescriptorWithCapture(
+  pid: number,
+  command: string,
+  argv: string[],
+  exe: string,
+  capture: NonNullable<NonNullable<MoveDescriptor["resourcePlan"]>["capture"]>,
+): MoveDescriptor {
+  return {
+    ...descriptor,
+    rootPid: pid,
+    nodes: [{ pid, ppid: 1, command, argv, cwd: "/", exe }],
+    resourcePlan: { ...descriptor.resourcePlan!, capture },
+  };
+}
 
 function mockVm(commands: string[], stdout: string): VmHandle {
   return {
