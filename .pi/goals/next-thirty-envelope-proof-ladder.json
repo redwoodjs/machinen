@@ -168,9 +168,9 @@
       "evidence": "Remote amd64 validation passed on root@192.168.0.8 after rsync to /mnt/shared-500G/machinen-move-proof and remote rebuild of @machinen/runtime, @machinen/cli, and @machinen/microvm. Command: cd /mnt/shared-500G/machinen-move-proof && MACHINEN_VMM=$PWD/packages/microvm/zig-out/bin/machinen-vm MACHINEN_GVPROXY=$PWD/packages/native-x64-linux/vmm/bin/gvproxy pnpm proof-move-envelope-matrix -- --json. Result passed in 736.632s with all expanded matrix rows present, including find-cursor, complex-find-refusal, tar-create with 5000 archived files, go-static-http, go-extra-socket-refusal, rust-static-http, and native-dlopen-refusal."
     },
     {
-      "status": "pending",
+      "status": "proven",
       "obligation": "Prove the PR branch is updated with the completed expanded ladder work.",
-      "evidence": ""
+      "evidence": "PR branch update passed: committed completed expanded ladder work as 86813cf2 (Expand move envelope proof ladder), then git push origin move-envelope-sequence passed in 2.233s and advanced origin/move-envelope-sequence from 663f0e5f to 86813cf2."
     }
   ],
   "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
@@ -246,8 +246,9 @@
     "2026-06-09: Remote first attempt failed at find-cursor due guest ENOSPC with the original 60000-file fixture. Narrowed find-cursor to 20000 files and made complex-find-refusal self-contained/long-running with an unsupported -exec sleep shape; focused local find-cursor passed in 118.524s and focused local complex-find-refusal passed in 115.684s.",
     "2026-06-09: Remote amd64 validation passed on root@192.168.0.8. Synced worktree to /mnt/shared-500G/machinen-move-proof, rebuilt remote @machinen/runtime, @machinen/cli, and @machinen/microvm, then ran MACHINEN_VMM=$PWD/packages/microvm/zig-out/bin/machinen-vm MACHINEN_GVPROXY=$PWD/packages/native-x64-linux/vmm/bin/gvproxy pnpm proof-move-envelope-matrix -- --json. The remote expanded matrix passed in 736.632s with all rows present, including 10G-10J.",
     "2026-06-09: Final quick local proof-script validation after remote fixture hardening: bash -n scripts/smoke/move-envelope-matrix.sh passed in 0.004s, pnpm run check-smoke-manifest passed in 0.175s, and pnpm run format:check passed in 1.457s.",
-    "2026-06-09: Markdown remote-evidence mirror remained formatted after update: pnpm run format:check passed in 1.472s."
+    "2026-06-09: Markdown remote-evidence mirror remained formatted after update: pnpm run format:check passed in 1.472s.",
+    "2026-06-09: PR branch update proof passed: git commit created 86813cf2 (Expand move envelope proof ladder), then git push origin move-envelope-sequence passed in 2.233s and advanced origin from 663f0e5f to 86813cf2."
   ],
-  "nextAction": "Push the move-envelope-sequence branch to origin and record PR branch update evidence.",
-  "status": "IN_PROGRESS"
+  "nextAction": "All proof checklist rows are proven with evidence; no further action.",
+  "status": "COMPLETE"
 }
