@@ -137,6 +137,58 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
         executable: "python3";
         port: number;
         cwd: string;
+        directory?: string;
+        capturedAt?: string;
+      };
+      busyboxHttpState?: {
+        port: number;
+        root: string;
+        capturedAt?: string;
+      };
+      ncState?: {
+        port: number;
+        capturedAt?: string;
+      };
+      envState?: {
+        key: "MACHINEN_MOVE_ENV_PROOF";
+        value: string;
+        child: "python-http-server";
+        capturedAt?: string;
+      };
+      timeoutState?: {
+        seconds: number;
+        child: "python-http-server";
+        httpState: {
+          executable: "python3";
+          port: number;
+          cwd: string;
+          directory?: string;
+        };
+        capturedAt?: string;
+      };
+      pythonStaticRouteState?: {
+        executable: "python3";
+        scriptPath: string;
+        cwd: string;
+        port: number;
+        route: string;
+        expectedBody: string;
+        capturedAt?: string;
+      };
+      goStaticHttpState?: {
+        binaryPath: string;
+        cwd: string;
+        markerVersion: "go-static-http-v1";
+        port: number;
+        healthPath: string;
+        capturedAt?: string;
+      };
+      rustStaticHttpState?: {
+        binaryPath: string;
+        cwd: string;
+        markerVersion: "rust-static-http-v1";
+        port: number;
+        healthPath: string;
         capturedAt?: string;
       };
       tailGrepPipelineState?: {
@@ -152,6 +204,35 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
         blockSize: number;
         inputOffset: number;
         outputOffset: number;
+        capturedAt?: string;
+      };
+      cpState?: {
+        sourcePath: string;
+        destinationPath: string;
+        sourceOffset: number;
+        destinationOffset: number;
+        capturedAt?: string;
+      };
+      mvState?: {
+        sourcePath: string;
+        destinationPath: string;
+        capturedAt?: string;
+      };
+      sortState?: {
+        path: string;
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      wcState?: {
+        path: string;
+        mode: "lines";
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      sha256State?: {
+        path: string;
+        expectedDigest: string;
+        outputPath?: string;
         capturedAt?: string;
       };
       findState?: {
@@ -170,6 +251,8 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
         cwd: string;
         port: number;
         healthPath: string;
+        rootDir?: string;
+        argvContract?: "--port-root-static-http-v1";
         capturedAt?: string;
       };
       safeBoundary?: { state: "sleep-timer" | "pre-send-icmp" | "refused"; detail: string };

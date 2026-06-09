@@ -28,20 +28,32 @@ import {
 import { buildMoveResourcePlan, parseGuestMoveResourceScan } from "../move-resource-plan.ts";
 import { runMoveTargetDirectLoaderInVm, type MoveLoadDirectLoader } from "../move-rendezvous.ts";
 import {
+  readMoveBusyboxHttpState,
+  readMoveCpState,
   readMoveDdState,
+  readMoveEnvStateInVm,
   readMoveFindStateInVm,
+  readMoveGoStaticHttpState,
   readMoveGrepState,
   readMoveHttpState,
   readMoveLessState,
+  readMoveMvStateInVm,
+  readMoveNcState,
   readMoveNodeStaticHttpStateInVm,
   readMovePingStateInVm,
+  readMovePythonStaticRouteStateInVm,
   readMoveReaderStateInVm,
+  readMoveRustStaticHttpState,
+  readMoveSha256StateInVm,
   readMoveShellState,
+  readMoveSortStateInVm,
   readMoveSleepStateInVm,
   readMoveTailGrepPipelineState,
   readMoveTarState,
   readMoveTailState,
+  readMoveTimeoutState,
   readMoveViState,
+  readMoveWcStateInVm,
   readMoveWatchState,
 } from "../move-envelope-capture.ts";
 import { die, handleError } from "../errors.ts";
@@ -230,6 +242,13 @@ function moveEnvelopeAllowedRefusalClasses(descriptor: MoveDescriptor): Set<stri
     descriptor.resourcePlan?.capture?.watchState ||
     descriptor.resourcePlan?.capture?.shellState ||
     descriptor.resourcePlan?.capture?.httpState ||
+    descriptor.resourcePlan?.capture?.busyboxHttpState ||
+    descriptor.resourcePlan?.capture?.ncState ||
+    descriptor.resourcePlan?.capture?.envState ||
+    descriptor.resourcePlan?.capture?.timeoutState ||
+    descriptor.resourcePlan?.capture?.pythonStaticRouteState ||
+    descriptor.resourcePlan?.capture?.goStaticHttpState ||
+    descriptor.resourcePlan?.capture?.rustStaticHttpState ||
     descriptor.resourcePlan?.capture?.nodeStaticHttpState ||
     descriptor.resourcePlan?.capture?.tailGrepPipelineState
   ) {
@@ -239,6 +258,11 @@ function moveEnvelopeAllowedRefusalClasses(descriptor: MoveDescriptor): Set<stri
     descriptor.resourcePlan?.capture?.readerState ||
     descriptor.resourcePlan?.capture?.grepState ||
     descriptor.resourcePlan?.capture?.ddState ||
+    descriptor.resourcePlan?.capture?.cpState ||
+    descriptor.resourcePlan?.capture?.mvState ||
+    descriptor.resourcePlan?.capture?.sortState ||
+    descriptor.resourcePlan?.capture?.wcState ||
+    descriptor.resourcePlan?.capture?.sha256State ||
     descriptor.resourcePlan?.capture?.findState ||
     descriptor.resourcePlan?.capture?.tarState
   ) {
@@ -418,7 +442,15 @@ async function createMoveDescriptorInVm(vm: VmHandle, pid: number): Promise<Move
   const nodes = await readMoveProcNodesInVm(vm, pid);
   const resourcePlan = await scanMoveResourcePlanInVm(vm, nodes[0]!);
   const pipelineTailResourcePlan = await scanMoveTailPipelineResourcePlanInVm(vm, nodes);
-  await attachMoveSourceIdentity(vm, nodes[0]!, nodes, resourcePlan, pipelineTailResourcePlan);
+  const timeoutChildResourcePlan = await scanMoveTimeoutChildResourcePlanInVm(vm, nodes);
+  await attachMoveSourceIdentity(
+    vm,
+    nodes[0]!,
+    nodes,
+    resourcePlan,
+    pipelineTailResourcePlan,
+    timeoutChildResourcePlan,
+  );
   const graph = buildMovePidGraph(pid, nodes, resourcePlan);
   return {
     ...graph,
@@ -435,6 +467,7 @@ async function attachMoveSourceIdentity(
   nodes: MovePidGraphNode[],
   resourcePlan: MoveResourcePlan,
   pipelineTailResourcePlan: MoveResourcePlan | undefined,
+  timeoutChildResourcePlan: MoveResourcePlan | undefined,
 ): Promise<void> {
   resourcePlan.capture = {
     ...resourcePlan.capture,
@@ -450,8 +483,20 @@ async function attachMoveSourceIdentity(
     watchState: readMoveWatchState(node),
     shellState: readMoveShellState(node),
     httpState: readMoveHttpState(node, resourcePlan),
+    busyboxHttpState: readMoveBusyboxHttpState(node, resourcePlan),
+    ncState: readMoveNcState(node, resourcePlan),
+    envState: await readMoveEnvStateInVm(vm, node, resourcePlan),
+    timeoutState: readMoveTimeoutState(node, nodes, timeoutChildResourcePlan),
+    pythonStaticRouteState: await readMovePythonStaticRouteStateInVm(vm, node, resourcePlan),
+    goStaticHttpState: readMoveGoStaticHttpState(node, resourcePlan),
+    rustStaticHttpState: readMoveRustStaticHttpState(node, resourcePlan),
     tailGrepPipelineState: readMoveTailGrepPipelineState(nodes, pipelineTailResourcePlan),
     ddState: readMoveDdState(node, resourcePlan),
+    cpState: readMoveCpState(node, resourcePlan),
+    mvState: await readMoveMvStateInVm(vm, node),
+    sortState: await readMoveSortStateInVm(vm, node, resourcePlan),
+    wcState: await readMoveWcStateInVm(vm, node, resourcePlan),
+    sha256State: await readMoveSha256StateInVm(vm, node, resourcePlan),
     findState: await readMoveFindStateInVm(vm, node, resourcePlan),
     tarState: readMoveTarState(node),
     nodeStaticHttpState: await readMoveNodeStaticHttpStateInVm(vm, node, resourcePlan),
@@ -465,6 +510,25 @@ function moveProcessPath(node: MovePidGraphNode): string {
 async function scanMovePidGraphInVm(vm: VmHandle, rootPid?: number): Promise<MovePidGraph> {
   const nodes = await readMoveProcNodesInVm(vm, rootPid);
   return buildMovePidGraph(rootPid, nodes);
+}
+
+async function scanMoveTimeoutChildResourcePlanInVm(
+  vm: VmHandle,
+  nodes: MovePidGraphNode[],
+): Promise<MoveResourcePlan | undefined> {
+  const child = moveTimeoutChildNode(nodes);
+  return child ? scanMoveResourcePlanInVm(vm, child) : undefined;
+}
+
+function moveTimeoutChildNode(nodes: MovePidGraphNode[]): MovePidGraphNode | undefined {
+  const root = nodes[0];
+  return root && moveNodeCommandName(root) === "timeout"
+    ? nodes.find((item) => item.ppid === root.pid)
+    : undefined;
+}
+
+function moveNodeCommandName(node: MovePidGraphNode): string {
+  return basename(node.exe ?? node.argv[0] ?? node.command);
 }
 
 async function scanMoveTailPipelineResourcePlanInVm(

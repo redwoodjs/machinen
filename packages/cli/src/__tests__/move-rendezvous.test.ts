@@ -174,6 +174,219 @@ const httpDescriptor = moveDescriptorWithCapture(
   { httpState: { executable: "python3", port: 8123, cwd: "/tmp/web" } },
 );
 
+const goStaticHttpDescriptor = moveDescriptorWithCapture(
+  88,
+  "server",
+  [
+    "/tmp/go-static/server",
+    "--machinen-move-envelope",
+    "go-static-http-v1",
+    "--port",
+    "8145",
+    "--health",
+    "/health",
+  ],
+  "/tmp/go-static/server",
+  {
+    goStaticHttpState: {
+      binaryPath: "/tmp/go-static/server",
+      cwd: "/tmp/go-static",
+      markerVersion: "go-static-http-v1",
+      port: 8145,
+      healthPath: "/health",
+    },
+  },
+);
+
+const rustStaticHttpDescriptor = moveDescriptorWithCapture(
+  89,
+  "server",
+  [
+    "/tmp/rust-static/server",
+    "--machinen-move-envelope",
+    "rust-static-http-v1",
+    "--port",
+    "8148",
+    "--health",
+    "/health",
+  ],
+  "/tmp/rust-static/server",
+  {
+    rustStaticHttpState: {
+      binaryPath: "/tmp/rust-static/server",
+      cwd: "/tmp/rust-static",
+      markerVersion: "rust-static-http-v1",
+      port: 8148,
+      healthPath: "/health",
+    },
+  },
+);
+
+const pythonStaticRouteDescriptor = moveDescriptorWithCapture(
+  87,
+  "python3",
+  ["python3", "/tmp/python-static/server.py"],
+  "/usr/bin/python3",
+  {
+    pythonStaticRouteState: {
+      executable: "python3",
+      scriptPath: "/tmp/python-static/server.py",
+      cwd: "/tmp/python-static",
+      port: 8143,
+      route: "/health",
+      expectedBody: "python-static-ok",
+    },
+  },
+);
+
+const timeoutDescriptor = moveDescriptorWithCapture(
+  85,
+  "timeout",
+  ["timeout", "30", "python3", "-m", "http.server", "--directory", "/tmp/timeout-web", "8138"],
+  "/usr/bin/timeout",
+  {
+    timeoutState: {
+      seconds: 30,
+      child: "python-http-server",
+      httpState: {
+        executable: "python3",
+        port: 8138,
+        cwd: "/",
+        directory: "/tmp/timeout-web",
+      },
+    },
+  },
+);
+
+const ncDescriptor = moveDescriptorWithCapture(
+  83,
+  "nc",
+  ["nc", "-l", "8135"],
+  "/usr/bin/nc.openbsd",
+  {
+    ncState: {
+      port: 8135,
+    },
+  },
+);
+
+const busyboxHttpDescriptor = moveDescriptorWithCapture(
+  82,
+  "busybox",
+  ["busybox", "httpd", "-f", "-p", "8134", "-h", "/tmp/busybox-web"],
+  "/usr/bin/busybox",
+  {
+    busyboxHttpState: {
+      port: 8134,
+      root: "/tmp/busybox-web",
+    },
+  },
+);
+
+const envHttpDirectoryDescriptor = moveDescriptorWithCapture(
+  84,
+  "python3",
+  ["python3", "-m", "http.server", "--directory", "/tmp/env-web", "8137"],
+  "/usr/bin/python3.11",
+  {
+    httpState: {
+      executable: "python3",
+      port: 8137,
+      cwd: "/",
+      directory: "/tmp/env-web",
+    },
+    envState: {
+      key: "MACHINEN_MOVE_ENV_PROOF",
+      value: "wrapped-http",
+      child: "python-http-server",
+    },
+  },
+);
+
+const httpDirectoryDescriptor = moveDescriptorWithCapture(
+  81,
+  "python3",
+  ["python3", "-m", "http.server", "--directory", "/tmp/web-directory", "8128"],
+  "/usr/bin/python3.11",
+  {
+    httpState: {
+      executable: "python3",
+      port: 8128,
+      cwd: "/",
+      directory: "/tmp/web-directory",
+    },
+  },
+);
+
+const sha256Descriptor = moveDescriptorWithCapture(
+  90,
+  "sha256sum",
+  ["sha256sum", "/tmp/sha256.in"],
+  "/usr/bin/sha256sum",
+  {
+    sha256State: {
+      path: "/tmp/sha256.in",
+      expectedDigest: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      outputPath: "/tmp/sha256.out",
+    },
+  },
+);
+
+const wcDescriptor = moveDescriptorWithCapture(
+  89,
+  "wc",
+  ["wc", "-l", "/tmp/wc.in"],
+  "/usr/bin/wc",
+  {
+    wcState: {
+      path: "/tmp/wc.in",
+      mode: "lines",
+      outputPath: "/tmp/wc.out",
+    },
+  },
+);
+
+const sortDescriptor = moveDescriptorWithCapture(
+  88,
+  "sort",
+  ["sort", "/tmp/sort.in"],
+  "/usr/bin/sort",
+  {
+    sortState: {
+      path: "/tmp/sort.in",
+      outputPath: "/tmp/sort.out",
+    },
+  },
+);
+
+const mvDescriptor = moveDescriptorWithCapture(
+  87,
+  "mv",
+  ["mv", "/tmp/mv.in", "/tmp/mv.out"],
+  "/usr/bin/mv",
+  {
+    mvState: {
+      sourcePath: "/tmp/mv.in",
+      destinationPath: "/tmp/mv.out",
+    },
+  },
+);
+
+const cpDescriptor = moveDescriptorWithCapture(
+  86,
+  "cp",
+  ["cp", "/tmp/cp.in", "/tmp/cp.out"],
+  "/usr/bin/cp",
+  {
+    cpState: {
+      sourcePath: "/tmp/cp.in",
+      destinationPath: "/tmp/cp.out",
+      sourceOffset: 8192,
+      destinationOffset: 4096,
+    },
+  },
+);
+
 const nodeStaticDescriptor = moveDescriptorWithCapture(
   85,
   "node",
@@ -185,6 +398,30 @@ const nodeStaticDescriptor = moveDescriptorWithCapture(
       cwd: "/tmp/node-static",
       port: 8130,
       healthPath: "/health",
+    },
+  },
+);
+
+const nodeStaticArgvDescriptor = moveDescriptorWithCapture(
+  86,
+  "node",
+  [
+    "node",
+    "/tmp/node-argv-static/server.mjs",
+    "--port",
+    "8140",
+    "--root",
+    "/tmp/node-argv-static/public",
+  ],
+  "/usr/bin/node",
+  {
+    nodeStaticHttpState: {
+      scriptPath: "/tmp/node-argv-static/server.mjs",
+      cwd: "/tmp/node-argv-static",
+      port: 8140,
+      healthPath: "/health",
+      rootDir: "/tmp/node-argv-static/public",
+      argvContract: "--port-root-static-http-v1",
     },
   },
 );
@@ -469,6 +706,275 @@ describe("move target direct loader", () => {
       state: "ready",
       strategy: "target-original-python-http-server-loader",
       targetPid: 805,
+      refusals: [],
+    });
+  });
+
+  it("launches target-native go static HTTP binary", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t812\nLOAD_LOG\t/tmp/go-static.log\nPATCH\tgo-static-http\tready\t/tmp/go-static/server\t8145\t/health\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, goStaticHttpDescriptor);
+
+    expect(commands[0]).toContain("setsid sh -c");
+    expect(commands[0]).toContain("/tmp/go-static/server");
+    expect(commands[0]).toContain("go-static-http-v1");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-go-static-http-loader",
+      targetPid: 812,
+      refusals: [],
+    });
+  });
+
+  it("launches target-native rust static HTTP binary", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t813\nLOAD_LOG\t/tmp/rust-static.log\nPATCH\trust-static-http\tready\t/tmp/rust-static/server\t8148\t/health\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, rustStaticHttpDescriptor);
+
+    expect(commands[0]).toContain("setsid sh -c");
+    expect(commands[0]).toContain("/tmp/rust-static/server");
+    expect(commands[0]).toContain("rust-static-http-v1");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-rust-static-http-loader",
+      targetPid: 813,
+      refusals: [],
+    });
+  });
+
+  it("launches original target python static route harness", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t811\nLOAD_LOG\t/tmp/python-static.log\nPATCH\tpython-static-route\tready\t/tmp/python-static/server.py\t8143\t/health\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, pythonStaticRouteDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/python3' '/tmp/python-static/server.py'");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-python-static-route-loader",
+      targetPid: 811,
+      refusals: [],
+    });
+  });
+
+  it("launches original target timeout around Python HTTP server", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t810\nLOAD_LOG\t/tmp/timeout-http.log\nPATCH\ttimeout-python-http-server\tready\t30\t8138\t/tmp/timeout-web\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, timeoutDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/timeout' 30 /usr/bin/python3 -m http.server 8138");
+    expect(commands[0]).toContain("--directory '/tmp/timeout-web'");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-timeout-python-http-server-loader",
+      targetPid: 810,
+      refusals: [],
+    });
+  });
+
+  it("launches original target nc idle listener", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t808\nLOAD_LOG\t/tmp/nc.log\nPATCH\tnc-listener\tready\t8135\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, ncDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/nc.openbsd' -l 8135");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-nc-listener-loader",
+      targetPid: 808,
+      refusals: [],
+    });
+  });
+
+  it("launches original target busybox httpd with explicit root", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t807\nLOAD_LOG\t/tmp/busybox-httpd.log\nPATCH\tbusybox-httpd\tready\t/tmp/busybox-web\t8134\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, busyboxHttpDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/busybox' httpd -f");
+    expect(commands[0]).toContain("-h '/tmp/busybox-web'");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-busybox-httpd-loader",
+      targetPid: 807,
+      refusals: [],
+    });
+  });
+
+  it("launches original target Python HTTP server with explicit env", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t809\nLOAD_LOG\t/tmp/env-http.log\nPATCH\tpython-http-server\tready\t/\t8137\t/tmp/env-web\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, envHttpDirectoryDescriptor);
+
+    expect(commands[0]).toContain("env 'MACHINEN_MOVE_ENV_PROOF=wrapped-http'");
+    expect(commands[0]).toContain("exec env");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-python-http-server-loader",
+      targetPid: 809,
+      refusals: [],
+    });
+  });
+
+  it("launches original target Python HTTP server with explicit directory", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t806\nLOAD_LOG\t/tmp/http-directory.log\nPATCH\tpython-http-server\tready\t/\t8128\t/tmp/web-directory\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, httpDirectoryDescriptor);
+
+    expect(commands[0]).toContain("--directory '/tmp/web-directory'");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-python-http-server-loader",
+      targetPid: 806,
+      refusals: [],
+    });
+  });
+
+  it("launches original target sha256sum file recompute", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1006\nLOAD_LOG\t/tmp/sha256.log\nPATCH\tsha256sum-file\tready\t/tmp/sha256.in\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, sha256Descriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/sha256sum'");
+    expect(commands[0]).toContain("/tmp/sha256.in");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-sha256sum-file-loader",
+      targetPid: 1006,
+      refusals: [],
+    });
+  });
+
+  it("launches original target wc line-count recompute", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1005\nLOAD_LOG\t/tmp/wc.log\nPATCH\twc-line\tready\t/tmp/wc.in\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, wcDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/wc' -l");
+    expect(commands[0]).toContain("/tmp/wc.in");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-wc-line-loader",
+      targetPid: 1005,
+      refusals: [],
+    });
+  });
+
+  it("launches original target sort file recompute", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1004\nLOAD_LOG\t/tmp/sort.log\nPATCH\tsort-file\tready\t/tmp/sort.in\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, sortDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/sort'");
+    expect(commands[0]).toContain("/tmp/sort.in");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-sort-file-loader",
+      targetPid: 1004,
+      refusals: [],
+    });
+  });
+
+  it("launches original target mv rename with preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1003\nLOAD_LOG\t/tmp/mv.log\nPATCH\tmv-rename\tready\t/tmp/mv.in\t/tmp/mv.out\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, mvDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/mv'");
+    expect(commands[0]).toContain("/tmp/mv.in");
+    expect(commands[0]).toContain("/tmp/mv.out");
+    expect(commands[0]).toContain("stat -c %d");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-mv-rename-loader",
+      targetPid: 1003,
+      refusals: [],
+    });
+  });
+
+  it("launches original target cp continuation from the committed destination offset", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1002\nLOAD_LOG\t/tmp/cp.log\nPATCH\tcp-offset\tready\t/tmp/cp.in\t/tmp/cp.out\t4096\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, cpDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/cp' --version");
+    expect(commands[0]).toContain("tail -c +$(( 4096 + 1 ))");
+    expect(commands[0]).toContain("/tmp/cp.in");
+    expect(commands[0]).toContain("/tmp/cp.out");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-cp-offset-loader",
+      targetPid: 1002,
+      refusals: [],
+    });
+  });
+
+  it("launches original target node static http server with argv contract", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1011\nLOAD_LOG\t/tmp/node-argv.log\nPATCH\tnode-static-http\tready\t/tmp/node-argv-static/server.mjs\t8140\t/tmp/node-argv-static/public\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, nodeStaticArgvDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/node' '/tmp/node-argv-static/server.mjs'");
+    expect(commands[0]).toContain("--port 8140 --root '/tmp/node-argv-static/public'");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-node-static-http-loader",
+      targetPid: 1011,
       refusals: [],
     });
   });

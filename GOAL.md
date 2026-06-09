@@ -44,6 +44,43 @@ This ladder is implemented as explicit same-Machinen-Debian-base continuation en
 | 7A-P10 | marked `node server.mjs` static HTTP `/health`         | `nodeStaticHttpState`                                       | `target-original-node-static-http-loader`   | `node-static-http`                                                                                                                                          |
 | 7B-P11 | unsupported Node worker shape                          | omitted `nodeStaticHttpState` / refused native continuation | no loader                                   | `node-worker-refusal`                                                                                                                                       |
 
+## Next-thirty expanded ladder implementation
+
+The next-thirty ladder extends the same explicit-envelope model. It is still limited to same Machinen Debian base images with source and target differing by ISA, and it still does **not** claim arbitrary ELF/process movement, arbitrary Node/Python/Go/Rust app movement, generic cross-architecture VM restore, source-ISA emulation, or metadata-only success. Support proofs run target-native binaries or proof-provisioned target-native binaries inside proof VMs; proof-only packages are not base-image requirements.
+
+| Proof | Envelope / boundary                                        | Descriptor state / refusal evidence                     | Target loader strategy / launch boundary            | Matrix proof name                 |
+| ----- | ---------------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------- | --------------------------------- |
+| 8A    | `cp SRC DST` regular-file continuation                     | `cpState` with source/destination offsets               | `target-original-cp-offset-loader`                  | `cp-offset`                       |
+| 8B    | unsafe `cp` shapes                                         | omitted `cpState`, refused native continuation          | no target loader launch                             | `unsafe-cp-refusal`               |
+| 8C    | `mv SRC DST` pre-mutation same-filesystem rename           | `mvState`                                               | `target-original-mv-rename-loader`                  | `mv-rename`                       |
+| 8D    | unsafe `mv` shapes                                         | omitted `mvState`, refused native continuation          | no target loader launch                             | `unsafe-mv-refusal`               |
+| 8E    | `sort FILE` deterministic recompute                        | `sortState`                                             | `target-original-sort-file-loader`                  | `sort-file`                       |
+| 8F    | unsafe `sort` shapes                                       | omitted `sortState`, refused native continuation        | no target loader launch                             | `unsafe-sort-refusal`             |
+| 8G    | `wc -l FILE` deterministic recompute                       | `wcState`                                               | `target-original-wc-line-loader`                    | `wc-line`                         |
+| 8H    | unsafe `wc` shapes                                         | omitted `wcState`, refused native continuation          | no target loader launch                             | `unsafe-wc-refusal`               |
+| 8I    | `sha256sum FILE` deterministic digest recompute            | `sha256State.expectedDigest`                            | `target-original-sha256sum-file-loader`             | `sha256sum-file`                  |
+| 8J    | unsafe checksum shapes / changed input identity            | omitted or refused `sha256State` before checksum launch | no target checksum process launch                   | `unsafe-sha256sum-refusal`        |
+| 9A    | `python3 -m http.server --directory DIR PORT`              | `httpState.directory`                                   | `target-original-python-http-server-loader`         | `python-http-directory`           |
+| 9B    | Python HTTP active/partial request                         | omitted `httpState`                                     | no ready target loader claim                        | `python-http-active-refusal`      |
+| 9C    | proof-provisioned `busybox httpd -f -p PORT -h DIR`        | `busyboxHttpState`                                      | `target-original-busybox-httpd-loader`              | `busybox-httpd`                   |
+| 9D    | CGI/TLS/proxy/dynamic HTTP shapes                          | omitted `httpState`, refused native continuation        | no target loader launch                             | `python-http-cgi-refusal`         |
+| 9E    | idle `nc -l PORT` listener                                 | `ncState`                                               | `target-original-nc-listener-loader`                | `nc-listener`                     |
+| 9F    | `nc` with active client                                    | omitted `ncState`                                       | no target loader launch                             | `unsafe-nc-active-refusal`        |
+| 9G    | narrow `env MACHINEN_MOVE_ENV_PROOF=VALUE` HTTP wrapper    | `envState` plus child `httpState`                       | child `target-original-python-http-server-loader`   | `env-python-http-directory`       |
+| 9H    | unsupported env/wrapper child                              | omitted `envState` and child state                      | no target loader launch                             | `unsupported-env-wrapper-refusal` |
+| 9I    | `timeout N` around supported Python HTTP child             | `timeoutState` plus child `httpState`                   | `target-original-timeout-python-http-server-loader` | `timeout-python-http-directory`   |
+| 9J    | unsafe timeout signals/process-group shapes                | omitted `timeoutState`                                  | no target loader launch                             | `unsafe-timeout-refusal`          |
+| 10A   | Node static HTTP explicit `--port N --root DIR` argv shape | `nodeStaticHttpState.argvContract` and `rootDir`        | `target-original-node-static-http-loader`           | `node-static-argv-http`           |
+| 10B   | Node active request/socket                                 | omitted `nodeStaticHttpState`                           | no target loader launch                             | `node-active-refusal`             |
+| 10C   | interval-free marked Node static HTTP                      | `nodeStaticHttpState`                                   | `target-original-node-static-http-loader`           | `node-static-http`                |
+| 10D   | Node timers/intervals                                      | omitted `nodeStaticHttpState`                           | no target loader launch                             | `node-timer-refusal`              |
+| 10E   | marker-labeled Python static route harness                 | `pythonStaticRouteState`                                | `target-original-python-static-route-loader`        | `python-static-route`             |
+| 10F   | arbitrary/unmarked Flask/Django-like app                   | omitted `pythonStaticRouteState`                        | no target loader launch                             | `python-unmarked-flask-refusal`   |
+| 10G   | Go static HTTP binary with explicit marker/version         | `goStaticHttpState`                                     | `target-native-go-static-http-loader`               | `go-static-http`                  |
+| 10H   | Go goroutine/socket activity beyond idle listener envelope | omitted `goStaticHttpState`                             | no target loader launch                             | `go-extra-socket-refusal`         |
+| 10I   | Rust static HTTP binary with explicit marker/version       | `rustStaticHttpState`                                   | `target-native-rust-static-http-loader`             | `rust-static-http`                |
+| 10J   | native addon, dynamic plugin, or `dlopen` runtime shapes   | omitted runtime state, e.g. `nodeStaticHttpState=null`  | no target loader launch                             | `native-dlopen-refusal`           |
+
 ## Envelope model
 
 An envelope is the supported continuation contract for one binary, runtime, or family of binaries. It answers five questions:

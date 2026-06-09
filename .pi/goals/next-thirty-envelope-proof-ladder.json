@@ -1,0 +1,253 @@
+{
+  "title": "Next thirty move envelopes",
+  "goal": "Complete the next-thirty machinen move envelope ladder by proving explicit same-Machinen-Debian-base, cross-architecture, target-native continuation envelopes and fail-closed gatekeepers without claiming generic process, VM, ELF, Node, Python, Go, Rust, or runtime restore.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 8A: cp SRC DST regular-file copy continues target-native from captured input and output offsets, using explicit cpState, an original target cp loader strategy, and final byte-for-byte target output evidence.",
+      "evidence": "Targeted Vitest passed (3 files, 33 tests, 368ms); local matrix cp-offset passed with cpState offsets, strategy target-original-cp-offset-loader, and final target cmp=match."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 8B: unsafe cp shapes refuse before target launch, including recursive copies, symlinks, devices, sparse-file ambiguity, and overwrite ambiguity.",
+      "evidence": "Targeted Vitest passed (3 files, 34 tests, 380ms); local matrix unsafe-cp-refusal passed with save/load refused, cpState=null, native continuation refused, and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 8C: mv SRC DST same-filesystem regular-file rename is accepted only at a pre-mutation boundary and target-native load produces exactly the target rename result.",
+      "evidence": "Local matrix mv-rename passed with pre-mutation ptrace capture, mvState /tmp/mv.in to /tmp/mv.out, strategy target-original-mv-rename-loader, and target destination content mv-proof-content."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 8D: unsafe mv shapes refuse before target launch, including cross-device moves, existing destination overwrite, directories, and symlinks.",
+      "evidence": "Targeted Vitest passed (3 files, 37 tests, 385ms); local matrix unsafe-mv-refusal passed with save/load refused, mvState=null, native continuation refused, and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 8E: sort FILE uses a deterministic input descriptor and target-original sort loader/recompute strategy, with target output matching expected sorted content.",
+      "evidence": "Targeted Vitest passed (3 files, 39 tests, 381ms); local matrix sort-file passed with sortState.path=/tmp/sort.in, strategy target-original-sort-file-loader, and target output alpha, alpha, bravo, charlie, zulu."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 8F: unsafe sort shapes refuse before target launch, including temp directory pressure, custom collation/locale ambiguity, and output path equal to input path.",
+      "evidence": "Targeted Vitest passed (3 files, 40 tests, 384ms); local matrix unsafe-sort-refusal passed with save/load refused, sortState=null, native continuation refused, and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 8G: wc -l FILE uses a deterministic completed-result continuation/recompute descriptor and target-original wc proof output matches expected line count.",
+      "evidence": "Targeted Vitest passed (3 files, 42 tests, 417ms); local matrix wc-line passed with wcState.path=/tmp/wc.in, mode lines, strategy target-original-wc-line-loader, and target output 4 /tmp/wc.in."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 8H: unsafe wc shapes refuse before target launch, including stdin pipes, changing files, and non-regular files.",
+      "evidence": "Targeted Vitest passed (3 files, 43 tests, 383ms); local matrix unsafe-wc-refusal passed with save/load refused, wcState=null, native continuation refused, and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 8I: sha256sum FILE uses a deterministic target recompute descriptor and target-original sha256sum output matches the expected digest.",
+      "evidence": "Targeted Vitest passed (3 files, 45 tests, 388ms) before digest tightening and 46 tests after; local matrix sha256sum-file passed with sha256State.path=/tmp/sha256.in, expectedDigest=ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2, strategy target-original-sha256sum-file-loader, and matching target digest output."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 8J: unsafe checksum shapes refuse before target launch, including stdin input, multiple files, and changed file identity.",
+      "evidence": "Targeted Vitest passed (3 files, 46 tests, 384ms); local matrix unsafe-sha256sum-refusal passed with stdin save/load refused and sha256State=null, plus changed target identity load refused with loader state refused, no target pid, and changed-input-identity refusal before target checksum process launch."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 9A: python3 -m http.server --directory DIR PORT recreates an idle target-native listener and serves files from the explicit directory.",
+      "evidence": "Targeted Vitest passed (3 files, 48 tests, 370ms); local matrix python-http-directory passed with httpState.directory=/tmp/web-directory, cwd=/, port 8128, strategy target-original-python-http-server-loader, and target response hello-http-directory."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 9B: Python HTTP with active request body or partial response refuses before target launch or before a ready loader claim.",
+      "evidence": "Local matrix python-http-active-refusal passed with active/partial client request: save accepted false, load accepted false, httpState=null, and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 9C: proof-provisioned busybox httpd -f -p PORT -h DIR recreates an idle target-native listener and serves files when available/provisioned.",
+      "evidence": "Targeted Vitest passed (3 files, 50 tests, 375ms after port fix); local matrix busybox-httpd passed with proof-provisioned BusyBox, busyboxHttpState.port=8134, root=/tmp/busybox-web, strategy target-original-busybox-httpd-loader, and target response hello-busybox-httpd."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 9D: HTTP listener shapes with TLS, proxying, CGI, or CGI-like dynamic handlers refuse before target launch.",
+      "evidence": "Targeted Vitest passed (3 files, 51 tests, 369ms); local matrix python-http-cgi-refusal passed for CGI-like python3 -m http.server --cgi with save/load refused, httpState=null, native continuation refused, and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 9E: idle nc -l PORT simple listener with no accepted client is materialized target-native with visible listener/connect evidence.",
+      "evidence": "Targeted Vitest passed (3 files, 53 tests, 386ms); local matrix nc-listener passed with proof-provisioned netcat-openbsd, ncState.port=8135, strategy target-original-nc-listener-loader, and target connect/send evidence received=hello-nc."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 9F: nc with an active client socket refuses before target launch.",
+      "evidence": "Targeted Vitest passed (3 files, 54 tests, 387ms); local matrix unsafe-nc-active-refusal passed with active client socket state: save/load refused, ncState=null, and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 9G: env KEY=VALUE command unwraps into an already-supported child envelope and preserves the explicit environment variable in target proof evidence.",
+      "evidence": "Targeted Vitest passed (3 files, 56 tests, 383ms); local matrix env-python-http-directory passed with envState.value=wrapped-http, child strategy target-original-python-http-server-loader, target response hello-env-http, and target /proc/$pid/environ containing MACHINEN_MOVE_ENV_PROOF=wrapped-http."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 9H: unsupported wrapper stacks or unknown exec chains refuse before target launch.",
+      "evidence": "Targeted Vitest passed (3 files, 57 tests, 387ms); local matrix unsupported-env-wrapper-refusal passed with save/load refused, envState=null, httpState=null, and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 9I: timeout N command around an already-supported child envelope preserves the explicit timeout boundary and target proof evidence.",
+      "evidence": "Targeted Vitest passed (3 files, 59 tests, 383ms); local matrix timeout-python-http-directory passed with timeoutState.seconds=30, strategy target-original-timeout-python-http-server-loader, and target response hello-timeout-http."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 9J: timeout shapes with signal customization, foreground process-group complexity, or unsupported child state refuse before target launch.",
+      "evidence": "Targeted Vitest passed (3 files, 60 tests, 383ms); local matrix unsafe-timeout-refusal passed with save/load refused, timeoutState=null, and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 10A: Node static HTTP with explicit --port N --root DIR argv contract runs original target Node and serves /health or an equivalent declared static health path.",
+      "evidence": "Targeted Vitest passed (3 files, 62 tests, 405ms); local matrix node-static-argv-http passed with argvContract=--port-root-static-http-v1, rootDir=/tmp/node-argv-static/public, strategy target-original-node-static-http-loader, and target responses /health=ok plus /index.txt=argv-static-index."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 10B: Node service with active request or accepted socket connection refuses before target launch.",
+      "evidence": "Targeted Vitest passed (3 files, 63 tests, 385ms); local matrix node-active-refusal passed with save/load refused, nodeStaticHttpState=null, and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 10C: Node static HTTP with one interval-free idle event loop is accepted only with explicit descriptor state and target health proof.",
+      "evidence": "Local matrix node-static-http passed with explicit nodeStaticHttpState, strategy target-original-node-static-http-loader, and target health response ok."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 10D: Node timers/intervals refuse unless modeled by explicit timer descriptor state.",
+      "evidence": "Targeted Vitest passed (3 files, 64 tests, 379ms); local matrix node-timer-refusal passed with save/load refused, nodeStaticHttpState=null, and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 10E: marker-labeled Python Flask-like static route harness is accepted only for its declared static route and target serves that route.",
+      "evidence": "Targeted Vitest passed (3 files, 66 tests, 403ms); local matrix python-static-route passed with pythonStaticRouteState, route /health, expected body python-static-ok, strategy target-original-python-static-route-loader, and target response python-static-ok."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 10F: arbitrary Flask/Django apps without marker and route contract refuse before target launch.",
+      "evidence": "Targeted Vitest passed (3 files, 67 tests, 379ms); local matrix python-unmarked-flask-refusal passed with save/load refused, pythonStaticRouteState=null, and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 10G: Go static HTTP binary with explicit marker/version and idle listener is relaunched target-native and serves its health route.",
+      "evidence": "Targeted Vitest passed (3 files, 69 tests, 429ms); targeted local matrix pnpm proof-move-envelope-matrix -- --json --only go-static-http passed in 58.590s with goStaticHttpState.markerVersion=go-static-http-v1, binary /tmp/go-static/server, port 8145, strategy target-native-go-static-http-loader, and target health response ok."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 10H: Go binary with goroutine/socket/activity beyond the idle listener envelope refuses before target launch.",
+      "evidence": "Targeted Vitest passed (3 files, 70 tests, 414ms); targeted local matrix pnpm proof-move-envelope-matrix -- --json --only go-extra-socket-refusal passed in 57.666s with save/load refused, goStaticHttpState=null, and loaderStarted=false for a marked Go binary that starts an extra goroutine/listener socket beyond the idle health listener."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support envelope 10I: Rust static HTTP binary with explicit marker/version and idle listener is relaunched target-native and serves its health route.",
+      "evidence": "Targeted Vitest passed (3 files, 72 tests, 389ms); targeted local matrix pnpm proof-move-envelope-matrix -- --json --only rust-static-http passed in 121.256s with rustStaticHttpState.markerVersion=rust-static-http-v1, binary /tmp/rust-static/server, port 8148, strategy target-native-rust-static-http-loader, and target health response ok."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove gatekeeper envelope 10J: native addon, dynamic plugin, or dlopen runtime shapes refuse before target launch.",
+      "evidence": "Targeted Vitest passed (3 files, 73 tests, 372ms); targeted local matrix pnpm proof-move-envelope-matrix -- --json --only native-dlopen-refusal passed in 108.084s with save/load refused, nodeStaticHttpState=null, and loaderStarted=false for a marked Node static HTTP source containing process.dlopen and native-addon .node plugin shape."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the expanded ladder is represented in GOAL.md, CLI descriptor state, loader strategies, and proof harness output without broad generic restore claims.",
+      "evidence": "Representation audit passed in 0.021s after formatting GOAL.md in 0.317s: GOAL.md, runtime descriptor types, CLI capture/bundle wiring, rendezvous loader strategies, and matrix proof registry contain all 13 expanded descriptor states, 12 loader strategies, and 30 proof names; GOAL.md explicitly preserves no arbitrary ELF/process movement, no generic cross-architecture VM restore, no source-ISA emulation, no metadata-only success, and proof-only package boundaries. pnpm run format:check passed in 1.308s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove local validation passes for all implemented rows, including format, lint, docs/API if public descriptor types change, typecheck, targeted tests, local proof matrix, full Vitest when shared move logic changes, smoke manifest check, and fallow audit.",
+      "evidence": "Final local validation passed: pnpm run format:check 1.289s; pnpm run lint 0.619s with oxlint clean and fallow-health-guard no health regressions; pnpm run build:docs 2.050s; pnpm run typecheck 3.103s; targeted Vitest 3 files/73 tests 0.937s; full Vitest 168 passed/11 skipped files, 1376 passed/12 skipped tests 49.150s; pnpm run check-smoke-manifest 0.162s; pnpm exec fallow audit --changed-since origin/main 0.604s with duplication warnings only/no blocking audit error; full local pnpm proof-move-envelope-matrix -- --json passed in 476.107s including all 8A-10J proof names, tar-create hardened to a synchronous target-original tar loader with 5000 archived files. After remote-space hardening, focused local find-cursor passed in 118.524s, focused local complex-find-refusal passed in 115.684s, bash -n scripts/smoke/move-envelope-matrix.sh passed in 0.004s, pnpm run check-smoke-manifest passed in 0.175s, and pnpm run format:check passed in 1.457s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove remote amd64 validation passes for implemented rows on root@192.168.0.8 with fresh VMM override, or record a stop-condition blocker with command evidence.",
+      "evidence": "Remote amd64 validation passed on root@192.168.0.8 after rsync to /mnt/shared-500G/machinen-move-proof and remote rebuild of @machinen/runtime, @machinen/cli, and @machinen/microvm. Command: cd /mnt/shared-500G/machinen-move-proof && MACHINEN_VMM=$PWD/packages/microvm/zig-out/bin/machinen-vm MACHINEN_GVPROXY=$PWD/packages/native-x64-linux/vmm/bin/gvproxy pnpm proof-move-envelope-matrix -- --json. Result passed in 736.632s with all expanded matrix rows present, including find-cursor, complex-find-refusal, tar-create with 5000 archived files, go-static-http, go-extra-socket-refusal, rust-static-http, and native-dlopen-refusal."
+    },
+    {
+      "status": "pending",
+      "obligation": "Prove the PR branch is updated with the completed expanded ladder work.",
+      "evidence": ""
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "pnpm run format:check",
+      "proves": "Formatting is clean."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and changed-file health checks are clean."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Docs/API output is current when public descriptor types or docs change."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript/build integration is clean."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-envelope-capture.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-native-bundle.test.ts",
+      "proves": "Targeted capture, loader, and bundle behavior for move envelope work is correct."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run",
+      "proves": "The full unit suite still passes when shared move logic changes."
+    },
+    {
+      "check": "pnpm run check-smoke-manifest",
+      "proves": "Proof script manifest coverage is valid when smoke/proof scripts change."
+    },
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json or pnpm proof-move-envelope-matrix -- --json --only NAME[,NAME...]",
+      "proves": "Local envelope and gatekeeper proof evidence exists."
+    },
+    {
+      "check": "Remote expanded matrix on root@192.168.0.8 with MACHINEN_VMM=$PWD/packages/microvm/zig-out/bin/machinen-vm and MACHINEN_GVPROXY=$PWD/packages/native-x64-linux/vmm/bin/gvproxy",
+      "proves": "amd64 target behavior passes with the fresh VMM override."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Changed-code architecture health has no blocking audit errors."
+    },
+    {
+      "check": "git push origin move-envelope-sequence",
+      "proves": "The PR branch is updated."
+    }
+  ],
+  "stopIf": [
+    "Any proof would require claiming arbitrary process, VM, ELF, Node, Python, Go, Rust, or runtime cross-architecture restore.",
+    "Any proof requires source-ISA emulation instead of target-native continuation.",
+    "Any proof requires metadata-only success without visible target evidence.",
+    "Any proof requires baking proof-only packages into the base image instead of proof-local VM/overlay provisioning.",
+    "A support row cannot be narrowed to an explicit descriptor state, target loader strategy, and visible target proof output.",
+    "A gatekeeper row cannot prove refusal before target loader launch.",
+    "Required remote host root@192.168.0.8 is unreachable and remote amd64 evidence cannot be collected.",
+    "A proof row is disproved and cannot be narrowed into a safe envelope in this run.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    "2026-06-09: JSON /goal contract initialized from .pi/goals/next-thirty-envelope-proof-ladder.md. Existing proven rows 8A through 10G were carried forward only where non-empty evidence already existed; remaining rows are pending.",
+    "2026-06-09: Added 10H Go extra-socket/goroutine activity gatekeeper proof. Capture test proves extra sockets suppress goStaticHttpState. Targeted local proof passed in 57.666s: pnpm proof-move-envelope-matrix -- --json --only go-extra-socket-refusal returned saveAccepted=false, loadAccepted=false, goStaticHttpState=null, loaderStarted=false.",
+    "2026-06-09: Validation after 10H proof: pnpm run check-smoke-manifest passed in 0.172s; first format check found markdown formatting drift in .pi/goals/next-thirty-envelope-proof-ladder.md, then pnpm exec oxfmt on that markdown file completed in 0.330s and pnpm run format:check passed in 1.365s.",
+    "2026-06-09: Added 10I Rust static HTTP binary support with explicit marker argv --machinen-move-envelope rust-static-http-v1 --port N --health PATH, target-native binary path validation, and strategy target-native-rust-static-http-loader. Targeted Vitest passed: 3 files, 72 tests, 389ms. Targeted local proof passed in 121.256s: pnpm proof-move-envelope-matrix -- --json --only rust-static-http includes rustStaticHttpState for /tmp/rust-static/server, port 8148, health route /health, and target response ok.",
+    "2026-06-09: Validation after 10I proof: pnpm run check-smoke-manifest passed in 0.172s and pnpm run format:check passed in 1.286s.",
+    "2026-06-09: Added 10J native addon/dlopen gatekeeper proof. Node static HTTP source capture now rejects process.dlopen, dlopen(...), and .node native addon/plugin source shapes. Targeted Vitest passed: 3 files, 73 tests, 372ms. Targeted local proof passed in 108.084s: pnpm proof-move-envelope-matrix -- --json --only native-dlopen-refusal returned saveAccepted=false, loadAccepted=false, nodeStaticHttpState=null, loaderStarted=false.",
+    "2026-06-09: Validation after 10J proof: pnpm run check-smoke-manifest passed in 0.168s and pnpm run format:check passed in 1.299s.",
+    "2026-06-09: Expanded GOAL.md with a next-thirty ladder table covering 8A-10J descriptor states, loader/refusal boundaries, and matrix proof names while preserving explicit non-claims. Representation audit passed in 0.021s after GOAL.md formatting in 0.317s: 13 states, 12 loaders, and 30 proof names were found across GOAL.md, runtime descriptor types, CLI wiring, rendezvous loaders, and the matrix harness; pnpm run format:check passed in 1.308s.",
+    "2026-06-09: Fixed local validation blockers before final pass: extracted envelope loader command builders to keep move-rendezvous.ts under the fallow line limit, split Python HTTP argv parsing and timeout-child scanning to clear complexity health checks, and hardened tar-create by capturing the actual tar process, running target tar synchronously, and narrowing the proof fixture to 5000 files to avoid proof VM resource truncation while preserving exact archive validation.",
+    "2026-06-09: Final local validation passed on the updated tree: format:check 1.289s; lint 0.619s; build:docs 2.050s; typecheck 3.103s; targeted Vitest 0.937s (3 files, 73 tests); full Vitest 49.150s (168 passed/11 skipped files, 1376 passed/12 skipped tests); check-smoke-manifest 0.162s; fallow audit 0.604s with duplication warnings only/no blocking audit error; full local proof matrix 476.107s with all 8A-10J rows present and passed.",
+    "2026-06-09: Post-record markdown mirror update remained formatted: pnpm run format:check passed in 1.284s.",
+    "2026-06-09: Remote first attempt failed at find-cursor due guest ENOSPC with the original 60000-file fixture. Narrowed find-cursor to 20000 files and made complex-find-refusal self-contained/long-running with an unsupported -exec sleep shape; focused local find-cursor passed in 118.524s and focused local complex-find-refusal passed in 115.684s.",
+    "2026-06-09: Remote amd64 validation passed on root@192.168.0.8. Synced worktree to /mnt/shared-500G/machinen-move-proof, rebuilt remote @machinen/runtime, @machinen/cli, and @machinen/microvm, then ran MACHINEN_VMM=$PWD/packages/microvm/zig-out/bin/machinen-vm MACHINEN_GVPROXY=$PWD/packages/native-x64-linux/vmm/bin/gvproxy pnpm proof-move-envelope-matrix -- --json. The remote expanded matrix passed in 736.632s with all rows present, including 10G-10J.",
+    "2026-06-09: Final quick local proof-script validation after remote fixture hardening: bash -n scripts/smoke/move-envelope-matrix.sh passed in 0.004s, pnpm run check-smoke-manifest passed in 0.175s, and pnpm run format:check passed in 1.457s.",
+    "2026-06-09: Markdown remote-evidence mirror remained formatted after update: pnpm run format:check passed in 1.472s."
+  ],
+  "nextAction": "Push the move-envelope-sequence branch to origin and record PR branch update evidence.",
+  "status": "IN_PROGRESS"
+}

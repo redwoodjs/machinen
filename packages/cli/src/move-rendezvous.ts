@@ -1,5 +1,29 @@
 import type { MoveDescriptor, NativeProcessImageRefusal, VmHandle } from "@machinen/runtime";
 
+import {
+  moveBusyboxHttpLoaderCommand,
+  moveCpLoaderCommand,
+  moveDdLoaderCommand,
+  moveFindLoaderCommand,
+  moveGoStaticHttpLoaderCommand,
+  moveGrepLoaderCommand,
+  moveHttpLoaderCommand,
+  moveMvLoaderCommand,
+  moveNcLoaderCommand,
+  movePythonStaticRouteLoaderCommand,
+  moveReaderLoaderCommand,
+  moveRustStaticHttpLoaderCommand,
+  moveScriptPtyLoaderCommand,
+  moveSha256LoaderCommand,
+  moveShellLoaderCommand,
+  moveSortLoaderCommand,
+  moveTailGrepPipelineLoaderCommand,
+  moveTailLoaderCommand,
+  moveTarLoaderCommand,
+  moveTimeoutLoaderCommand,
+  moveWatchLoaderCommand,
+  moveWcLoaderCommand,
+} from "./move-envelope-loader-commands.ts";
 import { moveNodeStaticHttpLoaderCommand } from "./move-node-static-loader.ts";
 import { parseGuestMoveResourceScan } from "./move-resource-plan.ts";
 
@@ -16,8 +40,19 @@ export interface MoveLoadDirectLoader {
     | "target-original-watch-loop-loader"
     | "target-original-sh-script-pty-loader"
     | "target-original-python-http-server-loader"
+    | "target-original-busybox-httpd-loader"
+    | "target-original-nc-listener-loader"
+    | "target-original-timeout-python-http-server-loader"
+    | "target-original-python-static-route-loader"
+    | "target-native-go-static-http-loader"
+    | "target-native-rust-static-http-loader"
     | "target-original-tail-grep-pipeline-loader"
     | "target-original-dd-offset-loader"
+    | "target-original-cp-offset-loader"
+    | "target-original-mv-rename-loader"
+    | "target-original-sort-file-loader"
+    | "target-original-wc-line-loader"
+    | "target-original-sha256sum-file-loader"
     | "target-original-find-cursor-loader"
     | "target-original-tar-create-loader"
     | "target-original-node-static-http-loader";
@@ -31,19 +66,6 @@ export interface MoveLoadDirectLoader {
 }
 
 type MoveLoadRendezvous = MoveLoadDirectLoader;
-type MoveCapture = NonNullable<NonNullable<MoveDescriptor["resourcePlan"]>["capture"]>;
-type MoveTailState = NonNullable<MoveCapture["tailState"]>;
-type MoveLessState = NonNullable<MoveCapture["lessState"]>;
-type MoveViState = NonNullable<MoveCapture["viState"]>;
-type MoveReaderState = NonNullable<MoveCapture["readerState"]>;
-type MoveGrepState = NonNullable<MoveCapture["grepState"]>;
-type MoveWatchState = NonNullable<MoveCapture["watchState"]>;
-type MoveShellState = NonNullable<MoveCapture["shellState"]>;
-type MoveHttpState = NonNullable<MoveCapture["httpState"]>;
-type MoveTailGrepPipelineState = NonNullable<MoveCapture["tailGrepPipelineState"]>;
-type MoveDdState = NonNullable<MoveCapture["ddState"]>;
-type MoveFindState = NonNullable<MoveCapture["findState"]>;
-type MoveTarState = NonNullable<MoveCapture["tarState"]>;
 type MoveTargetDirectLoaderRunner = (
   vm: VmHandle,
   descriptor: MoveDescriptor,
@@ -103,8 +125,19 @@ function moveTargetEnvelopeLoader(
     [capture?.watchState, runMoveTargetWatchLoaderInVm],
     [capture?.shellState, runMoveTargetShellLoaderInVm],
     [capture?.httpState, runMoveTargetHttpLoaderInVm],
+    [capture?.busyboxHttpState, runMoveTargetBusyboxHttpLoaderInVm],
+    [capture?.ncState, runMoveTargetNcLoaderInVm],
+    [capture?.timeoutState, runMoveTargetTimeoutLoaderInVm],
+    [capture?.pythonStaticRouteState, runMoveTargetPythonStaticRouteLoaderInVm],
+    [capture?.goStaticHttpState, runMoveTargetGoStaticHttpLoaderInVm],
+    [capture?.rustStaticHttpState, runMoveTargetRustStaticHttpLoaderInVm],
     [capture?.tailGrepPipelineState, runMoveTargetTailGrepPipelineLoaderInVm],
     [capture?.ddState, runMoveTargetDdLoaderInVm],
+    [capture?.cpState, runMoveTargetCpLoaderInVm],
+    [capture?.mvState, runMoveTargetMvLoaderInVm],
+    [capture?.sortState, runMoveTargetSortLoaderInVm],
+    [capture?.wcState, runMoveTargetWcLoaderInVm],
+    [capture?.sha256State, runMoveTargetSha256LoaderInVm],
     [capture?.findState, runMoveTargetFindLoaderInVm],
     [capture?.tarState, runMoveTargetTarLoaderInVm],
     [capture?.nodeStaticHttpState, runMoveTargetNodeStaticHttpLoaderInVm],
@@ -284,19 +317,160 @@ async function runMoveTargetShellLoaderInVm(
   );
 }
 
+async function runMoveTargetGoStaticHttpLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const state = descriptor.resourcePlan?.capture?.goStaticHttpState;
+  const executable = state?.binaryPath ?? moveRendezvousExecutable(descriptor);
+  const argv = state
+    ? [
+        executable,
+        "--machinen-move-envelope",
+        state.markerVersion,
+        "--port",
+        String(state.port),
+        "--health",
+        state.healthPath,
+      ]
+    : [executable];
+  return runSimpleMoveLoader(
+    vm,
+    "target-native-go-static-http-loader",
+    executable,
+    argv,
+    moveGoStaticHttpLoaderCommand(executable, state),
+    "go-static-http",
+    "target go static http loader failed",
+  );
+}
+
+async function runMoveTargetRustStaticHttpLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const state = descriptor.resourcePlan?.capture?.rustStaticHttpState;
+  const executable = state?.binaryPath ?? moveRendezvousExecutable(descriptor);
+  const argv = state
+    ? [
+        executable,
+        "--machinen-move-envelope",
+        state.markerVersion,
+        "--port",
+        String(state.port),
+        "--health",
+        state.healthPath,
+      ]
+    : [executable];
+  return runSimpleMoveLoader(
+    vm,
+    "target-native-rust-static-http-loader",
+    executable,
+    argv,
+    moveRustStaticHttpLoaderCommand(executable, state),
+    "rust-static-http",
+    "target rust static http loader failed",
+  );
+}
+
+async function runMoveTargetPythonStaticRouteLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.pythonStaticRouteState;
+  const argv = state ? [executable, state.scriptPath] : [executable];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-python-static-route-loader",
+    executable,
+    argv,
+    movePythonStaticRouteLoaderCommand(executable, state),
+    "python-static-route",
+    "target python static route loader failed",
+  );
+}
+
+async function runMoveTargetTimeoutLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.timeoutState;
+  const argv = state
+    ? [
+        executable,
+        String(state.seconds),
+        "/usr/bin/python3",
+        "-m",
+        "http.server",
+        String(state.httpState.port),
+      ]
+    : [executable];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-timeout-python-http-server-loader",
+    executable,
+    argv,
+    moveTimeoutLoaderCommand(executable, state),
+    "timeout-python-http-server",
+    "target timeout python http server loader failed",
+  );
+}
+
+async function runMoveTargetNcLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.ncState;
+  const argv = state ? [executable, "-l", String(state.port)] : [executable];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-nc-listener-loader",
+    executable,
+    argv,
+    moveNcLoaderCommand(executable, state),
+    "nc-listener",
+    "target nc listener loader failed",
+  );
+}
+
+async function runMoveTargetBusyboxHttpLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.busyboxHttpState;
+  const argv = state
+    ? [executable, "httpd", "-f", "-p", String(state.port), "-h", state.root]
+    : [executable];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-busybox-httpd-loader",
+    executable,
+    argv,
+    moveBusyboxHttpLoaderCommand(executable, state),
+    "busybox-httpd",
+    "target busybox httpd loader failed",
+  );
+}
+
 async function runMoveTargetHttpLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
 ): Promise<MoveLoadRendezvous> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.httpState;
-  const argv = [executable, "-m", "http.server", String(state?.port ?? 8000)];
+  const argv = state?.directory
+    ? [executable, "-m", "http.server", "--directory", state.directory, String(state.port)]
+    : [executable, "-m", "http.server", String(state?.port ?? 8000)];
   return runSimpleMoveLoader(
     vm,
     "target-original-python-http-server-loader",
     executable,
     argv,
-    moveHttpLoaderCommand(executable, state),
+    moveHttpLoaderCommand(executable, state, descriptor.resourcePlan?.capture?.envState),
     "python-http-server",
     "target python http server loader failed",
   );
@@ -353,6 +527,96 @@ async function runMoveTargetFindLoaderInVm(
     moveFindLoaderCommand(executable, state),
     "find-cursor",
     "target find cursor loader failed",
+  );
+}
+
+async function runMoveTargetSha256LoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.sha256State;
+  const argv = [executable, state?.path ?? ""];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-sha256sum-file-loader",
+    executable,
+    argv,
+    moveSha256LoaderCommand(executable, state),
+    "sha256sum-file",
+    "target sha256sum file loader failed",
+  );
+}
+
+async function runMoveTargetWcLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.wcState;
+  const argv = [executable, "-l", state?.path ?? ""];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-wc-line-loader",
+    executable,
+    argv,
+    moveWcLoaderCommand(executable, state),
+    "wc-line",
+    "target wc line loader failed",
+  );
+}
+
+async function runMoveTargetSortLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.sortState;
+  const argv = [executable, state?.path ?? ""];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-sort-file-loader",
+    executable,
+    argv,
+    moveSortLoaderCommand(executable, state),
+    "sort-file",
+    "target sort file loader failed",
+  );
+}
+
+async function runMoveTargetMvLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.mvState;
+  const argv = [executable, state?.sourcePath ?? "", state?.destinationPath ?? ""];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-mv-rename-loader",
+    executable,
+    argv,
+    moveMvLoaderCommand(executable, state),
+    "mv-rename",
+    "target mv rename loader failed",
+  );
+}
+
+async function runMoveTargetCpLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.cpState;
+  const argv = [executable, state?.sourcePath ?? "", state?.destinationPath ?? ""];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-cp-offset-loader",
+    executable,
+    argv,
+    moveCpLoaderCommand(executable, state),
+    "cp-offset",
+    "target cp offset loader failed",
   );
 }
 
@@ -417,7 +681,7 @@ async function runSimpleMoveLoader(
   patchName: string,
   refusalMessage: string,
 ): Promise<MoveLoadRendezvous> {
-  const result = await vm.execRaw(command, { execTimeoutMs: 30_000 });
+  const result = await vm.execRaw(command, { execTimeoutMs: 300_000 });
   const parsed = parseRendezvousOutput(result.stdout);
   const patch = moveNamedPatchFromOutput(result, patchName);
   const refusals = moveNamedLoaderRefusals(patch, refusalMessage);
@@ -508,23 +772,6 @@ function moveSleepLoaderRefusals(
   ];
 }
 
-function moveTailLoaderCommand(executable: string, tailState: MoveTailState | undefined): string {
-  if (!tailState) {
-    return "printf 'PATCH\\ttail-offset\\trefused\\tmissing-tail-state\\n'; exit 2";
-  }
-  const offsetArg = `+${tailState.offset + 1}`;
-  return `set -eu
-log="/tmp/machinen-move-loader-$$.log"
-test -f ${shellQuote(tailState.path)}
-${shellQuote(executable)} -c ${shellQuote(offsetArg)} -f -- ${shellQuote(tailState.path)} >"$log" 2>&1 &
-pid=$!
-printf 'LOAD_PID\t%s\n' "$pid"
-printf 'LOAD_LOG\t%s\n' "$log"
-printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-tail-follow-started\n'
-printf 'PATCH\ttail-offset\tready\t%s\t%s\n' ${shellQuote(tailState.path)} ${shellQuote(String(tailState.offset))}
-`;
-}
-
 function moveTailPatchFromOutput(result: {
   stdout: string;
   stderr: string;
@@ -548,46 +795,6 @@ function moveTailLoaderRefusals(
   ];
 }
 
-function moveScriptPtyLoaderCommand(
-  executable: string,
-  kind: "less" | "vi",
-  state: MoveLessState | MoveViState | undefined,
-): string {
-  if (!state) {
-    return `printf 'PATCH\\t${kind}-script-pty\\trefused\\tmissing-state\\n'; exit 2`;
-  }
-  const log = `/tmp/machinen-move-loader-$$.typescript`;
-  const command = moveScriptPtyAppCommand(executable, kind, state);
-  return `set -eu
-log=${shellQuote(log)}
-setsid sh -c ${shellQuote(`tail -f /dev/null | TERM=xterm script -q -c ${shellQuote(command)} "$1" >/dev/null 2>&1`)} sh "$log" >/dev/null 2>&1 &
-pid=$!
-printf 'LOAD_PID\t%s\n' "$pid"
-printf 'LOAD_LOG\t%s\n' "$log"
-printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-${kind}-script-pty-started\n'
-printf 'PATCH\t${kind}-script-pty\tready\t%s\t%s\n' ${shellQuote(state.path)} ${shellQuote(String(state.line))}
-`;
-}
-
-function moveScriptPtyAppCommand(
-  executable: string,
-  kind: "less" | "vi",
-  state: MoveLessState | MoveViState,
-): string {
-  const args = [shellQuote(executable), `+${state.line}`];
-  if (kind === "vi") {
-    const viState = state as MoveViState;
-    if (viState.searchPattern) {
-      args.push(shellQuote(`+/${viState.searchPattern}`));
-    }
-    if (viState.dirtyText !== undefined) {
-      args.push(shellQuote(`+normal! Go${viState.dirtyText}`));
-    }
-  }
-  args.push("--", shellQuote(state.path));
-  return args.join(" ");
-}
-
 function moveScriptPtyPatchFromOutput(
   result: { stdout: string; stderr: string; exitCode: number },
   kind: "less" | "vi",
@@ -607,206 +814,6 @@ function moveScriptPtyLoaderRefusals(
     return [];
   }
   return [loaderRefusal("target-process-context-unsupported", message, { patch })];
-}
-
-function moveReaderLoaderCommand(executable: string, state: MoveReaderState | undefined): string {
-  if (!state) {
-    return "printf 'PATCH\\treader-offset\\trefused\\tmissing-reader-state\\n'; exit 2";
-  }
-  const log = "/tmp/machinen-move-loader-$$.log";
-  return `set -eu
-log=${shellQuote(log)}
-exec 3<${shellQuote(state.path)}
-dd bs=1 count=${state.offset} <&3 >/dev/null 2>&1 || true
-${shellQuote(executable)} <&3 >"$log" 2>&1 &
-pid=$!
-printf 'LOAD_PID\t%s\n' "$pid"
-printf 'LOAD_LOG\t%s\n' "$log"
-printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-reader-offset-started\n'
-printf 'PATCH\treader-offset\tready\t%s\t%s\n' ${shellQuote(state.path)} ${shellQuote(String(state.offset))}
-`;
-}
-
-function moveGrepLoaderCommand(executable: string, state: MoveGrepState | undefined): string {
-  if (!state) {
-    return "printf 'PATCH\\tgrep-offset\\trefused\\tmissing-grep-state\\n'; exit 2";
-  }
-  const log = "/tmp/machinen-move-loader-$$.log";
-  return `set -eu
-log=${shellQuote(log)}
-exec 3<${shellQuote(state.path)}
-dd bs=1 count=${state.offset} <&3 >/dev/null 2>&1 || true
-${shellQuote(executable)} -- ${shellQuote(state.pattern)} <&3 >"$log" 2>&1 &
-pid=$!
-printf 'LOAD_PID\t%s\n' "$pid"
-printf 'LOAD_LOG\t%s\n' "$log"
-printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-grep-offset-started\n'
-printf 'PATCH\tgrep-offset\tready\t%s\t%s\n' ${shellQuote(state.path)} ${shellQuote(String(state.offset))}
-`;
-}
-
-function moveWatchLoaderCommand(executable: string, state: MoveWatchState | undefined): string {
-  if (!state) {
-    return "printf 'PATCH\\twatch-loop\\trefused\\tmissing-watch-state\\n'; exit 2";
-  }
-  const log = "/tmp/machinen-move-loader-$$.typescript";
-  const command = [
-    shellQuote(executable),
-    "-n",
-    shellQuote(String(state.intervalSeconds)),
-    ...state.command.map(shellQuote),
-  ].join(" ");
-  return `set -eu
-log=${shellQuote(log)}
-setsid sh -c ${shellQuote(`tail -f /dev/null | TERM=xterm script -q -c ${shellQuote(command)} "$1" >/dev/null 2>&1`)} sh "$log" >/dev/null 2>&1 &
-pid=$!
-printf 'LOAD_PID\t%s\n' "$pid"
-printf 'LOAD_LOG\t%s\n' "$log"
-printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-watch-loop-started\n'
-printf 'PATCH\twatch-loop\tready\t%s\t%s\n' ${shellQuote(String(state.intervalSeconds))} ${shellQuote(state.command.join(" "))}
-`;
-}
-
-function moveShellLoaderCommand(executable: string, state: MoveShellState | undefined): string {
-  if (!state) {
-    return "printf 'PATCH\\tsh-script-pty\\trefused\\tmissing-shell-state\\n'; exit 2";
-  }
-  const log = "/tmp/machinen-move-loader-$$.typescript";
-  const command = `cd ${shellQuote(state.cwd)} && exec ${shellQuote(executable)}`;
-  return `set -eu
-log=${shellQuote(log)}
-setsid sh -c ${shellQuote(`tail -f /dev/null | TERM=xterm script -q -c ${shellQuote(command)} "$1" >/dev/null 2>&1`)} sh "$log" >/dev/null 2>&1 &
-pid=$!
-printf 'LOAD_PID\t%s\n' "$pid"
-printf 'LOAD_LOG\t%s\n' "$log"
-printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-sh-script-pty-started\n'
-printf 'PATCH\tsh-script-pty\tready\t%s\n' ${shellQuote(state.cwd)}
-`;
-}
-
-function moveHttpLoaderCommand(executable: string, state: MoveHttpState | undefined): string {
-  if (!state) {
-    return "printf 'PATCH\\tpython-http-server\\trefused\\tmissing-http-state\\n'; exit 2";
-  }
-  const log = "/tmp/machinen-move-loader-$$.log";
-  const probe = `import socket; s=socket.create_connection(("127.0.0.1", ${state.port}), 2); s.close()`;
-  return `set -eu
-log=${shellQuote(log)}
-if [ ! -d ${shellQuote(state.cwd)} ]; then
-  printf 'PATCH\tpython-http-server\trefused\tmissing-cwd\n'
-  exit 2
-fi
-if ${shellQuote(executable)} -c ${shellQuote(probe)} >/dev/null 2>&1; then
-  printf 'PATCH\tpython-http-server\trefused\tport-in-use\n'
-  exit 2
-fi
-(cd ${shellQuote(state.cwd)} && ${shellQuote(executable)} -m http.server ${state.port} --bind 127.0.0.1 >"$log" 2>&1) &
-pid=$!
-ready=0
-for _ in $(seq 1 20); do
-  if ! kill -0 "$pid" 2>/dev/null; then
-    printf 'LOAD_LOG\t%s\n' "$log"
-    printf 'PATCH\tpython-http-server\trefused\tstart-failed\n'
-    exit 2
-  fi
-  if ${shellQuote(executable)} -c ${shellQuote(probe)} >/dev/null 2>&1; then
-    ready=1
-    break
-  fi
-  sleep 0.25
-done
-if [ "$ready" != "1" ]; then
-  kill -TERM "$pid" 2>/dev/null || true
-  printf 'LOAD_LOG\t%s\n' "$log"
-  printf 'PATCH\tpython-http-server\trefused\tnot-listening\n'
-  exit 2
-fi
-printf 'LOAD_PID\t%s\n' "$pid"
-printf 'LOAD_LOG\t%s\n' "$log"
-printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-python-http-server-started\n'
-printf 'PATCH\tpython-http-server\tready\t%s\t%s\n' ${shellQuote(state.cwd)} ${shellQuote(String(state.port))}
-`;
-}
-
-function moveTarLoaderCommand(executable: string, state: MoveTarState | undefined): string {
-  if (!state) {
-    return "printf 'PATCH\\ttar-create\\trefused\\tmissing-tar-state\\n'; exit 2";
-  }
-  const log = "/tmp/machinen-move-loader-$$.log";
-  return `set -eu
-log=${shellQuote(log)}
-rm -f ${shellQuote(state.archivePath)}
-${shellQuote(executable)} -cf ${shellQuote(state.archivePath)} ${shellQuote(state.sourceDir)} >"$log" 2>&1 &
-pid=$!
-printf 'LOAD_PID\t%s\n' "$pid"
-printf 'LOAD_LOG\t%s\n' "$log"
-printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-tar-create-started\n'
-printf 'PATCH\ttar-create\tready\t%s\t%s\n' ${shellQuote(state.archivePath)} ${shellQuote(state.sourceDir)}
-`;
-}
-
-function moveFindLoaderCommand(executable: string, state: MoveFindState | undefined): string {
-  if (!state) {
-    return "printf 'PATCH\\tfind-cursor\\trefused\\tmissing-find-state\\n'; exit 2";
-  }
-  const log = "/tmp/machinen-move-loader-$$.log";
-  const last = state.lastPath ?? "";
-  return `set -eu
-log=${shellQuote(log)}
-${shellQuote(executable)} ${shellQuote(state.rootPath)} -type f -print | awk -v last=${shellQuote(last)} 'BEGIN { emit = (last == "") } emit { print; next } $0 == last { emit = 1; next }' >"$log" 2>&1 &
-pid=$!
-printf 'LOAD_PID\t%s\n' "$pid"
-printf 'LOAD_LOG\t%s\n' "$log"
-printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-find-cursor-started\n'
-printf 'PATCH\tfind-cursor\tready\t%s\t%s\n' ${shellQuote(state.rootPath)} ${shellQuote(last)}
-`;
-}
-
-function moveDdLoaderCommand(executable: string, state: MoveDdState | undefined): string {
-  if (!state) {
-    return "printf 'PATCH\\tdd-offset\\trefused\\tmissing-dd-state\\n'; exit 2";
-  }
-  const log = "/tmp/machinen-move-loader-$$.log";
-  const argv = [
-    shellQuote(executable),
-    `if=${shellQuote(state.inputPath)}`,
-    `of=${shellQuote(state.outputPath)}`,
-    `bs=${shellQuote(String(state.blockSize))}`,
-    `skip=${shellQuote(String(state.outputOffset))}`,
-    `seek=${shellQuote(String(state.outputOffset))}`,
-    "iflag=skip_bytes",
-    "oflag=seek_bytes",
-    "conv=notrunc",
-  ].join(" ");
-  return `set -eu
-log=${shellQuote(log)}
-${argv} >"$log" 2>&1 &
-pid=$!
-printf 'LOAD_PID\t%s\n' "$pid"
-printf 'LOAD_LOG\t%s\n' "$log"
-printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-dd-offset-started\n'
-printf 'PATCH\tdd-offset\tready\t%s\t%s\t%s\t%s\n' ${shellQuote(state.inputPath)} ${shellQuote(state.outputPath)} ${shellQuote(String(state.inputOffset))} ${shellQuote(String(state.outputOffset))}
-`;
-}
-
-function moveTailGrepPipelineLoaderCommand(state: MoveTailGrepPipelineState | undefined): string {
-  if (!state) {
-    return "printf 'PATCH\\ttail-grep-pipeline\\trefused\\tmissing-tail-grep-pipeline-state\\n'; exit 2";
-  }
-  const log = "/tmp/machinen-move-loader-$$.log";
-  const tailArgv = ["tail", "-c", `+${state.offset + 1}`, "-f", "--", state.tailPath]
-    .map(shellQuote)
-    .join(" ");
-  const grepArgv = ["grep", "--line-buffered", "--", state.pattern].map(shellQuote).join(" ");
-  return `set -eu
-log=${shellQuote(log)}
-setsid sh -c ${shellQuote(`${tailArgv} | ${grepArgv} >"$1" 2>&1`)} sh "$log" >/dev/null 2>&1 &
-pid=$!
-printf 'LOAD_PID\t%s\n' "$pid"
-printf 'LOAD_LOG\t%s\n' "$log"
-printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-tail-grep-pipeline-started\n'
-printf 'PATCH\ttail-grep-pipeline\tready\t%s\t%s\t%s\n' ${shellQuote(state.tailPath)} ${shellQuote(String(state.offset))} ${shellQuote(state.pattern)}
-`;
 }
 
 function moveNamedPatchFromOutput(

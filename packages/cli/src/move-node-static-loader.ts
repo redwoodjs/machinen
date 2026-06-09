@@ -18,11 +18,15 @@ if [ ! -f ${shellQuote(state.scriptPath)} ]; then
   printf 'PATCH\tnode-static-http\trefused\tmissing-script\n'
   exit 2
 fi
+if [ "${state.rootDir ? "1" : "0"}" = "1" ] && [ ! -d ${shellQuote(state.rootDir ?? "/")} ]; then
+  printf 'PATCH\tnode-static-http\trefused\tmissing-root\n'
+  exit 2
+fi
 if ${shellQuote(executable)} -e ${shellQuote(probe)} >/dev/null 2>&1; then
   printf 'PATCH\tnode-static-http\trefused\tport-in-use\n'
   exit 2
 fi
-(cd ${shellQuote(state.cwd)} && ${shellQuote(executable)} ${shellQuote(state.scriptPath)} >"$log" 2>&1) &
+(cd ${shellQuote(state.cwd)} && ${shellQuote(executable)} ${shellQuote(state.scriptPath)}${nodeStaticArgv(state)} >"$log" 2>&1) &
 pid=$!
 ready=0
 for _ in $(seq 1 20); do
@@ -46,8 +50,14 @@ fi
 printf 'LOAD_PID\t%s\n' "$pid"
 printf 'LOAD_LOG\t%s\n' "$log"
 printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-node-static-http-started\n'
-printf 'PATCH\tnode-static-http\tready\t%s\t%s\n' ${shellQuote(state.scriptPath)} ${shellQuote(String(state.port))}
+printf 'PATCH\tnode-static-http\tready\t%s\t%s\t%s\n' ${shellQuote(state.scriptPath)} ${shellQuote(String(state.port))} ${shellQuote(state.rootDir ?? "")}
 `;
+}
+
+function nodeStaticArgv(state: MoveNodeStaticHttpState): string {
+  return state.argvContract === "--port-root-static-http-v1" && state.rootDir
+    ? ` --port ${state.port} --root ${shellQuote(state.rootDir)}`
+    : "";
 }
 
 function shellQuote(value: string): string {

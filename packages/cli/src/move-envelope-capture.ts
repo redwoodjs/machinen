@@ -107,8 +107,12 @@ export async function readMoveNodeStaticHttpStateInVm(
   const result = await vm.execRaw(`cat ${shellQuote(scriptPath)} 2>/dev/null || true`, {
     execTimeoutMs: 10_000,
   });
-  const port = parseNodeStaticPort(result.stdout);
-  if (!port || !result.stdout.includes("machinen-move-envelope: static-http-v1")) {
+  const argvContract = parseNodeStaticArgvContract(node);
+  const port = argvContract?.port ?? parseNodeStaticPort(result.stdout);
+  const hasMarker = argvContract
+    ? result.stdout.includes("machinen-move-envelope: static-http-argv-v1")
+    : result.stdout.includes("machinen-move-envelope: static-http-v1");
+  if (!port || !hasMarker) {
     return undefined;
   }
   if (nodeStaticSourceUnsupported(result.stdout)) {
@@ -122,13 +126,19 @@ export async function readMoveNodeStaticHttpStateInVm(
     cwd: node.cwd ?? "/",
     port,
     healthPath: "/health",
+    ...(argvContract
+      ? { rootDir: argvContract.rootDir, argvContract: "--port-root-static-http-v1" as const }
+      : {}),
     capturedAt: new Date().toISOString(),
   };
 }
 
 function moveNodeStaticScriptPath(node: MovePidGraphNode): string | undefined {
   const command = moveCommandName(node);
-  if ((command !== "node" && command !== "nodejs") || node.argv.length !== 2) {
+  if (
+    (command !== "node" && command !== "nodejs") ||
+    (node.argv.length !== 2 && node.argv.length !== 6)
+  ) {
     return undefined;
   }
   const scriptPath = node.argv[1];
@@ -137,8 +147,21 @@ function moveNodeStaticScriptPath(node: MovePidGraphNode): string | undefined {
     : undefined;
 }
 
+function parseNodeStaticArgvContract(
+  node: MovePidGraphNode,
+): { port: number; rootDir: string } | undefined {
+  if (node.argv.length !== 6 || node.argv[2] !== "--port" || node.argv[4] !== "--root") {
+    return undefined;
+  }
+  const port = parsePositiveNumber(node.argv[3]);
+  const rootDir = node.argv[5];
+  return Number.isInteger(port) && rootDir?.startsWith("/")
+    ? { port: port as number, rootDir }
+    : undefined;
+}
+
 function nodeStaticSourceUnsupported(source: string): boolean {
-  return /node:worker_threads|worker_threads|node:child_process|child_process|cluster|\.node['"]/.test(
+  return /node:worker_threads|worker_threads|node:child_process|child_process|cluster|\.node['"]|process\.dlopen|\bdlopen\s*\(|setInterval\s*\(|setTimeout\s*\(/.test(
     source,
   );
 }
@@ -213,6 +236,129 @@ function lastCompleteLineCommand(quotedPath: string): string {
     tail -n 2 ${quotedPath} 2>/dev/null | sed '$d' | tail -n 1 || true
   fi
 fi`;
+}
+
+export async function readMoveSha256StateInVm(
+  vm: VmHandle,
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): Promise<NonNullable<MoveResourcePlan["capture"]>["sha256State"]> {
+  if (moveCommandName(node) !== "sha256sum" || node.argv.length !== 2) {
+    return undefined;
+  }
+  const path = node.argv[1];
+  if (!path?.startsWith("/")) {
+    return undefined;
+  }
+  const result = await vm.execRaw(
+    `[ -f ${shellQuote(path)} ] && sha256sum ${shellQuote(path)} | awk '{print $1}'`,
+    { execTimeoutMs: 10_000 },
+  );
+  const expectedDigest = result.stdout.trim();
+  return result.exitCode === 0 && /^[0-9a-f]{64}$/.test(expectedDigest)
+    ? {
+        path,
+        expectedDigest,
+        outputPath: moveStdoutFilePath(resourcePlan),
+        capturedAt: new Date().toISOString(),
+      }
+    : undefined;
+}
+
+export async function readMoveWcStateInVm(
+  vm: VmHandle,
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): Promise<NonNullable<MoveResourcePlan["capture"]>["wcState"]> {
+  if (moveCommandName(node) !== "wc" || node.argv.length !== 3 || node.argv[1] !== "-l") {
+    return undefined;
+  }
+  const path = node.argv[2];
+  if (!path?.startsWith("/")) {
+    return undefined;
+  }
+  const result = await vm.execRaw(`[ -f ${shellQuote(path)} ]`, { execTimeoutMs: 10_000 });
+  return result.exitCode === 0
+    ? {
+        path,
+        mode: "lines",
+        outputPath: moveStdoutFilePath(resourcePlan),
+        capturedAt: new Date().toISOString(),
+      }
+    : undefined;
+}
+
+export async function readMoveSortStateInVm(
+  vm: VmHandle,
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): Promise<NonNullable<MoveResourcePlan["capture"]>["sortState"]> {
+  if (moveCommandName(node) !== "sort" || node.argv.length !== 2) {
+    return undefined;
+  }
+  const path = node.argv[1];
+  if (!path?.startsWith("/")) {
+    return undefined;
+  }
+  const result = await vm.execRaw(`[ -f ${shellQuote(path)} ]`, { execTimeoutMs: 10_000 });
+  return result.exitCode === 0
+    ? { path, outputPath: moveStdoutFilePath(resourcePlan), capturedAt: new Date().toISOString() }
+    : undefined;
+}
+
+export async function readMoveMvStateInVm(
+  vm: VmHandle,
+  node: MovePidGraphNode,
+): Promise<NonNullable<MoveResourcePlan["capture"]>["mvState"]> {
+  if (moveCommandName(node) !== "mv" || node.argv.length !== 3) {
+    return undefined;
+  }
+  const [sourcePath, destinationPath] = node.argv.slice(1);
+  if (!sourcePath?.startsWith("/") || !destinationPath?.startsWith("/")) {
+    return undefined;
+  }
+  const result = await vm.execRaw(moveMvPreflightCommand(sourcePath, destinationPath), {
+    execTimeoutMs: 10_000,
+  });
+  return result.exitCode === 0
+    ? { sourcePath, destinationPath, capturedAt: new Date().toISOString() }
+    : undefined;
+}
+
+function moveMvPreflightCommand(sourcePath: string, destinationPath: string): string {
+  const source = shellQuote(sourcePath);
+  const destination = shellQuote(destinationPath);
+  const destinationParent = shellQuote(dirnamePath(destinationPath));
+  return `[ -f ${source} ] && [ ! -e ${destination} ] && [ -d ${destinationParent} ] && [ "$(stat -c %d ${source})" = "$(stat -c %d ${destinationParent})" ]`;
+}
+
+function dirnamePath(path: string): string {
+  const index = path.lastIndexOf("/");
+  return index <= 0 ? "/" : path.slice(0, index);
+}
+
+export function readMoveCpState(
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): NonNullable<MoveResourcePlan["capture"]>["cpState"] {
+  if (moveCommandName(node) !== "cp" || node.argv.length !== 3) {
+    return undefined;
+  }
+  const [sourcePath, destinationPath] = node.argv.slice(1);
+  if (!sourcePath?.startsWith("/") || !destinationPath?.startsWith("/")) {
+    return undefined;
+  }
+  const source = moveOpenFileResource(resourcePlan, sourcePath);
+  const destination = moveOpenFileResource(resourcePlan, destinationPath);
+  return source && destination
+    ? {
+        sourcePath,
+        destinationPath,
+        sourceOffset: source.offset,
+        destinationOffset: destination.offset,
+        capturedAt: new Date().toISOString(),
+      }
+    : undefined;
 }
 
 // fallow-ignore-next-line complexity
@@ -334,6 +480,208 @@ export function readMoveShellState(
 }
 
 // fallow-ignore-next-line complexity
+export function readMoveGoStaticHttpState(
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): NonNullable<MoveResourcePlan["capture"]>["goStaticHttpState"] {
+  return readMoveNativeStaticHttpState(node, resourcePlan, "go-static-http-v1");
+}
+
+export function readMoveRustStaticHttpState(
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): NonNullable<MoveResourcePlan["capture"]>["rustStaticHttpState"] {
+  return readMoveNativeStaticHttpState(node, resourcePlan, "rust-static-http-v1");
+}
+
+function readMoveNativeStaticHttpState<Marker extends "go-static-http-v1" | "rust-static-http-v1">(
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+  expectedMarker: Marker,
+):
+  | {
+      binaryPath: string;
+      cwd: string;
+      markerVersion: Marker;
+      port: number;
+      healthPath: string;
+      capturedAt?: string;
+    }
+  | undefined {
+  if (!moveHttpSocketsIdle(resourcePlan)) {
+    return undefined;
+  }
+  const binaryPath = node.argv[0]?.startsWith("/") ? node.argv[0] : node.exe;
+  if (!binaryPath?.startsWith("/")) {
+    return undefined;
+  }
+  const marker = flagValue(node.argv, "--machinen-move-envelope");
+  const port = parsePositiveNumber(flagValue(node.argv, "--port"));
+  const healthPath = flagValue(node.argv, "--health") ?? "/health";
+  return marker === expectedMarker && Number.isInteger(port) && healthPath.startsWith("/")
+    ? {
+        binaryPath,
+        cwd: node.cwd ?? "/",
+        markerVersion: expectedMarker,
+        port: port as number,
+        healthPath,
+        capturedAt: new Date().toISOString(),
+      }
+    : undefined;
+}
+
+function flagValue(argv: string[], flag: string): string | undefined {
+  const index = argv.indexOf(flag);
+  return index >= 0 ? argv[index + 1] : undefined;
+}
+
+export async function readMovePythonStaticRouteStateInVm(
+  vm: VmHandle,
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): Promise<NonNullable<MoveResourcePlan["capture"]>["pythonStaticRouteState"]> {
+  const command = basename(node.argv[0] ?? node.exe ?? node.command);
+  if ((command !== "python3" && command !== "python3.11") || node.argv.length !== 2) {
+    return undefined;
+  }
+  const scriptPath = node.argv[1];
+  if (!scriptPath?.startsWith("/") || !moveHttpSocketsIdle(resourcePlan)) {
+    return undefined;
+  }
+  const result = await vm.execRaw(`cat ${shellQuote(scriptPath)} 2>/dev/null || true`, {
+    execTimeoutMs: 10_000,
+  });
+  const source = result.stdout;
+  if (!source.includes("machinen-move-envelope: python-static-route-v1")) {
+    return undefined;
+  }
+  if (/flask|django|aiohttp|socketserver\.Threading|threading|subprocess/.test(source)) {
+    return undefined;
+  }
+  const port = parsePythonLiteralNumber(source, "PORT");
+  const route = parsePythonLiteralString(source, "ROUTE");
+  const expectedBody = parsePythonLiteralString(source, "RESPONSE");
+  return port && route?.startsWith("/") && expectedBody
+    ? {
+        executable: "python3",
+        scriptPath,
+        cwd: node.cwd ?? "/",
+        port,
+        route,
+        expectedBody,
+        capturedAt: new Date().toISOString(),
+      }
+    : undefined;
+}
+
+function parsePythonLiteralNumber(source: string, name: string): number | undefined {
+  const parsed = Number(source.match(new RegExp(`^${name}\\s*=\\s*(\\d+)`, "m"))?.[1]);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function parsePythonLiteralString(source: string, name: string): string | undefined {
+  return source.match(new RegExp(`^${name}\\s*=\\s*['"]([^'"]+)['"]`, "m"))?.[1];
+}
+
+export function readMoveTimeoutState(
+  node: MovePidGraphNode,
+  nodes: MovePidGraphNode[],
+  childResourcePlan: MoveResourcePlan | undefined,
+): NonNullable<MoveResourcePlan["capture"]>["timeoutState"] {
+  if (moveCommandName(node) !== "timeout" || node.argv.length < 4 || !childResourcePlan) {
+    return undefined;
+  }
+  const seconds = parsePositiveNumber(node.argv[1]);
+  if (!Number.isInteger(seconds)) {
+    return undefined;
+  }
+  const child = nodes.find((item) => item.ppid === node.pid);
+  if (!child) {
+    return undefined;
+  }
+  const expectedChildArgv = node.argv.slice(2);
+  if (expectedChildArgv.join("\0") !== child.argv.join("\0")) {
+    return undefined;
+  }
+  const httpState = readMoveHttpState(child, childResourcePlan);
+  return httpState
+    ? {
+        seconds: seconds as number,
+        child: "python-http-server",
+        httpState,
+        capturedAt: new Date().toISOString(),
+      }
+    : undefined;
+}
+
+export async function readMoveEnvStateInVm(
+  vm: VmHandle,
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): Promise<NonNullable<MoveResourcePlan["capture"]>["envState"]> {
+  if (!readMoveHttpState(node, resourcePlan)) {
+    return undefined;
+  }
+  const result = await vm.execRaw(
+    `tr '\\000' '\\n' </proc/${node.pid}/environ | awk -F= '$1 == "MACHINEN_MOVE_ENV_PROOF" { sub(/^[^=]*=/, ""); print; exit }'`,
+    { execTimeoutMs: 10_000 },
+  );
+  const value = result.stdout.trim();
+  return result.exitCode === 0 && /^[A-Za-z0-9_.:-]+$/.test(value)
+    ? {
+        key: "MACHINEN_MOVE_ENV_PROOF",
+        value,
+        child: "python-http-server",
+        capturedAt: new Date().toISOString(),
+      }
+    : undefined;
+}
+
+export function readMoveNcState(
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): NonNullable<MoveResourcePlan["capture"]>["ncState"] {
+  if (
+    basename(node.argv[0] ?? node.command) !== "nc" ||
+    node.argv.length !== 3 ||
+    node.argv[1] !== "-l" ||
+    !moveHttpSocketsIdle(resourcePlan)
+  ) {
+    return undefined;
+  }
+  const port = parsePositiveNumber(node.argv[2]);
+  return Number.isInteger(port)
+    ? { port: port as number, capturedAt: new Date().toISOString() }
+    : undefined;
+}
+
+export function readMoveBusyboxHttpState(
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): NonNullable<MoveResourcePlan["capture"]>["busyboxHttpState"] {
+  if (
+    moveCommandName(node) !== "busybox" ||
+    node.argv.length !== 7 ||
+    node.argv[1] !== "httpd" ||
+    node.argv[2] !== "-f" ||
+    node.argv[3] !== "-p" ||
+    node.argv[5] !== "-h" ||
+    !moveHttpSocketsIdle(resourcePlan)
+  ) {
+    return undefined;
+  }
+  const port = parsePositiveNumber(node.argv[4]);
+  const root = node.argv[6];
+  if (!Number.isInteger(port) || !root?.startsWith("/")) {
+    return undefined;
+  }
+  return {
+    port: port as number,
+    root,
+    capturedAt: new Date().toISOString(),
+  };
+}
+
 export function readMoveHttpState(
   node: MovePidGraphNode,
   resourcePlan: MoveResourcePlan,
@@ -346,12 +694,57 @@ export function readMoveHttpState(
   if (node.argv[moduleIndex + 1] !== "http.server" || !moveHttpSocketsIdle(resourcePlan)) {
     return undefined;
   }
-  return {
-    executable: "python3",
-    port: parsePositiveIntegerOrDefault(node.argv[moduleIndex + 2], 8000),
-    cwd: node.cwd ?? "/",
-    capturedAt: new Date().toISOString(),
-  };
+  const parsed = parsePythonHttpServerArgs(node.argv.slice(moduleIndex + 2));
+  return parsed
+    ? {
+        executable: "python3",
+        port: parsed.port,
+        cwd: node.cwd ?? "/",
+        ...(parsed.directory ? { directory: parsed.directory } : {}),
+        capturedAt: new Date().toISOString(),
+      }
+    : undefined;
+}
+
+function parsePythonHttpServerArgs(
+  args: string[],
+): { directory?: string; port: number } | undefined {
+  const directory = parsePythonHttpDirectoryArg(args);
+  if (args[0] === "--directory" && !directory) {
+    return undefined;
+  }
+  const portArg = pythonHttpPortArg(args, directory);
+  if (portArg?.startsWith("-")) {
+    return undefined;
+  }
+  if (!pythonHttpTrailingArgsSupported(args, directory, portArg)) {
+    return undefined;
+  }
+  const port = portArg === undefined ? 8000 : parsePositiveNumber(portArg);
+  return Number.isInteger(port)
+    ? { ...(directory ? { directory } : {}), port: port as number }
+    : undefined;
+}
+
+function parsePythonHttpDirectoryArg(args: string[]): string | undefined {
+  const directory = args[0] === "--directory" ? args[1] : undefined;
+  return directory?.startsWith("/") ? directory : undefined;
+}
+
+function pythonHttpPortArg(args: string[], directory: string | undefined): string | undefined {
+  return directory ? args[2] : args[0];
+}
+
+function pythonHttpTrailingArgsSupported(
+  args: string[],
+  directory: string | undefined,
+  portArg: string | undefined,
+): boolean {
+  const trailingArgs = args.slice(directory ? 3 : portArg ? 1 : 0);
+  return (
+    trailingArgs.length === 0 ||
+    (trailingArgs.length === 2 && trailingArgs[0] === "--bind" && trailingArgs[1] === "127.0.0.1")
+  );
 }
 
 function moveHttpSocketsIdle(resourcePlan: MoveResourcePlan): boolean {
@@ -374,11 +767,6 @@ function moveCommandName(node: MovePidGraphNode): string {
 function parsePositiveNumber(value: string | undefined): number | undefined {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-}
-
-function parsePositiveIntegerOrDefault(value: string | undefined, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 export function readMoveLessState(

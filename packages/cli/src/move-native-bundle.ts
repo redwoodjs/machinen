@@ -91,8 +91,20 @@ function nativeContinuationRefusals(descriptor: MoveDescriptor): NativeProcessIm
     descriptor.resourcePlan?.capture?.watchState ||
     descriptor.resourcePlan?.capture?.shellState ||
     descriptor.resourcePlan?.capture?.httpState ||
+    descriptor.resourcePlan?.capture?.busyboxHttpState ||
+    descriptor.resourcePlan?.capture?.ncState ||
+    descriptor.resourcePlan?.capture?.envState ||
+    descriptor.resourcePlan?.capture?.timeoutState ||
+    descriptor.resourcePlan?.capture?.pythonStaticRouteState ||
+    descriptor.resourcePlan?.capture?.goStaticHttpState ||
+    descriptor.resourcePlan?.capture?.rustStaticHttpState ||
     descriptor.resourcePlan?.capture?.tailGrepPipelineState ||
     descriptor.resourcePlan?.capture?.ddState ||
+    descriptor.resourcePlan?.capture?.cpState ||
+    descriptor.resourcePlan?.capture?.mvState ||
+    descriptor.resourcePlan?.capture?.sortState ||
+    descriptor.resourcePlan?.capture?.wcState ||
+    descriptor.resourcePlan?.capture?.sha256State ||
     descriptor.resourcePlan?.capture?.findState ||
     descriptor.resourcePlan?.capture?.tarState ||
     descriptor.resourcePlan?.capture?.nodeStaticHttpState

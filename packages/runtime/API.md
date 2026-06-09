@@ -5086,7 +5086,183 @@ Size in bytes the file was allocated at.
 
 > **cwd**: `string`
 
+###### capture.httpState.directory?
+
+> `optional` **directory?**: `string`
+
 ###### capture.httpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.busyboxHttpState?
+
+> `optional` **busyboxHttpState?**: `object`
+
+###### capture.busyboxHttpState.port
+
+> **port**: `number`
+
+###### capture.busyboxHttpState.root
+
+> **root**: `string`
+
+###### capture.busyboxHttpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.ncState?
+
+> `optional` **ncState?**: `object`
+
+###### capture.ncState.port
+
+> **port**: `number`
+
+###### capture.ncState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.envState?
+
+> `optional` **envState?**: `object`
+
+###### capture.envState.key
+
+> **key**: `"MACHINEN_MOVE_ENV_PROOF"`
+
+###### capture.envState.value
+
+> **value**: `string`
+
+###### capture.envState.child
+
+> **child**: `"python-http-server"`
+
+###### capture.envState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.timeoutState?
+
+> `optional` **timeoutState?**: `object`
+
+###### capture.timeoutState.seconds
+
+> **seconds**: `number`
+
+###### capture.timeoutState.child
+
+> **child**: `"python-http-server"`
+
+###### capture.timeoutState.httpState
+
+> **httpState**: `object`
+
+###### capture.timeoutState.httpState.executable
+
+> **executable**: `"python3"`
+
+###### capture.timeoutState.httpState.port
+
+> **port**: `number`
+
+###### capture.timeoutState.httpState.cwd
+
+> **cwd**: `string`
+
+###### capture.timeoutState.httpState.directory?
+
+> `optional` **directory?**: `string`
+
+###### capture.timeoutState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.pythonStaticRouteState?
+
+> `optional` **pythonStaticRouteState?**: `object`
+
+###### capture.pythonStaticRouteState.executable
+
+> **executable**: `"python3"`
+
+###### capture.pythonStaticRouteState.scriptPath
+
+> **scriptPath**: `string`
+
+###### capture.pythonStaticRouteState.cwd
+
+> **cwd**: `string`
+
+###### capture.pythonStaticRouteState.port
+
+> **port**: `number`
+
+###### capture.pythonStaticRouteState.route
+
+> **route**: `string`
+
+###### capture.pythonStaticRouteState.expectedBody
+
+> **expectedBody**: `string`
+
+###### capture.pythonStaticRouteState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.goStaticHttpState?
+
+> `optional` **goStaticHttpState?**: `object`
+
+###### capture.goStaticHttpState.binaryPath
+
+> **binaryPath**: `string`
+
+###### capture.goStaticHttpState.cwd
+
+> **cwd**: `string`
+
+###### capture.goStaticHttpState.markerVersion
+
+> **markerVersion**: `"go-static-http-v1"`
+
+###### capture.goStaticHttpState.port
+
+> **port**: `number`
+
+###### capture.goStaticHttpState.healthPath
+
+> **healthPath**: `string`
+
+###### capture.goStaticHttpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.rustStaticHttpState?
+
+> `optional` **rustStaticHttpState?**: `object`
+
+###### capture.rustStaticHttpState.binaryPath
+
+> **binaryPath**: `string`
+
+###### capture.rustStaticHttpState.cwd
+
+> **cwd**: `string`
+
+###### capture.rustStaticHttpState.markerVersion
+
+> **markerVersion**: `"rust-static-http-v1"`
+
+###### capture.rustStaticHttpState.port
+
+> **port**: `number`
+
+###### capture.rustStaticHttpState.healthPath
+
+> **healthPath**: `string`
+
+###### capture.rustStaticHttpState.capturedAt?
 
 > `optional` **capturedAt?**: `string`
 
@@ -5139,6 +5315,102 @@ Size in bytes the file was allocated at.
 > **outputOffset**: `number`
 
 ###### capture.ddState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.cpState?
+
+> `optional` **cpState?**: `object`
+
+###### capture.cpState.sourcePath
+
+> **sourcePath**: `string`
+
+###### capture.cpState.destinationPath
+
+> **destinationPath**: `string`
+
+###### capture.cpState.sourceOffset
+
+> **sourceOffset**: `number`
+
+###### capture.cpState.destinationOffset
+
+> **destinationOffset**: `number`
+
+###### capture.cpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.mvState?
+
+> `optional` **mvState?**: `object`
+
+###### capture.mvState.sourcePath
+
+> **sourcePath**: `string`
+
+###### capture.mvState.destinationPath
+
+> **destinationPath**: `string`
+
+###### capture.mvState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.sortState?
+
+> `optional` **sortState?**: `object`
+
+###### capture.sortState.path
+
+> **path**: `string`
+
+###### capture.sortState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.sortState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.wcState?
+
+> `optional` **wcState?**: `object`
+
+###### capture.wcState.path
+
+> **path**: `string`
+
+###### capture.wcState.mode
+
+> **mode**: `"lines"`
+
+###### capture.wcState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.wcState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.sha256State?
+
+> `optional` **sha256State?**: `object`
+
+###### capture.sha256State.path
+
+> **path**: `string`
+
+###### capture.sha256State.expectedDigest
+
+> **expectedDigest**: `string`
+
+###### capture.sha256State.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.sha256State.capturedAt?
 
 > `optional` **capturedAt?**: `string`
 
@@ -5197,6 +5469,14 @@ Size in bytes the file was allocated at.
 ###### capture.nodeStaticHttpState.healthPath
 
 > **healthPath**: `string`
+
+###### capture.nodeStaticHttpState.rootDir?
+
+> `optional` **rootDir?**: `string`
+
+###### capture.nodeStaticHttpState.argvContract?
+
+> `optional` **argvContract?**: `"--port-root-static-http-v1"`
 
 ###### capture.nodeStaticHttpState.capturedAt?
 
