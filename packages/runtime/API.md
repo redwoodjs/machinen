@@ -4986,6 +4986,110 @@ Size in bytes the file was allocated at.
 
 > `optional` **capturedAt?**: `string`
 
+###### capture.readerState?
+
+> `optional` **readerState?**: `object`
+
+###### capture.readerState.command
+
+> **command**: `"cat"`
+
+###### capture.readerState.path
+
+> **path**: `string`
+
+###### capture.readerState.offset
+
+> **offset**: `number`
+
+###### capture.readerState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.readerState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.grepState?
+
+> `optional` **grepState?**: `object`
+
+###### capture.grepState.pattern
+
+> **pattern**: `string`
+
+###### capture.grepState.path
+
+> **path**: `string`
+
+###### capture.grepState.offset
+
+> **offset**: `number`
+
+###### capture.grepState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.grepState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.watchState?
+
+> `optional` **watchState?**: `object`
+
+###### capture.watchState.intervalSeconds
+
+> **intervalSeconds**: `number`
+
+###### capture.watchState.command
+
+> **command**: `string`[]
+
+###### capture.watchState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.shellState?
+
+> `optional` **shellState?**: `object`
+
+###### capture.shellState.shell
+
+> **shell**: `"sh"` \| `"dash"`
+
+###### capture.shellState.cwd
+
+> **cwd**: `string`
+
+###### capture.shellState.terminal
+
+> **terminal**: `"script-pty"`
+
+###### capture.shellState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.httpState?
+
+> `optional` **httpState?**: `object`
+
+###### capture.httpState.executable
+
+> **executable**: `"python3"`
+
+###### capture.httpState.port
+
+> **port**: `number`
+
+###### capture.httpState.cwd
+
+> **cwd**: `string`
+
+###### capture.httpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
 ###### capture.safeBoundary?
 
 > `optional` **safeBoundary?**: `object`

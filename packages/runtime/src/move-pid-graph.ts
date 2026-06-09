@@ -108,6 +108,37 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
         searchPattern?: string;
         capturedAt?: string;
       };
+      readerState?: {
+        command: "cat";
+        path: string;
+        offset: number;
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      grepState?: {
+        pattern: string;
+        path: string;
+        offset: number;
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      watchState?: {
+        intervalSeconds: number;
+        command: string[];
+        capturedAt?: string;
+      };
+      shellState?: {
+        shell: "sh" | "dash";
+        cwd: string;
+        terminal: "script-pty";
+        capturedAt?: string;
+      };
+      httpState?: {
+        executable: "python3";
+        port: number;
+        cwd: string;
+        capturedAt?: string;
+      };
       safeBoundary?: { state: "sleep-timer" | "pre-send-icmp" | "refused"; detail: string };
       freeze?: { state: "ptrace-attached" | "refused"; detail: string };
       tasks?: number;

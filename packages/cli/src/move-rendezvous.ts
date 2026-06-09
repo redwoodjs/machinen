@@ -9,7 +9,12 @@ export interface MoveLoadDirectLoader {
     | "target-original-sleep-remaining-loader"
     | "target-original-tail-offset-loader"
     | "target-original-less-script-pty-loader"
-    | "target-original-vi-readonly-script-pty-loader";
+    | "target-original-vi-readonly-script-pty-loader"
+    | "target-original-cat-offset-loader"
+    | "target-original-grep-offset-loader"
+    | "target-original-watch-loop-loader"
+    | "target-original-sh-script-pty-loader"
+    | "target-original-python-http-server-loader";
   executable: string;
   argv: string[];
   targetPid?: number;
@@ -24,22 +29,23 @@ type MoveCapture = NonNullable<NonNullable<MoveDescriptor["resourcePlan"]>["capt
 type MoveTailState = NonNullable<MoveCapture["tailState"]>;
 type MoveLessState = NonNullable<MoveCapture["lessState"]>;
 type MoveViState = NonNullable<MoveCapture["viState"]>;
+type MoveReaderState = NonNullable<MoveCapture["readerState"]>;
+type MoveGrepState = NonNullable<MoveCapture["grepState"]>;
+type MoveWatchState = NonNullable<MoveCapture["watchState"]>;
+type MoveShellState = NonNullable<MoveCapture["shellState"]>;
+type MoveHttpState = NonNullable<MoveCapture["httpState"]>;
+type MoveTargetDirectLoaderRunner = (
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+) => Promise<MoveLoadRendezvous>;
 
 export async function runMoveTargetDirectLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
 ): Promise<MoveLoadRendezvous> {
-  if (descriptor.resourcePlan?.capture?.sleepState) {
-    return runMoveTargetSleepLoaderInVm(vm, descriptor);
-  }
-  if (descriptor.resourcePlan?.capture?.tailState) {
-    return runMoveTargetTailLoaderInVm(vm, descriptor);
-  }
-  if (descriptor.resourcePlan?.capture?.lessState) {
-    return runMoveTargetLessLoaderInVm(vm, descriptor);
-  }
-  if (descriptor.resourcePlan?.capture?.viState) {
-    return runMoveTargetViLoaderInVm(vm, descriptor);
+  const envelopeLoader = moveTargetEnvelopeLoader(descriptor);
+  if (envelopeLoader) {
+    return envelopeLoader(vm, descriptor);
   }
   const executable = moveRendezvousExecutable(descriptor);
   const argv = moveRendezvousArgv(descriptor, executable);
@@ -70,6 +76,25 @@ export async function runMoveTargetDirectLoaderInVm(
     patch,
     refusals,
   };
+}
+
+// fallow-ignore-next-line complexity
+function moveTargetEnvelopeLoader(
+  descriptor: MoveDescriptor,
+): MoveTargetDirectLoaderRunner | undefined {
+  const capture = descriptor.resourcePlan?.capture;
+  const loaders: Array<[unknown, MoveTargetDirectLoaderRunner]> = [
+    [capture?.sleepState, runMoveTargetSleepLoaderInVm],
+    [capture?.tailState, runMoveTargetTailLoaderInVm],
+    [capture?.lessState, runMoveTargetLessLoaderInVm],
+    [capture?.viState, runMoveTargetViLoaderInVm],
+    [capture?.readerState, runMoveTargetReaderLoaderInVm],
+    [capture?.grepState, runMoveTargetGrepLoaderInVm],
+    [capture?.watchState, runMoveTargetWatchLoaderInVm],
+    [capture?.shellState, runMoveTargetShellLoaderInVm],
+    [capture?.httpState, runMoveTargetHttpLoaderInVm],
+  ];
+  return loaders.find(([state]) => state)?.[1];
 }
 
 async function runMoveTargetSleepLoaderInVm(
@@ -163,6 +188,121 @@ async function runMoveTargetViLoaderInVm(
   return {
     state: refusals.length === 0 ? "ready" : "refused",
     strategy: "target-original-vi-readonly-script-pty-loader",
+    executable,
+    argv,
+    targetPid: parsed.pid,
+    logPath: parsed.logPath,
+    patch,
+    refusals,
+  };
+}
+
+async function runMoveTargetReaderLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.readerState;
+  const argv = [executable, state?.path ?? ""];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-cat-offset-loader",
+    executable,
+    argv,
+    moveReaderLoaderCommand(executable, state),
+    "reader-offset",
+    "target cat offset loader failed",
+  );
+}
+
+async function runMoveTargetGrepLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.grepState;
+  const argv = [executable, state?.pattern ?? "", state?.path ?? ""];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-grep-offset-loader",
+    executable,
+    argv,
+    moveGrepLoaderCommand(executable, state),
+    "grep-offset",
+    "target grep offset loader failed",
+  );
+}
+
+async function runMoveTargetWatchLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.watchState;
+  const argv = [executable, "-n", String(state?.intervalSeconds ?? 2), ...(state?.command ?? [])];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-watch-loop-loader",
+    executable,
+    argv,
+    moveWatchLoaderCommand(executable, state),
+    "watch-loop",
+    "target watch loop loader failed",
+  );
+}
+
+async function runMoveTargetShellLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.shellState;
+  const argv = [executable];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-sh-script-pty-loader",
+    executable,
+    argv,
+    moveShellLoaderCommand(executable, state),
+    "sh-script-pty",
+    "target shell script-pty loader failed",
+  );
+}
+
+async function runMoveTargetHttpLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.httpState;
+  const argv = [executable, "-m", "http.server", String(state?.port ?? 8000)];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-python-http-server-loader",
+    executable,
+    argv,
+    moveHttpLoaderCommand(executable, state),
+    "python-http-server",
+    "target python http server loader failed",
+  );
+}
+
+async function runSimpleMoveLoader(
+  vm: VmHandle,
+  strategy: MoveLoadDirectLoader["strategy"],
+  executable: string,
+  argv: string[],
+  command: string,
+  patchName: string,
+  refusalMessage: string,
+): Promise<MoveLoadRendezvous> {
+  const result = await vm.execRaw(command, { execTimeoutMs: 30_000 });
+  const parsed = parseRendezvousOutput(result.stdout);
+  const patch = moveNamedPatchFromOutput(result, patchName);
+  const refusals = moveNamedLoaderRefusals(patch, refusalMessage);
+  return {
+    state: refusals.length === 0 ? "ready" : "refused",
+    strategy,
     executable,
     argv,
     targetPid: parsed.pid,
@@ -339,6 +479,118 @@ function moveScriptPtyPatchFromOutput(
 }
 
 function moveScriptPtyLoaderRefusals(
+  patch: MoveLoadRendezvous["patch"] | undefined,
+  message: string,
+): NativeProcessImageRefusal[] {
+  if (patch?.state === "ready") {
+    return [];
+  }
+  return [loaderRefusal("target-process-context-unsupported", message, { patch })];
+}
+
+function moveReaderLoaderCommand(executable: string, state: MoveReaderState | undefined): string {
+  if (!state) {
+    return "printf 'PATCH\\treader-offset\\trefused\\tmissing-reader-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  return `set -eu
+log=${shellQuote(log)}
+exec 3<${shellQuote(state.path)}
+dd bs=1 count=${state.offset} <&3 >/dev/null 2>&1 || true
+${shellQuote(executable)} <&3 >"$log" 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-reader-offset-started\n'
+printf 'PATCH\treader-offset\tready\t%s\t%s\n' ${shellQuote(state.path)} ${shellQuote(String(state.offset))}
+`;
+}
+
+function moveGrepLoaderCommand(executable: string, state: MoveGrepState | undefined): string {
+  if (!state) {
+    return "printf 'PATCH\\tgrep-offset\\trefused\\tmissing-grep-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  return `set -eu
+log=${shellQuote(log)}
+exec 3<${shellQuote(state.path)}
+dd bs=1 count=${state.offset} <&3 >/dev/null 2>&1 || true
+${shellQuote(executable)} -- ${shellQuote(state.pattern)} <&3 >"$log" 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-grep-offset-started\n'
+printf 'PATCH\tgrep-offset\tready\t%s\t%s\n' ${shellQuote(state.path)} ${shellQuote(String(state.offset))}
+`;
+}
+
+function moveWatchLoaderCommand(executable: string, state: MoveWatchState | undefined): string {
+  if (!state) {
+    return "printf 'PATCH\\twatch-loop\\trefused\\tmissing-watch-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.typescript";
+  const command = [
+    shellQuote(executable),
+    "-n",
+    shellQuote(String(state.intervalSeconds)),
+    ...state.command.map(shellQuote),
+  ].join(" ");
+  return `set -eu
+log=${shellQuote(log)}
+setsid sh -c ${shellQuote(`tail -f /dev/null | TERM=xterm script -q -c ${shellQuote(command)} "$1" >/dev/null 2>&1`)} sh "$log" >/dev/null 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-watch-loop-started\n'
+printf 'PATCH\twatch-loop\tready\t%s\t%s\n' ${shellQuote(String(state.intervalSeconds))} ${shellQuote(state.command.join(" "))}
+`;
+}
+
+function moveShellLoaderCommand(executable: string, state: MoveShellState | undefined): string {
+  if (!state) {
+    return "printf 'PATCH\\tsh-script-pty\\trefused\\tmissing-shell-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.typescript";
+  const command = `cd ${shellQuote(state.cwd)} && exec ${shellQuote(executable)}`;
+  return `set -eu
+log=${shellQuote(log)}
+setsid sh -c ${shellQuote(`tail -f /dev/null | TERM=xterm script -q -c ${shellQuote(command)} "$1" >/dev/null 2>&1`)} sh "$log" >/dev/null 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-sh-script-pty-started\n'
+printf 'PATCH\tsh-script-pty\tready\t%s\n' ${shellQuote(state.cwd)}
+`;
+}
+
+function moveHttpLoaderCommand(executable: string, state: MoveHttpState | undefined): string {
+  if (!state) {
+    return "printf 'PATCH\\tpython-http-server\\trefused\\tmissing-http-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  return `set -eu
+log=${shellQuote(log)}
+(cd ${shellQuote(state.cwd)} && ${shellQuote(executable)} -m http.server ${state.port} --bind 127.0.0.1 >"$log" 2>&1) &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-python-http-server-started\n'
+printf 'PATCH\tpython-http-server\tready\t%s\t%s\n' ${shellQuote(state.cwd)} ${shellQuote(String(state.port))}
+`;
+}
+
+function moveNamedPatchFromOutput(
+  result: { stdout: string; stderr: string; exitCode: number },
+  patchName: string,
+): MoveLoadRendezvous["patch"] {
+  const state =
+    result.exitCode === 0 && result.stdout.includes(`PATCH\t${patchName}\tready`)
+      ? "ready"
+      : "refused";
+  return { state, stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
+}
+
+function moveNamedLoaderRefusals(
   patch: MoveLoadRendezvous["patch"] | undefined,
   message: string,
 ): NativeProcessImageRefusal[] {
