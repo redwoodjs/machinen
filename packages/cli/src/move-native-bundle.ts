@@ -90,7 +90,12 @@ function nativeContinuationRefusals(descriptor: MoveDescriptor): NativeProcessIm
     descriptor.resourcePlan?.capture?.grepState ||
     descriptor.resourcePlan?.capture?.watchState ||
     descriptor.resourcePlan?.capture?.shellState ||
-    descriptor.resourcePlan?.capture?.httpState
+    descriptor.resourcePlan?.capture?.httpState ||
+    descriptor.resourcePlan?.capture?.tailGrepPipelineState ||
+    descriptor.resourcePlan?.capture?.ddState ||
+    descriptor.resourcePlan?.capture?.findState ||
+    descriptor.resourcePlan?.capture?.tarState ||
+    descriptor.resourcePlan?.capture?.nodeStaticHttpState
   ) {
     return [];
   }

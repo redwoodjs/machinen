@@ -139,6 +139,39 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
         cwd: string;
         capturedAt?: string;
       };
+      tailGrepPipelineState?: {
+        tailPath: string;
+        offset: number;
+        pattern: string;
+        lineBuffered: boolean;
+        capturedAt?: string;
+      };
+      ddState?: {
+        inputPath: string;
+        outputPath: string;
+        blockSize: number;
+        inputOffset: number;
+        outputOffset: number;
+        capturedAt?: string;
+      };
+      findState?: {
+        rootPath: string;
+        outputPath?: string;
+        lastPath?: string;
+        capturedAt?: string;
+      };
+      tarState?: {
+        archivePath: string;
+        sourceDir: string;
+        capturedAt?: string;
+      };
+      nodeStaticHttpState?: {
+        scriptPath: string;
+        cwd: string;
+        port: number;
+        healthPath: string;
+        capturedAt?: string;
+      };
       safeBoundary?: { state: "sleep-timer" | "pre-send-icmp" | "refused"; detail: string };
       freeze?: { state: "ptrace-attached" | "refused"; detail: string };
       tasks?: number;

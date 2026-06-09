@@ -1,5 +1,6 @@
 import type { MoveDescriptor, NativeProcessImageRefusal, VmHandle } from "@machinen/runtime";
 
+import { moveNodeStaticHttpLoaderCommand } from "./move-node-static-loader.ts";
 import { parseGuestMoveResourceScan } from "./move-resource-plan.ts";
 
 export interface MoveLoadDirectLoader {
@@ -14,7 +15,12 @@ export interface MoveLoadDirectLoader {
     | "target-original-grep-offset-loader"
     | "target-original-watch-loop-loader"
     | "target-original-sh-script-pty-loader"
-    | "target-original-python-http-server-loader";
+    | "target-original-python-http-server-loader"
+    | "target-original-tail-grep-pipeline-loader"
+    | "target-original-dd-offset-loader"
+    | "target-original-find-cursor-loader"
+    | "target-original-tar-create-loader"
+    | "target-original-node-static-http-loader";
   executable: string;
   argv: string[];
   targetPid?: number;
@@ -34,6 +40,10 @@ type MoveGrepState = NonNullable<MoveCapture["grepState"]>;
 type MoveWatchState = NonNullable<MoveCapture["watchState"]>;
 type MoveShellState = NonNullable<MoveCapture["shellState"]>;
 type MoveHttpState = NonNullable<MoveCapture["httpState"]>;
+type MoveTailGrepPipelineState = NonNullable<MoveCapture["tailGrepPipelineState"]>;
+type MoveDdState = NonNullable<MoveCapture["ddState"]>;
+type MoveFindState = NonNullable<MoveCapture["findState"]>;
+type MoveTarState = NonNullable<MoveCapture["tarState"]>;
 type MoveTargetDirectLoaderRunner = (
   vm: VmHandle,
   descriptor: MoveDescriptor,
@@ -93,6 +103,11 @@ function moveTargetEnvelopeLoader(
     [capture?.watchState, runMoveTargetWatchLoaderInVm],
     [capture?.shellState, runMoveTargetShellLoaderInVm],
     [capture?.httpState, runMoveTargetHttpLoaderInVm],
+    [capture?.tailGrepPipelineState, runMoveTargetTailGrepPipelineLoaderInVm],
+    [capture?.ddState, runMoveTargetDdLoaderInVm],
+    [capture?.findState, runMoveTargetFindLoaderInVm],
+    [capture?.tarState, runMoveTargetTarLoaderInVm],
+    [capture?.nodeStaticHttpState, runMoveTargetNodeStaticHttpLoaderInVm],
   ];
   return loaders.find(([state]) => state)?.[1];
 }
@@ -284,6 +299,112 @@ async function runMoveTargetHttpLoaderInVm(
     moveHttpLoaderCommand(executable, state),
     "python-http-server",
     "target python http server loader failed",
+  );
+}
+
+async function runMoveTargetNodeStaticHttpLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.nodeStaticHttpState;
+  const argv = [executable, state?.scriptPath ?? ""];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-node-static-http-loader",
+    executable,
+    argv,
+    moveNodeStaticHttpLoaderCommand(executable, state),
+    "node-static-http",
+    "target node static http loader failed",
+  );
+}
+
+async function runMoveTargetTarLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.tarState;
+  const argv = [executable, "-cf", state?.archivePath ?? "", state?.sourceDir ?? ""];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-tar-create-loader",
+    executable,
+    argv,
+    moveTarLoaderCommand(executable, state),
+    "tar-create",
+    "target tar create loader failed",
+  );
+}
+
+async function runMoveTargetFindLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.findState;
+  const argv = [executable, state?.rootPath ?? "", "-type", "f", "-print"];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-find-cursor-loader",
+    executable,
+    argv,
+    moveFindLoaderCommand(executable, state),
+    "find-cursor",
+    "target find cursor loader failed",
+  );
+}
+
+async function runMoveTargetDdLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.ddState;
+  const argv = state
+    ? [
+        executable,
+        `if=${state.inputPath}`,
+        `of=${state.outputPath}`,
+        `bs=${state.blockSize}`,
+        `skip=${state.outputOffset}`,
+        `seek=${state.outputOffset}`,
+        "iflag=skip_bytes",
+        "oflag=seek_bytes",
+        "conv=notrunc",
+      ]
+    : [executable];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-dd-offset-loader",
+    executable,
+    argv,
+    moveDdLoaderCommand(executable, state),
+    "dd-offset",
+    "target dd offset loader failed",
+  );
+}
+
+async function runMoveTargetTailGrepPipelineLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadRendezvous> {
+  const state = descriptor.resourcePlan?.capture?.tailGrepPipelineState;
+  const executable = "/bin/sh";
+  const argv = [
+    executable,
+    "-c",
+    `tail -c +${(state?.offset ?? 0) + 1} -f -- ${state?.tailPath ?? ""} | grep --line-buffered -- ${state?.pattern ?? ""}`,
+  ];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-tail-grep-pipeline-loader",
+    executable,
+    argv,
+    moveTailGrepPipelineLoaderCommand(state),
+    "tail-grep-pipeline",
+    "target tail-grep pipeline loader failed",
   );
 }
 
@@ -568,14 +689,123 @@ function moveHttpLoaderCommand(executable: string, state: MoveHttpState | undefi
     return "printf 'PATCH\\tpython-http-server\\trefused\\tmissing-http-state\\n'; exit 2";
   }
   const log = "/tmp/machinen-move-loader-$$.log";
+  const probe = `import socket; s=socket.create_connection(("127.0.0.1", ${state.port}), 2); s.close()`;
   return `set -eu
 log=${shellQuote(log)}
+if [ ! -d ${shellQuote(state.cwd)} ]; then
+  printf 'PATCH\tpython-http-server\trefused\tmissing-cwd\n'
+  exit 2
+fi
+if ${shellQuote(executable)} -c ${shellQuote(probe)} >/dev/null 2>&1; then
+  printf 'PATCH\tpython-http-server\trefused\tport-in-use\n'
+  exit 2
+fi
 (cd ${shellQuote(state.cwd)} && ${shellQuote(executable)} -m http.server ${state.port} --bind 127.0.0.1 >"$log" 2>&1) &
 pid=$!
+ready=0
+for _ in $(seq 1 20); do
+  if ! kill -0 "$pid" 2>/dev/null; then
+    printf 'LOAD_LOG\t%s\n' "$log"
+    printf 'PATCH\tpython-http-server\trefused\tstart-failed\n'
+    exit 2
+  fi
+  if ${shellQuote(executable)} -c ${shellQuote(probe)} >/dev/null 2>&1; then
+    ready=1
+    break
+  fi
+  sleep 0.25
+done
+if [ "$ready" != "1" ]; then
+  kill -TERM "$pid" 2>/dev/null || true
+  printf 'LOAD_LOG\t%s\n' "$log"
+  printf 'PATCH\tpython-http-server\trefused\tnot-listening\n'
+  exit 2
+fi
 printf 'LOAD_PID\t%s\n' "$pid"
 printf 'LOAD_LOG\t%s\n' "$log"
 printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-python-http-server-started\n'
 printf 'PATCH\tpython-http-server\tready\t%s\t%s\n' ${shellQuote(state.cwd)} ${shellQuote(String(state.port))}
+`;
+}
+
+function moveTarLoaderCommand(executable: string, state: MoveTarState | undefined): string {
+  if (!state) {
+    return "printf 'PATCH\\ttar-create\\trefused\\tmissing-tar-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  return `set -eu
+log=${shellQuote(log)}
+rm -f ${shellQuote(state.archivePath)}
+${shellQuote(executable)} -cf ${shellQuote(state.archivePath)} ${shellQuote(state.sourceDir)} >"$log" 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-tar-create-started\n'
+printf 'PATCH\ttar-create\tready\t%s\t%s\n' ${shellQuote(state.archivePath)} ${shellQuote(state.sourceDir)}
+`;
+}
+
+function moveFindLoaderCommand(executable: string, state: MoveFindState | undefined): string {
+  if (!state) {
+    return "printf 'PATCH\\tfind-cursor\\trefused\\tmissing-find-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  const last = state.lastPath ?? "";
+  return `set -eu
+log=${shellQuote(log)}
+${shellQuote(executable)} ${shellQuote(state.rootPath)} -type f -print | awk -v last=${shellQuote(last)} 'BEGIN { emit = (last == "") } emit { print; next } $0 == last { emit = 1; next }' >"$log" 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-find-cursor-started\n'
+printf 'PATCH\tfind-cursor\tready\t%s\t%s\n' ${shellQuote(state.rootPath)} ${shellQuote(last)}
+`;
+}
+
+function moveDdLoaderCommand(executable: string, state: MoveDdState | undefined): string {
+  if (!state) {
+    return "printf 'PATCH\\tdd-offset\\trefused\\tmissing-dd-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  const argv = [
+    shellQuote(executable),
+    `if=${shellQuote(state.inputPath)}`,
+    `of=${shellQuote(state.outputPath)}`,
+    `bs=${shellQuote(String(state.blockSize))}`,
+    `skip=${shellQuote(String(state.outputOffset))}`,
+    `seek=${shellQuote(String(state.outputOffset))}`,
+    "iflag=skip_bytes",
+    "oflag=seek_bytes",
+    "conv=notrunc",
+  ].join(" ");
+  return `set -eu
+log=${shellQuote(log)}
+${argv} >"$log" 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-dd-offset-started\n'
+printf 'PATCH\tdd-offset\tready\t%s\t%s\t%s\t%s\n' ${shellQuote(state.inputPath)} ${shellQuote(state.outputPath)} ${shellQuote(String(state.inputOffset))} ${shellQuote(String(state.outputOffset))}
+`;
+}
+
+function moveTailGrepPipelineLoaderCommand(state: MoveTailGrepPipelineState | undefined): string {
+  if (!state) {
+    return "printf 'PATCH\\ttail-grep-pipeline\\trefused\\tmissing-tail-grep-pipeline-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  const tailArgv = ["tail", "-c", `+${state.offset + 1}`, "-f", "--", state.tailPath]
+    .map(shellQuote)
+    .join(" ");
+  const grepArgv = ["grep", "--line-buffered", "--", state.pattern].map(shellQuote).join(" ");
+  return `set -eu
+log=${shellQuote(log)}
+setsid sh -c ${shellQuote(`${tailArgv} | ${grepArgv} >"$1" 2>&1`)} sh "$log" >/dev/null 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-tail-grep-pipeline-started\n'
+printf 'PATCH\ttail-grep-pipeline\tready\t%s\t%s\t%s\n' ${shellQuote(state.tailPath)} ${shellQuote(String(state.offset))} ${shellQuote(state.pattern)}
 `;
 }
 

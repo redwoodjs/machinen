@@ -174,6 +174,79 @@ const httpDescriptor = moveDescriptorWithCapture(
   { httpState: { executable: "python3", port: 8123, cwd: "/tmp/web" } },
 );
 
+const nodeStaticDescriptor = moveDescriptorWithCapture(
+  85,
+  "node",
+  ["node", "/tmp/node-static/server.mjs"],
+  "/usr/bin/node",
+  {
+    nodeStaticHttpState: {
+      scriptPath: "/tmp/node-static/server.mjs",
+      cwd: "/tmp/node-static",
+      port: 8130,
+      healthPath: "/health",
+    },
+  },
+);
+
+const tarDescriptor = moveDescriptorWithCapture(
+  84,
+  "tar",
+  ["tar", "-cf", "/tmp/archive.tar", "/tmp/tar-tree"],
+  "/usr/bin/tar",
+  {
+    tarState: {
+      archivePath: "/tmp/archive.tar",
+      sourceDir: "/tmp/tar-tree",
+    },
+  },
+);
+
+const findDescriptor = moveDescriptorWithCapture(
+  83,
+  "find",
+  ["find", "/tmp/tree", "-type", "f", "-print"],
+  "/usr/bin/find",
+  {
+    findState: {
+      rootPath: "/tmp/tree",
+      outputPath: "/tmp/find.out",
+      lastPath: "/tmp/tree/file-010",
+    },
+  },
+);
+
+const ddDescriptor = moveDescriptorWithCapture(
+  82,
+  "dd",
+  ["dd", "if=/tmp/dd.in", "of=/tmp/dd.out", "bs=1"],
+  "/usr/bin/dd",
+  {
+    ddState: {
+      inputPath: "/tmp/dd.in",
+      outputPath: "/tmp/dd.out",
+      blockSize: 1,
+      inputOffset: 4096,
+      outputOffset: 4096,
+    },
+  },
+);
+
+const tailGrepPipelineDescriptor = moveDescriptorWithCapture(
+  81,
+  "sh",
+  ["sh", "-c", "tail -f /tmp/pipeline.txt | grep --line-buffered match"],
+  "/usr/bin/dash",
+  {
+    tailGrepPipelineState: {
+      tailPath: "/tmp/pipeline.txt",
+      offset: 35,
+      pattern: "match",
+      lineBuffered: true,
+    },
+  },
+);
+
 describe("move target direct loader", () => {
   it("launches original target sleep with only the remaining duration", async () => {
     const commands: string[] = [];
@@ -396,6 +469,112 @@ describe("move target direct loader", () => {
       state: "ready",
       strategy: "target-original-python-http-server-loader",
       targetPid: 805,
+      refusals: [],
+    });
+  });
+
+  it("launches original target node static http server after health readiness", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1001\nLOAD_LOG\t/tmp/node.log\nPATCH\tnode-static-http\tready\t/tmp/node-static/server.mjs\t8130\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, nodeStaticDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/node");
+    expect(commands[0]).toContain("/tmp/node-static/server.mjs");
+    expect(commands[0]).toContain("/health");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-node-static-http-loader",
+      targetPid: 1001,
+      refusals: [],
+    });
+  });
+
+  it("launches original target tar to create the archive", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t909\nLOAD_LOG\t/tmp/tar.log\nPATCH\ttar-create\tready\t/tmp/archive.tar\t/tmp/tar-tree\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, tarDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/tar");
+    expect(commands[0]).toContain("-cf");
+    expect(commands[0]).toContain("/tmp/archive.tar");
+    expect(commands[0]).toContain("/tmp/tar-tree");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-tar-create-loader",
+      targetPid: 909,
+      refusals: [],
+    });
+  });
+
+  it("launches original target find after the captured last emitted path", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t808\nLOAD_LOG\t/tmp/find.log\nPATCH\tfind-cursor\tready\t/tmp/tree\t/tmp/tree/file-010\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, findDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/find");
+    expect(commands[0]).toContain("/tmp/tree");
+    expect(commands[0]).toContain("awk");
+    expect(commands[0]).toContain("/tmp/tree/file-010");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-find-cursor-loader",
+      targetPid: 808,
+      refusals: [],
+    });
+  });
+
+  it("launches original target dd from captured read and write offsets", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t807\nLOAD_LOG\t/tmp/dd.log\nPATCH\tdd-offset\tready\t/tmp/dd.in\t/tmp/dd.out\t4096\t4096\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, ddDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/dd");
+    expect(commands[0]).toContain("skip='4096'");
+    expect(commands[0]).toContain("seek='4096'");
+    expect(commands[0]).toContain("iflag=skip_bytes");
+    expect(commands[0]).toContain("oflag=seek_bytes");
+    expect(commands[0]).toContain("conv=notrunc");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-dd-offset-loader",
+      targetPid: 807,
+      refusals: [],
+    });
+  });
+
+  it("launches original target tail and grep as a pipeline from the captured offset", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t806\nLOAD_LOG\t/tmp/pipeline.log\nPATCH\ttail-grep-pipeline\tready\t/tmp/pipeline.txt\t35\tmatch\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, tailGrepPipelineDescriptor);
+
+    expect(commands[0]).toContain("tail");
+    expect(commands[0]).toContain("+36");
+    expect(commands[0]).toContain("grep");
+    expect(commands[0]).toContain("--line-buffered");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-tail-grep-pipeline-loader",
+      targetPid: 806,
       refusals: [],
     });
   });

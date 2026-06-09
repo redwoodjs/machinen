@@ -28,13 +28,18 @@ import {
 import { buildMoveResourcePlan, parseGuestMoveResourceScan } from "../move-resource-plan.ts";
 import { runMoveTargetDirectLoaderInVm, type MoveLoadDirectLoader } from "../move-rendezvous.ts";
 import {
+  readMoveDdState,
+  readMoveFindStateInVm,
   readMoveGrepState,
   readMoveHttpState,
   readMoveLessState,
+  readMoveNodeStaticHttpStateInVm,
   readMovePingStateInVm,
   readMoveReaderStateInVm,
   readMoveShellState,
   readMoveSleepStateInVm,
+  readMoveTailGrepPipelineState,
+  readMoveTarState,
   readMoveTailState,
   readMoveViState,
   readMoveWatchState,
@@ -224,13 +229,18 @@ function moveEnvelopeAllowedRefusalClasses(descriptor: MoveDescriptor): Set<stri
     descriptor.resourcePlan?.capture?.viState ||
     descriptor.resourcePlan?.capture?.watchState ||
     descriptor.resourcePlan?.capture?.shellState ||
-    descriptor.resourcePlan?.capture?.httpState
+    descriptor.resourcePlan?.capture?.httpState ||
+    descriptor.resourcePlan?.capture?.nodeStaticHttpState ||
+    descriptor.resourcePlan?.capture?.tailGrepPipelineState
   ) {
     return new Set(["open-files", "sockets", "threads"]);
   }
   if (
     descriptor.resourcePlan?.capture?.readerState ||
-    descriptor.resourcePlan?.capture?.grepState
+    descriptor.resourcePlan?.capture?.grepState ||
+    descriptor.resourcePlan?.capture?.ddState ||
+    descriptor.resourcePlan?.capture?.findState ||
+    descriptor.resourcePlan?.capture?.tarState
   ) {
     return new Set(["open-files", "threads"]);
   }
@@ -288,10 +298,9 @@ async function cmdMoveLoad(args: string[], json: boolean): Promise<number> {
       descriptor,
       moveLoadExecutablePath(descriptor),
     );
-    const loader =
-      targetValidation.state === "ready"
-        ? await runMoveTargetDirectLoaderInVm(vm, descriptor)
-        : undefined;
+    const canStartLoader =
+      targetValidation.state === "ready" && moveDescriptorContinuationPlanned(descriptor);
+    const loader = canStartLoader ? await runMoveTargetDirectLoaderInVm(vm, descriptor) : undefined;
     const accepted = moveLoadAccepted(descriptor, bundlePath, targetValidation, loader);
     reportMoveLoadResult(descriptor, accepted, json, targetValidation, loader);
     return accepted ? 0 : 1;
@@ -408,7 +417,8 @@ async function withMoveVm<T>(target: Target, run: (vm: VmHandle) => Promise<T> |
 async function createMoveDescriptorInVm(vm: VmHandle, pid: number): Promise<MoveDescriptor> {
   const nodes = await readMoveProcNodesInVm(vm, pid);
   const resourcePlan = await scanMoveResourcePlanInVm(vm, nodes[0]!);
-  await attachMoveSourceIdentity(vm, nodes[0]!, resourcePlan);
+  const pipelineTailResourcePlan = await scanMoveTailPipelineResourcePlanInVm(vm, nodes);
+  await attachMoveSourceIdentity(vm, nodes[0]!, nodes, resourcePlan, pipelineTailResourcePlan);
   const graph = buildMovePidGraph(pid, nodes, resourcePlan);
   return {
     ...graph,
@@ -422,7 +432,9 @@ async function createMoveDescriptorInVm(vm: VmHandle, pid: number): Promise<Move
 async function attachMoveSourceIdentity(
   vm: VmHandle,
   node: MovePidGraphNode,
+  nodes: MovePidGraphNode[],
   resourcePlan: MoveResourcePlan,
+  pipelineTailResourcePlan: MoveResourcePlan | undefined,
 ): Promise<void> {
   resourcePlan.capture = {
     ...resourcePlan.capture,
@@ -437,7 +449,12 @@ async function attachMoveSourceIdentity(
     grepState: readMoveGrepState(node, resourcePlan),
     watchState: readMoveWatchState(node),
     shellState: readMoveShellState(node),
-    httpState: readMoveHttpState(node),
+    httpState: readMoveHttpState(node, resourcePlan),
+    tailGrepPipelineState: readMoveTailGrepPipelineState(nodes, pipelineTailResourcePlan),
+    ddState: readMoveDdState(node, resourcePlan),
+    findState: await readMoveFindStateInVm(vm, node, resourcePlan),
+    tarState: readMoveTarState(node),
+    nodeStaticHttpState: await readMoveNodeStaticHttpStateInVm(vm, node, resourcePlan),
   };
 }
 
@@ -448,6 +465,16 @@ function moveProcessPath(node: MovePidGraphNode): string {
 async function scanMovePidGraphInVm(vm: VmHandle, rootPid?: number): Promise<MovePidGraph> {
   const nodes = await readMoveProcNodesInVm(vm, rootPid);
   return buildMovePidGraph(rootPid, nodes);
+}
+
+async function scanMoveTailPipelineResourcePlanInVm(
+  vm: VmHandle,
+  nodes: MovePidGraphNode[],
+): Promise<MoveResourcePlan | undefined> {
+  const tailNode = nodes.find(
+    (item) => basename(item.exe ?? item.argv[0] ?? item.command) === "tail",
+  );
+  return tailNode ? scanMoveResourcePlanInVm(vm, tailNode) : undefined;
 }
 
 // fallow-ignore-next-line code-duplication
@@ -540,11 +567,8 @@ if [ -r /proc/net/raw ]; then
 fi`;
 }
 
-function guestProcScanCommand(rootPid?: number): string {
-  const pidSelector =
-    rootPid === undefined
-      ? 'for d in /proc/[0-9]*; do scan_pid "${d##*/}"; done'
-      : `scan_pid ${rootPid}`;
+function guestProcScanCommand(_rootPid?: number): string {
+  const pidSelector = 'for d in /proc/[0-9]*; do scan_pid "${d##*/}"; done';
   return `scan_pid() {
   pid="$1"
   d="/proc/$pid"
@@ -559,17 +583,34 @@ ${pidSelector}`;
 }
 
 function parseGuestProcRows(stdout: string, rootPid?: number): MovePidGraphNode[] {
-  const nodes = stdout
+  const allNodes = stdout
     .split("\n")
     .filter(Boolean)
-    .slice(0, rootPid === undefined ? 250 : 1)
+    .slice(0, 250)
     .map(parseGuestProcRow)
     .filter((node): node is MovePidGraphNode => node !== undefined)
     .sort((left, right) => left.pid - right.pid);
+  const nodes = rootPid === undefined ? allNodes : moveDescendantProcNodes(allNodes, rootPid);
   if (rootPid !== undefined && nodes.length === 0) {
     die(`in-VM pid ${rootPid} was not found`);
   }
   return nodes;
+}
+
+// fallow-ignore-next-line complexity
+function moveDescendantProcNodes(nodes: MovePidGraphNode[], rootPid: number): MovePidGraphNode[] {
+  const selected = new Set<number>([rootPid]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const node of nodes) {
+      if (node.ppid !== undefined && selected.has(node.ppid) && !selected.has(node.pid)) {
+        selected.add(node.pid);
+        changed = true;
+      }
+    }
+  }
+  return nodes.filter((node) => selected.has(node.pid));
 }
 
 function parseGuestProcRow(row: string): MovePidGraphNode | undefined {

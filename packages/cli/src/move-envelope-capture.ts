@@ -61,6 +61,7 @@ export async function readMoveSleepStateInVm(
   };
 }
 
+// fallow-ignore-next-line complexity
 export async function readMoveReaderStateInVm(
   vm: VmHandle,
   node: MovePidGraphNode,
@@ -92,6 +93,187 @@ async function readMoveFileSizeInVm(vm: VmHandle, path: string): Promise<number 
   });
   const parsed = Number(result.stdout.trim());
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+export async function readMoveNodeStaticHttpStateInVm(
+  vm: VmHandle,
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): Promise<NonNullable<MoveResourcePlan["capture"]>["nodeStaticHttpState"]> {
+  const scriptPath = moveNodeStaticScriptPath(node);
+  if (!scriptPath || !moveHttpSocketsIdle(resourcePlan)) {
+    return undefined;
+  }
+  const result = await vm.execRaw(`cat ${shellQuote(scriptPath)} 2>/dev/null || true`, {
+    execTimeoutMs: 10_000,
+  });
+  const port = parseNodeStaticPort(result.stdout);
+  if (!port || !result.stdout.includes("machinen-move-envelope: static-http-v1")) {
+    return undefined;
+  }
+  if (nodeStaticSourceUnsupported(result.stdout)) {
+    return undefined;
+  }
+  if (!result.stdout.includes('"/health"') && !result.stdout.includes("'/health'")) {
+    return undefined;
+  }
+  return {
+    scriptPath,
+    cwd: node.cwd ?? "/",
+    port,
+    healthPath: "/health",
+    capturedAt: new Date().toISOString(),
+  };
+}
+
+function moveNodeStaticScriptPath(node: MovePidGraphNode): string | undefined {
+  const command = moveCommandName(node);
+  if ((command !== "node" && command !== "nodejs") || node.argv.length !== 2) {
+    return undefined;
+  }
+  const scriptPath = node.argv[1];
+  return scriptPath?.startsWith("/") && basename(scriptPath) === "server.mjs"
+    ? scriptPath
+    : undefined;
+}
+
+function nodeStaticSourceUnsupported(source: string): boolean {
+  return /node:worker_threads|worker_threads|node:child_process|child_process|cluster|\.node['"]/.test(
+    source,
+  );
+}
+
+function parseNodeStaticPort(source: string): number | undefined {
+  const parsed = Number(source.match(/const\s+PORT\s*=\s*(\d+)/)?.[1]);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+export function readMoveTarState(
+  node: MovePidGraphNode,
+): NonNullable<MoveResourcePlan["capture"]>["tarState"] {
+  if (moveCommandName(node) !== "tar" || node.argv.length !== 4) {
+    return undefined;
+  }
+  const [, createFlag, archivePath, sourceDir] = node.argv;
+  if (createFlag !== "-cf" || !archivePath?.startsWith("/") || !sourceDir?.startsWith("/")) {
+    return undefined;
+  }
+  if (pathIsWithin(sourceDir, archivePath)) {
+    return undefined;
+  }
+  return { archivePath, sourceDir, capturedAt: new Date().toISOString() };
+}
+
+function pathIsWithin(root: string, candidate: string): boolean {
+  const normalizedRoot = root.endsWith("/") ? root : `${root}/`;
+  return candidate === root || candidate.startsWith(normalizedRoot);
+}
+
+export async function readMoveFindStateInVm(
+  vm: VmHandle,
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): Promise<NonNullable<MoveResourcePlan["capture"]>["findState"]> {
+  const rootPath = moveFindRootPath(node);
+  if (!rootPath) {
+    return undefined;
+  }
+  const outputPath = moveStdoutFilePath(resourcePlan);
+  const lastPath = outputPath ? await readMoveLastLineInVm(vm, outputPath) : undefined;
+  return { rootPath, outputPath, lastPath, capturedAt: new Date().toISOString() };
+}
+
+function moveFindRootPath(node: MovePidGraphNode): string | undefined {
+  if (moveCommandName(node) !== "find" || node.argv.length !== 5) {
+    return undefined;
+  }
+  const [rootPath, typeFlag, typeValue, printFlag] = node.argv.slice(1);
+  return rootPath?.startsWith("/") &&
+    typeFlag === "-type" &&
+    typeValue === "f" &&
+    printFlag === "-print"
+    ? rootPath
+    : undefined;
+}
+
+async function readMoveLastLineInVm(vm: VmHandle, path: string): Promise<string | undefined> {
+  const result = await vm.execRaw(lastCompleteLineCommand(shellQuote(path)), {
+    execTimeoutMs: 10_000,
+  });
+  const line = result.stdout.trimEnd().split("\n").at(-1);
+  return line ? line : undefined;
+}
+
+function lastCompleteLineCommand(quotedPath: string): string {
+  return `if [ -f ${quotedPath} ] && [ -s ${quotedPath} ]; then
+  last_byte=$(tail -c 1 ${quotedPath} 2>/dev/null | od -An -t x1 | tr -d ' \\n')
+  if [ "$last_byte" = "0a" ]; then
+    tail -n 1 ${quotedPath} 2>/dev/null || true
+  else
+    tail -n 2 ${quotedPath} 2>/dev/null | sed '$d' | tail -n 1 || true
+  fi
+fi`;
+}
+
+// fallow-ignore-next-line complexity
+export function readMoveDdState(
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+): NonNullable<MoveResourcePlan["capture"]>["ddState"] {
+  if (moveCommandName(node) !== "dd") {
+    return undefined;
+  }
+  const args = parseDdArgs(node.argv.slice(1));
+  if (!args) {
+    return undefined;
+  }
+  const input = moveOpenFileResource(resourcePlan, args.inputPath);
+  const output = moveOpenFileResource(resourcePlan, args.outputPath);
+  return input && output
+    ? {
+        inputPath: args.inputPath,
+        outputPath: args.outputPath,
+        blockSize: args.blockSize,
+        inputOffset: input.offset,
+        outputOffset: output.offset,
+        capturedAt: new Date().toISOString(),
+      }
+    : undefined;
+}
+
+function parseDdArgs(
+  argv: string[],
+): { inputPath: string; outputPath: string; blockSize: number } | undefined {
+  if (argv.length !== 3) {
+    return undefined;
+  }
+  const inputPath = parseKeyValueArg(argv, "if")?.value;
+  const outputPath = parseKeyValueArg(argv, "of")?.value;
+  const blockSize = parseDdBlockSize(parseKeyValueArg(argv, "bs")?.value);
+  return inputPath?.startsWith("/") && outputPath?.startsWith("/") && blockSize
+    ? { inputPath, outputPath, blockSize }
+    : undefined;
+}
+
+function parseKeyValueArg(argv: string[], key: string): { key: string; value: string } | undefined {
+  const prefix = `${key}=`;
+  const arg = argv.find((item) => item.startsWith(prefix));
+  return arg ? { key, value: arg.slice(prefix.length) } : undefined;
+}
+
+function parseDdBlockSize(value: string | undefined): number | undefined {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function moveOpenFileResource(
+  resourcePlan: MoveResourcePlan,
+  path: string,
+): { offset: number } | undefined {
+  const resource = resourcePlan.resources.find(
+    (item) => item.kind === "file" && item.path === path && typeof item.offset === "number",
+  );
+  return typeof resource?.offset === "number" ? { offset: resource.offset } : undefined;
 }
 
 // fallow-ignore-next-line complexity
@@ -154,13 +336,14 @@ export function readMoveShellState(
 // fallow-ignore-next-line complexity
 export function readMoveHttpState(
   node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
 ): NonNullable<MoveResourcePlan["capture"]>["httpState"] {
   const command = basename(node.argv[0] ?? node.exe ?? node.command);
   if (command !== "python3" && command !== "python3.11") {
     return undefined;
   }
   const moduleIndex = node.argv.findIndex((arg) => arg === "-m");
-  if (node.argv[moduleIndex + 1] !== "http.server") {
+  if (node.argv[moduleIndex + 1] !== "http.server" || !moveHttpSocketsIdle(resourcePlan)) {
     return undefined;
   }
   return {
@@ -171,6 +354,10 @@ export function readMoveHttpState(
   };
 }
 
+function moveHttpSocketsIdle(resourcePlan: MoveResourcePlan): boolean {
+  return resourcePlan.resources.filter((resource) => resource.kind === "socket").length === 1;
+}
+
 // fallow-ignore-next-line complexity
 function moveSingleAbsoluteArg(node: MovePidGraphNode, command: string): string | undefined {
   if (basename(node.exe ?? node.argv[0] ?? node.command) !== command || node.argv.length !== 2) {
@@ -178,6 +365,10 @@ function moveSingleAbsoluteArg(node: MovePidGraphNode, command: string): string 
   }
   const path = node.argv[1];
   return path?.startsWith("/") ? path : undefined;
+}
+
+function moveCommandName(node: MovePidGraphNode): string {
+  return basename(node.exe ?? node.argv[0] ?? node.command);
 }
 
 function parsePositiveNumber(value: string | undefined): number | undefined {
@@ -250,6 +441,44 @@ function moveTerminalFileState(
 function parseLineArg(value: string | undefined): number | undefined {
   const parsed = Number(value?.slice(1));
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+// fallow-ignore-next-line complexity
+export function readMoveTailGrepPipelineState(
+  nodes: MovePidGraphNode[],
+  tailResourcePlan: MoveResourcePlan | undefined,
+): NonNullable<MoveResourcePlan["capture"]>["tailGrepPipelineState"] {
+  if (!tailResourcePlan) {
+    return undefined;
+  }
+  const tailNode = nodes.find((node) => moveCommandName(node) === "tail");
+  const grepNode = nodes.find((node) => moveCommandName(node) === "grep");
+  if (!tailNode || !grepNode || nodes.filter(isTailOrGrepNode).length !== 2) {
+    return undefined;
+  }
+  const tailState = readMoveTailState(tailNode, tailResourcePlan);
+  const grepPattern = moveLineBufferedGrepPattern(grepNode);
+  return tailState && grepPattern
+    ? {
+        tailPath: tailState.path,
+        offset: tailState.offset,
+        pattern: grepPattern,
+        lineBuffered: true,
+        capturedAt: new Date().toISOString(),
+      }
+    : undefined;
+}
+
+function isTailOrGrepNode(node: MovePidGraphNode): boolean {
+  const command = moveCommandName(node);
+  return command === "tail" || command === "grep";
+}
+
+function moveLineBufferedGrepPattern(node: MovePidGraphNode): string | undefined {
+  if (node.argv.length !== 3 || node.argv[1] !== "--line-buffered") {
+    return undefined;
+  }
+  return node.argv[2];
 }
 
 export function readMoveTailState(

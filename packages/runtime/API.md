@@ -5090,6 +5090,118 @@ Size in bytes the file was allocated at.
 
 > `optional` **capturedAt?**: `string`
 
+###### capture.tailGrepPipelineState?
+
+> `optional` **tailGrepPipelineState?**: `object`
+
+###### capture.tailGrepPipelineState.tailPath
+
+> **tailPath**: `string`
+
+###### capture.tailGrepPipelineState.offset
+
+> **offset**: `number`
+
+###### capture.tailGrepPipelineState.pattern
+
+> **pattern**: `string`
+
+###### capture.tailGrepPipelineState.lineBuffered
+
+> **lineBuffered**: `boolean`
+
+###### capture.tailGrepPipelineState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.ddState?
+
+> `optional` **ddState?**: `object`
+
+###### capture.ddState.inputPath
+
+> **inputPath**: `string`
+
+###### capture.ddState.outputPath
+
+> **outputPath**: `string`
+
+###### capture.ddState.blockSize
+
+> **blockSize**: `number`
+
+###### capture.ddState.inputOffset
+
+> **inputOffset**: `number`
+
+###### capture.ddState.outputOffset
+
+> **outputOffset**: `number`
+
+###### capture.ddState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.findState?
+
+> `optional` **findState?**: `object`
+
+###### capture.findState.rootPath
+
+> **rootPath**: `string`
+
+###### capture.findState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.findState.lastPath?
+
+> `optional` **lastPath?**: `string`
+
+###### capture.findState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.tarState?
+
+> `optional` **tarState?**: `object`
+
+###### capture.tarState.archivePath
+
+> **archivePath**: `string`
+
+###### capture.tarState.sourceDir
+
+> **sourceDir**: `string`
+
+###### capture.tarState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.nodeStaticHttpState?
+
+> `optional` **nodeStaticHttpState?**: `object`
+
+###### capture.nodeStaticHttpState.scriptPath
+
+> **scriptPath**: `string`
+
+###### capture.nodeStaticHttpState.cwd
+
+> **cwd**: `string`
+
+###### capture.nodeStaticHttpState.port
+
+> **port**: `number`
+
+###### capture.nodeStaticHttpState.healthPath
+
+> **healthPath**: `string`
+
+###### capture.nodeStaticHttpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
 ###### capture.safeBoundary?
 
 > `optional` **safeBoundary?**: `object`
