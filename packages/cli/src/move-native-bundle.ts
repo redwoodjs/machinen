@@ -79,7 +79,21 @@ export function writeNativeProcessImageScaffold(
   writeFileSync(join(bundlePath, "native-memory.bin"), Buffer.alloc(0));
 }
 
+// fallow-ignore-next-line complexity
 function nativeContinuationRefusals(descriptor: MoveDescriptor): NativeProcessImageRefusal[] {
+  if (
+    descriptor.resourcePlan?.capture?.sleepState ||
+    descriptor.resourcePlan?.capture?.tailState ||
+    descriptor.resourcePlan?.capture?.lessState ||
+    descriptor.resourcePlan?.capture?.viState ||
+    descriptor.resourcePlan?.capture?.readerState ||
+    descriptor.resourcePlan?.capture?.grepState ||
+    descriptor.resourcePlan?.capture?.watchState ||
+    descriptor.resourcePlan?.capture?.shellState ||
+    descriptor.resourcePlan?.capture?.httpState
+  ) {
+    return [];
+  }
   return descriptor.resourcePlan?.refusals.length
     ? descriptor.resourcePlan.refusals
     : [

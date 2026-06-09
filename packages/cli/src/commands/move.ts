@@ -27,6 +27,18 @@ import {
 } from "../move-native-bundle.ts";
 import { buildMoveResourcePlan, parseGuestMoveResourceScan } from "../move-resource-plan.ts";
 import { runMoveTargetDirectLoaderInVm, type MoveLoadDirectLoader } from "../move-rendezvous.ts";
+import {
+  readMoveGrepState,
+  readMoveHttpState,
+  readMoveLessState,
+  readMovePingStateInVm,
+  readMoveReaderStateInVm,
+  readMoveShellState,
+  readMoveSleepStateInVm,
+  readMoveTailState,
+  readMoveViState,
+  readMoveWatchState,
+} from "../move-envelope-capture.ts";
 import { die, handleError } from "../errors.ts";
 import type { Target } from "../parse-target.ts";
 import { parseTargetFlags, resolveTarget } from "./target.ts";
@@ -165,9 +177,7 @@ function writeMoveDescriptorResult(
     join(bundlePath, "active-syscall-plan.json"),
     `${JSON.stringify(moveActiveSyscallPlan(bundleDescriptor), null, 2)}\n`,
   );
-  const accepted =
-    descriptor.refusedStateClasses.length === 0 &&
-    bundleDescriptor.nativeContinuation?.state !== "refused";
+  const accepted = moveSaveAccepted(bundleDescriptor);
   return {
     accepted,
     descriptorPath: bundlePath,
@@ -184,6 +194,47 @@ function prepareMoveBundleDir(outPath: string): string {
   }
   mkdirSync(bundlePath, { recursive: true });
   return bundlePath;
+}
+
+function moveSaveAccepted(descriptor: MoveDescriptor): boolean {
+  if (descriptor.nativeContinuation?.state === "refused") {
+    return false;
+  }
+  if (descriptor.refusedStateClasses.length === 0) {
+    return true;
+  }
+  return moveEnvelopeAllowsOpenFileRefusals(descriptor);
+}
+
+function moveEnvelopeAllowsOpenFileRefusals(descriptor: MoveDescriptor): boolean {
+  const allowed = moveEnvelopeAllowedRefusalClasses(descriptor);
+  if (!allowed) {
+    return false;
+  }
+  return descriptor.refusedStateClasses.every((refusal) => allowed.has(refusal.stateClass));
+}
+
+// fallow-ignore-next-line complexity
+function moveEnvelopeAllowedRefusalClasses(descriptor: MoveDescriptor): Set<string> | undefined {
+  if (descriptor.resourcePlan?.capture?.tailState) {
+    return new Set(["open-files", "threads"]);
+  }
+  if (
+    descriptor.resourcePlan?.capture?.lessState ||
+    descriptor.resourcePlan?.capture?.viState ||
+    descriptor.resourcePlan?.capture?.watchState ||
+    descriptor.resourcePlan?.capture?.shellState ||
+    descriptor.resourcePlan?.capture?.httpState
+  ) {
+    return new Set(["open-files", "sockets", "threads"]);
+  }
+  if (
+    descriptor.resourcePlan?.capture?.readerState ||
+    descriptor.resourcePlan?.capture?.grepState
+  ) {
+    return new Set(["open-files", "threads"]);
+  }
+  return undefined;
 }
 
 function moveRefusalCode(accepted: boolean): typeof MOVE_REFUSAL_CODE | undefined {
@@ -300,7 +351,11 @@ function moveBundleValid(bundlePath: string): boolean {
   return true;
 }
 
+// fallow-ignore-next-line complexity
 function moveDescriptorContinuationPlanned(descriptor: MoveDescriptor): boolean {
+  if (moveEnvelopeAllowsOpenFileRefusals(descriptor)) {
+    return true;
+  }
   if (descriptor.refusedStateClasses.every((refusal) => refusal.stateClass === "sockets")) {
     return true;
   }
@@ -374,43 +429,15 @@ async function attachMoveSourceIdentity(
     sourceVm: { pid: vm.pid, name: vm.name },
     executablePackage: await readMoveExecutableIdentityInVm(vm, node.exe ?? moveProcessPath(node)),
     pingState: await readMovePingStateInVm(vm, resourcePlan),
-  };
-}
-
-async function readMovePingStateInVm(
-  vm: VmHandle,
-  resourcePlan: MoveResourcePlan,
-): Promise<NonNullable<MoveResourcePlan["capture"]>["pingState"]> {
-  const path = moveStdoutFilePath(resourcePlan);
-  if (!path) {
-    return undefined;
-  }
-  const result = await vm.execRaw(`tail -n 500 ${shellQuote(path)} 2>/dev/null || true`, {
-    execTimeoutMs: 10_000,
-  });
-  return parsePingStateFromOutput(result.stdout);
-}
-
-function moveStdoutFilePath(resourcePlan: MoveResourcePlan): string | undefined {
-  const stdout = resourcePlan.resources.find((resource) => resource.fd === 1);
-  return stdout?.kind === "file" && typeof stdout.path === "string" ? stdout.path : undefined;
-}
-
-function parsePingStateFromOutput(
-  stdout: string,
-): NonNullable<MoveResourcePlan["capture"]>["pingState"] {
-  const sequences = Array.from(stdout.matchAll(/icmp_seq=(\d+)/g), (match) => Number(match[1]));
-  const replies = stdout.split("\n").filter((line) => /bytes from .*icmp_seq=\d+/.test(line));
-  const errors = stdout.split("\n").filter((line) => /^From .*icmp_seq=\d+/.test(line));
-  const lastSequence = sequences.at(-1);
-  if (!lastSequence) {
-    return undefined;
-  }
-  return {
-    ntransmitted: lastSequence,
-    nreceived: replies.length,
-    nerrors: errors.length,
-    lastSequence,
+    sleepState: await readMoveSleepStateInVm(vm, node),
+    tailState: readMoveTailState(node, resourcePlan),
+    lessState: readMoveLessState(node),
+    viState: readMoveViState(node),
+    readerState: await readMoveReaderStateInVm(vm, node, resourcePlan),
+    grepState: readMoveGrepState(node, resourcePlan),
+    watchState: readMoveWatchState(node),
+    shellState: readMoveShellState(node),
+    httpState: readMoveHttpState(node),
   };
 }
 
@@ -423,6 +450,7 @@ async function scanMovePidGraphInVm(vm: VmHandle, rootPid?: number): Promise<Mov
   return buildMovePidGraph(rootPid, nodes);
 }
 
+// fallow-ignore-next-line code-duplication
 function buildMovePidGraph(
   rootPid: number | undefined,
   nodes: MovePidGraphNode[],
@@ -756,10 +784,6 @@ function parseOptionalPositiveInteger(value: string): number | undefined {
     return undefined;
   }
   return parsed;
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
 function parsePositiveInteger(value: string, flag: string): number {

@@ -4894,6 +4894,202 @@ Size in bytes the file was allocated at.
 
 > `optional` **lastSequence?**: `number`
 
+###### capture.sleepState?
+
+> `optional` **sleepState?**: `object`
+
+###### capture.sleepState.originalMs
+
+> **originalMs**: `number`
+
+###### capture.sleepState.elapsedMs
+
+> **elapsedMs**: `number`
+
+###### capture.sleepState.remainingMs
+
+> **remainingMs**: `number`
+
+###### capture.sleepState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.tailState?
+
+> `optional` **tailState?**: `object`
+
+###### capture.tailState.path
+
+> **path**: `string`
+
+###### capture.tailState.offset
+
+> **offset**: `number`
+
+###### capture.tailState.followMode
+
+> **followMode**: `"poll-or-inotify"`
+
+###### capture.tailState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.lessState?
+
+> `optional` **lessState?**: `object`
+
+###### capture.lessState.path
+
+> **path**: `string`
+
+###### capture.lessState.line
+
+> **line**: `number`
+
+###### capture.lessState.terminal
+
+> **terminal**: `"script-pty"`
+
+###### capture.lessState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.viState?
+
+> `optional` **viState?**: `object`
+
+###### capture.viState.path
+
+> **path**: `string`
+
+###### capture.viState.line
+
+> **line**: `number`
+
+###### capture.viState.mode
+
+> **mode**: `"normal-read-only"` \| `"normal-dirty-buffer"`
+
+###### capture.viState.terminal
+
+> **terminal**: `"script-pty"`
+
+###### capture.viState.dirtyText?
+
+> `optional` **dirtyText?**: `string`
+
+###### capture.viState.searchPattern?
+
+> `optional` **searchPattern?**: `string`
+
+###### capture.viState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.readerState?
+
+> `optional` **readerState?**: `object`
+
+###### capture.readerState.command
+
+> **command**: `"cat"`
+
+###### capture.readerState.path
+
+> **path**: `string`
+
+###### capture.readerState.offset
+
+> **offset**: `number`
+
+###### capture.readerState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.readerState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.grepState?
+
+> `optional` **grepState?**: `object`
+
+###### capture.grepState.pattern
+
+> **pattern**: `string`
+
+###### capture.grepState.path
+
+> **path**: `string`
+
+###### capture.grepState.offset
+
+> **offset**: `number`
+
+###### capture.grepState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.grepState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.watchState?
+
+> `optional` **watchState?**: `object`
+
+###### capture.watchState.intervalSeconds
+
+> **intervalSeconds**: `number`
+
+###### capture.watchState.command
+
+> **command**: `string`[]
+
+###### capture.watchState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.shellState?
+
+> `optional` **shellState?**: `object`
+
+###### capture.shellState.shell
+
+> **shell**: `"sh"` \| `"dash"`
+
+###### capture.shellState.cwd
+
+> **cwd**: `string`
+
+###### capture.shellState.terminal
+
+> **terminal**: `"script-pty"`
+
+###### capture.shellState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.httpState?
+
+> `optional` **httpState?**: `object`
+
+###### capture.httpState.executable
+
+> **executable**: `"python3"`
+
+###### capture.httpState.port
+
+> **port**: `number`
+
+###### capture.httpState.cwd
+
+> **cwd**: `string`
+
+###### capture.httpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
 ###### capture.safeBoundary?
 
 > `optional` **safeBoundary?**: `object`

@@ -414,6 +414,7 @@ function pingSocketRecipe(
   };
 }
 
+// fallow-ignore-next-line code-duplication
 function rawIcmpRecipe(
   node: MovePidGraphNode,
   socket: GuestMoveNetSocket,

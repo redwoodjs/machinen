@@ -125,7 +125,8 @@
     "archive-node-ecosystem-restore": "node scripts/archived-smoke.mjs scripts/smoke/node-ecosystem-restore.sh",
     "archive-non-node-cross-arch": "node scripts/archived-smoke.mjs scripts/smoke/non-node-cross-arch.sh",
     "archive-go-quiescent-runtime": "node scripts/archived-smoke.mjs scripts/smoke/go-quiescent-runtime.sh",
-    "fallow:health": "node scripts/fallow-health-guard.mjs"
+    "fallow:health": "node scripts/fallow-health-guard.mjs",
+    "proof-move-envelope-matrix": "bash scripts/smoke/move-envelope-matrix.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

@@ -1,62 +1,263 @@
-# Goal: Portable snapshot ladder focus — reach Level 4/5
+# Goal — Extend `machinen move` proof envelopes beyond ping
 
-## Objective
+## North star
 
-Make Machinen's portable snapshot roadmap, product claims, and engineering
-discussions center on the portable snapshot ladder, with the strategic target of
-Level 4 and Level 5 support.
+Grow `machinen move` from the proven Debian `iputils-ping` cross-arch envelope into a small matrix of real distro utilities that can be saved from one VM and live-loaded into another VM with target-native continuation semantics.
 
-Level 3 is a stop gap. Treat Level 3 runtime-aware continuation as technical debt
-unless it is clearly marked as a temporary bridge toward Level 4 kernel-resource
-reconstruction or Level 5 cross-architecture process continuation.
+This is **not** a claim of generic cross-architecture VM snapshot/restore or arbitrary process restore. Each phase must state and prove its own narrow support envelope.
 
-## Ladder
+## Current baseline
 
-| Level | Implementation level value                | Meaning                                                                          | Desired status                     |
-| ----: | ----------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------- |
-|     0 | `level-0-fail-closed-discovery`           | Detect unsupported state and refuse safely.                                      | Required guardrail                 |
-|     1 | `level-1-semantic-restart`                | Restart an equivalent target-native workload.                                    | Product baseline, not the end goal |
-|     2 | `level-2-semantic-continuation`           | Carry selected logical state through explicit descriptors.                       | Useful product subset              |
-|     3 | `level-3-runtime-aware-continuation`      | Runtime-specific safe-point capture and replay.                                  | Technical debt / transition path   |
-|     4 | `level-4-kernel-resource-reconstruction`  | Recreate/replay kernel resources from explicit descriptors.                      | Primary target                     |
-|     5 | `level-5-cross-arch-process-continuation` | Translate live process execution state across ISAs without source-ISA emulation. | Primary target                     |
+| Capability                               |      Status | Notes                                                                                       |
+| ---------------------------------------- | ----------: | ------------------------------------------------------------------------------------------- |
+| Cross-arch VM snapshot/restore           | Not claimed | VM snapshot/restore remains VM-only/same-architecture scoped unless separately proven.      |
+| Generic cross-arch process restore       | Not claimed | Unsupported process state must fail closed.                                                 |
+| Debian `iputils-ping` arm64 → amd64 move |      Proven | Original target distro `/usr/bin/ping`, direct guest loader, no leaked target `icmp_seq=1`. |
+| Repeatable ping proof harness            |      Proven | `pnpm proof-move-ping-cross-arch`.                                                          |
 
-## Current support map
+## Rules for all phases
 
-| Workload / area                                                           | Product support       | Current implementation level | Graduation target | Notes                                                                                                                                                                       |
-| ------------------------------------------------------------------------- | --------------------- | ---------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node clean HTTP service                                                   | Supported             | Level 1                      | Level 4/5 later   | `node-http-clean-root-v1`; semantic restart through public `machinen snapshot` / `machinen restore`.                                                                        |
-| Python clean HTTP service                                                 | Supported             | Level 1                      | Level 4/5 later   | `python-http-clean-root-v1`; semantic restart.                                                                                                                              |
-| Go static clean HTTP service                                              | Supported             | Level 1                      | Level 4/5 later   | `go-http-clean-root-v1`; cgo/dynamic linkage remains refused.                                                                                                               |
-| Ping sequence/counter                                                     | Not supported         | Retired Level 2 helper       | Superseded by L4  | `ping-sequence-counter-semantic-continuation-v1` is no longer product support; keep only as non-product helper/regression evidence.                                         |
-| Ping/raw ICMP portable machine workload                                   | Supported             | Level 4                      | Level 4           | `ping-level4-socket-reconstruction-v1`; narrow loopback empty-queue descriptor route through `machinen snapshot` / `machinen restore` with target-native verifier evidence. |
-| Live Node process continuation proofs                                     | Not yet supported     | Not implemented              | Level 5           | Strong proof evidence exists, but not product support unless routed through public product verbs.                                                                           |
-| Already-running Node process proofs                                       | Not yet supported     | Not implemented              | Level 5           | Claimed subset proof with unsafe neighbors refused.                                                                                                                         |
-| Node production/expanded/ecosystem envelopes outside clean-service subset | Not yet supported     | Not implemented              | Level 4/5         | Treat as temporary technical debt unless moved toward Level 4/5.                                                                                                            |
-| JVM / Ruby / non-product Python runtime envelopes                         | Not yet / unsupported | Not implemented / Level 0    | Level 4/5         | JVM process checkpoint currently has explicit refusal when runtime/profile is unavailable or unsafe.                                                                        |
-| Go quiescent runtime proofs                                               | Not yet supported     | Not implemented              | Level 4/5         | Runtime-aware proof; not arbitrary goroutine/process continuation.                                                                                                          |
-| PostgreSQL logical restore                                                | Not yet supported     | Not implemented              | Level 3 bridge    | Strong logical restore proof; not public no-extra-flag product support yet.                                                                                                 |
-| Redis / SQLite / MySQL / queues / filesystem-backed stateful services     | Not yet / unsupported | Not implemented / Level 0    | Level 3/4 bridge  | Workload-aware matrices; unsafe states refused.                                                                                                                             |
-| Native register/stack/memory/code/loader proofs                           | Not yet supported     | Not implemented              | Level 5           | Native/process proof rows must stay proof unless productized through public verbs.                                                                                          |
-| TLS/SIMD/FPU/signal/active syscall/thread/resource/mapping policies       | Unsupported           | Level 0                      | Level 5           | These are Level 4/5 blockers and should become explicit descriptor/reconstruction work, not hidden runtime debt.                                                            |
-| Arbitrary Linux process-image continuation                                | Unsupported           | Level 0                      | Selected subsets  | No product claim until selected subsets have explicit descriptors, refusals, and target-native validation.                                                                  |
+| Rule                       | Requirement                                                                                             |
+| -------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Original distro binary     | Target must run the target distro utility, not a Machinen replacement binary.                           |
+| Target-native continuation | No source ISA emulation and no metadata-only success.                                                   |
+| Fail closed                | Missing package/layout/fd/terminal/state evidence must refuse before claiming load success.             |
+| Narrow claims              | Each utility gets a named support envelope; no generic snapshot/restore claims.                         |
+| Cross-arch proof           | Accepted envelopes should be proven arm64 source → amd64 target when practical.                         |
+| Evidence first             | Capture bundles must include source evidence, target validation, loader evidence, and refusal evidence. |
 
-## Discussion rules
+## Envelope model
 
-1. Always state both `productSupport` and `implementationLevel`.
-2. Do not treat `migrationCompleted=true` as product support.
-3. Do not count source-ISA emulation, sidecar output, metadata-only success, or raw cross-ISA checkpoint replay as product success.
-4. Treat Level 3 rows as debt unless they include an explicit path to Level 4 or Level 5.
-5. Prefer Level 4 descriptors for kernel resources and Level 5 native/process translation over runtime-specific shortcuts.
-6. Refusal rows must remain stable, fail-closed, and `migrationCompleted=false`.
+An envelope is the supported continuation contract for one binary, runtime, or family of binaries. It answers five questions:
 
-## Next work
+| Question                            | Why it matters                                                                                                |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| What command shape is accepted?     | Prevents accidentally claiming support for every invocation of a tool.                                        |
+| What state means “continued”?       | `ping` continues by sequence/counters; `tail` continues by file offset; `vi` continues by buffer/cursor/mode. |
+| Where is the safe handoff point?    | Mutation must happen before wrong output leaks and while app invariants are stable.                           |
+| How is target-native state created? | The target runs its own distro binary and receives reconstructed resources or patched target-native memory.   |
+| How is success proven?              | Each envelope needs visible continuation evidence, not just accepted metadata.                                |
 
-- Build a first-class Level 4 inventory: sockets, epoll, eventfd, timerfd, signalfd, pipes, ptys, credentials, namespaces, queues, readiness, and partial transfer state.
-- For each runtime/workload row, mark whether it is:
-  - already Level 4/5 relevant;
-  - Level 3 debt with a migration path;
-  - supported Level 1/2 by design;
-  - stable Level 0 refusal.
-- Convert native/process proof evidence into checked gauntlet rows without implying product support.
-- Define what must be true for Node, JVM, Go, Python, databases, and ping to graduate toward Level 4/5.
+The envelopes are binary- or runtime-anchored, but each one should graduate reusable primitives underneath it.
+
+| Envelope proof | Binary-specific part                                             | Reusable primitive to graduate                                                                   |
+| -------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `ping`         | Debian `iputils-ping` `ping_rts` counters and ICMP packet buffer | package/layout validation, ptrace syscall-boundary stop, target memory patching, checksum repair |
+| `sleep`        | coreutils sleep timeout semantics                                | timer continuation and elapsed/remaining-time modeling                                           |
+| `tail -f`      | coreutils follow behavior                                        | file identity capture, fd recreation, seek-to-offset, no-duplicate stream validation             |
+| `less`         | pager viewport/session behavior                                  | PTY capture, termios/window-size recreation, screen-diff validation                              |
+| `vi`           | editor cursor/mode/buffer state                                  | terminal-app safe points, viewport restoration, layout-metadata-driven app state patching        |
+| Node service   | V8/libuv/app service state                                       | heap graph descriptors, event-loop wait classification, listener/timer materialization           |
+
+## Reusable move primitives
+
+| Primitive                                                                  | Reused by                                    |
+| -------------------------------------------------------------------------- | -------------------------------------------- |
+| `/proc` process, fd, mapping, thread, syscall, wchan, and register capture | every envelope                               |
+| executable package/build-id/path validation                                | every known ELF envelope                     |
+| generated target layout metadata                                           | C utilities and runtimes with known packages |
+| ptrace stop at syscall or event boundary                                   | `ping`, future socket/file/terminal tools    |
+| `process_vm_writev` or ptrace memory writes                                | envelopes with known target-native layouts   |
+| regular-file reopen and seek                                               | `tail`, `less`, `vi`, file readers           |
+| PTY, termios, and window-size recreation                                   | `less`, `vi`, shells, TUIs                   |
+| timer continuation descriptors                                             | `sleep`, event loops, schedulers             |
+| listener/socket/resource materialization                                   | servers and event-loop runtimes              |
+| fail-closed refusal engine                                                 | every envelope                               |
+
+## Explicit non-goals
+
+| Non-goal                                          | Reason                                                                                                                         |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Translate whole VM snapshots across architectures | Guest kernel, CPU, device, page-table, and process state are architecture-specific.                                            |
+| Move arbitrary opaque ELF processes cross-arch    | Raw stacks, pointers, function pointers, heaps, locks, and active syscalls have no generic target-native meaning.              |
+| Claim any Node app is supported                   | Node support must be limited to decoded heap/resource/event-loop envelopes, with workers/addons/active requests refused first. |
+| Use source-ISA emulation as success               | Emulation can run source code, but it is not target-native continuation.                                                       |
+| Replace the target app with a Machinen helper     | The final continued process must be the target distro binary for that envelope.                                                |
+
+## Phase plan
+
+| Phase | Target                          | Main state to preserve                                   | Loader strategy                                                               | Success proof                                                                       | Status                                                       |
+| ----- | ------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| 4A    | Existing proof audit            | Reusable capture/restore primitives                      | No product change yet                                                         | Matrix mapping old proofs to move primitives.                                       | Implemented in this document.                                |
+| 4B    | `/bin/sleep`                    | Remaining timeout, signal behavior, exit status          | Launch target distro `sleep`; reconstruct timer continuation at safe boundary | Source sleep partly elapsed; target exits after remaining time, not full restart.   | Implemented and locally proven.                              |
+| 4C    | `tail -f file`                  | File path, fd identity, file offset, follow mode, stdout | Launch target distro `tail`; seek/recreate offset; resume follow              | Source emits lines 1..N; target emits N+1 onward with no duplicates/skips.          | Implemented and locally proven.                              |
+| 4D    | `less file` read-only           | File path, explicit line, script PTY                     | Launch target distro `less` under a script-owned PTY                          | Target loader starts original less at captured line when less is proof-provisioned. | Implemented; optional proof tool, not baked into base image. |
+| 4E    | `vi file` read-only             | File path, explicit line, normal mode, script PTY        | Launch target distro `vi` under a script-owned PTY                            | Target loader starts original vi at captured line when vi is proof-provisioned.     | Implemented; optional proof tool, not baked into base image. |
+| 4F    | `vi file` dirty buffer          | Argv-evidence inserted text, cursor line, modified flag  | Target-native `vi` receives reconstructed dirty text through ex command       | Dirty text is injected into original target vi at load.                             | Implemented for argv-evidence dirty text only.               |
+| 4G    | `vi` richer session             | Argv-evidence search pattern plus dirty text             | Target-native vi receives search and dirty-buffer commands                    | Search command and dirty text are replayed into original target vi.                 | Implemented for argv-evidence search only.                   |
+| 4H    | Cross-arch proof harness matrix | Accepted local envelopes                                 | Repeatable local proof harness                                                | One command proves sleep/tail and probes terminal tools.                            | Implemented as `pnpm proof-move-envelope-matrix -- --json`.  |
+| 5A    | `cat file` reader               | Regular-file path and byte offset                        | Launch target distro `cat` reading from inherited fd after seek               | Target emits exactly bytes after captured source offset.                            | Implemented and locally proven with proof-local tools.       |
+| 5B    | `grep pattern file`             | Pattern, regular-file path, scanner byte offset          | Launch target distro `grep` reading from inherited fd after seek              | Target emits only matches from remaining source bytes.                              | Implemented and locally proven with proof-local tools.       |
+| 5C    | `watch -n N command`            | Interval and child command argv                          | Launch target distro `watch` under script PTY                                 | Target starts original watch with captured interval/command.                        | Implemented and locally proven with proof-local tools.       |
+| 5D    | idle `/bin/sh`                  | Shell provider, cwd, PTY boundary                        | Launch target distro shell under script PTY in captured cwd                   | Target shell waits for input in captured cwd.                                       | Implemented and locally proven with proof-local tools.       |
+| 5E    | `python3 -m http.server PORT`   | Cwd, port, static file tree assumption                   | Launch target distro Python HTTP server in captured cwd/port                  | Target listener serves same target guest files.                                     | Implemented and locally proven with proof-local tools.       |
+
+## Phase 4A — proof audit
+
+Deliverables:
+
+- Inventory existing proofs/scripts for timer, fd, PTY, terminal, cursor, and resource reconstruction primitives.
+- Mark which pieces can be reused directly in product `machinen move` and which remain proof-only.
+- Produce a matrix with:
+  - source evidence available,
+  - target materialization approach,
+  - refusal conditions,
+  - validation commands,
+  - claim boundaries.
+
+Exit criteria:
+
+- `goal.md` updated with the chosen implementation order and reusable primitives.
+- No product behavior changed unless separately scoped.
+
+## Phase 4B — `/bin/sleep`
+
+Support envelope:
+
+- Single-process distro `/bin/sleep` or `/usr/bin/sleep`.
+- Single remaining relative timeout.
+- No unsupported inherited fds beyond standard streams unless explicitly modeled.
+- Same package/path validation where applicable.
+
+Required evidence:
+
+- Source argv and executable identity.
+- Source safe timer boundary / syscall evidence.
+- Elapsed/remaining timeout estimate.
+- Target loader evidence proving the target does not restart the full original timeout.
+
+Success criteria:
+
+- Start `sleep 30`, save after a known delay, load into target, and prove target exits after approximately remaining time.
+- Ctrl-C/signal behavior remains sensible or explicitly refused.
+- Cross-arch proof added when stable.
+
+## Phase 4C — `tail -f file`
+
+Support envelope:
+
+- Distro `tail -f <regular-file>`.
+- One followed regular file.
+- Standard output to file/pipe/PTY as modeled.
+- No log rotation support initially unless explicitly added.
+
+Required evidence:
+
+- Source executable/package identity.
+- File identity/path and offset.
+- Follow mode and polling/inotify state classification.
+- Target recreated fd and seek evidence.
+
+Success criteria:
+
+- Source observes lines 1..N.
+- Load target and append lines N+1..M.
+- Target emits only N+1..M: no duplicate line N, no skipped N+1.
+
+## Phase 4D — `less file` read-only
+
+Support envelope:
+
+- Distro `less <regular-file>` in a PTY.
+- Read-only session.
+- Terminal size fixed during capture/load.
+- Preserve viewport/cursor sufficiently for visible continuation.
+
+Required evidence:
+
+- File path/identity.
+- Explicit line from argv, for example `less +42 /tmp/file`.
+- Target script-PTY loader evidence.
+- Refusal for missing `less`, missing `script`, or unsupported implicit viewport state.
+
+Success criteria:
+
+- Target starts original distro `less` under a script-owned PTY at the captured line.
+- Arbitrary post-launch viewport movement is not claimed until terminal state capture is deeper.
+
+## Phase 4E — `vi file` read-only
+
+Support envelope:
+
+- Distro `/usr/bin/vi +<line> <regular-file>` or selected Debian vi/Vim provider.
+- No unsaved edits for the read-only envelope.
+- Normal mode at an explicit line.
+
+Required evidence:
+
+- vi provider/package/version identity.
+- File identity/path.
+- Explicit line from argv.
+- Target script-PTY loader evidence.
+
+Success criteria:
+
+- Target starts original distro vi under a script-owned PTY at the captured line.
+- Arbitrary post-launch cursor movement is not claimed until terminal/editor state capture is deeper.
+
+## Phase 4F — `vi file` dirty buffer
+
+Support envelope:
+
+- Simple inserted text carried as argv evidence, for example a captured `+normal! Go...` command.
+- No plugins, modelines, swap recovery, multi-window, or complex undo initially.
+- Fail closed for typed post-launch edits until Vim buffer/swap/layout evidence is decoded.
+
+Required evidence:
+
+- Dirty buffer text from source argv evidence.
+- Target-native vi command that reconstructs the dirty buffer.
+- Modified-buffer intent in loader evidence.
+
+Success criteria:
+
+- The target original distro vi receives the captured inserted text at load.
+- No helper editor replaces distro vi.
+- Typed unsaved edits that are only present in source heap/swap remain a future extension.
+
+## Phase 4G — richer vi session
+
+Candidate additions:
+
+- Search pattern and direction from argv evidence, for example `+/needle`.
+- Marks, registers, and basic undo remain refused until decoded from real vi/Vim state evidence.
+
+Exit criteria:
+
+- Each feature has a separate acceptance/refusal condition.
+- Unsupported combinations fail closed.
+
+## Phase 4H — proof harness matrix
+
+Deliverables:
+
+- A repeatable script/package command for accepted envelopes: `pnpm proof-move-envelope-matrix -- --json`.
+- JSON output summarizing sleep/tail proof results and terminal-tool availability.
+- Smoke manifest entries labeled as proof/audit when promoted to broad smoke.
+
+Success criteria:
+
+- Sleep exits after remaining time, not the full original time.
+- Tail emits appended lines after the captured offset with no duplicates.
+- Terminal envelopes are probed and run when optional proof-local tools provide `less`, `vi`, and `script`; these proof tools are not baked into the base image.
+- Harness avoids claiming broad generic snapshot/restore.
+
+## Validation expectations
+
+For each implementation phase, run the smallest checks covering changed behavior plus relevant static checks:
+
+| Change type                    | Expected validation                                                                                  |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| TS/runtime/CLI                 | `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, targeted Vitest                      |
+| Public exports/docs            | `pnpm run build:docs`                                                                                |
+| Proof harness                  | targeted proof command plus manifest check if manifest changes                                       |
+| VM lifecycle/VMM/rootfs/assets | targeted smoke or full `MACHINEN_REMOTE_BUILDER=friend@100.126.46.90 pnpm smoke-tests` when required |
+
+## Open questions
+
+| Question                                                       | Default answer for now                                                                                                    |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Should `vi` dirty buffer use Vim internals or terminal replay? | Prefer target-native state reconstruction; terminal replay can be refusal/proof evidence but not final success by itself. |
+| Do we support non-Debian utility builds?                       | Not initially; package/layout metadata must validate or refuse.                                                           |
+| Do we preserve arbitrary PTY state?                            | No; support only explicitly modeled PTY/termios/window-size state.                                                        |
+| Do socket/resource refusals block utility envelopes?           | Only if the envelope cannot semantically reconstruct the resource target-natively.                                        |
