@@ -220,24 +220,52 @@ function resourceRefusal(
   path: string | undefined,
   preflight: GenericPreflight,
 ): GenericRefusalClass[] {
-  if (["argv", "cwd"].includes(kind)) {
-    return [];
-  }
-  if (kind === "file") {
-    return path?.startsWith("/dev/") && path !== "/dev/null"
-      ? [refusal("device", "device fd is not generically supported yet", evidence(fd, path))]
-      : [];
-  }
-  if (kind === "socket") {
-    return isIdleLoopbackListener(preflight, fd)
-      ? []
-      : [refusal("socket", "socket fd is not a proven idle loopback listener", evidence(fd, path))];
-  }
-  if (kind === "pipe" || kind === "pty" || kind === "unknown") {
-    return [
-      refusal(kind, `${kind} resource class is not generically supported yet`, evidence(fd, path)),
-    ];
-  }
+  const handlers: Record<string, () => GenericRefusalClass[]> = {
+    argv: () => [],
+    cwd: () => [],
+    file: () => fileResourceRefusal(fd, path),
+    socket: () => socketResourceRefusal(fd, path, preflight),
+    pipe: () => unsupportedResourceClassRefusal("pipe", fd, path),
+    pty: () => unsupportedResourceClassRefusal("pty", fd, path),
+    unknown: () => unsupportedResourceClassRefusal("unknown", fd, path),
+  };
+  return handlers[kind]?.() ?? deferredResourceClassRefusal(kind, fd, path);
+}
+
+function fileResourceRefusal(
+  fd: number | undefined,
+  path: string | undefined,
+): GenericRefusalClass[] {
+  return path?.startsWith("/dev/") && path !== "/dev/null"
+    ? [refusal("device", "device fd is not generically supported yet", evidence(fd, path))]
+    : [];
+}
+
+function socketResourceRefusal(
+  fd: number | undefined,
+  path: string | undefined,
+  preflight: GenericPreflight,
+): GenericRefusalClass[] {
+  return isIdleLoopbackListener(preflight, fd)
+    ? []
+    : [refusal("socket", "socket fd is not a proven idle loopback listener", evidence(fd, path))];
+}
+
+function unsupportedResourceClassRefusal(
+  kind: "pipe" | "pty" | "unknown",
+  fd: number | undefined,
+  path: string | undefined,
+): GenericRefusalClass[] {
+  return [
+    refusal(kind, `${kind} resource class is not generically supported yet`, evidence(fd, path)),
+  ];
+}
+
+function deferredResourceClassRefusal(
+  kind: string,
+  fd: number | undefined,
+  path: string | undefined,
+): GenericRefusalClass[] {
   return [
     refusal(
       kind,
