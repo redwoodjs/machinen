@@ -93,6 +93,14 @@ function nativeContinuationRefusals(descriptor: MoveDescriptor): NativeProcessIm
     descriptor.resourcePlan?.capture?.httpState ||
     descriptor.resourcePlan?.capture?.busyboxHttpState ||
     descriptor.resourcePlan?.capture?.ncState ||
+    descriptor.resourcePlan?.capture?.busyboxNcState ||
+    descriptor.resourcePlan?.capture?.socatFileResponderState ||
+    descriptor.resourcePlan?.capture?.redisIdleState ||
+    descriptor.resourcePlan?.capture?.nginxStaticState ||
+    descriptor.resourcePlan?.capture?.caddyStaticState ||
+    descriptor.resourcePlan?.capture?.rubyHttpState ||
+    descriptor.resourcePlan?.capture?.phpStaticState ||
+    descriptor.resourcePlan?.capture?.rsyncDaemonState ||
     descriptor.resourcePlan?.capture?.envState ||
     descriptor.resourcePlan?.capture?.timeoutState ||
     descriptor.resourcePlan?.capture?.pythonStaticRouteState ||
@@ -102,11 +110,56 @@ function nativeContinuationRefusals(descriptor: MoveDescriptor): NativeProcessIm
     descriptor.resourcePlan?.capture?.ddState ||
     descriptor.resourcePlan?.capture?.cpState ||
     descriptor.resourcePlan?.capture?.mvState ||
+    descriptor.resourcePlan?.capture?.headState ||
+    descriptor.resourcePlan?.capture?.tailLinesState ||
+    descriptor.resourcePlan?.capture?.sedState ||
+    descriptor.resourcePlan?.capture?.awkFieldState ||
+    descriptor.resourcePlan?.capture?.cutState ||
+    descriptor.resourcePlan?.capture?.pasteState ||
+    descriptor.resourcePlan?.capture?.uniqState ||
+    descriptor.resourcePlan?.capture?.commState ||
+    descriptor.resourcePlan?.capture?.joinState ||
     descriptor.resourcePlan?.capture?.sortState ||
     descriptor.resourcePlan?.capture?.wcState ||
     descriptor.resourcePlan?.capture?.sha256State ||
+    descriptor.resourcePlan?.capture?.checksumState ||
+    descriptor.resourcePlan?.capture?.base64State ||
+    descriptor.resourcePlan?.capture?.gzipState ||
+    descriptor.resourcePlan?.capture?.gunzipState ||
+    descriptor.resourcePlan?.capture?.xzState ||
+    descriptor.resourcePlan?.capture?.zstdState ||
     descriptor.resourcePlan?.capture?.findState ||
     descriptor.resourcePlan?.capture?.tarState ||
+    descriptor.resourcePlan?.capture?.tarExtractState ||
+    descriptor.resourcePlan?.capture?.zipCreateState ||
+    descriptor.resourcePlan?.capture?.mkdirState ||
+    descriptor.resourcePlan?.capture?.mkdirParentsState ||
+    descriptor.resourcePlan?.capture?.touchState ||
+    descriptor.resourcePlan?.capture?.chmodState ||
+    descriptor.resourcePlan?.capture?.chownState ||
+    descriptor.resourcePlan?.capture?.linkState ||
+    descriptor.resourcePlan?.capture?.symlinkState ||
+    descriptor.resourcePlan?.capture?.rmState ||
+    descriptor.resourcePlan?.capture?.rmdirState ||
+    descriptor.resourcePlan?.capture?.installState ||
+    descriptor.resourcePlan?.capture?.lsState ||
+    descriptor.resourcePlan?.capture?.lsLongState ||
+    descriptor.resourcePlan?.capture?.duState ||
+    descriptor.resourcePlan?.capture?.statState ||
+    descriptor.resourcePlan?.capture?.readlinkState ||
+    descriptor.resourcePlan?.capture?.realpathState ||
+    descriptor.resourcePlan?.capture?.recursiveGrepState ||
+    descriptor.resourcePlan?.capture?.maxdepthFindState ||
+    descriptor.resourcePlan?.capture?.findPredicateState ||
+    descriptor.resourcePlan?.capture?.treeState ||
+    descriptor.resourcePlan?.capture?.busyboxNcState ||
+    descriptor.resourcePlan?.capture?.socatFileResponderState ||
+    descriptor.resourcePlan?.capture?.redisIdleState ||
+    descriptor.resourcePlan?.capture?.nginxStaticState ||
+    descriptor.resourcePlan?.capture?.caddyStaticState ||
+    descriptor.resourcePlan?.capture?.rubyHttpState ||
+    descriptor.resourcePlan?.capture?.phpStaticState ||
+    descriptor.resourcePlan?.capture?.rsyncDaemonState ||
     descriptor.resourcePlan?.capture?.nodeStaticHttpState
   ) {
     return [];

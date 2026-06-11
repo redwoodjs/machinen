@@ -270,6 +270,173 @@ const ncDescriptor = moveDescriptorWithCapture(
   },
 );
 
+const redisDescriptor = moveDescriptorWithCapture(
+  87,
+  "redis-server",
+  ["redis-server", "--save", "", "--appendonly", "no", "--port", "8153"],
+  "/usr/bin/redis-server",
+  {
+    redisIdleState: {
+      port: 8153,
+      argvContract: "redis-server-no-persistence-port",
+      datasetState: "empty",
+      clientState: "idle-no-external-clients",
+      persistence: { save: "", appendonly: "no" },
+      binaryPolicy: "proof-provisioned-target-native-redis",
+    },
+  },
+);
+
+const nginxDescriptor = moveDescriptorWithCapture(
+  88,
+  "nginx",
+  ["nginx", "-c", "/tmp/nginx.conf", "-g", "daemon off;"],
+  "/usr/sbin/nginx",
+  {
+    nginxStaticState: {
+      configPath: "/tmp/nginx.conf",
+      configSha256: "a".repeat(64),
+      root: "/tmp/nginx-root",
+      port: 8160,
+      configContract: "nginx-static-root-local-listen-try-files-404",
+      listenerState: "idle-single-listener",
+      directoryIdentity: {
+        fileCount: 1,
+        directoryCount: 1,
+        totalBytes: 12,
+        treeDigest: "b".repeat(64),
+      },
+      binaryPolicy: "proof-provisioned-target-native-nginx",
+    },
+  },
+);
+
+const caddyDescriptor = moveDescriptorWithCapture(
+  89,
+  "caddy",
+  ["caddy", "file-server", "--listen", ":8165", "--root", "/tmp/caddy-root"],
+  "/usr/bin/caddy",
+  {
+    caddyStaticState: {
+      port: 8165,
+      root: "/tmp/caddy-root",
+      argvContract: "caddy-file-server-listen-root",
+      listenerState: "idle-single-listener",
+      directoryIdentity: {
+        fileCount: 1,
+        directoryCount: 1,
+        totalBytes: 12,
+        treeDigest: "c".repeat(64),
+      },
+      binaryPolicy: "proof-provisioned-target-native-caddy",
+    },
+  },
+);
+
+const rubyDescriptor = moveDescriptorWithCapture(
+  90,
+  "ruby",
+  ["ruby", "-run", "-e", "httpd", "/tmp/ruby-root", "-p", "8170"],
+  "/usr/bin/ruby",
+  {
+    rubyHttpState: {
+      port: 8170,
+      root: "/tmp/ruby-root",
+      argvContract: "ruby-run-httpd-root-port",
+      listenerState: "idle-single-listener",
+      directoryIdentity: {
+        fileCount: 1,
+        directoryCount: 1,
+        totalBytes: 12,
+        treeDigest: "d".repeat(64),
+      },
+      binaryPolicy: "proof-provisioned-target-native-ruby",
+    },
+  },
+);
+
+const phpDescriptor = moveDescriptorWithCapture(
+  91,
+  "php",
+  ["php", "-S", "127.0.0.1:8175", "-t", "/tmp/php-root"],
+  "/usr/bin/php",
+  {
+    phpStaticState: {
+      port: 8175,
+      root: "/tmp/php-root",
+      argvContract: "php-built-in-server-local-root",
+      dynamicPolicy: "no-php-scripts",
+      listenerState: "idle-single-listener",
+      directoryIdentity: {
+        fileCount: 1,
+        directoryCount: 1,
+        totalBytes: 12,
+        treeDigest: "e".repeat(64),
+      },
+      binaryPolicy: "proof-provisioned-target-native-php",
+    },
+  },
+);
+
+const rsyncDescriptor = moveDescriptorWithCapture(
+  92,
+  "rsync",
+  ["rsync", "--daemon", "--no-detach", "--config", "/tmp/rsyncd.conf"],
+  "/usr/bin/rsync",
+  {
+    rsyncDaemonState: {
+      configPath: "/tmp/rsyncd.conf",
+      configSha256: "f".repeat(64),
+      moduleName: "proof",
+      root: "/tmp/rsync-root",
+      port: 8181,
+      policy: "read-only-module-no-auth-hooks",
+      listenerState: "idle-single-listener-no-active-clients",
+      directoryIdentity: {
+        fileCount: 1,
+        directoryCount: 1,
+        totalBytes: 12,
+        treeDigest: "a".repeat(64),
+      },
+      binaryPolicy: "proof-provisioned-target-native-rsync",
+    },
+  },
+);
+
+const socatDescriptor = moveDescriptorWithCapture(
+  86,
+  "socat",
+  ["socat", "TCP-LISTEN:8147,fork,reuseaddr", "FILE:/tmp/socat-response.txt"],
+  "/usr/bin/socat",
+  {
+    socatFileResponderState: {
+      port: 8147,
+      filePath: "/tmp/socat-response.txt",
+      fileIdentity: {
+        size: 18,
+        sha256: "5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6",
+      },
+      argvContract: "socat-tcp-listen-fork-reuseaddr-file",
+      listenerState: "idle-single-listener",
+      binaryPolicy: "proof-provisioned-target-native-socat",
+    },
+  },
+);
+
+const busyboxNcDescriptor = moveDescriptorWithCapture(
+  85,
+  "busybox",
+  ["busybox", "nc", "-l", "-p", "8142"],
+  "/usr/bin/busybox",
+  {
+    busyboxNcState: {
+      port: 8142,
+      argvContract: "busybox-nc-listen-p",
+      listenerState: "idle-single-listener",
+    },
+  },
+);
+
 const busyboxHttpDescriptor = moveDescriptorWithCapture(
   82,
   "busybox",
@@ -314,6 +481,325 @@ const httpDirectoryDescriptor = moveDescriptorWithCapture(
       port: 8128,
       cwd: "/",
       directory: "/tmp/web-directory",
+      bindAddress: "127.0.0.1",
+      mode: "explicit-bind-directory",
+      listenerState: "idle-single-listener",
+      directoryIdentity: {
+        fileCount: 1,
+        directoryCount: 1,
+        totalBytes: 21,
+        treeDigest: "5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6",
+      },
+    },
+  },
+);
+
+const commDescriptor = moveDescriptorWithCapture(
+  100,
+  "comm",
+  ["comm", "/tmp/comm.left", "/tmp/comm.right"],
+  "/usr/bin/comm",
+  {
+    commState: {
+      leftPath: "/tmp/comm.left",
+      rightPath: "/tmp/comm.right",
+      leftIdentity: {
+        size: 11,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      rightIdentity: {
+        size: 12,
+        sha256: "d6950de392580783e7773dcef61702e51720cf7d4f882a60f4994251bfaff2db",
+      },
+      collation: "C",
+      outputPath: "/tmp/comm.out",
+    },
+  },
+);
+
+const joinDescriptor = moveDescriptorWithCapture(
+  99,
+  "join",
+  ["join", "/tmp/join.left", "/tmp/join.right"],
+  "/usr/bin/join",
+  {
+    joinState: {
+      leftPath: "/tmp/join.left",
+      rightPath: "/tmp/join.right",
+      leftIdentity: {
+        size: 11,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      rightIdentity: {
+        size: 12,
+        sha256: "d6950de392580783e7773dcef61702e51720cf7d4f882a60f4994251bfaff2db",
+      },
+      key: "default-first-field",
+      collation: "C",
+      outputPath: "/tmp/join.out",
+    },
+  },
+);
+
+const pasteDescriptor = moveDescriptorWithCapture(
+  98,
+  "paste",
+  ["paste", "/tmp/paste.left", "/tmp/paste.right"],
+  "/usr/bin/paste",
+  {
+    pasteState: {
+      leftPath: "/tmp/paste.left",
+      rightPath: "/tmp/paste.right",
+      leftIdentity: {
+        size: 11,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      rightIdentity: {
+        size: 12,
+        sha256: "d6950de392580783e7773dcef61702e51720cf7d4f882a60f4994251bfaff2db",
+      },
+      outputPath: "/tmp/paste.out",
+    },
+  },
+);
+
+const uniqDescriptor = moveDescriptorWithCapture(
+  97,
+  "uniq",
+  ["uniq", "-c", "/tmp/uniq.in"],
+  "/usr/bin/uniq",
+  {
+    uniqState: {
+      path: "/tmp/uniq.in",
+      count: true,
+      fileIdentity: {
+        size: 42,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPath: "/tmp/uniq.out",
+    },
+  },
+);
+
+const awkFieldDescriptor = moveDescriptorWithCapture(
+  96,
+  "awk",
+  ["awk", "{print $2}", "/tmp/awk-field.in"],
+  "/usr/bin/awk",
+  {
+    awkFieldState: {
+      path: "/tmp/awk-field.in",
+      fieldIndex: 2,
+      fs: "default-whitespace",
+      fileIdentity: {
+        size: 42,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPath: "/tmp/awk-field.out",
+    },
+  },
+);
+
+const cutDescriptor = moveDescriptorWithCapture(
+  95,
+  "cut",
+  ["cut", "-d", ":", "-f", "2", "/tmp/cut.in"],
+  "/usr/bin/cut",
+  {
+    cutState: {
+      path: "/tmp/cut.in",
+      delimiter: ":",
+      fields: "2",
+      fileIdentity: {
+        size: 42,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPath: "/tmp/cut.out",
+    },
+  },
+);
+
+const sedPrintRangeDescriptor = moveDescriptorWithCapture(
+  94,
+  "sed",
+  ["sed", "-n", "2,4p", "/tmp/sed-range.in"],
+  "/usr/bin/sed",
+  {
+    sedState: {
+      path: "/tmp/sed-range.in",
+      scriptKind: "print-range",
+      startLine: 2,
+      endLine: 4,
+      fileIdentity: {
+        size: 42,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPath: "/tmp/sed-range.out",
+    },
+  },
+);
+
+const sedLiteralSubstitutionDescriptor = moveDescriptorWithCapture(
+  93,
+  "sed",
+  ["sed", "s/alpha/omega/", "/tmp/sed-sub.in"],
+  "/usr/bin/sed",
+  {
+    sedState: {
+      path: "/tmp/sed-sub.in",
+      scriptKind: "literal-substitution",
+      pattern: "alpha",
+      replacement: "omega",
+      fileIdentity: {
+        size: 42,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPath: "/tmp/sed-sub.out",
+    },
+  },
+);
+
+const headDescriptor = moveDescriptorWithCapture(
+  92,
+  "head",
+  ["head", "-n", "3", "/tmp/head.in"],
+  "/usr/bin/head",
+  {
+    headState: {
+      path: "/tmp/head.in",
+      lines: 3,
+      fileIdentity: {
+        size: 24,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPath: "/tmp/head.out",
+    },
+  },
+);
+
+const tailLinesDescriptor = moveDescriptorWithCapture(
+  91,
+  "tail",
+  ["tail", "-n", "2", "/tmp/tail-lines.in"],
+  "/usr/bin/tail",
+  {
+    tailLinesState: {
+      path: "/tmp/tail-lines.in",
+      lines: 2,
+      fileIdentity: {
+        size: 30,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPath: "/tmp/tail-lines.out",
+    },
+  },
+);
+
+const base64Descriptor = moveDescriptorWithCapture(
+  103,
+  "base64",
+  ["base64", "/tmp/base64.in"],
+  "/usr/bin/base64",
+  {
+    base64State: {
+      path: "/tmp/base64.in",
+      wrap: 76,
+      fileIdentity: {
+        size: 11,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPath: "/tmp/base64.out",
+    },
+  },
+);
+
+const gzipDescriptor = moveDescriptorWithCapture(
+  102,
+  "gzip",
+  ["gzip", "-c", "/tmp/gzip.in"],
+  "/usr/bin/gzip",
+  {
+    gzipState: {
+      inputPath: "/tmp/gzip.in",
+      outputPath: "/tmp/gzip.out",
+      fileIdentity: {
+        size: 11,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPolicy: "atomic-temp-rename",
+    },
+  },
+);
+
+const gunzipDescriptor = moveDescriptorWithCapture(
+  104,
+  "gunzip",
+  ["gunzip", "-c", "/tmp/gunzip.in.gz"],
+  "/usr/bin/gunzip",
+  {
+    gunzipState: {
+      inputPath: "/tmp/gunzip.in.gz",
+      outputPath: "/tmp/gunzip.out",
+      fileIdentity: {
+        size: 11,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPolicy: "atomic-temp-rename",
+    },
+  },
+);
+
+const xzDescriptor = moveDescriptorWithCapture(
+  105,
+  "xz",
+  ["xz", "-c", "/tmp/xz.in"],
+  "/usr/bin/xz",
+  {
+    xzState: {
+      inputPath: "/tmp/xz.in",
+      outputPath: "/tmp/xz.out",
+      fileIdentity: {
+        size: 11,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPolicy: "atomic-temp-rename",
+    },
+  },
+);
+
+const zstdDescriptor = moveDescriptorWithCapture(
+  106,
+  "zstd",
+  ["zstd", "-c", "/tmp/zstd.in"],
+  "/usr/bin/zstd",
+  {
+    zstdState: {
+      inputPath: "/tmp/zstd.in",
+      outputPath: "/tmp/zstd.out",
+      fileIdentity: {
+        size: 11,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPolicy: "atomic-temp-rename",
+    },
+  },
+);
+
+const checksumDescriptor = moveDescriptorWithCapture(
+  101,
+  "md5sum",
+  ["md5sum", "/tmp/md5.in"],
+  "/usr/bin/md5sum",
+  {
+    checksumState: {
+      algorithm: "md5",
+      path: "/tmp/md5.in",
+      expectedDigest: "900150983cd24fb0d6963f7d28e17f72",
+      fileIdentity: {
+        size: 11,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPath: "/tmp/md5.out",
     },
   },
 );
@@ -435,6 +921,517 @@ const tarDescriptor = moveDescriptorWithCapture(
     tarState: {
       archivePath: "/tmp/archive.tar",
       sourceDir: "/tmp/tar-tree",
+    },
+  },
+);
+
+const tarExtractDescriptor = moveDescriptorWithCapture(
+  85,
+  "tar",
+  ["tar", "-xf", "/tmp/archive.tar", "-C", "/tmp/extract"],
+  "/usr/bin/tar",
+  {
+    tarExtractState: {
+      archivePath: "/tmp/archive.tar",
+      targetDir: "/tmp/extract",
+      archiveIdentity: {
+        size: 123,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      entryCount: 3,
+      policy: "safe-relative-regular-empty-target",
+    },
+  },
+);
+
+const zipCreateDescriptor = moveDescriptorWithCapture(
+  86,
+  "zip",
+  ["zip", "-r", "/tmp/archive.zip", "/tmp/zip-tree"],
+  "/usr/bin/zip",
+  {
+    zipCreateState: {
+      archivePath: "/tmp/archive.zip",
+      sourceDir: "/tmp/zip-tree",
+      sourceIdentity: {
+        fileCount: 2,
+        treeDigest: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      policy: "safe-relative-regular-no-symlinks-absent-archive",
+    },
+  },
+);
+
+const mkdirDescriptor = moveDescriptorWithCapture(
+  87,
+  "mkdir",
+  ["mkdir", "/tmp/mkdir-parent/newdir"],
+  "/usr/bin/mkdir",
+  {
+    mkdirState: {
+      targetPath: "/tmp/mkdir-parent/newdir",
+      parentPath: "/tmp/mkdir-parent",
+      parentIdentity: {
+        mode: "41ed",
+        entriesDigest: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      policy: "absent-child-existing-parent",
+    },
+  },
+);
+
+const mkdirParentsDescriptor = moveDescriptorWithCapture(
+  88,
+  "mkdir",
+  ["mkdir", "-p", "/tmp/mkdirp-root/nested/leaf"],
+  "/usr/bin/mkdir",
+  {
+    mkdirParentsState: {
+      targetPath: "/tmp/mkdirp-root/nested/leaf",
+      existingPrefix: "/tmp/mkdirp-root",
+      missingComponents: ["nested", "leaf"],
+      prefixIdentity: {
+        mode: "41ed",
+        entriesDigest: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      policy: "symlink-free-path-idempotent-or-create-missing",
+    },
+  },
+);
+
+const touchDescriptor = moveDescriptorWithCapture(
+  89,
+  "touch",
+  ["touch", "-t", "202606101234.56", "/tmp/touch-parent/new-file"],
+  "/usr/bin/touch",
+  {
+    touchState: {
+      path: "/tmp/touch-parent/new-file",
+      parentPath: "/tmp/touch-parent",
+      timestampSpec: "202606101234.56",
+      expectedEpoch: 1781094896,
+      parentIdentity: {
+        mode: "41ed",
+        entriesDigest: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      policy: "deterministic-timestamp-absent-file-create",
+    },
+  },
+);
+
+const chmodDescriptor = moveDescriptorWithCapture(
+  90,
+  "chmod",
+  ["chmod", "600", "/tmp/chmod-target.txt"],
+  "/usr/bin/chmod",
+  {
+    chmodState: {
+      path: "/tmp/chmod-target.txt",
+      expectedMode: "644",
+      targetMode: "600",
+      fileIdentity: {
+        size: 12,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      policy: "numeric-mode-regular-non-symlink",
+    },
+  },
+);
+
+const chownDescriptor = moveDescriptorWithCapture(
+  91,
+  "chown",
+  ["chown", "nobody:nogroup", "/tmp/chown-target.txt"],
+  "/usr/bin/chown",
+  {
+    chownState: {
+      path: "/tmp/chown-target.txt",
+      owner: "nobody",
+      group: "nogroup",
+      targetUid: 65534,
+      targetGid: 65534,
+      expectedUid: 0,
+      expectedGid: 0,
+      fileIdentity: {
+        size: 12,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      policy: "same-base-uid-gid-regular-non-symlink",
+    },
+  },
+);
+
+const linkDescriptor = moveDescriptorWithCapture(
+  92,
+  "ln",
+  ["ln", "/tmp/link-source.txt", "/tmp/link-dest.txt"],
+  "/usr/bin/ln",
+  {
+    linkState: {
+      sourcePath: "/tmp/link-source.txt",
+      destinationPath: "/tmp/link-dest.txt",
+      sourceIdentity: {
+        dev: "123",
+        inode: "456",
+        mode: "81a4",
+        size: 12,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      destinationParent: "/tmp",
+      destinationParentIdentity: {
+        dev: "123",
+        mode: "41ed",
+        entriesDigest: "5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6",
+      },
+      policy: "hardlink-regular-source-absent-destination-same-filesystem",
+    },
+  },
+);
+
+const symlinkDescriptor = moveDescriptorWithCapture(
+  93,
+  "ln",
+  ["ln", "-s", "/tmp/symlink-target.txt", "/tmp/symlink-parent/link.txt"],
+  "/usr/bin/ln",
+  {
+    symlinkState: {
+      targetLiteral: "/tmp/symlink-target.txt",
+      linkPath: "/tmp/symlink-parent/link.txt",
+      parentPath: "/tmp/symlink-parent",
+      parentIdentity: {
+        dev: "123",
+        mode: "41ed",
+        entriesDigest: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      policy: "literal-target-absent-link-safe-parent",
+    },
+  },
+);
+
+const rmDescriptor = moveDescriptorWithCapture(
+  94,
+  "rm",
+  ["rm", "/tmp/rm-parent/victim.txt"],
+  "/usr/bin/rm",
+  {
+    rmState: {
+      path: "/tmp/rm-parent/victim.txt",
+      parentPath: "/tmp/rm-parent",
+      fileIdentity: {
+        mode: "81a4",
+        size: 12,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      parentIdentity: {
+        dev: "123",
+        mode: "41ed",
+        entriesDigest: "5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6",
+      },
+      policy: "regular-non-symlink-pre-unlink",
+    },
+  },
+);
+
+const rmdirDescriptor = moveDescriptorWithCapture(
+  95,
+  "rmdir",
+  ["rmdir", "/tmp/rmdir-parent/empty"],
+  "/usr/bin/rmdir",
+  {
+    rmdirState: {
+      path: "/tmp/rmdir-parent/empty",
+      parentPath: "/tmp/rmdir-parent",
+      directoryIdentity: { dev: "123", inode: "456", mode: "41ed" },
+      parentIdentity: {
+        dev: "123",
+        mode: "41ed",
+        entriesDigest: "5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6",
+      },
+      policy: "empty-directory-non-symlink-pre-remove",
+    },
+  },
+);
+
+const installDescriptor = moveDescriptorWithCapture(
+  96,
+  "install",
+  ["install", "-m", "755", "/tmp/install-src.txt", "/tmp/install-parent/dest.txt"],
+  "/usr/bin/install",
+  {
+    installState: {
+      sourcePath: "/tmp/install-src.txt",
+      destinationPath: "/tmp/install-parent/dest.txt",
+      mode: "755",
+      sourceIdentity: {
+        mode: "81a4",
+        size: 12,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      destinationParent: "/tmp/install-parent",
+      destinationParentIdentity: {
+        dev: "123",
+        mode: "41ed",
+        entriesDigest: "5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6",
+      },
+      policy: "copy-mode-absent-destination",
+    },
+  },
+);
+
+const lsDescriptor = moveDescriptorWithCapture(97, "ls", ["ls", "/tmp/ls-dir"], "/usr/bin/ls", {
+  lsState: {
+    directoryPath: "/tmp/ls-dir",
+    directoryIdentity: {
+      dev: "65024",
+      inode: "9001",
+      mode: "41ed",
+      entryCount: 3,
+      entriesDigest: "09b3e1e1d395b9b90dc02ad53b5446094a7152c756ce328cf5423652ac68033e",
+      outputDigest: "4783e784b4fa2fba9e4d6502dbc64f8f7e495b36b4b8992723f89cbf733a90fe",
+    },
+    ordering: "LC_ALL=C-name-ascending",
+    options: ["-1"],
+    outputPath: "/tmp/ls.out",
+    policy: "ascii-names-non-recursive-directory-listing",
+  },
+});
+
+const treeDescriptor = moveDescriptorWithCapture(
+  106,
+  "tree",
+  ["tree", "/tmp/tree-proof-root"],
+  "/usr/bin/tree",
+  {
+    treeState: {
+      rootPath: "/tmp/tree-proof-root",
+      options: [],
+      treeIdentity: {
+        fileCount: 2,
+        directoryCount: 2,
+        totalBytes: 42,
+        treeDigest: "5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6",
+        outputDigest: "24a913c38af0cc79508020fba78843450f499f04429c48e04d5f425f5a583658",
+      },
+      symlinkPolicy: "no-symlinks",
+      binaryPolicy: "proof-provisioned-target-native-tree",
+      outputPath: "/tmp/tree.out",
+    },
+  },
+);
+
+const findPredicateDescriptor = moveDescriptorWithCapture(
+  105,
+  "find",
+  ["find", "/tmp/find-predicate-tree", "-size", "+4c", "-type", "f", "-print"],
+  "/usr/bin/find",
+  {
+    findPredicateState: {
+      rootPath: "/tmp/find-predicate-tree",
+      predicate: { kind: "size", value: "+4c" },
+      treeIdentity: {
+        fileCount: 2,
+        directoryCount: 2,
+        totalBytes: 42,
+        treeDigest: "5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6",
+        outputDigest: "24a913c38af0cc79508020fba78843450f499f04429c48e04d5f425f5a583658",
+      },
+      options: ["predicate", "-type", "-print"],
+      symlinkPolicy: "no-symlinks",
+      policy: "bounded-simple-find-predicate",
+      outputPath: "/tmp/find-pred.out",
+    },
+  },
+);
+
+const maxdepthFindDescriptor = moveDescriptorWithCapture(
+  104,
+  "find",
+  ["find", "/tmp/find-tree", "-maxdepth", "2", "-type", "f", "-print"],
+  "/usr/bin/find",
+  {
+    maxdepthFindState: {
+      rootPath: "/tmp/find-tree",
+      maxdepth: 2,
+      treeIdentity: {
+        fileCount: 2,
+        directoryCount: 2,
+        totalBytes: 42,
+        treeDigest: "5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6",
+        outputDigest: "24a913c38af0cc79508020fba78843450f499f04429c48e04d5f425f5a583658",
+      },
+      options: ["-maxdepth", "-type", "-print"],
+      symlinkPolicy: "no-symlinks",
+      outputPath: "/tmp/find-max.out",
+    },
+  },
+);
+
+const recursiveGrepDescriptor = moveDescriptorWithCapture(
+  103,
+  "grep",
+  ["grep", "-r", "needle", "/tmp/grep-tree"],
+  "/usr/bin/grep",
+  {
+    recursiveGrepState: {
+      rootPath: "/tmp/grep-tree",
+      pattern: "needle",
+      patternPolicy: "literal-safe-basic-regexp",
+      treeIdentity: {
+        fileCount: 2,
+        directoryCount: 2,
+        totalBytes: 42,
+        treeDigest: "5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6",
+        outputDigest: "24a913c38af0cc79508020fba78843450f499f04429c48e04d5f425f5a583658",
+      },
+      options: ["-r"],
+      binaryPolicy: "text-files-only",
+      symlinkPolicy: "no-symlinks",
+      outputPath: "/tmp/grep-r.out",
+    },
+  },
+);
+
+const realpathDescriptor = moveDescriptorWithCapture(
+  102,
+  "realpath",
+  ["realpath", "/tmp/realpath-link"],
+  "/usr/bin/realpath",
+  {
+    realpathState: {
+      cwd: "/work",
+      inputPath: "/tmp/realpath-link",
+      resolvedPath: "/tmp/realpath-dir/target.txt",
+      chainIdentity: {
+        componentCount: 4,
+        symlinkCount: 1,
+        chainDigest: "5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6",
+      },
+      outputDigest: "24a913c38af0cc79508020fba78843450f499f04429c48e04d5f425f5a583658",
+      options: [],
+      policy: "absolute-existing-path-safe-chain",
+      outputPath: "/tmp/realpath.out",
+    },
+  },
+);
+
+const readlinkDescriptor = moveDescriptorWithCapture(
+  101,
+  "readlink",
+  ["readlink", "/tmp/readlink-link"],
+  "/usr/bin/readlink",
+  {
+    readlinkState: {
+      linkPath: "/tmp/readlink-link",
+      targetLiteral: "target.txt",
+      linkIdentity: {
+        mode: "a1ff",
+        targetDigest: "199b3badd968634ea14e351d1134ada738894a90a2efa66983101ece99a33572",
+      },
+      options: [],
+      policy: "direct-symlink-literal-target",
+      outputPath: "/tmp/readlink.out",
+    },
+  },
+);
+
+const statDescriptor = moveDescriptorWithCapture(
+  100,
+  "stat",
+  ["stat", "/tmp/stat-file.txt"],
+  "/usr/bin/stat",
+  {
+    statState: {
+      path: "/tmp/stat-file.txt",
+      format: "default",
+      options: [],
+      fileIdentity: {
+        fileType: "regular file",
+        mode: "81a4",
+        permissions: "644",
+        size: 12,
+        uid: 0,
+        gid: 0,
+        mtimeEpoch: 1770000000,
+        sha256: "ffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2",
+      },
+      outputPath: "/tmp/stat.out",
+      symlinkPolicy: "no-symlinks",
+    },
+  },
+);
+
+const duDescriptor = moveDescriptorWithCapture(
+  99,
+  "du",
+  ["du", "-sb", "/tmp/du-tree"],
+  "/usr/bin/du",
+  {
+    duState: {
+      directoryPath: "/tmp/du-tree",
+      rootDevice: "65024",
+      treeIdentity: {
+        entryCount: 4,
+        fileCount: 2,
+        directoryCount: 2,
+        totalBytes: 8266,
+        treeDigest: "09b3e1e1d395b9b90dc02ad53b5446094a7152c756ce328cf5423652ac68033e",
+        outputDigest: "4783e784b4fa2fba9e4d6502dbc64f8f7e495b36b4b8992723f89cbf733a90fe",
+      },
+      options: ["-s", "-b"],
+      symlinkPolicy: "no-symlinks",
+      mountPolicy: "single-device-no-mount-crossing",
+      outputPath: "/tmp/du.out",
+    },
+  },
+);
+
+const lsLongDescriptor = moveDescriptorWithCapture(
+  98,
+  "ls",
+  ["ls", "-l", "/tmp/ls-dir"],
+  "/usr/bin/ls",
+  {
+    lsLongState: {
+      directoryPath: "/tmp/ls-dir",
+      directoryIdentity: {
+        dev: "65024",
+        inode: "9001",
+        mode: "41ed",
+        entryCount: 2,
+        entriesDigest: "09b3e1e1d395b9b90dc02ad53b5446094a7152c756ce328cf5423652ac68033e",
+        outputDigest: "4783e784b4fa2fba9e4d6502dbc64f8f7e495b36b4b8992723f89cbf733a90fe",
+      },
+      entries: [
+        {
+          name: "alpha.txt",
+          kind: "file",
+          mode: "81a4",
+          permissions: "644",
+          size: 5,
+          uid: 0,
+          gid: 0,
+          owner: "root",
+          group: "root",
+          mtimeEpoch: 1770000000,
+        },
+        {
+          name: "subdir",
+          kind: "directory",
+          mode: "41ed",
+          permissions: "755",
+          size: 40,
+          uid: 0,
+          gid: 0,
+          owner: "root",
+          group: "root",
+          mtimeEpoch: 1770000001,
+        },
+      ],
+      ordering: "LC_ALL=C-name-ascending",
+      statPolicy: "regular-or-directory-no-symlinks-owner-group-mapped",
+      options: ["-l"],
+      outputPath: "/tmp/ls-long.out",
+      policy: "ascii-names-non-recursive-long-listing",
     },
   },
 );
@@ -787,6 +1784,168 @@ describe("move target direct loader", () => {
     });
   });
 
+  it("launches proof-provisioned target-native rsync read-only daemon", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t822\nLOAD_LOG\t/tmp/rsync.log\nPATCH\trsync-daemon\tready\t8181\tproof\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, rsyncDescriptor);
+
+    expect(commands[0]).toContain("missing-rsync");
+    expect(commands[0]).toContain("auth-or-hook-config");
+    expect(commands[0]).toContain("port-in-use");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-rsync-daemon-loader",
+      targetPid: 822,
+      refusals: [],
+    });
+  });
+
+  it("launches proof-provisioned target-native PHP static server", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t821\nLOAD_LOG\t/tmp/php.log\nPATCH\tphp-static\tready\t8175\t/tmp/php-root\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, phpDescriptor);
+
+    expect(commands[0]).toContain("missing-php");
+    expect(commands[0]).toContain("dynamic-php-script");
+    expect(commands[0]).toContain("port-in-use");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-php-static-loader",
+      targetPid: 821,
+      refusals: [],
+    });
+  });
+
+  it("launches proof-provisioned target-native Ruby httpd static server", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t820\nLOAD_LOG\t/tmp/ruby.log\nPATCH\truby-http\tready\t8170\t/tmp/ruby-root\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, rubyDescriptor);
+
+    expect(commands[0]).toContain("missing-ruby");
+    expect(commands[0]).toContain("port-in-use");
+    expect(commands[0]).toContain("changed-root-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-ruby-httpd-loader",
+      targetPid: 820,
+      refusals: [],
+    });
+  });
+
+  it("launches proof-provisioned target-native Caddy static server", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t819\nLOAD_LOG\t/tmp/caddy.log\nPATCH\tcaddy-static\tready\t8165\t/tmp/caddy-root\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, caddyDescriptor);
+
+    expect(commands[0]).toContain("missing-caddy");
+    expect(commands[0]).toContain("port-in-use");
+    expect(commands[0]).toContain("changed-root-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-caddy-static-loader",
+      targetPid: 819,
+      refusals: [],
+    });
+  });
+
+  it("launches proof-provisioned target-native nginx static server", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t818\nLOAD_LOG\t/tmp/nginx.log\nPATCH\tnginx-static\tready\t8160\t" +
+        "a".repeat(64) +
+        "\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, nginxDescriptor);
+
+    expect(commands[0]).toContain("missing-nginx");
+    expect(commands[0]).toContain("dynamic-or-proxy-config");
+    expect(commands[0]).toContain("port-in-use");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-nginx-static-loader",
+      targetPid: 818,
+      refusals: [],
+    });
+  });
+
+  it("launches proof-provisioned target-native Redis idle instance", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t817\nLOAD_LOG\t/tmp/redis.log\nPATCH\tredis-idle\tready\t8153\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, redisDescriptor);
+
+    expect(commands[0]).toContain("--appendonly no --port 8153");
+    expect(commands[0]).toContain("missing-redis-server");
+    expect(commands[0]).toContain("port-in-use");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-redis-idle-loader",
+      targetPid: 817,
+      refusals: [],
+    });
+  });
+
+  it("launches proof-provisioned target-native socat file responder", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t816\nLOAD_LOG\t/tmp/socat.log\nPATCH\tsocat-file-responder\tready\t8147\t5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, socatDescriptor);
+
+    expect(commands[0]).toContain("TCP-LISTEN:8147,fork,reuseaddr");
+    expect(commands[0]).toContain("changed-file-identity");
+    expect(commands[0]).toContain("missing-socat");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-socat-file-responder-loader",
+      targetPid: 816,
+      refusals: [],
+    });
+  });
+
+  it("launches original target BusyBox nc idle listener", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t815\nLOAD_LOG\t/tmp/busybox-nc.log\nPATCH\tbusybox-nc\tready\t8142\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, busyboxNcDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/busybox' nc -l -p 8142");
+    expect(commands[0]).toContain("missing-busybox");
+    expect(commands[0]).toContain("port-in-use");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-busybox-nc-listener-loader",
+      targetPid: 815,
+      refusals: [],
+    });
+  });
+
   it("launches original target nc idle listener", async () => {
     const commands: string[] = [];
     const vm = mockVm(
@@ -853,10 +2012,305 @@ describe("move target direct loader", () => {
     const loader = await runMoveTargetDirectLoaderInVm(vm, httpDirectoryDescriptor);
 
     expect(commands[0]).toContain("--directory '/tmp/web-directory'");
+    expect(commands[0]).toContain("changed-directory-identity");
     expect(loader).toMatchObject({
       state: "ready",
       strategy: "target-original-python-http-server-loader",
       targetPid: 806,
+      refusals: [],
+    });
+  });
+
+  it("launches original target comm for sorted files with identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1016\nLOAD_LOG\t/tmp/comm.log\nPATCH\tcomm-files\tready\t/tmp/comm.left\t/tmp/comm.right\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, commDescriptor);
+
+    expect(commands[0]).toContain("LC_ALL=C '/usr/bin/comm' '/tmp/comm.left' '/tmp/comm.right'");
+    expect(commands[0]).toContain("sha256sum");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-comm-files-loader",
+      targetPid: 1016,
+      refusals: [],
+    });
+  });
+
+  it("launches original target join default-key mode with identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1015\nLOAD_LOG\t/tmp/join.log\nPATCH\tjoin-files\tready\t/tmp/join.left\t/tmp/join.right\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, joinDescriptor);
+
+    expect(commands[0]).toContain("LC_ALL=C '/usr/bin/join' '/tmp/join.left' '/tmp/join.right'");
+    expect(commands[0]).toContain("sha256sum");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-join-files-loader",
+      targetPid: 1015,
+      refusals: [],
+    });
+  });
+
+  it("launches original target paste for exactly two files with identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1014\nLOAD_LOG\t/tmp/paste.log\nPATCH\tpaste-files\tready\t/tmp/paste.left\t/tmp/paste.right\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, pasteDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/paste' '/tmp/paste.left' '/tmp/paste.right'");
+    expect(commands[0]).toContain("sha256sum");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-paste-files-loader",
+      targetPid: 1014,
+      refusals: [],
+    });
+  });
+
+  it("launches original target uniq count mode with identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1013\nLOAD_LOG\t/tmp/uniq.log\nPATCH\tuniq-file\tready\t/tmp/uniq.in\ttrue\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, uniqDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/uniq' -c '/tmp/uniq.in'");
+    expect(commands[0]).toContain("sha256sum");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-uniq-file-loader",
+      targetPid: 1013,
+      refusals: [],
+    });
+  });
+
+  it("launches original target awk field projection with identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1012\nLOAD_LOG\t/tmp/awk.log\nPATCH\tawk-field\tready\t/tmp/awk-field.in\t2\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, awkFieldDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/awk' '{print $2}'");
+    expect(commands[0]).toContain("/tmp/awk-field.in");
+    expect(commands[0]).toContain("sha256sum");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-awk-field-loader",
+      targetPid: 1012,
+      refusals: [],
+    });
+  });
+
+  it("launches original target cut field selection with identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1011\nLOAD_LOG\t/tmp/cut.log\nPATCH\tcut-fields\tready\t/tmp/cut.in\t:\t2\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, cutDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/cut' -d ':' -f '2'");
+    expect(commands[0]).toContain("/tmp/cut.in");
+    expect(commands[0]).toContain("sha256sum");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-cut-fields-loader",
+      targetPid: 1011,
+      refusals: [],
+    });
+  });
+
+  it("launches original target sed print-range recompute with identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1010\nLOAD_LOG\t/tmp/sed-range.log\nPATCH\tsed-file\tready\t/tmp/sed-range.in\tprint-range\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, sedPrintRangeDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/sed' -n '2,4p'");
+    expect(commands[0]).toContain("/tmp/sed-range.in");
+    expect(commands[0]).toContain("sha256sum");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-sed-file-loader",
+      targetPid: 1010,
+      refusals: [],
+    });
+  });
+
+  it("launches original target sed literal substitution recompute with identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1009\nLOAD_LOG\t/tmp/sed-sub.log\nPATCH\tsed-file\tready\t/tmp/sed-sub.in\tliteral-substitution\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, sedLiteralSubstitutionDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/sed' 's/alpha/omega/'");
+    expect(commands[0]).toContain("/tmp/sed-sub.in");
+    expect(commands[0]).toContain("sha256sum");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-sed-file-loader",
+      targetPid: 1009,
+      refusals: [],
+    });
+  });
+
+  it("launches original target head file recompute with identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1008\nLOAD_LOG\t/tmp/head.log\nPATCH\thead-file\tready\t/tmp/head.in\t3\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, headDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/head' '-n' '3'");
+    expect(commands[0]).toContain("/tmp/head.in");
+    expect(commands[0]).toContain("sha256sum");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-head-file-loader",
+      targetPid: 1008,
+      refusals: [],
+    });
+  });
+
+  it("launches original target tail non-follow file recompute with identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1007\nLOAD_LOG\t/tmp/tail-lines.log\nPATCH\ttail-lines\tready\t/tmp/tail-lines.in\t2\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, tailLinesDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/tail' '-n' '2'");
+    expect(commands[0]).toContain("/tmp/tail-lines.in");
+    expect(commands[0]).toContain("sha256sum");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-tail-lines-loader",
+      targetPid: 1007,
+      refusals: [],
+    });
+  });
+
+  it("launches original target base64 file recompute with fixed wrap", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1019\nLOAD_LOG\t/tmp/base64.log\nPATCH\tbase64-file\tready\t/tmp/base64.in\t76\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, base64Descriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/base64' --wrap=76 '/tmp/base64.in'");
+    expect(commands[0]).toContain("sha256sum");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-base64-file-loader",
+      targetPid: 1019,
+      refusals: [],
+    });
+  });
+
+  it("runs original target gzip through atomic output policy", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/gzip.log\nPATCH\tgzip-atomic\tready\t/tmp/gzip.in\t/tmp/gzip.out\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, gzipDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/gzip' -c '/tmp/gzip.in'");
+    expect(commands[0]).toContain(".machinen-move-$$");
+    expect(commands[0]).toContain("mv -f");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-gzip-atomic-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target gunzip, xz, and zstd through atomic output policy", async () => {
+    for (const [descriptor, command, strategy, patch, input, output] of [
+      [
+        gunzipDescriptor,
+        "gunzip",
+        "target-original-gunzip-atomic-loader",
+        "gunzip-atomic",
+        "/tmp/gunzip.in.gz",
+        "/tmp/gunzip.out",
+      ],
+      [
+        xzDescriptor,
+        "xz",
+        "target-original-xz-atomic-loader",
+        "xz-atomic",
+        "/tmp/xz.in",
+        "/tmp/xz.out",
+      ],
+      [
+        zstdDescriptor,
+        "zstd",
+        "target-original-zstd-atomic-loader",
+        "zstd-atomic",
+        "/tmp/zstd.in",
+        "/tmp/zstd.out",
+      ],
+    ] as const) {
+      const commands: string[] = [];
+      const vm = mockVm(
+        commands,
+        `LOAD_LOG\t/tmp/${command}.log\nPATCH\t${patch}\tready\t${input}\t${output}\n`,
+      );
+      const loader = await runMoveTargetDirectLoaderInVm(vm, descriptor);
+
+      expect(commands[0]).toContain(`'/usr/bin/${command}' -c '${input}'`);
+      expect(commands[0]).toContain(".machinen-move-$$");
+      expect(commands[0]).toContain("mv -f");
+      expect(loader).toMatchObject({ state: "ready", strategy, refusals: [] });
+    }
+  });
+
+  it("launches original target generic checksum file recompute", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t1017\nLOAD_LOG\t/tmp/md5.log\nPATCH\tchecksum-file\tready\tmd5\t/tmp/md5.in\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, checksumDescriptor);
+
+    expect(commands[0]).toContain("'/usr/bin/md5sum' '/tmp/md5.in'");
+    expect(commands[0]).toContain("sha256sum");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-checksum-file-loader",
+      targetPid: 1017,
       refusals: [],
     });
   });
@@ -1016,6 +2470,437 @@ describe("move target direct loader", () => {
       state: "ready",
       strategy: "target-original-tar-create-loader",
       targetPid: 909,
+      refusals: [],
+    });
+  });
+
+  it("runs original target tar extract with safe archive preflights", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/tar-extract.log\nPATCH\ttar-extract\tready\t/tmp/archive.tar\t/tmp/extract\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, tarExtractDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/tar");
+    expect(commands[0]).toContain("-xf");
+    expect(commands[0]).toContain("changed-archive-identity");
+    expect(commands[0]).toContain("unsafe-member-path");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-tar-extract-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target zip create with source tree preflights", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/zip.log\nPATCH\tzip-create\tready\t/tmp/archive.zip\t/tmp/zip-tree\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, zipCreateDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/zip");
+    expect(commands[0]).toContain("-r");
+    expect(commands[0]).toContain("changed-source-identity");
+    expect(commands[0]).toContain('find "$root" -type l');
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-zip-create-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target mkdir with parent identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/mkdir.log\nPATCH\tmkdir-dir\tready\t/tmp/mkdir-parent/newdir\t/tmp/mkdir-parent\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, mkdirDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/mkdir");
+    expect(commands[0]).toContain("/tmp/mkdir-parent/newdir");
+    expect(commands[0]).toContain("changed-parent-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-mkdir-dir-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target mkdir -p with path-chain preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/mkdirp.log\nPATCH\tmkdir-parents\tready\t/tmp/mkdirp-root/nested/leaf\t/tmp/mkdirp-root\tnested/leaf\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, mkdirParentsDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/mkdir");
+    expect(commands[0]).toContain("-p");
+    expect(commands[0]).toContain("changed-path-chain");
+    expect(commands[0]).toContain("changed-prefix-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-mkdir-parents-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target touch with deterministic timestamp preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/touch.log\nPATCH\ttouch-file\tready\t/tmp/touch-parent/new-file\t1781094896\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, touchDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/touch");
+    expect(commands[0]).toContain("-t");
+    expect(commands[0]).toContain("changed-parent-identity");
+    expect(commands[0]).toContain("unexpected-created-timestamp");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-touch-file-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target chmod with mode and identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/chmod.log\nPATCH\tchmod-file\tready\t/tmp/chmod-target.txt\t644\t600\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, chmodDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/chmod");
+    expect(commands[0]).toContain("600");
+    expect(commands[0]).toContain("changed-input-mode");
+    expect(commands[0]).toContain("unexpected-target-mode");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-chmod-file-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target chown with uid/gid mapping and identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/chown.log\nPATCH\tchown-file\tready\t/tmp/chown-target.txt\t65534\t65534\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, chownDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/chown");
+    expect(commands[0]).toContain("nobody:nogroup");
+    expect(commands[0]).toContain("changed-uid-gid-mapping");
+    expect(commands[0]).toContain("changed-input-owner");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-chown-file-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target ln with source and destination-parent preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/link.log\nPATCH\tlink-file\tready\t/tmp/link-source.txt\t/tmp/link-dest.txt\t456\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, linkDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/ln");
+    expect(commands[0]).toContain("/tmp/link-source.txt");
+    expect(commands[0]).toContain("changed-source-identity");
+    expect(commands[0]).toContain("not-hardlink-after-link");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-link-file-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target ln -s with literal target and parent preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/symlink.log\nPATCH\tsymlink-file\tready\t/tmp/symlink-target.txt\t/tmp/symlink-parent/link.txt\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, symlinkDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/ln");
+    expect(commands[0]).toContain("-s");
+    expect(commands[0]).toContain("changed-parent-identity");
+    expect(commands[0]).toContain("changed-created-target");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-symlink-file-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target rm with file and parent identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/rm.log\nPATCH\trm-file\tready\t/tmp/rm-parent/victim.txt\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, rmDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/rm");
+    expect(commands[0]).toContain("/tmp/rm-parent/victim.txt");
+    expect(commands[0]).toContain("changed-file-identity");
+    expect(commands[0]).toContain("path-still-present-after-rm");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-rm-file-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target rmdir with empty directory and parent preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/rmdir.log\nPATCH\trmdir-dir\tready\t/tmp/rmdir-parent/empty\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, rmdirDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/rmdir");
+    expect(commands[0]).toContain("/tmp/rmdir-parent/empty");
+    expect(commands[0]).toContain("changed-directory-identity");
+    expect(commands[0]).toContain("path-still-present-after-rmdir");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-rmdir-dir-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs proof-provisioned target-native tree with stable traversal preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/tree.log\nPATCH\ttree\tready\t/tmp/tree-proof-root\t5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, treeDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/tree");
+    expect(commands[0]).toContain("tree-binary-missing");
+    expect(commands[0]).toContain("changed-tree-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-tree-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target find with bounded predicate and stable tree preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/find-pred.log\nPATCH\tfind-predicate\tready\t/tmp/find-predicate-tree\tsize\t+4c\t5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, findPredicateDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/find");
+    expect(commands[0]).toContain("-size");
+    expect(commands[0]).toContain("changed-tree-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-find-predicate-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target find -maxdepth with stable tree preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/find-max.log\nPATCH\tmaxdepth-find\tready\t/tmp/find-tree\t2\t5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, maxdepthFindDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/find");
+    expect(commands[0]).toContain("-maxdepth");
+    expect(commands[0]).toContain("changed-tree-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-maxdepth-find-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target recursive grep with stable text tree preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/grep-r.log\nPATCH\trecursive-grep\tready\t/tmp/grep-tree\tneedle\t5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, recursiveGrepDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/grep");
+    expect(commands[0]).toContain("binary-file-unsupported");
+    expect(commands[0]).toContain("changed-tree-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-recursive-grep-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target realpath with symlink-chain identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/realpath.log\nPATCH\trealpath-path\tready\t/tmp/realpath-link\t/tmp/realpath-dir/target.txt\t5abfbed72420c5593885fd3777f3640645a5f1f274802c96896af5996407caa6\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, realpathDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/realpath");
+    expect(commands[0]).toContain("unsafe-resolved-path");
+    expect(commands[0]).toContain("changed-realpath-chain");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-realpath-path-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target readlink with direct literal target preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/readlink.log\nPATCH\treadlink-direct\tready\t/tmp/readlink-link\ttarget.txt\t199b3badd968634ea14e351d1134ada738894a90a2efa66983101ece99a33572\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, readlinkDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/readlink");
+    expect(commands[0]).toContain("unsafe-target-literal");
+    expect(commands[0]).toContain("changed-link-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-readlink-direct-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target stat with default-format file identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/stat.log\nPATCH\tstat-file\tready\t/tmp/stat-file.txt\t12\tffd6cd2894e292d4fb55b643a8e3e3710a28a63ae4210495948211423bd71dc2\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, statDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/stat");
+    expect(commands[0]).toContain("unsupported-file-type");
+    expect(commands[0]).toContain("changed-file-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-stat-file-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target du -sb with no-symlink/no-mount tree identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/du.log\nPATCH\tdu-sb-dir\tready\t/tmp/du-tree\t8266\t09b3e1e1d395b9b90dc02ad53b5446094a7152c756ce328cf5423652ac68033e\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, duDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/du");
+    expect(commands[0]).toContain("-sb --");
+    expect(commands[0]).toContain("mount-crossing-unsupported");
+    expect(commands[0]).toContain("changed-tree-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-du-sb-dir-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target ls -l with entries and owner/group mapping preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/ls-long.log\nPATCH\tls-long-dir\tready\t/tmp/ls-dir\t2\t4783e784b4fa2fba9e4d6502dbc64f8f7e495b36b4b8992723f89cbf733a90fe\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, lsLongDescriptor);
+
+    expect(commands[0]).toContain("LC_ALL=C");
+    expect(commands[0]).toContain("-l --");
+    expect(commands[0]).toContain("getent passwd");
+    expect(commands[0]).toContain("changed-directory-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-ls-long-dir-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target ls with C-locale directory identity preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/ls.log\nPATCH\tls-dir\tready\t/tmp/ls-dir\t3\t4783e784b4fa2fba9e4d6502dbc64f8f7e495b36b4b8992723f89cbf733a90fe\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, lsDescriptor);
+
+    expect(commands[0]).toContain("LC_ALL=C");
+    expect(commands[0]).toContain("-1 --");
+    expect(commands[0]).toContain("changed-directory-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-ls-dir-loader",
+      refusals: [],
+    });
+  });
+
+  it("runs original target install with source and destination-parent preflight", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_LOG\t/tmp/install.log\nPATCH\tinstall-file\tready\t/tmp/install-src.txt\t/tmp/install-parent/dest.txt\t755\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(vm, installDescriptor);
+
+    expect(commands[0]).toContain("/usr/bin/install");
+    expect(commands[0]).toContain("-m");
+    expect(commands[0]).toContain("changed-source-identity");
+    expect(commands[0]).toContain("unexpected-destination-mode");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-original-install-file-loader",
       refusals: [],
     });
   });

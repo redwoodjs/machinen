@@ -1,8 +1,6 @@
 import type { MoveDescriptor, MovePidGraphNode, VmHandle } from "@machinen/runtime";
 import { basename } from "node:path";
-
 type MoveResourcePlan = NonNullable<MoveDescriptor["resourcePlan"]>;
-
 export async function readMovePingStateInVm(
   vm: VmHandle,
   resourcePlan: MoveResourcePlan,
@@ -16,12 +14,10 @@ export async function readMovePingStateInVm(
   });
   return parsePingStateFromOutput(result.stdout);
 }
-
 function moveStdoutFilePath(resourcePlan: MoveResourcePlan): string | undefined {
   const stdout = resourcePlan.resources.find((resource) => resource.fd === 1);
   return stdout?.kind === "file" && typeof stdout.path === "string" ? stdout.path : undefined;
 }
-
 function parsePingStateFromOutput(
   stdout: string,
 ): NonNullable<MoveResourcePlan["capture"]>["pingState"] {
@@ -39,7 +35,6 @@ function parsePingStateFromOutput(
     lastSequence,
   };
 }
-
 export async function readMoveSleepStateInVm(
   vm: VmHandle,
   node: MovePidGraphNode,
@@ -60,7 +55,6 @@ export async function readMoveSleepStateInVm(
     capturedAt: new Date().toISOString(),
   };
 }
-
 // fallow-ignore-next-line complexity
 export async function readMoveReaderStateInVm(
   vm: VmHandle,
@@ -86,7 +80,6 @@ export async function readMoveReaderStateInVm(
     capturedAt: new Date().toISOString(),
   };
 }
-
 async function readMoveFileSizeInVm(vm: VmHandle, path: string): Promise<number | undefined> {
   const result = await vm.execRaw(`stat -c %s ${shellQuote(path)} 2>/dev/null || true`, {
     execTimeoutMs: 10_000,
@@ -94,7 +87,6 @@ async function readMoveFileSizeInVm(vm: VmHandle, path: string): Promise<number 
   const parsed = Number(result.stdout.trim());
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
-
 export async function readMoveNodeStaticHttpStateInVm(
   vm: VmHandle,
   node: MovePidGraphNode,
@@ -132,7 +124,6 @@ export async function readMoveNodeStaticHttpStateInVm(
     capturedAt: new Date().toISOString(),
   };
 }
-
 function moveNodeStaticScriptPath(node: MovePidGraphNode): string | undefined {
   const command = moveCommandName(node);
   if (
@@ -146,7 +137,6 @@ function moveNodeStaticScriptPath(node: MovePidGraphNode): string | undefined {
     ? scriptPath
     : undefined;
 }
-
 function parseNodeStaticArgvContract(
   node: MovePidGraphNode,
 ): { port: number; rootDir: string } | undefined {
@@ -159,18 +149,15 @@ function parseNodeStaticArgvContract(
     ? { port: port as number, rootDir }
     : undefined;
 }
-
 function nodeStaticSourceUnsupported(source: string): boolean {
   return /node:worker_threads|worker_threads|node:child_process|child_process|cluster|\.node['"]|process\.dlopen|\bdlopen\s*\(|setInterval\s*\(|setTimeout\s*\(/.test(
     source,
   );
 }
-
 function parseNodeStaticPort(source: string): number | undefined {
   const parsed = Number(source.match(/const\s+PORT\s*=\s*(\d+)/)?.[1]);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
-
 export function readMoveTarState(
   node: MovePidGraphNode,
 ): NonNullable<MoveResourcePlan["capture"]>["tarState"] {
@@ -186,12 +173,74 @@ export function readMoveTarState(
   }
   return { archivePath, sourceDir, capturedAt: new Date().toISOString() };
 }
-
+export async function readMoveTarExtractStateInVm(
+  vm: VmHandle,
+  node: MovePidGraphNode,
+): Promise<NonNullable<MoveResourcePlan["capture"]>["tarExtractState"]> {
+  const args = moveTarExtractArgs(node);
+  if (!args) {
+    return undefined;
+  }
+  const result = await vm.execRaw(
+    moveTarExtractPreflightCommand(args.archivePath, args.targetDir),
+    {
+      execTimeoutMs: 10_000,
+    },
+  );
+  const [sizeLine, digestLine, countLine] = result.stdout.trim().split("\n");
+  const size = Number(sizeLine);
+  const entryCount = Number(countLine);
+  return result.exitCode === 0 &&
+    Number.isInteger(size) &&
+    size > 0 &&
+    /^[0-9a-f]{64}$/.test(digestLine ?? "") &&
+    Number.isInteger(entryCount) &&
+    entryCount > 0
+    ? {
+        archivePath: args.archivePath,
+        targetDir: args.targetDir,
+        archiveIdentity: { size, sha256: digestLine as string },
+        entryCount,
+        policy: "safe-relative-regular-empty-target",
+        capturedAt: new Date().toISOString(),
+      }
+    : undefined;
+}
+function moveTarExtractArgs(
+  node: MovePidGraphNode,
+): { archivePath: string; targetDir: string } | undefined {
+  if (moveCommandName(node) !== "tar" || node.argv.length !== 5) {
+    return undefined;
+  }
+  const [, extractFlag, archivePath, directoryFlag, targetDir] = node.argv;
+  return extractFlag === "-xf" &&
+    directoryFlag === "-C" &&
+    archivePath?.startsWith("/") &&
+    targetDir?.startsWith("/")
+    ? { archivePath, targetDir }
+    : undefined;
+}
+function moveTarExtractPreflightCommand(archivePath: string, targetDir: string): string {
+  return `set -eu
+archive=${shellQuote(archivePath)}
+target=${shellQuote(targetDir)}
+[ -f "$archive" ]
+[ -d "$target" ]
+[ ! -L "$target" ]
+[ -z "$(find "$target" -mindepth 1 -print -quit)" ]
+entries=$(tar -tf "$archive")
+[ -n "$entries" ]
+printf '%s\n' "$entries" | awk '($0 == "" || $0 ~ /^\\// || $0 ~ /(^|\\/)\\.\\.(\\/|$)/) { bad=1 } END { exit bad ? 1 : 0 }'
+tar -tvf "$archive" | awk 'substr($1,1,1) == "l" || substr($1,1,1) == "h" { bad=1 } END { exit bad ? 1 : 0 }'
+stat -c %s "$archive"
+sha256sum "$archive" | awk '{print $1}'
+printf '%s\n' "$entries" | wc -l
+`;
+}
 function pathIsWithin(root: string, candidate: string): boolean {
   const normalizedRoot = root.endsWith("/") ? root : `${root}/`;
   return candidate === root || candidate.startsWith(normalizedRoot);
 }
-
 export async function readMoveFindStateInVm(
   vm: VmHandle,
   node: MovePidGraphNode,
@@ -205,7 +254,6 @@ export async function readMoveFindStateInVm(
   const lastPath = outputPath ? await readMoveLastLineInVm(vm, outputPath) : undefined;
   return { rootPath, outputPath, lastPath, capturedAt: new Date().toISOString() };
 }
-
 function moveFindRootPath(node: MovePidGraphNode): string | undefined {
   if (moveCommandName(node) !== "find" || node.argv.length !== 5) {
     return undefined;
@@ -218,7 +266,6 @@ function moveFindRootPath(node: MovePidGraphNode): string | undefined {
     ? rootPath
     : undefined;
 }
-
 async function readMoveLastLineInVm(vm: VmHandle, path: string): Promise<string | undefined> {
   const result = await vm.execRaw(lastCompleteLineCommand(shellQuote(path)), {
     execTimeoutMs: 10_000,
@@ -226,7 +273,6 @@ async function readMoveLastLineInVm(vm: VmHandle, path: string): Promise<string 
   const line = result.stdout.trimEnd().split("\n").at(-1);
   return line ? line : undefined;
 }
-
 function lastCompleteLineCommand(quotedPath: string): string {
   return `if [ -f ${quotedPath} ] && [ -s ${quotedPath} ]; then
   last_byte=$(tail -c 1 ${quotedPath} 2>/dev/null | od -An -t x1 | tr -d ' \\n')
@@ -237,7 +283,6 @@ function lastCompleteLineCommand(quotedPath: string): string {
   fi
 fi`;
 }
-
 export async function readMoveSha256StateInVm(
   vm: VmHandle,
   node: MovePidGraphNode,
@@ -264,7 +309,6 @@ export async function readMoveSha256StateInVm(
       }
     : undefined;
 }
-
 export async function readMoveWcStateInVm(
   vm: VmHandle,
   node: MovePidGraphNode,
@@ -287,7 +331,6 @@ export async function readMoveWcStateInVm(
       }
     : undefined;
 }
-
 export async function readMoveSortStateInVm(
   vm: VmHandle,
   node: MovePidGraphNode,
@@ -305,7 +348,6 @@ export async function readMoveSortStateInVm(
     ? { path, outputPath: moveStdoutFilePath(resourcePlan), capturedAt: new Date().toISOString() }
     : undefined;
 }
-
 export async function readMoveMvStateInVm(
   vm: VmHandle,
   node: MovePidGraphNode,
@@ -324,19 +366,16 @@ export async function readMoveMvStateInVm(
     ? { sourcePath, destinationPath, capturedAt: new Date().toISOString() }
     : undefined;
 }
-
 function moveMvPreflightCommand(sourcePath: string, destinationPath: string): string {
   const source = shellQuote(sourcePath);
   const destination = shellQuote(destinationPath);
   const destinationParent = shellQuote(dirnamePath(destinationPath));
   return `[ -f ${source} ] && [ ! -e ${destination} ] && [ -d ${destinationParent} ] && [ "$(stat -c %d ${source})" = "$(stat -c %d ${destinationParent})" ]`;
 }
-
 function dirnamePath(path: string): string {
   const index = path.lastIndexOf("/");
   return index <= 0 ? "/" : path.slice(0, index);
 }
-
 export function readMoveCpState(
   node: MovePidGraphNode,
   resourcePlan: MoveResourcePlan,
@@ -360,7 +399,6 @@ export function readMoveCpState(
       }
     : undefined;
 }
-
 // fallow-ignore-next-line complexity
 export function readMoveDdState(
   node: MovePidGraphNode,
@@ -386,7 +424,6 @@ export function readMoveDdState(
       }
     : undefined;
 }
-
 function parseDdArgs(
   argv: string[],
 ): { inputPath: string; outputPath: string; blockSize: number } | undefined {
@@ -400,18 +437,15 @@ function parseDdArgs(
     ? { inputPath, outputPath, blockSize }
     : undefined;
 }
-
 function parseKeyValueArg(argv: string[], key: string): { key: string; value: string } | undefined {
   const prefix = `${key}=`;
   const arg = argv.find((item) => item.startsWith(prefix));
   return arg ? { key, value: arg.slice(prefix.length) } : undefined;
 }
-
 function parseDdBlockSize(value: string | undefined): number | undefined {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
-
 function moveOpenFileResource(
   resourcePlan: MoveResourcePlan,
   path: string,
@@ -421,7 +455,6 @@ function moveOpenFileResource(
   );
   return typeof resource?.offset === "number" ? { offset: resource.offset } : undefined;
 }
-
 // fallow-ignore-next-line complexity
 export function readMoveGrepState(
   node: MovePidGraphNode,
@@ -446,7 +479,6 @@ export function readMoveGrepState(
     capturedAt: new Date().toISOString(),
   };
 }
-
 // fallow-ignore-next-line complexity
 export function readMoveWatchState(
   node: MovePidGraphNode,
@@ -462,7 +494,6 @@ export function readMoveWatchState(
     ? { intervalSeconds, command, capturedAt: new Date().toISOString() }
     : undefined;
 }
-
 // fallow-ignore-next-line complexity
 export function readMoveShellState(
   node: MovePidGraphNode,
@@ -478,7 +509,6 @@ export function readMoveShellState(
     capturedAt: new Date().toISOString(),
   };
 }
-
 // fallow-ignore-next-line complexity
 export function readMoveGoStaticHttpState(
   node: MovePidGraphNode,
@@ -486,14 +516,12 @@ export function readMoveGoStaticHttpState(
 ): NonNullable<MoveResourcePlan["capture"]>["goStaticHttpState"] {
   return readMoveNativeStaticHttpState(node, resourcePlan, "go-static-http-v1");
 }
-
 export function readMoveRustStaticHttpState(
   node: MovePidGraphNode,
   resourcePlan: MoveResourcePlan,
 ): NonNullable<MoveResourcePlan["capture"]>["rustStaticHttpState"] {
   return readMoveNativeStaticHttpState(node, resourcePlan, "rust-static-http-v1");
 }
-
 function readMoveNativeStaticHttpState<Marker extends "go-static-http-v1" | "rust-static-http-v1">(
   node: MovePidGraphNode,
   resourcePlan: MoveResourcePlan,
@@ -529,12 +557,10 @@ function readMoveNativeStaticHttpState<Marker extends "go-static-http-v1" | "rus
       }
     : undefined;
 }
-
 function flagValue(argv: string[], flag: string): string | undefined {
   const index = argv.indexOf(flag);
   return index >= 0 ? argv[index + 1] : undefined;
 }
-
 export async function readMovePythonStaticRouteStateInVm(
   vm: VmHandle,
   node: MovePidGraphNode,
@@ -573,16 +599,13 @@ export async function readMovePythonStaticRouteStateInVm(
       }
     : undefined;
 }
-
 function parsePythonLiteralNumber(source: string, name: string): number | undefined {
   const parsed = Number(source.match(new RegExp(`^${name}\\s*=\\s*(\\d+)`, "m"))?.[1]);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
-
 function parsePythonLiteralString(source: string, name: string): string | undefined {
   return source.match(new RegExp(`^${name}\\s*=\\s*['"]([^'"]+)['"]`, "m"))?.[1];
 }
-
 export function readMoveTimeoutState(
   node: MovePidGraphNode,
   nodes: MovePidGraphNode[],
@@ -613,7 +636,6 @@ export function readMoveTimeoutState(
       }
     : undefined;
 }
-
 export async function readMoveEnvStateInVm(
   vm: VmHandle,
   node: MovePidGraphNode,
@@ -636,7 +658,6 @@ export async function readMoveEnvStateInVm(
       }
     : undefined;
 }
-
 export function readMoveNcState(
   node: MovePidGraphNode,
   resourcePlan: MoveResourcePlan,
@@ -654,7 +675,6 @@ export function readMoveNcState(
     ? { port: port as number, capturedAt: new Date().toISOString() }
     : undefined;
 }
-
 export function readMoveBusyboxHttpState(
   node: MovePidGraphNode,
   resourcePlan: MoveResourcePlan,
@@ -681,7 +701,6 @@ export function readMoveBusyboxHttpState(
     capturedAt: new Date().toISOString(),
   };
 }
-
 export function readMoveHttpState(
   node: MovePidGraphNode,
   resourcePlan: MoveResourcePlan,
@@ -705,7 +724,6 @@ export function readMoveHttpState(
       }
     : undefined;
 }
-
 function parsePythonHttpServerArgs(
   args: string[],
 ): { directory?: string; port: number } | undefined {
@@ -725,7 +743,6 @@ function parsePythonHttpServerArgs(
     ? { ...(directory ? { directory } : {}), port: port as number }
     : undefined;
 }
-
 function parsePythonHttpDirectoryArg(args: string[]): string | undefined {
   const directory = args[0] === "--directory" ? args[1] : undefined;
   return directory?.startsWith("/") ? directory : undefined;

@@ -1,31 +1,42 @@
 import type { MoveDescriptor } from "@machinen/runtime";
+import { moveHttpDirectoryIdentityCommand } from "./move-python-http-envelope.ts";
 
-export type MoveCapture = NonNullable<NonNullable<MoveDescriptor["resourcePlan"]>["capture"]>;
-export type MoveTailState = NonNullable<MoveCapture["tailState"]>;
-export type MoveLessState = NonNullable<MoveCapture["lessState"]>;
-export type MoveViState = NonNullable<MoveCapture["viState"]>;
-export type MoveReaderState = NonNullable<MoveCapture["readerState"]>;
-export type MoveGrepState = NonNullable<MoveCapture["grepState"]>;
-export type MoveWatchState = NonNullable<MoveCapture["watchState"]>;
-export type MoveShellState = NonNullable<MoveCapture["shellState"]>;
-export type MoveHttpState = NonNullable<MoveCapture["httpState"]>;
-export type MoveBusyboxHttpState = NonNullable<MoveCapture["busyboxHttpState"]>;
-export type MoveNcState = NonNullable<MoveCapture["ncState"]>;
-export type MoveEnvState = NonNullable<MoveCapture["envState"]>;
-export type MoveTimeoutState = NonNullable<MoveCapture["timeoutState"]>;
-export type MovePythonStaticRouteState = NonNullable<MoveCapture["pythonStaticRouteState"]>;
-export type MoveGoStaticHttpState = NonNullable<MoveCapture["goStaticHttpState"]>;
-export type MoveRustStaticHttpState = NonNullable<MoveCapture["rustStaticHttpState"]>;
-export type MoveNativeStaticHttpState = MoveGoStaticHttpState | MoveRustStaticHttpState;
-export type MoveTailGrepPipelineState = NonNullable<MoveCapture["tailGrepPipelineState"]>;
-export type MoveDdState = NonNullable<MoveCapture["ddState"]>;
-export type MoveCpState = NonNullable<MoveCapture["cpState"]>;
-export type MoveMvState = NonNullable<MoveCapture["mvState"]>;
-export type MoveSortState = NonNullable<MoveCapture["sortState"]>;
-export type MoveWcState = NonNullable<MoveCapture["wcState"]>;
-export type MoveSha256State = NonNullable<MoveCapture["sha256State"]>;
-export type MoveFindState = NonNullable<MoveCapture["findState"]>;
-export type MoveTarState = NonNullable<MoveCapture["tarState"]>;
+type MoveCapture = NonNullable<NonNullable<MoveDescriptor["resourcePlan"]>["capture"]>;
+type MoveTailState = NonNullable<MoveCapture["tailState"]>;
+type MoveLessState = NonNullable<MoveCapture["lessState"]>;
+type MoveViState = NonNullable<MoveCapture["viState"]>;
+type MoveReaderState = NonNullable<MoveCapture["readerState"]>;
+type MoveGrepState = NonNullable<MoveCapture["grepState"]>;
+type MoveWatchState = NonNullable<MoveCapture["watchState"]>;
+type MoveShellState = NonNullable<MoveCapture["shellState"]>;
+type MoveHttpState = NonNullable<MoveCapture["httpState"]>;
+type MoveBusyboxHttpState = NonNullable<MoveCapture["busyboxHttpState"]>;
+type MoveNcState = NonNullable<MoveCapture["ncState"]>;
+type MoveEnvState = NonNullable<MoveCapture["envState"]>;
+type MoveTimeoutState = NonNullable<MoveCapture["timeoutState"]>;
+type MovePythonStaticRouteState = NonNullable<MoveCapture["pythonStaticRouteState"]>;
+type MoveGoStaticHttpState = NonNullable<MoveCapture["goStaticHttpState"]>;
+type MoveRustStaticHttpState = NonNullable<MoveCapture["rustStaticHttpState"]>;
+type MoveNativeStaticHttpState = MoveGoStaticHttpState | MoveRustStaticHttpState;
+type MoveTailGrepPipelineState = NonNullable<MoveCapture["tailGrepPipelineState"]>;
+type MoveDdState = NonNullable<MoveCapture["ddState"]>;
+type MoveCpState = NonNullable<MoveCapture["cpState"]>;
+type MoveMvState = NonNullable<MoveCapture["mvState"]>;
+type MoveHeadState = NonNullable<MoveCapture["headState"]>;
+type MoveTailLinesState = NonNullable<MoveCapture["tailLinesState"]>;
+type MoveSedState = NonNullable<MoveCapture["sedState"]>;
+type MoveAwkFieldState = NonNullable<MoveCapture["awkFieldState"]>;
+type MoveCutState = NonNullable<MoveCapture["cutState"]>;
+type MovePasteState = NonNullable<MoveCapture["pasteState"]>;
+type MoveUniqState = NonNullable<MoveCapture["uniqState"]>;
+type MoveCommState = NonNullable<MoveCapture["commState"]>;
+type MoveJoinState = NonNullable<MoveCapture["joinState"]>;
+type MoveSortState = NonNullable<MoveCapture["sortState"]>;
+type MoveWcState = NonNullable<MoveCapture["wcState"]>;
+type MoveSha256State = NonNullable<MoveCapture["sha256State"]>;
+type MoveFindState = NonNullable<MoveCapture["findState"]>;
+type MoveTarState = NonNullable<MoveCapture["tarState"]>;
+type MoveTarExtractState = NonNullable<MoveCapture["tarExtractState"]>;
 
 export function moveTailLoaderCommand(
   executable: string,
@@ -423,6 +434,7 @@ export function moveHttpLoaderCommand(
   const probe = `import socket; s=socket.create_connection(("127.0.0.1", ${state.port}), 2); s.close()`;
   const directoryArg = state.directory ? ` --directory ${shellQuote(state.directory)}` : "";
   const envPrefix = envState ? `env ${shellQuote(`${envState.key}=${envState.value}`)} ` : "";
+  const directoryCheck = moveHttpDirectoryCheck(state);
   return `set -eu
 log=${shellQuote(log)}
 if [ ! -d ${shellQuote(state.cwd)} ]; then
@@ -433,7 +445,7 @@ if [ "${state.directory ? "1" : "0"}" = "1" ] && [ ! -d ${shellQuote(state.direc
   printf 'PATCH\tpython-http-server\trefused\tmissing-directory\n'
   exit 2
 fi
-if ${shellQuote(executable)} -c ${shellQuote(probe)} >/dev/null 2>&1; then
+${directoryCheck}if ${shellQuote(executable)} -c ${shellQuote(probe)} >/dev/null 2>&1; then
   printf 'PATCH\tpython-http-server\trefused\tport-in-use\n'
   exit 2
 fi
@@ -465,6 +477,14 @@ printf 'PATCH\tpython-http-server\tready\t%s\t%s\t%s\n' ${shellQuote(state.cwd)}
 `;
 }
 
+function moveHttpDirectoryCheck(state: MoveHttpState): string {
+  const identity = state.directoryIdentity;
+  if (!identity) {
+    return "";
+  }
+  return `{\n${moveHttpDirectoryIdentityCommand(state.directory ?? state.cwd)}} >/tmp/machinen-http-dir-preflight-$$.txt\nactual_file_count=$(sed -n '1p' /tmp/machinen-http-dir-preflight-$$.txt)\nactual_directory_count=$(sed -n '2p' /tmp/machinen-http-dir-preflight-$$.txt)\nactual_total_bytes=$(sed -n '3p' /tmp/machinen-http-dir-preflight-$$.txt)\nactual_tree_digest=$(sed -n '4p' /tmp/machinen-http-dir-preflight-$$.txt)\nrm -f /tmp/machinen-http-dir-preflight-$$.txt\nif [ "$actual_file_count" != ${shellQuote(String(identity.fileCount))} ] || [ "$actual_directory_count" != ${shellQuote(String(identity.directoryCount))} ] || [ "$actual_total_bytes" != ${shellQuote(String(identity.totalBytes))} ] || [ "$actual_tree_digest" != ${shellQuote(identity.treeDigest)} ]; then\n  printf 'PATCH\\tpython-http-server\\trefused\\tchanged-directory-identity\\n'\n  exit 2\nfi\n`;
+}
+
 export function moveTarLoaderCommand(executable: string, state: MoveTarState | undefined): string {
   if (!state) {
     return "printf 'PATCH\\ttar-create\\trefused\\tmissing-tar-state\\n'; exit 2";
@@ -481,6 +501,46 @@ fi
 printf 'LOAD_LOG\t%s\n' "$log"
 printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-tar-create-completed\n'
 printf 'PATCH\ttar-create\tready\t%s\t%s\n' ${shellQuote(state.archivePath)} ${shellQuote(state.sourceDir)}
+`;
+}
+
+export function moveTarExtractLoaderCommand(
+  executable: string,
+  state: MoveTarExtractState | undefined,
+): string {
+  if (!state) {
+    return "printf 'PATCH\\ttar-extract\\trefused\\tmissing-tar-extract-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  return `set -eu
+log=${shellQuote(log)}
+archive=${shellQuote(state.archivePath)}
+target=${shellQuote(state.targetDir)}
+if [ ! -f "$archive" ] || [ ! -d "$target" ] || [ -L "$target" ]; then
+  printf 'PATCH\ttar-extract\trefused\tmissing-input-or-target\n'
+  exit 2
+fi
+actual_size=$(stat -c %s "$archive")
+actual_identity=$(sha256sum "$archive" | awk '{print $1}')
+if [ "$actual_size" != ${shellQuote(String(state.archiveIdentity.size))} ] || [ "$actual_identity" != ${shellQuote(state.archiveIdentity.sha256)} ]; then
+  printf 'PATCH\ttar-extract\trefused\tchanged-archive-identity\n'
+  exit 2
+fi
+if [ -n "$(find "$target" -mindepth 1 -print -quit)" ]; then
+  printf 'PATCH\ttar-extract\trefused\ttarget-not-empty\n'
+  exit 2
+fi
+entries=$(tar -tf "$archive")
+printf '%s\n' "$entries" | awk '($0 == "" || $0 ~ /^\\// || $0 ~ /(^|\\/)\\.\\.(\\/|$)/) { bad=1 } END { exit bad ? 1 : 0 }' || { printf 'PATCH\ttar-extract\trefused\tunsafe-member-path\n'; exit 2; }
+tar -tvf "$archive" | awk 'substr($1,1,1) == "l" || substr($1,1,1) == "h" { bad=1 } END { exit bad ? 1 : 0 }' || { printf 'PATCH\ttar-extract\trefused\tunsafe-member-type\n'; exit 2; }
+if ! ${shellQuote(executable)} -xf "$archive" -C "$target" >"$log" 2>&1; then
+  printf 'LOAD_LOG\t%s\n' "$log"
+  printf 'PATCH\ttar-extract\trefused\ttar-failed\n'
+  exit 2
+fi
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-tar-extract-completed\n'
+printf 'PATCH\ttar-extract\tready\t%s\t%s\n' ${shellQuote(state.archivePath)} ${shellQuote(state.targetDir)}
 `;
 }
 
@@ -502,6 +562,243 @@ printf 'LOAD_LOG\t%s\n' "$log"
 printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-find-cursor-started\n'
 printf 'PATCH\tfind-cursor\tready\t%s\t%s\n' ${shellQuote(state.rootPath)} ${shellQuote(last)}
 `;
+}
+
+export function moveHeadLoaderCommand(
+  executable: string,
+  state: MoveHeadState | undefined,
+): string {
+  return moveLineSelectionLoaderCommand(executable, state, "head-file", "head", [
+    "-n",
+    String(state?.lines ?? 0),
+  ]);
+}
+
+export function moveTailLinesLoaderCommand(
+  executable: string,
+  state: MoveTailLinesState | undefined,
+): string {
+  return moveLineSelectionLoaderCommand(executable, state, "tail-lines", "tail", [
+    "-n",
+    String(state?.lines ?? 0),
+  ]);
+}
+
+function moveLineSelectionLoaderCommand(
+  executable: string,
+  state: MoveHeadState | MoveTailLinesState | undefined,
+  patchName: "head-file" | "tail-lines",
+  commandName: "head" | "tail",
+  args: string[],
+): string {
+  if (!state) {
+    return `printf 'PATCH\t${patchName}\trefused\tmissing-${patchName}-state\n'; exit 2`;
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  const argv = [shellQuote(executable), ...args.map(shellQuote), shellQuote(state.path)].join(" ");
+  return `set -eu
+log=${shellQuote(log)}
+if [ ! -f ${shellQuote(state.path)} ]; then
+  printf 'PATCH\t${patchName}\trefused\tmissing-input\n'
+  exit 2
+fi
+actual_size=$(stat -c %s ${shellQuote(state.path)})
+actual_digest=$(sha256sum ${shellQuote(state.path)} | awk '{print $1}')
+if [ "$actual_size" != ${shellQuote(String(state.fileIdentity.size))} ] || [ "$actual_digest" != ${shellQuote(state.fileIdentity.sha256)} ]; then
+  printf 'PATCH\t${patchName}\trefused\tchanged-input-identity\n'
+  exit 2
+fi
+${argv} >"$log" 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-${commandName}-file-started\n'
+printf 'PATCH\t${patchName}\tready\t%s\t%s\n' ${shellQuote(state.path)} ${shellQuote(String(state.lines))}
+`;
+}
+
+export function moveSedLoaderCommand(executable: string, state: MoveSedState | undefined): string {
+  if (!state) {
+    return "printf 'PATCH\\tsed-file\\trefused\\tmissing-sed-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  const script = moveSedScript(state);
+  return `set -eu
+log=${shellQuote(log)}
+if [ ! -f ${shellQuote(state.path)} ]; then
+  printf 'PATCH\tsed-file\trefused\tmissing-input\n'
+  exit 2
+fi
+actual_size=$(stat -c %s ${shellQuote(state.path)})
+actual_digest=$(sha256sum ${shellQuote(state.path)} | awk '{print $1}')
+if [ "$actual_size" != ${shellQuote(String(state.fileIdentity.size))} ] || [ "$actual_digest" != ${shellQuote(state.fileIdentity.sha256)} ]; then
+  printf 'PATCH\tsed-file\trefused\tchanged-input-identity\n'
+  exit 2
+fi
+${shellQuote(executable)} ${state.scriptKind === "print-range" ? "-n " : ""}${shellQuote(script)} ${shellQuote(state.path)} >"$log" 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-sed-file-started\n'
+printf 'PATCH\tsed-file\tready\t%s\t%s\n' ${shellQuote(state.path)} ${shellQuote(state.scriptKind)}
+`;
+}
+
+function moveSedScript(state: MoveSedState): string {
+  if (state.scriptKind === "print-range") {
+    return `${state.startLine},${state.endLine}p`;
+  }
+  return `s/${state.pattern}/${state.replacement}/`;
+}
+
+export function moveAwkFieldLoaderCommand(
+  executable: string,
+  state: MoveAwkFieldState | undefined,
+): string {
+  if (!state) {
+    return "printf 'PATCH\\tawk-field\\trefused\\tmissing-awk-field-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  const script = `{print $${state.fieldIndex}}`;
+  return `set -eu
+log=${shellQuote(log)}
+${moveFileIdentityPreflight("awk-field", state.path, state.fileIdentity)}
+${shellQuote(executable)} ${shellQuote(script)} ${shellQuote(state.path)} >"$log" 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-awk-field-started\n'
+printf 'PATCH\tawk-field\tready\t%s\t%s\n' ${shellQuote(state.path)} ${shellQuote(String(state.fieldIndex))}
+`;
+}
+
+export function moveCutLoaderCommand(executable: string, state: MoveCutState | undefined): string {
+  if (!state) {
+    return "printf 'PATCH\\tcut-fields\\trefused\\tmissing-cut-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  return `set -eu
+log=${shellQuote(log)}
+${moveFileIdentityPreflight("cut-fields", state.path, state.fileIdentity)}
+${shellQuote(executable)} -d ${shellQuote(state.delimiter)} -f ${shellQuote(state.fields)} ${shellQuote(state.path)} >"$log" 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-cut-fields-started\n'
+printf 'PATCH\tcut-fields\tready\t%s\t%s\t%s\n' ${shellQuote(state.path)} ${shellQuote(state.delimiter)} ${shellQuote(state.fields)}
+`;
+}
+
+export function movePasteLoaderCommand(
+  executable: string,
+  state: MovePasteState | undefined,
+): string {
+  if (!state) {
+    return "printf 'PATCH\\tpaste-files\\trefused\\tmissing-paste-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  return `set -eu
+log=${shellQuote(log)}
+${moveFileIdentityPreflight("paste-files", state.leftPath, state.leftIdentity)}
+${moveFileIdentityPreflight("paste-files", state.rightPath, state.rightIdentity)}
+${shellQuote(executable)} ${shellQuote(state.leftPath)} ${shellQuote(state.rightPath)} >"$log" 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-paste-files-started\n'
+printf 'PATCH\tpaste-files\tready\t%s\t%s\n' ${shellQuote(state.leftPath)} ${shellQuote(state.rightPath)}
+`;
+}
+
+export function moveUniqLoaderCommand(
+  executable: string,
+  state: MoveUniqState | undefined,
+): string {
+  if (!state) {
+    return "printf 'PATCH\\tuniq-file\\trefused\\tmissing-uniq-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  const countFlag = state.count ? "-c " : "";
+  return `set -eu
+log=${shellQuote(log)}
+${moveFileIdentityPreflight("uniq-file", state.path, state.fileIdentity)}
+${shellQuote(executable)} ${countFlag}${shellQuote(state.path)} >"$log" 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-uniq-file-started\n'
+printf 'PATCH\tuniq-file\tready\t%s\t%s\n' ${shellQuote(state.path)} ${shellQuote(String(state.count))}
+`;
+}
+
+export function moveCommLoaderCommand(
+  executable: string,
+  state: MoveCommState | undefined,
+): string {
+  if (!state) {
+    return "printf 'PATCH\\tcomm-files\\trefused\\tmissing-comm-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  return `set -eu
+log=${shellQuote(log)}
+${moveTwoFileIdentityPreflight("comm-files", state)}
+LC_ALL=C ${shellQuote(executable)} ${shellQuote(state.leftPath)} ${shellQuote(state.rightPath)} >"$log" 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-comm-files-started\n'
+printf 'PATCH\tcomm-files\tready\t%s\t%s\n' ${shellQuote(state.leftPath)} ${shellQuote(state.rightPath)}
+`;
+}
+
+export function moveJoinLoaderCommand(
+  executable: string,
+  state: MoveJoinState | undefined,
+): string {
+  if (!state) {
+    return "printf 'PATCH\\tjoin-files\\trefused\\tmissing-join-state\\n'; exit 2";
+  }
+  const log = "/tmp/machinen-move-loader-$$.log";
+  return `set -eu
+log=${shellQuote(log)}
+${moveTwoFileIdentityPreflight("join-files", state)}
+LC_ALL=C ${shellQuote(executable)} ${shellQuote(state.leftPath)} ${shellQuote(state.rightPath)} >"$log" 2>&1 &
+pid=$!
+printf 'LOAD_PID\t%s\n' "$pid"
+printf 'LOAD_LOG\t%s\n' "$log"
+printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-join-files-started\n'
+printf 'PATCH\tjoin-files\tready\t%s\t%s\n' ${shellQuote(state.leftPath)} ${shellQuote(state.rightPath)}
+`;
+}
+
+function moveTwoFileIdentityPreflight(
+  patchName: string,
+  state: {
+    leftPath: string;
+    rightPath: string;
+    leftIdentity: { size: number; sha256: string };
+    rightIdentity: { size: number; sha256: string };
+  },
+): string {
+  return `${moveFileIdentityPreflight(patchName, state.leftPath, state.leftIdentity)}
+${moveFileIdentityPreflight(patchName, state.rightPath, state.rightIdentity)}`;
+}
+
+function moveFileIdentityPreflight(
+  patchName: string,
+  path: string,
+  fileIdentity: { size: number; sha256: string },
+): string {
+  return `if [ ! -f ${shellQuote(path)} ]; then
+  printf 'PATCH\t${patchName}\trefused\tmissing-input\n'
+  exit 2
+fi
+actual_size=$(stat -c %s ${shellQuote(path)})
+actual_digest=$(sha256sum ${shellQuote(path)} | awk '{print $1}')
+if [ "$actual_size" != ${shellQuote(String(fileIdentity.size))} ] || [ "$actual_digest" != ${shellQuote(fileIdentity.sha256)} ]; then
+  printf 'PATCH\t${patchName}\trefused\tchanged-input-identity\n'
+  exit 2
+fi`;
 }
 
 export function moveSha256LoaderCommand(

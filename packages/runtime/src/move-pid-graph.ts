@@ -138,6 +138,15 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
         port: number;
         cwd: string;
         directory?: string;
+        bindAddress?: "127.0.0.1";
+        mode?: "explicit-bind-cwd" | "explicit-bind-directory";
+        listenerState?: "idle-single-listener";
+        directoryIdentity?: {
+          fileCount: number;
+          directoryCount: number;
+          totalBytes: number;
+          treeDigest: string;
+        };
         capturedAt?: string;
       };
       busyboxHttpState?: {
@@ -147,6 +156,106 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
       };
       ncState?: {
         port: number;
+        capturedAt?: string;
+      };
+      busyboxNcState?: {
+        port: number;
+        argvContract: "busybox-nc-listen-p";
+        listenerState: "idle-single-listener";
+        capturedAt?: string;
+      };
+      socatFileResponderState?: {
+        port: number;
+        filePath: string;
+        fileIdentity: { size: number; sha256: string };
+        argvContract: "socat-tcp-listen-fork-reuseaddr-file";
+        listenerState: "idle-single-listener";
+        binaryPolicy: "proof-provisioned-target-native-socat";
+        capturedAt?: string;
+      };
+      redisIdleState?: {
+        port: number;
+        argvContract: "redis-server-no-persistence-port";
+        datasetState: "empty";
+        clientState: "idle-no-external-clients";
+        persistence: { save: ""; appendonly: "no" };
+        binaryPolicy: "proof-provisioned-target-native-redis";
+        capturedAt?: string;
+      };
+      nginxStaticState?: {
+        configPath: string;
+        configSha256: string;
+        root: string;
+        port: number;
+        configContract: "nginx-static-root-local-listen-try-files-404";
+        listenerState: "idle-single-listener";
+        directoryIdentity: {
+          fileCount: number;
+          directoryCount: number;
+          totalBytes: number;
+          treeDigest: string;
+        };
+        binaryPolicy: "proof-provisioned-target-native-nginx";
+        capturedAt?: string;
+      };
+      caddyStaticState?: {
+        port: number;
+        root: string;
+        argvContract: "caddy-file-server-listen-root";
+        listenerState: "idle-single-listener";
+        directoryIdentity: {
+          fileCount: number;
+          directoryCount: number;
+          totalBytes: number;
+          treeDigest: string;
+        };
+        binaryPolicy: "proof-provisioned-target-native-caddy";
+        capturedAt?: string;
+      };
+      rubyHttpState?: {
+        port: number;
+        root: string;
+        argvContract: "ruby-run-httpd-root-port";
+        listenerState: "idle-single-listener";
+        directoryIdentity: {
+          fileCount: number;
+          directoryCount: number;
+          totalBytes: number;
+          treeDigest: string;
+        };
+        binaryPolicy: "proof-provisioned-target-native-ruby";
+        capturedAt?: string;
+      };
+      phpStaticState?: {
+        port: number;
+        root: string;
+        argvContract: "php-built-in-server-local-root";
+        dynamicPolicy: "no-php-scripts";
+        listenerState: "idle-single-listener";
+        directoryIdentity: {
+          fileCount: number;
+          directoryCount: number;
+          totalBytes: number;
+          treeDigest: string;
+        };
+        binaryPolicy: "proof-provisioned-target-native-php";
+        capturedAt?: string;
+      };
+      rsyncDaemonState?: {
+        configPath: string;
+        configSha256: string;
+        moduleName: string;
+        root: string;
+        port: number;
+        policy: "read-only-module-no-auth-hooks";
+        listenerState: "idle-single-listener-no-active-clients";
+        directoryIdentity: {
+          fileCount: number;
+          directoryCount: number;
+          totalBytes: number;
+          treeDigest: string;
+        };
+        binaryPolicy: "proof-provisioned-target-native-rsync";
         capturedAt?: string;
       };
       envState?: {
@@ -163,6 +272,15 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
           port: number;
           cwd: string;
           directory?: string;
+          bindAddress?: "127.0.0.1";
+          mode?: "explicit-bind-cwd" | "explicit-bind-directory";
+          listenerState?: "idle-single-listener";
+          directoryIdentity?: {
+            fileCount: number;
+            directoryCount: number;
+            totalBytes: number;
+            treeDigest: string;
+          };
         };
         capturedAt?: string;
       };
@@ -218,6 +336,89 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
         destinationPath: string;
         capturedAt?: string;
       };
+      headState?: {
+        path: string;
+        lines: number;
+        fileIdentity: { size: number; sha256: string };
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      tailLinesState?: {
+        path: string;
+        lines: number;
+        fileIdentity: { size: number; sha256: string };
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      sedState?:
+        | {
+            path: string;
+            scriptKind: "print-range";
+            startLine: number;
+            endLine: number;
+            fileIdentity: { size: number; sha256: string };
+            outputPath?: string;
+            capturedAt?: string;
+          }
+        | {
+            path: string;
+            scriptKind: "literal-substitution";
+            pattern: string;
+            replacement: string;
+            fileIdentity: { size: number; sha256: string };
+            outputPath?: string;
+            capturedAt?: string;
+          };
+      awkFieldState?: {
+        path: string;
+        fieldIndex: number;
+        fs: "default-whitespace";
+        fileIdentity: { size: number; sha256: string };
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      cutState?: {
+        path: string;
+        delimiter: string;
+        fields: string;
+        fileIdentity: { size: number; sha256: string };
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      pasteState?: {
+        leftPath: string;
+        rightPath: string;
+        leftIdentity: { size: number; sha256: string };
+        rightIdentity: { size: number; sha256: string };
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      uniqState?: {
+        path: string;
+        count: boolean;
+        fileIdentity: { size: number; sha256: string };
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      commState?: {
+        leftPath: string;
+        rightPath: string;
+        leftIdentity: { size: number; sha256: string };
+        rightIdentity: { size: number; sha256: string };
+        collation: "C";
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      joinState?: {
+        leftPath: string;
+        rightPath: string;
+        leftIdentity: { size: number; sha256: string };
+        rightIdentity: { size: number; sha256: string };
+        key: "default-first-field";
+        collation: "C";
+        outputPath?: string;
+        capturedAt?: string;
+      };
       sortState?: {
         path: string;
         outputPath?: string;
@@ -235,6 +436,49 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
         outputPath?: string;
         capturedAt?: string;
       };
+      checksumState?: {
+        algorithm: "md5" | "sha1" | "sha512";
+        path: string;
+        expectedDigest: string;
+        fileIdentity: { size: number; sha256: string };
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      base64State?: {
+        path: string;
+        wrap: 76;
+        fileIdentity: { size: number; sha256: string };
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      gzipState?: {
+        inputPath: string;
+        outputPath: string;
+        fileIdentity: { size: number; sha256: string };
+        outputPolicy: "atomic-temp-rename";
+        capturedAt?: string;
+      };
+      gunzipState?: {
+        inputPath: string;
+        outputPath: string;
+        fileIdentity: { size: number; sha256: string };
+        outputPolicy: "atomic-temp-rename";
+        capturedAt?: string;
+      };
+      xzState?: {
+        inputPath: string;
+        outputPath: string;
+        fileIdentity: { size: number; sha256: string };
+        outputPolicy: "atomic-temp-rename";
+        capturedAt?: string;
+      };
+      zstdState?: {
+        inputPath: string;
+        outputPath: string;
+        fileIdentity: { size: number; sha256: string };
+        outputPolicy: "atomic-temp-rename";
+        capturedAt?: string;
+      };
       findState?: {
         rootPath: string;
         outputPath?: string;
@@ -244,6 +488,271 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
       tarState?: {
         archivePath: string;
         sourceDir: string;
+        capturedAt?: string;
+      };
+      tarExtractState?: {
+        archivePath: string;
+        targetDir: string;
+        archiveIdentity: { size: number; sha256: string };
+        entryCount: number;
+        policy: "safe-relative-regular-empty-target";
+        capturedAt?: string;
+      };
+      zipCreateState?: {
+        archivePath: string;
+        sourceDir: string;
+        sourceIdentity: { fileCount: number; treeDigest: string };
+        policy: "safe-relative-regular-no-symlinks-absent-archive";
+        capturedAt?: string;
+      };
+      mkdirState?: {
+        targetPath: string;
+        parentPath: string;
+        parentIdentity: { mode: string; entriesDigest: string };
+        policy: "absent-child-existing-parent";
+        capturedAt?: string;
+      };
+      mkdirParentsState?: {
+        targetPath: string;
+        existingPrefix: string;
+        missingComponents: string[];
+        prefixIdentity: { mode: string; entriesDigest: string };
+        policy: "symlink-free-path-idempotent-or-create-missing";
+        capturedAt?: string;
+      };
+      touchState?: {
+        path: string;
+        parentPath: string;
+        timestampSpec: string;
+        expectedEpoch: number;
+        parentIdentity: { mode: string; entriesDigest: string };
+        policy: "deterministic-timestamp-absent-file-create";
+        capturedAt?: string;
+      };
+      chmodState?: {
+        path: string;
+        expectedMode: string;
+        targetMode: string;
+        fileIdentity: { size: number; sha256: string };
+        policy: "numeric-mode-regular-non-symlink";
+        capturedAt?: string;
+      };
+      chownState?: {
+        path: string;
+        owner: string;
+        group: string;
+        targetUid: number;
+        targetGid: number;
+        expectedUid: number;
+        expectedGid: number;
+        fileIdentity: { size: number; sha256: string };
+        policy: "same-base-uid-gid-regular-non-symlink";
+        capturedAt?: string;
+      };
+      linkState?: {
+        sourcePath: string;
+        destinationPath: string;
+        sourceIdentity: { dev: string; inode: string; mode: string; size: number; sha256: string };
+        destinationParent: string;
+        destinationParentIdentity: { dev: string; mode: string; entriesDigest: string };
+        policy: "hardlink-regular-source-absent-destination-same-filesystem";
+        capturedAt?: string;
+      };
+      symlinkState?: {
+        targetLiteral: string;
+        linkPath: string;
+        parentPath: string;
+        parentIdentity: { dev: string; mode: string; entriesDigest: string };
+        policy: "literal-target-absent-link-safe-parent";
+        capturedAt?: string;
+      };
+      rmState?: {
+        path: string;
+        parentPath: string;
+        fileIdentity: { mode: string; size: number; sha256: string };
+        parentIdentity: { dev: string; mode: string; entriesDigest: string };
+        policy: "regular-non-symlink-pre-unlink";
+        capturedAt?: string;
+      };
+      rmdirState?: {
+        path: string;
+        parentPath: string;
+        directoryIdentity: { dev: string; inode: string; mode: string };
+        parentIdentity: { dev: string; mode: string; entriesDigest: string };
+        policy: "empty-directory-non-symlink-pre-remove";
+        capturedAt?: string;
+      };
+      installState?: {
+        sourcePath: string;
+        destinationPath: string;
+        mode: string;
+        sourceIdentity: { mode: string; size: number; sha256: string };
+        destinationParent: string;
+        destinationParentIdentity: { dev: string; mode: string; entriesDigest: string };
+        policy: "copy-mode-absent-destination";
+        capturedAt?: string;
+      };
+      lsState?: {
+        directoryPath: string;
+        directoryIdentity: {
+          dev: string;
+          inode: string;
+          mode: string;
+          entryCount: number;
+          entriesDigest: string;
+          outputDigest: string;
+        };
+        ordering: "LC_ALL=C-name-ascending";
+        options: ["-1"];
+        outputPath?: string;
+        policy: "ascii-names-non-recursive-directory-listing";
+        capturedAt?: string;
+      };
+      lsLongState?: {
+        directoryPath: string;
+        directoryIdentity: {
+          dev: string;
+          inode: string;
+          mode: string;
+          entryCount: number;
+          entriesDigest: string;
+          outputDigest: string;
+        };
+        entries: Array<{
+          name: string;
+          kind: "file" | "directory";
+          mode: string;
+          permissions: string;
+          size: number;
+          uid: number;
+          gid: number;
+          owner: string;
+          group: string;
+          mtimeEpoch: number;
+        }>;
+        ordering: "LC_ALL=C-name-ascending";
+        statPolicy: "regular-or-directory-no-symlinks-owner-group-mapped";
+        options: ["-l"];
+        outputPath?: string;
+        policy: "ascii-names-non-recursive-long-listing";
+        capturedAt?: string;
+      };
+      duState?: {
+        directoryPath: string;
+        rootDevice: string;
+        treeIdentity: {
+          entryCount: number;
+          fileCount: number;
+          directoryCount: number;
+          totalBytes: number;
+          treeDigest: string;
+          outputDigest: string;
+        };
+        options: ["-s", "-b"];
+        symlinkPolicy: "no-symlinks";
+        mountPolicy: "single-device-no-mount-crossing";
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      statState?: {
+        path: string;
+        format: "default";
+        options: [];
+        fileIdentity: {
+          fileType: "regular file";
+          mode: string;
+          permissions: string;
+          size: number;
+          uid: number;
+          gid: number;
+          mtimeEpoch: number;
+          sha256: string;
+        };
+        outputPath?: string;
+        symlinkPolicy: "no-symlinks";
+        capturedAt?: string;
+      };
+      readlinkState?: {
+        linkPath: string;
+        targetLiteral: string;
+        linkIdentity: { mode: string; targetDigest: string };
+        options: [];
+        policy: "direct-symlink-literal-target";
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      realpathState?: {
+        cwd: string;
+        inputPath: string;
+        resolvedPath: string;
+        chainIdentity: { componentCount: number; symlinkCount: number; chainDigest: string };
+        outputDigest: string;
+        options: [];
+        policy: "absolute-existing-path-safe-chain";
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      recursiveGrepState?: {
+        rootPath: string;
+        pattern: string;
+        patternPolicy: "literal-safe-basic-regexp";
+        treeIdentity: {
+          fileCount: number;
+          directoryCount: number;
+          totalBytes: number;
+          treeDigest: string;
+          outputDigest: string;
+        };
+        options: ["-r"];
+        binaryPolicy: "text-files-only";
+        symlinkPolicy: "no-symlinks";
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      maxdepthFindState?: {
+        rootPath: string;
+        maxdepth: number;
+        treeIdentity: {
+          fileCount: number;
+          directoryCount: number;
+          totalBytes: number;
+          treeDigest: string;
+          outputDigest: string;
+        };
+        options: ["-maxdepth", "-type", "-print"];
+        symlinkPolicy: "no-symlinks";
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      findPredicateState?: {
+        rootPath: string;
+        predicate: { kind: "mtime" | "size"; value: string };
+        treeIdentity: {
+          fileCount: number;
+          directoryCount: number;
+          totalBytes: number;
+          treeDigest: string;
+          outputDigest: string;
+        };
+        options: ["predicate", "-type", "-print"];
+        symlinkPolicy: "no-symlinks";
+        policy: "bounded-simple-find-predicate";
+        outputPath?: string;
+        capturedAt?: string;
+      };
+      treeState?: {
+        rootPath: string;
+        options: [];
+        treeIdentity: {
+          fileCount: number;
+          directoryCount: number;
+          totalBytes: number;
+          treeDigest: string;
+          outputDigest: string;
+        };
+        symlinkPolicy: "no-symlinks";
+        binaryPolicy: "proof-provisioned-target-native-tree";
+        outputPath?: string;
         capturedAt?: string;
       };
       nodeStaticHttpState?: {

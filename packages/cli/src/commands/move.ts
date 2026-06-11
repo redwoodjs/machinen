@@ -15,6 +15,18 @@ import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 
 import { consumeJsonFlag } from "../args.ts";
+import { readMoveBusyboxNcState } from "../move-busybox-nc-envelope.ts";
+import { readMoveChecksumStateInVm } from "../move-checksum-envelope.ts";
+import { readMoveDuStateInVm } from "../move-du-envelope.ts";
+import { readMoveFindPredicateStateInVm } from "../move-find-predicate-envelope.ts";
+import { readMoveZipCreateStateInVm } from "../move-archive-envelope.ts";
+import {
+  readMoveBase64StateInVm,
+  readMoveGunzipStateInVm,
+  readMoveGzipStateInVm,
+  readMoveXzStateInVm,
+  readMoveZstdStateInVm,
+} from "../move-encoder-envelope.ts";
 import {
   readMoveExecutableIdentityInVm,
   validateMoveLoadTargetInVm,
@@ -25,6 +37,41 @@ import {
   moveActiveSyscallPlan,
   writeNativeProcessImageScaffold,
 } from "../move-native-bundle.ts";
+import {
+  readMoveChmodStateInVm,
+  readMoveChownStateInVm,
+  readMoveLinkStateInVm,
+  readMoveMkdirParentsStateInVm,
+  readMoveMkdirStateInVm,
+  readMoveTouchStateInVm,
+} from "../move-filesystem-mutation-envelope.ts";
+import { readMoveInstallStateInVm } from "../move-install-envelope.ts";
+import { readMoveLsLongStateInVm, readMoveLsStateInVm } from "../move-ls-envelope.ts";
+import { readMoveMaxdepthFindStateInVm } from "../move-maxdepth-find-envelope.ts";
+import { readMoveReadlinkStateInVm } from "../move-readlink-envelope.ts";
+import * as staticServers from "../move-nginx-envelope.ts";
+import { readMoveRedisIdleStateInVm as readRedisIdle } from "../move-redis-envelope.ts";
+import { readMoveRealpathStateInVm } from "../move-realpath-envelope.ts";
+import { readMoveHttpStateInVm } from "../move-python-http-envelope.ts";
+import { readMoveRecursiveGrepStateInVm } from "../move-recursive-grep-envelope.ts";
+import { readMoveRmdirStateInVm } from "../move-rmdir-envelope.ts";
+import * as rsyncEnvelope from "../move-rsync-envelope.ts";
+import { readMoveSocatFileResponderStateInVm as readSocatFileResponder } from "../move-socat-envelope.ts";
+import { readMoveRmStateInVm } from "../move-rm-envelope.ts";
+import { readMoveStatStateInVm } from "../move-stat-envelope.ts";
+import { readMoveSymlinkStateInVm } from "../move-symlink-envelope.ts";
+import { readMoveTreeStateInVm } from "../move-tree-envelope.ts";
+import {
+  readMoveAwkFieldStateInVm,
+  readMoveCommStateInVm,
+  readMoveCutStateInVm,
+  readMoveHeadStateInVm,
+  readMoveJoinStateInVm,
+  readMovePasteStateInVm,
+  readMoveSedStateInVm,
+  readMoveTailLinesStateInVm,
+  readMoveUniqStateInVm,
+} from "../move-file-utility-capture.ts";
 import { buildMoveResourcePlan, parseGuestMoveResourceScan } from "../move-resource-plan.ts";
 import { runMoveTargetDirectLoaderInVm, type MoveLoadDirectLoader } from "../move-rendezvous.ts";
 import {
@@ -35,7 +82,6 @@ import {
   readMoveFindStateInVm,
   readMoveGoStaticHttpState,
   readMoveGrepState,
-  readMoveHttpState,
   readMoveLessState,
   readMoveMvStateInVm,
   readMoveNcState,
@@ -49,6 +95,7 @@ import {
   readMoveSortStateInVm,
   readMoveSleepStateInVm,
   readMoveTailGrepPipelineState,
+  readMoveTarExtractStateInVm,
   readMoveTarState,
   readMoveTailState,
   readMoveTimeoutState,
@@ -71,10 +118,7 @@ const MOVE_HANDLERS = new Map<string, MoveHandler>([
 
 export function cmdMove(args: string[]): Promise<number> | number {
   const { json, rest } = consumeJsonFlag(args);
-  const handler = MOVE_HANDLERS.get(rest[0] ?? "");
-  if (!handler) {
-    die(moveUsage());
-  }
+  const handler = MOVE_HANDLERS.get(rest[0] ?? "") ?? die(moveUsage());
   return handler(rest.slice(1), json);
 }
 
@@ -119,11 +163,7 @@ type MoveSaveResult = {
   issueReport?: MoveIssueReport;
 };
 
-type MoveIssueReport = {
-  title: string;
-  body: string;
-  repository: string;
-};
+type MoveIssueReport = { title: string; body: string; repository: string };
 
 function parseMoveSaveArgs(args: string[]): MoveSaveOptions {
   const { target, rest } = resolveTarget(args, "move save");
@@ -150,9 +190,7 @@ function parseMoveSaveFlags(args: string[]): { issue: boolean; issueRepo?: strin
   return flags;
 }
 
-function newMoveSaveFlags(): { issue: boolean; issueRepo?: string } {
-  return { issue: false };
-}
+const newMoveSaveFlags = (): { issue: boolean; issueRepo?: string } => ({ issue: false });
 
 function parseMoveSaveFlag(
   args: string[],
@@ -199,7 +237,7 @@ function writeMoveDescriptorResult(
     accepted,
     descriptorPath: bundlePath,
     descriptor: bundleDescriptor,
-    refusalCode: moveRefusalCode(accepted),
+    refusalCode: accepted ? undefined : MOVE_REFUSAL_CODE,
     issueReport: moveIssueReport(descriptor, options),
   };
 }
@@ -244,6 +282,14 @@ function moveEnvelopeAllowedRefusalClasses(descriptor: MoveDescriptor): Set<stri
     descriptor.resourcePlan?.capture?.httpState ||
     descriptor.resourcePlan?.capture?.busyboxHttpState ||
     descriptor.resourcePlan?.capture?.ncState ||
+    descriptor.resourcePlan?.capture?.busyboxNcState ||
+    descriptor.resourcePlan?.capture?.socatFileResponderState ||
+    descriptor.resourcePlan?.capture?.redisIdleState ||
+    descriptor.resourcePlan?.capture?.nginxStaticState ||
+    descriptor.resourcePlan?.capture?.caddyStaticState ||
+    descriptor.resourcePlan?.capture?.rubyHttpState ||
+    descriptor.resourcePlan?.capture?.phpStaticState ||
+    descriptor.resourcePlan?.capture?.rsyncDaemonState ||
     descriptor.resourcePlan?.capture?.envState ||
     descriptor.resourcePlan?.capture?.timeoutState ||
     descriptor.resourcePlan?.capture?.pythonStaticRouteState ||
@@ -260,19 +306,52 @@ function moveEnvelopeAllowedRefusalClasses(descriptor: MoveDescriptor): Set<stri
     descriptor.resourcePlan?.capture?.ddState ||
     descriptor.resourcePlan?.capture?.cpState ||
     descriptor.resourcePlan?.capture?.mvState ||
+    descriptor.resourcePlan?.capture?.headState ||
+    descriptor.resourcePlan?.capture?.tailLinesState ||
+    descriptor.resourcePlan?.capture?.sedState ||
+    descriptor.resourcePlan?.capture?.awkFieldState ||
+    descriptor.resourcePlan?.capture?.cutState ||
+    descriptor.resourcePlan?.capture?.pasteState ||
+    descriptor.resourcePlan?.capture?.uniqState ||
+    descriptor.resourcePlan?.capture?.commState ||
+    descriptor.resourcePlan?.capture?.joinState ||
     descriptor.resourcePlan?.capture?.sortState ||
     descriptor.resourcePlan?.capture?.wcState ||
     descriptor.resourcePlan?.capture?.sha256State ||
+    descriptor.resourcePlan?.capture?.checksumState ||
+    descriptor.resourcePlan?.capture?.base64State ||
+    descriptor.resourcePlan?.capture?.gzipState ||
+    descriptor.resourcePlan?.capture?.gunzipState ||
+    descriptor.resourcePlan?.capture?.xzState ||
+    descriptor.resourcePlan?.capture?.zstdState ||
     descriptor.resourcePlan?.capture?.findState ||
-    descriptor.resourcePlan?.capture?.tarState
+    descriptor.resourcePlan?.capture?.tarState ||
+    descriptor.resourcePlan?.capture?.tarExtractState ||
+    descriptor.resourcePlan?.capture?.zipCreateState ||
+    descriptor.resourcePlan?.capture?.mkdirState ||
+    descriptor.resourcePlan?.capture?.mkdirParentsState ||
+    descriptor.resourcePlan?.capture?.touchState ||
+    descriptor.resourcePlan?.capture?.chmodState ||
+    descriptor.resourcePlan?.capture?.chownState ||
+    descriptor.resourcePlan?.capture?.linkState ||
+    descriptor.resourcePlan?.capture?.symlinkState ||
+    descriptor.resourcePlan?.capture?.rmState ||
+    descriptor.resourcePlan?.capture?.rmdirState ||
+    descriptor.resourcePlan?.capture?.installState ||
+    descriptor.resourcePlan?.capture?.lsState ||
+    descriptor.resourcePlan?.capture?.lsLongState ||
+    descriptor.resourcePlan?.capture?.duState ||
+    descriptor.resourcePlan?.capture?.statState ||
+    descriptor.resourcePlan?.capture?.readlinkState ||
+    descriptor.resourcePlan?.capture?.realpathState ||
+    descriptor.resourcePlan?.capture?.recursiveGrepState ||
+    descriptor.resourcePlan?.capture?.maxdepthFindState ||
+    descriptor.resourcePlan?.capture?.findPredicateState ||
+    descriptor.resourcePlan?.capture?.treeState
   ) {
     return new Set(["open-files", "threads"]);
   }
   return undefined;
-}
-
-function moveRefusalCode(accepted: boolean): typeof MOVE_REFUSAL_CODE | undefined {
-  return accepted ? undefined : MOVE_REFUSAL_CODE;
 }
 
 function moveIssueReport(
@@ -469,10 +548,12 @@ async function attachMoveSourceIdentity(
   pipelineTailResourcePlan: MoveResourcePlan | undefined,
   timeoutChildResourcePlan: MoveResourcePlan | undefined,
 ): Promise<void> {
+  const executablePath =
+    node.exe ?? (node.argv[0]?.startsWith("/") ? node.argv[0] : `/usr/bin/${node.command}`);
   resourcePlan.capture = {
     ...resourcePlan.capture,
     sourceVm: { pid: vm.pid, name: vm.name },
-    executablePackage: await readMoveExecutableIdentityInVm(vm, node.exe ?? moveProcessPath(node)),
+    executablePackage: await readMoveExecutableIdentityInVm(vm, executablePath),
     pingState: await readMovePingStateInVm(vm, resourcePlan),
     sleepState: await readMoveSleepStateInVm(vm, node),
     tailState: readMoveTailState(node, resourcePlan),
@@ -482,9 +563,17 @@ async function attachMoveSourceIdentity(
     grepState: readMoveGrepState(node, resourcePlan),
     watchState: readMoveWatchState(node),
     shellState: readMoveShellState(node),
-    httpState: readMoveHttpState(node, resourcePlan),
+    httpState: await readMoveHttpStateInVm(vm, node, resourcePlan),
     busyboxHttpState: readMoveBusyboxHttpState(node, resourcePlan),
     ncState: readMoveNcState(node, resourcePlan),
+    busyboxNcState: readMoveBusyboxNcState(node, resourcePlan),
+    socatFileResponderState: await readSocatFileResponder(vm, node, nodes, resourcePlan),
+    redisIdleState: await readRedisIdle(vm, node, resourcePlan),
+    nginxStaticState: await staticServers.readNginxStatic(vm, node, resourcePlan),
+    caddyStaticState: await staticServers.readCaddyStatic(vm, node, resourcePlan),
+    rubyHttpState: await staticServers.readRubyHttpState(vm, node, resourcePlan),
+    phpStaticState: await staticServers.readPhpStaticState(vm, node, resourcePlan),
+    rsyncDaemonState: await rsyncEnvelope.readRsyncDaemonState(vm, node, resourcePlan),
     envState: await readMoveEnvStateInVm(vm, node, resourcePlan),
     timeoutState: readMoveTimeoutState(node, nodes, timeoutChildResourcePlan),
     pythonStaticRouteState: await readMovePythonStaticRouteStateInVm(vm, node, resourcePlan),
@@ -494,17 +583,50 @@ async function attachMoveSourceIdentity(
     ddState: readMoveDdState(node, resourcePlan),
     cpState: readMoveCpState(node, resourcePlan),
     mvState: await readMoveMvStateInVm(vm, node),
+    headState: await readMoveHeadStateInVm(vm, node, resourcePlan),
+    tailLinesState: await readMoveTailLinesStateInVm(vm, node, resourcePlan),
+    sedState: await readMoveSedStateInVm(vm, node, resourcePlan),
+    awkFieldState: await readMoveAwkFieldStateInVm(vm, node, resourcePlan),
+    cutState: await readMoveCutStateInVm(vm, node, resourcePlan),
+    pasteState: await readMovePasteStateInVm(vm, node, resourcePlan),
+    uniqState: await readMoveUniqStateInVm(vm, node, resourcePlan),
+    commState: await readMoveCommStateInVm(vm, node, resourcePlan),
+    joinState: await readMoveJoinStateInVm(vm, node, resourcePlan),
     sortState: await readMoveSortStateInVm(vm, node, resourcePlan),
     wcState: await readMoveWcStateInVm(vm, node, resourcePlan),
     sha256State: await readMoveSha256StateInVm(vm, node, resourcePlan),
+    checksumState: await readMoveChecksumStateInVm(vm, node, resourcePlan),
+    base64State: await readMoveBase64StateInVm(vm, node, resourcePlan),
+    gzipState: await readMoveGzipStateInVm(vm, node, resourcePlan),
+    gunzipState: await readMoveGunzipStateInVm(vm, node, resourcePlan),
+    xzState: await readMoveXzStateInVm(vm, node, resourcePlan),
+    zstdState: await readMoveZstdStateInVm(vm, node, resourcePlan),
     findState: await readMoveFindStateInVm(vm, node, resourcePlan),
     tarState: readMoveTarState(node),
+    tarExtractState: await readMoveTarExtractStateInVm(vm, node),
+    zipCreateState: await readMoveZipCreateStateInVm(vm, node),
+    mkdirState: await readMoveMkdirStateInVm(vm, node),
+    mkdirParentsState: await readMoveMkdirParentsStateInVm(vm, node),
+    touchState: await readMoveTouchStateInVm(vm, node),
+    chmodState: await readMoveChmodStateInVm(vm, node),
+    chownState: await readMoveChownStateInVm(vm, node),
+    linkState: await readMoveLinkStateInVm(vm, node),
+    symlinkState: await readMoveSymlinkStateInVm(vm, node),
+    rmState: await readMoveRmStateInVm(vm, node),
+    rmdirState: await readMoveRmdirStateInVm(vm, node),
+    installState: await readMoveInstallStateInVm(vm, node),
+    lsState: await readMoveLsStateInVm(vm, node, resourcePlan),
+    lsLongState: await readMoveLsLongStateInVm(vm, node, resourcePlan),
+    duState: await readMoveDuStateInVm(vm, node, resourcePlan),
+    statState: await readMoveStatStateInVm(vm, node, resourcePlan),
+    readlinkState: await readMoveReadlinkStateInVm(vm, node, resourcePlan),
+    realpathState: await readMoveRealpathStateInVm(vm, node, resourcePlan),
+    recursiveGrepState: await readMoveRecursiveGrepStateInVm(vm, node, resourcePlan),
+    maxdepthFindState: await readMoveMaxdepthFindStateInVm(vm, node, resourcePlan),
+    findPredicateState: await readMoveFindPredicateStateInVm(vm, node, resourcePlan),
+    treeState: await readMoveTreeStateInVm(vm, node, resourcePlan),
     nodeStaticHttpState: await readMoveNodeStaticHttpStateInVm(vm, node, resourcePlan),
   };
-}
-
-function moveProcessPath(node: MovePidGraphNode): string {
-  return node.argv[0]?.startsWith("/") ? node.argv[0]! : `/usr/bin/${node.command}`;
 }
 
 async function scanMovePidGraphInVm(vm: VmHandle, rootPid?: number): Promise<MovePidGraph> {
@@ -516,19 +638,10 @@ async function scanMoveTimeoutChildResourcePlanInVm(
   vm: VmHandle,
   nodes: MovePidGraphNode[],
 ): Promise<MoveResourcePlan | undefined> {
-  const child = moveTimeoutChildNode(nodes);
-  return child ? scanMoveResourcePlanInVm(vm, child) : undefined;
-}
-
-function moveTimeoutChildNode(nodes: MovePidGraphNode[]): MovePidGraphNode | undefined {
   const root = nodes[0];
-  return root && moveNodeCommandName(root) === "timeout"
-    ? nodes.find((item) => item.ppid === root.pid)
-    : undefined;
-}
-
-function moveNodeCommandName(node: MovePidGraphNode): string {
-  return basename(node.exe ?? node.argv[0] ?? node.command);
+  const child =
+    root?.command === "timeout" ? nodes.find((item) => item.ppid === root.pid) : undefined;
+  return child ? scanMoveResourcePlanInVm(vm, child) : undefined;
 }
 
 async function scanMoveTailPipelineResourcePlanInVm(
@@ -677,10 +790,11 @@ function moveDescendantProcNodes(nodes: MovePidGraphNode[], rootPid: number): Mo
   return nodes.filter((node) => selected.has(node.pid));
 }
 
+// fallow-ignore-next-line complexity
 function parseGuestProcRow(row: string): MovePidGraphNode | undefined {
   const [pidText, stat = "", cmdline = "", cwd = "", exe = ""] = row.split("\t");
-  const pid = parseOptionalPositiveInteger(pidText ?? "");
-  if (pid === undefined) {
+  const pid = Number(pidText);
+  if (!Number.isInteger(pid) || pid <= 0) {
     return undefined;
   }
   const argv = cmdline.split("\x1f").filter(Boolean);
@@ -690,8 +804,8 @@ function parseGuestProcRow(row: string): MovePidGraphNode | undefined {
     ppid: parsePpid(stat),
     command,
     argv,
-    cwd: emptyToUndefined(cwd),
-    exe: emptyToUndefined(exe),
+    cwd: cwd || undefined,
+    exe: exe || undefined,
   };
 }
 
@@ -700,10 +814,6 @@ function moveProcCommand(argv: string[], stat: string, pid: number): string {
     return basename(argv[0]);
   }
   return parseStatCommand(stat) ?? `pid-${pid}`;
-}
-
-function emptyToUndefined(value: string): string | undefined {
-  return value === "" ? undefined : value;
 }
 
 function translatedStateClasses(
@@ -838,10 +948,11 @@ function buildMoveIssueReport(
   repository = "redwoodjs/machinen",
 ): MoveIssueReport {
   const stateClasses = descriptor.refusedStateClasses.map((item) => item.stateClass).join(", ");
-  const rootPid = moveDescriptorRootPidLabel(descriptor);
+  const rootPid = descriptor.rootPid === undefined ? "unknown" : String(descriptor.rootPid);
+  const stateLabel = stateClasses || "no refusals";
   return {
     repository,
-    title: `move refused in-VM PID ${rootPid}: ${moveStateClassLabel(stateClasses, "no refusals")}`,
+    title: `move refused in-VM PID ${rootPid}: ${stateLabel}`,
     body: [
       "## Problem",
       "`machinen move` refused this in-VM PID graph because some state classes are not proven yet.",
@@ -849,20 +960,12 @@ function buildMoveIssueReport(
       "## Redacted evidence",
       `- root pid: ${rootPid}`,
       `- process count: ${descriptor.nodes.length}`,
-      `- refused classes: ${moveStateClassLabel(stateClasses, "none")}`,
+      `- refused classes: ${stateClasses || "none"}`,
       "",
       "## Next action",
       ...descriptor.refusedStateClasses.map((item) => `- ${item.stateClass}: ${item.nextAction}`),
     ].join("\n"),
   };
-}
-
-function moveDescriptorRootPidLabel(descriptor: MoveDescriptor): string {
-  return descriptor.rootPid === undefined ? "unknown" : String(descriptor.rootPid);
-}
-
-function moveStateClassLabel(value: string, fallback: string): string {
-  return value === "" ? fallback : value;
 }
 
 function parseStatCommand(stat: string): string | undefined {
@@ -881,14 +984,6 @@ function parsePpid(stat: string): number | undefined {
 
 function moveUsage(): string {
   return "usage: machinen move scan <vm> [--json] | machinen move save <vm> <pid> <out-dir> [--issue] [--issue-repo <owner/repo>] [--json] | machinen move load <vm> <bundle-dir> [--json]";
-}
-
-function parseOptionalPositiveInteger(value: string): number | undefined {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return undefined;
-  }
-  return parsed;
 }
 
 function parsePositiveInteger(value: string, flag: string): number {

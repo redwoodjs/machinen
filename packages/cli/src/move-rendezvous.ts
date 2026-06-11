@@ -1,5 +1,30 @@
 import type { MoveDescriptor, NativeProcessImageRefusal, VmHandle } from "@machinen/runtime";
-
+import { runMoveTargetZipCreateLoaderInVm } from "./move-archive-envelope.ts";
+import { runMoveTargetBusyboxNcLoaderInVm } from "./move-busybox-nc-envelope.ts";
+import { runMoveTargetChecksumLoaderInVm } from "./move-checksum-envelope.ts";
+import * as fsMutationLoaders from "./move-filesystem-mutation-envelope.ts";
+import { runMoveTargetDuLoaderInVm } from "./move-du-envelope.ts";
+import { runMoveTargetInstallLoaderInVm } from "./move-install-envelope.ts";
+import { runMoveTargetLsLoaderInVm, runMoveTargetLsLongLoaderInVm } from "./move-ls-envelope.ts";
+import { runMoveTargetReadlinkLoaderInVm } from "./move-readlink-envelope.ts";
+import * as staticServers from "./move-nginx-envelope.ts";
+import { runMoveTargetRedisIdleLoaderInVm as runRedisIdle } from "./move-redis-envelope.ts";
+import { runMoveTargetRealpathLoaderInVm } from "./move-realpath-envelope.ts";
+import { runMoveTargetRecursiveGrepLoaderInVm } from "./move-recursive-grep-envelope.ts";
+import { runMoveTargetRmdirLoaderInVm } from "./move-rmdir-envelope.ts";
+import * as rsyncEnvelope from "./move-rsync-envelope.ts";
+import { runMoveTargetStatLoaderInVm } from "./move-stat-envelope.ts";
+import { runMoveTargetRmLoaderInVm } from "./move-rm-envelope.ts";
+import { runMoveTargetSocatFileResponderLoaderInVm as runSocatFileResponder } from "./move-socat-envelope.ts";
+import { runMoveTargetSymlinkLoaderInVm } from "./move-symlink-envelope.ts";
+import { runMoveTargetTreeLoaderInVm } from "./move-tree-envelope.ts";
+import {
+  runMoveTargetBase64LoaderInVm,
+  runMoveTargetGunzipLoaderInVm,
+  runMoveTargetGzipLoaderInVm,
+  runMoveTargetXzLoaderInVm,
+  runMoveTargetZstdLoaderInVm,
+} from "./move-encoder-envelope.ts";
 import {
   moveBusyboxHttpLoaderCommand,
   moveCpLoaderCommand,
@@ -19,43 +44,31 @@ import {
   moveSortLoaderCommand,
   moveTailGrepPipelineLoaderCommand,
   moveTailLoaderCommand,
+  moveTarExtractLoaderCommand,
   moveTarLoaderCommand,
   moveTimeoutLoaderCommand,
   moveWatchLoaderCommand,
   moveWcLoaderCommand,
 } from "./move-envelope-loader-commands.ts";
+import {
+  runMoveTargetAwkFieldLoaderInVm,
+  runMoveTargetCommLoaderInVm,
+  runMoveTargetCutLoaderInVm,
+  runMoveTargetHeadLoaderInVm,
+  runMoveTargetJoinLoaderInVm,
+  runMoveTargetPasteLoaderInVm,
+  runMoveTargetSedLoaderInVm,
+  runMoveTargetTailLinesLoaderInVm,
+  runMoveTargetUniqLoaderInVm,
+} from "./move-file-utility-rendezvous.ts";
+import { runMoveTargetFindPredicateLoaderInVm } from "./move-find-predicate-envelope.ts";
+import { runMoveTargetMaxdepthFindLoaderInVm } from "./move-maxdepth-find-envelope.ts";
 import { moveNodeStaticHttpLoaderCommand } from "./move-node-static-loader.ts";
 import { parseGuestMoveResourceScan } from "./move-resource-plan.ts";
-
+type Loader = (vm: VmHandle, descriptor: MoveDescriptor) => Promise<MoveLoadDirectLoader>;
 export interface MoveLoadDirectLoader {
   state: "ready" | "refused";
-  strategy:
-    | "target-original-ping-direct-loader"
-    | "target-original-sleep-remaining-loader"
-    | "target-original-tail-offset-loader"
-    | "target-original-less-script-pty-loader"
-    | "target-original-vi-readonly-script-pty-loader"
-    | "target-original-cat-offset-loader"
-    | "target-original-grep-offset-loader"
-    | "target-original-watch-loop-loader"
-    | "target-original-sh-script-pty-loader"
-    | "target-original-python-http-server-loader"
-    | "target-original-busybox-httpd-loader"
-    | "target-original-nc-listener-loader"
-    | "target-original-timeout-python-http-server-loader"
-    | "target-original-python-static-route-loader"
-    | "target-native-go-static-http-loader"
-    | "target-native-rust-static-http-loader"
-    | "target-original-tail-grep-pipeline-loader"
-    | "target-original-dd-offset-loader"
-    | "target-original-cp-offset-loader"
-    | "target-original-mv-rename-loader"
-    | "target-original-sort-file-loader"
-    | "target-original-wc-line-loader"
-    | "target-original-sha256sum-file-loader"
-    | "target-original-find-cursor-loader"
-    | "target-original-tar-create-loader"
-    | "target-original-node-static-http-loader";
+  strategy: string;
   executable: string;
   argv: string[];
   targetPid?: number;
@@ -64,20 +77,14 @@ export interface MoveLoadDirectLoader {
   patch?: { state: "ready" | "refused"; stdout: string; stderr: string; exitCode: number };
   refusals: NativeProcessImageRefusal[];
 }
-
-type MoveLoadRendezvous = MoveLoadDirectLoader;
-type MoveTargetDirectLoaderRunner = (
-  vm: VmHandle,
-  descriptor: MoveDescriptor,
-) => Promise<MoveLoadRendezvous>;
-
+type ParsedRendezvousOutput = { pid?: number; logPath?: string; captureRows: string[] };
 export async function runMoveTargetDirectLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
-  const envelopeLoader = moveTargetEnvelopeLoader(descriptor);
-  if (envelopeLoader) {
-    return envelopeLoader(vm, descriptor);
+): Promise<MoveLoadDirectLoader> {
+  const loader = moveTargetEnvelopeLoader(descriptor);
+  if (loader) {
+    return loader(vm, descriptor);
   }
   const executable = moveRendezvousExecutable(descriptor);
   const argv = moveRendezvousArgv(descriptor, executable);
@@ -109,13 +116,10 @@ export async function runMoveTargetDirectLoaderInVm(
     refusals,
   };
 }
-
 // fallow-ignore-next-line complexity
-function moveTargetEnvelopeLoader(
-  descriptor: MoveDescriptor,
-): MoveTargetDirectLoaderRunner | undefined {
+function moveTargetEnvelopeLoader(descriptor: MoveDescriptor): Loader | undefined {
   const capture = descriptor.resourcePlan?.capture;
-  const loaders: Array<[unknown, MoveTargetDirectLoaderRunner]> = [
+  const loaders: Array<[unknown, Loader]> = [
     [capture?.sleepState, runMoveTargetSleepLoaderInVm],
     [capture?.tailState, runMoveTargetTailLoaderInVm],
     [capture?.lessState, runMoveTargetLessLoaderInVm],
@@ -127,6 +131,14 @@ function moveTargetEnvelopeLoader(
     [capture?.httpState, runMoveTargetHttpLoaderInVm],
     [capture?.busyboxHttpState, runMoveTargetBusyboxHttpLoaderInVm],
     [capture?.ncState, runMoveTargetNcLoaderInVm],
+    [capture?.busyboxNcState, runMoveTargetBusyboxNcLoaderInVm],
+    [capture?.socatFileResponderState, runSocatFileResponder],
+    [capture?.redisIdleState, runRedisIdle],
+    [capture?.nginxStaticState, staticServers.runNginxStatic],
+    [capture?.caddyStaticState, staticServers.runCaddyStatic],
+    [capture?.rubyHttpState, staticServers.runRubyHttp],
+    [capture?.phpStaticState, staticServers.runPhpStatic],
+    [capture?.rsyncDaemonState, rsyncEnvelope.runRsyncDaemon],
     [capture?.timeoutState, runMoveTargetTimeoutLoaderInVm],
     [capture?.pythonStaticRouteState, runMoveTargetPythonStaticRouteLoaderInVm],
     [capture?.goStaticHttpState, runMoveTargetGoStaticHttpLoaderInVm],
@@ -135,20 +147,56 @@ function moveTargetEnvelopeLoader(
     [capture?.ddState, runMoveTargetDdLoaderInVm],
     [capture?.cpState, runMoveTargetCpLoaderInVm],
     [capture?.mvState, runMoveTargetMvLoaderInVm],
+    [capture?.headState, runMoveTargetHeadLoaderInVm],
+    [capture?.tailLinesState, runMoveTargetTailLinesLoaderInVm],
+    [capture?.sedState, runMoveTargetSedLoaderInVm],
+    [capture?.awkFieldState, runMoveTargetAwkFieldLoaderInVm],
+    [capture?.cutState, runMoveTargetCutLoaderInVm],
+    [capture?.pasteState, runMoveTargetPasteLoaderInVm],
+    [capture?.uniqState, runMoveTargetUniqLoaderInVm],
+    [capture?.commState, runMoveTargetCommLoaderInVm],
+    [capture?.joinState, runMoveTargetJoinLoaderInVm],
     [capture?.sortState, runMoveTargetSortLoaderInVm],
     [capture?.wcState, runMoveTargetWcLoaderInVm],
     [capture?.sha256State, runMoveTargetSha256LoaderInVm],
+    [capture?.checksumState, runMoveTargetChecksumLoaderInVm],
+    [capture?.base64State, runMoveTargetBase64LoaderInVm],
+    [capture?.gzipState, runMoveTargetGzipLoaderInVm],
+    [capture?.gunzipState, runMoveTargetGunzipLoaderInVm],
+    [capture?.xzState, runMoveTargetXzLoaderInVm],
+    [capture?.zstdState, runMoveTargetZstdLoaderInVm],
     [capture?.findState, runMoveTargetFindLoaderInVm],
     [capture?.tarState, runMoveTargetTarLoaderInVm],
+    [capture?.tarExtractState, runMoveTargetTarExtractLoaderInVm],
+    [capture?.zipCreateState, runMoveTargetZipCreateLoaderInVm],
+    [capture?.mkdirState, fsMutationLoaders.runMoveTargetMkdirLoaderInVm],
+    [capture?.mkdirParentsState, fsMutationLoaders.runMoveTargetMkdirParentsLoaderInVm],
+    [capture?.touchState, fsMutationLoaders.runMoveTargetTouchLoaderInVm],
+    [capture?.chmodState, fsMutationLoaders.runMoveTargetChmodLoaderInVm],
+    [capture?.chownState, fsMutationLoaders.runMoveTargetChownLoaderInVm],
+    [capture?.linkState, fsMutationLoaders.runMoveTargetLinkLoaderInVm],
+    [capture?.symlinkState, runMoveTargetSymlinkLoaderInVm],
+    [capture?.rmState, runMoveTargetRmLoaderInVm],
+    [capture?.rmdirState, runMoveTargetRmdirLoaderInVm],
+    [capture?.installState, runMoveTargetInstallLoaderInVm],
+    [capture?.lsState, runMoveTargetLsLoaderInVm],
+    [capture?.lsLongState, runMoveTargetLsLongLoaderInVm],
+    [capture?.duState, runMoveTargetDuLoaderInVm],
+    [capture?.statState, runMoveTargetStatLoaderInVm],
+    [capture?.readlinkState, runMoveTargetReadlinkLoaderInVm],
+    [capture?.realpathState, runMoveTargetRealpathLoaderInVm],
+    [capture?.recursiveGrepState, runMoveTargetRecursiveGrepLoaderInVm],
+    [capture?.maxdepthFindState, runMoveTargetMaxdepthFindLoaderInVm],
+    [capture?.findPredicateState, runMoveTargetFindPredicateLoaderInVm],
+    [capture?.treeState, runMoveTargetTreeLoaderInVm],
     [capture?.nodeStaticHttpState, runMoveTargetNodeStaticHttpLoaderInVm],
   ];
   return loaders.find(([state]) => state)?.[1];
 }
-
 async function runMoveTargetSleepLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const sleepState = descriptor.resourcePlan?.capture?.sleepState;
   const argv = [executable, sleepRemainingSecondsArg(sleepState?.remainingMs ?? 0)];
@@ -169,11 +217,10 @@ async function runMoveTargetSleepLoaderInVm(
     refusals,
   };
 }
-
 async function runMoveTargetTailLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const tailState = descriptor.resourcePlan?.capture?.tailState;
   const argv = [executable, "-c", `+${(tailState?.offset ?? 0) + 1}`, "-f", tailState?.path ?? ""];
@@ -194,11 +241,10 @@ async function runMoveTargetTailLoaderInVm(
     refusals,
   };
 }
-
 async function runMoveTargetLessLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const lessState = descriptor.resourcePlan?.capture?.lessState;
   const argv = [executable, `+${lessState?.line ?? 1}`, lessState?.path ?? ""];
@@ -219,11 +265,10 @@ async function runMoveTargetLessLoaderInVm(
     refusals,
   };
 }
-
 async function runMoveTargetViLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const viState = descriptor.resourcePlan?.capture?.viState;
   const argv = [executable, `+${viState?.line ?? 1}`, viState?.path ?? ""];
@@ -244,11 +289,10 @@ async function runMoveTargetViLoaderInVm(
     refusals,
   };
 }
-
 async function runMoveTargetReaderLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.readerState;
   const argv = [executable, state?.path ?? ""];
@@ -262,11 +306,10 @@ async function runMoveTargetReaderLoaderInVm(
     "target cat offset loader failed",
   );
 }
-
 async function runMoveTargetGrepLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.grepState;
   const argv = [executable, state?.pattern ?? "", state?.path ?? ""];
@@ -280,11 +323,10 @@ async function runMoveTargetGrepLoaderInVm(
     "target grep offset loader failed",
   );
 }
-
 async function runMoveTargetWatchLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.watchState;
   const argv = [executable, "-n", String(state?.intervalSeconds ?? 2), ...(state?.command ?? [])];
@@ -298,11 +340,10 @@ async function runMoveTargetWatchLoaderInVm(
     "target watch loop loader failed",
   );
 }
-
 async function runMoveTargetShellLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.shellState;
   const argv = [executable];
@@ -316,11 +357,10 @@ async function runMoveTargetShellLoaderInVm(
     "target shell script-pty loader failed",
   );
 }
-
 async function runMoveTargetGoStaticHttpLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const state = descriptor.resourcePlan?.capture?.goStaticHttpState;
   const executable = state?.binaryPath ?? moveRendezvousExecutable(descriptor);
   const argv = state
@@ -344,11 +384,10 @@ async function runMoveTargetGoStaticHttpLoaderInVm(
     "target go static http loader failed",
   );
 }
-
 async function runMoveTargetRustStaticHttpLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const state = descriptor.resourcePlan?.capture?.rustStaticHttpState;
   const executable = state?.binaryPath ?? moveRendezvousExecutable(descriptor);
   const argv = state
@@ -372,11 +411,10 @@ async function runMoveTargetRustStaticHttpLoaderInVm(
     "target rust static http loader failed",
   );
 }
-
 async function runMoveTargetPythonStaticRouteLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.pythonStaticRouteState;
   const argv = state ? [executable, state.scriptPath] : [executable];
@@ -390,11 +428,10 @@ async function runMoveTargetPythonStaticRouteLoaderInVm(
     "target python static route loader failed",
   );
 }
-
 async function runMoveTargetTimeoutLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.timeoutState;
   const argv = state
@@ -417,11 +454,10 @@ async function runMoveTargetTimeoutLoaderInVm(
     "target timeout python http server loader failed",
   );
 }
-
 async function runMoveTargetNcLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.ncState;
   const argv = state ? [executable, "-l", String(state.port)] : [executable];
@@ -435,11 +471,10 @@ async function runMoveTargetNcLoaderInVm(
     "target nc listener loader failed",
   );
 }
-
 async function runMoveTargetBusyboxHttpLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.busyboxHttpState;
   const argv = state
@@ -455,16 +490,17 @@ async function runMoveTargetBusyboxHttpLoaderInVm(
     "target busybox httpd loader failed",
   );
 }
-
 async function runMoveTargetHttpLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.httpState;
-  const argv = state?.directory
-    ? [executable, "-m", "http.server", "--directory", state.directory, String(state.port)]
-    : [executable, "-m", "http.server", String(state?.port ?? 8000)];
+  const argv = [executable, "-m", "http.server", "--bind", "127.0.0.1"].concat(
+    state?.directory
+      ? ["--directory", state.directory, String(state.port)]
+      : [String(state?.port ?? 8000)],
+  );
   return runSimpleMoveLoader(
     vm,
     "target-original-python-http-server-loader",
@@ -475,11 +511,10 @@ async function runMoveTargetHttpLoaderInVm(
     "target python http server loader failed",
   );
 }
-
 async function runMoveTargetNodeStaticHttpLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.nodeStaticHttpState;
   const argv = [executable, state?.scriptPath ?? ""];
@@ -493,11 +528,10 @@ async function runMoveTargetNodeStaticHttpLoaderInVm(
     "target node static http loader failed",
   );
 }
-
 async function runMoveTargetTarLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.tarState;
   const argv = [executable, "-cf", state?.archivePath ?? "", state?.sourceDir ?? ""];
@@ -511,11 +545,27 @@ async function runMoveTargetTarLoaderInVm(
     "target tar create loader failed",
   );
 }
-
+async function runMoveTargetTarExtractLoaderInVm(
+  vm: VmHandle,
+  descriptor: MoveDescriptor,
+): Promise<MoveLoadDirectLoader> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const state = descriptor.resourcePlan?.capture?.tarExtractState;
+  const argv = [executable, "-xf", state?.archivePath ?? "", "-C", state?.targetDir ?? ""];
+  return runSimpleMoveLoader(
+    vm,
+    "target-original-tar-extract-loader",
+    executable,
+    argv,
+    moveTarExtractLoaderCommand(executable, state),
+    "tar-extract",
+    "target tar extract loader failed",
+  );
+}
 async function runMoveTargetFindLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.findState;
   const argv = [executable, state?.rootPath ?? "", "-type", "f", "-print"];
@@ -529,11 +579,10 @@ async function runMoveTargetFindLoaderInVm(
     "target find cursor loader failed",
   );
 }
-
 async function runMoveTargetSha256LoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.sha256State;
   const argv = [executable, state?.path ?? ""];
@@ -547,11 +596,10 @@ async function runMoveTargetSha256LoaderInVm(
     "target sha256sum file loader failed",
   );
 }
-
 async function runMoveTargetWcLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.wcState;
   const argv = [executable, "-l", state?.path ?? ""];
@@ -565,11 +613,10 @@ async function runMoveTargetWcLoaderInVm(
     "target wc line loader failed",
   );
 }
-
 async function runMoveTargetSortLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.sortState;
   const argv = [executable, state?.path ?? ""];
@@ -583,11 +630,10 @@ async function runMoveTargetSortLoaderInVm(
     "target sort file loader failed",
   );
 }
-
 async function runMoveTargetMvLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.mvState;
   const argv = [executable, state?.sourcePath ?? "", state?.destinationPath ?? ""];
@@ -601,11 +647,10 @@ async function runMoveTargetMvLoaderInVm(
     "target mv rename loader failed",
   );
 }
-
 async function runMoveTargetCpLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.cpState;
   const argv = [executable, state?.sourcePath ?? "", state?.destinationPath ?? ""];
@@ -619,11 +664,10 @@ async function runMoveTargetCpLoaderInVm(
     "target cp offset loader failed",
   );
 }
-
 async function runMoveTargetDdLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const state = descriptor.resourcePlan?.capture?.ddState;
   const argv = state
@@ -649,11 +693,10 @@ async function runMoveTargetDdLoaderInVm(
     "target dd offset loader failed",
   );
 }
-
 async function runMoveTargetTailGrepPipelineLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const state = descriptor.resourcePlan?.capture?.tailGrepPipelineState;
   const executable = "/bin/sh";
   const argv = [
@@ -671,7 +714,6 @@ async function runMoveTargetTailGrepPipelineLoaderInVm(
     "target tail-grep pipeline loader failed",
   );
 }
-
 async function runSimpleMoveLoader(
   vm: VmHandle,
   strategy: MoveLoadDirectLoader["strategy"],
@@ -680,7 +722,7 @@ async function runSimpleMoveLoader(
   command: string,
   patchName: string,
   refusalMessage: string,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const result = await vm.execRaw(command, { execTimeoutMs: 300_000 });
   const parsed = parseRendezvousOutput(result.stdout);
   const patch = moveNamedPatchFromOutput(result, patchName);
@@ -696,7 +738,6 @@ async function runSimpleMoveLoader(
     refusals,
   };
 }
-
 function moveRendezvousExecutable(descriptor: MoveDescriptor): string {
   return (
     descriptor.resourcePlan?.capture?.executablePackage?.path ??
@@ -704,7 +745,6 @@ function moveRendezvousExecutable(descriptor: MoveDescriptor): string {
     "/usr/bin/ping"
   );
 }
-
 function moveRendezvousArgv(descriptor: MoveDescriptor, executable: string): string[] {
   const argv = descriptor.nodes[0]?.argv ?? [];
   if (argv.length === 0) {
@@ -712,7 +752,6 @@ function moveRendezvousArgv(descriptor: MoveDescriptor, executable: string): str
   }
   return [executable, ...argv.slice(1)];
 }
-
 function moveRendezvousCommand(
   executable: string,
   args: string[],
@@ -732,7 +771,6 @@ else
   printf 'SAFE_BOUNDARY\trefused\tmissing-move-capture-agent\n'
 fi`;
 }
-
 function moveSleepLoaderCommand(executable: string, secondsArg: string): string {
   return `set -eu
 log="/tmp/machinen-move-loader-$$.log"
@@ -744,25 +782,22 @@ printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-sleep-started\n'
 printf 'PATCH\tsleep-remaining\tready\t%s\n' ${shellQuote(secondsArg)}
 `;
 }
-
 function sleepRemainingSecondsArg(remainingMs: number): string {
   return Math.max(1, Math.ceil(remainingMs / 1000)).toString();
 }
-
 function moveSleepPatchFromOutput(result: {
   stdout: string;
   stderr: string;
   exitCode: number;
-}): MoveLoadRendezvous["patch"] {
+}): MoveLoadDirectLoader["patch"] {
   const state =
     result.exitCode === 0 && result.stdout.includes("PATCH\tsleep-remaining\tready")
       ? "ready"
       : "refused";
   return { state, stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
 }
-
 function moveSleepLoaderRefusals(
-  patch: MoveLoadRendezvous["patch"] | undefined,
+  patch: MoveLoadDirectLoader["patch"] | undefined,
 ): NativeProcessImageRefusal[] {
   if (patch?.state === "ready") {
     return [];
@@ -771,21 +806,19 @@ function moveSleepLoaderRefusals(
     loaderRefusal("target-sleep-remaining-time-missing", "target sleep loader failed", { patch }),
   ];
 }
-
 function moveTailPatchFromOutput(result: {
   stdout: string;
   stderr: string;
   exitCode: number;
-}): MoveLoadRendezvous["patch"] {
+}): MoveLoadDirectLoader["patch"] {
   const state =
     result.exitCode === 0 && result.stdout.includes("PATCH\ttail-offset\tready")
       ? "ready"
       : "refused";
   return { state, stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
 }
-
 function moveTailLoaderRefusals(
-  patch: MoveLoadRendezvous["patch"] | undefined,
+  patch: MoveLoadDirectLoader["patch"] | undefined,
 ): NativeProcessImageRefusal[] {
   if (patch?.state === "ready") {
     return [];
@@ -794,20 +827,18 @@ function moveTailLoaderRefusals(
     loaderRefusal("target-fd-read-state-missing", "target tail offset loader failed", { patch }),
   ];
 }
-
 function moveScriptPtyPatchFromOutput(
   result: { stdout: string; stderr: string; exitCode: number },
   kind: "less" | "vi",
-): MoveLoadRendezvous["patch"] {
+): MoveLoadDirectLoader["patch"] {
   const state =
     result.exitCode === 0 && result.stdout.includes(`PATCH\t${kind}-script-pty\tready`)
       ? "ready"
       : "refused";
   return { state, stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
 }
-
 function moveScriptPtyLoaderRefusals(
-  patch: MoveLoadRendezvous["patch"] | undefined,
+  patch: MoveLoadDirectLoader["patch"] | undefined,
   message: string,
 ): NativeProcessImageRefusal[] {
   if (patch?.state === "ready") {
@@ -815,20 +846,18 @@ function moveScriptPtyLoaderRefusals(
   }
   return [loaderRefusal("target-process-context-unsupported", message, { patch })];
 }
-
 function moveNamedPatchFromOutput(
   result: { stdout: string; stderr: string; exitCode: number },
   patchName: string,
-): MoveLoadRendezvous["patch"] {
+): MoveLoadDirectLoader["patch"] {
   const state =
     result.exitCode === 0 && result.stdout.includes(`PATCH\t${patchName}\tready`)
       ? "ready"
       : "refused";
   return { state, stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
 }
-
 function moveNamedLoaderRefusals(
-  patch: MoveLoadRendezvous["patch"] | undefined,
+  patch: MoveLoadDirectLoader["patch"] | undefined,
   message: string,
 ): NativeProcessImageRefusal[] {
   if (patch?.state === "ready") {
@@ -836,19 +865,15 @@ function moveNamedLoaderRefusals(
   }
   return [loaderRefusal("target-process-context-unsupported", message, { patch })];
 }
-
-function parseRendezvousOutput(stdout: string): {
-  pid?: number;
-  logPath?: string;
-  captureRows: string[];
-} {
+function parseRendezvousOutput(stdout: string): ParsedRendezvousOutput {
   const captureRows: string[] = [];
   let pid: number | undefined;
   let logPath: string | undefined;
   for (const row of stdout.split("\n").filter(Boolean)) {
     const parts = row.split("\t");
     if (parts[0] === "RENDEZVOUS_PID" || parts[0] === "LOAD_PID") {
-      pid = parsePositiveInteger(parts[1] ?? "");
+      pid =
+        Number.isInteger(Number(parts[1])) && Number(parts[1]) > 0 ? Number(parts[1]) : undefined;
     } else if (parts[0] === "RENDEZVOUS_LOG" || parts[0] === "LOAD_LOG") {
       logPath = parts[1];
     } else {
@@ -857,12 +882,11 @@ function parseRendezvousOutput(stdout: string): {
   }
   return { pid, logPath, captureRows };
 }
-
 function moveRendezvousPatchFromOutput(result: {
   stdout: string;
   stderr: string;
   exitCode: number;
-}): MoveLoadRendezvous["patch"] {
+}): MoveLoadDirectLoader["patch"] {
   const state =
     result.exitCode === 0 &&
     result.stdout.includes("PATCH\tping-rts") &&
@@ -876,9 +900,8 @@ function moveRendezvousPatchFromOutput(result: {
     exitCode: result.exitCode,
   };
 }
-
 function movePatchRefusals(
-  patch: MoveLoadRendezvous["patch"] | undefined,
+  patch: MoveLoadDirectLoader["patch"] | undefined,
 ): NativeProcessImageRefusal[] {
   if (patch?.state === "ready") {
     return [];
@@ -889,7 +912,6 @@ function movePatchRefusals(
     }),
   ];
 }
-
 function moveRendezvousRefusals(capture: {
   safeBoundary?: { state: "sleep-timer" | "pre-send-icmp" | "refused"; detail: string };
   freeze?: { state: "ptrace-attached" | "refused"; detail: string };
@@ -901,7 +923,6 @@ function moveRendezvousRefusals(capture: {
   pushRegisterRefusal(refusals, capture.registers);
   return refusals;
 }
-
 function pushBoundaryRefusal(
   refusals: NativeProcessImageRefusal[],
   safeBoundary: { state: "sleep-timer" | "pre-send-icmp" | "refused"; detail: string } | undefined,
@@ -919,7 +940,6 @@ function pushBoundaryRefusal(
     ),
   );
 }
-
 function pushFreezeRefusal(
   refusals: NativeProcessImageRefusal[],
   freeze: { state: "ptrace-attached" | "refused"; detail: string } | undefined,
@@ -933,7 +953,6 @@ function pushFreezeRefusal(
     }),
   );
 }
-
 function pushRegisterRefusal(
   refusals: NativeProcessImageRefusal[],
   registers: Record<string, unknown> | undefined,
@@ -949,13 +968,12 @@ function pushRegisterRefusal(
     ),
   );
 }
-
 function loaderRefused(
   executable: string,
   argv: string[],
   parsed: { pid?: number; logPath?: string; captureRows: string[] },
   refusal: NativeProcessImageRefusal,
-): MoveLoadRendezvous {
+): MoveLoadDirectLoader {
   return {
     state: "refused",
     strategy: "target-original-ping-direct-loader",
@@ -966,7 +984,6 @@ function loaderRefused(
     refusals: [refusal],
   };
 }
-
 function loaderRefusal(
   code: NativeProcessImageRefusal["code"],
   message: string,
@@ -974,12 +991,4 @@ function loaderRefusal(
 ): NativeProcessImageRefusal {
   return { code, message, detail: { ...detail, boundary: "target-original-ping-direct-loader" } };
 }
-
-function parsePositiveInteger(value: string): number | undefined {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", `'\\''`)}'`;
-}
+const shellQuote = (value: string): string => `'${value.replaceAll("'", `'\\''`)}'`;
