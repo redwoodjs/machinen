@@ -1,0 +1,43 @@
+{
+  "name": "move-envelope-framework-pilot",
+  "description": "Small framework proof plan used to validate chunk-plan execution, deterministic fixtures, support/refusal evidence, and coverage verification without running the full envelope matrix.",
+  "chunks": [
+    {
+      "name": "file-identity-pilot",
+      "skipProvision": true,
+      "proofs": ["stat-file", "unsafe-stat-refusal"]
+    },
+    {
+      "name": "listener-refusal-pilot",
+      "skipProvision": true,
+      "proofs": ["socat-file-responder", "unsafe-socat-file-responder-refusal"]
+    }
+  ],
+  "refusalTemplates": [
+    {
+      "name": "changed-file-identity",
+      "proofs": ["unsafe-stat-refusal", "unsafe-socat-file-responder-refusal"],
+      "requiredEvidence": "loader state refused and targetPid null"
+    },
+    {
+      "name": "unsupported-option-or-shape",
+      "proofs": ["unsafe-stat-refusal", "unsafe-socat-file-responder-refusal"],
+      "requiredEvidence": "capture state omitted or save/load refused"
+    },
+    {
+      "name": "active-client",
+      "proofs": ["unsafe-socat-file-responder-refusal"],
+      "requiredEvidence": "active save refused or state omitted before load"
+    },
+    {
+      "name": "port-conflict",
+      "proofs": ["unsafe-socat-file-responder-refusal"],
+      "requiredEvidence": "loader state refused with targetPid null"
+    },
+    {
+      "name": "missing-binary",
+      "proofs": ["unsafe-socat-file-responder-refusal"],
+      "requiredEvidence": "loader state refused with targetPid null"
+    }
+  ]
+}

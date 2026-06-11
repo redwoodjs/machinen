@@ -29,7 +29,7 @@
       "packages/cli/src/move-*-envelope.ts",
       "packages/cli/src/move-envelope-capture.ts",
       "packages/cli/src/move-envelope-loader-commands.ts",
-      "packages/cli/src/move-file-utility-rendezvous.ts",
+      "packages/cli/src/move-file-utility-*.ts",
       "packages/cli/src/move-filesystem-mutation-envelope.ts",
       "packages/cli/src/move-native-bundle.ts",
       "packages/cli/src/move-rendezvous.ts",
@@ -45,7 +45,17 @@
       "scripts/native-dwarf-pointer-classification.ts",
       "scripts/*-proof.mjs",
       "scripts/*-smoke.mjs",
-      "scripts/hard-runtime-refusal-contract.mjs"
+      "scripts/hard-runtime-refusal-contract.mjs",
+      "packages/cli/src/commands/move.ts",
+      "packages/cli/src/move-*-envelope.ts",
+      "packages/cli/src/move-envelope-capture.ts",
+      "packages/cli/src/move-envelope-loader-commands.ts",
+      "packages/cli/src/move-file-utility-*.ts",
+      "packages/cli/src/move-filesystem-mutation-envelope.ts",
+      "packages/cli/src/move-native-bundle.ts",
+      "packages/cli/src/move-rendezvous.ts",
+      "packages/cli/src/move-resource-plan.ts",
+      "packages/runtime/src/move-pid-graph.ts"
     ]
   },
   "ignoreDependencies": [

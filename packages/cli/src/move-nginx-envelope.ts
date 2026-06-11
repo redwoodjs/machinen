@@ -15,7 +15,7 @@ type MoveRubyHttpState = NonNullable<MoveCapture["rubyHttpState"]>;
 type MovePhpStaticState = NonNullable<MoveCapture["phpStaticState"]>;
 type MovePatch = MoveLoadDirectLoader["patch"];
 
-export async function readMoveNginxStaticStateInVm(
+async function readMoveNginxStaticStateInVm(
   vm: VmHandle,
   node: MovePidGraphNode,
   resourcePlan: MoveResourcePlan,
@@ -43,7 +43,7 @@ export async function readMoveNginxStaticStateInVm(
     : undefined;
 }
 
-export async function runMoveTargetNginxStaticLoaderInVm(
+async function runMoveTargetNginxStaticLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
 ): Promise<MoveLoadDirectLoader> {

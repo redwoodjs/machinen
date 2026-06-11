@@ -7,8 +7,12 @@ REUSE_VMS=""
 SKIP_PROVISION=0
 TIMINGS=1
 PROVISION_MODE="default"
+CHUNK_PLAN=""
+CHUNK_NAME=""
+LIST_CHUNKS=0
+COVERAGE_DIR=""
 timing_events=()
-USAGE="usage: $0 [--json] [--only proof[,proof...]] [--reuse-vms SRC:TGT] [--skip-provision] [--timings|--no-timings]"
+USAGE="usage: $0 [--json] [--only proof[,proof...]] [--chunk-plan plan.json --chunk name|--list-chunks|--coverage-dir dir] [--reuse-vms SRC:TGT] [--skip-provision] [--timings|--no-timings]"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --)
@@ -29,6 +33,58 @@ while [[ $# -gt 0 ]]; do
     --only=*)
       ONLY="${1#--only=}"
       if [[ -z "$ONLY" ]]; then
+        echo "$USAGE" >&2
+        exit 2
+      fi
+      shift
+      ;;
+    --chunk-plan)
+      CHUNK_PLAN="${2:-}"
+      if [[ -z "$CHUNK_PLAN" ]]; then
+        echo "$USAGE" >&2
+        exit 2
+      fi
+      shift 2
+      ;;
+    --chunk-plan=*)
+      CHUNK_PLAN="${1#--chunk-plan=}"
+      if [[ -z "$CHUNK_PLAN" ]]; then
+        echo "$USAGE" >&2
+        exit 2
+      fi
+      shift
+      ;;
+    --chunk)
+      CHUNK_NAME="${2:-}"
+      if [[ -z "$CHUNK_NAME" ]]; then
+        echo "$USAGE" >&2
+        exit 2
+      fi
+      shift 2
+      ;;
+    --chunk=*)
+      CHUNK_NAME="${1#--chunk=}"
+      if [[ -z "$CHUNK_NAME" ]]; then
+        echo "$USAGE" >&2
+        exit 2
+      fi
+      shift
+      ;;
+    --list-chunks)
+      LIST_CHUNKS=1
+      shift
+      ;;
+    --coverage-dir)
+      COVERAGE_DIR="${2:-}"
+      if [[ -z "$COVERAGE_DIR" ]]; then
+        echo "$USAGE" >&2
+        exit 2
+      fi
+      shift 2
+      ;;
+    --coverage-dir=*)
+      COVERAGE_DIR="${1#--coverage-dir=}"
+      if [[ -z "$COVERAGE_DIR" ]]; then
         echo "$USAGE" >&2
         exit 2
       fi
@@ -69,6 +125,63 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -n "$COVERAGE_DIR" ]]; then
+  if [[ -z "$CHUNK_PLAN" ]]; then
+    echo "--coverage-dir requires --chunk-plan" >&2
+    exit 2
+  fi
+  coverage_json_args=()
+  if [[ "$JSON" == "1" ]]; then
+    coverage_json_args+=(--json)
+  fi
+  node scripts/move-envelope-matrix-coverage.mjs --plan "$CHUNK_PLAN" --coverage-dir "$COVERAGE_DIR" "${coverage_json_args[@]}"
+  exit 0
+fi
+
+if [[ "$LIST_CHUNKS" == "1" ]]; then
+  if [[ -z "$CHUNK_PLAN" ]]; then
+    echo "--list-chunks requires --chunk-plan" >&2
+    exit 2
+  fi
+  python3 - "$CHUNK_PLAN" <<'PY'
+import json, sys
+plan=json.load(open(sys.argv[1]))
+for chunk in plan.get('chunks', []):
+    print(chunk['name'])
+PY
+  exit 0
+fi
+
+if [[ -n "$CHUNK_NAME" ]]; then
+  if [[ -z "$CHUNK_PLAN" ]]; then
+    echo "--chunk requires --chunk-plan" >&2
+    exit 2
+  fi
+  plan_selection=$(python3 - "$CHUNK_PLAN" "$CHUNK_NAME" <<'PY'
+import json, sys
+plan=json.load(open(sys.argv[1]))
+name=sys.argv[2]
+for chunk in plan.get('chunks', []):
+    if chunk.get('name') == name:
+        print(','.join(chunk.get('proofs', [])))
+        print('skip=1' if chunk.get('skipProvision') else 'skip=0')
+        raise SystemExit(0)
+print(f'unknown chunk: {name}', file=sys.stderr)
+raise SystemExit(2)
+PY
+)
+  ONLY="$(printf '%s\n' "$plan_selection" | sed -n '1p')"
+  if [[ "$(printf '%s\n' "$plan_selection" | sed -n '2p')" == "skip=1" ]]; then
+    SKIP_PROVISION=1
+    PROVISION_MODE="chunk-plan-skip"
+  fi
+fi
+
+FIXTURE_TOUCH_TS="${MACHINEN_MOVE_MATRIX_FIXTURE_TOUCH_TS:-202606101234.56}"
+FIXTURE_TAR_MTIME="${MACHINEN_MOVE_MATRIX_FIXTURE_TAR_MTIME:-UTC 2020-01-01}"
+FIXTURE_LOCALE="${MACHINEN_MOVE_MATRIX_FIXTURE_LOCALE:-C}"
+
 CLI="${MACHINEN_MOVE_MATRIX_CLI:-node packages/cli/dist/cli.js}"
 RUN_ID="${$}-$(date +%s)"
 if [[ -n "$REUSE_VMS" ]]; then
@@ -100,6 +213,19 @@ trap cleanup EXIT
 
 json_escape() {
   python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'
+}
+
+fixed_touch_all() {
+  local vm="$1"
+  shift
+  if [[ "$#" -gt 0 ]]; then
+    $CLI exec "$vm" -- "TZ=UTC touch -t '$FIXTURE_TOUCH_TS' $*" >/dev/null
+  fi
+}
+
+deterministic_tar_create() {
+  local vm="$1" archive="$2" directory="$3"
+  $CLI exec "$vm" -- "LC_ALL='$FIXTURE_LOCALE' tar --sort=name --mtime='$FIXTURE_TAR_MTIME' --owner=0 --group=0 --numeric-owner -cf '$archive' -C '$directory' ." >/dev/null
 }
 
 now_ms() {
@@ -2580,7 +2706,7 @@ PY
 
 prepare_tar_extract_fixture() {
   local vm="$1"
-  $CLI exec "$vm" -- "rm -rf /tmp/tar-extract-src /tmp/tar-extract-target /tmp/tar-extract.tar /tmp/tar-extract.err; mkdir -p /tmp/tar-extract-src/dir /tmp/tar-extract-target; printf alpha >/tmp/tar-extract-src/alpha.txt; printf bravo >/tmp/tar-extract-src/dir/bravo.txt; tar --sort=name --mtime='UTC 2020-01-01' --owner=0 --group=0 --numeric-owner -cf /tmp/tar-extract.tar -C /tmp/tar-extract-src alpha.txt dir/bravo.txt" >/dev/null
+  $CLI exec "$vm" -- "rm -rf /tmp/tar-extract-src /tmp/tar-extract-target /tmp/tar-extract.tar /tmp/tar-extract.err; mkdir -p /tmp/tar-extract-src/dir /tmp/tar-extract-target; printf alpha >/tmp/tar-extract-src/alpha.txt; printf bravo >/tmp/tar-extract-src/dir/bravo.txt; LC_ALL='$FIXTURE_LOCALE' tar --sort=name --mtime='$FIXTURE_TAR_MTIME' --owner=0 --group=0 --numeric-owner -cf /tmp/tar-extract.tar -C /tmp/tar-extract-src alpha.txt dir/bravo.txt" >/dev/null
 }
 
 spawn_stopped_tar_extract_with_name() {
@@ -4720,7 +4846,8 @@ PY
 
 prepare_ls_fixture() {
   local vm="$1"
-  $CLI exec "$vm" -- "rm -rf /tmp/ls-dir; mkdir -p /tmp/ls-dir; printf alpha >/tmp/ls-dir/alpha.txt; printf beta >/tmp/ls-dir/beta.txt; mkdir -p /tmp/ls-dir/subdir; touch -t 202606101234.56 /tmp/ls-dir /tmp/ls-dir/alpha.txt /tmp/ls-dir/beta.txt /tmp/ls-dir/subdir" >/dev/null
+  $CLI exec "$vm" -- "rm -rf /tmp/ls-dir; mkdir -p /tmp/ls-dir; printf alpha >/tmp/ls-dir/alpha.txt; printf beta >/tmp/ls-dir/beta.txt; mkdir -p /tmp/ls-dir/subdir" >/dev/null
+  fixed_touch_all "$vm" /tmp/ls-dir /tmp/ls-dir/alpha.txt /tmp/ls-dir/beta.txt /tmp/ls-dir/subdir
 }
 
 spawn_stopped_ls_with_mode() {
@@ -7750,6 +7877,37 @@ validate_only() {
   done
 }
 
+classify_proof_failure() {
+  local stdout_file="$1" stderr_file="$2"
+  node scripts/move-envelope-failure-classifier.mjs "$stdout_file" "$stderr_file" | tr -d '\n'
+}
+
+emit_failed_json() {
+  local proof_name="$1" failure_class="$2" exit_code="$3" stdout_file="$4" stderr_file="$5"
+  {
+    printf 'PROOF\t%s\n' "${results[@]:-}"
+    if [[ "$TIMINGS" == "1" && "${#timing_events[@]}" -gt 0 ]]; then
+      printf 'TIMING\t%s\n' "${timing_events[@]}"
+    fi
+    printf 'FAILURE\t%s\n' "$(python3 -c 'import json,sys; print(json.dumps({"proof":sys.argv[1],"class":sys.argv[2],"exitCode":int(sys.argv[3]),"stdout":open(sys.argv[4]).read()[-4000:],"stderr":open(sys.argv[5]).read()[-4000:]}))' "$proof_name" "$failure_class" "$exit_code" "$stdout_file" "$stderr_file")"
+  } | python3 -c 'import json, sys
+proofs=[]
+timings=[]
+failure=None
+for line in sys.stdin:
+    line=line.rstrip("\n")
+    if not line:
+        continue
+    kind, payload = line.split("\t", 1)
+    if kind == "PROOF" and payload:
+        proofs.append(json.loads(payload))
+    elif kind == "TIMING":
+        timings.append(json.loads(payload))
+    elif kind == "FAILURE":
+        failure=json.loads(payload)
+print(json.dumps({"state":"failed","failure":failure,"proofs":proofs,"timings":timings}, indent=2))'
+}
+
 validate_only
 maybe_auto_skip_provision
 start_pair
@@ -7757,8 +7915,23 @@ results=()
 for i in "${!PROOF_NAMES[@]}"; do
   if proof_selected "${PROOF_NAMES[$i]}"; then
     proof_start_ms=$(now_ms)
+    proof_stdout="$WORK/${PROOF_NAMES[$i]}.proof.out"
+    proof_stderr="$WORK/${PROOF_NAMES[$i]}.proof.err"
     echo "proving ${PROOF_LABELS[$i]}" >&2
-    results+=("$(${PROOF_FUNCS[$i]})")
+    set +e
+    "${PROOF_FUNCS[$i]}" >"$proof_stdout" 2>"$proof_stderr"
+    proof_rc=$?
+    set -e
+    if [[ "$proof_rc" != "0" ]]; then
+      failure_class=$(classify_proof_failure "$proof_stdout" "$proof_stderr")
+      record_timing "proof:${PROOF_NAMES[$i]}" "failed" "$proof_start_ms" "${PROOF_LABELS[$i]}:$failure_class"
+      cat "$proof_stderr" >&2
+      if [[ "$JSON" == "1" ]]; then
+        emit_failed_json "${PROOF_NAMES[$i]}" "$failure_class" "$proof_rc" "$proof_stdout" "$proof_stderr"
+      fi
+      exit "$proof_rc"
+    fi
+    results+=("$(cat "$proof_stdout")")
     record_timing "proof:${PROOF_NAMES[$i]}" "passed" "$proof_start_ms" "${PROOF_LABELS[$i]}"
   fi
 done

@@ -5,6 +5,12 @@ import type {
   VmHandle,
 } from "@machinen/runtime";
 import { basename } from "node:path";
+import {
+  activeTcpConnectionCheckCommand,
+  listeningTcpPortCheckCommand,
+  safeAbsolutePath,
+  shellQuote,
+} from "./move-preflight-helpers.ts";
 import type { MoveLoadDirectLoader } from "./move-rendezvous.ts";
 
 type MoveResourcePlan = NonNullable<MoveDescriptor["resourcePlan"]>;
@@ -91,7 +97,7 @@ function parseSocatFileResponderArgs(
 
 function socatFileIdentityCommand(path: string, patchName: string, port?: number): string {
   const activeCheck = port
-    ? `${activeConnectionCheckCommand(port)} && { printf 'PATCH\\t${patchName}\\trefused\\tactive-client\\n'; exit 2; }\n`
+    ? `${activeTcpConnectionCheckCommand(port)} && { printf 'PATCH\\t${patchName}\\trefused\\tactive-client\\n'; exit 2; }\n`
     : "";
   return `set -eu
 path=${shellQuote(path)}
@@ -111,7 +117,7 @@ function moveSocatFileResponderLoaderCommand(
     return "printf 'PATCH\\tsocat-file-responder\\trefused\\tmissing-socat-file-responder-state\\n'; exit 2";
   }
   const log = "/tmp/machinen-move-loader-$$.log";
-  const listenCheck = listenCheckCommand(state.port);
+  const listenCheck = listeningTcpPortCheckCommand(state.port);
   return `set -eu
 log=${shellQuote(log)}
 if [ ! -x ${shellQuote(executable)} ]; then
@@ -157,16 +163,6 @@ printf 'LOAD_LOG\t%s\n' "$log"
 printf 'SAFE_BOUNDARY\tsleep-timer\ttarget-socat-file-responder-started\n'
 printf 'PATCH\tsocat-file-responder\tready\t%s\t%s\n' ${shellQuote(String(state.port))} ${shellQuote(state.fileIdentity.sha256)}
 `;
-}
-
-function activeConnectionCheckCommand(port: number): string {
-  const hexPort = port.toString(16).toUpperCase().padStart(4, "0");
-  return `awk '$4 == "01" { split($2, l, ":"); split($3, r, ":"); if (toupper(l[2]) == "${hexPort}" || toupper(r[2]) == "${hexPort}") found = 1 } END { exit found ? 0 : 1 }' /proc/net/tcp /proc/net/tcp6 2>/dev/null`;
-}
-
-function listenCheckCommand(port: number): string {
-  const hexPort = port.toString(16).toUpperCase().padStart(4, "0");
-  return `awk 'BEGIN { found = 1 } $4 == "0A" { split($2, a, ":"); if (toupper(a[2]) == "${hexPort}") found = 0 } END { exit found }' /proc/net/tcp /proc/net/tcp6 2>/dev/null`;
 }
 
 function parseFileIdentity(
@@ -227,16 +223,4 @@ function moveRendezvousExecutable(descriptor: MoveDescriptor): string {
 
 function moveCommandName(node: MovePidGraphNode): string {
   return basename(node.argv[0] ?? node.command ?? node.exe);
-}
-
-function safeAbsolutePath(path: string): boolean {
-  return path.split("/").filter(Boolean).every(safePathComponent);
-}
-
-function safePathComponent(component: string): boolean {
-  return /^[A-Za-z0-9._-]+$/.test(component) && component !== "." && component !== "..";
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", "'\\''")}'`;
 }

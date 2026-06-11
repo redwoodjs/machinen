@@ -1,0 +1,18 @@
+{
+  "name": "move-envelope-speed-benchmark",
+  "description": "Representative local move envelope speed benchmark covering one deterministic file proof chunk and one listener/service refusal chunk. The plan is intentionally small enough to run repeatedly while still exercising boot, skip provisioning, save/load, target evidence, and refusal boundaries.",
+  "chunks": [
+    {
+      "name": "file-identity-pilot",
+      "category": "deterministic-file",
+      "skipProvision": true,
+      "proofs": ["stat-file", "unsafe-stat-refusal"]
+    },
+    {
+      "name": "listener-refusal-pilot",
+      "category": "listener-service",
+      "skipProvision": true,
+      "proofs": ["socat-file-responder", "unsafe-socat-file-responder-refusal"]
+    }
+  ]
+}
