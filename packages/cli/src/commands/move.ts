@@ -13,7 +13,6 @@ import {
 } from "@machinen/runtime";
 import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-
 import { consumeJsonFlag } from "../args.ts";
 import { readMoveBusyboxNcState } from "../move-busybox-nc-envelope.ts";
 import { readMoveChecksumStateInVm } from "../move-checksum-envelope.ts";
@@ -32,6 +31,7 @@ import {
   validateMoveLoadTargetInVm,
   type MoveLoadTargetValidation,
 } from "../move-executable-identity.ts";
+import { readMoveGenericResourceGraphStateInVm } from "../move-generic-resource-graph.ts";
 import {
   attachNativeContinuation,
   moveActiveSyscallPlan,
@@ -52,6 +52,7 @@ import { readMoveReadlinkStateInVm } from "../move-readlink-envelope.ts";
 import * as staticServers from "../move-nginx-envelope.ts";
 import { readMoveRedisIdleStateInVm as readRedisIdle } from "../move-redis-envelope.ts";
 import { readMoveRealpathStateInVm } from "../move-realpath-envelope.ts";
+import { readMovePostgresClusterStateInVm } from "../move-postgres-envelope.ts";
 import { readMoveHttpStateInVm } from "../move-python-http-envelope.ts";
 import { readMoveRecursiveGrepStateInVm } from "../move-recursive-grep-envelope.ts";
 import { readMoveRmdirStateInVm } from "../move-rmdir-envelope.ts";
@@ -106,22 +107,18 @@ import {
 import { die, handleError } from "../errors.ts";
 import type { Target } from "../parse-target.ts";
 import { parseTargetFlags, resolveTarget } from "./target.ts";
-
 type MoveHandler = (args: string[], json: boolean) => Promise<number> | number;
 type MoveResourcePlan = NonNullable<MoveDescriptor["resourcePlan"]>;
-
 const MOVE_HANDLERS = new Map<string, MoveHandler>([
   ["scan", cmdMoveScan],
   ["save", cmdMoveSave],
   ["load", cmdMoveLoad],
 ]);
-
 export function cmdMove(args: string[]): Promise<number> | number {
   const { json, rest } = consumeJsonFlag(args);
   const handler = MOVE_HANDLERS.get(rest[0] ?? "") ?? die(moveUsage());
   return handler(rest.slice(1), json);
 }
-
 async function cmdMoveScan(args: string[], json: boolean): Promise<number> {
   const target = parseTargetFlags(args, "move scan");
   return withMoveVm(target, async (vm) => {
@@ -136,7 +133,6 @@ async function cmdMoveScan(args: string[], json: boolean): Promise<number> {
     return graph.refusedStateClasses.length === 0 ? 0 : 1;
   });
 }
-
 async function cmdMoveSave(args: string[], json: boolean): Promise<number> {
   const options = parseMoveSaveArgs(args);
   return withMoveVm(options.target, async (vm) => {
@@ -146,7 +142,6 @@ async function cmdMoveSave(args: string[], json: boolean): Promise<number> {
     return moveAcceptedExitCode(result.accepted);
   });
 }
-
 type MoveSaveOptions = {
   target: Target;
   pid: number;
@@ -154,7 +149,6 @@ type MoveSaveOptions = {
   issue: boolean;
   issueRepo?: string;
 };
-
 type MoveSaveResult = {
   accepted: boolean;
   descriptorPath: string;
@@ -162,9 +156,7 @@ type MoveSaveResult = {
   refusalCode?: typeof MOVE_REFUSAL_CODE;
   issueReport?: MoveIssueReport;
 };
-
 type MoveIssueReport = { title: string; body: string; repository: string };
-
 function parseMoveSaveArgs(args: string[]): MoveSaveOptions {
   const { target, rest } = resolveTarget(args, "move save");
   if (rest.length < 2) {
@@ -179,7 +171,6 @@ function parseMoveSaveArgs(args: string[]): MoveSaveOptions {
     issueRepo,
   };
 }
-
 function parseMoveSaveFlags(args: string[]): { issue: boolean; issueRepo?: string } {
   let flags = newMoveSaveFlags();
   for (let index = 0; index < args.length; index += 1) {
@@ -189,9 +180,7 @@ function parseMoveSaveFlags(args: string[]): { issue: boolean; issueRepo?: strin
   }
   return flags;
 }
-
 const newMoveSaveFlags = (): { issue: boolean; issueRepo?: string } => ({ issue: false });
-
 function parseMoveSaveFlag(
   args: string[],
   index: number,
@@ -206,7 +195,6 @@ function parseMoveSaveFlag(
   }
   return parseMoveSaveIssueRepoFlag(args, index, flags);
 }
-
 function parseMoveSaveIssueRepoFlag(
   args: string[],
   index: number,
@@ -218,7 +206,6 @@ function parseMoveSaveIssueRepoFlag(
   }
   return { index: index + 1, flags: { ...flags, issueRepo } };
 }
-
 function writeMoveDescriptorResult(
   descriptor: MoveDescriptor,
   options: MoveSaveOptions,
@@ -241,7 +228,6 @@ function writeMoveDescriptorResult(
     issueReport: moveIssueReport(descriptor, options),
   };
 }
-
 function prepareMoveBundleDir(outPath: string): string {
   const bundlePath = resolve(outPath);
   if (existsSync(bundlePath) && !statSync(bundlePath).isDirectory()) {
@@ -250,7 +236,6 @@ function prepareMoveBundleDir(outPath: string): string {
   mkdirSync(bundlePath, { recursive: true });
   return bundlePath;
 }
-
 function moveSaveAccepted(descriptor: MoveDescriptor): boolean {
   if (descriptor.nativeContinuation?.state === "refused") {
     return false;
@@ -260,7 +245,6 @@ function moveSaveAccepted(descriptor: MoveDescriptor): boolean {
   }
   return moveEnvelopeAllowsOpenFileRefusals(descriptor);
 }
-
 function moveEnvelopeAllowsOpenFileRefusals(descriptor: MoveDescriptor): boolean {
   const allowed = moveEnvelopeAllowedRefusalClasses(descriptor);
   if (!allowed) {
@@ -268,7 +252,6 @@ function moveEnvelopeAllowsOpenFileRefusals(descriptor: MoveDescriptor): boolean
   }
   return descriptor.refusedStateClasses.every((refusal) => allowed.has(refusal.stateClass));
 }
-
 // fallow-ignore-next-line complexity
 function moveEnvelopeAllowedRefusalClasses(descriptor: MoveDescriptor): Set<string> | undefined {
   if (descriptor.resourcePlan?.capture?.tailState) {
@@ -285,6 +268,7 @@ function moveEnvelopeAllowedRefusalClasses(descriptor: MoveDescriptor): Set<stri
     descriptor.resourcePlan?.capture?.busyboxNcState ||
     descriptor.resourcePlan?.capture?.socatFileResponderState ||
     descriptor.resourcePlan?.capture?.redisIdleState ||
+    descriptor.resourcePlan?.capture?.postgresClusterState ||
     descriptor.resourcePlan?.capture?.nginxStaticState ||
     descriptor.resourcePlan?.capture?.caddyStaticState ||
     descriptor.resourcePlan?.capture?.rubyHttpState ||
@@ -298,6 +282,9 @@ function moveEnvelopeAllowedRefusalClasses(descriptor: MoveDescriptor): Set<stri
     descriptor.resourcePlan?.capture?.nodeStaticHttpState ||
     descriptor.resourcePlan?.capture?.tailGrepPipelineState
   ) {
+    return new Set(["open-files", "sockets", "threads"]);
+  }
+  if (genericResourceGraphIsFullySupported(descriptor)) {
     return new Set(["open-files", "sockets", "threads"]);
   }
   if (
@@ -353,7 +340,14 @@ function moveEnvelopeAllowedRefusalClasses(descriptor: MoveDescriptor): Set<stri
   }
   return undefined;
 }
-
+function genericResourceGraphIsFullySupported(descriptor: MoveDescriptor): boolean {
+  const state = descriptor.resourcePlan?.capture?.genericResourceGraphState;
+  return state !== undefined && state.refusalClasses.length === 0;
+}
+function genericResourceGraphHasRefusals(descriptor: MoveDescriptor): boolean {
+  const state = descriptor.resourcePlan?.capture?.genericResourceGraphState;
+  return state !== undefined && state.refusalClasses.length > 0;
+}
 function moveIssueReport(
   descriptor: MoveDescriptor,
   options: MoveSaveOptions,
@@ -363,11 +357,9 @@ function moveIssueReport(
   }
   return buildMoveIssueReport(descriptor, options.issueRepo ?? "redwoodjs/machinen");
 }
-
 function moveAcceptedExitCode(accepted: boolean): 0 | 1 {
   return accepted ? 0 : 1;
 }
-
 function reportMoveSaveResult(result: MoveSaveResult, json: boolean): void {
   if (json) {
     emitJson({ schema_version: 1, ...result });
@@ -378,7 +370,6 @@ function reportMoveSaveResult(result: MoveSaveResult, json: boolean): void {
   );
   printIssueReport(result);
 }
-
 function printIssueReport(result: MoveSaveResult): void {
   if (!result.issueReport) {
     return;
@@ -387,7 +378,6 @@ function printIssueReport(result: MoveSaveResult): void {
     `issue report: ${result.issueReport.repository}\n${result.issueReport.body}\n`,
   );
 }
-
 async function cmdMoveLoad(args: string[], json: boolean): Promise<number> {
   const { target, rest } = resolveTarget(args, "move load");
   if (rest.length !== 1) {
@@ -409,7 +399,6 @@ async function cmdMoveLoad(args: string[], json: boolean): Promise<number> {
     return accepted ? 0 : 1;
   });
 }
-
 function moveLoadDescriptorPath(bundlePath: string): string {
   if (existsSync(bundlePath) && statSync(bundlePath).isDirectory()) {
     return join(bundlePath, "move.json");
@@ -465,6 +454,9 @@ function moveBundleValid(bundlePath: string): boolean {
 
 // fallow-ignore-next-line complexity
 function moveDescriptorContinuationPlanned(descriptor: MoveDescriptor): boolean {
+  if (genericResourceGraphHasRefusals(descriptor)) {
+    return false;
+  }
   if (moveEnvelopeAllowsOpenFileRefusals(descriptor)) {
     return true;
   }
@@ -550,10 +542,18 @@ async function attachMoveSourceIdentity(
 ): Promise<void> {
   const executablePath =
     node.exe ?? (node.argv[0]?.startsWith("/") ? node.argv[0] : `/usr/bin/${node.command}`);
+  const executablePackage = await readMoveExecutableIdentityInVm(vm, executablePath);
   resourcePlan.capture = {
     ...resourcePlan.capture,
     sourceVm: { pid: vm.pid, name: vm.name },
-    executablePackage: await readMoveExecutableIdentityInVm(vm, executablePath),
+    executablePackage,
+    genericResourceGraphState: await readMoveGenericResourceGraphStateInVm(
+      vm,
+      node,
+      resourcePlan,
+      executablePath,
+      executablePackage,
+    ),
     pingState: await readMovePingStateInVm(vm, resourcePlan),
     sleepState: await readMoveSleepStateInVm(vm, node),
     tailState: readMoveTailState(node, resourcePlan),
@@ -569,6 +569,7 @@ async function attachMoveSourceIdentity(
     busyboxNcState: readMoveBusyboxNcState(node, resourcePlan),
     socatFileResponderState: await readSocatFileResponder(vm, node, nodes, resourcePlan),
     redisIdleState: await readRedisIdle(vm, node, resourcePlan),
+    postgresClusterState: await readMovePostgresClusterStateInVm(vm, node, resourcePlan),
     nginxStaticState: await staticServers.readNginxStatic(vm, node, resourcePlan),
     caddyStaticState: await staticServers.readCaddyStatic(vm, node, resourcePlan),
     rubyHttpState: await staticServers.readRubyHttpState(vm, node, resourcePlan),

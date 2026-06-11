@@ -4,10 +4,12 @@ import { runMoveTargetBusyboxNcLoaderInVm } from "./move-busybox-nc-envelope.ts"
 import { runMoveTargetChecksumLoaderInVm } from "./move-checksum-envelope.ts";
 import * as fsMutationLoaders from "./move-filesystem-mutation-envelope.ts";
 import { runMoveTargetDuLoaderInVm } from "./move-du-envelope.ts";
+import { runMoveTargetGenericResourceGraphLoaderInVm } from "./move-generic-resource-graph.ts";
 import { runMoveTargetInstallLoaderInVm } from "./move-install-envelope.ts";
 import { runMoveTargetLsLoaderInVm, runMoveTargetLsLongLoaderInVm } from "./move-ls-envelope.ts";
 import { runMoveTargetReadlinkLoaderInVm } from "./move-readlink-envelope.ts";
 import * as staticServers from "./move-nginx-envelope.ts";
+import { runMoveTargetPostgresClusterLoaderInVm } from "./move-postgres-envelope.ts";
 import { runMoveTargetRedisIdleLoaderInVm as runRedisIdle } from "./move-redis-envelope.ts";
 import { runMoveTargetRealpathLoaderInVm } from "./move-realpath-envelope.ts";
 import { runMoveTargetRecursiveGrepLoaderInVm } from "./move-recursive-grep-envelope.ts";
@@ -134,6 +136,7 @@ function moveTargetEnvelopeLoader(descriptor: MoveDescriptor): Loader | undefine
     [capture?.busyboxNcState, runMoveTargetBusyboxNcLoaderInVm],
     [capture?.socatFileResponderState, runSocatFileResponder],
     [capture?.redisIdleState, runRedisIdle],
+    [capture?.postgresClusterState, runMoveTargetPostgresClusterLoaderInVm],
     [capture?.nginxStaticState, staticServers.runNginxStatic],
     [capture?.caddyStaticState, staticServers.runCaddyStatic],
     [capture?.rubyHttpState, staticServers.runRubyHttp],
@@ -190,6 +193,7 @@ function moveTargetEnvelopeLoader(descriptor: MoveDescriptor): Loader | undefine
     [capture?.findPredicateState, runMoveTargetFindPredicateLoaderInVm],
     [capture?.treeState, runMoveTargetTreeLoaderInVm],
     [capture?.nodeStaticHttpState, runMoveTargetNodeStaticHttpLoaderInVm],
+    [capture?.genericResourceGraphState, runMoveTargetGenericResourceGraphLoaderInVm],
   ];
   return loaders.find(([state]) => state)?.[1];
 }

@@ -6,7 +6,7 @@ export function safeAbsolutePath(path: string): boolean {
   return path.split("/").filter(Boolean).every(safePathComponent);
 }
 
-export function safePathComponent(component: string): boolean {
+function safePathComponent(component: string): boolean {
   return /^[A-Za-z0-9._-]+$/.test(component) && component !== "." && component !== "..";
 }
 

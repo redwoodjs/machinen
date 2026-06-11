@@ -96,6 +96,7 @@ function nativeContinuationRefusals(descriptor: MoveDescriptor): NativeProcessIm
     descriptor.resourcePlan?.capture?.busyboxNcState ||
     descriptor.resourcePlan?.capture?.socatFileResponderState ||
     descriptor.resourcePlan?.capture?.redisIdleState ||
+    descriptor.resourcePlan?.capture?.postgresClusterState ||
     descriptor.resourcePlan?.capture?.nginxStaticState ||
     descriptor.resourcePlan?.capture?.caddyStaticState ||
     descriptor.resourcePlan?.capture?.rubyHttpState ||
@@ -155,12 +156,15 @@ function nativeContinuationRefusals(descriptor: MoveDescriptor): NativeProcessIm
     descriptor.resourcePlan?.capture?.busyboxNcState ||
     descriptor.resourcePlan?.capture?.socatFileResponderState ||
     descriptor.resourcePlan?.capture?.redisIdleState ||
+    descriptor.resourcePlan?.capture?.postgresClusterState ||
     descriptor.resourcePlan?.capture?.nginxStaticState ||
     descriptor.resourcePlan?.capture?.caddyStaticState ||
     descriptor.resourcePlan?.capture?.rubyHttpState ||
     descriptor.resourcePlan?.capture?.phpStaticState ||
     descriptor.resourcePlan?.capture?.rsyncDaemonState ||
-    descriptor.resourcePlan?.capture?.nodeStaticHttpState
+    descriptor.resourcePlan?.capture?.nodeStaticHttpState ||
+    (descriptor.resourcePlan?.capture?.genericResourceGraphState !== undefined &&
+      descriptor.resourcePlan.capture.genericResourceGraphState.refusalClasses.length === 0)
   ) {
     return [];
   }

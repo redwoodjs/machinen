@@ -82,6 +82,7 @@
     "goal-task": "node scripts/goal-task-automation.mjs",
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
     "check-smoke-manifest": "node scripts/check-smoke-manifest.mjs",
+    "generic-resource-graph-coverage": "node scripts/generic-resource-graph-coverage.mjs",
     "smoke-vmstate": "bash scripts/smoke/vmstate/all.sh",
     "smoke-vmstate-timers": "bash scripts/smoke/vmstate/timers.sh",
     "smoke-vmstate-entropy": "bash scripts/smoke/vmstate/entropy.sh",

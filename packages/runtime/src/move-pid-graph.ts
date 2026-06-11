@@ -53,6 +53,147 @@ export interface MovePidGraph {
   refusedStateClasses: MoveRefusalEvidence[];
 }
 
+export interface MoveGenericResourceGraphState {
+  policy: "generic-resource-graph-target-native-reexec-v1";
+  executableIdentity: {
+    path: string;
+    realPath?: string;
+    packageName?: string;
+    version?: string;
+    architecture?: string;
+    sha256?: string;
+  };
+  argv: string[];
+  env: {
+    policy: "captured-explicit" | "target-default" | "refused-if-observed";
+    entries?: Record<string, string>;
+  };
+  cwd: {
+    path: string;
+    identity?: {
+      fileCount: number;
+      directoryCount: number;
+      totalBytes: number;
+      treeDigest: string;
+    };
+  };
+  root?: {
+    path: string;
+  };
+  uidGid?: {
+    uid: number;
+    gid: number;
+    groups?: number[];
+    umask?: string;
+  };
+  ports: Array<{
+    protocol: "tcp";
+    port: number;
+    bindAddress: "127.0.0.1";
+    state: "idle-loopback-listener";
+    noActiveClients: true;
+  }>;
+  regularFiles: Array<{
+    fd?: number;
+    path: string;
+    access: "read-only" | "write-atomic" | "read-write-refused";
+    flags?: string[];
+    offset?: number;
+    identity: {
+      size: number;
+      sha256: string;
+    };
+  }>;
+  dataDirs: Array<{
+    path: string;
+    access: "read-only" | "write-validated";
+    ownerUid?: number;
+    ownerGid?: number;
+    mode?: string;
+    identity: {
+      fileCount: number;
+      directoryCount: number;
+      totalBytes: number;
+      treeDigest: string;
+    };
+  }>;
+  fileOffsets: Array<{
+    fd: number;
+    offset: number;
+    policy: "absolute-offset" | "refused-if-nonzero";
+  }>;
+  stdioPolicy:
+    | "stdio-dev-null-or-closed"
+    | "stdio-inherited-noninteractive"
+    | "refuse-nontrivial-stdio";
+  healthProbe:
+    | { kind: "process-alive" }
+    | { kind: "http"; url: string; expectedStatus?: number; expectedBodySha256?: string }
+    | { kind: "tcp-connect"; host: "127.0.0.1"; port: number; expectedBannerSha256?: string }
+    | { kind: "command"; argv: string[]; expectedStdoutSha256?: string };
+  resourceClasses: Array<{
+    resourceClass: string;
+    status: "supported" | "refused" | "unknown" | "deferred" | "ignorable";
+    evidence: string;
+  }>;
+  refusalClasses: Array<{
+    resourceClass: string;
+    status: "refused" | "unknown" | "deferred";
+    reason: string;
+    evidence: string;
+    nextAction: string;
+  }>;
+  capturedAt?: string;
+}
+
+export interface MovePostgresClusterState {
+  port: number;
+  bindAddress: "127.0.0.1";
+  dataDir: string;
+  packageIdentity: {
+    packageName: "postgresql-15";
+    version: string;
+    architecture: string;
+    executable: "/usr/lib/postgresql/15/bin/postgres";
+  };
+  clientPackageIdentity: {
+    packageName: "postgresql-client-15";
+    version: string;
+    architecture: string;
+  };
+  clusterIdentity: {
+    pgVersion: string;
+    dataDirOwnerUid: number;
+    dataDirOwnerGid: number;
+    dataDirMode: string;
+    treeEntryCount: number;
+    treeDigest: string;
+    pgControlSha256: string;
+    postgresqlConfSha256: string;
+    pgHbaConfSha256: string;
+  };
+  walState: {
+    policy: "clean-checkpoint-required";
+    pgWalDigest: string;
+    currentWalFiles: string[];
+    checkpointEvidence: string;
+  };
+  runtimeState: {
+    processShape: "postmaster-plus-standard-background-workers";
+    activeExternalClients: 0;
+    nonIdleUserBackends: 0;
+    preparedTransactions: 0;
+    replicationSlots: 0;
+    nonDefaultTablespaces: 0;
+    unloggedRelations: 0;
+    tempFiles: 0;
+    symlinkEscapes: 0;
+    extensionNativeLibraries: 0;
+  };
+  policy: "postgres-idle-clean-cluster-target-native-restart";
+  capturedAt?: string;
+}
+
 export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
   kind: "machinen.move.descriptor";
   target: "cross-isa-target-native-pid-translation";
@@ -182,6 +323,8 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
         binaryPolicy: "proof-provisioned-target-native-redis";
         capturedAt?: string;
       };
+      postgresClusterState?: MovePostgresClusterState;
+      genericResourceGraphState?: MoveGenericResourceGraphState;
       nginxStaticState?: {
         configPath: string;
         configSha256: string;

@@ -543,10 +543,12 @@
 ### Move PID translation
 
 - [`MoveDescriptor`](#movedescriptor)
+- [`MoveGenericResourceGraphState`](#movegenericresourcegraphstate)
 - [`MoveIssueReport`](#moveissuereport)
 - [`MovePidGraph`](#movepidgraph)
 - [`MovePidGraphEdge`](#movepidgraphedge)
 - [`MovePidGraphNode`](#movepidgraphnode)
+- [`MovePostgresClusterState`](#movepostgresclusterstate)
 - [`MoveProcessStateClass`](#moveprocessstateclass)
 - [`MoveRefusalEvidence`](#moverefusalevidence)
 - [`MoveSaveResult`](#movesaveresult)
@@ -4722,6 +4724,454 @@ Size in bytes the file was allocated at.
 
 ***
 
+### MoveGenericResourceGraphState
+
+#### Properties
+
+##### policy
+
+> **policy**: `"generic-resource-graph-target-native-reexec-v1"`
+
+##### executableIdentity
+
+> **executableIdentity**: `object`
+
+###### path
+
+> **path**: `string`
+
+###### realPath?
+
+> `optional` **realPath?**: `string`
+
+###### packageName?
+
+> `optional` **packageName?**: `string`
+
+###### version?
+
+> `optional` **version?**: `string`
+
+###### architecture?
+
+> `optional` **architecture?**: `string`
+
+###### sha256?
+
+> `optional` **sha256?**: `string`
+
+##### argv
+
+> **argv**: `string`[]
+
+##### env
+
+> **env**: `object`
+
+###### policy
+
+> **policy**: `"captured-explicit"` \| `"target-default"` \| `"refused-if-observed"`
+
+###### entries?
+
+> `optional` **entries?**: `Record`\<`string`, `string`\>
+
+##### cwd
+
+> **cwd**: `object`
+
+###### path
+
+> **path**: `string`
+
+###### identity?
+
+> `optional` **identity?**: `object`
+
+###### identity.fileCount
+
+> **fileCount**: `number`
+
+###### identity.directoryCount
+
+> **directoryCount**: `number`
+
+###### identity.totalBytes
+
+> **totalBytes**: `number`
+
+###### identity.treeDigest
+
+> **treeDigest**: `string`
+
+##### root?
+
+> `optional` **root?**: `object`
+
+###### path
+
+> **path**: `string`
+
+##### uidGid?
+
+> `optional` **uidGid?**: `object`
+
+###### uid
+
+> **uid**: `number`
+
+###### gid
+
+> **gid**: `number`
+
+###### groups?
+
+> `optional` **groups?**: `number`[]
+
+###### umask?
+
+> `optional` **umask?**: `string`
+
+##### ports
+
+> **ports**: `object`[]
+
+###### protocol
+
+> **protocol**: `"tcp"`
+
+###### port
+
+> **port**: `number`
+
+###### bindAddress
+
+> **bindAddress**: `"127.0.0.1"`
+
+###### state
+
+> **state**: `"idle-loopback-listener"`
+
+###### noActiveClients
+
+> **noActiveClients**: `true`
+
+##### regularFiles
+
+> **regularFiles**: `object`[]
+
+###### fd?
+
+> `optional` **fd?**: `number`
+
+###### path
+
+> **path**: `string`
+
+###### access
+
+> **access**: `"read-only"` \| `"write-atomic"` \| `"read-write-refused"`
+
+###### flags?
+
+> `optional` **flags?**: `string`[]
+
+###### offset?
+
+> `optional` **offset?**: `number`
+
+###### identity
+
+> **identity**: `object`
+
+###### identity.size
+
+> **size**: `number`
+
+###### identity.sha256
+
+> **sha256**: `string`
+
+##### dataDirs
+
+> **dataDirs**: `object`[]
+
+###### path
+
+> **path**: `string`
+
+###### access
+
+> **access**: `"read-only"` \| `"write-validated"`
+
+###### ownerUid?
+
+> `optional` **ownerUid?**: `number`
+
+###### ownerGid?
+
+> `optional` **ownerGid?**: `number`
+
+###### mode?
+
+> `optional` **mode?**: `string`
+
+###### identity
+
+> **identity**: `object`
+
+###### identity.fileCount
+
+> **fileCount**: `number`
+
+###### identity.directoryCount
+
+> **directoryCount**: `number`
+
+###### identity.totalBytes
+
+> **totalBytes**: `number`
+
+###### identity.treeDigest
+
+> **treeDigest**: `string`
+
+##### fileOffsets
+
+> **fileOffsets**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### offset
+
+> **offset**: `number`
+
+###### policy
+
+> **policy**: `"absolute-offset"` \| `"refused-if-nonzero"`
+
+##### stdioPolicy
+
+> **stdioPolicy**: `"stdio-dev-null-or-closed"` \| `"stdio-inherited-noninteractive"` \| `"refuse-nontrivial-stdio"`
+
+##### healthProbe
+
+> **healthProbe**: \{ `kind`: `"process-alive"`; \} \| \{ `kind`: `"http"`; `url`: `string`; `expectedStatus?`: `number`; `expectedBodySha256?`: `string`; \} \| \{ `kind`: `"tcp-connect"`; `host`: `"127.0.0.1"`; `port`: `number`; `expectedBannerSha256?`: `string`; \} \| \{ `kind`: `"command"`; `argv`: `string`[]; `expectedStdoutSha256?`: `string`; \}
+
+##### resourceClasses
+
+> **resourceClasses**: `object`[]
+
+###### resourceClass
+
+> **resourceClass**: `string`
+
+###### status
+
+> **status**: `"refused"` \| `"supported"` \| `"unknown"` \| `"deferred"` \| `"ignorable"`
+
+###### evidence
+
+> **evidence**: `string`
+
+##### refusalClasses
+
+> **refusalClasses**: `object`[]
+
+###### resourceClass
+
+> **resourceClass**: `string`
+
+###### status
+
+> **status**: `"refused"` \| `"unknown"` \| `"deferred"`
+
+###### reason
+
+> **reason**: `string`
+
+###### evidence
+
+> **evidence**: `string`
+
+###### nextAction
+
+> **nextAction**: `string`
+
+##### capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+***
+
+### MovePostgresClusterState
+
+#### Properties
+
+##### port
+
+> **port**: `number`
+
+##### bindAddress
+
+> **bindAddress**: `"127.0.0.1"`
+
+##### dataDir
+
+> **dataDir**: `string`
+
+##### packageIdentity
+
+> **packageIdentity**: `object`
+
+###### packageName
+
+> **packageName**: `"postgresql-15"`
+
+###### version
+
+> **version**: `string`
+
+###### architecture
+
+> **architecture**: `string`
+
+###### executable
+
+> **executable**: `"/usr/lib/postgresql/15/bin/postgres"`
+
+##### clientPackageIdentity
+
+> **clientPackageIdentity**: `object`
+
+###### packageName
+
+> **packageName**: `"postgresql-client-15"`
+
+###### version
+
+> **version**: `string`
+
+###### architecture
+
+> **architecture**: `string`
+
+##### clusterIdentity
+
+> **clusterIdentity**: `object`
+
+###### pgVersion
+
+> **pgVersion**: `string`
+
+###### dataDirOwnerUid
+
+> **dataDirOwnerUid**: `number`
+
+###### dataDirOwnerGid
+
+> **dataDirOwnerGid**: `number`
+
+###### dataDirMode
+
+> **dataDirMode**: `string`
+
+###### treeEntryCount
+
+> **treeEntryCount**: `number`
+
+###### treeDigest
+
+> **treeDigest**: `string`
+
+###### pgControlSha256
+
+> **pgControlSha256**: `string`
+
+###### postgresqlConfSha256
+
+> **postgresqlConfSha256**: `string`
+
+###### pgHbaConfSha256
+
+> **pgHbaConfSha256**: `string`
+
+##### walState
+
+> **walState**: `object`
+
+###### policy
+
+> **policy**: `"clean-checkpoint-required"`
+
+###### pgWalDigest
+
+> **pgWalDigest**: `string`
+
+###### currentWalFiles
+
+> **currentWalFiles**: `string`[]
+
+###### checkpointEvidence
+
+> **checkpointEvidence**: `string`
+
+##### runtimeState
+
+> **runtimeState**: `object`
+
+###### processShape
+
+> **processShape**: `"postmaster-plus-standard-background-workers"`
+
+###### activeExternalClients
+
+> **activeExternalClients**: `0`
+
+###### nonIdleUserBackends
+
+> **nonIdleUserBackends**: `0`
+
+###### preparedTransactions
+
+> **preparedTransactions**: `0`
+
+###### replicationSlots
+
+> **replicationSlots**: `0`
+
+###### nonDefaultTablespaces
+
+> **nonDefaultTablespaces**: `0`
+
+###### unloggedRelations
+
+> **unloggedRelations**: `0`
+
+###### tempFiles
+
+> **tempFiles**: `0`
+
+###### symlinkEscapes
+
+> **symlinkEscapes**: `0`
+
+###### extensionNativeLibraries
+
+> **extensionNativeLibraries**: `0`
+
+##### policy
+
+> **policy**: `"postgres-idle-clean-cluster-target-native-restart"`
+
+##### capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+***
+
 ### MoveDescriptor
 
 #### Extends
@@ -5253,6 +5703,14 @@ Size in bytes the file was allocated at.
 ###### capture.redisIdleState.capturedAt?
 
 > `optional` **capturedAt?**: `string`
+
+###### capture.postgresClusterState?
+
+> `optional` **postgresClusterState?**: [`MovePostgresClusterState`](#movepostgresclusterstate)
+
+###### capture.genericResourceGraphState?
+
+> `optional` **genericResourceGraphState?**: [`MoveGenericResourceGraphState`](#movegenericresourcegraphstate)
 
 ###### capture.nginxStaticState?
 
@@ -20079,7 +20537,7 @@ the host-side VMM process.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`env`](#env-5)
+[`BootOptions`](#bootoptions).[`env`](#env-6)
 
 ##### guestCwd?
 
@@ -20299,7 +20757,7 @@ Working directory for the VMM (for finding fixture files).
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`cwd`](#cwd-4)
+[`BootOptions`](#bootoptions).[`cwd`](#cwd-5)
 
 ##### args?
 
@@ -20873,7 +21331,7 @@ the host-side VMM process.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`env`](#env-5)
+[`BootOptions`](#bootoptions).[`env`](#env-6)
 
 ##### guestCwd?
 
@@ -21117,7 +21575,7 @@ Working directory for the VMM (for finding fixture files).
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`cwd`](#cwd-4)
+[`BootOptions`](#bootoptions).[`cwd`](#cwd-5)
 
 ##### args?
 

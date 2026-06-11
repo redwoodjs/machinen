@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -98,4 +99,23 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log(`smoke manifest ok: ${manifest.entries.length} entries`);
+try {
+  execFileSync(process.execPath, ["scripts/generic-resource-graph-coverage.mjs"], {
+    stdio: "pipe",
+  });
+} catch (error) {
+  const stderr = error instanceof Error && "stderr" in error ? error.stderr : undefined;
+  const stdout = error instanceof Error && "stdout" in error ? error.stdout : undefined;
+  process.stderr.write("smoke manifest: generic resource graph coverage failed\n");
+  if (stdout instanceof Buffer) {
+    process.stderr.write(stdout);
+  }
+  if (stderr instanceof Buffer) {
+    process.stderr.write(stderr);
+  }
+  process.exit(1);
+}
+
+console.log(
+  `smoke manifest ok: ${manifest.entries.length} entries; generic resource graph coverage ok`,
+);

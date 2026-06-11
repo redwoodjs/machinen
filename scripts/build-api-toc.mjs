@@ -1,21 +1,6 @@
 // Inject a task-grouped table of contents into packages/runtime/API.md.
-//
-// typedoc's default grouping is by TypeScript kind (Classes,
-// Interfaces, Type Aliases, Variables, Functions). For a public
-// reference that's mechanical, not navigable. This post-processor
-// keeps the per-kind bodies typedoc emits and prepends a hand-curated
-// TOC that buckets symbols by "what is the reader trying to do?".
-//
-// The mapping below is the single source of truth for those buckets.
-// When you add a new public export to packages/runtime/src/index.ts,
-// add the symbol here too (or it lands in "Other"). Run is:
-//
-//   pnpm build:docs   (typedoc → this script)
-//
-// The script validates that every symbol it references is a real H3
-// in the generated API.md and that no H3 is left uncategorised, so
-// drift between source exports and the TOC fails the build instead
-// of silently producing broken anchors.
+// Keep this TOC mapping in sync with public exports from packages/runtime/src/index.ts.
+// The script validates that every symbol it references is a real H3 and that no H3 is left uncategorised.
 
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -551,10 +536,12 @@ const TOC = {
   ],
   "Move PID translation": [
     "MoveDescriptor",
+    "MoveGenericResourceGraphState",
     "MoveIssueReport",
     "MovePidGraph",
     "MovePidGraphEdge",
     "MovePidGraphNode",
+    "MovePostgresClusterState",
     "MoveProcessStateClass",
     "MoveRefusalEvidence",
     "MoveSaveResult",

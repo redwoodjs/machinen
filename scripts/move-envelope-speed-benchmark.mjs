@@ -111,6 +111,13 @@ if (summary.state !== "passed") {
 
 async function runChunk(chunk) {
   const chunkStart = Date.now();
+  const outputPath = join(outDir, `${chunk.name}.json`);
+  const result = await runProcess("pnpm", matrixChunkArgs(chunk));
+  persistProcessOutput(outputPath, join(outDir, `${chunk.name}.stderr.log`), result);
+  return chunkResult(chunk, outputPath, result, Date.now() - chunkStart);
+}
+
+function matrixChunkArgs(chunk) {
   const args = [
     "proof-move-envelope-matrix",
     "--",
@@ -121,33 +128,34 @@ async function runChunk(chunk) {
     "--chunk",
     chunk.name,
   ];
-  if (mode === "warm") {
-    args.push("--reuse-vms", `${src}:${tgt}`);
-  }
-  const outputPath = join(outDir, `${chunk.name}.json`);
-  const result = await runProcess("pnpm", args);
-  writeFileSync(outputPath, result.stdout);
-  if (result.stderr) {
-    writeFileSync(join(outDir, `${chunk.name}.stderr.log`), result.stderr);
-  }
-  const parsed = parseMatrixJson(result.stdout);
+  return mode === "warm" ? [...args, "--reuse-vms", `${src}:${tgt}`] : args;
+}
+
+function chunkResult(chunk, outputPath, result, wallMs) {
+  const parsed = parsedMatrix(result);
   return {
     name: chunk.name,
     category: chunk.category,
-    expectedProofs: chunk.proofs ?? [],
+    expectedProofs: array(chunk.proofs),
     outputPath,
-    wallMs: Date.now() - chunkStart,
+    wallMs,
     exitCode: result.status,
-    state: parsed?.state ?? (result.status === 0 ? "unknown" : "failed"),
-    failure: parsed?.failure ?? classifyFailure(result.stdout, result.stderr),
-    timings: parsed?.timings ?? [],
-    proofs: (parsed?.proofs ?? []).map((proof) => ({ name: proof.name, state: proof.state })),
+    state: matrixState(parsed, result),
+    failure: matrixFailure(parsed, result),
+    timings: array(parsed.timings),
+    proofs: proofSummaries(parsed.proofs),
   };
 }
 
 async function runCoverage() {
   const coverageStart = Date.now();
-  const result = await runProcess("pnpm", [
+  const result = await runProcess("pnpm", coverageArgs());
+  persistProcessOutput(join(outDir, "coverage.json"), join(outDir, "coverage.stderr.log"), result);
+  return coverageResult(result, Date.now() - coverageStart);
+}
+
+function coverageArgs() {
+  return [
     "proof-move-envelope-matrix",
     "--",
     "--json",
@@ -155,21 +163,51 @@ async function runCoverage() {
     values.plan,
     "--coverage-dir",
     outDir,
-  ]);
-  writeFileSync(join(outDir, "coverage.json"), result.stdout);
-  if (result.stderr) {
-    writeFileSync(join(outDir, "coverage.stderr.log"), result.stderr);
-  }
-  const parsed = parseMatrixJson(result.stdout);
+  ];
+}
+
+function coverageResult(result, wallMs) {
+  const parsed = parsedMatrix(result);
   return {
-    wallMs: Date.now() - coverageStart,
+    wallMs,
     exitCode: result.status,
-    state: parsed?.state ?? (result.status === 0 ? "unknown" : "failed"),
-    expectedCount: parsed?.expectedCount,
-    coveredCount: parsed?.coveredCount,
-    missing: parsed?.missing ?? [],
-    failed: parsed?.failed ?? [],
+    state: matrixState(parsed, result),
+    expectedCount: parsed.expectedCount,
+    coveredCount: parsed.coveredCount,
+    missing: array(parsed.missing),
+    failed: array(parsed.failed),
   };
+}
+
+function persistProcessOutput(stdoutPath, stderrPath, result) {
+  writeFileSync(stdoutPath, result.stdout);
+  if (result.stderr) {
+    writeFileSync(stderrPath, result.stderr);
+  }
+}
+
+function parsedMatrix(result) {
+  return parseMatrixJson(result.stdout) ?? {};
+}
+
+function matrixState(parsed, result) {
+  return parsed.state ?? processState(result);
+}
+
+function matrixFailure(parsed, result) {
+  return parsed.failure ?? classifyFailure(result.stdout, result.stderr);
+}
+
+function processState(result) {
+  return result.status === 0 ? "unknown" : "failed";
+}
+
+function proofSummaries(proofs) {
+  return array(proofs).map((proof) => ({ name: proof.name, state: proof.state }));
+}
+
+function array(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 function runProcess(command, args) {
@@ -198,6 +236,10 @@ function runCli(args, name, options = {}) {
   });
   writeFileSync(join(outDir, `${name}.stdout.log`), result.stdout ?? "");
   writeFileSync(join(outDir, `${name}.stderr.log`), result.stderr ?? "");
+  assertCliSuccess(name, result, options);
+}
+
+function assertCliSuccess(name, result, options) {
   if (!options.allowFailure && result.status !== 0) {
     throw new Error(`${name} failed with exit ${result.status}`);
   }

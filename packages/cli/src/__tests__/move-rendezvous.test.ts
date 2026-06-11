@@ -1482,6 +1482,123 @@ const tailGrepPipelineDescriptor = moveDescriptorWithCapture(
 );
 
 describe("move target direct loader", () => {
+  it("launches the generic resource graph loader only after preflight gates pass", async () => {
+    const commands: string[] = [];
+    const loader = await runMoveTargetDirectLoaderInVm(
+      mockVm(
+        commands,
+        "LOAD_PID\t4243\nLOAD_LOG\t/tmp/generic.log\nSAFE_BOUNDARY\tgeneric-resource-graph\ttarget-native-reexec-started\nPATCH\tgeneric-resource-graph\tready\t4243\n",
+      ),
+      moveDescriptorWithCapture(
+        4242,
+        "unknown-daemon",
+        ["unknown-daemon", "--serve"],
+        "/usr/bin/unknown-daemon",
+        {
+          genericResourceGraphState: {
+            policy: "generic-resource-graph-target-native-reexec-v1",
+            executableIdentity: { path: "/usr/bin/unknown-daemon", sha256: "a".repeat(64) },
+            argv: ["unknown-daemon", "--serve"],
+            env: { policy: "target-default" },
+            cwd: { path: "/srv/app" },
+            root: { path: "/" },
+            ports: [
+              {
+                protocol: "tcp",
+                port: 8080,
+                bindAddress: "127.0.0.1",
+                state: "idle-loopback-listener",
+                noActiveClients: true,
+              },
+            ],
+            regularFiles: [
+              {
+                path: "/srv/app/config.json",
+                access: "read-only",
+                identity: { size: 12, sha256: "b".repeat(64) },
+              },
+            ],
+            dataDirs: [
+              {
+                path: "/srv/app",
+                access: "write-validated",
+                identity: {
+                  fileCount: 1,
+                  directoryCount: 1,
+                  totalBytes: 12,
+                  treeDigest: "c".repeat(64),
+                },
+              },
+            ],
+            fileOffsets: [],
+            stdioPolicy: "stdio-dev-null-or-closed",
+            healthProbe: { kind: "tcp-connect", host: "127.0.0.1", port: 8080 },
+            resourceClasses: [],
+            refusalClasses: [],
+          },
+        },
+      ),
+    );
+
+    expect(commands[0]).toContain("test -x '/usr/bin/unknown-daemon'");
+    expect(commands[0]).toContain("sha256sum '/usr/bin/unknown-daemon'");
+    expect(commands[0]).toContain("test -d '/srv/app'");
+    expect(commands[0]).toContain("stat -c %s '/srv/app/config.json'");
+    expect(commands[0]).toContain("data-dir-identity-mismatch");
+    expect(commands[0]).toContain("python3 - '127.0.0.1' '8080'");
+    expect(commands[0].indexOf("fail() {")).toBeLessThan(
+      commands[0].indexOf("unknown-daemon' '--serve'"),
+    );
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-generic-resource-graph-reexec-loader",
+      targetPid: 4243,
+      logPath: "/tmp/generic.log",
+    });
+  });
+
+  it("refuses generic load with no target pid when health probe fails", async () => {
+    const commands: string[] = [];
+    const loader = await runMoveTargetDirectLoaderInVm(
+      mockVm(commands, "PATCH\tgeneric-resource-graph\trefused\thealth-tcp-connect-failed\n"),
+      moveDescriptorWithCapture(
+        4244,
+        "unknown-daemon",
+        ["unknown-daemon"],
+        "/usr/bin/unknown-daemon",
+        {
+          genericResourceGraphState: {
+            policy: "generic-resource-graph-target-native-reexec-v1",
+            executableIdentity: { path: "/usr/bin/unknown-daemon" },
+            argv: ["unknown-daemon"],
+            env: { policy: "target-default" },
+            cwd: { path: "/" },
+            root: { path: "/" },
+            ports: [],
+            regularFiles: [],
+            dataDirs: [],
+            fileOffsets: [],
+            stdioPolicy: "stdio-dev-null-or-closed",
+            healthProbe: { kind: "tcp-connect", host: "127.0.0.1", port: 8080 },
+            resourceClasses: [],
+            refusalClasses: [],
+          },
+        },
+      ),
+    );
+
+    expect(commands[0]).toContain("probe_fail health-tcp-connect-failed");
+    expect(commands[0].indexOf("health-tcp-connect-failed")).toBeLessThan(
+      commands[0].indexOf("LOAD_PID"),
+    );
+    expect(loader).toMatchObject({
+      state: "refused",
+      strategy: "target-native-generic-resource-graph-reexec-loader",
+      targetPid: undefined,
+    });
+    expect(loader.refusals[0]?.detail).toMatchObject({ reason: "health-tcp-connect-failed" });
+  });
+
   it("launches original target sleep with only the remaining duration", async () => {
     const commands: string[] = [];
     const vm = mockVm(

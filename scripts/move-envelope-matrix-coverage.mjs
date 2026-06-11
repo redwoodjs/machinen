@@ -90,11 +90,15 @@ if (summary.state !== "passed") {
 }
 
 function expectedProofs(plan) {
-  const names = new Set(plan.expectedProofs ?? []);
-  for (const chunk of plan.chunks ?? []) {
-    for (const proof of chunk.proofs ?? []) {
-      names.add(proof);
-    }
-  }
-  return [...names].sort();
+  return [
+    ...new Set([...array(plan.expectedProofs), ...array(plan.chunks).flatMap(chunkProofs)]),
+  ].sort();
+}
+
+function chunkProofs(chunk) {
+  return array(chunk.proofs);
+}
+
+function array(value) {
+  return Array.isArray(value) ? value : [];
 }

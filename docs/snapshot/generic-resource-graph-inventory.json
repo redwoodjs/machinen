@@ -1,0 +1,438 @@
+{
+  "schemaVersion": 1,
+  "source": "scripts/smoke/move-envelope-matrix.sh PROOF_NAMES including generic resource graph proof rows",
+  "goal": "Map existing proven move proof rows to normalized resource classes so generic resource graph support is grounded in graduated envelope behavior.",
+  "resourceClasses": {
+    "processIdentity": "Executable path/package/content identity and target-native executable policy.",
+    "argvEnvCwd": "Argument vector, environment policy, current working directory, and safe path shape.",
+    "regularFileIdentity": "Regular non-symlink file identity such as size and sha256.",
+    "directoryIdentity": "Directory or tree identity with symlink policy, ordering policy, and digest evidence.",
+    "filesystemMutation": "Target filesystem precondition plus deterministic mutation and postcondition.",
+    "atomicOutput": "Output can be recreated atomically rather than continuing a partial write.",
+    "archiveMemberPolicy": "Archive member names, metadata, overwrite, symlink, hardlink, and traversal policy.",
+    "loopbackTcpListener": "Loopback listener identity and target port availability.",
+    "noActiveClients": "Evidence that a listener has no active client/request/session that must be preserved.",
+    "serviceConfigIdentity": "Daemon config or module identity for target-native restart.",
+    "dataDirIdentity": "Mutable directory tree identity, ownership/mode, and symlink policy.",
+    "databaseSafety": "Database-specific WAL/checkpoint/feature gates that can later become generic data-dir safety sub-classes.",
+    "healthProbe": "Target-side command, process, TCP, HTTP, or protocol evidence after launch.",
+    "unsupportedResourceRefusal": "Known unsupported resource class produces fail-closed evidence before target launch or with targetPid=null.",
+    "runtimeSpecificRefusal": "Runtime or framework-specific state is explicitly refused until a generic resource model exists.",
+    "terminalOrPtyRefusal": "Interactive terminal/PTY/editor state is refused until the PTY resource class graduates."
+  },
+  "families": [
+    {
+      "name": "process timers and simple process shapes",
+      "proofNames": ["sleep", "tail", "find-cursor", "complex-find-refusal"],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "regularFileIdentity",
+        "unsupportedResourceRefusal"
+      ],
+      "genericReadiness": "pilot-candidate"
+    },
+    {
+      "name": "first generic resource graph continuation",
+      "proofNames": [
+        "generic-yes-loop",
+        "generic-static-http-daemon",
+        "generic-interpreted-server",
+        "generic-file-backed-worker",
+        "generic-readonly-file-cli",
+        "generic-writable-log-daemon",
+        "generic-data-dir-daemon",
+        "generic-unsupported-resource-refusals",
+        "generic-loader-preflight-refusals"
+      ],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "regularFileIdentity",
+        "directoryIdentity",
+        "dataDirIdentity",
+        "loopbackTcpListener",
+        "noActiveClients",
+        "healthProbe",
+        "unsupportedResourceRefusal"
+      ],
+      "genericReadiness": "graduated-generic-proof"
+    },
+    {
+      "name": "archive create and extract",
+      "proofNames": [
+        "tar-create",
+        "unsafe-tar-refusal",
+        "tar-extract",
+        "unsafe-tar-extract-refusal",
+        "zip-create",
+        "unsafe-zip-create-refusal"
+      ],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "regularFileIdentity",
+        "directoryIdentity",
+        "atomicOutput",
+        "archiveMemberPolicy",
+        "unsupportedResourceRefusal"
+      ],
+      "genericReadiness": "resource-subclass-needed"
+    },
+    {
+      "name": "filesystem mutations",
+      "proofNames": [
+        "mkdir-dir",
+        "unsafe-mkdir-refusal",
+        "mkdir-parents",
+        "unsafe-mkdir-parents-refusal",
+        "touch-file",
+        "unsafe-touch-refusal",
+        "chmod-file",
+        "unsafe-chmod-refusal",
+        "chown-file",
+        "unsafe-chown-refusal",
+        "link-file",
+        "unsafe-link-refusal",
+        "symlink-file",
+        "unsafe-symlink-refusal",
+        "rm-file",
+        "unsafe-rm-refusal",
+        "rmdir-dir",
+        "unsafe-rmdir-refusal",
+        "install-file",
+        "unsafe-install-refusal"
+      ],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "regularFileIdentity",
+        "directoryIdentity",
+        "filesystemMutation",
+        "unsupportedResourceRefusal"
+      ],
+      "genericReadiness": "resource-subclass-needed"
+    },
+    {
+      "name": "directory and path queries",
+      "proofNames": [
+        "ls-dir",
+        "unsafe-ls-refusal",
+        "ls-long-dir",
+        "unsafe-ls-long-refusal",
+        "du-sb-dir",
+        "unsafe-du-refusal",
+        "stat-file",
+        "unsafe-stat-refusal",
+        "readlink-direct",
+        "unsafe-readlink-refusal",
+        "realpath-path",
+        "unsafe-realpath-refusal",
+        "recursive-grep",
+        "unsafe-recursive-grep-refusal",
+        "maxdepth-find",
+        "unsafe-maxdepth-find-refusal",
+        "find-predicate",
+        "unsafe-find-predicate-refusal",
+        "tree-dir",
+        "unsafe-tree-refusal"
+      ],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "regularFileIdentity",
+        "directoryIdentity",
+        "unsupportedResourceRefusal"
+      ],
+      "genericReadiness": "pilot-candidate"
+    },
+    {
+      "name": "file copy, rename, and text transforms",
+      "proofNames": [
+        "cp-offset",
+        "unsafe-cp-refusal",
+        "mv-rename",
+        "unsafe-mv-refusal",
+        "comm-files",
+        "unsafe-comm-refusal",
+        "join-files",
+        "unsafe-join-refusal",
+        "paste-files",
+        "unsafe-paste-refusal",
+        "uniq-file",
+        "unsafe-uniq-refusal",
+        "awk-field",
+        "unsafe-awk-refusal",
+        "cut-fields",
+        "unsafe-cut-refusal",
+        "sed-print-range",
+        "unsafe-sed-print-refusal",
+        "sed-literal-substitution",
+        "unsafe-sed-sub-refusal",
+        "head-file",
+        "unsafe-head-refusal",
+        "tail-lines",
+        "unsafe-tail-lines-refusal",
+        "sort-file",
+        "unsafe-sort-refusal",
+        "wc-line",
+        "unsafe-wc-refusal"
+      ],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "regularFileIdentity",
+        "directoryIdentity",
+        "atomicOutput",
+        "filesystemMutation",
+        "unsupportedResourceRefusal"
+      ],
+      "genericReadiness": "pilot-candidate"
+    },
+    {
+      "name": "checksums, encoders, compressors, and byte offsets",
+      "proofNames": [
+        "md5sum-file",
+        "unsafe-md5sum-refusal",
+        "sha1sum-file",
+        "unsafe-sha1sum-refusal",
+        "sha512sum-file",
+        "unsafe-sha512sum-refusal",
+        "base64-file",
+        "unsafe-base64-refusal",
+        "gzip-atomic",
+        "unsafe-gzip-refusal",
+        "gunzip-atomic",
+        "unsafe-gunzip-refusal",
+        "xz-atomic",
+        "unsafe-xz-refusal",
+        "zstd-atomic",
+        "unsafe-zstd-refusal",
+        "sha256sum-file",
+        "unsafe-sha256sum-refusal",
+        "dd-offset",
+        "unsafe-dd-refusal"
+      ],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "regularFileIdentity",
+        "atomicOutput",
+        "unsupportedResourceRefusal"
+      ],
+      "genericReadiness": "pilot-candidate"
+    },
+    {
+      "name": "pipeline and simple shell-like processes",
+      "proofNames": [
+        "unsupported-pipe-graph-refusal",
+        "tail-grep-pipeline",
+        "reader-cat",
+        "grep",
+        "watch",
+        "shell"
+      ],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "regularFileIdentity",
+        "unsupportedResourceRefusal",
+        "terminalOrPtyRefusal"
+      ],
+      "genericReadiness": "requires-pipe-or-pty-frontier"
+    },
+    {
+      "name": "Python and wrapper HTTP services",
+      "proofNames": [
+        "python-http",
+        "python-http-directory",
+        "env-python-http-directory",
+        "unsupported-env-wrapper-refusal",
+        "timeout-python-http-directory",
+        "unsafe-timeout-refusal"
+      ],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "directoryIdentity",
+        "loopbackTcpListener",
+        "noActiveClients",
+        "healthProbe",
+        "unsupportedResourceRefusal"
+      ],
+      "genericReadiness": "pilot-candidate"
+    },
+    {
+      "name": "single-file TCP responders",
+      "proofNames": [
+        "busybox-httpd",
+        "nc-listener",
+        "unsafe-nc-active-refusal",
+        "busybox-nc-listener",
+        "unsafe-busybox-nc-refusal",
+        "socat-file-responder",
+        "unsafe-socat-file-responder-refusal"
+      ],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "regularFileIdentity",
+        "loopbackTcpListener",
+        "noActiveClients",
+        "healthProbe",
+        "unsupportedResourceRefusal"
+      ],
+      "genericReadiness": "pilot-candidate"
+    },
+    {
+      "name": "database and stateful service envelopes",
+      "proofNames": [
+        "redis-idle",
+        "unsafe-redis-idle-refusal",
+        "postgres-idle-cluster",
+        "postgres-refusal",
+        "unsafe-postgres-cluster-refusal"
+      ],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "loopbackTcpListener",
+        "noActiveClients",
+        "dataDirIdentity",
+        "databaseSafety",
+        "healthProbe",
+        "unsupportedResourceRefusal"
+      ],
+      "genericReadiness": "generic-shell-plus-specialized-safety-subclasses"
+    },
+    {
+      "name": "static and read-only daemons",
+      "proofNames": [
+        "nginx-static",
+        "unsafe-nginx-static-refusal",
+        "caddy-static",
+        "unsafe-caddy-static-refusal",
+        "ruby-http",
+        "unsafe-ruby-http-refusal",
+        "php-static",
+        "unsafe-php-static-refusal",
+        "rsync-daemon",
+        "unsafe-rsync-daemon-refusal"
+      ],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "directoryIdentity",
+        "serviceConfigIdentity",
+        "loopbackTcpListener",
+        "noActiveClients",
+        "healthProbe",
+        "unsupportedResourceRefusal"
+      ],
+      "genericReadiness": "pilot-candidate"
+    },
+    {
+      "name": "HTTP refusal variants and package/port gates",
+      "proofNames": [
+        "python-http-active-refusal",
+        "python-http-explicit-bind-refusal",
+        "python-http-cgi-refusal",
+        "python-http-missing-cwd-refusal",
+        "python-http-port-conflict-refusal",
+        "python-http-package-mismatch-refusal"
+      ],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "directoryIdentity",
+        "loopbackTcpListener",
+        "noActiveClients",
+        "healthProbe",
+        "unsupportedResourceRefusal"
+      ],
+      "genericReadiness": "pilot-candidate"
+    },
+    {
+      "name": "static app servers and runtime-specific refusals",
+      "proofNames": [
+        "go-static-http",
+        "go-extra-socket-refusal",
+        "rust-static-http",
+        "python-static-route",
+        "python-unmarked-flask-refusal",
+        "node-static-http",
+        "node-static-argv-http",
+        "node-active-refusal",
+        "node-timer-refusal",
+        "node-worker-refusal",
+        "native-dlopen-refusal"
+      ],
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "directoryIdentity",
+        "loopbackTcpListener",
+        "noActiveClients",
+        "healthProbe",
+        "unsupportedResourceRefusal",
+        "runtimeSpecificRefusal"
+      ],
+      "genericReadiness": "pilot-candidate-for-static-cases"
+    },
+    {
+      "name": "terminal tooling probe",
+      "proofNames": ["terminal-tools"],
+      "resourceClasses": ["terminalOrPtyRefusal", "unsupportedResourceRefusal"],
+      "genericReadiness": "requires-pty-frontier"
+    }
+  ],
+  "coverage": {
+    "proofNameCount": 150,
+    "allProofNamesAccountedFor": true,
+    "duplicateProofNames": []
+  },
+  "genericMigrationEquivalence": [
+    {
+      "bespokeProofName": "python-http",
+      "genericProofName": "generic-static-http-daemon",
+      "resourcePattern": "loopback static HTTP daemon",
+      "equivalentTargetEvidence": "target HTTP GET returns generic static http body from target-native Python process",
+      "fallbackPolicy": "keep python-http bespoke loader higher priority until generic migration is explicitly switched on"
+    },
+    {
+      "bespokeProofName": "python-http-directory",
+      "genericProofName": "generic-static-http-daemon",
+      "resourcePattern": "cwd/data-dir-backed static HTTP serving",
+      "equivalentTargetEvidence": "target cwd/data-dir identity is validated and HTTP response is served from target data dir",
+      "fallbackPolicy": "keep python-http-directory bespoke loader higher priority during migration"
+    },
+    {
+      "bespokeProofName": "nc-listener",
+      "genericProofName": "generic-interpreted-server",
+      "resourcePattern": "idle loopback TCP listener with no active clients",
+      "equivalentTargetEvidence": "target TCP request returns interpreted:ping from target-native process",
+      "fallbackPolicy": "keep nc listener bespoke loader higher priority during migration"
+    },
+    {
+      "bespokeProofName": "reader-cat",
+      "genericProofName": "generic-file-backed-worker",
+      "resourcePattern": "readonly regular-file identity plus target output evidence",
+      "equivalentTargetEvidence": "target log contains file-worker:generic file input after regular file identity preflight",
+      "fallbackPolicy": "keep reader-cat bespoke loader higher priority during migration"
+    },
+    {
+      "bespokeProofName": "grep",
+      "genericProofName": "generic-readonly-file-cli",
+      "resourcePattern": "readonly-file CLI with deterministic target output",
+      "equivalentTargetEvidence": "target log contains readonly-cli:generic file input after regular file identity preflight",
+      "fallbackPolicy": "keep grep bespoke loader higher priority during migration"
+    },
+    {
+      "bespokeProofName": "tail",
+      "genericProofName": "generic-writable-log-daemon",
+      "resourcePattern": "long-running file-observing/log-adjacent daemon with writable data-dir validation",
+      "equivalentTargetEvidence": "target appends generic-log-entry after write-validated cwd/data-dir preflight",
+      "fallbackPolicy": "keep tail bespoke loader higher priority for offset-preserving tail semantics until generic file offset graduation is proven"
+    }
+  ]
+}

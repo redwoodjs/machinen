@@ -1245,20 +1245,64 @@ PY
 
 ensure_postgres_tool() {
   local vm="$1"
-  if $CLI exec "$vm" -- "test -x /usr/lib/postgresql/15/bin/postgres && test -x /usr/lib/postgresql/15/bin/initdb" >/dev/null 2>&1; then
+  if $CLI exec "$vm" -- "test -x /usr/lib/postgresql/15/bin/postgres && test -x /usr/lib/postgresql/15/bin/initdb && test -x /usr/lib/postgresql/15/bin/psql && test -x /usr/lib/postgresql/15/bin/pg_controldata" >/dev/null 2>&1; then
     return 0
   fi
-  $CLI exec "$vm" -- "rm -f /tmp/machinen-postgres-apt.log; export DEBIAN_FRONTEND=noninteractive; apt-get update -qq >/tmp/machinen-postgres-apt.log 2>&1 && apt-get install -y --reinstall --no-install-recommends postgresql-15 postgresql-client-15 >>/tmp/machinen-postgres-apt.log 2>&1 || { cat /tmp/machinen-postgres-apt.log; exit 1; }; test -x /usr/lib/postgresql/15/bin/postgres && test -x /usr/lib/postgresql/15/bin/initdb" >/dev/null
+  $CLI exec "$vm" -- "rm -f /tmp/machinen-postgres-apt.log; export DEBIAN_FRONTEND=noninteractive; apt-get update -qq >/tmp/machinen-postgres-apt.log 2>&1 && apt-get install -y --reinstall --no-install-recommends postgresql-15 postgresql-client-15 >>/tmp/machinen-postgres-apt.log 2>&1 || { cat /tmp/machinen-postgres-apt.log; exit 1; }; test -x /usr/lib/postgresql/15/bin/postgres && test -x /usr/lib/postgresql/15/bin/initdb && test -x /usr/lib/postgresql/15/bin/psql && test -x /usr/lib/postgresql/15/bin/pg_controldata" >/dev/null
 }
 
 spawn_postgres_instance() {
+  local port="${1:-8159}" data_dir="${2:-/tmp/pgdata-proof}" name="${3:-postgres-proof}" extra_config="${4:-}"
   ensure_postgres_tool "$SRC"
-  $CLI exec "$SRC" -- "rm -rf /tmp/pgdata-proof; mkdir -p /tmp/pgdata-proof; chown postgres:postgres /tmp/pgdata-proof; su -s /bin/sh postgres -c '/usr/lib/postgresql/15/bin/initdb -D /tmp/pgdata-proof --auth=trust --no-locale >/tmp/postgres-initdb.log 2>&1'; su -s /bin/sh postgres -c '/usr/lib/postgresql/15/bin/postgres -D /tmp/pgdata-proof -p 8159 -h 127.0.0.1 >/tmp/postgres-proof.log 2>&1 &' ; for i in \$(seq 1 200); do for d in /proc/[0-9]*; do exe=\$(readlink \"\$d/exe\" 2>/dev/null || true); [ \"\$exe\" = /usr/lib/postgresql/15/bin/postgres ] || continue; cmd=\$(tr '\\000' ' ' <\"\$d/cmdline\" 2>/dev/null || true); case \"\$cmd\" in *'/tmp/pgdata-proof'*) echo \${d##*/}; exit 0;; esac; done; sleep 0.05; done; cat /tmp/postgres-proof.log >&2; exit 1" | tail -1 | tr -d '\r'
+  $CLI exec "$SRC" -- "for d in /proc/[0-9]*; do exe=\$(readlink \"\$d/exe\" 2>/dev/null || true); [ \"\$exe\" = /usr/lib/postgresql/15/bin/postgres ] && kill -TERM \${d##*/} 2>/dev/null || true; done; sleep 1; for d in /proc/[0-9]*; do exe=\$(readlink \"\$d/exe\" 2>/dev/null || true); [ \"\$exe\" = /usr/lib/postgresql/15/bin/postgres ] && kill -KILL \${d##*/} 2>/dev/null || true; done; sleep 1; rm -rf '$data_dir'; mkdir -p '$data_dir'; chown postgres:postgres '$data_dir'; su -s /bin/sh postgres -c '/usr/lib/postgresql/15/bin/initdb -D '$data_dir' --auth=trust --no-locale >/tmp/${name}-initdb.log 2>&1'; if [ -n '$extra_config' ]; then printf '%s\n' '$extra_config' >>'$data_dir/postgresql.conf'; fi; setsid su -s /bin/sh postgres -c 'cd '$data_dir' && exec /usr/lib/postgresql/15/bin/postgres -D '$data_dir' -p $port -h 127.0.0.1 >/tmp/${name}.log 2>&1' </dev/null >/dev/null 2>&1 & for i in \$(seq 1 240); do if /usr/lib/postgresql/15/bin/pg_isready -h 127.0.0.1 -p $port >/dev/null 2>&1; then for d in /proc/[0-9]*; do exe=\$(readlink "\$d/exe" 2>/dev/null || true); [ "\$exe" = /usr/lib/postgresql/15/bin/postgres ] || continue; cmd=\$(tr '\000' ' ' <"\$d/cmdline" 2>/dev/null || true); case "\$cmd" in *'$data_dir'*) candidate=\${d##*/}; sleep 1; if kill -0 "\$candidate" 2>/dev/null && /usr/lib/postgresql/15/bin/pg_isready -h 127.0.0.1 -p $port >/dev/null 2>&1; then echo "\$candidate"; exit 0; fi;; esac; done; fi; sleep 0.05; done; cat /tmp/${name}.log >&2; exit 1" | tail -1 | tr -d '\r'
+}
+
+copy_postgres_data_dir_to_target() {
+  ensure_postgres_tool "$TGT"
+  $CLI exec "$SRC" -- "cd /tmp && tar --numeric-owner --exclude='pgdata-proof/postmaster.pid' --exclude='pgdata-proof/postmaster.opts' --exclude='pgdata-proof/pg_stat/*' --exclude='pgdata-proof/pg_stat_tmp/*' -cf - pgdata-proof | base64" >"$WORK/pgdata-proof.tar.b64"
+  rm -rf "$WORK/pgdata-upload-chunks"
+  mkdir -p "$WORK/pgdata-upload-chunks"
+  split -a 5 -b 65536 "$WORK/pgdata-proof.tar.b64" "$WORK/pgdata-upload-chunks/chunk."
+  $CLI exec "$TGT" -- "rm -rf /tmp/pgdata-proof /tmp/pgdata-proof.tar /tmp/pgdata-proof.tar.b64; : >/tmp/pgdata-proof.tar.b64" >/dev/null
+  for chunk in "$WORK"/pgdata-upload-chunks/chunk.*; do
+    $CLI exec "$TGT" -- "cat >>/tmp/pgdata-proof.tar.b64 <<'EOF'
+$(cat "$chunk")
+EOF" >/dev/null
+  done
+  $CLI exec "$TGT" -- "base64 -d /tmp/pgdata-proof.tar.b64 >/tmp/pgdata-proof.tar; tar -C /tmp -xf /tmp/pgdata-proof.tar; rm -f /tmp/pgdata-proof.tar /tmp/pgdata-proof.tar.b64; chown -R postgres:postgres /tmp/pgdata-proof; rm -rf /tmp/pgdata-proof.clean; cp -a /tmp/pgdata-proof /tmp/pgdata-proof.clean" >/dev/null
+}
+
+reset_postgres_target_data_dir() {
+  $CLI exec "$TGT" -- "for d in /proc/[0-9]*; do exe=\$(readlink \"\$d/exe\" 2>/dev/null || true); [ \"\$exe\" = /usr/lib/postgresql/15/bin/postgres ] && kill -TERM \${d##*/} 2>/dev/null || true; done; sleep 1; for d in /proc/[0-9]*; do exe=\$(readlink \"\$d/exe\" 2>/dev/null || true); [ \"\$exe\" = /usr/lib/postgresql/15/bin/postgres ] && kill -KILL \${d##*/} 2>/dev/null || true; done; rm -rf /tmp/pgdata-proof; cp -a /tmp/pgdata-proof.clean /tmp/pgdata-proof; chown -R postgres:postgres /tmp/pgdata-proof" >/dev/null
+}
+
+prove_postgres_idle_cluster() {
+  local bundle="$WORK/postgres-idle-cluster.bundle" pid out
+  pid=$(spawn_postgres_instance 8159 /tmp/pgdata-proof postgres-idle)
+  ensure_postgres_tool "$TGT"
+  sleep 1
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/postgres-idle-cluster.save.json"
+  copy_postgres_data_dir_to_target
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/postgres-idle-cluster.load.json"
+  out=$($CLI exec "$TGT" -- "/usr/lib/postgresql/15/bin/psql -h 127.0.0.1 -p 8159 -U postgres -d postgres -Atc 'select 1'" | tr -d '\r')
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/postgres-idle-cluster.save.json'))
+load=json.load(open('$WORK/postgres-idle-cluster.load.json'))
+pg=save['descriptor']['resourcePlan']['capture'].get('postgresClusterState')
+loader=load.get('loader', {})
+assert save['accepted'] and load['accepted'], {'save':save.get('accepted'),'load':load.get('accepted')}
+assert pg and pg['policy']=='postgres-idle-clean-cluster-target-native-restart', pg
+assert loader.get('state') == 'ready' and loader.get('targetPid'), loader
+assert '$out'.strip() == '1', '$out'
+print(json.dumps({'name':'postgres-idle-cluster','state':'passed','saveAccepted':save['accepted'],'loadAccepted':load['accepted'],'loaderState':loader.get('state'),'targetPid':loader.get('targetPid'),'selectOne':'$out','policy':pg['policy'],'package':pg['packageIdentity'],'clientPackage':pg['clientPackageIdentity']}))
+PY
 }
 
 prove_postgres_refusal() {
   local bundle="$WORK/postgres-refusal.bundle" pid save_rc load_rc
-  pid=$(spawn_postgres_instance)
+  pid=$(spawn_postgres_instance 8159 /tmp/pgdata-proof postgres-refusal)
+  $CLI exec "$SRC" -- "/usr/lib/postgresql/15/bin/psql -h 127.0.0.1 -p 8159 -U postgres -d postgres -c 'select pg_sleep(20)' >/tmp/postgres-active-client.log 2>&1 & echo \$!" >/dev/null
   sleep 1
   set +e
   $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/postgres-refusal.save.json"
@@ -1274,8 +1318,161 @@ assert int('$save_rc') == 1 and int('$load_rc') == 1
 assert not save['accepted'] and not load['accepted']
 assert 'loader' not in load
 assert save['descriptor']['nodes'][0]['exe'].endswith('/postgres')
-assert save['descriptor']['resourcePlan']['capture'].get('redisIdleState') is None
-print(json.dumps({'name':'postgres-refusal','state':'passed','saveAccepted':save['accepted'],'loadAccepted':load['accepted'],'loaderStarted':'loader' in load,'exe':save['descriptor']['nodes'][0]['exe'],'refusedClasses':[r['stateClass'] for r in save['descriptor']['refusedStateClasses']]}))
+assert save['descriptor']['resourcePlan']['capture'].get('postgresClusterState') is None
+print(json.dumps({'name':'postgres-refusal','state':'passed','saveAccepted':save['accepted'],'loadAccepted':load['accepted'],'loaderStarted':'loader' in load,'exe':save['descriptor']['nodes'][0]['exe'],'postgresClusterState':None,'refusedClasses':[r['stateClass'] for r in save['descriptor']['refusedStateClasses']]}))
+PY
+}
+
+prove_unsafe_postgres_cluster_refusal() {
+  local active_bundle="$WORK/unsafe-postgres-active-client.bundle" feature_bundle="$WORK/unsafe-postgres-features.bundle" config_bundle="$WORK/unsafe-postgres-config.bundle" port_bundle="$WORK/unsafe-postgres-port.bundle" missing_bundle="$WORK/unsafe-postgres-missing.bundle" package_bundle="$WORK/unsafe-postgres-package.bundle" stale_bundle="$WORK/unsafe-postgres-stale.bundle" owner_bundle="$WORK/unsafe-postgres-owner.bundle" data_bundle="$WORK/unsafe-postgres-data.bundle" wal_bundle="$WORK/unsafe-postgres-wal.bundle" pid active_rc feature_rc config_load_rc port_load_rc missing_load_rc package_load_rc stale_load_rc owner_load_rc data_load_rc wal_load_rc
+  pid=$(spawn_postgres_instance 8159 /tmp/pgdata-proof unsafe-postgres-active)
+  $CLI exec "$SRC" -- "/usr/lib/postgresql/15/bin/psql -h 127.0.0.1 -p 8159 -U postgres -d postgres -c 'select pg_sleep(20)' >/tmp/unsafe-postgres-active-client.log 2>&1 &" >/dev/null
+  sleep 1
+  set +e
+  $CLI move save "$SRC" "$pid" "$active_bundle" --json >"$WORK/unsafe-postgres-active.save.json"
+  active_rc=$?
+  set -e
+
+
+  pid=$(spawn_postgres_instance 8160 /tmp/pgdata-proof unsafe-postgres-valid)
+  ensure_postgres_tool "$TGT"
+  sleep 1
+  $CLI move save "$SRC" "$pid" "$config_bundle" --json >"$WORK/unsafe-postgres-config.save.json"
+  rm -rf "$port_bundle" "$missing_bundle" "$package_bundle" "$stale_bundle" "$owner_bundle" "$data_bundle" "$wal_bundle"
+  cp -R "$config_bundle" "$port_bundle"
+  cp -R "$config_bundle" "$missing_bundle"
+  cp -R "$config_bundle" "$package_bundle"
+  cp -R "$config_bundle" "$stale_bundle"
+  cp -R "$config_bundle" "$owner_bundle"
+  cp -R "$config_bundle" "$data_bundle"
+  cp -R "$config_bundle" "$wal_bundle"
+  python3 - <<PY
+import json
+from pathlib import Path
+for bundle, mutator in [
+  ('$package_bundle', lambda pg: pg['packageIdentity'].__setitem__('version', '0.machinen-mismatch')),
+  ('$wal_bundle', lambda pg: pg['walState'].__setitem__('pgWalDigest', '0'*64)),
+]:
+  path=Path(bundle)/'move.json'
+  doc=json.load(open(path))
+  pg=doc['resourcePlan']['capture']['postgresClusterState']
+  mutator(pg)
+  path.write_text(json.dumps(doc, indent=2)+'\n')
+PY
+  copy_postgres_data_dir_to_target
+
+  reset_postgres_target_data_dir
+  $CLI exec "$TGT" -- "printf '\n# machinen unsafe mutation\n' >>/tmp/pgdata-proof/pg_hba.conf" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$config_bundle" --json >"$WORK/unsafe-postgres-config.load.json"
+  config_load_rc=$?
+  set -e
+
+  reset_postgres_target_data_dir
+  $CLI exec "$TGT" -- "rm -rf /tmp/pgdata-conflict; mkdir -p /tmp/pgdata-conflict; chown postgres:postgres /tmp/pgdata-conflict; su -s /bin/sh postgres -c '/usr/lib/postgresql/15/bin/initdb -D /tmp/pgdata-conflict --auth=trust --no-locale >/tmp/postgres-conflict-initdb.log 2>&1'; setsid su -s /bin/sh postgres -c '/usr/lib/postgresql/15/bin/postgres -D /tmp/pgdata-conflict -p 8160 -h 127.0.0.1 >/tmp/postgres-conflict.log 2>&1' </dev/null >/dev/null 2>&1 & for i in \$(seq 1 200); do /usr/lib/postgresql/15/bin/pg_isready -h 127.0.0.1 -p 8160 >/dev/null 2>&1 && exit 0; sleep 0.05; done; cat /tmp/postgres-conflict.log >&2; exit 1" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$port_bundle" --json >"$WORK/unsafe-postgres-port.load.json"
+  port_load_rc=$?
+  set -e
+
+  reset_postgres_target_data_dir
+  $CLI exec "$TGT" -- "mv /usr/lib/postgresql/15/bin/postgres /usr/lib/postgresql/15/bin/postgres.machinen-missing" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$missing_bundle" --json >"$WORK/unsafe-postgres-missing.load.json"
+  missing_load_rc=$?
+  set -e
+  $CLI exec "$TGT" -- "mv /usr/lib/postgresql/15/bin/postgres.machinen-missing /usr/lib/postgresql/15/bin/postgres" >/dev/null
+
+  reset_postgres_target_data_dir
+  set +e
+  $CLI move load "$TGT" "$package_bundle" --json >"$WORK/unsafe-postgres-package.load.json"
+  package_load_rc=$?
+  set -e
+
+  reset_postgres_target_data_dir
+  $CLI exec "$TGT" -- "printf '999999\n' >/tmp/pgdata-proof/postmaster.pid" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$stale_bundle" --json >"$WORK/unsafe-postgres-stale.load.json"
+  stale_load_rc=$?
+  set -e
+
+  reset_postgres_target_data_dir
+  $CLI exec "$TGT" -- "chmod 755 /tmp/pgdata-proof" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$owner_bundle" --json >"$WORK/unsafe-postgres-owner.load.json"
+  owner_load_rc=$?
+  set -e
+
+  reset_postgres_target_data_dir
+  $CLI exec "$TGT" -- "printf 'changed\n' >/tmp/pgdata-proof/machinen-extra-file" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$data_bundle" --json >"$WORK/unsafe-postgres-data.load.json"
+  data_load_rc=$?
+  set -e
+
+  reset_postgres_target_data_dir
+  set +e
+  $CLI move load "$TGT" "$wal_bundle" --json >"$WORK/unsafe-postgres-wal.load.json"
+  wal_load_rc=$?
+  set -e
+
+  pid=$(spawn_postgres_instance 8161 /tmp/pgdata-proof unsafe-postgres-features "max_prepared_transactions = 10")
+  $CLI exec "$SRC" -- "set -eu; mkdir -p /tmp/pg_tblspc_extra; chown postgres:postgres /tmp/pg_tblspc_extra; /usr/lib/postgresql/15/bin/psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 8161 -U postgres -d postgres <<'SQL'
+create table prepared_gate(id int);
+begin;
+insert into prepared_gate values (1);
+prepare transaction 'machinen_gate';
+select pg_create_physical_replication_slot('machinen_gate');
+create tablespace machinen_gate location '/tmp/pg_tblspc_extra';
+create unlogged table machinen_unlogged(id int);
+SQL
+for ext in adminpack pg_trgm hstore citext btree_gin; do /usr/lib/postgresql/15/bin/psql -h 127.0.0.1 -p 8161 -U postgres -d postgres -c \"create extension if not exists \\\"\$ext\\\"\" >/dev/null 2>&1 && break; done
+mkdir -p /tmp/pgdata-proof/base/pgsql_tmp; : >/tmp/pgdata-proof/base/pgsql_tmp/machinen-temp; ln -sf /etc/passwd /tmp/pgdata-proof/machinen-symlink-escape
+/usr/lib/postgresql/15/bin/psql -h 127.0.0.1 -p 8161 -U postgres -d postgres -At <<'SQL' >/tmp/unsafe-postgres-feature-report.txt
+select 'preparedTransactions=' || count(*) from pg_prepared_xacts;
+select 'replicationSlots=' || count(*) from pg_replication_slots;
+select 'nonDefaultTablespaces=' || count(*) from pg_tablespace where spcname not in ('pg_default','pg_global');
+select 'unloggedRelations=' || count(*) from pg_class where relpersistence = 'u';
+select 'extensionNativeLibraries=' || count(*) from pg_extension where extname <> 'plpgsql';
+SQL
+printf 'tempFiles=' >>/tmp/unsafe-postgres-feature-report.txt; find /tmp/pgdata-proof -path '*/pgsql_tmp/*' -type f | wc -l | tr -d ' ' >>/tmp/unsafe-postgres-feature-report.txt
+printf 'symlinkEscapes=' >>/tmp/unsafe-postgres-feature-report.txt; find /tmp/pgdata-proof -type l | wc -l | tr -d ' ' >>/tmp/unsafe-postgres-feature-report.txt" >/dev/null
+  $CLI exec "$SRC" -- "cat /tmp/unsafe-postgres-feature-report.txt" >"$WORK/unsafe-postgres-feature-report.txt"
+  set +e
+  $CLI move save "$SRC" "$pid" "$feature_bundle" --json >"$WORK/unsafe-postgres-features.save.json"
+  feature_rc=$?
+  set -e
+
+  python3 - <<PY
+import json
+from pathlib import Path
+active=json.load(open('$WORK/unsafe-postgres-active.save.json'))
+features=json.load(open('$WORK/unsafe-postgres-features.save.json'))
+feature_report=dict(line.strip().split('=',1) for line in Path('$WORK/unsafe-postgres-feature-report.txt').read_text().splitlines() if '=' in line)
+loads={
+  'config': (json.load(open('$WORK/unsafe-postgres-config.load.json')), '$config_load_rc', 'config-identity-mismatch'),
+  'port': (json.load(open('$WORK/unsafe-postgres-port.load.json')), '$port_load_rc', 'port-in-use'),
+  'missing': (json.load(open('$WORK/unsafe-postgres-missing.load.json')), '$missing_load_rc', 'missing-postgres-binary'),
+  'package': (json.load(open('$WORK/unsafe-postgres-package.load.json')), '$package_load_rc', 'package-mismatch'),
+  'stale': (json.load(open('$WORK/unsafe-postgres-stale.load.json')), '$stale_load_rc', 'stale-postmaster-pid'),
+  'owner': (json.load(open('$WORK/unsafe-postgres-owner.load.json')), '$owner_load_rc', 'owner-mode-mismatch'),
+  'data': (json.load(open('$WORK/unsafe-postgres-data.load.json')), '$data_load_rc', 'data-dir-identity-mismatch'),
+  'wal': (json.load(open('$WORK/unsafe-postgres-wal.load.json')), '$wal_load_rc', 'wal-checkpoint-identity-mismatch'),
+}
+assert int('$active_rc') == 1 and not active['accepted'] and active['descriptor']['resourcePlan']['capture'].get('postgresClusterState') is None, active
+assert int('$feature_rc') == 1 and not features['accepted'] and features['descriptor']['resourcePlan']['capture'].get('postgresClusterState') is None, features
+for key in ['preparedTransactions','replicationSlots','nonDefaultTablespaces','unloggedRelations','tempFiles','symlinkEscapes']:
+  assert int(feature_report.get(key, '0')) > 0, (key, feature_report)
+assert int(feature_report.get('extensionNativeLibraries', '0')) >= 0, feature_report
+loader_summary={}
+for name, (doc, rc, needle) in loads.items():
+  loader=doc.get('loader', {})
+  stdout=loader.get('patch', {}).get('stdout', '')
+  assert int(rc) == 1 and not doc['accepted'], (name, rc, doc)
+  assert loader.get('state') == 'refused' and loader.get('targetPid') is None, (name, loader)
+  assert needle in stdout, (name, needle, stdout)
+  loader_summary[name]={'accepted': doc['accepted'], 'targetPid': loader.get('targetPid'), 'needle': needle}
+print(json.dumps({'name':'unsafe-postgres-cluster-refusal','state':'passed','activeClientSaveAccepted':active['accepted'],'activeClientPostgresClusterState':active['descriptor']['resourcePlan']['capture'].get('postgresClusterState'),'featureSaveAccepted':features['accepted'],'featurePostgresClusterState':features['descriptor']['resourcePlan']['capture'].get('postgresClusterState'),'featureCounters':feature_report,'loaderRefusals':loader_summary}))
 PY
 }
 
@@ -7292,6 +7489,485 @@ print(json.dumps({'name':'unsafe-dd-refusal','state':'passed','saveAccepted':sav
 PY
 }
 
+prove_generic_yes_loop() {
+  local bundle="$WORK/generic-yes.bundle" pid tpid
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-resource-graph' & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-yes.save.json"
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-yes.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-yes.load.json'))['loader']['targetPid'])
+PY
+)
+  sleep 0.2
+  $CLI exec "$TGT" -- "test -d /proc/$tpid && tr '\0' ' ' </proc/$tpid/cmdline" >"$WORK/generic-yes.target.out"
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/generic-yes.save.json'))
+load=json.load(open('$WORK/generic-yes.load.json'))
+out=open('$WORK/generic-yes.target.out', 'rb').read().decode('utf-8', 'replace')
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert save['accepted'] and load['accepted']
+assert save['descriptor']['nativeContinuation']['state'] == 'planned'
+assert g['refusalClasses'] == []
+assert g['executableIdentity']['path'] == '/usr/bin/yes'
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert load['loader']['targetPid'] == int('$tpid')
+assert '/usr/bin/yes' in out or 'yes' in out
+assert 'generic-resource-graph' in out
+print(json.dumps({'name':'generic-yes-loop','state':'passed','saveAccepted':save['accepted'],'loadAccepted':load['accepted'],'nativeContinuation':save['descriptor']['nativeContinuation']['state'],'genericPolicy':g['policy'],'refusalClasses':g['refusalClasses'],'loaderStrategy':load['loader']['strategy'],'targetPid':int('$tpid'),'targetCmdline':out.strip()}))
+PY
+}
+
+ensure_generic_python_tool() {
+  local vm="$1"
+  $CLI exec "$vm" -- 'set -eu
+export DEBIAN_FRONTEND=noninteractive
+if ! python3 -V >/dev/null 2>&1; then
+  apt-get update -qq >/tmp/machinen-generic-python-apt.log 2>&1
+  apt-get install -y --reinstall --no-install-recommends libpython3.11-minimal python3.11-minimal libpython3.11-stdlib python3.11 python3-minimal python3 >>/tmp/machinen-generic-python-apt.log 2>&1 || { cat /tmp/machinen-generic-python-apt.log; exit 1; }
+fi
+python3 -V >/dev/null'
+}
+
+setup_generic_python_fixture() {
+  local vm="$1" mode="$2"
+  ensure_generic_python_tool "$vm"
+  $CLI exec "$vm" -- "GENERIC_MODE='$mode' python3 - <<'PY'
+import os
+from pathlib import Path
+mode = os.environ['GENERIC_MODE']
+base = Path('/tmp/machinen-generic') / mode
+root = base / 'root'
+root.mkdir(parents=True, exist_ok=True)
+(base / 'bin').mkdir(parents=True, exist_ok=True)
+(root / 'seed.txt').write_text('seed-generic-resource-graph\n')
+(root / 'index.txt').write_text('generic static http body\n')
+(root / 'input.txt').write_text('generic file input\nsecond line\n')
+(root / 'app.log').write_text('log-start\n')
+scripts = {
+'static_http.py': r'''
+import os, socket, sys
+port = int(sys.argv[1]); root = sys.argv[2]
+os.chdir(root)
+s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(('127.0.0.1', port)); s.listen(16)
+while True:
+    c, _ = s.accept()
+    data = c.recv(4096)
+    if data:
+        body = open('index.txt', 'rb').read()
+        c.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+    c.close()
+''',
+'tcp_echo.py': r'''
+import socket, sys
+port = int(sys.argv[1])
+s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(('127.0.0.1', port)); s.listen(16)
+while True:
+    c, _ = s.accept()
+    data = c.recv(4096)
+    if data:
+        c.sendall(b'interpreted:' + data)
+    c.close()
+''',
+'file_worker.py': r'''
+import sys, time
+path = sys.argv[1]
+f = open(path, 'r')
+time.sleep(1)
+while True:
+    f.seek(0)
+    print('file-worker:' + f.readline().strip(), flush=True)
+    time.sleep(1)
+''',
+'readonly_cli.py': r'''
+import sys, time
+path = sys.argv[1]
+f = open(path, 'r')
+time.sleep(1)
+while True:
+    f.seek(0)
+    print('readonly-cli:' + f.read().splitlines()[0], flush=True)
+    time.sleep(1)
+''',
+'writable_log.py': r'''
+import sys, time
+path = sys.argv[1]
+time.sleep(0.5)
+while True:
+    with open(path, 'a') as f:
+        f.write('generic-log-entry\n')
+        f.flush()
+    time.sleep(0.5)
+''',
+'data_dir_daemon.py': r'''
+import os, time
+root = os.getcwd()
+time.sleep(0.5)
+while True:
+    with open(os.path.join(root, 'daemon-marker.txt'), 'w') as f:
+        f.write('generic-data-dir-ready\n')
+    print('data-dir-daemon:ready', flush=True)
+    time.sleep(0.5)
+''',
+}
+for name, text in scripts.items():
+    path = base / 'bin' / name
+    path.write_text(text.strip() + '\n')
+    path.chmod(0o755)
+PY" >/dev/null
+}
+
+launch_generic_fixture() {
+  local mode="$1" script="$2" args="$3" cwd="$4"
+  $CLI exec "$SRC" -- "cd '$cwd' && PYTHONDONTWRITEBYTECODE=1 setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/python3 /tmp/machinen-generic/$mode/bin/$script $args' & echo \$!" | tail -1 | tr -d '\r'
+}
+
+assert_generic_only_json() {
+  local save_path="$1" load_path="$2" proof_name="$3" extra_json="$4"
+  python3 - <<PY
+import json
+save=json.load(open('$save_path'))
+load=json.load(open('$load_path'))
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+active=[k for k,v in save['descriptor']['resourcePlan']['capture'].items() if k.endswith('State') and k != 'genericResourceGraphState' and v is not None]
+assert save['accepted'] and load['accepted']
+assert save['descriptor']['nativeContinuation']['state'] == 'planned'
+assert active == [], active
+assert g['refusalClasses'] == []
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+extra=json.loads('''$extra_json''')
+out={'name':'$proof_name','state':'passed','saveAccepted':save['accepted'],'loadAccepted':load['accepted'],'nativeContinuation':save['descriptor']['nativeContinuation']['state'],'genericPolicy':g['policy'],'refusalClasses':g['refusalClasses'],'loaderStrategy':load['loader']['strategy'],'targetPid':load['loader']['targetPid'],'genericOnlyActiveStates':active}
+out.update(extra)
+print(json.dumps(out))
+PY
+}
+
+prove_generic_static_http_daemon() {
+  local bundle="$WORK/generic-static-http.bundle" pid tpid body port=18231
+  setup_generic_python_fixture "$SRC" static-http
+  setup_generic_python_fixture "$TGT" static-http
+  pid=$(launch_generic_fixture static-http static_http.py "$port /tmp/machinen-generic/static-http/root" "/tmp/machinen-generic/static-http/root")
+  sleep 0.5
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-static-http.save.json"
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-static-http.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-static-http.load.json'))['loader']['targetPid'])
+PY
+)
+  body=$($CLI exec "$TGT" -- "python3 - <<'PY'
+import urllib.request
+print(urllib.request.urlopen('http://127.0.0.1:$port/', timeout=2).read().decode().strip())
+PY")
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
+  [[ "$body" == "generic static http body" ]]
+  assert_generic_only_json "$WORK/generic-static-http.save.json" "$WORK/generic-static-http.load.json" generic-static-http-daemon "{\"response\":\"$body\",\"port\":$port}"
+}
+
+prove_generic_interpreted_server() {
+  local bundle="$WORK/generic-interpreted-server.bundle" pid tpid response port=18232
+  setup_generic_python_fixture "$SRC" interpreted-server
+  setup_generic_python_fixture "$TGT" interpreted-server
+  pid=$(launch_generic_fixture interpreted-server tcp_echo.py "$port" "/tmp/machinen-generic/interpreted-server/root")
+  sleep 0.5
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-interpreted-server.save.json"
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-interpreted-server.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-interpreted-server.load.json'))['loader']['targetPid'])
+PY
+)
+  response=$($CLI exec "$TGT" -- "python3 - <<'PY'
+import socket
+s=socket.create_connection(('127.0.0.1',$port), timeout=2); s.sendall(b'ping'); print(s.recv(64).decode()); s.close()
+PY")
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
+  [[ "$response" == "interpreted:ping" ]]
+  assert_generic_only_json "$WORK/generic-interpreted-server.save.json" "$WORK/generic-interpreted-server.load.json" generic-interpreted-server "{\"response\":\"$response\",\"port\":$port}"
+}
+
+prove_generic_file_backed_worker() {
+  local bundle="$WORK/generic-file-worker.bundle" pid tpid log output
+  setup_generic_python_fixture "$SRC" file-worker
+  setup_generic_python_fixture "$TGT" file-worker
+  pid=$(launch_generic_fixture file-worker file_worker.py "/tmp/machinen-generic/file-worker/root/input.txt" "/tmp/machinen-generic/file-worker/root")
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-file-worker.save.json"
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-file-worker.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-file-worker.load.json'))['loader']['targetPid'])
+PY
+)
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-file-worker.load.json'))['loader']['logPath'])
+PY
+)
+  sleep 1.5
+  output=$($CLI exec "$TGT" -- "grep -m1 '^file-worker:' '$log'")
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
+  assert_generic_only_json "$WORK/generic-file-worker.save.json" "$WORK/generic-file-worker.load.json" generic-file-backed-worker "{\"output\":\"$output\"}"
+}
+
+prove_generic_readonly_file_cli() {
+  local bundle="$WORK/generic-readonly-cli.bundle" pid tpid log output
+  setup_generic_python_fixture "$SRC" readonly-cli
+  setup_generic_python_fixture "$TGT" readonly-cli
+  pid=$(launch_generic_fixture readonly-cli readonly_cli.py "/tmp/machinen-generic/readonly-cli/root/input.txt" "/tmp/machinen-generic/readonly-cli/root")
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-readonly-cli.save.json"
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-readonly-cli.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-readonly-cli.load.json'))['loader']['targetPid'])
+PY
+)
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-readonly-cli.load.json'))['loader']['logPath'])
+PY
+)
+  sleep 1.5
+  output=$($CLI exec "$TGT" -- "grep -m1 '^readonly-cli:' '$log'")
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
+  assert_generic_only_json "$WORK/generic-readonly-cli.save.json" "$WORK/generic-readonly-cli.load.json" generic-readonly-file-cli "{\"output\":\"$output\"}"
+}
+
+prove_generic_writable_log_daemon() {
+  local bundle="$WORK/generic-writable-log.bundle" pid tpid count
+  setup_generic_python_fixture "$SRC" writable-log
+  setup_generic_python_fixture "$TGT" writable-log
+  pid=$(launch_generic_fixture writable-log writable_log.py "/tmp/machinen-generic/writable-log/root/app.log" "/tmp/machinen-generic/writable-log/root")
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-writable-log.save.json"
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-writable-log.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-writable-log.load.json'))['loader']['targetPid'])
+PY
+)
+  sleep 1.2
+  count=$($CLI exec "$TGT" -- "grep -c '^generic-log-entry$' /tmp/machinen-generic/writable-log/root/app.log")
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
+  [[ "$count" -ge 1 ]]
+  assert_generic_only_json "$WORK/generic-writable-log.save.json" "$WORK/generic-writable-log.load.json" generic-writable-log-daemon "{\"logEntries\":$count}"
+}
+
+prove_generic_data_dir_daemon() {
+  local bundle="$WORK/generic-data-dir.bundle" pid tpid marker
+  setup_generic_python_fixture "$SRC" data-dir
+  setup_generic_python_fixture "$TGT" data-dir
+  pid=$(launch_generic_fixture data-dir data_dir_daemon.py "" "/tmp/machinen-generic/data-dir/root")
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-data-dir.save.json"
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-data-dir.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-data-dir.load.json'))['loader']['targetPid'])
+PY
+)
+  sleep 1.2
+  marker=$($CLI exec "$TGT" -- "cat /tmp/machinen-generic/data-dir/root/daemon-marker.txt")
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
+  [[ "$marker" == "generic-data-dir-ready" ]]
+  assert_generic_only_json "$WORK/generic-data-dir.save.json" "$WORK/generic-data-dir.load.json" generic-data-dir-daemon "{\"marker\":\"$marker\"}"
+}
+
+prove_generic_unsupported_resource_refusals() {
+  local kind pid bundle save_rc load_rc expected
+  setup_generic_python_fixture "$SRC" unsupported-resource
+  setup_generic_python_fixture "$TGT" unsupported-resource
+  $CLI exec "$SRC" -- "cat >/tmp/machinen-generic/unsupported-resource/bin/unsupported_resource.py <<'PY'
+import os, pty, select, socket, sys, time
+kind = sys.argv[1]
+held = []
+if kind == 'pipe':
+    held.extend(os.pipe())
+elif kind == 'pty':
+    held.extend(pty.openpty())
+elif kind == 'unix-socket':
+    path = '/tmp/machinen-generic-unix.sock'
+    try: os.unlink(path)
+    except FileNotFoundError: pass
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); s.bind(path); s.listen(1); held.append(s)
+elif kind == 'anon-inode':
+    held.append(select.epoll())
+elif kind == 'device':
+    held.append(open('/dev/zero', 'rb'))
+elif kind == 'active-tcp':
+    listener = socket.socket(); listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); listener.bind(('127.0.0.1', 18331)); listener.listen(1)
+    client = socket.socket(); client.connect(('127.0.0.1', 18331)); accepted, _ = listener.accept(); held.extend([listener, client, accepted])
+else:
+    raise SystemExit(kind)
+while True:
+    time.sleep(10)
+PY" >/dev/null
+  for kind in pipe pty unix-socket anon-inode device active-tcp; do
+    case "$kind" in
+      pipe) expected=pipe ;;
+      pty) expected=pty ;;
+      unix-socket) expected=socket ;;
+      anon-inode) expected=unknown ;;
+      device) expected=device ;;
+      active-tcp) expected=activeTcpConnection ;;
+    esac
+    bundle="$WORK/generic-refuse-$kind.bundle"
+    pid=$(launch_generic_fixture unsupported-resource unsupported_resource.py "$kind" "/tmp/machinen-generic/unsupported-resource/root")
+    sleep 0.4
+    set +e
+    $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-refuse-$kind.save.json"
+    save_rc=$?
+    $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-refuse-$kind.load.json"
+    load_rc=$?
+    set -e
+    $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+    python3 - <<PY
+import json
+kind='$kind'; expected='$expected'
+save=json.load(open('$WORK/generic-refuse-$kind.save.json'))
+load=json.load(open('$WORK/generic-refuse-$kind.load.json'))
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+assert int('$save_rc') == 1
+assert int('$load_rc') == 1
+assert not save['accepted'] and not load['accepted']
+assert expected in classes, (kind, expected, classes)
+assert save['descriptor']['nativeContinuation']['state'] == 'refused'
+assert 'loader' not in load
+print(json.dumps({'case':kind,'expected':expected,'refusalClasses':classes,'loaderStarted':'loader' in load}))
+PY
+  done >"$WORK/generic-unsupported-resource-refusals.cases"
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$WORK/generic-unsupported-resource-refusals.cases') if line.strip()]
+assert len(cases) == 6
+print(json.dumps({'name':'generic-unsupported-resource-refusals','state':'passed','cases':cases}))
+PY
+}
+
+prove_generic_loader_preflight_refusals() {
+  local pid bundle tpid blocker cases_file="$WORK/generic-loader-preflight-refusals.cases"
+  : >"$cases_file"
+  # executable identity mismatch
+  bundle="$WORK/generic-refuse-exe.bundle"
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-refuse-exe' & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-refuse-exe.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+d['resourcePlan']['capture']['genericResourceGraphState']['executableIdentity']['sha256']='0'*64
+json.dump(d, open(p,'w'), indent=2)
+PY
+  set +e; $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-refuse-exe.load.json"; set -e
+  python3 - <<PY >>"$cases_file"
+import json
+load=json.load(open('$WORK/generic-refuse-exe.load.json'))
+assert not load['accepted']; assert load['loader']['state'] == 'refused'; assert load['loader'].get('targetPid') is None
+assert load['loader']['refusals'][0]['detail']['reason'] == 'executable-identity-mismatch'
+print(json.dumps({'case':'changed-executable-identity','reason':'executable-identity-mismatch','targetPid':load['loader'].get('targetPid')}))
+PY
+  # file identity mismatch
+  setup_generic_python_fixture "$SRC" refuse-file
+  setup_generic_python_fixture "$TGT" refuse-file
+  bundle="$WORK/generic-refuse-file.bundle"
+  pid=$(launch_generic_fixture refuse-file file_worker.py "/tmp/machinen-generic/refuse-file/root/input.txt" "/tmp/machinen-generic/refuse-file/root")
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-refuse-file.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  $CLI exec "$TGT" -- "printf changed >/tmp/machinen-generic/refuse-file/root/input.txt" >/dev/null
+  set +e; $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-refuse-file.load.json"; set -e
+  python3 - <<PY >>"$cases_file"
+import json
+load=json.load(open('$WORK/generic-refuse-file.load.json'))
+assert not load['accepted']; assert load['loader']['state'] == 'refused'; assert load['loader'].get('targetPid') is None
+reason=load['loader']['refusals'][0]['detail']['reason']; assert reason in ('file-size-mismatch','file-identity-mismatch')
+print(json.dumps({'case':'changed-file-identity','reason':reason,'targetPid':load['loader'].get('targetPid')}))
+PY
+  # cwd missing
+  setup_generic_python_fixture "$SRC" refuse-cwd
+  setup_generic_python_fixture "$TGT" refuse-cwd
+  bundle="$WORK/generic-refuse-cwd.bundle"
+  pid=$(launch_generic_fixture refuse-cwd data_dir_daemon.py "" "/tmp/machinen-generic/refuse-cwd/root")
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-refuse-cwd.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  $CLI exec "$TGT" -- "mv /tmp/machinen-generic/refuse-cwd/root /tmp/machinen-generic/refuse-cwd/root.moved" >/dev/null
+  set +e; $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-refuse-cwd.load.json"; set -e
+  python3 - <<PY >>"$cases_file"
+import json
+load=json.load(open('$WORK/generic-refuse-cwd.load.json'))
+assert not load['accepted']; assert load['loader']['state'] == 'refused'; assert load['loader'].get('targetPid') is None
+assert load['loader']['refusals'][0]['detail']['reason'] == 'cwd-missing'
+print(json.dumps({'case':'changed-cwd-identity','reason':'cwd-missing','targetPid':load['loader'].get('targetPid')}))
+PY
+  # data-dir tree mismatch
+  setup_generic_python_fixture "$SRC" refuse-datadir
+  setup_generic_python_fixture "$TGT" refuse-datadir
+  bundle="$WORK/generic-refuse-datadir.bundle"
+  pid=$(launch_generic_fixture refuse-datadir data_dir_daemon.py "" "/tmp/machinen-generic/refuse-datadir/root")
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-refuse-datadir.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  $CLI exec "$TGT" -- "printf extra >/tmp/machinen-generic/refuse-datadir/root/extra.txt" >/dev/null
+  set +e; $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-refuse-datadir.load.json"; set -e
+  python3 - <<PY >>"$cases_file"
+import json
+load=json.load(open('$WORK/generic-refuse-datadir.load.json'))
+assert not load['accepted']; assert load['loader']['state'] == 'refused'; assert load['loader'].get('targetPid') is None
+reason=load['loader']['refusals'][0]['detail']['reason']; assert reason.startswith('data-dir-')
+print(json.dumps({'case':'changed-data-dir-tree','reason':reason,'targetPid':load['loader'].get('targetPid')}))
+PY
+  # port conflict
+  setup_generic_python_fixture "$SRC" refuse-port
+  setup_generic_python_fixture "$TGT" refuse-port
+  bundle="$WORK/generic-refuse-port.bundle"
+  pid=$(launch_generic_fixture refuse-port tcp_echo.py "18332" "/tmp/machinen-generic/refuse-port/root")
+  sleep 0.4
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-refuse-port.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  blocker=$($CLI exec "$TGT" -- "setsid /usr/bin/python3 - <<'PY' >/dev/null 2>&1 & echo \$!
+import socket, time
+s=socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(('127.0.0.1',18332)); s.listen(1)
+time.sleep(60)
+PY" | tail -1 | tr -d '\r')
+  set +e; $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-refuse-port.load.json"; set -e
+  $CLI exec "$TGT" -- "kill -TERM $blocker 2>/dev/null || true" >/dev/null
+  python3 - <<PY >>"$cases_file"
+import json
+load=json.load(open('$WORK/generic-refuse-port.load.json'))
+assert not load['accepted']; assert load['loader']['state'] == 'refused'; assert load['loader'].get('targetPid') is None
+assert load['loader']['refusals'][0]['detail']['reason'] == 'port-unavailable'
+print(json.dumps({'case':'port-conflict','reason':'port-unavailable','targetPid':load['loader'].get('targetPid')}))
+PY
+  # health probe failure after launch, before LOAD_PID
+  setup_generic_python_fixture "$SRC" refuse-health
+  setup_generic_python_fixture "$TGT" refuse-health
+  bundle="$WORK/generic-refuse-health.bundle"
+  pid=$(launch_generic_fixture refuse-health tcp_echo.py "18333" "/tmp/machinen-generic/refuse-health/root")
+  sleep 0.4
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-refuse-health.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+d['resourcePlan']['capture']['genericResourceGraphState']['healthProbe']={'kind':'tcp-connect','host':'127.0.0.1','port':19999}
+json.dump(d, open(p,'w'), indent=2)
+PY
+  set +e; $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-refuse-health.load.json"; set -e
+  python3 - <<PY >>"$cases_file"
+import json
+load=json.load(open('$WORK/generic-refuse-health.load.json'))
+assert not load['accepted']; assert load['loader']['state'] == 'refused'; assert load['loader'].get('targetPid') is None
+assert load['loader']['refusals'][0]['detail']['reason'] == 'health-tcp-connect-failed'
+print(json.dumps({'case':'health-probe-failure','reason':'health-tcp-connect-failed','targetPid':load['loader'].get('targetPid')}))
+PY
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+assert len(cases) == 6
+print(json.dumps({'name':'generic-loader-preflight-refusals','state':'passed','cases':cases}))
+PY
+}
+
 prove_unsupported_pipe_graph_refusal() {
   local bundle="$WORK/unsupported-pipe.bundle" pid save_rc load_rc
   $CLI exec "$SRC" -- "printf 'match line1\n' >/tmp/unsupported-pipeline.txt" >/dev/null
@@ -7453,6 +8129,15 @@ PROOF_NAMES=(
   unsafe-sha256sum-refusal
   dd-offset
   unsafe-dd-refusal
+  generic-yes-loop
+  generic-static-http-daemon
+  generic-interpreted-server
+  generic-file-backed-worker
+  generic-readonly-file-cli
+  generic-writable-log-daemon
+  generic-data-dir-daemon
+  generic-unsupported-resource-refusals
+  generic-loader-preflight-refusals
   unsupported-pipe-graph-refusal
   tail-grep-pipeline
   reader-cat
@@ -7474,7 +8159,9 @@ PROOF_NAMES=(
   unsafe-socat-file-responder-refusal
   redis-idle
   unsafe-redis-idle-refusal
+  postgres-idle-cluster
   postgres-refusal
+  unsafe-postgres-cluster-refusal
   nginx-static
   unsafe-nginx-static-refusal
   caddy-static
@@ -7603,6 +8290,15 @@ PROOF_LABELS=(
   "unsafe sha256sum refusal"
   "dd offset"
   "unsafe dd refusal"
+  "generic yes loop"
+  "generic static http daemon"
+  "generic interpreted server"
+  "generic file-backed worker"
+  "generic readonly-file cli"
+  "generic writable-log daemon"
+  "generic data-dir daemon"
+  "generic unsupported resource refusals"
+  "generic loader preflight refusals"
   "unsupported pipe graph refusal"
   "tail-grep pipeline"
   "reader"
@@ -7624,7 +8320,9 @@ PROOF_LABELS=(
   "unsafe socat file responder refusal"
   "redis idle"
   "unsafe redis idle refusal"
+  "postgres idle cluster"
   "postgres refusal"
+  "unsafe postgres cluster refusal"
   "nginx static"
   "unsafe nginx static refusal"
   "caddy static"
@@ -7753,6 +8451,15 @@ PROOF_FUNCS=(
   prove_unsafe_sha256sum_refusal
   prove_dd_offset
   prove_unsafe_dd_refusal
+  prove_generic_yes_loop
+  prove_generic_static_http_daemon
+  prove_generic_interpreted_server
+  prove_generic_file_backed_worker
+  prove_generic_readonly_file_cli
+  prove_generic_writable_log_daemon
+  prove_generic_data_dir_daemon
+  prove_generic_unsupported_resource_refusals
+  prove_generic_loader_preflight_refusals
   prove_unsupported_pipe_graph_refusal
   prove_tail_grep_pipeline
   prove_reader
@@ -7774,7 +8481,9 @@ PROOF_FUNCS=(
   prove_unsafe_socat_file_responder_refusal
   prove_redis_idle
   prove_unsafe_redis_idle_refusal
+  prove_postgres_idle_cluster
   prove_postgres_refusal
+  prove_unsafe_postgres_cluster_refusal
   prove_nginx_static
   prove_unsafe_nginx_static_refusal
   prove_caddy_static

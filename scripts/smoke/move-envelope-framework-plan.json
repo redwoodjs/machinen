@@ -11,6 +11,11 @@
       "name": "listener-refusal-pilot",
       "skipProvision": true,
       "proofs": ["socat-file-responder", "unsafe-socat-file-responder-refusal"]
+    },
+    {
+      "name": "postgres-envelope-pilot",
+      "skipProvision": true,
+      "proofs": ["postgres-idle-cluster", "postgres-refusal", "unsafe-postgres-cluster-refusal"]
     }
   ],
   "refusalTemplates": [
@@ -26,17 +31,17 @@
     },
     {
       "name": "active-client",
-      "proofs": ["unsafe-socat-file-responder-refusal"],
+      "proofs": ["unsafe-socat-file-responder-refusal", "unsafe-postgres-cluster-refusal"],
       "requiredEvidence": "active save refused or state omitted before load"
     },
     {
       "name": "port-conflict",
-      "proofs": ["unsafe-socat-file-responder-refusal"],
+      "proofs": ["unsafe-socat-file-responder-refusal", "unsafe-postgres-cluster-refusal"],
       "requiredEvidence": "loader state refused with targetPid null"
     },
     {
       "name": "missing-binary",
-      "proofs": ["unsafe-socat-file-responder-refusal"],
+      "proofs": ["unsafe-socat-file-responder-refusal", "unsafe-postgres-cluster-refusal"],
       "requiredEvidence": "loader state refused with targetPid null"
     }
   ]

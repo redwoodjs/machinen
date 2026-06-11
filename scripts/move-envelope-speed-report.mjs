@@ -60,6 +60,7 @@ function readSummary(dir) {
 }
 
 function summarizeRun(run) {
+  const coverage = run.coverage ?? {};
   return {
     label: run.label,
     mode: run.mode,
@@ -69,9 +70,9 @@ function summarizeRun(run) {
     bootTimingMs: sumTiming(run, "boot-pair"),
     provisionTimingMs: sumTiming(run, "provision-pair"),
     proofTimingMs: sumProofTimings(run),
-    coverageWallMs: run.coverage?.wallMs ?? 0,
-    coveredCount: run.coverage?.coveredCount,
-    expectedCount: run.coverage?.expectedCount,
+    coverageWallMs: coverage.wallMs ?? 0,
+    coveredCount: coverage.coveredCount,
+    expectedCount: coverage.expectedCount,
   };
 }
 
@@ -93,22 +94,34 @@ function compareRuns(before, after) {
 }
 
 function compareChunks(before, after) {
-  return before.chunks.map((beforeChunk) => {
-    const afterChunk = after.chunks.find((chunk) => chunk.name === beforeChunk.name);
-    const beforeTimingMs = sumChunkTimings(beforeChunk);
-    const afterTimingMs = afterChunk ? sumChunkTimings(afterChunk) : 0;
-    return {
-      name: beforeChunk.name,
-      beforeWallMs: beforeChunk.wallMs,
-      afterWallMs: afterChunk?.wallMs ?? 0,
-      wallPercent: percentDelta(beforeChunk.wallMs, afterChunk?.wallMs ?? 0),
-      beforeTimingMs,
-      afterTimingMs,
-      timingPercent: percentDelta(beforeTimingMs, afterTimingMs),
-      beforeProofs: beforeChunk.proofs,
-      afterProofs: afterChunk?.proofs ?? [],
-    };
-  });
+  return before.chunks.map((beforeChunk) =>
+    compareChunk(beforeChunk, afterChunkByName(after, beforeChunk.name)),
+  );
+}
+
+function afterChunkByName(run, name) {
+  return run.chunks.find((chunk) => chunk.name === name);
+}
+
+function compareChunk(beforeChunk, afterChunk) {
+  const after = comparableChunk(afterChunk);
+  const beforeTimingMs = sumChunkTimings(beforeChunk);
+  const afterTimingMs = sumChunkTimings(after);
+  return {
+    name: beforeChunk.name,
+    beforeWallMs: beforeChunk.wallMs,
+    afterWallMs: after.wallMs,
+    wallPercent: percentDelta(beforeChunk.wallMs, after.wallMs),
+    beforeTimingMs,
+    afterTimingMs,
+    timingPercent: percentDelta(beforeTimingMs, afterTimingMs),
+    beforeProofs: beforeChunk.proofs,
+    afterProofs: after.proofs,
+  };
+}
+
+function comparableChunk(chunk) {
+  return chunk ?? { wallMs: 0, timings: [], proofs: [] };
 }
 
 function sumMatrixTimings(run) {
@@ -121,24 +134,22 @@ function sumChunkTimings(chunk) {
 
 function sumTiming(run, name) {
   return run.chunks.reduce(
-    (sum, chunk) =>
-      sum +
-      (chunk.timings ?? [])
-        .filter((timing) => timing.name === name)
-        .reduce((inner, timing) => inner + (timing.durationMs ?? 0), 0),
+    (sum, chunk) => sum + sumMatchingTimings(chunk, (timing) => timing.name === name),
     0,
   );
 }
 
 function sumProofTimings(run) {
   return run.chunks.reduce(
-    (sum, chunk) =>
-      sum +
-      (chunk.timings ?? [])
-        .filter((timing) => timing.name?.startsWith("proof:"))
-        .reduce((inner, timing) => inner + (timing.durationMs ?? 0), 0),
+    (sum, chunk) => sum + sumMatchingTimings(chunk, (timing) => timing.name?.startsWith("proof:")),
     0,
   );
+}
+
+function sumMatchingTimings(chunk, predicate) {
+  return (chunk.timings ?? [])
+    .filter(predicate)
+    .reduce((sum, timing) => sum + (timing.durationMs ?? 0), 0);
 }
 
 function percentDelta(before, after) {

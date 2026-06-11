@@ -1066,10 +1066,12 @@ export type {
 } from "./portable-machine-snapshot.ts";
 export type {
   MoveDescriptor,
+  MoveGenericResourceGraphState,
   MoveIssueReport,
   MovePidGraph,
   MovePidGraphEdge,
   MovePidGraphNode,
+  MovePostgresClusterState,
   MoveProcessStateClass,
   MoveRefusalEvidence,
   MoveSaveResult,
