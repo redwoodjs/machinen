@@ -19,7 +19,11 @@
     "unsupportedResourceRefusal": "Known unsupported resource class produces fail-closed evidence before target launch or with targetPid=null.",
     "runtimeSpecificRefusal": "Runtime or framework-specific state is explicitly refused until a generic resource model exists.",
     "terminalOrPtyRefusal": "Interactive terminal/PTY/editor state is refused until the PTY resource class graduates.",
-    "regularFileCursor": "Read-only regular-file descriptor cursor identity with dev/inode/mtime/hash and target-side offset reconstruction."
+    "regularFileCursor": "Read-only regular-file descriptor cursor identity with dev/inode/mtime/hash and target-side offset reconstruction.",
+    "appendFileCursorRefusal": "Unsafe append-only regular-file fd candidates are identified and refused when the fd is not at EOF, target identity changed, flags are unsupported, or lock/mmap/inotify/fanotify/concurrent-writer interactions are present.",
+    "unixSocketRefusal": "Unix domain socket shapes are classified and refused until pathname listener and related socket contracts graduate.",
+    "anonInodeRefusal": "Anon-inode resources such as eventfd, epoll, timerfd, signalfd, inotify, fanotify, and io_uring are classified and refused until explicit contracts graduate.",
+    "appendFileCursor": "Append-only regular-file descriptor continuation for exact O_APPEND log fds captured at EOF with portable size+sha256 identity preflight and target-visible append progress."
   },
   "families": [
     {
@@ -47,10 +51,17 @@
         "generic-writable-log-daemon",
         "generic-data-dir-daemon",
         "generic-readonly-file-cursor",
+        "generic-append-log-cursor",
+        "generic-append-log-preflight-refusals",
         "generic-multi-file-readonly-worker",
         "generic-stale-file-identity-refusal",
         "generic-deleted-file-fd-refusal",
         "generic-writable-file-cursor-refusal",
+        "generic-append-only-file-cursor-refusal",
+        "generic-append-log-unsupported-flags-refusal",
+        "generic-append-log-fanotify-refusal",
+        "generic-unix-socket-baseline-refusals",
+        "generic-anon-inode-baseline-refusals",
         "generic-file-lock-refusal",
         "generic-mmap-file-refusal",
         "generic-inotify-file-refusal",
@@ -62,6 +73,7 @@
         "argvEnvCwd",
         "regularFileIdentity",
         "regularFileCursor",
+        "appendFileCursor",
         "directoryIdentity",
         "dataDirIdentity",
         "loopbackTcpListener",
@@ -69,7 +81,10 @@
         "healthProbe",
         "unsupportedResourceRefusal",
         "stdio",
-        "pipeGraph"
+        "pipeGraph",
+        "appendFileCursorRefusal",
+        "unixSocketRefusal",
+        "anonInodeRefusal"
       ],
       "genericReadiness": "graduated-generic-proof"
     },

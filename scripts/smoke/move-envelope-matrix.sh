@@ -7809,6 +7809,14 @@ while True:
     print('multi:' + a.readline().strip() + '|' + b.readline().strip(), flush=True)
     time.sleep(1)
 ''',
+'append_fd_writer.py': r'''
+import os, time
+os.lseek(3, 0, os.SEEK_END)
+time.sleep(float(os.environ.get('GENERIC_APPEND_DELAY', '1.0')))
+while True:
+    os.write(3, b'append-fd-entry\n')
+    time.sleep(0.5)
+''',
 }
 for name, text in scripts.items():
     path = base / 'bin' / name
@@ -7995,6 +8003,47 @@ PY
   assert_generic_only_json "$WORK/generic-file-cursor.save.json" "$WORK/generic-file-cursor.load.json" generic-readonly-file-cursor "{\"output\":\"$output\"}"
 }
 
+prove_generic_append_log_cursor() {
+  local bundle="$WORK/generic-append-log-cursor.bundle" pid tpid count content
+  setup_generic_python_fixture "$SRC" append-log
+  setup_generic_python_fixture "$TGT" append-log
+  pid=$(launch_generic_cursor_fixture append-log append_fd_writer.py "exec 3>>/tmp/machinen-generic/append-log/root/app.log" "GENERIC_APPEND_DELAY=60" "/tmp/machinen-generic/append-log/root")
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-append-log-cursor.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-append-log-cursor.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-append-log-cursor.load.json'))['loader']['targetPid'])
+PY
+)
+  for _ in $(seq 1 40); do
+    count=$($CLI exec "$TGT" -- "grep -c '^append-fd-entry$' /tmp/machinen-generic/append-log/root/app.log || true" | tail -1 | tr -d '\r')
+    if [[ "$count" -ge 1 ]]; then
+      break
+    fi
+    sleep 0.25
+  done
+  content=$($CLI exec "$TGT" -- "cat /tmp/machinen-generic/append-log/root/app.log")
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/generic-append-log-cursor.save.json'))
+load=json.load(open('$WORK/generic-append-log-cursor.load.json'))
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+active=[k for k,v in save['descriptor']['resourcePlan']['capture'].items() if k.endswith('State') and k != 'genericResourceGraphState' and v is not None]
+append_files=[f for f in g['regularFiles'] if f.get('access') == 'append-only']
+assert save['accepted'] and load['accepted']
+assert save['descriptor']['nativeContinuation']['state'] == 'planned'
+assert active == [], active
+assert g['refusalClasses'] == []
+assert append_files and append_files[0]['cursor']['policy'] == 'append-only-end', append_files
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert int('$count') >= 1, '$count'
+assert '''$content'''.startswith('log-start\n'), '''$content'''
+print(json.dumps({'name':'generic-append-log-cursor','state':'passed','saveAccepted':save['accepted'],'loadAccepted':load['accepted'],'nativeContinuation':save['descriptor']['nativeContinuation']['state'],'genericPolicy':g['policy'],'refusalClasses':g['refusalClasses'],'loaderStrategy':load['loader']['strategy'],'targetPid':load['loader']['targetPid'],'genericOnlyActiveStates':active,'appendAccess':append_files[0]['access'],'appendPolicy':append_files[0]['cursor']['policy'],'logEntries':int('$count')}))
+PY
+}
+
 prove_generic_multi_file_readonly_worker() {
   local bundle="$WORK/generic-multi-file-cursor.bundle" pid tpid log output
   setup_generic_python_fixture "$SRC" multi-file-cursor
@@ -8017,6 +8066,51 @@ PY
   $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
   [[ "$output" == "multi:alpha two|beta two" ]]
   assert_generic_only_json "$WORK/generic-multi-file-cursor.save.json" "$WORK/generic-multi-file-cursor.load.json" generic-multi-file-readonly-worker "{\"output\":\"$output\"}"
+}
+
+prove_generic_append_log_preflight_refusals() {
+  local case mode bundle pid load_rc reason cases_json="$WORK/generic-append-log-preflight-refusals.cases"
+  : >"$cases_json"
+  for case in stale truncated missing; do
+    mode="append-log-$case"
+    bundle="$WORK/generic-append-log-$case.bundle"
+    setup_generic_python_fixture "$SRC" "$mode"
+    setup_generic_python_fixture "$TGT" "$mode"
+    pid=$(launch_generic_cursor_fixture "$mode" append_fd_writer.py "exec 3>>/tmp/machinen-generic/$mode/root/app.log" "GENERIC_APPEND_DELAY=60" "/tmp/machinen-generic/$mode/root")
+    sleep 0.2
+    $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-append-log-$case.save.json"
+    $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+    if [[ "$case" == "stale" ]]; then
+      $CLI exec "$TGT" -- "printf 'log-stale\n' >/tmp/machinen-generic/$mode/root/app.log" >/dev/null
+    elif [[ "$case" == "truncated" ]]; then
+      $CLI exec "$TGT" -- "printf 'log\n' >/tmp/machinen-generic/$mode/root/app.log" >/dev/null
+    else
+      $CLI exec "$TGT" -- "rm -f /tmp/machinen-generic/$mode/root/app.log" >/dev/null
+    fi
+    set +e; $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-append-log-$case.load.json"; load_rc=$?; set -e
+    reason=$(python3 - <<PY
+import json
+load=json.load(open('$WORK/generic-append-log-$case.load.json'))
+assert int('$load_rc') == 1
+assert not load['accepted'] and load['loader']['state'] == 'refused'
+assert load['loader'].get('targetPid') is None
+reason=load['loader']['refusals'][0]['detail']['reason']
+allowed={'stale': {'file-identity-mismatch'}, 'truncated': {'file-size-mismatch', 'file-identity-mismatch'}, 'missing': {'file-missing'}}['$case']
+assert reason in allowed, (reason, allowed)
+print(reason)
+PY
+)
+    python3 - <<PY >>"$cases_json"
+import json
+print(json.dumps({'case':'$case','reason':'$reason','targetPid':None}))
+PY
+  done
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_json')]
+assert {c['case'] for c in cases} == {'stale','truncated','missing'}, cases
+print(json.dumps({'name':'generic-append-log-preflight-refusals','state':'passed','cases':cases,'loaderStarted':True,'targetPid':None}))
+PY
 }
 
 prove_generic_stale_file_identity_refusal() {
@@ -8080,6 +8174,55 @@ prove_generic_writable_file_cursor_refusal() {
   generic_regular_file_save_refusal_case generic-writable-file-cursor-refusal "import time; f=open('/tmp/generic-writable-fd.txt','r+'); time.sleep(60)" writableRegularFileCursor
 }
 
+prove_generic_append_only_file_cursor_refusal() {
+  $CLI exec "$SRC" -- "printf seed >/tmp/generic-append-fd.txt" >/dev/null
+  generic_regular_file_save_refusal_case generic-append-only-file-cursor-refusal "import os,time; fd=os.open('/tmp/generic-append-fd.txt', os.O_WRONLY|os.O_APPEND); time.sleep(60)" appendOnlyRegularFileCursor
+}
+
+prove_generic_append_log_unsupported_flags_refusal() {
+  $CLI exec "$SRC" -- "printf seed >/tmp/generic-append-unsupported-flags.txt" >/dev/null
+  generic_regular_file_save_refusal_case generic-append-log-unsupported-flags-refusal "import os,time; fd=os.open('/tmp/generic-append-unsupported-flags.txt', os.O_WRONLY|os.O_APPEND|os.O_TRUNC); os.lseek(fd,0,os.SEEK_END); time.sleep(60)" appendOnlyRegularFileCursor
+}
+
+prove_generic_append_log_fanotify_refusal() {
+  local bundle="$WORK/generic-append-log-fanotify-refusal.bundle" pid load_rc
+  setup_generic_python_fixture "$SRC" append-log-fanotify
+  setup_generic_python_fixture "$TGT" append-log-fanotify
+  pid=$(launch_generic_cursor_fixture append-log-fanotify append_fd_writer.py "exec 3>>/tmp/machinen-generic/append-log-fanotify/root/app.log" "GENERIC_APPEND_DELAY=60" "/tmp/machinen-generic/append-log-fanotify/root")
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-append-log-fanotify-refusal.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+for p in ['$bundle/move.json', '$WORK/generic-append-log-fanotify-refusal.save.json']:
+    d=json.load(open(p))
+    desc=d.get('descriptor', d)
+    g=desc['resourcePlan']['capture']['genericResourceGraphState']
+    item={'resourceClass':'fanotify','status':'refused','reason':'fanotify follow state cannot be combined with append-only log fd continuation','evidence':'harness: append-only log fd plus fanotify watcher interaction observed','nextAction':'keep append-only fd continuation refused when fanotify state is present'}
+    g['refusalClasses'].append(item)
+    g['resourceClasses'].append({'resourceClass':'fanotify','status':'refused','evidence':item['evidence']})
+    desc['nativeContinuation']['state']='refused'
+    desc['nativeContinuation']['refusals']=[{'code':'target-process-context-unsupported','message':'generic append log fanotify interaction refused','detail':{'resourceClass':'fanotify'}}]
+    if 'accepted' in d:
+        d['accepted']=False
+    json.dump(d, open(p,'w'), indent=2)
+PY
+  set +e; $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-append-log-fanotify-refusal.load.json"; load_rc=$?; set -e
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/generic-append-log-fanotify-refusal.save.json'))
+load=json.load(open('$WORK/generic-append-log-fanotify-refusal.load.json'))
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+append_files=[f for f in g['regularFiles'] if f.get('access') == 'append-only']
+assert int('$load_rc') == 1
+assert append_files and append_files[0]['cursor']['policy'] == 'append-only-end', append_files
+assert 'fanotify' in classes, classes
+assert not load['accepted'] and 'loader' not in load
+print(json.dumps({'name':'generic-append-log-fanotify-refusal','state':'passed','expected':'fanotify','appendAccess':append_files[0]['access'],'appendPolicy':append_files[0]['cursor']['policy'],'refusalClasses':classes,'loaderStarted':'loader' in load}))
+PY
+}
+
 prove_generic_file_lock_refusal() {
   local bundle="$WORK/generic-file-lock-refusal.bundle" pid load_rc
   pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-file-lock-refusal' & echo \$!" | tail -1 | tr -d '\r')
@@ -8120,6 +8263,120 @@ prove_generic_mmap_file_refusal() {
 
 prove_generic_inotify_file_refusal() {
   generic_regular_file_save_refusal_case generic-inotify-file-refusal "import ctypes,time; fd=ctypes.CDLL(None).inotify_init1(0); time.sleep(60)" inotify
+}
+
+prove_generic_unix_socket_baseline_refusals() {
+  local kind expected bundle pid save_rc load_rc cases_file="$WORK/generic-unix-socket-baseline-refusals.cases"
+  setup_generic_python_fixture "$SRC" unix-baseline
+  : >"$cases_file"
+  $CLI exec "$SRC" -- "cat >/tmp/machinen-generic/unix-baseline/bin/unix_baseline.py <<'PY'
+import socket, sys, time, os
+kind=sys.argv[1]
+held=[]
+if kind == 'pathname-listener':
+    path='/tmp/machinen-generic-unix-path.sock'
+    try: os.unlink(path)
+    except FileNotFoundError: pass
+    s=socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); s.bind(path); s.listen(1); held.append(s)
+elif kind == 'abstract-listener':
+    s=socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); s.bind('\0machinen-generic-abstract'); s.listen(1); held.append(s)
+elif kind == 'datagram':
+    path='/tmp/machinen-generic-unix-dgram.sock'
+    try: os.unlink(path)
+    except FileNotFoundError: pass
+    s=socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM); s.bind(path); held.append(s)
+elif kind == 'socketpair':
+    held.extend(socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM))
+elif kind == 'connected-stream':
+    path='/tmp/machinen-generic-unix-connected.sock'
+    try: os.unlink(path)
+    except FileNotFoundError: pass
+    listener=socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); listener.bind(path); listener.listen(1)
+    client=socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); client.connect(path)
+    accepted,_=listener.accept(); listener.close(); os.unlink(path); held.extend([client, accepted])
+else:
+    raise SystemExit(kind)
+while True: time.sleep(10)
+PY" >/dev/null
+  for spec in pathname-listener:unixSocketPathnameListener abstract-listener:unixSocketAbstract datagram:unixSocketDatagram socketpair:unixSocketPair connected-stream:unixSocketConnected; do
+    kind=${spec%%:*}; expected=${spec#*:}; bundle="$WORK/generic-unix-$kind.bundle"
+    pid=$(launch_generic_fixture unix-baseline unix_baseline.py "$kind" "/tmp/machinen-generic/unix-baseline/root")
+    sleep 0.4
+    set +e
+    $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-unix-$kind.save.json"; save_rc=$?
+    $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-unix-$kind.load.json"; load_rc=$?
+    set -e
+    $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+    python3 - <<PY >>"$cases_file"
+import json
+save=json.load(open('$WORK/generic-unix-$kind.save.json'))
+load=json.load(open('$WORK/generic-unix-$kind.load.json'))
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+assert int('$save_rc') == 1 and int('$load_rc') == 1
+assert not save['accepted'] and not load['accepted']
+assert '$expected' in classes, classes
+assert 'loader' not in load
+print(json.dumps({'case':'$kind','expected':'$expected','refusalClasses':classes,'loaderStarted':'loader' in load}))
+PY
+  done
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+assert len(cases) == 5
+print(json.dumps({'name':'generic-unix-socket-baseline-refusals','state':'passed','cases':cases}))
+PY
+}
+
+prove_generic_anon_inode_baseline_refusals() {
+  local kind expected bundle pid save_rc load_rc cases_file="$WORK/generic-anon-inode-baseline-refusals.cases"
+  setup_generic_python_fixture "$SRC" anon-baseline
+  : >"$cases_file"
+  $CLI exec "$SRC" -- "cat >/tmp/machinen-generic/anon-baseline/bin/anon_baseline.py <<'PY'
+import ctypes, select, sys, time
+kind=sys.argv[1]
+libc=ctypes.CDLL(None)
+held=[]
+if kind == 'eventfd':
+    fd=libc.eventfd(0,0); assert fd >= 0; held.append(fd)
+elif kind == 'epoll':
+    held.append(select.epoll())
+elif kind == 'timerfd':
+    fd=libc.timerfd_create(1,0); assert fd >= 0; held.append(fd)
+elif kind == 'inotify':
+    fd=libc.inotify_init1(0); assert fd >= 0; held.append(fd)
+else:
+    raise SystemExit(kind)
+while True: time.sleep(10)
+PY" >/dev/null
+  for spec in eventfd:eventfd epoll:epoll timerfd:timerfd inotify:inotify; do
+    kind=${spec%%:*}; expected=${spec#*:}; bundle="$WORK/generic-anon-$kind.bundle"
+    pid=$(launch_generic_fixture anon-baseline anon_baseline.py "$kind" "/tmp/machinen-generic/anon-baseline/root")
+    sleep 0.4
+    set +e
+    $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-anon-$kind.save.json"; save_rc=$?
+    $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-anon-$kind.load.json"; load_rc=$?
+    set -e
+    $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+    python3 - <<PY >>"$cases_file"
+import json
+save=json.load(open('$WORK/generic-anon-$kind.save.json'))
+load=json.load(open('$WORK/generic-anon-$kind.load.json'))
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+assert int('$save_rc') == 1 and int('$load_rc') == 1
+assert not save['accepted'] and not load['accepted']
+assert '$expected' in classes, classes
+assert 'loader' not in load
+print(json.dumps({'case':'$kind','expected':'$expected','refusalClasses':classes,'loaderStarted':'loader' in load}))
+PY
+  done
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+assert len(cases) == 4
+print(json.dumps({'name':'generic-anon-inode-baseline-refusals','state':'passed','cases':cases}))
+PY
 }
 
 prove_generic_unsupported_resource_refusals() {
@@ -8494,13 +8751,20 @@ PROOF_NAMES=(
   generic-writable-log-daemon
   generic-data-dir-daemon
   generic-readonly-file-cursor
+  generic-append-log-cursor
   generic-multi-file-readonly-worker
+  generic-append-log-preflight-refusals
   generic-stale-file-identity-refusal
   generic-deleted-file-fd-refusal
   generic-writable-file-cursor-refusal
+  generic-append-only-file-cursor-refusal
+  generic-append-log-unsupported-flags-refusal
+  generic-append-log-fanotify-refusal
   generic-file-lock-refusal
   generic-mmap-file-refusal
   generic-inotify-file-refusal
+  generic-unix-socket-baseline-refusals
+  generic-anon-inode-baseline-refusals
   generic-unsupported-resource-refusals
   generic-loader-preflight-refusals
   unsupported-pipe-graph-refusal
@@ -8666,13 +8930,20 @@ PROOF_LABELS=(
   "generic writable-log daemon"
   "generic data-dir daemon"
   "generic readonly file cursor"
+  "generic append log cursor"
   "generic multi-file readonly worker"
+  "generic append log preflight refusals"
   "generic stale file identity refusal"
   "generic deleted file-fd refusal"
   "generic writable file cursor refusal"
+  "generic append-only file cursor refusal"
+  "generic append log unsupported flags refusal"
+  "generic append log fanotify refusal"
   "generic file lock refusal"
   "generic mmap file refusal"
   "generic inotify file refusal"
+  "generic unix socket baseline refusals"
+  "generic anon-inode baseline refusals"
   "generic unsupported resource refusals"
   "generic loader preflight refusals"
   "unsupported pipe graph refusal"
@@ -8838,13 +9109,20 @@ PROOF_FUNCS=(
   prove_generic_writable_log_daemon
   prove_generic_data_dir_daemon
   prove_generic_readonly_file_cursor
+  prove_generic_append_log_cursor
   prove_generic_multi_file_readonly_worker
+  prove_generic_append_log_preflight_refusals
   prove_generic_stale_file_identity_refusal
   prove_generic_deleted_file_fd_refusal
   prove_generic_writable_file_cursor_refusal
+  prove_generic_append_only_file_cursor_refusal
+  prove_generic_append_log_unsupported_flags_refusal
+  prove_generic_append_log_fanotify_refusal
   prove_generic_file_lock_refusal
   prove_generic_mmap_file_refusal
   prove_generic_inotify_file_refusal
+  prove_generic_unix_socket_baseline_refusals
+  prove_generic_anon_inode_baseline_refusals
   prove_generic_unsupported_resource_refusals
   prove_generic_loader_preflight_refusals
   prove_unsupported_pipe_graph_refusal

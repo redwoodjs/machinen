@@ -4870,7 +4870,7 @@ Size in bytes the file was allocated at.
 
 ###### access
 
-> **access**: `"read-only"` \| `"write-atomic"` \| `"read-write-refused"`
+> **access**: `"read-only"` \| `"write-atomic"` \| `"append-only"` \| `"append-only-refused"` \| `"read-write-refused"`
 
 ###### flags?
 

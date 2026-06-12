@@ -25,7 +25,17 @@ Required contract:
 
 ## 3. Unix domain sockets
 
-Required contract:
+Wave 2 baseline refusal evidence now exists for:
+
+- pathname Unix socket listeners;
+- abstract namespace listeners;
+- datagram sockets;
+- socketpairs;
+- connected streams.
+
+This is refusal-only. No Unix socket support is graduated by the baseline.
+
+Required contract to graduate support:
 
 - distinguish pathname, abstract namespace, socketpair, datagram, and stream sockets;
 - capture peer identity, credentials, pending accept/connect state, socket options, and filesystem pathname identity;
@@ -40,9 +50,15 @@ Graduated narrow support:
 - target loader validates portable target identity (`size`, `sha256`), opens each file read-only, seeks to the captured offset, `dup2`s it to the captured fd number, then execs target-native argv;
 - source dev/inode and mtime are descriptor evidence only. They are not compared across source/target VMs because separate target filesystems legitimately have different inode and timestamp identities for equivalent content.
 
+Graduated narrow append support:
+
+- append-only log fd continuation is supported only for exact `O_APPEND` regular-file descriptors captured at EOF. The descriptor records fd number, path, flags, source dev/inode/mtime evidence, offset, size, sha256, `access: append-only`, and `cursor.policy: append-only-end`;
+- target loader preflight validates portable target identity with `size` and `sha256` before launch. Stale, truncated, rotated, or missing target logs refuse with `targetPid=null`;
+- target loader opens the file with `O_WRONLY|O_APPEND|O_NOFOLLOW`, `dup2`s it to the captured fd, then execs target-native argv. Support rows require visible target append progress after load.
+
 Remaining frontier:
 
-- append-only log fd continuation is not supported yet. It needs an exact append contract covering observed offset, end-of-file policy, concurrent writers, truncation/rotation, and target progress evidence;
+- append candidates not captured at EOF, append fds with unsupported flags such as truncate, log rotation/reconciliation, concurrent writer ambiguity, mmap dirty state, file-lock reconstruction, and inotify/fanotify follow semantics remain refused;
 - writable non-append file cursors are refused as `writableRegularFileCursor`;
 - deleted/unlinked regular-file fds are refused as `regularFileDeleted`;
 - nonseekable file-like resources remain refused through their resource class.
@@ -51,7 +67,9 @@ Remaining frontier:
 
 Current status:
 
-- `generic-file-lock-refusal` is descriptor-level refusal evidence that proves fail-closed behavior with no loader start. It is not lock reconstruction.
+- generic preflight attempts runtime evidence from `/proc/<pid>/fdinfo/*`, `/proc/locks`, and a nonblocking lock probe against observed regular files;
+- `generic-file-lock-refusal` remains descriptor-level harness refusal evidence for the matrix row because advisory lock visibility is kernel/filesystem dependent in the current guest proof path;
+- this proves fail-closed behavior with no loader start. It is not lock reconstruction.
 
 Required contract to graduate:
 
@@ -62,6 +80,10 @@ Required contract to graduate:
 ## 6. Epoll/readiness and anon inodes
 
 Required contract:
+
+Wave 2 baseline refusal evidence now distinguishes eventfd, epoll/eventpoll, timerfd, signalfd, inotify, fanotify, io_uring, and unknown anon-inode state where observed. This is refusal-only: no eventfd or epoll reconstruction is graduated by the baseline.
+
+Required contract to graduate support:
 
 - classify epoll, eventfd, timerfd, signalfd, inotify, fanotify, pidfd, and io_uring separately;
 - capture watched fd graph, event masks, one-shot/edge-trigger state, counters, and readiness policy;

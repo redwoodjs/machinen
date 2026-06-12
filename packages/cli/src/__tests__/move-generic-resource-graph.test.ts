@@ -478,7 +478,91 @@ describe("generic resource graph capture", () => {
     expect(tailAdjacentState.refusalClasses).toEqual([]);
   });
 
-  it("refuses writable or deleted regular-file cursor shapes before generic load", () => {
+  it("classifies append-only, writable, and deleted regular-file cursor shapes", () => {
+    const appendState = buildMoveGenericResourceGraphState(
+      node,
+      {
+        ...basePlan,
+        resources: [
+          ...basePlan.resources.filter((resource) => resource.fd !== 3),
+          {
+            id: "pid:4242:fd:3",
+            kind: "file",
+            state: "captured",
+            fd: 3,
+            path: "/srv/app/config.json",
+            offset: 42,
+            flags: ["octal:0102001"],
+          },
+        ],
+      },
+      "/usr/local/bin/unknown-daemon",
+      preflight,
+    );
+    expect(appendState?.regularFiles[0]).toMatchObject({
+      access: "append-only",
+      cursor: { offset: 42, policy: "append-only-end" },
+    });
+    expect(appendState?.refusalClasses).not.toContainEqual(
+      expect.objectContaining({ resourceClass: "appendOnlyRegularFileCursor" }),
+    );
+    expect(genericResourceGraphLoaderCommand(appendState)).toContain("os.O_WRONLY | os.O_APPEND");
+
+    const appendOffsetMismatchState = buildMoveGenericResourceGraphState(
+      node,
+      {
+        ...basePlan,
+        resources: [
+          ...basePlan.resources.filter((resource) => resource.fd !== 3),
+          {
+            id: "pid:4242:fd:3",
+            kind: "file",
+            state: "captured",
+            fd: 3,
+            path: "/srv/app/config.json",
+            offset: 41,
+            flags: ["octal:0102001"],
+          },
+        ],
+      },
+      "/usr/local/bin/unknown-daemon",
+      preflight,
+    );
+    expect(appendOffsetMismatchState?.regularFiles[0]).toMatchObject({
+      access: "append-only-refused",
+      cursor: { offset: 41, policy: "read-only-offset" },
+    });
+    expect(appendOffsetMismatchState?.refusalClasses).toContainEqual(
+      expect.objectContaining({ resourceClass: "appendOnlyRegularFileCursor" }),
+    );
+
+    const appendUnsupportedFlagsState = buildMoveGenericResourceGraphState(
+      node,
+      {
+        ...basePlan,
+        resources: [
+          ...basePlan.resources.filter((resource) => resource.fd !== 3),
+          {
+            id: "pid:4242:fd:3",
+            kind: "file",
+            state: "captured",
+            fd: 3,
+            path: "/srv/app/config.json",
+            offset: 42,
+            flags: ["octal:0103001"],
+          },
+        ],
+      },
+      "/usr/local/bin/unknown-daemon",
+      preflight,
+    );
+    expect(appendUnsupportedFlagsState?.regularFiles[0]).toMatchObject({
+      access: "append-only-refused",
+    });
+    expect(appendUnsupportedFlagsState?.refusalClasses).toContainEqual(
+      expect.objectContaining({ resourceClass: "appendOnlyRegularFileCursor" }),
+    );
+
     const writableState = buildMoveGenericResourceGraphState(
       node,
       {
@@ -726,9 +810,136 @@ describe("generic resource graph capture", () => {
     );
 
     expect(state?.refusalClasses.map((item) => item.resourceClass)).toEqual(
-      expect.arrayContaining(["pipe", "pty", "socket", "unknown", "device", "activeTcpConnection"]),
+      expect.arrayContaining(["pipe", "pty", "socket", "epoll", "device", "activeTcpConnection"]),
     );
     expect(state?.ports).toEqual([]);
+  });
+
+  it("refuses runtime file-lock and mmap preflight evidence", () => {
+    const state = buildMoveGenericResourceGraphState(
+      node,
+      basePlan,
+      "/usr/local/bin/unknown-daemon",
+      `${preflight}\nFILE_LOCK\tfd=3 path=/srv/app/config.json blocked-lock-probe\nMMAP_FILE\t7fff0000-7fff1000 rw-s 00000000 00:00 0 /srv/app/config.json`,
+    );
+    expect(state?.refusalClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceClass: "fileLock" }),
+        expect.objectContaining({ resourceClass: "mmapFile" }),
+      ]),
+    );
+  });
+
+  it("classifies Unix socket and anon-inode wave 2 baseline refusals exactly", () => {
+    const unixPreflight = [
+      "STATUS\t1000\t1000",
+      "ROOT\t/",
+      "UNIX_FD\t4\t100\t00000002\t00000000\t00010000\t0001\t01\t/tmp/app.sock",
+      "UNIX_FD\t5\t101\t00000002\t00000000\t00010000\t0001\t01\t@abstract-app",
+      "UNIX_FD\t6\t102\t00000002\t00000000\t00000000\t0002\t01\t/tmp/app-dgram.sock",
+      "UNIX_FD\t7\t103\t00000002\t00000000\t00000000\t0001\t01\t",
+      "UNIX_FD\t8\t104\t00000001\t00000000\t00000000\t0001\t03\t",
+    ].join("\n");
+    expect(parseGenericResourceGraphPreflight(unixPreflight).unix).toHaveLength(5);
+
+    const socketState = buildMoveGenericResourceGraphState(
+      node,
+      {
+        ...basePlan,
+        resources: [
+          { id: "pid:4242:argv", kind: "argv", state: "captured" },
+          { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+          { id: "pid:4242:fd:4", kind: "socket", state: "captured", fd: 4, path: "socket:[100]" },
+          { id: "pid:4242:fd:5", kind: "socket", state: "captured", fd: 5, path: "socket:[101]" },
+          { id: "pid:4242:fd:6", kind: "socket", state: "captured", fd: 6, path: "socket:[102]" },
+          { id: "pid:4242:fd:7", kind: "socket", state: "captured", fd: 7, path: "socket:[103]" },
+          { id: "pid:4242:fd:8", kind: "socket", state: "captured", fd: 8, path: "socket:[104]" },
+        ],
+      },
+      "/usr/local/bin/unknown-daemon",
+      unixPreflight,
+    );
+    expect(socketState?.refusalClasses.map((item) => item.resourceClass)).toEqual(
+      expect.arrayContaining([
+        "unixSocketPathnameListener",
+        "unixSocketAbstract",
+        "unixSocketDatagram",
+        "unixSocketPair",
+        "unixSocketConnected",
+      ]),
+    );
+
+    const anonState = buildMoveGenericResourceGraphState(
+      node,
+      {
+        ...basePlan,
+        resources: [
+          { id: "pid:4242:argv", kind: "argv", state: "captured" },
+          {
+            id: "pid:4242:fd:9",
+            kind: "eventfd",
+            state: "captured",
+            fd: 9,
+            path: "anon_inode:[eventfd]",
+          },
+          {
+            id: "pid:4242:fd:10",
+            kind: "epoll",
+            state: "captured",
+            fd: 10,
+            path: "anon_inode:[eventpoll]",
+          },
+          {
+            id: "pid:4242:fd:11",
+            kind: "timer",
+            state: "captured",
+            fd: 11,
+            path: "anon_inode:[timerfd]",
+          },
+          {
+            id: "pid:4242:fd:12",
+            kind: "signalfd",
+            state: "captured",
+            fd: 12,
+            path: "anon_inode:[signalfd]",
+          },
+          {
+            id: "pid:4242:fd:13",
+            kind: "unknown",
+            state: "captured",
+            fd: 13,
+            path: "anon_inode:[fanotify]",
+          },
+          {
+            id: "pid:4242:fd:14",
+            kind: "unknown",
+            state: "captured",
+            fd: 14,
+            path: "anon_inode:[io_uring]",
+          },
+          {
+            id: "pid:4242:fd:15",
+            kind: "unknown",
+            state: "captured",
+            fd: 15,
+            path: "anon_inode:[mystery]",
+          },
+        ],
+      },
+      "/usr/local/bin/unknown-daemon",
+      "STATUS\t1000\t1000\nROOT\t/",
+    );
+    expect(anonState?.refusalClasses.map((item) => item.resourceClass)).toEqual(
+      expect.arrayContaining([
+        "eventfd",
+        "epoll",
+        "timerfd",
+        "signalfd",
+        "fanotify",
+        "ioUring",
+        "anonInode",
+      ]),
+    );
   });
 
   it("builds a preflight-first generic loader command", () => {

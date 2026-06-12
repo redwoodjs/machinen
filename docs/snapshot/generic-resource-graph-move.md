@@ -157,25 +157,32 @@ The first explicit migration-equivalence mappings are recorded in the inventory,
 
 The first local support rows are deliberately small and target-native:
 
-| Generic proof row                       | Resource shape                                      | Target evidence                               |
-| --------------------------------------- | --------------------------------------------------- | --------------------------------------------- |
-| `generic-yes-loop`                      | process identity + argv/cwd + process-alive probe   | target `/proc/<pid>/cmdline` contains argv    |
-| `generic-static-http-daemon`            | cwd/data-dir identity + idle loopback HTTP listener | target HTTP GET returns static body           |
-| `generic-interpreted-server`            | idle loopback TCP listener                          | target TCP request returns `interpreted:ping` |
-| `generic-file-backed-worker`            | readonly regular file identity                      | target log prints `file-worker:...`           |
-| `generic-readonly-file-cli`             | readonly-file CLI shape                             | target log prints `readonly-cli:...`          |
-| `generic-writable-log-daemon`           | write-validated cwd/data-dir                        | target appends `generic-log-entry`            |
-| `generic-data-dir-daemon`               | write-validated data-dir                            | target writes `daemon-marker.txt`             |
-| `generic-readonly-file-cursor`          | read-only regular-file fd cursor                    | target log starts at captured offset          |
-| `generic-multi-file-readonly-worker`    | multiple read-only regular-file fd cursors          | target log combines both captured offsets     |
-| `generic-stale-file-identity-refusal`   | target file changed after capture                   | loader refused with `targetPid=null`          |
-| `generic-deleted-file-fd-refusal`       | deleted/unlinked regular-file fd                    | no loader starts                              |
-| `generic-writable-file-cursor-refusal`  | writable or unknown regular-file fd mode            | no loader starts                              |
-| `generic-file-lock-refusal`             | descriptor-level advisory file-lock evidence        | no loader starts                              |
-| `generic-mmap-file-refusal`             | mmap-backed mutable file state                      | no loader starts                              |
-| `generic-inotify-file-refusal`          | inotify/fanotify-style follow state                 | no loader starts                              |
-| `generic-unsupported-resource-refusals` | unsupported resource classes                        | no loader starts for pipe/PTY/socket/etc.     |
-| `generic-loader-preflight-refusals`     | stale target/preflight/health failures              | loader refused with `targetPid=null`          |
+| Generic proof row                              | Resource shape                                              | Target evidence                               |
+| ---------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------- |
+| `generic-yes-loop`                             | process identity + argv/cwd + process-alive probe           | target `/proc/<pid>/cmdline` contains argv    |
+| `generic-static-http-daemon`                   | cwd/data-dir identity + idle loopback HTTP listener         | target HTTP GET returns static body           |
+| `generic-interpreted-server`                   | idle loopback TCP listener                                  | target TCP request returns `interpreted:ping` |
+| `generic-file-backed-worker`                   | readonly regular file identity                              | target log prints `file-worker:...`           |
+| `generic-readonly-file-cli`                    | readonly-file CLI shape                                     | target log prints `readonly-cli:...`          |
+| `generic-writable-log-daemon`                  | write-validated cwd/data-dir                                | target appends `generic-log-entry`            |
+| `generic-data-dir-daemon`                      | write-validated data-dir                                    | target writes `daemon-marker.txt`             |
+| `generic-readonly-file-cursor`                 | read-only regular-file fd cursor                            | target log starts at captured offset          |
+| `generic-append-log-cursor`                    | exact `O_APPEND` regular-file fd captured at EOF            | target appends `append-fd-entry` after load   |
+| `generic-multi-file-readonly-worker`           | multiple read-only regular-file fd cursors                  | target log combines both captured offsets     |
+| `generic-append-log-preflight-refusals`        | stale/truncated/missing target append log                   | loader refused with `targetPid=null`          |
+| `generic-stale-file-identity-refusal`          | target file changed after capture                           | loader refused with `targetPid=null`          |
+| `generic-deleted-file-fd-refusal`              | deleted/unlinked regular-file fd                            | no loader starts                              |
+| `generic-writable-file-cursor-refusal`         | writable or unknown regular-file fd mode                    | no loader starts                              |
+| `generic-append-only-file-cursor-refusal`      | append-only fd not captured at EOF                          | no loader starts                              |
+| `generic-append-log-unsupported-flags-refusal` | append fd with unsupported flags such as truncate           | no loader starts                              |
+| `generic-append-log-fanotify-refusal`          | append log plus fanotify follow interaction                 | no loader starts                              |
+| `generic-file-lock-refusal`                    | descriptor-level advisory file-lock evidence                | no loader starts                              |
+| `generic-mmap-file-refusal`                    | mmap-backed mutable file state                              | no loader starts                              |
+| `generic-inotify-file-refusal`                 | inotify follow state                                        | no loader starts                              |
+| `generic-unix-socket-baseline-refusals`        | Unix pathname/abstract/datagram/socketpair/connected shapes | no loader starts                              |
+| `generic-anon-inode-baseline-refusals`         | eventfd/epoll/timerfd/inotify anon-inode shapes             | no loader starts                              |
+| `generic-unsupported-resource-refusals`        | unsupported resource classes                                | no loader starts for pipe/PTY/socket/etc.     |
+| `generic-loader-preflight-refusals`            | stale target/preflight/health failures                      | loader refused with `targetPid=null`          |
 
 These rows do not claim arbitrary Python, arbitrary HTTP, arbitrary daemon, or arbitrary process migration. They prove the generic resource-class mechanism only for the observed resource graph in each row.
 
@@ -187,6 +194,7 @@ The first generic classifier should graduate only resource classes already repea
 - argv/env/cwd for safe command shapes;
 - regular readonly file identity;
 - read-only regular-file fd cursor continuation with captured fd number, access flags, source dev/inode/mtime evidence, offset, portable size/hash target preflight, target-side pre-open, `lseek`, and `dup2` reconstruction;
+- narrow append-only regular-file fd continuation for exact `O_APPEND` log fds captured at EOF, target preflighted by portable size/hash identity, reopened with `O_WRONLY|O_APPEND|O_NOFOLLOW`, `dup2` reconstructed, and proven by target append progress;
 - deterministic writable output with atomic replacement policy;
 - symlink-free directory or tree identity;
 - loopback TCP listener with no active clients;
@@ -200,17 +208,17 @@ The first generic classifier should graduate only resource classes already repea
 The first generic classifier must refuse or defer:
 
 - active TCP connections;
-- Unix domain sockets;
+- Unix domain sockets, now split for baseline refusal into pathname listeners, connected streams, socketpairs, datagram sockets, and abstract namespace sockets;
 - pipes unless a proof-specific pipeline envelope handles them;
 - PTYs and interactive terminal state;
-- anon inodes including eventfd, timerfd, signalfd, inotify, epoll, and similar resources;
+- anon inodes, now split for baseline refusal into eventfd, epoll/eventpoll, timerfd, signalfd, inotify, fanotify, io_uring, and unknown anon-inode state where observed;
 - devices except explicit allowlist entries;
-- append-only log fd continuation until an exact append contract is proven;
-- writable or unknown regular-file fd modes;
+- append-only log fd variants outside the exact EOF contract, including non-EOF offsets, truncate/unsupported flags, stale/truncated/rotated/missing target logs, concurrent writer ambiguity, lock/mmap interactions, and inotify/fanotify follow state;
+- writable or unknown non-append regular-file fd modes;
 - deleted/unlinked regular-file fds;
 - file locks until modeled; current `generic-file-lock-refusal` is descriptor-level refusal evidence, not lock reconstruction;
 - mmap dirty or mutable file-backed state until modeled;
-- inotify/fanotify follow state until modeled;
+- inotify/fanotify follow state until modeled; baseline rows prove inotify and classifier tests cover fanotify matching;
 - runtime heap/thread/timer/worker state until modeled;
 - source-ISA memory/register continuation.
 
@@ -223,7 +231,7 @@ The next resource classes to graduate, each requiring its own completion contrac
 1. stdio and pipes;
 2. PTY and terminal state;
 3. Unix domain sockets;
-4. append-only log fd continuation and writable file cursors;
+4. remaining writable file cursors and append-log variants outside the exact EOF-only contract;
 5. file locks;
 6. epoll/kqueue readiness sets;
 7. timers and signals;

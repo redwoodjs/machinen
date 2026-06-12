@@ -96,7 +96,12 @@ export interface MoveGenericResourceGraphState {
   regularFiles: Array<{
     fd?: number;
     path: string;
-    access: "read-only" | "write-atomic" | "read-write-refused";
+    access:
+      | "read-only"
+      | "write-atomic"
+      | "append-only"
+      | "append-only-refused"
+      | "read-write-refused";
     flags?: string[];
     offset?: number;
     cursor?: {

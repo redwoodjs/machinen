@@ -23,6 +23,7 @@ Use this language when describing wave 1 in a PR, release note, or status update
 
 The default product behavior remains conservative:
 
+- wave 2 refusal/evidence baselines for append-only fd candidates, Unix socket subtypes, and anon-inode subtypes are forward-looking safety work, not migration support;
 - app-specific/bespoke envelopes keep higher priority by default;
 - generic equivalence means the retained generic row has equivalent target evidence for the selected resource shape, not that every program using that binary is supported;
 - generic-primary is allowed only for descriptors where no bespoke envelope claims the process or where an explicit future migration path selects it;

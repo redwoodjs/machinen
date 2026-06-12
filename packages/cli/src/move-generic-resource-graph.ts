@@ -13,6 +13,14 @@ import {
   genericPipeLaunchCommand,
   genericPipePreflightCommands,
 } from "./move-generic-pipe-loader.ts";
+import {
+  createGenericPreflight,
+  genericResourceRefusal,
+  parseWave2PreflightRow,
+  regularFileAccess,
+  regularFileCursor,
+  type GenericPreflight,
+} from "./move-generic-wave2-baseline.ts";
 import { shellQuote } from "./move-preflight-helpers.ts";
 
 type MoveResourcePlan = NonNullable<MoveDescriptor["resourcePlan"]>;
@@ -32,33 +40,6 @@ type GenericResourceClass = GenericState["resourceClasses"][number];
 type GenericRefusalClass = GenericState["refusalClasses"][number];
 type GenericStdioGraph = NonNullable<GenericState["stdioGraph"]>;
 type GenericPipeGraph = NonNullable<GenericState["pipeGraph"]>;
-
-type GenericPreflight = {
-  uid?: number;
-  gid?: number;
-  root?: string;
-  cwd?: GenericState["cwd"]["identity"];
-  files: Array<{
-    fd: number;
-    path: string;
-    dev: number;
-    inode: number;
-    size: number;
-    mtimeEpochSeconds: number;
-    sha256: string;
-  }>;
-  tcp: Array<{
-    fd: number;
-    inode: string;
-    state: string;
-    localHost?: string;
-    localPort?: number;
-    remoteHost?: string;
-    remotePort?: number;
-  }>;
-  locks: string[];
-  mmaps: string[];
-};
 
 export async function readMoveGenericResourceGraphStateInVm(
   vm: VmHandle,
@@ -113,7 +94,7 @@ export function buildMoveGenericResourceGraphState(
 }
 
 export function parseGenericResourceGraphPreflight(stdout: string): GenericPreflight {
-  const preflight: GenericPreflight = { files: [], tcp: [], locks: [], mmaps: [] };
+  const preflight = createGenericPreflight();
   for (const line of stdout.split("\n")) {
     const parts = line.split("\t");
     parsePreflightRow(preflight, parts);
@@ -122,6 +103,9 @@ export function parseGenericResourceGraphPreflight(stdout: string): GenericPrefl
 }
 
 function parsePreflightRow(preflight: GenericPreflight, parts: string[]): void {
+  if (parseWave2PreflightRow(preflight, parts)) {
+    return;
+  }
   if (parts[0] === "STATUS") {
     preflight.uid = number(parts[1]);
     preflight.gid = number(parts[2]);
@@ -246,7 +230,7 @@ function unsupportedResourceRefusals(
   preflight: GenericPreflight,
 ): GenericRefusalClass[] {
   const refusals = resourcePlan.resources.flatMap((resource) =>
-    resourceRefusal(resource, preflight),
+    genericResourceRefusal(resource, preflight, isIdleLoopbackListener(preflight, resource.fd)),
   );
   if (hasActiveTcp(preflight)) {
     refusals.push(
@@ -320,110 +304,6 @@ function looksLikeShellWrapper(node: MovePidGraphNode): boolean {
   );
 }
 
-function resourceRefusal(
-  resource: MoveResourcePlan["resources"][number],
-  preflight: GenericPreflight,
-): GenericRefusalClass[] {
-  const handlers: Record<string, () => GenericRefusalClass[]> = {
-    argv: () => [],
-    cwd: () => [],
-    file: () => fileResourceRefusal(resource),
-    socket: () => socketResourceRefusal(resource.fd, resource.path, preflight),
-    pipe: () => unsupportedResourceClassRefusal("pipe", resource.fd, resource.path),
-    pty: () => unsupportedResourceClassRefusal("pty", resource.fd, resource.path),
-    unknown: () =>
-      resource.path?.includes("inotify")
-        ? [
-            refusal(
-              "inotify",
-              "inotify/fanotify state is not generically supported",
-              evidence(resource.fd, resource.path),
-            ),
-          ]
-        : unsupportedResourceClassRefusal("unknown", resource.fd, resource.path),
-  };
-  return (
-    handlers[resource.kind]?.() ??
-    deferredResourceClassRefusal(resource.kind, resource.fd, resource.path)
-  );
-}
-
-function fileResourceRefusal(
-  resource: MoveResourcePlan["resources"][number],
-): GenericRefusalClass[] {
-  const { fd, path } = resource;
-  if (path?.startsWith("/dev/") && path !== "/dev/null") {
-    return [refusal("device", "device fd is not generically supported yet", evidence(fd, path))];
-  }
-  if (path?.endsWith(" (deleted)")) {
-    return [
-      refusal(
-        "regularFileDeleted",
-        "deleted regular-file fd cannot be reopened",
-        evidence(fd, path),
-      ),
-    ];
-  }
-  if (isRegularFilePath(path) && !isReadOnlyFileResource(resource)) {
-    return [
-      refusal(
-        "writableRegularFileCursor",
-        "regular-file fd is not proven read-only; generic cursor continuation refuses writable or unknown access",
-        `${evidence(fd, path)} flags=${resource.flags?.join(",") ?? "unknown"}`,
-      ),
-    ];
-  }
-  return [];
-}
-
-function isRegularFilePath(path: string | undefined): boolean {
-  return Boolean(path && path.startsWith("/") && !path.startsWith("/dev/"));
-}
-
-function isReadOnlyFileResource(resource: MoveResourcePlan["resources"][number]): boolean {
-  const octal = resource.flags?.find((flag) => flag.startsWith("octal:"))?.slice("octal:".length);
-  if (!octal) {
-    return false;
-  }
-  const flags = Number.parseInt(octal, 8);
-  return Number.isInteger(flags) && (flags & 3) === 0;
-}
-
-function socketResourceRefusal(
-  fd: number | undefined,
-  path: string | undefined,
-  preflight: GenericPreflight,
-): GenericRefusalClass[] {
-  return isIdleLoopbackListener(preflight, fd)
-    ? []
-    : [refusal("socket", "socket fd is not a proven idle loopback listener", evidence(fd, path))];
-}
-
-function unsupportedResourceClassRefusal(
-  kind: "pipe" | "pty" | "unknown",
-  fd: number | undefined,
-  path: string | undefined,
-): GenericRefusalClass[] {
-  return [
-    refusal(kind, `${kind} resource class is not generically supported yet`, evidence(fd, path)),
-  ];
-}
-
-function deferredResourceClassRefusal(
-  kind: string,
-  fd: number | undefined,
-  path: string | undefined,
-): GenericRefusalClass[] {
-  return [
-    refusal(
-      kind,
-      `${kind} resource class is deferred for generic graph move`,
-      evidence(fd, path),
-      "deferred",
-    ),
-  ];
-}
-
 function dedupeRefusals(refusals: GenericRefusalClass[]): GenericRefusalClass[] {
   const seen = new Set<string>();
   return refusals.filter((item) => {
@@ -469,15 +349,10 @@ function regularFiles(
     return {
       fd: file.fd,
       path: file.path,
-      access: isReadOnlyFileResource(resource ?? { kind: "file", id: "missing", state: "captured" })
-        ? ("read-only" as const)
-        : ("read-write-refused" as const),
+      access: regularFileAccess(resource, file),
       flags: resource?.flags,
       offset: resource?.offset,
-      cursor:
-        resource?.offset !== undefined
-          ? { offset: resource.offset, policy: "read-only-offset" as const }
-          : undefined,
+      cursor: regularFileCursor(resource, file),
       identity: {
         dev: file.dev,
         inode: file.inode,
@@ -706,10 +581,6 @@ function refusal(
   };
 }
 
-function evidence(fd: number | undefined, path: string | undefined): string {
-  return `fd=${fd ?? "unknown"} path=${path ?? "unknown"}`;
-}
-
 function parseTcpAddress(value: string | undefined): { host: string; port: number } | undefined {
   const [address, portHex] = (value ?? "").split(":");
   if (!address || !portHex || address.length !== 8) {
@@ -785,6 +656,7 @@ for fdpath in /proc/$pid/fd/[0-9]*; do
   inode=$(printf '%s' "$target" | sed -n 's/^socket:\\[\\([0-9][0-9]*\\)\\]$/\\1/p')
   [ -n "$inode" ] || continue
   awk -v fd="$fd" -v inode="$inode" '$10 == inode { printf "TCP_FD\\t%s\\t%s\\t%s\\t%s\\t%s\\n", fd, inode, $4, $2, $3 }' /proc/net/tcp /proc/net/tcp6 2>/dev/null || true
+  awk -v fd="$fd" -v inode="$inode" '$7 == inode { path = (NF >= 8 ? $8 : ""); printf "UNIX_FD\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n", fd, inode, $2, $3, $4, $5, $6, path }' /proc/net/unix 2>/dev/null || true
 done
 awk -v pid="$pid" '$5 == pid { printf "FILE_LOCK\\t%s\\n", $0 }' /proc/locks 2>/dev/null || true
 awk '$2 ~ /w/ && NF >= 6 && $6 ~ /^[/]/ { printf "MMAP_FILE\\t%s\\n", $0 }' "/proc/$pid/maps" 2>/dev/null || true

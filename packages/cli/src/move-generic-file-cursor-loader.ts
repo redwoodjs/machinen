@@ -26,7 +26,8 @@ import json, os, sys
 spec = json.loads(sys.argv[1])
 log_path = sys.argv[2]
 for item in spec['files']:
-    fd = os.open(item['path'], os.O_RDONLY)
+    flags = os.O_RDONLY if item['access'] == 'read-only' else os.O_WRONLY | os.O_APPEND | getattr(os, 'O_NOFOLLOW', 0)
+    fd = os.open(item['path'], flags)
     os.lseek(fd, int(item['offset']), os.SEEK_SET)
     target_fd = int(item['fd'])
     os.dup2(fd, target_fd)
@@ -46,11 +47,19 @@ function reconstructableRegularFiles(state: GenericState): Array<{
   fd: number;
   path: string;
   offset: number;
+  access: "read-only" | "append-only";
 }> {
   return state.regularFiles.flatMap((file) => {
-    if (file.access !== "read-only" || file.fd === undefined) {
+    if ((file.access !== "read-only" && file.access !== "append-only") || file.fd === undefined) {
       return [];
     }
-    return [{ fd: file.fd, path: file.path, offset: file.cursor?.offset ?? file.offset ?? 0 }];
+    return [
+      {
+        fd: file.fd,
+        path: file.path,
+        offset: file.cursor?.offset ?? file.offset ?? 0,
+        access: file.access,
+      },
+    ];
   });
 }

@@ -340,10 +340,29 @@ function nonSocketMoveResource(pid: number, fd: GuestMoveFd): NativeProcessResou
   if (/^\/dev\/(pts|tty)/.test(fd.target)) {
     return { ...base, kind: "pty", path: fd.target };
   }
+  const anonKind = anonInodeResourceKind(fd.target);
+  if (anonKind) {
+    return { ...base, kind: anonKind, path: fd.target };
+  }
   if (fd.target.startsWith("/")) {
     return { ...base, kind: "file", path: fd.target, offset: fd.offset };
   }
   return { ...base, kind: "unknown", path: fd.target };
+}
+
+function anonInodeResourceKind(
+  target: string,
+): Extract<NativeProcessResource["kind"], "eventfd" | "epoll" | "timer" | "signalfd"> | undefined {
+  const kinds: Record<
+    string,
+    Extract<NativeProcessResource["kind"], "eventfd" | "epoll" | "timer" | "signalfd">
+  > = {
+    "anon_inode:[eventfd]": "eventfd",
+    "anon_inode:[eventpoll]": "epoll",
+    "anon_inode:[timerfd]": "timer",
+    "anon_inode:[signalfd]": "signalfd",
+  };
+  return kinds[target];
 }
 
 function socketMoveResource(

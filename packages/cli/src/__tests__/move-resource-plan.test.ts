@@ -43,6 +43,35 @@ describe("move resource plan", () => {
     expect(plan.acceptedSubsets).toEqual([]);
   });
 
+  it("maps known anon-inode fds to distinct resource kinds", () => {
+    const scan = parseGuestMoveResourceScan(
+      [
+        "STATUS\t1000\t1000",
+        "FD\t3\tanon_inode:[eventfd]",
+        "FDINFO\t3\tflags:\t02",
+        "FD\t4\tanon_inode:[eventpoll]",
+        "FDINFO\t4\tflags:\t02",
+        "FD\t5\tanon_inode:[timerfd]",
+        "FDINFO\t5\tflags:\t02",
+        "FD\t6\tanon_inode:[signalfd]",
+        "FDINFO\t6\tflags:\t02",
+        "FD\t7\tanon_inode:[fanotify]",
+      ].join("\n"),
+    );
+
+    const plan = buildMoveResourcePlan(pingNode, scan);
+
+    expect(plan.resources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ fd: 3, kind: "eventfd" }),
+        expect.objectContaining({ fd: 4, kind: "epoll" }),
+        expect.objectContaining({ fd: 5, kind: "timer" }),
+        expect.objectContaining({ fd: 6, kind: "signalfd" }),
+        expect.objectContaining({ fd: 7, kind: "unknown", path: "anon_inode:[fanotify]" }),
+      ]),
+    );
+  });
+
   it("captures external ping sockets but refuses until sequence state is translated", () => {
     const scan = parseGuestMoveResourceScan(
       [
