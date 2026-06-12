@@ -99,8 +99,15 @@ export interface MoveGenericResourceGraphState {
     access: "read-only" | "write-atomic" | "read-write-refused";
     flags?: string[];
     offset?: number;
+    cursor?: {
+      offset: number;
+      policy: "read-only-offset" | "append-only-end" | "refused";
+    };
     identity: {
+      dev: number;
+      inode: number;
       size: number;
+      mtimeEpochSeconds: number;
       sha256: string;
     };
   }>;
@@ -126,6 +133,46 @@ export interface MoveGenericResourceGraphState {
     | "stdio-dev-null-or-closed"
     | "stdio-inherited-noninteractive"
     | "refuse-nontrivial-stdio";
+  stdioGraph?: {
+    policy: "dev-null-or-closed" | "modeled-pipe" | "inherited-noninteractive" | "refused";
+    fds: Array<{
+      fd: 0 | 1 | 2;
+      target: "closed" | "dev-null" | "pipe" | "regular-file" | "refused";
+      access: "read" | "write" | "read-write";
+      evidence: string;
+    }>;
+  };
+  pipeGraph?: {
+    pipes: Array<{
+      inode: string;
+      readFds: Array<{
+        pid: number;
+        fd: number;
+        role: "producer" | "consumer" | "unknown";
+        insideMovedGraph: boolean;
+        flags: string[];
+        cloexec?: boolean;
+        nonblocking?: boolean;
+        command?: string;
+        argv?: string[];
+      }>;
+      writeFds: Array<{
+        pid: number;
+        fd: number;
+        role: "producer" | "consumer" | "unknown";
+        insideMovedGraph: boolean;
+        flags: string[];
+        cloexec?: boolean;
+        nonblocking?: boolean;
+        command?: string;
+        argv?: string[];
+      }>;
+      topology: "one-producer-one-consumer" | "fan-in" | "fan-out" | "cycle" | "missing-peer";
+      bufferedDataPolicy: "empty" | "captured-bytes" | "refused-unknown";
+      capturedBytesBase64?: string;
+      lifecycle: "finite-replay" | "long-running-pair" | "refused";
+    }>;
+  };
   healthProbe:
     | { kind: "process-alive" }
     | { kind: "http"; url: string; expectedStatus?: number; expectedBodySha256?: string }

@@ -1515,7 +1515,13 @@ describe("move target direct loader", () => {
               {
                 path: "/srv/app/config.json",
                 access: "read-only",
-                identity: { size: 12, sha256: "b".repeat(64) },
+                identity: {
+                  dev: 2049,
+                  inode: 9001,
+                  size: 12,
+                  mtimeEpochSeconds: 1780000000,
+                  sha256: "b".repeat(64),
+                },
               },
             ],
             dataDirs: [
@@ -1555,6 +1561,72 @@ describe("move target direct loader", () => {
       targetPid: 4243,
       logPath: "/tmp/generic.log",
     });
+  });
+
+  it("keeps wave-1 bespoke envelope loaders higher priority than generic-equivalent state by default", async () => {
+    const cases = [
+      {
+        name: "python-http",
+        descriptor: httpDescriptor,
+        stdout:
+          "LOAD_PID\t805\nLOAD_LOG\t/tmp/http.log\nPATCH\tpython-http-server\tready\t/tmp/web\t8123\n",
+        strategy: "target-original-python-http-server-loader",
+      },
+      {
+        name: "python-http-directory",
+        descriptor: httpDirectoryDescriptor,
+        stdout:
+          "LOAD_PID\t806\nLOAD_LOG\t/tmp/http-directory.log\nPATCH\tpython-http-server\tready\t/\t8128\t/tmp/web-directory\n",
+        strategy: "target-original-python-http-server-loader",
+      },
+      {
+        name: "nc-listener",
+        descriptor: ncDescriptor,
+        stdout: "LOAD_PID\t808\nLOAD_LOG\t/tmp/nc.log\nPATCH\tnc-listener\tready\t8135\n",
+        strategy: "target-original-nc-listener-loader",
+      },
+      {
+        name: "reader-cat",
+        descriptor: readerDescriptor,
+        stdout:
+          "LOAD_PID\t801\nLOAD_LOG\t/tmp/cat.log\nPATCH\treader-offset\tready\t/tmp/cat.txt\t131072\n",
+        strategy: "target-original-cat-offset-loader",
+      },
+      {
+        name: "grep",
+        descriptor: grepDescriptor,
+        stdout:
+          "LOAD_PID\t802\nLOAD_LOG\t/tmp/grep.log\nPATCH\tgrep-offset\tready\t/tmp/grep.txt\t294912\n",
+        strategy: "target-original-grep-offset-loader",
+      },
+      {
+        name: "tail",
+        descriptor: tailDescriptor,
+        stdout: [
+          "LOAD_PID\t777",
+          "LOAD_LOG\t/tmp/machinen-move-loader.log",
+          "SAFE_BOUNDARY\tsleep-timer\ttarget-tail-follow-started",
+          "PATCH\ttail-offset\tready\t/tmp/source.log\t128",
+        ].join("\n"),
+        strategy: "target-original-tail-offset-loader",
+      },
+    ];
+
+    await Promise.all(
+      cases.map(async (item) => {
+        const commands: string[] = [];
+        const loader = await runMoveTargetDirectLoaderInVm(
+          mockVm(commands, item.stdout),
+          withGenericEquivalentState(item.descriptor),
+        );
+
+        expect(loader.strategy, item.name).toBe(item.strategy);
+        expect(loader.strategy, item.name).not.toBe(
+          "target-native-generic-resource-graph-reexec-loader",
+        );
+        expect(commands[0], item.name).not.toContain("generic-resource-graph");
+      }),
+    );
   });
 
   it("refuses generic load with no target pid when health probe fails", async () => {
@@ -3137,6 +3209,34 @@ function moveDescriptorWithCapture(
     rootPid: pid,
     nodes: [{ pid, ppid: 1, command, argv, cwd: "/", exe }],
     resourcePlan: { ...descriptor.resourcePlan!, capture },
+  };
+}
+
+function withGenericEquivalentState(source: MoveDescriptor): MoveDescriptor {
+  const node = source.nodes[0]!;
+  return {
+    ...source,
+    resourcePlan: {
+      ...source.resourcePlan!,
+      capture: {
+        ...source.resourcePlan!.capture!,
+        genericResourceGraphState: {
+          policy: "generic-resource-graph-target-native-reexec-v1",
+          executableIdentity: { path: node.exe ?? node.argv[0] ?? "/bin/false" },
+          argv: node.argv,
+          env: { policy: "target-default" },
+          cwd: { path: node.cwd ?? "/" },
+          ports: [],
+          regularFiles: [],
+          dataDirs: [],
+          fileOffsets: [],
+          stdioPolicy: "stdio-dev-null-or-closed",
+          healthProbe: { kind: "process-alive" },
+          resourceClasses: [],
+          refusalClasses: [],
+        },
+      },
+    },
   };
 }
 

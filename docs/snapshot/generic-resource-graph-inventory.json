@@ -18,7 +18,8 @@
     "healthProbe": "Target-side command, process, TCP, HTTP, or protocol evidence after launch.",
     "unsupportedResourceRefusal": "Known unsupported resource class produces fail-closed evidence before target launch or with targetPid=null.",
     "runtimeSpecificRefusal": "Runtime or framework-specific state is explicitly refused until a generic resource model exists.",
-    "terminalOrPtyRefusal": "Interactive terminal/PTY/editor state is refused until the PTY resource class graduates."
+    "terminalOrPtyRefusal": "Interactive terminal/PTY/editor state is refused until the PTY resource class graduates.",
+    "regularFileCursor": "Read-only regular-file descriptor cursor identity with dev/inode/mtime/hash and target-side offset reconstruction."
   },
   "families": [
     {
@@ -36,12 +37,23 @@
       "name": "first generic resource graph continuation",
       "proofNames": [
         "generic-yes-loop",
+        "generic-long-running-pipe-pair",
+        "generic-pipe-stdio-refusals",
+        "generic-finite-pipe-replay",
         "generic-static-http-daemon",
         "generic-interpreted-server",
         "generic-file-backed-worker",
         "generic-readonly-file-cli",
         "generic-writable-log-daemon",
         "generic-data-dir-daemon",
+        "generic-readonly-file-cursor",
+        "generic-multi-file-readonly-worker",
+        "generic-stale-file-identity-refusal",
+        "generic-deleted-file-fd-refusal",
+        "generic-writable-file-cursor-refusal",
+        "generic-file-lock-refusal",
+        "generic-mmap-file-refusal",
+        "generic-inotify-file-refusal",
         "generic-unsupported-resource-refusals",
         "generic-loader-preflight-refusals"
       ],
@@ -49,12 +61,15 @@
         "processIdentity",
         "argvEnvCwd",
         "regularFileIdentity",
+        "regularFileCursor",
         "directoryIdentity",
         "dataDirIdentity",
         "loopbackTcpListener",
         "noActiveClients",
         "healthProbe",
-        "unsupportedResourceRefusal"
+        "unsupportedResourceRefusal",
+        "stdio",
+        "pipeGraph"
       ],
       "genericReadiness": "graduated-generic-proof"
     },
@@ -397,42 +412,92 @@
       "genericProofName": "generic-static-http-daemon",
       "resourcePattern": "loopback static HTTP daemon",
       "equivalentTargetEvidence": "target HTTP GET returns generic static http body from target-native Python process",
-      "fallbackPolicy": "keep python-http bespoke loader higher priority until generic migration is explicitly switched on"
+      "fallbackPolicy": "keep python-http bespoke loader higher priority until generic migration is explicitly switched on",
+      "migrationMode": "generic-equivalent-with-bespoke-fallback",
+      "boundary": "Generic static HTTP resource graph is equivalent for target evidence, but the bespoke loader remains default priority until an explicit migration path is selected."
     },
     {
       "bespokeProofName": "python-http-directory",
       "genericProofName": "generic-static-http-daemon",
       "resourcePattern": "cwd/data-dir-backed static HTTP serving",
       "equivalentTargetEvidence": "target cwd/data-dir identity is validated and HTTP response is served from target data dir",
-      "fallbackPolicy": "keep python-http-directory bespoke loader higher priority during migration"
+      "fallbackPolicy": "keep python-http-directory bespoke loader higher priority during migration",
+      "migrationMode": "generic-equivalent-with-bespoke-fallback",
+      "boundary": "Generic static HTTP resource graph is equivalent for cwd/data-dir-backed target evidence, but bespoke directory HTTP remains default priority."
     },
     {
       "bespokeProofName": "nc-listener",
       "genericProofName": "generic-interpreted-server",
       "resourcePattern": "idle loopback TCP listener with no active clients",
       "equivalentTargetEvidence": "target TCP request returns interpreted:ping from target-native process",
-      "fallbackPolicy": "keep nc listener bespoke loader higher priority during migration"
+      "fallbackPolicy": "keep nc listener bespoke loader higher priority during migration",
+      "migrationMode": "generic-equivalent-with-bespoke-fallback",
+      "boundary": "Generic interpreted-server row covers idle loopback/no-active-client target TCP evidence, while nc-specific loader remains default priority."
     },
     {
       "bespokeProofName": "reader-cat",
       "genericProofName": "generic-file-backed-worker",
       "resourcePattern": "readonly regular-file identity plus target output evidence",
       "equivalentTargetEvidence": "target log contains file-worker:generic file input after regular file identity preflight",
-      "fallbackPolicy": "keep reader-cat bespoke loader higher priority during migration"
+      "fallbackPolicy": "keep reader-cat bespoke loader higher priority during migration",
+      "migrationMode": "generic-equivalent-with-bespoke-fallback",
+      "boundary": "Generic file-backed-worker covers readonly regular-file identity and deterministic target output when stdio is trivial or modeled; bespoke remains default for offset/stdio-sensitive behavior."
     },
     {
       "bespokeProofName": "grep",
       "genericProofName": "generic-readonly-file-cli",
       "resourcePattern": "readonly-file CLI with deterministic target output",
       "equivalentTargetEvidence": "target log contains readonly-cli:generic file input after regular file identity preflight",
-      "fallbackPolicy": "keep grep bespoke loader higher priority during migration"
+      "fallbackPolicy": "keep grep bespoke loader higher priority during migration",
+      "migrationMode": "generic-equivalent-with-bespoke-fallback",
+      "boundary": "Generic readonly-file CLI covers deterministic file-backed output when stdin/pipe state is absent or modeled; bespoke remains default for grep-specific stdin/pipe or pattern edge cases."
     },
     {
       "bespokeProofName": "tail",
       "genericProofName": "generic-writable-log-daemon",
       "resourcePattern": "long-running file-observing/log-adjacent daemon with writable data-dir validation",
       "equivalentTargetEvidence": "target appends generic-log-entry after write-validated cwd/data-dir preflight",
-      "fallbackPolicy": "keep tail bespoke loader higher priority for offset-preserving tail semantics until generic file offset graduation is proven"
+      "fallbackPolicy": "keep tail bespoke loader higher priority for offset-preserving tail semantics until generic file offset graduation is proven",
+      "migrationMode": "bespoke-fallback-only",
+      "boundary": "Generic writable-log daemon is adjacent evidence only and does not preserve tail offset/follow semantics; tail remains bespoke until file offset/follow semantics graduate."
+    }
+  ],
+  "genericMigrationWave1Candidates": [
+    {
+      "bespokeProofName": "python-http",
+      "migrationMode": "generic-equivalent-with-bespoke-fallback",
+      "genericProofName": "generic-static-http-daemon",
+      "boundary": "Generic static HTTP resource graph is equivalent for target evidence, but the bespoke loader remains default priority until an explicit migration path is selected."
+    },
+    {
+      "bespokeProofName": "python-http-directory",
+      "migrationMode": "generic-equivalent-with-bespoke-fallback",
+      "genericProofName": "generic-static-http-daemon",
+      "boundary": "Generic static HTTP resource graph is equivalent for cwd/data-dir-backed target evidence, but bespoke directory HTTP remains default priority."
+    },
+    {
+      "bespokeProofName": "nc-listener",
+      "migrationMode": "generic-equivalent-with-bespoke-fallback",
+      "genericProofName": "generic-interpreted-server",
+      "boundary": "Generic interpreted-server row covers idle loopback/no-active-client target TCP evidence, while nc-specific loader remains default priority."
+    },
+    {
+      "bespokeProofName": "reader-cat",
+      "migrationMode": "generic-equivalent-with-bespoke-fallback",
+      "genericProofName": "generic-file-backed-worker",
+      "boundary": "Generic file-backed-worker covers readonly regular-file identity and deterministic target output when stdio is trivial or modeled; bespoke remains default for offset/stdio-sensitive behavior."
+    },
+    {
+      "bespokeProofName": "grep",
+      "migrationMode": "generic-equivalent-with-bespoke-fallback",
+      "genericProofName": "generic-readonly-file-cli",
+      "boundary": "Generic readonly-file CLI covers deterministic file-backed output when stdin/pipe state is absent or modeled; bespoke remains default for grep-specific stdin/pipe or pattern edge cases."
+    },
+    {
+      "bespokeProofName": "tail",
+      "migrationMode": "bespoke-fallback-only",
+      "genericProofName": "generic-writable-log-daemon",
+      "boundary": "Generic writable-log daemon is adjacent evidence only and does not preserve tail offset/follow semantics; tail remains bespoke until file offset/follow semantics graduate."
     }
   ]
 }

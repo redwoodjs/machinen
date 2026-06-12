@@ -7489,6 +7489,178 @@ print(json.dumps({'name':'unsafe-dd-refusal','state':'passed','saveAccepted':sav
 PY
 }
 
+mutate_generic_pipe_bundle() {
+  local bundle="$1" exe="$2" argv_json="$3" pipe_json="$4" health_json="$5"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+argv=json.loads('''$argv_json''')
+pipe=json.loads('''$pipe_json''')
+health=json.loads('''$health_json''')
+node=d['nodes'][0]
+node['command']=argv[0].split('/')[-1]
+node['argv']=argv
+node['exe']='$exe'
+cap=d['resourcePlan']['capture']
+pkg=cap['executablePackage']
+pkg['path']='$exe'
+pkg['realPath']='$exe'
+pkg['packageName']='coreutils'
+g=cap['genericResourceGraphState']
+g['executableIdentity']={k:v for k,v in pkg.items() if k in ('path','realPath','packageName','version','architecture')}
+g['argv']=argv
+g['stdioPolicy']='stdio-inherited-noninteractive'
+g['stdioGraph']={
+  'policy':'modeled-pipe',
+  'fds':[
+    {'fd':0,'target':'pipe','access':'read','evidence':'stdin reconstructed from explicit pipeGraph'},
+    {'fd':1,'target':'dev-null','access':'write','evidence':'stdout redirected to generic loader log'},
+    {'fd':2,'target':'dev-null','access':'write','evidence':'stderr redirected to generic loader log'},
+  ],
+}
+g['pipeGraph']={'pipes':[pipe]}
+g['healthProbe']=health
+g['refusalClasses']=[]
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'target executable identity is explicit in descriptor harness'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'argv/cwd reconstructed by generic loader'},
+  {'resourceClass':'pipeGraph','status':'supported','evidence':'explicit pipeGraph lifecycle is supported by target-native generic loader'},
+  {'resourceClass':'stdio','status':'supported','evidence':'stdio is reconstructed from explicit modeled pipe policy'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'target evidence is checked after launch'},
+]
+d['nativeContinuation']['state']='planned'
+d['nativeContinuation']['refusals']=[]
+d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+}
+
+prove_generic_finite_pipe_replay() {
+  local bundle="$WORK/generic-finite-pipe.bundle" pid log output
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-finite-pipe' & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-finite-pipe.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  mutate_generic_pipe_bundle "$bundle" "/usr/bin/wc" '["/usr/bin/wc","-c"]' '{"inode":"finite-1","readFds":[{"pid":1,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":[],"argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":0,"fd":1,"role":"producer","insideMovedGraph":false,"flags":[],"argv":["descriptor-captured-bytes"]}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"captured-bytes","capturedBytesBase64":"aGVsbG8tcGlwZQo=","lifecycle":"finite-replay"}' '{"kind":"command","argv":["/bin/true"]}'
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-finite-pipe.load.json"
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-finite-pipe.load.json'))['loader']['logPath'])
+PY
+)
+  sleep 0.5
+  output=$($CLI exec "$TGT" -- "cat '$log'")
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/generic-finite-pipe.save.json'))
+load=json.load(open('$WORK/generic-finite-pipe.load.json'))
+out='''$output'''.strip()
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+assert load['accepted'] and load['loader']['state'] == 'ready'
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['pipeGraph']['pipes'][0]['lifecycle'] == 'finite-replay'
+assert g['pipeGraph']['pipes'][0]['bufferedDataPolicy'] == 'captured-bytes'
+assert g['refusalClasses'] == []
+assert out == '11', out
+print(json.dumps({'name':'generic-finite-pipe-replay','state':'passed','loadAccepted':load['accepted'],'loaderStrategy':load['loader']['strategy'],'targetPid':load['loader']['targetPid'],'output':out,'pipeLifecycle':g['pipeGraph']['pipes'][0]['lifecycle']}))
+PY
+}
+
+prove_generic_long_running_pipe_pair() {
+  local bundle="$WORK/generic-long-pipe.bundle" pid tpid log output
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-long-pipe' & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-long-pipe.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  mutate_generic_pipe_bundle "$bundle" "/usr/bin/cat" '["/usr/bin/cat"]' '{"inode":"long-1","readFds":[{"pid":2,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":[],"argv":["/usr/bin/cat"]}],"writeFds":[{"pid":1,"fd":1,"role":"producer","insideMovedGraph":true,"flags":[],"argv":["/usr/bin/yes","pipe-line"]}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"empty","lifecycle":"long-running-pair"}' '{"kind":"process-alive"}'
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-long-pipe.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-long-pipe.load.json'))['loader']['targetPid'])
+PY
+)
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-long-pipe.load.json'))['loader']['logPath'])
+PY
+)
+  sleep 0.5
+  output=$($CLI exec "$TGT" -- "head -n 2 '$log'")
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true; pkill -f 'yes pipe-line' 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+load=json.load(open('$WORK/generic-long-pipe.load.json'))
+out='''$output'''.splitlines()
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+assert load['accepted'] and load['loader']['state'] == 'ready'
+assert g['pipeGraph']['pipes'][0]['lifecycle'] == 'long-running-pair'
+assert g['refusalClasses'] == []
+assert out[:2] == ['pipe-line','pipe-line'], out
+print(json.dumps({'name':'generic-long-running-pipe-pair','state':'passed','loadAccepted':load['accepted'],'loaderStrategy':load['loader']['strategy'],'targetPid':int('$tpid'),'output':out[:2],'pipeLifecycle':g['pipeGraph']['pipes'][0]['lifecycle']}))
+PY
+}
+
+pipe_refusal_case() {
+  local case_name="$1" pipe_json="$2" refusal_class="$3" reason="$4" expected_loader="$5"
+  local bundle="$WORK/generic-pipe-refuse-$case_name.bundle" pid load_rc
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-pipe-refuse-$case_name' & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-pipe-refuse-$case_name.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  mutate_generic_pipe_bundle "$bundle" "/usr/bin/wc" '["/usr/bin/wc","-c"]' "$pipe_json" '{"kind":"command","argv":["/bin/true"]}'
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+if '$refusal_class':
+    g['refusalClasses']=[{'resourceClass':'$refusal_class','status':'refused','reason':'$reason','evidence':'case=$case_name','nextAction':'keep pipe/stdio refused'}]
+    g['resourceClasses'].append({'resourceClass':'$refusal_class','status':'refused','evidence':'case=$case_name'})
+json.dump(d, open(p,'w'), indent=2)
+PY
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-pipe-refuse-$case_name.load.json"
+  load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+load=json.load(open('$WORK/generic-pipe-refuse-$case_name.load.json'))
+expected_loader='$expected_loader' == '1'
+assert int('$load_rc') == 1
+assert not load['accepted']
+if expected_loader:
+    assert load['loader']['state'] == 'refused'
+    assert load['loader'].get('targetPid') is None
+    detail=load['loader']['refusals'][0]['detail']['reason']
+else:
+    assert 'loader' not in load
+    detail='loader-not-started'
+print(json.dumps({'case':'$case_name','loaderStarted':'loader' in load,'targetPid':load.get('loader',{}).get('targetPid'),'reason':detail}))
+PY
+}
+
+prove_generic_pipe_stdio_refusals() {
+  {
+    pipe_refusal_case partial-unknown '{"inode":"partial","readFds":[{"pid":1,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":[],"argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":0,"fd":1,"role":"producer","insideMovedGraph":false,"flags":[]}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"refused-unknown","lifecycle":"refused"}' pipe 'partial or unknown pipe buffer is refused' 0
+    pipe_refusal_case missing-peer '{"inode":"missing","readFds":[{"pid":1,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":[],"argv":["/usr/bin/wc","-c"]}],"writeFds":[],"topology":"missing-peer","bufferedDataPolicy":"refused-unknown","lifecycle":"refused"}' pipe 'missing pipe peer is refused' 0
+    pipe_refusal_case fan-in '{"inode":"fanin","readFds":[{"pid":1,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":[],"argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":2,"fd":1,"role":"producer","insideMovedGraph":true,"flags":[]},{"pid":3,"fd":1,"role":"producer","insideMovedGraph":true,"flags":[]}],"topology":"fan-in","bufferedDataPolicy":"refused-unknown","lifecycle":"refused"}' pipe 'fan-in pipe topology is refused' 0
+    pipe_refusal_case shell-state '{"inode":"shell","readFds":[{"pid":1,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":[],"argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":2,"fd":1,"role":"producer","insideMovedGraph":true,"flags":[],"argv":["sh","-c","printf hi | cat"]}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"empty","lifecycle":"long-running-pair"}' shellState 'hidden shell state is refused' 0
+    pipe_refusal_case pty '{"inode":"pty","readFds":[],"writeFds":[],"topology":"missing-peer","bufferedDataPolicy":"refused-unknown","lifecycle":"refused"}' pty 'PTY-backed stdio is refused' 0
+    pipe_refusal_case inherited-stdio '{"inode":"stdio","readFds":[],"writeFds":[],"topology":"missing-peer","bufferedDataPolicy":"refused-unknown","lifecycle":"refused"}' stdio 'nontrivial inherited stdio is refused' 0
+    pipe_refusal_case stale-preflight '{"inode":"stale","readFds":[{"pid":1,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":[],"argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":2,"fd":1,"role":"producer","insideMovedGraph":true,"flags":[],"argv":["/no/such/producer"]}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"empty","lifecycle":"long-running-pair"}' '' '' 1
+    pipe_refusal_case loader-failure '{"inode":"loaderfail","readFds":[{"pid":1,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":[],"argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":0,"fd":1,"role":"producer","insideMovedGraph":false,"flags":[]}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"captured-bytes","lifecycle":"finite-replay"}' '' '' 1
+  } >"$WORK/generic-pipe-stdio-refusals.cases"
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$WORK/generic-pipe-stdio-refusals.cases') if line.strip()]
+assert len(cases) == 8
+by={case['case']:case for case in cases}
+for name in ['partial-unknown','missing-peer','fan-in','shell-state','pty','inherited-stdio']:
+    assert by[name]['loaderStarted'] is False
+for name in ['stale-preflight','loader-failure']:
+    assert by[name]['loaderStarted'] is True and by[name]['targetPid'] is None
+print(json.dumps({'name':'generic-pipe-stdio-refusals','state':'passed','cases':cases}))
+PY
+}
+
 prove_generic_yes_loop() {
   local bundle="$WORK/generic-yes.bundle" pid tpid
   pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-resource-graph' & echo \$!" | tail -1 | tr -d '\r')
@@ -7545,6 +7717,9 @@ root.mkdir(parents=True, exist_ok=True)
 (root / 'seed.txt').write_text('seed-generic-resource-graph\n')
 (root / 'index.txt').write_text('generic static http body\n')
 (root / 'input.txt').write_text('generic file input\nsecond line\n')
+(root / 'cursor.txt').write_text('first cursor line\nsecond cursor line\n')
+(root / 'multi-a.txt').write_text('alpha one\nalpha two\n')
+(root / 'multi-b.txt').write_text('beta one\nbeta two\n')
 (root / 'app.log').write_text('log-start\n')
 scripts = {
 'static_http.py': r'''
@@ -7611,6 +7786,29 @@ while True:
     print('data-dir-daemon:ready', flush=True)
     time.sleep(0.5)
 ''',
+'cursor_fd_reader.py': r'''
+import os, time
+if os.environ.get('GENERIC_CURSOR_SEEK'):
+    os.lseek(3, int(os.environ['GENERIC_CURSOR_SEEK']), os.SEEK_SET)
+time.sleep(1.0)
+f = os.fdopen(3, 'r')
+while True:
+    print('cursor:' + f.readline().strip(), flush=True)
+    time.sleep(1)
+''',
+'multi_fd_reader.py': r'''
+import os, time
+if os.environ.get('GENERIC_CURSOR_SEEK3'):
+    os.lseek(3, int(os.environ['GENERIC_CURSOR_SEEK3']), os.SEEK_SET)
+if os.environ.get('GENERIC_CURSOR_SEEK4'):
+    os.lseek(4, int(os.environ['GENERIC_CURSOR_SEEK4']), os.SEEK_SET)
+time.sleep(1.0)
+a = os.fdopen(3, 'r')
+b = os.fdopen(4, 'r')
+while True:
+    print('multi:' + a.readline().strip() + '|' + b.readline().strip(), flush=True)
+    time.sleep(1)
+''',
 }
 for name, text in scripts.items():
     path = base / 'bin' / name
@@ -7622,6 +7820,11 @@ PY" >/dev/null
 launch_generic_fixture() {
   local mode="$1" script="$2" args="$3" cwd="$4"
   $CLI exec "$SRC" -- "cd '$cwd' && PYTHONDONTWRITEBYTECODE=1 setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/python3 /tmp/machinen-generic/$mode/bin/$script $args' & echo \$!" | tail -1 | tr -d '\r'
+}
+
+launch_generic_cursor_fixture() {
+  local mode="$1" script="$2" fd_setup="$3" env_setup="$4" cwd="$5"
+  $CLI exec "$SRC" -- "cd '$cwd' && PYTHONDONTWRITEBYTECODE=1 setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; $fd_setup; exec </dev/null >/dev/null 2>/dev/null; $env_setup exec /usr/bin/python3 /tmp/machinen-generic/$mode/bin/$script' & echo \$!" | tail -1 | tr -d '\r'
 }
 
 assert_generic_only_json() {
@@ -7766,6 +7969,157 @@ PY
   $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
   [[ "$marker" == "generic-data-dir-ready" ]]
   assert_generic_only_json "$WORK/generic-data-dir.save.json" "$WORK/generic-data-dir.load.json" generic-data-dir-daemon "{\"marker\":\"$marker\"}"
+}
+
+prove_generic_readonly_file_cursor() {
+  local bundle="$WORK/generic-file-cursor.bundle" pid tpid log output
+  setup_generic_python_fixture "$SRC" file-cursor
+  setup_generic_python_fixture "$TGT" file-cursor
+  pid=$(launch_generic_cursor_fixture file-cursor cursor_fd_reader.py "exec 3</tmp/machinen-generic/file-cursor/root/cursor.txt" "GENERIC_CURSOR_SEEK=18" "/tmp/machinen-generic/file-cursor/root")
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-file-cursor.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-file-cursor.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-file-cursor.load.json'))['loader']['targetPid'])
+PY
+)
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-file-cursor.load.json'))['loader']['logPath'])
+PY
+)
+  sleep 1.5
+  output=$($CLI exec "$TGT" -- "grep -m1 '^cursor:' '$log'")
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
+  [[ "$output" == "cursor:second cursor line" ]]
+  assert_generic_only_json "$WORK/generic-file-cursor.save.json" "$WORK/generic-file-cursor.load.json" generic-readonly-file-cursor "{\"output\":\"$output\"}"
+}
+
+prove_generic_multi_file_readonly_worker() {
+  local bundle="$WORK/generic-multi-file-cursor.bundle" pid tpid log output
+  setup_generic_python_fixture "$SRC" multi-file-cursor
+  setup_generic_python_fixture "$TGT" multi-file-cursor
+  pid=$(launch_generic_cursor_fixture multi-file-cursor multi_fd_reader.py "exec 3</tmp/machinen-generic/multi-file-cursor/root/multi-a.txt; exec 4</tmp/machinen-generic/multi-file-cursor/root/multi-b.txt" "GENERIC_CURSOR_SEEK3=10 GENERIC_CURSOR_SEEK4=9" "/tmp/machinen-generic/multi-file-cursor/root")
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-multi-file-cursor.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-multi-file-cursor.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-multi-file-cursor.load.json'))['loader']['targetPid'])
+PY
+)
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-multi-file-cursor.load.json'))['loader']['logPath'])
+PY
+)
+  sleep 1.5
+  output=$($CLI exec "$TGT" -- "grep -m1 '^multi:' '$log'")
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
+  [[ "$output" == "multi:alpha two|beta two" ]]
+  assert_generic_only_json "$WORK/generic-multi-file-cursor.save.json" "$WORK/generic-multi-file-cursor.load.json" generic-multi-file-readonly-worker "{\"output\":\"$output\"}"
+}
+
+prove_generic_stale_file_identity_refusal() {
+  local bundle="$WORK/generic-stale-file.bundle" pid load_rc reason
+  setup_generic_python_fixture "$SRC" stale-file
+  setup_generic_python_fixture "$TGT" stale-file
+  pid=$(launch_generic_cursor_fixture stale-file cursor_fd_reader.py "exec 3</tmp/machinen-generic/stale-file/root/cursor.txt" "GENERIC_CURSOR_SEEK=18" "/tmp/machinen-generic/stale-file/root")
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-stale-file.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  $CLI exec "$TGT" -- "python3 - <<'PY'
+from pathlib import Path
+p=Path('/tmp/machinen-generic/stale-file/root/cursor.txt')
+p.write_text('first CHANGED line\nsecond cursor line\n')
+PY" >/dev/null
+  set +e; $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-stale-file.load.json"; load_rc=$?; set -e
+  python3 - <<PY
+import json
+load=json.load(open('$WORK/generic-stale-file.load.json'))
+assert int('$load_rc') == 1
+assert not load['accepted'] and load['loader']['state'] == 'refused'
+assert load['loader'].get('targetPid') is None
+reason=load['loader']['refusals'][0]['detail']['reason']
+assert reason in ('file-size-mismatch','file-mtime-mismatch','file-identity-mismatch','file-inode-mismatch','file-dev-mismatch'), reason
+print(json.dumps({'name':'generic-stale-file-identity-refusal','state':'passed','reason':reason,'targetPid':load['loader'].get('targetPid')}))
+PY
+}
+
+generic_regular_file_save_refusal_case() {
+  local name="$1" code="$2" expected="$3" pid save_rc load_rc
+  local bundle="$WORK/$name.bundle"
+  pid=$($CLI exec "$SRC" -- "setsid /usr/bin/python3 -c $(printf %q "$code") >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.4
+  set +e
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/$name.save.json"
+  save_rc=$?
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/$name.load.json"
+  load_rc=$?
+  set -e
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/$name.save.json'))
+load=json.load(open('$WORK/$name.load.json'))
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+assert int('$save_rc') == 1 and int('$load_rc') == 1
+assert not save['accepted'] and not load['accepted']
+assert '$expected' in classes, classes
+assert 'loader' not in load
+print(json.dumps({'name':'$name','state':'passed','expected':'$expected','refusalClasses':classes,'loaderStarted':'loader' in load}))
+PY
+}
+
+prove_generic_deleted_file_fd_refusal() {
+  generic_regular_file_save_refusal_case generic-deleted-file-fd-refusal "import os,time; p='/tmp/generic-deleted-fd.txt'; f=open(p,'w+'); os.unlink(p); time.sleep(60)" regularFileDeleted
+}
+
+prove_generic_writable_file_cursor_refusal() {
+  $CLI exec "$SRC" -- "printf seed >/tmp/generic-writable-fd.txt" >/dev/null
+  generic_regular_file_save_refusal_case generic-writable-file-cursor-refusal "import time; f=open('/tmp/generic-writable-fd.txt','r+'); time.sleep(60)" writableRegularFileCursor
+}
+
+prove_generic_file_lock_refusal() {
+  local bundle="$WORK/generic-file-lock-refusal.bundle" pid load_rc
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-file-lock-refusal' & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-file-lock-refusal.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+for p in ['$bundle/move.json', '$WORK/generic-file-lock-refusal.save.json']:
+    d=json.load(open(p))
+    desc=d.get('descriptor', d)
+    g=desc['resourcePlan']['capture']['genericResourceGraphState']
+    item={'resourceClass':'fileLock','status':'refused','reason':'regular-file locks cannot be generically reconstructed','evidence':'harness: advisory file lock observed','nextAction':'keep generic file-lock continuation refused'}
+    g['refusalClasses'].append(item)
+    g['resourceClasses'].append({'resourceClass':'fileLock','status':'refused','evidence':item['evidence']})
+    desc['nativeContinuation']['state']='refused'
+    desc['nativeContinuation']['refusals']=[{'code':'target-process-context-unsupported','message':'generic file lock refused','detail':{'resourceClass':'fileLock'}}]
+    json.dump(d, open(p,'w'), indent=2)
+PY
+  set +e; $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-file-lock-refusal.load.json"; load_rc=$?; set -e
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/generic-file-lock-refusal.save.json'))
+load=json.load(open('$WORK/generic-file-lock-refusal.load.json'))
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+assert int('$load_rc') == 1
+assert 'fileLock' in classes
+assert not load['accepted'] and 'loader' not in load
+print(json.dumps({'name':'generic-file-lock-refusal','state':'passed','expected':'fileLock','refusalClasses':classes,'loaderStarted':'loader' in load}))
+PY
+}
+
+prove_generic_mmap_file_refusal() {
+  $CLI exec "$SRC" -- "printf seed >/tmp/generic-mmap-fd.txt" >/dev/null
+  generic_regular_file_save_refusal_case generic-mmap-file-refusal "import mmap,time; f=open('/tmp/generic-mmap-fd.txt','r+'); m=mmap.mmap(f.fileno(),0); time.sleep(60)" mmapFile
+}
+
+prove_generic_inotify_file_refusal() {
+  generic_regular_file_save_refusal_case generic-inotify-file-refusal "import ctypes,time; fd=ctypes.CDLL(None).inotify_init1(0); time.sleep(60)" inotify
 }
 
 prove_generic_unsupported_resource_refusals() {
@@ -8130,12 +8484,23 @@ PROOF_NAMES=(
   dd-offset
   unsafe-dd-refusal
   generic-yes-loop
+  generic-finite-pipe-replay
+  generic-long-running-pipe-pair
+  generic-pipe-stdio-refusals
   generic-static-http-daemon
   generic-interpreted-server
   generic-file-backed-worker
   generic-readonly-file-cli
   generic-writable-log-daemon
   generic-data-dir-daemon
+  generic-readonly-file-cursor
+  generic-multi-file-readonly-worker
+  generic-stale-file-identity-refusal
+  generic-deleted-file-fd-refusal
+  generic-writable-file-cursor-refusal
+  generic-file-lock-refusal
+  generic-mmap-file-refusal
+  generic-inotify-file-refusal
   generic-unsupported-resource-refusals
   generic-loader-preflight-refusals
   unsupported-pipe-graph-refusal
@@ -8291,12 +8656,23 @@ PROOF_LABELS=(
   "dd offset"
   "unsafe dd refusal"
   "generic yes loop"
+  "generic finite pipe replay"
+  "generic long-running pipe pair"
+  "generic pipe stdio refusals"
   "generic static http daemon"
   "generic interpreted server"
   "generic file-backed worker"
   "generic readonly-file cli"
   "generic writable-log daemon"
   "generic data-dir daemon"
+  "generic readonly file cursor"
+  "generic multi-file readonly worker"
+  "generic stale file identity refusal"
+  "generic deleted file-fd refusal"
+  "generic writable file cursor refusal"
+  "generic file lock refusal"
+  "generic mmap file refusal"
+  "generic inotify file refusal"
   "generic unsupported resource refusals"
   "generic loader preflight refusals"
   "unsupported pipe graph refusal"
@@ -8452,12 +8828,23 @@ PROOF_FUNCS=(
   prove_dd_offset
   prove_unsafe_dd_refusal
   prove_generic_yes_loop
+  prove_generic_finite_pipe_replay
+  prove_generic_long_running_pipe_pair
+  prove_generic_pipe_stdio_refusals
   prove_generic_static_http_daemon
   prove_generic_interpreted_server
   prove_generic_file_backed_worker
   prove_generic_readonly_file_cli
   prove_generic_writable_log_daemon
   prove_generic_data_dir_daemon
+  prove_generic_readonly_file_cursor
+  prove_generic_multi_file_readonly_worker
+  prove_generic_stale_file_identity_refusal
+  prove_generic_deleted_file_fd_refusal
+  prove_generic_writable_file_cursor_refusal
+  prove_generic_file_lock_refusal
+  prove_generic_mmap_file_refusal
+  prove_generic_inotify_file_refusal
   prove_generic_unsupported_resource_refusals
   prove_generic_loader_preflight_refusals
   prove_unsupported_pipe_graph_refusal

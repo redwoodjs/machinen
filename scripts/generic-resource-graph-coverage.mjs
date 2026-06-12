@@ -29,19 +29,57 @@ for (const row of migrationRows) {
   if (!proofNames.includes(row.genericProofName)) {
     migrationErrors.push(`unknown generic proof ${row.genericProofName}`);
   }
-  if (!row.resourcePattern || !row.equivalentTargetEvidence || !row.fallbackPolicy) {
+  if (
+    !row.resourcePattern ||
+    !row.equivalentTargetEvidence ||
+    !row.fallbackPolicy ||
+    !row.migrationMode ||
+    !row.boundary
+  ) {
     migrationErrors.push(`incomplete migration row ${JSON.stringify(row)}`);
   }
 }
 
+const requiredWave1Candidates = [
+  "python-http",
+  "python-http-directory",
+  "nc-listener",
+  "reader-cat",
+  "grep",
+  "tail",
+];
+const allowedMigrationModes = [
+  "generic-primary",
+  "generic-equivalent-with-bespoke-fallback",
+  "bespoke-fallback-only",
+  "not-migrated",
+];
+const migrationWave1Candidates = inventory.genericMigrationWave1Candidates ?? [];
+const migrationWave1Errors = validateWave1Candidates(
+  migrationWave1Candidates,
+  migrationRows,
+  proofNames,
+);
+
 const requiredGenericRows = [
   "generic-yes-loop",
+  "generic-finite-pipe-replay",
+  "generic-long-running-pipe-pair",
+  "generic-pipe-stdio-refusals",
   "generic-static-http-daemon",
   "generic-interpreted-server",
   "generic-file-backed-worker",
   "generic-readonly-file-cli",
   "generic-writable-log-daemon",
   "generic-data-dir-daemon",
+  "generic-readonly-file-cursor",
+  "generic-multi-file-readonly-worker",
+  "generic-stale-file-identity-refusal",
+  "generic-deleted-file-fd-refusal",
+  "generic-writable-file-cursor-refusal",
+  "generic-file-lock-refusal",
+  "generic-mmap-file-refusal",
+  "generic-inotify-file-refusal",
   "generic-unsupported-resource-refusals",
   "generic-loader-preflight-refusals",
 ];
@@ -55,12 +93,19 @@ const report = {
     bespokeProofName: row.bespokeProofName,
     genericProofName: row.genericProofName,
     resourcePattern: row.resourcePattern,
+    migrationMode: row.migrationMode,
+  })),
+  migrationWave1Candidates: migrationWave1Candidates.map((row) => ({
+    bespokeProofName: row.bespokeProofName,
+    genericProofName: row.genericProofName,
+    migrationMode: row.migrationMode,
   })),
   missing,
   extra,
   duplicates: [...new Set(duplicates)],
   missingGenericRows,
   migrationErrors,
+  migrationWave1Errors,
 };
 
 console.log(JSON.stringify(report, null, 2));
@@ -70,9 +115,76 @@ if (
   extra.length > 0 ||
   duplicates.length > 0 ||
   missingGenericRows.length > 0 ||
-  migrationErrors.length > 0
+  migrationErrors.length > 0 ||
+  migrationWave1Errors.length > 0
 ) {
   process.exit(1);
+}
+
+function validateWave1Candidates(candidates, rows, proofNames) {
+  const candidateNames = new Set(candidates.map((row) => row.bespokeProofName).filter(Boolean));
+  const rowByBespokeName = new Map(rows.map((row) => [row.bespokeProofName, row]));
+  return [
+    ...missingWave1Candidates(candidateNames),
+    ...candidates.flatMap((row) => validateWave1Candidate(row, rowByBespokeName, proofNames)),
+  ];
+}
+
+function missingWave1Candidates(candidateNames) {
+  return requiredWave1Candidates
+    .filter((name) => !candidateNames.has(name))
+    .map((name) => `missing wave1 candidate ${name}`);
+}
+
+function validateWave1Candidate(row, rowByBespokeName, proofNames) {
+  const matchingRow = rowByBespokeName.get(row.bespokeProofName);
+  return [
+    unknownBespokeProofError(row, proofNames),
+    invalidMigrationModeError(row),
+    missingBoundaryError(row),
+    missingEquivalenceRowError(row, matchingRow),
+    unknownGenericProofError(row, proofNames),
+    genericProofMismatchError(row, matchingRow),
+    migrationModeMismatchError(row, matchingRow),
+  ].filter(Boolean);
+}
+
+function unknownBespokeProofError(row, proofNames) {
+  return row.bespokeProofName && proofNames.includes(row.bespokeProofName)
+    ? undefined
+    : `unknown wave1 bespoke proof ${row.bespokeProofName ?? "missing"}`;
+}
+
+function invalidMigrationModeError(row) {
+  return allowedMigrationModes.includes(row.migrationMode)
+    ? undefined
+    : `invalid wave1 migration mode ${row.bespokeProofName}:${row.migrationMode}`;
+}
+
+function missingBoundaryError(row) {
+  return row.boundary ? undefined : `missing wave1 boundary ${row.bespokeProofName}`;
+}
+
+function missingEquivalenceRowError(row, matchingRow) {
+  return matchingRow ? undefined : `missing migration equivalence row ${row.bespokeProofName}`;
+}
+
+function unknownGenericProofError(row, proofNames) {
+  return row.genericProofName && !proofNames.includes(row.genericProofName)
+    ? `unknown wave1 generic proof ${row.genericProofName}`
+    : undefined;
+}
+
+function genericProofMismatchError(row, matchingRow) {
+  return matchingRow?.genericProofName === row.genericProofName
+    ? undefined
+    : `wave1 generic proof mismatch ${row.bespokeProofName}`;
+}
+
+function migrationModeMismatchError(row, matchingRow) {
+  return matchingRow?.migrationMode === row.migrationMode
+    ? undefined
+    : `wave1 migration mode mismatch ${row.bespokeProofName}`;
 }
 
 function extractShellArray(source, name) {

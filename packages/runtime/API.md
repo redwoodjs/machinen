@@ -4880,13 +4880,37 @@ Size in bytes the file was allocated at.
 
 > `optional` **offset?**: `number`
 
+###### cursor?
+
+> `optional` **cursor?**: `object`
+
+###### cursor.offset
+
+> **offset**: `number`
+
+###### cursor.policy
+
+> **policy**: `"refused"` \| `"read-only-offset"` \| `"append-only-end"`
+
 ###### identity
 
 > **identity**: `object`
 
+###### identity.dev
+
+> **dev**: `number`
+
+###### identity.inode
+
+> **inode**: `number`
+
 ###### identity.size
 
 > **size**: `number`
+
+###### identity.mtimeEpochSeconds
+
+> **mtimeEpochSeconds**: `number`
 
 ###### identity.sha256
 
@@ -4955,6 +4979,26 @@ Size in bytes the file was allocated at.
 ##### stdioPolicy
 
 > **stdioPolicy**: `"stdio-dev-null-or-closed"` \| `"stdio-inherited-noninteractive"` \| `"refuse-nontrivial-stdio"`
+
+##### stdioGraph?
+
+> `optional` **stdioGraph?**: `object`
+
+###### policy
+
+> **policy**: `"refused"` \| `"dev-null-or-closed"` \| `"modeled-pipe"` \| `"inherited-noninteractive"`
+
+###### fds
+
+> **fds**: `object`[]
+
+##### pipeGraph?
+
+> `optional` **pipeGraph?**: `object`
+
+###### pipes
+
+> **pipes**: `object`[]
 
 ##### healthProbe
 

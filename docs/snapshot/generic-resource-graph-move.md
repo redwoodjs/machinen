@@ -166,6 +166,14 @@ The first local support rows are deliberately small and target-native:
 | `generic-readonly-file-cli`             | readonly-file CLI shape                             | target log prints `readonly-cli:...`          |
 | `generic-writable-log-daemon`           | write-validated cwd/data-dir                        | target appends `generic-log-entry`            |
 | `generic-data-dir-daemon`               | write-validated data-dir                            | target writes `daemon-marker.txt`             |
+| `generic-readonly-file-cursor`          | read-only regular-file fd cursor                    | target log starts at captured offset          |
+| `generic-multi-file-readonly-worker`    | multiple read-only regular-file fd cursors          | target log combines both captured offsets     |
+| `generic-stale-file-identity-refusal`   | target file changed after capture                   | loader refused with `targetPid=null`          |
+| `generic-deleted-file-fd-refusal`       | deleted/unlinked regular-file fd                    | no loader starts                              |
+| `generic-writable-file-cursor-refusal`  | writable or unknown regular-file fd mode            | no loader starts                              |
+| `generic-file-lock-refusal`             | descriptor-level advisory file-lock evidence        | no loader starts                              |
+| `generic-mmap-file-refusal`             | mmap-backed mutable file state                      | no loader starts                              |
+| `generic-inotify-file-refusal`          | inotify/fanotify-style follow state                 | no loader starts                              |
 | `generic-unsupported-resource-refusals` | unsupported resource classes                        | no loader starts for pipe/PTY/socket/etc.     |
 | `generic-loader-preflight-refusals`     | stale target/preflight/health failures              | loader refused with `targetPid=null`          |
 
@@ -178,6 +186,7 @@ The first generic classifier should graduate only resource classes already repea
 - executable identity and target-native binary/package policy;
 - argv/env/cwd for safe command shapes;
 - regular readonly file identity;
+- read-only regular-file fd cursor continuation with captured fd number, access flags, source dev/inode/mtime evidence, offset, portable size/hash target preflight, target-side pre-open, `lseek`, and `dup2` reconstruction;
 - deterministic writable output with atomic replacement policy;
 - symlink-free directory or tree identity;
 - loopback TCP listener with no active clients;
@@ -196,8 +205,12 @@ The first generic classifier must refuse or defer:
 - PTYs and interactive terminal state;
 - anon inodes including eventfd, timerfd, signalfd, inotify, epoll, and similar resources;
 - devices except explicit allowlist entries;
-- file locks until modeled;
-- mmap dirty state until modeled;
+- append-only log fd continuation until an exact append contract is proven;
+- writable or unknown regular-file fd modes;
+- deleted/unlinked regular-file fds;
+- file locks until modeled; current `generic-file-lock-refusal` is descriptor-level refusal evidence, not lock reconstruction;
+- mmap dirty or mutable file-backed state until modeled;
+- inotify/fanotify follow state until modeled;
 - runtime heap/thread/timer/worker state until modeled;
 - source-ISA memory/register continuation.
 
@@ -210,11 +223,12 @@ The next resource classes to graduate, each requiring its own completion contrac
 1. stdio and pipes;
 2. PTY and terminal state;
 3. Unix domain sockets;
-4. file locks and offsets;
-5. epoll/kqueue readiness sets;
-6. timers and signals;
-7. mmap-backed file state;
-8. same-arch memory/register continuation;
-9. cross-arch target-native semantic reconstruction.
+4. append-only log fd continuation and writable file cursors;
+5. file locks;
+6. epoll/kqueue readiness sets;
+7. timers and signals;
+8. mmap-backed file state;
+9. same-arch memory/register continuation;
+10. cross-arch target-native semantic reconstruction.
 
 These are not implicitly supported by the generic resource graph. They are the frontier that reduces future refusal rates.

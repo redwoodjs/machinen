@@ -41,8 +41,12 @@ const genericResourceGraphState: MoveGenericResourceGraphState = {
       access: "read-only",
       flags: ["O_RDONLY"],
       offset: 0,
+      cursor: { offset: 0, policy: "read-only-offset" },
       identity: {
+        dev: 2049,
+        inode: 9001,
         size: 42,
+        mtimeEpochSeconds: 1780000000,
         sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       },
     },
@@ -64,6 +68,51 @@ const genericResourceGraphState: MoveGenericResourceGraphState = {
   ],
   fileOffsets: [{ fd: 3, offset: 0, policy: "absolute-offset" }],
   stdioPolicy: "stdio-dev-null-or-closed",
+  stdioGraph: {
+    policy: "modeled-pipe",
+    fds: [
+      { fd: 0, target: "pipe", access: "read", evidence: "stdin is pipe:[900] consumer end" },
+      { fd: 1, target: "dev-null", access: "write", evidence: "stdout is /dev/null" },
+      { fd: 2, target: "dev-null", access: "write", evidence: "stderr is /dev/null" },
+    ],
+  },
+  pipeGraph: {
+    pipes: [
+      {
+        inode: "900",
+        readFds: [
+          {
+            pid: 4242,
+            fd: 0,
+            role: "consumer",
+            insideMovedGraph: true,
+            flags: ["O_RDONLY"],
+            cloexec: false,
+            nonblocking: false,
+            command: "unknown-daemon",
+            argv: ["/usr/local/bin/unknown-daemon", "--root", "/srv/app", "--port", "8123"],
+          },
+        ],
+        writeFds: [
+          {
+            pid: 4241,
+            fd: 1,
+            role: "producer",
+            insideMovedGraph: true,
+            flags: ["O_WRONLY"],
+            cloexec: false,
+            nonblocking: false,
+            command: "producer",
+            argv: ["/usr/local/bin/producer"],
+          },
+        ],
+        topology: "one-producer-one-consumer",
+        bufferedDataPolicy: "captured-bytes",
+        capturedBytesBase64: "cGlwZS1wYXlsb2FkCg==",
+        lifecycle: "finite-replay",
+      },
+    ],
+  },
   healthProbe: { kind: "http", url: "http://127.0.0.1:8123/health", expectedStatus: 200 },
   resourceClasses: [
     {
@@ -127,10 +176,26 @@ describe("MoveGenericResourceGraphState", () => {
       bindAddress: "127.0.0.1",
       noActiveClients: true,
     });
+    expect(state?.regularFiles[0]?.identity).toMatchObject({ dev: 2049, inode: 9001 });
     expect(state?.regularFiles[0]?.identity.sha256).toHaveLength(64);
     expect(state?.dataDirs[0]?.identity.treeDigest).toHaveLength(64);
     expect(state?.fileOffsets[0]).toEqual({ fd: 3, offset: 0, policy: "absolute-offset" });
     expect(state?.stdioPolicy).toBe("stdio-dev-null-or-closed");
+    expect(state?.stdioGraph?.policy).toBe("modeled-pipe");
+    expect(state?.stdioGraph?.fds[0]).toMatchObject({ fd: 0, target: "pipe", access: "read" });
+    expect(state?.pipeGraph?.pipes[0]).toMatchObject({
+      inode: "900",
+      topology: "one-producer-one-consumer",
+      bufferedDataPolicy: "captured-bytes",
+      capturedBytesBase64: "cGlwZS1wYXlsb2FkCg==",
+      lifecycle: "finite-replay",
+    });
+    expect(state?.pipeGraph?.pipes[0]?.readFds[0]).toMatchObject({
+      pid: 4242,
+      fd: 0,
+      role: "consumer",
+      insideMovedGraph: true,
+    });
     expect(state?.healthProbe).toMatchObject({ kind: "http", expectedStatus: 200 });
     expect(state?.refusalClasses).toEqual([]);
   });

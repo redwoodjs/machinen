@@ -454,11 +454,11 @@ function moveBundleValid(bundlePath: string): boolean {
 
 // fallow-ignore-next-line complexity
 function moveDescriptorContinuationPlanned(descriptor: MoveDescriptor): boolean {
-  if (genericResourceGraphHasRefusals(descriptor)) {
-    return false;
-  }
   if (moveEnvelopeAllowsOpenFileRefusals(descriptor)) {
     return true;
+  }
+  if (genericResourceGraphHasRefusals(descriptor)) {
+    return false;
   }
   if (descriptor.refusedStateClasses.every((refusal) => refusal.stateClass === "sockets")) {
     return true;
