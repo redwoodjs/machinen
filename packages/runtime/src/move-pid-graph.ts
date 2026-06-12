@@ -55,6 +55,13 @@ export interface MovePidGraph {
 
 export interface MoveGenericResourceGraphState {
   policy: "generic-resource-graph-target-native-reexec-v1";
+  migration?: {
+    mode: "generic-primary" | "generic-equivalent-with-bespoke-fallback";
+    sourceProofName: string;
+    genericProofName: string;
+    fallbackPolicy: string;
+    boundary: string;
+  };
   executableIdentity: {
     path: string;
     realPath?: string;
@@ -92,6 +99,17 @@ export interface MoveGenericResourceGraphState {
     bindAddress: "127.0.0.1";
     state: "idle-loopback-listener";
     noActiveClients: true;
+  }>;
+  unixSockets?: Array<{
+    fd?: number;
+    path: string;
+    inode: string;
+    state: "idle-pathname-listener";
+    noActiveClients: true;
+    preflight: {
+      targetPathPolicy: "must-not-exist";
+      parentDirectoryPolicy: "must-exist-writable";
+    };
   }>;
   regularFiles: Array<{
     fd?: number;
@@ -139,10 +157,15 @@ export interface MoveGenericResourceGraphState {
     | "stdio-inherited-noninteractive"
     | "refuse-nontrivial-stdio";
   stdioGraph?: {
-    policy: "dev-null-or-closed" | "modeled-pipe" | "inherited-noninteractive" | "refused";
+    policy:
+      | "dev-null-or-closed"
+      | "modeled-pipe"
+      | "modeled-pty-transcript"
+      | "inherited-noninteractive"
+      | "refused";
     fds: Array<{
       fd: 0 | 1 | 2;
-      target: "closed" | "dev-null" | "pipe" | "regular-file" | "refused";
+      target: "closed" | "dev-null" | "pipe" | "regular-file" | "pty" | "refused";
       access: "read" | "write" | "read-write";
       evidence: string;
     }>;
@@ -178,10 +201,55 @@ export interface MoveGenericResourceGraphState {
       lifecycle: "finite-replay" | "long-running-pair" | "refused";
     }>;
   };
+  eventfds?: Array<{
+    fd: number;
+    path: "anon_inode:[eventfd]";
+    counter: string;
+    fdinfoFlags?: string;
+    flags: string[];
+    semaphore?: boolean;
+    nonblocking?: boolean;
+    cloexec?: boolean;
+    support: "refused-baseline" | "target-native-counter";
+  }>;
+  epolls?: Array<{
+    fd: number;
+    path: "anon_inode:[eventpoll]";
+    fdinfoFlags?: string;
+    flags: string[];
+    watchedFds: Array<{
+      targetFd: number;
+      events: string;
+      data: string;
+      trigger: "level" | "edge" | "unknown";
+      oneShot: boolean;
+      watchedResourceClass: string;
+    }>;
+    support: "refused-baseline" | "target-native-eventfd-watch";
+  }>;
+  ptys?: Array<{
+    fd: number;
+    path: string;
+    fdinfoFlags?: string;
+    sessionId?: number;
+    processGroupId?: number;
+    terminalProcessGroupId?: number;
+    ttyNumber?: number;
+    winsize?: { rows: number; columns: number };
+    termios: string;
+    transcriptProbe?: {
+      policy: "target-native-reexec-capture-output";
+      marker: "--machinen-pty-transcript-probe";
+    };
+    support:
+      | "refused-interactive-terminal-boundary"
+      | "target-native-noninteractive-transcript-probe";
+  }>;
   healthProbe:
     | { kind: "process-alive" }
     | { kind: "http"; url: string; expectedStatus?: number; expectedBodySha256?: string }
     | { kind: "tcp-connect"; host: "127.0.0.1"; port: number; expectedBannerSha256?: string }
+    | { kind: "unix-connect"; path: string }
     | { kind: "command"; argv: string[]; expectedStdoutSha256?: string };
   resourceClasses: Array<{
     resourceClass: string;

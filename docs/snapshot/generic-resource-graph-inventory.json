@@ -19,11 +19,26 @@
     "unsupportedResourceRefusal": "Known unsupported resource class produces fail-closed evidence before target launch or with targetPid=null.",
     "runtimeSpecificRefusal": "Runtime or framework-specific state is explicitly refused until a generic resource model exists.",
     "terminalOrPtyRefusal": "Interactive terminal/PTY/editor state is refused until the PTY resource class graduates.",
+    "terminalOrPtyEvidence": "PTY descriptor evidence records fd/path and, where preflight can read it, termios, winsize, session, process-group, foreground process-group, tty, and fd flags while staying fail-closed.",
+    "terminalPtyTranscriptProbe": "Proof-only noninteractive PTY transcript/probe support reexecs a marked target-native command under a PTY with captured termios/winsize/session evidence and captures output transcript; it is not interactive terminal migration.",
+    "terminalEditorDirtyState": "Dirty editor buffer state on a PTY is refused until editor/session contents and terminal mode are explicitly modeled.",
+    "terminalAlternateScreenState": "Alternate-screen terminal applications are refused until screen buffer and terminal mode policy are explicitly modeled.",
+    "terminalJobControlState": "Shell job-control state on a PTY is refused until session, process group, foreground group, and jobs are explicitly modeled.",
+    "terminalForegroundProcessGroup": "Foreground process-group ambiguity on a PTY is refused until target-native session reconstruction has exact evidence.",
+    "terminalUnknownTermios": "Unknown or unavailable termios state is refused until terminal mode capture and replay are explicit.",
+    "terminalWindowSize": "Unknown or unsupported terminal window-size transitions are refused until winsize capture/replay policy is explicit.",
     "regularFileCursor": "Read-only regular-file descriptor cursor identity with dev/inode/mtime/hash and target-side offset reconstruction.",
     "appendFileCursorRefusal": "Unsafe append-only regular-file fd candidates are identified and refused when the fd is not at EOF, target identity changed, flags are unsupported, or lock/mmap/inotify/fanotify/concurrent-writer interactions are present.",
     "unixSocketRefusal": "Unix domain socket shapes are classified and refused until pathname listener and related socket contracts graduate.",
     "anonInodeRefusal": "Anon-inode resources such as eventfd, epoll, timerfd, signalfd, inotify, fanotify, and io_uring are classified and refused until explicit contracts graduate.",
-    "appendFileCursor": "Append-only regular-file descriptor continuation for exact O_APPEND log fds captured at EOF with portable size+sha256 identity preflight and target-visible append progress."
+    "appendFileCursor": "Append-only regular-file descriptor continuation for exact O_APPEND log fds captured at EOF with portable size+sha256 identity preflight and target-visible append progress.",
+    "unixSocketPathnameListener": "Narrow idle pathname Unix listener with stable filesystem socket path, no active clients, target path preflight, and Unix-connect health probe.",
+    "eventfdEpollBaseline": "Refusal-preserving eventfd/epoll descriptor evidence records eventfd counters and epoll watched fd metadata, trigger modes, one-shot state, and watched resource classes without accepting reconstruction.",
+    "eventfdCounter": "Tiny target-native eventfd reconstruction for one normal-flag eventfd with a modeled counter and no active waiter or epoll/runtime-loop ambiguity.",
+    "epollEventfdWatch": "Tiny target-native epoll reconstruction for one epoll set watching the supported eventfd with modeled level-trigger/no-one-shot semantics and no active loop ambiguity.",
+    "serviceStaticRoot": "Static service root identity for target-native static/read-only service restart.",
+    "serviceReadOnlyData": "Read-only service data contract with no writable persistence or mutation replay claim.",
+    "serviceEmptyDataset": "Empty service dataset contract for stateful services whose supported shape requires no keys/data and no persistence."
   },
   "families": [
     {
@@ -61,7 +76,16 @@
         "generic-append-log-unsupported-flags-refusal",
         "generic-append-log-fanotify-refusal",
         "generic-unix-socket-baseline-refusals",
+        "generic-unix-pathname-listener",
+        "generic-unix-pathname-listener-refusals",
         "generic-anon-inode-baseline-refusals",
+        "generic-eventfd-counter",
+        "generic-eventfd-counter-refusals",
+        "generic-epoll-eventfd-watch",
+        "generic-epoll-eventfd-watch-refusals",
+        "generic-pty-transcript-probe",
+        "generic-pty-terminal-refusals",
+        "generic-service-php-static-parity",
         "generic-file-lock-refusal",
         "generic-mmap-file-refusal",
         "generic-inotify-file-refusal",
@@ -84,7 +108,20 @@
         "pipeGraph",
         "appendFileCursorRefusal",
         "unixSocketRefusal",
-        "anonInodeRefusal"
+        "anonInodeRefusal",
+        "unixSocketPathnameListener",
+        "eventfdEpollBaseline",
+        "eventfdCounter",
+        "epollEventfdWatch",
+        "terminalOrPtyEvidence",
+        "terminalPtyTranscriptProbe",
+        "terminalOrPtyRefusal",
+        "terminalEditorDirtyState",
+        "terminalAlternateScreenState",
+        "terminalJobControlState",
+        "terminalForegroundProcessGroup",
+        "terminalUnknownTermios",
+        "terminalWindowSize"
       ],
       "genericReadiness": "graduated-generic-proof"
     },
@@ -331,9 +368,11 @@
         "dataDirIdentity",
         "databaseSafety",
         "healthProbe",
-        "unsupportedResourceRefusal"
+        "unsupportedResourceRefusal",
+        "serviceConfigIdentity",
+        "serviceEmptyDataset"
       ],
-      "genericReadiness": "generic-shell-plus-specialized-safety-subclasses"
+      "genericReadiness": "service-consolidation-candidate-with-specialized-safety-and-explicit-fallback"
     },
     {
       "name": "static and read-only daemons",
@@ -357,9 +396,11 @@
         "loopbackTcpListener",
         "noActiveClients",
         "healthProbe",
-        "unsupportedResourceRefusal"
+        "unsupportedResourceRefusal",
+        "serviceStaticRoot",
+        "serviceReadOnlyData"
       ],
-      "genericReadiness": "pilot-candidate"
+      "genericReadiness": "service-consolidation-candidate-with-explicit-fallback"
     },
     {
       "name": "HTTP refusal variants and package/port gates",
@@ -417,7 +458,7 @@
     }
   ],
   "coverage": {
-    "proofNameCount": 150,
+    "proofNameCount": 184,
     "allProofNamesAccountedFor": true,
     "duplicateProofNames": []
   },
@@ -514,5 +555,194 @@
       "genericProofName": "generic-writable-log-daemon",
       "boundary": "Generic writable-log daemon is adjacent evidence only and does not preserve tail offset/follow semantics; tail remains bespoke until file offset/follow semantics graduate."
     }
-  ]
+  ],
+  "genericMigrationWave2Candidates": [
+    {
+      "bespokeProofName": "python-http-directory",
+      "genericProofName": "generic-static-http-daemon",
+      "migrationMode": "generic-primary",
+      "targetMode": "generic-primary",
+      "fallbackPolicy": "python-http-directory now uses the generic loader first only for the proven exact directory HTTP graph; the bespoke loader remains available for out-of-contract shapes and explicit wrappers.",
+      "requiredEvidence": "proven by python-http-directory local matrix row using target-native-generic-resource-graph-reexec-loader with equivalent HTTP response, plus active-client, data-dir identity drift, and port-conflict refusal rows; package/identity and health gates remain covered by generic loader preflight and prior envelope rows",
+      "boundary": "Candidate may become generic-primary only for explicit-bind directory HTTP with stable cwd/data-dir identity, idle loopback listener, no active clients, target port availability, and generic refusalClasses=[]. Other HTTP wrappers, CGI, env/timeout wrappers, active clients, and identity drift keep bespoke or refuse."
+    },
+    {
+      "bespokeProofName": "nc-listener",
+      "genericProofName": "generic-interpreted-server",
+      "migrationMode": "generic-primary",
+      "targetMode": "generic-primary",
+      "fallbackPolicy": "nc-listener now uses the generic loader first only for the proven exact idle nc listener graph; the bespoke loader remains available for out-of-contract shapes.",
+      "requiredEvidence": "proven by nc-listener local matrix row using target-native-generic-resource-graph-reexec-loader with equivalent received-data log evidence, plus active-client refusal; port conflict, unsupported socket, binary identity, and health gates remain covered by generic loader preflight and adjacent refusal coverage",
+      "boundary": "Candidate may become generic-primary only for idle loopback nc listener shapes with no active clients and modeled stdio/log behavior. Active clients, non-loopback binds, unsupported nc flags, hidden shell state, and unmodeled stdio keep bespoke or refuse."
+    },
+    {
+      "bespokeProofName": "reader-cat",
+      "genericProofName": "generic-file-backed-worker",
+      "migrationMode": "generic-equivalent-with-bespoke-fallback",
+      "targetMode": "retain-bespoke-fallback",
+      "fallbackPolicy": "keep reader-cat bespoke loader higher priority until actual cat offset/stdout/pipe equivalence rows pass",
+      "requiredEvidence": "before generic-primary, prove actual cat descriptor support with generic loader preserving read offset and stdout/pipe/log behavior plus stale file, nontrivial stdio, deleted fd, writable fd, and pipe refusal rows",
+      "boundary": "Generic file-backed-worker is adjacent/equivalent evidence for readonly file identity but does not by itself prove cat offset/stdout semantics for every reader-cat shape."
+    },
+    {
+      "bespokeProofName": "grep",
+      "genericProofName": "generic-readonly-file-cli",
+      "migrationMode": "generic-equivalent-with-bespoke-fallback",
+      "targetMode": "retain-bespoke-fallback",
+      "fallbackPolicy": "keep grep bespoke loader higher priority until actual grep pattern/offset/stdout/pipe equivalence rows pass",
+      "requiredEvidence": "before generic-primary, prove actual grep descriptor support with generic loader preserving pattern, file offset, stdout/pipe/log behavior plus binary/input drift, unsupported option, nontrivial stdio, and pipe refusal rows",
+      "boundary": "Generic readonly-file CLI is adjacent/equivalent evidence for deterministic file-backed output but does not by itself prove grep-specific pattern, offset, stdin, or pipe semantics."
+    }
+  ],
+  "genericServiceConsolidationCandidates": [
+    {
+      "bespokeProofName": "nginx-static",
+      "refusalProofName": "unsafe-nginx-static-refusal",
+      "genericProofNames": ["generic-static-http-daemon", "generic-loader-preflight-refusals"],
+      "serviceShape": "static loopback HTTP daemon with explicit nginx config and static root",
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "serviceConfigIdentity",
+        "serviceStaticRoot",
+        "directoryIdentity",
+        "loopbackTcpListener",
+        "noActiveClients",
+        "healthProbe",
+        "unsupportedResourceRefusal"
+      ],
+      "migrationMode": "explicit-envelope-fallback",
+      "fallbackPolicy": "keep target-native-nginx-static-loader as the selected envelope until generic rows prove nginx config identity, static root identity, active-client refusal, config drift, module/dynamic config refusal, port conflict, and missing target package behavior equivalently",
+      "supportBoundary": "only static root/local-listen nginx config shapes are candidates; dynamic proxy/upstream/module/cgi-like behavior remains explicit-envelope or refused",
+      "requiredSupportEvidence": "equivalent target HTTP response, service config identity, static root identity, idle loopback listener, and target health probe",
+      "requiredRefusalEvidence": "active clients, dynamic config, port conflict, missing package/config/root drift, unsupported modules, and runtime-specific state must refuse with no weakened fallback"
+    },
+    {
+      "bespokeProofName": "caddy-static",
+      "refusalProofName": "unsafe-caddy-static-refusal",
+      "genericProofNames": ["generic-static-http-daemon", "generic-loader-preflight-refusals"],
+      "serviceShape": "static loopback HTTP daemon with caddy file-server root",
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "serviceConfigIdentity",
+        "serviceStaticRoot",
+        "directoryIdentity",
+        "loopbackTcpListener",
+        "noActiveClients",
+        "healthProbe",
+        "unsupportedResourceRefusal"
+      ],
+      "migrationMode": "explicit-envelope-fallback",
+      "fallbackPolicy": "keep target-native-caddy-static-loader as the selected envelope until generic rows prove static file-server root identity, active-client refusal, proxy/dynamic refusal, port conflict, and missing target package behavior equivalently",
+      "supportBoundary": "only caddy file-server static root shapes are candidates; reverse proxy, app, dynamic module, and non-static behavior remains explicit-envelope or refused",
+      "requiredSupportEvidence": "equivalent target HTTP response, root identity, idle loopback listener, target health probe, and package identity",
+      "requiredRefusalEvidence": "active clients, proxy/dynamic config, port conflict, missing target package/root drift, unsupported modules, and runtime-specific state must refuse with no weakened fallback"
+    },
+    {
+      "bespokeProofName": "ruby-http",
+      "refusalProofName": "unsafe-ruby-http-refusal",
+      "genericProofNames": ["generic-static-http-daemon", "generic-loader-preflight-refusals"],
+      "serviceShape": "Ruby -run httpd static directory server",
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "serviceStaticRoot",
+        "directoryIdentity",
+        "loopbackTcpListener",
+        "noActiveClients",
+        "healthProbe",
+        "unsupportedResourceRefusal",
+        "runtimeSpecificRefusal"
+      ],
+      "migrationMode": "explicit-envelope-fallback",
+      "fallbackPolicy": "keep target-native-ruby-httpd-loader as the selected envelope until generic rows prove static root equivalence and unsafe Ruby app/runtime shapes refuse equivalently",
+      "supportBoundary": "only ruby -run -e httpd static directory shapes are candidates; Rack/apps/scripts/runtime-specific Ruby state remains explicit-envelope or refused",
+      "requiredSupportEvidence": "equivalent target HTTP response, static root identity, idle loopback listener, target health probe, and Ruby package identity",
+      "requiredRefusalEvidence": "active clients, Ruby app/runtime-specific state, port conflict, missing target package/root drift, and unsupported argv must refuse with no weakened fallback"
+    },
+    {
+      "bespokeProofName": "php-static",
+      "refusalProofName": "unsafe-php-static-refusal",
+      "genericProofNames": [
+        "generic-static-http-daemon",
+        "generic-service-php-static-parity",
+        "generic-loader-preflight-refusals"
+      ],
+      "serviceShape": "PHP built-in server serving static files only",
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "serviceStaticRoot",
+        "directoryIdentity",
+        "loopbackTcpListener",
+        "noActiveClients",
+        "healthProbe",
+        "unsupportedResourceRefusal",
+        "runtimeSpecificRefusal"
+      ],
+      "migrationMode": "explicit-envelope-fallback",
+      "fallbackPolicy": "keep target-native-php-static-loader as the selected envelope until generic rows prove static-only PHP root equivalence and dynamic PHP/script shapes refuse equivalently",
+      "supportBoundary": "only PHP built-in server static root with no PHP scripts is a candidate; dynamic scripts and router behavior remain explicit-envelope or refused",
+      "requiredSupportEvidence": "equivalent target HTTP response, static root identity, idle loopback listener, target health probe, and PHP package identity",
+      "requiredRefusalEvidence": "active clients, dynamic PHP scripts, unsupported bind/argv, port conflict, missing target package/root drift, and runtime-specific state must refuse with no weakened fallback"
+    },
+    {
+      "bespokeProofName": "rsync-daemon",
+      "refusalProofName": "unsafe-rsync-daemon-refusal",
+      "genericProofNames": ["generic-data-dir-daemon", "generic-loader-preflight-refusals"],
+      "serviceShape": "read-only rsync daemon module with no auth hooks and stable config/root identity",
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "serviceConfigIdentity",
+        "serviceReadOnlyData",
+        "directoryIdentity",
+        "loopbackTcpListener",
+        "noActiveClients",
+        "healthProbe",
+        "unsupportedResourceRefusal"
+      ],
+      "migrationMode": "explicit-envelope-fallback",
+      "fallbackPolicy": "keep target-native-rsync-daemon-loader as the selected envelope until generic rows prove read-only module config/root identity, active-client refusal, write/auth refusal, port conflict, and missing target package behavior equivalently",
+      "supportBoundary": "only read-only no-auth-hook rsync modules are candidates; writable modules, auth hooks, multiple modules, and mutable state remain explicit-envelope or refused",
+      "requiredSupportEvidence": "equivalent target rsync read, config sha256, read-only root identity, idle listener, no active clients, and target health/read probe",
+      "requiredRefusalEvidence": "active clients, writable modules, auth hooks, config/root drift, port conflict, missing target package, and unsupported modules must refuse with no weakened fallback"
+    },
+    {
+      "bespokeProofName": "redis-idle",
+      "refusalProofName": "unsafe-redis-idle-refusal",
+      "genericProofNames": ["generic-data-dir-daemon", "generic-loader-preflight-refusals"],
+      "serviceShape": "empty Redis with no persistence and no active clients",
+      "resourceClasses": [
+        "processIdentity",
+        "argvEnvCwd",
+        "serviceConfigIdentity",
+        "serviceEmptyDataset",
+        "loopbackTcpListener",
+        "noActiveClients",
+        "databaseSafety",
+        "healthProbe",
+        "unsupportedResourceRefusal"
+      ],
+      "migrationMode": "explicit-envelope-fallback",
+      "fallbackPolicy": "keep target-native-redis-idle-loader as the selected envelope until generic rows prove empty dataset/no-persistence safety, active-client refusal, nonempty/persistence refusal, port conflict, and missing target package behavior equivalently",
+      "supportBoundary": "only empty Redis datasets with persistence disabled and no active clients are candidates; nonempty datasets, AOF/RDB persistence, replication/modules, and runtime state remain explicit-envelope or refused",
+      "requiredSupportEvidence": "equivalent PING/DBSIZE target health, empty dataset evidence, persistence-disabled config identity, idle listener, and no active clients",
+      "requiredRefusalEvidence": "active clients, nonempty dataset, persistence enabled, config drift, port conflict, missing target package, modules/replication, and runtime-specific state must refuse with no weakened fallback"
+    }
+  ],
+  "genericServiceConsolidationStatusLanguage": {
+    "allowedClaim": "Service consolidation inventory is recorded for nginx-static, caddy-static, ruby-http, php-static, read-only rsync-daemon, and empty/no-persistence redis-idle as explicit-envelope-fallback candidates only.",
+    "supportScope": "Only the listed static/read-only/empty-state service shapes may be discussed as candidates; generic-primary service support still requires equivalent support and refusal matrix rows.",
+    "fallbackStatement": "Existing explicit service envelope loaders remain selected until equivalent generic support/refusal evidence exists for each candidate.",
+    "forbiddenClaims": [
+      "broad daemon support",
+      "arbitrary process migration",
+      "any HTTP server support",
+      "any Redis or database state support",
+      "generic-primary service support without equivalent support/refusal matrix rows",
+      "support for active clients, writable persistence, unsupported modules, or runtime-specific state"
+    ]
+  }
 }

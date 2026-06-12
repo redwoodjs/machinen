@@ -124,6 +124,13 @@ function migrationPreflight(options: {
     mtimeEpochSeconds?: number;
   }>;
   tcp?: Array<{ fd: number; inode: string; port: number; state?: string }>;
+  dataDirs?: Array<{
+    path: string;
+    fileCount?: number;
+    directoryCount?: number;
+    totalBytes?: number;
+    sha256?: string;
+  }>;
 }): string {
   return [
     "STATUS\t1000\t1000",
@@ -132,6 +139,10 @@ function migrationPreflight(options: {
     ...(options.files ?? []).map(
       (file) =>
         `FILE_IDENTITY\t${file.fd}\t${file.path}\t${file.dev ?? 2049}\t${file.inode ?? 9000 + file.fd}\t${file.size}\t${file.mtimeEpochSeconds ?? 1780000000}\t${file.sha256}`,
+    ),
+    ...(options.dataDirs ?? []).map(
+      (dir) =>
+        `DATA_DIR_IDENTITY\t${dir.path}\t${dir.fileCount ?? 1}\t${dir.directoryCount ?? 1}\t${dir.totalBytes ?? 64}\t${dir.sha256 ?? shaA}`,
     ),
     ...(options.tcp ?? []).map(
       (tcp) =>
@@ -301,11 +312,20 @@ describe("generic resource graph capture", () => {
         },
       ]),
       "/usr/bin/python3",
-      migrationPreflight({ cwd: directoryNode.cwd!, tcp: [{ fd: 4, inode: "5102", port: 18232 }] }),
+      migrationPreflight({
+        cwd: directoryNode.cwd!,
+        tcp: [{ fd: 4, inode: "5102", port: 18232 }],
+        dataDirs: [{ path: httpNode.cwd! }],
+      }),
     )!;
     expect(directoryState.argv).toContain("--directory");
     expect(directoryState.dataDirs[0]?.path).toBe("/tmp/machinen-generic/static-http/root");
     expect(directoryState.healthProbe).toMatchObject({ kind: "http" });
+    expect(directoryState.migration).toMatchObject({
+      mode: "generic-primary",
+      sourceProofName: "python-http-directory",
+      genericProofName: "generic-static-http-daemon",
+    });
     expect(directoryState.refusalClasses).toEqual([]);
 
     const ncNode: MovePidGraphNode = {
@@ -336,7 +356,38 @@ describe("generic resource graph capture", () => {
     )!;
     expect(ncState.healthProbe).toEqual({ kind: "tcp-connect", host: "127.0.0.1", port: 18233 });
     expect(ncState.ports[0]).toMatchObject({ port: 18233, noActiveClients: true });
+    expect(ncState.migration).toBeUndefined();
     expect(ncState.refusalClasses).toEqual([]);
+
+    const ncPrimaryNode: MovePidGraphNode = {
+      pid: 5107,
+      ppid: 1,
+      command: "nc",
+      argv: ["nc", "-l", "18234"],
+      cwd: "/",
+      exe: "/usr/bin/nc",
+    };
+    const ncPrimaryState = buildMoveGenericResourceGraphState(
+      ncPrimaryNode,
+      migrationPlan(ncPrimaryNode, [
+        {
+          id: "pid:5107:fd:4",
+          kind: "socket",
+          state: "captured",
+          fd: 4,
+          path: "socket:[5107]",
+        },
+      ]),
+      "/usr/bin/nc",
+      migrationPreflight({ cwd: "/", tcp: [{ fd: 4, inode: "5107", port: 18234 }] }),
+    )!;
+    expect(ncPrimaryState.healthProbe).toEqual({ kind: "process-alive" });
+    expect(ncPrimaryState.migration).toMatchObject({
+      mode: "generic-primary",
+      sourceProofName: "nc-listener",
+      genericProofName: "generic-interpreted-server",
+    });
+    expect(ncPrimaryState.refusalClasses).toEqual([]);
 
     const readerNode: MovePidGraphNode = {
       pid: 5104,
@@ -386,6 +437,7 @@ describe("generic resource graph capture", () => {
     expect(readerState.fileOffsets).toEqual([{ fd: 3, offset: 0, policy: "absolute-offset" }]);
     expect(readerState.healthProbe).toEqual({ kind: "process-alive" });
     expect(readerState.stdioGraph?.policy).toBe("dev-null-or-closed");
+    expect(readerState.migration).toBeUndefined();
     expect(readerState.refusalClasses).toEqual([]);
 
     const grepNode: MovePidGraphNode = {
@@ -428,6 +480,7 @@ describe("generic resource graph capture", () => {
     expect(grepState.resourceClasses.map((item) => item.resourceClass)).toContain(
       "regularFileIdentity",
     );
+    expect(grepState.migration).toBeUndefined();
     expect(grepState.refusalClasses).toEqual([]);
 
     const tailAdjacentNode: MovePidGraphNode = {
@@ -726,7 +779,7 @@ describe("generic resource graph capture", () => {
       ]),
     );
     expect(state?.refusalClasses.map((item) => item.resourceClass)).toEqual(
-      expect.arrayContaining(["pipe", "unknown", "pty", "stdio"]),
+      expect.arrayContaining(["pipe", "unknown", "terminalOrPtyRefusal", "stdio"]),
     );
     expect(
       state?.refusalClasses.find((item) => item.evidence.includes("named.fifo")),
@@ -755,6 +808,155 @@ describe("generic resource graph capture", () => {
     );
     expect(inheritedStdio?.stdioGraph?.policy).toBe("inherited-noninteractive");
     expect(inheritedStdio?.refusalClasses.map((item) => item.resourceClass)).toContain("stdio");
+  });
+
+  it("records PTY terminal evidence and keeps interactive terminal migration refused", () => {
+    const ptyPlan: MoveResourcePlan = {
+      ...basePlan,
+      resources: [
+        { id: "pid:4242:argv", kind: "argv", state: "captured" },
+        { id: "pid:4242:fd:0", kind: "pty", state: "captured", fd: 0, path: "/dev/pts/7" },
+        { id: "pid:4242:fd:1", kind: "pty", state: "captured", fd: 1, path: "/dev/pts/7" },
+        { id: "pid:4242:fd:2", kind: "pty", state: "captured", fd: 2, path: "/dev/pts/7" },
+      ],
+    };
+    const ptyPreflight = [
+      "STATUS\t1000\t1000",
+      "ROOT\t/",
+      "PTY_FD\t0\t/dev/pts/7\t02\t4242\t4242\t4242\t34816\t24\t80\tspeed 38400 baud; rows 24; columns 80; -echo; isig; icanon",
+      "PTY_FD\t1\t/dev/pts/7\t02\t4242\t4242\t4242\t34816\t24\t80\tspeed 38400 baud; rows 24; columns 80; -echo; isig; icanon",
+      "PTY_FD\t2\t/dev/pts/7\t02\t4242\t4242\t4242\t34816\t24\t80\tspeed 38400 baud; rows 24; columns 80; -echo; isig; icanon",
+    ].join("\n");
+
+    const state = buildMoveGenericResourceGraphState(
+      node,
+      ptyPlan,
+      "/usr/local/bin/unknown-daemon",
+      ptyPreflight,
+    );
+
+    expect(state?.stdioGraph?.policy).toBe("refused");
+    expect(state?.stdioGraph?.fds.map((fd) => fd.target)).toEqual(["pty", "pty", "pty"]);
+    expect(state?.ptys).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fd: 0,
+          path: "/dev/pts/7",
+          winsize: { rows: 24, columns: 80 },
+          termios: expect.stringContaining("-echo"),
+          support: "refused-interactive-terminal-boundary",
+        }),
+      ]),
+    );
+    expect(state?.resourceClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceClass: "terminalOrPtyEvidence", status: "supported" }),
+        expect.objectContaining({ resourceClass: "terminalOrPtyRefusal", status: "refused" }),
+      ]),
+    );
+    expect(state?.refusalClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          resourceClass: "terminalOrPtyRefusal",
+          reason: expect.stringContaining("controlling-terminal"),
+          evidence: expect.stringContaining("winsize=24x80"),
+        }),
+        expect.objectContaining({ resourceClass: "stdio" }),
+      ]),
+    );
+  });
+
+  it("supports only proof-marked noninteractive PTY transcript probes", () => {
+    const ptyProbeNode = {
+      ...node,
+      argv: ["/usr/local/bin/pty-probe", "--machinen-pty-transcript-probe"],
+      exe: "/usr/local/bin/pty-probe",
+    };
+    const ptyPlan: MoveResourcePlan = {
+      ...basePlan,
+      resources: [
+        { id: "pid:4242:argv", kind: "argv", state: "captured" },
+        { id: "pid:4242:fd:0", kind: "file", state: "captured", fd: 0, path: "/dev/null" },
+        { id: "pid:4242:fd:1", kind: "pty", state: "captured", fd: 1, path: "/dev/pts/7" },
+        { id: "pid:4242:fd:2", kind: "pty", state: "captured", fd: 2, path: "/dev/pts/7" },
+      ],
+    };
+    const ptyPreflight = [
+      "STATUS\t1000\t1000",
+      "ROOT\t/",
+      "PTY_FD\t1\t/dev/pts/7\t02\t4242\t4242\t4242\t34816\t24\t80\tspeed 38400 baud; rows 24; columns 80; -echo; isig; icanon",
+      "PTY_FD\t2\t/dev/pts/7\t02\t4242\t4242\t4242\t34816\t24\t80\tspeed 38400 baud; rows 24; columns 80; -echo; isig; icanon",
+    ].join("\n");
+
+    const state = buildMoveGenericResourceGraphState(
+      ptyProbeNode,
+      ptyPlan,
+      "/usr/local/bin/pty-probe",
+      ptyPreflight,
+    );
+
+    expect(state?.refusalClasses).toEqual([]);
+    expect(state?.stdioPolicy).toBe("stdio-inherited-noninteractive");
+    expect(state?.stdioGraph?.policy).toBe("modeled-pty-transcript");
+    expect(state?.ptys?.[0]).toMatchObject({
+      support: "target-native-noninteractive-transcript-probe",
+      transcriptProbe: {
+        policy: "target-native-reexec-capture-output",
+        marker: "--machinen-pty-transcript-probe",
+      },
+      winsize: { rows: 24, columns: 80 },
+      termios: expect.stringContaining("-echo"),
+    });
+    expect(genericResourceGraphLoaderCommand(state)).toContain("pty.openpty()");
+  });
+
+  it("records exact PTY refusal boundaries for dirty editors, alternate screen, job control, foreground pgrp, termios, and winsize", () => {
+    const ptyPlan: MoveResourcePlan = {
+      ...basePlan,
+      resources: [
+        { id: "pid:4242:argv", kind: "argv", state: "captured" },
+        { id: "pid:4242:fd:0", kind: "pty", state: "captured", fd: 0, path: "/dev/pts/8" },
+        { id: "pid:4242:fd:1", kind: "pty", state: "captured", fd: 1, path: "/dev/pts/8" },
+        { id: "pid:4242:fd:2", kind: "pty", state: "captured", fd: 2, path: "/dev/pts/8" },
+      ],
+    };
+    const ambiguousPtyPreflight = [
+      "STATUS\t1000\t1000",
+      "ROOT\t/",
+      "PTY_FD\t0\t/dev/pts/8\t02\t4242\t4242\t99\t34816\t\t\tunknown",
+    ].join("\n");
+    const editorState = buildMoveGenericResourceGraphState(
+      {
+        ...node,
+        command: "vi",
+        argv: ["vi", "+normal! Godirty", "/tmp/edit.txt"],
+        exe: "/usr/bin/vi",
+      },
+      ptyPlan,
+      "/usr/bin/vi",
+      ambiguousPtyPreflight,
+    );
+    expect(editorState?.refusalClasses.map((item) => item.resourceClass)).toEqual(
+      expect.arrayContaining([
+        "terminalEditorDirtyState",
+        "terminalAlternateScreenState",
+        "terminalForegroundProcessGroup",
+        "terminalUnknownTermios",
+        "terminalWindowSize",
+        "terminalOrPtyRefusal",
+        "stdio",
+      ]),
+    );
+
+    const shellState = buildMoveGenericResourceGraphState(
+      { ...node, command: "sh", argv: ["sh", "-c", "sleep 60"], exe: "/usr/bin/dash" },
+      ptyPlan,
+      "/usr/bin/dash",
+      ambiguousPtyPreflight,
+    );
+    expect(shellState?.refusalClasses.map((item) => item.resourceClass)).toEqual(
+      expect.arrayContaining(["shellState", "terminalJobControlState"]),
+    );
   });
 
   it("refuses hidden shell state instead of accepting shell pipeline wrappers", () => {
@@ -810,7 +1012,14 @@ describe("generic resource graph capture", () => {
     );
 
     expect(state?.refusalClasses.map((item) => item.resourceClass)).toEqual(
-      expect.arrayContaining(["pipe", "pty", "socket", "epoll", "device", "activeTcpConnection"]),
+      expect.arrayContaining([
+        "pipe",
+        "terminalOrPtyRefusal",
+        "socket",
+        "epoll",
+        "device",
+        "activeTcpConnection",
+      ]),
     );
     expect(state?.ports).toEqual([]);
   });
@@ -830,11 +1039,47 @@ describe("generic resource graph capture", () => {
     );
   });
 
+  it("supports only idle pathname Unix listeners with no active clients", () => {
+    const unixPreflight = [
+      "STATUS\t1000\t1000",
+      "ROOT\t/",
+      "UNIX_FD\t-1\t100\t00000002\t00000000\t00010000\t0001\t01\t/tmp/app.sock",
+    ].join("\n");
+    const socketState = buildMoveGenericResourceGraphState(
+      node,
+      {
+        ...basePlan,
+        resources: [
+          { id: "pid:4242:argv", kind: "argv", state: "captured" },
+          { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+          { id: "pid:4242:fd:4", kind: "socket", state: "captured", fd: 4, path: "socket:[100]" },
+        ],
+      },
+      "/usr/local/bin/unknown-daemon",
+      unixPreflight,
+    );
+    expect(socketState?.refusalClasses).toEqual([]);
+    expect(socketState?.unixSockets).toEqual([
+      expect.objectContaining({
+        path: "/tmp/app.sock",
+        inode: "100",
+        state: "idle-pathname-listener",
+        noActiveClients: true,
+      }),
+    ]);
+    expect(socketState?.healthProbe).toEqual({ kind: "unix-connect", path: "/tmp/app.sock" });
+    expect(socketState?.resourceClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceClass: "unixSocketPathnameListener" }),
+      ]),
+    );
+  });
+
   it("classifies Unix socket and anon-inode wave 2 baseline refusals exactly", () => {
     const unixPreflight = [
       "STATUS\t1000\t1000",
       "ROOT\t/",
-      "UNIX_FD\t4\t100\t00000002\t00000000\t00010000\t0001\t01\t/tmp/app.sock",
+      "UNIX_FD\t-1\t100\t00000002\t00000000\t00010000\t0001\t01\t/tmp/app.sock",
       "UNIX_FD\t5\t101\t00000002\t00000000\t00010000\t0001\t01\t@abstract-app",
       "UNIX_FD\t6\t102\t00000002\t00000000\t00000000\t0002\t01\t/tmp/app-dgram.sock",
       "UNIX_FD\t7\t103\t00000002\t00000000\t00000000\t0001\t01\t",
@@ -924,10 +1169,47 @@ describe("generic resource graph capture", () => {
             fd: 15,
             path: "anon_inode:[mystery]",
           },
+          {
+            id: "pid:4242:fd:16",
+            kind: "pipe",
+            state: "captured",
+            fd: 16,
+            path: "pipe:[2024]",
+          },
         ],
       },
       "/usr/local/bin/unknown-daemon",
-      "STATUS\t1000\t1000\nROOT\t/",
+      [
+        "STATUS\t1000\t1000",
+        "ROOT\t/",
+        "EVENTFD_FD\t9\t7\t02000002",
+        "EPOLL_FD\t10\t02000002",
+        "EPOLL_WATCH\t10\t16\tc0000001\t16",
+      ].join("\n"),
+    );
+    expect(anonState?.eventfds).toEqual([
+      expect.objectContaining({ fd: 9, counter: "7", path: "anon_inode:[eventfd]" }),
+    ]);
+    expect(anonState?.epolls).toEqual([
+      expect.objectContaining({
+        fd: 10,
+        path: "anon_inode:[eventpoll]",
+        watchedFds: [
+          expect.objectContaining({
+            targetFd: 16,
+            events: "c0000001",
+            trigger: "edge",
+            oneShot: true,
+            watchedResourceClass: "pipe",
+          }),
+        ],
+      }),
+    ]);
+    expect(anonState?.resourceClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceClass: "eventfdBaseline", status: "refused" }),
+        expect.objectContaining({ resourceClass: "epollBaseline", status: "refused" }),
+      ]),
     );
     expect(anonState?.refusalClasses.map((item) => item.resourceClass)).toEqual(
       expect.arrayContaining([
@@ -940,6 +1222,214 @@ describe("generic resource graph capture", () => {
         "anonInode",
       ]),
     );
+  });
+
+  it("supports only a tiny normal-flag eventfd counter descriptor", () => {
+    const eventfdPlan: MoveResourcePlan = {
+      ...basePlan,
+      resources: [
+        { id: "pid:4242:argv", kind: "argv", state: "captured" },
+        { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+        {
+          id: "pid:4242:fd:3",
+          kind: "eventfd",
+          state: "captured",
+          fd: 3,
+          path: "anon_inode:[eventfd]",
+          flags: ["octal:02"],
+        },
+      ],
+      capture: { ...basePlan.capture, syscall: "230 0 0 0", wchan: "hrtimer_nanosleep" },
+    };
+    const state = buildMoveGenericResourceGraphState(
+      { ...node, argv: ["/bin/sleep", "30"], command: "sleep" },
+      eventfdPlan,
+      "/bin/sleep",
+      ["STATUS\t1000\t1000", "ROOT\t/", "EVENTFD_FD\t3\t7\t02"].join("\n"),
+    )!;
+
+    expect(state.refusalClasses).toEqual([]);
+    expect(state.eventfds).toEqual([
+      expect.objectContaining({ fd: 3, counter: "7", support: "target-native-counter" }),
+    ]);
+    expect(state.resourceClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceClass: "eventfdCounter", status: "supported" }),
+      ]),
+    );
+    const command = genericResourceGraphLoaderCommand(state);
+    expect(command).toContain("libc.eventfd");
+    expect(command).toContain("os.dup2(fd, target_fd");
+  });
+
+  it("supports only a tiny epoll set watching the supported eventfd", () => {
+    const state = buildMoveGenericResourceGraphState(
+      { ...node, argv: ["/usr/bin/python3", "/srv/app/hold.py"], command: "python3" },
+      {
+        ...basePlan,
+        resources: [
+          { id: "pid:4242:argv", kind: "argv", state: "captured" },
+          { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+          {
+            id: "pid:4242:fd:3",
+            kind: "eventfd",
+            state: "captured",
+            fd: 3,
+            path: "anon_inode:[eventfd]",
+            flags: ["octal:02"],
+          },
+          {
+            id: "pid:4242:fd:4",
+            kind: "epoll",
+            state: "captured",
+            fd: 4,
+            path: "anon_inode:[eventpoll]",
+            flags: ["octal:02"],
+          },
+        ],
+        capture: { ...basePlan.capture, syscall: "230 0 0 0", wchan: "hrtimer_nanosleep" },
+      },
+      "/usr/bin/python3",
+      [
+        "STATUS\t1000\t1000",
+        "ROOT\t/",
+        "EVENTFD_FD\t3\t7\t02",
+        "EPOLL_FD\t4\t02",
+        "EPOLL_WATCH\t4\t3\t19\t3",
+      ].join("\n"),
+    )!;
+
+    expect(state.refusalClasses).toEqual([]);
+    expect(state.epolls).toEqual([
+      expect.objectContaining({
+        fd: 4,
+        support: "target-native-eventfd-watch",
+        watchedFds: [
+          expect.objectContaining({
+            targetFd: 3,
+            events: "19",
+            trigger: "level",
+            oneShot: false,
+            watchedResourceClass: "eventfd",
+          }),
+        ],
+      }),
+    ]);
+    expect(state.resourceClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceClass: "epollEventfdWatch", status: "supported" }),
+      ]),
+    );
+    expect(genericResourceGraphLoaderCommand(state)).toContain("epoll_ctl");
+  });
+
+  it("refuses epoll unknown watches, edge/one-shot/nested shapes, and active loops", () => {
+    const resources: MoveResourcePlan["resources"] = [
+      { id: "pid:4242:argv", kind: "argv", state: "captured" },
+      { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+      {
+        id: "pid:4242:fd:3",
+        kind: "eventfd",
+        state: "captured",
+        fd: 3,
+        path: "anon_inode:[eventfd]",
+        flags: ["octal:02"],
+      },
+      {
+        id: "pid:4242:fd:4",
+        kind: "epoll",
+        state: "captured",
+        fd: 4,
+        path: "anon_inode:[eventpoll]",
+        flags: ["octal:02"],
+      },
+    ];
+    const make = (
+      watch: string,
+      extraResources: MoveResourcePlan["resources"] = [],
+      capture = {},
+    ) =>
+      buildMoveGenericResourceGraphState(
+        { ...node, argv: ["/usr/bin/python3", "/srv/app/hold.py"], command: "python3" },
+        {
+          ...basePlan,
+          resources: [...resources, ...extraResources],
+          capture: { ...basePlan.capture, ...capture },
+        },
+        "/usr/bin/python3",
+        ["STATUS\t1000\t1000", "ROOT\t/", "EVENTFD_FD\t3\t7\t02", "EPOLL_FD\t4\t02", watch].join(
+          "\n",
+        ),
+      )!;
+
+    for (const state of [
+      make("EPOLL_WATCH\t4\t99\t19\t99"),
+      make("EPOLL_WATCH\t4\t3\t80000019\t3"),
+      make("EPOLL_WATCH\t4\t3\t40000019\t3"),
+      make("EPOLL_WATCH\t4\t5\t19\t5", [
+        {
+          id: "pid:4242:fd:5",
+          kind: "epoll",
+          state: "captured",
+          fd: 5,
+          path: "anon_inode:[eventpoll]",
+          flags: ["octal:02"],
+        },
+      ]),
+      make("EPOLL_WATCH\t4\t3\t19\t3", [], { syscall: "232 4 0 1", wchan: "ep_poll" }),
+    ]) {
+      expect(state.refusalClasses).toEqual(
+        expect.arrayContaining([expect.objectContaining({ resourceClass: "epoll" })]),
+      );
+    }
+  });
+
+  it("refuses eventfd counters with unsupported flags, bad counters, active waiters, or epoll peers", () => {
+    const eventfdResource: MoveResourcePlan["resources"][number] = {
+      id: "pid:4242:fd:3",
+      kind: "eventfd",
+      state: "captured",
+      fd: 3,
+      path: "anon_inode:[eventfd]",
+      flags: ["octal:04002"],
+    };
+    const makeState = (
+      resource: MoveResourcePlan["resources"][number],
+      stdout: string,
+      capture = {},
+    ) =>
+      buildMoveGenericResourceGraphState(
+        { ...node, argv: ["/bin/sleep", "30"], command: "sleep" },
+        {
+          ...basePlan,
+          resources: [
+            { id: "pid:4242:argv", kind: "argv", state: "captured" },
+            { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+            resource,
+          ],
+          capture: { ...basePlan.capture, ...capture },
+        },
+        "/bin/sleep",
+        stdout,
+      )!;
+
+    expect(
+      makeState(eventfdResource, "STATUS\t1000\t1000\nROOT\t/\nEVENTFD_FD\t3\t7\t04002")
+        .refusalClasses,
+    ).toEqual(expect.arrayContaining([expect.objectContaining({ resourceClass: "eventfd" })]));
+    expect(
+      makeState(
+        { ...eventfdResource, flags: ["octal:02"] },
+        "STATUS\t1000\t1000\nROOT\t/\nEVENTFD_FD\t3\tunknown\t02",
+      ).refusalClasses,
+    ).toEqual(expect.arrayContaining([expect.objectContaining({ resourceClass: "eventfd" })]));
+    expect(
+      makeState(
+        { ...eventfdResource, flags: ["octal:02"] },
+        "STATUS\t1000\t1000\nROOT\t/\nEVENTFD_FD\t3\t7\t02",
+        { syscall: "63 3 0 8", wchan: "eventfd_read" },
+      ).refusalClasses,
+    ).toEqual(expect.arrayContaining([expect.objectContaining({ resourceClass: "eventfd" })]));
   });
 
   it("builds a preflight-first generic loader command", () => {

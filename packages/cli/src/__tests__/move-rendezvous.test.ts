@@ -1629,6 +1629,31 @@ describe("move target direct loader", () => {
     );
   });
 
+  it("uses generic-primary migration loader only for explicit proven candidate states", async () => {
+    const cases = [
+      { name: "python-http-directory", descriptor: httpDirectoryDescriptor },
+      { name: "nc-listener", descriptor: ncDescriptor },
+    ];
+
+    await Promise.all(
+      cases.map(async (item) => {
+        const commands: string[] = [];
+        const loader = await runMoveTargetDirectLoaderInVm(
+          mockVm(
+            commands,
+            "LOAD_PID\t909\nLOAD_LOG\t/tmp/generic-primary.log\nSAFE_BOUNDARY\tgeneric-resource-graph\ttarget-native-reexec-started\nPATCH\tgeneric-resource-graph\tready\t909\n",
+          ),
+          withGenericPrimaryState(item.descriptor, item.name),
+        );
+
+        expect(loader.strategy, item.name).toBe(
+          "target-native-generic-resource-graph-reexec-loader",
+        );
+        expect(commands[0], item.name).toContain("generic-resource-graph");
+      }),
+    );
+  });
+
   it("refuses generic load with no target pid when health probe fails", async () => {
     const commands: string[] = [];
     const loader = await runMoveTargetDirectLoaderInVm(
@@ -1993,6 +2018,28 @@ describe("move target direct loader", () => {
     });
   });
 
+  it("keeps rsync service consolidation behind explicit envelope fallback", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t822\nLOAD_LOG\t/tmp/rsync.log\nPATCH\trsync-daemon\tready\t8181\tproof\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(
+      vm,
+      withGenericEquivalentState(rsyncDescriptor),
+    );
+
+    expect(commands[0]).toContain("PATCH\trsync-daemon");
+    expect(commands[0]).not.toContain("PATCH\tgeneric-resource-graph");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-rsync-daemon-loader",
+      targetPid: 822,
+      refusals: [],
+    });
+  });
+
   it("launches proof-provisioned target-native PHP static server", async () => {
     const commands: string[] = [];
     const vm = mockVm(
@@ -2005,6 +2052,28 @@ describe("move target direct loader", () => {
     expect(commands[0]).toContain("missing-php");
     expect(commands[0]).toContain("dynamic-php-script");
     expect(commands[0]).toContain("port-in-use");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-php-static-loader",
+      targetPid: 821,
+      refusals: [],
+    });
+  });
+
+  it("keeps PHP service consolidation behind explicit envelope fallback", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t821\nLOAD_LOG\t/tmp/php.log\nPATCH\tphp-static\tready\t8175\t/tmp/php-root\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(
+      vm,
+      withGenericEquivalentState(phpDescriptor),
+    );
+
+    expect(commands[0]).toContain("PATCH\tphp-static");
+    expect(commands[0]).not.toContain("PATCH\tgeneric-resource-graph");
     expect(loader).toMatchObject({
       state: "ready",
       strategy: "target-native-php-static-loader",
@@ -2033,6 +2102,28 @@ describe("move target direct loader", () => {
     });
   });
 
+  it("keeps Ruby service consolidation behind explicit envelope fallback", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t820\nLOAD_LOG\t/tmp/ruby.log\nPATCH\truby-http\tready\t8170\t/tmp/ruby-root\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(
+      vm,
+      withGenericEquivalentState(rubyDescriptor),
+    );
+
+    expect(commands[0]).toContain("PATCH\truby-http");
+    expect(commands[0]).not.toContain("PATCH\tgeneric-resource-graph");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-ruby-httpd-loader",
+      targetPid: 820,
+      refusals: [],
+    });
+  });
+
   it("launches proof-provisioned target-native Caddy static server", async () => {
     const commands: string[] = [];
     const vm = mockVm(
@@ -2045,6 +2136,28 @@ describe("move target direct loader", () => {
     expect(commands[0]).toContain("missing-caddy");
     expect(commands[0]).toContain("port-in-use");
     expect(commands[0]).toContain("changed-root-identity");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-caddy-static-loader",
+      targetPid: 819,
+      refusals: [],
+    });
+  });
+
+  it("keeps Caddy service consolidation behind explicit envelope fallback", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t819\nLOAD_LOG\t/tmp/caddy.log\nPATCH\tcaddy-static\tready\t8165\t/tmp/caddy-root\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(
+      vm,
+      withGenericEquivalentState(caddyDescriptor),
+    );
+
+    expect(commands[0]).toContain("PATCH\tcaddy-static");
+    expect(commands[0]).not.toContain("PATCH\tgeneric-resource-graph");
     expect(loader).toMatchObject({
       state: "ready",
       strategy: "target-native-caddy-static-loader",
@@ -2075,6 +2188,30 @@ describe("move target direct loader", () => {
     });
   });
 
+  it("keeps nginx service consolidation behind explicit envelope fallback", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t818\nLOAD_LOG\t/tmp/nginx.log\nPATCH\tnginx-static\tready\t8160\t" +
+        "a".repeat(64) +
+        "\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(
+      vm,
+      withGenericEquivalentState(nginxDescriptor),
+    );
+
+    expect(commands[0]).toContain("PATCH\tnginx-static");
+    expect(commands[0]).not.toContain("PATCH\tgeneric-resource-graph");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-nginx-static-loader",
+      targetPid: 818,
+      refusals: [],
+    });
+  });
+
   it("launches proof-provisioned target-native Redis idle instance", async () => {
     const commands: string[] = [];
     const vm = mockVm(
@@ -2087,6 +2224,28 @@ describe("move target direct loader", () => {
     expect(commands[0]).toContain("--appendonly no --port 8153");
     expect(commands[0]).toContain("missing-redis-server");
     expect(commands[0]).toContain("port-in-use");
+    expect(loader).toMatchObject({
+      state: "ready",
+      strategy: "target-native-redis-idle-loader",
+      targetPid: 817,
+      refusals: [],
+    });
+  });
+
+  it("keeps Redis service consolidation behind explicit envelope fallback", async () => {
+    const commands: string[] = [];
+    const vm = mockVm(
+      commands,
+      "LOAD_PID\t817\nLOAD_LOG\t/tmp/redis.log\nPATCH\tredis-idle\tready\t8153\n",
+    );
+
+    const loader = await runMoveTargetDirectLoaderInVm(
+      vm,
+      withGenericEquivalentState(redisDescriptor),
+    );
+
+    expect(commands[0]).toContain("PATCH\tredis-idle");
+    expect(commands[0]).not.toContain("PATCH\tgeneric-resource-graph");
     expect(loader).toMatchObject({
       state: "ready",
       strategy: "target-native-redis-idle-loader",
@@ -3213,6 +3372,28 @@ function moveDescriptorWithCapture(
 }
 
 function withGenericEquivalentState(source: MoveDescriptor): MoveDescriptor {
+  return withGenericMigrationState(source);
+}
+
+function withGenericPrimaryState(source: MoveDescriptor, sourceProofName: string): MoveDescriptor {
+  return withGenericMigrationState(source, {
+    mode: "generic-primary",
+    sourceProofName,
+    genericProofName:
+      sourceProofName === "python-http-directory"
+        ? "generic-static-http-daemon"
+        : "generic-interpreted-server",
+    fallbackPolicy: "bespoke fallback remains available for out-of-contract shapes",
+    boundary: "unit-test exact generic-primary migration boundary",
+  });
+}
+
+function withGenericMigrationState(
+  source: MoveDescriptor,
+  migration?: NonNullable<
+    NonNullable<NonNullable<MoveDescriptor["resourcePlan"]>["capture"]>["genericResourceGraphState"]
+  >["migration"],
+): MoveDescriptor {
   const node = source.nodes[0]!;
   return {
     ...source,
@@ -3222,6 +3403,7 @@ function withGenericEquivalentState(source: MoveDescriptor): MoveDescriptor {
         ...source.resourcePlan!.capture!,
         genericResourceGraphState: {
           policy: "generic-resource-graph-target-native-reexec-v1",
+          migration,
           executableIdentity: { path: node.exe ?? node.argv[0] ?? "/bin/false" },
           argv: node.argv,
           env: { policy: "target-default" },

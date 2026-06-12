@@ -31,7 +31,8 @@ import {
   validateMoveLoadTargetInVm,
   type MoveLoadTargetValidation,
 } from "../move-executable-identity.ts";
-import { readMoveGenericResourceGraphStateInVm } from "../move-generic-resource-graph.ts";
+import { seedGenericMigrationCaptureEvidence } from "../move-generic-migration-wave2.ts";
+import { readMoveGenericResourceGraphStateInVm as readGenericGraphState } from "../move-generic-resource-graph.ts";
 import {
   attachNativeContinuation,
   moveActiveSyscallPlan,
@@ -53,7 +54,6 @@ import * as staticServers from "../move-nginx-envelope.ts";
 import { readMoveRedisIdleStateInVm as readRedisIdle } from "../move-redis-envelope.ts";
 import { readMoveRealpathStateInVm } from "../move-realpath-envelope.ts";
 import { readMovePostgresClusterStateInVm } from "../move-postgres-envelope.ts";
-import { readMoveHttpStateInVm } from "../move-python-http-envelope.ts";
 import { readMoveRecursiveGrepStateInVm } from "../move-recursive-grep-envelope.ts";
 import { readMoveRmdirStateInVm } from "../move-rmdir-envelope.ts";
 import * as rsyncEnvelope from "../move-rsync-envelope.ts";
@@ -85,7 +85,6 @@ import {
   readMoveGrepState,
   readMoveLessState,
   readMoveMvStateInVm,
-  readMoveNcState,
   readMoveNodeStaticHttpStateInVm,
   readMovePingStateInVm,
   readMovePythonStaticRouteStateInVm,
@@ -543,17 +542,17 @@ async function attachMoveSourceIdentity(
   const executablePath =
     node.exe ?? (node.argv[0]?.startsWith("/") ? node.argv[0] : `/usr/bin/${node.command}`);
   const executablePackage = await readMoveExecutableIdentityInVm(vm, executablePath);
+  await seedGenericMigrationCaptureEvidence(vm, node, resourcePlan, executablePackage);
+  const genericState = await readGenericGraphState(
+    vm,
+    node,
+    resourcePlan,
+    executablePath,
+    executablePackage,
+  );
   resourcePlan.capture = {
     ...resourcePlan.capture,
-    sourceVm: { pid: vm.pid, name: vm.name },
-    executablePackage,
-    genericResourceGraphState: await readMoveGenericResourceGraphStateInVm(
-      vm,
-      node,
-      resourcePlan,
-      executablePath,
-      executablePackage,
-    ),
+    genericResourceGraphState: genericState,
     pingState: await readMovePingStateInVm(vm, resourcePlan),
     sleepState: await readMoveSleepStateInVm(vm, node),
     tailState: readMoveTailState(node, resourcePlan),
@@ -563,9 +562,7 @@ async function attachMoveSourceIdentity(
     grepState: readMoveGrepState(node, resourcePlan),
     watchState: readMoveWatchState(node),
     shellState: readMoveShellState(node),
-    httpState: await readMoveHttpStateInVm(vm, node, resourcePlan),
     busyboxHttpState: readMoveBusyboxHttpState(node, resourcePlan),
-    ncState: readMoveNcState(node, resourcePlan),
     busyboxNcState: readMoveBusyboxNcState(node, resourcePlan),
     socatFileResponderState: await readSocatFileResponder(vm, node, nodes, resourcePlan),
     redisIdleState: await readRedisIdle(vm, node, resourcePlan),
@@ -720,6 +717,8 @@ if [ -r "$status" ]; then
   done < "$status"
 fi
 printf 'STATUS\t%s\t%s\n' "$uid" "$gid"
+if [ -r "/proc/$pid/wchan" ]; then printf 'WCHAN\t%s\n' "$(cat "/proc/$pid/wchan" 2>/dev/null || true)"; fi
+if [ -r "/proc/$pid/syscall" ]; then printf 'SYSCALL\t%s\n' "$(cat "/proc/$pid/syscall" 2>/dev/null || true)"; fi
 if [ -r /proc/sys/net/ipv4/ping_group_range ]; then
   set -- $(cat /proc/sys/net/ipv4/ping_group_range 2>/dev/null || true)
   printf 'PING_RANGE\t%s\t%s\n' "$1" "$2"
@@ -732,7 +731,7 @@ for f in /proc/$pid/fd/*; do
   if [ -r "/proc/$pid/fdinfo/$fd" ]; then
     while IFS= read -r line; do
       case "$line" in
-        pos:*|flags:*) printf 'FDINFO\t%s\t%s\n' "$fd" "$line" ;;
+        pos:*|flags:*|eventfd-count:*|eventfd-semaphore:*|tfd:*) printf 'FDINFO\t%s\t%s\n' "$fd" "$line" ;;
       esac
     done < "/proc/$pid/fdinfo/$fd"
   fi

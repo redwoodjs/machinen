@@ -6,13 +6,14 @@ ONLY=""
 REUSE_VMS=""
 SKIP_PROVISION=0
 TIMINGS=1
+MOVE_MATRIX_IMAGE="${MACHINEN_MOVE_MATRIX_IMAGE:-}"
 PROVISION_MODE="default"
 CHUNK_PLAN=""
 CHUNK_NAME=""
 LIST_CHUNKS=0
 COVERAGE_DIR=""
 timing_events=()
-USAGE="usage: $0 [--json] [--only proof[,proof...]] [--chunk-plan plan.json --chunk name|--list-chunks|--coverage-dir dir] [--reuse-vms SRC:TGT] [--skip-provision] [--timings|--no-timings]"
+USAGE="usage: $0 [--json] [--only proof[,proof...]] [--image proof-rootfs.tar.gz] [--chunk-plan plan.json --chunk name|--list-chunks|--coverage-dir dir] [--reuse-vms SRC:TGT] [--skip-provision] [--timings|--no-timings]"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --)
@@ -33,6 +34,22 @@ while [[ $# -gt 0 ]]; do
     --only=*)
       ONLY="${1#--only=}"
       if [[ -z "$ONLY" ]]; then
+        echo "$USAGE" >&2
+        exit 2
+      fi
+      shift
+      ;;
+    --image)
+      MOVE_MATRIX_IMAGE="${2:-}"
+      if [[ -z "$MOVE_MATRIX_IMAGE" ]]; then
+        echo "$USAGE" >&2
+        exit 2
+      fi
+      shift 2
+      ;;
+    --image=*)
+      MOVE_MATRIX_IMAGE="${1#--image=}"
+      if [[ -z "$MOVE_MATRIX_IMAGE" ]]; then
         echo "$USAGE" >&2
         exit 2
       fi
@@ -126,6 +143,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -n "$MOVE_MATRIX_IMAGE" ]]; then
+  if [[ ! -f "$MOVE_MATRIX_IMAGE" ]]; then
+    echo "move proof image not found: $MOVE_MATRIX_IMAGE" >&2
+    exit 2
+  fi
+  PROVISION_MODE="proof-image:$(basename "$MOVE_MATRIX_IMAGE")"
+fi
+
 if [[ -n "$COVERAGE_DIR" ]]; then
   if [[ -z "$CHUNK_PLAN" ]]; then
     echo "--coverage-dir requires --chunk-plan" >&2
@@ -174,7 +199,11 @@ PY
   ONLY="$(printf '%s\n' "$plan_selection" | sed -n '1p')"
   if [[ "$(printf '%s\n' "$plan_selection" | sed -n '2p')" == "skip=1" ]]; then
     SKIP_PROVISION=1
-    PROVISION_MODE="chunk-plan-skip"
+    if [[ -n "$MOVE_MATRIX_IMAGE" ]]; then
+      PROVISION_MODE="$PROVISION_MODE:chunk-plan-skip"
+    else
+      PROVISION_MODE="chunk-plan-skip"
+    fi
   fi
 fi
 
@@ -242,12 +271,24 @@ record_timing() {
 }
 
 boot_pair() {
-  local start_ms
+  local start_ms boot_detail
   start_ms=$(now_ms)
-  $CLI boot --name "$SRC" --detach --json -- sleep infinity >/dev/null
-  $CLI boot --name "$TGT" --detach --json -- sleep infinity >/dev/null
-  record_timing "boot-pair" "passed" "$start_ms" "fresh-vms"
-  if [[ "$SKIP_PROVISION" != "1" ]]; then
+  if [[ -n "$MOVE_MATRIX_IMAGE" ]]; then
+    $CLI boot "$MOVE_MATRIX_IMAGE" --name "$SRC" --detach --json -- sleep infinity >/dev/null
+    $CLI boot "$MOVE_MATRIX_IMAGE" --name "$TGT" --detach --json -- sleep infinity >/dev/null
+    boot_detail="fresh-vms:$PROVISION_MODE"
+  else
+    $CLI boot --name "$SRC" --detach --json -- sleep infinity >/dev/null
+    $CLI boot --name "$TGT" --detach --json -- sleep infinity >/dev/null
+    boot_detail="fresh-vms"
+  fi
+  record_timing "boot-pair" "passed" "$start_ms" "$boot_detail"
+  if [[ -n "$MOVE_MATRIX_IMAGE" ]]; then
+    start_ms=$(now_ms)
+    validate_proof_image_tools "$SRC"
+    validate_proof_image_tools "$TGT"
+    record_timing "provision-pair" "passed" "$start_ms" "$PROVISION_MODE"
+  elif [[ "$SKIP_PROVISION" != "1" ]]; then
     start_ms=$(now_ms)
     ensure_proof_tools "$SRC"
     ensure_proof_tools "$TGT"
@@ -256,6 +297,54 @@ boot_pair() {
     start_ms=$(now_ms)
     record_timing "provision-pair" "skipped" "$start_ms" "$PROVISION_MODE"
   fi
+}
+
+validate_proof_image_tools() {
+  local vm="$1"
+  $CLI exec "$vm" -- 'set -eu
+missing=""
+optional_missing=""
+need_cmd() { command -v "$1" >/dev/null 2>&1 || missing="$missing $1"; }
+need_path() { test -x "$1" || missing="$missing $1"; }
+optional_cmd() { command -v "$1" >/dev/null 2>&1 || optional_missing="$optional_missing $1"; }
+need_cmd python3
+need_path /usr/bin/python3.11
+need_cmd watch
+need_cmd less
+need_cmd vi
+need_cmd script
+need_cmd node
+need_cmd busybox
+need_cmd nc
+need_path /usr/bin/nc.openbsd
+need_cmd go
+need_cmd rustc
+need_cmd xz
+need_cmd zstd
+need_cmd gzip
+need_cmd zip
+need_cmd unzip
+need_cmd tar
+need_cmd tree
+need_cmd socat
+need_cmd rsync
+need_cmd redis-server
+need_cmd redis-cli
+need_path /usr/sbin/nginx
+need_cmd php
+need_cmd ruby
+need_path /usr/lib/postgresql/15/bin/postgres
+need_path /usr/lib/postgresql/15/bin/initdb
+need_path /usr/lib/postgresql/15/bin/psql
+need_path /usr/lib/postgresql/15/bin/pg_controldata
+optional_cmd caddy
+if [ -n "$missing" ]; then
+  echo "move proof image missing required proof tools:$missing" >&2
+  exit 64
+fi
+if [ -n "$optional_missing" ]; then
+  echo "move proof image optional proof tools missing:$optional_missing" >&2
+fi'
 }
 
 ensure_proof_tools() {
@@ -483,7 +572,7 @@ save_http_bundle() {
 save_http_directory_bundle() {
   local name="$1" port="$2" directory="$3" bundle="$4"
   ensure_python_http_tool "$SRC"
-  $CLI exec "$SRC" -- "mkdir -p '$directory'; printf 'hello-http-directory\n' >'$directory/index.html'; setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; cd /; exec /usr/bin/python3.11 -m http.server --bind 127.0.0.1 --directory '$directory' $port >/tmp/${name}.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r'
+  $CLI exec "$SRC" -- "mkdir -p '$directory'; printf 'hello-http-directory\n' >'$directory/index.html'; setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; cd /; exec /usr/bin/python3.11 -m http.server --bind 127.0.0.1 --directory '$directory' $port >/dev/null 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r'
 }
 
 save_timeout_http_directory_bundle() {
@@ -498,7 +587,7 @@ save_env_http_directory_bundle() {
 
 save_nc_listener_bundle() {
   local name="$1" port="$2" bundle="$3"
-  $CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec nc -l $port >/tmp/${name}.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r'
+  $CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec nc -l $port >/dev/null 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r'
 }
 
 ensure_busybox_tool() {
@@ -671,9 +760,12 @@ prove_rsync_daemon() {
 import json
 save=json.load(open('$WORK/rsync-daemon.save.json'))
 load=json.load(open('$WORK/rsync-daemon.load.json'))
-state=save['descriptor']['resourcePlan']['capture']['rsyncDaemonState']
+capture=save['descriptor']['resourcePlan']['capture']
+state=capture['rsyncDaemonState']
+g=capture.get('genericResourceGraphState') or {}
 assert save['accepted'] and load['accepted']
 assert load['loader']['strategy'] == 'target-native-rsync-daemon-loader'
+assert (g.get('migration') or {}).get('mode') != 'generic-primary'
 assert state['port'] == 8181 and state['root'] == '/tmp/rsync-root-8181'
 assert state['moduleName'] == 'proof'
 assert state['configPath'] == '/tmp/rsyncd-8181.conf'
@@ -681,7 +773,7 @@ assert state['policy'] == 'read-only-module-no-auth-hooks'
 assert state['listenerState'] == 'idle-single-listener-no-active-clients'
 assert state['binaryPolicy'] == 'proof-provisioned-target-native-rsync'
 assert 'rsync proof 15J' in '''$body'''
-print(json.dumps({'name':'rsync-daemon','state':'passed','rsyncDaemonState':state,'targetReadContains':'rsync proof 15J','targetPid':load['loader']['targetPid']}))
+print(json.dumps({'name':'rsync-daemon','state':'passed','rsyncDaemonState':state,'genericMigration':g.get('migration'),'loaderStrategy':load['loader']['strategy'],'targetReadContains':'rsync proof 15J','targetPid':load['loader']['targetPid']}))
 PY
 }
 
@@ -791,16 +883,19 @@ prove_php_static() {
 import json
 save=json.load(open('$WORK/php-static.save.json'))
 load=json.load(open('$WORK/php-static.load.json'))
-state=save['descriptor']['resourcePlan']['capture']['phpStaticState']
+capture=save['descriptor']['resourcePlan']['capture']
+state=capture['phpStaticState']
+g=capture.get('genericResourceGraphState') or {}
 assert save['accepted'] and load['accepted']
 assert load['loader']['strategy'] == 'target-native-php-static-loader'
+assert (g.get('migration') or {}).get('mode') != 'generic-primary'
 assert state['port'] == 8175 and state['root'] == '/tmp/php-root-8175'
 assert state['argvContract'] == 'php-built-in-server-local-root'
 assert state['dynamicPolicy'] == 'no-php-scripts'
 assert state['listenerState'] == 'idle-single-listener'
 assert state['binaryPolicy'] == 'proof-provisioned-target-native-php'
 assert 'php proof 15I' in '''$response'''
-print(json.dumps({'name':'php-static','state':'passed','phpStaticState':state,'targetResponseContains':'php proof 15I','targetPid':load['loader']['targetPid']}))
+print(json.dumps({'name':'php-static','state':'passed','phpStaticState':state,'genericMigration':g.get('migration'),'loaderStrategy':load['loader']['strategy'],'targetResponseContains':'php proof 15I','targetPid':load['loader']['targetPid']}))
 PY
 }
 
@@ -879,6 +974,149 @@ print(json.dumps({'name':'unsafe-php-static-refusal','state':'passed','activePhp
 PY
 }
 
+mutate_generic_php_service_bundle() {
+  local bundle="$1" port="$2" mode="${3:-support}"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+port=int('$port')
+mode='$mode'
+cap=d['resourcePlan']['capture']
+state=cap['phpStaticState']
+pkg=cap['executablePackage']
+exe=pkg.get('path') or '/usr/bin/php'
+argv=[exe,'-S',f'127.0.0.1:{port}','-t',f'/tmp/php-root-{port}']
+node=d['nodes'][0]
+node['command']='php'
+node['argv']=argv
+node['exe']=exe
+g=cap['genericResourceGraphState']
+g['migration']={'mode':'generic-primary','sourceProofName':'php-static','genericProofName':'generic-service-php-static-parity','fallbackPolicy':'explicit target-native php loader remains available outside this descriptor-harness parity row','boundary':'only static PHP built-in server with no PHP scripts, no active clients, loopback bind, static root identity, target health proof'}
+g['executableIdentity']={k:v for k,v in pkg.items() if k in ('path','realPath','packageName','version','architecture')}
+g['argv']=argv
+g['cwd']={'path':'/'}
+g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
+g['dataDirs']=[{'path':f'/tmp/php-root-{port}','access':'read-only','identity':state['directoryIdentity']}]
+g['regularFiles']=[]
+g['fileOffsets']=[]
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[]
+g.pop('unixSockets', None)
+g.pop('pipeGraph', None)
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'stdin redirected to /dev/null by descriptor harness'},{'fd':1,'target':'dev-null','access':'write','evidence':'stdout redirected to generic loader log'},{'fd':2,'target':'dev-null','access':'write','evidence':'stderr redirected to generic loader log'}]}
+g['healthProbe']={'kind':'http','url':f'http://127.0.0.1:{port}/index.txt','expectedStatus':200}
+refusal_map={
+  'active-client':('activeTcpConnection','active client/session state is refused before generic service launch'),
+  'dynamic-runtime':('runtimeSpecificRefusal','dynamic PHP script/runtime state is refused before generic service launch'),
+  'writable-persistence':('serviceWritablePersistence','writable persistence is refused for static PHP service parity'),
+  'unsupported-module':('unsupportedModule','unsupported service module/config is refused before generic service launch'),
+  'missing-package':('missingTargetPackage','missing target service package refuses before launch'),
+}
+if mode in refusal_map:
+    klass, reason = refusal_map[mode]
+    g['refusalClasses']=[{'resourceClass':klass,'status':'refused','reason':reason,'evidence':f'generic-service-php-static-parity mode={mode}','nextAction':'keep explicit PHP envelope fallback until equivalent generic service support/refusal rows exist'}]
+else:
+    g['refusalClasses']=[]
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'target PHP executable identity is preserved from capture'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'PHP built-in-server argv/cwd reconstructed by generic loader'},
+  {'resourceClass':'serviceStaticRoot','status':'supported','evidence':'static root identity is checked by generic dataDir preflight'},
+  {'resourceClass':'directoryIdentity','status':'supported','evidence':'root file count/digest are retained'},
+  {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'loopback port preflight checks availability before launch'},
+  {'resourceClass':'noActiveClients','status':'supported','evidence':'descriptor-harness parity row admits only no-active-client shape'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'HTTP target health is checked after generic launch'},
+]
+d['nativeContinuation']['state']='planned'
+d['nativeContinuation']['refusals']=[]
+d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+}
+
+prove_generic_service_php_static_parity() {
+  local support_bundle="$WORK/generic-service-php-support.bundle" drift_bundle="$WORK/generic-service-php-drift.bundle" conflict_bundle="$WORK/generic-service-php-conflict.bundle" pid response log drift_pid conflict_pid drift_load_rc conflict_load_rc declared_bundle declared_load_rc cases_file="$WORK/generic-service-php-refusal.cases"
+  : >"$cases_file"
+  write_php_static_fixture "$TGT" 8190 static
+  pid=$(spawn_php_static 8190 static)
+  sleep 1
+  $CLI move save "$SRC" "$pid" "$support_bundle" --json >"$WORK/generic-service-php-support.save.json"
+  mutate_generic_php_service_bundle "$support_bundle" 8190 support
+  $CLI move load "$TGT" "$support_bundle" --json >"$WORK/generic-service-php-support.load.json"
+  response=$(http_get_from_target 8190 /index.txt | tr -d '\r')
+
+  write_php_static_fixture "$TGT" 8191 static
+  conflict_pid=$(spawn_php_static 8191 static)
+  $CLI move save "$SRC" "$conflict_pid" "$conflict_bundle" --json >"$WORK/generic-service-php-conflict.save.json"
+  mutate_generic_php_service_bundle "$conflict_bundle" 8191 support
+  $CLI exec "$TGT" -- "setsid sh -c 'exec /usr/bin/php -S 127.0.0.1:8191 -t /tmp/php-root-8191 >/tmp/generic-service-php-conflict-target.log 2>&1' </dev/null >/dev/null 2>&1 &" >/dev/null
+  sleep 1
+  set +e
+  $CLI move load "$TGT" "$conflict_bundle" --json >"$WORK/generic-service-php-conflict.load.json"
+  conflict_load_rc=$?
+  set -e
+
+  write_php_static_fixture "$TGT" 8192 static
+  drift_pid=$(spawn_php_static 8192 static)
+  $CLI move save "$SRC" "$drift_pid" "$drift_bundle" --json >"$WORK/generic-service-php-drift.save.json"
+  mutate_generic_php_service_bundle "$drift_bundle" 8192 support
+  $CLI exec "$TGT" -- "printf drift >/tmp/php-root-8192/drift.txt" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$drift_bundle" --json >"$WORK/generic-service-php-drift.load.json"
+  drift_load_rc=$?
+  set -e
+
+  local case_port=8193
+  for mode in active-client dynamic-runtime writable-persistence unsupported-module missing-package; do
+    declared_bundle="$WORK/generic-service-php-$mode.bundle"
+    local declared_pid
+    declared_pid=$(spawn_php_static "$case_port" static)
+    $CLI move save "$SRC" "$declared_pid" "$declared_bundle" --json >"$WORK/generic-service-php-$mode.save.json"
+    mutate_generic_php_service_bundle "$declared_bundle" "$case_port" "$mode"
+    case_port=$((case_port + 1))
+    set +e
+    $CLI move load "$TGT" "$declared_bundle" --json >"$WORK/generic-service-php-$mode.load.json"
+    declared_load_rc=$?
+    set -e
+    python3 - <<PY >>"$cases_file"
+import json
+mode='$mode'
+load=json.load(open('$WORK/generic-service-php-$mode.load.json'))
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+assert int('$declared_load_rc') == 1 and not load['accepted']
+loader=load.get('loader', {})
+assert loader.get('targetPid') is None
+assert classes, mode
+print(json.dumps({'case':mode,'refusalClasses':classes,'loaderState':loader.get('state'),'targetPid':loader.get('targetPid')}))
+PY
+  done
+
+  python3 - <<PY
+import json
+support_save=json.load(open('$WORK/generic-service-php-support.save.json'))
+support_load=json.load(open('$WORK/generic-service-php-support.load.json'))
+conflict_load=json.load(open('$WORK/generic-service-php-conflict.load.json'))
+drift_load=json.load(open('$WORK/generic-service-php-drift.load.json'))
+support_g=support_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert support_load['accepted'] and support_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert support_g['migration']['mode'] == 'generic-primary'
+assert support_g['migration']['sourceProofName'] == 'php-static'
+assert support_g['refusalClasses'] == []
+assert 'php proof 15I' in '''$response'''
+for load, rc, needle in [(conflict_load, '$conflict_load_rc', 'port-unavailable'), (drift_load, '$drift_load_rc', 'data-dir')]:
+    assert int(rc) == 1 and not load['accepted']
+    loader=load.get('loader', {})
+    assert loader.get('state') == 'refused' and loader.get('targetPid') is None
+    assert needle in loader.get('patch', {}).get('stdout', ''), (needle, loader)
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+assert len(cases) == 5
+print(json.dumps({'name':'generic-service-php-static-parity','state':'passed','support':{'loaderStrategy':support_load['loader']['strategy'],'targetPid':support_load['loader']['targetPid'],'targetResponseContains':'php proof 15I','migration':support_g['migration']},'preflightRefusals':{'portConflictTargetPid':conflict_load.get('loader',{}).get('targetPid'),'dataDriftTargetPid':drift_load.get('loader',{}).get('targetPid')},'declaredRefusalCases':cases,'explicitFallbackPreserved':'php-static remains explicit-fallback unless descriptor harness marks generic-primary'}))
+PY
+}
+
 ensure_ruby_tool() {
   local vm="$1"
   if $CLI exec "$vm" -- "test -x /usr/bin/ruby" >/dev/null 2>&1; then
@@ -917,15 +1155,18 @@ prove_ruby_http() {
 import json
 save=json.load(open('$WORK/ruby-http.save.json'))
 load=json.load(open('$WORK/ruby-http.load.json'))
-state=save['descriptor']['resourcePlan']['capture']['rubyHttpState']
+capture=save['descriptor']['resourcePlan']['capture']
+state=capture['rubyHttpState']
+g=capture.get('genericResourceGraphState') or {}
 assert save['accepted'] and load['accepted']
 assert load['loader']['strategy'] == 'target-native-ruby-httpd-loader'
+assert (g.get('migration') or {}).get('mode') != 'generic-primary'
 assert state['port'] == 8170 and state['root'] == '/tmp/ruby-root-8170'
 assert state['argvContract'] == 'ruby-run-httpd-root-port'
 assert state['listenerState'] == 'idle-single-listener'
 assert state['binaryPolicy'] == 'proof-provisioned-target-native-ruby'
 assert 'ruby proof 15H' in '''$response'''
-print(json.dumps({'name':'ruby-http','state':'passed','rubyHttpState':state,'targetResponseContains':'ruby proof 15H','targetPid':load['loader']['targetPid']}))
+print(json.dumps({'name':'ruby-http','state':'passed','rubyHttpState':state,'genericMigration':g.get('migration'),'loaderStrategy':load['loader']['strategy'],'targetResponseContains':'ruby proof 15H','targetPid':load['loader']['targetPid']}))
 PY
 }
 
@@ -1032,15 +1273,18 @@ prove_caddy_static() {
 import json
 save=json.load(open('$WORK/caddy-static.save.json'))
 load=json.load(open('$WORK/caddy-static.load.json'))
-state=save['descriptor']['resourcePlan']['capture']['caddyStaticState']
+capture=save['descriptor']['resourcePlan']['capture']
+state=capture['caddyStaticState']
+g=capture.get('genericResourceGraphState') or {}
 assert save['accepted'] and load['accepted']
 assert load['loader']['strategy'] == 'target-native-caddy-static-loader'
+assert (g.get('migration') or {}).get('mode') != 'generic-primary'
 assert state['port'] == 8165 and state['root'] == '/tmp/caddy-root-8165'
 assert state['argvContract'] == 'caddy-file-server-listen-root'
 assert state['listenerState'] == 'idle-single-listener'
 assert state['binaryPolicy'] == 'proof-provisioned-target-native-caddy'
 assert 'caddy proof 15G' in '''$response'''
-print(json.dumps({'name':'caddy-static','state':'passed','caddyStaticState':state,'targetResponseContains':'caddy proof 15G','targetPid':load['loader']['targetPid']}))
+print(json.dumps({'name':'caddy-static','state':'passed','caddyStaticState':state,'genericMigration':g.get('migration'),'loaderStrategy':load['loader']['strategy'],'targetResponseContains':'caddy proof 15G','targetPid':load['loader']['targetPid']}))
 PY
 }
 
@@ -1165,16 +1409,19 @@ prove_nginx_static() {
 import json
 save=json.load(open('$WORK/nginx-static.save.json'))
 load=json.load(open('$WORK/nginx-static.load.json'))
-state=save['descriptor']['resourcePlan']['capture']['nginxStaticState']
+capture=save['descriptor']['resourcePlan']['capture']
+state=capture['nginxStaticState']
+g=capture.get('genericResourceGraphState') or {}
 assert save['accepted'] and load['accepted']
 assert load['loader']['strategy'] == 'target-native-nginx-static-loader'
+assert (g.get('migration') or {}).get('mode') != 'generic-primary'
 assert state['port'] == 8160 and state['root'] == '/tmp/nginx-root-8160'
 assert state['configPath'] == '/tmp/nginx-static-8160.conf'
 assert state['configContract'] == 'nginx-static-root-local-listen-try-files-404'
 assert state['listenerState'] == 'idle-single-listener'
 assert state['binaryPolicy'] == 'proof-provisioned-target-native-nginx'
 assert 'nginx proof 15F' in '''$response'''
-print(json.dumps({'name':'nginx-static','state':'passed','nginxStaticState':state,'targetResponseContains':'nginx proof 15F','targetPid':load['loader']['targetPid']}))
+print(json.dumps({'name':'nginx-static','state':'passed','nginxStaticState':state,'genericMigration':g.get('migration'),'loaderStrategy':load['loader']['strategy'],'targetResponseContains':'nginx proof 15F','targetPid':load['loader']['targetPid']}))
 PY
 }
 
@@ -1502,9 +1749,12 @@ prove_redis_idle() {
 import json
 save=json.load(open('$WORK/redis-idle.save.json'))
 load=json.load(open('$WORK/redis-idle.load.json'))
-state=save['descriptor']['resourcePlan']['capture']['redisIdleState']
+capture=save['descriptor']['resourcePlan']['capture']
+state=capture['redisIdleState']
+g=capture.get('genericResourceGraphState') or {}
 assert save['accepted'] and load['accepted']
 assert load['loader']['strategy'] == 'target-native-redis-idle-loader'
+assert (g.get('migration') or {}).get('mode') != 'generic-primary'
 assert state['port'] == 8153
 assert state['argvContract'] == 'redis-server-no-persistence-port'
 assert state['datasetState'] == 'empty'
@@ -1512,7 +1762,7 @@ assert state['clientState'] == 'idle-no-external-clients'
 assert state['persistence'] == {'save':'','appendonly':'no'}
 assert state['binaryPolicy'] == 'proof-provisioned-target-native-redis'
 assert '''$out'''.splitlines() == ['PONG','0']
-print(json.dumps({'name':'redis-idle','state':'passed','redisIdleState':state,'targetPingAndDbsize':'''$out'''.splitlines(),'targetPid':load['loader']['targetPid']}))
+print(json.dumps({'name':'redis-idle','state':'passed','redisIdleState':state,'genericMigration':g.get('migration'),'loaderStrategy':load['loader']['strategy'],'targetPingAndDbsize':'''$out'''.splitlines(),'targetPid':load['loader']['targetPid']}))
 PY
 }
 
@@ -1777,9 +2027,13 @@ save=json.load(open('$WORK/nc.save.json'))
 load=json.load(open('$WORK/nc.load.json'))
 out=open('$WORK/nc.target.out').read()
 assert save['accepted'] and load['accepted']
-assert load['loader']['strategy'] == 'target-original-nc-listener-loader'
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['migration']['mode'] == 'generic-primary'
+assert g['migration']['sourceProofName'] == 'nc-listener'
+assert g['refusalClasses'] == []
 assert out == 'hello-nc\\n'
-print(json.dumps({'name':'nc-listener','state':'passed','ncState':save['descriptor']['resourcePlan']['capture']['ncState'],'received':out.strip()}))
+print(json.dumps({'name':'nc-listener','state':'passed','ncState':save['descriptor']['resourcePlan']['capture']['ncState'],'migration':g['migration'],'loaderStrategy':load['loader']['strategy'],'received':out.strip()}))
 PY
 }
 
@@ -2074,7 +2328,12 @@ save=json.load(open('$WORK/http-directory.save.json'))
 load=json.load(open('$WORK/http-directory.load.json'))
 out=open('$WORK/http-directory.target.out').read()
 assert save['accepted'] and load['accepted']
-assert load['loader']['strategy'] == 'target-original-python-http-server-loader'
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['migration']['mode'] == 'generic-primary'
+assert g['migration']['sourceProofName'] == 'python-http-directory'
+assert g['refusalClasses'] == []
+assert any(d['path'] == '/tmp/web-directory' for d in g['dataDirs'])
 state=save['descriptor']['resourcePlan']['capture']['httpState']
 assert state['directory'] == '/tmp/web-directory'
 assert state['bindAddress'] == '127.0.0.1'
@@ -2082,7 +2341,7 @@ assert state['mode'] == 'explicit-bind-directory'
 assert state['listenerState'] == 'idle-single-listener'
 assert state['directoryIdentity']['fileCount'] == 1 and state['directoryIdentity']['treeDigest']
 assert out == 'hello-http-directory\n'
-print(json.dumps({'name':'python-http-directory','state':'passed','httpState':state,'response':out.strip(),'targetPid':load['loader']['targetPid']}))
+print(json.dumps({'name':'python-http-directory','state':'passed','httpState':state,'migration':g['migration'],'loaderStrategy':load['loader']['strategy'],'response':out.strip(),'targetPid':load['loader']['targetPid']}))
 PY
 }
 
@@ -2119,7 +2378,8 @@ assert not no_bind_save['accepted'] and not no_bind_load['accepted']
 assert no_bind_save['descriptor']['resourcePlan']['capture'].get('httpState') is None
 assert changed_save['accepted'] and int('$changed_load_rc') == 1 and not changed_load['accepted']
 assert loader.get('state') == 'refused' and loader.get('targetPid') is None
-assert 'changed-directory-identity' in loader.get('patch', {}).get('stdout', '')
+stdout=loader.get('patch', {}).get('stdout', '')
+assert ('changed-directory-identity' in stdout) or ('data-dir-' in stdout)
 print(json.dumps({'name':'python-http-explicit-bind-refusal','state':'passed','noBindSaveAccepted':no_bind_save['accepted'],'noBindHttpState':no_bind_save['descriptor']['resourcePlan']['capture'].get('httpState'),'changedDirectoryLoadAccepted':changed_load['accepted'],'changedDirectoryLoaderState':loader.get('state'),'changedDirectoryTargetPid':loader.get('targetPid')}))
 PY
 }
@@ -7817,6 +8077,29 @@ while True:
     os.write(3, b'append-fd-entry\n')
     time.sleep(0.5)
 ''',
+'unix_path_listener.py': r'''
+import os, socket, sys
+path = sys.argv[1]
+try: os.unlink(path)
+except FileNotFoundError: pass
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); s.bind(path); s.listen(16)
+while True:
+    c, _ = s.accept()
+    data = c.recv(4096)
+    if data:
+        c.sendall(b'unix:' + data)
+    c.close()
+''',
+'unix_path_active.py': r'''
+import os, socket, sys, time
+path = sys.argv[1]
+try: os.unlink(path)
+except FileNotFoundError: pass
+listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); listener.bind(path); listener.listen(16)
+client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); client.connect(path)
+accepted, _ = listener.accept()
+while True: time.sleep(10)
+''',
 }
 for name, text in scripts.items():
     path = base / 'bin' / name
@@ -8301,7 +8584,8 @@ PY" >/dev/null
   for spec in pathname-listener:unixSocketPathnameListener abstract-listener:unixSocketAbstract datagram:unixSocketDatagram socketpair:unixSocketPair connected-stream:unixSocketConnected; do
     kind=${spec%%:*}; expected=${spec#*:}; bundle="$WORK/generic-unix-$kind.bundle"
     pid=$(launch_generic_fixture unix-baseline unix_baseline.py "$kind" "/tmp/machinen-generic/unix-baseline/root")
-    sleep 0.4
+    $CLI exec "$SRC" -- "for i in \$(seq 1 50); do grep -q machinen-generic-unix /proc/net/unix 2>/dev/null && exit 0; sleep 0.1; done; exit 0" >/dev/null
+    $CLI exec "$SRC" -- "printf 'FDLINKS\\n'; ls -l /proc/$pid/fd 2>/dev/null || true; printf 'UNIX_TABLE\\n'; cat /proc/net/unix 2>/dev/null || true; printf 'UNIX_AWK\\n'; awk 'NR > 1 { path = (NF >= 8 ? \$8 : \"\"); printf \"UNIX_FD\\t-1\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", \$7, \$2, \$3, \$4, \$5, \$6, path }' /proc/net/unix 2>/dev/null || true" >"$WORK/generic-unix-$kind.proc.txt" || true
     set +e
     $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-unix-$kind.save.json"; save_rc=$?
     $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-unix-$kind.load.json"; load_rc=$?
@@ -8328,19 +8612,115 @@ print(json.dumps({'name':'generic-unix-socket-baseline-refusals','state':'passed
 PY
 }
 
+prove_generic_unix_pathname_listener() {
+  local bundle="$WORK/generic-unix-pathname-listener.bundle" pid path="/tmp/machinen-generic/unix-path/root/app.sock"
+  setup_generic_python_fixture "$SRC" unix-path
+  setup_generic_python_fixture "$TGT" unix-path
+  pid=$(launch_generic_fixture unix-path unix_path_listener.py "$path" "/tmp/machinen-generic/unix-path/root")
+  $CLI exec "$SRC" -- "for i in \$(seq 1 50); do grep -q '$path' /proc/net/unix 2>/dev/null && exit 0; sleep 0.1; done; exit 1" >/dev/null
+  $CLI exec "$TGT" -- "rm -f '$path'" >/dev/null
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-unix-pathname-listener.save.json"
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-unix-pathname-listener.load.json"
+  $CLI exec "$TGT" -- "python3 - '$path' <<'PY'
+import socket, sys
+s=socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); s.connect(sys.argv[1]); s.sendall(b'hello'); data=s.recv(4096); s.close(); print(data.decode())
+PY" >"$WORK/generic-unix-pathname-listener.target.out"
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/generic-unix-pathname-listener.save.json'))
+load=json.load(open('$WORK/generic-unix-pathname-listener.load.json'))
+out=open('$WORK/generic-unix-pathname-listener.target.out').read().strip()
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert save['accepted'] and load['accepted']
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['refusalClasses'] == []
+assert g['unixSockets'][0]['path'] == '$path'
+assert g['unixSockets'][0]['state'] == 'idle-pathname-listener'
+assert g['healthProbe'] == {'kind':'unix-connect','path':'$path'}
+assert out == 'unix:hello'
+print(json.dumps({'name':'generic-unix-pathname-listener','state':'passed','unixSocket':g['unixSockets'][0],'loaderStrategy':load['loader']['strategy'],'response':out,'targetPid':load['loader']['targetPid']}))
+PY
+}
+
+prove_generic_unix_pathname_listener_refusals() {
+  local path="/tmp/machinen-generic/unix-path-refuse/root/app.sock" missing_path="/tmp/machinen-generic/unix-path-refuse/root/missing/app.sock" perm_path="/tmp/machinen-generic/unix-path-refuse/root/readonly/app.sock" active_bundle="$WORK/generic-unix-active.bundle" occupied_bundle="$WORK/generic-unix-occupied.bundle" missing_bundle="$WORK/generic-unix-missing-parent.bundle" perm_bundle="$WORK/generic-unix-permission.bundle" active_pid occupied_pid missing_pid perm_pid save_rc load_rc missing_load_rc perm_load_rc
+  setup_generic_python_fixture "$SRC" unix-path-refuse
+  setup_generic_python_fixture "$TGT" unix-path-refuse
+  active_pid=$(launch_generic_fixture unix-path-refuse unix_path_active.py "$path" "/tmp/machinen-generic/unix-path-refuse/root")
+  $CLI exec "$SRC" -- "for i in \$(seq 1 50); do grep -q '$path' /proc/net/unix 2>/dev/null && exit 0; sleep 0.1; done; exit 1" >/dev/null
+  set +e
+  $CLI move save "$SRC" "$active_pid" "$active_bundle" --json >"$WORK/generic-unix-active.save.json"; save_rc=$?
+  $CLI move load "$TGT" "$active_bundle" --json >"$WORK/generic-unix-active.load.json"; load_rc=$?
+  set -e
+  $CLI exec "$SRC" -- "kill -TERM $active_pid 2>/dev/null || true" >/dev/null
+  $CLI exec "$SRC" -- "mkdir -p /tmp/machinen-generic/unix-path-refuse/root/missing" >/dev/null
+  missing_pid=$(launch_generic_fixture unix-path-refuse unix_path_listener.py "$missing_path" "/tmp/machinen-generic/unix-path-refuse/root")
+  $CLI exec "$SRC" -- "for i in \$(seq 1 50); do grep -q '$missing_path' /proc/net/unix 2>/dev/null && exit 0; sleep 0.1; done; exit 1" >/dev/null
+  $CLI move save "$SRC" "$missing_pid" "$missing_bundle" --json >"$WORK/generic-unix-missing-parent.save.json"
+  $CLI exec "$TGT" -- "rm -rf /tmp/machinen-generic/unix-path-refuse/root/missing" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$missing_bundle" --json >"$WORK/generic-unix-missing-parent.load.json"; missing_load_rc=$?
+  set -e
+  $CLI exec "$SRC" -- "kill -TERM $missing_pid 2>/dev/null || true" >/dev/null
+  $CLI exec "$SRC" -- "mkdir -p /tmp/machinen-generic/unix-path-refuse/root/readonly" >/dev/null
+  perm_pid=$(launch_generic_fixture unix-path-refuse unix_path_listener.py "$perm_path" "/tmp/machinen-generic/unix-path-refuse/root")
+  $CLI exec "$SRC" -- "for i in \$(seq 1 50); do grep -q '$perm_path' /proc/net/unix 2>/dev/null && exit 0; sleep 0.1; done; exit 1" >/dev/null
+  $CLI move save "$SRC" "$perm_pid" "$perm_bundle" --json >"$WORK/generic-unix-permission.save.json"
+  $CLI exec "$TGT" -- "mkdir -p /tmp/machinen-generic/unix-path-refuse/root/readonly; chmod 0555 /tmp/machinen-generic/unix-path-refuse/root/readonly; rm -f '$perm_path'" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$perm_bundle" --json >"$WORK/generic-unix-permission.load.json"; perm_load_rc=$?
+  set -e
+  $CLI exec "$SRC" -- "kill -TERM $perm_pid 2>/dev/null || true" >/dev/null
+  $CLI exec "$TGT" -- "chmod 0755 /tmp/machinen-generic/unix-path-refuse/root/readonly 2>/dev/null || true" >/dev/null
+  occupied_pid=$(launch_generic_fixture unix-path-refuse unix_path_listener.py "$path" "/tmp/machinen-generic/unix-path-refuse/root")
+  $CLI exec "$SRC" -- "for i in \$(seq 1 50); do grep -q '$path' /proc/net/unix 2>/dev/null && exit 0; sleep 0.1; done; exit 1" >/dev/null
+  $CLI move save "$SRC" "$occupied_pid" "$occupied_bundle" --json >"$WORK/generic-unix-occupied.save.json"
+  $CLI exec "$TGT" -- "mkdir -p /tmp/machinen-generic/unix-path-refuse/root; : >'$path'" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$occupied_bundle" --json >"$WORK/generic-unix-occupied.load.json"; occupied_load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+active_save=json.load(open('$WORK/generic-unix-active.save.json'))
+active_load=json.load(open('$WORK/generic-unix-active.load.json'))
+missing_save=json.load(open('$WORK/generic-unix-missing-parent.save.json'))
+missing_load=json.load(open('$WORK/generic-unix-missing-parent.load.json'))
+perm_save=json.load(open('$WORK/generic-unix-permission.save.json'))
+perm_load=json.load(open('$WORK/generic-unix-permission.load.json'))
+occupied_save=json.load(open('$WORK/generic-unix-occupied.save.json'))
+occupied_load=json.load(open('$WORK/generic-unix-occupied.load.json'))
+active_classes=[r['resourceClass'] for r in active_save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']['refusalClasses']]
+assert int('$save_rc') == 1 and int('$load_rc') == 1
+assert not active_save['accepted'] and not active_load['accepted']
+assert 'unixSocketConnected' in active_classes
+assert 'loader' not in active_load
+assert missing_save['accepted'] and int('$missing_load_rc') == 1 and not missing_load['accepted']
+assert missing_load['loader']['state'] == 'refused' and missing_load['loader'].get('targetPid') is None
+assert 'unix-socket-parent-missing' in missing_load['loader']['patch']['stdout']
+assert perm_save['accepted'] and int('$perm_load_rc') == 1 and not perm_load['accepted']
+assert perm_load['loader']['state'] == 'refused' and perm_load['loader'].get('targetPid') is None
+assert 'unix-socket-parent-not-writable' in perm_load['loader']['patch']['stdout']
+assert occupied_save['accepted'] and int('$occupied_load_rc') == 1 and not occupied_load['accepted']
+assert occupied_load['loader']['state'] == 'refused' and occupied_load['loader'].get('targetPid') is None
+assert 'unix-socket-path-occupied' in occupied_load['loader']['patch']['stdout']
+print(json.dumps({'name':'generic-unix-pathname-listener-refusals','state':'passed','activeClasses':active_classes,'missingParentLoaderState':missing_load['loader']['state'],'missingParentTargetPid':missing_load['loader'].get('targetPid'),'permissionLoaderState':perm_load['loader']['state'],'permissionTargetPid':perm_load['loader'].get('targetPid'),'occupiedLoaderState':occupied_load['loader']['state'],'occupiedTargetPid':occupied_load['loader'].get('targetPid')}))
+PY
+}
+
 prove_generic_anon_inode_baseline_refusals() {
   local kind expected bundle pid save_rc load_rc cases_file="$WORK/generic-anon-inode-baseline-refusals.cases"
   setup_generic_python_fixture "$SRC" anon-baseline
+  $CLI exec "$SRC" -- "mv /sbin/machinen-move-capture /tmp/machinen-move-capture.disabled 2>/dev/null || true" >/dev/null
   : >"$cases_file"
   $CLI exec "$SRC" -- "cat >/tmp/machinen-generic/anon-baseline/bin/anon_baseline.py <<'PY'
-import ctypes, select, sys, time
+import ctypes, os, select, sys, time
 kind=sys.argv[1]
 libc=ctypes.CDLL(None)
 held=[]
 if kind == 'eventfd':
-    fd=libc.eventfd(0,0); assert fd >= 0; held.append(fd)
+    fd=libc.eventfd(7,0); assert fd >= 0; held.append(fd)
 elif kind == 'epoll':
-    held.append(select.epoll())
+    r,w=os.pipe(); ep=select.epoll(); ep.register(r, select.EPOLLIN | select.EPOLLET | select.EPOLLONESHOT); held.extend([r,w,ep])
 elif kind == 'timerfd':
     fd=libc.timerfd_create(1,0); assert fd >= 0; held.append(fd)
 elif kind == 'inotify':
@@ -8353,6 +8733,7 @@ PY" >/dev/null
     kind=${spec%%:*}; expected=${spec#*:}; bundle="$WORK/generic-anon-$kind.bundle"
     pid=$(launch_generic_fixture anon-baseline anon_baseline.py "$kind" "/tmp/machinen-generic/anon-baseline/root")
     sleep 0.4
+    $CLI exec "$SRC" -- "for f in /proc/$pid/fd/[0-9]*; do echo FD \$(basename \$f) \$(readlink \$f 2>/dev/null || true); cat /proc/$pid/fdinfo/\$(basename \$f) 2>/dev/null || true; done" >"$WORK/generic-anon-$kind.fdinfo.txt" || true
     set +e
     $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-anon-$kind.save.json"; save_rc=$?
     $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-anon-$kind.load.json"; load_rc=$?
@@ -8364,11 +8745,20 @@ save=json.load(open('$WORK/generic-anon-$kind.save.json'))
 load=json.load(open('$WORK/generic-anon-$kind.load.json'))
 g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
 classes=[r['resourceClass'] for r in g['refusalClasses']]
+resource_classes=[r['resourceClass'] for r in g['resourceClasses']]
 assert int('$save_rc') == 1 and int('$load_rc') == 1
 assert not save['accepted'] and not load['accepted']
 assert '$expected' in classes, classes
+if '$kind' == 'eventfd':
+    assert g['eventfds'][0]['counter'] not in ('', 'unknown'), g.get('eventfds')
+    assert 'eventfdBaseline' in resource_classes, resource_classes
+if '$kind' == 'epoll':
+    watches=g['epolls'][0]['watchedFds']
+    assert watches and watches[0]['watchedResourceClass'] == 'pipe', g.get('epolls')
+    assert watches[0]['trigger'] == 'edge' and watches[0]['oneShot'] is True, watches
+    assert 'epollBaseline' in resource_classes, resource_classes
 assert 'loader' not in load
-print(json.dumps({'case':'$kind','expected':'$expected','refusalClasses':classes,'loaderStarted':'loader' in load}))
+print(json.dumps({'case':'$kind','expected':'$expected','refusalClasses':classes,'eventfds':g.get('eventfds',[]),'epolls':g.get('epolls',[]),'loaderStarted':'loader' in load}))
 PY
   done
   python3 - <<PY
@@ -8376,6 +8766,372 @@ import json
 cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
 assert len(cases) == 4
 print(json.dumps({'name':'generic-anon-inode-baseline-refusals','state':'passed','cases':cases}))
+PY
+}
+
+prove_generic_eventfd_counter() {
+  local bundle="$WORK/generic-eventfd-counter.bundle" pid tpid
+  setup_generic_python_fixture "$SRC" eventfd-counter
+  setup_generic_python_fixture "$TGT" eventfd-counter
+  $CLI exec "$SRC" -- "mv /sbin/machinen-move-capture /tmp/machinen-move-capture.disabled 2>/dev/null || true" >/dev/null
+  for vm in "$SRC" "$TGT"; do
+    $CLI exec "$vm" -- "cat >/tmp/machinen-generic/eventfd-counter/bin/eventfd_hold.py <<'PY'
+import time
+while True: time.sleep(10)
+PY
+cat >/tmp/machinen-generic/eventfd-counter/bin/eventfd_exec.py <<'PY'
+import ctypes, os, sys
+libc=ctypes.CDLL(None)
+fd=libc.eventfd(int(sys.argv[1], 16), int(sys.argv[2])); assert fd >= 0
+if fd == 3: os.set_inheritable(3, True)
+else:
+    os.dup2(fd,3, inheritable=True); os.close(fd)
+os.execvp('/usr/bin/python3', ['/usr/bin/python3', sys.argv[3]])
+PY" >/dev/null
+  done
+  pid=$(launch_generic_fixture eventfd-counter eventfd_exec.py "7 0 /tmp/machinen-generic/eventfd-counter/bin/eventfd_hold.py" "/")
+  sleep 0.5
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-eventfd-counter.save.json"
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-eventfd-counter.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-eventfd-counter.load.json'))['loader']['targetPid'])
+PY
+)
+  $CLI exec "$TGT" -- "readlink /proc/$tpid/fd/3; cat /proc/$tpid/fdinfo/3" >"$WORK/generic-eventfd-counter.target-fdinfo.txt"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json, re
+save=json.load(open('$WORK/generic-eventfd-counter.save.json'))
+load=json.load(open('$WORK/generic-eventfd-counter.load.json'))
+fdinfo=open('$WORK/generic-eventfd-counter.target-fdinfo.txt').read()
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert save['accepted'] and load['accepted']
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['refusalClasses'] == []
+assert g['eventfds'][0]['support'] == 'target-native-counter'
+assert g['eventfds'][0]['counter'] == '7'
+assert 'anon_inode:[eventfd]' in fdinfo, fdinfo
+assert re.search(r'eventfd-count:\\s+7\\b', fdinfo), fdinfo
+print(json.dumps({'name':'generic-eventfd-counter','state':'passed','eventfd':g['eventfds'][0],'targetPid':int('$tpid'),'targetFdinfo':'eventfd-count:7'}))
+PY
+}
+
+prove_generic_eventfd_counter_refusals() {
+  local case bundle pid save_rc load_rc cases_file="$WORK/generic-eventfd-counter-refusals.cases"
+  setup_generic_python_fixture "$SRC" eventfd-refuse
+  $CLI exec "$SRC" -- "mv /sbin/machinen-move-capture /tmp/machinen-move-capture.disabled 2>/dev/null || true" >/dev/null
+  $CLI exec "$SRC" -- "cat >/tmp/machinen-generic/eventfd-refuse/bin/eventfd_refuse.py <<'PY'
+import ctypes, os, select, struct, sys, time
+case=sys.argv[1]
+libc=ctypes.CDLL(None)
+flags=os.O_NONBLOCK if case == 'nonblock' else 0
+fd=libc.eventfd(0 if case in ('waiter','oversized') else 7, flags); assert fd >= 0
+if fd == 3: os.set_inheritable(3, True)
+else:
+    os.dup2(fd,3, inheritable=True); os.close(fd)
+if case == 'oversized': os.write(3, struct.pack('Q', 0x100000000))
+if case == 'alias': os.dup2(3,4, inheritable=True)
+if case == 'waiter': select.select([3], [], [])
+while True: time.sleep(10)
+PY" >/dev/null
+  : >"$cases_file"
+  for case in nonblock oversized waiter alias; do
+    bundle="$WORK/generic-eventfd-$case.bundle"
+    pid=$(launch_generic_fixture eventfd-refuse eventfd_refuse.py "$case" "/")
+    sleep 0.5
+    set +e
+    $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-eventfd-$case.save.json"; save_rc=$?
+    $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-eventfd-$case.load.json"; load_rc=$?
+    set -e
+    $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+    python3 - <<PY >>"$cases_file"
+import json
+case='$case'
+save=json.load(open('$WORK/generic-eventfd-$case.save.json'))
+load=json.load(open('$WORK/generic-eventfd-$case.load.json'))
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+assert int('$save_rc') == 1 and int('$load_rc') == 1
+assert not save['accepted'] and not load['accepted']
+assert 'eventfd' in classes, classes
+assert 'loader' not in load
+print(json.dumps({'case':case,'refusalClasses':classes,'eventfds':g.get('eventfds',[]),'loaderStarted':False}))
+PY
+  done
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+assert len(cases) == 4
+print(json.dumps({'name':'generic-eventfd-counter-refusals','state':'passed','cases':cases}))
+PY
+}
+
+prove_generic_epoll_eventfd_watch() {
+  local bundle="$WORK/generic-epoll-eventfd-watch.bundle" pid tpid
+  setup_generic_python_fixture "$SRC" epoll-eventfd
+  setup_generic_python_fixture "$TGT" epoll-eventfd
+  $CLI exec "$SRC" -- "mv /sbin/machinen-move-capture /tmp/machinen-move-capture.disabled 2>/dev/null || true" >/dev/null
+  for vm in "$SRC" "$TGT"; do
+    $CLI exec "$vm" -- "cat >/tmp/machinen-generic/epoll-eventfd/bin/epoll_hold.py <<'PY'
+import time
+while True: time.sleep(10)
+PY
+cat >/tmp/machinen-generic/epoll-eventfd/bin/epoll_exec.py <<'PY'
+import ctypes, os, sys
+libc=ctypes.CDLL(None)
+class EpollEvent(ctypes.Structure):
+    _fields_=[('events', ctypes.c_uint32), ('data', ctypes.c_uint64)]
+def dup_to(fd, target):
+    if fd == target: os.set_inheritable(fd, True)
+    else: os.dup2(fd, target, inheritable=True); os.close(fd)
+efd=libc.eventfd(int(sys.argv[1], 16), 0); assert efd >= 0; dup_to(efd, 3)
+epfd=libc.epoll_create1(0); assert epfd >= 0
+event=EpollEvent(int(sys.argv[2], 16), int(sys.argv[3], 16))
+assert libc.epoll_ctl(epfd, 1, 3, ctypes.byref(event)) == 0
+dup_to(epfd, 4)
+os.execvp('/usr/bin/python3', ['/usr/bin/python3', sys.argv[4]])
+PY" >/dev/null
+  done
+  pid=$(launch_generic_fixture epoll-eventfd epoll_exec.py "7 19 3 /tmp/machinen-generic/epoll-eventfd/bin/epoll_hold.py" "/")
+  sleep 0.5
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-epoll-eventfd-watch.save.json"
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-epoll-eventfd-watch.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-epoll-eventfd-watch.load.json'))['loader']['targetPid'])
+PY
+)
+  $CLI exec "$TGT" -- "readlink /proc/$tpid/fd/3; cat /proc/$tpid/fdinfo/3; readlink /proc/$tpid/fd/4; cat /proc/$tpid/fdinfo/4" >"$WORK/generic-epoll-eventfd-watch.target-fdinfo.txt"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json, re
+save=json.load(open('$WORK/generic-epoll-eventfd-watch.save.json'))
+load=json.load(open('$WORK/generic-epoll-eventfd-watch.load.json'))
+fdinfo=open('$WORK/generic-epoll-eventfd-watch.target-fdinfo.txt').read()
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert save['accepted'] and load['accepted']
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['refusalClasses'] == []
+assert g['eventfds'][0]['support'] == 'target-native-counter'
+assert g['epolls'][0]['support'] == 'target-native-eventfd-watch'
+watch=g['epolls'][0]['watchedFds'][0]
+assert watch['targetFd'] == 3 and watch['trigger'] == 'level' and watch['oneShot'] is False
+assert 'anon_inode:[eventfd]' in fdinfo and 'anon_inode:[eventpoll]' in fdinfo, fdinfo
+assert re.search(r'eventfd-count:\\s+7\\b', fdinfo), fdinfo
+assert re.search(r'tfd:\\s+3\\s+events:\\s+19\\s+data:\\s+3', fdinfo), fdinfo
+print(json.dumps({'name':'generic-epoll-eventfd-watch','state':'passed','eventfd':g['eventfds'][0],'epoll':g['epolls'][0],'targetPid':int('$tpid')}))
+PY
+}
+
+prove_generic_epoll_eventfd_watch_refusals() {
+  local case bundle pid save_rc load_rc cases_file="$WORK/generic-epoll-eventfd-watch-refusals.cases"
+  setup_generic_python_fixture "$SRC" epoll-refuse
+  $CLI exec "$SRC" -- "mv /sbin/machinen-move-capture /tmp/machinen-move-capture.disabled 2>/dev/null || true" >/dev/null
+  $CLI exec "$SRC" -- "cat >/tmp/machinen-generic/epoll-refuse/bin/epoll_refuse.py <<'PY'
+import ctypes, os, select, sys, time
+case=sys.argv[1]
+libc=ctypes.CDLL(None)
+class EpollEvent(ctypes.Structure):
+    _fields_=[('events', ctypes.c_uint32), ('data', ctypes.c_uint64)]
+def dup_to(fd, target):
+    if fd == target: os.set_inheritable(fd, True)
+    else: os.dup2(fd, target, inheritable=True); os.close(fd)
+if case == 'unknown':
+    r,w=os.pipe(); dup_to(r,3); target=3; events=0x19
+elif case == 'nested':
+    ep2=libc.epoll_create1(0); assert ep2 >= 0; dup_to(ep2,3); target=3; events=0x19
+else:
+    efd=libc.eventfd(0 if case == 'active' else 7, 0); assert efd >= 0; dup_to(efd,3); target=3
+    events={'edge':0x80000019,'oneshot':0x40000019}.get(case,0x19)
+epfd=libc.epoll_create1(0); assert epfd >= 0
+event=EpollEvent(events, target)
+assert libc.epoll_ctl(epfd, 1, target, ctypes.byref(event)) == 0
+dup_to(epfd,4)
+if case == 'active': select.epoll.fromfd(4).poll()
+while True: time.sleep(10)
+PY" >/dev/null
+  : >"$cases_file"
+  for case in unknown edge oneshot nested active; do
+    bundle="$WORK/generic-epoll-$case.bundle"
+    pid=$(launch_generic_fixture epoll-refuse epoll_refuse.py "$case" "/")
+    sleep 0.5
+    set +e
+    $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-epoll-$case.save.json"; save_rc=$?
+    $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-epoll-$case.load.json"; load_rc=$?
+    set -e
+    $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+    python3 - <<PY >>"$cases_file"
+import json
+case='$case'
+save=json.load(open('$WORK/generic-epoll-$case.save.json'))
+load=json.load(open('$WORK/generic-epoll-$case.load.json'))
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+assert int('$save_rc') == 1 and int('$load_rc') == 1
+assert not save['accepted'] and not load['accepted']
+assert 'epoll' in classes, classes
+assert 'loader' not in load
+print(json.dumps({'case':case,'refusalClasses':classes,'eventfds':g.get('eventfds',[]),'epolls':g.get('epolls',[]),'loaderStarted':False}))
+PY
+  done
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+assert len(cases) == 5
+print(json.dumps({'name':'generic-epoll-eventfd-watch-refusals','state':'passed','cases':cases}))
+PY
+}
+
+prove_generic_pty_transcript_probe() {
+  local bundle="$WORK/generic-pty-transcript-probe.bundle" pid log response
+  $CLI exec "$SRC" -- "cat >/tmp/generic-pty-transcript-probe.py <<'PY'
+import sys, time
+if '--machinen-pty-transcript-probe' not in sys.argv:
+    raise SystemExit('missing marker')
+print('generic-pty-transcript-probe', flush=True)
+time.sleep(60)
+PY
+cat >/tmp/generic-pty-launch.py <<'PY'
+import fcntl, os, pty, select, struct, sys, termios, time
+master, slave = pty.openpty()
+fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 24, 80, 0, 0))
+pid = os.fork()
+if pid == 0:
+    os.setsid()
+    fcntl.ioctl(slave, termios.TIOCSCTTY, 0)
+    devnull = os.open('/dev/null', os.O_RDONLY)
+    os.dup2(devnull, 0)
+    os.dup2(slave, 1)
+    os.dup2(slave, 2)
+    for fd_to_close in range(3, 256):
+        try: os.close(fd_to_close)
+        except OSError: pass
+    os.execv('/usr/bin/python3', ['/usr/bin/python3', '/tmp/generic-pty-transcript-probe.py', '--machinen-pty-transcript-probe'])
+os.close(slave)
+open('/tmp/generic-pty-transcript-probe.pid', 'w').write(str(pid))
+with open('/tmp/generic-pty-transcript-probe.source.log', 'ab', buffering=0) as out:
+    while True:
+        ready, _, _ = select.select([master], [], [], 0.2)
+        if ready:
+            try: out.write(os.read(master, 4096))
+            except OSError: break
+        try: done, _ = os.waitpid(pid, os.WNOHANG)
+        except ChildProcessError: break
+        if done == pid: break
+PY
+rm -f /tmp/generic-pty-transcript-probe.pid /tmp/generic-pty-transcript-probe.source.log; cd /; setsid /usr/bin/python3 /tmp/generic-pty-launch.py >/tmp/generic-pty-launch-parent.log 2>&1 &
+i=0; while [ \$i -lt 50 ]; do test -s /tmp/generic-pty-transcript-probe.pid && break; i=\$((i + 1)); sleep 0.1; done
+cat /tmp/generic-pty-transcript-probe.pid" >"$WORK/generic-pty-transcript-probe.pid.out"
+  $CLI exec "$TGT" -- "cat >/tmp/generic-pty-transcript-probe.py <<'PY'
+import sys, time
+if '--machinen-pty-transcript-probe' not in sys.argv:
+    raise SystemExit('missing marker')
+print('generic-pty-transcript-probe', flush=True)
+time.sleep(60)
+PY" >/dev/null
+  pid=$(tail -1 "$WORK/generic-pty-transcript-probe.pid.out" | tr -d '\r')
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-pty-transcript-probe.save.json"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+pkg=cap['executablePackage']
+exe=pkg.get('path') or '/usr/bin/python3.11'
+argv=[exe,'/tmp/generic-pty-transcript-probe.py','--machinen-pty-transcript-probe']
+node=d['nodes'][0]
+node['command']='python3'
+node['argv']=argv
+node['exe']=exe
+g=cap['genericResourceGraphState']
+g['executableIdentity']={k:v for k,v in pkg.items() if k in ('path','realPath','packageName','version','architecture')}
+g['argv']=argv
+g['cwd']={'path':'/'}
+g['regularFiles']=[]
+g['dataDirs']=[]
+g['fileOffsets']=[]
+g['ports']=[]
+g.pop('unixSockets', None)
+g.pop('pipeGraph', None)
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[{'fd':1,'path':'/dev/pts/harness','fdinfoFlags':'octal:02','sessionId':4242,'processGroupId':4242,'terminalProcessGroupId':4242,'ttyNumber':34816,'winsize':{'rows':24,'columns':80},'termios':'speed 38400 baud; rows 24; columns 80; -echo; isig; icanon','transcriptProbe':{'policy':'target-native-reexec-capture-output','marker':'--machinen-pty-transcript-probe'},'support':'target-native-noninteractive-transcript-probe'}]
+g['stdioPolicy']='stdio-inherited-noninteractive'
+g['stdioGraph']={'policy':'modeled-pty-transcript','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'stdin is /dev/null for noninteractive PTY transcript probe'},{'fd':1,'target':'pty','access':'write','evidence':'stdout reconstructed by descriptor PTY transcript harness'},{'fd':2,'target':'pty','access':'write','evidence':'stderr reconstructed by descriptor PTY transcript harness'}]}
+g['healthProbe']={'kind':'process-alive'}
+g['refusalClasses']=[]
+g['resourceClasses']=[{'resourceClass':'processIdentity','status':'supported','evidence':'target executable identity is explicit in descriptor harness'},{'resourceClass':'argvEnvCwd','status':'supported','evidence':'argv/cwd reconstructed by generic loader'},{'resourceClass':'terminalOrPtyEvidence','status':'supported','evidence':'descriptor harness records termios, winsize, session and foreground process group'},{'resourceClass':'terminalPtyTranscriptProbe','status':'supported','evidence':'target-native PTY reexec captures noninteractive output transcript'},{'resourceClass':'healthProbe','status':'supported','evidence':'target process-alive probe succeeds after PTY launch'}]
+d['nativeContinuation']['state']='planned'
+d['nativeContinuation']['refusals']=[]
+d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-pty-transcript-probe.load.json"
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-pty-transcript-probe.load.json'))['loader']['logPath'])
+PY
+)
+  sleep 1
+  response=$($CLI exec "$TGT" -- "cat '$log'" | tr -d '\r')
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/generic-pty-transcript-probe.save.json'))
+load=json.load(open('$WORK/generic-pty-transcript-probe.load.json'))
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[item['resourceClass'] for item in g['refusalClasses']]
+assert load['accepted']
+assert classes == [], classes
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['stdioGraph']['policy'] == 'modeled-pty-transcript'
+assert g['ptys'] and g['ptys'][0]['support'] == 'target-native-noninteractive-transcript-probe'
+assert g['ptys'][0]['winsize'] == {'rows':24,'columns':80}
+assert g['ptys'][0]['termios'] and 'unknown' not in g['ptys'][0]['termios']
+assert 'generic-pty-transcript-probe' in '''$response'''
+print(json.dumps({'name':'generic-pty-transcript-probe','state':'passed','descriptorHarness':True,'originalSaveAccepted':save['accepted'],'ptyEvidence':g['ptys'][0],'stdioGraph':g['stdioGraph'],'loaderStrategy':load['loader']['strategy'],'targetTranscriptContains':'generic-pty-transcript-probe','targetPid':load['loader']['targetPid']}))
+PY
+}
+
+prove_generic_pty_terminal_refusals() {
+  local bundle="$WORK/generic-pty-terminal-refusals.bundle" pid save_rc load_rc
+  $CLI exec "$SRC" -- "rm -f /tmp/generic-pty.pid /tmp/generic-pty.log; setsid python3 - <<'PY' >/tmp/generic-pty.log 2>&1 &
+import os, pty, time
+master, slave = pty.openpty()
+pid = os.fork()
+if pid == 0:
+    os.setsid()
+    os.dup2(slave, 0)
+    os.dup2(slave, 1)
+    os.dup2(slave, 2)
+    os.close(master)
+    os.write(1, b'generic-pty-transcript-probe\\n')
+    time.sleep(60)
+else:
+    open('/tmp/generic-pty.pid', 'w').write(str(pid))
+    time.sleep(60)
+PY
+i=0; while [ \$i -lt 50 ]; do test -s /tmp/generic-pty.pid && break; i=\$((i + 1)); sleep 0.1; done
+cat /tmp/generic-pty.pid" >"$WORK/generic-pty.pid.out"
+  pid=$(tail -1 "$WORK/generic-pty.pid.out" | tr -d '\r')
+  set +e
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-pty-terminal-refusals.save.json"
+  save_rc=$?
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-pty-terminal-refusals.load.json"
+  load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/generic-pty-terminal-refusals.save.json'))
+load=json.load(open('$WORK/generic-pty-terminal-refusals.load.json'))
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[item['resourceClass'] for item in g['refusalClasses']]
+assert int('$save_rc') == 1 and int('$load_rc') == 1
+assert not save['accepted'] and not load['accepted']
+assert 'loader' not in load
+for expected in ['terminalOrPtyRefusal','stdio','terminalForegroundProcessGroup','terminalUnknownTermios','terminalWindowSize']:
+    assert expected in classes, (expected, classes)
+assert g['ptys'] and g['ptys'][0]['support'] == 'refused-interactive-terminal-boundary'
+assert g['ptys'][0]['termios']
+assert g['stdioGraph']['policy'] == 'refused'
+print(json.dumps({'name':'generic-pty-terminal-refusals','state':'passed','refusalClasses':classes,'ptyEvidence':g['ptys'][0],'stdioGraph':g['stdioGraph'],'loaderStarted':'loader' in load}))
 PY
 }
 
@@ -8764,7 +9520,15 @@ PROOF_NAMES=(
   generic-mmap-file-refusal
   generic-inotify-file-refusal
   generic-unix-socket-baseline-refusals
+  generic-unix-pathname-listener
+  generic-unix-pathname-listener-refusals
   generic-anon-inode-baseline-refusals
+  generic-eventfd-counter
+  generic-eventfd-counter-refusals
+  generic-epoll-eventfd-watch
+  generic-epoll-eventfd-watch-refusals
+  generic-pty-transcript-probe
+  generic-pty-terminal-refusals
   generic-unsupported-resource-refusals
   generic-loader-preflight-refusals
   unsupported-pipe-graph-refusal
@@ -8799,6 +9563,7 @@ PROOF_NAMES=(
   unsafe-ruby-http-refusal
   php-static
   unsafe-php-static-refusal
+  generic-service-php-static-parity
   rsync-daemon
   unsafe-rsync-daemon-refusal
   python-http-active-refusal
@@ -8943,7 +9708,15 @@ PROOF_LABELS=(
   "generic mmap file refusal"
   "generic inotify file refusal"
   "generic unix socket baseline refusals"
+  "generic unix pathname listener"
+  "generic unix pathname listener refusals"
   "generic anon-inode baseline refusals"
+  "generic eventfd counter"
+  "generic eventfd counter refusals"
+  "generic epoll eventfd watch"
+  "generic epoll eventfd watch refusals"
+  "generic pty transcript probe"
+  "generic pty terminal refusals"
   "generic unsupported resource refusals"
   "generic loader preflight refusals"
   "unsupported pipe graph refusal"
@@ -8978,6 +9751,7 @@ PROOF_LABELS=(
   "unsafe ruby http refusal"
   "php static"
   "unsafe php static refusal"
+  "generic service php static parity"
   "rsync daemon"
   "unsafe rsync daemon refusal"
   "http active request refusal"
@@ -9122,7 +9896,15 @@ PROOF_FUNCS=(
   prove_generic_mmap_file_refusal
   prove_generic_inotify_file_refusal
   prove_generic_unix_socket_baseline_refusals
+  prove_generic_unix_pathname_listener
+  prove_generic_unix_pathname_listener_refusals
   prove_generic_anon_inode_baseline_refusals
+  prove_generic_eventfd_counter
+  prove_generic_eventfd_counter_refusals
+  prove_generic_epoll_eventfd_watch
+  prove_generic_epoll_eventfd_watch_refusals
+  prove_generic_pty_transcript_probe
+  prove_generic_pty_terminal_refusals
   prove_generic_unsupported_resource_refusals
   prove_generic_loader_preflight_refusals
   prove_unsupported_pipe_graph_refusal
@@ -9157,6 +9939,7 @@ PROOF_FUNCS=(
   prove_unsafe_ruby_http_refusal
   prove_php_static
   prove_unsafe_php_static_refusal
+  prove_generic_service_php_static_parity
   prove_rsync_daemon
   prove_unsafe_rsync_daemon_refusal
   prove_http_active_request_refusal
@@ -9182,7 +9965,12 @@ PROOF_FUNCS=(
 start_pair() {
   local start_ms
   if [[ -n "$REUSE_VMS" ]]; then
-    if [[ "$SKIP_PROVISION" != "1" ]]; then
+    if [[ -n "$MOVE_MATRIX_IMAGE" ]]; then
+      start_ms=$(now_ms)
+      validate_proof_image_tools "$SRC"
+      validate_proof_image_tools "$TGT"
+      record_timing "provision-pair" "passed" "$start_ms" "reuse-vms:$PROVISION_MODE"
+    elif [[ "$SKIP_PROVISION" != "1" ]]; then
       start_ms=$(now_ms)
       ensure_proof_tools "$SRC"
       ensure_proof_tools "$TGT"

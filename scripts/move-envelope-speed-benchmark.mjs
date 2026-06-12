@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, join, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
 
@@ -14,6 +14,7 @@ const { values } = parseArgs({
       type: "string",
       default: process.env.MACHINEN_MOVE_MATRIX_CLI ?? "node packages/cli/dist/cli.js",
     },
+    image: { type: "string", default: process.env.MACHINEN_MOVE_MATRIX_IMAGE },
     json: { type: "boolean", default: false },
   },
 });
@@ -24,6 +25,10 @@ if (!["fresh", "warm", "parallel"].includes(mode)) {
 }
 if (!values["out-dir"]) {
   fail("--out-dir is required");
+}
+const proofImage = values.image ? resolve(values.image) : undefined;
+if (proofImage && !existsSync(proofImage)) {
+  fail(`--image not found: ${proofImage}`);
 }
 
 const plan = JSON.parse(readFileSync(values.plan, "utf8"));
@@ -45,6 +50,7 @@ const summary = {
   plan: plan.name ?? values.plan,
   planPath: values.plan,
   outDir,
+  proofImage: proofImage ? { path: proofImage, name: basename(proofImage) } : undefined,
   startedAt: new Date().toISOString(),
   finishedAt: undefined,
   totalWallMs: 0,
@@ -55,8 +61,8 @@ const summary = {
 const totalStart = Date.now();
 try {
   if (mode === "warm") {
-    runCli(["boot", "--name", src, "--detach", "--json", "--", "sleep", "infinity"], "boot-src");
-    runCli(["boot", "--name", tgt, "--detach", "--json", "--", "sleep", "infinity"], "boot-tgt");
+    runCli(bootArgs(src), "boot-src");
+    runCli(bootArgs(tgt), "boot-tgt");
   }
 
   if (mode === "parallel") {
@@ -128,7 +134,24 @@ function matrixChunkArgs(chunk) {
     "--chunk",
     chunk.name,
   ];
+  if (proofImage) {
+    args.push("--image", proofImage);
+  }
   return mode === "warm" ? [...args, "--reuse-vms", `${src}:${tgt}`] : args;
+}
+
+function bootArgs(name) {
+  return [
+    "boot",
+    ...optionalArg(proofImage),
+    "--name",
+    name,
+    "--detach",
+    "--json",
+    "--",
+    "sleep",
+    "infinity",
+  ];
 }
 
 function chunkResult(chunk, outputPath, result, wallMs) {
@@ -204,6 +227,10 @@ function processState(result) {
 
 function proofSummaries(proofs) {
   return array(proofs).map((proof) => ({ name: proof.name, state: proof.state }));
+}
+
+function optionalArg(value) {
+  return value ? [value] : [];
 }
 
 function array(value) {

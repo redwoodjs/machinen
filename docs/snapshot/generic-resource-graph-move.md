@@ -153,36 +153,66 @@ The migration rule is conservative:
 
 The first explicit migration-equivalence mappings are recorded in the inventory, not inferred from naming. They map six existing simple bespoke proof names (`python-http`, `python-http-directory`, `nc-listener`, `reader-cat`, `grep`, and `tail`) to generic proof rows with target evidence and a fallback policy that keeps the bespoke path active during migration.
 
+## Service consolidation inventory
+
+Wave 3 also records a service consolidation inventory for existing explicit envelopes. This is not a generic-primary promotion. Each candidate keeps its explicit envelope fallback until equivalent generic support and refusal rows exist.
+
+| Existing envelope | Candidate generic resource classes                                                                           | Fallback boundary                                                                                                                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nginx-static`    | service config identity, static root identity, idle loopback listener, no active clients, health probe       | keep nginx loader until static config/root support plus active-client, dynamic config, port conflict, and package/root drift refusals are equivalent |
+| `caddy-static`    | service config/static root identity, idle loopback listener, no active clients, health probe                 | keep Caddy loader until file-server-only support plus proxy/dynamic, port conflict, and package/root drift refusals are equivalent                   |
+| `ruby-http`       | static root identity, idle loopback listener, no active clients, health probe, runtime-specific refusal      | keep Ruby loader until `ruby -run -e httpd` support plus Ruby app/runtime refusals are equivalent                                                    |
+| `php-static`      | static root identity, idle loopback listener, no active clients, health probe, runtime-specific refusal      | keep PHP loader until static-only support plus dynamic script/router refusals are equivalent                                                         |
+| `rsync-daemon`    | service config identity, read-only data root, idle loopback listener, no active clients, health/read probe   | keep rsync loader until read-only/no-auth module support plus writable/auth/config drift refusals are equivalent                                     |
+| `redis-idle`      | service config identity, empty dataset safety, idle loopback listener, no active clients, PING/DBSIZE health | keep Redis loader until empty/no-persistence support plus active-client, nonempty, persistence, and config drift refusals are equivalent             |
+
+The coverage guard validates these candidates through `genericServiceConsolidationCandidates` in the inventory so missing proof names, resource classes, fallback policies, or support/refusal evidence fields fail before a future consolidation can weaken the explicit envelopes.
+
+Status/PR language for this phase must use the same boundary:
+
+- Allowed: "Service consolidation inventory is recorded for `nginx-static`, `caddy-static`, `ruby-http`, `php-static`, read-only `rsync-daemon`, and empty/no-persistence `redis-idle` as explicit-envelope-fallback candidates only."
+- Allowed: "Existing explicit service envelope loaders remain selected until equivalent generic support/refusal evidence exists for each listed candidate."
+- Forbidden: broad daemon support, arbitrary process migration, any HTTP server support, any Redis/database state support, generic-primary service support without equivalent matrix rows, or support for active clients, writable persistence, unsupported modules, or runtime-specific state.
+
 ## Proven generic pilot rows
 
 The first local support rows are deliberately small and target-native:
 
-| Generic proof row                              | Resource shape                                              | Target evidence                               |
-| ---------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------- |
-| `generic-yes-loop`                             | process identity + argv/cwd + process-alive probe           | target `/proc/<pid>/cmdline` contains argv    |
-| `generic-static-http-daemon`                   | cwd/data-dir identity + idle loopback HTTP listener         | target HTTP GET returns static body           |
-| `generic-interpreted-server`                   | idle loopback TCP listener                                  | target TCP request returns `interpreted:ping` |
-| `generic-file-backed-worker`                   | readonly regular file identity                              | target log prints `file-worker:...`           |
-| `generic-readonly-file-cli`                    | readonly-file CLI shape                                     | target log prints `readonly-cli:...`          |
-| `generic-writable-log-daemon`                  | write-validated cwd/data-dir                                | target appends `generic-log-entry`            |
-| `generic-data-dir-daemon`                      | write-validated data-dir                                    | target writes `daemon-marker.txt`             |
-| `generic-readonly-file-cursor`                 | read-only regular-file fd cursor                            | target log starts at captured offset          |
-| `generic-append-log-cursor`                    | exact `O_APPEND` regular-file fd captured at EOF            | target appends `append-fd-entry` after load   |
-| `generic-multi-file-readonly-worker`           | multiple read-only regular-file fd cursors                  | target log combines both captured offsets     |
-| `generic-append-log-preflight-refusals`        | stale/truncated/missing target append log                   | loader refused with `targetPid=null`          |
-| `generic-stale-file-identity-refusal`          | target file changed after capture                           | loader refused with `targetPid=null`          |
-| `generic-deleted-file-fd-refusal`              | deleted/unlinked regular-file fd                            | no loader starts                              |
-| `generic-writable-file-cursor-refusal`         | writable or unknown regular-file fd mode                    | no loader starts                              |
-| `generic-append-only-file-cursor-refusal`      | append-only fd not captured at EOF                          | no loader starts                              |
-| `generic-append-log-unsupported-flags-refusal` | append fd with unsupported flags such as truncate           | no loader starts                              |
-| `generic-append-log-fanotify-refusal`          | append log plus fanotify follow interaction                 | no loader starts                              |
-| `generic-file-lock-refusal`                    | descriptor-level advisory file-lock evidence                | no loader starts                              |
-| `generic-mmap-file-refusal`                    | mmap-backed mutable file state                              | no loader starts                              |
-| `generic-inotify-file-refusal`                 | inotify follow state                                        | no loader starts                              |
-| `generic-unix-socket-baseline-refusals`        | Unix pathname/abstract/datagram/socketpair/connected shapes | no loader starts                              |
-| `generic-anon-inode-baseline-refusals`         | eventfd/epoll/timerfd/inotify anon-inode shapes             | no loader starts                              |
-| `generic-unsupported-resource-refusals`        | unsupported resource classes                                | no loader starts for pipe/PTY/socket/etc.     |
-| `generic-loader-preflight-refusals`            | stale target/preflight/health failures                      | loader refused with `targetPid=null`          |
+| Generic proof row                              | Resource shape                                                                                        | Target evidence                                 |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `generic-yes-loop`                             | process identity + argv/cwd + process-alive probe                                                     | target `/proc/<pid>/cmdline` contains argv      |
+| `generic-static-http-daemon`                   | cwd/data-dir identity + idle loopback HTTP listener                                                   | target HTTP GET returns static body             |
+| `generic-interpreted-server`                   | idle loopback TCP listener                                                                            | target TCP request returns `interpreted:ping`   |
+| `generic-file-backed-worker`                   | readonly regular file identity                                                                        | target log prints `file-worker:...`             |
+| `generic-readonly-file-cli`                    | readonly-file CLI shape                                                                               | target log prints `readonly-cli:...`            |
+| `generic-writable-log-daemon`                  | write-validated cwd/data-dir                                                                          | target appends `generic-log-entry`              |
+| `generic-data-dir-daemon`                      | write-validated data-dir                                                                              | target writes `daemon-marker.txt`               |
+| `generic-readonly-file-cursor`                 | read-only regular-file fd cursor                                                                      | target log starts at captured offset            |
+| `generic-append-log-cursor`                    | exact `O_APPEND` regular-file fd captured at EOF                                                      | target appends `append-fd-entry` after load     |
+| `generic-multi-file-readonly-worker`           | multiple read-only regular-file fd cursors                                                            | target log combines both captured offsets       |
+| `generic-append-log-preflight-refusals`        | stale/truncated/missing target append log                                                             | loader refused with `targetPid=null`            |
+| `generic-stale-file-identity-refusal`          | target file changed after capture                                                                     | loader refused with `targetPid=null`            |
+| `generic-deleted-file-fd-refusal`              | deleted/unlinked regular-file fd                                                                      | no loader starts                                |
+| `generic-writable-file-cursor-refusal`         | writable or unknown regular-file fd mode                                                              | no loader starts                                |
+| `generic-append-only-file-cursor-refusal`      | append-only fd not captured at EOF                                                                    | no loader starts                                |
+| `generic-append-log-unsupported-flags-refusal` | append fd with unsupported flags such as truncate                                                     | no loader starts                                |
+| `generic-append-log-fanotify-refusal`          | append log plus fanotify follow interaction                                                           | no loader starts                                |
+| `generic-file-lock-refusal`                    | descriptor-level advisory file-lock evidence                                                          | no loader starts                                |
+| `generic-mmap-file-refusal`                    | mmap-backed mutable file state                                                                        | no loader starts                                |
+| `generic-inotify-file-refusal`                 | inotify follow state                                                                                  | no loader starts                                |
+| `generic-unix-socket-baseline-refusals`        | Unix pathname/abstract/datagram/socketpair/connected shapes                                           | no loader starts                                |
+| `generic-unix-pathname-listener`               | idle pathname Unix listener with no active clients                                                    | target Unix socket accepts a probe connection   |
+| `generic-unix-pathname-listener-refusals`      | active-client and occupied target pathname Unix listeners                                             | no target pid for pre-launch refusal            |
+| `generic-anon-inode-baseline-refusals`         | eventfd/epoll/timerfd/inotify anon-inode shapes                                                       | no loader starts                                |
+| `generic-eventfd-counter`                      | one normal-flag eventfd with modeled counter                                                          | target fdinfo shows reconstructed counter       |
+| `generic-eventfd-counter-refusals`             | unsupported flags, oversized counter, waiter, alias                                                   | no loader starts                                |
+| `generic-epoll-eventfd-watch`                  | one level-trigger epoll watch on the supported eventfd                                                | target fdinfo shows reconstructed watch         |
+| `generic-epoll-eventfd-watch-refusals`         | unknown watch, edge, one-shot, nested, active loop                                                    | no loader starts                                |
+| `generic-pty-transcript-probe`                 | proof-marked noninteractive PTY transcript/probe with termios/winsize/session/pgrp evidence           | target-native PTY reexec captures transcript    |
+| `generic-pty-terminal-refusals`                | PTY-backed stdio, dirty editor/alternate-screen/job-control/foreground-pgrp/termios/winsize ambiguity | no loader starts; unsupported PTY state refused |
+| `generic-service-php-static-parity`            | descriptor-harness generic PHP static service parity for one static-root loopback shape               | generic loader health plus pre-launch refusals  |
+| `generic-unsupported-resource-refusals`        | unsupported resource classes                                                                          | no loader starts for pipe/PTY/socket/etc.       |
+| `generic-loader-preflight-refusals`            | stale target/preflight/health failures                                                                | loader refused with `targetPid=null`            |
 
 These rows do not claim arbitrary Python, arbitrary HTTP, arbitrary daemon, or arbitrary process migration. They prove the generic resource-class mechanism only for the observed resource graph in each row.
 
@@ -208,10 +238,10 @@ The first generic classifier should graduate only resource classes already repea
 The first generic classifier must refuse or defer:
 
 - active TCP connections;
-- Unix domain sockets, now split for baseline refusal into pathname listeners, connected streams, socketpairs, datagram sockets, and abstract namespace sockets;
+- Unix domain sockets: idle pathname listeners have a narrow target-native reexec row only when the filesystem socket path is stable, no active Unix streams exist, the target path is absent, and a Unix-connect health probe passes; abstract namespace sockets, connected streams, socketpairs, and datagram sockets remain refused;
 - pipes unless a proof-specific pipeline envelope handles them;
-- PTYs and interactive terminal state;
-- anon inodes, now split for baseline refusal into eventfd, epoll/eventpoll, timerfd, signalfd, inotify, fanotify, io_uring, and unknown anon-inode state where observed;
+- PTYs and interactive terminal state; Wave 3 now records refusal-preserving PTY fd/path evidence and optional termios/winsize/session/process-group/foreground-pgrp/fd-flag evidence, but still refuses before target launch and makes no interactive terminal migration claim;
+- anon inodes, now split for baseline refusal into eventfd, epoll/eventpoll, timerfd, signalfd, inotify, fanotify, io_uring, and unknown anon-inode state where observed; eventfd/epoll baseline descriptors record eventfd counters and epoll watched-fd metadata, while only the tiny one-eventfd normal-flag counter shape and one level-trigger epoll watch on that eventfd graduate to target-native reconstruction;
 - devices except explicit allowlist entries;
 - append-only log fd variants outside the exact EOF contract, including non-EOF offsets, truncate/unsupported flags, stale/truncated/rotated/missing target logs, concurrent writer ambiguity, lock/mmap interactions, and inotify/fanotify follow state;
 - writable or unknown non-append regular-file fd modes;

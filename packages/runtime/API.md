@@ -4732,6 +4732,30 @@ Size in bytes the file was allocated at.
 
 > **policy**: `"generic-resource-graph-target-native-reexec-v1"`
 
+##### migration?
+
+> `optional` **migration?**: `object`
+
+###### mode
+
+> **mode**: `"generic-primary"` \| `"generic-equivalent-with-bespoke-fallback"`
+
+###### sourceProofName
+
+> **sourceProofName**: `string`
+
+###### genericProofName
+
+> **genericProofName**: `string`
+
+###### fallbackPolicy
+
+> **fallbackPolicy**: `string`
+
+###### boundary
+
+> **boundary**: `string`
+
 ##### executableIdentity
 
 > **executableIdentity**: `object`
@@ -4855,6 +4879,42 @@ Size in bytes the file was allocated at.
 ###### noActiveClients
 
 > **noActiveClients**: `true`
+
+##### unixSockets?
+
+> `optional` **unixSockets?**: `object`[]
+
+###### fd?
+
+> `optional` **fd?**: `number`
+
+###### path
+
+> **path**: `string`
+
+###### inode
+
+> **inode**: `string`
+
+###### state
+
+> **state**: `"idle-pathname-listener"`
+
+###### noActiveClients
+
+> **noActiveClients**: `true`
+
+###### preflight
+
+> **preflight**: `object`
+
+###### preflight.targetPathPolicy
+
+> **targetPathPolicy**: `"must-not-exist"`
+
+###### preflight.parentDirectoryPolicy
+
+> **parentDirectoryPolicy**: `"must-exist-writable"`
 
 ##### regularFiles
 
@@ -4986,7 +5046,7 @@ Size in bytes the file was allocated at.
 
 ###### policy
 
-> **policy**: `"refused"` \| `"dev-null-or-closed"` \| `"modeled-pipe"` \| `"inherited-noninteractive"`
+> **policy**: `"refused"` \| `"dev-null-or-closed"` \| `"modeled-pipe"` \| `"modeled-pty-transcript"` \| `"inherited-noninteractive"`
 
 ###### fds
 
@@ -5000,9 +5060,141 @@ Size in bytes the file was allocated at.
 
 > **pipes**: `object`[]
 
+##### eventfds?
+
+> `optional` **eventfds?**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### path
+
+> **path**: `"anon_inode:[eventfd]"`
+
+###### counter
+
+> **counter**: `string`
+
+###### fdinfoFlags?
+
+> `optional` **fdinfoFlags?**: `string`
+
+###### flags
+
+> **flags**: `string`[]
+
+###### semaphore?
+
+> `optional` **semaphore?**: `boolean`
+
+###### nonblocking?
+
+> `optional` **nonblocking?**: `boolean`
+
+###### cloexec?
+
+> `optional` **cloexec?**: `boolean`
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"target-native-counter"`
+
+##### epolls?
+
+> `optional` **epolls?**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### path
+
+> **path**: `"anon_inode:[eventpoll]"`
+
+###### fdinfoFlags?
+
+> `optional` **fdinfoFlags?**: `string`
+
+###### flags
+
+> **flags**: `string`[]
+
+###### watchedFds
+
+> **watchedFds**: `object`[]
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"target-native-eventfd-watch"`
+
+##### ptys?
+
+> `optional` **ptys?**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### path
+
+> **path**: `string`
+
+###### fdinfoFlags?
+
+> `optional` **fdinfoFlags?**: `string`
+
+###### sessionId?
+
+> `optional` **sessionId?**: `number`
+
+###### processGroupId?
+
+> `optional` **processGroupId?**: `number`
+
+###### terminalProcessGroupId?
+
+> `optional` **terminalProcessGroupId?**: `number`
+
+###### ttyNumber?
+
+> `optional` **ttyNumber?**: `number`
+
+###### winsize?
+
+> `optional` **winsize?**: `object`
+
+###### winsize.rows
+
+> **rows**: `number`
+
+###### winsize.columns
+
+> **columns**: `number`
+
+###### termios
+
+> **termios**: `string`
+
+###### transcriptProbe?
+
+> `optional` **transcriptProbe?**: `object`
+
+###### transcriptProbe.policy
+
+> **policy**: `"target-native-reexec-capture-output"`
+
+###### transcriptProbe.marker
+
+> **marker**: `"--machinen-pty-transcript-probe"`
+
+###### support
+
+> **support**: `"refused-interactive-terminal-boundary"` \| `"target-native-noninteractive-transcript-probe"`
+
 ##### healthProbe
 
-> **healthProbe**: \{ `kind`: `"process-alive"`; \} \| \{ `kind`: `"http"`; `url`: `string`; `expectedStatus?`: `number`; `expectedBodySha256?`: `string`; \} \| \{ `kind`: `"tcp-connect"`; `host`: `"127.0.0.1"`; `port`: `number`; `expectedBannerSha256?`: `string`; \} \| \{ `kind`: `"command"`; `argv`: `string`[]; `expectedStdoutSha256?`: `string`; \}
+> **healthProbe**: \{ `kind`: `"process-alive"`; \} \| \{ `kind`: `"http"`; `url`: `string`; `expectedStatus?`: `number`; `expectedBodySha256?`: `string`; \} \| \{ `kind`: `"tcp-connect"`; `host`: `"127.0.0.1"`; `port`: `number`; `expectedBannerSha256?`: `string`; \} \| \{ `kind`: `"unix-connect"`; `path`: `string`; \} \| \{ `kind`: `"command"`; `argv`: `string`[]; `expectedStdoutSha256?`: `string`; \}
 
 ##### resourceClasses
 

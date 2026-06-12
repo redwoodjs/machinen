@@ -198,7 +198,19 @@ Each envelope should pick refusal templates from its family and record them in t
 
 ## Proof-only provisioning policy
 
-Proof-only tools must stay out of base assets. The preferred future path is a cached disposable proof overlay per tool family. Until overlays are proven safe, the fallback is:
+Proof-only tools must stay out of base assets. The move-envelope matrix may use a cached disposable proof image built by `pnpm move-envelope:build-proof-image`. That image is a validation fixture only:
+
+- it is named and treated as a `move-proof-image` / proof-only test fixture;
+- it is not a product base asset;
+- it is not copied into `packages/native-*` release assets;
+- it is not selected by runtime defaults;
+- it is not a dependency for runtime users.
+
+Use it by passing `--image <proof-rootfs.tar.gz>` to `pnpm proof-move-envelope-matrix -- ...` or by setting `MACHINEN_MOVE_MATRIX_IMAGE=<proof-rootfs.tar.gz>`. The matrix passes that tarball as the positional image to both source and target `machinen boot` calls. In proof-image mode the broad provisioning phase validates required target-native proof tools first, records `proof-image:<name>` in timing metadata, and skips broad apt provisioning only after validation succeeds.
+
+Rows still own their safety checks. A row must verify the target-native or proof-provisioned binary it needs and fail closed if it is missing. Row-local `ensure_*` helpers should check for the binary first, skip apt when the proof image already contains it, and keep fallback apt provisioning for runs without the proof image.
+
+For normal runs without a proof image, the fallback remains:
 
 - use chunk plans with `skipProvision` for rows that do not need broad guest tooling;
 - provision row-local target-native Debian packages only inside proof VMs;
@@ -208,8 +220,34 @@ Proof-only tools must stay out of base assets. The preferred future path is a ca
 
 ## Matrix and remote validation policy
 
-The matrix runner should prefer chunk plans over ad hoc long runs. A chunk plan names the expected proof rows and can retain JSON/timings per chunk. Coverage verification must compare the expected proof names against retained JSON files and fail if any expected proof is missing or not `passed`.
+Normal move-envelope PR validation is targeted. Run focused Vitest files for touched TypeScript, the matrix rows touched by the change with `--only` or a small chunk plan, generic resource graph coverage, matrix coverage when a retained chunk-plan artifact is used, the smoke manifest check, and the normal static checks. `pnpm validation:profile --profile move-envelope-normal` covers the reusable static/coverage part; add the touched `pnpm proof-move-envelope-matrix -- --json --only <rows> --timings` rows separately.
+
+The full all-proofs matrix is manual, nightly, or release-scope validation. Do not make it the default proof for normal PRs unless a maintainer explicitly asks for all rows. When a proof image is available, the manual/nightly command is:
+
+```sh
+PROOF_IMAGE=$(pnpm --silent move-envelope:build-proof-image -- --json | node -e 'let s=""; process.stdin.on("data", c => s += c); process.stdin.on("end", () => { const i=s.indexOf("{"); console.log(JSON.parse(s.slice(i)).outputPath); });')
+MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --timings --image "$PROOF_IMAGE"
+```
+
+The reusable speed benchmark can compare chunk-plan runs without the full matrix:
+
+```sh
+node scripts/move-envelope-speed-benchmark.mjs --mode fresh --plan scripts/smoke/move-envelope-speed-plan.json --out-dir /tmp/move-speed-default --json
+node scripts/move-envelope-speed-benchmark.mjs --mode fresh --plan scripts/smoke/move-envelope-speed-plan.json --out-dir /tmp/move-speed-proof-image --image "$PROOF_IMAGE" --json
+```
+
+The matrix runner should prefer chunk plans over ad hoc long runs. A chunk plan names the expected proof rows and can retain JSON/timings per chunk. Coverage verification must compare the expected proof names against retained JSON files and fail if any expected proof is missing or not `passed`, without rerunning the full matrix. Use either `pnpm proof-move-envelope-matrix -- --json --chunk-plan <plan.json> --coverage-dir <retained-dir>` or `node scripts/move-envelope-matrix-coverage.mjs --plan <plan.json> --coverage-dir <retained-dir> --json`.
 
 Infrastructure retries are allowed only for classified infrastructure failures such as `EXEC_AGENT_TIMEOUT`, `EXEC_AGENT_UNAVAILABLE`, `EPIPE`, or VMM/gvproxy transport errors. Semantic failures, assertion failures, changed identity refusals, and missing expected target evidence must not be retried away.
 
 Remote amd64 validation should be one scripted command that syncs the tree, selects the Linux VMM and Linux gvproxy, cleans stale remote temporary state, runs the chunk plan, verifies coverage, and emits the evidence summary.
+
+## Scoped next product-proof wave options
+
+Faster proof fixtures make more targeted move rows practical, but they do not widen the product claim. Good next candidates are:
+
+- stronger service parity/refusal rows for one exact static or idle service shape at a time;
+- descriptor-harness rows graduating to live-capture rows only when the same resource graph and refusal boundaries are observed;
+- additional fd/resource classes with exact preflight and no-launch refusal evidence before support.
+
+These are not claims of arbitrary process restore, any-binary movement, broad daemon support, source-ISA emulation, interactive terminal migration, broad generic service migration, or metadata-only success.

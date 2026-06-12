@@ -4,15 +4,32 @@ import type {
   NativeProcessImageRefusal,
   VmHandle,
 } from "@machinen/runtime";
-
+import {
+  genericAnonInodeResourceClasses,
+  genericEpolls,
+  genericEventfds,
+  supportedEventfdCounter,
+  supportedEpollSet,
+} from "./move-generic-anon-inode.ts";
+import { genericEventfdLaunchCommand } from "./move-generic-eventfd-loader.ts";
 import {
   genericRegularFileCursorLaunchCommand,
   genericRegularFilePreflightCommand,
 } from "./move-generic-file-cursor-loader.ts";
+import { healthProbeCommand } from "./move-generic-health-probes.ts";
 import {
   genericPipeLaunchCommand,
   genericPipePreflightCommands,
 } from "./move-generic-pipe-loader.ts";
+import { genericPtyLaunchCommand } from "./move-generic-pty-loader.ts";
+import { genericPtys, supportedNoninteractivePtyProbe } from "./move-generic-pty-terminal.ts";
+import { genericStdioGraph, genericStdioPolicy } from "./move-generic-stdio.ts";
+import { genericTerminalBoundaryRefusals } from "./move-generic-terminal-boundaries.ts";
+import {
+  bespokeIdleListenerPort,
+  genericMigrationWave2,
+  looksLikePythonHttpServer,
+} from "./move-generic-migration-wave2.ts";
 import {
   createGenericPreflight,
   genericResourceRefusal,
@@ -21,8 +38,13 @@ import {
   regularFileCursor,
   type GenericPreflight,
 } from "./move-generic-wave2-baseline.ts";
+import {
+  firstUnixSocketPath,
+  genericUnixSocketPreflightCommands,
+  genericUnixSockets,
+  supportedUnixPathnameListener,
+} from "./move-generic-unix-socket.ts";
 import { shellQuote } from "./move-preflight-helpers.ts";
-
 type MoveResourcePlan = NonNullable<MoveDescriptor["resourcePlan"]>;
 type MoveCapture = NonNullable<MoveResourcePlan["capture"]>;
 type MoveLoadDirectLoader = {
@@ -38,9 +60,7 @@ type MoveLoadDirectLoader = {
 type GenericState = NonNullable<MoveCapture["genericResourceGraphState"]>;
 type GenericResourceClass = GenericState["resourceClasses"][number];
 type GenericRefusalClass = GenericState["refusalClasses"][number];
-type GenericStdioGraph = NonNullable<GenericState["stdioGraph"]>;
 type GenericPipeGraph = NonNullable<GenericState["pipeGraph"]>;
-
 export async function readMoveGenericResourceGraphStateInVm(
   vm: VmHandle,
   node: MovePidGraphNode,
@@ -61,7 +81,6 @@ export async function readMoveGenericResourceGraphStateInVm(
       )
     : undefined;
 }
-
 export function buildMoveGenericResourceGraphState(
   node: MovePidGraphNode,
   resourcePlan: MoveResourcePlan,
@@ -71,8 +90,10 @@ export function buildMoveGenericResourceGraphState(
 ): MoveCapture["genericResourceGraphState"] {
   const preflight = parseGenericResourceGraphPreflight(stdout);
   const classifier = classifyGenericResourceGraph(node, resourcePlan, preflight);
+  const migration = genericMigrationWave2(node, resourcePlan, preflight, classifier.refusals);
   return {
     policy: "generic-resource-graph-target-native-reexec-v1",
+    migration,
     executableIdentity: executableIdentity(executablePath, executablePackage),
     argv: node.argv,
     env: { policy: "target-default" },
@@ -80,19 +101,25 @@ export function buildMoveGenericResourceGraphState(
     root: preflight.root ? { path: preflight.root } : undefined,
     uidGid: uidGid(preflight),
     ports: listenerPorts(preflight, classifier.refusals),
+    unixSockets: genericUnixSockets(preflight, resourcePlan),
     regularFiles: regularFiles(resourcePlan, preflight),
-    dataDirs: dataDirs(node, preflight),
+    dataDirs: dataDirs(node, resourcePlan, preflight),
     fileOffsets: fileOffsets(resourcePlan),
-    stdioPolicy: stdioPolicy(resourcePlan),
-    stdioGraph: stdioGraph(resourcePlan),
+    stdioPolicy: genericStdioPolicy(resourcePlan, preflight, node),
+    stdioGraph: genericStdioGraph(
+      resourcePlan,
+      supportedNoninteractivePtyProbe(node, resourcePlan, preflight),
+    ),
     pipeGraph: pipeGraph(resourcePlan, node),
-    healthProbe: healthProbe(preflight, node),
+    eventfds: genericEventfds(preflight, resourcePlan),
+    epolls: genericEpolls(preflight, resourcePlan),
+    ptys: genericPtys(preflight, resourcePlan, node),
+    healthProbe: healthProbe(preflight, node, resourcePlan, migration),
     resourceClasses: classifier.resourceClasses,
     refusalClasses: classifier.refusals,
     capturedAt: new Date().toISOString(),
   };
 }
-
 export function parseGenericResourceGraphPreflight(stdout: string): GenericPreflight {
   const preflight = createGenericPreflight();
   for (const line of stdout.split("\n")) {
@@ -101,29 +128,33 @@ export function parseGenericResourceGraphPreflight(stdout: string): GenericPrefl
   }
   return preflight;
 }
-
+const preflightRowParsers: Record<string, (preflight: GenericPreflight, parts: string[]) => void> =
+  {
+    STATUS: (preflight, parts) => {
+      preflight.uid = number(parts[1]);
+      preflight.gid = number(parts[2]);
+    },
+    ROOT: (preflight, parts) => {
+      preflight.root = parts[1];
+    },
+    CWD_IDENTITY: (preflight, parts) => {
+      preflight.cwd = treeIdentity(parts);
+    },
+    FILE_IDENTITY: pushFileIdentity,
+    DATA_DIR_IDENTITY: pushDataDirIdentity,
+    TCP_FD: pushTcpFd,
+    FILE_LOCK: (preflight, parts) => {
+      preflight.locks.push(parts.slice(1).join("\t"));
+    },
+    MMAP_FILE: (preflight, parts) => {
+      preflight.mmaps.push(parts.slice(1).join("\t"));
+    },
+  };
 function parsePreflightRow(preflight: GenericPreflight, parts: string[]): void {
-  if (parseWave2PreflightRow(preflight, parts)) {
-    return;
-  }
-  if (parts[0] === "STATUS") {
-    preflight.uid = number(parts[1]);
-    preflight.gid = number(parts[2]);
-  } else if (parts[0] === "ROOT") {
-    preflight.root = parts[1];
-  } else if (parts[0] === "CWD_IDENTITY") {
-    preflight.cwd = treeIdentity(parts);
-  } else if (parts[0] === "FILE_IDENTITY") {
-    pushFileIdentity(preflight, parts);
-  } else if (parts[0] === "TCP_FD") {
-    pushTcpFd(preflight, parts);
-  } else if (parts[0] === "FILE_LOCK") {
-    preflight.locks.push(parts.slice(1).join("\t"));
-  } else if (parts[0] === "MMAP_FILE") {
-    preflight.mmaps.push(parts.slice(1).join("\t"));
+  if (!parseWave2PreflightRow(preflight, parts)) {
+    preflightRowParsers[parts[0] ?? ""]?.(preflight, parts);
   }
 }
-
 function treeIdentity(parts: string[]): GenericState["cwd"]["identity"] | undefined {
   const fileCount = number(parts[2]);
   const directoryCount = number(parts[3]);
@@ -136,7 +167,6 @@ function treeIdentity(parts: string[]): GenericState["cwd"]["identity"] | undefi
     ? { fileCount, directoryCount, totalBytes, treeDigest }
     : undefined;
 }
-
 function pushFileIdentity(preflight: GenericPreflight, parts: string[]): void {
   const fd = number(parts[1]);
   const dev = number(parts[3]);
@@ -160,6 +190,27 @@ function pushFileIdentity(preflight: GenericPreflight, parts: string[]): void {
       size,
       mtimeEpochSeconds,
       sha256,
+    });
+  }
+}
+function pushDataDirIdentity(preflight: GenericPreflight, parts: string[]): void {
+  const fileCount = number(parts[2]);
+  const directoryCount = number(parts[3]);
+  const totalBytes = number(parts[4]);
+  const treeDigest = parts[5];
+  if (
+    parts[1] &&
+    fileCount !== undefined &&
+    directoryCount !== undefined &&
+    totalBytes !== undefined &&
+    isSha256(treeDigest)
+  ) {
+    preflight.dataDirs.push({
+      path: parts[1],
+      fileCount,
+      directoryCount,
+      totalBytes,
+      treeDigest,
     });
   }
 }
@@ -206,12 +257,32 @@ function classifyGenericResourceGraph(
       supported("pipeGraph", "pipe fds are normalized into pipe graph descriptor evidence"),
     );
   }
-  if (listenerPorts(preflight, refusals).length > 0) {
+  resourceClasses.push(...genericAnonInodeResourceClasses(preflight, resourcePlan));
+  if (listenerPorts(preflight, refusals, resourcePlan).length > 0) {
     resourceClasses.push(
       supported("loopbackTcpListener", "loopback TCP listeners have no active clients"),
     );
     resourceClasses.push(
       supported("healthProbe", "tcp-connect health probe can be inferred from listener"),
+    );
+  }
+  if (genericUnixSockets(preflight, resourcePlan).length > 0) {
+    resourceClasses.push(
+      supported(
+        "unixSocketPathnameListener",
+        "idle pathname Unix listeners have exact path and no active clients",
+      ),
+    );
+    resourceClasses.push(
+      supported("healthProbe", "Unix-connect health probe can be inferred from listener"),
+    );
+  }
+  if (preflight.ptys.length > 0) {
+    resourceClasses.push(
+      supported(
+        "terminalOrPtyEvidence",
+        "PTY descriptor evidence records termios, winsize, session, process-group, foreground process-group, and fd flags for fail-closed refusal",
+      ),
     );
   }
   for (const refusal of refusals) {
@@ -230,7 +301,15 @@ function unsupportedResourceRefusals(
   preflight: GenericPreflight,
 ): GenericRefusalClass[] {
   const refusals = resourcePlan.resources.flatMap((resource) =>
-    genericResourceRefusal(resource, preflight, isIdleLoopbackListener(preflight, resource.fd)),
+    genericResourceRefusal(
+      resource,
+      preflight,
+      isIdleLoopbackListener(preflight, resource.fd) || isBespokeIdleListener(resourcePlan),
+      supportedUnixPathnameListener(preflight, resource),
+      supportedEventfdCounter(resource, preflight, resourcePlan),
+      supportedEpollSet(resource, preflight, resourcePlan),
+      supportedNoninteractivePtyProbe(node, resourcePlan, preflight),
+    ),
   );
   if (hasActiveTcp(preflight)) {
     refusals.push(
@@ -242,12 +321,13 @@ function unsupportedResourceRefusals(
     );
   }
   refusals.push(...fileLockRefusals(preflight), ...mmapRefusals(preflight, resourcePlan));
-  if (stdioPolicy(resourcePlan) === "refuse-nontrivial-stdio") {
+  if (genericStdioPolicy(resourcePlan, preflight, node) === "refuse-nontrivial-stdio") {
     refusals.push(
       refusal("stdio", "stdio is not closed or /dev/null", "fd 0/1/2 has non-trivial target"),
     );
   }
   refusals.push(...hiddenShellStateRefusals(node));
+  refusals.push(...genericTerminalBoundaryRefusals(node, resourcePlan, preflight));
   return dedupeRefusals(refusals);
 }
 
@@ -325,19 +405,33 @@ function isIdleLoopbackListener(preflight: GenericPreflight, fd: number | undefi
 function listenerPorts(
   preflight: GenericPreflight,
   refusals: GenericRefusalClass[],
+  resourcePlan?: MoveResourcePlan,
 ): GenericState["ports"] {
   if (refusals.some((item) => item.resourceClass === "activeTcpConnection")) {
     return [];
   }
-  return preflight.tcp
+  const ports = preflight.tcp
     .filter((tcp) => tcp.state === "0A" && tcp.localHost === "127.0.0.1" && tcp.localPort)
-    .map((tcp) => ({
-      protocol: "tcp" as const,
-      port: tcp.localPort!,
-      bindAddress: "127.0.0.1" as const,
-      state: "idle-loopback-listener" as const,
-      noActiveClients: true as const,
-    }));
+    .map((tcp) => listenerPortState(tcp.localPort!));
+  const bespokePort = bespokeIdleListenerPort(resourcePlan);
+  if (bespokePort !== undefined && !ports.some((port) => port.port === bespokePort)) {
+    ports.push(listenerPortState(bespokePort));
+  }
+  return ports;
+}
+
+function listenerPortState(port: number): GenericState["ports"][number] {
+  return {
+    protocol: "tcp",
+    port,
+    bindAddress: "127.0.0.1",
+    state: "idle-loopback-listener",
+    noActiveClients: true,
+  };
+}
+
+function isBespokeIdleListener(resourcePlan: MoveResourcePlan): boolean {
+  return bespokeIdleListenerPort(resourcePlan) !== undefined;
 }
 
 function regularFiles(
@@ -364,52 +458,52 @@ function regularFiles(
   });
 }
 
-function dataDirs(node: MovePidGraphNode, preflight: GenericPreflight): GenericState["dataDirs"] {
-  return node.cwd && preflight.cwd
-    ? [{ path: node.cwd, access: "write-validated", identity: preflight.cwd }]
-    : [];
+function dataDirs(
+  node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+  preflight: GenericPreflight,
+): GenericState["dataDirs"] {
+  const dirs = preflight.dataDirs.map((dir) => ({
+    path: dir.path,
+    access: "write-validated" as const,
+    identity: {
+      fileCount: dir.fileCount,
+      directoryCount: dir.directoryCount,
+      totalBytes: dir.totalBytes,
+      treeDigest: dir.treeDigest,
+    },
+  }));
+  const httpState = resourcePlan.capture?.httpState;
+  if (httpState?.directory && httpState.directoryIdentity) {
+    dirs.push({
+      path: httpState.directory,
+      access: "write-validated",
+      identity: httpState.directoryIdentity,
+    });
+  }
+  const hasUnixSocketInCwd = genericUnixSockets(preflight, resourcePlan).some((socket) =>
+    socket.path.startsWith(`${node.cwd}/`),
+  );
+  if (
+    node.cwd &&
+    preflight.cwd &&
+    !hasUnixSocketInCwd &&
+    !dirs.some((dir) => dir.path === node.cwd)
+  ) {
+    dirs.unshift({ path: node.cwd, access: "write-validated", identity: preflight.cwd });
+  }
+  return dedupeDataDirs(dirs);
 }
 
-function stdioGraph(resourcePlan: MoveResourcePlan): GenericStdioGraph {
-  const fds = ([0, 1, 2] as const).map((fd) => stdioFd(resourcePlan, fd));
-  return { policy: stdioGraphPolicy(fds), fds };
-}
-
-function stdioFd(resourcePlan: MoveResourcePlan, fd: 0 | 1 | 2): GenericStdioGraph["fds"][number] {
-  const resource = resourcePlan.resources.find((item) => item.fd === fd);
-  const target = stdioTarget(resource?.kind, resource?.path);
-  return {
-    fd,
-    target,
-    access: fd === 0 ? "read" : "write",
-    evidence: resource?.path ? `fd=${fd} path=${resource.path}` : `fd=${fd} closed-or-unobserved`,
-  };
-}
-
-function stdioTarget(
-  kind: string | undefined,
-  path: string | undefined,
-): GenericStdioGraph["fds"][number]["target"] {
-  if (!kind || !path) {
-    return "closed";
-  }
-  if (path === "/dev/null") {
-    return "dev-null";
-  }
-  if (pipeInode(path)) {
-    return "pipe";
-  }
-  return kind === "file" ? "regular-file" : "refused";
-}
-
-function stdioGraphPolicy(fds: GenericStdioGraph["fds"]): GenericStdioGraph["policy"] {
-  if (fds.every((fd) => fd.target === "closed" || fd.target === "dev-null")) {
-    return "dev-null-or-closed";
-  }
-  if (fds.some((fd) => fd.target === "refused")) {
-    return "refused";
-  }
-  return fds.some((fd) => fd.target === "pipe") ? "modeled-pipe" : "inherited-noninteractive";
+function dedupeDataDirs(dirs: GenericState["dataDirs"]): GenericState["dataDirs"] {
+  const seen = new Set<string>();
+  return dirs.filter((dir) => {
+    if (seen.has(dir.path)) {
+      return false;
+    }
+    seen.add(dir.path);
+    return true;
+  });
 }
 
 function pipeGraph(
@@ -513,21 +607,18 @@ function fileOffsets(resourcePlan: MoveResourcePlan): GenericState["fileOffsets"
     }));
 }
 
-function stdioPolicy(resourcePlan: MoveResourcePlan): GenericState["stdioPolicy"] {
-  const stdio = resourcePlan.resources.filter((resource) => [0, 1, 2].includes(resource.fd ?? -1));
-  return stdio.every((resource) => resource.path === "/dev/null")
-    ? "stdio-dev-null-or-closed"
-    : "refuse-nontrivial-stdio";
-}
-
 function healthProbe(
   preflight: GenericPreflight,
   node: MovePidGraphNode,
+  resourcePlan: MoveResourcePlan,
+  migration: GenericState["migration"],
 ): GenericState["healthProbe"] {
-  const port = preflight.tcp.find(
-    (tcp) => tcp.state === "0A" && tcp.localHost === "127.0.0.1",
-  )?.localPort;
-  if (!port) {
+  const unixPath = firstUnixSocketPath(preflight, resourcePlan);
+  if (unixPath) {
+    return { kind: "unix-connect", path: unixPath };
+  }
+  const port = listenerPort(preflight) ?? bespokeIdleListenerPort(resourcePlan);
+  if (!port || migration?.sourceProofName === "nc-listener") {
     return { kind: "process-alive" };
   }
   return looksLikePythonHttpServer(node.argv)
@@ -535,8 +626,9 @@ function healthProbe(
     : { kind: "tcp-connect", host: "127.0.0.1", port };
 }
 
-function looksLikePythonHttpServer(argv: string[]): boolean {
-  return argv.some((arg) => arg === "http.server") && argv.some((arg) => arg === "-m");
+function listenerPort(preflight: GenericPreflight): number | undefined {
+  return preflight.tcp.find((tcp) => tcp.state === "0A" && tcp.localHost === "127.0.0.1")
+    ?.localPort;
 }
 
 function executableIdentity(
@@ -614,17 +706,33 @@ gid=$(awk '/^Gid:/ {print $2}' "$status_file")
 printf 'STATUS\t%s\t%s\n' "$uid" "$gid"
 root=$(readlink "/proc/$pid/root" 2>/dev/null || true)
 printf 'ROOT\t%s\n' "$root"
+awk 'NR > 1 { path = (NF >= 8 ? $8 : ""); printf "UNIX_FD\t-1\t%s\t%s\t%s\t%s\t%s\t%s\t%s\\n", $7, $2, $3, $4, $5, $6, path }' /proc/net/unix 2>/dev/null || true
+emit_tree_identity() {
+  label="$1"
+  path="$2"
+  if [ -n "$path" ] && [ -d "$path" ] && [ ! -L "$path" ]; then
+    tree_file=/tmp/machinen-generic-tree-$$.txt
+    find "$path" -xdev -printf '%P\t%y\t%s\t%m\n' | LC_ALL=C sort >"$tree_file"
+    file_count=$(find "$path" -xdev -type f | wc -l | tr -d ' ')
+    dir_count=$(find "$path" -xdev -type d | wc -l | tr -d ' ')
+    total_bytes=$(find "$path" -xdev -type f -printf '%s\n' | awk '{s += $1} END {print s + 0}')
+    digest=$(sha256sum "$tree_file" | cut -d' ' -f1)
+    rm -f "$tree_file"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$label" "$path" "$file_count" "$dir_count" "$total_bytes" "$digest"
+  fi
+}
 cwd=$(readlink "/proc/$pid/cwd" 2>/dev/null || true)
-if [ -n "$cwd" ] && [ "$cwd" != "/" ] && [ -d "$cwd" ] && [ ! -L "$cwd" ]; then
-  tree_file=/tmp/machinen-generic-cwd-$$.txt
-  find "$cwd" -xdev -printf '%P\t%y\t%s\t%m\n' | LC_ALL=C sort >"$tree_file"
-  file_count=$(find "$cwd" -xdev -type f | wc -l | tr -d ' ')
-  dir_count=$(find "$cwd" -xdev -type d | wc -l | tr -d ' ')
-  total_bytes=$(find "$cwd" -xdev -type f -printf '%s\n' | awk '{s += $1} END {print s + 0}')
-  digest=$(sha256sum "$tree_file" | cut -d' ' -f1)
-  rm -f "$tree_file"
-  printf 'CWD_IDENTITY\t%s\t%s\t%s\t%s\t%s\n' "$cwd" "$file_count" "$dir_count" "$total_bytes" "$digest"
+if [ "$cwd" != "/" ]; then
+  emit_tree_identity CWD_IDENTITY "$cwd"
 fi
+python3 - "$pid" <<'PY' | while IFS= read -r data_dir; do emit_tree_identity DATA_DIR_IDENTITY "$data_dir"; done
+import sys
+raw = open(f"/proc/{sys.argv[1]}/cmdline", "rb").read().split(b"\0")
+argv = [part.decode("utf-8", "ignore") for part in raw if part]
+for index, arg in enumerate(argv[:-1]):
+    if arg == "--directory" and argv[index + 1].startswith("/"):
+        print(argv[index + 1])
+PY
 for fdpath in /proc/$pid/fd/[0-9]*; do
   [ -e "$fdpath" ] || continue
   fd=$(basename "$fdpath")
@@ -647,17 +755,38 @@ for op in (fcntl.lockf, fcntl.flock):
 sys.exit(0)
 PY
   fi
+  eventfd_count=$(awk -F: '/^eventfd-count:/ { gsub(/^[[:space:]]+/, "", $2); print $2; exit }' "/proc/$pid/fdinfo/$fd" 2>/dev/null || true)
+  fdinfo_flags=$(awk '/^flags:/ { print $2; exit }' "/proc/$pid/fdinfo/$fd" 2>/dev/null || true)
+  if [ -n "$eventfd_count" ]; then printf 'EVENTFD_FD\t%s\t%s\t%s\n' "$fd" "$eventfd_count" "$fdinfo_flags"; fi
+  if [ "$target" = "anon_inode:[eventpoll]" ] || grep -q '^[[:space:]]*tfd:' "/proc/$pid/fdinfo/$fd" 2>/dev/null; then printf 'EPOLL_FD\t%s\t%s\n' "$fd" "$fdinfo_flags"; awk -v epfd="$fd" '/^[[:space:]]*tfd:/ { tfd=""; events=""; data=""; for (i=1; i<=NF; i++) { if ($i == "tfd:") tfd=$(i+1); else if ($i == "events:") events=$(i+1); else if ($i == "data:") data=$(i+1) } printf "EPOLL_WATCH\t%s\t%s\t%s\t%s\n", epfd, tfd, events, data }' "/proc/$pid/fdinfo/$fd"; fi
+  case "$target" in /dev/pts/*|/dev/tty*)
+    stat_fields=$(python3 -c 'import sys; s=open(f"/proc/{sys.argv[1]}/stat", encoding="utf-8").read().rsplit(") ",1)[1].split(); print("%s\t%s\t%s\t%s" % (s[2], s[3], s[4], s[5]))' "$pid" 2>/dev/null || printf '\t\t\t')
+    pgrp=$(printf '%s' "$stat_fields" | cut -f1); sid=$(printf '%s' "$stat_fields" | cut -f2); tty_nr=$(printf '%s' "$stat_fields" | cut -f3); tpgid=$(printf '%s' "$stat_fields" | cut -f4)
+    size=$(stty size -F "$target" 2>/dev/null || true); rows=$(printf '%s' "$size" | awk '{print $1}'); cols=$(printf '%s' "$size" | awk '{print $2}')
+    termios=$(stty -a -F "$target" 2>/dev/null | tr '\n\t' '  ' | tr -s ' ' || true); [ -n "$termios" ] || termios=unknown
+    printf 'PTY_FD\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$fd" "$target" "$fdinfo_flags" "$sid" "$pgrp" "$tpgid" "$tty_nr" "$rows" "$cols" "$termios"
+    ;;
+  esac
   awk -v fd="$fd" '/^lock:/ { sub(/^lock:[[:space:]]*/, ""); printf "FILE_LOCK\\tfd=%s %s\\n", fd, $0 }' "/proc/$pid/fdinfo/$fd" 2>/dev/null || true
 done
-for fdpath in /proc/$pid/fd/[0-9]*; do
-  [ -e "$fdpath" ] || continue
-  fd=$(basename "$fdpath")
-  target=$(readlink "$fdpath" 2>/dev/null || true)
-  inode=$(printf '%s' "$target" | sed -n 's/^socket:\\[\\([0-9][0-9]*\\)\\]$/\\1/p')
-  [ -n "$inode" ] || continue
-  awk -v fd="$fd" -v inode="$inode" '$10 == inode { printf "TCP_FD\\t%s\\t%s\\t%s\\t%s\\t%s\\n", fd, inode, $4, $2, $3 }' /proc/net/tcp /proc/net/tcp6 2>/dev/null || true
-  awk -v fd="$fd" -v inode="$inode" '$7 == inode { path = (NF >= 8 ? $8 : ""); printf "UNIX_FD\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n", fd, inode, $2, $3, $4, $5, $6, path }' /proc/net/unix 2>/dev/null || true
-done
+python3 - "$pid" <<'PY' 2>/dev/null || true
+import os, sys
+pid = sys.argv[1]
+def lines(path):
+    try: return open(path, "r", encoding="utf-8").read().splitlines()[1:]
+    except OSError: return []
+fd_by_inode = {}
+for fd in os.listdir(f"/proc/{pid}/fd") if os.path.isdir(f"/proc/{pid}/fd") else []:
+    if fd.isdigit():
+        try: target = os.readlink(f"/proc/{pid}/fd/{fd}")
+        except OSError: continue
+        if target.startswith("socket:[") and target.endswith("]"):
+            fd_by_inode[target[len("socket:["):-1]] = fd
+for line in lines("/proc/net/tcp") + lines("/proc/net/tcp6"):
+    parts = line.split()
+    if len(parts) >= 10 and parts[9] in fd_by_inode:
+        print("TCP_FD\t%s\t%s\t%s\t%s\t%s" % (fd_by_inode[parts[9]], parts[9], parts[3], parts[1], parts[2]))
+PY
 awk -v pid="$pid" '$5 == pid { printf "FILE_LOCK\\t%s\\n", $0 }' /proc/locks 2>/dev/null || true
 awk '$2 ~ /w/ && NF >= 6 && $6 ~ /^[/]/ { printf "MMAP_FILE\\t%s\\n", $0 }' "/proc/$pid/maps" 2>/dev/null || true
 `;
@@ -692,6 +821,10 @@ export async function runMoveTargetGenericResourceGraphLoaderInVm(
   };
 }
 
+export function genericResourceGraphIsPrimary(state: GenericState | undefined): boolean {
+  return state?.migration?.mode === "generic-primary" && state.refusalClasses.length === 0;
+}
+
 export function genericResourceGraphLoaderCommand(state: GenericState | undefined): string {
   if (!state) {
     return "printf 'PATCH\\tgeneric-resource-graph\\trefused\\tmissing-state\\n'; exit 2";
@@ -711,6 +844,7 @@ export function genericResourceGraphLoaderCommand(state: GenericState | undefine
     ...state.regularFiles.map((file) => genericRegularFilePreflightCommand(file)),
     ...state.dataDirs.map((dir) => dataDirPreflight(dir)),
     ...state.ports.map((port) => portPreflight(port.bindAddress, port.port)),
+    ...genericUnixSocketPreflightCommands(state),
     ...genericPipePreflightCommands(state),
   ].filter(Boolean);
   return `set -eu
@@ -732,70 +866,12 @@ printf 'PATCH\tgeneric-resource-graph\tready\t%s\n' "$pid"
 function genericLaunchCommand(state: GenericState): string {
   return (
     genericPipeLaunchCommand(state) ??
+    genericEventfdLaunchCommand(state) ??
+    genericPtyLaunchCommand(state) ??
     genericRegularFileCursorLaunchCommand(state) ??
     `${state.argv.map(shellQuote).join(" ")} >"$log" 2>&1 &
 pid=$!`
   );
-}
-
-function healthProbeCommand(probe: GenericState["healthProbe"]): string {
-  if (probe.kind === "process-alive") {
-    return `kill -0 "$pid" 2>/dev/null || probe_fail health-process-dead`;
-  }
-  if (probe.kind === "tcp-connect") {
-    return probe.expectedBannerSha256
-      ? tcpBannerProbeCommand(probe.host, probe.port, probe.expectedBannerSha256)
-      : tcpConnectProbeCommand(probe.host, probe.port, "health-tcp-connect-failed");
-  }
-  if (probe.kind === "http") {
-    return `python3 - ${shellQuote(probe.url)} ${shellQuote(String(probe.expectedStatus ?? 200))} <<'PY' || probe_fail health-http-failed
-import sys, time, urllib.request
-for _ in range(30):
-    try:
-        response = urllib.request.urlopen(sys.argv[1], timeout=1)
-        sys.exit(0 if response.status == int(sys.argv[2]) else 1)
-    except Exception:
-        time.sleep(0.1)
-sys.exit(1)
-PY`;
-  }
-  if (probe.kind === "command") {
-    const digestCheck = probe.expectedStdoutSha256
-      ? `[ "$(sha256sum /tmp/machinen-generic-health-$$.out | cut -d' ' -f1)" = ${shellQuote(probe.expectedStdoutSha256)} ] || probe_fail health-command-digest-mismatch`
-      : "";
-    return `${probe.argv.map(shellQuote).join(" ")} >/tmp/machinen-generic-health-$$.out 2>/dev/null || probe_fail health-command-failed
-${digestCheck}`;
-  }
-  return "probe_fail health-probe-unsupported";
-}
-
-function tcpConnectProbeCommand(host: string, port: number, reason: string): string {
-  return `python3 - ${shellQuote(host)} ${shellQuote(String(port))} <<'PY' || probe_fail ${reason}
-import socket, sys, time
-for _ in range(30):
-    try:
-        s = socket.create_connection((sys.argv[1], int(sys.argv[2])), timeout=1)
-        s.close()
-        sys.exit(0)
-    except OSError:
-        time.sleep(0.1)
-sys.exit(1)
-PY`;
-}
-
-function tcpBannerProbeCommand(host: string, port: number, expectedSha256: string): string {
-  return `python3 - ${shellQuote(host)} ${shellQuote(String(port))} ${shellQuote(expectedSha256)} <<'PY' || probe_fail health-tcp-banner-failed
-import hashlib, socket, sys, time
-for _ in range(30):
-    try:
-        s = socket.create_connection((sys.argv[1], int(sys.argv[2])), timeout=1)
-        data = s.recv(4096)
-        s.close()
-        sys.exit(0 if hashlib.sha256(data).hexdigest() == sys.argv[3] else 1)
-    except OSError:
-        time.sleep(0.1)
-sys.exit(1)
-PY`;
 }
 
 function dataDirPreflight(dir: GenericState["dataDirs"][number]): string {
@@ -806,10 +882,22 @@ function dataDirPreflight(dir: GenericState["dataDirs"][number]): string {
       : `test -d ${path} || fail data-dir-missing`;
   const identity = dir.identity
     ? `tree_file=/tmp/machinen-generic-loader-tree-$$.txt
-find ${path} -xdev -printf '%P\t%y\t%s\t%m\n' | LC_ALL=C sort >"$tree_file"
-[ "$(find ${path} -xdev -type f | wc -l | tr -d ' ')" = ${shellQuote(String(dir.identity.fileCount))} ] || fail data-dir-file-count-mismatch
-[ "$(find ${path} -xdev -type d | wc -l | tr -d ' ')" = ${shellQuote(String(dir.identity.directoryCount))} ] || fail data-dir-directory-count-mismatch
-[ "$(find ${path} -xdev -type f -printf '%s\n' | awk '{s += $1} END {print s + 0}')" = ${shellQuote(String(dir.identity.totalBytes))} ] || fail data-dir-total-bytes-mismatch
+: >"$tree_file"
+printf '.\tdirectory\t%s\t%s\n' "$(stat -c %f ${path})" "$(stat -c %s ${path})" >>"$tree_file"
+find ${path} -mindepth 1 -printf '%P\n' | LC_ALL=C sort | while IFS= read -r rel; do
+  entry_path=${path}/$rel
+  entry_type=$(find "$entry_path" -maxdepth 0 -printf '%y')
+  if [ "$entry_type" = f ]; then
+    printf '%s\tfile\t%s\t%s\t%s\n' "$rel" "$(stat -c %f "$entry_path")" "$(stat -c %s "$entry_path")" "$(sha256sum "$entry_path" | cut -d' ' -f1)" >>"$tree_file"
+  elif [ "$entry_type" = d ]; then
+    printf '%s\tdirectory\t%s\t%s\n' "$rel" "$(stat -c %f "$entry_path")" "$(stat -c %s "$entry_path")" >>"$tree_file"
+  else
+    fail data-dir-unsupported-entry
+  fi
+done
+[ "$(awk -F '\t' '$2 == "file" { n++ } END { print n + 0 }' "$tree_file")" = ${shellQuote(String(dir.identity.fileCount))} ] || fail data-dir-file-count-mismatch
+[ "$(awk -F '\t' '$2 == "directory" { n++ } END { print n + 0 }' "$tree_file")" = ${shellQuote(String(dir.identity.directoryCount))} ] || fail data-dir-directory-count-mismatch
+[ "$(awk -F '\t' '$2 == "file" { n += $4 } END { print n + 0 }' "$tree_file")" = ${shellQuote(String(dir.identity.totalBytes))} ] || fail data-dir-total-bytes-mismatch
 [ "$(sha256sum "$tree_file" | cut -d' ' -f1)" = ${shellQuote(dir.identity.treeDigest)} ] || fail data-dir-identity-mismatch
 rm -f "$tree_file"`
     : "";

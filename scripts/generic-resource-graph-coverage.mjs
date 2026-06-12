@@ -54,12 +54,49 @@ const allowedMigrationModes = [
   "bespoke-fallback-only",
   "not-migrated",
 ];
+const requiredWave2Candidates = ["python-http-directory", "nc-listener", "reader-cat", "grep"];
+const allowedWave2MigrationModes = [
+  "generic-primary-candidate-pending-proof",
+  "generic-primary",
+  "generic-equivalent-with-bespoke-fallback",
+  "bespoke-fallback-only",
+  "not-migrated",
+];
+const allowedWave2TargetModes = [
+  "generic-primary",
+  "retain-bespoke-fallback",
+  "bespoke-fallback-only",
+  "not-migrated",
+];
+const requiredServiceCandidates = [
+  "nginx-static",
+  "caddy-static",
+  "ruby-http",
+  "php-static",
+  "rsync-daemon",
+  "redis-idle",
+];
+const allowedServiceMigrationModes = [
+  "explicit-envelope-fallback",
+  "generic-primary-pending-proof",
+];
 const migrationWave1Candidates = inventory.genericMigrationWave1Candidates ?? [];
 const migrationWave1Errors = validateWave1Candidates(
   migrationWave1Candidates,
   migrationRows,
   proofNames,
 );
+const migrationWave2Candidates = inventory.genericMigrationWave2Candidates ?? [];
+const migrationWave2Errors = validateWave2Candidates(
+  migrationWave2Candidates,
+  migrationRows,
+  proofNames,
+);
+const serviceCandidates = inventory.genericServiceConsolidationCandidates ?? [];
+const serviceConsolidationErrors = [
+  ...validateServiceCandidates(serviceCandidates, proofNames),
+  ...validateServiceStatusLanguage(inventory.genericServiceConsolidationStatusLanguage),
+];
 
 const requiredGenericRows = [
   "generic-yes-loop",
@@ -87,6 +124,9 @@ const requiredGenericRows = [
   "generic-inotify-file-refusal",
   "generic-unix-socket-baseline-refusals",
   "generic-anon-inode-baseline-refusals",
+  "generic-pty-transcript-probe",
+  "generic-pty-terminal-refusals",
+  "generic-service-php-static-parity",
   "generic-unsupported-resource-refusals",
   "generic-loader-preflight-refusals",
 ];
@@ -107,12 +147,26 @@ const report = {
     genericProofName: row.genericProofName,
     migrationMode: row.migrationMode,
   })),
+  migrationWave2Candidates: migrationWave2Candidates.map((row) => ({
+    bespokeProofName: row.bespokeProofName,
+    genericProofName: row.genericProofName,
+    migrationMode: row.migrationMode,
+    targetMode: row.targetMode,
+  })),
+  serviceConsolidationCandidates: serviceCandidates.map((row) => ({
+    bespokeProofName: row.bespokeProofName,
+    refusalProofName: row.refusalProofName,
+    migrationMode: row.migrationMode,
+    resourceClasses: row.resourceClasses,
+  })),
   missing,
   extra,
   duplicates: [...new Set(duplicates)],
   missingGenericRows,
   migrationErrors,
   migrationWave1Errors,
+  migrationWave2Errors,
+  serviceConsolidationErrors,
 };
 
 console.log(JSON.stringify(report, null, 2));
@@ -123,9 +177,85 @@ if (
   duplicates.length > 0 ||
   missingGenericRows.length > 0 ||
   migrationErrors.length > 0 ||
-  migrationWave1Errors.length > 0
+  migrationWave1Errors.length > 0 ||
+  migrationWave2Errors.length > 0 ||
+  serviceConsolidationErrors.length > 0
 ) {
   process.exit(1);
+}
+
+function validateServiceStatusLanguage(statusLanguage) {
+  return [
+    serviceStatusFieldError(statusLanguage, "allowedClaim"),
+    serviceStatusFieldError(statusLanguage, "supportScope"),
+    serviceStatusFieldError(statusLanguage, "fallbackStatement"),
+    serviceForbiddenClaimsError(statusLanguage),
+  ].filter(Boolean);
+}
+
+function serviceStatusFieldError(statusLanguage, field) {
+  return statusLanguage?.[field] ? undefined : `missing service status language ${field}`;
+}
+
+function serviceForbiddenClaimsError(statusLanguage) {
+  return Array.isArray(statusLanguage?.forbiddenClaims) && statusLanguage.forbiddenClaims.length > 0
+    ? undefined
+    : "missing service status language forbiddenClaims";
+}
+
+function validateServiceCandidates(candidates, proofNames) {
+  const candidateNames = new Set(candidates.map((row) => row.bespokeProofName).filter(Boolean));
+  return [
+    ...requiredServiceCandidates
+      .filter((name) => !candidateNames.has(name))
+      .map((name) => `missing service consolidation candidate ${name}`),
+    ...candidates.flatMap((row) => validateServiceCandidate(row, proofNames)),
+  ];
+}
+
+function validateServiceCandidate(row, proofNames) {
+  return [
+    ...serviceProofErrors(row, proofNames),
+    serviceMigrationModeError(row),
+    ...serviceFieldErrors(row),
+    serviceResourceClassError(row),
+  ].filter(Boolean);
+}
+
+function serviceProofErrors(row, proofNames) {
+  return [
+    serviceProofError(row.bespokeProofName, proofNames, "bespoke"),
+    serviceProofError(row.refusalProofName, proofNames, "refusal"),
+    ...(row.genericProofNames ?? []).map((name) => serviceProofError(name, proofNames, "generic")),
+  ];
+}
+
+function serviceMigrationModeError(row) {
+  return allowedServiceMigrationModes.includes(row.migrationMode)
+    ? undefined
+    : `invalid service migration mode ${row.bespokeProofName}:${row.migrationMode}`;
+}
+
+function serviceFieldErrors(row) {
+  return [
+    "serviceShape",
+    "fallbackPolicy",
+    "supportBoundary",
+    "requiredSupportEvidence",
+    "requiredRefusalEvidence",
+  ].map((field) => (row[field] ? undefined : `missing service ${field} ${row.bespokeProofName}`));
+}
+
+function serviceResourceClassError(row) {
+  return Array.isArray(row.resourceClasses) && row.resourceClasses.length > 0
+    ? undefined
+    : `missing service resourceClasses ${row.bespokeProofName}`;
+}
+
+function serviceProofError(name, proofNames, kind) {
+  return name && proofNames.includes(name)
+    ? undefined
+    : `unknown service ${kind} proof ${name ?? "missing"}`;
 }
 
 function validateWave1Candidates(candidates, rows, proofNames) {
@@ -141,6 +271,67 @@ function missingWave1Candidates(candidateNames) {
   return requiredWave1Candidates
     .filter((name) => !candidateNames.has(name))
     .map((name) => `missing wave1 candidate ${name}`);
+}
+
+function validateWave2Candidates(candidates, rows, proofNames) {
+  const candidateNames = new Set(candidates.map((row) => row.bespokeProofName).filter(Boolean));
+  const rowByBespokeName = new Map(rows.map((row) => [row.bespokeProofName, row]));
+  return [
+    ...missingWave2Candidates(candidateNames),
+    ...candidates.flatMap((row) => validateWave2Candidate(row, rowByBespokeName, proofNames)),
+  ];
+}
+
+function missingWave2Candidates(candidateNames) {
+  return requiredWave2Candidates
+    .filter((name) => !candidateNames.has(name))
+    .map((name) => `missing wave2 candidate ${name}`);
+}
+
+function validateWave2Candidate(row, rowByBespokeName, proofNames) {
+  const matchingRow = rowByBespokeName.get(row.bespokeProofName);
+  return [
+    unknownWave2BespokeProofError(row, proofNames),
+    unknownWave2GenericProofError(row, proofNames),
+    missingWave2EquivalenceRowError(row, matchingRow),
+    invalidWave2MigrationModeError(row),
+    invalidWave2TargetModeError(row),
+    missingWave2FieldError(row, "fallbackPolicy"),
+    missingWave2FieldError(row, "requiredEvidence"),
+    missingWave2FieldError(row, "boundary"),
+  ].filter(Boolean);
+}
+
+function unknownWave2BespokeProofError(row, proofNames) {
+  return row.bespokeProofName && proofNames.includes(row.bespokeProofName)
+    ? undefined
+    : `unknown wave2 bespoke proof ${row.bespokeProofName ?? "missing"}`;
+}
+
+function unknownWave2GenericProofError(row, proofNames) {
+  return row.genericProofName && proofNames.includes(row.genericProofName)
+    ? undefined
+    : `unknown wave2 generic proof ${row.genericProofName ?? "missing"}`;
+}
+
+function missingWave2EquivalenceRowError(row, matchingRow) {
+  return matchingRow ? undefined : `missing wave2 equivalence row ${row.bespokeProofName}`;
+}
+
+function invalidWave2MigrationModeError(row) {
+  return allowedWave2MigrationModes.includes(row.migrationMode)
+    ? undefined
+    : `invalid wave2 migration mode ${row.bespokeProofName}:${row.migrationMode}`;
+}
+
+function invalidWave2TargetModeError(row) {
+  return allowedWave2TargetModes.includes(row.targetMode)
+    ? undefined
+    : `invalid wave2 target mode ${row.bespokeProofName}:${row.targetMode}`;
+}
+
+function missingWave2FieldError(row, field) {
+  return row[field] ? undefined : `missing wave2 ${field} ${row.bespokeProofName}`;
 }
 
 function validateWave1Candidate(row, rowByBespokeName, proofNames) {

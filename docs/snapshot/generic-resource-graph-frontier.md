@@ -16,12 +16,19 @@ Required contract:
 
 ## 2. PTY and terminal state
 
-Required contract:
+Current status:
 
-- capture controlling terminal, session/process group, termios, winsize, foreground process group, and transcript policy;
+- `generic-pty-transcript-probe` is the only PTY support shape: a proof-marked noninteractive command is reexeced target-natively under a PTY, with captured termios/winsize/session/process-group evidence and transcript capture. It is not interactive terminal migration.
+- `generic-pty-terminal-refusals` records PTY fd/path evidence in the generic descriptor and keeps every unsupported interactive/ambiguous PTY shape fail-closed with no target pid.
+- The descriptor can carry termios, winsize, session/process-group, foreground process-group, tty number, and fd flags when preflight exposes them; if those probes are unavailable, the descriptor records the gap and still refuses.
+- This is **not** interactive terminal migration and does not replay live user/session state.
+
+Required contract before support:
+
+- define a noninteractive transcript/probe-only PTY contract with an explicit transcript policy;
 - define whether the loader uses `script`, a brokered PTY, or an explicit terminal emulator boundary;
 - prove target-visible terminal evidence without claiming interactive session teleportation;
-- refuse dirty editor state, alternate screen state, and unknown terminal modes until modeled.
+- refuse dirty editor state, alternate screen state, job-control state, foreground-pgrp ambiguity, unknown termios, and unknown/unsupported window-size transitions until modeled.
 
 ## 3. Unix domain sockets
 
@@ -81,7 +88,7 @@ Required contract to graduate:
 
 Required contract:
 
-Wave 2 baseline refusal evidence now distinguishes eventfd, epoll/eventpoll, timerfd, signalfd, inotify, fanotify, io_uring, and unknown anon-inode state where observed. This is refusal-only: no eventfd or epoll reconstruction is graduated by the baseline.
+Wave 2 baseline refusal evidence now distinguishes eventfd, epoll/eventpoll, timerfd, signalfd, inotify, fanotify, io_uring, and unknown anon-inode state where observed. Wave 3 adds refusal-preserving descriptor evidence for eventfd counters plus epoll watched-fd metadata, trigger mode, one-shot bit, and watched resource class. Tiny eventfd/epoll shapes now graduate separately: one normal-flag eventfd with a modeled counter, and one normal-flag epoll set with a level-trigger/no-one-shot watch on that supported eventfd. Active waiters/runtime loops, unknown watched fds, edge-trigger state, one-shot state, nested epoll, aliases, unsupported flags, and incompatible counters remain refused.
 
 Required contract to graduate support:
 

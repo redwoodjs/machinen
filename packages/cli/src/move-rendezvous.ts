@@ -4,6 +4,7 @@ import { runMoveTargetBusyboxNcLoaderInVm } from "./move-busybox-nc-envelope.ts"
 import { runMoveTargetChecksumLoaderInVm } from "./move-checksum-envelope.ts";
 import * as fsMutationLoaders from "./move-filesystem-mutation-envelope.ts";
 import { runMoveTargetDuLoaderInVm } from "./move-du-envelope.ts";
+import { genericResourceGraphIsPrimary } from "./move-generic-resource-graph.ts";
 import { runMoveTargetGenericResourceGraphLoaderInVm } from "./move-generic-resource-graph.ts";
 import { runMoveTargetInstallLoaderInVm } from "./move-install-envelope.ts";
 import { runMoveTargetLsLoaderInVm, runMoveTargetLsLongLoaderInVm } from "./move-ls-envelope.ts";
@@ -66,19 +67,10 @@ import {
 import { runMoveTargetFindPredicateLoaderInVm } from "./move-find-predicate-envelope.ts";
 import { runMoveTargetMaxdepthFindLoaderInVm } from "./move-maxdepth-find-envelope.ts";
 import { moveNodeStaticHttpLoaderCommand } from "./move-node-static-loader.ts";
+import type { MoveLoadDirectLoader } from "./move-loader-types.ts";
 import { parseGuestMoveResourceScan } from "./move-resource-plan.ts";
+export type { MoveLoadDirectLoader } from "./move-loader-types.ts";
 type Loader = (vm: VmHandle, descriptor: MoveDescriptor) => Promise<MoveLoadDirectLoader>;
-export interface MoveLoadDirectLoader {
-  state: "ready" | "refused";
-  strategy: string;
-  executable: string;
-  argv: string[];
-  targetPid?: number;
-  logPath?: string;
-  capture?: unknown;
-  patch?: { state: "ready" | "refused"; stdout: string; stderr: string; exitCode: number };
-  refusals: NativeProcessImageRefusal[];
-}
 type ParsedRendezvousOutput = { pid?: number; logPath?: string; captureRows: string[] };
 export async function runMoveTargetDirectLoaderInVm(
   vm: VmHandle,
@@ -121,6 +113,9 @@ export async function runMoveTargetDirectLoaderInVm(
 // fallow-ignore-next-line complexity
 function moveTargetEnvelopeLoader(descriptor: MoveDescriptor): Loader | undefined {
   const capture = descriptor.resourcePlan?.capture;
+  if (genericResourceGraphIsPrimary(capture?.genericResourceGraphState)) {
+    return runMoveTargetGenericResourceGraphLoaderInVm;
+  }
   const loaders: Array<[unknown, Loader]> = [
     [capture?.sleepState, runMoveTargetSleepLoaderInVm],
     [capture?.tailState, runMoveTargetTailLoaderInVm],
@@ -197,6 +192,7 @@ function moveTargetEnvelopeLoader(descriptor: MoveDescriptor): Loader | undefine
   ];
   return loaders.find(([state]) => state)?.[1];
 }
+
 async function runMoveTargetSleepLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,

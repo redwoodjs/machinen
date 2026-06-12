@@ -104,7 +104,10 @@ static void emit_ping_range(void) {
 }
 
 static void emit_fdinfo_line(const char *fd, const char *line) {
-  if (!starts_with(line, "pos:") && !starts_with(line, "flags:")) return;
+  if (!starts_with(line, "pos:") && !starts_with(line, "flags:") &&
+      !starts_with(line, "eventfd-count:") && !starts_with(line, "eventfd-semaphore:") &&
+      !starts_with(line, "tfd:"))
+    return;
   char copy[512];
   snprintf(copy, sizeof(copy), "%s", line);
   chomp(copy);

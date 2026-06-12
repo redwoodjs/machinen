@@ -128,6 +128,7 @@
     "archive-go-quiescent-runtime": "node scripts/archived-smoke.mjs scripts/smoke/go-quiescent-runtime.sh",
     "fallow:health": "node scripts/fallow-health-guard.mjs",
     "proof-move-envelope-matrix": "bash scripts/smoke/move-envelope-matrix.sh",
+    "move-envelope:build-proof-image": "node scripts/build-move-proof-image.mjs",
     "move-envelope:scaffold": "node scripts/move-envelope-scaffold.mjs"
   },
   "devDependencies": {

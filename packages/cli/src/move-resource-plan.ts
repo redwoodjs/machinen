@@ -15,6 +15,7 @@ type GuestMoveFd = {
   target: string;
   flags?: string[];
   offset?: number;
+  fdinfo?: string[];
 };
 
 type GuestMoveNetSocket = {
@@ -216,12 +217,14 @@ function updateGuestFdInfo(fdMap: Map<number, GuestMoveFd>, fdText: string, line
     return;
   }
   const current = fdMap.get(fd) ?? { fd, target: "" };
+  const fdinfo = [...(current.fdinfo ?? []), line];
   const [, key = "", value = ""] = line.match(/^(pos|flags):\s*(\S+)/) ?? [];
   if (key === "pos") {
-    fdMap.set(fd, { ...current, offset: parseOptionalNonNegativeInteger(value) });
-  }
-  if (key === "flags") {
-    fdMap.set(fd, { ...current, flags: [`octal:${value}`] });
+    fdMap.set(fd, { ...current, fdinfo, offset: parseOptionalNonNegativeInteger(value) });
+  } else if (key === "flags") {
+    fdMap.set(fd, { ...current, fdinfo, flags: [`octal:${value}`] });
+  } else {
+    fdMap.set(fd, { ...current, fdinfo });
   }
 }
 
@@ -342,7 +345,7 @@ function nonSocketMoveResource(pid: number, fd: GuestMoveFd): NativeProcessResou
   }
   const anonKind = anonInodeResourceKind(fd.target);
   if (anonKind) {
-    return { ...base, kind: anonKind, path: fd.target };
+    return { ...base, kind: anonKind, path: fd.target, recipe: anonInodeRecipe(fd, anonKind) };
   }
   if (fd.target.startsWith("/")) {
     return { ...base, kind: "file", path: fd.target, offset: fd.offset };
@@ -363,6 +366,59 @@ function anonInodeResourceKind(
     "anon_inode:[signalfd]": "signalfd",
   };
   return kinds[target];
+}
+
+function anonInodeRecipe(
+  fd: GuestMoveFd,
+  kind: Extract<NativeProcessResource["kind"], "eventfd" | "epoll" | "timer" | "signalfd">,
+): Record<string, unknown> | undefined {
+  if (kind === "eventfd") {
+    return {
+      eventfdCounter: fdinfoValue(fd, "eventfd-count") ?? "unknown",
+      eventfdSemaphore: fdinfoValue(fd, "eventfd-semaphore"),
+      fdinfoFlags: fdinfoValue(fd, "flags"),
+    };
+  }
+  if (kind === "epoll") {
+    return {
+      fdinfoFlags: fdinfoValue(fd, "flags"),
+      epollWatchedFds: (fd.fdinfo ?? []).flatMap(epollWatchFromFdinfo),
+    };
+  }
+  return undefined;
+}
+
+function fdinfoValue(fd: GuestMoveFd, key: string): string | undefined {
+  const prefix = `${key}:`;
+  return fd.fdinfo
+    ?.find((line) => line.startsWith(prefix))
+    ?.slice(prefix.length)
+    .trim();
+}
+
+function epollWatchFromFdinfo(
+  line: string,
+): Array<{ targetFd: number; events: string; data: string }> {
+  const parts = line.trim().replaceAll(":", ": ").split(/\s+/);
+  if (parts[0] !== "tfd:") {
+    return [];
+  }
+  const targetFd = parseOptionalNonNegativeInteger(afterToken(parts, "tfd:"));
+  if (targetFd === undefined) {
+    return [];
+  }
+  return [
+    {
+      targetFd,
+      events: afterToken(parts, "events:") ?? "",
+      data: afterToken(parts, "data:") ?? "",
+    },
+  ];
+}
+
+function afterToken(parts: string[], token: string): string | undefined {
+  const index = parts.indexOf(token);
+  return index >= 0 ? parts[index + 1] : undefined;
 }
 
 function socketMoveResource(

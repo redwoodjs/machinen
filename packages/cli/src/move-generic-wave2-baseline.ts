@@ -29,6 +29,13 @@ export type GenericPreflight = {
     remoteHost?: string;
     remotePort?: number;
   }>;
+  dataDirs: Array<{
+    path: string;
+    fileCount: number;
+    directoryCount: number;
+    totalBytes: number;
+    treeDigest: string;
+  }>;
   unix: Array<{
     fd: number;
     inode: string;
@@ -39,18 +46,68 @@ export type GenericPreflight = {
     state: string;
     path: string;
   }>;
+  eventfds: Array<{
+    fd: number;
+    counter: string;
+    fdinfoFlags: string;
+  }>;
+  epolls: Array<{
+    fd: number;
+    fdinfoFlags: string;
+    watchedFds: Array<{
+      targetFd: number;
+      events: string;
+      data: string;
+    }>;
+  }>;
+  ptys: Array<{
+    fd: number;
+    path: string;
+    fdinfoFlags: string;
+    sessionId?: number;
+    processGroupId?: number;
+    terminalProcessGroupId?: number;
+    ttyNumber?: number;
+    rows?: number;
+    columns?: number;
+    termios: string;
+  }>;
   locks: string[];
   mmaps: string[];
 };
 
 export function createGenericPreflight(): GenericPreflight {
-  return { files: [], tcp: [], unix: [], locks: [], mmaps: [] };
+  return {
+    files: [],
+    tcp: [],
+    dataDirs: [],
+    unix: [],
+    eventfds: [],
+    epolls: [],
+    ptys: [],
+    locks: [],
+    mmaps: [],
+  };
 }
 
 export function parseWave2PreflightRow(preflight: GenericPreflight, parts: string[]): boolean {
-  if (parts[0] !== "UNIX_FD") {
-    return false;
+  switch (parts[0]) {
+    case "UNIX_FD":
+      return parseUnixFd(preflight, parts);
+    case "EVENTFD_FD":
+      return parseEventfd(preflight, parts);
+    case "EPOLL_FD":
+      return parseEpoll(preflight, parts);
+    case "EPOLL_WATCH":
+      return parseEpollWatch(preflight, parts);
+    case "PTY_FD":
+      return parsePty(preflight, parts);
+    default:
+      return false;
   }
+}
+
+function parseUnixFd(preflight: GenericPreflight, parts: string[]): boolean {
   const fd = number(parts[1]);
   if (fd === undefined) {
     return true;
@@ -64,6 +121,56 @@ export function parseWave2PreflightRow(preflight: GenericPreflight, parts: strin
     type: parts[6] ?? "",
     state: parts[7] ?? "",
     path: parts[8] ?? "",
+  });
+  return true;
+}
+
+function parseEventfd(preflight: GenericPreflight, parts: string[]): boolean {
+  const fd = number(parts[1]);
+  if (fd !== undefined) {
+    preflight.eventfds.push({ fd, counter: parts[2] ?? "unknown", fdinfoFlags: parts[3] ?? "" });
+  }
+  return true;
+}
+
+function parseEpoll(preflight: GenericPreflight, parts: string[]): boolean {
+  const fd = number(parts[1]);
+  if (fd !== undefined && !preflight.epolls.some((item) => item.fd === fd)) {
+    preflight.epolls.push({ fd, fdinfoFlags: parts[2] ?? "", watchedFds: [] });
+  }
+  return true;
+}
+
+function parseEpollWatch(preflight: GenericPreflight, parts: string[]): boolean {
+  const fd = number(parts[1]);
+  const targetFd = number(parts[2]);
+  if (fd !== undefined && targetFd !== undefined) {
+    let epoll = preflight.epolls.find((item) => item.fd === fd);
+    if (!epoll) {
+      epoll = { fd, fdinfoFlags: "", watchedFds: [] };
+      preflight.epolls.push(epoll);
+    }
+    epoll.watchedFds.push({ targetFd, events: parts[3] ?? "", data: parts[4] ?? "" });
+  }
+  return true;
+}
+
+function parsePty(preflight: GenericPreflight, parts: string[]): boolean {
+  const fd = number(parts[1]);
+  if (fd === undefined) {
+    return true;
+  }
+  preflight.ptys.push({
+    fd,
+    path: parts[2] ?? "",
+    fdinfoFlags: parts[3] ?? "",
+    sessionId: number(parts[4]),
+    processGroupId: number(parts[5]),
+    terminalProcessGroupId: number(parts[6]),
+    ttyNumber: number(parts[7]),
+    rows: number(parts[8]),
+    columns: number(parts[9]),
+    termios: parts.slice(10).join("\t"),
   });
   return true;
 }
@@ -106,6 +213,10 @@ export function genericResourceRefusal(
   resource: GenericResource,
   preflight: GenericPreflight,
   idleLoopbackTcpListener: boolean,
+  supportedUnixPathnameListener = false,
+  supportedEventfdCounter = false,
+  supportedEpollSet = false,
+  supportedPtyTranscriptProbe = false,
 ): GenericRefusalClass[] {
   switch (resource.kind) {
     case "argv":
@@ -114,15 +225,24 @@ export function genericResourceRefusal(
     case "file":
       return fileResourceRefusal(resource, preflight);
     case "socket":
-      return socketResourceRefusal(resource, preflight, idleLoopbackTcpListener);
+      return socketResourceRefusal(
+        resource,
+        preflight,
+        idleLoopbackTcpListener,
+        supportedUnixPathnameListener,
+      );
     case "pipe":
       return unsupportedResourceClassRefusal("pipe", resource.fd, resource.path);
     case "pty":
-      return unsupportedResourceClassRefusal("pty", resource.fd, resource.path);
+      return supportedPtyTranscriptProbe ? [] : ptyResourceRefusal(resource, preflight);
     case "eventfd":
-      return unsupportedResourceClassRefusal("eventfd", resource.fd, resource.path);
+      return supportedEventfdCounter
+        ? []
+        : unsupportedResourceClassRefusal("eventfd", resource.fd, resource.path);
     case "epoll":
-      return unsupportedResourceClassRefusal("epoll", resource.fd, resource.path);
+      return supportedEpollSet
+        ? []
+        : unsupportedResourceClassRefusal("epoll", resource.fd, resource.path);
     case "timer":
       return unsupportedResourceClassRefusal("timerfd", resource.fd, resource.path);
     case "signalfd":
@@ -155,34 +275,46 @@ function fileResourceRefusal(
   if (!isRegularFilePath(path) || isReadOnlyFileResource(resource)) {
     return [];
   }
-  return hasAppendFlag(resource)
-    ? isAppendOnlyRegularFileResource(resource) && appendCursorAtEnd(resource, file)
-      ? []
-      : [
-          refusal(
-            "appendOnlyRegularFileCursor",
-            appendRefusalMessage(resource),
-            `${evidence(fd, path)} flags=${resource.flags?.join(",") ?? "unknown"} offset=${resource.offset ?? "unknown"} size=${file?.size ?? "unknown"}`,
-          ),
-        ]
-    : [
-        refusal(
-          "writableRegularFileCursor",
-          "regular-file fd is not proven append-only or read-only; generic cursor continuation refuses writable or unknown access",
-          `${evidence(fd, path)} flags=${resource.flags?.join(",") ?? "unknown"}`,
-        ),
-      ];
+  if (!hasAppendFlag(resource)) {
+    return [writableFileCursorRefusal(resource)];
+  }
+  if (isAppendOnlyRegularFileResource(resource) && appendCursorAtEnd(resource, file)) {
+    return [];
+  }
+  return [appendOnlyCursorRefusal(resource, file)];
+}
+
+function writableFileCursorRefusal(resource: GenericResource): GenericRefusalClass {
+  return refusal(
+    "writableRegularFileCursor",
+    "regular-file fd is not proven append-only or read-only; generic cursor continuation refuses writable or unknown access",
+    `${evidence(resource.fd, resource.path)} flags=${resource.flags?.join(",") ?? "unknown"}`,
+  );
+}
+
+function appendOnlyCursorRefusal(
+  resource: GenericResource,
+  file: GenericPreflight["files"][number] | undefined,
+): GenericRefusalClass {
+  return refusal(
+    "appendOnlyRegularFileCursor",
+    appendRefusalMessage(resource),
+    `${evidence(resource.fd, resource.path)} flags=${resource.flags?.join(",") ?? "unknown"} offset=${resource.offset ?? "unknown"} size=${file?.size ?? "unknown"}`,
+  );
 }
 
 function socketResourceRefusal(
   resource: GenericResource,
   preflight: GenericPreflight,
   idleLoopbackTcpListener: boolean,
+  supportedUnixPathnameListener: boolean,
 ): GenericRefusalClass[] {
-  if (idleLoopbackTcpListener) {
+  if (idleLoopbackTcpListener || supportedUnixPathnameListener) {
     return [];
   }
-  const unix = preflight.unix.find((item) => item.fd === resource.fd);
+  const unix = preflight.unix.find(
+    (item) => item.fd === resource.fd || item.inode === socketInode(resource.path),
+  );
   if (!unix) {
     return [
       refusal(
@@ -200,6 +332,68 @@ function socketResourceRefusal(
       `${evidence(resource.fd, resource.path)} unix=${JSON.stringify(unix)}`,
     ),
   ];
+}
+
+function socketInode(path: string | undefined): string | undefined {
+  const prefix = "socket:[";
+  return path?.startsWith(prefix) && path.endsWith("]") ? path.slice(prefix.length, -1) : undefined;
+}
+
+function ptyResourceRefusal(
+  resource: GenericResource,
+  preflight: GenericPreflight,
+): GenericRefusalClass[] {
+  const pty = preflight.ptys.find((item) => item.fd === resource.fd || item.path === resource.path);
+  return [
+    refusal(
+      "terminalOrPtyRefusal",
+      "PTY/terminal fd requires controlling-terminal, session, foreground-pgrp, termios, winsize, and transcript policy; generic move keeps interactive terminal migration refused",
+      ptyRefusalEvidence(resource, pty),
+    ),
+  ];
+}
+
+function ptyRefusalEvidence(
+  resource: GenericResource,
+  pty: GenericPreflight["ptys"][number] | undefined,
+): string {
+  const ptyFields = pty ?? emptyPtyEvidence();
+  const fields = {
+    fd: ptyField(ptyFields.fd, resource.fd),
+    path: ptyField(ptyFields.path, resource.path),
+    sid: ptyField(ptyFields.sessionId),
+    pgrp: ptyField(ptyFields.processGroupId),
+    tpgid: ptyField(ptyFields.terminalProcessGroupId),
+    tty: ptyField(ptyFields.ttyNumber),
+    winsize: `${ptyField(ptyFields.rows)}x${ptyField(ptyFields.columns)}`,
+    flags: ptyText(ptyFields.fdinfoFlags, resourceFlags(resource)),
+    termios: ptyText(ptyFields.termios, "unavailable-from-preflight"),
+  };
+  return Object.entries(fields)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(" ");
+}
+
+function emptyPtyEvidence(): Partial<GenericPreflight["ptys"][number]> {
+  return {};
+}
+
+function resourceFlags(resource: GenericResource): string | undefined {
+  return resource.flags ? resource.flags.join(",") : undefined;
+}
+
+function ptyField(value: string | number | undefined, fallback?: string | number): string | number {
+  if (value !== undefined) {
+    return value;
+  }
+  return fallback === undefined ? "unknown" : fallback;
+}
+
+function ptyText(value: string | undefined, fallback: string | undefined): string {
+  if (value && value.length > 0) {
+    return value;
+  }
+  return fallback && fallback.length > 0 ? fallback : "unknown";
 }
 
 function unknownResourceRefusal(resource: GenericResource): GenericRefusalClass[] {
@@ -358,6 +552,9 @@ function fdFlags(resource: GenericResource | undefined): number | undefined {
 }
 
 function number(value: string | undefined): number | undefined {
+  if (value === undefined || value.length === 0) {
+    return undefined;
+  }
   const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
+  return Number.isInteger(parsed) && parsed >= -1 ? parsed : undefined;
 }
