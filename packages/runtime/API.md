@@ -4726,6 +4726,42 @@ Size in bytes the file was allocated at.
 
 ### MoveGenericResourceGraphState
 
+Generic resource graph evidence for `machinen move`.
+
+Product support is intentionally narrower than the full proof matrix. The
+first user-facing product path is `generic-stdio-pipe-product-marker`: an
+exact modeled finite stdio pipe graph with
+`migration.productPath.kind="exact-live-capture"`, support proof
+`generic-finite-pipe-buffer-replay`, refusal proof
+`generic-pipe-stdio-refusals`, and `refusalClasses=[]`.
+
+Wave 2 adds only five more exact live-capture product markers:
+`unix-pathname-listener-live-generic-primary-marker`,
+`reader-cat-live-generic-primary-marker`,
+`grep-live-generic-primary-marker`,
+`busybox-nc-listener-live-generic-primary-marker`, and
+`socat-file-responder-live-generic-primary-marker`. Their support/refusal
+proof names are `generic-unix-pathname-listener`,
+`generic-unix-pathname-listener-refusals`, `reader-cat`,
+`generic-stale-file-identity-refusal`, `generic-deleted-file-fd-refusal`,
+`generic-writable-file-cursor-refusal`, `grep`,
+`generic-pipe-stdio-refusals`, `busybox-nc-listener`,
+`unsafe-busybox-nc-refusal`, `unsafe-nc-active-refusal`,
+`generic-loader-preflight-refusals`, `socat-file-responder`, and
+`unsafe-socat-file-responder-refusal`. Wave-2 public support requires
+`observedGraph="exact-live-resource-graph"`, `refusalClasses=[]`, retained
+artifacts for the 19-row plan in
+`scripts/smoke/move-envelope-productization-wave2-plan.json`, and the
+release validation profile
+`scripts/smoke/move-envelope-productization-wave2-validation-profile.json`.
+
+Proof-only same-arch continuation, proof-only cross-arch semantic
+reconstruction, descriptor harnesses, Redis/database/service rows, active
+sessions, source-fd teleportation, source-ISA emulation, metadata-only
+success, runtime-profile shortcuts, broad daemon/database migration, and
+arbitrary process restore are not product support. In short: no arbitrary
+process restore.
+
 #### Properties
 
 ##### policy
@@ -4755,6 +4791,34 @@ Size in bytes the file was allocated at.
 ###### boundary
 
 > **boundary**: `string`
+
+###### productPath?
+
+> `optional` **productPath?**: `object`
+
+###### productPath.kind
+
+> **kind**: `"exact-live-capture"`
+
+###### productPath.markerProofName
+
+> **markerProofName**: `string`
+
+###### productPath.supportProofName
+
+> **supportProofName**: `string`
+
+###### productPath.refusalProofNames
+
+> **refusalProofNames**: `string`[]
+
+###### productPath.driftRefusalProofNames?
+
+> `optional` **driftRefusalProofNames?**: `string`[]
+
+###### productPath.observedGraph
+
+> **observedGraph**: `"exact-single-process-service"` \| `"exact-live-resource-graph"`
 
 ##### executableIdentity
 
@@ -5036,6 +5100,78 @@ Size in bytes the file was allocated at.
 
 > **policy**: `"absolute-offset"` \| `"refused-if-nonzero"`
 
+##### fileLocks?
+
+> `optional` **fileLocks?**: `object`[]
+
+###### fd?
+
+> `optional` **fd?**: `number`
+
+###### path
+
+> **path**: `string`
+
+###### lockType
+
+> **lockType**: `"flock"` \| `"posix"` \| `"ofd"`
+
+###### mode
+
+> **mode**: `"shared"` \| `"exclusive"`
+
+###### range
+
+> **range**: `object`
+
+###### range.start
+
+> **start**: `number`
+
+###### range.length
+
+> **length**: `number` \| `"eof"`
+
+###### owner
+
+> **owner**: `object`
+
+###### owner.pid?
+
+> `optional` **pid?**: `number`
+
+###### owner.policy
+
+> **policy**: `"target-process"` \| `"refused-unknown-owner"`
+
+###### fileIdentity
+
+> **fileIdentity**: `object`
+
+###### fileIdentity.dev?
+
+> `optional` **dev?**: `number`
+
+###### fileIdentity.inode?
+
+> `optional` **inode?**: `number`
+
+###### fileIdentity.size
+
+> **size**: `number`
+
+###### fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### conflictPolicy
+
+> **conflictPolicy**: `"must-acquire-nonblocking-before-launch"`
+
+###### support
+
+> **support**: `"target-native-advisory-lock"` \| `"refused-baseline"`
+
 ##### stdioPolicy
 
 > **stdioPolicy**: `"stdio-dev-null-or-closed"` \| `"stdio-inherited-noninteractive"` \| `"refuse-nontrivial-stdio"`
@@ -5126,7 +5262,467 @@ Size in bytes the file was allocated at.
 
 ###### support
 
-> **support**: `"refused-baseline"` \| `"target-native-eventfd-watch"`
+> **support**: `"refused-baseline"` \| `"target-native-eventfd-watch"` \| `"target-native-timerfd-watch"`
+
+##### timers?
+
+> `optional` **timers?**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### path
+
+> **path**: `"anon_inode:[timerfd]"`
+
+###### fdinfoFlags?
+
+> `optional` **fdinfoFlags?**: `string`
+
+###### flags
+
+> **flags**: `string`[]
+
+###### clockId
+
+> **clockId**: `number` \| `"unknown"`
+
+###### ticks
+
+> **ticks**: `string`
+
+###### settimeFlags
+
+> **settimeFlags**: `number` \| `"unknown"`
+
+###### valueSeconds
+
+> **valueSeconds**: `number`
+
+###### valueNanoseconds
+
+> **valueNanoseconds**: `number`
+
+###### intervalSeconds
+
+> **intervalSeconds**: `number`
+
+###### intervalNanoseconds
+
+> **intervalNanoseconds**: `number`
+
+###### restartPolicy
+
+> **restartPolicy**: `"refused-baseline"` \| `"monotonic-relative-oneshot-target-native"`
+
+###### boundedSkewMilliseconds
+
+> **boundedSkewMilliseconds**: `number`
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"target-native-relative-oneshot"`
+
+##### signalState?
+
+> `optional` **signalState?**: `object`
+
+###### sessionId?
+
+> `optional` **sessionId?**: `number`
+
+###### processGroupId?
+
+> `optional` **processGroupId?**: `number`
+
+###### pendingMaskHex
+
+> **pendingMaskHex**: `string`
+
+###### sharedPendingMaskHex
+
+> **sharedPendingMaskHex**: `string`
+
+###### blockedMaskHex
+
+> **blockedMaskHex**: `string`
+
+###### ignoredMaskHex
+
+> **ignoredMaskHex**: `string`
+
+###### caughtMaskHex
+
+> **caughtMaskHex**: `string`
+
+###### dispositionPolicy
+
+> **dispositionPolicy**: `"recorded-default-ignored-caught-masks"`
+
+###### pendingPolicy
+
+> **pendingPolicy**: `"refuse-nonzero-pending"`
+
+###### processGroupPolicy
+
+> **processGroupPolicy**: `"single-process-group"` \| `"refused-ambiguous-process-group"`
+
+###### support
+
+> **support**: `"refused-baseline"`
+
+##### signalfds?
+
+> `optional` **signalfds?**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### path
+
+> **path**: `"anon_inode:[signalfd]"`
+
+###### fdinfoFlags?
+
+> `optional` **fdinfoFlags?**: `string`
+
+###### flags
+
+> **flags**: `string`[]
+
+###### sigmask
+
+> **sigmask**: `string`
+
+###### support
+
+> **support**: `"refused-baseline"`
+
+##### inotifyWatches?
+
+> `optional` **inotifyWatches?**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### path
+
+> **path**: `"anon_inode:[inotify]"`
+
+###### fdinfoFlags?
+
+> `optional` **fdinfoFlags?**: `string`
+
+###### flags
+
+> **flags**: `string`[]
+
+###### watches
+
+> **watches**: `object`[]
+
+###### eventPolicy
+
+> **eventPolicy**: `"refused-baseline"` \| `"future-events-only-no-queue-replay"`
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"target-native-file-follow"`
+
+##### mmapMappings?
+
+> `optional` **mmapMappings?**: `object`[]
+
+###### fd?
+
+> `optional` **fd?**: `number`
+
+###### path
+
+> **path**: `string`
+
+###### offset
+
+> **offset**: `number`
+
+###### length
+
+> **length**: `number`
+
+###### permissions
+
+> **permissions**: `"r--"` \| `"rw-"` \| `"r-x"`
+
+###### sharing
+
+> **sharing**: `"shared"` \| `"private"`
+
+###### fileIdentity
+
+> **fileIdentity**: `object`
+
+###### fileIdentity.size
+
+> **size**: `number`
+
+###### fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### dirtyPolicy
+
+> **dirtyPolicy**: `"clean-file-backed"` \| `"refused-dirty"`
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"target-native-file-backed-clean"`
+
+##### crossArchSemanticReconstruction?
+
+> `optional` **crossArchSemanticReconstruction?**: `object`
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"proof-only-target-native-semantic-reconstruction"`
+
+###### sourceArch
+
+> **sourceArch**: `string`
+
+###### targetArch
+
+> **targetArch**: `string`
+
+###### semanticDescriptor
+
+> **semanticDescriptor**: `object`
+
+###### semanticDescriptor.kind
+
+> **kind**: `"finite-byte-stream-transform"`
+
+###### semanticDescriptor.operation
+
+> **operation**: `"refused"` \| `"uppercase"`
+
+###### semanticDescriptor.descriptorSha256
+
+> **descriptorSha256**: `string`
+
+###### semanticDescriptor.inputSha256
+
+> **inputSha256**: `string`
+
+###### semanticDescriptor.sourceRegistersPresent
+
+> **sourceRegistersPresent**: `boolean`
+
+###### semanticDescriptor.sourceIsaStatePresent
+
+> **sourceIsaStatePresent**: `boolean`
+
+###### semanticDescriptor.metadataOnlySuccess
+
+> **metadataOnlySuccess**: `boolean`
+
+###### resourceGraph
+
+> **resourceGraph**: `object`
+
+###### resourceGraph.allObservedResourceClassesModeled
+
+> **allObservedResourceClassesModeled**: `boolean`
+
+###### resourceGraph.modeledClasses
+
+> **modeledClasses**: `string`[]
+
+###### targetNativeTool
+
+> **targetNativeTool**: `object`
+
+###### targetNativeTool.path
+
+> **path**: `string`
+
+###### targetNativeTool.argv
+
+> **argv**: `string`[]
+
+###### targetNativeTool.observedArch
+
+> **observedArch**: `string`
+
+###### targetNativeTool.status
+
+> **status**: `"refused"` \| `"completed"`
+
+###### continuationEvidence
+
+> **continuationEvidence**: `object`
+
+###### continuationEvidence.stdout
+
+> **stdout**: `string`
+
+###### continuationEvidence.stdoutSha256
+
+> **stdoutSha256**: `string`
+
+###### continuationEvidence.targetNativeExecution
+
+> **targetNativeExecution**: `boolean`
+
+###### continuationEvidence.sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `boolean`
+
+###### continuationEvidence.sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `boolean`
+
+##### sameArchContinuation?
+
+> `optional` **sameArchContinuation?**: `object`
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"proof-only-single-thread-target-native-resume-harness"`
+
+###### sourceArch
+
+> **sourceArch**: `string`
+
+###### targetArch
+
+> **targetArch**: `string`
+
+###### thread
+
+> **thread**: `object`
+
+###### thread.id
+
+> **id**: `string`
+
+###### thread.state
+
+> **state**: `"refused"` \| `"frozen-ptrace-stop-proof-fixture"`
+
+###### thread.singleThread
+
+> **singleThread**: `boolean`
+
+###### thread.registers
+
+> **registers**: `Record`\<`string`, `string`\>
+
+###### stack
+
+> **stack**: `object`
+
+###### stack.policy
+
+> **policy**: `"refused"` \| `"single-stack-window-modeled"`
+
+###### stack.base
+
+> **base**: `string`
+
+###### stack.stackPointer
+
+> **stackPointer**: `string`
+
+###### stack.returnAddress
+
+> **returnAddress**: `string`
+
+###### stack.materialization
+
+> **materialization**: `"refused"` \| `"target-native-call-stack"`
+
+###### memoryMappings
+
+> **memoryMappings**: `object`[]
+
+###### fdGraph
+
+> **fdGraph**: `object`
+
+###### fdGraph.policy
+
+> **policy**: `"refused"` \| `"all-observed-fds-modeled"`
+
+###### fdGraph.observedFds
+
+> **observedFds**: `number`[]
+
+###### fdGraph.compatibility
+
+> **compatibility**: `string`
+
+###### resourceGraph
+
+> **resourceGraph**: `object`
+
+###### resourceGraph.allObservedResourceClassesModeled
+
+> **allObservedResourceClassesModeled**: `boolean`
+
+###### resourceGraph.modeledClasses
+
+> **modeledClasses**: `string`[]
+
+###### resume
+
+> **resume**: `object`
+
+###### resume.arch
+
+> **arch**: `string`
+
+###### resume.status
+
+> **status**: `"refused"` \| `"returned"`
+
+###### resume.inputRegister
+
+> **inputRegister**: `string`
+
+###### resume.inputValue
+
+> **inputValue**: `number`
+
+###### resume.returnRegister
+
+> **returnRegister**: `string`
+
+###### resume.returnValue
+
+> **returnValue**: `number`
+
+###### resume.targetNativeCodeBytesSha256
+
+> **targetNativeCodeBytesSha256**: `string`
+
+###### resume.mappedExecutableBytes
+
+> **mappedExecutableBytes**: `number`
+
+###### resume.sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `boolean`
+
+###### resume.sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `boolean`
+
+###### resume.entryHex
+
+> **entryHex**: `string`
 
 ##### ptys?
 
@@ -5823,6 +6419,10 @@ Size in bytes the file was allocated at.
 ###### capture.busyboxHttpState.root
 
 > **root**: `string`
+
+###### capture.busyboxHttpState.bindAddress?
+
+> `optional` **bindAddress?**: `"127.0.0.1"`
 
 ###### capture.busyboxHttpState.capturedAt?
 

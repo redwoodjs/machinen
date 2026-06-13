@@ -79,37 +79,57 @@ try {
   }
 }
 
+const optionHandlers = new Map([
+  ["--", (_argv, index) => index],
+  ["--arch", valueOption("arch")],
+  ["--base-image", valueOption("base-image")],
+  ["--out-dir", valueOption("out-dir")],
+  ["--output", valueOption("output")],
+  ["--force", booleanOption("force")],
+  ["--json", booleanOption("json")],
+  ["--keep-work", booleanOption("keepWork")],
+  ["--help", helpOption],
+  ["-h", helpOption],
+]);
+
 function parseArgs(argv) {
   const parsed = { force: false, json: false, keepWork: false };
   for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === "--") {
-      continue;
-    } else if (arg === "--arch") {
-      parsed.arch = requiredValue(argv, (index += 1), arg);
-    } else if (arg === "--base-image") {
-      parsed["base-image"] = requiredValue(argv, (index += 1), arg);
-    } else if (arg === "--out-dir") {
-      parsed["out-dir"] = requiredValue(argv, (index += 1), arg);
-    } else if (arg === "--output") {
-      parsed.output = requiredValue(argv, (index += 1), arg);
-    } else if (arg === "--force") {
-      parsed.force = true;
-    } else if (arg === "--json") {
-      parsed.json = true;
-    } else if (arg === "--keep-work") {
-      parsed.keepWork = true;
-    } else if (arg === "--help" || arg === "-h") {
-      printHelp();
-      process.exit(0);
-    } else {
-      fail(`unknown argument: ${arg}`);
-    }
+    index = parseArg(argv, index, parsed);
   }
-  if (parsed.arch && !["arm64", "amd64"].includes(parsed.arch)) {
-    fail(`--arch must be arm64 or amd64, got ${parsed.arch}`);
-  }
+  validateArch(parsed.arch);
   return parsed;
+}
+
+function parseArg(argv, index, parsed) {
+  const arg = argv[index];
+  const handler = optionHandlers.get(arg);
+  return handler ? handler(argv, index, parsed, arg) : fail(`unknown argument: ${arg}`);
+}
+
+function valueOption(key) {
+  return (argv, index, parsed, flag) => {
+    parsed[key] = requiredValue(argv, index + 1, flag);
+    return index + 1;
+  };
+}
+
+function booleanOption(key) {
+  return (_argv, index, parsed) => {
+    parsed[key] = true;
+    return index;
+  };
+}
+
+function helpOption() {
+  printHelp();
+  process.exit(0);
+}
+
+function validateArch(arch) {
+  if (arch && !["arm64", "amd64"].includes(arch)) {
+    fail(`--arch must be arm64 or amd64, got ${arch}`);
+  }
 }
 
 function requiredValue(argv, index, flag) {

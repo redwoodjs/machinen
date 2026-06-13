@@ -1,8 +1,11 @@
 import type { MoveDescriptor, MovePidGraphNode } from "@machinen/runtime";
 import { describe, expect, it } from "vitest";
 
+import { explainGenericResourceGraphMovePlan } from "../move-generic-resource-graph-explain.ts";
 import {
   buildMoveGenericResourceGraphState,
+  genericResourceGraphIsPrimary,
+  genericResourceGraphIsProductPrimary,
   genericResourceGraphLoaderCommand,
   parseGenericResourceGraphPreflight,
 } from "../move-generic-resource-graph.ts";
@@ -1024,6 +1027,154 @@ describe("generic resource graph capture", () => {
     expect(state?.ports).toEqual([]);
   });
 
+  it("supports one exact target-native advisory file lock descriptor", () => {
+    const state = buildMoveGenericResourceGraphState(
+      { ...node, argv: ["/usr/bin/python3", "/srv/app/lock_worker.py"], command: "python3" },
+      {
+        ...basePlan,
+        resources: [
+          { id: "pid:4242:argv", kind: "argv", state: "captured" },
+          { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+          {
+            id: "pid:4242:fd:3",
+            kind: "file",
+            state: "captured",
+            fd: 3,
+            path: "/srv/app/config.json",
+            offset: 0,
+            flags: ["octal:0100000"],
+            recipe: {
+              fileLockModel: "advisory-v1",
+              fileLockType: "flock",
+              fileLockMode: "exclusive",
+              fileLockStart: 0,
+              fileLockOwnerPid: 4242,
+              fileLockFileSize: 42,
+              fileLockSha256: shaB,
+            },
+          },
+        ],
+      },
+      "/usr/bin/python3",
+      preflight,
+    )!;
+
+    expect(state.refusalClasses).toEqual([]);
+    expect(state.fileLocks).toEqual([
+      expect.objectContaining({
+        fd: 3,
+        path: "/srv/app/config.json",
+        lockType: "flock",
+        mode: "exclusive",
+        support: "target-native-advisory-lock",
+      }),
+    ]);
+    expect(state.resourceClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceClass: "fileLockAdvisory", status: "supported" }),
+      ]),
+    );
+    const command = genericResourceGraphLoaderCommand(state);
+    expect(command).toContain("fcntl.flock");
+    expect(command).toContain("LOCK_NB");
+  });
+
+  it("supports one exact clean file-backed mmap descriptor", () => {
+    const state = buildMoveGenericResourceGraphState(
+      { ...node, argv: ["/usr/bin/python3", "/srv/app/mmap_reader.py"], command: "python3" },
+      {
+        ...basePlan,
+        resources: [
+          { id: "pid:4242:argv", kind: "argv", state: "captured" },
+          { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+          {
+            id: "pid:4242:fd:3",
+            kind: "file",
+            state: "captured",
+            fd: 3,
+            path: "/srv/app/config.json",
+            offset: 0,
+            flags: ["octal:0100000"],
+            recipe: {
+              mmapModel: "file-backed-clean-v1",
+              mmapPermissions: "r--",
+              mmapSharing: "shared",
+              mmapOffset: 0,
+              mmapLength: 42,
+              mmapFileSize: 42,
+              mmapSha256: shaB,
+            },
+          },
+        ],
+      },
+      "/usr/bin/python3",
+      preflight,
+    )!;
+
+    expect(state.refusalClasses).toEqual([]);
+    expect(state.mmapMappings).toEqual([
+      expect.objectContaining({
+        fd: 3,
+        path: "/srv/app/config.json",
+        permissions: "r--",
+        sharing: "shared",
+        dirtyPolicy: "clean-file-backed",
+        support: "target-native-file-backed-clean",
+      }),
+    ]);
+    expect(state.resourceClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceClass: "mmapFileBackedClean", status: "supported" }),
+      ]),
+    );
+    const command = genericResourceGraphLoaderCommand(state);
+    expect(command).toContain("mmap.mmap");
+    expect(command).toContain("mmap-file-identity-mismatch");
+  });
+
+  it("refuses mmap descriptors outside the clean file-backed contract", () => {
+    const state = buildMoveGenericResourceGraphState(
+      { ...node, argv: ["/usr/bin/python3", "/srv/app/mmap_reader.py"], command: "python3" },
+      {
+        ...basePlan,
+        resources: [
+          { id: "pid:4242:argv", kind: "argv", state: "captured" },
+          { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+          {
+            id: "pid:4242:fd:3",
+            kind: "file",
+            state: "captured",
+            fd: 3,
+            path: "/srv/app/config.json",
+            offset: 0,
+            flags: ["octal:0100000"],
+            recipe: {
+              mmapModel: "file-backed-clean-v1",
+              mmapPermissions: "rw-",
+              mmapSharing: "shared",
+              mmapOffset: 0,
+              mmapLength: 42,
+              mmapFileSize: 42,
+              mmapSha256: shaB,
+            },
+          },
+        ],
+      },
+      "/usr/bin/python3",
+      preflight,
+    )!;
+
+    expect(state.mmapMappings).toEqual([
+      expect.objectContaining({ permissions: "rw-", support: "refused-baseline" }),
+    ]);
+    expect(state.refusalClasses).toEqual(
+      expect.arrayContaining([expect.objectContaining({ resourceClass: "mmapFile" })]),
+    );
+    expect(genericResourceGraphLoaderCommand(state)).toContain(
+      "PATCH\tgeneric-resource-graph\trefused\tmmapFile",
+    );
+  });
+
   it("refuses runtime file-lock and mmap preflight evidence", () => {
     const state = buildMoveGenericResourceGraphState(
       node,
@@ -1323,7 +1474,343 @@ describe("generic resource graph capture", () => {
     expect(genericResourceGraphLoaderCommand(state)).toContain("epoll_ctl");
   });
 
-  it("refuses epoll unknown watches, edge/one-shot/nested shapes, and active loops", () => {
+  it("supports one target-native inotify file-follow descriptor without queued replay", () => {
+    const state = buildMoveGenericResourceGraphState(
+      { ...node, argv: ["/usr/bin/python3", "/srv/app/follow.py"], command: "python3" },
+      {
+        ...basePlan,
+        resources: [
+          { id: "pid:4242:argv", kind: "argv", state: "captured" },
+          { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+          {
+            id: "pid:4242:fd:3",
+            kind: "unknown",
+            state: "recipe",
+            fd: 3,
+            path: "anon_inode:[inotify]",
+            flags: ["octal:00"],
+            recipe: {
+              fdinfoFlags: "00",
+              inotifyWatches: [
+                {
+                  wd: 1,
+                  path: "/srv/app/app.log",
+                  mask: "2",
+                  ignoredMask: "0",
+                  fileIdentity: {
+                    size: 6,
+                    sha256: "b1946ac92492d2347c6235b4d2611184c5e4a1b897d1663db90c1405d7c2d89f",
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      "/usr/bin/python3",
+      ["STATUS\t1000\t1000", "ROOT\t/", "INOTIFY_FD\t3\t00", "INOTIFY_WATCH\t3\t1\t2\t0"].join(
+        "\n",
+      ),
+    )!;
+
+    expect(state.refusalClasses).toEqual([]);
+    expect(state.inotifyWatches).toEqual([
+      expect.objectContaining({
+        fd: 3,
+        support: "target-native-file-follow",
+        watches: [
+          expect.objectContaining({
+            path: "/srv/app/app.log",
+            mask: "2",
+            eventPolicy: "future-events-only-no-queue-replay",
+          }),
+        ],
+      }),
+    ]);
+    expect(state.resourceClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceClass: "inotifyFileFollow", status: "supported" }),
+      ]),
+    );
+    const command = genericResourceGraphLoaderCommand(state);
+    expect(command).toContain("inotify_add_watch");
+    expect(command).toContain("inotify-watch-identity-mismatch");
+  });
+
+  it("keeps non-exact inotify masks refused before target launch", () => {
+    const state = buildMoveGenericResourceGraphState(
+      { ...node, argv: ["/usr/bin/python3", "/srv/app/follow.py"], command: "python3" },
+      {
+        ...basePlan,
+        resources: [
+          { id: "pid:4242:argv", kind: "argv", state: "captured" },
+          { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+          {
+            id: "pid:4242:fd:3",
+            kind: "unknown",
+            state: "recipe",
+            fd: 3,
+            path: "anon_inode:[inotify]",
+            flags: ["octal:00"],
+            recipe: {
+              fdinfoFlags: "00",
+              inotifyWatches: [
+                {
+                  wd: 1,
+                  path: "/srv/app/app.log",
+                  mask: "100",
+                  ignoredMask: "0",
+                  fileIdentity: {
+                    size: 6,
+                    sha256: "b1946ac92492d2347c6235b4d2611184c5e4a1b897d1663db90c1405d7c2d89f",
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      "/usr/bin/python3",
+      ["STATUS\t1000\t1000", "ROOT\t/", "INOTIFY_FD\t3\t00", "INOTIFY_WATCH\t3\t1\t100\t0"].join(
+        "\n",
+      ),
+    )!;
+
+    expect(state.inotifyWatches).toEqual([
+      expect.objectContaining({ fd: 3, support: "refused-baseline" }),
+    ]);
+    expect(state.resourceClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceClass: "inotifyBaseline", status: "refused" }),
+      ]),
+    );
+    expect(state.refusalClasses).toEqual(
+      expect.arrayContaining([expect.objectContaining({ resourceClass: "inotify" })]),
+    );
+    expect(genericResourceGraphLoaderCommand(state)).toContain(
+      "PATCH\tgeneric-resource-graph\trefused\tinotify",
+    );
+  });
+
+  it("supports one tiny epoll set watching the supported timerfd", () => {
+    const state = buildMoveGenericResourceGraphState(
+      { ...node, argv: ["/usr/bin/python3", "/srv/app/timer_epoll.py"], command: "python3" },
+      {
+        ...basePlan,
+        resources: [
+          { id: "pid:4242:argv", kind: "argv", state: "captured" },
+          { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+          {
+            id: "pid:4242:fd:3",
+            kind: "timer",
+            state: "captured",
+            fd: 3,
+            path: "anon_inode:[timerfd]",
+            flags: ["octal:02"],
+          },
+          {
+            id: "pid:4242:fd:4",
+            kind: "epoll",
+            state: "captured",
+            fd: 4,
+            path: "anon_inode:[eventpoll]",
+            flags: ["octal:02"],
+          },
+        ],
+        capture: { ...basePlan.capture, syscall: "230 0 0 0", wchan: "hrtimer_nanosleep" },
+      },
+      "/usr/bin/python3",
+      [
+        "STATUS\t1000\t1000",
+        "ROOT\t/",
+        "TIMERFD_FD\t3\t02\t1\t0\t0\t3\t0\t0\t0",
+        "EPOLL_FD\t4\t02",
+        "EPOLL_WATCH\t4\t3\t1\t4",
+      ].join("\n"),
+    )!;
+
+    expect(state.refusalClasses).toEqual([]);
+    expect(state.epolls).toEqual([
+      expect.objectContaining({
+        fd: 4,
+        support: "target-native-timerfd-watch",
+        watchedFds: [
+          expect.objectContaining({
+            targetFd: 3,
+            events: "1",
+            trigger: "level",
+            oneShot: false,
+            watchedResourceClass: "timerfd",
+          }),
+        ],
+      }),
+    ]);
+    expect(state.resourceClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceClass: "epollTimerfdWatch", status: "supported" }),
+      ]),
+    );
+    const command = genericResourceGraphLoaderCommand(state);
+    expect(command).toContain("timerfd_create");
+    expect(command).toContain("epoll_ctl");
+  });
+
+  it("records signalfd and signal masks while refusing unsafe signal state", () => {
+    const state = buildMoveGenericResourceGraphState(
+      { ...node, argv: ["/usr/bin/python3", "/srv/app/signals.py"], command: "python3" },
+      {
+        ...basePlan,
+        resources: [
+          { id: "pid:4242:argv", kind: "argv", state: "captured" },
+          { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+          {
+            id: "pid:4242:fd:3",
+            kind: "signalfd",
+            state: "captured",
+            fd: 3,
+            path: "anon_inode:[signalfd]",
+            flags: ["octal:02"],
+          },
+        ],
+      },
+      "/usr/bin/python3",
+      [
+        "STATUS\t1000\t1000",
+        "ROOT\t/",
+        "SIGNAL_STATE\t4242\t4242\t0000000000000000\t0000000000000000\t0000000000000200\t0000000000000000\t0000000000000000",
+        "SIGNALFD_FD\t3\t02\t0000000000000200",
+      ].join("\n"),
+    )!;
+
+    expect(state.signalState).toMatchObject({
+      sessionId: 4242,
+      processGroupId: 4242,
+      blockedMaskHex: "0000000000000200",
+      dispositionPolicy: "recorded-default-ignored-caught-masks",
+      pendingPolicy: "refuse-nonzero-pending",
+      support: "refused-baseline",
+    });
+    expect(state.signalfds).toEqual([
+      expect.objectContaining({ fd: 3, sigmask: "0000000000000200", support: "refused-baseline" }),
+    ]);
+    expect(state.resourceClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceClass: "signalMaskDispositionEvidence" }),
+        expect.objectContaining({ resourceClass: "signalfdBaseline", status: "refused" }),
+      ]),
+    );
+    expect(state.refusalClasses.map((item) => item.resourceClass)).toContain("signalfd");
+    expect(genericResourceGraphLoaderCommand(state)).not.toContain("LOAD_PID");
+  });
+
+  it("refuses pending signal delivery separately from signalfd fds", () => {
+    const state = buildMoveGenericResourceGraphState(
+      { ...node, argv: ["/bin/sleep", "60"], command: "sleep" },
+      {
+        ...basePlan,
+        resources: [
+          { id: "pid:4242:argv", kind: "argv", state: "captured" },
+          { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/" },
+        ],
+      },
+      "/bin/sleep",
+      [
+        "STATUS\t1000\t1000",
+        "ROOT\t/",
+        "SIGNAL_STATE\t4242\t4242\t0000000000000200\t0000000000000000\t0000000000000200\t0000000000000000\t0000000000000000",
+      ].join("\n"),
+    )!;
+
+    expect(state.signalfds).toEqual([]);
+    expect(state.signalState?.pendingMaskHex).toBe("0000000000000200");
+    expect(state.refusalClasses.map((item) => item.resourceClass)).toContain("pendingSignalState");
+    expect(genericResourceGraphLoaderCommand(state)).not.toContain("LOAD_PID");
+  });
+
+  it("supports only a monotonic relative one-shot timerfd descriptor", () => {
+    const state = buildMoveGenericResourceGraphState(
+      { ...node, argv: ["/usr/bin/python3", "/srv/app/timer_read.py"], command: "python3" },
+      {
+        ...basePlan,
+        resources: [
+          { id: "pid:4242:argv", kind: "argv", state: "captured" },
+          { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+          {
+            id: "pid:4242:fd:3",
+            kind: "timer",
+            state: "captured",
+            fd: 3,
+            path: "anon_inode:[timerfd]",
+            flags: ["octal:02"],
+          },
+        ],
+        capture: { ...basePlan.capture, syscall: "230 0 0 0", wchan: "hrtimer_nanosleep" },
+      },
+      "/usr/bin/python3",
+      ["STATUS\t1000\t1000", "ROOT\t/", "TIMERFD_FD\t3\t02\t1\t0\t0\t2\t500000000\t0\t0"].join(
+        "\n",
+      ),
+    )!;
+
+    expect(state.refusalClasses).toEqual([]);
+    expect(state.timers).toEqual([
+      expect.objectContaining({
+        fd: 3,
+        clockId: 1,
+        valueSeconds: 2,
+        valueNanoseconds: 500000000,
+        intervalSeconds: 0,
+        support: "target-native-relative-oneshot",
+        restartPolicy: "monotonic-relative-oneshot-target-native",
+      }),
+    ]);
+    expect(state.resourceClasses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ resourceClass: "timerfdRelativeOneShot", status: "supported" }),
+      ]),
+    );
+    const command = genericResourceGraphLoaderCommand(state);
+    expect(command).toContain("timerfd_create");
+    expect(command).toContain("timerfd_settime");
+  });
+
+  it("refuses unsafe timerfd descriptor variants", () => {
+    const make = (row: string, flags = ["octal:02"]) =>
+      buildMoveGenericResourceGraphState(
+        { ...node, argv: ["/usr/bin/python3", "/srv/app/timer_read.py"], command: "python3" },
+        {
+          ...basePlan,
+          resources: [
+            { id: "pid:4242:argv", kind: "argv", state: "captured" },
+            { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
+            {
+              id: "pid:4242:fd:3",
+              kind: "timer",
+              state: "captured",
+              fd: 3,
+              path: "anon_inode:[timerfd]",
+              flags,
+            },
+          ],
+        },
+        "/usr/bin/python3",
+        ["STATUS\t1000\t1000", "ROOT\t/", row].join("\n"),
+      )!;
+
+    for (const state of [
+      make("TIMERFD_FD\t3\t02\t0\t0\t0\t2\t0\t0\t0"),
+      make("TIMERFD_FD\t3\t02\t1\t1\t0\t2\t0\t0\t0"),
+      make("TIMERFD_FD\t3\t02\t1\t0\t1\t2\t0\t0\t0"),
+      make("TIMERFD_FD\t3\t02\t1\t0\t0\t2\t0\t1\t0"),
+      make("TIMERFD_FD\t3\t04002\t1\t0\t0\t2\t0\t0\t0", ["octal:04002"]),
+    ]) {
+      expect(state.refusalClasses.map((item) => item.resourceClass)).toContain("timerfd");
+      expect(state.timers?.[0]?.support).toBe("refused-baseline");
+      expect(genericResourceGraphLoaderCommand(state)).not.toContain("timerfd_create");
+    }
+  });
+
+  it("refuses epoll unknown watches, edge/one-shot/nested shapes, active loops, unsupported flags, and incompatible counters", () => {
     const resources: MoveResourcePlan["resources"] = [
       { id: "pid:4242:argv", kind: "argv", state: "captured" },
       { id: "pid:4242:cwd", kind: "cwd", state: "captured", path: "/srv/app" },
@@ -1348,18 +1835,18 @@ describe("generic resource graph capture", () => {
       watch: string,
       extraResources: MoveResourcePlan["resources"] = [],
       capture = {},
+      eventfdLine = "EVENTFD_FD\t3\t7\t02",
+      baseResources = resources,
     ) =>
       buildMoveGenericResourceGraphState(
         { ...node, argv: ["/usr/bin/python3", "/srv/app/hold.py"], command: "python3" },
         {
           ...basePlan,
-          resources: [...resources, ...extraResources],
+          resources: [...baseResources, ...extraResources],
           capture: { ...basePlan.capture, ...capture },
         },
         "/usr/bin/python3",
-        ["STATUS\t1000\t1000", "ROOT\t/", "EVENTFD_FD\t3\t7\t02", "EPOLL_FD\t4\t02", watch].join(
-          "\n",
-        ),
+        ["STATUS\t1000\t1000", "ROOT\t/", eventfdLine, "EPOLL_FD\t4\t02", watch].join("\n"),
       )!;
 
     for (const state of [
@@ -1377,6 +1864,13 @@ describe("generic resource graph capture", () => {
         },
       ]),
       make("EPOLL_WATCH\t4\t3\t19\t3", [], { syscall: "232 4 0 1", wchan: "ep_poll" }),
+      make("EPOLL_WATCH\t4\t3\t19\t3", [], {}, "EVENTFD_FD\t3\t7\t04002", [
+        { ...resources[0]! },
+        { ...resources[1]! },
+        { ...resources[2]!, flags: ["octal:04002"] },
+        { ...resources[3]! },
+      ]),
+      make("EPOLL_WATCH\t4\t3\t19\t3", [], {}, "EVENTFD_FD\t3\t100000000\t02"),
     ]) {
       expect(state.refusalClasses).toEqual(
         expect.arrayContaining([expect.objectContaining({ resourceClass: "epoll" })]),
@@ -1597,4 +2091,294 @@ describe("generic resource graph capture", () => {
     expect(command).toContain("PATCH\tgeneric-resource-graph\trefused\tpipe");
     expect(command).not.toContain("LOAD_PID");
   });
+
+  it("blocks PHP live-capture generic-primary while stdio, deleted fd, and socket blockers remain", () => {
+    const state = genericPrimaryTestState([
+      "stdio",
+      "regularFileDeleted",
+      "socket",
+      "writableRegularFileCursor",
+    ]);
+
+    expect(genericResourceGraphIsPrimary(state)).toBe(false);
+    expect(genericResourceGraphLoaderCommand(state)).toContain(
+      "PATCH\tgeneric-resource-graph\trefused\tstdio",
+    );
+    expect(genericResourceGraphLoaderCommand(state)).not.toContain("LOAD_PID");
+  });
+
+  it("allows stdio pipe product marker only with exact productPath and no refusals", () => {
+    const state = genericPrimaryTestState([]);
+    state.migration.productPath = {
+      kind: "exact-live-capture",
+      markerProofName: "generic-stdio-pipe-product-marker",
+      supportProofName: "generic-finite-pipe-buffer-replay",
+      refusalProofNames: ["generic-pipe-stdio-refusals"],
+      observedGraph: "exact-live-resource-graph",
+    };
+
+    expect(genericResourceGraphIsPrimary(state)).toBe(true);
+    expect(genericResourceGraphIsProductPrimary(state)).toBe(true);
+    expect(explainGenericResourceGraphMovePlan(state)).toMatchObject({
+      decision: "generic-product",
+      productSupport: true,
+      proofName: "generic-stdio-pipe-product-marker",
+    });
+
+    const refused = genericPrimaryTestState(["pipe"]);
+    refused.migration.productPath = state.migration.productPath;
+
+    expect(genericResourceGraphIsPrimary(refused)).toBe(false);
+    expect(genericResourceGraphIsProductPrimary(refused)).toBe(false);
+    expect(explainGenericResourceGraphMovePlan(refused)).toMatchObject({
+      decision: "fail-closed-refusal",
+      productSupport: false,
+      proofName: "generic-stdio-pipe-product-marker",
+    });
+    expect(genericResourceGraphLoaderCommand(refused)).toContain(
+      "PATCH\tgeneric-resource-graph\trefused\tpipe",
+    );
+    expect(genericResourceGraphLoaderCommand(refused)).not.toContain("LOAD_PID");
+
+    const unpromoted = genericPrimaryTestState([]);
+    unpromoted.migration.productPath = {
+      kind: "exact-live-capture",
+      markerProofName: "redis-live-generic-primary-marker",
+      supportProofName: "generic-service-redis-idle-parity",
+      refusalProofNames: ["generic-database-data-dir-refusals"],
+      observedGraph: "exact-single-process-service",
+    };
+
+    expect(genericResourceGraphIsPrimary(unpromoted)).toBe(true);
+    expect(genericResourceGraphIsProductPrimary(unpromoted)).toBe(false);
+    expect(explainGenericResourceGraphMovePlan(unpromoted)).toMatchObject({
+      decision: "blocked",
+      productSupport: false,
+      proofName: "redis-live-generic-primary-marker",
+    });
+  });
+
+  it("allows promoted wave-2 product markers only with exact productPath and no refusals", () => {
+    for (const productPath of [
+      {
+        markerProofName: "unix-pathname-listener-live-generic-primary-marker",
+        supportProofName: "generic-unix-pathname-listener",
+        refusalProofNames: ["generic-unix-pathname-listener-refusals"],
+      },
+      {
+        markerProofName: "reader-cat-live-generic-primary-marker",
+        supportProofName: "reader-cat",
+        refusalProofNames: [
+          "generic-stale-file-identity-refusal",
+          "generic-deleted-file-fd-refusal",
+          "generic-writable-file-cursor-refusal",
+        ],
+      },
+      {
+        markerProofName: "grep-live-generic-primary-marker",
+        supportProofName: "grep",
+        refusalProofNames: [
+          "generic-stale-file-identity-refusal",
+          "generic-deleted-file-fd-refusal",
+          "generic-writable-file-cursor-refusal",
+          "generic-pipe-stdio-refusals",
+        ],
+      },
+      {
+        markerProofName: "busybox-nc-listener-live-generic-primary-marker",
+        supportProofName: "busybox-nc-listener",
+        refusalProofNames: [
+          "unsafe-busybox-nc-refusal",
+          "unsafe-nc-active-refusal",
+          "generic-loader-preflight-refusals",
+        ],
+      },
+      {
+        markerProofName: "socat-file-responder-live-generic-primary-marker",
+        supportProofName: "socat-file-responder",
+        refusalProofNames: [
+          "unsafe-socat-file-responder-refusal",
+          "generic-loader-preflight-refusals",
+        ],
+      },
+    ]) {
+      const state = genericPrimaryTestState([]);
+      state.migration.productPath = {
+        kind: "exact-live-capture",
+        observedGraph: "exact-live-resource-graph",
+        ...productPath,
+      };
+
+      expect(genericResourceGraphIsPrimary(state), productPath.markerProofName).toBe(true);
+      expect(genericResourceGraphIsProductPrimary(state), productPath.markerProofName).toBe(true);
+      expect(explainGenericResourceGraphMovePlan(state), productPath.markerProofName).toMatchObject(
+        {
+          decision: "generic-product",
+          productSupport: true,
+          proofName: productPath.markerProofName,
+        },
+      );
+
+      const refused = genericPrimaryTestState(["activeRequestSession"]);
+      refused.migration.productPath = state.migration.productPath;
+      expect(genericResourceGraphIsProductPrimary(refused), productPath.markerProofName).toBe(
+        false,
+      );
+      expect(
+        explainGenericResourceGraphMovePlan(refused),
+        productPath.markerProofName,
+      ).toMatchObject({
+        decision: "fail-closed-refusal",
+        productSupport: false,
+        proofName: productPath.markerProofName,
+      });
+    }
+  });
+
+  it("explains fallback, proof-only, deferred, and blocked generic rows without product support", () => {
+    const fallback = genericPrimaryTestState([]);
+    fallback.migration.mode = "generic-equivalent-with-bespoke-fallback";
+    fallback.migration.productPath = undefined;
+
+    expect(explainGenericResourceGraphMovePlan(fallback)).toMatchObject({
+      decision: "explicit-fallback",
+      productSupport: false,
+    });
+
+    for (const proofName of [
+      "generic-service-process-tree-prefork",
+      "generic-same-arch-modeled-continuation",
+      "generic-cross-arch-semantic-reconstruction",
+    ]) {
+      const proofOnly = genericPrimaryTestState([]);
+      proofOnly.migration.genericProofName = proofName;
+      proofOnly.migration.productPath = undefined;
+
+      expect(genericResourceGraphIsProductPrimary(proofOnly), proofName).toBe(false);
+      expect(explainGenericResourceGraphMovePlan(proofOnly), proofName).toMatchObject({
+        decision: "proof-only",
+        productSupport: false,
+        proofName,
+      });
+      expect(explainGenericResourceGraphMovePlan(proofOnly).userMessage).toContain("proof-only");
+    }
+
+    const deferred = genericPrimaryTestState([]);
+    deferred.migration.genericProofName = "generic-unix-pathname-client-pair";
+    deferred.migration.productPath = undefined;
+
+    expect(explainGenericResourceGraphMovePlan(deferred)).toMatchObject({
+      decision: "deferred",
+      productSupport: false,
+      proofName: "generic-unix-pathname-client-pair",
+    });
+    expect(explainGenericResourceGraphMovePlan(deferred).userMessage).toContain("deferred");
+
+    for (const proofName of [
+      "node-static-http-live-generic-primary-marker",
+      "nginx-live-generic-primary-marker",
+      "tail-live-generic-primary-marker",
+    ]) {
+      const blocked = genericPrimaryTestState([]);
+      blocked.migration.genericProofName = proofName;
+      blocked.migration.productPath = {
+        kind: "exact-live-capture",
+        markerProofName: proofName,
+        supportProofName: `${proofName}-support`,
+        refusalProofNames: [`${proofName}-refusal`],
+        observedGraph: "exact-live-resource-graph",
+      };
+
+      expect(genericResourceGraphIsProductPrimary(blocked), proofName).toBe(false);
+      expect(explainGenericResourceGraphMovePlan(blocked), proofName).toMatchObject({
+        decision: "blocked",
+        productSupport: false,
+        proofName,
+      });
+      expect(explainGenericResourceGraphMovePlan(blocked).userMessage).toContain("blocked");
+    }
+  });
+
+  it("does not product-route proof-only, descriptor harness, service, session, or proof-image labels", () => {
+    for (const markerProofName of [
+      "generic-same-arch-modeled-continuation",
+      "generic-cross-arch-semantic-reconstruction",
+      "generic-service-process-tree-prefork",
+      "generic-service-nginx-static-parity",
+      "generic-service-caddy-static-parity",
+      "generic-service-ruby-http-parity",
+      "generic-service-rsync-daemon-parity",
+      "generic-service-redis-idle-parity",
+      "generic-database-data-dir-refusals",
+      "nginx-live-generic-primary-marker",
+      "redis-live-generic-primary-marker",
+      "tail-live-generic-primary-marker",
+      "move-proof-image-arm64-c7c0c1d96a7a",
+    ]) {
+      const state = genericPrimaryTestState([]);
+      state.migration.genericProofName = markerProofName;
+      state.migration.productPath = {
+        kind: "exact-live-capture",
+        markerProofName,
+        supportProofName: markerProofName,
+        refusalProofNames: [`${markerProofName}-refusals`],
+        observedGraph: "exact-live-resource-graph",
+      };
+
+      expect(genericResourceGraphIsPrimary(state), markerProofName).toBe(true);
+      expect(genericResourceGraphIsProductPrimary(state), markerProofName).toBe(false);
+      expect(explainGenericResourceGraphMovePlan(state), markerProofName).toMatchObject({
+        productSupport: false,
+      });
+    }
+  });
+
+  it("blocks process-tree generic-primary refusal classes before target launch", () => {
+    for (const resourceClass of [
+      "serviceManagedChildWorkers",
+      "dynamicWorkerPool",
+      "activeRequestSession",
+      "serviceReloadRace",
+      "nonExactProcessTree",
+    ]) {
+      const state = genericPrimaryTestState([resourceClass]);
+
+      expect(genericResourceGraphIsPrimary(state)).toBe(false);
+      expect(genericResourceGraphLoaderCommand(state)).toContain(
+        `PATCH\tgeneric-resource-graph\trefused\t${resourceClass}`,
+      );
+      expect(genericResourceGraphLoaderCommand(state)).not.toContain("LOAD_PID");
+    }
+  });
 });
+
+function genericPrimaryTestState(refusalClasses: string[]) {
+  return {
+    policy: "generic-resource-graph-target-native-reexec-v1",
+    migration: {
+      mode: "generic-primary",
+      sourceProofName: "unit-service",
+      genericProofName: "unit-generic-service",
+      fallbackPolicy: "explicit fallback remains available outside this exact unit-test shape",
+      boundary: "unit test blocker boundary",
+    },
+    executableIdentity: { path: "/usr/bin/unit-service" },
+    argv: ["/usr/bin/unit-service"],
+    env: { policy: "target-default" },
+    cwd: { path: "/" },
+    ports: [],
+    regularFiles: [],
+    dataDirs: [],
+    fileOffsets: [],
+    stdioPolicy: "stdio-dev-null-or-closed",
+    healthProbe: { kind: "process-alive" },
+    resourceClasses: [],
+    refusalClasses: refusalClasses.map((resourceClass) => ({
+      resourceClass,
+      status: "refused",
+      reason: `${resourceClass} remains live-capture blocker evidence`,
+      evidence: "focused unit-test blocker evidence",
+      nextAction: "keep generic-primary refused until modeled",
+    })),
+  } as Parameters<typeof genericResourceGraphIsPrimary>[0];
+}

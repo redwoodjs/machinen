@@ -690,14 +690,15 @@ export function readMoveBusyboxHttpState(
   ) {
     return undefined;
   }
-  const port = parsePositiveNumber(node.argv[4]);
+  const parsedBind = parseLoopbackOrBarePort(node.argv[4]);
   const root = node.argv[6];
-  if (!Number.isInteger(port) || !root?.startsWith("/")) {
+  if (!parsedBind || !root?.startsWith("/")) {
     return undefined;
   }
   return {
-    port: port as number,
+    port: parsedBind.port,
     root,
+    ...(parsedBind.bindAddress ? { bindAddress: parsedBind.bindAddress } : {}),
     capturedAt: new Date().toISOString(),
   };
 }
@@ -784,6 +785,18 @@ function moveCommandName(node: MovePidGraphNode): string {
 function parsePositiveNumber(value: string | undefined): number | undefined {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function parseLoopbackOrBarePort(
+  value: string | undefined,
+): { port: number; bindAddress?: "127.0.0.1" } | undefined {
+  const loopback = value?.match(/^127\.0\.0\.1:(\d+)$/);
+  if (loopback?.[1]) {
+    const port = parsePositiveNumber(loopback[1]);
+    return port ? { port, bindAddress: "127.0.0.1" } : undefined;
+  }
+  const port = parsePositiveNumber(value);
+  return port ? { port } : undefined;
 }
 
 export function readMoveLessState(

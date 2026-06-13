@@ -1,0 +1,25 @@
+{
+  "name": "generic-resource-graph-productization-phase1",
+  "description": "Retained-artifact coverage for the first productizable exact-live-capture subset. This plan intentionally covers only the modeled finite stdio pipe product marker and its support/refusal evidence; broader Redis/database/service candidates remain deferred until their product boundary is separately proven.",
+  "expectedProofs": [
+    "generic-stdio-pipe-product-marker",
+    "generic-finite-pipe-buffer-replay",
+    "generic-pipe-stdio-refusals"
+  ],
+  "chunks": [
+    {
+      "name": "modeled-stdio-pipe-product-path",
+      "proofs": [
+        "generic-stdio-pipe-product-marker",
+        "generic-finite-pipe-buffer-replay",
+        "generic-pipe-stdio-refusals"
+      ]
+    }
+  ],
+  "nonClaims": [
+    "Phase 1 productization does not add arbitrary process restore support.",
+    "Phase 1 productization does not add broad daemon, service, or database migration support.",
+    "Phase 1 productization does not add active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or runtime-profile shortcuts.",
+    "Redis/database, same-arch continuation, cross-arch semantic reconstruction, and proof-only descriptor harnesses remain outside this phase-1 product subset."
+  ]
+}

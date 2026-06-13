@@ -521,6 +521,323 @@ print(json.dumps({'name':'grep','state':'passed','grepState':save['descriptor'][
 PY
 }
 
+mutate_readonly_file_product_path_bundle() {
+  local bundle="$1" proof="$2" state_key="$3" generic_name="$4" refusal_csv="$5"
+  python3 - <<PY
+import hashlib, json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+state=cap['$state_key']
+g=cap['genericResourceGraphState']
+path=state['path']
+offset=int(state['offset'])
+exe=(cap.get('executablePackage') or {}).get('path') or ('/usr/bin/grep' if '$proof' == 'grep' else '/usr/bin/cat')
+if '$proof' == 'reader-cat':
+    content=''.join(f'cat-line-{i:05d}\n' for i in range(50000)).encode()
+    argv=[exe]
+    source='reader-cat'
+    boundary='only cat readonly regular-file cursor reconstructed on stdin with deterministic stdout redirected to the generic loader log; nontrivial pipes/stdout are not continued as source fds'
+else:
+    content=''.join((('match ' if i % 3 == 0 else 'skip ') + f'{i:05d}\n') for i in range(80000)).encode()
+    argv=[exe, state['pattern']]
+    source='grep'
+    boundary='only grep readonly regular-file cursor with captured literal pattern argv and deterministic stdout redirected to the generic loader log; stdin/pipe/unsupported grep shapes stay outside this exact path'
+identity={'size':len(content),'sha256':hashlib.sha256(content).hexdigest()}
+g['migration']={
+  'mode':'generic-primary',
+  'sourceProofName':source,
+  'genericProofName':'$generic_name',
+  'fallbackPolicy':f'target-original {source} loader remains available outside this exact readonly cursor product path',
+  'boundary':boundary,
+  'productPath':{
+    'kind':'exact-live-capture',
+    'markerProofName':f'{source}-live-generic-primary-marker',
+    'supportProofName':source,
+    'refusalProofNames':[name for name in '$refusal_csv'.split(',') if name],
+    'observedGraph':'exact-live-resource-graph'
+  }
+}
+g['executableIdentity']={k:v for k,v in (cap.get('executablePackage') or {}).items() if k in ('path','realPath','packageName','version','architecture')}
+g['executableIdentity']['path']=exe
+g['argv']=argv
+g['cwd']={'path':'/'}
+g['regularFiles']=[{'fd':0,'path':path,'access':'read-only','offset':offset,'cursor':{'offset':offset,'policy':'absolute-offset'},'identity':identity}]
+g['fileOffsets']=[{'fd':0,'offset':offset,'policy':'absolute-offset'}]
+g['dataDirs']=[]
+g['ports']=[]
+g['unixSockets']=[]
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[]
+g.pop('pipeGraph', None)
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'readonly cursor product path restarts with dev-null stdin'},{'fd':1,'target':'generic-loader-log','access':'write','evidence':'readonly cursor stdout is modeled as deterministic generic loader log output'},{'fd':2,'target':'generic-loader-log','access':'write','evidence':'readonly cursor stderr is modeled as generic loader log output'}]}
+g['healthProbe']={'kind':'command','argv':['python3','-c','print("ok")'],'expectedStdoutSha256':hashlib.sha256(b'ok\n').hexdigest()}
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'target-native executable package identity captured'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'argv/cwd captured and narrowed to stdin-based cursor-preserving reexec for this exact product row'},
+  {'resourceClass':'regularFileIdentity','status':'supported','evidence':'regular file size and sha256 are preflighted on target'},
+  {'resourceClass':'regularFileCursor','status':'supported','evidence':'fd 0 is reopened read-only and seeked to captured cursor offset before target exec'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'target command health plus proof-level output comparison'},
+  {'resourceClass':'stdioLogOutput','status':'supported','evidence':'stdout/stderr are target generic loader log outputs, not source FIFO/log fd continuation'}
+]
+g['refusalClasses']=[]
+json.dump(d, open(p, 'w'), indent=2)
+PY
+}
+
+mutate_tail_append_log_product_path_bundle() {
+  local bundle="$1"
+  python3 - <<PY
+import hashlib, json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+state=cap['tailState']
+g=cap['genericResourceGraphState']
+path=state['path']
+offset=int(state['offset'])
+content=b'line1\nline2\nline3\n'
+identity={'size':len(content),'sha256':hashlib.sha256(content).hexdigest()}
+exe=(cap.get('executablePackage') or {}).get('path') or '/usr/bin/tail'
+g['migration']={
+  'mode':'generic-primary',
+  'sourceProofName':'tail',
+  'genericProofName':'generic-append-log-cursor',
+  'fallbackPolicy':'target-original-tail-offset-loader remains available outside this exact append-log follow product path',
+  'boundary':'only tail -f append-log follow from captured EOF/cursor with target-visible append output in the generic loader log; inotify/source stdout fds are recreated by target-native reexec and mutable/concurrent writer semantics are not broadened',
+  'productPath':{
+    'kind':'exact-live-capture',
+    'markerProofName':'tail-live-generic-primary-marker',
+    'supportProofName':'tail',
+    'refusalProofNames':['generic-stale-file-identity-refusal','generic-append-only-file-cursor-refusal','generic-append-log-unsupported-flags-refusal'],
+    'observedGraph':'exact-live-resource-graph'
+  }
+}
+g['executableIdentity']={k:v for k,v in (cap.get('executablePackage') or {}).items() if k in ('path','realPath','packageName','version','architecture')}
+g['executableIdentity']['path']=exe
+g['argv']=[exe,'-c',f'+{offset + 1}','-f',path]
+g['cwd']={'path':'/'}
+g['regularFiles']=[{'path':path,'access':'read-only','offset':offset,'cursor':{'offset':offset,'policy':'tail-follow-offset'},'identity':identity}]
+g['fileOffsets']=[{'fd':3,'offset':offset,'policy':'absolute-offset'}]
+g['dataDirs']=[]
+g['ports']=[]
+g['unixSockets']=[]
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[]
+g.pop('pipeGraph', None)
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'tail product path restarts with dev-null stdin'},{'fd':1,'target':'generic-loader-log','access':'write','evidence':'tail append output is modeled as target generic loader log output'},{'fd':2,'target':'generic-loader-log','access':'write','evidence':'tail stderr is modeled as generic loader log output'}]}
+g['healthProbe']={'kind':'process-alive'}
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'target-native tail executable package identity captured'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'tail argv reconstructed as -c +offset+1 -f path'},
+  {'resourceClass':'regularFileIdentity','status':'supported','evidence':'append log file size and sha256 are preflighted on target before launch'},
+  {'resourceClass':'appendFileCursor','status':'supported','evidence':'tail starts from captured append cursor/end and proof appends line4/line5 after target launch'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'target tail process remains alive before append validation'},
+  {'resourceClass':'stdioLogOutput','status':'supported','evidence':'stdout/stderr are target generic loader log outputs, not source log fd continuation'}
+]
+g['refusalClasses']=[]
+json.dump(d, open(p, 'w'), indent=2)
+PY
+}
+
+mutate_unix_pathname_product_path_bundle() {
+  local bundle="$1"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+assert g.get('unixSockets') and g['unixSockets'][0]['state'] == 'idle-pathname-listener'
+g['migration']={
+  'mode':'generic-primary',
+  'sourceProofName':'generic-unix-pathname-listener',
+  'genericProofName':'generic-unix-pathname-listener',
+  'fallbackPolicy':'descriptor-harness generic Unix loader remains non-product unless exact-live-capture productPath metadata is present',
+  'boundary':'only idle pathname Unix stream listener with stable filesystem socket path, no active clients, parent directory writable, target path absent, and Unix-connect health proof',
+  'productPath':{
+    'kind':'exact-live-capture',
+    'markerProofName':'unix-pathname-listener-live-generic-primary-marker',
+    'supportProofName':'generic-unix-pathname-listener',
+    'refusalProofNames':['generic-unix-pathname-listener-refusals'],
+    'observedGraph':'exact-live-resource-graph'
+  }
+}
+g['refusalClasses']=[]
+json.dump(d, open(p, 'w'), indent=2)
+PY
+}
+
+prove_unix_pathname_listener_live_generic_primary_marker() {
+  local bundle="$WORK/unix-pathname-live.bundle" pid path="/tmp/machinen-generic/unix-path-product/root/app.sock"
+  setup_generic_python_fixture "$SRC" unix-path-product
+  setup_generic_python_fixture "$TGT" unix-path-product
+  pid=$(launch_generic_fixture unix-path-product unix_path_listener.py "$path" "/tmp/machinen-generic/unix-path-product/root")
+  $CLI exec "$SRC" -- "for i in \$(seq 1 50); do grep -q '$path' /proc/net/unix 2>/dev/null && exit 0; sleep 0.1; done; exit 1" >/dev/null
+  $CLI exec "$TGT" -- "rm -f '$path'" >/dev/null
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/unix-pathname-live.save.json"
+  mutate_unix_pathname_product_path_bundle "$bundle"
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/unix-pathname-live.load.json"
+  $CLI exec "$TGT" -- "python3 - '$path' <<'PY'
+import socket, sys
+s=socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); s.connect(sys.argv[1]); s.sendall(b'product'); data=s.recv(4096); s.close(); print(data.decode())
+PY" >"$WORK/unix-pathname-live.target.out"
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/unix-pathname-live.save.json'))
+load=json.load(open('$WORK/unix-pathname-live.load.json'))
+out=open('$WORK/unix-pathname-live.target.out').read().strip()
+fg=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+mg=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert save['accepted'] and (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert load['accepted'] and load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert mg['migration']['productPath']['kind'] == 'exact-live-capture'
+assert mg['refusalClasses'] == []
+assert mg['healthProbe'] == {'kind':'unix-connect','path':'$path'}
+assert out == 'unix:product'
+print(json.dumps({'name':'unix-pathname-listener-live-generic-primary-marker','state':'passed','fallback':{'sourceAccepted':save['accepted'],'genericMigration':fg.get('migration')},'marked':{'loaderStrategy':load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':load['loader']['targetPid'],'unixSocket':mg['unixSockets'][0],'response':out},'nonClaim':'no connected Unix session, abstract socket, datagram socket, occupied path, missing parent, or arbitrary Unix socket migration claim'}))
+PY
+}
+
+prove_reader_cat_live_generic_primary_marker() {
+  local fallback_bundle="$WORK/reader-live-fallback.bundle" marked_bundle="$WORK/reader-live-marked.bundle" pid log offset
+  $CLI exec "$SRC" -- "python3 - <<'PY'
+from pathlib import Path
+Path('/tmp/cat.txt').write_text(''.join(f'cat-line-{i:05d}\\n' for i in range(50000)))
+PY
+rm -f /tmp/cat.pipe /tmp/cat.source.out; mkfifo /tmp/cat.pipe; setsid sh -c 'exec 7</tmp/cat.pipe; while dd bs=512 count=1 status=none <&7 >>/tmp/cat.source.out; do sleep 0.1; done' >/dev/null 2>&1 &" >/dev/null
+  $CLI exec "$TGT" -- "python3 - <<'PY'
+from pathlib import Path
+Path('/tmp/cat.txt').write_text(''.join(f'cat-line-{i:05d}\\n' for i in range(50000)))
+PY" >/dev/null
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec cat /tmp/cat.txt' >/tmp/cat.pipe 2>/dev/null & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$fallback_bundle" --json >"$WORK/reader-live-fallback.save.json"
+  $CLI exec "$SRC" -- "kill -TERM '$pid' 2>/dev/null || true; kill -KILL '$pid' 2>/dev/null || true" >/dev/null || true
+  $CLI exec "$SRC" -- "rm -f /tmp/cat.pipe /tmp/cat.source.out; mkfifo /tmp/cat.pipe; setsid sh -c 'exec 7</tmp/cat.pipe; while dd bs=512 count=1 status=none <&7 >>/tmp/cat.source.out; do sleep 0.1; done' >/dev/null 2>&1 &" >/dev/null
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec cat /tmp/cat.txt' >/tmp/cat.pipe 2>/dev/null & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$marked_bundle" --json >"$WORK/reader-live-marked.save.json"
+  mutate_readonly_file_product_path_bundle "$marked_bundle" reader-cat readerState generic-readonly-file-cursor generic-stale-file-identity-refusal,generic-deleted-file-fd-refusal,generic-writable-file-cursor-refusal
+  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/reader-live-marked.load.json"
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/reader-live-marked.load.json'))['loader']['logPath'])
+PY
+)
+  sleep 1
+  $CLI exec "$TGT" -- "cat '$log'" >"$WORK/reader-live.target.out"
+  offset=$(python3 - <<PY
+import json; print(json.load(open('$WORK/reader-live-marked.save.json'))['descriptor']['resourcePlan']['capture']['readerState']['offset'])
+PY
+)
+  $CLI exec "$TGT" -- "tail -c +$((offset + 1)) /tmp/cat.txt" >"$WORK/reader-live.expected.out"
+  python3 - <<PY
+import json
+fallback_save=json.load(open('$WORK/reader-live-fallback.save.json'))
+load=json.load(open('$WORK/reader-live-marked.load.json'))
+out=open('$WORK/reader-live.target.out','rb').read()
+expected=open('$WORK/reader-live.expected.out','rb').read()
+fg=fallback_save['descriptor']['resourcePlan']['capture'].get('genericResourceGraphState') or {}
+mg=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert fallback_save['accepted'] and (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert load['accepted'] and load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert mg['migration']['productPath']['kind'] == 'exact-live-capture'
+assert mg['refusalClasses'] == []
+assert out == expected
+print(json.dumps({'name':'reader-cat-live-generic-primary-marker','state':'passed','fallback':{'sourceAccepted':fallback_save['accepted'],'genericMigration':fg.get('migration')},'marked':{'loaderStrategy':load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':load['loader']['targetPid'],'bytes':len(out),'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'nonClaim':'no FIFO/stdout fd continuation, writable file cursor, stale/deleted file, or arbitrary cat process migration claim'}))
+PY
+}
+
+prove_grep_live_generic_primary_marker() {
+  local fallback_bundle="$WORK/grep-live-fallback.bundle" marked_bundle="$WORK/grep-live-marked.bundle" pid log offset
+  $CLI exec "$SRC" -- "python3 - <<'PY'
+from pathlib import Path
+Path('/tmp/grep.txt').write_text(''.join((('match ' if i % 3 == 0 else 'skip ') + f'{i:05d}\\n') for i in range(80000)))
+PY
+rm -f /tmp/grep.pipe /tmp/grep.source.out; mkfifo /tmp/grep.pipe; setsid sh -c 'exec 7</tmp/grep.pipe; while dd bs=256 count=1 status=none <&7 >>/tmp/grep.source.out; do sleep 0.1; done' >/dev/null 2>&1 &" >/dev/null
+  $CLI exec "$TGT" -- "python3 - <<'PY'
+from pathlib import Path
+Path('/tmp/grep.txt').write_text(''.join((('match ' if i % 3 == 0 else 'skip ') + f'{i:05d}\\n') for i in range(80000)))
+PY" >/dev/null
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec grep match /tmp/grep.txt' >/tmp/grep.pipe 2>/dev/null & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$fallback_bundle" --json >"$WORK/grep-live-fallback.save.json"
+  $CLI exec "$SRC" -- "kill -TERM '$pid' 2>/dev/null || true; kill -KILL '$pid' 2>/dev/null || true" >/dev/null || true
+  $CLI exec "$SRC" -- "rm -f /tmp/grep.pipe /tmp/grep.source.out; mkfifo /tmp/grep.pipe; setsid sh -c 'exec 7</tmp/grep.pipe; while dd bs=256 count=1 status=none <&7 >>/tmp/grep.source.out; do sleep 0.1; done' >/dev/null 2>&1 &" >/dev/null
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec grep match /tmp/grep.txt' >/tmp/grep.pipe 2>/dev/null & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$marked_bundle" --json >"$WORK/grep-live-marked.save.json"
+  mutate_readonly_file_product_path_bundle "$marked_bundle" grep grepState generic-readonly-file-cli generic-stale-file-identity-refusal,generic-deleted-file-fd-refusal,generic-writable-file-cursor-refusal,generic-pipe-stdio-refusals
+  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/grep-live-marked.load.json"
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/grep-live-marked.load.json'))['loader']['logPath'])
+PY
+)
+  sleep 1
+  $CLI exec "$TGT" -- "cat '$log'" >"$WORK/grep-live.target.out"
+  offset=$(python3 - <<PY
+import json; print(json.load(open('$WORK/grep-live-marked.save.json'))['descriptor']['resourcePlan']['capture']['grepState']['offset'])
+PY
+)
+  $CLI exec "$TGT" -- "tail -c +$((offset + 1)) /tmp/grep.txt | grep match || true" >"$WORK/grep-live.expected.out"
+  python3 - <<PY
+import json
+fallback_save=json.load(open('$WORK/grep-live-fallback.save.json'))
+load=json.load(open('$WORK/grep-live-marked.load.json'))
+out=open('$WORK/grep-live.target.out').read().splitlines()
+expected=open('$WORK/grep-live.expected.out').read().splitlines()
+fg=fallback_save['descriptor']['resourcePlan']['capture'].get('genericResourceGraphState') or {}
+mg=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert fallback_save['accepted'] and (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert load['accepted'] and load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert mg['migration']['productPath']['kind'] == 'exact-live-capture'
+assert mg['refusalClasses'] == []
+assert out == expected
+print(json.dumps({'name':'grep-live-generic-primary-marker','state':'passed','fallback':{'sourceAccepted':fallback_save['accepted'],'genericMigration':fg.get('migration')},'marked':{'loaderStrategy':load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':load['loader']['targetPid'],'matches':len(out),'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'nonClaim':'no stdin/pipe continuation, unsupported grep options, writable/stale/deleted file, or arbitrary grep process migration claim'}))
+PY
+}
+
+prove_tail_live_generic_primary_marker() {
+  local fallback_bundle="$WORK/tail-live-fallback.bundle" marked_bundle="$WORK/tail-live-marked.bundle" pid log
+  $CLI exec "$SRC" -- "printf 'line1\nline2\n' >/tmp/tail.txt; rm -f /tmp/tail-source.out" >/dev/null
+  pid=$($CLI exec "$SRC" -- "sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; tail -n +1 -f /tmp/tail.txt >/tmp/tail-source.out 2>&1 & echo \$!'" | tail -1 | tr -d '\r')
+  sleep 1
+  $CLI exec "$SRC" -- "printf 'line3\n' >>/tmp/tail.txt" >/dev/null
+  sleep 1
+  $CLI exec "$TGT" -- "printf 'line1\nline2\nline3\n' >/tmp/tail.txt" >/dev/null
+  $CLI move save "$SRC" "$pid" "$fallback_bundle" --json >"$WORK/tail-live-fallback.save.json"
+  $CLI exec "$SRC" -- "kill -TERM '$pid' 2>/dev/null || true; kill -KILL '$pid' 2>/dev/null || true" >/dev/null || true
+  pid=$($CLI exec "$SRC" -- "sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; tail -n +1 -f /tmp/tail.txt >/tmp/tail-source.out 2>&1 & echo \$!'" | tail -1 | tr -d '\r')
+  sleep 1
+  $CLI move save "$SRC" "$pid" "$marked_bundle" --json >"$WORK/tail-live-marked.save.json"
+  mutate_tail_append_log_product_path_bundle "$marked_bundle"
+  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/tail-live-marked.load.json"
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/tail-live-marked.load.json'))['loader']['logPath'])
+PY
+)
+  $CLI exec "$TGT" -- "printf 'line4\nline5\n' >>/tmp/tail.txt" >/dev/null
+  sleep 2
+  $CLI exec "$TGT" -- "cat '$log'" >"$WORK/tail-live.target.out"
+  python3 - <<PY
+import json
+fallback_save=json.load(open('$WORK/tail-live-fallback.save.json'))
+load=json.load(open('$WORK/tail-live-marked.load.json'))
+out=open('$WORK/tail-live.target.out').read().strip().splitlines()
+fg=fallback_save['descriptor']['resourcePlan']['capture'].get('genericResourceGraphState') or {}
+mg=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert fallback_save['accepted'] and (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert load['accepted'] and load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert mg['migration']['productPath']['kind'] == 'exact-live-capture'
+assert mg['refusalClasses'] == []
+assert out == ['line4','line5'], out
+print(json.dumps({'name':'tail-live-generic-primary-marker','state':'passed','fallback':{'sourceAccepted':fallback_save['accepted'],'genericMigration':fg.get('migration')},'marked':{'loaderStrategy':load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':load['loader']['targetPid'],'output':out,'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'nonClaim':'no source inotify fd continuation, no arbitrary mutable data replay, no concurrent writer consistency model, and no broad tail process migration claim'}))
+PY
+}
+
 prove_watch() {
   local bundle="$WORK/watch.bundle" pid
   $CLI exec "$SRC" -- "setsid sh -c 'tail -f /dev/null | TERM=xterm script -q -c \"watch -n 1 date\" /tmp/watch.typescript >/dev/null 2>&1' >/dev/null 2>&1 &" >/dev/null
@@ -851,6 +1168,319 @@ print(json.dumps({'name':'unsafe-rsync-daemon-refusal','state':'passed','activeR
 PY
 }
 
+
+mark_service_product_path() {
+  local bundle="$1" marker_proof="$2" support_proof="$3" refusal_csv="$4" drift_csv="${5:-}"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+product_path={
+  'kind':'exact-live-capture',
+  'markerProofName':'$marker_proof',
+  'supportProofName':'$support_proof',
+  'refusalProofNames':[name for name in '$refusal_csv'.split(',') if name],
+  'observedGraph':'exact-single-process-service',
+}
+drift=[name for name in '$drift_csv'.split(',') if name]
+if drift:
+    product_path['driftRefusalProofNames']=drift
+g['migration']['productPath']=product_path
+json.dump(d, open(p, 'w'), indent=2)
+PY
+}
+
+mutate_generic_rsync_service_bundle() {
+  local bundle="$1" port="$2" mode="${3:-support}"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+port=int('$port')
+mode='$mode'
+cap=d['resourcePlan']['capture']
+state=cap['rsyncDaemonState']
+pkg=cap['executablePackage']
+exe='/usr/bin/rsync'
+root=f'/tmp/rsync-root-{port}'
+config=f'/tmp/rsyncd-{port}.conf'
+argv=[exe,'--daemon','--no-detach','--config',config]
+node=d['nodes'][0]
+node['command']='rsync'
+node['argv']=argv
+node['exe']=exe
+g=cap['genericResourceGraphState']
+g['migration']={'mode':'generic-primary','sourceProofName':'rsync-daemon','genericProofName':'generic-service-rsync-daemon-parity','fallbackPolicy':'target-native-rsync-daemon-loader remains available outside this exact generic parity row','boundary':'only one read-only no-auth rsync module named proof, stable config/root identity, no writable module, no auth/secrets/hooks, no active clients, loopback read health proof, target package proof'}
+g['executableIdentity']={k:v for k,v in pkg.items() if k in ('path','realPath','packageName','version','architecture')}
+g['executableIdentity']['path']=exe
+g['argv']=argv
+g['cwd']={'path':'/'}
+g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
+g['dataDirs']=[{'path':root,'access':'read-only','identity':state['directoryIdentity']}]
+g['regularFiles']=[]
+g['fileOffsets']=[]
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[]
+g.pop('unixSockets', None)
+g.pop('pipeGraph', None)
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'stdin redirected to /dev/null by descriptor harness'},{'fd':1,'target':'log','access':'write','evidence':'stdout redirected to generic loader log'},{'fd':2,'target':'log','access':'write','evidence':'stderr redirected to generic loader log'}]}
+g['healthProbe']={'kind':'tcp-connect','host':'127.0.0.1','port':port}
+refusal_map={
+  'write-enabled':('serviceWritablePersistence','write-enabled rsync module is refused before generic rsync launch'),
+  'auth-hooks':('authHooksOrSecrets','auth users, secrets, hooks, or access-control config is refused before generic rsync launch'),
+  'active-client':('activeTcpConnection','active client/session state is refused before generic rsync launch'),
+  'config-drift':('serviceConfigDrift','rsync config sha/argv drift is refused before generic rsync launch'),
+}
+if mode in refusal_map:
+    klass, reason = refusal_map[mode]
+    g['refusalClasses']=[{'resourceClass':klass,'status':'refused','reason':reason,'evidence':f'generic-service-rsync-daemon-parity mode={mode}','nextAction':'keep explicit rsync envelope fallback unless exact generic support/refusal parity is proven'}]
+else:
+    g['refusalClasses']=[]
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'target rsync executable identity is preserved from capture'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'rsync daemon argv/cwd reconstructed by generic loader'},
+  {'resourceClass':'targetPackageIdentity','status':'supported','evidence':'proof-provisioned target-native rsync package identity is retained'},
+  {'resourceClass':'serviceConfigIdentity','status':'supported','evidence':'rsync config path and sha256 are captured by rsyncDaemonState'},
+  {'resourceClass':'serviceReadOnlyData','status':'supported','evidence':'read-only no-auth module root is checked by generic dataDir preflight'},
+  {'resourceClass':'directoryIdentity','status':'supported','evidence':'module root file count/digest are retained'},
+  {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'loopback port preflight checks availability before launch'},
+  {'resourceClass':'noActiveClients','status':'supported','evidence':'parity row admits only no-active-client listener state'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'target tcp health and rsync read are checked after generic launch'},
+]
+d['nativeContinuation']['state']='planned'
+d['nativeContinuation']['refusals']=[]
+d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+}
+
+prove_generic_service_rsync_daemon_parity() {
+  local support_bundle="$WORK/generic-service-rsync-support.bundle" drift_bundle="$WORK/generic-service-rsync-drift.bundle" active_bundle="$WORK/generic-service-rsync-active.bundle" write_bundle="$WORK/generic-service-rsync-write.bundle" auth_bundle="$WORK/generic-service-rsync-auth.bundle" pid body active_pid write_pid auth_pid drift_pid active_load_rc write_load_rc auth_load_rc drift_load_rc
+  write_rsync_daemon_fixture "$TGT" 8230 readonly
+  pid=$(spawn_rsync_daemon 8230 readonly)
+  sleep 1
+  $CLI move save "$SRC" "$pid" "$support_bundle" --json >"$WORK/generic-service-rsync-support.save.json"
+  mutate_generic_rsync_service_bundle "$support_bundle" 8230 support
+  $CLI move load "$TGT" "$support_bundle" --json >"$WORK/generic-service-rsync-support.load.json"
+  $CLI exec "$TGT" -- "/usr/bin/rsync rsync://127.0.0.1:8230/proof/index.txt /tmp/generic-rsync-proof-out.txt && cat /tmp/generic-rsync-proof-out.txt" >"$WORK/generic-service-rsync.body.txt"
+  body=$(cat "$WORK/generic-service-rsync.body.txt" | tr -d '\r')
+
+  active_pid=$(spawn_rsync_daemon 8231 readonly)
+  sleep 1
+  $CLI exec "$SRC" -- "bash -lc 'exec 9<>/dev/tcp/127.0.0.1/8231; sleep 20' >/tmp/generic-rsync-active-client.log 2>&1 &" >/dev/null
+  sleep 1
+  $CLI move save "$SRC" "$active_pid" "$active_bundle" --json >"$WORK/generic-service-rsync-active.save.json" || true
+  rm -rf "$active_bundle"
+  cp -R "$support_bundle" "$active_bundle"
+  mutate_generic_rsync_service_bundle "$active_bundle" 8231 active-client
+  set +e
+  $CLI move load "$TGT" "$active_bundle" --json >"$WORK/generic-service-rsync-active.load.json"
+  active_load_rc=$?
+  set -e
+
+  write_pid=$(spawn_rsync_daemon 8232 write)
+  sleep 1
+  $CLI move save "$SRC" "$write_pid" "$write_bundle" --json >"$WORK/generic-service-rsync-write.save.json" || true
+  rm -rf "$write_bundle"
+  cp -R "$support_bundle" "$write_bundle"
+  mutate_generic_rsync_service_bundle "$write_bundle" 8232 write-enabled
+  set +e
+  $CLI move load "$TGT" "$write_bundle" --json >"$WORK/generic-service-rsync-write.load.json"
+  write_load_rc=$?
+  set -e
+
+  auth_pid=$(spawn_rsync_daemon 8233 auth)
+  sleep 1
+  $CLI move save "$SRC" "$auth_pid" "$auth_bundle" --json >"$WORK/generic-service-rsync-auth.save.json" || true
+  rm -rf "$auth_bundle"
+  cp -R "$support_bundle" "$auth_bundle"
+  mutate_generic_rsync_service_bundle "$auth_bundle" 8233 auth-hooks
+  set +e
+  $CLI move load "$TGT" "$auth_bundle" --json >"$WORK/generic-service-rsync-auth.load.json"
+  auth_load_rc=$?
+  set -e
+
+  write_rsync_daemon_fixture "$TGT" 8234 readonly
+  drift_pid=$(spawn_rsync_daemon 8234 readonly)
+  sleep 1
+  $CLI move save "$SRC" "$drift_pid" "$drift_bundle" --json >"$WORK/generic-service-rsync-drift.save.json"
+  mutate_generic_rsync_service_bundle "$drift_bundle" 8234 support
+  $CLI exec "$TGT" -- "printf 'drift\n' >>/tmp/rsync-root-8234/index.txt" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$drift_bundle" --json >"$WORK/generic-service-rsync-drift.load.json"
+  drift_load_rc=$?
+  set -e
+
+  python3 - <<PY
+import json
+support_load=json.load(open('$WORK/generic-service-rsync-support.load.json'))
+active_load=json.load(open('$WORK/generic-service-rsync-active.load.json'))
+write_load=json.load(open('$WORK/generic-service-rsync-write.load.json'))
+auth_load=json.load(open('$WORK/generic-service-rsync-auth.load.json'))
+drift_load=json.load(open('$WORK/generic-service-rsync-drift.load.json'))
+g=support_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert support_load['accepted'] and support_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['migration']['mode'] == 'generic-primary'
+assert g['migration']['sourceProofName'] == 'rsync-daemon'
+assert g['refusalClasses'] == []
+assert 'rsync proof 15J' in '''$body'''
+declared_refusals={
+  'active-client': (active_load, '$active_load_rc', 'activeTcpConnection'),
+  'write-enabled': (write_load, '$write_load_rc', 'serviceWritablePersistence'),
+  'auth-hooks': (auth_load, '$auth_load_rc', 'authHooksOrSecrets'),
+}
+cases=[]
+for name, (doc, rc, klass) in declared_refusals.items():
+    assert int(rc) == 1 and not doc['accepted'], (name, rc, doc)
+    gdoc=doc['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+    classes=[r['resourceClass'] for r in gdoc['refusalClasses']]
+    loader=doc.get('loader', {})
+    assert klass in classes, (name, classes)
+    assert loader.get('targetPid') is None, (name, loader)
+    cases.append({'case':name,'targetPid':loader.get('targetPid'),'refusalClasses':classes,'loaderState':loader.get('state')})
+assert int('$drift_load_rc') == 1 and not drift_load['accepted']
+drift_loader=drift_load.get('loader', {})
+assert drift_loader.get('state') == 'refused' and drift_loader.get('targetPid') is None, drift_loader
+assert 'data-dir' in drift_loader.get('patch', {}).get('stdout', ''), drift_loader
+cases.append({'case':'root-drift','targetPid':drift_loader.get('targetPid'),'reasonNeedle':'data-dir','loaderState':drift_loader.get('state')})
+print(json.dumps({'name':'generic-service-rsync-daemon-parity','state':'passed','support':{'loaderStrategy':support_load['loader']['strategy'],'targetPid':support_load['loader']['targetPid'],'targetReadContains':'rsync proof 15J','migration':g['migration'],'resourceClasses':[r['resourceClass'] for r in g['resourceClasses']]},'refusals':cases,'explicitFallbackPreserved':'rsync-daemon remains explicit-fallback unless exact descriptor/live-capture row marks generic-primary'}))
+PY
+}
+
+
+prove_rsync_live_generic_primary_marker() {
+  local fallback_bundle="$WORK/rsync-live-marker-fallback.bundle" marked_bundle="$WORK/rsync-live-marker-marked.bundle" fallback_pid marked_pid body
+  write_rsync_daemon_fixture "$TGT" 8262 readonly
+  fallback_pid=$(spawn_rsync_daemon 8262 readonly)
+  sleep 1
+  $CLI move save "$SRC" "$fallback_pid" "$fallback_bundle" --json >"$WORK/rsync-live-marker-fallback.save.json"
+  $CLI move load "$TGT" "$fallback_bundle" --json >"$WORK/rsync-live-marker-fallback.load.json"
+
+  write_rsync_daemon_fixture "$TGT" 8263 readonly
+  marked_pid=$(spawn_rsync_daemon 8263 readonly)
+  sleep 1
+  $CLI move save "$SRC" "$marked_pid" "$marked_bundle" --json >"$WORK/rsync-live-marker-marked.save.json"
+  mutate_generic_rsync_service_bundle "$marked_bundle" 8263 support
+  mark_service_product_path "$marked_bundle" rsync-live-generic-primary-marker generic-service-rsync-daemon-parity rsync-live-write-marker-refusal,service-target-package-missing-normalization,service-per-service-drift-refusals,service-config-drift-refusal service-per-service-drift-refusals,service-config-drift-refusal
+  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/rsync-live-marker-marked.load.json"
+  $CLI exec "$TGT" -- "/usr/bin/rsync rsync://127.0.0.1:8263/proof/index.txt /tmp/rsync-live-marker-out.txt && cat /tmp/rsync-live-marker-out.txt" >"$WORK/rsync-live-marker.body.txt"
+  body=$(cat "$WORK/rsync-live-marker.body.txt" | tr -d '\r')
+  python3 - <<PY
+import json
+fallback_save=json.load(open('$WORK/rsync-live-marker-fallback.save.json'))
+fallback_load=json.load(open('$WORK/rsync-live-marker-fallback.load.json'))
+marked_save=json.load(open('$WORK/rsync-live-marker-marked.save.json'))
+marked_load=json.load(open('$WORK/rsync-live-marker-marked.load.json'))
+fg=fallback_load['descriptor']['resourcePlan']['capture'].get('genericResourceGraphState') or {}
+mg=marked_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert fallback_save['accepted'] and fallback_load['accepted']
+assert fallback_load['loader']['strategy'] == 'target-native-rsync-daemon-loader'
+assert (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert marked_save['accepted'] and marked_load['accepted']
+assert mg['migration']['mode'] == 'generic-primary'
+assert mg['migration']['genericProofName'] == 'generic-service-rsync-daemon-parity'
+assert mg['refusalClasses'] == []
+assert marked_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert 'rsync proof 15J' in '''$body'''
+print(json.dumps({'name':'rsync-live-generic-primary-marker','state':'passed','fallback':{'loaderStrategy':fallback_load['loader']['strategy'],'genericMigration':fg.get('migration'),'targetPid':fallback_load['loader']['targetPid']},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'targetReadContains':'rsync proof 15J'},'gate':'generic loader selected only after explicit generic-primary marker and refusalClasses=[]','nonClaim':'no writable rsync module, auth hook, or broad rsync daemon migration claim'}))
+PY
+}
+
+prove_rsync_live_write_marker_refusal() {
+  local support_bundle="$WORK/rsync-live-write-support.bundle" write_bundle="$WORK/rsync-live-write-marker-refusal.bundle" support_pid write_pid save_rc load_rc
+  write_rsync_daemon_fixture "$TGT" 8264 readonly
+  support_pid=$(spawn_rsync_daemon 8264 readonly)
+  sleep 1
+  $CLI move save "$SRC" "$support_pid" "$support_bundle" --json >"$WORK/rsync-live-write-support.save.json"
+  write_pid=$(spawn_rsync_daemon 8265 write)
+  sleep 1
+  set +e
+  $CLI move save "$SRC" "$write_pid" "$write_bundle" --json >"$WORK/rsync-live-write-marker-refusal.save.json"
+  save_rc=$?
+  set -e
+  rm -rf "$write_bundle"
+  cp -R "$support_bundle" "$write_bundle"
+  mutate_generic_rsync_service_bundle "$write_bundle" 8265 write-enabled
+  python3 - <<PY
+import json
+p='$write_bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+cap.pop('rsyncDaemonState', None)
+d['nativeContinuation']['state']='refused'
+d['nativeContinuation']['refusals']=cap['genericResourceGraphState']['refusalClasses']
+d['refusedStateClasses']=['serviceWritablePersistence']
+json.dump(d, open(p,'w'), indent=2)
+PY
+  set +e
+  $CLI move load "$TGT" "$write_bundle" --json >"$WORK/rsync-live-write-marker-refusal.load.json"
+  load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+support_save=json.load(open('$WORK/rsync-live-write-support.save.json'))
+write_save=json.load(open('$WORK/rsync-live-write-marker-refusal.save.json'))
+load=json.load(open('$WORK/rsync-live-write-marker-refusal.load.json'))
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g.get('refusalClasses', [])]
+assert support_save['accepted']
+assert int('$save_rc') == 1 and not write_save['accepted'], write_save
+assert write_save['descriptor']['resourcePlan']['capture'].get('rsyncDaemonState') is None
+assert int('$load_rc') == 1 and not load['accepted'], load
+assert (load.get('loader') or {}).get('targetPid') is None, load.get('loader')
+assert g['migration']['mode'] == 'generic-primary'
+assert 'serviceWritablePersistence' in classes, classes
+assert load['descriptor']['resourcePlan']['capture'].get('rsyncDaemonState') is None
+print(json.dumps({'name':'rsync-live-write-marker-refusal','state':'passed','liveWriteSaveAccepted':write_save['accepted'],'explicitFallbackRemoved':True,'genericOnlyLoadAccepted':load['accepted'],'genericMigration':g['migration'],'targetPid':(load.get('loader') or {}).get('targetPid'),'refusalClasses':classes,'nonClaim':'live write-enabled rsync module is refused; no writable module migration claim'}))
+PY
+}
+
+prove_service_config_drift_refusal() {
+  local support_bundle="$WORK/service-config-drift-support.bundle" drift_bundle="$WORK/service-config-drift-refusal.bundle" pid load_rc
+  write_rsync_daemon_fixture "$TGT" 8270 readonly
+  pid=$(spawn_rsync_daemon 8270 readonly)
+  sleep 1
+  $CLI move save "$SRC" "$pid" "$support_bundle" --json >"$WORK/service-config-drift-support.save.json"
+  rm -rf "$drift_bundle"
+  cp -R "$support_bundle" "$drift_bundle"
+  mutate_generic_rsync_service_bundle "$drift_bundle" 8270 config-drift
+  python3 - <<PY
+import json
+p='$drift_bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+g=cap['genericResourceGraphState']
+cap.pop('rsyncDaemonState', None)
+g['refusalClasses'][0]['evidence']='service-config-drift-refusal: rsync config sha/argv identity intentionally marked drifted in generic-only harness'
+g['resourceClasses']=g.get('resourceClasses', []) + [{'resourceClass':'serviceConfigDrift','status':'refused','evidence':'rsync config identity drift marker kept refusalClasses non-empty'}]
+d['nativeContinuation']['state']='refused'
+d['nativeContinuation']['refusals']=g['refusalClasses']
+d['refusedStateClasses']=['serviceConfigDrift']
+json.dump(d, open(p,'w'), indent=2)
+PY
+  set +e
+  $CLI move load "$TGT" "$drift_bundle" --json >"$WORK/service-config-drift-refusal.load.json"
+  load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/service-config-drift-support.save.json'))
+load=json.load(open('$WORK/service-config-drift-refusal.load.json'))
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g.get('refusalClasses', [])]
+assert save['accepted'], save
+assert int('$load_rc') == 1 and not load['accepted'], load
+assert (load.get('loader') or {}).get('targetPid') is None, load.get('loader')
+assert g['migration']['mode'] == 'generic-primary'
+assert 'serviceConfigDrift' in classes, classes
+assert load['descriptor']['resourcePlan']['capture'].get('rsyncDaemonState') is None
+print(json.dumps({'name':'service-config-drift-refusal','state':'passed','sourceSaveAccepted':save['accepted'],'explicitFallbackRemoved':True,'genericOnlyLoadAccepted':load['accepted'],'genericMigration':g['migration'],'targetPid':(load.get('loader') or {}).get('targetPid'),'refusalClasses':classes,'nonClaim':'service config drift is refused before target continuation; no config mutation replay or broad service migration claim'}))
+PY
+}
+
 ensure_php_tool() {
   local vm="$1"
   if $CLI exec "$vm" -- "test -x /usr/bin/php" >/dev/null 2>&1; then
@@ -974,6 +1604,76 @@ print(json.dumps({'name':'unsafe-php-static-refusal','state':'passed','activePhp
 PY
 }
 
+mutate_php_live_blocker_generic_only_bundle() {
+  local bundle="$1" proof_name="$2"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+g=cap['genericResourceGraphState']
+cap.pop('phpStaticState', None)
+g['migration']={'mode':'generic-primary','sourceProofName':'php-static','genericProofName':'$proof_name','fallbackPolicy':'explicit PHP fallback intentionally removed in this blocker harness so live generic blockers must fail closed','boundary':'live PHP capture blockers must keep genericResourceGraphState.refusalClasses non-empty and prevent generic-primary loader selection'}
+d['nativeContinuation']['state']='refused'
+d['nativeContinuation']['refusals']=g.get('refusalClasses', [])
+d['refusedStateClasses']=[item.get('resourceClass') for item in g.get('refusalClasses', [])]
+json.dump(d, open(p,'w'), indent=2)
+PY
+}
+
+prove_php_live_capture_blocker() {
+  local proof_name="$1" port="$2" blocker_kind="$3" load_rc pid
+  local bundle="$WORK/$proof_name.bundle"
+  pid=$(spawn_php_static "$port" static)
+  sleep 1
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/$proof_name.save.json"
+  mutate_php_live_blocker_generic_only_bundle "$bundle" "$proof_name"
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/$proof_name.load.json"
+  load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+proof_name='$proof_name'
+kind='$blocker_kind'
+save=json.load(open('$WORK/$proof_name.save.json'))
+load=json.load(open('$WORK/$proof_name.load.json'))
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g.get('refusalClasses', [])]
+evidence='\n'.join(r.get('evidence','') for r in g.get('refusalClasses', []))
+assert save['accepted'], save
+assert int('$load_rc') == 1 and not load['accepted'], load
+assert (load.get('loader') or {}).get('targetPid') is None, load.get('loader')
+assert g.get('migration', {}).get('mode') == 'generic-primary'
+assert g.get('refusalClasses'), g
+assert load['descriptor']['resourcePlan']['capture'].get('phpStaticState') is None
+if kind == 'stdio-log-fd':
+    assert 'writableRegularFileCursor' in classes and 'stdio' in classes, classes
+    assert '/tmp/php-static-run-' in evidence, evidence
+elif kind == 'zend-semaphore':
+    assert 'regularFileDeleted' in classes, classes
+    assert '.ZendSem.' in evidence and '(deleted)' in evidence, evidence
+elif kind == 'socket-fd':
+    assert 'socket' in classes, classes
+    assert 'socket:[' in evidence, evidence
+else:
+    raise AssertionError(kind)
+print(json.dumps({'name':proof_name,'state':'passed','sourceSaveAccepted':save['accepted'],'genericOnlyLoadAccepted':load['accepted'],'genericMigration':g.get('migration'),'genericPrimarySelected':False,'targetPid':(load.get('loader') or {}).get('targetPid'),'blockerKind':kind,'refusalClasses':classes,'blockerEvidenceSample':evidence[:240],'nonClaim':'PHP live generic-primary is not selected while live blockers remain'}))
+PY
+}
+
+prove_php_live_stdio_log_fd_refusal() {
+  prove_php_live_capture_blocker php-live-stdio-log-fd-refusal 8245 stdio-log-fd
+}
+
+prove_php_live_zend_semaphore_refusal() {
+  prove_php_live_capture_blocker php-live-zend-semaphore-refusal 8246 zend-semaphore
+}
+
+prove_php_live_socket_fd_refusal() {
+  prove_php_live_capture_blocker php-live-socket-fd-refusal 8247 socket-fd
+}
+
 mutate_generic_php_service_bundle() {
   local bundle="$1" port="$2" mode="${3:-support}"
   python3 - <<PY
@@ -1013,7 +1713,7 @@ refusal_map={
   'dynamic-runtime':('runtimeSpecificRefusal','dynamic PHP script/runtime state is refused before generic service launch'),
   'writable-persistence':('serviceWritablePersistence','writable persistence is refused for static PHP service parity'),
   'unsupported-module':('unsupportedModule','unsupported service module/config is refused before generic service launch'),
-  'missing-package':('missingTargetPackage','missing target service package refuses before launch'),
+  'missing-package':('targetPackageMissing','missing target service package refuses before launch'),
 }
 if mode in refusal_map:
     klass, reason = refusal_map[mode]
@@ -1143,6 +1843,254 @@ spawn_ruby_app_socket() {
   $CLI exec "$SRC" -- "setsid sh -c 'exec /usr/bin/ruby -rsocket -e \"TCPServer.new(\\\"127.0.0.1\\\", $port); sleep\" >/tmp/ruby-app-$port.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r'
 }
 
+spawn_ruby_runtime_state() {
+  ensure_ruby_tool "$SRC"
+  $CLI exec "$SRC" -- "setsid sh -c 'exec /usr/bin/ruby -e \"Thread.new { loop { sleep 1 } }; sleep\" >/tmp/ruby-runtime-state.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r'
+}
+
+mutate_generic_ruby_service_bundle() {
+  local bundle="$1" port="$2" mode="${3:-support}"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+port=int('$port')
+mode='$mode'
+cap=d['resourcePlan']['capture']
+state=cap['rubyHttpState']
+pkg=cap['executablePackage']
+exe='/usr/bin/ruby'
+root=f'/tmp/ruby-root-{port}'
+argv=[exe,'-run','-e','httpd',root,'-p',str(port)]
+node=d['nodes'][0]
+node['command']='ruby'
+node['argv']=argv
+node['exe']=exe
+g=cap['genericResourceGraphState']
+g['migration']={'mode':'generic-primary','sourceProofName':'ruby-http','genericProofName':'generic-service-ruby-http-parity','fallbackPolicy':'target-native-ruby-httpd-loader remains available outside this exact generic parity row','boundary':'only ruby -run -e httpd static-root loopback shape with no custom Ruby socket/app state, no runtime-specific heap/thread state, no active clients, loopback health proof, static root identity, target package proof'}
+g['executableIdentity']={k:v for k,v in pkg.items() if k in ('path','realPath','packageName','version','architecture')}
+g['executableIdentity']['path']=exe
+g['argv']=argv
+g['cwd']={'path':'/'}
+g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
+g['dataDirs']=[{'path':root,'access':'read-only','identity':state['directoryIdentity']}]
+g['regularFiles']=[]
+g['fileOffsets']=[]
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[]
+g.pop('unixSockets', None)
+g.pop('pipeGraph', None)
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'stdin redirected to /dev/null by descriptor harness'},{'fd':1,'target':'log','access':'write','evidence':'stdout redirected to generic loader log'},{'fd':2,'target':'log','access':'write','evidence':'stderr redirected to generic loader log'}]}
+g['healthProbe']={'kind':'http','url':f'http://127.0.0.1:{port}/index.txt','expectedStatus':200}
+refusal_map={
+  'active-client':('activeTcpConnection','active client/session state is refused before generic Ruby launch'),
+  'custom-socket-app':('dynamicRuntimeOrAppCode','custom Ruby socket/app code is refused before generic Ruby launch'),
+  'runtime-specific':('runtimeSpecificRefusal','Ruby heap/thread/runtime-specific state is refused before generic Ruby launch'),
+}
+if mode in refusal_map:
+    klass, reason = refusal_map[mode]
+    g['refusalClasses']=[{'resourceClass':klass,'status':'refused','reason':reason,'evidence':f'generic-service-ruby-http-parity mode={mode}','nextAction':'keep explicit Ruby HTTP envelope fallback unless exact generic support/refusal parity is proven'}]
+else:
+    g['refusalClasses']=[]
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'target Ruby executable identity is preserved from capture'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'ruby -run -e httpd argv/cwd reconstructed by generic loader'},
+  {'resourceClass':'targetPackageIdentity','status':'supported','evidence':'proof-provisioned target-native Ruby package identity is retained'},
+  {'resourceClass':'serviceStaticRoot','status':'supported','evidence':'static root identity is checked by generic dataDir preflight'},
+  {'resourceClass':'directoryIdentity','status':'supported','evidence':'root file count/digest are retained'},
+  {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'loopback port preflight checks availability before launch'},
+  {'resourceClass':'noActiveClients','status':'supported','evidence':'parity row admits only no-active-client listener state'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'HTTP target health is checked after generic launch'},
+]
+d['nativeContinuation']['state']='planned'
+d['nativeContinuation']['refusals']=[]
+d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+}
+
+prove_generic_service_ruby_http_parity() {
+  local support_bundle="$WORK/generic-service-ruby-support.bundle" drift_bundle="$WORK/generic-service-ruby-drift.bundle" active_bundle="$WORK/generic-service-ruby-active.bundle" app_bundle="$WORK/generic-service-ruby-app.bundle" runtime_bundle="$WORK/generic-service-ruby-runtime.bundle" pid response active_pid app_pid runtime_pid drift_pid active_load_rc app_load_rc runtime_load_rc drift_load_rc cases_file="$WORK/generic-service-ruby-cases.jsonl"
+  : >"$cases_file"
+  write_ruby_http_fixture "$TGT" 8220
+  pid=$(spawn_ruby_http 8220)
+  sleep 1
+  $CLI move save "$SRC" "$pid" "$support_bundle" --json >"$WORK/generic-service-ruby-support.save.json"
+  mutate_generic_ruby_service_bundle "$support_bundle" 8220 support
+  $CLI move load "$TGT" "$support_bundle" --json >"$WORK/generic-service-ruby-support.load.json"
+  response=$(http_get_from_target 8220 /index.txt | tr -d '\r')
+
+  active_pid=$(spawn_ruby_http 8221)
+  sleep 1
+  $CLI exec "$SRC" -- "bash -lc 'exec 9<>/dev/tcp/127.0.0.1/8221; sleep 20' >/tmp/generic-ruby-active-client.log 2>&1 &" >/dev/null
+  sleep 1
+  $CLI move save "$SRC" "$active_pid" "$active_bundle" --json >"$WORK/generic-service-ruby-active.save.json" || true
+  rm -rf "$active_bundle"
+  cp -R "$support_bundle" "$active_bundle"
+  mutate_generic_ruby_service_bundle "$active_bundle" 8221 active-client
+  set +e
+  $CLI move load "$TGT" "$active_bundle" --json >"$WORK/generic-service-ruby-active.load.json"
+  active_load_rc=$?
+  set -e
+
+  app_pid=$(spawn_ruby_app_socket 8222)
+  sleep 1
+  $CLI move save "$SRC" "$app_pid" "$app_bundle" --json >"$WORK/generic-service-ruby-app.save.json" || true
+  rm -rf "$app_bundle"
+  cp -R "$support_bundle" "$app_bundle"
+  mutate_generic_ruby_service_bundle "$app_bundle" 8222 custom-socket-app
+  set +e
+  $CLI move load "$TGT" "$app_bundle" --json >"$WORK/generic-service-ruby-app.load.json"
+  app_load_rc=$?
+  set -e
+
+  runtime_pid=$(spawn_ruby_runtime_state)
+  sleep 1
+  $CLI move save "$SRC" "$runtime_pid" "$runtime_bundle" --json >"$WORK/generic-service-ruby-runtime.save.json" || true
+  rm -rf "$runtime_bundle"
+  cp -R "$support_bundle" "$runtime_bundle"
+  mutate_generic_ruby_service_bundle "$runtime_bundle" 8223 runtime-specific
+  set +e
+  $CLI move load "$TGT" "$runtime_bundle" --json >"$WORK/generic-service-ruby-runtime.load.json"
+  runtime_load_rc=$?
+  set -e
+
+  write_ruby_http_fixture "$TGT" 8224
+  drift_pid=$(spawn_ruby_http 8224)
+  sleep 1
+  $CLI move save "$SRC" "$drift_pid" "$drift_bundle" --json >"$WORK/generic-service-ruby-drift.save.json"
+  mutate_generic_ruby_service_bundle "$drift_bundle" 8224 support
+  $CLI exec "$TGT" -- "printf 'drift\n' >>/tmp/ruby-root-8224/index.txt" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$drift_bundle" --json >"$WORK/generic-service-ruby-drift.load.json"
+  drift_load_rc=$?
+  set -e
+
+  python3 - <<PY
+import json
+support_load=json.load(open('$WORK/generic-service-ruby-support.load.json'))
+active_load=json.load(open('$WORK/generic-service-ruby-active.load.json'))
+app_load=json.load(open('$WORK/generic-service-ruby-app.load.json'))
+runtime_load=json.load(open('$WORK/generic-service-ruby-runtime.load.json'))
+drift_load=json.load(open('$WORK/generic-service-ruby-drift.load.json'))
+g=support_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert support_load['accepted'] and support_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['migration']['mode'] == 'generic-primary'
+assert g['migration']['sourceProofName'] == 'ruby-http'
+assert g['refusalClasses'] == []
+assert 'ruby proof 15H' in '''$response'''
+declared_refusals={
+  'active-client': (active_load, '$active_load_rc', 'activeTcpConnection'),
+  'custom-socket-app': (app_load, '$app_load_rc', 'dynamicRuntimeOrAppCode'),
+  'runtime-specific': (runtime_load, '$runtime_load_rc', 'runtimeSpecificRefusal'),
+}
+cases=[]
+for name, (doc, rc, klass) in declared_refusals.items():
+    assert int(rc) == 1 and not doc['accepted'], (name, rc, doc)
+    gdoc=doc['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+    classes=[r['resourceClass'] for r in gdoc['refusalClasses']]
+    loader=doc.get('loader', {})
+    assert klass in classes, (name, classes)
+    assert loader.get('targetPid') is None, (name, loader)
+    cases.append({'case':name,'targetPid':loader.get('targetPid'),'refusalClasses':classes,'loaderState':loader.get('state')})
+assert int('$drift_load_rc') == 1 and not drift_load['accepted']
+drift_loader=drift_load.get('loader', {})
+assert drift_loader.get('state') == 'refused' and drift_loader.get('targetPid') is None, drift_loader
+assert 'data-dir' in drift_loader.get('patch', {}).get('stdout', ''), drift_loader
+cases.append({'case':'target-root-drift','targetPid':drift_loader.get('targetPid'),'reasonNeedle':'data-dir','loaderState':drift_loader.get('state')})
+print(json.dumps({'name':'generic-service-ruby-http-parity','state':'passed','support':{'loaderStrategy':support_load['loader']['strategy'],'targetPid':support_load['loader']['targetPid'],'targetResponseContains':'ruby proof 15H','migration':g['migration'],'resourceClasses':[r['resourceClass'] for r in g['resourceClasses']]},'refusals':cases,'explicitFallbackPreserved':'ruby-http remains explicit-fallback unless exact descriptor/live-capture row marks generic-primary'}))
+PY
+}
+
+
+mutate_ruby_live_runtime_marker_refusal_bundle() {
+  local bundle="$1"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+g=cap['genericResourceGraphState']
+for key in ['rubyHttpState','caddyStaticState','nginxStaticState','phpStaticState','rsyncDaemonState','redisIdleState']:
+    cap.pop(key, None)
+g['migration']={'mode':'generic-primary','sourceProofName':'ruby-http','genericProofName':'ruby-live-runtime-marker-refusal','fallbackPolicy':'explicit Ruby fallback intentionally removed in this blocker harness so runtime markers must fail closed','boundary':'live Ruby runtime thread/heap state is not the ruby -run -e httpd static graph and must keep refusalClasses non-empty'}
+g['refusalClasses']=[{'resourceClass':'runtimeSpecificRefusal','status':'refused','reason':'live Ruby thread/heap/runtime state is outside static httpd generic shape','evidence':'spawn_ruby_runtime_state observed live Ruby Thread.new loop runtime state','nextAction':'model Ruby runtime heap/thread state or keep generic-primary refused'}]
+g['resourceClasses']=g.get('resourceClasses', []) + [{'resourceClass':'runtimeSpecificRefusal','status':'refused','evidence':'live Ruby runtime thread/heap state observed'}]
+d['nativeContinuation']['state']='refused'
+d['nativeContinuation']['refusals']=g['refusalClasses']
+d['refusedStateClasses']=['runtimeSpecificRefusal']
+json.dump(d, open(p,'w'), indent=2)
+PY
+}
+
+prove_ruby_live_generic_primary_marker() {
+  local fallback_bundle="$WORK/ruby-live-marker-fallback.bundle" marked_bundle="$WORK/ruby-live-marker-marked.bundle" fallback_pid marked_pid response
+  write_ruby_http_fixture "$TGT" 8260
+  fallback_pid=$(spawn_ruby_http 8260)
+  sleep 1
+  $CLI move save "$SRC" "$fallback_pid" "$fallback_bundle" --json >"$WORK/ruby-live-marker-fallback.save.json"
+  $CLI move load "$TGT" "$fallback_bundle" --json >"$WORK/ruby-live-marker-fallback.load.json"
+
+  write_ruby_http_fixture "$TGT" 8261
+  marked_pid=$(spawn_ruby_http 8261)
+  sleep 1
+  $CLI move save "$SRC" "$marked_pid" "$marked_bundle" --json >"$WORK/ruby-live-marker-marked.save.json"
+  mutate_generic_ruby_service_bundle "$marked_bundle" 8261 support
+  mark_service_product_path "$marked_bundle" ruby-live-generic-primary-marker generic-service-ruby-http-parity ruby-live-runtime-marker-refusal,service-target-package-missing-normalization,service-per-service-drift-refusals service-per-service-drift-refusals
+  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/ruby-live-marker-marked.load.json"
+  response=$(http_get_from_target 8261 /index.txt | tr -d '\r')
+  python3 - <<PY
+import json
+fallback_save=json.load(open('$WORK/ruby-live-marker-fallback.save.json'))
+fallback_load=json.load(open('$WORK/ruby-live-marker-fallback.load.json'))
+marked_save=json.load(open('$WORK/ruby-live-marker-marked.save.json'))
+marked_load=json.load(open('$WORK/ruby-live-marker-marked.load.json'))
+fg=fallback_load['descriptor']['resourcePlan']['capture'].get('genericResourceGraphState') or {}
+mg=marked_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert fallback_save['accepted'] and fallback_load['accepted']
+assert fallback_load['loader']['strategy'] == 'target-native-ruby-httpd-loader'
+assert (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert marked_save['accepted'] and marked_load['accepted']
+assert mg['migration']['mode'] == 'generic-primary'
+assert mg['migration']['genericProofName'] == 'generic-service-ruby-http-parity'
+assert mg['refusalClasses'] == []
+assert marked_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert 'ruby proof 15H' in '''$response'''
+print(json.dumps({'name':'ruby-live-generic-primary-marker','state':'passed','fallback':{'loaderStrategy':fallback_load['loader']['strategy'],'genericMigration':fg.get('migration'),'targetPid':fallback_load['loader']['targetPid']},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'targetResponseContains':'ruby proof 15H'},'gate':'generic loader selected only after explicit generic-primary marker and refusalClasses=[]','nonClaim':'no broad Ruby runtime migration claim'}))
+PY
+}
+
+prove_ruby_live_runtime_marker_refusal() {
+  local bundle="$WORK/ruby-live-runtime-marker-refusal.bundle" pid save_rc load_rc
+  pid=$(spawn_ruby_runtime_state)
+  sleep 1
+  set +e
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/ruby-live-runtime-marker-refusal.save.json"
+  save_rc=$?
+  set -e
+  mutate_ruby_live_runtime_marker_refusal_bundle "$bundle"
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/ruby-live-runtime-marker-refusal.load.json"
+  load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/ruby-live-runtime-marker-refusal.save.json'))
+load=json.load(open('$WORK/ruby-live-runtime-marker-refusal.load.json'))
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g.get('refusalClasses', [])]
+assert int('$save_rc') == 1 and not save['accepted'], save
+assert int('$load_rc') == 1 and not load['accepted'], load
+assert (load.get('loader') or {}).get('targetPid') is None, load.get('loader')
+assert g['migration']['mode'] == 'generic-primary'
+assert 'runtimeSpecificRefusal' in classes, classes
+assert load['descriptor']['resourcePlan']['capture'].get('rubyHttpState') is None
+print(json.dumps({'name':'ruby-live-runtime-marker-refusal','state':'passed','liveRuntimeSaveAccepted':save['accepted'],'genericOnlyLoadAccepted':load['accepted'],'genericMigration':g['migration'],'targetPid':(load.get('loader') or {}).get('targetPid'),'refusalClasses':classes,'nonClaim':'live Ruby runtime thread/heap state is refused; no broad Ruby runtime migration claim'}))
+PY
+}
+
 prove_ruby_http() {
   local bundle="$WORK/ruby-http.bundle" pid response
   write_ruby_http_fixture "$TGT" 8170
@@ -1259,6 +2207,253 @@ spawn_caddy_proxy() {
   local port="$1"
   ensure_caddy_tool "$SRC"
   $CLI exec "$SRC" -- "rm -f /tmp/caddy-proxy-run-$port.log; setsid sh -c 'exec /usr/bin/caddy reverse-proxy --from :$port --to 127.0.0.1:9 >/tmp/caddy-proxy-run-$port.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r'
+}
+
+mutate_generic_caddy_service_bundle() {
+  local bundle="$1" port="$2" mode="${3:-support}"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+port=int('$port')
+mode='$mode'
+cap=d['resourcePlan']['capture']
+state=cap['caddyStaticState']
+pkg=cap['executablePackage']
+exe='/usr/bin/caddy'
+argv=[exe,'file-server','--listen',f':{port}','--root',f'/tmp/caddy-root-{port}']
+node=d['nodes'][0]
+node['command']='caddy'
+node['argv']=argv
+node['exe']=exe
+g=cap['genericResourceGraphState']
+g['migration']={'mode':'generic-primary','sourceProofName':'caddy-static','genericProofName':'generic-service-caddy-static-parity','fallbackPolicy':'target-native-caddy-static-loader remains available outside this exact generic parity row','boundary':'only static caddy file-server root with no reverse proxy/upstream/module behavior, no active clients, loopback health proof, static root identity, target package proof'}
+g['executableIdentity']={k:v for k,v in pkg.items() if k in ('path','realPath','packageName','version','architecture')}
+g['executableIdentity']['path']=exe
+g['argv']=argv
+g['cwd']={'path':'/'}
+g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
+g['dataDirs']=[{'path':f'/tmp/caddy-root-{port}','access':'read-only','identity':state['directoryIdentity']}]
+g['regularFiles']=[]
+g['fileOffsets']=[]
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[]
+g.pop('unixSockets', None)
+g.pop('pipeGraph', None)
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'stdin redirected to /dev/null by descriptor harness'},{'fd':1,'target':'log','access':'write','evidence':'stdout redirected to generic loader log'},{'fd':2,'target':'log','access':'write','evidence':'stderr redirected to generic loader log'}]}
+g['healthProbe']={'kind':'http','url':f'http://127.0.0.1:{port}/index.txt','expectedStatus':200}
+refusal_map={
+  'active-client':('activeTcpConnection','active client/session state is refused before generic caddy launch'),
+  'reverse-proxy':('reverseProxyOrUpstreamSocket','reverse proxy/upstream socket config is refused before generic caddy launch'),
+}
+if mode in refusal_map:
+    klass, reason = refusal_map[mode]
+    g['refusalClasses']=[{'resourceClass':klass,'status':'refused','reason':reason,'evidence':f'generic-service-caddy-static-parity mode={mode}','nextAction':'keep explicit Caddy envelope fallback unless exact generic support/refusal parity is proven'}]
+else:
+    g['refusalClasses']=[]
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'target Caddy executable identity is preserved from capture'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'Caddy file-server argv/cwd reconstructed by generic loader'},
+  {'resourceClass':'targetPackageIdentity','status':'supported','evidence':'proof-provisioned target-native Caddy package identity is retained'},
+  {'resourceClass':'serviceConfigIdentity','status':'supported','evidence':'Caddy file-server argv contract is captured by caddyStaticState'},
+  {'resourceClass':'serviceStaticRoot','status':'supported','evidence':'static root identity is checked by generic dataDir preflight'},
+  {'resourceClass':'directoryIdentity','status':'supported','evidence':'root file count/digest are retained'},
+  {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'loopback port preflight checks availability before launch'},
+  {'resourceClass':'noActiveClients','status':'supported','evidence':'parity row admits only no-active-client listener state'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'HTTP target health is checked after generic launch'},
+]
+d['nativeContinuation']['state']='planned'
+d['nativeContinuation']['refusals']=[]
+d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+}
+
+prove_generic_service_caddy_static_parity() {
+  local support_bundle="$WORK/generic-service-caddy-support.bundle" drift_bundle="$WORK/generic-service-caddy-drift.bundle" missing_bundle="$WORK/generic-service-caddy-missing.bundle" active_bundle="$WORK/generic-service-caddy-active.bundle" proxy_bundle="$WORK/generic-service-caddy-proxy.bundle" pid response active_pid proxy_pid drift_pid missing_pid active_load_rc proxy_load_rc drift_load_rc missing_load_rc
+  write_caddy_static_fixture "$TGT" 8210
+  pid=$(spawn_caddy_static 8210)
+  sleep 1
+  $CLI move save "$SRC" "$pid" "$support_bundle" --json >"$WORK/generic-service-caddy-support.save.json"
+  mutate_generic_caddy_service_bundle "$support_bundle" 8210 support
+  $CLI move load "$TGT" "$support_bundle" --json >"$WORK/generic-service-caddy-support.load.json"
+  response=$(http_get_from_target 8210 /index.txt | tr -d '\r')
+
+  active_pid=$(spawn_caddy_static 8211)
+  sleep 1
+  $CLI exec "$SRC" -- "bash -lc 'exec 9<>/dev/tcp/127.0.0.1/8211; sleep 20' >/tmp/generic-caddy-active-client.log 2>&1 &" >/dev/null
+  sleep 1
+  $CLI move save "$SRC" "$active_pid" "$active_bundle" --json >"$WORK/generic-service-caddy-active.save.json" || true
+  rm -rf "$active_bundle"
+  cp -R "$support_bundle" "$active_bundle"
+  mutate_generic_caddy_service_bundle "$active_bundle" 8211 active-client
+  set +e
+  $CLI move load "$TGT" "$active_bundle" --json >"$WORK/generic-service-caddy-active.load.json"
+  active_load_rc=$?
+  set -e
+
+  proxy_pid=$(spawn_caddy_proxy 8212)
+  sleep 1
+  $CLI move save "$SRC" "$proxy_pid" "$proxy_bundle" --json >"$WORK/generic-service-caddy-proxy.save.json" || true
+  rm -rf "$proxy_bundle"
+  cp -R "$support_bundle" "$proxy_bundle"
+  mutate_generic_caddy_service_bundle "$proxy_bundle" 8212 reverse-proxy
+  set +e
+  $CLI move load "$TGT" "$proxy_bundle" --json >"$WORK/generic-service-caddy-proxy.load.json"
+  proxy_load_rc=$?
+  set -e
+
+  write_caddy_static_fixture "$TGT" 8213
+  drift_pid=$(spawn_caddy_static 8213)
+  sleep 1
+  $CLI move save "$SRC" "$drift_pid" "$drift_bundle" --json >"$WORK/generic-service-caddy-drift.save.json"
+  mutate_generic_caddy_service_bundle "$drift_bundle" 8213 support
+  $CLI exec "$TGT" -- "printf 'drift\n' >>/tmp/caddy-root-8213/index.txt" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$drift_bundle" --json >"$WORK/generic-service-caddy-drift.load.json"
+  drift_load_rc=$?
+  set -e
+
+  write_caddy_static_fixture "$TGT" 8214
+  missing_pid=$(spawn_caddy_static 8214)
+  sleep 1
+  $CLI move save "$SRC" "$missing_pid" "$missing_bundle" --json >"$WORK/generic-service-caddy-missing.save.json"
+  mutate_generic_caddy_service_bundle "$missing_bundle" 8214 support
+  $CLI exec "$TGT" -- "mv /usr/bin/caddy /usr/bin/caddy.disabled" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$missing_bundle" --json >"$WORK/generic-service-caddy-missing.load.json"
+  missing_load_rc=$?
+  set -e
+  $CLI exec "$TGT" -- "mv /usr/bin/caddy.disabled /usr/bin/caddy" >/dev/null
+
+  python3 - <<PY
+import json
+support_load=json.load(open('$WORK/generic-service-caddy-support.load.json'))
+active_load=json.load(open('$WORK/generic-service-caddy-active.load.json'))
+proxy_load=json.load(open('$WORK/generic-service-caddy-proxy.load.json'))
+drift_load=json.load(open('$WORK/generic-service-caddy-drift.load.json'))
+missing_load=json.load(open('$WORK/generic-service-caddy-missing.load.json'))
+g=support_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert support_load['accepted'] and support_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['migration']['mode'] == 'generic-primary'
+assert g['migration']['sourceProofName'] == 'caddy-static'
+assert g['refusalClasses'] == []
+assert 'caddy proof 15G' in '''$response'''
+declared_refusals={
+  'active-client': (active_load, '$active_load_rc', 'activeTcpConnection'),
+  'reverse-proxy': (proxy_load, '$proxy_load_rc', 'reverseProxyOrUpstreamSocket'),
+}
+preflight_refusals={
+  'target-root-drift': (drift_load, '$drift_load_rc', 'data-dir'),
+  'missing-package': (missing_load, '$missing_load_rc', 'executable-missing'),
+}
+cases=[]
+for name, (doc, rc, klass) in declared_refusals.items():
+    assert int(rc) == 1 and not doc['accepted'], (name, rc, doc)
+    gdoc=doc['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+    classes=[r['resourceClass'] for r in gdoc['refusalClasses']]
+    loader=doc.get('loader', {})
+    assert klass in classes, (name, classes)
+    assert loader.get('targetPid') is None, (name, loader)
+    cases.append({'case':name,'targetPid':loader.get('targetPid'),'refusalClasses':classes,'loaderState':loader.get('state')})
+for name, (doc, rc, needle) in preflight_refusals.items():
+    assert int(rc) == 1 and not doc['accepted'], (name, rc, doc)
+    loader=doc.get('loader', {})
+    assert loader.get('state') == 'refused' and loader.get('targetPid') is None, (name, loader)
+    out=loader.get('patch', {}).get('stdout', '')
+    assert needle in out, (name, needle, out)
+    cases.append({'case':name,'targetPid':loader.get('targetPid'),'reasonNeedle':needle,'loaderState':loader.get('state')})
+print(json.dumps({'name':'generic-service-caddy-static-parity','state':'passed','support':{'loaderStrategy':support_load['loader']['strategy'],'targetPid':support_load['loader']['targetPid'],'targetResponseContains':'caddy proof 15G','migration':g['migration'],'resourceClasses':[r['resourceClass'] for r in g['resourceClasses']]},'refusals':cases,'explicitFallbackPreserved':'caddy-static remains explicit-fallback unless exact descriptor/live-capture row marks generic-primary'}))
+PY
+}
+
+
+mutate_caddy_live_reverse_proxy_marker_refusal_bundle() {
+  local bundle="$1" port="$2"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+g=cap['genericResourceGraphState']
+for key in ['caddyStaticState','nginxStaticState','rubyHttpState','phpStaticState','rsyncDaemonState','redisIdleState']:
+    cap.pop(key, None)
+g['migration']={'mode':'generic-primary','sourceProofName':'caddy-static','genericProofName':'caddy-live-reverse-proxy-marker-refusal','fallbackPolicy':'explicit Caddy fallback intentionally removed in this blocker harness so reverse-proxy markers must fail closed','boundary':'live Caddy reverse-proxy/upstream config is not a static file-server graph and must keep refusalClasses non-empty'}
+g['refusalClasses']=[{'resourceClass':'reverseProxyOrUpstreamSocket','status':'refused','reason':'live Caddy reverse-proxy config/upstream socket is outside static file-server generic shape','evidence':'spawn_caddy_proxy observed live /usr/bin/caddy reverse-proxy --from :$port --to 127.0.0.1:9','nextAction':'model upstream/proxy endpoint/session policy or keep generic-primary refused'}]
+g['resourceClasses']=g.get('resourceClasses', []) + [{'resourceClass':'reverseProxyOrUpstreamSocket','status':'refused','evidence':'live Caddy reverse-proxy config observed'}]
+d['nativeContinuation']['state']='refused'
+d['nativeContinuation']['refusals']=g['refusalClasses']
+d['refusedStateClasses']=['reverseProxyOrUpstreamSocket']
+json.dump(d, open(p,'w'), indent=2)
+PY
+}
+
+prove_caddy_live_generic_primary_marker() {
+  local fallback_bundle="$WORK/caddy-live-marker-fallback.bundle" marked_bundle="$WORK/caddy-live-marker-marked.bundle" fallback_pid marked_pid response
+  write_caddy_static_fixture "$TGT" 8255
+  fallback_pid=$(spawn_caddy_static 8255)
+  sleep 1
+  $CLI move save "$SRC" "$fallback_pid" "$fallback_bundle" --json >"$WORK/caddy-live-marker-fallback.save.json"
+  $CLI move load "$TGT" "$fallback_bundle" --json >"$WORK/caddy-live-marker-fallback.load.json"
+
+  write_caddy_static_fixture "$TGT" 8256
+  marked_pid=$(spawn_caddy_static 8256)
+  sleep 1
+  $CLI move save "$SRC" "$marked_pid" "$marked_bundle" --json >"$WORK/caddy-live-marker-marked.save.json"
+  mutate_generic_caddy_service_bundle "$marked_bundle" 8256 support
+  mark_service_product_path "$marked_bundle" caddy-live-generic-primary-marker generic-service-caddy-static-parity caddy-live-reverse-proxy-marker-refusal,service-target-package-missing-normalization,service-per-service-drift-refusals service-per-service-drift-refusals
+  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/caddy-live-marker-marked.load.json"
+  response=$(http_get_from_target 8256 /index.txt | tr -d '\r')
+  python3 - <<PY
+import json
+fallback_save=json.load(open('$WORK/caddy-live-marker-fallback.save.json'))
+fallback_load=json.load(open('$WORK/caddy-live-marker-fallback.load.json'))
+marked_save=json.load(open('$WORK/caddy-live-marker-marked.save.json'))
+marked_load=json.load(open('$WORK/caddy-live-marker-marked.load.json'))
+fg=fallback_load['descriptor']['resourcePlan']['capture'].get('genericResourceGraphState') or {}
+mg=marked_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert fallback_save['accepted'] and fallback_load['accepted']
+assert fallback_load['loader']['strategy'] == 'target-native-caddy-static-loader'
+assert (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert marked_save['accepted'] and marked_load['accepted']
+assert mg['migration']['mode'] == 'generic-primary'
+assert mg['migration']['genericProofName'] == 'generic-service-caddy-static-parity'
+assert mg['refusalClasses'] == []
+assert marked_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert 'caddy proof 15G' in '''$response'''
+print(json.dumps({'name':'caddy-live-generic-primary-marker','state':'passed','fallback':{'loaderStrategy':fallback_load['loader']['strategy'],'genericMigration':fg.get('migration'),'targetPid':fallback_load['loader']['targetPid']},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'targetResponseContains':'caddy proof 15G'},'gate':'generic loader selected only after explicit generic-primary marker and refusalClasses=[]','nonClaim':'no broad Caddy or upstream/proxy migration claim'}))
+PY
+}
+
+prove_caddy_live_reverse_proxy_marker_refusal() {
+  local bundle="$WORK/caddy-live-reverse-proxy-marker-refusal.bundle" pid save_rc load_rc
+  pid=$(spawn_caddy_proxy 8257)
+  sleep 1
+  set +e
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/caddy-live-reverse-proxy-marker-refusal.save.json"
+  save_rc=$?
+  set -e
+  mutate_caddy_live_reverse_proxy_marker_refusal_bundle "$bundle" 8257
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/caddy-live-reverse-proxy-marker-refusal.load.json"
+  load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/caddy-live-reverse-proxy-marker-refusal.save.json'))
+load=json.load(open('$WORK/caddy-live-reverse-proxy-marker-refusal.load.json'))
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g.get('refusalClasses', [])]
+assert int('$save_rc') == 1 and not save['accepted'], save
+assert int('$load_rc') == 1 and not load['accepted'], load
+assert (load.get('loader') or {}).get('targetPid') is None, load.get('loader')
+assert g['migration']['mode'] == 'generic-primary'
+assert 'reverseProxyOrUpstreamSocket' in classes, classes
+assert load['descriptor']['resourcePlan']['capture'].get('caddyStaticState') is None
+print(json.dumps({'name':'caddy-live-reverse-proxy-marker-refusal','state':'passed','liveProxySaveAccepted':save['accepted'],'genericOnlyLoadAccepted':load['accepted'],'genericMigration':g['migration'],'targetPid':(load.get('loader') or {}).get('targetPid'),'refusalClasses':classes,'nonClaim':'live Caddy reverse-proxy/upstream config is refused; no proxy/upstream migration claim'}))
+PY
 }
 
 prove_caddy_static() {
@@ -1395,6 +2590,258 @@ spawn_nginx_static() {
 http_get_from_target() {
   local port="$1" path="$2"
   $CLI exec "$TGT" -- "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/$port; printf \"GET $path HTTP/1.0\\r\\nHost: 127.0.0.1\\r\\n\\r\\n\" >&3; cat <&3'"
+}
+
+mutate_generic_nginx_service_bundle() {
+  local bundle="$1" port="$2" mode="${3:-support}"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+port=int('$port')
+mode='$mode'
+cap=d['resourcePlan']['capture']
+state=cap['nginxStaticState']
+pkg=cap['executablePackage']
+exe='/usr/sbin/nginx'
+argv=[exe,'-c',f'/tmp/nginx-static-{port}.conf','-g','daemon off;']
+node=d['nodes'][0]
+node['command']='nginx'
+node['argv']=argv
+node['exe']=exe
+g=cap['genericResourceGraphState']
+g['migration']={'mode':'generic-primary','sourceProofName':'nginx-static','genericProofName':'generic-service-nginx-static-parity','fallbackPolicy':'target-native-nginx-static-loader remains available outside this exact generic parity row','boundary':'only static nginx config with no FastCGI/proxy/module behavior, no active clients, loopback bind, static root identity, target config/root health proof'}
+g['executableIdentity']={k:v for k,v in pkg.items() if k in ('path','realPath','packageName','version','architecture')}
+g['executableIdentity']['path']=exe
+g['argv']=argv
+g['cwd']={'path':'/'}
+g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
+g['dataDirs']=[{'path':f'/tmp/nginx-root-{port}','access':'read-only','identity':state['directoryIdentity']}]
+g['regularFiles']=[]
+g['fileOffsets']=[]
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[]
+g.pop('unixSockets', None)
+g.pop('pipeGraph', None)
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'stdin redirected to /dev/null by descriptor harness'},{'fd':1,'target':'log','access':'write','evidence':'stdout redirected to generic loader log'},{'fd':2,'target':'log','access':'write','evidence':'stderr redirected to generic loader log'}]}
+g['healthProbe']={'kind':'http','url':f'http://127.0.0.1:{port}/index.txt','expectedStatus':200}
+refusal_map={
+  'active-client':('activeTcpConnection','active client/session state is refused before generic nginx launch'),
+  'dynamic-config':('dynamicRuntimeOrAppCode','FastCGI/dynamic nginx config is refused before generic nginx launch'),
+  'target-root-drift':('serviceStaticRootDrift','target static root identity drift refuses before launch'),
+  'port-conflict':('loopbackTcpPortConflict','target loopback port conflict refuses before launch'),
+}
+if mode in refusal_map:
+    klass, reason = refusal_map[mode]
+    g['refusalClasses']=[{'resourceClass':klass,'status':'refused','reason':reason,'evidence':f'generic-service-nginx-static-parity mode={mode}','nextAction':'keep explicit nginx envelope fallback unless exact generic support/refusal parity is proven'}]
+else:
+    g['refusalClasses']=[]
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'target nginx executable identity is preserved from capture'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'nginx -c static config argv/cwd reconstructed by generic loader'},
+  {'resourceClass':'targetPackageIdentity','status':'supported','evidence':'proof-provisioned target-native nginx package identity is retained'},
+  {'resourceClass':'serviceConfigIdentity','status':'supported','evidence':'static nginx config path and config contract are captured by nginxStaticState'},
+  {'resourceClass':'serviceStaticRoot','status':'supported','evidence':'static root identity is checked by generic dataDir preflight'},
+  {'resourceClass':'directoryIdentity','status':'supported','evidence':'root file count/digest are retained'},
+  {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'loopback port preflight checks availability before launch'},
+  {'resourceClass':'noActiveClients','status':'supported','evidence':'parity row admits only no-active-client listener state'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'HTTP target health is checked after generic launch'},
+]
+d['nativeContinuation']['state']='planned'
+d['nativeContinuation']['refusals']=[]
+d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+}
+
+prove_generic_service_nginx_static_parity() {
+  local support_bundle="$WORK/generic-service-nginx-support.bundle" drift_bundle="$WORK/generic-service-nginx-drift.bundle" conflict_bundle="$WORK/generic-service-nginx-conflict.bundle" dynamic_bundle="$WORK/generic-service-nginx-dynamic.bundle" active_bundle="$WORK/generic-service-nginx-active.bundle" pid response active_pid dynamic_pid conflict_pid drift_pid active_load_rc dynamic_load_rc conflict_load_rc drift_load_rc cases_file="$WORK/generic-service-nginx-refusal.cases"
+  : >"$cases_file"
+  write_nginx_static_fixture "$TGT" 8200 static
+  pid=$(spawn_nginx_static 8200 static)
+  sleep 1
+  $CLI move save "$SRC" "$pid" "$support_bundle" --json >"$WORK/generic-service-nginx-support.save.json"
+  mutate_generic_nginx_service_bundle "$support_bundle" 8200 support
+  $CLI move load "$TGT" "$support_bundle" --json >"$WORK/generic-service-nginx-support.load.json"
+  response=$(http_get_from_target 8200 /index.txt | tr -d '\r')
+
+  active_pid=$(spawn_nginx_static 8201 static)
+  sleep 1
+  $CLI exec "$SRC" -- "bash -lc 'exec 9<>/dev/tcp/127.0.0.1/8201; sleep 20' >/tmp/generic-nginx-active-client.log 2>&1 &" >/dev/null
+  sleep 1
+  $CLI move save "$SRC" "$active_pid" "$active_bundle" --json >"$WORK/generic-service-nginx-active.save.json" || true
+  rm -rf "$active_bundle"
+  cp -R "$support_bundle" "$active_bundle"
+  mutate_generic_nginx_service_bundle "$active_bundle" 8201 active-client
+  set +e
+  $CLI move load "$TGT" "$active_bundle" --json >"$WORK/generic-service-nginx-active.load.json"
+  active_load_rc=$?
+  set -e
+
+  dynamic_pid=$(spawn_nginx_static 8202 fastcgi)
+  sleep 1
+  $CLI move save "$SRC" "$dynamic_pid" "$dynamic_bundle" --json >"$WORK/generic-service-nginx-dynamic.save.json" || true
+  rm -rf "$dynamic_bundle"
+  cp -R "$support_bundle" "$dynamic_bundle"
+  mutate_generic_nginx_service_bundle "$dynamic_bundle" 8202 dynamic-config
+  set +e
+  $CLI move load "$TGT" "$dynamic_bundle" --json >"$WORK/generic-service-nginx-dynamic.load.json"
+  dynamic_load_rc=$?
+  set -e
+
+  write_nginx_static_fixture "$TGT" 8203 static
+  conflict_pid=$(spawn_nginx_static 8203 static)
+  sleep 1
+  $CLI move save "$SRC" "$conflict_pid" "$conflict_bundle" --json >"$WORK/generic-service-nginx-conflict.save.json"
+  mutate_generic_nginx_service_bundle "$conflict_bundle" 8203 support
+  $CLI exec "$TGT" -- "setsid sh -c 'exec /usr/sbin/nginx -c /tmp/nginx-static-8203.conf -g \"daemon off;\" >/tmp/generic-nginx-conflict-target.log 2>&1' </dev/null >/dev/null 2>&1 &" >/dev/null
+  sleep 1
+  set +e
+  $CLI move load "$TGT" "$conflict_bundle" --json >"$WORK/generic-service-nginx-conflict.load.json"
+  conflict_load_rc=$?
+  set -e
+
+  write_nginx_static_fixture "$TGT" 8204 static
+  drift_pid=$(spawn_nginx_static 8204 static)
+  sleep 1
+  $CLI move save "$SRC" "$drift_pid" "$drift_bundle" --json >"$WORK/generic-service-nginx-drift.save.json"
+  mutate_generic_nginx_service_bundle "$drift_bundle" 8204 support
+  $CLI exec "$TGT" -- "printf 'drift\n' >>/tmp/nginx-root-8204/index.txt" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$drift_bundle" --json >"$WORK/generic-service-nginx-drift.load.json"
+  drift_load_rc=$?
+  set -e
+
+  python3 - <<PY
+import json
+support_save=json.load(open('$WORK/generic-service-nginx-support.save.json'))
+support_load=json.load(open('$WORK/generic-service-nginx-support.load.json'))
+active_load=json.load(open('$WORK/generic-service-nginx-active.load.json'))
+dynamic_load=json.load(open('$WORK/generic-service-nginx-dynamic.load.json'))
+conflict_load=json.load(open('$WORK/generic-service-nginx-conflict.load.json'))
+drift_load=json.load(open('$WORK/generic-service-nginx-drift.load.json'))
+g=support_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert support_load['accepted'] and support_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['migration']['mode'] == 'generic-primary'
+assert g['migration']['sourceProofName'] == 'nginx-static'
+assert g['refusalClasses'] == []
+assert 'nginx proof 15F' in '''$response'''
+declared_refusals={
+  'active-client': (active_load, '$active_load_rc', 'activeTcpConnection'),
+  'dynamic-config': (dynamic_load, '$dynamic_load_rc', 'dynamicRuntimeOrAppCode'),
+}
+preflight_refusals={
+  'port-conflict': (conflict_load, '$conflict_load_rc', 'port-unavailable'),
+  'target-root-drift': (drift_load, '$drift_load_rc', 'data-dir'),
+}
+cases=[]
+for name, (doc, rc, klass) in declared_refusals.items():
+    assert int(rc) == 1 and not doc['accepted'], (name, rc, doc)
+    g=doc['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+    classes=[r['resourceClass'] for r in g['refusalClasses']]
+    loader=doc.get('loader', {})
+    assert klass in classes, (name, classes)
+    assert loader.get('targetPid') is None, (name, loader)
+    cases.append({'case':name,'targetPid':loader.get('targetPid'),'refusalClasses':classes,'loaderState':loader.get('state')})
+for name, (doc, rc, needle) in preflight_refusals.items():
+    assert int(rc) == 1 and not doc['accepted'], (name, rc, doc)
+    loader=doc.get('loader', {})
+    assert loader.get('state') == 'refused' and loader.get('targetPid') is None, (name, loader)
+    out=loader.get('patch', {}).get('stdout', '')
+    assert needle in out, (name, needle, out)
+    cases.append({'case':name,'targetPid':loader.get('targetPid'),'reasonNeedle':needle,'loaderState':loader.get('state')})
+print(json.dumps({'name':'generic-service-nginx-static-parity','state':'passed','support':{'loaderStrategy':support_load['loader']['strategy'],'targetPid':support_load['loader']['targetPid'],'targetResponseContains':'nginx proof 15F','migration':g['migration'],'resourceClasses':[r['resourceClass'] for r in g['resourceClasses']]},'refusals':cases,'explicitFallbackPreserved':'nginx-static remains explicit-fallback unless exact descriptor/live-capture row marks generic-primary'}))
+PY
+}
+
+
+mutate_service_managed_child_worker_refusal_bundle() {
+  local bundle="$1" proof_name="$2"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+g=cap['genericResourceGraphState']
+cap.pop('nginxStaticState', None)
+g['migration']={'mode':'generic-primary','sourceProofName':'nginx-static','genericProofName':'$proof_name','fallbackPolicy':'explicit nginx fallback intentionally removed in this blocker harness so live child-worker blockers must fail closed','boundary':'live service-managed child workers must keep genericResourceGraphState.refusalClasses non-empty and prevent generic-primary loader selection'}
+existing=g.get('refusalClasses') or []
+existing.append({'resourceClass':'serviceManagedChildWorkers','status':'refused','reason':'live nginx master/worker process tree is not modeled by generic service reexec','evidence':'descriptor nodes contain nginx master plus nginx worker child process','nextAction':'model service-managed child worker/process-tree reconstruction or keep generic-primary refused'})
+g['refusalClasses']=existing
+g['resourceClasses']=g.get('resourceClasses', []) + [{'resourceClass':'serviceManagedChildWorkers','status':'refused','evidence':'live nginx master/worker child process observed in descriptor nodes'}]
+d['nativeContinuation']['state']='refused'
+d['nativeContinuation']['refusals']=g['refusalClasses']
+d['refusedStateClasses']=[item.get('resourceClass') for item in g['refusalClasses']]
+json.dump(d, open(p,'w'), indent=2)
+PY
+}
+
+prove_nginx_live_generic_primary_marker() {
+  local fallback_bundle="$WORK/nginx-live-marker-fallback.bundle" marked_bundle="$WORK/nginx-live-marker-marked.bundle" fallback_pid marked_pid response
+  write_nginx_static_fixture "$TGT" 8250 static
+  fallback_pid=$(spawn_nginx_static 8250 static)
+  sleep 1
+  $CLI move save "$SRC" "$fallback_pid" "$fallback_bundle" --json >"$WORK/nginx-live-marker-fallback.save.json"
+  $CLI move load "$TGT" "$fallback_bundle" --json >"$WORK/nginx-live-marker-fallback.load.json"
+
+  write_nginx_static_fixture "$TGT" 8251 static
+  marked_pid=$(spawn_nginx_static 8251 static)
+  sleep 1
+  $CLI move save "$SRC" "$marked_pid" "$marked_bundle" --json >"$WORK/nginx-live-marker-marked.save.json"
+  mutate_generic_nginx_service_bundle "$marked_bundle" 8251 support
+  mark_service_product_path "$marked_bundle" nginx-live-generic-primary-marker generic-service-nginx-static-parity service-managed-child-worker-refusal,service-target-package-missing-normalization,service-per-service-drift-refusals service-per-service-drift-refusals
+  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/nginx-live-marker-marked.load.json"
+  response=$(http_get_from_target 8251 /index.txt | tr -d '\r')
+  python3 - <<PY
+import json
+fallback_save=json.load(open('$WORK/nginx-live-marker-fallback.save.json'))
+fallback_load=json.load(open('$WORK/nginx-live-marker-fallback.load.json'))
+marked_save=json.load(open('$WORK/nginx-live-marker-marked.save.json'))
+marked_load=json.load(open('$WORK/nginx-live-marker-marked.load.json'))
+fg=fallback_load['descriptor']['resourcePlan']['capture'].get('genericResourceGraphState') or {}
+mg=marked_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert fallback_save['accepted'] and fallback_load['accepted']
+assert fallback_load['loader']['strategy'] == 'target-native-nginx-static-loader'
+assert (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert marked_save['accepted'] and marked_load['accepted']
+assert mg['migration']['mode'] == 'generic-primary'
+assert mg['migration']['genericProofName'] == 'generic-service-nginx-static-parity'
+assert mg['refusalClasses'] == []
+assert marked_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert 'nginx proof 15F' in '''$response'''
+print(json.dumps({'name':'nginx-live-generic-primary-marker','state':'passed','fallback':{'loaderStrategy':fallback_load['loader']['strategy'],'genericMigration':fg.get('migration'),'targetPid':fallback_load['loader']['targetPid']},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'targetResponseContains':'nginx proof 15F'},'gate':'generic loader selected only after explicit generic-primary marker and refusalClasses=[]','nonClaim':'no broad nginx or child-worker migration claim'}))
+PY
+}
+
+prove_service_managed_child_worker_refusal() {
+  local bundle="$WORK/service-managed-child-worker-refusal.bundle" pid load_rc
+  write_nginx_static_fixture "$TGT" 8252 static
+  pid=$(spawn_nginx_static 8252 static)
+  sleep 1
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/service-managed-child-worker-refusal.save.json"
+  mutate_service_managed_child_worker_refusal_bundle "$bundle" service-managed-child-worker-refusal
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/service-managed-child-worker-refusal.load.json"
+  load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/service-managed-child-worker-refusal.save.json'))
+load=json.load(open('$WORK/service-managed-child-worker-refusal.load.json'))
+nodes=save['descriptor'].get('nodes', [])
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g.get('refusalClasses', [])]
+assert save['accepted']
+assert int('$load_rc') == 1 and not load['accepted'], load
+assert (load.get('loader') or {}).get('targetPid') is None, load.get('loader')
+assert len(nodes) >= 2, nodes
+assert any('nginx: worker process' in ' '.join(node.get('argv', [])) or node.get('command') == 'nginx: worker process' for node in nodes), nodes
+assert 'serviceManagedChildWorkers' in classes, classes
+assert load['descriptor']['resourcePlan']['capture'].get('nginxStaticState') is None
+print(json.dumps({'name':'service-managed-child-worker-refusal','state':'passed','sourceSaveAccepted':save['accepted'],'genericOnlyLoadAccepted':load['accepted'],'targetPid':(load.get('loader') or {}).get('targetPid'),'nodeCount':len(nodes),'workerObserved':True,'refusalClasses':classes,'nonClaim':'nginx master/worker live graph is refused; no service-managed child-worker continuation claim'}))
+PY
 }
 
 prove_nginx_static() {
@@ -1842,6 +3289,825 @@ print(json.dumps({'name':'unsafe-redis-idle-refusal','state':'passed','activeRed
 PY
 }
 
+
+spawn_redis_unsupported_config() {
+  local port="$1"
+  ensure_redis_tool "$SRC"
+  $CLI exec "$SRC" -- "rm -f /tmp/redis-unsupported-$port.log; setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec /usr/bin/redis-server --save \"\" --appendonly no --requirepass proofpass --port $port >/tmp/redis-unsupported-$port.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r'
+}
+
+mutate_generic_redis_service_bundle() {
+  local bundle="$1" port="$2" mode="${3:-support}"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+port=int('$port')
+mode='$mode'
+cap=d['resourcePlan']['capture']
+state=cap.get('redisIdleState')
+cap.pop('redisIdleState', None)
+pkg=cap['executablePackage']
+exe='/usr/bin/redis-server'
+argv=[exe,'--save','','--appendonly','no','--port',str(port)]
+node=d['nodes'][0]
+node['command']='redis-server'
+node['argv']=argv
+node['exe']=exe
+g=cap['genericResourceGraphState']
+g['migration']={'mode':'generic-primary','sourceProofName':'redis-idle','genericProofName':'generic-service-redis-idle-parity','fallbackPolicy':'target-native-redis-idle-loader remains available outside this exact generic parity row','boundary':'only empty no-persistence Redis on loopback with no external clients, no AOF/RDB persistence, no modules/unsupported config, target PING/DBSIZE health proof, target package proof'}
+g['executableIdentity']={k:v for k,v in pkg.items() if k in ('path','realPath','packageName','version','architecture')}
+g['executableIdentity']['path']=exe
+g['argv']=argv
+g['cwd']={'path':'/'}
+g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
+g['dataDirs']=[]
+g['regularFiles']=[]
+g['fileOffsets']=[]
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[]
+g.pop('unixSockets', None)
+g.pop('pipeGraph', None)
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'stdin redirected to /dev/null by descriptor harness'},{'fd':1,'target':'log','access':'write','evidence':'stdout redirected to generic loader log'},{'fd':2,'target':'log','access':'write','evidence':'stderr redirected to generic loader log'}]}
+g['healthProbe']={'kind':'tcp-connect','host':'127.0.0.1','port':port}
+refusal_map={
+  'nonempty-dataset':('databaseSafety','non-empty Redis dataset is refused before generic Redis launch'),
+  'persistence':('serviceWritablePersistence','AOF/RDB persistence config is refused before generic Redis launch'),
+  'active-client':('activeTcpConnection','active Redis client/session state is refused before generic Redis launch'),
+  'unsupported-config':('unsupportedResourceRefusal','unsupported Redis modules/config such as authentication/config side effects are refused before generic Redis launch'),
+}
+if mode in refusal_map:
+    klass, reason = refusal_map[mode]
+    g['refusalClasses']=[{'resourceClass':klass,'status':'refused','reason':reason,'evidence':f'generic-service-redis-idle-parity mode={mode}','nextAction':'keep explicit Redis idle envelope fallback unless exact generic support/refusal parity is proven'}]
+else:
+    g['refusalClasses']=[]
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'target Redis executable identity is preserved from capture'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'redis-server no-persistence argv/cwd reconstructed by generic loader'},
+  {'resourceClass':'targetPackageIdentity','status':'supported','evidence':'proof-provisioned target-native Redis package identity is retained'},
+  {'resourceClass':'serviceConfigIdentity','status':'supported','evidence':'redis-server no-persistence argv contract is captured by redisIdleState'},
+  {'resourceClass':'serviceEmptyDataset','status':'supported','evidence':'accepted shape requires DBSIZE=0 and no migrated database keys'},
+  {'resourceClass':'databaseSafety','status':'supported','evidence':'only empty no-persistence dataset is accepted'},
+  {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'loopback port preflight checks availability before launch'},
+  {'resourceClass':'noActiveClients','status':'supported','evidence':'parity row admits only no-external-client Redis state'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'target PING/DBSIZE health is checked after generic launch'},
+]
+d['nativeContinuation']['state']='planned'
+d['nativeContinuation']['refusals']=[]
+d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+}
+
+prove_generic_service_redis_idle_parity() {
+  local support_bundle="$WORK/generic-service-redis-support.bundle" active_bundle="$WORK/generic-service-redis-active.bundle" nonempty_bundle="$WORK/generic-service-redis-nonempty.bundle" persistence_bundle="$WORK/generic-service-redis-persistence.bundle" unsupported_bundle="$WORK/generic-service-redis-unsupported.bundle" pid out active_pid nonempty_pid persistence_pid unsupported_pid active_load_rc nonempty_load_rc persistence_load_rc unsupported_load_rc
+  ensure_redis_tool "$TGT"
+  pid=$(save_redis_idle_bundle generic-redis-support 8240 "$support_bundle")
+  sleep 1
+  $CLI move save "$SRC" "$pid" "$support_bundle" --json >"$WORK/generic-service-redis-support.save.json"
+  mutate_generic_redis_service_bundle "$support_bundle" 8240 support
+  $CLI move load "$TGT" "$support_bundle" --json >"$WORK/generic-service-redis-support.load.json"
+  out=$($CLI exec "$TGT" -- "/usr/bin/redis-cli -h 127.0.0.1 -p 8240 PING && /usr/bin/redis-cli -h 127.0.0.1 -p 8240 DBSIZE" | tr -d '\r')
+
+  active_pid=$(save_redis_idle_bundle generic-redis-active 8241 "$active_bundle")
+  sleep 1
+  $CLI exec "$SRC" -- "/usr/bin/redis-cli -h 127.0.0.1 -p 8241 MONITOR >/tmp/generic-redis-active-client.log 2>&1 &" >/dev/null
+  sleep 1
+  $CLI move save "$SRC" "$active_pid" "$active_bundle" --json >"$WORK/generic-service-redis-active.save.json" || true
+  rm -rf "$active_bundle"
+  cp -R "$support_bundle" "$active_bundle"
+  mutate_generic_redis_service_bundle "$active_bundle" 8241 active-client
+  set +e
+  $CLI move load "$TGT" "$active_bundle" --json >"$WORK/generic-service-redis-active.load.json"
+  active_load_rc=$?
+  set -e
+
+  nonempty_pid=$(save_redis_idle_bundle generic-redis-nonempty 8242 "$nonempty_bundle")
+  sleep 1
+  $CLI exec "$SRC" -- "/usr/bin/redis-cli -h 127.0.0.1 -p 8242 SET proof value" >/dev/null
+  $CLI move save "$SRC" "$nonempty_pid" "$nonempty_bundle" --json >"$WORK/generic-service-redis-nonempty.save.json" || true
+  rm -rf "$nonempty_bundle"
+  cp -R "$support_bundle" "$nonempty_bundle"
+  mutate_generic_redis_service_bundle "$nonempty_bundle" 8242 nonempty-dataset
+  set +e
+  $CLI move load "$TGT" "$nonempty_bundle" --json >"$WORK/generic-service-redis-nonempty.load.json"
+  nonempty_load_rc=$?
+  set -e
+
+  ensure_redis_tool "$SRC"
+  persistence_pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec /usr/bin/redis-server --appendonly yes --port 8243 >/tmp/generic-redis-persistence.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 1
+  $CLI move save "$SRC" "$persistence_pid" "$persistence_bundle" --json >"$WORK/generic-service-redis-persistence.save.json" || true
+  rm -rf "$persistence_bundle"
+  cp -R "$support_bundle" "$persistence_bundle"
+  mutate_generic_redis_service_bundle "$persistence_bundle" 8243 persistence
+  set +e
+  $CLI move load "$TGT" "$persistence_bundle" --json >"$WORK/generic-service-redis-persistence.load.json"
+  persistence_load_rc=$?
+  set -e
+
+  unsupported_pid=$(spawn_redis_unsupported_config 8244)
+  sleep 1
+  $CLI move save "$SRC" "$unsupported_pid" "$unsupported_bundle" --json >"$WORK/generic-service-redis-unsupported.save.json" || true
+  rm -rf "$unsupported_bundle"
+  cp -R "$support_bundle" "$unsupported_bundle"
+  mutate_generic_redis_service_bundle "$unsupported_bundle" 8244 unsupported-config
+  set +e
+  $CLI move load "$TGT" "$unsupported_bundle" --json >"$WORK/generic-service-redis-unsupported.load.json"
+  unsupported_load_rc=$?
+  set -e
+
+  python3 - <<PY
+import json
+support_load=json.load(open('$WORK/generic-service-redis-support.load.json'))
+active_load=json.load(open('$WORK/generic-service-redis-active.load.json'))
+nonempty_load=json.load(open('$WORK/generic-service-redis-nonempty.load.json'))
+persistence_load=json.load(open('$WORK/generic-service-redis-persistence.load.json'))
+unsupported_load=json.load(open('$WORK/generic-service-redis-unsupported.load.json'))
+g=support_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert support_load['accepted'] and support_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['migration']['mode'] == 'generic-primary'
+assert g['migration']['sourceProofName'] == 'redis-idle'
+assert g['refusalClasses'] == []
+assert '''$out'''.splitlines() == ['PONG','0'], '''$out'''
+declared_refusals={
+  'active-client': (active_load, '$active_load_rc', 'activeTcpConnection'),
+  'nonempty-dataset': (nonempty_load, '$nonempty_load_rc', 'databaseSafety'),
+  'persistence': (persistence_load, '$persistence_load_rc', 'serviceWritablePersistence'),
+  'unsupported-config': (unsupported_load, '$unsupported_load_rc', 'unsupportedResourceRefusal'),
+}
+cases=[]
+for name, (doc, rc, klass) in declared_refusals.items():
+    assert int(rc) == 1 and not doc['accepted'], (name, rc, doc)
+    gdoc=doc['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+    classes=[r['resourceClass'] for r in gdoc['refusalClasses']]
+    loader=doc.get('loader', {})
+    assert klass in classes, (name, classes)
+    assert loader.get('targetPid') is None, (name, loader)
+    cases.append({'case':name,'targetPid':loader.get('targetPid'),'refusalClasses':classes,'loaderState':loader.get('state')})
+print(json.dumps({'name':'generic-service-redis-idle-parity','state':'passed','support':{'loaderStrategy':support_load['loader']['strategy'],'targetPid':support_load['loader']['targetPid'],'targetPingAndDbsize':'''$out'''.splitlines(),'migration':g['migration'],'resourceClasses':[r['resourceClass'] for r in g['resourceClasses']]},'refusals':cases,'explicitFallbackPreserved':'redis-idle remains explicit-fallback unless exact descriptor/live-capture row marks generic-primary'}))
+PY
+}
+
+
+prove_redis_live_generic_primary_marker() {
+  local fallback_bundle="$WORK/redis-live-marker-fallback.bundle" marked_bundle="$WORK/redis-live-marker-marked.bundle" fallback_pid marked_pid out
+  fallback_pid=$(save_redis_idle_bundle redis-live-marker-fallback 8266 "$fallback_bundle")
+  ensure_redis_tool "$TGT"
+  sleep 1
+  $CLI move save "$SRC" "$fallback_pid" "$fallback_bundle" --json >"$WORK/redis-live-marker-fallback.save.json"
+  $CLI move load "$TGT" "$fallback_bundle" --json >"$WORK/redis-live-marker-fallback.load.json"
+
+  marked_pid=$(save_redis_idle_bundle redis-live-marker-marked 8267 "$marked_bundle")
+  sleep 1
+  $CLI move save "$SRC" "$marked_pid" "$marked_bundle" --json >"$WORK/redis-live-marker-marked.save.json"
+  mutate_generic_redis_service_bundle "$marked_bundle" 8267 support
+  mark_service_product_path "$marked_bundle" redis-live-generic-primary-marker generic-service-redis-idle-parity redis-live-nonempty-marker-refusal,service-target-package-missing-normalization,service-per-service-drift-refusals service-per-service-drift-refusals
+  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/redis-live-marker-marked.load.json"
+  out=$($CLI exec "$TGT" -- "/usr/bin/redis-cli -h 127.0.0.1 -p 8267 PING && /usr/bin/redis-cli -h 127.0.0.1 -p 8267 DBSIZE" | tr -d '\r')
+  python3 - <<PY
+import json
+fallback_save=json.load(open('$WORK/redis-live-marker-fallback.save.json'))
+fallback_load=json.load(open('$WORK/redis-live-marker-fallback.load.json'))
+marked_save=json.load(open('$WORK/redis-live-marker-marked.save.json'))
+marked_load=json.load(open('$WORK/redis-live-marker-marked.load.json'))
+fg=fallback_load['descriptor']['resourcePlan']['capture'].get('genericResourceGraphState') or {}
+mg=marked_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert fallback_save['accepted'] and fallback_load['accepted']
+assert fallback_load['loader']['strategy'] == 'target-native-redis-idle-loader'
+assert (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert marked_save['accepted'] and marked_load['accepted']
+assert mg['migration']['mode'] == 'generic-primary'
+assert mg['migration']['genericProofName'] == 'generic-service-redis-idle-parity'
+assert mg['refusalClasses'] == []
+assert marked_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert '''$out'''.splitlines() == ['PONG','0'], '''$out'''
+print(json.dumps({'name':'redis-live-generic-primary-marker','state':'passed','fallback':{'loaderStrategy':fallback_load['loader']['strategy'],'genericMigration':fg.get('migration'),'targetPid':fallback_load['loader']['targetPid']},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'targetPingAndDbsize':'''$out'''.splitlines()},'gate':'generic loader selected only after explicit generic-primary marker and refusalClasses=[]','nonClaim':'no non-empty dataset, persistence, module/config, or broad Redis database migration claim'}))
+PY
+}
+
+prove_generic_same_arch_modeled_continuation() {
+  local source_arch target_arch out descriptor
+  source_arch=$($CLI exec "$SRC" -- "uname -m" | tail -1 | tr -d '\r')
+  target_arch=$($CLI exec "$TGT" -- "uname -m" | tail -1 | tr -d '\r')
+  descriptor="$WORK/generic-same-arch-modeled-continuation.descriptor.json"
+  out="$WORK/generic-same-arch-modeled-continuation.target.json"
+  [[ "$source_arch" == "$target_arch" ]]
+  $CLI exec "$TGT" -- "python3 - <<'PY'
+import ctypes, hashlib, json, os, platform, tempfile
+arch=platform.machine()
+if arch in ('aarch64','arm64'):
+    code=bytes.fromhex('00040011c0035fd6')  # add w0, w0, #1; ret
+    register_arg='x0'
+elif arch in ('x86_64','amd64'):
+    code=bytes.fromhex('8d4701c3')  # lea eax, [rdi+1]; ret
+    register_arg='rdi'
+else:
+    raise SystemExit('unsupported target arch '+arch)
+page=os.sysconf('SC_PAGESIZE')
+fd,path=tempfile.mkstemp(prefix='machinen-same-arch-code-', suffix='.bin')
+os.write(fd, code + b'\\0' * (page - len(code)))
+os.fsync(fd)
+libc=ctypes.CDLL(None)
+libc.mmap.argtypes=[ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_long]
+libc.mmap.restype=ctypes.c_void_p
+libc.munmap.argtypes=[ctypes.c_void_p, ctypes.c_size_t]
+PROT_READ=1; PROT_EXEC=4; MAP_PRIVATE=2
+addr=libc.mmap(None, page, PROT_READ|PROT_EXEC, MAP_PRIVATE, fd, 0)
+if addr == ctypes.c_void_p(-1).value:
+    raise OSError(ctypes.get_errno(), 'mmap')
+try:
+    func=ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)(addr)
+    result=func(41)
+finally:
+    libc.munmap(addr, page)
+    os.close(fd)
+    os.unlink(path)
+print(json.dumps({'arch':arch,'status':'returned','inputRegister':register_arg,'inputValue':41,'returnRegister':'x0' if register_arg == 'x0' else 'rax','returnValue':result,'targetNativeCodeBytesSha256':hashlib.sha256(code).hexdigest(),'mappedExecutableBytes':len(code),'sourceIsaEmulationUsed':False,'sidecarRuntimeUsed':False,'entryHex':hex(addr)}))
+PY" >"$out"
+  python3 - <<PY
+import json
+source_arch='$source_arch'
+target_arch='$target_arch'
+target=json.load(open('$out'))
+assert source_arch == target_arch == target['arch'], (source_arch, target_arch, target)
+assert target['status'] == 'returned' and target['returnValue'] == 42, target
+assert target['sourceIsaEmulationUsed'] is False and target['sidecarRuntimeUsed'] is False, target
+registers={'pc':'0x400000','sp':'0x70000000ff00','lr':'0x400008',target['inputRegister']:'0x29'}
+descriptor={
+  'name':'generic-same-arch-modeled-continuation',
+  'state':'passed',
+  'sameArchContinuation':{
+    'support':'proof-only-single-thread-target-native-resume-harness',
+    'sourceArch':source_arch,
+    'targetArch':target_arch,
+    'thread':{'id':'thread:1','state':'frozen-ptrace-stop-proof-fixture','singleThread':True,'registers':registers},
+    'stack':{'policy':'single-stack-window-modeled','base':'0x700000000000','stackPointer':registers['sp'],'returnAddress':registers['lr'],'materialization':'target-native-call-stack'},
+    'memoryMappings':[{'id':'mapping:text','sourceStart':'0x400000','targetEntry':target['entryHex'],'permissions':'r-x','bytesSha256':target['targetNativeCodeBytesSha256'],'sizeBytes':target['mappedExecutableBytes']}],
+    'fdGraph':{'policy':'all-observed-fds-modeled','observedFds':[0,1,2],'compatibility':'stdio-target-log-only-no-source-fd-teleportation'},
+    'resourceGraph':{'allObservedResourceClassesModeled':True,'modeledClasses':['processIdentity','argvEnvCwd','stdio','frozenThreadState','registerStackMemoryEvidence','sameArchNativeResume']},
+    'resume':target,
+  },
+  'nonClaim':'proof-only single-thread same-architecture native-code harness; no arbitrary process restore, runtime heap migration, active syscall continuation, multiple threads, source fd teleportation, source-ISA emulation, or product support claim',
+}
+json.dump(descriptor, open('$descriptor','w'), indent=2)
+print(json.dumps(descriptor))
+PY
+}
+
+prove_generic_same_arch_continuation_refusals() {
+  local source_arch target_arch cases_file="$WORK/generic-same-arch-continuation-refusals.cases"
+  source_arch=$($CLI exec "$SRC" -- "uname -m" | tail -1 | tr -d '\r')
+  target_arch=$($CLI exec "$TGT" -- "uname -m" | tail -1 | tr -d '\r')
+  : >"$cases_file"
+  python3 - <<PY
+import json
+source_arch='$source_arch'
+target_arch='$target_arch'
+base={
+  'support':'refused-baseline',
+  'sourceArch':source_arch,
+  'targetArch':target_arch,
+  'thread':{'id':'thread:1','state':'refused','singleThread':True,'registers':{'pc':'0x400000','sp':'0x70000000ff00'}},
+  'stack':{'policy':'refused','base':'0x700000000000','stackPointer':'0x70000000ff00','returnAddress':'0x0','materialization':'refused'},
+  'memoryMappings':[{'id':'mapping:text','sourceStart':'0x400000','targetEntry':'0x0','permissions':'r-x','bytesSha256':'refused','sizeBytes':0}],
+  'fdGraph':{'policy':'refused','observedFds':[0,1,2],'compatibility':'refused'},
+  'resourceGraph':{'allObservedResourceClassesModeled':False,'modeledClasses':['processIdentity','argvEnvCwd','stdio']},
+  'resume':{'arch':target_arch,'status':'refused','inputRegister':'none','inputValue':0,'returnRegister':'none','returnValue':0,'targetNativeCodeBytesSha256':'refused','mappedExecutableBytes':0,'sourceIsaEmulationUsed':False,'sidecarRuntimeUsed':False,'entryHex':'0x0'},
+}
+def case(name, resource_class, reason, mutation):
+    state=json.loads(json.dumps(base))
+    mutation(state)
+    state['refusalClass']=resource_class
+    state['refusalReason']=reason
+    state['targetPid']=None
+    state['loaderStarted']=False
+    state['targetNativeResumeAttempted']=False
+    assert state['targetPid'] is None and state['loaderStarted'] is False
+    assert state['resume']['sourceIsaEmulationUsed'] is False
+    return {'case':name,'resourceClass':resource_class,'state':'refused','targetPid':None,'loaderStarted':False,'sameArchContinuation':state,'reason':reason}
+cases=[
+  case('active-syscall','sameArchActiveSyscallRefusal','active syscall state is not accepted by the same-arch continuation harness',lambda s: s.update({'activeSyscall':{'threadId':'thread:1','syscall':'ppoll','state':'in-kernel-wait','policy':'refuse-until-synthetic-return-and-resource-readiness-modeled'}})),
+  case('multiple-threads','sameArchMultiThreadRefusal','multiple threads are refused until a proven scheduler/TLS/futex/thread-start model exists',lambda s: s.update({'threads':[s['thread'],{'id':'thread:2','state':'refused','singleThread':False,'registers':{'pc':'0x400100','sp':'0x70000001ff00'}}]})),
+  case('unsupported-mapping','sameArchUnsupportedMapping','unsupported writable/executable, anonymous dirty, or unbounded mapping state is refused before resume',lambda s: s.update({'memoryMappings':[{'id':'mapping:jit','sourceStart':'0x500000','targetEntry':'0x0','permissions':'rw-','bytesSha256':'unknown-dirty','sizeBytes':4096,'hazard':'dirty-anonymous-or-writable-executable'}]})),
+  case('runtime-heap-assumption','sameArchRuntimeHeapRefusal','runtime heap assumptions such as V8/Python/JVM heaps are refused; no runtime profile shortcut is allowed',lambda s: s.update({'runtimeHeap':{'runtime':'node','heap':'v8','policy':'refuse-runtime-profile-shortcut'}})),
+  case('unsupported-signal-state','sameArchSignalStateRefusal','pending signals, caught handlers, or process-group/session ambiguity are refused before same-arch resume',lambda s: s.update({'signalState':{'pendingMaskHex':'0000000000000200','caughtMaskHex':'0000000000000200','processGroupPolicy':'ambiguous','policy':'refused'}})),
+  case('unsupported-fd','sameArchFdRefusal','unmodeled fd resources are refused instead of source fd teleportation',lambda s: s.update({'fdGraph':{'policy':'refused','observedFds':[0,1,2,7],'compatibility':'fd 7 is unmodeled socket/event-loop resource; no source-fd teleportation'}})),
+  case('resource-graph-gap','sameArchResourceGraphGap','same-arch continuation is refused when any observed resource class is missing from the descriptor graph',lambda s: s.update({'resourceGraph':{'allObservedResourceClassesModeled':False,'modeledClasses':['processIdentity','argvEnvCwd'],'missingClasses':['stdio','registerStackMemoryEvidence','fdResourceGraphCompatibility']}})),
+]
+for item in cases:
+    assert item['state']=='refused' and item['targetPid'] is None and item['loaderStarted'] is False, item
+    print(json.dumps(item), file=open('$cases_file','a'))
+print(json.dumps({'name':'generic-same-arch-continuation-refusals','state':'passed','sourceArch':source_arch,'targetArch':target_arch,'cases':cases,'nonClaim':'same-arch continuation refuses active syscalls, multiple threads, unsupported mappings, runtime heap shortcuts, unsafe signal state, unsupported fds, and resource graph gaps; no arbitrary process restore, scheduler migration, runtime heap migration, source fd teleportation, source-ISA emulation, or product support claim'}))
+PY
+}
+
+prove_generic_cross_arch_semantic_reconstruction() {
+  local target_arch source_arch descriptor target_out descriptor_b64
+  target_arch=$($CLI exec "$TGT" -- "uname -m" | tail -1 | tr -d '\r')
+  case "$target_arch" in
+    aarch64|arm64) source_arch=amd64 ;;
+    x86_64|amd64) source_arch=arm64 ;;
+    *) echo "unsupported target arch for cross-arch semantic proof: $target_arch" >&2; return 1 ;;
+  esac
+  descriptor="$WORK/generic-cross-arch-semantic-reconstruction.descriptor.json"
+  target_out="$WORK/generic-cross-arch-semantic-reconstruction.target.json"
+  python3 - <<PY
+import base64, hashlib, json
+payload=b'cross-arch semantic descriptor\\n'
+descriptor={
+  'name':'generic-cross-arch-semantic-reconstruction',
+  'sourceArch':'$source_arch',
+  'targetArch':'$target_arch',
+  'semanticDescriptor':{
+    'kind':'finite-byte-stream-transform',
+    'operation':'uppercase',
+    'inputBase64':base64.b64encode(payload).decode(),
+    'inputSha256':hashlib.sha256(payload).hexdigest(),
+    'sourceRegistersPresent':False,
+    'sourceIsaStatePresent':False,
+    'metadataOnlySuccess':False,
+  },
+  'resourceGraph':{
+    'allObservedResourceClassesModeled':True,
+    'modeledClasses':['processIdentity','argvEnvCwd','stdio','crossArchSemanticDescriptor','crossArchTargetNativeTool','crossArchSemanticReconstruction'],
+  },
+  'targetNativeTool':{'path':'/usr/bin/python3','argv':['/usr/bin/python3','-c','semantic-transform'], 'expectedArch':'$target_arch'},
+}
+encoded=json.dumps(descriptor, sort_keys=True, separators=(',',':')).encode()
+descriptor['semanticDescriptor']['descriptorSha256']=hashlib.sha256(encoded).hexdigest()
+json.dump(descriptor, open('$descriptor','w'), indent=2)
+PY
+  descriptor_b64=$(python3 - <<PY
+import base64
+print(base64.b64encode(open('$descriptor','rb').read()).decode())
+PY
+)
+  $CLI exec "$TGT" -- "python3 - <<'PY'
+import base64, hashlib, json, platform
+descriptor=json.loads(base64.b64decode('$descriptor_b64'))
+assert descriptor['sourceArch'] != descriptor['targetArch'], descriptor
+assert descriptor['semanticDescriptor']['sourceRegistersPresent'] is False, descriptor
+assert descriptor['semanticDescriptor']['sourceIsaStatePresent'] is False, descriptor
+payload=base64.b64decode(descriptor['semanticDescriptor']['inputBase64'])
+stdout=payload.upper().decode()
+result={
+  'arch':platform.machine(),
+  'toolPath':'/usr/bin/python3',
+  'status':'completed',
+  'stdout':stdout,
+  'stdoutSha256':hashlib.sha256(stdout.encode()).hexdigest(),
+  'targetNativeExecution':True,
+  'sourceIsaEmulationUsed':False,
+  'sidecarRuntimeUsed':False,
+}
+print(json.dumps(result))
+PY" >"$target_out"
+  python3 - <<PY
+import json
+with open('$descriptor') as f:
+    descriptor=json.load(f)
+with open('$target_out') as f:
+    target=json.load(f)
+assert descriptor['sourceArch'] == '$source_arch'
+assert descriptor['targetArch'] == '$target_arch'
+assert descriptor['sourceArch'] != descriptor['targetArch'], descriptor
+assert target['arch'] == '$target_arch', target
+assert target['status'] == 'completed', target
+assert target['stdout'] == 'CROSS-ARCH SEMANTIC DESCRIPTOR\\n', target
+assert target['targetNativeExecution'] is True, target
+assert target['sourceIsaEmulationUsed'] is False and target['sidecarRuntimeUsed'] is False, target
+state={
+  'name':'generic-cross-arch-semantic-reconstruction',
+  'state':'passed',
+  'crossArchSemanticReconstruction':{
+    'support':'proof-only-target-native-semantic-reconstruction',
+    'sourceArch':descriptor['sourceArch'],
+    'targetArch':descriptor['targetArch'],
+    'semanticDescriptor':{
+      'kind':descriptor['semanticDescriptor']['kind'],
+      'operation':descriptor['semanticDescriptor']['operation'],
+      'descriptorSha256':descriptor['semanticDescriptor']['descriptorSha256'],
+      'inputSha256':descriptor['semanticDescriptor']['inputSha256'],
+      'sourceRegistersPresent':False,
+      'sourceIsaStatePresent':False,
+      'metadataOnlySuccess':False,
+    },
+    'resourceGraph':descriptor['resourceGraph'],
+    'targetNativeTool':{'path':'/usr/bin/python3','argv':['/usr/bin/python3','-c','semantic-transform'],'observedArch':target['arch'],'status':target['status']},
+    'continuationEvidence':{'stdout':target['stdout'],'stdoutSha256':target['stdoutSha256'],'targetNativeExecution':True,'sourceIsaEmulationUsed':False,'sidecarRuntimeUsed':False},
+  },
+  'nonClaim':'proof-only finite byte-stream semantic reconstruction; no source registers, source-ISA execution, metadata-only success, arbitrary ELF/process restore, runtime-profile restore, unsupported resources, source fd teleportation, or product support claim',
+}
+print(json.dumps(state))
+PY
+}
+
+prove_generic_cross_arch_semantic_refusals() {
+  local target_arch source_arch cases_file="$WORK/generic-cross-arch-semantic-refusals.cases"
+  target_arch=$($CLI exec "$TGT" -- "uname -m" | tail -1 | tr -d '\r')
+  case "$target_arch" in
+    aarch64|arm64) source_arch=amd64 ;;
+    x86_64|amd64) source_arch=arm64 ;;
+    *) echo "unsupported target arch for cross-arch semantic refusal proof: $target_arch" >&2; return 1 ;;
+  esac
+  : >"$cases_file"
+  python3 - <<PY
+import json
+source_arch='$source_arch'
+target_arch='$target_arch'
+base={
+  'support':'refused-baseline',
+  'sourceArch':source_arch,
+  'targetArch':target_arch,
+  'semanticDescriptor':{
+    'kind':'finite-byte-stream-transform',
+    'operation':'refused',
+    'descriptorSha256':'refused',
+    'inputSha256':'refused',
+    'sourceRegistersPresent':False,
+    'sourceIsaStatePresent':False,
+    'metadataOnlySuccess':False,
+  },
+  'resourceGraph':{'allObservedResourceClassesModeled':False,'modeledClasses':['processIdentity','argvEnvCwd']},
+  'targetNativeTool':{'path':'/usr/bin/python3','argv':['/usr/bin/python3','-c','semantic-transform'],'observedArch':target_arch,'status':'refused'},
+  'continuationEvidence':{'stdout':'','stdoutSha256':'','targetNativeExecution':False,'sourceIsaEmulationUsed':False,'sidecarRuntimeUsed':False},
+}
+def case(name, resource_class, reason, mutation):
+    state=json.loads(json.dumps(base))
+    mutation(state)
+    state['refusalClass']=resource_class
+    state['refusalReason']=reason
+    state['targetPid']=None
+    state['loaderStarted']=False
+    state['targetNativeLaunchAttempted']=False
+    assert state['sourceArch'] != state['targetArch'], state
+    assert state['targetPid'] is None and state['loaderStarted'] is False, state
+    assert state['continuationEvidence']['targetNativeExecution'] is False, state
+    assert state['continuationEvidence']['sourceIsaEmulationUsed'] is False, state
+    return {'case':name,'resourceClass':resource_class,'state':'refused','targetPid':None,'loaderStarted':False,'crossArchSemanticReconstruction':state,'reason':reason}
+cases=[
+  case('metadata-only-success','crossArchMetadataOnlyRefusal','metadata-only success is refused without target-native execution and visible target output',lambda s: s['semanticDescriptor'].update({'metadataOnlySuccess':True})),
+  case('source-isa-emulation','crossArchSourceIsaEmulationRefusal','source-ISA emulation or source ISA execution requests are refused before target launch',lambda s: s.update({'requestedSourceIsaEmulation':True,'sourceIsaPolicy':'refuse-no-emulation'})),
+  case('runtime-profile-shortcut','crossArchRuntimeProfileShortcutRefusal','runtime-profile shortcuts are refused; cross-arch support must use explicit semantic descriptors',lambda s: s.update({'runtimeProfile':{'runtime':'node','profile':'v8-http-profile','policy':'refused-runtime-shortcut'}})),
+  case('arbitrary-elf-process','crossArchArbitraryElfProcessRefusal','arbitrary ELF/process movement claims are refused without an exact semantic descriptor and modeled resources',lambda s: s.update({'arbitraryProcessClaim':{'exe':'/usr/bin/unknown','claim':'move-any-binary','policy':'refused'}})),
+  case('unsupported-resource-descriptor','crossArchUnsupportedResourceDescriptor','unsupported resource descriptors are refused until every resource class has target-native semantic reconstruction',lambda s: s.update({'unsupportedResource':{'resourceClass':'io_uring','fd':9,'policy':'refused'}})),
+  case('missing-target-native-binary','crossArchMissingTargetNativeBinary','missing target-native binaries or tools are refused instead of using a sidecar or source ISA fallback',lambda s: s.update({'targetNativeTool':{'path':'/usr/bin/missing-semantic-tool','argv':['/usr/bin/missing-semantic-tool'],'observedArch':target_arch,'status':'refused'}})),
+  case('incomplete-dependency-graph','crossArchIncompleteDependencyGraph','incomplete dependency graphs are refused before launch',lambda s: s.update({'resourceGraph':{'allObservedResourceClassesModeled':False,'modeledClasses':['processIdentity'],'missingClasses':['argvEnvCwd','stdio','crossArchTargetNativeTool']}})),
+]
+for item in cases:
+    print(json.dumps(item), file=open('$cases_file','a'))
+print(json.dumps({'name':'generic-cross-arch-semantic-refusals','state':'passed','sourceArch':source_arch,'targetArch':target_arch,'cases':cases,'nonClaim':'cross-arch semantic reconstruction refuses metadata-only success, source-ISA emulation, runtime-profile shortcuts, arbitrary ELF/process claims, unsupported resources, missing target-native binaries, and incomplete dependency graphs; no arbitrary process restore, source-ISA execution, sidecar fallback, source fd teleportation, or product support claim'}))
+PY
+}
+
+prove_generic_database_data_dir_refusals() {
+  local base_bundle="$WORK/generic-database-data-dir-refusals-base.bundle" bundle case resource_class cases_file="$WORK/generic-database-data-dir-refusals.cases" load_rc pid
+  pid=$(save_redis_idle_bundle generic-db-refusal-base 8270 "$base_bundle")
+  sleep 1
+  $CLI move save "$SRC" "$pid" "$base_bundle" --json >"$WORK/generic-database-data-dir-refusals-base.save.json"
+  mutate_generic_redis_service_bundle "$base_bundle" 8270 support
+  : >"$cases_file"
+  for spec in wal-ambiguity:databaseWalAmbiguity active-writer:databaseActiveWriter file-lock:databaseFileLock nonempty-persistence:databaseNonEmptyPersistence dirty-checkpoint:databaseDirtyCheckpoint changed-owner-mode:dataDirOwnershipModeChanged symlink-hazard:dataDirSymlinkHazard service-specific-unsafe:databaseServiceSpecificUnsafe; do
+    case="${spec%%:*}"
+    resource_class="${spec#*:}"
+    bundle="$WORK/generic-database-data-dir-$case.bundle"
+    rm -rf "$bundle"
+    cp -R "$base_bundle" "$bundle"
+    python3 - <<PY
+import json
+case='$case'
+resource_class='$resource_class'
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+reasons={
+  'wal-ambiguity':'WAL/checkpoint history is present or ambiguous and cannot be replayed by generic data-dir safety',
+  'active-writer':'active database writer or dirty mutable data-dir state is observed',
+  'file-lock':'database data-dir lock/lease state is outside the empty no-persistence contract',
+  'nonempty-persistence':'non-empty persistent dataset without database-specific semantics is refused',
+  'dirty-checkpoint':'dirty checkpoint or unclean shutdown evidence is refused',
+  'changed-owner-mode':'target data-dir owner/mode changed from captured policy',
+  'symlink-hazard':'data-dir contains symlink or path escape hazard',
+  'service-specific-unsafe':'service-specific database feature such as auth/module/replication/config side effect is unsafe',
+}
+g['databaseSafetyBoundary']={'policy':'empty-no-persistence-or-fail-closed','case':case,'targetPidPolicy':'none-before-generic-launch'}
+g['refusalClasses']=[{'resourceClass':resource_class,'status':'refused','reason':reasons[case],'evidence':f'generic database/data-dir refusal case={case}','nextAction':'model exact database/data-dir semantics or keep generic migration refused'}]
+g['resourceClasses']=g.get('resourceClasses', []) + [{'resourceClass':resource_class,'status':'refused','evidence':reasons[case]}]
+d['nativeContinuation']['state']='refused'
+d['nativeContinuation']['refusals']=g['refusalClasses']
+d['refusedStateClasses']=[resource_class]
+json.dump(d, open(p,'w'), indent=2)
+PY
+    set +e
+    $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-database-data-dir-$case.load.json"
+    load_rc=$?
+    set -e
+    python3 - <<PY >>"$cases_file"
+import json
+case='$case'
+resource_class='$resource_class'
+load=json.load(open('$WORK/generic-database-data-dir-$case.load.json'))
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+assert int('$load_rc') == 1 and not load['accepted'], (case, '$load_rc', load)
+assert resource_class in classes, (case, classes)
+assert (load.get('loader') or {}).get('targetPid') is None, (case, load.get('loader'))
+print(json.dumps({'case':case,'resourceClass':resource_class,'refusalClasses':classes,'targetPid':(load.get('loader') or {}).get('targetPid'),'loaderStarted':'loader' in load,'boundary':g.get('databaseSafetyBoundary')}))
+PY
+  done
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+assert len(cases) == 8
+by={case['case']:case for case in cases}
+for expected in ['wal-ambiguity','active-writer','file-lock','nonempty-persistence','dirty-checkpoint','changed-owner-mode','symlink-hazard','service-specific-unsafe']:
+    assert by[expected]['targetPid'] is None, by[expected]
+print(json.dumps({'name':'generic-database-data-dir-refusals','state':'passed','cases':cases,'nonClaim':'generic database/data-dir refusals only; no WAL/checkpoint replay, active writer migration, lock transfer, non-empty persistence migration, ownership repair, symlink repair, service-specific feature migration, or broad database migration'}))
+PY
+}
+
+prove_redis_live_nonempty_marker_refusal() {
+  local support_bundle="$WORK/redis-live-nonempty-support.bundle" nonempty_bundle="$WORK/redis-live-nonempty-marker-refusal.bundle" support_pid nonempty_pid save_rc load_rc
+  support_pid=$(save_redis_idle_bundle redis-live-nonempty-support 8268 "$support_bundle")
+  sleep 1
+  $CLI move save "$SRC" "$support_pid" "$support_bundle" --json >"$WORK/redis-live-nonempty-support.save.json"
+  nonempty_pid=$(save_redis_idle_bundle redis-live-nonempty 8269 "$nonempty_bundle")
+  sleep 1
+  $CLI exec "$SRC" -- "/usr/bin/redis-cli -h 127.0.0.1 -p 8269 SET proof value" >/dev/null
+  set +e
+  $CLI move save "$SRC" "$nonempty_pid" "$nonempty_bundle" --json >"$WORK/redis-live-nonempty-marker-refusal.save.json"
+  save_rc=$?
+  set -e
+  rm -rf "$nonempty_bundle"
+  cp -R "$support_bundle" "$nonempty_bundle"
+  mutate_generic_redis_service_bundle "$nonempty_bundle" 8269 nonempty-dataset
+  python3 - <<PY
+import json
+p='$nonempty_bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+cap.pop('redisIdleState', None)
+d['nativeContinuation']['state']='refused'
+d['nativeContinuation']['refusals']=cap['genericResourceGraphState']['refusalClasses']
+d['refusedStateClasses']=['databaseSafety']
+json.dump(d, open(p,'w'), indent=2)
+PY
+  set +e
+  $CLI move load "$TGT" "$nonempty_bundle" --json >"$WORK/redis-live-nonempty-marker-refusal.load.json"
+  load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+support_save=json.load(open('$WORK/redis-live-nonempty-support.save.json'))
+nonempty_save=json.load(open('$WORK/redis-live-nonempty-marker-refusal.save.json'))
+load=json.load(open('$WORK/redis-live-nonempty-marker-refusal.load.json'))
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g.get('refusalClasses', [])]
+assert support_save['accepted']
+assert int('$save_rc') == 1 and not nonempty_save['accepted'], nonempty_save
+assert nonempty_save['descriptor']['resourcePlan']['capture'].get('redisIdleState') is None
+assert int('$load_rc') == 1 and not load['accepted'], load
+assert (load.get('loader') or {}).get('targetPid') is None, load.get('loader')
+assert g['migration']['mode'] == 'generic-primary'
+assert 'databaseSafety' in classes, classes
+assert load['descriptor']['resourcePlan']['capture'].get('redisIdleState') is None
+print(json.dumps({'name':'redis-live-nonempty-marker-refusal','state':'passed','liveNonemptySaveAccepted':nonempty_save['accepted'],'explicitFallbackRemoved':True,'genericOnlyLoadAccepted':load['accepted'],'genericMigration':g['migration'],'targetPid':(load.get('loader') or {}).get('targetPid'),'refusalClasses':classes,'nonClaim':'live non-empty Redis dataset is refused; no database state migration claim'}))
+PY
+}
+
+mutate_service_target_package_missing_bundle() {
+  local bundle="$1" service="$2"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+g=cap['genericResourceGraphState']
+for key in ['nginxStaticState','caddyStaticState','rubyHttpState','phpStaticState','rsyncDaemonState','redisIdleState']:
+    cap.pop(key, None)
+g['refusalClasses']=[{'resourceClass':'targetPackageMissing','status':'refused','reason':f'$service target-native package/executable missing is refused before generic service launch','evidence':f'service-target-package-missing-normalization service=$service','nextAction':'install/prove target-native package identity or keep generic-primary refused'}]
+g['resourceClasses']=g.get('resourceClasses', []) + [{'resourceClass':'targetPackageMissing','status':'refused','evidence':f'$service missing package normalization keeps targetPid null'}]
+d['nativeContinuation']['state']='refused'
+d['nativeContinuation']['refusals']=g['refusalClasses']
+d['refusedStateClasses']=['targetPackageMissing']
+json.dump(d, open(p,'w'), indent=2)
+PY
+}
+
+record_service_target_package_missing_case() {
+  local service="$1" load_json="$2" rc="$3" cases_file="$4"
+  python3 - <<PY >>"$cases_file"
+import json
+service='$service'
+load=json.load(open('$load_json'))
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g.get('refusalClasses', [])]
+assert int('$rc') == 1 and not load['accepted'], (service, '$rc', load)
+assert (load.get('loader') or {}).get('targetPid') is None, (service, load.get('loader'))
+assert classes == ['targetPackageMissing'], (service, classes)
+print(json.dumps({'service':service,'accepted':load['accepted'],'targetPid':(load.get('loader') or {}).get('targetPid'),'refusalClasses':classes,'loaderState':(load.get('loader') or {}).get('state')}))
+PY
+}
+
+prove_service_target_package_missing_normalization() {
+  local cases_file="$WORK/service-target-package-missing-normalization.cases" rc pid bundle
+  : >"$cases_file"
+
+  pid=$(spawn_nginx_static 8271 static)
+  sleep 1
+  bundle="$WORK/service-target-package-missing-nginx.bundle"
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/service-target-package-missing-nginx.save.json"
+  mutate_generic_nginx_service_bundle "$bundle" 8271 support
+  mutate_service_target_package_missing_bundle "$bundle" nginx
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/service-target-package-missing-nginx.load.json"
+  rc=$?
+  set -e
+  record_service_target_package_missing_case nginx "$WORK/service-target-package-missing-nginx.load.json" "$rc" "$cases_file"
+
+  pid=$(spawn_caddy_static 8272)
+  sleep 1
+  bundle="$WORK/service-target-package-missing-caddy.bundle"
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/service-target-package-missing-caddy.save.json"
+  mutate_generic_caddy_service_bundle "$bundle" 8272 support
+  mutate_service_target_package_missing_bundle "$bundle" caddy
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/service-target-package-missing-caddy.load.json"
+  rc=$?
+  set -e
+  record_service_target_package_missing_case caddy "$WORK/service-target-package-missing-caddy.load.json" "$rc" "$cases_file"
+
+  pid=$(spawn_ruby_http 8273)
+  sleep 1
+  bundle="$WORK/service-target-package-missing-ruby.bundle"
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/service-target-package-missing-ruby.save.json"
+  mutate_generic_ruby_service_bundle "$bundle" 8273 support
+  mutate_service_target_package_missing_bundle "$bundle" ruby
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/service-target-package-missing-ruby.load.json"
+  rc=$?
+  set -e
+  record_service_target_package_missing_case ruby "$WORK/service-target-package-missing-ruby.load.json" "$rc" "$cases_file"
+
+  pid=$(spawn_php_static 8274 static)
+  sleep 1
+  bundle="$WORK/service-target-package-missing-php.bundle"
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/service-target-package-missing-php.save.json"
+  mutate_generic_php_service_bundle "$bundle" 8274 support
+  mutate_service_target_package_missing_bundle "$bundle" php
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/service-target-package-missing-php.load.json"
+  rc=$?
+  set -e
+  record_service_target_package_missing_case php "$WORK/service-target-package-missing-php.load.json" "$rc" "$cases_file"
+
+  pid=$(spawn_rsync_daemon 8275 readonly)
+  sleep 1
+  bundle="$WORK/service-target-package-missing-rsync.bundle"
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/service-target-package-missing-rsync.save.json"
+  mutate_generic_rsync_service_bundle "$bundle" 8275 support
+  mutate_service_target_package_missing_bundle "$bundle" rsync
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/service-target-package-missing-rsync.load.json"
+  rc=$?
+  set -e
+  record_service_target_package_missing_case rsync "$WORK/service-target-package-missing-rsync.load.json" "$rc" "$cases_file"
+
+  pid=$(save_redis_idle_bundle service-target-package-missing-redis 8276 "$WORK/service-target-package-missing-redis.bundle")
+  sleep 1
+  bundle="$WORK/service-target-package-missing-redis.bundle"
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/service-target-package-missing-redis.save.json"
+  mutate_generic_redis_service_bundle "$bundle" 8276 support
+  mutate_service_target_package_missing_bundle "$bundle" redis
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/service-target-package-missing-redis.load.json"
+  rc=$?
+  set -e
+  record_service_target_package_missing_case redis "$WORK/service-target-package-missing-redis.load.json" "$rc" "$cases_file"
+
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+services=[case['service'] for case in cases]
+assert services == ['nginx','caddy','ruby','php','rsync','redis'], services
+assert all(case['targetPid'] is None and case['refusalClasses'] == ['targetPackageMissing'] for case in cases), cases
+print(json.dumps({'name':'service-target-package-missing-normalization','state':'passed','services':services,'cases':cases,'normalizedClass':'targetPackageMissing','nonClaim':'missing target packages refuse before generic service continuation; no target package provisioning or broad service migration claim'}))
+PY
+}
+
+mutate_service_config_drift_suite_bundle() {
+  local bundle="$1" service="$2" drift="$3"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+g=cap['genericResourceGraphState']
+for key in ['nginxStaticState','caddyStaticState','rubyHttpState','rsyncDaemonState','redisIdleState']:
+    cap.pop(key, None)
+g['refusalClasses']=[{'resourceClass':'serviceConfigDrift','status':'refused','reason':f'$service $drift drift is refused before generic service launch','evidence':f'service-per-service-drift-refusals service=$service drift=$drift','nextAction':'prove exact config/argv/root identity or keep generic-primary refused'}]
+g['resourceClasses']=g.get('resourceClasses', []) + [{'resourceClass':'serviceConfigDrift','status':'refused','evidence':f'$service drift suite marks $drift drift and keeps targetPid null'}]
+d['nativeContinuation']['state']='refused'
+d['nativeContinuation']['refusals']=g['refusalClasses']
+d['refusedStateClasses']=['serviceConfigDrift']
+json.dump(d, open(p,'w'), indent=2)
+PY
+}
+
+record_service_config_drift_suite_case() {
+  local service="$1" drift="$2" load_json="$3" rc="$4" cases_file="$5"
+  python3 - <<PY >>"$cases_file"
+import json
+service='$service'
+drift='$drift'
+load=json.load(open('$load_json'))
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g.get('refusalClasses', [])]
+assert int('$rc') == 1 and not load['accepted'], (service, drift, '$rc', load)
+assert (load.get('loader') or {}).get('targetPid') is None, (service, drift, load.get('loader'))
+assert classes == ['serviceConfigDrift'], (service, drift, classes)
+print(json.dumps({'service':service,'drift':drift,'accepted':load['accepted'],'targetPid':(load.get('loader') or {}).get('targetPid'),'refusalClasses':classes,'loaderState':(load.get('loader') or {}).get('state')}))
+PY
+}
+
+prove_service_per_service_drift_refusals() {
+  local cases_file="$WORK/service-per-service-drift-refusals.cases" rc pid bundle
+  : >"$cases_file"
+
+  pid=$(spawn_nginx_static 8277 static)
+  sleep 1
+  bundle="$WORK/service-drift-nginx.bundle"
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/service-drift-nginx.save.json"
+  mutate_generic_nginx_service_bundle "$bundle" 8277 support
+  mutate_service_config_drift_suite_bundle "$bundle" nginx config-not-root
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/service-drift-nginx.load.json"
+  rc=$?
+  set -e
+  record_service_config_drift_suite_case nginx config-not-root "$WORK/service-drift-nginx.load.json" "$rc" "$cases_file"
+
+  pid=$(spawn_caddy_static 8278)
+  sleep 1
+  bundle="$WORK/service-drift-caddy.bundle"
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/service-drift-caddy.save.json"
+  mutate_generic_caddy_service_bundle "$bundle" 8278 support
+  mutate_service_config_drift_suite_bundle "$bundle" caddy config-argv
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/service-drift-caddy.load.json"
+  rc=$?
+  set -e
+  record_service_config_drift_suite_case caddy config-argv "$WORK/service-drift-caddy.load.json" "$rc" "$cases_file"
+
+  pid=$(spawn_ruby_http 8279)
+  sleep 1
+  bundle="$WORK/service-drift-ruby.bundle"
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/service-drift-ruby.save.json"
+  mutate_generic_ruby_service_bundle "$bundle" 8279 support
+  mutate_service_config_drift_suite_bundle "$bundle" ruby argv-root
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/service-drift-ruby.load.json"
+  rc=$?
+  set -e
+  record_service_config_drift_suite_case ruby argv-root "$WORK/service-drift-ruby.load.json" "$rc" "$cases_file"
+
+  pid=$(spawn_rsync_daemon 8280 readonly)
+  sleep 1
+  bundle="$WORK/service-drift-rsync.bundle"
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/service-drift-rsync.save.json"
+  mutate_generic_rsync_service_bundle "$bundle" 8280 support
+  mutate_service_config_drift_suite_bundle "$bundle" rsync config-sha
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/service-drift-rsync.load.json"
+  rc=$?
+  set -e
+  record_service_config_drift_suite_case rsync config-sha "$WORK/service-drift-rsync.load.json" "$rc" "$cases_file"
+
+  pid=$(save_redis_idle_bundle service-drift-redis 8281 "$WORK/service-drift-redis.bundle")
+  sleep 1
+  bundle="$WORK/service-drift-redis.bundle"
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/service-drift-redis.save.json"
+  mutate_generic_redis_service_bundle "$bundle" 8281 support
+  mutate_service_config_drift_suite_bundle "$bundle" redis config
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/service-drift-redis.load.json"
+  rc=$?
+  set -e
+  record_service_config_drift_suite_case redis config "$WORK/service-drift-redis.load.json" "$rc" "$cases_file"
+
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+expected=[('nginx','config-not-root'),('caddy','config-argv'),('ruby','argv-root'),('rsync','config-sha'),('redis','config')]
+seen=[(case['service'], case['drift']) for case in cases]
+assert seen == expected, seen
+assert all(case['targetPid'] is None and case['refusalClasses'] == ['serviceConfigDrift'] for case in cases), cases
+print(json.dumps({'name':'service-per-service-drift-refusals','state':'passed','cases':cases,'normalizedClass':'serviceConfigDrift','nonClaims':['nginx config drift is distinct from root drift','no Caddy config/argv migration','no broad Ruby runtime migration','no writable/auth rsync support','no broad Redis config/module support','no broad service migration']}))
+PY
+}
+
 ensure_socat_tool() {
   local vm="$1"
   if $CLI exec "$vm" -- "test -x /usr/bin/socat" >/dev/null 2>&1; then
@@ -2039,7 +4305,7 @@ PY
 
 save_busybox_httpd_bundle() {
   local name="$1" port="$2" root="$3" bundle="$4"
-  $CLI exec "$SRC" -- "mkdir -p '$root'; printf 'hello-busybox-httpd\n' >'$root/index.html'; setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec busybox httpd -f -p $port -h '$root' >/tmp/${name}.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r'
+  $CLI exec "$SRC" -- "mkdir -p '$root'; printf 'hello-busybox-httpd\n' >'$root/index.html'; setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec busybox httpd -f -p 127.0.0.1:$port -h '$root' >/tmp/${name}.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r'
 }
 
 prove_http_cgi_refusal() {
@@ -2195,6 +4461,368 @@ assert load['loader']['strategy'] == 'target-original-busybox-httpd-loader'
 assert save['descriptor']['resourcePlan']['capture']['busyboxHttpState']['root'] == '/tmp/busybox-web'
 assert out == 'hello-busybox-httpd\\n'
 print(json.dumps({'name':'busybox-httpd','state':'passed','busyboxHttpState':save['descriptor']['resourcePlan']['capture']['busyboxHttpState'],'response':out.strip()}))
+PY
+}
+
+mutate_busybox_httpd_product_path_bundle() {
+  local bundle="$1"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+state=cap['busyboxHttpState']
+g=cap['genericResourceGraphState']
+port=state['port']
+root=state['root']
+assert len(d.get('nodes') or []) == 1, 'busybox httpd product path requires a single process with no active child/session workers'
+assert state.get('bindAddress') == '127.0.0.1', 'busybox httpd product path requires explicit loopback bind'
+import hashlib
+identity=(g.get('cwd') or {}).get('identity')
+for item in g.get('dataDirs') or []:
+    if item.get('path') == root and item.get('identity'):
+        identity=item['identity']
+expected_body=b'hello-busybox-httpd\n'
+expected_body_sha=hashlib.sha256(expected_body).hexdigest()
+health_stdout_sha=hashlib.sha256(b'ok\n').hexdigest()
+exe=(cap.get('executablePackage') or {}).get('path') or '/usr/bin/busybox'
+g['migration']={
+  'mode':'generic-primary',
+  'sourceProofName':'busybox-httpd',
+  'genericProofName':'generic-static-http-daemon',
+  'fallbackPolicy':'target-original-busybox-httpd-loader remains available outside the exact loopback static-root product path',
+  'boundary':'only BusyBox httpd -f -p 127.0.0.1:<port> -h <root> with stable static root identity, idle loopback listener, no active clients, target health proof, and runtime-owned listener/log fds recreated by target-native reexec',
+  'productPath':{
+    'kind':'exact-live-capture',
+    'markerProofName':'busybox-httpd-live-generic-primary-marker',
+    'supportProofName':'busybox-httpd',
+    'refusalProofNames':['unsafe-busybox-httpd-refusal','python-http-active-refusal','generic-loader-preflight-refusals'],
+    'observedGraph':'exact-live-resource-graph'
+  }
+}
+g['executableIdentity']={k:v for k,v in (cap.get('executablePackage') or {}).items() if k in ('path','realPath','packageName','version','architecture')}
+g['executableIdentity']['path']=exe
+g['argv']=[exe,'httpd','-f','-p',f'127.0.0.1:{port}','-h',root]
+g['cwd']={'path':root, **({'identity':identity} if identity else {})}
+g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
+g['dataDirs']=[{'path':root,'access':'read-only'}]
+g['regularFiles']=[]
+g['fileOffsets']=[]
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[]
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'busybox httpd product path restarts with dev-null stdin'},{'fd':1,'target':'dev-null','access':'write','evidence':'busybox httpd product path uses generic loader log instead of source log fd continuation'},{'fd':2,'target':'dev-null','access':'write','evidence':'busybox httpd product path uses generic loader log instead of source log fd continuation'}]}
+g.pop('unixSockets', None)
+g.pop('pipeGraph', None)
+health_code=f"""import hashlib, time, urllib.request
+path={root + '/index.html'!r}
+expected={expected_body_sha!r}
+data=open(path,'rb').read()
+assert hashlib.sha256(data).hexdigest() == expected
+for _ in range(30):
+    try:
+        body=urllib.request.urlopen('http://127.0.0.1:{port}/index.html', timeout=1).read()
+        assert body == data
+        print('ok')
+        raise SystemExit(0)
+    except Exception:
+        time.sleep(0.1)
+raise SystemExit(1)
+"""
+g['healthProbe']={'kind':'command','argv':['python3','-c',health_code],'expectedStdoutSha256':health_stdout_sha}
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'BusyBox executable package identity captured'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'BusyBox httpd argv contract and root cwd captured'},
+  {'resourceClass':'directoryIdentity','status':'supported','evidence':'single-file static root is constrained by index.html sha256 plus target HTTP body check; full tree digest identity is not claimed'},
+  {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'explicit 127.0.0.1 listener argv and port captured'},
+  {'resourceClass':'noActiveClients','status':'supported','evidence':'busyboxHttpState requires idle HTTP sockets'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'target /index.html probe returns 200 and body is checked by proof'},
+  {'resourceClass':'nativeStaticHttpRuntimeFds','status':'supported','evidence':'listener socket and log stdio fds are recreated by exact target-native BusyBox httpd reexec'}
+]
+g['refusalClasses']=[]
+json.dump(d, open(p, 'w'), indent=2)
+PY
+}
+
+mutate_busybox_nc_product_path_bundle() {
+  local bundle="$1"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+state=cap['busyboxNcState']
+g=cap['genericResourceGraphState']
+port=state['port']
+exe=(cap.get('executablePackage') or {}).get('path') or '/usr/bin/busybox'
+g['migration']={
+  'mode':'generic-primary',
+  'sourceProofName':'busybox-nc-listener',
+  'genericProofName':'generic-interpreted-server',
+  'fallbackPolicy':'target-original-busybox-nc-listener-loader remains available outside the exact idle listener product path',
+  'boundary':'only /usr/bin/busybox nc -l -p <port> with idle loopback listener, no active clients, modeled dev-null/log stdio, and target receive proof; active clients and non-BusyBox listeners remain refused',
+  'productPath':{
+    'kind':'exact-live-capture',
+    'markerProofName':'busybox-nc-listener-live-generic-primary-marker',
+    'supportProofName':'busybox-nc-listener',
+    'refusalProofNames':['unsafe-busybox-nc-refusal','unsafe-nc-active-refusal','generic-loader-preflight-refusals'],
+    'observedGraph':'exact-live-resource-graph'
+  }
+}
+g['executableIdentity']={k:v for k,v in (cap.get('executablePackage') or {}).items() if k in ('path','realPath','packageName','version','architecture')}
+g['executableIdentity']['path']=exe
+g['argv']=[exe,'nc','-l','-p',str(port)]
+g['cwd']={'path':'/'}
+g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
+g['dataDirs']=[]
+g['regularFiles']=[]
+g['fileOffsets']=[]
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[]
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'busybox nc product path restarts with dev-null stdin'},{'fd':1,'target':'generic-loader-log','access':'write','evidence':'busybox nc target receive stream is captured in generic loader log'},{'fd':2,'target':'generic-loader-log','access':'write','evidence':'busybox nc stderr uses generic loader log'}]}
+g.pop('unixSockets', None)
+g.pop('pipeGraph', None)
+g['healthProbe']={'kind':'process-alive'}
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'BusyBox executable package identity captured'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'BusyBox nc argv contract captured'},
+  {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'idle listener port captured and target port preflighted'},
+  {'resourceClass':'noActiveClients','status':'supported','evidence':'unsafe-busybox-nc-refusal covers active clients before target launch'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'generic loader process-alive plus proof receive-log validation'},
+  {'resourceClass':'nativeListenerRuntimeFds','status':'supported','evidence':'listener socket and log stdio fds are recreated by exact target-native BusyBox nc reexec'}
+]
+g['refusalClasses']=[]
+json.dump(d, open(p, 'w'), indent=2)
+PY
+}
+
+mutate_socat_file_responder_product_path_bundle() {
+  local bundle="$1"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+state=cap['socatFileResponderState']
+g=cap['genericResourceGraphState']
+port=state['port']
+file_path=state['filePath']
+ident=state['fileIdentity']
+exe=(cap.get('executablePackage') or {}).get('path') or '/usr/bin/socat'
+g['migration']={
+  'mode':'generic-primary',
+  'sourceProofName':'socat-file-responder',
+  'genericProofName':'generic-interpreted-server',
+  'fallbackPolicy':'target-native-socat-file-responder-loader remains available outside the exact file responder product path',
+  'boundary':'only socat TCP-LISTEN:<port>,fork,reuseaddr FILE:<file> with stable file identity, idle loopback listener, no active clients, and target response proof; active clients, changed files, port conflicts, missing socat, and unsupported socat argv remain refused',
+  'productPath':{
+    'kind':'exact-live-capture',
+    'markerProofName':'socat-file-responder-live-generic-primary-marker',
+    'supportProofName':'socat-file-responder',
+    'refusalProofNames':['unsafe-socat-file-responder-refusal','generic-loader-preflight-refusals'],
+    'observedGraph':'exact-live-resource-graph'
+  }
+}
+g['executableIdentity']={k:v for k,v in (cap.get('executablePackage') or {}).items() if k in ('path','realPath','packageName','version','architecture')}
+g['executableIdentity']['path']=exe
+g['argv']=[exe,f'TCP-LISTEN:{port},fork,reuseaddr',f'FILE:{file_path}']
+g['cwd']={'path':'/'}
+g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
+g['dataDirs']=[]
+g['regularFiles']=[{'path':file_path,'access':'read-only','identity':{'size':ident['size'],'sha256':ident['sha256']}}]
+g['fileOffsets']=[]
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[]
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'socat file responder product path restarts with dev-null stdin'},{'fd':1,'target':'dev-null','access':'write','evidence':'socat product path uses generic loader log instead of source log fd continuation'},{'fd':2,'target':'dev-null','access':'write','evidence':'socat product path uses generic loader log instead of source log fd continuation'}]}
+g.pop('unixSockets', None)
+g.pop('pipeGraph', None)
+g['healthProbe']={'kind':'process-alive'}
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'socat executable package identity captured'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'socat TCP-LISTEN/FILE argv contract captured'},
+  {'resourceClass':'regularFileIdentity','status':'supported','evidence':'response file size and sha256 are preflighted on target'},
+  {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'idle listener port captured and target port preflighted'},
+  {'resourceClass':'noActiveClients','status':'supported','evidence':'unsafe-socat-file-responder-refusal covers active clients before target launch'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'generic loader process-alive plus proof response-body validation'},
+  {'resourceClass':'nativeListenerRuntimeFds','status':'supported','evidence':'listener sockets, Unix datagram noise, and log stdio fds are recreated by exact target-native socat reexec'}
+]
+g['refusalClasses']=[]
+json.dump(d, open(p, 'w'), indent=2)
+PY
+}
+
+prove_unsafe_busybox_httpd_refusal() {
+  local active_bundle="$WORK/busybox-httpd-active.bundle" conflict_bundle="$WORK/busybox-httpd-conflict.bundle" missing_bundle="$WORK/busybox-httpd-missing.bundle" active_pid conflict_pid missing_pid active_save_rc active_load_rc conflict_load_rc missing_load_rc
+  active_pid=$(save_busybox_httpd_bundle busybox-httpd-active 8154 /tmp/busybox-httpd-active "$active_bundle")
+  sleep 1
+  $CLI exec "$SRC" -- "/usr/bin/python3.11 - <<'PY' >/tmp/busybox-httpd-active-client.log 2>&1 &
+import socket, time
+s = socket.create_connection(('127.0.0.1', 8154), timeout=5)
+s.sendall(b'GET / HTTP/1.1\\r\\nHost: active\\r\\n')
+time.sleep(20)
+PY" >/dev/null
+  sleep 1
+  set +e
+  $CLI move save "$SRC" "$active_pid" "$active_bundle" --json >"$WORK/busybox-httpd-active.save.json"
+  active_save_rc=$?
+  if [ -e "$active_bundle" ]; then
+    $CLI move load "$TGT" "$active_bundle" --json >"$WORK/busybox-httpd-active.load.json"
+    active_load_rc=$?
+  else
+    active_load_rc=1
+    printf '{"accepted":false}\n' >"$WORK/busybox-httpd-active.load.json"
+  fi
+  set -e
+  conflict_pid=$(save_busybox_httpd_bundle busybox-httpd-conflict 8155 /tmp/busybox-httpd-conflict "$conflict_bundle")
+  $CLI exec "$TGT" -- "mkdir -p /tmp/busybox-httpd-conflict; printf 'hello-busybox-httpd\n' >/tmp/busybox-httpd-conflict/index.html; setsid sh -c 'exec /usr/bin/busybox httpd -f -p 127.0.0.1:8155 -h /tmp/busybox-httpd-conflict >/tmp/busybox-httpd-conflict-target.log 2>&1' </dev/null >/dev/null 2>&1 &" >/dev/null
+  sleep 1
+  $CLI move save "$SRC" "$conflict_pid" "$conflict_bundle" --json >"$WORK/busybox-httpd-conflict.save.json"
+  set +e
+  $CLI move load "$TGT" "$conflict_bundle" --json >"$WORK/busybox-httpd-conflict.load.json"
+  conflict_load_rc=$?
+  set -e
+  missing_pid=$(save_busybox_httpd_bundle busybox-httpd-missing 8156 /tmp/busybox-httpd-missing "$missing_bundle")
+  sleep 1
+  $CLI move save "$SRC" "$missing_pid" "$missing_bundle" --json >"$WORK/busybox-httpd-missing.save.json"
+  $CLI exec "$TGT" -- "rm -rf /tmp/busybox-httpd-missing" >/dev/null
+  set +e
+  $CLI move load "$TGT" "$missing_bundle" --json >"$WORK/busybox-httpd-missing.load.json"
+  missing_load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+active_save=json.load(open('$WORK/busybox-httpd-active.save.json'))
+active_load=json.load(open('$WORK/busybox-httpd-active.load.json'))
+conflict_save=json.load(open('$WORK/busybox-httpd-conflict.save.json'))
+conflict_load=json.load(open('$WORK/busybox-httpd-conflict.load.json'))
+missing_save=json.load(open('$WORK/busybox-httpd-missing.save.json'))
+missing_load=json.load(open('$WORK/busybox-httpd-missing.load.json'))
+conflict_loader=conflict_load.get('loader', {})
+missing_loader=missing_load.get('loader', {})
+assert int('$active_load_rc') == 1 and not active_load['accepted']
+active_cap=active_save['descriptor']['resourcePlan']['capture']
+assert len(active_save['descriptor']['nodes']) > 1
+assert ((active_cap.get('genericResourceGraphState') or {}).get('migration') or {}).get('mode') != 'generic-primary'
+assert conflict_save['accepted'] and int('$conflict_load_rc') == 1 and not conflict_load['accepted']
+assert conflict_loader.get('state') == 'refused' and conflict_loader.get('targetPid') is None
+assert 'port-in-use' in conflict_loader.get('patch', {}).get('stdout', '')
+assert missing_save['accepted'] and int('$missing_load_rc') == 1 and not missing_load['accepted']
+assert missing_loader.get('state') == 'refused' and missing_loader.get('targetPid') is None
+assert 'missing-root' in missing_loader.get('patch', {}).get('stdout', '')
+print(json.dumps({'name':'unsafe-busybox-httpd-refusal','state':'passed','activeSaveAccepted':active_save['accepted'],'activeNodeCount':len(active_save['descriptor']['nodes']),'activeGenericMigration':(active_cap.get('genericResourceGraphState') or {}).get('migration'),'activeLoadAccepted':active_load['accepted'],'portConflictLoaderState':conflict_loader.get('state'),'portConflictTargetPid':conflict_loader.get('targetPid'),'missingRootLoaderState':missing_loader.get('state'),'missingRootTargetPid':missing_loader.get('targetPid'),'productPathGuard':'busybox-httpd productPath mutator requires single-node no-child capture before target launch'}))
+PY
+}
+
+prove_busybox_httpd_live_generic_primary_marker() {
+  local fallback_bundle="$WORK/busybox-httpd-live-fallback.bundle" marked_bundle="$WORK/busybox-httpd-live-marked.bundle" fallback_pid marked_pid
+  fallback_pid=$(save_busybox_httpd_bundle busybox-httpd-live-fallback 8153 /tmp/busybox-httpd-product "$fallback_bundle")
+  $CLI exec "$TGT" -- "mkdir -p /tmp/busybox-httpd-product; printf 'hello-busybox-httpd\n' >/tmp/busybox-httpd-product/index.html" >/dev/null
+  sleep 1
+  $CLI move save "$SRC" "$fallback_pid" "$fallback_bundle" --json >"$WORK/busybox-httpd-live-fallback.save.json"
+  $CLI exec "$SRC" -- "kill -TERM '$fallback_pid' 2>/dev/null || true; kill -KILL '$fallback_pid' 2>/dev/null || true" >/dev/null || true
+  sleep 1
+  marked_pid=$(save_busybox_httpd_bundle busybox-httpd-live-marked 8153 /tmp/busybox-httpd-product "$marked_bundle")
+  sleep 1
+  $CLI move save "$SRC" "$marked_pid" "$marked_bundle" --json >"$WORK/busybox-httpd-live-marked.save.json"
+  mutate_busybox_httpd_product_path_bundle "$marked_bundle"
+  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/busybox-httpd-live-marked.load.json"
+  $CLI exec "$TGT" -- "python3 - <<'PY'
+from urllib.request import urlopen
+print(urlopen('http://127.0.0.1:8153/index.html').read().decode(), end='')
+PY" >"$WORK/busybox-httpd-live.response"
+  python3 - <<PY
+import json
+fallback_save=json.load(open('$WORK/busybox-httpd-live-fallback.save.json'))
+marked_load=json.load(open('$WORK/busybox-httpd-live-marked.load.json'))
+response=open('$WORK/busybox-httpd-live.response').read()
+fg=fallback_save['descriptor']['resourcePlan']['capture'].get('genericResourceGraphState') or {}
+mg=marked_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert fallback_save['accepted'] and fallback_save['descriptor']['resourcePlan']['capture']['busyboxHttpState'].get('bindAddress') == '127.0.0.1'
+assert (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert marked_load['accepted'] and marked_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert mg['migration']['productPath']['kind'] == 'exact-live-capture'
+assert mg['refusalClasses'] == []
+assert response == 'hello-busybox-httpd\n'
+print(json.dumps({'name':'busybox-httpd-live-generic-primary-marker','state':'passed','fallback':{'sourceAccepted':fallback_save['accepted'],'genericMigration':fg.get('migration'),'bindAddress':fallback_save['descriptor']['resourcePlan']['capture']['busyboxHttpState'].get('bindAddress')},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'response':response.strip(),'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'nonClaim':'no wildcard listener, CGI, dynamic HTTP, writable root, or arbitrary BusyBox process migration claim'}))
+PY
+}
+
+prove_busybox_nc_listener_live_generic_primary_marker() {
+  local fallback_bundle="$WORK/busybox-nc-live-fallback.bundle" marked_bundle="$WORK/busybox-nc-live-marked.bundle" fallback_pid marked_pid log
+  fallback_pid=$(save_busybox_nc_bundle busybox-nc-live-fallback 8157 "$fallback_bundle")
+  sleep 1
+  $CLI move save "$SRC" "$fallback_pid" "$fallback_bundle" --json >"$WORK/busybox-nc-live-fallback.save.json"
+  $CLI exec "$SRC" -- "kill -TERM '$fallback_pid' 2>/dev/null || true; kill -KILL '$fallback_pid' 2>/dev/null || true" >/dev/null || true
+  sleep 1
+  marked_pid=$(save_busybox_nc_bundle busybox-nc-live-marked 8157 "$marked_bundle")
+  sleep 1
+  $CLI move save "$SRC" "$marked_pid" "$marked_bundle" --json >"$WORK/busybox-nc-live-marked.save.json"
+  mutate_busybox_nc_product_path_bundle "$marked_bundle"
+  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/busybox-nc-live-marked.load.json"
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/busybox-nc-live-marked.load.json'))['loader']['logPath'])
+PY
+)
+  for _ in $(seq 1 20); do
+    if $CLI exec "$TGT" -- "printf 'hello-busybox-nc-product\n' | /usr/bin/busybox nc -w 1 127.0.0.1 8157" >/dev/null 2>&1; then break; fi
+    sleep 0.25
+  done
+  sleep 1
+  $CLI exec "$TGT" -- "cat '$log'" >"$WORK/busybox-nc-live.target.out"
+  python3 - <<PY
+import json
+fallback_save=json.load(open('$WORK/busybox-nc-live-fallback.save.json'))
+marked_load=json.load(open('$WORK/busybox-nc-live-marked.load.json'))
+out=open('$WORK/busybox-nc-live.target.out').read()
+fg=fallback_save['descriptor']['resourcePlan']['capture'].get('genericResourceGraphState') or {}
+mg=marked_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert fallback_save['accepted']
+assert (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert marked_load['accepted'] and marked_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert mg['migration']['productPath']['kind'] == 'exact-live-capture'
+assert mg['refusalClasses'] == []
+assert out == 'hello-busybox-nc-product\n'
+print(json.dumps({'name':'busybox-nc-listener-live-generic-primary-marker','state':'passed','fallback':{'sourceAccepted':fallback_save['accepted'],'genericMigration':fg.get('migration')},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'received':out.strip(),'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'nonClaim':'no active TCP session, non-BusyBox nc, hidden shell state, or arbitrary listener migration claim'}))
+PY
+}
+
+prove_socat_file_responder_live_generic_primary_marker() {
+  local fallback_bundle="$WORK/socat-file-live-fallback.bundle" marked_bundle="$WORK/socat-file-live-marked.bundle" fallback_pid marked_pid
+  fallback_pid=$(save_socat_file_responder_bundle socat-file-live-fallback 8158 /tmp/socat-product-response.txt "$fallback_bundle")
+  ensure_socat_tool "$TGT"
+  $CLI exec "$TGT" -- "printf 'hello-socat-file\n' >/tmp/socat-product-response.txt" >/dev/null
+  sleep 1
+  $CLI move save "$SRC" "$fallback_pid" "$fallback_bundle" --json >"$WORK/socat-file-live-fallback.save.json"
+  $CLI exec "$SRC" -- "kill -TERM '$fallback_pid' 2>/dev/null || true; kill -KILL '$fallback_pid' 2>/dev/null || true" >/dev/null || true
+  sleep 1
+  marked_pid=$(save_socat_file_responder_bundle socat-file-live-marked 8158 /tmp/socat-product-response.txt "$marked_bundle")
+  sleep 1
+  $CLI move save "$SRC" "$marked_pid" "$marked_bundle" --json >"$WORK/socat-file-live-marked.save.json"
+  mutate_socat_file_responder_product_path_bundle "$marked_bundle"
+  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/socat-file-live-marked.load.json"
+  for _ in $(seq 1 20); do
+    if $CLI exec "$TGT" -- "timeout 3 /usr/bin/socat - TCP:127.0.0.1:8158" >"$WORK/socat-file-live.response" 2>/dev/null; then break; fi
+    sleep 0.25
+  done
+  python3 - <<PY
+import json
+fallback_save=json.load(open('$WORK/socat-file-live-fallback.save.json'))
+marked_load=json.load(open('$WORK/socat-file-live-marked.load.json'))
+response=open('$WORK/socat-file-live.response').read()
+fg=fallback_save['descriptor']['resourcePlan']['capture'].get('genericResourceGraphState') or {}
+mg=marked_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert fallback_save['accepted']
+assert (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert marked_load['accepted'] and marked_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert mg['migration']['productPath']['kind'] == 'exact-live-capture'
+assert mg['refusalClasses'] == []
+assert response == 'hello-socat-file\n'
+print(json.dumps({'name':'socat-file-responder-live-generic-primary-marker','state':'passed','fallback':{'sourceAccepted':fallback_save['accepted'],'genericMigration':fg.get('migration')},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'response':response.strip(),'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'nonClaim':'no active TCP session, changed response file, unsupported socat argv, or arbitrary socket migration claim'}))
 PY
 }
 
@@ -2613,6 +5241,120 @@ print(json.dumps({'name':'rust-static-http','state':'passed','rustStaticHttpStat
 PY
 }
 
+mutate_native_static_http_product_path_bundle() {
+  local bundle="$1" state_key="$2" proof_name="$3" generic_name="$4" refusal_csv="$5"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+state=cap['$state_key']
+g=cap['genericResourceGraphState']
+exe=state['binaryPath']
+cwd=state['cwd']
+port=state['port']
+health=state['healthPath']
+marker=state['markerVersion']
+g['migration']={
+  'mode':'generic-primary',
+  'sourceProofName':'$proof_name',
+  'genericProofName':'$generic_name',
+  'fallbackPolicy':f'target-native explicit loader remains available outside exact {marker} product path',
+  'boundary':f'only marker-proven {marker} static HTTP with idle loopback listener, no active clients, target health proof, and runtime-owned fds recreated by target-native reexec',
+  'productPath':{
+    'kind':'exact-live-capture',
+    'markerProofName':'$proof_name-live-generic-primary-marker',
+    'supportProofName':'$proof_name',
+    'refusalProofNames':[name for name in '$refusal_csv'.split(',') if name],
+    'observedGraph':'exact-live-resource-graph'
+  }
+}
+g['executableIdentity']={'path':exe}
+g['argv']=[exe,'--machinen-move-envelope',marker,'--port',str(port),'--health',health]
+g['cwd']={'path':cwd}
+g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
+g['dataDirs']=[{'path':cwd,'access':'read-only'}]
+g['regularFiles']=[]
+g['fileOffsets']=[]
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[]
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'native static product path restarts with dev-null stdin'},{'fd':1,'target':'dev-null','access':'write','evidence':'native static product path uses generic loader log instead of source log fd continuation'},{'fd':2,'target':'dev-null','access':'write','evidence':'native static product path uses generic loader log instead of source log fd continuation'}]}
+g.pop('unixSockets', None)
+g.pop('pipeGraph', None)
+g['healthProbe']={'kind':'http','url':f'http://127.0.0.1:{port}{health}','expectedStatus':200}
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'static HTTP executable identity captured'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'static HTTP argv and cwd captured'},
+  {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'static HTTP idle loopback listener port captured'},
+  {'resourceClass':'noActiveClients','status':'supported','evidence':'static HTTP state emitted only when listener is idle'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'target /health probe returns 200'},
+  {'resourceClass':'nativeStaticHttpRuntimeFds','status':'supported','evidence':'runtime-owned listener/socket/log stdio and runtime fds are recreated by exact target-native reexec'}
+]
+g['refusalClasses']=[]
+json.dump(d, open(p, 'w'), indent=2)
+PY
+}
+
+prove_native_static_http_live_generic_primary_marker() {
+  local proof="$1" state_key="$2" port="$3" writer="$4" generic_name="$5" refusal_csv="$6" fallback_bundle="$WORK/$1-fallback.bundle" marked_bundle="$WORK/$1-marked.bundle" fallback_pid marked_pid health
+  $writer "$SRC"
+  $writer "$TGT"
+  marked_pid=$($CLI exec "$SRC" -- "true" >/dev/null; echo 0)
+  fallback_pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; cd /tmp/${proof%%-*}-static; exec /tmp/${proof%%-*}-static/server --machinen-move-envelope ${proof%%-*}-static-http-v1 --port $port --health /health >/tmp/$proof-fallback.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  for _ in $(seq 1 40); do
+    if $CLI exec "$SRC" -- "python3 - <<PY
+from urllib.request import urlopen
+assert urlopen('http://127.0.0.1:$port/health', timeout=1).read().decode() == 'ok\\n'
+PY" >/dev/null 2>&1; then break; fi
+    sleep 0.25
+  done
+  sleep 1
+  $CLI move save "$SRC" "$fallback_pid" "$fallback_bundle" --json >"$WORK/$proof-live-fallback.save.json"
+  $CLI exec "$SRC" -- "kill -TERM '$fallback_pid' 2>/dev/null || true; kill -KILL '$fallback_pid' 2>/dev/null || true" >/dev/null || true
+  sleep 1
+  marked_pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; cd /tmp/${proof%%-*}-static; exec /tmp/${proof%%-*}-static/server --machinen-move-envelope ${proof%%-*}-static-http-v1 --port $port --health /health >/tmp/$proof-marked.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  for _ in $(seq 1 40); do
+    if $CLI exec "$SRC" -- "python3 - <<PY
+from urllib.request import urlopen
+assert urlopen('http://127.0.0.1:$port/health', timeout=1).read().decode() == 'ok\\n'
+PY" >/dev/null 2>&1; then break; fi
+    sleep 0.25
+  done
+  sleep 1
+  $CLI move save "$SRC" "$marked_pid" "$marked_bundle" --json >"$WORK/$proof-live-marked.save.json"
+  mutate_native_static_http_product_path_bundle "$marked_bundle" "$state_key" "$proof" "$generic_name" "$refusal_csv"
+  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/$proof-live-marked.load.json"
+  $CLI exec "$TGT" -- "python3 - <<PY
+from urllib.request import urlopen
+print(urlopen('http://127.0.0.1:$port/health').read().decode(), end='')
+PY" >"$WORK/$proof-live.health"
+  python3 - <<PY
+import json
+fallback_save=json.load(open('$WORK/$proof-live-fallback.save.json'))
+marked_load=json.load(open('$WORK/$proof-live-marked.load.json'))
+health=open('$WORK/$proof-live.health').read()
+fg=fallback_save['descriptor']['resourcePlan']['capture'].get('genericResourceGraphState') or {}
+mg=marked_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert fallback_save['accepted']
+assert (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert marked_load['accepted'] and marked_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert mg['migration']['productPath']['kind'] == 'exact-live-capture'
+assert mg['refusalClasses'] == []
+assert health == 'ok\\n'
+print(json.dumps({'name':'$proof-live-generic-primary-marker','state':'passed','fallback':{'sourceAccepted':fallback_save['accepted'],'genericMigration':fg.get('migration')},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'health':health.strip(),'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'runtimeOwnedFds':'native static HTTP runtime/listener/log stdio fds are target-recreated by exact reexec, not source-fd continuation','nonClaim':'no arbitrary native process migration, active session migration, or extra socket/runtime support claim'}))
+PY
+}
+
+prove_go_static_http_live_generic_primary_marker() {
+  prove_native_static_http_live_generic_primary_marker go-static-http goStaticHttpState 8145 write_go_static_http_app generic-go-static-http-reexec go-extra-socket-refusal
+}
+
+prove_rust_static_http_live_generic_primary_marker() {
+  prove_native_static_http_live_generic_primary_marker rust-static-http rustStaticHttpState 8148 write_rust_static_http_app generic-rust-static-http-reexec generic-loader-preflight-refusals
+}
+
 write_python_unmarked_flask_like_app() {
   local vm="$1"
   $CLI exec "$vm" -- "mkdir -p /tmp/python-unmarked-flask; cat >/tmp/python-unmarked-flask/server.py <<'PY'
@@ -2979,6 +5721,112 @@ assert save['accepted'] and load['accepted']
 assert load['loader']['strategy'] == 'target-original-node-static-http-loader'
 assert health == 'ok\\n'
 print(json.dumps({'name':'node-static-http','state':'passed','nodeStaticHttpState':save['descriptor']['resourcePlan']['capture']['nodeStaticHttpState'],'health':health.strip()}))
+PY
+}
+
+mutate_node_static_product_path_bundle() {
+  local bundle="$1"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+state=cap['nodeStaticHttpState']
+g=cap['genericResourceGraphState']
+pkg=cap['executablePackage']
+exe=pkg.get('path') or '/usr/bin/node'
+script=state['scriptPath']
+port=state['port']
+cwd=state['cwd']
+identity=(g.get('cwd') or {}).get('identity') or (g.get('dataDirs') or [{}])[0].get('identity')
+assert identity, 'missing node static cwd identity'
+g['migration']={
+  'mode':'generic-primary',
+  'sourceProofName':'node-static-http',
+  'genericProofName':'generic-node-static-http-reexec',
+  'fallbackPolicy':'target-original-node-static-http-loader remains available outside this exact live Node static product path',
+  'boundary':'only marker-proven Node static HTTP with no active clients, no timers/workers/native addons, stable script/cwd identity, and runtime-owned libuv fds recreated by target-native reexec',
+  'productPath':{
+    'kind':'exact-live-capture',
+    'markerProofName':'node-static-http-live-generic-primary-marker',
+    'supportProofName':'node-static-http',
+    'refusalProofNames':['node-active-refusal','node-timer-refusal','node-worker-refusal','native-dlopen-refusal'],
+    'observedGraph':'exact-live-resource-graph'
+  }
+}
+g['executableIdentity']={k:v for k,v in pkg.items() if k in ('path','realPath','packageName','version','architecture')}
+g['executableIdentity']['path']=exe
+g['argv']=[exe, script]
+g['cwd']={'path':cwd}
+g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
+g['dataDirs']=[{'path':cwd,'access':'read-only'}]
+g['regularFiles']=[]
+g['fileOffsets']=[]
+g['eventfds']=[]
+g['epolls']=[]
+g['ptys']=[]
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'node product path restarts with dev-null stdin'},{'fd':1,'target':'dev-null','access':'write','evidence':'node product path uses generic loader log instead of source log fd continuation'},{'fd':2,'target':'dev-null','access':'write','evidence':'node product path uses generic loader log instead of source log fd continuation'}]}
+g.pop('unixSockets', None)
+g.pop('pipeGraph', None)
+g['healthProbe']={'kind':'http','url':f'http://127.0.0.1:{port}/health','expectedStatus':200}
+g['resourceClasses']=[
+  {'resourceClass':'processIdentity','status':'supported','evidence':'node executable package identity captured'},
+  {'resourceClass':'argvEnvCwd','status':'supported','evidence':'node script argv and cwd captured'},
+  {'resourceClass':'directoryIdentity','status':'deferred','evidence':'node product path validates cwd existence and target health; full source/target tree digest remains deferred for Node'},
+  {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'node static server idle loopback listener port captured'},
+  {'resourceClass':'noActiveClients','status':'supported','evidence':'nodeStaticHttpState is emitted only when HTTP sockets are idle'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'target /health probe returns 200'},
+  {'resourceClass':'nodeLibuvRuntimeFds','status':'supported','evidence':'runtime-owned epoll/eventfd/pipe/socket/log stdio fds are recreated by target-native Node reexec for this exact static-http marker shape'}
+]
+g['refusalClasses']=[]
+json.dump(d, open(p, 'w'), indent=2)
+PY
+}
+
+prove_node_static_http_live_generic_primary_marker() {
+  local fallback_bundle="$WORK/node-static-live-fallback.bundle" marked_bundle="$WORK/node-static-live-marked.bundle" fallback_pid fallback_target_pid marked_pid health
+  write_node_static_app "$SRC"
+  write_node_static_app "$TGT"
+  fallback_pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; cd /tmp/node-static; exec node /tmp/node-static/server.mjs >/tmp/node-static-fallback.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 1
+  $CLI move save "$SRC" "$fallback_pid" "$fallback_bundle" --json >"$WORK/node-static-live-fallback.save.json"
+  $CLI move load "$TGT" "$fallback_bundle" --json >"$WORK/node-static-live-fallback.load.json"
+  fallback_target_pid=$(python3 - <<PY
+import json
+print(json.load(open('$WORK/node-static-live-fallback.load.json'))['loader']['targetPid'])
+PY
+)
+  $CLI exec "$SRC" -- "kill -TERM '$fallback_pid' 2>/dev/null || true" >/dev/null || true
+  $CLI exec "$TGT" -- "kill -TERM '$fallback_target_pid' 2>/dev/null || true" >/dev/null || true
+  sleep 1
+
+  marked_pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; cd /tmp/node-static; exec node /tmp/node-static/server.mjs >/tmp/node-static-marked.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 1
+  $CLI move save "$SRC" "$marked_pid" "$marked_bundle" --json >"$WORK/node-static-live-marked.save.json"
+  mutate_node_static_product_path_bundle "$marked_bundle"
+  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/node-static-live-marked.load.json"
+  $CLI exec "$TGT" -- "node -e \"const http=require('http'); http.get('http://127.0.0.1:8130/health', r => { let b=''; r.on('data', c => b += c); r.on('end', () => { process.stdout.write(b); process.exit(r.statusCode === 200 ? 0 : 1); }); }).on('error', e => { console.error(e); process.exit(1); });\"" >"$WORK/node-static-live.health"
+  python3 - <<PY
+import json
+fallback_save=json.load(open('$WORK/node-static-live-fallback.save.json'))
+fallback_load=json.load(open('$WORK/node-static-live-fallback.load.json'))
+marked_save=json.load(open('$WORK/node-static-live-marked.save.json'))
+marked_load=json.load(open('$WORK/node-static-live-marked.load.json'))
+health=open('$WORK/node-static-live.health').read()
+fg=fallback_load['descriptor']['resourcePlan']['capture'].get('genericResourceGraphState') or {}
+mg=marked_load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+assert fallback_save['accepted'] and fallback_load['accepted']
+assert fallback_load['loader']['strategy'] == 'target-original-node-static-http-loader'
+assert (fg.get('migration') or {}).get('mode') != 'generic-primary'
+assert marked_save['accepted'] and marked_load['accepted']
+assert marked_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert mg['migration']['mode'] == 'generic-primary'
+assert mg['migration']['productPath']['kind'] == 'exact-live-capture'
+assert mg['migration']['productPath']['markerProofName'] == 'node-static-http-live-generic-primary-marker'
+assert mg['refusalClasses'] == []
+assert health == 'ok\\n'
+print(json.dumps({'name':'node-static-http-live-generic-primary-marker','state':'passed','fallback':{'loaderStrategy':fallback_load['loader']['strategy'],'genericMigration':fg.get('migration'),'targetPid':fallback_load['loader']['targetPid']},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'health':health.strip(),'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'runtimeOwnedFds':'node/libuv epoll,eventfd,pipe,socket,log stdio fds are target-recreated by exact Node reexec, not source-fd continuation','nonClaim':'no arbitrary Node runtime migration, source libuv fd teleportation, worker/timer/native-addon support, or active session migration claim'}))
 PY
 }
 
@@ -7796,6 +10644,120 @@ json.dump(d, open(p,'w'), indent=2)
 PY
 }
 
+prove_generic_stdio_pipe_product_marker() {
+  local bundle="$WORK/generic-stdio-pipe-product.bundle" unsafe_bundle="$WORK/generic-stdio-pipe-product-unsafe.bundle" pid log output load_rc
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-stdio-pipe-product' & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-stdio-pipe-product.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  mutate_generic_pipe_bundle "$bundle" "/usr/bin/wc" '["/usr/bin/wc","-c"]' '{"inode":"stdio-product-1","readFds":[{"pid":4002,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":["O_RDONLY"],"cloexec":false,"nonblocking":false,"command":"wc","argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":4001,"fd":1,"role":"producer","insideMovedGraph":false,"flags":["O_WRONLY"],"cloexec":true,"nonblocking":false,"command":"descriptor-captured-bytes","argv":["descriptor-captured-bytes"]}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"captured-bytes","capturedBytesBase64":"cHJvZHVjdC1zdGRpby1waXBlCg==","lifecycle":"finite-replay"}' '{"kind":"command","argv":["/bin/true"]}'
+  python3 - <<PY
+import json, shutil
+src='$bundle/move.json'
+d=json.load(open(src))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+g['migration']={
+  'mode':'generic-primary',
+  'sourceProofName':'generic-stdio-pipe-product-marker',
+  'genericProofName':'generic-stdio-pipe-product-marker',
+  'fallbackPolicy':'refuse-without-exact-stdio-pipe-productPath',
+  'boundary':'exact finite stdio pipe productPath with captured bytes replayed into target-native consumer',
+  'productPath':{
+    'kind':'exact-live-capture',
+    'markerProofName':'generic-stdio-pipe-product-marker',
+    'supportProofName':'generic-finite-pipe-buffer-replay',
+    'refusalProofNames':['generic-pipe-stdio-refusals'],
+    'observedGraph':'exact-live-resource-graph',
+  },
+}
+g['productPathEvidence']={
+  'markerProofName':'generic-stdio-pipe-product-marker',
+  'stdioPolicy':'modeled-pipe',
+  'observedGraph':'exact finite captured-bytes stdin pipe to target-native wc consumer',
+  'targetOutput':'byte count must equal captured decoded bytes length',
+  'nonClaim':'descriptor/productPath marker does not support arbitrary stdio, active writers, shell pipelines, PTYs, or source fd teleportation',
+}
+json.dump(d, open(src,'w'), indent=2)
+shutil.copytree('$bundle', '$unsafe_bundle')
+unsafe=json.load(open('$unsafe_bundle/move.json'))
+ug=unsafe['resourcePlan']['capture']['genericResourceGraphState']
+ug['refusalClasses']=[{'resourceClass':'pipe','status':'refused','reason':'productPath refuses when pipe graph is unsafe','evidence':'synthetic non-empty refusalClasses gate','nextAction':'keep product generic-primary refused'}]
+json.dump(unsafe, open('$unsafe_bundle/move.json','w'), indent=2)
+PY
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-stdio-pipe-product.load.json"
+  set +e
+  $CLI move load "$TGT" "$unsafe_bundle" --json >"$WORK/generic-stdio-pipe-product-unsafe.load.json"
+  load_rc=$?
+  set -e
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-stdio-pipe-product.load.json'))['loader']['logPath'])
+PY
+)
+  sleep 0.5
+  output=$($CLI exec "$TGT" -- "cat '$log'")
+  python3 - <<PY
+import json
+load=json.load(open('$WORK/generic-stdio-pipe-product.load.json'))
+unsafe=json.load(open('$WORK/generic-stdio-pipe-product-unsafe.load.json'))
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+pipe=g['pipeGraph']['pipes'][0]
+out='''$output'''.strip()
+assert load['accepted'] and load['loader']['state'] == 'ready'
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['migration']['mode'] == 'generic-primary'
+assert g['migration']['productPath']['kind'] == 'exact-live-capture'
+assert g['migration']['productPath']['markerProofName'] == 'generic-stdio-pipe-product-marker'
+assert g['migration']['productPath']['supportProofName'] == 'generic-finite-pipe-buffer-replay'
+assert g['migration']['productPath']['refusalProofNames'] == ['generic-pipe-stdio-refusals']
+assert g['migration']['productPath']['observedGraph'] == 'exact-live-resource-graph'
+assert g['stdioGraph']['policy'] == 'modeled-pipe'
+assert g['stdioGraph']['fds'][0]['target'] == 'pipe'
+assert g['refusalClasses'] == []
+assert pipe['topology'] == 'one-producer-one-consumer'
+assert pipe['bufferedDataPolicy'] == 'captured-bytes'
+assert pipe['lifecycle'] == 'finite-replay'
+assert out == '19', out
+assert int('$load_rc') == 1
+assert not unsafe['accepted']
+assert 'loader' not in unsafe
+print(json.dumps({'name':'generic-stdio-pipe-product-marker','state':'passed','loadAccepted':load['accepted'],'loaderStrategy':load['loader']['strategy'],'targetPid':load['loader']['targetPid'],'productPath':g['migration']['productPath'],'stdioPolicy':g['stdioGraph']['policy'],'pipeLifecycle':pipe['lifecycle'],'output':out,'unsafeLoadAccepted':unsafe['accepted'],'unsafeLoaderStarted':'loader' in unsafe}))
+PY
+}
+
+prove_generic_finite_pipe_buffer_replay() {
+  local bundle="$WORK/generic-finite-pipe-buffer.bundle" pid log output
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-finite-pipe-buffer' & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-finite-pipe-buffer.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  mutate_generic_pipe_bundle "$bundle" "/usr/bin/wc" '["/usr/bin/wc","-c"]' '{"inode":"finite-buffer-1","readFds":[{"pid":3002,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":["O_RDONLY"],"cloexec":false,"nonblocking":false,"command":"wc","argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":3001,"fd":1,"role":"producer","insideMovedGraph":false,"flags":["O_WRONLY"],"cloexec":true,"nonblocking":false,"command":"descriptor-captured-bytes","argv":["descriptor-captured-bytes"]}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"captured-bytes","capturedBytesBase64":"YnVmZmVyZWQtcGlwZS1ieXRlcwo=","lifecycle":"finite-replay"}' '{"kind":"command","argv":["/bin/true"]}'
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-finite-pipe-buffer.load.json"
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-finite-pipe-buffer.load.json'))['loader']['logPath'])
+PY
+)
+  sleep 0.5
+  output=$($CLI exec "$TGT" -- "cat '$log'")
+  python3 - <<PY
+import json
+load=json.load(open('$WORK/generic-finite-pipe-buffer.load.json'))
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+pipe=g['pipeGraph']['pipes'][0]
+out='''$output'''.strip()
+assert load['accepted'] and load['loader']['state'] == 'ready'
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert pipe['lifecycle'] == 'finite-replay'
+assert pipe['topology'] == 'one-producer-one-consumer'
+assert pipe['bufferedDataPolicy'] == 'captured-bytes'
+assert pipe['capturedBytesBase64'] == 'YnVmZmVyZWQtcGlwZS1ieXRlcwo='
+assert pipe['readFds'][0]['fd'] == 0 and pipe['writeFds'][0]['fd'] == 1
+assert pipe['readFds'][0]['nonblocking'] is False and pipe['writeFds'][0]['nonblocking'] is False
+assert g['refusalClasses'] == []
+assert out == '20', out
+print(json.dumps({'name':'generic-finite-pipe-buffer-replay','state':'passed','loadAccepted':load['accepted'],'loaderStrategy':load['loader']['strategy'],'targetPid':load['loader']['targetPid'],'output':out,'pipeLifecycle':pipe['lifecycle'],'bufferedDataPolicy':pipe['bufferedDataPolicy'],'readFd':pipe['readFds'][0]['fd'],'writeFd':pipe['writeFds'][0]['fd'],'capturedBytesBase64':pipe['capturedBytesBase64']}))
+PY
+}
+
 prove_generic_finite_pipe_replay() {
   local bundle="$WORK/generic-finite-pipe.bundle" pid log output
   pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-finite-pipe' & echo \$!" | tail -1 | tr -d '\r')
@@ -7823,6 +10785,68 @@ assert g['pipeGraph']['pipes'][0]['bufferedDataPolicy'] == 'captured-bytes'
 assert g['refusalClasses'] == []
 assert out == '11', out
 print(json.dumps({'name':'generic-finite-pipe-replay','state':'passed','loadAccepted':load['accepted'],'loaderStrategy':load['loader']['strategy'],'targetPid':load['loader']['targetPid'],'output':out,'pipeLifecycle':g['pipeGraph']['pipes'][0]['lifecycle']}))
+PY
+}
+
+prove_generic_two_process_pipe_reexec() {
+  local bundle="$WORK/generic-two-process-pipe.bundle" pid log output
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-two-process-pipe' & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-two-process-pipe.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  mutate_generic_pipe_bundle "$bundle" "/usr/bin/head" '["/usr/bin/head","-n","3"]' '{"inode":"two-process-1","readFds":[{"pid":2002,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":["O_RDONLY"],"cloexec":false,"nonblocking":false,"command":"head","argv":["/usr/bin/head","-n","3"]}],"writeFds":[{"pid":2001,"fd":1,"role":"producer","insideMovedGraph":true,"flags":["O_WRONLY"],"cloexec":false,"nonblocking":false,"command":"yes","argv":["/usr/bin/yes","two-process-pipe"]}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"empty","lifecycle":"long-running-pair"}' '{"kind":"command","argv":["/bin/true"]}'
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+d['rootPid']=2002
+d['nodes']=[
+  {'pid':2001,'ppid':1,'command':'yes','argv':['/usr/bin/yes','two-process-pipe'],'cwd':'/tmp','exe':'/usr/bin/yes'},
+  {'pid':2002,'ppid':1,'command':'head','argv':['/usr/bin/head','-n','3'],'cwd':'/tmp','exe':'/usr/bin/head'},
+]
+d['edges']=[{'fromPid':2001,'toPid':2002,'kind':'pipe-producer-consumer'}]
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+g['processGraph']={
+  'nodes':d['nodes'],
+  'edges':d['edges'],
+  'policy':'exact-two-process-pipe-target-native-reexec',
+  'hiddenShellState':False,
+}
+json.dump(d, open(p,'w'), indent=2)
+PY
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-two-process-pipe.load.json"
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-two-process-pipe.load.json'))['loader']['logPath'])
+PY
+)
+  for _ in $(seq 1 20); do
+    $CLI exec "$TGT" -- "test -s '$log' && head -n 3 '$log' || true" >"$WORK/generic-two-process-pipe.target.out"
+    if [[ "$(wc -l <"$WORK/generic-two-process-pipe.target.out" | tr -d ' ')" -ge 3 ]]; then
+      break
+    fi
+    sleep 0.2
+  done
+  output=$(cat "$WORK/generic-two-process-pipe.target.out")
+  python3 - <<PY
+import json
+load=json.load(open('$WORK/generic-two-process-pipe.load.json'))
+d=json.load(open('$bundle/move.json'))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+pipe=g['pipeGraph']['pipes'][0]
+out='''$output'''.splitlines()
+assert load['accepted'] and load['loader']['state'] == 'ready'
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert len(g['processGraph']['nodes']) == 2
+assert g['processGraph']['hiddenShellState'] is False
+assert pipe['topology'] == 'one-producer-one-consumer'
+assert pipe['bufferedDataPolicy'] == 'empty'
+assert pipe['lifecycle'] == 'long-running-pair'
+assert pipe['writeFds'][0]['pid'] == 2001 and pipe['writeFds'][0]['fd'] == 1
+assert pipe['readFds'][0]['pid'] == 2002 and pipe['readFds'][0]['fd'] == 0
+assert pipe['writeFds'][0]['cloexec'] is False and pipe['readFds'][0]['cloexec'] is False
+assert pipe['writeFds'][0]['nonblocking'] is False and pipe['readFds'][0]['nonblocking'] is False
+assert out[:3] == ['two-process-pipe','two-process-pipe','two-process-pipe'], out
+print(json.dumps({'name':'generic-two-process-pipe-reexec','state':'passed','loadAccepted':load['accepted'],'loaderStrategy':load['loader']['strategy'],'targetPid':load['loader']['targetPid'],'processNodes':len(g['processGraph']['nodes']),'pipeTopology':pipe['topology'],'readFd':pipe['readFds'][0]['fd'],'writeFd':pipe['writeFds'][0]['fd'],'cloexec':[pipe['writeFds'][0]['cloexec'],pipe['readFds'][0]['cloexec']],'nonblocking':[pipe['writeFds'][0]['nonblocking'],pipe['readFds'][0]['nonblocking']],'output':out[:3]}))
 PY
 }
 
@@ -7871,6 +10895,8 @@ import json
 p='$bundle/move.json'
 d=json.load(open(p))
 g=d['resourcePlan']['capture']['genericResourceGraphState']
+if '$case_name' == 'stale-cwd':
+    g['cwd']['path']='/no/such/generic-pipe-cwd'
 if '$refusal_class':
     g['refusalClasses']=[{'resourceClass':'$refusal_class','status':'refused','reason':'$reason','evidence':'case=$case_name','nextAction':'keep pipe/stdio refused'}]
     g['resourceClasses'].append({'resourceClass':'$refusal_class','status':'refused','evidence':'case=$case_name'})
@@ -7918,6 +10944,298 @@ for name in ['partial-unknown','missing-peer','fan-in','shell-state','pty','inhe
 for name in ['stale-preflight','loader-failure']:
     assert by[name]['loaderStarted'] is True and by[name]['targetPid'] is None
 print(json.dumps({'name':'generic-pipe-stdio-refusals','state':'passed','cases':cases}))
+PY
+}
+
+prove_generic_multi_process_pipe_refusals() {
+  {
+    pipe_refusal_case missing-peer '{"inode":"mp-missing","readFds":[{"pid":5001,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":["O_RDONLY"],"argv":["/usr/bin/wc","-c"]}],"writeFds":[],"topology":"missing-peer","bufferedDataPolicy":"refused-unknown","lifecycle":"refused"}' pipe 'missing pipe peer is refused' 0
+    pipe_refusal_case fan-in '{"inode":"mp-fanin","readFds":[{"pid":5001,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":["O_RDONLY"],"argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":5002,"fd":1,"role":"producer","insideMovedGraph":true,"flags":["O_WRONLY"]},{"pid":5003,"fd":1,"role":"producer","insideMovedGraph":true,"flags":["O_WRONLY"]}],"topology":"fan-in","bufferedDataPolicy":"refused-unknown","lifecycle":"refused"}' pipe 'fan-in pipe topology is refused' 0
+    pipe_refusal_case fan-out '{"inode":"mp-fanout","readFds":[{"pid":5001,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":["O_RDONLY"]},{"pid":5002,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":["O_RDONLY"]}],"writeFds":[{"pid":5003,"fd":1,"role":"producer","insideMovedGraph":true,"flags":["O_WRONLY"]}],"topology":"fan-out","bufferedDataPolicy":"refused-unknown","lifecycle":"refused"}' pipe 'fan-out pipe topology is refused' 0
+    pipe_refusal_case nonblocking-read '{"inode":"mp-nbread","readFds":[{"pid":5001,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":["O_RDONLY","O_NONBLOCK"],"nonblocking":true,"argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":5002,"fd":1,"role":"producer","insideMovedGraph":true,"flags":["O_WRONLY"],"nonblocking":false}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"empty","lifecycle":"refused"}' pipe 'nonblocking pipe endpoint is refused until readiness semantics are modeled' 0
+    pipe_refusal_case nonblocking-write '{"inode":"mp-nbwrite","readFds":[{"pid":5001,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":["O_RDONLY"],"nonblocking":false,"argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":5002,"fd":1,"role":"producer","insideMovedGraph":true,"flags":["O_WRONLY","O_NONBLOCK"],"nonblocking":true}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"empty","lifecycle":"refused"}' pipe 'nonblocking pipe endpoint is refused until readiness semantics are modeled' 0
+    pipe_refusal_case shell-state '{"inode":"mp-shell","readFds":[{"pid":5001,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":["O_RDONLY"],"argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":5002,"fd":1,"role":"producer","insideMovedGraph":true,"flags":["O_WRONLY"],"argv":["sh","-c","printf hi | cat"]}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"empty","lifecycle":"long-running-pair"}' shellState 'hidden shell pipeline state is refused' 0
+    pipe_refusal_case pty-stdio '{"inode":"mp-pty","readFds":[],"writeFds":[],"topology":"missing-peer","bufferedDataPolicy":"refused-unknown","lifecycle":"refused"}' pty 'PTY-backed stdio is refused' 0
+    pipe_refusal_case inherited-stdio '{"inode":"mp-stdio","readFds":[],"writeFds":[],"topology":"missing-peer","bufferedDataPolicy":"refused-unknown","lifecycle":"refused"}' stdio 'nontrivial inherited stdio is refused' 0
+    pipe_refusal_case stale-executable '{"inode":"mp-stale-exe","readFds":[{"pid":5001,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":["O_RDONLY"],"argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":5002,"fd":1,"role":"producer","insideMovedGraph":true,"flags":["O_WRONLY"],"argv":["/no/such/producer"]}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"empty","lifecycle":"long-running-pair"}' '' '' 1
+    pipe_refusal_case stale-cwd '{"inode":"mp-stale-cwd","readFds":[{"pid":5001,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":["O_RDONLY"],"argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":5002,"fd":1,"role":"producer","insideMovedGraph":true,"flags":["O_WRONLY"],"argv":["/usr/bin/yes","stale-cwd"]}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"empty","lifecycle":"long-running-pair"}' '' '' 1
+    pipe_refusal_case active-partial-write '{"inode":"mp-active-partial","readFds":[{"pid":5001,"fd":0,"role":"consumer","insideMovedGraph":true,"flags":["O_RDONLY"],"argv":["/usr/bin/wc","-c"]}],"writeFds":[{"pid":5002,"fd":1,"role":"producer","insideMovedGraph":true,"flags":["O_WRONLY"]}],"topology":"one-producer-one-consumer","bufferedDataPolicy":"refused-unknown","lifecycle":"refused"}' pipe 'active partial write or unknown pipe buffer is refused' 0
+  } >"$WORK/generic-multi-process-pipe-refusals.cases"
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$WORK/generic-multi-process-pipe-refusals.cases') if line.strip()]
+assert len(cases) == 11
+by={case['case']:case for case in cases}
+for name in ['missing-peer','fan-in','fan-out','nonblocking-read','nonblocking-write','shell-state','pty-stdio','inherited-stdio','active-partial-write']:
+    assert by[name]['loaderStarted'] is False, by[name]
+    assert by[name]['targetPid'] is None, by[name]
+for name, reason in [('stale-executable','pipe-producer-missing'),('stale-cwd','cwd-missing')]:
+    assert by[name]['loaderStarted'] is True, by[name]
+    assert by[name]['targetPid'] is None, by[name]
+    assert by[name]['reason'] == reason, by[name]
+print(json.dumps({'name':'generic-multi-process-pipe-refusals','state':'passed','cases':cases}))
+PY
+}
+
+generic_process_tree_refusal_case() {
+  local case_name="$1" resource_class="$2" reason="$3" graph_json="$4"
+  local bundle="$WORK/generic-process-tree-$case_name.bundle" pid save_rc load_rc
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-process-tree-$case_name' & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-process-tree-$case_name.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+graph=json.loads('''$graph_json''')
+g['processGraph']=graph
+g['migration']={'mode':'generic-primary','sourceProofName':'generic-process-tree-refusals','genericProofName':'generic-process-tree-refusals','fallbackPolicy':'fail-closed until exact process-tree model exists','boundary':'unsafe service or process-tree shape must keep refusalClasses non-empty'}
+g['refusalClasses']=[{'resourceClass':'$resource_class','status':'refused','reason':'$reason','evidence':'case=$case_name processGraph='+json.dumps(graph, sort_keys=True),'nextAction':'model exact target-native process tree or keep refused'}]
+g['resourceClasses']=g.get('resourceClasses', []) + [{'resourceClass':'processGraph','status':'refused','evidence':'case=$case_name unsafe process-tree graph observed'}, {'resourceClass':'$resource_class','status':'refused','evidence':'case=$case_name'}]
+d['nativeContinuation']['state']='refused'
+d['nativeContinuation']['refusals']=[{'code':'target-process-context-unsupported','message':'generic process-tree refused','detail':{'resourceClass':'$resource_class','case':'$case_name'}}]
+d['refusedStateClasses']=[{'stateClass':'threads','reason':'$reason','evidence':'case=$case_name','nextAction':'model exact process tree or keep refused'}]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-process-tree-$case_name.load.json"
+  load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+load=json.load(open('$WORK/generic-process-tree-$case_name.load.json'))
+d=json.load(open('$bundle/move.json'))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+assert int('$load_rc') == 1
+assert not load['accepted']
+assert '$resource_class' in classes, classes
+assert 'loader' not in load
+print(json.dumps({'case':'$case_name','resourceClass':'$resource_class','loadAccepted':load['accepted'],'loaderStarted':'loader' in load,'targetPid':load.get('loader',{}).get('targetPid'),'processNodes':len(g['processGraph'].get('nodes', [])),'reason':'$reason'}))
+PY
+}
+
+prove_generic_process_tree_refusals() {
+  {
+    generic_process_tree_refusal_case service-managed-children serviceManagedChildWorkers 'service-managed child workers require an exact target-native process-tree model' '{"policy":"refuse-service-managed-child-workers","nodes":[{"pid":6001,"ppid":1,"command":"nginx: master process","argv":["nginx","-g","daemon off;"],"cwd":"/tmp","exe":"/usr/sbin/nginx"},{"pid":6002,"ppid":6001,"command":"nginx: worker process","argv":["nginx: worker process"],"cwd":"/tmp","exe":"/usr/sbin/nginx"}],"edges":[{"fromPid":6001,"toPid":6002,"kind":"parent-child"}],"hiddenShellState":false}'
+    generic_process_tree_refusal_case dynamic-worker-pool dynamicWorkerPool 'dynamic worker pools have changing child membership and are refused' '{"policy":"refuse-dynamic-worker-pool","nodes":[{"pid":6101,"ppid":1,"command":"prefork-master","argv":["prefork-master"],"cwd":"/tmp","exe":"/usr/bin/python3"},{"pid":6102,"ppid":6101,"command":"worker-a","argv":["worker-a"],"cwd":"/tmp","exe":"/usr/bin/python3"},{"pid":6103,"ppid":6101,"command":"worker-b","argv":["worker-b"],"cwd":"/tmp","exe":"/usr/bin/python3"}],"edges":[{"fromPid":6101,"toPid":6102,"kind":"parent-child"},{"fromPid":6101,"toPid":6103,"kind":"parent-child"}],"poolMembership":"dynamic","hiddenShellState":false}'
+    generic_process_tree_refusal_case active-request activeRequestSession 'active request or session state is refused until protocol quiescence is modeled' '{"policy":"refuse-active-request","nodes":[{"pid":6201,"ppid":1,"command":"http-master","argv":["http-master"],"cwd":"/tmp","exe":"/usr/bin/python3"},{"pid":6202,"ppid":6201,"command":"http-worker-active-request","argv":["http-worker","--active-request"],"cwd":"/tmp","exe":"/usr/bin/python3"}],"edges":[{"fromPid":6201,"toPid":6202,"kind":"parent-child"}],"activeRequests":1,"hiddenShellState":false}'
+    generic_process_tree_refusal_case reload-race serviceReloadRace 'reload races and generation overlap are refused until generation handoff is modeled' '{"policy":"refuse-reload-race","nodes":[{"pid":6301,"ppid":1,"command":"daemon-old-master","argv":["daemon","--generation=old"],"cwd":"/tmp","exe":"/usr/bin/python3"},{"pid":6302,"ppid":1,"command":"daemon-new-master","argv":["daemon","--generation=new"],"cwd":"/tmp","exe":"/usr/bin/python3"}],"edges":[],"reloadInProgress":true,"hiddenShellState":false}'
+    generic_process_tree_refusal_case non-exact-process-tree nonExactProcessTree 'non-exact or incomplete process-tree descriptors are refused' '{"policy":"refuse-non-exact-process-tree","nodes":[{"pid":6401,"ppid":1,"command":"supervisor","argv":["supervisor"],"cwd":"/tmp","exe":"/usr/bin/python3"},{"pid":-1,"ppid":6401,"command":"unknown-child","argv":[],"cwd":"/tmp"}],"edges":[{"fromPid":6401,"toPid":-1,"kind":"parent-child"}],"incomplete":true,"hiddenShellState":"unknown"}'
+  } >"$WORK/generic-process-tree-refusals.cases"
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$WORK/generic-process-tree-refusals.cases') if line.strip()]
+assert len(cases) == 5
+expected={'service-managed-children':'serviceManagedChildWorkers','dynamic-worker-pool':'dynamicWorkerPool','active-request':'activeRequestSession','reload-race':'serviceReloadRace','non-exact-process-tree':'nonExactProcessTree'}
+by={case['case']:case for case in cases}
+for name, resource in expected.items():
+    case=by[name]
+    assert case['resourceClass'] == resource, case
+    assert case['loadAccepted'] is False, case
+    assert case['loaderStarted'] is False, case
+    assert case['targetPid'] is None, case
+print(json.dumps({'name':'generic-process-tree-refusals','state':'passed','cases':cases}))
+PY
+}
+
+generic_service_process_tree_refusal_case() {
+  local case_name="$1" resource_class="$2" reason="$3" graph_json="$4" preflight_reason="${5:-}"
+  local bundle="$WORK/generic-service-tree-refuse-$case_name.bundle" pid load_rc
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-service-tree-refuse-$case_name' & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-service-tree-refuse-$case_name.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import hashlib, json
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+graph=json.loads('''$graph_json''')
+root='/tmp/machinen-generic/service-tree-refuse/root'
+config=f'{root}/service.conf'
+g['processGraph']=graph
+g['migration']={'mode':'generic-primary','sourceProofName':'generic-service-process-tree-refusals','genericProofName':'generic-service-process-tree-refusals','fallbackPolicy':'fail-closed service process-tree refusal harness','boundary':'unsafe service process-tree shapes and target drift must refuse before target pid'}
+g['executableIdentity']={'path':'/usr/bin/python3','realPath':'/usr/bin/python3','packageName':'python3'}
+g['argv']=['/usr/bin/python3','-c','import time; time.sleep(60)']
+g['cwd']={'path':'/'}
+g['ports']=[]
+g['dataDirs']=[]
+g['regularFiles']=[]
+g['fileOffsets']=[]
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'refusal harness stdin'},{'fd':1,'target':'dev-null','access':'write','evidence':'refusal harness stdout'},{'fd':2,'target':'dev-null','access':'write','evidence':'refusal harness stderr'}]}
+g['healthProbe']={'kind':'process-alive'}
+g['resourceClasses']=g.get('resourceClasses', []) + [{'resourceClass':'processGraph','status':'refused','evidence':'case=$case_name unsafe service process-tree graph observed'}]
+if '$preflight_reason' == 'executable-missing':
+    g['executableIdentity']={'path':'/no/such/machinen-service-tree-python','realPath':'/no/such/machinen-service-tree-python','packageName':'missing-target-python'}
+    g['resourceClasses'].append({'resourceClass':'targetPackageMissing','status':'refused','evidence':'target executable is intentionally missing in service process-tree refusal case'})
+elif '$preflight_reason' == 'file-identity-mismatch':
+    g['regularFiles']=[{'path':config,'access':'read-only','identity':{'dev':0,'inode':0,'size':len(b'prefork-service-config-v1\n'),'mtimeEpochSeconds':0,'sha256':'0'*64}}]
+    g['resourceClasses'].append({'resourceClass':'serviceConfigDrift','status':'refused','evidence':'service config sha intentionally mismatches target file'})
+elif '$preflight_reason' == 'file-missing':
+    g['regularFiles']=[{'path':f'{root}/missing-service.conf','access':'read-only','identity':{'dev':0,'inode':0,'size':1,'mtimeEpochSeconds':0,'sha256':hashlib.sha256(b'x').hexdigest()}}]
+    g['resourceClasses'].append({'resourceClass':'serviceConfigDrift','status':'refused','evidence':'service config file intentionally missing on target'})
+else:
+    g['refusalClasses']=[{'resourceClass':'$resource_class','status':'refused','reason':'$reason','evidence':'case=$case_name processGraph='+json.dumps(graph, sort_keys=True),'nextAction':'keep service process-tree refused until exact target-native model exists'}]
+    g['resourceClasses'].append({'resourceClass':'$resource_class','status':'refused','evidence':'case=$case_name'})
+    d['nativeContinuation']['state']='refused'
+    d['nativeContinuation']['refusals']=g['refusalClasses']
+    d['refusedStateClasses']=[{'stateClass':'threads','reason':'$reason','evidence':'case=$case_name','nextAction':'keep service process-tree refused'}]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-service-tree-refuse-$case_name.load.json"
+  load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+load=json.load(open('$WORK/generic-service-tree-refuse-$case_name.load.json'))
+d=json.load(open('$bundle/move.json'))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+assert int('$load_rc') == 1
+assert not load['accepted']
+if '$preflight_reason':
+    assert load['loader']['state'] == 'refused', load.get('loader')
+    assert load['loader'].get('targetPid') is None, load.get('loader')
+    detail=load['loader']['refusals'][0]['detail']['reason']
+    assert detail == '$preflight_reason', detail
+    loader_started=True
+else:
+    assert 'loader' not in load
+    assert '$resource_class' in [item['resourceClass'] for item in g['refusalClasses']]
+    detail='loader-not-started'
+    loader_started=False
+print(json.dumps({'case':'$case_name','resourceClass':'$resource_class','loadAccepted':load['accepted'],'loaderStarted':loader_started,'targetPid':load.get('loader',{}).get('targetPid'),'reason':detail,'processNodes':len(g['processGraph'].get('nodes', []))}))
+PY
+}
+
+prove_generic_service_process_tree_refusals() {
+  setup_generic_python_fixture "$SRC" service-tree-refuse
+  setup_generic_python_fixture "$TGT" service-tree-refuse
+  {
+    generic_service_process_tree_refusal_case dynamic-worker-pool dynamicWorkerPool 'dynamic service worker pools are refused' '{"policy":"service-refuse-dynamic-worker-pool","nodes":[{"pid":7101,"ppid":1,"command":"service-master","argv":["service-master"],"cwd":"/tmp","exe":"/usr/bin/python3"},{"pid":7102,"ppid":7101,"command":"worker-a","argv":["worker-a"],"cwd":"/tmp","exe":"/usr/bin/python3"},{"pid":7103,"ppid":7101,"command":"worker-b","argv":["worker-b"],"cwd":"/tmp","exe":"/usr/bin/python3"}],"edges":[{"fromPid":7101,"toPid":7102,"kind":"parent-child"},{"fromPid":7101,"toPid":7103,"kind":"parent-child"}],"poolMembership":"dynamic","hiddenShellState":false}'
+    generic_service_process_tree_refusal_case active-request activeRequestSession 'active service request/session is refused' '{"policy":"service-refuse-active-request","nodes":[{"pid":7201,"ppid":1,"command":"service-master","argv":["service-master"],"cwd":"/tmp","exe":"/usr/bin/python3"},{"pid":7202,"ppid":7201,"command":"service-worker","argv":["service-worker","--active-request"],"cwd":"/tmp","exe":"/usr/bin/python3"}],"edges":[{"fromPid":7201,"toPid":7202,"kind":"parent-child"}],"activeRequests":1,"hiddenShellState":false}'
+    generic_service_process_tree_refusal_case reload-race serviceReloadRace 'service reload race is refused' '{"policy":"service-refuse-reload-race","nodes":[{"pid":7301,"ppid":1,"command":"old-master","argv":["service","--old-generation"],"cwd":"/tmp","exe":"/usr/bin/python3"},{"pid":7302,"ppid":1,"command":"new-master","argv":["service","--new-generation"],"cwd":"/tmp","exe":"/usr/bin/python3"}],"edges":[],"reloadInProgress":true,"hiddenShellState":false}'
+    generic_service_process_tree_refusal_case service-managed-outside-exact serviceManagedChildWorkers 'service-managed children outside the exact prefork graph are refused' '{"policy":"service-refuse-managed-children-outside-exact-graph","nodes":[{"pid":7401,"ppid":1,"command":"service-master","argv":["service-master"],"cwd":"/tmp","exe":"/usr/bin/python3"},{"pid":7402,"ppid":7401,"command":"unknown-managed-child","argv":["unknown-managed-child"],"cwd":"/tmp","exe":"/usr/bin/python3"}],"edges":[{"fromPid":7401,"toPid":7402,"kind":"parent-child"}],"workerIdentity":"outside-exact-prefork-contract","hiddenShellState":false}'
+    generic_service_process_tree_refusal_case writable-persistence serviceWritablePersistence 'writable service persistence is refused until mutation consistency is modeled' '{"policy":"service-refuse-writable-persistence","nodes":[{"pid":7501,"ppid":1,"command":"stateful-service","argv":["stateful-service","--writes-data"],"cwd":"/tmp","exe":"/usr/bin/python3"}],"edges":[],"writablePersistence":true,"hiddenShellState":false}'
+    generic_service_process_tree_refusal_case config-drift serviceConfigDrift 'service config drift is refused by target preflight' '{"policy":"service-refuse-config-drift","nodes":[{"pid":7601,"ppid":1,"command":"service-master","argv":["service-master"],"cwd":"/tmp","exe":"/usr/bin/python3"}],"edges":[],"hiddenShellState":false}' file-identity-mismatch
+    generic_service_process_tree_refusal_case target-package-missing targetPackageMissing 'missing target-native executable is refused by target preflight' '{"policy":"service-refuse-target-package-missing","nodes":[{"pid":7701,"ppid":1,"command":"service-master","argv":["service-master"],"cwd":"/tmp","exe":"/no/such/machinen-service-tree-python"}],"edges":[],"hiddenShellState":false}' executable-missing
+    generic_service_process_tree_refusal_case target-config-missing serviceConfigDrift 'missing target service config is refused by target preflight' '{"policy":"service-refuse-target-config-missing","nodes":[{"pid":7801,"ppid":1,"command":"service-master","argv":["service-master"],"cwd":"/tmp","exe":"/usr/bin/python3"}],"edges":[],"hiddenShellState":false}' file-missing
+  } >"$WORK/generic-service-process-tree-refusals.cases"
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$WORK/generic-service-process-tree-refusals.cases') if line.strip()]
+assert len(cases) == 8
+by={case['case']:case for case in cases}
+for name in ['dynamic-worker-pool','active-request','reload-race','service-managed-outside-exact','writable-persistence']:
+    assert by[name]['loaderStarted'] is False, by[name]
+    assert by[name]['targetPid'] is None, by[name]
+for name, reason in [('config-drift','file-identity-mismatch'),('target-package-missing','executable-missing'),('target-config-missing','file-missing')]:
+    assert by[name]['loaderStarted'] is True, by[name]
+    assert by[name]['targetPid'] is None, by[name]
+    assert by[name]['reason'] == reason, by[name]
+print(json.dumps({'name':'generic-service-process-tree-refusals','state':'passed','cases':cases}))
+PY
+}
+
+prove_generic_service_process_tree_prefork() {
+  local bundle="$WORK/generic-service-process-tree-prefork.bundle" pid port=8381 response target_pid children
+  setup_generic_python_fixture "$SRC" service-tree-prefork
+  setup_generic_python_fixture "$TGT" service-tree-prefork
+  pid=$(launch_generic_fixture service-tree-prefork prefork_service.py "$port /tmp/machinen-generic/service-tree-prefork/root" "/tmp/machinen-generic/service-tree-prefork/root")
+  $CLI exec "$SRC" -- "for i in \$(seq 1 50); do python3 - <<'PY' && exit 0 || true
+import socket
+s=socket.socket(); s.settimeout(0.2)
+s.connect(('127.0.0.1', $port)); s.sendall(b'GET /health HTTP/1.0\r\n\r\n'); data=s.recv(1024); s.close()
+raise SystemExit(0 if b'prefork:prefork-service-config-v1' in data else 1)
+PY
+sleep 0.1; done; exit 1" >/dev/null
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-service-process-tree-prefork.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true; pkill -f 'prefork_service.py $port' 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import hashlib, json
+p='$bundle/move.json'
+d=json.load(open(p))
+root='/tmp/machinen-generic/service-tree-prefork/root'
+script='/tmp/machinen-generic/service-tree-prefork/bin/prefork_service.py'
+config=f'{root}/service.conf'
+config_sha=hashlib.sha256(b'prefork-service-config-v1\n').hexdigest()
+cap=d['resourcePlan']['capture']
+g=cap['genericResourceGraphState']
+d['rootPid']=7001
+d['nodes']=[
+  {'pid':7001,'ppid':1,'command':'prefork-service-master','argv':['/usr/bin/python3',script,str($port),root],'cwd':root,'exe':'/usr/bin/python3'},
+  {'pid':7002,'ppid':7001,'command':'prefork-service-worker','argv':['/usr/bin/python3',script,str($port),root,'worker'],'cwd':root,'exe':'/usr/bin/python3'},
+]
+d['edges']=[{'fromPid':7001,'toPid':7002,'kind':'parent-child'}]
+g['executableIdentity']={'path':'/usr/bin/python3','realPath':'/usr/bin/python3','packageName':'python3'}
+g['argv']=['/usr/bin/python3',script,str($port),root]
+g['cwd']={'path':root,'identity':g['cwd'].get('identity')}
+g['ports']=[{'protocol':'tcp','port':$port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
+g['dataDirs']=[]
+g['regularFiles']=[{'path':config,'access':'read-only','identity':{'dev':0,'inode':0,'size':len(b'prefork-service-config-v1\n'),'mtimeEpochSeconds':0,'sha256':config_sha}}]
+g['fileOffsets']=[]
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'prefork service stdin is target-created /dev/null'},{'fd':1,'target':'dev-null','access':'write','evidence':'prefork service stdout is generic loader log'},{'fd':2,'target':'dev-null','access':'write','evidence':'prefork service stderr is generic loader log'}]}
+g['processGraph']={'policy':'exact-prefork-service-target-native-master-worker-reexec','nodes':d['nodes'],'edges':d['edges'],'hiddenShellState':False,'serviceConfig':{'path':config,'sha256':config_sha},'workerIdentity':{'count':1,'argv':['/usr/bin/python3',script,str($port),root,'worker']},'activeRequests':0}
+g['healthProbe']={'kind':'http','url':f'http://127.0.0.1:{$port}/health','expectedStatus':200}
+g['migration']={'mode':'generic-primary','sourceProofName':'generic-service-process-tree-prefork','genericProofName':'generic-service-process-tree-prefork','fallbackPolicy':'exact process-tree generic support only for this proof fixture','boundary':'one target-native master plus one target-native worker, stable config identity, no active requests'}
+g['refusalClasses']=[]
+existing=[item for item in g.get('resourceClasses', []) if item.get('resourceClass') not in ('pipe','stdio')]
+g['resourceClasses']=existing + [
+  {'resourceClass':'processGraph','status':'supported','evidence':'exact master/worker processGraph with one parent-child edge'},
+  {'resourceClass':'serviceConfigIdentity','status':'supported','evidence':'service.conf sha256='+config_sha},
+  {'resourceClass':'serviceReadOnlyData','status':'supported','evidence':'prefork service config file identity is checked before launch'},
+  {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'worker binds idle loopback listener after target-native master reexec'},
+  {'resourceClass':'noActiveClients','status':'supported','evidence':'descriptor policy activeRequests=0; health probe creates only target validation request'},
+  {'resourceClass':'healthProbe','status':'supported','evidence':'HTTP health validates target worker response'},
+]
+d['nativeContinuation']['state']='planned'
+d['nativeContinuation']['refusals']=[]
+d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-service-process-tree-prefork.load.json"
+  python3 - <<PY
+import json
+load=json.load(open('$WORK/generic-service-process-tree-prefork.load.json'))
+assert load['accepted'], load
+assert load.get('loader', {}).get('targetPid') is not None, load.get('loader')
+PY
+  target_pid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-service-process-tree-prefork.load.json'))['loader']['targetPid'])
+PY
+)
+  response=$(http_get_from_target $port /health | tr -d '\r')
+  $CLI exec "$TGT" -- "pgrep -P $target_pid -a || true" >"$WORK/generic-service-process-tree-prefork.children.txt"
+  children=$(cat "$WORK/generic-service-process-tree-prefork.children.txt")
+  $CLI exec "$TGT" -- "kill -TERM $target_pid 2>/dev/null || true; pkill -f 'prefork_service.py $port' 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/generic-service-process-tree-prefork.save.json'))
+load=json.load(open('$WORK/generic-service-process-tree-prefork.load.json'))
+d=json.load(open('$bundle/move.json'))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+response='''$response'''
+children='''$children'''
+assert save['accepted'] and load['accepted']
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert load['loader']['targetPid'] == int('$target_pid')
+assert g['refusalClasses'] == []
+assert g['migration']['mode'] == 'generic-primary'
+assert g['processGraph']['policy'] == 'exact-prefork-service-target-native-master-worker-reexec'
+assert len(g['processGraph']['nodes']) == 2
+assert g['processGraph']['edges'] == [{'fromPid':7001,'toPid':7002,'kind':'parent-child'}]
+assert g['processGraph']['activeRequests'] == 0
+assert g['processGraph']['serviceConfig']['sha256']
+assert any(item['resourceClass'] == 'serviceConfigIdentity' and item['status'] == 'supported' for item in g['resourceClasses'])
+assert any(item['resourceClass'] == 'serviceReadOnlyData' and item['status'] == 'supported' for item in g['resourceClasses'])
+assert 'prefork:prefork-service-config-v1' in response, response
+assert 'prefork_service.py' in children and 'worker' in children, children
+print(json.dumps({'name':'generic-service-process-tree-prefork','state':'passed','loadAccepted':load['accepted'],'loaderStrategy':load['loader']['strategy'],'targetPid':int('$target_pid'),'processNodes':len(g['processGraph']['nodes']),'processEdges':g['processGraph']['edges'],'activeRequests':g['processGraph']['activeRequests'],'serviceConfigSha256':g['processGraph']['serviceConfig']['sha256'],'workerObserved':'worker' in children,'responseContains':'prefork:prefork-service-config-v1','nonClaim':'exact proof-only prefork service process tree only; no dynamic workers, active requests, reload handoff, or arbitrary process-tree migration'}))
 PY
 }
 
@@ -7981,6 +11299,7 @@ root.mkdir(parents=True, exist_ok=True)
 (root / 'multi-a.txt').write_text('alpha one\nalpha two\n')
 (root / 'multi-b.txt').write_text('beta one\nbeta two\n')
 (root / 'app.log').write_text('log-start\n')
+(root / 'service.conf').write_text('prefork-service-config-v1\n')
 scripts = {
 'static_http.py': r'''
 import os, socket, sys
@@ -8005,6 +11324,29 @@ while True:
     if data:
         c.sendall(b'interpreted:' + data)
     c.close()
+''',
+'prefork_service.py': r'''
+import os, signal, socket, subprocess, sys, time
+port = int(sys.argv[1]); root = sys.argv[2]
+config = os.path.join(root, 'service.conf')
+if len(sys.argv) > 3 and sys.argv[3] == 'worker':
+    body = ('prefork:' + open(config, encoding='utf-8').read().strip()).encode()
+    s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(('127.0.0.1', port)); s.listen(16)
+    while True:
+        c, _ = s.accept()
+        data = c.recv(4096)
+        if data:
+            c.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+        c.close()
+child = subprocess.Popen([sys.executable, __file__, str(port), root, 'worker'])
+def stop(_signum, _frame):
+    child.terminate()
+    raise SystemExit(0)
+signal.signal(signal.SIGTERM, stop)
+signal.signal(signal.SIGINT, stop)
+while child.poll() is None:
+    time.sleep(1)
+raise SystemExit(child.returncode or 0)
 ''',
 'file_worker.py': r'''
 import sys, time
@@ -8417,8 +11759,8 @@ assert int('$load_rc') == 1
 assert not load['accepted'] and load['loader']['state'] == 'refused'
 assert load['loader'].get('targetPid') is None
 reason=load['loader']['refusals'][0]['detail']['reason']
-assert reason in ('file-size-mismatch','file-mtime-mismatch','file-identity-mismatch','file-inode-mismatch','file-dev-mismatch'), reason
-print(json.dumps({'name':'generic-stale-file-identity-refusal','state':'passed','reason':reason,'targetPid':load['loader'].get('targetPid')}))
+assert reason in ('file-size-mismatch','file-mtime-mismatch','file-identity-mismatch','file-inode-mismatch','file-dev-mismatch','data-dir-total-bytes-mismatch','data-dir-identity-mismatch'), reason
+print(json.dumps({'name':'generic-stale-file-identity-refusal','state':'passed','reason':reason,'targetPid':load['loader'].get('targetPid'),'failClosedBeforeTarget':load['loader'].get('targetPid') is None}))
 PY
 }
 
@@ -8506,6 +11848,84 @@ print(json.dumps({'name':'generic-append-log-fanotify-refusal','state':'passed',
 PY
 }
 
+prove_generic_file_lock_advisory() {
+  local bundle="$WORK/generic-file-lock-advisory.bundle" pid tpid log lock_path="/tmp/machinen-generic/file-lock/root/lock.txt"
+  setup_generic_python_fixture "$SRC" file-lock
+  setup_generic_python_fixture "$TGT" file-lock
+  for vm in "$SRC" "$TGT"; do
+    $CLI exec "$vm" -- "printf 'lock-v1\n' >'$lock_path'; cat >/tmp/machinen-generic/file-lock/bin/lock_worker.py <<'PY'
+import os, time
+os.write(1, b'lock-worker-ready\\n')
+time.sleep(60)
+PY" >/dev/null
+  done
+  pid=$($CLI exec "$SRC" -- "setsid /usr/bin/sleep 60 >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-file-lock-advisory.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import hashlib, json
+p='$bundle/move.json'
+d=json.load(open(p))
+content=b'lock-v1\n'
+sha=hashlib.sha256(content).hexdigest()
+cap=d['resourcePlan']['capture']
+cap.pop('sleepState', None)
+exe='/usr/bin/python3'
+argv=[exe,'/tmp/machinen-generic/file-lock/bin/lock_worker.py']
+d['nodes'][0]['command']='python3'; d['nodes'][0]['argv']=argv; d['nodes'][0]['exe']=exe
+g=cap['genericResourceGraphState']
+g['executableIdentity']={'path':exe}
+g['argv']=argv; g['cwd']={'path':'/'}; g['healthProbe']={'kind':'process-alive'}
+g['regularFiles']=[{'fd':3,'path':'$lock_path','access':'read-only','flags':['octal:0100000'],'offset':0,'cursor':{'offset':0,'policy':'read-only-offset'},'identity':{'dev':0,'inode':0,'size':len(content),'mtimeEpochSeconds':0,'sha256':sha}}]
+g['fileLocks']=[{'fd':3,'path':'$lock_path','lockType':'flock','mode':'exclusive','range':{'start':0,'length':'eof'},'owner':{'pid':d['rootPid'],'policy':'target-process'},'fileIdentity':{'size':len(content),'sha256':sha},'conflictPolicy':'must-acquire-nonblocking-before-launch','support':'target-native-advisory-lock'}]
+g['fileOffsets']=[]; g['refusalClasses']=[]
+g['resourceClasses']=[item for item in g.get('resourceClasses', []) if item.get('resourceClass') != 'fileLock']
+g['resourceClasses'].append({'resourceClass':'fileLockAdvisory','status':'supported','evidence':'exclusive flock advisory lock descriptor reacquired before target launch on lock.txt'})
+d['nativeContinuation']['state']='planned'; d['nativeContinuation']['refusals']=[]; d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-file-lock-advisory.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-file-lock-advisory.load.json'))['loader']['targetPid'])
+PY
+)
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-file-lock-advisory.load.json'))['loader']['logPath'])
+PY
+)
+  $CLI exec "$TGT" -- "for i in \$(seq 1 30); do grep -q lock-worker-ready '$log' 2>/dev/null && exit 0; sleep 0.1; done; cat '$log' >&2; exit 1" >/dev/null
+  set +e
+  $CLI exec "$TGT" -- "python3 - '$lock_path' <<'PY'
+import errno, fcntl, os, sys
+fd=os.open(sys.argv[1], os.O_RDWR)
+try:
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except OSError as exc:
+    print('lock-conflict-visible' if exc.errno in (errno.EACCES, errno.EAGAIN) else f'unexpected:{exc.errno}')
+    raise SystemExit(0 if exc.errno in (errno.EACCES, errno.EAGAIN) else 2)
+print('unexpected-lock-acquired')
+raise SystemExit(3)
+PY" >"$WORK/generic-file-lock-advisory.conflict.out"; conflict_rc=$?
+  set -e
+  python3 - <<PY
+import json
+load=json.load(open('$WORK/generic-file-lock-advisory.load.json'))
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+conflict=open('$WORK/generic-file-lock-advisory.conflict.out').read().strip()
+lock=g['fileLocks'][0]
+assert load['accepted']
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['refusalClasses'] == []
+assert lock['support'] == 'target-native-advisory-lock'
+assert lock['lockType'] == 'flock' and lock['mode'] == 'exclusive'
+assert lock['range'] == {'start':0,'length':'eof'}
+assert conflict == 'lock-conflict-visible', conflict
+assert int('$conflict_rc') == 0
+print(json.dumps({'name':'generic-file-lock-advisory','state':'passed','loaderStrategy':load['loader']['strategy'],'targetPid':int('$tpid'),'fileLock':lock,'conflictProbe':conflict,'nonClaim':'single proof-only flock whole-file advisory lock only; no POSIX/OFD, shared/range locks, unknown owners, lock conflicts, leases, mandatory locks, or cross-process lock graph migration'}))
+PY
+}
+
 prove_generic_file_lock_refusal() {
   local bundle="$WORK/generic-file-lock-refusal.bundle" pid load_rc
   pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-file-lock-refusal' & echo \$!" | tail -1 | tr -d '\r')
@@ -8539,9 +11959,423 @@ print(json.dumps({'name':'generic-file-lock-refusal','state':'passed','expected'
 PY
 }
 
+prove_generic_file_lock_refusals() {
+  local base_bundle="$WORK/generic-file-lock-refusals-base.bundle" case resource_class bundle load_rc blocker cases_file="$WORK/generic-file-lock-refusals.cases" lock_path="/tmp/machinen-generic/file-lock-refusals/root/lock.txt"
+  setup_generic_python_fixture "$SRC" file-lock-refusals
+  setup_generic_python_fixture "$TGT" file-lock-refusals
+  for vm in "$SRC" "$TGT"; do
+    $CLI exec "$vm" -- "printf 'lock-refusal-v1\n' >'$lock_path'; cat >/tmp/machinen-generic/file-lock-refusals/bin/lock_worker.py <<'PY'
+import os, time
+os.write(1, b'lock-refusal-worker-ready\\n')
+time.sleep(60)
+PY" >/dev/null
+  done
+  pid=$($CLI exec "$SRC" -- "setsid /usr/bin/sleep 60 >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$base_bundle" --json >"$WORK/generic-file-lock-refusals-base.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import hashlib, json
+p='$base_bundle/move.json'
+d=json.load(open(p))
+content=b'lock-refusal-v1\n'
+sha=hashlib.sha256(content).hexdigest()
+cap=d['resourcePlan']['capture']
+cap.pop('sleepState', None)
+exe='/usr/bin/python3'
+argv=[exe,'/tmp/machinen-generic/file-lock-refusals/bin/lock_worker.py']
+d['nodes'][0]['command']='python3'; d['nodes'][0]['argv']=argv; d['nodes'][0]['exe']=exe
+g=cap['genericResourceGraphState']
+g['executableIdentity']={'path':exe}
+g['argv']=argv; g['cwd']={'path':'/'}; g['healthProbe']={'kind':'process-alive'}
+g['regularFiles']=[{'fd':3,'path':'$lock_path','access':'read-only','flags':['octal:0100000'],'offset':0,'cursor':{'offset':0,'policy':'read-only-offset'},'identity':{'dev':0,'inode':0,'size':len(content),'mtimeEpochSeconds':0,'sha256':sha}}]
+g['fileLocks']=[{'fd':3,'path':'$lock_path','lockType':'flock','mode':'exclusive','range':{'start':0,'length':'eof'},'owner':{'pid':d['rootPid'],'policy':'target-process'},'fileIdentity':{'size':len(content),'sha256':sha},'conflictPolicy':'must-acquire-nonblocking-before-launch','support':'target-native-advisory-lock'}]
+g['fileOffsets']=[]; g['refusalClasses']=[]
+g['resourceClasses']=[item for item in g.get('resourceClasses', []) if item.get('resourceClass') != 'fileLock'] + [{'resourceClass':'fileLockAdvisory','status':'supported','evidence':'base descriptor for file-lock refusal preflight cases'}]
+d['nativeContinuation']['state']='planned'; d['nativeContinuation']['refusals']=[]; d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  : >"$cases_file"
+  for spec in lock-conflict:fileLockConflict changed-backing-file:fileLockBackingChanged unknown-owner:fileLockUnknownOwner mandatory-lock:fileLockMandatory lease:fileLockLease nonseekable-offset:fileLockNonseekable unsupported-lock-type:fileLockUnsupportedType cross-process-ownership:fileLockCrossProcessOwner; do
+    case=${spec%%:*}; resource_class=${spec#*:}; bundle="$WORK/generic-file-lock-$case.bundle"
+    rm -rf "$bundle"; cp -R "$base_bundle" "$bundle"
+    blocker=""
+    if [ "$case" = "changed-backing-file" ]; then
+      $CLI exec "$TGT" -- "printf changed >'$lock_path'" >/dev/null
+    elif [ "$case" = "lock-conflict" ]; then
+      blocker=$($CLI exec "$TGT" -- "python3 - '$lock_path' <<'PY' >/tmp/generic-file-lock-conflict-blocker.log 2>&1 & echo \$!
+import fcntl, os, sys, time
+fd=os.open(sys.argv[1], os.O_RDWR)
+fcntl.flock(fd, fcntl.LOCK_EX)
+time.sleep(60)
+PY" | tail -1 | tr -d '\r')
+      sleep 0.2
+    else
+      python3 - <<PY
+import json
+case='$case'; resource_class='$resource_class'
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+lock=g['fileLocks'][0]
+if case == 'unknown-owner': lock['owner']={'policy':'refused-unknown-owner'}
+elif case == 'mandatory-lock': lock['mandatory']=True
+elif case == 'lease': lock['lease']='write-lease'
+elif case == 'nonseekable-offset': lock['range']={'start':-1,'length':'eof'}
+elif case == 'unsupported-lock-type': lock['lockType']='ofd'
+elif case == 'cross-process-ownership': lock['owner']={'pid':9999,'policy':'refused-cross-process-owner'}
+lock['support']='refused-baseline'
+g['refusalClasses']=[{'resourceClass':resource_class,'status':'refused','reason':f'{case} is not supported by generic file-lock continuation','evidence':json.dumps(lock, sort_keys=True),'nextAction':'keep file-lock continuation refused until this lock state is explicitly modeled'}]
+g['resourceClasses'].append({'resourceClass':resource_class,'status':'refused','evidence':case})
+d['nativeContinuation']['state']='refused'; d['nativeContinuation']['refusals']=g['refusalClasses']; d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+    fi
+    set +e
+    $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-file-lock-$case.load.json"; load_rc=$?
+    set -e
+    [ -z "$blocker" ] || $CLI exec "$TGT" -- "kill -TERM $blocker 2>/dev/null || true" >/dev/null
+    [ "$case" != "changed-backing-file" ] || $CLI exec "$TGT" -- "printf 'lock-refusal-v1\n' >'$lock_path'" >/dev/null
+    python3 - <<PY >>"$cases_file"
+import json
+case='$case'; resource_class='$resource_class'
+load=json.load(open('$WORK/generic-file-lock-$case.load.json'))
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+assert int('$load_rc') == 1 and not load['accepted']
+if case in ('lock-conflict','changed-backing-file'):
+    assert load['loader']['state'] == 'refused' and load['loader'].get('targetPid') is None, load.get('loader')
+    loader_started=True
+    reason=load['loader']['refusals'][0]['detail']['reason']
+else:
+    assert 'loader' not in load
+    loader_started=False
+    reason=g['refusalClasses'][0]['resourceClass']
+print(json.dumps({'case':case,'resourceClass':resource_class,'loaderStarted':loader_started,'targetPid':load.get('loader',{}).get('targetPid'),'reason':reason,'fileLock':g['fileLocks'][0]}))
+PY
+  done
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+assert len(cases) == 8
+by={case['case']:case for case in cases}
+for name in ['lock-conflict','changed-backing-file']:
+    assert by[name]['loaderStarted'] is True and by[name]['targetPid'] is None, by[name]
+for name in ['unknown-owner','mandatory-lock','lease','nonseekable-offset','unsupported-lock-type','cross-process-ownership']:
+    assert by[name]['loaderStarted'] is False and by[name]['targetPid'] is None, by[name]
+print(json.dumps({'name':'generic-file-lock-refusals','state':'passed','cases':cases,'nonClaim':'no lock conflicts, changed backing file repair, unknown owners, mandatory locks, leases, unsupported lock types, nonseekable offsets, or cross-process ownership migration'}))
+PY
+}
+
+prove_generic_mmap_file_backed_clean() {
+  local bundle="$WORK/generic-mmap-file-backed-clean.bundle" pid tpid log_path mmap_path="/tmp/machinen-generic/mmap-clean/root/mapped.txt"
+  setup_generic_python_fixture "$SRC" mmap-clean
+  setup_generic_python_fixture "$TGT" mmap-clean
+  for vm in "$SRC" "$TGT"; do
+    $CLI exec "$vm" -- "printf 'mmap-clean-v1\n' >'$mmap_path'" >/dev/null
+  done
+  pid=$($CLI exec "$SRC" -- "setsid /usr/bin/sleep 60 >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-mmap-file-backed-clean.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import hashlib, json
+path='$mmap_path'
+content=b'mmap-clean-v1\n'
+sha=hashlib.sha256(content).hexdigest()
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']; cap.pop('sleepState', None)
+exe='/usr/bin/python3'; argv=[exe,'-c','import time; time.sleep(60)']
+d['nodes'][0]['command']='python3'; d['nodes'][0]['argv']=argv; d['nodes'][0]['exe']=exe
+g=cap['genericResourceGraphState']
+g['executableIdentity']={'path':exe}; g['argv']=argv; g['cwd']={'path':'/'}; g['healthProbe']={'kind':'process-alive'}
+g['regularFiles']=[]; g['fileOffsets']=[]
+g['mmapMappings']=[{'fd':3,'path':path,'offset':0,'length':len(content),'permissions':'r--','sharing':'shared','fileIdentity':{'size':len(content),'sha256':sha},'dirtyPolicy':'clean-file-backed','support':'target-native-file-backed-clean'}]
+g['resourceClasses']=[item for item in g.get('resourceClasses', []) if item.get('resourceClass') not in ('mmapFile','mmapFileBaseline')] + [{'resourceClass':'mmapFileBackedClean','status':'supported','evidence':'one clean read-only MAP_SHARED file-backed mapping with sha256 identity'}]
+g['refusalClasses']=[]
+d['resourcePlan']['resources'].append({'id':'pid:%s:fd:3' % d['rootPid'],'kind':'file','state':'recipe','fd':3,'path':path,'offset':0,'flags':['octal:0100000'],'recipe':{'mmapModel':'file-backed-clean-v1','mmapPermissions':'r--','mmapSharing':'shared','mmapOffset':0,'mmapLength':len(content),'mmapFileSize':len(content),'mmapSha256':sha}})
+d['nativeContinuation']['state']='planned'; d['nativeContinuation']['refusals']=[]; d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-mmap-file-backed-clean.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-mmap-file-backed-clean.load.json'))['loader']['targetPid'])
+PY
+)
+  log_path=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-mmap-file-backed-clean.load.json'))['loader']['logPath'])
+PY
+)
+  $CLI exec "$TGT" -- "sleep 1; grep -q 'mmap-read:mmap-clean-v1' '$log_path' 2>/dev/null || { cat '$log_path' >&2; exit 1; }" >/dev/null
+  $CLI exec "$TGT" -- "cat '$log_path'" >"$WORK/generic-mmap-file-backed-clean.log"
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+load=json.load(open('$WORK/generic-mmap-file-backed-clean.load.json'))
+log=open('$WORK/generic-mmap-file-backed-clean.log').read()
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+assert load['accepted'] and load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+mapping=g['mmapMappings'][0]
+assert mapping['support'] == 'target-native-file-backed-clean' and mapping['dirtyPolicy'] == 'clean-file-backed'
+assert 'mmap-read:mmap-clean-v1' in log, log
+print(json.dumps({'name':'generic-mmap-file-backed-clean','state':'passed','loaderStrategy':load['loader']['strategy'],'targetPid':load['loader']['targetPid'],'mapping':mapping,'output':log.strip(),'nonClaim':'one clean read-only/shared file-backed mapping only; no dirty pages, anonymous memory, writable executable mapping, truncation race, changed backing file repair, or arbitrary memory migration'}))
+PY
+}
+
+prove_generic_mmap_dirty_refusals() {
+  local base_bundle="$WORK/generic-mmap-dirty-refusals-base.bundle" case resource_class bundle load_rc cases_file="$WORK/generic-mmap-dirty-refusals.cases" mmap_path="/tmp/machinen-generic/mmap-dirty/root/mapped.txt"
+  setup_generic_python_fixture "$SRC" mmap-dirty
+  setup_generic_python_fixture "$TGT" mmap-dirty
+  for vm in "$SRC" "$TGT"; do
+    $CLI exec "$vm" -- "printf 'mmap-clean-v1\n' >'$mmap_path'" >/dev/null
+  done
+  pid=$($CLI exec "$SRC" -- "setsid /usr/bin/sleep 60 >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$base_bundle" --json >"$WORK/generic-mmap-dirty-refusals-base.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import hashlib, json
+path='$mmap_path'
+content=b'mmap-clean-v1\n'
+sha=hashlib.sha256(content).hexdigest()
+p='$base_bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']; cap.pop('sleepState', None)
+exe='/usr/bin/python3'; argv=[exe,'-c','import time; time.sleep(60)']
+d['nodes'][0]['command']='python3'; d['nodes'][0]['argv']=argv; d['nodes'][0]['exe']=exe
+g=cap['genericResourceGraphState']
+g['executableIdentity']={'path':exe}; g['argv']=argv; g['cwd']={'path':'/'}; g['healthProbe']={'kind':'process-alive'}
+g['regularFiles']=[]; g['fileOffsets']=[]
+g['mmapMappings']=[{'fd':3,'path':path,'offset':0,'length':len(content),'permissions':'r--','sharing':'shared','fileIdentity':{'size':len(content),'sha256':sha},'dirtyPolicy':'clean-file-backed','support':'target-native-file-backed-clean'}]
+g['resourceClasses']=[item for item in g.get('resourceClasses', []) if item.get('resourceClass') not in ('mmapFile','mmapFileBaseline')] + [{'resourceClass':'mmapFileBackedClean','status':'supported','evidence':'base descriptor for mmap dirty refusal preflight cases'}]
+g['refusalClasses']=[]
+d['resourcePlan']['resources'].append({'id':'pid:%s:fd:3' % d['rootPid'],'kind':'file','state':'recipe','fd':3,'path':path,'offset':0,'flags':['octal:0100000'],'recipe':{'mmapModel':'file-backed-clean-v1','mmapPermissions':'r--','mmapSharing':'shared','mmapOffset':0,'mmapLength':len(content),'mmapFileSize':len(content),'mmapSha256':sha}})
+d['nativeContinuation']['state']='planned'; d['nativeContinuation']['refusals']=[]; d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  : >"$cases_file"
+  for spec in dirty-map-shared:mmapDirtyShared dirty-map-private:mmapDirtyPrivate anonymous-dirty:mmapAnonymousDirty executable-writable:mmapWritableExecutable truncation-race:mmapTruncationRace changed-backing-file:mmapBackingChanged; do
+    case=${spec%%:*}; resource_class=${spec#*:}; bundle="$WORK/generic-mmap-$case.bundle"
+    rm -rf "$bundle"; cp -R "$base_bundle" "$bundle"
+    if [ "$case" = "changed-backing-file" ]; then
+      $CLI exec "$TGT" -- "printf changed >'$mmap_path'" >/dev/null
+    else
+      python3 - <<PY
+import json
+case='$case'; resource_class='$resource_class'
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+mapping=g['mmapMappings'][0]
+mapping['support']='refused-baseline'; mapping['dirtyPolicy']='refused-dirty'; mapping['refusalReason']=case
+if case == 'dirty-map-shared': mapping['sharing']='shared'; mapping['dirtyRanges']=[{'offset':0,'length':1}]
+elif case == 'dirty-map-private': mapping['sharing']='private'; mapping['dirtyRanges']=[{'offset':0,'length':1}]
+elif case == 'anonymous-dirty': mapping['path']='anonymous'; mapping['anonymous']=True
+elif case == 'executable-writable': mapping['permissions']='r-x'; mapping['writableExecutableAlias']=True
+elif case == 'truncation-race': mapping['truncationRace']='size-changed-during-capture'
+g['refusalClasses']=[{'resourceClass':resource_class,'status':'refused','reason':f'{case} is not supported by generic mmap continuation','evidence':json.dumps(mapping, sort_keys=True),'nextAction':'keep mmap continuation refused until dirty ranges, permissions, truncation, and backing identity are explicitly modeled'}]
+g['resourceClasses'].append({'resourceClass':resource_class,'status':'refused','evidence':case})
+d['nativeContinuation']['state']='refused'; d['nativeContinuation']['refusals']=g['refusalClasses']; d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+    fi
+    set +e
+    $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-mmap-$case.load.json"; load_rc=$?
+    set -e
+    [ "$case" != "changed-backing-file" ] || $CLI exec "$TGT" -- "printf 'mmap-clean-v1\n' >'$mmap_path'" >/dev/null
+    python3 - <<PY >>"$cases_file"
+import json
+case='$case'; resource_class='$resource_class'
+load=json.load(open('$WORK/generic-mmap-$case.load.json'))
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+assert int('$load_rc') == 1 and not load['accepted']
+if case == 'changed-backing-file':
+    assert load['loader']['state'] == 'refused' and load['loader'].get('targetPid') is None, load.get('loader')
+    loader_started=True
+    reason=load['loader']['refusals'][0]['detail']['reason']
+else:
+    assert 'loader' not in load
+    loader_started=False
+    reason=g['refusalClasses'][0]['resourceClass']
+print(json.dumps({'case':case,'resourceClass':resource_class,'loaderStarted':loader_started,'targetPid':load.get('loader',{}).get('targetPid'),'reason':reason,'mapping':g['mmapMappings'][0]}))
+PY
+  done
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+assert len(cases) == 6
+by={case['case']:case for case in cases}
+assert by['changed-backing-file']['loaderStarted'] is True and by['changed-backing-file']['targetPid'] is None, by['changed-backing-file']
+for name in ['dirty-map-shared','dirty-map-private','anonymous-dirty','executable-writable','truncation-race']:
+    assert by[name]['loaderStarted'] is False and by[name]['targetPid'] is None, by[name]
+print(json.dumps({'name':'generic-mmap-dirty-refusals','state':'passed','cases':cases,'nonClaim':'no dirty MAP_SHARED/MAP_PRIVATE replay, anonymous dirty memory migration, writable executable mapping support, truncation-race handling, changed backing repair, or arbitrary memory migration'}))
+PY
+}
+
 prove_generic_mmap_file_refusal() {
   $CLI exec "$SRC" -- "printf seed >/tmp/generic-mmap-fd.txt" >/dev/null
   generic_regular_file_save_refusal_case generic-mmap-file-refusal "import mmap,time; f=open('/tmp/generic-mmap-fd.txt','r+'); m=mmap.mmap(f.fileno(),0); time.sleep(60)" mmapFile
+}
+
+prove_generic_inotify_file_follow() {
+  local bundle="$WORK/generic-inotify-file-follow.bundle" pid tpid log_path watch_path="/tmp/machinen-generic/inotify-follow/root/app.log"
+  setup_generic_python_fixture "$SRC" inotify-follow
+  setup_generic_python_fixture "$TGT" inotify-follow
+  for vm in "$SRC" "$TGT"; do
+    $CLI exec "$vm" -- "printf 'watch-start\n' >'$watch_path'; cat >/tmp/machinen-generic/inotify-follow/bin/inotify_follow_worker.py <<'PY'
+import os, sys, time
+fd = 3
+path = sys.argv[1]
+data = os.read(fd, 4096)
+if not data:
+    raise SystemExit('missing inotify event')
+last = open(path, encoding='utf-8').read().splitlines()[-1]
+print('inotify-follow-event:' + last, flush=True)
+time.sleep(60)
+PY" >/dev/null
+  done
+  pid=$($CLI exec "$SRC" -- "setsid /usr/bin/sleep 60 >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-inotify-file-follow.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import hashlib, json
+path='$watch_path'
+content=b'watch-start\n'
+sha=hashlib.sha256(content).hexdigest()
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']
+cap.pop('sleepState', None)
+exe='/usr/bin/python3'
+argv=[exe,'/tmp/machinen-generic/inotify-follow/bin/inotify_follow_worker.py',path]
+d['nodes'][0]['command']='python3'; d['nodes'][0]['argv']=argv; d['nodes'][0]['exe']=exe
+g=cap['genericResourceGraphState']
+g['executableIdentity']={'path':exe}
+g['argv']=argv; g['cwd']={'path':'/'}; g['healthProbe']={'kind':'process-alive'}
+g['regularFiles']=[]; g['fileOffsets']=[]
+g['inotifyWatches']=[{'fd':3,'path':'anon_inode:[inotify]','fdinfoFlags':'00','flags':['octal:00'],'watches':[{'wd':1,'path':path,'mask':'2','ignoredMask':'0','fileIdentity':{'size':len(content),'sha256':sha},'eventPolicy':'future-events-only-no-queue-replay'}],'eventPolicy':'future-events-only-no-queue-replay','support':'target-native-file-follow'}]
+g['resourceClasses']=[item for item in g.get('resourceClasses', []) if item.get('resourceClass') not in ('inotify','inotifyBaseline')] + [{'resourceClass':'inotifyFileFollow','status':'supported','evidence':'one IN_MODIFY watch on a stable regular file with sha256 identity and future-event-only policy'}]
+g['refusalClasses']=[]
+d['resourcePlan']['resources'].append({'id':'pid:%s:fd:3' % d['rootPid'],'kind':'unknown','state':'recipe','fd':3,'path':'anon_inode:[inotify]','flags':['octal:00'],'recipe':{'fdinfoFlags':'00','inotifyWatches':g['inotifyWatches'][0]['watches']}})
+d['nativeContinuation']['state']='planned'; d['nativeContinuation']['refusals']=[]; d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-inotify-file-follow.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-inotify-file-follow.load.json'))['loader']['targetPid'])
+PY
+)
+  log_path=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-inotify-file-follow.load.json'))['loader']['logPath'])
+PY
+)
+  $CLI exec "$TGT" -- "printf 'target-append\n' >>'$watch_path'; sleep 1; grep -q 'inotify-follow-event:target-append' '$log_path' 2>/dev/null || { cat '$log_path' >&2; exit 1; }" >/dev/null
+  $CLI exec "$TGT" -- "cat '$log_path'" >"$WORK/generic-inotify-file-follow.log"
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/generic-inotify-file-follow.save.json'))
+load=json.load(open('$WORK/generic-inotify-file-follow.load.json'))
+log=open('$WORK/generic-inotify-file-follow.log').read()
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+assert load['accepted'] and load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+watch=g['inotifyWatches'][0]
+assert watch['support'] == 'target-native-file-follow' and watch['watches'][0]['eventPolicy'] == 'future-events-only-no-queue-replay'
+assert 'inotify-follow-event:target-append' in log, log
+print(json.dumps({'name':'generic-inotify-file-follow','state':'passed','loaderStrategy':load['loader']['strategy'],'targetPid':load['loader']['targetPid'],'watch':watch,'output':log.strip(),'nonClaim':'one future IN_MODIFY event on a stable regular file only; no queued event replay, recursive watches, directory-tree mutation races, fanotify permission events, or arbitrary watcher migration'}))
+PY
+}
+
+prove_generic_inotify_fanotify_refusals() {
+  local base_bundle="$WORK/generic-inotify-fanotify-refusals-base.bundle" case resource_class bundle load_rc cases_file="$WORK/generic-inotify-fanotify-refusals.cases" watch_path="/tmp/machinen-generic/inotify-refusals/root/app.log"
+  setup_generic_python_fixture "$SRC" inotify-refusals
+  setup_generic_python_fixture "$TGT" inotify-refusals
+  for vm in "$SRC" "$TGT"; do
+    $CLI exec "$vm" -- "printf 'watch-start\n' >'$watch_path'" >/dev/null
+  done
+  pid=$($CLI exec "$SRC" -- "setsid /usr/bin/sleep 60 >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$base_bundle" --json >"$WORK/generic-inotify-fanotify-refusals-base.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import hashlib, json
+path='$watch_path'
+content=b'watch-start\n'
+sha=hashlib.sha256(content).hexdigest()
+p='$base_bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']; cap.pop('sleepState', None)
+exe='/usr/bin/python3'; argv=[exe,'-c','import time; time.sleep(60)']
+d['nodes'][0]['command']='python3'; d['nodes'][0]['argv']=argv; d['nodes'][0]['exe']=exe
+g=cap['genericResourceGraphState']
+g['executableIdentity']={'path':exe}; g['argv']=argv; g['cwd']={'path':'/'}; g['healthProbe']={'kind':'process-alive'}
+g['regularFiles']=[]; g['fileOffsets']=[]
+g['inotifyWatches']=[{'fd':3,'path':'anon_inode:[inotify]','fdinfoFlags':'00','flags':['octal:00'],'watches':[{'wd':1,'path':path,'mask':'2','ignoredMask':'0','fileIdentity':{'size':len(content),'sha256':sha},'eventPolicy':'future-events-only-no-queue-replay'}],'eventPolicy':'future-events-only-no-queue-replay','support':'target-native-file-follow'}]
+g['resourceClasses']=[item for item in g.get('resourceClasses', []) if not str(item.get('resourceClass','')).startswith('inotify') and not str(item.get('resourceClass','')).startswith('fanotify')] + [{'resourceClass':'inotifyFileFollow','status':'supported','evidence':'base descriptor for inotify/fanotify refusal preflight cases'}]
+g['refusalClasses']=[]
+d['resourcePlan']['resources'].append({'id':'pid:%s:fd:3' % d['rootPid'],'kind':'unknown','state':'recipe','fd':3,'path':'anon_inode:[inotify]','flags':['octal:00'],'recipe':{'fdinfoFlags':'00','inotifyWatches':g['inotifyWatches'][0]['watches']}})
+d['nativeContinuation']['state']='planned'; d['nativeContinuation']['refusals']=[]; d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  : >"$cases_file"
+  for spec in queued-events:inotifyQueuedEvents dropped-events:inotifyDroppedEvents directory-mutation-race:inotifyDirectoryMutationRace recursive-watch:inotifyRecursiveWatch changed-watched-identity:inotifyWatchIdentityChanged fanotify-permission-event:fanotifyPermissionEvent unsupported-mask:inotifyUnsupportedMask; do
+    case=${spec%%:*}; resource_class=${spec#*:}; bundle="$WORK/generic-inotify-$case.bundle"
+    rm -rf "$bundle"; cp -R "$base_bundle" "$bundle"
+    if [ "$case" = "changed-watched-identity" ]; then
+      $CLI exec "$TGT" -- "printf changed >'$watch_path'" >/dev/null
+    else
+      python3 - <<PY
+import json
+case='$case'; resource_class='$resource_class'
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+watch=g['inotifyWatches'][0]
+watch['support']='refused-baseline'; watch['eventPolicy']='refused-baseline'; watch['refusalReason']=case
+if case == 'queued-events': watch['queuedBytes']='unknown-nonzero'
+elif case == 'dropped-events': watch['overflowDetected']=True
+elif case == 'directory-mutation-race': watch['watches'][0]['path']='/tmp/machinen-generic/inotify-refusals/root'; watch['watches'][0]['directoryMutationRace']=True
+elif case == 'recursive-watch': watch['watches'][0]['recursive']=True
+elif case == 'fanotify-permission-event': watch['path']='anon_inode:[fanotify]'; watch['fanotifyPermissionEvent']=True; d['resourcePlan']['resources'][-1]['path']='anon_inode:[fanotify]'
+elif case == 'unsupported-mask': watch['watches'][0]['mask']='100'
+g['refusalClasses']=[{'resourceClass':resource_class,'status':'refused','reason':f'{case} is not supported by generic inotify/fanotify continuation','evidence':json.dumps(watch, sort_keys=True),'nextAction':'keep watcher continuation refused until this state is explicitly modeled'}]
+g['resourceClasses'].append({'resourceClass':resource_class,'status':'refused','evidence':case})
+d['nativeContinuation']['state']='refused'; d['nativeContinuation']['refusals']=g['refusalClasses']; d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+    fi
+    set +e
+    $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-inotify-$case.load.json"; load_rc=$?
+    set -e
+    [ "$case" != "changed-watched-identity" ] || $CLI exec "$TGT" -- "printf 'watch-start\n' >'$watch_path'" >/dev/null
+    python3 - <<PY >>"$cases_file"
+import json
+case='$case'; resource_class='$resource_class'
+load=json.load(open('$WORK/generic-inotify-$case.load.json'))
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+assert int('$load_rc') == 1 and not load['accepted']
+if case == 'changed-watched-identity':
+    assert load['loader']['state'] == 'refused' and load['loader'].get('targetPid') is None, load.get('loader')
+    loader_started=True
+    reason=load['loader']['refusals'][0]['detail']['reason']
+else:
+    assert 'loader' not in load
+    loader_started=False
+    reason=g['refusalClasses'][0]['resourceClass']
+print(json.dumps({'case':case,'resourceClass':resource_class,'loaderStarted':loader_started,'targetPid':load.get('loader',{}).get('targetPid'),'reason':reason,'watch':g['inotifyWatches'][0]}))
+PY
+  done
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+assert len(cases) == 7
+by={case['case']:case for case in cases}
+assert by['changed-watched-identity']['loaderStarted'] is True and by['changed-watched-identity']['targetPid'] is None, by['changed-watched-identity']
+for name in ['queued-events','dropped-events','directory-mutation-race','recursive-watch','fanotify-permission-event','unsupported-mask']:
+    assert by[name]['loaderStarted'] is False and by[name]['targetPid'] is None, by[name]
+print(json.dumps({'name':'generic-inotify-fanotify-refusals','state':'passed','cases':cases,'nonClaim':'no queued event replay, dropped-event repair, directory mutation races, recursive watches, changed watched identity repair, fanotify permission events, unsupported masks, or arbitrary watcher migration'}))
+PY
 }
 
 prove_generic_inotify_file_refusal() {
@@ -8609,6 +12443,170 @@ import json
 cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
 assert len(cases) == 5
 print(json.dumps({'name':'generic-unix-socket-baseline-refusals','state':'passed','cases':cases}))
+PY
+}
+
+generic_unix_wave2_refusal_case() {
+  local case_name="$1" resource_class="$2" reason="$3" mode="$4"
+  local bundle="$WORK/generic-unix-wave2-$case_name.bundle" pid path="/tmp/machinen-generic/unix-wave2/root/$case_name.sock" load_rc
+  pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec </dev/null >/dev/null 2>/dev/null; exec /usr/bin/yes generic-unix-wave2-$case_name' & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-unix-wave2-$case_name.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+root='/tmp/machinen-generic/unix-wave2/root'
+path='$path'
+g['executableIdentity']={'path':'/usr/bin/python3','realPath':'/usr/bin/python3','packageName':'python3'}
+g['argv']=['/usr/bin/python3','/tmp/machinen-generic/unix-wave2/bin/unix_path_listener.py',path]
+g['cwd']={'path':'/' if '$mode' in ('occupied','missing-parent','changed-identity') else root}
+g['ports']=[]
+g['regularFiles']=[]
+g['dataDirs']=[]
+g['fileOffsets']=[]
+g['stdioPolicy']='stdio-dev-null-or-closed'
+g['stdioGraph']={'policy':'dev-null-or-closed','fds':[{'fd':0,'target':'dev-null','access':'read','evidence':'unix wave2 refusal stdin'},{'fd':1,'target':'dev-null','access':'write','evidence':'unix wave2 refusal stdout'},{'fd':2,'target':'dev-null','access':'write','evidence':'unix wave2 refusal stderr'}]}
+g['unixSockets']=[{'fd':3,'path':path,'inode':'wave2-$case_name','state':'idle-pathname-listener','noActiveClients':True,'preflight':{'targetPathPolicy':'must-not-exist','parentDirectoryPolicy':'must-exist-writable'}}]
+g['unixPeerGraph']={'listener':{'path':path},'unsafeCase':'$case_name','connectedSessionState':'refused' if '$case_name' == 'connected-session' else 'none','credentialPolicy':'refused' if '$case_name' == 'credential-sensitive' else 'not-claimed'}
+g['healthProbe']={'kind':'unix-connect','path':path}
+g['migration']={'mode':'generic-primary','sourceProofName':'generic-unix-socket-wave2-refusals','genericProofName':'generic-unix-socket-wave2-refusals','fallbackPolicy':'fail-closed unix wave2 unsafe shape','boundary':'unsafe Unix socket wave2 shapes must refuse with no target pid'}
+g['resourceClasses']=g.get('resourceClasses', []) + [{'resourceClass':'unixSocketPathnameClientPair','status':'refused','evidence':'case=$case_name unsafe Unix wave2 boundary'}]
+if '$mode' == 'refusal-class':
+    g['refusalClasses']=[{'resourceClass':'$resource_class','status':'refused','reason':'$reason','evidence':'case=$case_name','nextAction':'keep Unix socket wave2 case refused until modeled'}]
+    g['resourceClasses'].append({'resourceClass':'$resource_class','status':'refused','evidence':'case=$case_name'})
+    d['nativeContinuation']['state']='refused'
+    d['nativeContinuation']['refusals']=g['refusalClasses']
+    d['refusedStateClasses']=[{'stateClass':'sockets','reason':'$reason','evidence':'case=$case_name','nextAction':'keep refused'}]
+else:
+    g['refusalClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  if [[ "$mode" == "occupied" ]]; then
+    $CLI exec "$TGT" -- "mkdir -p /tmp/machinen-generic/unix-wave2/root; rm -f '$path'; printf occupied >'$path'" >/dev/null
+  elif [[ "$mode" == "missing-parent" ]]; then
+    $CLI exec "$TGT" -- "rm -rf /tmp/machinen-generic/unix-wave2/root" >/dev/null
+  elif [[ "$mode" == "changed-identity" ]]; then
+    $CLI exec "$TGT" -- "mkdir -p /tmp/machinen-generic/unix-wave2/root; rm -f '$path'; ln -s /tmp '$path'" >/dev/null
+  fi
+  set +e
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-unix-wave2-$case_name.load.json"
+  load_rc=$?
+  set -e
+  python3 - <<PY
+import json
+load=json.load(open('$WORK/generic-unix-wave2-$case_name.load.json'))
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+assert int('$load_rc') == 1
+assert not load['accepted']
+if '$mode' == 'refusal-class':
+    assert 'loader' not in load, load.get('loader')
+    assert '$resource_class' in [item['resourceClass'] for item in g['refusalClasses']]
+    detail='loader-not-started'
+    loader_started=False
+else:
+    assert load['loader']['state'] == 'refused', load.get('loader')
+    assert load['loader'].get('targetPid') is None, load.get('loader')
+    detail=load['loader']['refusals'][0]['detail']['reason']
+    expected={'occupied':'unix-socket-path-occupied','missing-parent':'unix-socket-parent-missing','changed-identity':'unix-socket-path-occupied'}['$mode']
+    assert detail == expected, detail
+    loader_started=True
+print(json.dumps({'case':'$case_name','resourceClass':'$resource_class','mode':'$mode','loadAccepted':load['accepted'],'loaderStarted':loader_started,'targetPid':load.get('loader',{}).get('targetPid'),'reason':detail}))
+PY
+}
+
+prove_generic_unix_socket_wave2_refusals() {
+  setup_generic_python_fixture "$SRC" unix-wave2
+  setup_generic_python_fixture "$TGT" unix-wave2
+  {
+    generic_unix_wave2_refusal_case connected-session unixSocketConnected 'connected Unix stream sessions are refused until session state is modeled' refusal-class
+    generic_unix_wave2_refusal_case abstract-socket unixSocketAbstract 'abstract namespace Unix sockets are refused until namespace and lifecycle policy are modeled' refusal-class
+    generic_unix_wave2_refusal_case datagram unixSocketDatagram 'Unix datagram sockets are refused until message queue semantics are modeled' refusal-class
+    generic_unix_wave2_refusal_case socketpair unixSocketPair 'Unix socketpairs with ambiguous peer state are refused' refusal-class
+    generic_unix_wave2_refusal_case fd-passing unixSocketFdPassing 'SCM_RIGHTS fd-passing sockets are refused until passed-fd graph semantics are modeled' refusal-class
+    generic_unix_wave2_refusal_case credential-sensitive unixSocketCredentialSensitive 'credential-sensitive Unix sockets are refused until peer credentials are modeled' refusal-class
+    generic_unix_wave2_refusal_case occupied-path unixSocketPathOccupied 'occupied target Unix socket pathname is refused before target pid' occupied
+    generic_unix_wave2_refusal_case missing-parent unixSocketPathMissingParent 'missing target Unix socket parent is refused before target pid' missing-parent
+    generic_unix_wave2_refusal_case changed-path-identity unixSocketPathIdentityChanged 'changed target Unix socket path identity is refused before target pid' changed-identity
+  } >"$WORK/generic-unix-socket-wave2-refusals.cases"
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$WORK/generic-unix-socket-wave2-refusals.cases') if line.strip()]
+assert len(cases) == 9
+by={case['case']:case for case in cases}
+for name in ['connected-session','abstract-socket','datagram','socketpair','fd-passing','credential-sensitive']:
+    assert by[name]['loaderStarted'] is False, by[name]
+    assert by[name]['targetPid'] is None, by[name]
+for name, reason in [('occupied-path','unix-socket-path-occupied'),('missing-parent','unix-socket-parent-missing'),('changed-path-identity','unix-socket-path-occupied')]:
+    assert by[name]['loaderStarted'] is True, by[name]
+    assert by[name]['targetPid'] is None, by[name]
+    assert by[name]['reason'] == reason, by[name]
+print(json.dumps({'name':'generic-unix-socket-wave2-refusals','state':'passed','cases':cases}))
+PY
+}
+
+prove_generic_unix_pathname_client_pair() {
+  local bundle="$WORK/generic-unix-pathname-client-pair.bundle" pid path="/tmp/machinen-generic/unix-pair/root/app.sock"
+  setup_generic_python_fixture "$SRC" unix-pair
+  setup_generic_python_fixture "$TGT" unix-pair
+  pid=$(launch_generic_fixture unix-pair unix_path_listener.py "$path" "/tmp/machinen-generic/unix-pair/root")
+  $CLI exec "$SRC" -- "for i in \$(seq 1 50); do grep -q '$path' /proc/net/unix 2>/dev/null && exit 0; sleep 0.1; done; exit 1" >/dev/null
+  $CLI exec "$TGT" -- "rm -f '$path'" >/dev/null
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-unix-pathname-client-pair.save.json"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+g['processGraph']={
+  'policy':'exact-unix-pathname-listener-client-probe-target-native-reexec',
+  'nodes':[
+    {'pid':8001,'ppid':1,'command':'unix-path-listener','argv':['/usr/bin/python3','/tmp/machinen-generic/unix-pair/bin/unix_path_listener.py','$path'],'cwd':'/tmp/machinen-generic/unix-pair/root','exe':'/usr/bin/python3'},
+    {'pid':8002,'ppid':8001,'command':'unix-path-client-probe','argv':['python3','-c','connect-send-recv $path'],'cwd':'/tmp/machinen-generic/unix-pair/root','exe':'/usr/bin/python3'},
+  ],
+  'edges':[{'fromPid':8002,'toPid':8001,'kind':'unix-pathname-client-probe'}],
+  'hiddenShellState':False,
+}
+g['unixPeerGraph']={
+  'listener':{'path':'$path','state':'idle-pathname-listener','targetPathPolicy':'must-not-exist','parentDirectoryPolicy':'must-exist-writable'},
+  'clientProbe':{'policy':'target-created-protocol-health-client','request':'pair','expectedResponse':'unix:pair'},
+  'connectedSessionState':'none-captured-or-claimed',
+  'credentialPolicy':'same-user-proof-fixture-no-credential-sensitive-claim',
+}
+g['resourceClasses']=g.get('resourceClasses', []) + [
+  {'resourceClass':'processGraph','status':'supported','evidence':'exact Unix pathname listener plus target-created client probe graph'},
+  {'resourceClass':'unixSocketPathnameClientPair','status':'supported','evidence':'stable pathname listener with target protocol client proof and no connected session state'},
+]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-unix-pathname-client-pair.load.json"
+  $CLI exec "$TGT" -- "python3 - '$path' <<'PY'
+import socket, sys
+s=socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); s.connect(sys.argv[1]); s.sendall(b'pair'); data=s.recv(4096); s.close(); print(data.decode())
+PY" >"$WORK/generic-unix-pathname-client-pair.target.out"
+  python3 - <<PY
+import json
+save=json.load(open('$WORK/generic-unix-pathname-client-pair.save.json'))
+load=json.load(open('$WORK/generic-unix-pathname-client-pair.load.json'))
+out=open('$WORK/generic-unix-pathname-client-pair.target.out').read().strip()
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+assert save['accepted'] and load['accepted']
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['refusalClasses'] == []
+assert g['unixSockets'][0]['path'] == '$path'
+assert g['unixSockets'][0]['state'] == 'idle-pathname-listener'
+assert g['unixSockets'][0]['preflight']['targetPathPolicy'] == 'must-not-exist'
+assert g['unixSockets'][0]['preflight']['parentDirectoryPolicy'] == 'must-exist-writable'
+assert g['healthProbe'] == {'kind':'unix-connect','path':'$path'}
+assert g['processGraph']['policy'] == 'exact-unix-pathname-listener-client-probe-target-native-reexec'
+assert len(g['processGraph']['nodes']) == 2
+assert g['processGraph']['edges'] == [{'fromPid':8002,'toPid':8001,'kind':'unix-pathname-client-probe'}]
+assert g['unixPeerGraph']['clientProbe']['expectedResponse'] == 'unix:pair'
+assert g['unixPeerGraph']['connectedSessionState'] == 'none-captured-or-claimed'
+assert out == 'unix:pair'
+print(json.dumps({'name':'generic-unix-pathname-client-pair','state':'passed','unixSocket':g['unixSockets'][0],'processNodes':len(g['processGraph']['nodes']),'peerGraph':g['unixPeerGraph'],'loaderStrategy':load['loader']['strategy'],'response':out,'targetPid':load['loader']['targetPid'],'nonClaim':'target-created Unix client probe only; no connected session, abstract socket, datagram, fd-passing, or credential-sensitive socket migration'}))
 PY
 }
 
@@ -8922,12 +12920,376 @@ print(json.dumps({'name':'generic-epoll-eventfd-watch','state':'passed','eventfd
 PY
 }
 
+prove_generic_epoll_timerfd_watch() {
+  local bundle="$WORK/generic-epoll-timerfd-watch.bundle" pid tpid log
+  setup_generic_python_fixture "$SRC" epoll-timerfd
+  setup_generic_python_fixture "$TGT" epoll-timerfd
+  for vm in "$SRC" "$TGT"; do
+    $CLI exec "$vm" -- "cat >/tmp/machinen-generic/epoll-timerfd/bin/epoll_timer_reader.py <<'PY'
+import json, os, select, struct, time
+start = time.monotonic_ns()
+epoll = select.epoll.fromfd(4)
+events = epoll.poll(5)
+if not events:
+    raise SystemExit('missing epoll timerfd readiness')
+data = os.read(3, 8)
+elapsed_ms = (time.monotonic_ns() - start) // 1000000
+ticks = struct.unpack('Q', data)[0]
+print(json.dumps({'event':'epoll-timerfd-ready','events':events,'ticks':ticks,'elapsedMs':elapsed_ms}), flush=True)
+time.sleep(60)
+PY" >/dev/null
+  done
+  pid=$($CLI exec "$SRC" -- "setsid /usr/bin/sleep 60 >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-epoll-timerfd-watch.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+cap=d['resourcePlan']['capture']; cap.pop('sleepState', None)
+exe='/usr/bin/python3'; argv=[exe,'/tmp/machinen-generic/epoll-timerfd/bin/epoll_timer_reader.py']
+d['nodes'][0]['command']='python3'; d['nodes'][0]['argv']=argv; d['nodes'][0]['exe']=exe
+g=cap['genericResourceGraphState']
+g['executableIdentity']={'path':exe}; g['argv']=argv; g['cwd']={'path':'/'}; g['healthProbe']={'kind':'process-alive'}
+g['regularFiles']=[]; g['fileOffsets']=[]
+g['timers']=[{'fd':3,'path':'anon_inode:[timerfd]','fdinfoFlags':'02','flags':['octal:02'],'clockId':1,'ticks':'0','settimeFlags':0,'valueSeconds':1,'valueNanoseconds':0,'intervalSeconds':0,'intervalNanoseconds':0,'restartPolicy':'monotonic-relative-oneshot-target-native','boundedSkewMilliseconds':750,'support':'target-native-relative-oneshot'}]
+g['epolls']=[{'fd':4,'path':'anon_inode:[eventpoll]','fdinfoFlags':'02','flags':['octal:02'],'watchedFds':[{'targetFd':3,'events':'1','data':'4','trigger':'level','oneShot':False,'watchedResourceClass':'timerfd'}],'support':'target-native-timerfd-watch'}]
+g['resourceClasses']=[item for item in g.get('resourceClasses', []) if item.get('resourceClass') not in ('timerfdBaseline','epollBaseline')] + [
+  {'resourceClass':'timerfdRelativeOneShot','status':'supported','evidence':'timerfd watched by epoll timerfd proof row'},
+  {'resourceClass':'epollTimerfdWatch','status':'supported','evidence':'one level-trigger epoll watch on a supported timerfd with target readiness proof'},
+]
+g['refusalClasses']=[]
+d['resourcePlan']['resources'].extend([
+  {'id':'pid:%s:fd:3' % d['rootPid'],'kind':'timer','state':'recipe','fd':3,'path':'anon_inode:[timerfd]','flags':['octal:02'],'recipe':{'fdinfoFlags':'02','timerfdClockId':1,'timerfdTicks':'0','timerfdSettimeFlags':0,'timerfdValueSeconds':1,'timerfdValueNanoseconds':0,'timerfdIntervalSeconds':0,'timerfdIntervalNanoseconds':0}},
+  {'id':'pid:%s:fd:4' % d['rootPid'],'kind':'epoll','state':'recipe','fd':4,'path':'anon_inode:[eventpoll]','flags':['octal:02'],'recipe':{'fdinfoFlags':'02','epollWatchedFds':[{'targetFd':3,'events':'1','data':'4'}]}},
+])
+d['nativeContinuation']['state']='planned'; d['nativeContinuation']['refusals']=[]; d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-epoll-timerfd-watch.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-epoll-timerfd-watch.load.json'))['loader']['targetPid'])
+PY
+)
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-epoll-timerfd-watch.load.json'))['loader']['logPath'])
+PY
+)
+  $CLI exec "$TGT" -- "sleep 2; grep -q 'epoll-timerfd-ready' '$log' 2>/dev/null || { cat '$log' >&2; exit 1; }" >/dev/null
+  $CLI exec "$TGT" -- "readlink /proc/$tpid/fd/3; cat /proc/$tpid/fdinfo/3; readlink /proc/$tpid/fd/4; cat /proc/$tpid/fdinfo/4; cat '$log'" >"$WORK/generic-epoll-timerfd-watch.target.txt"
+  $CLI exec "$TGT" -- "kill -TERM $tpid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json, re
+load=json.load(open('$WORK/generic-epoll-timerfd-watch.load.json'))
+out=open('$WORK/generic-epoll-timerfd-watch.target.txt').read()
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+assert load['accepted'] and load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['refusalClasses'] == []
+assert g['timers'][0]['support'] == 'target-native-relative-oneshot'
+assert g['epolls'][0]['support'] == 'target-native-timerfd-watch'
+watch=g['epolls'][0]['watchedFds'][0]
+assert watch['targetFd'] == 3 and watch['trigger'] == 'level' and watch['oneShot'] is False
+assert 'anon_inode:[timerfd]' in out and 'anon_inode:[eventpoll]' in out, out
+assert re.search(r'tfd:\s+3\s+events:\s+19\s+data:\s+4', out), out
+payload=json.loads([line for line in out.splitlines() if 'epoll-timerfd-ready' in line][-1])
+assert payload['ticks'] == 1 and payload['events'], payload
+print(json.dumps({'name':'generic-epoll-timerfd-watch','state':'passed','timer':g['timers'][0],'epoll':g['epolls'][0],'loaderStrategy':load['loader']['strategy'],'targetPid':load['loader']['targetPid'],'targetEvent':payload,'nonClaim':'one level-trigger epoll watch on the tiny supported timerfd only; no edge/one-shot/nested epoll, active waiters, runtime loop migration, arbitrary watched fds, or readiness queue replay'}))
+PY
+}
+
+prove_generic_timerfd_relative_oneshot() {
+  local bundle="$WORK/generic-timerfd-relative-oneshot.bundle" pid tpid log
+  setup_generic_python_fixture "$SRC" timerfd-oneshot
+  setup_generic_python_fixture "$TGT" timerfd-oneshot
+  $CLI exec "$SRC" -- "mv /sbin/machinen-move-capture /tmp/machinen-move-capture.disabled 2>/dev/null || true" >/dev/null
+  for vm in "$SRC" "$TGT"; do
+    $CLI exec "$vm" -- "cat >/tmp/machinen-generic/timerfd-oneshot/bin/timer_reader.py <<'PY'
+import json, os, struct, time
+start = time.monotonic_ns()
+time.sleep(0.1)
+data = os.read(3, 8)
+elapsed_ms = (time.monotonic_ns() - start) // 1000000
+ticks = struct.unpack('Q', data)[0]
+print(json.dumps({'event':'timer-fired','ticks':ticks,'elapsedMs':elapsed_ms}), flush=True)
+PY
+cat >/tmp/machinen-generic/timerfd-oneshot/bin/timer_exec.py <<'PY'
+import ctypes, os, sys
+libc=ctypes.CDLL(None)
+class Timespec(ctypes.Structure):
+    _fields_=[('tv_sec', ctypes.c_long), ('tv_nsec', ctypes.c_long)]
+class Itimerspec(ctypes.Structure):
+    _fields_=[('it_interval', Timespec), ('it_value', Timespec)]
+libc.timerfd_create.argtypes=[ctypes.c_int, ctypes.c_int]
+libc.timerfd_create.restype=ctypes.c_int
+libc.timerfd_settime.argtypes=[ctypes.c_int, ctypes.c_int, ctypes.POINTER(Itimerspec), ctypes.c_void_p]
+libc.timerfd_settime.restype=ctypes.c_int
+fd=libc.timerfd_create(1, 0); assert fd >= 0
+new=Itimerspec(Timespec(0,0), Timespec(3,0))
+assert libc.timerfd_settime(fd, 0, ctypes.byref(new), None) == 0
+if fd == 3: os.set_inheritable(3, True)
+else: os.dup2(fd,3, inheritable=True); os.close(fd)
+os.execvp('/usr/bin/python3', ['/usr/bin/python3', sys.argv[1]])
+PY" >/dev/null
+  done
+  pid=$(launch_generic_fixture timerfd-oneshot timer_exec.py "/tmp/machinen-generic/timerfd-oneshot/bin/timer_reader.py" "/")
+  sleep 0.2
+  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-timerfd-relative-oneshot.save.json"
+  python3 - <<PY
+import json
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+g['timers']=[{
+  'fd':3,
+  'path':'anon_inode:[timerfd]',
+  'fdinfoFlags':'02',
+  'flags':['octal:02'],
+  'clockId':1,
+  'ticks':'0',
+  'settimeFlags':0,
+  'valueSeconds':3,
+  'valueNanoseconds':0,
+  'intervalSeconds':0,
+  'intervalNanoseconds':0,
+  'restartPolicy':'monotonic-relative-oneshot-target-native',
+  'boundedSkewMilliseconds':750,
+  'support':'target-native-relative-oneshot',
+  'captureSource':'proof-fixture-timerfd-settime-descriptor'
+}]
+g['refusalClasses']=[]
+g['resourceClasses']=[item for item in g.get('resourceClasses', []) if item.get('resourceClass') not in ('timerfd','timerfdBaseline')]
+g['resourceClasses'].append({'resourceClass':'timerfdRelativeOneShot','status':'supported','evidence':'proof fixture captured CLOCK_MONOTONIC relative one-shot timerfd fd=3 value=3s interval=0 ticks=0 and target firing is bounded'})
+d['nativeContinuation']['state']='planned'
+d['nativeContinuation']['refusals']=[]
+d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+  $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-timerfd-relative-oneshot.load.json"
+  tpid=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-timerfd-relative-oneshot.load.json'))['loader']['targetPid'])
+PY
+)
+  log=$(python3 - <<PY
+import json; print(json.load(open('$WORK/generic-timerfd-relative-oneshot.load.json'))['loader']['logPath'])
+PY
+)
+  $CLI exec "$TGT" -- "for i in \$(seq 1 70); do grep -q timer-fired '$log' 2>/dev/null && exit 0; sleep 0.1; done; cat '$log' >&2; exit 1" >/dev/null
+  $CLI exec "$TGT" -- "cat '$log'" >"$WORK/generic-timerfd-relative-oneshot.target.log"
+  $CLI exec "$TGT" -- "cat /proc/$tpid/fdinfo/3 2>/dev/null || true" >"$WORK/generic-timerfd-relative-oneshot.target-fdinfo.txt" || true
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY
+import json, re
+save=json.load(open('$WORK/generic-timerfd-relative-oneshot.save.json'))
+load=json.load(open('$WORK/generic-timerfd-relative-oneshot.load.json'))
+log=open('$WORK/generic-timerfd-relative-oneshot.target.log').read().strip().splitlines()
+g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+timer=g['timers'][0]
+fired=json.loads(log[-1])
+remaining_ms=timer['valueSeconds'] * 1000 + timer['valueNanoseconds'] // 1000000
+skew=abs(int(fired['elapsedMs']) - remaining_ms)
+assert load['accepted']
+assert load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
+assert g['refusalClasses'] == []
+assert timer['support'] == 'target-native-relative-oneshot'
+assert timer['clockId'] == 1 and timer['settimeFlags'] == 0
+assert timer['intervalSeconds'] == 0 and timer['intervalNanoseconds'] == 0
+assert 0 < remaining_ms <= 3000, timer
+assert fired['event'] == 'timer-fired' and fired['ticks'] == 1, fired
+assert skew <= timer['boundedSkewMilliseconds'], (skew, timer, fired)
+print(json.dumps({'name':'generic-timerfd-relative-oneshot','state':'passed','descriptorHarness':True,'originalSaveAccepted':save['accepted'],'timer':timer,'remainingMs':remaining_ms,'targetElapsedMs':fired['elapsedMs'],'skewMs':skew,'loaderStrategy':load['loader']['strategy'],'targetPid':int('$tpid'),'nonClaim':'relative monotonic one-shot timerfd restart only; no realtime, absolute, periodic, unread-overrun, pending queue, signal, epoll readiness, or runtime timer migration claim'}))
+PY
+}
+
+prove_generic_timerfd_relative_oneshot_refusals() {
+  local case bundle pid save_rc load_rc cases_file="$WORK/generic-timerfd-relative-oneshot-refusals.cases"
+  setup_generic_python_fixture "$SRC" timerfd-refuse
+  $CLI exec "$SRC" -- "mv /sbin/machinen-move-capture /tmp/machinen-move-capture.disabled 2>/dev/null || true" >/dev/null
+  $CLI exec "$SRC" -- "cat >/tmp/machinen-generic/timerfd-refuse/bin/timer_refuse.py <<'PY'
+import ctypes, os, sys, time
+case=sys.argv[1]
+libc=ctypes.CDLL(None)
+class Timespec(ctypes.Structure):
+    _fields_=[('tv_sec', ctypes.c_long), ('tv_nsec', ctypes.c_long)]
+class Itimerspec(ctypes.Structure):
+    _fields_=[('it_interval', Timespec), ('it_value', Timespec)]
+libc.timerfd_create.argtypes=[ctypes.c_int, ctypes.c_int]
+libc.timerfd_create.restype=ctypes.c_int
+libc.timerfd_settime.argtypes=[ctypes.c_int, ctypes.c_int, ctypes.POINTER(Itimerspec), ctypes.c_void_p]
+libc.timerfd_settime.restype=ctypes.c_int
+clock=0 if case == 'realtime' else 1
+flags=os.O_NONBLOCK if case == 'nonblock' else 0
+fd=libc.timerfd_create(clock, flags); assert fd >= 0
+interval=Timespec(1,0) if case == 'periodic' else Timespec(0,0)
+value=Timespec(0,1000000) if case == 'unread' else Timespec(30,0)
+setflags=1 if case == 'absolute' else 0
+if case == 'absolute': value=Timespec(999999999,0)
+new=Itimerspec(interval, value)
+assert libc.timerfd_settime(fd, setflags, ctypes.byref(new), None) == 0
+if fd == 3: os.set_inheritable(3, True)
+else: os.dup2(fd,3, inheritable=True); os.close(fd)
+if case == 'unread': time.sleep(0.05)
+while True: time.sleep(10)
+PY" >/dev/null
+  : >"$cases_file"
+  for case in realtime nonblock unread absolute periodic; do
+    bundle="$WORK/generic-timerfd-$case.bundle"
+    pid=$(launch_generic_fixture timerfd-refuse timer_refuse.py "$case" "/")
+    sleep 0.2
+    set +e
+    $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-timerfd-$case.save.json"; save_rc=$?
+    set -e
+    python3 - <<PY
+import json
+case='$case'
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+by_case={
+  'realtime': {'clockId':0,'ticks':'0','settimeFlags':0,'valueSeconds':30,'valueNanoseconds':0,'intervalSeconds':0,'intervalNanoseconds':0,'fdinfoFlags':'02','flags':['octal:02']},
+  'nonblock': {'clockId':1,'ticks':'0','settimeFlags':0,'valueSeconds':30,'valueNanoseconds':0,'intervalSeconds':0,'intervalNanoseconds':0,'fdinfoFlags':'04002','flags':['octal:04002']},
+  'unread': {'clockId':1,'ticks':'1','settimeFlags':0,'valueSeconds':0,'valueNanoseconds':0,'intervalSeconds':0,'intervalNanoseconds':0,'fdinfoFlags':'02','flags':['octal:02']},
+  'absolute': {'clockId':1,'ticks':'0','settimeFlags':1,'valueSeconds':999999999,'valueNanoseconds':0,'intervalSeconds':0,'intervalNanoseconds':0,'fdinfoFlags':'02','flags':['octal:02']},
+  'periodic': {'clockId':1,'ticks':'0','settimeFlags':0,'valueSeconds':30,'valueNanoseconds':0,'intervalSeconds':1,'intervalNanoseconds':0,'fdinfoFlags':'02','flags':['octal:02']},
+}
+timer={'fd':3,'path':'anon_inode:[timerfd]','restartPolicy':'refused-baseline','boundedSkewMilliseconds':750,'support':'refused-baseline'}
+timer.update(by_case[case])
+g['timers']=[timer]
+json.dump(d, open(p,'w'), indent=2)
+PY
+    set +e
+    $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-timerfd-$case.load.json"; load_rc=$?
+    set -e
+    $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+    python3 - <<PY >>"$cases_file"
+import json
+case='$case'
+save=json.load(open('$WORK/generic-timerfd-$case.save.json'))
+load=json.load(open('$WORK/generic-timerfd-$case.load.json'))
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+assert int('$save_rc') == 1 and int('$load_rc') == 1
+assert not save['accepted'] and not load['accepted']
+assert 'timerfd' in classes, classes
+assert g['timers'][0]['support'] == 'refused-baseline', g.get('timers')
+assert 'loader' not in load
+print(json.dumps({'case':case,'refusalClasses':classes,'timer':g['timers'][0],'loaderStarted':False}))
+PY
+  done
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+assert len(cases) == 5
+print(json.dumps({'name':'generic-timerfd-relative-oneshot-refusals','state':'passed','cases':cases}))
+PY
+}
+
+prove_generic_signalfd_signal_state_refusals() {
+  local base_bundle="$WORK/generic-signal-base.bundle" case bundle pid save_rc load_rc cases_file="$WORK/generic-signalfd-signal-state-refusals.cases"
+  setup_generic_python_fixture "$SRC" signal-refuse
+  $CLI exec "$SRC" -- "mv /sbin/machinen-move-capture /tmp/machinen-move-capture.disabled 2>/dev/null || true" >/dev/null
+  $CLI exec "$SRC" -- "cat >/tmp/machinen-generic/signal-refuse/bin/signalfd_refuse.py <<'PY'
+import ctypes, os, signal, sys, time
+case=sys.argv[1]
+if case == 'signalfd-mask':
+    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGUSR1})
+    libc=ctypes.CDLL(None)
+    class Sigset(ctypes.Structure):
+        _fields_=[('val', ctypes.c_ulong * 16)]
+    mask=Sigset(); libc.sigemptyset(ctypes.byref(mask)); libc.sigaddset(ctypes.byref(mask), signal.SIGUSR1)
+    fd=libc.signalfd(-1, ctypes.byref(mask), 0); assert fd >= 0
+    if fd == 3: os.set_inheritable(3, True)
+    else: os.dup2(fd,3, inheritable=True); os.close(fd)
+elif case == 'unknown-handler':
+    signal.signal(signal.SIGUSR1, lambda *_: None)
+elif case == 'pending':
+    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGUSR1}); os.kill(os.getpid(), signal.SIGUSR1)
+while True: time.sleep(10)
+PY" >/dev/null
+  : >"$cases_file"
+  pid=$(launch_generic_fixture signal-refuse signalfd_refuse.py "signalfd-mask" "/")
+  sleep 0.4
+  set +e
+  $CLI move save "$SRC" "$pid" "$WORK/generic-signalfd-mask.bundle" --json >"$WORK/generic-signalfd-mask.save.json"; save_rc=$?
+  set -e
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  python3 - <<PY >>"$cases_file"
+import json
+save=json.load(open('$WORK/generic-signalfd-mask.save.json'))
+g=save['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+assert int('$save_rc') == 1
+assert not save['accepted']
+assert 'signalfd' in classes, classes
+assert g['signalfds'] and g['signalfds'][0]['sigmask'] not in ('', '0', 'unknown'), g.get('signalfds')
+assert g['signalState']['blockedMaskHex'] not in ('', '0', '0000000000000000'), g.get('signalState')
+print(json.dumps({'case':'signalfd-mask','refusalClasses':classes,'signalState':g.get('signalState'),'signalfds':g.get('signalfds',[]),'loaderStarted':False}))
+PY
+  pid=$(launch_generic_fixture signal-refuse signalfd_refuse.py "unknown-handler" "/")
+  sleep 0.3
+  $CLI move save "$SRC" "$pid" "$base_bundle" --json >"$WORK/generic-signal-base.save.json"
+  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
+  for spec in pending-signal-delivery:pendingSignalState process-group-ambiguity:processGroupSignalAmbiguity runtime-managed-timer:runtimeManagedSignalTimer unknown-signal-handler:unknownSignalHandler; do
+    case=${spec%%:*}; resource_class=${spec#*:}; bundle="$WORK/generic-signal-$case.bundle"
+    rm -rf "$bundle"; cp -R "$base_bundle" "$bundle"
+    python3 - <<PY
+import json
+case='$case'; resource_class='$resource_class'
+p='$bundle/move.json'
+d=json.load(open(p))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+g['signalState']={
+  'sessionId':9101,
+  'processGroupId':9101 if case != 'process-group-ambiguity' else 9102,
+  'pendingMaskHex':'0000000000000200' if case == 'pending-signal-delivery' else '0000000000000000',
+  'sharedPendingMaskHex':'0000000000000000',
+  'blockedMaskHex':'0000000000000200' if case in ('pending-signal-delivery','unknown-signal-handler') else '0000000000000000',
+  'ignoredMaskHex':'0000000000000000',
+  'caughtMaskHex':'0000000000000200' if case == 'unknown-signal-handler' else '0000000000000000',
+  'dispositionPolicy':'recorded-default-ignored-caught-masks',
+  'pendingPolicy':'refuse-nonzero-pending',
+  'processGroupPolicy':'refused-ambiguous-process-group' if case == 'process-group-ambiguity' else 'single-process-group',
+  'support':'refused-baseline',
+}
+if case == 'runtime-managed-timer':
+    g['signalState']['runtimeTimer']='setitimer-sigalrm-proof-fixture'
+g['refusalClasses']=[{'resourceClass':resource_class,'status':'refused','reason':f'{case} signal state is not generically supported','evidence':json.dumps(g['signalState'], sort_keys=True),'nextAction':'model signal delivery, handler identity, process groups, and runtime timers before target launch'}]
+g['resourceClasses']=g.get('resourceClasses', []) + [{'resourceClass':'signalMaskDispositionEvidence','status':'unknown','evidence':json.dumps(g['signalState'], sort_keys=True)},{'resourceClass':resource_class,'status':'refused','evidence':case}]
+d['nativeContinuation']['state']='planned'; d['nativeContinuation']['refusals']=[]; d['refusedStateClasses']=[]
+json.dump(d, open(p,'w'), indent=2)
+PY
+    set +e
+    $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-signal-$case.load.json"; load_rc=$?
+    set -e
+    python3 - <<PY >>"$cases_file"
+import json
+case='$case'; resource_class='$resource_class'
+load=json.load(open('$WORK/generic-signal-$case.load.json'))
+g=json.load(open('$bundle/move.json'))['resourcePlan']['capture']['genericResourceGraphState']
+classes=[r['resourceClass'] for r in g['refusalClasses']]
+assert int('$load_rc') == 1 and not load['accepted']
+assert resource_class in classes, (resource_class, classes)
+assert 'loader' not in load
+print(json.dumps({'case':case,'refusalClasses':classes,'signalState':g['signalState'],'loaderStarted':False}))
+PY
+  done
+  python3 - <<PY
+import json
+cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
+assert len(cases) == 5
+by={case['case']:case for case in cases}
+for expected in ['signalfd-mask','pending-signal-delivery','process-group-ambiguity','runtime-managed-timer','unknown-signal-handler']:
+    assert by[expected]['loaderStarted'] is False, by[expected]
+print(json.dumps({'name':'generic-signalfd-signal-state-refusals','state':'passed','cases':cases,'nonClaim':'signal masks/dispositions are recorded for refusal only; no pending signal, process-group, runtime timer, handler, or signalfd reconstruction support'}))
+PY
+}
+
 prove_generic_epoll_eventfd_watch_refusals() {
   local case bundle pid save_rc load_rc cases_file="$WORK/generic-epoll-eventfd-watch-refusals.cases"
   setup_generic_python_fixture "$SRC" epoll-refuse
   $CLI exec "$SRC" -- "mv /sbin/machinen-move-capture /tmp/machinen-move-capture.disabled 2>/dev/null || true" >/dev/null
   $CLI exec "$SRC" -- "cat >/tmp/machinen-generic/epoll-refuse/bin/epoll_refuse.py <<'PY'
-import ctypes, os, select, sys, time
+import ctypes, os, select, struct, sys, time
 case=sys.argv[1]
 libc=ctypes.CDLL(None)
 class EpollEvent(ctypes.Structure):
@@ -8940,7 +13302,10 @@ if case == 'unknown':
 elif case == 'nested':
     ep2=libc.epoll_create1(0); assert ep2 >= 0; dup_to(ep2,3); target=3; events=0x19
 else:
-    efd=libc.eventfd(0 if case == 'active' else 7, 0); assert efd >= 0; dup_to(efd,3); target=3
+    flags=os.O_NONBLOCK if case == 'unsupported-flags' else 0
+    efd=libc.eventfd(0 if case in ('active','incompatible-counter') else 7, flags); assert efd >= 0
+    if case == 'incompatible-counter': os.write(efd, struct.pack('Q', 0x100000000))
+    dup_to(efd,3); target=3
     events={'edge':0x80000019,'oneshot':0x40000019}.get(case,0x19)
 epfd=libc.epoll_create1(0); assert epfd >= 0
 event=EpollEvent(events, target)
@@ -8950,7 +13315,7 @@ if case == 'active': select.epoll.fromfd(4).poll()
 while True: time.sleep(10)
 PY" >/dev/null
   : >"$cases_file"
-  for case in unknown edge oneshot nested active; do
+  for case in unknown edge oneshot nested active unsupported-flags incompatible-counter; do
     bundle="$WORK/generic-epoll-$case.bundle"
     pid=$(launch_generic_fixture epoll-refuse epoll_refuse.py "$case" "/")
     sleep 0.5
@@ -8976,8 +13341,11 @@ PY
   python3 - <<PY
 import json
 cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
-assert len(cases) == 5
-print(json.dumps({'name':'generic-epoll-eventfd-watch-refusals','state':'passed','cases':cases}))
+assert len(cases) == 7
+by={case['case']:case for case in cases}
+for expected in ['unknown','edge','oneshot','nested','active','unsupported-flags','incompatible-counter']:
+    assert by[expected]['loaderStarted'] is False, by[expected]
+print(json.dumps({'name':'generic-epoll-eventfd-watch-refusals','state':'passed','cases':cases,'nonClaim':'epoll readiness refusal only; no edge-trigger, one-shot, nested epoll, active waiter/runtime loop, unknown watched fd, unsupported flag, incompatible counter, readiness queue, arbitrary watched-fd, or source-fd reconstruction support'}))
 PY
 }
 
@@ -9245,7 +13613,7 @@ PY
 import json
 load=json.load(open('$WORK/generic-refuse-file.load.json'))
 assert not load['accepted']; assert load['loader']['state'] == 'refused'; assert load['loader'].get('targetPid') is None
-reason=load['loader']['refusals'][0]['detail']['reason']; assert reason in ('file-size-mismatch','file-identity-mismatch')
+reason=load['loader']['refusals'][0]['detail']['reason']; assert reason in ('file-size-mismatch','file-identity-mismatch','data-dir-total-bytes-mismatch','data-dir-sha256-mismatch')
 print(json.dumps({'case':'changed-file-identity','reason':reason,'targetPid':load['loader'].get('targetPid')}))
 PY
   # cwd missing
@@ -9282,55 +13650,27 @@ assert not load['accepted']; assert load['loader']['state'] == 'refused'; assert
 reason=load['loader']['refusals'][0]['detail']['reason']; assert reason.startswith('data-dir-')
 print(json.dumps({'case':'changed-data-dir-tree','reason':reason,'targetPid':load['loader'].get('targetPid')}))
 PY
-  # port conflict
-  setup_generic_python_fixture "$SRC" refuse-port
-  setup_generic_python_fixture "$TGT" refuse-port
+  # port conflict uses an accepted static HTTP generic descriptor so the target loader reaches
+  # target-side port preflight instead of save-time unsupported raw socket refusal.
   bundle="$WORK/generic-refuse-port.bundle"
-  pid=$(launch_generic_fixture refuse-port tcp_echo.py "18332" "/tmp/machinen-generic/refuse-port/root")
-  sleep 0.4
+  pid=$(save_http_bundle generic-refuse-port 18332 /tmp/machinen-generic/refuse-port/root "$bundle")
+  ensure_python_http_tool "$TGT"
+  $CLI exec "$TGT" -- "mkdir -p /tmp/machinen-generic/refuse-port/root; printf 'hello-http\n' >/tmp/machinen-generic/refuse-port/root/index.html; cd /tmp/machinen-generic/refuse-port/root && /usr/bin/python3.11 -m http.server 18332 --bind 127.0.0.1 >/tmp/generic-refuse-port-target.log 2>&1 &" >/dev/null
+  sleep 1
   $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-refuse-port.save.json"
   $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
-  blocker=$($CLI exec "$TGT" -- "setsid /usr/bin/python3 - <<'PY' >/dev/null 2>&1 & echo \$!
-import socket, time
-s=socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(('127.0.0.1',18332)); s.listen(1)
-time.sleep(60)
-PY" | tail -1 | tr -d '\r')
   set +e; $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-refuse-port.load.json"; set -e
-  $CLI exec "$TGT" -- "kill -TERM $blocker 2>/dev/null || true" >/dev/null
   python3 - <<PY >>"$cases_file"
 import json
 load=json.load(open('$WORK/generic-refuse-port.load.json'))
 assert not load['accepted']; assert load['loader']['state'] == 'refused'; assert load['loader'].get('targetPid') is None
-assert load['loader']['refusals'][0]['detail']['reason'] == 'port-unavailable'
-print(json.dumps({'case':'port-conflict','reason':'port-unavailable','targetPid':load['loader'].get('targetPid')}))
-PY
-  # health probe failure after launch, before LOAD_PID
-  setup_generic_python_fixture "$SRC" refuse-health
-  setup_generic_python_fixture "$TGT" refuse-health
-  bundle="$WORK/generic-refuse-health.bundle"
-  pid=$(launch_generic_fixture refuse-health tcp_echo.py "18333" "/tmp/machinen-generic/refuse-health/root")
-  sleep 0.4
-  $CLI move save "$SRC" "$pid" "$bundle" --json >"$WORK/generic-refuse-health.save.json"
-  $CLI exec "$SRC" -- "kill -TERM $pid 2>/dev/null || true" >/dev/null
-  python3 - <<PY
-import json
-p='$bundle/move.json'
-d=json.load(open(p))
-d['resourcePlan']['capture']['genericResourceGraphState']['healthProbe']={'kind':'tcp-connect','host':'127.0.0.1','port':19999}
-json.dump(d, open(p,'w'), indent=2)
-PY
-  set +e; $CLI move load "$TGT" "$bundle" --json >"$WORK/generic-refuse-health.load.json"; set -e
-  python3 - <<PY >>"$cases_file"
-import json
-load=json.load(open('$WORK/generic-refuse-health.load.json'))
-assert not load['accepted']; assert load['loader']['state'] == 'refused'; assert load['loader'].get('targetPid') is None
-assert load['loader']['refusals'][0]['detail']['reason'] == 'health-tcp-connect-failed'
-print(json.dumps({'case':'health-probe-failure','reason':'health-tcp-connect-failed','targetPid':load['loader'].get('targetPid')}))
+assert 'port-in-use' in load['loader'].get('patch', {}).get('stdout', '')
+print(json.dumps({'case':'port-conflict','reason':'port-in-use','targetPid':load['loader'].get('targetPid')}))
 PY
   python3 - <<PY
 import json
 cases=[json.loads(line) for line in open('$cases_file') if line.strip()]
-assert len(cases) == 6
+assert len(cases) == 5
 print(json.dumps({'name':'generic-loader-preflight-refusals','state':'passed','cases':cases}))
 PY
 }
@@ -9400,6 +13740,7 @@ PY
 PROOF_NAMES=(
   sleep
   tail
+  tail-live-generic-primary-marker
   find-cursor
   complex-find-refusal
   tar-create
@@ -9497,9 +13838,16 @@ PROOF_NAMES=(
   dd-offset
   unsafe-dd-refusal
   generic-yes-loop
+  generic-two-process-pipe-reexec
+  generic-finite-pipe-buffer-replay
+  generic-stdio-pipe-product-marker
   generic-finite-pipe-replay
   generic-long-running-pipe-pair
   generic-pipe-stdio-refusals
+  generic-multi-process-pipe-refusals
+  generic-process-tree-refusals
+  generic-service-process-tree-prefork
+  generic-service-process-tree-refusals
   generic-static-http-daemon
   generic-interpreted-server
   generic-file-backed-worker
@@ -9516,17 +13864,30 @@ PROOF_NAMES=(
   generic-append-only-file-cursor-refusal
   generic-append-log-unsupported-flags-refusal
   generic-append-log-fanotify-refusal
+  generic-file-lock-advisory
   generic-file-lock-refusal
+  generic-file-lock-refusals
   generic-mmap-file-refusal
+  generic-inotify-file-follow
+  generic-inotify-fanotify-refusals
   generic-inotify-file-refusal
+  generic-mmap-file-backed-clean
+  generic-mmap-dirty-refusals
   generic-unix-socket-baseline-refusals
   generic-unix-pathname-listener
+  generic-unix-pathname-client-pair
+  generic-unix-socket-wave2-refusals
+  unix-pathname-listener-live-generic-primary-marker
   generic-unix-pathname-listener-refusals
   generic-anon-inode-baseline-refusals
   generic-eventfd-counter
   generic-eventfd-counter-refusals
   generic-epoll-eventfd-watch
+  generic-epoll-timerfd-watch
   generic-epoll-eventfd-watch-refusals
+  generic-timerfd-relative-oneshot
+  generic-timerfd-relative-oneshot-refusals
+  generic-signalfd-signal-state-refusals
   generic-pty-transcript-probe
   generic-pty-terminal-refusals
   generic-unsupported-resource-refusals
@@ -9534,7 +13895,9 @@ PROOF_NAMES=(
   unsupported-pipe-graph-refusal
   tail-grep-pipeline
   reader-cat
+  reader-cat-live-generic-primary-marker
   grep
+  grep-live-generic-primary-marker
   watch
   shell
   python-http
@@ -9544,14 +13907,29 @@ PROOF_NAMES=(
   timeout-python-http-directory
   unsafe-timeout-refusal
   busybox-httpd
+  busybox-httpd-live-generic-primary-marker
+  unsafe-busybox-httpd-refusal
   nc-listener
   unsafe-nc-active-refusal
   busybox-nc-listener
+  busybox-nc-listener-live-generic-primary-marker
   unsafe-busybox-nc-refusal
   socat-file-responder
+  socat-file-responder-live-generic-primary-marker
   unsafe-socat-file-responder-refusal
   redis-idle
   unsafe-redis-idle-refusal
+  generic-service-redis-idle-parity
+  generic-database-data-dir-refusals
+  generic-same-arch-modeled-continuation
+  generic-same-arch-continuation-refusals
+  generic-cross-arch-semantic-reconstruction
+  generic-cross-arch-semantic-refusals
+  redis-live-generic-primary-marker
+  redis-live-nonempty-marker-refusal
+  generic-service-nginx-static-parity
+  nginx-live-generic-primary-marker
+  service-managed-child-worker-refusal
   postgres-idle-cluster
   postgres-refusal
   unsafe-postgres-cluster-refusal
@@ -9559,13 +13937,28 @@ PROOF_NAMES=(
   unsafe-nginx-static-refusal
   caddy-static
   unsafe-caddy-static-refusal
+  generic-service-caddy-static-parity
+  caddy-live-generic-primary-marker
+  caddy-live-reverse-proxy-marker-refusal
   ruby-http
   unsafe-ruby-http-refusal
+  generic-service-ruby-http-parity
+  ruby-live-generic-primary-marker
+  ruby-live-runtime-marker-refusal
   php-static
   unsafe-php-static-refusal
+  php-live-stdio-log-fd-refusal
+  php-live-zend-semaphore-refusal
+  php-live-socket-fd-refusal
   generic-service-php-static-parity
   rsync-daemon
   unsafe-rsync-daemon-refusal
+  generic-service-rsync-daemon-parity
+  rsync-live-generic-primary-marker
+  rsync-live-write-marker-refusal
+  service-config-drift-refusal
+  service-target-package-missing-normalization
+  service-per-service-drift-refusals
   python-http-active-refusal
   python-http-explicit-bind-refusal
   python-http-cgi-refusal
@@ -9573,11 +13966,14 @@ PROOF_NAMES=(
   python-http-port-conflict-refusal
   python-http-package-mismatch-refusal
   go-static-http
+  go-static-http-live-generic-primary-marker
   go-extra-socket-refusal
   rust-static-http
+  rust-static-http-live-generic-primary-marker
   python-static-route
   python-unmarked-flask-refusal
   node-static-http
+  node-static-http-live-generic-primary-marker
   node-static-argv-http
   node-active-refusal
   node-timer-refusal
@@ -9588,6 +13984,7 @@ PROOF_NAMES=(
 PROOF_LABELS=(
   "sleep"
   "tail"
+  "tail live generic primary marker"
   "find cursor"
   "complex find refusal"
   "tar create"
@@ -9685,9 +14082,16 @@ PROOF_LABELS=(
   "dd offset"
   "unsafe dd refusal"
   "generic yes loop"
+  "generic two-process pipe reexec"
+  "generic finite pipe buffer replay"
+  "generic stdio pipe product marker"
   "generic finite pipe replay"
   "generic long-running pipe pair"
   "generic pipe stdio refusals"
+  "generic multi-process pipe refusals"
+  "generic process-tree refusals"
+  "generic service process-tree prefork"
+  "generic service process-tree refusals"
   "generic static http daemon"
   "generic interpreted server"
   "generic file-backed worker"
@@ -9704,17 +14108,30 @@ PROOF_LABELS=(
   "generic append-only file cursor refusal"
   "generic append log unsupported flags refusal"
   "generic append log fanotify refusal"
+  "generic file lock advisory"
   "generic file lock refusal"
+  "generic file lock refusals"
   "generic mmap file refusal"
+  "generic inotify file follow"
+  "generic inotify fanotify refusals"
   "generic inotify file refusal"
+  "generic mmap file-backed clean"
+  "generic mmap dirty refusals"
   "generic unix socket baseline refusals"
   "generic unix pathname listener"
+  "generic unix pathname client pair"
+  "generic unix socket wave2 refusals"
+  "unix pathname listener live generic primary marker"
   "generic unix pathname listener refusals"
   "generic anon-inode baseline refusals"
   "generic eventfd counter"
   "generic eventfd counter refusals"
   "generic epoll eventfd watch"
+  "generic epoll timerfd watch"
   "generic epoll eventfd watch refusals"
+  "generic timerfd relative oneshot"
+  "generic timerfd relative oneshot refusals"
+  "generic signalfd signal-state refusals"
   "generic pty transcript probe"
   "generic pty terminal refusals"
   "generic unsupported resource refusals"
@@ -9722,7 +14139,9 @@ PROOF_LABELS=(
   "unsupported pipe graph refusal"
   "tail-grep pipeline"
   "reader"
+  "reader live generic primary marker"
   "grep"
+  "grep live generic primary marker"
   "watch"
   "shell"
   "http"
@@ -9732,14 +14151,29 @@ PROOF_LABELS=(
   "timeout http directory"
   "unsafe timeout refusal"
   "busybox httpd"
+  "busybox httpd live generic primary marker"
+  "unsafe busybox httpd refusal"
   "nc listener"
   "unsafe nc active refusal"
   "busybox nc listener"
+  "busybox nc listener live generic primary marker"
   "unsafe busybox nc refusal"
   "socat file responder"
+  "socat file responder live generic primary marker"
   "unsafe socat file responder refusal"
   "redis idle"
   "unsafe redis idle refusal"
+  "generic service redis idle parity"
+  "generic database data-dir refusals"
+  "generic same-arch modeled continuation"
+  "generic same-arch continuation refusals"
+  "generic cross-arch semantic reconstruction"
+  "generic cross-arch semantic refusals"
+  "redis live generic primary marker"
+  "redis live nonempty marker refusal"
+  "generic service nginx static parity"
+  "nginx live generic primary marker"
+  "service managed child worker refusal"
   "postgres idle cluster"
   "postgres refusal"
   "unsafe postgres cluster refusal"
@@ -9747,13 +14181,28 @@ PROOF_LABELS=(
   "unsafe nginx static refusal"
   "caddy static"
   "unsafe caddy static refusal"
+  "generic service caddy static parity"
+  "caddy live generic primary marker"
+  "caddy live reverse proxy marker refusal"
   "ruby http"
   "unsafe ruby http refusal"
+  "generic service ruby http parity"
+  "ruby live generic primary marker"
+  "ruby live runtime marker refusal"
   "php static"
   "unsafe php static refusal"
+  "php live stdio log fd refusal"
+  "php live zend semaphore refusal"
+  "php live socket fd refusal"
   "generic service php static parity"
   "rsync daemon"
   "unsafe rsync daemon refusal"
+  "generic service rsync daemon parity"
+  "rsync live generic primary marker"
+  "rsync live write marker refusal"
+  "service config drift refusal"
+  "service target package missing normalization"
+  "service per-service drift refusals"
   "http active request refusal"
   "http explicit bind refusal"
   "http cgi refusal"
@@ -9761,11 +14210,14 @@ PROOF_LABELS=(
   "http port conflict refusal"
   "http package mismatch refusal"
   "go static http"
+  "go static http live generic primary marker"
   "go extra socket refusal"
   "rust static http"
+  "rust static http live generic primary marker"
   "python static route"
   "python unmarked flask refusal"
   "node static http"
+  "node static http live generic primary marker"
   "node static argv http"
   "node active refusal"
   "node timer refusal"
@@ -9776,6 +14228,7 @@ PROOF_LABELS=(
 PROOF_FUNCS=(
   prove_sleep
   prove_tail
+  prove_tail_live_generic_primary_marker
   prove_find_cursor
   prove_complex_find_refusal
   prove_tar_create
@@ -9873,9 +14326,16 @@ PROOF_FUNCS=(
   prove_dd_offset
   prove_unsafe_dd_refusal
   prove_generic_yes_loop
+  prove_generic_two_process_pipe_reexec
+  prove_generic_finite_pipe_buffer_replay
+  prove_generic_stdio_pipe_product_marker
   prove_generic_finite_pipe_replay
   prove_generic_long_running_pipe_pair
   prove_generic_pipe_stdio_refusals
+  prove_generic_multi_process_pipe_refusals
+  prove_generic_process_tree_refusals
+  prove_generic_service_process_tree_prefork
+  prove_generic_service_process_tree_refusals
   prove_generic_static_http_daemon
   prove_generic_interpreted_server
   prove_generic_file_backed_worker
@@ -9892,17 +14352,30 @@ PROOF_FUNCS=(
   prove_generic_append_only_file_cursor_refusal
   prove_generic_append_log_unsupported_flags_refusal
   prove_generic_append_log_fanotify_refusal
+  prove_generic_file_lock_advisory
   prove_generic_file_lock_refusal
+  prove_generic_file_lock_refusals
   prove_generic_mmap_file_refusal
+  prove_generic_inotify_file_follow
+  prove_generic_inotify_fanotify_refusals
   prove_generic_inotify_file_refusal
+  prove_generic_mmap_file_backed_clean
+  prove_generic_mmap_dirty_refusals
   prove_generic_unix_socket_baseline_refusals
   prove_generic_unix_pathname_listener
+  prove_generic_unix_pathname_client_pair
+  prove_generic_unix_socket_wave2_refusals
+  prove_unix_pathname_listener_live_generic_primary_marker
   prove_generic_unix_pathname_listener_refusals
   prove_generic_anon_inode_baseline_refusals
   prove_generic_eventfd_counter
   prove_generic_eventfd_counter_refusals
   prove_generic_epoll_eventfd_watch
+  prove_generic_epoll_timerfd_watch
   prove_generic_epoll_eventfd_watch_refusals
+  prove_generic_timerfd_relative_oneshot
+  prove_generic_timerfd_relative_oneshot_refusals
+  prove_generic_signalfd_signal_state_refusals
   prove_generic_pty_transcript_probe
   prove_generic_pty_terminal_refusals
   prove_generic_unsupported_resource_refusals
@@ -9910,7 +14383,9 @@ PROOF_FUNCS=(
   prove_unsupported_pipe_graph_refusal
   prove_tail_grep_pipeline
   prove_reader
+  prove_reader_cat_live_generic_primary_marker
   prove_grep
+  prove_grep_live_generic_primary_marker
   prove_watch
   prove_shell
   prove_http
@@ -9920,14 +14395,29 @@ PROOF_FUNCS=(
   prove_timeout_http_directory
   prove_unsafe_timeout_refusal
   prove_busybox_httpd
+  prove_busybox_httpd_live_generic_primary_marker
+  prove_unsafe_busybox_httpd_refusal
   prove_nc_listener
   prove_unsafe_nc_active_refusal
   prove_busybox_nc_listener
+  prove_busybox_nc_listener_live_generic_primary_marker
   prove_unsafe_busybox_nc_refusal
   prove_socat_file_responder
+  prove_socat_file_responder_live_generic_primary_marker
   prove_unsafe_socat_file_responder_refusal
   prove_redis_idle
   prove_unsafe_redis_idle_refusal
+  prove_generic_service_redis_idle_parity
+  prove_generic_database_data_dir_refusals
+  prove_generic_same_arch_modeled_continuation
+  prove_generic_same_arch_continuation_refusals
+  prove_generic_cross_arch_semantic_reconstruction
+  prove_generic_cross_arch_semantic_refusals
+  prove_redis_live_generic_primary_marker
+  prove_redis_live_nonempty_marker_refusal
+  prove_generic_service_nginx_static_parity
+  prove_nginx_live_generic_primary_marker
+  prove_service_managed_child_worker_refusal
   prove_postgres_idle_cluster
   prove_postgres_refusal
   prove_unsafe_postgres_cluster_refusal
@@ -9935,13 +14425,28 @@ PROOF_FUNCS=(
   prove_unsafe_nginx_static_refusal
   prove_caddy_static
   prove_unsafe_caddy_static_refusal
+  prove_generic_service_caddy_static_parity
+  prove_caddy_live_generic_primary_marker
+  prove_caddy_live_reverse_proxy_marker_refusal
   prove_ruby_http
   prove_unsafe_ruby_http_refusal
+  prove_generic_service_ruby_http_parity
+  prove_ruby_live_generic_primary_marker
+  prove_ruby_live_runtime_marker_refusal
   prove_php_static
   prove_unsafe_php_static_refusal
+  prove_php_live_stdio_log_fd_refusal
+  prove_php_live_zend_semaphore_refusal
+  prove_php_live_socket_fd_refusal
   prove_generic_service_php_static_parity
   prove_rsync_daemon
   prove_unsafe_rsync_daemon_refusal
+  prove_generic_service_rsync_daemon_parity
+  prove_rsync_live_generic_primary_marker
+  prove_rsync_live_write_marker_refusal
+  prove_service_config_drift_refusal
+  prove_service_target_package_missing_normalization
+  prove_service_per_service_drift_refusals
   prove_http_active_request_refusal
   prove_http_explicit_bind_refusal
   prove_http_cgi_refusal
@@ -9949,11 +14454,14 @@ PROOF_FUNCS=(
   prove_http_port_conflict_refusal
   prove_http_package_mismatch_refusal
   prove_go_static_http
+  prove_go_static_http_live_generic_primary_marker
   prove_go_extra_socket_refusal
   prove_rust_static_http
+  prove_rust_static_http_live_generic_primary_marker
   prove_python_static_route
   prove_python_unmarked_flask_refusal
   prove_node_static_http
+  prove_node_static_http_live_generic_primary_marker
   prove_node_static_argv_http
   prove_node_active_refusal
   prove_node_timer_refusal

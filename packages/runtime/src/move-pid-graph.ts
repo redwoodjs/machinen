@@ -53,6 +53,43 @@ export interface MovePidGraph {
   refusedStateClasses: MoveRefusalEvidence[];
 }
 
+/**
+ * Generic resource graph evidence for `machinen move`.
+ *
+ * Product support is intentionally narrower than the full proof matrix. The
+ * first user-facing product path is `generic-stdio-pipe-product-marker`: an
+ * exact modeled finite stdio pipe graph with
+ * `migration.productPath.kind="exact-live-capture"`, support proof
+ * `generic-finite-pipe-buffer-replay`, refusal proof
+ * `generic-pipe-stdio-refusals`, and `refusalClasses=[]`.
+ *
+ * Wave 2 adds only five more exact live-capture product markers:
+ * `unix-pathname-listener-live-generic-primary-marker`,
+ * `reader-cat-live-generic-primary-marker`,
+ * `grep-live-generic-primary-marker`,
+ * `busybox-nc-listener-live-generic-primary-marker`, and
+ * `socat-file-responder-live-generic-primary-marker`. Their support/refusal
+ * proof names are `generic-unix-pathname-listener`,
+ * `generic-unix-pathname-listener-refusals`, `reader-cat`,
+ * `generic-stale-file-identity-refusal`, `generic-deleted-file-fd-refusal`,
+ * `generic-writable-file-cursor-refusal`, `grep`,
+ * `generic-pipe-stdio-refusals`, `busybox-nc-listener`,
+ * `unsafe-busybox-nc-refusal`, `unsafe-nc-active-refusal`,
+ * `generic-loader-preflight-refusals`, `socat-file-responder`, and
+ * `unsafe-socat-file-responder-refusal`. Wave-2 public support requires
+ * `observedGraph="exact-live-resource-graph"`, `refusalClasses=[]`, retained
+ * artifacts for the 19-row plan in
+ * `scripts/smoke/move-envelope-productization-wave2-plan.json`, and the
+ * release validation profile
+ * `scripts/smoke/move-envelope-productization-wave2-validation-profile.json`.
+ *
+ * Proof-only same-arch continuation, proof-only cross-arch semantic
+ * reconstruction, descriptor harnesses, Redis/database/service rows, active
+ * sessions, source-fd teleportation, source-ISA emulation, metadata-only
+ * success, runtime-profile shortcuts, broad daemon/database migration, and
+ * arbitrary process restore are not product support. In short: no arbitrary
+ * process restore.
+ */
 export interface MoveGenericResourceGraphState {
   policy: "generic-resource-graph-target-native-reexec-v1";
   migration?: {
@@ -61,6 +98,14 @@ export interface MoveGenericResourceGraphState {
     genericProofName: string;
     fallbackPolicy: string;
     boundary: string;
+    productPath?: {
+      kind: "exact-live-capture";
+      markerProofName: string;
+      supportProofName: string;
+      refusalProofNames: string[];
+      driftRefusalProofNames?: string[];
+      observedGraph: "exact-single-process-service" | "exact-live-resource-graph";
+    };
   };
   executableIdentity: {
     path: string;
@@ -152,6 +197,22 @@ export interface MoveGenericResourceGraphState {
     offset: number;
     policy: "absolute-offset" | "refused-if-nonzero";
   }>;
+  fileLocks?: Array<{
+    fd?: number;
+    path: string;
+    lockType: "flock" | "posix" | "ofd";
+    mode: "shared" | "exclusive";
+    range: { start: number; length: number | "eof" };
+    owner: { pid?: number; policy: "target-process" | "refused-unknown-owner" };
+    fileIdentity: {
+      dev?: number;
+      inode?: number;
+      size: number;
+      sha256: string;
+    };
+    conflictPolicy: "must-acquire-nonblocking-before-launch";
+    support: "target-native-advisory-lock" | "refused-baseline";
+  }>;
   stdioPolicy:
     | "stdio-dev-null-or-closed"
     | "stdio-inherited-noninteractive"
@@ -225,8 +286,151 @@ export interface MoveGenericResourceGraphState {
       oneShot: boolean;
       watchedResourceClass: string;
     }>;
-    support: "refused-baseline" | "target-native-eventfd-watch";
+    support: "refused-baseline" | "target-native-eventfd-watch" | "target-native-timerfd-watch";
   }>;
+  timers?: Array<{
+    fd: number;
+    path: "anon_inode:[timerfd]";
+    fdinfoFlags?: string;
+    flags: string[];
+    clockId: number | "unknown";
+    ticks: string;
+    settimeFlags: number | "unknown";
+    valueSeconds: number;
+    valueNanoseconds: number;
+    intervalSeconds: number;
+    intervalNanoseconds: number;
+    restartPolicy: "monotonic-relative-oneshot-target-native" | "refused-baseline";
+    boundedSkewMilliseconds: number;
+    support: "refused-baseline" | "target-native-relative-oneshot";
+  }>;
+  signalState?: {
+    sessionId?: number;
+    processGroupId?: number;
+    pendingMaskHex: string;
+    sharedPendingMaskHex: string;
+    blockedMaskHex: string;
+    ignoredMaskHex: string;
+    caughtMaskHex: string;
+    dispositionPolicy: "recorded-default-ignored-caught-masks";
+    pendingPolicy: "refuse-nonzero-pending";
+    processGroupPolicy: "single-process-group" | "refused-ambiguous-process-group";
+    support: "refused-baseline";
+  };
+  signalfds?: Array<{
+    fd: number;
+    path: "anon_inode:[signalfd]";
+    fdinfoFlags?: string;
+    flags: string[];
+    sigmask: string;
+    support: "refused-baseline";
+  }>;
+  inotifyWatches?: Array<{
+    fd: number;
+    path: "anon_inode:[inotify]";
+    fdinfoFlags?: string;
+    flags: string[];
+    watches: Array<{
+      wd: number;
+      path: string;
+      mask: string;
+      ignoredMask: string;
+      fileIdentity: { size: number; sha256: string };
+      eventPolicy: "future-events-only-no-queue-replay" | "refused-baseline";
+    }>;
+    eventPolicy: "future-events-only-no-queue-replay" | "refused-baseline";
+    support: "refused-baseline" | "target-native-file-follow";
+  }>;
+  mmapMappings?: Array<{
+    fd?: number;
+    path: string;
+    offset: number;
+    length: number;
+    permissions: "r--" | "rw-" | "r-x";
+    sharing: "private" | "shared";
+    fileIdentity: { size: number; sha256: string };
+    dirtyPolicy: "clean-file-backed" | "refused-dirty";
+    support: "refused-baseline" | "target-native-file-backed-clean";
+  }>;
+  crossArchSemanticReconstruction?: {
+    support: "proof-only-target-native-semantic-reconstruction" | "refused-baseline";
+    sourceArch: string;
+    targetArch: string;
+    semanticDescriptor: {
+      kind: "finite-byte-stream-transform";
+      operation: "uppercase" | "refused";
+      descriptorSha256: string;
+      inputSha256: string;
+      sourceRegistersPresent: boolean;
+      sourceIsaStatePresent: boolean;
+      metadataOnlySuccess: boolean;
+    };
+    resourceGraph: {
+      allObservedResourceClassesModeled: boolean;
+      modeledClasses: string[];
+    };
+    targetNativeTool: {
+      path: string;
+      argv: string[];
+      observedArch: string;
+      status: "completed" | "refused";
+    };
+    continuationEvidence: {
+      stdout: string;
+      stdoutSha256: string;
+      targetNativeExecution: boolean;
+      sourceIsaEmulationUsed: boolean;
+      sidecarRuntimeUsed: boolean;
+    };
+  };
+  sameArchContinuation?: {
+    support: "proof-only-single-thread-target-native-resume-harness" | "refused-baseline";
+    sourceArch: string;
+    targetArch: string;
+    thread: {
+      id: string;
+      state: "frozen-ptrace-stop-proof-fixture" | "refused";
+      singleThread: boolean;
+      registers: Record<string, string>;
+    };
+    stack: {
+      policy: "single-stack-window-modeled" | "refused";
+      base: string;
+      stackPointer: string;
+      returnAddress: string;
+      materialization: "target-native-call-stack" | "refused";
+    };
+    memoryMappings: Array<{
+      id: string;
+      sourceStart: string;
+      targetEntry: string;
+      permissions: "r-x" | "r--" | "rw-";
+      bytesSha256: string;
+      sizeBytes: number;
+    }>;
+    fdGraph: {
+      policy: "all-observed-fds-modeled" | "refused";
+      observedFds: number[];
+      compatibility: string;
+    };
+    resourceGraph: {
+      allObservedResourceClassesModeled: boolean;
+      modeledClasses: string[];
+    };
+    resume: {
+      arch: string;
+      status: "returned" | "refused";
+      inputRegister: string;
+      inputValue: number;
+      returnRegister: string;
+      returnValue: number;
+      targetNativeCodeBytesSha256: string;
+      mappedExecutableBytes: number;
+      sourceIsaEmulationUsed: boolean;
+      sidecarRuntimeUsed: boolean;
+      entryHex: string;
+    };
+  };
   ptys?: Array<{
     fd: number;
     path: string;
@@ -413,6 +617,7 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
       busyboxHttpState?: {
         port: number;
         root: string;
+        bindAddress?: "127.0.0.1";
         capturedAt?: string;
       };
       ncState?: {

@@ -633,6 +633,22 @@ describe("move envelope capture helpers", () => {
     });
   });
 
+  it("captures busybox httpd with explicit loopback bind, port, and root", () => {
+    expect(
+      readMoveBusyboxHttpState(
+        {
+          ...busyboxHttpNode(),
+          argv: ["busybox", "httpd", "-f", "-p", "127.0.0.1:8134", "-h", "/tmp/busybox-web"],
+        },
+        httpResourcePlan(1),
+      ),
+    ).toMatchObject({
+      port: 8134,
+      root: "/tmp/busybox-web",
+      bindAddress: "127.0.0.1",
+    });
+  });
+
   it("captures python http server with explicit directory", () => {
     expect(readMoveHttpState(httpDirectoryNode(), httpResourcePlan(1))).toMatchObject({
       executable: "python3",

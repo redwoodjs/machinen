@@ -46,6 +46,11 @@ export function genericMigrationWave2(
         "bespoke python-http-directory loader remains available for out-of-contract shapes",
       boundary:
         "exact directory HTTP shape with stable cwd/data-dir identity, idle loopback listener, and no active clients",
+      productPath: exactLiveProductPath(
+        "python-http-directory",
+        "generic-static-http-daemon",
+        "exact-live-resource-graph",
+      ),
     };
   }
   if (
@@ -58,9 +63,28 @@ export function genericMigrationWave2(
       genericProofName: "generic-interpreted-server",
       fallbackPolicy: "bespoke nc-listener loader remains available for out-of-contract shapes",
       boundary: "exact idle loopback nc listener shape with no active clients",
+      productPath: exactLiveProductPath(
+        "nc-listener",
+        "generic-interpreted-server",
+        "exact-live-resource-graph",
+      ),
     };
   }
   return undefined;
+}
+
+function exactLiveProductPath(
+  sourceProofName: string,
+  genericProofName: string,
+  observedGraph: "exact-single-process-service" | "exact-live-resource-graph",
+): NonNullable<NonNullable<GenericState>["migration"]>["productPath"] {
+  return {
+    kind: "exact-live-capture",
+    markerProofName: sourceProofName,
+    supportProofName: genericProofName,
+    refusalProofNames: [`${sourceProofName}-refusal-boundary`],
+    observedGraph,
+  };
 }
 
 function hasDirectoryIdentity(

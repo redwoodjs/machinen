@@ -385,6 +385,28 @@ function anonInodeRecipe(
       epollWatchedFds: (fd.fdinfo ?? []).flatMap(epollWatchFromFdinfo),
     };
   }
+  if (kind === "timer") {
+    const value = timerfdPair(fdinfoValue(fd, "it_value"));
+    const interval = timerfdPair(fdinfoValue(fd, "it_interval"));
+    return {
+      timerfdModel: "descriptor-v1",
+      timerfdClockId: decimalFdinfoValue(fd, "clockid"),
+      timerfdTicks: fdinfoValue(fd, "ticks") ?? "unknown",
+      timerfdSettimeFlags: decimalFdinfoValue(fd, "settime flags"),
+      timerfdValueSeconds: value?.seconds,
+      timerfdValueNanoseconds: value?.nanoseconds,
+      timerfdIntervalSeconds: interval?.seconds,
+      timerfdIntervalNanoseconds: interval?.nanoseconds,
+      fdinfoFlags: fdinfoValue(fd, "flags"),
+    };
+  }
+  if (kind === "signalfd") {
+    return {
+      signalfdModel: "refused-signal-state-v1",
+      signalfdSigmask: fdinfoValue(fd, "sigmask") ?? "unknown",
+      fdinfoFlags: fdinfoValue(fd, "flags"),
+    };
+  }
   return undefined;
 }
 
@@ -394,6 +416,21 @@ function fdinfoValue(fd: GuestMoveFd, key: string): string | undefined {
     ?.find((line) => line.startsWith(prefix))
     ?.slice(prefix.length)
     .trim();
+}
+
+function decimalFdinfoValue(fd: GuestMoveFd, key: string): number | undefined {
+  const value = fdinfoValue(fd, key);
+  return value && /^\d+$/.test(value) ? Number(value) : undefined;
+}
+
+function timerfdPair(
+  value: string | undefined,
+): { seconds: number; nanoseconds: number } | undefined {
+  const match = value?.match(/^\(?\s*(\d+)\s*,\s*(\d+)\s*\)?$/);
+  if (!match) {
+    return undefined;
+  }
+  return { seconds: Number(match[1]), nanoseconds: Number(match[2]) };
 }
 
 function epollWatchFromFdinfo(

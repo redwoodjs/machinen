@@ -1,0 +1,68 @@
+{
+  "name": "generic-resource-graph-productization-wave2",
+  "description": "Retained-artifact coverage plan for the wave-2 promote-now generic resource graph subset. This plan covers only the five exact-live rows selected by docs/snapshot/generic-resource-graph-productization-wave2-subset.json plus their support and refusal evidence. Rows blocked by tree identity, service safety, session state, or missing product/refusal evidence remain deferred.",
+  "expectedProofs": [
+    "unix-pathname-listener-live-generic-primary-marker",
+    "generic-unix-pathname-listener",
+    "generic-unix-pathname-listener-refusals",
+    "reader-cat-live-generic-primary-marker",
+    "reader-cat",
+    "generic-stale-file-identity-refusal",
+    "generic-deleted-file-fd-refusal",
+    "generic-writable-file-cursor-refusal",
+    "grep-live-generic-primary-marker",
+    "grep",
+    "generic-pipe-stdio-refusals",
+    "busybox-nc-listener-live-generic-primary-marker",
+    "busybox-nc-listener",
+    "unsafe-busybox-nc-refusal",
+    "unsafe-nc-active-refusal",
+    "generic-loader-preflight-refusals",
+    "socat-file-responder-live-generic-primary-marker",
+    "socat-file-responder",
+    "unsafe-socat-file-responder-refusal"
+  ],
+  "chunks": [
+    {
+      "name": "unix-pathname-listener-product-path",
+      "proofs": [
+        "unix-pathname-listener-live-generic-primary-marker",
+        "generic-unix-pathname-listener",
+        "generic-unix-pathname-listener-refusals"
+      ]
+    },
+    {
+      "name": "readonly-file-command-product-paths",
+      "proofs": [
+        "reader-cat-live-generic-primary-marker",
+        "reader-cat",
+        "grep-live-generic-primary-marker",
+        "grep",
+        "generic-stale-file-identity-refusal",
+        "generic-deleted-file-fd-refusal",
+        "generic-writable-file-cursor-refusal",
+        "generic-pipe-stdio-refusals"
+      ]
+    },
+    {
+      "name": "idle-loopback-listener-product-paths",
+      "proofs": [
+        "busybox-nc-listener-live-generic-primary-marker",
+        "busybox-nc-listener",
+        "unsafe-busybox-nc-refusal",
+        "unsafe-nc-active-refusal",
+        "socat-file-responder-live-generic-primary-marker",
+        "socat-file-responder",
+        "unsafe-socat-file-responder-refusal",
+        "generic-loader-preflight-refusals"
+      ]
+    }
+  ],
+  "nonClaims": [
+    "Wave 2 does not add arbitrary process restore support.",
+    "Wave 2 does not add any-binary movement support.",
+    "Wave 2 does not add broad daemon, service, or database migration support.",
+    "Wave 2 does not add active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or runtime-profile shortcuts.",
+    "Tree-identity-blocked static HTTP rows, service-safety-blocked rows, session-state-blocked rows, proof-only continuation rows, cross-arch semantic reconstruction rows, proof images, and descriptor harnesses remain outside this wave-2 product subset."
+  ]
+}

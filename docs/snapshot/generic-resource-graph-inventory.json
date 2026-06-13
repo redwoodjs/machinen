@@ -4,17 +4,49 @@
   "goal": "Map existing proven move proof rows to normalized resource classes so generic resource graph support is grounded in graduated envelope behavior.",
   "resourceClasses": {
     "processIdentity": "Executable path/package/content identity and target-native executable policy.",
+    "targetPackageIdentity": "Target-native package or executable identity required before service reexec.",
+    "targetPackageMissing": "Missing target-native package or executable is refused before service target launch.",
     "argvEnvCwd": "Argument vector, environment policy, current working directory, and safe path shape.",
     "regularFileIdentity": "Regular non-symlink file identity such as size and sha256.",
     "directoryIdentity": "Directory or tree identity with symlink policy, ordering policy, and digest evidence.",
     "filesystemMutation": "Target filesystem precondition plus deterministic mutation and postcondition.",
-    "atomicOutput": "Output can be recreated atomically rather than continuing a partial write.",
+    "atomicOutput": "Output can be recreated atomically by target-native execution rather than continuing a partial write.",
     "archiveMemberPolicy": "Archive member names, metadata, overwrite, symlink, hardlink, and traversal policy.",
     "loopbackTcpListener": "Loopback listener identity and target port availability.",
     "noActiveClients": "Evidence that a listener has no active client/request/session that must be preserved.",
     "serviceConfigIdentity": "Daemon config or module identity for target-native restart.",
+    "serviceConfigDrift": "Daemon config, argv contract, module config sha, or equivalent service config identity changed and is refused before target continuation.",
     "dataDirIdentity": "Mutable directory tree identity, ownership/mode, and symlink policy.",
-    "databaseSafety": "Database-specific WAL/checkpoint/feature gates that can later become generic data-dir safety sub-classes.",
+    "databaseSafety": "Database-specific WAL/checkpoint/feature gates required before target-native data-dir safety support or fail-closed refusal.",
+    "databaseWalAmbiguity": "Database WAL or checkpoint history ambiguity is refused until log ordering, replay, and checkpoint reconciliation semantics are modeled.",
+    "databaseActiveWriter": "Active database writers or dirty mutable data-dir state are refused until quiescence and write ordering are modeled.",
+    "databaseFileLock": "Database data-dir locks, leases, or lock-owner state are refused outside exact modeled lock/database ownership semantics.",
+    "databaseNonEmptyPersistence": "Non-empty persistent database datasets without database-specific semantics are refused; empty/no-persistence proof rows do not migrate data.",
+    "databaseDirtyCheckpoint": "Dirty checkpoints or unclean shutdown evidence are refused until checkpoint recovery/replay policy is modeled.",
+    "dataDirOwnershipModeChanged": "Changed target data-dir ownership or mode policy refuses before target continuation.",
+    "dataDirSymlinkHazard": "Data-dir symlinks or path escapes are refused until safe traversal and identity semantics are modeled.",
+    "databaseServiceSpecificUnsafe": "Service-specific database features such as auth, modules, replication, or config side effects remain refused outside exact rows.",
+    "sameArchNativeResume": "Proof-only same-architecture target-native execution/resume evidence for one single-thread modeled code shape with no source-ISA emulation.",
+    "frozenThreadState": "Frozen single-thread state evidence including stop policy and modeled register bank before same-arch continuation.",
+    "registerStackMemoryEvidence": "Register bank, stack window, executable memory mapping, and target entry evidence required before same-arch continuation can be claimed.",
+    "fdResourceGraphCompatibility": "All observed fd/resource classes are modeled or refused before same-arch continuation; no source fd teleportation is implied.",
+    "sameArchActiveSyscallRefusal": "Same-architecture continuation refuses active in-kernel syscall state until synthetic return/resource readiness semantics are modeled.",
+    "sameArchMultiThreadRefusal": "Same-architecture continuation refuses multiple threads until scheduler, TLS, futex, signal, and target thread-start semantics are proven.",
+    "sameArchUnsupportedMapping": "Same-architecture continuation refuses unsupported memory mappings such as dirty anonymous, writable executable, unbounded, or identity-unknown mappings.",
+    "sameArchRuntimeHeapRefusal": "Runtime heap assumptions and runtime-profile shortcuts are refused for same-arch continuation; modeled native resources are required instead.",
+    "sameArchSignalStateRefusal": "Same-architecture continuation refuses pending signals, caught handlers, and process-group/session ambiguity until exact signal semantics are modeled.",
+    "sameArchFdRefusal": "Same-architecture continuation refuses unsupported file descriptors and runtime-owned fds rather than teleporting source fd state.",
+    "sameArchResourceGraphGap": "Same-architecture continuation refuses when any observed resource class is missing from the descriptor/resource graph.",
+    "crossArchSemanticDescriptor": "Cross-architecture support uses semantic descriptors, not source registers, source stacks, or source-ISA process state.",
+    "crossArchTargetNativeTool": "Target continuation evidence must come from a target-native binary or proof-provisioned target-native tool on the target architecture.",
+    "crossArchSemanticReconstruction": "Proof-only cross-architecture semantic reconstruction for one exact finite byte-stream transform with target-visible output and no source-ISA execution.",
+    "crossArchMetadataOnlyRefusal": "Cross-architecture metadata-only success is refused unless target-native execution produces visible continuation evidence.",
+    "crossArchSourceIsaEmulationRefusal": "Cross-architecture source-ISA emulation or source ISA execution requests are refused before target launch.",
+    "crossArchRuntimeProfileShortcutRefusal": "Cross-architecture runtime-profile shortcuts are refused; support must come from exact semantic/resource descriptors and target-native tools.",
+    "crossArchArbitraryElfProcessRefusal": "Arbitrary ELF/process movement claims are refused without exact semantic descriptors and modeled dependencies.",
+    "crossArchUnsupportedResourceDescriptor": "Unsupported cross-architecture resource descriptors are refused until target-native semantic reconstruction exists for that resource class.",
+    "crossArchMissingTargetNativeBinary": "Missing target-native binaries or tools refuse instead of falling back to sidecars, source ISA execution, or metadata-only success.",
+    "crossArchIncompleteDependencyGraph": "Incomplete cross-architecture dependency/resource graphs are refused before target launch.",
     "healthProbe": "Target-side command, process, TCP, HTTP, or protocol evidence after launch.",
     "unsupportedResourceRefusal": "Known unsupported resource class produces fail-closed evidence before target launch or with targetPid=null.",
     "runtimeSpecificRefusal": "Runtime or framework-specific state is explicitly refused until a generic resource model exists.",
@@ -29,26 +61,95 @@
     "terminalWindowSize": "Unknown or unsupported terminal window-size transitions are refused until winsize capture/replay policy is explicit.",
     "regularFileCursor": "Read-only regular-file descriptor cursor identity with dev/inode/mtime/hash and target-side offset reconstruction.",
     "appendFileCursorRefusal": "Unsafe append-only regular-file fd candidates are identified and refused when the fd is not at EOF, target identity changed, flags are unsupported, or lock/mmap/inotify/fanotify/concurrent-writer interactions are present.",
+    "fileLockAdvisory": "Proof-only target-native reacquisition of one exact flock whole-file advisory lock with path/file identity, owner policy, and nonblocking conflict probe evidence before launch; not broad lock migration.",
+    "fileLockConflict": "Target lock conflict refuses with targetPid=null before continuation is accepted.",
+    "fileLockBackingChanged": "Changed target lock backing file identity refuses before target pid.",
+    "fileLockUnknownOwner": "File locks with unknown owners are refused until owner identity can be reconstructed exactly.",
+    "fileLockMandatory": "Mandatory locks are refused until mandatory-lock semantics and enforcement policy are modeled.",
+    "fileLockLease": "File leases are refused until lease break, signal, and owner semantics are modeled.",
+    "fileLockNonseekable": "Nonseekable or invalid lock offsets/ranges are refused until range semantics are modeled.",
+    "fileLockUnsupportedType": "Unsupported lock types such as POSIX/OFD variants remain refused outside the exact flock proof row.",
+    "fileLockCrossProcessOwner": "Cross-process lock ownership is refused until the owning process graph and lock ownership transfer are modeled.",
     "unixSocketRefusal": "Unix domain socket shapes are classified and refused until pathname listener and related socket contracts graduate.",
     "anonInodeRefusal": "Anon-inode resources such as eventfd, epoll, timerfd, signalfd, inotify, fanotify, and io_uring are classified and refused until explicit contracts graduate.",
+    "inotifyFileFollow": "Proof-only target-native reconstruction of one inotify IN_MODIFY watch on a stable regular file with file identity preflight and future-event-only target-visible follow evidence; queued events and broad watcher migration remain refused.",
+    "inotifyBaseline": "Inotify states outside the one-file future-event follow contract remain refused, including queued event replay and unsupported masks.",
+    "inotifyQueuedEvents": "Captured or unknown queued inotify events are refused until event ordering and replay semantics are modeled.",
+    "inotifyDroppedEvents": "Dropped or overflowed inotify event state is refused until loss accounting and recovery semantics are modeled.",
+    "inotifyDirectoryMutationRace": "Directory-tree mutation races under inotify watches are refused until directory event ordering and tree consistency are modeled.",
+    "inotifyRecursiveWatch": "Recursive or multi-watch inotify trees are refused until complete watch graph reconstruction is modeled.",
+    "inotifyWatchIdentityChanged": "Changed target watched-file identity refuses before target pid.",
+    "fanotifyPermissionEvent": "fanotify permission events and decision state are refused until permission-event replay/decision semantics are modeled.",
+    "inotifyUnsupportedMask": "Inotify masks outside the exact IN_MODIFY file-follow proof shape are refused until mask-specific semantics are modeled.",
+    "mmapFileBackedClean": "Proof-only target-native reconstruction of one clean file-backed read-only or clean MAP_SHARED mapping using path, offset, length, permissions, sharing, and file identity preflight with target-visible mapped bytes.",
+    "mmapFileBaseline": "mmap states outside the clean file-backed proof shape remain refused, including dirty pages, anonymous mappings, writable/executable mappings, truncation races, and changed backing files.",
+    "mmapDirtyShared": "Dirty MAP_SHARED file-backed mappings are refused until dirty range capture and backing file reconciliation are modeled.",
+    "mmapDirtyPrivate": "Dirty MAP_PRIVATE copy-on-write mappings are refused until private dirty page materialization is modeled.",
+    "mmapAnonymousDirty": "Anonymous dirty mappings are refused until memory capture and target materialization are modeled.",
+    "mmapWritableExecutable": "Writable/executable mapping hazards are refused until permissions, code identity, and W^X policy are modeled.",
+    "mmapTruncationRace": "Mappings with backing-file truncation or size races are refused until race-free identity and bounds policy are modeled.",
+    "mmapBackingChanged": "Changed target mmap backing file identity refuses before target pid.",
     "appendFileCursor": "Append-only regular-file descriptor continuation for exact O_APPEND log fds captured at EOF with portable size+sha256 identity preflight and target-visible append progress.",
     "unixSocketPathnameListener": "Narrow idle pathname Unix listener with stable filesystem socket path, no active clients, target path preflight, and Unix-connect health probe.",
-    "eventfdEpollBaseline": "Refusal-preserving eventfd/epoll descriptor evidence records eventfd counters and epoll watched fd metadata, trigger modes, one-shot state, and watched resource classes without accepting reconstruction.",
+    "eventfdEpollBaseline": "Refusal-preserving eventfd/epoll descriptor evidence records eventfd counters and epoll watched fd metadata, trigger modes, one-shot state, watched resource classes, unsupported flags, incompatible counters, and active-wait/runtime-loop ambiguity without accepting reconstruction.",
     "eventfdCounter": "Tiny target-native eventfd reconstruction for one normal-flag eventfd with a modeled counter and no active waiter or epoll/runtime-loop ambiguity.",
     "epollEventfdWatch": "Tiny target-native epoll reconstruction for one epoll set watching the supported eventfd with modeled level-trigger/no-one-shot semantics and no active loop ambiguity.",
+    "epollTimerfdWatch": "Tiny target-native epoll reconstruction for one epoll set watching the supported relative one-shot timerfd with modeled level-trigger/no-one-shot readiness and target-visible timer readiness evidence.",
+    "timerfdRelativeOneShot": "Tiny target-native timerfd reconstruction for one normal-flag CLOCK_MONOTONIC relative one-shot timer with captured remaining expiry, zero interval, no unread expirations, and bounded target firing skew evidence.",
+    "timerfdBaseline": "Timerfd variants outside the relative one-shot contract, including realtime, absolute, periodic, nonblocking, unread expiration, and active-wait ambiguity, remain refused.",
+    "signalMaskDispositionEvidence": "Signal masks, ignored/caught disposition bitmaps, pending masks, session, and process group evidence are recorded separately from fd resources for fail-closed signal-state decisions.",
+    "signalfdBaseline": "signalfd descriptors remain refused until signal mask, pending queue, delivery ordering, and target-side signalfd reconstruction semantics are modeled.",
+    "pendingSignalState": "Pending process/thread signal delivery is refused until queued delivery, ordering, and handler interaction semantics are modeled.",
+    "processGroupSignalAmbiguity": "Signal state depending on ambiguous process group/session membership is refused until exact group reconstruction is modeled.",
+    "runtimeManagedSignalTimer": "Runtime-managed signal timers such as setitimer/SIGALRM are refused until timer and signal delivery state are modeled together.",
+    "unknownSignalHandler": "Caught or application-installed signal handlers are refused until handler identity and target delivery policy are modeled.",
     "serviceStaticRoot": "Static service root identity for target-native static/read-only service restart.",
     "serviceReadOnlyData": "Read-only service data contract with no writable persistence or mutation replay claim.",
-    "serviceEmptyDataset": "Empty service dataset contract for stateful services whose supported shape requires no keys/data and no persistence."
+    "serviceWritablePersistence": "Writable service data roots are explicitly refused until mutation replay, ownership, locking, and consistency policy are modeled.",
+    "authHooksOrSecrets": "Authentication users, secrets files, hooks, or access-control side effects are explicitly refused until secret material and hook execution policy are modeled.",
+    "reverseProxyOrUpstreamSocket": "Reverse proxy or upstream socket configuration is explicitly refused until upstream endpoint/session policy is modeled.",
+    "dynamicRuntimeOrAppCode": "Dynamic runtime/app-code service behavior is explicitly refused until app/runtime state is modeled.",
+    "serviceManagedChildWorkers": "Service-managed worker pools or child processes are explicitly refused or left blocked until safe process-tree reconstruction is modeled.",
+    "serviceEmptyDataset": "Empty service dataset contract for stateful services whose supported shape requires no keys/data and no persistence.",
+    "nodeLibuvRuntimeFds": "Node/libuv runtime-owned event-loop fds (epoll, eventfd, internal pipes, listener socket, and log stdio) recreated by target-native Node reexec only for exact marker-proven static HTTP shapes; not source-fd continuation.",
+    "nativeStaticHttpRuntimeFds": "Runtime-owned listener/socket/log stdio and language runtime fds recreated by target-native reexec only for exact marker-proven native static HTTP binaries; not source-fd continuation.",
+    "nativeListenerRuntimeFds": "Runtime-owned listener sockets, auxiliary socket noise, and log stdio recreated by target-native reexec only for exact marker-proven listener/responder shapes; not source-fd continuation.",
+    "stdioLogOutput": "Deterministic stdout/stderr output modeled as target-created generic loader log output for exact product rows; not source FIFO/log fd continuation.",
+    "processGraph": "Exact moved process graph with modeled nodes, parent/pipe edges, argv/env/cwd/executable identity per node, and target-native reexec policy; not arbitrary process-tree checkpointing.",
+    "pipeGraph": "Anonymous pipe graph descriptor evidence including pipe topology, producer/consumer fd roles, flags, close-on-exec/nonblocking policy, buffered-data policy, and lifecycle support/refusal boundaries.",
+    "stdio": "Standard input/output/error policy for target-native generic loaders, including dev-null, modeled pipe, modeled PTY transcript, inherited noninteractive, or refused nontrivial stdio.",
+    "dynamicWorkerPool": "Dynamic worker pools with changing child membership are refused until exact process-tree lifecycle and worker membership reconstruction are modeled.",
+    "activeRequestSession": "Active in-flight requests or sessions are refused until protocol quiescence and session state reconstruction are explicitly modeled.",
+    "serviceReloadRace": "Overlapping daemon generations or reload races are refused until generation handoff and config/process identity are explicitly modeled.",
+    "nonExactProcessTree": "Incomplete, ambiguous, or non-exact process-tree descriptors are refused; exact node and edge identity is required before target-native process-tree reconstruction.",
+    "unixSocketPathnameClientPair": "Exact pathname Unix listener plus target-created protocol client probe with stable filesystem path, target path preflight, and no connected session, abstract namespace, datagram, fd-passing, or credential-sensitive socket claim.",
+    "unixSocketConnected": "Connected Unix socket sessions are refused until peer/session queues and stream state can be modeled exactly.",
+    "unixSocketAbstract": "Abstract namespace Unix sockets are refused until abstract path identity and target namespace reconstruction are modeled.",
+    "unixSocketDatagram": "Unix datagram sockets are refused until message queue ordering and peer semantics are modeled.",
+    "unixSocketPair": "Unix socketpairs are refused until ambiguous peer state and bidirectional queue semantics are modeled.",
+    "unixSocketFdPassing": "Unix sockets carrying SCM_RIGHTS/fd-passing semantics are refused until passed-fd graph capture and target reconstruction are modeled.",
+    "unixSocketCredentialSensitive": "Credential-sensitive Unix sockets are refused until peer credentials and authorization policy are modeled.",
+    "unixSocketPathOccupied": "Occupied target Unix socket pathname refuses before target pid.",
+    "unixSocketPathMissingParent": "Missing target Unix socket parent directory refuses before target pid.",
+    "unixSocketPathIdentityChanged": "Changed target Unix socket pathname identity refuses before target pid."
   },
   "families": [
     {
       "name": "process timers and simple process shapes",
-      "proofNames": ["sleep", "tail", "find-cursor", "complex-find-refusal"],
+      "proofNames": [
+        "sleep",
+        "tail",
+        "tail-live-generic-primary-marker",
+        "find-cursor",
+        "complex-find-refusal"
+      ],
       "resourceClasses": [
         "processIdentity",
         "argvEnvCwd",
         "regularFileIdentity",
-        "unsupportedResourceRefusal"
+        "unsupportedResourceRefusal",
+        "appendFileCursor",
+        "stdioLogOutput"
       ],
       "genericReadiness": "pilot-candidate"
     },
@@ -56,9 +157,16 @@
       "name": "first generic resource graph continuation",
       "proofNames": [
         "generic-yes-loop",
+        "generic-two-process-pipe-reexec",
         "generic-long-running-pipe-pair",
         "generic-pipe-stdio-refusals",
+        "generic-finite-pipe-buffer-replay",
         "generic-finite-pipe-replay",
+        "generic-stdio-pipe-product-marker",
+        "generic-multi-process-pipe-refusals",
+        "generic-process-tree-refusals",
+        "generic-service-process-tree-prefork",
+        "generic-service-process-tree-refusals",
         "generic-static-http-daemon",
         "generic-interpreted-server",
         "generic-file-backed-worker",
@@ -75,20 +183,59 @@
         "generic-append-only-file-cursor-refusal",
         "generic-append-log-unsupported-flags-refusal",
         "generic-append-log-fanotify-refusal",
+        "generic-file-lock-advisory",
+        "generic-file-lock-refusals",
         "generic-unix-socket-baseline-refusals",
         "generic-unix-pathname-listener",
+        "generic-unix-socket-wave2-refusals",
+        "unix-pathname-listener-live-generic-primary-marker",
+        "generic-unix-pathname-client-pair",
         "generic-unix-pathname-listener-refusals",
         "generic-anon-inode-baseline-refusals",
         "generic-eventfd-counter",
         "generic-eventfd-counter-refusals",
         "generic-epoll-eventfd-watch",
+        "generic-epoll-timerfd-watch",
         "generic-epoll-eventfd-watch-refusals",
+        "generic-timerfd-relative-oneshot",
+        "generic-timerfd-relative-oneshot-refusals",
+        "generic-signalfd-signal-state-refusals",
         "generic-pty-transcript-probe",
         "generic-pty-terminal-refusals",
+        "generic-service-nginx-static-parity",
+        "nginx-live-generic-primary-marker",
+        "service-managed-child-worker-refusal",
+        "generic-service-caddy-static-parity",
+        "caddy-live-generic-primary-marker",
+        "caddy-live-reverse-proxy-marker-refusal",
+        "generic-service-ruby-http-parity",
+        "ruby-live-generic-primary-marker",
+        "ruby-live-runtime-marker-refusal",
+        "generic-service-rsync-daemon-parity",
+        "rsync-live-generic-primary-marker",
+        "rsync-live-write-marker-refusal",
+        "service-config-drift-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals",
+        "generic-service-redis-idle-parity",
+        "generic-database-data-dir-refusals",
+        "generic-same-arch-modeled-continuation",
+        "generic-same-arch-continuation-refusals",
+        "generic-cross-arch-semantic-reconstruction",
+        "generic-cross-arch-semantic-refusals",
+        "redis-live-generic-primary-marker",
+        "redis-live-nonempty-marker-refusal",
+        "php-live-stdio-log-fd-refusal",
+        "php-live-zend-semaphore-refusal",
+        "php-live-socket-fd-refusal",
         "generic-service-php-static-parity",
         "generic-file-lock-refusal",
         "generic-mmap-file-refusal",
+        "generic-inotify-file-follow",
+        "generic-inotify-fanotify-refusals",
         "generic-inotify-file-refusal",
+        "generic-mmap-file-backed-clean",
+        "generic-mmap-dirty-refusals",
         "generic-unsupported-resource-refusals",
         "generic-loader-preflight-refusals"
       ],
@@ -103,16 +250,97 @@
         "loopbackTcpListener",
         "noActiveClients",
         "healthProbe",
+        "targetPackageIdentity",
+        "targetPackageMissing",
+        "serviceConfigIdentity",
+        "serviceConfigDrift",
+        "databaseSafety",
+        "databaseWalAmbiguity",
+        "databaseActiveWriter",
+        "databaseFileLock",
+        "databaseNonEmptyPersistence",
+        "databaseDirtyCheckpoint",
+        "dataDirOwnershipModeChanged",
+        "dataDirSymlinkHazard",
+        "databaseServiceSpecificUnsafe",
+        "sameArchNativeResume",
+        "frozenThreadState",
+        "registerStackMemoryEvidence",
+        "fdResourceGraphCompatibility",
+        "sameArchActiveSyscallRefusal",
+        "sameArchMultiThreadRefusal",
+        "sameArchUnsupportedMapping",
+        "sameArchRuntimeHeapRefusal",
+        "sameArchSignalStateRefusal",
+        "sameArchFdRefusal",
+        "sameArchResourceGraphGap",
+        "crossArchSemanticDescriptor",
+        "crossArchTargetNativeTool",
+        "crossArchSemanticReconstruction",
+        "crossArchMetadataOnlyRefusal",
+        "crossArchSourceIsaEmulationRefusal",
+        "crossArchRuntimeProfileShortcutRefusal",
+        "crossArchArbitraryElfProcessRefusal",
+        "crossArchUnsupportedResourceDescriptor",
+        "crossArchMissingTargetNativeBinary",
+        "crossArchIncompleteDependencyGraph",
+        "serviceStaticRoot",
+        "serviceWritablePersistence",
+        "authHooksOrSecrets",
+        "reverseProxyOrUpstreamSocket",
+        "dynamicRuntimeOrAppCode",
+        "serviceManagedChildWorkers",
+        "dynamicWorkerPool",
+        "activeRequestSession",
+        "serviceReloadRace",
+        "nonExactProcessTree",
         "unsupportedResourceRefusal",
         "stdio",
+        "processGraph",
         "pipeGraph",
         "appendFileCursorRefusal",
+        "fileLockAdvisory",
+        "fileLockConflict",
+        "fileLockBackingChanged",
+        "fileLockUnknownOwner",
+        "fileLockMandatory",
+        "fileLockLease",
+        "fileLockNonseekable",
+        "fileLockUnsupportedType",
+        "fileLockCrossProcessOwner",
         "unixSocketRefusal",
         "anonInodeRefusal",
+        "inotifyFileFollow",
+        "inotifyBaseline",
+        "inotifyQueuedEvents",
+        "inotifyDroppedEvents",
+        "inotifyDirectoryMutationRace",
+        "inotifyRecursiveWatch",
+        "inotifyWatchIdentityChanged",
+        "fanotifyPermissionEvent",
+        "inotifyUnsupportedMask",
+        "mmapFileBackedClean",
+        "mmapFileBaseline",
+        "mmapDirtyShared",
+        "mmapDirtyPrivate",
+        "mmapAnonymousDirty",
+        "mmapWritableExecutable",
+        "mmapTruncationRace",
+        "mmapBackingChanged",
         "unixSocketPathnameListener",
+        "unixSocketPathnameClientPair",
         "eventfdEpollBaseline",
         "eventfdCounter",
         "epollEventfdWatch",
+        "epollTimerfdWatch",
+        "timerfdRelativeOneShot",
+        "timerfdBaseline",
+        "signalMaskDispositionEvidence",
+        "signalfdBaseline",
+        "pendingSignalState",
+        "processGroupSignalAmbiguity",
+        "runtimeManagedSignalTimer",
+        "unknownSignalHandler",
         "terminalOrPtyEvidence",
         "terminalPtyTranscriptProbe",
         "terminalOrPtyRefusal",
@@ -121,7 +349,18 @@
         "terminalJobControlState",
         "terminalForegroundProcessGroup",
         "terminalUnknownTermios",
-        "terminalWindowSize"
+        "terminalWindowSize",
+        "stdioLogOutput",
+        "serviceReadOnlyData",
+        "unixSocketConnected",
+        "unixSocketAbstract",
+        "unixSocketDatagram",
+        "unixSocketPair",
+        "unixSocketFdPassing",
+        "unixSocketCredentialSensitive",
+        "unixSocketPathOccupied",
+        "unixSocketPathMissingParent",
+        "unixSocketPathIdentityChanged"
       ],
       "genericReadiness": "graduated-generic-proof"
     },
@@ -295,7 +534,9 @@
         "unsupported-pipe-graph-refusal",
         "tail-grep-pipeline",
         "reader-cat",
+        "reader-cat-live-generic-primary-marker",
         "grep",
+        "grep-live-generic-primary-marker",
         "watch",
         "shell"
       ],
@@ -304,7 +545,10 @@
         "argvEnvCwd",
         "regularFileIdentity",
         "unsupportedResourceRefusal",
-        "terminalOrPtyRefusal"
+        "terminalOrPtyRefusal",
+        "regularFileCursor",
+        "appendFileCursor",
+        "stdioLogOutput"
       ],
       "genericReadiness": "requires-pipe-or-pty-frontier"
     },
@@ -333,11 +577,15 @@
       "name": "single-file TCP responders",
       "proofNames": [
         "busybox-httpd",
+        "busybox-httpd-live-generic-primary-marker",
+        "unsafe-busybox-httpd-refusal",
         "nc-listener",
         "unsafe-nc-active-refusal",
         "busybox-nc-listener",
+        "busybox-nc-listener-live-generic-primary-marker",
         "unsafe-busybox-nc-refusal",
         "socat-file-responder",
+        "socat-file-responder-live-generic-primary-marker",
         "unsafe-socat-file-responder-refusal"
       ],
       "resourceClasses": [
@@ -347,7 +595,8 @@
         "loopbackTcpListener",
         "noActiveClients",
         "healthProbe",
-        "unsupportedResourceRefusal"
+        "unsupportedResourceRefusal",
+        "nativeListenerRuntimeFds"
       ],
       "genericReadiness": "pilot-candidate"
     },
@@ -427,11 +676,14 @@
       "name": "static app servers and runtime-specific refusals",
       "proofNames": [
         "go-static-http",
+        "go-static-http-live-generic-primary-marker",
         "go-extra-socket-refusal",
         "rust-static-http",
+        "rust-static-http-live-generic-primary-marker",
         "python-static-route",
         "python-unmarked-flask-refusal",
         "node-static-http",
+        "node-static-http-live-generic-primary-marker",
         "node-static-argv-http",
         "node-active-refusal",
         "node-timer-refusal",
@@ -446,7 +698,9 @@
         "noActiveClients",
         "healthProbe",
         "unsupportedResourceRefusal",
-        "runtimeSpecificRefusal"
+        "runtimeSpecificRefusal",
+        "nodeLibuvRuntimeFds",
+        "nativeStaticHttpRuntimeFds"
       ],
       "genericReadiness": "pilot-candidate-for-static-cases"
     },
@@ -458,7 +712,7 @@
     }
   ],
   "coverage": {
-    "proofNameCount": 184,
+    "proofNameCount": 192,
     "allProofNamesAccountedFor": true,
     "duplicateProofNames": []
   },
@@ -598,7 +852,13 @@
     {
       "bespokeProofName": "nginx-static",
       "refusalProofName": "unsafe-nginx-static-refusal",
-      "genericProofNames": ["generic-static-http-daemon", "generic-loader-preflight-refusals"],
+      "genericProofNames": [
+        "generic-static-http-daemon",
+        "generic-loader-preflight-refusals",
+        "generic-service-nginx-static-parity",
+        "nginx-live-generic-primary-marker",
+        "service-managed-child-worker-refusal"
+      ],
       "serviceShape": "static loopback HTTP daemon with explicit nginx config and static root",
       "resourceClasses": [
         "processIdentity",
@@ -615,12 +875,27 @@
       "fallbackPolicy": "keep target-native-nginx-static-loader as the selected envelope until generic rows prove nginx config identity, static root identity, active-client refusal, config drift, module/dynamic config refusal, port conflict, and missing target package behavior equivalently",
       "supportBoundary": "only static root/local-listen nginx config shapes are candidates; dynamic proxy/upstream/module/cgi-like behavior remains explicit-envelope or refused",
       "requiredSupportEvidence": "equivalent target HTTP response, service config identity, static root identity, idle loopback listener, and target health probe",
-      "requiredRefusalEvidence": "active clients, dynamic config, port conflict, missing package/config/root drift, unsupported modules, and runtime-specific state must refuse with no weakened fallback"
+      "requiredRefusalEvidence": "active clients, dynamic config, port conflict, missing package/config/root drift, unsupported modules, and runtime-specific state must refuse with no weakened fallback",
+      "productPathMode": "exact-live-marker-gated",
+      "productPathProofName": "nginx-live-generic-primary-marker",
+      "productPathSupportProofName": "generic-service-nginx-static-parity",
+      "productPathRefusalProofNames": [
+        "service-managed-child-worker-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals"
+      ],
+      "productPathObservedGraph": "exact-single-process-service"
     },
     {
       "bespokeProofName": "caddy-static",
       "refusalProofName": "unsafe-caddy-static-refusal",
-      "genericProofNames": ["generic-static-http-daemon", "generic-loader-preflight-refusals"],
+      "genericProofNames": [
+        "generic-static-http-daemon",
+        "generic-loader-preflight-refusals",
+        "generic-service-caddy-static-parity",
+        "caddy-live-generic-primary-marker",
+        "caddy-live-reverse-proxy-marker-refusal"
+      ],
       "serviceShape": "static loopback HTTP daemon with caddy file-server root",
       "resourceClasses": [
         "processIdentity",
@@ -637,12 +912,27 @@
       "fallbackPolicy": "keep target-native-caddy-static-loader as the selected envelope until generic rows prove static file-server root identity, active-client refusal, proxy/dynamic refusal, port conflict, and missing target package behavior equivalently",
       "supportBoundary": "only caddy file-server static root shapes are candidates; reverse proxy, app, dynamic module, and non-static behavior remains explicit-envelope or refused",
       "requiredSupportEvidence": "equivalent target HTTP response, root identity, idle loopback listener, target health probe, and package identity",
-      "requiredRefusalEvidence": "active clients, proxy/dynamic config, port conflict, missing target package/root drift, unsupported modules, and runtime-specific state must refuse with no weakened fallback"
+      "requiredRefusalEvidence": "active clients, proxy/dynamic config, port conflict, missing target package/root drift, unsupported modules, and runtime-specific state must refuse with no weakened fallback",
+      "productPathMode": "exact-live-marker-gated",
+      "productPathProofName": "caddy-live-generic-primary-marker",
+      "productPathSupportProofName": "generic-service-caddy-static-parity",
+      "productPathRefusalProofNames": [
+        "caddy-live-reverse-proxy-marker-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals"
+      ],
+      "productPathObservedGraph": "exact-single-process-service"
     },
     {
       "bespokeProofName": "ruby-http",
       "refusalProofName": "unsafe-ruby-http-refusal",
-      "genericProofNames": ["generic-static-http-daemon", "generic-loader-preflight-refusals"],
+      "genericProofNames": [
+        "generic-static-http-daemon",
+        "generic-loader-preflight-refusals",
+        "generic-service-ruby-http-parity",
+        "ruby-live-generic-primary-marker",
+        "ruby-live-runtime-marker-refusal"
+      ],
       "serviceShape": "Ruby -run httpd static directory server",
       "resourceClasses": [
         "processIdentity",
@@ -659,13 +949,25 @@
       "fallbackPolicy": "keep target-native-ruby-httpd-loader as the selected envelope until generic rows prove static root equivalence and unsafe Ruby app/runtime shapes refuse equivalently",
       "supportBoundary": "only ruby -run -e httpd static directory shapes are candidates; Rack/apps/scripts/runtime-specific Ruby state remains explicit-envelope or refused",
       "requiredSupportEvidence": "equivalent target HTTP response, static root identity, idle loopback listener, target health probe, and Ruby package identity",
-      "requiredRefusalEvidence": "active clients, Ruby app/runtime-specific state, port conflict, missing target package/root drift, and unsupported argv must refuse with no weakened fallback"
+      "requiredRefusalEvidence": "active clients, Ruby app/runtime-specific state, port conflict, missing target package/root drift, and unsupported argv must refuse with no weakened fallback",
+      "productPathMode": "exact-live-marker-gated",
+      "productPathProofName": "ruby-live-generic-primary-marker",
+      "productPathSupportProofName": "generic-service-ruby-http-parity",
+      "productPathRefusalProofNames": [
+        "ruby-live-runtime-marker-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals"
+      ],
+      "productPathObservedGraph": "exact-single-process-service"
     },
     {
       "bespokeProofName": "php-static",
       "refusalProofName": "unsafe-php-static-refusal",
       "genericProofNames": [
         "generic-static-http-daemon",
+        "php-live-stdio-log-fd-refusal",
+        "php-live-zend-semaphore-refusal",
+        "php-live-socket-fd-refusal",
         "generic-service-php-static-parity",
         "generic-loader-preflight-refusals"
       ],
@@ -682,15 +984,31 @@
         "runtimeSpecificRefusal"
       ],
       "migrationMode": "explicit-envelope-fallback",
+      "liveCaptureMigrationMode": "blocked-by-live-generic-refusals",
+      "liveCaptureBlockerProofNames": [
+        "php-live-stdio-log-fd-refusal",
+        "php-live-zend-semaphore-refusal",
+        "php-live-socket-fd-refusal"
+      ],
       "fallbackPolicy": "keep target-native-php-static-loader as the selected envelope until generic rows prove static-only PHP root equivalence and dynamic PHP/script shapes refuse equivalently",
       "supportBoundary": "only PHP built-in server static root with no PHP scripts is a candidate; dynamic scripts and router behavior remain explicit-envelope or refused",
       "requiredSupportEvidence": "equivalent target HTTP response, static root identity, idle loopback listener, target health probe, and PHP package identity",
-      "requiredRefusalEvidence": "active clients, dynamic PHP scripts, unsupported bind/argv, port conflict, missing target package/root drift, and runtime-specific state must refuse with no weakened fallback"
+      "requiredRefusalEvidence": "active clients, dynamic PHP scripts, unsupported bind/argv, port conflict, missing target package/root drift, and runtime-specific state must refuse with no weakened fallback",
+      "productPathMode": "blocked-by-live-generic-refusals"
     },
     {
       "bespokeProofName": "rsync-daemon",
       "refusalProofName": "unsafe-rsync-daemon-refusal",
-      "genericProofNames": ["generic-data-dir-daemon", "generic-loader-preflight-refusals"],
+      "genericProofNames": [
+        "generic-data-dir-daemon",
+        "generic-loader-preflight-refusals",
+        "generic-service-rsync-daemon-parity",
+        "rsync-live-generic-primary-marker",
+        "rsync-live-write-marker-refusal",
+        "service-config-drift-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals"
+      ],
       "serviceShape": "read-only rsync daemon module with no auth hooks and stable config/root identity",
       "resourceClasses": [
         "processIdentity",
@@ -707,12 +1025,28 @@
       "fallbackPolicy": "keep target-native-rsync-daemon-loader as the selected envelope until generic rows prove read-only module config/root identity, active-client refusal, write/auth refusal, port conflict, and missing target package behavior equivalently",
       "supportBoundary": "only read-only no-auth-hook rsync modules are candidates; writable modules, auth hooks, multiple modules, and mutable state remain explicit-envelope or refused",
       "requiredSupportEvidence": "equivalent target rsync read, config sha256, read-only root identity, idle listener, no active clients, and target health/read probe",
-      "requiredRefusalEvidence": "active clients, writable modules, auth hooks, config/root drift, port conflict, missing target package, and unsupported modules must refuse with no weakened fallback"
+      "requiredRefusalEvidence": "active clients, writable modules, auth hooks, config/root drift, port conflict, missing target package, and unsupported modules must refuse with no weakened fallback",
+      "productPathMode": "exact-live-marker-gated",
+      "productPathProofName": "rsync-live-generic-primary-marker",
+      "productPathSupportProofName": "generic-service-rsync-daemon-parity",
+      "productPathRefusalProofNames": [
+        "rsync-live-write-marker-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals",
+        "service-config-drift-refusal"
+      ],
+      "productPathObservedGraph": "exact-single-process-service"
     },
     {
       "bespokeProofName": "redis-idle",
       "refusalProofName": "unsafe-redis-idle-refusal",
-      "genericProofNames": ["generic-data-dir-daemon", "generic-loader-preflight-refusals"],
+      "genericProofNames": [
+        "generic-data-dir-daemon",
+        "generic-loader-preflight-refusals",
+        "generic-service-redis-idle-parity",
+        "redis-live-generic-primary-marker",
+        "redis-live-nonempty-marker-refusal"
+      ],
       "serviceShape": "empty Redis with no persistence and no active clients",
       "resourceClasses": [
         "processIdentity",
@@ -729,7 +1063,35 @@
       "fallbackPolicy": "keep target-native-redis-idle-loader as the selected envelope until generic rows prove empty dataset/no-persistence safety, active-client refusal, nonempty/persistence refusal, port conflict, and missing target package behavior equivalently",
       "supportBoundary": "only empty Redis datasets with persistence disabled and no active clients are candidates; nonempty datasets, AOF/RDB persistence, replication/modules, and runtime state remain explicit-envelope or refused",
       "requiredSupportEvidence": "equivalent PING/DBSIZE target health, empty dataset evidence, persistence-disabled config identity, idle listener, and no active clients",
-      "requiredRefusalEvidence": "active clients, nonempty dataset, persistence enabled, config drift, port conflict, missing target package, modules/replication, and runtime-specific state must refuse with no weakened fallback"
+      "requiredRefusalEvidence": "active clients, nonempty dataset, persistence enabled, config drift, port conflict, missing target package, modules/replication, and runtime-specific state must refuse with no weakened fallback",
+      "productPathMode": "exact-live-marker-gated",
+      "productPathProofName": "redis-live-generic-primary-marker",
+      "productPathSupportProofName": "generic-service-redis-idle-parity",
+      "productPathRefusalProofNames": [
+        "redis-live-nonempty-marker-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals"
+      ],
+      "productPathObservedGraph": "exact-single-process-service"
+    }
+  ],
+  "genericServiceRefusalClasses": [
+    {
+      "resourceClass": "serviceConfigDrift",
+      "proofNames": ["service-config-drift-refusal", "service-per-service-drift-refusals"],
+      "boundary": "Service config, argv contract, or module config identity drift keeps generic service descriptors refused with targetPid=null unless exact support/refusal parity is proven.",
+      "targetPidPolicy": "targetPid=null before target continuation"
+    },
+    {
+      "resourceClass": "targetPackageMissing",
+      "proofNames": [
+        "service-target-package-missing-normalization",
+        "generic-loader-preflight-refusals",
+        "generic-service-caddy-static-parity",
+        "generic-service-php-static-parity"
+      ],
+      "boundary": "Missing target-native service packages or executables remain fail-closed before service target launch; explicit fallback behavior is not weakened.",
+      "targetPidPolicy": "targetPid=null for generic service preflight/refusal rows"
     }
   ],
   "genericServiceConsolidationStatusLanguage": {
@@ -744,5 +1106,135 @@
       "generic-primary service support without equivalent support/refusal matrix rows",
       "support for active clients, writable persistence, unsupported modules, or runtime-specific state"
     ]
-  }
+  },
+  "genericLiveProductPathCandidates": [
+    {
+      "productProofName": "node-static-http-live-generic-primary-marker",
+      "supportProofName": "node-static-http",
+      "refusalProofNames": [
+        "node-active-refusal",
+        "node-timer-refusal",
+        "node-worker-refusal",
+        "native-dlopen-refusal"
+      ],
+      "productPathMode": "exact-live-marker-gated",
+      "productPathObservedGraph": "exact-live-resource-graph",
+      "boundary": "exact marker-proven Node static HTTP with target-native Node reexec and runtime-owned libuv/log fd recreation only",
+      "nonClaim": "no broad Node runtime migration, active clients, timers, workers, native addons, or source libuv fd teleportation"
+    },
+    {
+      "productProofName": "go-static-http-live-generic-primary-marker",
+      "supportProofName": "go-static-http",
+      "refusalProofNames": ["go-extra-socket-refusal"],
+      "productPathMode": "exact-live-marker-gated",
+      "productPathObservedGraph": "exact-live-resource-graph",
+      "boundary": "exact marker-proven Go static HTTP with idle loopback listener and target-native reexec only",
+      "nonClaim": "no arbitrary Go process migration, active session migration, or extra socket/runtime support"
+    },
+    {
+      "productProofName": "rust-static-http-live-generic-primary-marker",
+      "supportProofName": "rust-static-http",
+      "refusalProofNames": ["generic-loader-preflight-refusals"],
+      "productPathMode": "exact-live-marker-gated",
+      "productPathObservedGraph": "exact-live-resource-graph",
+      "boundary": "exact marker-proven Rust static HTTP with idle loopback listener and target-native reexec only",
+      "nonClaim": "no arbitrary native process migration, active sessions, or extra runtime/socket support"
+    },
+    {
+      "productProofName": "busybox-httpd-live-generic-primary-marker",
+      "supportProofName": "busybox-httpd",
+      "refusalProofNames": [
+        "unsafe-busybox-httpd-refusal",
+        "python-http-active-refusal",
+        "generic-loader-preflight-refusals"
+      ],
+      "productPathMode": "exact-live-marker-gated",
+      "productPathObservedGraph": "exact-live-resource-graph",
+      "boundary": "exact BusyBox httpd explicit loopback single-file static-root reexec with target health/body check",
+      "nonClaim": "no wildcard listener, CGI/dynamic HTTP, writable root, active child/session continuation, or full tree digest identity claim"
+    },
+    {
+      "productProofName": "busybox-nc-listener-live-generic-primary-marker",
+      "supportProofName": "busybox-nc-listener",
+      "refusalProofNames": [
+        "unsafe-busybox-nc-refusal",
+        "unsafe-nc-active-refusal",
+        "generic-loader-preflight-refusals"
+      ],
+      "productPathMode": "exact-live-marker-gated",
+      "productPathObservedGraph": "exact-live-resource-graph",
+      "boundary": "exact BusyBox nc idle loopback listener reexec with target receive-log proof",
+      "nonClaim": "no active TCP session, non-BusyBox nc, hidden shell state, or arbitrary listener migration"
+    },
+    {
+      "productProofName": "socat-file-responder-live-generic-primary-marker",
+      "supportProofName": "socat-file-responder",
+      "refusalProofNames": [
+        "unsafe-socat-file-responder-refusal",
+        "generic-loader-preflight-refusals"
+      ],
+      "productPathMode": "exact-live-marker-gated",
+      "productPathObservedGraph": "exact-live-resource-graph",
+      "boundary": "exact socat TCP-LISTEN fork reuseaddr FILE responder with stable response file and target response proof",
+      "nonClaim": "no active TCP session, changed response file continuation, unsupported socat argv, or arbitrary socket migration"
+    },
+    {
+      "productProofName": "unix-pathname-listener-live-generic-primary-marker",
+      "supportProofName": "generic-unix-pathname-listener",
+      "refusalProofNames": ["generic-unix-pathname-listener-refusals"],
+      "productPathMode": "exact-live-marker-gated",
+      "productPathObservedGraph": "exact-live-resource-graph",
+      "boundary": "exact idle Unix pathname listener with stable socket path, writable parent, absent target path, and Unix-connect health proof",
+      "nonClaim": "no connected Unix session, abstract/datagram socket, occupied path, missing parent, or arbitrary Unix socket migration"
+    },
+    {
+      "productProofName": "reader-cat-live-generic-primary-marker",
+      "supportProofName": "reader-cat",
+      "refusalProofNames": [
+        "generic-stale-file-identity-refusal",
+        "generic-deleted-file-fd-refusal",
+        "generic-writable-file-cursor-refusal"
+      ],
+      "productPathMode": "exact-live-marker-gated",
+      "productPathObservedGraph": "exact-live-resource-graph",
+      "boundary": "exact cat readonly regular-file cursor reconstructed on target stdin with deterministic generic-loader stdout log",
+      "nonClaim": "no source FIFO/stdout fd continuation, writable cursor, stale/deleted file support, or arbitrary cat process migration"
+    },
+    {
+      "productProofName": "grep-live-generic-primary-marker",
+      "supportProofName": "grep",
+      "refusalProofNames": [
+        "generic-stale-file-identity-refusal",
+        "generic-deleted-file-fd-refusal",
+        "generic-writable-file-cursor-refusal",
+        "generic-pipe-stdio-refusals"
+      ],
+      "productPathMode": "exact-live-marker-gated",
+      "productPathObservedGraph": "exact-live-resource-graph",
+      "boundary": "exact grep readonly regular-file cursor reconstructed on target stdin with captured literal pattern and deterministic generic-loader stdout log",
+      "nonClaim": "no stdin/pipe continuation, unsupported grep options, writable/stale/deleted file support, or arbitrary grep process migration"
+    },
+    {
+      "productProofName": "tail-live-generic-primary-marker",
+      "supportProofName": "tail",
+      "refusalProofNames": [
+        "generic-stale-file-identity-refusal",
+        "generic-append-only-file-cursor-refusal",
+        "generic-append-log-unsupported-flags-refusal"
+      ],
+      "productPathMode": "exact-live-marker-gated",
+      "productPathObservedGraph": "exact-live-resource-graph",
+      "boundary": "exact tail append-log follow from captured cursor with target appends observed in generic-loader log",
+      "nonClaim": "no source inotify fd continuation, arbitrary mutable data replay, concurrent writer consistency model, or broad tail process migration"
+    },
+    {
+      "productProofName": "generic-stdio-pipe-product-marker",
+      "supportProofName": "generic-finite-pipe-buffer-replay",
+      "refusalProofNames": ["generic-pipe-stdio-refusals"],
+      "productPathMode": "exact-live-marker-gated",
+      "productPathObservedGraph": "exact-live-resource-graph",
+      "boundary": "exact finite modeled stdio pipe graph with captured bytes replayed into a target-native consumer through the generic product loader",
+      "nonClaim": "no arbitrary stdio migration, live pipe queue replay beyond explicit captured bytes, active writer/session support, shell pipeline state, PTY stdio, or source fd teleportation"
+    }
+  ]
 }

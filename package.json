@@ -83,6 +83,8 @@
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
     "check-smoke-manifest": "node scripts/check-smoke-manifest.mjs",
     "generic-resource-graph-coverage": "node scripts/generic-resource-graph-coverage.mjs",
+    "generic-resource-graph-productization-coverage": "node scripts/generic-resource-graph-productization-coverage.mjs && node scripts/generic-resource-graph-productization-wave2-coverage.mjs",
+    "check-move-proof-image-boundary": "node scripts/check-move-proof-image-boundary.mjs",
     "smoke-vmstate": "bash scripts/smoke/vmstate/all.sh",
     "smoke-vmstate-timers": "bash scripts/smoke/vmstate/timers.sh",
     "smoke-vmstate-entropy": "bash scripts/smoke/vmstate/entropy.sh",
@@ -128,6 +130,7 @@
     "archive-go-quiescent-runtime": "node scripts/archived-smoke.mjs scripts/smoke/go-quiescent-runtime.sh",
     "fallow:health": "node scripts/fallow-health-guard.mjs",
     "proof-move-envelope-matrix": "bash scripts/smoke/move-envelope-matrix.sh",
+    "move-envelope:service-generic": "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-service-generic-plan.json --coverage-dir ${MACHINEN_MOVE_SERVICE_GENERIC_COVERAGE_DIR:-/tmp/machinen-service-generic-retained-coverage} --json",
     "move-envelope:build-proof-image": "node scripts/build-move-proof-image.mjs",
     "move-envelope:scaffold": "node scripts/move-envelope-scaffold.mjs"
   },

@@ -1629,29 +1629,134 @@ describe("move target direct loader", () => {
     );
   });
 
-  it("uses generic-primary migration loader only for explicit proven candidate states", async () => {
-    const cases = [
-      { name: "python-http-directory", descriptor: httpDirectoryDescriptor },
-      { name: "nc-listener", descriptor: ncDescriptor },
-    ];
-
-    await Promise.all(
-      cases.map(async (item) => {
-        const commands: string[] = [];
-        const loader = await runMoveTargetDirectLoaderInVm(
-          mockVm(
-            commands,
-            "LOAD_PID\t909\nLOAD_LOG\t/tmp/generic-primary.log\nSAFE_BOUNDARY\tgeneric-resource-graph\ttarget-native-reexec-started\nPATCH\tgeneric-resource-graph\tready\t909\n",
-          ),
-          withGenericPrimaryState(item.descriptor, item.name),
-        );
-
-        expect(loader.strategy, item.name).toBe(
-          "target-native-generic-resource-graph-reexec-loader",
-        );
-        expect(commands[0], item.name).toContain("generic-resource-graph");
-      }),
+  it("uses generic-primary migration loader only for the promoted phase-1 product path", async () => {
+    const commands: string[] = [];
+    const descriptor = withGenericMigrationState(readerDescriptor, {
+      mode: "generic-primary",
+      sourceProofName: "generic-stdio-pipe-product-marker",
+      genericProofName: "generic-finite-pipe-buffer-replay",
+      fallbackPolicy: "explicit fallback remains available outside exact modeled stdio pipe shape",
+      boundary: "unit-test promoted phase-1 stdio pipe product path",
+      productPath: {
+        kind: "exact-live-capture",
+        markerProofName: "generic-stdio-pipe-product-marker",
+        supportProofName: "generic-finite-pipe-buffer-replay",
+        refusalProofNames: ["generic-pipe-stdio-refusals"],
+        observedGraph: "exact-live-resource-graph",
+      },
+    });
+    const loader = await runMoveTargetDirectLoaderInVm(
+      mockVm(
+        commands,
+        "LOAD_PID\t909\nLOAD_LOG\t/tmp/generic-primary.log\nSAFE_BOUNDARY\tgeneric-resource-graph\ttarget-native-reexec-started\nPATCH\tgeneric-resource-graph\tready\t909\n",
+      ),
+      descriptor,
     );
+
+    expect(loader.strategy).toBe("target-native-generic-resource-graph-reexec-loader");
+    expect(commands[0]).toContain("generic-resource-graph");
+  });
+
+  it("keeps descriptor-harness-only non-service generic-primary behind explicit fallback", async () => {
+    const commands: string[] = [];
+    const descriptor = withGenericPrimaryState(
+      httpDirectoryDescriptor,
+      "python-http-directory",
+      [],
+      false,
+    );
+    const loader = await runMoveTargetDirectLoaderInVm(
+      mockVm(
+        commands,
+        "LOAD_PID\t806\nLOAD_LOG\t/tmp/http-directory.log\nPATCH\tpython-http-server\tready\t/\t8128\t/tmp/web-directory\n",
+      ),
+      descriptor,
+    );
+
+    expect(loader.strategy).toBe("target-original-python-http-server-loader");
+    expect(loader.strategy).not.toBe("target-native-generic-resource-graph-reexec-loader");
+    expect(commands[0]).toContain("PATCH\tpython-http-server");
+    expect(commands[0]).not.toContain("PATCH\tgeneric-resource-graph");
+  });
+
+  it("does not select generic-primary while refusal classes remain non-empty", async () => {
+    const commands: string[] = [];
+    const descriptor = withGenericPrimaryState(httpDirectoryDescriptor, "python-http-directory", [
+      "serviceConfigDrift",
+    ]);
+    const loader = await runMoveTargetDirectLoaderInVm(
+      mockVm(
+        commands,
+        "LOAD_PID\t806\nLOAD_LOG\t/tmp/http-directory.log\nPATCH\tpython-http-server\tready\t/\t8128\t/tmp/web-directory\n",
+      ),
+      descriptor,
+    );
+
+    expect(loader.strategy).toBe("target-original-python-http-server-loader");
+    expect(loader.strategy).not.toBe("target-native-generic-resource-graph-reexec-loader");
+    expect(commands[0]).not.toContain("generic-resource-graph");
+  });
+
+  it("keeps descriptor-harness-only service generic-primary behind explicit fallback", async () => {
+    const commands: string[] = [];
+    const descriptor = withGenericServicePrimaryState(nginxDescriptor);
+    const loader = await runMoveTargetDirectLoaderInVm(
+      mockVm(
+        commands,
+        "LOAD_PID\t818\nLOAD_LOG\t/tmp/nginx.log\nPATCH\tnginx-static\tready\t8160\t" +
+          "a".repeat(64) +
+          "\n",
+      ),
+      descriptor,
+    );
+
+    expect(loader.strategy).toBe("target-native-nginx-static-loader");
+    expect(loader.strategy).not.toBe("target-native-generic-resource-graph-reexec-loader");
+    expect(commands[0]).toContain("PATCH\tnginx-static");
+    expect(commands[0]).not.toContain("PATCH\tgeneric-resource-graph");
+  });
+
+  it("keeps service generic-primary markers behind explicit fallback until productized", async () => {
+    const commands: string[] = [];
+    const descriptor = withGenericServicePrimaryState(nginxDescriptor, {
+      kind: "exact-live-capture",
+      markerProofName: "nginx-live-generic-primary-marker",
+      supportProofName: "generic-service-nginx-static-parity",
+      refusalProofNames: ["service-managed-child-worker-refusal"],
+      driftRefusalProofNames: ["service-per-service-drift-refusals"],
+      observedGraph: "exact-single-process-service",
+    });
+    const loader = await runMoveTargetDirectLoaderInVm(
+      mockVm(
+        commands,
+        "LOAD_PID\t818\nLOAD_LOG\t/tmp/nginx.log\nPATCH\tnginx-static\tready\t8160\t" +
+          "a".repeat(64) +
+          "\n",
+      ),
+      descriptor,
+    );
+
+    expect(loader.strategy).toBe("target-native-nginx-static-loader");
+    expect(loader.strategy).not.toBe("target-native-generic-resource-graph-reexec-loader");
+    expect(commands[0]).toContain("PATCH\tnginx-static");
+    expect(commands[0]).not.toContain("PATCH\tgeneric-resource-graph");
+  });
+
+  it("keeps explicit fallback when generic migration marker is null", async () => {
+    const commands: string[] = [];
+    const descriptor = withGenericEquivalentState(httpDirectoryDescriptor);
+    const loader = await runMoveTargetDirectLoaderInVm(
+      mockVm(
+        commands,
+        "LOAD_PID\t806\nLOAD_LOG\t/tmp/http-directory.log\nPATCH\tpython-http-server\tready\t/\t8128\t/tmp/web-directory\n",
+      ),
+      descriptor,
+    );
+
+    expect(loader.strategy).toBe("target-original-python-http-server-loader");
+    expect(loader.strategy).not.toBe("target-native-generic-resource-graph-reexec-loader");
+    expect(commands[0]).toContain("--directory '/tmp/web-directory'");
+    expect(commands[0]).not.toContain("generic-resource-graph");
   });
 
   it("refuses generic load with no target pid when health probe fails", async () => {
@@ -3375,17 +3480,72 @@ function withGenericEquivalentState(source: MoveDescriptor): MoveDescriptor {
   return withGenericMigrationState(source);
 }
 
-function withGenericPrimaryState(source: MoveDescriptor, sourceProofName: string): MoveDescriptor {
+type GenericProductPath = NonNullable<
+  NonNullable<
+    NonNullable<NonNullable<MoveDescriptor["resourcePlan"]>["capture"]>["genericResourceGraphState"]
+  >["migration"]
+>["productPath"];
+
+function withGenericPrimaryState(
+  source: MoveDescriptor,
+  sourceProofName: string,
+  refusalClasses: string[] = [],
+  includeProductPath = true,
+): MoveDescriptor {
+  const genericProofName = genericProofNameForSource(sourceProofName);
+  return withGenericMigrationState(
+    source,
+    {
+      mode: "generic-primary",
+      sourceProofName,
+      genericProofName,
+      fallbackPolicy: "bespoke fallback remains available for out-of-contract shapes",
+      boundary: "unit-test exact generic-primary migration boundary",
+      productPath: includeProductPath
+        ? unitProductPath(sourceProofName, genericProofName)
+        : undefined,
+    },
+    refusalClasses,
+  );
+}
+
+function withGenericServicePrimaryState(
+  source: MoveDescriptor,
+  productPath?: GenericProductPath,
+): MoveDescriptor {
   return withGenericMigrationState(source, {
     mode: "generic-primary",
-    sourceProofName,
-    genericProofName:
-      sourceProofName === "python-http-directory"
-        ? "generic-static-http-daemon"
-        : "generic-interpreted-server",
-    fallbackPolicy: "bespoke fallback remains available for out-of-contract shapes",
-    boundary: "unit-test exact generic-primary migration boundary",
+    sourceProofName: "nginx-static",
+    genericProofName: "generic-service-nginx-static-parity",
+    fallbackPolicy: "explicit nginx fallback remains available outside exact live product path",
+    boundary: "unit-test service generic-primary product path requires live metadata",
+    productPath,
   });
+}
+
+function genericProofNameForSource(sourceProofName: string): string {
+  switch (sourceProofName) {
+    case "python-http-directory":
+      return "generic-static-http-daemon";
+    case "reader-cat":
+      return "generic-file-backed-worker";
+    case "grep":
+      return "generic-readonly-file-cli";
+    case "tail":
+      return "generic-writable-log-daemon";
+    default:
+      return "generic-interpreted-server";
+  }
+}
+
+function unitProductPath(sourceProofName: string, genericProofName: string): GenericProductPath {
+  return {
+    kind: "exact-live-capture",
+    markerProofName: `${sourceProofName}-live-generic-primary-marker`,
+    supportProofName: genericProofName,
+    refusalProofNames: [`${sourceProofName}-live-refusal-boundary`],
+    observedGraph: "exact-live-resource-graph",
+  };
 }
 
 function withGenericMigrationState(
@@ -3393,6 +3553,7 @@ function withGenericMigrationState(
   migration?: NonNullable<
     NonNullable<NonNullable<MoveDescriptor["resourcePlan"]>["capture"]>["genericResourceGraphState"]
   >["migration"],
+  refusalClassNames: string[] = [],
 ): MoveDescriptor {
   const node = source.nodes[0]!;
   return {
@@ -3415,7 +3576,14 @@ function withGenericMigrationState(
           stdioPolicy: "stdio-dev-null-or-closed",
           healthProbe: { kind: "process-alive" },
           resourceClasses: [],
-          refusalClasses: [],
+          refusalClasses: refusalClassNames.map((resourceClass) => ({
+            resourceClass,
+            status: "refused",
+            reason: `${resourceClass} remains outside the exact generic-primary unit-test shape`,
+            evidence:
+              "unit-test refusal class proves generic-primary requires an empty refusalClasses array",
+            nextAction: "keep explicit fallback selected until refusalClasses is empty",
+          })),
         },
       },
     },

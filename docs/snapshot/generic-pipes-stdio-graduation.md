@@ -22,23 +22,44 @@ Any missing, ambiguous, or unsupported pipe/stdio resource must remain refused w
 
 The first pilot shapes are intentionally narrow:
 
-1. **finite pipe replay**
+1. **exact two-process pipe reexec**
+   - the descriptor carries an exact `processGraph` with two target-native nodes and one producer-to-consumer pipe edge;
+   - the pipe connects exactly one producer write fd to exactly one consumer read fd;
+   - fd numbers, flags, close-on-exec, and nonblocking policy are explicit;
+   - the target proof observes consumer output after the generic loader launches the reconstructed graph;
+   - hidden shell state, process-tree checkpointing, and active partial writes are not accepted.
+
+2. **finite pipe replay**
    - a finite producer has already materialized deterministic bytes into a regular target-validated input file or descriptor;
    - the target-native consumer reads from a reconstructed pipe whose contents are explicitly provided by the descriptor;
    - EOF behavior is deterministic;
    - no shell state is required after capture.
 
-2. **long-running producer/consumer pair**
+3. **long-running producer/consumer pair**
    - both producer and consumer commands are explicitly described as target-native argv/cwd/env;
    - the pipe connects exactly one producer write end to exactly one consumer read end;
    - launch order and shutdown behavior are deterministic;
    - health/target evidence observes the consumer output;
    - no hidden shell semantics are required.
 
-3. **nontrivial stdio by explicit policy**
+4. **nontrivial stdio by explicit policy**
    - stdio may be `/dev/null`, closed, inherited noninteractive with declared policy, or connected to a modeled pipe;
    - inherited terminal/PTY stdio is refused;
    - unknown fd targets on `0`, `1`, or `2` are refused.
+
+## Product marker boundary
+
+`generic-stdio-pipe-product-marker` is the first productPath marker for modeled stdio pipes. It uses `generic-finite-pipe-buffer-replay` as support evidence and `generic-pipe-stdio-refusals` as the fail-closed sibling proof. It may select the generic product loader only when the descriptor records:
+
+- `migration.mode="generic-primary"`;
+- `migration.productPath.kind="exact-live-capture"`;
+- marker/support/refusal proof names;
+- `stdioGraph.policy="modeled-pipe"`;
+- an exact one-producer/one-consumer `pipeGraph` with captured bytes or a deterministic long-running pair;
+- `refusalClasses=[]`;
+- target-visible output or health evidence.
+
+Descriptor-only pipe support or any non-empty `refusalClasses` array must stay refused or fall back. This is not arbitrary stdio migration.
 
 ## Refused shapes
 
@@ -49,6 +70,7 @@ The generic classifier must refuse:
 - job control, traps, expansions, aliases, variables, or interactive shell state;
 - missing pipe peers;
 - fan-in, fan-out, or cycles unless explicitly modeled in a later contract;
+- nonblocking pipe endpoints until readiness semantics are modeled;
 - active partial writes or unread kernel pipe buffers whose bytes are not captured;
 - blocked reads/writes without a deterministic lifecycle;
 - unknown anon inodes, sockets, devices, or file locks attached to the pipe graph;
@@ -80,6 +102,13 @@ pipeGraph: {
     lifecycle: "finite-replay" | "long-running-pair" | "refused";
   }>;
 }
+
+processGraph: {
+  policy: string;
+  nodes: Array<{ pid: number; ppid?: number; command: string; argv: string[]; cwd?: string; exe?: string }>;
+  edges: Array<{ fromPid: number; toPid: number; kind: "parent-child" | "pipe-producer-consumer" }>;
+  hiddenShellState: false | "unknown";
+};
 
 PipeEndpoint = {
   pid: number;
@@ -132,4 +161,4 @@ This graduation does not support:
 
 ## Graduation rule
 
-Pipes/stdio graduate only when the same change set includes descriptor fields, capture/classifier behavior, target-native loader behavior, happy-path matrix rows, refusal matrix rows, coverage inventory updates, docs, and final validation.
+Pipes/stdio graduate only when the same change set includes descriptor fields, capture/classifier behavior, target-native loader behavior, happy-path matrix rows, refusal matrix rows, coverage inventory updates, docs, retained-artifact coverage, and final validation.

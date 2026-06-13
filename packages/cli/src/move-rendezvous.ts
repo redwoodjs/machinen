@@ -4,7 +4,7 @@ import { runMoveTargetBusyboxNcLoaderInVm } from "./move-busybox-nc-envelope.ts"
 import { runMoveTargetChecksumLoaderInVm } from "./move-checksum-envelope.ts";
 import * as fsMutationLoaders from "./move-filesystem-mutation-envelope.ts";
 import { runMoveTargetDuLoaderInVm } from "./move-du-envelope.ts";
-import { genericResourceGraphIsPrimary } from "./move-generic-resource-graph.ts";
+import { genericResourceGraphIsProductPrimary } from "./move-generic-resource-graph.ts";
 import { runMoveTargetGenericResourceGraphLoaderInVm } from "./move-generic-resource-graph.ts";
 import { runMoveTargetInstallLoaderInVm } from "./move-install-envelope.ts";
 import { runMoveTargetLsLoaderInVm, runMoveTargetLsLongLoaderInVm } from "./move-ls-envelope.ts";
@@ -113,7 +113,7 @@ export async function runMoveTargetDirectLoaderInVm(
 // fallow-ignore-next-line complexity
 function moveTargetEnvelopeLoader(descriptor: MoveDescriptor): Loader | undefined {
   const capture = descriptor.resourcePlan?.capture;
-  if (genericResourceGraphIsPrimary(capture?.genericResourceGraphState)) {
+  if (genericResourceGraphIsProductPrimary(capture?.genericResourceGraphState)) {
     return runMoveTargetGenericResourceGraphLoaderInVm;
   }
   const loaders: Array<[unknown, Loader]> = [

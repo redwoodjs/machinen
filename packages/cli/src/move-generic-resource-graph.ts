@@ -4,25 +4,30 @@ import type {
   NativeProcessImageRefusal,
   VmHandle,
 } from "@machinen/runtime";
-import {
-  genericAnonInodeResourceClasses,
-  genericEpolls,
-  genericEventfds,
-  supportedEventfdCounter,
-  supportedEpollSet,
-} from "./move-generic-anon-inode.ts";
+import * as genericAnonInode from "./move-generic-anon-inode.ts";
 import { genericEventfdLaunchCommand } from "./move-generic-eventfd-loader.ts";
+import { genericTimerfdLaunchCommand } from "./move-generic-timerfd-loader.ts";
+import * as genericInotify from "./move-generic-inotify.ts";
+import * as genericMmap from "./move-generic-mmap-file.ts";
 import {
   genericRegularFileCursorLaunchCommand,
   genericRegularFilePreflightCommand,
 } from "./move-generic-file-cursor-loader.ts";
+import {
+  fileLockRefusals,
+  genericFileLockLaunchCommand,
+  genericFileLockResourceClasses,
+  genericFileLocks,
+} from "./move-generic-file-lock.ts";
 import { healthProbeCommand } from "./move-generic-health-probes.ts";
+import { genericProductPathIsPromoted } from "./move-generic-product-path.ts";
 import {
   genericPipeLaunchCommand,
   genericPipePreflightCommands,
 } from "./move-generic-pipe-loader.ts";
 import { genericPtyLaunchCommand } from "./move-generic-pty-loader.ts";
 import { genericPtys, supportedNoninteractivePtyProbe } from "./move-generic-pty-terminal.ts";
+import * as genericSignal from "./move-generic-signal-state.ts";
 import { genericStdioGraph, genericStdioPolicy } from "./move-generic-stdio.ts";
 import { genericTerminalBoundaryRefusals } from "./move-generic-terminal-boundaries.ts";
 import {
@@ -105,14 +110,20 @@ export function buildMoveGenericResourceGraphState(
     regularFiles: regularFiles(resourcePlan, preflight),
     dataDirs: dataDirs(node, resourcePlan, preflight),
     fileOffsets: fileOffsets(resourcePlan),
+    fileLocks: genericFileLocks(preflight, resourcePlan),
     stdioPolicy: genericStdioPolicy(resourcePlan, preflight, node),
     stdioGraph: genericStdioGraph(
       resourcePlan,
       supportedNoninteractivePtyProbe(node, resourcePlan, preflight),
     ),
     pipeGraph: pipeGraph(resourcePlan, node),
-    eventfds: genericEventfds(preflight, resourcePlan),
-    epolls: genericEpolls(preflight, resourcePlan),
+    eventfds: genericAnonInode.genericEventfds(preflight, resourcePlan),
+    epolls: genericAnonInode.genericEpolls(preflight, resourcePlan),
+    timers: genericAnonInode.genericTimers(preflight, resourcePlan),
+    signalState: genericSignal.genericSignalState(preflight),
+    signalfds: genericSignal.genericSignalfds(preflight, resourcePlan),
+    inotifyWatches: genericInotify.genericInotifyWatches(preflight, resourcePlan),
+    mmapMappings: genericMmap.genericMmapMappings(resourcePlan),
     ptys: genericPtys(preflight, resourcePlan, node),
     healthProbe: healthProbe(preflight, node, resourcePlan, migration),
     resourceClasses: classifier.resourceClasses,
@@ -257,7 +268,13 @@ function classifyGenericResourceGraph(
       supported("pipeGraph", "pipe fds are normalized into pipe graph descriptor evidence"),
     );
   }
-  resourceClasses.push(...genericAnonInodeResourceClasses(preflight, resourcePlan));
+  resourceClasses.push(
+    ...genericAnonInode.genericAnonInodeResourceClasses(preflight, resourcePlan),
+    ...genericSignal.genericSignalResourceClasses(preflight, resourcePlan),
+    ...genericInotify.genericInotifyResourceClasses(preflight, resourcePlan),
+    ...genericMmap.genericMmapResourceClasses(genericMmap.genericMmapMappings(resourcePlan)),
+    ...genericFileLockResourceClasses(genericFileLocks(preflight, resourcePlan)),
+  );
   if (listenerPorts(preflight, refusals, resourcePlan).length > 0) {
     resourceClasses.push(
       supported("loopbackTcpListener", "loopback TCP listeners have no active clients"),
@@ -306,9 +323,11 @@ function unsupportedResourceRefusals(
       preflight,
       isIdleLoopbackListener(preflight, resource.fd) || isBespokeIdleListener(resourcePlan),
       supportedUnixPathnameListener(preflight, resource),
-      supportedEventfdCounter(resource, preflight, resourcePlan),
-      supportedEpollSet(resource, preflight, resourcePlan),
+      genericAnonInode.supportedEventfdCounter(resource, preflight, resourcePlan),
+      genericAnonInode.supportedEpollSet(resource, preflight, resourcePlan),
       supportedNoninteractivePtyProbe(node, resourcePlan, preflight),
+      genericAnonInode.supportedTimerfd(resource, preflight, resourcePlan),
+      genericInotify.supportedInotifyFileFollow(resource, preflight, resourcePlan),
     ),
   );
   if (hasActiveTcp(preflight)) {
@@ -320,7 +339,12 @@ function unsupportedResourceRefusals(
       ),
     );
   }
-  refusals.push(...fileLockRefusals(preflight), ...mmapRefusals(preflight, resourcePlan));
+  refusals.push(
+    ...fileLockRefusals(genericFileLocks(preflight, resourcePlan)),
+    ...genericMmap.genericMmapRefusals(genericMmap.genericMmapMappings(resourcePlan)),
+    ...mmapRefusals(preflight, resourcePlan),
+    ...genericSignal.genericSignalStateRefusals(preflight),
+  );
   if (genericStdioPolicy(resourcePlan, preflight, node) === "refuse-nontrivial-stdio") {
     refusals.push(
       refusal("stdio", "stdio is not closed or /dev/null", "fd 0/1/2 has non-trivial target"),
@@ -329,18 +353,6 @@ function unsupportedResourceRefusals(
   refusals.push(...hiddenShellStateRefusals(node));
   refusals.push(...genericTerminalBoundaryRefusals(node, resourcePlan, preflight));
   return dedupeRefusals(refusals);
-}
-
-function fileLockRefusals(preflight: GenericPreflight): GenericRefusalClass[] {
-  return preflight.locks.length > 0
-    ? [
-        refusal(
-          "fileLock",
-          "regular-file locks cannot be generically reconstructed",
-          preflight.locks.join(" | "),
-        ),
-      ]
-    : [];
 }
 
 function mmapRefusals(
@@ -704,6 +716,11 @@ status_file=/proc/$pid/status
 uid=$(awk '/^Uid:/ {print $2}' "$status_file")
 gid=$(awk '/^Gid:/ {print $2}' "$status_file")
 printf 'STATUS\t%s\t%s\n' "$uid" "$gid"
+signal_stat=$(python3 -c 'import sys; s=open(f"/proc/{sys.argv[1]}/stat", encoding="utf-8").read().rsplit(") ",1)[1].split(); print("%s\t%s" % (s[3], s[2]))' "$pid" 2>/dev/null || printf '\t')
+sid=$(printf '%s' "$signal_stat" | cut -f1); pgrp=$(printf '%s' "$signal_stat" | cut -f2)
+sigpnd=$(awk '/^SigPnd:/ {print $2}' "$status_file"); shdpnd=$(awk '/^ShdPnd:/ {print $2}' "$status_file")
+sigblk=$(awk '/^SigBlk:/ {print $2}' "$status_file"); sigign=$(awk '/^SigIgn:/ {print $2}' "$status_file"); sigcgt=$(awk '/^SigCgt:/ {print $2}' "$status_file")
+printf 'SIGNAL_STATE\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$sid" "$pgrp" "$sigpnd" "$shdpnd" "$sigblk" "$sigign" "$sigcgt"
 root=$(readlink "/proc/$pid/root" 2>/dev/null || true)
 printf 'ROOT\t%s\n' "$root"
 awk 'NR > 1 { path = (NF >= 8 ? $8 : ""); printf "UNIX_FD\t-1\t%s\t%s\t%s\t%s\t%s\t%s\t%s\\n", $7, $2, $3, $4, $5, $6, path }' /proc/net/unix 2>/dev/null || true
@@ -758,6 +775,16 @@ PY
   eventfd_count=$(awk -F: '/^eventfd-count:/ { gsub(/^[[:space:]]+/, "", $2); print $2; exit }' "/proc/$pid/fdinfo/$fd" 2>/dev/null || true)
   fdinfo_flags=$(awk '/^flags:/ { print $2; exit }' "/proc/$pid/fdinfo/$fd" 2>/dev/null || true)
   if [ -n "$eventfd_count" ]; then printf 'EVENTFD_FD\t%s\t%s\t%s\n' "$fd" "$eventfd_count" "$fdinfo_flags"; fi
+  if [ "$target" = "anon_inode:[signalfd]" ]; then sigmask=$(awk '/^sigmask:/ { print $2; exit }' "/proc/$pid/fdinfo/$fd" 2>/dev/null || true); printf 'SIGNALFD_FD\t%s\t%s\t%s\n' "$fd" "$fdinfo_flags" "$sigmask"; fi
+  if [ "$target" = "anon_inode:inotify" ] || [ "$target" = "anon_inode:[inotify]" ]; then printf 'INOTIFY_FD\t%s\t%s\n' "$fd" "$fdinfo_flags"; awk -v ifd="$fd" '/^inotify/ { wd=""; mask=""; ignored=""; for (i=1; i<=NF; i++) { if ($i ~ /^wd:/) { split($i,a,":"); wd=a[2] } else if ($i ~ /^mask:/) { split($i,a,":"); mask=a[2] } else if ($i ~ /^ignored_mask:/) { split($i,a,":"); ignored=a[2] } } if (wd != "") printf "INOTIFY_WATCH\t%s\t%s\t%s\t%s\n", ifd, wd, mask, ignored }' "/proc/$pid/fdinfo/$fd" 2>/dev/null || true; fi
+  if [ "$target" = "anon_inode:[timerfd]" ]; then awk -v fd="$fd" -v flags="$fdinfo_flags" '
+    /^clockid:/ { clockid=$2 }
+    /^ticks:/ { ticks=$2 }
+    /^settime flags:/ { setflags=$3 }
+    /^it_value:/ { value=$0; sub(/^it_value:[[:space:]]*[(]/, "", value); sub(/[)].*/, "", value); gsub(/[[:space:]]+/, "", value); split(value, v, ",") }
+    /^it_interval:/ { interval=$0; sub(/^it_interval:[[:space:]]*[(]/, "", interval); sub(/[)].*/, "", interval); gsub(/[[:space:]]+/, "", interval); split(interval, i, ",") }
+    END { if (clockid != "") printf "TIMERFD_FD\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", fd, flags, clockid, ticks + 0, setflags + 0, v[1] + 0, v[2] + 0, i[1] + 0, i[2] + 0 }
+  ' "/proc/$pid/fdinfo/$fd" 2>/dev/null || true; fi
   if [ "$target" = "anon_inode:[eventpoll]" ] || grep -q '^[[:space:]]*tfd:' "/proc/$pid/fdinfo/$fd" 2>/dev/null; then printf 'EPOLL_FD\t%s\t%s\n' "$fd" "$fdinfo_flags"; awk -v epfd="$fd" '/^[[:space:]]*tfd:/ { tfd=""; events=""; data=""; for (i=1; i<=NF; i++) { if ($i == "tfd:") tfd=$(i+1); else if ($i == "events:") events=$(i+1); else if ($i == "data:") data=$(i+1) } printf "EPOLL_WATCH\t%s\t%s\t%s\t%s\n", epfd, tfd, events, data }' "/proc/$pid/fdinfo/$fd"; fi
   case "$target" in /dev/pts/*|/dev/tty*)
     stat_fields=$(python3 -c 'import sys; s=open(f"/proc/{sys.argv[1]}/stat", encoding="utf-8").read().rsplit(") ",1)[1].split(); print("%s\t%s\t%s\t%s" % (s[2], s[3], s[4], s[5]))' "$pid" 2>/dev/null || printf '\t\t\t')
@@ -825,6 +852,14 @@ export function genericResourceGraphIsPrimary(state: GenericState | undefined): 
   return state?.migration?.mode === "generic-primary" && state.refusalClasses.length === 0;
 }
 
+export function genericResourceGraphIsProductPrimary(state: GenericState | undefined): boolean {
+  return genericResourceGraphIsPrimary(state) && genericResourceGraphHasProductPath(state);
+}
+
+function genericResourceGraphHasProductPath(state: GenericState): boolean {
+  return genericProductPathIsPromoted(state.migration?.productPath);
+}
+
 export function genericResourceGraphLoaderCommand(state: GenericState | undefined): string {
   if (!state) {
     return "printf 'PATCH\\tgeneric-resource-graph\\trefused\\tmissing-state\\n'; exit 2";
@@ -846,6 +881,8 @@ export function genericResourceGraphLoaderCommand(state: GenericState | undefine
     ...state.ports.map((port) => portPreflight(port.bindAddress, port.port)),
     ...genericUnixSocketPreflightCommands(state),
     ...genericPipePreflightCommands(state),
+    ...genericInotify.genericInotifyPreflightCommands(state),
+    ...genericMmap.genericMmapPreflightCommands(state),
   ].filter(Boolean);
   return `set -eu
 fail() { printf 'PATCH\tgeneric-resource-graph\trefused\t%s\n' "$1"; exit 2; }
@@ -866,7 +903,11 @@ printf 'PATCH\tgeneric-resource-graph\tready\t%s\n' "$pid"
 function genericLaunchCommand(state: GenericState): string {
   return (
     genericPipeLaunchCommand(state) ??
+    genericFileLockLaunchCommand(state) ??
+    genericTimerfdLaunchCommand(state) ??
     genericEventfdLaunchCommand(state) ??
+    genericInotify.genericInotifyLaunchCommand(state) ??
+    genericMmap.genericMmapLaunchCommand(state) ??
     genericPtyLaunchCommand(state) ??
     genericRegularFileCursorLaunchCommand(state) ??
     `${state.argv.map(shellQuote).join(" ")} >"$log" 2>&1 &
@@ -905,7 +946,6 @@ rm -f "$tree_file"`
 [ -d ${path} ] || fail data-dir-missing
 ${identity}`;
 }
-
 function portPreflight(host: string, port: number): string {
   return `python3 - ${shellQuote(host)} ${shellQuote(String(port))} <<'PY' || fail port-unavailable
 import socket, sys
@@ -916,7 +956,6 @@ finally:
     s.close()
 PY`;
 }
-
 function parseGenericLoaderOutput(stdout: string): {
   pid?: number;
   logPath?: string;
@@ -939,7 +978,6 @@ function parseGenericLoaderOutput(stdout: string): {
   }
   return parsed;
 }
-
 function genericLoaderRefusal(reason: string): NativeProcessImageRefusal {
   return {
     code: "target-process-context-unsupported",

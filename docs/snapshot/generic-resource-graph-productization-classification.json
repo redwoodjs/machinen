@@ -1,0 +1,400 @@
+{
+  "schemaVersion": 1,
+  "sourcePlan": "scripts/smoke/move-envelope-generic-resource-graph-full-expansion-plan.json",
+  "purpose": "Classify the completed full-expansion proof rows before changing product routing. Classification is advisory for productization only; it does not itself promote support.",
+  "allowedClassifications": ["product-candidate", "proof-only", "refusal-only", "deferred"],
+  "productCandidateContract": {
+    "requiredProductPathKind": "exact-live-capture",
+    "requiredRefusalClasses": [],
+    "requiresSupportProof": true,
+    "requiresRefusalProofs": true,
+    "requiresTargetHealthOrOutputEvidence": true,
+    "requiresInventoryRegistration": true,
+    "requiresDocumentationRegistration": true,
+    "requiresRetainedProofCoverage": true,
+    "note": "A product-candidate classification does not route product traffic by itself. Product routing may accept only rows that also satisfy this contract at implementation time."
+  },
+  "globalNonClaims": [
+    "no arbitrary process restore",
+    "no broad daemon/database/service migration",
+    "no active session migration",
+    "no source-fd teleportation",
+    "no source-ISA emulation",
+    "no metadata-only success",
+    "no runtime-profile shortcut"
+  ],
+  "rows": [
+    {
+      "proofName": "generic-two-process-pipe-reexec",
+      "classification": "deferred",
+      "reason": "Exact target-native two-process pipe support is proven, but it has no productPath marker yet and must not be exposed as broad process-graph movement.",
+      "productPathEligible": false,
+      "neededBeforePromotion": [
+        "productPath marker",
+        "equivalent product-facing refusal pairing",
+        "user-facing explanation",
+        "retained product coverage"
+      ],
+      "nonClaims": [
+        "no arbitrary process graph migration",
+        "no hidden shell/session migration",
+        "no source-fd teleportation"
+      ]
+    },
+    {
+      "proofName": "generic-finite-pipe-buffer-replay",
+      "classification": "product-candidate",
+      "reason": "Finite captured pipe bytes are target-native replayed and already serve as support evidence for generic-stdio-pipe-product-marker; product use is allowed only through exact productPath metadata.",
+      "productPathEligible": true,
+      "pairedProductMarker": "generic-stdio-pipe-product-marker",
+      "requiredRefusalProofs": ["generic-pipe-stdio-refusals"],
+      "nonClaims": [
+        "no live kernel pipe queue migration beyond explicit captured bytes",
+        "no active writer/session support",
+        "no source-fd teleportation"
+      ]
+    },
+    {
+      "proofName": "generic-pipe-stdio-refusals",
+      "classification": "refusal-only",
+      "reason": "This row is the fail-closed sibling for unsafe pipe/stdio states and is required evidence for pipe product candidates.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no ambiguous pipe topology support",
+        "no PTY stdio migration",
+        "no hidden shell state"
+      ]
+    },
+    {
+      "proofName": "generic-stdio-pipe-product-marker",
+      "classification": "product-candidate",
+      "reason": "This row carries exact live-capture productPath metadata, refusalClasses=[], support proof generic-finite-pipe-buffer-replay, refusal proof generic-pipe-stdio-refusals, and target output evidence.",
+      "productPathEligible": true,
+      "supportProofName": "generic-finite-pipe-buffer-replay",
+      "requiredRefusalProofs": ["generic-pipe-stdio-refusals"],
+      "nonClaims": [
+        "no arbitrary stdio migration",
+        "no active writer/session support",
+        "no source-fd teleportation"
+      ]
+    },
+    {
+      "proofName": "generic-multi-process-pipe-refusals",
+      "classification": "refusal-only",
+      "reason": "This row records fail-closed boundaries for unsafe multi-process pipe shapes and must remain a guard, not a support claim.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no fan-in/fan-out support",
+        "no nonblocking readiness semantics",
+        "no active partial write preservation"
+      ]
+    },
+    {
+      "proofName": "generic-process-tree-refusals",
+      "classification": "refusal-only",
+      "reason": "This row refuses service-managed children, dynamic pools, active requests, reload races, and non-exact trees; it is boundary evidence only.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no broad process-tree checkpointing",
+        "no active request/session migration",
+        "no service-managed child continuation"
+      ]
+    },
+    {
+      "proofName": "generic-service-process-tree-prefork",
+      "classification": "proof-only",
+      "reason": "The safe exact prefork daemon row is proven with a proof-only Python fixture and health probe; it is not product support until a real product marker and package boundary are proven.",
+      "productPathEligible": false,
+      "neededBeforePromotion": [
+        "non-proof fixture envelope",
+        "productPath marker",
+        "service-specific refusal pairing",
+        "runtime package boundary"
+      ],
+      "nonClaims": [
+        "no arbitrary daemon migration",
+        "no dynamic worker pool support",
+        "no active request/session migration"
+      ]
+    },
+    {
+      "proofName": "generic-service-process-tree-refusals",
+      "classification": "refusal-only",
+      "reason": "This row is the fail-closed service-process-tree boundary for dynamic workers, active requests, reload races, config drift, writable persistence, and package/config mismatch.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no broad service migration",
+        "no writable persistence migration",
+        "no package/config reconciliation"
+      ]
+    },
+    {
+      "proofName": "generic-unix-pathname-client-pair",
+      "classification": "deferred",
+      "reason": "The exact pathname listener/client-pair shape is target-native and promising, but product routing needs productPath metadata and a product-facing marker before promotion.",
+      "productPathEligible": false,
+      "neededBeforePromotion": [
+        "productPath marker for client-pair shape",
+        "retained support/refusal product plan",
+        "user-facing explanation"
+      ],
+      "nonClaims": [
+        "no connected Unix session migration",
+        "no fd-passing support",
+        "no arbitrary Unix socket migration"
+      ]
+    },
+    {
+      "proofName": "generic-unix-socket-wave2-refusals",
+      "classification": "refusal-only",
+      "reason": "This row refuses connected sessions, abstract sockets, datagrams, socketpairs, fd passing, credential-sensitive sockets, and unsafe pathname state.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no abstract/datagram/socketpair migration",
+        "no SCM_RIGHTS fd passing",
+        "no credential-sensitive socket migration"
+      ]
+    },
+    {
+      "proofName": "generic-timerfd-relative-oneshot",
+      "classification": "deferred",
+      "reason": "The target-native relative one-shot timerfd primitive is proven, but product support needs an enclosing exact process/resource envelope and productPath marker.",
+      "productPathEligible": false,
+      "neededBeforePromotion": [
+        "enclosing exact product envelope",
+        "active waiter boundary",
+        "productPath marker"
+      ],
+      "nonClaims": [
+        "no realtime clock translation",
+        "no periodic timer migration",
+        "no active waiter continuation"
+      ]
+    },
+    {
+      "proofName": "generic-timerfd-relative-oneshot-refusals",
+      "classification": "refusal-only",
+      "reason": "This row refuses realtime, nonblocking, unread, absolute, and periodic timerfd shapes and must remain guard evidence.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no unread tick replay",
+        "no absolute/cancel-on-set support",
+        "no periodic interval continuation"
+      ]
+    },
+    {
+      "proofName": "generic-signalfd-signal-state-refusals",
+      "classification": "refusal-only",
+      "reason": "Signal state is refusal-only in the full expansion: signalfd, pending signals, process-group ambiguity, runtime signal timers, and unknown handlers fail before target launch.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no pending signal replay",
+        "no signal handler migration",
+        "no process-group/session reconstruction"
+      ]
+    },
+    {
+      "proofName": "generic-file-lock-advisory",
+      "classification": "deferred",
+      "reason": "A single whole-file exclusive advisory flock can be reacquired target-side, but product support needs an enclosing command/resource envelope and marker.",
+      "productPathEligible": false,
+      "neededBeforePromotion": [
+        "enclosing exact product envelope",
+        "conflict/refusal pairing in product plan",
+        "productPath marker"
+      ],
+      "nonClaims": [
+        "no POSIX/OFD/range lock product support",
+        "no cross-process lock ownership migration",
+        "no lock conflict repair"
+      ]
+    },
+    {
+      "proofName": "generic-file-lock-refusals",
+      "classification": "refusal-only",
+      "reason": "This row refuses lock conflicts, unknown owners, mandatory locks, leases, nonseekable offsets, changed backing files, unsupported lock types, and cross-process ownership ambiguity.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no mandatory lock or lease support",
+        "no changed backing file repair",
+        "no cross-process lock graph migration"
+      ]
+    },
+    {
+      "proofName": "generic-inotify-file-follow",
+      "classification": "deferred",
+      "reason": "Future-event-only inotify file-follow reconstruction is proven, but product support needs an enclosing product envelope and explicit no-queue-replay UX.",
+      "productPathEligible": false,
+      "neededBeforePromotion": [
+        "enclosing exact product envelope",
+        "productPath marker",
+        "clear no queued event replay explanation"
+      ],
+      "nonClaims": [
+        "no queued inotify event replay",
+        "no recursive watch support",
+        "no fanotify permission event support"
+      ]
+    },
+    {
+      "proofName": "generic-inotify-fanotify-refusals",
+      "classification": "refusal-only",
+      "reason": "This row refuses queued watcher events, recursive watches, fanotify permission events, unsupported masks, and active waiters.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no watcher queue replay",
+        "no fanotify migration",
+        "no active waiter continuation"
+      ]
+    },
+    {
+      "proofName": "generic-mmap-file-backed-clean",
+      "classification": "deferred",
+      "reason": "Clean file-backed mmap identity reconstruction is proven as a primitive, but product routing needs an enclosing exact product envelope and dirty-map refusal pairing.",
+      "productPathEligible": false,
+      "neededBeforePromotion": [
+        "enclosing exact product envelope",
+        "productPath marker",
+        "dirty/shared/private refusal pairing"
+      ],
+      "nonClaims": [
+        "no dirty mmap migration",
+        "no anonymous mmap migration",
+        "no writable executable mapping support"
+      ]
+    },
+    {
+      "proofName": "generic-mmap-dirty-refusals",
+      "classification": "refusal-only",
+      "reason": "This row refuses dirty, anonymous, private/shared ambiguous, changed backing, writable executable, and runtime heap mmap shapes.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no runtime heap shortcut",
+        "no dirty page replay",
+        "no writable executable mapping continuation"
+      ]
+    },
+    {
+      "proofName": "generic-epoll-timerfd-watch",
+      "classification": "deferred",
+      "reason": "A one-level epoll timerfd readiness primitive is proven, but product support needs an enclosing exact product envelope and productPath marker.",
+      "productPathEligible": false,
+      "neededBeforePromotion": [
+        "enclosing exact product envelope",
+        "productPath marker",
+        "event-loop active wait boundary"
+      ],
+      "nonClaims": [
+        "no arbitrary event-loop migration",
+        "no edge-triggered/oneshot/nested epoll support",
+        "no active wait continuation"
+      ]
+    },
+    {
+      "proofName": "generic-epoll-eventfd-watch-refusals",
+      "classification": "refusal-only",
+      "reason": "This row refuses unsupported epoll flags, aliases, nested epoll, unknown fds, active wait loops, and unsupported readiness sources.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no nested epoll support",
+        "no unknown fd readiness support",
+        "no active event-loop migration"
+      ]
+    },
+    {
+      "proofName": "generic-service-redis-idle-parity",
+      "classification": "product-candidate",
+      "reason": "The exact idle Redis parity row is support evidence for redis-live-generic-primary-marker, but product use must remain limited to the exact empty/idle supported shape and never become broad database migration.",
+      "productPathEligible": true,
+      "pairedProductMarker": "redis-live-generic-primary-marker",
+      "requiredRefusalProofs": [
+        "generic-database-data-dir-refusals",
+        "redis-live-nonempty-marker-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals"
+      ],
+      "nonClaims": [
+        "no broad Redis/database migration",
+        "no nonempty or writable data-dir migration",
+        "no active client/session migration"
+      ]
+    },
+    {
+      "proofName": "generic-database-data-dir-refusals",
+      "classification": "refusal-only",
+      "reason": "This row refuses unsafe database/data-dir state and is required to keep exact Redis support from becoming broad database migration.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no broad database migration",
+        "no writable or dirty data-dir continuation",
+        "no active database client/session migration"
+      ]
+    },
+    {
+      "proofName": "generic-same-arch-modeled-continuation",
+      "classification": "proof-only",
+      "reason": "Same-arch continuation is a single-thread native-code harness proof only and is explicitly not product arbitrary process restore.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no arbitrary process restore",
+        "no runtime heap migration",
+        "no active syscall or multi-thread continuation",
+        "no source-fd teleportation"
+      ]
+    },
+    {
+      "proofName": "generic-same-arch-continuation-refusals",
+      "classification": "refusal-only",
+      "reason": "This row proves same-arch unsafe states fail closed and guards the proof-only same-arch harness boundary.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no active syscall continuation",
+        "no multi-thread scheduler migration",
+        "no runtime heap shortcut"
+      ]
+    },
+    {
+      "proofName": "generic-cross-arch-semantic-reconstruction",
+      "classification": "proof-only",
+      "reason": "Cross-arch reconstruction is a finite semantic-descriptor proof using target-native tools only; it is not arbitrary cross-architecture process restore or source register replay.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no source registers or source ISA state",
+        "no arbitrary ELF/process restore",
+        "no source-ISA emulation",
+        "no metadata-only success"
+      ]
+    },
+    {
+      "proofName": "generic-cross-arch-semantic-refusals",
+      "classification": "refusal-only",
+      "reason": "This row refuses metadata-only success, source-ISA emulation, runtime-profile shortcuts, arbitrary ELF/process claims, unsupported resources, missing tools, and incomplete graphs.",
+      "productPathEligible": false,
+      "nonClaims": [
+        "no source-ISA emulation",
+        "no runtime-profile shortcut",
+        "no arbitrary process restore",
+        "no metadata-only success"
+      ]
+    },
+    {
+      "proofName": "redis-live-generic-primary-marker",
+      "classification": "product-candidate",
+      "reason": "This exact marker row can be considered for productization only with generic-service-redis-idle-parity support and database/data-dir refusal evidence; it must not imply broad Redis/database support.",
+      "productPathEligible": true,
+      "supportProofName": "generic-service-redis-idle-parity",
+      "requiredRefusalProofs": [
+        "generic-database-data-dir-refusals",
+        "redis-live-nonempty-marker-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals"
+      ],
+      "nonClaims": [
+        "no broad database migration",
+        "no nonempty Redis data migration",
+        "no active client/session migration",
+        "no source-fd teleportation"
+      ]
+    }
+  ]
+}

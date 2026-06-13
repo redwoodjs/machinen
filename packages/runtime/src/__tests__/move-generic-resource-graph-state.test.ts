@@ -200,6 +200,113 @@ describe("MoveGenericResourceGraphState", () => {
     expect(state?.refusalClasses).toEqual([]);
   });
 
+  it("can represent exact live-capture product path metadata with empty refusal classes", () => {
+    const productState: MoveGenericResourceGraphState = {
+      ...genericResourceGraphState,
+      migration: {
+        mode: "generic-primary",
+        sourceProofName: "generic-stdio-pipe-product-marker",
+        genericProofName: "generic-finite-pipe-buffer-replay",
+        fallbackPolicy:
+          "explicit fallback remains available outside exact modeled stdio pipe shape",
+        boundary: "exact finite modeled stdio pipe graph only",
+        productPath: {
+          kind: "exact-live-capture",
+          markerProofName: "generic-stdio-pipe-product-marker",
+          supportProofName: "generic-finite-pipe-buffer-replay",
+          refusalProofNames: ["generic-pipe-stdio-refusals"],
+          observedGraph: "exact-live-resource-graph",
+        },
+      },
+      refusalClasses: [],
+    };
+
+    expect(productState.migration?.productPath).toMatchObject({
+      kind: "exact-live-capture",
+      markerProofName: "generic-stdio-pipe-product-marker",
+      supportProofName: "generic-finite-pipe-buffer-replay",
+      refusalProofNames: ["generic-pipe-stdio-refusals"],
+      observedGraph: "exact-live-resource-graph",
+    });
+    expect(productState.refusalClasses).toEqual([]);
+  });
+
+  it("can represent wave-2 exact live-capture product path metadata", () => {
+    const wave2ProductState: MoveGenericResourceGraphState = {
+      ...genericResourceGraphState,
+      migration: {
+        mode: "generic-primary",
+        sourceProofName: "busybox-nc-listener-live-generic-primary-marker",
+        genericProofName: "generic-interpreted-server",
+        fallbackPolicy:
+          "target-original busybox nc loader remains available outside exact idle listener shape",
+        boundary: "exact idle BusyBox nc listener with no active clients",
+        productPath: {
+          kind: "exact-live-capture",
+          markerProofName: "busybox-nc-listener-live-generic-primary-marker",
+          supportProofName: "busybox-nc-listener",
+          refusalProofNames: [
+            "unsafe-busybox-nc-refusal",
+            "unsafe-nc-active-refusal",
+            "generic-loader-preflight-refusals",
+          ],
+          observedGraph: "exact-live-resource-graph",
+        },
+      },
+      refusalClasses: [],
+    };
+
+    expect(wave2ProductState.migration?.productPath).toMatchObject({
+      kind: "exact-live-capture",
+      markerProofName: "busybox-nc-listener-live-generic-primary-marker",
+      supportProofName: "busybox-nc-listener",
+      refusalProofNames: [
+        "unsafe-busybox-nc-refusal",
+        "unsafe-nc-active-refusal",
+        "generic-loader-preflight-refusals",
+      ],
+      observedGraph: "exact-live-resource-graph",
+    });
+    expect(wave2ProductState.refusalClasses).toEqual([]);
+  });
+
+  it("can carry product-adjacent refusal evidence without implying runtime support", () => {
+    const refusedProductAdjacent: MoveGenericResourceGraphState = {
+      ...genericResourceGraphState,
+      migration: {
+        mode: "generic-primary",
+        sourceProofName: "generic-stdio-pipe-product-marker",
+        genericProofName: "generic-finite-pipe-buffer-replay",
+        fallbackPolicy: "generic product path stays blocked while refusal evidence is present",
+        boundary: "exact modeled stdio pipe refuses active or ambiguous pipe state",
+        productPath: {
+          kind: "exact-live-capture",
+          markerProofName: "generic-stdio-pipe-product-marker",
+          supportProofName: "generic-finite-pipe-buffer-replay",
+          refusalProofNames: ["generic-pipe-stdio-refusals"],
+          observedGraph: "exact-live-resource-graph",
+        },
+      },
+      refusalClasses: [
+        {
+          resourceClass: "pipe",
+          status: "refused",
+          reason: "active or ambiguous pipe state is outside the product stdio pipe shape",
+          evidence: "runtime descriptor keeps refusalClasses non-empty",
+          nextAction:
+            "keep product routing refused until the pipe state has exact support evidence",
+        },
+      ],
+    };
+
+    expect(refusedProductAdjacent.migration?.productPath?.kind).toBe("exact-live-capture");
+    expect(refusedProductAdjacent.refusalClasses).toHaveLength(1);
+    expect(refusedProductAdjacent.refusalClasses[0]).toMatchObject({
+      resourceClass: "pipe",
+      status: "refused",
+    });
+  });
+
   it("can represent exact refused resource classes", () => {
     const refused: MoveGenericResourceGraphState = {
       ...genericResourceGraphState,

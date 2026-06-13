@@ -60,6 +60,41 @@ export type GenericPreflight = {
       data: string;
     }>;
   }>;
+  timers: Array<{
+    fd: number;
+    fdinfoFlags: string;
+    clockId: number | "unknown";
+    ticks: string;
+    settimeFlags: number | "unknown";
+    valueSeconds: number;
+    valueNanoseconds: number;
+    intervalSeconds: number;
+    intervalNanoseconds: number;
+  }>;
+  signal?: {
+    sessionId?: number;
+    processGroupId?: number;
+    pendingMaskHex: string;
+    sharedPendingMaskHex: string;
+    blockedMaskHex: string;
+    ignoredMaskHex: string;
+    caughtMaskHex: string;
+  };
+  signalfds: Array<{
+    fd: number;
+    fdinfoFlags: string;
+    sigmask: string;
+  }>;
+  inotifies: Array<{
+    fd: number;
+    fdinfoFlags: string;
+    watches: Array<{
+      wd: number;
+      mask: string;
+      ignoredMask: string;
+      path?: string;
+    }>;
+  }>;
   ptys: Array<{
     fd: number;
     path: string;
@@ -84,6 +119,9 @@ export function createGenericPreflight(): GenericPreflight {
     unix: [],
     eventfds: [],
     epolls: [],
+    timers: [],
+    signalfds: [],
+    inotifies: [],
     ptys: [],
     locks: [],
     mmaps: [],
@@ -100,6 +138,16 @@ export function parseWave2PreflightRow(preflight: GenericPreflight, parts: strin
       return parseEpoll(preflight, parts);
     case "EPOLL_WATCH":
       return parseEpollWatch(preflight, parts);
+    case "TIMERFD_FD":
+      return parseTimerfd(preflight, parts);
+    case "SIGNAL_STATE":
+      return parseSignalState(preflight, parts);
+    case "SIGNALFD_FD":
+      return parseSignalfd(preflight, parts);
+    case "INOTIFY_FD":
+      return parseInotify(preflight, parts);
+    case "INOTIFY_WATCH":
+      return parseInotifyWatch(preflight, parts);
     case "PTY_FD":
       return parsePty(preflight, parts);
     default:
@@ -153,6 +201,102 @@ function parseEpollWatch(preflight: GenericPreflight, parts: string[]): boolean 
     epoll.watchedFds.push({ targetFd, events: parts[3] ?? "", data: parts[4] ?? "" });
   }
   return true;
+}
+
+function parseTimerfd(preflight: GenericPreflight, parts: string[]): boolean {
+  const timer = timerfdPreflightDescriptor(parts);
+  if (timer) {
+    preflight.timers.push(timer);
+  }
+  return true;
+}
+
+function parseInotify(preflight: GenericPreflight, parts: string[]): boolean {
+  const fd = number(parts[1]);
+  if (fd !== undefined && !preflight.inotifies.some((item) => item.fd === fd)) {
+    preflight.inotifies.push({ fd, fdinfoFlags: parts[2] ?? "", watches: [] });
+  }
+  return true;
+}
+
+function parseInotifyWatch(preflight: GenericPreflight, parts: string[]): boolean {
+  const fd = number(parts[1]);
+  const wd = number(parts[2]);
+  if (fd !== undefined && wd !== undefined) {
+    let inotify = preflight.inotifies.find((item) => item.fd === fd);
+    if (!inotify) {
+      inotify = { fd, fdinfoFlags: "", watches: [] };
+      preflight.inotifies.push(inotify);
+    }
+    inotify.watches.push({
+      wd,
+      mask: parts[3] ?? "",
+      ignoredMask: parts[4] ?? "",
+      path: parts[5],
+    });
+  }
+  return true;
+}
+
+function timerfdPreflightDescriptor(
+  parts: string[],
+): GenericPreflight["timers"][number] | undefined {
+  const fd = number(parts[1]);
+  if (fd === undefined) {
+    return undefined;
+  }
+  return {
+    fd,
+    fdinfoFlags: textOr(parts[2], ""),
+    clockId: numberOrUnknown(parts[3]),
+    ticks: textOr(parts[4], "unknown"),
+    settimeFlags: numberOrUnknown(parts[5]),
+    valueSeconds: numberOrZero(parts[6]),
+    valueNanoseconds: numberOrZero(parts[7]),
+    intervalSeconds: numberOrZero(parts[8]),
+    intervalNanoseconds: numberOrZero(parts[9]),
+  };
+}
+
+function textOr(value: string | undefined, fallback: string): string {
+  return value ?? fallback;
+}
+
+function numberOrUnknown(value: string | undefined): number | "unknown" {
+  return number(value) ?? "unknown";
+}
+
+function numberOrZero(value: string | undefined): number {
+  return number(value) ?? 0;
+}
+
+function parseSignalState(preflight: GenericPreflight, parts: string[]): boolean {
+  preflight.signal = {
+    sessionId: number(parts[1]),
+    processGroupId: number(parts[2]),
+    pendingMaskHex: signalMask(parts[3]),
+    sharedPendingMaskHex: signalMask(parts[4]),
+    blockedMaskHex: signalMask(parts[5]),
+    ignoredMaskHex: signalMask(parts[6]),
+    caughtMaskHex: signalMask(parts[7]),
+  };
+  return true;
+}
+
+function parseSignalfd(preflight: GenericPreflight, parts: string[]): boolean {
+  const fd = number(parts[1]);
+  if (fd !== undefined) {
+    preflight.signalfds.push({
+      fd,
+      fdinfoFlags: parts[2] ?? "",
+      sigmask: signalMask(parts[3]),
+    });
+  }
+  return true;
+}
+
+function signalMask(value: string | undefined): string {
+  return /^[0-9a-fA-F]+$/.test(value ?? "") ? value! : "0";
 }
 
 function parsePty(preflight: GenericPreflight, parts: string[]): boolean {
@@ -217,6 +361,8 @@ export function genericResourceRefusal(
   supportedEventfdCounter = false,
   supportedEpollSet = false,
   supportedPtyTranscriptProbe = false,
+  supportedTimerfd = false,
+  supportedInotifyFileFollow = false,
 ): GenericRefusalClass[] {
   switch (resource.kind) {
     case "argv":
@@ -244,11 +390,13 @@ export function genericResourceRefusal(
         ? []
         : unsupportedResourceClassRefusal("epoll", resource.fd, resource.path);
     case "timer":
-      return unsupportedResourceClassRefusal("timerfd", resource.fd, resource.path);
+      return supportedTimerfd
+        ? []
+        : unsupportedResourceClassRefusal("timerfd", resource.fd, resource.path);
     case "signalfd":
       return unsupportedResourceClassRefusal("signalfd", resource.fd, resource.path);
     case "unknown":
-      return unknownResourceRefusal(resource);
+      return supportedInotifyFileFollow ? [] : unknownResourceRefusal(resource);
     default:
       return deferredResourceClassRefusal(resource.kind, resource.fd, resource.path);
   }

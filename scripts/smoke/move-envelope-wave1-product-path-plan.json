@@ -1,0 +1,79 @@
+{
+  "name": "move-envelope-wave1-product-path-retained-targets",
+  "description": "Targeted generic live product path expansion wave 1 proof rows. This retained-artifact plan starts with the proven Node/libuv and native static HTTP productPath rows plus their out-of-contract refusal rows, and should grow as the remaining wave 1 exact shapes graduate.",
+  "expectedProofs": [
+    "node-static-http-live-generic-primary-marker",
+    "node-active-refusal",
+    "node-timer-refusal",
+    "node-worker-refusal",
+    "native-dlopen-refusal",
+    "go-static-http-live-generic-primary-marker",
+    "go-extra-socket-refusal",
+    "rust-static-http-live-generic-primary-marker",
+    "busybox-httpd-live-generic-primary-marker",
+    "unsafe-busybox-httpd-refusal",
+    "busybox-nc-listener-live-generic-primary-marker",
+    "unsafe-busybox-nc-refusal",
+    "socat-file-responder-live-generic-primary-marker",
+    "unsafe-socat-file-responder-refusal",
+    "unix-pathname-listener-live-generic-primary-marker",
+    "generic-unix-pathname-listener-refusals",
+    "reader-cat-live-generic-primary-marker",
+    "grep-live-generic-primary-marker",
+    "tail-live-generic-primary-marker",
+    "generic-stale-file-identity-refusal",
+    "generic-deleted-file-fd-refusal",
+    "generic-writable-file-cursor-refusal",
+    "generic-append-only-file-cursor-refusal",
+    "generic-append-log-unsupported-flags-refusal",
+    "generic-pipe-stdio-refusals"
+  ],
+  "chunks": [
+    {
+      "name": "node-libuv-product-path",
+      "proofs": [
+        "node-static-http-live-generic-primary-marker",
+        "node-active-refusal",
+        "node-timer-refusal",
+        "node-worker-refusal",
+        "native-dlopen-refusal"
+      ]
+    },
+    {
+      "name": "native-static-http-product-path",
+      "proofs": [
+        "go-static-http-live-generic-primary-marker",
+        "go-extra-socket-refusal",
+        "rust-static-http-live-generic-primary-marker"
+      ]
+    },
+    {
+      "name": "busybox-and-socat-product-path",
+      "proofs": [
+        "busybox-httpd-live-generic-primary-marker",
+        "unsafe-busybox-httpd-refusal",
+        "busybox-nc-listener-live-generic-primary-marker",
+        "unsafe-busybox-nc-refusal",
+        "socat-file-responder-live-generic-primary-marker",
+        "unsafe-socat-file-responder-refusal"
+      ]
+    },
+    {
+      "name": "unix-file-cursor-product-path",
+      "proofs": [
+        "unix-pathname-listener-live-generic-primary-marker",
+        "generic-unix-pathname-listener-refusals",
+        "reader-cat-live-generic-primary-marker",
+        "grep-live-generic-primary-marker",
+        "tail-live-generic-primary-marker",
+        "generic-stale-file-identity-refusal",
+        "generic-deleted-file-fd-refusal",
+        "generic-writable-file-cursor-refusal",
+        "generic-append-only-file-cursor-refusal",
+        "generic-append-log-unsupported-flags-refusal",
+        "generic-pipe-stdio-refusals"
+      ]
+    }
+  ],
+  "fullMatrixScope": "manual-nightly-release-only"
+}
