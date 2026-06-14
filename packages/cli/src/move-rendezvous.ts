@@ -1,5 +1,9 @@
 import type { MoveDescriptor, NativeProcessImageRefusal, VmHandle } from "@machinen/runtime";
 import { runMoveTargetZipCreateLoaderInVm } from "./move-archive-envelope.ts";
+import {
+  moveDescriptorHasCrossArchCliNextBinariesRoute,
+  runMoveTargetCrossArchCliNextBinariesInVm,
+} from "./move-cross-arch-cli-next-binaries.ts";
 import { runMoveTargetBusyboxNcLoaderInVm } from "./move-busybox-nc-envelope.ts";
 import { runMoveTargetChecksumLoaderInVm } from "./move-checksum-envelope.ts";
 import * as fsMutationLoaders from "./move-filesystem-mutation-envelope.ts";
@@ -81,6 +85,9 @@ export async function runMoveTargetDirectLoaderInVm(
   if (!moveDescriptorHasProductContinuationRoute(descriptor)) {
     return moveContinuationOnlyRefused(executable, argv);
   }
+  if (moveDescriptorHasCrossArchCliNextBinariesRoute(descriptor)) {
+    return runMoveTargetCrossArchCliNextBinariesInVm(vm, descriptor);
+  }
   const loader = moveTargetEnvelopeLoader(descriptor);
   if (loader) {
     return loader(vm, descriptor);
@@ -114,8 +121,8 @@ export async function runMoveTargetDirectLoaderInVm(
   };
 }
 
-function moveDescriptorHasProductContinuationRoute(_descriptor: MoveDescriptor): boolean {
-  return false;
+function moveDescriptorHasProductContinuationRoute(descriptor: MoveDescriptor): boolean {
+  return moveDescriptorHasCrossArchCliNextBinariesRoute(descriptor);
 }
 
 function moveContinuationOnlyRefused(executable: string, argv: string[]): MoveLoadDirectLoader {

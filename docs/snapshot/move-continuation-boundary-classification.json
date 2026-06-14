@@ -12,13 +12,14 @@
     "matrixProofNames": "scripts/smoke/move-envelope-matrix.sh PROOF_NAMES",
     "inventoryProofNames": "docs/snapshot/generic-resource-graph-inventory.json families and live product candidates",
     "retainedProductizationPlans": "scripts/smoke/move-envelope-productization*-plan.json expectedProofs and chunks",
-    "productRouting": "packages/cli/src/move-generic-product-path.ts markerProofName entries"
+    "productRouting": "packages/cli/src/move-generic-product-path.ts markerProofName entries",
+    "crossArchCliNextBinaries": "docs/snapshot/cross-arch-cli-next-binaries-contract.json and packages/cli/src/move-cross-arch-cli-next-binaries.ts"
   },
   "classificationSummary": {
     "resource-reconstruction": 75,
     "reexec": 49,
     "refusal": 118,
-    "continuation": 1
+    "continuation": 6
   },
   "rows": [
     {
@@ -192,6 +193,71 @@
         "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
       ],
       "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "cross-arch-cat-reader-semantic-continuation-happy-path",
+      "classification": "continuation",
+      "currentProductRouted": true,
+      "productMoveContinuationClaim": true,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/cross-arch-cli-next-binaries-contract.json",
+        "packages/runtime/src/cross-arch-cli-next-binaries.ts",
+        "packages/cli/src/move-cross-arch-cli-next-binaries.ts"
+      ],
+      "reason": "cross-ISA target-native cat semantic continuation: target emits only bytes after captured input/stdout cursor without replay or argv restart"
+    },
+    {
+      "proofName": "cross-arch-dd-regular-file-semantic-continuation-happy-path",
+      "classification": "continuation",
+      "currentProductRouted": true,
+      "productMoveContinuationClaim": true,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/cross-arch-cli-next-binaries-contract.json",
+        "packages/runtime/src/cross-arch-cli-next-binaries.ts",
+        "packages/cli/src/move-cross-arch-cli-next-binaries.ts"
+      ],
+      "reason": "cross-ISA target-native dd semantic continuation: target copies from captured input/output offsets, block state, and counters without recopying prior blocks"
+    },
+    {
+      "proofName": "cross-arch-grep-fixed-string-semantic-continuation-happy-path",
+      "classification": "continuation",
+      "currentProductRouted": true,
+      "productMoveContinuationClaim": true,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/cross-arch-cli-next-binaries-contract.json",
+        "packages/runtime/src/cross-arch-cli-next-binaries.ts",
+        "packages/cli/src/move-cross-arch-cli-next-binaries.ts"
+      ],
+      "reason": "cross-ISA target-native fixed-string grep semantic continuation: target matches only lines after captured cursor without rematch or output replay"
+    },
+    {
+      "proofName": "cross-arch-seq-semantic-continuation-happy-path",
+      "classification": "continuation",
+      "currentProductRouted": true,
+      "productMoveContinuationClaim": true,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/cross-arch-cli-next-binaries-contract.json",
+        "packages/runtime/src/cross-arch-cli-next-binaries.ts",
+        "packages/cli/src/move-cross-arch-cli-next-binaries.ts"
+      ],
+      "reason": "cross-ISA target-native seq semantic continuation: target emits captured next value instead of restarting at first value"
+    },
+    {
+      "proofName": "cross-arch-wc-line-semantic-continuation-happy-path",
+      "classification": "continuation",
+      "currentProductRouted": true,
+      "productMoveContinuationClaim": true,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/cross-arch-cli-next-binaries-contract.json",
+        "packages/runtime/src/cross-arch-cli-next-binaries.ts",
+        "packages/cli/src/move-cross-arch-cli-next-binaries.ts"
+      ],
+      "reason": "cross-ISA target-native wc -l semantic continuation: target combines captured line count with suffix count without rereading prior input"
     },
     {
       "proofName": "cut-fields",

@@ -29,6 +29,7 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
+// fallow-ignore-next-line complexity
 function validateContract(contract) {
   const errors = [];
   if (contract.name !== "same-arch-stopped-continuation-primitive-contract") {

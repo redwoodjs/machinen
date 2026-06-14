@@ -8,6 +8,18 @@ import type {
 } from "./native-process-image.ts";
 import type { NativeTargetFdTableEntry } from "./native-resource-translation.ts";
 import type { TargetGuestRestoreResourceRecipe } from "./target-guest-restore-loader.ts";
+import type {
+  CrossArchCatContinuationClassification,
+  CrossArchCatTargetContinuationPlan,
+  CrossArchDdContinuationClassification,
+  CrossArchDdTargetContinuationPlan,
+  CrossArchFixedStringGrepContinuationClassification,
+  CrossArchFixedStringGrepTargetContinuationPlan,
+  CrossArchSeqContinuationClassification,
+  CrossArchSeqTargetContinuationPlan,
+  CrossArchWcLineContinuationClassification,
+  CrossArchWcLineTargetContinuationPlan,
+} from "./cross-arch-cli-next-binaries.ts";
 
 export const MOVE_DESCRIPTOR_FORMAT_VERSION = 1 as const;
 export const MOVE_REFUSAL_CODE = "move-unproven-state-class" as const;
@@ -598,6 +610,41 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
         offset: number;
         outputPath?: string;
         capturedAt?: string;
+      };
+      crossArchCatContinuationState?: {
+        route: "cross-arch-cat-reader-semantic-continuation";
+        executable: string;
+        argv: string[];
+        classification: CrossArchCatContinuationClassification;
+        targetPlan: CrossArchCatTargetContinuationPlan;
+      };
+      crossArchDdContinuationState?: {
+        route: "cross-arch-dd-regular-file-semantic-continuation";
+        executable: string;
+        argv: string[];
+        classification: CrossArchDdContinuationClassification;
+        targetPlan: CrossArchDdTargetContinuationPlan;
+      };
+      crossArchWcLineContinuationState?: {
+        route: "cross-arch-wc-line-semantic-continuation";
+        executable: string;
+        argv: string[];
+        classification: CrossArchWcLineContinuationClassification;
+        targetPlan: CrossArchWcLineTargetContinuationPlan;
+      };
+      crossArchSeqContinuationState?: {
+        route: "cross-arch-seq-semantic-continuation";
+        executable: string;
+        argv: string[];
+        classification: CrossArchSeqContinuationClassification;
+        targetPlan: CrossArchSeqTargetContinuationPlan;
+      };
+      crossArchFixedStringGrepContinuationState?: {
+        route: "cross-arch-grep-fixed-string-semantic-continuation";
+        executable: string;
+        argv: string[];
+        classification: CrossArchFixedStringGrepContinuationClassification;
+        targetPlan: CrossArchFixedStringGrepTargetContinuationPlan;
       };
       grepState?: {
         pattern: string;

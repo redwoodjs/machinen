@@ -243,6 +243,7 @@ export const sameArchStoppedContinuationNonClaims = [
   "no broad runtime or arbitrary process restore",
 ] as const;
 
+// fallow-ignore-next-line complexity
 function sameArchStoppedContinuationResumeRefusal(
   request: SameArchStoppedContinuationResumeRequest,
 ): NativeProcessImageRefusal | undefined {

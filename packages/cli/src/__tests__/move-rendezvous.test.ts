@@ -1517,6 +1517,90 @@ describe("move continuation-only loader boundary", () => {
       banned: ["target-native-reexec", "restart", "resource-reconstruction"],
     });
   });
+
+  it("routes supported next-binary cross-ISA semantic continuations without VM exec", async () => {
+    for (const [stateKey, route, executable, argv, targetPid] of nextBinaryRouteFixtures()) {
+      const commands: string[] = [];
+      const loader = await runMoveTargetDirectLoaderInVm(
+        mockVm(commands, "SHOULD_NOT_RUN"),
+        moveDescriptorWithCapture(targetPid, executable.split("/").at(-1)!, argv, executable, {
+          [stateKey]: readyNextBinaryRouteState(route, executable, argv, targetPid),
+        } as NonNullable<NonNullable<MoveDescriptor["resourcePlan"]>["capture"]>),
+      );
+
+      expect(commands).toEqual([]);
+      expect(loader).toMatchObject({
+        state: "ready",
+        strategy: route,
+        executable,
+        argv,
+        targetPid,
+        refusals: [],
+      });
+    }
+  });
+
+  it("refuses shells and services without explicit semantic models before VM exec", async () => {
+    for (const refusedDescriptor of [shellDescriptor, httpDescriptor]) {
+      const commands: string[] = [];
+      const loader = await runMoveTargetDirectLoaderInVm(
+        mockVm(commands, "SHOULD_NOT_RUN"),
+        refusedDescriptor,
+      );
+
+      expect(commands).toEqual([]);
+      expect(loader).toMatchObject({
+        state: "refused",
+        strategy: "continuation-only-refusal",
+      });
+      expect(loader.refusals[0]?.detail).toMatchObject({
+        boundary: "move-continuation-only",
+        banned: ["target-native-reexec", "restart", "resource-reconstruction"],
+      });
+    }
+  });
+
+  it("refuses unsupported next-binary semantic descriptors before VM exec", async () => {
+    const commands: string[] = [];
+    const loader = await runMoveTargetDirectLoaderInVm(
+      mockVm(commands, "SHOULD_NOT_RUN"),
+      moveDescriptorWithCapture(7601, "cat", ["/usr/bin/cat", "/tmp/in.txt"], "/usr/bin/cat", {
+        crossArchCatContinuationState: {
+          ...readyNextBinaryRouteState(
+            "cross-arch-cat-reader-semantic-continuation",
+            "/usr/bin/cat",
+            ["/usr/bin/cat", "/tmp/in.txt"],
+            7601,
+          ),
+          classification: {
+            state: "refused",
+            refusals: ["pipeInputRefused"],
+            productContinuationEligible: false,
+            targetProcessPlanned: false,
+          },
+        },
+      } as NonNullable<NonNullable<MoveDescriptor["resourcePlan"]>["capture"]>),
+    );
+
+    expect(commands).toEqual([]);
+    expect(loader).toMatchObject({
+      state: "refused",
+      strategy: "continuation-only-refusal",
+      executable: "/usr/bin/cat",
+      argv: ["/usr/bin/cat", "/tmp/in.txt"],
+      targetPid: 7601,
+    });
+    expect(loader.refusals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          detail: expect.objectContaining({ reason: "classificationNotEligible" }),
+        }),
+        expect.objectContaining({
+          detail: expect.objectContaining({ reason: "pipeInputRefused" }),
+        }),
+      ]),
+    );
+  });
 });
 
 describe.skip("legacy reexec/reconstruction target loaders", () => {
@@ -3503,6 +3587,81 @@ describe.skip("legacy reexec/reconstruction target loaders", () => {
     expect(loader.refusals).toContainEqual(expect.objectContaining({ code: "active-syscall" }));
   });
 });
+
+function nextBinaryRouteFixtures(): Array<[string, string, string, string[], number]> {
+  return [
+    [
+      "crossArchCatContinuationState",
+      "cross-arch-cat-reader-semantic-continuation",
+      "/usr/bin/cat",
+      ["/usr/bin/cat", "/tmp/in.txt"],
+      7600,
+    ],
+    [
+      "crossArchDdContinuationState",
+      "cross-arch-dd-regular-file-semantic-continuation",
+      "/usr/bin/dd",
+      ["/usr/bin/dd", "if=/tmp/in", "of=/tmp/out", "bs=16"],
+      7601,
+    ],
+    [
+      "crossArchWcLineContinuationState",
+      "cross-arch-wc-line-semantic-continuation",
+      "/usr/bin/wc",
+      ["/usr/bin/wc", "-l", "/tmp/lines.txt"],
+      7602,
+    ],
+    [
+      "crossArchSeqContinuationState",
+      "cross-arch-seq-semantic-continuation",
+      "/usr/bin/seq",
+      ["/usr/bin/seq", "1", "10"],
+      7603,
+    ],
+    [
+      "crossArchFixedStringGrepContinuationState",
+      "cross-arch-grep-fixed-string-semantic-continuation",
+      "/usr/bin/grep",
+      ["/usr/bin/grep", "-F", "needle", "/tmp/haystack.txt"],
+      7604,
+    ],
+  ];
+}
+
+function readyNextBinaryRouteState(
+  route: string,
+  executable: string,
+  argv: string[],
+  targetPid: number,
+): Record<string, unknown> {
+  return {
+    route,
+    executable,
+    argv,
+    classification: {
+      state: "eligible",
+      refusals: [],
+      productContinuationEligible: true,
+      targetProcessPlanned: false,
+    },
+    targetPlan: {
+      state: "ready",
+      targetPid,
+      resumedFromCapturedSemanticState: true,
+      targetProcessStarted: true,
+      targetProcessKilledOnRefusal: false,
+      refusals: [],
+      argvRestartUsed: false,
+      execveFromArgvUsed: false,
+      reexecUsed: false,
+      outputReplayUsed: false,
+      descriptorOnlySuccessUsed: false,
+      sourceIsaEmulationUsed: false,
+      sourceFdTeleportationUsed: false,
+      metadataOnlySuccessUsed: false,
+    },
+  };
+}
 
 function moveDescriptorWithCapture(
   pid: number,

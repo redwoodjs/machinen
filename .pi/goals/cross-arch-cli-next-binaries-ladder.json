@@ -1,0 +1,485 @@
+{
+  "title": "Cross-arch CLI next binaries ladder",
+  "goal": "Define and implement the next cross-ISA machinen move continuation ladder for cat, dd, wc -l, seq, and fixed-string grep, while refusing every unmodeled shortcut or resource shape.",
+  "problemStatement": "machinen move needs the next small CLI binaries to continue across ISAs without pretending that restart, reexec, or replay is live-state continuation.",
+  "solutionStatement": "Deliver proof-backed semantic continuation envelopes for cat, dd, wc -l, seq, and fixed-string grep with fail-closed refusals for unsafe variants.",
+  "technicalStatement": "Model each binary as captured architecture-neutral semantic state, plan a target-native continuation step from that state, route only proven envelopes, and test every shortcut refusal.",
+  "tasks": [
+    {
+      "id": "task-1",
+      "title": "Define next binary ladder contract",
+      "status": "COMPLETE",
+      "problemStatement": "The next binary ladder is unsafe unless supported modes and refusal boundaries are written before implementation.",
+      "solutionStatement": "Create machine-readable and human-readable contracts for cat, dd, wc -l, seq, and fixed-string grep support and refusals.",
+      "technicalStatement": "Document captured state, target-native continuation steps, hard bans, non-claims, and proof rows for each binary before changing runtime or CLI code.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove the contract states that product success is cross-ISA target-native semantic continuation from captured live state, or refusal, and bans same-arch product success, argv restart, target execve from argv, reexec, output replay, descriptor-only success, source-ISA emulation, source-fd teleportation, and metadata-only success.",
+          "evidence": "Created isolated worktree /Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder on branch cross-arch-cli-next-binaries-ladder from origin/move-envelope-sequence because the main checkout had unrelated dirty files. Created docs/snapshot/cross-arch-cli-next-binaries-contract.json and docs/snapshot/cross-arch-cli-next-binaries.md. The contract globalRule.productSuccess is cross-ISA target-native semantic continuation from captured live state, or refusal, and hardBans include same-arch product success, argv restart, target execve from argv, reexec, static-root reconstruction, output replay, descriptor-only success/equivalence, app export/import, source-ISA emulation, source-fd teleportation, metadata-only success, runtime-profile shortcut, broad runtime support, arbitrary process restore, and product claim without captured-state-dependent proof. Validation passed: goal JSON 0.06s, contract JSON 0.03s, phrase check required=26 missing=[] in 0.02s, git diff --check for task files 0.01s."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove the contract ranks the ladder as cat, dd, wc -l, seq, then fixed-string grep, and lists exact supported subset and refusal classes for each binary.",
+          "evidence": "The contract ladderPriority ranks rank 1 cat, rank 2 dd, rank 3 wc -l, rank 4 seq, and rank 5 grep -F. The binaries section lists exact supportedSubset, capturedSemanticState, targetContinuationStep, refuseWhen, and proofMustShow entries for cat, dd, wcLine, seq, and fixedStringGrep. Refusal classes include terminal/PTY/session, pipe/socket, multiple input before list cursor, dirty writable aliases, unsafe dd device/sparse/direct/conv modes, broad wc byte/char/word modes, unsupported seq floating/locale/precision cases, regex/PCRE/backrefs/context/color/binary/recursive grep modes, same-arch product attempts, argv restart, target execve from argv, output replay, and descriptor-only success. Markdown repeats the same priority and boundaries. Phrase check passed with required=26 missing=[]."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-2 and implement cat semantic continuation."
+    },
+    {
+      "id": "task-2",
+      "title": "Implement cat continuation",
+      "status": "COMPLETE",
+      "problemStatement": "cat can only be moved safely when its live reader and output cursor state are modeled.",
+      "solutionStatement": "Capture cat input identity, read offset, partial buffer, and stdout cursor, then continue target-native from that state.",
+      "technicalStatement": "Add cat semantic capture, target planning, refusal checks for terminal and unmodeled fd shapes, and tests proving no old bytes are replayed.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove eligible cat capture records input identity, read offset, partial buffer state, stdout cursor, safe-point evidence, and cross-ISA target preflight as semantic state.",
+          "evidence": "Implemented packages/runtime/src/cross-arch-cli-next-binaries.ts with classifyCrossArchCatContinuationCapture() and exported it from packages/runtime/src/index.ts. The eligible cat fixture in packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts proves capture records sourceArch=arm64, targetArch=amd64, executable=/usr/bin/cat, argv, input identity path/device/inode/digest, size, mtimeMs, contentHashWindow, readOffset=32, partialReadBufferHex, stdoutCursor=32, stderrCursor=0, terminalSessionAbsent=true, safePoint evidence, target preflight for equivalent identity/content window/regular-file open/stdout cursor/cross-ISA reader vessel, and noTargetProcessBeforeEligibilityEvidence. Focused Vitest passed in 1.48s with 12 tests; pnpm -F @machinen/runtime build passed in 2.25s."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove target cat continuation emits only bytes after the captured cursor and refuses terminal, pipe, socket, dirty fd, argv restart, output replay, and descriptor-only shortcut cases with no target process left running.",
+          "evidence": "Implemented planCrossArchCatContinuationTarget(). The happy-path test proves the ready plan has targetPid=7100, resumedFromCapturedSemanticState=true, targetProcessStarted=true, targetProcessKilledOnRefusal=false, argvRestartUsed=false, execveFromArgvUsed=false, reexecUsed=false, outputReplayUsed=false, descriptorOnlySuccessUsed=false, sourceIsaEmulationUsed=false, sourceFdTeleportationUsed=false, metadataOnlySuccessUsed=false, and a marker with sourceReadOffset=32, targetFirstByteOffset=32, replayedByteOffsets=[], freshRestartWouldStartAtOffset=0, finalReadOffset=64. Refusal tests prove terminal input, pipe input, socket output, dirty writable alias, same-arch, argv restart, target execve from argv, output replay, descriptor-only success, and replay markers return state=refused, productContinuationEligible=false or resumedFromCapturedSemanticState=false, targetProcessStarted=false, and targetProcessKilledOnRefusal=true when targetPid is supplied. pnpm run format passed in 2.51s, focused Vitest passed in 1.48s with 12 tests, and runtime build passed in 2.25s."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-3 and implement narrow regular-file dd continuation."
+    },
+    {
+      "id": "task-3",
+      "title": "Implement dd continuation",
+      "status": "COMPLETE",
+      "problemStatement": "dd has useful copy state but many flags and device modes are unsafe without explicit models.",
+      "solutionStatement": "Support a narrow regular-file dd subset with captured input/output offsets, block state, counters, and refusal of unsafe variants.",
+      "technicalStatement": "Add dd semantic capture, target planning, block/counter state checks, and tests for continuation without re-copying prior blocks.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove eligible dd capture records input identity, output identity, block size, input offset, output offset, partial block state, records-in/out counters, conversion flags, and target file preflight.",
+          "evidence": "Extended packages/runtime/src/cross-arch-cli-next-binaries.ts with classifyCrossArchDdContinuationCapture() and exported it from packages/runtime/src/index.ts. The eligible dd fixture in packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts proves capture records sourceArch=arm64, targetArch=amd64, executable=/usr/bin/dd, argv, regular-file input identity path/device/inode/digest, regular-file output identity path/device/inode/digest, blockSize=16, inputOffset=64, outputOffset=64, partialBlockHex/partialBlockLength/partialBlockComplete, recordsIn=4, recordsOut=4, bytesCopied=64, convFlags=[none], statusOutputCursor, safe-point evidence, target preflight for input/output identity, openability, offset/counter installation, cross-ISA copy vessel, and noTargetProcessBeforeEligibilityEvidence. Focused Vitest passed in 0.56s with 26 tests; pnpm -F @machinen/runtime build passed in 1.54s."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove target dd continuation copies only from the captured offsets and refuses devices, sparse/direct I/O, unsafe conv flags, signals, dirty aliases, argv restart, output replay, and descriptor-only shortcut cases with no target process left running.",
+          "evidence": "Implemented planCrossArchDdContinuationTarget(). The happy-path test proves the ready plan has targetPid=7200, resumedFromCapturedSemanticState=true, targetProcessStarted=true, targetProcessKilledOnRefusal=false, argvRestartUsed=false, execveFromArgvUsed=false, reexecUsed=false, outputReplayUsed=false, descriptorOnlySuccessUsed=false, sourceIsaEmulationUsed=false, sourceFdTeleportationUsed=false, metadataOnlySuccessUsed=false, and a marker with sourceInputOffset=64, sourceOutputOffset=64, targetFirstInputOffset=64, targetFirstOutputOffset=64, recopiedInputOffsets=[], freshRestartWouldStartInputOffset=0, recordsInStart=4, recordsOutStart=4. Refusal tests prove device input, pipe output, dirty writable alias, direct I/O, sparse mode, unsafe conv flag, pending signal status, same-arch, argv restart, output replay, descriptor-only success, and recopy markers return state=refused, productContinuationEligible=false or resumedFromCapturedSemanticState=false, targetProcessStarted=false, and targetProcessKilledOnRefusal=true when targetPid is supplied. pnpm run format passed in 1.38s, focused Vitest passed in 0.56s with 26 tests, and runtime build passed in 1.54s."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-4 and implement wc -l semantic continuation."
+    },
+    {
+      "id": "task-4",
+      "title": "Implement wc -l continuation",
+      "status": "COMPLETE",
+      "problemStatement": "wc -l can be continued only if the line counter and partial newline state are modeled.",
+      "solutionStatement": "Capture wc -l input cursor, line count so far, newline boundary state, and stdout cursor, then continue target-native counting.",
+      "technicalStatement": "Add wc -l semantic capture, target planning, parser-state refusals, and tests proving the final count depends on captured state instead of rereading from byte zero.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove eligible wc -l capture records input identity, byte offset, line count so far, partial newline state, locale assumptions, stdout cursor, and target preflight.",
+          "evidence": "Extended packages/runtime/src/cross-arch-cli-next-binaries.ts with classifyCrossArchWcLineContinuationCapture() and exported it from packages/runtime/src/index.ts. The eligible wc -l fixture in packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts proves capture records sourceArch=arm64, targetArch=amd64, executable=/usr/bin/wc, argv=[/usr/bin/wc,-l,/tmp/lines.txt], regular-file input identity path/device/inode/digest, size, mtimeMs, contentHashWindow, byteOffset=50, lineCountSoFar=7, partialNewlineState=at-boundary, lineDecoderState=byte-newline, locale=C, stdoutCursor=2, stderrCursor=0, terminalSessionAbsent=true, safe-point evidence, target preflight for identity/content window/openability/byte offset/line counter/stdout cursor/cross-ISA line-counter vessel, and noTargetProcessBeforeEligibilityEvidence. Focused Vitest passed in 0.60s with 40 tests; pnpm -F @machinen/runtime build passed in 1.69s."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove target wc -l continuation resumes counting from the captured offset and refuses broad wc byte/char/word modes, unmodeled encodings, argv restart, output replay, and descriptor-only shortcut cases with no target process left running.",
+          "evidence": "Implemented planCrossArchWcLineContinuationTarget(). The happy-path test proves the ready plan has targetPid=7300, resumedFromCapturedSemanticState=true, targetProcessStarted=true, targetProcessKilledOnRefusal=false, argvRestartUsed=false, execveFromArgvUsed=false, reexecUsed=false, outputReplayUsed=false, descriptorOnlySuccessUsed=false, sourceIsaEmulationUsed=false, sourceFdTeleportationUsed=false, metadataOnlySuccessUsed=false, and a marker with sourceByteOffset=50, sourceLineCountSoFar=7, suffixLineCount=5, targetFinalLineCount=12, targetFirstByteOffset=50, rereadByteOffsets=[], freshRestartWouldStartByteOffset=0. Refusal tests prove broad wc byte/char/word modes, multiple inputs without list cursor, missing newline/decoder state, pipe input, same-arch, argv restart, output replay, descriptor-only success, and reread/ignored-count markers return state=refused, productContinuationEligible=false or resumedFromCapturedSemanticState=false, targetProcessStarted=false, and targetProcessKilledOnRefusal=true when targetPid is supplied. pnpm run format passed in 1.60s, focused Vitest passed in 0.60s with 40 tests, and runtime build passed in 1.69s."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-5 and implement seq semantic continuation."
+    },
+    {
+      "id": "task-5",
+      "title": "Implement seq continuation",
+      "status": "COMPLETE",
+      "problemStatement": "seq is deterministic but product move must continue from the current generated value, not restart at the first value.",
+      "solutionStatement": "Capture current value, end, step, format, emitted item cursor, and stdout cursor, then continue target-native at the next value.",
+      "technicalStatement": "Add seq semantic capture, target planning, numeric-format checks, and tests proving target output starts at N+1 rather than the original first value.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove eligible seq capture records first value, current value, next value, end, step, format state, emitted item cursor, stdout cursor, and numeric precision assumptions.",
+          "evidence": "Extended packages/runtime/src/cross-arch-cli-next-binaries.ts with classifyCrossArchSeqContinuationCapture() and exported it from packages/runtime/src/index.ts. The eligible seq fixture in packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts proves capture records sourceArch=arm64, targetArch=amd64, executable=/usr/bin/seq, argv=[/usr/bin/seq,1,10], firstValue=1, currentValue=4, nextValue=5, endValue=10, stepValue=1, format=%g, separator=newline, emittedItemCursor=4, stdoutCursor=8, partialFormattedValueComplete=true, integerOnly=true, locale=C, numericPrecisionAssumption=safe-integer, stderrCursor=0, terminalSessionAbsent=true, safe-point evidence, target preflight for generator vessel, numeric precision, format/stdout cursor installation, cross-ISA generator vessel, and noTargetProcessBeforeEligibilityEvidence. Focused Vitest passed in 0.41s with 52 tests; pnpm -F @machinen/runtime build passed in 1.51s."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove target seq continuation emits the next captured value and refuses restart-equivalent output, unsupported floating formats, locale gaps, argv restart, output replay, and descriptor-only shortcut cases with no target process left running.",
+          "evidence": "Implemented planCrossArchSeqContinuationTarget(). The happy-path test proves the ready plan has targetPid=7400, resumedFromCapturedSemanticState=true, targetProcessStarted=true, targetProcessKilledOnRefusal=false, argvRestartUsed=false, execveFromArgvUsed=false, reexecUsed=false, outputReplayUsed=false, descriptorOnlySuccessUsed=false, sourceIsaEmulationUsed=false, sourceFdTeleportationUsed=false, metadataOnlySuccessUsed=false, and a marker with sourceFirstValue=1, sourceCurrentValue=4, sourceNextValue=5, targetFirstEmittedValue=5, emittedItemCursorStart=4, freshRestartWouldEmitFirstValue=1, replayedValues=[]. Refusal tests prove unsupported floating format, floating precision, unknown locale, missing partial formatted value, terminal output, same-arch, argv restart, output replay, descriptor-only success, and restart-at-first-value markers return state=refused, productContinuationEligible=false or resumedFromCapturedSemanticState=false, targetProcessStarted=false, and targetProcessKilledOnRefusal=true when targetPid is supplied. pnpm run format passed in 1.31s, focused Vitest passed in 0.41s with 52 tests, and runtime build passed in 1.51s."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-6 and implement fixed-string grep semantic continuation."
+    },
+    {
+      "id": "task-6",
+      "title": "Implement fixed-string grep continuation",
+      "status": "COMPLETE",
+      "problemStatement": "grep has many complex modes, so only fixed-string line matching is safe for the first continuation envelope.",
+      "solutionStatement": "Support fixed-string grep with captured input offset, partial line buffer, matcher state, match count, and output cursor while refusing complex modes.",
+      "technicalStatement": "Add fixed-string grep semantic capture, target planning, line parser checks, and tests proving continuation without rematching or replaying earlier lines.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove eligible fixed-string grep capture records pattern bytes, input identity, byte offset, partial line buffer, line decoder state, match count, selected flags, and stdout cursor.",
+          "evidence": "Extended packages/runtime/src/cross-arch-cli-next-binaries.ts with classifyCrossArchFixedStringGrepContinuationCapture() and exported it from packages/runtime/src/index.ts. The eligible fixed-string grep fixture in packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts proves capture records sourceArch=arm64, targetArch=amd64, executable=/usr/bin/grep, argv=[/usr/bin/grep,-F,needle,/tmp/haystack.txt], patternBytesHex=6e6565646c65, fixedString=true, locale=C, regular-file input identity path/device/inode/digest, size, mtimeMs, contentHashWindow, byteOffset=90, partialLineBufferHex, lineDecoderState=byte-line, matcherState=fixed-string-boundary, matchCountSoFar=2, lastCompletedLineNumber=8, selected safe flags with regex/PCRE/backrefs/context/color/binary/recursive/multipleFiles all false, stdoutCursor=24, stderrCursor=0, terminalSessionAbsent=true, safe-point evidence, target preflight for input identity/content window/openability/byte offset/matcher state/output cursor/cross-ISA fixed-string matcher vessel, and noTargetProcessBeforeEligibilityEvidence. Focused Vitest passed in 0.44s with 68 tests; pnpm -F @machinen/runtime build passed in 1.62s."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove target fixed-string grep continuation matches only lines after the captured cursor and refuses regex, PCRE, backrefs, context, color, binary, recursive, argv restart, output replay, and descriptor-only shortcut cases with no target process left running.",
+          "evidence": "Implemented planCrossArchFixedStringGrepContinuationTarget(). The happy-path test proves the ready plan has targetPid=7500, resumedFromCapturedSemanticState=true, targetProcessStarted=true, targetProcessKilledOnRefusal=false, argvRestartUsed=false, execveFromArgvUsed=false, reexecUsed=false, outputReplayUsed=false, descriptorOnlySuccessUsed=false, sourceIsaEmulationUsed=false, sourceFdTeleportationUsed=false, metadataOnlySuccessUsed=false, and a marker with sourceByteOffset=90, sourceMatchCountSoFar=2, targetFirstScannedByteOffset=90, targetFirstMatchedLineNumber=9, priorMatchedLinesReplayed=[], rematchedLineNumbers=[], freshRestartWouldVisitLine=1, matchCountStart=2. Refusal tests prove regex mode, PCRE mode, backrefs, context output, color output, binary mode, recursive input, multiple files, pipe input, same-arch, argv restart, output replay, descriptor-only success, and rematch/replay markers return state=refused, productContinuationEligible=false or resumedFromCapturedSemanticState=false, targetProcessStarted=false, and targetProcessKilledOnRefusal=true when targetPid is supplied. pnpm run format passed in 1.31s, focused Vitest passed in 0.44s with 68 tests, and runtime build passed in 1.62s."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-7 and wire descriptor-gated routing and boundary ledger checks."
+    },
+    {
+      "id": "task-7",
+      "title": "Wire routing and boundary ledger",
+      "status": "COMPLETE",
+      "problemStatement": "Product move must only route proven next-binary semantic envelopes and refuse all other binary shapes.",
+      "solutionStatement": "Add descriptor fields, CLI routing, boundary ledger rows, and tests that only approved cat, dd, wc -l, seq, and fixed-string grep routes can start target continuations.",
+      "technicalStatement": "Extend move descriptors and rendezvous routing behind explicit semantic state guards and update boundary coverage to reject product-routed non-continuation rows.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove supported descriptors for cat, dd, wc -l, seq, and fixed-string grep choose only their semantic continuation routes and do not invoke generic restart, direct loader, static-root, same-arch, or argv restart routes.",
+          "evidence": "Added descriptor-gated next-binary capture fields in packages/runtime/src/move-pid-graph.ts for crossArchCatContinuationState, crossArchDdContinuationState, crossArchWcLineContinuationState, crossArchSeqContinuationState, and crossArchFixedStringGrepContinuationState. Added packages/cli/src/move-cross-arch-cli-next-binaries.ts with moveDescriptorHasCrossArchCliNextBinariesRoute() and runMoveTargetCrossArchCliNextBinariesInVm(), and updated packages/cli/src/move-rendezvous.ts so product continuation routing recognizes only those explicit next-binary semantic continuation states before any legacy restart/reconstruction loader. Focused move-rendezvous tests prove supported descriptors for cat, dd, wc -l, seq, and fixed-string grep return ready strategies cross-arch-cat-reader-semantic-continuation, cross-arch-dd-regular-file-semantic-continuation, cross-arch-wc-line-semantic-continuation, cross-arch-seq-semantic-continuation, and cross-arch-grep-fixed-string-semantic-continuation with commands=[]; no VM exec, generic restart, direct loader, static-root, same-arch, or argv restart route is invoked. Focused Vitest passed in 0.77s with 72 passed and 90 skipped; pnpm -F @machinen/cli build passed in 0.77s; pnpm -F @machinen/runtime build passed in 1.51s."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove unsupported descriptors return continuation refusals before target process start and the move boundary ledger has no product-routed non-continuation rows.",
+          "evidence": "Focused move-rendezvous tests prove an unsupported next-binary descriptor with crossArchCatContinuationState classification.state=refused/productContinuationEligible=false returns strategy=continuation-only-refusal, commands=[], targetPid=7601, and refusal details including classificationNotEligible and pipeInputRefused before VM exec. Updated docs/snapshot/move-continuation-boundary-classification.json and scripts/move-continuation-boundary-coverage.mjs so only the five next-binary happy-path continuation rows are currentProductRouted. pnpm run move-continuation-boundary-coverage passed in 2.80s with expectedRows=248, classifiedRows=248, classificationSummary={resource-reconstruction:75,reexec:49,refusal:118,continuation:6}, productRouted=[cross-arch-cat-reader-semantic-continuation-happy-path,cross-arch-dd-regular-file-semantic-continuation-happy-path,cross-arch-grep-fixed-string-semantic-continuation-happy-path,cross-arch-seq-semantic-continuation-happy-path,cross-arch-wc-line-semantic-continuation-happy-path], productRoutedNonContinuation=[], errors=[]."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-8 and add docs/API/coverage plus final validation."
+    },
+    {
+      "id": "task-8",
+      "title": "Add docs API and final validation",
+      "status": "COMPLETE",
+      "problemStatement": "Users and maintainers need clear support boundaries and repeatable proof before this ladder can be claimed.",
+      "solutionStatement": "Update docs, runtime API exports, generated API docs, coverage scripts, and validation evidence for the whole next-binary ladder.",
+      "technicalStatement": "Generate API docs, add coverage scripts, run focused tests and required static checks, and record timing evidence for each validation command.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove docs and API state the exact supported subsets, captured semantic fields, target-native continuation steps, refusal boundaries, and hard non-claims for cat, dd, wc -l, seq, and fixed-string grep.",
+          "evidence": "Updated docs/snapshot/README.md and docs/snapshot/generic-resource-graph-move.md to point to docs/snapshot/cross-arch-cli-next-binaries.md and state the exact supported subsets: cat input/output cursor continuation, regular-file dd offsets/partial block/counters continuation, wc -l byte-offset/line-count continuation, integer seq current/next value continuation, and fixed-string grep input cursor/parser/matcher/match-count/output cursor continuation. Generated packages/runtime/API.md with build:docs after exporting all next-binary public functions and types from packages/runtime/src/index.ts and grouping them through scripts/api-toc-symbols.data. Added scripts/cross-arch-cli-next-binaries-coverage.mjs and package script cross-arch-cli-next-binaries-coverage. Coverage passed in 0.15s with errors=[] and proves docs/API/source contain the exact supported subsets, captured semantic fields, target-native continuation steps, refusal boundaries, and hard non-claims including same-arch product success, argv restart, target execve from argv, output replay, descriptor-only success, source-ISA emulation, source-fd teleportation, metadata-only success, broad grep, broad wc, unsafe dd, services, databases, and shells. build:docs passed in 1.91s."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove final validation passes with timing evidence for next-binary coverage, move boundary coverage, focused tests, docs build, format, lint, typecheck, fallow audit, and git diff --check.",
+          "evidence": "Final validation in /Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder passed: python3 -m json.tool .pi/goals/cross-arch-cli-next-binaries-ladder.json 0.02s; python3 -m json.tool docs/snapshot/cross-arch-cli-next-binaries-contract.json 0.02s; pnpm run cross-arch-cli-next-binaries-coverage 0.15s errors=[]; pnpm run move-continuation-boundary-coverage 3.12s expectedRows=248 classifiedRows=248 productRouted=[cross-arch-cat-reader-semantic-continuation-happy-path,cross-arch-dd-regular-file-semantic-continuation-happy-path,cross-arch-grep-fixed-string-semantic-continuation-happy-path,cross-arch-seq-semantic-continuation-happy-path,cross-arch-wc-line-semantic-continuation-happy-path] productRoutedNonContinuation=[] errors=[]; NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"cross-arch next-binary|continuation-only loader boundary\" 0.78s, 73 passed 90 skipped; pnpm run build:docs 1.91s; pnpm run format:check 1.23s; pnpm run lint 0.51s; pnpm run typecheck 2.52s; pnpm exec fallow audit --changed-since origin/main 0.49s with duplicate groups warn-only; git diff --check 0.02s."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove full smoke tests were either run because touched areas require them or correctly skipped with a recorded reason.",
+          "evidence": "Full smoke tests were skipped intentionally. This change touches runtime semantic classifiers/planners, move descriptor typing, CLI rendezvous routing, docs/API generation, and coverage scripts. It does not touch VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount behavior, snapshot/restore machinery, virtio devices, memory/ballooning, or FUSE/live mounts, so the project smoke-test rule does not require MACHINEN_REMOTE_BUILDER smoke-tests. Targeted validation covered the changed behavior with focused Vitest, next-binary coverage, move continuation boundary coverage, build:docs, format, lint, typecheck, fallow audit, and git diff --check."
+        }
+      ],
+      "nextAction": "Task complete; goal validation complete."
+    }
+  ],
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove the next-binary ladder contract defines cross-ISA semantic continuation as the only product success rule and lists exact supported subsets, captured state, target steps, refusals, hard bans, and non-claims.",
+      "evidence": "Created isolated worktree /Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder on branch cross-arch-cli-next-binaries-ladder from origin/move-envelope-sequence because the main checkout had unrelated dirty files. Created docs/snapshot/cross-arch-cli-next-binaries-contract.json and docs/snapshot/cross-arch-cli-next-binaries.md. The contract globalRule.productSuccess is cross-ISA target-native semantic continuation from captured live state, or refusal, and hardBans include same-arch product success, argv restart, target execve from argv, reexec, static-root reconstruction, output replay, descriptor-only success/equivalence, app export/import, source-ISA emulation, source-fd teleportation, metadata-only success, runtime-profile shortcut, broad runtime support, arbitrary process restore, and product claim without captured-state-dependent proof. Validation passed: goal JSON 0.06s, contract JSON 0.03s, phrase check required=26 missing=[] in 0.02s, git diff --check for task files 0.01s. The contract ladderPriority ranks rank 1 cat, rank 2 dd, rank 3 wc -l, rank 4 seq, and rank 5 grep -F. The binaries section lists exact supportedSubset, capturedSemanticState, targetContinuationStep, refuseWhen, and proofMustShow entries for cat, dd, wcLine, seq, and fixedStringGrep. Refusal classes include terminal/PTY/session, pipe/socket, multiple input before list cursor, dirty writable aliases, unsafe dd device/sparse/direct/conv modes, broad wc byte/char/word modes, unsupported seq floating/locale/precision cases, regex/PCRE/backrefs/context/color/binary/recursive grep modes, same-arch product attempts, argv restart, target execve from argv, output replay, and descriptor-only success. Markdown repeats the same priority and boundaries. Phrase check passed with required=26 missing=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove cat continues from captured input/output cursor state across ISAs and does not replay old bytes or restart from argv.",
+      "evidence": "Implemented packages/runtime/src/cross-arch-cli-next-binaries.ts with classifyCrossArchCatContinuationCapture() and exported it from packages/runtime/src/index.ts. The eligible cat fixture in packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts proves capture records sourceArch=arm64, targetArch=amd64, executable=/usr/bin/cat, argv, input identity path/device/inode/digest, size, mtimeMs, contentHashWindow, readOffset=32, partialReadBufferHex, stdoutCursor=32, stderrCursor=0, terminalSessionAbsent=true, safePoint evidence, target preflight for equivalent identity/content window/regular-file open/stdout cursor/cross-ISA reader vessel, and noTargetProcessBeforeEligibilityEvidence. Focused Vitest passed in 1.48s with 12 tests; pnpm -F @machinen/runtime build passed in 2.25s. Implemented planCrossArchCatContinuationTarget(). The happy-path test proves the ready plan has targetPid=7100, resumedFromCapturedSemanticState=true, targetProcessStarted=true, targetProcessKilledOnRefusal=false, argvRestartUsed=false, execveFromArgvUsed=false, reexecUsed=false, outputReplayUsed=false, descriptorOnlySuccessUsed=false, sourceIsaEmulationUsed=false, sourceFdTeleportationUsed=false, metadataOnlySuccessUsed=false, and a marker with sourceReadOffset=32, targetFirstByteOffset=32, replayedByteOffsets=[], freshRestartWouldStartAtOffset=0, finalReadOffset=64. Refusal tests prove terminal input, pipe input, socket output, dirty writable alias, same-arch, argv restart, target execve from argv, output replay, descriptor-only success, and replay markers return state=refused, productContinuationEligible=false or resumedFromCapturedSemanticState=false, targetProcessStarted=false, and targetProcessKilledOnRefusal=true when targetPid is supplied. pnpm run format passed in 2.51s, focused Vitest passed in 1.48s with 12 tests, and runtime build passed in 2.25s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove dd continues from captured file offsets, block state, and counters across ISAs and does not recopy prior blocks or restart from argv.",
+      "evidence": "Extended packages/runtime/src/cross-arch-cli-next-binaries.ts with classifyCrossArchDdContinuationCapture() and exported it from packages/runtime/src/index.ts. The eligible dd fixture in packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts proves capture records sourceArch=arm64, targetArch=amd64, executable=/usr/bin/dd, argv, regular-file input identity path/device/inode/digest, regular-file output identity path/device/inode/digest, blockSize=16, inputOffset=64, outputOffset=64, partialBlockHex/partialBlockLength/partialBlockComplete, recordsIn=4, recordsOut=4, bytesCopied=64, convFlags=[none], statusOutputCursor, safe-point evidence, target preflight for input/output identity, openability, offset/counter installation, cross-ISA copy vessel, and noTargetProcessBeforeEligibilityEvidence. Focused Vitest passed in 0.56s with 26 tests; pnpm -F @machinen/runtime build passed in 1.54s. Implemented planCrossArchDdContinuationTarget(). The happy-path test proves the ready plan has targetPid=7200, resumedFromCapturedSemanticState=true, targetProcessStarted=true, targetProcessKilledOnRefusal=false, argvRestartUsed=false, execveFromArgvUsed=false, reexecUsed=false, outputReplayUsed=false, descriptorOnlySuccessUsed=false, sourceIsaEmulationUsed=false, sourceFdTeleportationUsed=false, metadataOnlySuccessUsed=false, and a marker with sourceInputOffset=64, sourceOutputOffset=64, targetFirstInputOffset=64, targetFirstOutputOffset=64, recopiedInputOffsets=[], freshRestartWouldStartInputOffset=0, recordsInStart=4, recordsOutStart=4. Refusal tests prove device input, pipe output, dirty writable alias, direct I/O, sparse mode, unsafe conv flag, pending signal status, same-arch, argv restart, output replay, descriptor-only success, and recopy markers return state=refused, productContinuationEligible=false or resumedFromCapturedSemanticState=false, targetProcessStarted=false, and targetProcessKilledOnRefusal=true when targetPid is supplied. pnpm run format passed in 1.38s, focused Vitest passed in 0.56s with 26 tests, and runtime build passed in 1.54s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove wc -l continues from captured byte offset and line-count state across ISAs and does not reread prior input or restart from argv.",
+      "evidence": "Extended packages/runtime/src/cross-arch-cli-next-binaries.ts with classifyCrossArchWcLineContinuationCapture() and exported it from packages/runtime/src/index.ts. The eligible wc -l fixture in packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts proves capture records sourceArch=arm64, targetArch=amd64, executable=/usr/bin/wc, argv=[/usr/bin/wc,-l,/tmp/lines.txt], regular-file input identity path/device/inode/digest, size, mtimeMs, contentHashWindow, byteOffset=50, lineCountSoFar=7, partialNewlineState=at-boundary, lineDecoderState=byte-newline, locale=C, stdoutCursor=2, stderrCursor=0, terminalSessionAbsent=true, safe-point evidence, target preflight for identity/content window/openability/byte offset/line counter/stdout cursor/cross-ISA line-counter vessel, and noTargetProcessBeforeEligibilityEvidence. Focused Vitest passed in 0.60s with 40 tests; pnpm -F @machinen/runtime build passed in 1.69s. Implemented planCrossArchWcLineContinuationTarget(). The happy-path test proves the ready plan has targetPid=7300, resumedFromCapturedSemanticState=true, targetProcessStarted=true, targetProcessKilledOnRefusal=false, argvRestartUsed=false, execveFromArgvUsed=false, reexecUsed=false, outputReplayUsed=false, descriptorOnlySuccessUsed=false, sourceIsaEmulationUsed=false, sourceFdTeleportationUsed=false, metadataOnlySuccessUsed=false, and a marker with sourceByteOffset=50, sourceLineCountSoFar=7, suffixLineCount=5, targetFinalLineCount=12, targetFirstByteOffset=50, rereadByteOffsets=[], freshRestartWouldStartByteOffset=0. Refusal tests prove broad wc byte/char/word modes, multiple inputs without list cursor, missing newline/decoder state, pipe input, same-arch, argv restart, output replay, descriptor-only success, and reread/ignored-count markers return state=refused, productContinuationEligible=false or resumedFromCapturedSemanticState=false, targetProcessStarted=false, and targetProcessKilledOnRefusal=true when targetPid is supplied. pnpm run format passed in 1.60s, focused Vitest passed in 0.60s with 40 tests, and runtime build passed in 1.69s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove seq continues from captured current/next value and output cursor across ISAs and does not restart at the first value.",
+      "evidence": "Extended packages/runtime/src/cross-arch-cli-next-binaries.ts with classifyCrossArchSeqContinuationCapture() and exported it from packages/runtime/src/index.ts. The eligible seq fixture in packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts proves capture records sourceArch=arm64, targetArch=amd64, executable=/usr/bin/seq, argv=[/usr/bin/seq,1,10], firstValue=1, currentValue=4, nextValue=5, endValue=10, stepValue=1, format=%g, separator=newline, emittedItemCursor=4, stdoutCursor=8, partialFormattedValueComplete=true, integerOnly=true, locale=C, numericPrecisionAssumption=safe-integer, stderrCursor=0, terminalSessionAbsent=true, safe-point evidence, target preflight for generator vessel, numeric precision, format/stdout cursor installation, cross-ISA generator vessel, and noTargetProcessBeforeEligibilityEvidence. Focused Vitest passed in 0.41s with 52 tests; pnpm -F @machinen/runtime build passed in 1.51s. Implemented planCrossArchSeqContinuationTarget(). The happy-path test proves the ready plan has targetPid=7400, resumedFromCapturedSemanticState=true, targetProcessStarted=true, targetProcessKilledOnRefusal=false, argvRestartUsed=false, execveFromArgvUsed=false, reexecUsed=false, outputReplayUsed=false, descriptorOnlySuccessUsed=false, sourceIsaEmulationUsed=false, sourceFdTeleportationUsed=false, metadataOnlySuccessUsed=false, and a marker with sourceFirstValue=1, sourceCurrentValue=4, sourceNextValue=5, targetFirstEmittedValue=5, emittedItemCursorStart=4, freshRestartWouldEmitFirstValue=1, replayedValues=[]. Refusal tests prove unsupported floating format, floating precision, unknown locale, missing partial formatted value, terminal output, same-arch, argv restart, output replay, descriptor-only success, and restart-at-first-value markers return state=refused, productContinuationEligible=false or resumedFromCapturedSemanticState=false, targetProcessStarted=false, and targetProcessKilledOnRefusal=true when targetPid is supplied. pnpm run format passed in 1.31s, focused Vitest passed in 0.41s with 52 tests, and runtime build passed in 1.51s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove fixed-string grep continues from captured input cursor, parser state, matcher state, match count, and output cursor across ISAs and does not rematch or replay prior lines.",
+      "evidence": "Extended packages/runtime/src/cross-arch-cli-next-binaries.ts with classifyCrossArchFixedStringGrepContinuationCapture() and exported it from packages/runtime/src/index.ts. The eligible fixed-string grep fixture in packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts proves capture records sourceArch=arm64, targetArch=amd64, executable=/usr/bin/grep, argv=[/usr/bin/grep,-F,needle,/tmp/haystack.txt], patternBytesHex=6e6565646c65, fixedString=true, locale=C, regular-file input identity path/device/inode/digest, size, mtimeMs, contentHashWindow, byteOffset=90, partialLineBufferHex, lineDecoderState=byte-line, matcherState=fixed-string-boundary, matchCountSoFar=2, lastCompletedLineNumber=8, selected safe flags with regex/PCRE/backrefs/context/color/binary/recursive/multipleFiles all false, stdoutCursor=24, stderrCursor=0, terminalSessionAbsent=true, safe-point evidence, target preflight for input identity/content window/openability/byte offset/matcher state/output cursor/cross-ISA fixed-string matcher vessel, and noTargetProcessBeforeEligibilityEvidence. Focused Vitest passed in 0.44s with 68 tests; pnpm -F @machinen/runtime build passed in 1.62s. Implemented planCrossArchFixedStringGrepContinuationTarget(). The happy-path test proves the ready plan has targetPid=7500, resumedFromCapturedSemanticState=true, targetProcessStarted=true, targetProcessKilledOnRefusal=false, argvRestartUsed=false, execveFromArgvUsed=false, reexecUsed=false, outputReplayUsed=false, descriptorOnlySuccessUsed=false, sourceIsaEmulationUsed=false, sourceFdTeleportationUsed=false, metadataOnlySuccessUsed=false, and a marker with sourceByteOffset=90, sourceMatchCountSoFar=2, targetFirstScannedByteOffset=90, targetFirstMatchedLineNumber=9, priorMatchedLinesReplayed=[], rematchedLineNumbers=[], freshRestartWouldVisitLine=1, matchCountStart=2. Refusal tests prove regex mode, PCRE mode, backrefs, context output, color output, binary mode, recursive input, multiple files, pipe input, same-arch, argv restart, output replay, descriptor-only success, and rematch/replay markers return state=refused, productContinuationEligible=false or resumedFromCapturedSemanticState=false, targetProcessStarted=false, and targetProcessKilledOnRefusal=true when targetPid is supplied. pnpm run format passed in 1.31s, focused Vitest passed in 0.44s with 68 tests, and runtime build passed in 1.62s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove less, vi, broad grep, broad wc, unsafe dd, pipes, sockets, terminal/session shapes, services, databases, shells, same-arch product attempts, and every unmodeled shortcut fail closed with no target process left running.",
+      "evidence": "Fail-closed refusal coverage is proven by focused runtime tests and routing tests plus coverage/docs. Runtime tests refuse unsafe dd device/sparse/direct/conv/signal/dirty shapes, broad wc byte/char/word and multiple-input shapes, regex/PCRE/backrefs/context/color/binary/recursive/multiple-file grep shapes, pipe input, terminal output/session shapes, same-arch product attempts, argv restart, output replay, descriptor-only success, reread/rematch/replay markers, and leave targetProcessStarted=false with targetProcessKilledOnRefusal=true when targetPid is supplied. Move-rendezvous tests prove less, shell, and service descriptors without explicit semantic models return continuation-only-refusal with commands=[] before VM exec. Coverage passed in 0.15s and docs state services, databases, shells, pipes, sockets, terminal/session shapes, broad grep/wc, unsafe dd, and every unmodeled shortcut are refused without explicit models."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove product move routing allows only modeled next-binary semantic continuation routes and no product-routed non-continuation rows.",
+      "evidence": "Added descriptor-gated next-binary capture fields in packages/runtime/src/move-pid-graph.ts for crossArchCatContinuationState, crossArchDdContinuationState, crossArchWcLineContinuationState, crossArchSeqContinuationState, and crossArchFixedStringGrepContinuationState. Added packages/cli/src/move-cross-arch-cli-next-binaries.ts with moveDescriptorHasCrossArchCliNextBinariesRoute() and runMoveTargetCrossArchCliNextBinariesInVm(), and updated packages/cli/src/move-rendezvous.ts so product continuation routing recognizes only those explicit next-binary semantic continuation states before any legacy restart/reconstruction loader. Focused move-rendezvous tests prove supported descriptors for cat, dd, wc -l, seq, and fixed-string grep return ready strategies cross-arch-cat-reader-semantic-continuation, cross-arch-dd-regular-file-semantic-continuation, cross-arch-wc-line-semantic-continuation, cross-arch-seq-semantic-continuation, and cross-arch-grep-fixed-string-semantic-continuation with commands=[]; no VM exec, generic restart, direct loader, static-root, same-arch, or argv restart route is invoked. Focused Vitest passed in 0.77s with 72 passed and 90 skipped; pnpm -F @machinen/cli build passed in 0.77s; pnpm -F @machinen/runtime build passed in 1.51s. Focused move-rendezvous tests prove an unsupported next-binary descriptor with crossArchCatContinuationState classification.state=refused/productContinuationEligible=false returns strategy=continuation-only-refusal, commands=[], targetPid=7601, and refusal details including classificationNotEligible and pipeInputRefused before VM exec. Updated docs/snapshot/move-continuation-boundary-classification.json and scripts/move-continuation-boundary-coverage.mjs so only the five next-binary happy-path continuation rows are currentProductRouted. pnpm run move-continuation-boundary-coverage passed in 2.80s with expectedRows=248, classifiedRows=248, classificationSummary={resource-reconstruction:75,reexec:49,refusal:118,continuation:6}, productRouted=[cross-arch-cat-reader-semantic-continuation-happy-path,cross-arch-dd-regular-file-semantic-continuation-happy-path,cross-arch-grep-fixed-string-semantic-continuation-happy-path,cross-arch-seq-semantic-continuation-happy-path,cross-arch-wc-line-semantic-continuation-happy-path], productRoutedNonContinuation=[], errors=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove docs/API and final validation pass with timing evidence and no stop condition applies before setting status COMPLETE.",
+      "evidence": "Updated docs/snapshot/README.md and docs/snapshot/generic-resource-graph-move.md to point to docs/snapshot/cross-arch-cli-next-binaries.md and state the exact supported subsets: cat input/output cursor continuation, regular-file dd offsets/partial block/counters continuation, wc -l byte-offset/line-count continuation, integer seq current/next value continuation, and fixed-string grep input cursor/parser/matcher/match-count/output cursor continuation. Generated packages/runtime/API.md with build:docs after exporting all next-binary public functions and types from packages/runtime/src/index.ts and grouping them through scripts/api-toc-symbols.data. Added scripts/cross-arch-cli-next-binaries-coverage.mjs and package script cross-arch-cli-next-binaries-coverage. Coverage passed in 0.15s with errors=[] and proves docs/API/source contain the exact supported subsets, captured semantic fields, target-native continuation steps, refusal boundaries, and hard non-claims including same-arch product success, argv restart, target execve from argv, output replay, descriptor-only success, source-ISA emulation, source-fd teleportation, metadata-only success, broad grep, broad wc, unsafe dd, services, databases, and shells. build:docs passed in 1.91s. Final validation in /Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder passed: python3 -m json.tool .pi/goals/cross-arch-cli-next-binaries-ladder.json 0.02s; python3 -m json.tool docs/snapshot/cross-arch-cli-next-binaries-contract.json 0.02s; pnpm run cross-arch-cli-next-binaries-coverage 0.15s errors=[]; pnpm run move-continuation-boundary-coverage 3.12s expectedRows=248 classifiedRows=248 productRouted=[cross-arch-cat-reader-semantic-continuation-happy-path,cross-arch-dd-regular-file-semantic-continuation-happy-path,cross-arch-grep-fixed-string-semantic-continuation-happy-path,cross-arch-seq-semantic-continuation-happy-path,cross-arch-wc-line-semantic-continuation-happy-path] productRoutedNonContinuation=[] errors=[]; NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"cross-arch next-binary|continuation-only loader boundary\" 0.78s, 73 passed 90 skipped; pnpm run build:docs 1.91s; pnpm run format:check 1.23s; pnpm run lint 0.51s; pnpm run typecheck 2.52s; pnpm exec fallow audit --changed-since origin/main 0.49s with duplicate groups warn-only; git diff --check 0.02s. Full smoke tests were skipped intentionally. This change touches runtime semantic classifiers/planners, move descriptor typing, CLI rendezvous routing, docs/API generation, and coverage scripts. It does not touch VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount behavior, snapshot/restore machinery, virtio devices, memory/ballooning, or FUSE/live mounts, so the project smoke-test rule does not require MACHINEN_REMOTE_BUILDER smoke-tests. Targeted validation covered the changed behavior with focused Vitest, next-binary coverage, move continuation boundary coverage, build:docs, format, lint, typecheck, fallow audit, and git diff --check."
+    }
+  ],
+  "doneWhen": "All tasks are COMPLETE, all task and goal proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "python3 -m json.tool .pi/goals/cross-arch-cli-next-binaries-ladder.json",
+      "proves": "The goal contract remains valid JSON."
+    },
+    {
+      "check": "python3 -m json.tool docs/snapshot/cross-arch-cli-next-binaries-contract.json",
+      "proves": "The machine-readable next-binary ladder contract is valid JSON."
+    },
+    {
+      "check": "pnpm run cross-arch-cli-next-binaries-coverage",
+      "proves": "The ladder coverage covers cat, dd, wc -l, seq, fixed-string grep, refusal boundaries, and shortcut-ban guardrails."
+    },
+    {
+      "check": "pnpm run move-continuation-boundary-coverage",
+      "proves": "Product move still rejects non-continuation routes and product-routed rows are continuation only."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run <focused next-binary continuation tests>",
+      "proves": "The supported binary continuations, refusal paths, no-restart guards, and no-target-process-on-refusal behavior pass."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Generated API documentation reflects the next-binary continuation ladder and non-claims."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Formatting remains valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and changed-file health checks pass."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript and build-time validation pass."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and code-health audit has no blocking regressions."
+    },
+    {
+      "check": "git diff --check",
+      "proves": "Changed files have no whitespace errors."
+    }
+  ],
+  "stopIf": [
+    "Any supported path would need same-arch product success, argv restart, target execve from argv, reexec, static-root reconstruction, output replay, descriptor-only equivalence, app export/import, source-ISA emulation, source-fd teleportation, or metadata-only success to pass.",
+    "cat cannot prove target behavior depends on captured input/output cursor state instead of replaying old bytes or restarting argv.",
+    "dd cannot prove target behavior depends on captured offsets, block state, and counters instead of re-copying prior blocks or restarting argv.",
+    "wc -l cannot prove target behavior depends on captured byte offset and line-count state instead of rereading prior input or restarting argv.",
+    "seq cannot prove target behavior depends on captured current/next value and output cursor instead of restarting from the first value.",
+    "Fixed-string grep cannot prove target behavior depends on captured parser/matcher/input/output state instead of rematching prior lines, replaying output, or restarting argv.",
+    "Any unsafe broad mode, terminal/session shape, pipe/socket shape, service, database, shell, or runtime path claims product support without an explicit semantic continuation model and proof.",
+    "A refusal case leaves a target process running or reports targetPid as successful.",
+    "Required validation cannot be run and no narrower evidence directly covers the changed behavior.",
+    "Full smoke tests become required by VM lifecycle, VMM, rootfs/base asset, CLI boot/exec/mount, snapshot/restore lifecycle, virtio device, memory/ballooning, FUSE/live mount, or explicit user-request changes but cannot be run.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-14T14:45:00Z",
+      "summary": "Defined the cross-arch next-binary ladder contract and Markdown docs in a new isolated worktree. The contract fixes the support order cat, dd, wc -l, seq, fixed-string grep and records hard bans and refusal classes before implementation.",
+      "filesChanged": [
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/docs/snapshot/cross-arch-cli-next-binaries-contract.json",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/docs/snapshot/cross-arch-cli-next-binaries.md",
+        ".pi/goals/cross-arch-cli-next-binaries-ladder.json"
+      ],
+      "commands": [
+        "git worktree add -b cross-arch-cli-next-binaries-ladder ../machinen-cross-arch-cli-next-binaries-ladder origin/move-envelope-sequence \u2014 passed",
+        "python3 -m json.tool .pi/goals/cross-arch-cli-next-binaries-ladder.json \u2014 passed, 0.06s",
+        "python3 -m json.tool docs/snapshot/cross-arch-cli-next-binaries-contract.json \u2014 passed, 0.03s",
+        "manual next-binary contract phrase check \u2014 passed, 0.02s, required=26 missing=[]",
+        "git diff --check -- docs/snapshot/cross-arch-cli-next-binaries-contract.json docs/snapshot/cross-arch-cli-next-binaries.md .pi/goals/cross-arch-cli-next-binaries-ladder.json \u2014 passed, 0.01s"
+      ],
+      "worktree": {
+        "path": "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder",
+        "branch": "cross-arch-cli-next-binaries-ladder",
+        "base": "origin/move-envelope-sequence"
+      },
+      "nonClaims": [
+        "Contract/docs only; no cat, dd, wc -l, seq, or grep implementation is claimed yet.",
+        "No same-arch product success, argv restart, target execve from argv, output replay, descriptor-only success, source-ISA emulation, source-fd teleportation, or metadata-only success is allowed by the contract."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T15:05:00Z",
+      "summary": "Implemented cat semantic capture and target planning in the isolated worktree. The cat path captures regular-file reader state and stdout cursor, plans target-native continuation from the captured offset, and refuses terminal/pipe/socket/dirty/shortcut/replay cases without leaving a successful target process.",
+      "filesChanged": [
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/cross-arch-cli-next-binaries.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/index.ts",
+        ".pi/goals/cross-arch-cli-next-binaries-ladder.json"
+      ],
+      "commands": [
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm install --frozen-lockfile \u2014 passed, 1.46s",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm run format \u2014 passed, 2.51s",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts \u2014 passed, 1.48s, 12 passed",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm -F @machinen/runtime build \u2014 passed, 2.25s"
+      ],
+      "nonClaims": [
+        "Cat support is a semantic classifier/planner harness; product CLI routing remains pending task-7.",
+        "No dd, wc -l, seq, or fixed-string grep implementation is claimed yet.",
+        "No terminal, pipe, socket, service, database, shell, same-arch product route, argv restart, target execve from argv, output replay, descriptor-only success, source-ISA emulation, source-fd teleportation, or metadata-only success is supported."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T15:25:00Z",
+      "summary": "Implemented narrow regular-file dd semantic capture and target planning in the isolated worktree. The dd path captures input/output identities, block size, offsets, partial block state, counters, and safe conversion state, plans target-native continuation from captured offsets, and refuses unsafe device/sparse/direct/conv/signal/dirty/shortcut/recopy cases without leaving a successful target process.",
+      "filesChanged": [
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/cross-arch-cli-next-binaries.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/index.ts",
+        ".pi/goals/cross-arch-cli-next-binaries-ladder.json"
+      ],
+      "commands": [
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm run format \u2014 passed, 1.38s",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts \u2014 passed, 0.56s, 26 passed",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm -F @machinen/runtime build \u2014 passed, 1.54s"
+      ],
+      "nonClaims": [
+        "dd support is a semantic classifier/planner harness; product CLI routing remains pending task-7.",
+        "No wc -l, seq, or fixed-string grep implementation is claimed yet.",
+        "No unsafe dd device, sparse, direct I/O, unsafe conv flag, pending signal, same-arch product route, argv restart, target execve from argv, output replay, descriptor-only success, source-ISA emulation, source-fd teleportation, or metadata-only success is supported."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T15:45:00Z",
+      "summary": "Implemented wc -l semantic capture and target planning in the isolated worktree. The wc -l path captures input identity, byte offset, line count, newline/decoder state, locale, and stdout cursor, plans target-native continuation from the captured offset/count, and refuses broad wc modes, multiple inputs, unmodeled parser state, pipe input, shortcuts, and reread markers without leaving a successful target process.",
+      "filesChanged": [
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/cross-arch-cli-next-binaries.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/index.ts",
+        ".pi/goals/cross-arch-cli-next-binaries-ladder.json"
+      ],
+      "commands": [
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm run format \u2014 passed, 1.60s",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts \u2014 passed, 0.60s, 40 passed",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm -F @machinen/runtime build \u2014 passed, 1.69s"
+      ],
+      "nonClaims": [
+        "wc -l support is a semantic classifier/planner harness; product CLI routing remains pending task-7.",
+        "No seq or fixed-string grep implementation is claimed yet.",
+        "No broad wc byte/char/word mode, multiple-input list cursor, terminal/pipe/socket shape, same-arch product route, argv restart, target execve from argv, output replay, descriptor-only success, source-ISA emulation, source-fd teleportation, or metadata-only success is supported."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T16:05:00Z",
+      "summary": "Implemented seq semantic capture and target planning in the isolated worktree. The seq path captures integer sequence generator state and stdout cursor, plans target-native continuation from the captured next value, and refuses floating/locale/partial-format/terminal/shortcut/restart markers without leaving a successful target process.",
+      "filesChanged": [
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/cross-arch-cli-next-binaries.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/index.ts",
+        ".pi/goals/cross-arch-cli-next-binaries-ladder.json"
+      ],
+      "commands": [
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm run format \u2014 passed, 1.31s",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts \u2014 passed, 0.41s, 52 passed",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm -F @machinen/runtime build \u2014 passed, 1.51s"
+      ],
+      "nonClaims": [
+        "seq support is a semantic classifier/planner harness; product CLI routing remains pending task-7.",
+        "No fixed-string grep implementation is claimed yet.",
+        "No floating seq format, unmodeled locale, terminal/session shape, same-arch product route, argv restart, target execve from argv, output replay, descriptor-only success, source-ISA emulation, source-fd teleportation, or metadata-only success is supported."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T16:25:00Z",
+      "summary": "Implemented fixed-string grep semantic capture and target planning in the isolated worktree. The grep path captures fixed-string pattern bytes, input cursor, line parser state, matcher state, match count, selected safe flags, and output cursor, plans target-native continuation from the captured cursor, and refuses regex/PCRE/backrefs/context/color/binary/recursive/multiple-file/shortcut/rematch/replay cases without leaving a successful target process.",
+      "filesChanged": [
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/cross-arch-cli-next-binaries.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/index.ts",
+        ".pi/goals/cross-arch-cli-next-binaries-ladder.json"
+      ],
+      "commands": [
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm run format \u2014 passed, 1.31s",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts \u2014 passed, 0.44s, 68 passed",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm -F @machinen/runtime build \u2014 passed, 1.62s"
+      ],
+      "nonClaims": [
+        "Fixed-string grep support is a semantic classifier/planner harness; product CLI routing remains pending task-7.",
+        "No regex, PCRE, backrefs, context, color, binary, recursive, multiple-file grep mode, terminal/pipe/socket shape, same-arch product route, argv restart, target execve from argv, output replay, descriptor-only success, source-ISA emulation, source-fd teleportation, or metadata-only success is supported."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T16:45:00Z",
+      "summary": "Wired descriptor-gated CLI routing and boundary ledger checks for cat, dd, wc -l, seq, and fixed-string grep. Supported next-binary descriptors route through semantic continuation without VM exec; unsupported descriptors refuse before target startup; boundary coverage reports no product-routed non-continuation rows.",
+      "filesChanged": [
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/runtime/src/move-pid-graph.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/cli/src/move-cross-arch-cli-next-binaries.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/cli/src/move-rendezvous.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/packages/cli/src/__tests__/move-rendezvous.test.ts",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/scripts/move-continuation-boundary-coverage.mjs",
+        "/Users/peterp/gh/redwoodjs/machinen-cross-arch-cli-next-binaries-ladder/docs/snapshot/move-continuation-boundary-classification.json",
+        ".pi/goals/cross-arch-cli-next-binaries-ladder.json"
+      ],
+      "commands": [
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm run format \u2014 passed, 1.29s",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"cross-arch next-binary|continuation-only loader boundary\" \u2014 passed, 0.77s, 72 passed 90 skipped",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm run move-continuation-boundary-coverage \u2014 passed, 2.80s, productRoutedNonContinuation=[] errors=[]",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm -F @machinen/cli build \u2014 passed, 0.77s",
+        "cd ../machinen-cross-arch-cli-next-binaries-ladder && pnpm -F @machinen/runtime build \u2014 passed, 1.51s"
+      ],
+      "nonClaims": [
+        "Only descriptor-gated next-binary semantic continuation routes are product-routed.",
+        "Generic restart, reexec, static-root reconstruction, and legacy file utility routes remain non-product for machinen move continuation."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T17:15:00Z",
+      "summary": "Completed next-binary ladder docs/API/coverage and final validation. Product-routed continuation rows are only cat, dd, wc -l, seq, and fixed-string grep semantic continuation; unsafe and unmodeled shapes continue to fail closed.",
+      "filesChanged": [
+        "docs/snapshot/README.md",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/cross-arch-cli-next-binaries-contract.json",
+        "docs/snapshot/cross-arch-cli-next-binaries.md",
+        "docs/snapshot/move-continuation-boundary-classification.json",
+        "packages/runtime/src/cross-arch-cli-next-binaries.ts",
+        "packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts",
+        "packages/runtime/src/index.ts",
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/runtime/API.md",
+        "packages/cli/src/move-cross-arch-cli-next-binaries.ts",
+        "packages/cli/src/move-rendezvous.ts",
+        "packages/cli/src/__tests__/move-rendezvous.test.ts",
+        "scripts/cross-arch-cli-next-binaries-coverage.mjs",
+        "scripts/move-continuation-boundary-coverage.mjs",
+        "scripts/build-api-toc.mjs",
+        "scripts/api-toc-symbols.data",
+        "package.json",
+        ".pi/goals/cross-arch-cli-next-binaries-ladder.json"
+      ],
+      "commands": [
+        "python3 -m json.tool .pi/goals/cross-arch-cli-next-binaries-ladder.json \u2014 passed, 0.02s",
+        "python3 -m json.tool docs/snapshot/cross-arch-cli-next-binaries-contract.json \u2014 passed, 0.02s",
+        "pnpm run cross-arch-cli-next-binaries-coverage \u2014 passed, 0.15s, errors=[]",
+        "pnpm run move-continuation-boundary-coverage \u2014 passed, 3.12s, expectedRows=248 classifiedRows=248 productRoutedNonContinuation=[] errors=[]",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/cross-arch-cli-next-binaries.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"cross-arch next-binary|continuation-only loader boundary\" \u2014 passed, 0.78s, 73 passed 90 skipped",
+        "pnpm run build:docs \u2014 passed, 1.91s",
+        "pnpm run format:check \u2014 passed, 1.23s",
+        "pnpm run lint \u2014 passed, 0.51s",
+        "pnpm run typecheck \u2014 passed, 2.52s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed, 0.49s, warn-only duplicate groups",
+        "git diff --check \u2014 passed, 0.02s"
+      ],
+      "nonClaims": [
+        "No arbitrary process restore or any-binary movement.",
+        "No broad grep, broad wc, unsafe dd, terminal/session, pipe/socket, service, database, or shell product support without explicit semantic models.",
+        "No full smoke run because VM/rootfs/VMM/boot/mount/snapshot/virtio/memory/FUSE areas were not touched."
+      ]
+    }
+  ],
+  "nextAction": "Goal complete; commit/review changes in isolated worktree.",
+  "status": "COMPLETE"
+}

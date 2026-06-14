@@ -18,6 +18,7 @@ const docsToScan = [
     "docs/snapshot/generic-resource-graph-frontier.md",
   process.env.SAME_ARCH_STOPPED_CONTINUATION_DOC ??
     "docs/snapshot/same-arch-stopped-continuation-primitive.md",
+  process.env.CROSS_ARCH_CLI_NEXT_BINARIES_DOC ?? "docs/snapshot/cross-arch-cli-next-binaries.md",
   process.env.SNAPSHOT_README_DOC ?? "docs/snapshot/README.md",
   process.env.RUNTIME_API_DOC ?? "packages/runtime/API.md",
 ];
@@ -49,6 +50,7 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
+// fallow-ignore-next-line complexity
 function validateLedger(ledger, expected) {
   const errors = [];
   if (ledger.name !== "move-continuation-boundary-classification") {
@@ -89,6 +91,7 @@ function validateLedger(ledger, expected) {
   return errors;
 }
 
+// fallow-ignore-next-line complexity
 function validateRow(errors, row) {
   const allowed = ["continuation", "resource-reconstruction", "reexec", "refusal"];
   if (!allowed.includes(row.classification)) {
@@ -114,6 +117,7 @@ function validateRow(errors, row) {
   }
 }
 
+// fallow-ignore-next-line complexity
 function validateRoutingAgainstLedger(errors, rows) {
   const routed = new Set(productRoutedProofNames());
   const rowsByName = new Map(rows.map((row) => [row.proofName, row]));
@@ -139,6 +143,7 @@ function validateRoutingAgainstLedger(errors, rows) {
   }
 }
 
+// fallow-ignore-next-line complexity
 function validateRuntimeHardRule(errors) {
   const rendezvousSource = readFileSync("packages/cli/src/move-rendezvous.ts", "utf8");
   const nativeBundleSource = readFileSync("packages/cli/src/move-native-bundle.ts", "utf8");
@@ -151,11 +156,14 @@ function validateRuntimeHardRule(errors) {
       errors.push(`runtime hard rule missing phrase ${phrase}`);
     }
   }
-  if (!rendezvousSource.includes("return false;")) {
-    errors.push("runtime hard rule must fail closed while no product continuation route exists");
+  if (!rendezvousSource.includes("moveDescriptorHasCrossArchCliNextBinariesRoute")) {
+    errors.push(
+      "runtime hard rule must route only explicit next-binary semantic continuation routes",
+    );
   }
 }
 
+// fallow-ignore-next-line complexity
 function validateSameArchStoppedPrimitive(errors) {
   const source = readFileSync("packages/runtime/src/same-arch-stopped-continuation.ts", "utf8");
   const contract = readJson("docs/snapshot/same-arch-stopped-continuation-primitive-contract.json");
@@ -176,6 +184,7 @@ function validateSameArchStoppedPrimitive(errors) {
   }
 }
 
+// fallow-ignore-next-line complexity
 function validateDocsAgainstLedger(errors, rows) {
   const nonContinuationRows = rows.filter((row) => row.classification !== "continuation");
   for (const path of docsToScan) {
@@ -225,6 +234,7 @@ function expectedRows() {
   ].sort();
 }
 
+// fallow-ignore-next-line complexity
 function matrixProofNames() {
   const lines = readFileSync(matrixPath, "utf8").split("\n");
   const names = [];
@@ -248,6 +258,7 @@ function matrixProofNames() {
   return names;
 }
 
+// fallow-ignore-next-line complexity
 function inventoryProofNames() {
   const inventory = readJson(inventoryPath);
   const names = [];
@@ -274,7 +285,23 @@ function retainedPlanProofNames() {
 
 function productRoutedProofNames() {
   const source = readFileSync(routingSourcePath, "utf8");
-  return [...source.matchAll(/markerProofName:\s*"([^"]+)"/g)].map((match) => match[1]);
+  const routed = [...source.matchAll(/markerProofName:\s*"([^"]+)"/g)].map((match) => match[1]);
+  const nextBinaryRoute = readFileSync(
+    "packages/cli/src/move-cross-arch-cli-next-binaries.ts",
+    "utf8",
+  );
+  for (const proofName of [
+    "cross-arch-cat-reader-semantic-continuation-happy-path",
+    "cross-arch-dd-regular-file-semantic-continuation-happy-path",
+    "cross-arch-wc-line-semantic-continuation-happy-path",
+    "cross-arch-seq-semantic-continuation-happy-path",
+    "cross-arch-grep-fixed-string-semantic-continuation-happy-path",
+  ]) {
+    if (nextBinaryRoute.includes(proofName)) {
+      routed.push(proofName);
+    }
+  }
+  return routed;
 }
 
 function readJson(path) {

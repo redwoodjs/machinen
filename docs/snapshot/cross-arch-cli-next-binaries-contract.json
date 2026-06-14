@@ -1,0 +1,360 @@
+{
+  "name": "cross-arch-cli-next-binaries-contract",
+  "version": 1,
+  "status": "contract-before-implementation",
+  "scope": {
+    "productCommand": "machinen move",
+    "sourceBase": "same Machinen Debian base",
+    "targetBase": "same Machinen Debian base",
+    "sourceArchitecture": "any supported source ISA",
+    "targetArchitecture": "different supported target ISA",
+    "productSuccess": "cross-ISA target-native semantic continuation from captured live state, or refusal"
+  },
+  "globalRule": {
+    "productSuccess": "cross-ISA target-native semantic continuation from captured live state, or refusal",
+    "refuseWhenStateIsUnmodeled": true,
+    "targetProcessOnRefusal": "none-or-killed-before-success",
+    "capturedStateMustAffectTargetBehavior": true
+  },
+  "hardBans": [
+    "same-arch product success",
+    "argv restart",
+    "target execve from argv",
+    "reexec",
+    "static-root reconstruction",
+    "output replay",
+    "descriptor-only success",
+    "descriptor-only equivalence",
+    "app export/import",
+    "source-ISA emulation",
+    "source-fd teleportation",
+    "metadata-only success",
+    "runtime-profile shortcut",
+    "broad runtime support",
+    "arbitrary process restore",
+    "product claim without captured-state-dependent proof"
+  ],
+  "ladderPriority": [
+    {
+      "rank": 1,
+      "binary": "cat",
+      "supportedSubset": "regular-file reader continuation with modeled stdout cursor",
+      "summary": "Continue from captured input identity, read offset, partial buffer, and stdout cursor."
+    },
+    {
+      "rank": 2,
+      "binary": "dd",
+      "supportedSubset": "narrow regular-file copy continuation without unsafe device or conversion modes",
+      "summary": "Continue from captured input/output identities, block size, offsets, partial block, and counters."
+    },
+    {
+      "rank": 3,
+      "binary": "wc -l",
+      "supportedSubset": "line-count continuation for regular-file input",
+      "summary": "Continue from captured byte offset, line count so far, partial newline state, and stdout cursor."
+    },
+    {
+      "rank": 4,
+      "binary": "seq",
+      "supportedSubset": "integer sequence continuation with modeled format and output cursor",
+      "summary": "Continue from captured current value, next value, end, step, format, and emitted item cursor."
+    },
+    {
+      "rank": 5,
+      "binary": "grep -F",
+      "supportedSubset": "fixed-string line matching over regular-file input",
+      "summary": "Continue from captured input cursor, partial line, matcher state, match count, selected flags, and output cursor."
+    }
+  ],
+  "binaries": {
+    "cat": {
+      "supportedSubset": "single regular-file input or modeled stdin regular file with modeled stdout cursor and no terminal/session state",
+      "capturedSemanticState": [
+        "executable identity for cat on source base",
+        "sourceArch and targetArch with cross-ISA proof",
+        "input path or fd identity",
+        "device and inode or stable identity digest",
+        "file size and mtime at capture",
+        "content hash window around read offset",
+        "read offset",
+        "partial read buffer bytes",
+        "stdout cursor",
+        "stderr cursor",
+        "safe-point evidence",
+        "target regular-file preflight",
+        "no target process before eligibility evidence"
+      ],
+      "targetContinuationStep": [
+        "verify target architecture differs from source architecture",
+        "verify equivalent input file identity and content hash window",
+        "open target-native reader vessel without argv restart",
+        "seek to captured read offset",
+        "install partial buffer and stdout cursor",
+        "emit only bytes after the captured cursor"
+      ],
+      "refuseWhen": [
+        "terminal input or output is present",
+        "PTY or session state is present",
+        "pipe input or output is unmodeled",
+        "socket input or output is present",
+        "multiple input files are present before a list cursor is modeled",
+        "input identity changed",
+        "read offset is beyond size",
+        "dirty writable fd alias is present",
+        "partial buffer is missing at a split read boundary",
+        "same-arch product attempt is requested",
+        "argv restart is attempted",
+        "target execve from argv is attempted",
+        "output replay is attempted",
+        "descriptor-only success is attempted"
+      ],
+      "proofMustShow": [
+        "target emits first byte after captured read offset",
+        "target does not replay bytes before captured read offset",
+        "fresh argv restart would emit byte zero but continuation does not",
+        "refusal leaves no successful target process"
+      ]
+    },
+    "dd": {
+      "supportedSubset": "regular-file input to regular-file output with simple block copy and no unsafe flags",
+      "capturedSemanticState": [
+        "executable identity for dd on source base",
+        "sourceArch and targetArch with cross-ISA proof",
+        "input file identity",
+        "output file identity",
+        "block size",
+        "input offset",
+        "output offset",
+        "partial block bytes and length",
+        "records-in counter",
+        "records-out counter",
+        "bytes copied counter",
+        "status output cursor",
+        "safe conversion flag set",
+        "target input/output file preflight",
+        "dirty alias absence evidence"
+      ],
+      "targetContinuationStep": [
+        "verify target architecture differs from source architecture",
+        "verify equivalent input and output file identities",
+        "open target-native copy vessel without argv restart",
+        "seek input and output to captured offsets",
+        "install partial block state and counters",
+        "copy only remaining blocks from captured state"
+      ],
+      "refuseWhen": [
+        "input or output is a device, tape, terminal, pipe, or socket",
+        "sparse mode is requested",
+        "direct I/O is requested",
+        "unmodeled conv flag is present",
+        "signal-interrupted status is pending",
+        "dirty writable alias is present",
+        "input or output identity changed",
+        "partial block state is missing",
+        "same-arch product attempt is requested",
+        "argv restart is attempted",
+        "target execve from argv is attempted",
+        "output replay is attempted",
+        "descriptor-only success is attempted"
+      ],
+      "proofMustShow": [
+        "target copies from captured input offset to captured output offset",
+        "target does not recopy prior blocks",
+        "counters continue from captured values",
+        "refusal leaves no successful target process"
+      ]
+    },
+    "wcLine": {
+      "binary": "wc -l",
+      "supportedSubset": "line count for one regular-file input with modeled newline boundary and stdout cursor",
+      "capturedSemanticState": [
+        "executable identity for wc on source base",
+        "sourceArch and targetArch with cross-ISA proof",
+        "input file identity",
+        "byte offset",
+        "line count so far",
+        "partial newline state",
+        "line decoder state",
+        "locale assumptions",
+        "stdout cursor",
+        "stderr cursor",
+        "safe-point evidence",
+        "target file preflight"
+      ],
+      "targetContinuationStep": [
+        "verify target architecture differs from source architecture",
+        "verify equivalent input file identity",
+        "open target-native wc-line vessel without argv restart",
+        "seek to captured byte offset",
+        "install line count and newline boundary state",
+        "count only remaining bytes and combine with captured count"
+      ],
+      "refuseWhen": [
+        "wc byte mode is requested",
+        "wc char mode is requested",
+        "wc word mode is requested",
+        "multiple inputs are present before list cursor is modeled",
+        "unmodeled locale or encoding is present",
+        "input identity changed",
+        "byte offset is beyond size",
+        "terminal, pipe, or socket state is present",
+        "same-arch product attempt is requested",
+        "argv restart is attempted",
+        "target execve from argv is attempted",
+        "output replay is attempted",
+        "descriptor-only success is attempted"
+      ],
+      "proofMustShow": [
+        "target final line count includes captured line count plus remaining suffix count",
+        "target does not reread bytes before captured offset",
+        "fresh argv restart would count from byte zero but continuation does not",
+        "refusal leaves no successful target process"
+      ]
+    },
+    "seq": {
+      "supportedSubset": "integer sequence with modeled step, end, format, emitted item cursor, and stdout cursor",
+      "capturedSemanticState": [
+        "executable identity for seq on source base",
+        "sourceArch and targetArch with cross-ISA proof",
+        "first value",
+        "current value",
+        "next value",
+        "end value",
+        "step value",
+        "format string",
+        "separator",
+        "emitted item cursor",
+        "stdout cursor",
+        "numeric precision assumptions",
+        "safe-point evidence"
+      ],
+      "targetContinuationStep": [
+        "verify target architecture differs from source architecture",
+        "open target-native generator vessel without argv restart",
+        "install next value, end, step, format, separator, and output cursor",
+        "emit next captured value and following values only"
+      ],
+      "refuseWhen": [
+        "unsupported floating-point format is present",
+        "locale-dependent formatting is unmodeled",
+        "precision would differ across target ISA",
+        "partial formatted value state is missing",
+        "stdout cursor is unmodeled",
+        "same-arch product attempt is requested",
+        "argv restart is attempted",
+        "target execve from argv is attempted",
+        "output replay is attempted",
+        "descriptor-only success is attempted"
+      ],
+      "proofMustShow": [
+        "target emits captured next value first",
+        "target does not restart at first value",
+        "fresh argv restart would emit first value but continuation does not",
+        "refusal leaves no successful target process"
+      ]
+    },
+    "fixedStringGrep": {
+      "binary": "grep -F",
+      "supportedSubset": "fixed-string line matching for one regular-file input with modeled selected flags",
+      "capturedSemanticState": [
+        "executable identity for grep on source base",
+        "sourceArch and targetArch with cross-ISA proof",
+        "pattern bytes",
+        "selected safe flags",
+        "input file identity",
+        "byte offset",
+        "partial line buffer",
+        "line decoder state",
+        "matcher state",
+        "match count so far",
+        "stdout cursor",
+        "stderr cursor",
+        "safe-point evidence",
+        "target file preflight"
+      ],
+      "targetContinuationStep": [
+        "verify target architecture differs from source architecture",
+        "verify equivalent input file identity",
+        "open target-native fixed-string matcher vessel without argv restart",
+        "seek to captured byte offset",
+        "install partial line, matcher state, match count, and output cursor",
+        "match only lines after the captured cursor"
+      ],
+      "refuseWhen": [
+        "regex mode is requested",
+        "PCRE mode is requested",
+        "backrefs or locale-sensitive classes are present",
+        "context output is requested",
+        "color output is requested",
+        "binary-file mode is unmodeled",
+        "recursive input is requested",
+        "multiple files are present before list cursor is modeled",
+        "input identity changed",
+        "partial line state is missing",
+        "same-arch product attempt is requested",
+        "argv restart is attempted",
+        "target execve from argv is attempted",
+        "output replay is attempted",
+        "descriptor-only success is attempted"
+      ],
+      "proofMustShow": [
+        "target matches first eligible line after captured cursor",
+        "target does not rematch prior lines",
+        "target does not replay prior matched output",
+        "fresh argv restart would revisit earlier lines but continuation does not",
+        "refusal leaves no successful target process"
+      ]
+    }
+  },
+  "globalRefusals": [
+    "less or vi terminal/session state",
+    "broad grep modes outside fixed-string subset",
+    "broad wc modes outside wc -l subset",
+    "unsafe dd device or conversion modes",
+    "pipes without explicit pipe model",
+    "sockets without explicit protocol state model",
+    "PTY or terminal state without explicit PTY/session model",
+    "services without protocol/session/durable state model",
+    "databases without transaction/durable/runtime model",
+    "shells without interactive session and job-control model",
+    "same-arch product attempt",
+    "argv restart attempt",
+    "target execve from argv attempt",
+    "output replay attempt",
+    "descriptor-only success attempt",
+    "source-ISA emulation attempt",
+    "source-fd teleportation attempt",
+    "metadata-only success attempt"
+  ],
+  "requiredProofRows": {
+    "catHappyPath": "cross-arch-cat-reader-semantic-continuation-happy-path",
+    "ddHappyPath": "cross-arch-dd-regular-file-semantic-continuation-happy-path",
+    "wcLineHappyPath": "cross-arch-wc-line-semantic-continuation-happy-path",
+    "seqHappyPath": "cross-arch-seq-semantic-continuation-happy-path",
+    "fixedStringGrepHappyPath": "cross-arch-grep-fixed-string-semantic-continuation-happy-path",
+    "shortcutGuards": [
+      "same-arch product route refused",
+      "argv restart refused",
+      "target execve from argv refused",
+      "reexec refused",
+      "output replay refused",
+      "descriptor-only success refused",
+      "source-ISA emulation refused",
+      "source-fd teleportation refused",
+      "metadata-only success refused"
+    ]
+  },
+  "nonClaims": [
+    "no arbitrary process restore",
+    "no any-binary movement",
+    "no broad grep support",
+    "no broad wc support",
+    "no unsafe dd support",
+    "no less or vi support",
+    "no pipe/socket/terminal/session movement without explicit models",
+    "no service/database/shell product support",
+    "no app export/import",
+    "no source-ISA emulation",
+    "no runtime-profile shortcut"
+  ]
+}

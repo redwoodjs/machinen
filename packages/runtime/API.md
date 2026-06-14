@@ -1126,6 +1126,64 @@
 
 - [`_internal`](#_internal)
 
+### Cross-ISA CLI next binary continuation
+
+- [`CrossArchCatContinuationRequest`](#crossarchcatcontinuationrequest)
+- [`CrossArchCatShortcutAttempts`](#crossarchcatshortcutattempts)
+- [`CrossArchCatSemanticCapture`](#crossarchcatsemanticcapture)
+- [`CrossArchCatContinuationClassification`](#crossarchcatcontinuationclassification)
+- [`CrossArchCatTargetContinuationRequest`](#crossarchcattargetcontinuationrequest)
+- [`CrossArchCatContinuationMarker`](#crossarchcatcontinuationmarker)
+- [`CrossArchCatTargetContinuationPlan`](#crossarchcattargetcontinuationplan)
+- [`CrossArchDdContinuationRequest`](#crossarchddcontinuationrequest)
+- [`CrossArchDdFileState`](#crossarchddfilestate)
+- [`CrossArchDdSemanticCapture`](#crossarchddsemanticcapture)
+- [`CrossArchDdContinuationClassification`](#crossarchddcontinuationclassification)
+- [`CrossArchDdTargetContinuationRequest`](#crossarchddtargetcontinuationrequest)
+- [`CrossArchDdContinuationMarker`](#crossarchddcontinuationmarker)
+- [`CrossArchDdTargetContinuationPlan`](#crossarchddtargetcontinuationplan)
+- [`CrossArchWcLineContinuationRequest`](#crossarchwclinecontinuationrequest)
+- [`CrossArchWcLineSemanticCapture`](#crossarchwclinesemanticcapture)
+- [`CrossArchWcLineContinuationClassification`](#crossarchwclinecontinuationclassification)
+- [`CrossArchWcLineTargetContinuationRequest`](#crossarchwclinetargetcontinuationrequest)
+- [`CrossArchWcLineContinuationMarker`](#crossarchwclinecontinuationmarker)
+- [`CrossArchWcLineTargetContinuationPlan`](#crossarchwclinetargetcontinuationplan)
+- [`CrossArchSeqContinuationRequest`](#crossarchseqcontinuationrequest)
+- [`CrossArchSeqSemanticCapture`](#crossarchseqsemanticcapture)
+- [`CrossArchSeqContinuationClassification`](#crossarchseqcontinuationclassification)
+- [`CrossArchSeqTargetContinuationRequest`](#crossarchseqtargetcontinuationrequest)
+- [`CrossArchSeqContinuationMarker`](#crossarchseqcontinuationmarker)
+- [`CrossArchSeqTargetContinuationPlan`](#crossarchseqtargetcontinuationplan)
+- [`CrossArchFixedStringGrepContinuationRequest`](#crossarchfixedstringgrepcontinuationrequest)
+- [`CrossArchFixedStringGrepSemanticCapture`](#crossarchfixedstringgrepsemanticcapture)
+- [`CrossArchFixedStringGrepContinuationClassification`](#crossarchfixedstringgrepcontinuationclassification)
+- [`CrossArchFixedStringGrepTargetContinuationRequest`](#crossarchfixedstringgreptargetcontinuationrequest)
+- [`CrossArchFixedStringGrepContinuationMarker`](#crossarchfixedstringgrepcontinuationmarker)
+- [`CrossArchFixedStringGrepTargetContinuationPlan`](#crossarchfixedstringgreptargetcontinuationplan)
+- [`CrossArchNextBinaryContinuationState`](#crossarchnextbinarycontinuationstate)
+- [`CrossArchCatFdKind`](#crossarchcatfdkind)
+- [`CrossArchCatSafePointKind`](#crossarchcatsafepointkind)
+- [`CrossArchDdFdKind`](#crossarchddfdkind)
+- [`CrossArchDdSafePointKind`](#crossarchddsafepointkind)
+- [`CrossArchDdConvFlag`](#crossarchddconvflag)
+- [`CrossArchDdShortcutAttempts`](#crossarchddshortcutattempts)
+- [`CrossArchWcLineFdKind`](#crossarchwclinefdkind)
+- [`CrossArchWcLineSafePointKind`](#crossarchwclinesafepointkind)
+- [`CrossArchSeqSafePointKind`](#crossarchseqsafepointkind)
+- [`CrossArchFixedStringGrepFdKind`](#crossarchfixedstringgrepfdkind)
+- [`CrossArchFixedStringGrepSafePointKind`](#crossarchfixedstringgrepsafepointkind)
+- [`crossArchCliNextBinariesNonClaims`](#crossarchclinextbinariesnonclaims)
+- [`classifyCrossArchCatContinuationCapture`](#classifycrossarchcatcontinuationcapture)
+- [`planCrossArchCatContinuationTarget`](#plancrossarchcatcontinuationtarget)
+- [`classifyCrossArchDdContinuationCapture`](#classifycrossarchddcontinuationcapture)
+- [`planCrossArchDdContinuationTarget`](#plancrossarchddcontinuationtarget)
+- [`classifyCrossArchWcLineContinuationCapture`](#classifycrossarchwclinecontinuationcapture)
+- [`planCrossArchWcLineContinuationTarget`](#plancrossarchwclinecontinuationtarget)
+- [`classifyCrossArchSeqContinuationCapture`](#classifycrossarchseqcontinuationcapture)
+- [`planCrossArchSeqContinuationTarget`](#plancrossarchseqcontinuationtarget)
+- [`classifyCrossArchFixedStringGrepContinuationCapture`](#classifycrossarchfixedstringgrepcontinuationcapture)
+- [`planCrossArchFixedStringGrepContinuationTarget`](#plancrossarchfixedstringgrepcontinuationtarget)
+
 
 ## Classes
 
@@ -2979,6 +3037,2938 @@ Darwin-equivalent metric and the runtime reads
 
 ***
 
+### CrossArchCatContinuationRequest
+
+#### Properties
+
+##### sourceArch
+
+> **sourceArch**: `"arm64"` \| `"amd64"`
+
+##### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+##### process
+
+> **process**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### executable
+
+> **executable**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+##### input
+
+> **input**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### path?
+
+> `optional` **path?**: `string`
+
+###### device?
+
+> `optional` **device?**: `string`
+
+###### inode?
+
+> `optional` **inode?**: `string`
+
+###### identityDigest?
+
+> `optional` **identityDigest?**: `string`
+
+###### size
+
+> **size**: `number`
+
+###### mtimeMs
+
+> **mtimeMs**: `number`
+
+###### contentHashWindow
+
+> **contentHashWindow**: `string`
+
+###### readOffset
+
+> **readOffset**: `number`
+
+###### partialReadBufferHex?
+
+> `optional` **partialReadBufferHex?**: `string`
+
+###### partialReadBufferComplete
+
+> **partialReadBufferComplete**: `boolean`
+
+###### dirtyWritableAliasPresent
+
+> **dirtyWritableAliasPresent**: `boolean`
+
+##### output
+
+> **output**: `object`
+
+###### stdoutKind
+
+> **stdoutKind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### stdoutCursor
+
+> **stdoutCursor**: `number`
+
+###### stderrCursor
+
+> **stderrCursor**: `number`
+
+###### terminalSessionAbsent
+
+> **terminalSessionAbsent**: `boolean`
+
+##### safePoint
+
+> **safePoint**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchCatSafePointKind`](#crossarchcatsafepointkind)
+
+###### evidence
+
+> **evidence**: `string`
+
+##### targetPreflight
+
+> **targetPreflight**: `object`
+
+###### equivalentInputIdentityVerified
+
+> **equivalentInputIdentityVerified**: `boolean`
+
+###### contentHashWindowMatches
+
+> **contentHashWindowMatches**: `boolean`
+
+###### regularFileOpenable
+
+> **regularFileOpenable**: `boolean`
+
+###### stdoutCursorInstallable
+
+> **stdoutCursorInstallable**: `boolean`
+
+###### crossIsaReaderVesselAvailable
+
+> **crossIsaReaderVesselAvailable**: `boolean`
+
+###### noTargetProcessBeforeEligibilityEvidence
+
+> **noTargetProcessBeforeEligibilityEvidence**: `string`
+
+##### shortcuts?
+
+> `optional` **shortcuts?**: [`CrossArchCatShortcutAttempts`](#crossarchcatshortcutattempts)
+
+***
+
+### CrossArchCatShortcutAttempts
+
+#### Properties
+
+##### sameArchProductAttempted?
+
+> `optional` **sameArchProductAttempted?**: `boolean`
+
+##### argvRestartAttempted?
+
+> `optional` **argvRestartAttempted?**: `boolean`
+
+##### execveFromArgvAttempted?
+
+> `optional` **execveFromArgvAttempted?**: `boolean`
+
+##### reexecAttempted?
+
+> `optional` **reexecAttempted?**: `boolean`
+
+##### outputReplayAttempted?
+
+> `optional` **outputReplayAttempted?**: `boolean`
+
+##### descriptorOnlySuccessAttempted?
+
+> `optional` **descriptorOnlySuccessAttempted?**: `boolean`
+
+##### sourceIsaEmulationAttempted?
+
+> `optional` **sourceIsaEmulationAttempted?**: `boolean`
+
+##### sourceFdTeleportationAttempted?
+
+> `optional` **sourceFdTeleportationAttempted?**: `boolean`
+
+##### metadataOnlySuccessAttempted?
+
+> `optional` **metadataOnlySuccessAttempted?**: `boolean`
+
+***
+
+### CrossArchCatSemanticCapture
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-cat-reader-semantic-continuation-v1"`
+
+##### architecture
+
+> **architecture**: `object`
+
+###### sourceArch
+
+> **sourceArch**: `"arm64"` \| `"amd64"`
+
+###### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+###### crossIsa
+
+> **crossIsa**: `true`
+
+##### process
+
+> **process**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### executable
+
+> **executable**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+##### input
+
+> **input**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### path?
+
+> `optional` **path?**: `string`
+
+###### device?
+
+> `optional` **device?**: `string`
+
+###### inode?
+
+> `optional` **inode?**: `string`
+
+###### identityDigest?
+
+> `optional` **identityDigest?**: `string`
+
+###### size
+
+> **size**: `number`
+
+###### mtimeMs
+
+> **mtimeMs**: `number`
+
+###### contentHashWindow
+
+> **contentHashWindow**: `string`
+
+###### readOffset
+
+> **readOffset**: `number`
+
+###### partialReadBufferHex?
+
+> `optional` **partialReadBufferHex?**: `string`
+
+###### partialReadBufferComplete
+
+> **partialReadBufferComplete**: `boolean`
+
+###### dirtyWritableAliasPresent
+
+> **dirtyWritableAliasPresent**: `boolean`
+
+##### output
+
+> **output**: `object`
+
+###### stdoutKind
+
+> **stdoutKind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### stdoutCursor
+
+> **stdoutCursor**: `number`
+
+###### stderrCursor
+
+> **stderrCursor**: `number`
+
+###### terminalSessionAbsent
+
+> **terminalSessionAbsent**: `boolean`
+
+##### safePoint
+
+> **safePoint**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchCatSafePointKind`](#crossarchcatsafepointkind)
+
+###### evidence
+
+> **evidence**: `string`
+
+##### targetPreflight
+
+> **targetPreflight**: `object`
+
+###### equivalentInputIdentityVerified
+
+> **equivalentInputIdentityVerified**: `boolean`
+
+###### contentHashWindowMatches
+
+> **contentHashWindowMatches**: `boolean`
+
+###### regularFileOpenable
+
+> **regularFileOpenable**: `boolean`
+
+###### stdoutCursorInstallable
+
+> **stdoutCursorInstallable**: `boolean`
+
+###### crossIsaReaderVesselAvailable
+
+> **crossIsaReaderVesselAvailable**: `boolean`
+
+###### noTargetProcessBeforeEligibilityEvidence
+
+> **noTargetProcessBeforeEligibilityEvidence**: `string`
+
+***
+
+### CrossArchCatContinuationClassification
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-cat-reader-semantic-continuation-v1"`
+
+##### state
+
+> **state**: [`CrossArchNextBinaryContinuationState`](#crossarchnextbinarycontinuationstate)
+
+##### capture?
+
+> `optional` **capture?**: [`CrossArchCatSemanticCapture`](#crossarchcatsemanticcapture)
+
+##### refusals
+
+> **refusals**: `string`[]
+
+##### productContinuationEligible
+
+> **productContinuationEligible**: `boolean`
+
+##### targetProcessPlanned
+
+> **targetProcessPlanned**: `false`
+
+##### nonClaims
+
+> **nonClaims**: readonly `string`[]
+
+***
+
+### CrossArchCatTargetContinuationRequest
+
+#### Properties
+
+##### classification
+
+> **classification**: [`CrossArchCatContinuationClassification`](#crossarchcatcontinuationclassification)
+
+##### target
+
+> **target**: `object`
+
+###### crossIsaVerified
+
+> **crossIsaVerified**: `boolean`
+
+###### readerVesselCreated
+
+> **readerVesselCreated**: `boolean`
+
+###### fileIdentityVerified
+
+> **fileIdentityVerified**: `boolean`
+
+###### contentWindowVerified
+
+> **contentWindowVerified**: `boolean`
+
+###### seekInstalled
+
+> **seekInstalled**: `boolean`
+
+###### partialBufferInstalled
+
+> **partialBufferInstalled**: `boolean`
+
+###### stdoutCursorInstalled
+
+> **stdoutCursorInstalled**: `boolean`
+
+###### noReplayGuardInstalled
+
+> **noReplayGuardInstalled**: `boolean`
+
+###### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+###### marker?
+
+> `optional` **marker?**: [`CrossArchCatContinuationMarker`](#crossarchcatcontinuationmarker)
+
+##### shortcuts?
+
+> `optional` **shortcuts?**: [`CrossArchCatShortcutAttempts`](#crossarchcatshortcutattempts)
+
+***
+
+### CrossArchCatContinuationMarker
+
+#### Properties
+
+##### sourceReadOffset
+
+> **sourceReadOffset**: `number`
+
+##### targetFirstByteOffset
+
+> **targetFirstByteOffset**: `number`
+
+##### targetFirstByteHex
+
+> **targetFirstByteHex**: `string`
+
+##### replayedByteOffsets
+
+> **replayedByteOffsets**: `number`[]
+
+##### freshRestartWouldStartAtOffset
+
+> **freshRestartWouldStartAtOffset**: `number`
+
+##### finalReadOffset
+
+> **finalReadOffset**: `number`
+
+***
+
+### CrossArchCatTargetContinuationPlan
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-cat-reader-semantic-continuation-v1"`
+
+##### state
+
+> **state**: `"refused"` \| `"ready"`
+
+##### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+##### resumedFromCapturedSemanticState
+
+> **resumedFromCapturedSemanticState**: `boolean`
+
+##### targetProcessStarted
+
+> **targetProcessStarted**: `boolean`
+
+##### targetProcessKilledOnRefusal
+
+> **targetProcessKilledOnRefusal**: `boolean`
+
+##### refusals
+
+> **refusals**: `string`[]
+
+##### argvRestartUsed
+
+> **argvRestartUsed**: `false`
+
+##### execveFromArgvUsed
+
+> **execveFromArgvUsed**: `false`
+
+##### reexecUsed
+
+> **reexecUsed**: `false`
+
+##### outputReplayUsed
+
+> **outputReplayUsed**: `false`
+
+##### descriptorOnlySuccessUsed
+
+> **descriptorOnlySuccessUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sourceFdTeleportationUsed
+
+> **sourceFdTeleportationUsed**: `false`
+
+##### metadataOnlySuccessUsed
+
+> **metadataOnlySuccessUsed**: `false`
+
+##### marker?
+
+> `optional` **marker?**: [`CrossArchCatContinuationMarker`](#crossarchcatcontinuationmarker)
+
+##### nonClaims
+
+> **nonClaims**: readonly `string`[]
+
+***
+
+### CrossArchDdContinuationRequest
+
+#### Properties
+
+##### sourceArch
+
+> **sourceArch**: `"arm64"` \| `"amd64"`
+
+##### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+##### process
+
+> **process**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### executable
+
+> **executable**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+##### input
+
+> **input**: [`CrossArchDdFileState`](#crossarchddfilestate)
+
+##### output
+
+> **output**: [`CrossArchDdFileState`](#crossarchddfilestate)
+
+##### copyState
+
+> **copyState**: `object`
+
+###### blockSize
+
+> **blockSize**: `number`
+
+###### inputOffset
+
+> **inputOffset**: `number`
+
+###### outputOffset
+
+> **outputOffset**: `number`
+
+###### partialBlockHex?
+
+> `optional` **partialBlockHex?**: `string`
+
+###### partialBlockLength
+
+> **partialBlockLength**: `number`
+
+###### partialBlockComplete
+
+> **partialBlockComplete**: `boolean`
+
+###### recordsIn
+
+> **recordsIn**: `number`
+
+###### recordsOut
+
+> **recordsOut**: `number`
+
+###### bytesCopied
+
+> **bytesCopied**: `number`
+
+###### convFlags
+
+> **convFlags**: [`CrossArchDdConvFlag`](#crossarchddconvflag)[]
+
+###### directIo
+
+> **directIo**: `boolean`
+
+###### sparseRequested
+
+> **sparseRequested**: `boolean`
+
+###### signalStatusPending
+
+> **signalStatusPending**: `boolean`
+
+###### statusOutputCursor
+
+> **statusOutputCursor**: `number`
+
+##### safePoint
+
+> **safePoint**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchDdSafePointKind`](#crossarchddsafepointkind)
+
+###### evidence
+
+> **evidence**: `string`
+
+##### targetPreflight
+
+> **targetPreflight**: `object`
+
+###### inputIdentityVerified
+
+> **inputIdentityVerified**: `boolean`
+
+###### outputIdentityVerified
+
+> **outputIdentityVerified**: `boolean`
+
+###### inputOpenable
+
+> **inputOpenable**: `boolean`
+
+###### outputOpenable
+
+> **outputOpenable**: `boolean`
+
+###### offsetsInstallable
+
+> **offsetsInstallable**: `boolean`
+
+###### countersInstallable
+
+> **countersInstallable**: `boolean`
+
+###### crossIsaCopyVesselAvailable
+
+> **crossIsaCopyVesselAvailable**: `boolean`
+
+###### noTargetProcessBeforeEligibilityEvidence
+
+> **noTargetProcessBeforeEligibilityEvidence**: `string`
+
+##### shortcuts?
+
+> `optional` **shortcuts?**: [`CrossArchCatShortcutAttempts`](#crossarchcatshortcutattempts)
+
+***
+
+### CrossArchDdFileState
+
+#### Properties
+
+##### kind
+
+> **kind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+##### path?
+
+> `optional` **path?**: `string`
+
+##### device?
+
+> `optional` **device?**: `string`
+
+##### inode?
+
+> `optional` **inode?**: `string`
+
+##### identityDigest?
+
+> `optional` **identityDigest?**: `string`
+
+##### size
+
+> **size**: `number`
+
+##### mtimeMs
+
+> **mtimeMs**: `number`
+
+##### contentHashWindow
+
+> **contentHashWindow**: `string`
+
+##### dirtyWritableAliasPresent
+
+> **dirtyWritableAliasPresent**: `boolean`
+
+***
+
+### CrossArchDdSemanticCapture
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-dd-regular-file-semantic-continuation-v1"`
+
+##### architecture
+
+> **architecture**: `object`
+
+###### sourceArch
+
+> **sourceArch**: `"arm64"` \| `"amd64"`
+
+###### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+###### crossIsa
+
+> **crossIsa**: `true`
+
+##### process
+
+> **process**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### executable
+
+> **executable**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+##### input
+
+> **input**: [`CrossArchDdFileState`](#crossarchddfilestate)
+
+##### output
+
+> **output**: [`CrossArchDdFileState`](#crossarchddfilestate)
+
+##### copyState
+
+> **copyState**: `object`
+
+###### blockSize
+
+> **blockSize**: `number`
+
+###### inputOffset
+
+> **inputOffset**: `number`
+
+###### outputOffset
+
+> **outputOffset**: `number`
+
+###### partialBlockHex?
+
+> `optional` **partialBlockHex?**: `string`
+
+###### partialBlockLength
+
+> **partialBlockLength**: `number`
+
+###### partialBlockComplete
+
+> **partialBlockComplete**: `boolean`
+
+###### recordsIn
+
+> **recordsIn**: `number`
+
+###### recordsOut
+
+> **recordsOut**: `number`
+
+###### bytesCopied
+
+> **bytesCopied**: `number`
+
+###### convFlags
+
+> **convFlags**: [`CrossArchDdConvFlag`](#crossarchddconvflag)[]
+
+###### directIo
+
+> **directIo**: `boolean`
+
+###### sparseRequested
+
+> **sparseRequested**: `boolean`
+
+###### signalStatusPending
+
+> **signalStatusPending**: `boolean`
+
+###### statusOutputCursor
+
+> **statusOutputCursor**: `number`
+
+##### safePoint
+
+> **safePoint**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchDdSafePointKind`](#crossarchddsafepointkind)
+
+###### evidence
+
+> **evidence**: `string`
+
+##### targetPreflight
+
+> **targetPreflight**: `object`
+
+###### inputIdentityVerified
+
+> **inputIdentityVerified**: `boolean`
+
+###### outputIdentityVerified
+
+> **outputIdentityVerified**: `boolean`
+
+###### inputOpenable
+
+> **inputOpenable**: `boolean`
+
+###### outputOpenable
+
+> **outputOpenable**: `boolean`
+
+###### offsetsInstallable
+
+> **offsetsInstallable**: `boolean`
+
+###### countersInstallable
+
+> **countersInstallable**: `boolean`
+
+###### crossIsaCopyVesselAvailable
+
+> **crossIsaCopyVesselAvailable**: `boolean`
+
+###### noTargetProcessBeforeEligibilityEvidence
+
+> **noTargetProcessBeforeEligibilityEvidence**: `string`
+
+***
+
+### CrossArchDdContinuationClassification
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-dd-regular-file-semantic-continuation-v1"`
+
+##### state
+
+> **state**: [`CrossArchNextBinaryContinuationState`](#crossarchnextbinarycontinuationstate)
+
+##### capture?
+
+> `optional` **capture?**: [`CrossArchDdSemanticCapture`](#crossarchddsemanticcapture)
+
+##### refusals
+
+> **refusals**: `string`[]
+
+##### productContinuationEligible
+
+> **productContinuationEligible**: `boolean`
+
+##### targetProcessPlanned
+
+> **targetProcessPlanned**: `false`
+
+##### nonClaims
+
+> **nonClaims**: readonly `string`[]
+
+***
+
+### CrossArchDdTargetContinuationRequest
+
+#### Properties
+
+##### classification
+
+> **classification**: [`CrossArchDdContinuationClassification`](#crossarchddcontinuationclassification)
+
+##### target
+
+> **target**: `object`
+
+###### crossIsaVerified
+
+> **crossIsaVerified**: `boolean`
+
+###### copyVesselCreated
+
+> **copyVesselCreated**: `boolean`
+
+###### inputIdentityVerified
+
+> **inputIdentityVerified**: `boolean`
+
+###### outputIdentityVerified
+
+> **outputIdentityVerified**: `boolean`
+
+###### inputSeekInstalled
+
+> **inputSeekInstalled**: `boolean`
+
+###### outputSeekInstalled
+
+> **outputSeekInstalled**: `boolean`
+
+###### partialBlockInstalled
+
+> **partialBlockInstalled**: `boolean`
+
+###### countersInstalled
+
+> **countersInstalled**: `boolean`
+
+###### noRecopyGuardInstalled
+
+> **noRecopyGuardInstalled**: `boolean`
+
+###### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+###### marker?
+
+> `optional` **marker?**: [`CrossArchDdContinuationMarker`](#crossarchddcontinuationmarker)
+
+##### shortcuts?
+
+> `optional` **shortcuts?**: [`CrossArchCatShortcutAttempts`](#crossarchcatshortcutattempts)
+
+***
+
+### CrossArchDdContinuationMarker
+
+#### Properties
+
+##### sourceInputOffset
+
+> **sourceInputOffset**: `number`
+
+##### sourceOutputOffset
+
+> **sourceOutputOffset**: `number`
+
+##### targetFirstInputOffset
+
+> **targetFirstInputOffset**: `number`
+
+##### targetFirstOutputOffset
+
+> **targetFirstOutputOffset**: `number`
+
+##### recopiedInputOffsets
+
+> **recopiedInputOffsets**: `number`[]
+
+##### freshRestartWouldStartInputOffset
+
+> **freshRestartWouldStartInputOffset**: `number`
+
+##### recordsInStart
+
+> **recordsInStart**: `number`
+
+##### recordsOutStart
+
+> **recordsOutStart**: `number`
+
+##### finalInputOffset
+
+> **finalInputOffset**: `number`
+
+##### finalOutputOffset
+
+> **finalOutputOffset**: `number`
+
+***
+
+### CrossArchDdTargetContinuationPlan
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-dd-regular-file-semantic-continuation-v1"`
+
+##### state
+
+> **state**: `"refused"` \| `"ready"`
+
+##### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+##### resumedFromCapturedSemanticState
+
+> **resumedFromCapturedSemanticState**: `boolean`
+
+##### targetProcessStarted
+
+> **targetProcessStarted**: `boolean`
+
+##### targetProcessKilledOnRefusal
+
+> **targetProcessKilledOnRefusal**: `boolean`
+
+##### refusals
+
+> **refusals**: `string`[]
+
+##### argvRestartUsed
+
+> **argvRestartUsed**: `false`
+
+##### execveFromArgvUsed
+
+> **execveFromArgvUsed**: `false`
+
+##### reexecUsed
+
+> **reexecUsed**: `false`
+
+##### outputReplayUsed
+
+> **outputReplayUsed**: `false`
+
+##### descriptorOnlySuccessUsed
+
+> **descriptorOnlySuccessUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sourceFdTeleportationUsed
+
+> **sourceFdTeleportationUsed**: `false`
+
+##### metadataOnlySuccessUsed
+
+> **metadataOnlySuccessUsed**: `false`
+
+##### marker?
+
+> `optional` **marker?**: [`CrossArchDdContinuationMarker`](#crossarchddcontinuationmarker)
+
+##### nonClaims
+
+> **nonClaims**: readonly `string`[]
+
+***
+
+### CrossArchWcLineContinuationRequest
+
+#### Properties
+
+##### sourceArch
+
+> **sourceArch**: `"arm64"` \| `"amd64"`
+
+##### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+##### process
+
+> **process**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### executable
+
+> **executable**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+##### input
+
+> **input**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### path?
+
+> `optional` **path?**: `string`
+
+###### device?
+
+> `optional` **device?**: `string`
+
+###### inode?
+
+> `optional` **inode?**: `string`
+
+###### identityDigest?
+
+> `optional` **identityDigest?**: `string`
+
+###### size
+
+> **size**: `number`
+
+###### mtimeMs
+
+> **mtimeMs**: `number`
+
+###### contentHashWindow
+
+> **contentHashWindow**: `string`
+
+###### byteOffset
+
+> **byteOffset**: `number`
+
+###### dirtyWritableAliasPresent
+
+> **dirtyWritableAliasPresent**: `boolean`
+
+##### parserState
+
+> **parserState**: `object`
+
+###### lineCountSoFar
+
+> **lineCountSoFar**: `number`
+
+###### partialNewlineState
+
+> **partialNewlineState**: `"unknown"` \| `"at-boundary"` \| `"after-non-newline"` \| `"after-cr"`
+
+###### lineDecoderState
+
+> **lineDecoderState**: `"unknown"` \| `"byte-newline"` \| `"utf8-boundary"`
+
+###### locale
+
+> **locale**: `"C"` \| `"POSIX"`
+
+###### broadByteModeRequested
+
+> **broadByteModeRequested**: `boolean`
+
+###### broadCharModeRequested
+
+> **broadCharModeRequested**: `boolean`
+
+###### broadWordModeRequested
+
+> **broadWordModeRequested**: `boolean`
+
+###### multipleInputsPresent
+
+> **multipleInputsPresent**: `boolean`
+
+##### output
+
+> **output**: `object`
+
+###### stdoutKind
+
+> **stdoutKind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### stdoutCursor
+
+> **stdoutCursor**: `number`
+
+###### stderrCursor
+
+> **stderrCursor**: `number`
+
+###### terminalSessionAbsent
+
+> **terminalSessionAbsent**: `boolean`
+
+##### safePoint
+
+> **safePoint**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchWcLineSafePointKind`](#crossarchwclinesafepointkind)
+
+###### evidence
+
+> **evidence**: `string`
+
+##### targetPreflight
+
+> **targetPreflight**: `object`
+
+###### inputIdentityVerified
+
+> **inputIdentityVerified**: `boolean`
+
+###### contentHashWindowMatches
+
+> **contentHashWindowMatches**: `boolean`
+
+###### inputOpenable
+
+> **inputOpenable**: `boolean`
+
+###### byteOffsetInstallable
+
+> **byteOffsetInstallable**: `boolean`
+
+###### lineCounterInstallable
+
+> **lineCounterInstallable**: `boolean`
+
+###### stdoutCursorInstallable
+
+> **stdoutCursorInstallable**: `boolean`
+
+###### crossIsaLineCounterVesselAvailable
+
+> **crossIsaLineCounterVesselAvailable**: `boolean`
+
+###### noTargetProcessBeforeEligibilityEvidence
+
+> **noTargetProcessBeforeEligibilityEvidence**: `string`
+
+##### shortcuts?
+
+> `optional` **shortcuts?**: [`CrossArchCatShortcutAttempts`](#crossarchcatshortcutattempts)
+
+***
+
+### CrossArchWcLineSemanticCapture
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-wc-line-semantic-continuation-v1"`
+
+##### architecture
+
+> **architecture**: `object`
+
+###### sourceArch
+
+> **sourceArch**: `"arm64"` \| `"amd64"`
+
+###### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+###### crossIsa
+
+> **crossIsa**: `true`
+
+##### process
+
+> **process**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### executable
+
+> **executable**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+##### input
+
+> **input**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### path?
+
+> `optional` **path?**: `string`
+
+###### device?
+
+> `optional` **device?**: `string`
+
+###### inode?
+
+> `optional` **inode?**: `string`
+
+###### identityDigest?
+
+> `optional` **identityDigest?**: `string`
+
+###### size
+
+> **size**: `number`
+
+###### mtimeMs
+
+> **mtimeMs**: `number`
+
+###### contentHashWindow
+
+> **contentHashWindow**: `string`
+
+###### byteOffset
+
+> **byteOffset**: `number`
+
+###### dirtyWritableAliasPresent
+
+> **dirtyWritableAliasPresent**: `boolean`
+
+##### parserState
+
+> **parserState**: `object`
+
+###### lineCountSoFar
+
+> **lineCountSoFar**: `number`
+
+###### partialNewlineState
+
+> **partialNewlineState**: `"unknown"` \| `"at-boundary"` \| `"after-non-newline"` \| `"after-cr"`
+
+###### lineDecoderState
+
+> **lineDecoderState**: `"unknown"` \| `"byte-newline"` \| `"utf8-boundary"`
+
+###### locale
+
+> **locale**: `"C"` \| `"POSIX"`
+
+###### broadByteModeRequested
+
+> **broadByteModeRequested**: `boolean`
+
+###### broadCharModeRequested
+
+> **broadCharModeRequested**: `boolean`
+
+###### broadWordModeRequested
+
+> **broadWordModeRequested**: `boolean`
+
+###### multipleInputsPresent
+
+> **multipleInputsPresent**: `boolean`
+
+##### output
+
+> **output**: `object`
+
+###### stdoutKind
+
+> **stdoutKind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### stdoutCursor
+
+> **stdoutCursor**: `number`
+
+###### stderrCursor
+
+> **stderrCursor**: `number`
+
+###### terminalSessionAbsent
+
+> **terminalSessionAbsent**: `boolean`
+
+##### safePoint
+
+> **safePoint**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchWcLineSafePointKind`](#crossarchwclinesafepointkind)
+
+###### evidence
+
+> **evidence**: `string`
+
+##### targetPreflight
+
+> **targetPreflight**: `object`
+
+###### inputIdentityVerified
+
+> **inputIdentityVerified**: `boolean`
+
+###### contentHashWindowMatches
+
+> **contentHashWindowMatches**: `boolean`
+
+###### inputOpenable
+
+> **inputOpenable**: `boolean`
+
+###### byteOffsetInstallable
+
+> **byteOffsetInstallable**: `boolean`
+
+###### lineCounterInstallable
+
+> **lineCounterInstallable**: `boolean`
+
+###### stdoutCursorInstallable
+
+> **stdoutCursorInstallable**: `boolean`
+
+###### crossIsaLineCounterVesselAvailable
+
+> **crossIsaLineCounterVesselAvailable**: `boolean`
+
+###### noTargetProcessBeforeEligibilityEvidence
+
+> **noTargetProcessBeforeEligibilityEvidence**: `string`
+
+***
+
+### CrossArchWcLineContinuationClassification
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-wc-line-semantic-continuation-v1"`
+
+##### state
+
+> **state**: [`CrossArchNextBinaryContinuationState`](#crossarchnextbinarycontinuationstate)
+
+##### capture?
+
+> `optional` **capture?**: [`CrossArchWcLineSemanticCapture`](#crossarchwclinesemanticcapture)
+
+##### refusals
+
+> **refusals**: `string`[]
+
+##### productContinuationEligible
+
+> **productContinuationEligible**: `boolean`
+
+##### targetProcessPlanned
+
+> **targetProcessPlanned**: `false`
+
+##### nonClaims
+
+> **nonClaims**: readonly `string`[]
+
+***
+
+### CrossArchWcLineTargetContinuationRequest
+
+#### Properties
+
+##### classification
+
+> **classification**: [`CrossArchWcLineContinuationClassification`](#crossarchwclinecontinuationclassification)
+
+##### target
+
+> **target**: `object`
+
+###### crossIsaVerified
+
+> **crossIsaVerified**: `boolean`
+
+###### lineCounterVesselCreated
+
+> **lineCounterVesselCreated**: `boolean`
+
+###### inputIdentityVerified
+
+> **inputIdentityVerified**: `boolean`
+
+###### contentWindowVerified
+
+> **contentWindowVerified**: `boolean`
+
+###### byteOffsetSeekInstalled
+
+> **byteOffsetSeekInstalled**: `boolean`
+
+###### lineCountInstalled
+
+> **lineCountInstalled**: `boolean`
+
+###### newlineStateInstalled
+
+> **newlineStateInstalled**: `boolean`
+
+###### stdoutCursorInstalled
+
+> **stdoutCursorInstalled**: `boolean`
+
+###### noRereadGuardInstalled
+
+> **noRereadGuardInstalled**: `boolean`
+
+###### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+###### marker?
+
+> `optional` **marker?**: [`CrossArchWcLineContinuationMarker`](#crossarchwclinecontinuationmarker)
+
+##### shortcuts?
+
+> `optional` **shortcuts?**: [`CrossArchCatShortcutAttempts`](#crossarchcatshortcutattempts)
+
+***
+
+### CrossArchWcLineContinuationMarker
+
+#### Properties
+
+##### sourceByteOffset
+
+> **sourceByteOffset**: `number`
+
+##### sourceLineCountSoFar
+
+> **sourceLineCountSoFar**: `number`
+
+##### suffixLineCount
+
+> **suffixLineCount**: `number`
+
+##### targetFinalLineCount
+
+> **targetFinalLineCount**: `number`
+
+##### targetFirstByteOffset
+
+> **targetFirstByteOffset**: `number`
+
+##### rereadByteOffsets
+
+> **rereadByteOffsets**: `number`[]
+
+##### freshRestartWouldStartByteOffset
+
+> **freshRestartWouldStartByteOffset**: `number`
+
+***
+
+### CrossArchWcLineTargetContinuationPlan
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-wc-line-semantic-continuation-v1"`
+
+##### state
+
+> **state**: `"refused"` \| `"ready"`
+
+##### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+##### resumedFromCapturedSemanticState
+
+> **resumedFromCapturedSemanticState**: `boolean`
+
+##### targetProcessStarted
+
+> **targetProcessStarted**: `boolean`
+
+##### targetProcessKilledOnRefusal
+
+> **targetProcessKilledOnRefusal**: `boolean`
+
+##### refusals
+
+> **refusals**: `string`[]
+
+##### argvRestartUsed
+
+> **argvRestartUsed**: `false`
+
+##### execveFromArgvUsed
+
+> **execveFromArgvUsed**: `false`
+
+##### reexecUsed
+
+> **reexecUsed**: `false`
+
+##### outputReplayUsed
+
+> **outputReplayUsed**: `false`
+
+##### descriptorOnlySuccessUsed
+
+> **descriptorOnlySuccessUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sourceFdTeleportationUsed
+
+> **sourceFdTeleportationUsed**: `false`
+
+##### metadataOnlySuccessUsed
+
+> **metadataOnlySuccessUsed**: `false`
+
+##### marker?
+
+> `optional` **marker?**: [`CrossArchWcLineContinuationMarker`](#crossarchwclinecontinuationmarker)
+
+##### nonClaims
+
+> **nonClaims**: readonly `string`[]
+
+***
+
+### CrossArchSeqContinuationRequest
+
+#### Properties
+
+##### sourceArch
+
+> **sourceArch**: `"arm64"` \| `"amd64"`
+
+##### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+##### process
+
+> **process**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### executable
+
+> **executable**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+##### sequenceState
+
+> **sequenceState**: `object`
+
+###### firstValue
+
+> **firstValue**: `string`
+
+###### currentValue
+
+> **currentValue**: `string`
+
+###### nextValue
+
+> **nextValue**: `string`
+
+###### endValue
+
+> **endValue**: `string`
+
+###### stepValue
+
+> **stepValue**: `string`
+
+###### format
+
+> **format**: `string`
+
+###### separator
+
+> **separator**: `string`
+
+###### emittedItemCursor
+
+> **emittedItemCursor**: `number`
+
+###### stdoutCursor
+
+> **stdoutCursor**: `number`
+
+###### partialFormattedValue?
+
+> `optional` **partialFormattedValue?**: `string`
+
+###### partialFormattedValueComplete
+
+> **partialFormattedValueComplete**: `boolean`
+
+###### integerOnly
+
+> **integerOnly**: `boolean`
+
+###### locale
+
+> **locale**: `"unknown"` \| `"C"` \| `"POSIX"`
+
+###### numericPrecisionAssumption
+
+> **numericPrecisionAssumption**: `"unknown"` \| `"safe-integer"` \| `"bigint-decimal"` \| `"floating"`
+
+##### output
+
+> **output**: `object`
+
+###### stdoutKind
+
+> **stdoutKind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### stderrCursor
+
+> **stderrCursor**: `number`
+
+###### terminalSessionAbsent
+
+> **terminalSessionAbsent**: `boolean`
+
+##### safePoint
+
+> **safePoint**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchSeqSafePointKind`](#crossarchseqsafepointkind)
+
+###### evidence
+
+> **evidence**: `string`
+
+##### targetPreflight
+
+> **targetPreflight**: `object`
+
+###### generatorVesselAvailable
+
+> **generatorVesselAvailable**: `boolean`
+
+###### numericPrecisionMatches
+
+> **numericPrecisionMatches**: `boolean`
+
+###### formatInstallable
+
+> **formatInstallable**: `boolean`
+
+###### stdoutCursorInstallable
+
+> **stdoutCursorInstallable**: `boolean`
+
+###### crossIsaGeneratorVesselAvailable
+
+> **crossIsaGeneratorVesselAvailable**: `boolean`
+
+###### noTargetProcessBeforeEligibilityEvidence
+
+> **noTargetProcessBeforeEligibilityEvidence**: `string`
+
+##### shortcuts?
+
+> `optional` **shortcuts?**: [`CrossArchCatShortcutAttempts`](#crossarchcatshortcutattempts)
+
+***
+
+### CrossArchSeqSemanticCapture
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-seq-semantic-continuation-v1"`
+
+##### architecture
+
+> **architecture**: `object`
+
+###### sourceArch
+
+> **sourceArch**: `"arm64"` \| `"amd64"`
+
+###### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+###### crossIsa
+
+> **crossIsa**: `true`
+
+##### process
+
+> **process**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### executable
+
+> **executable**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+##### sequenceState
+
+> **sequenceState**: `object`
+
+###### firstValue
+
+> **firstValue**: `string`
+
+###### currentValue
+
+> **currentValue**: `string`
+
+###### nextValue
+
+> **nextValue**: `string`
+
+###### endValue
+
+> **endValue**: `string`
+
+###### stepValue
+
+> **stepValue**: `string`
+
+###### format
+
+> **format**: `string`
+
+###### separator
+
+> **separator**: `string`
+
+###### emittedItemCursor
+
+> **emittedItemCursor**: `number`
+
+###### stdoutCursor
+
+> **stdoutCursor**: `number`
+
+###### partialFormattedValue?
+
+> `optional` **partialFormattedValue?**: `string`
+
+###### partialFormattedValueComplete
+
+> **partialFormattedValueComplete**: `boolean`
+
+###### integerOnly
+
+> **integerOnly**: `boolean`
+
+###### locale
+
+> **locale**: `"unknown"` \| `"C"` \| `"POSIX"`
+
+###### numericPrecisionAssumption
+
+> **numericPrecisionAssumption**: `"unknown"` \| `"safe-integer"` \| `"bigint-decimal"` \| `"floating"`
+
+##### output
+
+> **output**: `object`
+
+###### stdoutKind
+
+> **stdoutKind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### stderrCursor
+
+> **stderrCursor**: `number`
+
+###### terminalSessionAbsent
+
+> **terminalSessionAbsent**: `boolean`
+
+##### safePoint
+
+> **safePoint**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchSeqSafePointKind`](#crossarchseqsafepointkind)
+
+###### evidence
+
+> **evidence**: `string`
+
+##### targetPreflight
+
+> **targetPreflight**: `object`
+
+###### generatorVesselAvailable
+
+> **generatorVesselAvailable**: `boolean`
+
+###### numericPrecisionMatches
+
+> **numericPrecisionMatches**: `boolean`
+
+###### formatInstallable
+
+> **formatInstallable**: `boolean`
+
+###### stdoutCursorInstallable
+
+> **stdoutCursorInstallable**: `boolean`
+
+###### crossIsaGeneratorVesselAvailable
+
+> **crossIsaGeneratorVesselAvailable**: `boolean`
+
+###### noTargetProcessBeforeEligibilityEvidence
+
+> **noTargetProcessBeforeEligibilityEvidence**: `string`
+
+***
+
+### CrossArchSeqContinuationClassification
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-seq-semantic-continuation-v1"`
+
+##### state
+
+> **state**: [`CrossArchNextBinaryContinuationState`](#crossarchnextbinarycontinuationstate)
+
+##### capture?
+
+> `optional` **capture?**: [`CrossArchSeqSemanticCapture`](#crossarchseqsemanticcapture)
+
+##### refusals
+
+> **refusals**: `string`[]
+
+##### productContinuationEligible
+
+> **productContinuationEligible**: `boolean`
+
+##### targetProcessPlanned
+
+> **targetProcessPlanned**: `false`
+
+##### nonClaims
+
+> **nonClaims**: readonly `string`[]
+
+***
+
+### CrossArchSeqTargetContinuationRequest
+
+#### Properties
+
+##### classification
+
+> **classification**: [`CrossArchSeqContinuationClassification`](#crossarchseqcontinuationclassification)
+
+##### target
+
+> **target**: `object`
+
+###### crossIsaVerified
+
+> **crossIsaVerified**: `boolean`
+
+###### generatorVesselCreated
+
+> **generatorVesselCreated**: `boolean`
+
+###### nextValueInstalled
+
+> **nextValueInstalled**: `boolean`
+
+###### endStepFormatInstalled
+
+> **endStepFormatInstalled**: `boolean`
+
+###### stdoutCursorInstalled
+
+> **stdoutCursorInstalled**: `boolean`
+
+###### noRestartGuardInstalled
+
+> **noRestartGuardInstalled**: `boolean`
+
+###### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+###### marker?
+
+> `optional` **marker?**: [`CrossArchSeqContinuationMarker`](#crossarchseqcontinuationmarker)
+
+##### shortcuts?
+
+> `optional` **shortcuts?**: [`CrossArchCatShortcutAttempts`](#crossarchcatshortcutattempts)
+
+***
+
+### CrossArchSeqContinuationMarker
+
+#### Properties
+
+##### sourceFirstValue
+
+> **sourceFirstValue**: `string`
+
+##### sourceCurrentValue
+
+> **sourceCurrentValue**: `string`
+
+##### sourceNextValue
+
+> **sourceNextValue**: `string`
+
+##### targetFirstEmittedValue
+
+> **targetFirstEmittedValue**: `string`
+
+##### emittedItemCursorStart
+
+> **emittedItemCursorStart**: `number`
+
+##### freshRestartWouldEmitFirstValue
+
+> **freshRestartWouldEmitFirstValue**: `string`
+
+##### replayedValues
+
+> **replayedValues**: `string`[]
+
+***
+
+### CrossArchSeqTargetContinuationPlan
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-seq-semantic-continuation-v1"`
+
+##### state
+
+> **state**: `"refused"` \| `"ready"`
+
+##### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+##### resumedFromCapturedSemanticState
+
+> **resumedFromCapturedSemanticState**: `boolean`
+
+##### targetProcessStarted
+
+> **targetProcessStarted**: `boolean`
+
+##### targetProcessKilledOnRefusal
+
+> **targetProcessKilledOnRefusal**: `boolean`
+
+##### refusals
+
+> **refusals**: `string`[]
+
+##### argvRestartUsed
+
+> **argvRestartUsed**: `false`
+
+##### execveFromArgvUsed
+
+> **execveFromArgvUsed**: `false`
+
+##### reexecUsed
+
+> **reexecUsed**: `false`
+
+##### outputReplayUsed
+
+> **outputReplayUsed**: `false`
+
+##### descriptorOnlySuccessUsed
+
+> **descriptorOnlySuccessUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sourceFdTeleportationUsed
+
+> **sourceFdTeleportationUsed**: `false`
+
+##### metadataOnlySuccessUsed
+
+> **metadataOnlySuccessUsed**: `false`
+
+##### marker?
+
+> `optional` **marker?**: [`CrossArchSeqContinuationMarker`](#crossarchseqcontinuationmarker)
+
+##### nonClaims
+
+> **nonClaims**: readonly `string`[]
+
+***
+
+### CrossArchFixedStringGrepContinuationRequest
+
+#### Properties
+
+##### sourceArch
+
+> **sourceArch**: `"arm64"` \| `"amd64"`
+
+##### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+##### process
+
+> **process**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### executable
+
+> **executable**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+##### pattern
+
+> **pattern**: `object`
+
+###### patternBytesHex
+
+> **patternBytesHex**: `string`
+
+###### fixedString
+
+> **fixedString**: `true`
+
+###### caseInsensitive
+
+> **caseInsensitive**: `boolean`
+
+###### locale
+
+> **locale**: `"C"` \| `"POSIX"`
+
+##### input
+
+> **input**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### path?
+
+> `optional` **path?**: `string`
+
+###### device?
+
+> `optional` **device?**: `string`
+
+###### inode?
+
+> `optional` **inode?**: `string`
+
+###### identityDigest?
+
+> `optional` **identityDigest?**: `string`
+
+###### size
+
+> **size**: `number`
+
+###### mtimeMs
+
+> **mtimeMs**: `number`
+
+###### contentHashWindow
+
+> **contentHashWindow**: `string`
+
+###### byteOffset
+
+> **byteOffset**: `number`
+
+###### dirtyWritableAliasPresent
+
+> **dirtyWritableAliasPresent**: `boolean`
+
+##### parserState
+
+> **parserState**: `object`
+
+###### partialLineBufferHex?
+
+> `optional` **partialLineBufferHex?**: `string`
+
+###### partialLineComplete
+
+> **partialLineComplete**: `boolean`
+
+###### lineDecoderState
+
+> **lineDecoderState**: `"unknown"` \| `"utf8-boundary"` \| `"byte-line"`
+
+###### matcherState
+
+> **matcherState**: `"unknown"` \| `"fixed-string-boundary"`
+
+###### matchCountSoFar
+
+> **matchCountSoFar**: `number`
+
+###### lastCompletedLineNumber
+
+> **lastCompletedLineNumber**: `number`
+
+###### regexModeRequested
+
+> **regexModeRequested**: `boolean`
+
+###### pcreModeRequested
+
+> **pcreModeRequested**: `boolean`
+
+###### backrefsPresent
+
+> **backrefsPresent**: `boolean`
+
+###### contextOutputRequested
+
+> **contextOutputRequested**: `boolean`
+
+###### colorOutputRequested
+
+> **colorOutputRequested**: `boolean`
+
+###### binaryFileModeUnmodeled
+
+> **binaryFileModeUnmodeled**: `boolean`
+
+###### recursiveInputRequested
+
+> **recursiveInputRequested**: `boolean`
+
+###### multipleFilesPresent
+
+> **multipleFilesPresent**: `boolean`
+
+##### output
+
+> **output**: `object`
+
+###### stdoutKind
+
+> **stdoutKind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### stdoutCursor
+
+> **stdoutCursor**: `number`
+
+###### stderrCursor
+
+> **stderrCursor**: `number`
+
+###### terminalSessionAbsent
+
+> **terminalSessionAbsent**: `boolean`
+
+##### safePoint
+
+> **safePoint**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchFixedStringGrepSafePointKind`](#crossarchfixedstringgrepsafepointkind)
+
+###### evidence
+
+> **evidence**: `string`
+
+##### targetPreflight
+
+> **targetPreflight**: `object`
+
+###### inputIdentityVerified
+
+> **inputIdentityVerified**: `boolean`
+
+###### contentHashWindowMatches
+
+> **contentHashWindowMatches**: `boolean`
+
+###### inputOpenable
+
+> **inputOpenable**: `boolean`
+
+###### byteOffsetInstallable
+
+> **byteOffsetInstallable**: `boolean`
+
+###### matcherStateInstallable
+
+> **matcherStateInstallable**: `boolean`
+
+###### outputCursorInstallable
+
+> **outputCursorInstallable**: `boolean`
+
+###### crossIsaFixedStringMatcherVesselAvailable
+
+> **crossIsaFixedStringMatcherVesselAvailable**: `boolean`
+
+###### noTargetProcessBeforeEligibilityEvidence
+
+> **noTargetProcessBeforeEligibilityEvidence**: `string`
+
+##### shortcuts?
+
+> `optional` **shortcuts?**: [`CrossArchCatShortcutAttempts`](#crossarchcatshortcutattempts)
+
+***
+
+### CrossArchFixedStringGrepSemanticCapture
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-grep-fixed-string-semantic-continuation-v1"`
+
+##### architecture
+
+> **architecture**: `object`
+
+###### sourceArch
+
+> **sourceArch**: `"arm64"` \| `"amd64"`
+
+###### targetArch
+
+> **targetArch**: `"arm64"` \| `"amd64"`
+
+###### crossIsa
+
+> **crossIsa**: `true`
+
+##### process
+
+> **process**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### executable
+
+> **executable**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+##### pattern
+
+> **pattern**: `object`
+
+###### patternBytesHex
+
+> **patternBytesHex**: `string`
+
+###### fixedString
+
+> **fixedString**: `true`
+
+###### caseInsensitive
+
+> **caseInsensitive**: `boolean`
+
+###### locale
+
+> **locale**: `"C"` \| `"POSIX"`
+
+##### input
+
+> **input**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### path?
+
+> `optional` **path?**: `string`
+
+###### device?
+
+> `optional` **device?**: `string`
+
+###### inode?
+
+> `optional` **inode?**: `string`
+
+###### identityDigest?
+
+> `optional` **identityDigest?**: `string`
+
+###### size
+
+> **size**: `number`
+
+###### mtimeMs
+
+> **mtimeMs**: `number`
+
+###### contentHashWindow
+
+> **contentHashWindow**: `string`
+
+###### byteOffset
+
+> **byteOffset**: `number`
+
+###### dirtyWritableAliasPresent
+
+> **dirtyWritableAliasPresent**: `boolean`
+
+##### parserState
+
+> **parserState**: `object`
+
+###### partialLineBufferHex?
+
+> `optional` **partialLineBufferHex?**: `string`
+
+###### partialLineComplete
+
+> **partialLineComplete**: `boolean`
+
+###### lineDecoderState
+
+> **lineDecoderState**: `"unknown"` \| `"utf8-boundary"` \| `"byte-line"`
+
+###### matcherState
+
+> **matcherState**: `"unknown"` \| `"fixed-string-boundary"`
+
+###### matchCountSoFar
+
+> **matchCountSoFar**: `number`
+
+###### lastCompletedLineNumber
+
+> **lastCompletedLineNumber**: `number`
+
+###### regexModeRequested
+
+> **regexModeRequested**: `boolean`
+
+###### pcreModeRequested
+
+> **pcreModeRequested**: `boolean`
+
+###### backrefsPresent
+
+> **backrefsPresent**: `boolean`
+
+###### contextOutputRequested
+
+> **contextOutputRequested**: `boolean`
+
+###### colorOutputRequested
+
+> **colorOutputRequested**: `boolean`
+
+###### binaryFileModeUnmodeled
+
+> **binaryFileModeUnmodeled**: `boolean`
+
+###### recursiveInputRequested
+
+> **recursiveInputRequested**: `boolean`
+
+###### multipleFilesPresent
+
+> **multipleFilesPresent**: `boolean`
+
+##### output
+
+> **output**: `object`
+
+###### stdoutKind
+
+> **stdoutKind**: [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+###### stdoutCursor
+
+> **stdoutCursor**: `number`
+
+###### stderrCursor
+
+> **stderrCursor**: `number`
+
+###### terminalSessionAbsent
+
+> **terminalSessionAbsent**: `boolean`
+
+##### safePoint
+
+> **safePoint**: `object`
+
+###### kind
+
+> **kind**: [`CrossArchFixedStringGrepSafePointKind`](#crossarchfixedstringgrepsafepointkind)
+
+###### evidence
+
+> **evidence**: `string`
+
+##### targetPreflight
+
+> **targetPreflight**: `object`
+
+###### inputIdentityVerified
+
+> **inputIdentityVerified**: `boolean`
+
+###### contentHashWindowMatches
+
+> **contentHashWindowMatches**: `boolean`
+
+###### inputOpenable
+
+> **inputOpenable**: `boolean`
+
+###### byteOffsetInstallable
+
+> **byteOffsetInstallable**: `boolean`
+
+###### matcherStateInstallable
+
+> **matcherStateInstallable**: `boolean`
+
+###### outputCursorInstallable
+
+> **outputCursorInstallable**: `boolean`
+
+###### crossIsaFixedStringMatcherVesselAvailable
+
+> **crossIsaFixedStringMatcherVesselAvailable**: `boolean`
+
+###### noTargetProcessBeforeEligibilityEvidence
+
+> **noTargetProcessBeforeEligibilityEvidence**: `string`
+
+***
+
+### CrossArchFixedStringGrepContinuationClassification
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-grep-fixed-string-semantic-continuation-v1"`
+
+##### state
+
+> **state**: [`CrossArchNextBinaryContinuationState`](#crossarchnextbinarycontinuationstate)
+
+##### capture?
+
+> `optional` **capture?**: [`CrossArchFixedStringGrepSemanticCapture`](#crossarchfixedstringgrepsemanticcapture)
+
+##### refusals
+
+> **refusals**: `string`[]
+
+##### productContinuationEligible
+
+> **productContinuationEligible**: `boolean`
+
+##### targetProcessPlanned
+
+> **targetProcessPlanned**: `false`
+
+##### nonClaims
+
+> **nonClaims**: readonly `string`[]
+
+***
+
+### CrossArchFixedStringGrepTargetContinuationRequest
+
+#### Properties
+
+##### classification
+
+> **classification**: [`CrossArchFixedStringGrepContinuationClassification`](#crossarchfixedstringgrepcontinuationclassification)
+
+##### target
+
+> **target**: `object`
+
+###### crossIsaVerified
+
+> **crossIsaVerified**: `boolean`
+
+###### matcherVesselCreated
+
+> **matcherVesselCreated**: `boolean`
+
+###### inputIdentityVerified
+
+> **inputIdentityVerified**: `boolean`
+
+###### contentWindowVerified
+
+> **contentWindowVerified**: `boolean`
+
+###### byteOffsetSeekInstalled
+
+> **byteOffsetSeekInstalled**: `boolean`
+
+###### partialLineInstalled
+
+> **partialLineInstalled**: `boolean`
+
+###### matcherStateInstalled
+
+> **matcherStateInstalled**: `boolean`
+
+###### matchCountInstalled
+
+> **matchCountInstalled**: `boolean`
+
+###### outputCursorInstalled
+
+> **outputCursorInstalled**: `boolean`
+
+###### noRematchGuardInstalled
+
+> **noRematchGuardInstalled**: `boolean`
+
+###### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+###### marker?
+
+> `optional` **marker?**: [`CrossArchFixedStringGrepContinuationMarker`](#crossarchfixedstringgrepcontinuationmarker)
+
+##### shortcuts?
+
+> `optional` **shortcuts?**: [`CrossArchCatShortcutAttempts`](#crossarchcatshortcutattempts)
+
+***
+
+### CrossArchFixedStringGrepContinuationMarker
+
+#### Properties
+
+##### sourceByteOffset
+
+> **sourceByteOffset**: `number`
+
+##### sourceMatchCountSoFar
+
+> **sourceMatchCountSoFar**: `number`
+
+##### targetFirstScannedByteOffset
+
+> **targetFirstScannedByteOffset**: `number`
+
+##### targetFirstMatchedLineNumber
+
+> **targetFirstMatchedLineNumber**: `number`
+
+##### priorMatchedLinesReplayed
+
+> **priorMatchedLinesReplayed**: `number`[]
+
+##### rematchedLineNumbers
+
+> **rematchedLineNumbers**: `number`[]
+
+##### freshRestartWouldVisitLine
+
+> **freshRestartWouldVisitLine**: `number`
+
+##### matchCountStart
+
+> **matchCountStart**: `number`
+
+***
+
+### CrossArchFixedStringGrepTargetContinuationPlan
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"cross-arch-grep-fixed-string-semantic-continuation-v1"`
+
+##### state
+
+> **state**: `"refused"` \| `"ready"`
+
+##### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+##### resumedFromCapturedSemanticState
+
+> **resumedFromCapturedSemanticState**: `boolean`
+
+##### targetProcessStarted
+
+> **targetProcessStarted**: `boolean`
+
+##### targetProcessKilledOnRefusal
+
+> **targetProcessKilledOnRefusal**: `boolean`
+
+##### refusals
+
+> **refusals**: `string`[]
+
+##### argvRestartUsed
+
+> **argvRestartUsed**: `false`
+
+##### execveFromArgvUsed
+
+> **execveFromArgvUsed**: `false`
+
+##### reexecUsed
+
+> **reexecUsed**: `false`
+
+##### outputReplayUsed
+
+> **outputReplayUsed**: `false`
+
+##### descriptorOnlySuccessUsed
+
+> **descriptorOnlySuccessUsed**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sourceFdTeleportationUsed
+
+> **sourceFdTeleportationUsed**: `false`
+
+##### metadataOnlySuccessUsed
+
+> **metadataOnlySuccessUsed**: `false`
+
+##### marker?
+
+> `optional` **marker?**: [`CrossArchFixedStringGrepContinuationMarker`](#crossarchfixedstringgrepcontinuationmarker)
+
+##### nonClaims
+
+> **nonClaims**: readonly `string`[]
+
+***
+
 ### MachinenErrorOptions
 
 #### Properties
@@ -3565,7 +6555,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Inherited from
 
-[`Level5ArchitectureMetadata`](#level5architecturemetadata).[`sourceArch`](#sourcearch-4)
+[`Level5ArchitectureMetadata`](#level5architecturemetadata).[`sourceArch`](#sourcearch-9)
 
 ##### targetArch?
 
@@ -3573,7 +6563,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Inherited from
 
-[`Level5ArchitectureMetadata`](#level5architecturemetadata).[`targetArch`](#targetarch-4)
+[`Level5ArchitectureMetadata`](#level5architecturemetadata).[`targetArch`](#targetarch-9)
 
 ##### kind
 
@@ -3735,7 +6725,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Inherited from
 
-[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`sourceArch`](#sourcearch-5)
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`sourceArch`](#sourcearch-10)
 
 ##### targetArch?
 
@@ -3743,7 +6733,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Inherited from
 
-[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`targetArch`](#targetarch-5)
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`targetArch`](#targetarch-10)
 
 ##### formatVersion
 
@@ -3783,7 +6773,7 @@ Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
 ###### Overrides
 
-[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`kind`](#kind-6)
+[`Level5ArtifactEnvelope`](#level5artifactenvelope).[`kind`](#kind-7)
 
 ##### planState
 
@@ -6157,7 +9147,7 @@ explicitly modeled. In short: no arbitrary process restore.
 
 ###### sourceArch?
 
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+> `optional` **sourceArch?**: `"arm64"` \| `"amd64"`
 
 ###### resources
 
@@ -6354,6 +9344,126 @@ explicitly modeled. In short: no arbitrary process restore.
 ###### capture.readerState.capturedAt?
 
 > `optional` **capturedAt?**: `string`
+
+###### capture.crossArchCatContinuationState?
+
+> `optional` **crossArchCatContinuationState?**: `object`
+
+###### capture.crossArchCatContinuationState.route
+
+> **route**: `"cross-arch-cat-reader-semantic-continuation"`
+
+###### capture.crossArchCatContinuationState.executable
+
+> **executable**: `string`
+
+###### capture.crossArchCatContinuationState.argv
+
+> **argv**: `string`[]
+
+###### capture.crossArchCatContinuationState.classification
+
+> **classification**: [`CrossArchCatContinuationClassification`](#crossarchcatcontinuationclassification)
+
+###### capture.crossArchCatContinuationState.targetPlan
+
+> **targetPlan**: [`CrossArchCatTargetContinuationPlan`](#crossarchcattargetcontinuationplan)
+
+###### capture.crossArchDdContinuationState?
+
+> `optional` **crossArchDdContinuationState?**: `object`
+
+###### capture.crossArchDdContinuationState.route
+
+> **route**: `"cross-arch-dd-regular-file-semantic-continuation"`
+
+###### capture.crossArchDdContinuationState.executable
+
+> **executable**: `string`
+
+###### capture.crossArchDdContinuationState.argv
+
+> **argv**: `string`[]
+
+###### capture.crossArchDdContinuationState.classification
+
+> **classification**: [`CrossArchDdContinuationClassification`](#crossarchddcontinuationclassification)
+
+###### capture.crossArchDdContinuationState.targetPlan
+
+> **targetPlan**: [`CrossArchDdTargetContinuationPlan`](#crossarchddtargetcontinuationplan)
+
+###### capture.crossArchWcLineContinuationState?
+
+> `optional` **crossArchWcLineContinuationState?**: `object`
+
+###### capture.crossArchWcLineContinuationState.route
+
+> **route**: `"cross-arch-wc-line-semantic-continuation"`
+
+###### capture.crossArchWcLineContinuationState.executable
+
+> **executable**: `string`
+
+###### capture.crossArchWcLineContinuationState.argv
+
+> **argv**: `string`[]
+
+###### capture.crossArchWcLineContinuationState.classification
+
+> **classification**: [`CrossArchWcLineContinuationClassification`](#crossarchwclinecontinuationclassification)
+
+###### capture.crossArchWcLineContinuationState.targetPlan
+
+> **targetPlan**: [`CrossArchWcLineTargetContinuationPlan`](#crossarchwclinetargetcontinuationplan)
+
+###### capture.crossArchSeqContinuationState?
+
+> `optional` **crossArchSeqContinuationState?**: `object`
+
+###### capture.crossArchSeqContinuationState.route
+
+> **route**: `"cross-arch-seq-semantic-continuation"`
+
+###### capture.crossArchSeqContinuationState.executable
+
+> **executable**: `string`
+
+###### capture.crossArchSeqContinuationState.argv
+
+> **argv**: `string`[]
+
+###### capture.crossArchSeqContinuationState.classification
+
+> **classification**: [`CrossArchSeqContinuationClassification`](#crossarchseqcontinuationclassification)
+
+###### capture.crossArchSeqContinuationState.targetPlan
+
+> **targetPlan**: [`CrossArchSeqTargetContinuationPlan`](#crossarchseqtargetcontinuationplan)
+
+###### capture.crossArchFixedStringGrepContinuationState?
+
+> `optional` **crossArchFixedStringGrepContinuationState?**: `object`
+
+###### capture.crossArchFixedStringGrepContinuationState.route
+
+> **route**: `"cross-arch-grep-fixed-string-semantic-continuation"`
+
+###### capture.crossArchFixedStringGrepContinuationState.executable
+
+> **executable**: `string`
+
+###### capture.crossArchFixedStringGrepContinuationState.argv
+
+> **argv**: `string`[]
+
+###### capture.crossArchFixedStringGrepContinuationState.classification
+
+> **classification**: [`CrossArchFixedStringGrepContinuationClassification`](#crossarchfixedstringgrepcontinuationclassification)
+
+###### capture.crossArchFixedStringGrepContinuationState.targetPlan
+
+> **targetPlan**: [`CrossArchFixedStringGrepTargetContinuationPlan`](#crossarchfixedstringgreptargetcontinuationplan)
 
 ###### capture.grepState?
 
@@ -10125,7 +13235,7 @@ by default when `output` is a TTY.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetRoot?
 
@@ -10174,11 +13284,11 @@ by default when `output` is a TTY.
 
 ##### arch?
 
-> `optional` **arch?**: `"amd64"` \| `"arm64"`
+> `optional` **arch?**: `"arm64"` \| `"amd64"`
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
+> **kind**: `"vdso"` \| `"unknown"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
 
 ##### buildId
 
@@ -10810,7 +13920,7 @@ by default when `output` is a TTY.
 
 ###### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ###### pid?
 
@@ -10830,7 +13940,7 @@ by default when `output` is a TTY.
 
 ###### arch
 
-> **arch**: `"amd64"` \| `"arm64"`
+> **arch**: `"arm64"` \| `"amd64"`
 
 ###### abi
 
@@ -10952,7 +14062,7 @@ by default when `output` is a TTY.
 
 ###### materialization
 
-> **materialization**: `"refuse"` \| `"translate"` \| `"recreate"` \| `"omit"`
+> **materialization**: `"translate"` \| `"recreate"` \| `"omit"` \| `"refuse"`
 
 ###### targetStart?
 
@@ -11410,11 +14520,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### codeLocations
 
@@ -11538,11 +14648,11 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`path`](#path)
+[`NativeCodeModule`](#nativecodemodule).[`path`](#path-1)
 
 ##### arch?
 
-> `optional` **arch?**: `"amd64"` \| `"arm64"`
+> `optional` **arch?**: `"arm64"` \| `"amd64"`
 
 ###### Inherited from
 
@@ -11550,11 +14660,11 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
+> **kind**: `"vdso"` \| `"unknown"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-23)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-24)
 
 ##### buildId
 
@@ -11646,11 +14756,11 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`path`](#path)
+[`NativeCodeModule`](#nativecodemodule).[`path`](#path-1)
 
 ##### arch?
 
-> `optional` **arch?**: `"amd64"` \| `"arm64"`
+> `optional` **arch?**: `"arm64"` \| `"amd64"`
 
 ###### Inherited from
 
@@ -11658,11 +14768,11 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
+> **kind**: `"vdso"` \| `"unknown"` \| `"executable"` \| `"shared-object"` \| `"pie-executable"`
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-23)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-24)
 
 ##### buildId
 
@@ -11896,7 +15006,7 @@ by default when `output` is a TTY.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetModules
 
@@ -12060,11 +15170,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### threads
 
@@ -12112,11 +15222,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### threads
 
@@ -12216,7 +15326,7 @@ by default when `output` is a TTY.
 
 ##### action
 
-> **action**: `"close"` \| `"refuse"` \| `"materialize"`
+> **action**: `"refuse"` \| `"close"` \| `"materialize"`
 
 ##### source
 
@@ -13457,7 +16567,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-38)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-39)
 
 ##### targetArch
 
@@ -13465,7 +16575,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-13)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-18)
 
 ##### entryAddress
 
@@ -13553,7 +16663,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-3)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-8)
 
 ##### sidecarRuntimeUsed
 
@@ -14045,7 +17155,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-38)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-39)
 
 ##### targetArch
 
@@ -14053,7 +17163,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-13)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-18)
 
 ##### entryAddress
 
@@ -14141,7 +17251,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-3)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-8)
 
 ##### sidecarRuntimeUsed
 
@@ -15531,11 +18641,11 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### sourceThreadPointer?
 
@@ -15573,7 +18683,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### targetArch?
 
-> `optional` **targetArch?**: `"amd64"` \| `"arm64"`
+> `optional` **targetArch?**: `"arm64"` \| `"amd64"`
 
 ##### targetFsBase?
 
@@ -15953,7 +19063,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`classification`](#classification-5)
+[`NestedVirtualizationStretchProofInput`](#nestedvirtualizationstretchproofinput).[`classification`](#classification-10)
 
 ##### l0HostArch
 
@@ -18368,7 +21478,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### guestArch
 
-> **guestArch**: `"amd64"` \| `"arm64"`
+> **guestArch**: `"arm64"` \| `"amd64"`
 
 ###### vmstate
 
@@ -18400,7 +21510,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### guestArch
 
-> **guestArch**: `"amd64"` \| `"arm64"`
+> **guestArch**: `"arm64"` \| `"amd64"`
 
 ###### mode
 
@@ -18508,7 +21618,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-16)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`sourceArch`](#sourcearch-21)
 
 ##### targetArch
 
@@ -18516,7 +21626,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-25)
+[`PortableSnapshotGuestCheckpointCompositionInput`](#portablesnapshotguestcheckpointcompositioninput).[`targetArch`](#targetarch-30)
 
 ##### machinenStateModel
 
@@ -19260,7 +22370,7 @@ whole-VM state captures RAM/device/vCPU state, not disk blocks.
 
 ##### rootDiskMode?
 
-> `optional` **rootDiskMode?**: `"block"` \| `"none"`
+> `optional` **rootDiskMode?**: `"none"` \| `"block"`
 
 Whether the VM intentionally booted without a root block device.
 
@@ -19644,7 +22754,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-7)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`classification`](#classification-12)
 
 ##### sourceArch
 
@@ -19652,7 +22762,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-18)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`sourceArch`](#sourcearch-23)
 
 ##### targetArch
 
@@ -19660,7 +22770,7 @@ the breakdown shows up alongside the parent phase.
 
 ###### Inherited from
 
-[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-27)
+[`RuntimeConfidenceProfileInput`](#runtimeconfidenceprofileinput).[`targetArch`](#targetarch-32)
 
 ##### stateModel
 
@@ -19792,11 +22902,11 @@ the breakdown shows up alongside the parent phase.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### process
 
@@ -20014,7 +23124,7 @@ the breakdown shows up alongside the parent phase.
 
 ##### alternateStack
 
-> **alternateStack**: `"disabled"` \| `"unknown"` \| `"enabled"`
+> **alternateStack**: `"disabled"` \| `"enabled"` \| `"unknown"`
 
 ***
 
@@ -20028,7 +23138,7 @@ the breakdown shows up alongside the parent phase.
 
 ##### eventLoopState
 
-> **eventLoopState**: `"none"` \| `"unknown"` \| `"present"`
+> **eventLoopState**: `"unknown"` \| `"none"` \| `"present"`
 
 ***
 
@@ -20064,7 +23174,7 @@ the breakdown shows up alongside the parent phase.
 
 ##### jobControl
 
-> **jobControl**: `"none"` \| `"unknown"` \| `"present"`
+> **jobControl**: `"unknown"` \| `"none"` \| `"present"`
 
 ***
 
@@ -21673,7 +24783,7 @@ VMM backend that wrote `state.vmstate`.
 
 ##### guestArch?
 
-> `optional` **guestArch?**: `"amd64"` \| `"arm64"` \| `"unknown"`
+> `optional` **guestArch?**: `"arm64"` \| `"amd64"` \| `"unknown"`
 
 Guest CPU architecture captured in `state.vmstate`; restore must match.
 
@@ -23311,6 +26421,78 @@ Poll interval in ms while retrying. Default 250.
 ### ArchitecturePortableSnapshotProductSupport
 
 > **ArchitecturePortableSnapshotProductSupport** = *typeof* [`architecturePortableSnapshotProductSupportStates`](#architectureportablesnapshotproductsupportstates)\[`number`\]
+
+***
+
+### CrossArchNextBinaryContinuationState
+
+> **CrossArchNextBinaryContinuationState** = `"eligible"` \| `"refused"`
+
+***
+
+### CrossArchCatFdKind
+
+> **CrossArchCatFdKind** = `"regular-file"` \| `"terminal"` \| `"pty"` \| `"pipe"` \| `"socket"` \| `"device"` \| `"unknown"`
+
+***
+
+### CrossArchCatSafePointKind
+
+> **CrossArchCatSafePointKind** = `"between-reads"` \| `"split-read"` \| `"unknown"`
+
+***
+
+### CrossArchDdFdKind
+
+> **CrossArchDdFdKind** = [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+***
+
+### CrossArchDdSafePointKind
+
+> **CrossArchDdSafePointKind** = `"between-blocks"` \| `"partial-block"` \| `"unknown"`
+
+***
+
+### CrossArchDdConvFlag
+
+> **CrossArchDdConvFlag** = `"none"` \| `"notrunc"` \| `"fsync"` \| `"sparse"` \| `"sync"` \| `"unknown"`
+
+***
+
+### CrossArchDdShortcutAttempts
+
+> **CrossArchDdShortcutAttempts** = [`CrossArchCatShortcutAttempts`](#crossarchcatshortcutattempts)
+
+***
+
+### CrossArchWcLineFdKind
+
+> **CrossArchWcLineFdKind** = [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+***
+
+### CrossArchWcLineSafePointKind
+
+> **CrossArchWcLineSafePointKind** = `"between-lines"` \| `"partial-line"` \| `"unknown"`
+
+***
+
+### CrossArchSeqSafePointKind
+
+> **CrossArchSeqSafePointKind** = `"between-values"` \| `"partial-value"` \| `"unknown"`
+
+***
+
+### CrossArchFixedStringGrepFdKind
+
+> **CrossArchFixedStringGrepFdKind** = [`CrossArchCatFdKind`](#crossarchcatfdkind)
+
+***
+
+### CrossArchFixedStringGrepSafePointKind
+
+> **CrossArchFixedStringGrepSafePointKind** = `"between-lines"` \| `"partial-line"` \| `"unknown"`
 
 ***
 
@@ -28259,6 +31441,12 @@ tarball-producing tool can pre-populate the lookup cache.
 
 ***
 
+### crossArchCliNextBinariesNonClaims
+
+> `const` **crossArchCliNextBinariesNonClaims**: readonly \[`"no arbitrary process restore"`, `"no any-binary movement"`, `"no argv restart"`, `"no target execve from argv"`, `"no output replay"`, `"no descriptor-only success"`, `"no source-ISA emulation"`, `"no source-fd teleportation"`, `"no metadata-only success"`, `"no terminal, pipe, socket, service, database, or shell support without explicit models"`\]
+
+***
+
 ### ErrorCode
 
 > `const` **ErrorCode**: `object`
@@ -30678,6 +33866,166 @@ Read the balloon-stats file at `path`. Returns `null` when:
 #### Returns
 
 [`BalloonCounters`](#ballooncounters)
+
+***
+
+### classifyCrossArchCatContinuationCapture()
+
+> **classifyCrossArchCatContinuationCapture**(`request`): [`CrossArchCatContinuationClassification`](#crossarchcatcontinuationclassification)
+
+#### Parameters
+
+##### request
+
+[`CrossArchCatContinuationRequest`](#crossarchcatcontinuationrequest)
+
+#### Returns
+
+[`CrossArchCatContinuationClassification`](#crossarchcatcontinuationclassification)
+
+***
+
+### planCrossArchCatContinuationTarget()
+
+> **planCrossArchCatContinuationTarget**(`request`): [`CrossArchCatTargetContinuationPlan`](#crossarchcattargetcontinuationplan)
+
+#### Parameters
+
+##### request
+
+[`CrossArchCatTargetContinuationRequest`](#crossarchcattargetcontinuationrequest)
+
+#### Returns
+
+[`CrossArchCatTargetContinuationPlan`](#crossarchcattargetcontinuationplan)
+
+***
+
+### classifyCrossArchDdContinuationCapture()
+
+> **classifyCrossArchDdContinuationCapture**(`request`): [`CrossArchDdContinuationClassification`](#crossarchddcontinuationclassification)
+
+#### Parameters
+
+##### request
+
+[`CrossArchDdContinuationRequest`](#crossarchddcontinuationrequest)
+
+#### Returns
+
+[`CrossArchDdContinuationClassification`](#crossarchddcontinuationclassification)
+
+***
+
+### planCrossArchDdContinuationTarget()
+
+> **planCrossArchDdContinuationTarget**(`request`): [`CrossArchDdTargetContinuationPlan`](#crossarchddtargetcontinuationplan)
+
+#### Parameters
+
+##### request
+
+[`CrossArchDdTargetContinuationRequest`](#crossarchddtargetcontinuationrequest)
+
+#### Returns
+
+[`CrossArchDdTargetContinuationPlan`](#crossarchddtargetcontinuationplan)
+
+***
+
+### classifyCrossArchWcLineContinuationCapture()
+
+> **classifyCrossArchWcLineContinuationCapture**(`request`): [`CrossArchWcLineContinuationClassification`](#crossarchwclinecontinuationclassification)
+
+#### Parameters
+
+##### request
+
+[`CrossArchWcLineContinuationRequest`](#crossarchwclinecontinuationrequest)
+
+#### Returns
+
+[`CrossArchWcLineContinuationClassification`](#crossarchwclinecontinuationclassification)
+
+***
+
+### planCrossArchWcLineContinuationTarget()
+
+> **planCrossArchWcLineContinuationTarget**(`request`): [`CrossArchWcLineTargetContinuationPlan`](#crossarchwclinetargetcontinuationplan)
+
+#### Parameters
+
+##### request
+
+[`CrossArchWcLineTargetContinuationRequest`](#crossarchwclinetargetcontinuationrequest)
+
+#### Returns
+
+[`CrossArchWcLineTargetContinuationPlan`](#crossarchwclinetargetcontinuationplan)
+
+***
+
+### classifyCrossArchSeqContinuationCapture()
+
+> **classifyCrossArchSeqContinuationCapture**(`request`): [`CrossArchSeqContinuationClassification`](#crossarchseqcontinuationclassification)
+
+#### Parameters
+
+##### request
+
+[`CrossArchSeqContinuationRequest`](#crossarchseqcontinuationrequest)
+
+#### Returns
+
+[`CrossArchSeqContinuationClassification`](#crossarchseqcontinuationclassification)
+
+***
+
+### planCrossArchSeqContinuationTarget()
+
+> **planCrossArchSeqContinuationTarget**(`request`): [`CrossArchSeqTargetContinuationPlan`](#crossarchseqtargetcontinuationplan)
+
+#### Parameters
+
+##### request
+
+[`CrossArchSeqTargetContinuationRequest`](#crossarchseqtargetcontinuationrequest)
+
+#### Returns
+
+[`CrossArchSeqTargetContinuationPlan`](#crossarchseqtargetcontinuationplan)
+
+***
+
+### classifyCrossArchFixedStringGrepContinuationCapture()
+
+> **classifyCrossArchFixedStringGrepContinuationCapture**(`request`): [`CrossArchFixedStringGrepContinuationClassification`](#crossarchfixedstringgrepcontinuationclassification)
+
+#### Parameters
+
+##### request
+
+[`CrossArchFixedStringGrepContinuationRequest`](#crossarchfixedstringgrepcontinuationrequest)
+
+#### Returns
+
+[`CrossArchFixedStringGrepContinuationClassification`](#crossarchfixedstringgrepcontinuationclassification)
+
+***
+
+### planCrossArchFixedStringGrepContinuationTarget()
+
+> **planCrossArchFixedStringGrepContinuationTarget**(`request`): [`CrossArchFixedStringGrepTargetContinuationPlan`](#crossarchfixedstringgreptargetcontinuationplan)
+
+#### Parameters
+
+##### request
+
+[`CrossArchFixedStringGrepTargetContinuationRequest`](#crossarchfixedstringgreptargetcontinuationrequest)
+
+#### Returns
+
+[`CrossArchFixedStringGrepTargetContinuationPlan`](#crossarchfixedstringgreptargetcontinuationplan)
 
 ***
 
