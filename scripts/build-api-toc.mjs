@@ -1,32 +1,7 @@
-// Inject a task-grouped table of contents into packages/runtime/API.md.
-//
-// typedoc's default grouping is by TypeScript kind (Classes,
-// Interfaces, Type Aliases, Variables, Functions). For a public
-// reference that's mechanical, not navigable. This post-processor
-// keeps the per-kind bodies typedoc emits and prepends a hand-curated
-// TOC that buckets symbols by "what is the reader trying to do?".
-//
-// The mapping below is the single source of truth for those buckets.
-// When you add a new public export to packages/runtime/src/index.ts,
-// add the symbol here too (or it lands in "Other"). Run is:
-//
-//   pnpm build:docs   (typedoc → this script)
-//
-// The script validates that every symbol it references is a real H3
-// in the generated API.md and that no H3 is left uncategorised, so
-// drift between source exports and the TOC fails the build instead
-// of silently producing broken anchors.
-
 import { readFileSync, writeFileSync } from "node:fs";
 
-// Optional path arg so the api-md-drift test can point at a tmpdir
-// copy without clobbering the committed file. Defaults to the path
-// `pnpm run build:docs` uses.
 const API_PATH = process.argv[2] ?? "packages/runtime/API.md";
 
-// Categories ordered top-to-bottom in the rendered TOC. Each value is
-// the list of H3 headers (i.e. symbol names) typedoc emits for that
-// category. Plain function/type names map 1:1 to typedoc's H3 text.
 const TOC = {
   "Level 5 runtime adapter substrate": [
     "Level5AdapterDetectInput",
@@ -551,10 +526,12 @@ const TOC = {
   ],
   "Move PID translation": [
     "MoveDescriptor",
+    "MoveGenericResourceGraphState",
     "MoveIssueReport",
     "MovePidGraph",
     "MovePidGraphEdge",
     "MovePidGraphNode",
+    "MovePostgresClusterState",
     "MoveProcessStateClass",
     "MoveRefusalEvidence",
     "MoveSaveResult",
@@ -598,6 +575,25 @@ const TOC = {
     "nativeProcessImageArchitectures",
     "nativeProcessImageRefusalCodes",
     "nativeProcessImageSchemas",
+    "SameArchStoppedContinuationRequest",
+    "SameArchStoppedMapping",
+    "SameArchStoppedFd",
+    "SameArchStoppedSignalState",
+    "SameArchStoppedTimerState",
+    "SameArchStoppedSocketState",
+    "SameArchStoppedSessionState",
+    "SameArchStoppedContinuationCapture",
+    "SameArchStoppedContinuationClassification",
+    "SameArchStoppedContinuationResumeRequest",
+    "SameArchStoppedContinuationResumeResult",
+    "SameArchStoppedContinuationState",
+    "SameArchStoppedStopState",
+    "SameArchStoppedActiveSyscallState",
+    "SameArchStoppedMappingKind",
+    "SameArchStoppedFdKind",
+    "sameArchStoppedContinuationNonClaims",
+    "classifySameArchStoppedContinuationCapture",
+    "materializeSameArchStoppedContinuationTarget",
     "isNativeProcessImageBundle",
     "validateNativeProcessImageBundle",
     "validateNativeProcessImageDocuments",

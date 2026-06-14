@@ -1,0 +1,89 @@
+{
+  "name": "generic-resource-graph-full-expansion",
+  "description": "Retained-artifact coverage for the full generic resource graph expansion ladder. Covers support/refusal pairs, productPath marker rows, same-arch and cross-arch rows, and documentation-facing proof names that must not silently disappear from retained proof evidence.",
+  "expectedProofs": [
+    "generic-two-process-pipe-reexec",
+    "generic-finite-pipe-buffer-replay",
+    "generic-pipe-stdio-refusals",
+    "generic-stdio-pipe-product-marker",
+    "generic-multi-process-pipe-refusals",
+    "generic-process-tree-refusals",
+    "generic-service-process-tree-prefork",
+    "generic-service-process-tree-refusals",
+    "generic-unix-pathname-client-pair",
+    "generic-unix-socket-wave2-refusals",
+    "generic-timerfd-relative-oneshot",
+    "generic-timerfd-relative-oneshot-refusals",
+    "generic-signalfd-signal-state-refusals",
+    "generic-file-lock-advisory",
+    "generic-file-lock-refusals",
+    "generic-inotify-file-follow",
+    "generic-inotify-fanotify-refusals",
+    "generic-mmap-file-backed-clean",
+    "generic-mmap-dirty-refusals",
+    "generic-epoll-timerfd-watch",
+    "generic-epoll-eventfd-watch-refusals",
+    "generic-service-redis-idle-parity",
+    "generic-database-data-dir-refusals",
+    "generic-same-arch-modeled-continuation",
+    "generic-same-arch-continuation-refusals",
+    "generic-cross-arch-semantic-reconstruction",
+    "generic-cross-arch-semantic-refusals",
+    "redis-live-generic-primary-marker"
+  ],
+  "chunks": [
+    {
+      "name": "process-pipes-and-product-marker",
+      "proofs": [
+        "generic-two-process-pipe-reexec",
+        "generic-finite-pipe-buffer-replay",
+        "generic-pipe-stdio-refusals",
+        "generic-stdio-pipe-product-marker",
+        "generic-multi-process-pipe-refusals",
+        "generic-process-tree-refusals"
+      ]
+    },
+    {
+      "name": "service-process-tree-and-unix-sockets",
+      "proofs": [
+        "generic-service-process-tree-prefork",
+        "generic-service-process-tree-refusals",
+        "generic-unix-pathname-client-pair",
+        "generic-unix-socket-wave2-refusals"
+      ]
+    },
+    {
+      "name": "timers-signals-locks-watchers-mmap-epoll",
+      "proofs": [
+        "generic-timerfd-relative-oneshot",
+        "generic-timerfd-relative-oneshot-refusals",
+        "generic-signalfd-signal-state-refusals",
+        "generic-file-lock-advisory",
+        "generic-file-lock-refusals",
+        "generic-inotify-file-follow",
+        "generic-inotify-fanotify-refusals",
+        "generic-mmap-file-backed-clean",
+        "generic-mmap-dirty-refusals",
+        "generic-epoll-timerfd-watch",
+        "generic-epoll-eventfd-watch-refusals"
+      ]
+    },
+    {
+      "name": "database-same-arch-cross-arch",
+      "proofs": [
+        "generic-service-redis-idle-parity",
+        "generic-database-data-dir-refusals",
+        "generic-same-arch-modeled-continuation",
+        "generic-same-arch-continuation-refusals",
+        "generic-cross-arch-semantic-reconstruction",
+        "generic-cross-arch-semantic-refusals",
+        "redis-live-generic-primary-marker"
+      ]
+    }
+  ],
+  "nonClaims": [
+    "Retained coverage does not add arbitrary process restore support.",
+    "Retained coverage does not add broad daemon or database migration support.",
+    "Retained coverage does not add active session migration, source-fd teleportation, source-ISA emulation, or metadata-only success."
+  ]
+}

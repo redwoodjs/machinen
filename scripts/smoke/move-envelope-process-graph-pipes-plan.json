@@ -1,0 +1,31 @@
+{
+  "name": "move-envelope-process-graph-pipes-retained-targets",
+  "description": "Targeted retained artifacts for the generic process-graph and pipes/stdio expansion rows. These rows prove exact target-native two-process pipe reexec, finite captured pipe replay, modeled stdio productPath selection, multi-process pipe refusals, process-tree refusals, and the baseline pipe/stdio refusal row.",
+  "expectedProofs": [
+    "generic-two-process-pipe-reexec",
+    "generic-finite-pipe-buffer-replay",
+    "generic-stdio-pipe-product-marker",
+    "generic-multi-process-pipe-refusals",
+    "generic-process-tree-refusals",
+    "generic-pipe-stdio-refusals"
+  ],
+  "chunks": [
+    {
+      "name": "process-graph-pipe-support",
+      "proofs": [
+        "generic-two-process-pipe-reexec",
+        "generic-finite-pipe-buffer-replay",
+        "generic-stdio-pipe-product-marker"
+      ]
+    },
+    {
+      "name": "process-graph-pipe-refusals",
+      "proofs": [
+        "generic-multi-process-pipe-refusals",
+        "generic-process-tree-refusals",
+        "generic-pipe-stdio-refusals"
+      ]
+    }
+  ],
+  "fullMatrixScope": "manual-nightly-release-only"
+}

@@ -1,0 +1,424 @@
+{
+  "title": "Static HTTP tree identity productization",
+  "goal": "Promote the blocked-by-tree-identity static HTTP generic resource graph rows only if they satisfy the same product contract as prior promoted rows: exact live capture, exact source/target static-root tree identity, equivalent refusal evidence, retained artifacts, docs/API registration, and fail-closed routing.",
+  "problemStatement": "The next static HTTP rows have exact live markers but cannot be product-routed until their source and target static-root trees are proven identical and drift refusals are retained.",
+  "solutionStatement": "Deliver a narrow productized static HTTP batch that promotes only Node, Go, Rust, and BusyBox httpd exact static-root rows after tree identity support and refusal evidence pass.",
+  "technicalStatement": "Add a shared static-root tree identity contract, wire it into the four exact live marker descriptors and productization coverage, retain targeted support/refusal artifacts, update docs/API, and allowlist routing only after all checks pass.",
+  "tasks": [
+    {
+      "id": "task-1",
+      "title": "Define static-root product contract",
+      "status": "COMPLETE",
+      "problemStatement": "The selected static HTTP rows are blocked because their exact source and target static-root identity contract is not yet machine-checkable.",
+      "solutionStatement": "Create a productization contract that states the accepted shape, required tree digest evidence, refusal classes, retained artifacts, docs/API requirements, and non-claims for all four rows.",
+      "technicalStatement": "Add or update docs/snapshot JSON artifacts to classify the four blocked-by-tree-identity rows as the next candidate batch with explicit productPath, support/refusal, tree identity, target evidence, and routing preconditions.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove the contract names exactly the four selected rows and no other candidates, records source/target static-root tree identity as required evidence, and keeps product routing effect at none until validation promotes an allowlist.",
+          "evidence": "Created docs/snapshot/generic-resource-graph-productization-static-http-tree-identity-contract.json and validated it with scripts/generic-resource-graph-productization-static-http-contract.mjs. The contract selects exactly four rows and no others: node-static-http-live-generic-primary-marker, go-static-http-live-generic-primary-marker, rust-static-http-live-generic-primary-marker, and busybox-httpd-live-generic-primary-marker. It records requiredStaticRootIdentity with resourceClass=directoryIdentity, source static-root tree digest evidence, target static-root tree digest verification before launch, digest policy, and fail-closed drift behavior. It keeps productRoutingEffect=none-until-static-http-tree-identity-validation-promotes-allowlist, and validation proved none of the four selected rows currently appears in packages/cli/src/move-generic-product-path.ts. Command evidence: node JSON parse contract passed in 0.02s; node --check scripts/generic-resource-graph-productization-static-http-contract.mjs passed in 0.02s; pnpm run generic-resource-graph-productization-static-http-contract passed in 0.16s with selectedRows=4 and staticHttpContractErrors=[]."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove every selected row records support proof names, equivalent refusal proof names, required target-visible health evidence, docs/API registration, retained coverage requirements, and explicit non-claims.",
+          "evidence": "The same contract validation proves every selected row records support proof names matching docs/snapshot/generic-resource-graph-inventory.json genericLiveProductPathCandidates, existing unsafe refusal proof names matching inventory, requiredTreeIdentityRefusalProofNames=[static-http-tree-identity-refusals], targetEvidenceRequirements containing target HTTP health evidence and fail-closed tree-drift behavior, docs/API registration for docs/snapshot/generic-resource-graph-move.md, docs/snapshot/generic-resource-graph-frontier.md, and packages/runtime/API.md, required retained plan/profile references, required inventory resource classes including directoryIdentity, and nonClaims. Command evidence: pnpm run generic-resource-graph-productization-static-http-contract passed in 0.16s; pnpm run generic-resource-graph-productization-next-selection passed in 0.17s; pnpm run generic-resource-graph-productization-coverage passed in 0.23s; pnpm run generic-resource-graph-coverage passed in 0.17s."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-2."
+    },
+    {
+      "id": "task-2",
+      "title": "Implement tree identity evidence and refusals",
+      "status": "COMPLETE",
+      "problemStatement": "The current static HTTP marker descriptors can show target health but do not yet prove that the served source tree and target tree are identical product inputs.",
+      "solutionStatement": "Make the four static HTTP marker proofs record supported directoryIdentity only when static-root digest evidence is present and add fail-closed tree drift refusal coverage.",
+      "technicalStatement": "Update the generic resource graph descriptor mutation/proof paths for Node, Go, Rust, and BusyBox httpd to include exact tree digest evidence, target preflight verification, and retained drift refusal rows with no target launch or targetPid=null.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove each selected static HTTP support marker records directoryIdentity as supported with source and target tree digest evidence and still produces target-visible HTTP health evidence.",
+          "evidence": "Added the shared static_http_apply_tree_identity mutator in scripts/smoke/move-envelope-matrix.sh and reran the four selected support markers through the target-native generic resource graph loader under proof-only MACHINEN_STATIC_HTTP_TREE_IDENTITY_PROOF_ROUTING=1. The passed targeted matrix at /tmp/static-http-support-markers.out proves busybox-httpd-live-generic-primary-marker, go-static-http-live-generic-primary-marker, rust-static-http-live-generic-primary-marker, and node-static-http-live-generic-primary-marker each loaded with loaderStrategy=target-native-generic-resource-graph-reexec-loader, migration.mode=generic-primary, productPath.kind=exact-live-capture, observedGraph=exact-live-resource-graph, refusalClasses=[], supported directoryIdentity, staticRootTreeIdentity.sourceIdentity.treeDigest, dataDirs[0].identity.treeDigest matching that source digest, targetVerification before launch, and target-visible HTTP health/body evidence. Proof timings: busybox 24.096s, go 5.241s, rust 25.456s, node 10.205s; boot 0.620s and provision 0.138s."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove tree drift, missing root, symlink or identity mismatch, port/preflight, active-client, and runtime-specific unsafe neighbors fail closed in targeted proof runs with no unsafe target process; retained-copy validation is handled by task-4.",
+          "evidence": "The targeted refusal-neighbor matrix at /tmp/static-http-refusal-neighbors.out passed for static-http-tree-identity-refusals, unsafe-busybox-httpd-refusal, python-http-active-refusal, generic-loader-preflight-refusals, go-extra-socket-refusal, node-active-refusal, node-timer-refusal, node-worker-refusal, and native-dlopen-refusal. static-http-tree-identity-refusals covered the four selected markers: Node target symlink drift refused with data-dir-unsupported-entry and targetPid=null; Go, Rust, and BusyBox target tree drift refused with data-dir-file-count-mismatch and targetPid=null. generic-loader-preflight-refusals covered changed executable identity, changed file/data-dir tree identity, changed cwd/missing cwd, and port conflict with targetPid=null. unsafe-busybox-httpd-refusal covered active child/session guard, port conflict, and missing root with refused loaders and targetPid=null. python-http-active-refusal, go-extra-socket-refusal, node-active-refusal, node-timer-refusal, node-worker-refusal, and native-dlopen-refusal all refused at save/load with no loaderStarted. Proof timings: generic-loader-preflight-refusals 14.775s, unsafe-busybox-httpd-refusal 35.063s, python-http-active-refusal 2.382s, go-extra-socket-refusal 1.907s, node-active-refusal 2.389s, node-timer-refusal 1.326s, node-worker-refusal 1.327s, native-dlopen-refusal 1.331s, static-http-tree-identity-refusals 27.879s; boot 0.561s and provision 0.124s."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-3 product routing and explanation gates while keeping static HTTP default product routing disabled until retained artifacts and final coverage promote it."
+    },
+    {
+      "id": "task-3",
+      "title": "Gate product routing and explanations",
+      "status": "COMPLETE",
+      "problemStatement": "Promoted routing must not accidentally accept static HTTP rows before the exact tree identity contract and refusal evidence are proven.",
+      "solutionStatement": "Extend product routing, explanation UX, and focused tests so the four rows product-route only with exact productPath metadata, tree identity evidence, support/refusal names, and refusalClasses=[].",
+      "technicalStatement": "Update packages/cli product-path allowlisting and explanation tests to include the four static HTTP markers only after coverage sees retained artifacts and to keep non-matching, blocked, proof-only, service, and session rows productSupport=false.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove product routing includes phase 1, wave 2, and exactly the validated static HTTP tree-identity rows, and excludes all deferred, service, session, proof-only, descriptor-harness, and proof-image rows.",
+          "evidence": "Default product routing now includes the prior phase-1 row, the five wave-2 rows, and the four static HTTP tree-identity rows by adding staticHttpTreeIdentityProductPaths to promotedGenericProductPaths in packages/cli/src/move-generic-product-path.ts. packages/cli/src/move-generic-resource-graph.ts keeps the static HTTP rows fail-closed by requiring staticRootTreeIdentity, matching read-only dataDirs identity, targetVerification before launch, driftRefusal containing data-dir-identity-mismatch, and supported directoryIdentity before genericResourceGraphIsProductPrimary returns true. Validation evidence: pnpm run generic-resource-graph-productization-static-http-contract passed in 0.14s with selectedRows=4, routingEffect=promoted-after-static-http-tree-identity-validation, and staticHttpContractErrors=[]; pnpm run generic-resource-graph-productization-coverage passed in 0.19s with phase-1 productizationErrors=[] and wave2ProductizationErrors=[]; focused Vitest packages/cli/src/__tests__/move-generic-resource-graph.test.ts passed in 0.46s and covers static HTTP promotion only with complete tree identity plus proof-only/service/deferred exclusions from adjacent tests."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove explanation output and focused CLI/runtime tests distinguish the promoted static HTTP rows from tree-drift refusals, fallback rows, blocked rows, proof-only rows, and non-product rows.",
+          "evidence": "Focused CLI tests in packages/cli/src/__tests__/move-generic-resource-graph.test.ts prove explanation output for the static HTTP product row is decision=generic-product/productSupport=true when exact productPath metadata and staticRootTreeIdentity are complete, and decision=blocked/productSupport=false when tree identity metadata is missing. Existing adjacent tests in the same file continue to prove fallback rows, proof-only rows, deferred rows, service/session rows, descriptor/proof-image labels, and refusalClasses stay productSupport=false. The targeted refusal-neighbor matrix retained in /tmp/static-http-refusal-neighbors.out also proves tree drift, symlink drift, preflight, active-client, and runtime-specific refusal outputs keep loaderStarted false or targetPid=null. Command evidence: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts passed in 0.46s with 41 tests."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-4 retained artifact proof."
+    },
+    {
+      "id": "task-4",
+      "title": "Retain targeted proof artifacts",
+      "status": "COMPLETE",
+      "problemStatement": "The static HTTP productization batch cannot ship without retained support/refusal artifacts that directly cover the four promoted rows and their unsafe neighbors.",
+      "solutionStatement": "Run a targeted proof-image matrix for the static HTTP support/refusal set and split passed artifacts into a dedicated retained coverage directory.",
+      "technicalStatement": "Create a static HTTP productization retained plan, run only the selected proof rows with the proof image, then validate the retained directory with move-envelope-matrix-coverage and productization coverage.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove the targeted retained plan lists every required support, product marker, tree-drift refusal, and unsafe-neighbor refusal row with no extras or duplicates.",
+          "evidence": "Created scripts/smoke/move-envelope-productization-static-http-tree-identity-plan.json and scripts/smoke/move-envelope-productization-static-http-tree-identity-validation-profile.json. The retained plan lists exactly 17 required proofs with no duplicates: four product markers (node, go, rust, busybox-httpd live generic primary markers), four support rows (node-static-http, go-static-http, rust-static-http, busybox-httpd), and nine refusal rows (static-http-tree-identity-refusals, unsafe-busybox-httpd-refusal, python-http-active-refusal, generic-loader-preflight-refusals, go-extra-socket-refusal, node-active-refusal, node-timer-refusal, node-worker-refusal, native-dlopen-refusal). It groups them into support-baselines, product-markers, and refusal-neighbors chunks and records non-claims against arbitrary restore, any-binary movement, broad service/database migration, active sessions, source-fd teleportation, source-ISA emulation, metadata-only success, runtime profiles, and proof-image runtime dependency. JSON parse checks for plan and validation profile passed in 0.02s each."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove the targeted proof-image matrix passes for all retained plan rows and retained coverage reports expectedCount=coveredCount with missing=[], extra=[], and failed=[].",
+          "evidence": "Ran the missing support baseline targeted proof-image rows and retained the three passed targeted matrix JSON outputs in /tmp/machinen-productization-static-http-tree-identity-retained-coverage. Support baseline proof run /tmp/static-http-support-baselines.out passed for busybox-httpd, go-static-http, rust-static-http, and node-static-http with proof timings 13.693s, 4.757s, 14.826s, and 1.957s; boot 0.557s and provision 0.123s. Earlier retained files /tmp/static-http-support-markers.out and /tmp/static-http-refusal-neighbors.out covered the four product markers and nine refusal rows. Retained coverage command node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-productization-static-http-tree-identity-plan.json --coverage-dir /tmp/machinen-productization-static-http-tree-identity-retained-coverage --json passed in 0.02s with expectedCount=17, coveredCount=17, missing=[], extra=[], failed=[]."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-5 docs/API and final validation."
+    },
+    {
+      "id": "task-5",
+      "title": "Document and validate final productization",
+      "status": "COMPLETE",
+      "problemStatement": "Users and future maintainers need an exact public support matrix and machine checks that prevent tree-identity product claims from drifting.",
+      "solutionStatement": "Update docs/API, validation profile, and coverage guards so the final static HTTP shipped set and non-claims are documented and fail closed.",
+      "technicalStatement": "Regenerate runtime API docs, extend productization coverage and validation profile checks, run final targeted/static validation, and mark the goal complete only when every proof row has evidence.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove docs/snapshot and packages/runtime/API.md document exact accepted shapes, support/refusal proof names, tree identity requirements, retained artifacts, validation profile, and non-claims for the static HTTP batch.",
+          "evidence": "Updated docs/snapshot/generic-resource-graph-move.md with a Static HTTP tree identity productization support matrix for exactly node-static-http-live-generic-primary-marker, go-static-http-live-generic-primary-marker, rust-static-http-live-generic-primary-marker, and busybox-httpd-live-generic-primary-marker. The docs list exact accepted shapes, support proof names, refusal proof names, staticRootTreeIdentity/directoryIdentity requirements, retained artifact directory /tmp/machinen-productization-static-http-tree-identity-retained-coverage, retained plan scripts/smoke/move-envelope-productization-static-http-tree-identity-plan.json, validation profile scripts/smoke/move-envelope-productization-static-http-tree-identity-validation-profile.json, and non-claims. Updated docs/snapshot/generic-resource-graph-frontier.md with the graduated static HTTP rows and remaining frontier/non-goals. Updated packages/runtime/src/move-pid-graph.ts comments and regenerated packages/runtime/API.md with pnpm run build:docs. Static HTTP coverage validated docs/API registration: pnpm run generic-resource-graph-productization-static-http-coverage passed in 0.14s with staticHttpProductizationErrors=[]. build:docs passed in 1.77s."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove final validation passes with timing evidence: format, lint, docs/API build, typecheck, focused Vitest, productization coverage, generic coverage, smoke manifest, proof-image boundary, retained coverage, fallow audit, and git diff --check.",
+          "evidence": "Final validation passed with timing evidence: node --check scripts/generic-resource-graph-productization-static-http-coverage.mjs passed 0.02s; node --check scripts/generic-resource-graph-productization-static-http-contract.mjs passed 0.01s; node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs passed 0.01s; bash -n scripts/smoke/move-envelope-matrix.sh passed 0.01s; pnpm run build:docs passed 1.77s; pnpm run generic-resource-graph-coverage passed 0.14s; pnpm run check-smoke-manifest passed 0.17s; pnpm run check-move-proof-image-boundary passed 0.15s; pnpm run format:check passed 1.26s; pnpm run generic-resource-graph-productization-coverage passed 0.23s; focused Vitest passed 0.76s; pnpm run lint passed 0.64s; pnpm run typecheck passed 2.57s; pnpm exec fallow audit --changed-since origin/main completed 0.58s with warn-level duplicate groups only; pnpm run generic-resource-graph-productization-static-http-contract passed 0.14s; retained coverage passed 0.02s; git diff --check passed 0.02s. Negative drift checks in /tmp/machinen-static-http-negatives all failed closed with nonzero exits for missing tree identity metadata, missing tree-refusal proof name, non-empty refusalClasses, missing retained artifacts, docs/API drift, missing target evidence, inventory class drift, and non-shipped service routing drift. No stop condition applies."
+        }
+      ],
+      "nextAction": "Task complete; all goal tasks are complete."
+    }
+  ],
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove the final productized static HTTP set is exactly node-static-http-live-generic-primary-marker, go-static-http-live-generic-primary-marker, rust-static-http-live-generic-primary-marker, and busybox-httpd-live-generic-primary-marker, with all other candidates still deferred or blocked.",
+      "evidence": "The final productized static HTTP set is exactly node-static-http-live-generic-primary-marker, go-static-http-live-generic-primary-marker, rust-static-http-live-generic-primary-marker, and busybox-httpd-live-generic-primary-marker. docs/snapshot/generic-resource-graph-productization-static-http-tree-identity-contract.json selects exactly those four rows; scripts/generic-resource-graph-productization-static-http-contract.mjs passed in 0.14s with selectedRows=4 and staticHttpContractErrors=[]; scripts/generic-resource-graph-productization-static-http-coverage.mjs passed in 0.14s with productizableRows=4 and staticHttpProductizationErrors=[]. Wave-2 coverage still reports only the five wave-2 rows in routingPromotedRows and no wave2ProductizationErrors; service/database/session rows remain blocked or deferred in docs and tests."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove every promoted static HTTP row requires migration.productPath.kind=exact-live-capture, observedGraph=exact-live-resource-graph, exact static-root tree identity evidence, equivalent refusal proof names, target health evidence, retained artifacts, docs/API registration, and refusalClasses=[].",
+      "evidence": "Every promoted static HTTP row requires migration.productPath.kind=exact-live-capture, observedGraph=exact-live-resource-graph, exact static-root tree identity evidence, equivalent refusal proof names, target health/body evidence, retained artifacts, docs/API registration, and refusalClasses=[]. This is enforced by packages/cli/src/move-generic-product-path.ts, packages/cli/src/move-generic-resource-graph.ts staticRootTreeIdentity/directoryIdentity/dataDirs guards, the static HTTP contract, and static HTTP coverage. Retained coverage for /tmp/machinen-productization-static-http-tree-identity-retained-coverage passed in 0.02s with expectedCount=17, coveredCount=17, missing=[], extra=[], failed=[]. Product marker retained proofs show target-native-generic-resource-graph-reexec-loader, staticRootTreeIdentity.sourceIdentity.treeDigest, supported directoryIdentity, target HTTP health/body evidence, and exact productPath metadata."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove productization coverage fails closed for missing tree identity metadata, missing refusal names, non-empty refusalClasses, missing retained artifacts, docs/API drift, target evidence drift, inventory class drift, and non-shipped routing drift.",
+      "evidence": "Productization coverage fails closed for drift. The positive command pnpm run generic-resource-graph-productization-coverage passed in 0.23s and includes staticHttpProductizationErrors=[]. Negative checks in /tmp/machinen-static-http-negatives all returned nonzero: missing staticRootTreeIdentity metadata, missing static-http-tree-identity-refusals, non-empty refusalClasses, missing retained artifacts, docs/API drift, missing target HTTP evidence, bogus inventory resource class, and non-shipped redis-live-generic-primary-marker routing drift. The negative run summary reported passed=true with all eight rc values equal to 1."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove proof-only paths, descriptor harnesses, proof image acceleration, broad service/database rows, active-session shapes, and deferred primitive rows remain outside product routing and runtime product dependencies.",
+      "evidence": "Proof-only paths, descriptor harnesses, proof image acceleration, broad service/database rows, active-session shapes, and deferred primitive rows remain outside product routing and runtime dependencies. Focused Vitest passed in 0.76s and covers fallback/proof-only/deferred/blocked and static HTTP tree-identity routing behavior. pnpm run check-move-proof-image-boundary passed in 0.15s with proofImageBoundaryErrors=[]. pnpm run generic-resource-graph-productization-coverage passed with wave2ProductizationErrors=[] and staticHttpProductizationErrors=[]. pnpm run generic-resource-graph-coverage and pnpm run check-smoke-manifest passed, keeping inventory/proof docs aligned. Static HTTP docs explicitly preserve no arbitrary process restore, no active session migration, no source-fd teleportation, no source-ISA emulation, no metadata-only success, no runtime-profile shortcut, no proof-only descriptor support, and no proof-image runtime dependency."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove final validation passes with timing evidence and no stop condition applies before setting status COMPLETE.",
+      "evidence": "Final validation passed and no stop condition applies. Commands with timing: node --check static HTTP coverage 0.02s; node --check static HTTP contract 0.01s; node --check wave2 coverage 0.01s; bash -n move-envelope-matrix 0.01s; pnpm run build:docs 1.77s; pnpm run generic-resource-graph-coverage 0.14s; pnpm run check-smoke-manifest 0.17s; pnpm run check-move-proof-image-boundary 0.15s; pnpm run format:check 1.26s; pnpm run generic-resource-graph-productization-coverage 0.23s; focused Vitest 0.76s; pnpm run lint 0.64s; pnpm run typecheck 2.57s; pnpm exec fallow audit --changed-since origin/main 0.58s with warn-level duplicate groups only; pnpm run generic-resource-graph-productization-static-http-contract 0.14s; retained coverage 0.02s; git diff --check 0.02s. Full smoke tests were not required because this change touches proof/productization/docs/routing/tests, not VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount, snapshot/restore lifecycle, virtio, memory/ballooning, or FUSE/live mounts."
+    }
+  ],
+  "doneWhen": "All tasks are COMPLETE, all task and goal proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "node JSON/schema validation for static HTTP productization contract, retained plan, validation profile, and docs/API support matrix",
+      "proves": "The productization artifacts are valid, complete, and machine-checkable."
+    },
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --only <static-http product/support/refusal rows> --timings --image <proof-image>",
+      "proves": "Every promoted static HTTP support/refusal/product marker row passes with target-visible evidence."
+    },
+    {
+      "check": "node scripts/move-envelope-matrix-coverage.mjs --plan <static-http retained plan> --coverage-dir <static-http retained artifacts> --json",
+      "proves": "Retained artifacts cover all expected static HTTP productization rows and fail closed for missing, extra, or failed artifacts."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-productization-coverage",
+      "proves": "Productization coverage validates exact productPath metadata, tree identity evidence, refusalClasses=[], docs/API names, inventory classes, retained artifacts, blockers, and non-claims."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-coverage",
+      "proves": "Generic resource graph inventory, proof names, migration mappings, product-path candidates, and documentation boundaries remain aligned."
+    },
+    {
+      "check": "pnpm run check-smoke-manifest",
+      "proves": "Smoke manifest and proof inventory integration remain consistent."
+    },
+    {
+      "check": "pnpm run check-move-proof-image-boundary",
+      "proves": "Proof image acceleration remains validation-only and is not selected by runtime defaults or copied into product assets."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run <focused CLI/runtime static HTTP product selection, refusal, blocker, explanation, and no-target-pid tests>",
+      "proves": "Product routing, explanation UX, tree-drift refusals, blocked-row boundaries, and fail-closed behavior are covered by focused tests."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Public runtime API docs reflect the exact static HTTP support matrix and boundaries."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Repository formatting remains valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and changed-file health checks pass."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript and build-time validation pass."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and code-health audit passes for changed code and scripts."
+    },
+    {
+      "check": "git diff --check",
+      "proves": "Changed files have no whitespace errors."
+    }
+  ],
+  "stopIf": [
+    "A selected row would require arbitrary process restore, any-binary movement, source-ISA emulation, metadata-only success, source-fd teleportation, runtime-profile shortcuts, active session migration, broad daemon/database/service migration, or proof-only descriptor success as product support.",
+    "A selected row lacks exact source/target static-root tree identity support or equivalent tree-drift refusal evidence but is being considered for product routing.",
+    "A selected row lacks target-visible health evidence or retained proof artifacts but is being considered for product routing.",
+    "A proof-only package, proof image, descriptor harness, local artifact, service/database/session row, or deferred primitive becomes a runtime product dependency.",
+    "The work tries to promote blocked service/database/session rows or promote-after-missing-refusal primitives without first proving their missing product contract and refusal evidence.",
+    "Required validation cannot be run and no narrower evidence directly covers the changed behavior.",
+    "Full smoke tests become required by VM lifecycle, VMM, rootfs/base asset, CLI boot/exec/mount, snapshot/restore lifecycle, virtio device, memory/ballooning, FUSE/live mount, or explicit user-request changes but cannot be run.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-14T02:15:00Z",
+      "summary": "Defined and validated the static HTTP tree-identity productization contract for the four blocked-by-tree-identity rows, with no routing effect and explicit tree digest, refusal, docs/API, retained coverage, and non-claim requirements.",
+      "filesChanged": [
+        "docs/snapshot/generic-resource-graph-productization-static-http-tree-identity-contract.json",
+        "scripts/generic-resource-graph-productization-static-http-contract.mjs",
+        "package.json",
+        ".fallowrc.json",
+        "packages/cli/src/move-generic-resource-graph-explain.ts",
+        ".pi/goals/static-http-tree-identity-productization.json"
+      ],
+      "commands": [
+        "node JSON parse docs/snapshot/generic-resource-graph-productization-static-http-tree-identity-contract.json \u2014 passed, 0.02s",
+        "node --check scripts/generic-resource-graph-productization-static-http-contract.mjs \u2014 passed, 0.02s",
+        "pnpm run generic-resource-graph-productization-static-http-contract \u2014 passed, 0.16s, selectedRows=4 staticHttpContractErrors=[]",
+        "pnpm run generic-resource-graph-productization-next-selection \u2014 passed, 0.17s, selectedBucket=blocked-by-tree-identity selectedCount=4 nextSelectionErrors=[]",
+        "pnpm run generic-resource-graph-productization-coverage \u2014 passed, 0.23s, wave2ProductizationErrors=[]",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.17s",
+        "pnpm run format:check \u2014 passed, 1.74s",
+        "pnpm run lint \u2014 passed, 0.63s after fallow health ignore was narrowed to productization guard scripts; no health regressions",
+        "pnpm run typecheck \u2014 passed, 3.59s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 completed, 0.99s, warn-level duplicate groups only; no stop condition",
+        "git diff --check \u2014 passed, 0.01s"
+      ],
+      "artifacts": [
+        "docs/snapshot/generic-resource-graph-productization-static-http-tree-identity-contract.json",
+        "scripts/generic-resource-graph-productization-static-http-contract.mjs"
+      ],
+      "nonClaims": [
+        "Contract only. No static HTTP product routing changed. The four selected rows remain blocked until tree identity support, drift refusals, retained artifacts, docs/API, and final validation are proven. No arbitrary process restore, any-binary movement, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, proof-image runtime dependency, descriptor-harness product support, or product support for blocked rows."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T20:59:44Z",
+      "summary": "Inspected the four static HTTP marker proof paths and added a shared static_http_apply_tree_identity mutator hook. The hook copies the captured static-root tree identity into dataDirs, records staticRootTreeIdentity with source digest and target preflight policy, upgrades directoryIdentity to supported evidence, and wires static-http-tree-identity-refusals into the Node, Go, Rust, and BusyBox httpd productPath refusal names. Added a focused tree-identity refusal harness proof that mutates target roots and verifies data-dir tree preflight refuses before any target launch with targetPid=null. Routing remains unchanged; this is not yet product support.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        ".pi/goals/static-http-tree-identity-productization.json"
+      ],
+      "commands": [
+        "/usr/bin/time -p bash -n scripts/smoke/move-envelope-matrix.sh \u2014 passed, 0.01s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 bash scripts/smoke/move-envelope-matrix.sh --json --only static-http-tree-identity-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, proof duration 28.758s; boot-pair 0.597s; provision-pair 0.139s",
+        "pnpm run check-smoke-manifest \u2014 initially failed in 0.22s because static-http-tree-identity-refusals was present in the matrix proof list but missing from docs/snapshot/generic-resource-graph-inventory.json; fixed by registering the proof name in the static app server family",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.19s, smoke manifest ok and generic resource graph coverage ok",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.16s, matrixProofNames=243 inventoryProofNames=243 missing=[] extra=[]",
+        "git diff --check \u2014 passed, 0.02s",
+        "pnpm run generic-resource-graph-productization-static-http-contract \u2014 passed, 0.16s, staticHttpContractErrors=[]"
+      ],
+      "artifacts": [
+        "/tmp/static-http-tree-refusals.out",
+        "/tmp/machinen-move-matrix-35328-1781384334",
+        "docs/snapshot/generic-resource-graph-inventory.json"
+      ],
+      "nonClaims": [
+        "No static HTTP product routing changed. The support marker proof rows are not marked proven yet because target loads still need to be run through the promoted generic resource graph product path with target HTTP health. The static-http-tree-identity-refusals proof is preflight-only and does not claim arbitrary process restore, source-fd teleportation, active session migration, broad service/database movement, or proof-only descriptor product support."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T21:17:59Z",
+      "summary": "Implemented and proved static HTTP tree identity support/refusal behavior for task 2. The support markers now carry staticRootTreeIdentity and supported directoryIdentity and can be explicitly selected by proof-only routing to exercise the generic resource graph loader. Default product routing remains unchanged: static HTTP rows are not in promotedGenericProductPaths, and static contract/wave-2 coverage still pass. Aligned generic data-dir target preflight with the source tree digest algorithm and made port preflight tolerate TIME_WAIT without accepting active listeners.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "packages/cli/src/move-generic-product-path.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/runtime/src/move-pid-graph.ts",
+        "scripts/generic-resource-graph-productization-static-http-contract.mjs",
+        "scripts/generic-resource-graph-productization-wave2-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        ".pi/goals/static-http-tree-identity-productization.json"
+      ],
+      "commands": [
+        "pnpm --filter @machinen/cli build \u2014 passed, 0.35s after adding proof-only static HTTP product-path selection and generic preflight fixes",
+        "bash scripts/smoke/move-envelope-matrix.sh --json --only node-static-http-live-generic-primary-marker,go-static-http-live-generic-primary-marker,rust-static-http-live-generic-primary-marker,busybox-httpd-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz with MACHINEN_MOVE_MATRIX_KEEP_WORK=1 \u2014 passed; proof timings busybox 24.096s, go 5.241s, rust 25.456s, node 10.205s; boot 0.620s; provision 0.138s",
+        "bash scripts/smoke/move-envelope-matrix.sh --json --only static-http-tree-identity-refusals,unsafe-busybox-httpd-refusal,python-http-active-refusal,generic-loader-preflight-refusals,go-extra-socket-refusal,node-active-refusal,node-timer-refusal,node-worker-refusal,native-dlopen-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz with MACHINEN_MOVE_MATRIX_KEEP_WORK=1 \u2014 passed; proof timings generic-loader-preflight 14.775s, unsafe-busybox 35.063s, python-active 2.382s, go-extra 1.907s, node-active 2.389s, node-timer 1.326s, node-worker 1.327s, native-dlopen 1.331s, tree-identity 27.879s; boot 0.561s; provision 0.124s",
+        "bash -n scripts/smoke/move-envelope-matrix.sh \u2014 passed, 0.01s",
+        "pnpm run generic-resource-graph-productization-static-http-contract \u2014 passed, 0.15s, staticHttpContractErrors=[]",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.17s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.15s, matrixProofNames=243 inventoryProofNames=243 missing=[] extra=[]",
+        "pnpm run generic-resource-graph-productization-coverage \u2014 passed, 0.19s, wave2ProductizationErrors=[] and static HTTP remains outside default product routing",
+        "pnpm run typecheck \u2014 passed, 2.85s including pretypecheck build",
+        "git diff --check \u2014 passed, 0.03s",
+        "pnpm run format:check \u2014 initially failed, 1.31s, on docs/snapshot/generic-resource-graph-inventory.json and packages/cli/src/move-generic-product-path.ts; fixed with pnpm run format",
+        "pnpm run format \u2014 completed, formatting applied",
+        "pnpm run format:check \u2014 passed, 1.18s",
+        "git diff --check \u2014 passed after formatting, 0.02s"
+      ],
+      "artifacts": [
+        "/tmp/static-http-support-markers.out",
+        "/tmp/static-http-refusal-neighbors.out",
+        "/tmp/machinen-move-matrix-39052-1781384798",
+        "/tmp/machinen-move-matrix-35328-1781384334"
+      ],
+      "nonClaims": [
+        "No default static HTTP product routing was promoted. The static HTTP markers are selected only by the proof-only MACHINEN_STATIC_HTTP_TREE_IDENTITY_PROOF_ROUTING=1 path until retained artifacts, docs/API, and final productization coverage promote the allowlist. No arbitrary process restore, source-fd teleportation, active session migration, any-binary movement, source-ISA emulation, broad service/database movement, runtime-profile shortcut, metadata-only success, or proof-image runtime dependency is claimed."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T21:20:45Z",
+      "summary": "Started task 3 routing/explanation gates by adding a focused unit test for static HTTP tree-identity proof selection. The test proves static HTTP rows remain outside default product routing, become generic-product only under explicit proof-only MACHINEN_STATIC_HTTP_TREE_IDENTITY_PROOF_ROUTING=1 with full staticRootTreeIdentity evidence, and fail closed back to blocked when tree identity metadata is missing. Task 3 remains in progress because final default product promotion awaits retained artifacts and docs/API validation.",
+      "filesChanged": [
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        ".pi/goals/static-http-tree-identity-productization.json"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts \u2014 passed, 0.65s, 41 tests",
+        "pnpm run format:check \u2014 passed, 1.22s",
+        "pnpm run typecheck \u2014 passed, 2.83s including pretypecheck build",
+        "pnpm run generic-resource-graph-productization-coverage \u2014 passed, 0.20s, wave2ProductizationErrors=[] and routingPromotedRows still only the five wave-2 rows",
+        "git diff --check \u2014 passed, 0.02s"
+      ],
+      "artifacts": ["packages/cli/src/__tests__/move-generic-resource-graph.test.ts"],
+      "nonClaims": [
+        "This is a routing/explanation gate only. Static HTTP rows still are not default product-routed and are not claimed as product support until retained artifacts, docs/API, validation profile, and final productization coverage promote them."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T23:27:00Z",
+      "summary": "Promoted static HTTP tree-identity rows into the default product-path allowlist with a tree-identity fail-closed guard, created the static HTTP retained proof plan/profile, retained the support/product/refusal proof artifacts, and proved retained coverage is complete. Task 3 and task 4 are now complete; task 5 is next for docs/API and final coverage guards.",
+      "filesChanged": [
+        "packages/cli/src/move-generic-product-path.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "docs/snapshot/generic-resource-graph-productization-static-http-tree-identity-contract.json",
+        "scripts/generic-resource-graph-productization-static-http-contract.mjs",
+        "scripts/generic-resource-graph-productization-wave2-coverage.mjs",
+        "scripts/smoke/move-envelope-productization-static-http-tree-identity-plan.json",
+        "scripts/smoke/move-envelope-productization-static-http-tree-identity-validation-profile.json",
+        ".pi/goals/static-http-tree-identity-productization.json"
+      ],
+      "commands": [
+        "python3 -m json.tool scripts/smoke/move-envelope-productization-static-http-tree-identity-plan.json \u2014 passed, 0.02s",
+        "python3 -m json.tool scripts/smoke/move-envelope-productization-static-http-tree-identity-validation-profile.json \u2014 passed, 0.02s",
+        "bash scripts/smoke/move-envelope-matrix.sh --json --only busybox-httpd,go-static-http,rust-static-http,node-static-http --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz with MACHINEN_MOVE_MATRIX_KEEP_WORK=1 \u2014 passed; proof timings busybox 13.693s, go 4.757s, rust 14.826s, node 1.957s; boot 0.557s; provision 0.123s",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-productization-static-http-tree-identity-plan.json --coverage-dir /tmp/machinen-productization-static-http-tree-identity-retained-coverage --json \u2014 passed, 0.02s, expectedCount=17 coveredCount=17 missing=[] extra=[] failed=[]",
+        "pnpm run generic-resource-graph-productization-static-http-contract \u2014 passed, 0.14s, selectedRows=4 staticHttpContractErrors=[] routingEffect=promoted-after-static-http-tree-identity-validation",
+        "pnpm run generic-resource-graph-productization-coverage \u2014 passed, 0.19s, productizationErrors=[] and wave2ProductizationErrors=[]",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts \u2014 passed, 0.46s, 41 tests",
+        "pnpm run format:check \u2014 initially failed, 1.28s, after new JSON/source edits; fixed with pnpm run format",
+        "pnpm run format \u2014 completed, formatting applied",
+        "pnpm run format:check \u2014 passed, 1.25s",
+        "pnpm run typecheck \u2014 passed, 2.82s including pretypecheck build",
+        "git diff --check \u2014 passed, 0.03s",
+        "pnpm run format:check \u2014 failed after goal JSON evidence update, 1.30s, .pi/goals/static-http-tree-identity-productization.json only; fixed with pnpm run format",
+        "pnpm run format \u2014 completed after goal JSON update",
+        "pnpm run format:check \u2014 passed after goal JSON update, 1.32s",
+        "python3 -m json.tool .pi/goals/static-http-tree-identity-productization.json \u2014 passed after formatting",
+        "git diff --check \u2014 passed after goal JSON update, 0.02s"
+      ],
+      "artifacts": [
+        "scripts/smoke/move-envelope-productization-static-http-tree-identity-plan.json",
+        "scripts/smoke/move-envelope-productization-static-http-tree-identity-validation-profile.json",
+        "/tmp/static-http-support-baselines.out",
+        "/tmp/static-http-support-markers.out",
+        "/tmp/static-http-refusal-neighbors.out",
+        "/tmp/machinen-productization-static-http-tree-identity-retained-coverage"
+      ],
+      "nonClaims": [
+        "Static HTTP product routing is limited to exactly the four validated tree-identity rows and still requires exact-live-capture productPath metadata, refusalClasses=[], supported directoryIdentity, staticRootTreeIdentity, and matching read-only dataDir identity. This does not add arbitrary process restore, any-binary movement, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, proof-only descriptor support, or proof-image runtime dependency."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T21:34:31Z",
+      "summary": "Completed task 5 and the full static HTTP tree-identity productization goal. Docs/API now document exact accepted shapes, support/refusal names, tree identity requirements, retained artifacts, validation profile, and non-claims. Static HTTP productization coverage and negative drift checks prove routing/docs/retained/tree-identity guards fail closed. Final validation passed with timing evidence.",
+      "filesChanged": [
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/runtime/API.md",
+        "scripts/generic-resource-graph-productization-static-http-coverage.mjs",
+        "package.json",
+        ".fallowrc.json",
+        ".pi/goals/static-http-tree-identity-productization.json"
+      ],
+      "commands": [
+        "node --check scripts/generic-resource-graph-productization-static-http-coverage.mjs \u2014 passed, 0.02s",
+        "node --check scripts/generic-resource-graph-productization-static-http-contract.mjs \u2014 passed, 0.01s",
+        "node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs \u2014 passed, 0.01s",
+        "bash -n scripts/smoke/move-envelope-matrix.sh \u2014 passed, 0.01s",
+        "pnpm run build:docs \u2014 passed, 1.77s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.14s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.17s",
+        "pnpm run check-move-proof-image-boundary \u2014 passed, 0.15s",
+        "pnpm run format:check \u2014 passed, 1.26s",
+        "pnpm run generic-resource-graph-productization-coverage \u2014 passed, 0.23s, staticHttpProductizationErrors=[]",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts --testNamePattern \"static HTTP|tree identity|fallback, proof-only, deferred, and blocked|product marker|product path metadata|no target pid\" \u2014 passed, 0.76s, 3 files, 10 tests, 126 skipped by pattern",
+        "pnpm run lint \u2014 passed, 0.64s",
+        "pnpm run typecheck \u2014 passed, 2.57s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 completed, 0.58s, warn-level duplicate groups only",
+        "pnpm run generic-resource-graph-productization-static-http-contract \u2014 passed, 0.14s, selectedRows=4 staticHttpContractErrors=[]",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-productization-static-http-tree-identity-plan.json --coverage-dir /tmp/machinen-productization-static-http-tree-identity-retained-coverage --json \u2014 passed, 0.02s, expectedCount=17 coveredCount=17 missing=[] extra=[] failed=[]",
+        "static HTTP negative drift suite in /tmp/machinen-static-http-negatives \u2014 passed, all eight mutated guard cases exited nonzero as expected",
+        "git diff --check \u2014 passed, 0.02s",
+        "pnpm run format \u2014 completed after final goal evidence update",
+        "pnpm run format:check \u2014 passed after final goal update, 1.19s",
+        "python3 -m json.tool .pi/goals/static-http-tree-identity-productization.json \u2014 passed after final goal update",
+        "git diff --check \u2014 passed after final goal update, 0.02s"
+      ],
+      "artifacts": [
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/runtime/API.md",
+        "scripts/generic-resource-graph-productization-static-http-coverage.mjs",
+        "/tmp/machinen-productization-static-http-tree-identity-retained-coverage",
+        "/tmp/machinen-static-http-negatives"
+      ],
+      "nonClaims": [
+        "Static HTTP productization is limited to exactly four tree-identity rows and exact target-native reexec with verified static-root tree identity. It does not add arbitrary process restore, any-binary movement, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, proof-only descriptor support, or proof-image runtime dependency. Full smoke tests were skipped because no VM lifecycle, VMM, rootfs/base asset, CLI boot/exec/mount, snapshot/restore lifecycle, virtio, memory/ballooning, or FUSE/live mount behavior changed."
+      ]
+    }
+  ],
+  "nextAction": "Goal complete; all tasks and proofChecklist rows are proven with evidence.",
+  "status": "COMPLETE"
+}

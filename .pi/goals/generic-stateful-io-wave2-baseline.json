@@ -1,0 +1,229 @@
+{
+  "title": "Generic stateful I/O wave 2 baseline",
+  "goal": "Establish the fail-closed capture, classification, matrix, documentation, and validation baseline for generic stateful I/O resource graph wave 2 before graduating new support. The baseline must distinguish append/non-append writable file descriptors, Unix socket shapes, eventfd/epoll/anon-inode resources, runtime file-lock evidence, mmap state, and inotify/fanotify state, while refusing all newly observed unsupported classes before target loader launch with exact evidence and no target pid. No new support class is graduated in this goal.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove writable regular-file descriptors are captured and classified into append-only candidates versus non-append writable ambiguity, with both classes refused in this baseline unless already covered by an existing bespoke envelope.",
+      "evidence": "Writable regular-file descriptor classes are now distinct and refused. Focused tests prove append-only fd candidates produce access=append-only-refused, cursor policy append-only-end, and refusalClass appendOnlyRegularFileCursor, while non-append writable fds remain writableRegularFileCursor. Current retained local matrix artifact /tmp/machinen-move-matrix-272-1781259834: generic-writable-file-cursor-refusal passed with expected writableRegularFileCursor and loaderStarted=false; generic-append-only-file-cursor-refusal passed with expected appendOnlyRegularFileCursor and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove Unix domain socket descriptors are captured and classified distinctly for pathname listeners, connected streams, socketpairs, datagram sockets, and abstract-namespace sockets, with each unsupported shape refusing before target loader launch.",
+      "evidence": "Implemented parsed UNIX_FD preflight evidence from /proc/net/unix and exact fail-closed Unix socket subtype classification. Focused Vitest covers synthetic pathname listener, abstract namespace socket, datagram socket, socketpair, and connected stream classification. Current local retained matrix artifact /tmp/machinen-move-matrix-272-1781259834: generic-unix-socket-baseline-refusals passed with cases pathname-listener=>unixSocketPathnameListener, abstract-listener=>unixSocketAbstract, datagram=>unixSocketDatagram, socketpair=>unixSocketPair, connected-stream=>unixSocketConnected; every case had loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove anon-inode resources are captured and classified distinctly enough to identify eventfd, epoll, inotify, fanotify when available, timerfd/signalfd/io_uring or unknown anon inodes when observed, and that unsupported anon-inode shapes refuse before target loader launch.",
+      "evidence": "Implemented exact anon-inode baseline classification through resource-plan mapping and generic classifier refusals. Known anon_inode fds map eventfd=>eventfd, eventpoll=>epoll, timerfd=>timerfd, signalfd=>signalfd; unknown path matching classifies fanotify, inotify, io_uring, and unknown anonInode. Focused Vitest covers eventfd, epoll, timerfd, signalfd, fanotify, ioUring, and anonInode classification. Current local retained matrix artifact /tmp/machinen-move-matrix-272-1781259834: generic-anon-inode-baseline-refusals passed with eventfd, epoll, timerfd, and inotify cases; every case had loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove runtime file-lock evidence is attempted from procfs/fdinfo/proc-locks and produces fail-closed fileLock refusal evidence; if the kernel does not expose advisory lock details reliably, document the narrow limitation and keep any descriptor-injected lock row labeled as harness-only with no support claim.",
+      "evidence": "Runtime lock evidence is attempted in generic preflight via /proc/<pid>/fdinfo lock lines, /proc/locks scan, and a nonblocking lock probe against observed regular files. Focused Vitest added FILE_LOCK preflight coverage and proves it becomes a fileLock refusal. docs/snapshot/generic-resource-graph-frontier.md documents the limitation that the matrix row remains descriptor-level harness evidence because advisory lock visibility is kernel/filesystem dependent. Current retained local matrix artifact /tmp/machinen-move-matrix-272-1781259834: generic-file-lock-refusal passed with expected fileLock and loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove mmap-backed mutable file state, inotify state, and fanotify state remain refused with exact refusal classes and no loader/no target pid.",
+      "evidence": "Focused Vitest added MMAP_FILE preflight coverage and proves writable file-backed mmap evidence becomes mmapFile refusal; focused anon-inode tests prove fanotify path matching becomes fanotify refusal. Current retained local matrix artifact /tmp/machinen-move-matrix-272-1781259834: generic-mmap-file-refusal passed with expected mmapFile and loaderStarted=false; generic-inotify-file-refusal passed with expected inotify and loaderStarted=false; generic-anon-inode-baseline-refusals passed inotify with loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the baseline does not accidentally graduate support for append logs, Unix sockets, eventfd, epoll, file locks, mmap reconstruction, inotify/fanotify follow state, arbitrary process restore, any-binary restore, runtime-profile restore, or source-ISA emulation.",
+      "evidence": "Wave 2 baseline only adds refusal evidence and descriptor distinctions. Current retained local matrix artifact /tmp/machinen-move-matrix-272-1781259834 shows all wave 2 baseline rows refuse with loaderStarted=false: writableRegularFileCursor, appendOnlyRegularFileCursor, fileLock, mmapFile, inotify, Unix socket subtypes, eventfd, epoll, and timerfd. Docs state no support is graduated for append logs, Unix sockets, eventfd, epoll, file locks, mmap reconstruction, inotify/fanotify follow state, arbitrary process restore, any-binary restore, runtime-profile restore, or source-ISA emulation."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove local matrix refusal rows cover the new wave 2 baseline resource shapes with retained artifact paths and explicit no-loader/no-target-pid evidence.",
+      "evidence": "Current retained local matrix artifact /tmp/machinen-move-matrix-272-1781259834: MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-writable-file-cursor-refusal,generic-append-only-file-cursor-refusal,generic-file-lock-refusal,generic-mmap-file-refusal,generic-inotify-file-refusal,generic-unix-socket-baseline-refusals,generic-anon-inode-baseline-refusals --json passed in 125.672s. Every row/case had loaderStarted=false; stale target pid is not present because saves/loads are rejected before direct loader launch."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove representative remote amd64 baseline rows are attempted using the repaired remote VMM/vsock path, with retained artifacts and either passing refusal evidence or a narrow blocker classification that does not claim remote success.",
+      "evidence": "Representative remote amd64 baseline rows passed after syncing wave 2 baseline files to root@192.168.0.8:/mnt/shared-500G/machinen-move-proof and rebuilding. Remote command: MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-append-only-file-cursor-refusal,generic-unix-socket-baseline-refusals,generic-anon-inode-baseline-refusals --json. Passed in 137.084s with retained artifacts /tmp/remote-wave2-baseline-matrix-1781260223 and /tmp/machinen-move-matrix-84591-1781260223. generic-append-only-file-cursor-refusal refused as appendOnlyRegularFileCursor with loaderStarted=false. generic-unix-socket-baseline-refusals refused pathname-listener=>unixSocketPathnameListener, abstract-listener=>unixSocketAbstract, datagram=>unixSocketDatagram, socketpair=>unixSocketPair, connected-stream=>unixSocketConnected, all with loaderStarted=false. generic-anon-inode-baseline-refusals refused eventfd, epoll, timerfd, and inotify, all with loaderStarted=false. Remote VMM still contained the repaired reboot=k noapic cmdline; list-after showed vms=[]; final process/socket-dir check found no machinen-vm/gvproxy/mgv/machinen-vsock leftovers."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic inventory, frontier, migration notes, and user-facing docs list the new baseline refusal rows, preserve the incremental wave 2 ladder, and state all non-claims and support boundaries accurately.",
+      "evidence": "Docs updated in docs/snapshot/generic-resource-graph-move.md, docs/snapshot/generic-resource-graph-frontier.md, docs/snapshot/generic-resource-graph-migration-wave1.md, docs/snapshot/README.md, docs/snapshot/generic-resource-graph-inventory.json, and regenerated packages/runtime/API.md. They list new rows generic-append-only-file-cursor-refusal, generic-unix-socket-baseline-refusals, and generic-anon-inode-baseline-refusals; document the wave 2 ladder as refusal/evidence baseline only; state append-only fd candidates, Unix socket subtypes, eventfd/epoll/timerfd/signalfd/inotify/fanotify/io_uring/unknown anon-inode state are refused; document fileLock runtime attempts plus current harness limitation; and preserve no arbitrary process/any-binary/source-ISA/runtime-profile claims. pnpm run build:docs passed in 1.835s after the final doc edits."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove coverage tooling and smoke manifest checks include the new baseline rows and fail on drift between matrix, inventory, and migration/frontier mappings.",
+      "evidence": "Coverage tooling and manifest include the new baseline rows. pnpm run generic-resource-graph-coverage passed in 0.166s with matrixProofNames=173, inventoryProofNames=173, missingGenericRows=[], missing=[], extra=[], duplicates=[]. pnpm run check-smoke-manifest passed in 0.189s with smoke manifest ok: 70 entries; generic resource graph coverage ok."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove focused unit tests for capture parsing, classifier refusal classes, loader/rendezvous no-launch gates, and bespoke-envelope priority pass.",
+      "evidence": "Focused unit tests for capture parsing, resource-plan anon-inode mapping, classifier refusal classes, FILE_LOCK/MMAP_FILE preflight refusal gates, loader/rendezvous no-launch gates, and bespoke priority passed. Command: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 4 files / 99 tests passed in 1.374s after adding FILE_LOCK/MMAP_FILE coverage."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove repository validation passes with format, lint, docs build when public API/docs changed, typecheck, focused tests, and fallow audit.",
+      "evidence": "Final repository validation passed after fixing the oxlint no-unused-vars warning by removing the stale duplicated evidence() helper from packages/cli/src/move-generic-resource-graph.ts. Commands: pnpm run build:docs passed in 2.058s; pnpm run format:check passed in 1.812s after the final code fix; pnpm run lint initially failed in 0.450s on no-unused-vars, then passed in 2.328s after the fix; pnpm run typecheck passed in 3.642s; NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts passed 4 files / 99 tests in 1.772s; pnpm run generic-resource-graph-coverage passed in 0.192s with matrixProofNames=173, inventoryProofNames=173, missingGenericRows=[], missing=[], extra=[], duplicates=[]; pnpm run check-smoke-manifest passed in 0.266s with smoke manifest ok: 70 entries; generic resource graph coverage ok; pnpm exec fallow audit --changed-since origin/main passed in 0.884s with only an existing warn-level duplication clone in packages/runtime/src/vm/boot.ts and no failing architecture issue."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts",
+      "proves": "Focused capture, classifier, loader/rendezvous gate, and refusal-priority behavior passes for wave 2 baseline changes."
+    },
+    {
+      "check": "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only <wave2-baseline-refusal-rows> --json",
+      "proves": "Local matrix rows exercise append/non-append writable fds, Unix socket shapes, anon-inode/eventfd/epoll/inotify/fanotify, file locks, and mmap refusal behavior end to end with retained artifacts."
+    },
+    {
+      "check": "remote amd64 matrix attempt for representative wave 2 baseline refusal rows using MACHINEN_VMM and MACHINEN_GVPROXY from the repaired remote checkout",
+      "proves": "Cross-architecture target-native refusal behavior is either proven remotely or narrowly classified as an infrastructure blocker without claiming success."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-coverage && pnpm run check-smoke-manifest",
+      "proves": "Coverage tooling and smoke manifest checks include the new baseline rows and fail on drift."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Formatting is valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and health guards pass for changed files."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Generated API/docs are current when public API or docs changed."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript types are valid."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture audit passes for changed code."
+    }
+  ],
+  "stopIf": [
+    "The implementation would require arbitrary process, VM, ELF, runtime-level, metadata-only, sidecar replay, app-exported-state, checkpoint-hook, or source-ISA-emulation restore semantics.",
+    "A resource shape cannot be reconstructed or refused target-natively with exact captured evidence before target loader launch.",
+    "The baseline would need to claim support for append logs, Unix sockets, eventfd, epoll, file locks, mmap reconstruction, inotify/fanotify follow state, any-binary restore, or broad runtime/process restore.",
+    "Runtime evidence for a required refusal class cannot be captured and no narrow harness-only or infrastructure limitation can be documented without weakening fail-closed behavior.",
+    "Remote amd64 proof fails for an infrastructure reason that cannot be narrowly classified with retained artifacts.",
+    "The work would violate app-specific/bespoke envelope priority during the migration period.",
+    "Validation commands required by the contract cannot be run or cannot pass after a reasonable fix attempt.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Inspected current generic resource graph baseline before implementation. Current coverage already refuses non-read-only regular files as writableRegularFileCursor, deleted files as regularFileDeleted, broad sockets as socket unless they are idle loopback TCP listeners, broad unknown anon_inode resources as unknown, inotify-like unknown paths as inotify, file locks via GenericPreflight.locks/fileLockRefusals, and writable file-backed mappings as mmapFile. Current regularFiles descriptor has cursor policy union including append-only-end but regularFiles() always emits read-only-offset for any captured offset and access is only read-only or read-write-refused, so append-only candidates are not distinguished yet. Current socket classification only has TCP_FD matching /proc/net/tcp/tcp6 and cannot distinguish Unix pathname listeners, connected streams, socketpairs, datagram sockets, or abstract namespace sockets. Current anon-inode handling is path-string broad unknown except inotify; eventfd, epoll, fanotify, timerfd, signalfd, io_uring are not separately classified. Current generic file-lock matrix row is descriptor-injected harness evidence, while runtime preflight attempts blocked-lock probes, fdinfo lock lines, and /proc/locks scans. Existing matrix rows cover generic-writable-file-cursor-refusal, generic-file-lock-refusal, generic-mmap-file-refusal, generic-inotify-file-refusal, and generic-unsupported-resource-refusals, but not distinct append candidate, Unix socket subtype, eventfd, epoll, fanotify, timerfd/signalfd/io_uring baseline rows.",
+      "files": [
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/move-resource-plan.ts",
+        "packages/microvm/assets/move-capture.c",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "scripts/generic-resource-graph-coverage.mjs"
+      ]
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Implemented wave 2 baseline fail-closed classification for append-only candidates, Unix socket subtypes, and anon-inode subtypes without graduating new support. Added packages/cli/src/move-generic-wave2-baseline.ts to keep packages/cli/src/move-generic-resource-graph.ts below the 1000-line cap. Generic preflight now emits UNIX_FD rows from /proc/net/unix. Regular file descriptor state now distinguishes append-only-refused from read-write-refused and emits append-only-end cursor policy for append-only candidates while refusing them as appendOnlyRegularFileCursor. Resource-plan mapping now classifies anon_inode:[eventfd], anon_inode:[eventpoll], anon_inode:[timerfd], and anon_inode:[signalfd] as distinct resource kinds. Added focused tests and new matrix rows generic-append-only-file-cursor-refusal, generic-unix-socket-baseline-refusals, and generic-anon-inode-baseline-refusals. Coverage inventory/tooling includes the three new rows.",
+      "artifact": "/tmp/machinen-move-matrix-99070-1781259651",
+      "commands": [
+        "pnpm run typecheck \u2014 passed, 3.909s before matrix additions; rebuild for matrix passed in 2.144s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 98 tests passed, 1.846s",
+        "bash -n scripts/smoke/move-envelope-matrix.sh \u2014 passed, 0.010s and 0.012s after matrix edits",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.432s with matrixProofNames=173 and inventoryProofNames=173",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.501s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-append-only-file-cursor-refusal,generic-unix-socket-baseline-refusals,generic-anon-inode-baseline-refusals --json \u2014 passed, 119.678s, retained /tmp/machinen-move-matrix-99070-1781259651"
+      ],
+      "files": [
+        "packages/cli/src/move-generic-wave2-baseline.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/move-resource-plan.ts",
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "packages/cli/src/__tests__/move-resource-plan.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json"
+      ],
+      "lineCaps": {
+        "packages/cli/src/move-generic-resource-graph.ts": 869,
+        "packages/cli/src/commands/move.ts": 1000,
+        "packages/cli/src/move-rendezvous.ts": 998
+      }
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Ran the wider local wave 2 baseline matrix and updated docs/frontier. The wider retained matrix proves non-append writable fds, append-only fd candidates, descriptor-level fileLock, mmap, inotify, Unix socket subtypes, and anon-inode subtypes all refuse with no loader. Added focused FILE_LOCK/MMAP_FILE tests to prove runtime preflight rows trigger fileLock/mmapFile refusals. Docs now describe wave 2 as refusal/evidence baseline only, with no support graduation for append logs, Unix sockets, eventfd/epoll, file locks, mmap, or inotify/fanotify follow state. Coverage and manifest drift checks pass at 173 rows.",
+      "artifact": "/tmp/machinen-move-matrix-272-1781259834",
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-writable-file-cursor-refusal,generic-append-only-file-cursor-refusal,generic-file-lock-refusal,generic-mmap-file-refusal,generic-inotify-file-refusal,generic-unix-socket-baseline-refusals,generic-anon-inode-baseline-refusals --json \u2014 passed, 125.672s, retained /tmp/machinen-move-matrix-272-1781259834",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 99 tests passed, 1.374s",
+        "pnpm run build:docs \u2014 passed, 1.835s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.166s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.189s",
+        "pnpm run format:check \u2014 passed, 1.273s"
+      ],
+      "files": [
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "docs/snapshot/generic-resource-graph-migration-wave1.md",
+        "docs/snapshot/README.md",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "packages/runtime/API.md",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts"
+      ]
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Proved representative wave 2 baseline refusal rows on remote amd64 using the repaired VMM/vsock path. Synced wave 2 files, rebuilt remote CLI/runtime, verified the VMM still includes the noapic x86 cmdline, then ran append-only fd, Unix socket subtype, and anon-inode baseline rows. All remote rows passed with fail-closed refusal evidence and no loader started. Remote cleanup verified no live VMs, no VMM/gvproxy processes, and no stale socket dirs.",
+      "artifact": "/tmp/machinen-move-matrix-84591-1781260223",
+      "remoteHarness": "/tmp/remote-wave2-baseline-matrix-1781260223",
+      "commands": [
+        "remote pnpm build after rsync \u2014 passed; VMM strings still include reboot=k noapic",
+        "remote MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-append-only-file-cursor-refusal,generic-unix-socket-baseline-refusals,generic-anon-inode-baseline-refusals --json \u2014 passed, 137.084s",
+        "remote cleanup check: node packages/cli/dist/cli.js list --json returned vms=[]; no machinen-vm/gvproxy/mgv/machinen-vsock leftovers"
+      ],
+      "files": [
+        "packages/cli/src/move-generic-wave2-baseline.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/move-resource-plan.ts",
+        "scripts/smoke/move-envelope-matrix.sh"
+      ]
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Completed final local repository validation for the wave 2 baseline. build:docs, format, typecheck, focused Vitest, generic coverage, smoke manifest, lint, and fallow audit passed. Lint initially caught an unused stale evidence() helper left in move-generic-resource-graph.ts after moving wave-2 refusal helpers into move-generic-wave2-baseline.ts; removed it and reran lint, fallow, format, typecheck, and focused Vitest successfully. Full smoke tests were not run because this goal only changes generic move classification/refusal rows/docs and not VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount, snapshot/restore, virtio devices, memory/ballooning, or FUSE/live mounts; targeted local+remote matrix proofs cover the changed behavior.",
+      "commands": [
+        "pnpm run build:docs \u2014 passed, 2.058s",
+        "pnpm run format:check \u2014 passed, 1.812s after final code fix",
+        "pnpm run lint \u2014 initially failed, 0.450s; fixed unused helper; rerun passed, 2.328s",
+        "pnpm run typecheck \u2014 passed, 3.642s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 99 tests passed, 1.772s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.192s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.266s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed, 0.884s"
+      ],
+      "files": [
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/move-generic-wave2-baseline.ts",
+        "packages/cli/src/move-resource-plan.ts",
+        "packages/runtime/src/move-pid-graph.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "packages/runtime/API.md"
+      ]
+    }
+  ],
+  "nextAction": "Review final git diff, commit, and push the wave 2 baseline changes.",
+  "status": "COMPLETE"
+}

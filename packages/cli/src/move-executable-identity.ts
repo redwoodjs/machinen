@@ -31,11 +31,37 @@ export async function validateMoveLoadTargetInVm(
 ): Promise<MoveLoadTargetValidation> {
   const source = descriptor.resourcePlan?.capture?.executablePackage;
   const target = await readMoveExecutableIdentityInVm(vm, exePath);
-  const refusals = [
-    sameVmRefusal(vm, descriptor),
-    ...moveExecutableIdentityRefusals(source, target),
-  ].filter((refusal): refusal is NativeProcessImageRefusal => refusal !== undefined);
+  const executableRefusals =
+    moveNativeStaticHttpIdentityRefusals(descriptor, target) ??
+    moveExecutableIdentityRefusals(source, target);
+  const refusals = [sameVmRefusal(vm, descriptor), ...executableRefusals].filter(
+    (refusal): refusal is NativeProcessImageRefusal => refusal !== undefined,
+  );
   return { state: refusals.length === 0 ? "ready" : "refused", source, target, refusals };
+}
+
+function moveNativeStaticHttpIdentityRefusals(
+  descriptor: MoveDescriptor,
+  target: MoveExecutablePackageIdentity,
+): NativeProcessImageRefusal[] | undefined {
+  const goState = descriptor.resourcePlan?.capture?.goStaticHttpState;
+  const rustState = descriptor.resourcePlan?.capture?.rustStaticHttpState;
+  const state = goState ?? rustState;
+  const boundary = goState ? "go-static-http-identity" : "rust-static-http-identity";
+  const runtime = goState ? "Go" : "Rust";
+  if (!state) {
+    return undefined;
+  }
+  if (target.path === state.binaryPath) {
+    return [];
+  }
+  return [
+    {
+      code: "target-build-mismatch",
+      message: `target ${runtime} static HTTP binary path does not match descriptor`,
+      detail: { target, boundary, expectedPath: state.binaryPath },
+    },
+  ];
 }
 
 function moveExecutableIdentityCommand(path: string): string {

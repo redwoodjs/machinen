@@ -1,0 +1,623 @@
+{
+  "schemaVersion": 1,
+  "name": "generic-resource-graph-productization-wave2-20-classification",
+  "purpose": "Attempt 20 generic resource graph product promotions beyond the phase-1 stdio pipe marker. This file classifies candidates before implementation so only rows that independently satisfy the product contract can ship.",
+  "sourceInventory": "docs/snapshot/generic-resource-graph-inventory.json",
+  "sourceMatrix": "scripts/smoke/move-envelope-matrix.sh",
+  "phase1AlreadyShipped": ["generic-stdio-pipe-product-marker"],
+  "allowedBuckets": [
+    "promote-now",
+    "promote-after-missing-refusal",
+    "blocked-by-tree-identity",
+    "blocked-by-service-safety",
+    "blocked-by-session-state"
+  ],
+  "productContract": {
+    "requiredProductPathKind": "exact-live-capture",
+    "requiredObservedGraph": "exact-live-resource-graph",
+    "requiredRefusalClasses": [],
+    "requiresSupportProofNames": true,
+    "requiresEquivalentRefusalProofNames": true,
+    "requiresTargetHealthOrOutputEvidence": true,
+    "requiresInventoryRegistration": true,
+    "requiresDocsApiRegistration": true,
+    "requiresRetainedProofCoverage": true,
+    "requiresFailClosedUnsafeNeighbors": true,
+    "promotionEffect": "candidate classification only; product routing remains unchanged until later proof rows add allowlisted implementation and validation"
+  },
+  "proposedPromoteNowBatch": [
+    "unix-pathname-listener-live-generic-primary-marker",
+    "reader-cat-live-generic-primary-marker",
+    "grep-live-generic-primary-marker",
+    "busybox-nc-listener-live-generic-primary-marker",
+    "socat-file-responder-live-generic-primary-marker"
+  ],
+  "bucketCounts": {
+    "promote-now": 5,
+    "promote-after-missing-refusal": 5,
+    "blocked-by-tree-identity": 4,
+    "blocked-by-service-safety": 5,
+    "blocked-by-session-state": 1
+  },
+  "candidates": [
+    {
+      "proofName": "unix-pathname-listener-live-generic-primary-marker",
+      "bucket": "promote-now",
+      "proposedBatch": true,
+      "reason": "Already has exact live marker metadata in the inventory, support proof generic-unix-pathname-listener, and refusal proof generic-unix-pathname-listener-refusals for connected sessions, abstract sockets, datagrams, socketpairs, fd passing, credential-sensitive sockets, and unsafe pathname state.",
+      "currentSupportProofNames": ["generic-unix-pathname-listener"],
+      "currentRefusalProofNames": ["generic-unix-pathname-listener-refusals"],
+      "missingEvidence": [
+        "wave-2 retained productization plan",
+        "targeted proof-image rerun retained under a wave-2 coverage directory",
+        "routing allowlist entry",
+        "focused product-selection and blocked-neighbor tests",
+        "docs/API wave-2 support matrix entry"
+      ],
+      "requiredBeforePromotion": [
+        "prove pathname listener has no connected clients and no fd passing",
+        "prove stale/missing pathname and target path conflict fail closed",
+        "record target-visible listener health evidence"
+      ],
+      "nonClaims": [
+        "no connected Unix session migration",
+        "no abstract/datagram/socketpair migration",
+        "no SCM_RIGHTS fd passing",
+        "no credential-sensitive socket migration"
+      ]
+    },
+    {
+      "proofName": "reader-cat-live-generic-primary-marker",
+      "bucket": "promote-now",
+      "proposedBatch": true,
+      "reason": "Already has exact live marker metadata in the inventory, target-native reader-cat support evidence, and refusal coverage for stale, deleted, and writable file cursor neighbors.",
+      "currentSupportProofNames": ["reader-cat"],
+      "currentRefusalProofNames": [
+        "generic-stale-file-identity-refusal",
+        "generic-deleted-file-fd-refusal",
+        "generic-writable-file-cursor-refusal"
+      ],
+      "missingEvidence": [
+        "wave-2 retained productization plan",
+        "targeted proof-image rerun retained under a wave-2 coverage directory",
+        "routing allowlist entry",
+        "focused product-selection and stale/deleted/writable refusal tests",
+        "docs/API wave-2 support matrix entry"
+      ],
+      "requiredBeforePromotion": [
+        "prove readonly file identity and cursor are stable",
+        "prove deleted, changed, writable, or symlink-drifted backing files fail closed",
+        "record target-visible output evidence"
+      ],
+      "nonClaims": [
+        "no writable file fd continuation",
+        "no changed backing file repair",
+        "no arbitrary file-descriptor migration"
+      ]
+    },
+    {
+      "proofName": "grep-live-generic-primary-marker",
+      "bucket": "promote-now",
+      "proposedBatch": true,
+      "reason": "Already has exact live marker metadata in the inventory, target-native grep support evidence, and refusal coverage for stale/deleted/writable file state plus unsafe pipe/stdio neighbors.",
+      "currentSupportProofNames": ["grep"],
+      "currentRefusalProofNames": [
+        "generic-stale-file-identity-refusal",
+        "generic-deleted-file-fd-refusal",
+        "generic-writable-file-cursor-refusal",
+        "generic-pipe-stdio-refusals"
+      ],
+      "missingEvidence": [
+        "wave-2 retained productization plan",
+        "targeted proof-image rerun retained under a wave-2 coverage directory",
+        "routing allowlist entry",
+        "focused product-selection and unsafe stdio/file refusal tests",
+        "docs/API wave-2 support matrix entry"
+      ],
+      "requiredBeforePromotion": [
+        "prove readonly input identity is stable",
+        "prove unsafe pipe/stdio shapes keep refusalClasses non-empty",
+        "record deterministic target output evidence"
+      ],
+      "nonClaims": [
+        "no shell pipeline state migration",
+        "no PTY stdio migration",
+        "no mutable input repair",
+        "no arbitrary command migration"
+      ]
+    },
+    {
+      "proofName": "busybox-nc-listener-live-generic-primary-marker",
+      "bucket": "promote-now",
+      "proposedBatch": true,
+      "reason": "Already has exact live marker metadata in the inventory, target-native listener support evidence, and refusal coverage for unsafe busybox nc, active client, and generic loader preflight failures.",
+      "currentSupportProofNames": ["busybox-nc-listener"],
+      "currentRefusalProofNames": [
+        "unsafe-busybox-nc-refusal",
+        "unsafe-nc-active-refusal",
+        "generic-loader-preflight-refusals"
+      ],
+      "missingEvidence": [
+        "wave-2 retained productization plan",
+        "targeted proof-image rerun retained under a wave-2 coverage directory",
+        "routing allowlist entry",
+        "focused product-selection, active-client, and port/preflight refusal tests",
+        "docs/API wave-2 support matrix entry"
+      ],
+      "requiredBeforePromotion": [
+        "prove no active clients before target launch",
+        "prove target port availability and package/preflight checks fail closed",
+        "record target-visible listener health evidence"
+      ],
+      "nonClaims": [
+        "no active TCP session migration",
+        "no arbitrary netcat command support",
+        "no port conflict repair",
+        "no broad daemon migration"
+      ]
+    },
+    {
+      "proofName": "socat-file-responder-live-generic-primary-marker",
+      "bucket": "promote-now",
+      "proposedBatch": true,
+      "reason": "Already has exact live marker metadata in the inventory, target-native socat file responder support evidence, and refusal coverage for unsafe responder and generic loader preflight failures.",
+      "currentSupportProofNames": ["socat-file-responder"],
+      "currentRefusalProofNames": [
+        "unsafe-socat-file-responder-refusal",
+        "generic-loader-preflight-refusals"
+      ],
+      "missingEvidence": [
+        "wave-2 retained productization plan",
+        "targeted proof-image rerun retained under a wave-2 coverage directory",
+        "routing allowlist entry",
+        "focused product-selection, active-client, file-drift, and preflight refusal tests",
+        "docs/API wave-2 support matrix entry"
+      ],
+      "requiredBeforePromotion": [
+        "prove responder file identity is stable",
+        "prove no active client sessions are present",
+        "record target-visible responder health evidence"
+      ],
+      "nonClaims": [
+        "no active socket session migration",
+        "no arbitrary socat graph support",
+        "no mutable responder file repair",
+        "no broad daemon migration"
+      ]
+    },
+    {
+      "proofName": "generic-readonly-file-cursor",
+      "bucket": "promote-after-missing-refusal",
+      "proposedBatch": false,
+      "reason": "Readonly file cursor support is promising, but it is currently a resource-class proof rather than an exact live product marker with a complete product-facing refusal bundle.",
+      "currentSupportProofNames": ["generic-readonly-file-cursor"],
+      "currentRefusalProofNames": [
+        "generic-stale-file-identity-refusal",
+        "generic-deleted-file-fd-refusal",
+        "generic-writable-file-cursor-refusal"
+      ],
+      "missingEvidence": [
+        "exact live product marker",
+        "productPath metadata",
+        "enclosing command/resource envelope",
+        "wave-2 retained artifacts",
+        "docs/API product row"
+      ],
+      "requiredBeforePromotion": [
+        "define the exact live envelope that owns the cursor",
+        "prove equivalent stale/deleted/writable/symlink drift refusals",
+        "prove target output or health evidence for the enclosing row"
+      ],
+      "nonClaims": [
+        "no standalone fd teleportation",
+        "no writable cursor support",
+        "no changed backing file repair"
+      ]
+    },
+    {
+      "proofName": "generic-append-log-cursor",
+      "bucket": "promote-after-missing-refusal",
+      "proposedBatch": false,
+      "reason": "Append-log cursor support is promising only for exact EOF/append-only shapes, but product promotion needs an enclosing marker and stronger product-facing unsafe-neighbor coverage.",
+      "currentSupportProofNames": ["generic-append-log-cursor"],
+      "currentRefusalProofNames": [
+        "generic-append-only-file-cursor-refusal",
+        "generic-append-log-unsupported-flags-refusal",
+        "generic-append-log-fanotify-refusal"
+      ],
+      "missingEvidence": [
+        "exact live product marker",
+        "productPath metadata",
+        "concurrent-writer consistency boundary",
+        "wave-2 retained artifacts",
+        "docs/API product row"
+      ],
+      "requiredBeforePromotion": [
+        "define EOF-only append semantics",
+        "prove truncation, rewrite, fanotify, unsupported flags, and concurrent writer ambiguity fail closed",
+        "record target-visible append evidence"
+      ],
+      "nonClaims": [
+        "no mutable data replay",
+        "no concurrent-writer consistency model",
+        "no source inotify/fanotify fd continuation"
+      ]
+    },
+    {
+      "proofName": "generic-unix-pathname-client-pair",
+      "bucket": "promote-after-missing-refusal",
+      "proposedBatch": false,
+      "reason": "The exact pathname listener/client-pair proof is useful, but product support needs a live marker and product-facing refusal evidence for connected sessions and fd-passing boundaries.",
+      "currentSupportProofNames": ["generic-unix-pathname-client-pair"],
+      "currentRefusalProofNames": ["generic-unix-pathname-listener-refusals"],
+      "missingEvidence": [
+        "exact live product marker",
+        "productPath metadata",
+        "client-pair-specific product refusal cases",
+        "wave-2 retained artifacts",
+        "docs/API product row"
+      ],
+      "requiredBeforePromotion": [
+        "prove exact client-pair topology and no active unknown peers",
+        "prove fd passing and credential-sensitive cases fail closed",
+        "record target-visible client/server evidence"
+      ],
+      "nonClaims": [
+        "no arbitrary Unix socket graph migration",
+        "no connected session continuation",
+        "no SCM_RIGHTS fd passing"
+      ]
+    },
+    {
+      "proofName": "generic-file-lock-advisory",
+      "bucket": "promote-after-missing-refusal",
+      "proposedBatch": false,
+      "reason": "Single whole-file advisory flock reacquire is promising, but product support needs an enclosing exact live envelope, conflict proof, and lock ownership boundaries.",
+      "currentSupportProofNames": ["generic-file-lock-advisory"],
+      "currentRefusalProofNames": ["generic-file-lock-refusals"],
+      "missingEvidence": [
+        "exact live product marker",
+        "productPath metadata",
+        "enclosing command/resource envelope",
+        "lock-conflict retained artifacts",
+        "docs/API product row"
+      ],
+      "requiredBeforePromotion": [
+        "prove only single whole-file exclusive advisory locks are accepted",
+        "prove POSIX/OFD/range/mandatory/lease/conflict cases fail closed",
+        "record target-side reacquire evidence"
+      ],
+      "nonClaims": [
+        "no cross-process lock graph migration",
+        "no POSIX/OFD/range lock product support",
+        "no lock conflict repair"
+      ]
+    },
+    {
+      "proofName": "generic-timerfd-relative-oneshot",
+      "bucket": "promote-after-missing-refusal",
+      "proposedBatch": false,
+      "reason": "Relative one-shot timerfd reconstruction is a useful primitive, but product support needs an enclosing exact live envelope and active-waiter boundary.",
+      "currentSupportProofNames": ["generic-timerfd-relative-oneshot"],
+      "currentRefusalProofNames": ["generic-timerfd-relative-oneshot-refusals"],
+      "missingEvidence": [
+        "exact live product marker",
+        "productPath metadata",
+        "enclosing process/resource envelope",
+        "active waiter boundary",
+        "docs/API product row"
+      ],
+      "requiredBeforePromotion": [
+        "prove relative one-shot semantics only",
+        "prove realtime, absolute, periodic, nonblocking, unread tick, and active waiter cases fail closed",
+        "record target-side timer evidence"
+      ],
+      "nonClaims": [
+        "no periodic timer continuation",
+        "no realtime clock translation",
+        "no active waiter continuation"
+      ]
+    },
+    {
+      "proofName": "node-static-http-live-generic-primary-marker",
+      "bucket": "blocked-by-tree-identity",
+      "proposedBatch": false,
+      "reason": "Exact live marker exists, but full source/target tree digest identity and digest-drift refusals remain unproven for Node static HTTP product support.",
+      "currentSupportProofNames": ["node-static-http"],
+      "currentRefusalProofNames": [
+        "node-active-refusal",
+        "node-timer-refusal",
+        "node-worker-refusal",
+        "native-dlopen-refusal"
+      ],
+      "missingEvidence": [
+        "source tree digest policy",
+        "target tree digest policy",
+        "digest-drift refusal artifact",
+        "symlink/mode/mtime normalization boundary",
+        "wave-2 retained artifacts"
+      ],
+      "requiredBeforePromotion": [
+        "prove full static root identity across source and target",
+        "prove drift, missing files, symlink surprises, and package mismatch fail closed",
+        "keep Node/libuv timers/workers/native addons refused"
+      ],
+      "nonClaims": [
+        "no Node static HTTP generic product support yet",
+        "no full source/target tree identity claim",
+        "no Node runtime state migration"
+      ]
+    },
+    {
+      "proofName": "go-static-http-live-generic-primary-marker",
+      "bucket": "blocked-by-tree-identity",
+      "proposedBatch": false,
+      "reason": "Exact live marker exists, but native static HTTP product support still needs full root/tree identity and drift-refusal evidence before promotion.",
+      "currentSupportProofNames": ["go-static-http"],
+      "currentRefusalProofNames": ["go-extra-socket-refusal"],
+      "missingEvidence": [
+        "source tree digest policy",
+        "target tree digest policy",
+        "static root drift refusal artifact",
+        "package/binary identity normalization",
+        "wave-2 retained artifacts"
+      ],
+      "requiredBeforePromotion": [
+        "prove exact static root identity",
+        "prove active clients and extra sockets fail closed",
+        "record target-visible HTTP health evidence under digest guard"
+      ],
+      "nonClaims": [
+        "no arbitrary native HTTP server migration",
+        "no active session migration",
+        "no static root drift repair"
+      ]
+    },
+    {
+      "proofName": "rust-static-http-live-generic-primary-marker",
+      "bucket": "blocked-by-tree-identity",
+      "proposedBatch": false,
+      "reason": "Exact live marker exists, but native static HTTP product support still needs full root/tree identity and drift-refusal evidence before promotion.",
+      "currentSupportProofNames": ["rust-static-http"],
+      "currentRefusalProofNames": ["generic-loader-preflight-refusals"],
+      "missingEvidence": [
+        "source tree digest policy",
+        "target tree digest policy",
+        "static root drift refusal artifact",
+        "package/binary identity normalization",
+        "wave-2 retained artifacts"
+      ],
+      "requiredBeforePromotion": [
+        "prove exact static root identity",
+        "prove active clients, preflight failures, and port conflicts fail closed",
+        "record target-visible HTTP health evidence under digest guard"
+      ],
+      "nonClaims": [
+        "no arbitrary native process migration",
+        "no active session migration",
+        "no static root drift repair"
+      ]
+    },
+    {
+      "proofName": "busybox-httpd-live-generic-primary-marker",
+      "bucket": "blocked-by-tree-identity",
+      "proposedBatch": false,
+      "reason": "Exact live marker exists, but BusyBox httpd product support needs stable root identity, drift refusals, and active-client/package/preflight boundaries before promotion.",
+      "currentSupportProofNames": ["busybox-httpd"],
+      "currentRefusalProofNames": [
+        "unsafe-busybox-httpd-refusal",
+        "python-http-active-refusal",
+        "generic-loader-preflight-refusals"
+      ],
+      "missingEvidence": [
+        "source tree digest policy",
+        "target tree digest policy",
+        "static root drift refusal artifact",
+        "package/preflight retained artifacts",
+        "wave-2 retained artifacts"
+      ],
+      "requiredBeforePromotion": [
+        "prove stable static root identity",
+        "prove unsafe httpd options, active clients, target drift, missing package, and port conflicts fail closed",
+        "record target-visible HTTP health evidence under digest guard"
+      ],
+      "nonClaims": [
+        "no arbitrary HTTP daemon migration",
+        "no active session migration",
+        "no static root drift repair"
+      ]
+    },
+    {
+      "proofName": "nginx-live-generic-primary-marker",
+      "bucket": "blocked-by-service-safety",
+      "proposedBatch": false,
+      "reason": "Service live marker exists, but promotion needs service config/root/package drift, active-client, dynamic config, and service-managed child safety as a complete product contract.",
+      "currentSupportProofNames": ["generic-service-nginx-static-parity"],
+      "currentRefusalProofNames": [
+        "service-managed-child-worker-refusal",
+        "service-config-drift-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals"
+      ],
+      "missingEvidence": [
+        "service-specific product contract",
+        "complete active-client and config/root drift retained artifacts",
+        "package normalization evidence",
+        "wave-2 retained artifacts",
+        "docs/API product row"
+      ],
+      "requiredBeforePromotion": [
+        "prove static config/root identity and package parity",
+        "prove active clients, reload races, dynamic config, root drift, package missing, and worker pool mismatch fail closed",
+        "record target-visible nginx health evidence"
+      ],
+      "nonClaims": [
+        "no broad nginx migration",
+        "no active request/session migration",
+        "no dynamic worker pool support"
+      ]
+    },
+    {
+      "proofName": "caddy-live-generic-primary-marker",
+      "bucket": "blocked-by-service-safety",
+      "proposedBatch": false,
+      "reason": "Service live marker exists, but promotion needs Caddy-specific config/root/package drift and reverse-proxy/dynamic behavior refusals as a complete product contract.",
+      "currentSupportProofNames": ["generic-service-caddy-static-parity"],
+      "currentRefusalProofNames": [
+        "caddy-live-reverse-proxy-marker-refusal",
+        "service-config-drift-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals"
+      ],
+      "missingEvidence": [
+        "service-specific product contract",
+        "complete reverse-proxy/config/root drift retained artifacts",
+        "package normalization evidence",
+        "wave-2 retained artifacts",
+        "docs/API product row"
+      ],
+      "requiredBeforePromotion": [
+        "prove file-server-only Caddy shape",
+        "prove reverse proxy, dynamic config, active clients, target root drift, missing package, and port conflict fail closed",
+        "record target-visible Caddy health evidence"
+      ],
+      "nonClaims": [
+        "no broad Caddy migration",
+        "no reverse proxy migration",
+        "no active request/session migration"
+      ]
+    },
+    {
+      "proofName": "ruby-live-generic-primary-marker",
+      "bucket": "blocked-by-service-safety",
+      "proposedBatch": false,
+      "reason": "Service live marker exists, but Ruby runtime/app state and custom socket behavior need service-specific refusals before product promotion.",
+      "currentSupportProofNames": ["generic-service-ruby-http-parity"],
+      "currentRefusalProofNames": [
+        "ruby-live-runtime-marker-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals"
+      ],
+      "missingEvidence": [
+        "service-specific product contract",
+        "custom Ruby app/runtime retained refusals",
+        "target root/package drift retained artifacts",
+        "wave-2 retained artifacts",
+        "docs/API product row"
+      ],
+      "requiredBeforePromotion": [
+        "prove exact ruby -run static HTTP shape",
+        "prove custom apps, runtime-specific state, active clients, root drift, and missing package fail closed",
+        "record target-visible Ruby HTTP health evidence"
+      ],
+      "nonClaims": [
+        "no broad Ruby app migration",
+        "no Ruby runtime state migration",
+        "no active request/session migration"
+      ]
+    },
+    {
+      "proofName": "rsync-live-generic-primary-marker",
+      "bucket": "blocked-by-service-safety",
+      "proposedBatch": false,
+      "reason": "Service live marker exists, but rsync daemon promotion needs module/auth/write policy, config/root drift, and active-client safety as a complete product contract.",
+      "currentSupportProofNames": ["generic-service-rsync-daemon-parity"],
+      "currentRefusalProofNames": [
+        "rsync-live-write-marker-refusal",
+        "service-config-drift-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals"
+      ],
+      "missingEvidence": [
+        "service-specific product contract",
+        "read-only/no-auth module retained artifacts",
+        "write/auth/config/root drift retained refusals",
+        "wave-2 retained artifacts",
+        "docs/API product row"
+      ],
+      "requiredBeforePromotion": [
+        "prove exact read-only no-auth module semantics",
+        "prove write-enabled module, auth/secrets, active clients, config/root drift, and missing package fail closed",
+        "record target-visible rsync health/read evidence"
+      ],
+      "nonClaims": [
+        "no broad rsync daemon migration",
+        "no write-enabled module support",
+        "no secret/auth migration",
+        "no active session migration"
+      ]
+    },
+    {
+      "proofName": "redis-live-generic-primary-marker",
+      "bucket": "blocked-by-service-safety",
+      "proposedBatch": false,
+      "reason": "Redis live marker exists, but product promotion remains blocked by database safety: empty/no-persistence/no-active-client semantics and nonempty/persistence/module/config refusals must be complete and user-facing.",
+      "currentSupportProofNames": ["generic-service-redis-idle-parity"],
+      "currentRefusalProofNames": [
+        "generic-database-data-dir-refusals",
+        "redis-live-nonempty-marker-refusal"
+      ],
+      "missingEvidence": [
+        "database-specific product contract",
+        "empty/no-persistence retained support evidence under product UX",
+        "nonempty/AOF/RDB/persistence/module/config retained refusals",
+        "wave-2 retained artifacts",
+        "docs/API product row"
+      ],
+      "requiredBeforePromotion": [
+        "prove exact empty Redis dataset with persistence disabled and no active clients",
+        "prove non-empty data, AOF/RDB persistence, active clients, unsupported modules, config drift, and target package drift fail closed",
+        "record target-visible PING/DBSIZE evidence"
+      ],
+      "nonClaims": [
+        "no broad database migration",
+        "no non-empty Redis dataset migration",
+        "no WAL/AOF/RDB replay",
+        "no active client/session migration"
+      ]
+    },
+    {
+      "proofName": "tail-live-generic-primary-marker",
+      "bucket": "blocked-by-session-state",
+      "proposedBatch": false,
+      "reason": "Exact live marker exists, but tail follow semantics can imply active follow/session and concurrent-writer behavior. Product promotion must first prove a narrow append-only boundary without claiming watcher/session continuation.",
+      "currentSupportProofNames": ["tail"],
+      "currentRefusalProofNames": [
+        "generic-stale-file-identity-refusal",
+        "generic-append-only-file-cursor-refusal",
+        "generic-append-log-unsupported-flags-refusal"
+      ],
+      "missingEvidence": [
+        "active follow/session boundary",
+        "concurrent-writer consistency refusal evidence",
+        "inotify/fanotify non-claim coverage",
+        "wave-2 retained artifacts",
+        "docs/API product row"
+      ],
+      "requiredBeforePromotion": [
+        "prove tail is restarted only from an explicit append cursor",
+        "prove truncation, rewrite, rotation, concurrent writer ambiguity, unsupported flags, fanotify/inotify continuation, and active session assumptions fail closed",
+        "record target-visible append observation evidence"
+      ],
+      "nonClaims": [
+        "no active terminal/session migration",
+        "no source inotify fd continuation",
+        "no concurrent-writer consistency model",
+        "no mutable data replay"
+      ]
+    }
+  ],
+  "globalNonClaims": [
+    "no product routing change from this classification file alone",
+    "no product support beyond phase 1 until implementation and validation rows prove it",
+    "no arbitrary process restore",
+    "no any-binary movement",
+    "no broad daemon/database/service migration",
+    "no active session migration",
+    "no source-fd teleportation",
+    "no source-ISA emulation",
+    "no metadata-only success",
+    "no runtime-profile shortcut",
+    "no proof image or descriptor harness as a runtime product dependency"
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "name": "generic-resource-graph-productization-phase1",
+  "purpose": "Define the first productizable exact-live-capture subset before changing product routing. This subset is deliberately small: modeled finite stdio pipe replay through the generic product marker only.",
+  "sourceClassification": "docs/snapshot/generic-resource-graph-productization-classification.json",
+  "retainedCoveragePlan": "scripts/smoke/move-envelope-productization-phase1-plan.json",
+  "contract": {
+    "requiredProductPathKind": "exact-live-capture",
+    "requiredRefusalClasses": [],
+    "requiresExplicitSupportProof": true,
+    "requiresExplicitRefusalProofs": true,
+    "requiresTargetHealthOrOutputEvidence": true,
+    "requiresInventoryRegistration": true,
+    "requiresDocumentationRegistration": true,
+    "requiresRetainedProofCoverage": true,
+    "productRoutingEffect": "advisory-only-until-implementation-goal-promotes-routing"
+  },
+  "productizableRows": [
+    {
+      "productProofName": "generic-stdio-pipe-product-marker",
+      "classification": "product-candidate",
+      "resourceShape": "modeled finite stdio pipe graph with captured bytes replayed into a target-native consumer",
+      "productPath": {
+        "kind": "exact-live-capture",
+        "markerProofName": "generic-stdio-pipe-product-marker",
+        "supportProofName": "generic-finite-pipe-buffer-replay",
+        "refusalProofNames": ["generic-pipe-stdio-refusals"],
+        "observedGraph": "exact-live-resource-graph",
+        "refusalClasses": []
+      },
+      "targetEvidence": {
+        "markerRetainedArtifact": "/tmp/machinen-productization-phase1-retained-coverage/generic-stdio-pipe-product-marker.json",
+        "markerTargetOutput": "19",
+        "supportRetainedArtifact": "/tmp/machinen-productization-phase1-retained-coverage/generic-finite-pipe-buffer-replay.json",
+        "supportTargetOutput": "20",
+        "refusalRetainedArtifact": "/tmp/machinen-productization-phase1-retained-coverage/generic-pipe-stdio-refusals.json",
+        "unsafeSibling": {
+          "unsafeLoadAccepted": false,
+          "unsafeLoaderStarted": false
+        }
+      },
+      "registrations": {
+        "inventory": "docs/snapshot/generic-resource-graph-inventory.json genericLiveProductPathCandidates productProofName=generic-stdio-pipe-product-marker",
+        "documentation": [
+          "docs/snapshot/generic-resource-graph-frontier.md",
+          "docs/snapshot/generic-resource-graph-move.md",
+          "docs/snapshot/generic-pipes-stdio-graduation.md"
+        ],
+        "retainedPlan": "scripts/smoke/move-envelope-productization-phase1-plan.json",
+        "requiredInventoryResourceClasses": ["processIdentity", "argvEnvCwd", "stdio", "pipeGraph"]
+      },
+      "nonClaims": [
+        "no arbitrary stdio migration",
+        "no live kernel pipe queue migration beyond explicit captured bytes",
+        "no active writer/session support",
+        "no shell pipeline state migration",
+        "no PTY stdio migration",
+        "no source-fd teleportation",
+        "no arbitrary process restore"
+      ]
+    }
+  ],
+  "deferredProductCandidates": [
+    {
+      "proofName": "generic-finite-pipe-buffer-replay",
+      "reason": "Support evidence for generic-stdio-pipe-product-marker, not an independent product route without marker metadata."
+    },
+    {
+      "proofName": "generic-service-redis-idle-parity",
+      "reason": "Support evidence for Redis marker remains deferred from phase 1 to avoid broad database/service product claims."
+    },
+    {
+      "proofName": "redis-live-generic-primary-marker",
+      "reason": "Exact empty/idle Redis marker remains deferred until product UX and database/data-dir refusal boundaries are separately proven."
+    }
+  ],
+  "globalNonClaims": [
+    "no arbitrary process restore",
+    "no broad daemon/database/service migration",
+    "no active session migration",
+    "no source-fd teleportation",
+    "no source-ISA emulation",
+    "no metadata-only success",
+    "no runtime-profile shortcut",
+    "same-arch modeled continuation and cross-arch semantic reconstruction remain proof-only and outside product routing"
+  ],
+  "continuationBoundary": {
+    "productMoveContinuationRouting": "none",
+    "currentLabel": "retained proof/refusal evidence outside product move continuation",
+    "reason": "Rows in this artifact are resource-reconstruction or target-native reexec evidence, not modeled live-state continuation.",
+    "nonClaims": [
+      "no product move continuation claim",
+      "no arbitrary process restore",
+      "no source-fd teleportation",
+      "no source-ISA emulation",
+      "no metadata-only success",
+      "no runtime-profile shortcut",
+      "no unmodeled active session migration"
+    ]
+  }
+}

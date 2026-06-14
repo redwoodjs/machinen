@@ -1,0 +1,250 @@
+{
+  "title": "Generic file FD cursor continuation",
+  "goal": "Implement and prove a narrow generic resource-graph continuation class for target-native regular-file file-descriptor cursors on the same Machinen Debian base, preserving bespoke envelope priority and fail-closed refusal semantics without claiming arbitrary process restore or any-binary support.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove generic capture records open regular-file fd descriptors with fd number, resolved path, access mode/flags, current offset, dev/inode identity, and stability evidence such as size/mtime/hash where required.",
+      "evidence": "Focused runtime/CLI tests and current local matrix prove capture records regular-file fd cursor descriptors. MoveGenericResourceGraphState regularFiles include fd, path, access, flags, offset, cursor policy, and identity dev/inode/size/mtimeEpochSeconds/sha256. Generic procfs preflight emits FILE_IDENTITY with dev/inode/size/mtime/hash. NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts passed 94 tests in 1.719s after the final portability fix. Current retained matrix artifact /tmp/machinen-move-matrix-21242-1781256733 passed generic-readonly-file-cursor and generic-multi-file-readonly-worker, proving captured offsets produce target output cursor:second cursor line and multi:alpha two|beta two."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the generic classifier accepts only stable target-native reconstructable read-only regular-file cursor shapes and preserves existing refusal behavior for unsupported resources.",
+      "evidence": "Focused tests plus current local matrix prove classifier acceptance/refusal boundaries. Accepted rows generic-readonly-file-cursor and generic-multi-file-readonly-worker had saveAccepted=true, loadAccepted=true, refusalClasses=[], genericPolicy=generic-resource-graph-target-native-reexec-v1, and loaderStrategy=target-native-generic-resource-graph-reexec-loader. Refusal rows in retained artifact /tmp/machinen-move-matrix-21242-1781256733 preserve fail-closed unsupported-resource behavior: deleted fd refused as regularFileDeleted, writable fd refused as writableRegularFileCursor, descriptor-level fileLock refused as fileLock, mmap refused as mmapFile, and inotify refused as inotify with loaderStarted=false. Focused Vitest passed 94 tests in 1.719s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove append-only log fd continuation is either implemented with exact constraints and evidence or explicitly moved to the refusal/frontier documentation with no support claim.",
+      "evidence": "Append-only log fd continuation is explicitly not implemented and has no support claim. docs/snapshot/generic-resource-graph-frontier.md documents append-only log fd continuation as remaining frontier requiring an exact append contract covering observed offset, end-of-file policy, concurrent writers, truncation/rotation, and target progress evidence. docs/snapshot/generic-resource-graph-move.md lists append-only log fd continuation, writable/unknown regular-file fd modes, and deleted regular-file fds under refused/deferred classes. Current retained matrix artifact /tmp/machinen-move-matrix-21242-1781256733 proves the writable cursor boundary refuses before loader launch via generic-writable-file-cursor-refusal with expected writableRegularFileCursor and loaderStarted=false; no generic-append-log-cursor support row is present in inventory/coverage."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the target generic loader pre-opens accepted regular files at required fd numbers, seeks to captured offsets, launches target-native argv, and reports success only after health/progress checks pass.",
+      "evidence": "Focused Vitest plus retained matrix evidence prove target loader reconstruction: packages/cli/src/move-generic-file-cursor-loader.ts opens read-only regular files, seeks to captured cursor offsets, dup2s to captured fd numbers, execvp launches target argv, and health/progress checks precede LOAD_PID. Commands: focused Vitest 3 files/94 tests passed in 1.625s; retained matrix support rows passed at /tmp/machinen-move-matrix-18434-1781255679"
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic load refuses with exact evidence and no target pid when regular-file identity is stale, missing, deleted/unlinked, or otherwise changed beyond the accepted stability contract.",
+      "evidence": "Current local and remote matrix evidence prove stale/changed regular-file identity refuses with no target pid. Local retained artifact /tmp/machinen-move-matrix-21242-1781256733: generic-stale-file-identity-refusal passed with reason=file-size-mismatch and targetPid=null; generic-deleted-file-fd-refusal passed with expected regularFileDeleted and loaderStarted=false. Remote amd64 retained artifact /tmp/machinen-move-matrix-53027-1781256388 also passed generic-stale-file-identity-refusal with targetPid=null and reason file-size-mismatch."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic load refuses with exact evidence and no target pid for writable non-append cursor ambiguity, file locks, mmap-backed mutable file state, and inotify/fanotify follow state.",
+      "evidence": "Current local matrix proves exact fail-closed refusals with no target loader for ambiguous/non-reconstructable file state. Retained artifact /tmp/machinen-move-matrix-21242-1781256733: generic-writable-file-cursor-refusal passed with expected writableRegularFileCursor and loaderStarted=false; generic-file-lock-refusal passed with expected fileLock and loaderStarted=false; generic-mmap-file-refusal passed with expected mmapFile and loaderStarted=false; generic-inotify-file-refusal passed with expected inotify and loaderStarted=false. Remote amd64 retained artifact /tmp/machinen-move-matrix-53027-1781256388 also passed generic-inotify-file-refusal with expected inotify and no loader."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove required support matrix rows generic-readonly-file-cursor and generic-multi-file-readonly-worker pass locally with retained artifact paths.",
+      "evidence": "Current local retained matrix artifact /tmp/machinen-move-matrix-21242-1781256733 after the remote mtime portability fix: --only generic-readonly-file-cursor,generic-multi-file-readonly-worker passed in 123.883s as part of the eight-row cursor matrix. generic-readonly-file-cursor output cursor:second cursor line; generic-multi-file-readonly-worker output multi:alpha two|beta two; both used target-native-generic-resource-graph-reexec-loader with refusalClasses=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic-append-log-cursor either passes locally with retained artifact paths under the exact accepted contract or is represented by a refusal/frontier row with retained evidence and no support claim.",
+      "evidence": "Append-only log fd continuation is explicitly not implemented and has no support claim. docs/snapshot/generic-resource-graph-frontier.md documents append-only log fd continuation as remaining frontier requiring an exact append contract covering observed offset, end-of-file policy, concurrent writers, truncation/rotation, and target progress evidence. docs/snapshot/generic-resource-graph-move.md lists append-only log fd continuation, writable/unknown regular-file fd modes, and deleted regular-file fds under refused/deferred classes. Current retained matrix artifact /tmp/machinen-move-matrix-21242-1781256733 proves the writable cursor boundary refuses before loader launch via generic-writable-file-cursor-refusal with expected writableRegularFileCursor and loaderStarted=false; no generic-append-log-cursor support row is present in inventory/coverage."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove required refusal matrix rows generic-deleted-file-fd-refusal, generic-stale-file-identity-refusal, generic-writable-file-cursor-refusal, generic-file-lock-refusal, generic-mmap-file-refusal, and generic-inotify-file-refusal pass locally with retained artifact paths.",
+      "evidence": "Current local retained matrix artifact /tmp/machinen-move-matrix-21242-1781256733 after the remote mtime portability fix: --only generic-stale-file-identity-refusal,generic-deleted-file-fd-refusal,generic-writable-file-cursor-refusal,generic-file-lock-refusal,generic-mmap-file-refusal,generic-inotify-file-refusal passed in 123.883s as part of the eight-row cursor matrix. Stale target file load refused with targetPid=null and reason file-size-mismatch. Deleted fd refused as regularFileDeleted with loaderStarted=false. Writable fd refused as writableRegularFileCursor with loaderStarted=false. File-lock refusal row used descriptor-level fileLock evidence and loaderStarted=false. Mmap row refused as mmapFile with loaderStarted=false. Inotify row refused as inotify with loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove remote amd64 matrix rows were attempted after the remote VMM/vsock fix, with retained artifact paths and either passing evidence or a narrow blocker classification that does not claim remote success.",
+      "evidence": "Remote amd64 representative matrix passed after syncing the branch and rebuilding remote CLI/runtime. Command on root@192.168.0.8 in /mnt/shared-500G/machinen-move-proof: MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-readonly-file-cursor,generic-stale-file-identity-refusal,generic-inotify-file-refusal --json. Passed in 121.758s with retained artifacts /tmp/remote-file-cursor-matrix-1781256388 and /tmp/machinen-move-matrix-53027-1781256388. generic-readonly-file-cursor output cursor:second cursor line; generic-stale-file-identity-refusal refused with targetPid=null and reason file-size-mismatch; generic-inotify-file-refusal refused as inotify with no loader. Remote list-after showed vms=[] and final process/socket-dir check found no machinen-vm/gvproxy/mgv/machinen-vsock leftovers."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic inventory, frontier, and user-facing docs accurately describe supported regular-file cursor semantics, refusals, and non-claims including no arbitrary process restore and no any-binary support.",
+      "evidence": "Docs updated in docs/snapshot/generic-resource-graph-move.md, docs/snapshot/generic-resource-graph-frontier.md, docs/snapshot/README.md, and docs/snapshot/generic-resource-graph-inventory.json. They document read-only regular-file fd cursor support, target-side portable size/hash checks, source dev/inode/mtime as descriptor evidence only, append-only log fd non-support/frontier, writable/deleted/mmap/inotify refusals, fileLock descriptor-level refusal evidence, and no arbitrary process/any-binary claim. pnpm run build:docs passed in final validation in 2.044s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic coverage tooling and smoke manifest checks include the new file-cursor support/refusal rows or otherwise fail on coverage drift.",
+      "evidence": "Coverage tooling updated and verified. pnpm run generic-resource-graph-coverage passed in 0.168s with matrixProofNames=170, inventoryProofNames=170, missingGenericRows=[], missing=[], extra=[], duplicates=[]. pnpm run check-smoke-manifest passed in 0.233s with \"smoke manifest ok: 70 entries; generic resource graph coverage ok\"."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove focused unit tests for capture, classification, loader command/preflight, rendezvous priority, and refusal gates pass.",
+      "evidence": "Focused unit tests for capture, classification, loader command/preflight, rendezvous priority, and refusal gates passed after the final remote portability fix and lint fix. Command: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 3 files / 94 tests passed in 1.719s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove repository validation passes with format, lint, docs build when public API/docs changed, typecheck, and fallow audit.",
+      "evidence": "Final repository validation passed after fixing the oxlint no-useless-escape warning in packages/cli/src/move-generic-resource-graph.ts. Commands: pnpm run build:docs passed in 2.044s; pnpm run format:check passed in 1.806s; pnpm run lint passed in 0.985s; pnpm run typecheck passed in 3.658s; NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts passed 94 tests in 1.719s; pnpm run generic-resource-graph-coverage passed in 0.195s with matrixProofNames=170, inventoryProofNames=170, missingGenericRows=[], missing=[], extra=[], duplicates=[]; pnpm run check-smoke-manifest passed in 0.255s with smoke manifest ok: 70 entries; generic resource graph coverage ok; pnpm exec fallow audit --changed-since origin/main passed in 0.972s with no issues in 85 changed files."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run <focused generic file cursor test files>",
+      "proves": "Focused unit coverage for capture, classification, target loader/preflight, rendezvous priority, and refusal gates passes."
+    },
+    {
+      "check": "scripts/smoke/move-envelope-matrix.sh --rows generic-readonly-file-cursor,generic-multi-file-readonly-worker,<append-log-row-or-refusal>,generic-deleted-file-fd-refusal,generic-stale-file-identity-refusal,generic-writable-file-cursor-refusal,generic-file-lock-refusal,generic-mmap-file-refusal,generic-inotify-file-refusal",
+      "proves": "Local matrix support and refusal rows exercise the generic regular-file FD cursor contract end to end with retained artifacts."
+    },
+    {
+      "check": "remote amd64 matrix attempt for representative support and refusal rows using the repaired remote VMM/vsock path",
+      "proves": "Cross-architecture target-native behavior is either proven remotely or a narrow infrastructure blocker is recorded without claiming success."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-coverage && pnpm run check-smoke-manifest",
+      "proves": "Coverage tooling and smoke manifest checks include the new file-cursor rows and fail on drift."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Formatting is valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and health guards pass for changed files."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Generated API/docs are current when public API or docs changed."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript types are valid."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture audit passes for changed code."
+    }
+  ],
+  "stopIf": [
+    "The implementation would require arbitrary process, VM, ELF, runtime-level, metadata-only, sidecar replay, app-exported-state, checkpoint-hook, or source-ISA-emulation restore semantics.",
+    "A resource shape cannot be reconstructed target-natively with exact captured evidence and a fail-closed refusal cannot be produced before target loader launch.",
+    "A support row would require claiming any-binary or broad runtime/process restore support.",
+    "Remote amd64 proof fails for an infrastructure reason that cannot be narrowly classified with retained artifacts.",
+    "The work would violate app-specific/bespoke envelope priority during the migration period.",
+    "Validation commands required by the contract cannot be run or cannot pass after a reasonable fix attempt.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Inspected existing generic resource graph code and matrix rows. Existing runtime state has regularFiles with fd/path/access/flags/offset and fileOffsets, but identity only includes size+sha256 and no dev/inode/mtime. CLI preflight emits FILE_IDENTITY fd/path/size/sha256 only. Classifier currently marks all non-device regular files as read-only supported and only refuses /dev non-null devices. Loader preflights file existence/size/sha256 but does not pre-open fds or seek offsets before launch. Existing matrix rows cover generic-file-backed-worker, generic-readonly-file-cli, generic-writable-log-daemon, and generic-data-dir-daemon, but not required cursor/stale/deleted/lock/mmap/inotify rows.",
+      "files": [
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/generic-resource-graph-coverage.mjs"
+      ]
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Implemented generic regular-file cursor descriptor/capture schema extension and focused tests. MoveGenericResourceGraphState regularFiles identity now includes dev, inode, size, mtimeEpochSeconds, sha256, and cursor policy. Generic procfs preflight now emits FILE_IDENTITY with dev/inode/size/mtime/hash. Classifier now refuses deleted regular-file fds and regular-file fds whose flags are not proven read-only. Loader preflight originally checked file dev/inode/size/mtime/sha256 before LOAD_PID; remote proof later corrected target equality to portable size+sha256 only while retaining dev/inode/mtime as capture evidence. Focused tests passed for generic graph parsing/classification/loader preflight and rendezvous descriptor fixtures.",
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 94 tests passed, 2.024s",
+        "pnpm run typecheck \u2014 passed, 4.559s",
+        "pnpm run format:check \u2014 passed, 2.033s"
+      ],
+      "files": [
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts",
+        "packages/cli/src/__tests__/move-rendezvous.test.ts"
+      ]
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Implemented target-side generic regular-file cursor reconstruction for no-pipe generic loads. Added packages/cli/src/move-generic-file-cursor-loader.ts. Generic loader now emits a Python target-native launch wrapper for accepted read-only regularFiles: it opens each captured path O_RDONLY, lseeks to the captured cursor offset, dup2s it to the captured fd number, redirects stdout/stderr to the loader log, then os.execvp()s the target argv. File identity preflights still run before launch, and health probes must pass before LOAD_PID is printed. Existing pipe launch paths remain unchanged.",
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 94 tests passed, 1.875s",
+        "pnpm run typecheck \u2014 passed, 4.519s",
+        "pnpm run format:check \u2014 passed, 1.881s",
+        "bash -n /tmp/generic-loader-command.sh \u2014 generated generic loader shell syntax valid, 0.026s"
+      ],
+      "files": [
+        "packages/cli/src/move-generic-file-cursor-loader.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts"
+      ]
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Added and proved local matrix rows for generic regular-file cursor support and refusal cases. Support rows generic-readonly-file-cursor and generic-multi-file-readonly-worker passed together. Refusal rows generic-stale-file-identity-refusal, generic-deleted-file-fd-refusal, generic-writable-file-cursor-refusal, generic-file-lock-refusal, generic-mmap-file-refusal, and generic-inotify-file-refusal passed together. Coverage script reports 170 matrix/inventory proof names, missingGenericRows=[], missing=[], duplicates=[]. Note: source dev/inode remain captured descriptor evidence, but target loader no longer compares dev/inode because inode identity is not portable across separate source/target VM filesystems; portable target preflight uses size/hash.",
+      "artifact": "/tmp/machinen-move-matrix-18434-1781255679",
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-readonly-file-cursor,generic-multi-file-readonly-worker,generic-stale-file-identity-refusal,generic-deleted-file-fd-refusal,generic-writable-file-cursor-refusal,generic-file-lock-refusal,generic-mmap-file-refusal,generic-inotify-file-refusal --json \u2014 passed, 123.845s, retained /tmp/machinen-move-matrix-18434-1781255679",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.179s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 94 tests passed, 1.625s",
+        "pnpm run format:check \u2014 passed, 1.594s",
+        "bash -n scripts/smoke/move-envelope-matrix.sh \u2014 passed; line caps: move-generic-resource-graph.ts 993, commands/move.ts 1000, move-rendezvous.ts 998"
+      ],
+      "files": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/move-generic-file-cursor-loader.ts",
+        "packages/cli/src/move-generic-pipe-loader.ts"
+      ]
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Updated docs/frontier/API coverage for regular-file cursor graduation. Generic move docs list the new support and refusal rows. Frontier docs split graduated read-only regular-file cursors from remaining append-only/writable/file-lock/mmap/inotify work and state dev/inode/mtime capture-vs-target semantics. README links the current cursor boundary. API docs regenerated for MoveGenericResourceGraphState identity/cursor fields.",
+      "commands": [
+        "pnpm run build:docs \u2014 passed, 2.007s",
+        "pnpm run format:check \u2014 passed, 1.398s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.168s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.233s"
+      ],
+      "files": [
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "docs/snapshot/README.md",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "packages/runtime/API.md"
+      ]
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Attempted and proved representative remote amd64 rows after the VMM/vsock fix. First remote attempt failed generic-readonly-file-cursor with file-mtime-mismatch even though content matched, revealing that mtime is not a portable target equality check across independently provisioned source/target VM filesystems. Fixed loader/docs/tests so target regular-file cursor preflight compares portable size+sha256 only; dev/inode/mtime remain captured descriptor evidence. After resync/rebuild, remote generic-readonly-file-cursor, generic-stale-file-identity-refusal, and generic-inotify-file-refusal all passed. Remote cleanup verified no live VMs, VMM/gvproxy processes, or stale socket dirs.",
+      "artifact": "/tmp/machinen-move-matrix-53027-1781256388",
+      "remoteHarness": "/tmp/remote-file-cursor-matrix-1781256388",
+      "commands": [
+        "remote pnpm build after sync \u2014 passed; VMM still contains reboot=k noapic cmdline",
+        "remote MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-readonly-file-cursor,generic-stale-file-identity-refusal,generic-inotify-file-refusal --json \u2014 passed, 121.758s",
+        "remote cleanup check: node packages/cli/dist/cli.js list --json returned vms=[]; no machinen-vm/gvproxy/mgv/machinen-vsock leftovers"
+      ],
+      "files": [
+        "packages/cli/src/move-generic-file-cursor-loader.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "docs/snapshot/generic-resource-graph-move.md"
+      ]
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Completed final local validation after the remote mtime portability fix. Initial lint rerun found one oxlint no-useless-escape warning in packages/cli/src/move-generic-resource-graph.ts; fixed the generated awk mmap path regex to use ^[/]. Reran focused static/unit checks, coverage checks, fallow audit, and the current local eight-row file cursor matrix. All passed. The current matrix artifact proves support rows and refusal rows against the final code, including size+sha256 target identity semantics and no target pid/no loader for refusal rows.",
+      "artifact": "/tmp/machinen-move-matrix-21242-1781256733",
+      "commands": [
+        "pnpm run build:docs \u2014 passed, 2.044s",
+        "pnpm run format:check \u2014 passed, 1.806s",
+        "pnpm run lint \u2014 initially failed in 0.457s on no-useless-escape; fixed; rerun passed in 0.985s",
+        "pnpm run typecheck \u2014 passed, 3.658s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 94 tests passed, 1.719s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.195s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.255s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed, 0.972s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-readonly-file-cursor,generic-multi-file-readonly-worker,generic-stale-file-identity-refusal,generic-deleted-file-fd-refusal,generic-writable-file-cursor-refusal,generic-file-lock-refusal,generic-mmap-file-refusal,generic-inotify-file-refusal --json \u2014 passed, 123.883s, retained /tmp/machinen-move-matrix-21242-1781256733"
+      ],
+      "files": [
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/move-generic-file-cursor-loader.ts",
+        "packages/runtime/src/move-pid-graph.ts",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "packages/runtime/API.md"
+      ]
+    }
+  ],
+  "nextAction": "Review final git diff, commit, and push to PR #936.",
+  "status": "COMPLETE"
+}

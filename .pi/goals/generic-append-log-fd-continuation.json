@@ -1,0 +1,223 @@
+{
+  "title": "Generic append-only log FD continuation",
+  "goal": "Graduate only a narrow generic append-only regular-file file-descriptor continuation class after the wave 2 baseline has already proven exact refusal for writable and append-only candidates. The accepted shape must be same-Machinen-Debian-base and target-native: an observed regular-file fd opened with O_APPEND, stable path and identity, safe EOF/offset semantics, no locks, no mmap, no inotify/fanotify, no unmodeled peer resources, and visible target append progress after loader launch. Non-append writable fds and unsafe append variants must continue to refuse before target loader launch or with targetPid=null.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove the descriptor/capture schema records append-only regular-file fd candidates distinctly from non-append writable fds, including fd number, path, access flags, current offset, EOF/size evidence, dev/inode/mtime descriptor evidence, sha256 or prefix identity evidence, and append policy.",
+      "evidence": "Descriptor/capture schema now records append-only candidates distinctly from non-append writable fds. packages/runtime/src/move-pid-graph.ts includes regularFiles[].access=\"append-only\" alongside append-only-refused/read-write-refused and cursor.policy=\"append-only-end\". packages/cli/src/move-generic-wave2-baseline.ts computes append-only access only when O_APPEND is set and captured offset equals captured file size, while preserving fd/path/flags/offset and identity dev/inode/size/mtimeEpochSeconds/sha256. Focused test packages/cli/src/__tests__/move-generic-resource-graph.test.ts proves an O_APPEND fd at offset=size records access=append-only and cursor policy append-only-end, while an O_APPEND fd at offset!=size records append-only-refused. Validation: focused Vitest 4 files / 99 tests passed in 1.730s; pnpm run typecheck passed in 3.651s; pnpm run format:check passed after formatting in 1.415s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the classifier accepts only exact append-only log fd shapes and refuses non-append writable fds, read-write overwrite/truncate ambiguity, missing/deleted paths, unsupported flags, and unknown access modes with exact evidence.",
+      "evidence": "Classifier now accepts only the exact first append-only shape and keeps unsafe writable shapes refused. packages/cli/src/move-generic-wave2-baseline.ts returns no appendOnlyRegularFileCursor refusal only for regular file resources with O_APPEND, write access, captured FILE_IDENTITY evidence, and resource.offset == captured file.size. Focused tests prove exact O_APPEND-at-EOF has no appendOnlyRegularFileCursor refusal; O_APPEND offset mismatch refuses as appendOnlyRegularFileCursor; non-append writable r+ shape refuses as writableRegularFileCursor; deleted regular-file fd refuses as regularFileDeleted. Unknown/unsupported write flags continue to fall through writableRegularFileCursor unless they satisfy the exact O_APPEND-at-EOF contract. Validation: focused Vitest 4 files / 99 tests passed in 1.730s and typecheck passed in 3.651s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the target preflight contract validates portable target log identity before launch, including stable target path, no truncation, no rotation, expected prefix or full pre-append content identity, compatible size/EOF state, and no stale target mutation beyond the accepted append contract.",
+      "evidence": "Target preflight contract is proven for the append-only log fd slice. packages/cli/src/move-generic-file-cursor-loader.ts emits preflight for every regularFiles entry before launch: test -f path, stat size equality, and sha256 identity equality. The accepted append descriptor requires captured offset==captured size, so the preflight enforces no truncation/rotation/stale mutation beyond the exact pre-append content. Local retained matrix artifact /tmp/machinen-move-matrix-7906-1781262223 row generic-append-log-preflight-refusals passed: stale target log refused with file-identity-mismatch and targetPid=null, truncated target log refused with file-size-mismatch and targetPid=null, and missing target log refused with file-missing and targetPid=null. The initial tightened-flag attempt failed support at /tmp/machinen-move-matrix-6399-1781262048 because fdinfo included octal:0402001; this was fixed by preserving/allowing the safe no-follow bit while still refusing O_TRUNC."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the target loader opens accepted append-only files with O_APPEND, dup2s them to the captured fd numbers, launches target-native argv, and reports success only after append progress/health evidence passes.",
+      "evidence": "Target loader reconstruction for accepted append-only fds is proven by code, focused tests, and local matrix. packages/cli/src/move-generic-file-cursor-loader.ts now reconstructs accepted append-only entries by opening the target path with os.O_WRONLY|os.O_APPEND|getattr(os, \"O_NOFOLLOW\", 0), lseeking to the captured EOF offset, dup2ing to the captured fd number, redirecting stdout/stderr to the loader log, and execvp launching the target-native argv. Focused test packages/cli/src/__tests__/move-generic-resource-graph.test.ts asserts the append loader command contains O_WRONLY|O_APPEND for an accepted append descriptor. Local retained matrix /tmp/machinen-move-matrix-7906-1781262223 row generic-append-log-cursor passed with appendAccess=append-only, appendPolicy=append-only-end, loaderStrategy=target-native-generic-resource-graph-reexec-loader, targetPid=1544, refusalClasses=[], and visible target logEntries=1 after load."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove local support matrix row generic-append-log-cursor passes with retained artifact paths and visible target append evidence produced after load.",
+      "evidence": "Local support matrix row generic-append-log-cursor passed with retained artifact /tmp/machinen-move-matrix-7906-1781262223. The row starts a source process with fd 3 opened append-only on /tmp/machinen-generic/append-log/root/app.log, lseeks fd 3 to EOF before capture, saves accepted generic state, kills the source before target load, loads on the target with the generic resource graph loader, and observes target-side append progress. Proof JSON shows saveAccepted=true, loadAccepted=true, nativeContinuation=planned, genericPolicy=generic-resource-graph-target-native-reexec-v1, refusalClasses=[], appendAccess=append-only, appendPolicy=append-only-end, genericOnlyActiveStates=[], loaderStrategy=target-native-generic-resource-graph-reexec-loader, targetPid=1544, and logEntries=1. Command timing: MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-append-log-cursor,generic-append-log-preflight-refusals,generic-append-only-file-cursor-refusal,generic-append-log-unsupported-flags-refusal,generic-writable-file-cursor-refusal,generic-file-lock-refusal,generic-mmap-file-refusal,generic-inotify-file-refusal --json passed in 126.116s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove local refusal rows pass with retained artifact paths for stale target log, truncated log, rotated/missing log path, offset/EOF mismatch, non-append writable fd, unsupported flags, concurrent writer ambiguity if modeled as unsafe, and lock/mmap/inotify/fanotify interactions.",
+      "evidence": "Local refusal rows passed with retained artifact /tmp/machinen-move-matrix-9550-1781262594. generic-append-log-preflight-refusals covers stale target log -> file-identity-mismatch with targetPid=null, truncated log -> file-size-mismatch with targetPid=null, and missing/rotated path -> file-missing with targetPid=null. generic-append-only-file-cursor-refusal covers offset/EOF mismatch with appendOnlyRegularFileCursor and loaderStarted=false. generic-writable-file-cursor-refusal covers non-append writable fd with writableRegularFileCursor and loaderStarted=false. generic-append-log-unsupported-flags-refusal covers O_APPEND|O_TRUNC even at EOF with appendOnlyRegularFileCursor and loaderStarted=false. generic-append-log-fanotify-refusal covers an append-only fd plus fanotify interaction harness with fanotify refusal and loaderStarted=false. generic-file-lock-refusal, generic-mmap-file-refusal, and generic-inotify-file-refusal cover lock/mmap/inotify interactions with loaderStarted=false. Command: MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-append-log-cursor,generic-append-log-preflight-refusals,generic-append-only-file-cursor-refusal,generic-append-log-unsupported-flags-refusal,generic-append-log-fanotify-refusal,generic-writable-file-cursor-refusal,generic-file-lock-refusal,generic-mmap-file-refusal,generic-inotify-file-refusal --json passed in 127.832s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove no support is claimed for arbitrary writable-file continuation, arbitrary log rotation, concurrent writer reconciliation, mmap dirty-page reconstruction, file-lock reconstruction, inotify/fanotify follow semantics, arbitrary process restore, any-binary restore, runtime-profile restore, or source-ISA emulation.",
+      "evidence": "Non-claims are explicit in docs and matrix boundaries. docs/snapshot/generic-resource-graph-frontier.md states append support is only for exact O_APPEND regular-file descriptors captured at EOF with size+sha256 target preflight and visible append progress. docs/snapshot/generic-resource-graph-move.md and docs/snapshot/README.md state that unsafe append variants, arbitrary writable-file continuation, log rotation/reconciliation, concurrent writer ambiguity, mmap dirty state, file-lock reconstruction, inotify/fanotify follow semantics, arbitrary process restore, any-binary movement, runtime-profile restore, and source-ISA continuation are not supported. Matrix rows keep those boundaries fail-closed: non-append writable, non-EOF append, unsupported append flags, stale/truncated/missing logs, fanotify, locks, mmap, and inotify all refuse before target launch or with targetPid=null."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove representative remote amd64 support and refusal rows are attempted using the repaired remote VMM/vsock path, with retained artifacts and either passing evidence or a narrow blocker classification that does not claim remote success.",
+      "evidence": "Representative remote attempt was run against friend@100.126.46.90 using the repaired x64 native paths MACHINEN_VMM=$PWD/packages/native-x64-linux/vmm/bin/machinen-vm and MACHINEN_GVPROXY=$PWD/packages/native-x64-linux/vmm/bin/gvproxy after syncing to /home/friend/machinen-move-proof. Retained remote artifact directory: /tmp/remote-append-log-matrix-1781263428. It records runtime/CLI build logs, uname-a.txt/uname-m.txt, matrix.json, list-after-final.json, process-after-final-clean.txt, and tmp-sockets-after-final.txt. The attempt is narrowly classified as remote-environment blocker, not remote success: uname-m.txt shows aarch64, and the earlier matrix attempt failed because the x86_64 gvproxy exited before socket readiness on the aarch64 host. A full workspace build also failed because remote lacks zig, then runtime+CLI-only build succeeded. Cleanup evidence: list-after-final.json reports vms=[], process-after-final-clean.txt is empty for machinen-vm/gvproxy/mgv command names, and tmp-sockets-after-final.txt is empty. No remote amd64 success is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic inventory, frontier, migration notes, and user-facing docs describe the append-only fd support contract, refusal boundaries, and non-claims accurately.",
+      "evidence": "Docs and inventory were updated for the append-only fd support contract and refusal boundaries. docs/snapshot/generic-resource-graph-inventory.json adds appendFileCursor and updates appendFileCursorRefusal, and maps generic-append-log-cursor, generic-append-log-preflight-refusals, generic-append-log-unsupported-flags-refusal, and generic-append-log-fanotify-refusal in the first generic resource graph continuation family. docs/snapshot/generic-resource-graph-frontier.md documents the exact EOF-only append contract, size+sha256 preflight, O_WRONLY|O_APPEND|O_NOFOLLOW loader behavior, target append progress requirement, and remaining non-goals. docs/snapshot/generic-resource-graph-move.md adds the new support/refusal rows to the proven generic pilot table and updates supported/refused class language. docs/snapshot/README.md describes read-only fd cursors plus exact EOF-only append-log fd continuation without implying arbitrary writable-file or any-binary movement. packages/runtime/API.md includes regularFiles[].access=\"append-only\" after pnpm run build:docs."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove coverage tooling and smoke manifest checks include the new append support/refusal rows and fail on drift between matrix, inventory, and docs.",
+      "evidence": "Coverage tooling and smoke manifest checks include the append rows and passed. scripts/generic-resource-graph-coverage.mjs requiredGenericRows now includes generic-append-log-cursor, generic-append-log-preflight-refusals, generic-append-log-unsupported-flags-refusal, and generic-append-log-fanotify-refusal. scripts/smoke/move-envelope-matrix.sh PROOF_NAMES/PROOF_LABELS/PROOF_FUNCS include those rows, and docs/snapshot/generic-resource-graph-inventory.json maps them. Validation: pnpm run generic-resource-graph-coverage passed in 0.258s with matrixProofNames=177, inventoryProofNames=177, missing=[], extra=[], duplicates=[], missingGenericRows=[]; pnpm run check-smoke-manifest passed in 0.701s and reported smoke manifest ok: 70 entries; generic resource graph coverage ok."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove focused unit tests for capture parsing, classifier acceptance/refusal, target loader command/preflight, rendezvous no-launch gates, and bespoke priority pass.",
+      "evidence": "Focused unit tests for the append slice and adjacent generic gates passed. packages/cli/src/__tests__/move-generic-resource-graph.test.ts now covers append descriptor acceptance at EOF, append offset mismatch refusal, unsupported append flags refusal using octal:0103001 (O_APPEND|O_TRUNC), non-append writable refusal, deleted fd refusal, stale identity/file preflight command generation, generic loader preflight-first command ordering, and generic loader refusal before launch when resource refusals remain. The focused command also ran packages/cli/src/__tests__/move-resource-plan.test.ts, packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts, and packages/cli/src/__tests__/move-rendezvous.test.ts, covering proc/resource parsing, serialized state, rendezvous loader gates, no-launch refusals, and bespoke priority. Validation: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts passed 99 tests in 1.851s after the unsupported-flags tightening; pnpm run typecheck passed in 3.522s; pnpm run format:check passed in 1.664s; bash -n scripts/smoke/move-envelope-matrix.sh passed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove repository validation passes with format, lint, docs build when public API/docs changed, typecheck, focused tests, targeted matrix rows, generic coverage/check-smoke-manifest, and fallow audit.",
+      "evidence": "Repository validation for the append child goal passed. Commands: pnpm run build:docs passed in 2.562s; pnpm run format:check passed in 2.323s; pnpm run lint passed in 1.578s; pnpm run typecheck passed in 4.291s; NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts passed 99 tests in 2.419s; targeted local matrix passed in 127.832s with retained artifact /tmp/machinen-move-matrix-9550-1781262594; pnpm run generic-resource-graph-coverage passed in 0.258s; pnpm run check-smoke-manifest passed in 0.701s; pnpm exec fallow audit --changed-since origin/main completed in 1.463s with only a warning-level pre-existing duplication report in packages/runtime/src/vm/boot.ts and no command failure."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts",
+      "proves": "Focused capture, classifier, append loader/preflight, rendezvous no-launch, and bespoke-priority behavior passes."
+    },
+    {
+      "check": "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-append-log-cursor,<append-log-refusal-rows> --json",
+      "proves": "Local append-only support and refusal rows exercise the contract end to end with retained artifacts."
+    },
+    {
+      "check": "remote amd64 matrix attempt for representative append-only support and refusal rows using MACHINEN_VMM and MACHINEN_GVPROXY from the repaired remote checkout",
+      "proves": "Cross-architecture target-native append behavior is either proven remotely or narrowly classified as an infrastructure blocker without claiming success."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-coverage && pnpm run check-smoke-manifest",
+      "proves": "Coverage tooling and smoke manifest checks include the append rows and fail on drift."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Formatting is valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and health guards pass for changed files."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Generated API/docs are current when public API or docs changed."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript types are valid."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture audit passes for changed code."
+    }
+  ],
+  "stopIf": [
+    "The implementation would require arbitrary writable-file continuation, arbitrary process restore, VM/ELF/runtime-level restore, metadata-only success, sidecar replay, app-exported-state hooks, checkpoint hooks, source-ISA emulation, any-binary support, or broad runtime restore.",
+    "Append semantics cannot be made exact for the observed shape and a fail-closed refusal cannot be produced before target loader launch.",
+    "A support row would need to accept log rotation, truncation, concurrent writers, mmap dirty state, file locks, inotify/fanotify follow state, or unknown fd flags without explicit modeled evidence.",
+    "Bespoke/app-specific envelope priority would be weakened during the migration period without an explicit proven migration contract.",
+    "Remote amd64 proof fails for an infrastructure reason that cannot be narrowly classified with retained artifacts.",
+    "Coverage, docs, inventory, matrix rows, or migration mappings drift and cannot be reconciled in the same goal run.",
+    "Validation commands required by the contract cannot be run or cannot pass after a reasonable fix attempt.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Inspected current wave 2 append-only refusal implementation and regular-file cursor loader before implementing support. Current state: packages/cli/src/move-generic-wave2-baseline.ts detects O_APPEND writable regular-file fds with fd flags, records descriptor access=append-only-refused and cursor.policy=append-only-end, then emits refusalClass appendOnlyRegularFileCursor. genericResourceGraphLoaderCommand refuses immediately when genericResourceGraphState.refusalClasses is non-empty, so no append candidate can currently reach the target loader. packages/cli/src/move-generic-file-cursor-loader.ts reconstructs only read-only regular files: target preflight validates file exists, size, and sha256; loader opens O_RDONLY, lseeks to captured offset, dup2s to the target fd, and execvp launches target argv. Existing local/remote wave2 baseline rows prove append-only candidates refuse with loaderStarted=false, but no append-only support loader or support matrix row exists yet.",
+      "designedContract": "Narrow support should add a distinct accepted append access state (for example append-only) while preserving append-only-refused for unsafe candidates. Accepted shape should require a regular existing non-deleted path, O_APPEND set, write access, captured fd number/flags/offset/size/dev/inode/mtime/sha256 descriptor evidence, target preflight full size+sha256 equality before launch, no fileLock/mmapFile/inotify/fanotify/unsupported resource refusals, and no non-append writable ambiguity. The target loader should open accepted files with O_WRONLY|O_APPEND, dup2 them to captured fd numbers, exec target-native argv, and require visible post-load append progress evidence in the support row. Refusals should cover stale/truncated/rotated/missing target log, offset/EOF mismatch if the chosen contract requires captured offset==size, non-append writable fd, unsupported flags, lock/mmap/inotify/fanotify interactions, and any concurrent-writer ambiguity that cannot be made exact.",
+      "files": [
+        "packages/cli/src/move-generic-wave2-baseline.ts",
+        "packages/cli/src/move-generic-file-cursor-loader.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh"
+      ]
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Implemented the first narrow append-only support slice and focused tests. Added regularFiles[].access=\"append-only\" to the runtime descriptor type. Updated the wave2 baseline helper so O_APPEND regular-file fds are accepted only when captured offset equals captured size; otherwise they remain append-only-refused with appendOnlyRegularFileCursor refusal. Non-append writable fds remain writableRegularFileCursor. Updated the generic regular-file cursor loader so accepted append-only fds are reconstructed with os.O_WRONLY|os.O_APPEND, lseek, dup2, and execvp; read-only fd behavior remains O_RDONLY. Focused tests prove accepted append descriptor/cursor state, offset-mismatch refusal, non-append writable refusal, deleted fd refusal, and O_APPEND in the generated loader command.",
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 99 tests passed, 1.730s",
+        "pnpm run typecheck \u2014 passed, 3.651s",
+        "pnpm run format:check \u2014 initially failed on formatting; formatted touched files; rerun passed, 1.415s"
+      ],
+      "files": [
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/cli/src/move-generic-wave2-baseline.ts",
+        "packages/cli/src/move-generic-file-cursor-loader.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts"
+      ],
+      "lineCaps": {
+        "packages/cli/src/move-generic-resource-graph.ts": 865,
+        "packages/cli/src/commands/move.ts": 1000,
+        "packages/cli/src/move-rendezvous.ts": 998
+      }
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Added and proved local append-only support/preflight matrix rows. generic-append-log-cursor proves a source fd opened append-only, lseeked to EOF, saved as access=append-only/policy=append-only-end, and target-loaded with visible append progress. generic-append-log-preflight-refusals proves stale, truncated, and missing target logs refuse before target pid. Added generic-append-log-unsupported-flags-refusal and tightened accepted flags so O_APPEND|O_TRUNC refuses even at EOF. Existing local refusal rows for offset mismatch, non-append writable fds, file locks, mmap, and inotify still pass. Fanotify interaction remains to be recorded before the local-refusal proof row is marked proven.",
+      "retainedArtifact": "/tmp/machinen-move-matrix-7906-1781262223",
+      "failedThenFixedArtifact": "/tmp/machinen-move-matrix-6399-1781262048",
+      "matrixCommand": "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-append-log-cursor,generic-append-log-preflight-refusals,generic-append-only-file-cursor-refusal,generic-append-log-unsupported-flags-refusal,generic-writable-file-cursor-refusal,generic-file-lock-refusal,generic-mmap-file-refusal,generic-inotify-file-refusal --json",
+      "matrixTiming": "126.116s",
+      "passedRows": [
+        "generic-append-log-cursor",
+        "generic-append-log-preflight-refusals",
+        "generic-writable-file-cursor-refusal",
+        "generic-append-only-file-cursor-refusal",
+        "generic-append-log-unsupported-flags-refusal",
+        "generic-file-lock-refusal",
+        "generic-mmap-file-refusal",
+        "generic-inotify-file-refusal"
+      ],
+      "supportEvidence": {
+        "appendAccess": "append-only",
+        "appendPolicy": "append-only-end",
+        "logEntries": 1,
+        "targetPid": 1544
+      },
+      "preflightRefusals": [
+        {
+          "case": "stale",
+          "reason": "file-identity-mismatch",
+          "targetPid": null
+        },
+        {
+          "case": "truncated",
+          "reason": "file-size-mismatch",
+          "targetPid": null
+        },
+        {
+          "case": "missing",
+          "reason": "file-missing",
+          "targetPid": null
+        }
+      ],
+      "validation": [
+        "focused Vitest 4 files / 99 tests passed in 1.851s",
+        "pnpm run typecheck passed in 3.522s",
+        "pnpm run format:check passed in 1.664s",
+        "bash -n scripts/smoke/move-envelope-matrix.sh passed"
+      ],
+      "files": [
+        "packages/cli/src/move-generic-wave2-baseline.ts",
+        "packages/cli/src/move-generic-file-cursor-loader.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh"
+      ]
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Completed append-only log fd continuation child-goal proof. Added generic-append-log-fanotify-refusal, updated docs/inventory/coverage/API, reran local support/refusal matrix, attempted remote representative rows, classified the remote as aarch64/x64-gvproxy environment blocker with retained cleanup artifacts, and ran final validation. The child goal now has all 12 proof rows proven with row evidence.",
+      "localArtifact": "/tmp/machinen-move-matrix-9550-1781262594",
+      "remoteArtifact": "/tmp/remote-append-log-matrix-1781263428",
+      "remoteClassification": "narrow blocker: host uname -m is aarch64 and cannot run the x86_64 gvproxy path required for an amd64 proof; no remote success claimed",
+      "validation": [
+        "pnpm run build:docs \u2014 passed, 2.562s",
+        "pnpm run format:check \u2014 passed, 2.323s",
+        "pnpm run lint \u2014 passed, 1.578s",
+        "pnpm run typecheck \u2014 passed, 4.291s",
+        "focused Vitest 4 files / 99 tests \u2014 passed, 2.419s",
+        "targeted local append matrix \u2014 passed, 127.832s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.258s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.701s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 completed, 1.463s"
+      ]
+    }
+  ],
+  "nextAction": "Child goal complete. Return to umbrella goal and mark the append/writable frontier row proven with this child evidence; then finish umbrella inventory/docs/coverage/remote/final rows if not already proven.",
+  "status": "COMPLETE"
+}

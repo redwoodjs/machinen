@@ -1,0 +1,460 @@
+{
+  "title": "Generic resource graph productization roadmap",
+  "goal": "Turn the completed generic resource graph proof expansion into a product-facing machinen move path for only exact target-native rows that have support, refusal, inventory, docs, coverage, and retained-artifact evidence. Keep proof-only same-arch continuation, cross-arch semantic reconstruction, broad service/database/process movement, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcuts, and arbitrary process restore explicitly out of product support unless a later goal proves a narrower product contract.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove every completed full-expansion proof row is classified as product-candidate, proof-only, refusal-only, or deferred, with a recorded reason and exact non-claims for same-arch continuation, cross-arch semantic reconstruction, broad service/database/process movement, source-fd teleportation, source-ISA emulation, and metadata-only success.",
+      "evidence": "Created docs/snapshot/generic-resource-graph-productization-classification.json to classify every proof row from scripts/smoke/move-envelope-generic-resource-graph-full-expansion-plan.json before changing product routing. Validation compared the classification rows with the retained full-expansion plan and passed in 0.02s: expected=28, classified=28, missing=[], extra=[], duplicate=[], invalid=[]. Counts are product-candidate=4 (generic-finite-pipe-buffer-replay, generic-stdio-pipe-product-marker, generic-service-redis-idle-parity, redis-live-generic-primary-marker), proof-only=3 (generic-service-process-tree-prefork, generic-same-arch-modeled-continuation, generic-cross-arch-semantic-reconstruction), refusal-only=14, and deferred=7. Every row records a reason and nonClaims. Product-candidate classification is explicitly advisory and does not itself promote routing; product use still requires exact-live-capture productPath metadata, refusalClasses=[], support/refusal pairings, target health/output evidence, inventory/docs registration, and retained proof coverage. Exact non-claims recorded include no arbitrary process restore, no broad daemon/database/service migration, no active session migration, no source-fd teleportation, no source-ISA emulation, no metadata-only success, and no runtime-profile shortcut. JSON parse for the classification and goal files passed in 0.02s. Formatting was applied with pnpm run format, and pnpm run format:check passed in 1.72s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the first productizable exact-live-capture subset is defined and requires migration.productPath.kind=exact-live-capture, refusalClasses=[], explicit support/refusal pairings, target health or output evidence, inventory registration, docs registration, and retained proof coverage.",
+      "evidence": "Defined the first productizable exact-live-capture subset in docs/snapshot/generic-resource-graph-productization-subset.json and retained plan scripts/smoke/move-envelope-productization-phase1-plan.json. Phase 1 intentionally contains exactly one product marker, generic-stdio-pipe-product-marker, with support generic-finite-pipe-buffer-replay and refusal generic-pipe-stdio-refusals. Redis/database candidates are explicitly deferred from phase 1 to avoid broad database/service product claims. The subset contract requires productPath.kind=exact-live-capture, refusalClasses=[], explicit support/refusal proofs, target health/output evidence, inventory registration, documentation registration, and retained proof coverage; productRoutingEffect remains advisory-only-until-implementation-goal-promotes-routing. Validation passed in 0.03s: productizableRows=1, expectedProofs=3, errors=[], classification product-candidate/productPathEligible matched, inventory genericLiveProductPathCandidates matched support/refusal names, retained marker productPath matched kind/support/refusals/observedGraph, marker target output=19, unsafe sibling unsafeLoadAccepted=false and unsafeLoaderStarted=false, support target output=20, and docs/snapshot/generic-resource-graph-frontier.md, docs/snapshot/generic-resource-graph-move.md, and docs/snapshot/generic-pipes-stdio-graduation.md all mention the marker. Retained coverage passed in 0.02s with expectedCount=3, coveredCount=3, missing=[], extra=[], failed=[] using /tmp/machinen-productization-phase1-retained-coverage. JSON parse for subset and plan passed in 0.02s. Formatting passed with pnpm run format:check in 1.58s after pnpm run format. Non-claims preserved: no arbitrary process restore, broad daemon/database/service migration, active session migration, shell/PTY stdio migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, Redis/database productization, same-arch product support, or cross-arch semantic product support."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove machinen move has a user-facing plan or explanation path that reports why a move selects the generic product path, explicit fallback, proof-only path, or fail-closed refusal, without exposing proof-only rows as product support.",
+      "evidence": "Added packages/cli/src/move-generic-resource-graph-explain.ts with explainGenericResourceGraphMovePlan(), a user-facing explanation path for generic resource graph move decisions. The explanation returns decision, productSupport boolean, proofName, userMessage, reasons, and nonClaims. It reports generic-product only when genericResourceGraphIsProductPrimary() accepts exact-live-capture productPath metadata and refusalClasses is empty. It reports fail-closed-refusal when any refusal class is present, explicit-fallback when the generic row is not an exact product path, proof-only for proof-only rows such as generic-same-arch-modeled-continuation and generic-cross-arch-semantic-reconstruction, and deferred for rows such as generic-unix-pathname-client-pair and redis-live-generic-primary-marker. It always includes non-claims: no arbitrary process restore, no broad daemon/database/service migration, no active session migration, no source-fd teleportation, no source-ISA emulation, no metadata-only success, and no runtime-profile shortcut. Focused tests were added in packages/cli/src/__tests__/move-generic-resource-graph.test.ts: the product marker test now proves generic-stdio-pipe-product-marker reports decision=generic-product/productSupport=true only with exact productPath and no refusals, while a pipe refusal reports decision=fail-closed-refusal/productSupport=false; a new test proves explicit fallback, proof-only, and deferred rows all report productSupport=false and explain their boundary without exposing proof-only rows as product support. Validation passed: node --check packages/cli/src/move-generic-resource-graph-explain.ts (0.02s), focused Vitest for product marker/explanation rows (2 passed, 36 skipped, 0.78s), pnpm run lint (0.73s, no health regressions after moving explanation code into a separate module), pnpm run typecheck (3.16s), pnpm run format:check (1.79s), and git diff --check (0.03s). Non-claims: explanation path only; no product routing change, no new accepted resource class, no arbitrary process restore, no broad daemon/database/service migration, no active session migration, no source-fd teleportation, no source-ISA emulation, no metadata-only success, and proof-only/deferred rows remain productSupport=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove only exact resource classes satisfying the product contract are promoted, with support and refusal evidence recorded for each promotion candidate before product routing changes accept it.",
+      "evidence": "Promoted only the exact phase-1 modeled stdio pipe product contract into product routing. Added packages/cli/src/move-generic-product-path.ts with genericProductPathIsPromoted(), which accepts only productPath.kind=exact-live-capture, markerProofName=generic-stdio-pipe-product-marker, supportProofName=generic-finite-pipe-buffer-replay, refusalProofNames=[generic-pipe-stdio-refusals], observedGraph=exact-live-resource-graph, and only when genericResourceGraphIsPrimary() also sees refusalClasses=[]. Updated packages/cli/src/move-generic-resource-graph.ts so genericResourceGraphIsProductPrimary() uses this promoted contract instead of accepting any exact-live-capture metadata. Updated focused tests so the stdio product marker still selects the generic product path, a pipe refusal stays fail-closed with no LOAD_PID, Redis generic-primary marker is deferred/productSupport=false despite exact-live metadata, service markers such as nginx stay behind explicit fallback until productized, and only the promoted phase-1 path selects target-native-generic-resource-graph-reexec-loader. Validation passed: node --check packages/cli/src/move-generic-product-path.ts and packages/cli/src/move-generic-resource-graph-explain.ts (0.03s); focused Vitest for product marker/promoted phase-1/service fallback/explanation rows (4 tests, 2.06s); broader generic-primary/product/fallback/refusalClasses/deferred/proof-only focused Vitest (16 tests, 1.16s); pnpm run lint initially failed because move-generic-resource-graph.ts exceeded the health-guard line limit after the first inline implementation, then passed in 0.71s after moving the promotion contract into a separate module; pnpm run typecheck passed in 3.87s; pnpm run format:check passed in 1.76s; pnpm run generic-resource-graph-coverage passed in 0.19s; git diff --check passed in 0.03s; subset and retained plan JSON parse passed in 0.02s. Non-claims preserved: no Redis/database/service marker promotion in phase 1, no proof-only same-arch/cross-arch product support, no arbitrary process restore, no broad daemon/database/service migration, no active session migration, no source-fd teleportation, no source-ISA emulation, no metadata-only success, and no runtime-profile shortcut."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove proof-only rows stay out of product routing: same-arch modeled continuation, cross-arch semantic reconstruction, proof image acceleration, descriptor harnesses without productPath metadata, and rows whose success depends on proof-only packages or fixtures.",
+      "evidence": "Proved proof-only and proof-fixture paths stay out of product routing. Extended packages/cli/src/__tests__/move-generic-resource-graph.test.ts so generic-service-process-tree-prefork, generic-same-arch-modeled-continuation, and generic-cross-arch-semantic-reconstruction all return productSupport=false and decision=proof-only from explainGenericResourceGraphMovePlan(), and genericResourceGraphIsProductPrimary() stays false. Added a second guard proving proof-only or proof-image labels embedded in exact-live-capture-shaped productPath metadata still do not product-route: generic-same-arch-modeled-continuation, generic-cross-arch-semantic-reconstruction, generic-service-process-tree-prefork, and move-proof-image-arm64-c7c0c1d96a7a all have genericResourceGraphIsPrimary=true only because refusalClasses=[], but genericResourceGraphIsProductPrimary=false and productSupport=false because they are not the promoted phase-1 contract. Focused Vitest `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"proof-only|proof-image|deferred|product marker|promoted|fallback|refusalClasses\"` passed in 1.09s with 14 tests passed and 115 skipped. Audited runtime/product asset paths with `rg` excluding tests; no proof-image strings, MACHINEN_MOVE_MATRIX_IMAGE, move-proof-image, or build-move-proof-image references appeared in packages/cli/src, packages/runtime/src, packages/native-*, scripts/build-base-assets.sh, or scripts/check-asset-freshness.sh outside tests; command passed in 0.01s and /tmp/proof-image-product-rg.out had 0 lines. Parse checks for packages/cli/src/move-generic-resource-graph-explain.ts and packages/cli/src/move-generic-product-path.ts passed in 0.02s. Static validation passed: pnpm run lint (1.57s), pnpm run typecheck (4.12s), pnpm run format:check (2.00s), and git diff --check (0.09s). Non-claims preserved: proof-only same-arch continuation, cross-arch semantic reconstruction, proof-only service-prefork fixture, proof image acceleration, descriptor harnesses without promoted productPath metadata, and rows depending on proof-only packages/fixtures are not product support and do not select product routing."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove coverage fails closed if a product-candidate row loses support/refusal pairs, productPath metadata, refusalClasses=[], retained artifacts, docs-facing proof names, or inventory resource classes.",
+      "evidence": "Proved productization coverage fails closed for the phase-1 product candidate. Added scripts/generic-resource-graph-productization-coverage.mjs and package script pnpm run generic-resource-graph-productization-coverage. The coverage script validates the subset contract requires productPath.kind=exact-live-capture and refusalClasses=[], checks each productizable row is classified product-candidate/productPathEligible=true, verifies inventory support/refusal/productPath/observedGraph/boundary/nonClaim registration, verifies required inventory resource classes (processIdentity, argvEnvCwd, stdio, pipeGraph), checks docs-facing proof names in frontier/move/pipes docs, validates the retained marker/support/refusal artifacts from /tmp/machinen-productization-phase1-retained-coverage, and requires refusal artifacts to contain fail-closed cases with targetPid=null. Updated docs/snapshot/generic-resource-graph-productization-subset.json to record requiredInventoryResourceClasses and updated docs/snapshot/generic-resource-graph-frontier.md plus docs/snapshot/generic-pipes-stdio-graduation.md so generic-stdio-pipe-product-marker documents support proof generic-finite-pipe-buffer-replay and refusal proof generic-pipe-stdio-refusals. Positive validation passed: node --check scripts/generic-resource-graph-productization-coverage.mjs (0.02s), pnpm run generic-resource-graph-productization-coverage (0.15s) with productizationErrors=[], retained phase-1 coverage (0.02s) with expectedCount=3 coveredCount=3 missing=[] extra=[] failed=[], pnpm run generic-resource-graph-coverage (0.16s), and pnpm run check-smoke-manifest (0.32s). Negative fail-closed validation passed in 0.70s via /tmp/run-productization-negatives.sh, producing rc=1 and non-empty productizationErrors for all required regressions: missing support/refusal pair (`generic-stdio-pipe-product-marker missing refusalProofNames`), missing productPath metadata (`missing exact-live-capture productPath metadata`), non-empty refusalClasses (`productPath must require refusalClasses=[]`), missing retained artifact (`generic-pipe-stdio-refusals missing retained artifact`), missing docs-facing proof name (`move documentation missing generic-stdio-pipe-product-marker`), and missing inventory resource class (`generic-stdio-pipe-product-marker missing inventory resourceClass pipeGraph`). Negative artifacts were written under /tmp/machinen-productization-coverage-negatives-timed-* with the latest path recorded in /tmp/machinen-productization-coverage-negative-timed-latest. Static validation passed after fixing initial lint curly errors in the new coverage script: pnpm run lint (0.55s), pnpm run typecheck (3.17s), pnpm run format:check (1.47s), and git diff --check (0.02s). Non-claims preserved: coverage only; no new product support beyond generic-stdio-pipe-product-marker, no Redis/database/service productization, no arbitrary process restore, no broad daemon/database/service migration, no active session migration, no source-fd teleportation, no source-ISA emulation, no metadata-only success, and no runtime-profile shortcut."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove CLI and runtime tests cover product selection, fallback priority, refusal explanations, and no-loader-start behavior for unsafe product-adjacent shapes.",
+      "evidence": "Proved CLI and runtime tests cover product selection, fallback priority, refusal explanations, and no-loader-start behavior for unsafe product-adjacent shapes. Added runtime descriptor tests in packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts proving MoveGenericResourceGraphState can carry exact phase-1 live-capture productPath metadata with refusalClasses=[] and can also carry product-adjacent refusal evidence with the same productPath while keeping refusalClasses non-empty. Existing and updated CLI tests cover the product routing behavior: generic-stdio-pipe-product-marker selects target-native-generic-resource-graph-reexec-loader only for the promoted phase-1 contract; service markers stay behind explicit fallback; Redis/deferred/proof-only rows report productSupport=false; refusalClasses keep generic-primary from being selected; PHP live blockers and process-tree refusals keep LOAD_PID out of the generic command; and health/preflight failures refuse with no target pid. Focused validation `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts --testNamePattern \"product marker|promoted phase-1|service generic-primary markers|explains fallback|proof-only|proof-image|deferred|fallback|refusalClasses|no target pid|health probe fails|product path metadata|product-adjacent refusal|blocks process-tree|blocks PHP\"` passed in 0.80s with 19 tests passed and 114 skipped. A narrower first pass over the same files for product path metadata/product-adjacent refusal and key product/fallback cases passed in 1.07s with 7 tests passed and 126 skipped. Parse checks for packages/cli/src/move-generic-product-path.ts and packages/cli/src/move-generic-resource-graph-explain.ts passed in 0.01s. Static/coverage validation passed: pnpm run generic-resource-graph-productization-coverage (0.17s, productizationErrors=[]), pnpm run lint (2.55s), pnpm run typecheck (7.01s), pnpm run format:check (4.36s), and git diff --check (0.03s). Non-claims preserved: tests only; no new product rows beyond generic-stdio-pipe-product-marker, no Redis/database/service productization, no proof-only same-arch/cross-arch support, no arbitrary process restore, no broad daemon/database/service migration, no active session migration, no source-fd teleportation, no source-ISA emulation, no metadata-only success, and no runtime-profile shortcut."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove docs/snapshot and packages/runtime/API.md document the user-facing support matrix with exact accepted shapes, exact refusal classes, and plain non-claims: no arbitrary process restore, no broad daemon/database migration, no active session migration, no source-fd teleportation, no source-ISA emulation, and no metadata-only success.",
+      "evidence": "Proved docs/snapshot and packages/runtime/API.md document the phase-1 user-facing support matrix, exact accepted shape, exact refusal classes, and non-claims. Updated docs/snapshot/generic-resource-graph-move.md with a Productization phase 1 user-facing support matrix: the only product route is generic-stdio-pipe-product-marker, accepted only for a modeled finite stdio pipe graph with migration.productPath.kind=exact-live-capture and refusalClasses=[], support proof generic-finite-pipe-buffer-replay, refusal proof generic-pipe-stdio-refusals, and boundaries for partial/unknown pipe writes, missing peers, fan-in/fan-out, shell state, PTY stdio, inherited stdio, stale preflight, loader failure, and non-empty refusalClasses. Updated docs/snapshot/README.md to state the same phase-1 product boundary and non-claims at the product surface. Added TSDoc on MoveGenericResourceGraphState in packages/runtime/src/move-pid-graph.ts; pnpm run build:docs regenerated packages/runtime/API.md with the exact phase-1 product marker/support/refusal names and non-claims. Strengthened scripts/generic-resource-graph-productization-coverage.mjs so productization docs/API coverage requires phase-1 proof names and non-claim phrases across docs, and requires packages/runtime/API.md to include generic-stdio-pipe-product-marker and no arbitrary process restore. Positive validation passed: pnpm run build:docs (2.68s), pnpm run generic-resource-graph-productization-coverage (0.15s, productizationErrors=[]), pnpm run generic-resource-graph-coverage (0.14s), pnpm run lint (0.97s), pnpm run typecheck (3.44s), pnpm run format:check (1.59s), and git diff --check (0.04s). Negative API-doc validation copied docs/API to /tmp/machinen-productization-doc-api-negative-* and removed generic-stdio-pipe-product-marker from the API doc; productization coverage failed closed in 0.03s with rc=1 and `api documentation missing generic-stdio-pipe-product-marker`, latest path recorded in /tmp/machinen-productization-doc-api-negative-latest. An earlier positive coverage run failed because the API phrase `no arbitrary process restore` was line-wrapped; fixed by normalizing whitespace in the coverage script and regenerating docs. Non-claims preserved in docs and API: no arbitrary process restore, no broad daemon/database migration, no active session migration, no source-fd teleportation, no source-ISA emulation, no metadata-only success, no runtime-profile shortcut, and no product support beyond generic-stdio-pipe-product-marker."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove proof image boundaries are preserved: the proof image is not selected by runtime defaults, not copied into native release assets, not required for product users, and only used for proof acceleration or release validation.",
+      "evidence": "Proved proof image boundaries are preserved. Added scripts/check-move-proof-image-boundary.mjs and package script pnpm run check-move-proof-image-boundary. The boundary check scans runtime/product paths (packages/cli/src, packages/runtime/src, packages/native-arm64-linux, packages/native-x64-linux, scripts/build-base-assets.sh, and scripts/check-asset-freshness.sh, excluding tests/dist) for proof-image terms and failed references; it verifies the proof image builder is only the explicit move-envelope validation script, verifies the matrix-only proof-image knobs remain in scripts/smoke/move-envelope-matrix.sh, and verifies docs/snapshot/move-envelope-framework.md says the proof image is a validation fixture only, not a product base asset, not copied into packages/native-* release assets, not selected by runtime defaults, not a runtime-user dependency, and used for manual/nightly/release-scope validation. Positive validation passed: node --check scripts/check-move-proof-image-boundary.mjs (0.01s), pnpm run check-move-proof-image-boundary (0.16s) with checkedRuntimeFiles=236, checkedScripts=129, proofImageBoundaryErrors=[], pnpm run generic-resource-graph-productization-coverage (0.17s), pnpm run lint (1.20s), pnpm run typecheck (3.87s), pnpm run format:check (1.82s), and git diff --check (0.05s). Negative fail-closed proof copied the framework doc to /tmp/machinen-proof-image-boundary-negative-*/doc.md, removed the `not selected by runtime defaults` phrase, and ran MOVE_ENVELOPE_FRAMEWORK_DOC=<negative>/doc.md node scripts/check-move-proof-image-boundary.mjs; it failed as expected in 0.03s with rc=1 and `proof image docs missing phrase not selected by runtime defaults`, latest path recorded in /tmp/machinen-proof-image-boundary-negative-latest. An earlier negative attempt failed to remove the phrase fully because it left the required substring in place; reran with the phrase replaced and observed the expected fail-closed result. Non-claims preserved: proof image acceleration remains validation-only; it is not selected by runtime defaults, not copied into native release assets, not required for product users, and not product support for any move row."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the release validation profile for productized rows is explicit, including targeted proof-image rows, retained coverage, generic coverage, smoke manifest, docs/API build, format, lint, typecheck, focused Vitest, fallow audit, and the conditions for full all-proofs matrix or full smoke tests.",
+      "evidence": "Proved the phase-1 productization release validation profile is explicit and fail-closed. Added scripts/smoke/move-envelope-productization-phase1-validation-profile.json with productizedProofRows=[generic-stdio-pipe-product-marker,generic-finite-pipe-buffer-replay,generic-pipe-stdio-refusals], a targeted proof-image command for those rows, retained coverage command, and 15 required validation steps: matrix syntax, Node parse checks, targeted proof-image rows, retained coverage, productization coverage, generic resource graph coverage, proof-image boundary check, smoke manifest, docs/API build, format, lint, typecheck, focused Vitest, fallow audit, and git diff --check. The profile explicitly keeps the full all-proofs matrix manual/nightly/release-only and says full smoke tests are skipped for docs/coverage/proof-row productization-only changes, but required for VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount, snapshot/restore lifecycle, virtio devices, memory/ballooning, FUSE/live mounts, or explicit user request. Updated docs/snapshot/generic-resource-graph-move.md to reference the validation profile and state the same normal validation/full-matrix/full-smoke boundaries. Strengthened scripts/generic-resource-graph-productization-coverage.mjs to load and validate the validation profile, including required product proof rows, targeted proof-image command coverage, required step names, manual/nightly/release full all-proofs scope, and full smoke VM lifecycle condition. Positive validation passed: validation profile JSON check (0.02s, 15 steps), node --check scripts/generic-resource-graph-productization-coverage.mjs (0.01s), pnpm run generic-resource-graph-productization-coverage (0.19s, productizationErrors=[]), retained phase-1 coverage (0.02s, 3/3), pnpm run build:docs (2.00s), pnpm run generic-resource-graph-coverage (0.16s), pnpm run check-smoke-manifest (0.19s), pnpm run check-move-proof-image-boundary (0.17s), pnpm run lint (0.69s), pnpm run typecheck (3.11s), pnpm run format:check (1.34s), pnpm exec fallow audit --changed-since origin/main (0.62s, existing duplicate warnings only), and git diff --check (0.03s). Negative fail-closed validation copied the validation profile to /tmp/machinen-productization-validation-profile-negative-* and removed fallow-audit; productization coverage failed closed in 0.03s with rc=1 and `validation profile missing required step fallow-audit`, latest path recorded in /tmp/machinen-productization-validation-profile-negative-latest. Non-claims preserved: the profile defines validation only, not product support beyond generic-stdio-pipe-product-marker; full all-proofs matrix remains manual/nightly/release scope; full smoke is not default for docs/coverage/proof-row productization-only changes."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove known blockers are resolved or explicitly deferred: remote amd64 proof host availability, PHP live-capture generic-primary writable/deleted/socket fd blockers, Node static full tree digest identity, and broad database/service/session movement.",
+      "evidence": "Proved known blockers are explicitly deferred for phase-1 productization rather than silently resolved or promoted. Added docs/snapshot/generic-resource-graph-productization-blockers.json with four required blocker rows, all status=deferred: remote-amd64-proof-host-availability, php-live-capture-generic-primary-blockers, node-static-full-tree-digest-identity, and broad-database-service-session-movement. Each row records current evidence, product impact, required-before-promotion conditions, and nonClaims. Updated docs/snapshot/generic-resource-graph-move.md with a Known productization blockers table documenting that friend@100.126.46.90 reports uname -m=aarch64, PHP live-capture remains blocked by writable stdio/log fds plus deleted Zend semaphore fd plus unmodeled socket fd, Node static full tree digest identity remains deferred, and broad database/service/session movement remains outside product support. Strengthened scripts/generic-resource-graph-productization-coverage.mjs to validate the blockers ledger, require all four blocker ids to exist with status=deferred and evidence/product impact/nonClaims, and require the move docs to include the blocker phrases. Direct remote proof host check passed in 2.56s and returned aarch64, so no remote amd64 success claim is made. Positive validation passed: blockers JSON check (0.02s, 4 deferred rows), node --check scripts/generic-resource-graph-productization-coverage.mjs (0.02s), pnpm run generic-resource-graph-productization-coverage (0.16s, blockerRows=4, productizationErrors=[]), focused Vitest for PHP blockers/deferred/service/promoted phase-1 rows (2 passed, 37 skipped, 0.66s), pnpm run generic-resource-graph-coverage (0.16s), pnpm run check-smoke-manifest (0.18s), pnpm run build:docs (2.81s), pnpm run lint (0.84s), pnpm run typecheck (3.45s), pnpm run format:check (1.83s), pnpm exec fallow audit --changed-since origin/main (0.56s, existing duplicate warnings only), and git diff --check (0.04s). Negative fail-closed validation copied the blockers ledger to /tmp/machinen-productization-blockers-negative-* and changed node-static-full-tree-digest-identity status to resolved; productization coverage failed closed in 0.03s with rc=1 and `known blocker node-static-full-tree-digest-identity must be explicitly deferred`, latest path recorded in /tmp/machinen-productization-blockers-negative-latest. Non-claims preserved: no remote amd64 success from the current friend host, no live PHP promotion, no Node static HTTP generic product support in phase 1, no broad daemon/database/service migration, no active session migration, no arbitrary process restore, no source-fd teleportation, no source-ISA emulation, no metadata-only success, and no product support beyond generic-stdio-pipe-product-marker."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove final productization validation passes with timing evidence and that the PR/docs record the final product support matrix, proof-only boundaries, retained artifacts, and non-claims.",
+      "evidence": "Proved final productization validation passed and the PR/docs record the final product support matrix, proof-only boundaries, retained artifacts, and non-claims. Product support remains limited to generic-stdio-pipe-product-marker with migration.productPath.kind=exact-live-capture, observedGraph=exact-live-resource-graph, support proof generic-finite-pipe-buffer-replay, refusal proof generic-pipe-stdio-refusals, and refusalClasses=[]. Docs record the phase-1 matrix, proof-only/deferred boundaries, validation profile, known blockers, and non-claims in docs/snapshot/generic-resource-graph-move.md, docs/snapshot/README.md, docs/snapshot/generic-resource-graph-productization-subset.json, docs/snapshot/generic-resource-graph-productization-classification.json, docs/snapshot/generic-resource-graph-productization-blockers.json, and packages/runtime/API.md. Updated PR #936 body via gh pr edit in 1.86s to record the final phase-1 product matrix, exact support/refusal rows, proof-only/deferred boundaries, known blockers, retained artifacts, and validation results. Final validation passed: matrix script syntax (0.01s), Node script parse checks (0.02s), validation profile/blocker JSON check (0.02s), targeted proof-image product rows using /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz (108.89s, state=passed, rows generic-finite-pipe-buffer-replay/generic-stdio-pipe-product-marker/generic-pipe-stdio-refusals, kept work dir /tmp/machinen-move-matrix-33045-1781377622), phase-1 retained coverage (0.02s, expectedCount=3 coveredCount=3 missing=[] extra=[] failed=[]), pnpm run generic-resource-graph-productization-coverage (0.17s, blockerRows=4, productizationErrors=[]), pnpm run generic-resource-graph-coverage (0.16s), pnpm run check-move-proof-image-boundary (0.17s, proofImageBoundaryErrors=[]), pnpm run check-smoke-manifest (0.19s), focused CLI/runtime Vitest (19 tests passed, 114 skipped, 0.92s), pnpm run build:docs (2.77s), pnpm run format:check (1.67s), pnpm run lint (0.90s), pnpm run typecheck (3.53s), pnpm exec fallow audit --changed-since origin/main (0.46s, existing duplicate warnings only), and git diff --check (0.02s). Full all-proofs matrix remains manual/nightly/release scope. Full smoke tests were skipped because the final productization step changed docs, coverage validation, proof-row productization metadata, and validation profiles only; it did not touch VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount, snapshot/restore lifecycle, virtio devices, memory/ballooning, or FUSE/live mounts. Non-claims preserved: no product support beyond generic-stdio-pipe-product-marker, no arbitrary process restore, no any-binary movement, no broad daemon/database/service migration, no active session migration, no source-fd teleportation, no source-ISA emulation, no metadata-only success, no runtime-profile shortcut, no live PHP generic-primary support, no Node static HTTP generic product support in phase 1, no remote amd64 success claim from friend@100.126.46.90, and no product support for proof-only same-arch/cross-arch harness rows."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "pnpm run generic-resource-graph-coverage",
+      "proves": "Product candidates, proof names, inventory rows, docs-facing names, productPath metadata, support/refusal pairings, and refusal classes remain aligned."
+    },
+    {
+      "check": "pnpm run check-smoke-manifest",
+      "proves": "Smoke manifest integration remains consistent with the selected product and proof rows."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run <focused product selection, fallback, refusal, and resource graph tests>",
+      "proves": "Product routing, fallback priority, refusal explanations, and fail-closed behavior are covered by focused unit tests."
+    },
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --only <productized support/refusal rows> --timings --image <proof-image>",
+      "proves": "Each productized support/refusal row still passes with timing and artifact evidence."
+    },
+    {
+      "check": "node scripts/move-envelope-matrix-coverage.mjs --plan <productization retained plan> --coverage-dir <retained artifacts> --json",
+      "proves": "Retained artifacts cover all expected productization rows and fail closed for missing, stale, extra, or failed artifacts."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Public docs and API docs reflect the exact product support matrix and boundaries."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Repository formatting remains valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and changed-file health checks pass."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript and build-time validation pass."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and code-health audit passes for changed code and scripts."
+    },
+    {
+      "check": "git diff --check",
+      "proves": "Changed files have no whitespace errors."
+    }
+  ],
+  "stopIf": [
+    "A product path would need arbitrary process restore, source-ISA emulation, metadata-only success, source-fd teleportation, runtime-profile shortcuts, active session migration, or broad daemon/database migration.",
+    "A row lacks both a support proof and an equivalent refusal proof but is being considered for product support.",
+    "A proof-only package, proof image, descriptor harness, or local artifact becomes a runtime product dependency.",
+    "Required validation cannot be run and no narrower evidence can directly cover the changed behavior.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-13T18:30:00Z",
+      "summary": "Classified all 28 completed full-expansion proof rows before any product routing changes. Added docs/snapshot/generic-resource-graph-productization-classification.json with product-candidate/proof-only/refusal-only/deferred classifications, per-row reasons, productPath eligibility, required refusal evidence where applicable, and non-claims.",
+      "filesChanged": [
+        "docs/snapshot/generic-resource-graph-productization-classification.json",
+        ".pi/goals/generic-resource-graph-productization-roadmap.json"
+      ],
+      "commands": [
+        "node classification coverage check against scripts/smoke/move-envelope-generic-resource-graph-full-expansion-plan.json — passed, 0.02s, expected=28 classified=28 missing=[] extra=[] duplicate=[] invalid=[] counts={deferred:7,product-candidate:4,refusal-only:14,proof-only:3}",
+        "node JSON parse for classification and goal files — passed, 0.02s",
+        "pnpm run format:check — passed, 1.72s after pnpm run format"
+      ],
+      "artifacts": ["docs/snapshot/generic-resource-graph-productization-classification.json"],
+      "nonClaims": [
+        "Classification only; no product routing changes. No arbitrary process restore, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or runtime-profile shortcut."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T18:45:00Z",
+      "summary": "Defined phase-1 productizable exact-live-capture subset as the modeled finite stdio pipe product marker only. Added subset JSON and retained coverage plan; copied the three retained artifacts into /tmp/machinen-productization-phase1-retained-coverage; validated exact productPath, refusalClasses=[], support/refusal pairing, target output evidence, inventory/docs registration, and retained coverage.",
+      "filesChanged": [
+        "docs/snapshot/generic-resource-graph-productization-subset.json",
+        "scripts/smoke/move-envelope-productization-phase1-plan.json",
+        ".pi/goals/generic-resource-graph-productization-roadmap.json"
+      ],
+      "commands": [
+        "node phase-1 productization subset validation — passed, 0.03s, productizableRows=1 expectedProofs=3 errors=[]",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-productization-phase1-plan.json --coverage-dir /tmp/machinen-productization-phase1-retained-coverage --json — passed, 0.02s, expectedCount=3 coveredCount=3 missing=[] extra=[] failed=[]",
+        "node JSON parse for subset and plan — passed, 0.02s",
+        "pnpm run format:check — passed, 1.58s after pnpm run format"
+      ],
+      "artifacts": [
+        "docs/snapshot/generic-resource-graph-productization-subset.json",
+        "scripts/smoke/move-envelope-productization-phase1-plan.json",
+        "/tmp/machinen-productization-phase1-retained-coverage"
+      ],
+      "nonClaims": [
+        "Phase 1 is advisory productization planning only; no product routing changed yet. No arbitrary process restore, broad daemon/database/service migration, active session migration, shell/PTY stdio migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, Redis/database productization, same-arch product support, or cross-arch semantic product support."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T19:55:00Z",
+      "summary": "Added and tested user-facing generic resource graph move explanation path. The path distinguishes generic-product, explicit-fallback, proof-only, deferred, fail-closed-refusal, and missing-state decisions, and keeps proof-only/deferred/refused states productSupport=false.",
+      "filesChanged": [
+        "packages/cli/src/move-generic-resource-graph-explain.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        ".pi/goals/generic-resource-graph-productization-roadmap.json"
+      ],
+      "commands": [
+        "node --check packages/cli/src/move-generic-resource-graph-explain.ts — passed, 0.02s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"product marker|explains fallback\" — passed, 2 tests, 0.78s",
+        "pnpm run lint — passed, 0.73s",
+        "pnpm run typecheck — passed, 3.16s",
+        "pnpm run format:check — passed, 1.79s",
+        "git diff --check — passed, 0.03s"
+      ],
+      "artifacts": ["packages/cli/src/move-generic-resource-graph-explain.ts"],
+      "nonClaims": [
+        "Explanation path only; no product routing changed and no new resource class accepted. Proof-only and deferred rows report productSupport=false. No arbitrary process restore, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or runtime-profile shortcut."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T20:00:00Z",
+      "summary": "Restricted product routing to the exact phase-1 modeled stdio pipe product contract. Added a promoted product-path gate and tests proving stdio product marker is accepted while Redis/service markers, proof-only rows, deferred rows, and refusal states are not exposed as product support.",
+      "filesChanged": [
+        "packages/cli/src/move-generic-product-path.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/move-generic-resource-graph-explain.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "packages/cli/src/__tests__/move-rendezvous.test.ts",
+        ".pi/goals/generic-resource-graph-productization-roadmap.json"
+      ],
+      "commands": [
+        "node --check packages/cli/src/move-generic-product-path.ts packages/cli/src/move-generic-resource-graph-explain.ts — passed, 0.03s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"product marker|promoted phase-1|service generic-primary markers|explains fallback\" — passed, 4 tests, 2.06s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"generic-primary|product marker|promoted|fallback|refusalClasses|deferred|proof-only\" — passed, 16 tests, 1.16s",
+        "pnpm run lint — initially failed due move-generic-resource-graph.ts health-guard line count; fixed by moving the promotion contract to packages/cli/src/move-generic-product-path.ts; rerun passed, 0.71s",
+        "pnpm run typecheck — passed, 3.87s",
+        "pnpm run format:check — passed, 1.76s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.19s",
+        "git diff --check — passed, 0.03s",
+        "subset and retained plan JSON parse — passed, 0.02s"
+      ],
+      "artifacts": [
+        "packages/cli/src/move-generic-product-path.ts",
+        "docs/snapshot/generic-resource-graph-productization-subset.json",
+        "scripts/smoke/move-envelope-productization-phase1-plan.json"
+      ],
+      "nonClaims": [
+        "Only generic-stdio-pipe-product-marker is promoted for phase 1. Redis/database/service markers, same-arch continuation, cross-arch semantic reconstruction, proof-only descriptor harnesses, deferred primitives, and refused shapes are not product support. No arbitrary process restore, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or runtime-profile shortcut."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T20:10:00Z",
+      "summary": "Proved proof-only rows and proof-image/proof-fixture labels stay out of product routing. Added focused guards for same-arch, cross-arch, service-prefork fixture, and proof-image labels, plus an audit showing proof-image acceleration is absent from product/runtime/native asset paths outside tests.",
+      "filesChanged": [
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        ".pi/goals/generic-resource-graph-productization-roadmap.json"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"proof-only|proof-image|deferred|product marker|promoted|fallback|refusalClasses\" — passed, 14 tests, 1.09s",
+        "node --check packages/cli/src/move-generic-resource-graph-explain.ts packages/cli/src/move-generic-product-path.ts — passed, 0.02s",
+        "rg audit for proof-image/runtime product references excluding tests — passed, 0.01s, /tmp/proof-image-product-rg.out has 0 lines",
+        "pnpm run lint — passed, 1.57s",
+        "pnpm run typecheck — passed, 4.12s",
+        "pnpm run format:check — passed, 2.00s",
+        "git diff --check — passed, 0.09s"
+      ],
+      "artifacts": [
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "/tmp/proof-image-product-rg.out"
+      ],
+      "nonClaims": [
+        "Proof-only rows, proof-image acceleration, descriptor harnesses without the promoted phase-1 productPath, and proof-only fixture/package rows are not product support. No arbitrary process restore, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or runtime-profile shortcut."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T20:25:00Z",
+      "summary": "Added durable productization coverage and proved it fails closed for support/refusal pair drift, productPath metadata drift, refusalClasses drift, missing retained artifacts, missing docs-facing proof names, and missing inventory resource classes.",
+      "filesChanged": [
+        "scripts/generic-resource-graph-productization-coverage.mjs",
+        "package.json",
+        "docs/snapshot/generic-resource-graph-productization-subset.json",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "docs/snapshot/generic-pipes-stdio-graduation.md",
+        ".pi/goals/generic-resource-graph-productization-roadmap.json"
+      ],
+      "commands": [
+        "node --check scripts/generic-resource-graph-productization-coverage.mjs — passed, 0.02s",
+        "pnpm run generic-resource-graph-productization-coverage — passed, 0.15s, productizationErrors=[]",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-productization-phase1-plan.json --coverage-dir /tmp/machinen-productization-phase1-retained-coverage --json — passed, 0.02s, expectedCount=3 coveredCount=3 missing=[] extra=[] failed=[]",
+        "pnpm run generic-resource-graph-coverage — passed, 0.16s",
+        "pnpm run check-smoke-manifest — passed, 0.32s",
+        "/usr/bin/time -p bash /tmp/run-productization-negatives.sh — passed fail-closed, 0.70s, six rc=1 negative cases for missing support/refusal, productPath kind, non-empty refusalClasses, missing retained artifact, missing doc proof name, and missing inventory resource class",
+        "pnpm run lint — initially failed on new script curly style; fixed and reran successfully, 0.55s",
+        "pnpm run typecheck — passed, 3.17s",
+        "pnpm run format:check — passed, 1.47s",
+        "git diff --check — passed, 0.02s"
+      ],
+      "artifacts": [
+        "scripts/generic-resource-graph-productization-coverage.mjs",
+        "/tmp/machinen-productization-phase1-retained-coverage",
+        "/tmp/run-productization-negatives.sh",
+        "/tmp/machinen-productization-coverage-negative-timed-latest"
+      ],
+      "nonClaims": [
+        "Coverage validation only. No new product support beyond generic-stdio-pipe-product-marker; no Redis/database/service productization, arbitrary process restore, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or runtime-profile shortcut."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T20:35:00Z",
+      "summary": "Added runtime descriptor tests and ran focused CLI/runtime tests proving phase-1 product selection, fallback priority, refusal explanations, and no-loader-start/no-target-pid behavior for unsafe product-adjacent shapes.",
+      "filesChanged": [
+        "packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts",
+        ".pi/goals/generic-resource-graph-productization-roadmap.json"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts --testNamePattern \"product marker|promoted phase-1|service generic-primary markers|explains fallback|proof-only|proof-image|deferred|fallback|refusalClasses|no target pid|health probe fails|product path metadata|product-adjacent refusal|blocks process-tree|blocks PHP\" — passed, 19 tests, 0.80s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run same files --testNamePattern \"product marker|promoted phase-1|service generic-primary markers|explains fallback|proof-only|proof-image|deferred|fallback priority|refusalClasses|product path metadata|product-adjacent refusal\" — passed, 7 tests, 1.07s",
+        "node --check packages/cli/src/move-generic-product-path.ts packages/cli/src/move-generic-resource-graph-explain.ts — passed, 0.01s",
+        "pnpm run generic-resource-graph-productization-coverage — passed, 0.17s, productizationErrors=[]",
+        "pnpm run lint — passed, 2.55s",
+        "pnpm run typecheck — passed, 7.01s",
+        "pnpm run format:check — passed, 4.36s",
+        "git diff --check — passed, 0.03s"
+      ],
+      "artifacts": ["packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts"],
+      "nonClaims": [
+        "Test coverage only. No new product rows beyond generic-stdio-pipe-product-marker; no Redis/database/service productization, proof-only same-arch/cross-arch support, arbitrary process restore, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or runtime-profile shortcut."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T20:50:00Z",
+      "summary": "Documented phase-1 product support matrix in snapshot docs and generated runtime API docs, and strengthened productization coverage to verify docs/API names and non-claims. Proved API-doc removal fails closed.",
+      "filesChanged": [
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/README.md",
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/runtime/API.md",
+        "scripts/generic-resource-graph-productization-coverage.mjs",
+        ".pi/goals/generic-resource-graph-productization-roadmap.json"
+      ],
+      "commands": [
+        "pnpm run build:docs — passed, 2.68s",
+        "pnpm run generic-resource-graph-productization-coverage — passed, 0.15s, productizationErrors=[]",
+        "pnpm run generic-resource-graph-coverage — passed, 0.14s",
+        "negative API-doc coverage with generic-stdio-pipe-product-marker removed — failed closed as expected, rc=1, 0.03s, api documentation missing generic-stdio-pipe-product-marker",
+        "pnpm run lint — passed, 0.97s",
+        "pnpm run typecheck — passed, 3.44s",
+        "pnpm run format:check — passed, 1.59s",
+        "git diff --check — passed, 0.04s"
+      ],
+      "artifacts": [
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/README.md",
+        "packages/runtime/API.md",
+        "/tmp/machinen-productization-doc-api-negative-latest"
+      ],
+      "nonClaims": [
+        "Docs/API only. Product support remains limited to generic-stdio-pipe-product-marker. No arbitrary process restore, broad daemon/database migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, Redis/database/service productization, or proof-only same-arch/cross-arch product support."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T21:05:00Z",
+      "summary": "Added proof-image boundary audit and proved it passes for product/runtime paths while failing closed if docs stop saying the proof image is not selected by runtime defaults.",
+      "filesChanged": [
+        "scripts/check-move-proof-image-boundary.mjs",
+        "package.json",
+        ".pi/goals/generic-resource-graph-productization-roadmap.json"
+      ],
+      "commands": [
+        "node --check scripts/check-move-proof-image-boundary.mjs — passed, 0.01s",
+        "pnpm run check-move-proof-image-boundary — passed, 0.16s, checkedRuntimeFiles=236 checkedScripts=129 proofImageBoundaryErrors=[]",
+        "negative proof-image boundary doc check with not-selected-by-runtime-defaults phrase removed — failed closed as expected, rc=1, 0.03s",
+        "pnpm run generic-resource-graph-productization-coverage — passed, 0.17s",
+        "pnpm run lint — passed, 1.20s",
+        "pnpm run typecheck — passed, 3.87s",
+        "pnpm run format:check — passed, 1.82s",
+        "git diff --check — passed, 0.05s"
+      ],
+      "artifacts": [
+        "scripts/check-move-proof-image-boundary.mjs",
+        "/tmp/machinen-proof-image-boundary-negative-latest"
+      ],
+      "nonClaims": [
+        "Proof image acceleration is validation-only. It is not selected by runtime defaults, not copied into native release assets, not required for product users, and not product support for any move row."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T21:20:00Z",
+      "summary": "Added explicit phase-1 productization validation profile and coverage checks for it. The profile lists targeted proof-image rows, retained coverage, productization/generic coverage, proof-image boundary, smoke manifest, docs/API build, static checks, focused Vitest, fallow audit, diff whitespace, and conditions for full all-proofs/full smoke.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-productization-phase1-validation-profile.json",
+        "scripts/generic-resource-graph-productization-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-move.md",
+        ".pi/goals/generic-resource-graph-productization-roadmap.json"
+      ],
+      "commands": [
+        "validation profile JSON check — passed, 0.02s, 15 required validation steps",
+        "node --check scripts/generic-resource-graph-productization-coverage.mjs — passed, 0.01s",
+        "pnpm run generic-resource-graph-productization-coverage — passed, 0.19s, productizationErrors=[]",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-productization-phase1-plan.json --coverage-dir /tmp/machinen-productization-phase1-retained-coverage --json — passed, 0.02s, 3/3",
+        "pnpm run build:docs — passed, 2.00s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.16s",
+        "pnpm run check-smoke-manifest — passed, 0.19s",
+        "pnpm run check-move-proof-image-boundary — passed, 0.17s",
+        "negative validation profile check missing fallow-audit — failed closed as expected, rc=1, 0.03s",
+        "pnpm run lint — passed, 0.69s",
+        "pnpm run typecheck — passed, 3.11s",
+        "pnpm run format:check — passed, 1.34s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.62s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.03s"
+      ],
+      "artifacts": [
+        "scripts/smoke/move-envelope-productization-phase1-validation-profile.json",
+        "/tmp/machinen-productization-validation-profile-negative-latest"
+      ],
+      "nonClaims": [
+        "Validation profile only. No product support beyond generic-stdio-pipe-product-marker; full all-proofs matrix remains manual/nightly/release scope; full smoke tests are not default for docs/coverage/proof-row productization-only changes."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T21:40:00Z",
+      "summary": "Recorded known productization blockers as explicit phase-1 deferrals and added coverage that fails closed if any required blocker is missing or no longer marked deferred. Verified the remote proof host is aarch64, PHP live-capture blockers remain no-target-pid, Node static full tree digest identity is unclaimed, and broad database/service/session movement remains outside product support.",
+      "filesChanged": [
+        "docs/snapshot/generic-resource-graph-productization-blockers.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "scripts/generic-resource-graph-productization-coverage.mjs",
+        ".pi/goals/generic-resource-graph-productization-roadmap.json"
+      ],
+      "commands": [
+        "ssh -o BatchMode=yes -o ConnectTimeout=5 friend@100.126.46.90 uname -m — passed, 2.56s, output=aarch64; no remote amd64 success claim",
+        "blockers JSON check — passed, 0.02s, 4 deferred rows",
+        "node --check scripts/generic-resource-graph-productization-coverage.mjs — passed, 0.02s",
+        "pnpm run generic-resource-graph-productization-coverage — passed, 0.16s, blockerRows=4 productizationErrors=[]",
+        "negative blockers coverage with node-static-full-tree-digest-identity status changed to resolved — failed closed as expected, rc=1, 0.03s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"blocks PHP|deferred|service generic-primary markers|promoted phase-1\" — passed, 2 tests, 37 skipped, 0.66s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.16s",
+        "pnpm run check-smoke-manifest — passed, 0.18s",
+        "pnpm run build:docs — passed, 2.81s",
+        "pnpm run lint — passed, 0.84s",
+        "pnpm run typecheck — passed, 3.45s",
+        "pnpm run format:check — passed, 1.83s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.56s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.04s"
+      ],
+      "artifacts": [
+        "docs/snapshot/generic-resource-graph-productization-blockers.json",
+        "/tmp/machinen-productization-blockers-negative-latest"
+      ],
+      "nonClaims": [
+        "Known blockers are deferred, not resolved into product support. No remote amd64 success from friend@100.126.46.90, no live PHP generic-primary promotion, no Node static HTTP generic product support in phase 1, no broad daemon/database/service migration, no active session migration, no arbitrary process restore, no source-fd teleportation, no source-ISA emulation, no metadata-only success, and no product support beyond generic-stdio-pipe-product-marker."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T22:05:00Z",
+      "summary": "Ran final productization validation, updated PR #936 body with the final phase-1 support matrix and boundaries, and confirmed docs/API/coverage record the exact product route, proof-only/deferred boundaries, retained artifacts, known blockers, and non-claims.",
+      "filesChanged": [
+        ".pi/goals/generic-resource-graph-productization-roadmap.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-productization-blockers.json",
+        "docs/snapshot/generic-resource-graph-productization-subset.json",
+        "docs/snapshot/generic-resource-graph-productization-classification.json",
+        "scripts/smoke/move-envelope-productization-phase1-validation-profile.json",
+        "scripts/smoke/move-envelope-productization-phase1-plan.json",
+        "packages/runtime/API.md"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-productization-coverage.mjs scripts/check-move-proof-image-boundary.mjs scripts/generic-resource-graph-coverage.mjs scripts/move-envelope-matrix-coverage.mjs scripts/validation-profile.mjs scripts/build-move-proof-image.mjs — passed, 0.02s",
+        "validation profile/blocker JSON check — passed, 0.02s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-stdio-pipe-product-marker,generic-finite-pipe-buffer-replay,generic-pipe-stdio-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 108.89s, work dir /tmp/machinen-move-matrix-33045-1781377622",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-productization-phase1-plan.json --coverage-dir /tmp/machinen-productization-phase1-retained-coverage --json — passed, 0.02s, 3/3",
+        "pnpm run generic-resource-graph-productization-coverage — passed, 0.17s, blockerRows=4 productizationErrors=[]",
+        "pnpm run generic-resource-graph-coverage — passed, 0.16s",
+        "pnpm run check-move-proof-image-boundary — passed, 0.17s, proofImageBoundaryErrors=[]",
+        "pnpm run check-smoke-manifest — passed, 0.19s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts --testNamePattern \"product marker|promoted phase-1|service generic-primary markers|explains fallback|proof-only|proof-image|deferred|fallback|refusalClasses|no target pid|health probe fails|product path metadata|product-adjacent refusal|blocks process-tree|blocks PHP\" — passed, 19 tests, 0.92s",
+        "pnpm run build:docs — passed, 2.77s",
+        "pnpm run format:check — passed, 1.67s",
+        "pnpm run lint — passed, 0.90s",
+        "pnpm run typecheck — passed, 3.53s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.46s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.02s",
+        "gh pr edit 936 --body-file /tmp/pr-936-productization-final-body.md — passed, 1.86s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-33045-1781377622",
+        "/tmp/machinen-productization-phase1-retained-coverage",
+        "/tmp/pr-936-productization-final-body.md",
+        "https://github.com/redwoodjs/machinen/pull/936"
+      ],
+      "nonClaims": [
+        "Final product support remains limited to generic-stdio-pipe-product-marker. No arbitrary process restore, any-binary movement, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, live PHP generic-primary support, Node static HTTP generic product support in phase 1, remote amd64 success from friend@100.126.46.90, or product support for proof-only same-arch/cross-arch harness rows."
+      ]
+    }
+  ],
+  "nextAction": "Goal complete: all 12 productization roadmap proof rows are proven with evidence.",
+  "status": "COMPLETE"
+}

@@ -1,0 +1,298 @@
+{
+  "schemaVersion": 1,
+  "name": "generic-resource-graph-productization-wave2-promote-now-subset",
+  "purpose": "Define the wave-2 promote-now subset before product routing changes. This subset is deliberately limited to five exact-live rows that already have live marker inventory entries and support/refusal pairings; promotion still requires later implementation, retained artifacts, docs/API, tests, and validation.",
+  "sourceClassification": "docs/snapshot/generic-resource-graph-productization-wave2-classification.json",
+  "retainedCoveragePlan": "scripts/smoke/move-envelope-productization-wave2-plan.json",
+  "phase1Baseline": "docs/snapshot/generic-resource-graph-productization-subset.json",
+  "contract": {
+    "requiredProductPathKind": "exact-live-capture",
+    "requiredObservedGraph": "exact-live-resource-graph",
+    "requiredRefusalClasses": [],
+    "requiresExplicitSupportProofNames": true,
+    "requiresEquivalentRefusalProofNames": true,
+    "requiresTargetHealthOrOutputEvidence": true,
+    "requiresInventoryRegistration": true,
+    "requiresDocsApiRegistration": true,
+    "requiresRetainedProofCoverage": true,
+    "requiresFailClosedUnsafeNeighbors": true,
+    "productRoutingEffect": "no-routing-effect-until-wave2-implementation-validation-promotes-allowlist"
+  },
+  "productizableRows": [
+    {
+      "productProofName": "unix-pathname-listener-live-generic-primary-marker",
+      "classificationBucket": "promote-now",
+      "resourceShape": "exact pathname Unix listener recreated target-side with no connected sessions, no fd passing, and stable pathname preflight",
+      "productPath": {
+        "kind": "exact-live-capture",
+        "markerProofName": "unix-pathname-listener-live-generic-primary-marker",
+        "supportProofNames": ["generic-unix-pathname-listener"],
+        "refusalProofNames": ["generic-unix-pathname-listener-refusals"],
+        "observedGraph": "exact-live-resource-graph",
+        "refusalClasses": []
+      },
+      "targetEvidenceRequirements": [
+        "target listener or connect health proof",
+        "no connected client/session evidence",
+        "pathname parent and target path preflight evidence",
+        "refusal cases keep targetPid=null or prevent target launch"
+      ],
+      "registrations": {
+        "inventory": "docs/snapshot/generic-resource-graph-inventory.json genericLiveProductPathCandidates productProofName=unix-pathname-listener-live-generic-primary-marker",
+        "documentation": [
+          "docs/snapshot/generic-resource-graph-move.md",
+          "docs/snapshot/generic-resource-graph-frontier.md",
+          "packages/runtime/API.md"
+        ],
+        "retainedPlan": "scripts/smoke/move-envelope-productization-wave2-plan.json",
+        "requiredInventoryResourceClasses": [
+          "processIdentity",
+          "argvEnvCwd",
+          "unixSocketPathnameListener",
+          "unixSocketRefusal",
+          "healthProbe"
+        ]
+      },
+      "nonClaims": [
+        "no connected Unix session migration",
+        "no abstract/datagram/socketpair migration",
+        "no SCM_RIGHTS fd passing",
+        "no credential-sensitive socket migration"
+      ]
+    },
+    {
+      "productProofName": "reader-cat-live-generic-primary-marker",
+      "classificationBucket": "promote-now",
+      "resourceShape": "exact readonly regular-file reader with stable file identity and deterministic target output",
+      "productPath": {
+        "kind": "exact-live-capture",
+        "markerProofName": "reader-cat-live-generic-primary-marker",
+        "supportProofNames": ["reader-cat"],
+        "refusalProofNames": [
+          "generic-stale-file-identity-refusal",
+          "generic-deleted-file-fd-refusal",
+          "generic-writable-file-cursor-refusal"
+        ],
+        "observedGraph": "exact-live-resource-graph",
+        "refusalClasses": []
+      },
+      "targetEvidenceRequirements": [
+        "deterministic target output proof",
+        "readonly regular file identity evidence",
+        "stable cursor or fully replayable input evidence",
+        "deleted/stale/writable refusal cases keep targetPid=null or prevent target launch"
+      ],
+      "registrations": {
+        "inventory": "docs/snapshot/generic-resource-graph-inventory.json genericLiveProductPathCandidates productProofName=reader-cat-live-generic-primary-marker",
+        "documentation": [
+          "docs/snapshot/generic-resource-graph-move.md",
+          "docs/snapshot/generic-resource-graph-frontier.md",
+          "packages/runtime/API.md"
+        ],
+        "retainedPlan": "scripts/smoke/move-envelope-productization-wave2-plan.json",
+        "requiredInventoryResourceClasses": [
+          "processIdentity",
+          "argvEnvCwd",
+          "regularFileIdentity",
+          "regularFileCursor",
+          "unsupportedResourceRefusal"
+        ]
+      },
+      "nonClaims": [
+        "no writable file fd continuation",
+        "no changed backing file repair",
+        "no arbitrary file-descriptor migration",
+        "no arbitrary command migration"
+      ]
+    },
+    {
+      "productProofName": "grep-live-generic-primary-marker",
+      "classificationBucket": "promote-now",
+      "resourceShape": "exact readonly regular-file grep with deterministic target output and unsafe stdio/file neighbors refused",
+      "productPath": {
+        "kind": "exact-live-capture",
+        "markerProofName": "grep-live-generic-primary-marker",
+        "supportProofNames": ["grep"],
+        "refusalProofNames": [
+          "generic-stale-file-identity-refusal",
+          "generic-deleted-file-fd-refusal",
+          "generic-writable-file-cursor-refusal",
+          "generic-pipe-stdio-refusals"
+        ],
+        "observedGraph": "exact-live-resource-graph",
+        "refusalClasses": []
+      },
+      "targetEvidenceRequirements": [
+        "deterministic target output proof",
+        "readonly input file identity evidence",
+        "unsafe stdio/pipe refusal evidence",
+        "deleted/stale/writable refusal cases keep targetPid=null or prevent target launch"
+      ],
+      "registrations": {
+        "inventory": "docs/snapshot/generic-resource-graph-inventory.json genericLiveProductPathCandidates productProofName=grep-live-generic-primary-marker",
+        "documentation": [
+          "docs/snapshot/generic-resource-graph-move.md",
+          "docs/snapshot/generic-resource-graph-frontier.md",
+          "packages/runtime/API.md"
+        ],
+        "retainedPlan": "scripts/smoke/move-envelope-productization-wave2-plan.json",
+        "requiredInventoryResourceClasses": [
+          "processIdentity",
+          "argvEnvCwd",
+          "regularFileIdentity",
+          "regularFileCursor",
+          "stdio",
+          "pipeGraph",
+          "unsupportedResourceRefusal"
+        ]
+      },
+      "nonClaims": [
+        "no shell pipeline state migration",
+        "no PTY stdio migration",
+        "no mutable input repair",
+        "no arbitrary command migration"
+      ]
+    },
+    {
+      "productProofName": "busybox-nc-listener-live-generic-primary-marker",
+      "classificationBucket": "promote-now",
+      "resourceShape": "exact idle loopback BusyBox nc listener with no active clients and target package/preflight validation",
+      "productPath": {
+        "kind": "exact-live-capture",
+        "markerProofName": "busybox-nc-listener-live-generic-primary-marker",
+        "supportProofNames": ["busybox-nc-listener"],
+        "refusalProofNames": [
+          "unsafe-busybox-nc-refusal",
+          "unsafe-nc-active-refusal",
+          "generic-loader-preflight-refusals"
+        ],
+        "observedGraph": "exact-live-resource-graph",
+        "refusalClasses": []
+      },
+      "targetEvidenceRequirements": [
+        "target listener health proof",
+        "no active client evidence",
+        "target port and package/preflight evidence",
+        "unsafe nc, active-client, and preflight refusal cases keep targetPid=null or prevent target launch"
+      ],
+      "registrations": {
+        "inventory": "docs/snapshot/generic-resource-graph-inventory.json genericLiveProductPathCandidates productProofName=busybox-nc-listener-live-generic-primary-marker",
+        "documentation": [
+          "docs/snapshot/generic-resource-graph-move.md",
+          "docs/snapshot/generic-resource-graph-frontier.md",
+          "packages/runtime/API.md"
+        ],
+        "retainedPlan": "scripts/smoke/move-envelope-productization-wave2-plan.json",
+        "requiredInventoryResourceClasses": [
+          "processIdentity",
+          "argvEnvCwd",
+          "loopbackTcpListener",
+          "noActiveClients",
+          "healthProbe",
+          "unsupportedResourceRefusal"
+        ]
+      },
+      "nonClaims": [
+        "no active TCP session migration",
+        "no arbitrary netcat command support",
+        "no port conflict repair",
+        "no broad daemon migration"
+      ]
+    },
+    {
+      "productProofName": "socat-file-responder-live-generic-primary-marker",
+      "classificationBucket": "promote-now",
+      "resourceShape": "exact idle loopback socat file responder with stable responder file identity and no active clients",
+      "productPath": {
+        "kind": "exact-live-capture",
+        "markerProofName": "socat-file-responder-live-generic-primary-marker",
+        "supportProofNames": ["socat-file-responder"],
+        "refusalProofNames": [
+          "unsafe-socat-file-responder-refusal",
+          "generic-loader-preflight-refusals"
+        ],
+        "observedGraph": "exact-live-resource-graph",
+        "refusalClasses": []
+      },
+      "targetEvidenceRequirements": [
+        "target responder health proof",
+        "stable responder file identity evidence",
+        "no active client evidence",
+        "unsafe responder and preflight refusal cases keep targetPid=null or prevent target launch"
+      ],
+      "registrations": {
+        "inventory": "docs/snapshot/generic-resource-graph-inventory.json genericLiveProductPathCandidates productProofName=socat-file-responder-live-generic-primary-marker",
+        "documentation": [
+          "docs/snapshot/generic-resource-graph-move.md",
+          "docs/snapshot/generic-resource-graph-frontier.md",
+          "packages/runtime/API.md"
+        ],
+        "retainedPlan": "scripts/smoke/move-envelope-productization-wave2-plan.json",
+        "requiredInventoryResourceClasses": [
+          "processIdentity",
+          "argvEnvCwd",
+          "regularFileIdentity",
+          "loopbackTcpListener",
+          "noActiveClients",
+          "healthProbe",
+          "unsupportedResourceRefusal"
+        ]
+      },
+      "nonClaims": [
+        "no active socket session migration",
+        "no arbitrary socat graph support",
+        "no mutable responder file repair",
+        "no broad daemon migration"
+      ]
+    }
+  ],
+  "nonShippedCandidates": {
+    "promoteAfterMissingRefusal": [
+      "generic-readonly-file-cursor",
+      "generic-append-log-cursor",
+      "generic-unix-pathname-client-pair",
+      "generic-file-lock-advisory",
+      "generic-timerfd-relative-oneshot"
+    ],
+    "blockedByTreeIdentity": [
+      "node-static-http-live-generic-primary-marker",
+      "go-static-http-live-generic-primary-marker",
+      "rust-static-http-live-generic-primary-marker",
+      "busybox-httpd-live-generic-primary-marker"
+    ],
+    "blockedByServiceSafety": [
+      "nginx-live-generic-primary-marker",
+      "caddy-live-generic-primary-marker",
+      "ruby-live-generic-primary-marker",
+      "rsync-live-generic-primary-marker",
+      "redis-live-generic-primary-marker"
+    ],
+    "blockedBySessionState": ["tail-live-generic-primary-marker"]
+  },
+  "globalNonClaims": [
+    "no routing effect until later implementation validation promotes the allowlist",
+    "no arbitrary process restore",
+    "no any-binary movement",
+    "no broad daemon/database/service migration",
+    "no active session migration",
+    "no source-fd teleportation",
+    "no source-ISA emulation",
+    "no metadata-only success",
+    "no runtime-profile shortcut",
+    "no product support for tree-identity-blocked static HTTP rows, service-safety-blocked rows, session-state-blocked rows, proof-only continuation, cross-arch semantic reconstruction, proof images, or descriptor harnesses"
+  ],
+  "continuationBoundary": {
+    "productMoveContinuationRouting": "none",
+    "currentLabel": "retained proof/refusal evidence outside product move continuation",
+    "reason": "Rows in this artifact are resource-reconstruction or target-native reexec evidence, not modeled live-state continuation.",
+    "nonClaims": [
+      "no product move continuation claim",
+      "no arbitrary process restore",
+      "no source-fd teleportation",
+      "no source-ISA emulation",
+      "no metadata-only success",
+      "no runtime-profile shortcut",
+      "no unmodeled active session migration"
+    ]
+  }
+}

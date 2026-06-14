@@ -1,0 +1,162 @@
+{
+  "title": "Move proof image followups",
+  "goal": "Update PR #936 with the proof-only move image speedup, keep Pi goal artifacts uncommitted by policy, make the move-envelope speed benchmark reusable with optional proof-image mode, broaden targeted proof-image validation by one package-heavy row, document manual/nightly all-proofs usage with proof image, and identify safe next product-proof wave candidates without broad restore or daemon claims.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove PR #936 was updated to include the proof-only move image speedup work, the php-static timing comparison of default 127.433s versus proof-image 29.156s, the provisioning drop from 107623ms to 162ms, and the proof-only/non-runtime boundary.",
+      "evidence": "Updated PR #936 with /tmp/pr-936-proof-image-update.md via `gh pr edit 936 --body-file /tmp/pr-936-proof-image-update.md`. Verification `gh pr view 936 --json url,title,body` confirmed https://github.com/redwoodjs/machinen/pull/936 still has title `Graduate generic move resource graph wave 3` and its body contains the required speed evidence strings `127.433s`, `29.156s`, `107623ms`, and `162ms`, plus proof-only/non-runtime boundary text including `not a product base asset` and `not selected by runtime defaults`. The PR body also states the proof image is not copied into packages/native-* release assets and runtime users do not need it."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the .pi/goals controller evidence policy was decided and applied: .pi/* goal artifacts remain uncommitted unless explicitly intended, and the working tree status confirms they are not staged for commit.",
+      "evidence": "Decision: keep .pi goal artifacts as local controller evidence and do not stage/commit them unless explicitly requested. Verification `git status --short .pi .pi/goals/move-proof-image-followups.json` shows .pi/extensions/ and .pi/goals/*.json, including .pi/goals/move-proof-image-followups.json and .pi/goals/move-proof-image-validation-speedup.json, are untracked (`??`) and not staged. No .pi files were added to the commit set."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove scripts/move-envelope-speed-benchmark.mjs can optionally pass a proof image to matrix chunks through a flag or environment variable without breaking existing fresh, warm, or parallel modes.",
+      "evidence": "Updated scripts/move-envelope-speed-benchmark.mjs to accept `--image <path>` with default from MACHINEN_MOVE_MATRIX_IMAGE, resolve and validate that the image exists, include proofImage metadata in benchmark-summary.json, pass `--image <path>` through every matrix chunk in fresh/parallel modes, and boot warm-mode reused VMs with the positional proof image before running chunks with `--reuse-vms`. Existing fresh/warm/parallel mode selection remains unchanged; only optional image args are appended. Validation `node --check scripts/move-envelope-speed-benchmark.mjs` passed in 0.021s, and fresh proof-image benchmark execution passed against scripts/smoke/move-envelope-speed-plan.json with proofImage metadata in /tmp/move-speed-proof-image-followup2/benchmark-summary.json."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove reusable speed benchmark evidence compares the existing chunk plan with and without proof-image mode, records timing output, and verifies chunk-plan coverage without rerunning the full all-proofs matrix.",
+      "evidence": "Ran the reusable speed benchmark against scripts/smoke/move-envelope-speed-plan.json without the full all-proofs matrix. Default fresh run: `node scripts/move-envelope-speed-benchmark.mjs --mode fresh --plan scripts/smoke/move-envelope-speed-plan.json --out-dir /tmp/move-speed-default-followup --label default-followup --json` passed in 125.538s wall clock, summary totalWallMs=125503, coverage state=passed. Proof-image fresh run after timing-label fix: `node scripts/move-envelope-speed-benchmark.mjs --mode fresh --plan scripts/smoke/move-envelope-speed-plan.json --out-dir /tmp/move-speed-proof-image-followup2 --label proof-image-followup2 --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz --json` passed in 116.735s wall clock, summary totalWallMs=116707, proofImage metadata recorded, and chunk timings included proof-image:move-proof-image-arm64-c7c0c1d96a7a.tar.gz:chunk-plan-skip details. Retained-artifact coverage passed without rerunning the matrix: `node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-speed-plan.json --coverage-dir /tmp/move-speed-default-followup --json` passed with expectedCount=4, coveredCount=4, missing=[], failed=[]; the same command against /tmp/move-speed-proof-image-followup2 also passed with 4/4. Earlier failed coverage attempts were due to placing coverage output JSON inside the coverage directory; rerunning with output outside the directory passed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove proof-image validation was broadened with one additional package-heavy targeted row such as nginx-static, redis-idle, or socat-file-responder, including retained artifact and timing evidence, while still not running the full matrix.",
+      "evidence": "Broadened proof-image validation with the additional package-heavy targeted row `nginx-static` without running the full matrix. Command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only nginx-static --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 13.639s, retained artifact /tmp/machinen-move-matrix-46573-1781291408. JSON evidence shows loaderStrategy=target-native-nginx-static-loader, targetResponseContains=`nginx proof 15F`, targetPid=472, boot-pair detail=fresh-vms:proof-image:move-proof-image-arm64-c7c0c1d96a7a.tar.gz, provision-pair durationMs=136, and proof:nginx-static durationMs=12103."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove row-local ensure helper cleanup or standardization was assessed and only implemented if it reduced risk/duplication without changing runtime behavior; otherwise record why deferring it is safer.",
+      "evidence": "Assessed row-local ensure helper cleanup with `rg -n \"^ensure_.*_tool\\(\\)|test -x /usr/bin|test -x /usr/sbin|command -v\" scripts/smoke/move-envelope-matrix.sh`. The current helpers already use binary-first checks before apt fallback for Python, BusyBox, OpenBSD nc, rsync, PHP, Ruby, Caddy, nginx, Postgres, Redis, socat, zip/unzip, tree, zstd, and generic Python. The proof-image validator now centralizes the broad tool-presence check. A larger refactor into a shared shell ensure wrapper was deferred because it would touch many proven matrix rows and increase regression risk without changing runtime behavior; the safer low-risk path is to keep existing binary-first row helpers and rely on the proof-image validator plus targeted rows to avoid apt work when tools are present."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove docs include a manual/nightly/release all-proofs matrix command using the proof image, while preserving normal PR validation as targeted rows plus coverage.",
+      "evidence": "Updated docs/snapshot/move-envelope-framework.md Matrix and remote validation policy. It now includes a concrete manual/nightly/release all-proofs command that builds/selects PROOF_IMAGE with `pnpm --silent move-envelope:build-proof-image -- --json` and runs `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --timings --image \"$PROOF_IMAGE\"`. The same section keeps normal PR validation as targeted rows plus coverage and documents reusable speed benchmark commands for default and proof-image chunk-plan comparisons."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the next product-proof wave candidates are documented as scoped follow-up options, with explicit non-claims for arbitrary process restore, broad daemon support, source-ISA emulation, and broad generic service migration.",
+      "evidence": "Added `Scoped next product-proof wave options` to docs/snapshot/move-envelope-framework.md. It lists scoped follow-up options: stronger service parity/refusal rows for one exact static or idle service shape at a time; descriptor-harness rows graduating to live-capture rows only when the same resource graph and refusal boundaries are observed; and additional fd/resource classes with exact preflight and no-launch refusal evidence. The section explicitly states these are not claims of arbitrary process restore, any-binary movement, broad daemon support, source-ISA emulation, interactive terminal migration, broad generic service migration, or metadata-only success."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove syntax/static validation passes for changed scripts and docs: node --check for modified .mjs scripts, format, lint, docs build if docs changed, smoke manifest if package/manifest/docs policy changed, typecheck if code changes require it, and fallow audit for changed code/scripts.",
+      "evidence": "Final validation after all follow-up edits passed. Syntax: `bash -n scripts/smoke/move-envelope-matrix.sh` passed in 0.013s; `node --check scripts/build-move-proof-image.mjs` passed in 0.028s; `node --check scripts/move-envelope-speed-benchmark.mjs` passed in 0.021s; `node --check scripts/validation-profile.mjs` passed in 0.024s. Static/repo checks: `pnpm run format:check` passed in 2.364s; `pnpm run lint` passed in 0.710s; `pnpm run typecheck` passed in 3.172s after build; `pnpm run build:docs` passed in 2.058s; `pnpm run check-smoke-manifest` passed in 0.209s; `pnpm exec fallow audit --changed-since origin/main` passed in 0.655s with warning-only duplicate groups. Focused TypeScript tests were not run because the follow-up changed JS scripts/docs/package behavior, not TypeScript runtime logic."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "gh pr view 936 --json title,body,url",
+      "proves": "PR #936 body contains the proof-only speedup summary, timing comparison, and non-runtime boundary."
+    },
+    {
+      "check": "git status --short .pi .pi/goals/move-proof-image-followups.json",
+      "proves": ".pi goal artifacts are local controller evidence and not staged for commit."
+    },
+    {
+      "check": "node --check scripts/move-envelope-speed-benchmark.mjs",
+      "proves": "The modified speed benchmark script parses successfully."
+    },
+    {
+      "check": "node scripts/move-envelope-speed-benchmark.mjs --plan scripts/smoke/move-envelope-speed-plan.json --out-dir <dir> --mode fresh --json [--image <proof-image>]",
+      "proves": "The reusable benchmark path runs the representative chunk plan and optionally passes the proof image through to matrix chunks."
+    },
+    {
+      "check": "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-speed-plan.json --coverage-dir <dir> --json",
+      "proves": "Retained chunk-plan outputs cover expected rows without rerunning the full matrix."
+    },
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --only <extra-package-heavy-row> --timings --image <proof-image>",
+      "proves": "A second package-heavy row works in proof-image mode with timing evidence."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Repository formatting remains valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and changed-file health checks pass."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript/build-time validation passes if changed scripts/package behavior requires it."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Documentation generation remains valid after docs changes."
+    },
+    {
+      "check": "pnpm run check-smoke-manifest",
+      "proves": "Smoke manifest and generic resource graph coverage remain consistent after package/docs policy changes."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and code-health audit passes for changed scripts/code."
+    }
+  ],
+  "stopIf": [
+    "Updating the PR would require claiming arbitrary process restore, any-binary movement, broad daemon support, source-ISA emulation, or product runtime dependency changes.",
+    "The proof image speed benchmark requires modifying product base assets, packages/native-* release assets, runtime default image selection, or runtime user dependencies.",
+    "The proof image artifact is unavailable and cannot be rebuilt or safely selected for targeted validation.",
+    "The reusable speed benchmark would require running the full all-proofs matrix instead of a targeted chunk plan.",
+    "Required validation cannot run because local VM/Docker/package mirror infrastructure is unavailable and no safe blocker evidence can be recorded.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-12T21:00:00Z",
+      "summary": "Inspected current PR #936 body, scripts/move-envelope-speed-benchmark.mjs, move-envelope framework docs, and .pi status before implementation. PR body does not yet mention proof-only move image speedup or php-static timing comparison. The benchmark script currently supports fresh/warm/parallel chunk-plan runs and coverage, but has no --image option and warm mode boots reused VMs with the default image. Docs already contain proof-only image policy and normal targeted PR validation policy, but not a concrete manual/nightly all-proofs command or next product-proof wave candidates. git status shows .pi goal artifacts are untracked local controller evidence, not staged.",
+      "filesInspected": [
+        "scripts/move-envelope-speed-benchmark.mjs",
+        "docs/snapshot/move-envelope-framework.md",
+        ".pi/goals/move-proof-image-followups.json"
+      ],
+      "pr": "https://github.com/redwoodjs/machinen/pull/936",
+      "next": "Wire optional proof image support into scripts/move-envelope-speed-benchmark.mjs for fresh/warm/parallel chunk modes."
+    },
+    {
+      "timestamp": "2026-06-12T21:16:00Z",
+      "summary": "Completed follow-up work: updated PR #936 with proof-only speedup and required php-static timing comparison; kept .pi controller artifacts untracked; added --image/MACHINEN_MOVE_MATRIX_IMAGE support to the speed benchmark; documented manual/nightly all-proofs proof-image command and scoped next product-proof wave options; broadened proof-image validation with nginx-static; compared reusable speed benchmark default vs proof-image chunk-plan runs; verified retained-artifact coverage; and ran final syntax/static validation. No full all-proofs matrix was run because it is documented as manual/nightly/release scope.",
+      "artifacts": [
+        "/tmp/pr-936-proof-image-update.md",
+        "/tmp/move-speed-default-followup",
+        "/tmp/move-speed-proof-image-followup2",
+        "/tmp/machinen-move-matrix-46573-1781291408",
+        "/tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz"
+      ],
+      "commands": [
+        "gh pr edit 936 --body-file /tmp/pr-936-proof-image-update.md \u2014 passed; verification confirmed required timing and boundary text",
+        "node scripts/move-envelope-speed-benchmark.mjs --mode fresh --plan scripts/smoke/move-envelope-speed-plan.json --out-dir /tmp/move-speed-default-followup --label default-followup --json \u2014 passed, 125.538s wall, totalWallMs=125503",
+        "node scripts/move-envelope-speed-benchmark.mjs --mode fresh --plan scripts/smoke/move-envelope-speed-plan.json --out-dir /tmp/move-speed-proof-image-followup2 --label proof-image-followup2 --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz --json \u2014 passed, 116.735s wall, totalWallMs=116707",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-speed-plan.json --coverage-dir /tmp/move-speed-default-followup --json \u2014 passed, 4/4",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-speed-plan.json --coverage-dir /tmp/move-speed-proof-image-followup2 --json \u2014 passed, 4/4",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only nginx-static --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 13.639s, artifact /tmp/machinen-move-matrix-46573-1781291408",
+        "bash -n scripts/smoke/move-envelope-matrix.sh \u2014 passed, 0.013s",
+        "node --check scripts/build-move-proof-image.mjs \u2014 passed, 0.028s",
+        "node --check scripts/move-envelope-speed-benchmark.mjs \u2014 passed, 0.021s",
+        "node --check scripts/validation-profile.mjs \u2014 passed, 0.024s",
+        "pnpm run format:check \u2014 passed, 2.364s",
+        "pnpm run lint \u2014 passed, 0.710s",
+        "pnpm run typecheck \u2014 passed, 3.172s after build",
+        "pnpm run build:docs \u2014 passed, 2.058s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.209s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.655s"
+      ],
+      "nonClaims": [
+        "no arbitrary process restore",
+        "no any-binary movement",
+        "no broad daemon support",
+        "no source-ISA emulation",
+        "no product runtime dependency changes",
+        "proof image remains proof-only/test-fixture-only"
+      ]
+    }
+  ],
+  "nextAction": "Goal complete: all proofChecklist rows are proven with non-empty evidence. Keep .pi artifacts uncommitted unless explicitly requested and keep the proof image proof-only/test-fixture-only.",
+  "status": "COMPLETE"
+}

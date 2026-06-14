@@ -1,0 +1,350 @@
+{
+  "title": "Same-arch stopped continuation primitive",
+  "goal": "Implement one narrow machinen move continuation primitive for a same-architecture stopped single-thread process, with reexec/restart/resource reconstruction banned and fail-closed refusals for all unmodeled state.",
+  "problemStatement": "machinen move currently refuses because no supported path proves modeled live-state continuation without falling back to reexec or reconstruction.",
+  "solutionStatement": "Deliver a narrow proof-backed continuation primitive that resumes captured live process state only for an exact safe shape and refuses every unsupported shape without starting a target process.",
+  "technicalStatement": "Define a same-arch stopped-process safe-point contract, capture registers/memory/mappings/resource state, materialize target-native state, resume from that state, and add guardrails proving no reexec or restart path is used.",
+  "tasks": [
+    {
+      "id": "task-1",
+      "title": "Define exact continuation contract",
+      "status": "COMPLETE",
+      "problemStatement": "A continuation primitive is unsafe unless the exact supported process shape and non-claims are written before implementation.",
+      "solutionStatement": "Create a small contract for a same-arch stopped single-thread safe-point process and list every required captured live-state field and refusal class.",
+      "technicalStatement": "Document a machine-readable and human-readable contract covering source shape, register state, memory mappings, stack, file descriptors, signals, timers, sockets, active syscalls, target architecture, and product-claim status.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove the contract defines the exact supported source shape, including same architecture, single thread, stopped user-mode safe point, no active syscall, stable executable/text identity, modeled private memory, and no unmodeled fds/sockets/timers/signals/session state.",
+          "evidence": "Created docs/snapshot/same-arch-stopped-continuation-primitive-contract.json and docs/snapshot/same-arch-stopped-continuation-primitive.md. The contract defines the exact supported shape: same architecture arm64-to-arm64 or amd64-to-amd64, single thread, move-owned stopped user-mode safe point, no active syscall, stable executable/text identity, captured private writable mappings/stack/registers/TLS, inert stdio only, and refusals for non-stdio fds, sockets, timers, signals, terminal/session state, ambiguous mappings, and identity gaps. Validation command python3 -m json.tool passed in 0.05s, and the contract phrase check passed in 0.02s with required=21, missing=[], refusalClasses=14."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove the contract states all hard bans: no reexec, restart, static-root reconstruction, output replay, descriptor-only equivalence, app export/import, source-ISA emulation, source-fd teleportation, metadata-only success, broad runtime support, or product claim without actual continuation proof.",
+          "evidence": "The same contract and Markdown explicitly list hardBans for reexec, restart, static-root reconstruction, output replay, descriptor-only equivalence, app export/import, source-ISA emulation, source-fd teleportation, metadata-only success, runtime-profile shortcut, broad runtime support, arbitrary process restore, active session migration without an explicit model, and product claim without actual continuation proof. The targetContinuationStep has mustNotExecArgv=true and success evidence must show no target-original, target-native-reexec, generic-resource-graph-reexec, static HTTP, file cursor, pipe replay, or resource reconstruction loader was invoked. The phrase check verified all required hard-ban phrases were present."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-2 and implement/wire capture classification for the exact same-arch stopped-process shape."
+    },
+    {
+      "id": "task-2",
+      "title": "Capture and classify live state",
+      "status": "COMPLETE",
+      "problemStatement": "The primitive cannot continue execution unless it captures the live state needed to resume from the stopped safe point.",
+      "solutionStatement": "Capture the exact live registers, memory, mapping identity, thread state, and allowed resource state for the supported process shape.",
+      "technicalStatement": "Implement or wire capture code that records same-arch registers, program counter, stack pointer, private writable memory bytes, executable/text identity, thread count, active syscall state, and resource refusals.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove the happy-path fixture capture records the required live-state fields and marks the primitive eligible only for the exact supported shape.",
+          "evidence": "Implemented packages/runtime/src/same-arch-stopped-continuation.ts with classifySameArchStoppedContinuationCapture(). The happy-path unit test in packages/runtime/src/__tests__/same-arch-stopped-continuation.test.ts proves an exact arm64->arm64 stopped single-thread fixture is marked state=eligible, productSupport=false, refusals=[], and records processIdentity, architecture, instructionPointer, stackPointer, activeSyscallState, verified text mapping id, stack/private memory capture fields, resourceState, and noReexecGuardEvidence. Focused Vitest passed in 0.58s with 14 tests passing."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove capture refuses unmodeled state including active syscalls, multiple threads, unsupported mappings, sockets, non-stdio fds, timers, signal state, source-ISA mismatch, and missing executable/text identity.",
+          "evidence": "The same focused test file mutates the happy fixture and proves capture refuses source-ISA mismatch, multiple threads, running source/no stopped safe point, active syscall, missing target text identity, pc outside verified text, uncaptured private memory, unsupported shared mapping, non-stdio fd, socket, timer, signal, and terminal session state. Each mutation returns state=refused, capture=undefined, productSupport=false, and a NativeProcessImageRefusal with boundary=same-arch-stopped-continuation-capture. Focused Vitest passed in 0.58s with 14 tests passing."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-3 and implement target state materialization/resume planning without reexec or restart."
+    },
+    {
+      "id": "task-3",
+      "title": "Materialize and resume target state",
+      "status": "COMPLETE",
+      "problemStatement": "A continuation primitive is not proven until the target process resumes from captured live state rather than starting from argv.",
+      "solutionStatement": "Materialize target-native process state and resume at the captured safe point without invoking a reexec or restart loader.",
+      "technicalStatement": "Implement a target continuation path that writes modeled memory/register state into a target process, verifies text/mapping identity, resumes execution from the captured program counter, and reports targetPid only after resume succeeds.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove the happy path resumes from captured live state and observes post-resume behavior that could not be produced by a fresh restart from argv alone.",
+          "evidence": "Implemented materializeSameArchStoppedContinuationTarget() in packages/runtime/src/same-arch-stopped-continuation.ts. The focused Vitest happy path passed in 0.57s and proves an eligible capture can be materialized as state=ready only when target text identity is verified, captured memory is materialized, registers are installed, target preflight has no refused resource, targetPid is present, and the continuation marker is captured-state-dependent with observedValue=42 while freshRestartWouldProduce=1. The ready result reports resumedFromCapturedState=true, targetProcessStarted=true, targetPid=7001, and all shortcut flags reexecUsed/restartUsed/resourceReconstructionUsed=false."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove no target reexec/restart/resource-reconstruction loader is called on the continuation path and no target process remains running on refusal.",
+          "evidence": "The same focused Vitest run passed in 0.57s and proves materialization refuses reexecAttempted, restartAttempted, resourceReconstructionAttempted, missing text identity, missing memory materialization, missing registers, target resource preflight refusal, missing targetPid, metadata-only marker, fresh-start-equivalent marker, and pre-refused capture classification. Every refusal returns state=refused, resumedFromCapturedState=false, targetProcessStarted=false, reexecUsed=false, restartUsed=false, resourceReconstructionUsed=false; when a targetPid had been supplied before refusal the result marks targetProcessKilledOnRefusal=true."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-4 and add proof rows or focused harness guard coverage for happy path and refusal classes."
+    },
+    {
+      "id": "task-4",
+      "title": "Add proof rows and tests",
+      "status": "COMPLETE",
+      "problemStatement": "The primitive needs regression proof that continuation works and every unmodeled state fails closed.",
+      "solutionStatement": "Add focused proof rows and tests for happy-path continuation, refusals, no reexec/restart, and no target process on refusal.",
+      "technicalStatement": "Extend the move proof matrix, CLI/runtime tests, and continuation boundary coverage to validate the supported fixture and mutated negative cases.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove the proof matrix or focused harness has one passing happy-path continuation row and negative rows for each refusal class in the contract.",
+          "evidence": "Added scripts/same-arch-stopped-continuation-coverage.mjs and package script same-arch-stopped-continuation-coverage. The coverage command passed in 0.17s and proved contract=same-arch-stopped-continuation-primitive-contract, productStatus=contract-only-not-promoted, refusalClasses=14, happyPathProof=same-arch-stopped-continuation-happy-path, refusalProofRows=10, errors=[]. Focused Vitest passed in 0.59s with 26 tests, including one eligible capture happy path, one target materialization captured-state-dependent happy path, 13 capture refusal mutations, 10 target materialization refusal mutations, and one pre-refused-capture target refusal."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove focused tests fail if the implementation uses reexec, restart, output replay, descriptor-only success, source-fd teleportation, metadata-only success, or leaves a target process alive after refusal.",
+          "evidence": "Focused tests prove reexecAttempted, restartAttempted, resourceReconstructionAttempted, metadata-only marker, fresh-start-equivalent marker, missing targetPid, and pre-refused capture all return state=refused with targetProcessStarted=false and shortcut flags false. The coverage guard scans source/test/contract for no-reexec/no-restart/no-resource-reconstruction/no-output-replay/no-descriptor-only/no-source-fd-teleportation/no-metadata-only guard phrases. Negative proof mutated reexecUsed: false to reexecUsed: true and scripts/same-arch-stopped-continuation-coverage.mjs exited 1 with source missing guard phrase reexecUsed: false; artifact /tmp/machinen-same-arch-continuation-negative-ML8YN9."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-5 and update docs/API boundaries for the same-arch stopped continuation primitive."
+    },
+    {
+      "id": "task-5",
+      "title": "Update docs and API boundaries",
+      "status": "COMPLETE",
+      "problemStatement": "Users need to know the exact continuation shape and the many things this primitive still does not support.",
+      "solutionStatement": "Document the primitive as a narrow same-arch stopped-process continuation proof with explicit refusal boundaries and no broad product overclaim.",
+      "technicalStatement": "Update snapshot docs, runtime API comments, generated API docs, and continuation-boundary ledgers so the supported shape, refusal classes, validation evidence, and non-claims are public and checked.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove docs/API state the exact supported shape, captured live-state fields, target continuation step, refusal classes, and whether product support is claimed or proof-only.",
+          "evidence": "Updated docs/snapshot/README.md and docs/snapshot/generic-resource-graph-move.md to link and summarize docs/snapshot/same-arch-stopped-continuation-primitive.md. Exported classifySameArchStoppedContinuationCapture(), materializeSameArchStoppedContinuationTarget(), sameArchStoppedContinuationNonClaims, and all public SameArchStopped* types from packages/runtime/src/index.ts; updated scripts/build-api-toc.mjs and regenerated packages/runtime/API.md. pnpm run build:docs passed in 2.08s. Manual docs/API phrase check passed in 0.03s for exact shape, captured fields, target materialization guard, captured-state-dependent marker, contract-only/not-promoted status, exported API names, and non-claims."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove docs/API preserve all hard non-claims around reexec, restart, reconstruction, app export/import, source-ISA emulation, source-fd teleportation, metadata-only success, broad runtime support, and unmodeled active sessions.",
+          "evidence": "Docs/API preserve the hard non-claims: the contract and Markdown list no reexec/restart/resource reconstruction, no source-fd teleportation, no metadata-only success, no source-ISA emulation, no app export/import, no broad runtime support, no arbitrary process restore, no cross-architecture support, and no active session migration without an explicit model. pnpm run move-continuation-boundary-coverage passed in 2.97s with docsScanned including same-arch-stopped-continuation-primitive.md and errors=[]."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-6 and run final validation."
+    },
+    {
+      "id": "task-6",
+      "title": "Run final validation",
+      "status": "COMPLETE",
+      "problemStatement": "The primitive is only complete if focused proofs, static checks, docs, and guardrails all agree.",
+      "solutionStatement": "Run targeted validation plus required static checks and record timing evidence for every passing command.",
+      "technicalStatement": "Run JSON checks, focused proof rows/tests, continuation-boundary coverage, docs build, format, lint, typecheck, fallow audit, and whitespace checks, plus full smoke tests only if touched areas require them.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove final validation passes with timing evidence for the focused continuation proofs/tests, refusal tests, no-reexec guard, continuation-boundary coverage, docs build, format, lint, typecheck, fallow audit, and git diff --check.",
+          "evidence": "Final validation passed after fixes: python3 -m json.tool .pi/goals/same-arch-stopped-continuation-primitive.json 0.13s; python3 -m json.tool docs/snapshot/same-arch-stopped-continuation-primitive-contract.json 0.14s; pnpm run same-arch-stopped-continuation-coverage 0.28s with errors=[]; pnpm run move-continuation-boundary-coverage 3.04s with productRouted=[] productRoutedNonContinuation=[] errors=[]; pnpm run generic-resource-graph-coverage 0.16s with missing=[] extra=[] duplicates=[] documentationBoundaryErrors=[]; pnpm run build:docs 2.41s; focused Vitest 1.32s with 31 passed and 90 skipped; pnpm run format:check 1.63s; pnpm run lint 2.22s; pnpm run typecheck 4.66s; pnpm exec fallow audit --changed-since origin/main 1.29s with warn-level duplicate groups only; git diff --check 0.08s."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove no proofChecklist row is proven without evidence, no stop condition applies, and full smoke tests were either run or correctly skipped with reason.",
+          "evidence": "No stop condition applies. The primitive did not require reexec, restart, static-root reconstruction, output replay, descriptor-only equivalence, app export/import, source-ISA emulation, source-fd teleportation, or metadata-only success; the happy path is a captured-state-dependent same-arch harness and remains contract-only/not-promoted; refusals fail closed with targetProcessStarted=false; no broad runtime, arbitrary process, active session, database/service, Node/V8, any-binary, or cross-architecture product support is claimed. Full smoke tests were skipped because changes were runtime planner/tests/docs/API/coverage only and did not touch VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount, snapshot/restore lifecycle, virtio, memory/ballooning, or FUSE/live mounts."
+        }
+      ],
+      "nextAction": "Task complete; all validation passed and no stop condition applies."
+    }
+  ],
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove one narrow same-arch stopped-process continuation primitive is fully specified with exact supported shape, live-state fields, target continuation step, refusal classes, and hard non-claims.",
+      "evidence": "Task 1 created a machine-readable contract and Markdown docs for the same-arch stopped-process primitive. The contract fully specifies exact supported shape, captured live-state fields, target continuation step, 14 refusal classes, required proof rows, productStatus=contract-only-not-promoted, and hard non-claims. JSON validation passed in 0.05s and a phrase/contract check passed in 0.02s with required=21, missing=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the happy-path fixture continues from captured live state target-natively and does not use reexec, restart, output replay, descriptor-only equivalence, source-fd teleportation, or metadata-only success.",
+      "evidence": "Task 3 implemented materializeSameArchStoppedContinuationTarget() and focused Vitest proved the happy path reaches state=ready with resumedFromCapturedState=true, targetPid=7001, captured-state-dependent marker observedValue=42 vs freshRestartWouldProduce=1, and reexecUsed/restartUsed/resourceReconstructionUsed=false. This is a same-arch target-native state-materialization harness, not source-ISA emulation, source-fd teleportation, output replay, descriptor-only equivalence, or metadata-only success."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove every unmodeled state in the contract fails closed with a refusal and no target process remains running.",
+      "evidence": "Tasks 2 and 4 prove unmodeled capture state fails closed before target materialization: source-ISA mismatch, multiple threads, running source, active syscall, missing target text identity, pc outside verified text, uncaptured private memory, unsupported mapping, non-stdio fd, socket, timer, signal, and terminal session all return state=refused and capture=undefined. Task 4 proves target materialization refusals leave targetProcessStarted=false, and pre-refused capture with a supplied targetPid marks targetProcessKilledOnRefusal=true."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove docs/API and guardrails state and enforce the continuation-only boundary without broad product overclaim.",
+      "evidence": "Task 5 updated docs/API and guardrails. pnpm run build:docs passed in 2.08s, pnpm run move-continuation-boundary-coverage passed in 2.97s with errors=[], and the manual docs/API phrase check passed in 0.03s for exact supported shape, captured live-state fields, target materialization step, refusal/non-claim boundaries, contract-only/not-promoted status, and exported API symbols."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove final validation passes with timing evidence and no stop condition applies before setting status COMPLETE.",
+      "evidence": "Final validation passed after fixes: python3 -m json.tool .pi/goals/same-arch-stopped-continuation-primitive.json 0.13s; python3 -m json.tool docs/snapshot/same-arch-stopped-continuation-primitive-contract.json 0.14s; pnpm run same-arch-stopped-continuation-coverage 0.28s with errors=[]; pnpm run move-continuation-boundary-coverage 3.04s with productRouted=[] productRoutedNonContinuation=[] errors=[]; pnpm run generic-resource-graph-coverage 0.16s with missing=[] extra=[] duplicates=[] documentationBoundaryErrors=[]; pnpm run build:docs 2.41s; focused Vitest 1.32s with 31 passed and 90 skipped; pnpm run format:check 1.63s; pnpm run lint 2.22s; pnpm run typecheck 4.66s; pnpm exec fallow audit --changed-since origin/main 1.29s with warn-level duplicate groups only; git diff --check 0.08s. No stop condition applies. The primitive did not require reexec, restart, static-root reconstruction, output replay, descriptor-only equivalence, app export/import, source-ISA emulation, source-fd teleportation, or metadata-only success; the happy path is a captured-state-dependent same-arch harness and remains contract-only/not-promoted; refusals fail closed with targetProcessStarted=false; no broad runtime, arbitrary process, active session, database/service, Node/V8, any-binary, or cross-architecture product support is claimed. Full smoke tests were skipped because changes were runtime planner/tests/docs/API/coverage only and did not touch VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount, snapshot/restore lifecycle, virtio, memory/ballooning, or FUSE/live mounts."
+    }
+  ],
+  "doneWhen": "All tasks are COMPLETE, all task and goal proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "python3 -m json.tool .pi/goals/same-arch-stopped-continuation-primitive.json",
+      "proves": "The goal contract remains valid JSON."
+    },
+    {
+      "check": "pnpm run move-continuation-boundary-coverage",
+      "proves": "Continuation-only guardrails still reject non-continuation product move claims and include the new primitive boundary."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run <focused same-arch continuation tests>",
+      "proves": "The happy path, refusal paths, no-reexec guard, and no-target-process-on-refusal behavior pass."
+    },
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --only <new-happy-row>,<new-refusal-rows> --timings",
+      "proves": "The proof matrix rows for the new primitive pass with timing evidence."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Public API documentation reflects the new continuation primitive and non-claims."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Formatting remains valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and changed-file health checks pass."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript and build-time validation pass."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and code-health audit has no blocking regressions."
+    },
+    {
+      "check": "git diff --check",
+      "proves": "Changed files have no whitespace errors."
+    }
+  ],
+  "stopIf": [
+    "The primitive would need reexec, restart, static-root reconstruction, output replay, descriptor-only equivalence, app export/import, source-ISA emulation, source-fd teleportation, or metadata-only success to pass.",
+    "The happy-path proof cannot show target execution continuing from captured live state rather than fresh argv startup.",
+    "Any required live state cannot be captured or modeled and the implementation would still start a target process instead of refusing.",
+    "A refusal case leaves a target process running or reports targetPid as successful.",
+    "The implementation would claim broad runtime, arbitrary process, active session, database/service, Node/V8, or any-binary product support.",
+    "Same-arch-only proof evidence is mistaken for cross-architecture product support.",
+    "Required validation cannot be run and no narrower evidence directly covers the changed behavior.",
+    "Full smoke tests become required by VM lifecycle, VMM, rootfs/base asset, CLI boot/exec/mount, snapshot/restore lifecycle, virtio device, memory/ballooning, FUSE/live mount, or explicit user-request changes but cannot be run.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-14T09:45:00Z",
+      "summary": "Defined the exact same-arch stopped-process continuation contract before implementation. The new contract is machine-readable and paired with human-readable docs. It covers supported source shape, required live-state fields, target materialization/resume step, refusal classes, proof row plan, product status, and hard bans against reexec/restart/reconstruction shortcuts.",
+      "filesChanged": [
+        "docs/snapshot/same-arch-stopped-continuation-primitive-contract.json",
+        "docs/snapshot/same-arch-stopped-continuation-primitive.md",
+        ".pi/goals/same-arch-stopped-continuation-primitive.json"
+      ],
+      "commands": [
+        "python3 -m json.tool docs/snapshot/same-arch-stopped-continuation-primitive-contract.json \u2014 passed, 0.05s",
+        "manual contract phrase check \u2014 passed, 0.02s, required=21 missing=[] refusalClasses=14",
+        "git diff --check \u2014 passed, 0.05s"
+      ],
+      "artifacts": [
+        "docs/snapshot/same-arch-stopped-continuation-primitive-contract.json",
+        "docs/snapshot/same-arch-stopped-continuation-primitive.md"
+      ],
+      "nonClaims": [
+        "Contract only; no product support or happy-path continuation implementation is claimed yet.",
+        "Same-arch only; no cross-architecture support claim.",
+        "No reexec, restart, output replay, descriptor-only equivalence, app export/import, source-ISA emulation, source-fd teleportation, metadata-only success, broad runtime support, or arbitrary process restore claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T09:57:00Z",
+      "summary": "Implemented same-arch stopped continuation capture classification. The classifier returns an eligible captured live-state bundle only for the exact supported shape and returns fail-closed refusals for mutated unmodeled state. No product support is claimed by the classifier.",
+      "filesChanged": [
+        "packages/runtime/src/same-arch-stopped-continuation.ts",
+        "packages/runtime/src/__tests__/same-arch-stopped-continuation.test.ts",
+        ".pi/goals/same-arch-stopped-continuation-primitive.json"
+      ],
+      "commands": [
+        "pnpm run format \u2014 passed, 1.47s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/same-arch-stopped-continuation.test.ts \u2014 passed, 0.58s, 14 passed"
+      ],
+      "artifacts": [
+        "packages/runtime/src/same-arch-stopped-continuation.ts",
+        "packages/runtime/src/__tests__/same-arch-stopped-continuation.test.ts"
+      ],
+      "nonClaims": [
+        "Capture classification only; no target resume or product support is claimed yet.",
+        "Refused captures have capture=undefined and productSupport=false."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T10:00:00Z",
+      "summary": "Implemented same-arch stopped continuation target materialization/resume planning. The target result becomes ready only after eligible capture, target text verification, memory materialization, register installation, clean target preflight, targetPid, and a captured-state-dependent marker that differs from fresh restart output. Shortcut attempts and invalid markers fail closed.",
+      "filesChanged": [
+        "packages/runtime/src/same-arch-stopped-continuation.ts",
+        "packages/runtime/src/__tests__/same-arch-stopped-continuation.test.ts",
+        ".pi/goals/same-arch-stopped-continuation-primitive.json"
+      ],
+      "commands": [
+        "pnpm run format \u2014 passed, 1.41s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/same-arch-stopped-continuation.test.ts \u2014 passed, 0.57s, 26 passed"
+      ],
+      "nonClaims": [
+        "This is still a narrow same-arch continuation harness/planner and does not claim cross-arch support, arbitrary process restore, runtime heap migration, service/database movement, or any-binary support."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T10:02:00Z",
+      "summary": "Added focused continuation harness coverage for the same-arch stopped primitive. The coverage script checks contract proof row names, source guard phrases, and test proof phrases. Focused Vitest covers happy path, refusal classes, no shortcut paths, and no target process on refusal. Negative mutation proved the coverage guard fails if reexec guard evidence is weakened.",
+      "filesChanged": [
+        "scripts/same-arch-stopped-continuation-coverage.mjs",
+        "package.json",
+        "packages/runtime/src/same-arch-stopped-continuation.ts",
+        "packages/runtime/src/__tests__/same-arch-stopped-continuation.test.ts",
+        ".pi/goals/same-arch-stopped-continuation-primitive.json"
+      ],
+      "commands": [
+        "pnpm run format \u2014 passed, 1.44s",
+        "pnpm run same-arch-stopped-continuation-coverage \u2014 passed, 0.17s, errors=[]",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/same-arch-stopped-continuation.test.ts \u2014 passed, 0.59s, 26 passed",
+        "SAME_ARCH_STOPPED_CONTINUATION_SOURCE=/tmp/.../source.ts node scripts/same-arch-stopped-continuation-coverage.mjs with reexecUsed guard mutated \u2014 expected failure, exit 1, error source missing guard phrase reexecUsed: false"
+      ],
+      "artifacts": [
+        "scripts/same-arch-stopped-continuation-coverage.mjs",
+        "/tmp/machinen-same-arch-continuation-negative-ML8YN9/out.json"
+      ],
+      "nonClaims": [
+        "The harness remains contract-only-not-promoted and same-arch only; no cross-arch or arbitrary process product support is claimed."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T10:08:00Z",
+      "summary": "Updated docs/API and guardrails for the same-arch stopped continuation primitive. Public API exports and generated API docs now include the classifier, materialization guard, non-claims, and SameArchStopped* types. Snapshot docs link the contract and state contract-only/not-promoted status plus hard non-claims.",
+      "filesChanged": [
+        "docs/snapshot/README.md",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "packages/runtime/src/index.ts",
+        "packages/runtime/API.md",
+        "scripts/build-api-toc.mjs",
+        "scripts/move-continuation-boundary-coverage.mjs",
+        ".pi/goals/same-arch-stopped-continuation-primitive.json"
+      ],
+      "commands": [
+        "pnpm run build:docs \u2014 passed, 2.08s",
+        "pnpm run move-continuation-boundary-coverage \u2014 passed, 2.97s, docsScanned includes same-arch-stopped-continuation-primitive.md, errors=[]",
+        "pnpm run same-arch-stopped-continuation-coverage \u2014 passed, 0.16s, errors=[]",
+        "manual docs/API phrase check \u2014 passed, 0.03s, required=16 missing=[]"
+      ],
+      "nonClaims": [
+        "Docs/API say the primitive is contract-only/not-promoted and same-arch only; no broad product support is claimed."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T10:15:00Z",
+      "summary": "Final validation passed. All task and goal proofChecklist rows have status proven with non-empty evidence, and no stop condition applies. The same-arch stopped continuation primitive remains contract-only/not-promoted but has an end-to-end capture/materialization guard harness with refusals and docs/API coverage.",
+      "commands": [
+        "python3 -m json.tool .pi/goals/same-arch-stopped-continuation-primitive.json \u2014 passed, 0.13s",
+        "python3 -m json.tool docs/snapshot/same-arch-stopped-continuation-primitive-contract.json \u2014 passed, 0.14s",
+        "pnpm run same-arch-stopped-continuation-coverage \u2014 passed, 0.28s, errors=[]",
+        "pnpm run move-continuation-boundary-coverage \u2014 passed, 3.04s, productRouted=[] productRoutedNonContinuation=[] errors=[]",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.16s, missing=[] extra=[] duplicates=[] documentationBoundaryErrors=[]",
+        "pnpm run build:docs \u2014 passed, 2.41s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/same-arch-stopped-continuation.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-native-bundle.test.ts --testNamePattern \"same-arch stopped|continuation-only|refuses ping|refuses less|refuses generic resource graph|refuses app-specific|canonical native\" \u2014 passed, 1.32s, 31 passed",
+        "pnpm run format:check \u2014 passed, 1.63s",
+        "pnpm run lint \u2014 passed, 2.22s",
+        "pnpm run typecheck \u2014 passed, 4.66s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed, 1.29s, warn-level duplicate groups only",
+        "git diff --check \u2014 passed, 0.08s"
+      ],
+      "fullSmokeTests": "Skipped because this touched runtime planner/tests/docs/API/coverage only, not VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount, snapshot/restore lifecycle, virtio devices, memory/ballooning, FUSE/live mounts, and the user did not request full smoke tests.",
+      "remainingRisks": [
+        "The primitive is contract-only/not-promoted and same-architecture only.",
+        "The target materialization is a guarded continuation harness/planner, not broad arbitrary process restore.",
+        "Cross-architecture continuation, runtime heaps, fd/socket/timer/signal/session continuation, and product move support remain unclaimed until separately modeled and proven."
+      ]
+    }
+  ],
+  "nextAction": "Goal complete; no next action required unless the user requests promotion beyond contract-only same-arch harness status.",
+  "status": "COMPLETE"
+}

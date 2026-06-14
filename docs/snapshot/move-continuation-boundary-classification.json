@@ -1,0 +1,2990 @@
+{
+  "schemaVersion": 1,
+  "name": "move-continuation-boundary-classification",
+  "purpose": "Classify every current move proof/product row as continuation, resource-reconstruction, reexec, or refusal so product move continuation claims can exclude non-continuation behavior.",
+  "classificationDefinitions": {
+    "continuation": "modeled live execution/resource state continuation, not mere target restart or target output reconstruction",
+    "resource-reconstruction": "finite resource, cursor, file/tree, pipe buffer, or semantic state reconstructed on the target without live execution continuation",
+    "reexec": "target-native process/service/listener restart or reexec from validated executable, argv, cwd, data, listener, and health evidence",
+    "refusal": "negative, unsafe, unsupported, blocker, or probe evidence that prevents or bounds move behavior"
+  },
+  "rowSources": {
+    "matrixProofNames": "scripts/smoke/move-envelope-matrix.sh PROOF_NAMES",
+    "inventoryProofNames": "docs/snapshot/generic-resource-graph-inventory.json families and live product candidates",
+    "retainedProductizationPlans": "scripts/smoke/move-envelope-productization*-plan.json expectedProofs and chunks",
+    "productRouting": "packages/cli/src/move-generic-product-path.ts markerProofName entries"
+  },
+  "classificationSummary": {
+    "resource-reconstruction": 75,
+    "reexec": 49,
+    "refusal": 118,
+    "continuation": 1
+  },
+  "rows": [
+    {
+      "proofName": "awk-field",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "base64-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "busybox-httpd",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "busybox-httpd-live-generic-primary-marker",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "busybox-nc-listener",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "busybox-nc-listener-live-generic-primary-marker",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "caddy-live-generic-primary-marker",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "caddy-live-reverse-proxy-marker-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "caddy-static",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "chmod-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "chown-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "comm-files",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "complex-find-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "cp-offset",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "cut-fields",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "dd-offset",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "du-sb-dir",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "env-python-http-directory",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "find-cursor",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "find-predicate",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-anon-inode-baseline-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-append-log-cursor",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-append-log-fanotify-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-append-log-preflight-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-append-log-unsupported-flags-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-append-only-file-cursor-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-cross-arch-semantic-reconstruction",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-cross-arch-semantic-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-data-dir-daemon",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-database-data-dir-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-deleted-file-fd-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-epoll-eventfd-watch",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-epoll-eventfd-watch-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-epoll-timerfd-watch",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-eventfd-counter",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-eventfd-counter-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-file-backed-worker",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-file-lock-advisory",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-file-lock-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-file-lock-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-finite-pipe-buffer-replay",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-finite-pipe-replay",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-inotify-fanotify-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-inotify-file-follow",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-inotify-file-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-interpreted-server",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-loader-preflight-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-long-running-pipe-pair",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-mmap-dirty-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-mmap-file-backed-clean",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-mmap-file-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-multi-file-readonly-worker",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-multi-process-pipe-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-pipe-stdio-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-process-tree-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-pty-terminal-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-pty-transcript-probe",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-readonly-file-cli",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-readonly-file-cursor",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-same-arch-continuation-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-same-arch-modeled-continuation",
+      "classification": "continuation",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "modeled live-state continuation proof: source execution state is represented explicitly rather than treated as target reexec or output reconstruction"
+    },
+    {
+      "proofName": "generic-service-caddy-static-parity",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-service-nginx-static-parity",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-service-php-static-parity",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-service-process-tree-prefork",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-service-process-tree-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-service-redis-idle-parity",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-service-rsync-daemon-parity",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-service-ruby-http-parity",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-signalfd-signal-state-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-stale-file-identity-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-static-http-daemon",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-stdio-pipe-product-marker",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-timerfd-relative-oneshot",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-timerfd-relative-oneshot-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-two-process-pipe-reexec",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-unix-pathname-client-pair",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-unix-pathname-listener",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-unix-pathname-listener-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-unix-socket-baseline-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-unix-socket-wave2-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-unsupported-resource-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-writable-file-cursor-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "generic-writable-log-daemon",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "generic-yes-loop",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "go-extra-socket-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "go-static-http",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "go-static-http-live-generic-primary-marker",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "grep",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "grep-live-generic-primary-marker",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "gunzip-atomic",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "gzip-atomic",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "head-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "install-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "join-files",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "link-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "ls-dir",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "ls-long-dir",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "maxdepth-find",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "md5sum-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "mkdir-dir",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "mkdir-parents",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "mv-rename",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "native-dlopen-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "nc-listener",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "nginx-live-generic-primary-marker",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "nginx-static",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "node-active-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "node-static-argv-http",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "node-static-http",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "node-static-http-live-generic-primary-marker",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "node-timer-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "node-worker-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "paste-files",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "php-live-socket-fd-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "php-live-stdio-log-fd-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "php-live-zend-semaphore-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "php-static",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "postgres-idle-cluster",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "postgres-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "python-http",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "python-http-active-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "python-http-cgi-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "python-http-directory",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "python-http-explicit-bind-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "python-http-missing-cwd-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "python-http-package-mismatch-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "python-http-port-conflict-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "python-static-route",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "python-unmarked-flask-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "reader-cat",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "reader-cat-live-generic-primary-marker",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "readlink-direct",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "realpath-path",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "recursive-grep",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "redis-idle",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "redis-live-generic-primary-marker",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "redis-live-nonempty-marker-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "rm-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "rmdir-dir",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "rsync-daemon",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "rsync-live-generic-primary-marker",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "rsync-live-write-marker-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "ruby-http",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "ruby-live-generic-primary-marker",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "ruby-live-runtime-marker-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "rust-static-http",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "rust-static-http-live-generic-primary-marker",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "sed-literal-substitution",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "sed-print-range",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "service-config-drift-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "service-managed-child-worker-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "service-per-service-drift-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "service-target-package-missing-normalization",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "sha1sum-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "sha256sum-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "sha512sum-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "shell",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "sleep",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "socat-file-responder",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "socat-file-responder-live-generic-primary-marker",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "sort-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "stat-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "static-http-tree-identity-refusals",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "symlink-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "tail",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "tail-grep-pipeline",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "tail-lines",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "tail-live-generic-primary-marker",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "tar-create",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "tar-extract",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "terminal-tools",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "timeout-python-http-directory",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "touch-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "tree-dir",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "uniq-file",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "unix-pathname-listener-live-generic-primary-marker",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "unsafe-awk-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-base64-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-busybox-httpd-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-busybox-nc-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-caddy-static-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-chmod-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-chown-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-comm-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-cp-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-cut-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-dd-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-du-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-find-predicate-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-gunzip-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-gzip-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-head-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-install-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-join-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-link-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-ls-long-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-ls-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-maxdepth-find-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-md5sum-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-mkdir-parents-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-mkdir-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-mv-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-nc-active-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-nginx-static-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-paste-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-php-static-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-postgres-cluster-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-readlink-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-realpath-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-recursive-grep-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-redis-idle-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-rm-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-rmdir-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-rsync-daemon-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-ruby-http-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-sed-print-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-sed-sub-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-sha1sum-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-sha256sum-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-sha512sum-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-socat-file-responder-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES",
+        "scripts/smoke/move-envelope-productization*-plan.json"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-sort-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-stat-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-symlink-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-tail-lines-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-tar-extract-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-tar-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-timeout-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-touch-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-tree-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-uniq-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-wc-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-xz-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-zip-create-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsafe-zstd-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsupported-env-wrapper-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "unsupported-pipe-graph-refusal",
+      "classification": "refusal",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "negative/probe row: source name or inventory marks refusal, unsupported, unsafe, or capability-probe evidence with no product continuation claim"
+    },
+    {
+      "proofName": "watch",
+      "classification": "reexec",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "target-native reexec/restart row: target process or service is started from validated executable, argv, cwd, listener, health, and resource identity rather than live execution continuation"
+    },
+    {
+      "proofName": "wc-line",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "xz-atomic",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "zip-create",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    },
+    {
+      "proofName": "zstd-atomic",
+      "classification": "resource-reconstruction",
+      "currentProductRouted": false,
+      "productMoveContinuationClaim": false,
+      "requiresRelabelFromProductMoveContinuation": false,
+      "sources": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/smoke/move-envelope-matrix.sh:PROOF_NAMES"
+      ],
+      "reason": "finite resource or command-state reconstruction: target behavior is rebuilt from captured files, cursors, bytes, trees, or semantic descriptors rather than live execution continuation"
+    }
+  ],
+  "nonClaims": [
+    "reexec is not continuation",
+    "resource reconstruction is not continuation",
+    "refusal evidence is not continuation",
+    "proof-only descriptor success is not product move continuation",
+    "no arbitrary process restore",
+    "no source-ISA emulation",
+    "no metadata-only success",
+    "no runtime-profile shortcut",
+    "no source-fd teleportation",
+    "no unmodeled active session migration"
+  ]
+}

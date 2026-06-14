@@ -80,12 +80,13 @@ export function writeNativeProcessImageScaffold(
 }
 
 function nativeContinuationRefusals(descriptor: MoveDescriptor): NativeProcessImageRefusal[] {
-  return descriptor.resourcePlan?.refusals.length
-    ? descriptor.resourcePlan.refusals
+  const existingRefusals = descriptor.resourcePlan?.refusals ?? [];
+  return existingRefusals.length > 0
+    ? existingRefusals
     : [
         nativeMoveRefusal(
           "target-semantic-continuation-missing",
-          "native move continuation is not translated yet",
+          "machinen move requires modeled live-state continuation; target-native reexec, restart, and resource reconstruction are banned",
         ),
       ];
 }

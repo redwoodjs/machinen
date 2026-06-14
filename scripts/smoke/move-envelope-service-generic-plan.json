@@ -1,0 +1,51 @@
+{
+  "name": "move-envelope-service-generic-retained-targets",
+  "description": "Targeted service generic/live-marker proof rows for retained-artifact validation. This plan validates explicit service generic-primary markers, service live-capture blockers, service drift refusals, and service package/config normalization rows without running the full move-envelope matrix.",
+  "expectedProofs": [
+    "nginx-live-generic-primary-marker",
+    "service-managed-child-worker-refusal",
+    "caddy-live-generic-primary-marker",
+    "caddy-live-reverse-proxy-marker-refusal",
+    "ruby-live-generic-primary-marker",
+    "ruby-live-runtime-marker-refusal",
+    "rsync-live-generic-primary-marker",
+    "rsync-live-write-marker-refusal",
+    "redis-live-generic-primary-marker",
+    "redis-live-nonempty-marker-refusal",
+    "php-live-stdio-log-fd-refusal",
+    "php-live-zend-semaphore-refusal",
+    "php-live-socket-fd-refusal",
+    "service-config-drift-refusal",
+    "service-target-package-missing-normalization",
+    "service-per-service-drift-refusals"
+  ],
+  "chunks": [
+    {
+      "name": "live-marker-and-blocker-rows",
+      "proofs": [
+        "nginx-live-generic-primary-marker",
+        "service-managed-child-worker-refusal",
+        "caddy-live-generic-primary-marker",
+        "caddy-live-reverse-proxy-marker-refusal",
+        "ruby-live-generic-primary-marker",
+        "ruby-live-runtime-marker-refusal",
+        "rsync-live-generic-primary-marker",
+        "rsync-live-write-marker-refusal",
+        "redis-live-generic-primary-marker",
+        "redis-live-nonempty-marker-refusal",
+        "php-live-stdio-log-fd-refusal",
+        "php-live-zend-semaphore-refusal",
+        "php-live-socket-fd-refusal"
+      ]
+    },
+    {
+      "name": "service-normalization-and-drift-rows",
+      "proofs": [
+        "service-config-drift-refusal",
+        "service-target-package-missing-normalization",
+        "service-per-service-drift-refusals"
+      ]
+    }
+  ],
+  "fullMatrixScope": "manual-nightly-release-only"
+}

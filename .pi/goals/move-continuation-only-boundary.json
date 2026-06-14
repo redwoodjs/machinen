@@ -1,0 +1,348 @@
+{
+  "title": "Move continuation-only boundary",
+  "goal": "Classify every move proof and product row by behavior, remove or relabel non-continuation rows from product move claims, and make future move work focus only on modeled live-state continuation.",
+  "problemStatement": "The move surface currently mixes continuation with reexec, resource reconstruction, and refusal evidence, which makes product move claims misleading.",
+  "solutionStatement": "Create a checked continuation-only boundary so product move claims apply only to modeled live-state continuation and all non-continuation rows are clearly labeled outside that product claim.",
+  "technicalStatement": "Build a machine-readable classification ledger, update routing/docs/API/help and coverage guards, and validate that non-continuation rows cannot be presented as product move continuation.",
+  "tasks": [
+    {
+      "id": "task-1",
+      "title": "Inventory and classify move rows",
+      "status": "COMPLETE",
+      "problemStatement": "We cannot remove misleading move claims until every proof and product row has a clear behavior class.",
+      "solutionStatement": "Create a complete classification ledger for move proof and product rows using continuation, resource-reconstruction, reexec, or refusal.",
+      "technicalStatement": "Read the smoke matrix, generic inventory, productization subsets, retained plans, routing source, docs, and API references, then write a JSON ledger with one class and evidence fields for each row.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove the classification ledger covers every move-envelope matrix proof row, every generic resource graph inventory row, every retained productization plan row, and every product-routed row with no missing or duplicate names.",
+          "evidence": "Created docs/snapshot/move-continuation-boundary-classification.json and scripts/move-continuation-boundary-coverage.mjs. The coverage command pnpm run move-continuation-boundary-coverage passed in 0.17s and proved expectedRows=243, classifiedRows=243, errors=[]. The expected row set is the union of scripts/smoke/move-envelope-matrix.sh PROOF_NAMES, docs/snapshot/generic-resource-graph-inventory.json family/live product rows, scripts/smoke/move-envelope-productization*-plan.json expectedProofs/chunks, and packages/cli/src/move-generic-product-path.ts product routing markerProofName entries. No missing, extra, or duplicate classification rows were reported."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove every row has exactly one behavior class: continuation, resource-reconstruction, reexec, or refusal, with a short source-backed reason and product-claim status.",
+          "evidence": "The same coverage command validated every ledger row has exactly one allowed classification: continuation, resource-reconstruction, reexec, or refusal; a non-empty reason; source references; and boolean product claim fields. Classification summary: resource-reconstruction=75, reexec=49, refusal=118, continuation=1. It also identified the current product-routed non-continuation rows that must be removed or relabeled next: busybox-httpd-live-generic-primary-marker, busybox-nc-listener-live-generic-primary-marker, generic-stdio-pipe-product-marker, go-static-http-live-generic-primary-marker, grep-live-generic-primary-marker, node-static-http-live-generic-primary-marker, reader-cat-live-generic-primary-marker, rust-static-http-live-generic-primary-marker, socat-file-responder-live-generic-primary-marker, and unix-pathname-listener-live-generic-primary-marker."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-2 and remove or relabel the 10 product-routed non-continuation rows from product move continuation claims."
+    },
+    {
+      "id": "task-2",
+      "title": "Remove non-continuation product move claims",
+      "status": "COMPLETE",
+      "problemStatement": "Rows that are reexec, resource reconstruction, or refusal should not be described as product move continuation.",
+      "solutionStatement": "Remove or relabel non-continuation rows from product move claims while preserving them as proof, reconstruction, reexec, or refusal evidence where appropriate.",
+      "technicalStatement": "Update product routing, explanation output, help/docs/API text, productization metadata, and support matrices so only modeled live-state continuation rows can be called product move continuation.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove every row classified as reexec, resource-reconstruction, or refusal is absent from product move continuation claims or is explicitly relabeled outside continuation.",
+          "evidence": "Removed all former promoted non-continuation markers from packages/cli/src/move-generic-product-path.ts product move continuation routing. pnpm run move-continuation-boundary-coverage passed in 0.15s and 0.17s with productRouted=[] and productRoutedNonContinuation=[] for all 243 classified rows. Updated packages/cli/src/move-generic-resource-graph-explain.ts and focused tests so generic-stdio-pipe-product-marker, reader-cat-live-generic-primary-marker, and grep-live-generic-primary-marker explain as resource-reconstruction, while unix-pathname-listener-live-generic-primary-marker, busybox-nc-listener-live-generic-primary-marker, socat-file-responder-live-generic-primary-marker, node-static-http-live-generic-primary-marker, go-static-http-live-generic-primary-marker, rust-static-http-live-generic-primary-marker, and busybox-httpd-live-generic-primary-marker explain as reexec with productSupport=false. Focused Vitest passed in 0.94s for the former/static/fallback/product marker patterns."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove any retained non-continuation behavior remains available only under accurate names such as reexec, resource reconstruction, proof, or refusal, not product move continuation.",
+          "evidence": "Retained non-continuation evidence was preserved and relabeled in docs/snapshot/generic-resource-graph-move.md, docs/snapshot/generic-resource-graph-frontier.md, docs/snapshot/README.md, docs/snapshot/generic-pipes-stdio-graduation.md, packages/runtime/src/move-pid-graph.ts, packages/runtime/API.md, productization subset/contract JSON, and validation profiles. pnpm run generic-resource-graph-productization-coverage passed in 0.22s after updating scripts/generic-resource-graph-productization-static-http-coverage.mjs to require no product move continuation routing for static HTTP retained reexec evidence. pnpm run generic-resource-graph-coverage passed in 0.15s, preserving inventory and retained proof coverage while the wording now labels rows as resource-reconstruction, reexec, proof, or refusal rather than product move continuation."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-3 and add fail-closed continuation-only guardrails for routing and docs/API wording."
+    },
+    {
+      "id": "task-3",
+      "title": "Add continuation-only guardrails",
+      "status": "COMPLETE",
+      "problemStatement": "Future work could accidentally reintroduce non-continuation rows into product move claims.",
+      "solutionStatement": "Add automated checks that fail when non-continuation rows are routed or documented as product move continuation.",
+      "technicalStatement": "Extend coverage scripts and focused tests to compare the classification ledger against routing, docs/API, explanations, validation profiles, and retained plans.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove coverage fails closed when a reexec, resource-reconstruction, or refusal row appears in product move continuation routing or docs/API wording.",
+          "evidence": "Extended scripts/move-continuation-boundary-coverage.mjs to validate routing source against the classification ledger and to scan docs/API lines for positive product move continuation claims on non-continuation rows. Positive coverage passed with pnpm run move-continuation-boundary-coverage in 2.74s, reporting expectedRows=243, classifiedRows=243, productRouted=[], productRoutedNonContinuation=[], docsScanned=[generic-resource-graph-move.md,generic-resource-graph-frontier.md,README.md,API.md], errors=[]. Negative proof used a temporary routing source and API doc that claimed node-static-http-live-generic-primary-marker as product move continuation; the script exited nonzero with errors for routing mismatch, reexec in product move continuation routing, and bad API wording. Artifact: /tmp/machinen-continuation-boundary-negative-KGgZjC."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove focused tests distinguish true modeled live-state continuation from reexec, resource reconstruction, and refusal rows in explanation output.",
+          "evidence": "Focused Vitest passed in 0.94s for packages/cli/src/__tests__/move-generic-resource-graph.test.ts and packages/cli/src/__tests__/move-rendezvous.test.ts with pattern \"former|static HTTP tree-identity|fallback, proof-only|does not product-route|generic-primary migration loader|product marker|promoted wave-2\". The tests prove former phase-1 marker explains as resource-reconstruction, former wave-2 file-cursor markers explain as resource-reconstruction, former listener/static HTTP markers explain as reexec, generic-same-arch-modeled-continuation remains proof-only/productSupport=false, and rendezvous does not select the generic product loader for the former phase-1 productPath."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-4 and document the future continuation-only roadmap."
+    },
+    {
+      "id": "task-4",
+      "title": "Define future continuation roadmap",
+      "status": "COMPLETE",
+      "problemStatement": "Future move work needs a clear continuation-only direction instead of more restart or reconstruction productization.",
+      "solutionStatement": "Document the allowed future move roadmap as modeled live-state continuation only, with non-continuation work kept outside product move claims.",
+      "technicalStatement": "Update snapshot docs and productization notes with a continuation-first roadmap, allowed proof shapes, refusal boundaries, and explicit non-goals for reexec/reconstruction product claims.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove docs state that future product move work focuses on modeled live-state continuation and that reexec/resource reconstruction is not continuation.",
+          "evidence": "Added a dedicated \"Future move work: continuation only\" section to docs/snapshot/generic-resource-graph-move.md and updated packages/runtime/src/move-pid-graph.ts, then regenerated packages/runtime/API.md with pnpm run build:docs in 1.79s. The docs/API state that future product machinen move work must prove modeled live-state continuation and that target-native reexec, restart from argv/files, static HTTP reconstruction, output replay/resource reconstruction, and proof metadata are not continuation."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove the roadmap preserves hard non-claims: no arbitrary process restore, source-ISA emulation, metadata-only success, runtime-profile shortcut, active session migration without a model, or source-fd teleportation.",
+          "evidence": "Manual docs/API phrase check passed in 0.01s for 19 required continuation/non-claim phrases across docs/snapshot/generic-resource-graph-move.md, packages/runtime/API.md, and docs/snapshot/README.md. It verified hard non-claims for arbitrary process restore, source-ISA emulation, metadata-only equivalence/success, runtime-profile shortcuts, source-fd teleportation, broad daemon/database/service migration, selected-state descriptors, app-exported state, checkpoint hooks, sidecar replay, active session migration without an explicit model, and Node-specific V8 heap/JS stack/libuv unmodeled state."
+        }
+      ],
+      "nextAction": "Task complete; proceed to task-5 and run final validation."
+    },
+    {
+      "id": "task-5",
+      "title": "Final validation and completion",
+      "status": "COMPLETE",
+      "problemStatement": "The boundary is only durable if formatting, linting, typechecking, coverage, docs/API, and focused tests all agree.",
+      "solutionStatement": "Run the smallest complete validation set that proves the continuation-only boundary and record timing evidence.",
+      "technicalStatement": "Run JSON checks, coverage scripts, docs/API build, focused Vitest, format, lint, typecheck, fallow audit, and whitespace checks, then mark the goal complete only when all proof rows have evidence.",
+      "proofChecklist": [
+        {
+          "status": "proven",
+          "obligation": "Prove final validation passes with timing evidence for JSON/schema checks, continuation-boundary coverage, docs/API build, focused Vitest, format, lint, typecheck, fallow audit, and git diff --check.",
+          "evidence": "Final validation passed after formatting fixes: python3 -m json.tool .pi/goals/move-continuation-only-boundary.json 0.05s; pnpm run move-continuation-boundary-coverage 2.80s with expectedRows=243 classifiedRows=243 productRouted=[] productRoutedNonContinuation=[] errors=[]; pnpm run generic-resource-graph-productization-coverage 0.23s with all error arrays empty; pnpm run generic-resource-graph-coverage 0.15s with matrixProofNames=243 inventoryProofNames=243 missing=[] extra=[] duplicates=[] documentationBoundaryErrors=[]; pnpm run build:docs 1.91s; focused Vitest 0.93s with 6 passed; pnpm run format:check 1.24s; pnpm run lint 0.51s; pnpm run typecheck 2.87s; pnpm exec fallow audit --changed-since origin/main 0.47s with warn-level duplicate groups only; git diff --check 0.02s."
+        },
+        {
+          "status": "proven",
+          "obligation": "Prove no stop condition applies and no proofChecklist row is marked proven without non-empty evidence.",
+          "evidence": "No stop condition applies: every row was classified from source evidence; no non-continuation row remains required as a product move continuation claim; refusal evidence was preserved and relabeled rather than removed; hard non-claims were preserved in docs/API; required validations ran; full smoke tests were not required because changes were docs/API/coverage/tests/routing/explanation only and did not touch VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount, snapshot/restore lifecycle, virtio, memory/ballooning, or FUSE/live mounts. A proof-row audit script found no proven proofChecklist row with empty evidence before marking complete."
+        }
+      ],
+      "nextAction": "Task complete; all validations passed and no stop condition applies."
+    }
+  ],
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove every move proof/product row is classified as continuation, resource-reconstruction, reexec, or refusal with no missing rows and no duplicate rows.",
+      "evidence": "Task 1 created docs/snapshot/move-continuation-boundary-classification.json and scripts/move-continuation-boundary-coverage.mjs. pnpm run move-continuation-boundary-coverage passed with expectedRows=243, classifiedRows=243, errors=[], and summary resource-reconstruction=75, reexec=49, refusal=118, continuation=1."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove product move continuation claims include only rows classified as continuation and exclude or relabel all resource-reconstruction, reexec, and refusal rows.",
+      "evidence": "Task 2 removed all current product move continuation routes for non-continuation rows. pnpm run move-continuation-boundary-coverage passed with productRouted=[] and productRoutedNonContinuation=[]. Focused Vitest passed in 0.94s proving former phase-1, wave-2, and static HTTP markers report productSupport=false and explain as resource-reconstruction or reexec. Productization coverage passed in 0.22s after retaining proof/refusal evidence under non-continuation labels."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove automated coverage and focused tests fail closed if a non-continuation row is routed or documented as product move continuation.",
+      "evidence": "Task 3 added fail-closed checks in scripts/move-continuation-boundary-coverage.mjs. Positive run passed with errors=[]; negative run using temporary routing/API fixtures exited nonzero and reported node-static-http-live-generic-primary-marker as reexec but present in product move continuation routing plus bad API wording. Focused Vitest passed in 0.94s distinguishing proof-only continuation, resource-reconstruction, reexec, and refusal/productSupport=false behavior."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove docs and API describe future move work as modeled live-state continuation only and preserve all non-claims around arbitrary restore, runtime profiles, source-ISA emulation, source-fd teleportation, metadata-only success, and unmodeled active sessions.",
+      "evidence": "Task 4 updated docs/snapshot/generic-resource-graph-move.md and packages/runtime/src/move-pid-graph.ts/API.md. pnpm run build:docs passed in 1.79s. A docs/API phrase check passed in 0.01s and verified the continuation-only roadmap plus hard non-claims for arbitrary restore, runtime profiles, source-ISA emulation, source-fd teleportation, metadata-only success/equivalence, broad services/databases, selected-state/app-export/checkpoint/sidecar shortcuts, and unmodeled active sessions/Node runtime state."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove final validation passes with timing evidence and no stop condition applies before setting status COMPLETE.",
+      "evidence": "Final validation passed after formatting fixes: python3 -m json.tool .pi/goals/move-continuation-only-boundary.json 0.05s; pnpm run move-continuation-boundary-coverage 2.80s with expectedRows=243 classifiedRows=243 productRouted=[] productRoutedNonContinuation=[] errors=[]; pnpm run generic-resource-graph-productization-coverage 0.23s with all error arrays empty; pnpm run generic-resource-graph-coverage 0.15s with matrixProofNames=243 inventoryProofNames=243 missing=[] extra=[] duplicates=[] documentationBoundaryErrors=[]; pnpm run build:docs 1.91s; focused Vitest 0.93s with 6 passed; pnpm run format:check 1.24s; pnpm run lint 0.51s; pnpm run typecheck 2.87s; pnpm exec fallow audit --changed-since origin/main 0.47s with warn-level duplicate groups only; git diff --check 0.02s. No stop condition applies: every row was classified from source evidence; no non-continuation row remains required as a product move continuation claim; refusal evidence was preserved and relabeled rather than removed; hard non-claims were preserved in docs/API; required validations ran; full smoke tests were not required because changes were docs/API/coverage/tests/routing/explanation only and did not touch VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount, snapshot/restore lifecycle, virtio, memory/ballooning, or FUSE/live mounts. A proof-row audit script found no proven proofChecklist row with empty evidence before marking complete."
+    }
+  ],
+  "doneWhen": "All tasks are COMPLETE, all task and goal proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "python3 -m json.tool .pi/goals/move-continuation-only-boundary.json",
+      "proves": "The goal contract remains valid JSON."
+    },
+    {
+      "check": "node <classification/coverage script> --json",
+      "proves": "Every move row is classified and non-continuation rows are excluded or relabeled from product move continuation claims."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-coverage && pnpm run generic-resource-graph-productization-coverage",
+      "proves": "Existing generic inventory and productization guards remain aligned after relabeling."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Public API documentation reflects the continuation-only boundary."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run <focused move continuation boundary tests>",
+      "proves": "Focused tests enforce routing and explanation behavior for continuation versus non-continuation rows."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Formatting remains valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and changed-file health checks pass."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript and build-time validation pass."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and code-health audit has no blocking regressions."
+    },
+    {
+      "check": "git diff --check",
+      "proves": "Changed files have no whitespace errors."
+    }
+  ],
+  "stopIf": [
+    "A row cannot be classified from source evidence and would need a product claim before classification is proven.",
+    "A non-continuation row is required to remain a product move continuation claim instead of being removed or relabeled.",
+    "A change would claim reexec, target-native restart, resource reconstruction, descriptor harness success, proof-only behavior, or refusal evidence as continuation.",
+    "A change would remove important refusal evidence instead of relabeling it accurately outside product move continuation claims.",
+    "A change would weaken hard non-claims: arbitrary process restore, source-ISA emulation, metadata-only success, runtime-profile shortcut, source-fd teleportation, broad daemon/database/service migration, or unmodeled active session migration.",
+    "Required validation cannot be run and no narrower evidence directly covers the changed behavior.",
+    "Full smoke tests become required by VM lifecycle, VMM, rootfs/base asset, CLI boot/exec/mount, snapshot/restore lifecycle, virtio device, memory/ballooning, FUSE/live mount, or explicit user-request changes but cannot be run.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-13T21:44:00Z",
+      "summary": "Created the move continuation boundary classification ledger and coverage guard. The ledger classifies all 243 expected move proof/product rows across matrix, inventory, retained plans, and product routing as continuation, resource-reconstruction, reexec, or refusal. Coverage found 10 currently product-routed rows are non-continuation and need removal or relabeling in task 2.",
+      "filesChanged": [
+        "docs/snapshot/move-continuation-boundary-classification.json",
+        "scripts/move-continuation-boundary-coverage.mjs",
+        "package.json",
+        ".pi/goals/move-continuation-only-boundary.json"
+      ],
+      "commands": [
+        "node --check scripts/move-continuation-boundary-coverage.mjs \u2014 passed, 0.02s",
+        "pnpm run move-continuation-boundary-coverage \u2014 passed, 0.17s, expectedRows=243 classifiedRows=243 errors=[] classificationSummary={resource-reconstruction:75,reexec:49,refusal:118,continuation:1}",
+        "python3 -m json.tool docs/snapshot/move-continuation-boundary-classification.json \u2014 passed, 0.04s",
+        "python3 -m json.tool .pi/goals/move-continuation-only-boundary.json \u2014 passed, 0.02s",
+        "git diff --check \u2014 passed, 0.04s"
+      ],
+      "artifacts": [
+        "docs/snapshot/move-continuation-boundary-classification.json",
+        "scripts/move-continuation-boundary-coverage.mjs"
+      ],
+      "nonClaims": [
+        "Classification only. The 10 current product-routed rows are explicitly identified as non-continuation and are not accepted as product move continuation claims by this goal. No arbitrary process restore, source-ISA emulation, metadata-only success, runtime-profile shortcut, source-fd teleportation, broad daemon/database/service migration, or unmodeled active session migration is claimed."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T21:49:00Z",
+      "summary": "Removed the current non-continuation rows from product move continuation routing by emptying the promoted generic product-path continuation allowlist. The continuation boundary coverage now reports productRouted=[] and productRoutedNonContinuation=[] while still classifying all 243 move rows. Task 2 remains in progress because docs/API/explanation wording still needs relabeling away from product move continuation claims.",
+      "filesChanged": [
+        "packages/cli/src/move-generic-product-path.ts",
+        "docs/snapshot/move-continuation-boundary-classification.json",
+        ".pi/goals/move-continuation-only-boundary.json"
+      ],
+      "commands": [
+        "pnpm run move-continuation-boundary-coverage \u2014 passed, 0.15s, expectedRows=243 classifiedRows=243 productRouted=[] productRoutedNonContinuation=[] errors=[]",
+        "node --check scripts/move-continuation-boundary-coverage.mjs \u2014 passed, 0.01s",
+        "python3 -m json.tool docs/snapshot/move-continuation-boundary-classification.json \u2014 passed, 0.02s",
+        "git diff --check \u2014 passed, 0.02s"
+      ],
+      "artifacts": [
+        "packages/cli/src/move-generic-product-path.ts",
+        "docs/snapshot/move-continuation-boundary-classification.json"
+      ],
+      "nonClaims": [
+        "This only removes non-continuation rows from the product move continuation allowlist. It does not delete proof/refusal evidence and does not claim resource reconstruction, reexec, descriptor harnesses, proof-only behavior, or refusal evidence as continuation."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T02:40:00Z",
+      "summary": "Completed task 2 by removing all former non-continuation rows from product move continuation routing and relabeling retained phase-1, wave-2, and static HTTP evidence as resource-reconstruction or reexec rather than continuation. Updated CLI explanations/tests, docs/API, productization metadata, validation profiles, and static HTTP coverage behavior. Existing retained proof evidence remains covered, but product move continuation routing is empty.",
+      "filesChanged": [
+        "packages/cli/src/move-generic-product-path.ts",
+        "packages/cli/src/move-generic-resource-graph-explain.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "packages/cli/src/__tests__/move-rendezvous.test.ts",
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/runtime/API.md",
+        "docs/snapshot/README.md",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "docs/snapshot/generic-pipes-stdio-graduation.md",
+        "docs/snapshot/generic-resource-graph-productization-subset.json",
+        "docs/snapshot/generic-resource-graph-productization-wave2-subset.json",
+        "docs/snapshot/generic-resource-graph-productization-static-http-tree-identity-contract.json",
+        "scripts/smoke/move-envelope-productization-phase1-validation-profile.json",
+        "scripts/smoke/move-envelope-productization-wave2-validation-profile.json",
+        "scripts/smoke/move-envelope-productization-static-http-tree-identity-validation-profile.json",
+        "scripts/generic-resource-graph-productization-static-http-coverage.mjs",
+        ".pi/goals/move-continuation-only-boundary.json"
+      ],
+      "commands": [
+        "pnpm run move-continuation-boundary-coverage \u2014 passed, 0.15s and 0.17s, productRouted=[] productRoutedNonContinuation=[] errors=[]",
+        "pnpm run generic-resource-graph-productization-coverage \u2014 initially failed after routing removal because static HTTP coverage still required promoted routing; fixed coverage/docs/API wording; final pass 0.22s, all productizationErrors=[]/wave2ProductizationErrors=[]/staticHttpProductizationErrors=[]",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.15s, matrixProofNames=243 inventoryProofNames=243 missing=[] extra=[] duplicates=[] documentationBoundaryErrors=[]",
+        "pnpm run build:docs \u2014 passed, 1.83s after runtime comment updates regenerated packages/runtime/API.md",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"former|static HTTP tree-identity|fallback, proof-only|does not product-route|generic-primary migration loader|product marker|promoted wave-2\" \u2014 passed, 0.94s, 6 passed",
+        "node --check scripts/move-continuation-boundary-coverage.mjs \u2014 passed, 0.02s",
+        "node --check scripts/generic-resource-graph-productization-static-http-coverage.mjs \u2014 passed, 0.02s",
+        "python3 -m json.tool changed productization JSON/validation profile files \u2014 passed, 0.02s-0.03s each",
+        "git diff --check \u2014 passed, 0.02s"
+      ],
+      "artifacts": [
+        "docs/snapshot/move-continuation-boundary-classification.json",
+        "scripts/move-continuation-boundary-coverage.mjs",
+        "packages/runtime/API.md"
+      ],
+      "nonClaims": [
+        "No former phase-1, wave-2, or static HTTP marker is claimed as product move continuation. Resource reconstruction, target-native reexec/restart, static-root reconstruction, pipe byte replay, file cursor reopen, listener recreation, descriptor harnesses, and refusal evidence remain outside product move continuation claims."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T02:48:00Z",
+      "summary": "Completed task 3 guardrails. The continuation boundary coverage now compares actual product routing to the ledger, rejects any non-continuation row in product move continuation routing, and scans docs/API for positive product move continuation wording on non-continuation rows. A negative fixture proved the guard fails closed for both routing and API wording. Focused tests prove former product rows explain as resource-reconstruction or reexec with productSupport=false.",
+      "filesChanged": [
+        "scripts/move-continuation-boundary-coverage.mjs",
+        ".pi/goals/move-continuation-only-boundary.json"
+      ],
+      "commands": [
+        "pnpm run move-continuation-boundary-coverage \u2014 passed, 2.74s, expectedRows=243 classifiedRows=243 productRouted=[] productRoutedNonContinuation=[] docsScanned=4 errors=[]",
+        "GENERIC_RESOURCE_GRAPH_PRODUCT_ROUTING_SOURCE=/tmp/.../routing.ts RUNTIME_API_DOC=/tmp/.../bad-api.md node scripts/move-continuation-boundary-coverage.mjs \u2014 expected failure, exit 1, errors included non-continuation node-static-http-live-generic-primary-marker in product move continuation routing and API wording",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"former|static HTTP tree-identity|fallback, proof-only|does not product-route|generic-primary migration loader|product marker|promoted wave-2\" \u2014 passed, 0.94s, 6 passed"
+      ],
+      "artifacts": [
+        "/tmp/machinen-continuation-boundary-negative-KGgZjC/out.json",
+        "/tmp/machinen-continuation-boundary-negative-KGgZjC/routing.ts",
+        "/tmp/machinen-continuation-boundary-negative-KGgZjC/bad-api.md"
+      ],
+      "nonClaims": [
+        "The guardrail does not promote generic-same-arch-modeled-continuation or any former productization row. It only enforces that non-continuation rows cannot be routed or documented as product move continuation."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T02:53:00Z",
+      "summary": "Completed task 4 by documenting the future move roadmap as continuation-only. The docs/API now state that future product move work must model live process/resource state and that reexec, restart, static HTTP reconstruction, metadata-only equivalence, app-exported state, checkpoint hooks, selected-state descriptors, sidecar replay, source-ISA emulation, source-fd teleportation, runtime-profile shortcuts, broad services/databases, arbitrary restore, and unmodeled active sessions are not product move continuation.",
+      "filesChanged": [
+        "docs/snapshot/generic-resource-graph-move.md",
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/runtime/API.md",
+        ".pi/goals/move-continuation-only-boundary.json"
+      ],
+      "commands": [
+        "pnpm run build:docs \u2014 passed, 1.79s",
+        "pnpm run move-continuation-boundary-coverage \u2014 passed, 2.71s, docs/API scan errors=[]",
+        "manual docs/API phrase check for 19 required continuation/non-claim phrases \u2014 passed, 0.01s"
+      ],
+      "nonClaims": [
+        "The roadmap does not promote Node, static HTTP, file cursor, pipe, listener, service, or database rows. It defines future requirements and refusal boundaries only."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T02:59:00Z",
+      "summary": "Final validation passed and no stop condition applies. All task-level and top-level proofChecklist rows now have status proven with non-empty evidence, so the goal can be marked COMPLETE.",
+      "commands": [
+        "python3 -m json.tool .pi/goals/move-continuation-only-boundary.json \u2014 passed, 0.05s",
+        "pnpm run move-continuation-boundary-coverage \u2014 passed, 2.80s",
+        "pnpm run generic-resource-graph-productization-coverage \u2014 passed, 0.23s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.15s",
+        "pnpm run build:docs \u2014 passed, 1.91s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"former|static HTTP tree-identity|fallback, proof-only|does not product-route|generic-primary migration loader|product marker|promoted wave-2\" \u2014 passed, 0.93s, 6 passed",
+        "pnpm run format:check \u2014 passed, 1.24s",
+        "pnpm run lint \u2014 passed, 0.51s",
+        "pnpm run typecheck \u2014 passed, 2.87s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed, 0.47s, warn-level duplicate groups only",
+        "git diff --check \u2014 passed, 0.02s"
+      ],
+      "fullSmokeTests": "Skipped because this change touched docs/API/coverage/tests/routing/explanation only, not VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount, snapshot/restore lifecycle, virtio devices, memory/ballooning, FUSE/live mounts, and the user did not request full smoke tests.",
+      "remainingRisks": [
+        "Product move continuation allowlist is now empty; future continuation work must add modeled live-state support under the new guardrails.",
+        "Existing productization artifact names remain historical for retained evidence, but docs/API/profile wording now labels them outside product move continuation."
+      ]
+    }
+  ],
+  "nextAction": "Goal complete; no next action required unless the user requests follow-up continuation implementation work.",
+  "status": "COMPLETE"
+}

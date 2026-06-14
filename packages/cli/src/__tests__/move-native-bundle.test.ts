@@ -10,6 +10,10 @@ import {
   writeNativeProcessImageScaffold,
 } from "../move-native-bundle.ts";
 
+type GenericRefusals = NonNullable<
+  NonNullable<NonNullable<MoveDescriptor["resourcePlan"]>["capture"]>["genericResourceGraphState"]
+>["refusalClasses"];
+
 const descriptor: MoveDescriptor = {
   formatVersion: 1,
   kind: "machinen.move.descriptor",
@@ -42,7 +46,99 @@ const descriptor: MoveDescriptor = {
   },
 };
 
+function genericGraphState(refusalClasses: GenericRefusals) {
+  return {
+    policy: "generic-resource-graph-target-native-reexec-v1" as const,
+    executableIdentity: { path: "/usr/bin/ping" },
+    argv: ["ping", "google.com"],
+    env: { policy: "target-default" as const },
+    cwd: { path: "/root" },
+    ports: [],
+    regularFiles: [],
+    dataDirs: [],
+    fileOffsets: [],
+    stdioPolicy: "stdio-dev-null-or-closed" as const,
+    healthProbe: { kind: "process-alive" as const },
+    resourceClasses: refusalClasses.map((item) => ({
+      resourceClass: item.resourceClass,
+      status: item.status,
+      evidence: item.evidence,
+    })),
+    refusalClasses,
+  };
+}
+
 describe("move native bundle scaffold", () => {
+  it("refuses generic resource graph state because reexec is banned for move", () => {
+    const withGenericOnly = attachNativeContinuation({
+      ...descriptor,
+      resourcePlan: {
+        ...descriptor.resourcePlan!,
+        capture: { genericResourceGraphState: genericGraphState([]) },
+      },
+    });
+    const withGenericRefusal = attachNativeContinuation({
+      ...descriptor,
+      resourcePlan: {
+        ...descriptor.resourcePlan!,
+        capture: {
+          genericResourceGraphState: genericGraphState([
+            {
+              resourceClass: "socket",
+              status: "refused",
+              reason: "generic socket class is not graduated",
+              evidence: "fd=3 path=socket:[1]",
+              nextAction: "graduate socket resource class first",
+            },
+          ]),
+        },
+      },
+    });
+
+    expect(withGenericOnly.nativeContinuation?.state).toBe("refused");
+    expect(withGenericOnly.nativeContinuation?.refusals[0]).toMatchObject({
+      code: "target-semantic-continuation-missing",
+      message: expect.stringContaining("requires modeled live-state continuation"),
+    });
+    expect(withGenericRefusal.nativeContinuation?.state).toBe("refused");
+    expect(withGenericRefusal.nativeContinuation?.refusals[0]?.code).toBe(
+      "target-semantic-continuation-missing",
+    );
+  });
+
+  it("refuses app-specific reexec envelopes even when generic frontier refusals exist", () => {
+    const withSocatAndGeneric = attachNativeContinuation({
+      ...descriptor,
+      resourcePlan: {
+        ...descriptor.resourcePlan!,
+        capture: {
+          genericResourceGraphState: genericGraphState([
+            {
+              resourceClass: "socket",
+              status: "refused",
+              reason: "generic socket class is not graduated",
+              evidence: "fd=3 path=socket:[1]",
+              nextAction: "keep bespoke socat envelope until generic listener support is proven",
+            },
+          ]),
+          socatFileResponderState: {
+            port: 8147,
+            filePath: "/tmp/socat-response.txt",
+            fileIdentity: { size: 17, sha256: "a".repeat(64) },
+            argvContract: "socat-tcp-listen-fork-reuseaddr-file",
+            listenerState: "idle-single-listener",
+            binaryPolicy: "proof-provisioned-target-native-socat",
+          },
+        },
+      },
+    });
+
+    expect(withSocatAndGeneric.nativeContinuation?.state).toBe("refused");
+    expect(withSocatAndGeneric.nativeContinuation?.refusals[0]?.code).toBe(
+      "target-semantic-continuation-missing",
+    );
+  });
+
   it("writes a canonical native process-image bundle with move continuation refusals", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-move-native-bundle-"));
     try {

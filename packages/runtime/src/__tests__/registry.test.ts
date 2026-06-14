@@ -6,7 +6,7 @@
 // we don't need real HVF.
 
 import { createServer } from "node:net";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -380,6 +380,60 @@ describe("boot + attach end-to-end", () => {
       try {
         rmSync(udsPath);
       } catch {}
+    }
+  });
+
+  it("cleans per-boot temp dirs when duplicate-name registration fails after spawn", async () => {
+    const tmpRoot = mkdtempSync(join(tmpdir(), "machinen-dup-cleanup-"));
+    const oldTmpdir = process.env.TMPDIR;
+    const oldGvproxy = process.env.MACHINEN_GVPROXY;
+    process.env.TMPDIR = tmpRoot;
+    process.env.MACHINEN_GVPROXY = "0";
+    const holdScript = "trap 'exit 0' TERM INT; while :; do sleep 1; done";
+    const firstStats = join(tmpRoot, "first-stats.bin");
+    let first: Awaited<ReturnType<typeof boot>> | undefined;
+    try {
+      first = await boot({
+        binary: "/bin/sh",
+        args: ["-c", holdScript],
+        vmmEnv: {
+          MACHINEN_STATS_FILE: firstStats,
+          MACHINEN_VSOCK: `in:1978:${join(tmpRoot, "first.sock")}`,
+        },
+        name: "dupe-cleanup",
+        pdeathsig: false,
+        timeoutMs: 5_000,
+      });
+      const baselineVsockDirs = readdirSync(tmpRoot).filter((name) =>
+        name.startsWith("machinen-vsock-"),
+      );
+      await expect(
+        boot({
+          binary: "/bin/sh",
+          args: ["-c", holdScript],
+          name: "dupe-cleanup",
+          pdeathsig: false,
+          timeoutMs: 5_000,
+        }),
+      ).rejects.toThrow(/already held/i);
+      expect(readdirSync(tmpRoot).filter((name) => name.startsWith("machinen-vsock-"))).toEqual(
+        baselineVsockDirs,
+      );
+    } finally {
+      if (first) {
+        await first.kill();
+      }
+      if (oldTmpdir === undefined) {
+        delete process.env.TMPDIR;
+      } else {
+        process.env.TMPDIR = oldTmpdir;
+      }
+      if (oldGvproxy === undefined) {
+        delete process.env.MACHINEN_GVPROXY;
+      } else {
+        process.env.MACHINEN_GVPROXY = oldGvproxy;
+      }
+      rmSync(tmpRoot, { recursive: true, force: true });
     }
   });
 });

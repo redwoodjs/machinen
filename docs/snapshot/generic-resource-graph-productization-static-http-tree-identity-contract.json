@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 1,
+  "name": "generic-resource-graph-productization-static-http-tree-identity-contract",
+  "purpose": "Define retained static HTTP tree-identity reexec evidence and fail-closed refusals. The selected rows no longer route as product move continuation because target-native static HTTP reexec is not modeled live-state continuation.",
+  "sourceSelection": "docs/snapshot/generic-resource-graph-productization-next-selection.json",
+  "sourceClassification": "docs/snapshot/generic-resource-graph-productization-wave2-classification.json",
+  "sourceInventory": "docs/snapshot/generic-resource-graph-inventory.json",
+  "retainedCoveragePlan": "scripts/smoke/move-envelope-productization-static-http-tree-identity-plan.json",
+  "validationProfile": "scripts/smoke/move-envelope-productization-static-http-tree-identity-validation-profile.json",
+  "contract": {
+    "requiredProductPathKind": "exact-live-capture",
+    "requiredObservedGraph": "exact-live-resource-graph",
+    "requiredRefusalClasses": [],
+    "requiredStaticRootIdentity": {
+      "resourceClass": "directoryIdentity",
+      "sourceEvidence": "source static-root tree digest captured from the exact served root",
+      "targetEvidence": "target static-root tree digest verified before target launch",
+      "digestPolicy": "same normalized file count, directory count, byte count, path set, and sha256 tree digest",
+      "driftBehavior": "fail closed before target launch or return refused loader with targetPid=null"
+    },
+    "requiresExplicitSupportProofNames": true,
+    "requiresEquivalentRefusalProofNames": true,
+    "requiresTargetHealthOrOutputEvidence": true,
+    "requiresInventoryRegistration": true,
+    "requiresDocsApiRegistration": true,
+    "requiresRetainedProofCoverage": true,
+    "requiresFailClosedUnsafeNeighbors": true,
+    "productRoutingEffect": "no-product-move-continuation-routing-retained-reexec-evidence-only"
+  },
+  "productizableRows": [
+    {
+      "productProofName": "node-static-http-live-generic-primary-marker",
+      "classificationBucket": "blocked-by-tree-identity",
+      "resourceShape": "exact Node static HTTP server with target-native Node reexec, runtime-owned libuv fds recreated target-side, idle loopback listener, and exact static-root tree identity",
+      "productPath": {
+        "kind": "exact-live-capture",
+        "markerProofName": "node-static-http-live-generic-primary-marker",
+        "supportProofNames": ["node-static-http"],
+        "existingUnsafeRefusalProofNames": [
+          "node-active-refusal",
+          "node-timer-refusal",
+          "node-worker-refusal",
+          "native-dlopen-refusal"
+        ],
+        "requiredTreeIdentityRefusalProofNames": ["static-http-tree-identity-refusals"],
+        "observedGraph": "exact-live-resource-graph",
+        "refusalClasses": []
+      },
+      "treeIdentityRequirements": [
+        "source static root digest captured from nodeStaticHttpState.cwd",
+        "target static root digest verified before Node target reexec",
+        "directoryIdentity resourceClass is supported only when source and target digests match",
+        "tree drift, missing root, symlink policy drift, and digest mismatch refuse before target launch"
+      ],
+      "targetEvidenceRequirements": [
+        "target HTTP /health proof returns expected body/status",
+        "no active HTTP client evidence",
+        "runtime-owned libuv fd recreation evidence",
+        "tree-drift refusal cases keep targetPid=null or prevent target launch"
+      ],
+      "registrations": {
+        "inventory": "docs/snapshot/generic-resource-graph-inventory.json genericLiveProductPathCandidates productProofName=node-static-http-live-generic-primary-marker",
+        "documentation": [
+          "docs/snapshot/generic-resource-graph-move.md",
+          "docs/snapshot/generic-resource-graph-frontier.md",
+          "packages/runtime/API.md"
+        ],
+        "requiredInventoryResourceClasses": [
+          "processIdentity",
+          "argvEnvCwd",
+          "directoryIdentity",
+          "loopbackTcpListener",
+          "noActiveClients",
+          "healthProbe",
+          "nodeLibuvRuntimeFds",
+          "unsupportedResourceRefusal"
+        ]
+      },
+      "nonClaims": [
+        "no arbitrary Node runtime migration",
+        "no source libuv fd teleportation",
+        "no active HTTP session migration",
+        "no timer, worker, native addon, or dynamic script support"
+      ]
+    },
+    {
+      "productProofName": "go-static-http-live-generic-primary-marker",
+      "classificationBucket": "blocked-by-tree-identity",
+      "resourceShape": "exact Go static HTTP server with target-native reexec, idle loopback listener, and exact static-root tree identity",
+      "productPath": {
+        "kind": "exact-live-capture",
+        "markerProofName": "go-static-http-live-generic-primary-marker",
+        "supportProofNames": ["go-static-http"],
+        "existingUnsafeRefusalProofNames": ["go-extra-socket-refusal"],
+        "requiredTreeIdentityRefusalProofNames": ["static-http-tree-identity-refusals"],
+        "observedGraph": "exact-live-resource-graph",
+        "refusalClasses": []
+      },
+      "treeIdentityRequirements": [
+        "source static root digest captured from served root",
+        "target static root digest verified before Go target reexec",
+        "directoryIdentity resourceClass is supported only when source and target digests match",
+        "tree drift, missing root, symlink policy drift, and digest mismatch refuse before target launch"
+      ],
+      "targetEvidenceRequirements": [
+        "target HTTP health/body proof returns expected content",
+        "no active HTTP client evidence",
+        "extra socket refusal evidence",
+        "tree-drift refusal cases keep targetPid=null or prevent target launch"
+      ],
+      "registrations": {
+        "inventory": "docs/snapshot/generic-resource-graph-inventory.json genericLiveProductPathCandidates productProofName=go-static-http-live-generic-primary-marker",
+        "documentation": [
+          "docs/snapshot/generic-resource-graph-move.md",
+          "docs/snapshot/generic-resource-graph-frontier.md",
+          "packages/runtime/API.md"
+        ],
+        "requiredInventoryResourceClasses": [
+          "processIdentity",
+          "argvEnvCwd",
+          "directoryIdentity",
+          "loopbackTcpListener",
+          "noActiveClients",
+          "healthProbe",
+          "unsupportedResourceRefusal"
+        ]
+      },
+      "nonClaims": [
+        "no arbitrary Go process migration",
+        "no extra socket or runtime state migration",
+        "no active HTTP session migration",
+        "no mutable static-root repair"
+      ]
+    },
+    {
+      "productProofName": "rust-static-http-live-generic-primary-marker",
+      "classificationBucket": "blocked-by-tree-identity",
+      "resourceShape": "exact Rust static HTTP server with target-native reexec, idle loopback listener, and exact static-root tree identity",
+      "productPath": {
+        "kind": "exact-live-capture",
+        "markerProofName": "rust-static-http-live-generic-primary-marker",
+        "supportProofNames": ["rust-static-http"],
+        "existingUnsafeRefusalProofNames": ["generic-loader-preflight-refusals"],
+        "requiredTreeIdentityRefusalProofNames": ["static-http-tree-identity-refusals"],
+        "observedGraph": "exact-live-resource-graph",
+        "refusalClasses": []
+      },
+      "treeIdentityRequirements": [
+        "source static root digest captured from served root",
+        "target static root digest verified before Rust target reexec",
+        "directoryIdentity resourceClass is supported only when source and target digests match",
+        "tree drift, missing root, symlink policy drift, and digest mismatch refuse before target launch"
+      ],
+      "targetEvidenceRequirements": [
+        "target HTTP health/body proof returns expected content",
+        "no active HTTP client evidence",
+        "generic loader preflight refusal evidence",
+        "tree-drift refusal cases keep targetPid=null or prevent target launch"
+      ],
+      "registrations": {
+        "inventory": "docs/snapshot/generic-resource-graph-inventory.json genericLiveProductPathCandidates productProofName=rust-static-http-live-generic-primary-marker",
+        "documentation": [
+          "docs/snapshot/generic-resource-graph-move.md",
+          "docs/snapshot/generic-resource-graph-frontier.md",
+          "packages/runtime/API.md"
+        ],
+        "requiredInventoryResourceClasses": [
+          "processIdentity",
+          "argvEnvCwd",
+          "directoryIdentity",
+          "loopbackTcpListener",
+          "noActiveClients",
+          "healthProbe",
+          "unsupportedResourceRefusal"
+        ]
+      },
+      "nonClaims": [
+        "no arbitrary native process migration",
+        "no active HTTP session migration",
+        "no mutable static-root repair",
+        "no source fd teleportation"
+      ]
+    },
+    {
+      "productProofName": "busybox-httpd-live-generic-primary-marker",
+      "classificationBucket": "blocked-by-tree-identity",
+      "resourceShape": "exact BusyBox httpd loopback static-root server with target-native reexec and exact static-root tree identity",
+      "productPath": {
+        "kind": "exact-live-capture",
+        "markerProofName": "busybox-httpd-live-generic-primary-marker",
+        "supportProofNames": ["busybox-httpd"],
+        "existingUnsafeRefusalProofNames": [
+          "unsafe-busybox-httpd-refusal",
+          "python-http-active-refusal",
+          "generic-loader-preflight-refusals"
+        ],
+        "requiredTreeIdentityRefusalProofNames": ["static-http-tree-identity-refusals"],
+        "observedGraph": "exact-live-resource-graph",
+        "refusalClasses": []
+      },
+      "treeIdentityRequirements": [
+        "source static root digest captured from served root",
+        "target static root digest verified before BusyBox httpd target reexec",
+        "directoryIdentity resourceClass is supported only when source and target digests match",
+        "tree drift, missing root, symlink policy drift, and digest mismatch refuse before target launch"
+      ],
+      "targetEvidenceRequirements": [
+        "target HTTP health/body proof returns expected content",
+        "no active HTTP client evidence",
+        "BusyBox httpd unsafe-shape refusal evidence",
+        "tree-drift refusal cases keep targetPid=null or prevent target launch"
+      ],
+      "registrations": {
+        "inventory": "docs/snapshot/generic-resource-graph-inventory.json genericLiveProductPathCandidates productProofName=busybox-httpd-live-generic-primary-marker",
+        "documentation": [
+          "docs/snapshot/generic-resource-graph-move.md",
+          "docs/snapshot/generic-resource-graph-frontier.md",
+          "packages/runtime/API.md"
+        ],
+        "requiredInventoryResourceClasses": [
+          "processIdentity",
+          "argvEnvCwd",
+          "directoryIdentity",
+          "loopbackTcpListener",
+          "noActiveClients",
+          "healthProbe",
+          "unsupportedResourceRefusal"
+        ]
+      },
+      "nonClaims": [
+        "no CGI or dynamic BusyBox httpd migration",
+        "no wildcard bind promotion",
+        "no active HTTP session migration",
+        "no mutable static-root repair"
+      ]
+    }
+  ],
+  "nonShippedCandidatesRemainOutOfRouting": [
+    "generic-readonly-file-cursor",
+    "generic-append-log-cursor",
+    "generic-unix-pathname-client-pair",
+    "generic-file-lock-advisory",
+    "generic-timerfd-relative-oneshot",
+    "nginx-live-generic-primary-marker",
+    "caddy-live-generic-primary-marker",
+    "ruby-live-generic-primary-marker",
+    "rsync-live-generic-primary-marker",
+    "redis-live-generic-primary-marker",
+    "tail-live-generic-primary-marker"
+  ],
+  "globalNonClaims": [
+    "product routing is allowlisted only for the four validated static HTTP tree-identity rows",
+    "no arbitrary process restore",
+    "no any-binary movement",
+    "no broad daemon/database/service migration",
+    "no active session migration",
+    "no source-fd teleportation",
+    "no source-ISA emulation",
+    "no metadata-only success",
+    "no runtime-profile shortcut",
+    "no proof-image or descriptor-harness runtime dependency"
+  ],
+  "continuationBoundary": {
+    "productMoveContinuationRouting": "none",
+    "currentLabel": "retained proof/refusal evidence outside product move continuation",
+    "reason": "Rows in this artifact are resource-reconstruction or target-native reexec evidence, not modeled live-state continuation.",
+    "nonClaims": [
+      "no product move continuation claim",
+      "no arbitrary process restore",
+      "no source-fd teleportation",
+      "no source-ISA emulation",
+      "no metadata-only success",
+      "no runtime-profile shortcut",
+      "no unmodeled active session migration"
+    ]
+  }
+}

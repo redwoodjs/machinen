@@ -1,0 +1,455 @@
+{
+  "title": "Generic resource graph productization wave 2",
+  "goal": "Attempt up to 20 exact-live generic resource graph product promotions beyond the phase-1 stdio pipe marker, but ship only rows that independently satisfy the product contract. Classify the candidate rows into promote-now, promote-after-missing-refusal, blocked-by-tree-identity, blocked-by-service-safety, or blocked-by-session-state; implement the first genuinely close batch of 5-8 rows; and explicitly defer every row that lacks support/refusal/inventory/docs/API/coverage/retained-artifact evidence. Preserve the core boundary: no arbitrary process restore, no any-binary movement, no broad daemon/database/service migration, no active session migration, no source-fd teleportation, no source-ISA emulation, no metadata-only success, no runtime-profile shortcut, and no proof-image or proof-harness dependency as product support.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove exactly 20 candidate rows are selected for wave 2 and classified into promote-now, promote-after-missing-refusal, blocked-by-tree-identity, blocked-by-service-safety, or blocked-by-session-state, with a recorded reason, missing evidence, required-before-promotion conditions, and non-claims for every row.",
+      "evidence": "Created docs/snapshot/generic-resource-graph-productization-wave2-classification.json with exactly 20 candidate rows classified into the five required buckets: promote-now=5, promote-after-missing-refusal=5, blocked-by-tree-identity=4, blocked-by-service-safety=5, and blocked-by-session-state=1. The proposed first implementation batch is 5 rows: unix-pathname-listener-live-generic-primary-marker, reader-cat-live-generic-primary-marker, grep-live-generic-primary-marker, busybox-nc-listener-live-generic-primary-marker, and socat-file-responder-live-generic-primary-marker. Every candidate records a reason, current support proof names, current refusal proof names, missingEvidence, requiredBeforePromotion, and nonClaims. Non-promoted rows remain explicitly deferred or blocked: readonly/append-log/file-lock/timerfd/client-pair rows need missing product/refusal/enclosing evidence; Node/Go/Rust/BusyBox static HTTP rows are blocked by full source/target tree identity; nginx/caddy/ruby/rsync/redis rows are blocked by service/database safety; tail is blocked by active follow/session and concurrent-writer semantics. Validation passed in 0.11s: candidateCount=20, batchCount=5, bucketCounts matched the recorded counts, no duplicates, all buckets valid, all rows have reason/missingEvidence/requiredBeforePromotion/nonClaims, all proposed batch rows are promote-now/proposedBatch=true, and all candidate proof names resolve through inventory proof or live-product names. Additional validation passed: pnpm run generic-resource-graph-coverage (0.40s), pnpm run format:check (2.63s), and git diff --check (0.15s). Classification is advisory only and records no product routing change, no product support beyond phase 1 until later implementation/validation rows prove it, no arbitrary process restore, no any-binary movement, no broad daemon/database/service migration, no active session migration, no source-fd teleportation, no source-ISA emulation, no metadata-only success, no runtime-profile shortcut, and no proof-image or descriptor harness as runtime product dependency."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the wave-2 product contract is explicit and at least as strict as phase 1: each shipped row must require migration.productPath.kind=exact-live-capture, observedGraph for the exact live resource graph, refusalClasses=[], support proof names, equivalent refusal proof names, target health or output evidence, inventory registration, docs/API registration, retained proof coverage, and fail-closed unsafe neighbors.",
+      "evidence": "Defined the wave-2 product contract and promote-now subset in docs/snapshot/generic-resource-graph-productization-wave2-subset.json, with retained plan scripts/smoke/move-envelope-productization-wave2-plan.json. The contract is at least as strict as phase 1: requiredProductPathKind=exact-live-capture, requiredObservedGraph=exact-live-resource-graph, requiredRefusalClasses=[], requiresExplicitSupportProofNames=true, requiresEquivalentRefusalProofNames=true, requiresTargetHealthOrOutputEvidence=true, requiresInventoryRegistration=true, requiresDocsApiRegistration=true, requiresRetainedProofCoverage=true, requiresFailClosedUnsafeNeighbors=true, and productRoutingEffect=no-routing-effect-until-wave2-implementation-validation-promotes-allowlist. The subset defines five productizable rows with exact productPath metadata requirements, support/refusal pairings, targetEvidenceRequirements, inventory/docs/API registration requirements, required inventory resource classes, retained plan linkage, and nonClaims: unix-pathname-listener-live-generic-primary-marker, reader-cat-live-generic-primary-marker, grep-live-generic-primary-marker, busybox-nc-listener-live-generic-primary-marker, and socat-file-responder-live-generic-primary-marker. The retained plan lists 19 unique expected product/support/refusal proof rows across Unix pathname listener, readonly file command, and idle loopback listener chunks. Validation passed in 0.04s: productizableRows=5, expectedProofs=19, nonShippedCount=15, contract fields matched, all product rows are promote-now/proposedBatch=true, productPath support/refusal names match inventory genericLiveProductPathCandidates, all target evidence/docs/API/required inventory class requirements are present, all expected proof names appear in the matrix script, and errors=[]. Additional validation passed: pnpm run generic-resource-graph-coverage (0.31s), pnpm run check-smoke-manifest (0.38s), pnpm run format:check (1.89s), and git diff --check (0.16s). Non-claims preserved: no routing effect yet, no arbitrary process restore, no any-binary movement, no broad daemon/database/service migration, no active session migration, no source-fd teleportation, no source-ISA emulation, no metadata-only success, no runtime-profile shortcut, and no product support for blocked/proof-only/proof-image/descriptor harness rows."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the first implementation batch contains only 5-8 genuinely close promote-now rows and that every other candidate remains deferred or blocked with no product routing effect.",
+      "evidence": "Proved the first implementation batch is limited to the five genuinely close promote-now rows and all other candidates remain deferred or blocked with no product routing effect. docs/snapshot/generic-resource-graph-productization-wave2-subset.json productizableRows contains exactly 5 rows, satisfying the 5-8 batch requirement, and every row points back to a promote-now/proposedBatch=true classification. The subset nonShippedCandidates ledger records the other 15 candidates as not shipped: promoteAfterMissingRefusal=[generic-readonly-file-cursor,generic-append-log-cursor,generic-unix-pathname-client-pair,generic-file-lock-advisory,generic-timerfd-relative-oneshot], blockedByTreeIdentity=[node-static-http-live-generic-primary-marker,go-static-http-live-generic-primary-marker,rust-static-http-live-generic-primary-marker,busybox-httpd-live-generic-primary-marker], blockedByServiceSafety=[nginx-live-generic-primary-marker,caddy-live-generic-primary-marker,ruby-live-generic-primary-marker,rsync-live-generic-primary-marker,redis-live-generic-primary-marker], and blockedBySessionState=[tail-live-generic-primary-marker]. The contract explicitly records productRoutingEffect=no-routing-effect-until-wave2-implementation-validation-promotes-allowlist. A routing audit of packages/cli/src/move-generic-product-path.ts passed in 0.10s and showed phase1Only=true with wave2NamesInCurrentAllowlist=[], proving the new wave-2 subset has not changed product routing yet. The subset validation also passed in 0.04s with productizableRows=5 and nonShippedCount=15. Non-claims preserved: proposed wave-2 rows are not shipped until later implementation and validation prove the allowlist; non-shipped candidates remain out of product support; no tree-identity-blocked static HTTP, service-safety-blocked, session-state-blocked, proof-only, proof-image, or descriptor harness row selects product routing."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove every promoted wave-2 row has exact productPath metadata, support/refusal pairings, refusalClasses=[], target-visible health or output evidence, inventory resource-class coverage, docs/API registration, and retained artifact coverage before product routing accepts it.",
+      "evidence": "Extended productization coverage to understand the wave-2 subset and plan before product routing accepts any wave-2 row. Added scripts/generic-resource-graph-productization-wave2-coverage.mjs and updated package.json so pnpm run generic-resource-graph-productization-coverage runs both the phase-1 and wave-2 coverage checks. The wave-2 coverage validates the five promote-now rows from docs/snapshot/generic-resource-graph-productization-wave2-subset.json: exact productPath.kind=exact-live-capture, observedGraph=exact-live-resource-graph, refusalClasses=[], markerProofName, supportProofNames, refusalProofNames, targetEvidenceRequirements, inventory live productPath registration, required inventory resource classes, docs/API registration requirements, retainedPlan linkage, matrix plan proof coverage, and nonClaims. It also validates that the 15 non-shipped candidates are not productizable and do not appear in product routing source. It gates retained artifacts on routing: if a wave-2 product marker appears in packages/cli/src/move-generic-product-path.ts, every proof in scripts/smoke/move-envelope-productization-wave2-plan.json must have a passed artifact in /tmp/machinen-productization-wave2-retained-coverage before coverage passes. Positive validation passed: node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs (0.02s); node scripts/generic-resource-graph-productization-wave2-coverage.mjs (0.08s, productizableRows=5 expectedProofs=19 nonShippedRows=15 routingPromotedRows=[] wave2ProductizationErrors=[]); pnpm run generic-resource-graph-productization-coverage (0.41s, phase-1 productizationErrors=[] and wave2ProductizationErrors=[]). Negative fail-closed validation passed via /tmp/machinen-wave2-productization-coverage-negatives-* with latest path recorded in /tmp/machinen-wave2-productization-coverage-negatives-latest: missing refusalProofNames failed in 0.10s, missing targetEvidenceRequirements/API registration failed in 0.10s, missing inventory resource class failed in 0.09s, non-shipped node-static-http-live-generic-primary-marker in routing source failed in 0.09s, and promoted unix-pathname-listener-live-generic-primary-marker without retained artifacts failed in 0.09s with `missing wave-2 retained artifact while routing is promoted`. Static validation passed: pnpm run lint (3.23s), pnpm run typecheck (6.15s), pnpm run format:check (1.99s), and git diff --check (0.11s). Non-claims preserved: coverage only; no wave-2 product routing accepted yet, routingPromotedRows=[], and blocked/deferred/proof-only/proof-image/descriptor harness rows remain outside product support."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove product routing is allowlisted to only phase-1 plus the promoted wave-2 rows, and that blocked or deferred rows such as tree-identity-blocked Node/static rows, service-safety-blocked rows, and session-state-blocked rows do not select product routing.",
+      "evidence": "Promoted product routing through an explicit allowlist in packages/cli/src/move-generic-product-path.ts containing phase 1 plus exactly the five wave-2 product marker rows: unix-pathname-listener-live-generic-primary-marker, reader-cat-live-generic-primary-marker, grep-live-generic-primary-marker, busybox-nc-listener-live-generic-primary-marker, and socat-file-responder-live-generic-primary-marker. The allowlist requires exact-live-capture, observedGraph=exact-live-resource-graph, exact markerProofName, exact supportProofName, and exact ordered refusalProofNames. Productization coverage passed after retained artifacts were written: pnpm run generic-resource-graph-productization-coverage (0.23s) reported routingPromotedRows exactly equal to the five wave-2 markers and wave2ProductizationErrors=[]. The same coverage validates the 15 non-shipped rows do not appear in product routing source, including tree-identity-blocked Node/Go/Rust/BusyBox HTTP rows, service-safety-blocked nginx/caddy/ruby/rsync/redis rows, session-state-blocked tail, and promote-after-missing-refusal resource primitives. Targeted proof-image matrix validation also proved each promoted marker now selects target-native-generic-resource-graph-reexec-loader, including reader-cat, grep, busybox-nc, socat, and Unix pathname listener product markers. Static validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs (0.02s), pnpm run lint (0.98s), pnpm run typecheck (3.59s), pnpm run format:check (1.71s), and git diff --check (0.05s). Non-claims preserved: the allowlist does not include tree-identity-blocked static HTTP rows, service-safety-blocked rows, session-state-blocked rows, proof-only continuation, cross-arch semantic reconstruction, proof images, descriptor harnesses, arbitrary process restore, any-binary movement, broad service/database/daemon migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or runtime-profile shortcuts."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove user-facing explanation output distinguishes promoted product rows, explicit fallback rows, proof-only rows, deferred rows, blocked rows, and fail-closed refusals without exposing blocked/deferred/proof-only rows as product support.",
+      "evidence": "Extended the user-facing explanation path to distinguish blocked wave-2 rows from deferred/proof-only/fallback/refused rows. packages/cli/src/move-generic-resource-graph-explain.ts now includes decision=blocked and a blocked row map for tree-identity-blocked static HTTP markers (node/go/rust/busybox-httpd), service-safety-blocked markers (nginx/caddy/ruby/rsync/redis), and session-state-blocked tail. Blocked rows return productSupport=false with user messages and reasons explaining the blocker; promoted wave-2 product rows still return decision=generic-product/productSupport=true only through genericResourceGraphIsProductPrimary() when exact productPath metadata and refusalClasses=[] are present. Added focused CLI tests in packages/cli/src/__tests__/move-generic-resource-graph.test.ts proving all five wave-2 product markers select generic-product only with the exact allowlisted support/refusal tuple and no refusals, and fail-closed-refusal/productSupport=false when refusalClasses are non-empty. The same tests prove explicit fallback, proof-only rows, deferred rows, and blocked rows remain productSupport=false; examples cover node-static-http-live-generic-primary-marker, nginx-live-generic-primary-marker, and tail-live-generic-primary-marker as blocked. Added a runtime descriptor test in packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts proving MoveGenericResourceGraphState can represent wave-2 exact live-capture metadata for busybox-nc-listener-live-generic-primary-marker with refusalClasses=[]. Focused validation passed: node --check packages/cli/src/move-generic-resource-graph-explain.ts packages/cli/src/move-generic-product-path.ts (0.01s); NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts --testNamePattern \"wave-2|fallback, proof-only, deferred, and blocked|product marker|product path metadata\" (5 tests passed, 40 skipped, 1.21s). Coverage/static validation passed: pnpm run generic-resource-graph-productization-coverage (0.30s, wave2ProductizationErrors=[] and five routingPromotedRows), pnpm run generic-resource-graph-coverage (0.17s), pnpm run check-smoke-manifest (0.30s), pnpm run lint (0.92s), pnpm run typecheck (3.03s), pnpm run format:check (1.48s), and git diff --check (0.05s). Non-claims preserved: blocked/deferred/proof-only rows remain productSupport=false; no arbitrary process restore, any-binary movement, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, proof-image runtime dependency, descriptor-harness product support, or product support for blocked rows."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove targeted proof-image matrix rows and retained coverage pass for every promoted wave-2 support/refusal/product marker row, while full all-proofs matrix remains manual/nightly/release scope unless release validation explicitly requires it.",
+      "evidence": "Ran the targeted proof-image matrix for all 19 wave-2 retained plan rows using /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz. Final command passed in 368.06s with state=passed and kept work dir /tmp/machinen-move-matrix-79810-1781380391. Passed proof rows were: unix-pathname-listener-live-generic-primary-marker, generic-unix-pathname-listener, generic-unix-pathname-listener-refusals, reader-cat-live-generic-primary-marker, reader-cat, generic-stale-file-identity-refusal, generic-deleted-file-fd-refusal, generic-writable-file-cursor-refusal, grep-live-generic-primary-marker, grep, generic-pipe-stdio-refusals, busybox-nc-listener-live-generic-primary-marker, busybox-nc-listener, unsafe-busybox-nc-refusal, unsafe-nc-active-refusal, generic-loader-preflight-refusals, socat-file-responder-live-generic-primary-marker, socat-file-responder, and unsafe-socat-file-responder-refusal. The promoted marker proofs show loaderStrategy=target-native-generic-resource-graph-reexec-loader and target-visible evidence: Unix response unix:product, reader bytes=618928, grep matches=17993, busybox nc received hello-busybox-nc-product, and socat response hello-socat-file. Retained artifacts were split into /tmp/machinen-productization-wave2-retained-coverage with one JSON file per proof plus matrix-summary.json. Retained coverage passed in 0.02s: expectedCount=19, coveredCount=19, missing=[], extra=[], failed=[]. Productization coverage then passed in 0.23s with routingPromotedRows listing all five wave-2 markers and wave2ProductizationErrors=[]. Before the final pass, generic-loader-preflight-refusals failed on stale assumptions; scripts/smoke/move-envelope-matrix.sh was fixed so changed-file accepts data-dir digest/size mismatch as a fail-closed preflight reason, and port-conflict uses an accepted static HTTP descriptor to reach target-side port preflight. The standalone generic-loader-preflight-refusals rerun then passed in 16.12s with five fail-closed cases, all targetPid=null. An intermediate full run failed before rebuilding packages/cli/dist after routing changes; after pnpm build (2.21s), reader-cat-live-generic-primary-marker passed standalone in 23.81s and the full 19-row final run passed. Full all-proofs matrix remains manual/nightly/release scope; this run was the targeted wave-2 product/support/refusal set."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove productization coverage fails closed if any promoted row loses support/refusal names, productPath metadata, refusalClasses=[], retained artifacts, target health/output evidence, docs/API proof names, inventory resource classes, or known blocker/deferred-row boundaries.",
+      "evidence": "Proved productization coverage fails closed for the full wave-2 contract. Extended scripts/generic-resource-graph-productization-wave2-coverage.mjs to validate docs/API proof-name coverage in addition to productPath metadata, support/refusal pairings, refusalClasses=[], targetEvidenceRequirements, inventory resource classes, retained artifact gating, matrix proof coverage, and non-shipped routing boundaries. Updated docs/snapshot/generic-resource-graph-move.md with the wave-2 user-facing support matrix and updated packages/runtime/src/move-pid-graph.ts TSDoc, then regenerated packages/runtime/API.md. Positive validation passed after docs build: node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs (0.03s), pnpm run build:docs (3.26s), and pnpm run generic-resource-graph-productization-coverage (0.21s final, phase-1 productizationErrors=[] and wave2ProductizationErrors=[]). Negative fail-closed validation passed in /tmp/machinen-wave2-productization-full-negatives-* with latest path recorded at /tmp/machinen-wave2-productization-full-negatives-latest: productPath kind drift failed in 0.04s with `missing exact-live-capture productPath`; support/refusal drift failed in 0.05s with `missing refusalProofNames`; refusalClasses drift failed in 0.05s with `productPath must require refusalClasses=[]`; target evidence drift failed in 0.05s with `missing targetEvidenceRequirements`; inventory class drift failed in 0.05s with `missing inventory resourceClass wave2MissingResourceClass`; move docs proof-name drift failed in 0.05s with `move documentation missing unix-pathname-listener-live-generic-primary-marker`; API proof-name drift failed in 0.05s with `runtime API documentation missing busybox-nc-listener-live-generic-primary-marker`; retained artifact drift failed in 0.05s with `grep-live-generic-primary-marker missing wave-2 retained artifact while routing is promoted`; and non-shipped/deferred/blocked routing drift failed in 0.05s with `node-static-http-live-generic-primary-marker is non-shipped but appears in product routing source`. Additional validation passed: pnpm run lint (1.43s), pnpm run typecheck (4.28s), pnpm run format:check (2.20s), and git diff --check (0.07s). Non-claims preserved: fail-closed coverage only; no extra wave-2 rows are promoted beyond the five allowlisted markers, and blocked/deferred/proof-only/proof-image/descriptor harness rows remain out of product support."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove docs/snapshot and packages/runtime/API.md record the final wave-2 user-facing support matrix, exact accepted shapes, exact refusal classes, retained artifacts, validation profile, and plain non-claims.",
+      "evidence": "Proved docs/snapshot and packages/runtime/API.md record the final wave-2 user-facing support matrix, exact accepted shapes, exact refusal classes, retained artifacts, validation profile, and plain non-claims. Added scripts/smoke/move-envelope-productization-wave2-validation-profile.json with the exact 19 retained proof rows, targeted proof-image command, retained coverage command, required validation steps, full all-proofs/full-smoke boundaries, and non-claims. Updated docs/snapshot/generic-resource-graph-move.md so the wave-2 section names the five product routes, their exact accepted shapes, support/refusal proof names, refusal boundaries, retained dir /tmp/machinen-productization-wave2-retained-coverage, retained plan scripts/smoke/move-envelope-productization-wave2-plan.json, validation profile scripts/smoke/move-envelope-productization-wave2-validation-profile.json, exact 19 retained artifact names, validation commands, full all-proofs scope, full smoke-test conditions, and the 15 non-promoted candidates. Updated MoveGenericResourceGraphState TSDoc in packages/runtime/src/move-pid-graph.ts and regenerated packages/runtime/API.md so public API docs name the wave-2 product markers, exact-live-resource-graph/refusalClasses=[] contract, retained plan, validation profile, and non-claims. Strengthened scripts/generic-resource-graph-productization-wave2-coverage.mjs to validate the wave-2 validation profile and docs/API references. Validation passed: profile JSON parse (0.02s), node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs (0.01s), pnpm run build:docs (2.12s), pnpm run generic-resource-graph-productization-coverage after docs build (0.22s, wave2ProductizationErrors=[] and validationProfile=generic-resource-graph-productization-wave2-validation), docs/API exact support-matrix audit (0.02s, matrixRows=5 retainedProofs=19 errors=[]), pnpm run generic-resource-graph-coverage (0.19s), pnpm run check-smoke-manifest (0.30s), pnpm run format:check (1.64s), pnpm run lint (1.11s), pnpm run typecheck (3.67s), and git diff --check (0.05s). Non-claims preserved: docs/API and validation profile do not promote the other 15 candidates; proof-only continuation, cross-arch semantic reconstruction, descriptor harnesses, proof images, broad service/database rows, active sessions, arbitrary process restore, any-binary movement, source-fd teleportation, source-ISA emulation, metadata-only success, and runtime-profile shortcuts remain outside product support. Architecture audit also completed: pnpm exec fallow audit --changed-since origin/main (0.62s, warn-level duplicate groups only; no stop condition)."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove proof-only paths, descriptor harnesses, proof image acceleration, same-arch continuation, cross-arch semantic reconstruction, broad service/database rows, and active-session shapes remain outside product routing and runtime product dependencies.",
+      "evidence": "Proved proof-only paths, descriptor harnesses, proof image acceleration, same-arch continuation, cross-arch semantic reconstruction, broad service/database rows, and active-session shapes remain outside product routing and runtime product dependencies. Extended scripts/generic-resource-graph-productization-wave2-coverage.mjs with validateBoundaryExclusions so productization coverage fails if product routing or the wave-2 validation profile includes proof-only rows (generic-service-process-tree-prefork, generic-same-arch-modeled-continuation, generic-cross-arch-semantic-reconstruction), descriptor harness rows (generic-service-nginx/caddy/ruby/rsync/redis/php parity), broad database/service rows, blocked static HTTP live markers, blocked service live markers, tail active-session marker, or proof-image terms. Extended packages/cli/src/__tests__/move-generic-resource-graph.test.ts to assert exact-live-looking labels for same-arch continuation, cross-arch reconstruction, descriptor harnesses, broad service/database rows, tail active-session, and proof-image names never satisfy genericResourceGraphIsProductPrimary() and remain productSupport=false. Positive validation passed: node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs (0.01s), pnpm run check-move-proof-image-boundary (0.18s, checkedRuntimeFiles=236, checkedScripts=129, proofImageBoundaryErrors=[]), focused Vitest for proof-only/descriptor/service/session/proof-image and blocked process-tree boundaries (3 tests passed, 37 skipped, 0.68s final), pnpm run generic-resource-graph-productization-coverage (0.31s, wave2ProductizationErrors=[]), pnpm run format:check (1.63s), pnpm run lint (0.91s), pnpm run typecheck (3.51s), pnpm exec fallow audit --changed-since origin/main (0.90s, warn-level duplicate groups only), and git diff --check (0.05s). Negative fail-closed validation passed in /tmp/machinen-wave2-boundary-negatives-* with latest path recorded at /tmp/machinen-wave2-boundary-negatives-latest: same-arch proof-only routing failed in 0.04s with `generic-same-arch-modeled-continuation must remain outside product routing`; proof-image routing failed in 0.04s with `proof image term move-proof-image must remain outside product routing`; descriptor harness validation-profile promotion failed in 0.04s with `generic-service-nginx-static-parity must remain outside wave-2 productized proof rows`; and service/session routing failed in 0.04s with `redis-live-generic-primary-marker must remain outside product routing`. Full smoke tests were skipped because this change only touched productization coverage and CLI unit tests; no VM lifecycle, VMM, rootfs/base asset, CLI boot/exec/mount, snapshot/restore lifecycle, virtio, memory/ballooning, or FUSE/live mount behavior changed. Non-claims preserved: proof image is validation-only, descriptor harnesses are not product support, same-arch continuation and cross-arch semantic reconstruction are proof-only, broad service/database rows and active sessions remain blocked/deferred, and no arbitrary process restore, any-binary movement, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, active-session migration, or broad service/database migration is product-routed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the release validation profile for wave-2 promoted rows is explicit, including targeted proof-image rows, retained coverage, wave-2 productization coverage, generic coverage, smoke manifest, docs/API build, format, lint, typecheck, focused Vitest, fallow audit, git diff --check, and conditions for full all-proofs matrix or full smoke tests.",
+      "evidence": "Proved the release validation profile for wave-2 promoted rows is explicit and fail-closed. Strengthened scripts/generic-resource-graph-productization-wave2-coverage.mjs so validateValidationProfile checks that scripts/smoke/move-envelope-productization-wave2-validation-profile.json exactly matches the 19-row retained plan, includes every targeted proof-image proof row, requires --timings and --image <proof-image>, names retained coverage for scripts/smoke/move-envelope-productization-wave2-plan.json and /tmp/machinen-productization-wave2-retained-coverage, and contains explicit requiredValidation commands for matrix syntax, node parse checks, targeted proof-image rows, retained coverage, productization coverage, generic coverage, proof-image boundary, smoke manifest, docs/API build, format, lint, typecheck, focused Vitest, fallow audit, and git diff --check. The guard also validates fullAllProofsMatrix.defaultScope=manual-nightly-release-only with release/nightly conditions and fullSmokeTests.defaultScope=skip-for-docs-coverage-proof-row-productization-only with VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount, snapshot/restore lifecycle, virtio, memory/ballooning, FUSE/live mount, and explicit user-request run conditions. Positive validation passed: profile JSON parse (0.02s), node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs (0.01s), explicit profile audit (0.02s, proofRows=19 validationSteps=15 errors=[]), retained coverage command (0.02s, 19/19), pnpm run generic-resource-graph-productization-coverage (0.41s, wave2ProductizationErrors=[]), pnpm run generic-resource-graph-coverage (0.20s), pnpm run check-smoke-manifest (0.42s), pnpm run check-move-proof-image-boundary (0.31s), pnpm run build:docs (3.27s), focused Vitest from the profile pattern (8 tests passed, 127 skipped, 1.44s), pnpm run format:check (2.02s), pnpm run lint (1.28s), pnpm run typecheck (4.06s), pnpm exec fallow audit --changed-since origin/main (0.88s, warn-level duplicate groups only), and git diff --check (0.05s). Negative fail-closed validation passed in /tmp/machinen-wave2-validation-profile-negatives-* with latest path recorded at /tmp/machinen-wave2-validation-profile-negatives-latest: missing proof row failed in 0.05s with `wave-2 validation profile proof rows do not match retained plan`; missing retained coverage plan in the command failed in 0.04s; missing focused-vitest failed in 0.04s; missing release validation condition failed in 0.04s; and missing VM lifecycle full-smoke condition failed in 0.04s. Full all-proofs matrix was not rerun because this row proves the release profile is explicit and targeted proof-image/retained evidence already passed; the profile keeps full all-proofs for manual/nightly/release. Full smoke tests were skipped because these are docs/coverage/profile/test guard changes, not VM lifecycle, VMM, rootfs/base asset, CLI boot/exec/mount, snapshot/restore lifecycle, virtio, memory/ballooning, or FUSE/live mount changes. Non-claims preserved: proof images remain validation-only; release validation lists targeted rows and retained coverage but does not add product routing for blocked/deferred/proof-only/service/database/session rows."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove final wave-2 validation passes with timing evidence and that the final shipped set is exactly the set of rows satisfying the contract, with all non-shipped candidates explicitly deferred or blocked.",
+      "evidence": "Proved final wave-2 validation passes with timing evidence and that the shipped set is exactly the contract-satisfying set. Final shipped product routing is phase 1 generic-stdio-pipe-product-marker plus exactly five wave-2 markers: unix-pathname-listener-live-generic-primary-marker, reader-cat-live-generic-primary-marker, grep-live-generic-primary-marker, busybox-nc-listener-live-generic-primary-marker, and socat-file-responder-live-generic-primary-marker. The final shipped-set audit passed in 0.02s: wave2Shipped exactly those five rows, nonShippedCount=15, bucket counts promote-now=5/promote-after-missing-refusal=5/blocked-by-tree-identity=4/blocked-by-service-safety=5/blocked-by-session-state=1, profileProofRows=19, and errors=[]. Final validation passed: pnpm run build:docs (2.08s), node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs (0.02s), bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-productization-wave2-plan.json --coverage-dir /tmp/machinen-productization-wave2-retained-coverage --json (0.02s, state=passed expectedCount=19 coveredCount=19 missing=[] extra=[] failed=[]), pnpm run generic-resource-graph-productization-coverage (0.23s, routingPromotedRows exactly five wave-2 markers and wave2ProductizationErrors=[]), pnpm run generic-resource-graph-coverage (0.17s, missing=[] extra=[] duplicates=[] documentationBoundaryErrors=[]), pnpm run check-smoke-manifest (0.20s), pnpm run check-move-proof-image-boundary (0.18s, proofImageBoundaryErrors=[]), focused Vitest from the release profile (8 tests passed, 127 skipped, 2.20s), pnpm run format:check (2.01s), pnpm run lint (1.08s), pnpm run typecheck (4.59s), pnpm exec fallow audit --changed-since origin/main (1.05s, warn-level duplicate groups only; no stop condition), and git diff --check (0.04s). The targeted proof-image matrix itself had already passed for all 19 wave-2 product/support/refusal rows in row 7 with retained artifacts in /tmp/machinen-productization-wave2-retained-coverage; final retained coverage revalidated those artifacts instead of rerunning the 368.06s proof-image matrix. Full all-proofs matrix remains manual/nightly/release scope. Full smoke tests were skipped because final changes are docs/coverage/profile/test guardrails and no VM lifecycle, VMM, rootfs/base asset, CLI boot/exec/mount, snapshot/restore lifecycle, virtio, memory/ballooning, or FUSE/live mount behavior changed. No stop condition applies: non-shipped rows are explicitly deferred or blocked; proof-only, descriptor harness, proof-image, service/database, static HTTP tree-identity, and active-session rows remain outside product routing; no arbitrary process restore, any-binary movement, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or runtime-profile shortcut is claimed. Post-completion goal JSON/status check passed in 0.02s with COMPLETE 12/12. The first post-completion format:check found only goal JSON formatting after the status update; pnpm run format was run and format:check was rerun. After running pnpm run format to fix goal JSON formatting, post-completion checks passed: pnpm run format:check (1.85s), pnpm run generic-resource-graph-productization-coverage (0.32s, wave2ProductizationErrors=[]), and git diff --check (0.03s)."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "node JSON/schema validation for the wave-2 classification, subset, blockers/deferred ledger, retained plan, and validation profile",
+      "proves": "The wave-2 contract artifacts are valid, complete, and machine-checkable."
+    },
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --only <wave2 promoted product/support/refusal rows> --timings --image <proof-image>",
+      "proves": "Every promoted wave-2 product/support/refusal row still passes with target-visible timing and artifact evidence."
+    },
+    {
+      "check": "node scripts/move-envelope-matrix-coverage.mjs --plan <wave2 retained plan> --coverage-dir <wave2 retained artifacts> --json",
+      "proves": "Retained artifacts cover all expected promoted wave-2 rows and fail closed for missing, stale, extra, or failed artifacts."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-productization-coverage",
+      "proves": "Productization coverage still validates support/refusal pairings, exact productPath metadata, refusalClasses=[], docs/API names, inventory resource classes, retained artifacts, validation profile, blockers, and non-claims."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-coverage",
+      "proves": "Generic resource graph inventory, proof names, migration mappings, product-path candidates, and documentation boundaries remain aligned."
+    },
+    {
+      "check": "pnpm run check-smoke-manifest",
+      "proves": "Smoke manifest and proof inventory integration remain consistent with the promoted and deferred wave-2 rows."
+    },
+    {
+      "check": "pnpm run check-move-proof-image-boundary",
+      "proves": "Proof image acceleration remains validation-only and is not selected by runtime defaults or copied into product assets."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run <focused CLI/runtime wave-2 product selection, fallback, refusal, blocker, explanation, and no-target-pid tests>",
+      "proves": "Product routing, fallback priority, explanation UX, blocked-row boundaries, and fail-closed behavior are covered by focused tests."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Public runtime API docs and generated docs reflect the exact wave-2 support matrix and boundaries."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Repository formatting remains valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and changed-file health checks pass."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript and build-time validation pass."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and code-health audit passes for changed code and scripts."
+    },
+    {
+      "check": "git diff --check",
+      "proves": "Changed files have no whitespace errors."
+    }
+  ],
+  "stopIf": [
+    "A promoted row would require arbitrary process restore, any-binary movement, source-ISA emulation, metadata-only success, source-fd teleportation, runtime-profile shortcuts, active session migration, broad daemon/database/service migration, or proof-only descriptor success as product support.",
+    "A candidate lacks both support proof and equivalent refusal proof but is being considered for product promotion.",
+    "A candidate lacks target-visible health/output evidence or retained proof artifacts but is being considered for product promotion.",
+    "A proof-only package, proof image, descriptor harness, or local artifact becomes a runtime product dependency.",
+    "The wave tries to promote blocked-by-tree-identity, blocked-by-service-safety, or blocked-by-session-state rows without first proving the missing product contract and refusal evidence.",
+    "Required validation cannot be run and no narrower evidence directly covers the changed behavior.",
+    "Full smoke tests become required by VM lifecycle, VMM, rootfs/base asset, CLI boot/exec/mount, snapshot/restore lifecycle, virtio device, memory/ballooning, FUSE/live mount, or explicit user-request changes but cannot be run.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-13T22:25:00Z",
+      "summary": "Classified exactly 20 wave-2 productization candidates into the required five buckets and recorded a first proposed promote-now batch of 5 rows with missing-evidence, required-before-promotion, and non-claim notes for every candidate.",
+      "filesChanged": [
+        "docs/snapshot/generic-resource-graph-productization-wave2-classification.json",
+        ".pi/goals/generic-resource-graph-productization-wave2-20.json"
+      ],
+      "commands": [
+        "wave-2 classification validation — passed, 0.11s, candidateCount=20 batchCount=5 bucketCounts={promote-now:5,promote-after-missing-refusal:5,blocked-by-tree-identity:4,blocked-by-service-safety:5,blocked-by-session-state:1} errors=[]",
+        "pnpm run generic-resource-graph-coverage — passed, 0.40s",
+        "pnpm run format:check — passed, 2.63s",
+        "git diff --check — passed, 0.15s"
+      ],
+      "artifacts": [
+        "docs/snapshot/generic-resource-graph-productization-wave2-classification.json"
+      ],
+      "nonClaims": [
+        "Classification only; no product routing changed. Proposed promote-now rows are not shipped until later proof rows prove product contract, routing allowlist, retained artifacts, docs/API, and tests. Deferred/blocked rows remain out of product support. No arbitrary process restore, any-binary movement, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, or proof-image/descriptor-harness runtime dependency."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T22:45:00Z",
+      "summary": "Defined the wave-2 promote-now subset and retained coverage plan for five rows. The contract requires exact-live-capture productPath metadata, exact observedGraph, refusalClasses=[], support/refusal pairings, target evidence, inventory/docs/API registration, retained coverage, and fail-closed unsafe neighbors. The remaining 15 candidates are explicitly deferred or blocked, and current product routing remains phase-1-only.",
+      "filesChanged": [
+        "docs/snapshot/generic-resource-graph-productization-wave2-subset.json",
+        "scripts/smoke/move-envelope-productization-wave2-plan.json",
+        ".pi/goals/generic-resource-graph-productization-wave2-20.json"
+      ],
+      "commands": [
+        "wave-2 subset/plan validation — passed, 0.04s, productizableRows=5 expectedProofs=19 nonShippedCount=15 errors=[]",
+        "current routing allowlist audit packages/cli/src/move-generic-product-path.ts — passed, 0.10s, phase1Only=true wave2NamesInCurrentAllowlist=[]",
+        "pnpm run generic-resource-graph-coverage — passed, 0.31s",
+        "pnpm run check-smoke-manifest — passed, 0.38s",
+        "pnpm run format:check — passed, 1.89s",
+        "git diff --check — passed, 0.16s"
+      ],
+      "artifacts": [
+        "docs/snapshot/generic-resource-graph-productization-wave2-subset.json",
+        "scripts/smoke/move-envelope-productization-wave2-plan.json"
+      ],
+      "nonClaims": [
+        "Contract/subset only; no wave-2 product routing changed yet. Non-shipped candidates remain deferred or blocked. No arbitrary process restore, any-binary movement, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, proof-image runtime dependency, descriptor-harness product support, or product support for blocked rows."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T23:05:00Z",
+      "summary": "Added wave-2 productization coverage and wired it into pnpm run generic-resource-graph-productization-coverage. The coverage validates wave-2 exact product metadata, support/refusal pairings, target evidence requirements, inventory classes, docs/API registration requirements, plan/matrix proof coverage, non-shipped boundaries, and retained-artifact gating before routing can accept a wave-2 row.",
+      "filesChanged": [
+        "scripts/generic-resource-graph-productization-wave2-coverage.mjs",
+        "package.json",
+        ".pi/goals/generic-resource-graph-productization-wave2-20.json"
+      ],
+      "commands": [
+        "node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs — passed, 0.02s",
+        "node scripts/generic-resource-graph-productization-wave2-coverage.mjs — passed, 0.08s, productizableRows=5 expectedProofs=19 nonShippedRows=15 routingPromotedRows=[] wave2ProductizationErrors=[]",
+        "pnpm run generic-resource-graph-productization-coverage — passed, 0.41s, phase-1 productizationErrors=[] and wave2ProductizationErrors=[]",
+        "negative wave-2 missing refusalProofNames — failed closed as expected, rc=1, 0.10s",
+        "negative wave-2 missing targetEvidenceRequirements/API registration — failed closed as expected, rc=1, 0.10s",
+        "negative wave-2 missing inventory resource class — failed closed as expected, rc=1, 0.09s",
+        "negative wave-2 non-shipped marker in routing source — failed closed as expected, rc=1, 0.09s",
+        "negative wave-2 promoted marker without retained artifacts — failed closed as expected, rc=1, 0.09s",
+        "pnpm run lint — passed, 3.23s",
+        "pnpm run typecheck — passed, 6.15s",
+        "pnpm run format:check — passed, 1.99s",
+        "git diff --check — passed, 0.11s"
+      ],
+      "artifacts": [
+        "scripts/generic-resource-graph-productization-wave2-coverage.mjs",
+        "/tmp/machinen-wave2-productization-coverage-negatives-latest"
+      ],
+      "nonClaims": [
+        "Coverage only. No wave-2 product row is routed yet; routingPromotedRows=[]. Non-shipped candidates, tree-identity-blocked rows, service-safety-blocked rows, session-state-blocked rows, proof-only rows, proof images, and descriptor harnesses remain outside product support."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T23:45:00Z",
+      "summary": "Allowlisted exactly the five wave-2 product markers in product routing, fixed stale generic-loader-preflight refusal proof assumptions, ran the targeted 19-row wave-2 proof-image matrix, retained one artifact per proof under /tmp/machinen-productization-wave2-retained-coverage, and proved retained/productization coverage passes with routing promoted.",
+      "filesChanged": [
+        "packages/cli/src/move-generic-product-path.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        ".pi/goals/generic-resource-graph-productization-wave2-20.json"
+      ],
+      "commands": [
+        "generic-loader-preflight-refusals standalone targeted rerun after matrix fix — passed, 16.12s, five fail-closed cases all targetPid=null",
+        "pnpm build — passed, 2.21s, refreshed packages/cli/dist before matrix proof",
+        "reader-cat-live-generic-primary-marker standalone targeted rerun after allowlist/build — passed, 23.81s",
+        "targeted wave-2 proof-image matrix for 19 proofs — passed, 368.06s, work dir /tmp/machinen-move-matrix-79810-1781380391",
+        "split final wave-2 matrix JSON into /tmp/machinen-productization-wave2-retained-coverage — wrote 19 per-proof artifacts plus matrix-summary.json",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-productization-wave2-plan.json --coverage-dir /tmp/machinen-productization-wave2-retained-coverage --json — passed, 0.02s, 19/19",
+        "pnpm run generic-resource-graph-productization-coverage — passed, 0.23s, routingPromotedRows=[five wave-2 markers], wave2ProductizationErrors=[]",
+        "pnpm run generic-resource-graph-coverage — passed, 0.19s",
+        "pnpm run check-smoke-manifest — passed, 0.21s",
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs — passed, 0.02s",
+        "pnpm run lint — passed, 0.98s",
+        "pnpm run typecheck — passed, 3.59s",
+        "pnpm run format:check — passed, 1.71s",
+        "git diff --check — passed, 0.05s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-79810-1781380391",
+        "/tmp/machinen-productization-wave2-retained-coverage",
+        "/tmp/machinen-wave2-matrix-final2.out"
+      ],
+      "nonClaims": [
+        "Wave-2 product routing is allowlisted only for the five promoted markers plus the existing phase-1 marker. Non-shipped candidates remain out of product routing. Full all-proofs matrix remains manual/nightly/release scope. No arbitrary process restore, any-binary movement, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, proof-image runtime dependency, descriptor-harness product support, or product support for blocked rows."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T00:05:00Z",
+      "summary": "Extended generic resource graph move explanations with a blocked decision, added focused CLI tests for all five wave-2 promoted markers and blocked/deferred/proof-only/fallback/refusal decisions, and added a runtime descriptor test for wave-2 productPath metadata.",
+      "filesChanged": [
+        "packages/cli/src/move-generic-resource-graph-explain.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts",
+        ".pi/goals/generic-resource-graph-productization-wave2-20.json"
+      ],
+      "commands": [
+        "node --check packages/cli/src/move-generic-resource-graph-explain.ts packages/cli/src/move-generic-product-path.ts — passed, 0.01s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts --testNamePattern \"wave-2|fallback, proof-only, deferred, and blocked|product marker|product path metadata\" — passed, 5 tests, 40 skipped, 1.21s",
+        "pnpm run generic-resource-graph-productization-coverage — passed, 0.30s, wave2ProductizationErrors=[]",
+        "pnpm run generic-resource-graph-coverage — passed, 0.17s",
+        "pnpm run check-smoke-manifest — passed, 0.30s",
+        "pnpm run lint — passed, 0.92s",
+        "pnpm run typecheck — passed, 3.03s",
+        "pnpm run format:check — passed, 1.48s",
+        "git diff --check — passed, 0.05s"
+      ],
+      "artifacts": [
+        "packages/cli/src/move-generic-resource-graph-explain.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts"
+      ],
+      "nonClaims": [
+        "Explanation and test coverage only. Promoted product rows require exact allowlisted productPath metadata and refusalClasses=[]. Blocked, deferred, proof-only, fallback, and refused rows remain productSupport=false. No arbitrary process restore, any-binary movement, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, proof-image runtime dependency, descriptor-harness product support, or product support for blocked rows."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T00:25:00Z",
+      "summary": "Strengthened wave-2 productization coverage to validate docs/API proof-name coverage and proved fail-closed behavior for productPath metadata drift, support/refusal drift, refusalClasses drift, retained artifact drift, docs/API drift, target evidence drift, inventory class drift, and non-shipped/deferred/blocked routing drift.",
+      "filesChanged": [
+        "scripts/generic-resource-graph-productization-wave2-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-productization-wave2-20.json"
+      ],
+      "commands": [
+        "node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs — passed, 0.03s",
+        "pnpm run build:docs — passed, 3.26s",
+        "pnpm run generic-resource-graph-productization-coverage — passed, final 0.21s, wave2ProductizationErrors=[]",
+        "negative productPath kind drift — failed closed as expected, rc=1, 0.04s",
+        "negative support/refusal drift — failed closed as expected, rc=1, 0.05s",
+        "negative refusalClasses drift — failed closed as expected, rc=1, 0.05s",
+        "negative target evidence drift — failed closed as expected, rc=1, 0.05s",
+        "negative inventory class drift — failed closed as expected, rc=1, 0.05s",
+        "negative move docs proof-name drift — failed closed as expected, rc=1, 0.05s",
+        "negative API proof-name drift — failed closed as expected, rc=1, 0.05s",
+        "negative retained artifact drift — failed closed as expected, rc=1, 0.05s",
+        "negative non-shipped/deferred/blocked routing drift — failed closed as expected, rc=1, 0.05s",
+        "pnpm run lint — passed, 1.43s",
+        "pnpm run typecheck — passed, 4.28s",
+        "pnpm run format:check — passed, 2.20s",
+        "git diff --check — passed, 0.07s"
+      ],
+      "artifacts": [
+        "scripts/generic-resource-graph-productization-wave2-coverage.mjs",
+        "/tmp/machinen-wave2-productization-full-negatives-latest"
+      ],
+      "nonClaims": [
+        "Coverage and docs/API guardrails only. No extra wave-2 rows are promoted beyond the five allowlisted markers. Blocked, deferred, proof-only, proof-image, and descriptor-harness rows remain outside product support. No arbitrary process restore, any-binary movement, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or runtime-profile shortcut."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T00:45:00Z",
+      "summary": "Recorded and validated the final wave-2 docs/API support matrix, exact accepted shapes, refusal boundaries, retained artifact set, and validation profile for the five promoted exact-live product markers.",
+      "filesChanged": [
+        "docs/snapshot/generic-resource-graph-move.md",
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/runtime/API.md",
+        "scripts/smoke/move-envelope-productization-wave2-validation-profile.json",
+        "scripts/generic-resource-graph-productization-wave2-coverage.mjs",
+        ".pi/goals/generic-resource-graph-productization-wave2-20.json"
+      ],
+      "commands": [
+        "node JSON parse scripts/smoke/move-envelope-productization-wave2-validation-profile.json — passed, 0.02s",
+        "node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs — passed, 0.01s",
+        "pnpm run build:docs — passed, 2.12s",
+        "pnpm run generic-resource-graph-productization-coverage — passed after docs build, 0.22s, validationProfile=generic-resource-graph-productization-wave2-validation and wave2ProductizationErrors=[]",
+        "docs/API exact support-matrix audit — passed, 0.02s, matrixRows=5 retainedProofs=19 errors=[]",
+        "pnpm run generic-resource-graph-coverage — passed, 0.19s",
+        "pnpm run check-smoke-manifest — passed, 0.30s",
+        "pnpm run format:check — passed, 1.64s",
+        "pnpm run lint — passed, 1.11s",
+        "pnpm run typecheck — passed, 3.67s",
+        "git diff --check — passed, 0.05s",
+        "pnpm exec fallow audit --changed-since origin/main — completed, 0.62s, warn-level duplicate groups only; no stop condition"
+      ],
+      "artifacts": [
+        "scripts/smoke/move-envelope-productization-wave2-validation-profile.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "packages/runtime/API.md",
+        "scripts/generic-resource-graph-productization-wave2-coverage.mjs"
+      ],
+      "nonClaims": [
+        "Docs/API and validation-profile proof only. The final shipped wave-2 set remains exactly the five allowlisted product markers. The other 15 candidates remain deferred or blocked, and proof-only continuation, cross-arch semantic reconstruction, descriptor harnesses, proof images, broad service/database rows, active sessions, arbitrary process restore, any-binary movement, source-fd teleportation, source-ISA emulation, metadata-only success, and runtime-profile shortcuts remain outside product support."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T01:05:00Z",
+      "summary": "Added fail-closed boundary coverage and focused tests proving proof-only continuation/reconstruction, descriptor harnesses, proof-image names, broad service/database rows, and active-session shapes remain outside product routing and runtime product dependencies.",
+      "filesChanged": [
+        "scripts/generic-resource-graph-productization-wave2-coverage.mjs",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        ".pi/goals/generic-resource-graph-productization-wave2-20.json"
+      ],
+      "commands": [
+        "node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs — passed, 0.01s",
+        "pnpm run check-move-proof-image-boundary — passed, 0.18s, checkedRuntimeFiles=236 checkedScripts=129 proofImageBoundaryErrors=[]",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"proof-only, descriptor harness, service, session, or proof-image|fallback, proof-only, deferred, and blocked|blocks process-tree\" — passed, 3 tests, 37 skipped, 0.68s",
+        "pnpm run generic-resource-graph-productization-coverage — passed, 0.31s, wave2ProductizationErrors=[]",
+        "negative same-arch proof-only routing — failed closed as expected, rc=1, 0.04s",
+        "negative proof-image routing — failed closed as expected, rc=1, 0.04s",
+        "negative descriptor harness validation-profile promotion — failed closed as expected, rc=1, 0.04s",
+        "negative service/session routing — failed closed as expected, rc=1, 0.04s",
+        "pnpm run format:check — passed, 1.63s",
+        "pnpm run lint — passed, 0.91s",
+        "pnpm run typecheck — passed, 3.51s",
+        "pnpm exec fallow audit --changed-since origin/main — completed, 0.90s, warn-level duplicate groups only; no stop condition",
+        "git diff --check — passed, 0.05s"
+      ],
+      "artifacts": [
+        "scripts/generic-resource-graph-productization-wave2-coverage.mjs",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "/tmp/machinen-wave2-boundary-negatives-latest"
+      ],
+      "nonClaims": [
+        "Boundary coverage and tests only. Proof image acceleration remains validation-only and is not selected by runtime defaults. Descriptor harnesses, same-arch continuation, cross-arch semantic reconstruction, broad service/database rows, active sessions, blocked static HTTP rows, and deferred rows remain outside product routing. No arbitrary process restore, any-binary movement, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or runtime-profile shortcut."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T01:25:00Z",
+      "summary": "Strengthened and proved the wave-2 release validation profile is explicit for the 19 targeted proof-image rows, retained coverage, productization/generic coverage, smoke manifest, docs/API build, format/lint/typecheck, focused Vitest, fallow audit, diff check, and full all-proofs/full-smoke run conditions.",
+      "filesChanged": [
+        "scripts/generic-resource-graph-productization-wave2-coverage.mjs",
+        ".pi/goals/generic-resource-graph-productization-wave2-20.json"
+      ],
+      "commands": [
+        "node JSON parse scripts/smoke/move-envelope-productization-wave2-validation-profile.json — passed, 0.02s",
+        "node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs — passed, 0.01s",
+        "explicit wave-2 validation profile audit — passed, 0.02s, proofRows=19 validationSteps=15 errors=[]",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-productization-wave2-plan.json --coverage-dir /tmp/machinen-productization-wave2-retained-coverage --json — passed, 0.02s, 19/19",
+        "pnpm run generic-resource-graph-productization-coverage — passed, 0.41s, wave2ProductizationErrors=[]",
+        "pnpm run generic-resource-graph-coverage — passed, 0.20s",
+        "pnpm run check-smoke-manifest — passed, 0.42s",
+        "pnpm run check-move-proof-image-boundary — passed, 0.31s, proofImageBoundaryErrors=[]",
+        "pnpm run build:docs — passed, 3.27s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts --testNamePattern \"wave-2|fallback, proof-only, deferred, and blocked|product marker|promoted phase-1|refusalClasses|no target pid|product path metadata|product-adjacent refusal\" — passed, 8 tests, 127 skipped, 1.44s",
+        "negative missing validation profile proof row — failed closed as expected, rc=1, 0.05s",
+        "negative missing retained-coverage plan command — failed closed as expected, rc=1, 0.04s",
+        "negative missing focused-vitest step — failed closed as expected, rc=1, 0.04s",
+        "negative missing release validation condition — failed closed as expected, rc=1, 0.04s",
+        "negative missing full-smoke VM lifecycle condition — failed closed as expected, rc=1, 0.04s",
+        "pnpm run format:check — passed, 2.02s",
+        "pnpm run lint — passed, 1.28s",
+        "pnpm run typecheck — passed, 4.06s",
+        "pnpm exec fallow audit --changed-since origin/main — completed, 0.88s, warn-level duplicate groups only; no stop condition",
+        "git diff --check — passed, 0.05s"
+      ],
+      "artifacts": [
+        "scripts/smoke/move-envelope-productization-wave2-validation-profile.json",
+        "scripts/generic-resource-graph-productization-wave2-coverage.mjs",
+        "/tmp/machinen-wave2-validation-profile-negatives-latest"
+      ],
+      "nonClaims": [
+        "Release-profile proof only. Full all-proofs remains manual/nightly/release scope and full smoke tests remain conditional on VM/VMM/rootfs/CLI boot-exec-mount/snapshot/virtio/memory/FUSE changes or explicit request. Proof images remain validation-only. No additional product routing beyond phase 1 plus the five wave-2 exact-live markers; blocked/deferred/proof-only/service/database/session rows remain outside product support."
+      ]
+    },
+    {
+      "timestamp": "2026-06-14T01:45:00Z",
+      "summary": "Ran final wave-2 validation and proved the final shipped set is exactly phase 1 plus five wave-2 exact-live markers; all other 15 wave-2 candidates remain explicitly deferred or blocked.",
+      "filesChanged": [".pi/goals/generic-resource-graph-productization-wave2-20.json"],
+      "commands": [
+        "pnpm run build:docs — passed, 2.08s",
+        "node --check scripts/generic-resource-graph-productization-wave2-coverage.mjs — passed, 0.02s",
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-productization-wave2-plan.json --coverage-dir /tmp/machinen-productization-wave2-retained-coverage --json — passed, 0.02s, 19/19",
+        "pnpm run generic-resource-graph-productization-coverage — passed, 0.23s, wave2ProductizationErrors=[] and routingPromotedRows exactly five wave-2 markers",
+        "pnpm run generic-resource-graph-coverage — passed, 0.17s",
+        "pnpm run check-smoke-manifest — passed, 0.20s",
+        "pnpm run check-move-proof-image-boundary — passed, 0.18s, proofImageBoundaryErrors=[]",
+        "final shipped-set audit — passed, 0.02s, phase1Shipped=generic-stdio-pipe-product-marker, wave2Shipped=[unix-pathname-listener-live-generic-primary-marker, reader-cat-live-generic-primary-marker, grep-live-generic-primary-marker, busybox-nc-listener-live-generic-primary-marker, socat-file-responder-live-generic-primary-marker], nonShippedCount=15, profileProofRows=19",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts --testNamePattern \"wave-2|fallback, proof-only, deferred, and blocked|product marker|promoted phase-1|refusalClasses|no target pid|product path metadata|product-adjacent refusal\" — passed, 8 tests, 127 skipped, 2.20s",
+        "pnpm run format:check — passed, 2.01s",
+        "pnpm run lint — passed, 1.08s",
+        "pnpm run typecheck — passed, 4.59s",
+        "pnpm exec fallow audit --changed-since origin/main — completed, 1.05s, warn-level duplicate groups only; no stop condition",
+        "git diff --check — passed, 0.04s",
+        "post-completion goal JSON/status check — passed, 0.02s, COMPLETE 12/12",
+        "post-completion format:check initially found only goal JSON formatting after status update; pnpm run format was run and final format:check was rerun",
+        "post-completion pnpm run format:check — passed after pnpm run format fixed goal JSON formatting, 1.85s",
+        "post-completion pnpm run generic-resource-graph-productization-coverage — passed, 0.32s, wave2ProductizationErrors=[]",
+        "post-completion git diff --check — passed, 0.03s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-productization-wave2-retained-coverage",
+        "/tmp/machinen-move-matrix-79810-1781380391",
+        "docs/snapshot/generic-resource-graph-productization-wave2-subset.json",
+        "docs/snapshot/generic-resource-graph-productization-wave2-classification.json",
+        "scripts/smoke/move-envelope-productization-wave2-plan.json",
+        "scripts/smoke/move-envelope-productization-wave2-validation-profile.json"
+      ],
+      "nonClaims": [
+        "Final productized wave-2 set is exactly five markers. The other 15 wave-2 candidates remain deferred or blocked. Full all-proofs matrix remains manual/nightly/release scope; final retained coverage revalidated the prior 19-row targeted proof-image artifacts rather than rerunning the 368.06s matrix. Full smoke tests were skipped because no VM/VMM/rootfs/CLI boot-exec-mount/snapshot/virtio/memory/FUSE behavior changed. No arbitrary process restore, any-binary movement, broad daemon/database/service migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, proof-image runtime dependency, descriptor-harness product support, or product support for blocked rows."
+      ]
+    }
+  ],
+  "nextAction": "All 12 proofChecklist rows are proven with evidence; no stop condition applies.",
+  "status": "COMPLETE"
+}

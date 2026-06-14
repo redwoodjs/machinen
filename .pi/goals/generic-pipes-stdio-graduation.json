@@ -1,0 +1,130 @@
+{
+  "title": "Generic pipes and stdio graduation",
+  "goal": "Graduate pipes and nontrivial stdio from refused frontier resources into explicit generic resource graph classes only when stdio policy, pipe peer graph, producer/consumer lifecycle, no-hidden-shell-state boundaries, partial/unknown pipe refusal, and target-native reconstruction are proven with local matrix evidence.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove the pipes/stdio product contract is documented, including exact supported shapes, refused shapes, non-goals, target-native reconstruction rules, and explicit non-claims for arbitrary shell pipeline, PTY, terminal, or process teleportation.",
+      "evidence": "Documented the pipes/stdio product contract in docs/snapshot/generic-pipes-stdio-graduation.md and linked it from docs/snapshot/generic-resource-graph-frontier.md and docs/snapshot/README.md. The doc defines supported pilot shapes (finite pipe replay, long-running producer/consumer pair, and explicit nontrivial stdio policy), refused shapes (PTYs/terminals, hidden shell state, missing peers, fan-in/fan-out/cycles, partial/unknown kernel pipe buffers, blocked reads/writes without lifecycle, unknown anon inodes/sockets/devices/locks, nontrivial inherited stdio), descriptor taxonomy, target-native loader strategy, target evidence, non-goals, and graduation rule. Explicit non-claims include arbitrary shell pipeline movement, arbitrary shell command reconstruction, PTY/editor/session restoration, source-ISA emulation, memory/register continuation, and metadata-only success. Validation passed: pnpm run build:docs in 1.975s after formatting the docs."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove public or internal descriptor fields exist for stdio policy and pipe peer graph, including fd number, direction, flags, close-on-exec, nonblocking state, peer process identity, producer/consumer roles, peer inside/outside moved graph, and buffered-data policy.",
+      "evidence": "Added optional stdioGraph and pipeGraph descriptor fields to MoveGenericResourceGraphState in packages/runtime/src/move-pid-graph.ts. stdioGraph carries policy, fd 0/1/2 target, access, and evidence. pipeGraph carries pipes with inode, readFds/writeFds endpoints, endpoint pid/fd/role/insideMovedGraph/flags/cloexec/nonblocking/command/argv, topology, bufferedDataPolicy, and lifecycle. Updated packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts to prove the move descriptor capture surface can carry a modeled stdin pipe with one producer and one consumer, explicit stdio fd policies, topology=one-producer-one-consumer, bufferedDataPolicy=empty, and lifecycle=long-running-pair. Validation passed: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts, 1 file / 2 tests in 0.561s; pnpm -F @machinen/runtime build passed in 1.542s; pnpm run build:docs passed in 1.836s and regenerated packages/runtime/API.md."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove capture/classification distinguishes trivial stdio (/dev/null or closed), inherited noninteractive stdio, anonymous pipes, named FIFOs, shell pipelines, missing peers, fan-in/fan-out, partial/unknown pipe state, and unsupported PTY/terminal cases with exact resource-class evidence.",
+      "evidence": "Implemented descriptor-only stdio/pipe graph capture/classification in packages/cli/src/move-generic-resource-graph.ts without enabling pipe loader support. buildMoveGenericResourceGraphState now emits stdioGraph and pipeGraph. stdioGraph distinguishes /dev/null-or-closed, modeled-pipe, inherited-noninteractive, and refused stdio targets for fd 0/1/2. pipeGraph groups pipe:[inode] endpoints, records pid/fd/role/insideMovedGraph/flags/command/argv, topology one-producer-one-consumer/fan-in/fan-out/missing-peer, bufferedDataPolicy=refused-unknown, and lifecycle=refused. Focused tests in packages/cli/src/__tests__/move-generic-resource-graph.test.ts prove trivial /dev/null stdio, pipe stdin/stdout graph, one-producer-one-consumer topology, fan-in topology, missing-peer topology, named FIFO-like unknown-resource refusal, inherited-noninteractive stdio refusal, PTY refusal, and existing pipe/socket/anon-inode/device/active TCP refusal classes. Validation passed: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts, 2 files / 11 tests in 0.591s; @machinen/cli build passed in 0.373s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove producer/consumer lifecycle rules are explicit and implemented or refused: finite producer replay, long-running producer/consumer pairs, EOF/shutdown behavior, partial writes, blocked reads/writes, process exit ordering, and cleanup on failure.",
+      "evidence": "Producer/consumer lifecycle rules are currently explicit and fail-closed rather than accepted. docs/snapshot/generic-pipes-stdio-graduation.md defines finite replay, long-running producer/consumer pairs, EOF/shutdown, partial writes, blocked reads/writes, exit ordering, and cleanup requirements before support can graduate. The descriptor-only implementation records every observed pipe with bufferedDataPolicy=refused-unknown and lifecycle=refused until a target-native pipe loader proves a supported lifecycle. Focused tests assert pipeGraph entries for one-producer-one-consumer, fan-in, and missing-peer topologies all carry bufferedDataPolicy=refused-unknown and lifecycle=refused, and refusalClasses still include pipe/stdio so save/load remains fail-closed for pipe graphs. Same focused test command passed 2 files / 11 tests in 0.591s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove no hidden shell state is accepted: shell wrappers, pipelines with unmodeled commands, job control, traps, expansions, shell variables, and PTY-backed interactive shells remain refused unless separately modeled and proven.",
+      "evidence": "Implemented hidden shell-state refusal in packages/cli/src/move-generic-resource-graph.ts. classifyGenericResourceGraph now sees the MovePidGraphNode and appends a shellState refusal when command is a shell wrapper (sh/dash/bash/zsh/fish/busybox with -c), preventing shell pipelines, traps, expansions, job-control-like wrappers, or hidden shell variables from being accepted as generic pipe/stdio support. Focused test packages/cli/src/__tests__/move-generic-resource-graph.test.ts proves sh -c \"printf hi | grep h\" records refusalClasses/resourceClasses with resourceClass=shellState and reason=shell wrapper state is not a generic pipe/stdio resource graph. Validation passed: focused tests 2 files / 12 tests in 0.575s; @machinen/cli build passed in 0.347s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove a target-native loader strategy exists for the first supported pipe/stdio shape, including preflight gates, fd reconstruction, process launch order, health/target evidence, no target pid before gates pass, and cleanup on failure.",
+      "evidence": "Implemented first target-native pipe/stdio loader strategy in packages/cli/src/move-generic-resource-graph.ts behind explicit supported pipeGraph lifecycle fields. genericResourceGraphLoaderCommand now adds pipeGraph preflight before launch, supports finite-replay by creating a target-native shell pipeline that decodes capturedBytesBase64 and pipes bytes into the target-native consumer, and supports long-running-pair by validating a target-native producer argv before creating a target-native producer | consumer pipeline. The command initializes aux_pids and probe_fail kills the launched pipeline pid plus any auxiliary pid list on failure. Focused tests prove preflight precedes pipe launch, LOAD_PID appears only after launch, finite replay uses base64 -d piped into the consumer, long-running pair validates producer executable before launch and pipes producer argv into the consumer, and cleanup includes kill -TERM \"$pid\" $aux_pids. Validation passed before matrix proof: focused tests 2 files / 13 tests in 0.643s and CLI build in 0.369s. Final matrix proof after preflight refactor passed at /tmp/machinen-move-matrix-10330-1781216492."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove happy-path local matrix rows pass for at least one finite pipe shape and one long-running producer/consumer shape, with visible target output and retained JSON/timing evidence.",
+      "evidence": "Added and proved two local matrix happy-path pipe/stdio rows in scripts/smoke/move-envelope-matrix.sh. generic-finite-pipe-replay uses an explicit supported pipeGraph descriptor with lifecycle=finite-replay, bufferedDataPolicy=captured-bytes, capturedBytesBase64 for hello-pipe, and a target-native /usr/bin/wc -c consumer; target output was 11. generic-long-running-pipe-pair uses an explicit supported pipeGraph descriptor with lifecycle=long-running-pair, target-native /usr/bin/yes pipe-line producer, and target-native /usr/bin/cat consumer; target output included two pipe-line lines. Both load through target-native-generic-resource-graph-reexec-loader. Final command after the preflight refactor passed: MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --timings --only generic-finite-pipe-replay,generic-long-running-pipe-pair,generic-pipe-stdio-refusals --skip-provision, retained at /tmp/machinen-move-matrix-10330-1781216492. Happy-path timings in that run: finite pipe 11211ms, long-running pipe 12243ms; overall command elapsed 108.890s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove refusal local matrix rows pass for partial/unknown pipe state, missing peer, unsupported fan-in/fan-out, active shell state, PTY, nontrivial inherited stdio, stale target preflight, and loader failure, with loaderStarted=false or targetPid=null as appropriate.",
+      "evidence": "Added and proved local matrix refusal row generic-pipe-stdio-refusals in scripts/smoke/move-envelope-matrix.sh. The row covers partial/unknown pipe state, missing peer, fan-in, hidden shell state, PTY, nontrivial inherited stdio, stale target preflight, and loader failure. Capture/descriptor refusals for partial-unknown, missing-peer, fan-in, shell-state, pty, and inherited-stdio produced accepted=false load with loaderStarted=false and targetPid=null. Target-side refusals for stale-preflight and loader-failure invoked the generic loader but returned state=refused with targetPid=null and reasons pipe-producer-missing and pipe-captured-bytes-missing. Final command after the preflight refactor passed: MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --timings --only generic-finite-pipe-replay,generic-long-running-pipe-pair,generic-pipe-stdio-refusals --skip-provision, retained at /tmp/machinen-move-matrix-10330-1781216492. Refusal row timing in that run: 84484ms; overall command elapsed 108.890s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic coverage inventory and routine validation include the new pipes/stdio support and refusal rows, and fail if the matrix/inventory mapping drifts.",
+      "evidence": "Updated docs/snapshot/generic-resource-graph-inventory.json and scripts/generic-resource-graph-coverage.mjs for the new pipe/stdio rows. The matrix now has 162 proof names and inventory has 162 proof names, including generic-finite-pipe-replay, generic-long-running-pipe-pair, and generic-pipe-stdio-refusals. The coverage guard requiredGenericRows now includes those pipe/stdio rows, so missing pipe support/refusal coverage fails routine validation. Validation passed: pnpm run generic-resource-graph-coverage in 0.149s reporting matrixProofNames=162, inventoryProofNames=162, genericProofNames including the three pipe/stdio rows, missing=[], extra=[], duplicates=[], missingGenericRows=[], migrationErrors=[]; pnpm run check-smoke-manifest passed in 0.164s and reported generic resource graph coverage ok."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove existing generic resource graph and bespoke envelope behavior is not regressed: current generic support/refusal rows still pass or remain covered, bespoke fallback priority remains intact, and unsupported non-pipe frontier classes still fail closed.",
+      "evidence": "Existing generic resource graph and bespoke fallback behavior remains intact after pipes/stdio changes. Focused tests passed: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-native-bundle.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts, 4 files / 93 tests in 0.928s. These tests include generic descriptor/loader/refusal coverage and bespoke fallback priority assertions. CLI build passed in 0.318s. Representative existing generic support/refusal matrix rows passed with retained artifacts at /tmp/machinen-move-matrix-7691-1781216263: MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --timings --only generic-yes-loop,generic-unsupported-resource-refusals --skip-provision. generic-yes-loop passed with saveAccepted=true, loadAccepted=true, nativeContinuation=planned, strategy=target-native-generic-resource-graph-reexec-loader, targetCmdline=/usr/bin/yes generic-resource-graph. generic-unsupported-resource-refusals passed for pipe, PTY, Unix socket, anon inode, device, and active TCP with loaderStarted=false for unsupported resources. Timings: boot-pair 260ms, provision skipped 16ms, generic yes 10918ms, unsupported refusals 16602ms."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove final validation passes after pipes/stdio changes: format, lint, build:docs when docs/API changed, typecheck, focused tests, targeted matrix rows, generic coverage, check-smoke-manifest when scripts change, and fallow audit.",
+      "evidence": "Final validation passed after pipes/stdio changes. Commands and timings: pnpm run format:check passed in 1.373s; pnpm run lint passed in 0.510s with oxlint clean and fallow-health-guard reporting no health regressions; pnpm run build:docs passed in 1.816s; pnpm run typecheck passed in 2.605s; focused tests passed with NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-native-bundle.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts, 4 files / 93 tests in 0.903s; targeted pipe matrix passed with MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --timings --only generic-finite-pipe-replay,generic-long-running-pipe-pair,generic-pipe-stdio-refusals --skip-provision in 108.890s, retained at /tmp/machinen-move-matrix-10330-1781216492; pnpm run generic-resource-graph-coverage passed in 0.148s; pnpm run check-smoke-manifest passed in 0.170s; pnpm exec fallow audit --changed-since origin/main passed in 0.470s. Earlier typecheck run initially failed on an invalid test-only fifo resource kind; fixed by representing named FIFO-like resources through the existing unknown refusal path and reran typecheck/tests successfully."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "Read docs/snapshot/generic-resource-graph-frontier.md and the new pipes/stdio docs",
+      "proves": "The product contract, non-goals, supported shapes, refused shapes, and no-hidden-shell-state boundary are documented honestly."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run <focused pipe/stdio generic resource tests>",
+      "proves": "Descriptor typing, capture classification, lifecycle rules, loader preflight, and refusal behavior are unit-tested."
+    },
+    {
+      "check": "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --timings --only <pipe-stdio-support-and-refusal-rows>",
+      "proves": "Pipes/stdio support and refusal rows pass locally with retained target evidence and timings."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-coverage",
+      "proves": "Coverage inventory includes new pipe/stdio rows and has no missing/extra/duplicate/migration errors."
+    },
+    {
+      "check": "pnpm run check-smoke-manifest",
+      "proves": "Routine validation invokes generic coverage and smoke manifest entries remain valid."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Formatting remains valid after docs, scripts, and code changes."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and fallow health guard remain valid after code changes."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Generated docs/API remain current when descriptor or documentation surfaces change."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript remains valid after descriptor/capture/loader changes."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and health audit passes for changed code."
+    }
+  ],
+  "stopIf": [
+    "The implementation would claim arbitrary shell pipeline, PTY, terminal, or process teleportation without modeling every observed resource.",
+    "The implementation cannot distinguish hidden shell state from explicit pipe graph state.",
+    "The implementation would accept partial buffered data, missing peers, fan-in/fan-out, blocked reads/writes, or nontrivial inherited stdio without exact support proof.",
+    "The implementation would launch target processes before pipe/stdio preflight gates pass.",
+    "The implementation would weaken existing generic refusal evidence or bespoke fallback priority before equivalent proof exists.",
+    "Required local proof tooling or VMM assets are unavailable for the targeted matrix rows.",
+    "Required validation fails and cannot be fixed within the pipes/stdio scope.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    "2026-06-11: Documented pipes/stdio contract in docs/snapshot/generic-pipes-stdio-graduation.md and linked it from frontier/README docs. build:docs passed in 1.975s.",
+    "2026-06-11: Added stdioGraph and pipeGraph descriptor fields to MoveGenericResourceGraphState and focused runtime descriptor coverage. Runtime test passed 1 file / 2 tests in 0.561s; runtime build passed in 1.542s; build:docs passed in 1.836s.",
+    "2026-06-11: Added descriptor-only stdioGraph/pipeGraph construction in generic resource graph capture. Tests prove dev-null stdio, modeled pipe stdio, one-producer-one-consumer pipe graph, fan-in, missing-peer, named FIFO-like unknown-resource refusal, inherited stdio refusal, PTY refusal, and pipe/stdio refusalClasses. Focused tests passed 2 files / 11 tests in 0.591s; CLI build passed in 0.373s.",
+    "2026-06-11: Added hidden shell-state refusal for shell -c wrappers and focused test. Focused tests passed 2 files / 12 tests in 0.575s; CLI build passed in 0.347s.",
+    "2026-06-11: Added first target-native pipe loader command path for explicit supported pipeGraph lifecycle fields. Supports finite-replay via capturedBytesBase64 piped to the target-native consumer and long-running-pair via a target-native producer | consumer pipeline, with cleanup. Focused tests passed 2 files / 13 tests in 0.597s; CLI build 0.357s; runtime build 1.606s.",
+    "2026-06-12: Proved happy-path pipe/stdio matrix rows. generic-finite-pipe-replay output=11 and lifecycle=finite-replay; generic-long-running-pipe-pair output=[pipe-line, pipe-line] and lifecycle=long-running-pair. Retained at /tmp/machinen-move-matrix-6038-1781215971.",
+    "2026-06-12: Proved pipe/stdio refusal matrix row generic-pipe-stdio-refusals. Cases cover partial-unknown, missing-peer, fan-in, shell-state, pty, inherited-stdio with loaderStarted=false, plus stale-preflight and loader-failure with targetPid=null. Retained at /tmp/machinen-move-matrix-6616-1781216113.",
+    "2026-06-12: Generic coverage now requires the pipe/stdio rows. generic-resource-graph-coverage passed in 0.149s with matrixProofNames=162 and inventoryProofNames=162; check-smoke-manifest passed in 0.164s with coverage ok.",
+    "2026-06-12: Non-regression checks passed. Focused generic/move tests passed 4 files / 93 tests in 0.928s; CLI build passed in 0.318s; representative generic-yes-loop and generic-unsupported-resource-refusals matrix rows passed, retained at /tmp/machinen-move-matrix-7691-1781216263.",
+    "2026-06-12: Final pipe/stdio matrix run passed after the preflight refactor: finite pipe output=11, long-running pair output=[pipe-line, pipe-line], refusal cases all fail closed with loaderStarted=false or targetPid=null as appropriate. Retained at /tmp/machinen-move-matrix-10330-1781216492; elapsed 108.890s.",
+    "2026-06-12: Final validation passed: format:check 1.373s, lint 0.510s, build:docs 1.816s, typecheck 2.605s, focused tests 4 files / 93 tests in 0.903s, generic coverage 0.148s, check-smoke-manifest 0.170s, fallow audit 0.470s.",
+    "2026-06-12: Re-read goal at user request and reconciled stale prompt nextAction with the goal JSON. The file already records COMPLETE status, 11/11 proof rows proven with evidence, final validation timings, retained pipe matrix artifact /tmp/machinen-move-matrix-10330-1781216492, and no stop condition applies."
+  ],
+  "nextAction": "COMPLETE: all generic pipes/stdio graduation proof rows are proven with retained evidence.",
+  "status": "COMPLETE"
+}

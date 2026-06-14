@@ -1,0 +1,105 @@
+{
+  "title": "Move envelope speed measurement",
+  "goal": "Measure move envelope proof performance end to end, establish a baseline, implement only evidence-backed speed improvements, and prove the changes make future envelope validation faster without weakening target-native support or fail-closed refusal behavior.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove a repeatable baseline measurement exists for representative move envelope proof chunks, including boot time, provisioning time, per-proof duration, coverage verification time, and total wall time.",
+      "evidence": "Repeatable baseline measured with scripts/smoke/move-envelope-speed-plan.json and scripts/move-envelope-speed-benchmark.mjs in fresh mode. Command: node scripts/move-envelope-speed-benchmark.mjs --plan scripts/smoke/move-envelope-speed-plan.json --out-dir /tmp/move-envelope-speed-baseline-fresh --mode fresh --label baseline-fresh --json. Result passed in totalWallMs=123232 (shell elapsed 123.266s). Artifacts retained under /tmp/move-envelope-speed-baseline-fresh. Chunk timings: file-identity-pilot wallMs=43082 with boot-pair 340ms, provision skipped 15ms, stat-file 10685ms, unsafe-stat-refusal 31464ms; listener-refusal-pilot wallMs=79995 with boot-pair 287ms, provision skipped 16ms, socat-file-responder 18725ms, unsafe-socat-file-responder-refusal 60377ms. Coverage verification wallMs=155, expectedCount=4, coveredCount=4, missing=[], failed=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the baseline measurements identify the slowest phases and classify them by cause, such as VM boot, broad apt provisioning, row-local package install, guest exec overhead, service readiness wait, compression/archive fixture setup, or remote transport overhead.",
+      "evidence": "Baseline bottleneck classification: slowest phases are proof/refusal work, not boot or provisioning, because this representative plan uses skipProvision. Per-proof durations: unsafe-socat-file-responder-refusal 60377ms (dominant listener refusal path with active-client, unsupported-shape, changed-file, port-conflict, and missing-binary checks), unsafe-stat-refusal 31464ms (changed file and unsupported stat/symlink refusals), socat-file-responder 18725ms (service start/readiness and target response), stat-file 10685ms. VM boot was only 627ms total across fresh chunks; provisioning was skipped and cost 31ms. Coverage verification cost 155ms. This identifies parallel chunk execution as the meaningful wall-time optimization for this plan; warm VM reuse can only save the tiny boot/provision slice."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove a benchmark harness or script can run the same chunk plan before and after changes, retain JSON/timing artifacts, compute comparable totals, and print a concise speed report.",
+      "evidence": "Added benchmark/report harnesses: scripts/move-envelope-speed-benchmark.mjs runs a chunk plan in fresh, warm, or parallel mode, retains per-chunk JSON/timing artifacts and benchmark-summary.json, runs coverage verification, and preserves failure classification; scripts/move-envelope-speed-report.mjs compares before/after summary dirs and prints total, matrix timing, coverage, and per-chunk percent changes. Syntax checks passed with node --check for both scripts. Reports generated successfully: warm report from /tmp/move-envelope-speed-baseline-fresh to /tmp/move-envelope-speed-after-warm and parallel report from /tmp/move-envelope-speed-baseline-fresh to /tmp/move-envelope-speed-after-parallel."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove at least one safe speed improvement is implemented and measured, such as warm-VM reuse for compatible chunks, smarter proof provisioning, reduced guest exec calls, parallel chunk execution, or cached proof overlays, without hiding semantic proof failures.",
+      "evidence": "Implemented and measured safe parallel chunk execution in scripts/move-envelope-speed-benchmark.mjs with --mode parallel. It runs independent chunk-plan chunks concurrently in separate fresh VM pairs and does not retry or suppress semantic failures. Parallel command passed: node scripts/move-envelope-speed-benchmark.mjs --plan scripts/smoke/move-envelope-speed-plan.json --out-dir /tmp/move-envelope-speed-after-parallel --mode parallel --label after-parallel --json. Result totalWallMs=80223 (shell elapsed 80.250s), both chunks passed, and coverage passed 4/4. Warm-VM reuse was also measured but only improved total from 123.232s to 122.426s (-0.7%), proving boot/provision was not the useful target for this plan."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the speed improvement is real by comparing before/after measurements on the same representative chunk plan and recording percent change for total time and the affected phase.",
+      "evidence": "Before/after speed report proves a real wall-time improvement on the same plan. Baseline fresh total 123.232s; after parallel total 80.223s; delta -34.9%. Matrix timings stayed effectively identical (121.909s -> 122.042s, +0.1%), showing correctness work was not skipped; it was overlapped across independent chunks. Coverage remained effectively identical (0.155s -> 0.162s). Per-chunk wall/timing remained stable: file-identity-pilot 43.082s -> 43.215s wall, listener-refusal-pilot 79.995s -> 80.060s wall. Speedup comes from parallelizing independent chunks, not weakening proof work."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove support/refusal correctness is preserved after speed changes: every expected proof in the benchmark plan still passes with visible target evidence for support rows and no target pid or no loader launch for gatekeeper rows.",
+      "evidence": "Correctness preserved after speed changes. Parallel benchmark coverage passed with expectedCount=4, coveredCount=4, missing=[], failed=[]. Support evidence remained present: stat-file recorded targetOutputFirstLine=\"  File: /tmp/stat-file.txt\", targetSize=12, matching targetSha; socat-file-responder recorded response=\"hello-socat-file\" and targetPid. Gatekeeper evidence remained present: unsafe-stat-refusal recorded changedFileLoaderState=refused and changedFileTargetPid=null; unsafe-socat-file-responder-refusal recorded active/unsupported state omission plus changedFileTargetPid=null, portConflictTargetPid=null, and missingSocatTargetPid=null."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove infrastructure failures remain separated from semantic failures and any retry or parallelization logic retries only classified infrastructure failures, never assertion failures or envelope refusals that indicate a real bug.",
+      "evidence": "Infrastructure and semantic failures remain separated. The benchmark harness keeps per-chunk stdout/stderr and records parsed matrix failure objects when present; otherwise it applies the same conservative infrastructure classifier regex used by scripts/move-envelope-failure-classifier.mjs. Parallel mode does not retry anything, so semantic failures cannot be retried away. Existing classifier proof from the framework work remains applicable: synthetic EXEC_AGENT_TIMEOUT/VsockExec logs classify as infrastructure, while AssertionError/changed-file-identity/targetPid-null logs classify as semantic."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove remote amd64 speed measurement is either supported by the same harness or explicitly documented as not run with a reason and a follow-up next action; do not claim remote speedup without remote timing evidence.",
+      "evidence": "Remote amd64 speed measurement was not run in this goal, and no remote speedup is claimed. Reason: this goal first established a local repeatable benchmark and proved a local parallel chunk speedup; running the same timing benchmark remotely would consume additional remote VM time and should be a follow-up once the local harness is accepted. Follow-up next action: run node scripts/move-envelope-speed-benchmark.mjs with --mode fresh and --mode parallel on root@192.168.0.8 using the existing Linux MACHINEN_VMM/MACHINEN_GVPROXY remote setup, then compare with scripts/move-envelope-speed-report.mjs. Remote support is partially prepared by the earlier remote wrapper pattern, but this evidence row intentionally does not claim remote timing improvement."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove local static and unit validation passes after speed-harness or matrix changes, including format, lint, docs/API if public exports changed, typecheck, smoke manifest check if scripts changed, focused move tests, and fallow audit.",
+      "evidence": "Final local validation passed after speed benchmark/harness changes. Commands/timings: pnpm run format:check passed in 1.220s after formatting scripts/move-envelope-speed-benchmark.mjs and scripts/move-envelope-speed-report.mjs with oxfmt 0.241s; pnpm run lint passed in 0.572s; pnpm run build:docs passed in 1.894s; pnpm run typecheck passed in 2.877s including full pnpm build; pnpm run check-smoke-manifest passed in 0.142s with 70 entries; focused Vitest passed 4 files / 213 tests in 0.920s; pnpm exec fallow audit --changed-since origin/main passed in 0.571s with no issues across 59 changed files."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --timings --chunk-plan <benchmark-plan> --chunk <chunk>",
+      "proves": "Representative move envelope chunks still emit usable per-phase and per-proof timings."
+    },
+    {
+      "check": "node scripts/move-envelope-speed-report.mjs --before <dir> --after <dir> --plan <benchmark-plan>",
+      "proves": "Before/after timing artifacts are comparable and produce a percent-change speed report."
+    },
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --chunk-plan <benchmark-plan> --coverage-dir <artifact-dir>",
+      "proves": "Every expected proof in the benchmark plan passed and no expected row is missing."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Formatting remains valid after benchmark or matrix changes."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and health guard remain valid after benchmark or matrix changes."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript remains valid after benchmark or matrix changes."
+    },
+    {
+      "check": "pnpm run check-smoke-manifest",
+      "proves": "Smoke/proof script manifest remains valid if scripts are added or changed."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-preflight-helpers.test.ts packages/cli/src/__tests__/move-envelope-capture.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-command.test.ts",
+      "proves": "Focused move behavior tests still pass."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and health audit passes for changed code."
+    }
+  ],
+  "stopIf": [
+    "A proposed optimization would weaken target-native envelope evidence, skip required support/refusal checks, or hide semantic failures as infrastructure flakes.",
+    "A proposed optimization requires proof-only tools to be baked into base assets instead of proof VMs or disposable overlays.",
+    "Measurements are too noisy or incomplete to support a speedup claim, and no stable benchmark plan can be produced.",
+    "Required local VMM assets or remote access are unavailable for the measurement scope being claimed.",
+    "A required validation command fails and cannot be fixed within the current goal scope.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    "2026-06-11: Added speed benchmark plan scripts/smoke/move-envelope-speed-plan.json and harnesses scripts/move-envelope-speed-benchmark.mjs plus scripts/move-envelope-speed-report.mjs. Fresh baseline passed in 123.232s total with retained artifacts under /tmp/move-envelope-speed-baseline-fresh and coverage 4/4. Bottleneck was proof/refusal work: unsafe-socat refusal 60.377s, unsafe-stat refusal 31.464s; boot/provision was only 0.658s total for the skip-provision plan.",
+    "2026-06-11: Measured safe optimizations on the same plan. Warm VM reuse passed but only improved 123.232s -> 122.426s (-0.7%). Parallel independent chunks passed with coverage 4/4 and improved 123.232s -> 80.223s (-34.9%). Matrix per-proof timings stayed the same (121.909s -> 122.042s), proving work was overlapped rather than skipped.",
+    "2026-06-11: Final speed-goal validation passed: format:check 1.220s, lint 0.572s, build:docs 1.894s, typecheck 2.877s, check-smoke-manifest 0.142s, focused Vitest 4 files / 213 tests 0.920s, fallow audit 0.571s. Initial format failure on new speed scripts was fixed with oxfmt 0.241s before rerun."
+  ],
+  "nextAction": "All proof checklist rows are proven with non-empty evidence; summarize completion and remaining risks.",
+  "status": "COMPLETE"
+}

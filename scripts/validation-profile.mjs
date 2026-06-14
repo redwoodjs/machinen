@@ -42,6 +42,16 @@ const STEP_DEFINITIONS = {
     args: ["exec", "fallow", "audit", "--changed-since", "origin/main"],
     description: "Run changed-file fallow audit",
   },
+  "generic-resource-graph-coverage": {
+    command: "pnpm",
+    args: ["run", "generic-resource-graph-coverage"],
+    description: "Check generic resource graph proof inventory coverage",
+  },
+  "check-smoke-manifest": {
+    command: "pnpm",
+    args: ["run", "check-smoke-manifest"],
+    description: "Check smoke manifest and matrix inventory drift",
+  },
   "smoke-tests": {
     command: "pnpm",
     args: ["smoke-tests"],
@@ -57,6 +67,15 @@ const STEP_DEFINITIONS = {
 
 const PROFILES = {
   quick: ["format:check", "lint", "build:docs", "typecheck", "vitest", "fallow"],
+  "move-envelope-normal": [
+    "format:check",
+    "lint",
+    "build:docs",
+    "typecheck",
+    "generic-resource-graph-coverage",
+    "check-smoke-manifest",
+    "fallow",
+  ],
   required: ["format:check", "lint", "build:docs", "typecheck", "vitest", "fallow", "smoke-tests"],
   full: [
     "format:check",
@@ -87,7 +106,9 @@ export function parseValidationProfileArgs(argv) {
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === "--dry-run") {
+    if (arg === "--") {
+      continue;
+    } else if (arg === "--dry-run") {
       options.dryRun = true;
     } else if (arg === "--keep-going") {
       options.keepGoing = true;
@@ -406,7 +427,7 @@ function validationCacheHints() {
 
 function printHelp() {
   console.log(
-    `Usage: pnpm validation:profile [options]\n\nOptions:\n  --profile quick|required|full  Built-in step set (default: quick)\n  --step <name>                  Run one named step; repeat to override profile\n  --dry-run                      Write a report without running commands\n  --keep-going                   Continue after failed steps\n  --out-dir <dir>                Report directory (default: .validation-runs)\n  --json                         Print the report JSON to stdout\n  --no-write                     Do not write report files\n  --no-agent-ci-logs             Skip Agent CI timeline summary\n  --list                         List profiles and steps\n`,
+    `Usage: pnpm validation:profile [options]\n\nOptions:\n  --profile quick|move-envelope-normal|required|full\n                                  Built-in step set (default: quick)\n  --step <name>                  Run one named step; repeat to override profile\n  --dry-run                      Write a report without running commands\n  --keep-going                   Continue after failed steps\n  --out-dir <dir>                Report directory (default: .validation-runs)\n  --json                         Print the report JSON to stdout\n  --no-write                     Do not write report files\n  --no-agent-ci-logs             Skip Agent CI timeline summary\n  --list                         List profiles and steps\n`,
   );
 }
 

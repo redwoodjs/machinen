@@ -543,10 +543,12 @@
 ### Move PID translation
 
 - [`MoveDescriptor`](#movedescriptor)
+- [`MoveGenericResourceGraphState`](#movegenericresourcegraphstate)
 - [`MoveIssueReport`](#moveissuereport)
 - [`MovePidGraph`](#movepidgraph)
 - [`MovePidGraphEdge`](#movepidgraphedge)
 - [`MovePidGraphNode`](#movepidgraphnode)
+- [`MovePostgresClusterState`](#movepostgresclusterstate)
 - [`MoveProcessStateClass`](#moveprocessstateclass)
 - [`MoveRefusalEvidence`](#moverefusalevidence)
 - [`MoveSaveResult`](#movesaveresult)
@@ -591,6 +593,25 @@
 - [`nativeProcessImageArchitectures`](#nativeprocessimagearchitectures)
 - [`nativeProcessImageRefusalCodes`](#nativeprocessimagerefusalcodes)
 - [`nativeProcessImageSchemas`](#nativeprocessimageschemas)
+- [`SameArchStoppedContinuationRequest`](#samearchstoppedcontinuationrequest)
+- [`SameArchStoppedMapping`](#samearchstoppedmapping)
+- [`SameArchStoppedFd`](#samearchstoppedfd)
+- [`SameArchStoppedSignalState`](#samearchstoppedsignalstate)
+- [`SameArchStoppedTimerState`](#samearchstoppedtimerstate)
+- [`SameArchStoppedSocketState`](#samearchstoppedsocketstate)
+- [`SameArchStoppedSessionState`](#samearchstoppedsessionstate)
+- [`SameArchStoppedContinuationCapture`](#samearchstoppedcontinuationcapture)
+- [`SameArchStoppedContinuationClassification`](#samearchstoppedcontinuationclassification)
+- [`SameArchStoppedContinuationResumeRequest`](#samearchstoppedcontinuationresumerequest)
+- [`SameArchStoppedContinuationResumeResult`](#samearchstoppedcontinuationresumeresult)
+- [`SameArchStoppedContinuationState`](#samearchstoppedcontinuationstate)
+- [`SameArchStoppedStopState`](#samearchstoppedstopstate)
+- [`SameArchStoppedActiveSyscallState`](#samearchstoppedactivesyscallstate)
+- [`SameArchStoppedMappingKind`](#samearchstoppedmappingkind)
+- [`SameArchStoppedFdKind`](#samearchstoppedfdkind)
+- [`sameArchStoppedContinuationNonClaims`](#samearchstoppedcontinuationnonclaims)
+- [`classifySameArchStoppedContinuationCapture`](#classifysamearchstoppedcontinuationcapture)
+- [`materializeSameArchStoppedContinuationTarget`](#materializesamearchstoppedcontinuationtarget)
 - [`isNativeProcessImageBundle`](#isnativeprocessimagebundle)
 - [`validateNativeProcessImageBundle`](#validatenativeprocessimagebundle)
 - [`validateNativeProcessImageDocuments`](#validatenativeprocessimagedocuments)
@@ -4722,6 +4743,1330 @@ Size in bytes the file was allocated at.
 
 ***
 
+### MoveGenericResourceGraphState
+
+Generic resource graph evidence for `machinen move`.
+
+Product move continuation is intentionally narrower than the full proof
+matrix. The current product move continuation allowlist is empty because the
+formerly promoted generic rows are classified as resource reconstruction or
+target-native reexec, not modeled live execution continuation.
+
+The historical rows remain useful proof and refusal evidence under accurate
+labels: `generic-stdio-pipe-product-marker` with support proof
+`generic-finite-pipe-buffer-replay` and refusal proof
+`generic-pipe-stdio-refusals`, `reader-cat-live-generic-primary-marker`, and
+`grep-live-generic-primary-marker` are resource-reconstruction evidence;
+`unix-pathname-listener-live-generic-primary-marker`,
+`busybox-nc-listener-live-generic-primary-marker`,
+`socat-file-responder-live-generic-primary-marker`,
+`node-static-http-live-generic-primary-marker`,
+`go-static-http-live-generic-primary-marker`,
+`rust-static-http-live-generic-primary-marker`, and
+`busybox-httpd-live-generic-primary-marker` are target-native reexec/restart
+evidence. Their retained refusal proofs include `node-active-refusal`,
+`node-timer-refusal`, `node-worker-refusal`, `native-dlopen-refusal`,
+`go-extra-socket-refusal`, `generic-loader-preflight-refusals`,
+`unsafe-busybox-httpd-refusal`, `python-http-active-refusal`, and
+`static-http-tree-identity-refusals`. They are not product move
+continuation routes.
+
+`generic-same-arch-modeled-continuation` is the only current continuation
+classification row, and it remains proof-only until cross-architecture,
+target-native live-state reconstruction and equivalent refusal evidence are
+proven. Static HTTP tree identity, pipe byte replay, file cursor reopen,
+listener recreation, descriptor harnesses, Redis/database/service rows,
+active sessions, source-fd teleportation, source-ISA emulation,
+metadata-only success, runtime-profile shortcuts, broad daemon/database
+migration, and arbitrary process restore are not product move continuation.
+Hard product rule: `machinen move` refuses target-native reexec, restart,
+and resource reconstruction. Continuation is not banned, but future product
+move work must focus only on modeled live-state continuation: captured source
+process/resource state translated into target-native state for fds, timers,
+event-loop resources, sockets, requests, and runtime state, with fail-closed
+refusals for every unmodeled piece. Node continuation is not a product claim
+until V8 heap state, JS stack/event-loop phase, libuv handles, workers,
+native addons, timers, sockets, and in-memory app/session state are
+explicitly modeled. In short: no arbitrary process restore.
+
+#### Properties
+
+##### policy
+
+> **policy**: `"generic-resource-graph-target-native-reexec-v1"`
+
+##### migration?
+
+> `optional` **migration?**: `object`
+
+###### mode
+
+> **mode**: `"generic-primary"` \| `"generic-equivalent-with-bespoke-fallback"`
+
+###### sourceProofName
+
+> **sourceProofName**: `string`
+
+###### genericProofName
+
+> **genericProofName**: `string`
+
+###### fallbackPolicy
+
+> **fallbackPolicy**: `string`
+
+###### boundary
+
+> **boundary**: `string`
+
+###### productPath?
+
+> `optional` **productPath?**: `object`
+
+###### productPath.kind
+
+> **kind**: `"exact-live-capture"`
+
+###### productPath.markerProofName
+
+> **markerProofName**: `string`
+
+###### productPath.supportProofName
+
+> **supportProofName**: `string`
+
+###### productPath.refusalProofNames
+
+> **refusalProofNames**: `string`[]
+
+###### productPath.driftRefusalProofNames?
+
+> `optional` **driftRefusalProofNames?**: `string`[]
+
+###### productPath.observedGraph
+
+> **observedGraph**: `"exact-single-process-service"` \| `"exact-live-resource-graph"`
+
+##### staticRootTreeIdentity?
+
+> `optional` **staticRootTreeIdentity?**: `object`
+
+###### path
+
+> **path**: `string`
+
+###### sourceIdentity
+
+> **sourceIdentity**: `object`
+
+###### sourceIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### sourceIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### sourceIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### sourceIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### targetVerification
+
+> **targetVerification**: `string`
+
+###### driftRefusal
+
+> **driftRefusal**: `string`
+
+##### executableIdentity
+
+> **executableIdentity**: `object`
+
+###### path
+
+> **path**: `string`
+
+###### realPath?
+
+> `optional` **realPath?**: `string`
+
+###### packageName?
+
+> `optional` **packageName?**: `string`
+
+###### version?
+
+> `optional` **version?**: `string`
+
+###### architecture?
+
+> `optional` **architecture?**: `string`
+
+###### sha256?
+
+> `optional` **sha256?**: `string`
+
+##### argv
+
+> **argv**: `string`[]
+
+##### env
+
+> **env**: `object`
+
+###### policy
+
+> **policy**: `"captured-explicit"` \| `"target-default"` \| `"refused-if-observed"`
+
+###### entries?
+
+> `optional` **entries?**: `Record`\<`string`, `string`\>
+
+##### cwd
+
+> **cwd**: `object`
+
+###### path
+
+> **path**: `string`
+
+###### identity?
+
+> `optional` **identity?**: `object`
+
+###### identity.fileCount
+
+> **fileCount**: `number`
+
+###### identity.directoryCount
+
+> **directoryCount**: `number`
+
+###### identity.totalBytes
+
+> **totalBytes**: `number`
+
+###### identity.treeDigest
+
+> **treeDigest**: `string`
+
+##### root?
+
+> `optional` **root?**: `object`
+
+###### path
+
+> **path**: `string`
+
+##### uidGid?
+
+> `optional` **uidGid?**: `object`
+
+###### uid
+
+> **uid**: `number`
+
+###### gid
+
+> **gid**: `number`
+
+###### groups?
+
+> `optional` **groups?**: `number`[]
+
+###### umask?
+
+> `optional` **umask?**: `string`
+
+##### ports
+
+> **ports**: `object`[]
+
+###### protocol
+
+> **protocol**: `"tcp"`
+
+###### port
+
+> **port**: `number`
+
+###### bindAddress
+
+> **bindAddress**: `"127.0.0.1"`
+
+###### state
+
+> **state**: `"idle-loopback-listener"`
+
+###### noActiveClients
+
+> **noActiveClients**: `true`
+
+##### unixSockets?
+
+> `optional` **unixSockets?**: `object`[]
+
+###### fd?
+
+> `optional` **fd?**: `number`
+
+###### path
+
+> **path**: `string`
+
+###### inode
+
+> **inode**: `string`
+
+###### state
+
+> **state**: `"idle-pathname-listener"`
+
+###### noActiveClients
+
+> **noActiveClients**: `true`
+
+###### preflight
+
+> **preflight**: `object`
+
+###### preflight.targetPathPolicy
+
+> **targetPathPolicy**: `"must-not-exist"`
+
+###### preflight.parentDirectoryPolicy
+
+> **parentDirectoryPolicy**: `"must-exist-writable"`
+
+##### regularFiles
+
+> **regularFiles**: `object`[]
+
+###### fd?
+
+> `optional` **fd?**: `number`
+
+###### path
+
+> **path**: `string`
+
+###### access
+
+> **access**: `"read-only"` \| `"write-atomic"` \| `"append-only"` \| `"append-only-refused"` \| `"read-write-refused"`
+
+###### flags?
+
+> `optional` **flags?**: `string`[]
+
+###### offset?
+
+> `optional` **offset?**: `number`
+
+###### cursor?
+
+> `optional` **cursor?**: `object`
+
+###### cursor.offset
+
+> **offset**: `number`
+
+###### cursor.policy
+
+> **policy**: `"refused"` \| `"read-only-offset"` \| `"append-only-end"`
+
+###### identity
+
+> **identity**: `object`
+
+###### identity.dev
+
+> **dev**: `number`
+
+###### identity.inode
+
+> **inode**: `number`
+
+###### identity.size
+
+> **size**: `number`
+
+###### identity.mtimeEpochSeconds
+
+> **mtimeEpochSeconds**: `number`
+
+###### identity.sha256
+
+> **sha256**: `string`
+
+##### dataDirs
+
+> **dataDirs**: `object`[]
+
+###### path
+
+> **path**: `string`
+
+###### access
+
+> **access**: `"read-only"` \| `"write-validated"`
+
+###### ownerUid?
+
+> `optional` **ownerUid?**: `number`
+
+###### ownerGid?
+
+> `optional` **ownerGid?**: `number`
+
+###### mode?
+
+> `optional` **mode?**: `string`
+
+###### identity
+
+> **identity**: `object`
+
+###### identity.fileCount
+
+> **fileCount**: `number`
+
+###### identity.directoryCount
+
+> **directoryCount**: `number`
+
+###### identity.totalBytes
+
+> **totalBytes**: `number`
+
+###### identity.treeDigest
+
+> **treeDigest**: `string`
+
+##### fileOffsets
+
+> **fileOffsets**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### offset
+
+> **offset**: `number`
+
+###### policy
+
+> **policy**: `"absolute-offset"` \| `"refused-if-nonzero"`
+
+##### fileLocks?
+
+> `optional` **fileLocks?**: `object`[]
+
+###### fd?
+
+> `optional` **fd?**: `number`
+
+###### path
+
+> **path**: `string`
+
+###### lockType
+
+> **lockType**: `"flock"` \| `"posix"` \| `"ofd"`
+
+###### mode
+
+> **mode**: `"shared"` \| `"exclusive"`
+
+###### range
+
+> **range**: `object`
+
+###### range.start
+
+> **start**: `number`
+
+###### range.length
+
+> **length**: `number` \| `"eof"`
+
+###### owner
+
+> **owner**: `object`
+
+###### owner.pid?
+
+> `optional` **pid?**: `number`
+
+###### owner.policy
+
+> **policy**: `"target-process"` \| `"refused-unknown-owner"`
+
+###### fileIdentity
+
+> **fileIdentity**: `object`
+
+###### fileIdentity.dev?
+
+> `optional` **dev?**: `number`
+
+###### fileIdentity.inode?
+
+> `optional` **inode?**: `number`
+
+###### fileIdentity.size
+
+> **size**: `number`
+
+###### fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### conflictPolicy
+
+> **conflictPolicy**: `"must-acquire-nonblocking-before-launch"`
+
+###### support
+
+> **support**: `"target-native-advisory-lock"` \| `"refused-baseline"`
+
+##### stdioPolicy
+
+> **stdioPolicy**: `"stdio-dev-null-or-closed"` \| `"stdio-inherited-noninteractive"` \| `"refuse-nontrivial-stdio"`
+
+##### stdioGraph?
+
+> `optional` **stdioGraph?**: `object`
+
+###### policy
+
+> **policy**: `"refused"` \| `"dev-null-or-closed"` \| `"modeled-pipe"` \| `"modeled-pty-transcript"` \| `"inherited-noninteractive"`
+
+###### fds
+
+> **fds**: `object`[]
+
+##### pipeGraph?
+
+> `optional` **pipeGraph?**: `object`
+
+###### pipes
+
+> **pipes**: `object`[]
+
+##### eventfds?
+
+> `optional` **eventfds?**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### path
+
+> **path**: `"anon_inode:[eventfd]"`
+
+###### counter
+
+> **counter**: `string`
+
+###### fdinfoFlags?
+
+> `optional` **fdinfoFlags?**: `string`
+
+###### flags
+
+> **flags**: `string`[]
+
+###### semaphore?
+
+> `optional` **semaphore?**: `boolean`
+
+###### nonblocking?
+
+> `optional` **nonblocking?**: `boolean`
+
+###### cloexec?
+
+> `optional` **cloexec?**: `boolean`
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"target-native-counter"`
+
+##### epolls?
+
+> `optional` **epolls?**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### path
+
+> **path**: `"anon_inode:[eventpoll]"`
+
+###### fdinfoFlags?
+
+> `optional` **fdinfoFlags?**: `string`
+
+###### flags
+
+> **flags**: `string`[]
+
+###### watchedFds
+
+> **watchedFds**: `object`[]
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"target-native-eventfd-watch"` \| `"target-native-timerfd-watch"`
+
+##### timers?
+
+> `optional` **timers?**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### path
+
+> **path**: `"anon_inode:[timerfd]"`
+
+###### fdinfoFlags?
+
+> `optional` **fdinfoFlags?**: `string`
+
+###### flags
+
+> **flags**: `string`[]
+
+###### clockId
+
+> **clockId**: `number` \| `"unknown"`
+
+###### ticks
+
+> **ticks**: `string`
+
+###### settimeFlags
+
+> **settimeFlags**: `number` \| `"unknown"`
+
+###### valueSeconds
+
+> **valueSeconds**: `number`
+
+###### valueNanoseconds
+
+> **valueNanoseconds**: `number`
+
+###### intervalSeconds
+
+> **intervalSeconds**: `number`
+
+###### intervalNanoseconds
+
+> **intervalNanoseconds**: `number`
+
+###### restartPolicy
+
+> **restartPolicy**: `"refused-baseline"` \| `"monotonic-relative-oneshot-target-native"`
+
+###### boundedSkewMilliseconds
+
+> **boundedSkewMilliseconds**: `number`
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"target-native-relative-oneshot"`
+
+##### signalState?
+
+> `optional` **signalState?**: `object`
+
+###### sessionId?
+
+> `optional` **sessionId?**: `number`
+
+###### processGroupId?
+
+> `optional` **processGroupId?**: `number`
+
+###### pendingMaskHex
+
+> **pendingMaskHex**: `string`
+
+###### sharedPendingMaskHex
+
+> **sharedPendingMaskHex**: `string`
+
+###### blockedMaskHex
+
+> **blockedMaskHex**: `string`
+
+###### ignoredMaskHex
+
+> **ignoredMaskHex**: `string`
+
+###### caughtMaskHex
+
+> **caughtMaskHex**: `string`
+
+###### dispositionPolicy
+
+> **dispositionPolicy**: `"recorded-default-ignored-caught-masks"`
+
+###### pendingPolicy
+
+> **pendingPolicy**: `"refuse-nonzero-pending"`
+
+###### processGroupPolicy
+
+> **processGroupPolicy**: `"single-process-group"` \| `"refused-ambiguous-process-group"`
+
+###### support
+
+> **support**: `"refused-baseline"`
+
+##### signalfds?
+
+> `optional` **signalfds?**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### path
+
+> **path**: `"anon_inode:[signalfd]"`
+
+###### fdinfoFlags?
+
+> `optional` **fdinfoFlags?**: `string`
+
+###### flags
+
+> **flags**: `string`[]
+
+###### sigmask
+
+> **sigmask**: `string`
+
+###### support
+
+> **support**: `"refused-baseline"`
+
+##### inotifyWatches?
+
+> `optional` **inotifyWatches?**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### path
+
+> **path**: `"anon_inode:[inotify]"`
+
+###### fdinfoFlags?
+
+> `optional` **fdinfoFlags?**: `string`
+
+###### flags
+
+> **flags**: `string`[]
+
+###### watches
+
+> **watches**: `object`[]
+
+###### eventPolicy
+
+> **eventPolicy**: `"refused-baseline"` \| `"future-events-only-no-queue-replay"`
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"target-native-file-follow"`
+
+##### mmapMappings?
+
+> `optional` **mmapMappings?**: `object`[]
+
+###### fd?
+
+> `optional` **fd?**: `number`
+
+###### path
+
+> **path**: `string`
+
+###### offset
+
+> **offset**: `number`
+
+###### length
+
+> **length**: `number`
+
+###### permissions
+
+> **permissions**: `"r--"` \| `"rw-"` \| `"r-x"`
+
+###### sharing
+
+> **sharing**: `"shared"` \| `"private"`
+
+###### fileIdentity
+
+> **fileIdentity**: `object`
+
+###### fileIdentity.size
+
+> **size**: `number`
+
+###### fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### dirtyPolicy
+
+> **dirtyPolicy**: `"clean-file-backed"` \| `"refused-dirty"`
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"target-native-file-backed-clean"`
+
+##### crossArchSemanticReconstruction?
+
+> `optional` **crossArchSemanticReconstruction?**: `object`
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"proof-only-target-native-semantic-reconstruction"`
+
+###### sourceArch
+
+> **sourceArch**: `string`
+
+###### targetArch
+
+> **targetArch**: `string`
+
+###### semanticDescriptor
+
+> **semanticDescriptor**: `object`
+
+###### semanticDescriptor.kind
+
+> **kind**: `"finite-byte-stream-transform"`
+
+###### semanticDescriptor.operation
+
+> **operation**: `"refused"` \| `"uppercase"`
+
+###### semanticDescriptor.descriptorSha256
+
+> **descriptorSha256**: `string`
+
+###### semanticDescriptor.inputSha256
+
+> **inputSha256**: `string`
+
+###### semanticDescriptor.sourceRegistersPresent
+
+> **sourceRegistersPresent**: `boolean`
+
+###### semanticDescriptor.sourceIsaStatePresent
+
+> **sourceIsaStatePresent**: `boolean`
+
+###### semanticDescriptor.metadataOnlySuccess
+
+> **metadataOnlySuccess**: `boolean`
+
+###### resourceGraph
+
+> **resourceGraph**: `object`
+
+###### resourceGraph.allObservedResourceClassesModeled
+
+> **allObservedResourceClassesModeled**: `boolean`
+
+###### resourceGraph.modeledClasses
+
+> **modeledClasses**: `string`[]
+
+###### targetNativeTool
+
+> **targetNativeTool**: `object`
+
+###### targetNativeTool.path
+
+> **path**: `string`
+
+###### targetNativeTool.argv
+
+> **argv**: `string`[]
+
+###### targetNativeTool.observedArch
+
+> **observedArch**: `string`
+
+###### targetNativeTool.status
+
+> **status**: `"refused"` \| `"completed"`
+
+###### continuationEvidence
+
+> **continuationEvidence**: `object`
+
+###### continuationEvidence.stdout
+
+> **stdout**: `string`
+
+###### continuationEvidence.stdoutSha256
+
+> **stdoutSha256**: `string`
+
+###### continuationEvidence.targetNativeExecution
+
+> **targetNativeExecution**: `boolean`
+
+###### continuationEvidence.sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `boolean`
+
+###### continuationEvidence.sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `boolean`
+
+##### sameArchContinuation?
+
+> `optional` **sameArchContinuation?**: `object`
+
+###### support
+
+> **support**: `"refused-baseline"` \| `"proof-only-single-thread-target-native-resume-harness"`
+
+###### sourceArch
+
+> **sourceArch**: `string`
+
+###### targetArch
+
+> **targetArch**: `string`
+
+###### thread
+
+> **thread**: `object`
+
+###### thread.id
+
+> **id**: `string`
+
+###### thread.state
+
+> **state**: `"refused"` \| `"frozen-ptrace-stop-proof-fixture"`
+
+###### thread.singleThread
+
+> **singleThread**: `boolean`
+
+###### thread.registers
+
+> **registers**: `Record`\<`string`, `string`\>
+
+###### stack
+
+> **stack**: `object`
+
+###### stack.policy
+
+> **policy**: `"refused"` \| `"single-stack-window-modeled"`
+
+###### stack.base
+
+> **base**: `string`
+
+###### stack.stackPointer
+
+> **stackPointer**: `string`
+
+###### stack.returnAddress
+
+> **returnAddress**: `string`
+
+###### stack.materialization
+
+> **materialization**: `"refused"` \| `"target-native-call-stack"`
+
+###### memoryMappings
+
+> **memoryMappings**: `object`[]
+
+###### fdGraph
+
+> **fdGraph**: `object`
+
+###### fdGraph.policy
+
+> **policy**: `"refused"` \| `"all-observed-fds-modeled"`
+
+###### fdGraph.observedFds
+
+> **observedFds**: `number`[]
+
+###### fdGraph.compatibility
+
+> **compatibility**: `string`
+
+###### resourceGraph
+
+> **resourceGraph**: `object`
+
+###### resourceGraph.allObservedResourceClassesModeled
+
+> **allObservedResourceClassesModeled**: `boolean`
+
+###### resourceGraph.modeledClasses
+
+> **modeledClasses**: `string`[]
+
+###### resume
+
+> **resume**: `object`
+
+###### resume.arch
+
+> **arch**: `string`
+
+###### resume.status
+
+> **status**: `"refused"` \| `"returned"`
+
+###### resume.inputRegister
+
+> **inputRegister**: `string`
+
+###### resume.inputValue
+
+> **inputValue**: `number`
+
+###### resume.returnRegister
+
+> **returnRegister**: `string`
+
+###### resume.returnValue
+
+> **returnValue**: `number`
+
+###### resume.targetNativeCodeBytesSha256
+
+> **targetNativeCodeBytesSha256**: `string`
+
+###### resume.mappedExecutableBytes
+
+> **mappedExecutableBytes**: `number`
+
+###### resume.sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `boolean`
+
+###### resume.sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `boolean`
+
+###### resume.entryHex
+
+> **entryHex**: `string`
+
+##### ptys?
+
+> `optional` **ptys?**: `object`[]
+
+###### fd
+
+> **fd**: `number`
+
+###### path
+
+> **path**: `string`
+
+###### fdinfoFlags?
+
+> `optional` **fdinfoFlags?**: `string`
+
+###### sessionId?
+
+> `optional` **sessionId?**: `number`
+
+###### processGroupId?
+
+> `optional` **processGroupId?**: `number`
+
+###### terminalProcessGroupId?
+
+> `optional` **terminalProcessGroupId?**: `number`
+
+###### ttyNumber?
+
+> `optional` **ttyNumber?**: `number`
+
+###### winsize?
+
+> `optional` **winsize?**: `object`
+
+###### winsize.rows
+
+> **rows**: `number`
+
+###### winsize.columns
+
+> **columns**: `number`
+
+###### termios
+
+> **termios**: `string`
+
+###### transcriptProbe?
+
+> `optional` **transcriptProbe?**: `object`
+
+###### transcriptProbe.policy
+
+> **policy**: `"target-native-reexec-capture-output"`
+
+###### transcriptProbe.marker
+
+> **marker**: `"--machinen-pty-transcript-probe"`
+
+###### support
+
+> **support**: `"refused-interactive-terminal-boundary"` \| `"target-native-noninteractive-transcript-probe"`
+
+##### healthProbe
+
+> **healthProbe**: \{ `kind`: `"process-alive"`; \} \| \{ `kind`: `"http"`; `url`: `string`; `expectedStatus?`: `number`; `expectedBodySha256?`: `string`; \} \| \{ `kind`: `"tcp-connect"`; `host`: `"127.0.0.1"`; `port`: `number`; `expectedBannerSha256?`: `string`; \} \| \{ `kind`: `"unix-connect"`; `path`: `string`; \} \| \{ `kind`: `"command"`; `argv`: `string`[]; `expectedStdoutSha256?`: `string`; \}
+
+##### resourceClasses
+
+> **resourceClasses**: `object`[]
+
+###### resourceClass
+
+> **resourceClass**: `string`
+
+###### status
+
+> **status**: `"refused"` \| `"supported"` \| `"unknown"` \| `"deferred"` \| `"ignorable"`
+
+###### evidence
+
+> **evidence**: `string`
+
+##### refusalClasses
+
+> **refusalClasses**: `object`[]
+
+###### resourceClass
+
+> **resourceClass**: `string`
+
+###### status
+
+> **status**: `"refused"` \| `"unknown"` \| `"deferred"`
+
+###### reason
+
+> **reason**: `string`
+
+###### evidence
+
+> **evidence**: `string`
+
+###### nextAction
+
+> **nextAction**: `string`
+
+##### capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+***
+
+### MovePostgresClusterState
+
+#### Properties
+
+##### port
+
+> **port**: `number`
+
+##### bindAddress
+
+> **bindAddress**: `"127.0.0.1"`
+
+##### dataDir
+
+> **dataDir**: `string`
+
+##### packageIdentity
+
+> **packageIdentity**: `object`
+
+###### packageName
+
+> **packageName**: `"postgresql-15"`
+
+###### version
+
+> **version**: `string`
+
+###### architecture
+
+> **architecture**: `string`
+
+###### executable
+
+> **executable**: `"/usr/lib/postgresql/15/bin/postgres"`
+
+##### clientPackageIdentity
+
+> **clientPackageIdentity**: `object`
+
+###### packageName
+
+> **packageName**: `"postgresql-client-15"`
+
+###### version
+
+> **version**: `string`
+
+###### architecture
+
+> **architecture**: `string`
+
+##### clusterIdentity
+
+> **clusterIdentity**: `object`
+
+###### pgVersion
+
+> **pgVersion**: `string`
+
+###### dataDirOwnerUid
+
+> **dataDirOwnerUid**: `number`
+
+###### dataDirOwnerGid
+
+> **dataDirOwnerGid**: `number`
+
+###### dataDirMode
+
+> **dataDirMode**: `string`
+
+###### treeEntryCount
+
+> **treeEntryCount**: `number`
+
+###### treeDigest
+
+> **treeDigest**: `string`
+
+###### pgControlSha256
+
+> **pgControlSha256**: `string`
+
+###### postgresqlConfSha256
+
+> **postgresqlConfSha256**: `string`
+
+###### pgHbaConfSha256
+
+> **pgHbaConfSha256**: `string`
+
+##### walState
+
+> **walState**: `object`
+
+###### policy
+
+> **policy**: `"clean-checkpoint-required"`
+
+###### pgWalDigest
+
+> **pgWalDigest**: `string`
+
+###### currentWalFiles
+
+> **currentWalFiles**: `string`[]
+
+###### checkpointEvidence
+
+> **checkpointEvidence**: `string`
+
+##### runtimeState
+
+> **runtimeState**: `object`
+
+###### processShape
+
+> **processShape**: `"postmaster-plus-standard-background-workers"`
+
+###### activeExternalClients
+
+> **activeExternalClients**: `0`
+
+###### nonIdleUserBackends
+
+> **nonIdleUserBackends**: `0`
+
+###### preparedTransactions
+
+> **preparedTransactions**: `0`
+
+###### replicationSlots
+
+> **replicationSlots**: `0`
+
+###### nonDefaultTablespaces
+
+> **nonDefaultTablespaces**: `0`
+
+###### unloggedRelations
+
+> **unloggedRelations**: `0`
+
+###### tempFiles
+
+> **tempFiles**: `0`
+
+###### symlinkEscapes
+
+> **symlinkEscapes**: `0`
+
+###### extensionNativeLibraries
+
+> **extensionNativeLibraries**: `0`
+
+##### policy
+
+> **policy**: `"postgres-idle-clean-cluster-target-native-restart"`
+
+##### capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+***
+
 ### MoveDescriptor
 
 #### Extends
@@ -4893,6 +6238,2642 @@ Size in bytes the file was allocated at.
 ###### capture.pingState.lastSequence?
 
 > `optional` **lastSequence?**: `number`
+
+###### capture.sleepState?
+
+> `optional` **sleepState?**: `object`
+
+###### capture.sleepState.originalMs
+
+> **originalMs**: `number`
+
+###### capture.sleepState.elapsedMs
+
+> **elapsedMs**: `number`
+
+###### capture.sleepState.remainingMs
+
+> **remainingMs**: `number`
+
+###### capture.sleepState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.tailState?
+
+> `optional` **tailState?**: `object`
+
+###### capture.tailState.path
+
+> **path**: `string`
+
+###### capture.tailState.offset
+
+> **offset**: `number`
+
+###### capture.tailState.followMode
+
+> **followMode**: `"poll-or-inotify"`
+
+###### capture.tailState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.lessState?
+
+> `optional` **lessState?**: `object`
+
+###### capture.lessState.path
+
+> **path**: `string`
+
+###### capture.lessState.line
+
+> **line**: `number`
+
+###### capture.lessState.terminal
+
+> **terminal**: `"script-pty"`
+
+###### capture.lessState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.viState?
+
+> `optional` **viState?**: `object`
+
+###### capture.viState.path
+
+> **path**: `string`
+
+###### capture.viState.line
+
+> **line**: `number`
+
+###### capture.viState.mode
+
+> **mode**: `"normal-read-only"` \| `"normal-dirty-buffer"`
+
+###### capture.viState.terminal
+
+> **terminal**: `"script-pty"`
+
+###### capture.viState.dirtyText?
+
+> `optional` **dirtyText?**: `string`
+
+###### capture.viState.searchPattern?
+
+> `optional` **searchPattern?**: `string`
+
+###### capture.viState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.readerState?
+
+> `optional` **readerState?**: `object`
+
+###### capture.readerState.command
+
+> **command**: `"cat"`
+
+###### capture.readerState.path
+
+> **path**: `string`
+
+###### capture.readerState.offset
+
+> **offset**: `number`
+
+###### capture.readerState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.readerState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.grepState?
+
+> `optional` **grepState?**: `object`
+
+###### capture.grepState.pattern
+
+> **pattern**: `string`
+
+###### capture.grepState.path
+
+> **path**: `string`
+
+###### capture.grepState.offset
+
+> **offset**: `number`
+
+###### capture.grepState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.grepState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.watchState?
+
+> `optional` **watchState?**: `object`
+
+###### capture.watchState.intervalSeconds
+
+> **intervalSeconds**: `number`
+
+###### capture.watchState.command
+
+> **command**: `string`[]
+
+###### capture.watchState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.shellState?
+
+> `optional` **shellState?**: `object`
+
+###### capture.shellState.shell
+
+> **shell**: `"sh"` \| `"dash"`
+
+###### capture.shellState.cwd
+
+> **cwd**: `string`
+
+###### capture.shellState.terminal
+
+> **terminal**: `"script-pty"`
+
+###### capture.shellState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.httpState?
+
+> `optional` **httpState?**: `object`
+
+###### capture.httpState.executable
+
+> **executable**: `"python3"`
+
+###### capture.httpState.port
+
+> **port**: `number`
+
+###### capture.httpState.cwd
+
+> **cwd**: `string`
+
+###### capture.httpState.directory?
+
+> `optional` **directory?**: `string`
+
+###### capture.httpState.bindAddress?
+
+> `optional` **bindAddress?**: `"127.0.0.1"`
+
+###### capture.httpState.mode?
+
+> `optional` **mode?**: `"explicit-bind-cwd"` \| `"explicit-bind-directory"`
+
+###### capture.httpState.listenerState?
+
+> `optional` **listenerState?**: `"idle-single-listener"`
+
+###### capture.httpState.directoryIdentity?
+
+> `optional` **directoryIdentity?**: `object`
+
+###### capture.httpState.directoryIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### capture.httpState.directoryIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### capture.httpState.directoryIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### capture.httpState.directoryIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### capture.httpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.busyboxHttpState?
+
+> `optional` **busyboxHttpState?**: `object`
+
+###### capture.busyboxHttpState.port
+
+> **port**: `number`
+
+###### capture.busyboxHttpState.root
+
+> **root**: `string`
+
+###### capture.busyboxHttpState.bindAddress?
+
+> `optional` **bindAddress?**: `"127.0.0.1"`
+
+###### capture.busyboxHttpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.ncState?
+
+> `optional` **ncState?**: `object`
+
+###### capture.ncState.port
+
+> **port**: `number`
+
+###### capture.ncState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.busyboxNcState?
+
+> `optional` **busyboxNcState?**: `object`
+
+###### capture.busyboxNcState.port
+
+> **port**: `number`
+
+###### capture.busyboxNcState.argvContract
+
+> **argvContract**: `"busybox-nc-listen-p"`
+
+###### capture.busyboxNcState.listenerState
+
+> **listenerState**: `"idle-single-listener"`
+
+###### capture.busyboxNcState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.socatFileResponderState?
+
+> `optional` **socatFileResponderState?**: `object`
+
+###### capture.socatFileResponderState.port
+
+> **port**: `number`
+
+###### capture.socatFileResponderState.filePath
+
+> **filePath**: `string`
+
+###### capture.socatFileResponderState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.socatFileResponderState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.socatFileResponderState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.socatFileResponderState.argvContract
+
+> **argvContract**: `"socat-tcp-listen-fork-reuseaddr-file"`
+
+###### capture.socatFileResponderState.listenerState
+
+> **listenerState**: `"idle-single-listener"`
+
+###### capture.socatFileResponderState.binaryPolicy
+
+> **binaryPolicy**: `"proof-provisioned-target-native-socat"`
+
+###### capture.socatFileResponderState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.redisIdleState?
+
+> `optional` **redisIdleState?**: `object`
+
+###### capture.redisIdleState.port
+
+> **port**: `number`
+
+###### capture.redisIdleState.argvContract
+
+> **argvContract**: `"redis-server-no-persistence-port"`
+
+###### capture.redisIdleState.datasetState
+
+> **datasetState**: `"empty"`
+
+###### capture.redisIdleState.clientState
+
+> **clientState**: `"idle-no-external-clients"`
+
+###### capture.redisIdleState.persistence
+
+> **persistence**: `object`
+
+###### capture.redisIdleState.persistence.save
+
+> **save**: `""`
+
+###### capture.redisIdleState.persistence.appendonly
+
+> **appendonly**: `"no"`
+
+###### capture.redisIdleState.binaryPolicy
+
+> **binaryPolicy**: `"proof-provisioned-target-native-redis"`
+
+###### capture.redisIdleState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.postgresClusterState?
+
+> `optional` **postgresClusterState?**: [`MovePostgresClusterState`](#movepostgresclusterstate)
+
+###### capture.genericResourceGraphState?
+
+> `optional` **genericResourceGraphState?**: [`MoveGenericResourceGraphState`](#movegenericresourcegraphstate)
+
+###### capture.nginxStaticState?
+
+> `optional` **nginxStaticState?**: `object`
+
+###### capture.nginxStaticState.configPath
+
+> **configPath**: `string`
+
+###### capture.nginxStaticState.configSha256
+
+> **configSha256**: `string`
+
+###### capture.nginxStaticState.root
+
+> **root**: `string`
+
+###### capture.nginxStaticState.port
+
+> **port**: `number`
+
+###### capture.nginxStaticState.configContract
+
+> **configContract**: `"nginx-static-root-local-listen-try-files-404"`
+
+###### capture.nginxStaticState.listenerState
+
+> **listenerState**: `"idle-single-listener"`
+
+###### capture.nginxStaticState.directoryIdentity
+
+> **directoryIdentity**: `object`
+
+###### capture.nginxStaticState.directoryIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### capture.nginxStaticState.directoryIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### capture.nginxStaticState.directoryIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### capture.nginxStaticState.directoryIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### capture.nginxStaticState.binaryPolicy
+
+> **binaryPolicy**: `"proof-provisioned-target-native-nginx"`
+
+###### capture.nginxStaticState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.caddyStaticState?
+
+> `optional` **caddyStaticState?**: `object`
+
+###### capture.caddyStaticState.port
+
+> **port**: `number`
+
+###### capture.caddyStaticState.root
+
+> **root**: `string`
+
+###### capture.caddyStaticState.argvContract
+
+> **argvContract**: `"caddy-file-server-listen-root"`
+
+###### capture.caddyStaticState.listenerState
+
+> **listenerState**: `"idle-single-listener"`
+
+###### capture.caddyStaticState.directoryIdentity
+
+> **directoryIdentity**: `object`
+
+###### capture.caddyStaticState.directoryIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### capture.caddyStaticState.directoryIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### capture.caddyStaticState.directoryIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### capture.caddyStaticState.directoryIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### capture.caddyStaticState.binaryPolicy
+
+> **binaryPolicy**: `"proof-provisioned-target-native-caddy"`
+
+###### capture.caddyStaticState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.rubyHttpState?
+
+> `optional` **rubyHttpState?**: `object`
+
+###### capture.rubyHttpState.port
+
+> **port**: `number`
+
+###### capture.rubyHttpState.root
+
+> **root**: `string`
+
+###### capture.rubyHttpState.argvContract
+
+> **argvContract**: `"ruby-run-httpd-root-port"`
+
+###### capture.rubyHttpState.listenerState
+
+> **listenerState**: `"idle-single-listener"`
+
+###### capture.rubyHttpState.directoryIdentity
+
+> **directoryIdentity**: `object`
+
+###### capture.rubyHttpState.directoryIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### capture.rubyHttpState.directoryIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### capture.rubyHttpState.directoryIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### capture.rubyHttpState.directoryIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### capture.rubyHttpState.binaryPolicy
+
+> **binaryPolicy**: `"proof-provisioned-target-native-ruby"`
+
+###### capture.rubyHttpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.phpStaticState?
+
+> `optional` **phpStaticState?**: `object`
+
+###### capture.phpStaticState.port
+
+> **port**: `number`
+
+###### capture.phpStaticState.root
+
+> **root**: `string`
+
+###### capture.phpStaticState.argvContract
+
+> **argvContract**: `"php-built-in-server-local-root"`
+
+###### capture.phpStaticState.dynamicPolicy
+
+> **dynamicPolicy**: `"no-php-scripts"`
+
+###### capture.phpStaticState.listenerState
+
+> **listenerState**: `"idle-single-listener"`
+
+###### capture.phpStaticState.directoryIdentity
+
+> **directoryIdentity**: `object`
+
+###### capture.phpStaticState.directoryIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### capture.phpStaticState.directoryIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### capture.phpStaticState.directoryIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### capture.phpStaticState.directoryIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### capture.phpStaticState.binaryPolicy
+
+> **binaryPolicy**: `"proof-provisioned-target-native-php"`
+
+###### capture.phpStaticState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.rsyncDaemonState?
+
+> `optional` **rsyncDaemonState?**: `object`
+
+###### capture.rsyncDaemonState.configPath
+
+> **configPath**: `string`
+
+###### capture.rsyncDaemonState.configSha256
+
+> **configSha256**: `string`
+
+###### capture.rsyncDaemonState.moduleName
+
+> **moduleName**: `string`
+
+###### capture.rsyncDaemonState.root
+
+> **root**: `string`
+
+###### capture.rsyncDaemonState.port
+
+> **port**: `number`
+
+###### capture.rsyncDaemonState.policy
+
+> **policy**: `"read-only-module-no-auth-hooks"`
+
+###### capture.rsyncDaemonState.listenerState
+
+> **listenerState**: `"idle-single-listener-no-active-clients"`
+
+###### capture.rsyncDaemonState.directoryIdentity
+
+> **directoryIdentity**: `object`
+
+###### capture.rsyncDaemonState.directoryIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### capture.rsyncDaemonState.directoryIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### capture.rsyncDaemonState.directoryIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### capture.rsyncDaemonState.directoryIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### capture.rsyncDaemonState.binaryPolicy
+
+> **binaryPolicy**: `"proof-provisioned-target-native-rsync"`
+
+###### capture.rsyncDaemonState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.envState?
+
+> `optional` **envState?**: `object`
+
+###### capture.envState.key
+
+> **key**: `"MACHINEN_MOVE_ENV_PROOF"`
+
+###### capture.envState.value
+
+> **value**: `string`
+
+###### capture.envState.child
+
+> **child**: `"python-http-server"`
+
+###### capture.envState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.timeoutState?
+
+> `optional` **timeoutState?**: `object`
+
+###### capture.timeoutState.seconds
+
+> **seconds**: `number`
+
+###### capture.timeoutState.child
+
+> **child**: `"python-http-server"`
+
+###### capture.timeoutState.httpState
+
+> **httpState**: `object`
+
+###### capture.timeoutState.httpState.executable
+
+> **executable**: `"python3"`
+
+###### capture.timeoutState.httpState.port
+
+> **port**: `number`
+
+###### capture.timeoutState.httpState.cwd
+
+> **cwd**: `string`
+
+###### capture.timeoutState.httpState.directory?
+
+> `optional` **directory?**: `string`
+
+###### capture.timeoutState.httpState.bindAddress?
+
+> `optional` **bindAddress?**: `"127.0.0.1"`
+
+###### capture.timeoutState.httpState.mode?
+
+> `optional` **mode?**: `"explicit-bind-cwd"` \| `"explicit-bind-directory"`
+
+###### capture.timeoutState.httpState.listenerState?
+
+> `optional` **listenerState?**: `"idle-single-listener"`
+
+###### capture.timeoutState.httpState.directoryIdentity?
+
+> `optional` **directoryIdentity?**: `object`
+
+###### capture.timeoutState.httpState.directoryIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### capture.timeoutState.httpState.directoryIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### capture.timeoutState.httpState.directoryIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### capture.timeoutState.httpState.directoryIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### capture.timeoutState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.pythonStaticRouteState?
+
+> `optional` **pythonStaticRouteState?**: `object`
+
+###### capture.pythonStaticRouteState.executable
+
+> **executable**: `"python3"`
+
+###### capture.pythonStaticRouteState.scriptPath
+
+> **scriptPath**: `string`
+
+###### capture.pythonStaticRouteState.cwd
+
+> **cwd**: `string`
+
+###### capture.pythonStaticRouteState.port
+
+> **port**: `number`
+
+###### capture.pythonStaticRouteState.route
+
+> **route**: `string`
+
+###### capture.pythonStaticRouteState.expectedBody
+
+> **expectedBody**: `string`
+
+###### capture.pythonStaticRouteState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.goStaticHttpState?
+
+> `optional` **goStaticHttpState?**: `object`
+
+###### capture.goStaticHttpState.binaryPath
+
+> **binaryPath**: `string`
+
+###### capture.goStaticHttpState.cwd
+
+> **cwd**: `string`
+
+###### capture.goStaticHttpState.markerVersion
+
+> **markerVersion**: `"go-static-http-v1"`
+
+###### capture.goStaticHttpState.port
+
+> **port**: `number`
+
+###### capture.goStaticHttpState.healthPath
+
+> **healthPath**: `string`
+
+###### capture.goStaticHttpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.rustStaticHttpState?
+
+> `optional` **rustStaticHttpState?**: `object`
+
+###### capture.rustStaticHttpState.binaryPath
+
+> **binaryPath**: `string`
+
+###### capture.rustStaticHttpState.cwd
+
+> **cwd**: `string`
+
+###### capture.rustStaticHttpState.markerVersion
+
+> **markerVersion**: `"rust-static-http-v1"`
+
+###### capture.rustStaticHttpState.port
+
+> **port**: `number`
+
+###### capture.rustStaticHttpState.healthPath
+
+> **healthPath**: `string`
+
+###### capture.rustStaticHttpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.tailGrepPipelineState?
+
+> `optional` **tailGrepPipelineState?**: `object`
+
+###### capture.tailGrepPipelineState.tailPath
+
+> **tailPath**: `string`
+
+###### capture.tailGrepPipelineState.offset
+
+> **offset**: `number`
+
+###### capture.tailGrepPipelineState.pattern
+
+> **pattern**: `string`
+
+###### capture.tailGrepPipelineState.lineBuffered
+
+> **lineBuffered**: `boolean`
+
+###### capture.tailGrepPipelineState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.ddState?
+
+> `optional` **ddState?**: `object`
+
+###### capture.ddState.inputPath
+
+> **inputPath**: `string`
+
+###### capture.ddState.outputPath
+
+> **outputPath**: `string`
+
+###### capture.ddState.blockSize
+
+> **blockSize**: `number`
+
+###### capture.ddState.inputOffset
+
+> **inputOffset**: `number`
+
+###### capture.ddState.outputOffset
+
+> **outputOffset**: `number`
+
+###### capture.ddState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.cpState?
+
+> `optional` **cpState?**: `object`
+
+###### capture.cpState.sourcePath
+
+> **sourcePath**: `string`
+
+###### capture.cpState.destinationPath
+
+> **destinationPath**: `string`
+
+###### capture.cpState.sourceOffset
+
+> **sourceOffset**: `number`
+
+###### capture.cpState.destinationOffset
+
+> **destinationOffset**: `number`
+
+###### capture.cpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.mvState?
+
+> `optional` **mvState?**: `object`
+
+###### capture.mvState.sourcePath
+
+> **sourcePath**: `string`
+
+###### capture.mvState.destinationPath
+
+> **destinationPath**: `string`
+
+###### capture.mvState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.headState?
+
+> `optional` **headState?**: `object`
+
+###### capture.headState.path
+
+> **path**: `string`
+
+###### capture.headState.lines
+
+> **lines**: `number`
+
+###### capture.headState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.headState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.headState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.headState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.headState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.tailLinesState?
+
+> `optional` **tailLinesState?**: `object`
+
+###### capture.tailLinesState.path
+
+> **path**: `string`
+
+###### capture.tailLinesState.lines
+
+> **lines**: `number`
+
+###### capture.tailLinesState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.tailLinesState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.tailLinesState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.tailLinesState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.tailLinesState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.sedState?
+
+> `optional` **sedState?**: \{ `path`: `string`; `scriptKind`: `"print-range"`; `startLine`: `number`; `endLine`: `number`; `fileIdentity`: \{ `size`: `number`; `sha256`: `string`; \}; `outputPath?`: `string`; `capturedAt?`: `string`; \} \| \{ `path`: `string`; `scriptKind`: `"literal-substitution"`; `pattern`: `string`; `replacement`: `string`; `fileIdentity`: \{ `size`: `number`; `sha256`: `string`; \}; `outputPath?`: `string`; `capturedAt?`: `string`; \}
+
+###### capture.awkFieldState?
+
+> `optional` **awkFieldState?**: `object`
+
+###### capture.awkFieldState.path
+
+> **path**: `string`
+
+###### capture.awkFieldState.fieldIndex
+
+> **fieldIndex**: `number`
+
+###### capture.awkFieldState.fs
+
+> **fs**: `"default-whitespace"`
+
+###### capture.awkFieldState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.awkFieldState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.awkFieldState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.awkFieldState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.awkFieldState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.cutState?
+
+> `optional` **cutState?**: `object`
+
+###### capture.cutState.path
+
+> **path**: `string`
+
+###### capture.cutState.delimiter
+
+> **delimiter**: `string`
+
+###### capture.cutState.fields
+
+> **fields**: `string`
+
+###### capture.cutState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.cutState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.cutState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.cutState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.cutState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.pasteState?
+
+> `optional` **pasteState?**: `object`
+
+###### capture.pasteState.leftPath
+
+> **leftPath**: `string`
+
+###### capture.pasteState.rightPath
+
+> **rightPath**: `string`
+
+###### capture.pasteState.leftIdentity
+
+> **leftIdentity**: `object`
+
+###### capture.pasteState.leftIdentity.size
+
+> **size**: `number`
+
+###### capture.pasteState.leftIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.pasteState.rightIdentity
+
+> **rightIdentity**: `object`
+
+###### capture.pasteState.rightIdentity.size
+
+> **size**: `number`
+
+###### capture.pasteState.rightIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.pasteState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.pasteState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.uniqState?
+
+> `optional` **uniqState?**: `object`
+
+###### capture.uniqState.path
+
+> **path**: `string`
+
+###### capture.uniqState.count
+
+> **count**: `boolean`
+
+###### capture.uniqState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.uniqState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.uniqState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.uniqState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.uniqState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.commState?
+
+> `optional` **commState?**: `object`
+
+###### capture.commState.leftPath
+
+> **leftPath**: `string`
+
+###### capture.commState.rightPath
+
+> **rightPath**: `string`
+
+###### capture.commState.leftIdentity
+
+> **leftIdentity**: `object`
+
+###### capture.commState.leftIdentity.size
+
+> **size**: `number`
+
+###### capture.commState.leftIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.commState.rightIdentity
+
+> **rightIdentity**: `object`
+
+###### capture.commState.rightIdentity.size
+
+> **size**: `number`
+
+###### capture.commState.rightIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.commState.collation
+
+> **collation**: `"C"`
+
+###### capture.commState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.commState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.joinState?
+
+> `optional` **joinState?**: `object`
+
+###### capture.joinState.leftPath
+
+> **leftPath**: `string`
+
+###### capture.joinState.rightPath
+
+> **rightPath**: `string`
+
+###### capture.joinState.leftIdentity
+
+> **leftIdentity**: `object`
+
+###### capture.joinState.leftIdentity.size
+
+> **size**: `number`
+
+###### capture.joinState.leftIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.joinState.rightIdentity
+
+> **rightIdentity**: `object`
+
+###### capture.joinState.rightIdentity.size
+
+> **size**: `number`
+
+###### capture.joinState.rightIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.joinState.key
+
+> **key**: `"default-first-field"`
+
+###### capture.joinState.collation
+
+> **collation**: `"C"`
+
+###### capture.joinState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.joinState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.sortState?
+
+> `optional` **sortState?**: `object`
+
+###### capture.sortState.path
+
+> **path**: `string`
+
+###### capture.sortState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.sortState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.wcState?
+
+> `optional` **wcState?**: `object`
+
+###### capture.wcState.path
+
+> **path**: `string`
+
+###### capture.wcState.mode
+
+> **mode**: `"lines"`
+
+###### capture.wcState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.wcState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.sha256State?
+
+> `optional` **sha256State?**: `object`
+
+###### capture.sha256State.path
+
+> **path**: `string`
+
+###### capture.sha256State.expectedDigest
+
+> **expectedDigest**: `string`
+
+###### capture.sha256State.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.sha256State.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.checksumState?
+
+> `optional` **checksumState?**: `object`
+
+###### capture.checksumState.algorithm
+
+> **algorithm**: `"md5"` \| `"sha1"` \| `"sha512"`
+
+###### capture.checksumState.path
+
+> **path**: `string`
+
+###### capture.checksumState.expectedDigest
+
+> **expectedDigest**: `string`
+
+###### capture.checksumState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.checksumState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.checksumState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.checksumState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.checksumState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.base64State?
+
+> `optional` **base64State?**: `object`
+
+###### capture.base64State.path
+
+> **path**: `string`
+
+###### capture.base64State.wrap
+
+> **wrap**: `76`
+
+###### capture.base64State.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.base64State.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.base64State.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.base64State.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.base64State.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.gzipState?
+
+> `optional` **gzipState?**: `object`
+
+###### capture.gzipState.inputPath
+
+> **inputPath**: `string`
+
+###### capture.gzipState.outputPath
+
+> **outputPath**: `string`
+
+###### capture.gzipState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.gzipState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.gzipState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.gzipState.outputPolicy
+
+> **outputPolicy**: `"atomic-temp-rename"`
+
+###### capture.gzipState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.gunzipState?
+
+> `optional` **gunzipState?**: `object`
+
+###### capture.gunzipState.inputPath
+
+> **inputPath**: `string`
+
+###### capture.gunzipState.outputPath
+
+> **outputPath**: `string`
+
+###### capture.gunzipState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.gunzipState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.gunzipState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.gunzipState.outputPolicy
+
+> **outputPolicy**: `"atomic-temp-rename"`
+
+###### capture.gunzipState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.xzState?
+
+> `optional` **xzState?**: `object`
+
+###### capture.xzState.inputPath
+
+> **inputPath**: `string`
+
+###### capture.xzState.outputPath
+
+> **outputPath**: `string`
+
+###### capture.xzState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.xzState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.xzState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.xzState.outputPolicy
+
+> **outputPolicy**: `"atomic-temp-rename"`
+
+###### capture.xzState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.zstdState?
+
+> `optional` **zstdState?**: `object`
+
+###### capture.zstdState.inputPath
+
+> **inputPath**: `string`
+
+###### capture.zstdState.outputPath
+
+> **outputPath**: `string`
+
+###### capture.zstdState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.zstdState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.zstdState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.zstdState.outputPolicy
+
+> **outputPolicy**: `"atomic-temp-rename"`
+
+###### capture.zstdState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.findState?
+
+> `optional` **findState?**: `object`
+
+###### capture.findState.rootPath
+
+> **rootPath**: `string`
+
+###### capture.findState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.findState.lastPath?
+
+> `optional` **lastPath?**: `string`
+
+###### capture.findState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.tarState?
+
+> `optional` **tarState?**: `object`
+
+###### capture.tarState.archivePath
+
+> **archivePath**: `string`
+
+###### capture.tarState.sourceDir
+
+> **sourceDir**: `string`
+
+###### capture.tarState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.tarExtractState?
+
+> `optional` **tarExtractState?**: `object`
+
+###### capture.tarExtractState.archivePath
+
+> **archivePath**: `string`
+
+###### capture.tarExtractState.targetDir
+
+> **targetDir**: `string`
+
+###### capture.tarExtractState.archiveIdentity
+
+> **archiveIdentity**: `object`
+
+###### capture.tarExtractState.archiveIdentity.size
+
+> **size**: `number`
+
+###### capture.tarExtractState.archiveIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.tarExtractState.entryCount
+
+> **entryCount**: `number`
+
+###### capture.tarExtractState.policy
+
+> **policy**: `"safe-relative-regular-empty-target"`
+
+###### capture.tarExtractState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.zipCreateState?
+
+> `optional` **zipCreateState?**: `object`
+
+###### capture.zipCreateState.archivePath
+
+> **archivePath**: `string`
+
+###### capture.zipCreateState.sourceDir
+
+> **sourceDir**: `string`
+
+###### capture.zipCreateState.sourceIdentity
+
+> **sourceIdentity**: `object`
+
+###### capture.zipCreateState.sourceIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### capture.zipCreateState.sourceIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### capture.zipCreateState.policy
+
+> **policy**: `"safe-relative-regular-no-symlinks-absent-archive"`
+
+###### capture.zipCreateState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.mkdirState?
+
+> `optional` **mkdirState?**: `object`
+
+###### capture.mkdirState.targetPath
+
+> **targetPath**: `string`
+
+###### capture.mkdirState.parentPath
+
+> **parentPath**: `string`
+
+###### capture.mkdirState.parentIdentity
+
+> **parentIdentity**: `object`
+
+###### capture.mkdirState.parentIdentity.mode
+
+> **mode**: `string`
+
+###### capture.mkdirState.parentIdentity.entriesDigest
+
+> **entriesDigest**: `string`
+
+###### capture.mkdirState.policy
+
+> **policy**: `"absent-child-existing-parent"`
+
+###### capture.mkdirState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.mkdirParentsState?
+
+> `optional` **mkdirParentsState?**: `object`
+
+###### capture.mkdirParentsState.targetPath
+
+> **targetPath**: `string`
+
+###### capture.mkdirParentsState.existingPrefix
+
+> **existingPrefix**: `string`
+
+###### capture.mkdirParentsState.missingComponents
+
+> **missingComponents**: `string`[]
+
+###### capture.mkdirParentsState.prefixIdentity
+
+> **prefixIdentity**: `object`
+
+###### capture.mkdirParentsState.prefixIdentity.mode
+
+> **mode**: `string`
+
+###### capture.mkdirParentsState.prefixIdentity.entriesDigest
+
+> **entriesDigest**: `string`
+
+###### capture.mkdirParentsState.policy
+
+> **policy**: `"symlink-free-path-idempotent-or-create-missing"`
+
+###### capture.mkdirParentsState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.touchState?
+
+> `optional` **touchState?**: `object`
+
+###### capture.touchState.path
+
+> **path**: `string`
+
+###### capture.touchState.parentPath
+
+> **parentPath**: `string`
+
+###### capture.touchState.timestampSpec
+
+> **timestampSpec**: `string`
+
+###### capture.touchState.expectedEpoch
+
+> **expectedEpoch**: `number`
+
+###### capture.touchState.parentIdentity
+
+> **parentIdentity**: `object`
+
+###### capture.touchState.parentIdentity.mode
+
+> **mode**: `string`
+
+###### capture.touchState.parentIdentity.entriesDigest
+
+> **entriesDigest**: `string`
+
+###### capture.touchState.policy
+
+> **policy**: `"deterministic-timestamp-absent-file-create"`
+
+###### capture.touchState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.chmodState?
+
+> `optional` **chmodState?**: `object`
+
+###### capture.chmodState.path
+
+> **path**: `string`
+
+###### capture.chmodState.expectedMode
+
+> **expectedMode**: `string`
+
+###### capture.chmodState.targetMode
+
+> **targetMode**: `string`
+
+###### capture.chmodState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.chmodState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.chmodState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.chmodState.policy
+
+> **policy**: `"numeric-mode-regular-non-symlink"`
+
+###### capture.chmodState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.chownState?
+
+> `optional` **chownState?**: `object`
+
+###### capture.chownState.path
+
+> **path**: `string`
+
+###### capture.chownState.owner
+
+> **owner**: `string`
+
+###### capture.chownState.group
+
+> **group**: `string`
+
+###### capture.chownState.targetUid
+
+> **targetUid**: `number`
+
+###### capture.chownState.targetGid
+
+> **targetGid**: `number`
+
+###### capture.chownState.expectedUid
+
+> **expectedUid**: `number`
+
+###### capture.chownState.expectedGid
+
+> **expectedGid**: `number`
+
+###### capture.chownState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.chownState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.chownState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.chownState.policy
+
+> **policy**: `"same-base-uid-gid-regular-non-symlink"`
+
+###### capture.chownState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.linkState?
+
+> `optional` **linkState?**: `object`
+
+###### capture.linkState.sourcePath
+
+> **sourcePath**: `string`
+
+###### capture.linkState.destinationPath
+
+> **destinationPath**: `string`
+
+###### capture.linkState.sourceIdentity
+
+> **sourceIdentity**: `object`
+
+###### capture.linkState.sourceIdentity.dev
+
+> **dev**: `string`
+
+###### capture.linkState.sourceIdentity.inode
+
+> **inode**: `string`
+
+###### capture.linkState.sourceIdentity.mode
+
+> **mode**: `string`
+
+###### capture.linkState.sourceIdentity.size
+
+> **size**: `number`
+
+###### capture.linkState.sourceIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.linkState.destinationParent
+
+> **destinationParent**: `string`
+
+###### capture.linkState.destinationParentIdentity
+
+> **destinationParentIdentity**: `object`
+
+###### capture.linkState.destinationParentIdentity.dev
+
+> **dev**: `string`
+
+###### capture.linkState.destinationParentIdentity.mode
+
+> **mode**: `string`
+
+###### capture.linkState.destinationParentIdentity.entriesDigest
+
+> **entriesDigest**: `string`
+
+###### capture.linkState.policy
+
+> **policy**: `"hardlink-regular-source-absent-destination-same-filesystem"`
+
+###### capture.linkState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.symlinkState?
+
+> `optional` **symlinkState?**: `object`
+
+###### capture.symlinkState.targetLiteral
+
+> **targetLiteral**: `string`
+
+###### capture.symlinkState.linkPath
+
+> **linkPath**: `string`
+
+###### capture.symlinkState.parentPath
+
+> **parentPath**: `string`
+
+###### capture.symlinkState.parentIdentity
+
+> **parentIdentity**: `object`
+
+###### capture.symlinkState.parentIdentity.dev
+
+> **dev**: `string`
+
+###### capture.symlinkState.parentIdentity.mode
+
+> **mode**: `string`
+
+###### capture.symlinkState.parentIdentity.entriesDigest
+
+> **entriesDigest**: `string`
+
+###### capture.symlinkState.policy
+
+> **policy**: `"literal-target-absent-link-safe-parent"`
+
+###### capture.symlinkState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.rmState?
+
+> `optional` **rmState?**: `object`
+
+###### capture.rmState.path
+
+> **path**: `string`
+
+###### capture.rmState.parentPath
+
+> **parentPath**: `string`
+
+###### capture.rmState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.rmState.fileIdentity.mode
+
+> **mode**: `string`
+
+###### capture.rmState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.rmState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.rmState.parentIdentity
+
+> **parentIdentity**: `object`
+
+###### capture.rmState.parentIdentity.dev
+
+> **dev**: `string`
+
+###### capture.rmState.parentIdentity.mode
+
+> **mode**: `string`
+
+###### capture.rmState.parentIdentity.entriesDigest
+
+> **entriesDigest**: `string`
+
+###### capture.rmState.policy
+
+> **policy**: `"regular-non-symlink-pre-unlink"`
+
+###### capture.rmState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.rmdirState?
+
+> `optional` **rmdirState?**: `object`
+
+###### capture.rmdirState.path
+
+> **path**: `string`
+
+###### capture.rmdirState.parentPath
+
+> **parentPath**: `string`
+
+###### capture.rmdirState.directoryIdentity
+
+> **directoryIdentity**: `object`
+
+###### capture.rmdirState.directoryIdentity.dev
+
+> **dev**: `string`
+
+###### capture.rmdirState.directoryIdentity.inode
+
+> **inode**: `string`
+
+###### capture.rmdirState.directoryIdentity.mode
+
+> **mode**: `string`
+
+###### capture.rmdirState.parentIdentity
+
+> **parentIdentity**: `object`
+
+###### capture.rmdirState.parentIdentity.dev
+
+> **dev**: `string`
+
+###### capture.rmdirState.parentIdentity.mode
+
+> **mode**: `string`
+
+###### capture.rmdirState.parentIdentity.entriesDigest
+
+> **entriesDigest**: `string`
+
+###### capture.rmdirState.policy
+
+> **policy**: `"empty-directory-non-symlink-pre-remove"`
+
+###### capture.rmdirState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.installState?
+
+> `optional` **installState?**: `object`
+
+###### capture.installState.sourcePath
+
+> **sourcePath**: `string`
+
+###### capture.installState.destinationPath
+
+> **destinationPath**: `string`
+
+###### capture.installState.mode
+
+> **mode**: `string`
+
+###### capture.installState.sourceIdentity
+
+> **sourceIdentity**: `object`
+
+###### capture.installState.sourceIdentity.mode
+
+> **mode**: `string`
+
+###### capture.installState.sourceIdentity.size
+
+> **size**: `number`
+
+###### capture.installState.sourceIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.installState.destinationParent
+
+> **destinationParent**: `string`
+
+###### capture.installState.destinationParentIdentity
+
+> **destinationParentIdentity**: `object`
+
+###### capture.installState.destinationParentIdentity.dev
+
+> **dev**: `string`
+
+###### capture.installState.destinationParentIdentity.mode
+
+> **mode**: `string`
+
+###### capture.installState.destinationParentIdentity.entriesDigest
+
+> **entriesDigest**: `string`
+
+###### capture.installState.policy
+
+> **policy**: `"copy-mode-absent-destination"`
+
+###### capture.installState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.lsState?
+
+> `optional` **lsState?**: `object`
+
+###### capture.lsState.directoryPath
+
+> **directoryPath**: `string`
+
+###### capture.lsState.directoryIdentity
+
+> **directoryIdentity**: `object`
+
+###### capture.lsState.directoryIdentity.dev
+
+> **dev**: `string`
+
+###### capture.lsState.directoryIdentity.inode
+
+> **inode**: `string`
+
+###### capture.lsState.directoryIdentity.mode
+
+> **mode**: `string`
+
+###### capture.lsState.directoryIdentity.entryCount
+
+> **entryCount**: `number`
+
+###### capture.lsState.directoryIdentity.entriesDigest
+
+> **entriesDigest**: `string`
+
+###### capture.lsState.directoryIdentity.outputDigest
+
+> **outputDigest**: `string`
+
+###### capture.lsState.ordering
+
+> **ordering**: `"LC_ALL=C-name-ascending"`
+
+###### capture.lsState.options
+
+> **options**: \[`"-1"`\]
+
+###### capture.lsState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.lsState.policy
+
+> **policy**: `"ascii-names-non-recursive-directory-listing"`
+
+###### capture.lsState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.lsLongState?
+
+> `optional` **lsLongState?**: `object`
+
+###### capture.lsLongState.directoryPath
+
+> **directoryPath**: `string`
+
+###### capture.lsLongState.directoryIdentity
+
+> **directoryIdentity**: `object`
+
+###### capture.lsLongState.directoryIdentity.dev
+
+> **dev**: `string`
+
+###### capture.lsLongState.directoryIdentity.inode
+
+> **inode**: `string`
+
+###### capture.lsLongState.directoryIdentity.mode
+
+> **mode**: `string`
+
+###### capture.lsLongState.directoryIdentity.entryCount
+
+> **entryCount**: `number`
+
+###### capture.lsLongState.directoryIdentity.entriesDigest
+
+> **entriesDigest**: `string`
+
+###### capture.lsLongState.directoryIdentity.outputDigest
+
+> **outputDigest**: `string`
+
+###### capture.lsLongState.entries
+
+> **entries**: `object`[]
+
+###### capture.lsLongState.ordering
+
+> **ordering**: `"LC_ALL=C-name-ascending"`
+
+###### capture.lsLongState.statPolicy
+
+> **statPolicy**: `"regular-or-directory-no-symlinks-owner-group-mapped"`
+
+###### capture.lsLongState.options
+
+> **options**: \[`"-l"`\]
+
+###### capture.lsLongState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.lsLongState.policy
+
+> **policy**: `"ascii-names-non-recursive-long-listing"`
+
+###### capture.lsLongState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.duState?
+
+> `optional` **duState?**: `object`
+
+###### capture.duState.directoryPath
+
+> **directoryPath**: `string`
+
+###### capture.duState.rootDevice
+
+> **rootDevice**: `string`
+
+###### capture.duState.treeIdentity
+
+> **treeIdentity**: `object`
+
+###### capture.duState.treeIdentity.entryCount
+
+> **entryCount**: `number`
+
+###### capture.duState.treeIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### capture.duState.treeIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### capture.duState.treeIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### capture.duState.treeIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### capture.duState.treeIdentity.outputDigest
+
+> **outputDigest**: `string`
+
+###### capture.duState.options
+
+> **options**: \[`"-s"`, `"-b"`\]
+
+###### capture.duState.symlinkPolicy
+
+> **symlinkPolicy**: `"no-symlinks"`
+
+###### capture.duState.mountPolicy
+
+> **mountPolicy**: `"single-device-no-mount-crossing"`
+
+###### capture.duState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.duState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.statState?
+
+> `optional` **statState?**: `object`
+
+###### capture.statState.path
+
+> **path**: `string`
+
+###### capture.statState.format
+
+> **format**: `"default"`
+
+###### capture.statState.options
+
+> **options**: \[\]
+
+###### capture.statState.fileIdentity
+
+> **fileIdentity**: `object`
+
+###### capture.statState.fileIdentity.fileType
+
+> **fileType**: `"regular file"`
+
+###### capture.statState.fileIdentity.mode
+
+> **mode**: `string`
+
+###### capture.statState.fileIdentity.permissions
+
+> **permissions**: `string`
+
+###### capture.statState.fileIdentity.size
+
+> **size**: `number`
+
+###### capture.statState.fileIdentity.uid
+
+> **uid**: `number`
+
+###### capture.statState.fileIdentity.gid
+
+> **gid**: `number`
+
+###### capture.statState.fileIdentity.mtimeEpoch
+
+> **mtimeEpoch**: `number`
+
+###### capture.statState.fileIdentity.sha256
+
+> **sha256**: `string`
+
+###### capture.statState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.statState.symlinkPolicy
+
+> **symlinkPolicy**: `"no-symlinks"`
+
+###### capture.statState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.readlinkState?
+
+> `optional` **readlinkState?**: `object`
+
+###### capture.readlinkState.linkPath
+
+> **linkPath**: `string`
+
+###### capture.readlinkState.targetLiteral
+
+> **targetLiteral**: `string`
+
+###### capture.readlinkState.linkIdentity
+
+> **linkIdentity**: `object`
+
+###### capture.readlinkState.linkIdentity.mode
+
+> **mode**: `string`
+
+###### capture.readlinkState.linkIdentity.targetDigest
+
+> **targetDigest**: `string`
+
+###### capture.readlinkState.options
+
+> **options**: \[\]
+
+###### capture.readlinkState.policy
+
+> **policy**: `"direct-symlink-literal-target"`
+
+###### capture.readlinkState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.readlinkState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.realpathState?
+
+> `optional` **realpathState?**: `object`
+
+###### capture.realpathState.cwd
+
+> **cwd**: `string`
+
+###### capture.realpathState.inputPath
+
+> **inputPath**: `string`
+
+###### capture.realpathState.resolvedPath
+
+> **resolvedPath**: `string`
+
+###### capture.realpathState.chainIdentity
+
+> **chainIdentity**: `object`
+
+###### capture.realpathState.chainIdentity.componentCount
+
+> **componentCount**: `number`
+
+###### capture.realpathState.chainIdentity.symlinkCount
+
+> **symlinkCount**: `number`
+
+###### capture.realpathState.chainIdentity.chainDigest
+
+> **chainDigest**: `string`
+
+###### capture.realpathState.outputDigest
+
+> **outputDigest**: `string`
+
+###### capture.realpathState.options
+
+> **options**: \[\]
+
+###### capture.realpathState.policy
+
+> **policy**: `"absolute-existing-path-safe-chain"`
+
+###### capture.realpathState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.realpathState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.recursiveGrepState?
+
+> `optional` **recursiveGrepState?**: `object`
+
+###### capture.recursiveGrepState.rootPath
+
+> **rootPath**: `string`
+
+###### capture.recursiveGrepState.pattern
+
+> **pattern**: `string`
+
+###### capture.recursiveGrepState.patternPolicy
+
+> **patternPolicy**: `"literal-safe-basic-regexp"`
+
+###### capture.recursiveGrepState.treeIdentity
+
+> **treeIdentity**: `object`
+
+###### capture.recursiveGrepState.treeIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### capture.recursiveGrepState.treeIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### capture.recursiveGrepState.treeIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### capture.recursiveGrepState.treeIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### capture.recursiveGrepState.treeIdentity.outputDigest
+
+> **outputDigest**: `string`
+
+###### capture.recursiveGrepState.options
+
+> **options**: \[`"-r"`\]
+
+###### capture.recursiveGrepState.binaryPolicy
+
+> **binaryPolicy**: `"text-files-only"`
+
+###### capture.recursiveGrepState.symlinkPolicy
+
+> **symlinkPolicy**: `"no-symlinks"`
+
+###### capture.recursiveGrepState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.recursiveGrepState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.maxdepthFindState?
+
+> `optional` **maxdepthFindState?**: `object`
+
+###### capture.maxdepthFindState.rootPath
+
+> **rootPath**: `string`
+
+###### capture.maxdepthFindState.maxdepth
+
+> **maxdepth**: `number`
+
+###### capture.maxdepthFindState.treeIdentity
+
+> **treeIdentity**: `object`
+
+###### capture.maxdepthFindState.treeIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### capture.maxdepthFindState.treeIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### capture.maxdepthFindState.treeIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### capture.maxdepthFindState.treeIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### capture.maxdepthFindState.treeIdentity.outputDigest
+
+> **outputDigest**: `string`
+
+###### capture.maxdepthFindState.options
+
+> **options**: \[`"-maxdepth"`, `"-type"`, `"-print"`\]
+
+###### capture.maxdepthFindState.symlinkPolicy
+
+> **symlinkPolicy**: `"no-symlinks"`
+
+###### capture.maxdepthFindState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.maxdepthFindState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.findPredicateState?
+
+> `optional` **findPredicateState?**: `object`
+
+###### capture.findPredicateState.rootPath
+
+> **rootPath**: `string`
+
+###### capture.findPredicateState.predicate
+
+> **predicate**: `object`
+
+###### capture.findPredicateState.predicate.kind
+
+> **kind**: `"mtime"` \| `"size"`
+
+###### capture.findPredicateState.predicate.value
+
+> **value**: `string`
+
+###### capture.findPredicateState.treeIdentity
+
+> **treeIdentity**: `object`
+
+###### capture.findPredicateState.treeIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### capture.findPredicateState.treeIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### capture.findPredicateState.treeIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### capture.findPredicateState.treeIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### capture.findPredicateState.treeIdentity.outputDigest
+
+> **outputDigest**: `string`
+
+###### capture.findPredicateState.options
+
+> **options**: \[`"predicate"`, `"-type"`, `"-print"`\]
+
+###### capture.findPredicateState.symlinkPolicy
+
+> **symlinkPolicy**: `"no-symlinks"`
+
+###### capture.findPredicateState.policy
+
+> **policy**: `"bounded-simple-find-predicate"`
+
+###### capture.findPredicateState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.findPredicateState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.treeState?
+
+> `optional` **treeState?**: `object`
+
+###### capture.treeState.rootPath
+
+> **rootPath**: `string`
+
+###### capture.treeState.options
+
+> **options**: \[\]
+
+###### capture.treeState.treeIdentity
+
+> **treeIdentity**: `object`
+
+###### capture.treeState.treeIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### capture.treeState.treeIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### capture.treeState.treeIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### capture.treeState.treeIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### capture.treeState.treeIdentity.outputDigest
+
+> **outputDigest**: `string`
+
+###### capture.treeState.symlinkPolicy
+
+> **symlinkPolicy**: `"no-symlinks"`
+
+###### capture.treeState.binaryPolicy
+
+> **binaryPolicy**: `"proof-provisioned-target-native-tree"`
+
+###### capture.treeState.outputPath?
+
+> `optional` **outputPath?**: `string`
+
+###### capture.treeState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### capture.nodeStaticHttpState?
+
+> `optional` **nodeStaticHttpState?**: `object`
+
+###### capture.nodeStaticHttpState.scriptPath
+
+> **scriptPath**: `string`
+
+###### capture.nodeStaticHttpState.cwd
+
+> **cwd**: `string`
+
+###### capture.nodeStaticHttpState.port
+
+> **port**: `number`
+
+###### capture.nodeStaticHttpState.healthPath
+
+> **healthPath**: `string`
+
+###### capture.nodeStaticHttpState.rootDir?
+
+> `optional` **rootDir?**: `string`
+
+###### capture.nodeStaticHttpState.argvContract?
+
+> `optional` **argvContract?**: `"--port-root-static-http-v1"`
+
+###### capture.nodeStaticHttpState.capturedAt?
+
+> `optional` **capturedAt?**: `string`
 
 ###### capture.safeBoundary?
 
@@ -15805,6 +19786,582 @@ the breakdown shows up alongside the parent phase.
 
 ***
 
+### SameArchStoppedContinuationRequest
+
+#### Properties
+
+##### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### process
+
+> **process**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### ppid?
+
+> `optional` **ppid?**: `number`
+
+###### exe
+
+> **exe**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### uid?
+
+> `optional` **uid?**: `number`
+
+###### gid?
+
+> `optional` **gid?**: `number`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+###### targetTextIdentityMatches?
+
+> `optional` **targetTextIdentityMatches?**: `boolean`
+
+##### thread
+
+> **thread**: `object`
+
+###### id
+
+> **id**: `string`
+
+###### threadCount
+
+> **threadCount**: `number`
+
+###### stopState
+
+> **stopState**: [`SameArchStoppedStopState`](#samearchstoppedstopstate)
+
+###### activeSyscallState
+
+> **activeSyscallState**: [`SameArchStoppedActiveSyscallState`](#samearchstoppedactivesyscallstate)
+
+###### instructionPointer
+
+> **instructionPointer**: `string`
+
+###### stackPointer
+
+> **stackPointer**: `string`
+
+###### generalPurposeRegisters
+
+> **generalPurposeRegisters**: `Record`\<`string`, `string`\>
+
+###### flagsOrPstate
+
+> **flagsOrPstate**: `string`
+
+###### tlsPointer
+
+> **tlsPointer**: `string`
+
+###### pcMappingId?
+
+> `optional` **pcMappingId?**: `string`
+
+##### mappings
+
+> **mappings**: [`SameArchStoppedMapping`](#samearchstoppedmapping)[]
+
+##### resources
+
+> **resources**: `object`
+
+###### fds
+
+> **fds**: [`SameArchStoppedFd`](#samearchstoppedfd)[]
+
+###### signals
+
+> **signals**: [`SameArchStoppedSignalState`](#samearchstoppedsignalstate)
+
+###### timers
+
+> **timers**: [`SameArchStoppedTimerState`](#samearchstoppedtimerstate)
+
+###### sockets
+
+> **sockets**: [`SameArchStoppedSocketState`](#samearchstoppedsocketstate)
+
+###### session
+
+> **session**: [`SameArchStoppedSessionState`](#samearchstoppedsessionstate)
+
+##### integrity?
+
+> `optional` **integrity?**: `object`
+
+###### capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### sourceFreezeEvidence?
+
+> `optional` **sourceFreezeEvidence?**: `string`
+
+###### targetPreflightIdentityEvidence?
+
+> `optional` **targetPreflightIdentityEvidence?**: `string`
+
+###### noReexecGuardEvidence?
+
+> `optional` **noReexecGuardEvidence?**: `string`
+
+***
+
+### SameArchStoppedMapping
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### kind
+
+> **kind**: [`SameArchStoppedMappingKind`](#samearchstoppedmappingkind)
+
+##### start
+
+> **start**: `string`
+
+##### end
+
+> **end**: `string`
+
+##### permissions
+
+> **permissions**: `string`
+
+##### sha256?
+
+> `optional` **sha256?**: `string`
+
+##### buildId?
+
+> `optional` **buildId?**: `string`
+
+##### capturedBytesSha256?
+
+> `optional` **capturedBytesSha256?**: `string`
+
+##### capturedBytesLength?
+
+> `optional` **capturedBytesLength?**: `number`
+
+***
+
+### SameArchStoppedFd
+
+#### Properties
+
+##### fd
+
+> **fd**: `number`
+
+##### kind
+
+> **kind**: [`SameArchStoppedFdKind`](#samearchstoppedfdkind)
+
+##### target?
+
+> `optional` **target?**: `string`
+
+***
+
+### SameArchStoppedSignalState
+
+#### Properties
+
+##### pending
+
+> **pending**: `string`[]
+
+##### blocked
+
+> **blocked**: `string`[]
+
+##### caughtHandlers
+
+> **caughtHandlers**: `string`[]
+
+##### activeFrame
+
+> **activeFrame**: `boolean`
+
+##### alternateStack
+
+> **alternateStack**: `"disabled"` \| `"unknown"` \| `"enabled"`
+
+***
+
+### SameArchStoppedTimerState
+
+#### Properties
+
+##### timers
+
+> **timers**: `string`[]
+
+##### eventLoopState
+
+> **eventLoopState**: `"none"` \| `"unknown"` \| `"present"`
+
+***
+
+### SameArchStoppedSocketState
+
+#### Properties
+
+##### sockets
+
+> **sockets**: `string`[]
+
+##### activeSessions
+
+> **activeSessions**: `string`[]
+
+***
+
+### SameArchStoppedSessionState
+
+#### Properties
+
+##### controllingTerminal
+
+> **controllingTerminal**: `string` \| `false`
+
+##### pty
+
+> **pty**: `string` \| `false`
+
+##### processGroup
+
+> **processGroup**: `"default"` \| `"unknown"` \| `"custom"`
+
+##### jobControl
+
+> **jobControl**: `"none"` \| `"unknown"` \| `"present"`
+
+***
+
+### SameArchStoppedContinuationCapture
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"same-arch-stopped-continuation-v1"`
+
+##### processIdentity
+
+> **processIdentity**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### ppid?
+
+> `optional` **ppid?**: `number`
+
+###### exe
+
+> **exe**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### uid?
+
+> `optional` **uid?**: `number`
+
+###### gid?
+
+> `optional` **gid?**: `number`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+###### targetTextIdentityMatches?
+
+> `optional` **targetTextIdentityMatches?**: `boolean`
+
+##### architecture
+
+> **architecture**: `Pick`\<[`SameArchStoppedContinuationRequest`](#samearchstoppedcontinuationrequest), `"sourceArch"` \| `"targetArch"`\> & `object`
+
+###### Type Declaration
+
+###### abi
+
+> **abi**: `"linux-user"`
+
+##### threadState
+
+> **threadState**: `object`
+
+###### id
+
+> **id**: `string`
+
+###### threadCount
+
+> **threadCount**: `number`
+
+###### stopState
+
+> **stopState**: [`SameArchStoppedStopState`](#samearchstoppedstopstate)
+
+###### activeSyscallState
+
+> **activeSyscallState**: [`SameArchStoppedActiveSyscallState`](#samearchstoppedactivesyscallstate)
+
+###### instructionPointer
+
+> **instructionPointer**: `string`
+
+###### stackPointer
+
+> **stackPointer**: `string`
+
+###### generalPurposeRegisters
+
+> **generalPurposeRegisters**: `Record`\<`string`, `string`\>
+
+###### flagsOrPstate
+
+> **flagsOrPstate**: `string`
+
+###### tlsPointer
+
+> **tlsPointer**: `string`
+
+###### pcMappingId?
+
+> `optional` **pcMappingId?**: `string`
+
+##### memoryState
+
+> **memoryState**: `object`
+
+###### verifiedExecutableMappings
+
+> **verifiedExecutableMappings**: [`SameArchStoppedMapping`](#samearchstoppedmapping)[]
+
+###### privateWritableMappings
+
+> **privateWritableMappings**: [`SameArchStoppedMapping`](#samearchstoppedmapping)[]
+
+###### stackMapping
+
+> **stackMapping**: [`SameArchStoppedMapping`](#samearchstoppedmapping)
+
+###### programCounterMappingId
+
+> **programCounterMappingId**: `string`
+
+##### resourceState
+
+> **resourceState**: `object`
+
+###### fds
+
+> **fds**: [`SameArchStoppedFd`](#samearchstoppedfd)[]
+
+###### signals
+
+> **signals**: [`SameArchStoppedSignalState`](#samearchstoppedsignalstate)
+
+###### timers
+
+> **timers**: [`SameArchStoppedTimerState`](#samearchstoppedtimerstate)
+
+###### sockets
+
+> **sockets**: [`SameArchStoppedSocketState`](#samearchstoppedsocketstate)
+
+###### session
+
+> **session**: [`SameArchStoppedSessionState`](#samearchstoppedsessionstate)
+
+##### integrity
+
+> **integrity**: `Required`\<`NonNullable`\<[`SameArchStoppedContinuationRequest`](#samearchstoppedcontinuationrequest)\[`"integrity"`\]\>\>
+
+***
+
+### SameArchStoppedContinuationClassification
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"same-arch-stopped-continuation-v1"`
+
+##### state
+
+> **state**: [`SameArchStoppedContinuationState`](#samearchstoppedcontinuationstate)
+
+##### capture?
+
+> `optional` **capture?**: [`SameArchStoppedContinuationCapture`](#samearchstoppedcontinuationcapture)
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+##### productSupport
+
+> **productSupport**: `false`
+
+##### nonClaims
+
+> **nonClaims**: readonly `string`[]
+
+***
+
+### SameArchStoppedContinuationResumeRequest
+
+#### Properties
+
+##### classification
+
+> **classification**: [`SameArchStoppedContinuationClassification`](#samearchstoppedcontinuationclassification)
+
+##### target
+
+> **target**: `object`
+
+###### textIdentityVerified
+
+> **textIdentityVerified**: `boolean`
+
+###### memoryMaterialized
+
+> **memoryMaterialized**: `boolean`
+
+###### registersInstalled
+
+> **registersInstalled**: `boolean`
+
+###### noRefusedResourceDuringPreflight
+
+> **noRefusedResourceDuringPreflight**: `boolean`
+
+###### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+###### reexecAttempted?
+
+> `optional` **reexecAttempted?**: `boolean`
+
+###### restartAttempted?
+
+> `optional` **restartAttempted?**: `boolean`
+
+###### resourceReconstructionAttempted?
+
+> `optional` **resourceReconstructionAttempted?**: `boolean`
+
+###### marker?
+
+> `optional` **marker?**: `object`
+
+###### marker.kind
+
+> **kind**: `"captured-state-dependent"` \| `"metadata-only"` \| `"fresh-start-equivalent"`
+
+###### marker.observedValue
+
+> **observedValue**: `string` \| `number` \| `boolean`
+
+###### marker.freshRestartWouldProduce
+
+> **freshRestartWouldProduce**: `string` \| `number` \| `boolean`
+
+###### marker.capturedStateInputs
+
+> **capturedStateInputs**: `string`[]
+
+***
+
+### SameArchStoppedContinuationResumeResult
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"same-arch-stopped-continuation-v1"`
+
+##### state
+
+> **state**: `"refused"` \| `"ready"`
+
+##### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+##### resumedFromCapturedState
+
+> **resumedFromCapturedState**: `boolean`
+
+##### targetProcessStarted
+
+> **targetProcessStarted**: `boolean`
+
+##### targetProcessKilledOnRefusal
+
+> **targetProcessKilledOnRefusal**: `boolean`
+
+##### reexecUsed
+
+> **reexecUsed**: `false`
+
+##### restartUsed
+
+> **restartUsed**: `false`
+
+##### resourceReconstructionUsed
+
+> **resourceReconstructionUsed**: `false`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
 ### VsockSecretsOptions
 
 #### Properties
@@ -17455,7 +22012,7 @@ the host-side VMM process.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`env`](#env-5)
+[`BootOptions`](#bootoptions).[`env`](#env-6)
 
 ##### guestCwd?
 
@@ -17675,7 +22232,7 @@ Working directory for the VMM (for finding fixture files).
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`cwd`](#cwd-4)
+[`BootOptions`](#bootoptions).[`cwd`](#cwd-5)
 
 ##### args?
 
@@ -18249,7 +22806,7 @@ the host-side VMM process.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`env`](#env-5)
+[`BootOptions`](#bootoptions).[`env`](#env-6)
 
 ##### guestCwd?
 
@@ -18493,7 +23050,7 @@ Working directory for the VMM (for finding fixture files).
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`cwd`](#cwd-4)
+[`BootOptions`](#bootoptions).[`cwd`](#cwd-5)
 
 ##### args?
 
@@ -23415,6 +27972,36 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### SameArchStoppedContinuationState
+
+> **SameArchStoppedContinuationState** = `"eligible"` \| `"refused"`
+
+***
+
+### SameArchStoppedStopState
+
+> **SameArchStoppedStopState** = `"ptrace-stopped"` \| `"move-owned-stop"` \| `"running"` \| `"unknown"`
+
+***
+
+### SameArchStoppedActiveSyscallState
+
+> **SameArchStoppedActiveSyscallState** = `"outside-syscall"` \| `"active-syscall"` \| `"syscall-restart"` \| `"blocking-kernel-wait"` \| `"unknown"`
+
+***
+
+### SameArchStoppedMappingKind
+
+> **SameArchStoppedMappingKind** = `"text"` \| `"private-writable"` \| `"stack"` \| `"shared"` \| `"device"` \| `"vdso"` \| `"vvar"` \| `"jit"` \| `"ambiguous"`
+
+***
+
+### SameArchStoppedFdKind
+
+> **SameArchStoppedFdKind** = `"closed"` \| `"dev-null"` \| `"move-owned-stdio"` \| `"file"` \| `"pipe"` \| `"socket"` \| `"eventfd"` \| `"epoll"` \| `"timerfd"` \| `"inotify"` \| `"signalfd"` \| `"device"` \| `"unknown"`
+
+***
+
 ### StatefulDatabaseRestoreRefusalCode
 
 > **StatefulDatabaseRestoreRefusalCode** = *typeof* [`statefulDatabaseRestoreRefusalCodes`](#statefuldatabaserestorerefusalcodes)\[`number`\]
@@ -25818,6 +30405,12 @@ loops; anything looser stops being a meaningful gate.
 ### runtimeConfidenceRefusalCodes
 
 > `const` **runtimeConfidenceRefusalCodes**: readonly \[`"active-sockets-unsupported"`, `"native-library-ambiguity"`, `"unmodeled-signal-or-timer-state"`, `"jvm-private-jit-state-unsupported"`, `"unsupported-process-topology"`, `"source-target-abi-mismatch"`, `"missing-target-runtime-or-dynamic-library-provenance"`, `"target-verifier-missing-or-ambiguous"`\]
+
+***
+
+### sameArchStoppedContinuationNonClaims
+
+> `const` **sameArchStoppedContinuationNonClaims**: readonly \[`"no product support until resume proof is recorded"`, `"no cross-architecture support"`, `"no reexec or restart"`, `"no output replay or descriptor-only equivalence"`, `"no source-ISA emulation"`, `"no source-fd teleportation"`, `"no metadata-only success"`, `"no broad runtime or arbitrary process restore"`\]
 
 ***
 
@@ -29923,6 +34516,38 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 [`RuntimeConfidenceProfileRow`](#runtimeconfidenceprofilerow)[]
+
+***
+
+### classifySameArchStoppedContinuationCapture()
+
+> **classifySameArchStoppedContinuationCapture**(`request`): [`SameArchStoppedContinuationClassification`](#samearchstoppedcontinuationclassification)
+
+#### Parameters
+
+##### request
+
+[`SameArchStoppedContinuationRequest`](#samearchstoppedcontinuationrequest)
+
+#### Returns
+
+[`SameArchStoppedContinuationClassification`](#samearchstoppedcontinuationclassification)
+
+***
+
+### materializeSameArchStoppedContinuationTarget()
+
+> **materializeSameArchStoppedContinuationTarget**(`request`): [`SameArchStoppedContinuationResumeResult`](#samearchstoppedcontinuationresumeresult)
+
+#### Parameters
+
+##### request
+
+[`SameArchStoppedContinuationResumeRequest`](#samearchstoppedcontinuationresumerequest)
+
+#### Returns
+
+[`SameArchStoppedContinuationResumeResult`](#samearchstoppedcontinuationresumeresult)
 
 ***
 

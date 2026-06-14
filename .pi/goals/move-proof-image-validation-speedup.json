@@ -1,0 +1,178 @@
+{
+  "title": "Move proof image validation speedup",
+  "goal": "Speed up move-envelope proof validation by adding an optional proof-only disposable image/overlay for matrix VMs, making row-local provisioning skip package installs when proof tools are already present, and documenting the normal-change validation policy as targeted rows plus coverage instead of the full all-proofs matrix.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove a proof-only move-envelope image builder exists, is clearly named as a disposable validation/test fixture, installs only matrix proof dependencies through a disposable Debian apt build path, and does not alter product base assets, native release assets, runtime defaults, or runtime user dependencies.",
+      "evidence": "Added scripts/build-move-proof-image.mjs and package script move-envelope:build-proof-image. The builder is explicitly documented/help-texted as a disposable proof-only Machinen rootfs for scripts/smoke/move-envelope-matrix.sh, writes a marker at /usr/share/machinen/proof-fixtures/move-proof-image.json, installs matrix proof dependencies with Debian apt inside a Docker linux/<arch> disposable build path, and uses apt-get install --reinstall --no-install-recommends to restore stripped proof binaries. It caches outputs under a caller-selected out dir; validation built /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz in 132.194s. git status scoped to release-assets and packages/native-* showed no product base asset, native release asset, runtime default, or runtime dependency changes; only docs/snapshot/move-envelope-framework.md, package.json, scripts/smoke/move-envelope-matrix.sh, scripts/validation-profile.mjs, and new scripts/build-move-proof-image.mjs are changed for this task."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove scripts/smoke/move-envelope-matrix.sh accepts an optional proof image path through an env var or flag and passes it as the positional image to machinen boot for both source and target VMs while preserving fallback operation without the image.",
+      "evidence": "scripts/smoke/move-envelope-matrix.sh now accepts MACHINEN_MOVE_MATRIX_IMAGE and --image/--image=<path>, validates the host file exists, sets PROVISION_MODE=proof-image:<basename>, and in boot_pair passes the proof tarball as the positional image to both `$CLI boot \"$MOVE_MATRIX_IMAGE\" --name \"$SRC\" ...` and `$CLI boot \"$MOVE_MATRIX_IMAGE\" --name \"$TGT\" ...`. Fallback operation without the image is preserved by the unchanged no-image boot path. Evidence: default/fallback targeted row `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only stat-file --timings --skip-provision` passed in 11.850s with boot detail fresh-vms and provision detail manual-skip, artifact /tmp/machinen-move-matrix-10911-1781289220; proof-image targeted row `pnpm proof-move-envelope-matrix -- --json --only php-static --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 29.156s with boot detail fresh-vms:proof-image:move-proof-image-arm64-c7c0c1d96a7a.tar.gz, artifact /tmp/machinen-move-matrix-13326-1781289430."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove proof-image mode skips broad ensure_proof_tools apt provisioning only after explicit tool-presence validation, and fails clearly when required proof tools are missing.",
+      "evidence": "Added validate_proof_image_tools in scripts/smoke/move-envelope-matrix.sh. In proof-image mode boot_pair and reuse-vms paths call validate_proof_image_tools on source and target instead of broad ensure_proof_tools apt provisioning. The validator checks required commands/paths for python3/python3.11, procps watch, less, vi/script, node, busybox, nc/nc.openbsd, go, rustc, xz/zstd/gzip/zip/unzip/tar/tree, socat, rsync, Redis, nginx, PHP, Ruby, and PostgreSQL 15 binaries, and exits 64 with `move proof image missing required proof tools:` if any are missing. This fail-closed behavior was exercised by an initial image build that had Python package metadata but stripped binaries: proof-image run failed before proofs with `move proof image missing required proof tools: python3 /usr/bin/python3.11`, artifact /tmp/machinen-move-matrix-11473-1781289238. After switching the builder to apt --reinstall, the proof-image php-static row passed with provision-pair durationMs=162 and detail proof-image:move-proof-image-arm64-c7c0c1d96a7a.tar.gz, proving validation replaced broad apt provisioning."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove per-row ensure helpers consistently skip apt installs when required binaries are already present, while keeping fallback apt provisioning for rows that run without the proof image.",
+      "evidence": "Per-row ensure helpers retain the existing binary-first pattern before apt fallback: ensure_python_http_tool checks /usr/bin/python3.11, ensure_busybox_tool checks /usr/bin/busybox, ensure_openbsd_nc_tool checks /usr/bin/nc.openbsd, ensure_rsync_tool checks /usr/bin/rsync, ensure_php_tool checks /usr/bin/php, ensure_ruby_tool checks /usr/bin/ruby, ensure_caddy_tool checks /usr/bin/caddy, ensure_nginx_tool checks /usr/sbin/nginx, ensure_postgres_tool checks postgres/initdb/psql/pg_controldata, ensure_redis_tool checks redis-server/redis-cli, ensure_socat_tool checks /usr/bin/socat, and zip/tree/zstd helpers check their binaries before asynchronous apt fallback. Proof-image php-static passed in 29.156s with provision-pair 162ms and no row-local apt delay for PHP; the same php-static row without proof image passed in 127.433s with default provision-pair 107623ms, preserving fallback apt provisioning for no-image runs."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove matrix JSON/timing output records provisioning mode detail, including proof-image:<path-or-basename> when a proof image is used, so apt provisioning and proof-image mode timings can be compared.",
+      "evidence": "Timing metadata now carries proof-image mode details. Proof-image run `/tmp/matrix-php-proof-image2.out` for php-static shows boot-pair durationMs=16025 detail=fresh-vms:proof-image:move-proof-image-arm64-c7c0c1d96a7a.tar.gz and provision-pair durationMs=162 detail=proof-image:move-proof-image-arm64-c7c0c1d96a7a.tar.gz. Default apt comparison `/tmp/matrix-php-default.out` shows boot-pair durationMs=376 detail=fresh-vms and provision-pair durationMs=107623 detail=default. Cheap skip-provision row `/tmp/matrix-stat-file.out` shows provision-pair state=skipped detail=manual-skip. These JSON timings make apt provisioning vs proof-image mode directly comparable."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove docs/snapshot/move-envelope-framework.md documents the proof-only image policy: disposable validation fixture only, not product base asset, not runtime dependency, and rows still validate target-native/proof-provisioned binaries and fail closed if missing.",
+      "evidence": "Updated docs/snapshot/move-envelope-framework.md Proof-only provisioning policy. It states the move proof image is a cached disposable validation fixture only, named as move-proof-image/proof-only, not a product base asset, not copied into packages/native-* release assets, not selected by runtime defaults, and not a runtime dependency. It documents --image/MACHINEN_MOVE_MATRIX_IMAGE usage, proof-image validation before skipping broad apt provisioning, proof-image timing detail, and that rows must still verify target-native/proof-provisioned binaries and fail closed if missing."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the normal-change validation profile is documented: focused Vitest plus targeted touched matrix rows plus generic/resource matrix coverage and smoke manifest checks are normal PR validation, while the full all-proofs matrix is manual/nightly/release scope only.",
+      "evidence": "Updated docs/snapshot/move-envelope-framework.md Matrix and remote validation policy. It now states normal move-envelope PR validation is focused Vitest for touched TypeScript, targeted --only rows or small chunk plans for touched matrix behavior, generic resource graph coverage, matrix retained-artifact coverage when using chunk plans, smoke manifest check, and static checks. It explicitly says the full all-proofs matrix is manual/nightly/release scope only unless a maintainer asks for all rows. Added machine-readable validation profile move-envelope-normal in scripts/validation-profile.mjs; dry-run command `pnpm validation:profile -- --profile move-envelope-normal --dry-run --no-agent-ci-logs --json --out-dir /tmp/move-envelope-normal-profile` passed in 0.238s and listed format:check, lint, build:docs, typecheck, generic-resource-graph-coverage, check-smoke-manifest, and fallow."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove coverage tooling or documented commands can verify expected matrix rows from retained artifact directories or chunk plans without rerunning the full matrix, when applicable to normal-change validation.",
+      "evidence": "Existing scripts/move-envelope-matrix-coverage.mjs was exercised against retained targeted matrix JSON without rerunning the matrix. After saving stat-file and php-static JSON outputs under /tmp/move-proof-image-validation-coverage-1781289466 and using plan /tmp/move-proof-image-validation-plan-1781289466.json with expectedProofs [stat-file, php-static], `node scripts/move-envelope-matrix-coverage.mjs --plan /tmp/move-proof-image-validation-plan-1781289466.json --coverage-dir /tmp/move-proof-image-validation-coverage-1781289466 --json` passed in 0.031s with expectedCount=2, coveredCount=2, missing=[], failed=[]. The first attempt with the plan JSON inside the coverage dir failed because the scanner treated plan.json as a result, confirming the coverage command fails on malformed retained-artifact directories instead of silently passing."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove manifest/package-script updates, if any are added for the proof image builder or validation profile, are reflected in scripts/smoke/manifest.json and pass smoke manifest validation.",
+      "evidence": "Added package script move-envelope:build-proof-image for scripts/build-move-proof-image.mjs. It is not a smoke/proof/archive package script and does not point into scripts/smoke, so scripts/smoke/manifest.json did not need a new entry under the existing manifest rules. Validation `pnpm run check-smoke-manifest` passed in 0.192s with `smoke manifest ok: 70 entries; generic resource graph coverage ok`. The package script help path also works: `pnpm move-envelope:build-proof-image -- --help` printed the proof-only builder help after parser support for standalone `--` was added."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove syntax/static validation passes for changed shell and JavaScript scripts, including bash -n scripts/smoke/move-envelope-matrix.sh and node --check for any new or modified .mjs scripts.",
+      "evidence": "Syntax/static script validation passed after all edits: `bash -n scripts/smoke/move-envelope-matrix.sh` passed in 0.013s; `node --check scripts/build-move-proof-image.mjs` passed in 0.028s; `node --check scripts/validation-profile.mjs` passed in 0.024s. Earlier node checks also caught and then verified the standalone pnpm `--` parser fixes for both new builder and validation-profile script."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove repository validation passes for the change: format, lint, typecheck, docs build and smoke manifest if docs/package/manifest changed, focused tests if TypeScript behavior changed, and fallow audit for code changes.",
+      "evidence": "Repository validation passed after final edits. Commands: `pnpm run format:check` passed in 1.791s; `pnpm run lint` passed in 0.623s; `pnpm run typecheck` passed in 3.019s after build; `pnpm run build:docs` passed in 2.010s; `pnpm run check-smoke-manifest` passed in 0.192s; `pnpm run generic-resource-graph-coverage` passed in 0.169s with missingGenericRows=[], migration errors=[], serviceConsolidationErrors=[]; `pnpm exec fallow audit --changed-since origin/main` passed in 0.511s with warning-only duplicate groups already present/accepted. No focused Vitest was required because this task changed shell/JS/docs/package script behavior, not TypeScript runtime behavior."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove targeted move-envelope matrix validation runs without running the full all-proofs matrix: one cheap default/fallback row, and if feasible one proof-image-mode package-heavy representative row with timing evidence showing package install avoidance or comparable provisioning detail.",
+      "evidence": "Targeted matrix validation was run without invoking the full ~183-row matrix. Cheap fallback/default proof: `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only stat-file --timings --skip-provision` passed in 11.850s, artifact /tmp/machinen-move-matrix-10911-1781289220. Package-heavy default apt comparison: `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only php-static --timings` passed in 127.433s, artifact /tmp/machinen-move-matrix-14102-1781289466, with provision-pair 107623ms detail=default. Proof-image package-heavy row: `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only php-static --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 29.156s, artifact /tmp/machinen-move-matrix-13326-1781289430, with provision-pair 162ms detail=proof-image:move-proof-image-arm64-c7c0c1d96a7a.tar.gz. Full all-proofs matrix was intentionally skipped because the documented policy keeps it manual/nightly/release scope."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "bash -n scripts/smoke/move-envelope-matrix.sh",
+      "proves": "The edited matrix shell script is syntactically valid."
+    },
+    {
+      "check": "node --check <new-or-modified-mjs-scripts>",
+      "proves": "New or modified JavaScript builder/coverage scripts parse successfully."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Repository formatting remains valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and changed-file health checks pass."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript and build-time type validation pass."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Documentation/API generation remains valid when docs or public docs outputs change."
+    },
+    {
+      "check": "pnpm run check-smoke-manifest",
+      "proves": "Smoke manifest and generic resource graph coverage remain consistent after script/manifest changes."
+    },
+    {
+      "check": "scripts/move-envelope-matrix-coverage.mjs or documented retained-artifact/chunk-plan coverage command",
+      "proves": "Expected matrix rows can be verified from retained artifacts or chunk plans without rerunning the full matrix."
+    },
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --only stat-file --timings --skip-provision or equivalent cheap fallback row",
+      "proves": "Default/fallback matrix mode still works for a targeted cheap proof row without invoking the full matrix."
+    },
+    {
+      "check": "MACHINEN_MOVE_MATRIX_IMAGE=<proof-image> pnpm proof-move-envelope-matrix -- --json --only <package-heavy-row> --timings or equivalent proof-image row",
+      "proves": "Proof-image mode boots source and target from the optional image, validates tools, avoids redundant apt installs, and records timing/provision mode detail."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and code-health audit passes for changed code/scripts."
+    }
+  ],
+  "stopIf": [
+    "The proof image requires modifying product base assets, packages/native-* release assets, runtime default image selection, or runtime user dependencies.",
+    "The implementation would require claiming arbitrary process restore, any-binary movement, broad daemon support, source-ISA emulation, or product runtime dependency changes.",
+    "A needed package cannot be installed in a disposable proof/test-fixture build path and no safe fallback or clear documented blocker exists.",
+    "The optional proof image path cannot be wired without breaking fallback apt provisioning for normal matrix runs.",
+    "Required validation cannot run because credentials, local VM support, package mirrors, or remote builder infrastructure are unavailable.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-12T20:45:00Z",
+      "summary": "Inspected the requested files before implementation. scripts/smoke/move-envelope-matrix.sh currently boots with `$CLI boot --name SRC/TGT --detach --json -- sleep infinity`, has broad ensure_proof_tools installing Python/procps/less/vim-tiny/node/busybox/netcat/go/rust/xz, and already has many per-row ensure_* helpers that test binaries before apt install but broad provisioning still dominates package-heavy rows. Existing matrix supports --chunk-plan/--coverage-dir retained-artifact coverage and timings. scripts/move-envelope-speed-benchmark.mjs drives chunk plans and coverage. scripts/validation-profile.mjs has quick/required/full profiles but no move-envelope-specific normal profile. docs/snapshot/move-envelope-framework.md already has a proof-only provisioning policy that calls cached proof overlays future work and full matrix/chunk coverage policy. scripts/smoke/manifest.json lists move-envelope-matrix as proof-audit with package script proof-move-envelope-matrix.",
+      "filesInspected": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/move-envelope-speed-benchmark.mjs",
+        "scripts/smoke/move-envelope-speed-plan.json",
+        "scripts/move-envelope-matrix-coverage.mjs",
+        "scripts/validation-profile.mjs",
+        "docs/snapshot/move-envelope-framework.md",
+        "scripts/smoke/manifest.json",
+        "package.json"
+      ],
+      "next": "Implement optional MACHINEN_MOVE_MATRIX_IMAGE/--image support, proof-tool validation, timing detail, and disposable proof image builder without changing runtime defaults."
+    },
+    {
+      "timestamp": "2026-06-12T20:45:00Z",
+      "summary": "Implemented optional proof-only move proof image support and normal-change validation policy. Added a disposable Docker/apt builder, matrix --image/MACHINEN_MOVE_MATRIX_IMAGE boot support, proof-image tool validation, proof-image timing detail, docs, package script, and move-envelope-normal validation profile. Built an arm64 proof image, caught and fixed stripped Python binaries by switching the builder to apt --reinstall, ran targeted fallback/proof-image/default PHP matrix rows, verified retained-artifact coverage, and reran required static validation. No product base assets, native release assets, runtime defaults, or runtime dependencies were changed. Full all-proofs matrix was not run because it is now documented as manual/nightly/release scope.",
+      "artifacts": [
+        "/tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz",
+        "/tmp/machinen-move-matrix-10911-1781289220",
+        "/tmp/machinen-move-matrix-13326-1781289430",
+        "/tmp/machinen-move-matrix-14102-1781289466",
+        "/tmp/machinen-move-matrix-11473-1781289238",
+        "/tmp/move-proof-image-validation-coverage-1781289466",
+        "/tmp/move-proof-image-validation-plan-1781289466.json"
+      ],
+      "commands": [
+        "pnpm move-envelope:build-proof-image -- --json --out-dir /tmp/machinen-move-proof-image-cache \u2014 passed, 132.194s, built /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only stat-file --timings --skip-provision \u2014 passed, 11.850s, artifact /tmp/machinen-move-matrix-10911-1781289220",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only php-static --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 29.156s, provision-pair 162ms, artifact /tmp/machinen-move-matrix-13326-1781289430",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only php-static --timings \u2014 passed, 127.433s, provision-pair 107623ms, artifact /tmp/machinen-move-matrix-14102-1781289466",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan /tmp/move-proof-image-validation-plan-1781289466.json --coverage-dir /tmp/move-proof-image-validation-coverage-1781289466 --json \u2014 passed, 0.031s",
+        "pnpm validation:profile -- --profile move-envelope-normal --dry-run --no-agent-ci-logs --json --out-dir /tmp/move-envelope-normal-profile \u2014 passed, 0.238s",
+        "bash -n scripts/smoke/move-envelope-matrix.sh \u2014 passed, 0.013s",
+        "node --check scripts/build-move-proof-image.mjs \u2014 passed, 0.028s",
+        "node --check scripts/validation-profile.mjs \u2014 passed, 0.024s",
+        "pnpm run format:check \u2014 passed, 1.791s",
+        "pnpm run lint \u2014 passed, 0.623s",
+        "pnpm run typecheck \u2014 passed, 3.019s after build",
+        "pnpm run build:docs \u2014 passed, 2.010s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.192s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.169s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.511s"
+      ],
+      "nonClaims": [
+        "no arbitrary process restore",
+        "no product runtime dependency changes",
+        "no product base asset change",
+        "no native release asset change",
+        "full all-proofs matrix not run; manual/nightly/release scope"
+      ]
+    }
+  ],
+  "nextAction": "Goal complete: all proofChecklist rows are proven with non-empty evidence. Keep proof image artifacts proof-only/test-fixture-only and do not treat them as product base assets or runtime dependencies.",
+  "status": "COMPLETE"
+}

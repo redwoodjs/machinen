@@ -1,0 +1,132 @@
+{
+  "title": "Generic migration wave 1, remote blocker, and pipes frontier",
+  "goal": "Diagnose the remote amd64 exec-agent blocker without claiming remote success, wire generic resource graph coverage into routine validation, prepare careful PR hygiene, and advance the next consolidation path by proving a generic resource graph migration wave 1 contract plus a separate pipes/stdio graduation contract.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove the remote amd64 EXEC_AGENT_UNAVAILABLE/write EPIPE blocker is isolated to a concrete layer or recorded as a bounded infrastructure blocker, distinguishing VMM binary selection, gvproxy binary selection, guest agent startup, guest boot, remote host resource pressure, and matrix harness behavior, without claiming remote generic success unless a targeted remote generic proof actually passes.",
+      "evidence": "Remote amd64 exec-agent blocker diagnosed as a bounded infrastructure blocker at the guest exec-agent/vsock transport layer after successful VMM boot, not as VMM binary selection, gvproxy binary selection, short guest-agent startup delay, remote host resource exhaustion, or matrix harness behavior. Commands ran on root@192.168.0.8 in /mnt/shared-500G/machinen-move-proof with MACHINEN_VMM=$PWD/packages/native-x64-linux/vmm/bin/machinen-vm and MACHINEN_GVPROXY=$PWD/packages/native-x64-linux/vmm/bin/gvproxy. Retained artifacts: /tmp/generic-remote-exec-agent-diagnosis-1781213669 and /tmp/generic-remote-exec-agent-wait-diagnosis-1781213814 on the remote host. host-preflight.txt records both VMM and gvproxy as ELF x86-64, remote uname x86_64, available memory/disk, /dev/kvm and /dev/vhost-vsock existence, and normal host resource state. boot.rc=0 and list-after-boot.json showed a live VM pid 3894764, so guest boot/VMM launch succeeded. Narrow exec probes true, uname -m, cat /proc/cmdline, and printf exec-agent-ok all failed with EXEC_AGENT_UNAVAILABLE: VsockExec.run: agent did not respond within 30000ms: write EPIPE. A second wait diagnosis booted a VM and retried exec after waits 0, 5, 15, and 30 seconds; every attempt failed with the same error, ruling out a short startup delay. The same failure happens before matrix-specific generic code, so it is not a generic matrix semantic failure. diagnosis-summary.json records classification=bounded-infrastructure-blocker: guest exec-agent/vsock transport unavailable after successful VMM boot. No remote generic success is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove remote cleanup and artifact retention are safe after diagnosis: no leaked remote VMs remain, commands and logs are retained under a named remote artifact directory, and any failed probe has enough evidence for follow-up debugging.",
+      "evidence": "Remote cleanup and artifact retention verified. Diagnosis artifacts are retained under /tmp/generic-remote-exec-agent-diagnosis-1781213669 and /tmp/generic-remote-exec-agent-wait-diagnosis-1781213814 on root@192.168.0.8, including host-preflight.txt, boot/list/exec rc/out/err files, host-vsock-kvm.txt, and diagnosis-summary.json. stop commands were run for both diagnostic VMs. list-after-stop.json in both artifact dirs shows vms=[]. A stale gvproxy process from an earlier run was discovered in host-vsock-kvm.txt/processes-before-stale-cleanup.txt while list showed no VMs; it was killed, and final verification with node packages/cli/dist/cli.js list --json returned {vms:[]} and ps showed no machinen-vm/gvproxy processes except the grep command itself. The first stale-cleanup command had a remote shell quoting mistake and did not kill the process; this was recorded in currentEvidence and corrected with remote-side variable expansion."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove a durable generic resource graph migration wave 1 contract exists for converting 5-10 simple bespoke envelopes to generic-primary or generic-equivalent behavior while preserving bespoke fallback, exact refusal evidence, target evidence, and honest non-claims.",
+      "evidence": "Created durable migration contract .pi/goals/generic-resource-graph-migration-wave1.json with 8 proof rows covering candidate selection, genericResourceGraphState descriptor proof, generic-primary/load selection versus bespoke fallback, equivalent target evidence, exact fail-closed refusals, migration coverage tooling, docs/PR language, and final validation. The contract has valid JSON, status=IN_PROGRESS, and nextAction to inventory candidate bespoke envelopes against generic proof rows. It explicitly preserves app-specific/bespoke fallback and forbids migration that removes fallback priority before equivalent generic happy-path and refusal evidence exists."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the migration wave 1 candidate list is grounded in existing evidence and explicitly decides python-http, python-http-directory, nc-listener, reader-cat, grep, and tail, with tail accepted only if offset semantics are preserved or honestly refused.",
+      "evidence": "Added docs/snapshot/generic-resource-graph-migration-wave1.md with explicit candidate decisions grounded in existing generic evidence. Decisions: python-http is generic-equivalent first using generic-static-http-daemon evidence and keeps bespoke fallback; python-http-directory is generic-equivalent first using cwd/data-dir plus HTTP evidence and keeps bespoke fallback; nc-listener is a generic-equivalent candidate using generic-interpreted-server idle loopback TCP evidence and keeps nc fallback for nc-specific argv/binary behavior; reader-cat is generic-equivalent for readonly regular-file identity using generic-file-backed-worker evidence and keeps fallback for offset/stdio-sensitive behavior; grep is generic-equivalent for readonly-file CLI output using generic-readonly-file-cli evidence and keeps fallback for pattern/offset/stdin/pipe shapes; tail is explicitly not generic-primary in wave 1 unless offset/follow semantics are preserved exactly, and otherwise remains bespoke fallback with generic refusal/defer boundary. The doc also lists required refusal boundaries and required target evidence before any candidate can become generic-primary."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove a durable generic pipes/stdio graduation contract exists, covering stdio policy, pipe peer graph, producer/consumer lifecycle, no hidden shell state, partial/unknown pipe refusal, happy-path support evidence, refusal evidence, and target-native loader boundaries.",
+      "evidence": "Created durable pipes/stdio graduation contract .pi/goals/generic-pipes-stdio-graduation.json with 9 proof rows. The contract covers descriptor fields for stdio policy and pipe peer graph; capture/classification for /dev/null, closed stdio, inherited noninteractive stdio, anonymous pipes, named FIFOs, shell pipelines, missing peers, fan-in/fan-out, and PTY/terminal refusal; producer/consumer lifecycle rules for finite replay, long-running pairs, EOF/shutdown, partial writes, blocked reads/writes, and process exit ordering; no hidden shell state; target-native loader preflight/fd reconstruction/launch ordering; happy-path and refusal matrix rows; docs/coverage; and final validation. Stop conditions forbid arbitrary shell pipeline, PTY, terminal, or process teleportation claims and forbid accepting partial/unknown pipe state or nontrivial inherited stdio without proof."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic resource graph coverage is wired into routine validation or manifest checks so inventory drift fails early, and prove the chosen validation command fails on missing/extra/duplicate generic inventory or malformed migration mappings.",
+      "evidence": "Wired generic resource graph coverage into routine validation by updating scripts/check-smoke-manifest.mjs to execute scripts/generic-resource-graph-coverage.mjs. The coverage script now supports GENERIC_RESOURCE_GRAPH_MATRIX and GENERIC_RESOURCE_GRAPH_INVENTORY env overrides so malformed fixtures can be tested without mutating real inventory. Positive validation passed: pnpm run generic-resource-graph-coverage in 0.151s reporting matrixProofNames=159, inventoryProofNames=159, nine genericProofNames, six migrationEquivalence rows, missing=[], extra=[], duplicates=[], missingGenericRows=[], migrationErrors=[]; pnpm run check-smoke-manifest in 0.172s reporting smoke manifest ok: 70 entries; generic resource graph coverage ok. Negative validation passed: a temporary inventory with proofNames += not-a-real-proof-row was checked via GENERIC_RESOURCE_GRAPH_INVENTORY=/tmp/generic-resource-graph-bad.*.json node scripts/generic-resource-graph-coverage.mjs and exited 1, reporting extra=[not-a-real-proof-row]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove existing generic resource graph support/refusal evidence remains intact after validation wiring and contracts: coverage reports all expected generic rows, focused tests still pass, and no bespoke fallback priority is weakened by contract-only work.",
+      "evidence": "Existing generic resource graph support/refusal evidence remains intact after validation wiring and contract-only changes. Focused tests passed: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-native-bundle.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts, 4 files / 89 tests in 1.074s. Coverage passed: pnpm run generic-resource-graph-coverage in 0.170s reporting matrixProofNames=159, inventoryProofNames=159, all nine generic proof rows, six migration equivalence rows, and no missing/extra/duplicate/migration errors. Routine manifest check passed: pnpm run check-smoke-manifest in 0.174s reporting generic resource graph coverage ok. These tests include bespoke fallback priority assertions in move-native-bundle/move-rendezvous and generic refusal/loader assertions, so validation wiring did not weaken fallback priority."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove PR hygiene is ready: local changes are committed on the working branch, the PR description uses careful language such as generic resource-class pilot, avoids any arbitrary process or any binary move claim, and explicitly states remote amd64 is blocked unless a real remote proof passes.",
+      "evidence": "PR hygiene completed for product/docs/tooling changes. Committed and pushed branch move-envelope-sequence with commit 6a4dbc75 Add generic resource graph move pilot to https://github.com/redwoodjs/machinen.git. Updated PR #936 body via gh pr edit --body-file /tmp/generic-resource-graph-pr-body.md. The PR body uses careful language: generic resource-class pilot, target-native generic reexec loader, bespoke envelopes remain compatibility fallback, unsupported resource classes fail closed, and explicit non-claims for arbitrary binary/process movement, arbitrary Python/HTTP/daemon movement, source-ISA emulation, live memory/register teleportation, shell pipeline/PT\u2014/Unix socket/arbitrary fd support. It explicitly records remote amd64 validation as blocked by EXEC_AGENT_UNAVAILABLE / VsockExec.write EPIPE and states no remote generic success is claimed. git log -1 shows 6a4dbc75. git status after commit/push shows only local .pi controller artifacts/goals/extensions untracked, which are agent-local and not PR product changes."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove final validation passes for this goal, including formatting, lint, docs build when docs/API changed, typecheck if TypeScript changed, focused tests where relevant, generic coverage validation, smoke manifest validation when scripts/manifests changed, and fallow audit for code changes.",
+      "evidence": "Final validation passed after this goal. Initial final lint found one health guard regression in packages/cli/src/move-generic-resource-graph.ts: resourceRefusal exceeded complexity/CRAP thresholds. Refactored resourceRefusal into small helper functions, then reran validation successfully. Passing commands and timings: pnpm run format:check passed in 1.528s; pnpm run lint passed in 0.746s with no health regressions; pnpm run build:docs passed in 2.074s; pnpm run typecheck passed in 3.224s after pretypecheck build; NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-native-bundle.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts passed 4 files / 89 tests in 0.977s; pnpm run generic-resource-graph-coverage passed in 0.160s with matrixProofNames=159, inventoryProofNames=159, no missing/extra/duplicate/migration errors; pnpm run check-smoke-manifest passed in 0.180s and now includes generic resource graph coverage; pnpm exec fallow audit --changed-since origin/main passed in 0.585s with no issues. Final product commits were pushed to move-envelope-sequence: 6a4dbc75 Add generic resource graph move pilot and bbf64e83 Refactor generic resource refusal classifier. Only local .pi controller artifacts remain untracked."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "Remote amd64 probe commands on root@192.168.0.8 with MACHINEN_VMM=$PWD/packages/native-x64-linux/vmm/bin/machinen-vm and MACHINEN_GVPROXY=$PWD/packages/native-x64-linux/vmm/bin/gvproxy, plus retained logs under a named /tmp artifact directory",
+      "proves": "The exec-agent failure is isolated or recorded with enough evidence, and no remote generic success is claimed without a passing proof."
+    },
+    {
+      "check": "node packages/cli/dist/cli.js list --json on the remote host after failed probes",
+      "proves": "Remote VMs are cleaned up after diagnosis."
+    },
+    {
+      "check": "Read the new migration wave 1 goal/contract file and verify every candidate mapping has target evidence, fallback policy, and refusal boundary",
+      "proves": "The generic consolidation path is durable and not a vague task list."
+    },
+    {
+      "check": "Read the new pipes/stdio graduation goal/contract file and verify it covers stdio, pipe graph, producer/consumer lifecycle, hidden shell state, and partial/unknown refusal",
+      "proves": "The next frontier is scoped as a completion contract before implementation."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-coverage",
+      "proves": "Generic inventory and migration coverage are still complete and machine-checked."
+    },
+    {
+      "check": "The routine validation command or smoke manifest check that now invokes generic resource graph coverage",
+      "proves": "Coverage drift fails during normal validation, not only when a developer remembers a special command."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Formatting remains valid after docs, scripts, or goal files change."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and health guard remain valid after validation wiring or scripts change."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Generated docs/API remain current when docs or public API surfaces change."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript remains valid if validation wiring or tooling changes TypeScript/JavaScript surfaces."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run <focused generic/move tests>",
+      "proves": "Focused behavior remains intact when code changes touch generic move or validation surfaces."
+    },
+    {
+      "check": "pnpm run check-smoke-manifest",
+      "proves": "Smoke manifest remains valid if proof scripts or validation entries change."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and health audit passes for changed code."
+    },
+    {
+      "check": "git status, git log -1, and PR body review",
+      "proves": "Changes are committed and PR language is careful about generic resource-class pilot scope and remote blocker status."
+    }
+  ],
+  "stopIf": [
+    "Remote host root@192.168.0.8 is unreachable or lacks the expected remote workspace and the user does not provide an alternative host.",
+    "Remote diagnosis would require claiming success from source-ISA emulation, metadata-only acceptance, or any target run without a passing proof.",
+    "Remote probe leaves VMs running and cleanup cannot be verified.",
+    "A migration contract would weaken bespoke fallback priority or remove existing refusal evidence before equivalent generic proof exists.",
+    "A pipes/stdio contract would claim shell pipeline support without modeling pipe peer graph, lifecycle, stdio policy, and partial/unknown refusal.",
+    "Routine validation wiring would make normal validation too broad or flaky without a targeted guard path.",
+    "Required validation fails and cannot be fixed within this goal scope.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    "2026-06-11: Remote amd64 diagnosis completed. With Linux x86-64 MACHINEN_VMM/MACHINEN_GVPROXY overrides, VMM/gvproxy binaries were ELF x86-64, host resources were sufficient, /dev/kvm and /dev/vhost-vsock existed, and VM boot/list succeeded. All narrow exec probes failed with EXEC_AGENT_UNAVAILABLE / VsockExec.run agent did not respond within 30000ms: write EPIPE, including delayed attempts after 0/5/15/30s. Classified as bounded infrastructure blocker at guest exec-agent/vsock transport after successful boot, not generic matrix semantics. Artifacts retained remotely at /tmp/generic-remote-exec-agent-diagnosis-1781213669 and /tmp/generic-remote-exec-agent-wait-diagnosis-1781213814.",
+    "2026-06-11: Remote cleanup verified. Diagnostic VMs were stopped and list --json returned vms=[]. A stale gvproxy from an earlier run was found despite no listed VMs; an initial cleanup command had a shell quoting mistake, then a corrected cleanup killed the stale gvproxy. Final ps showed no machinen-vm/gvproxy processes except grep. No remote generic success claimed.",
+    "2026-06-11: Created migration wave 1 contract .pi/goals/generic-resource-graph-migration-wave1.json with 8 proof rows and a concrete nextAction. Added docs/snapshot/generic-resource-graph-migration-wave1.md with candidate decisions for python-http, python-http-directory, nc-listener, reader-cat, grep, and tail; tail remains bespoke fallback unless offset/follow semantics are preserved exactly.",
+    "2026-06-11: Created pipes/stdio graduation contract .pi/goals/generic-pipes-stdio-graduation.json with 9 proof rows covering stdio policy, pipe peer graph, producer/consumer lifecycle, hidden shell state refusal, partial/unknown pipe refusal, target-native loader boundaries, support/refusal matrix rows, docs/coverage, and final validation.",
+    "2026-06-11: Wired generic coverage into routine check-smoke-manifest. Positive checks passed: generic-resource-graph-coverage 0.151s and check-smoke-manifest 0.172s. Negative malformed-inventory fixture exited 1 and reported extra=[not-a-real-proof-row], proving drift fails early.",
+    "2026-06-11: Focused generic/move tests and coverage remain intact after validation wiring: Vitest 4 files / 89 tests passed in 1.074s; generic-resource-graph-coverage passed in 0.170s; check-smoke-manifest passed in 0.174s with coverage ok.",
+    "2026-06-11: PR hygiene completed. Committed and pushed 6a4dbc75 Add generic resource graph move pilot to move-envelope-sequence. Updated PR #936 body with careful generic resource-class pilot language, explicit non-claims, bespoke fallback preservation, and remote amd64 blocked/no-success wording. Only local .pi controller artifacts remain untracked.",
+    "2026-06-11: Final validation passed after fixing a health-guard complexity regression in resourceRefusal. format:check 1.528s, lint 0.746s, build:docs 2.074s, typecheck 3.224s, focused Vitest 4 files / 89 tests 0.977s, generic coverage 0.160s, check-smoke-manifest 0.180s, fallow audit 0.585s. Pushed final commits 6a4dbc75 and bbf64e83 to move-envelope-sequence."
+  ],
+  "nextAction": "All proof rows are proven with evidence. Goal complete; continue with the separate migration wave 1 or pipes/stdio graduation contracts when approved.",
+  "status": "COMPLETE"
+}

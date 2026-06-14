@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "name": "generic-resource-graph-productization-known-blockers",
+  "purpose": "Record blockers that are resolved only by explicit deferral for phase-1 productization. None of these blockers expands product support beyond generic-stdio-pipe-product-marker.",
+  "phase1ProductSupport": ["generic-stdio-pipe-product-marker"],
+  "blockers": [
+    {
+      "id": "remote-amd64-proof-host-availability",
+      "status": "deferred",
+      "currentEvidence": "friend@100.126.46.90 reports uname -m=aarch64, so this host cannot provide a remote amd64 success proof.",
+      "productImpact": "No remote amd64 success claim is made for phase-1 productization.",
+      "requiredBeforePromotion": [
+        "available linux/amd64 proof host",
+        "targeted productization proof rows rerun on that host",
+        "retained timing/artifact evidence recorded for amd64"
+      ],
+      "nonClaims": ["no remote amd64 success claim from the current friend host"]
+    },
+    {
+      "id": "php-live-capture-generic-primary-blockers",
+      "status": "deferred",
+      "currentEvidence": "Live PHP generic-primary remains refused by writable stdio/log fds, deleted Zend semaphore fd, and unmodeled socket fd evidence.",
+      "productImpact": "PHP descriptor-harness parity remains proof-only and live PHP is not promoted to generic-primary product routing.",
+      "requiredBeforePromotion": [
+        "writable log/stdio fd product model or refusal boundary",
+        "deleted Zend semaphore/runtime tempfile model or refusal boundary",
+        "live socket fd model or refusal boundary",
+        "target health evidence and retained artifacts for the exact live PHP shape"
+      ],
+      "nonClaims": [
+        "no live PHP promotion",
+        "no writable log fd continuation",
+        "no deleted Zend semaphore migration",
+        "no unmodeled socket migration"
+      ]
+    },
+    {
+      "id": "node-static-full-tree-digest-identity",
+      "status": "deferred",
+      "currentEvidence": "Static Node HTTP live markers are exact marker/proof rows, but full source/target tree digest identity remains unproven for product routing.",
+      "productImpact": "Node static HTTP rows are not part of phase-1 generic resource graph product support.",
+      "requiredBeforePromotion": [
+        "source tree digest policy",
+        "target tree digest policy",
+        "symlink/mtime/mode normalization boundary",
+        "retained support and refusal artifacts for digest drift"
+      ],
+      "nonClaims": [
+        "no Node static HTTP generic product support in phase 1",
+        "no full source/target tree digest identity claim"
+      ]
+    },
+    {
+      "id": "broad-database-service-session-movement",
+      "status": "deferred",
+      "currentEvidence": "Database/service/session movement remains outside product support unless each resource class has exact support, equivalent refusal evidence, inventory/docs registration, and retained artifacts.",
+      "productImpact": "Redis/database/service markers and active sessions remain deferred from phase 1.",
+      "requiredBeforePromotion": [
+        "narrow product contract for each service or database shape",
+        "support proof and equivalent refusal proof for each resource class",
+        "no-active-client/session evidence",
+        "data-dir/database safety evidence",
+        "target health evidence and retained artifacts"
+      ],
+      "nonClaims": [
+        "no broad daemon/database/service migration",
+        "no active session migration",
+        "no arbitrary process restore",
+        "no metadata-only success"
+      ]
+    }
+  ],
+  "globalNonClaims": [
+    "no product support beyond generic-stdio-pipe-product-marker",
+    "no arbitrary process restore",
+    "no broad daemon/database/service migration",
+    "no active session migration",
+    "no source-fd teleportation",
+    "no source-ISA emulation",
+    "no metadata-only success",
+    "no runtime-profile shortcut"
+  ]
+}

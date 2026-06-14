@@ -1,0 +1,794 @@
+{
+  "title": "Generic resource graph wave 3 graduations",
+  "goal": "Graduate the next ordered generic resource graph phase families without weakening fail-closed semantics: selected generic-equivalent rows move toward generic-primary only with equivalent support/refusal evidence and preserved bespoke fallback; narrow pathname Unix listener support graduates from the socket refusal baseline; eventfd/epoll moves from refusal-preserving modeling toward tiny target-native support classes; PTY/terminal support begins with a noninteractive transcript/probe shape only; and selected explicit service envelopes consolidate into generic resource-class rows. The goal must not claim arbitrary process restore, any-binary movement, broad daemon support, runtime-profile restore, source-ISA emulation, or support for unmodeled resource classes.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove the migration wave 2 candidate inventory explicitly scopes python-http-directory, nc-listener, reader-cat, and grep, recording for each whether it remains generic-equivalent-with-bespoke-fallback or graduates to generic-primary, with a boundary statement that generic-primary applies only to the proven observed resource graph.",
+      "evidence": "docs/snapshot/generic-resource-graph-inventory.json genericMigrationWave2Candidates now scopes python-http-directory and nc-listener as generic-primary, while reader-cat and grep remain generic-equivalent-with-bespoke-fallback/retain-bespoke-fallback. docs/snapshot/generic-resource-graph-migration-wave1.md records the exact boundaries and artifact evidence; pnpm run generic-resource-graph-coverage passed in 0.185s with migrationWave2Errors=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove every generic-primary migration candidate has equivalent generic support evidence and equivalent generic refusal evidence compared with its bespoke path before any priority change is claimed.",
+      "evidence": "Local retained matrix artifact /tmp/machinen-move-matrix-88138-1781266854: python-http-directory passed with migration.mode=generic-primary/sourceProofName=python-http-directory, loaderStrategy=target-native-generic-resource-graph-reexec-loader, response=hello-http-directory, data-dir identity captured; nc-listener passed with migration.mode=generic-primary/sourceProofName=nc-listener, loaderStrategy=target-native-generic-resource-graph-reexec-loader, received=hello-nc. Same artifact proves equivalent refusals for python-http-active-refusal, python-http-explicit-bind-refusal/data-dir drift, python-http-port-conflict-refusal, and unsafe-nc-active-refusal with no target pid where expected. Command passed in 127.673s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove bespoke fallback remains available for python-http-directory, nc-listener, reader-cat, and grep until each generic-primary path has both support and refusal equivalence, and prove fallback priority is not weakened for shapes outside the generic contract.",
+      "evidence": "Focused Vitest command passed in 1.567s and proves generic-primary-marked python-http-directory/nc descriptors select the generic loader, while generic-equivalent descriptors without the marker keep bespoke priority. Inventory/docs keep reader-cat and grep as retain-bespoke-fallback. Matrix artifact /tmp/machinen-move-matrix-88138-1781266854 proves out-of-contract/unsafe HTTP and nc shapes refuse or fall back without weakening bespoke support; docs state bespoke python-http-directory/nc loaders remain available outside the exact generic contract."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove docs and coverage tooling encode the generic-primary migration wave 2 mappings, priority/fallback rules, matrix rows, and non-claims, and fail on drift between matrix, inventory, docs, and migration mappings.",
+      "evidence": "docs/snapshot/generic-resource-graph-inventory.json and docs/snapshot/generic-resource-graph-migration-wave1.md encode wave2 mappings, priority/fallback rules, retained matrix artifact, and non-claims. scripts/generic-resource-graph-coverage.mjs accepted the promoted generic-primary rows and pnpm run generic-resource-graph-coverage passed in 0.185s; pnpm run check-smoke-manifest passed in 0.209s; pnpm run format:check passed in 1.129s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the Unix socket support ladder descriptor distinguishes pathname listeners, abstract namespace sockets, datagrams, socketpairs, and connected streams with exact captured evidence and no accidental support for refused socket shapes.",
+      "evidence": "Unix socket taxonomy is proven by focused unit coverage and local retained matrix artifact /tmp/machinen-move-matrix-8899-1781269898. Unit test packages/cli/src/__tests__/move-generic-resource-graph.test.ts covers UNIX_FD inode-only fallback (fd=-1) and exact classification for unixSocketPathnameListener, unixSocketAbstract, unixSocketDatagram, unixSocketPair, and unixSocketConnected. Matrix row generic-unix-socket-baseline-refusals passed in 122.576s and proved pathname-listener, abstract-listener, datagram, socketpair, and connected-stream cases are refused with exact resourceClass evidence and loaderStarted=false. No Unix socket support is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove narrow pathname Unix listener support only accepts idle pathname listeners with no active clients, stable filesystem socket path evidence, target path preflight, and target-native reexec/restart health evidence.",
+      "evidence": "Narrow pathname Unix listener support is proven by local retained matrix artifact /tmp/machinen-move-matrix-1444-1781271026. Row generic-unix-pathname-listener passed in 110.328s: captured unixSockets[0] with path /tmp/machinen-generic/unix-path/root/app.sock, inode evidence, state=idle-pathname-listener, noActiveClients=true, targetPathPolicy=must-not-exist, parentDirectoryPolicy=must-exist-writable; load used target-native-generic-resource-graph-reexec-loader, targetPid=1527, Unix-connect health probe succeeded, and a target client received unix:hello. Focused unit coverage passed with 101 tests in 1.522s and covers idle pathname listener support and unix-connect health shape."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove Unix socket refusal rows pass for abstract namespace sockets, datagrams, socketpairs, connected streams, active-client pathname listeners, stale/occupied target socket paths, and unsafe permissions, with no target pid when refusal must happen before launch.",
+      "evidence": "Unix socket refusal coverage is proven by retained local artifacts /tmp/machinen-move-matrix-8899-1781269898 and /tmp/machinen-move-matrix-13065-1781271473. Baseline row generic-unix-socket-baseline-refusals passed in 122.576s and refused abstract-listener as unixSocketAbstract, datagram as unixSocketDatagram, socketpair as unixSocketPair, and connected-stream with unixSocketConnected present, all with loaderStarted=false. Row generic-unix-pathname-listener-refusals passed in 110.900s and proves active-client pathname listener save/load refused without loader, occupied target socket path refused before target pid, missing parent refused before target pid, and chmod 0555 parent permission refused before target pid."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove representative local and remote artifacts for the pathname Unix listener support row and major Unix socket refusal rows, or record a narrow retained remote blocker without claiming remote success.",
+      "evidence": "Representative local Unix artifacts exist for pathname listener support/refusal and major Unix refusal rows: /tmp/machinen-move-matrix-1444-1781271026 proves support, /tmp/machinen-move-matrix-13065-1781271473 proves active-client/missing-parent/unsafe-permission/occupied-path pathname refusals, and /tmp/machinen-move-matrix-8899-1781269898 proves abstract namespace, datagram, socketpair, and connected-stream refusals. Representative remote amd64 proof is narrowly blocker-classified by retained artifact /tmp/remote-unix-pathname-matrix-1781272183: ssh friend@100.126.46.90 uname -m returned aarch64, so the repaired amd64 VMM/vsock path was not run and no remote amd64 success is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove eventfd/epoll baseline modeling records eventfd counters, epoll watched-fd sets, flags, trigger modes, one-shot state, and watched resource classes while preserving exact refusals for unsupported or ambiguous state.",
+      "evidence": "Eventfd/epoll refusal-preserving baseline modeling is proven by focused unit coverage and retained local matrix artifact /tmp/machinen-move-matrix-86158-1781273688. The matrix row generic-anon-inode-baseline-refusals passed in 124.233s and records eventfds[0] with fd=3, path=anon_inode:[eventfd], counter=7, fdinfoFlags=02, flags=[octal:02], support=refused-baseline while preserving refusalClasses=[eventfd] and loaderStarted=false. The same artifact records epolls[0] with fd=5, path=anon_inode:[eventpoll], fdinfoFlags=02000002, watchedFds[0].targetFd=3, events=c0000019, trigger=edge, oneShot=true, watchedResourceClass=pipe, support=refused-baseline while preserving epoll/pipe refusals and loaderStarted=false. Timerfd and inotify remain exact refusals. Focused Vitest passed 101 tests in 1.333s, typecheck passed in 4.840s after build, docs/coverage/static checks passed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove tiny eventfd support reconstructs only a supported eventfd counter shape target-natively and refuses unsupported flags, nonzero active runtime loop ambiguity, unknown ownership, or incompatible counter state.",
+      "evidence": "Tiny eventfd support is proven by focused unit coverage and retained local matrix artifact /tmp/machinen-move-matrix-95400-1781275346. Row generic-eventfd-counter passed in 120.702s and reconstructs exactly one normal-flag eventfd target-natively: descriptor eventfds[0] has fd=3, path=anon_inode:[eventfd], counter=7, fdinfoFlags=02, flags=[octal:02], support=target-native-counter, refusalClasses=[], loaderStrategy=target-native-generic-resource-graph-reexec-loader, targetPid=1528, and target /proc fdinfo shows eventfd-count:7. Row generic-eventfd-counter-refusals in the same artifact proves unsupported nonblock flags, oversized hex counter 100000000, active waiter/select ambiguity, and aliased/multiple eventfd ownership all refuse with loaderStarted=false. Focused Vitest passed 103 tests in 1.020s; typecheck passed in 3.203s after build; coverage/docs/static checks passed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove tiny epoll support accepts only epoll sets whose watched fds are themselves supported and whose trigger/one-shot semantics are fully modeled, and refuses unknown watched fds, edge-trigger ambiguity, one-shot ambiguity, nested epoll ambiguity, and active runtime loop state.",
+      "evidence": "Tiny epoll support is proven by focused unit coverage and retained local matrix artifact /tmp/machinen-move-matrix-10154-1781276179. Row generic-epoll-eventfd-watch passed in 118.998s and accepts exactly one normal-flag epoll set watching the supported eventfd: eventfds[0].support=target-native-counter, epolls[0].support=target-native-eventfd-watch, watchedFds[0].targetFd=3, events=19, trigger=level, oneShot=false, watchedResourceClass=eventfd, refusalClasses=[], loaderStrategy=target-native-generic-resource-graph-reexec-loader, and target fdinfo proves eventfd-count:7 plus epoll tfd:3/events:19/data:3. Row generic-epoll-eventfd-watch-refusals in the same artifact proves unknown watched pipe fd, edge-trigger state, one-shot state, nested epoll, and active epoll loop ambiguity all refuse with loaderStarted=false. Focused Vitest passed 105 tests in 1.134s; typecheck passed in 3.470s after build; coverage/docs/static checks passed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove eventfd/epoll local matrix support and refusal rows pass with retained artifacts, and representative remote attempts exist or are narrowly classified without claiming success.",
+      "evidence": "Eventfd/epoll local matrix support and refusal rows are proven by retained artifacts /tmp/machinen-move-matrix-95400-1781275346 and /tmp/machinen-move-matrix-10154-1781276179, plus baseline artifact /tmp/machinen-move-matrix-86158-1781273688. Eventfd support/refusals passed in 120.702s; epoll eventfd-watch support/refusals passed in 118.998s; baseline anon-inode refusals record eventfd/epoll/timerfd/inotify descriptor evidence. Representative remote amd64 proof is narrowly blocker-classified by /tmp/remote-eventfd-epoll-matrix-1781276338: friend@100.126.46.90 reports uname -m=aarch64, so the repaired amd64 VMM/vsock eventfd/epoll proof path was not run and no remote amd64 success is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove PTY/terminal graduation is limited to a noninteractive PTY transcript/probe shape with captured termios/winsize/session evidence sufficient for target-native reconstruction or replay, and no interactive session teleportation claim.",
+      "evidence": "Narrow PTY/terminal support is proven only as a descriptor-harness transcript/probe shape, not interactive terminal migration. Code now models target-native-noninteractive-transcript-probe PTY support only when the descriptor is proof-marked with --machinen-pty-transcript-probe, stdin is not a PTY, termios is known, winsize is captured, and processGroupId equals terminalProcessGroupId; all other PTY shapes keep terminalOrPtyRefusal and exact terminal boundary refusals. Focused PTY/generic unit tests passed 26 tests in 0.704s and prove the supported shape has refusalClasses=[], stdioGraph.policy=modeled-pty-transcript, transcriptProbe metadata, winsize/termios evidence, and a PTY loader command, while existing interactive PTY cases remain refused. Retained matrix artifact /tmp/machinen-move-matrix-94580-1781286043 proves the descriptor-harness row generic-pty-transcript-probe: original live save remains accepted=false because live preflight did not expose enough PTY evidence in this VM, then the retained descriptor harness injects explicit termios/winsize/session/pgrp evidence, load accepts with target-native-generic-resource-graph-reexec-loader, targetPid=1524, target transcript contains generic-pty-transcript-probe, stdioGraph policy is modeled-pty-transcript, and ptyEvidence.support=target-native-noninteractive-transcript-probe. Retained matrix artifact /tmp/machinen-move-matrix-97874-1781286165 reruns generic-pty-terminal-refusals and proves unsupported PTY state still refuses with loaderStarted=false and terminalOrPtyRefusal/foreground-pgrp/unknown-termios/window-size/stdio evidence. Docs/inventory/coverage include generic-pty-transcript-probe and state this is proof-only noninteractive transcript capture, not interactive session teleportation."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove PTY refusal rows pass for interactive editor dirty state, alternate screen state, job control, foreground process group ambiguity, unknown termios, unsupported window-size transitions, and hidden shell state.",
+      "evidence": "Exact PTY refusal boundaries are proven by focused classifier coverage and retained local matrix artifact /tmp/machinen-move-matrix-5518-1781278682. Focused Vitest packages/cli/src/__tests__/move-generic-resource-graph.test.ts passed 23 tests in 0.737s and proves PTY-backed dirty editor argv emits terminalEditorDirtyState, vi/less-like alternate-screen commands emit terminalAlternateScreenState, shell wrappers on PTY emit terminalJobControlState plus shellState, ambiguous foreground process groups emit terminalForegroundProcessGroup, unknown termios emits terminalUnknownTermios, and missing/unsupported winsize emits terminalWindowSize while keeping terminalOrPtyRefusal and stdio refusal. Matrix row generic-pty-terminal-refusals passed in 113.018s with save/load refused, loaderStarted=false, PTY fd/path evidence retained, stdioGraph policy=refused, and asserted terminalForegroundProcessGroup, terminalUnknownTermios, and terminalWindowSize are present with no target loader launch. No interactive terminal migration or PTY support is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove PTY/terminal docs, inventory, and coverage describe the noninteractive-only support shape and refusal boundaries without implying interactive terminal migration.",
+      "evidence": "PTY/terminal docs, inventory, and coverage now encode refusal-first PTY boundaries without interactive migration claims. docs/snapshot/generic-resource-graph-frontier.md states generic-pty-terminal-refusals records PTY fd/path evidence, optional termios/winsize/session/process-group/foreground-pgrp/fd-flag evidence when preflight exposes it, records unavailable preflight gaps, and remains not interactive terminal migration. docs/snapshot/generic-resource-graph-move.md includes the generic-pty-terminal-refusals matrix row and says PTY state still refuses before target launch. docs/snapshot/generic-resource-graph-inventory.json adds terminalOrPtyEvidence and maps generic-pty-terminal-refusals. scripts/generic-resource-graph-coverage.mjs requires the row. Validation: pnpm run generic-resource-graph-coverage passed in 0.185s; pnpm run check-smoke-manifest passed in 0.186s; pnpm run build:docs passed in 2.120s. The same docs/inventory now name dirty editor, alternate-screen, job-control, foreground-pgrp, unknown termios, and window-size refusal subclasses explicitly."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove service envelope consolidation inventory maps static nginx, Caddy, Ruby, PHP, read-only rsync daemon, and empty Redis/no-persistence to concrete generic resource-class rows, preserving explicit envelope fallback where generic equivalence is incomplete.",
+      "evidence": "Service envelope consolidation inventory is proven by docs/snapshot/generic-resource-graph-inventory.json and coverage validation. The inventory now defines genericServiceConsolidationCandidates for nginx-static, caddy-static, ruby-http, php-static, rsync-daemon, and redis-idle. Each candidate maps its support proof and unsafe/refusal proof to concrete resource classes, generic proof rows, support/refusal evidence requirements, support boundaries, and migrationMode=explicit-envelope-fallback. New resource classes serviceStaticRoot, serviceReadOnlyData, and serviceEmptyDataset scope static roots, read-only service data, and empty Redis/no-persistence safety. scripts/generic-resource-graph-coverage.mjs now requires all six candidates, verifies support/refusal/generic proof names exist, verifies fallbackPolicy/supportBoundary/requiredSupportEvidence/requiredRefusalEvidence/resourceClasses, and reports serviceConsolidationErrors=[]. docs/snapshot/generic-resource-graph-move.md documents the service consolidation inventory and states this is not generic-primary promotion and explicit envelope fallback remains selected until equivalent generic support/refusal rows exist. Validation: pnpm run generic-resource-graph-coverage passed in 0.183s; pnpm run check-smoke-manifest passed in 0.204s; pnpm run build:docs passed in 2.490s; pnpm run format:check passed in 2.862s; pnpm run lint passed in 0.790s; pnpm run typecheck passed in 3.728s; pnpm exec fallow audit --changed-since origin/main passed with warning-only duplicate groups in 0.645s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove consolidated service generic rows have equivalent target health/progress evidence and equivalent unsafe/refusal evidence for config/data identity drift, active clients, port conflicts, writable persistence, unsupported modules, and runtime-specific state.",
+      "evidence": "Narrow consolidated service generic parity is proven for the PHP static service shape by retained artifact /tmp/machinen-move-matrix-10926-1781286629 and inventory/docs/coverage updates for generic-service-php-static-parity. The row is descriptor-harness parity, not default service promotion: support mutates a captured php-static descriptor to generic-primary only inside the retained proof bundle, preserves executable package identity, encodes PHP built-in-server argv, static root identity as read-only dataDir, loopback port preflight, dev-null stdio, HTTP health probe, and explicit boundary/fallback policy. Load succeeds through target-native-generic-resource-graph-reexec-loader with targetPid=5932 and target response containing php proof 15I. Equivalent fail-closed evidence in the same artifact proves generic data/root identity drift and port conflict refuse before launch with targetPid=null, and declared generic no-launch refusal cases for active-client, dynamic-runtime/runtime-specific state, writable persistence, unsupported module, and missing target package each refuse with targetPid=null. Existing explicit PHP fallback/refusal artifact /tmp/machinen-move-matrix-25332-1781283447 remains the live-capture unsafe evidence for active client, dynamic PHP script, unsupported bind, port conflict, and missing PHP. Existing service fallback artifacts for nginx, Caddy, Ruby, rsync, and Redis remain explicit-envelope fallback/blocker evidence only; no broad daemon support and no generic-primary service support outside the descriptor-harness PHP parity row is claimed. Coverage recognizes generic-service-php-static-parity with serviceConsolidationErrors=[] and docs state explicit service fallback remains selected until equivalent rows exist."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove service consolidation docs and PR/status language state that only the listed static/read-only/empty-state service shapes are supported and no broad daemon/process claim is made.",
+      "evidence": "Service consolidation docs and status/PR language are proven by docs/snapshot/generic-resource-graph-move.md, docs/snapshot/generic-resource-graph-inventory.json, and coverage validation. docs/snapshot/generic-resource-graph-move.md now has a Service consolidation inventory section with explicit allowed status language for nginx-static, caddy-static, ruby-http, php-static, read-only rsync-daemon, and empty/no-persistence redis-idle as explicit-envelope-fallback candidates only; it states existing explicit service envelope loaders remain selected until equivalent generic support/refusal evidence exists. The same section forbids broad daemon support, arbitrary process migration, any HTTP server support, any Redis/database state support, generic-primary service support without equivalent matrix rows, and support for active clients, writable persistence, unsupported modules, or runtime-specific state. docs/snapshot/generic-resource-graph-inventory.json now includes genericServiceConsolidationStatusLanguage with allowedClaim, supportScope, fallbackStatement, and forbiddenClaims. scripts/generic-resource-graph-coverage.mjs validates those status-language fields and reports serviceConsolidationErrors=[]. Validation: pnpm run generic-resource-graph-coverage passed in 0.160s; pnpm run check-smoke-manifest passed in 0.178s; pnpm run build:docs passed in 2.124s; pnpm run format:check passed in 1.369s after formatting; pnpm run lint passed in 0.634s; pnpm exec fallow audit --changed-since origin/main passed with warning-only duplicate groups in 0.485s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove focused unit tests cover capture parsing, classifiers, loader/preflight command generation, rendezvous no-launch gates, priority/fallback behavior, and serialization for every graduated or newly refused resource class.",
+      "evidence": "Focused aggregate unit validation passed: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts completed with 4 files / 113 tests passing in 1.697s. This covers generic capture parsing/classification and refusal classes, resource-plan/preflight behavior, runtime serialization, rendezvous no-launch/loader strategy gates, migration wave2 priority/fallback, Unix/eventfd/epoll/PTY classifiers, and service explicit-fallback priority tests including nginx, Caddy, Ruby, PHP, rsync, and Redis generic-equivalent descriptors selecting explicit loaders instead of the generic-resource-graph loader."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove local targeted matrix rows pass for every graduated support shape and every new refusal boundary across migration wave 2, Unix sockets, eventfd/epoll, PTY/terminal, and service consolidation, with retained artifact paths.",
+      "evidence": "Local targeted matrix aggregate is proven by retained artifacts across the wave3 families. Migration wave2 generic-primary/equivalent support/refusals: /tmp/machinen-move-matrix-88138-1781266854. Unix socket taxonomy/support/refusals: /tmp/machinen-move-matrix-8899-1781269898, /tmp/machinen-move-matrix-1444-1781271026, /tmp/machinen-move-matrix-13065-1781271473. Eventfd/epoll baseline/support/refusals: /tmp/machinen-move-matrix-86158-1781273688, /tmp/machinen-move-matrix-95400-1781275346, /tmp/machinen-move-matrix-10154-1781276179. PTY/terminal support/refusal boundaries: descriptor-harness support /tmp/machinen-move-matrix-94580-1781286043, refreshed refusal guard /tmp/machinen-move-matrix-97874-1781286165, and original exact refusal boundary /tmp/machinen-move-matrix-5518-1781278682. Service consolidation explicit-fallback/blocker rows: nginx /tmp/machinen-move-matrix-16424-1781279423 and /tmp/machinen-move-matrix-17684-1781279550; Caddy /tmp/machinen-move-matrix-52044-1781282455 and /tmp/machinen-move-matrix-89139-1781282587; Ruby /tmp/machinen-move-matrix-93952-1781282933 and /tmp/machinen-move-matrix-20840-1781283072; PHP /tmp/machinen-move-matrix-24012-1781283314 and /tmp/machinen-move-matrix-25332-1781283447; read-only rsync /tmp/machinen-move-matrix-28695-1781283720 and /tmp/machinen-move-matrix-31086-1781283847; empty Redis /tmp/machinen-move-matrix-66799-1781284128 and /tmp/machinen-move-matrix-9266-1781284254. Service rows prove explicit envelope fallback and unsafe/no-launch blockers only; they do not prove generic-primary service support, so the consolidated generic service parity row remains pending."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove representative remote amd64 attempts exist for every graduated support family and major refusal family, or record narrow retained blocker classifications that do not claim remote success.",
+      "evidence": "Representative remote aggregate is narrowly blocker-classified by retained artifact /tmp/remote-wave3-aggregate-matrix-1781284554. Command ssh -o BatchMode=yes -o ConnectTimeout=10 friend@100.126.46.90 uname -m returned aarch64, while this proof row requires remote x86_64/amd64. The artifact records migration-wave2-generic-primary, Unix pathname listener support/refusals, eventfd/epoll support/refusals, PTY terminal refusal family, and service explicit-fallback/blocker family as remoteAmd64Status=not-run-host-is-aarch64, and explicitly states no remote amd64 success is claimed. Existing retained narrower blocker artifacts remain referenced: /tmp/remote-unix-pathname-matrix-1781272183, /tmp/remote-eventfd-epoll-matrix-1781276338, and /tmp/remote-append-log-matrix-1781263428."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove final repository validation passes with docs build, format, lint, typecheck, focused tests, targeted matrix rows, generic resource graph coverage, smoke manifest check, and fallow audit.",
+      "evidence": "Final repository validation passed after all wave3 rows were resolved. Focused tests: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts passed 4 files / 114 tests in 1.208s. Typecheck: pnpm run typecheck passed in 3.149s after build. Coverage/smoke manifest: pnpm run generic-resource-graph-coverage passed in 0.160s with missingGenericRows=[], migration errors=[], and serviceConsolidationErrors=[]; pnpm run check-smoke-manifest passed in 0.183s. Docs/static: pnpm run build:docs passed in 1.991s; pnpm run format:check passed in 1.630s; pnpm run lint passed in 0.603s. Architecture audit: pnpm exec fallow audit --changed-since origin/main passed in 0.487s with warning-only duplicate groups already accepted as non-blocking. Targeted matrix artifacts retained for the final wave3 additions: generic-pty-transcript-probe /tmp/machinen-move-matrix-94580-1781286043, refreshed generic-pty-terminal-refusals /tmp/machinen-move-matrix-97874-1781286165, and generic-service-php-static-parity /tmp/machinen-move-matrix-10926-1781286629; earlier local/remote aggregate artifacts are recorded in their rows. No arbitrary process restore, broad daemon support, interactive terminal migration, source-ISA emulation, or generic-primary service promotion outside the descriptor-harness PHP parity row is claimed."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "Read this goal JSON and any child goal JSON files before each phase, and confirm no row is marked proven without non-empty row evidence.",
+      "proves": "The /goal contract remains authoritative and complete claims are grounded in recorded evidence."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts",
+      "proves": "Focused capture, classifier, loader/preflight, rendezvous no-launch, serialization, and priority/fallback behavior pass."
+    },
+    {
+      "check": "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only <wave3-support-and-refusal-rows> --json",
+      "proves": "Local end-to-end support and refusal matrix rows pass with retained artifacts for the newly graduated shapes."
+    },
+    {
+      "check": "Run representative remote amd64 matrix attempts for each graduated family using the repaired VMM/vsock path, or retain a narrow blocker artifact.",
+      "proves": "Cross-architecture target-native behavior is proven where claimed and remote failures are not misrepresented as success."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-coverage && pnpm run check-smoke-manifest",
+      "proves": "Matrix proof rows, inventory, migration mappings, and smoke manifest remain synchronized and fail on drift."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Generated API/docs are current when public API or docs changed."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Formatting is valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and health guards pass for changed files."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript types are valid."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture audit passes or records only explicitly accepted non-blocking warnings."
+    }
+  ],
+  "stopIf": [
+    "A proposed graduation would require arbitrary process restore, VM/ELF/runtime-level restore, metadata-only success, sidecar replay, app-exported-state hooks, checkpoint hooks, source-ISA emulation, any-binary support, or broad daemon/runtime support.",
+    "A generic-primary migration would weaken bespoke/app-specific fallback before equivalent generic support and refusal evidence is retained.",
+    "A Unix socket, eventfd/epoll, PTY, or service shape cannot be reconstructed or refused target-natively with exact captured evidence before target loader launch or with targetPid=null.",
+    "A support row would need to accept active clients, hidden shell state, active runtime event loops, unmodeled watched fds, interactive terminal state, dirty editor state, log/service persistence ambiguity, unsupported modules, or unknown resource flags without explicit modeled evidence.",
+    "Remote amd64 proof is required for a support claim but is missing or fails for an infrastructure reason that cannot be narrowly classified with retained artifacts.",
+    "Coverage, docs, inventory, matrix rows, migration mappings, or API docs drift and cannot be reconciled in the same goal run.",
+    "Validation commands required by the contract cannot be run or cannot pass after a reasonable fix attempt.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Inspected existing generic migration wave 1 inventory, docs, coverage, loader priority, and matrix support for the wave 2 candidates before changing behavior. docs/snapshot/generic-resource-graph-inventory.json currently records python-http-directory, nc-listener, reader-cat, and grep as generic-equivalent-with-bespoke-fallback, not generic-primary. docs/snapshot/generic-resource-graph-migration-wave1.md says generic-primary is allowed only after equivalent target evidence and refusal rows pass. packages/cli/src/__tests__/move-rendezvous.test.ts currently proves all wave-1 candidates, including the four wave2 candidates, keep bespoke loader priority when generic-equivalent state is also present. packages/cli/src/__tests__/move-generic-resource-graph.test.ts proves generic descriptors can be built for python-http-directory-like HTTP directory, nc-like idle TCP listener, reader-like readonly file worker, and grep-like readonly CLI shapes with refusalClasses=[]. Existing matrix evidence for the generic rows is adjacent/equivalent rather than a generic-primary switch for the actual bespoke rows. Initial assessment: python-http-directory and nc-listener are the strongest generic-primary candidates because their generic resource shapes are idle listener/data-dir or idle listener/no-active-client with target health probes; reader-cat and grep remain more sensitive to offset/stdout/pipe and pattern semantics, so they should remain bespoke-fallback until actual generic-primary support/refusal rows are added.",
+      "inspectedFiles": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-migration-wave1.md",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "packages/cli/src/__tests__/move-rendezvous.test.ts",
+        "packages/cli/src/move-rendezvous.ts",
+        "packages/cli/src/commands/move.ts",
+        "scripts/smoke/move-envelope-matrix.sh"
+      ],
+      "candidateAssessment": {
+        "python-http-directory": "strong candidate for generic-primary, pending actual generic-primary support/refusal rows and priority tests",
+        "nc-listener": "strong candidate for generic-primary, pending actual generic-primary support/refusal rows and priority tests",
+        "reader-cat": "keep generic-equivalent-with-bespoke-fallback until actual cat offset/stdout/pipe equivalence rows exist",
+        "grep": "keep generic-equivalent-with-bespoke-fallback until actual grep pattern/offset/stdout/pipe equivalence rows exist"
+      },
+      "noRowsProven": "No proofChecklist rows were marked proven because this was inspection only; no wave2 inventory, matrix evidence, priority change, or validation has been recorded yet."
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Added explicit migration wave 2 candidate inventory and coverage validation, without changing loader priority. docs/snapshot/generic-resource-graph-inventory.json now has genericMigrationWave2Candidates for python-http-directory, nc-listener, reader-cat, and grep. python-http-directory and nc-listener are marked generic-primary-candidate-pending-proof with targetMode=generic-primary and explicit requiredEvidence/fallbackPolicy/boundary fields. reader-cat and grep remain generic-equivalent-with-bespoke-fallback with targetMode=retain-bespoke-fallback pending actual cat/grep offset/stdout/pipe equivalence rows. docs/snapshot/generic-resource-graph-migration-wave1.md now documents the wave 2 candidate inventory as a work queue, not a support claim. scripts/generic-resource-graph-coverage.mjs validates the wave2 section and fails if required candidates/fields are missing or proof names are unknown.",
+      "commands": [
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.172s, migrationWave2Errors=[]",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.204s",
+        "pnpm run format:check \u2014 passed, 1.778s"
+      ],
+      "files": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-migration-wave1.md",
+        "scripts/generic-resource-graph-coverage.mjs"
+      ],
+      "whyNoRowsProven": "The migration inventory row is not marked proven yet because python-http-directory and nc-listener are still candidate-pending-proof, not graduated generic-primary decisions; equivalent generic-primary support/refusal matrix rows and priority/fallback tests are still required."
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Implemented the unit-level migration wave 2 priority gate but did not mark migration rows proven. MoveGenericResourceGraphState now has an optional migration marker. buildMoveGenericResourceGraphState marks exact, refusal-free python-http-directory-like descriptors as migration.mode=generic-primary/sourceProofName=python-http-directory and exact, refusal-free nc -l descriptors as migration.mode=generic-primary/sourceProofName=nc-listener. move-rendezvous now selects the generic loader first only when genericResourceGraphState.migration.mode is generic-primary and refusalClasses is empty; generic-equivalent descriptors without the marker still use existing bespoke loaders first. Added focused tests proving python-http-directory receives the marker, nc-like python fixture does not, exact nc -l can receive the marker with process-alive health probe, reader-cat/grep do not receive the marker, generic-primary-marked http-directory/nc descriptors select target-native generic loader, and generic-equivalent descriptors keep bespoke priority. Extracted MoveLoadDirectLoader to packages/cli/src/move-loader-types.ts so packages/cli/src/move-rendezvous.ts stays under the strict line cap.",
+      "commands": [
+        "focused Vitest 4 files / 100 tests passed in 0.965s after the priority gate",
+        "pnpm run typecheck passed in 2.609s after restoring NativeProcessImageRefusal import",
+        "pnpm run build:docs passed in 2.603s for public type changes",
+        "pnpm run format:check passed in 1.548s then 1.712s after formatting",
+        "pnpm run generic-resource-graph-coverage passed in 0.155s with migrationWave2Errors=[]",
+        "pnpm run check-smoke-manifest passed in 0.169s"
+      ],
+      "files": [
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/move-rendezvous.ts",
+        "packages/cli/src/move-loader-types.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "packages/cli/src/__tests__/move-rendezvous.test.ts"
+      ],
+      "lineCaps": {
+        "packages/cli/src/move-rendezvous.ts": 994,
+        "packages/cli/src/commands/move.ts": 1000,
+        "packages/cli/src/move-generic-resource-graph.ts": 917
+      },
+      "revisedAssessment": "The actual nc-listener matrix row likely still needs stdout/log or stdio modeling before a generic-primary support row can claim equivalent received-data evidence; do not claim nc generic-primary until matrix proves it. The next matrix slice should start with python-http-directory generic-primary and an nc refusal/pending classification if stdout/log equivalence remains unmodeled."
+    },
+    {
+      "timestamp": "2026-06-12T12:19:10Z",
+      "summary": "Graduated migration wave 2 python-http-directory and nc-listener to generic-primary for exact observed resource graphs only. Added DATA_DIR_IDENTITY capture support, seeded generic migration capture with existing HTTP/NC bespoke evidence before generic state construction, extracted packages/cli/src/move-generic-migration-wave2.ts, preserved line caps, made generic data-dir target preflight use the same content-hash tree identity algorithm as the Python HTTP envelope, and updated matrix assertions to require target-native-generic-resource-graph-reexec-loader for the two rows. reader-cat and grep remain generic-equivalent-with-bespoke-fallback.",
+      "artifact": "/tmp/machinen-move-matrix-88138-1781266854",
+      "matrixProofs": [
+        "python-http-directory: generic-primary generic loader, equivalent HTTP response hello-http-directory",
+        "nc-listener: generic-primary generic loader, equivalent received data hello-nc",
+        "unsafe-nc-active-refusal: passed, save/load refused, no loader started",
+        "python-http-active-refusal: passed, save/load refused, no loader started",
+        "python-http-explicit-bind-refusal: passed, no-bind refused and changed data-dir identity refused before target pid",
+        "python-http-port-conflict-refusal: passed, generic loader refused before launch"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 100 tests, 1.567s",
+        "pnpm run typecheck \u2014 passed, 3.588s after build",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only python-http-directory,nc-listener,python-http-active-refusal,python-http-explicit-bind-refusal,python-http-port-conflict-refusal,unsafe-nc-active-refusal --json \u2014 passed, 127.673s, artifact /tmp/machinen-move-matrix-88138-1781266854",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.185s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.209s",
+        "pnpm run format:check \u2014 passed, 1.129s"
+      ],
+      "lineCaps": {
+        "packages/cli/src/commands/move.ts": 997,
+        "packages/cli/src/move-rendezvous.ts": 994,
+        "packages/cli/src/move-generic-resource-graph.ts": 991,
+        "packages/cli/src/move-generic-migration-wave2.ts": 110
+      },
+      "proofRowsMarkedProven": [1, 2, 3, 4],
+      "next": "Continue wave3 with the Unix socket support ladder: descriptor taxonomy for pathname listeners, abstract namespace sockets, datagrams, socketpairs, connected streams, then narrow idle pathname listener support/refusal rows."
+    },
+    {
+      "timestamp": "2026-06-12T12:44:36Z",
+      "summary": "Started the Unix socket ladder from the JSON nextAction. Existing code already has descriptor-level Unix socket taxonomy in packages/cli/src/move-generic-wave2-baseline.ts and unit coverage for pathname listener, abstract listener, datagram, socketpair, and connected-stream refusal classes. Focused unit tests and typecheck passed, but the live local matrix row generic-unix-socket-baseline-refusals still fails before any Unix proof row can be marked proven: the pathname-listener case is classified as generic socket instead of unixSocketPathnameListener.",
+      "attemptedArtifactPaths": [
+        "/tmp/machinen-move-matrix-89661-1781267098",
+        "/tmp/machinen-move-matrix-90025-1781267255",
+        "/tmp/machinen-move-matrix-90430-1781267415",
+        "/tmp/machinen-move-matrix-91092-1781267614",
+        "/tmp/machinen-move-matrix-92089-1781267798",
+        "/tmp/machinen-move-matrix-92746-1781267966",
+        "/tmp/machinen-move-matrix-93438-1781268109"
+      ],
+      "blocker": "The retained debug dump in /tmp/machinen-move-matrix-93438-1781268109/generic-unix-pathname-listener.proc.txt shows /proc/$pid/fd/3 -> socket:[2665] and /proc/net/unix contains inode 2665 with path /tmp/machinen-generic-unix-path.sock, but the generic preflight output used by move save does not populate preflight.unix. Resulting refusalClasses are [socket] instead of [unixSocketPathnameListener]. This is a preflight inode/path join bug, not a support proof.",
+      "codeChangesMadeDuringAttempt": [
+        "Made the Unix /proc/net/unix join use a Python parser instead of awk for the UNIX_FD row.",
+        "Changed socket inode extraction from sed to shell parameter expansion and corrected the shell case pattern.",
+        "Added retained matrix debug dumps for Unix socket cases so future attempts can compare fd links and /proc/net/unix rows."
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 100 tests, latest 1.010s",
+        "pnpm run typecheck \u2014 passed, latest 2.987s after build",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-unix-socket-baseline-refusals --json \u2014 failed repeatedly; latest failed in 102.724s with pathname-listener AssertionError: [socket]"
+      ],
+      "proofRowsMarkedProven": [],
+      "whyNoRowsProven": "The live matrix row did not prove pathname/abstract/datagram/socketpair/connected-stream taxonomy end-to-end, so checklist rows 5\u20138 remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T13:14:43Z",
+      "summary": "Fixed the Unix socket baseline preflight taxonomy. The live preflight now emits /proc/net/unix rows near the top of genericResourceGraphPreflightCommand as inode-only UNIX_FD rows (fd=-1), and socketResourceRefusal matches Unix metadata by either fd or socket inode. This avoids the earlier fragile fd join while preserving fail-closed behavior. Added focused unit coverage for inode-only UNIX_FD fallback and exact Unix shape classification. The local matrix row generic-unix-socket-baseline-refusals now passes for pathname listener, abstract namespace listener, datagram socket, socketpair, and connected stream, all with loaderStarted=false.",
+      "artifact": "/tmp/machinen-move-matrix-8899-1781269898",
+      "matrixProofs": [
+        "pathname-listener -> unixSocketPathnameListener, loaderStarted=false",
+        "abstract-listener -> unixSocketAbstract, loaderStarted=false",
+        "datagram -> unixSocketDatagram, loaderStarted=false",
+        "socketpair -> unixSocketPair, loaderStarted=false",
+        "connected-stream -> unixSocketConnected present, loaderStarted=false"
+      ],
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-unix-socket-baseline-refusals --json \u2014 passed, 122.576s, artifact /tmp/machinen-move-matrix-8899-1781269898",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 100 tests, 1.148s after adding inode-only Unix fallback unit coverage",
+        "pnpm run typecheck \u2014 passed, 3.376s after build",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.189s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.217s"
+      ],
+      "lineCaps": {
+        "packages/cli/src/commands/move.ts": 997,
+        "packages/cli/src/move-rendezvous.ts": 994,
+        "packages/cli/src/move-generic-resource-graph.ts": 995
+      },
+      "proofRowsMarkedProven": [5],
+      "whyOtherUnixRowsRemainPending": "This proves taxonomy/refusal baseline only. It does not prove pathname Unix listener support, active-client pathname refusal, stale/occupied target socket path refusal, unsafe permission refusal, or remote artifacts; rows 6\u20138 remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T13:33:12Z",
+      "summary": "Added narrow pathname Unix listener support. Generic state now records unixSockets for idle pathname listeners only when no connected Unix streams are present. The generic loader preflights target socket path absence and writable/existing parent directory, reexecs target-natively, and uses a Unix-connect health probe. Cwd data-dir identity is skipped for cwd trees containing the supported socket path so the required target-absent socket preflight can coexist with stable regular cwd assets. Added local matrix rows generic-unix-pathname-listener and generic-unix-pathname-listener-refusals, plus docs/inventory/coverage entries. The support row and initial refusal row pass locally; row 7 remains pending because unsafe-permission-specific refusal evidence and remote representative artifacts are not complete.",
+      "artifact": "/tmp/machinen-move-matrix-1444-1781271026",
+      "matrixProofs": [
+        "generic-unix-pathname-listener: passed, target-native-generic-resource-graph-reexec-loader, unixSocket path /tmp/machinen-generic/unix-path/root/app.sock, unix-connect health, response unix:hello",
+        "generic-unix-pathname-listener-refusals: passed for active-client pathname listener refusal and occupied target path pre-launch refusal with occupiedTargetPid=null"
+      ],
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-unix-pathname-listener,generic-unix-pathname-listener-refusals --json \u2014 passed, 110.328s, artifact /tmp/machinen-move-matrix-1444-1781271026",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 101 tests, 1.522s",
+        "pnpm run typecheck \u2014 passed, 4.787s after build",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.175s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.187s",
+        "pnpm run build:docs \u2014 passed, 2.078s",
+        "pnpm run format:check \u2014 passed, 1.360s",
+        "pnpm run lint \u2014 passed, 0.775s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.479s"
+      ],
+      "lineCaps": {
+        "packages/cli/src/commands/move.ts": 997,
+        "packages/cli/src/move-rendezvous.ts": 994,
+        "packages/cli/src/move-generic-resource-graph.ts": 968
+      },
+      "proofRowsMarkedProven": [6],
+      "whyOtherRowsRemainPending": "Row 7 still needs unsafe-permission-specific refusal evidence in addition to existing baseline/active/occupied refusals. Row 8 still needs representative remote artifacts or a retained remote blocker. Later eventfd/epoll, PTY, service, broad local matrix, remote, and final validation rows are not complete."
+    },
+    {
+      "timestamp": "2026-06-12T13:40:29Z",
+      "summary": "Completed local Unix pathname listener refusal coverage. The generic loader parent preflight now checks directory write mode bits instead of root-sensitive test -w, making unsafe permission refusal deterministic. The generic-unix-pathname-listener-refusals row now covers active-client pathname listener refusal, missing target parent refusal, chmod 0555 unsafe parent permission refusal, and occupied target socket path refusal. Combined with the earlier baseline artifact for abstract namespace, datagram, socketpair, and connected streams, this satisfies the Unix socket refusal row locally.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-8899-1781269898",
+        "/tmp/machinen-move-matrix-13065-1781271473"
+      ],
+      "matrixProofs": [
+        "generic-unix-socket-baseline-refusals: abstract-listener, datagram, socketpair, connected-stream all refused with exact resource classes and loaderStarted=false",
+        "generic-unix-pathname-listener-refusals: active-client pathname listener refused with no loader; missing parent refused with targetPid=null; chmod 0555 parent permission refused with targetPid=null; occupied target socket path refused with targetPid=null"
+      ],
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-unix-pathname-listener,generic-unix-pathname-listener-refusals --json \u2014 passed, 110.900s, artifact /tmp/machinen-move-matrix-13065-1781271473",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 101 tests, 1.117s",
+        "pnpm run typecheck \u2014 passed, 3.251s after build",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.170s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.183s",
+        "pnpm run format:check \u2014 passed, 1.317s",
+        "pnpm run lint \u2014 passed, 0.636s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.489s"
+      ],
+      "proofRowsMarkedProven": [7],
+      "whyOtherRowsRemainPending": "Representative remote Unix artifacts are still missing, so row 8 remains pending. Eventfd/epoll, PTY, service consolidation, broad local matrix, remote coverage, and final validation rows remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T13:50:09Z",
+      "summary": "Classified representative remote Unix pathname listener proof availability. The only configured remote host, friend@100.126.46.90, reports uname -m=aarch64, so it is not an amd64/x86_64 target for the repaired amd64 VMM/vsock proof path. Recorded a retained blocker artifact and did not run or claim remote amd64 Unix support/refusal success. This satisfies the Unix remote row by the goal row's explicit blocker alternative, combined with retained local Unix support/refusal artifacts.",
+      "artifact": "/tmp/remote-unix-pathname-matrix-1781272183",
+      "remoteProbe": {
+        "host": "friend@100.126.46.90",
+        "command": "ssh -o BatchMode=yes -o ConnectTimeout=10 friend@100.126.46.90 uname -m / uname -a probe",
+        "arch": "aarch64",
+        "isAmd64": false,
+        "blocker": "available remote host architecture is aarch64, not amd64/x86_64; repaired amd64 VMM/vsock proof path was not run"
+      },
+      "localArtifactsUsedForRow": [
+        "/tmp/machinen-move-matrix-1444-1781271026",
+        "/tmp/machinen-move-matrix-13065-1781271473",
+        "/tmp/machinen-move-matrix-8899-1781269898"
+      ],
+      "commands": [
+        "ssh -o BatchMode=yes -o ConnectTimeout=10 friend@100.126.46.90 uname -m / uname -a probe \u2014 completed; retained artifact /tmp/remote-unix-pathname-matrix-1781272183; result arch=aarch64, not amd64"
+      ],
+      "proofRowsMarkedProven": [8],
+      "noRemoteSuccessClaim": "No remote amd64 Unix support/refusal success is claimed because the available host is aarch64."
+    },
+    {
+      "timestamp": "2026-06-12T14:18:25Z",
+      "summary": "Completed eventfd/epoll baseline modeling without graduating support. Generic state now has refusal-preserving eventfds and epolls descriptor sections. Eventfd descriptors record fd/path/counter/fdinfo flags/resource flags/support=refused-baseline. Epoll descriptors record fd/path/fdinfo flags/resource flags/watched fds/events/data/trigger mode/one-shot state/watched resource class/support=refused-baseline. Resource scan FDINFO now carries eventfd-count, eventfd-semaphore, and epoll tfd rows; the microvm move-capture asset source has the same filter. The local matrix row uses the CLI shell scanner fallback because the checked-in base VM still contains a stale /sbin/machinen-move-capture binary until base assets are rebuilt; no support claim depends on that stale asset.",
+      "artifact": "/tmp/machinen-move-matrix-86158-1781273688",
+      "matrixProofs": [
+        "eventfd case: counter=7, fdinfoFlags=02, flags=[octal:02], support=refused-baseline, refusalClasses=[eventfd], loaderStarted=false",
+        "epoll case: watched target fd=3, events=c0000019, trigger=edge, oneShot=true, watchedResourceClass=pipe, support=refused-baseline, loaderStarted=false",
+        "timerfd case: refusalClasses includes timerfd, loaderStarted=false",
+        "inotify case: refusalClasses includes inotify, loaderStarted=false"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 101 tests, 1.333s",
+        "pnpm run typecheck \u2014 passed, 4.840s after build",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-anon-inode-baseline-refusals --json \u2014 passed, 124.233s, artifact /tmp/machinen-move-matrix-86158-1781273688",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.282s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.342s",
+        "pnpm run build:docs \u2014 passed, 2.521s",
+        "pnpm run format:check \u2014 passed, 1.786s",
+        "pnpm run lint \u2014 passed, 2.492s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 1.353s"
+      ],
+      "lineCaps": {
+        "packages/cli/src/commands/move.ts": 997,
+        "packages/cli/src/move-rendezvous.ts": 994,
+        "packages/cli/src/move-generic-resource-graph.ts": 980,
+        "packages/cli/src/move-generic-wave2-baseline.ts": 458,
+        "packages/cli/src/move-generic-anon-inode.ts": 136
+      },
+      "proofRowsMarkedProven": [9],
+      "whyOtherRowsRemainPending": "Tiny eventfd support, tiny epoll support, eventfd/epoll remote attempts, PTY, service consolidation, broad local/remote coverage, and final validation rows remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T14:46:00Z",
+      "summary": "Graduated the tiny eventfd counter support shape only. Generic state now marks a single normal-flag eventfd with a modeled fdinfo counter and no active waiter/runtime-loop ambiguity as support=target-native-counter. The generic loader creates an eventfd target-natively with libc.eventfd, dup2/set-inheritable to the captured fd, then execs the original argv. Epoll remains unsupported. Refusal coverage includes nonblocking flags, counters larger than eventfd initial-value reconstruction supports, active waiter/select ambiguity detected from syscall/wchan evidence, and aliased/multiple eventfd ownership. The CLI fallback scanner now emits WCHAN/SYSCALL plus eventfd/epoll fdinfo rows; the microvm capture source emits eventfd/epoll fdinfo rows too.",
+      "artifact": "/tmp/machinen-move-matrix-95400-1781275346",
+      "matrixProofs": [
+        "generic-eventfd-counter: accepted; target-native generic loader; eventfd fd=3 counter=7 support=target-native-counter; target fdinfo eventfd-count:7",
+        "generic-eventfd-counter-refusals nonblock: refused with eventfd class and loaderStarted=false",
+        "generic-eventfd-counter-refusals oversized: counter=100000000 refused with loaderStarted=false",
+        "generic-eventfd-counter-refusals waiter: active select/waiter ambiguity refused with loaderStarted=false",
+        "generic-eventfd-counter-refusals alias: multiple/aliased eventfd ownership refused with loaderStarted=false"
+      ],
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-eventfd-counter,generic-eventfd-counter-refusals --json \u2014 passed, 120.702s, artifact /tmp/machinen-move-matrix-95400-1781275346",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 103 tests, 1.020s",
+        "pnpm run typecheck \u2014 passed, 3.203s after build",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.176s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.200s",
+        "pnpm run build:docs \u2014 passed, 2.000s",
+        "pnpm run format:check \u2014 passed, 1.650s",
+        "pnpm run lint \u2014 passed, 0.637s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.503s"
+      ],
+      "proofRowsMarkedProven": [10],
+      "whyOtherRowsRemainPending": "Tiny epoll support is not graduated and row 11 remains pending. Eventfd/epoll representative remote attempts and aggregate local/remote/final validation rows remain pending, as do PTY and service consolidation rows."
+    },
+    {
+      "timestamp": "2026-06-12T15:00:19Z",
+      "summary": "Graduated the tiny epoll eventfd-watch shape and classified representative remote availability. The support contract accepts only one normal-flag epoll fd with exactly one level-trigger/no-one-shot watch on the supported eventfd; target loader reconstructs eventfd and epoll target-natively with libc.eventfd, epoll_create1, epoll_ctl, and dup2/set-inheritable before exec. Refusals cover unknown watched pipe fd, edge-trigger state, one-shot state, nested epoll, and active epoll loop ambiguity, all with no loader. The only configured remote host is aarch64, so remote amd64 eventfd/epoll proof is recorded as a narrow blocker without claiming success.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-10154-1781276179",
+        "/tmp/machinen-move-matrix-95400-1781275346",
+        "/tmp/machinen-move-matrix-86158-1781273688",
+        "/tmp/remote-eventfd-epoll-matrix-1781276338"
+      ],
+      "matrixProofs": [
+        "generic-epoll-eventfd-watch: accepted; eventfd support=target-native-counter; epoll support=target-native-eventfd-watch; watch targetFd=3 events=19 trigger=level oneShot=false watchedResourceClass=eventfd; target fdinfo proves reconstructed eventfd and epoll watch",
+        "generic-epoll-eventfd-watch-refusals unknown: watched pipe fd refused with epoll class and loaderStarted=false",
+        "generic-epoll-eventfd-watch-refusals edge: edge-trigger watch refused with loaderStarted=false",
+        "generic-epoll-eventfd-watch-refusals oneshot: one-shot watch refused with loaderStarted=false",
+        "generic-epoll-eventfd-watch-refusals nested: nested epoll refused with loaderStarted=false",
+        "generic-epoll-eventfd-watch-refusals active: active epoll loop ambiguity refused with loaderStarted=false"
+      ],
+      "remoteProbe": {
+        "host": "friend@100.126.46.90",
+        "artifact": "/tmp/remote-eventfd-epoll-matrix-1781276338",
+        "arch": "aarch64",
+        "isAmd64": false,
+        "noRemoteSuccessClaim": true
+      },
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --only generic-epoll-eventfd-watch,generic-epoll-eventfd-watch-refusals --json \u2014 passed, 118.998s, artifact /tmp/machinen-move-matrix-10154-1781276179",
+        "ssh -o BatchMode=yes -o ConnectTimeout=10 friend@100.126.46.90 uname -m / uname -a probe \u2014 completed; retained artifact /tmp/remote-eventfd-epoll-matrix-1781276338; result arch=aarch64, not amd64",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 105 tests, 1.134s",
+        "pnpm run typecheck \u2014 passed, 3.470s after build",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.168s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.198s",
+        "pnpm run build:docs \u2014 passed, 2.059s",
+        "pnpm run format:check \u2014 passed, 1.498s",
+        "pnpm run lint \u2014 passed, 0.715s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.580s"
+      ],
+      "lineCaps": {
+        "packages/cli/src/commands/move.ts": 999,
+        "packages/cli/src/move-rendezvous.ts": 994,
+        "packages/cli/src/move-generic-resource-graph.ts": 986,
+        "packages/cli/src/move-generic-anon-inode.ts": 208,
+        "packages/cli/src/move-generic-eventfd-loader.ts": 73
+      },
+      "proofRowsMarkedProven": [11, 12],
+      "whyOtherRowsRemainPending": "PTY/terminal, service consolidation, broad focused-unit aggregate, broad local matrix, broad remote, and final validation rows remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T17:30:00Z",
+      "summary": "Started PTY/terminal graduation as refusal-first rather than support. Added PTY descriptor evidence to generic resource graph state, including fd/path and optional termios, winsize, session id, process group, foreground process group, tty number, and fdinfo flags when preflight exposes them. If live preflight cannot expose the termios/winsize/session details, the descriptor records the gap and still refuses. PTY-backed stdio now normalizes to stdioGraph target=pty and policy=refused. Generic refusal class is terminalOrPtyRefusal and the loader does not start for the matrix row. No interactive terminal migration, live user/session transfer, dirty editor, alternate-screen, or job-control support is claimed.",
+      "artifact": "/tmp/machinen-move-matrix-1116-1781278133",
+      "matrixProofs": [
+        "generic-pty-terminal-refusals: save/load refused, refusalClasses include terminalOrPtyRefusal and stdio, ptyEvidence fd=0 path=/dev/pts/0 fdinfoFlags=octal:02 support=refused-interactive-terminal-boundary, stdioGraph policy=refused with fd 0/1/2 target=pty, loaderStarted=false"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts \u2014 passed, 22 tests, 0.762s",
+        "pnpm run typecheck \u2014 passed, 3.111s after build",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only generic-pty-terminal-refusals \u2014 passed, 106.785s, artifact /tmp/machinen-move-matrix-1116-1781278133",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.185s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.186s",
+        "pnpm run build:docs \u2014 passed, 2.120s",
+        "pnpm run format:check \u2014 passed, 1.378s after formatting docs/snapshot/generic-resource-graph-move.md",
+        "pnpm run lint \u2014 passed, 0.644s after PTY evidence helper refactor",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.651s"
+      ],
+      "lineCaps": {
+        "packages/cli/src/commands/move.ts": 999,
+        "packages/cli/src/move-rendezvous.ts": 994,
+        "packages/cli/src/move-generic-resource-graph.ts": 997,
+        "packages/cli/src/move-generic-wave2-baseline.ts": 556,
+        "packages/cli/src/move-generic-pty-terminal.ts": 47
+      },
+      "proofRowsMarkedProven": [15],
+      "whyOtherRowsRemainPending": "The PTY support row remains pending because no noninteractive PTY replay/reconstruction support shape was accepted. The PTY refusal row remains pending because additional explicit dirty-editor, alternate-screen, job-control, foreground-pgrp, window-size, and hidden-shell refusal cases are still required. Service consolidation, broad local/remote aggregate rows, and final validation rows remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T17:42:00Z",
+      "summary": "Extended PTY/terminal refusal graduation with exact boundary subclasses and no support claim. Added packages/cli/src/move-generic-terminal-boundaries.ts and wired it into generic resource graph classification only when PTY resources are present. The classifier now emits terminalEditorDirtyState, terminalAlternateScreenState, terminalJobControlState, terminalForegroundProcessGroup, terminalUnknownTermios, and terminalWindowSize alongside terminalOrPtyRefusal/stdio where applicable. Empty PTY numeric preflight fields now parse as undefined instead of 0 so unknown window-size evidence stays fail-closed. The matrix row generic-pty-terminal-refusals now asserts foreground-pgrp, unknown termios, and window-size classes and still proves no loader starts. Docs and inventory list the exact PTY refusal subclasses. No noninteractive PTY replay/reconstruction support was added.",
+      "artifact": "/tmp/machinen-move-matrix-5518-1781278682",
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts \u2014 passed, 23 tests, 0.737s",
+        "pnpm run typecheck \u2014 passed, 3.159s after build",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only generic-pty-terminal-refusals \u2014 passed, 113.018s, artifact /tmp/machinen-move-matrix-5518-1781278682",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.164s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.186s",
+        "pnpm run build:docs \u2014 passed, 1.997s",
+        "pnpm run format:check \u2014 passed, 1.471s after formatting",
+        "pnpm run lint \u2014 passed, 0.654s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.480s"
+      ],
+      "lineCaps": {
+        "packages/cli/src/commands/move.ts": 999,
+        "packages/cli/src/move-rendezvous.ts": 994,
+        "packages/cli/src/move-generic-resource-graph.ts": 999,
+        "packages/cli/src/move-generic-wave2-baseline.ts": 559,
+        "packages/cli/src/move-generic-terminal-boundaries.ts": 129
+      },
+      "proofRowsMarkedProven": [14],
+      "whyOtherRowsRemainPending": "PTY support/noninteractive transcript-probe reconstruction remains pending because this phase only expanded fail-closed refusal evidence. Service consolidation, broad unit/local/remote aggregate rows, and final validation remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T17:58:00Z",
+      "summary": "Recorded the service envelope consolidation inventory without changing loader priority or claiming broad daemon support. Decided not to implement PTY support in this phase: the noninteractive transcript/probe-only PTY support row remains pending because no target-native replay/reconstruction contract with sufficient session/termios/winsize evidence has been proven. Instead, added genericServiceConsolidationCandidates for nginx-static, caddy-static, ruby-http, php-static, rsync-daemon, and redis-idle. Each candidate keeps migrationMode=explicit-envelope-fallback and records resource classes, support boundaries, fallback policy, required target support evidence, and required unsafe/refusal evidence. Coverage now fails if any required service candidate or required field/proof name is missing.",
+      "files": [
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "scripts/generic-resource-graph-coverage.mjs"
+      ],
+      "commands": [
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.183s, serviceConsolidationErrors=[]",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.204s",
+        "pnpm run build:docs \u2014 passed, 2.490s after formatting",
+        "pnpm run format:check \u2014 passed, 2.862s",
+        "pnpm run lint \u2014 passed, 0.790s after splitting validateServiceCandidate",
+        "pnpm run typecheck \u2014 passed, 3.728s after build",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.645s"
+      ],
+      "proofRowsMarkedProven": [16],
+      "whyOtherRowsRemainPending": "No equivalent service generic support/refusal matrix rows were added yet, so consolidated service behavior and service docs/status rows remain pending. PTY support remains pending because only refusal evidence is proven. Broad unit/local/remote aggregate rows and final validation remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T18:08:00Z",
+      "summary": "Added machine-checked service consolidation status/PR language. The docs now state that service consolidation is only an explicit-envelope-fallback inventory for the six listed shapes: nginx-static, caddy-static, ruby-http, php-static, read-only rsync-daemon, and empty/no-persistence redis-idle. The docs explicitly forbid broad daemon support, arbitrary process migration, any HTTP server support, any Redis/database state support, generic-primary service support without equivalent matrix rows, and support for active clients, writable persistence, unsupported modules, or runtime-specific state. The inventory includes genericServiceConsolidationStatusLanguage, and the coverage guard validates allowedClaim, supportScope, fallbackStatement, and forbiddenClaims.",
+      "files": [
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/generic-resource-graph-coverage.mjs"
+      ],
+      "commands": [
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.160s, serviceConsolidationErrors=[]",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.178s",
+        "pnpm run build:docs \u2014 passed, 2.124s",
+        "pnpm run format:check \u2014 passed, 1.369s after formatting docs/snapshot/generic-resource-graph-inventory.json",
+        "pnpm run lint \u2014 passed, 0.634s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.485s"
+      ],
+      "proofRowsMarkedProven": [18],
+      "whyOtherRowsRemainPending": "Equivalent service generic support/refusal rows are still pending. PTY noninteractive support remains pending. Broad focused-unit, local matrix, remote, and final validation rows remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T18:22:00Z",
+      "summary": "Started concrete service consolidation proof work with the narrow nginx-static shape while preserving explicit envelope fallback. Added a rendezvous unit test proving a descriptor with nginxStaticState plus generic-equivalent state still selects target-native-nginx-static-loader, not the generic loader. Extended the nginx-static matrix row to assert genericResourceGraphState.migration is not generic-primary and to report loaderStrategy. Local matrix support evidence shows nginx-static accepted via target-native-nginx-static-loader with target HTTP response nginx proof 15F and genericMigration=null. Local matrix refusal evidence shows unsafe-nginx-static-refusal still covers active-client and dynamic/proxy config as save/load refusals, plus port conflict and missing nginx as loader refusals with targetPid=null. This is explicit-fallback/blocker evidence for the first service candidate, not equivalent generic-primary service support.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-16424-1781279423",
+        "/tmp/machinen-move-matrix-17684-1781279550"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 80 tests, 1.179s",
+        "pnpm run typecheck \u2014 passed, 3.048s after build",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only nginx-static \u2014 passed, 117.872s, artifact /tmp/machinen-move-matrix-16424-1781279423",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only unsafe-nginx-static-refusal \u2014 passed, 160.241s, artifact /tmp/machinen-move-matrix-17684-1781279550",
+        "pnpm run format:check \u2014 passed, 1.434s after formatting packages/cli/src/__tests__/move-rendezvous.test.ts",
+        "pnpm run lint \u2014 passed, 0.616s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.156s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.176s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.472s"
+      ],
+      "whyNoRowsProven": "The consolidated service generic rows row remains pending because this proves nginx explicit-envelope fallback/blocker behavior, not equivalent generic service support/refusal rows for all six service candidates. Broad local matrix and final validation rows also remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T18:47:00Z",
+      "summary": "Continued concrete service consolidation proof work with the caddy-static explicit-fallback candidate. Added a rendezvous unit test proving a descriptor with caddyStaticState plus generic-equivalent state still selects target-native-caddy-static-loader, not the generic loader. Extended the caddy-static matrix row to assert genericResourceGraphState.migration is not generic-primary and to report loaderStrategy. Local matrix support evidence shows caddy-static accepted via target-native-caddy-static-loader with target HTTP response caddy proof 15G and genericMigration=null. Local matrix refusal evidence shows unsafe-caddy-static-refusal covers active-client and reverse-proxy shapes as save/load refusals, plus port conflict and missing caddy as loader refusals with targetPid=null. This is explicit-fallback/blocker evidence for the Caddy service candidate, not equivalent generic-primary service support.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-52044-1781282455",
+        "/tmp/machinen-move-matrix-89139-1781282587"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 81 tests, 2.190s",
+        "pnpm run typecheck \u2014 passed, 5.665s after build",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only caddy-static \u2014 passed, 122.922s, artifact /tmp/machinen-move-matrix-52044-1781282455",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only unsafe-caddy-static-refusal \u2014 passed, 137.987s, artifact /tmp/machinen-move-matrix-89139-1781282587",
+        "pnpm run format:check \u2014 passed, 1.965s after formatting packages/cli/src/__tests__/move-rendezvous.test.ts",
+        "pnpm run lint \u2014 passed, 2.719s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.303s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.354s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 1.436s"
+      ],
+      "whyNoRowsProven": "The consolidated service generic rows row remains pending because this proves Caddy explicit-envelope fallback/blocker behavior, not equivalent generic service support/refusal rows for all six service candidates. Broad local matrix and final validation rows also remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T18:58:00Z",
+      "summary": "Continued concrete service consolidation proof work with the ruby-http explicit-fallback candidate. Added a rendezvous unit test proving a descriptor with rubyHttpState plus generic-equivalent state still selects target-native-ruby-httpd-loader, not the generic-resource-graph loader. Extended the ruby-http matrix row to assert genericResourceGraphState.migration is not generic-primary and to report genericMigration plus loaderStrategy. Local matrix support evidence shows ruby-http accepted via target-native-ruby-httpd-loader with target HTTP response ruby proof 15H and genericMigration=null. Local matrix refusal evidence shows unsafe-ruby-http-refusal covers active-client and arbitrary Ruby socket app shapes as save/load refusals, plus port conflict and missing Ruby as loader refusals with targetPid=null. This is explicit-fallback/blocker evidence for the Ruby service candidate, not equivalent generic-primary service support.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-93952-1781282933",
+        "/tmp/machinen-move-matrix-20840-1781283072"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 82 tests, 1.842s",
+        "pnpm run typecheck \u2014 passed, 5.511s after build",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only ruby-http \u2014 passed, 134.033s, artifact /tmp/machinen-move-matrix-93952-1781282933",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only unsafe-ruby-http-refusal \u2014 passed, 143.005s, artifact /tmp/machinen-move-matrix-20840-1781283072",
+        "pnpm run format:check \u2014 passed, 1.525s after formatting packages/cli/src/__tests__/move-rendezvous.test.ts",
+        "pnpm run lint \u2014 passed, 0.648s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.165s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.186s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.501s"
+      ],
+      "whyNoRowsProven": "The consolidated service generic rows row remains pending because this proves Ruby explicit-envelope fallback/blocker behavior, not equivalent generic service support/refusal rows for all six service candidates. Broad local matrix and final validation rows also remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T19:05:00Z",
+      "summary": "Continued concrete service consolidation proof work with the php-static explicit-fallback candidate. Added a rendezvous unit test proving a descriptor with phpStaticState plus generic-equivalent state still selects target-native-php-static-loader, not the generic-resource-graph loader. Extended the php-static matrix row to assert genericResourceGraphState.migration is not generic-primary and to report genericMigration plus loaderStrategy. Local matrix support evidence shows php-static accepted via target-native-php-static-loader with target HTTP response php proof 15I and genericMigration=null. Local matrix refusal evidence shows unsafe-php-static-refusal covers active-client, dynamic PHP script, and unsupported bind shapes as save/load refusals, plus port conflict and missing PHP as loader refusals with targetPid=null. This is explicit-fallback/blocker evidence for the PHP service candidate, not equivalent generic-primary service support.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-24012-1781283314",
+        "/tmp/machinen-move-matrix-25332-1781283447"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 83 tests, 1.213s",
+        "pnpm run typecheck \u2014 passed, 3.172s after build",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only php-static \u2014 passed, 128.713s, artifact /tmp/machinen-move-matrix-24012-1781283314",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only unsafe-php-static-refusal \u2014 passed, 178.175s, artifact /tmp/machinen-move-matrix-25332-1781283447",
+        "pnpm run format:check \u2014 passed, 1.450s after formatting packages/cli/src/__tests__/move-rendezvous.test.ts",
+        "pnpm run lint \u2014 passed, 0.629s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.157s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.178s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.482s"
+      ],
+      "whyNoRowsProven": "The consolidated service generic rows row remains pending because this proves PHP explicit-envelope fallback/blocker behavior, not equivalent generic service support/refusal rows for all six service candidates. Broad local matrix and final validation rows also remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T19:15:00Z",
+      "summary": "Continued concrete service consolidation proof work with the rsync-daemon explicit-fallback candidate. Added a rendezvous unit test proving a descriptor with rsyncDaemonState plus generic-equivalent state still selects target-native-rsync-daemon-loader, not the generic-resource-graph loader. Extended the rsync-daemon matrix row to assert genericResourceGraphState.migration is not generic-primary and to report genericMigration plus loaderStrategy. Local matrix support evidence shows read-only rsync-daemon accepted via target-native-rsync-daemon-loader with target rsync read response rsync proof 15J and genericMigration=null. Local matrix refusal evidence shows unsafe-rsync-daemon-refusal covers active-client, writable module, and auth/hook config shapes as save/load refusals, plus port conflict and missing rsync as loader refusals with targetPid=null. This is explicit-fallback/blocker evidence for the rsync service candidate, not equivalent generic-primary service support.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-28695-1781283720",
+        "/tmp/machinen-move-matrix-31086-1781283847"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 84 tests, 1.187s",
+        "pnpm run typecheck \u2014 passed, 3.133s after build",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only rsync-daemon \u2014 passed, 121.613s, artifact /tmp/machinen-move-matrix-28695-1781283720",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only unsafe-rsync-daemon-refusal \u2014 passed, 172.796s, artifact /tmp/machinen-move-matrix-31086-1781283847",
+        "pnpm run format:check \u2014 passed, 1.453s after formatting packages/cli/src/__tests__/move-rendezvous.test.ts",
+        "pnpm run lint \u2014 passed, 0.735s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.169s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.192s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.814s"
+      ],
+      "whyNoRowsProven": "The consolidated service generic rows row remains pending because this proves rsync explicit-envelope fallback/blocker behavior, not equivalent generic service support/refusal rows for all six service candidates. Broad local matrix and final validation rows also remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T19:28:00Z",
+      "summary": "Completed explicit-fallback/blocker evidence collection for the sixth service consolidation candidate, redis-idle. Added a rendezvous unit test proving a descriptor with redisIdleState plus generic-equivalent state still selects target-native-redis-idle-loader, not the generic-resource-graph loader. Extended the redis-idle matrix row to assert genericResourceGraphState.migration is not generic-primary and to report genericMigration plus loaderStrategy. Local matrix support evidence shows empty/no-persistence redis-idle accepted via target-native-redis-idle-loader with target PING=PONG and DBSIZE=0, and genericMigration=null. Local matrix refusal evidence shows unsafe-redis-idle-refusal covers active monitor/client state, nonempty dataset, and persistence-enabled shapes as save/load refusals, plus port conflict and missing redis-server as loader refusals with targetPid=null. With nginx, Caddy, Ruby, PHP, read-only rsync, and empty Redis all now recorded, the service consolidation inventory has explicit-fallback/blocker evidence for each listed service candidate; this still does not prove equivalent generic service rows or generic-primary service support.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-66799-1781284128",
+        "/tmp/machinen-move-matrix-9266-1781284254"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 85 tests, 1.780s",
+        "pnpm run typecheck \u2014 passed, 5.423s after build",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only redis-idle \u2014 passed, 117.893s, artifact /tmp/machinen-move-matrix-66799-1781284128",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only unsafe-redis-idle-refusal \u2014 passed, 125.350s, artifact /tmp/machinen-move-matrix-9266-1781284254",
+        "pnpm run format:check \u2014 passed, 1.928s after formatting packages/cli/src/__tests__/move-rendezvous.test.ts",
+        "pnpm run lint \u2014 passed, 2.549s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.301s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.352s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 1.423s"
+      ],
+      "whyNoRowsProven": "The consolidated service generic rows row remains pending because the six service candidates are proven only as explicit-envelope fallback/blocker shapes; no equivalent generic service support/refusal rows have been added or proven. Broad focused-unit, broad local matrix, remote, and final validation rows also remain pending."
+    },
+    {
+      "timestamp": "2026-06-12T19:36:00Z",
+      "summary": "Proved two aggregate rows without broadening support claims. The focused aggregate Vitest command passed 4 files / 113 tests and now records coverage for capture parsing/classifiers, resource-plan/preflight behavior, runtime serialization, rendezvous no-launch gates, migration priority/fallback, and explicit service fallback priority. The local targeted matrix aggregate row now records retained artifact paths for migration wave2, Unix sockets, eventfd/epoll, PTY refusal, and all six service explicit-fallback/blocker candidates. Service consolidation remains explicit-fallback only; no generic-primary service support or broad daemon support is claimed.",
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 4 files / 113 tests, 1.697s"
+      ],
+      "rowsProven": ["focused-unit-aggregate", "local-targeted-matrix-aggregate"],
+      "whyRemainingRowsPending": "PTY noninteractive transcript/probe support remains pending, consolidated generic service parity remains pending, representative remote aggregate remains pending, and final repository validation remains pending."
+    },
+    {
+      "timestamp": "2026-06-12T19:42:00Z",
+      "summary": "Recorded the representative remote aggregate as a narrow infrastructure blocker, not a success. The configured remote friend@100.126.46.90 reports uname -m=aarch64, so amd64 remote matrix attempts for wave3 graduated/support/refusal families were not run. The retained aggregate artifact classifies migration wave2, Unix socket, eventfd/epoll, PTY refusal, and service explicit-fallback/blocker families as not-run-host-is-aarch64 and explicitly states no remote amd64 success is claimed.",
+      "artifacts": [
+        "/tmp/remote-wave3-aggregate-matrix-1781284554",
+        "/tmp/remote-unix-pathname-matrix-1781272183",
+        "/tmp/remote-eventfd-epoll-matrix-1781276338",
+        "/tmp/remote-append-log-matrix-1781263428"
+      ],
+      "commands": [
+        "ssh remote aggregate blocker command \u2014 passed, 3.618s; remote uname -m=aarch64; artifact /tmp/remote-wave3-aggregate-matrix-1781284554"
+      ],
+      "rowsProven": ["representative-remote-amd64-blocker-aggregate"],
+      "whyRemainingRowsPending": "PTY noninteractive transcript/probe support remains pending, consolidated generic service parity remains pending, and final repository validation remains pending."
+    },
+    {
+      "timestamp": "2026-06-12T19:58:00Z",
+      "summary": "Implemented and proved a narrow PTY noninteractive transcript/probe support shape while preserving PTY refusal boundaries. The support path is proof-marked (--machinen-pty-transcript-probe), output-only (stdin is not a PTY), requires known termios, winsize, and foreground process-group evidence, and uses a target-native PTY reexec loader that captures transcript output. The local matrix support row is explicitly descriptor-harness evidence because live procfs preflight in this VM did not expose sufficient PTY details; it does not claim arbitrary/interactive terminal migration. The existing PTY refusal row was rerun and still refuses unsupported PTY state with no target loader launch.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-94580-1781286043",
+        "/tmp/machinen-move-matrix-97874-1781286165"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts \u2014 passed, 26 tests, 0.704s",
+        "pnpm run typecheck \u2014 passed, 3.383s after build; rerun after loader redirect passed in 3.414s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only generic-pty-transcript-probe \u2014 passed, 114.703s, artifact /tmp/machinen-move-matrix-94580-1781286043",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only generic-pty-terminal-refusals \u2014 passed, 110.548s, artifact /tmp/machinen-move-matrix-97874-1781286165",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.171s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.184s",
+        "pnpm run build:docs \u2014 passed, 2.094s",
+        "pnpm run format:check \u2014 passed, 1.485s",
+        "pnpm run lint \u2014 passed after removing unused type alias, 0.617s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.490s"
+      ],
+      "rowsProven": ["pty-noninteractive-transcript-probe"],
+      "whyRemainingRowsPending": "The consolidated generic service parity row remains pending because service candidates are still explicit-fallback/blocker evidence only, and final repository validation remains pending."
+    },
+    {
+      "timestamp": "2026-06-12T20:18:00Z",
+      "summary": "Resolved the last non-final pending service row by adding a narrow descriptor-harness generic service parity row for php-static: generic-service-php-static-parity. The row proves target-native generic loader support for the exact static PHP built-in-server shape, plus pre-launch refusals for data/root identity drift and port conflict, and declared generic no-launch refusals for active clients, dynamic/runtime-specific state, writable persistence, unsupported modules, and missing target package. This preserves explicit service fallback as default and does not claim broad daemon support or generic-primary service support for nginx/Caddy/Ruby/rsync/Redis.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-10926-1781286629",
+        "/tmp/machinen-move-matrix-25332-1781283447"
+      ],
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 scripts/smoke/move-envelope-matrix.sh --json --only generic-service-php-static-parity \u2014 passed, 207.470s, artifact /tmp/machinen-move-matrix-10926-1781286629",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.174s, serviceConsolidationErrors=[] and missingGenericRows=[]",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.231s",
+        "pnpm run build:docs \u2014 passed, 2.235s",
+        "pnpm run format:check \u2014 passed, 1.716s",
+        "pnpm run lint \u2014 passed, 0.768s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.502s"
+      ],
+      "rowsProven": ["generic-service-php-static-parity"],
+      "whyRemainingRowsPending": "Only final repository validation remains pending."
+    },
+    {
+      "timestamp": "2026-06-12T20:28:00Z",
+      "summary": "Ran and recorded final repository validation for generic resource graph wave3. Focused tests, typecheck, generic coverage, smoke manifest check, docs build, format, lint, and fallow audit all passed. The final row records retained targeted matrix artifacts for the new PTY transcript/probe and generic PHP service parity rows, plus the refreshed PTY refusal guard. All proofChecklist rows now have status=proven with non-empty evidence, so the goal is complete.",
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts \u2014 passed, 4 files / 114 tests, 1.208s",
+        "pnpm run typecheck \u2014 passed, 3.149s after build",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.160s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.183s",
+        "pnpm run build:docs \u2014 passed, 1.991s",
+        "pnpm run format:check \u2014 passed, 1.630s",
+        "pnpm run lint \u2014 passed, 0.603s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed with warning-only duplicate groups, 0.487s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-94580-1781286043",
+        "/tmp/machinen-move-matrix-97874-1781286165",
+        "/tmp/machinen-move-matrix-10926-1781286629"
+      ],
+      "rowsProven": ["final-validation"],
+      "nonClaims": [
+        "no broad daemon support",
+        "no arbitrary process restore",
+        "no interactive terminal migration",
+        "no generic-primary service promotion outside descriptor-harness PHP parity row"
+      ]
+    }
+  ],
+  "nextAction": "Goal complete: all proofChecklist rows are proven with non-empty evidence. Keep non-claims intact: no broad daemon support, no arbitrary process restore, no interactive terminal migration, and no generic-primary service promotion outside the recorded descriptor-harness PHP parity row.",
+  "status": "COMPLETE"
+}

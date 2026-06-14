@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "name": "generic-resource-graph-productization-next-selection",
+  "purpose": "Choose the next productization bucket after wave 2 without promoting anything yet. The selected bucket is the smallest coherent blocker set that already has exact live markers and support/refusal rows, and is blocked by one explicit missing product contract: full source/target tree identity.",
+  "sourceClassification": "docs/snapshot/generic-resource-graph-productization-wave2-classification.json",
+  "sourceSubset": "docs/snapshot/generic-resource-graph-productization-wave2-subset.json",
+  "currentProductSupport": {
+    "phase1": ["generic-stdio-pipe-product-marker"],
+    "wave2": [
+      "unix-pathname-listener-live-generic-primary-marker",
+      "reader-cat-live-generic-primary-marker",
+      "grep-live-generic-primary-marker",
+      "busybox-nc-listener-live-generic-primary-marker",
+      "socat-file-responder-live-generic-primary-marker"
+    ]
+  },
+  "selectedBucket": {
+    "bucket": "blocked-by-tree-identity",
+    "candidateCount": 4,
+    "reason": "These rows already have exact live marker proofs and support/refusal neighbors, unlike the promote-after-missing-refusal primitives that still need an enclosing product marker. They are blocked by a single coherent missing contract: prove exact static-root/source-tree identity on source and target, then retain drift refusals.",
+    "status": "selected-for-next-productization-work-no-routing-effect",
+    "candidates": [
+      {
+        "productProofName": "node-static-http-live-generic-primary-marker",
+        "supportProofName": "node-static-http",
+        "currentRefusalProofNames": [
+          "node-active-refusal",
+          "node-timer-refusal",
+          "node-worker-refusal",
+          "native-dlopen-refusal"
+        ],
+        "missingBeforePromotion": [
+          "source static-root tree digest evidence retained in genericResourceGraphState.resourceClasses as supported",
+          "target static-root tree digest evidence verified before target launch",
+          "tree drift refusal row with targetPid=null or no target launch",
+          "docs/API support matrix entry naming exact static-root identity boundary",
+          "retained artifacts covering support and tree-drift refusal"
+        ],
+        "nonClaims": [
+          "no arbitrary Node runtime migration",
+          "no source libuv fd teleportation",
+          "no active HTTP session migration",
+          "no dynamic script/native addon/worker/timer support"
+        ]
+      },
+      {
+        "productProofName": "go-static-http-live-generic-primary-marker",
+        "supportProofName": "go-static-http",
+        "currentRefusalProofNames": ["go-extra-socket-refusal"],
+        "missingBeforePromotion": [
+          "source static-root tree digest evidence retained in genericResourceGraphState.resourceClasses as supported",
+          "target static-root tree digest evidence verified before target launch",
+          "tree drift refusal row with targetPid=null or no target launch",
+          "docs/API support matrix entry naming exact static-root identity boundary",
+          "retained artifacts covering support and tree-drift refusal"
+        ],
+        "nonClaims": [
+          "no arbitrary Go process migration",
+          "no extra socket/session migration",
+          "no mutable static-root repair",
+          "no source runtime fd teleportation"
+        ]
+      },
+      {
+        "productProofName": "rust-static-http-live-generic-primary-marker",
+        "supportProofName": "rust-static-http",
+        "currentRefusalProofNames": ["generic-loader-preflight-refusals"],
+        "missingBeforePromotion": [
+          "source static-root tree digest evidence retained in genericResourceGraphState.resourceClasses as supported",
+          "target static-root tree digest evidence verified before target launch",
+          "tree drift refusal row with targetPid=null or no target launch",
+          "docs/API support matrix entry naming exact static-root identity boundary",
+          "retained artifacts covering support and tree-drift refusal"
+        ],
+        "nonClaims": [
+          "no arbitrary native process migration",
+          "no active HTTP session migration",
+          "no mutable static-root repair",
+          "no source fd teleportation"
+        ]
+      },
+      {
+        "productProofName": "busybox-httpd-live-generic-primary-marker",
+        "supportProofName": "busybox-httpd",
+        "currentRefusalProofNames": [
+          "unsafe-busybox-httpd-refusal",
+          "generic-loader-preflight-refusals"
+        ],
+        "missingBeforePromotion": [
+          "source static-root tree digest evidence retained in genericResourceGraphState.resourceClasses as supported",
+          "target static-root tree digest evidence verified before target launch",
+          "tree drift refusal row with targetPid=null or no target launch",
+          "docs/API support matrix entry naming exact static-root identity boundary",
+          "retained artifacts covering support and tree-drift refusal"
+        ],
+        "nonClaims": [
+          "no CGI/dynamic busybox httpd migration",
+          "no wildcard bind promotion",
+          "no active HTTP session migration",
+          "no mutable static-root repair"
+        ]
+      }
+    ]
+  },
+  "deferredAlternatives": [
+    {
+      "bucket": "promote-after-missing-refusal",
+      "candidateCount": 5,
+      "reason": "These remain promising but need exact live product markers and enclosing envelopes before promotion. They are better handled after the static-root tree identity contract is modeled."
+    },
+    {
+      "bucket": "blocked-by-service-safety",
+      "candidateCount": 5,
+      "reason": "Service/database rows need service-specific safety contracts, config/package/root drift refusals, active-client boundaries, and database state policy. They are larger than the tree-identity batch."
+    },
+    {
+      "bucket": "blocked-by-session-state",
+      "candidateCount": 1,
+      "reason": "tail remains blocked by active follow/session and concurrent-writer semantics. It should not be promoted before an explicit mutable-data/session contract exists."
+    }
+  ],
+  "nextProofObligations": [
+    "Add a static-root tree identity support contract shared by Node, Go, Rust, and BusyBox httpd exact static-server markers.",
+    "Ensure product marker descriptors record directoryIdentity as supported only when source and target static roots have matching digest policy evidence.",
+    "Add or retain tree-drift refusal rows that fail closed before target launch or return targetPid=null.",
+    "Extend productization coverage so selected tree-identity rows cannot route until support, refusal, docs/API, retained artifacts, and target evidence all pass.",
+    "Run targeted proof-image rows for four product markers plus tree-drift/unsafe neighbor refusals, then split retained artifacts into a dedicated coverage directory."
+  ],
+  "routingEffect": "none; all selected rows remain out of packages/cli/src/move-generic-product-path.ts until the tree-identity proof obligations pass",
+  "fullAllProofsMatrixScope": "manual-nightly-release-only",
+  "fullSmokeTestsScope": "not required for this planning artifact; required later only if VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount, snapshot/restore lifecycle, virtio, memory/ballooning, FUSE/live mount, or explicit user request changes",
+  "globalNonClaims": [
+    "no arbitrary process restore",
+    "no any-binary movement",
+    "no broad daemon/database/service migration",
+    "no active session migration",
+    "no source-fd teleportation",
+    "no source-ISA emulation",
+    "no metadata-only success",
+    "no runtime-profile shortcut",
+    "no product support for the selected static HTTP rows until exact tree identity support and refusals are proven"
+  ]
+}

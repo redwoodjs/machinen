@@ -1,0 +1,113 @@
+{
+  "name": "generic-resource-graph-productization-phase1-validation",
+  "scope": "retained proof rows for generic-stdio-pipe-product-marker only; these rows are resource-reconstruction evidence and do not route as product move continuation",
+  "productizedProofRows": [
+    "generic-stdio-pipe-product-marker",
+    "generic-finite-pipe-buffer-replay",
+    "generic-pipe-stdio-refusals"
+  ],
+  "targetedProofImageCommand": "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-stdio-pipe-product-marker,generic-finite-pipe-buffer-replay,generic-pipe-stdio-refusals --timings --image <proof-image>",
+  "retainedCoverageCommand": "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-productization-phase1-plan.json --coverage-dir /tmp/machinen-productization-phase1-retained-coverage --json",
+  "requiredValidation": [
+    {
+      "name": "matrix-syntax",
+      "command": "bash -n scripts/smoke/move-envelope-matrix.sh"
+    },
+    {
+      "name": "node-parse-checks",
+      "command": "node --check scripts/generic-resource-graph-productization-coverage.mjs scripts/check-move-proof-image-boundary.mjs scripts/generic-resource-graph-coverage.mjs scripts/move-envelope-matrix-coverage.mjs scripts/validation-profile.mjs scripts/build-move-proof-image.mjs"
+    },
+    {
+      "name": "targeted-proof-image-rows",
+      "command": "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-stdio-pipe-product-marker,generic-finite-pipe-buffer-replay,generic-pipe-stdio-refusals --timings --image <proof-image>"
+    },
+    {
+      "name": "retained-coverage",
+      "command": "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-productization-phase1-plan.json --coverage-dir /tmp/machinen-productization-phase1-retained-coverage --json"
+    },
+    {
+      "name": "productization-coverage",
+      "command": "pnpm run generic-resource-graph-productization-coverage"
+    },
+    {
+      "name": "generic-resource-graph-coverage",
+      "command": "pnpm run generic-resource-graph-coverage"
+    },
+    {
+      "name": "proof-image-boundary",
+      "command": "pnpm run check-move-proof-image-boundary"
+    },
+    {
+      "name": "smoke-manifest",
+      "command": "pnpm run check-smoke-manifest"
+    },
+    {
+      "name": "docs-api-build",
+      "command": "pnpm run build:docs"
+    },
+    {
+      "name": "format",
+      "command": "pnpm run format:check"
+    },
+    {
+      "name": "lint",
+      "command": "pnpm run lint"
+    },
+    {
+      "name": "typecheck",
+      "command": "pnpm run typecheck"
+    },
+    {
+      "name": "focused-vitest",
+      "command": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts --testNamePattern \"product marker|promoted phase-1|service generic-primary markers|explains fallback|proof-only|proof-image|deferred|fallback|refusalClasses|no target pid|health probe fails|product path metadata|product-adjacent refusal|blocks process-tree|blocks PHP\""
+    },
+    {
+      "name": "fallow-audit",
+      "command": "pnpm exec fallow audit --changed-since origin/main"
+    },
+    {
+      "name": "diff-whitespace",
+      "command": "git diff --check"
+    }
+  ],
+  "fullAllProofsMatrix": {
+    "defaultScope": "manual-nightly-release-only",
+    "runWhen": [
+      "maintainer explicitly asks for all proof rows",
+      "release validation",
+      "nightly validation",
+      "a change alters matrix framework semantics rather than the phase-1 product row set"
+    ],
+    "normalProductizationSubstitute": "targeted proof-image rows plus retained coverage and productization coverage"
+  },
+  "fullSmokeTests": {
+    "defaultScope": "skip-for-docs-coverage-proof-row-productization-only",
+    "runWhen": [
+      "VM lifecycle changes",
+      "VMM changes",
+      "rootfs/base asset changes",
+      "CLI boot/exec/mount changes",
+      "snapshot/restore lifecycle changes",
+      "virtio device changes",
+      "memory or ballooning changes",
+      "FUSE/live mount changes",
+      "user explicitly asks for full smoke tests"
+    ],
+    "normalProductizationSubstitute": "focused CLI/runtime Vitest, targeted proof-image rows, retained coverage, productization coverage, generic coverage, smoke manifest, docs/API build, format, lint, typecheck, fallow audit"
+  },
+  "nonClaims": [
+    "No arbitrary process restore",
+    "No broad daemon/database/service migration",
+    "No active session migration",
+    "No source-fd teleportation",
+    "No source-ISA emulation",
+    "No metadata-only success",
+    "No runtime-profile shortcut",
+    "No product move continuation support from generic-stdio-pipe-product-marker; retained as resource-reconstruction evidence only"
+  ],
+  "continuationBoundary": {
+    "productMoveContinuationRouting": "none",
+    "currentLabel": "retained proof/refusal evidence outside product move continuation",
+    "reason": "Rows in this profile are resource-reconstruction or target-native reexec evidence, not modeled live-state continuation."
+  }
+}
