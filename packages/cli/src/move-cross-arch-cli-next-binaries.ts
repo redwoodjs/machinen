@@ -176,8 +176,7 @@ function planTargetState(
       copyVesselCreated: state.route === "cross-arch-dd-regular-file-semantic-continuation",
       lineCounterVesselCreated: state.route === "cross-arch-wc-line-semantic-continuation",
       generatorVesselCreated: state.route === "cross-arch-seq-semantic-continuation",
-      fixedStringMatcherVesselCreated:
-        state.route === "cross-arch-grep-fixed-string-semantic-continuation",
+      matcherVesselCreated: state.route === "cross-arch-grep-fixed-string-semantic-continuation",
       fileIdentityVerified: true,
       contentWindowVerified: true,
       seekInstalled: true,
@@ -191,15 +190,17 @@ function planTargetState(
       partialBlockInstalled: true,
       countersInstalled: true,
       noRecopyGuardInstalled: true,
-      byteOffsetInstalled: true,
-      lineCounterInstalled: true,
-      partialLineStateInstalled: true,
+      byteOffsetSeekInstalled: true,
+      lineCountInstalled: true,
+      newlineStateInstalled: true,
       noRereadGuardInstalled: true,
       nextValueInstalled: true,
-      outputCursorInstalled: true,
+      endStepFormatInstalled: true,
       noRestartGuardInstalled: true,
-      patternInstalled: true,
+      partialLineInstalled: true,
       matcherStateInstalled: true,
+      matchCountInstalled: true,
+      outputCursorInstalled: true,
       noRematchGuardInstalled: true,
       targetPid,
       marker,
@@ -271,12 +272,13 @@ function targetMarker(
   if (route === "cross-arch-seq-semantic-continuation") {
     const sequence = capture.sequenceState as Record<string, unknown>;
     return {
+      sourceFirstValue: sequence.firstValue,
+      sourceCurrentValue: sequence.currentValue,
       sourceNextValue: sequence.nextValue,
-      targetFirstValue: sequence.nextValue,
+      targetFirstEmittedValue: sequence.nextValue,
+      emittedItemCursorStart: sequence.emittedItemCursor,
+      freshRestartWouldEmitFirstValue: sequence.firstValue,
       replayedValues: [],
-      freshRestartWouldStartAtValue: sequence.firstValue,
-      outputCursorStart: sequence.stdoutCursor,
-      finalValue: sequence.endValue,
     };
   }
   const input = capture.input as Record<string, unknown>;
