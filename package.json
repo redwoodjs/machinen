@@ -138,6 +138,7 @@
     "generic-resource-graph-productization-static-http-coverage": "node scripts/generic-resource-graph-productization-static-http-coverage.mjs",
     "move-continuation-boundary-coverage": "node scripts/move-continuation-boundary-coverage.mjs",
     "cross-arch-cli-next-binaries-coverage": "node scripts/cross-arch-cli-next-binaries-coverage.mjs",
+    "cross-arch-cli-next-binaries-opposite-isa-proof": "node scripts/cross-arch-cli-next-binaries-opposite-isa-proof.mjs",
     "same-arch-stopped-continuation-coverage": "node scripts/same-arch-stopped-continuation-coverage.mjs"
   },
   "devDependencies": {
