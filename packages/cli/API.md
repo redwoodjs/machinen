@@ -9,6 +9,8 @@ recipes, see the [guides](../../docs/).
 ```
 machinen boot     [<image>] [opts] -- <cmd>     Boot a microVM
 machinen restore  <snap-dir> [--name <name>]    Restore a VM from a snapshot bundle
+machinen move     <scan|save|load> [opts]       Discover or validate cross-ISA move descriptors
+machinen support  [filters] [--json]            Show product support and refusal status
 machinen list     (alias: ls, ps)               List running VMs
 machinen exec     <target> [--tty] -- <cmd>     Run a command in a running VM
 machinen snapshot <target> <out-dir> [--keep-alive] [--dry-run]
@@ -69,8 +71,8 @@ cache (populated by `machinen install`, or auto-fetched on first use).
 | `--env KEY=VALUE`                               | Set an env var inside the guest (repeatable)                                                                                                                                                                        |
 | `--cwd <abs-path>`                              | Start the guest cmd in this directory (must be absolute)                                                                                                                                                            |
 | `-p <hostPort>:<guestPort>`                     | Forward a host TCP port to the guest (repeatable)                                                                                                                                                                   |
-| `--detached`                                    | Detach the VMM from the CLI on first-guest-byte readiness; reattach with `attach`. Composes with `--mount`, `--mount-live`, and `-p`; gvproxy is kept alive with the VM, and live mounts are served inside the VMM. |
-| `--memory <mib>`                                | Guest RAM ceiling, decimal MiB. Debug knob — defaults to `min(host_ram_mib/2, 16384)`, floor 512. See #263                                                                                                          |
+| `--detach`                                      | Detach the VMM from the CLI on first-guest-byte readiness; reattach with `attach`. Composes with `--mount`, `--mount-live`, and `-p`; gvproxy is kept alive with the VM, and live mounts are served inside the VMM. |
+| `--memory <mib>`                                | Guest RAM ceiling, decimal MiB. Debug knob — defaults to `min(host_ram_mib/2, 4096)`, floor 512. See #263                                                                                                           |
 | `--snapshot <path>`                             | Attach `<path>` as `/dev/vda` — scratch disk for a future `vm.snapshot()`                                                                                                                                           |
 
 ## `machinen restore`
@@ -83,6 +85,31 @@ Restores a VM from a snapshot bundle. Vmstate bundles hold `state.vmstate`,
 `rootdisk.img`, and `meta.json`; legacy CRIU bundles hold `img/` plus
 `meta.json`. Anonymous restores auto-name as `<source-name>/<pid>` so lineage
 shows up in `machinen ls`. Resolves base assets the same way `boot` does.
+
+## `machinen move`
+
+```
+machinen move scan [--json]
+machinen move save <pid> <out> [--issue] [--issue-repo <owner/repo>] [--json]
+machinen move load <descriptor> [--json]
+```
+
+`move scan` inspects the host PID graph and reports state classes that cannot
+be moved safely. `move save` writes a descriptor for a PID or records refusal
+evidence. `move load` validates a descriptor and refuses fail-closed when it
+contains unsupported state.
+
+## `machinen support`
+
+```
+machinen support [--family <family>] [--runtime <runtime>] [--status <status>]
+                 [--profile <name>] [--resource-family <family>]
+                 [--refusal-code <code>] [--level <support-level>] [--json]
+```
+
+Prints product support and refusal entries. Use `--json` for the full
+machine-readable registry, or filters when you only need one family, status,
+profile, or refusal code.
 
 ## `machinen ls` / `ps`
 
@@ -167,7 +194,7 @@ and full-screen TUIs all work. Exit the shell (Ctrl-D) to detach.
 `--tail` dumps the boot-console snapshot before opening the shell.
 With no value it prints the whole snapshot (capped at ~1 MiB);
 `--tail N` prints the last N lines. Only works for VMs booted with
-`--detached`.
+`--detach` (or the legacy `--detached` alias).
 
 ## `machinen repl`
 
@@ -199,8 +226,8 @@ machinen gc [--dry-run|-n]
 
 Drops registry entries whose VMM is dead (or whose pid was recycled to
 some other process) and removes their per-boot artifacts. Backstop for
-`--detached` boots, where the in-process exit hook can't run because
-the parent is gone.
+detached boots, where the in-process exit hook can't run because the
+parent is gone.
 
 ## `machinen install [--version <tag>]`
 

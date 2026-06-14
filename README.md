@@ -12,8 +12,6 @@ A native microVM runtime under the hood: arm64 on Apple Silicon/Linux and
 amd64 on Linux/KVM. Node.js is the first-class target; Python, bash, and
 anything else that boots in a Linux VM works too.
 
-> **Note:** the source code isn't published yet — it'll be available here soon.
-
 ## Install
 
 ```bash
@@ -74,7 +72,7 @@ node bake.ts
 ### 2. Boot
 
 ```bash
-npx machinen boot --name counter -p 3000:3000 --detached ./counter.tar.gz
+npx machinen boot --name counter -p 3000:3000 --detach ./counter.tar.gz
 curl localhost:3000                        # { count: 1 }
 curl localhost:3000                        # { count: 2 }
 ```
@@ -87,20 +85,15 @@ Freeze it, copy the bundle to host B, thaw it:
 
 ```bash
 npx machinen snapshot counter ./counter.snap
-scp ./counter.tar.gz ./counter.snap host-b:
+scp -r ./counter.snap host-b:
 ssh host-b npx machinen restore ./counter.snap -p 3000:3000 &
 curl host-b:3000                           # { count: 3 }  ← same process
 ```
 
 Same guest architecture only (arm64 ↔ arm64, amd64 ↔ amd64). Cross-ISA
-restore is not supported. Memory, file descriptors, and timers come back
-exactly as they were.
-
-The bundle remembers the absolute path of the rootfs tarball you booted
-from. On the same host that's all you need — `restore` reuses the same
-tarball so CRIU can re-open file-backed VMAs (executable, shared
-libraries) at the paths they were dumped from. Across hosts, copy the
-tarball to the same path or pass `--image <tarball>` to override.
+restore is not supported. The default vmstate snapshot bundle includes
+CPU state, memory, device state, and the root block image needed to
+restore the VM.
 
 ## Fork
 
@@ -157,7 +150,7 @@ import { boot, provision, restore } from "@machinen/runtime";
 
 await provision({
   install: async (vm) => {
-    await vm.exec("apt-get install -y nodejs");
+    await vm.exec("apt-get update && apt-get install -y nodejs");
     await vm.writeFile("/opt/counter.mjs", readFileSync("./counter.mjs"));
   },
   cmd: ["/usr/bin/node", "/opt/counter.mjs"],
@@ -180,8 +173,7 @@ const restored = await restore({ snapDir: "./counter.snap" });
 - [Hand off a running VM](./docs/guides/handoff.md) — snapshot → transfer → restore
 - [Guides](./docs/) — recipes for creating VMs, snapshots and forks,
   mounts, and networking
-- [`@machinen/cli` reference](./packages/cli/API.md) — every command
-  and flag
+- [`@machinen/cli` reference](./packages/cli/API.md) — command and flag reference
 - [`@machinen/runtime` reference](./packages/runtime/API.md) — every
   exported function, type, and error class (typedoc-generated)
 

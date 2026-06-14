@@ -20,8 +20,6 @@ writes, open file descriptors, and guest-side listeners.
 
 These host-local pieces must be supplied again on the target:
 
-- **Image tarball:** copy the source image to the same path, or pass
-  `--image <tar.gz>` to `restore`.
 - **Port forwards:** re-declare them with `-p`; host ports are not
   inherited.
 - **Live mounts:** restore keeps the same guest mount paths. If a target
@@ -35,7 +33,7 @@ These host-local pieces must be supplied again on the target:
 Start with a named VM:
 
 ```bash
-npx machinen boot --name counter -p 3000:3000 --detached ./counter.tar.gz
+npx machinen boot --name counter -p 3000:3000 --detach ./counter.tar.gz
 ```
 
 Move it to `host-b`:
@@ -50,11 +48,9 @@ npx machinen stop counter
 
 ssh host-b "mkdir -p $REMOTE"
 rsync -aS ./counter.snap/ host-b:$REMOTE/counter.snap/
-rsync -a ./counter.tar.gz host-b:$REMOTE/counter.tar.gz
 
 ssh host-b \
   "npx machinen restore $REMOTE/counter.snap \
-     --image $REMOTE/counter.tar.gz \
      --name counter \
      -p 3000:3000"
 ```
@@ -74,9 +70,9 @@ A handoff tool only needs to automate the same contract:
 2. Check the target: SSH works, `machinen install` has run, and
    `uname -m` matches the source.
 3. Run `machinen snapshot <name> <bundle>`.
-4. Transfer the bundle and source image.
-5. Run `machinen restore <bundle> --image <image>` on the target, plus
-   the target's `-p` forwards and any live-mount overrides.
+4. Transfer the bundle.
+5. Run `machinen restore <bundle>` on the target, plus the target's
+   `-p` forwards and any live-mount overrides.
 6. Show the new host and port to the user.
 
 From TypeScript, the local snapshot step can use the runtime API:

@@ -94,15 +94,15 @@ The microvm is _just_ the substrate. `@machinen/runtime` drives it:
 - `provision()` boots the base rootfs, pipes the user's install steps
   in over vsock, freezes the resulting filesystem state to a new rootfs
   tarball.
-- `vm.snapshot()` CRIU-freezes a running VM into a disk image for fast
-  restore on subsequent spawns.
+- `vm.snapshot()` asks the VMM to write vmstate CPU, RAM, and device
+  state, then the runtime bundles that with rootdisk state and metadata.
 - `boot()` starts a fresh microvm against an image, or restores a
   snapshot.
 
-The microvm itself knows nothing about snapshots, bundles, or agents
-— it boots a kernel and brokers virtio traffic. That separation is
-the invariant: whatever substrate sits here has to honor the same
-contract, no more.
+The runtime owns product-level lifecycle and bundle policy. The microvm
+owns guest execution, virtio devices, and the low-level vmstate save/restore
+mechanism. That separation is the invariant: whatever substrate sits here has
+to honor the same contract, no more.
 
 ## High-level flow
 

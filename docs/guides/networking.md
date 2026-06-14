@@ -107,7 +107,7 @@ attach` is the right tool — same vsock channel, but with a PTY.
 
 ## Detached boots with mounts and port forwards
 
-`--detached` composes with `--mount`, `--mount-live`, and `-p`. gvproxy is
+`--detach` composes with `--mount`, `--mount-live`, and `-p`. gvproxy is
 kept alive with the VM and recorded in the registry. Live mounts are served by
 in-VMM virtio-fs devices, so there is no separate live-mount server process to
 keep alive after the CLI exits. `--mount` (copy-once squashfs + ext4 overlay)
@@ -115,8 +115,8 @@ needs no runtime relay either: both files are fd-passed to the VMM at spawn, so
 the supervisor holds no live state afterwards.
 
 `machinen stop` reaps the VMM and gvproxy on shutdown, and `machinen ls`
-surfaces the full set under a single name. `boot --detached -p ...`,
-`boot --detached --mount-live ...`, and `fork --detach ...` with any
+surfaces the full set under a single name. `boot --detach -p ...`,
+`boot --detach --mount-live ...`, and `fork --detach ...` with any
 combination of these flags all work today.
 
 ## Custom gvproxy

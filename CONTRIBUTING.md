@@ -88,10 +88,9 @@ pnpm run format:check               # oxfmt
 npx agent-ci run --all -q -p        # full local CI (mirrors GH Actions)
 ```
 
-Before marking work done, the `/agent-ci` skill (see
-[`.agents/skills/agent-ci/SKILL.md`](.agents/skills/agent-ci/SKILL.md)) and
-[`CLAUDE.md`](CLAUDE.md) both require `npx vitest run` and `npx agent-ci run
---all -q -p` to pass.
+Before marking work done, follow the validation rules in
+[`AGENTS.md`](AGENTS.md). Run Agent CI only for workflow/CI changes or when a
+reviewer asks for broad CI validation.
 
 ## Making a change
 
@@ -118,5 +117,5 @@ your PR merges to `main`. Merging that PR publishes to npm.
 - **Formatter:** oxfmt. Run `pnpm run format` before pushing.
 - **Linter:** oxlint (rules in the root config). No warnings tolerated.
 - **Tests:** vitest (TS), `zig build test` (Zig).
-- **Design docs:** drop-in notes under [`.docs/learnings/microvm/`](.docs/learnings/microvm/).
-  No formal ADRs.
+- **Design docs:** keep product-facing docs under [`docs/`](docs/) and VMM
+  internals under [`packages/microvm/docs/`](packages/microvm/docs/).

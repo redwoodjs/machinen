@@ -66,10 +66,10 @@ another shell — or from another process entirely — give it a name and
 detach:
 
 ```bash
-npx machinen boot --name worker --detached ./my-server.tar.gz
+npx machinen boot --name worker --detach ./my-server.tar.gz
 ```
 
-`--detached` is the important flag here. Without it, the boot command
+`--detach` is the important flag here. Without it, the boot command
 holds onto the VM's stdio and stays in the foreground. With it, the
 command returns as soon as the guest produces its first console byte,
 and the VM keeps running in the background.
