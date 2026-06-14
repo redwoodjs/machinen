@@ -1,5 +1,7 @@
 # @machinen/native-arm64-darwin
 
+## 0.4.1
+
 ## 0.4.0
 
 ### Minor Changes

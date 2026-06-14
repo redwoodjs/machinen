@@ -1,5 +1,13 @@
 # @machinen/cli
 
+## 0.4.1
+
+### Patch Changes
+
+- Publish fixed x64 Linux VMM with `noapic` in the guest kernel command line.
+- Updated dependencies
+  - @machinen/runtime@0.4.1
+
 ## 0.4.0
 
 ### Minor Changes

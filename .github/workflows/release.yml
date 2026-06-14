@@ -22,8 +22,9 @@ jobs:
   # Local-runner gate. The release workflow does heavy work
   # (cross-platform VMM builds, Linux kernel + Debian rootfs in
   # Docker, npm publish, GH release upload) that only makes sense
-  # on real CI — agent-ci's local runner doesn't have NPM_TOKEN, the
-  # darwin VM checkout fails before it starts, and the docker
+  # on real CI — agent-ci's local runner cannot mint npm's trusted
+  # publishing OIDC token, the darwin VM checkout fails before it starts,
+  # and the docker
   # bind-mounts the rootfs build wants don't round-trip from the
   # nested runner. Emit `skip=true` whenever AGENT_CI_LOCAL is set
   # and gate every other job on it via `needs.gate.outputs.skip`.
@@ -180,7 +181,17 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          registry-url: https://registry.npmjs.org
+      - name: Verify npm trusted publishing support
+        run: |
+          set -euo pipefail
+          npm_version="$(npm --version)"
+          echo "npm ${npm_version}"
+          node -e '
+            const [major, minor, patch] = process.argv[1].split(".").map(Number);
+            if (major < 11 || (major === 11 && (minor < 5 || (minor === 5 && patch < 1)))) {
+              throw new Error(`npm ${process.argv[1]} is too old for trusted publishing; need >= 11.5.1`);
+            }
+          ' "$npm_version"
       - name: Setup Zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
@@ -299,7 +310,9 @@ jobs:
           createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # npm Trusted Publishing mints the npm auth token via GitHub OIDC.
+          # Do not set NPM_TOKEN/NODE_AUTH_TOKEN here; setup-node also avoids
+          # writing a token-based .npmrc by omitting registry-url above.
           NPM_CONFIG_PROVENANCE: true
 
       # Only on a real publish: ship the kernel + dtb + rootfs tarball

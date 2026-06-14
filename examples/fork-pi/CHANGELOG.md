@@ -1,5 +1,12 @@
 # @machinen/example-fork-pi
 
+## 0.0.11
+
+### Patch Changes
+
+- Updated dependencies
+  - @machinen/runtime@0.4.1
+
 ## 0.0.10
 
 ### Patch Changes
