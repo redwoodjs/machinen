@@ -966,7 +966,7 @@ function wcPreflight(): Record<string, unknown> {
   return {
     inputIdentityVerified: true,
     contentHashWindowMatches: true,
-    regularFileOpenable: true,
+    inputOpenable: true,
     byteOffsetInstallable: true,
     lineCounterInstallable: true,
     stdoutCursorInstallable: true,
@@ -979,7 +979,7 @@ function seqPreflight(): Record<string, unknown> {
   return {
     generatorVesselAvailable: true,
     numericPrecisionMatches: true,
-    outputCursorInstallable: true,
+    stdoutCursorInstallable: true,
     formatInstallable: true,
     crossIsaGeneratorVesselAvailable: true,
     noTargetProcessBeforeEligibilityEvidence: "target process absent before move load",
@@ -990,7 +990,7 @@ function grepPreflight(): Record<string, unknown> {
   return {
     inputIdentityVerified: true,
     contentHashWindowMatches: true,
-    regularFileOpenable: true,
+    inputOpenable: true,
     byteOffsetInstallable: true,
     matcherStateInstallable: true,
     outputCursorInstallable: true,
