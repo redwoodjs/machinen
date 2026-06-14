@@ -1,5 +1,13 @@
 # @machinen/cli
 
+## 0.4.2
+
+### Patch Changes
+
+- Download and publish base assets from the main `redwoodjs/machinen` GitHub Releases instead of `redwoodjs/machinen.dev`.
+- Updated dependencies
+  - @machinen/runtime@0.4.2
+
 ## 0.4.1
 
 ### Patch Changes

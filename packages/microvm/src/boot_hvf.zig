@@ -1262,7 +1262,7 @@ fn log_unhandled_exception(vcpu: hvf.Vcpu, ec: hvf.ExceptionClass, why: []const 
 
 fn log_report_hint() void {
     std.debug.print(
-        "hvf boot: please report this diagnostic at https://github.com/redwoodjs/machinen.dev/issues/new\n",
+        "hvf boot: please report this diagnostic at https://github.com/redwoodjs/machinen/issues/new\n",
         .{},
     );
 }

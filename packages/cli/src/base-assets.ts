@@ -20,7 +20,7 @@ import { isQuiet } from "./quiet.ts";
 export const VERSION = pkg.version;
 export const RELEASE_TAG = `runtime-v${VERSION}`;
 
-const ASSETS_BASE_URL = "https://github.com/redwoodjs/machinen.dev/releases/download";
+const ASSETS_BASE_URL = "https://github.com/redwoodjs/machinen/releases/download";
 const CACHE_ROOT = join(homedir(), ".machinen");
 
 export function cacheDirFor(tag: string): string {
@@ -43,7 +43,7 @@ export interface CliBaseAssetPaths {
   baseDir: string;
 }
 
-export function guestCpu(): GuestCpu {
+function guestCpu(): GuestCpu {
   const override = process.env.MACHINEN_GUEST_ARCH;
   if (override === "arm64" || override === "amd64") {
     return override;
@@ -187,7 +187,7 @@ async function downloadAsset(name: string, dest: string, tag: string): Promise<v
     die(
       `fetch asset ${name} failed: ${res.status} ${res.statusText}\n` +
         `  url: ${url}\n` +
-        "  check that the release tag exists on github.com/redwoodjs/machinen.dev.",
+        "  check that the release tag exists on github.com/redwoodjs/machinen.",
     );
   }
   await pipeline(res.body as unknown as NodeJS.ReadableStream, createWriteStream(dest));
@@ -206,7 +206,7 @@ function sha256OfFile(path: string): string {
   return sha256Bytes(readFileSync(path));
 }
 
-export function sha256Bytes(bytes: Buffer | string): string {
+function sha256Bytes(bytes: Buffer | string): string {
   const hash = createHash("sha256");
   hash.update(bytes);
   return hash.digest("hex");

@@ -316,46 +316,18 @@ jobs:
           NPM_CONFIG_PROVENANCE: true
 
       # Only on a real publish: ship the kernel + dtb + rootfs tarball
-      # to a Release on the public `redwoodjs/machinen.dev` repo. The CLI's
-      # `ensureBaseAssets()` fetches them anonymously from that public URL
-      # so consumers don't need a GitHub token (the source repo is private).
+      # to a Release on this public repo. The CLI's `ensureBaseAssets()`
+      # fetches them anonymously from GitHub's release download URLs.
       #
       # The Node script is also the manual release path (`gh auth login`, then
       # run it locally): it rewrites .sha256 sidecars from the exact payload
       # bytes, uploads only the public base assets, and fetches everything back
-      # through the public URLs as a release-health gate. This prevents the
-      # stale-sidecar shape that broke runtime-v0.3.3 (redwoodjs/machinen.dev#9).
-      - name: Publish and verify base assets to redwoodjs/machinen.dev
+      # through the public URLs as a release-health gate. This prevents stale
+      # sidecars from drifting away from the uploaded payload bytes.
+      - name: Publish and verify base assets to redwoodjs/machinen
         if: steps.changesets.outputs.published == 'true'
         env:
-          GH_TOKEN: ${{ secrets.MACHINEN_DEV_PUBLISH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MACHINEN_RELEASE_VERIFY_TRIES: "6"
           MACHINEN_RELEASE_VERIFY_SLEEP: "10"
         run: node scripts/release-base-assets.mjs publish
-
-      # Mirror README + examples into the public machinen.dev repo so the
-      # landing-page content tracks the source repo. scripts/sync-machinen-dev.mjs
-      # owns the transformations (workspace:* → latest, drop pnpm -F filters,
-      # trim internal-only README sections); we just clone, run it, commit.
-      - name: Sync README + examples to redwoodjs/machinen.dev
-        if: steps.changesets.outputs.published == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.MACHINEN_DEV_PUBLISH_TOKEN }}
-        run: |
-          set -euo pipefail
-          VERSION=$(node -p "require('./packages/runtime/package.json').version")
-          DEST=$(mktemp -d)
-          git clone --depth=1 \
-            "https://x-access-token:${GH_TOKEN}@github.com/redwoodjs/machinen.dev.git" \
-            "$DEST"
-          node scripts/sync-machinen-dev.mjs "$DEST"
-          cd "$DEST"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-          git add README.md examples/
-          if git diff --cached --quiet; then
-            echo "README + examples already up to date; nothing to push."
-          else
-            git commit -m "docs: sync from machinen@${VERSION}"
-            git push origin main
-          fi

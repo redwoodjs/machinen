@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Publish and verify the public base assets that @machinen/cli downloads
-// from redwoodjs/machinen.dev. This is intentionally a single Node entrypoint
+// from this repo's GitHub Releases. This is intentionally a single Node entrypoint
 // (usable by CI and by a human with `gh auth login`) so manual asset releases
 // go through the same checksum refresh + fetch-back guard as automated ones.
 //
-// Guardrail for redwoodjs/machinen.dev#9: runtime-v0.3.3 shipped rootfs bytes
+// Guardrail for stale asset sidecars: runtime-v0.3.3 shipped rootfs bytes
 // that did not match the published .sha256 sidecar. `publish` always rewrites
 // checksums from the exact payload bytes it is about to upload, uploads with
 // --clobber, then verifies by downloading through the public URLs the CLI uses.
@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const DEFAULT_REPO = "redwoodjs/machinen.dev";
+const DEFAULT_REPO = "redwoodjs/machinen";
 const DEFAULT_ASSETS_DIR = resolve(REPO_ROOT, "release-assets");
 const PAYLOAD_ASSETS = [
   "Image-arm64",
