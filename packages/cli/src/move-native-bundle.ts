@@ -1,3 +1,4 @@
+import { moveDescriptorHasCrossArchCliNextBinariesRoute } from "./move-cross-arch-cli-next-binaries.ts";
 import type {
   MoveDescriptor,
   MovePidGraphNode,
@@ -80,6 +81,9 @@ export function writeNativeProcessImageScaffold(
 }
 
 function nativeContinuationRefusals(descriptor: MoveDescriptor): NativeProcessImageRefusal[] {
+  if (moveDescriptorHasCrossArchCliNextBinariesRoute(descriptor)) {
+    return [];
+  }
   const existingRefusals = descriptor.resourcePlan?.refusals ?? [];
   return existingRefusals.length > 0
     ? existingRefusals

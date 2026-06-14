@@ -16,6 +16,10 @@ import { basename, join, resolve } from "node:path";
 import { consumeJsonFlag } from "../args.ts";
 import { readMoveBusyboxNcState } from "../move-busybox-nc-envelope.ts";
 import { readMoveChecksumStateInVm } from "../move-checksum-envelope.ts";
+import {
+  moveDescriptorHasCrossArchCliNextBinariesRoute,
+  readMoveCrossArchCliNextBinariesStateInVm,
+} from "../move-cross-arch-cli-next-binaries.ts";
 import { readMoveDuStateInVm } from "../move-du-envelope.ts";
 import { readMoveFindPredicateStateInVm } from "../move-find-predicate-envelope.ts";
 import { readMoveZipCreateStateInVm } from "../move-archive-envelope.ts";
@@ -253,7 +257,10 @@ function moveEnvelopeAllowsOpenFileRefusals(descriptor: MoveDescriptor): boolean
 }
 // fallow-ignore-next-line complexity
 function moveEnvelopeAllowedRefusalClasses(descriptor: MoveDescriptor): Set<string> | undefined {
-  if (descriptor.resourcePlan?.capture?.tailState) {
+  if (
+    descriptor.resourcePlan?.capture?.tailState ||
+    moveDescriptorHasCrossArchCliNextBinariesRoute(descriptor)
+  ) {
     return new Set(["open-files", "threads"]);
   }
   if (
@@ -607,6 +614,7 @@ async function attachMoveSourceIdentity(
     findPredicateState: await readMoveFindPredicateStateInVm(vm, node, resourcePlan),
     treeState: await readMoveTreeStateInVm(vm, node, resourcePlan),
     nodeStaticHttpState: await readMoveNodeStaticHttpStateInVm(vm, node, resourcePlan),
+    ...(await readMoveCrossArchCliNextBinariesStateInVm(vm, node, resourcePlan)),
   };
 }
 
