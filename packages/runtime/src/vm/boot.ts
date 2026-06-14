@@ -21,6 +21,12 @@ import { join, resolve } from "node:path";
 import debugLib from "debug";
 
 import { readBalloonStats } from "../balloon-stats.ts";
+import {
+  bootReadinessFailureMessage,
+  bootStderrTail,
+  runVsockWithBootDiagnostics,
+  waitForDetachedExecAgent,
+} from "./boot-diagnostics.ts";
 import { bootSnapshotPath, writeBootSnapshot } from "../detached-log.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "../errors.ts";
 import { VsockExec } from "../exec.ts";
@@ -1895,8 +1901,8 @@ function createBootVmHandle(args: BootHandleArgs): VmHandle {
     detach: makeDetach(args.child),
     output: () => args.outputCollector,
     errorOutput: () => args.errorCollector,
-    exec: makeExec(args.vsockUdsPath, args.onLog),
-    execRaw: makeExecRaw(args.vsockUdsPath, args.onLog),
+    exec: makeExec(args.vsockUdsPath, args.onLog, args.child, args.errorCollector),
+    execRaw: makeExecRaw(args.vsockUdsPath, args.onLog, args.child, args.errorCollector),
     execPty: makeExecPty(args.vsockUdsPath),
     writeFile: makeWriteFile(() => handle),
     memoryStats: makeMemoryStats(args.childPid, args.statsFilePath, args.memoryCeilingMib),
@@ -1913,10 +1919,17 @@ function makeDetach(child: ChildProcessWithoutNullStreams): VmHandle["detach"] {
   };
 }
 
-function makeExec(vsockUdsPath: string | undefined, onLog: OnLog | undefined): VmHandle["exec"] {
+function makeExec(
+  vsockUdsPath: string | undefined,
+  onLog: OnLog | undefined,
+  child: ChildProcessWithoutNullStreams,
+  errorCollector: Promise<string>,
+): VmHandle["exec"] {
   return async (cmd, execOpts) => {
     const udsPath = requireVsockPath(vsockUdsPath, "exec");
-    const res = await VsockExec.run(udsPath, cmd, teeOnLog(cmd, execOpts, onLog));
+    const res = await runVsockWithBootDiagnostics(child, errorCollector, () =>
+      VsockExec.run(udsPath, cmd, teeOnLog(cmd, execOpts, onLog)),
+    );
     if (res.exitCode !== 0) {
       throw new ExecError(
         "EXEC_NONZERO_EXIT",
@@ -1930,12 +1943,16 @@ function makeExec(vsockUdsPath: string | undefined, onLog: OnLog | undefined): V
 function makeExecRaw(
   vsockUdsPath: string | undefined,
   onLog: OnLog | undefined,
+  child: ChildProcessWithoutNullStreams,
+  errorCollector: Promise<string>,
 ): VmHandle["execRaw"] {
   return (cmd, execOpts) => {
     if (!vsockUdsPath) {
       return Promise.reject(missingVsockError("execRaw"));
     }
-    return VsockExec.run(vsockUdsPath, cmd, teeOnLog(cmd, execOpts, onLog));
+    return runVsockWithBootDiagnostics(child, errorCollector, () =>
+      VsockExec.run(vsockUdsPath, cmd, teeOnLog(cmd, execOpts, onLog)),
+    );
   };
 }
 
@@ -2145,19 +2162,8 @@ function updateVmstateChainState(
   }
 }
 
-// #150 phase 2: detached mode blocks until the guest produces its
-// first console byte (readiness), then dumps the boot snapshot,
-// unrefs the child, and resolves. Two failure shapes to gate on:
-//
-//   - VMM dies in the readiness window. The exit hook above will
-//     have torn down per-boot disks / vsock dirs / gvproxy / cache /
-//     live mounts already; we still need to surface the failure to
-//     the caller instead of silently resolving. Snapshot whatever
-//     stderr we captured before death so a post-mortem has bytes
-//     to work with.
-//   - Readiness never arrives. Cap at `timeoutMs` (caller default
-//     60s, CLI passes null for interactive boots — but `--detached`
-//     forces a finite wait so the CLI can exit cleanly).
+// #150/#944: detached mode waits for exec-agent readiness, not just
+// the first console byte, so early guest panics become BootErrors.
 async function gateOnDetachedReadiness(args: {
   child: ChildProcessWithoutNullStreams;
   timeoutMs: number | null;
@@ -2166,47 +2172,32 @@ async function gateOnDetachedReadiness(args: {
   handle: VmHandle;
 }): Promise<void> {
   const readinessTimeoutMs = args.timeoutMs ?? 60_000;
-  let onByte: (() => void) | null = null;
-  let onExit: (() => void) | null = null;
-  const readiness = new Promise<"ready" | "exit">((resolve) => {
-    onByte = () => resolve("ready");
-    onExit = () => resolve("exit");
-    args.child.stderr.once("data", onByte);
-    args.child.once("exit", onExit);
-  });
-  const timeoutP = new Promise<"timeout">((resolve) => {
-    setTimeout(() => resolve("timeout"), readinessTimeoutMs).unref();
-  });
-  const outcome = await Promise.race([readiness, timeoutP]);
-  // Cleanup whichever listeners didn't fire so a throw below doesn't
-  // leave orphaned handlers holding the event loop.
-  if (onByte) {
-    args.child.stderr.removeListener("data", onByte);
-  }
-  if (onExit) {
-    args.child.removeListener("exit", onExit);
-  }
-  // Always dump whatever stderr we have so far — failure paths
-  // benefit from the snapshot more than success paths do.
-  writeBootSnapshot(args.bootLogPath, Buffer.concat(args.detachedBootChunks).toString("utf8"));
-  if (outcome === "exit") {
+  const outcome = await waitForDetachedExecAgent(args, readinessTimeoutMs);
+  const stderrTail = bootStderrTail(args.detachedBootChunks);
+  writeBootSnapshot(args.bootLogPath, stderrTail);
+  if (outcome.kind === "exit") {
     throw new BootError(
       "BOOT_DETACHED_READINESS_FAILED",
-      `boot --detached: VMM exited before readiness (code=${args.child.exitCode} signal=${args.child.signalCode}). ` +
-        `Boot console snapshot at ${args.bootLogPath}`,
+      bootReadinessFailureMessage(
+        `boot --detached: VMM exited before exec-agent readiness (code=${args.child.exitCode} signal=${args.child.signalCode}).`,
+        args.bootLogPath,
+        stderrTail,
+      ),
+      { cause: outcome.lastError },
     );
   }
-  if (outcome === "timeout") {
-    // The VMM is still alive but never wrote a console byte. Kill
-    // it (parent still holds the pdeathsig-less child handle) so
-    // we don't leave an orphan after throwing.
+  if (outcome.kind === "timeout") {
     try {
       args.child.kill("SIGTERM");
     } catch {}
     throw new BootError(
       "BOOT_DETACHED_READINESS_FAILED",
-      `boot --detached: VMM did not signal readiness within ${readinessTimeoutMs}ms. ` +
-        `Boot console snapshot at ${args.bootLogPath}`,
+      bootReadinessFailureMessage(
+        `boot --detached: exec-agent did not become reachable within ${readinessTimeoutMs}ms.`,
+        args.bootLogPath,
+        stderrTail,
+      ),
+      { cause: outcome.lastError },
     );
   }
   // Ready. Stop accumulating stderr — the snapshot is already on

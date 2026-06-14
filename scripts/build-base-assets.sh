@@ -226,7 +226,7 @@ zig cc "${ASSETS}/move-capture.c" \
   -o "${STAGE}/move-capture"
 
 zig cc "${ASSETS}/vmstate-reseed.c" \
-  -target aarch64-linux-musl \
+  -target "${ZIG_GUEST_TARGET}" \
   -static \
   -Os \
   -o "${STAGE}/vmstate-reseed"
