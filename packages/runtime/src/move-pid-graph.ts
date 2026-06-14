@@ -56,39 +56,47 @@ export interface MovePidGraph {
 /**
  * Generic resource graph evidence for `machinen move`.
  *
- * Product support is intentionally narrower than the full proof matrix. The
- * first user-facing product path is `generic-stdio-pipe-product-marker`: an
- * exact modeled finite stdio pipe graph with
- * `migration.productPath.kind="exact-live-capture"`, support proof
- * `generic-finite-pipe-buffer-replay`, refusal proof
- * `generic-pipe-stdio-refusals`, and `refusalClasses=[]`.
+ * Product move continuation is intentionally narrower than the full proof
+ * matrix. The current product move continuation allowlist is empty because the
+ * formerly promoted generic rows are classified as resource reconstruction or
+ * target-native reexec, not modeled live execution continuation.
  *
- * Wave 2 adds only five more exact live-capture product markers:
+ * The historical rows remain useful proof and refusal evidence under accurate
+ * labels: `generic-stdio-pipe-product-marker` with support proof
+ * `generic-finite-pipe-buffer-replay` and refusal proof
+ * `generic-pipe-stdio-refusals`, `reader-cat-live-generic-primary-marker`, and
+ * `grep-live-generic-primary-marker` are resource-reconstruction evidence;
  * `unix-pathname-listener-live-generic-primary-marker`,
- * `reader-cat-live-generic-primary-marker`,
- * `grep-live-generic-primary-marker`,
- * `busybox-nc-listener-live-generic-primary-marker`, and
- * `socat-file-responder-live-generic-primary-marker`. Their support/refusal
- * proof names are `generic-unix-pathname-listener`,
- * `generic-unix-pathname-listener-refusals`, `reader-cat`,
- * `generic-stale-file-identity-refusal`, `generic-deleted-file-fd-refusal`,
- * `generic-writable-file-cursor-refusal`, `grep`,
- * `generic-pipe-stdio-refusals`, `busybox-nc-listener`,
- * `unsafe-busybox-nc-refusal`, `unsafe-nc-active-refusal`,
- * `generic-loader-preflight-refusals`, `socat-file-responder`, and
- * `unsafe-socat-file-responder-refusal`. Wave-2 public support requires
- * `observedGraph="exact-live-resource-graph"`, `refusalClasses=[]`, retained
- * artifacts for the 19-row plan in
- * `scripts/smoke/move-envelope-productization-wave2-plan.json`, and the
- * release validation profile
- * `scripts/smoke/move-envelope-productization-wave2-validation-profile.json`.
+ * `busybox-nc-listener-live-generic-primary-marker`,
+ * `socat-file-responder-live-generic-primary-marker`,
+ * `node-static-http-live-generic-primary-marker`,
+ * `go-static-http-live-generic-primary-marker`,
+ * `rust-static-http-live-generic-primary-marker`, and
+ * `busybox-httpd-live-generic-primary-marker` are target-native reexec/restart
+ * evidence. Their retained refusal proofs include `node-active-refusal`,
+ * `node-timer-refusal`, `node-worker-refusal`, `native-dlopen-refusal`,
+ * `go-extra-socket-refusal`, `generic-loader-preflight-refusals`,
+ * `unsafe-busybox-httpd-refusal`, `python-http-active-refusal`, and
+ * `static-http-tree-identity-refusals`. They are not product move
+ * continuation routes.
  *
- * Proof-only same-arch continuation, proof-only cross-arch semantic
- * reconstruction, descriptor harnesses, Redis/database/service rows, active
- * sessions, source-fd teleportation, source-ISA emulation, metadata-only
- * success, runtime-profile shortcuts, broad daemon/database migration, and
- * arbitrary process restore are not product support. In short: no arbitrary
- * process restore.
+ * `generic-same-arch-modeled-continuation` is the only current continuation
+ * classification row, and it remains proof-only until cross-architecture,
+ * target-native live-state reconstruction and equivalent refusal evidence are
+ * proven. Static HTTP tree identity, pipe byte replay, file cursor reopen,
+ * listener recreation, descriptor harnesses, Redis/database/service rows,
+ * active sessions, source-fd teleportation, source-ISA emulation,
+ * metadata-only success, runtime-profile shortcuts, broad daemon/database
+ * migration, and arbitrary process restore are not product move continuation.
+ * Hard product rule: `machinen move` refuses target-native reexec, restart,
+ * and resource reconstruction. Continuation is not banned, but future product
+ * move work must focus only on modeled live-state continuation: captured source
+ * process/resource state translated into target-native state for fds, timers,
+ * event-loop resources, sockets, requests, and runtime state, with fail-closed
+ * refusals for every unmodeled piece. Node continuation is not a product claim
+ * until V8 heap state, JS stack/event-loop phase, libuv handles, workers,
+ * native addons, timers, sockets, and in-memory app/session state are
+ * explicitly modeled. In short: no arbitrary process restore.
  */
 export interface MoveGenericResourceGraphState {
   policy: "generic-resource-graph-target-native-reexec-v1";
@@ -106,6 +114,17 @@ export interface MoveGenericResourceGraphState {
       driftRefusalProofNames?: string[];
       observedGraph: "exact-single-process-service" | "exact-live-resource-graph";
     };
+  };
+  staticRootTreeIdentity?: {
+    path: string;
+    sourceIdentity: {
+      fileCount: number;
+      directoryCount: number;
+      totalBytes: number;
+      treeDigest: string;
+    };
+    targetVerification: string;
+    driftRefusal: string;
   };
   executableIdentity: {
     path: string;

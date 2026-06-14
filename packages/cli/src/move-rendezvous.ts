@@ -76,12 +76,15 @@ export async function runMoveTargetDirectLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
 ): Promise<MoveLoadDirectLoader> {
+  const executable = moveRendezvousExecutable(descriptor);
+  const argv = moveRendezvousArgv(descriptor, executable);
+  if (!moveDescriptorHasProductContinuationRoute(descriptor)) {
+    return moveContinuationOnlyRefused(executable, argv);
+  }
   const loader = moveTargetEnvelopeLoader(descriptor);
   if (loader) {
     return loader(vm, descriptor);
   }
-  const executable = moveRendezvousExecutable(descriptor);
-  const argv = moveRendezvousArgv(descriptor, executable);
   const command = moveRendezvousCommand(executable, argv.slice(1), descriptor);
   const result = await vm.execRaw(command, { execTimeoutMs: 30_000 });
   const parsed = parseRendezvousOutput(result.stdout);
@@ -108,6 +111,30 @@ export async function runMoveTargetDirectLoaderInVm(
     capture,
     patch,
     refusals,
+  };
+}
+
+function moveDescriptorHasProductContinuationRoute(_descriptor: MoveDescriptor): boolean {
+  return false;
+}
+
+function moveContinuationOnlyRefused(executable: string, argv: string[]): MoveLoadDirectLoader {
+  return {
+    state: "refused",
+    strategy: "continuation-only-refusal",
+    executable,
+    argv,
+    refusals: [
+      {
+        code: "target-semantic-continuation-missing",
+        message:
+          "machinen move requires modeled live-state continuation; target-native reexec, restart, and resource reconstruction are banned",
+        detail: {
+          boundary: "move-continuation-only",
+          banned: ["target-native-reexec", "restart", "resource-reconstruction"],
+        },
+      },
+    ],
   };
 }
 // fallow-ignore-next-line complexity

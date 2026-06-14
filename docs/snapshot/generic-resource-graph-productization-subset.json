@@ -83,5 +83,19 @@
     "no metadata-only success",
     "no runtime-profile shortcut",
     "same-arch modeled continuation and cross-arch semantic reconstruction remain proof-only and outside product routing"
-  ]
+  ],
+  "continuationBoundary": {
+    "productMoveContinuationRouting": "none",
+    "currentLabel": "retained proof/refusal evidence outside product move continuation",
+    "reason": "Rows in this artifact are resource-reconstruction or target-native reexec evidence, not modeled live-state continuation.",
+    "nonClaims": [
+      "no product move continuation claim",
+      "no arbitrary process restore",
+      "no source-fd teleportation",
+      "no source-ISA emulation",
+      "no metadata-only success",
+      "no runtime-profile shortcut",
+      "no unmodeled active session migration"
+    ]
+  }
 }

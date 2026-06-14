@@ -1,0 +1,503 @@
+{
+  "title": "Service generic parity next 50",
+  "goal": "Graduate service-oriented generic resource graph support one exact shape at a time: prove generic parity/refusal rows for nginx, Caddy, Ruby HTTP, rsync daemon, Redis idle, and PHP live-capture graduation; add first-class service resource classes and refusal classes; improve proof-image benchmark coverage; and add coverage/docs guardrails without claiming arbitrary process restore, broad daemon support, any-binary movement, source-ISA emulation, or broad generic service migration.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove nginx-static generic parity for one exact static-root loopback shape with target-native generic loader health evidence and explicit no broad nginx support claim.",
+      "evidence": "New matrix row generic-service-nginx-static-parity passed with proof-image in 62.726s, retained artifact /tmp/machinen-move-matrix-72716-1781292805. Support evidence: target-native-generic-resource-graph-reexec-loader launched nginx with targetPid=399, HTTP health returned body containing `nginx proof 15F`, migration.mode=generic-primary only inside the exact descriptor-harness row, sourceProofName=nginx-static, genericProofName=generic-service-nginx-static-parity, and boundary states only static nginx config with no FastCGI/proxy/module behavior, no active clients, loopback bind, static root identity, and target config/root health proof. The proof output explicitly preserves fallback: nginx-static remains explicit-fallback unless exact descriptor/live-capture row marks generic-primary. Docs/inventory/coverage now list generic-service-nginx-static-parity; pnpm run generic-resource-graph-coverage passed with matrixProofNames=187, inventoryProofNames=187, missingGenericRows=[], serviceConsolidationErrors=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove nginx-static generic refusal for active client state with no target pid and no generic loader continuation.",
+      "evidence": "generic-service-nginx-static-parity artifact /tmp/machinen-move-matrix-72716-1781292805 includes refusal case active-client with generic refusalClasses=[activeTcpConnection], loaderState=refused, targetPid=null. The case is a declared generic no-launch refusal in the descriptor-harness row; no target continuation is claimed and fallback remains explicit outside exact proven shape."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove nginx-static generic refusal for dynamic or FastCGI config with no target pid and no generic loader continuation.",
+      "evidence": "generic-service-nginx-static-parity artifact /tmp/machinen-move-matrix-72716-1781292805 includes refusal case dynamic-config with generic refusalClasses=[dynamicRuntimeOrAppCode], loaderState=refused, targetPid=null. The source fixture uses nginx fastcgi config as the unsafe dynamic/config shape; the row records no broad nginx/dynamic module support claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove nginx-static generic refusal for target static-root drift with pre-launch or no-target-pid refusal evidence.",
+      "evidence": "generic-service-nginx-static-parity artifact /tmp/machinen-move-matrix-72716-1781292805 includes target-root-drift refusal with loaderState=refused, targetPid=null, reasonNeedle=data-dir. The generic loader preflight observed target static root identity drift and refused before target continuation."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove nginx-static generic refusal for target port conflict with no target pid.",
+      "evidence": "generic-service-nginx-static-parity artifact /tmp/machinen-move-matrix-72716-1781292805 includes port-conflict refusal with loaderState=refused, targetPid=null, reasonNeedle=port-unavailable. The generic loader preflight refused before target continuation when the loopback port was occupied."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove caddy-static generic parity for one exact file-server static-root shape with target-native generic loader health evidence and explicit no broad Caddy support claim.",
+      "evidence": "New matrix row generic-service-caddy-static-parity passed with proof-image in 12.241s, retained artifact /tmp/machinen-move-matrix-80528-1781293168. Support evidence: target-native-generic-resource-graph-reexec-loader launched Caddy with targetPid=208, HTTP health returned body containing `caddy proof 15G`, migration.mode=generic-primary only inside the exact descriptor-harness row, sourceProofName=caddy-static, genericProofName=generic-service-caddy-static-parity, and boundary states only static caddy file-server root with no reverse proxy/upstream/module behavior, no active clients, loopback health proof, static root identity, and target package proof. The proof output preserves fallback: caddy-static remains explicit-fallback unless exact descriptor/live-capture row marks generic-primary. Docs/inventory/coverage now list generic-service-caddy-static-parity; pnpm run generic-resource-graph-coverage passed with matrixProofNames=188, inventoryProofNames=188, missingGenericRows=[], serviceConsolidationErrors=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove caddy-static generic refusal for reverse-proxy config with no target pid and no generic loader continuation.",
+      "evidence": "generic-service-caddy-static-parity artifact /tmp/machinen-move-matrix-80528-1781293168 includes refusal case reverse-proxy with generic refusalClasses=[reverseProxyOrUpstreamSocket], loaderState=refused, targetPid=null. The source fixture uses Caddy reverse-proxy as the unsafe upstream/proxy shape; no broad Caddy/proxy support is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove caddy-static generic refusal for active client state with no target pid and no generic loader continuation.",
+      "evidence": "generic-service-caddy-static-parity artifact /tmp/machinen-move-matrix-80528-1781293168 includes refusal case active-client with generic refusalClasses=[activeTcpConnection], loaderState=refused, targetPid=null. The case is a declared generic no-launch refusal in the descriptor-harness row; no target continuation is claimed and fallback remains explicit outside exact proven shape."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove caddy-static generic refusal for target static-root drift with pre-launch or no-target-pid refusal evidence.",
+      "evidence": "generic-service-caddy-static-parity artifact /tmp/machinen-move-matrix-80528-1781293168 includes target-root-drift refusal with loaderState=refused, targetPid=null, reasonNeedle=data-dir. The generic loader preflight observed target static root identity drift and refused before target continuation."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove caddy-static generic refusal for missing target package with no target pid.",
+      "evidence": "generic-service-caddy-static-parity artifact /tmp/machinen-move-matrix-80528-1781293168 includes missing-package refusal with loaderState=refused, targetPid=null, reasonNeedle=executable-missing. The proof temporarily hid /usr/bin/caddy on the target and the generic loader refused before target continuation."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove ruby-http generic parity for one exact `ruby -run -e httpd` static-root shape with target-native generic loader health evidence and explicit no broad Ruby support claim.",
+      "evidence": "New matrix row generic-service-ruby-http-parity passed with proof-image in 75.007s, retained artifact /tmp/machinen-move-matrix-17633-1781293513. Support evidence: target-native-generic-resource-graph-reexec-loader launched Ruby with targetPid=396, HTTP health returned body containing `ruby proof 15H`, migration.mode=generic-primary only inside the exact descriptor-harness row, sourceProofName=ruby-http, genericProofName=generic-service-ruby-http-parity, and boundary states only `ruby -run -e httpd` static-root loopback shape with no custom Ruby socket/app state, no runtime-specific heap/thread state, no active clients, loopback health proof, static root identity, and target package proof. The proof output preserves fallback: ruby-http remains explicit-fallback unless exact descriptor/live-capture row marks generic-primary. Docs/inventory/coverage now list generic-service-ruby-http-parity; pnpm run generic-resource-graph-coverage passed with matrixProofNames=189, inventoryProofNames=189, missingGenericRows=[], serviceConsolidationErrors=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove ruby-http generic refusal for custom Ruby socket app state with no target pid and no generic loader continuation.",
+      "evidence": "generic-service-ruby-http-parity artifact /tmp/machinen-move-matrix-17633-1781293513 includes refusal case custom-socket-app with generic refusalClasses=[dynamicRuntimeOrAppCode], loaderState=refused, targetPid=null. The fixture attempts a custom Ruby TCPServer app shape and the descriptor-harness row declares it unsafe before generic launch; no broad Ruby app/socket support is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove ruby-http generic refusal for active client state with no target pid and no generic loader continuation.",
+      "evidence": "generic-service-ruby-http-parity artifact /tmp/machinen-move-matrix-17633-1781293513 includes refusal case active-client with generic refusalClasses=[activeTcpConnection], loaderState=refused, targetPid=null. The case is a declared generic no-launch refusal in the descriptor-harness row; no target continuation is claimed and fallback remains explicit outside exact proven shape."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove ruby-http generic refusal for target static-root drift with pre-launch or no-target-pid refusal evidence.",
+      "evidence": "generic-service-ruby-http-parity artifact /tmp/machinen-move-matrix-17633-1781293513 includes target-root-drift refusal with loaderState=refused, targetPid=null, reasonNeedle=data-dir. The generic loader preflight observed target static root identity drift and refused before target continuation."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove ruby-http generic refusal for runtime-specific Ruby state with no target pid and no broad runtime migration claim.",
+      "evidence": "generic-service-ruby-http-parity artifact /tmp/machinen-move-matrix-17633-1781293513 includes refusal case runtime-specific with generic refusalClasses=[runtimeSpecificRefusal], loaderState=refused, targetPid=null. The fixture attempts Ruby thread/heap runtime state and the generic row fails closed before launch, preserving the non-claim that Machinen does not migrate arbitrary Ruby runtime state."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove rsync-daemon generic parity for one exact read-only no-auth module shape with target-native generic loader health/read evidence and explicit no broad rsync support claim.",
+      "evidence": "New matrix row generic-service-rsync-daemon-parity passed with proof-image in 69.244s, retained artifact /tmp/machinen-move-matrix-72260-1781294069. Support evidence: target-native-generic-resource-graph-reexec-loader launched rsync with targetPid=396, target rsync read returned body containing `rsync proof 15J`, migration.mode=generic-primary only inside the exact descriptor-harness row, sourceProofName=rsync-daemon, genericProofName=generic-service-rsync-daemon-parity, and boundary states only one read-only no-auth rsync module named proof with stable config/root identity, no writable module, no auth/secrets/hooks, no active clients, loopback read health proof, and target package proof. The proof output preserves fallback: rsync-daemon remains explicit-fallback unless exact descriptor/live-capture row marks generic-primary. Docs/inventory/coverage now list generic-service-rsync-daemon-parity; pnpm run generic-resource-graph-coverage passed with matrixProofNames=190, inventoryProofNames=190, missingGenericRows=[], serviceConsolidationErrors=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove rsync-daemon generic refusal for write-enabled module with no target pid and no generic loader continuation.",
+      "evidence": "generic-service-rsync-daemon-parity artifact /tmp/machinen-move-matrix-72260-1781294069 includes refusal case write-enabled with generic refusalClasses=[serviceWritablePersistence], loaderState=refused, targetPid=null. The fixture attempts an rsync module with read only=false and the descriptor-harness row declares it unsafe before generic launch; no writable data-root replay or broad rsync mutation support is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove rsync-daemon generic refusal for auth or secrets hooks with no target pid and no generic loader continuation.",
+      "evidence": "generic-service-rsync-daemon-parity artifact /tmp/machinen-move-matrix-72260-1781294069 includes refusal case auth-hooks with generic refusalClasses=[authHooksOrSecrets], loaderState=refused, targetPid=null. The fixture uses auth users/secrets-file config and the generic row fails closed before launch; no secret material, auth hook, or access-control migration claim is made."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove rsync-daemon generic refusal for active client state with no target pid and no generic loader continuation.",
+      "evidence": "generic-service-rsync-daemon-parity artifact /tmp/machinen-move-matrix-72260-1781294069 includes refusal case active-client with generic refusalClasses=[activeTcpConnection], loaderState=refused, targetPid=null. The case is a declared generic no-launch refusal in the descriptor-harness row; no target continuation is claimed and fallback remains explicit outside exact proven shape."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove rsync-daemon generic refusal for config or root drift with pre-launch or no-target-pid refusal evidence.",
+      "evidence": "generic-service-rsync-daemon-parity artifact /tmp/machinen-move-matrix-72260-1781294069 includes root-drift refusal with loaderState=refused, targetPid=null, reasonNeedle=data-dir. The generic loader preflight observed target module root identity drift and refused before target continuation. This satisfies the config/root drift obligation via root-drift evidence; config identity remains recorded as serviceConfigIdentity and explicit fallback is preserved outside the exact row."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove redis-idle generic parity for one exact empty no-persistence loopback Redis shape with target-native generic loader health evidence and explicit no broad Redis/database support claim.",
+      "evidence": "New matrix row generic-service-redis-idle-parity passed with proof-image in 10.241s, retained artifact /tmp/machinen-move-matrix-99770-1781294420. Support evidence: target-native-generic-resource-graph-reexec-loader launched Redis with targetPid=169, target Redis PING/DBSIZE returned PONG and 0, migration.mode=generic-primary only inside the exact descriptor-harness row, sourceProofName=redis-idle, genericProofName=generic-service-redis-idle-parity, and boundary states only empty no-persistence Redis on loopback with no external clients, no AOF/RDB persistence, no modules/unsupported config, target PING/DBSIZE health proof, and target package proof. The proof output preserves fallback: redis-idle remains explicit-fallback unless exact descriptor/live-capture row marks generic-primary. Docs/inventory/coverage now list generic-service-redis-idle-parity; pnpm run generic-resource-graph-coverage passed with matrixProofNames=191, inventoryProofNames=191, missingGenericRows=[], serviceConsolidationErrors=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove redis-idle generic refusal for non-empty dataset with no target pid and no database state migration claim.",
+      "evidence": "generic-service-redis-idle-parity artifact /tmp/machinen-move-matrix-99770-1781294420 includes refusal case nonempty-dataset with generic refusalClasses=[databaseSafety], loaderState=refused, targetPid=null. The fixture writes a Redis key before save, then the descriptor-harness row declares non-empty dataset unsafe before generic launch; no Redis database state migration claim is made."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove redis-idle generic refusal for AOF or RDB persistence enabled with no target pid and no database persistence migration claim.",
+      "evidence": "generic-service-redis-idle-parity artifact /tmp/machinen-move-matrix-99770-1781294420 includes refusal case persistence with generic refusalClasses=[serviceWritablePersistence], loaderState=refused, targetPid=null. The fixture uses Redis appendonly persistence and the generic row fails closed before launch; no AOF/RDB or database persistence migration claim is made."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove redis-idle generic refusal for active client state with no target pid and no generic loader continuation.",
+      "evidence": "generic-service-redis-idle-parity artifact /tmp/machinen-move-matrix-99770-1781294420 includes refusal case active-client with generic refusalClasses=[activeTcpConnection], loaderState=refused, targetPid=null. The case is a declared generic no-launch refusal in the descriptor-harness row; no target continuation is claimed and fallback remains explicit outside exact proven shape."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove redis-idle generic refusal for unsupported modules or config with no target pid and no broad Redis support claim.",
+      "evidence": "generic-service-redis-idle-parity artifact /tmp/machinen-move-matrix-99770-1781294420 includes refusal case unsupported-config with generic refusalClasses=[unsupportedResourceRefusal], loaderState=refused, targetPid=null. The fixture uses unsupported Redis config behavior (requirepass/auth-like side effect) and the generic row refuses before launch; no broad Redis module/config support claim is made."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic-service-php-static-parity is graduated from descriptor-harness-only to live-capture evidence if and only if the live observed graph matches the exact proven static PHP shape; otherwise record an explicit blocker without claiming graduation.",
+      "evidence": "Live-capture PHP was explicitly inspected and is NOT graduated: php-static proof-image row passed in 14.021s at /tmp/machinen-move-matrix-1813-1781294515 with explicit loaderStrategy=target-native-php-static-loader, targetPid=409, genericMigration=null, and target response `php proof 15I`. The live captured generic graph does not match the descriptor-harness generic-primary boundary: genericResourceGraphState has refusalClasses for writableRegularFileCursor fd=1/2 log fds, regularFileDeleted Zend semaphore fd, socket fd, and nontrivial stdio; ports/dataDirs are not the descriptor-harness generic static PHP shape. Therefore the row is proven as an explicit blocker, not a graduation. The descriptor-harness support row remains proven separately: generic-service-php-static-parity passed in 88.955s at /tmp/machinen-move-matrix-2461-1781294539 with target-native-generic-resource-graph-reexec-loader, targetPid=396, response `php proof 15I`, and no target pid for declared/preflight refusals. No live PHP generic-primary support is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove live-capture generic refusal for PHP dynamic script state with no target pid and no broad PHP app migration claim.",
+      "evidence": "unsafe-php-static-refusal passed with proof-image in 60.448s at /tmp/machinen-move-matrix-4597-1781294653. The php-dynamic live save/load artifacts are accepted=false, phpStaticState=null, genericMigration=null, and no loader/targetPid is started; the live generic graph records fail-closed refusalClasses including writableRegularFileCursor, regularFileDeleted, socket, and stdio rather than launching a generic loader. Descriptor-harness generic-service-php-static-parity also records dynamic-runtime refusal with targetPid=null in /tmp/machinen-move-matrix-2461-1781294539. No broad PHP app or dynamic script migration is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove live-capture generic refusal for PHP active client state with no target pid and no generic loader continuation.",
+      "evidence": "unsafe-php-static-refusal artifact /tmp/machinen-move-matrix-4597-1781294653 shows php-active live save/load accepted=false, phpStaticState=null, genericMigration=null, and no loader/targetPid is started; the live generic graph records fail-closed refusalClasses including socket and stdio/writable fd boundaries. Descriptor-harness generic-service-php-static-parity also records active-client refusalClasses=[activeTcpConnection], loaderState=refused, targetPid=null in /tmp/machinen-move-matrix-2461-1781294539. No active PHP request/client continuation is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove live-capture generic refusal for PHP writable root or persistence ambiguity with no target pid and no app-state migration claim.",
+      "evidence": "PHP live capture is refused rather than promoted because the exact live graph contains writable log fds and a deleted Zend semaphore fd: /tmp/machinen-move-matrix-1813-1781294515/php-static.save.json has generic refusalClasses writableRegularFileCursor for fd=1/2, regularFileDeleted for /tmp/.ZendSem.* (deleted), socket, and stdio; genericMigration=null and explicit php loader is used. Descriptor-harness generic-service-php-static-parity also records writable-persistence refusalClasses=[serviceWritablePersistence], loaderState=refused, targetPid=null in /tmp/machinen-move-matrix-2461-1781294539. No PHP writable root, persistence, app-state, or deleted-runtime-file migration is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove explicit PHP fallback still wins unless the live-capture descriptor is explicitly and safely marked generic-primary.",
+      "evidence": "php-static proof-image row passed at /tmp/machinen-move-matrix-1813-1781294515 with accepted=true, loaderStrategy=target-native-php-static-loader, targetPid=409, genericMigration=null, target response `php proof 15I`, and live generic refusalClasses present. The separate generic-service-php-static-parity row /tmp/machinen-move-matrix-2461-1781294539 only selects target-native-generic-resource-graph-reexec-loader after descriptor-harness mutation sets migration.mode=generic-primary and clears refusalClasses. This proves explicit PHP fallback still wins unless the descriptor is explicitly and safely marked generic-primary; no automatic live-capture promotion is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove live-capture generic-primary marker behavior for nginx-static only if nginx support parity and equivalent refusals are proven; otherwise record fallback/blocker status.",
+      "evidence": "Live-capture marker behavior is proven as fallback-gated, not automatic promotion. The explicit live nginx-static artifact /tmp/machinen-move-matrix-46573-1781291408 accepted with loaderStrategy=target-native-nginx-static-loader, genericMigration=null, and a targetPid under the explicit loader, proving unmarked live capture keeps the bespoke/explicit envelope. Equivalent descriptor-harness generic support/refusal parity is recorded separately in /tmp/machinen-move-matrix-72716-1781292805 (generic-service-nginx-static-parity) with migration.mode=generic-primary only after explicit descriptor mutation and with refusalClasses=[] for support plus no-target-pid refusals for unsafe shapes. Therefore generic-primary is selected only if the marker is explicitly present and equivalent support/refusals exist; otherwise fallback/blocker status is retained and no broad service generic-primary claim is made."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove live-capture generic-primary marker behavior for caddy-static only if Caddy support parity and equivalent refusals are proven; otherwise record fallback/blocker status.",
+      "evidence": "Live-capture marker behavior is proven as fallback-gated, not automatic promotion. The explicit live caddy-static artifact /tmp/machinen-move-matrix-78397-1781293033 accepted with loaderStrategy=target-native-caddy-static-loader, genericMigration=null, and a targetPid under the explicit loader, proving unmarked live capture keeps the bespoke/explicit envelope. Equivalent descriptor-harness generic support/refusal parity is recorded separately in /tmp/machinen-move-matrix-80528-1781293168 (generic-service-caddy-static-parity) with migration.mode=generic-primary only after explicit descriptor mutation and with refusalClasses=[] for support plus no-target-pid refusals for unsafe shapes. Therefore generic-primary is selected only if the marker is explicitly present and equivalent support/refusals exist; otherwise fallback/blocker status is retained and no broad service generic-primary claim is made."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove live-capture generic-primary marker behavior for ruby-http only if Ruby HTTP support parity and equivalent refusals are proven; otherwise record fallback/blocker status.",
+      "evidence": "Live-capture marker behavior is proven as fallback-gated, not automatic promotion. The explicit live ruby-http artifact /tmp/machinen-move-matrix-84660-1781293362 accepted with loaderStrategy=target-native-ruby-httpd-loader, genericMigration=null, and a targetPid under the explicit loader, proving unmarked live capture keeps the bespoke/explicit envelope. Equivalent descriptor-harness generic support/refusal parity is recorded separately in /tmp/machinen-move-matrix-17633-1781293513 (generic-service-ruby-http-parity) with migration.mode=generic-primary only after explicit descriptor mutation and with refusalClasses=[] for support plus no-target-pid refusals for unsafe shapes. Therefore generic-primary is selected only if the marker is explicitly present and equivalent support/refusals exist; otherwise fallback/blocker status is retained and no broad service generic-primary claim is made."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove live-capture generic-primary marker behavior for rsync-daemon only if rsync support parity and equivalent refusals are proven; otherwise record fallback/blocker status.",
+      "evidence": "Live-capture marker behavior is proven as fallback-gated, not automatic promotion. The explicit live rsync-daemon artifact /tmp/machinen-move-matrix-60466-1781293674 accepted with loaderStrategy=target-native-rsync-daemon-loader, genericMigration=null, and a targetPid under the explicit loader, proving unmarked live capture keeps the bespoke/explicit envelope. Equivalent descriptor-harness generic support/refusal parity is recorded separately in /tmp/machinen-move-matrix-72260-1781294069 (generic-service-rsync-daemon-parity) with migration.mode=generic-primary only after explicit descriptor mutation and with refusalClasses=[] for support plus no-target-pid refusals for unsafe shapes. Therefore generic-primary is selected only if the marker is explicitly present and equivalent support/refusals exist; otherwise fallback/blocker status is retained and no broad service generic-primary claim is made."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove live-capture generic-primary marker behavior for redis-idle only if Redis idle support parity and equivalent refusals are proven; otherwise record fallback/blocker status.",
+      "evidence": "Live-capture marker behavior is proven as fallback-gated, not automatic promotion. The explicit live redis-idle artifact /tmp/machinen-move-matrix-74894-1781292879 accepted with loaderStrategy=target-native-redis-idle-loader, genericMigration=null, and a targetPid under the explicit loader, proving unmarked live capture keeps the bespoke/explicit envelope. Equivalent descriptor-harness generic support/refusal parity is recorded separately in /tmp/machinen-move-matrix-99770-1781294420 (generic-service-redis-idle-parity) with migration.mode=generic-primary only after explicit descriptor mutation and with refusalClasses=[] for support plus no-target-pid refusals for unsafe shapes. Therefore generic-primary is selected only if the marker is explicitly present and equivalent support/refusals exist; otherwise fallback/blocker status is retained and no broad service generic-primary claim is made."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove serviceConfigIdentity exists as a first-class generic resource class with tests, docs, and coverage inventory alignment.",
+      "evidence": "serviceConfigIdentity is emitted by generic-service-nginx-static-parity as a supported resourceClass with evidence `static nginx config path and config contract are captured by nginxStaticState`; it is listed in docs/snapshot/generic-resource-graph-inventory.json generic resourceClasses and the service consolidation inventory, and docs/snapshot/generic-resource-graph-move.md service graduation checklist ties nginx support to config identity. The targeted matrix row /tmp/machinen-move-matrix-72716-1781292805 and pnpm run generic-resource-graph-coverage prove inventory/docs/matrix alignment. This is first-class descriptor evidence, not a runtime dependency or broad service claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove serviceStaticRoot exists as a first-class generic resource class with tests, docs, and coverage inventory alignment.",
+      "evidence": "serviceStaticRoot is emitted by generic-service-nginx-static-parity as a supported resourceClass with evidence that static root identity is checked by generic dataDir preflight; root drift refusal in /tmp/machinen-move-matrix-72716-1781292805 proves the preflight refuses with targetPid=null on drift. serviceStaticRoot is listed in the generic inventory resourceClasses and service candidate resourceClasses, and docs describe it in the graduation checklist."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove loopbackTcpListener service health probe metadata is reusable across service rows with tests and docs.",
+      "evidence": "generic-service-nginx-static-parity emits loopbackTcpListener and healthProbe resourceClasses, records a loopback 127.0.0.1 port descriptor, runs generic port preflight, and verifies HTTP health after launch. The same existing generic graph support already models loopbackTcpListener; the new nginx row proves the metadata is reusable for a service row with retained artifact /tmp/machinen-move-matrix-72716-1781292805."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove noActiveClients acceptance/refusal evidence is reusable across service rows with tests and docs.",
+      "evidence": "generic-service-nginx-static-parity emits noActiveClients as supported evidence for the accepted shape and separately proves active-client refusal with refusalClasses=[activeTcpConnection], loaderState=refused, targetPid=null in artifact /tmp/machinen-move-matrix-72716-1781292805. The docs/service inventory keep noActiveClients as a service candidate resource class."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove targetPackageIdentity comparison exists for proof-provisioned target-native binaries with tests and docs.",
+      "evidence": "targetPackageIdentity is emitted by generic-service-nginx-static-parity as a supported resourceClass with evidence that proof-provisioned target-native nginx package identity is retained. The generic executableIdentity in the accepted descriptor records /usr/sbin/nginx packageName=nginx, version, and architecture from capture; proof-image validation ensures the target-native binary exists before the row runs. Coverage/inventory/docs include targetPackageIdentity as a generic resource class."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove a generic refusal class exists for writable service data roots with tests and at least one service row using it.",
+      "evidence": "serviceWritablePersistence is used as a generic refusal class in generic-service-rsync-daemon-parity for the write-enabled rsync module case. Artifact /tmp/machinen-move-matrix-72260-1781294069 shows refusalClasses=[serviceWritablePersistence], loaderState=refused, targetPid=null for write-enabled. The class is defined in docs/snapshot/generic-resource-graph-inventory.json and used by a service row; no writable persistence or mutation replay support claim is made."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove a generic refusal class exists for auth hooks or secrets with tests and at least one service row using it.",
+      "evidence": "authHooksOrSecrets is used as a generic refusal class in generic-service-rsync-daemon-parity for the auth/secrets config case. Artifact /tmp/machinen-move-matrix-72260-1781294069 shows refusalClasses=[authHooksOrSecrets], loaderState=refused, targetPid=null for auth-hooks. The class is defined in docs/snapshot/generic-resource-graph-inventory.json and used by a service row; no secret migration, auth hook replay, or access-control support claim is made."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove a generic refusal class exists for reverse proxy or upstream sockets with tests and at least one service row using it.",
+      "evidence": "reverseProxyOrUpstreamSocket is used as a generic refusal class in generic-service-caddy-static-parity for the reverse-proxy config case. Artifact /tmp/machinen-move-matrix-80528-1781293168 shows refusalClasses=[reverseProxyOrUpstreamSocket], loaderState=refused, targetPid=null for reverse-proxy. The class is listed in docs/snapshot/generic-resource-graph-inventory.json generic resourceClasses and used by a service row; no broad proxy/upstream socket support claim is made."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove a generic refusal class exists for dynamic runtime or app code with tests and at least one service row using it.",
+      "evidence": "dynamicRuntimeOrAppCode is used as a generic refusal class in generic-service-nginx-static-parity for the dynamic/FastCGI config case. Artifact /tmp/machinen-move-matrix-72716-1781292805 shows refusalClasses=[dynamicRuntimeOrAppCode], loaderState=refused, targetPid=null for dynamic-config. The class is listed in docs/snapshot/generic-resource-graph-inventory.json generic resourceClasses and used by a service row; no broad runtime/app-code migration claim is made."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove a generic refusal class exists for service-managed child workers with tests or explicit blocker evidence if no safe fixture exists.",
+      "evidence": "Explicit blocker evidence: serviceManagedChildWorkers is defined in docs/snapshot/generic-resource-graph-inventory.json as a refused/blocker resource class. Live nginx capture /tmp/machinen-move-matrix-46573-1781291408/nginx-static.save.json records a service-managed child process shape with nodes for nginx master pid 113 and nginx worker pid 114, while generic service rows are descriptor-harness exact-shape proofs and do not model arbitrary daemon child-worker process-tree reconstruction. Because no safe generic process-tree/worker-pool fixture exists in this wave, the class remains blocker-only; no broad service-managed child worker migration is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove proof-image benchmark coverage includes nginx-static with retained timing artifact and no full matrix run.",
+      "evidence": "Proof-image targeted nginx-static row already passed and is retained at /tmp/machinen-move-matrix-46573-1781291408: `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only nginx-static --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 13.639s with provision-pair 136ms. The new generic nginx parity row also passed with proof-image at /tmp/machinen-move-matrix-72716-1781292805. No full matrix was run."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove proof-image benchmark coverage includes redis-idle with retained timing artifact and no full matrix run.",
+      "evidence": "Proof-image targeted redis-idle row passed: `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only redis-idle --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 3.604s, retained artifact /tmp/machinen-move-matrix-74894-1781292879, provision-pair 154ms, target PING/DBSIZE returned PONG and 0. No full matrix was run."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove proof-image benchmark coverage includes rsync-daemon with retained timing artifact and no full matrix run.",
+      "evidence": "Proof-image targeted rsync-daemon row passed: `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only rsync-daemon --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 13.820s, retained artifact /tmp/machinen-move-matrix-75478-1781292891, provision-pair 147ms, target read contained `rsync proof 15J`. No full matrix was run."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove coverage fails closed if any service claims generic-primary without both support evidence and equivalent refusal evidence.",
+      "evidence": "Added serviceGenericPrimaryClaimErrors to scripts/generic-resource-graph-coverage.mjs. Validation against a synthetic bad inventory with nginx-static migrationMode=generic-primary but no genericPrimarySupportProofName/equivalentGenericRefusalProofNames failed with rc=1 and errors `generic-primary service nginx-static missing known support proof` and `generic-primary service nginx-static missing equivalent refusal proofs` in /tmp/generic-service-primary-bad.out. Normal `pnpm run generic-resource-graph-coverage` passes, proving current fallback rows are valid while false generic-primary claims fail closed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove docs include a service graduation checklist table with candidate, support row, refusal rows, fallback status, and generic-primary status, and that it preserves all non-claims.",
+      "evidence": "docs/snapshot/generic-resource-graph-move.md now includes a Service graduation checklist table with candidate, support row, refusal rows required before generic-primary, fallback status, and generic-primary status for nginx, Caddy, Ruby HTTP, PHP, rsync, and Redis. The table marks nginx and PHP as descriptor-harness parity/live-capture gated, all others as explicit fallback/not promoted, and the adjacent service claim language still forbids broad daemon support, arbitrary process migration, any HTTP server support, any Redis/database state support, generic-primary service support without equivalent rows, active clients, writable persistence, unsupported modules, and runtime-specific state."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "bash -n scripts/smoke/move-envelope-matrix.sh",
+      "proves": "The edited matrix script remains syntactically valid."
+    },
+    {
+      "check": "node --check scripts/generic-resource-graph-coverage.mjs scripts/move-envelope-speed-benchmark.mjs scripts/build-move-proof-image.mjs scripts/validation-profile.mjs",
+      "proves": "Changed JavaScript validation, coverage, and benchmark scripts parse successfully."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts",
+      "proves": "Focused generic graph, rendezvous, resource plan, and runtime state unit tests pass."
+    },
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --only <new-service-support-and-refusal-rows> --timings --image <proof-image>",
+      "proves": "New service support/refusal rows pass as targeted matrix proofs without running the full matrix."
+    },
+    {
+      "check": "node scripts/move-envelope-matrix-coverage.mjs --plan <service-plan.json> --coverage-dir <retained-artifacts> --json",
+      "proves": "Retained targeted matrix artifacts cover expected service rows without rerunning the full matrix."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-coverage",
+      "proves": "Generic resource graph coverage, migration mappings, service claims, and inventory rows are consistent and fail closed on forbidden generic-primary service claims."
+    },
+    {
+      "check": "pnpm run check-smoke-manifest",
+      "proves": "Smoke manifest and generic coverage integration remain consistent."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Documentation and generated API docs remain valid after docs/API changes."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Repository formatting remains valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and changed-file health checks pass."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript and build-time validation pass."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and code-health audit passes for changed code/scripts."
+    }
+  ],
+  "stopIf": [
+    "Any row would require claiming arbitrary process restore, any-binary movement, broad daemon support, broad database/service migration, source-ISA emulation, interactive terminal migration, or metadata-only success.",
+    "A proposed generic-primary service promotion lacks both support evidence and equivalent refusal evidence.",
+    "A service shape cannot be proven without modifying product base assets, packages/native-* release assets, runtime default image selection, or runtime user dependencies.",
+    "A proof-only tool cannot be provisioned through proof image/test fixture paths and would become a product runtime dependency.",
+    "The live observed graph for a descriptor-harness graduation does not match the exact proven descriptor shape; record a blocker instead of claiming graduation.",
+    "Required validation cannot run because local VM, Docker, package mirror, or proof-image infrastructure is unavailable and no safe targeted fallback exists.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-12T21:35:00Z",
+      "summary": "Inspected service envelopes and generic graph infrastructure before implementation. Existing matrix has explicit service support/refusal rows for nginx-static, caddy-static, ruby-http, rsync-daemon, redis-idle, and php-static. The existing generic-service-php-static-parity row is descriptor-harness-based: it mutates a php-static bundle to generic-primary and proves generic loader support plus pre-launch/no-target-pid refusals. Runtime MoveGenericResourceGraphState resource/refusal classes are string-based, so first-class service resource classes can be introduced by emitting and validating stable resourceClass names plus docs/coverage. Existing coverage validates service candidates and forbidden service status language, but does not yet enforce per-service generic-primary support/refusal parity. Docs still describe service candidates as explicit-envelope fallback until equivalent rows exist.",
+      "filesInspected": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/runtime/src/move-pid-graph.ts",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/cli/src/__tests__/move-rendezvous.test.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts"
+      ],
+      "next": "Add reusable generic service descriptor mutation helpers and a targeted nginx generic service parity/refusal matrix row before broadening to other services."
+    },
+    {
+      "timestamp": "2026-06-12T21:50:00Z",
+      "summary": "Implemented and proved the first service generic parity/refusal row: generic-service-nginx-static-parity. The row proves exact descriptor-harness generic nginx static support plus active-client, dynamic/FastCGI config, target-root-drift, and port-conflict refusals with targetPid=null. Added inventory/docs/coverage wiring, first-class service resource class evidence for serviceConfigIdentity/serviceStaticRoot/loopbackTcpListener/noActiveClients/targetPackageIdentity, dynamicRuntimeOrAppCode refusal use, a service graduation checklist table, and a coverage guard that fails false generic-primary service claims. Also ran proof-image targeted rows for redis-idle and rsync-daemon benchmark coverage. The goal remains IN_PROGRESS because caddy/ruby/rsync/redis generic parity/refusal rows, PHP live-capture graduation rows, remaining generic refusal classes, and final validation are still pending.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-72716-1781292805",
+        "/tmp/machinen-move-matrix-74894-1781292879",
+        "/tmp/machinen-move-matrix-75478-1781292891",
+        "/tmp/generic-service-primary-bad.out"
+      ],
+      "commands": [
+        "pnpm run generic-resource-graph-coverage \u2014 passed after adding generic-service-nginx-static-parity; matrixProofNames=187, inventoryProofNames=187, missingGenericRows=[], serviceConsolidationErrors=[]",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-service-nginx-static-parity --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 62.726s, artifact /tmp/machinen-move-matrix-72716-1781292805",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only redis-idle --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 3.604s, artifact /tmp/machinen-move-matrix-74894-1781292879",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only rsync-daemon --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 13.820s, artifact /tmp/machinen-move-matrix-75478-1781292891",
+        "GENERIC_RESOURCE_GRAPH_INVENTORY=/tmp/generic-service-primary-bad-inventory.json node scripts/generic-resource-graph-coverage.mjs \u2014 failed as expected with rc=1 and generic-primary service support/refusal proof errors"
+      ],
+      "nonClaims": [
+        "no broad nginx support",
+        "no broad daemon support",
+        "no arbitrary process restore",
+        "no any-binary movement",
+        "no source-ISA emulation",
+        "no broad generic service migration"
+      ]
+    },
+    {
+      "timestamp": "2026-06-12T22:00:00Z",
+      "summary": "Implemented and proved generic-service-caddy-static-parity. The row proves exact descriptor-harness generic Caddy file-server support plus reverse-proxy, active-client, target-root-drift, and missing-package refusals with targetPid=null. Added inventory/docs/coverage wiring. The goal remains IN_PROGRESS because Ruby/rsync/Redis generic parity/refusal rows, PHP live-capture graduation rows, remaining refusal classes, generic-primary marker blockers, and final validation are still pending.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-80528-1781293168",
+        "/tmp/machinen-move-matrix-78397-1781293033"
+      ],
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only caddy-static --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 3.623s, artifact /tmp/machinen-move-matrix-78397-1781293033",
+        "pnpm run generic-resource-graph-coverage \u2014 passed after adding generic-service-caddy-static-parity; matrixProofNames=188, inventoryProofNames=188, missingGenericRows=[], serviceConsolidationErrors=[]",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-service-caddy-static-parity --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 12.241s, artifact /tmp/machinen-move-matrix-80528-1781293168"
+      ],
+      "nonClaims": [
+        "no broad Caddy support",
+        "no reverse proxy support",
+        "no broad daemon support",
+        "no arbitrary process restore",
+        "no any-binary movement",
+        "no source-ISA emulation",
+        "no broad generic service migration"
+      ]
+    },
+    {
+      "timestamp": "2026-06-12T22:10:00Z",
+      "summary": "Implemented and proved generic-service-ruby-http-parity. The row proves exact descriptor-harness generic Ruby `-run -e httpd` static-root support plus custom Ruby socket/app, active-client, target-root-drift, and runtime-specific Ruby state refusals with targetPid=null. Added inventory/docs/coverage wiring. The goal remains IN_PROGRESS because rsync/Redis generic parity/refusal rows, PHP live-capture graduation rows, remaining refusal classes, generic-primary marker blockers, and final validation are still pending.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-17633-1781293513",
+        "/tmp/machinen-move-matrix-84660-1781293362"
+      ],
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only ruby-http --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 13.984s, artifact /tmp/machinen-move-matrix-84660-1781293362",
+        "pnpm run generic-resource-graph-coverage \u2014 passed after adding generic-service-ruby-http-parity; matrixProofNames=189, inventoryProofNames=189, missingGenericRows=[], serviceConsolidationErrors=[]",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-service-ruby-http-parity --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 75.007s, artifact /tmp/machinen-move-matrix-17633-1781293513"
+      ],
+      "nonClaims": [
+        "no broad Ruby support",
+        "no Ruby app/runtime migration",
+        "no broad daemon support",
+        "no arbitrary process restore",
+        "no any-binary movement",
+        "no source-ISA emulation",
+        "no broad generic service migration"
+      ]
+    },
+    {
+      "timestamp": "2026-06-12T22:25:00Z",
+      "summary": "Implemented and proved generic-service-rsync-daemon-parity. The row proves exact descriptor-harness generic rsync daemon support for one read-only/no-auth module plus write-enabled, auth/secrets, active-client, and root-drift refusals with targetPid=null. Added inventory/docs/coverage wiring and definitions/evidence for serviceWritablePersistence and authHooksOrSecrets refusal classes. The goal remains IN_PROGRESS because Redis generic parity/refusal rows, PHP live-capture graduation rows, service-managed-child-worker evidence/blocker, generic-primary marker blocker/proof rows, and final validation are still pending.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-72260-1781294069",
+        "/tmp/machinen-move-matrix-60466-1781293674"
+      ],
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only rsync-daemon --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 17.363s, artifact /tmp/machinen-move-matrix-60466-1781293674",
+        "pnpm run generic-resource-graph-coverage \u2014 passed after adding generic-service-rsync-daemon-parity; matrixProofNames=190, inventoryProofNames=190, missingGenericRows=[], serviceConsolidationErrors=[]",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-service-rsync-daemon-parity --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 69.244s, artifact /tmp/machinen-move-matrix-72260-1781294069"
+      ],
+      "nonClaims": [
+        "no broad rsync support",
+        "no writable rsync module support",
+        "no auth/secrets/hook migration",
+        "no broad daemon support",
+        "no arbitrary process restore",
+        "no any-binary movement",
+        "no source-ISA emulation",
+        "no broad generic service migration"
+      ]
+    },
+    {
+      "timestamp": "2026-06-12T22:35:00Z",
+      "summary": "Implemented and proved generic-service-redis-idle-parity. The row proves exact descriptor-harness generic Redis idle support for one empty/no-persistence loopback shape plus nonempty dataset, persistence, active-client, and unsupported-config refusals with targetPid=null. Added inventory/docs/coverage wiring. The goal remains IN_PROGRESS because PHP live-capture graduation rows, live-capture generic-primary marker behavior rows, service-managed-child-worker evidence/blocker, and final validation are still pending.",
+      "artifacts": ["/tmp/machinen-move-matrix-99770-1781294420"],
+      "commands": [
+        "pnpm run generic-resource-graph-coverage \u2014 passed after adding generic-service-redis-idle-parity; matrixProofNames=191, inventoryProofNames=191, missingGenericRows=[], serviceConsolidationErrors=[]",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-service-redis-idle-parity --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 10.241s, artifact /tmp/machinen-move-matrix-99770-1781294420"
+      ],
+      "nonClaims": [
+        "no broad Redis support",
+        "no Redis/database state migration",
+        "no AOF/RDB persistence migration",
+        "no Redis module/config support",
+        "no broad daemon support",
+        "no arbitrary process restore",
+        "no any-binary movement",
+        "no source-ISA emulation",
+        "no broad generic service migration"
+      ]
+    },
+    {
+      "timestamp": "2026-06-12T22:45:00Z",
+      "summary": "Completed remaining proof obligations as bounded evidence/blockers. PHP live-capture was inspected and explicitly NOT graduated because the observed graph contains writable log fds, deleted Zend semaphore fd, socket, and nontrivial stdio refusals; descriptor-harness PHP generic parity remains valid, and explicit PHP fallback wins unless a descriptor is explicitly marked generic-primary. The unsafe PHP row proves dynamic, active-client, and writable/persistence ambiguity refusals with no target pid. Live-capture generic-primary marker behavior for nginx, Caddy, Ruby HTTP, rsync, and Redis is proven as fallback-gated: unmarked live rows keep explicit loaders with genericMigration=null, while descriptor-harness generic-primary rows select the generic loader only after explicit marker plus equivalent support/refusal evidence. serviceManagedChildWorkers is recorded as a blocker class using live nginx master/worker evidence. All 50 checklist rows now have evidence; status set COMPLETE pending validation results recorded separately.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-1813-1781294515",
+        "/tmp/machinen-move-matrix-2461-1781294539",
+        "/tmp/machinen-move-matrix-4597-1781294653",
+        "/tmp/machinen-move-matrix-46573-1781291408",
+        "/tmp/machinen-move-matrix-78397-1781293033",
+        "/tmp/machinen-move-matrix-84660-1781293362",
+        "/tmp/machinen-move-matrix-60466-1781293674",
+        "/tmp/machinen-move-matrix-74894-1781292879",
+        "/tmp/machinen-move-matrix-99770-1781294420"
+      ],
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only php-static --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 14.021s, artifact /tmp/machinen-move-matrix-1813-1781294515",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-service-php-static-parity --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 88.955s, artifact /tmp/machinen-move-matrix-2461-1781294539",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only unsafe-php-static-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 60.448s, artifact /tmp/machinen-move-matrix-4597-1781294653"
+      ],
+      "nonClaims": [
+        "no PHP live-capture generic graduation",
+        "no broad PHP app migration",
+        "no broad service generic-primary automatic promotion",
+        "no service-managed child worker migration",
+        "no broad daemon support",
+        "no arbitrary process restore",
+        "no any-binary movement",
+        "no source-ISA emulation",
+        "no broad generic service migration"
+      ]
+    },
+    {
+      "timestamp": "2026-06-12T23:00:00Z",
+      "summary": "Final validation for service-generic-parity-next-50 completed after refactoring health guard findings in scripts/build-move-proof-image.mjs and scripts/generic-resource-graph-coverage.mjs. Initial lint/fallow failed on complexity; refactors reduced parseArgs/parseArg and serviceGenericPrimaryClaimErrors complexity and removed the new coverage duplication finding. Reruns passed. Full smoke matrix was not run because this wave touched move envelope proof rows, docs, coverage, and proof-image validation scaffolding; targeted matrix rows with retained artifacts cover the changed service shapes and full all-proofs matrix remains manual/nightly/release scope.",
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh \u2014 passed, 0.032s",
+        "node --check scripts/generic-resource-graph-coverage.mjs \u2014 passed, 0.051s initially and 0.041s after refactor",
+        "node --check scripts/build-move-proof-image.mjs \u2014 passed, 0.040s after refactor",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.225s initially and 0.191s after refactor; matrixProofNames=191, inventoryProofNames=191, missingGenericRows=[], serviceConsolidationErrors=[]",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.221s",
+        "pnpm run build:docs \u2014 passed, 2.333s",
+        "pnpm run format:check \u2014 passed, 1.872s initially and 2.051s after refactor",
+        "pnpm run lint \u2014 failed initially in 1.931s due fallow-health-guard complexity findings; passed after refactor in 0.671s",
+        "pnpm run typecheck \u2014 passed, 3.441s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts \u2014 passed, 1.242s, 4 files / 114 tests",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 failed initially in 0.635s due complexity/duplication regressions; passed after refactor in 0.527s with only warning-level pre-existing duplication groups"
+      ],
+      "nonClaims": [
+        "full all-proofs matrix not run",
+        "full VM smoke suite not run",
+        "no broad service migration",
+        "no arbitrary process restore",
+        "no any-binary movement"
+      ]
+    }
+  ],
+  "nextAction": "Goal complete. All 50 proofChecklist rows are proven with evidence and targeted/static validation passed. Preserve exact-shape boundaries and blocker language in follow-up work.",
+  "status": "COMPLETE"
+}

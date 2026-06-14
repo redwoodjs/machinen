@@ -505,6 +505,11 @@ export {
 } from "./native-real-utility-code-map.ts";
 export { planNativeRealUtilityContinuationAttempt } from "./native-real-utility-continuation.ts";
 export { planNativeActualRealUtilityContinuationAttempt } from "./native-actual-real-utility-continuation.ts";
+export {
+  classifySameArchStoppedContinuationCapture,
+  materializeSameArchStoppedContinuationTarget,
+  sameArchStoppedContinuationNonClaims,
+} from "./same-arch-stopped-continuation.ts";
 export { inventoryNativeActualTargetModules } from "./native-actual-target-module-inventory.ts";
 export {
   matchNativeTargetUnwindFrame,
@@ -591,6 +596,24 @@ export type {
   NativeActualRealUtilityContinuationPlan,
   NativeActualRealUtilityContinuationRequest,
 } from "./native-actual-real-utility-continuation.ts";
+export type {
+  SameArchStoppedActiveSyscallState,
+  SameArchStoppedContinuationCapture,
+  SameArchStoppedContinuationClassification,
+  SameArchStoppedContinuationRequest,
+  SameArchStoppedContinuationResumeRequest,
+  SameArchStoppedContinuationResumeResult,
+  SameArchStoppedContinuationState,
+  SameArchStoppedFd,
+  SameArchStoppedFdKind,
+  SameArchStoppedMapping,
+  SameArchStoppedMappingKind,
+  SameArchStoppedSessionState,
+  SameArchStoppedSignalState,
+  SameArchStoppedSocketState,
+  SameArchStoppedStopState,
+  SameArchStoppedTimerState,
+} from "./same-arch-stopped-continuation.ts";
 export type {
   NativeActualTargetModuleInventoryRequest,
   NativeActualTargetModuleInventoryResult,

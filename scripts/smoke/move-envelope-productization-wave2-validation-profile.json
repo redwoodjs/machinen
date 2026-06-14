@@ -1,6 +1,6 @@
 {
   "name": "generic-resource-graph-productization-wave2-validation",
-  "scope": "productized rows for phase 1 plus exactly five wave-2 exact-live markers; this profile lists the wave-2 proof rows that must have retained artifacts before routing remains promoted",
+  "scope": "retained proof rows for phase 1 plus exactly five wave-2 exact-live markers; these rows are resource-reconstruction or reexec evidence and do not route as product move continuation",
   "productizedProofRows": [
     "unix-pathname-listener-live-generic-primary-marker",
     "generic-unix-pathname-listener",
@@ -121,6 +121,11 @@
     "No metadata-only success",
     "No runtime-profile shortcut",
     "No proof-image runtime dependency",
-    "No product support beyond phase 1 plus the five wave-2 exact-live markers"
-  ]
+    "No product move continuation support from phase 1 or the five wave-2 exact-live markers; retained as reconstruction/reexec evidence only"
+  ],
+  "continuationBoundary": {
+    "productMoveContinuationRouting": "none",
+    "currentLabel": "retained proof/refusal evidence outside product move continuation",
+    "reason": "Rows in this profile are resource-reconstruction or target-native reexec evidence, not modeled live-state continuation."
+  }
 }

@@ -1,0 +1,185 @@
+{
+  "title": "Generic resource graph wave 2 umbrella",
+  "goal": "Maintain and prove an umbrella completion contract for generic resource graph wave 2, coordinating ordered phase families without weakening fail-closed semantics: wave 2 refusal/evidence baseline, append/writable file frontier, pipes/stdio graduation, generic-primary migration, stateful/read-only service envelopes, and runtime/app-specific envelopes. The umbrella is complete only when each family has a durable child-goal or retained proof evidence showing supported shapes, refused shapes, docs/coverage, local and remote validation where required, and explicit non-claims. It must not claim arbitrary process restore, any-binary movement, source-ISA emulation, runtime-profile restore, or support for unmodeled resources.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove the wave 2 fail-closed baseline child goal is complete or otherwise has retained evidence that writable fds, Unix socket subtypes, anon inodes, locks, mmap, inotify, and fanotify are classified and refused with exact evidence before target launch.",
+      "evidence": "Child goal .pi/goals/generic-stateful-io-wave2-baseline.json is COMPLETE with 12/12 proven rows. It proves distinct append/non-append writable-fd refusal, Unix socket subtype refusal, anon-inode/eventfd/epoll/timerfd/inotify classification/refusal, runtime file-lock evidence attempts with harness limitation, mmap/inotify/fanotify refusal, no accidental support graduation, local retained matrix /tmp/machinen-move-matrix-272-1781259834, remote amd64 retained artifacts /tmp/remote-wave2-baseline-matrix-1781260223 and /tmp/machinen-move-matrix-84591-1781260223, docs/coverage, focused tests, and final validation."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the append/writable file frontier is represented by ordered child goals: first exact refusal for writable and append candidates, then append-only log continuation only after an exact contract and retained support/refusal matrix evidence exist.",
+      "evidence": "Append/writable frontier is represented by ordered child-goal evidence. First, .pi/goals/generic-stateful-io-wave2-baseline.json is COMPLETE and proves exact refusal for non-append writable fds and unsafe append candidates. Second, .pi/goals/generic-append-log-fd-continuation.json is COMPLETE with 12/12 proven rows. It graduates only exact EOF-only O_APPEND regular-file fd continuation, with descriptor access=append-only/cursor.policy=append-only-end, size+sha256 target preflight, O_WRONLY|O_APPEND|O_NOFOLLOW target loader reconstruction, visible target append progress, retained local support/refusal artifact /tmp/machinen-move-matrix-9550-1781262594, docs/inventory/coverage updates, focused tests, representative remote attempt classified narrowly as aarch64/x64-gvproxy environment blocker at /tmp/remote-append-log-matrix-1781263428, and final validation. Unsafe writable/append variants remain refused."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove pipes/stdio graduation is represented by completed or active child-goal evidence that models stdio separately, supports finite pipe replay and one-producer/one-consumer graphs, and refuses hidden shell, PTY, fanout/fanin, partial-write, and nontrivial inherited-stdio cases.",
+      "evidence": "Child goal .pi/goals/generic-pipes-stdio-graduation.json is COMPLETE with 11/11 proven rows. It proves stdioGraph/pipeGraph descriptor fields, stdio policy separate from pipes, finite pipe replay, long-running one-producer/one-consumer pipe pair, hidden shell-state refusal, PTY/nontrivial-stdio/fan-in/missing-peer/partial-unknown refusal, target-native pipe loader preflight/cleanup, local retained matrix /tmp/machinen-move-matrix-10330-1781216492, docs/coverage, non-regression tests, and final validation."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the generic-primary migration wave is represented by inventory and child-goal evidence showing selected bespoke envelopes move only to generic-equivalent or generic-primary with equivalent target evidence, equivalent refusal evidence, and preserved bespoke fallback priority where required.",
+      "evidence": "Child goal .pi/goals/generic-resource-graph-migration-wave1.json is COMPLETE with 8/8 proven rows. It explicitly scopes python-http, python-http-directory, nc-listener, reader-cat, grep, and tail; records python-http/python-http-directory/nc-listener/reader-cat/grep as generic-equivalent-with-bespoke-fallback and tail as bespoke-fallback-only; proves descriptor equivalence, bespoke fallback priority, generic and bespoke target evidence, refusal rows, migration coverage tooling including negative drift proof, docs/PR wording, and final validation. Retained artifacts include generic support /tmp/machinen-move-matrix-34720-1781246776, bespoke support /tmp/machinen-move-matrix-60655-1781246846, nc-listener /tmp/machinen-move-matrix-20499-1781246632, generic refusals /tmp/machinen-move-matrix-33704-1781247064, bespoke refusals /tmp/machinen-move-matrix-62760-1781247158, and final representative /tmp/machinen-move-matrix-85574-1781247693."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove stateful/read-only service envelopes are represented by support/refusal rows for static servers, read-only daemons, and empty-state services with no active clients, stable config/data identity, and target-native health probes.",
+      "evidence": "Stateful/read-only service envelope coverage is represented by completed generic and bespoke goals plus inventory rows. .pi/goals/generic-resource-graph-move.json is COMPLETE and proves generic-static-http-daemon, generic-interpreted-server, generic-file-backed-worker, generic-readonly-file-cli, generic-writable-log-daemon, and generic-data-dir-daemon with exact resource graphs, target-native health/progress evidence, and fail-closed unsupported-resource/preflight rows. .pi/goals/next-fifty-move-envelopes.json is COMPLETE and covers static/read-only/empty-state service envelopes including python-http-directory, busybox-nc-listener, socat-file-responder, redis-idle, nginx-static, caddy-static, ruby-http, php-static, and rsync-daemon with paired unsafe/refusal rows. docs/snapshot/generic-resource-graph-inventory.json maps these under loopbackTcpListener/noActiveClients/healthProbe/serviceConfig/dataDir/read-only resource classes."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove runtime/app-specific envelopes remain narrow and labeled, with Node/Python/Go/Rust support only for explicitly modeled shapes and exact refusal evidence for workers, addons, timers, active requests, hidden runtime state, and other unmodeled resources.",
+      "evidence": "Runtime/app-specific envelope coverage is represented by completed next-fifty and inventory evidence. .pi/goals/next-fifty-move-envelopes.json is COMPLETE and includes narrow runtime/app-specific proof rows for go-static-http/go-extra-socket-refusal, rust-static-http, python-static-route/python-unmarked-flask-refusal, node-static-http, node-static-argv-http, node-active-refusal, node-timer-refusal, node-worker-refusal, and native-dlopen-refusal. docs/snapshot/generic-resource-graph-inventory.json groups these as static app servers and runtime-specific refusals with runtimeSpecificRefusal, noActiveClients, healthProbe, and unsupportedResourceRefusal classes, preserving narrow marked support rather than broad runtime restore."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the umbrella inventory maps each phase family to concrete goal files, docs, matrix rows, coverage checks, local artifact paths, remote artifact paths where applicable, and remaining frontier/non-goal statements.",
+      "evidence": "Umbrella inventory maps each phase family to concrete evidence. Wave2 baseline: .pi/goals/generic-stateful-io-wave2-baseline.json, docs/snapshot/generic-resource-graph-frontier.md, local /tmp/machinen-move-matrix-272-1781259834, remote /tmp/remote-wave2-baseline-matrix-1781260223 and /tmp/machinen-move-matrix-84591-1781260223. Append/writable frontier: .pi/goals/generic-append-log-fd-continuation.json, docs/inventory/frontier/move docs, local /tmp/machinen-move-matrix-9550-1781262594, remote blocker /tmp/remote-append-log-matrix-1781263428. Pipes/stdio: .pi/goals/generic-pipes-stdio-graduation.json and /tmp/machinen-move-matrix-10330-1781216492. Generic-primary migration: .pi/goals/generic-resource-graph-migration-wave1.json, .pi/goals/generic-migration-wave1-remote-pipes.json, and retained migration artifacts cited in row 4. Stateful/read-only services: .pi/goals/generic-resource-graph-move.json plus .pi/goals/next-fifty-move-envelopes.json and inventory families. Runtime/app-specific envelopes: .pi/goals/next-fifty-move-envelopes.json and inventory runtime-specific refusal families. Remaining frontier/non-goals are documented in docs/snapshot/generic-resource-graph-frontier.md."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove docs and user-facing status language describe the ordered wave 2 roadmap, supported classes, refusal-only baselines, migration boundaries, and non-claims without implying arbitrary process or any-binary support.",
+      "evidence": "Docs and user-facing status language describe the ordered wave 2 roadmap without broad claims. docs/snapshot/README.md says generic movement is resource-driven, not arbitrary process or any-binary movement, and now describes read-only fd cursors plus exact EOF-only append-log fd continuation. docs/snapshot/generic-resource-graph-move.md lists proven generic support/refusal rows, supported resource classes, and refused/deferred classes including unsafe append variants, non-append writable fds, Unix sockets, anon inodes, locks, mmap, inotify/fanotify, runtime state, and source-ISA continuation. docs/snapshot/generic-resource-graph-frontier.md documents ordered frontiers and graduation rules. docs/snapshot/generic-resource-graph-migration-wave1.md preserves migration boundaries and bespoke fallback. packages/runtime/API.md exposes the new append-only access literal."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove coverage tooling and smoke manifest checks include every umbrella-required generic row or fail on drift between matrix, inventory, docs, and migration mappings.",
+      "evidence": "Coverage tooling and smoke manifest checks include umbrella-required generic rows and fail on drift. scripts/generic-resource-graph-coverage.mjs validates matrix proof names against docs/snapshot/generic-resource-graph-inventory.json and required generic rows, including append rows generic-append-log-cursor, generic-append-log-preflight-refusals, generic-append-log-unsupported-flags-refusal, and generic-append-log-fanotify-refusal. pnpm run generic-resource-graph-coverage passed in 0.258s with missing=[], extra=[], duplicates=[], missingGenericRows=[]. pnpm run check-smoke-manifest passed in 0.701s and reported smoke manifest ok: 70 entries; generic resource graph coverage ok."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove representative remote amd64 attempts exist for each graduated support class and each major refusal baseline, or record narrow retained blocker classifications without claiming remote success.",
+      "evidence": "Representative remote evidence exists for prior graduated support/refusal classes through completed child goals, and append remote was attempted with retained blocker classification. Existing remote artifacts include wave2 baseline /tmp/remote-wave2-baseline-matrix-1781260223 and /tmp/machinen-move-matrix-84591-1781260223, file cursor /tmp/remote-file-cursor-matrix-1781256388 and /tmp/machinen-move-matrix-53027-1781256388, and migration/generic artifacts cited by completed child goals. Append rows were synced and attempted at /tmp/remote-append-log-matrix-1781263428 using x64 MACHINEN_VMM/MACHINEN_GVPROXY paths, but the available remote host reports uname -m=aarch64 and x86_64 gvproxy cannot run there; this is a retained narrow environment blocker, not a claimed remote success. Cleanup evidence records vms=[] and no machinen-vm/gvproxy/mgv command-name processes or socket leftovers."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove final repository validation for the umbrella passes with format, lint, docs build when public API/docs changed, typecheck, focused tests, generic coverage/check-smoke-manifest, and fallow audit.",
+      "evidence": "Final repository validation for umbrella-relevant changes passed: pnpm run build:docs passed in 2.562s; pnpm run format:check passed in 2.323s; pnpm run lint passed in 1.578s; pnpm run typecheck passed in 4.291s; focused Vitest command passed 99 tests in 2.419s; targeted append local matrix passed in 127.832s; pnpm run generic-resource-graph-coverage passed in 0.258s; pnpm run check-smoke-manifest passed in 0.701s; pnpm exec fallow audit --changed-since origin/main completed in 1.463s with only a warning-level duplication report and no command failure."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "Read all referenced child goal JSON files and confirm every cited child goal row is COMPLETE with non-empty evidence, or that pending child goals are explicitly tracked as remaining work rather than claimed support.",
+      "proves": "Umbrella status is grounded in durable child-goal evidence rather than stale notes or unsupported claims."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-coverage && pnpm run check-smoke-manifest",
+      "proves": "Generic matrix rows, inventory, and smoke manifest remain synchronized and fail on drift."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts",
+      "proves": "Focused generic capture, classifier, loader/rendezvous gates, resource-plan mapping, and bespoke-priority behavior pass."
+    },
+    {
+      "check": "Run or cite retained local matrix artifacts for every umbrella-required support/refusal row, including wave 2 baseline, append/writable frontier, pipes/stdio, migration wave, service envelopes, and runtime/app-specific envelopes.",
+      "proves": "Each phase family has end-to-end local proof evidence or an explicit remaining-work classification."
+    },
+    {
+      "check": "Run or cite retained remote amd64 artifacts for representative graduated support and refusal rows for each phase family that requires cross-architecture proof.",
+      "proves": "Cross-architecture target-native behavior is proven where claimed and not inferred from local-only evidence."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Formatting is valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and health guards pass for changed files."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Generated API/docs are current when public API or docs changed."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript types are valid."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture audit passes for changed code."
+    }
+  ],
+  "stopIf": [
+    "The umbrella would need to claim arbitrary process, VM, ELF, runtime-level, metadata-only, sidecar replay, app-exported-state, checkpoint-hook, source-ISA-emulation, any-binary, or broad runtime/process restore support.",
+    "A phase family lacks a child goal, retained artifact, or explicit remaining-work classification but would still be described as complete or supported.",
+    "A resource shape cannot be reconstructed or refused target-natively with exact captured evidence before target loader launch.",
+    "Bespoke/app-specific envelope priority would be weakened during the migration period without an explicit proven migration contract.",
+    "Remote amd64 proof is required for a support claim but is missing or failed for an infrastructure reason that cannot be narrowly classified with retained artifacts.",
+    "Coverage, docs, inventory, matrix rows, or migration mappings drift and cannot be reconciled in the same goal run.",
+    "Validation commands required by the contract cannot be run or cannot pass after a reasonable fix attempt.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Inventoried completed child goals and generic inventory/docs against the umbrella phase families. Existing completed child goals cover the wave 2 fail-closed baseline, pipes/stdio graduation, generic migration wave 1, stateful/read-only service envelopes, and narrow runtime/app-specific envelopes. The remaining umbrella gap is the append/writable frontier beyond exact refusal: append-only candidates are refused by the completed wave 2 baseline, but there is no completed child goal yet for append-only log continuation support. A dedicated append-only log continuation child goal should be created or completed before the umbrella can claim that phase family complete. Umbrella inventory/docs and final umbrella validation remain pending.",
+      "phaseMap": {
+        "wave2FailClosedBaseline": ".pi/goals/generic-stateful-io-wave2-baseline.json COMPLETE 12/12",
+        "appendWritableFrontier": "refusal covered by .pi/goals/generic-stateful-io-wave2-baseline.json; append-only support child goal missing",
+        "pipesStdioGraduation": ".pi/goals/generic-pipes-stdio-graduation.json COMPLETE 11/11",
+        "genericPrimaryMigrationWave": ".pi/goals/generic-resource-graph-migration-wave1.json COMPLETE 8/8 plus .pi/goals/generic-migration-wave1-remote-pipes.json COMPLETE 9/9",
+        "statefulReadOnlyServices": ".pi/goals/generic-resource-graph-move.json COMPLETE 18/18 and .pi/goals/next-fifty-move-envelopes.json COMPLETE 55/55",
+        "runtimeAppSpecificEnvelopes": ".pi/goals/next-fifty-move-envelopes.json COMPLETE 55/55 plus inventory family static app servers and runtime-specific refusals"
+      },
+      "files": [
+        ".pi/goals/generic-stateful-io-wave2-baseline.json",
+        ".pi/goals/generic-pipes-stdio-graduation.json",
+        ".pi/goals/generic-resource-graph-migration-wave1.json",
+        ".pi/goals/generic-resource-graph-move.json",
+        ".pi/goals/next-fifty-move-envelopes.json",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "docs/snapshot/generic-resource-graph-migration-wave1.md"
+      ]
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Created the missing append/writable frontier child-goal contract at .pi/goals/generic-append-log-fd-continuation.json. The ordered frontier is now explicitly represented: exact refusal for writable and append-only candidates is already proven by .pi/goals/generic-stateful-io-wave2-baseline.json, while append-only log continuation support remains pending in the new child goal until it has an exact descriptor/classifier/loader contract, local support/refusal matrix evidence, representative remote amd64 evidence, docs/coverage, focused tests, and final validation. The umbrella append/writable proof row remains pending because append-only support has not yet been proven and no support claim is made.",
+      "childGoal": ".pi/goals/generic-append-log-fd-continuation.json",
+      "childGoalStatus": "IN_PROGRESS",
+      "frontierState": {
+        "writableAndAppendCandidateRefusal": "proven by .pi/goals/generic-stateful-io-wave2-baseline.json",
+        "appendOnlyLogContinuationSupport": "pending child-goal proof; no support claim yet"
+      },
+      "files": [
+        ".pi/goals/generic-append-log-fd-continuation.json",
+        ".pi/goals/generic-stateful-io-wave2-baseline.json"
+      ]
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Started running the append-only log continuation child goal. Read .pi/goals/generic-append-log-fd-continuation.json and inspected current append-only refusal/regular-file cursor loader implementation. The child goal now records the current state and proposed narrow support/refusal contract. The umbrella append/writable row remains pending because append-only support is not implemented or proven yet.",
+      "childGoal": ".pi/goals/generic-append-log-fd-continuation.json",
+      "childNextAction": "Implement the first narrow append-only support slice with focused unit tests before matrix rows.",
+      "umbrellaAppendRowStatus": "pending; no support claim"
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Append-only child goal made first implementation progress: descriptor and classifier rows are now proven with focused tests, and the generic fd loader can open accepted append-only fds with O_WRONLY|O_APPEND. No local support/refusal matrix, remote proof, docs/coverage, or final child validation has been completed yet, so the umbrella append/writable row remains pending and no append support claim is made at the umbrella level.",
+      "childGoal": ".pi/goals/generic-append-log-fd-continuation.json",
+      "childProgress": "2/12 proof rows proven",
+      "umbrellaAppendRowStatus": "pending; no support claim"
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Append-only child goal advanced local support proof: target preflight, target loader, local support matrix, and focused unit-test rows are now proven. Retained local artifact /tmp/machinen-move-matrix-7906-1781262223 proves generic-append-log-cursor support with appendAccess=append-only and logEntries=1 plus append preflight refusals for stale/truncated/missing logs and refusal rows for offset mismatch, unsupported append flags, non-append writable, lock, mmap, and inotify. The child goal remains IN_PROGRESS because fanotify interaction evidence, docs/coverage, remote amd64 attempts, and final validation are still pending; therefore the umbrella append/writable row remains pending.",
+      "childGoal": ".pi/goals/generic-append-log-fd-continuation.json",
+      "childProgress": "6/12 proof rows proven",
+      "retainedArtifact": "/tmp/machinen-move-matrix-7906-1781262223",
+      "umbrellaAppendRowStatus": "pending; child goal not complete; no umbrella completion claim"
+    },
+    {
+      "timestamp": "2026-06-11T00:00:00Z",
+      "summary": "Append-only child goal completed and umbrella rows were advanced with row evidence. The umbrella now maps wave2 baseline, append/writable frontier, pipes/stdio, migration wave, stateful/read-only services, runtime/app-specific envelopes, inventory/docs/coverage, remote attempts/blockers, and final validation. The append support claim remains narrow: exact EOF-only O_APPEND regular-file fd continuation only; unsafe writable/append variants remain refused.",
+      "childGoal": ".pi/goals/generic-append-log-fd-continuation.json COMPLETE 12/12",
+      "localAppendArtifact": "/tmp/machinen-move-matrix-9550-1781262594",
+      "remoteAppendArtifact": "/tmp/remote-append-log-matrix-1781263428",
+      "umbrellaRowsProven": 11
+    }
+  ],
+  "nextAction": "Umbrella goal complete: all proofChecklist rows are proven with row evidence. Review git diff, commit, and push when ready.",
+  "status": "COMPLETE"
+}

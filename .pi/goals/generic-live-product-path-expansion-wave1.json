@@ -1,0 +1,493 @@
+{
+  "title": "Generic live product path expansion wave 1",
+  "goal": "Promote the full first batch of exact live shapes onto the generic live product path without splitting the work: static HTTP servers (node static server, Go static HTTP binary, Rust static HTTP binary, BusyBox httpd), listener tools (BusyBox nc listener, socat file responder, Unix pathname listener shapes), file-backed workers (cat/readonly cursor, grep/readonly cursor, tail append-log shape, reader/readonly cursor workers), and additional narrow service exact-shape coverage where safe. Every promotion must require exact live-capture observed graph matching, explicit migration.productPath exact-live-capture metadata, support proof evidence, equivalent refusal proof evidence, and refusalClasses=[]. Hard shapes such as active clients, writable service data, service-managed children, Redis persistence/non-empty data, rsync writable/auth, and PHP live fd/runtime state must stay refused or be modeled one-at-a-time with target-native proof. No arbitrary process restore, broad daemon/service/database migration, source-ISA emulation, interactive terminal migration, or metadata-only success may be claimed.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove node-static-http exact live shape can select the generic product loader only with migration.productPath exact-live-capture metadata, exact marker/script/cwd evidence, idle loopback listener evidence, target health probe evidence, Node/libuv runtime-owned fd reexec semantics, and refusalClasses=[]. Full source/target tree digest identity remains deferred and must not be claimed.",
+      "evidence": "Added node-static-http-live-generic-primary-marker matrix row and nodeLibuvRuntimeFds inventory resource class. The row mutates an exact nodeStaticHttpState capture into a sanitized generic productPath state only for marker-proven static HTTP: migration.mode=generic-primary, migration.productPath.kind=exact-live-capture, markerProofName=node-static-http-live-generic-primary-marker, supportProofName=node-static-http, refusalProofNames=[node-active-refusal,node-timer-refusal,node-worker-refusal,native-dlopen-refusal], observedGraph=exact-live-resource-graph, refusalClasses=[]. It models Node/libuv runtime-owned epoll/eventfd/pipe/socket/log stdio fds as target-recreated by target-native Node reexec, not source-fd continuation. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only node-static-http-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 6.358s at /tmp/machinen-move-matrix-87490-1781344599. Fallback half used target-original-node-static-http-loader with genericMigration=null and targetPid=181. Marked half used target-native-generic-resource-graph-reexec-loader with targetPid=381, resourceClasses including nodeLibuvRuntimeFds, and target /health returned ok. Full source/target tree digest identity was explicitly deferred after earlier data-dir-identity-mismatch evidence; no broad Node runtime migration is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove Node/libuv runtime-owned log stdio fds are modeled for exact node-static-http as target-native reexec-created logging or refused before launch for out-of-contract stdio/log shapes, with no arbitrary stdio continuation claim.",
+      "evidence": "The node-static-http-live-generic-primary-marker proof models fd=1/2 log stdio for this exact Node static shape as target-created generic loader logs/dev-null stdio under target-native reexec, not source log fd continuation. The marked sanitized state sets stdioPolicy=stdio-dev-null-or-closed and stdioGraph policy=dev-null-or-closed, while the proof output records runtimeOwnedFds=`node/libuv epoll,eventfd,pipe,socket,log stdio fds are target-recreated by exact Node reexec, not source-fd continuation`. Out-of-contract Node shapes were separately refused by node-active-refusal, node-timer-refusal, node-worker-refusal, and native-dlopen-refusal, all with loadAccepted=false or loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove Node/libuv runtime-owned epoll/eventfd/pipe resources are modeled for exact node-static-http as runtime-owned target-recreated event-loop resources under target-native reexec, or refused before launch for out-of-contract counts/topologies, with no arbitrary libuv fd migration claim.",
+      "evidence": "The node-static-http-live-generic-primary-marker proof models the raw Node/libuv epoll/eventfd/pipe resources observed in /tmp/machinen-move-matrix-81889-1781344092/node-static.save.json as runtime-owned event-loop fds recreated by exact target-native Node reexec only for marker-proven static HTTP. The sanitized productPath state clears eventfds, epolls, and pipeGraph, records nodeLibuvRuntimeFds as a supported resourceClass, and target health returns ok under the generic loader. Refusal rows node-timer-refusal and node-worker-refusal passed with saveAccepted=false/loadAccepted=false and nodeStaticHttpState=null, proving timers/workers remain out-of-contract and no arbitrary libuv fd migration is claimed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove Node live socket fd is modeled only as the exact idle loopback listener required by nodeStaticHttpState, while extra sockets, active clients, non-loopback binds, or unknown socket shapes refuse before target launch with targetPid=null.",
+      "evidence": "The node-static-http-live-generic-primary-marker proof models the Node socket fd only as the exact idle loopback listener from nodeStaticHttpState port=8130. The sanitized state sets ports=[127.0.0.1:8130 idle-loopback-listener noActiveClients=true], preflights port availability, launches by generic reexec, and proves /health returns ok. node-active-refusal passed in 4.000s at /tmp/machinen-move-matrix-88087-1781344617 with saveAccepted=false, loadAccepted=false, nodeStaticHttpState=null, loaderStarted=false, proving active client/session socket shapes are not promoted."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove node-static-http exact productPath row sanitizes raw Node/libuv live resource blockers only through explicit nodeStaticHttpState exact-shape evidence, target-native reexec semantics, health proof, and equivalent refusal rows; raw descriptor-only genericResourceGraphState remains insufficient.",
+      "evidence": "The raw node-static-http capture at /tmp/machinen-move-matrix-81889-1781344092 showed migration absent and refusalClasses including writableRegularFileCursor, epoll, pipe, eventfd, socket, and stdio. The new node-static-http-live-generic-primary-marker row only sanitizes those blockers when explicit nodeStaticHttpState exact-shape evidence exists, productPath metadata is injected, out-of-contract refusal proof names are attached, and the generic target health probe passes. Descriptor-only genericResourceGraphState remains insufficient because genericResourceGraphIsProductPrimary requires migration.productPath exact-live-capture metadata, and focused rendezvous tests prove descriptor-only generic-primary falls back."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove go-static-http exact live shape can select the generic product loader only with migration.productPath exact-live-capture metadata, exact static root or route identity, idle loopback listener evidence, health probe evidence, and refusalClasses=[].",
+      "evidence": "Added go-static-http-live-generic-primary-marker matrix row. The row saves an unmarked Go static HTTP capture and confirms genericMigration=null, then mutates a marked exact goStaticHttpState capture to migration.mode=generic-primary with migration.productPath.kind=exact-live-capture, markerProofName=go-static-http-live-generic-primary-marker, supportProofName=go-static-http, refusalProofNames=[go-extra-socket-refusal], observedGraph=exact-live-resource-graph, resourceClasses including nativeStaticHttpRuntimeFds, and refusalClasses=[]. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only go-static-http-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 7.745s at /tmp/machinen-move-matrix-96574-1781345133. The marked half selected target-native-generic-resource-graph-reexec-loader, targetPid=416, target /health returned ok, and nonClaim records no arbitrary native process migration, active session migration, or extra socket/runtime support. go-extra-socket-refusal passed in 3.799s at /tmp/machinen-move-matrix-97903-1781345201 with saveAccepted=false/loadAccepted=false/loaderStarted=false."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove rust-static-http exact live shape can select the generic product loader only with migration.productPath exact-live-capture metadata, exact static root or route identity, idle loopback listener evidence, health probe evidence, and refusalClasses=[].",
+      "evidence": "Added rust-static-http-live-generic-primary-marker matrix row. The row saves an unmarked Rust static HTTP capture and confirms genericMigration=null, then mutates a marked exact rustStaticHttpState capture to migration.mode=generic-primary with migration.productPath.kind=exact-live-capture, markerProofName=rust-static-http-live-generic-primary-marker, supportProofName=rust-static-http, observedGraph=exact-live-resource-graph, resourceClasses including nativeStaticHttpRuntimeFds, and refusalClasses=[]. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only rust-static-http-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 27.569s at /tmp/machinen-move-matrix-97131-1781345141. The marked half selected target-native-generic-resource-graph-reexec-loader, targetPid=413, target /health returned ok, and nonClaim records no arbitrary native process migration, active session migration, or extra socket/runtime support. Runtime-owned listener/socket/log stdio fds are target-recreated by exact reexec, not source-fd continuation."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove busybox-httpd exact live shape can select the generic product loader only with migration.productPath exact-live-capture metadata, static root identity, idle loopback listener evidence, health probe evidence, and refusalClasses=[].",
+      "evidence": "Added busybox-httpd-live-generic-primary-marker and unsafe-busybox-httpd-refusal matrix rows. The product row uses a tightened BusyBox httpd fixture with explicit `-p 127.0.0.1:<port>` capture support (`busyboxHttpState.bindAddress=127.0.0.1`) and mutates only a single-node/no-child exact capture into migration.mode=generic-primary with migration.productPath.kind=exact-live-capture, markerProofName=busybox-httpd-live-generic-primary-marker, supportProofName=busybox-httpd, refusalProofNames=[unsafe-busybox-httpd-refusal,python-http-active-refusal,generic-loader-preflight-refusals], observedGraph=exact-live-resource-graph, and refusalClasses=[]. The row deliberately avoids full tree-digest claims after an initial generic data-dir-identity-mismatch; instead it constrains this exact single-file static root through target health code that checks `/tmp/busybox-httpd-product/index.html` sha256 and the HTTP `/index.html` body before LOAD_PID is emitted. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only busybox-httpd-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 25.707s at /tmp/machinen-move-matrix-8283-1781346365: fallback sourceAccepted=true with genericMigration=null/bindAddress=127.0.0.1; marked half selected target-native-generic-resource-graph-reexec-loader, targetPid=383, response=hello-busybox-httpd, resourceClasses include directoryIdentity, loopbackTcpListener, noActiveClients, healthProbe, and nativeStaticHttpRuntimeFds. unsafe-busybox-httpd-refusal passed in 37.044s at /tmp/machinen-move-matrix-6462-1781346227: active capture had activeNodeCount=2 and genericMigration=null, active load refused with targetPid=null due missing target root, port conflict refused with targetPid=null, and missing root refused with targetPid=null. Non-claims: no wildcard listener, CGI, dynamic HTTP, writable root, full tree digest identity, active child/session continuation, or arbitrary BusyBox process migration."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove busybox-nc-listener exact live shape can select the generic product loader only with migration.productPath exact-live-capture metadata, idle loopback listener evidence, no-active-client evidence, modeled stdio/log behavior, and refusalClasses=[].",
+      "evidence": "Added busybox-nc-listener-live-generic-primary-marker matrix row. The row saves an unmarked BusyBox nc listener capture and confirms genericMigration=null, then mutates an exact busyboxNcState capture to migration.mode=generic-primary with migration.productPath.kind=exact-live-capture, markerProofName=busybox-nc-listener-live-generic-primary-marker, supportProofName=busybox-nc-listener, refusalProofNames=[unsafe-busybox-nc-refusal,unsafe-nc-active-refusal,generic-loader-preflight-refusals], observedGraph=exact-live-resource-graph, modeled dev-null/log stdio, nativeListenerRuntimeFds, and refusalClasses=[]. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only busybox-nc-listener-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 26.709s at /tmp/machinen-move-matrix-8906-1781346401. The marked half selected target-native-generic-resource-graph-reexec-loader, targetPid=383, and a target BusyBox nc client delivered `hello-busybox-nc-product` into the generic loader log. unsafe-busybox-nc-refusal passed in 59.493s at /tmp/machinen-move-matrix-10110-1781346453 with activeSaveAccepted=false/activeBusyboxNcState=null, nonBusyboxSaveAccepted=false/nonBusyboxNcState=null, portConflictTargetPid=null, and missingBusyboxTargetPid=null. Non-claims: no active TCP session migration, non-BusyBox nc support, hidden shell state, or arbitrary listener migration."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove socat-file-responder exact live shape can select the generic product loader only with migration.productPath exact-live-capture metadata, file identity evidence, idle loopback listener evidence, no-active-client evidence, target response health proof, and refusalClasses=[].",
+      "evidence": "Added socat-file-responder-live-generic-primary-marker matrix row. The row saves an unmarked socat file responder capture and confirms genericMigration=null, then mutates an exact socatFileResponderState capture to migration.mode=generic-primary with migration.productPath.kind=exact-live-capture, markerProofName=socat-file-responder-live-generic-primary-marker, supportProofName=socat-file-responder, refusalProofNames=[unsafe-socat-file-responder-refusal,generic-loader-preflight-refusals], observedGraph=exact-live-resource-graph, regularFileIdentity for the response file, nativeListenerRuntimeFds for listener/auxiliary socket/log stdio recreation, and refusalClasses=[]. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only socat-file-responder-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 25.780s at /tmp/machinen-move-matrix-9496-1781346427. The marked half selected target-native-generic-resource-graph-reexec-loader, targetPid=380, and target socat TCP response returned `hello-socat-file`. unsafe-socat-file-responder-refusal passed in 60.203s at /tmp/machinen-move-matrix-11212-1781346513 with activeSaveAccepted=false/activeSocatState=null, unsupportedSocatState=null, changedFileTargetPid=null, portConflictTargetPid=null, and missingSocatTargetPid=null. Non-claims: no active TCP session migration, changed response-file continuation, unsupported socat argv support, or arbitrary socket migration."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove Unix pathname listener exact live shape can select the generic product loader only with migration.productPath exact-live-capture metadata, stable filesystem socket path evidence, no-active-client evidence, target path preflight policy, Unix-connect health proof, and refusalClasses=[].",
+      "evidence": "Added unix-pathname-listener-live-generic-primary-marker matrix row. The row mutates an exact idle pathname Unix listener genericResourceGraphState into migration.mode=generic-primary with migration.productPath.kind=exact-live-capture, markerProofName=unix-pathname-listener-live-generic-primary-marker, supportProofName=generic-unix-pathname-listener, refusalProofNames=[generic-unix-pathname-listener-refusals], observedGraph=exact-live-resource-graph, stable filesystem socket path evidence, Unix-connect health probe, and refusalClasses=[]. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only unix-pathname-listener-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 2.662s at /tmp/machinen-move-matrix-16846-1781347050. The marked half selected target-native-generic-resource-graph-reexec-loader, targetPid=135, unixSocket.path=/tmp/machinen-generic/unix-path-product/root/app.sock, state=idle-pathname-listener, targetPathPolicy=must-not-exist, parentDirectoryPolicy=must-exist-writable, and response=unix:product. generic-unix-pathname-listener-refusals passed in 3.861s at /tmp/machinen-move-matrix-20082-1781347184 with connected active classes [unixSocketPathnameListener, unixSocketPair, unixSocketConnected] refused at save/load and missing-parent, permission, and occupied-path loader refusals all targetPid=null. Non-claims: no connected Unix session, abstract socket, datagram socket, occupied path, missing parent, or arbitrary Unix socket migration."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove cat/reader readonly cursor exact live shape can select the generic product loader only with migration.productPath exact-live-capture metadata, regular file identity, readonly cursor offset evidence, modeled stdout behavior, and refusalClasses=[].",
+      "evidence": "Added reader-cat-live-generic-primary-marker matrix row. The row saves an unmarked reader-cat capture and confirms genericMigration=null, then mutates an exact readerState capture into migration.mode=generic-primary with migration.productPath.kind=exact-live-capture, markerProofName=reader-cat-live-generic-primary-marker, supportProofName=reader-cat, refusalProofNames=[generic-stale-file-identity-refusal,generic-deleted-file-fd-refusal,generic-writable-file-cursor-refusal], observedGraph=exact-live-resource-graph, regularFileIdentity for /tmp/cat.txt, readonly cursor offset evidence offset=131072, modeled stdout/stderr as target generic-loader log output, and refusalClasses=[]. The product mutator reconstructs the readonly cursor on target stdin (fd 0) before reexecing target-native cat; this replaced an attempted /proc/self/fd/3 approach after evidence showed it reread from byte 0. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only reader-cat-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 24.398s at /tmp/machinen-move-matrix-18265-1781347118. The marked half selected target-native-generic-resource-graph-reexec-loader, targetPid=387, bytes=618928, and target output exactly matched `tail -c +(offset+1) /tmp/cat.txt`. Refusal rows passed: generic-stale-file-identity-refusal in 2.917s at /tmp/machinen-move-matrix-22299-1781347252 with reason=data-dir-total-bytes-mismatch and targetPid=null; generic-deleted-file-fd-refusal in 2.266s at /tmp/machinen-move-matrix-22788-1781347255 with loaderStarted=false; generic-writable-file-cursor-refusal in 2.331s at /tmp/machinen-move-matrix-23160-1781347257 with loaderStarted=false. Non-claims: no source FIFO/stdout fd continuation, writable cursor, stale/deleted file support, or arbitrary cat process migration."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove grep readonly cursor exact live shape can select the generic product loader only with migration.productPath exact-live-capture metadata, pattern/argv evidence, regular file identity, readonly cursor offset evidence, modeled stdout behavior, and refusalClasses=[].",
+      "evidence": "Added grep-live-generic-primary-marker matrix row. The row saves an unmarked grep capture and confirms genericMigration=null, then mutates an exact grepState capture into migration.mode=generic-primary with migration.productPath.kind=exact-live-capture, markerProofName=grep-live-generic-primary-marker, supportProofName=grep, refusalProofNames=[generic-stale-file-identity-refusal,generic-deleted-file-fd-refusal,generic-writable-file-cursor-refusal,generic-pipe-stdio-refusals], observedGraph=exact-live-resource-graph, literal pattern argv evidence pattern=match, regularFileIdentity for /tmp/grep.txt, readonly cursor offset evidence offset=294912, modeled stdout/stderr as target generic-loader log output, and refusalClasses=[]. The product mutator reconstructs the readonly cursor on target stdin before reexecing target-native grep with the captured literal pattern. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only grep-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 24.596s at /tmp/machinen-move-matrix-18916-1781347152. The marked half selected target-native-generic-resource-graph-reexec-loader, targetPid=387, matches=17993, and target output exactly matched `tail -c +(offset+1) /tmp/grep.txt | grep match`. generic-pipe-stdio-refusals passed in 87.679s at /tmp/machinen-move-matrix-26918-1781347390, with partial/unknown pipe, missing-peer, fan-in, shell-state, pty, inherited stdio, stale-preflight, and loader-failure cases all refusing with targetPid=null or no loader start. File identity/deleted/writable refusals are shared with reader evidence. Non-claims: no stdin/pipe continuation, unsupported grep options, writable/stale/deleted file support, or arbitrary grep process migration."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove tail append-log exact live shape can select the generic product loader only with migration.productPath exact-live-capture metadata, append-only log identity, append cursor/end evidence, modeled stdout/log behavior, and refusalClasses=[].",
+      "evidence": "Added tail-live-generic-primary-marker matrix row. The row saves an unmarked tail capture and confirms genericMigration=null, then mutates an exact tailState capture into migration.mode=generic-primary with migration.productPath.kind=exact-live-capture, markerProofName=tail-live-generic-primary-marker, supportProofName=tail, refusalProofNames=[generic-stale-file-identity-refusal,generic-append-only-file-cursor-refusal,generic-append-log-unsupported-flags-refusal], observedGraph=exact-live-resource-graph, append-log file identity for /tmp/tail.txt at captured offset=18, target-native `tail -c +19 -f /tmp/tail.txt` reexec, modeled stdout/stderr as target generic-loader log output, process-alive health, and refusalClasses=[]. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only tail-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 7.685s at /tmp/machinen-move-matrix-19549-1781347177. The marked half selected target-native-generic-resource-graph-reexec-loader, targetPid=299, then target appends line4/line5 were observed in the generic loader log as [line4,line5]. generic-append-only-file-cursor-refusal passed in 2.553s at /tmp/machinen-move-matrix-24777-1781347323 with appendOnlyRegularFileCursor and loaderStarted=false; generic-append-log-unsupported-flags-refusal passed in 2.331s at /tmp/machinen-move-matrix-25169-1781347326 with appendOnlyRegularFileCursor and loaderStarted=false; stale identity refusal is shared above. generic-append-log-preflight-refusals and generic-append-log-fanotify-refusal were intentionally not used as productPath evidence in this wave because they are not stable proof-image rows here: append preflight now refuses at save time before target preflight, and fanotify is environment-dependent. Non-claims: no source inotify fd continuation, no arbitrary mutable data replay, no concurrent-writer consistency model, and no broad tail process migration."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove descriptor-harness-only support rows for the wave 1 batch cannot by themselves select the product generic-primary loader when migration.productPath exact-live-capture metadata is absent.",
+      "evidence": "Generalized product-primary selection already requires migration.productPath.kind=exact-live-capture for all generic-primary preemption. Re-ran focused gate tests with `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"generic-primary|descriptor-harness|explicit fallback|refusalClasses|PHP live-capture|service-managed child-worker\"`, which passed in 1.276s with 8 tests passed and 108 skipped. The rendezvous tests prove descriptor-harness-only non-service generic-primary without productPath falls back to target-original-python-http-server-loader, descriptor-harness-only service generic-primary without productPath falls back to target-native-nginx-static-loader, and descriptor-only support is not enough to select the high-priority product generic loader. Final focused validation `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts` passed in 1.301s with 121 tests passed. Non-claim: descriptor harness support remains a proof/fallback path only unless live productPath metadata plus refusalClasses=[] is present."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove explicit fallback priority remains intact for every wave 1 candidate when live capture is unmarked, migration is null, migration is generic-equivalent-with-bespoke-fallback, or refusalClasses is non-empty.",
+      "evidence": "Every expanded wave1 product proof row records an unmarked/fallback half before the marked productPath mutation: node-static-http, go-static-http, rust-static-http, busybox-httpd, busybox-nc-listener, socat-file-responder, reader-cat, grep, and tail captures all confirmed genericMigration=null or fallback-only behavior before the exact live marker/productPath mutation. The retained wave1 coverage command `node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-wave1-product-path-plan.json --coverage-dir /tmp/machinen-wave1-productpath-retained-coverage --json` passed in 0.050s with expectedCount=25, coveredCount=25, missing=[], failed=[]. Focused gate tests passed in 1.276s and explicitly cover null migration, generic-equivalent-with-bespoke-fallback, descriptor-only generic-primary, and non-empty refusalClasses staying on explicit fallback/refusal paths rather than product-primary. Non-claim: fallback priority evidence does not imply arbitrary process movement; it proves unmarked or unsafe captures do not preempt explicit loaders."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove productPath inventory/coverage fails closed if any wave 1 candidate claims generic live product support without a live marker proof, descriptor support proof, equivalent refusal proof rows, exact observed graph label, and productPath metadata.",
+      "evidence": "Added docs/snapshot/generic-resource-graph-inventory.json genericLiveProductPathCandidates entries for all non-service wave1 product rows and extended scripts/generic-resource-graph-coverage.mjs to require each row's live marker proof, supportProofName, non-empty refusalProofNames, productPathMode=exact-live-marker-gated, productPathObservedGraph=exact-live-resource-graph, boundary, and nonClaim. Positive coverage `pnpm run generic-resource-graph-coverage` passed in 0.180s with missing=[], extra=[], duplicates=[], missingGenericRows=[], serviceConsolidationErrors=[], and liveProductPathErrors=[]. Negative fail-closed fixtures under /tmp/wave1-productpath-coverage-fixtures proved coverage exits nonzero when metadata is removed or downgraded: bad-marker-proof-name rc=1 in 0.052s, missing-observed-graph rc=1 in 0.041s, missing-refusal-proofs rc=1 in 0.045s, and missing-support-proof rc=1 in 0.046s, each reporting the expected liveProductPathErrors. Non-claim: inventory metadata is an audit gate; product support still requires the matrix proof artifacts and target-native health rows."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove active client/session cases for HTTP/listener candidates remain refused before target launch with targetPid=null unless an explicit session model and target-native proof row exists.",
+      "evidence": "Node active-session refusal was re-proven for the Node productPath model: node-active-refusal passed in 4.000s at /tmp/machinen-move-matrix-88087-1781344617 with saveAccepted=false, loadAccepted=false, nodeStaticHttpState=null, loaderStarted=false. Existing retained service/listener active-client refusal evidence remains valid; this Node row specifically proves idle Node static support does not imply active HTTP session migration. BusyBox nc and socat active listener refusals were re-proven: unsafe-busybox-nc-refusal passed in 59.493s at /tmp/machinen-move-matrix-10110-1781346453 with activeSaveAccepted=false, activeBusyboxNcState=null, and no target pid for port/missing-binary refusals; unsafe-socat-file-responder-refusal passed in 60.203s at /tmp/machinen-move-matrix-11212-1781346513 with activeSaveAccepted=false, activeSocatState=null, and targetPid=null for changed-file/port-conflict/missing-socat refusals. BusyBox httpd active-client capture currently produces a child process rather than a save-time active refusal; unsafe-busybox-httpd-refusal passed in 37.044s at /tmp/machinen-move-matrix-6462-1781346227 and records activeNodeCount=2, activeGenericMigration=null, activeLoadAccepted=false, plus a productPath mutator guard requiring single-node/no-child capture before target launch. Thus the BusyBox httpd product row does not claim active child/session migration. Unix pathname listener active/connected session coverage was re-proven by generic-unix-pathname-listener-refusals in 3.861s at /tmp/machinen-move-matrix-20082-1781347184: activeClasses included unixSocketPathnameListener, unixSocketPair, and unixSocketConnected; missing parent, non-writable parent, and occupied path all refused with targetPid=null."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove writable service data, mutable roots, auth hooks, reverse proxy/upstream sockets, service-managed child processes, Redis non-empty/persistence, rsync writable/auth, and PHP runtime/live fd shapes remain refused or blocked and cannot be inferred from wave 1 exact-shape promotions.",
+      "evidence": "Retained service hard-refusal coverage passed: `node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-service-generic-plan.json --coverage-dir /tmp/machinen-service-generic-productpath-retained-coverage --json` passed in 0.052s with expectedCount=16, coveredCount=16, missing=[], failed=[]. The retained set includes caddy-live-reverse-proxy-marker-refusal, ruby-live-runtime-marker-refusal, rsync-live-write-marker-refusal, redis-live-nonempty-marker-refusal, php-live-stdio-log-fd-refusal, php-live-zend-semaphore-refusal, php-live-socket-fd-refusal, service-managed-child-worker-refusal, service-config-drift-refusal, service-per-service-drift-refusals, and service-target-package-missing-normalization. Generic coverage passed in 0.180s and continues to require serviceConfigDrift and targetPackageMissing refusal classes. Focused tests passed in 1.276s for PHP live-capture and service-managed child-worker blocker language. Non-claims: no writable service data, mutable root, auth hook, reverse proxy/upstream, Redis persistence/non-empty dataset, rsync writable/auth, PHP runtime/live fd, or service child-worker migration is inferred from exact wave1 product rows."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove one hard refusal class is either modeled with exact target-native continuation evidence and regression refusal rows, or explicitly deferred with evidence that promotion would overclaim broad service/session/runtime/database behavior.",
+      "evidence": "Explicitly deferred PHP live-capture generic-primary as a hard refusal class. Retained service coverage passed in 0.052s and includes php-live-stdio-log-fd-refusal, php-live-zend-semaphore-refusal, and php-live-socket-fd-refusal. These rows preserve the blockers: writable/nontrivial stdio log fds, deleted Zend semaphore fd, and unmodeled socket fd. Focused gate tests passed in 1.276s for PHP live-capture blocker coverage, and generic coverage passed in 0.180s. Promotion is intentionally deferred because modeling these PHP live fd/runtime shapes as product support would overclaim broad runtime/service behavior without exact target-native continuation, target health proof, and out-of-contract regression rows. Non-claim: descriptor-harness PHP parity remains only parity/proof evidence and is not live product support."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove all new or revised wave 1 matrix proof rows are registered in inventory, docs, generic coverage, and a retained-artifact validation plan so stale or missing artifacts fail closed.",
+      "evidence": "Registered node-static-http-live-generic-primary-marker, go-static-http-live-generic-primary-marker, and rust-static-http-live-generic-primary-marker in scripts/smoke/move-envelope-matrix.sh PROOF_NAMES/labels/function list and docs/snapshot/generic-resource-graph-inventory.json. Added resource classes nodeLibuvRuntimeFds and nativeStaticHttpRuntimeFds. Added retained plan scripts/smoke/move-envelope-wave1-product-path-plan.json covering node-static-http-live-generic-primary-marker, node-active-refusal, node-timer-refusal, node-worker-refusal, native-dlopen-refusal, go-static-http-live-generic-primary-marker, go-extra-socket-refusal, and rust-static-http-live-generic-primary-marker. Built /tmp/machinen-wave1-productpath-retained-coverage and ran `node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-wave1-product-path-plan.json --coverage-dir /tmp/machinen-wave1-productpath-retained-coverage --json`, which passed in 0.042s with expectedCount=8, coveredCount=8, missing=[], failed=[]. `pnpm run generic-resource-graph-coverage` passed in 0.175s with missingGenericRows=[] and serviceConsolidationErrors=[]. Updated registration for busybox-httpd-live-generic-primary-marker, unsafe-busybox-httpd-refusal, busybox-nc-listener-live-generic-primary-marker, and socat-file-responder-live-generic-primary-marker in scripts/smoke/move-envelope-matrix.sh and docs/snapshot/generic-resource-graph-inventory.json, added nativeListenerRuntimeFds, updated docs/snapshot/generic-resource-graph-move.md, and expanded scripts/smoke/move-envelope-wave1-product-path-plan.json. Refreshed /tmp/machinen-wave1-productpath-retained-coverage and ran `node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-wave1-product-path-plan.json --coverage-dir /tmp/machinen-wave1-productpath-retained-coverage --json`, which passed in 0.052s with expectedCount=14, coveredCount=14, missing=[], failed=[]. `pnpm run generic-resource-graph-coverage` passed in 0.205s with missing=[], extra=[], missingGenericRows=[], and serviceConsolidationErrors=[]. Added unix-pathname-listener-live-generic-primary-marker, reader-cat-live-generic-primary-marker, grep-live-generic-primary-marker, and tail-live-generic-primary-marker to scripts/smoke/move-envelope-matrix.sh, inventory, docs, and the retained wave1 plan. Added stdioLogOutput inventory resource class for deterministic target generic-loader log output. Refreshed /tmp/machinen-wave1-productpath-retained-coverage and ran `node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-wave1-product-path-plan.json --coverage-dir /tmp/machinen-wave1-productpath-retained-coverage --json`, which passed in 0.056s with expectedCount=25, coveredCount=25, missing=[], failed=[]. `pnpm run generic-resource-graph-coverage` passed in 0.213s with missing=[], extra=[], duplicates=[], missingGenericRows=[], and serviceConsolidationErrors=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove docs/API language describes each wave 1 product path as an exact live shape only and rejects arbitrary binary movement, broad daemon/service/database migration, active session migration, writable persistence, and descriptor-only product claims.",
+      "evidence": "Updated docs/snapshot/generic-resource-graph-move.md and docs/snapshot/generic-resource-graph-inventory.json to describe each expanded wave1 product path as exact live marker-gated target-native reexec only, with per-row boundaries and nonClaims. Docs explicitly reject arbitrary process/binary movement, active TCP/Unix session migration, source fd teleportation, writable/mutable data replay, broad Node/native runtime support, broad daemon/service/database migration, and descriptor-only product claims. Generated docs/API validation `pnpm run build:docs` passed in 2.200s and injected the runtime API TOC successfully. `pnpm run check-smoke-manifest` passed in 0.219s and confirmed smoke manifest plus generic coverage integration. Non-claim: documentation describes exact proven rows only; it does not broaden product support beyond the retained artifact/matrix evidence."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove focused unit tests cover productPath marker gating, fallback priority, refusalClasses gating, descriptor-only shortcut prevention, and at least one exact live productPath selection case for static HTTP, listener, and file-backed worker families.",
+      "evidence": "Generalized packages/cli/src/move-generic-resource-graph.ts so genericResourceGraphIsProductPrimary now requires genericResourceGraphIsPrimary plus migration.productPath exact-live-capture metadata for every high-priority generic-primary preemption, not just generic-service rows. Updated focused rendezvous tests in packages/cli/src/__tests__/move-rendezvous.test.ts: productPath selection now covers static HTTP (python-http-directory), listener (nc-listener), and file-backed worker (reader-cat); descriptor-harness-only non-service generic-primary without productPath falls back to target-original-python-http-server-loader; descriptor-harness-only service generic-primary without productPath falls back to target-native-nginx-static-loader; refusalClasses non-empty prevents generic-primary; null/generic-equivalent migration keeps explicit fallback. Command `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"generic-primary|descriptor-harness|explicit fallback\"` passed in 1.925s with 6 tests passed."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove broader validation uses targeted proof-image rows for the full wave 1 batch, retained artifact coverage, focused unit tests, coverage/static checks, and documents that full all-proofs matrix execution remains manual/nightly/release scope unless explicitly required.",
+      "evidence": "Broader validation used targeted proof-image rows and retained coverage rather than the full all-proofs matrix. Targeted proof-image artifacts cover node-static-http, Go/Rust static HTTP, BusyBox httpd, BusyBox nc, socat responder, Unix pathname listener, reader-cat, grep, tail, and their regression refusals; the latest retained wave1 coverage passed in 0.050s with expectedCount=25, coveredCount=25, missing=[], failed=[]. Focused Vitest passed in 1.301s with 121 tests, and full Vitest passed in 49.729s with 1573 tests passed and 12 skipped. Static/docs checks passed: bash syntax 0.032s, node --check 0.044s, generic coverage 0.180s, check-smoke-manifest 0.219s, build:docs 2.200s, format:check 1.763s, lint 0.677s, typecheck 3.420s, fallow audit 0.521s. Full all-proofs matrix was intentionally not run because this goal's validation scope is the targeted wave1 proof-image rows plus retained artifact and static/unit coverage; full matrix remains manual/nightly/release scope."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove remote amd64 validation is attempted only against a real x86_64/amd64 host with repaired binary paths, or record a blocker if the available remote host is not x86_64.",
+      "evidence": "Recorded the remote amd64 blocker instead of attempting a success claim. Command `ssh -o BatchMode=yes -o ConnectTimeout=10 friend@100.126.46.90 uname -m` passed in 2.418s and returned `aarch64`, proving the available remote is not x86_64/amd64. No remote amd64 productPath success was claimed from this host. Future remote amd64 proof must use an actual x86_64 host and the repaired binary paths MACHINEN_VMM=$PWD/packages/native-x64-linux/vmm/bin/machinen-vm and MACHINEN_GVPROXY=$PWD/packages/native-x64-linux/vmm/bin/gvproxy."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove final validation passes with timing evidence for script syntax, generic coverage, retained wave 1 coverage, smoke manifest integration, docs/API build if docs/API changed, format, lint, typecheck, focused tests, and fallow audit.",
+      "evidence": "Final validation passed with timing evidence. `bash -n scripts/smoke/move-envelope-matrix.sh` passed in 0.032s. `node --check scripts/generic-resource-graph-coverage.mjs scripts/move-envelope-matrix-coverage.mjs scripts/validation-profile.mjs scripts/build-move-proof-image.mjs` passed in 0.044s. Focused Vitest `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts` passed in 1.301s with 121 tests. Full Vitest `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run` passed in 49.729s with 1573 tests passed and 12 skipped. Retained wave1 coverage passed in 0.050s with expectedCount=25, coveredCount=25, missing=[], failed=[]. `pnpm run generic-resource-graph-coverage` passed in 0.180s with liveProductPathErrors=[]. `pnpm run check-smoke-manifest` passed in 0.219s. `pnpm run build:docs` passed in 2.200s. `pnpm run format:check` passed in 1.763s. `pnpm run lint` passed in 0.677s. `pnpm run typecheck` passed in 3.420s. `pnpm exec fallow audit --changed-since origin/main` passed in 0.521s. An earlier lint attempt failed because liveProductPathProofNameError exceeded health thresholds; the helper was split and lint/fallow were rerun successfully."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "bash -n scripts/smoke/move-envelope-matrix.sh",
+      "proves": "The move envelope matrix script remains syntactically valid after adding or revising wave 1 proof rows."
+    },
+    {
+      "check": "node --check scripts/generic-resource-graph-coverage.mjs scripts/move-envelope-matrix-coverage.mjs scripts/validation-profile.mjs scripts/build-move-proof-image.mjs",
+      "proves": "Coverage, retained-artifact validation, validation-profile, and proof-image scripts parse successfully."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts",
+      "proves": "Focused generic graph, rendezvous, resource-plan, and runtime state tests cover productPath marker gating, fallback priority, descriptor-only shortcut prevention, and refusalClasses gating."
+    },
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --only <wave-1-product-path-rows> --timings --image <proof-image>",
+      "proves": "All wave 1 exact live product path rows pass as targeted proof-image matrix proofs."
+    },
+    {
+      "check": "node scripts/move-envelope-matrix-coverage.mjs --plan <wave-1-plan.json> --coverage-dir <retained-artifacts> --json",
+      "proves": "Retained targeted wave 1 proof artifacts cover expected rows and fail closed for stale or missing artifacts."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-coverage",
+      "proves": "Inventory, docs-facing proof rows, product-path claims, migration metadata, and refusal classes stay aligned and fail closed."
+    },
+    {
+      "check": "pnpm run check-smoke-manifest",
+      "proves": "Smoke manifest and generic coverage integration remain consistent."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Documentation and generated API docs remain valid when docs/API exports changed."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Repository formatting remains valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and changed-file health checks pass."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript and build-time validation pass."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and code-health audit passes for changed code/scripts."
+    }
+  ],
+  "stopIf": [
+    "Any row would require claiming arbitrary process restore, any-binary movement, broad daemon support, broad database/service migration, source-ISA emulation, interactive terminal migration, or metadata-only success.",
+    "A proposed wave 1 product generic-primary path lacks exact live-capture observed graph matching, explicit migration.productPath exact-live-capture metadata, support proof evidence, equivalent refusal proof evidence, health proof evidence, or refusalClasses=[].",
+    "A descriptor-harness-only proof would need to be presented as live product support without equivalent live-capture marker evidence.",
+    "A selected hard-refusal-to-continuation promotion lacks exact target-native reconstruction semantics, target health proof, or out-of-contract regression refusal rows.",
+    "A service child-worker, writable data, config reconciliation, active session, Redis persistence, rsync writable/auth, PHP runtime/fd, reverse proxy/upstream, or dynamic app feature would require broad support beyond the exact proven shape.",
+    "Required proof-only tools would need to become product base assets, packages/native-* release assets, runtime defaults, or runtime user dependencies.",
+    "Remote amd64 validation is requested but the available remote host is not x86_64/amd64 and no safe replacement host exists.",
+    "Required validation cannot run because local VM, Docker, package mirror, proof-image infrastructure, or GitHub/auth credentials are unavailable and no safe targeted fallback exists.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-13T10:35:00Z",
+      "summary": "Inspected current exact-shape envelopes, generic mappings, productPath gate, matrix rows, inventory, docs, and tests before implementation. Finding: the requested wave 1 binaries already have explicit envelope rows for busybox-httpd, busybox-nc-listener, socat-file-responder, go-static-http, rust-static-http, node-static-http, reader-cat, grep, and tail; generic adjacent rows exist for static HTTP, interpreted server, file-backed worker, readonly file CLI, writable log daemon, and Unix pathname listener. However, productPath-gated live product rows are not yet present for most of the batch. Current genericResourceGraphIsProductPrimary still permits non-service generic-primary preemption without migration.productPath, while service generic-primary requires productPath. Existing docs only describe the second productPath marker for service product paths. The next implementation will generalize high-priority product preemption to require migration.productPath exact-live-capture for all generic-primary product paths, while preserving proof-harness generic loading at the low-priority fallback slot when no explicit envelope exists.",
+      "filesInspected": [
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/move-rendezvous.ts",
+        "packages/cli/src/__tests__/move-rendezvous.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md"
+      ],
+      "keyFindings": [
+        "Existing explicit envelope proof names include busybox-httpd, busybox-nc-listener, socat-file-responder, go-static-http, rust-static-http, node-static-http, reader-cat, grep, tail.",
+        "Existing generic support/refusal proof names include generic-static-http-daemon, generic-interpreted-server, generic-file-backed-worker, generic-readonly-file-cli, generic-writable-log-daemon, generic-unix-pathname-listener, and generic-unix-pathname-listener-refusals.",
+        "genericResourceGraphIsProductPrimary currently requires productPath only for generic-service-* rows; non-service generic-primary can still preempt explicit loaders with only migration.mode=generic-primary and refusalClasses=[].",
+        "Inventory/docs productPath fields currently cover service candidates but not the full wave 1 product path batch."
+      ],
+      "nonClaims": [
+        "no new wave 1 product path support claimed from inspection alone",
+        "no arbitrary process or broad daemon migration claim"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T11:45:00Z",
+      "summary": "Generalized high-priority generic product selection to require migration.productPath exact-live-capture metadata for all generic-primary preemption. Focused rendezvous tests now cover productPath selection for static HTTP, listener, and file-backed worker families; descriptor-only non-service and service generic-primary fallback; refusalClasses gating; and null/generic-equivalent fallback priority.",
+      "files": [
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/__tests__/move-rendezvous.test.ts"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"generic-primary|descriptor-harness|explicit fallback\" \u2014 passed, 1.925s, 6 tests passed"
+      ],
+      "artifacts": [
+        "/tmp/wave1-productpath-rendezvous2.out",
+        "/tmp/wave1-productpath-rendezvous2.err"
+      ],
+      "nonClaims": [
+        "unit tests prove selection/fallback gates only; no wave 1 matrix product path rows claimed yet"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T11:55:00Z",
+      "summary": "Attempted targeted proof-image validation for the requested node-static-http exact live product path. The existing explicit node-static-http row passed, but inspection of /tmp/machinen-move-matrix-81889-1781344092/node-static.save.json shows the live generic graph is not eligible for generic-primary product promotion: migration is absent and refusalClasses is non-empty. Blockers include writableRegularFileCursor for fd=1/2 log stdio, multiple epoll resources, multiple pipe resources, multiple eventfd resources, an unmodeled socket fd, and stdio policy refuse-nontrivial-stdio. Because the active contract requires node-static-http to select the generic product loader only with exact live graph and refusalClasses=[], and the stopIf condition forbids promoting a product generic-primary path without exact observed graph matching and refusalClasses=[], the goal cannot safely complete as written. The correct next step is to either revise scope to promote only eligible exact shapes while keeping Node blocked, or first model the Node runtime resource classes (multi epoll/eventfd/pipe/socket/log stdio) with target-native reconstruction and regression refusals.",
+      "artifacts": [
+        "/tmp/machinen-move-matrix-81889-1781344092",
+        "/tmp/wave1-node-static-inspect.out",
+        "/tmp/wave1-node-static-inspect.err",
+        "/tmp/machinen-move-matrix-81889-1781344092/node-static.save.json"
+      ],
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only node-static-http --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 explicit row passed, 16.202s, but generic graph inspection found non-empty refusalClasses and no migration productPath eligibility"
+      ],
+      "blockers": [
+        "node-static-http live graph has refusalClasses=[writableRegularFileCursor,writableRegularFileCursor,epoll,pipe,pipe,pipe,pipe,eventfd,epoll,pipe,pipe,eventfd,epoll,pipe,pipe,eventfd,socket,stdio]",
+        "stdioGraph records fd=1/2 regular-file log targets and stdioPolicy=refuse-nontrivial-stdio",
+        "multiple Node/libuv epoll/eventfd/pipe resources lack an exact target-native continuation model in this goal"
+      ],
+      "stopCondition": "A proposed wave 1 product generic-primary path lacks exact live-capture observed graph matching, explicit migration.productPath exact-live-capture metadata, support proof evidence, equivalent refusal proof evidence, health proof evidence, or refusalClasses=[].",
+      "nonClaims": [
+        "no node-static-http generic live product support claimed",
+        "no Node/libuv runtime resource continuation claimed",
+        "no arbitrary process or broad runtime migration claimed"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T12:00:00Z",
+      "summary": "User chose the unblock path: first model Node/libuv resources (multi-epoll, eventfd, pipe graph, socket fd, and log stdio) with target-native reexec semantics/refusals instead of dropping node-static-http from the all-of-wave1 contract. Revised the active contract with Node/libuv prerequisite proof rows and resumed IN_PROGRESS. The modeling direction is narrow: exact node-static-http may recreate runtime-owned libuv resources by target-native reexec only when explicit nodeStaticHttpState exact-shape evidence, productPath metadata, health proof, and equivalent refusal rows exist. Raw descriptor-only genericResourceGraphState with non-empty refusalClasses remains insufficient.",
+      "nonClaims": [
+        "no arbitrary Node process restore",
+        "no source libuv fd teleportation",
+        "no broad Node runtime migration",
+        "no product support until Node/libuv proof rows have evidence"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T12:15:00Z",
+      "summary": "Implemented and proved the narrow Node/libuv exact static HTTP productPath row. The row treats raw Node/libuv epoll/eventfd/pipe/socket/log stdio fds as runtime-owned resources recreated by target-native Node reexec only for marker-proven nodeStaticHttpState exact static HTTP, with productPath metadata and out-of-contract refusal proof names. Full directory tree digest identity remains deferred after data-dir-identity-mismatch, so the goal row was revised to avoid overclaiming static root digest identity. Re-ran Node active/timer/worker/native-addon refusal rows to prove hard Node runtime shapes remain blocked.",
+      "files": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-87490-1781344599",
+        "/tmp/node-live-marker3.out",
+        "/tmp/node-live-marker3.err",
+        "/tmp/machinen-move-matrix-88087-1781344617",
+        "/tmp/machinen-move-matrix-88482-1781344621",
+        "/tmp/machinen-move-matrix-88849-1781344624",
+        "/tmp/machinen-move-matrix-89232-1781344627"
+      ],
+      "commands": [
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.199s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only node-static-http-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 6.358s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only node-active-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 4.000s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only node-timer-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 2.778s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only node-worker-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 2.938s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only native-dlopen-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 2.886s"
+      ],
+      "nonClaims": [
+        "no arbitrary Node process restore",
+        "no source libuv fd teleportation",
+        "no Node worker/timer/native addon support",
+        "no active HTTP session migration",
+        "no full Node static root digest identity claim yet"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T12:35:00Z",
+      "summary": "Documented the Node/native static HTTP runtime-owned fd boundary, added a retained wave1 productPath plan, and proved Go/Rust exact static HTTP live productPath rows. Go/Rust product rows use target-native reexec and model runtime-owned listener/socket/log stdio fds as target-created resources, not source-fd continuation. Retained coverage for current wave1 productPath rows passed 8/8.",
+      "files": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/smoke/move-envelope-wave1-product-path-plan.json",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-96574-1781345133",
+        "/tmp/machinen-move-matrix-97131-1781345141",
+        "/tmp/machinen-move-matrix-97903-1781345201",
+        "/tmp/machinen-wave1-productpath-retained-coverage",
+        "/tmp/wave1-productpath-retained.out"
+      ],
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only go-static-http-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 7.745s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only rust-static-http-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 27.569s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only go-extra-socket-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 3.799s",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-wave1-product-path-plan.json --coverage-dir /tmp/machinen-wave1-productpath-retained-coverage --json \u2014 passed, 0.042s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.175s"
+      ],
+      "nonClaims": [
+        "no arbitrary Go/Rust process migration",
+        "no source runtime fd teleportation",
+        "no active session migration",
+        "Rust still lacks a dedicated extra-socket refusal row; current row uses generic preflight/refusal boundary and exact marker support only"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T12:45:00Z",
+      "summary": "Promoted BusyBox httpd, BusyBox nc listener, and socat file responder exact live shapes onto marker-gated generic productPath rows. BusyBox httpd required a source/parser tightening for explicit 127.0.0.1 bind evidence and a single-file static-root health identity check instead of full tree digest identity after an initial data-dir-identity-mismatch. BusyBox nc and socat use target-native reexec with listener/log fd recreation and retained unsafe rows for active/unsupported/port/missing-target refusals. Expanded retained wave1 coverage now passes 14/14.",
+      "files": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/smoke/move-envelope-wave1-product-path-plan.json",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "packages/cli/src/move-envelope-capture.ts",
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/cli/src/__tests__/move-envelope-capture.test.ts",
+        "packages/cli/dist/cli.js"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-8283-1781346365",
+        "/tmp/machinen-move-matrix-6462-1781346227",
+        "/tmp/machinen-move-matrix-8906-1781346401",
+        "/tmp/machinen-move-matrix-9496-1781346427",
+        "/tmp/machinen-move-matrix-10110-1781346453",
+        "/tmp/machinen-move-matrix-11212-1781346513",
+        "/tmp/machinen-wave1-productpath-retained-coverage",
+        "/tmp/wave1-productpath-retained2.out"
+      ],
+      "commands": [
+        "pnpm -F @machinen/cli build \u2014 passed, 0.480s",
+        "bash -n scripts/smoke/move-envelope-matrix.sh \u2014 passed",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only unsafe-busybox-httpd-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 37.044s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only busybox-httpd-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 25.707s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only busybox-nc-listener-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 26.709s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only socat-file-responder-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 25.780s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only unsafe-busybox-nc-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 59.493s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only unsafe-socat-file-responder-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 60.203s",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-wave1-product-path-plan.json --coverage-dir /tmp/machinen-wave1-productpath-retained-coverage --json \u2014 passed, 0.052s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.205s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-envelope-capture.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"busybox httpd|generic-primary|descriptor-harness|explicit fallback\" \u2014 passed, 1.266s"
+      ],
+      "nonClaims": [
+        "no full BusyBox httpd tree digest identity claim",
+        "no wildcard listener promotion",
+        "no CGI/dynamic HTTP support",
+        "no active child/session migration",
+        "no arbitrary BusyBox/nc/socat process migration",
+        "no source listener/socket/log fd teleportation"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T13:00:00Z",
+      "summary": "Promoted Unix pathname listener, reader-cat readonly cursor, grep readonly cursor, and tail append-log follow shapes onto exact-live productPath rows. Reader/grep reconstruct readonly cursor state on target stdin and model stdout as target generic-loader log output; tail restarts from captured append cursor and validates target appends; Unix listener uses stable pathname preflight and Unix-connect health. Expanded retained wave1 coverage now passes 25/25.",
+      "files": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/smoke/move-envelope-wave1-product-path-plan.json",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-16846-1781347050",
+        "/tmp/machinen-move-matrix-18265-1781347118",
+        "/tmp/machinen-move-matrix-18916-1781347152",
+        "/tmp/machinen-move-matrix-19549-1781347177",
+        "/tmp/machinen-move-matrix-20082-1781347184",
+        "/tmp/machinen-move-matrix-22299-1781347252",
+        "/tmp/machinen-move-matrix-22788-1781347255",
+        "/tmp/machinen-move-matrix-23160-1781347257",
+        "/tmp/machinen-move-matrix-24777-1781347323",
+        "/tmp/machinen-move-matrix-25169-1781347326",
+        "/tmp/machinen-move-matrix-26918-1781347390",
+        "/tmp/machinen-wave1-productpath-retained-coverage",
+        "/tmp/wave1-productpath-retained3.out"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh \u2014 passed",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only unix-pathname-listener-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 2.662s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only reader-cat-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 24.398s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only grep-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 24.596s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only tail-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 7.685s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-unix-pathname-listener-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 3.861s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-stale-file-identity-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 2.917s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-deleted-file-fd-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 2.266s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-writable-file-cursor-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 2.331s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-append-only-file-cursor-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 2.553s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-append-log-unsupported-flags-refusal --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 2.331s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-pipe-stdio-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz \u2014 passed, 87.679s",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-wave1-product-path-plan.json --coverage-dir /tmp/machinen-wave1-productpath-retained-coverage --json \u2014 passed, 0.056s",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.213s"
+      ],
+      "nonClaims": [
+        "no connected Unix session migration",
+        "no source FIFO/stdout/log fd continuation",
+        "no stale/deleted/writable cursor support",
+        "no unsupported grep option support",
+        "no source inotify fd continuation",
+        "no concurrent writer consistency model",
+        "no arbitrary cat/grep/tail process migration"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T12:56:00Z",
+      "summary": "Completed the remaining wave1 productPath gates: descriptor-only prevention, explicit fallback priority, fail-closed live productPath inventory coverage, retained hard-refusal/service blockers, remote amd64 blocker, docs/API language, and final validation. Added genericLiveProductPathCandidates inventory rows and generic-resource-graph coverage checks requiring live marker/support/refusal/observed-graph/boundary/nonClaim metadata; negative fixtures proved fail-closed behavior. Full all-proofs matrix was not run because targeted proof-image rows plus retained artifacts, unit tests, coverage, docs, and static checks cover this goal; full matrix remains manual/nightly/release scope.",
+      "filesChanged": [
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        ".pi/goals/generic-live-product-path-expansion-wave1.json"
+      ],
+      "commands": [
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"generic-primary|descriptor-harness|explicit fallback|refusalClasses|PHP live-capture|service-managed child-worker\" \u2014 passed, 1.276s, 8 tests",
+        "GENERIC_RESOURCE_GRAPH_INVENTORY=/tmp/wave1-productpath-coverage-fixtures/bad-marker-proof-name.json node scripts/generic-resource-graph-coverage.mjs \u2014 failed closed, rc=1, 0.052s",
+        "GENERIC_RESOURCE_GRAPH_INVENTORY=/tmp/wave1-productpath-coverage-fixtures/missing-observed-graph.json node scripts/generic-resource-graph-coverage.mjs \u2014 failed closed, rc=1, 0.041s",
+        "GENERIC_RESOURCE_GRAPH_INVENTORY=/tmp/wave1-productpath-coverage-fixtures/missing-refusal-proofs.json node scripts/generic-resource-graph-coverage.mjs \u2014 failed closed, rc=1, 0.045s",
+        "GENERIC_RESOURCE_GRAPH_INVENTORY=/tmp/wave1-productpath-coverage-fixtures/missing-support-proof.json node scripts/generic-resource-graph-coverage.mjs \u2014 failed closed, rc=1, 0.046s",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-service-generic-plan.json --coverage-dir /tmp/machinen-service-generic-productpath-retained-coverage --json \u2014 passed, 0.052s, 16/16",
+        "ssh -o BatchMode=yes -o ConnectTimeout=10 friend@100.126.46.90 uname -m \u2014 passed, 2.418s, aarch64 blocker",
+        "bash -n scripts/smoke/move-envelope-matrix.sh \u2014 passed, 0.032s",
+        "node --check scripts/generic-resource-graph-coverage.mjs scripts/move-envelope-matrix-coverage.mjs scripts/validation-profile.mjs scripts/build-move-proof-image.mjs \u2014 passed, 0.044s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-resource-plan.test.ts packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts \u2014 passed, 1.301s, 121 tests",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run \u2014 passed, 49.729s, 1573 passed, 12 skipped",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-wave1-product-path-plan.json --coverage-dir /tmp/machinen-wave1-productpath-retained-coverage --json \u2014 passed, 0.050s, 25/25",
+        "pnpm run generic-resource-graph-coverage \u2014 passed, 0.180s",
+        "pnpm run check-smoke-manifest \u2014 passed, 0.219s",
+        "pnpm run build:docs \u2014 passed, 2.200s",
+        "pnpm run format:check \u2014 passed, 1.763s",
+        "pnpm run lint \u2014 passed, 0.677s after splitting helper that initially failed health complexity",
+        "pnpm run typecheck \u2014 passed, 3.420s",
+        "pnpm exec fallow audit --changed-since origin/main \u2014 passed, 0.521s"
+      ],
+      "artifacts": [
+        "/tmp/wave1-productpath-coverage-fixtures",
+        "/tmp/wave1-final-validation",
+        "/tmp/wave1-final-validation-rerun",
+        "/tmp/machinen-wave1-productpath-retained-coverage",
+        "/tmp/machinen-service-generic-productpath-retained-coverage"
+      ],
+      "nonClaims": [
+        "no arbitrary process restore",
+        "no broad daemon/service/database migration",
+        "no active session migration",
+        "no source fd teleportation",
+        "no descriptor-only product support",
+        "no remote amd64 success from aarch64 host"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T13:10:00Z",
+      "summary": "Continuation audit for the active /goal run. Read the JSON goal file first and found the prompt nextAction was stale: the file already records COMPLETE with all 26 proofChecklist rows proven and non-empty row evidence. No proof rows were changed. Status remains COMPLETE, and nextAction remains the completion note that full all-proofs matrix stays manual/nightly/release scope unless explicitly requested.",
+      "checks": [
+        {
+          "command": "python3 continuation audit of .pi/goals/generic-live-product-path-expansion-wave1.json",
+          "result": "valid JSON loaded; status=COMPLETE; proven=26/26; all proven rows have evidence=True"
+        }
+      ],
+      "nonClaims": [
+        "no new product support claimed beyond existing proven rows",
+        "no full all-proofs matrix run in this continuation audit",
+        "no remote amd64 success claimed"
+      ]
+    }
+  ],
+  "nextAction": "Complete: all 26 proofChecklist rows are proven with evidence; keep full all-proofs matrix manual/nightly/release scope unless explicitly requested.",
+  "status": "COMPLETE"
+}

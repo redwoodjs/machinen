@@ -1,6 +1,6 @@
 {
   "name": "generic-resource-graph-productization-phase1-validation",
-  "scope": "productized rows for generic-stdio-pipe-product-marker only",
+  "scope": "retained proof rows for generic-stdio-pipe-product-marker only; these rows are resource-reconstruction evidence and do not route as product move continuation",
   "productizedProofRows": [
     "generic-stdio-pipe-product-marker",
     "generic-finite-pipe-buffer-replay",
@@ -103,6 +103,11 @@
     "No source-ISA emulation",
     "No metadata-only success",
     "No runtime-profile shortcut",
-    "No product support beyond generic-stdio-pipe-product-marker"
-  ]
+    "No product move continuation support from generic-stdio-pipe-product-marker; retained as resource-reconstruction evidence only"
+  ],
+  "continuationBoundary": {
+    "productMoveContinuationRouting": "none",
+    "currentLabel": "retained proof/refusal evidence outside product move continuation",
+    "reason": "Rows in this profile are resource-reconstruction or target-native reexec evidence, not modeled live-state continuation."
+  }
 }

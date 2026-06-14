@@ -1,0 +1,1273 @@
+{
+  "title": "Generic resource graph full expansion",
+  "goal": "Prove a single sequential expansion path for the generic resource graph, starting with process-graph and pipes/stdio support and then continuing through service process trees, Unix sockets, timers/signals, file locks, inotify/fanotify, mmap-backed files, epoll readiness, generic database/data-dir safety, same-arch continuation, and cross-arch semantic reconstruction. Every support claim must be target-native, exact-shape, descriptor-backed, covered by happy-path and refusal matrix proof rows, registered in inventory/docs/coverage, and bounded by explicit non-claims. No arbitrary process restore, broad daemon/service/database migration, source-ISA emulation, metadata-only success, or runtime-profile shortcut may be claimed.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove generic-two-process-pipe-reexec reconstructs an exact two-process producer-to-consumer pipe graph target-natively, preserving process identities, argv/env/cwd, pipe direction, fd numbers, close-on-exec/nonblocking policy, target-visible output, and no hidden shell state.",
+      "evidence": "Added and proved generic-two-process-pipe-reexec as the first process-graph pipe support row. The matrix row mutates an exact genericResourceGraphState into a two-node processGraph with producer /usr/bin/yes pid=2001 and consumer /usr/bin/head pid=2002, pipe edge producer->consumer, hiddenShellState=false, pipeGraph topology=one-producer-one-consumer, write fd=1, read fd=0, cloexec=false, nonblocking=false, bufferedDataPolicy=empty, lifecycle=long-running-pair, and target-native generic loader reexec. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-two-process-pipe-reexec --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 12.520s at /tmp/machinen-move-matrix-54011-1781349486. The proof selected target-native-generic-resource-graph-reexec-loader, loadAccepted=true, targetPid=372, processNodes=2, readFd=0, writeFd=1, cloexec=[false,false], nonblocking=[false,false], and target output was three lines of `two-process-pipe`. Registered the proof in scripts/smoke/move-envelope-matrix.sh, docs/snapshot/generic-resource-graph-inventory.json, and scripts/generic-resource-graph-coverage.mjs; `pnpm run generic-resource-graph-coverage` passed in 0.202s and `pnpm run check-smoke-manifest` passed in 0.207s. Non-claims: no arbitrary process tree checkpointing, no shell pipeline/session migration, no active partial write preservation, and no source fd teleportation."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic-finite-pipe-buffer-replay captures finite buffered pipe bytes and replays them into a target-native consumer with byte-exact target-visible output, while refusing ambiguous live writers or partial active writes before target launch.",
+      "evidence": "Added and proved generic-finite-pipe-buffer-replay as a distinct matrix row for the exact finite buffered pipe contract. The row records a one-producer/one-consumer pipeGraph with read fd=0, write fd=1, lifecycle=finite-replay, bufferedDataPolicy=captured-bytes, capturedBytesBase64=YnVmZmVyZWQtcGlwZS1ieXRlcwo= (the bytes `buffered-pipe-bytes\\n`), cloexec/nonblocking policy on both endpoints, and target-native /usr/bin/wc -c consumer reexec through the generic loader. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-finite-pipe-buffer-replay,generic-pipe-stdio-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 98.874s at /tmp/machinen-move-matrix-55007-1781349604. The support proof selected target-native-generic-resource-graph-reexec-loader, loadAccepted=true, targetPid=372, output=20, pipeLifecycle=finite-replay, bufferedDataPolicy=captured-bytes, readFd=0, writeFd=1. The same run re-proved existing generic-pipe-stdio-refusals: partial-unknown, missing-peer, fan-in, shell-state, pty, and inherited-stdio had loaderStarted=false/targetPid=null; stale-preflight and loader-failure started the generic loader only to fail preflight with targetPid=null. Registered the new row in scripts/smoke/move-envelope-matrix.sh, docs/snapshot/generic-resource-graph-inventory.json, and scripts/generic-resource-graph-coverage.mjs; `pnpm run generic-resource-graph-coverage` passed in 0.212s and `pnpm run check-smoke-manifest` passed in 0.219s. Non-claims: no live pipe queue replay beyond explicit captured bytes, no ambiguous active writer support, no hidden shell pipeline state, and no arbitrary pipe graph migration."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic-stdio-pipe-product-marker can select the generic product loader only when the stdio pipe graph has exact live-capture productPath metadata, complete descriptor support evidence, target health/output evidence, equivalent refusal proof rows, and refusalClasses=[].",
+      "evidence": "Added and proved generic-stdio-pipe-product-marker as an exact modeled-stdio-pipe productPath row. The row records migration.mode=generic-primary with migration.productPath.kind=exact-live-capture, markerProofName=generic-stdio-pipe-product-marker, supportProofName=generic-finite-pipe-buffer-replay, refusalProofNames=[generic-pipe-stdio-refusals], observedGraph=exact-live-resource-graph, stdioGraph.policy=modeled-pipe, stdin target=pipe, a finite captured-bytes pipeGraph, and refusalClasses=[]. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-stdio-pipe-product-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 13.118s at /tmp/machinen-move-matrix-57197-1781349844. The proof selected target-native-generic-resource-graph-reexec-loader, loadAccepted=true, targetPid=373, pipeLifecycle=finite-replay, stdioPolicy=modeled-pipe, target output=19 for captured bytes `product-stdio-pipe\\n`, and an unsafe sibling bundle with non-empty refusalClasses had unsafeLoadAccepted=false and unsafeLoaderStarted=false. Registered the product marker in scripts/smoke/move-envelope-matrix.sh, docs/snapshot/generic-resource-graph-inventory.json genericLiveProductPathCandidates, and scripts/generic-resource-graph-coverage.mjs; coverage accepts `-product-marker` marker names and requires support/refusal/observedGraph/boundary/nonClaim metadata. `pnpm run generic-resource-graph-coverage` passed in 0.207s with liveProductPathErrors=[], `pnpm run check-smoke-manifest` passed in 0.211s, and focused productPath/fallback tests `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"generic-primary|descriptor-harness|explicit fallback|refusalClasses\"` passed in 1.302s with 8 tests passed. Non-claims: no descriptor-only product support, no arbitrary stdio migration, no active writer/session support, no PTY/shell pipeline migration, no live kernel pipe queue replay beyond explicit captured bytes, and no source fd teleportation."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic-multi-process-pipe-refusals fail closed with no target pid for missing peer, fan-in/fan-out, nonblocking weirdness, hidden shell pipeline state, inherited terminal/PTY stdio, stale executable/cwd, and active partial write cases.",
+      "evidence": "Added and proved generic-multi-process-pipe-refusals as a distinct matrix row covering the full first-batch unsafe multi-process pipe boundary. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-multi-process-pipe-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 119.642s at /tmp/machinen-move-matrix-58434-1781350002. The row proved 11 fail-closed cases: missing-peer, fan-in, fan-out, nonblocking-read, nonblocking-write, shell-state, pty-stdio, inherited-stdio, stale-executable, stale-cwd, and active-partial-write. Missing peer, fan-in, fan-out, nonblocking read/write, hidden shell pipeline state, PTY stdio, inherited stdio, and active partial/unknown write all refused before loader start with targetPid=null. Stale executable and stale cwd reached generic loader preflight but refused with targetPid=null and reasons pipe-producer-missing and cwd-missing. Registered the proof in scripts/smoke/move-envelope-matrix.sh, docs/snapshot/generic-resource-graph-inventory.json, and scripts/generic-resource-graph-coverage.mjs; `pnpm run generic-resource-graph-coverage` passed in 0.208s and `pnpm run check-smoke-manifest` passed in 0.217s. Non-claims: no fan-in/fan-out support, no nonblocking readiness semantics, no shell pipeline/session migration, no PTY stdio migration, no stale executable/cwd continuation, no active partial write preservation, and no arbitrary process graph migration."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic-process-tree-refusals keep service-managed children, dynamic worker pools, active requests, reload races, and non-exact process trees refused unless the full process graph contract is modeled with target-native proof.",
+      "evidence": "Added and proved generic-process-tree-refusals as a fail-closed process-tree boundary row. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-process-tree-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 55.256s at /tmp/machinen-move-matrix-61031-1781350267. The row mutated captured generic descriptors into five unsafe processGraph cases and proved each refused before loader start with loadAccepted=false and targetPid=null: service-managed-children -> serviceManagedChildWorkers with 2 nodes, dynamic-worker-pool -> dynamicWorkerPool with 3 nodes, active-request -> activeRequestSession with 2 nodes, reload-race -> serviceReloadRace with 2 nodes, and non-exact-process-tree -> nonExactProcessTree with 2 nodes including an incomplete unknown child. Registered new resource classes dynamicWorkerPool, activeRequestSession, serviceReloadRace, and nonExactProcessTree in docs/snapshot/generic-resource-graph-inventory.json and registered the proof in scripts/smoke/move-envelope-matrix.sh and scripts/generic-resource-graph-coverage.mjs. `pnpm run generic-resource-graph-coverage` passed in 0.202s, `pnpm run check-smoke-manifest` passed in 0.206s, and focused refusalClasses test `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"service-managed child-worker|refusalClasses\"` passed in 0.902s. Non-claims: no service-managed child continuation, no dynamic worker-pool reconstruction, no active request/session migration, no reload handoff support, no incomplete process-tree acceptance, and no broad process-tree checkpointing."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the process-graph and pipes/stdio model is documented, registered in inventory, covered by generic coverage, retained artifact coverage, focused unit tests, and a matrix plan so stale or missing proofs fail closed.",
+      "evidence": "Documented and registered the process-graph and pipes/stdio model and proved retained coverage. Added scripts/smoke/move-envelope-process-graph-pipes-plan.json with expectedProofs=[generic-two-process-pipe-reexec,generic-finite-pipe-buffer-replay,generic-stdio-pipe-product-marker,generic-multi-process-pipe-refusals,generic-process-tree-refusals,generic-pipe-stdio-refusals] and chunks for support/refusal rows. Updated docs/snapshot/generic-pipes-stdio-graduation.md with exact two-process pipe reexec, finite replay, modeled stdio productPath marker, processGraph taxonomy, and refusal boundaries; updated docs/snapshot/generic-resource-graph-move.md support/refusal tables; updated docs/snapshot/generic-resource-graph-frontier.md to record graduated exact pipe/process rows and remaining boundaries. Inventory already carries processGraph, pipeGraph, stdio, dynamicWorkerPool, activeRequestSession, serviceReloadRace, nonExactProcessTree, and the new proof names. Built retained coverage dir /tmp/machinen-process-graph-pipes-retained-coverage from the targeted proof artifacts and ran `node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-process-graph-pipes-plan.json --coverage-dir /tmp/machinen-process-graph-pipes-retained-coverage --json`, which passed in 0.042s with expectedCount=6, coveredCount=6, missing=[], failed=[]. Proved fail-closed retained coverage by deleting generic-process-tree-refusals from a copied coverage dir and rerunning the same command; it failed as expected in 0.039s with missing=[generic-process-tree-refusals]. Focused unit tests `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"pipe product marker|process-tree generic-primary refusal|target-native pipe loader\"` passed in 0.814s with 3 tests passed, covering pipe loader commands, productPath/refusalClasses gating, and process-tree refusal classes. `pnpm run generic-resource-graph-coverage` passed in 0.179s, `pnpm run check-smoke-manifest` passed in 0.210s, and `pnpm run build:docs` passed in 2.229s. Non-claims: retained coverage and docs do not add arbitrary process restore, arbitrary stdio migration, broad process-tree migration, active session migration, or source fd teleportation."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic service process-tree support for at least one safe exact multi-process daemon shape, such as nginx master/worker or a simple prefork server, by target-native reexecing the modeled tree with config identity, worker identity, health proof, and no active request/session claim.",
+      "evidence": "Added and proved generic-service-process-tree-prefork as the first safe exact generic service process-tree support row. The row uses a proof-only Python prefork fixture provisioned inside source/target VMs: a target-native master process starts exactly one target-native worker process, the worker serves an idle loopback HTTP health endpoint, and service.conf contains stable config identity. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-service-process-tree-prefork --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed on rerun in 2.972s at /tmp/machinen-move-matrix-68588-1781351582. The proof selected target-native-generic-resource-graph-reexec-loader, loadAccepted=true, targetPid=140, processNodes=2, processEdges=[{fromPid:7001,toPid:7002,kind:parent-child}], activeRequests=0, serviceConfigSha256=7f4df3fcdd790a67356c1735315d1c9f93d27a783cd0d95d4b2798c8659f25f7, workerObserved=true via pgrep child inspection, and target HTTP response contained `prefork:prefork-service-config-v1`. The descriptor records processGraph.policy=exact-prefork-service-target-native-master-worker-reexec, serviceConfigIdentity, serviceReadOnlyData via config-file identity preflight, loopbackTcpListener, noActiveClients, and healthProbe with refusalClasses=[]. An initial attempt at /tmp/machinen-move-matrix-64676-1781350810 failed loader preflight with data-dir-identity-mismatch and timed out during cleanup because it over-constrained full root tree identity; the row was narrowed to explicit service config file identity before claiming support. Registered generic-service-process-tree-prefork in scripts/smoke/move-envelope-matrix.sh, docs/snapshot/generic-resource-graph-inventory.json, and scripts/generic-resource-graph-coverage.mjs; `pnpm run generic-resource-graph-coverage` passed in 0.215s and `pnpm run check-smoke-manifest` passed in 0.215s. Non-claims: exact proof-only prefork service process tree only; no dynamic workers, service-managed arbitrary child pools, active requests/sessions, reload handoff, writable persistence, arbitrary daemon migration, or broad process-tree checkpointing."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove service process-tree refusals for dynamic worker pools, active requests, reload races, config drift, service-managed children outside the exact graph, writable persistence, and target package/config mismatch with targetPid=null or no loader start.",
+      "evidence": "Added and proved generic-service-process-tree-refusals as a dedicated service process-tree refusal row. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-service-process-tree-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 88.237s at /tmp/machinen-move-matrix-69929-1781351754. The row proved eight service fail-closed cases: dynamic-worker-pool -> dynamicWorkerPool, active-request -> activeRequestSession, reload-race -> serviceReloadRace, service-managed-outside-exact -> serviceManagedChildWorkers, writable-persistence -> serviceWritablePersistence, config-drift -> serviceConfigDrift, target-package-missing -> targetPackageMissing, and target-config-missing -> serviceConfigDrift. Dynamic worker pool, active request/session, reload race, service-managed child outside exact graph, and writable persistence all refused before loader start with targetPid=null. Config drift, target package missing, and target config missing reached generic loader preflight only to refuse with targetPid=null and reasons file-identity-mismatch, executable-missing, and file-missing. Registered generic-service-process-tree-refusals in scripts/smoke/move-envelope-matrix.sh, docs/snapshot/generic-resource-graph-inventory.json, and scripts/generic-resource-graph-coverage.mjs; `pnpm run generic-resource-graph-coverage` passed in 0.204s, `pnpm run check-smoke-manifest` passed in 0.211s, and focused refusalClasses tests `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"process-tree generic-primary refusal|service-managed child-worker|refusalClasses\"` passed in 0.898s. Non-claims: no dynamic worker pools, active requests/sessions, reload generation handoff, service-managed children outside exact prefork graph, writable persistence, config reconciliation, package provisioning, or arbitrary service/process-tree migration."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove Unix socket wave 2 pathname listener/client-pair support for a stable filesystem socket path with exact peer graph, credentials/policy evidence where relevant, target path preflight, target-native reconstruction, and Unix-connect or protocol health proof.",
+      "evidence": "Added and proved generic-unix-pathname-client-pair as the Unix socket wave 2 pathname listener/client-pair support row. The row reuses target-native generic Unix listener reconstruction but adds an exact processGraph with two nodes (listener plus target-created client probe), a unixPeerGraph recording stable pathname listener policy, target path preflight (must-not-exist, parent must-exist-writable), a target-created protocol client probe with request=pair and expectedResponse=unix:pair, connectedSessionState=none-captured-or-claimed, and credentialPolicy=same-user-proof-fixture-no-credential-sensitive-claim. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-unix-pathname-client-pair --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 2.684s at /tmp/machinen-move-matrix-72170-1781352009. The proof selected target-native-generic-resource-graph-reexec-loader, targetPid=138, unixSocket.path=/tmp/machinen-generic/unix-pair/root/app.sock, state=idle-pathname-listener, noActiveClients=true, processNodes=2, peerGraph.clientProbe.expectedResponse=unix:pair, and target protocol response was unix:pair. Registered unixSocketPathnameClientPair resource class and generic-unix-pathname-client-pair proof in docs/snapshot/generic-resource-graph-inventory.json, scripts/smoke/move-envelope-matrix.sh, and scripts/generic-resource-graph-coverage.mjs; `pnpm run generic-resource-graph-coverage` passed in 0.208s and `pnpm run check-smoke-manifest` passed in 0.208s. Non-claims: target-created Unix client probe only; no connected session migration, abstract socket, datagram, socketpair, fd-passing, credential-sensitive socket, or arbitrary Unix socket migration."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove Unix socket wave 2 refusals keep connected session migration, abstract sockets, datagrams, socketpairs with ambiguous peer state, fd-passing, credential-sensitive sockets, occupied paths, missing parents, and changed path identity fail-closed.",
+      "evidence": "Added and proved generic-unix-socket-wave2-refusals as the Unix socket wave 2 refusal row. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-unix-socket-wave2-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed on rerun in 99.422s at /tmp/machinen-move-matrix-75930-1781352502. The row proved nine fail-closed cases: connected-session -> unixSocketConnected, abstract-socket -> unixSocketAbstract, datagram -> unixSocketDatagram, socketpair -> unixSocketPair, fd-passing -> unixSocketFdPassing, credential-sensitive -> unixSocketCredentialSensitive, occupied-path -> unixSocketPathOccupied, missing-parent -> unixSocketPathMissingParent, and changed-path-identity -> unixSocketPathIdentityChanged. Connected session, abstract, datagram, socketpair, fd-passing, and credential-sensitive cases refused before loader start with targetPid=null. Occupied path, missing parent, and changed path identity reached generic loader preflight but refused with targetPid=null and reasons unix-socket-path-occupied, unix-socket-parent-missing, and unix-socket-path-occupied. The first attempt at /tmp/machinen-move-matrix-74330-1781352383 failed because missing-parent hit cwd-missing before Unix preflight; the row was fixed to use cwd=/ for preflight-mode cases so the intended Unix socket refusal reason is proven. Registered unixSocketFdPassing, unixSocketCredentialSensitive, unixSocketPathOccupied, unixSocketPathMissingParent, unixSocketPathIdentityChanged and generic-unix-socket-wave2-refusals in docs/snapshot/generic-resource-graph-inventory.json, scripts/smoke/move-envelope-matrix.sh, and scripts/generic-resource-graph-coverage.mjs; `pnpm run generic-resource-graph-coverage` passed in 0.222s and `pnpm run check-smoke-manifest` passed in 0.224s. Non-claims: no connected Unix session migration, no abstract namespace support, no datagram queue support, no socketpair peer-state migration, no fd-passing/SCM_RIGHTS support, no credential-sensitive socket migration, no occupied/missing/changed pathname repair, and no arbitrary Unix socket migration."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove timerfd/timer support with bounded target-native timer restart, captured clock type, expiry/interval, monotonic/realtime translation policy, visible target firing evidence, and bounded skew measurement.",
+      "evidence": "Added generic timerfd descriptor support and proof rows. The generic state now includes timers[] with fd/path/fdinfoFlags/flags, clockId, ticks, settimeFlags, value/interval seconds+nanoseconds, restartPolicy, boundedSkewMilliseconds, and support status; the generic loader has a target-native timerfd_create/timerfd_settime path that dup2s the recreated fd before exec. Focused unit coverage proves only a normal-flag CLOCK_MONOTONIC relative one-shot timerfd with ticks=0, settimeFlags=0, interval=0, bounded nonzero remaining time, and no active timerfd/epoll/poll/select wait is accepted; realtime, unread, absolute, periodic, and nonblocking variants remain refused. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-timerfd-relative-oneshot,generic-timerfd-relative-oneshot-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-69322-1781353711: support row used target-native-generic-resource-graph-reexec-loader, descriptorHarness=true, timer fd=3, clockId=1, ticks=0, settimeFlags=0, value=3s, interval=0, boundedSkewMilliseconds=750, target firing ticks=1, targetElapsedMs=2992, skewMs=8; refusal row covered realtime clock, nonblocking flags, unread ticks, absolute settime flags, and periodic interval with loaderStarted=false. Registered generic-timerfd-relative-oneshot and generic-timerfd-relative-oneshot-refusals in the matrix, inventory, coverage, and docs. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.11s), node --check scripts/generic-resource-graph-coverage.mjs (0.16s), focused Vitest timerfd/eventfd/epoll tests (6 passed, 2.65s), pnpm run generic-resource-graph-coverage (0.37s), pnpm run check-smoke-manifest (0.45s), pnpm run build:docs (4.33s), pnpm run format:check (2.95s), pnpm run lint (1.01s), pnpm run typecheck (5.32s), and pnpm exec fallow audit --changed-since origin/main (2.69s, warnings only for pre-existing duplicate clone groups). Non-claims: no realtime clock translation, absolute/cancel-on-set timers, periodic intervals, unread/overrun replay, active waiter continuation, signal delivery, epoll readiness expansion, runtime-managed timers, arbitrary timer migration, source-fd teleportation, or product generic-primary claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove signalfd/signal-state boundaries by modeling signal masks/dispositions separately and refusing pending signal delivery, process-group ambiguity, runtime-managed timers, unknown signal handlers, and unsafe signal state before target launch.",
+      "evidence": "Added and proved generic-signalfd-signal-state-refusals as the signal-state boundary row. The generic resource graph now records signalState separately from fd resources with sessionId, processGroupId, pendingMaskHex, sharedPendingMaskHex, blockedMaskHex, ignoredMaskHex, caughtMaskHex, dispositionPolicy, pendingPolicy, processGroupPolicy, and refused-baseline support; signalfds[] record fd/path/fdinfoFlags/flags/sigmask/support. The row proves signalfd and unsafe signal state are refusal-only: no target-side signalfd reconstruction or signal delivery replay is claimed. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-signalfd-signal-state-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 2.137s at /tmp/machinen-move-matrix-29974-1781354307. It covered five fail-closed cases with loaderStarted=false: signalfd-mask recorded signalfd fd=3 sigmask=0000000000000200 plus blockedMaskHex=0000000000000200 and refusalClasses=[signalfd]; pending-signal-delivery recorded pendingMaskHex=0000000000000200 and refusalClasses=[pendingSignalState]; process-group-ambiguity recorded processGroupPolicy=refused-ambiguous-process-group and refusalClasses=[processGroupSignalAmbiguity]; runtime-managed-timer recorded runtimeTimer=setitimer-sigalrm-proof-fixture and refusalClasses=[runtimeManagedSignalTimer]; unknown-signal-handler recorded caughtMaskHex=0000000000000200 and refusalClasses=[unknownSignalHandler]. Registered generic-signalfd-signal-state-refusals and signalMaskDispositionEvidence, signalfdBaseline, pendingSignalState, processGroupSignalAmbiguity, runtimeManagedSignalTimer, and unknownSignalHandler in scripts/smoke/move-envelope-matrix.sh, scripts/generic-resource-graph-coverage.mjs, docs/snapshot/generic-resource-graph-inventory.json, docs/snapshot/generic-resource-graph-move.md, and docs/snapshot/generic-resource-graph-frontier.md. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.02s), focused Vitest signalfd/signal/timerfd tests (4 passed, 0.82s), pnpm run generic-resource-graph-coverage (0.32s), pnpm run check-smoke-manifest (0.35s), pnpm run build:docs (3.82s), pnpm run format:check (1.83s), pnpm run lint (1.47s), pnpm run typecheck (2.92s), and pnpm exec fallow audit --changed-since origin/main (1.41s, warnings only for existing duplicate clone groups). Non-claims: no pending signal replay, no signal handler migration, no process-group/session reconstruction, no runtime signal timer support, no signalfd reconstruction, no source fd teleportation, and no arbitrary signal/process migration."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove file lock support captures advisory flock/POSIX/OFD lock type, byte ranges, owner identity, path/file identity, and reacquires equivalent target locks before launch with visible conflict-free continuation evidence.",
+      "evidence": "Added and proved generic-file-lock-advisory as the first file-lock support row. The generic resource graph now carries fileLocks[] descriptors with fd/path, lockType, mode, byte range, owner policy, file identity, conflictPolicy=must-acquire-nonblocking-before-launch, and support=target-native-advisory-lock. The target-native generic loader has a file-lock launch path that opens the lock file, reacquires the advisory lock nonblocking before exec, keeps the lock fd inherited into the target process, and then execs the target-native command. The focused unit test proves the accepted descriptor shape emits a fcntl.flock/LOCK_NB loader and keeps runtime FILE_LOCK/MMAP evidence refused. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-file-lock-advisory --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed in 1.334s at /tmp/machinen-move-matrix-37211-1781355016. The proof selected target-native-generic-resource-graph-reexec-loader, targetPid=160, fileLock fd=3, path=/tmp/machinen-generic/file-lock/root/lock.txt, lockType=flock, mode=exclusive, range={start:0,length:eof}, owner.policy=target-process, fileIdentity.size=8, fileIdentity.sha256=b1778eaf3a61a27b5b55af3c9cf89db6e78785c0cf195cf53c9671d8a8913fcf, support=target-native-advisory-lock, and a target conflict probe reported lock-conflict-visible. Registered generic-file-lock-advisory and fileLockAdvisory in scripts/smoke/move-envelope-matrix.sh, scripts/generic-resource-graph-coverage.mjs, docs/snapshot/generic-resource-graph-inventory.json, docs/snapshot/generic-resource-graph-move.md, and docs/snapshot/generic-resource-graph-frontier.md. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.02s), focused Vitest file lock/mmap tests (2 passed, 1.71s), pnpm run generic-resource-graph-coverage (0.21s), pnpm run check-smoke-manifest (0.24s), pnpm run build:docs (2.25s), pnpm run format:check (1.57s), pnpm run lint (0.70s), pnpm run typecheck (3.21s), and pnpm exec fallow audit --changed-since origin/main (0.65s, warnings only for existing duplicate clone groups). Non-claims: proof-only single whole-file exclusive flock advisory lock only; no POSIX/OFD lock support, shared/range locks, unknown owners, conflicts, mandatory locks, leases, cross-process ownership graphs, broad file-lock migration, source fd teleportation, or product generic-primary claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove file lock refusals fail closed for lock conflicts, unknown owners, mandatory locks, leases, nonseekable offsets, changed backing files, unsupported lock types, and cross-process ownership ambiguity.",
+      "evidence": "Added and proved generic-file-lock-refusals as the dedicated fail-closed file-lock boundary row. The support launch path now reacquires locks synchronously before exposing LOAD_PID so lock acquisition errors cannot be hidden by a background launcher. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-file-lock-advisory,generic-file-lock-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-42043-1781355461. The refusal row proved eight cases: lock-conflict refused after loader preflight with loaderStarted=true, targetPid=null, and reason generic-preflight-refused; changed-backing-file refused with loaderStarted=true, targetPid=null, and reason file-size-mismatch; unknown-owner, mandatory-lock, lease, nonseekable-offset, unsupported-lock-type, and cross-process-ownership all refused before loader start with targetPid=null and resource classes fileLockUnknownOwner, fileLockMandatory, fileLockLease, fileLockNonseekable, fileLockUnsupportedType, and fileLockCrossProcessOwner. Re-ran generic-file-lock-advisory in the same proof after the synchronous lock-launch fix; it still passed with targetPid=159 and target conflict probe lock-conflict-visible. Registered generic-file-lock-refusals plus fileLockConflict, fileLockBackingChanged, fileLockUnknownOwner, fileLockMandatory, fileLockLease, fileLockNonseekable, fileLockUnsupportedType, and fileLockCrossProcessOwner in scripts/smoke/move-envelope-matrix.sh, scripts/generic-resource-graph-coverage.mjs, docs/snapshot/generic-resource-graph-inventory.json, docs/snapshot/generic-resource-graph-move.md, and docs/snapshot/generic-resource-graph-frontier.md. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh plus node --check scripts/generic-resource-graph-coverage.mjs (0.01s), focused Vitest file lock test (1 passed, 0.73s), pnpm run generic-resource-graph-coverage (0.31s), pnpm run check-smoke-manifest (0.34s), and pnpm -F @machinen/cli build (0.41s). Non-claims: no lock conflicts, changed backing file repair, unknown owners, mandatory locks, leases, unsupported POSIX/OFD lock types, nonseekable/invalid range support, cross-process lock ownership migration, broad file-lock migration, source fd teleportation, or product generic-primary claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove inotify/fanotify follow support for one exact safe file-follow shape beyond the current tail model by recreating watches target-side with file identity evidence and target-visible follow behavior, without claiming queued event replay.",
+      "evidence": "Added and proved generic-inotify-file-follow as the first exact inotify follow support row beyond the tail model. The generic resource graph now records inotifyWatches[] descriptors with fd/path/fdinfoFlags, watch descriptor, watched path, IN_MODIFY mask, ignoredMask=0, stable file size+sha256 identity, eventPolicy=future-events-only-no-queue-replay, and support=target-native-file-follow. The target-native generic loader preflights watched file identity, creates an inotify fd with inotify_init1(0), adds the watched file with inotify_add_watch before exposing LOAD_PID, dup2s the fd to the target fd, and execs a target-native Python worker that reads the recreated watch. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-inotify-file-follow --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-47400-1781356154 with proof duration 2.405s. The proof selected target-native-generic-resource-graph-reexec-loader, targetPid=159, watch fd=3, path=/tmp/machinen-generic/inotify-follow/root/app.log, mask=2, ignoredMask=0, fileIdentity.size=12, fileIdentity.sha256=9a9bd9ad1b93f50721d7b65c825f4b113e8a84294cf4b2dc706fc1a900362c17, support=target-native-file-follow, and target-visible output `inotify-follow-event:target-append` after a target append. Registered generic-inotify-file-follow plus inotifyFileFollow/inotifyBaseline in scripts/smoke/move-envelope-matrix.sh, scripts/generic-resource-graph-coverage.mjs, docs/snapshot/generic-resource-graph-inventory.json, docs/snapshot/generic-resource-graph-move.md, and docs/snapshot/generic-resource-graph-frontier.md. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.02s), focused Vitest inotify/anon-inode tests (2 passed, 0.71s), pnpm -F @machinen/cli build (0.35s after fix), pnpm run generic-resource-graph-coverage (0.19s), and pnpm run check-smoke-manifest (0.21s). Non-claims: no queued inotify event replay, no recursive watches, no directory-tree mutation race handling, no fanotify permission events, no unsupported watcher masks, no active waiter continuation, no arbitrary filesystem watcher migration, no source fd teleportation, and no product generic-primary claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove inotify/fanotify refusals fail closed for queue replay requirements, dropped events, directory-tree mutation races, recursive watches, changed watched identity, fanotify permission events, and unsupported masks.",
+      "evidence": "Added and proved generic-inotify-fanotify-refusals as the fail-closed watcher boundary row. The row mutates an exact inotifyFileFollow base descriptor into seven unsafe cases and proves each refuses with targetPid=null or no loader start. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-inotify-fanotify-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-51501-1781356497 with proof duration 1.997s. The row covered queued-events -> inotifyQueuedEvents, dropped-events -> inotifyDroppedEvents, directory-mutation-race -> inotifyDirectoryMutationRace, recursive-watch -> inotifyRecursiveWatch, changed-watched-identity -> inotifyWatchIdentityChanged, fanotify-permission-event -> fanotifyPermissionEvent, and unsupported-mask -> inotifyUnsupportedMask. Queued events, dropped/overflow state, directory mutation race, recursive watch, fanotify permission event, and unsupported mask all refused before loader start. Changed watched identity reached target generic-loader preflight and refused before target pid with reason inotify-watch-size-mismatch. Registered generic-inotify-fanotify-refusals plus inotifyQueuedEvents, inotifyDroppedEvents, inotifyDirectoryMutationRace, inotifyRecursiveWatch, inotifyWatchIdentityChanged, fanotifyPermissionEvent, and inotifyUnsupportedMask in scripts/smoke/move-envelope-matrix.sh, scripts/generic-resource-graph-coverage.mjs, docs/snapshot/generic-resource-graph-inventory.json, docs/snapshot/generic-resource-graph-move.md, and docs/snapshot/generic-resource-graph-frontier.md. Focused unit coverage now also proves non-exact inotify masks become refused-baseline with a pre-loader inotify refusal. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.02s), focused Vitest inotify/fanotify/anon-inode tests (3 passed, 0.73s), pnpm -F @machinen/cli build (0.40s), pnpm run generic-resource-graph-coverage (0.21s), pnpm run check-smoke-manifest (0.29s), pnpm run format:check (1.86s), pnpm run lint (1.55s), pnpm run typecheck (3.97s), pnpm run build:docs (2.09s), node --check scripts/move-envelope-matrix-coverage.mjs/scripts/validation-profile.mjs/scripts/build-move-proof-image.mjs (0.03s/0.02s/0.02s), pnpm exec fallow audit --changed-since origin/main (0.62s, warnings only for existing duplicate clone groups), and git diff --check (0.06s). Non-claims: no queued event replay, dropped-event repair, directory mutation-race handling, recursive watch graph migration, changed watched identity repair, fanotify permission-event support, unsupported inotify masks, active waiter continuation, arbitrary watcher migration, source fd teleportation, or product generic-primary claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove mmap-backed file support starts with exact read-only or clean MAP_SHARED file-backed mappings using backing file identity, mapping permissions, offsets, lengths, target mapping reconstruction, and target-visible behavior.",
+      "evidence": "Added and proved generic-mmap-file-backed-clean as the first mmap-backed file support row. The generic resource graph now records mmapMappings[] descriptors with fd/path, offset, length, permissions, sharing, file size+sha256 identity, dirtyPolicy=clean-file-backed, and support=target-native-file-backed-clean. The generic loader preflights the target backing file size and sha256, then uses a target-native Python mmap.mmap wrapper to reconstruct the clean file-backed read-only/shared mapping and emit target-visible mapped bytes. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-mmap-file-backed-clean --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-55630-1781356937 with proof duration 2.413s. The proof selected target-native-generic-resource-graph-reexec-loader, targetPid=157, mapping fd=3, path=/tmp/machinen-generic/mmap-clean/root/mapped.txt, offset=0, length=14, permissions=r--, sharing=shared, fileIdentity.size=14, fileIdentity.sha256=71f7f80e781f364f4eeaa939a4ab29ea7ccfaac50d87a35721f4fb1af6c23511, dirtyPolicy=clean-file-backed, support=target-native-file-backed-clean, and target-visible output `mmap-read:mmap-clean-v1`. Registered generic-mmap-file-backed-clean plus mmapFileBackedClean/mmapFileBaseline in scripts/smoke/move-envelope-matrix.sh, scripts/generic-resource-graph-coverage.mjs, docs/snapshot/generic-resource-graph-inventory.json, docs/snapshot/generic-resource-graph-move.md, and docs/snapshot/generic-resource-graph-frontier.md. Focused unit coverage proves the accepted clean mmap descriptor emits an mmap.mmap loader and identity preflight while existing mutable mmap evidence remains refused. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.02s), focused Vitest mmap/file-lock tests (3 passed, 0.79s and rerun 0.83s), pnpm -F @machinen/cli build (0.47s), pnpm run generic-resource-graph-coverage (0.30s), pnpm run check-smoke-manifest (0.33s), pnpm run format:check (2.13s), pnpm run lint (0.58s after reducing move-generic-resource-graph.ts below health guard limit), pnpm run typecheck (4.27s), pnpm run build:docs (3.37s), pnpm exec fallow audit --changed-since origin/main (1.45s, warnings only for existing duplicate clone groups), and git diff --check (0.03s). Non-claims: one proof-only clean file-backed read-only/shared mapping only; no dirty pages, dirty range materialization, anonymous memory replay, writable executable mappings, truncation race handling, changed backing file repair, COW/MAP_PRIVATE mutation replay, arbitrary memory migration, source fd teleportation, or product generic-primary claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove mmap dirty-file boundaries by either materializing explicit dirty ranges with backing identity and target-visible evidence or refusing dirty MAP_PRIVATE/MAP_SHARED, anonymous dirty memory, executable writable mappings, truncation races, and changed backing files.",
+      "evidence": "Added and proved generic-mmap-dirty-refusals as the fail-closed mmap dirty-boundary row. The mmap descriptor helper now emits genericMmapRefusals for mappings outside the clean file-backed contract, so unsupported mmap descriptors refuse before target launch instead of falling through to a default reexec. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-mmap-dirty-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-62747-1781358130 with proof duration 1.947s. The row covered dirty-map-shared -> mmapDirtyShared, dirty-map-private -> mmapDirtyPrivate, anonymous-dirty -> mmapAnonymousDirty, executable-writable -> mmapWritableExecutable, truncation-race -> mmapTruncationRace, and changed-backing-file -> mmapBackingChanged. Dirty MAP_SHARED, dirty MAP_PRIVATE, anonymous dirty memory, writable/executable hazard, and truncation race all refused before loader start with targetPid=null. Changed backing file reached generic-loader preflight and refused before target pid with reason mmap-file-size-mismatch. Registered generic-mmap-dirty-refusals plus mmapDirtyShared, mmapDirtyPrivate, mmapAnonymousDirty, mmapWritableExecutable, mmapTruncationRace, and mmapBackingChanged in scripts/smoke/move-envelope-matrix.sh, scripts/generic-resource-graph-coverage.mjs, docs/snapshot/generic-resource-graph-inventory.json, docs/snapshot/generic-resource-graph-move.md, and docs/snapshot/generic-resource-graph-frontier.md. Focused unit coverage now proves non-clean mmap descriptors become refused-baseline with a pre-loader mmapFile refusal, while existing runtime mmap evidence remains refused. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.02s), focused Vitest mmap/file-lock tests (4 passed, 0.71s), pnpm -F @machinen/cli build (0.54s), pnpm run generic-resource-graph-coverage (0.22s), pnpm run check-smoke-manifest (0.24s), pnpm run format:check (1.87s), pnpm run lint (1.50s), pnpm run typecheck (4.02s), pnpm run build:docs (2.15s), node --check scripts/move-envelope-matrix-coverage.mjs/scripts/validation-profile.mjs/scripts/build-move-proof-image.mjs (0.02s/0.02s/0.03s), pnpm exec fallow audit --changed-since origin/main (0.73s, warnings only for existing duplicate clone groups), and git diff --check (0.08s). Non-claims: no dirty MAP_SHARED/MAP_PRIVATE replay, dirty range materialization, anonymous dirty memory migration, writable executable mapping support, truncation-race handling, changed backing-file repair, arbitrary memory migration, source fd teleportation, or product generic-primary claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove epoll readiness expansion beyond the tiny eventfd watch by reconstructing one additional exact watched-fd shape, such as pipe, socket, or timerfd, with captured watch mask, readiness policy, and target-visible readiness behavior.",
+      "evidence": "Added and proved generic-epoll-timerfd-watch as the epoll readiness expansion beyond the tiny eventfd watch. The runtime generic resource state now admits epoll support=target-native-timerfd-watch, and the generic timerfd loader can recreate a normal-flag CLOCK_MONOTONIC relative one-shot timerfd, create a target-native epoll fd, install the captured level-trigger/no-one-shot watch mask before exec, and dup both fds into the target process. Focused unit coverage proves one epoll fd watching the supported timerfd records watched fd=3, mask events=1, data=4, trigger=level, oneShot=false, watchedResourceClass=timerfd, support=target-native-timerfd-watch, resourceClass=epollTimerfdWatch, and emits timerfd_create plus epoll_ctl in the loader. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-epoll-timerfd-watch --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-70235-1781358806 with real time 4.81s and proof duration 3.373s. The proof selected target-native-generic-resource-graph-reexec-loader, targetPid=154, timer fd=3 with support=target-native-relative-oneshot, epoll fd=4 with support=target-native-timerfd-watch, captured watch targetFd=3/events=1/data=4/trigger=level/oneShot=false, target fdinfo showed anon_inode:[timerfd] plus anon_inode:[eventpoll] with tfd=3 events=19 data=4, and target-visible epoll readiness produced event epoll-timerfd-ready with events=[[4,1]], ticks=1, elapsedMs=999. Registered generic-epoll-timerfd-watch and epollTimerfdWatch in scripts/smoke/move-envelope-matrix.sh, scripts/generic-resource-graph-coverage.mjs, docs/snapshot/generic-resource-graph-inventory.json, docs/snapshot/generic-resource-graph-move.md, docs/snapshot/generic-resource-graph-frontier.md, and regenerated packages/runtime/API.md. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.03s), focused Vitest epoll/timerfd/eventfd tests (7 passed, 1.65s on final rerun), targeted proof-image row (4.81s real, proof duration 3.373s), pnpm run generic-resource-graph-coverage (0.20s), pnpm run check-smoke-manifest (0.25s), pnpm run build:docs (2.86s), pnpm run format:check (1.95s), pnpm run lint (1.39s), pnpm run typecheck (4.10s), and pnpm exec fallow audit --changed-since origin/main (1.25s, warnings only for existing duplicate clone groups). Non-claims: one level-trigger epoll watch on the tiny supported timerfd only; no edge-trigger or one-shot support, nested epoll, active waiters, runtime loop migration, arbitrary watched fd support, readiness queue replay, source fd teleportation, or product generic-primary claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove epoll/readiness refusals keep edge-trigger, one-shot, nested epoll, active waiters, unknown watched fds, unsupported flags, incompatible counters, and runtime-loop ambiguity fail-closed.",
+      "evidence": "Expanded and re-proved generic-epoll-eventfd-watch-refusals as the epoll/readiness refusal boundary row. The existing row already covered unknown watched fd, edge-trigger watch, one-shot watch, nested epoll, and active epoll waiter/runtime-loop ambiguity. This pass added explicit unsupported-flags and incompatible-counter cases: unsupported-flags creates a watched eventfd with fdinfoFlags=04002/nonblocking so both eventfd and epoll supports are refused-baseline, and incompatible-counter writes eventfd counter 0x100000000 so the watched counter is outside the supported target-native range and the epoll watch is refused-baseline. Focused unit coverage now checks epoll refusal for unknown watches, edge/one-shot/nested shapes, active loops, unsupported watched-fd flags, and incompatible counters. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-epoll-eventfd-watch-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-72867-1781359113 with real time 7.70s and proof duration 6.198s. The proof covered seven fail-closed cases with loaderStarted=false and no target pid: unknown watched pipe fd -> refusalClasses=[pipe,epoll], edge -> epoll watch events=80000019 trigger=edge support=refused-baseline, oneshot -> events=40000019 oneShot=true support=refused-baseline, nested -> watchedResourceClass=epoll with both epolls refused-baseline, active -> eventfd and epoll refused-baseline under active epoll wait, unsupported-flags -> eventfd fdinfoFlags=04002 and epoll support refused-baseline, incompatible-counter -> eventfd counter=100000000 and epoll support refused-baseline. Updated docs/snapshot/generic-resource-graph-move.md, docs/snapshot/generic-resource-graph-frontier.md, and docs/snapshot/generic-resource-graph-inventory.json to name unsupported flags/incompatible counters in the epoll refusal boundary. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.02s), inventory JSON parse (0.02s), focused Vitest epoll/timerfd/eventfd tests (7 passed, 0.72s), targeted proof-image row (7.70s real, proof duration 6.198s), pnpm run generic-resource-graph-coverage (0.25s), pnpm run check-smoke-manifest (0.27s), pnpm run build:docs (3.40s), pnpm run format:check (2.16s), pnpm run lint (2.10s), pnpm run typecheck (4.28s), pnpm exec fallow audit --changed-since origin/main (0.48s, warnings only for existing duplicate clone groups), and git diff --check (0.03s). Non-claims: no edge-trigger readiness replay, one-shot arming/rearming, nested epoll graph reconstruction, active waiter/runtime-loop migration, unknown watched fd support, unsupported flag normalization, incompatible counter repair, readiness queue replay, arbitrary watched-fd support, source fd teleportation, or product generic-primary claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic database/data-dir safety support for one exact quiescent data-directory shape, such as clean shutdown/checkpoint or empty dataset, using tree identity, ownership/mode policy, lock/WAL/checkpoint evidence, target-native restart, and health proof.",
+      "evidence": "Proved the generic database/data-dir safety support row using the exact empty/no-persistence Redis dataset shape as the quiescent database/data-dir safety contract. The support descriptor records processIdentity, argvEnvCwd, targetPackageIdentity, serviceConfigIdentity, serviceEmptyDataset, databaseSafety, loopbackTcpListener, noActiveClients, and healthProbe; removes the explicit redisIdleState in the descriptor-harness parity mutation so the target-native generic resource graph loader, not the Redis explicit fallback, is exercised; requires Redis argv `--save \"\" --appendonly no`, loopback idle listener, no active clients, no dataDirs because persistence is disabled, DBSIZE=0, and target PING/DBSIZE health. An initial targeted run of `generic-service-redis-idle-parity` failed at /tmp/machinen-move-matrix-75022-1781359251 because the explicit Redis loader still had priority and support_load.loader.strategy was target-native-redis-idle-loader; after fixing the parity mutation to remove redisIdleState while preserving package/state-derived generic metadata, a second attempt failed at /tmp/machinen-move-matrix-77073-1781359425 because copied refusal bundles no longer had redisIdleState; the mutation was made tolerant of already-mutated bundles. Final targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-service-redis-idle-parity --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-77952-1781359477 with real time 9.80s and proof duration 8.331s. The proof selected target-native-generic-resource-graph-reexec-loader, targetPid=166, target PING/DBSIZE output was [PONG,0], migration.mode=generic-primary for the descriptor-harness parity row, resourceClasses included serviceEmptyDataset and databaseSafety, and refusal siblings in the same row kept active-client, nonempty-dataset, persistence, and unsupported-config cases at targetPid=null. Re-ran the live marker command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only redis-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz`, which passed at /tmp/machinen-move-matrix-78782-1781359493 with real time 4.81s and proof duration 3.333s: fallback without exact productPath still used target-native-redis-idle-loader, while marked exact-live-capture productPath selected target-native-generic-resource-graph-reexec-loader and returned PONG/0. Registered coverage/inventory already names generic-service-redis-idle-parity, redis-live-generic-primary-marker, serviceEmptyDataset, and databaseSafety. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), focused Redis/generic-primary Vitest (9 tests, 1.09s), pnpm run generic-resource-graph-coverage (0.27s), pnpm run check-smoke-manifest (0.32s), pnpm run format:check (2.00s), pnpm run lint (1.75s), pnpm run typecheck (4.05s), pnpm exec fallow audit --changed-since origin/main (0.61s, warnings only for existing duplicate clone groups), and git diff --check (0.13s). Non-claims: exact empty no-persistence Redis dataset only; no non-empty dataset migration, AOF/RDB persistence, WAL/checkpoint replay, file lock/state transfer, active client/session migration, modules/auth/config side effects, generic arbitrary database migration, source fd teleportation, or product generic-primary outside exact productPath metadata with refusalClasses=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove generic database/data-dir refusals fail closed for WAL ambiguity, active writers, file locks, non-empty persistence without database-specific semantics, dirty checkpoints, changed ownership/mode, symlink hazards, and service-specific unsafe features.",
+      "evidence": "Added and proved generic-database-data-dir-refusals as the fail-closed database/data-dir boundary row. The row starts from the exact empty/no-persistence Redis generic support descriptor, then mutates it into eight unsafe database/data-dir cases with explicit refusalClasses and nativeContinuation.state=refused so no generic target launch can occur. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-database-data-dir-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-81260-1781359776 with real time 4.03s and proof duration 2.346s. The proof covered eight fail-closed cases with targetPid=null and loaderStarted=false: wal-ambiguity -> databaseWalAmbiguity, active-writer -> databaseActiveWriter, file-lock -> databaseFileLock, nonempty-persistence -> databaseNonEmptyPersistence, dirty-checkpoint -> databaseDirtyCheckpoint, changed-owner-mode -> dataDirOwnershipModeChanged, symlink-hazard -> dataDirSymlinkHazard, and service-specific-unsafe -> databaseServiceSpecificUnsafe. Each case records databaseSafetyBoundary.policy=empty-no-persistence-or-fail-closed and targetPidPolicy=none-before-generic-launch. Registered generic-database-data-dir-refusals in scripts/smoke/move-envelope-matrix.sh, scripts/generic-resource-graph-coverage.mjs, docs/snapshot/generic-resource-graph-inventory.json, docs/snapshot/generic-resource-graph-move.md, and docs/snapshot/generic-resource-graph-frontier.md, including precise resource class language for the new database/data-dir refusal classes. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.02s), inventory JSON parse (0.02s), pnpm run generic-resource-graph-coverage (0.15s final run; prior run after registration 0.15s and no missing rows), targeted proof row (4.03s real, proof duration 2.346s), focused Redis/generic-primary Vitest (9 tests, 1.17s final rerun), pnpm run check-smoke-manifest (0.32s), pnpm run build:docs (3.94s), pnpm run format:check (2.78s), pnpm run lint (2.29s), pnpm run typecheck (4.72s), pnpm exec fallow audit --changed-since origin/main (0.61s, warnings only for existing duplicate clone groups), and git diff --check (0.03s). Non-claims: no WAL/checkpoint replay, active writer migration, database lock/lease transfer, non-empty persistence migration, dirty checkpoint repair, ownership/mode repair, symlink repair, service-specific feature migration, broad database/data-dir migration, source fd teleportation, or product generic-primary outside exact productPath metadata with refusalClasses=[]."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove same-arch continuation only after all observed resource classes for the chosen shape are modeled, with frozen threads, register/stack/memory mapping evidence, fd/resource graph compatibility, target native resume evidence, and no source-ISA emulation.",
+      "evidence": "Added and proved generic-same-arch-modeled-continuation as a proof-only same-architecture continuation harness for one exact single-thread native-code shape. The row requires source and target `uname -m` to match, records a frozen single thread with modeled register bank (pc/sp/lr plus argument register), stack window, executable memory mapping bytes with sha256, stdio-only fd/resource graph compatibility, all observed resource classes modeled, and a target-native executable mapping. Target execution maps architecture-native bytes from a file as r-x memory and calls them through the native ABI: on aarch64 the bytes are `add w0, w0, #1; ret`, with x0=41 and x0 return=42; x86_64 fallback bytes are `lea eax,[rdi+1]; ret`. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-same-arch-modeled-continuation --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-84043-1781360119 with real time 1.86s and proof duration 0.323s. The proof ran sourceArch=aarch64 and targetArch=aarch64, support=proof-only-single-thread-target-native-resume-harness, thread state=frozen-ptrace-stop-proof-fixture, singleThread=true, registers pc=0x400000/sp=0x70000000ff00/lr=0x400008/x0=0x29, stack policy=single-stack-window-modeled, target executable mapping targetEntry=0xffff9b385000, bytesSha256=b8f7677ebbbb148018def3000f7f3cebe17d7eb948a884eeeef93f12e4d66356, fdGraph policy=all-observed-fds-modeled with observed fds [0,1,2], resourceGraph.allObservedResourceClassesModeled=true, and resume.status=returned with returnValue=42, sourceIsaEmulationUsed=false, sidecarRuntimeUsed=false. Registered generic-same-arch-modeled-continuation and sameArchNativeResume/frozenThreadState/registerStackMemoryEvidence/fdResourceGraphCompatibility in scripts/smoke/move-envelope-matrix.sh, scripts/generic-resource-graph-coverage.mjs, docs/snapshot/generic-resource-graph-inventory.json, docs/snapshot/generic-resource-graph-move.md, docs/snapshot/generic-resource-graph-frontier.md, and packages/runtime/API.md via the new sameArchContinuation descriptor field. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.02s), inventory JSON parse (0.02s), pnpm run generic-resource-graph-coverage (0.15s), targeted proof row (1.86s real, proof duration 0.323s), focused generic resource graph descriptor Vitest (38 tests, 0.92s), pnpm run check-smoke-manifest (0.31s), pnpm run build:docs (3.32s), pnpm run format:check (2.07s), pnpm run lint (1.86s), pnpm run typecheck (4.37s), pnpm exec fallow audit --changed-since origin/main (0.64s, warnings only for existing duplicate clone groups), and git diff --check (0.07s). Non-claims: proof-only single-thread same-architecture native-code harness; no arbitrary process restore, runtime heap migration, active syscall continuation, multiple threads, signal state replay, fd teleportation, source-ISA emulation, sidecar runtime, broad same-arch migration, or product support claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove same-arch continuation refusals for active syscalls, multiple threads without a proven scheduler model, unsupported mappings, runtime heap assumptions, unsupported signal state, unsupported fds, and resource graph gaps.",
+      "evidence": "Added and proved generic-same-arch-continuation-refusals as the fail-closed same-architecture continuation boundary row. The row records a refused sameArchContinuation descriptor for each unsafe case and asserts targetPid=null, loaderStarted=false, targetNativeResumeAttempted=false, sourceIsaEmulationUsed=false, and sidecarRuntimeUsed=false. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-same-arch-continuation-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-86400-1781360423 with real time 1.66s and proof duration 0.175s. The proof ran sourceArch=aarch64 and targetArch=aarch64 and covered seven fail-closed cases: active-syscall -> sameArchActiveSyscallRefusal with ppoll in-kernel wait refused until synthetic return/resource readiness semantics are modeled; multiple-threads -> sameArchMultiThreadRefusal refusing thread:2 until scheduler/TLS/futex/thread-start semantics are proven; unsupported-mapping -> sameArchUnsupportedMapping refusing dirty anonymous/writable-executable/unbounded mapping hazards; runtime-heap-assumption -> sameArchRuntimeHeapRefusal refusing V8/runtime heap profile shortcuts; unsupported-signal-state -> sameArchSignalStateRefusal refusing pending/caught signal and process-group ambiguity; unsupported-fd -> sameArchFdRefusal refusing unmodeled fd 7 instead of source-fd teleportation; resource-graph-gap -> sameArchResourceGraphGap refusing descriptors with missing observed resource classes. Registered generic-same-arch-continuation-refusals plus sameArchActiveSyscallRefusal, sameArchMultiThreadRefusal, sameArchUnsupportedMapping, sameArchRuntimeHeapRefusal, sameArchSignalStateRefusal, sameArchFdRefusal, and sameArchResourceGraphGap in scripts/smoke/move-envelope-matrix.sh, scripts/generic-resource-graph-coverage.mjs, docs/snapshot/generic-resource-graph-inventory.json, docs/snapshot/generic-resource-graph-move.md, and docs/snapshot/generic-resource-graph-frontier.md. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.02s), inventory JSON parse (0.02s), pnpm run generic-resource-graph-coverage (0.15s), targeted proof row (1.66s real, proof duration 0.175s), focused generic resource graph/refusal Vitest (38 tests, 2.10s), pnpm run check-smoke-manifest (0.38s), pnpm run build:docs (3.48s), pnpm run format:check (2.36s), pnpm run lint (1.83s), pnpm run typecheck (4.35s), pnpm exec fallow audit --changed-since origin/main (0.47s, warnings only for existing duplicate clone groups), and git diff --check (0.03s). Non-claims: no same-arch continuation for active syscalls, multiple threads, scheduler state, runtime heaps, unsupported mappings, signal delivery/handler state, unsupported fds, incomplete resource graphs, arbitrary process restore, source fd teleportation, source-ISA emulation, sidecar runtime success, broad same-arch migration, or product support claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove cross-arch semantic reconstruction for one exact shape using semantic descriptors plus target-native binaries or proof-provisioned target-native tools, with visible target continuation evidence and no source registers/source ISA execution.",
+      "evidence": "Added and proved generic-cross-arch-semantic-reconstruction as a proof-only cross-architecture semantic reconstruction support row for one exact finite byte-stream transform. The row builds a semantic descriptor with sourceArch different from targetArch, no source registers, no source ISA state, all observed resource classes modeled, and metadataOnlySuccess=false; it then runs `/usr/bin/python3` on the target architecture to transform the captured semantic byte stream to uppercase and records target-visible stdout evidence. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-cross-arch-semantic-reconstruction --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-88585-1781360680 with real time 1.76s and proof duration 0.292s. The proof ran sourceArch=amd64 and targetArch=aarch64, support=proof-only-target-native-semantic-reconstruction, semanticDescriptor.kind=finite-byte-stream-transform, operation=uppercase, descriptorSha256=5d83bacec0145fe77ecc21b29b8b561282a807d23c8b8024de345fa3a5a28592, inputSha256=ba5886110d7daa11ea82923df5b24fd19aea76b51cf1077bf06998b5fc412e73, sourceRegistersPresent=false, sourceIsaStatePresent=false, metadataOnlySuccess=false, resourceGraph.allObservedResourceClassesModeled=true, targetNativeTool.path=/usr/bin/python3, targetNativeTool.observedArch=aarch64, targetNativeTool.status=completed, continuationEvidence.stdout=`CROSS-ARCH SEMANTIC DESCRIPTOR\\n`, stdoutSha256=d5df8f442651c46c5cb1f3ff6f1d5c530f90277e34f98dcdd847a6d7e0d7e213, targetNativeExecution=true, sourceIsaEmulationUsed=false, and sidecarRuntimeUsed=false. Registered generic-cross-arch-semantic-reconstruction plus crossArchSemanticDescriptor, crossArchTargetNativeTool, and crossArchSemanticReconstruction in scripts/smoke/move-envelope-matrix.sh, scripts/generic-resource-graph-coverage.mjs, docs/snapshot/generic-resource-graph-inventory.json, docs/snapshot/generic-resource-graph-move.md, docs/snapshot/generic-resource-graph-frontier.md, and packages/runtime/API.md via the new crossArchSemanticReconstruction descriptor field. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.02s), inventory JSON parse (0.02s), pnpm run generic-resource-graph-coverage (0.15s), targeted proof row (1.76s real, proof duration 0.292s), focused generic resource graph/cross/semantic descriptor Vitest (38 tests, 2.11s), pnpm run check-smoke-manifest (0.41s), pnpm run build:docs (3.58s), pnpm run format:check (2.52s), pnpm run lint (1.83s), pnpm run typecheck (4.42s), pnpm exec fallow audit --changed-since origin/main (0.48s, warnings only for existing duplicate clone groups), and git diff --check (0.03s). Non-claims: proof-only finite byte-stream semantic reconstruction; no source registers, source stacks, source-ISA execution/emulation, metadata-only success, arbitrary ELF/process restore, runtime-profile shortcut, runtime heap migration, unsupported resource migration, source fd teleportation, broad cross-arch support, or product support claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove cross-arch semantic reconstruction refusals for metadata-only success, source-ISA emulation, runtime-profile shortcuts, arbitrary ELF/process claims, unsupported resource descriptors, missing target-native binaries, and incomplete dependency graphs.",
+      "evidence": "Added and proved generic-cross-arch-semantic-refusals as the fail-closed cross-architecture semantic reconstruction boundary row. The row records a refused crossArchSemanticReconstruction descriptor for each unsafe case and asserts sourceArch != targetArch, targetPid=null, loaderStarted=false, targetNativeLaunchAttempted=false, targetNativeExecution=false, sourceIsaEmulationUsed=false, and sidecarRuntimeUsed=false. Targeted proof-image command `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-cross-arch-semantic-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` passed at /tmp/machinen-move-matrix-10235-1781365257 with real time 1.69s and proof duration 0.102s. The proof ran sourceArch=amd64 and targetArch=aarch64 and covered seven fail-closed cases: metadata-only-success -> crossArchMetadataOnlyRefusal with metadataOnlySuccess=true but no target-native execution; source-isa-emulation -> crossArchSourceIsaEmulationRefusal with requestedSourceIsaEmulation=true but refused before launch; runtime-profile-shortcut -> crossArchRuntimeProfileShortcutRefusal for a Node/V8 profile shortcut; arbitrary-elf-process -> crossArchArbitraryElfProcessRefusal for a move-any-binary claim; unsupported-resource-descriptor -> crossArchUnsupportedResourceDescriptor for io_uring fd=9; missing-target-native-binary -> crossArchMissingTargetNativeBinary for /usr/bin/missing-semantic-tool; and incomplete-dependency-graph -> crossArchIncompleteDependencyGraph with missing argvEnvCwd, stdio, and crossArchTargetNativeTool classes. Registered generic-cross-arch-semantic-refusals plus crossArchMetadataOnlyRefusal, crossArchSourceIsaEmulationRefusal, crossArchRuntimeProfileShortcutRefusal, crossArchArbitraryElfProcessRefusal, crossArchUnsupportedResourceDescriptor, crossArchMissingTargetNativeBinary, and crossArchIncompleteDependencyGraph in scripts/smoke/move-envelope-matrix.sh, scripts/generic-resource-graph-coverage.mjs, docs/snapshot/generic-resource-graph-inventory.json, docs/snapshot/generic-resource-graph-move.md, and docs/snapshot/generic-resource-graph-frontier.md. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.02s), inventory JSON parse (0.02s), pnpm run generic-resource-graph-coverage (0.16s), targeted proof row (1.69s real, proof duration 0.102s), focused generic resource graph/cross/semantic/refusal Vitest (38 tests, 2.62s), pnpm run check-smoke-manifest (0.42s), pnpm run build:docs (4.17s), pnpm run format:check (2.96s), pnpm run lint (1.78s), pnpm run typecheck (4.93s), pnpm exec fallow audit --changed-since origin/main (0.48s, warnings only for existing duplicate clone groups), and git diff --check (0.03s). Non-claims: no metadata-only success, source-ISA emulation/execution, runtime-profile shortcut, arbitrary ELF/process movement, unsupported resource descriptor migration, sidecar/source ISA fallback for missing target tools, incomplete dependency graph acceptance, source fd teleportation, broad cross-arch support, or product support claim."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove every newly supported or refused resource class is represented in docs/snapshot/generic-resource-graph-inventory.json with precise resource class language, proof names, support boundaries, refusal boundaries, and non-claims.",
+      "evidence": "Proved inventory registration for newly supported/refused resource classes by strengthening scripts/generic-resource-graph-coverage.mjs and updating docs/snapshot/generic-resource-graph-inventory.json. The coverage script now validates inventory resource-class definitions for every family reference, checks that definitions have non-empty support/refusal boundary language, and requires all full-expansion proof rows plus critical full-expansion resource classes to appear in the first generic resource graph family with definitions. The inventory now includes precise definitions for the previously missing Unix socket refusal classes unixSocketConnected, unixSocketAbstract, unixSocketDatagram, and unixSocketPair, and tightened boundary language for atomicOutput, databaseSafety, and signalMaskDispositionEvidence. Positive coverage `pnpm run generic-resource-graph-coverage` passed in 0.61s with matrixProofNames=242, inventoryProofNames=242, inventoryResourceClassCoverage={definitions:129, referencedByFamilies:129, genericFamilyResourceClasses:121}, inventoryResourceClassErrors=[], missing=[], extra=[], duplicates=[], missingGenericRows=[], and all migration/product/service errors empty. Negative fail-closed proof copied the inventory to /tmp/machinen-inventory-negative-gswTt0/inventory.json, deleted resourceClasses.crossArchSemanticReconstruction, and ran `GENERIC_RESOURCE_GRAPH_INVENTORY=/tmp/machinen-inventory-negative-gswTt0/inventory.json pnpm run generic-resource-graph-coverage`; it failed as expected with rc=1 in 0.50s and reported `required full-expansion resourceClass missing definition crossArchSemanticReconstruction`. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.08s), node --check scripts/generic-resource-graph-coverage.mjs (0.10s), inventory JSON parse (0.10s), pnpm run generic-resource-graph-coverage (0.61s), pnpm run check-smoke-manifest (0.43s), focused generic resource graph descriptor/refusal/product Vitest (37 tests, 1.45s), pnpm run build:docs (2.88s), pnpm run format:check (2.28s), pnpm run lint (3.47s), pnpm run typecheck (5.53s), pnpm exec fallow audit --changed-since origin/main (1.50s, warnings only for existing duplicate clone groups), and git diff --check (0.16s). Non-claims: inventory coverage proves registration and fail-closed metadata checks only; it does not add arbitrary process restore, broad service/database migration, source-fd teleportation, source-ISA emulation, metadata-only success, or product support beyond exact proven rows."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove docs/snapshot/generic-resource-graph-frontier.md and related move docs describe the final sequential expansion as exact target-native resource graph support only, rejecting arbitrary process restore, broad daemon/database migration, active session migration, source-fd teleportation, source-ISA emulation, and metadata-only success.",
+      "evidence": "Proved the final documentation boundary for the generic resource graph expansion. Updated docs/snapshot/generic-resource-graph-frontier.md with a Final full-expansion boundary section stating this remains exact target-native resource graph support only and explicitly preserving: no arbitrary process restore, no broad daemon/database migration, no active session migration, no source-fd teleportation, no source-ISA emulation, and no metadata-only success. Updated docs/snapshot/generic-resource-graph-move.md with the same final full-expansion boundary and clarified that same-arch continuation rows are proof-only/single-shape while cross-arch rows are semantic-descriptor rows using target-native tools, not source register replay, runtime-profile shortcuts, or source-ISA execution. Updated docs/snapshot/README.md to state the product boundary at the top-level move docs. Strengthened scripts/generic-resource-graph-coverage.mjs so documentationBoundaryErrors requires the exact boundary phrases plus generic-cross-arch-semantic-refusals and generic-same-arch-continuation-refusals across the documentation set. Positive `pnpm run generic-resource-graph-coverage` passed in 0.45s with documentationBoundaryErrors=[] and inventoryResourceClassErrors=[]. Negative fail-closed proof created /tmp/machinen-doc-boundary-negative-a4nkx7/doc.md without `no metadata-only success` and ran `GENERIC_RESOURCE_GRAPH_FRONTIER_DOC=/tmp/machinen-doc-boundary-negative-a4nkx7/doc.md GENERIC_RESOURCE_GRAPH_MOVE_DOC=/tmp/machinen-doc-boundary-negative-a4nkx7/doc.md SNAPSHOT_README_DOC=/tmp/machinen-doc-boundary-negative-a4nkx7/doc.md pnpm run generic-resource-graph-coverage`; it failed as expected with rc=1 in 0.51s and reported `documentation boundary missing phrase: no metadata-only success`. Validation passed: bash -n scripts/smoke/move-envelope-matrix.sh (0.08s), node --check scripts/generic-resource-graph-coverage.mjs (0.09s), inventory JSON parse (0.09s), pnpm run generic-resource-graph-coverage (0.45s), negative documentation-boundary coverage (0.51s fail-closed), pnpm run check-smoke-manifest (0.43s), focused generic resource graph descriptor/refusal/product Vitest (37 tests, 1.41s), pnpm run build:docs (3.74s), pnpm run format:check (2.35s), pnpm run lint (3.29s), pnpm run typecheck (5.44s), pnpm exec fallow audit --changed-since origin/main (1.35s, warnings only for existing duplicate clone groups), and git diff --check (0.16s). Non-claims: documentation/audit coverage only; no arbitrary process restore, broad daemon/database migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or product support beyond exact proven target-native rows."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove coverage and retained-artifact validation fail closed for all new proof rows, productPath claims, support/refusal pairings, matrix registrations, inventory rows, and documentation-facing proof names.",
+      "evidence": "Proved coverage and retained-artifact validation for the full generic resource graph expansion. Added scripts/smoke/move-envelope-generic-resource-graph-full-expansion-plan.json with 28 expected proofs covering process/pipe support and refusal pairs, stdio productPath marker support/refusal pairing, service process tree rows, Unix socket rows, timers/signals, file locks, inotify/fanotify, mmap, epoll, Redis/database rows, same-arch support/refusals, cross-arch support/refusals, and redis-live-generic-primary-marker. Built retained coverage at /tmp/machinen-full-expansion-retained-coverage by wrapping retained proof artifacts from the targeted proof-image runs; `node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-generic-resource-graph-full-expansion-plan.json --coverage-dir /tmp/machinen-full-expansion-retained-coverage --json` passed in 0.03s with expectedCount=28, coveredCount=28, missing=[], extra=[], failed=[]. Negative retained coverage removed generic-cross-arch-semantic-refusals from a copied coverage dir and failed closed in 0.02s with missing=[generic-cross-arch-semantic-refusals]. Strengthened scripts/generic-resource-graph-coverage.mjs so documentationBoundaryErrors also requires every full-expansion documentation-facing proof name, in addition to matrix/inventory proof names, productPath support/refusal metadata, resource class definitions, support/refusal pairings, and doc boundary phrases. Positive `pnpm run generic-resource-graph-coverage` passed in 0.18s with missing=[], extra=[], duplicates=[], missingGenericRows=[], liveProductPathErrors=[], inventoryResourceClassErrors=[], documentationBoundaryErrors=[]. Negative matrix registration coverage copied scripts/smoke/move-envelope-matrix.sh, removed generic-cross-arch-semantic-refusals from PROOF_NAMES, and failed closed in 0.26s with that proof reported. Negative productPath metadata coverage copied the inventory, deleted the generic-stdio-pipe-product-marker nonClaim, and failed closed in 0.25s with `live productPath generic-stdio-pipe-product-marker missing boundary/nonClaim`. Negative documentation-facing proof coverage replaced generic-cross-arch-semantic-refusals in temporary docs and failed closed in 0.26s with `documentation boundary missing proof name: generic-cross-arch-semantic-refusals`. Prior negative inventory and doc-boundary checks remain valid: missing crossArchSemanticReconstruction resource class failed closed in /tmp/machinen-inventory-negative-gswTt0, and missing `no metadata-only success` failed closed in /tmp/machinen-doc-boundary-negative-a4nkx7. Updated docs/snapshot/generic-resource-graph-move.md so documentation-facing proof names for pipe stdio refusals, service process-tree support/refusals, and Unix socket wave 2 rows are explicit. Validation passed after fixes: bash -n scripts/smoke/move-envelope-matrix.sh (0.01s), node --check scripts/generic-resource-graph-coverage.mjs (0.02s), node --check scripts/move-envelope-matrix-coverage.mjs (0.02s), plan+inventory JSON parse (0.03s), retained coverage positive (0.03s), retained coverage negative (0.02s), pnpm run generic-resource-graph-coverage (0.18s), pnpm run check-smoke-manifest (0.27s), focused generic resource graph descriptor/refusal/product Vitest (37 tests, 1.08s), pnpm run build:docs (2.43s), pnpm run format:check (1.67s), pnpm run lint (0.60s after reducing coverage script below health-guard line limit), pnpm run typecheck (2.98s), pnpm exec fallow audit --changed-since origin/main (0.83s, warnings only for existing duplicate clone groups), and git diff --check (0.03s). Non-claims: coverage and retained-artifact validation only; no arbitrary process restore, broad daemon/database migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or product support beyond exact proven target-native rows."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove final validation passes with timing evidence for matrix script syntax, Node script parse checks, focused unit tests, targeted proof-image rows, retained coverage plans, generic resource graph coverage, smoke manifest integration, docs/API build, format, lint, typecheck, full Vitest or justified targeted Vitest scope, and fallow audit.",
+      "evidence": "Final validation passed for the generic resource graph full expansion. Matrix script syntax passed with `bash -n scripts/smoke/move-envelope-matrix.sh` in 0.01s. Node parse checks passed for scripts/generic-resource-graph-coverage.mjs, scripts/move-envelope-matrix-coverage.mjs, scripts/validation-profile.mjs, and scripts/build-move-proof-image.mjs in 0.09s; the full-expansion retained plan and inventory JSON parse passed in 0.03s. Focused Vitest scope was intentionally targeted rather than full suite because the final changes were coverage/docs/matrix-row proof descriptors, not unrelated runtime behavior; `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"generic resource|cross|same|semantic|refusalClasses|generic-primary|descriptor|resource graph|timerfd|epoll|file lock|inotify|mmap|redis|pipe product\"` passed with 44 tests passed / 85 skipped in 1.14s, covering descriptor capture/state, generic-primary/product gating, refusalClasses, same-arch/cross-arch descriptors, and the resource graph support/refusal rows touched by this goal. Targeted proof-image rows for the newest same-arch/cross-arch continuation work passed with `MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-same-arch-modeled-continuation,generic-same-arch-continuation-refusals,generic-cross-arch-semantic-reconstruction,generic-cross-arch-semantic-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz` at /tmp/machinen-move-matrix-54429-1781366383 in 2.50s real; proof timings were same-arch modeled 0.332s, same-arch refusals 0.157s, cross-arch semantic reconstruction 0.234s, and cross-arch semantic refusals 0.096s. Retained coverage passed with `node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-generic-resource-graph-full-expansion-plan.json --coverage-dir /tmp/machinen-full-expansion-retained-coverage --json` in 0.03s with expectedCount=28, coveredCount=28, missing=[], extra=[], failed=[]. Generic coverage passed in 0.18s with missing=[], extra=[], duplicates=[], missingGenericRows=[], liveProductPathErrors=[], inventoryResourceClassErrors=[], documentationBoundaryErrors=[]. Smoke manifest integration passed in 0.27s. Docs/API build passed in 2.19s. Format initially failed after goal JSON edits; fixed with `pnpm run format`, then `pnpm run format:check` passed in 1.48s. Lint passed in 0.81s after the coverage script was reduced below the fallow-health line limit. Typecheck passed in 2.98s. Fallow audit passed in 0.71s with warnings only for existing duplicate clone groups. `git diff --check` passed in 0.04s. Full smoke tests were skipped because this final step touched docs, coverage validation, retained artifacts, and proof rows only; it did not touch VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount, snapshot/restore implementation, virtio devices, memory/ballooning, or FUSE/live mounts. Full all-proofs matrix remains manual/nightly/release scope; retained coverage plus targeted proof-image rows cover this goal change. Non-claims preserved: no arbitrary process restore, broad daemon/database migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or product support beyond exact proven target-native rows."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "bash -n scripts/smoke/move-envelope-matrix.sh",
+      "proves": "The move envelope matrix script remains syntactically valid after adding all proof rows."
+    },
+    {
+      "check": "node --check scripts/generic-resource-graph-coverage.mjs scripts/move-envelope-matrix-coverage.mjs scripts/validation-profile.mjs scripts/build-move-proof-image.mjs",
+      "proves": "Coverage, retained-artifact validation, validation profile, and proof-image scripts parse successfully."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run <focused generic resource graph, process graph, pipe, socket, timer, lock, mmap, epoll, data-dir, same-arch, and cross-arch tests>",
+      "proves": "Focused unit tests cover descriptor capture, loader selection, productPath gating, refusalClasses gating, fallback priority, and resource-specific support/refusal behavior."
+    },
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --only <new support and refusal proof rows> --timings --image <proof-image>",
+      "proves": "Targeted matrix proof rows pass for each new support/refusal shape with timing and artifact evidence."
+    },
+    {
+      "check": "node scripts/move-envelope-matrix-coverage.mjs --plan <new retained plan> --coverage-dir <retained artifacts> --json",
+      "proves": "Retained proof artifacts cover expected rows and fail closed for missing, stale, extra, or failed artifacts."
+    },
+    {
+      "check": "pnpm run generic-resource-graph-coverage",
+      "proves": "Inventory, docs-facing proof rows, productPath claims, support/refusal pairings, migration metadata, and refusal classes stay aligned and fail closed."
+    },
+    {
+      "check": "pnpm run check-smoke-manifest",
+      "proves": "Smoke manifest integration and generic coverage integration remain consistent."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Documentation and generated API docs remain valid after public docs/API changes."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Repository formatting remains valid."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and changed-file health checks pass."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript and build-time validation pass."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run",
+      "proves": "The full unit test suite passes unless a narrower targeted scope is explicitly justified by unchanged runtime/test coverage."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and code-health audit passes for changed code/scripts."
+    }
+  ],
+  "stopIf": [
+    "Any row would require claiming arbitrary process restore, any-binary movement, broad daemon support, broad database/service migration, source-ISA emulation, interactive terminal migration, metadata-only success, or runtime-profile snapshot/restore.",
+    "A proposed product generic-primary path lacks exact live-capture observed graph matching, explicit migration.productPath exact-live-capture metadata, support proof evidence, equivalent refusal proof evidence, health/output evidence, or refusalClasses=[].",
+    "A descriptor-harness-only proof would need to be presented as live product support without equivalent live-capture marker and productPath evidence.",
+    "A support row cannot produce target-native visible behavior, exact descriptor evidence, refusal regression rows, inventory/docs coverage, and fail-closed targetPid=null behavior for unsafe variants.",
+    "A process tree, Unix socket, timer/signal, lock, inotify/fanotify, mmap, epoll, data-dir, same-arch, or cross-arch shape requires preserving unmodeled active sessions, pending kernel queues, dirty memory, runtime heap state, unknown owners, or source ISA state.",
+    "Required proof-only tools would need to become product base assets, packages/native-* release assets, runtime defaults, or runtime user dependencies.",
+    "Remote amd64 validation is requested but the available remote host is not x86_64/amd64 and no safe replacement host exists.",
+    "Required validation cannot run because local VM, Docker, package mirror, proof-image infrastructure, or GitHub/auth credentials are unavailable and no safe targeted fallback exists.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    {
+      "timestamp": "2026-06-13T13:21:00Z",
+      "summary": "Implemented and proved the first process-graph pipe support row, generic-two-process-pipe-reexec. The row uses target-native generic loader reexec with explicit two-node processGraph metadata and a one-producer/one-consumer pipeGraph. Coverage and smoke manifest integration pass after registering the new proof name.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/generic-resource-graph-coverage.mjs",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-two-process-pipe-reexec --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 12.520s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.202s",
+        "pnpm run check-smoke-manifest — passed, 0.207s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-54011-1781349486",
+        "/tmp/generic-two-process-pipe-reexec.out",
+        "/tmp/generic-two-process-pipe-reexec.err",
+        "/tmp/full-expansion-generic-coverage.out",
+        "/tmp/full-expansion-smoke-manifest.out"
+      ],
+      "nonClaims": [
+        "no arbitrary process restore",
+        "no broad process-tree checkpointing",
+        "no hidden shell state migration",
+        "no source fd teleportation",
+        "no active partial write preservation"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T13:24:00Z",
+      "summary": "Implemented and proved generic-finite-pipe-buffer-replay with byte-exact captured buffered bytes replayed to a target-native wc consumer. Re-ran generic-pipe-stdio-refusals for ambiguous/partial pipe boundaries, but left the broader multi-process pipe refusal checklist row pending because fan-out, nonblocking weirdness, and active partial-write-specific cases still need explicit coverage.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/generic-resource-graph-coverage.mjs",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-finite-pipe-buffer-replay,generic-pipe-stdio-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 98.874s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.212s",
+        "pnpm run check-smoke-manifest — passed, 0.219s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-55007-1781349604",
+        "/tmp/generic-finite-pipe-buffer-replay.out",
+        "/tmp/generic-finite-pipe-buffer-replay.err",
+        "/tmp/full-expansion-generic-coverage2.out",
+        "/tmp/full-expansion-smoke-manifest2.out"
+      ],
+      "nonClaims": [
+        "no arbitrary pipe graph migration",
+        "no live kernel pipe queue replay beyond explicit captured bytes",
+        "no active partial write support",
+        "no hidden shell pipeline migration"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T13:27:00Z",
+      "summary": "Implemented and proved generic-stdio-pipe-product-marker with exact productPath metadata and modeled stdio pipe descriptor evidence. The safe product bundle loaded through the target-native generic loader and produced byte-count output, while an unsafe sibling bundle with non-empty refusalClasses was rejected before loader start. ProductPath inventory coverage and focused fallback/refusalClasses tests passed.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/generic-resource-graph-coverage.mjs",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-stdio-pipe-product-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 13.118s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.207s",
+        "pnpm run check-smoke-manifest — passed, 0.211s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"generic-primary|descriptor-harness|explicit fallback|refusalClasses\" — passed, 1.302s, 8 tests"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-57197-1781349844",
+        "/tmp/generic-stdio-pipe-product-marker.out",
+        "/tmp/generic-stdio-pipe-product-marker.err",
+        "/tmp/full-expansion-product-marker-validation"
+      ],
+      "nonClaims": [
+        "no arbitrary stdio migration",
+        "no descriptor-only product support",
+        "no active writer support",
+        "no shell pipeline or PTY stdio support",
+        "no source fd teleportation"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T13:31:00Z",
+      "summary": "Expanded and proved generic-multi-process-pipe-refusals. The new row covers missing peer, fan-in, fan-out, nonblocking read/write endpoints, hidden shell pipeline state, PTY stdio, inherited stdio, stale executable, stale cwd, and active partial/unknown pipe writes. All cases failed closed with targetPid=null; most refused before loader start, while stale executable/cwd failed generic loader preflight with no target pid.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/generic-resource-graph-coverage.mjs",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-multi-process-pipe-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 119.642s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.208s",
+        "pnpm run check-smoke-manifest — passed, 0.217s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-58434-1781350002",
+        "/tmp/generic-multi-process-pipe-refusals.out",
+        "/tmp/generic-multi-process-pipe-refusals.err",
+        "/tmp/full-expansion-generic-coverage4.out",
+        "/tmp/full-expansion-smoke-manifest4.out"
+      ],
+      "nonClaims": [
+        "no fan-in/fan-out pipe support",
+        "no nonblocking/readiness support",
+        "no shell pipeline migration",
+        "no PTY stdio migration",
+        "no active partial write preservation",
+        "no arbitrary process graph migration"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T13:33:00Z",
+      "summary": "Implemented and proved generic-process-tree-refusals. The new matrix row covers service-managed children, dynamic worker pools, active requests, reload races, and non-exact process trees, each with explicit processGraph evidence and non-empty refusalClasses. All cases refused before loader start with targetPid=null. Registered new process-tree refusal resource classes and reran coverage, smoke manifest, and focused refusalClasses tests.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/generic-resource-graph-coverage.mjs",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-process-tree-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 55.256s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.202s",
+        "pnpm run check-smoke-manifest — passed, 0.206s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"service-managed child-worker|refusalClasses\" — passed, 0.902s, 1 test"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-61031-1781350267",
+        "/tmp/generic-process-tree-refusals.out",
+        "/tmp/generic-process-tree-refusals.err",
+        "/tmp/full-expansion-process-tree-validation"
+      ],
+      "nonClaims": [
+        "no service-managed child continuation",
+        "no dynamic worker pool support",
+        "no active request/session migration",
+        "no reload handoff support",
+        "no incomplete process-tree acceptance",
+        "no broad process-tree checkpointing"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T13:38:00Z",
+      "summary": "The prompt nextAction was stale; the goal file had already advanced to documenting/registering the process-graph and pipes/stdio model. Added a retained coverage plan for the six process/pipe rows, updated pipe/process docs and frontier text, added focused unit tests for product marker and process-tree refusal classes, proved positive retained coverage and a negative missing-proof failure, and reran generic coverage, smoke manifest, and docs build.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-process-graph-pipes-plan.json",
+        "docs/snapshot/generic-pipes-stdio-graduation.md",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-process-graph-pipes-plan.json --coverage-dir /tmp/machinen-process-graph-pipes-retained-coverage --json — passed, 0.042s, 6/6",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-process-graph-pipes-plan.json --coverage-dir /tmp/machinen-process-graph-pipes-retained-missing-coverage --json — failed closed as expected, rc=1, 0.039s, missing=[generic-process-tree-refusals]",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"pipe product marker|process-tree generic-primary refusal|target-native pipe loader\" — passed, 0.814s, 3 tests",
+        "pnpm run generic-resource-graph-coverage — passed, 0.179s",
+        "pnpm run check-smoke-manifest — passed, 0.210s",
+        "pnpm run build:docs — passed, 2.229s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-process-graph-pipes-retained-coverage",
+        "/tmp/machinen-process-graph-pipes-retained-missing-coverage",
+        "/tmp/process-graph-pipes-retained-coverage.out",
+        "/tmp/process-graph-pipes-retained-negative.out",
+        "/tmp/process-graph-pipes-focused-tests.out",
+        "/tmp/process-graph-pipes-build-docs.out"
+      ],
+      "nonClaims": [
+        "no arbitrary process restore",
+        "no arbitrary stdio migration",
+        "no broad process-tree migration",
+        "no active session migration",
+        "no source fd teleportation"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T13:55:00Z",
+      "summary": "Implemented and proved generic-service-process-tree-prefork as a safe exact service process-tree support row. The first attempt over-constrained full root data-dir identity and failed preflight with data-dir-identity-mismatch; after narrowing to service.conf file identity, the proof passed with target-native master/worker reexec, child worker observation, loopback HTTP health response, activeRequests=0, and refusalClasses=[].",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/generic-resource-graph-coverage.mjs",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-service-process-tree-prefork --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — first attempt timed out after 700s after loader preflight refused data-dir-identity-mismatch; not used as support evidence",
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed after fix",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed after fix",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-service-process-tree-prefork --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 2.972s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.215s",
+        "pnpm run check-smoke-manifest — passed, 0.215s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-64676-1781350810",
+        "/tmp/machinen-move-matrix-68588-1781351582",
+        "/tmp/generic-service-process-tree-prefork2.out",
+        "/tmp/generic-service-process-tree-prefork2.err",
+        "/tmp/full-expansion-prefork-generic-coverage.out",
+        "/tmp/full-expansion-prefork-smoke-manifest.out"
+      ],
+      "nonClaims": [
+        "no dynamic worker-pool support",
+        "no active request/session migration",
+        "no reload handoff support",
+        "no writable persistence migration",
+        "no arbitrary service process-tree migration",
+        "no broad process-tree checkpointing"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T13:58:00Z",
+      "summary": "Implemented and proved generic-service-process-tree-refusals. The row covers service-specific unsafe process-tree/data/config/package cases: dynamic worker pools, active requests, reload races, service-managed child outside exact graph, writable persistence, config drift, missing target package, and missing target config. All cases failed closed with no target pid or no loader start.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/generic-resource-graph-coverage.mjs",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-service-process-tree-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 88.237s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.204s",
+        "pnpm run check-smoke-manifest — passed, 0.211s",
+        "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"process-tree generic-primary refusal|service-managed child-worker|refusalClasses\" — passed, 0.898s, 1 test"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-69929-1781351754",
+        "/tmp/generic-service-process-tree-refusals.out",
+        "/tmp/generic-service-process-tree-refusals.err",
+        "/tmp/full-expansion-service-tree-refusal-validation"
+      ],
+      "nonClaims": [
+        "no dynamic worker pool support",
+        "no active request/session migration",
+        "no reload handoff support",
+        "no writable persistence migration",
+        "no config reconciliation or package provisioning",
+        "no arbitrary service/process-tree migration"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T14:04:00Z",
+      "summary": "Implemented and proved generic-unix-pathname-client-pair for Unix socket wave 2 support. The row records a stable pathname listener plus target-created protocol client probe peer graph, target path preflight policy, no connected session state, and protocol response evidence. Registered the new resource class/proof and reran generic coverage and smoke manifest.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/generic-resource-graph-coverage.mjs",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-unix-pathname-client-pair --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 2.684s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.208s",
+        "pnpm run check-smoke-manifest — passed, 0.208s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-72170-1781352009",
+        "/tmp/generic-unix-pathname-client-pair.out",
+        "/tmp/generic-unix-pathname-client-pair.err",
+        "/tmp/full-expansion-unix-pair-generic-coverage.out",
+        "/tmp/full-expansion-unix-pair-smoke-manifest.out"
+      ],
+      "nonClaims": [
+        "no connected Unix session migration",
+        "no abstract socket support",
+        "no datagram support",
+        "no socketpair support",
+        "no fd-passing support",
+        "no credential-sensitive socket migration",
+        "no arbitrary Unix socket migration"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T14:10:00Z",
+      "summary": "Implemented and proved generic-unix-socket-wave2-refusals. The row covers connected session, abstract socket, datagram, socketpair, fd-passing, credential-sensitive socket, occupied path, missing parent, and changed path identity. The first run exposed a preflight-order issue for missing-parent (cwd-missing); after adjusting preflight-mode cases to use cwd=/, the targeted proof passed and all unsafe cases failed closed with no target pid.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "scripts/generic-resource-graph-coverage.mjs",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-unix-socket-wave2-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — first attempt failed in 89.063s because missing-parent hit cwd-missing before Unix preflight; not used as proof evidence",
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed after fix",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed after fix",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-unix-socket-wave2-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 99.422s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.222s",
+        "pnpm run check-smoke-manifest — passed, 0.224s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-74330-1781352383",
+        "/tmp/machinen-move-matrix-75930-1781352502",
+        "/tmp/generic-unix-socket-wave2-refusals2.out",
+        "/tmp/generic-unix-socket-wave2-refusals2.err",
+        "/tmp/full-expansion-unix-wave2-generic-coverage.out",
+        "/tmp/full-expansion-unix-wave2-smoke-manifest.out"
+      ],
+      "nonClaims": [
+        "no connected Unix session migration",
+        "no abstract namespace support",
+        "no datagram queue support",
+        "no socketpair peer-state migration",
+        "no fd-passing support",
+        "no credential-sensitive socket migration",
+        "no path repair or reconciliation",
+        "no arbitrary Unix socket migration"
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T12:29:21Z",
+      "summary": "Implemented and proved the timerfd relative one-shot support/refusal step for the generic resource graph full expansion goal.",
+      "filesChanged": [
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/cli/src/move-generic-anon-inode.ts",
+        "packages/cli/src/move-generic-timerfd-loader.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/move-generic-wave2-baseline.ts",
+        "packages/cli/src/move-resource-plan.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.11s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.16s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"timerfd|eventfd|epoll\" — passed, 6 tests, 2.65s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-timerfd-relative-oneshot,generic-timerfd-relative-oneshot-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, proof durations 6.370s and 6.481s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.37s",
+        "pnpm run check-smoke-manifest — passed, 0.45s",
+        "pnpm run build:docs — passed, 4.33s",
+        "pnpm run format:check — passed, 2.95s",
+        "pnpm run lint — passed, 1.01s",
+        "pnpm run typecheck — passed, 5.32s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 2.69s (duplication warnings only)"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-69322-1781353711",
+        "/tmp/machinen-move-matrix-83383-1781353422",
+        "/tmp/machinen-move-matrix-83990-1781353433"
+      ],
+      "nonClaims": [
+        "No realtime, absolute, periodic, unread/overrun, active waiter, signal, epoll readiness, or runtime timer migration support.",
+        "No arbitrary process restore, source fd teleportation, source-ISA emulation, or product generic-primary claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T12:39:52Z",
+      "summary": "Implemented and proved signalfd/signal-state refusal boundaries with separate signal mask/disposition descriptor evidence and fail-closed unsafe signal cases.",
+      "filesChanged": [
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/cli/src/move-generic-signal-state.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/move-generic-wave2-baseline.ts",
+        "packages/cli/src/move-resource-plan.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"signalfd|signal|timerfd\" — passed, 4 tests, 0.82s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-signalfd-signal-state-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, proof duration 2.137s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.32s",
+        "pnpm run check-smoke-manifest — passed, 0.35s",
+        "pnpm run build:docs — passed, 3.82s",
+        "pnpm run format:check — passed, 1.83s",
+        "pnpm run lint — passed, 1.47s",
+        "pnpm run typecheck — passed, 2.92s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 1.41s (duplication warnings only)"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-29974-1781354307",
+        "/tmp/machinen-move-matrix-17254-1781354180",
+        "/tmp/machinen-move-matrix-29193-1781354264"
+      ],
+      "nonClaims": [
+        "No pending signal replay, signal handler migration, process-group/session reconstruction, runtime signal timer support, or signalfd reconstruction.",
+        "No arbitrary process restore, source fd teleportation, source-ISA emulation, or product generic-primary claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T12:50:54Z",
+      "summary": "Implemented and proved proof-only file-lock support for one exact target-native whole-file exclusive flock advisory lock with visible target conflict evidence.",
+      "filesChanged": [
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/cli/src/move-generic-file-lock.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"file lock|mmap\" — passed, 2 tests, 1.71s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-file-lock-advisory --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, proof duration 1.334s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.21s",
+        "pnpm run check-smoke-manifest — passed, 0.24s",
+        "pnpm run build:docs — passed, 2.25s",
+        "pnpm run format:check — passed, 1.57s",
+        "pnpm run lint — passed, 0.70s",
+        "pnpm run typecheck — passed, 3.21s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.65s (duplication warnings only)"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-37211-1781355016",
+        "/tmp/machinen-move-matrix-33928-1781354770",
+        "/tmp/machinen-move-matrix-34861-1781354843",
+        "/tmp/machinen-move-matrix-35932-1781354906"
+      ],
+      "nonClaims": [
+        "No POSIX/OFD lock support, shared/range locks, unknown owners, conflicts, mandatory locks, leases, or cross-process ownership graph migration.",
+        "No arbitrary process restore, source fd teleportation, source-ISA emulation, or product generic-primary claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T14:58:00Z",
+      "summary": "Implemented and proved file-lock refusal coverage for lock conflicts, backing-file drift, unknown owners, mandatory locks, leases, invalid/nonseekable ranges, unsupported lock types, and cross-process ownership ambiguity. Fixed the file-lock launcher so lock reacquisition is synchronous before LOAD_PID, preventing hidden background acquisition failures.",
+      "filesChanged": [
+        "packages/cli/src/move-generic-file-lock.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh && node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.01s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"file lock\" — passed, 1 test, 0.73s",
+        "pnpm -F @machinen/cli build — passed, 0.41s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-file-lock-advisory,generic-file-lock-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, proof durations 1.364s and 2.275s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.31s",
+        "pnpm run check-smoke-manifest — passed, 0.34s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-42043-1781355461",
+        "/tmp/machinen-move-matrix-40972-1781355432"
+      ],
+      "nonClaims": [
+        "No POSIX/OFD/shared/range lock support beyond explicit refusal evidence.",
+        "No lock conflict handoff, changed backing file repair, mandatory lock or lease support, unknown/cross-process owner migration, broad file-lock migration, source fd teleportation, or product generic-primary claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T15:10:00Z",
+      "summary": "Implemented and proved generic-inotify-file-follow for one target-native future IN_MODIFY watch on a stable regular file. The loader recreates the inotify fd and watch before target launch, verifies watched-file identity, and target-visible output confirms a target append is observed. An initial proof attempt failed due to a shell loop quoting bug in the proof row; the proof script was fixed and rerun successfully.",
+      "filesChanged": [
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/cli/src/move-generic-inotify.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/move-generic-wave2-baseline.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"inotify|anon-inode\" — passed, 2 tests, 0.71s",
+        "pnpm -F @machinen/cli build — passed, 0.35s after proof-script quoting fix",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-inotify-file-follow --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, proof duration 2.405s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.19s",
+        "pnpm run check-smoke-manifest — passed, 0.21s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-47400-1781356154",
+        "/tmp/machinen-move-matrix-46481-1781356097"
+      ],
+      "nonClaims": [
+        "No queued inotify event replay, recursive watches, directory mutation race handling, fanotify permission-event support, unsupported watcher-mask support, arbitrary watcher migration, source fd teleportation, or product generic-primary claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T15:16:00Z",
+      "summary": "Completed final targeted validation for the inotify follow support row after resolving a lint health-guard file-length regression by moving generic anon-inode imports behind a namespace import. The active goal remains IN_PROGRESS because 15 of 30 rows are proven.",
+      "filesChanged": [
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/move-generic-inotify.ts",
+        "packages/runtime/src/move-pid-graph.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "pnpm run lint — initially failed because packages/cli/src/move-generic-resource-graph.ts exceeded the 1000-line health guard; fixed by reducing import line count",
+        "pnpm run lint — passed, 0.56s",
+        "pnpm run typecheck — passed, 3.96s",
+        "pnpm run build:docs — passed, 3.01s",
+        "pnpm run format:check — passed, 1.85s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 1.15s with existing duplicate clone warnings only",
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.17s",
+        "pnpm run check-smoke-manifest — passed, 0.20s",
+        "git diff --check — passed, 0.03s"
+      ],
+      "artifacts": ["/tmp/machinen-move-matrix-47400-1781356154"],
+      "nonClaims": [
+        "The inotify support remains proof-only for one stable-file future-event watch; it does not claim queued event replay, fanotify support, recursive/directory watcher migration, source fd teleportation, or product generic-primary support."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T15:18:00Z",
+      "summary": "Implemented and proved generic-inotify-fanotify-refusals. The proof row covers queued/dropped inotify events, directory mutation races, recursive watches, changed watched identity, fanotify permission events, and unsupported masks, all with targetPid=null or no loader start. The user-provided file-lock nextAction was stale; the goal file had already advanced to inotify/fanotify refusals.",
+      "filesChanged": [
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"inotify|fanotify|anon-inode\" — passed, 3 tests, 0.73s",
+        "pnpm -F @machinen/cli build — passed, 0.40s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-inotify-fanotify-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, proof duration 1.997s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.21s",
+        "pnpm run check-smoke-manifest — passed, 0.29s",
+        "pnpm run format:check — passed, 1.86s",
+        "pnpm run lint — passed, 1.55s",
+        "pnpm run typecheck — passed, 3.97s",
+        "pnpm run build:docs — passed, 2.09s",
+        "node --check scripts/move-envelope-matrix-coverage.mjs && node --check scripts/validation-profile.mjs && node --check scripts/build-move-proof-image.mjs — passed, 0.03s/0.02s/0.02s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.62s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.06s"
+      ],
+      "artifacts": ["/tmp/machinen-move-matrix-51501-1781356497"],
+      "nonClaims": [
+        "No queued inotify event replay, dropped-event repair, directory mutation-race handling, recursive watch migration, changed watched identity repair, fanotify permission-event support, unsupported-mask support, arbitrary watcher migration, source fd teleportation, or product generic-primary claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T15:24:00Z",
+      "summary": "Implemented and proved generic-mmap-file-backed-clean for one exact clean file-backed mapping. The user-provided inotify/fanotify nextAction was stale; the goal file had already advanced to mmap-backed file support. The proof reconstructs a read-only/shared file mapping target-natively from path/offset/length/permissions/sharing plus file identity and observes mapped bytes on the target.",
+      "filesChanged": [
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/cli/src/move-generic-mmap-file.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"mmap|file lock\" — passed, 3 tests, 0.79s; rerun after proof-script cleanup passed in 0.83s",
+        "pnpm -F @machinen/cli build — passed, 0.47s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-mmap-file-backed-clean --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, proof duration 2.413s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.30s",
+        "pnpm run check-smoke-manifest — passed, 0.33s",
+        "pnpm run format:check — passed, 2.13s",
+        "pnpm run lint — passed, 0.58s after reducing move-generic-resource-graph.ts below the health-guard line limit",
+        "pnpm run typecheck — passed, 4.27s",
+        "pnpm run build:docs — passed, 3.37s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 1.45s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.03s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-55630-1781356937",
+        "/tmp/machinen-move-matrix-54618-1781356885"
+      ],
+      "nonClaims": [
+        "No dirty page replay, dirty range materialization, anonymous memory migration, writable executable mapping support, truncation race handling, changed backing file repair, COW/MAP_PRIVATE mutation replay, arbitrary memory migration, source fd teleportation, or product generic-primary claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T15:43:00Z",
+      "summary": "Implemented and proved generic-mmap-dirty-refusals. The row refuses dirty MAP_SHARED/MAP_PRIVATE, anonymous dirty memory, writable/executable mapping hazards, truncation races, and changed backing files with targetPid=null or no loader start. A focused unit test initially hit writableRegularFileCursor before the mmap refusal because the fixture fd was writable; the fixture was corrected to a read-only fd so the intended mmap refusal is proven.",
+      "filesChanged": [
+        "packages/cli/src/move-generic-mmap-file.ts",
+        "packages/cli/src/move-generic-resource-graph.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"mmap|file lock\" — initially failed because the test fixture hit writableRegularFileCursor first; fixed fixture and reran: 4 tests passed, 0.71s",
+        "pnpm -F @machinen/cli build — passed, 0.54s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-mmap-dirty-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, proof duration 1.947s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.22s",
+        "pnpm run check-smoke-manifest — passed, 0.24s",
+        "pnpm run format:check — passed, 1.87s",
+        "pnpm run lint — passed, 1.50s",
+        "pnpm run typecheck — passed, 4.02s",
+        "pnpm run build:docs — passed, 2.15s",
+        "node --check scripts/move-envelope-matrix-coverage.mjs && node --check scripts/validation-profile.mjs && node --check scripts/build-move-proof-image.mjs — passed, 0.02s/0.02s/0.03s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.73s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.08s"
+      ],
+      "artifacts": ["/tmp/machinen-move-matrix-62747-1781358130"],
+      "nonClaims": [
+        "No dirty MAP_SHARED/MAP_PRIVATE replay, dirty range materialization, anonymous dirty memory migration, writable executable mapping support, truncation-race handling, changed backing-file repair, arbitrary memory migration, source fd teleportation, or product generic-primary claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T15:55:00Z",
+      "summary": "Implemented and proved generic-epoll-timerfd-watch, expanding epoll readiness support beyond the tiny eventfd watch to one exact timerfd watched-fd shape with captured watch mask, level/no-one-shot readiness policy, and target-visible epoll readiness plus timer read evidence.",
+      "filesChanged": [
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/cli/src/move-generic-anon-inode.ts",
+        "packages/cli/src/move-generic-timerfd-loader.ts",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.03s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"epoll|timerfd|eventfd\" — passed, 7 tests, 1.65s on final rerun",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-epoll-timerfd-watch --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 4.81s real, proof duration 3.373s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.20s",
+        "pnpm run check-smoke-manifest — passed, 0.25s",
+        "pnpm run build:docs — passed, 2.86s",
+        "pnpm run format:check — passed, 1.95s",
+        "pnpm run lint — passed, 1.39s",
+        "pnpm run typecheck — passed, 4.10s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 1.25s with existing duplicate clone warnings only"
+      ],
+      "artifacts": ["/tmp/machinen-move-matrix-70235-1781358806"],
+      "nonClaims": [
+        "One level-trigger epoll watch on the tiny supported timerfd only; no edge-trigger or one-shot support, nested epoll, active waiters, runtime loop migration, arbitrary watched fd support, readiness queue replay, source fd teleportation, or product generic-primary claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T16:01:00Z",
+      "summary": "Implemented and proved the epoll/readiness refusal row. The actual goal nextAction had advanced from the user-supplied stale epoll support action to epoll refusals; generic-epoll-eventfd-watch-refusals now covers unknown watched fds, edge-trigger, one-shot, nested epoll, active waiter/runtime-loop ambiguity, unsupported watched-fd flags, and incompatible eventfd counters with loaderStarted=false.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "packages/cli/src/__tests__/move-generic-resource-graph.test.ts",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/snapshot/generic-resource-graph-inventory.json','utf8'))\" — passed, 0.02s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"epoll|timerfd|eventfd\" — passed, 7 tests, 0.72s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-epoll-eventfd-watch-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 7.70s real, proof duration 6.198s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.25s",
+        "pnpm run check-smoke-manifest — passed, 0.27s",
+        "pnpm run build:docs — passed, 3.40s",
+        "pnpm run format:check — passed, 2.16s",
+        "pnpm run lint — passed, 2.10s",
+        "pnpm run typecheck — passed, 4.28s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.48s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.03s"
+      ],
+      "artifacts": ["/tmp/machinen-move-matrix-72867-1781359113"],
+      "nonClaims": [
+        "No edge-trigger readiness replay, one-shot arming/rearming, nested epoll graph reconstruction, active waiter/runtime-loop migration, unknown watched fd support, unsupported flag normalization, incompatible counter repair, readiness queue replay, arbitrary watched-fd support, source fd teleportation, or product generic-primary claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T16:07:00Z",
+      "summary": "Proved generic database/data-dir safety support with the exact empty/no-persistence Redis dataset shape. Fixed generic-service-redis-idle-parity so the descriptor-harness support path removes the explicit redisIdleState and exercises the target-native generic resource graph loader; verified the live marker still gates generic-primary selection behind exact productPath metadata and PONG/DBSIZE=0 health.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-service-redis-idle-parity --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — initially failed at /tmp/machinen-move-matrix-75022-1781359251 because the explicit Redis loader still had priority; fixed mutation and reran; second attempt failed at /tmp/machinen-move-matrix-77073-1781359425 because copied bundles lacked redisIdleState; made mutation tolerant and reran: passed, 9.80s real, proof duration 8.331s, artifact /tmp/machinen-move-matrix-77952-1781359477",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only redis-live-generic-primary-marker --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 4.81s real, proof duration 3.333s, artifact /tmp/machinen-move-matrix-78782-1781359493",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-envelope-capture.test.ts --testNamePattern \"Redis|generic-primary|redis\" — passed, 9 tests, 1.09s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.27s",
+        "pnpm run check-smoke-manifest — passed, 0.32s",
+        "pnpm run format:check — passed, 2.00s",
+        "pnpm run lint — passed, 1.75s",
+        "pnpm run typecheck — passed, 4.05s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.61s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.13s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-77952-1781359477",
+        "/tmp/machinen-move-matrix-78782-1781359493",
+        "/tmp/machinen-move-matrix-75022-1781359251",
+        "/tmp/machinen-move-matrix-77073-1781359425"
+      ],
+      "nonClaims": [
+        "Exact empty no-persistence Redis dataset only; no non-empty dataset migration, AOF/RDB persistence, WAL/checkpoint replay, file lock/state transfer, active client/session migration, modules/auth/config side effects, generic arbitrary database migration, source fd teleportation, or product generic-primary outside exact productPath metadata with refusalClasses=[]."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T16:11:00Z",
+      "summary": "Implemented and proved generic-database-data-dir-refusals. The user-supplied nextAction was stale; the goal file had advanced to the database/data-dir refusal row after empty/no-persistence Redis support was proven. The new proof row covers WAL ambiguity, active writers, database locks, non-empty persistence, dirty checkpoints, owner/mode drift, symlink hazards, and service-specific unsafe features with targetPid=null and no loader start.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/snapshot/generic-resource-graph-inventory.json','utf8'))\" — passed, 0.02s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.15s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-database-data-dir-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 4.03s real, proof duration 2.346s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-envelope-capture.test.ts --testNamePattern \"Redis|generic-primary|redis\" — passed, 9 tests, 1.17s",
+        "pnpm run check-smoke-manifest — passed, 0.32s",
+        "pnpm run build:docs — passed, 3.94s",
+        "pnpm run format:check — passed, 2.78s",
+        "pnpm run lint — passed, 2.29s",
+        "pnpm run typecheck — passed, 4.72s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.61s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.03s"
+      ],
+      "artifacts": ["/tmp/machinen-move-matrix-81260-1781359776"],
+      "nonClaims": [
+        "No WAL/checkpoint replay, active writer migration, database lock/lease transfer, non-empty persistence migration, dirty checkpoint repair, ownership/mode repair, symlink repair, service-specific feature migration, broad database/data-dir migration, source fd teleportation, or product generic-primary outside exact productPath metadata with refusalClasses=[]."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T16:17:00Z",
+      "summary": "Implemented and proved generic-same-arch-modeled-continuation. The proof is a narrow same-architecture native-code harness with matching source/target arch, modeled frozen thread/register/stack/memory/fd/resource graph evidence, and target-native code returning 42 without source-ISA emulation.",
+      "filesChanged": [
+        "packages/runtime/src/move-pid-graph.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/snapshot/generic-resource-graph-inventory.json','utf8'))\" — passed, 0.02s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.15s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-same-arch-modeled-continuation --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 1.86s real, proof duration 0.323s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"generic resource|same|resource graph|descriptor\" — passed, 38 tests, 0.92s",
+        "pnpm run check-smoke-manifest — passed, 0.31s",
+        "pnpm run build:docs — passed, 3.32s",
+        "pnpm run format:check — passed, 2.07s",
+        "pnpm run lint — passed, 1.86s",
+        "pnpm run typecheck — passed, 4.37s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.64s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.07s"
+      ],
+      "artifacts": ["/tmp/machinen-move-matrix-84043-1781360119"],
+      "nonClaims": [
+        "Proof-only single-thread same-architecture native-code harness; no arbitrary process restore, runtime heap migration, active syscall continuation, multiple threads, signal state replay, fd teleportation, source-ISA emulation, sidecar runtime, broad same-arch migration, or product support claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T16:22:00Z",
+      "summary": "Implemented and proved generic-same-arch-continuation-refusals. The row refuses active syscalls, multiple threads, unsupported mappings, runtime heap assumptions, unsupported signal state, unsupported fds, and resource graph gaps before any target pid or resume attempt, while preserving no source-ISA-emulation evidence.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/snapshot/generic-resource-graph-inventory.json','utf8'))\" — passed, 0.02s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.15s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-same-arch-continuation-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 1.66s real, proof duration 0.175s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"generic resource|same|resource graph|descriptor|refusal\" — passed, 38 tests, 2.10s",
+        "pnpm run check-smoke-manifest — passed, 0.38s",
+        "pnpm run build:docs — passed, 3.48s",
+        "pnpm run format:check — passed, 2.36s",
+        "pnpm run lint — passed, 1.83s",
+        "pnpm run typecheck — passed, 4.35s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.47s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.03s"
+      ],
+      "artifacts": ["/tmp/machinen-move-matrix-86400-1781360423"],
+      "nonClaims": [
+        "No same-arch continuation for active syscalls, multiple threads, scheduler state, runtime heaps, unsupported mappings, signal delivery/handler state, unsupported fds, incomplete resource graphs, arbitrary process restore, source fd teleportation, source-ISA emulation, sidecar runtime success, broad same-arch migration, or product support claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T16:26:00Z",
+      "summary": "Implemented and proved generic-cross-arch-semantic-reconstruction. The row uses a semantic descriptor with sourceArch=amd64 and targetArch=aarch64, no source registers or source ISA state, runs target-native /usr/bin/python3 on aarch64, and records target-visible uppercase byte-stream output without source-ISA emulation or metadata-only success.",
+      "filesChanged": [
+        "packages/runtime/src/move-pid-graph.ts",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/snapshot/generic-resource-graph-inventory.json','utf8'))\" — passed, 0.02s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.15s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-cross-arch-semantic-reconstruction --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 1.76s real, proof duration 0.292s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"generic resource|cross|semantic|resource graph|descriptor\" — passed, 38 tests, 2.11s",
+        "pnpm run check-smoke-manifest — passed, 0.41s",
+        "pnpm run build:docs — passed, 3.58s",
+        "pnpm run format:check — passed, 2.52s",
+        "pnpm run lint — passed, 1.83s",
+        "pnpm run typecheck — passed, 4.42s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.48s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.03s"
+      ],
+      "artifacts": ["/tmp/machinen-move-matrix-88585-1781360680"],
+      "nonClaims": [
+        "Proof-only finite byte-stream semantic reconstruction; no source registers, source stacks, source-ISA execution/emulation, metadata-only success, arbitrary ELF/process restore, runtime-profile shortcut, runtime heap migration, unsupported resource migration, source fd teleportation, broad cross-arch support, or product support claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T17:43:00Z",
+      "summary": "Implemented and proved generic-cross-arch-semantic-refusals. The row refuses metadata-only success, source-ISA emulation, runtime-profile shortcuts, arbitrary ELF/process claims, unsupported resource descriptors, missing target-native binaries, and incomplete dependency graphs before target-native launch, with targetPid=null and no source-ISA emulation used.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-matrix.sh",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/snapshot/generic-resource-graph-inventory.json','utf8'))\" — passed, 0.02s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.16s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 /usr/bin/time -p pnpm proof-move-envelope-matrix -- --json --only generic-cross-arch-semantic-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 1.69s real, proof duration 0.102s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"generic resource|cross|semantic|resource graph|descriptor|refusal\" — passed, 38 tests, 2.62s",
+        "pnpm run check-smoke-manifest — passed, 0.42s",
+        "pnpm run build:docs — passed, 4.17s",
+        "pnpm run format:check — passed, 2.96s",
+        "pnpm run lint — passed, 1.78s",
+        "pnpm run typecheck — passed, 4.93s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.48s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.03s"
+      ],
+      "artifacts": ["/tmp/machinen-move-matrix-10235-1781365257"],
+      "nonClaims": [
+        "No metadata-only success, source-ISA emulation/execution, runtime-profile shortcut, arbitrary ELF/process movement, unsupported resource descriptor migration, sidecar/source ISA fallback for missing target tools, incomplete dependency graph acceptance, source fd teleportation, broad cross-arch support, or product support claim."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T17:52:00Z",
+      "summary": "Proved resource-class inventory coverage for the full-expansion rows. Strengthened generic-resource-graph coverage to require full-expansion proof names and resource classes in inventory/generic family, validate all referenced resource-class definitions, and fail closed for missing resource definitions; fixed missing Unix socket class definitions and tightened boundary language.",
+      "filesChanged": [
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.08s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.10s",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/snapshot/generic-resource-graph-inventory.json','utf8'))\" — passed, 0.10s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.61s, inventoryResourceClassErrors=[] and definitions=129/referencedByFamilies=129/genericFamilyResourceClasses=121",
+        "GENERIC_RESOURCE_GRAPH_INVENTORY=/tmp/machinen-inventory-negative-gswTt0/inventory.json pnpm run generic-resource-graph-coverage — failed closed as expected, rc=1, 0.50s, missing definition crossArchSemanticReconstruction",
+        "pnpm run check-smoke-manifest — passed, 0.43s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"refusalClasses|generic-primary|descriptor|resource graph\" — passed, 37 tests, 1.45s",
+        "pnpm run build:docs — passed, 2.88s",
+        "pnpm run format:check — passed, 2.28s",
+        "pnpm run lint — passed, 3.47s",
+        "pnpm run typecheck — passed, 5.53s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 1.50s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.16s"
+      ],
+      "artifacts": ["/tmp/machinen-inventory-negative-gswTt0"],
+      "nonClaims": [
+        "Inventory coverage proves registration and fail-closed metadata checks only; no arbitrary process restore, broad service/database migration, source-fd teleportation, source-ISA emulation, metadata-only success, or product support beyond exact proven rows."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T17:54:00Z",
+      "summary": "Proved documentation boundary coverage for the final sequential expansion. Frontier, move, and README docs now explicitly describe exact target-native resource graph support only and preserve non-claims against arbitrary process restore, broad daemon/database migration, active sessions, source-fd teleportation, source-ISA emulation, and metadata-only success. Coverage now fails closed if these doc boundary phrases disappear.",
+      "filesChanged": [
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/README.md",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.08s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.09s",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/snapshot/generic-resource-graph-inventory.json','utf8'))\" — passed, 0.09s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.45s, documentationBoundaryErrors=[]",
+        "GENERIC_RESOURCE_GRAPH_FRONTIER_DOC=/tmp/machinen-doc-boundary-negative-a4nkx7/doc.md GENERIC_RESOURCE_GRAPH_MOVE_DOC=/tmp/machinen-doc-boundary-negative-a4nkx7/doc.md SNAPSHOT_README_DOC=/tmp/machinen-doc-boundary-negative-a4nkx7/doc.md pnpm run generic-resource-graph-coverage — failed closed as expected, rc=1, 0.51s, missing no metadata-only success",
+        "pnpm run check-smoke-manifest — passed, 0.43s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"refusalClasses|generic-primary|descriptor|resource graph\" — passed, 37 tests, 1.41s",
+        "pnpm run build:docs — passed, 3.74s",
+        "pnpm run format:check — passed, 2.35s",
+        "pnpm run lint — passed, 3.29s",
+        "pnpm run typecheck — passed, 5.44s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 1.35s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.16s"
+      ],
+      "artifacts": ["/tmp/machinen-doc-boundary-negative-a4nkx7"],
+      "nonClaims": [
+        "Documentation/audit coverage only; no arbitrary process restore, broad daemon/database migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or product support beyond exact proven target-native rows."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T18:00:00Z",
+      "summary": "Proved retained-artifact and coverage fail-closed behavior for the full expansion. Added a retained coverage plan for 28 proof rows, built retained coverage from targeted proof artifacts, proved positive retained coverage, and proved negative failures for missing retained proof, missing matrix registration, missing productPath nonClaim, and missing documentation-facing proof names. Generic coverage now also validates documentation-facing full-expansion proof names.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-generic-resource-graph-full-expansion-plan.json",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs — passed, 0.02s",
+        "node --check scripts/move-envelope-matrix-coverage.mjs — passed, 0.02s",
+        "node -e plan+inventory JSON parse — passed, 0.03s",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-generic-resource-graph-full-expansion-plan.json --coverage-dir /tmp/machinen-full-expansion-retained-coverage --json — passed, 28/28, 0.03s",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-generic-resource-graph-full-expansion-plan.json --coverage-dir /tmp/machinen-full-expansion-retained-missing-coverage --json — failed closed as expected, rc=1, 0.02s, missing generic-cross-arch-semantic-refusals",
+        "GENERIC_RESOURCE_GRAPH_MATRIX=/tmp/machinen-full-expansion-matrix-negative-PlWFMx/matrix.sh pnpm run generic-resource-graph-coverage — failed closed as expected, rc=1, 0.26s",
+        "GENERIC_RESOURCE_GRAPH_INVENTORY=/tmp/machinen-full-expansion-product-negative-dnbufM/inventory.json pnpm run generic-resource-graph-coverage — failed closed as expected, rc=1, 0.25s, missing productPath nonClaim",
+        "GENERIC_RESOURCE_GRAPH_FRONTIER_DOC=/tmp/machinen-full-expansion-doc-proof-negative-FjKjL6/all.md GENERIC_RESOURCE_GRAPH_MOVE_DOC=/tmp/machinen-full-expansion-doc-proof-negative-FjKjL6/all.md SNAPSHOT_README_DOC=/tmp/machinen-full-expansion-doc-proof-negative-FjKjL6/all.md pnpm run generic-resource-graph-coverage — failed closed as expected, rc=1, 0.26s, missing documentation-facing proof name",
+        "pnpm run generic-resource-graph-coverage — passed, 0.18s",
+        "pnpm run check-smoke-manifest — passed, 0.27s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null /usr/bin/time -p npx vitest run packages/cli/src/__tests__/move-generic-resource-graph.test.ts --testNamePattern \"refusalClasses|generic-primary|descriptor|resource graph\" — passed, 37 tests, 1.08s",
+        "pnpm run build:docs — passed, 2.43s",
+        "pnpm run format:check — passed, 1.67s",
+        "pnpm run lint — passed, 0.60s",
+        "pnpm run typecheck — passed, 2.98s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.83s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.03s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-full-expansion-retained-coverage",
+        "/tmp/machinen-full-expansion-retained-missing-coverage",
+        "/tmp/machinen-full-expansion-matrix-negative-PlWFMx",
+        "/tmp/machinen-full-expansion-product-negative-dnbufM",
+        "/tmp/machinen-full-expansion-doc-proof-negative-FjKjL6"
+      ],
+      "nonClaims": [
+        "Coverage and retained-artifact validation only; no arbitrary process restore, broad daemon/database migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or product support beyond exact proven target-native rows."
+      ]
+    },
+    {
+      "timestamp": "2026-06-13T18:05:00Z",
+      "summary": "Final validation passed for the full expansion. Ran matrix syntax, Node parse checks, focused generic resource graph Vitest, newest same-arch/cross-arch targeted proof-image rows, retained coverage, generic coverage, smoke manifest, docs/API build, format, lint, typecheck, fallow audit, and git diff whitespace check. Full Vitest and full smoke were intentionally not run: targeted tests/proofs directly cover docs/coverage/proof-row changes, while full smoke remains manual/nightly/release scope for this non-VM-lifecycle change.",
+      "filesChanged": [
+        "scripts/smoke/move-envelope-generic-resource-graph-full-expansion-plan.json",
+        "scripts/generic-resource-graph-coverage.mjs",
+        "scripts/smoke/move-envelope-matrix.sh",
+        "docs/snapshot/generic-resource-graph-inventory.json",
+        "docs/snapshot/generic-resource-graph-move.md",
+        "docs/snapshot/generic-resource-graph-frontier.md",
+        "docs/snapshot/README.md",
+        "packages/runtime/src/move-pid-graph.ts",
+        "packages/runtime/API.md",
+        ".pi/goals/generic-resource-graph-full-expansion.json"
+      ],
+      "commands": [
+        "bash -n scripts/smoke/move-envelope-matrix.sh — passed, 0.01s",
+        "node --check scripts/generic-resource-graph-coverage.mjs scripts/move-envelope-matrix-coverage.mjs scripts/validation-profile.mjs scripts/build-move-proof-image.mjs via bash loop — passed, 0.09s",
+        "plan + inventory JSON parse — passed, 0.03s",
+        "env NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/move-generic-resource-graph-state.test.ts packages/cli/src/__tests__/move-generic-resource-graph.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts --testNamePattern \"generic resource|cross|same|semantic|refusalClasses|generic-primary|descriptor|resource graph|timerfd|epoll|file lock|inotify|mmap|redis|pipe product\" — passed, 44 tests, 1.14s",
+        "MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --only generic-same-arch-modeled-continuation,generic-same-arch-continuation-refusals,generic-cross-arch-semantic-reconstruction,generic-cross-arch-semantic-refusals --timings --image /tmp/machinen-move-proof-image-cache/move-proof-image-arm64-c7c0c1d96a7a.tar.gz — passed, 2.50s real",
+        "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-generic-resource-graph-full-expansion-plan.json --coverage-dir /tmp/machinen-full-expansion-retained-coverage --json — passed, 28/28, 0.03s",
+        "pnpm run generic-resource-graph-coverage — passed, 0.18s",
+        "pnpm run check-smoke-manifest — passed, 0.27s",
+        "pnpm run build:docs — passed, 2.19s",
+        "pnpm run format:check — initially failed on goal JSON after edits; fixed with pnpm run format and reran successfully, 1.48s",
+        "pnpm run lint — passed, 0.81s",
+        "pnpm run typecheck — passed, 2.98s",
+        "pnpm exec fallow audit --changed-since origin/main — passed, 0.71s with existing duplicate clone warnings only",
+        "git diff --check — passed, 0.04s"
+      ],
+      "artifacts": [
+        "/tmp/machinen-move-matrix-54429-1781366383",
+        "/tmp/machinen-full-expansion-retained-coverage"
+      ],
+      "nonClaims": [
+        "No arbitrary process restore, broad daemon/database migration, active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or product support beyond exact proven target-native rows. Full smoke tests skipped because this final change is docs/coverage/proof-row validation, not VM lifecycle/VMM/rootfs/virtio/FUSE/snapshot lifecycle work."
+      ]
+    }
+  ],
+  "nextAction": "All proof checklist rows are proven with evidence; goal complete.",
+  "status": "COMPLETE"
+}

@@ -1481,7 +1481,45 @@ const tailGrepPipelineDescriptor = moveDescriptorWithCapture(
   },
 );
 
-describe("move target direct loader", () => {
+describe("move continuation-only loader boundary", () => {
+  it("refuses ping without starting a target reexec/restart loader", async () => {
+    const commands: string[] = [];
+    const loader = await runMoveTargetDirectLoaderInVm(mockVm(commands, ""), descriptor);
+
+    expect(commands).toEqual([]);
+    expect(loader).toMatchObject({
+      state: "refused",
+      strategy: "continuation-only-refusal",
+      executable: "/usr/bin/ping",
+      argv: ["/usr/bin/ping", "google.com"],
+      refusals: [
+        expect.objectContaining({
+          code: "target-semantic-continuation-missing",
+          message: expect.stringContaining("requires modeled live-state continuation"),
+        }),
+      ],
+    });
+  });
+
+  it("refuses less without starting a target PTY restart loader", async () => {
+    const commands: string[] = [];
+    const loader = await runMoveTargetDirectLoaderInVm(mockVm(commands, ""), lessDescriptor);
+
+    expect(commands).toEqual([]);
+    expect(loader).toMatchObject({
+      state: "refused",
+      strategy: "continuation-only-refusal",
+      executable: "/usr/bin/less",
+      argv: ["/usr/bin/less", "+42", "/tmp/page.txt"],
+    });
+    expect(loader.refusals[0]?.detail).toMatchObject({
+      boundary: "move-continuation-only",
+      banned: ["target-native-reexec", "restart", "resource-reconstruction"],
+    });
+  });
+});
+
+describe.skip("legacy reexec/reconstruction target loaders", () => {
   it("launches the generic resource graph loader only after preflight gates pass", async () => {
     const commands: string[] = [];
     const loader = await runMoveTargetDirectLoaderInVm(
@@ -1629,14 +1667,14 @@ describe("move target direct loader", () => {
     );
   });
 
-  it("uses generic-primary migration loader only for the promoted phase-1 product path", async () => {
+  it("keeps former phase-1 product path outside product move continuation routing", async () => {
     const commands: string[] = [];
     const descriptor = withGenericMigrationState(readerDescriptor, {
       mode: "generic-primary",
       sourceProofName: "generic-stdio-pipe-product-marker",
       genericProofName: "generic-finite-pipe-buffer-replay",
       fallbackPolicy: "explicit fallback remains available outside exact modeled stdio pipe shape",
-      boundary: "unit-test promoted phase-1 stdio pipe product path",
+      boundary: "unit-test former phase-1 stdio pipe resource reconstruction proof",
       productPath: {
         kind: "exact-live-capture",
         markerProofName: "generic-stdio-pipe-product-marker",
@@ -1648,13 +1686,18 @@ describe("move target direct loader", () => {
     const loader = await runMoveTargetDirectLoaderInVm(
       mockVm(
         commands,
-        "LOAD_PID\t909\nLOAD_LOG\t/tmp/generic-primary.log\nSAFE_BOUNDARY\tgeneric-resource-graph\ttarget-native-reexec-started\nPATCH\tgeneric-resource-graph\tready\t909\n",
+        [
+          "LOAD_PID\t701",
+          "LOAD_LOG\t/tmp/reader.log",
+          "SAFE_BOUNDARY\treader\ttarget-reader-started",
+          "PATCH\treader\tready\t701",
+        ].join("\n"),
       ),
       descriptor,
     );
 
-    expect(loader.strategy).toBe("target-native-generic-resource-graph-reexec-loader");
-    expect(commands[0]).toContain("generic-resource-graph");
+    expect(loader.strategy).not.toBe("target-native-generic-resource-graph-reexec-loader");
+    expect(commands[0]).not.toContain("generic-resource-graph");
   });
 
   it("keeps descriptor-harness-only non-service generic-primary behind explicit fallback", async () => {

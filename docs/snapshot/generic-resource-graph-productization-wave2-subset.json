@@ -280,5 +280,19 @@
     "no metadata-only success",
     "no runtime-profile shortcut",
     "no product support for tree-identity-blocked static HTTP rows, service-safety-blocked rows, session-state-blocked rows, proof-only continuation, cross-arch semantic reconstruction, proof images, or descriptor harnesses"
-  ]
+  ],
+  "continuationBoundary": {
+    "productMoveContinuationRouting": "none",
+    "currentLabel": "retained proof/refusal evidence outside product move continuation",
+    "reason": "Rows in this artifact are resource-reconstruction or target-native reexec evidence, not modeled live-state continuation.",
+    "nonClaims": [
+      "no product move continuation claim",
+      "no arbitrary process restore",
+      "no source-fd teleportation",
+      "no source-ISA emulation",
+      "no metadata-only success",
+      "no runtime-profile shortcut",
+      "no unmodeled active session migration"
+    ]
+  }
 }

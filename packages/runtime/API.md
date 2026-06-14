@@ -593,6 +593,25 @@
 - [`nativeProcessImageArchitectures`](#nativeprocessimagearchitectures)
 - [`nativeProcessImageRefusalCodes`](#nativeprocessimagerefusalcodes)
 - [`nativeProcessImageSchemas`](#nativeprocessimageschemas)
+- [`SameArchStoppedContinuationRequest`](#samearchstoppedcontinuationrequest)
+- [`SameArchStoppedMapping`](#samearchstoppedmapping)
+- [`SameArchStoppedFd`](#samearchstoppedfd)
+- [`SameArchStoppedSignalState`](#samearchstoppedsignalstate)
+- [`SameArchStoppedTimerState`](#samearchstoppedtimerstate)
+- [`SameArchStoppedSocketState`](#samearchstoppedsocketstate)
+- [`SameArchStoppedSessionState`](#samearchstoppedsessionstate)
+- [`SameArchStoppedContinuationCapture`](#samearchstoppedcontinuationcapture)
+- [`SameArchStoppedContinuationClassification`](#samearchstoppedcontinuationclassification)
+- [`SameArchStoppedContinuationResumeRequest`](#samearchstoppedcontinuationresumerequest)
+- [`SameArchStoppedContinuationResumeResult`](#samearchstoppedcontinuationresumeresult)
+- [`SameArchStoppedContinuationState`](#samearchstoppedcontinuationstate)
+- [`SameArchStoppedStopState`](#samearchstoppedstopstate)
+- [`SameArchStoppedActiveSyscallState`](#samearchstoppedactivesyscallstate)
+- [`SameArchStoppedMappingKind`](#samearchstoppedmappingkind)
+- [`SameArchStoppedFdKind`](#samearchstoppedfdkind)
+- [`sameArchStoppedContinuationNonClaims`](#samearchstoppedcontinuationnonclaims)
+- [`classifySameArchStoppedContinuationCapture`](#classifysamearchstoppedcontinuationcapture)
+- [`materializeSameArchStoppedContinuationTarget`](#materializesamearchstoppedcontinuationtarget)
 - [`isNativeProcessImageBundle`](#isnativeprocessimagebundle)
 - [`validateNativeProcessImageBundle`](#validatenativeprocessimagebundle)
 - [`validateNativeProcessImageDocuments`](#validatenativeprocessimagedocuments)
@@ -4728,39 +4747,47 @@ Size in bytes the file was allocated at.
 
 Generic resource graph evidence for `machinen move`.
 
-Product support is intentionally narrower than the full proof matrix. The
-first user-facing product path is `generic-stdio-pipe-product-marker`: an
-exact modeled finite stdio pipe graph with
-`migration.productPath.kind="exact-live-capture"`, support proof
-`generic-finite-pipe-buffer-replay`, refusal proof
-`generic-pipe-stdio-refusals`, and `refusalClasses=[]`.
+Product move continuation is intentionally narrower than the full proof
+matrix. The current product move continuation allowlist is empty because the
+formerly promoted generic rows are classified as resource reconstruction or
+target-native reexec, not modeled live execution continuation.
 
-Wave 2 adds only five more exact live-capture product markers:
+The historical rows remain useful proof and refusal evidence under accurate
+labels: `generic-stdio-pipe-product-marker` with support proof
+`generic-finite-pipe-buffer-replay` and refusal proof
+`generic-pipe-stdio-refusals`, `reader-cat-live-generic-primary-marker`, and
+`grep-live-generic-primary-marker` are resource-reconstruction evidence;
 `unix-pathname-listener-live-generic-primary-marker`,
-`reader-cat-live-generic-primary-marker`,
-`grep-live-generic-primary-marker`,
-`busybox-nc-listener-live-generic-primary-marker`, and
-`socat-file-responder-live-generic-primary-marker`. Their support/refusal
-proof names are `generic-unix-pathname-listener`,
-`generic-unix-pathname-listener-refusals`, `reader-cat`,
-`generic-stale-file-identity-refusal`, `generic-deleted-file-fd-refusal`,
-`generic-writable-file-cursor-refusal`, `grep`,
-`generic-pipe-stdio-refusals`, `busybox-nc-listener`,
-`unsafe-busybox-nc-refusal`, `unsafe-nc-active-refusal`,
-`generic-loader-preflight-refusals`, `socat-file-responder`, and
-`unsafe-socat-file-responder-refusal`. Wave-2 public support requires
-`observedGraph="exact-live-resource-graph"`, `refusalClasses=[]`, retained
-artifacts for the 19-row plan in
-`scripts/smoke/move-envelope-productization-wave2-plan.json`, and the
-release validation profile
-`scripts/smoke/move-envelope-productization-wave2-validation-profile.json`.
+`busybox-nc-listener-live-generic-primary-marker`,
+`socat-file-responder-live-generic-primary-marker`,
+`node-static-http-live-generic-primary-marker`,
+`go-static-http-live-generic-primary-marker`,
+`rust-static-http-live-generic-primary-marker`, and
+`busybox-httpd-live-generic-primary-marker` are target-native reexec/restart
+evidence. Their retained refusal proofs include `node-active-refusal`,
+`node-timer-refusal`, `node-worker-refusal`, `native-dlopen-refusal`,
+`go-extra-socket-refusal`, `generic-loader-preflight-refusals`,
+`unsafe-busybox-httpd-refusal`, `python-http-active-refusal`, and
+`static-http-tree-identity-refusals`. They are not product move
+continuation routes.
 
-Proof-only same-arch continuation, proof-only cross-arch semantic
-reconstruction, descriptor harnesses, Redis/database/service rows, active
-sessions, source-fd teleportation, source-ISA emulation, metadata-only
-success, runtime-profile shortcuts, broad daemon/database migration, and
-arbitrary process restore are not product support. In short: no arbitrary
-process restore.
+`generic-same-arch-modeled-continuation` is the only current continuation
+classification row, and it remains proof-only until cross-architecture,
+target-native live-state reconstruction and equivalent refusal evidence are
+proven. Static HTTP tree identity, pipe byte replay, file cursor reopen,
+listener recreation, descriptor harnesses, Redis/database/service rows,
+active sessions, source-fd teleportation, source-ISA emulation,
+metadata-only success, runtime-profile shortcuts, broad daemon/database
+migration, and arbitrary process restore are not product move continuation.
+Hard product rule: `machinen move` refuses target-native reexec, restart,
+and resource reconstruction. Continuation is not banned, but future product
+move work must focus only on modeled live-state continuation: captured source
+process/resource state translated into target-native state for fds, timers,
+event-loop resources, sockets, requests, and runtime state, with fail-closed
+refusals for every unmodeled piece. Node continuation is not a product claim
+until V8 heap state, JS stack/event-loop phase, libuv handles, workers,
+native addons, timers, sockets, and in-memory app/session state are
+explicitly modeled. In short: no arbitrary process restore.
 
 #### Properties
 
@@ -4819,6 +4846,42 @@ process restore.
 ###### productPath.observedGraph
 
 > **observedGraph**: `"exact-single-process-service"` \| `"exact-live-resource-graph"`
+
+##### staticRootTreeIdentity?
+
+> `optional` **staticRootTreeIdentity?**: `object`
+
+###### path
+
+> **path**: `string`
+
+###### sourceIdentity
+
+> **sourceIdentity**: `object`
+
+###### sourceIdentity.fileCount
+
+> **fileCount**: `number`
+
+###### sourceIdentity.directoryCount
+
+> **directoryCount**: `number`
+
+###### sourceIdentity.totalBytes
+
+> **totalBytes**: `number`
+
+###### sourceIdentity.treeDigest
+
+> **treeDigest**: `string`
+
+###### targetVerification
+
+> **targetVerification**: `string`
+
+###### driftRefusal
+
+> **driftRefusal**: `string`
 
 ##### executableIdentity
 
@@ -19723,6 +19786,582 @@ the breakdown shows up alongside the parent phase.
 
 ***
 
+### SameArchStoppedContinuationRequest
+
+#### Properties
+
+##### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### process
+
+> **process**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### ppid?
+
+> `optional` **ppid?**: `number`
+
+###### exe
+
+> **exe**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### uid?
+
+> `optional` **uid?**: `number`
+
+###### gid?
+
+> `optional` **gid?**: `number`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+###### targetTextIdentityMatches?
+
+> `optional` **targetTextIdentityMatches?**: `boolean`
+
+##### thread
+
+> **thread**: `object`
+
+###### id
+
+> **id**: `string`
+
+###### threadCount
+
+> **threadCount**: `number`
+
+###### stopState
+
+> **stopState**: [`SameArchStoppedStopState`](#samearchstoppedstopstate)
+
+###### activeSyscallState
+
+> **activeSyscallState**: [`SameArchStoppedActiveSyscallState`](#samearchstoppedactivesyscallstate)
+
+###### instructionPointer
+
+> **instructionPointer**: `string`
+
+###### stackPointer
+
+> **stackPointer**: `string`
+
+###### generalPurposeRegisters
+
+> **generalPurposeRegisters**: `Record`\<`string`, `string`\>
+
+###### flagsOrPstate
+
+> **flagsOrPstate**: `string`
+
+###### tlsPointer
+
+> **tlsPointer**: `string`
+
+###### pcMappingId?
+
+> `optional` **pcMappingId?**: `string`
+
+##### mappings
+
+> **mappings**: [`SameArchStoppedMapping`](#samearchstoppedmapping)[]
+
+##### resources
+
+> **resources**: `object`
+
+###### fds
+
+> **fds**: [`SameArchStoppedFd`](#samearchstoppedfd)[]
+
+###### signals
+
+> **signals**: [`SameArchStoppedSignalState`](#samearchstoppedsignalstate)
+
+###### timers
+
+> **timers**: [`SameArchStoppedTimerState`](#samearchstoppedtimerstate)
+
+###### sockets
+
+> **sockets**: [`SameArchStoppedSocketState`](#samearchstoppedsocketstate)
+
+###### session
+
+> **session**: [`SameArchStoppedSessionState`](#samearchstoppedsessionstate)
+
+##### integrity?
+
+> `optional` **integrity?**: `object`
+
+###### capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+###### sourceFreezeEvidence?
+
+> `optional` **sourceFreezeEvidence?**: `string`
+
+###### targetPreflightIdentityEvidence?
+
+> `optional` **targetPreflightIdentityEvidence?**: `string`
+
+###### noReexecGuardEvidence?
+
+> `optional` **noReexecGuardEvidence?**: `string`
+
+***
+
+### SameArchStoppedMapping
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### kind
+
+> **kind**: [`SameArchStoppedMappingKind`](#samearchstoppedmappingkind)
+
+##### start
+
+> **start**: `string`
+
+##### end
+
+> **end**: `string`
+
+##### permissions
+
+> **permissions**: `string`
+
+##### sha256?
+
+> `optional` **sha256?**: `string`
+
+##### buildId?
+
+> `optional` **buildId?**: `string`
+
+##### capturedBytesSha256?
+
+> `optional` **capturedBytesSha256?**: `string`
+
+##### capturedBytesLength?
+
+> `optional` **capturedBytesLength?**: `number`
+
+***
+
+### SameArchStoppedFd
+
+#### Properties
+
+##### fd
+
+> **fd**: `number`
+
+##### kind
+
+> **kind**: [`SameArchStoppedFdKind`](#samearchstoppedfdkind)
+
+##### target?
+
+> `optional` **target?**: `string`
+
+***
+
+### SameArchStoppedSignalState
+
+#### Properties
+
+##### pending
+
+> **pending**: `string`[]
+
+##### blocked
+
+> **blocked**: `string`[]
+
+##### caughtHandlers
+
+> **caughtHandlers**: `string`[]
+
+##### activeFrame
+
+> **activeFrame**: `boolean`
+
+##### alternateStack
+
+> **alternateStack**: `"disabled"` \| `"unknown"` \| `"enabled"`
+
+***
+
+### SameArchStoppedTimerState
+
+#### Properties
+
+##### timers
+
+> **timers**: `string`[]
+
+##### eventLoopState
+
+> **eventLoopState**: `"none"` \| `"unknown"` \| `"present"`
+
+***
+
+### SameArchStoppedSocketState
+
+#### Properties
+
+##### sockets
+
+> **sockets**: `string`[]
+
+##### activeSessions
+
+> **activeSessions**: `string`[]
+
+***
+
+### SameArchStoppedSessionState
+
+#### Properties
+
+##### controllingTerminal
+
+> **controllingTerminal**: `string` \| `false`
+
+##### pty
+
+> **pty**: `string` \| `false`
+
+##### processGroup
+
+> **processGroup**: `"default"` \| `"unknown"` \| `"custom"`
+
+##### jobControl
+
+> **jobControl**: `"none"` \| `"unknown"` \| `"present"`
+
+***
+
+### SameArchStoppedContinuationCapture
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"same-arch-stopped-continuation-v1"`
+
+##### processIdentity
+
+> **processIdentity**: `object`
+
+###### pid
+
+> **pid**: `number`
+
+###### ppid?
+
+> `optional` **ppid?**: `number`
+
+###### exe
+
+> **exe**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### cwd
+
+> **cwd**: `string`
+
+###### uid?
+
+> `optional` **uid?**: `number`
+
+###### gid?
+
+> `optional` **gid?**: `number`
+
+###### executableSha256?
+
+> `optional` **executableSha256?**: `string`
+
+###### targetTextIdentityMatches?
+
+> `optional` **targetTextIdentityMatches?**: `boolean`
+
+##### architecture
+
+> **architecture**: `Pick`\<[`SameArchStoppedContinuationRequest`](#samearchstoppedcontinuationrequest), `"sourceArch"` \| `"targetArch"`\> & `object`
+
+###### Type Declaration
+
+###### abi
+
+> **abi**: `"linux-user"`
+
+##### threadState
+
+> **threadState**: `object`
+
+###### id
+
+> **id**: `string`
+
+###### threadCount
+
+> **threadCount**: `number`
+
+###### stopState
+
+> **stopState**: [`SameArchStoppedStopState`](#samearchstoppedstopstate)
+
+###### activeSyscallState
+
+> **activeSyscallState**: [`SameArchStoppedActiveSyscallState`](#samearchstoppedactivesyscallstate)
+
+###### instructionPointer
+
+> **instructionPointer**: `string`
+
+###### stackPointer
+
+> **stackPointer**: `string`
+
+###### generalPurposeRegisters
+
+> **generalPurposeRegisters**: `Record`\<`string`, `string`\>
+
+###### flagsOrPstate
+
+> **flagsOrPstate**: `string`
+
+###### tlsPointer
+
+> **tlsPointer**: `string`
+
+###### pcMappingId?
+
+> `optional` **pcMappingId?**: `string`
+
+##### memoryState
+
+> **memoryState**: `object`
+
+###### verifiedExecutableMappings
+
+> **verifiedExecutableMappings**: [`SameArchStoppedMapping`](#samearchstoppedmapping)[]
+
+###### privateWritableMappings
+
+> **privateWritableMappings**: [`SameArchStoppedMapping`](#samearchstoppedmapping)[]
+
+###### stackMapping
+
+> **stackMapping**: [`SameArchStoppedMapping`](#samearchstoppedmapping)
+
+###### programCounterMappingId
+
+> **programCounterMappingId**: `string`
+
+##### resourceState
+
+> **resourceState**: `object`
+
+###### fds
+
+> **fds**: [`SameArchStoppedFd`](#samearchstoppedfd)[]
+
+###### signals
+
+> **signals**: [`SameArchStoppedSignalState`](#samearchstoppedsignalstate)
+
+###### timers
+
+> **timers**: [`SameArchStoppedTimerState`](#samearchstoppedtimerstate)
+
+###### sockets
+
+> **sockets**: [`SameArchStoppedSocketState`](#samearchstoppedsocketstate)
+
+###### session
+
+> **session**: [`SameArchStoppedSessionState`](#samearchstoppedsessionstate)
+
+##### integrity
+
+> **integrity**: `Required`\<`NonNullable`\<[`SameArchStoppedContinuationRequest`](#samearchstoppedcontinuationrequest)\[`"integrity"`\]\>\>
+
+***
+
+### SameArchStoppedContinuationClassification
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"same-arch-stopped-continuation-v1"`
+
+##### state
+
+> **state**: [`SameArchStoppedContinuationState`](#samearchstoppedcontinuationstate)
+
+##### capture?
+
+> `optional` **capture?**: [`SameArchStoppedContinuationCapture`](#samearchstoppedcontinuationcapture)
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+##### productSupport
+
+> **productSupport**: `false`
+
+##### nonClaims
+
+> **nonClaims**: readonly `string`[]
+
+***
+
+### SameArchStoppedContinuationResumeRequest
+
+#### Properties
+
+##### classification
+
+> **classification**: [`SameArchStoppedContinuationClassification`](#samearchstoppedcontinuationclassification)
+
+##### target
+
+> **target**: `object`
+
+###### textIdentityVerified
+
+> **textIdentityVerified**: `boolean`
+
+###### memoryMaterialized
+
+> **memoryMaterialized**: `boolean`
+
+###### registersInstalled
+
+> **registersInstalled**: `boolean`
+
+###### noRefusedResourceDuringPreflight
+
+> **noRefusedResourceDuringPreflight**: `boolean`
+
+###### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+###### reexecAttempted?
+
+> `optional` **reexecAttempted?**: `boolean`
+
+###### restartAttempted?
+
+> `optional` **restartAttempted?**: `boolean`
+
+###### resourceReconstructionAttempted?
+
+> `optional` **resourceReconstructionAttempted?**: `boolean`
+
+###### marker?
+
+> `optional` **marker?**: `object`
+
+###### marker.kind
+
+> **kind**: `"captured-state-dependent"` \| `"metadata-only"` \| `"fresh-start-equivalent"`
+
+###### marker.observedValue
+
+> **observedValue**: `string` \| `number` \| `boolean`
+
+###### marker.freshRestartWouldProduce
+
+> **freshRestartWouldProduce**: `string` \| `number` \| `boolean`
+
+###### marker.capturedStateInputs
+
+> **capturedStateInputs**: `string`[]
+
+***
+
+### SameArchStoppedContinuationResumeResult
+
+#### Properties
+
+##### primitive
+
+> **primitive**: `"same-arch-stopped-continuation-v1"`
+
+##### state
+
+> **state**: `"refused"` \| `"ready"`
+
+##### targetPid?
+
+> `optional` **targetPid?**: `number`
+
+##### resumedFromCapturedState
+
+> **resumedFromCapturedState**: `boolean`
+
+##### targetProcessStarted
+
+> **targetProcessStarted**: `boolean`
+
+##### targetProcessKilledOnRefusal
+
+> **targetProcessKilledOnRefusal**: `boolean`
+
+##### reexecUsed
+
+> **reexecUsed**: `false`
+
+##### restartUsed
+
+> **restartUsed**: `false`
+
+##### resourceReconstructionUsed
+
+> **resourceReconstructionUsed**: `false`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
 ### VsockSecretsOptions
 
 #### Properties
@@ -27333,6 +27972,36 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### SameArchStoppedContinuationState
+
+> **SameArchStoppedContinuationState** = `"eligible"` \| `"refused"`
+
+***
+
+### SameArchStoppedStopState
+
+> **SameArchStoppedStopState** = `"ptrace-stopped"` \| `"move-owned-stop"` \| `"running"` \| `"unknown"`
+
+***
+
+### SameArchStoppedActiveSyscallState
+
+> **SameArchStoppedActiveSyscallState** = `"outside-syscall"` \| `"active-syscall"` \| `"syscall-restart"` \| `"blocking-kernel-wait"` \| `"unknown"`
+
+***
+
+### SameArchStoppedMappingKind
+
+> **SameArchStoppedMappingKind** = `"text"` \| `"private-writable"` \| `"stack"` \| `"shared"` \| `"device"` \| `"vdso"` \| `"vvar"` \| `"jit"` \| `"ambiguous"`
+
+***
+
+### SameArchStoppedFdKind
+
+> **SameArchStoppedFdKind** = `"closed"` \| `"dev-null"` \| `"move-owned-stdio"` \| `"file"` \| `"pipe"` \| `"socket"` \| `"eventfd"` \| `"epoll"` \| `"timerfd"` \| `"inotify"` \| `"signalfd"` \| `"device"` \| `"unknown"`
+
+***
+
 ### StatefulDatabaseRestoreRefusalCode
 
 > **StatefulDatabaseRestoreRefusalCode** = *typeof* [`statefulDatabaseRestoreRefusalCodes`](#statefuldatabaserestorerefusalcodes)\[`number`\]
@@ -29736,6 +30405,12 @@ loops; anything looser stops being a meaningful gate.
 ### runtimeConfidenceRefusalCodes
 
 > `const` **runtimeConfidenceRefusalCodes**: readonly \[`"active-sockets-unsupported"`, `"native-library-ambiguity"`, `"unmodeled-signal-or-timer-state"`, `"jvm-private-jit-state-unsupported"`, `"unsupported-process-topology"`, `"source-target-abi-mismatch"`, `"missing-target-runtime-or-dynamic-library-provenance"`, `"target-verifier-missing-or-ambiguous"`\]
+
+***
+
+### sameArchStoppedContinuationNonClaims
+
+> `const` **sameArchStoppedContinuationNonClaims**: readonly \[`"no product support until resume proof is recorded"`, `"no cross-architecture support"`, `"no reexec or restart"`, `"no output replay or descriptor-only equivalence"`, `"no source-ISA emulation"`, `"no source-fd teleportation"`, `"no metadata-only success"`, `"no broad runtime or arbitrary process restore"`\]
 
 ***
 
@@ -33841,6 +34516,38 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 [`RuntimeConfidenceProfileRow`](#runtimeconfidenceprofilerow)[]
+
+***
+
+### classifySameArchStoppedContinuationCapture()
+
+> **classifySameArchStoppedContinuationCapture**(`request`): [`SameArchStoppedContinuationClassification`](#samearchstoppedcontinuationclassification)
+
+#### Parameters
+
+##### request
+
+[`SameArchStoppedContinuationRequest`](#samearchstoppedcontinuationrequest)
+
+#### Returns
+
+[`SameArchStoppedContinuationClassification`](#samearchstoppedcontinuationclassification)
+
+***
+
+### materializeSameArchStoppedContinuationTarget()
+
+> **materializeSameArchStoppedContinuationTarget**(`request`): [`SameArchStoppedContinuationResumeResult`](#samearchstoppedcontinuationresumeresult)
+
+#### Parameters
+
+##### request
+
+[`SameArchStoppedContinuationResumeRequest`](#samearchstoppedcontinuationresumerequest)
+
+#### Returns
+
+[`SameArchStoppedContinuationResumeResult`](#samearchstoppedcontinuationresumeresult)
 
 ***
 

@@ -49,7 +49,9 @@ The first pilot shapes are intentionally narrow:
 
 ## Product marker boundary
 
-`generic-stdio-pipe-product-marker` is the first productPath marker for modeled stdio pipes. It uses `generic-finite-pipe-buffer-replay` as support evidence and `generic-pipe-stdio-refusals` as the fail-closed sibling proof. It may select the generic product loader only when the descriptor records:
+`generic-stdio-pipe-product-marker` remains retained proof evidence for modeled stdio pipes with support proof `generic-finite-pipe-buffer-replay` and refusal proof `generic-pipe-stdio-refusals`, but it is no longer a product move continuation route. The row is classified as resource reconstruction because captured finite pipe bytes are replayed into a target-native consumer instead of continuing live kernel pipe or process state.
+
+Historical acceptance for this proof row required:
 
 - `migration.mode="generic-primary"`;
 - `migration.productPath.kind="exact-live-capture"`;
@@ -59,7 +61,7 @@ The first pilot shapes are intentionally narrow:
 - `refusalClasses=[]`;
 - target-visible output or health evidence.
 
-Descriptor-only pipe support or any non-empty `refusalClasses` array must stay refused or fall back. This is not arbitrary stdio migration.
+Descriptor-only pipe support or any non-empty `refusalClasses` array must stay refused or fall back. This is not arbitrary stdio migration, source-fd teleportation, or product move continuation.
 
 ## Refused shapes
 

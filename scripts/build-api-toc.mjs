@@ -1,17 +1,7 @@
-// Inject a task-grouped table of contents into packages/runtime/API.md.
-// Keep this TOC mapping in sync with public exports from packages/runtime/src/index.ts.
-// The script validates that every symbol it references is a real H3 and that no H3 is left uncategorised.
-
 import { readFileSync, writeFileSync } from "node:fs";
 
-// Optional path arg so the api-md-drift test can point at a tmpdir
-// copy without clobbering the committed file. Defaults to the path
-// `pnpm run build:docs` uses.
 const API_PATH = process.argv[2] ?? "packages/runtime/API.md";
 
-// Categories ordered top-to-bottom in the rendered TOC. Each value is
-// the list of H3 headers (i.e. symbol names) typedoc emits for that
-// category. Plain function/type names map 1:1 to typedoc's H3 text.
 const TOC = {
   "Level 5 runtime adapter substrate": [
     "Level5AdapterDetectInput",
@@ -585,6 +575,25 @@ const TOC = {
     "nativeProcessImageArchitectures",
     "nativeProcessImageRefusalCodes",
     "nativeProcessImageSchemas",
+    "SameArchStoppedContinuationRequest",
+    "SameArchStoppedMapping",
+    "SameArchStoppedFd",
+    "SameArchStoppedSignalState",
+    "SameArchStoppedTimerState",
+    "SameArchStoppedSocketState",
+    "SameArchStoppedSessionState",
+    "SameArchStoppedContinuationCapture",
+    "SameArchStoppedContinuationClassification",
+    "SameArchStoppedContinuationResumeRequest",
+    "SameArchStoppedContinuationResumeResult",
+    "SameArchStoppedContinuationState",
+    "SameArchStoppedStopState",
+    "SameArchStoppedActiveSyscallState",
+    "SameArchStoppedMappingKind",
+    "SameArchStoppedFdKind",
+    "sameArchStoppedContinuationNonClaims",
+    "classifySameArchStoppedContinuationCapture",
+    "materializeSameArchStoppedContinuationTarget",
     "isNativeProcessImageBundle",
     "validateNativeProcessImageBundle",
     "validateNativeProcessImageDocuments",

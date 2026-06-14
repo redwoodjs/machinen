@@ -69,7 +69,7 @@ function genericGraphState(refusalClasses: GenericRefusals) {
 }
 
 describe("move native bundle scaffold", () => {
-  it("accepts generic resource graph state only when no refusal classes remain", () => {
+  it("refuses generic resource graph state because reexec is banned for move", () => {
     const withGenericOnly = attachNativeContinuation({
       ...descriptor,
       resourcePlan: {
@@ -95,15 +95,18 @@ describe("move native bundle scaffold", () => {
       },
     });
 
-    expect(withGenericOnly.nativeContinuation?.state).toBe("planned");
-    expect(withGenericOnly.nativeContinuation?.refusals).toEqual([]);
+    expect(withGenericOnly.nativeContinuation?.state).toBe("refused");
+    expect(withGenericOnly.nativeContinuation?.refusals[0]).toMatchObject({
+      code: "target-semantic-continuation-missing",
+      message: expect.stringContaining("requires modeled live-state continuation"),
+    });
     expect(withGenericRefusal.nativeContinuation?.state).toBe("refused");
     expect(withGenericRefusal.nativeContinuation?.refusals[0]?.code).toBe(
       "target-semantic-continuation-missing",
     );
   });
 
-  it("keeps app-specific envelopes higher priority than generic frontier refusals", () => {
+  it("refuses app-specific reexec envelopes even when generic frontier refusals exist", () => {
     const withSocatAndGeneric = attachNativeContinuation({
       ...descriptor,
       resourcePlan: {
@@ -130,8 +133,10 @@ describe("move native bundle scaffold", () => {
       },
     });
 
-    expect(withSocatAndGeneric.nativeContinuation?.state).toBe("planned");
-    expect(withSocatAndGeneric.nativeContinuation?.refusals).toEqual([]);
+    expect(withSocatAndGeneric.nativeContinuation?.state).toBe("refused");
+    expect(withSocatAndGeneric.nativeContinuation?.refusals[0]?.code).toBe(
+      "target-semantic-continuation-missing",
+    );
   });
 
   it("writes a canonical native process-image bundle with move continuation refusals", () => {

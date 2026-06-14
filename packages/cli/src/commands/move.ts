@@ -343,10 +343,6 @@ function genericResourceGraphIsFullySupported(descriptor: MoveDescriptor): boole
   const state = descriptor.resourcePlan?.capture?.genericResourceGraphState;
   return state !== undefined && state.refusalClasses.length === 0;
 }
-function genericResourceGraphHasRefusals(descriptor: MoveDescriptor): boolean {
-  const state = descriptor.resourcePlan?.capture?.genericResourceGraphState;
-  return state !== undefined && state.refusalClasses.length > 0;
-}
 function moveIssueReport(
   descriptor: MoveDescriptor,
   options: MoveSaveOptions,
@@ -451,21 +447,8 @@ function moveBundleValid(bundlePath: string): boolean {
   return true;
 }
 
-// fallow-ignore-next-line complexity
 function moveDescriptorContinuationPlanned(descriptor: MoveDescriptor): boolean {
-  if (moveEnvelopeAllowsOpenFileRefusals(descriptor)) {
-    return true;
-  }
-  if (genericResourceGraphHasRefusals(descriptor)) {
-    return false;
-  }
-  if (descriptor.refusedStateClasses.every((refusal) => refusal.stateClass === "sockets")) {
-    return true;
-  }
-  if (descriptor.refusedStateClasses.length !== 0) {
-    return false;
-  }
-  return descriptor.nativeContinuation?.state !== "refused";
+  return descriptor.nativeContinuation?.state === "planned";
 }
 
 function reportMoveLoadResult(

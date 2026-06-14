@@ -6,12 +6,14 @@ type MoveResourcePlan = NonNullable<MoveDescriptor["resourcePlan"]>;
 type MoveCapture = NonNullable<MoveResourcePlan["capture"]>;
 type GenericState = NonNullable<MoveCapture["genericResourceGraphState"]>;
 
-export type GenericResourceGraphMoveExplanation = {
+type GenericResourceGraphMoveExplanation = {
   decision:
     | "missing-generic-state"
     | "generic-product"
     | "explicit-fallback"
     | "proof-only"
+    | "resource-reconstruction"
+    | "reexec"
     | "deferred"
     | "blocked"
     | "fail-closed-refusal";
@@ -28,6 +30,22 @@ const proofOnlyGenericRows = new Set([
   "generic-cross-arch-semantic-reconstruction",
 ]);
 
+const resourceReconstructionRows = new Set([
+  "generic-stdio-pipe-product-marker",
+  "reader-cat-live-generic-primary-marker",
+  "grep-live-generic-primary-marker",
+]);
+
+const reexecRows = new Set([
+  "unix-pathname-listener-live-generic-primary-marker",
+  "busybox-nc-listener-live-generic-primary-marker",
+  "socat-file-responder-live-generic-primary-marker",
+  "node-static-http-live-generic-primary-marker",
+  "go-static-http-live-generic-primary-marker",
+  "rust-static-http-live-generic-primary-marker",
+  "busybox-httpd-live-generic-primary-marker",
+]);
+
 const deferredGenericRows = new Set([
   "generic-two-process-pipe-reexec",
   "generic-unix-pathname-client-pair",
@@ -40,10 +58,6 @@ const deferredGenericRows = new Set([
 ]);
 
 const blockedGenericRows = new Map([
-  ["node-static-http-live-generic-primary-marker", "blocked by full source/target tree identity"],
-  ["go-static-http-live-generic-primary-marker", "blocked by full source/target tree identity"],
-  ["rust-static-http-live-generic-primary-marker", "blocked by full source/target tree identity"],
-  ["busybox-httpd-live-generic-primary-marker", "blocked by full source/target tree identity"],
   ["nginx-live-generic-primary-marker", "blocked by service safety"],
   ["caddy-live-generic-primary-marker", "blocked by service safety"],
   ["ruby-live-generic-primary-marker", "blocked by service safety"],
@@ -108,47 +122,9 @@ export function explainGenericResourceGraphMovePlan(
     };
   }
 
-  if (proofName && proofOnlyGenericRows.has(proofName)) {
-    return {
-      decision: "proof-only",
-      productSupport: false,
-      proofName,
-      userMessage: `Generic row ${proofName} is proof-only and is not product support for machinen move.`,
-      reasons: [
-        "row is classified as proof-only",
-        "productPath exact-live-capture metadata is absent",
-      ],
-      nonClaims: genericProductNonClaims,
-    };
-  }
-
-  if (proofName && deferredGenericRows.has(proofName)) {
-    return {
-      decision: "deferred",
-      productSupport: false,
-      proofName,
-      userMessage: `Generic row ${proofName} is deferred from product routing until a narrower product contract is proven.`,
-      reasons: [
-        "row is classified as deferred",
-        "productPath exact-live-capture metadata is not enough for this phase",
-      ],
-      nonClaims: genericProductNonClaims,
-    };
-  }
-
-  const blocker = proofName ? blockedGenericRows.get(proofName) : undefined;
-  if (proofName && blocker) {
-    return {
-      decision: "blocked",
-      productSupport: false,
-      proofName,
-      userMessage: `Generic row ${proofName} is blocked from product routing because it is ${blocker}.`,
-      reasons: [
-        blocker,
-        "row needs a later product contract with equivalent support and refusal evidence",
-      ],
-      nonClaims: genericProductNonClaims,
-    };
+  const knownNonProductRow = explainKnownNonProductRow(proofName);
+  if (knownNonProductRow) {
+    return knownNonProductRow;
   }
 
   return {
@@ -161,6 +137,88 @@ export function explainGenericResourceGraphMovePlan(
       migration?.fallbackPolicy ?? "no generic-primary product path was recorded",
       "generic product selection requires exact-live-capture productPath metadata and no refusal classes",
     ],
+    nonClaims: genericProductNonClaims,
+  };
+}
+
+function explainKnownNonProductRow(
+  proofName: string | undefined,
+): GenericResourceGraphMoveExplanation | undefined {
+  if (!proofName) {
+    return undefined;
+  }
+  if (proofOnlyGenericRows.has(proofName)) {
+    return nonProductExplanation(
+      "proof-only",
+      proofName,
+      `Generic row ${proofName} is proof-only and is not product support for machinen move.`,
+      ["row is classified as proof-only", "productPath exact-live-capture metadata is absent"],
+    );
+  }
+  if (resourceReconstructionRows.has(proofName)) {
+    return nonProductExplanation(
+      "resource-reconstruction",
+      proofName,
+      `Generic row ${proofName} is retained resource-reconstruction evidence, not product move continuation.`,
+      [
+        "row is classified as resource-reconstruction",
+        "captured files, cursors, bytes, or semantic descriptors are rebuilt target-side",
+        "productPath exact-live-capture metadata is not sufficient for product move continuation",
+      ],
+    );
+  }
+  if (reexecRows.has(proofName)) {
+    return nonProductExplanation(
+      "reexec",
+      proofName,
+      `Generic row ${proofName} is retained target-native reexec evidence, not product move continuation.`,
+      [
+        "row is classified as reexec",
+        "target process, listener, or static HTTP server is restarted target-side",
+        "productPath exact-live-capture metadata is not sufficient for product move continuation",
+      ],
+    );
+  }
+  if (deferredGenericRows.has(proofName)) {
+    return nonProductExplanation(
+      "deferred",
+      proofName,
+      `Generic row ${proofName} is deferred from product routing until a narrower product contract is proven.`,
+      [
+        "row is classified as deferred",
+        "productPath exact-live-capture metadata is not enough for this phase",
+      ],
+    );
+  }
+  const blocker = blockedGenericRows.get(proofName);
+  return blocker
+    ? nonProductExplanation(
+        "blocked",
+        proofName,
+        `Generic row ${proofName} is blocked from product routing because it is ${blocker}.`,
+        [
+          blocker,
+          "row needs a later product contract with equivalent support and refusal evidence",
+        ],
+      )
+    : undefined;
+}
+
+function nonProductExplanation(
+  decision: Exclude<
+    GenericResourceGraphMoveExplanation["decision"],
+    "missing-generic-state" | "generic-product" | "explicit-fallback" | "fail-closed-refusal"
+  >,
+  proofName: string,
+  userMessage: string,
+  reasons: string[],
+): GenericResourceGraphMoveExplanation {
+  return {
+    decision,
+    productSupport: false,
+    proofName,
+    userMessage,
+    reasons,
     nonClaims: genericProductNonClaims,
   };
 }

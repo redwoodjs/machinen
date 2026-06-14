@@ -83,7 +83,9 @@
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
     "check-smoke-manifest": "node scripts/check-smoke-manifest.mjs",
     "generic-resource-graph-coverage": "node scripts/generic-resource-graph-coverage.mjs",
-    "generic-resource-graph-productization-coverage": "node scripts/generic-resource-graph-productization-coverage.mjs && node scripts/generic-resource-graph-productization-wave2-coverage.mjs",
+    "generic-resource-graph-productization-coverage": "node scripts/generic-resource-graph-productization-coverage.mjs && node scripts/generic-resource-graph-productization-wave2-coverage.mjs && node scripts/generic-resource-graph-productization-static-http-coverage.mjs",
+    "generic-resource-graph-productization-next-selection": "node scripts/generic-resource-graph-productization-next-selection.mjs",
+    "generic-resource-graph-productization-static-http-contract": "node scripts/generic-resource-graph-productization-static-http-contract.mjs",
     "check-move-proof-image-boundary": "node scripts/check-move-proof-image-boundary.mjs",
     "smoke-vmstate": "bash scripts/smoke/vmstate/all.sh",
     "smoke-vmstate-timers": "bash scripts/smoke/vmstate/timers.sh",
@@ -132,7 +134,10 @@
     "proof-move-envelope-matrix": "bash scripts/smoke/move-envelope-matrix.sh",
     "move-envelope:service-generic": "node scripts/move-envelope-matrix-coverage.mjs --plan scripts/smoke/move-envelope-service-generic-plan.json --coverage-dir ${MACHINEN_MOVE_SERVICE_GENERIC_COVERAGE_DIR:-/tmp/machinen-service-generic-retained-coverage} --json",
     "move-envelope:build-proof-image": "node scripts/build-move-proof-image.mjs",
-    "move-envelope:scaffold": "node scripts/move-envelope-scaffold.mjs"
+    "move-envelope:scaffold": "node scripts/move-envelope-scaffold.mjs",
+    "generic-resource-graph-productization-static-http-coverage": "node scripts/generic-resource-graph-productization-static-http-coverage.mjs",
+    "move-continuation-boundary-coverage": "node scripts/move-continuation-boundary-coverage.mjs",
+    "same-arch-stopped-continuation-coverage": "node scripts/same-arch-stopped-continuation-coverage.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

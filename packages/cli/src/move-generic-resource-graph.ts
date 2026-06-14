@@ -20,7 +20,11 @@ import {
   genericFileLocks,
 } from "./move-generic-file-lock.ts";
 import { healthProbeCommand } from "./move-generic-health-probes.ts";
-import { genericProductPathIsPromoted } from "./move-generic-product-path.ts";
+import {
+  genericProductPathIsPromoted,
+  staticHttpTreeIdentityProductPathIsProofSelected,
+  staticHttpTreeIdentityProductPathMarkers,
+} from "./move-generic-product-path.ts";
 import {
   genericPipeLaunchCommand,
   genericPipePreflightCommands,
@@ -857,7 +861,42 @@ export function genericResourceGraphIsProductPrimary(state: GenericState | undef
 }
 
 function genericResourceGraphHasProductPath(state: GenericState): boolean {
-  return genericProductPathIsPromoted(state.migration?.productPath);
+  const productPath = state.migration?.productPath;
+  if (!productPath) {
+    return false;
+  }
+  if (staticHttpTreeIdentityProductPathMarkers.has(productPath.markerProofName)) {
+    return (
+      (genericProductPathIsPromoted(productPath) ||
+        staticHttpTreeIdentityProductPathIsProofSelected(productPath)) &&
+      genericResourceGraphHasStaticHttpTreeIdentity(state)
+    );
+  }
+  return genericProductPathIsPromoted(productPath);
+}
+
+function genericResourceGraphHasStaticHttpTreeIdentity(state: GenericState): boolean {
+  const identity = state.staticRootTreeIdentity;
+  if (!identity?.path || !identity.sourceIdentity.treeDigest) {
+    return false;
+  }
+  if (
+    !identity.targetVerification.includes("before target launch") ||
+    !identity.driftRefusal.includes("data-dir-identity-mismatch")
+  ) {
+    return false;
+  }
+  const matchingDir = state.dataDirs.find((dir) => dir.path === identity.path);
+  if (matchingDir?.access !== "read-only") {
+    return false;
+  }
+  if (matchingDir.identity.treeDigest !== identity.sourceIdentity.treeDigest) {
+    return false;
+  }
+  return state.resourceClasses.some(
+    (resourceClass) =>
+      resourceClass.resourceClass === "directoryIdentity" && resourceClass.status === "supported",
+  );
 }
 
 export function genericResourceGraphLoaderCommand(state: GenericState | undefined): string {
@@ -922,23 +961,12 @@ function dataDirPreflight(dir: GenericState["dataDirs"][number]): string {
       ? `test -w ${path} || fail data-dir-not-writable`
       : `test -d ${path} || fail data-dir-missing`;
   const identity = dir.identity
-    ? `tree_file=/tmp/machinen-generic-loader-tree-$$.txt
-: >"$tree_file"
-printf '.\tdirectory\t%s\t%s\n' "$(stat -c %f ${path})" "$(stat -c %s ${path})" >>"$tree_file"
-find ${path} -mindepth 1 -printf '%P\n' | LC_ALL=C sort | while IFS= read -r rel; do
-  entry_path=${path}/$rel
-  entry_type=$(find "$entry_path" -maxdepth 0 -printf '%y')
-  if [ "$entry_type" = f ]; then
-    printf '%s\tfile\t%s\t%s\t%s\n' "$rel" "$(stat -c %f "$entry_path")" "$(stat -c %s "$entry_path")" "$(sha256sum "$entry_path" | cut -d' ' -f1)" >>"$tree_file"
-  elif [ "$entry_type" = d ]; then
-    printf '%s\tdirectory\t%s\t%s\n' "$rel" "$(stat -c %f "$entry_path")" "$(stat -c %s "$entry_path")" >>"$tree_file"
-  else
-    fail data-dir-unsupported-entry
-  fi
-done
-[ "$(awk -F '\t' '$2 == "file" { n++ } END { print n + 0 }' "$tree_file")" = ${shellQuote(String(dir.identity.fileCount))} ] || fail data-dir-file-count-mismatch
-[ "$(awk -F '\t' '$2 == "directory" { n++ } END { print n + 0 }' "$tree_file")" = ${shellQuote(String(dir.identity.directoryCount))} ] || fail data-dir-directory-count-mismatch
-[ "$(awk -F '\t' '$2 == "file" { n += $4 } END { print n + 0 }' "$tree_file")" = ${shellQuote(String(dir.identity.totalBytes))} ] || fail data-dir-total-bytes-mismatch
+    ? `find ${path} -xdev ! -type f ! -type d -print -quit | grep -q . && fail data-dir-unsupported-entry
+tree_file=/tmp/machinen-generic-loader-tree-$$.txt
+find ${path} -xdev -printf '%P\t%y\t%s\t%m\n' | LC_ALL=C sort >"$tree_file"
+[ "$(find ${path} -xdev -type f | wc -l | tr -d ' ')" = ${shellQuote(String(dir.identity.fileCount))} ] || fail data-dir-file-count-mismatch
+[ "$(find ${path} -xdev -type d | wc -l | tr -d ' ')" = ${shellQuote(String(dir.identity.directoryCount))} ] || fail data-dir-directory-count-mismatch
+[ "$(find ${path} -xdev -type f -printf '%s\n' | awk '{s += $1} END {print s + 0}')" = ${shellQuote(String(dir.identity.totalBytes))} ] || fail data-dir-total-bytes-mismatch
 [ "$(sha256sum "$tree_file" | cut -d' ' -f1)" = ${shellQuote(dir.identity.treeDigest)} ] || fail data-dir-identity-mismatch
 rm -f "$tree_file"`
     : "";
@@ -949,9 +977,19 @@ ${identity}`;
 function portPreflight(host: string, port: number): string {
   return `python3 - ${shellQuote(host)} ${shellQuote(String(port))} <<'PY' || fail port-unavailable
 import socket, sys
+host = sys.argv[1]
+port = int(sys.argv[2])
+probe = socket.socket()
+try:
+    probe.settimeout(0.2)
+    if probe.connect_ex((host, port)) == 0:
+        raise SystemExit(1)
+finally:
+    probe.close()
 s = socket.socket()
 try:
-    s.bind((sys.argv[1], int(sys.argv[2])))
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind((host, port))
 finally:
     s.close()
 PY`;

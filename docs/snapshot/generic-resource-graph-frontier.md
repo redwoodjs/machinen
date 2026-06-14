@@ -2,6 +2,19 @@
 
 This document lists follow-up contracts for resource classes that are **not** implicitly supported by the generic resource graph pilot. Each class must get its own descriptor shape, loader/preflight strategy, refusal evidence, and matrix proof rows before it can move from `refused` or `deferred` to `supported`.
 
+## Static HTTP tree identity rows are reexec evidence
+
+Static HTTP tree identity rows are retained as target-native reexec evidence, not product move continuation. The exact rows remain useful regression coverage:
+
+- `node-static-http-live-generic-primary-marker` with support proof `node-static-http` and refusal proofs `node-active-refusal`, `node-timer-refusal`, `node-worker-refusal`, `native-dlopen-refusal`, and `static-http-tree-identity-refusals`.
+- `go-static-http-live-generic-primary-marker` with support proof `go-static-http` and refusal proofs `go-extra-socket-refusal` and `static-http-tree-identity-refusals`.
+- `rust-static-http-live-generic-primary-marker` with support proof `rust-static-http` and refusal proofs `generic-loader-preflight-refusals` and `static-http-tree-identity-refusals`.
+- `busybox-httpd-live-generic-primary-marker` with support proof `busybox-httpd` and refusal proofs `unsafe-busybox-httpd-refusal`, `python-http-active-refusal`, `generic-loader-preflight-refusals`, and `static-http-tree-identity-refusals`.
+
+Each row proves exact static-root identity and target-visible HTTP evidence for a restart/reexec path: `migration.productPath.kind="exact-live-capture"`, `observedGraph="exact-live-resource-graph"`, `refusalClasses=[]`, supported `directoryIdentity`, a `staticRootTreeIdentity` source digest, matching target static-root tree verification before launch, and target HTTP health/body evidence. Retained coverage lives in `/tmp/machinen-productization-static-http-tree-identity-retained-coverage` and is checked with `scripts/smoke/move-envelope-productization-static-http-tree-identity-plan.json` plus `scripts/smoke/move-envelope-productization-static-http-tree-identity-validation-profile.json`.
+
+These rows are not continuation: Node/V8 heaps, JS stacks, event-loop phase, libuv handles, arbitrary Go/native runtime state, active sockets/sessions, and process memory are not continued. Remaining frontier: every static HTTP/service shape outside those four exact rows still needs its own support/refusal contract. Dynamic HTTP, CGI, wildcard binds, active sessions, timers/workers/native addons, extra sockets, mutable-root repair, broad service/database migration, source-fd teleportation, source-ISA emulation, metadata-only success, runtime-profile shortcut, proof-only descriptor support, and arbitrary process restore remain non-goals.
+
 ## 1. Stdio and pipes
 
 Detailed contract: [`generic-pipes-stdio-graduation.md`](./generic-pipes-stdio-graduation.md).

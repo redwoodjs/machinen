@@ -1,0 +1,59 @@
+{
+  "name": "generic-resource-graph-productization-static-http-tree-identity",
+  "description": "Retained-artifact coverage plan for the static HTTP tree-identity productization batch. This plan covers only the four exact-live static HTTP markers selected by docs/snapshot/generic-resource-graph-productization-static-http-tree-identity-contract.json plus their support and refusal evidence.",
+  "expectedProofs": [
+    "node-static-http-live-generic-primary-marker",
+    "node-static-http",
+    "node-active-refusal",
+    "node-timer-refusal",
+    "node-worker-refusal",
+    "native-dlopen-refusal",
+    "go-static-http-live-generic-primary-marker",
+    "go-static-http",
+    "go-extra-socket-refusal",
+    "rust-static-http-live-generic-primary-marker",
+    "rust-static-http",
+    "busybox-httpd-live-generic-primary-marker",
+    "busybox-httpd",
+    "unsafe-busybox-httpd-refusal",
+    "python-http-active-refusal",
+    "generic-loader-preflight-refusals",
+    "static-http-tree-identity-refusals"
+  ],
+  "chunks": [
+    {
+      "name": "static-http-support-baselines",
+      "proofs": ["node-static-http", "go-static-http", "rust-static-http", "busybox-httpd"]
+    },
+    {
+      "name": "static-http-tree-identity-product-markers",
+      "proofs": [
+        "node-static-http-live-generic-primary-marker",
+        "go-static-http-live-generic-primary-marker",
+        "rust-static-http-live-generic-primary-marker",
+        "busybox-httpd-live-generic-primary-marker"
+      ]
+    },
+    {
+      "name": "static-http-refusal-neighbors",
+      "proofs": [
+        "static-http-tree-identity-refusals",
+        "unsafe-busybox-httpd-refusal",
+        "python-http-active-refusal",
+        "generic-loader-preflight-refusals",
+        "go-extra-socket-refusal",
+        "node-active-refusal",
+        "node-timer-refusal",
+        "node-worker-refusal",
+        "native-dlopen-refusal"
+      ]
+    }
+  ],
+  "nonClaims": [
+    "Static HTTP tree identity productization does not add arbitrary process restore support.",
+    "Static HTTP tree identity productization does not add any-binary movement support.",
+    "Static HTTP tree identity productization does not add broad daemon, service, or database migration support.",
+    "Static HTTP tree identity productization does not add active session migration, source-fd teleportation, source-ISA emulation, metadata-only success, or runtime-profile shortcuts.",
+    "Proof image acceleration remains validation-only and is not selected by runtime defaults."
+  ]
+}

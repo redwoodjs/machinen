@@ -2107,7 +2107,7 @@ describe("generic resource graph capture", () => {
     expect(genericResourceGraphLoaderCommand(state)).not.toContain("LOAD_PID");
   });
 
-  it("allows stdio pipe product marker only with exact productPath and no refusals", () => {
+  it("keeps former stdio pipe product marker as resource-reconstruction evidence", () => {
     const state = genericPrimaryTestState([]);
     state.migration.productPath = {
       kind: "exact-live-capture",
@@ -2118,10 +2118,10 @@ describe("generic resource graph capture", () => {
     };
 
     expect(genericResourceGraphIsPrimary(state)).toBe(true);
-    expect(genericResourceGraphIsProductPrimary(state)).toBe(true);
+    expect(genericResourceGraphIsProductPrimary(state)).toBe(false);
     expect(explainGenericResourceGraphMovePlan(state)).toMatchObject({
-      decision: "generic-product",
-      productSupport: true,
+      decision: "resource-reconstruction",
+      productSupport: false,
       proofName: "generic-stdio-pipe-product-marker",
     });
 
@@ -2158,12 +2158,13 @@ describe("generic resource graph capture", () => {
     });
   });
 
-  it("allows promoted wave-2 product markers only with exact productPath and no refusals", () => {
+  it("keeps former wave-2 product markers outside product move continuation", () => {
     for (const productPath of [
       {
         markerProofName: "unix-pathname-listener-live-generic-primary-marker",
         supportProofName: "generic-unix-pathname-listener",
         refusalProofNames: ["generic-unix-pathname-listener-refusals"],
+        expectedDecision: "reexec",
       },
       {
         markerProofName: "reader-cat-live-generic-primary-marker",
@@ -2173,6 +2174,7 @@ describe("generic resource graph capture", () => {
           "generic-deleted-file-fd-refusal",
           "generic-writable-file-cursor-refusal",
         ],
+        expectedDecision: "resource-reconstruction",
       },
       {
         markerProofName: "grep-live-generic-primary-marker",
@@ -2183,6 +2185,7 @@ describe("generic resource graph capture", () => {
           "generic-writable-file-cursor-refusal",
           "generic-pipe-stdio-refusals",
         ],
+        expectedDecision: "resource-reconstruction",
       },
       {
         markerProofName: "busybox-nc-listener-live-generic-primary-marker",
@@ -2192,6 +2195,7 @@ describe("generic resource graph capture", () => {
           "unsafe-nc-active-refusal",
           "generic-loader-preflight-refusals",
         ],
+        expectedDecision: "reexec",
       },
       {
         markerProofName: "socat-file-responder-live-generic-primary-marker",
@@ -2200,6 +2204,7 @@ describe("generic resource graph capture", () => {
           "unsafe-socat-file-responder-refusal",
           "generic-loader-preflight-refusals",
         ],
+        expectedDecision: "reexec",
       },
     ]) {
       const state = genericPrimaryTestState([]);
@@ -2210,11 +2215,11 @@ describe("generic resource graph capture", () => {
       };
 
       expect(genericResourceGraphIsPrimary(state), productPath.markerProofName).toBe(true);
-      expect(genericResourceGraphIsProductPrimary(state), productPath.markerProofName).toBe(true);
+      expect(genericResourceGraphIsProductPrimary(state), productPath.markerProofName).toBe(false);
       expect(explainGenericResourceGraphMovePlan(state), productPath.markerProofName).toMatchObject(
         {
-          decision: "generic-product",
-          productSupport: true,
+          decision: productPath.expectedDecision,
+          productSupport: false,
           proofName: productPath.markerProofName,
         },
       );
@@ -2233,6 +2238,57 @@ describe("generic resource graph capture", () => {
         proofName: productPath.markerProofName,
       });
     }
+  });
+
+  it("keeps static HTTP tree-identity rows as reexec evidence even with complete tree identity metadata", () => {
+    const state = genericPrimaryTestState([]);
+    const identity = {
+      fileCount: 1,
+      directoryCount: 1,
+      totalBytes: 386,
+      treeDigest: "0".repeat(64),
+    };
+    state.migration.productPath = {
+      kind: "exact-live-capture",
+      markerProofName: "node-static-http-live-generic-primary-marker",
+      supportProofName: "node-static-http",
+      refusalProofNames: [
+        "node-active-refusal",
+        "node-timer-refusal",
+        "node-worker-refusal",
+        "native-dlopen-refusal",
+        "static-http-tree-identity-refusals",
+      ],
+      observedGraph: "exact-live-resource-graph",
+    };
+    state.staticRootTreeIdentity = {
+      path: "/tmp/node-static",
+      sourceIdentity: identity,
+      targetVerification: "generic loader verifies before target launch",
+      driftRefusal: "data-dir-identity-mismatch,data-dir-file-count-mismatch",
+    };
+    state.dataDirs = [{ path: "/tmp/node-static", access: "read-only", identity }];
+    state.resourceClasses = [
+      {
+        resourceClass: "directoryIdentity",
+        status: "supported",
+        evidence: "unit-test static root digest evidence",
+      },
+    ];
+
+    expect(genericResourceGraphIsProductPrimary(state)).toBe(false);
+    expect(explainGenericResourceGraphMovePlan(state)).toMatchObject({
+      decision: "reexec",
+      productSupport: false,
+      proofName: "node-static-http-live-generic-primary-marker",
+    });
+
+    const missingIdentity = { ...state, staticRootTreeIdentity: undefined };
+    expect(genericResourceGraphIsProductPrimary(missingIdentity)).toBe(false);
+    expect(explainGenericResourceGraphMovePlan(missingIdentity)).toMatchObject({
+      decision: "reexec",
+      productSupport: false,
+    });
   });
 
   it("explains fallback, proof-only, deferred, and blocked generic rows without product support", () => {
@@ -2275,7 +2331,6 @@ describe("generic resource graph capture", () => {
     expect(explainGenericResourceGraphMovePlan(deferred).userMessage).toContain("deferred");
 
     for (const proofName of [
-      "node-static-http-live-generic-primary-marker",
       "nginx-live-generic-primary-marker",
       "tail-live-generic-primary-marker",
     ]) {

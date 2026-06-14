@@ -688,7 +688,8 @@
         "node-active-refusal",
         "node-timer-refusal",
         "node-worker-refusal",
-        "native-dlopen-refusal"
+        "native-dlopen-refusal",
+        "static-http-tree-identity-refusals"
       ],
       "resourceClasses": [
         "processIdentity",
@@ -712,7 +713,7 @@
     }
   ],
   "coverage": {
-    "proofNameCount": 192,
+    "proofNameCount": 243,
     "allProofNamesAccountedFor": true,
     "duplicateProofNames": []
   },

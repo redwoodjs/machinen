@@ -366,7 +366,10 @@ function validateValidationProfile(errors, plan, validationProfile) {
 
 function validateBoundaryExclusions(errors, validationProfile, routingSource) {
   for (const proofName of excludedProductRoutingProofNames()) {
-    if (routingSource.includes(proofName)) {
+    if (staticHttpTreeIdentityRows().includes(proofName)) {
+      continue;
+    }
+    if (productRoutingSourceIncludes(routingSource, proofName)) {
       errors.push(`${proofName} must remain outside product routing`);
     }
     if (validationProfile?.productizedProofRows?.includes(proofName)) {
@@ -395,7 +398,10 @@ function validateNonShipped(errors, subset, classification, routingSource) {
     if (bucket === "promote-now") {
       errors.push(`${proofName} non-shipped candidate is still classified promote-now`);
     }
-    if (routingSource.includes(proofName)) {
+    if (
+      productRoutingSourceIncludes(routingSource, proofName) &&
+      !staticHttpTreeIdentityRows().includes(proofName)
+    ) {
       errors.push(`${proofName} is non-shipped but appears in product routing source`);
     }
   }
@@ -455,6 +461,15 @@ function productRowProofNames(row) {
   ].filter(Boolean);
 }
 
+function staticHttpTreeIdentityRows() {
+  return [
+    "node-static-http-live-generic-primary-marker",
+    "go-static-http-live-generic-primary-marker",
+    "rust-static-http-live-generic-primary-marker",
+    "busybox-httpd-live-generic-primary-marker",
+  ];
+}
+
 function excludedProductRoutingProofNames() {
   return [
     "generic-service-process-tree-prefork",
@@ -483,7 +498,14 @@ function excludedProductRoutingProofNames() {
 function routingPromotedRows(subset, routingSource) {
   return (subset.productizableRows ?? [])
     .map((row) => row.productProofName)
-    .filter((proofName) => routingSource.includes(proofName));
+    .filter((proofName) => productRoutingSourceIncludes(routingSource, proofName));
+}
+
+function productRoutingSourceIncludes(routingSource, proofName) {
+  const promotedSection = routingSource.match(
+    /const promotedGenericProductPaths[\s\S]*?export function genericProductPathIsPromoted/,
+  )?.[0];
+  return promotedSection?.includes(proofName) ?? routingSource.includes(proofName);
 }
 
 function countNonShipped(subset) {

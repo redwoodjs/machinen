@@ -1,0 +1,151 @@
+{
+  "title": "Postgres move envelope ladder",
+  "goal": "Work toward the user-facing dream of machinen move save <source-vm> <postgres-pid> pg.bundle and machinen move load <target-vm> pg.bundle by implementing and proving a narrow, explicit PostgreSQL move envelope through the existing machinen move command, without claiming generic PostgreSQL or process teleportation.",
+  "proofChecklist": [
+    {
+      "status": "proven",
+      "obligation": "Prove the existing PostgreSQL move behavior remains fail-closed through machinen move before adding support: save/load for unsupported PostgreSQL process state refuses before target launch, with loaderStarted=false or no target pid evidence.",
+      "evidence": "Existing PostgreSQL move behavior remains fail-closed through machinen move. Command passed: pnpm proof-move-envelope-matrix -- --json --timings --only postgres-refusal --skip-provision, retained at /tmp/postgres-move-ladder-refusal/postgres-refusal.json. Timing: elapsed 29.879s; boot-pair 366ms, provision-pair skipped 20ms, proof:postgres-refusal 28883ms. JSON evidence: state=passed; saveAccepted=false; loadAccepted=false; loaderStarted=false; exe=/usr/lib/postgresql/15/bin/postgres; refusedClasses=[open-files,sockets,threads]. No target loader/pid was started."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the real PostgreSQL process/resource shape in the proof VM is documented from command evidence, including postmaster, child processes, sockets, shared memory, open files, WAL paths, locks, data directory, config files, package identity, and owner/mode assumptions.",
+      "evidence": "Inspected a real proof-provisioned PostgreSQL 15 process in a Machinen proof VM and retained artifacts under /tmp/postgres-move-ladder-inspect. Setup used postgresql-15/postgresql-client-15/procps proof packages, initdb -D /tmp/pgdata-proof --auth=trust --no-locale, and postgres -D /tmp/pgdata-proof -p 8159 -h 127.0.0.1. Evidence from resource-shape.txt: package identity postgresql-15 15.18-0+deb12u1 arm64, client 15.18-0+deb12u1, postgresql-common 248+deb12u1; process tree postmaster pid 2685 plus checkpointer, background writer, walwriter, autovacuum launcher, logical replication launcher; exe=/usr/lib/postgresql/15/bin/postgres; cwd=/tmp/pgdata-proof; fd table includes /dev/null, /tmp/postgres-proof.log, /dev/kmsg, sockets, and pipe; maps show /dev/zero deleted and SYSV shared memory mappings; /proc/net/tcp shows listener 127.0.0.1:8159; ipcs shows shared memory segments owned by postgres; data dir stat postgres:postgres uid/gid 100:102 mode 700; config shas recorded for PG_VERSION, postgresql.conf, pg_hba.conf, global/pg_control; tree identity has 993 entries and digest c3f122ca9c608075d7526417d12f5ffa5a6d00aa72904f68c5727969ea3f2f99; lock/runtime files include postmaster.pid and postmaster.opts; WAL contains 000000010000000000000001; SQL state evidence: version PostgreSQL 15.18 on aarch64, backends=6, prepared=0, slots=0, tablespaces=0, unlogged=0. This proves real Postgres uses process graph, sockets, shared memory, WAL, lock/runtime files, and data-dir/config identity that must be explicitly modeled or refused."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the first support envelope is explicitly documented as a narrow machinen move contract: idle PostgreSQL cluster, no active clients, clean checkpoint or equivalent safe boundary, no unsafe features, target-native Debian PostgreSQL restart, and visible target psql SELECT 1 evidence; no generic process/VM/ELF/runtime restore claim.",
+      "evidence": "Documented the first narrow PostgreSQL support envelope in docs/snapshot/postgres-move-envelope.md. The document defines the user-facing machinen move UX, explicit product boundaries (same Machinen Debian base, target-native Debian PostgreSQL, no source-ISA emulation, no pg_dump/restore product path, no generic process/VM/ELF/runtime restore, no loader launch before gates, visible psql evidence), observed proof VM resource shape, first support envelope postgres-idle-clean-cluster, proposed postgresClusterState semantic fields, target loader preflight order, refusal gates, and non-goals. It explicitly frames the first support row as target-native safe-boundary restart, not live kernel process teleportation."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove a postgresClusterState descriptor exists with the required state for the narrow envelope: binary/package identity, data directory path and identity, PG_VERSION, postgresql.conf and pg_hba.conf identities, owner uid/gid, mode policy, port/listen policy, checkpoint/WAL safety evidence, and explicit unsupported-feature gates.",
+      "evidence": "Added public runtime descriptor type MovePostgresClusterState in packages/runtime/src/move-pid-graph.ts and exported it from packages/runtime/src/index.ts. MoveDescriptor.resourcePlan.capture now includes optional postgresClusterState. The state includes port, bindAddress, dataDir, PostgreSQL server/client package identities, cluster identity (PG_VERSION, owner uid/gid, mode, tree entry count/digest, pg_control/postgresql.conf/pg_hba.conf shas), WAL clean-checkpoint policy/evidence, runtime safety counters (active clients, non-idle user backends, prepared transactions, replication slots, tablespaces, unlogged relations, temp files, symlink escapes all zero), policy postgres-idle-clean-cluster-target-native-restart, and capturedAt. Focused test passed: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/runtime/src/__tests__/move-postgres-cluster-state.test.ts, 1 file / 1 test in 0.626s. Runtime build passed in 1.698s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove machinen move capture detects the exact supported postgresClusterState from a real PostgreSQL pid and omits/refuses it for unsupported PostgreSQL shapes before any target loader can run.",
+      "evidence": "Implemented initial PostgreSQL capture detection in packages/cli/src/move-postgres-envelope.ts and wired it into machinen move save in packages/cli/src/commands/move.ts. Focused tests passed: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-postgres-envelope.test.ts packages/runtime/src/__tests__/move-postgres-cluster-state.test.ts, 2 files / 5 tests in 0.644s. Real proof VM matrix evidence retained in /tmp/machinen-move-matrix-84282-1781198045: postgres-refusal.save.json has accepted=false but resourcePlan.capture.postgresClusterState present for real pid /usr/lib/postgresql/15/bin/postgres -D /tmp/pgdata-proof -p 8159 -h 127.0.0.1, with policy=postgres-idle-clean-cluster-target-native-restart, port=8159, dataDir=/tmp/pgdata-proof, packageIdentity postgresql-15 15.18-0+deb12u1 arm64, clientPackageIdentity postgresql-client-15 15.18-0+deb12u1 arm64, and all runtime safety counters zero. postgres-refusal.load.json has accepted=false and no loader key, proving no target loader starts before loader support is implemented. Unsupported shapes are covered by unit tests: unsupported bind 0.0.0.0, unsafe data dir /tmp/../pgdata, activeExternalClients=1, extensionNativeLibraries=1, and symlinkEscapes=1 all return undefined/omit postgresClusterState."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove the target loader strategy validates target-native PostgreSQL package identity, data dir/config identities, ownership/mode, port availability, WAL/checkpoint safety, and unsafe-feature gates before launching target-native PostgreSQL; target launch must not happen if any gate fails.",
+      "evidence": "Implemented PostgreSQL target loader strategy in packages/cli/src/move-postgres-envelope.ts and wired it into packages/cli/src/move-rendezvous.ts as target-native-postgres-idle-clean-cluster-loader. The loader command fails closed for missing state, missing PostgreSQL binaries, package version mismatch, missing/symlink data dir, stale postmaster.pid, symlink escapes, temp files, owner/mode mismatch, PG_VERSION/pg_control/postgresql.conf/pg_hba.conf identity mismatch, data-dir tree identity mismatch, WAL identity mismatch, and port-in-use before the first su -s /bin/sh postgres launch. On success it launches target-native /usr/lib/postgresql/15/bin/postgres, waits with pg_isready, finds postmaster pid, verifies psql SELECT 1, then emits LOAD_PID and ready patch. Focused tests passed: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-postgres-envelope.test.ts packages/runtime/src/__tests__/move-postgres-cluster-state.test.ts, 2 files / 7 tests in 0.423s. Tests prove missing loader state emits missing-postgres-cluster-state and preflight ordering checks package, data dir, data-dir identity, WAL identity, and port before launch. Runtime build passed in 1.636s; CLI build passed in 0.321s."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove required PostgreSQL refusal gates fail closed with no target pid or no loader launch: active clients, open transactions, non-idle backends, prepared transactions, replication slots, tablespaces, symlink escapes, unlogged/temp unsafe state, extension/native-library uncertainty, port conflicts, missing or mismatched target package, changed data dir/config, and dirty or unclean checkpoint state.",
+      "evidence": "Required PostgreSQL refusal gates now fail closed with no loader or targetPid=null evidence in the local matrix. Command passed: MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --timings --only postgres-refusal,unsafe-postgres-cluster-refusal --skip-provision, retained at /tmp/machinen-move-matrix-19634-1781203361, elapsed 164.077s. postgres-refusal proves active client/non-idle backend shape omits postgresClusterState, saveAccepted=false, loadAccepted=false, loaderStarted=false. unsafe-postgres-cluster-refusal proves feature capture gates omit postgresClusterState with feature counters preparedTransactions=1, replicationSlots=1, nonDefaultTablespaces=1, unloggedRelations=1, extensionNativeLibraries=1, tempFiles=1, symlinkEscapes=2, featureSaveAccepted=false. Loader gates all refused with targetPid=null before launch: changed pg_hba.conf -> config-identity-mismatch; port conflict -> port-in-use; missing target postgres binary -> missing-postgres-binary; tampered package version -> package-mismatch; stale postmaster.pid -> stale-postmaster-pid; chmod owner/mode mutation -> owner-mode-mismatch; extra data-dir file -> data-dir-identity-mismatch; tampered WAL digest/checkpoint identity -> wal-checkpoint-identity-mismatch. This covers active clients/open transaction or non-idle client behavior, prepared transactions, replication slots, tablespaces, symlink escapes, unlogged/temp state, extension/native-library uncertainty, port conflicts, missing/mismatched target package, changed data dir/config, and WAL/checkpoint mismatch fail-closed boundaries."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove focused unit tests cover postgresClusterState capture, unsupported-shape omission/refusal, loader preflight ordering, and every implemented refusal gate that can be tested without a full VM matrix run.",
+      "evidence": "Focused unit coverage now covers postgresClusterState capture parsing, unsupported-shape omission/refusal, loader preflight ordering, and implemented loader refusal gate strings. Command passed: NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-postgres-envelope.test.ts packages/runtime/src/__tests__/move-postgres-cluster-state.test.ts, 2 files / 8 tests in 1.285s. Tests cover exact supported argv, unsupported bind/data-dir argv, zero-risk preflight parsing, all capture safety counters returning undefined when non-zero (activeExternalClients, nonIdleUserBackends, preparedTransactions, replicationSlots, nonDefaultTablespaces, unloggedRelations, extensionNativeLibraries, tempFiles, symlinkEscapes), missing loader state refusal, explicit loader gate strings (missing binary, package mismatch, missing/symlink data dir, stale postmaster.pid, symlink escape, temp files, owner/mode mismatch, config identity mismatch, data-dir identity mismatch, WAL/checkpoint mismatch, port in use, start failed, not ready, pid missing, SELECT 1 failed), and gate ordering before launch."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove move-envelope matrix rows exist for PostgreSQL support and refusal cases and are registered in the proof matrix/chunk plan with JSON/timing output and coverage verification.",
+      "evidence": "Added PostgreSQL matrix rows in scripts/smoke/move-envelope-matrix.sh: postgres-idle-cluster for support, postgres-refusal for active-client save-time omission/refusal, and unsafe-postgres-cluster-refusal for fail-closed unsafe cases. Added them to PROOF_NAMES, PROOF_LABELS, and PROOF_FUNCTIONS. Added postgres-envelope-pilot to scripts/smoke/move-envelope-framework-plan.json with proofs [postgres-idle-cluster, postgres-refusal, unsafe-postgres-cluster-refusal], skipProvision=true because the rows provision PostgreSQL packages locally in the proof VMs. The chunk plan refusal templates now include unsafe-postgres-cluster-refusal for active-client, port-conflict, and missing-binary evidence. Verified script syntax with bash -n scripts/smoke/move-envelope-matrix.sh and plan JSON parse with node JSON.parse."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove local PostgreSQL support matrix coverage passes with JSON/timings and visible target evidence: target-native PostgreSQL starts on the target from the narrow envelope and psql SELECT 1 succeeds.",
+      "evidence": "Local PostgreSQL support matrix coverage passed on final built CLI. Command: MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --timings --only postgres-idle-cluster --skip-provision. Retained work dir: /tmp/machinen-move-matrix-5166-1781202148. Timing: elapsed 193.076s; boot-pair 925ms, provision-pair skipped 139ms, proof:postgres-idle-cluster 190309ms. JSON evidence: state=passed; saveAccepted=true; loadAccepted=true; loaderState=ready; targetPid=5204; selectOne=1; policy=postgres-idle-clean-cluster-target-native-restart; source package postgresql-15 15.18-0+deb12u1 arm64; client package postgresql-client-15 15.18-0+deb12u1 arm64. The proof copies a physical data-dir snapshot into the target proof VM, validates descriptor tree/config/WAL/checkpoint evidence, launches target-native /usr/lib/postgresql/15/bin/postgres, and proves visible target psql SELECT 1 evidence."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove local PostgreSQL refusal matrix coverage passes with JSON/timings and fail-closed evidence for every required refusal gate, including loaderStarted=false, no loader, or targetPid=null as appropriate.",
+      "evidence": "Local PostgreSQL refusal matrix coverage passed on the current script and final CLI build. Command: MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --timings --only postgres-refusal,unsafe-postgres-cluster-refusal --skip-provision. Retained work dir: /tmp/machinen-move-matrix-19634-1781203361. Timing: elapsed 164.077s; boot-pair 385ms; provision-pair skipped 17ms; proof:postgres-refusal 34618ms; proof:unsafe-postgres-cluster-refusal 127510ms. JSON evidence: postgres-refusal passed with saveAccepted=false, loadAccepted=false, loaderStarted=false, exe=/usr/lib/postgresql/15/bin/postgres, postgresClusterState=null, refusedClasses=[open-files,sockets,threads]. unsafe-postgres-cluster-refusal passed with activeClientSaveAccepted=false, activeClientPostgresClusterState=null, featureSaveAccepted=false, featurePostgresClusterState=null, non-zero featureCounters for preparedTransactions/replicationSlots/nonDefaultTablespaces/unloggedRelations/extensionNativeLibraries/tempFiles/symlinkEscapes, and loaderRefusals for config, port, missing binary, package mismatch, stale pid, owner/mode, data identity, and WAL/checkpoint mismatch all accepted=false and targetPid=null."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove remote amd64 validation for the PostgreSQL move envelope passes on root@192.168.0.8 using fresh Linux MACHINEN_VMM and MACHINEN_GVPROXY overrides, or record a concrete blocker with command evidence and do not claim remote success.",
+      "evidence": "Remote amd64 validation did not pass; a concrete blocker was recorded and no remote PostgreSQL success is claimed. First attempted wrapper command: MACHINEN_MOVE_REMOTE_OUT=/tmp/postgres-move-framework-remote scripts/smoke/move-envelope-remote-amd64.sh, elapsed 11.984s, failed before matrix proofs because rsync had overwritten packages/microvm/zig-out/bin/machinen-vm with a Mach-O arm64 binary on the Linux remote; diagnostics showed packages/native-x64-linux/vmm/bin/gvproxy was ELF x86-64. Then ran direct remote probe on root@192.168.0.8 from /mnt/shared-500G/machinen-move-proof with Linux ELF overrides MACHINEN_VMM=$PWD/packages/native-x64-linux/vmm/bin/machinen-vm and MACHINEN_GVPROXY=$PWD/packages/native-x64-linux/vmm/bin/gvproxy. file output proved both were ELF x86-64. Probe boot wrote /tmp/postgres-move-remote-amd64/probe.json with pid=3812683/name=move-remote-probe-postgres-3812660, but node packages/cli/dist/cli.js exec ... uname -m failed in 31.533s with EXEC_AGENT_UNAVAILABLE: VsockExec.run: agent did not respond within 30000ms: write EPIPE. A retry probe wrote /tmp/postgres-move-remote-amd64/probe-retry.json with pid=3813032/name=move-remote-probe-retry-3812995 and failed the same uname exec in 33.492s with EXEC_AGENT_UNAVAILABLE/write EPIPE. Remote diagnostics showed both VMs registered and running with native-x64-linux/machinen-vm and gvproxy, uname output files were empty, and no PostgreSQL matrix proofs ran. The two remote probe VMs were stopped and node packages/cli/dist/cli.js list --json returned an empty VM list. This is recorded as a remote exec-agent blocker, not a remote envelope success."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove public docs, API docs, and goal notes describe the PostgreSQL move envelope honestly: it uses machinen move, target-native Debian PostgreSQL, explicit descriptor and loader strategy, visible target evidence, and refusal boundaries; it does not rely on pg_dump/restore as the product path and does not claim arbitrary PostgreSQL teleportation.",
+      "evidence": "Public docs and API docs now describe the PostgreSQL move envelope honestly. docs/snapshot/postgres-move-envelope.md was updated from proposed to implemented postgresClusterState, includes extensionNativeLibraries=0, states unsupported shapes omit postgresClusterState and remain fail-closed, documents target-native Debian PostgreSQL loader preflights, visible psql SELECT 1 success, local support/refusal matrix evidence, and explicitly states remote amd64 success is not claimed because the recorded remote probe hit EXEC_AGENT_UNAVAILABLE/write EPIPE before matrix execution. docs/snapshot/README.md links to the PostgreSQL envelope and states it is a narrow machinen move envelope, not generic process teleportation. Runtime API docs were regenerated and packages/runtime/API.md now includes MovePostgresClusterState in the task-grouped Move PID translation TOC via scripts/build-api-toc.mjs. Command passed: pnpm run build:docs in 1.903s after the TOC update. The doc continues to reject pg_dump/restore as the product path, source-ISA emulation success, and arbitrary PostgreSQL/process teleportation claims."
+    },
+    {
+      "status": "proven",
+      "obligation": "Prove local static and unit validation passes after PostgreSQL envelope changes, including format, lint, docs/API generation if public exports changed, typecheck, targeted tests, smoke manifest check if matrix scripts changed, and fallow audit.",
+      "evidence": "Final local static/unit validation passed after PostgreSQL envelope changes. Commands/timings: pnpm run format:check passed in 1.254s in the full final chain and again after the last code change in 1.195s; pnpm run lint passed in 0.532s in the full final chain and again after the last code change in 0.499s; pnpm run build:docs passed in 1.903s; pnpm run typecheck passed in 2.975s in the full final chain and again after the last code change in 2.563s; NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-postgres-envelope.test.ts packages/runtime/src/__tests__/move-postgres-cluster-state.test.ts passed 2 files / 8 tests in 0.629s in the full final chain and again in 0.409s; pnpm run check-smoke-manifest passed in 0.156s; pnpm exec fallow audit --changed-since origin/main passed in 0.466s after fixing the one unused export finding. During validation, format was fixed with oxfmt, health-guard complexity findings in speed helper scripts were refactored, API TOC was updated for MovePostgresClusterState, and safePathComponent was made internal to clear fallow audit. Line caps remained within limits: packages/cli/src/commands/move.ts 1000 lines, packages/cli/src/move-rendezvous.ts 996 lines."
+    }
+  ],
+  "doneWhen": "All required proofChecklist rows have status proven with evidence, and no stop condition applies.",
+  "verification": [
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --timings --only postgres-refusal",
+      "proves": "Existing PostgreSQL refusal-only behavior remains fail-closed before adding support."
+    },
+    {
+      "check": "manual proof VM resource inspection commands against a real PostgreSQL process",
+      "proves": "The real PostgreSQL process graph and resource shape are documented before designing support."
+    },
+    {
+      "check": "NPM_CONFIG_USERCONFIG=/dev/null npx vitest run packages/cli/src/__tests__/move-envelope-capture.test.ts packages/cli/src/__tests__/move-rendezvous.test.ts packages/cli/src/__tests__/move-command.test.ts",
+      "proves": "Focused move capture, loader, and command tests pass for PostgreSQL envelope changes."
+    },
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --timings --chunk-plan <postgres-plan> --chunk <support-or-refusal-chunk>",
+      "proves": "PostgreSQL support and refusal matrix chunks pass with retained JSON/timings."
+    },
+    {
+      "check": "pnpm proof-move-envelope-matrix -- --json --chunk-plan <postgres-plan> --coverage-dir <artifact-dir>",
+      "proves": "Every expected PostgreSQL support/refusal proof row is covered and passed."
+    },
+    {
+      "check": "remote amd64 PostgreSQL matrix command on root@192.168.0.8 with MACHINEN_VMM=$PWD/packages/microvm/zig-out/bin/machinen-vm and MACHINEN_GVPROXY=$PWD/packages/native-x64-linux/vmm/bin/gvproxy",
+      "proves": "The PostgreSQL move envelope works or fails closed on target amd64 Linux using target-native binaries."
+    },
+    {
+      "check": "pnpm run format:check",
+      "proves": "Formatting remains valid after PostgreSQL envelope changes."
+    },
+    {
+      "check": "pnpm run lint",
+      "proves": "Lint and health guard remain valid after PostgreSQL envelope changes."
+    },
+    {
+      "check": "pnpm run build:docs",
+      "proves": "Generated API/docs are current when public descriptor or documentation surfaces change."
+    },
+    {
+      "check": "pnpm run typecheck",
+      "proves": "TypeScript remains valid after PostgreSQL envelope changes."
+    },
+    {
+      "check": "pnpm run check-smoke-manifest",
+      "proves": "Smoke/proof manifest stays valid when PostgreSQL matrix scripts or plans change."
+    },
+    {
+      "check": "pnpm exec fallow audit --changed-since origin/main",
+      "proves": "Architecture and health audit passes for changed code."
+    }
+  ],
+  "stopIf": [
+    "The implementation would rely on pg_dump/restore as the product path instead of machinen move descriptor capture and target-native loader behavior.",
+    "The implementation would claim arbitrary PostgreSQL or process teleportation without proving kernel/shared-memory/socket/WAL/process state.",
+    "The implementation would use source-ISA emulation as success.",
+    "A target loader can start before all required PostgreSQL safety gates pass.",
+    "Support would require proof-only tools to be baked into base assets instead of proof VMs or disposable proof overlays.",
+    "Required local VMM assets, PostgreSQL Debian packages, or remote amd64 access are unavailable for the proof being claimed.",
+    "A required validation command fails and cannot be fixed within the current goal scope.",
+    "The /goal loop reaches 8 agent completion(s) without satisfying the contract."
+  ],
+  "currentEvidence": [
+    "2026-06-11: Existing postgres-refusal matrix proof passed in 29.879s with saveAccepted=false, loadAccepted=false, loaderStarted=false, exe=/usr/lib/postgresql/15/bin/postgres, refusedClasses open-files/sockets/threads, retained at /tmp/postgres-move-ladder-refusal/postgres-refusal.json.",
+    "2026-06-11: Real proof VM PostgreSQL resource inspection retained at /tmp/postgres-move-ladder-inspect/resource-shape.txt. Evidence shows postmaster plus five child processes, TCP listener 127.0.0.1:8159, sockets/pipes, SYSV shared memory, /dev/zero shared mapping, data dir /tmp/pgdata-proof postgres:postgres mode 700, config and pg_control shas, WAL segment, postmaster.pid/opts runtime files, tree digest c3f122ca9c608075d7526417d12f5ffa5a6d00aa72904f68c5727969ea3f2f99 over 993 entries, and SQL safety counters prepared=0/slots=0/tablespaces=0/unlogged=0.",
+    "2026-06-11: Added docs/snapshot/postgres-move-envelope.md defining the first PostgreSQL move envelope contract: postgres-idle-clean-cluster through machinen move, target-native PostgreSQL restart, psql SELECT 1 target evidence, explicit descriptor/loader gate order, refusal gates, and non-goals. The doc rejects pg_dump/restore as product path and rejects generic PostgreSQL/process teleportation claims.",
+    "2026-06-11: Added MovePostgresClusterState to the runtime move descriptor surface and exported it. Added packages/runtime/src/__tests__/move-postgres-cluster-state.test.ts proving MoveDescriptor can carry postgresClusterState with observed package/config/tree/runtime safety fields. Focused Vitest passed 1 file / 1 test in 0.626s; @machinen/runtime build passed in 1.698s.",
+    "2026-06-11: PostgreSQL capture detection added and proven. Real matrix keep-work descriptor /tmp/machinen-move-matrix-84282-1781198045/postgres-refusal.save.json contains postgresClusterState for a real proof-provisioned Postgres pid while saveAccepted=false; load remains accepted=false with no loader. Unit tests prove unsupported argv and non-zero safety gates omit postgresClusterState.",
+    "2026-06-11: PostgreSQL target loader strategy implemented and unit-tested. Loader preflights package/data-dir/config/tree/WAL/port gates before launch, emits no pid on missing state/refusal, and only emits LOAD_PID after target-native postgres starts and psql SELECT 1 succeeds. Focused tests 2 files / 7 tests passed in 0.423s; runtime build 1.636s; CLI build 0.321s.",
+    "2026-06-11: Added and proved PostgreSQL support/refusal matrix rows. Final local support proof postgres-idle-cluster passed in 193.076s with saveAccepted=true, loadAccepted=true, loaderState=ready, targetPid=5204, and target psql SELECT 1. Refusal proof postgres-refusal plus unsafe-postgres-cluster-refusal passed in 224.721s with active-client postgresClusterState omitted, load refusals targetPid=null for changed config, port conflict, and missing binary. Focused unit tests now cover all capture safety counters and loader gate strings, 2 files / 8 tests in 1.285s.",
+    "2026-06-11: Expanded PostgreSQL refusal matrix coverage passed. Retained /tmp/machinen-move-matrix-19634-1781203361 from MACHINEN_MOVE_MATRIX_KEEP_WORK=1 pnpm proof-move-envelope-matrix -- --json --timings --only postgres-refusal,unsafe-postgres-cluster-refusal --skip-provision, elapsed 164.077s. Evidence covers no-loader active-client refusal and targetPid=null loader refusals for config, port conflict, missing binary, package mismatch, stale postmaster.pid, owner/mode, data identity, and WAL/checkpoint mismatch. Feature counters prove prepared tx, replication slot, non-default tablespace, unlogged relation, extension/native-library uncertainty, temp file, and symlink escape gates omit postgresClusterState.",
+    "2026-06-11: Remote amd64 PostgreSQL validation is blocked before matrix execution. The wrapper first failed because packages/microvm/zig-out/bin/machinen-vm on remote was Mach-O arm64 after rsync. Direct retry with Linux ELF overrides from packages/native-x64-linux/vmm proved VMM and gvproxy were ELF x86-64, but two boot/exec probes failed uname -m with EXEC_AGENT_UNAVAILABLE/write EPIPE after 31.533s and 33.492s. Probe JSONs retained under /tmp/postgres-move-remote-amd64; no remote PostgreSQL success is claimed; stale probe VMs were stopped and remote VM list returned empty.",
+    "2026-06-11: Docs/API and final validation completed. build:docs regenerated runtime API docs and categorized MovePostgresClusterState. Final validations passed: format:check 1.254s (and 1.195s after last change), lint 0.532s (and 0.499s after last change), build:docs 1.903s, typecheck 2.975s (and 2.563s after last change), focused Vitest 2 files/8 tests 0.629s (and 0.409s after last change), check-smoke-manifest 0.156s, fallow audit 0.466s. Goal rows now all have evidence; remote amd64 is recorded as blocker only, not success."
+  ],
+  "nextAction": "All PostgreSQL move envelope ladder proof rows are complete; prepare commit/PR update if requested.",
+  "status": "COMPLETE"
+}

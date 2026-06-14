@@ -1,0 +1,231 @@
+{
+  "schemaVersion": 1,
+  "name": "same-arch-stopped-continuation-primitive-contract",
+  "purpose": "Define the first narrow machinen move live-state continuation primitive before implementation. This is a same-architecture stopped single-thread safe-point contract, not a reexec or reconstruction route.",
+  "productStatus": {
+    "current": "contract-only-not-promoted",
+    "mayPromoteOnlyAfter": [
+      "happy-path target resumes from captured live state",
+      "no target-native reexec/restart/resource reconstruction path is used",
+      "every refusal class fails closed with no target process left running",
+      "focused tests and proof rows pass with retained evidence"
+    ],
+    "scopeLimit": "same-architecture only; not cross-architecture product support"
+  },
+  "supportedSourceShape": {
+    "architecture": {
+      "required": "source architecture equals target architecture",
+      "allowed": ["arm64-to-arm64", "amd64-to-amd64"],
+      "refuseWhen": "sourceArch != targetArch"
+    },
+    "process": {
+      "threadCount": 1,
+      "stopState": "ptrace-stopped or equivalent move-owned stop",
+      "safePoint": "user-mode instruction boundary outside active syscall",
+      "lifecycle": "source process is frozen before capture and stays frozen until target continuation decision",
+      "refuseWhen": [
+        "multiple threads",
+        "running source thread during capture",
+        "active syscall or syscall restart state",
+        "unknown program counter provenance",
+        "process is already exiting or in signal delivery"
+      ]
+    },
+    "identity": {
+      "executableIdentityRequired": true,
+      "textMappingIdentityRequired": true,
+      "targetTextMustMatchSourceText": true,
+      "targetBuildIdOrSha256Required": true,
+      "refuseWhen": [
+        "missing executable path or bytes identity",
+        "target executable/text bytes mismatch",
+        "program counter outside a verified executable mapping",
+        "mapping provenance is ambiguous"
+      ]
+    },
+    "resources": {
+      "stdio": "only closed, /dev/null, or explicitly move-owned inert stdio is accepted in the first primitive",
+      "nonStdioFds": "none accepted",
+      "sockets": "none accepted",
+      "timers": "none accepted",
+      "signals": "no pending signal, no active signal frame, no non-default handler state, no alternate signal stack",
+      "sessions": "no controlling terminal, PTY, job-control, process-group, or interactive session state",
+      "refuseWhen": [
+        "any non-stdio fd is open",
+        "any socket, pipe, eventfd, epoll, timerfd, inotify, signalfd, device, lock, or mmap-backed kernel resource is observed",
+        "any pending/caught/blocked signal state is outside the modeled empty/default shape",
+        "any PTY, terminal, session, or process-group state is required"
+      ]
+    }
+  },
+  "capturedLiveStateFields": {
+    "processIdentity": ["pid", "ppid", "exe", "argv", "cwd", "uid", "gid"],
+    "architecture": ["sourceArch", "targetArch", "abi"],
+    "threadState": [
+      "threadId",
+      "stopReason",
+      "instructionPointer",
+      "stackPointer",
+      "generalPurposeRegisters",
+      "conditionFlagsOrPstate",
+      "threadLocalStoragePointer",
+      "activeSyscallState"
+    ],
+    "memoryState": [
+      "verifiedExecutableMappings",
+      "privateWritableMappings",
+      "stackMapping",
+      "mappingPermissions",
+      "mappingOffsets",
+      "mappingSha256OrBuildId",
+      "capturedPrivateBytes",
+      "programCounterMappingId"
+    ],
+    "resourceState": [
+      "fdTableSummary",
+      "stdioPolicy",
+      "signalState",
+      "timerState",
+      "socketState",
+      "sessionState",
+      "unsupportedResourceRefusals"
+    ],
+    "integrity": [
+      "captureTimestamp",
+      "sourceFreezeEvidence",
+      "targetPreflightIdentityEvidence",
+      "noReexecGuardEvidence"
+    ]
+  },
+  "targetContinuationStep": {
+    "kind": "same-arch-target-native-state-materialization",
+    "mustNotExecArgv": true,
+    "steps": [
+      "create a target continuation container/process under move control without running the source argv as a fresh program",
+      "verify target executable/text mapping identity matches the captured source text mapping identity",
+      "materialize captured private writable mappings and stack bytes at compatible target addresses or a proven relocated address plan",
+      "install captured same-architecture registers and thread-local state",
+      "validate no refused resource class appeared during target preflight",
+      "resume execution at the captured instruction pointer",
+      "report targetPid only after the resumed thread reaches the continuation success marker"
+    ],
+    "successEvidenceMustShow": [
+      "resumed state depends on captured register or memory values",
+      "fresh argv restart would not produce the same success marker",
+      "no target-original, target-native-reexec, generic-resource-graph-reexec, static HTTP, file cursor, pipe replay, or resource reconstruction loader was invoked"
+    ]
+  },
+  "refusalClasses": [
+    {
+      "class": "sameArchRequired",
+      "code": "architecture-pair-unsupported",
+      "reason": "source and target architecture must match for this primitive"
+    },
+    {
+      "class": "singleThreadRequired",
+      "code": "thread-state-unsupported",
+      "reason": "multiple threads need scheduler, TLS, futex, and inter-thread state models"
+    },
+    {
+      "class": "stoppedSafePointRequired",
+      "code": "target-semantic-continuation-missing",
+      "reason": "running or non-owned stops cannot be captured safely"
+    },
+    {
+      "class": "noActiveSyscall",
+      "code": "active-syscall",
+      "reason": "active syscall, restart, or in-kernel wait state is not modeled"
+    },
+    {
+      "class": "textIdentityRequired",
+      "code": "target-build-mismatch",
+      "reason": "target text bytes/build identity must match the captured executable mapping"
+    },
+    {
+      "class": "pcProvenanceRequired",
+      "code": "target-code-location-unresolved",
+      "reason": "captured program counter must map to verified target-native text"
+    },
+    {
+      "class": "privateMemoryModeledOnly",
+      "code": "target-resume-fault-unmodeled-memory",
+      "reason": "anonymous/private writable mappings and stack bytes must be captured and materialized"
+    },
+    {
+      "class": "sharedOrDeviceMappingsRefused",
+      "code": "mapping-shared-unsupported",
+      "reason": "shared, device, vvar, vdso, JIT, or ambiguous mappings need separate models"
+    },
+    {
+      "class": "nonStdioFdRefused",
+      "code": "fd-kind-unsupported",
+      "reason": "non-stdio fds are not teleported or reconstructed in this primitive"
+    },
+    {
+      "class": "socketStateRefused",
+      "code": "target-socket-syscall-state-unsupported",
+      "reason": "socket state and active sessions are unmodeled"
+    },
+    {
+      "class": "timerStateRefused",
+      "code": "target-ppoll-timeout-missing",
+      "reason": "timer and event-loop state is unmodeled"
+    },
+    {
+      "class": "signalStateRefused",
+      "code": "signal-state-unsupported",
+      "reason": "pending signals, active signal frames, non-default handlers, and alt stacks are unmodeled"
+    },
+    {
+      "class": "terminalSessionRefused",
+      "code": "kernel-state-unsupported",
+      "reason": "PTY, controlling terminal, session, and job-control state are unmodeled"
+    },
+    {
+      "class": "noReexecRestartReconstruction",
+      "code": "target-semantic-continuation-missing",
+      "reason": "reexec, restart, output replay, descriptor-only equivalence, and resource reconstruction are banned"
+    }
+  ],
+  "hardBans": [
+    "reexec",
+    "restart",
+    "static-root reconstruction",
+    "output replay",
+    "descriptor-only equivalence",
+    "app export/import",
+    "source-ISA emulation",
+    "source-fd teleportation",
+    "metadata-only success",
+    "runtime-profile shortcut",
+    "broad runtime support",
+    "arbitrary process restore",
+    "active session migration without an explicit model",
+    "product claim without actual continuation proof"
+  ],
+  "nonClaims": [
+    "not cross-architecture support",
+    "not arbitrary ELF/process restore",
+    "not any-binary movement",
+    "not runtime heap migration",
+    "not Node/V8/Python/JVM runtime continuation",
+    "not service/database/session migration",
+    "not fd/socket/timer/signal continuation outside the exact modeled empty resource shape",
+    "not product support until happy-path and refusal proofs are recorded"
+  ],
+  "requiredProofRows": {
+    "happyPath": "same-arch-stopped-continuation-happy-path",
+    "refusals": [
+      "same-arch-stopped-continuation-active-syscall-refusal",
+      "same-arch-stopped-continuation-multithread-refusal",
+      "same-arch-stopped-continuation-text-identity-refusal",
+      "same-arch-stopped-continuation-unmodeled-memory-refusal",
+      "same-arch-stopped-continuation-nonstdio-fd-refusal",
+      "same-arch-stopped-continuation-socket-refusal",
+      "same-arch-stopped-continuation-timer-refusal",
+      "same-arch-stopped-continuation-signal-refusal",
+      "same-arch-stopped-continuation-terminal-session-refusal",
+      "same-arch-stopped-continuation-no-reexec-refusal"
+    ]
+  }
+}

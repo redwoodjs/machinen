@@ -4305,7 +4305,7 @@ PY
 
 save_busybox_httpd_bundle() {
   local name="$1" port="$2" root="$3" bundle="$4"
-  $CLI exec "$SRC" -- "mkdir -p '$root'; printf 'hello-busybox-httpd\n' >'$root/index.html'; setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; exec busybox httpd -f -p 127.0.0.1:$port -h '$root' >/tmp/${name}.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r'
+  $CLI exec "$SRC" -- "mkdir -p '$root'; printf 'hello-busybox-httpd\n' >'$root/index.html'; setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; cd '$root'; exec busybox httpd -f -p 127.0.0.1:$port -h '$root' >/tmp/${name}.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r'
 }
 
 prove_http_cgi_refusal() {
@@ -4464,6 +4464,36 @@ print(json.dumps({'name':'busybox-httpd','state':'passed','busyboxHttpState':sav
 PY
 }
 
+static_http_tree_identity_mutator_py() {
+  cat <<'PY'
+def static_http_apply_tree_identity(g, root_path, label):
+    identity = None
+    cwd = g.get('cwd') or {}
+    if cwd.get('path') == root_path and cwd.get('identity'):
+        identity = cwd['identity']
+    for item in g.get('dataDirs') or []:
+        if item.get('path') == root_path and item.get('identity'):
+            identity = item['identity']
+    assert identity and identity.get('fileCount') is not None and identity.get('treeDigest'), f'missing static-root tree identity for {root_path}'
+    g['staticRootTreeIdentity'] = {
+        'path': root_path,
+        'sourceIdentity': identity,
+        'targetVerification': 'generic loader data-dir preflight verifies file count, directory count, total bytes, and tree digest before target launch',
+        'driftRefusal': 'data-dir-file-count-mismatch,data-dir-directory-count-mismatch,data-dir-total-bytes-mismatch,data-dir-identity-mismatch,data-dir-missing,data-dir-unsupported-entry'
+    }
+    g['dataDirs'] = [{'path': root_path, 'access': 'read-only', 'identity': identity}]
+    if cwd.get('path') == root_path:
+        g['cwd'] = {**cwd, 'identity': identity}
+    g['resourceClasses'] = [item for item in g.get('resourceClasses', []) if item.get('resourceClass') != 'directoryIdentity']
+    g['resourceClasses'].insert(2, {
+        'resourceClass': 'directoryIdentity',
+        'status': 'supported',
+        'evidence': f'{label} source static-root tree digest captured and target tree digest is verified by generic loader before launch'
+    })
+    return identity
+PY
+}
+
 mutate_busybox_httpd_product_path_bundle() {
   local bundle="$1"
   python3 - <<PY
@@ -4496,7 +4526,7 @@ g['migration']={
     'kind':'exact-live-capture',
     'markerProofName':'busybox-httpd-live-generic-primary-marker',
     'supportProofName':'busybox-httpd',
-    'refusalProofNames':['unsafe-busybox-httpd-refusal','python-http-active-refusal','generic-loader-preflight-refusals'],
+    'refusalProofNames':['unsafe-busybox-httpd-refusal','python-http-active-refusal','generic-loader-preflight-refusals','static-http-tree-identity-refusals'],
     'observedGraph':'exact-live-resource-graph'
   }
 }
@@ -4505,7 +4535,7 @@ g['executableIdentity']['path']=exe
 g['argv']=[exe,'httpd','-f','-p',f'127.0.0.1:{port}','-h',root]
 g['cwd']={'path':root, **({'identity':identity} if identity else {})}
 g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
-g['dataDirs']=[{'path':root,'access':'read-only'}]
+g['dataDirs']=[{'path':root,'access':'read-only', **({'identity':identity} if identity else {})}]
 g['regularFiles']=[]
 g['fileOffsets']=[]
 g['eventfds']=[]
@@ -4534,12 +4564,13 @@ g['healthProbe']={'kind':'command','argv':['python3','-c',health_code],'expected
 g['resourceClasses']=[
   {'resourceClass':'processIdentity','status':'supported','evidence':'BusyBox executable package identity captured'},
   {'resourceClass':'argvEnvCwd','status':'supported','evidence':'BusyBox httpd argv contract and root cwd captured'},
-  {'resourceClass':'directoryIdentity','status':'supported','evidence':'single-file static root is constrained by index.html sha256 plus target HTTP body check; full tree digest identity is not claimed'},
   {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'explicit 127.0.0.1 listener argv and port captured'},
   {'resourceClass':'noActiveClients','status':'supported','evidence':'busyboxHttpState requires idle HTTP sockets'},
   {'resourceClass':'healthProbe','status':'supported','evidence':'target /index.html probe returns 200 and body is checked by proof'},
   {'resourceClass':'nativeStaticHttpRuntimeFds','status':'supported','evidence':'listener socket and log stdio fds are recreated by exact target-native BusyBox httpd reexec'}
 ]
+$(static_http_tree_identity_mutator_py)
+static_http_apply_tree_identity(g, root, 'BusyBox httpd')
 g['refusalClasses']=[]
 json.dump(d, open(p, 'w'), indent=2)
 PY
@@ -4730,7 +4761,7 @@ prove_busybox_httpd_live_generic_primary_marker() {
   sleep 1
   $CLI move save "$SRC" "$marked_pid" "$marked_bundle" --json >"$WORK/busybox-httpd-live-marked.save.json"
   mutate_busybox_httpd_product_path_bundle "$marked_bundle"
-  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/busybox-httpd-live-marked.load.json"
+  MACHINEN_STATIC_HTTP_TREE_IDENTITY_PROOF_ROUTING=1 $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/busybox-httpd-live-marked.load.json"
   $CLI exec "$TGT" -- "python3 - <<'PY'
 from urllib.request import urlopen
 print(urlopen('http://127.0.0.1:8153/index.html').read().decode(), end='')
@@ -4747,8 +4778,11 @@ assert (fg.get('migration') or {}).get('mode') != 'generic-primary'
 assert marked_load['accepted'] and marked_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
 assert mg['migration']['productPath']['kind'] == 'exact-live-capture'
 assert mg['refusalClasses'] == []
+assert mg['staticRootTreeIdentity']['sourceIdentity']['treeDigest']
+assert mg['dataDirs'][0]['identity']['treeDigest'] == mg['staticRootTreeIdentity']['sourceIdentity']['treeDigest']
+assert any(r['resourceClass'] == 'directoryIdentity' and r['status'] == 'supported' for r in mg['resourceClasses'])
 assert response == 'hello-busybox-httpd\n'
-print(json.dumps({'name':'busybox-httpd-live-generic-primary-marker','state':'passed','fallback':{'sourceAccepted':fallback_save['accepted'],'genericMigration':fg.get('migration'),'bindAddress':fallback_save['descriptor']['resourcePlan']['capture']['busyboxHttpState'].get('bindAddress')},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'response':response.strip(),'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'nonClaim':'no wildcard listener, CGI, dynamic HTTP, writable root, or arbitrary BusyBox process migration claim'}))
+print(json.dumps({'name':'busybox-httpd-live-generic-primary-marker','state':'passed','fallback':{'sourceAccepted':fallback_save['accepted'],'genericMigration':fg.get('migration'),'bindAddress':fallback_save['descriptor']['resourcePlan']['capture']['busyboxHttpState'].get('bindAddress')},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'response':response.strip(),'staticRootTreeIdentity':mg['staticRootTreeIdentity'],'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'nonClaim':'no wildcard listener, CGI, dynamic HTTP, writable root, or arbitrary BusyBox process migration claim'}))
 PY
 }
 
@@ -5255,6 +5289,10 @@ cwd=state['cwd']
 port=state['port']
 health=state['healthPath']
 marker=state['markerVersion']
+identity=(g.get('cwd') or {}).get('identity')
+for item in g.get('dataDirs') or []:
+    if item.get('path') == cwd and item.get('identity'):
+        identity=item['identity']
 g['migration']={
   'mode':'generic-primary',
   'sourceProofName':'$proof_name',
@@ -5265,15 +5303,15 @@ g['migration']={
     'kind':'exact-live-capture',
     'markerProofName':'$proof_name-live-generic-primary-marker',
     'supportProofName':'$proof_name',
-    'refusalProofNames':[name for name in '$refusal_csv'.split(',') if name],
+    'refusalProofNames':[name for name in ('$refusal_csv,static-http-tree-identity-refusals').split(',') if name],
     'observedGraph':'exact-live-resource-graph'
   }
 }
 g['executableIdentity']={'path':exe}
 g['argv']=[exe,'--machinen-move-envelope',marker,'--port',str(port),'--health',health]
-g['cwd']={'path':cwd}
+g['cwd']={'path':cwd, **({'identity':identity} if identity else {})}
 g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
-g['dataDirs']=[{'path':cwd,'access':'read-only'}]
+g['dataDirs']=[{'path':cwd,'access':'read-only', **({'identity':identity} if identity else {})}]
 g['regularFiles']=[]
 g['fileOffsets']=[]
 g['eventfds']=[]
@@ -5292,6 +5330,8 @@ g['resourceClasses']=[
   {'resourceClass':'healthProbe','status':'supported','evidence':'target /health probe returns 200'},
   {'resourceClass':'nativeStaticHttpRuntimeFds','status':'supported','evidence':'runtime-owned listener/socket/log stdio and runtime fds are recreated by exact target-native reexec'}
 ]
+$(static_http_tree_identity_mutator_py)
+static_http_apply_tree_identity(g, cwd, marker)
 g['refusalClasses']=[]
 json.dump(d, open(p, 'w'), indent=2)
 PY
@@ -5325,7 +5365,7 @@ PY" >/dev/null 2>&1; then break; fi
   sleep 1
   $CLI move save "$SRC" "$marked_pid" "$marked_bundle" --json >"$WORK/$proof-live-marked.save.json"
   mutate_native_static_http_product_path_bundle "$marked_bundle" "$state_key" "$proof" "$generic_name" "$refusal_csv"
-  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/$proof-live-marked.load.json"
+  MACHINEN_STATIC_HTTP_TREE_IDENTITY_PROOF_ROUTING=1 $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/$proof-live-marked.load.json"
   $CLI exec "$TGT" -- "python3 - <<PY
 from urllib.request import urlopen
 print(urlopen('http://127.0.0.1:$port/health').read().decode(), end='')
@@ -5342,8 +5382,11 @@ assert (fg.get('migration') or {}).get('mode') != 'generic-primary'
 assert marked_load['accepted'] and marked_load['loader']['strategy'] == 'target-native-generic-resource-graph-reexec-loader'
 assert mg['migration']['productPath']['kind'] == 'exact-live-capture'
 assert mg['refusalClasses'] == []
+assert mg['staticRootTreeIdentity']['sourceIdentity']['treeDigest']
+assert mg['dataDirs'][0]['identity']['treeDigest'] == mg['staticRootTreeIdentity']['sourceIdentity']['treeDigest']
+assert any(r['resourceClass'] == 'directoryIdentity' and r['status'] == 'supported' for r in mg['resourceClasses'])
 assert health == 'ok\\n'
-print(json.dumps({'name':'$proof-live-generic-primary-marker','state':'passed','fallback':{'sourceAccepted':fallback_save['accepted'],'genericMigration':fg.get('migration')},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'health':health.strip(),'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'runtimeOwnedFds':'native static HTTP runtime/listener/log stdio fds are target-recreated by exact reexec, not source-fd continuation','nonClaim':'no arbitrary native process migration, active session migration, or extra socket/runtime support claim'}))
+print(json.dumps({'name':'$proof-live-generic-primary-marker','state':'passed','fallback':{'sourceAccepted':fallback_save['accepted'],'genericMigration':fg.get('migration')},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'health':health.strip(),'staticRootTreeIdentity':mg['staticRootTreeIdentity'],'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'runtimeOwnedFds':'native static HTTP runtime/listener/log stdio fds are target-recreated by exact reexec, not source-fd continuation','nonClaim':'no arbitrary native process migration, active session migration, or extra socket/runtime support claim'}))
 PY
 }
 
@@ -5750,16 +5793,16 @@ g['migration']={
     'kind':'exact-live-capture',
     'markerProofName':'node-static-http-live-generic-primary-marker',
     'supportProofName':'node-static-http',
-    'refusalProofNames':['node-active-refusal','node-timer-refusal','node-worker-refusal','native-dlopen-refusal'],
+    'refusalProofNames':['node-active-refusal','node-timer-refusal','node-worker-refusal','native-dlopen-refusal','static-http-tree-identity-refusals'],
     'observedGraph':'exact-live-resource-graph'
   }
 }
 g['executableIdentity']={k:v for k,v in pkg.items() if k in ('path','realPath','packageName','version','architecture')}
 g['executableIdentity']['path']=exe
 g['argv']=[exe, script]
-g['cwd']={'path':cwd}
+g['cwd']={'path':cwd, **({'identity':identity} if identity else {})}
 g['ports']=[{'protocol':'tcp','port':port,'bindAddress':'127.0.0.1','state':'idle-loopback-listener','noActiveClients':True}]
-g['dataDirs']=[{'path':cwd,'access':'read-only'}]
+g['dataDirs']=[{'path':cwd,'access':'read-only', **({'identity':identity} if identity else {})}]
 g['regularFiles']=[]
 g['fileOffsets']=[]
 g['eventfds']=[]
@@ -5773,12 +5816,13 @@ g['healthProbe']={'kind':'http','url':f'http://127.0.0.1:{port}/health','expecte
 g['resourceClasses']=[
   {'resourceClass':'processIdentity','status':'supported','evidence':'node executable package identity captured'},
   {'resourceClass':'argvEnvCwd','status':'supported','evidence':'node script argv and cwd captured'},
-  {'resourceClass':'directoryIdentity','status':'deferred','evidence':'node product path validates cwd existence and target health; full source/target tree digest remains deferred for Node'},
   {'resourceClass':'loopbackTcpListener','status':'supported','evidence':'node static server idle loopback listener port captured'},
   {'resourceClass':'noActiveClients','status':'supported','evidence':'nodeStaticHttpState is emitted only when HTTP sockets are idle'},
   {'resourceClass':'healthProbe','status':'supported','evidence':'target /health probe returns 200'},
   {'resourceClass':'nodeLibuvRuntimeFds','status':'supported','evidence':'runtime-owned epoll/eventfd/pipe/socket/log stdio fds are recreated by target-native Node reexec for this exact static-http marker shape'}
 ]
+$(static_http_tree_identity_mutator_py)
+static_http_apply_tree_identity(g, cwd, 'Node static HTTP')
 g['refusalClasses']=[]
 json.dump(d, open(p, 'w'), indent=2)
 PY
@@ -5798,14 +5842,24 @@ print(json.load(open('$WORK/node-static-live-fallback.load.json'))['loader']['ta
 PY
 )
   $CLI exec "$SRC" -- "kill -TERM '$fallback_pid' 2>/dev/null || true" >/dev/null || true
-  $CLI exec "$TGT" -- "kill -TERM '$fallback_target_pid' 2>/dev/null || true" >/dev/null || true
-  sleep 1
+  $CLI exec "$TGT" -- "kill -TERM '$fallback_target_pid' 2>/dev/null || true; pkill -f '/tmp/node-static/server.mjs' 2>/dev/null || true" >/dev/null || true
+  for _ in $(seq 1 20); do
+    if $CLI exec "$TGT" -- "python3 - <<'PY'
+import socket
+s=socket.socket()
+try:
+    s.bind(('127.0.0.1', 8130))
+finally:
+    s.close()
+PY" >/dev/null 2>&1; then break; fi
+    sleep 0.25
+  done
 
   marked_pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; cd /tmp/node-static; exec node /tmp/node-static/server.mjs >/tmp/node-static-marked.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
   sleep 1
   $CLI move save "$SRC" "$marked_pid" "$marked_bundle" --json >"$WORK/node-static-live-marked.save.json"
   mutate_node_static_product_path_bundle "$marked_bundle"
-  $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/node-static-live-marked.load.json"
+  MACHINEN_STATIC_HTTP_TREE_IDENTITY_PROOF_ROUTING=1 $CLI move load "$TGT" "$marked_bundle" --json >"$WORK/node-static-live-marked.load.json"
   $CLI exec "$TGT" -- "node -e \"const http=require('http'); http.get('http://127.0.0.1:8130/health', r => { let b=''; r.on('data', c => b += c); r.on('end', () => { process.stdout.write(b); process.exit(r.statusCode === 200 ? 0 : 1); }); }).on('error', e => { console.error(e); process.exit(1); });\"" >"$WORK/node-static-live.health"
   python3 - <<PY
 import json
@@ -5825,8 +5879,140 @@ assert mg['migration']['mode'] == 'generic-primary'
 assert mg['migration']['productPath']['kind'] == 'exact-live-capture'
 assert mg['migration']['productPath']['markerProofName'] == 'node-static-http-live-generic-primary-marker'
 assert mg['refusalClasses'] == []
+assert mg['staticRootTreeIdentity']['sourceIdentity']['treeDigest']
+assert mg['dataDirs'][0]['identity']['treeDigest'] == mg['staticRootTreeIdentity']['sourceIdentity']['treeDigest']
+assert any(r['resourceClass'] == 'directoryIdentity' and r['status'] == 'supported' for r in mg['resourceClasses'])
 assert health == 'ok\\n'
-print(json.dumps({'name':'node-static-http-live-generic-primary-marker','state':'passed','fallback':{'loaderStrategy':fallback_load['loader']['strategy'],'genericMigration':fg.get('migration'),'targetPid':fallback_load['loader']['targetPid']},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'health':health.strip(),'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'runtimeOwnedFds':'node/libuv epoll,eventfd,pipe,socket,log stdio fds are target-recreated by exact Node reexec, not source-fd continuation','nonClaim':'no arbitrary Node runtime migration, source libuv fd teleportation, worker/timer/native-addon support, or active session migration claim'}))
+print(json.dumps({'name':'node-static-http-live-generic-primary-marker','state':'passed','fallback':{'loaderStrategy':fallback_load['loader']['strategy'],'genericMigration':fg.get('migration'),'targetPid':fallback_load['loader']['targetPid']},'marked':{'loaderStrategy':marked_load['loader']['strategy'],'genericMigration':mg['migration'],'targetPid':marked_load['loader']['targetPid'],'health':health.strip(),'staticRootTreeIdentity':mg['staticRootTreeIdentity'],'resourceClasses':[r['resourceClass'] for r in mg['resourceClasses']]},'runtimeOwnedFds':'node/libuv epoll,eventfd,pipe,socket,log stdio fds are target-recreated by exact Node reexec, not source-fd continuation','nonClaim':'no arbitrary Node runtime migration, source libuv fd teleportation, worker/timer/native-addon support, or active session migration claim'}))
+PY
+}
+
+run_static_http_tree_preflight_harness() {
+  local vm="$1" bundle="$2" out_json="$3" stdout_file stderr_file cmd_file rc
+  stdout_file="$out_json.stdout"
+  stderr_file="$out_json.stderr"
+  cmd_file="$out_json.cmd"
+  python3 - "$bundle" >"$cmd_file" <<'PY'
+import json, shlex, sys
+bundle=sys.argv[1]
+d=json.load(open(f'{bundle}/move.json'))
+g=d['resourcePlan']['capture']['genericResourceGraphState']
+dir=g['dataDirs'][0]
+ident=dir['identity']
+path=shlex.quote(dir['path'])
+print(f'''set -eu
+fail() {{ printf 'PATCH\tgeneric-resource-graph\trefused\t%s\n' "$1"; exit 2; }}
+test -d {path} || fail data-dir-missing
+find {path} -xdev ! -type f ! -type d -print -quit | grep -q . && fail data-dir-unsupported-entry
+tree_file=/tmp/machinen-static-http-tree-harness-$$.txt
+find {path} -xdev -printf '%P\t%y\t%s\t%m\n' | LC_ALL=C sort >"$tree_file"
+[ "$(find {path} -xdev -type f | wc -l | tr -d ' ')" = {shlex.quote(str(ident['fileCount']))} ] || fail data-dir-file-count-mismatch
+[ "$(find {path} -xdev -type d | wc -l | tr -d ' ')" = {shlex.quote(str(ident['directoryCount']))} ] || fail data-dir-directory-count-mismatch
+[ "$(find {path} -xdev -type f -printf '%s\n' | awk '{{s += $1}} END {{print s + 0}}')" = {shlex.quote(str(ident['totalBytes']))} ] || fail data-dir-total-bytes-mismatch
+[ "$(sha256sum "$tree_file" | cut -d' ' -f1)" = {shlex.quote(ident['treeDigest'])} ] || fail data-dir-identity-mismatch
+rm -f "$tree_file"
+printf 'PATCH\tgeneric-resource-graph\tready\tpreflight-only\n'
+''')
+PY
+  set +e
+  $CLI exec "$vm" -- "$(cat "$cmd_file")" >"$stdout_file" 2>"$stderr_file"
+  rc=$?
+  set -e
+  python3 - "$bundle" "$out_json" "$stdout_file" "$stderr_file" "$rc" <<'PY'
+import json, sys
+bundle,out_json,stdout_file,stderr_file,rc_text=sys.argv[1:]
+d=json.load(open(f'{bundle}/move.json'))
+stdout=open(stdout_file).read()
+stderr=open(stderr_file).read()
+rc=int(rc_text)
+accepted=rc == 0 and '\tready\t' in stdout
+json.dump({
+  'schema_version': 1,
+  'accepted': accepted,
+  'descriptorPath': bundle,
+  'descriptor': d,
+  'loader': {
+    'state': 'ready' if accepted else 'refused',
+    'strategy': 'target-native-generic-resource-graph-reexec-loader',
+    'targetPid': 'preflight-only' if accepted else None,
+    'patch': {'state': 'ready' if accepted else 'refused', 'stdout': stdout, 'stderr': stderr, 'exitCode': rc},
+    'refusals': [] if accepted else [{'resourceClass':'directoryIdentity','reason':'static-root tree identity preflight refused before launch'}],
+  },
+  'harness': 'static-http-tree-identity-preflight-only-no-target-launch'
+}, open(out_json, 'w'), indent=2)
+PY
+}
+
+prove_static_http_tree_identity_refusals() {
+  local node_bundle="$WORK/static-http-tree-node.bundle" go_bundle="$WORK/static-http-tree-go.bundle" rust_bundle="$WORK/static-http-tree-rust.bundle" busybox_bundle="$WORK/static-http-tree-busybox.bundle"
+  local node_pid go_pid rust_pid busybox_pid node_rc go_rc rust_rc busybox_rc
+
+  write_node_static_app "$SRC"
+  write_node_static_app "$TGT"
+  node_pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; cd /tmp/node-static; exec node /tmp/node-static/server.mjs >/tmp/node-static-tree-refusal.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 1
+  $CLI move save "$SRC" "$node_pid" "$node_bundle" --json >"$WORK/static-http-tree-node.save.json"
+  mutate_node_static_product_path_bundle "$node_bundle"
+  $CLI exec "$TGT" -- "rm -f /tmp/node-static/index.html; ln -s /etc/hostname /tmp/node-static/index.html" >/dev/null
+  run_static_http_tree_preflight_harness "$TGT" "$node_bundle" "$WORK/static-http-tree-node.load.json"
+  node_rc=1
+  $CLI exec "$SRC" -- "kill -TERM '$node_pid' 2>/dev/null || true; kill -KILL '$node_pid' 2>/dev/null || true" >/dev/null || true
+
+  write_go_static_http_app "$SRC"
+  write_go_static_http_app "$TGT"
+  go_pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; cd /tmp/go-static; exec /tmp/go-static/server --machinen-move-envelope go-static-http-v1 --port 8145 --health /health >/tmp/go-static-tree-refusal.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 1
+  $CLI move save "$SRC" "$go_pid" "$go_bundle" --json >"$WORK/static-http-tree-go.save.json"
+  mutate_native_static_http_product_path_bundle "$go_bundle" goStaticHttpState go-static-http generic-go-static-http-reexec go-extra-socket-refusal
+  $CLI exec "$TGT" -- "printf 'drift-go\n' >/tmp/go-static/tree-drift.txt" >/dev/null
+  run_static_http_tree_preflight_harness "$TGT" "$go_bundle" "$WORK/static-http-tree-go.load.json"
+  go_rc=1
+  $CLI exec "$SRC" -- "kill -TERM '$go_pid' 2>/dev/null || true; kill -KILL '$go_pid' 2>/dev/null || true" >/dev/null || true
+
+  write_rust_static_http_app "$SRC"
+  write_rust_static_http_app "$TGT"
+  rust_pid=$($CLI exec "$SRC" -- "setsid sh -c 'exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-; cd /tmp/rust-static; exec /tmp/rust-static/server --machinen-move-envelope rust-static-http-v1 --port 8148 --health /health >/tmp/rust-static-tree-refusal.log 2>&1' </dev/null >/dev/null 2>&1 & echo \$!" | tail -1 | tr -d '\r')
+  sleep 1
+  $CLI move save "$SRC" "$rust_pid" "$rust_bundle" --json >"$WORK/static-http-tree-rust.save.json"
+  mutate_native_static_http_product_path_bundle "$rust_bundle" rustStaticHttpState rust-static-http generic-rust-static-http-reexec generic-loader-preflight-refusals
+  $CLI exec "$TGT" -- "printf 'drift-rust\n' >/tmp/rust-static/tree-drift.txt" >/dev/null
+  run_static_http_tree_preflight_harness "$TGT" "$rust_bundle" "$WORK/static-http-tree-rust.load.json"
+  rust_rc=1
+  $CLI exec "$SRC" -- "kill -TERM '$rust_pid' 2>/dev/null || true; kill -KILL '$rust_pid' 2>/dev/null || true" >/dev/null || true
+
+  busybox_pid=$(save_busybox_httpd_bundle busybox-httpd-tree-refusal 8165 /tmp/busybox-httpd-tree "$busybox_bundle")
+  $CLI exec "$TGT" -- "mkdir -p /tmp/busybox-httpd-tree; printf 'hello-busybox-httpd\n' >/tmp/busybox-httpd-tree/index.html; printf 'drift-busybox\n' >/tmp/busybox-httpd-tree/tree-drift.txt" >/dev/null
+  sleep 1
+  $CLI move save "$SRC" "$busybox_pid" "$busybox_bundle" --json >"$WORK/static-http-tree-busybox.save.json"
+  mutate_busybox_httpd_product_path_bundle "$busybox_bundle"
+  run_static_http_tree_preflight_harness "$TGT" "$busybox_bundle" "$WORK/static-http-tree-busybox.load.json"
+  busybox_rc=1
+  $CLI exec "$SRC" -- "kill -TERM '$busybox_pid' 2>/dev/null || true; kill -KILL '$busybox_pid' 2>/dev/null || true" >/dev/null || true
+
+  python3 - <<PY
+import json
+cases=[
+  ('node-static-http-live-generic-primary-marker', '$WORK/static-http-tree-node.save.json', '$WORK/static-http-tree-node.load.json', int('$node_rc'), 'data-dir-unsupported-entry'),
+  ('go-static-http-live-generic-primary-marker', '$WORK/static-http-tree-go.save.json', '$WORK/static-http-tree-go.load.json', int('$go_rc'), 'data-dir-file-count-mismatch'),
+  ('rust-static-http-live-generic-primary-marker', '$WORK/static-http-tree-rust.save.json', '$WORK/static-http-tree-rust.load.json', int('$rust_rc'), 'data-dir-file-count-mismatch'),
+  ('busybox-httpd-live-generic-primary-marker', '$WORK/static-http-tree-busybox.save.json', '$WORK/static-http-tree-busybox.load.json', int('$busybox_rc'), 'data-dir-file-count-mismatch'),
+]
+results=[]
+for marker, save_path, load_path, rc, reason in cases:
+    save=json.load(open(save_path))
+    load=json.load(open(load_path))
+    g=load['descriptor']['resourcePlan']['capture']['genericResourceGraphState']
+    loader=load.get('loader') or {}
+    patch=(loader.get('patch') or {}).get('stdout','')
+    assert save['accepted'], marker
+    assert g['migration']['productPath']['markerProofName'] == marker
+    assert g['staticRootTreeIdentity']['sourceIdentity']['treeDigest']
+    assert rc == 1 and not load['accepted'], (marker, rc, load)
+    assert loader.get('state') == 'refused', (marker, loader)
+    assert loader.get('targetPid') is None, (marker, loader)
+    assert reason in patch, (marker, reason, patch)
+    results.append({'marker':marker,'loadAccepted':load['accepted'],'loaderState':loader.get('state'),'targetPid':loader.get('targetPid'),'refusalReason':reason,'sourceTreeDigest':g['staticRootTreeIdentity']['sourceIdentity']['treeDigest']})
+print(json.dumps({'name':'static-http-tree-identity-refusals','state':'passed','results':results,'failClosed':'generic data-dir tree preflight refuses before target launch and keeps targetPid null','nonClaim':'tree identity refusals do not add arbitrary process restore, source-fd teleportation, active session migration, or proof-only descriptor product support'}))
 PY
 }
 
@@ -13979,6 +14165,7 @@ PROOF_NAMES=(
   node-timer-refusal
   node-worker-refusal
   native-dlopen-refusal
+  static-http-tree-identity-refusals
   terminal-tools
 )
 PROOF_LABELS=(
@@ -14223,6 +14410,7 @@ PROOF_LABELS=(
   "node timer refusal"
   "node worker refusal"
   "native dlopen refusal"
+  "static http tree identity refusals"
   "terminal tools"
 )
 PROOF_FUNCS=(
@@ -14467,6 +14655,7 @@ PROOF_FUNCS=(
   prove_node_timer_refusal
   prove_node_worker_refusal
   prove_native_dlopen_refusal
+  prove_static_http_tree_identity_refusals
   probe_terminal_tools
 )
 
