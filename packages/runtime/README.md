@@ -8,8 +8,9 @@ drive microVMs from your own Node.js code instead of through the CLI.
 - **Run a Linux workload in a VM** with first-class control: stream
   stdout/stderr, exec commands inside, write files in, await exit.
 - **Snapshot a running process to disk and resume it later** —
-  possibly on a different machine. Heap, sockets, and open file
-  descriptors come back intact.
+  possibly on a different machine with the same guest architecture.
+  Memory and VM device state come back; host-local pieces such as port
+  forwards are declared again on restore.
 - **Clone a running VM into a sibling.** Both copies run independently
   from the same instant, diverging from a shared heap. Useful for
   branching warmed-up state into N parallel runs.
@@ -98,7 +99,7 @@ namespace patterns.
 | `machinen:boot`        | `boot()` lifecycle — VMM spawn, vsock bridge, registry          |
 | `machinen:provision`   | `provision()` steps — install hook, tar-to-disk, repack         |
 | `machinen:exec`        | vsock exec — connect retries, frames, exit codes                |
-| `machinen:snapshot`    | CRIU dump trigger, wait, console-log inspection                 |
+| `machinen:snapshot`    | snapshot trigger, vmstate/CRIU wait, console-log inspection     |
 | `machinen:attach`      | attach lookup, VM resolution                                    |
 | `machinen:registry`    | `~/.machinen/vms/` reads, writes, stale-entry pruning           |
 | `machinen:gvproxy`     | sidecar spawn, port-forward setup                               |

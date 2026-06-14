@@ -10,8 +10,8 @@ or a script — without writing any TypeScript.
   start a long-running service and detach so your shell can exit.
 - **Hand a running process off to another machine.** Snapshot it on
   host A, copy the bundle, restore on host B. The process resumes
-  exactly where it left off — same heap, same connections, same
-  counters in memory.
+  from the saved VM state — same heap and counters in memory, with
+  host port forwards declared again on the target.
 - **Clone a warmed-up VM into a sibling.** `fork` snapshots and
   restores in one step; both copies run independently from a shared
   heap. Useful for branching test fixtures, parallel exploration, or
@@ -32,7 +32,7 @@ or a script — without writing any TypeScript.
 
 For end-to-end recipes (provisioning images, mounts, networking,
 snapshot patterns), see the [guides](../../docs/). For the full
-command-by-command reference, see [API.md](./API.md).
+command reference, see [API.md](./API.md).
 
 ## Install
 
@@ -55,7 +55,7 @@ companion GitHub release over HTTPS; no GitHub authentication is needed.
 
 ```bash
 npx machinen boot ./image.tar.gz                 # boot a provisioned image
-npx machinen boot --name worker --detached ./image.tar.gz
+npx machinen boot --name worker --detach ./image.tar.gz
                                                   # ... and reach it from another shell:
 npx machinen ls
 npx machinen exec worker -- ps aux
@@ -72,8 +72,8 @@ by process.
 
 ## Reference
 
-The full command surface — every flag, every error mode, the cache
-layout, the env vars — is in [API.md](./API.md).
+The command reference — main flags, cache layout, and env vars — is in
+[API.md](./API.md).
 
 ## License
 

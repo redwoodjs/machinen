@@ -1,9 +1,7 @@
 # `.vmstate` portability policy
 
 See also: [`vmstate-specification.md`](./vmstate-specification.md) for the
-binary format and section-level saved state, and
-[`portable-machine-snapshot.md`](./portable-machine-snapshot.md) for the
-cross-ISA machine-level boundary.
+binary format and section-level saved state.
 
 `.vmstate` is a whole-VM snapshot: RAM, vCPU state, interrupt/device
 state, and virtio transport state. It is **not** just a process image.
@@ -32,10 +30,10 @@ Current policy:
 - The VMM still validates the `.vmstate` topology hash before applying
   state.
 - Raw `.vmstate` restore is same-guest-ISA only. A cross-ISA attempt is refused
-  as `BOOT_VMSTATE_CROSS_ISA_UNSUPPORTED` with portable-machine refusal code
-  `cross-isa-vmstate-restore-unsupported`; the portable path must boot a target
-  ISA VM and restore modeled process/resource state instead of replaying source
-  kernel/vCPU/device state.
+  as `BOOT_VMSTATE_CROSS_ISA_UNSUPPORTED` with code
+  `cross-isa-vmstate-restore-unsupported`; cross-ISA movement must boot a target
+  ISA VM and reconstruct modeled process/resource state instead of replaying
+  source kernel/vCPU/device state.
 
 CRIU remains a Linux process-tree restore mechanism. It does not solve
 HVF↔KVM CPU feature mismatches and is not a replacement for the vmstate

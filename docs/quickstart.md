@@ -53,14 +53,14 @@ anywhere machinen runs.
 ## 2. Boot it and give it some state
 
 ```bash
-npx machinen boot --name counter -p 3000:3000 --detached ./counter.tar.gz
+npx machinen boot --name counter -p 3000:3000 --detach ./counter.tar.gz
 curl localhost:3000                        # { count: 1 }
 curl localhost:3000                        # { count: 2 }
 ```
 
 A few things are happening here. `--name counter` registers the VM under
 a name so you can reach it from another shell. `-p 3000:3000` forwards the
-host port to the guest. `--detached` lets the boot command return as soon
+host port to the guest. `--detach` lets the boot command return as soon
 as the guest is ready, instead of holding your terminal.
 
 After the two `curl`s, the Node process inside the VM has `count = 2` in
@@ -89,14 +89,6 @@ architectures. arm64 to arm64 works, and amd64 to amd64 works on amd64
 Linux/KVM. General arm64 to amd64 vmstate restore is not supported because
 vmstate restores actual machine-code register state, and that doesn't
 translate.
-
-There is one narrower cross-architecture harness proof for this exact kind of
-Node HTTP counter: the `node-v8-libuv-single-thread-http-v1` profile captures
-selected counter state and restores it into target-native Node. This is useful
-as a public `snapshot` / `restore` smoke fixture, but it is not Level 5 product
-support because it uses an app-specific selected-state descriptor. Broad Node
-state is still unsupported. See
-[Node Level 5 real cross-arch quickstart fixture](./snapshot/node-level5-real-cross-arch-quickstart-fixture.md).
 
 ## Where to go next
 

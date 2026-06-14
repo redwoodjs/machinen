@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-
 import { describe, expect, it } from "vitest";
 
 import {
@@ -110,44 +108,6 @@ describe("Node Level 5 single-thread HTTP profile", () => {
       },
     });
     expect(profile.selectedState).toBeUndefined();
-  });
-
-  it("records the Goal 022 quickstart fixture as selected-state harness evidence", () => {
-    const artifact = JSON.parse(
-      readFileSync(
-        "research/snapshot/checked-summaries/node-level5/goal-022-real-cross-arch-quickstart-fixture.json",
-        "utf8",
-      ),
-    );
-    expect(artifact).toMatchObject({
-      goal: "022",
-      profile: NODE_LEVEL5_HTTP_PROFILE_NAME,
-      sourceArchitecture: "amd64",
-      targetArchitecture: "arm64",
-      evidenceStatus: "proof",
-      implementationLevel: "not-implemented",
-      migrationCompleted: false,
-      sourceObservation: {
-        beforeSnapshotRequests: [{ response: { count: 1 } }, { response: { count: 2 } }],
-        snapshotCaptureState: {
-          observedNextCount: 3,
-          restoredInitialCount: 2,
-        },
-      },
-      targetContinuation: {
-        sourceArchitecture: "amd64",
-        targetArchitecture: "arm64",
-        targetRuntime: "node",
-        targetNativeExecution: true,
-        servedContinuedBehavior: true,
-        firstUserRequestAfterRestore: { response: { count: 3 } },
-      },
-      shortcutGates: {
-        sourceIsaEmulationUsed: false,
-        sidecarOutputUsed: false,
-        metadataOnlySuccess: false,
-      },
-    });
   });
 
   it("keeps every unsafe neighbor as a stable refusal family", () => {

@@ -47,7 +47,7 @@ Boot the workload, let it accumulate whatever in-memory state matters,
 then snapshot:
 
 ```bash
-npx machinen boot --name counter -p 3000:3000 --detached ./counter.tar.gz
+npx machinen boot --name counter -p 3000:3000 --detach ./counter.tar.gz
 # ... requests come in, the process builds up state ...
 npx machinen snapshot counter ./counter.snap
 ```
@@ -213,9 +213,8 @@ For now, two practical workarounds:
   Use `rsync -aS` instead of `scp -r` if you're going host-to-host —
   `scp` doesn't preserve sparseness.
 
-- If you know the workload only writes a few hundred MB, pre-size the
-  scratch disk down via `boot({ snapshot: "<smaller pre-allocated
-file>" })` so the bundle starts smaller.
+- Keep large, mutable datasets outside the root disk when possible and
+  attach them with `--mount-live`. Snapshot bundles carry rootdisk state,
+  so heavy writes inside the VM make the bundle larger.
 
-A `--compact` flag that trims unused blocks at snapshot time is on
-the roadmap.
+A future compaction step may trim unused blocks at snapshot time.
