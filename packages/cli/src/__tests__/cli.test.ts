@@ -1,6 +1,10 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ParseError } from "@machinen/runtime";
 import { describe, expect, it } from "vitest";
 import { formatMem } from "../format-mem.ts";
+import { cmdLs } from "../commands/registry.ts";
 import { formatPorts } from "../format-ports.ts";
 import { parseForkArgs } from "../parse-fork-args.ts";
 import { parseRestoreArgs } from "../parse-restore-args.ts";
@@ -350,6 +354,36 @@ describe("parseRunArgs --memory (#263 phase A)", () => {
   });
 });
 
+describe("parseRunArgs CPU resources", () => {
+  it("captures CPU quota, weight, and vCPU flags", () => {
+    const parsed = parseRunArgs([
+      "--cpu-quota",
+      "0.5",
+      "--cpu-weight=200",
+      "--vcpus",
+      "1",
+      "--",
+      "/bin/true",
+    ]);
+    expect(parsed.cpu).toEqual({ quotaCpus: 0.5, weight: 200, maxVcpus: 1 });
+  });
+
+  it("leaves CPU unset when no CPU flag is given", () => {
+    expect(parseRunArgs(["./bundle"]).cpu).toBeUndefined();
+  });
+
+  it("rejects malformed CPU flags", () => {
+    expect(() => parseRunArgs(["--cpu-quota", "half"])).toThrow(/positive CPU count/);
+    expect(() => parseRunArgs(["--cpu-quota", "0"])).toThrow(/must be > 0/);
+    expect(() => parseRunArgs(["--cpu-weight", "1.5"])).toThrow(/positive integer/);
+    expect(() => parseRunArgs(["--vcpus", "0"])).toThrow(/must be > 0/);
+  });
+
+  it("rejects duplicate CPU flags", () => {
+    expect(() => parseRunArgs(["--cpu-quota", "0.5", "--cpu-quota", "1"])).toThrow(/at most once/);
+  });
+});
+
 describe("parseForkArgs", () => {
   it("captures --new-name and --out-dir", () => {
     const parsed = parseForkArgs([
@@ -484,6 +518,11 @@ describe("parseForkArgs", () => {
     expect(() => parseForkArgs(["--memory", "1024", "--memory", "2048"])).toThrow(/at most once/);
   });
 
+  it("captures CPU flags for the forked sibling", () => {
+    const parsed = parseForkArgs(["--cpu-quota=0.25", "--cpu-weight", "50", "--vcpus", "1"]);
+    expect(parsed.cpu).toEqual({ quotaCpus: 0.25, weight: 50, maxVcpus: 1 });
+  });
+
   it("rejects a duplicate --mount but allows repeated --mount-live", () => {
     expect(() => parseForkArgs(["--mount", "a:/m/a", "--mount", "b:/m/b"])).toThrow(/at most once/);
     const parsed = parseForkArgs(["--mount-live", "a:/m/a", "--mount-live", "b:/m/b:ro"]);
@@ -498,6 +537,57 @@ describe("parseForkArgs", () => {
 
   it("rejects a duplicate --cwd", () => {
     expect(() => parseForkArgs(["--cwd", "/a", "--cwd", "/b"])).toThrow(/at most once/);
+  });
+});
+
+describe("cmdLs CPU observability", () => {
+  it("emits resolved CPU policy and enforcement in --json output", async () => {
+    const registryDir = mkdtempSync(join(tmpdir(), "machinen-cli-registry-"));
+    const previousRegistryDir = process.env.MACHINEN_REGISTRY_DIR;
+    const previousStdoutWrite = process.stdout.write;
+    let output = "";
+    try {
+      process.env.MACHINEN_REGISTRY_DIR = registryDir;
+      const entryDir = join(registryDir, String(process.pid));
+      mkdirSync(entryDir, { recursive: true });
+      writeFileSync(
+        join(entryDir, "meta.json"),
+        JSON.stringify({
+          pid: process.pid,
+          name: "cpu-test",
+          socketPath: "/tmp/machinen-test.sock",
+          startedAt: Date.now(),
+          cpu: {
+            maxVcpus: 1,
+            quotaCpus: 0.5,
+            weight: 250,
+            enforcement: { status: "linux-cgroup-v2" },
+          },
+        }),
+      );
+      process.stdout.write = ((chunk: string | Uint8Array) => {
+        output += chunk.toString();
+        return true;
+      }) as typeof process.stdout.write;
+
+      await cmdLs(["--json"]);
+
+      const parsed = JSON.parse(output);
+      expect(parsed.vms[0].cpu).toEqual({
+        max_vcpus: 1,
+        quota_cpus: 0.5,
+        weight: 250,
+        enforcement: { status: "linux-cgroup-v2" },
+      });
+    } finally {
+      process.stdout.write = previousStdoutWrite;
+      if (previousRegistryDir === undefined) {
+        delete process.env.MACHINEN_REGISTRY_DIR;
+      } else {
+        process.env.MACHINEN_REGISTRY_DIR = previousRegistryDir;
+      }
+      rmSync(registryDir, { recursive: true, force: true });
+    }
   });
 });
 

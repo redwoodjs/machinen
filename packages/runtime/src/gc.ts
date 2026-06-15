@@ -11,7 +11,7 @@
 //
 // Pid recycling is handled by `validatePid` (see pid-validate.ts).
 
-import { existsSync, rmSync, statSync, unlinkSync } from "node:fs";
+import { existsSync, rmdirSync, rmSync, statSync, unlinkSync } from "node:fs";
 import debugLib from "debug";
 import { validatePid, type PidStatus } from "./pid-validate.ts";
 import { listAll, removeEntry, type RegistryEntry } from "./registry.ts";
@@ -137,7 +137,11 @@ function rmPath(p: string): boolean {
   try {
     const st = statSync(p);
     if (st.isDirectory()) {
-      rmSync(p, { recursive: true, force: true });
+      if (p.startsWith("/sys/fs/cgroup/")) {
+        rmdirSync(p);
+      } else {
+        rmSync(p, { recursive: true, force: true });
+      }
     } else {
       unlinkSync(p);
     }

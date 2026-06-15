@@ -48,13 +48,17 @@ import {
 import { ensurePdeathsig, wrapWithPdeathsig } from "../pdeathsig.ts";
 import { PhaseTimer } from "../phase-timer.ts";
 import { readProcessIdentity } from "../pid-validate.ts";
+import { applyCpuControls, type CpuControlResult } from "../cpu-cgroup.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
 import { reflinkCopy } from "../reflink.ts";
-import { claimName, findEntry, removeEntry, writeEntry } from "../registry.ts";
+import { claimName, findEntry, writeEntry } from "../registry.ts";
+import { resolveCpuResourcePolicy, type ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "../rootfs-img.ts";
 import { resolveLiveMounts, type ResolvedLiveMount, synthesizeAndPackBundle } from "./bundle.ts";
+import { installVmExitCleanup } from "./exit-cleanup.ts";
 import { performForkWithRestore } from "./fork-core.ts";
 import { resolveExplicitMemoryCeilingMib, type BootResourcesOptions } from "./memory-resources.ts";
+import { registryCpu } from "./registry-cpu.ts";
 import type { VmHandle } from "../vm-handle.ts";
 import {
   allocateSparseFile,
@@ -566,6 +570,7 @@ interface BootPlan {
   binary: string;
   env: Record<string, string>;
   memoryCeilingMib: number | undefined;
+  cpuPolicy: ResolvedCpuResourcePolicy | undefined;
   diskAbs: string | undefined;
   perBootSnapDisk: string | undefined;
   wantsRootDisk: boolean;
@@ -690,6 +695,7 @@ interface SpawnedBootVmm {
   child: ChildProcessWithoutNullStreams;
   vmmPdeathsig: string | null;
   perBootMountUpper: string | undefined;
+  cpuControl: CpuControlResult;
 }
 
 async function spawnBootVmm(args: SpawnBootArgs): Promise<SpawnedBootVmm> {
@@ -704,10 +710,30 @@ async function spawnBootVmm(args: SpawnBootArgs): Promise<SpawnedBootVmm> {
     stdio,
   }) as ChildProcessWithoutNullStreams;
   closeMountDiskFds(mountDiskFds);
+  const cpuControl = applySpawnedCpuControls(child, args.plan.cpuPolicy);
   args.phases.end("vmm-spawn");
   args.phases.start("first-guest-byte");
   logVmmSpawn(child, args.plan.binary, vmmPdeathsig, args.bootT0);
-  return { child, vmmPdeathsig, perBootMountUpper: args.resources.mountDiskPaths?.upperPath };
+  return {
+    child,
+    vmmPdeathsig,
+    perBootMountUpper: args.resources.mountDiskPaths?.upperPath,
+    cpuControl,
+  };
+}
+
+function applySpawnedCpuControls(
+  child: ChildProcessWithoutNullStreams,
+  cpuPolicy: ResolvedCpuResourcePolicy | undefined,
+): CpuControlResult {
+  try {
+    return applyCpuControls(child.pid ?? -1, cpuPolicy);
+  } catch (err) {
+    try {
+      child.kill("SIGKILL");
+    } catch {}
+    throw err;
+  }
 }
 
 async function resolveVmmPdeathsig(opts: BootOptions): Promise<string | null> {
@@ -856,6 +882,8 @@ function buildRegisterArgs(
     gvExe: args.resources.gvExe,
     portForward: args.plan.portForward,
     memoryCeilingMib: args.plan.memoryCeilingMib,
+    cpuPolicy: args.plan.cpuPolicy,
+    cpuControl: args.spawned.cpuControl,
     statsFilePath: args.plan.statsFilePath,
     mountDiskPaths: args.resources.mountDiskPaths,
     liveMountsResolved: args.plan.liveMountsResolved,
@@ -887,6 +915,7 @@ function cleanupPathsForBoot(
     vsockTempDir: plan.vsockTempDir,
     statsTempDir: plan.statsTempDir,
     gvSocketDir: resources.gvSocketDir,
+    cpuCgroupPath: spawned.cpuControl.cgroupPath,
   });
 }
 
@@ -910,6 +939,7 @@ function installBootExitCleanup(
     bundleTempDir: args.resources.bundleTempDir,
     vsockTempDir: args.plan.vsockTempDir,
     statsTempDir: args.plan.statsTempDir,
+    cpuCgroupPath: args.spawned.cpuControl.cgroupPath,
     gvStop: args.resources.gvStop,
     registered,
   });
@@ -920,6 +950,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
   const env = buildVmmEnv(opts);
   configureNestedVirtualization(opts, assets.binary, env);
   const memoryCeilingMib = setMemoryCeiling(opts, env);
+  const cpuPolicy = resolveCpuResourcePolicy(opts.resources?.cpu);
   const scratch = prepareBootScratchDisk(opts, env, phases);
   const wantsRootDisk = wantsRootDiskBoot(opts);
   validateRootDiskRequest(opts, wantsRootDisk);
@@ -932,6 +963,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
     ...assets,
     env,
     memoryCeilingMib,
+    cpuPolicy,
     ...scratch,
     wantsRootDisk,
     vsockUdsPath: vsock.vsockUdsPath,
@@ -1596,6 +1628,7 @@ function collectCleanupPaths(state: {
   vsockTempDir: string | undefined;
   statsTempDir: string | undefined;
   gvSocketDir: string | undefined;
+  cpuCgroupPath: string | undefined;
 }): string[] {
   const paths: string[] = [];
   for (const p of [
@@ -1606,6 +1639,7 @@ function collectCleanupPaths(state: {
     state.vsockTempDir,
     state.statsTempDir,
     state.gvSocketDir,
+    state.cpuCgroupPath,
   ]) {
     if (p) {
       paths.push(p);
@@ -1631,6 +1665,8 @@ interface RegisterArgs {
   gvExe: string | undefined;
   portForward: NonNullable<BootOptions["portForward"]>;
   memoryCeilingMib: number | undefined;
+  cpuPolicy: ResolvedCpuResourcePolicy | undefined;
+  cpuControl: CpuControlResult;
   statsFilePath: string | undefined;
   mountDiskPaths: MountDiskPaths | undefined;
   liveMountsResolved: ResolvedLiveMount[];
@@ -1675,6 +1711,7 @@ function buildRegistryEntry(args: RegisterArgs) {
     gvproxyExe: registryGvproxyExe(args),
     portForward: nonEmptyList(args.portForward),
     memoryCeilingMib: args.memoryCeilingMib,
+    cpu: registryCpu(args.cpuPolicy, args.cpuControl),
     statsPath: args.statsFilePath,
     vmstatePath: args.vmstateStatePath,
     vmstateChainId: args.vmstateChainId,
@@ -1727,60 +1764,6 @@ function registryLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
       mode,
     })),
   );
-}
-
-interface ExitCleanupState {
-  child: ChildProcessWithoutNullStreams;
-  childPid: number;
-  bootT0: number;
-  perBootRootDisk: string | undefined;
-  perBootSnapDisk: string | undefined;
-  perBootMountUpper: string | undefined;
-  bundleTempDir: string | undefined;
-  vsockTempDir: string | undefined;
-  statsTempDir: string | undefined;
-  gvStop: (() => void) | undefined;
-  registered: boolean;
-}
-
-// On VMM exit, reap every per-boot artifact:
-//   - reflink copies (#121, #272) so guest writes don't persist;
-//   - bundle/vsock/stats temp dirs;
-//   - the gvproxy child;
-//   - the registry entry.
-// All best-effort: a clean exit, signal exit, and kernel panic all
-// land here, and the cached `<sha>.img` template is kept clean inline
-// at copy time, so nothing here depends on graceful exit.
-function installVmExitCleanup(state: ExitCleanupState): void {
-  state.child.once("exit", (code, signal) => {
-    debug(
-      "VMM exit pid=%d code=%s signal=%s lifetimeMs=%d",
-      state.childPid,
-      code,
-      signal,
-      Date.now() - state.bootT0,
-    );
-    for (const file of [state.perBootRootDisk, state.perBootSnapDisk, state.perBootMountUpper]) {
-      if (file) {
-        try {
-          unlinkSync(file);
-        } catch {}
-      }
-    }
-    for (const dir of [state.bundleTempDir, state.vsockTempDir, state.statsTempDir]) {
-      if (dir) {
-        try {
-          rmSync(dir, { recursive: true, force: true });
-        } catch {}
-      }
-    }
-    if (state.gvStop) {
-      state.gvStop();
-    }
-    if (state.registered) {
-      removeEntry(state.childPid);
-    }
-  });
 }
 
 // #221/#233: stamp first-guest-byte and emit the boot timeline. Either

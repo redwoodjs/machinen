@@ -1228,10 +1228,12 @@ export {
 export { warmImageConfigCache } from "./vm/index.ts";
 export type {
   AttachOptions,
+  BootCpuResourceOptions,
   BootMemoryResourceOptions,
   BootOptions,
   BootResourcesOptions,
   ImageConfig,
+  ResolvedCpuResourcePolicy,
   RestoreOptions,
 } from "./vm/index.ts";
 export {

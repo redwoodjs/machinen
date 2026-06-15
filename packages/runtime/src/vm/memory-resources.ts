@@ -1,4 +1,5 @@
 import { BootError } from "../errors.ts";
+import type { BootCpuResourceOptions } from "./cpu-resources.ts";
 import { autoSizeMemoryMib, validateMemoryMib } from "./helpers.ts";
 
 export interface BootResourcesOptions {
@@ -8,6 +9,11 @@ export interface BootResourcesOptions {
    * page reporting.
    */
   memory?: BootMemoryResourceOptions;
+  /**
+   * Goal-driven CPU policy: guest-visible vCPU count, host CPU quota,
+   * and relative fairness weight.
+   */
+  cpu?: BootCpuResourceOptions;
 }
 
 export interface BootMemoryResourceOptions {
