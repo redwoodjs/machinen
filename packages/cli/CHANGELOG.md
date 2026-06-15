@@ -1,5 +1,18 @@
 # @machinen/cli
 
+## 0.5.0
+
+### Minor Changes
+
+- c973069: Add persistent attach sessions for reconnectable interactive VM shells and TUIs. Use `machinen attach --session <name> <vm>` to create or reattach a named guest-managed PTY session, `machinen sessions <vm>` to list them, and `machinen session-kill <vm> <session>` to reset one. Plain `machinen attach <vm>` keeps the existing non-persistent behavior.
+
+### Patch Changes
+
+- Updated dependencies [2a9085e]
+- Updated dependencies [f8f84c2]
+- Updated dependencies [c973069]
+  - @machinen/runtime@0.5.0
+
 ## 0.4.2
 
 ### Patch Changes

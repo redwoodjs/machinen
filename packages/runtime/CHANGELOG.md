@@ -1,5 +1,23 @@
 # @machinen/runtime
 
+## 0.5.0
+
+### Minor Changes
+
+- 2a9085e: Add goal-driven VM memory resources via `boot({ resources: { memory: { maxMib, reclaim: "auto" } } })`, keep `memory` as a compatibility alias, and expose `memoryStats().balloonReclaimedBytes` as the clearer free-page-reporting reclaim counter.
+
+  Document the user-facing memory model with a simple guide covering ceiling versus host footprint, lazy grow-on-touch allocation, balloon reclaim, and the macOS `phys_footprint` caveat.
+
+- c973069: Add persistent attach sessions for reconnectable interactive VM shells and TUIs. Use `machinen attach --session <name> <vm>` to create or reattach a named guest-managed PTY session, `machinen sessions <vm>` to list them, and `machinen session-kill <vm> <session>` to reset one. Plain `machinen attach <vm>` keeps the existing non-persistent behavior.
+
+### Patch Changes
+
+- f8f84c2: Fix x64 Linux VMs booting with a fifth live mount by keeping virtio-fs IRQs valid under `noapic`.
+
+  Surface early guest kernel panics in boot errors by including a bounded VMM stderr tail and panic/oops classification.
+
+  Build the vmstate entropy reseed helper for the selected guest target so amd64 base assets do not receive an arm64 helper.
+
 ## 0.4.2
 
 ### Patch Changes
