@@ -347,6 +347,8 @@
 - [`BootOptions`](#bootoptions)
 - [`BootResourcesOptions`](#bootresourcesoptions)
 - [`BootMemoryResourceOptions`](#bootmemoryresourceoptions)
+- [`BootCpuResourceOptions`](#bootcpuresourceoptions)
+- [`ResolvedCpuResourcePolicy`](#resolvedcpuresourcepolicy)
 - [`attach`](#attach)
 - [`AttachOptions`](#attachoptions)
 - [`bootPty`](#bootpty)
@@ -15287,7 +15289,7 @@ whole-VM state captures RAM/device/vCPU state, not disk blocks.
 
 ##### rootDiskMode?
 
-> `optional` **rootDiskMode?**: `"block"` \| `"none"`
+> `optional` **rootDiskMode?**: `"none"` \| `"block"`
 
 Whether the VM intentionally booted without a root block device.
 
@@ -15425,6 +15427,36 @@ read by `vm.memoryStats()` so callers can compare host RSS
 against the ceiling without re-deriving it. Undefined when the
 caller pre-set `MACHINEN_MEMORY` via `vmmEnv` and we never
 computed our own.
+
+##### cpu?
+
+> `optional` **cpu?**: `object`
+
+CPU resource policy and host enforcement state resolved at boot.
+
+###### maxVcpus
+
+> **maxVcpus**: `number`
+
+###### quotaCpus?
+
+> `optional` **quotaCpus?**: `number`
+
+###### weight
+
+> **weight**: `number`
+
+###### enforcement
+
+> **enforcement**: `object`
+
+###### enforcement.status
+
+> **status**: `"unsupported"` \| `"none"` \| `"linux-cgroup-v2"`
+
+###### enforcement.reason?
+
+> `optional` **reason?**: `string`
 
 ##### statsPath?
 
@@ -18274,6 +18306,48 @@ the registry entry stays live, the vsock UDS is still listening.
 
 ***
 
+### BootCpuResourceOptions
+
+#### Properties
+
+##### maxVcpus?
+
+> `optional` **maxVcpus?**: `number`
+
+Maximum guest-visible vCPUs. Phase 1 supports only 1.
+
+##### quotaCpus?
+
+> `optional` **quotaCpus?**: `number`
+
+Maximum host CPU budget. Fractional values are scheduling quota, not guest CPUs.
+
+##### weight?
+
+> `optional` **weight?**: `number`
+
+Relative CPU share when VMs contend. Mirrors cgroup v2 cpu.weight range.
+
+***
+
+### ResolvedCpuResourcePolicy
+
+#### Properties
+
+##### maxVcpus
+
+> **maxVcpus**: `number`
+
+##### quotaCpus?
+
+> `optional` **quotaCpus?**: `number`
+
+##### weight
+
+> **weight**: `number`
+
+***
+
 ### BootResourcesOptions
 
 #### Properties
@@ -18285,6 +18359,13 @@ the registry entry stays live, the vsock UDS is still listening.
 Goal-driven memory policy: a fixed guest-visible ceiling whose host
 footprint grows on touched pages and shrinks through balloon free-
 page reporting.
+
+##### cpu?
+
+> `optional` **cpu?**: [`BootCpuResourceOptions`](#bootcpuresourceoptions)
+
+Goal-driven CPU policy: guest-visible vCPU count, host CPU quota,
+and relative fairness weight.
 
 ***
 
@@ -23836,6 +23917,14 @@ tarball-producing tool can pre-populate the lookup cache.
 
 > `readonly` **BOOT\_MEMORY\_INVALID**: `"BOOT_MEMORY_INVALID"` = `"BOOT_MEMORY_INVALID"`
 
+##### BOOT\_CPU\_INVALID
+
+> `readonly` **BOOT\_CPU\_INVALID**: `"BOOT_CPU_INVALID"` = `"BOOT_CPU_INVALID"`
+
+##### BOOT\_CPU\_UNSUPPORTED
+
+> `readonly` **BOOT\_CPU\_UNSUPPORTED**: `"BOOT_CPU_UNSUPPORTED"` = `"BOOT_CPU_UNSUPPORTED"`
+
 ##### BOOT\_NESTED\_VIRT\_UNSUPPORTED
 
 > `readonly` **BOOT\_NESTED\_VIRT\_UNSUPPORTED**: `"BOOT_NESTED_VIRT_UNSUPPORTED"` = `"BOOT_NESTED_VIRT_UNSUPPORTED"`
@@ -26051,6 +26140,20 @@ the guest agent skips entries that don't match.
 ###### Returns
 
 `number`
+
+##### resolveCpuResourcePolicy
+
+> **resolveCpuResourcePolicy**: (`cpu`) => [`ResolvedCpuResourcePolicy`](#resolvedcpuresourcepolicy) = `_resolveCpuResourcePolicy`
+
+###### Parameters
+
+###### cpu
+
+[`BootCpuResourceOptions`](#bootcpuresourceoptions)
+
+###### Returns
+
+[`ResolvedCpuResourcePolicy`](#resolvedcpuresourcepolicy)
 
 ## Functions
 

@@ -4,6 +4,12 @@
 
 import { ParseError } from "@machinen/runtime";
 
+export interface ParsedCpuResourceArgs {
+  maxVcpus?: number;
+  quotaCpus?: number;
+  weight?: number;
+}
+
 interface ParsedRunArgs {
   positional: string[];
   double_dash_args: string[];
@@ -50,6 +56,8 @@ interface ParsedRunArgs {
    * See #263.
    */
   memory?: number;
+  /** CPU resource policy. Quota is scheduling budget; vCPUs are guest-visible. */
+  cpu?: ParsedCpuResourceArgs;
   /**
    * Emit the boot identity (pid + name) as JSON to stdout. Only
    * meaningful with `--detach` — attached boots hand stdio to the
@@ -71,7 +79,10 @@ type RunFlag =
   | "name"
   | "detach"
   | "json"
-  | "memory";
+  | "memory"
+  | "cpuQuota"
+  | "cpuWeight"
+  | "vcpus";
 
 type RunFlagHandler = (state: RunParseState, flag: string, args: string[], index: number) => number;
 
@@ -88,6 +99,7 @@ interface RunParseState {
   guestCwd?: string;
   detached: boolean;
   memory?: number;
+  cpu: ParsedCpuResourceArgs;
   json: boolean;
 }
 
@@ -101,6 +113,9 @@ const RUN_VALUE_FLAGS = new Map<string, RunFlag>([
   ["--cwd", "guestCwd"],
   ["--name", "name"],
   ["--memory", "memory"],
+  ["--cpu-quota", "cpuQuota"],
+  ["--cpu-weight", "cpuWeight"],
+  ["--vcpus", "vcpus"],
 ]);
 
 const RUN_BARE_FLAGS = new Map<string, RunFlag>([
@@ -123,6 +138,9 @@ const RUN_FLAG_HANDLERS: Record<RunFlag, RunFlagHandler> = {
   detach: handleRunDetach,
   json: handleRunJson,
   memory: handleRunMemory,
+  cpuQuota: handleRunCpuQuota,
+  cpuWeight: handleRunCpuWeight,
+  vcpus: handleRunVcpus,
 };
 
 export function parseRunArgs(argv: string[]): ParsedRunArgs {
@@ -162,6 +180,7 @@ function newRunParseState(): RunParseState {
     seenHostPorts: new Set<number>(),
     nested: false,
     detached: false,
+    cpu: {},
     json: false,
   };
 }
@@ -192,6 +211,7 @@ function finishRunArgs(state: RunParseState, double_dash_args: string[]): Parsed
     guestCwd: state.guestCwd,
     detached: state.detached || undefined,
     memory: state.memory,
+    cpu: cpuArgsOrUndefined(state.cpu),
     json: state.json || undefined,
   };
 }
@@ -310,6 +330,44 @@ function handleRunMemory(
   const result = consumeMemory(flag, args, index);
   state.memory = result.value;
   return result.next;
+}
+
+// fallow-ignore-next-line code-duplication
+function handleRunCpuQuota(
+  state: RunParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  assertRunFlagUnused(state.cpu.quotaCpus !== undefined, "--cpu-quota");
+  const result = consumeCpuQuota(flag, args, index);
+  state.cpu.quotaCpus = result.value;
+  return result.next;
+}
+
+function handleRunCpuWeight(
+  state: RunParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  assertRunFlagUnused(state.cpu.weight !== undefined, "--cpu-weight");
+  const result = consumeCpuWeight(flag, args, index);
+  state.cpu.weight = result.value;
+  return result.next;
+}
+
+function handleRunVcpus(state: RunParseState, flag: string, args: string[], index: number): number {
+  assertRunFlagUnused(state.cpu.maxVcpus !== undefined, "--vcpus");
+  const result = consumeVcpus(flag, args, index);
+  state.cpu.maxVcpus = result.value;
+  return result.next;
+}
+
+function cpuArgsOrUndefined(cpu: ParsedCpuResourceArgs): ParsedCpuResourceArgs | undefined {
+  return cpu.maxVcpus === undefined && cpu.quotaCpus === undefined && cpu.weight === undefined
+    ? undefined
+    : cpu;
 }
 
 function assertRunFlagUnused(used: boolean, flag: string): void {
@@ -512,6 +570,63 @@ export function consumeMemory(
   const n = Number(spec);
   if (!Number.isFinite(n) || n <= 0) {
     throw new ParseError("PARSE_FLAG_MALFORMED", `--memory: must be > 0 (got '${spec}')`);
+  }
+  return { value: n, next };
+}
+
+// fallow-ignore-next-line code-duplication
+export function consumeCpuQuota(
+  flag: string,
+  args: string[],
+  i: number,
+): { value: number; next: number } {
+  const { spec, next } = takeValue(flag, args, i, "a CPU quota value");
+  if (!/^(?:[0-9]+|[0-9]*\.[0-9]+)$/.test(spec)) {
+    throw new ParseError(
+      "PARSE_FLAG_MALFORMED",
+      `${flag}: expected a positive CPU count, e.g. 0.5 or 1 (got '${spec}')`,
+    );
+  }
+  const n = Number(spec);
+  if (!Number.isFinite(n) || n <= 0) {
+    throw new ParseError("PARSE_FLAG_MALFORMED", `${flag}: must be > 0 (got '${spec}')`);
+  }
+  return { value: n, next };
+}
+
+export function consumeCpuWeight(
+  flag: string,
+  args: string[],
+  i: number,
+): { value: number; next: number } {
+  return consumePositiveInteger(flag, args, i, "a CPU weight value");
+}
+
+export function consumeVcpus(
+  flag: string,
+  args: string[],
+  i: number,
+): { value: number; next: number } {
+  return consumePositiveInteger(flag, args, i, "a vCPU count");
+}
+
+// fallow-ignore-next-line code-duplication
+function consumePositiveInteger(
+  flag: string,
+  args: string[],
+  i: number,
+  label: string,
+): { value: number; next: number } {
+  const { spec, next } = takeValue(flag, args, i, label);
+  if (!/^[0-9]+$/.test(spec)) {
+    throw new ParseError(
+      "PARSE_FLAG_MALFORMED",
+      `${flag}: expected a positive integer, got '${spec}'`,
+    );
+  }
+  const n = Number(spec);
+  if (!Number.isFinite(n) || n <= 0) {
+    throw new ParseError("PARSE_FLAG_MALFORMED", `${flag}: must be > 0 (got '${spec}')`);
   }
   return { value: n, next };
 }

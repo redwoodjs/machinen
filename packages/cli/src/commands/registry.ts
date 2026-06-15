@@ -50,6 +50,7 @@ function vmJson(entry: RegistryEntry, rssByPid: Map<number, number>): unknown {
     started_at: entry.startedAt,
     uptime_ms: Date.now() - entry.startedAt,
     memory: vmMemoryJson(entry, rssByPid),
+    cpu: vmCpuJson(entry),
     ports: portsJson(entry),
     forked_from: nullable(entry.forkedFrom),
   };
@@ -69,6 +70,18 @@ function vmMemoryJson(entry: RegistryEntry, rssByPid: Map<number, number>): unkn
   };
 }
 
+function vmCpuJson(entry: RegistryEntry): unknown {
+  if (!entry.cpu) {
+    return null;
+  }
+  return {
+    max_vcpus: entry.cpu.maxVcpus,
+    quota_cpus: nullable(entry.cpu.quotaCpus),
+    weight: entry.cpu.weight,
+    enforcement: entry.cpu.enforcement,
+  };
+}
+
 function nullable<T>(value: T | undefined): T | null {
   if (value === undefined) {
     return null;
@@ -81,7 +94,7 @@ function printLsTable(entries: RegistryEntry[], rssByPid: Map<number, number>): 
     process.stdout.write("(no running VMs)\n");
     return;
   }
-  const header = ["PID", "NAME", "UP", "MEM", "PORTS", "FORKED-FROM"];
+  const header = ["PID", "NAME", "UP", "MEM", "CPU", "PORTS", "FORKED-FROM"];
   const rows = lsRows(entries, rssByPid);
   const widths = tableWidths(header, rows);
   const visible = visibleLsColumns(header, widths);
@@ -94,6 +107,7 @@ function lsRows(entries: RegistryEntry[], rssByPid: Map<number, number>): string
     entry.name ?? "-",
     formatUptime(Date.now() - entry.startedAt),
     formatMem(rssByPid.get(entry.pid) ?? null, entry.memoryCeilingMib),
+    formatCpu(entry.cpu),
     formatPorts(entry.portForward),
     entry.forkedFrom ?? "-",
   ]);
@@ -110,8 +124,10 @@ function visibleLsColumns(header: string[], widths: number[]): number[] {
   const fullWidth =
     widths.reduce((sum, width) => sum + width, 0) + gap.length * (widths.length - 1);
   const cols = process.stdout.columns;
-  const includeMem = cols === undefined || fullWidth <= cols;
-  return includeMem ? header.map((_, i) => i) : header.map((_, i) => i).filter((i) => i !== 3);
+  const includeWide = cols === undefined || fullWidth <= cols;
+  return includeWide
+    ? header.map((_, i) => i)
+    : header.map((_, i) => i).filter((i) => i !== 3 && i !== 4);
 }
 
 function printTable(header: string[], rows: string[][], widths: number[], visible: number[]): void {
@@ -123,6 +139,14 @@ function printTable(header: string[], rows: string[][], widths: number[], visibl
 
 function formatTableLine(cells: string[], widths: number[], visible: number[]): string {
   return visible.map((index) => cells[index]!.padEnd(widths[index]!)).join("  ");
+}
+
+function formatCpu(cpu: RegistryEntry["cpu"]): string {
+  if (!cpu) {
+    return "-";
+  }
+  const quota = cpu.quotaCpus === undefined ? "max" : `${cpu.quotaCpus}c`;
+  return `${quota}/${cpu.maxVcpus}v/w${cpu.weight}/${cpu.enforcement.status}`;
 }
 
 function formatUptime(ms: number): string {
@@ -177,6 +201,7 @@ function printGcResults(results: ReturnType<typeof runGc>, dryRun: boolean): voi
   }
 }
 
+// fallow-ignore-next-line code-duplication
 function printGcResult(result: ReturnType<typeof runGc>[number], dryRun: boolean): void {
   const label = result.name ? `${result.name} (pid ${result.pid})` : `pid ${result.pid}`;
   const verb = dryRun ? "would clean" : "cleaned";
@@ -193,6 +218,7 @@ function printIndentedPaths(paths: string[], prefix: string): void {
   }
 }
 
+// fallow-ignore-next-line code-duplication
 function consumeJsonFlag(args: string[]): { json: boolean; rest: string[] } {
   const rest: string[] = [];
   let json = false;

@@ -145,6 +145,16 @@ export interface RegistryEntry {
    * computed our own.
    */
   memoryCeilingMib?: number;
+  /** CPU resource policy and host enforcement state resolved at boot. */
+  cpu?: {
+    maxVcpus: number;
+    quotaCpus?: number;
+    weight: number;
+    enforcement: {
+      status: "none" | "linux-cgroup-v2" | "unsupported";
+      reason?: string;
+    };
+  };
   /**
    * Absolute path to the shared stats file the VMM writes balloon
    * counters to (#274). 16 bytes, mmaped MAP_SHARED on the VMM side

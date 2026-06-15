@@ -11,15 +11,20 @@
 import { ParseError } from "@machinen/runtime";
 
 import {
+  consumeCpuQuota,
+  consumeCpuWeight,
   consumeEnv,
   consumeGuestCwd,
   consumeLiveMount,
   consumeMemory,
   consumeMount,
   consumePortForward,
+  consumeVcpus,
   takeValue,
+  type ParsedCpuResourceArgs,
 } from "./parse-run-args.ts";
 
+// fallow-ignore-next-line code-duplication
 interface ParsedForkArgs {
   /** Optional name for the fork (`--new-name <n>`). */
   newName?: string;
@@ -74,6 +79,8 @@ interface ParsedForkArgs {
    * shape as `boot --memory`. The runtime auto-sizes by default.
    */
   memory?: number;
+  /** CPU resource policy for the forked sibling. */
+  cpu?: ParsedCpuResourceArgs;
   /** Args we didn't recognize — passed to `parseTargetFlags`. */
   rest: string[];
 }
@@ -89,7 +96,10 @@ type ForkFlag =
   | "liveMount"
   | "env"
   | "guestCwd"
-  | "memory";
+  | "memory"
+  | "cpuQuota"
+  | "cpuWeight"
+  | "vcpus";
 
 type ForkFlagHandler = (
   state: ForkParseState,
@@ -98,6 +108,7 @@ type ForkFlagHandler = (
   index: number,
 ) => number;
 
+// fallow-ignore-next-line code-duplication
 interface ForkParseState {
   newName?: string;
   outDir?: string;
@@ -111,6 +122,7 @@ interface ForkParseState {
   env: Record<string, string>;
   guestCwd?: string;
   memory?: number;
+  cpu: ParsedCpuResourceArgs;
   rest: string[];
 }
 
@@ -124,6 +136,9 @@ const FORK_VALUE_FLAGS = new Map<string, ForkFlag>([
   ["--env", "env"],
   ["--cwd", "guestCwd"],
   ["--memory", "memory"],
+  ["--cpu-quota", "cpuQuota"],
+  ["--cpu-weight", "cpuWeight"],
+  ["--vcpus", "vcpus"],
 ]);
 
 const FORK_BARE_FLAGS = new Map<string, ForkFlag>([
@@ -144,6 +159,9 @@ const FORK_FLAG_HANDLERS: Record<ForkFlag, ForkFlagHandler> = {
   env: handleForkEnv,
   guestCwd: handleForkGuestCwd,
   memory: handleForkMemory,
+  cpuQuota: handleForkCpuQuota,
+  cpuWeight: handleForkCpuWeight,
+  vcpus: handleForkVcpus,
 };
 
 export function parseForkArgs(argv: string[]): ParsedForkArgs {
@@ -171,6 +189,7 @@ function newForkParseState(): ForkParseState {
     seenHostPorts: new Set<number>(),
     liveMounts: [],
     env: {},
+    cpu: {},
     rest: [],
   };
 }
@@ -199,6 +218,7 @@ function finishForkArgs(state: ForkParseState): ParsedForkArgs {
     env: Object.keys(state.env).length > 0 ? state.env : undefined,
     guestCwd: state.guestCwd,
     memory: state.memory,
+    cpu: cpuArgsOrUndefined(state.cpu),
     rest: state.rest,
   };
 }
@@ -317,6 +337,48 @@ function handleForkMemory(
   const result = consumeMemory(flag, args, index);
   state.memory = result.value;
   return result.next;
+}
+
+function handleForkCpuQuota(
+  state: ForkParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  assertForkFlagUnused(state.cpu.quotaCpus !== undefined, "--cpu-quota");
+  const result = consumeCpuQuota(flag, args, index);
+  state.cpu.quotaCpus = result.value;
+  return result.next;
+}
+
+function handleForkCpuWeight(
+  state: ForkParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  assertForkFlagUnused(state.cpu.weight !== undefined, "--cpu-weight");
+  const result = consumeCpuWeight(flag, args, index);
+  state.cpu.weight = result.value;
+  return result.next;
+}
+
+function handleForkVcpus(
+  state: ForkParseState,
+  flag: string,
+  args: string[],
+  index: number,
+): number {
+  assertForkFlagUnused(state.cpu.maxVcpus !== undefined, "--vcpus");
+  const result = consumeVcpus(flag, args, index);
+  state.cpu.maxVcpus = result.value;
+  return result.next;
+}
+
+function cpuArgsOrUndefined(cpu: ParsedCpuResourceArgs): ParsedCpuResourceArgs | undefined {
+  return cpu.maxVcpus === undefined && cpu.quotaCpus === undefined && cpu.weight === undefined
+    ? undefined
+    : cpu;
 }
 
 function assertForkFlagUnused(used: boolean, flag: string): void {

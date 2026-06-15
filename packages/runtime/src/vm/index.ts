@@ -32,6 +32,7 @@
 
 export { attach, type AttachOptions } from "./attach.ts";
 export { boot, type BootOptions } from "./boot.ts";
+export type { BootCpuResourceOptions, ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
 export type { BootMemoryResourceOptions, BootResourcesOptions } from "./memory-resources.ts";
 export { buildMachinenConfig, resolveRestoreLiveMounts } from "./bundle.ts";
 export { measureFirstByte } from "./fork.ts";
@@ -49,6 +50,7 @@ import {
   CONSOLE_TAIL_BYTES as _CONSOLE_TAIL_BYTES,
   validateMemoryMib as _validateMemoryMib,
 } from "./helpers.ts";
+import { resolveCpuResourcePolicy as _resolveCpuResourcePolicy } from "./cpu-resources.ts";
 import { resolveMemoryCeilingMib as _resolveMemoryCeilingMib } from "./memory-resources.ts";
 
 // Visible to tests that exercise the ring-buffer logic without booting a VM.
@@ -57,4 +59,5 @@ export const _internal = {
   CONSOLE_TAIL_BYTES: _CONSOLE_TAIL_BYTES,
   validateMemoryMib: _validateMemoryMib,
   resolveMemoryCeilingMib: _resolveMemoryCeilingMib,
+  resolveCpuResourcePolicy: _resolveCpuResourcePolicy,
 };

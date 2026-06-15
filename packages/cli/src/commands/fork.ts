@@ -194,6 +194,7 @@ async function startForkVm(vm: VmHandle, opts: ForkCommandOptions): Promise<VmHa
       env: opts.parsed.env,
       guestCwd: opts.parsed.guestCwd,
       memory: opts.parsed.memory,
+      resources: opts.parsed.cpu ? { cpu: opts.parsed.cpu } : undefined,
       onLog: opts.quiet.onLog,
     });
   } catch (err) {

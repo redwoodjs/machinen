@@ -1,14 +1,6 @@
 // Inject a task-grouped table of contents into packages/runtime/API.md.
-//
-// typedoc's default grouping is by TypeScript kind (Classes,
-// Interfaces, Type Aliases, Variables, Functions). For a public
-// reference that's mechanical, not navigable. This post-processor
-// keeps the per-kind bodies typedoc emits and prepends a hand-curated
-// TOC that buckets symbols by "what is the reader trying to do?".
-//
-// The mapping below is the single source of truth for those buckets.
-// When adding a public export to packages/runtime/src/index.ts, add it
-// here too. The script validates every referenced/generated H3 so drift
+// typedoc groups by TypeScript kind; this post-processor prepends a
+// hand-curated TOC and validates every referenced/generated H3 so drift
 // fails the build instead of silently producing broken anchors.
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -361,6 +353,8 @@ const TOC = {
     "BootOptions",
     "BootResourcesOptions",
     "BootMemoryResourceOptions",
+    "BootCpuResourceOptions",
+    "ResolvedCpuResourcePolicy",
     "attach",
     "AttachOptions",
     "bootPty",

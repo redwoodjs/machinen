@@ -149,6 +149,7 @@ async function startBootVm(
       guestCwd: parsed.guestCwd,
       detached: parsed.detached,
       memory: parsed.memory,
+      resources: parsed.cpu ? { cpu: parsed.cpu } : undefined,
       onLog: quiet.onLog,
       // Interactive CLI: the session lives as long as the guest does.
       // Don't impose the default 60s cap. Detached boots fall back to
