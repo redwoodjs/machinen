@@ -29,7 +29,7 @@ export function applyCpuControls(
   if (policy === undefined || !cpuPolicyNeedsCgroup(policy)) {
     return { status: "none" };
   }
-  if (osPlatform() !== "linux") {
+  if (osPlatform() !== "linux" && opts.parentDir === undefined) {
     return { status: "unsupported", reason: "hard CPU quota uses Linux cgroup v2" };
   }
   const parentDir = opts.parentDir ?? process.env.MACHINEN_CGROUP_PARENT ?? DEFAULT_CGROUP_PARENT;
