@@ -345,6 +345,8 @@
 
 - [`boot`](#boot)
 - [`BootOptions`](#bootoptions)
+- [`BootResourcesOptions`](#bootresourcesoptions)
+- [`BootMemoryResourceOptions`](#bootmemoryresourceoptions)
 - [`attach`](#attach)
 - [`AttachOptions`](#attachoptions)
 - [`bootPty`](#bootpty)
@@ -16865,8 +16867,9 @@ Supported on both boot-owned and attach handles.
 
 Read the host's view of this VM's memory: the ceiling the VMM was
 sized at, the host RSS the VMM is currently holding, the bytes
-the virtio-balloon device has reported back to the host, and the
-count of lazy-restore pages the guest hasn't faulted in yet (#274).
+the virtio-balloon device has reclaimed through free-page reporting,
+and the count of lazy-restore pages the guest hasn't faulted in yet
+(#274).
 
 Pure read, no side effects. The numbers come from:
   - `ceiling`           — captured at boot from the resolved
@@ -16875,12 +16878,12 @@ Pure read, no side effects. The numbers come from:
   - `hostRss`           — `/proc/<vmm>/status:VmRSS` on Linux,
                            `ps -o rss=` on Darwin. May be `null`
                            if the VMM exited between calls.
-  - `balloonInflated`   — running total of bytes the balloon
+  - `balloonReclaimed`  — running total of bytes the balloon
                            device has reclaimed via free-page
-                           reporting (`mmap MAP_FIXED` on the
-                           reported runs). Read out of the shared
-                           stats file the VMM mmaps at startup.
-                           `0` when the VMM was launched without
+                           reporting (`madvise` on the reported
+                           runs). Read out of the shared stats file
+                           the VMM mmaps at startup. `0` when the
+                           VMM was launched without
                            `MACHINEN_STATS_FILE`.
   - `lazyPagesPending`  — for forks restored lazily (#266), the
                            count of pages the rewriter marked
@@ -16955,9 +16958,9 @@ Resident bytes the host kernel sees the VMM holding. `null`
 when the VMM has exited or `/proc/<pid>/status` / `ps` couldn't
 be read.
 
-##### balloonInflatedBytes
+##### balloonReclaimedBytes
 
-> **balloonInflatedBytes**: `number`
+> **balloonReclaimedBytes**: `number`
 
 Bytes the virtio-balloon device has reclaimed via free-page
 reporting since the VMM started. Strictly increases over the
@@ -16965,6 +16968,14 @@ VMM's lifetime; if `hostRssBytes` is well below ceiling, balloon
 reclaim is the reason. Read out of the shared stats file the VMM
 writes via `MACHINEN_STATS_FILE`. `0` when the VMM was launched
 without that env var.
+
+##### balloonInflatedBytes
+
+> **balloonInflatedBytes**: `number`
+
+Compatibility alias for `balloonReclaimedBytes`. The old name came
+from classic inflate/deflate balloon terminology, but Machinen uses
+free-page reporting for reclaim.
 
 ##### lazyPagesPending
 
@@ -17758,21 +17769,23 @@ authoritative.
 
 [`BootOptions`](#bootoptions).[`nested`](#nested-2)
 
+##### resources?
+
+> `optional` **resources?**: [`BootResourcesOptions`](#bootresourcesoptions)
+
+Explicit resource goals for the VM. Prefer this for user-facing memory policy.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`resources`](#resources-13)
+
 ##### memory?
 
 > `optional` **memory?**: `number`
 
-Guest RAM ceiling, in MiB (decimal integer; no unit suffixes). The
-VMM reads this as `MACHINEN_MEMORY` (#263 phase A). This is the
-guest's memory layout limit, not the host memory used right now.
-Defaults to `min(host_ram_mib / 2, 4096)` with a floor of 512 — a
-modest ceiling for typical dev workloads. The ceiling is
-approximately free until the guest touches a page (see
-`packages/microvm/docs/memory.md`), but a bigger ceiling still
-increases guest metadata and the possible high-water mark.
-
-This is documented as a debug knob — most workloads should never
-need to set it.
+Compatibility alias for `resources.memory.maxMib`, in MiB. This is
+a guest-visible ceiling, not current host RSS; prefer
+`resources.memory` for user-facing policy.
 
 ###### Inherited from
 
@@ -18182,21 +18195,19 @@ When set, the runtime does a best-effort host preflight and passes
 `MACHINEN_NESTED=1` to the VMM. The VMM's backend probe is still
 authoritative.
 
+##### resources?
+
+> `optional` **resources?**: [`BootResourcesOptions`](#bootresourcesoptions)
+
+Explicit resource goals for the VM. Prefer this for user-facing memory policy.
+
 ##### memory?
 
 > `optional` **memory?**: `number`
 
-Guest RAM ceiling, in MiB (decimal integer; no unit suffixes). The
-VMM reads this as `MACHINEN_MEMORY` (#263 phase A). This is the
-guest's memory layout limit, not the host memory used right now.
-Defaults to `min(host_ram_mib / 2, 4096)` with a floor of 512 — a
-modest ceiling for typical dev workloads. The ceiling is
-approximately free until the guest touches a page (see
-`packages/microvm/docs/memory.md`), but a bigger ceiling still
-increases guest metadata and the possible high-water mark.
-
-This is documented as a debug knob — most workloads should never
-need to set it.
+Compatibility alias for `resources.memory.maxMib`, in MiB. This is
+a guest-visible ceiling, not current host RSS; prefer
+`resources.memory` for user-facing policy.
 
 ##### pdeathsig?
 
@@ -18260,6 +18271,39 @@ hook. After detach the parent is gone, so those leak until
 
 Reattach with `attach({ name | pid })` from another process —
 the registry entry stays live, the vsock UDS is still listening.
+
+***
+
+### BootResourcesOptions
+
+#### Properties
+
+##### memory?
+
+> `optional` **memory?**: [`BootMemoryResourceOptions`](#bootmemoryresourceoptions)
+
+Goal-driven memory policy: a fixed guest-visible ceiling whose host
+footprint grows on touched pages and shrinks through balloon free-
+page reporting.
+
+***
+
+### BootMemoryResourceOptions
+
+#### Properties
+
+##### maxMib
+
+> **maxMib**: `number`
+
+Guest-visible RAM ceiling in MiB.
+
+##### reclaim?
+
+> `optional` **reclaim?**: `"auto"`
+
+Reclaim policy for guest-free pages. `auto` uses the always-present
+virtio-balloon free-page-reporting path.
 
 ***
 
@@ -18576,21 +18620,23 @@ authoritative.
 
 [`BootOptions`](#bootoptions).[`nested`](#nested-2)
 
+##### resources?
+
+> `optional` **resources?**: [`BootResourcesOptions`](#bootresourcesoptions)
+
+Explicit resource goals for the VM. Prefer this for user-facing memory policy.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`resources`](#resources-13)
+
 ##### memory?
 
 > `optional` **memory?**: `number`
 
-Guest RAM ceiling, in MiB (decimal integer; no unit suffixes). The
-VMM reads this as `MACHINEN_MEMORY` (#263 phase A). This is the
-guest's memory layout limit, not the host memory used right now.
-Defaults to `min(host_ram_mib / 2, 4096)` with a floor of 512 — a
-modest ceiling for typical dev workloads. The ceiling is
-approximately free until the guest touches a page (see
-`packages/microvm/docs/memory.md`), but a bigger ceiling still
-increases guest metadata and the possible high-water mark.
-
-This is documented as a debug knob — most workloads should never
-need to set it.
+Compatibility alias for `resources.memory.maxMib`, in MiB. This is
+a guest-visible ceiling, not current host RSS; prefer
+`resources.memory` for user-facing policy.
 
 ###### Inherited from
 
@@ -25977,6 +26023,30 @@ the guest agent skips entries that don't match.
 ###### mib
 
 `number`
+
+###### Returns
+
+`number`
+
+##### resolveMemoryCeilingMib
+
+> **resolveMemoryCeilingMib**: (`opts`, `autoSize`) => `number` = `_resolveMemoryCeilingMib`
+
+###### Parameters
+
+###### opts
+
+###### memory?
+
+`number`
+
+###### resources?
+
+[`BootResourcesOptions`](#bootresourcesoptions)
+
+###### autoSize?
+
+() => `number`
 
 ###### Returns
 

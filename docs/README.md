@@ -10,6 +10,7 @@ Then dive deeper:
 - [Hand off a running VM](./guides/handoff.md) — snapshot → transfer → restore
 - [Snapshot, restore, and fork](./guides/snapshot-restore-fork.md) — clone a running process, including vmstate timer, entropy, and socket contracts
 - [Mount files into a VM](./guides/mount-files.md) — `--mount`, `--mount-live`, `vm.writeFile`
+- [Memory in machinen](./guides/memory.md) — ceiling vs host footprint, grow-on-touch, and reclaim
 - [Networking](./guides/networking.md) — port forwards and outbound traffic via gvproxy
 - [Nested virtualization](./guides/nested-virtualization.md) — opt-in `/dev/kvm` inside a VM
 - [Run Firecracker inside machinen](./guides/firecracker.md) — boot an aarch64 L2 microVM with nested KVM
