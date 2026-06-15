@@ -8,6 +8,7 @@
 
 import { execSync, spawn } from "node:child_process";
 import {
+  chmodSync,
   existsSync,
   mkdtempSync,
   readFileSync,
@@ -32,6 +33,17 @@ import { performSnapshot } from "../vm/snapshot.ts";
 import { buildGuestHostname } from "../vm/helpers.ts";
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
+
+function writePanicVmm(path: string): void {
+  writeFileSync(
+    path,
+    "#!/bin/sh\n" +
+      "echo 'Linux version fake-test' >&2\n" +
+      "echo 'Kernel panic - not syncing: fake panic before exec-agent' >&2\n" +
+      "exit 0\n",
+  );
+  chmodSync(path, 0o755);
+}
 
 function findBootTestBinary(): string | undefined {
   const cacheDir = resolve(microvmRoot, ".zig-cache/o");
@@ -98,6 +110,38 @@ function requireFixturesOrSkip(extraPaths: string[] = []): {
 describe("boot", () => {
   it("throws BootError when the binary path does not exist", async () => {
     await expect(boot({ binary: "/nope/does/not/exist" })).rejects.toThrow(BootError);
+  });
+
+  it("surfaces early guest panic stderr during detached readiness", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-panic-vmm-"));
+    const bin = join(dir, "panic-vmm.sh");
+    try {
+      writePanicVmm(bin);
+      const err = await boot({ binary: bin, detached: true, timeoutMs: 1_000 }).catch((e) => e);
+      expect(err).toBeInstanceOf(BootError);
+      expect(err.code).toBe("BOOT_DETACHED_READINESS_FAILED");
+      expect(err.message).toContain("guest kernel panic/oops before exec-agent readiness");
+      expect(err.message).toContain("--- VMM stderr tail ---");
+      expect(err.message).toContain("Kernel panic - not syncing: fake panic before exec-agent");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("adds early guest panic stderr to exec-agent failures after VMM exit", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-panic-vmm-"));
+    const bin = join(dir, "panic-vmm.sh");
+    try {
+      writePanicVmm(bin);
+      const vm = await boot({ binary: bin, timeoutMs: 1_000 });
+      await expect(
+        vm.execRaw("true", { connectTimeoutMs: 500, execTimeoutMs: 500 }),
+      ).rejects.toThrow(
+        /guest kernel panic\/oops before exec-agent readiness.*Kernel panic - not syncing/s,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   // #200: the VMM was spawned without parent-death wiring, so a

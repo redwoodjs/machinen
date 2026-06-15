@@ -435,7 +435,10 @@ fn default_cmdline() []const u8 {
         "virtio_mmio.device=512@0x0a001000:13 " ++
         "virtio_mmio.device=512@0x0a001200:14 " ++
         "virtio_mmio.device=512@0x0a001400:15 " ++
-        "virtio_mmio.device=512@0x0a001600:16";
+        // x86 runs with `noapic`, so IRQ 16 is not routable via the
+        // legacy PIC. Use the otherwise-free COM2 line for the fifth
+        // virtio-fs slot instead of advertising an invalid GSI (#943).
+        "virtio_mmio.device=512@0x0a001600:3";
 }
 
 fn write_gdt(ram: []u8) void {
@@ -1276,7 +1279,7 @@ const IrqMap = struct {
             .balloon = 9,
             .blk3 = 10,
             .blk4 = 11,
-            .virtiofs = .{ 12, 13, 14, 15, 16 },
+            .virtiofs = .{ 12, 13, 14, 15, 3 },
         };
     }
 };
@@ -1623,4 +1626,16 @@ test "x86 cmdline advertises ttyS0, noapic, and virtio-mmio" {
     try std.testing.expect(std.mem.indexOf(u8, cmd, "console=ttyS0") != null);
     try std.testing.expect(std.mem.indexOf(u8, cmd, "noapic") != null);
     try std.testing.expect(std.mem.indexOf(u8, cmd, "virtio_mmio.device=512@0x0a000200:6") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cmd, "virtio_mmio.device=512@0x0a001600:3") != null);
+    try std.testing.expect(
+        std.mem.indexOf(u8, cmd, "virtio_mmio.device=512@0x0a001600:16") == null,
+    );
+}
+
+test "x86 fifth virtio-fs slot uses a legacy noapic IRQ" {
+    const irqs = IrqMap.init();
+    try std.testing.expectEqual(@as(u32, 3), irqs.virtiofs[4]);
+    for (irqs.virtiofs) |irq| {
+        try std.testing.expect(irq < 16);
+    }
 }
