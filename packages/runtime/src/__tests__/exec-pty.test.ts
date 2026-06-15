@@ -98,6 +98,68 @@ describe("VsockExec.startPty wire protocol", () => {
     }
   });
 
+  it("sends a PTYSESSION header with session and cmd payloads", async () => {
+    const agent = startCapturingAgent(socketPath, (sock) => {
+      setTimeout(() => {
+        sock.write("X 0\n");
+        sock.end();
+      }, 10);
+    });
+    try {
+      const stdin = new PassThrough();
+      const stdout = new CapturingWritable();
+      const handle = VsockExec.startPty(socketPath, "pi", {
+        cols: 100,
+        rows: 30,
+        stdin,
+        stdout,
+        connectTimeoutMs: 2_000,
+        sessionName: "default",
+      });
+      await expect(handle.result).resolves.toEqual({ exitCode: 0 });
+      const sent = collectBytes(agent.received).toString("utf8");
+      expect(sent.startsWith("PTYSESSION 100 30 7 2\n")).toBe(true);
+      expect(sent.slice("PTYSESSION 100 30 7 2\n".length)).toContain("defaultpi");
+    } finally {
+      await agent.stop();
+    }
+  });
+
+  it("lists and kills persistent PTY sessions with control opcodes", async () => {
+    const agent = startCapturingAgent(socketPath, (sock) => {
+      sock.once("data", (data: Buffer) => {
+        if (data.toString("utf8").startsWith("PTYLIST")) {
+          sock.write("O 13\ndefault\t1234\nX 0\n");
+          sock.end();
+          return;
+        }
+        sock.write("X 1\n");
+        sock.end();
+      });
+    });
+    try {
+      await expect(VsockExec.listPtySessions(socketPath)).resolves.toEqual([
+        { name: "default", pid: 1234 },
+      ]);
+      expect(collectBytes(agent.received).toString("utf8")).toContain("PTYLIST\n");
+    } finally {
+      await agent.stop();
+    }
+
+    const killAgent = startCapturingAgent(socketPath, (sock) => {
+      sock.once("data", () => {
+        sock.write("X 0\n");
+        sock.end();
+      });
+    });
+    try {
+      await expect(VsockExec.killPtySession(socketPath, "default")).resolves.toBe(true);
+      expect(collectBytes(killAgent.received).toString("utf8")).toBe("PTYKILL 7\ndefault");
+    } finally {
+      await killAgent.stop();
+    }
+  });
+
   it("forwards stdin chunks as I <n>\\n<bytes> frames", async () => {
     const agent = startCapturingAgent(socketPath, (sock) => {
       // Wait for input, then exit.

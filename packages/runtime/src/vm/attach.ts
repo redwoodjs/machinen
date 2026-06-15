@@ -135,6 +135,14 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       return VsockExec.startPty(entry.socketPath, cmd, ptyOpts);
     },
 
+    listSessions() {
+      return VsockExec.listPtySessions(entry.socketPath);
+    },
+
+    killSession(name) {
+      return VsockExec.killPtySession(entry.socketPath, name);
+    },
+
     async writeFile(guestPath, contents, writeOpts) {
       for (const cmd of buildWriteFileCmds(guestPath, contents, writeOpts)) {
         await this.exec(cmd);

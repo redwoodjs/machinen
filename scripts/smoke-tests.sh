@@ -1243,17 +1243,28 @@ if (( B3_REPORTED_A == 0 )); then
   fail "B3 — bytes_reported == 0 after 30 s; REPORTING didn't fire (#290 regression?)"
 fi
 
-# Re-sample after 5 reporting cycles (~10 s). A non-terminating
-# cycle would add hundreds of MiB to the value here.
-sleep 10
-B3_REPORTED_B=$(read_b3_reported)
-echo "  bytes_reported after +10s gap   = $B3_REPORTED_B"
+# Re-sample across several reporting windows. Healthy kernels can
+# trickle a final tiny batch after the first 30 s settle on busy hosts;
+# the #290 regression this guards against never plateaus and adds
+# hundreds of MiB. Require one stable adjacent sample before passing.
+B3_REPORTED_PREV=$B3_REPORTED_A
+B3_PLATEAUED=0
+for B3_ATTEMPT in 1 2 3 4 5 6; do
+  sleep 10
+  B3_REPORTED_NEXT=$(read_b3_reported)
+  echo "  bytes_reported after +$((B3_ATTEMPT * 10))s gap = $B3_REPORTED_NEXT"
+  if (( B3_REPORTED_NEXT == B3_REPORTED_PREV )); then
+    B3_PLATEAUED=1
+    break
+  fi
+  B3_REPORTED_PREV=$B3_REPORTED_NEXT
+done
 
-if (( B3_REPORTED_B != B3_REPORTED_A )); then
+if (( B3_PLATEAUED == 0 )); then
   tail -100 "$B3_RESTORE_LOG" >&2
-  fail "B3 — bytes_reported still growing on lazy-restored VM ($B3_REPORTED_A → $B3_REPORTED_B); kernel page-reporting cycle isn't terminating (#290 regression?)"
+  fail "B3 — bytes_reported still growing on lazy-restored VM ($B3_REPORTED_A → $B3_REPORTED_PREV); kernel page-reporting cycle isn't terminating (#290 regression?)"
 fi
-pass "lazy-restored VM's bytes_reported plateaued at $B3_REPORTED_A bytes (cycle terminated)"
+pass "lazy-restored VM's bytes_reported plateaued at $B3_REPORTED_PREV bytes (cycle terminated)"
 
 cleanup_b3_restore
 cleanup_b3

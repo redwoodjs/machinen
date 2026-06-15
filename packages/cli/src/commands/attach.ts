@@ -14,11 +14,12 @@ export async function cmdAttach(args: string[]): Promise<number> {
   // surface "no running VM found", not the TTY error. The TTY error
   // is only useful once we know the VM exists.
   const vm = await attach(opts.target).catch(handleError);
-  return runAttachedPty(vm, opts.shell);
+  return runAttachedPty(vm, opts.shell, opts.sessionName);
 }
 
 interface AttachOptionsCli {
   shell: string;
+  sessionName?: string;
   tail?: number | "all";
   target: Target;
 }
@@ -26,27 +27,36 @@ interface AttachOptionsCli {
 function parseAttachOptions(args: string[]): AttachOptionsCli {
   const state = {
     shell: "/bin/bash -i",
+    sessionName: undefined as string | undefined,
     tail: undefined as number | "all" | undefined,
     rest: [] as string[],
   };
   for (let i = 0; i < args.length; i++) {
     i = consumeAttachArg(args, i, state);
   }
-  return { shell: state.shell, tail: state.tail, target: parseTargetFlags(state.rest, "attach") };
+  return {
+    shell: state.shell,
+    sessionName: state.sessionName,
+    tail: state.tail,
+    target: parseTargetFlags(state.rest, "attach"),
+  };
 }
+
+type AttachArgState = {
+  shell: string;
+  sessionName?: string;
+  tail?: number | "all";
+  rest: string[];
+};
 
 type AttachArgHandler = (
   args: string[],
   index: number,
   arg: string,
-  state: { shell: string; tail?: number | "all"; rest: string[] },
+  state: AttachArgState,
 ) => number;
 
-function consumeAttachArg(
-  args: string[],
-  index: number,
-  state: { shell: string; tail?: number | "all"; rest: string[] },
-): number {
+function consumeAttachArg(args: string[], index: number, state: AttachArgState): number {
   const arg = args[index]!;
   const handler = attachArgHandler(arg);
   if (handler) {
@@ -58,6 +68,7 @@ function consumeAttachArg(
 
 const ATTACH_ARG_HANDLERS: Array<[(arg: string) => boolean, AttachArgHandler]> = [
   [(arg) => arg === "--shell" || arg.startsWith("--shell="), consumeAttachShell],
+  [(arg) => arg === "--session" || arg.startsWith("--session="), consumeAttachSession],
   [(arg) => arg === "--tail" || arg.startsWith("--tail="), consumeAttachTail],
 ];
 
@@ -77,6 +88,27 @@ function consumeAttachShell(
   }
   state.shell = value;
   return arg === "--shell" ? index + 1 : index;
+}
+
+function consumeAttachSession(
+  args: string[],
+  index: number,
+  arg: string,
+  state: { sessionName?: string },
+): number {
+  const value = arg === "--session" ? args[index + 1] : arg.slice("--session=".length);
+  if (!value) {
+    die("--session requires a value");
+  }
+  validateSessionName(value);
+  state.sessionName = value;
+  return arg === "--session" ? index + 1 : index;
+}
+
+function validateSessionName(value: string): void {
+  if (!/^[A-Za-z0-9_.-]{1,64}$/.test(value)) {
+    die("--session must be 1-64 characters using only letters, digits, dot, underscore, or dash");
+  }
 }
 
 function consumeAttachTail(
@@ -144,14 +176,25 @@ function lookupAttachTailEntry(target: Target): RegistryEntry {
   return entry;
 }
 
-async function runAttachedPty(vm: VmHandle, shell: string): Promise<number> {
+async function runAttachedPty(
+  vm: VmHandle,
+  shell: string,
+  sessionName: string | undefined,
+): Promise<number> {
   if (!process.stdin.isTTY) {
     await vm.detach();
     die("machinen attach: stdin is not a TTY (pipe scripts via `machinen repl` instead)");
   }
-  process.stderr.write(`attached to ${vm.name ?? `pid ${vm.pid}`} — exit the shell to detach.\n`);
+  const label = vm.name ?? `pid ${vm.pid}`;
+  if (sessionName) {
+    process.stderr.write(
+      `attached to ${label} session ${sessionName} — kill with machinen session-kill ${label} ${sessionName}.\n`,
+    );
+  } else {
+    process.stderr.write(`attached to ${label} — exit the shell to detach.\n`);
+  }
   try {
-    return await runPtyExec(vm, shell);
+    return await runPtyExec(vm, shell, sessionName);
   } finally {
     await vm.detach();
   }
@@ -168,6 +211,80 @@ function printBootLogTail(path: string, tail: number | "all"): void {
     return;
   }
   process.stderr.write(tailLines(content, tail));
+}
+
+export async function cmdSessions(args: string[]): Promise<number> {
+  const target = parseTargetFlags(args, "sessions");
+  const vm = await attach(target).catch(handleError);
+  try {
+    const sessions = await listPersistentSessions(vm);
+    for (const session of sessions) {
+      process.stdout.write(`${session.name}\t${session.pid}\n`);
+    }
+    return 0;
+  } finally {
+    await vm.detach();
+  }
+}
+
+export async function cmdSessionKill(args: string[]): Promise<number> {
+  const opts = parseSessionKillOptions(args);
+  const vm = await attach(opts.target).catch(handleError);
+  try {
+    return opts.dryRun ? dryRunSessionKill(vm, opts.name) : killSessionOrDie(vm, opts.name);
+  } finally {
+    await vm.detach();
+  }
+}
+
+function parseSessionKillOptions(args: string[]): {
+  dryRun: boolean;
+  name: string;
+  target: Target;
+} {
+  const dryRun = args.includes("--dry-run");
+  const positional = args.filter((arg) => arg !== "--dry-run");
+  const name = positional.at(-1);
+  if (!name) {
+    die("machinen session-kill: missing session name");
+  }
+  validateSessionName(name);
+  return {
+    dryRun,
+    name,
+    target: parseTargetFlags(positional.slice(0, -1), "session-kill"),
+  };
+}
+
+async function dryRunSessionKill(vm: VmHandle, name: string): Promise<number> {
+  const sessions = await listPersistentSessions(vm);
+  const exists = sessions.some((session) => session.name === name);
+  process.stdout.write(
+    exists ? `would kill persistent session ${name}\n` : `no persistent session named ${name}\n`,
+  );
+  return exists ? 0 : 1;
+}
+
+async function killSessionOrDie(vm: VmHandle, name: string): Promise<number> {
+  const killed = await killPersistentSession(vm, name);
+  if (!killed) {
+    die(`machinen session-kill: no persistent session named ${name}`);
+  }
+  return 0;
+}
+
+async function listPersistentSessions(vm: VmHandle) {
+  if (!vm.listSessions) {
+    die("machinen sessions: this VM handle does not support persistent sessions");
+  }
+  return vm.listSessions();
+}
+
+async function killPersistentSession(vm: VmHandle, name: string) {
+  if (!vm.killSession) {
+    die("machinen session-kill: this VM handle does not support persistent sessions");
+  }
+  return vm.killSession(name);
 }
 
 export async function cmdRepl(args: string[]): Promise<number> {

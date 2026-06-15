@@ -309,10 +309,39 @@ export const COMMANDS: CommandSpec[] = [
         description: "Override the shell (default: /bin/bash -i).",
       },
       {
+        name: "--session",
+        type: "string",
+        description: "Create or reattach a named persistent PTY session.",
+      },
+      {
         name: "--tail",
         type: "integer",
         description:
           "Dump the boot-console snapshot before the shell. With no value, prints the whole snapshot.",
+      },
+    ],
+  },
+  {
+    name: "sessions",
+    summary: "List named persistent PTY sessions in a running VM.",
+    jsonOutput: false,
+    positionals: [TARGET_POSITIONAL],
+    flags: [],
+  },
+  {
+    name: "session-kill",
+    summary: "Kill a named persistent PTY session in a running VM.",
+    jsonOutput: false,
+    mutating: true,
+    positionals: [
+      TARGET_POSITIONAL,
+      { name: "session", description: "The persistent session name." },
+    ],
+    flags: [
+      {
+        name: "--dry-run",
+        type: "boolean",
+        description: "Report whether the session would be killed without terminating it.",
       },
     ],
   },

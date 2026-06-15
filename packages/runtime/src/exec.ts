@@ -163,6 +163,41 @@ export const VsockExec = {
   startPty(udsPath: string, cmd: string, opts: VsockExecPtyOptions): VsockExecPtyHandle {
     return startPtyImpl(udsPath, cmd, opts);
   },
+
+  async listPtySessions(udsPath: string): Promise<Array<{ name: string; pid: number }>> {
+    const socket = await connectWithRetry(udsPath, {});
+    try {
+      const res = await runFramedRequestOnSocket(
+        socket,
+        () => {
+          socket.write("PTYLIST\n");
+        },
+        {},
+      );
+      return parsePtySessionList(res.stdout);
+    } finally {
+      await endSocket(socket);
+    }
+  },
+
+  async killPtySession(udsPath: string, name: string): Promise<boolean> {
+    validatePtySessionName(name);
+    const socket = await connectWithRetry(udsPath, {});
+    try {
+      const nameBuf = Buffer.from(name, "utf8");
+      const res = await runFramedRequestOnSocket(
+        socket,
+        () => {
+          socket.write(`PTYKILL ${nameBuf.length}\n`);
+          socket.write(nameBuf);
+        },
+        {},
+      );
+      return res.exitCode === 0;
+    } finally {
+      await endSocket(socket);
+    }
+  },
 } as const;
 
 export interface VsockExecPtyOptions {
@@ -182,6 +217,8 @@ export interface VsockExecPtyOptions {
   stdout: Writable;
   /** Connect timeout (ms). Default 5000 — agent should already be up. */
   connectTimeoutMs?: number;
+  /** Named persistent PTY session to create or reattach. */
+  sessionName?: string;
 }
 
 export interface VsockExecPtyResult {
@@ -225,11 +262,30 @@ async function runOnSocket(
   const cmdBytes = Buffer.byteLength(cmd, "utf8");
   if (/\r|\n/.test(cmd) || cmdBytes > EXEC_LEGACY_MAX_BYTES) {
     const buf = Buffer.from(cmd, "utf8");
-    socket.write(`EXEC2 ${buf.length}\n`);
-    socket.write(buf);
-  } else {
-    socket.write(`EXEC ${cmd}\n`);
+    return runFramedRequestOnSocket(
+      socket,
+      () => {
+        socket.write(`EXEC2 ${buf.length}\n`);
+        socket.write(buf);
+      },
+      opts,
+    );
   }
+  return runFramedRequestOnSocket(
+    socket,
+    () => {
+      socket.write(`EXEC ${cmd}\n`);
+    },
+    opts,
+  );
+}
+
+function runFramedRequestOnSocket(
+  socket: Socket,
+  writeRequest: () => void,
+  opts: VsockExecOptions,
+): Promise<VsockExecResult> {
+  writeRequest();
 
   return new Promise<VsockExecResult>((done, fail) => {
     const parser: ExecFrameParserState = {
@@ -619,6 +675,50 @@ function parsePtyOutputHeader(nStr: string | undefined): PtyFrameHeader {
   return { kind: "stdout", bytes };
 }
 
+function parsePtySessionList(stdout: string): Array<{ name: string; pid: number }> {
+  return stdout
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const [name, pidStr] = line.split("\t");
+      const pid = Number.parseInt(pidStr ?? "", 10);
+      if (!name || !Number.isFinite(pid)) {
+        throw new ExecError(
+          "EXEC_PROTOCOL",
+          `VsockExec.listPtySessions: bad row ${JSON.stringify(line)}`,
+        );
+      }
+      return { name, pid };
+    });
+}
+
+function validatePtySessionName(name: string): void {
+  if (!/^[A-Za-z0-9_.-]{1,64}$/.test(name)) {
+    throw new ExecError(
+      "EXEC_PROTOCOL",
+      "PTY session names must be 1-64 characters and contain only letters, digits, dot, underscore, or dash",
+    );
+  }
+}
+
+function writePtyStartFrame(socket: Socket, cmd: string, opts: VsockExecPtyOptions): void {
+  const cmdBuf = Buffer.from(cmd, "utf8");
+  if (!opts.sessionName) {
+    socket.write(`PTY ${opts.cols} ${opts.rows} ${cmdBuf.length}\n`);
+    if (cmdBuf.length > 0) {
+      socket.write(cmdBuf);
+    }
+    return;
+  }
+  validatePtySessionName(opts.sessionName);
+  const nameBuf = Buffer.from(opts.sessionName, "utf8");
+  socket.write(`PTYSESSION ${opts.cols} ${opts.rows} ${nameBuf.length} ${cmdBuf.length}\n`);
+  socket.write(nameBuf);
+  if (cmdBuf.length > 0) {
+    socket.write(cmdBuf);
+  }
+}
+
 // Wire `cols`/`rows` + the existing `cmd` into the PTY opcode header,
 // then plug bidirectional pumps onto an already-connected socket. Why
 // a separate helper: keeps `startPty` readable — the public method is
@@ -696,11 +796,7 @@ function startPtyImpl(udsPath: string, cmd: string, opts: VsockExecPtyOptions): 
     try {
       const connectTimeoutMs = opts.connectTimeoutMs ?? 5_000;
       socket = await connectOnceWithTimeout(udsPath, connectTimeoutMs);
-      const cmdBuf = Buffer.from(cmd, "utf8");
-      socket.write(`PTY ${opts.cols} ${opts.rows} ${cmdBuf.length}\n`);
-      if (cmdBuf.length > 0) {
-        socket.write(cmdBuf);
-      }
+      writePtyStartFrame(socket, cmd, opts);
       socket.on("data", onSocketData);
       socket.on("error", (err) => reject(err));
       socket.on("close", () => {

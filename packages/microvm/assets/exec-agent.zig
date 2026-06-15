@@ -33,6 +33,7 @@ const pid_t = i32;
 
 extern "c" fn socket(domain: c_int, sock_type: c_int, protocol: c_int) c_int;
 extern "c" fn bind(fd: c_int, addr: *const anyopaque, addrlen: c_uint) c_int;
+extern "c" fn connect(fd: c_int, addr: *const anyopaque, addrlen: c_uint) c_int;
 extern "c" fn listen(fd: c_int, backlog: c_int) c_int;
 extern "c" fn accept(fd: c_int, addr: ?*anyopaque, addrlen: ?*c_uint) c_int;
 extern "c" fn close(fd: c_int) c_int;
@@ -50,6 +51,9 @@ extern "c" fn _exit(status: c_int) noreturn;
 extern "c" fn waitpid(pid: pid_t, status: ?*c_int, options: c_int) pid_t;
 extern "c" fn shutdown(fd: c_int, how: c_int) c_int;
 extern "c" fn signal(signum: c_int, handler: usize) usize;
+extern "c" fn kill(pid: pid_t, sig: c_int) c_int;
+extern "c" fn unlink(path: [*:0]const u8) c_int;
+extern "c" fn usleep(usec: c_uint) c_int;
 // PTY plumbing for the PTY opcode (#133).
 //   forkpty(3) — musl ships it in the main libc (no -lutil needed).
 //     Allocates a /dev/ptmx + /dev/pts/N pair, forks, dups the slave
@@ -80,12 +84,15 @@ const pollfd = extern struct {
 };
 extern "c" fn poll(fds: [*]pollfd, nfds: c_uint, timeout: c_int) c_int;
 
+const AF_UNIX: c_int = 1;
 const AF_VSOCK: c_int = 40;
 const SOCK_STREAM: c_int = 1;
 const SHUT_WR: c_int = 1;
 const SIGPIPE: c_int = 13;
+const SIGTERM: c_int = 15;
 const SIG_IGN: usize = 1;
 const O_CLOEXEC: c_int = 0o02000000;
+const WNOHANG: c_int = 1;
 // arm64 Linux constants. TIOCSWINSZ is the same on every Linux arch
 // (asm-generic/ioctls.h: 0x5414); poll event bits are too.
 const TIOCSWINSZ: c_ulong = 0x5414;
@@ -104,9 +111,26 @@ const SockaddrVm = extern struct {
     svm_zero: [4]u8,
 };
 
+const SockaddrUn = extern struct {
+    sun_family: u16,
+    sun_path: [108]u8,
+};
+
 const VMADDR_CID_ANY: u32 = 0xFFFF_FFFF;
 const PORT: u32 = 1978;
 const CHUNK = 32 * 1024;
+const MAX_SESSIONS = 16;
+const MAX_SESSION_NAME = 64;
+const MAX_UNIX_PATH = 107;
+const SESSION_SOCK_PREFIX = "/tmp/machinen-pty-";
+
+fn ignore_int(value: c_int) void {
+    std.debug.assert(value >= -1 or value < -1);
+}
+
+fn ignore_bool(value: bool) void {
+    std.debug.assert(value or !value);
+}
 
 fn log_err(s: []const u8) void {
     _ = write(2, s.ptr, s.len);
@@ -190,6 +214,17 @@ const MAX_EXEC2_CMD: usize = 1 * 1024 * 1024;
 // client can't make us alloc unbounded.
 const MAX_PTY_INPUT: usize = 64 * 1024;
 
+const SessionEntry = struct {
+    used: bool = false,
+    name: [MAX_SESSION_NAME]u8 = [_]u8{0} ** MAX_SESSION_NAME,
+    name_len: u8 = 0,
+    sock_path: [MAX_UNIX_PATH]u8 = [_]u8{0} ** MAX_UNIX_PATH,
+    sock_len: u8 = 0,
+    broker_pid: pid_t = 0,
+};
+
+var sessions: [MAX_SESSIONS]SessionEntry = [_]SessionEntry{.{}} ** MAX_SESSIONS;
+
 fn run_command(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !void {
     std.debug.assert(client_fd >= 0);
     std.debug.assert(cmd.len <= MAX_EXEC2_CMD);
@@ -226,7 +261,7 @@ fn run_command(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !voi
             "HOME=/root",
             null,
         };
-        _ = execve("/bin/sh", argv, envp);
+        ignore_int(execve("/bin/sh", argv, envp));
         _exit(127);
     }
     // Parent: close write ends (child has them), pump reads.
@@ -249,8 +284,8 @@ fn run_command(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !voi
     const code = wait_exit_status(pid);
     var tail_buf: [32]u8 = undefined;
     const tail = std.fmt.bufPrint(&tail_buf, "X {d}\n", .{code}) catch "X 1\n";
-    _ = write_all(client_fd, tail);
-    _ = shutdown(client_fd, SHUT_WR);
+    ignore_bool(write_all(client_fd, tail));
+    ignore_int(shutdown(client_fd, SHUT_WR));
 }
 
 // PTY mode (#133). The host opens a session with the workload through
@@ -303,7 +338,7 @@ fn run_pty_command(
             "TERM=xterm-256color",
             null,
         };
-        _ = execve("/bin/sh", argv, envp);
+        ignore_int(execve("/bin/sh", argv, envp));
         _exit(127);
     }
 
@@ -371,7 +406,7 @@ fn run_pty_command(
                     .ws_xpixel = 0,
                     .ws_ypixel = 0,
                 };
-                _ = ioctl(master_fd, TIOCSWINSZ, &new_ws);
+                ignore_int(ioctl(master_fd, TIOCSWINSZ, &new_ws));
             } else {
                 // Unknown frame on a PTY connection — bail rather than
                 // get out of sync.
@@ -390,111 +425,593 @@ fn run_pty_command(
     const code = wait_exit_status(pid);
     var tail_buf: [32]u8 = undefined;
     const tail = std.fmt.bufPrint(&tail_buf, "X {d}\n", .{code}) catch "X 1\n";
-    _ = write_all(client_fd, tail);
-    _ = shutdown(client_fd, SHUT_WR);
+    ignore_bool(write_all(client_fd, tail));
+    ignore_int(shutdown(client_fd, SHUT_WR));
+}
+
+fn valid_session_name(name: []const u8) bool {
+    std.debug.assert(MAX_SESSION_NAME > 0);
+    if (name.len == 0 or name.len > MAX_SESSION_NAME) return false;
+    for (name) |ch| {
+        const ok = (ch >= 'A' and ch <= 'Z') or
+            (ch >= 'a' and ch <= 'z') or
+            (ch >= '0' and ch <= '9') or
+            ch == '.' or ch == '_' or ch == '-';
+        if (!ok) return false;
+    }
+    return true;
+}
+
+fn session_name_eq(entry: *const SessionEntry, name: []const u8) bool {
+    std.debug.assert(entry.name_len <= MAX_SESSION_NAME);
+    return entry.used and entry.name_len == name.len and std.mem.eql(u8, entry.name[0..entry.name_len], name);
+}
+
+fn reap_session(entry: *SessionEntry) void {
+    std.debug.assert(MAX_SESSIONS > 0);
+    if (!entry.used) return;
+    var status: c_int = 0;
+    const r = waitpid(entry.broker_pid, &status, WNOHANG);
+    if (r == entry.broker_pid) {
+        entry.used = false;
+    }
+}
+
+fn find_session(name: []const u8) ?u8 {
+    std.debug.assert(name.len <= MAX_SESSION_NAME);
+    for (&sessions, 0..) |*entry, i| {
+        reap_session(entry);
+        if (session_name_eq(entry, name)) return @intCast(i);
+    }
+    return null;
+}
+
+fn alloc_session_slot() ?u8 {
+    std.debug.assert(MAX_SESSIONS <= 255);
+    for (&sessions, 0..) |*entry, i| {
+        reap_session(entry);
+        if (!entry.used) return @intCast(i);
+    }
+    return null;
+}
+
+fn make_session_sock_path(out: []u8, name: []const u8) ?[]const u8 {
+    std.debug.assert(out.len >= MAX_UNIX_PATH);
+    if (SESSION_SOCK_PREFIX.len + name.len >= out.len) return null;
+    @memcpy(out[0..SESSION_SOCK_PREFIX.len], SESSION_SOCK_PREFIX);
+    @memcpy(out[SESSION_SOCK_PREFIX.len .. SESSION_SOCK_PREFIX.len + name.len], name);
+    return out[0 .. SESSION_SOCK_PREFIX.len + name.len];
+}
+
+fn fill_un_addr(path: []const u8) ?SockaddrUn {
+    std.debug.assert(MAX_UNIX_PATH < 108);
+    if (path.len == 0 or path.len > MAX_UNIX_PATH) return null;
+    var addr = SockaddrUn{ .sun_family = @intCast(AF_UNIX), .sun_path = [_]u8{0} ** 108 };
+    @memcpy(addr.sun_path[0..path.len], path);
+    return addr;
+}
+
+fn copy_path_z(path: []const u8, out: *[108]u8) ?[*:0]const u8 {
+    std.debug.assert(path.len <= MAX_UNIX_PATH);
+    if (path.len >= out.len) return null;
+    @memset(out, 0);
+    @memcpy(out[0..path.len], path);
+    return @ptrCast(out.ptr);
+}
+
+fn connect_unix(path: []const u8) c_int {
+    std.debug.assert(path.len > 0);
+    const fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) return -1;
+    const addr = fill_un_addr(path) orelse {
+        ignore_int(close(fd));
+        return -1;
+    };
+    if (connect(fd, @ptrCast(&addr), @sizeOf(SockaddrUn)) < 0) {
+        ignore_int(close(fd));
+        return -1;
+    }
+    return fd;
+}
+
+fn connect_unix_retry(path: []const u8) c_int {
+    std.debug.assert(path.len > 0);
+    var i: u8 = 0;
+    while (i < 100) : (i += 1) {
+        const fd = connect_unix(path);
+        if (fd >= 0) return fd;
+        ignore_int(usleep(10 * 1000));
+    }
+    return -1;
+}
+
+fn send_exit(client_fd: c_int, code: c_int) void {
+    std.debug.assert(client_fd >= 0);
+    var tail_buf: [32]u8 = undefined;
+    const tail = std.fmt.bufPrint(&tail_buf, "X {d}\n", .{code}) catch "X 1\n";
+    ignore_bool(write_all(client_fd, tail));
+    ignore_int(shutdown(client_fd, SHUT_WR));
+}
+
+fn proxy_session(client_fd: c_int, broker_fd: c_int, cols: u16, rows: u16) void {
+    std.debug.assert(client_fd >= 0);
+    std.debug.assert(broker_fd >= 0);
+    defer ignore_int(close(broker_fd));
+    var attach_buf: [64]u8 = undefined;
+    const attach = std.fmt.bufPrint(&attach_buf, "A {d} {d}\n", .{ cols, rows }) catch return;
+    if (!write_all(broker_fd, attach)) return;
+
+    var fds = [_]pollfd{
+        .{ .fd = client_fd, .events = POLLIN, .revents = 0 },
+        .{ .fd = broker_fd, .events = POLLIN, .revents = 0 },
+    };
+    var buf: [CHUNK]u8 = undefined;
+    // Intentional attach proxy loop; exits when either side disconnects.
+    while (true) {
+        fds[0].revents = 0;
+        fds[1].revents = 0;
+        const n = poll(&fds, 2, -1);
+        if (n < 0) continue;
+        if ((fds[0].revents & POLLIN) != 0) {
+            const r = read(client_fd, &buf, buf.len);
+            if (r <= 0) break;
+            if (!write_all(broker_fd, buf[0..@intCast(r)])) break;
+        }
+        if ((fds[1].revents & POLLIN) != 0) {
+            const r = read(broker_fd, &buf, buf.len);
+            if (r <= 0) break;
+            if (!write_all(client_fd, buf[0..@intCast(r)])) break;
+        }
+        if ((fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) break;
+        if ((fds[1].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) break;
+    }
+}
+
+fn create_session(name: []const u8, cmd: []const u8, cols: u16, rows: u16) ?u8 {
+    std.debug.assert(valid_session_name(name));
+    const slot = alloc_session_slot() orelse return null;
+    var path_buf: [MAX_UNIX_PATH]u8 = undefined;
+    const path = make_session_sock_path(&path_buf, name) orelse return null;
+    const pid = fork();
+    if (pid < 0) return null;
+    if (pid == 0) {
+        run_session_broker(path, cmd, cols, rows) catch |err| {
+            var msg_buf: [128]u8 = undefined;
+            const msg = std.fmt.bufPrint(
+                &msg_buf,
+                "exec-agent: session broker error: {s}",
+                .{@errorName(err)},
+            ) catch "exec-agent: session broker error";
+            log_err(msg);
+        };
+        _exit(0);
+    }
+    var entry = &sessions[slot];
+    entry.* = .{};
+    entry.used = true;
+    entry.name_len = @intCast(name.len);
+    @memcpy(entry.name[0..name.len], name);
+    entry.sock_len = @intCast(path.len);
+    @memcpy(entry.sock_path[0..path.len], path);
+    entry.broker_pid = pid;
+    return slot;
+}
+
+fn write_session_list(client_fd: c_int) void {
+    std.debug.assert(client_fd >= 0);
+    for (&sessions) |*entry| {
+        reap_session(entry);
+        if (!entry.used) continue;
+        var line_buf: [160]u8 = undefined;
+        const line = std.fmt.bufPrint(
+            &line_buf,
+            "{s}\t{d}\n",
+            .{ entry.name[0..entry.name_len], entry.broker_pid },
+        ) catch continue;
+        if (!send_frame(client_fd, 'O', line)) return;
+    }
+    send_exit(client_fd, 0);
+}
+
+fn kill_session_by_name(client_fd: c_int, name: []const u8) void {
+    std.debug.assert(client_fd >= 0);
+    const idx = find_session(name) orelse {
+        send_exit(client_fd, 1);
+        return;
+    };
+    const entry = &sessions[idx];
+    ignore_int(kill(entry.broker_pid, SIGTERM));
+    var path_z: [108]u8 = undefined;
+    if (copy_path_z(entry.sock_path[0..entry.sock_len], &path_z)) |p| {
+        ignore_int(unlink(p));
+    }
+    entry.used = false;
+    send_exit(client_fd, 0);
+}
+
+fn handle_persistent_pty(
+    client_fd: c_int,
+    name: []const u8,
+    cmd: []const u8,
+    cols: u16,
+    rows: u16,
+) void {
+    std.debug.assert(client_fd >= 0);
+    if (!valid_session_name(name)) {
+        send_exit(client_fd, 1);
+        return;
+    }
+    const idx = find_session(name) orelse (create_session(name, cmd, cols, rows) orelse {
+        send_exit(client_fd, 1);
+        return;
+    });
+    const entry = &sessions[idx];
+    const broker_fd = connect_unix_retry(entry.sock_path[0..entry.sock_len]);
+    if (broker_fd < 0) {
+        entry.used = false;
+        send_exit(client_fd, 1);
+        return;
+    }
+    proxy_session(client_fd, broker_fd, cols, rows);
+}
+
+fn cmd_z_ptr(cmd: []const u8, out: *[MAX_EXEC2_CMD + 1]u8) [*:0]const u8 {
+    std.debug.assert(cmd.len <= MAX_EXEC2_CMD);
+    @memcpy(out[0..cmd.len], cmd);
+    out[cmd.len] = 0;
+    return @ptrCast(out.ptr);
+}
+
+fn spawn_session_child(cmd: []const u8, cols: u16, rows: u16, master_fd: *c_int) !pid_t {
+    std.debug.assert(cmd.len <= MAX_EXEC2_CMD);
+    var cmd_buf: [MAX_EXEC2_CMD + 1]u8 = undefined;
+    const cmd_z = cmd_z_ptr(cmd, &cmd_buf);
+    const ws = winsize{ .ws_row = rows, .ws_col = cols, .ws_xpixel = 0, .ws_ypixel = 0 };
+    const child_pid = forkpty(master_fd, null, null, &ws);
+    if (child_pid < 0) return error.ForkPtyFailed;
+    if (child_pid == 0) {
+        const argv = &[_:null]?[*:0]const u8{ "sh", "-c", cmd_z, null };
+        const envp = &[_:null]?[*:0]const u8{
+            "PATH=/usr/local/bin:/usr/bin:/bin:/sbin",
+            "HOME=/root",
+            "TERM=xterm-256color",
+            null,
+        };
+        ignore_int(execve("/bin/sh", argv, envp));
+        _exit(127);
+    }
+    return child_pid;
+}
+
+fn open_session_listener(path: []const u8, path_z: *[108]u8) !c_int {
+    std.debug.assert(path.len > 0);
+    const unlink_path = copy_path_z(path, path_z) orelse return error.BadSessionPath;
+    ignore_int(unlink(unlink_path));
+    const listen_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (listen_fd < 0) return error.SocketFailed;
+    const addr = fill_un_addr(path) orelse return error.BadSessionPath;
+    if (bind(listen_fd, @ptrCast(&addr), @sizeOf(SockaddrUn)) < 0) return error.BindFailed;
+    if (listen(listen_fd, 1) < 0) return error.ListenFailed;
+    return listen_fd;
+}
+
+fn run_session_broker(path: []const u8, cmd: []const u8, cols: u16, rows: u16) !void {
+    std.debug.assert(path.len > 0);
+    var path_z: [108]u8 = undefined;
+    const listen_fd = try open_session_listener(path, &path_z);
+    defer ignore_int(close(listen_fd));
+    defer if (copy_path_z(path, &path_z)) |p| {
+        ignore_int(unlink(p));
+    };
+    const client_fd = accept(listen_fd, null, null);
+    if (client_fd < 0) return error.AcceptFailed;
+    consume_initial_attach(client_fd);
+    var master_fd: c_int = -1;
+    const child_pid = try spawn_session_child(cmd, cols, rows, &master_fd);
+    const exit_code = broker_event_loop(master_fd, listen_fd, child_pid, client_fd);
+    ignore_int(exit_code);
+}
+
+fn consume_initial_attach(client_fd: c_int) void {
+    std.debug.assert(client_fd >= 0);
+    var header: [64]u8 = undefined;
+    if (read_line(client_fd, &header) == null) return;
+}
+
+fn broker_event_loop(
+    master_fd: c_int,
+    listen_fd: c_int,
+    child_pid: pid_t,
+    initial_client_fd: c_int,
+) c_int {
+    std.debug.assert(master_fd >= 0);
+    var client_fd: c_int = initial_client_fd;
+    defer close_if_open(client_fd);
+    defer ignore_int(close(master_fd));
+    // Intentional session broker loop: it drains PTY output even while detached.
+    while (true) {
+        var fds = broker_pollfds(master_fd, listen_fd, client_fd);
+        const nfds: c_uint = if (client_fd >= 0) 3 else 2;
+        const n = poll(&fds, nfds, -1);
+        if (n < 0) continue;
+        if (master_exited(fds[0].revents)) return wait_exit_status(child_pid);
+        if ((fds[1].revents & POLLIN) != 0) accept_broker_client(listen_fd, &client_fd, master_fd);
+        if (!drain_master_to_client(master_fd, &client_fd, fds[0].revents)) {
+            return wait_exit_status(child_pid);
+        }
+        if (client_fd >= 0) service_broker_client(&client_fd, master_fd, fds[2].revents);
+    }
+}
+
+fn broker_pollfds(master_fd: c_int, listen_fd: c_int, client_fd: c_int) [3]pollfd {
+    std.debug.assert(master_fd >= 0);
+    return .{
+        .{ .fd = master_fd, .events = POLLIN, .revents = 0 },
+        .{ .fd = listen_fd, .events = POLLIN, .revents = 0 },
+        .{ .fd = client_fd, .events = if (client_fd >= 0) POLLIN else 0, .revents = 0 },
+    };
+}
+
+fn master_exited(revents: i16) bool {
+    std.debug.assert(POLLERR != 0);
+    return (revents & (POLLERR | POLLHUP | POLLNVAL)) != 0;
+}
+
+fn close_if_open(fd: c_int) void {
+    std.debug.assert(fd >= -1);
+    if (fd >= 0) ignore_int(close(fd));
+}
+
+fn detach_client(client_fd: *c_int) void {
+    std.debug.assert(client_fd.* >= -1);
+    close_if_open(client_fd.*);
+    client_fd.* = -1;
+}
+
+fn drain_master_to_client(master_fd: c_int, client_fd: *c_int, revents: i16) bool {
+    std.debug.assert(master_fd >= 0);
+    if ((revents & POLLIN) == 0) return true;
+    var out_buf: [CHUNK]u8 = undefined;
+    const r = read(master_fd, &out_buf, out_buf.len);
+    if (r <= 0) return false;
+    if (client_fd.* >= 0 and !send_frame(client_fd.*, 'O', out_buf[0..@intCast(r)])) {
+        detach_client(client_fd);
+    }
+    return true;
+}
+
+fn accept_broker_client(listen_fd: c_int, client_fd: *c_int, master_fd: c_int) void {
+    std.debug.assert(listen_fd >= 0);
+    const next = accept(listen_fd, null, null);
+    if (next < 0) return;
+    detach_client(client_fd);
+    client_fd.* = next;
+    apply_attach_header(client_fd, master_fd);
+}
+
+fn apply_attach_header(client_fd: *c_int, master_fd: c_int) void {
+    std.debug.assert(master_fd >= 0);
+    var header: [64]u8 = undefined;
+    const hlen = read_line(client_fd.*, &header) orelse {
+        detach_client(client_fd);
+        return;
+    };
+    const line = header[0..hlen];
+    if (!std.mem.startsWith(u8, line, "A ")) return;
+    var it = std.mem.tokenizeScalar(u8, line[2..], ' ');
+    const c_str = it.next() orelse "80";
+    const r_str = it.next() orelse "24";
+    const new_cols = std.fmt.parseInt(u16, c_str, 10) catch 80;
+    const new_rows = std.fmt.parseInt(u16, r_str, 10) catch 24;
+    resize_master(master_fd, new_cols, new_rows);
+}
+
+fn resize_master(master_fd: c_int, cols: u16, rows: u16) void {
+    std.debug.assert(master_fd >= 0);
+    const new_ws = winsize{ .ws_row = rows, .ws_col = cols, .ws_xpixel = 0, .ws_ypixel = 0 };
+    ignore_int(ioctl(master_fd, TIOCSWINSZ, &new_ws));
+}
+
+fn service_broker_client(client_fd: *c_int, master_fd: c_int, revents: i16) void {
+    std.debug.assert(master_fd >= 0);
+    if ((revents & POLLIN) != 0 and !handle_broker_client_frame(client_fd.*, master_fd)) {
+        detach_client(client_fd);
+        return;
+    }
+    if ((revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) detach_client(client_fd);
+}
+
+fn handle_broker_client_frame(client_fd: c_int, master_fd: c_int) bool {
+    std.debug.assert(client_fd >= 0);
+    var header: [256]u8 = undefined;
+    const hlen = read_line(client_fd, &header) orelse return false;
+    const line = header[0..hlen];
+    if (line.len >= 2 and std.mem.startsWith(u8, line, "I ")) {
+        return handle_broker_input_frame(client_fd, master_fd, line[2..]);
+    }
+    if (line.len >= 2 and std.mem.startsWith(u8, line, "R ")) {
+        return handle_broker_resize_frame(master_fd, line[2..]);
+    }
+    return false;
+}
+
+fn handle_broker_input_frame(client_fd: c_int, master_fd: c_int, len_text: []const u8) bool {
+    std.debug.assert(client_fd >= 0);
+    std.debug.assert(master_fd >= 0);
+    const ilen = std.fmt.parseInt(u32, len_text, 10) catch return false;
+    if (ilen > MAX_PTY_INPUT) return false;
+    if (ilen == 0) return true;
+    var ibuf: [MAX_PTY_INPUT]u8 = undefined;
+    if (!read_exact(client_fd, ibuf[0..ilen])) return false;
+    return write_all(master_fd, ibuf[0..ilen]);
+}
+
+fn handle_broker_resize_frame(master_fd: c_int, body: []const u8) bool {
+    std.debug.assert(master_fd >= 0);
+    var it = std.mem.tokenizeScalar(u8, body, ' ');
+    const c_str = it.next() orelse return false;
+    const r_str = it.next() orelse return false;
+    const new_cols = std.fmt.parseInt(u16, c_str, 10) catch return true;
+    const new_rows = std.fmt.parseInt(u16, r_str, 10) catch return true;
+    resize_master(master_fd, new_cols, new_rows);
+    return true;
 }
 
 fn handle_connection(client_fd: c_int, alloc: std.mem.Allocator) void {
     std.debug.assert(client_fd >= 0);
-
-    defer _ = close(client_fd);
+    defer ignore_int(close(client_fd));
     var line_buf: [4096]u8 = undefined;
     const len = read_line(client_fd, &line_buf) orelse {
         log_err("exec-agent: bad header");
         return;
     };
     const line = line_buf[0..len];
-
-    // PTY <cols> <rows> <cmd-bytes>\n<cmd-bytes> — interactive
-    // session with a pseudoterminal pair. Length-prefixed cmd like
-    // EXEC2 so binary content (escape sequences in TUI scripts) and
-    // newlines pass through unchanged. See #133.
-    if (std.mem.startsWith(u8, line, "PTY ")) {
-        var it = std.mem.tokenizeScalar(u8, line[4..], ' ');
-        const cols_str = it.next() orelse {
-            log_err("exec-agent: PTY missing cols");
-            return;
-        };
-        const rows_str = it.next() orelse {
-            log_err("exec-agent: PTY missing rows");
-            return;
-        };
-        const len_str = it.next() orelse {
-            log_err("exec-agent: PTY missing cmd-bytes");
-            return;
-        };
-        const cols = std.fmt.parseInt(u16, cols_str, 10) catch {
-            log_err("exec-agent: PTY bad cols");
-            return;
-        };
-        const rows = std.fmt.parseInt(u16, rows_str, 10) catch {
-            log_err("exec-agent: PTY bad rows");
-            return;
-        };
-        const cmd_len = std.fmt.parseInt(usize, len_str, 10) catch {
-            log_err("exec-agent: PTY bad length");
-            return;
-        };
-        if (cmd_len > MAX_EXEC2_CMD) {
-            log_err("exec-agent: PTY cmd too large");
-            return;
-        }
-        const cmd_buf = alloc.alloc(u8, cmd_len) catch {
-            log_err("exec-agent: PTY alloc failed");
-            return;
-        };
-        defer alloc.free(cmd_buf);
-        if (cmd_len > 0 and !read_exact(client_fd, cmd_buf)) {
-            log_err("exec-agent: PTY short read");
-            return;
-        }
-        run_pty_command(client_fd, cmd_buf, cols, rows, alloc) catch |err| {
-            var msg_buf: [128]u8 = undefined;
-            const msg = std.fmt.bufPrint(&msg_buf, "exec-agent: pty error: {s}", .{@errorName(err)}) catch "exec-agent: pty error";
-            log_err(msg);
-        };
-        return;
+    if (std.mem.eql(u8, line, "PTYLIST")) return write_session_list(client_fd);
+    if (std.mem.startsWith(u8, line, "PTYKILL ")) return handle_ptykill(client_fd, line);
+    if (std.mem.startsWith(u8, line, "PTYSESSION ")) {
+        return handle_ptysession(client_fd, line);
     }
-
-    // EXEC2 <bytes>\n<cmd-bytes> — length-prefixed, supports newlines (#112).
-    if (std.mem.startsWith(u8, line, "EXEC2 ")) {
-        const len_str = line[6..];
-        const cmd_len = std.fmt.parseInt(usize, len_str, 10) catch {
-            log_err("exec-agent: EXEC2 bad length");
-            return;
-        };
-        if (cmd_len > MAX_EXEC2_CMD) {
-            log_err("exec-agent: EXEC2 cmd too large");
-            return;
-        }
-        const cmd_buf = alloc.alloc(u8, cmd_len) catch {
-            log_err("exec-agent: EXEC2 alloc failed");
-            return;
-        };
-        defer alloc.free(cmd_buf);
-        if (cmd_len > 0 and !read_exact(client_fd, cmd_buf)) {
-            log_err("exec-agent: EXEC2 short read");
-            return;
-        }
-        run_command(client_fd, cmd_buf, alloc) catch |err| {
-            var msg_buf: [128]u8 = undefined;
-            const msg = std.fmt.bufPrint(&msg_buf, "exec-agent: run error: {s}", .{@errorName(err)}) catch "exec-agent: run error";
-            log_err(msg);
-        };
-        return;
-    }
-
-    // EXEC <cmd>\n — legacy single-line opcode.
+    if (std.mem.startsWith(u8, line, "PTY ")) return handle_pty(client_fd, line, alloc);
+    if (std.mem.startsWith(u8, line, "EXEC2 ")) return handle_exec2(client_fd, line, alloc);
     if (line.len < 5 or !std.mem.startsWith(u8, line, "EXEC ")) {
         log_err("exec-agent: unknown op");
         return;
     }
-    const cmd = line[5..];
-    run_command(client_fd, cmd, alloc) catch |err| {
-        var msg_buf: [128]u8 = undefined;
-        const msg = std.fmt.bufPrint(&msg_buf, "exec-agent: run error: {s}", .{@errorName(err)}) catch "exec-agent: run error";
-        log_err(msg);
+    run_command(client_fd, line[5..], alloc) catch |err| log_run_error("run", err);
+}
+
+fn handle_ptykill(client_fd: c_int, line: []const u8) void {
+    std.debug.assert(std.mem.startsWith(u8, line, "PTYKILL "));
+    std.debug.assert(client_fd >= 0);
+    const name_len = std.fmt.parseInt(u32, line[8..], 10) catch {
+        log_err("exec-agent: PTYKILL bad name length");
+        return send_exit(client_fd, 1);
     };
+    if (name_len > MAX_SESSION_NAME) {
+        log_err("exec-agent: PTYKILL name too large");
+        return send_exit(client_fd, 1);
+    }
+    var name_buf: [MAX_SESSION_NAME]u8 = undefined;
+    if (name_len > 0 and !read_exact(client_fd, name_buf[0..name_len])) {
+        log_err("exec-agent: PTYKILL short read");
+        return send_exit(client_fd, 1);
+    }
+    kill_session_by_name(client_fd, name_buf[0..name_len]);
+}
+
+const PtySessionHeader = struct {
+    cols: u16,
+    rows: u16,
+    name_len: u32,
+    cmd_len: u32,
+};
+
+fn parse_ptysession_header(line: []const u8) ?PtySessionHeader {
+    std.debug.assert(std.mem.startsWith(u8, line, "PTYSESSION "));
+    var it = std.mem.tokenizeScalar(u8, line[11..], ' ');
+    const cols_str = it.next() orelse return null;
+    const rows_str = it.next() orelse return null;
+    const name_len_str = it.next() orelse return null;
+    const cmd_len_str = it.next() orelse return null;
+    const cols = std.fmt.parseInt(u16, cols_str, 10) catch return null;
+    const rows = std.fmt.parseInt(u16, rows_str, 10) catch return null;
+    const name_len = std.fmt.parseInt(u32, name_len_str, 10) catch return null;
+    const cmd_len = std.fmt.parseInt(u32, cmd_len_str, 10) catch return null;
+    if (name_len > MAX_SESSION_NAME or cmd_len > MAX_EXEC2_CMD) return null;
+    return .{ .cols = cols, .rows = rows, .name_len = name_len, .cmd_len = cmd_len };
+}
+
+fn handle_ptysession(client_fd: c_int, line: []const u8) void {
+    std.debug.assert(client_fd >= 0);
+    const h = parse_ptysession_header(line) orelse {
+        log_err("exec-agent: PTYSESSION bad header");
+        return send_exit(client_fd, 1);
+    };
+    var name_buf: [MAX_SESSION_NAME]u8 = undefined;
+    if (h.name_len > 0 and !read_exact(client_fd, name_buf[0..h.name_len])) {
+        log_err("exec-agent: PTYSESSION short name read");
+        return send_exit(client_fd, 1);
+    }
+    var cmd_buf: [MAX_EXEC2_CMD]u8 = undefined;
+    if (h.cmd_len > 0 and !read_exact(client_fd, cmd_buf[0..h.cmd_len])) {
+        log_err("exec-agent: PTYSESSION short cmd read");
+        return send_exit(client_fd, 1);
+    }
+    handle_persistent_pty(
+        client_fd,
+        name_buf[0..h.name_len],
+        cmd_buf[0..h.cmd_len],
+        h.cols,
+        h.rows,
+    );
+}
+
+const PtyHeader = struct { cols: u16, rows: u16, cmd_len: u32 };
+
+fn parse_pty_header(line: []const u8) ?PtyHeader {
+    std.debug.assert(std.mem.startsWith(u8, line, "PTY "));
+    var it = std.mem.tokenizeScalar(u8, line[4..], ' ');
+    const cols_str = it.next() orelse return null;
+    const rows_str = it.next() orelse return null;
+    const len_str = it.next() orelse return null;
+    const cols = std.fmt.parseInt(u16, cols_str, 10) catch return null;
+    const rows = std.fmt.parseInt(u16, rows_str, 10) catch return null;
+    const cmd_len = std.fmt.parseInt(u32, len_str, 10) catch return null;
+    if (cmd_len > MAX_EXEC2_CMD) return null;
+    return .{ .cols = cols, .rows = rows, .cmd_len = cmd_len };
+}
+
+fn handle_pty(client_fd: c_int, line: []const u8, alloc: std.mem.Allocator) void {
+    std.debug.assert(client_fd >= 0);
+    const h = parse_pty_header(line) orelse {
+        log_err("exec-agent: PTY bad header");
+        return;
+    };
+    const cmd_buf = alloc.alloc(u8, h.cmd_len) catch {
+        log_err("exec-agent: PTY alloc failed");
+        return;
+    };
+    defer alloc.free(cmd_buf);
+    if (h.cmd_len > 0 and !read_exact(client_fd, cmd_buf)) {
+        log_err("exec-agent: PTY short read");
+        return;
+    }
+    run_pty_command(client_fd, cmd_buf, h.cols, h.rows, alloc) catch |err| {
+        log_run_error("pty", err);
+    };
+}
+
+fn handle_exec2(client_fd: c_int, line: []const u8, alloc: std.mem.Allocator) void {
+    std.debug.assert(client_fd >= 0);
+    const cmd_len = std.fmt.parseInt(u32, line[6..], 10) catch {
+        log_err("exec-agent: EXEC2 bad length");
+        return;
+    };
+    if (cmd_len > MAX_EXEC2_CMD) {
+        log_err("exec-agent: EXEC2 cmd too large");
+        return;
+    }
+    const cmd_buf = alloc.alloc(u8, cmd_len) catch {
+        log_err("exec-agent: EXEC2 alloc failed");
+        return;
+    };
+    defer alloc.free(cmd_buf);
+    if (cmd_len > 0 and !read_exact(client_fd, cmd_buf)) {
+        log_err("exec-agent: EXEC2 short read");
+        return;
+    }
+    run_command(client_fd, cmd_buf, alloc) catch |err| log_run_error("run", err);
+}
+
+fn log_run_error(kind: []const u8, err: anyerror) void {
+    std.debug.assert(kind.len > 0);
+    var msg_buf: [128]u8 = undefined;
+    const msg = std.fmt.bufPrint(
+        &msg_buf,
+        "exec-agent: {s} error: {s}",
+        .{ kind, @errorName(err) },
+    ) catch "exec-agent: command error";
+    log_err(msg);
 }
 
 pub fn main() !void {

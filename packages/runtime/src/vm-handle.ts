@@ -80,6 +80,12 @@ export interface VmHandle {
    */
   execPty(cmd: string, opts: VsockExecPtyOptions): VsockExecPtyHandle;
 
+  /** List named persistent PTY sessions currently held by the guest exec-agent. */
+  listSessions?(): Promise<Array<{ name: string; pid: number }>>;
+
+  /** Kill a named persistent PTY session. Returns false when no session matched. */
+  killSession?(name: string): Promise<boolean>;
+
   /**
    * Write `contents` to `guestPath` inside the VM. Convenience over
    * `vm.exec(...)` for the common "drop a config file from the host"

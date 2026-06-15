@@ -48,6 +48,12 @@ describe.skipIf(!READY)(`sysreg-probe (${platformBackend ?? "n/a"})`, () => {
         console.warn("sysreg-probe: /dev/kvm not reachable — skipping the KVM fixture lock");
         return;
       }
+      if (r.stderr.includes("KVM_ARM_PREFERRED_TARGET failed")) {
+        console.warn(
+          "sysreg-probe: KVM_ARM_PREFERRED_TARGET unavailable — skipping the KVM fixture lock",
+        );
+        return;
+      }
       throw new Error(`sysreg-probe exited ${r.status}: ${r.stderr.trim() || "(no stderr)"}`);
     }
 

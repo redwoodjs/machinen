@@ -43,6 +43,8 @@ const ALLOWED_VERBS = new Set([
   "snapshot",
   "fork",
   "attach",
+  "sessions",
+  "session-kill",
   "repl",
   "gc",
   // agent-facing meta

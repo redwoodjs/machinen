@@ -1,12 +1,13 @@
 import type { VmHandle } from "@machinen/runtime";
 
-export async function runPtyExec(vm: VmHandle, cmd: string): Promise<number> {
+export async function runPtyExec(vm: VmHandle, cmd: string, sessionName?: string): Promise<number> {
   const tty = enterPtyRawMode();
   const handle = vm.execPty(cmd, {
     cols: tty.cols,
     rows: tty.rows,
     stdin: process.stdin,
     stdout: process.stdout,
+    sessionName,
   });
   const onResize = () =>
     handle.resize(process.stdout.columns ?? tty.cols, process.stdout.rows ?? tty.rows);

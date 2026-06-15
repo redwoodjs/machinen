@@ -9,6 +9,7 @@
 //   machinen exec <name|pid> -- <cmd>
 //   machinen snapshot <name|pid> <out-dir>
 //   machinen attach <name|pid> [--shell <cmd>]   # PTY shell
+//   machinen attach --session <session> <name|pid> # persistent PTY shell
 //   machinen repl   <name|pid>                   # per-line exec
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
@@ -19,7 +20,7 @@ import debugLib from "debug";
 import { VERSION } from "./base-assets.ts";
 import { printHelp } from "./help.ts";
 import { die } from "./errors.ts";
-import { cmdAttach, cmdRepl } from "./commands/attach.ts";
+import { cmdAttach, cmdRepl, cmdSessionKill, cmdSessions } from "./commands/attach.ts";
 import { cmdBoot } from "./commands/boot.ts";
 import { cmdExec } from "./commands/exec.ts";
 import { cmdFork } from "./commands/fork.ts";
@@ -51,6 +52,8 @@ const COMMAND_HANDLERS = new Map<string, CommandHandler>([
   ["snapshot", cmdSnapshot],
   ["fork", cmdFork],
   ["attach", cmdAttach],
+  ["sessions", cmdSessions],
+  ["session-kill", cmdSessionKill],
   ["repl", cmdRepl],
   ["completion", cmdCompletion],
   ["gc", cmdGc],
