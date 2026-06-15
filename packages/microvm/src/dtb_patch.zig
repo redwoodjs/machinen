@@ -115,9 +115,9 @@ pub fn patch_initrd_end(dtb: []u8, new_end: u32) !void {
     // Each loop iteration consumes at least 4 bytes (one token), so
     // dtb.len/4 is a hard upper bound on iterations. +1 covers the
     // trailing exit check. Tigerstyle: every loop bounded.
-    const max_iters: usize = @divFloor(dtb.len, 4) + 1;
-    var iters: usize = 0;
-    var i: usize = h.off_struct;
+    const max_iters = @divFloor(dtb.len, 4) + 1;
+    var iters: @TypeOf(max_iters) = 0;
+    var i: @TypeOf(dtb.len) = h.off_struct;
     while (i + 4 <= dtb.len) : (iters += 1) {
         if (iters >= max_iters) return error.DtbTruncated;
         assert(i + 4 <= dtb.len);
@@ -137,9 +137,10 @@ pub fn patch_initrd_end(dtb: []u8, new_end: u32) !void {
                     std.mem.writeInt(u32, dtb[i..][0..4], new_end, .big);
                     return;
                 }
-                if (@as(usize, plen) > dtb.len - i) return error.DtbTruncated;
-                i += plen;
-                i = std.mem.alignForward(usize, i, 4);
+                const prop_len: @TypeOf(i) = plen;
+                if (prop_len > dtb.len - i) return error.DtbTruncated;
+                i += prop_len;
+                i = std.mem.alignForward(@TypeOf(i), i, 4);
                 if (i > dtb.len) return error.DtbTruncated;
                 assert(i <= dtb.len);
             },
@@ -172,9 +173,9 @@ pub fn patch_memory_size(dtb: []u8, size_bytes: u64) !void {
     // Walk the struct block. `depth` counts open BEGIN_NODE tokens;
     // root sits at depth 1, its children at depth 2.
     const ROOT_CHILD_DEPTH: i32 = 2;
-    const max_iters: usize = @divFloor(dtb.len, 4) + 1;
-    var iters: usize = 0;
-    var i: usize = h.off_struct;
+    const max_iters = @divFloor(dtb.len, 4) + 1;
+    var iters: @TypeOf(max_iters) = 0;
+    var i: @TypeOf(dtb.len) = h.off_struct;
     var depth: i32 = 0;
     var in_memory_node: bool = false;
     while (i + 4 <= dtb.len) : (iters += 1) {
@@ -220,9 +221,10 @@ pub fn patch_memory_size(dtb: []u8, size_bytes: u64) !void {
                     std.mem.writeInt(u64, dtb[i + 8 ..][0..8], size_bytes, .big);
                     return;
                 }
-                if (@as(usize, plen) > dtb.len - i) return error.DtbTruncated;
-                i += plen;
-                i = std.mem.alignForward(usize, i, 4);
+                const prop_len: @TypeOf(i) = plen;
+                if (prop_len > dtb.len - i) return error.DtbTruncated;
+                i += prop_len;
+                i = std.mem.alignForward(@TypeOf(i), i, 4);
                 if (i > dtb.len) return error.DtbTruncated;
                 assert(i <= dtb.len);
             },
@@ -233,6 +235,183 @@ pub fn patch_memory_size(dtb: []u8, size_bytes: u64) !void {
     assert(iters <= max_iters);
     assert(depth >= 0);
     return error.DtbTruncated;
+}
+
+/// Keep exactly `max_vcpus` arm64 CPU topology entries in the static DTB.
+///
+/// `assets/virt.dts` is compiled with a ceiling of CPU nodes so the runtime
+/// only has to delete entries, never grow the FDT. Deletion is represented as
+/// FDT_NOP tokens across the whole `cpu@N` node and matching `cpu-map/coreN`
+/// node. That keeps the DTB byte length stable while making Linux see only the
+/// CPUs Machinen is about to create and start through PSCI.
+pub fn patch_cpu_topology(dtb: []u8, max_vcpus: u32) !void {
+    assert(dtb.len > 0);
+    if (max_vcpus == 0) return error.CpuCountZero;
+    const h = try Header.read(dtb);
+
+    const max_iters = @divFloor(dtb.len, 4) + 1;
+    var iters: @TypeOf(max_iters) = 0;
+    var i: @TypeOf(dtb.len) = h.off_struct;
+    var depth: i32 = 0;
+    while (i + 4 <= dtb.len) : (iters += 1) {
+        if (iters >= max_iters) return error.DtbTruncated;
+        assert(depth >= 0);
+        assert(depth < MAX_FDT_DEPTH);
+        const token_start = i;
+        const tok = std.mem.readInt(u32, dtb[i..][0..4], .big);
+        i += 4;
+        switch (tok) {
+            FDT_BEGIN_NODE => {
+                if (depth >= MAX_FDT_DEPTH) return error.DtbTooDeep;
+                const name_start = i;
+                i = try skip_name(dtb, i);
+                depth += 1;
+                const name = name_slice(dtb, name_start);
+                const cpu_idx = cpu_node_index(name);
+                const core_idx = core_node_index(name);
+                var should_remove = false;
+                if (cpu_idx) |idx| {
+                    should_remove = idx >= max_vcpus;
+                } else {
+                    if (core_idx) |idx| should_remove = idx >= max_vcpus;
+                }
+                if (should_remove) {
+                    const end = try subtree_end(dtb, token_start);
+                    nop_range(dtb, token_start, end);
+                    i = end;
+                    depth -= 1;
+                }
+            },
+            FDT_END_NODE => {
+                if (depth == 0) return error.DtbBadToken;
+                depth -= 1;
+            },
+            FDT_NOP => {},
+            FDT_PROP => {
+                if (i + 8 > dtb.len) return error.DtbTruncated;
+                const plen = std.mem.readInt(u32, dtb[i..][0..4], .big);
+                i += 8;
+                const prop_len: @TypeOf(i) = plen;
+                if (prop_len > dtb.len - i) return error.DtbTruncated;
+                i += prop_len;
+                i = std.mem.alignForward(@TypeOf(i), i, 4);
+                if (i > dtb.len) return error.DtbTruncated;
+            },
+            FDT_END => break,
+            else => return error.DtbBadToken,
+        }
+    }
+
+    const counts = try count_cpu_topology_nodes(dtb);
+    if (counts.cpus != max_vcpus) return error.CpuTopologyTooSmall;
+    if (counts.cores != max_vcpus) return error.CpuMapTooSmall;
+}
+
+const CpuTopologyCounts = struct { cpus: u32 = 0, cores: u32 = 0 };
+
+fn count_cpu_topology_nodes(dtb: []const u8) !CpuTopologyCounts {
+    assert(dtb.len > 0);
+    const h = try Header.read(dtb);
+    const max_iters = @divFloor(dtb.len, 4) + 1;
+    var iters: @TypeOf(max_iters) = 0;
+    var i: @TypeOf(dtb.len) = h.off_struct;
+    var depth: i32 = 0;
+    var counts: CpuTopologyCounts = .{};
+    while (i + 4 <= dtb.len) : (iters += 1) {
+        if (iters >= max_iters) return error.DtbTruncated;
+        const tok = std.mem.readInt(u32, dtb[i..][0..4], .big);
+        i += 4;
+        switch (tok) {
+            FDT_BEGIN_NODE => {
+                if (depth >= MAX_FDT_DEPTH) return error.DtbTooDeep;
+                const name_start = i;
+                i = try skip_name(dtb, i);
+                depth += 1;
+                const name = name_slice(dtb, name_start);
+                if (cpu_node_index(name) != null) counts.cpus += 1;
+                if (core_node_index(name) != null) counts.cores += 1;
+            },
+            FDT_END_NODE => {
+                if (depth == 0) return error.DtbBadToken;
+                depth -= 1;
+            },
+            FDT_NOP => {},
+            FDT_PROP => {
+                if (i + 8 > dtb.len) return error.DtbTruncated;
+                const plen = std.mem.readInt(u32, dtb[i..][0..4], .big);
+                i += 8;
+                const prop_len: @TypeOf(i) = plen;
+                if (prop_len > dtb.len - i) return error.DtbTruncated;
+                i += prop_len;
+                i = std.mem.alignForward(@TypeOf(i), i, 4);
+                if (i > dtb.len) return error.DtbTruncated;
+            },
+            FDT_END => return counts,
+            else => return error.DtbBadToken,
+        }
+    }
+    return error.DtbTruncated;
+}
+
+fn subtree_end(dtb: []const u8, start: usize) !usize {
+    assert(start + 4 <= dtb.len);
+    const max_iters = @divFloor(dtb.len - start, 4) + 1;
+    var iters: @TypeOf(max_iters) = 0;
+    var i: @TypeOf(start) = start;
+    var depth: i32 = 0;
+    while (i + 4 <= dtb.len) : (iters += 1) {
+        if (iters >= max_iters) return error.DtbTruncated;
+        const tok = std.mem.readInt(u32, dtb[i..][0..4], .big);
+        i += 4;
+        switch (tok) {
+            FDT_BEGIN_NODE => {
+                if (depth >= MAX_FDT_DEPTH) return error.DtbTooDeep;
+                i = try skip_name(dtb, i);
+                depth += 1;
+            },
+            FDT_END_NODE => {
+                if (depth == 0) return error.DtbBadToken;
+                depth -= 1;
+                if (depth == 0) return i;
+            },
+            FDT_NOP => {},
+            FDT_PROP => {
+                if (i + 8 > dtb.len) return error.DtbTruncated;
+                const plen = std.mem.readInt(u32, dtb[i..][0..4], .big);
+                i += 8;
+                const prop_len: @TypeOf(i) = plen;
+                if (prop_len > dtb.len - i) return error.DtbTruncated;
+                i += prop_len;
+                i = std.mem.alignForward(@TypeOf(i), i, 4);
+                if (i > dtb.len) return error.DtbTruncated;
+            },
+            FDT_END => return error.DtbTruncated,
+            else => return error.DtbBadToken,
+        }
+    }
+    return error.DtbTruncated;
+}
+
+fn nop_range(dtb: []u8, start: usize, end: usize) void {
+    assert(start <= end);
+    assert(end <= dtb.len);
+    assert((end - start) % 4 == 0);
+    var i = start;
+    while (i < end) : (i += 4) {
+        std.mem.writeInt(u32, dtb[i..][0..4], FDT_NOP, .big);
+    }
+}
+
+fn cpu_node_index(name: []const u8) ?u32 {
+    assert(name.len <= MAX_NAME_BYTES);
+    if (!std.mem.startsWith(u8, name, "cpu@")) return null;
+    return std.fmt.parseUnsigned(u32, name[4..], 16) catch null;
+}
+
+fn core_node_index(name: []const u8) ?u32 {
+    assert(name.len <= MAX_NAME_BYTES);
+    if (!std.mem.startsWith(u8, name, "core")) return null;
+    return std.fmt.parseUnsigned(u32, name[4..], 10) catch null;
 }
 
 fn skip_name(dtb: []const u8, start: usize) !usize {
@@ -338,6 +517,27 @@ test "patchMemorySize ignores a depth>1 memory node (e.g. reserved-memory)" {
     try std.testing.expectError(error.MemoryRegNotFound, patch_memory_size(buf.bytes(), 0x1000));
 }
 
+test "patchCpuTopology keeps requested CPU nodes and matching cpu-map cores" {
+    var buf = minimal_cpu_topology_dtb(4);
+    try std.testing.expectEqual(
+        CpuTopologyCounts{ .cpus = 4, .cores = 4 },
+        try count_cpu_topology_nodes(buf.bytes()),
+    );
+
+    try patch_cpu_topology(buf.bytes(), 2);
+    try std.testing.expectEqual(
+        CpuTopologyCounts{ .cpus = 2, .cores = 2 },
+        try count_cpu_topology_nodes(buf.bytes()),
+    );
+
+    var too_small = minimal_cpu_topology_dtb(1);
+    try std.testing.expectError(
+        error.CpuTopologyTooSmall,
+        patch_cpu_topology(too_small.bytes(), 2),
+    );
+    try std.testing.expectError(error.CpuCountZero, patch_cpu_topology(too_small.bytes(), 0));
+}
+
 // Real-fixture coverage (DTB shape match against `assets/virt.dtb`)
 // is exercised end-to-end by the boot_hvf / boot_kvm smoke tests in
 // `pnpm smoke-tests`, where a DTS-shape regression surfaces as a
@@ -347,7 +547,7 @@ test "patchMemorySize ignores a depth>1 memory node (e.g. reserved-memory)" {
 // ---- test fixture builders ----
 
 const FixtureBuf = struct {
-    storage: [256]u8,
+    storage: [4096]u8,
     total_len: usize,
     struct_off: usize,
     reg_data_off: usize = 0,
@@ -366,7 +566,7 @@ fn minimal_single_prop_dtb(name_with_nul: []const u8, plen: u32, value: []const 
     assert(name_with_nul.len > 0);
 
     var fb: FixtureBuf = undefined;
-    fb.storage = [_]u8{0} ** 256;
+    fb.storage = [_]u8{0} ** 4096;
 
     // 0x00 header (40 bytes), 0x28 rsvmap terminator (16 bytes),
     // 0x38 struct block, 0x?? strings block. Struct breakdown:
@@ -375,7 +575,7 @@ fn minimal_single_prop_dtb(name_with_nul: []const u8, plen: u32, value: []const 
     //   value, padded to a 4-byte boundary             = padded
     //   END_NODE (4) + END (4)                         = 8
     const struct_off: u32 = 0x38;
-    const padded_value_len = std.mem.alignForward(usize, plen, 4);
+    const padded_value_len = std.mem.alignForward(@TypeOf(plen), plen, 4);
     const struct_size: u32 = @intCast(8 + 12 + padded_value_len + 4 + 4);
     const strings_off: u32 = struct_off + struct_size;
     const strings_size: u32 = @intCast(name_with_nul.len);
@@ -423,6 +623,92 @@ fn minimal_single_prop_dtb(name_with_nul: []const u8, plen: u32, value: []const 
     return fb;
 }
 
+fn minimal_cpu_topology_dtb(cpu_count: u32) FixtureBuf {
+    assert(cpu_count > 0);
+    assert(cpu_count <= 64);
+    var fb: FixtureBuf = undefined;
+    fb.storage = [_]u8{0} ** 4096;
+
+    const struct_off: u32 = 0x38;
+    var off: usize = struct_off;
+    write_begin_node(&fb.storage, &off, "");
+    write_begin_node(&fb.storage, &off, "cpus");
+    write_begin_node(&fb.storage, &off, "cpu-map");
+    write_begin_node(&fb.storage, &off, "socket0");
+    write_begin_node(&fb.storage, &off, "cluster0");
+    for (0..cpu_count) |idx| {
+        var name_buf: [16]u8 = undefined;
+        const name = std.fmt.bufPrint(&name_buf, "core{d}", .{idx}) catch unreachable;
+        write_begin_node(&fb.storage, &off, name);
+        write_end_node(&fb.storage, &off);
+    }
+    write_end_node(&fb.storage, &off); // cluster0
+    write_end_node(&fb.storage, &off); // socket0
+    write_end_node(&fb.storage, &off); // cpu-map
+    for (0..cpu_count) |idx| {
+        var name_buf: [16]u8 = undefined;
+        const name = std.fmt.bufPrint(&name_buf, "cpu@{x}", .{idx}) catch unreachable;
+        write_begin_node(&fb.storage, &off, name);
+        write_end_node(&fb.storage, &off);
+    }
+    write_end_node(&fb.storage, &off); // cpus
+    write_end_node(&fb.storage, &off); // root
+    std.mem.writeInt(u32, fb.storage[off..][0..4], FDT_END, .big);
+    off += 4;
+
+    const strings_off: u32 = @intCast(off);
+    fb.storage[off] = 0;
+    off += 1;
+    const total: u32 = @intCast(off);
+    const struct_size: u32 = strings_off - struct_off;
+    assert(total <= fb.storage.len);
+
+    write_header(&fb.storage, total, struct_off, strings_off, 1, struct_size);
+    fb.total_len = total;
+    fb.struct_off = struct_off;
+    return fb;
+}
+
+fn write_header(
+    storage: *[4096]u8,
+    total: u32,
+    struct_off: u32,
+    strings_off: u32,
+    strings_size: u32,
+    struct_size: u32,
+) void {
+    assert(total <= storage.len);
+    std.mem.writeInt(u32, storage[0..4], FDT_MAGIC, .big);
+    std.mem.writeInt(u32, storage[4..8], total, .big);
+    std.mem.writeInt(u32, storage[8..12], struct_off, .big);
+    std.mem.writeInt(u32, storage[12..16], strings_off, .big);
+    std.mem.writeInt(u32, storage[16..20], 0x28, .big);
+    std.mem.writeInt(u32, storage[20..24], 17, .big);
+    std.mem.writeInt(u32, storage[24..28], 16, .big);
+    std.mem.writeInt(u32, storage[28..32], 0, .big);
+    std.mem.writeInt(u32, storage[32..36], strings_size, .big);
+    std.mem.writeInt(u32, storage[36..40], struct_size, .big);
+}
+
+fn write_begin_node(storage: *[4096]u8, off: *usize, name: []const u8) void {
+    assert(off.* + name.len + 8 <= storage.len);
+    std.mem.writeInt(u32, storage[off.*..][0..4], FDT_BEGIN_NODE, .big);
+    off.* += 4;
+    @memcpy(storage[off.*..][0..name.len], name);
+    off.* += name.len;
+    storage[off.*] = 0;
+    off.* += 1;
+    const aligned = std.mem.alignForward(@TypeOf(off.*), off.*, 4);
+    @memset(storage[off.*..aligned], 0);
+    off.* = aligned;
+}
+
+fn write_end_node(storage: *[4096]u8, off: *usize) void {
+    assert(off.* + 4 <= storage.len);
+    std.mem.writeInt(u32, storage[off.*..][0..4], FDT_END_NODE, .big);
+    off.* += 4;
+}
+
 /// Build a DTB shaped like a real one: root "/" wrapping a single
 /// `memory@40000000` child with one `reg` property (16 bytes;
 /// address+size, 2 cells each). Matches the shape patchMemorySize
@@ -430,7 +716,7 @@ fn minimal_single_prop_dtb(name_with_nul: []const u8, plen: u32, value: []const 
 fn minimal_memory_node_dtb(addr: u64, size: u64) FixtureBuf {
     assert(size > 0);
     var fb: FixtureBuf = undefined;
-    fb.storage = [_]u8{0} ** 256;
+    fb.storage = [_]u8{0} ** 4096;
 
     const node_name = "memory@40000000\x00"; // 16 bytes incl. nul
     const reg_str = "reg\x00";
@@ -504,7 +790,7 @@ fn minimal_memory_node_dtb(addr: u64, size: u64) FixtureBuf {
 /// (depth 2) are valid candidates.
 fn nested_memory_node_dtb() FixtureBuf {
     var fb: FixtureBuf = undefined;
-    fb.storage = [_]u8{0} ** 256;
+    fb.storage = [_]u8{0} ** 4096;
 
     const wrap_name = "wrap\x00\x00\x00\x00"; // padded to 8
     const inner_name = "memory@40000000\x00"; // 16 bytes

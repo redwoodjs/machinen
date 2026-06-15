@@ -62,6 +62,7 @@ pub const KVM_GET_SUPPORTED_CPUID = iowr(KVMIO, 0x05, @sizeOf(Cpuid2Header));
 // in-kernel irqchip on Intel hosts; KVM_CREATE_PIT2 gives Linux a legacy
 // PIT to calibrate timers against during early boot.
 pub const KVM_SET_TSS_ADDR = io_(KVMIO, 0x47);
+pub const KVM_SET_IDENTITY_MAP_ADDR = iow(KVMIO, 0x48, @sizeOf(u64));
 pub const KVM_CREATE_PIT2 = iow(KVMIO, 0x77, @sizeOf(PitConfig));
 pub const KVM_GET_PIT2 = ior(KVMIO, 0x9f, @sizeOf(PitState2));
 pub const KVM_SET_PIT2 = iow(KVMIO, 0xa0, @sizeOf(PitState2));
@@ -89,7 +90,11 @@ pub const KVM_GET_REGS = ior(KVMIO, 0x81, @sizeOf(X86Regs));
 pub const KVM_SET_REGS = iow(KVMIO, 0x82, @sizeOf(X86Regs));
 pub const KVM_GET_SREGS = ior(KVMIO, 0x83, @sizeOf(X86Sregs));
 pub const KVM_SET_SREGS = iow(KVMIO, 0x84, @sizeOf(X86Sregs));
+pub const KVM_GET_LAPIC = ior(KVMIO, 0x8E, @sizeOf(LapicState));
+pub const KVM_SET_LAPIC = iow(KVMIO, 0x8F, @sizeOf(LapicState));
 pub const KVM_SET_CPUID2 = iow(KVMIO, 0x90, @sizeOf(Cpuid2Header));
+pub const KVM_GET_MP_STATE = ior(KVMIO, 0x98, @sizeOf(MpState));
+pub const KVM_SET_MP_STATE = iow(KVMIO, 0x99, @sizeOf(MpState));
 
 // VM-scoped device creation (for vgic-v3, vsock, etc.) + per-device
 // attributes. `KVM_CREATE_DEVICE` returns a fd for the device; attr
@@ -322,6 +327,18 @@ pub const Cpuid2 = extern struct {
     padding: u32 = 0,
     entries: [max_cpuid_entries]CpuidEntry2 = @splat(std.mem.zeroes(CpuidEntry2)),
 };
+
+pub const MpState = extern struct {
+    mp_state: u32,
+};
+
+pub const LapicState = extern struct {
+    regs: [1024]u8,
+};
+
+pub const KVM_MP_STATE_RUNNABLE: u32 = 0;
+pub const KVM_MP_STATE_UNINITIALIZED: u32 = 1;
+pub const KVM_MP_STATE_HALTED: u32 = 3;
 
 pub const X86Sregs = extern struct {
     cs: X86Segment,
@@ -590,6 +607,7 @@ pub const KvmError = error{
     KvmCreateIrqchipFailed,
     KvmCreatePitFailed,
     KvmSetTssAddrFailed,
+    KvmSetIdentityMapFailed,
     KvmIrqLineFailed,
     KvmMmapRunFailed,
     KvmCheckExtensionFailed,
@@ -746,6 +764,17 @@ pub const Vm = struct {
         assert(addr % 4096 == 0);
         if (ioctl(self.fd, KVM_SET_TSS_ADDR, @as(c_ulong, @intCast(addr))) != 0) {
             return error.KvmSetTssAddrFailed;
+        }
+    }
+
+    /// x86 only: set the identity-map page KVM may need for real-mode transitions.
+    /// Must happen before createIrqchip() on Intel hosts.
+    pub fn set_identity_map_addr(self: *Vm, addr: u64) !void {
+        assert(self.fd >= 0);
+        assert(addr % 4096 == 0);
+        var v = addr;
+        if (ioctl(self.fd, KVM_SET_IDENTITY_MAP_ADDR, &v) != 0) {
+            return error.KvmSetIdentityMapFailed;
         }
     }
 
@@ -964,6 +993,13 @@ pub const Vcpu = struct {
         return v;
     }
 
+    pub fn request_immediate_exit(self: *Vcpu) void {
+        assert(self.fd >= 0);
+        assert(self.run_size >= 2);
+        const base: [*]u8 = @ptrCast(self.run_page);
+        base[1] = 1;
+    }
+
     pub fn run(self: *Vcpu) !ExitReason {
         assert(self.fd >= 0);
         // We at minimum need to read exit_reason (offset 8, 4 bytes)
@@ -1080,6 +1116,32 @@ pub const Vcpu = struct {
         if (ioctl(self.fd, KVM_SET_CPUID2, cpuid) != 0) return error.Unsupported;
     }
 
+    pub fn get_mp_state(self: *Vcpu) !u32 {
+        assert(self.fd >= 0);
+        var v: MpState = undefined;
+        if (ioctl(self.fd, KVM_GET_MP_STATE, &v) != 0) return error.Unsupported;
+        return v.mp_state;
+    }
+
+    pub fn set_mp_state(self: *Vcpu, state: u32) !void {
+        assert(self.fd >= 0);
+        var v = MpState{ .mp_state = state };
+        if (ioctl(self.fd, KVM_SET_MP_STATE, &v) != 0) return error.Unsupported;
+    }
+
+    pub fn get_lapic(self: *Vcpu) !LapicState {
+        assert(self.fd >= 0);
+        var v: LapicState = undefined;
+        if (ioctl(self.fd, KVM_GET_LAPIC, &v) != 0) return error.Unsupported;
+        return v;
+    }
+
+    pub fn set_lapic(self: *Vcpu, state: LapicState) !void {
+        assert(self.fd >= 0);
+        var v = state;
+        if (ioctl(self.fd, KVM_SET_LAPIC, &v) != 0) return error.Unsupported;
+    }
+
     pub fn get_regs_x86(self: *Vcpu) !X86Regs {
         assert(self.fd >= 0);
         var r: X86Regs = undefined;
@@ -1129,6 +1191,7 @@ test "KVMIO ioctl numbers match their documented kernel values" {
     try std.testing.expectEqual(@as(u32, 0xAE04), KVM_GET_VCPU_MMAP_SIZE);
     try std.testing.expectEqual(@as(u32, 0xC008AE05), KVM_GET_SUPPORTED_CPUID);
     try std.testing.expectEqual(@as(u32, 0xAE47), KVM_SET_TSS_ADDR);
+    try std.testing.expectEqual(@as(u32, 0x4008AE48), KVM_SET_IDENTITY_MAP_ADDR);
     try std.testing.expectEqual(@as(u32, 0x4040AE77), KVM_CREATE_PIT2);
     try std.testing.expectEqual(@as(u32, 0x8070AE9F), KVM_GET_PIT2);
     try std.testing.expectEqual(@as(u32, 0x4070AEA0), KVM_SET_PIT2);

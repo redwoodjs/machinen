@@ -1,9 +1,3 @@
-// `boot()` and its options surface. Owns the host-side VMM lifecycle:
-// asset resolution, port-forward validation, gvproxy bring-up, initramfs
-// pack, rootdisk materialization, VMM spawn + pdeathsig wrap, registry
-// write, live-mount helper spawn, the returned `VmHandle`, and the
-// `--detached` readiness gate.
-
 import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
@@ -520,6 +514,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     memoryCeilingMib,
     diskAbs,
     vmstateStatePath: vmstate.statePath,
+    cpuPolicy: plan.cpuPolicy,
     snapshot: {
       child,
       childPid,
@@ -533,6 +528,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       mountDiskPaths,
       liveMountsResolved,
       nested: opts.nested,
+      cpuPolicy: plan.cpuPolicy,
       vmstate,
     },
   });
@@ -951,6 +947,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
   configureNestedVirtualization(opts, assets.binary, env);
   const memoryCeilingMib = setMemoryCeiling(opts, env);
   const cpuPolicy = resolveCpuResourcePolicy(opts.resources?.cpu);
+  setVcpuCount(cpuPolicy, env);
   const scratch = prepareBootScratchDisk(opts, env, phases);
   const wantsRootDisk = wantsRootDiskBoot(opts);
   validateRootDiskRequest(opts, wantsRootDisk);
@@ -1008,6 +1005,15 @@ function buildVmmEnv(opts: BootOptions): Record<string, string> {
     ...(process.env as Record<string, string>),
     ...opts.vmmEnv,
   };
+}
+
+function setVcpuCount(
+  cpuPolicy: ResolvedCpuResourcePolicy | undefined,
+  env: Record<string, string>,
+): void {
+  if (cpuPolicy) {
+    env.MACHINEN_MAX_VCPUS = String(cpuPolicy.maxVcpus);
+  }
 }
 
 function prepareBootScratchDisk(
@@ -1487,21 +1493,10 @@ function materializeRootdisk(
     env.MACHINEN_ROOTDISK = rootDiskAbs;
     return undefined;
   }
-  // #121: hand the VMM a per-boot reflink clone of the cached
-  // template, never the template itself. virtio-blk mounts the
-  // image read-write, so without the clone every boot from the
-  // same tarball would inherit the previous boot's writes
-  // (apt installs leaking, /var/log poisoning, two concurrent
-  // boots stomping each other's filesystem). COPYFILE_FICLONE →
-  // APFS clonefile / Linux FICLONE on reflink-capable fs (free,
-  // shared blocks until the guest writes); falls back to a
-  // regular copy elsewhere (one-time cost, sparse).
+  // Hand the VMM a per-boot reflink clone so guest writes do not leak across boots.
   const baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image!);
   const cachedImg = ensureRootfsImage(baseAbs, {
     sizeBytes: opts.rootDiskSizeBytes,
-    // #233 follow-up: surface the sub-steps of ensureRootfsImage
-    // (sha256, e2fsck, sparse-extend, …) as dot-separated
-    // children of `rootdisk-materialize` in the boot timeline.
     onPhase: (name, ms) => phases.mark(`rootdisk-materialize.${name}`, ms),
   });
   const perBoot = join(
@@ -1511,9 +1506,6 @@ function materializeRootdisk(
   const reflinkT0 = Date.now();
   reflinkCopy(cachedImg, perBoot);
   phases.mark("rootdisk-materialize.reflink", Date.now() - reflinkT0);
-  // The cache file was only READ here — restore the
-  // clean-shutdown marker so the next boot finds a usable
-  // template instead of wiping and rematerializing (#170).
   markRootfsImageClean(cachedImg);
   env.MACHINEN_ROOTDISK = perBoot;
   return perBoot;
@@ -1841,6 +1833,7 @@ interface BootHandleArgs {
   memoryCeilingMib: number | undefined;
   diskAbs: string | undefined;
   vmstateStatePath: string | undefined;
+  cpuPolicy: ResolvedCpuResourcePolicy | undefined;
   snapshot: BootSnapshotContextArgs;
 }
 
@@ -1857,6 +1850,7 @@ interface BootSnapshotContextArgs {
   mountDiskPaths: MountDiskPaths | undefined;
   liveMountsResolved: ResolvedLiveMount[];
   nested: boolean | undefined;
+  cpuPolicy: ResolvedCpuResourcePolicy | undefined;
   vmstate: BootVmstateRuntime;
 }
 
@@ -2070,6 +2064,7 @@ function buildBootSnapshotContext(
     vmstatePath: args.vmstate.statePath,
     vmstateChain: snapshotVmstateChain(args.vmstate),
     updateVmstateChain: snapshotVmstateUpdater(args.vmstate, args.childPid),
+    maxVcpus: args.cpuPolicy?.maxVcpus,
     nested: args.nested,
     execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
     wait: () => handle.wait(),

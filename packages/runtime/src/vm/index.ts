@@ -50,7 +50,10 @@ import {
   CONSOLE_TAIL_BYTES as _CONSOLE_TAIL_BYTES,
   validateMemoryMib as _validateMemoryMib,
 } from "./helpers.ts";
-import { resolveCpuResourcePolicy as _resolveCpuResourcePolicy } from "./cpu-resources.ts";
+import {
+  multiVcpuHostSupported as _multiVcpuHostSupported,
+  resolveCpuResourcePolicy as _resolveCpuResourcePolicy,
+} from "./cpu-resources.ts";
 import { resolveMemoryCeilingMib as _resolveMemoryCeilingMib } from "./memory-resources.ts";
 
 // Visible to tests that exercise the ring-buffer logic without booting a VM.
@@ -60,4 +63,5 @@ export const _internal = {
   validateMemoryMib: _validateMemoryMib,
   resolveMemoryCeilingMib: _resolveMemoryCeilingMib,
   resolveCpuResourcePolicy: _resolveCpuResourcePolicy,
+  multiVcpuHostSupported: _multiVcpuHostSupported,
 };

@@ -459,6 +459,17 @@ pub const SysReg = enum(u32) {
     cntvoff_el2 = 0xE703,
 };
 
+/// Guest MPIDR_EL1 value for Machinen's flat arm64 topology.
+///
+/// Bit 31 is RES1 for MPIDR_EL1 on this HVF path, and Aff0 carries the
+/// vCPU index. The arm64 DTB `cpu@N` reg values and PSCI CPU_ON target
+/// MPIDRs must use this same mapping so Linux's logical CPUs line up with
+/// HVF's per-vCPU GIC redistributors.
+pub fn mpidr_for_vcpu_index(index: u32) u64 {
+    assert(index < 256);
+    return (@as(u64, 1) << 31) | index;
+}
+
 /// arm64 vCPU wrapper. Must be created from the thread that will run it.
 pub const Vcpu = struct {
     handle: u64,
@@ -776,6 +787,120 @@ test "hv_vm_create and destroy" {
     };
     defer vm.destroy();
     std.debug.print("hv_vm_create: HV_SUCCESS (entitled)\n", .{});
+}
+
+const MultiVcpuProbeResult = struct {
+    err: ?anyerror = null,
+    handle: u64 = 0,
+    mpidr: u64 = 0,
+    rdist: u64 = 0,
+};
+
+fn hvf_multi_vcpu_probe_worker(
+    index: u32,
+    ready: *std.atomic.Value(u32),
+    failed: *std.atomic.Value(bool),
+    result: *MultiVcpuProbeResult,
+) void {
+    assert(index < 2);
+    const create_vcpu = Vcpu.create;
+    const vcpu = create_vcpu() catch |err| {
+        result.err = err;
+        failed.store(true, .seq_cst);
+        return;
+    };
+    defer vcpu.destroy();
+
+    const mpidr = mpidr_for_vcpu_index(index);
+    vcpu.set_sys_reg(.mpidr_el1, mpidr) catch |err| {
+        result.err = err;
+        failed.store(true, .seq_cst);
+        return;
+    };
+
+    result.handle = vcpu.handle;
+    result.mpidr = vcpu.get_sys_reg(.mpidr_el1) catch |err| {
+        result.err = err;
+        failed.store(true, .seq_cst);
+        return;
+    };
+    const previous_ready = ready.fetchAdd(1, .seq_cst);
+    assert(previous_ready < 2);
+
+    // HVF vCPUs are thread-owned, so the multi-vCPU boot path must create
+    // each secondary from the host thread that will run it. Keep both vCPUs
+    // alive together before querying redistributors to prove this topology is
+    // not just sequential one-vCPU reuse.
+    while (ready.load(.seq_cst) < 2 and !failed.load(.seq_cst)) {
+        std.atomic.spinLoopHint();
+    }
+    if (failed.load(.seq_cst)) return;
+
+    result.rdist = Gic.redistributor_base(vcpu) catch |err| {
+        result.err = err;
+        failed.store(true, .seq_cst);
+        return;
+    };
+}
+
+test "HVF creates two vCPUs with unique MPIDR redistributors" {
+    const create_vm = Vm.create;
+    const vm = create_vm() catch |err| switch (err) {
+        error.Denied => {
+            std.debug.print("skip: HV_DENIED\n", .{});
+            return;
+        },
+        else => return err,
+    };
+    defer vm.destroy();
+
+    try Gic.enable(.{});
+    const rdist_region_base = (Gic.Config{}).redistributor_base;
+    const rdist_region_size = try Gic.redistributor_region_size();
+    try std.testing.expect(rdist_region_size > 0);
+
+    var ready = std.atomic.Value(u32).init(0);
+    var failed = std.atomic.Value(bool).init(false);
+    var results = [_]MultiVcpuProbeResult{ .{}, .{} };
+    const t0 = try std.Thread.spawn(
+        .{ .stack_size = std.Thread.SpawnConfig.default_stack_size },
+        hvf_multi_vcpu_probe_worker,
+        .{ 0, &ready, &failed, &results[0] },
+    );
+    const t1 = try std.Thread.spawn(
+        .{ .stack_size = std.Thread.SpawnConfig.default_stack_size },
+        hvf_multi_vcpu_probe_worker,
+        .{ 1, &ready, &failed, &results[1] },
+    );
+    t0.join();
+    t1.join();
+
+    if (results[0].err) |err| return err;
+    if (results[1].err) |err| return err;
+
+    try std.testing.expectEqual(mpidr_for_vcpu_index(0), results[0].mpidr);
+    try std.testing.expectEqual(mpidr_for_vcpu_index(1), results[1].mpidr);
+    try std.testing.expect(results[0].handle != results[1].handle);
+    try std.testing.expect(results[0].rdist != results[1].rdist);
+    try std.testing.expect(results[0].rdist >= rdist_region_base);
+    try std.testing.expect(results[1].rdist >= rdist_region_base);
+    try std.testing.expect(results[0].rdist < rdist_region_base + rdist_region_size);
+    try std.testing.expect(results[1].rdist < rdist_region_base + rdist_region_size);
+
+    std.debug.print(
+        "hvf multi-vcpu probe: vcpu0 handle={d} mpidr=0x{x} rdist=0x{x}; " ++
+            "vcpu1 handle={d} mpidr=0x{x} rdist=0x{x}; rdist_region=[0x{x},0x{x})\n",
+        .{
+            results[0].handle,
+            results[0].mpidr,
+            results[0].rdist,
+            results[1].handle,
+            results[1].mpidr,
+            results[1].rdist,
+            rdist_region_base,
+            rdist_region_base + rdist_region_size,
+        },
+    );
 }
 
 test "map a page, run hvc #0, observe exception exit" {

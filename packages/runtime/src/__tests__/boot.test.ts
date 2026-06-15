@@ -22,7 +22,14 @@ import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { BootError, ExecError, boot, buildMachinenConfig, measureFirstByte } from "../index.ts";
+import {
+  BootError,
+  ExecError,
+  boot,
+  buildMachinenConfig,
+  measureFirstByte,
+  restore,
+} from "../index.ts";
 import {
   applyNestedVirtualizationEnv,
   preflightNestedVirtualization,
@@ -30,6 +37,7 @@ import {
 } from "../nested-virt.ts";
 import { ensurePdeathsig } from "../pdeathsig.ts";
 import { performSnapshot } from "../vm/snapshot.ts";
+import { performForkWithRestore } from "../vm/fork-core.ts";
 import { buildGuestHostname } from "../vm/helpers.ts";
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
@@ -518,6 +526,52 @@ describe("measureFirstByte", () => {
   });
 });
 
+describe("multi-vCPU boot", () => {
+  it("boots a linux/x64 KVM guest that reports the requested vCPU count", async () => {
+    if (process.platform !== "linux" || process.arch !== "x64") {
+      return;
+    }
+    const binary = resolve(microvmRoot, "zig-out/bin/machinen-vm");
+    const kernel = resolve(import.meta.dirname, "../../../..", "release-assets/bzImage-x86_64");
+    const image = resolve(
+      import.meta.dirname,
+      "../../../..",
+      "release-assets/rootfs-debian-amd64.tar.gz",
+    );
+    const missing = [binary, kernel, image].filter((p) => !existsSync(p));
+    if (missing.length > 0) {
+      if (process.env.MACHINEN_REQUIRE_FIXTURES === "0") {
+        return;
+      }
+      throw new Error(`test requires multi-vCPU fixtures (missing: ${missing.join(", ")})`);
+    }
+
+    const vm = await boot({
+      binary,
+      kernel,
+      image,
+      cmd: [
+        "sh",
+        "-lc",
+        "echo nproc=$(nproc); echo processors=$(grep -c ^processor /proc/cpuinfo)",
+      ],
+      resources: { cpu: { maxVcpus: 2 } },
+      timeoutMs: 60_000,
+      snapshot: false,
+      pdeathsig: true,
+      rootDisk: true,
+    });
+    try {
+      await expect(vm.wait()).resolves.toEqual({ code: 0, signal: null });
+      const output = await vm.errorOutput();
+      expect(output).toContain("nproc=2");
+      expect(output).toContain("processors=2");
+    } finally {
+      await vm.kill().catch(() => {});
+    }
+  });
+});
+
 describe("image + cmd", () => {
   it("rejects cmd without image", async () => {
     await expect(boot({ binary: "/bin/sh", cmd: ["/bin/true"] })).rejects.toThrow(
@@ -912,6 +966,66 @@ describe("liveMounts option", () => {
 });
 
 describe("vm.snapshot", () => {
+  it("refuses provider-level snapshots of multi-vCPU VMs", async () => {
+    await expect(
+      performSnapshot(
+        {
+          pid: process.pid,
+          diskPath: "/tmp/unused-disk.img",
+          maxVcpus: 2,
+          execRaw: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+          wait: async () => ({ code: 0, signal: null }),
+          kill: async () => {},
+          teeGuestConsole: undefined,
+          errorOutput: async () => "",
+        },
+        { outDir: "/tmp/unused-multivcpu-snap" },
+      ),
+    ).rejects.toMatchObject({ code: "BOOT_VMSTATE_UNSUPPORTED" });
+  });
+
+  it("refuses restore of multi-vCPU snapshot metadata before boot", async () => {
+    const snapDir = mkdtempSync(join(tmpdir(), "machinen-multivcpu-restore-test-"));
+    try {
+      const imgDir = join(snapDir, "img");
+      const core = join(imgDir, "core-1.img");
+      rmSync(imgDir, { recursive: true, force: true });
+      writeFileSync(
+        join(snapDir, "meta.json"),
+        JSON.stringify({ snappedAt: 0, cpu: { maxVcpus: 2 } }),
+      );
+      execSync(`mkdir -p ${JSON.stringify(imgDir)}`);
+      writeFileSync(core, "fake");
+
+      await expect(restore({ snapDir })).rejects.toMatchObject({
+        code: "BOOT_VMSTATE_UNSUPPORTED",
+      });
+    } finally {
+      rmSync(snapDir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses fork of multi-vCPU VMs before snapshot capture", async () => {
+    await expect(
+      performForkWithRestore(
+        {
+          pid: process.pid,
+          diskPath: "/tmp/unused-disk.img",
+          maxVcpus: 2,
+          execRaw: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+          wait: async () => ({ code: 0, signal: null }),
+          kill: async () => {},
+          teeGuestConsole: undefined,
+          errorOutput: async () => "",
+        },
+        {},
+        async () => {
+          throw new Error("restore should not run after multi-vCPU snapshot refusal");
+        },
+      ),
+    ).rejects.toMatchObject({ code: "BOOT_VMSTATE_UNSUPPORTED" });
+  });
+
   it("refuses provider-level snapshots of nested-enabled VMs", async () => {
     await expect(
       performSnapshot(

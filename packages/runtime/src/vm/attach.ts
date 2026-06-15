@@ -212,6 +212,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       // Vmstate engine: the VMM's whole-VM state-file path, persisted
       // at boot. performSnapshotVmstate SIGUSR1s the VMM and reads it.
       vmstatePath: entry.vmstatePath,
+      maxVcpus: entry.cpu?.maxVcpus,
       vmstateChain: entry.vmstatePath
         ? {
             chainId: entry.vmstateChainId ?? `attached-${entry.pid}`,
