@@ -17,8 +17,9 @@ or a script — without writing any TypeScript.
   heap. Useful for branching test fixtures, parallel exploration, or
   duplicating a process with caches loaded.
 - **Reach into a running VM.** `attach` for an interactive shell with
-  job control; `exec` for one-off commands; `repl` for piping a script
-  of one-liners.
+  job control; `attach --session <name>` when that shell or TUI should
+  survive host disconnects; `exec` for one-off commands; `repl` for
+  piping a script of one-liners.
 - **Manage VM lifecycles.** `list` (alias `ls`) to see what's
   running, `stop` to shut one down cleanly, `gc` to clean up after
   detached boots that crashed.
@@ -60,6 +61,8 @@ npx machinen boot --name worker --detach ./image.tar.gz
 npx machinen ls
 npx machinen exec worker -- ps aux
 npx machinen attach worker
+npx machinen attach --session pi worker       # reconnectable shell/TUI, no tmux needed
+npx machinen sessions worker
 npx machinen snapshot worker ./warm
 npx machinen restore ./warm
 npx machinen fork worker --new-name worker-b --detach

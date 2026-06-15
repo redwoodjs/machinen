@@ -16,8 +16,11 @@ machinen exec     <target> [--tty] -- <cmd>     Run a command in a running VM
 machinen snapshot <target> <out-dir> [--keep-alive] [--dry-run]
                                                 Checkpoint a running VM
 machinen fork     <target> [opts]               Clone a running VM into a sibling
-machinen attach   <target> [--shell <c>] [--tail [N]]
+machinen attach   <target> [--shell <c>] [--tail [N]] [--session <s>]
                                                 Interactive PTY shell into a VM
+machinen sessions <target>                       List persistent PTY sessions
+machinen session-kill <target> <session> [--dry-run]
+                                                Kill a persistent PTY session
 machinen repl     <target>                       Per-line exec REPL (no persistent state)
 machinen stop     <target> [--force|-9] [--dry-run]
                                                 Stop a running VM
@@ -38,8 +41,8 @@ Every data-returning command supports `--json` for machine-readable
 output to stdout: `list`, `gc`, `install`, `snapshot`, `stop`,
 `feedback`, `agent-context`, plus `boot --detach` and `fork --detach`
 (where the CLI returns identity instead of taking over stdio).
-Mutating commands (`gc`, `stop`, `snapshot`) accept `--dry-run` to
-preview without side effects.
+Mutating commands (`gc`, `stop`, `snapshot`, `session-kill`) accept
+`--dry-run` to preview without side effects.
 
 `machinen agent-context` emits a versioned JSON description of every
 command, flag, and exit code. Treat it as the source of truth for
@@ -184,17 +187,53 @@ source's rootdisk at dump time.
 ## `machinen attach`
 
 ```
-machinen attach <target> [--shell <cmd>] [--tail [N]]
+machinen attach <target> [--shell <cmd>] [--tail [N]] [--session <name>]
 ```
 
 Drops into an interactive PTY shell in the running VM (default `bash
 -i`, override with `--shell`). `cd`, env vars, history, job control,
 and full-screen TUIs all work. Exit the shell (Ctrl-D) to detach.
 
+Pass `--session <name>` to create or reattach a named persistent PTY
+session. The guest keeps that shell or TUI running if the host terminal
+or SSH connection drops, so a later `machinen attach --session <name>
+<target>` reconnects to it without needing `tmux` or `screen` inside
+the VM. Plain `machinen attach <target>` remains non-persistent and
+keeps the old behavior.
+
+Session names must be 1-64 characters using only letters, digits, dot,
+underscore, or dash. Common examples:
+
+```bash
+machinen attach --session pi worker
+machinen sessions worker
+machinen session-kill worker pi
+```
+
 `--tail` dumps the boot-console snapshot before opening the shell.
 With no value it prints the whole snapshot (capped at ~1 MiB);
 `--tail N` prints the last N lines. Only works for VMs booted with
 `--detach` (or the legacy `--detached` alias).
+
+## `machinen sessions`
+
+```
+machinen sessions <target>
+```
+
+Lists named persistent PTY sessions currently held by the guest. Output
+is tab-separated: session name, then guest pid.
+
+## `machinen session-kill`
+
+```
+machinen session-kill <target> <session> [--dry-run]
+```
+
+Terminates a named persistent PTY session inside the guest. Use this to
+reset a stuck shell or stop a long-running TUI that was intentionally
+left alive after disconnect. `--dry-run` reports whether the session
+exists without killing it.
 
 ## `machinen repl`
 
