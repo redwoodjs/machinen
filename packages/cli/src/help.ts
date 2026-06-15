@@ -65,6 +65,11 @@ export function printHelp(): void {
       `                                                 \`cd\`, env vars, history, job control\n` +
       `                                                 and full-screen TUIs all work. Exit\n` +
       `                                                 the shell (Ctrl-D) to detach.\n` +
+      `  machinen attach   --session <s> <name|pid>     Create or reattach a named persistent\n` +
+      `                                                 PTY session that survives host\n` +
+      `                                                 disconnects.\n` +
+      `  machinen sessions <name|pid>                   List persistent PTY sessions.\n` +
+      `  machinen session-kill <name|pid> <session>     Kill a persistent PTY session.\n` +
       `  machinen snapshot <name|pid> <out-dir> [--keep-alive]\n` +
       `  machinen snapshot <name|pid> --out <dir> [--keep-alive]\n` +
       `                                                 Checkpoint a running VM into <d>.\n` +
@@ -128,7 +133,10 @@ export function printHelp(): void {
       `  machinen ls\n` +
       `  machinen exec worker -- ps aux                       # one-off command\n` +
       `  machinen exec worker --tty -- bash -i                # interactive shell w/ job control\n` +
-      `  machinen attach worker                              # persistent interactive shell\n` +
+      `  machinen attach worker                              # interactive shell\n` +
+      `  machinen attach --session pi worker                  # reconnectable shell/session\n` +
+      `  machinen sessions worker\n` +
+      `  machinen session-kill worker pi\n` +
       `  machinen exec worker --tty -- vim /etc/passwd        # full-screen TUI in a PTY\n` +
       `  machinen snapshot worker ./warm                      # CRIU snapshot bundle\n` +
       `  machinen restore ./warm\n` +

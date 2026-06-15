@@ -3098,6 +3098,12 @@ Caller wires `process.stdout`.
 
 Connect timeout (ms). Default 5000 — agent should already be up.
 
+##### sessionName?
+
+> `optional` **sessionName?**: `string`
+
+Named persistent PTY session to create or reattach.
+
 ***
 
 ### VsockExecPtyResult
@@ -16742,6 +16748,32 @@ untranslated bytes. See #133.
 
 [`VsockExecPtyHandle`](#vsockexecptyhandle)
 
+##### listSessions()?
+
+> `optional` **listSessions**(): `Promise`\<`object`[]\>
+
+List named persistent PTY sessions currently held by the guest exec-agent.
+
+###### Returns
+
+`Promise`\<`object`[]\>
+
+##### killSession()?
+
+> `optional` **killSession**(`name`): `Promise`\<`boolean`\>
+
+Kill a named persistent PTY session. Returns false when no session matched.
+
+###### Parameters
+
+###### name
+
+`string`
+
+###### Returns
+
+`Promise`\<`boolean`\>
+
 ##### writeFile()
 
 > **writeFile**(`guestPath`, `contents`, `opts?`): `Promise`\<`void`\>
@@ -24037,6 +24069,38 @@ surfacing — not a transient bring-up race like the `run()` path.
 ###### Returns
 
 [`VsockExecPtyHandle`](#vsockexecptyhandle)
+
+##### listPtySessions()
+
+> `readonly` **listPtySessions**(`udsPath`): `Promise`\<`object`[]\>
+
+###### Parameters
+
+###### udsPath
+
+`string`
+
+###### Returns
+
+`Promise`\<`object`[]\>
+
+##### killPtySession()
+
+> `readonly` **killPtySession**(`udsPath`, `name`): `Promise`\<`boolean`\>
+
+###### Parameters
+
+###### udsPath
+
+`string`
+
+###### name
+
+`string`
+
+###### Returns
+
+`Promise`\<`boolean`\>
 
 ***
 
