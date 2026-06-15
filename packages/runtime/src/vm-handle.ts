@@ -406,6 +406,10 @@ export interface SnapshotMeta {
    * explicit `image` override.
    */
   sourceImage?: string;
+  /** Resolved CPU resource policy for the source VM, when known. */
+  cpu?: {
+    maxVcpus: number;
+  };
   /** ms epoch when `vm.snapshot()` returned. */
   snappedAt: number;
   /** Whole-VM `.vmstate` restore invariants. Present on new vmstate bundles. */

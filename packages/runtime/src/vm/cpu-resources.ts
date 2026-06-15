@@ -1,7 +1,7 @@
 import { BootError } from "../errors.ts";
 
 export interface BootCpuResourceOptions {
-  /** Maximum guest-visible vCPUs. Phase 1 supports only 1. */
+  /** Maximum guest-visible vCPUs. */
   maxVcpus?: number;
   /** Maximum host CPU budget. Fractional values are scheduling quota, not guest CPUs. */
   quotaCpus?: number;
@@ -16,6 +16,7 @@ export interface ResolvedCpuResourcePolicy {
 }
 
 const DEFAULT_CPU_MAX_VCPUS = 1;
+const MAX_CPU_MAX_VCPUS = 64;
 export const DEFAULT_CPU_WEIGHT = 100;
 const MIN_CPU_WEIGHT = 1;
 const MAX_CPU_WEIGHT = 10_000;
@@ -39,14 +40,24 @@ function validateMaxVcpus(value: number): number {
       `boot: resources.cpu.maxVcpus must be a positive integer (got ${String(value)}).`,
     );
   }
-  if (value !== DEFAULT_CPU_MAX_VCPUS) {
+  if (value > MAX_CPU_MAX_VCPUS) {
     throw new BootError(
       "BOOT_CPU_INVALID",
-      "boot: resources.cpu.maxVcpus greater than 1 is not supported yet. " +
+      `boot: resources.cpu.maxVcpus must be <= ${MAX_CPU_MAX_VCPUS} (got ${String(value)}).`,
+    );
+  }
+  if (value > DEFAULT_CPU_MAX_VCPUS && !multiVcpuHostSupported()) {
+    throw new BootError(
+      "BOOT_CPU_UNSUPPORTED",
+      "boot: resources.cpu.maxVcpus greater than 1 is currently supported only on linux/x64 KVM hosts. " +
         "CPU quota is scheduling budget, not extra guest-visible CPUs.",
     );
   }
   return value;
+}
+
+function multiVcpuHostSupported(): boolean {
+  return process.platform === "linux" && process.arch === "x64";
 }
 
 function validateQuotaCpus(value: number | undefined, maxVcpus: number): number | undefined {

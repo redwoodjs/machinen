@@ -1,9 +1,3 @@
-// `boot()` and its options surface. Owns the host-side VMM lifecycle:
-// asset resolution, port-forward validation, gvproxy bring-up, initramfs
-// pack, rootdisk materialization, VMM spawn + pdeathsig wrap, registry
-// write, live-mount helper spawn, the returned `VmHandle`, and the
-// `--detached` readiness gate.
-
 import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
@@ -501,6 +495,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     memoryCeilingMib,
     diskAbs,
     vmstateStatePath: vmstate.statePath,
+    cpuPolicy: plan.cpuPolicy,
     snapshot: {
       child,
       childPid,
@@ -514,6 +509,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       mountDiskPaths,
       liveMountsResolved,
       nested: opts.nested,
+      cpuPolicy: plan.cpuPolicy,
       vmstate,
     },
   });
@@ -933,6 +929,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
   configureNestedVirtualization(opts, assets.binary, env);
   const memoryCeilingMib = setMemoryCeiling(opts, env);
   const cpuPolicy = resolveCpuResourcePolicy(opts.resources?.cpu);
+  setVcpuCount(cpuPolicy, env);
   const scratch = prepareBootScratchDisk(opts, env, phases);
   const wantsRootDisk = wantsRootDiskBoot(opts);
   validateRootDiskRequest(opts, wantsRootDisk);
@@ -991,6 +988,15 @@ function buildVmmEnv(opts: BootOptions): Record<string, string> {
     ...(process.env as Record<string, string>),
     ...opts.vmmEnv,
   };
+}
+
+function setVcpuCount(
+  cpuPolicy: ResolvedCpuResourcePolicy | undefined,
+  env: Record<string, string>,
+): void {
+  if (cpuPolicy) {
+    env.MACHINEN_MAX_VCPUS = String(cpuPolicy.maxVcpus);
+  }
 }
 
 function prepareBootScratchDisk(
@@ -1756,6 +1762,7 @@ interface BootHandleArgs {
   memoryCeilingMib: number | undefined;
   diskAbs: string | undefined;
   vmstateStatePath: string | undefined;
+  cpuPolicy: ResolvedCpuResourcePolicy | undefined;
   snapshot: BootSnapshotContextArgs;
 }
 
@@ -1772,6 +1779,7 @@ interface BootSnapshotContextArgs {
   mountDiskPaths: MountDiskPaths | undefined;
   liveMountsResolved: ResolvedLiveMount[];
   nested: boolean | undefined;
+  cpuPolicy: ResolvedCpuResourcePolicy | undefined;
   vmstate: BootVmstateRuntime;
 }
 
@@ -1995,6 +2003,7 @@ function buildBootSnapshotContext(
     vmstatePath: args.vmstate.statePath,
     vmstateChain: snapshotVmstateChain(args.vmstate),
     updateVmstateChain: snapshotVmstateUpdater(args.vmstate, args.childPid),
+    maxVcpus: args.cpuPolicy?.maxVcpus,
     nested: args.nested,
     execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
     syncVmstateSnapshot: (execOpts) => handle.syncVmstateSnapshot?.(execOpts),

@@ -179,6 +179,7 @@ async function restoreCriu(opts: RestoreOptions, snapDir: string): Promise<VmHan
   const phases = new PhaseTimer();
   const imgDir = validateCriuSnapshotBundle(snapDir);
   const meta = readSnapshotMetaWithPhase(join(snapDir, "meta.json"), phases);
+  refuseMultiVcpuRestore(meta);
   const resolvedImage = resolveRestoreImage(opts, meta);
   const lazy = prepareLazyPages(opts, imgDir, phases);
   const effectiveLiveMounts = resolveRestoreLiveMounts(meta.liveMounts, opts.liveMounts);
@@ -231,6 +232,17 @@ function readSnapshotMeta(metaPath: string): SnapshotMeta {
     // anonymous source name. The fork still boots.
     return { snappedAt: 0 };
   }
+}
+
+function refuseMultiVcpuRestore(meta: SnapshotMeta): void {
+  if ((meta.cpu?.maxVcpus ?? 1) <= 1) {
+    return;
+  }
+  throw new BootError(
+    "BOOT_VMSTATE_UNSUPPORTED",
+    "restore: multi-vCPU snapshot bundles are not supported yet.\n" +
+      "  Machinen does not yet restore every vCPU, timer, and interrupt-controller state safely.",
+  );
 }
 
 function prepareLazyPages(
@@ -895,11 +907,13 @@ interface PreparedVmstateRestoreBundle {
 }
 
 function initialVmstateRestoreBundle(snapDir: string): PreparedVmstateRestoreBundle {
+  const meta = readSnapshotMeta(join(snapDir, "meta.json"));
+  refuseMultiVcpuRestore(meta);
   return {
     statePath: join(snapDir, VMSTATE_FILE),
     effectiveSnapDir: snapDir,
     materializedTempDir: undefined,
-    meta: readSnapshotMeta(join(snapDir, "meta.json")),
+    meta,
   };
 }
 

@@ -4822,7 +4822,7 @@ Size in bytes the file was allocated at.
 
 ###### sourceArch?
 
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+> `optional` **sourceArch?**: `"arm64"` \| `"amd64"`
 
 ###### resources
 
@@ -6154,7 +6154,7 @@ by default when `output` is a TTY.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetRoot?
 
@@ -6203,7 +6203,7 @@ by default when `output` is a TTY.
 
 ##### arch?
 
-> `optional` **arch?**: `"amd64"` \| `"arm64"`
+> `optional` **arch?**: `"arm64"` \| `"amd64"`
 
 ##### kind
 
@@ -6839,7 +6839,7 @@ by default when `output` is a TTY.
 
 ###### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ###### pid?
 
@@ -6859,7 +6859,7 @@ by default when `output` is a TTY.
 
 ###### arch
 
-> **arch**: `"amd64"` \| `"arm64"`
+> **arch**: `"arm64"` \| `"amd64"`
 
 ###### abi
 
@@ -7439,11 +7439,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### codeLocations
 
@@ -7571,7 +7571,7 @@ by default when `output` is a TTY.
 
 ##### arch?
 
-> `optional` **arch?**: `"amd64"` \| `"arm64"`
+> `optional` **arch?**: `"arm64"` \| `"amd64"`
 
 ###### Inherited from
 
@@ -7679,7 +7679,7 @@ by default when `output` is a TTY.
 
 ##### arch?
 
-> `optional` **arch?**: `"amd64"` \| `"arm64"`
+> `optional` **arch?**: `"arm64"` \| `"amd64"`
 
 ###### Inherited from
 
@@ -7925,7 +7925,7 @@ by default when `output` is a TTY.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetModules
 
@@ -8089,11 +8089,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### threads
 
@@ -8141,11 +8141,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### threads
 
@@ -11560,11 +11560,11 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### sourceThreadPointer?
 
@@ -11602,7 +11602,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### targetArch?
 
-> `optional` **targetArch?**: `"amd64"` \| `"arm64"`
+> `optional` **targetArch?**: `"arm64"` \| `"amd64"`
 
 ##### targetFsBase?
 
@@ -14397,7 +14397,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### guestArch
 
-> **guestArch**: `"amd64"` \| `"arm64"`
+> **guestArch**: `"arm64"` \| `"amd64"`
 
 ###### vmstate
 
@@ -14429,7 +14429,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### guestArch
 
-> **guestArch**: `"amd64"` \| `"arm64"`
+> **guestArch**: `"arm64"` \| `"amd64"`
 
 ###### mode
 
@@ -17360,6 +17360,16 @@ without callers having to repeat the image path. Cross-host
 restores need either the path to resolve on the new host, or an
 explicit `image` override.
 
+##### cpu?
+
+> `optional` **cpu?**: `object`
+
+Resolved CPU resource policy for the source VM, when known.
+
+###### maxVcpus
+
+> **maxVcpus**: `number`
+
 ##### snappedAt
 
 > **snappedAt**: `number`
@@ -18322,7 +18332,7 @@ the registry entry stays live, the vsock UDS is still listening.
 
 > `optional` **maxVcpus?**: `number`
 
-Maximum guest-visible vCPUs. Phase 1 supports only 1.
+Maximum guest-visible vCPUs.
 
 ##### quotaCpus?
 
