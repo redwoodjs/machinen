@@ -7,15 +7,9 @@
 // TOC that buckets symbols by "what is the reader trying to do?".
 //
 // The mapping below is the single source of truth for those buckets.
-// When you add a new public export to packages/runtime/src/index.ts,
-// add the symbol here too (or it lands in "Other"). Run is:
-//
-//   pnpm build:docs   (typedoc → this script)
-//
-// The script validates that every symbol it references is a real H3
-// in the generated API.md and that no H3 is left uncategorised, so
-// drift between source exports and the TOC fails the build instead
-// of silently producing broken anchors.
+// When adding a public export to packages/runtime/src/index.ts, add it
+// here too. The script validates every referenced/generated H3 so drift
+// fails the build instead of silently producing broken anchors.
 
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -365,6 +359,8 @@ const TOC = {
   "Boot a VM": [
     "boot",
     "BootOptions",
+    "BootResourcesOptions",
+    "BootMemoryResourceOptions",
     "attach",
     "AttachOptions",
     "bootPty",

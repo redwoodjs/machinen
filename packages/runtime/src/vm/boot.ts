@@ -54,6 +54,7 @@ import { claimName, findEntry, removeEntry, writeEntry } from "../registry.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "../rootfs-img.ts";
 import { resolveLiveMounts, type ResolvedLiveMount, synthesizeAndPackBundle } from "./bundle.ts";
 import { performForkWithRestore } from "./fork-core.ts";
+import { resolveExplicitMemoryCeilingMib, type BootResourcesOptions } from "./memory-resources.ts";
 import type { VmHandle } from "../vm-handle.ts";
 import {
   allocateSparseFile,
@@ -67,7 +68,6 @@ import {
   setGuestHostname,
   SNAP_SCRATCH_BYTES,
   teeOnLog,
-  validateMemoryMib,
 } from "./helpers.ts";
 import { performSnapshot, type SnapshotContext } from "./snapshot.ts";
 import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
@@ -339,18 +339,12 @@ export interface BootOptions {
    * authoritative.
    */
   nested?: boolean;
+  /** Explicit resource goals for the VM. Prefer this for user-facing memory policy. */
+  resources?: BootResourcesOptions;
   /**
-   * Guest RAM ceiling, in MiB (decimal integer; no unit suffixes). The
-   * VMM reads this as `MACHINEN_MEMORY` (#263 phase A). This is the
-   * guest's memory layout limit, not the host memory used right now.
-   * Defaults to `min(host_ram_mib / 2, 4096)` with a floor of 512 — a
-   * modest ceiling for typical dev workloads. The ceiling is
-   * approximately free until the guest touches a page (see
-   * `packages/microvm/docs/memory.md`), but a bigger ceiling still
-   * increases guest metadata and the possible high-water mark.
-   *
-   * This is documented as a debug knob — most workloads should never
-   * need to set it.
+   * Compatibility alias for `resources.memory.maxMib`, in MiB. This is
+   * a guest-visible ceiling, not current host RSS; prefer
+   * `resources.memory` for user-facing policy.
    */
   memory?: number;
   /**
@@ -1224,10 +1218,12 @@ function runtimeEntryImportPath(): string {
 }
 
 function setMemoryCeiling(opts: BootOptions, env: Record<string, string>): number | undefined {
+  // Validate public API input even when lower-level vmmEnv wins.
+  const explicitCeiling = resolveExplicitMemoryCeilingMib(opts);
   if (env.MACHINEN_MEMORY !== undefined) {
     return undefined;
   }
-  const ceiling = opts.memory !== undefined ? validateMemoryMib(opts.memory) : autoSizeMemoryMib();
+  const ceiling = explicitCeiling ?? autoSizeMemoryMib();
   env.MACHINEN_MEMORY = String(ceiling);
   return ceiling;
 }
@@ -2004,10 +2000,12 @@ function makeMemoryStats(
   return async () => {
     const balloon = statsFilePath ? readBalloonStats(statsFilePath) : null;
     const lazyTotal = findEntry({ pid: childPid })?.lazyPagesTotal ?? 0;
+    const balloonReclaimedBytes = balloon?.bytesReported ?? 0;
     return {
       ceilingMib: memoryCeilingMib ?? null,
       hostRssBytes: readHostRssBytes(childPid, statsFilePath),
-      balloonInflatedBytes: balloon?.bytesReported ?? 0,
+      balloonReclaimedBytes,
+      balloonInflatedBytes: balloonReclaimedBytes,
       lazyPagesPending: lazyTotal,
     };
   };

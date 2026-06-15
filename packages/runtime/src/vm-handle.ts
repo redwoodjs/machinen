@@ -142,8 +142,9 @@ export interface VmHandle {
   /**
    * Read the host's view of this VM's memory: the ceiling the VMM was
    * sized at, the host RSS the VMM is currently holding, the bytes
-   * the virtio-balloon device has reported back to the host, and the
-   * count of lazy-restore pages the guest hasn't faulted in yet (#274).
+   * the virtio-balloon device has reclaimed through free-page reporting,
+   * and the count of lazy-restore pages the guest hasn't faulted in yet
+   * (#274).
    *
    * Pure read, no side effects. The numbers come from:
    *   - `ceiling`           — captured at boot from the resolved
@@ -152,12 +153,12 @@ export interface VmHandle {
    *   - `hostRss`           — `/proc/<vmm>/status:VmRSS` on Linux,
    *                            `ps -o rss=` on Darwin. May be `null`
    *                            if the VMM exited between calls.
-   *   - `balloonInflated`   — running total of bytes the balloon
+   *   - `balloonReclaimed`  — running total of bytes the balloon
    *                            device has reclaimed via free-page
-   *                            reporting (`mmap MAP_FIXED` on the
-   *                            reported runs). Read out of the shared
-   *                            stats file the VMM mmaps at startup.
-   *                            `0` when the VMM was launched without
+   *                            reporting (`madvise` on the reported
+   *                            runs). Read out of the shared stats file
+   *                            the VMM mmaps at startup. `0` when the
+   *                            VMM was launched without
    *                            `MACHINEN_STATS_FILE`.
    *   - `lazyPagesPending`  — for forks restored lazily (#266), the
    *                            count of pages the rewriter marked
@@ -219,6 +220,12 @@ export interface MemoryStats {
    * reclaim is the reason. Read out of the shared stats file the VMM
    * writes via `MACHINEN_STATS_FILE`. `0` when the VMM was launched
    * without that env var.
+   */
+  balloonReclaimedBytes: number;
+  /**
+   * Compatibility alias for `balloonReclaimedBytes`. The old name came
+   * from classic inflate/deflate balloon terminology, but Machinen uses
+   * free-page reporting for reclaim.
    */
   balloonInflatedBytes: number;
   /**

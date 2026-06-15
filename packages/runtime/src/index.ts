@@ -1226,7 +1226,14 @@ export {
   restore,
 } from "./vm/index.ts";
 export { warmImageConfigCache } from "./vm/index.ts";
-export type { AttachOptions, BootOptions, ImageConfig, RestoreOptions } from "./vm/index.ts";
+export type {
+  AttachOptions,
+  BootMemoryResourceOptions,
+  BootOptions,
+  BootResourcesOptions,
+  ImageConfig,
+  RestoreOptions,
+} from "./vm/index.ts";
 export {
   checkForkBackpressure,
   DEFAULT_FREE_MEMORY_THRESHOLD,

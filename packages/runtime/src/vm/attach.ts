@@ -151,10 +151,12 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
 
     async memoryStats(): Promise<MemoryStats> {
       const balloon = entry.statsPath ? readBalloonStats(entry.statsPath) : null;
+      const balloonReclaimedBytes = balloon?.bytesReported ?? 0;
       return {
         ceilingMib: entry.memoryCeilingMib ?? null,
         hostRssBytes: readHostRssBytes(entry.pid, entry.statsPath),
-        balloonInflatedBytes: balloon?.bytesReported ?? 0,
+        balloonReclaimedBytes,
+        balloonInflatedBytes: balloonReclaimedBytes,
         lazyPagesPending: 0,
       };
     },

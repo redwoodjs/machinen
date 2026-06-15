@@ -1,8 +1,48 @@
 # microvm memory — host RSS and the guest RAM ceiling
 
-How guest RAM is allocated, what the configured `ram_size` actually
-costs the host, and what it would take to make the host footprint
-shrink as well as grow.
+How guest RAM is allocated, what the configured ceiling actually
+costs the host, and how the host footprint shrinks as well as grows.
+
+## User model: capacity without up-front reservation
+
+Use `resources.memory` when you want to state memory as a resource goal:
+
+```ts
+await boot({
+  resources: {
+    memory: {
+      maxMib: 4096,
+      reclaim: "auto",
+    },
+  },
+});
+```
+
+- `maxMib` is the guest-visible RAM ceiling. The guest can grow into
+  this capacity, but the host does not reserve the full ceiling as RSS
+  at boot.
+- `reclaim: "auto"` uses Machinen's always-on virtio-balloon
+  free-page-reporting path. When the guest frees pages and Linux
+  reports those free runs, the VMM calls `madvise` so the host can stop
+  charging those pages to the VM footprint.
+- `memory: 4096` remains a compatibility/debug alias for
+  `resources.memory.maxMib`; prefer the resource shape in user-facing
+  code and docs.
+
+`vm.memoryStats()` reports the pieces users should compare:
+
+- `ceilingMib` — the configured capacity ceiling.
+- `hostRssBytes` — the host footprint currently charged to the VMM
+  (`phys_footprint` on Darwin when available, VmRSS on Linux).
+- `balloonReclaimedBytes` — bytes returned through balloon
+  free-page-reporting. `balloonInflatedBytes` is kept as an old-name
+  alias for the same counter.
+
+The product promise is not "idle VMs always reach single-digit MiB".
+Kernel metadata, page tables, device buffers, and the guest's active
+working set still cost memory. The promise is: a large ceiling provides
+room to grow without reserving that ceiling up front, and temporary
+spikes can be reclaimed after the guest frees pages and reports them.
 
 ## What `ram_size` is
 
@@ -212,9 +252,11 @@ removing it would re-introduce the trap.
 - The ceiling is approximately free until touched, on both backends.
   Setting it too low caps real workloads; setting it too high costs
   only some address-space VSZ and a bit of kernel-side bookkeeping.
-- Be wary of the high-water mark: long-lived VMs that briefly spike
-  to N MiB will hold N MiB of RSS until they exit. Without a
-  balloon, sizing for the spike means paying for the spike forever.
+- Be aware of the high-water mark: long-lived VMs that briefly spike
+  to N MiB will hold that RSS until the guest frees those pages and
+  the balloon reports them. With `reclaim: "auto"`, the VMM can return
+  reported free pages to the host; without guest cooperation, the spike
+  remains charged until exit.
 - 16 KiB page granularity on Apple Silicon means RSS moves in 16 KiB
   steps; small allocations round up.
 
