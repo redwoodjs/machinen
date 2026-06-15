@@ -19,6 +19,9 @@ name: Build base assets (reusable)
 on:
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     strategy:
