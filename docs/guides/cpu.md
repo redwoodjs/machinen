@@ -24,10 +24,10 @@ machinen fork --name app --cpu-quota 0.25 --cpu-weight 50
 
 ## vCPUs vs quota
 
-`maxVcpus` is the guest-visible CPU count. On linux/x64 KVM hosts, values above
-`1` create real guest vCPUs, so commands such as `nproc` see the requested CPU
-count. Other host backends still reject values above `1` instead of pretending
-that quota is a multi-vCPU feature.
+`maxVcpus` is the guest-visible CPU count. On linux/x64 KVM and macOS arm64 HVF
+hosts, values above `1` create real guest vCPUs, so commands such as `nproc` see
+the requested CPU count. Other host backends still reject values above `1`
+instead of pretending that quota is a multi-vCPU feature.
 
 `quotaCpus` is host scheduler budget. A quota of `0.5` means the VMM may consume
 about half of one host CPU over the cgroup scheduling period. It does not add
@@ -56,8 +56,11 @@ non-default weight fails during boot with a CPU unsupported error.
 
 macOS does not provide a cgroup v2 equivalent for hard per-process CPU quota.
 Machinen still validates the `resources.cpu` shape so configuration files can be
-shared, but hard quota, weight enforcement, and multi-vCPU guests are documented
-as unsupported on macOS in this phase. `maxVcpus` remains limited to `1` there.
+shared, but hard quota and weight enforcement remain unsupported on macOS.
+
+On macOS arm64 HVF hosts, `maxVcpus` creates real guest-visible vCPUs. Unsupported
+macOS architectures still reject `maxVcpus > 1` rather than booting a one-vCPU
+guest silently.
 
 ## Observability
 

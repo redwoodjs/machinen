@@ -26165,6 +26165,24 @@ the guest agent skips entries that don't match.
 
 [`ResolvedCpuResourcePolicy`](#resolvedcpuresourcepolicy)
 
+##### multiVcpuHostSupported
+
+> **multiVcpuHostSupported**: (`platform`, `arch`) => `boolean` = `_multiVcpuHostSupported`
+
+###### Parameters
+
+###### platform?
+
+`Platform` = `process.platform`
+
+###### arch?
+
+`Architecture` = `process.arch`
+
+###### Returns
+
+`boolean`
+
 ## Functions
 
 ### buildAdvancedLinuxFacilityProbeRow()

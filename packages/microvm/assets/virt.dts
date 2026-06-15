@@ -192,17 +192,711 @@
 			socket0 {
 				cluster0 {
 					core0 {
-						cpu = <0x8001>;
+						cpu = <0x8100>;
+					};
+					core1 {
+						cpu = <0x8101>;
+					};
+					core2 {
+						cpu = <0x8102>;
+					};
+					core3 {
+						cpu = <0x8103>;
+					};
+					core4 {
+						cpu = <0x8104>;
+					};
+					core5 {
+						cpu = <0x8105>;
+					};
+					core6 {
+						cpu = <0x8106>;
+					};
+					core7 {
+						cpu = <0x8107>;
+					};
+					core8 {
+						cpu = <0x8108>;
+					};
+					core9 {
+						cpu = <0x8109>;
+					};
+					core10 {
+						cpu = <0x810a>;
+					};
+					core11 {
+						cpu = <0x810b>;
+					};
+					core12 {
+						cpu = <0x810c>;
+					};
+					core13 {
+						cpu = <0x810d>;
+					};
+					core14 {
+						cpu = <0x810e>;
+					};
+					core15 {
+						cpu = <0x810f>;
+					};
+					core16 {
+						cpu = <0x8110>;
+					};
+					core17 {
+						cpu = <0x8111>;
+					};
+					core18 {
+						cpu = <0x8112>;
+					};
+					core19 {
+						cpu = <0x8113>;
+					};
+					core20 {
+						cpu = <0x8114>;
+					};
+					core21 {
+						cpu = <0x8115>;
+					};
+					core22 {
+						cpu = <0x8116>;
+					};
+					core23 {
+						cpu = <0x8117>;
+					};
+					core24 {
+						cpu = <0x8118>;
+					};
+					core25 {
+						cpu = <0x8119>;
+					};
+					core26 {
+						cpu = <0x811a>;
+					};
+					core27 {
+						cpu = <0x811b>;
+					};
+					core28 {
+						cpu = <0x811c>;
+					};
+					core29 {
+						cpu = <0x811d>;
+					};
+					core30 {
+						cpu = <0x811e>;
+					};
+					core31 {
+						cpu = <0x811f>;
+					};
+					core32 {
+						cpu = <0x8120>;
+					};
+					core33 {
+						cpu = <0x8121>;
+					};
+					core34 {
+						cpu = <0x8122>;
+					};
+					core35 {
+						cpu = <0x8123>;
+					};
+					core36 {
+						cpu = <0x8124>;
+					};
+					core37 {
+						cpu = <0x8125>;
+					};
+					core38 {
+						cpu = <0x8126>;
+					};
+					core39 {
+						cpu = <0x8127>;
+					};
+					core40 {
+						cpu = <0x8128>;
+					};
+					core41 {
+						cpu = <0x8129>;
+					};
+					core42 {
+						cpu = <0x812a>;
+					};
+					core43 {
+						cpu = <0x812b>;
+					};
+					core44 {
+						cpu = <0x812c>;
+					};
+					core45 {
+						cpu = <0x812d>;
+					};
+					core46 {
+						cpu = <0x812e>;
+					};
+					core47 {
+						cpu = <0x812f>;
+					};
+					core48 {
+						cpu = <0x8130>;
+					};
+					core49 {
+						cpu = <0x8131>;
+					};
+					core50 {
+						cpu = <0x8132>;
+					};
+					core51 {
+						cpu = <0x8133>;
+					};
+					core52 {
+						cpu = <0x8134>;
+					};
+					core53 {
+						cpu = <0x8135>;
+					};
+					core54 {
+						cpu = <0x8136>;
+					};
+					core55 {
+						cpu = <0x8137>;
+					};
+					core56 {
+						cpu = <0x8138>;
+					};
+					core57 {
+						cpu = <0x8139>;
+					};
+					core58 {
+						cpu = <0x813a>;
+					};
+					core59 {
+						cpu = <0x813b>;
+					};
+					core60 {
+						cpu = <0x813c>;
+					};
+					core61 {
+						cpu = <0x813d>;
+					};
+					core62 {
+						cpu = <0x813e>;
+					};
+					core63 {
+						cpu = <0x813f>;
 					};
 				};
 			};
 		};
 
 		cpu@0 {
-			phandle = <0x8001>;
-			reg = <0x00>;
+			phandle = <0x8100>;
+			reg = <0x0>;
 			compatible = "arm,cortex-a72";
 			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@1 {
+			phandle = <0x8101>;
+			reg = <0x1>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@2 {
+			phandle = <0x8102>;
+			reg = <0x2>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@3 {
+			phandle = <0x8103>;
+			reg = <0x3>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@4 {
+			phandle = <0x8104>;
+			reg = <0x4>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@5 {
+			phandle = <0x8105>;
+			reg = <0x5>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@6 {
+			phandle = <0x8106>;
+			reg = <0x6>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@7 {
+			phandle = <0x8107>;
+			reg = <0x7>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@8 {
+			phandle = <0x8108>;
+			reg = <0x8>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@9 {
+			phandle = <0x8109>;
+			reg = <0x9>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@a {
+			phandle = <0x810a>;
+			reg = <0xa>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@b {
+			phandle = <0x810b>;
+			reg = <0xb>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@c {
+			phandle = <0x810c>;
+			reg = <0xc>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@d {
+			phandle = <0x810d>;
+			reg = <0xd>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@e {
+			phandle = <0x810e>;
+			reg = <0xe>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@f {
+			phandle = <0x810f>;
+			reg = <0xf>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@10 {
+			phandle = <0x8110>;
+			reg = <0x10>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@11 {
+			phandle = <0x8111>;
+			reg = <0x11>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@12 {
+			phandle = <0x8112>;
+			reg = <0x12>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@13 {
+			phandle = <0x8113>;
+			reg = <0x13>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@14 {
+			phandle = <0x8114>;
+			reg = <0x14>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@15 {
+			phandle = <0x8115>;
+			reg = <0x15>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@16 {
+			phandle = <0x8116>;
+			reg = <0x16>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@17 {
+			phandle = <0x8117>;
+			reg = <0x17>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@18 {
+			phandle = <0x8118>;
+			reg = <0x18>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@19 {
+			phandle = <0x8119>;
+			reg = <0x19>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@1a {
+			phandle = <0x811a>;
+			reg = <0x1a>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@1b {
+			phandle = <0x811b>;
+			reg = <0x1b>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@1c {
+			phandle = <0x811c>;
+			reg = <0x1c>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@1d {
+			phandle = <0x811d>;
+			reg = <0x1d>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@1e {
+			phandle = <0x811e>;
+			reg = <0x1e>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@1f {
+			phandle = <0x811f>;
+			reg = <0x1f>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@20 {
+			phandle = <0x8120>;
+			reg = <0x20>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@21 {
+			phandle = <0x8121>;
+			reg = <0x21>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@22 {
+			phandle = <0x8122>;
+			reg = <0x22>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@23 {
+			phandle = <0x8123>;
+			reg = <0x23>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@24 {
+			phandle = <0x8124>;
+			reg = <0x24>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@25 {
+			phandle = <0x8125>;
+			reg = <0x25>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@26 {
+			phandle = <0x8126>;
+			reg = <0x26>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@27 {
+			phandle = <0x8127>;
+			reg = <0x27>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@28 {
+			phandle = <0x8128>;
+			reg = <0x28>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@29 {
+			phandle = <0x8129>;
+			reg = <0x29>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@2a {
+			phandle = <0x812a>;
+			reg = <0x2a>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@2b {
+			phandle = <0x812b>;
+			reg = <0x2b>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@2c {
+			phandle = <0x812c>;
+			reg = <0x2c>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@2d {
+			phandle = <0x812d>;
+			reg = <0x2d>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@2e {
+			phandle = <0x812e>;
+			reg = <0x2e>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@2f {
+			phandle = <0x812f>;
+			reg = <0x2f>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@30 {
+			phandle = <0x8130>;
+			reg = <0x30>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@31 {
+			phandle = <0x8131>;
+			reg = <0x31>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@32 {
+			phandle = <0x8132>;
+			reg = <0x32>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@33 {
+			phandle = <0x8133>;
+			reg = <0x33>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@34 {
+			phandle = <0x8134>;
+			reg = <0x34>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@35 {
+			phandle = <0x8135>;
+			reg = <0x35>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@36 {
+			phandle = <0x8136>;
+			reg = <0x36>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@37 {
+			phandle = <0x8137>;
+			reg = <0x37>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@38 {
+			phandle = <0x8138>;
+			reg = <0x38>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@39 {
+			phandle = <0x8139>;
+			reg = <0x39>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@3a {
+			phandle = <0x813a>;
+			reg = <0x3a>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@3b {
+			phandle = <0x813b>;
+			reg = <0x3b>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@3c {
+			phandle = <0x813c>;
+			reg = <0x3c>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@3d {
+			phandle = <0x813d>;
+			reg = <0x3d>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@3e {
+			phandle = <0x813e>;
+			reg = <0x3e>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
+		};
+
+		cpu@3f {
+			phandle = <0x813f>;
+			reg = <0x3f>;
+			compatible = "arm,cortex-a72";
+			device_type = "cpu";
+			enable-method = "psci";
 		};
 	};
 

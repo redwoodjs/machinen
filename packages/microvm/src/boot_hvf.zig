@@ -77,6 +77,7 @@ const virtio_virtiofs_size: u64 = 0x200;
 // consumed internally by a lazy restore). Slots 7..11, contiguous
 // after blk4. The runtime caps `liveMounts` to this many.
 const MAX_VIRTIOFS_SLOTS: usize = 5;
+const MAX_VCPUS: u32 = 64;
 const virtio_virtiofs_bases: [MAX_VIRTIOFS_SLOTS]u64 = .{
     0x0A00_0E00,
     0x0A00_1000,
@@ -116,6 +117,8 @@ pub const Error = error{
     GuestCrashed,
     RanTooLong,
     NestedVirtUnsupported,
+    SecondaryVcpuInitFailed,
+    MultiVcpuVmstateUnsupported,
 };
 
 pub const Config = struct {
@@ -146,6 +149,9 @@ pub const Config = struct {
     mountdisk_upper_fd: ?c_int = null,
     ram_base: u64 = 0x4000_0000,
     ram_size: usize = 4 * 1024 * 1024 * 1024, // 4 GB — room for Debian+Node+CRIU+Claude Code in the initramfs tmpfs
+    /// Guest-visible vCPU count. The DTB CPU topology is trimmed to this
+    /// count before boot so Linux only sees CPUs Machinen really created.
+    max_vcpus: u32 = 1,
     // DTB sits well past the kernel so the kernel doesn't clobber it.
     dtb_offset: u64 = 0x0300_0000, // 48 MB into RAM
     // Where the initramfs goes in guest RAM. Must match the
@@ -224,6 +230,8 @@ fn validate_config(cfg: *const Config) void {
     assert(cfg.dtb_offset < cfg.ram_size);
     assert(cfg.initrd_offset < cfg.ram_size);
     assert(cfg.max_exits > 0);
+    assert(cfg.max_vcpus >= 1);
+    assert(cfg.max_vcpus <= MAX_VCPUS);
 }
 
 /// Turn on HVF's in-kernel GIC v3 at the addresses the device tree
@@ -249,6 +257,10 @@ fn enable_gic() !void {
 
 pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     validate_config(&cfg);
+    if (cfg.max_vcpus > 1 and (cfg.restore_path != null or cfg.snapshot_path != null)) {
+        std.debug.print("hvf boot: refusing vmstate snapshot/restore for multi-vCPU guest\n", .{});
+        return error.MultiVcpuVmstateUnsupported;
+    }
 
     // Install the SIGUSR1 snapshot handler FIRST — before the
     // multi-second fixture load + device bring-up. Until the handler
@@ -297,8 +309,15 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         log_best_effort("hvf: unmap failed", err);
     };
 
-    const vcpu = try init_vcpu(fx.img, &cfg);
+    const vcpu = try init_boot_vcpu(fx.img, &cfg);
     defer vcpu.destroy();
+
+    var secondary_storage: [MAX_VCPUS - 1]SecondaryVcpu = undefined;
+    var secondary_thread_storage: [MAX_VCPUS - 1]std.Thread = undefined;
+    var secondary_args_storage: [MAX_VCPUS - 1]SecondaryRunArgs = undefined;
+    const secondary_vcpus = secondary_storage[0..@intCast(cfg.max_vcpus - 1)];
+    const secondary_threads = secondary_thread_storage[0..secondary_vcpus.len];
+    const secondary_args = secondary_args_storage[0..secondary_vcpus.len];
 
     // --- run loop -------------------------------------------------
     var uart: hvf.Pl011 = .init;
@@ -522,7 +541,34 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         start_snapshot_watcher(vcpu.handle);
     }
 
-    return try run_loop(gpa, &cfg, vm, vcpu, &devs, irqs, ram);
+    var psci_cpus = PsciCpuTable.init(cfg.max_vcpus);
+    var run_shared = HvfRunShared{};
+    const secondary_started = try start_secondary_vcpus(
+        secondary_vcpus,
+        secondary_threads,
+        secondary_args,
+        &cfg,
+        &devs,
+        irqs,
+        &run_shared,
+        &psci_cpus,
+    );
+    const started_threads = secondary_threads[0..@intCast(secondary_started)];
+    errdefer stop_secondary_vcpus(secondary_vcpus, started_threads, &run_shared);
+    defer stop_secondary_vcpus(secondary_vcpus, started_threads, &run_shared);
+
+    return try run_loop(
+        gpa,
+        &cfg,
+        vm,
+        vcpu,
+        secondary_vcpus,
+        &devs,
+        irqs,
+        ram,
+        &psci_cpus,
+        &run_shared,
+    );
 }
 
 // SIGUSR1 atomic + watcher-thread plumbing. macOS HVF doesn't return
@@ -990,15 +1036,20 @@ fn run_loop(
     cfg: *const Config,
     vm: hvf.Vm,
     vcpu: hvf.Vcpu,
+    secondaries: []SecondaryVcpu,
     devs: *const Devices,
     irqs: IrqMap,
     ram: []u8,
+    psci_cpus: *PsciCpuTable,
+    shared: *HvfRunShared,
 ) !Result {
     assert(cfg.max_exits > 0);
     assert(ram.len == cfg.ram_size);
 
-    var exits: usize = 0;
-    var saw_off = false;
+    shared.stop.store(false, .seq_cst);
+    shared.saw_off.store(false, .seq_cst);
+    shared.crashed.store(false, .seq_cst);
+    shared.exits.store(0, .seq_cst);
     var snapshotted = false;
     var checkpoint_delta_mode = cfg.restore_path != null;
     var ram_dirty = try RamDirtyTracker.init(gpa, vm, cfg);
@@ -1008,8 +1059,10 @@ fn run_loop(
     }
     var snapshot_writer_state: vmstate_writer.Writer = .{};
     defer snapshot_writer_state.wait();
-    while (exits < cfg.max_exits) : (exits += 1) {
+    while (!shared.stop.load(.seq_cst) and shared.exits.load(.seq_cst) < cfg.max_exits) {
         try vcpu.run();
+        const previous_exits = shared.exits.fetchAdd(1, .seq_cst);
+        assert(previous_exits < cfg.max_exits);
 
         // Async exit from hv_vcpus_exit (watcher thread, snapshot
         // trigger). Don't treat as a guest fault; check the flag and
@@ -1062,12 +1115,20 @@ fn run_loop(
                 try handle_wait_trap(vcpu);
             },
             .hvc_aarch64, .smc_aarch64 => {
-                switch (try handle_psci(vcpu)) {
+                shared.mutex.lock();
+                const outcome = handle_psci(vcpu, psci_cpus, secondaries) catch |err| {
+                    shared.mutex.unlock();
+                    return err;
+                };
+                shared.mutex.unlock();
+                switch (outcome) {
                     .shutdown => {
-                        saw_off = true;
+                        shared.saw_off.store(true, .seq_cst);
+                        shared.stop.store(true, .seq_cst);
+                        kick_secondary_vcpus(secondaries);
                         break;
                     },
-                    .handled => {},
+                    .cpu_off, .handled => {},
                 }
             },
             .system_register => {
@@ -1079,6 +1140,8 @@ fn run_loop(
             .data_abort_lower_el => {
                 const info = hvf.DataAbort.decode(vcpu.exit.exception);
                 if (!try ram_dirty.handle_write_fault(info)) {
+                    shared.mutex.lock();
+                    defer shared.mutex.unlock();
                     try route_data_abort(vcpu, devs, irqs, info);
                 }
             },
@@ -1089,7 +1152,9 @@ fn run_loop(
         }
 
         if (devs.nested_poweroff.seen) {
-            saw_off = true;
+            shared.saw_off.store(true, .seq_cst);
+            shared.stop.store(true, .seq_cst);
+            kick_secondary_vcpus(secondaries);
             break;
         }
 
@@ -1097,7 +1162,11 @@ fn run_loop(
         // be confident the kernel booted far enough to prove our point.
         // Production boots set `unbounded_serial` so the loop ends only
         // on PSCI SYSTEM_OFF (or max_exits).
-        if (!cfg.unbounded_serial and devs.uart.captured_len >= cfg.capture_bytes) break;
+        if (!cfg.unbounded_serial and devs.uart.captured_len >= cfg.capture_bytes) {
+            shared.stop.store(true, .seq_cst);
+            kick_secondary_vcpus(secondaries);
+            break;
+        }
 
         // Snapshot trigger fallback — for the rare case the watcher's
         // hv_vcpus_exit() landed as a plain exception exit rather than
@@ -1122,13 +1191,15 @@ fn run_loop(
         }
     }
 
+    const exits = shared.exits.load(.seq_cst);
+    if (shared.crashed.load(.seq_cst)) return error.GuestCrashed;
     if (exits >= cfg.max_exits) return error.RanTooLong;
 
     const serial = try gpa.dupe(u8, devs.uart.captured_bytes());
     return .{
         .serial = serial,
-        .saw_psci_shutdown = saw_off,
-        .exits = exits,
+        .saw_psci_shutdown = shared.saw_off.load(.seq_cst),
+        .exits = @intCast(exits),
         .snapshotted = snapshotted,
     };
 }
@@ -1483,10 +1554,18 @@ fn allocate_and_populate_ram(
     // from virt.dts); without this patch any other ceiling silently
     // becomes 4 GiB to the kernel. Failures here would silently cap
     // the guest, so log loudly even outside debug mode.
-    dtb_patch.patch_memory_size(ram[cfg.dtb_offset..][0..fx.dtb.len], cfg.ram_size) catch |err| {
+    const guest_dtb = ram[cfg.dtb_offset..][0..fx.dtb.len];
+    dtb_patch.patch_memory_size(guest_dtb, cfg.ram_size) catch |err| {
         std.debug.print(
-            "warn: patchMemorySize failed ({s}); guest will see the DTB-declared ceiling, not cfg.ram_size={d}\n",
+            "warn: patchMemorySize failed ({s}); guest will see DTB RAM, not cfg.ram_size={d}\n",
             .{ @errorName(err), cfg.ram_size },
+        );
+    };
+    dtb_patch.patch_cpu_topology(guest_dtb, cfg.max_vcpus) catch |err| {
+        if (cfg.max_vcpus > 1) return err;
+        if (debug_enabled()) std.debug.print(
+            "warn: patchCpuTopology failed ({s}); single-vCPU guest keeps DTB topology\n",
+            .{@errorName(err)},
         );
     };
 
@@ -1504,9 +1583,9 @@ fn allocate_and_populate_ram(
         // compressed archives — at ~1 GB/s of wall clock. Leaving 1 GB
         // of dead tail in that window costs ~1 s of early boot.
         const initrd_end_abs: u32 = @intCast(cfg.ram_base + cfg.initrd_offset + initrd.len);
-        dtb_patch.patch_initrd_end(ram[cfg.dtb_offset..][0..fx.dtb.len], initrd_end_abs) catch |err| {
+        dtb_patch.patch_initrd_end(guest_dtb, initrd_end_abs) catch |err| {
             if (debug_enabled()) std.debug.print(
-                "warn: patchInitrdEnd failed ({s}); kernel will scan the full DTB-declared initrd window\n",
+                "warn: patchInitrdEnd failed ({s}); kernel will scan the full initrd window\n",
                 .{@errorName(err)},
             );
         };
@@ -1514,34 +1593,355 @@ fn allocate_and_populate_ram(
     return ram;
 }
 
-/// Bring up the vCPU: register MPIDR/timer/EL1 state, then point
-/// X0 at the DTB and PC at the kernel entry per the arm64 Linux boot
-/// protocol. Caller owns the destroy.
-fn init_vcpu(img: hvf.KernelImage, cfg: *const Config) !hvf.Vcpu {
-    const vcpu = try hvf.Vcpu.create();
-    errdefer vcpu.destroy();
+const SecondaryVcpuState = enum(u32) {
+    init = 0,
+    parked = 1,
+    running = 2,
+    failed = 3,
+};
 
+const HvfRunShared = struct {
+    mutex: hvf.PthreadMutex = .{},
+    stop: std.atomic.Value(bool) = std.atomic.Value(bool).init(false),
+    saw_off: std.atomic.Value(bool) = std.atomic.Value(bool).init(false),
+    crashed: std.atomic.Value(bool) = std.atomic.Value(bool).init(false),
+    exits: std.atomic.Value(u64) = std.atomic.Value(u64).init(0),
+};
+
+const SecondaryVcpu = struct {
+    index: u32 = 0,
+    state: std.atomic.Value(u32) = std.atomic.Value(u32).init(
+        @intFromEnum(SecondaryVcpuState.init),
+    ),
+    handle: std.atomic.Value(u64) = std.atomic.Value(u64).init(std.math.maxInt(u64)),
+    mpidr: std.atomic.Value(u64) = std.atomic.Value(u64).init(0),
+    run_entries: std.atomic.Value(u64) = std.atomic.Value(u64).init(0),
+    start_requested: std.atomic.Value(bool) = std.atomic.Value(bool).init(false),
+    entry: std.atomic.Value(u64) = std.atomic.Value(u64).init(0),
+    context: std.atomic.Value(u64) = std.atomic.Value(u64).init(0),
+};
+
+const SecondaryRunArgs = struct {
+    slot: *SecondaryVcpu,
+    cfg: *const Config,
+    devs: *const Devices,
+    irqs: IrqMap,
+    shared: *HvfRunShared,
+    psci_cpus: *PsciCpuTable,
+    secondaries: []SecondaryVcpu,
+};
+
+fn init_secondary_vcpu_slot(slot: *SecondaryVcpu, index: u32) void {
+    assert(index > 0);
+    slot.* = .{ .index = index };
+}
+
+fn start_secondary_vcpus(
+    slots: []SecondaryVcpu,
+    threads: []std.Thread,
+    args: []SecondaryRunArgs,
+    cfg: *const Config,
+    devs: *const Devices,
+    irqs: IrqMap,
+    shared: *HvfRunShared,
+    psci_cpus: *PsciCpuTable,
+) !u32 {
+    assert(threads.len == slots.len);
+    assert(args.len == slots.len);
+    var started: u32 = 0;
+    errdefer stop_secondary_vcpus(slots, threads[0..@intCast(started)], shared);
+    for (slots, 0..) |*slot, idx| {
+        init_secondary_vcpu_slot(slot, @intCast(idx + 1));
+        args[idx] = .{
+            .slot = slot,
+            .cfg = cfg,
+            .devs = devs,
+            .irqs = irqs,
+            .shared = shared,
+            .psci_cpus = psci_cpus,
+            .secondaries = slots,
+        };
+        threads[idx] = try std.Thread.spawn(
+            thread_spawn_config,
+            secondary_vcpu_thread_main,
+            .{&args[idx]},
+        );
+        started += 1;
+    }
+
+    const poll_us: c_uint = 1_000;
+    const max_polls: u32 = 5_000;
+    var polls: u32 = 0;
+    while (polls < max_polls) : (polls += 1) {
+        var parked: u32 = 0;
+        for (slots) |*slot| {
+            const state: SecondaryVcpuState = @enumFromInt(slot.state.load(.seq_cst));
+            switch (state) {
+                .parked => parked += 1,
+                .failed => return error.SecondaryVcpuInitFailed,
+                .init, .running => {},
+            }
+        }
+        if (parked == slots.len) return started;
+        sleep_micros(poll_us);
+    }
+    return error.SecondaryVcpuInitFailed;
+}
+
+fn stop_secondary_vcpus(slots: []SecondaryVcpu, threads: []std.Thread, shared: *HvfRunShared) void {
+    assert(threads.len <= slots.len);
+    shared.stop.store(true, .seq_cst);
+    kick_secondary_vcpus(slots);
+    for (threads) |thread| thread.join();
+}
+
+fn kick_secondary_vcpus(slots: []SecondaryVcpu) void {
+    assert(slots.len <= MAX_VCPUS - 1);
+    var handles: [MAX_VCPUS - 1]u64 = undefined;
+    var count: u32 = 0;
+    for (slots) |*slot| {
+        const handle = slot.handle.load(.seq_cst);
+        if (handle != std.math.maxInt(u64)) {
+            handles[count] = handle;
+            count += 1;
+        }
+    }
+    if (count > 0) {
+        const rc = hv_vcpus_exit(&handles[0], count);
+        if (rc != 0) std.debug.print("hvf: hv_vcpus_exit secondaries rc={d}\n", .{rc});
+    }
+}
+
+fn request_secondary_start(
+    secondaries: []SecondaryVcpu,
+    index: u32,
+    entry: u64,
+    context: u64,
+) void {
+    assert(index > 0);
+    const slot = &secondaries[index - 1];
+    slot.entry.store(entry, .seq_cst);
+    slot.context.store(context, .seq_cst);
+    slot.start_requested.store(true, .seq_cst);
+    kick_secondary_vcpus(secondaries);
+}
+
+fn secondary_vcpu_thread_main(args: *SecondaryRunArgs) void {
+    assert(args.slot.index > 0);
+    const slot = args.slot;
+    const create_vcpu = hvf.Vcpu.create;
+    const vcpu = create_vcpu() catch {
+        slot.state.store(@intFromEnum(SecondaryVcpuState.failed), .seq_cst);
+        return;
+    };
+    defer vcpu.destroy();
+    defer slot.handle.store(std.math.maxInt(u64), .seq_cst);
+
+    init_vcpu_common(vcpu, slot.index, true) catch {
+        slot.state.store(@intFromEnum(SecondaryVcpuState.failed), .seq_cst);
+        return;
+    };
+    init_vcpu_el_state(vcpu, args.cfg) catch {
+        slot.state.store(@intFromEnum(SecondaryVcpuState.failed), .seq_cst);
+        return;
+    };
+    const mpidr = vcpu.get_sys_reg(.mpidr_el1) catch {
+        slot.state.store(@intFromEnum(SecondaryVcpuState.failed), .seq_cst);
+        return;
+    };
+    slot.mpidr.store(mpidr, .seq_cst);
+    slot.handle.store(vcpu.handle, .seq_cst);
+    slot.state.store(@intFromEnum(SecondaryVcpuState.parked), .seq_cst);
+
+    while (!args.shared.stop.load(.seq_cst)) {
+        if (!slot.start_requested.swap(false, .seq_cst)) {
+            sleep_micros(1_000);
+            continue;
+        }
+        const entry = slot.entry.load(.seq_cst);
+        const context = slot.context.load(.seq_cst);
+        vcpu.set_reg(.x0, context) catch {
+            args.shared.crashed.store(true, .seq_cst);
+            args.shared.stop.store(true, .seq_cst);
+            return;
+        };
+        vcpu.set_reg(.x1, 0) catch |err| log_best_effort("hvf: secondary x1 clear failed", err);
+        vcpu.set_reg(.x2, 0) catch |err| log_best_effort("hvf: secondary x2 clear failed", err);
+        vcpu.set_reg(.x3, 0) catch |err| log_best_effort("hvf: secondary x3 clear failed", err);
+        vcpu.set_reg(.pc, entry) catch {
+            args.shared.crashed.store(true, .seq_cst);
+            args.shared.stop.store(true, .seq_cst);
+            return;
+        };
+        vcpu.set_vtimer_mask(false) catch |err| log_best_effort("hvf: secondary timer unmask failed", err);
+        args.shared.mutex.lock();
+        const marked = args.psci_cpus.mark_on(mpidr);
+        assert(marked == .success);
+        args.shared.mutex.unlock();
+        slot.state.store(@intFromEnum(SecondaryVcpuState.running), .seq_cst);
+        run_secondary_vcpu(vcpu, args);
+        vcpu.set_vtimer_mask(true) catch |err| log_best_effort("hvf: secondary timer park failed", err);
+        if (!args.shared.stop.load(.seq_cst)) {
+            slot.state.store(@intFromEnum(SecondaryVcpuState.parked), .seq_cst);
+        }
+    }
+}
+
+const SecondaryStep = enum { keep_running, park, stop };
+
+fn run_secondary_vcpu(vcpu: hvf.Vcpu, args: *SecondaryRunArgs) void {
+    assert(args.slot.index > 0);
+    while (!args.shared.stop.load(.seq_cst) and
+        args.shared.exits.load(.seq_cst) < args.cfg.max_exits)
+    {
+        if (!run_secondary_once(vcpu, args)) return;
+    }
+}
+
+fn run_secondary_once(vcpu: hvf.Vcpu, args: *SecondaryRunArgs) bool {
+    assert(args.slot.index > 0);
+    vcpu.run() catch |err| {
+        std.debug.print("hvf: secondary vCPU {d} run failed: {s}\n", .{
+            args.slot.index,
+            @errorName(err),
+        });
+        fail_secondary(args);
+        return false;
+    };
+    const previous_runs = args.slot.run_entries.fetchAdd(1, .seq_cst);
+    assert(previous_runs < args.cfg.max_exits);
+    const previous_exits = args.shared.exits.fetchAdd(1, .seq_cst);
+    assert(previous_exits < args.cfg.max_exits);
+    return switch (classify_secondary_exit(vcpu, args)) {
+        .keep_running => true,
+        .park, .stop => false,
+    };
+}
+
+fn classify_secondary_exit(vcpu: hvf.Vcpu, args: *SecondaryRunArgs) SecondaryStep {
+    assert(args.slot.index > 0);
+    if (vcpu.exit.reason == .canceled) return .keep_running;
+    if (vcpu.exit.reason == .vtimer_activated) {
+        vcpu.set_vtimer_mask(true) catch |err| log_best_effort("hvf: secondary timer remask failed", err);
+        vcpu.set_vtimer_mask(false) catch |err| log_best_effort("hvf: secondary timer rearm failed", err);
+        return .keep_running;
+    }
+    if (vcpu.exit.reason != .exception) {
+        log_unhandled_exit(vcpu, "secondary non-exception exit");
+        fail_secondary(args);
+        return .stop;
+    }
+    const ec = hvf.ExceptionClass.from_syndrome(vcpu.exit.exception.syndrome);
+    return handle_secondary_exception(vcpu, args, ec);
+}
+
+fn handle_secondary_exception(
+    vcpu: hvf.Vcpu,
+    args: *SecondaryRunArgs,
+    ec: hvf.ExceptionClass,
+) SecondaryStep {
+    assert(args.slot.index > 0);
+    switch (ec) {
+        .trapped_wfx => return handle_secondary_wait(vcpu, args),
+        .hvc_aarch64, .smc_aarch64 => return handle_secondary_psci(vcpu, args),
+        .system_register => return handle_secondary_sysreg(vcpu, args, ec),
+        .data_abort_lower_el => return handle_secondary_data_abort(vcpu, args),
+        else => {
+            log_unhandled_exception(vcpu, ec, "secondary unhandled exception class");
+            fail_secondary(args);
+            return .stop;
+        },
+    }
+}
+
+fn handle_secondary_wait(vcpu: hvf.Vcpu, args: *SecondaryRunArgs) SecondaryStep {
+    assert(args.slot.index > 0);
+    handle_wait_trap(vcpu) catch |err| {
+        std.debug.print("hvf: secondary wait trap failed: {s}\n", .{@errorName(err)});
+        fail_secondary(args);
+        return .stop;
+    };
+    return .keep_running;
+}
+
+fn handle_secondary_psci(vcpu: hvf.Vcpu, args: *SecondaryRunArgs) SecondaryStep {
+    assert(args.slot.index > 0);
+    args.shared.mutex.lock();
+    const outcome = handle_psci(vcpu, args.psci_cpus, args.secondaries) catch |err| {
+        args.shared.mutex.unlock();
+        std.debug.print("hvf: secondary PSCI failed: {s}\n", .{@errorName(err)});
+        fail_secondary(args);
+        return .stop;
+    };
+    args.shared.mutex.unlock();
+    switch (outcome) {
+        .shutdown => {
+            args.shared.saw_off.store(true, .seq_cst);
+            args.shared.stop.store(true, .seq_cst);
+            kick_secondary_vcpus(args.secondaries);
+            return .stop;
+        },
+        .cpu_off => return .park,
+        .handled => return .keep_running,
+    }
+}
+
+fn handle_secondary_sysreg(
+    vcpu: hvf.Vcpu,
+    args: *SecondaryRunArgs,
+    ec: hvf.ExceptionClass,
+) SecondaryStep {
+    assert(args.slot.index > 0);
+    args.shared.mutex.lock();
+    const handled = handle_system_register_trap(vcpu) catch |err| {
+        args.shared.mutex.unlock();
+        std.debug.print("hvf: secondary system-register trap failed: {s}\n", .{@errorName(err)});
+        fail_secondary(args);
+        return .stop;
+    };
+    args.shared.mutex.unlock();
+    if (!handled) {
+        log_unhandled_exception(vcpu, ec, "secondary unsupported system-register trap");
+        fail_secondary(args);
+        return .stop;
+    }
+    return .keep_running;
+}
+
+fn handle_secondary_data_abort(vcpu: hvf.Vcpu, args: *SecondaryRunArgs) SecondaryStep {
+    assert(args.slot.index > 0);
+    const info = hvf.DataAbort.decode(vcpu.exit.exception);
+    args.shared.mutex.lock();
+    route_data_abort(vcpu, args.devs, args.irqs, info) catch |err| {
+        args.shared.mutex.unlock();
+        std.debug.print("hvf: secondary data-abort route failed: {s}\n", .{@errorName(err)});
+        fail_secondary(args);
+        return .stop;
+    };
+    args.shared.mutex.unlock();
+    return .keep_running;
+}
+
+fn fail_secondary(args: *SecondaryRunArgs) void {
+    assert(args.slot.index > 0);
+    args.shared.crashed.store(true, .seq_cst);
+    args.shared.stop.store(true, .seq_cst);
+    kick_secondary_vcpus(args.secondaries);
+}
+
+fn init_vcpu_common(vcpu: hvf.Vcpu, index: u32, parked: bool) !void {
     // Set the vCPU's multiprocessor affinity. Without this, Apple's
     // GIC won't associate this vCPU with a redistributor frame and
     // any `hv_gic_*_redistributor_reg` call returns HV_DENIED. Value
     // layout: bit 31 reserved-as-1, bits 23:16/15:8/7:0 = Aff2/Aff1/Aff0.
-    // For our single-CPU guest, all affinity fields = 0.
-    try vcpu.set_sys_reg(.mpidr_el1, 1 << 31);
+    try vcpu.set_sys_reg(.mpidr_el1, hvf.mpidr_for_vcpu_index(index));
 
-    // Let the virtual timer wake the vCPU so we can deliver ticks.
-    try vcpu.set_vtimer_mask(false);
+    // Let the boot CPU's virtual timer wake it; keep parked secondaries
+    // masked until PSCI starts them.
+    try vcpu.set_vtimer_mask(parked);
+}
 
-    // Diagnostic: query where HVF actually placed this vCPU's
-    // redistributor. If this differs from what we told the kernel via
-    // the DTB, the kernel will report "No redistributor present."
-    if (debug_enabled()) {
-        if (hvf.Gic.redistributor_base(vcpu)) |rdist| {
-            std.debug.print("GIC redistributor for vcpu 0: 0x{x}\n", .{rdist});
-        } else |err| {
-            std.debug.print("GIC redistributor query failed: {s}\n", .{@errorName(err)});
-        }
-    }
-
+fn init_vcpu_el_state(vcpu: hvf.Vcpu, cfg: *const Config) !void {
     if (cfg.nested) {
         // EL2h, all interrupts masked. When EL2 is exposed, Linux must
         // enter at EL2 so it can own the guest hypervisor state and
@@ -1559,6 +1959,29 @@ fn init_vcpu(img: hvf.KernelImage, cfg: *const Config) !hvf.Vcpu {
         // MMU off (kernel turns it on itself); I-bit for executable fetches.
         try vcpu.set_sys_reg(.sctlr_el1, 1 << 12);
     }
+}
+
+/// Bring up the boot vCPU: register MPIDR/timer/EL1 state, then point
+/// X0 at the DTB and PC at the kernel entry per the arm64 Linux boot
+/// protocol. Caller owns the destroy.
+fn init_boot_vcpu(img: hvf.KernelImage, cfg: *const Config) !hvf.Vcpu {
+    const vcpu = try hvf.Vcpu.create();
+    errdefer vcpu.destroy();
+
+    try init_vcpu_common(vcpu, 0, false);
+
+    // Diagnostic: query where HVF actually placed this vCPU's
+    // redistributor. If this differs from what we told the kernel via
+    // the DTB, the kernel will report "No redistributor present."
+    if (debug_enabled()) {
+        if (hvf.Gic.redistributor_base(vcpu)) |rdist| {
+            std.debug.print("GIC redistributor for vcpu 0: 0x{x}\n", .{rdist});
+        } else |err| {
+            std.debug.print("GIC redistributor query failed: {s}\n", .{@errorName(err)});
+        }
+    }
+
+    try init_vcpu_el_state(vcpu, cfg);
 
     // arm64 Linux boot protocol: X0 = physical address of DTB.
     const dtb_phys = cfg.ram_base + cfg.dtb_offset;
@@ -1921,13 +2344,110 @@ fn start_vsock_bridge(
     return bridge;
 }
 
+const PsciReturn = enum(i64) {
+    success = 0,
+    not_supported = -1,
+    invalid_parameters = -2,
+    denied = -3,
+    already_on = -4,
+    on_pending = -5,
+};
+
+const PsciAffinity = enum(u64) {
+    on = 0,
+    off = 1,
+    on_pending = 2,
+};
+
+const PsciPowerState = enum(u8) { off, on_pending, on };
+
+const PsciCpuTable = struct {
+    count: u32,
+    states: [MAX_VCPUS]PsciPowerState,
+    entries: [MAX_VCPUS]u64,
+    contexts: [MAX_VCPUS]u64,
+
+    fn init(count: u32) PsciCpuTable {
+        assert(count >= 1);
+        assert(count <= MAX_VCPUS);
+        var table = PsciCpuTable{
+            .count = count,
+            .states = [_]PsciPowerState{.off} ** MAX_VCPUS,
+            .entries = [_]u64{0} ** MAX_VCPUS,
+            .contexts = [_]u64{0} ** MAX_VCPUS,
+        };
+        table.states[0] = .on;
+        return table;
+    }
+
+    fn index_for_mpidr(self: *const PsciCpuTable, mpidr: u64) ?u32 {
+        assert(self.count >= 1);
+        // Linux passes the PSCI target_cpu using the affinity value from the
+        // DTB `cpu@N.reg` cells (Aff0=N for Machinen's flat topology). HVF's
+        // MPIDR_EL1 value also carries bit31 RES1, so accept either spelling
+        // and key the vCPU by Aff0.
+        if ((mpidr & ~(@as(u64, 1) << 31) & ~@as(u64, 0xff)) != 0) return null;
+        const index: u32 = @intCast(mpidr & 0xff);
+        if (index >= self.count) return null;
+        return index;
+    }
+
+    fn cpu_on(self: *PsciCpuTable, target_mpidr: u64, entry: u64, context: u64) PsciReturn {
+        assert(self.count >= 1);
+        const index = self.index_for_mpidr(target_mpidr) orelse return .invalid_parameters;
+        return switch (self.states[index]) {
+            .on => .already_on,
+            .on_pending => .on_pending,
+            .off => blk: {
+                self.entries[index] = entry;
+                self.contexts[index] = context;
+                self.states[index] = .on_pending;
+                break :blk .success;
+            },
+        };
+    }
+
+    fn mark_on(self: *PsciCpuTable, mpidr: u64) PsciReturn {
+        assert(self.count >= 1);
+        const index = self.index_for_mpidr(mpidr) orelse return .invalid_parameters;
+        self.states[index] = .on;
+        return .success;
+    }
+
+    fn cpu_off(self: *PsciCpuTable, mpidr: u64) PsciReturn {
+        assert(self.count >= 1);
+        const index = self.index_for_mpidr(mpidr) orelse return .invalid_parameters;
+        if (index == 0) return .denied;
+        self.states[index] = .off;
+        self.entries[index] = 0;
+        self.contexts[index] = 0;
+        return .success;
+    }
+
+    fn affinity_info(self: *const PsciCpuTable, target_mpidr: u64) ?PsciAffinity {
+        assert(self.count >= 1);
+        const index = self.index_for_mpidr(target_mpidr) orelse return null;
+        return switch (self.states[index]) {
+            .on => .on,
+            .off => .off,
+            .on_pending => .on_pending,
+        };
+    }
+};
+
+fn psci_return_value(value: PsciReturn) u64 {
+    assert(@intFromEnum(PsciReturn.success) == 0);
+    return @bitCast(@intFromEnum(value));
+}
+
 /// What `handlePsci` decided. Most PSCI calls just return a value to
 /// the guest; SYSTEM_OFF / SYSTEM_RESET ask the run loop to stop.
-const PsciOutcome = enum { handled, shutdown };
+const PsciOutcome = enum { handled, shutdown, cpu_off };
 
 /// Decode and respond to a PSCI HVC/SMC. Returns `.shutdown` only on
 /// SYSTEM_OFF / SYSTEM_RESET; all other cases are answered in-place.
-fn handle_psci(vcpu: hvf.Vcpu) !PsciOutcome {
+fn handle_psci(vcpu: hvf.Vcpu, cpus: *PsciCpuTable, secondaries: []SecondaryVcpu) !PsciOutcome {
+    assert(cpus.count >= 1);
     const f = try hvf.Psci.decode(vcpu) orelse return .handled;
     switch (f) {
         .system_off, .system_reset => return .shutdown,
@@ -1940,17 +2460,38 @@ fn handle_psci(vcpu: hvf.Vcpu) !PsciOutcome {
             try vcpu.set_reg(.x0, 2);
         },
         .affinity_info_64 => {
-            // CPU 0 is "ON." The kernel queries this as part of setup;
-            // anything else gets NOT_SUPPORTED.
-            const x1 = try vcpu.get_reg(.x1);
-            try vcpu.set_reg(.x0, if (x1 == 0) 0 else @bitCast(@as(i64, -1)));
+            const target_mpidr = try vcpu.get_reg(.x1);
+            if (cpus.affinity_info(target_mpidr)) |state| {
+                try vcpu.set_reg(.x0, @intFromEnum(state));
+            } else {
+                try vcpu.set_reg(.x0, psci_return_value(.invalid_parameters));
+            }
         },
-        .cpu_off, .cpu_on_64, .features => {
-            // We only support one CPU and no optional features.
-            try vcpu.set_reg(.x0, @bitCast(@as(i64, -1)));
+        .cpu_on_64 => {
+            const target_mpidr = try vcpu.get_reg(.x1);
+            const entry = try vcpu.get_reg(.x2);
+            const context = try vcpu.get_reg(.x3);
+            const target_index = cpus.index_for_mpidr(target_mpidr);
+            const result = cpus.cpu_on(target_mpidr, entry, context);
+            if (result == .success) {
+                if (target_index) |idx| {
+                    if (idx > 0) request_secondary_start(secondaries, idx, entry, context);
+                }
+            }
+            try vcpu.set_reg(.x0, psci_return_value(result));
+        },
+        .cpu_off => {
+            const current_mpidr = try vcpu.get_sys_reg(.mpidr_el1);
+            const result = cpus.cpu_off(current_mpidr);
+            try vcpu.set_reg(.x0, psci_return_value(result));
+            if (result == .success) return .cpu_off;
+        },
+        .features => {
+            // No optional PSCI features beyond the calls decoded above.
+            try vcpu.set_reg(.x0, psci_return_value(.not_supported));
         },
         _ => {
-            try vcpu.set_reg(.x0, @bitCast(@as(i64, -1)));
+            try vcpu.set_reg(.x0, psci_return_value(.not_supported));
         },
     }
     return .handled;
@@ -2305,6 +2846,212 @@ fn fixtures_present() bool {
         if (access(path_z, F_OK) != 0) return false;
     }
     return true;
+}
+
+test "HVF multi-vCPU vmstate paths are refused before fixture load" {
+    const cfg = Config{
+        .kernel_path = "missing-kernel",
+        .dtb_path = "missing-dtb",
+        .max_vcpus = 2,
+        .snapshot_path = "out.vmstate",
+    };
+    try std.testing.expectError(
+        error.MultiVcpuVmstateUnsupported,
+        boot(std.testing.allocator, cfg),
+    );
+}
+
+test "PSCI CPU lifecycle state transitions" {
+    var cpus = PsciCpuTable.init(2);
+    const boot_mpidr = hvf.mpidr_for_vcpu_index(0);
+    const secondary_mpidr = hvf.mpidr_for_vcpu_index(1);
+
+    try std.testing.expectEqual(PsciAffinity.on, cpus.affinity_info(boot_mpidr).?);
+    try std.testing.expectEqual(PsciAffinity.off, cpus.affinity_info(secondary_mpidr).?);
+    try std.testing.expectEqual(
+        PsciReturn.invalid_parameters,
+        cpus.cpu_on(hvf.mpidr_for_vcpu_index(3), 0x80000, 0),
+    );
+    try std.testing.expectEqual(PsciReturn.already_on, cpus.cpu_on(boot_mpidr, 0x80000, 0));
+
+    try std.testing.expectEqual(
+        PsciReturn.success,
+        cpus.cpu_on(secondary_mpidr, 0x4010_0000, 0x55aa),
+    );
+    try std.testing.expectEqual(PsciAffinity.on_pending, cpus.affinity_info(secondary_mpidr).?);
+    try std.testing.expectEqual(@as(u64, 0x4010_0000), cpus.entries[1]);
+    try std.testing.expectEqual(@as(u64, 0x55aa), cpus.contexts[1]);
+    try std.testing.expectEqual(
+        PsciReturn.on_pending,
+        cpus.cpu_on(secondary_mpidr, 0x4020_0000, 0),
+    );
+
+    try std.testing.expectEqual(PsciReturn.success, cpus.mark_on(secondary_mpidr));
+    try std.testing.expectEqual(PsciAffinity.on, cpus.affinity_info(secondary_mpidr).?);
+    try std.testing.expectEqual(
+        PsciReturn.already_on,
+        cpus.cpu_on(secondary_mpidr, 0x4020_0000, 0),
+    );
+
+    try std.testing.expectEqual(PsciReturn.denied, cpus.cpu_off(boot_mpidr));
+    try std.testing.expectEqual(PsciReturn.success, cpus.cpu_off(secondary_mpidr));
+    try std.testing.expectEqual(PsciAffinity.off, cpus.affinity_info(secondary_mpidr).?);
+    try std.testing.expectEqual(@as(u64, 0), cpus.entries[1]);
+    try std.testing.expectEqual(@as(u64, 0), cpus.contexts[1]);
+}
+
+test "initialize HVF secondary vCPUs parked before PSCI" {
+    const create_vm = hvf.Vm.create;
+    const vm = create_vm() catch |err| switch (err) {
+        error.Denied => {
+            std.debug.print("skip: HV_DENIED\n", .{});
+            return;
+        },
+        else => return err,
+    };
+    defer vm.destroy();
+    try enable_gic();
+
+    const img: hvf.KernelImage = .{
+        .text_offset = 0,
+        .image_size = 0,
+        .bytes = &.{},
+    };
+    const cfg = Config{
+        .kernel_path = "unused",
+        .dtb_path = "unused",
+        .max_vcpus = 2,
+    };
+    const boot_vcpu = try init_boot_vcpu(img, &cfg);
+    defer boot_vcpu.destroy();
+
+    var secondary_storage: [MAX_VCPUS - 1]SecondaryVcpu = undefined;
+    var secondary_thread_storage: [MAX_VCPUS - 1]std.Thread = undefined;
+    var secondary_args_storage: [MAX_VCPUS - 1]SecondaryRunArgs = undefined;
+    const secondary_vcpus = secondary_storage[0..1];
+    const secondary_threads = secondary_thread_storage[0..1];
+    const secondary_args = secondary_args_storage[0..1];
+    var run_shared = HvfRunShared{};
+    var psci_cpus = PsciCpuTable.init(2);
+    var devs: Devices = undefined;
+    const irqs: IrqMap = undefined;
+    const started = try start_secondary_vcpus(
+        secondary_vcpus,
+        secondary_threads,
+        secondary_args,
+        &cfg,
+        &devs,
+        irqs,
+        &run_shared,
+        &psci_cpus,
+    );
+    defer stop_secondary_vcpus(
+        secondary_vcpus,
+        secondary_threads[0..@intCast(started)],
+        &run_shared,
+    );
+
+    try std.testing.expectEqual(hvf.mpidr_for_vcpu_index(0), try boot_vcpu.get_sys_reg(.mpidr_el1));
+    try std.testing.expectEqual(
+        hvf.mpidr_for_vcpu_index(1),
+        secondary_vcpus[0].mpidr.load(.seq_cst),
+    );
+    try std.testing.expect(secondary_vcpus[0].handle.load(.seq_cst) != std.math.maxInt(u64));
+    try std.testing.expect(secondary_vcpus[0].handle.load(.seq_cst) != boot_vcpu.handle);
+    try std.testing.expectEqual(@as(u64, 0), secondary_vcpus[0].run_entries.load(.seq_cst));
+}
+
+test "HVF secondary vCPU wakes on PSCI CPU_ON and parks on CPU_OFF" {
+    const create_vm = hvf.Vm.create;
+    const vm = create_vm() catch |err| switch (err) {
+        error.Denied => {
+            std.debug.print("skip: HV_DENIED\n", .{});
+            return;
+        },
+        else => return err,
+    };
+    defer vm.destroy();
+    try enable_gic();
+
+    const host_mem = try std.posix.mmap(
+        null,
+        hvf.page_size,
+        .{ .READ = true, .WRITE = true },
+        .{ .TYPE = .PRIVATE, .ANONYMOUS = true },
+        -1,
+        0,
+    );
+    defer std.posix.munmap(host_mem);
+    const hvc0_instr: u32 = 0xD4000002;
+    @as(*align(4) u32, @ptrCast(@alignCast(host_mem.ptr))).* = hvc0_instr;
+    const guest_base: u64 = 0x40000000;
+    try vm.map(host_mem, guest_base, hvf.MapFlags.rx);
+    defer vm.unmap(guest_base, hvf.page_size) catch |err| {
+        std.debug.print("hvf secondary test: unmap failed: {s}\n", .{@errorName(err)});
+    };
+
+    const cfg = Config{
+        .kernel_path = "unused",
+        .dtb_path = "unused",
+        .max_vcpus = 2,
+    };
+    var secondary_storage: [MAX_VCPUS - 1]SecondaryVcpu = undefined;
+    var secondary_thread_storage: [MAX_VCPUS - 1]std.Thread = undefined;
+    var secondary_args_storage: [MAX_VCPUS - 1]SecondaryRunArgs = undefined;
+    const secondary_vcpus = secondary_storage[0..1];
+    const secondary_threads = secondary_thread_storage[0..1];
+    const secondary_args = secondary_args_storage[0..1];
+    var run_shared = HvfRunShared{};
+    var psci_cpus = PsciCpuTable.init(2);
+    var devs: Devices = undefined;
+    const irqs: IrqMap = undefined;
+    const started = try start_secondary_vcpus(
+        secondary_vcpus,
+        secondary_threads,
+        secondary_args,
+        &cfg,
+        &devs,
+        irqs,
+        &run_shared,
+        &psci_cpus,
+    );
+    defer stop_secondary_vcpus(
+        secondary_vcpus,
+        secondary_threads[0..@intCast(started)],
+        &run_shared,
+    );
+
+    const secondary_mpidr = hvf.mpidr_for_vcpu_index(1);
+    const cpu_off_id = @intFromEnum(hvf.Psci.Function.cpu_off);
+    try std.testing.expectEqual(
+        PsciReturn.success,
+        psci_cpus.cpu_on(secondary_mpidr, guest_base, cpu_off_id),
+    );
+    request_secondary_start(secondary_vcpus, 1, guest_base, cpu_off_id);
+
+    const max_polls: u32 = 5_000;
+    var polls: u32 = 0;
+    while (polls < max_polls and
+        secondary_vcpus[0].run_entries.load(.seq_cst) == 0 and
+        !run_shared.crashed.load(.seq_cst)) : (polls += 1)
+    {
+        sleep_micros(1_000);
+    }
+    try std.testing.expect(!run_shared.crashed.load(.seq_cst));
+    try std.testing.expect(secondary_vcpus[0].run_entries.load(.seq_cst) > 0);
+
+    polls = 0;
+    const parked_state = @intFromEnum(SecondaryVcpuState.parked);
+    while (polls < max_polls and
+        secondary_vcpus[0].state.load(.seq_cst) != parked_state) : (polls += 1)
+    {
+        sleep_micros(1_000);
+    }
+    try std.testing.expectEqual(parked_state, secondary_vcpus[0].state.load(.seq_cst));
+    run_shared.mutex.lock();
+    const affinity = psci_cpus.affinity_info(secondary_mpidr).?;
+    run_shared.mutex.unlock();
+    try std.testing.expectEqual(PsciAffinity.off, affinity);
 }
 
 test "boot a real arm64 Linux kernel" {

@@ -79,13 +79,6 @@ pub fn main(init: std.process.Init) !void {
     const snapshot_path = env_optional("MACHINEN_SNAPSHOT_PATH");
 
     if (builtin.os.tag == .macos) {
-        if (max_vcpus != 1) {
-            std.debug.print(
-                "machinen-microvm: MACHINEN_MAX_VCPUS={d} unsupported on HVF arm64\n",
-                .{max_vcpus},
-            );
-            std.process.exit(2);
-        }
         const disk_path = env_optional("MACHINEN_DISK");
         const rootdisk_path = env_optional("MACHINEN_ROOTDISK");
         const hvf_dtb_path = dtb_path orelse env_required("MACHINEN_DTB");
@@ -102,6 +95,7 @@ pub fn main(init: std.process.Init) !void {
             .restore_path = restore_path,
             .snapshot_path = snapshot_path,
             .nested = nested,
+            .max_vcpus = max_vcpus,
         };
         if (ram_size_override) |bytes| cfg.ram_size = bytes;
         const result = try microvm.boot_hvf.boot(gpa, cfg);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { _internal, BootError } from "../index.ts";
 
-const { resolveCpuResourcePolicy } = _internal;
+const { multiVcpuHostSupported, resolveCpuResourcePolicy } = _internal;
 
 describe("resolveCpuResourcePolicy", () => {
   it("returns undefined when CPU resources are omitted", () => {
@@ -20,8 +20,8 @@ describe("resolveCpuResourcePolicy", () => {
     });
   });
 
-  it("accepts multi-vCPU requests only on linux/x64 KVM hosts", () => {
-    if (process.platform === "linux" && process.arch === "x64") {
+  it("accepts multi-vCPU requests only on guest-visible multi-vCPU hosts", () => {
+    if (multiVcpuHostSupported()) {
       expect(resolveCpuResourcePolicy({ maxVcpus: 2, quotaCpus: 1.5, weight: 200 })).toEqual({
         maxVcpus: 2,
         quotaCpus: 1.5,
@@ -31,11 +31,21 @@ describe("resolveCpuResourcePolicy", () => {
     }
 
     expect(() => resolveCpuResourcePolicy({ maxVcpus: 2 })).toThrow(BootError);
-    expect(() => resolveCpuResourcePolicy({ maxVcpus: 2 })).toThrow(/linux\/x64 KVM/);
+    expect(() => resolveCpuResourcePolicy({ maxVcpus: 2 })).toThrow(
+      /linux\/x64 KVM and darwin\/arm64 HVF/,
+    );
+  });
+
+  it("documents the multi-vCPU host allow-list", () => {
+    expect(multiVcpuHostSupported("linux", "x64")).toBe(true);
+    expect(multiVcpuHostSupported("darwin", "arm64")).toBe(true);
+    expect(multiVcpuHostSupported("linux", "arm64")).toBe(false);
+    expect(multiVcpuHostSupported("darwin", "x64")).toBe(false);
+    expect(multiVcpuHostSupported("win32", "x64")).toBe(false);
   });
 
   it("keeps quota as host CPU budget instead of guest-visible vCPU count", () => {
-    if (process.platform === "linux" && process.arch === "x64") {
+    if (multiVcpuHostSupported()) {
       expect(resolveCpuResourcePolicy({ maxVcpus: 2, quotaCpus: 0.5 })).toEqual({
         maxVcpus: 2,
         quotaCpus: 0.5,

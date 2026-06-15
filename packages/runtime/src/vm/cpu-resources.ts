@@ -49,15 +49,18 @@ function validateMaxVcpus(value: number): number {
   if (value > DEFAULT_CPU_MAX_VCPUS && !multiVcpuHostSupported()) {
     throw new BootError(
       "BOOT_CPU_UNSUPPORTED",
-      "boot: resources.cpu.maxVcpus greater than 1 is currently supported only on linux/x64 KVM hosts. " +
+      "boot: resources.cpu.maxVcpus greater than 1 is currently supported only on linux/x64 KVM and darwin/arm64 HVF hosts. " +
         "CPU quota is scheduling budget, not extra guest-visible CPUs.",
     );
   }
   return value;
 }
 
-function multiVcpuHostSupported(): boolean {
-  return process.platform === "linux" && process.arch === "x64";
+export function multiVcpuHostSupported(
+  platform: NodeJS.Platform = process.platform,
+  arch: NodeJS.Architecture = process.arch,
+): boolean {
+  return (platform === "linux" && arch === "x64") || (platform === "darwin" && arch === "arm64");
 }
 
 function validateQuotaCpus(value: number | undefined, maxVcpus: number): number | undefined {
