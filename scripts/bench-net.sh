@@ -55,6 +55,13 @@ ASSETS="$ROOT/release-assets"
 BENCH_DIR="$ROOT/scripts/bench-net"
 PORT=38080
 OS=$(uname -s)
+HOST_MACHINE=$(uname -m)
+case "$OS:$HOST_MACHINE" in
+  Darwin:arm64) NATIVE_PLATFORM=arm64-darwin ;;
+  Linux:aarch64|Linux:arm64) NATIVE_PLATFORM=arm64-linux ;;
+  Linux:x86_64|Linux:amd64) NATIVE_PLATFORM=x64-linux ;;
+  *) NATIVE_PLATFORM="" ;;
+esac
 GUEST_ARCH=${MACHINEN_GUEST_ARCH:-}
 if [[ -z "$GUEST_ARCH" ]]; then
   case "$(uname -m)" in
@@ -81,11 +88,14 @@ for bin in zig; do
   command -v "$bin" >/dev/null || missing+=("$bin")
 done
 # gvproxy: resolution order matches the runtime's: $MACHINEN_GVPROXY
-# → sibling of the VMM → PATH. No install step here — point
-# MACHINEN_GVPROXY at the binary if it isn't on PATH.
+# → sibling of the VMM → packaged native helper → PATH. No install step here.
 GVPROXY=""
 if [[ -n "${MACHINEN_GVPROXY:-}" && -x "$MACHINEN_GVPROXY" ]]; then
   GVPROXY=$MACHINEN_GVPROXY
+elif [[ -x "$(dirname "$VMM")/gvproxy" ]]; then
+  GVPROXY=$(dirname "$VMM")/gvproxy
+elif [[ -n "$NATIVE_PLATFORM" && -x "$ROOT/packages/native-$NATIVE_PLATFORM/vmm/bin/gvproxy" ]]; then
+  GVPROXY=$ROOT/packages/native-$NATIVE_PLATFORM/vmm/bin/gvproxy
 elif command -v gvproxy >/dev/null; then
   GVPROXY=$(command -v gvproxy)
 else
