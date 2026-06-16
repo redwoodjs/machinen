@@ -1,5 +1,7 @@
 # @machinen/native-x64-linux
 
+## 0.6.0
+
 ## 0.5.0
 
 ### Patch Changes
