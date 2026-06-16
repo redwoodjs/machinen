@@ -1,5 +1,11 @@
 # @machinen/microvm
 
+## 0.6.0
+
+### Minor Changes
+
+- 39300fb: Default VM and persistent PTY session names to `default`, and fix persistent PTY list/reconnect/exit handling so `machinen attach` works as a tmux-like reconnectable shell by default.
+
 ## 0.5.0
 
 ### Patch Changes

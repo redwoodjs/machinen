@@ -1,5 +1,18 @@
 # @machinen/cli
 
+## 0.6.0
+
+### Minor Changes
+
+- 39300fb: Default VM and persistent PTY session names to `default`, and fix persistent PTY list/reconnect/exit handling so `machinen attach` works as a tmux-like reconnectable shell by default.
+- 680301e: Add goal-driven CPU resource policies with `resources.cpu.maxVcpus`, `quotaCpus`, and `weight`, CLI flags for boot/fork, Linux cgroup v2 quota/fairness enforcement, and registry/list observability.
+
+### Patch Changes
+
+- Updated dependencies [39300fb]
+- Updated dependencies [680301e]
+  - @machinen/runtime@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes
