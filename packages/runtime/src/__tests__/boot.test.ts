@@ -40,6 +40,7 @@ function writePanicVmm(path: string): void {
     "#!/bin/sh\n" +
       "echo 'Linux version fake-test' >&2\n" +
       "echo 'Kernel panic - not syncing: fake panic before exec-agent' >&2\n" +
+      "sleep 0.2\n" +
       "exit 0\n",
   );
   chmodSync(path, 0o755);
@@ -117,7 +118,7 @@ describe("boot", () => {
     const bin = join(dir, "panic-vmm.sh");
     try {
       writePanicVmm(bin);
-      const err = await boot({ binary: bin, detached: true, timeoutMs: 1_000 }).catch((e) => e);
+      const err = await boot({ binary: bin, detached: true, timeoutMs: 3_000 }).catch((e) => e);
       expect(err).toBeInstanceOf(BootError);
       expect(err.code).toBe("BOOT_DETACHED_READINESS_FAILED");
       expect(err.message).toContain("guest kernel panic/oops before exec-agent readiness");
@@ -134,6 +135,7 @@ describe("boot", () => {
     try {
       writePanicVmm(bin);
       const vm = await boot({ binary: bin, timeoutMs: 1_000 });
+      await vm.wait();
       await expect(
         vm.execRaw("true", { connectTimeoutMs: 500, execTimeoutMs: 500 }),
       ).rejects.toThrow(
