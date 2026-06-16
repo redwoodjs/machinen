@@ -252,6 +252,11 @@ interface RunResult {
   fixtures: { tarball: string; tarballBytes: number };
   workload: string;
   wallMs: number;
+  phases: {
+    vmBootMs: number;
+    tarExtractMs: number;
+    dockerBaselineMs?: number;
+  };
   docker: { wallMs: number } | null;
 }
 
@@ -279,12 +284,12 @@ async function runMountBench(tarballPath: string, fixtureKey: string): Promise<R
   const runId = createRunId();
   logRunStart(runId, scratch);
 
-  const vm = await bootMountBenchVm(boot, inputs, scratch, workload.tarballHostDir);
+  const booted = await bootMountBenchVm(boot, inputs, scratch, workload.tarballHostDir);
   try {
-    const wallMs = await runTarWorkload(vm, workload.tarCmd);
-    return buildRunResult(runId, fixtureKey, workload, wallMs);
+    const wallMs = await runTarWorkload(booted.vm, workload.tarCmd);
+    return buildRunResult(runId, fixtureKey, workload, wallMs, booted.bootMs);
   } finally {
-    await cleanupMountBenchRun(vm, scratch);
+    await cleanupMountBenchRun(booted.vm, scratch);
   }
 }
 
@@ -346,7 +351,7 @@ async function bootMountBenchVm(
   inputs: BenchVmInputs,
   scratch: string,
   tarballHostDir: string,
-): Promise<BenchVmHandle> {
+): Promise<{ vm: BenchVmHandle; bootMs: number }> {
   const t0 = Date.now();
   const vm = await boot({
     image: inputs.image,
@@ -362,8 +367,9 @@ async function bootMountBenchVm(
     ],
     timeoutMs: 120_000,
   });
-  console.error(`bench-mount: VM booted (${Date.now() - t0}ms)`);
-  return vm;
+  const bootMs = Date.now() - t0;
+  console.error(`bench-mount: VM booted (${bootMs}ms)`);
+  return { vm, bootMs };
 }
 
 async function runTarWorkload(vm: BenchVmHandle, tarCmd: string): Promise<number> {
@@ -387,6 +393,7 @@ function buildRunResult(
   fixtureKey: string,
   workload: MountBenchWorkload,
   wallMs: number,
+  bootMs: number,
 ): RunResult {
   return {
     runId,
@@ -394,6 +401,7 @@ function buildRunResult(
     fixtures: { tarball: fixtureKey, tarballBytes: workload.tarballBytes },
     workload: workload.tarCmd,
     wallMs,
+    phases: { vmBootMs: bootMs, tarExtractMs: wallMs },
     docker: null,
   };
 }
@@ -442,6 +450,7 @@ async function main(): Promise<void> {
     const dock = runDockerBaseline(tarballPath);
     if (dock) {
       result.docker = { wallMs: dock.wallMs };
+      result.phases.dockerBaselineMs = dock.wallMs;
       try {
         rmSync(dock.scratchPath, { recursive: true, force: true });
       } catch {}

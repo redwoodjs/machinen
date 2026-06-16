@@ -13,7 +13,6 @@
 //   pnpm bench --suite core --guest-arch amd64 --n 1 --json /tmp/machinen-bench.json
 
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -36,7 +35,8 @@ import {
 } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { VmHandle } from "@machinen/runtime";
+import { runMountBenchSuite, runNetBenchSuite } from "./bench/external-suites.ts";
+import { runResourceBench } from "./bench/resource-suite.ts";
 
 type RuntimeMod = typeof import("@machinen/runtime");
 let runtime: RuntimeMod | undefined;
@@ -57,7 +57,6 @@ const ROOTFS_IMG_CACHE = join(homedir(), ".cache", "machinen", "rootfs");
 const DEFAULT_CPU_BYTES_MIB = 512;
 const DEFAULT_MEMORY_SIZES_MIB = [128, 512, 1024];
 const DEFAULT_MEMORY_CEILING_MIB = 2048;
-const MOUNT_RESULTS_DIR = join(REPO_ROOT, "scripts", "bench", "mount", "results");
 
 type GuestArch = "amd64" | "arm64";
 type BenchSuite = "core" | "mount" | "net";
@@ -104,53 +103,9 @@ interface SnapshotSample {
   wallMs: number;
   bundleApparentBytes: number;
   bundleAllocatedBytes: number;
+  phases: Map<string, number>;
   sourcePauseMs: number | null;
   sourcePauseNote: string;
-}
-
-interface CpuSample {
-  label: string;
-  bytes: number;
-  elapsedMs: number;
-  throughputBytesPerSec: number;
-  exitCode: number;
-}
-
-interface CpuSuite {
-  aggregate: {
-    elapsed_ms: Stats;
-    throughput_bytes_per_sec: Stats;
-  };
-}
-
-interface CpuBenchResult {
-  bytes: number;
-  host_native: CpuSuite;
-  guest_no_quota: CpuSuite;
-  guest_quota_1: CpuSuite;
-  guest_quota_0_5: CpuSuite;
-}
-
-interface MemorySample {
-  touchedMib: number;
-  stats: {
-    ceilingMib: number | null;
-    hostRssBytes: number | null;
-    balloonReclaimedBytes: number;
-    lazyPagesPending: number;
-  };
-}
-
-interface MemoryTouchAggregate {
-  touchedMib: number;
-  ceiling_mib: Stats | null;
-  host_rss_bytes: Stats | null;
-  balloon_reclaimed_bytes: Stats;
-  lazy_pages_pending: Stats;
-}
-
-interface MemoryBenchResult {
-  by_touched_mib: Record<string, MemoryTouchAggregate>;
 }
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
@@ -218,6 +173,7 @@ function parseArgs(): Args {
   return out;
 }
 
+// fallow-ignore-next-line complexity
 function parseOptions(argv: string[], out: Args): void {
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--") {
@@ -287,6 +243,7 @@ function printUsageAndExit(code: number): never {
   process.exit(code);
 }
 
+// fallow-ignore-next-line complexity
 function validateArgs(out: Args): void {
   if (out.skipLatency && out.skipResources && out.suites.every((suite) => suite === "core")) {
     console.error("bench: --skip-latency and --skip-resources leave nothing to run");
@@ -309,6 +266,7 @@ function requiredValue(flag: string, value: string | undefined): string {
   return value;
 }
 
+// fallow-ignore-next-line complexity
 function positiveInteger(flag: string, value: string | undefined): number {
   const n = Number.parseInt(value ?? "", 10);
   if (!Number.isInteger(n) || n < 1 || String(n) !== value) {
@@ -328,6 +286,7 @@ function parseMemorySizes(value: string | undefined): number[] {
   return sizes;
 }
 
+// fallow-ignore-next-line complexity
 function parseSuites(value: string | undefined): BenchSuite[] {
   const spec = requiredValue("--suite", value);
   const suites = new Set<BenchSuite>();
@@ -427,6 +386,7 @@ function phaseLineTail(line: string): string | undefined {
   return line.slice(idx + "phases ".length).trim();
 }
 
+// fallow-ignore-next-line complexity
 function parsePhaseLine(line: string): PhaseLine | null {
   const tail = phaseLineTail(line);
   if (tail === undefined) {
@@ -536,10 +496,14 @@ async function runOneRestore(
 }
 
 function bootOrRestorePhaseLines(captured: string): PhaseLine[] {
+  return phaseLinesForKinds(captured, new Set(["boot", "restore"]));
+}
+
+function phaseLinesForKinds(captured: string, kinds: Set<string>): PhaseLine[] {
   const found: PhaseLine[] = [];
   for (const line of captured.split("\n")) {
     const parsed = parsePhaseLine(line);
-    if (parsed?.kind === "boot" || parsed?.kind === "restore") {
+    if (parsed && kinds.has(parsed.kind)) {
       found.push(parsed);
     }
   }
@@ -590,8 +554,10 @@ async function takeSnapshot(
   try {
     await delay(1500);
     const start = process.hrtime.bigint();
-    const result = await vm.snapshot({ outDir: snapDir, timeoutMs: 60_000 });
+    const snapshot = await captureStderr(() => vm.snapshot({ outDir: snapDir, timeoutMs: 60_000 }));
+    const result = snapshot.result;
     const wallMs = elapsedSinceMs(start);
+    const snapshotPhases = phaseLinesForKinds(snapshot.captured, new Set(["snapshot"])).at(-1);
     const size = bundleSize(snapDir);
     return {
       snapDir,
@@ -601,6 +567,7 @@ async function takeSnapshot(
         wallMs,
         bundleApparentBytes: size.apparentBytes,
         bundleAllocatedBytes: size.allocatedBytes,
+        phases: snapshotPhases?.phases ?? new Map<string, number>(),
         sourcePauseMs: null,
         sourcePauseNote:
           "not separately exposed by runtime yet; vmstate source is paused during the SIGUSR1/SIGUSR2 snapshot critical section",
@@ -612,6 +579,7 @@ async function takeSnapshot(
   }
 }
 
+// fallow-ignore-next-line complexity
 async function runLatencyBench(args: Args, assets: AssetPaths): Promise<JsonValue> {
   const bootCold: PhaseLine[] = [];
   const bootWarm: PhaseLine[] = [];
@@ -680,10 +648,17 @@ function assertSnapshotBundle(snapDir: string): void {
 }
 
 function collectRestorePhase(out: PhaseLine[], lines: PhaseLine[]): void {
-  const restore = lines.find((line) => line.kind === "restore");
-  if (restore) {
-    out.push(restore);
+  const restores = lines.filter((line) => line.kind === "restore");
+  if (restores.length === 0) {
+    return;
   }
+  const merged = new Map<string, number>();
+  for (const restore of restores) {
+    for (const [key, value] of restore.phases) {
+      merged.set(key, value);
+    }
+  }
+  out.push({ kind: "restore", total: restores.at(-1)!.total, phases: merged });
 }
 
 function snapshotSuiteJson(samples: SnapshotSample[]): JsonValue {
@@ -698,6 +673,7 @@ function snapshotSuiteJson(samples: SnapshotSample[]): JsonValue {
         samples.map((sample) => sample.bundleAllocatedBytes),
       ) as unknown as JsonValue,
     },
+    phases: aggregateJson(snapshotPhaseLines(samples)),
     source_pause_ms: null,
     source_pause_note:
       "not separately exposed by runtime yet; vmstate source is paused during the SIGUSR1/SIGUSR2 snapshot critical section",
@@ -723,6 +699,24 @@ function printSnapshotSummary(samples: SnapshotSample[]): void {
     stats(samples.map((sample) => sample.bundleAllocatedBytes / 1024 / 1024)),
     "MiB",
   );
+  for (const key of phaseKeys(snapshotPhaseLines(samples))) {
+    if (key === "total") {
+      continue;
+    }
+    printSnapshotRow(
+      key,
+      stats(snapshotPhaseLines(samples).map((sample) => sample.phases.get(key) ?? 0)),
+      "ms",
+    );
+  }
+}
+
+function snapshotPhaseLines(samples: SnapshotSample[]): PhaseLine[] {
+  return samples.map((sample) => ({
+    kind: "snapshot",
+    total: Math.round(sample.elapsedMs),
+    phases: sample.phases,
+  }));
 }
 
 function printSnapshotRow(label: string, row: Stats, unit: string): void {
@@ -822,238 +816,12 @@ function printAggregate(label: string, runs: PhaseLine[]): void {
   }
 }
 
-async function runResourceBench(args: Args, assets: AssetPaths): Promise<JsonValue> {
-  const bytes = args.cpuBytesMib * 1024 * 1024;
-  const cpu: CpuBenchResult = {
-    bytes,
-    host_native: await collectCpuSamples("host-native", args.n, () => runHostCpu(bytes)),
-    guest_no_quota: await collectCpuSamples("guest-no-quota", args.n, () =>
-      runGuestCpu(assets, args.cpuBytesMib),
-    ),
-    guest_quota_1: await collectCpuSamples("guest-quota-1", args.n, () =>
-      runGuestCpu(assets, args.cpuBytesMib, 1),
-    ),
-    guest_quota_0_5: await collectCpuSamples("guest-quota-0.5", args.n, () =>
-      runGuestCpu(assets, args.cpuBytesMib, 0.5),
-    ),
-  };
-  const memory = await collectMemoryTouchBench(args, assets);
-  printCpuSummary(cpu);
-  printMemorySummary(memory);
-  return { cpu, memory: memory as unknown as JsonValue } as unknown as JsonValue;
-}
-
-async function collectCpuSamples(
-  label: string,
-  n: number,
-  run: () => Promise<CpuSample>,
-): Promise<CpuSuite> {
-  const samples: CpuSample[] = [];
-  for (let i = 0; i < n; i++) {
-    process.stderr.write(`[cpu:${label}:${i + 1}] running...\n`);
-    samples.push(await run());
-  }
-  return { aggregate: cpuAggregate(samples) };
-}
-
-function cpuAggregate(samples: CpuSample[]): CpuSuite["aggregate"] {
-  return {
-    elapsed_ms: stats(samples.map((sample) => sample.elapsedMs)),
-    throughput_bytes_per_sec: stats(samples.map((sample) => sample.throughputBytesPerSec)),
-  };
-}
-
-async function runHostCpu(bytes: number): Promise<CpuSample> {
-  const chunk = Buffer.alloc(1024 * 1024);
-  const hash = createHash("sha256");
-  const start = process.hrtime.bigint();
-  for (let remaining = bytes; remaining > 0; remaining -= chunk.length) {
-    hash.update(remaining >= chunk.length ? chunk : chunk.subarray(0, remaining));
-  }
-  hash.digest("hex");
-  const elapsedMs = elapsedSinceMs(start);
-  return {
-    label: "host-native-node-sha256",
-    bytes,
-    elapsedMs,
-    throughputBytesPerSec: throughput(bytes, elapsedMs),
-    exitCode: 0,
-  };
-}
-
-async function runGuestCpu(
-  assets: AssetPaths,
-  bytesMib: number,
-  quotaCpus?: number,
-): Promise<CpuSample> {
-  const vm = await bootIdleVm(assets, {
-    cpu: quotaCpus === undefined ? undefined : { maxVcpus: 1, quotaCpus },
-  });
-  try {
-    const bytes = bytesMib * 1024 * 1024;
-    const cmd =
-      "set -eu; " +
-      "command -v sha256sum >/dev/null; " +
-      `dd if=/dev/zero bs=1M count=${bytesMib} 2>/tmp/machinen-bench-dd.err | sha256sum >/dev/null`;
-    const start = process.hrtime.bigint();
-    const res = await vm.execRaw(cmd, { execTimeoutMs: Math.max(300_000, bytesMib * 2000) });
-    const elapsedMs = elapsedSinceMs(start);
-    if (res.exitCode !== 0) {
-      throw new Error(
-        `guest CPU command failed exit=${res.exitCode} stderr=${res.stderr || "<empty>"}`,
-      );
-    }
-    return {
-      label: quotaCpus === undefined ? "guest-sha256" : `guest-sha256-quota-${quotaCpus}`,
-      bytes,
-      elapsedMs,
-      throughputBytesPerSec: throughput(bytes, elapsedMs),
-      exitCode: res.exitCode,
-    };
-  } finally {
-    await killVm(vm);
-  }
-}
-
-async function collectMemoryTouchBench(args: Args, assets: AssetPaths): Promise<MemoryBenchResult> {
-  const samplesByTouch = new Map<number, MemorySample[]>();
-  for (let i = 0; i < args.n; i++) {
-    process.stderr.write(`[memory:run-${i + 1}] running...\n`);
-    for (const sample of await runMemoryTouchOnce(args, assets)) {
-      const samples = samplesByTouch.get(sample.touchedMib) ?? [];
-      samples.push(sample);
-      samplesByTouch.set(sample.touchedMib, samples);
-    }
-  }
-  const by_touched_mib: Record<string, MemoryTouchAggregate> = {};
-  for (const touchedMib of [0, ...args.memorySizesMib]) {
-    by_touched_mib[String(touchedMib)] = aggregateMemorySamples(
-      touchedMib,
-      samplesByTouch.get(touchedMib) ?? [],
-    );
-  }
-  return { by_touched_mib };
-}
-
-async function runMemoryTouchOnce(args: Args, assets: AssetPaths): Promise<MemorySample[]> {
-  const vm = await bootIdleVm(assets, { memoryMib: args.memoryCeilingMib });
-  try {
-    const mountSizeMib = Math.max(...args.memorySizesMib) + 128;
-    await vm.exec(
-      `set -eu; mkdir -p /mnt/machinen-bench-mem; mountpoint -q /mnt/machinen-bench-mem || mount -t tmpfs -o size=${mountSizeMib}m tmpfs /mnt/machinen-bench-mem`,
-      { execTimeoutMs: 60_000 },
-    );
-    const samples: MemorySample[] = [{ touchedMib: 0, stats: await compactMemoryStats(vm) }];
-    for (const sizeMib of args.memorySizesMib) {
-      process.stderr.write(`[memory:touch-${sizeMib}MiB] running...\n`);
-      await vm.exec(
-        `set -eu; dd if=/dev/zero of=/mnt/machinen-bench-mem/blob bs=1M count=${sizeMib} conv=notrunc status=none`,
-        { execTimeoutMs: Math.max(300_000, sizeMib * 2000) },
-      );
-      await delay(500);
-      samples.push({ touchedMib: sizeMib, stats: await compactMemoryStats(vm) });
-    }
-    return samples;
-  } finally {
-    await killVm(vm);
-  }
-}
-
-function aggregateMemorySamples(touchedMib: number, samples: MemorySample[]): MemoryTouchAggregate {
-  return {
-    touchedMib,
-    ceiling_mib: nullableStats(samples.map((sample) => sample.stats.ceilingMib)),
-    host_rss_bytes: nullableStats(samples.map((sample) => sample.stats.hostRssBytes)),
-    balloon_reclaimed_bytes: stats(samples.map((sample) => sample.stats.balloonReclaimedBytes)),
-    lazy_pages_pending: stats(samples.map((sample) => sample.stats.lazyPagesPending)),
-  };
-}
-
-function nullableStats(samples: Array<number | null>): Stats | null {
-  const present = samples.filter((sample): sample is number => sample !== null);
-  return present.length === 0 ? null : stats(present);
-}
-
-async function bootIdleVm(
-  assets: AssetPaths,
-  opts: { memoryMib?: number; cpu?: { maxVcpus: 1; quotaCpus: number } } = {},
-): Promise<VmHandle> {
-  const { boot } = await loadRuntime();
-  return boot({
-    image: assets.image,
-    kernel: assets.kernel,
-    dtb: assets.dtb,
-    cmd: ["/bin/sh", "-c", "while :; do sleep 3600; done"],
-    timeoutMs: 60_000,
-    memory: opts.memoryMib,
-    resources: opts.cpu ? { cpu: opts.cpu } : undefined,
-  });
-}
-
-async function compactMemoryStats(vm: VmHandle): Promise<MemorySample["stats"]> {
-  const stats = await vm.memoryStats();
-  return {
-    ceilingMib: stats.ceilingMib,
-    hostRssBytes: stats.hostRssBytes,
-    balloonReclaimedBytes: stats.balloonReclaimedBytes,
-    lazyPagesPending: stats.lazyPagesPending,
-  };
-}
-
-function printCpuSummary(suites: CpuBenchResult): void {
-  console.log("\n=== CPU SHA256 throughput (avg MiB/s) ===");
-  const rows: Array<[string, CpuSuite]> = [
-    ["host_native", suites.host_native],
-    ["guest_no_quota", suites.guest_no_quota],
-    ["guest_quota_1", suites.guest_quota_1],
-    ["guest_quota_0_5", suites.guest_quota_0_5],
-  ];
-  for (const [label, suite] of rows) {
-    const avg = suite.aggregate.throughput_bytes_per_sec.avg / 1024 / 1024;
-    console.log(`  ${label.padEnd(18)} ${avg.toFixed(1)}`);
-  }
-}
-
-function printMemorySummary(result: MemoryBenchResult): void {
-  console.log("\n=== Memory touch RSS (avg) ===");
-  console.log(`  ${"touched".padEnd(12)} ${"host RSS".padStart(12)} ${"ceiling".padStart(10)}`);
-  const rows = Object.values(result.by_touched_mib).sort((a, b) => a.touchedMib - b.touchedMib);
-  for (const row of rows) {
-    console.log(
-      `  ${`${row.touchedMib} MiB`.padEnd(12)} ${formatBytes(row.host_rss_bytes?.avg ?? null).padStart(12)} ${formatMiB(row.ceiling_mib?.avg ?? null).padStart(10)}`,
-    );
-  }
-}
-
-function formatBytes(value: number | null): string {
-  if (value === null) {
-    return "?";
-  }
-  return `${(value / 1024 / 1024).toFixed(1)} MiB`;
-}
-
-function formatMiB(value: number | null): string {
-  if (value === null) {
-    return "?";
-  }
-  return `${value.toFixed(0)} MiB`;
-}
-
 function elapsedSinceMs(start: bigint): number {
   return Number(process.hrtime.bigint() - start) / 1_000_000;
 }
 
-function throughput(bytes: number, elapsedMs: number): number {
-  return elapsedMs <= 0 ? 0 : bytes / (elapsedMs / 1000);
-}
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
-}
-
-async function killVm(vm: VmHandle): Promise<void> {
-  await vm.kill().catch(() => {});
-  await vm.wait().catch(() => undefined);
 }
 
 function cleanupSnapshotDir(snapDir: string | undefined): void {
@@ -1138,90 +906,11 @@ function readSidecar(path: string): string | null {
   return readFileSync(path, "utf8").trim() || null;
 }
 
-function runMountBenchSuite(args: Args): JsonValue {
-  const wallMs: number[] = [];
-  const dockerWallMs: number[] = [];
-  const ratios: number[] = [];
-  for (let i = 0; i < args.n; i++) {
-    process.stderr.write(`[mount:${i + 1}] running...\n`);
-    const before = latestMountResultPath();
-    execFileSync("pnpm", ["exec", "tsx", "scripts/bench/mount.ts"], {
-      cwd: REPO_ROOT,
-      encoding: "utf8",
-      stdio: "pipe",
-    });
-    const resultPath = latestMountResultPath(before);
-    if (!resultPath) {
-      throw new Error("bench: mount suite did not write a result JSON");
-    }
-    const result = JSON.parse(readFileSync(resultPath, "utf8")) as {
-      wallMs: number;
-      docker?: { wallMs: number } | null;
-    };
-    wallMs.push(result.wallMs);
-    if (result.docker?.wallMs) {
-      dockerWallMs.push(result.docker.wallMs);
-      ratios.push(result.wallMs / result.docker.wallMs);
-    }
-  }
-  return {
-    tar_extract_wall_ms: stats(wallMs) as unknown as JsonValue,
-    docker_wall_ms: dockerWallMs.length ? (stats(dockerWallMs) as unknown as JsonValue) : null,
-    ratio_to_docker: ratios.length ? (stats(ratios) as unknown as JsonValue) : null,
-  };
-}
-
-function latestMountResultPath(previous?: string | undefined): string | undefined {
-  if (!existsSync(MOUNT_RESULTS_DIR)) {
-    return undefined;
-  }
-  const files = readdirSync(MOUNT_RESULTS_DIR)
-    .filter((name) => name.endsWith(".json"))
-    .map((name) => join(MOUNT_RESULTS_DIR, name))
-    .filter((path) => path !== previous)
-    .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
-  return files[0];
-}
-
-function runNetBenchSuite(args: Args): JsonValue {
-  process.stderr.write(`[net] running ${args.n} iterations per scenario...\n`);
-  const stdout = execFileSync("bash", ["scripts/bench-net.sh", "-n", String(args.n)], {
-    cwd: REPO_ROOT,
-    encoding: "utf8",
-    stdio: "pipe",
-  });
-  const values = parseNetBenchValues(stdout);
-  const out: { [key: string]: JsonValue } = {};
-  for (const [mode, samples] of Object.entries(values)) {
-    out[mode] = {
-      metric: mode === "latency" ? "us_per_ping" : "mb_per_sec",
-      aggregate: stats(samples) as unknown as JsonValue,
-    };
-  }
-  return out;
-}
-
-function parseNetBenchValues(stdout: string): Record<string, number[]> {
-  const out: Record<string, number[]> = {};
-  for (const line of stdout.split("\n")) {
-    const mode = /bench-net: mode=([^\s]+)/.exec(line)?.[1];
-    if (!mode) {
-      continue;
-    }
-    const metric = mode === "latency" ? "us_per_ping" : "mb_per_sec";
-    const value = new RegExp(`${metric}=([0-9.]+)`).exec(line)?.[1];
-    if (!value) {
-      continue;
-    }
-    out[mode] = [...(out[mode] ?? []), Number(value)];
-  }
-  return out;
-}
-
 function shouldRunSuite(args: Args, suite: BenchSuite): boolean {
   return args.suites.includes(suite);
 }
 
+// fallow-ignore-next-line complexity
 async function main(): Promise<void> {
   const args = parseArgs();
   const assets = resolveAssets(args.guestArch);
@@ -1252,10 +941,10 @@ async function main(): Promise<void> {
     }
   }
   if (shouldRunSuite(args, "mount")) {
-    result.mount = runMountBenchSuite(args);
+    result.mount = runMountBenchSuite(args, REPO_ROOT);
   }
   if (shouldRunSuite(args, "net")) {
-    result.net = runNetBenchSuite(args);
+    result.net = runNetBenchSuite(args, REPO_ROOT);
   }
   const out = buildResultPath(args, commit);
   if (out) {
