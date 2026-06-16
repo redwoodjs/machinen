@@ -1,15 +1,3 @@
-// =============================================================
-// Snapshots — #50 M2
-// =============================================================
-//
-// A snapshot is "the serialized state of a warm process tree plus
-// whatever filesystem state the warmup left behind." It lives as a
-// single ext4 disk image the guest writes checkpoint images into.
-//
-// Production path: `vm.snapshot(outPath)` on a running VM — the caller
-// brings the VM to a warm state via `vm.exec()`, then snapshots it.
-// Restore: `boot({ snapshot: <snapshot-path> })` on the next boot.
-
 import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
 import {
   copyFileSync,
@@ -672,43 +660,25 @@ function formatDumpOutcomeHint(outcome: DumpOutcome | undefined): string {
   return "";
 }
 
-// =============================================================
-// Vmstate engine — whole-VM snapshot
-// =============================================================
-
-/**
- * Whole-VM snapshot via the `.vmstate` engine. The source VM was
- * booted with `MACHINEN_SNAPSHOT_PATH` set (boot.ts does this when the
- * engine is vmstate), so its VMM carries a SIGUSR1 handler that
- * captures vCPU + RAM + GIC + virtio device state, queues the state
- * file write, then waits paused for SIGUSR2 from the runtime. Steps:
- *   1. clear any stale state file at `ctx.vmstatePath`,
- *   2. SIGUSR1 the VMM pid,
- *   3. wait for the file to (re)appear — the VMM writes it atomically
- *      (tmp + rename), so existence == a complete dump,
- *   4. copy it into the bundle as `state.vmstate`,
- *   5. copy the exact root block image as `rootdisk.img` (or record
- *      that the vmstate file carries a rootdisk delta),
- *   6. reflink any `--mount` overlay into the bundle (same as CRIU),
- *   7. write `meta.json` (with `engine: "vmstate"` + invariants),
- *   8. SIGUSR2 the VMM so the source VM resumes.
- *
- * Vmstate snapshots are non-destructive checkpoints. The SIGUSR2
- * handshake keeps sidecar files point-in-time consistent while still
- * letting the source continue after the bundle is complete.
- */
 async function performSnapshotVmstate(
   ctx: SnapshotContext,
   opts: SnapshotOptions,
 ): Promise<SnapshotResult> {
   const t0 = Date.now();
+  const phases = new PhaseTimer();
   const deadlineMs = opts.timeoutMs ?? 90_000;
+  phases.start("prepare");
   assertVmstateSnapshotEnabled(ctx);
   const snapDir = prepareBundleRootDir(opts.outDir);
   logVmstateSnapshotStart(ctx, snapDir);
   clearVmstateStateFile(ctx.vmstatePath!);
+  phases.end("prepare");
+  phases.start("guest-sync");
   await syncGuestForVmstateSnapshot(ctx, deadlineMs);
-  return captureVmstateSnapshotBundle(ctx, snapDir, deadlineMs, t0);
+  phases.end("guest-sync");
+  const result = await captureVmstateSnapshotBundle(ctx, snapDir, deadlineMs, t0, phases);
+  phases.flush(debugVmstate, "snapshot", result.elapsedMs);
+  return result;
 }
 
 function assertVmstateSnapshotEnabled(ctx: SnapshotContext): void {
@@ -766,11 +736,18 @@ async function captureVmstateSnapshotBundle(
   snapDir: string,
   deadlineMs: number,
   t0: number,
+  phases: PhaseTimer,
 ): Promise<SnapshotResult> {
-  return withPausedVmstateSource(ctx, async () => {
+  phases.start("pause-critical-section");
+  const result = await withPausedVmstateSource(ctx, async () => {
+    phases.start("wait-state-file");
     await waitForVmstateFile(ctx.vmstatePath!, deadlineMs);
+    phases.end("wait-state-file");
+    phases.start("copy-state-file");
     const bundleStatePath = copyVmstateStateIntoBundle(ctx.vmstatePath!, snapDir);
+    phases.end("copy-state-file");
     const nextSequence = (ctx.vmstateChain?.sequence ?? 0) + 1;
+    phases.start("build-metadata-and-rootdisk");
     const vmstateMeta = buildVmstateMeta(
       ctx,
       bundleStatePath,
@@ -778,11 +755,18 @@ async function captureVmstateSnapshotBundle(
       ctx.vmstateChain?.parentDir,
       nextSequence,
     );
+    phases.end("build-metadata-and-rootdisk");
+    phases.start("mount-overlay-reflink");
     const mountDiskMeta = await reflinkMountOverlay(ctx, snapDir, deadlineMs);
+    phases.end("mount-overlay-reflink");
+    phases.start("write-meta");
     writeSnapshotMeta(ctx, snapDir, mountDiskMeta, "vmstate", vmstateMeta);
     ctx.updateVmstateChain?.({ parentDir: snapDir, sequence: nextSequence });
+    phases.end("write-meta");
     return vmstateSnapshotResult(snapDir, bundleStatePath, t0);
   });
+  phases.end("pause-critical-section");
+  return result;
 }
 
 async function withPausedVmstateSource<T>(

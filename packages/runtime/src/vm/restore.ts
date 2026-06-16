@@ -878,18 +878,32 @@ function shellQuote(s: string): string {
  * rematerializing a tarball into a fresh ext4 image is not safe.
  */
 async function restoreVmstate(opts: RestoreOptions, snapDir: string): Promise<VmHandle> {
+  const phases = new PhaseTimer();
   let prepared = initialVmstateRestoreBundle(snapDir);
   let vm: VmHandle;
   try {
+    phases.start("materialize-chain");
     prepared = materializeVmstateRestoreChainIfNeeded(snapDir, prepared);
+    phases.end("materialize-chain");
+    phases.start("boot");
     vm = await bootVmstateRestore(opts, snapDir, prepared);
+    phases.end("boot");
+    phases.start("entropy-reseed");
     await reseedVmstateGuestEntropy(vm);
+    phases.end("entropy-reseed");
   } finally {
+    phases.start("cleanup-materialized-chain");
     cleanupMaterializedVmstate(prepared.materializedTempDir);
+    phases.end("cleanup-materialized-chain");
   }
 
+  phases.start("auto-name");
   autoNameRestoredFork(vm, opts, prepared.meta);
+  phases.end("auto-name");
+  phases.start("hostname-restamp-dispatch");
   restampRestoredHostname(vm);
+  phases.end("hostname-restamp-dispatch");
+  phases.flush(debugRestore, "restore");
   return vm;
 }
 
