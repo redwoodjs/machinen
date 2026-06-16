@@ -1,0 +1,1404 @@
+{
+  "schema_version": 1,
+  "benchmark": "bench",
+  "generated_at": "2026-06-16T20:34:46.618Z",
+  "git": {
+    "commit": "8ca1327cd61a12294961ceb92cd7b00ed07b5742",
+    "branch": "rootdisk-benchmark-optimization",
+    "dirty": true
+  },
+  "host": {
+    "hostname": "code",
+    "platform": "linux",
+    "arch": "x64",
+    "release": "6.8.0-124-generic",
+    "cpu_model": "AMD Ryzen 9 9950X3D 16-Core Processor",
+    "cpu_count": 4,
+    "total_memory_bytes": 16770052096,
+    "free_memory_bytes_at_start": 12006936576
+  },
+  "filesystems": {
+    "repo": {
+      "path": "/root/gh/redwoodjs/machinen",
+      "exists": true,
+      "probe_path": "/root/gh/redwoodjs/machinen",
+      "mount": {
+        "target": "/",
+        "source": "/dev/sda1",
+        "fstype": "ext4",
+        "options": "rw,relatime,discard,errors=remount-ro,commit=30",
+        "size": "30G",
+        "used": "14.3G",
+        "avail": "15.6G"
+      }
+    },
+    "tmp": {
+      "path": "/tmp",
+      "exists": true,
+      "probe_path": "/tmp",
+      "mount": {
+        "target": "/",
+        "source": "/dev/sda1",
+        "fstype": "ext4",
+        "options": "rw,relatime,discard,errors=remount-ro,commit=30",
+        "size": "30G",
+        "used": "14.3G",
+        "avail": "15.6G"
+      }
+    },
+    "assets": {
+      "path": "/root/gh/redwoodjs/machinen/release-assets",
+      "exists": true,
+      "probe_path": "/root/gh/redwoodjs/machinen/release-assets",
+      "mount": {
+        "target": "/",
+        "source": "/dev/sda1",
+        "fstype": "ext4",
+        "options": "rw,relatime,discard,errors=remount-ro,commit=30",
+        "size": "30G",
+        "used": "14.3G",
+        "avail": "15.6G"
+      }
+    },
+    "rootfs_img_cache": {
+      "path": "/root/.cache/machinen/rootfs",
+      "exists": true,
+      "probe_path": "/root/.cache/machinen/rootfs",
+      "mount": {
+        "target": "/",
+        "source": "/dev/sda1",
+        "fstype": "ext4",
+        "options": "rw,relatime,discard,errors=remount-ro,commit=30",
+        "size": "30G",
+        "used": "14.3G",
+        "avail": "15.6G"
+      }
+    },
+    "benchmark_output": {
+      "path": "/tmp",
+      "exists": true,
+      "probe_path": "/tmp",
+      "mount": {
+        "target": "/",
+        "source": "/dev/sda1",
+        "fstype": "ext4",
+        "options": "rw,relatime,discard,errors=remount-ro,commit=30",
+        "size": "30G",
+        "used": "14.3G",
+        "avail": "15.6G"
+      }
+    }
+  },
+  "assets": {
+    "guest_arch": "amd64",
+    "kernel": {
+      "path": "/root/gh/redwoodjs/machinen/release-assets/bzImage-x86_64",
+      "size_bytes": 13968384,
+      "mtime_ms": 1781524342574.9275,
+      "sha256_sidecar": "ead1c967054c790030865070a16fbe4c21e0f9a4a56175bdbb223b8f14481b6c  bzImage-x86_64",
+      "inputs_sha256_sidecar": "758a3697e2bf1881d3770570e2da3533520accbf1fb94b27e780ab7d1a138313"
+    },
+    "dtb": null,
+    "image": {
+      "path": "/root/gh/redwoodjs/machinen/release-assets/rootfs-debian-amd64.tar.gz",
+      "size_bytes": 52696590,
+      "mtime_ms": 1781632103465.9958,
+      "sha256_sidecar": "065079e4ac89c3a3bb90b1e200711ccd41e5ecc9484671b6037fa0744e5aac6e  rootfs-debian-amd64.tar.gz",
+      "inputs_sha256_sidecar": "81d9d51159d487870df3af943b1dc392ac3dafeda0f6eba5d9cca65a262b5849"
+    }
+  },
+  "config": {
+    "n": 5,
+    "suites": ["core", "mount", "net"],
+    "cpu_bytes_mib": 512,
+    "memory_sizes_mib": [128, 512, 1024],
+    "memory_ceiling_mib": 2048,
+    "pooled_rootdisk_cache": false,
+    "environment": "disk"
+  },
+  "latency": {
+    "boot_cold": {
+      "aggregates": {
+        "total": {
+          "n": 5,
+          "min": 7376,
+          "avg": 31503.6,
+          "med": 15163,
+          "p95": 106197,
+          "max": 106197,
+          "sum": 157518
+        },
+        "asset-resolve": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "disk-prep": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "net-services.gvproxy": {
+          "n": 5,
+          "min": 27,
+          "avg": 27.6,
+          "med": 27,
+          "p95": 29,
+          "max": 29,
+          "sum": 138
+        },
+        "net-services": {
+          "n": 5,
+          "min": 27,
+          "avg": 27.6,
+          "med": 27,
+          "p95": 29,
+          "max": 29,
+          "sum": 138
+        },
+        "initramfs-pack.image-config-read": {
+          "n": 5,
+          "min": 0,
+          "avg": 0.2,
+          "med": 0,
+          "p95": 1,
+          "max": 1,
+          "sum": 1
+        },
+        "initramfs-pack.cpio-write": {
+          "n": 5,
+          "min": 0,
+          "avg": 0.6,
+          "med": 0,
+          "p95": 2,
+          "max": 2,
+          "sum": 3
+        },
+        "initramfs-pack": {
+          "n": 5,
+          "min": 0,
+          "avg": 1,
+          "med": 1,
+          "p95": 3,
+          "max": 3,
+          "sum": 5
+        },
+        "rootdisk-materialize.cache-dir": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "rootdisk-materialize.sha256": {
+          "n": 5,
+          "min": 23,
+          "avg": 23.8,
+          "med": 24,
+          "p95": 25,
+          "max": 25,
+          "sum": 119
+        },
+        "rootdisk-materialize.cache-probe": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "rootdisk-materialize.prebake-probe": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "rootdisk-materialize.gunzip-prebake": {
+          "n": 5,
+          "min": 6170,
+          "avg": 6518.6,
+          "med": 6222,
+          "p95": 7686,
+          "max": 7686,
+          "sum": 32593
+        },
+        "rootdisk-materialize.reflink": {
+          "n": 5,
+          "min": 1118,
+          "avg": 23492.2,
+          "med": 7363,
+          "p95": 92953,
+          "max": 92953,
+          "sum": 117461
+        },
+        "rootdisk-materialize": {
+          "n": 5,
+          "min": 7337,
+          "avg": 31461,
+          "med": 15116,
+          "p95": 106151,
+          "max": 106151,
+          "sum": 157305
+        },
+        "vmm-spawn": {
+          "n": 5,
+          "min": 1,
+          "avg": 1.2,
+          "med": 1,
+          "p95": 2,
+          "max": 2,
+          "sum": 6
+        },
+        "first-guest-byte": {
+          "n": 5,
+          "min": 10,
+          "avg": 12.4,
+          "med": 13,
+          "p95": 16,
+          "max": 16,
+          "sum": 62
+        }
+      },
+      "rootdisk_copy": {
+        "n": 5,
+        "by_name": {
+          "reflink": 5
+        },
+        "by_mode": {
+          "copy": 5
+        },
+        "by_primitive": {
+          "node-copy": 5
+        },
+        "fallback_reasons": {
+          "ENOTSUP-ENOTSUP_operation_not_supported_on_socket_copyfile_root_.cache_machinen_rootfs_065079e4ac89c3a3bb90b1e200711ccd4": 5
+        },
+        "bytes": {
+          "n": 5,
+          "min": 2147483648,
+          "avg": 2147483648,
+          "med": 2147483648,
+          "p95": 2147483648,
+          "max": 2147483648,
+          "sum": 10737418240
+        },
+        "elapsed_ms": {
+          "n": 5,
+          "min": 1117,
+          "avg": 23491.8,
+          "med": 7362,
+          "p95": 92953,
+          "max": 92953,
+          "sum": 117459
+        }
+      }
+    },
+    "boot_warm": {
+      "aggregates": {
+        "total": {
+          "n": 5,
+          "min": 1088,
+          "avg": 5391.2,
+          "med": 1206,
+          "p95": 22324,
+          "max": 22324,
+          "sum": 26956
+        },
+        "asset-resolve": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "disk-prep": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "net-services.gvproxy": {
+          "n": 5,
+          "min": 26,
+          "avg": 26.6,
+          "med": 27,
+          "p95": 27,
+          "max": 27,
+          "sum": 133
+        },
+        "net-services": {
+          "n": 5,
+          "min": 26,
+          "avg": 26.6,
+          "med": 27,
+          "p95": 27,
+          "max": 27,
+          "sum": 133
+        },
+        "initramfs-pack.image-config-read": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "initramfs-pack.cpio-write": {
+          "n": 5,
+          "min": 0,
+          "avg": 0.2,
+          "med": 0,
+          "p95": 1,
+          "max": 1,
+          "sum": 1
+        },
+        "initramfs-pack": {
+          "n": 5,
+          "min": 0,
+          "avg": 0.2,
+          "med": 0,
+          "p95": 1,
+          "max": 1,
+          "sum": 1
+        },
+        "rootdisk-materialize.cache-dir": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "rootdisk-materialize.sha256": {
+          "n": 5,
+          "min": 23,
+          "avg": 23.8,
+          "med": 24,
+          "p95": 24,
+          "max": 24,
+          "sum": 119
+        },
+        "rootdisk-materialize.cache-probe": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "rootdisk-materialize.cache-clean-marker": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "rootdisk-materialize.cache-mark-in-use": {
+          "n": 5,
+          "min": 0,
+          "avg": 0.2,
+          "med": 0,
+          "p95": 1,
+          "max": 1,
+          "sum": 1
+        },
+        "rootdisk-materialize.e2fsck": {
+          "n": 5,
+          "min": 18,
+          "avg": 32.4,
+          "med": 21,
+          "p95": 79,
+          "max": 79,
+          "sum": 162
+        },
+        "rootdisk-materialize.reflink": {
+          "n": 5,
+          "min": 1000,
+          "avg": 5283.4,
+          "med": 1119,
+          "p95": 22137,
+          "max": 22137,
+          "sum": 26417
+        },
+        "rootdisk-materialize": {
+          "n": 5,
+          "min": 1050,
+          "avg": 5352.6,
+          "med": 1168,
+          "p95": 22285,
+          "max": 22285,
+          "sum": 26763
+        },
+        "vmm-spawn": {
+          "n": 5,
+          "min": 1,
+          "avg": 1,
+          "med": 1,
+          "p95": 1,
+          "max": 1,
+          "sum": 5
+        },
+        "first-guest-byte": {
+          "n": 5,
+          "min": 10,
+          "avg": 10.4,
+          "med": 10,
+          "p95": 11,
+          "max": 11,
+          "sum": 52
+        }
+      },
+      "rootdisk_copy": {
+        "n": 5,
+        "by_name": {
+          "reflink": 5
+        },
+        "by_mode": {
+          "copy": 5
+        },
+        "by_primitive": {
+          "node-copy": 5
+        },
+        "fallback_reasons": {
+          "ENOTSUP-ENOTSUP_operation_not_supported_on_socket_copyfile_root_.cache_machinen_rootfs_065079e4ac89c3a3bb90b1e200711ccd4": 5
+        },
+        "bytes": {
+          "n": 5,
+          "min": 2147483648,
+          "avg": 2147483648,
+          "med": 2147483648,
+          "p95": 2147483648,
+          "max": 2147483648,
+          "sum": 10737418240
+        },
+        "elapsed_ms": {
+          "n": 5,
+          "min": 1000,
+          "avg": 5283.2,
+          "med": 1119,
+          "p95": 22137,
+          "max": 22137,
+          "sum": 26416
+        }
+      }
+    },
+    "snapshot": {
+      "aggregates": {
+        "elapsed_ms": {
+          "n": 5,
+          "min": 4975,
+          "avg": 9358.2,
+          "med": 6116,
+          "p95": 15393,
+          "max": 15393,
+          "sum": 46791
+        },
+        "wall_ms": {
+          "n": 5,
+          "min": 4975.161651,
+          "avg": 9359.3962438,
+          "med": 6116.397201,
+          "p95": 15392.959074,
+          "max": 15392.959074,
+          "sum": 46796.981219
+        },
+        "bundle_apparent_bytes": {
+          "n": 5,
+          "min": 2290728772,
+          "avg": 2290762010.4,
+          "med": 2290752884,
+          "p95": 2290830676,
+          "max": 2290830676,
+          "sum": 11453810052
+        },
+        "bundle_allocated_bytes": {
+          "n": 5,
+          "min": 2290737152,
+          "avg": 2290771558.4,
+          "med": 2290761728,
+          "p95": 2290839552,
+          "max": 2290839552,
+          "sum": 11453857792
+        }
+      },
+      "phases": {
+        "total": {
+          "n": 5,
+          "min": 4975,
+          "avg": 9358.2,
+          "med": 6116,
+          "p95": 15393,
+          "max": 15393,
+          "sum": 46791
+        },
+        "prepare": {
+          "n": 5,
+          "min": 0,
+          "avg": 0.4,
+          "med": 0,
+          "p95": 1,
+          "max": 1,
+          "sum": 2
+        },
+        "guest-sync": {
+          "n": 5,
+          "min": 250,
+          "avg": 250.6,
+          "med": 251,
+          "p95": 251,
+          "max": 251,
+          "sum": 1253
+        },
+        "wait-state-file": {
+          "n": 5,
+          "min": 2203,
+          "avg": 2264,
+          "med": 2302,
+          "p95": 2306,
+          "max": 2306,
+          "sum": 11320
+        },
+        "copy-state-file": {
+          "n": 5,
+          "min": 76,
+          "avg": 766.8,
+          "med": 79,
+          "p95": 3133,
+          "max": 3133,
+          "sum": 3834
+        },
+        "build-metadata-and-rootdisk": {
+          "n": 5,
+          "min": 2410,
+          "avg": 6076,
+          "med": 3486,
+          "p95": 12235,
+          "max": 12235,
+          "sum": 30380
+        },
+        "mount-overlay-reflink": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "write-meta": {
+          "n": 5,
+          "min": 0,
+          "avg": 0.2,
+          "med": 0,
+          "p95": 1,
+          "max": 1,
+          "sum": 1
+        },
+        "pause-critical-section": {
+          "n": 5,
+          "min": 4724,
+          "avg": 9108.2,
+          "med": 5865,
+          "p95": 15142,
+          "max": 15142,
+          "sum": 45541
+        }
+      },
+      "source_pause_ms": null,
+      "source_pause_note": "not separately exposed by runtime yet; vmstate source is paused during the SIGUSR1/SIGUSR2 snapshot critical section"
+    },
+    "restore_cold": {
+      "aggregates": {
+        "total": {
+          "n": 5,
+          "min": 2736,
+          "avg": 7168.2,
+          "med": 6304,
+          "p95": 12185,
+          "max": 12185,
+          "sum": 35841
+        },
+        "boot.total": {
+          "n": 5,
+          "min": 1080,
+          "avg": 5304.8,
+          "med": 4579,
+          "p95": 10209,
+          "max": 10209,
+          "sum": 26524
+        },
+        "boot.asset-resolve": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "boot.disk-prep": {
+          "n": 5,
+          "min": 0,
+          "avg": 0.2,
+          "med": 0,
+          "p95": 1,
+          "max": 1,
+          "sum": 1
+        },
+        "boot.net-services.gvproxy": {
+          "n": 5,
+          "min": 27,
+          "avg": 27.4,
+          "med": 27,
+          "p95": 28,
+          "max": 28,
+          "sum": 137
+        },
+        "boot.net-services": {
+          "n": 5,
+          "min": 27,
+          "avg": 27.4,
+          "med": 27,
+          "p95": 28,
+          "max": 28,
+          "sum": 137
+        },
+        "boot.initramfs-pack.image-config-read": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "boot.initramfs-pack.cpio-write": {
+          "n": 5,
+          "min": 0,
+          "avg": 0.4,
+          "med": 0,
+          "p95": 1,
+          "max": 1,
+          "sum": 2
+        },
+        "boot.initramfs-pack": {
+          "n": 5,
+          "min": 0,
+          "avg": 0.4,
+          "med": 0,
+          "p95": 1,
+          "max": 1,
+          "sum": 2
+        },
+        "boot.rootdisk-materialize.restore-reflink": {
+          "n": 5,
+          "min": 1041,
+          "avg": 5266.4,
+          "med": 4541,
+          "p95": 10171,
+          "max": 10171,
+          "sum": 26332
+        },
+        "boot.rootdisk-materialize": {
+          "n": 5,
+          "min": 1042,
+          "avg": 5266.6,
+          "med": 4541,
+          "p95": 10171,
+          "max": 10171,
+          "sum": 26333
+        },
+        "boot.vmm-spawn": {
+          "n": 5,
+          "min": 1,
+          "avg": 1.8,
+          "med": 2,
+          "p95": 2,
+          "max": 2,
+          "sum": 9
+        },
+        "boot.first-guest-byte": {
+          "n": 5,
+          "min": 8,
+          "avg": 8.4,
+          "med": 8,
+          "p95": 9,
+          "max": 9,
+          "sum": 42
+        },
+        "materialize-chain": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "boot": {
+          "n": 5,
+          "min": 1983,
+          "avg": 6415,
+          "med": 5550,
+          "p95": 11432,
+          "max": 11432,
+          "sum": 32075
+        },
+        "entropy-reseed": {
+          "n": 5,
+          "min": 752,
+          "avg": 753,
+          "med": 753,
+          "p95": 754,
+          "max": 754,
+          "sum": 3765
+        },
+        "cleanup-materialized-chain": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "auto-name": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "hostname-restamp-dispatch": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "boot-to-first-guest-byte": {
+          "n": 5,
+          "min": 1080,
+          "avg": 5304.8,
+          "med": 4579,
+          "p95": 10209,
+          "max": 10209,
+          "sum": 26524
+        },
+        "vmstate-apply": {
+          "n": 5,
+          "min": 416,
+          "avg": 428.8,
+          "med": 430,
+          "p95": 446,
+          "max": 446,
+          "sum": 2144
+        }
+      },
+      "rootdisk_copy": {
+        "n": 5,
+        "by_name": {
+          "restore-reflink": 5
+        },
+        "by_mode": {
+          "copy": 5
+        },
+        "by_primitive": {
+          "node-copy": 5
+        },
+        "fallback_reasons": {
+          "ENOTSUP-ENOTSUP_operation_not_supported_on_socket_copyfile_tmp_bench-snap-690035-1_rootdisk.img_-_tmp_machinen-rootdisk-": 5
+        },
+        "bytes": {
+          "n": 5,
+          "min": 2147483648,
+          "avg": 2147483648,
+          "med": 2147483648,
+          "p95": 2147483648,
+          "max": 2147483648,
+          "sum": 10737418240
+        },
+        "elapsed_ms": {
+          "n": 5,
+          "min": 1041,
+          "avg": 5266.2,
+          "med": 4540,
+          "p95": 10171,
+          "max": 10171,
+          "sum": 26331
+        }
+      }
+    },
+    "restore_warm": {
+      "aggregates": {
+        "total": {
+          "n": 5,
+          "min": 2704,
+          "avg": 6977.2,
+          "med": 3010,
+          "p95": 14639,
+          "max": 14639,
+          "sum": 34886
+        },
+        "boot.total": {
+          "n": 5,
+          "min": 1042,
+          "avg": 5313,
+          "med": 1322,
+          "p95": 12987,
+          "max": 12987,
+          "sum": 26565
+        },
+        "boot.asset-resolve": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "boot.disk-prep": {
+          "n": 5,
+          "min": 0,
+          "avg": 0.4,
+          "med": 0,
+          "p95": 1,
+          "max": 1,
+          "sum": 2
+        },
+        "boot.net-services.gvproxy": {
+          "n": 5,
+          "min": 26,
+          "avg": 26.8,
+          "med": 27,
+          "p95": 27,
+          "max": 27,
+          "sum": 134
+        },
+        "boot.net-services": {
+          "n": 5,
+          "min": 26,
+          "avg": 26.8,
+          "med": 27,
+          "p95": 27,
+          "max": 27,
+          "sum": 134
+        },
+        "boot.initramfs-pack.image-config-read": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "boot.initramfs-pack.cpio-write": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "boot.initramfs-pack": {
+          "n": 5,
+          "min": 0,
+          "avg": 0.2,
+          "med": 0,
+          "p95": 1,
+          "max": 1,
+          "sum": 1
+        },
+        "boot.rootdisk-materialize.restore-reflink": {
+          "n": 5,
+          "min": 1005,
+          "avg": 5275,
+          "med": 1283,
+          "p95": 12949,
+          "max": 12949,
+          "sum": 26375
+        },
+        "boot.rootdisk-materialize": {
+          "n": 5,
+          "min": 1005,
+          "avg": 5275,
+          "med": 1283,
+          "p95": 12949,
+          "max": 12949,
+          "sum": 26375
+        },
+        "boot.vmm-spawn": {
+          "n": 5,
+          "min": 1,
+          "avg": 1.6,
+          "med": 2,
+          "p95": 2,
+          "max": 2,
+          "sum": 8
+        },
+        "boot.first-guest-byte": {
+          "n": 5,
+          "min": 8,
+          "avg": 8.8,
+          "med": 9,
+          "p95": 9,
+          "max": 9,
+          "sum": 44
+        },
+        "materialize-chain": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "boot": {
+          "n": 5,
+          "min": 1950,
+          "avg": 6224.2,
+          "med": 2256,
+          "p95": 13887,
+          "max": 13887,
+          "sum": 31121
+        },
+        "entropy-reseed": {
+          "n": 5,
+          "min": 752,
+          "avg": 753,
+          "med": 753,
+          "p95": 754,
+          "max": 754,
+          "sum": 3765
+        },
+        "cleanup-materialized-chain": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "auto-name": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "hostname-restamp-dispatch": {
+          "n": 5,
+          "min": 0,
+          "avg": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "boot-to-first-guest-byte": {
+          "n": 5,
+          "min": 1042,
+          "avg": 5313,
+          "med": 1322,
+          "p95": 12987,
+          "max": 12987,
+          "sum": 26565
+        },
+        "vmstate-apply": {
+          "n": 5,
+          "min": 415,
+          "avg": 425.8,
+          "med": 425,
+          "p95": 433,
+          "max": 433,
+          "sum": 2129
+        }
+      },
+      "rootdisk_copy": {
+        "n": 5,
+        "by_name": {
+          "restore-reflink": 5
+        },
+        "by_mode": {
+          "copy": 5
+        },
+        "by_primitive": {
+          "node-copy": 5
+        },
+        "fallback_reasons": {
+          "ENOTSUP-ENOTSUP_operation_not_supported_on_socket_copyfile_tmp_bench-snap-690035-1_rootdisk.img_-_tmp_machinen-rootdisk-": 5
+        },
+        "bytes": {
+          "n": 5,
+          "min": 2147483648,
+          "avg": 2147483648,
+          "med": 2147483648,
+          "p95": 2147483648,
+          "max": 2147483648,
+          "sum": 10737418240
+        },
+        "elapsed_ms": {
+          "n": 5,
+          "min": 1005,
+          "avg": 5274.8,
+          "med": 1283,
+          "p95": 12948,
+          "max": 12948,
+          "sum": 26374
+        }
+      }
+    }
+  },
+  "resources": {
+    "cpu": {
+      "bytes": 536870912,
+      "host_native": {
+        "aggregate": {
+          "elapsed_ms": {
+            "n": 5,
+            "min": 194.570629,
+            "avg": 195.28369859999998,
+            "med": 194.915752,
+            "p95": 196.294183,
+            "max": 196.294183,
+            "sum": 976.4184929999999
+          },
+          "throughput_bytes_per_sec": {
+            "n": 5,
+            "min": 2735032204.189158,
+            "avg": 2749218885.6992216,
+            "med": 2754374166.742563,
+            "p95": 2759259785.2988386,
+            "max": 2759259785.2988386,
+            "sum": 13746094428.496109
+          }
+        }
+      },
+      "guest_no_quota": {
+        "aggregate": {
+          "elapsed_ms": {
+            "n": 5,
+            "min": 1752.748324,
+            "avg": 1853.7099736,
+            "med": 1753.83105,
+            "p95": 2004.575939,
+            "max": 2004.575939,
+            "sum": 9268.549868
+          },
+          "throughput_bytes_per_sec": {
+            "n": 5,
+            "min": 267822685.86333662,
+            "avg": 290869627.6055644,
+            "med": 306113243.9182212,
+            "p95": 306302339.3882304,
+            "max": 306302339.3882304,
+            "sum": 1454348138.027822
+          }
+        }
+      },
+      "guest_quota_1": {
+        "aggregate": {
+          "elapsed_ms": {
+            "n": 5,
+            "min": 1752.424127,
+            "avg": 1803.7683187999999,
+            "med": 1753.379108,
+            "p95": 2006.383589,
+            "max": 2006.383589,
+            "sum": 9018.841594
+          },
+          "throughput_bytes_per_sec": {
+            "n": 5,
+            "min": 267581391.18730602,
+            "avg": 298506995.32182753,
+            "med": 306192146.0969067,
+            "p95": 306359005.0652161,
+            "max": 306359005.0652161,
+            "sum": 1492534976.6091378
+          }
+        }
+      },
+      "guest_quota_0_5": {
+        "aggregate": {
+          "elapsed_ms": {
+            "n": 5,
+            "min": 3004.290147,
+            "avg": 3170.4178086,
+            "med": 3256.113357,
+            "p95": 3297.127498,
+            "max": 3297.127498,
+            "sum": 15852.089043000002
+          },
+          "throughput_bytes_per_sec": {
+            "n": 5,
+            "min": 162829891.26919106,
+            "avg": 169628931.55310005,
+            "med": 164880903.43839952,
+            "p95": 178701418.88129687,
+            "max": 178701418.88129687,
+            "sum": 848144657.7655003
+          }
+        }
+      }
+    },
+    "memory": {
+      "by_touched_mib": {
+        "0": {
+          "touchedMib": 0,
+          "ceiling_mib": {
+            "n": 5,
+            "min": 2048,
+            "avg": 2048,
+            "med": 2048,
+            "p95": 2048,
+            "max": 2048,
+            "sum": 10240
+          },
+          "host_rss_bytes": {
+            "n": 5,
+            "min": 148537344,
+            "avg": 148600422.4,
+            "med": 148590592,
+            "p95": 148652032,
+            "max": 148652032,
+            "sum": 743002112
+          },
+          "balloon_reclaimed_bytes": {
+            "n": 5,
+            "min": 0,
+            "avg": 0,
+            "med": 0,
+            "p95": 0,
+            "max": 0,
+            "sum": 0
+          },
+          "lazy_pages_pending": {
+            "n": 5,
+            "min": 0,
+            "avg": 0,
+            "med": 0,
+            "p95": 0,
+            "max": 0,
+            "sum": 0
+          }
+        },
+        "128": {
+          "touchedMib": 128,
+          "ceiling_mib": {
+            "n": 5,
+            "min": 2048,
+            "avg": 2048,
+            "med": 2048,
+            "p95": 2048,
+            "max": 2048,
+            "sum": 10240
+          },
+          "host_rss_bytes": {
+            "n": 5,
+            "min": 264609792,
+            "avg": 265837772.8,
+            "med": 266608640,
+            "p95": 266702848,
+            "max": 266702848,
+            "sum": 1329188864
+          },
+          "balloon_reclaimed_bytes": {
+            "n": 5,
+            "min": 0,
+            "avg": 0,
+            "med": 0,
+            "p95": 0,
+            "max": 0,
+            "sum": 0
+          },
+          "lazy_pages_pending": {
+            "n": 5,
+            "min": 0,
+            "avg": 0,
+            "med": 0,
+            "p95": 0,
+            "max": 0,
+            "sum": 0
+          }
+        },
+        "512": {
+          "touchedMib": 512,
+          "ceiling_mib": {
+            "n": 5,
+            "min": 2048,
+            "avg": 2048,
+            "med": 2048,
+            "p95": 2048,
+            "max": 2048,
+            "sum": 10240
+          },
+          "host_rss_bytes": {
+            "n": 5,
+            "min": 665128960,
+            "avg": 665649971.2,
+            "med": 665288704,
+            "p95": 667336704,
+            "max": 667336704,
+            "sum": 3328249856
+          },
+          "balloon_reclaimed_bytes": {
+            "n": 5,
+            "min": 262144000,
+            "avg": 262982860.8,
+            "med": 262144000,
+            "p95": 264241152,
+            "max": 264241152,
+            "sum": 1314914304
+          },
+          "lazy_pages_pending": {
+            "n": 5,
+            "min": 0,
+            "avg": 0,
+            "med": 0,
+            "p95": 0,
+            "max": 0,
+            "sum": 0
+          }
+        },
+        "1024": {
+          "touchedMib": 1024,
+          "ceiling_mib": {
+            "n": 5,
+            "min": 2048,
+            "avg": 2048,
+            "med": 2048,
+            "p95": 2048,
+            "max": 2048,
+            "sum": 10240
+          },
+          "host_rss_bytes": {
+            "n": 5,
+            "min": 1203220480,
+            "avg": 1203726745.6,
+            "med": 1203306496,
+            "p95": 1205424128,
+            "max": 1205424128,
+            "sum": 6018633728
+          },
+          "balloon_reclaimed_bytes": {
+            "n": 5,
+            "min": 526385152,
+            "avg": 527643443.2,
+            "med": 526385152,
+            "p95": 530579456,
+            "max": 530579456,
+            "sum": 2638217216
+          },
+          "lazy_pages_pending": {
+            "n": 5,
+            "min": 0,
+            "avg": 0,
+            "med": 0,
+            "p95": 0,
+            "max": 0,
+            "sum": 0
+          }
+        }
+      }
+    }
+  },
+  "mount": {
+    "phases": {
+      "vm_boot_ms": {
+        "n": 5,
+        "min": 1066,
+        "avg": 1268,
+        "med": 1104,
+        "p95": 1951,
+        "max": 1951,
+        "sum": 6340
+      },
+      "tar_extract_wall_ms": {
+        "n": 5,
+        "min": 9322,
+        "avg": 9821.8,
+        "med": 9824,
+        "p95": 10071,
+        "max": 10071,
+        "sum": 49109
+      },
+      "docker_wall_ms": null,
+      "ratio_to_docker": null
+    }
+  },
+  "net": {
+    "phases": {
+      "latency": {
+        "metric": "us_per_ping",
+        "aggregate": {
+          "n": 5,
+          "min": 70,
+          "avg": 82.8,
+          "med": 79,
+          "p95": 105,
+          "max": 105,
+          "sum": 414
+        }
+      },
+      "rx": {
+        "metric": "mb_per_sec",
+        "aggregate": {
+          "n": 5,
+          "min": 2,
+          "avg": 226.6,
+          "med": 274,
+          "p95": 343,
+          "max": 343,
+          "sum": 1133
+        }
+      },
+      "tx": {
+        "metric": "mb_per_sec",
+        "aggregate": {
+          "n": 5,
+          "min": 283,
+          "avg": 299.8,
+          "med": 305,
+          "p95": 309,
+          "max": 309,
+          "sum": 1499
+        }
+      }
+    }
+  }
+}

@@ -7,35 +7,27 @@
 //   - raw CPU hash throughput: host native, guest, guest with quota
 //   - host RSS after touching guest tmpfs memory at selected sizes
 //   - optional live-mount and gvproxy network suites
-//
 // Usage:
 //   pnpm bench --json-dir bench-results  # defaults to --n 5 --suite all
 //   pnpm bench --suite core --guest-arch amd64 --n 1 --json /tmp/machinen-bench.json
 
 import { execFileSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
-import {
-  arch as hostArch,
-  cpus,
-  freemem,
-  homedir,
-  hostname,
-  platform,
-  release,
-  tmpdir,
-  totalmem,
-} from "node:os";
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { arch as hostArch, homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runMountBenchSuite, runNetBenchSuite } from "./bench/external-suites.ts";
+import {
+  assetMetadata,
+  filesystemMetadata,
+  hostMetadata,
+  parseBenchmarkEnvironment,
+  parseRootdiskCopyEvents,
+  rootdiskCopyJson,
+  validateBenchmarkEnvironment,
+  type BenchmarkEnvironment,
+  type RootdiskCopyEvent,
+} from "./bench/metadata.ts";
 import { runResourceBench } from "./bench/resource-suite.ts";
 
 type RuntimeMod = typeof import("@machinen/runtime");
@@ -44,7 +36,7 @@ async function loadRuntime(): Promise<RuntimeMod> {
   if (!runtime) {
     process.env.DEBUG =
       (process.env.DEBUG ?? "") +
-      ",machinen:boot,machinen:restore,machinen:snapshot,machinen:vmstate";
+      ",machinen:boot,machinen:restore,machinen:snapshot,machinen:vmstate,machinen:reflink";
     runtime = await import("@machinen/runtime");
   }
   return runtime;
@@ -72,6 +64,8 @@ interface Args {
   suites: BenchSuite[];
   skipLatency: boolean;
   skipResources: boolean;
+  pooledRootdiskCache: boolean;
+  environment: BenchmarkEnvironment;
 }
 
 interface AssetPaths {
@@ -85,6 +79,7 @@ interface PhaseLine {
   kind: string;
   total: number;
   phases: Map<string, number>;
+  rootdiskCopies?: RootdiskCopyEvent[];
 }
 
 interface Stats {
@@ -121,6 +116,8 @@ type BenchOption =
   | "suite"
   | "skipLatency"
   | "skipResources"
+  | "pooledRootdiskCache"
+  | "environment"
   | "help";
 
 type BenchOptionHandler = (out: Args, value: string | undefined) => void;
@@ -135,10 +132,12 @@ const VALUE_OPTIONS = new Map<string, BenchOption>([
   ["--memory-sizes", "memorySizesMib"],
   ["--memory-ceiling", "memoryCeilingMib"],
   ["--suite", "suite"],
+  ["--environment", "environment"],
 ]);
 const BARE_OPTIONS = new Map<string, BenchOption>([
   ["--skip-latency", "skipLatency"],
   ["--skip-resources", "skipResources"],
+  ["--pooled-rootdisk-cache", "pooledRootdiskCache"],
   ["-h", "help"],
   ["--help", "help"],
 ]);
@@ -154,6 +153,8 @@ const OPTION_HANDLERS: Record<BenchOption, BenchOptionHandler> = {
   suite: (out, value) => (out.suites = parseSuites(value)),
   skipLatency: (out) => (out.skipLatency = true),
   skipResources: (out) => (out.skipResources = true),
+  pooledRootdiskCache: (out) => (out.pooledRootdiskCache = true),
+  environment: (out, value) => (out.environment = parseBenchmarkEnvironment(value)),
   help: () => printUsageAndExit(0),
 };
 
@@ -167,6 +168,8 @@ function parseArgs(): Args {
     suites: ["core", "mount", "net"],
     skipLatency: false,
     skipResources: false,
+    pooledRootdiskCache: false,
+    environment: "disk",
   };
   parseOptions(process.argv.slice(2), out);
   validateArgs(out);
@@ -238,7 +241,8 @@ function printUsageAndExit(code: number): never {
   console.log(
     "usage: bench [--n N=5] [--suite all|core|mount|net] [--guest-arch amd64|arm64] " +
       "[--json PATH|--json-dir DIR] [--cpu-bytes-mib MIB] [--memory-sizes 128,512,1024] " +
-      "[--memory-ceiling MIB] [--skip-latency] [--skip-resources]",
+      "[--memory-ceiling MIB] [--skip-latency] [--skip-resources] [--pooled-rootdisk-cache] " +
+      "[--environment disk|ramdisk]",
   );
   process.exit(code);
 }
@@ -378,6 +382,22 @@ function clearRootfsImgCache(): void {
   mkdirSync(ROOTFS_IMG_CACHE, { recursive: true });
 }
 
+function clearRootfsImgCacheForColdSample(args: Args): void {
+  if (!args.pooledRootdiskCache) {
+    clearRootfsImgCache();
+  }
+}
+
+async function prewarmRootfsImgCacheIfNeeded(args: Args, assets: AssetPaths): Promise<void> {
+  if (!args.pooledRootdiskCache) {
+    return;
+  }
+  process.stderr.write(`[rootdisk-cache] prewarming ${assets.image}\n`);
+  const { ensureRootfsImage, markRootfsImageClean } = await loadRuntime();
+  const img = ensureRootfsImage(assets.image);
+  markRootfsImageClean(img);
+}
+
 function phaseLineTail(line: string): string | undefined {
   const idx = line.indexOf("phases ");
   if (idx < 0) {
@@ -456,9 +476,11 @@ async function runOneBoot(assets: AssetPaths, label: string): Promise<PhaseLine>
     await vm.kill().catch(() => {});
     await vm.wait().catch(() => undefined);
   });
+  const rootdiskCopies = parseRootdiskCopyEvents(captured);
   for (const line of captured.split("\n").reverse()) {
     const parsed = parsePhaseLine(line);
     if (parsed?.kind === "boot") {
+      parsed.rootdiskCopies = rootdiskCopies;
       return parsed;
     }
   }
@@ -491,12 +513,24 @@ async function runOneRestore(
     await vm.wait().catch(() => undefined);
   });
   const lines = bootOrRestorePhaseLines(captured);
+  attachRootdiskCopyEvents(lines, captured);
   lines.push(syntheticRestorePhase(restoreWallMs, lines, captured));
   return lines;
 }
 
 function bootOrRestorePhaseLines(captured: string): PhaseLine[] {
   return phaseLinesForKinds(captured, new Set(["boot", "restore"]));
+}
+
+function attachRootdiskCopyEvents(lines: PhaseLine[], captured: string): void {
+  const rootdiskCopies = parseRootdiskCopyEvents(captured);
+  if (rootdiskCopies.length === 0) {
+    return;
+  }
+  const boot = lines.find((line) => line.kind === "boot");
+  if (boot) {
+    boot.rootdiskCopies = rootdiskCopies;
+  }
 }
 
 function phaseLinesForKinds(captured: string, kinds: Set<string>): PhaseLine[] {
@@ -587,10 +621,11 @@ async function takeSnapshot(
 
 // fallow-ignore-next-line complexity
 async function runLatencyBench(args: Args, assets: AssetPaths): Promise<JsonValue> {
+  await prewarmRootfsImgCacheIfNeeded(args, assets);
   const bootCold: PhaseLine[] = [];
   const bootWarm: PhaseLine[] = [];
   for (let i = 0; i < args.n; i++) {
-    clearRootfsImgCache();
+    clearRootfsImgCacheForColdSample(args);
     bootCold.push(await runOneBoot(assets, `boot-cold-${i + 1}`));
   }
   for (let i = 0; i < args.n; i++) {
@@ -617,7 +652,7 @@ async function runLatencyBench(args: Args, assets: AssetPaths): Promise<JsonValu
       throw new Error("bench: no snapshot produced for restore benchmark");
     }
     for (let i = 0; i < args.n; i++) {
-      clearRootfsImgCache();
+      clearRootfsImgCacheForColdSample(args);
       collectRestorePhase(
         restoreCold,
         await runOneRestore(assets, restoreSnapDir, `restore-cold-${i + 1}`),
@@ -663,12 +698,27 @@ function collectRestorePhase(out: PhaseLine[], lines: PhaseLine[]): void {
     return;
   }
   const merged = new Map<string, number>();
+  mergeRestoreBootPhases(merged, lines);
   for (const restore of restores) {
     for (const [key, value] of restore.phases) {
       merged.set(key, value);
     }
   }
-  out.push({ kind: "restore", total: restores.at(-1)!.total, phases: merged });
+  out.push({
+    kind: "restore",
+    total: restores.at(-1)!.total,
+    phases: merged,
+    rootdiskCopies: lines.flatMap((line) => line.rootdiskCopies ?? []),
+  });
+}
+
+function mergeRestoreBootPhases(merged: Map<string, number>, lines: PhaseLine[]): void {
+  for (const boot of lines.filter((line) => line.kind === "boot")) {
+    merged.set("boot.total", boot.total);
+    for (const [key, value] of boot.phases) {
+      merged.set(`boot.${key}`, value);
+    }
+  }
 }
 
 function snapshotSuiteJson(samples: SnapshotSample[]): JsonValue {
@@ -752,9 +802,14 @@ function bundleSize(path: string): { apparentBytes: number; allocatedBytes: numb
 }
 
 function suiteJson(runs: PhaseLine[]): JsonValue {
-  return {
+  const out: { [key: string]: JsonValue } = {
     aggregates: aggregateJson(runs),
   };
+  const rootdiskCopy = rootdiskCopyJson(runs.flatMap((run) => run.rootdiskCopies ?? []));
+  if (rootdiskCopy) {
+    out.rootdisk_copy = rootdiskCopy;
+  }
+  return out;
 }
 
 function aggregateJson(runs: PhaseLine[]): JsonValue {
@@ -869,51 +924,11 @@ function gitOutput(args: string[]): string | null {
   }
 }
 
-function hostMetadata(): JsonValue {
-  return {
-    hostname: hostname(),
-    platform: platform(),
-    arch: hostArch(),
-    release: release(),
-    cpu_model: cpus()[0]?.model ?? null,
-    cpu_count: cpus().length,
-    total_memory_bytes: totalmem(),
-    free_memory_bytes_at_start: freemem(),
-  };
-}
-
 function gitMetadata(): JsonValue {
   const commit = gitOutput(["rev-parse", "HEAD"]);
   const branch = gitOutput(["branch", "--show-current"]);
   const status = gitOutput(["status", "--short"]);
   return { commit, branch, dirty: Boolean(status) };
-}
-
-function assetMetadata(assets: AssetPaths): JsonValue {
-  return {
-    guest_arch: assets.guestArch,
-    kernel: fileMetadata(assets.kernel),
-    dtb: assets.dtb ? fileMetadata(assets.dtb) : null,
-    image: fileMetadata(assets.image),
-  };
-}
-
-function fileMetadata(path: string): JsonValue {
-  const stat = statSync(path);
-  return {
-    path,
-    size_bytes: stat.size,
-    mtime_ms: stat.mtimeMs,
-    sha256_sidecar: readSidecar(`${path}.sha256`),
-    inputs_sha256_sidecar: readSidecar(`${path}.inputs-sha256`),
-  };
-}
-
-function readSidecar(path: string): string | null {
-  if (!existsSync(path)) {
-    return null;
-  }
-  return readFileSync(path, "utf8").trim() || null;
 }
 
 function shouldRunSuite(args: Args, suite: BenchSuite): boolean {
@@ -927,12 +942,21 @@ async function main(): Promise<void> {
   requireAssets(assets);
   const git = gitMetadata();
   const commit = typeof git === "object" && git && "commit" in git ? String(git.commit ?? "") : "";
+  const out = buildResultPath(args, commit);
+  const filesystems = filesystemMetadata({
+    repoRoot: REPO_ROOT,
+    assets: ASSETS,
+    rootfsImgCache: ROOTFS_IMG_CACHE,
+    outputPath: out,
+  });
+  validateBenchmarkEnvironment(args.environment, filesystems);
   const result: { [key: string]: JsonValue } = {
     schema_version: 1,
     benchmark: "bench",
     generated_at: new Date().toISOString(),
     git,
     host: hostMetadata(),
+    filesystems,
     assets: assetMetadata(assets),
     config: {
       n: args.n,
@@ -940,6 +964,8 @@ async function main(): Promise<void> {
       cpu_bytes_mib: args.cpuBytesMib,
       memory_sizes_mib: args.memorySizesMib,
       memory_ceiling_mib: args.memoryCeilingMib,
+      pooled_rootdisk_cache: args.pooledRootdiskCache,
+      environment: args.environment,
     },
   };
   if (shouldRunSuite(args, "core")) {
@@ -956,7 +982,6 @@ async function main(): Promise<void> {
   if (shouldRunSuite(args, "net")) {
     result.net = runNetBenchSuite(args, REPO_ROOT);
   }
-  const out = buildResultPath(args, commit);
   if (out) {
     writeJsonResult(out, result);
   } else {
