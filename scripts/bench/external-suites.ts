@@ -20,26 +20,57 @@ type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string
 
 export function runMountBenchSuite(args: ExternalSuiteArgs, repoRoot: string): JsonValue {
   const resultsDir = join(repoRoot, "scripts", "bench", "mount", "results");
-  const wallMs: number[] = [];
-  const vmBootMs: number[] = [];
-  const dockerWallMs: number[] = [];
-  const ratios: number[] = [];
+  const samples = emptyMountSamples();
   for (let i = 0; i < args.n; i++) {
     process.stderr.write(`[mount:${i + 1}] running...\n`);
-    const result = runOneMountBench(repoRoot, resultsDir);
-    wallMs.push(result.phases?.tarExtractMs ?? result.wallMs);
-    appendIfNumber(vmBootMs, result.phases?.vmBootMs);
-    appendIfNumber(dockerWallMs, result.docker?.wallMs);
-    if (result.docker?.wallMs) {
-      ratios.push(result.wallMs / result.docker.wallMs);
-    }
+    appendMountSamples(samples, runOneMountBench(repoRoot, resultsDir));
   }
+  return mountSuiteJson(samples);
+}
+
+interface MountSamples {
+  wallMs: number[];
+  vmBootMs: number[];
+  dockerWallMs: number[];
+  ratios: number[];
+}
+
+function emptyMountSamples(): MountSamples {
+  return { wallMs: [], vmBootMs: [], dockerWallMs: [], ratios: [] };
+}
+
+function appendMountSamples(samples: MountSamples, result: MountResult): void {
+  samples.wallMs.push(mountTarExtractMs(result));
+  appendIfNumber(samples.vmBootMs, mountVmBootMs(result));
+  appendIfNumber(samples.dockerWallMs, mountDockerWallMs(result));
+  appendMountDockerRatio(samples.ratios, result);
+}
+
+function mountTarExtractMs(result: MountResult): number {
+  return result.phases?.tarExtractMs ?? result.wallMs;
+}
+
+function mountVmBootMs(result: MountResult): number | undefined {
+  return result.phases?.vmBootMs;
+}
+
+function mountDockerWallMs(result: MountResult): number | undefined {
+  return result.docker?.wallMs;
+}
+
+function appendMountDockerRatio(out: number[], result: MountResult): void {
+  if (result.docker?.wallMs) {
+    out.push(result.wallMs / result.docker.wallMs);
+  }
+}
+
+function mountSuiteJson(samples: MountSamples): JsonValue {
   return {
     phases: {
-      vm_boot_ms: nullableStats(vmBootMs) as unknown as JsonValue,
-      tar_extract_wall_ms: stats(wallMs) as unknown as JsonValue,
-      docker_wall_ms: nullableStats(dockerWallMs) as unknown as JsonValue,
-      ratio_to_docker: nullableStats(ratios) as unknown as JsonValue,
+      vm_boot_ms: nullableStats(samples.vmBootMs) as unknown as JsonValue,
+      tar_extract_wall_ms: stats(samples.wallMs) as unknown as JsonValue,
+      docker_wall_ms: nullableStats(samples.dockerWallMs) as unknown as JsonValue,
+      ratio_to_docker: nullableStats(samples.ratios) as unknown as JsonValue,
     },
   };
 }
@@ -108,16 +139,28 @@ function parseNetBenchValues(stdout: string): Record<string, number[]> {
 }
 
 function appendNetBenchValue(out: Record<string, number[]>, line: string): void {
+  const parsed = parseNetBenchLine(line);
+  if (parsed) {
+    out[parsed.mode] = [...(out[parsed.mode] ?? []), parsed.value];
+  }
+}
+
+function parseNetBenchLine(line: string): { mode: string; value: number } | undefined {
   const mode = /bench-net: mode=([^\s]+)/.exec(line)?.[1];
   if (!mode) {
-    return;
+    return undefined;
   }
-  const metric = mode === "latency" ? "us_per_ping" : "mb_per_sec";
+  const value = netBenchMetricValue(line, metricForMode(mode));
+  return value === undefined ? undefined : { mode, value };
+}
+
+function metricForMode(mode: string): string {
+  return mode === "latency" ? "us_per_ping" : "mb_per_sec";
+}
+
+function netBenchMetricValue(line: string, metric: string): number | undefined {
   const value = new RegExp(`${metric}=([0-9.]+)`).exec(line)?.[1];
-  if (!value) {
-    return;
-  }
-  out[mode] = [...(out[mode] ?? []), Number(value)];
+  return value === undefined ? undefined : Number(value);
 }
 
 function appendIfNumber(out: number[], value: number | undefined): void {

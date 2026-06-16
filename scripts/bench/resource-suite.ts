@@ -150,33 +150,57 @@ async function runGuestCpu(
   bytesMib: number,
   quotaCpus?: number,
 ): Promise<CpuSample> {
-  const vm = await bootIdleVm(assets, {
-    cpu: quotaCpus === undefined ? undefined : { maxVcpus: 1, quotaCpus },
-  });
+  const vm = await bootIdleVm(assets, { cpu: cpuQuotaOption(quotaCpus) });
   try {
-    const bytes = bytesMib * 1024 * 1024;
-    const cmd =
-      "set -eu; " +
-      "command -v sha256sum >/dev/null; " +
-      `dd if=/dev/zero bs=1M count=${bytesMib} 2>/tmp/machinen-bench-dd.err | sha256sum >/dev/null`;
-    const start = process.hrtime.bigint();
-    const res = await vm.execRaw(cmd, { execTimeoutMs: Math.max(300_000, bytesMib * 2000) });
-    const elapsedMs = elapsedSinceMs(start);
-    if (res.exitCode !== 0) {
-      throw new Error(
-        `guest CPU command failed exit=${res.exitCode} stderr=${res.stderr || "<empty>"}`,
-      );
-    }
-    return {
-      label: quotaCpus === undefined ? "guest-sha256" : `guest-sha256-quota-${quotaCpus}`,
-      bytes,
-      elapsedMs,
-      throughputBytesPerSec: throughput(bytes, elapsedMs),
-      exitCode: res.exitCode,
-    };
+    return await runGuestCpuInVm(vm, bytesMib, quotaCpus);
   } finally {
     await killVm(vm);
   }
+}
+
+function cpuQuotaOption(
+  quotaCpus: number | undefined,
+): { maxVcpus: 1; quotaCpus: number } | undefined {
+  return quotaCpus === undefined ? undefined : { maxVcpus: 1, quotaCpus };
+}
+
+async function runGuestCpuInVm(
+  vm: VmHandle,
+  bytesMib: number,
+  quotaCpus: number | undefined,
+): Promise<CpuSample> {
+  const bytes = bytesMib * 1024 * 1024;
+  const start = process.hrtime.bigint();
+  const res = await vm.execRaw(guestCpuCommand(bytesMib), {
+    execTimeoutMs: Math.max(300_000, bytesMib * 2000),
+  });
+  const elapsedMs = elapsedSinceMs(start);
+  assertGuestCpuSuccess(res.exitCode, res.stderr);
+  return {
+    label: guestCpuLabel(quotaCpus),
+    bytes,
+    elapsedMs,
+    throughputBytesPerSec: throughput(bytes, elapsedMs),
+    exitCode: res.exitCode,
+  };
+}
+
+function guestCpuCommand(bytesMib: number): string {
+  return (
+    "set -eu; " +
+    "command -v sha256sum >/dev/null; " +
+    `dd if=/dev/zero bs=1M count=${bytesMib} 2>/tmp/machinen-bench-dd.err | sha256sum >/dev/null`
+  );
+}
+
+function assertGuestCpuSuccess(exitCode: number, stderr: string): void {
+  if (exitCode !== 0) {
+    throw new Error(`guest CPU command failed exit=${exitCode} stderr=${stderr || "<empty>"}`);
+  }
+}
+
+function guestCpuLabel(quotaCpus: number | undefined): string {
+  return quotaCpus === undefined ? "guest-sha256" : `guest-sha256-quota-${quotaCpus}`;
 }
 
 async function collectMemoryTouchBench(
@@ -308,12 +332,23 @@ function printCpuSummary(suites: CpuBenchResult): void {
 function printMemorySummary(result: MemoryBenchResult): void {
   console.log("\n=== Memory touch RSS (avg) ===");
   console.log(`  ${"touched".padEnd(12)} ${"host RSS".padStart(12)} ${"ceiling".padStart(10)}`);
-  const rows = Object.values(result.by_touched_mib).sort((a, b) => a.touchedMib - b.touchedMib);
-  for (const row of rows) {
-    const rss = formatBytes(row.host_rss_bytes?.avg ?? null).padStart(12);
-    const ceiling = formatMiB(row.ceiling_mib?.avg ?? null).padStart(10);
-    console.log(`  ${`${row.touchedMib} MiB`.padEnd(12)} ${rss} ${ceiling}`);
+  for (const row of sortedMemoryRows(result)) {
+    console.log(memorySummaryLine(row));
   }
+}
+
+function sortedMemoryRows(result: MemoryBenchResult): MemoryTouchAggregate[] {
+  return Object.values(result.by_touched_mib).sort((a, b) => a.touchedMib - b.touchedMib);
+}
+
+function memorySummaryLine(row: MemoryTouchAggregate): string {
+  const rss = formatBytes(nullableAverage(row.host_rss_bytes)).padStart(12);
+  const ceiling = formatMiB(nullableAverage(row.ceiling_mib)).padStart(10);
+  return `  ${`${row.touchedMib} MiB`.padEnd(12)} ${rss} ${ceiling}`;
+}
+
+function nullableAverage(row: Stats | null): number | null {
+  return row === null ? null : row.avg;
 }
 
 function stats(samples: number[]): Stats {
