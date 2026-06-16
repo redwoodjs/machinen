@@ -2,12 +2,14 @@
 // attach/repl/stop. Sibling of parse-run-args.ts / parse-fork-args.ts
 // — extracted so tests don't need to spawn the CLI.
 //
-// The target is a single positional. All-digits → pid; everything
-// else → name. Anything that isn't the target lands in `rest` so
-// callers with a second positional (snapshot's <out-dir>) can read
-// it without re-parsing.
+// The target is a single optional positional. Missing → default VM
+// name, all-digits → pid, everything else → name. Anything that isn't
+// the target lands in `rest` so callers with a second positional
+// (snapshot's <out-dir>) can read it without re-parsing.
 
 import { ParseError } from "@machinen/runtime";
+
+import { DEFAULT_VM_NAME } from "./defaults.ts";
 
 export type Target = { name: string } | { pid: number };
 
@@ -17,7 +19,7 @@ interface ExtractedTarget {
   rest: string[];
 }
 
-export function extractTarget(args: string[], cmd: string): ExtractedTarget {
+export function extractTarget(args: string[], _cmd: string): ExtractedTarget {
   let positional: string | undefined;
   const rest: string[] = [];
   for (const a of args) {
@@ -32,10 +34,7 @@ export function extractTarget(args: string[], cmd: string): ExtractedTarget {
     }
   }
   if (positional === undefined) {
-    throw new ParseError(
-      "PARSE_FLAG_MISSING_VALUE",
-      `machinen ${cmd}: requires a target name or pid (e.g. \`machinen ${cmd} <name|pid>\`)`,
-    );
+    return { target: { name: DEFAULT_VM_NAME }, rest };
   }
   // Edge case: a VM literally named "123" can't be targeted
   // positionally (resolves as pid). Rename the VM if you hit this —

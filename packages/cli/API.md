@@ -12,17 +12,17 @@ machinen restore  <snap-dir> [--name <name>]    Restore a VM from a snapshot bun
 machinen move     <scan|save|load> [opts]       Discover or validate cross-ISA move descriptors
 machinen support  [filters] [--json]            Show product support and refusal status
 machinen list     (alias: ls, ps)               List running VMs
-machinen exec     <target> [--tty] -- <cmd>     Run a command in a running VM
-machinen snapshot <target> <out-dir> [--keep-alive] [--dry-run]
+machinen exec     [<target>] [--tty] -- <cmd>   Run a command in a running VM
+machinen snapshot [<target>] <out-dir> [--keep-alive] [--dry-run]
                                                 Checkpoint a running VM
-machinen fork     <target> [opts]               Clone a running VM into a sibling
-machinen attach   <target> [--shell <c>] [--tail [N]] [--session <s>]
+machinen fork     [<target>] [opts]             Clone a running VM into a sibling
+machinen attach   [<target>] [--shell <c>] [--tail [N]] [--session <s>]
                                                 Interactive PTY shell into a VM
-machinen sessions <target>                       List persistent PTY sessions
-machinen session-kill <target> <session> [--dry-run]
+machinen sessions [<target>]                     List persistent PTY sessions
+machinen session-kill [<target>] [<session>] [--dry-run]
                                                 Kill a persistent PTY session
-machinen repl     <target>                       Per-line exec REPL (no persistent state)
-machinen stop     <target> [--force|-9] [--dry-run]
+machinen repl     [<target>]                     Per-line exec REPL (no persistent state)
+machinen stop     [<target>] [--force|-9] [--dry-run]
                                                 Stop a running VM
 machinen gc       [--dry-run|-n]                Drop dead registry entries + clean artifacts
 machinen install  [--version <tag>]             Pre-fetch base assets for a release
@@ -33,7 +33,8 @@ machinen --version | -h                          Print version / help
 ```
 
 `<target>` is the first positional after the subcommand. Pass a name
-(any non-digit string) or a host pid (digits-only).
+(any non-digit string) or a host pid (digits-only). If you omit it,
+Machinen uses the default VM name: `default`.
 
 ## Agent-friendly conventions
 
@@ -68,7 +69,7 @@ cache (populated by `machinen install`, or auto-fetched on first use).
 
 | Flag                                            | What it does                                                                                                                                                                                                        |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--name <name>`                                 | Register the VM under a human-friendly name (path-shaped allowed: `a/b/c`)                                                                                                                                          |
+| `--name <name>`                                 | Register the VM under a human-friendly name (path-shaped allowed: `a/b/c`; default: `default`)                                                                                                                      |
 | `--mount <host-dir>:<guest-path>`               | Copy-once host directory into the guest (`/mnt/...`)                                                                                                                                                                |
 | `--mount-live <host-dir>:<guest-path>[:rw\|ro]` | Live-share via in-VMM virtio-fs — guest reads stream in on demand. `rw` (default) or `ro`                                                                                                                           |
 | `--env KEY=VALUE`                               | Set an env var inside the guest (repeatable)                                                                                                                                                                        |
@@ -124,7 +125,7 @@ none). `ps` is an alias.
 ## `machinen exec`
 
 ```
-machinen exec <target> [--tty|--pty] -- <cmd>
+machinen exec [<target>] [--tty|--pty] -- <cmd>
 ```
 
 Runs `<cmd>` inside a running VM via vsock. Without `--tty`, stdio is
@@ -140,7 +141,7 @@ machinen exec worker --tty -- bash -i
 ## `machinen snapshot`
 
 ```
-machinen snapshot <target> <out-dir> [--keep-alive]
+machinen snapshot [<target>] <out-dir> [--keep-alive]
 ```
 
 Checkpoints a running VM into `<out-dir>`. With the default vmstate
@@ -154,7 +155,7 @@ connection state.
 ## `machinen fork`
 
 ```
-machinen fork <target> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach]
+machinen fork [<target>] [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach]
               [-p ...] [--mount ...] [--mount-live ...] [--env KEY=VALUE]...
               [--cwd <abs>] [--memory <mib>]
 ```
@@ -187,27 +188,28 @@ source's rootdisk at dump time.
 ## `machinen attach`
 
 ```
-machinen attach <target> [--shell <cmd>] [--tail [N]] [--session <name>]
+machinen attach [<target>] [--shell <cmd>] [--tail [N]] [--session <name>]
 ```
 
-Drops into an interactive PTY shell in the running VM (default `bash
--i`, override with `--shell`). `cd`, env vars, history, job control,
-and full-screen TUIs all work. Exit the shell (Ctrl-D) to detach.
+Drops into an interactive PTY shell in the running VM (default VM:
+`default`; default session: `default`; default shell: `bash -i`,
+override with `--shell`). `cd`, env vars, history, job control, and
+full-screen TUIs all work.
 
-Pass `--session <name>` to create or reattach a named persistent PTY
+By default, attach creates or reattaches the `default` persistent PTY
 session. The guest keeps that shell or TUI running if the host terminal
-or SSH connection drops, so a later `machinen attach --session <name>
-<target>` reconnects to it without needing `tmux` or `screen` inside
-the VM. Plain `machinen attach <target>` remains non-persistent and
-keeps the old behavior.
+or SSH connection drops, so a later `machinen attach` reconnects to it
+without needing `tmux` or `screen` inside the VM. Pass `--session
+<name>` to use a different persistent session name.
 
 Session names must be 1-64 characters using only letters, digits, dot,
 underscore, or dash. Common examples:
 
 ```bash
+machinen attach
 machinen attach --session pi worker
 machinen sessions worker
-machinen session-kill worker pi
+machinen session-kill worker
 ```
 
 `--tail` dumps the boot-console snapshot before opening the shell.
@@ -218,7 +220,7 @@ With no value it prints the whole snapshot (capped at ~1 MiB);
 ## `machinen sessions`
 
 ```
-machinen sessions <target>
+machinen sessions [<target>]
 ```
 
 Lists named persistent PTY sessions currently held by the guest. Output
@@ -227,18 +229,19 @@ is tab-separated: session name, then guest pid.
 ## `machinen session-kill`
 
 ```
-machinen session-kill <target> <session> [--dry-run]
+machinen session-kill [<target>] [<session>] [--dry-run]
 ```
 
-Terminates a named persistent PTY session inside the guest. Use this to
-reset a stuck shell or stop a long-running TUI that was intentionally
-left alive after disconnect. `--dry-run` reports whether the session
-exists without killing it.
+Terminates a named persistent PTY session inside the guest. Omit the
+session to kill `default`; omit the target to use the default VM. Use
+this to reset a stuck shell or stop a long-running TUI that was
+intentionally left alive after disconnect. `--dry-run` reports whether
+the session exists without killing it.
 
 ## `machinen repl`
 
 ```
-machinen repl <target>
+machinen repl [<target>]
 ```
 
 Per-line exec REPL: every line is a fresh one-shot `exec`, so `cd`,
@@ -249,7 +252,7 @@ an actual interactive shell, use `machinen attach`.
 ## `machinen stop`
 
 ```
-machinen stop <target> [--force|-9]
+machinen stop [<target>] [--force|-9]
 ```
 
 SIGTERM the VMM, escalate to SIGKILL after 2s, then `gc` its entry.

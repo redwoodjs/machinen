@@ -50,7 +50,7 @@ function consumeExecPtyFlag(args: string[]): { usePty: boolean; filtered: string
 async function runExecCommand(vm: VmHandle, parsed: ParsedExecArgs): Promise<number> {
   if (parsed.usePty) {
     assertExecPtyTty();
-    return runPtyExec(vm, parsed.cmd);
+    return runPtyExec(vm, parsed.cmd, false);
   }
   return runRawExec(vm, parsed.cmd);
 }

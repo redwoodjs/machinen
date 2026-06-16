@@ -28,6 +28,7 @@
     "vm": "node vm.ts",
     "vm-pick": "bash scripts/vm-pick.sh",
     "repro-192": "node scripts/repro-issue-192.ts",
+    "repro-954": "tsx scripts/repro-issue-954-persistent-pty.ts",
     "machinen-dev": "bash scripts/machinen-dev.sh",
     "smoke-tests": "bash scripts/smoke-tests.sh",
     "controlled-binary-corpus": "node scripts/controlled-binary-corpus.mjs verify",

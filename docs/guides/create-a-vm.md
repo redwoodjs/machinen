@@ -87,19 +87,19 @@ to completion, exit code propagates. `attach` is for when _you_ want a
 real terminal: tab completion, full-screen TUIs, Ctrl-C signalling the
 guest process and not the host CLI.
 
-If the interactive work itself should survive your host terminal going
-away, use a named persistent session:
+Interactive attach uses a persistent session by default, so the work
+survives your host terminal going away:
 
 ```bash
-npx machinen attach --session pi worker     # create or reattach the session
+npx machinen attach worker                  # create or reattach worker/default
+npx machinen attach --session pi worker     # use a second named session
 npx machinen sessions worker                # list live persistent sessions
-npx machinen session-kill worker pi         # reset/stop that session
+npx machinen session-kill worker            # reset/stop worker/default
 ```
 
 The shell or TUI runs under the guest exec-agent, so it stays alive when
 your SSH connection, laptop, or host CLI disconnects. Re-run the same
-`attach --session` command to reconnect. Plain `machinen attach worker`
-still opens a normal non-persistent shell.
+`attach` command to reconnect.
 
 When you're done:
 

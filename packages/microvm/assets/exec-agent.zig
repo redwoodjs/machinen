@@ -452,9 +452,16 @@ fn reap_session(entry: *SessionEntry) void {
     if (!entry.used) return;
     var status: c_int = 0;
     const r = waitpid(entry.broker_pid, &status, WNOHANG);
-    if (r == entry.broker_pid) {
+    if (r == entry.broker_pid or r < 0) {
         entry.used = false;
     }
+}
+
+fn reap_child_zombies() void {
+    std.debug.assert(MAX_SESSIONS > 0);
+    for (&sessions) |*entry| reap_session(entry);
+    var status: c_int = 0;
+    while (waitpid(-1, &status, WNOHANG) > 0) {}
 }
 
 fn find_session(name: []const u8) ?u8 {
@@ -567,6 +574,22 @@ fn proxy_session(client_fd: c_int, broker_fd: c_int, cols: u16, rows: u16) void 
     }
 }
 
+fn proxy_session_child(client_fd: c_int, broker_fd: c_int, cols: u16, rows: u16) void {
+    std.debug.assert(client_fd >= 0);
+    std.debug.assert(broker_fd >= 0);
+    const pid = fork();
+    if (pid < 0) {
+        send_exit(client_fd, 1);
+        ignore_int(close(broker_fd));
+        return;
+    }
+    if (pid == 0) {
+        proxy_session(client_fd, broker_fd, cols, rows);
+        _exit(0);
+    }
+    ignore_int(close(broker_fd));
+}
+
 fn create_session(name: []const u8, cmd: []const u8, cols: u16, rows: u16) ?u8 {
     std.debug.assert(valid_session_name(name));
     const slot = alloc_session_slot() orelse return null;
@@ -652,7 +675,7 @@ fn handle_persistent_pty(
         send_exit(client_fd, 1);
         return;
     }
-    proxy_session(client_fd, broker_fd, cols, rows);
+    proxy_session_child(client_fd, broker_fd, cols, rows);
 }
 
 fn cmd_z_ptr(cmd: []const u8, out: *[MAX_EXEC2_CMD + 1]u8) [*:0]const u8 {
@@ -734,13 +757,21 @@ fn broker_event_loop(
         const nfds: c_uint = if (client_fd >= 0) 3 else 2;
         const n = poll(&fds, nfds, -1);
         if (n < 0) continue;
-        if (master_exited(fds[0].revents)) return wait_exit_status(child_pid);
+        if (master_exited(fds[0].revents)) return finish_broker_session(child_pid, client_fd);
         if ((fds[1].revents & POLLIN) != 0) accept_broker_client(listen_fd, &client_fd, master_fd);
         if (!drain_master_to_client(master_fd, &client_fd, fds[0].revents)) {
-            return wait_exit_status(child_pid);
+            return finish_broker_session(child_pid, client_fd);
         }
         if (client_fd >= 0) service_broker_client(&client_fd, master_fd, fds[2].revents);
     }
+}
+
+fn finish_broker_session(child_pid: pid_t, client_fd: c_int) c_int {
+    std.debug.assert(child_pid > 0);
+    std.debug.assert(client_fd >= -1);
+    const code = wait_exit_status(child_pid);
+    if (client_fd >= 0) send_exit(client_fd, code);
+    return code;
 }
 
 fn broker_pollfds(master_fd: c_int, listen_fd: c_int, client_fd: c_int) [3]pollfd {
@@ -1047,6 +1078,7 @@ pub fn main() !void {
     // Intentional daemon loop. `accept` blocks between connections;
     // the VMM tears the agent down with the guest.
     while (true) {
+        reap_child_zombies();
         const client = accept(srv, null, null);
         if (client < 0) {
             log_err("exec-agent: accept() failed; continuing");
