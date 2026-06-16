@@ -19,11 +19,11 @@ const debugAttach = debugLib("machinen:attach");
 export interface AttachOptions {
   /**
    * Look up a VM by the host pid of its VMM process. Kernel-unique
-   * while alive; mutually exclusive with `name`. Exactly one of
-   * `pid` / `name` is required.
+   * while alive; mutually exclusive with `name`. If neither `pid` nor
+   * `name` is provided, attach uses the default VM name `default`.
    */
   pid?: number;
-  /** Look up a VM by the name passed to `boot({ name })`. */
+  /** Look up a VM by the name passed to `boot({ name })`. Defaults to `default`. */
   name?: string;
   /**
    * Streaming log callback — fires for every byte of output from execs
@@ -47,11 +47,13 @@ export interface AttachOptions {
  *
  * @throws {RegistryError} REGISTRY_VM_NOT_FOUND
  */
-export async function attach(opts: AttachOptions): Promise<VmHandle> {
-  debugAttach("attach lookup pid=%s name=%s", opts.pid ?? "<unset>", opts.name ?? "<unset>");
-  let entry = findEntry(opts);
+export async function attach(opts: AttachOptions = {}): Promise<VmHandle> {
+  const query =
+    opts.pid === undefined && opts.name === undefined ? { ...opts, name: "default" } : opts;
+  debugAttach("attach lookup pid=%s name=%s", query.pid ?? "<unset>", query.name ?? "<unset>");
+  let entry = findEntry(query);
   if (!entry) {
-    const q = opts.pid !== undefined ? `pid ${opts.pid}` : `name ${opts.name}`;
+    const q = query.pid !== undefined ? `pid ${query.pid}` : `name ${query.name}`;
     debugAttach("attach miss for %s", q);
     throw new RegistryError("REGISTRY_VM_NOT_FOUND", `attach: no running VM found for ${q}`);
   }

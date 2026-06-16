@@ -2,6 +2,7 @@ import { attach, type LogEvent, type RegistryEntry, type VmHandle } from "@machi
 import { resolve } from "node:path";
 
 import { consumeDryRunFlag, consumeJsonFlag, emitJson, emitJsonError } from "../args.ts";
+import { DEFAULT_VM_NAME } from "../defaults.ts";
 import { describeError, die, failQuiet, handleError } from "../errors.ts";
 import type { Target } from "../parse-target.ts";
 import { isQuiet, printHeadline, RingBuffer } from "../quiet.ts";
@@ -27,15 +28,15 @@ interface SnapshotOptionsCli {
 }
 
 function parseSnapshotOptions(args: string[]): SnapshotOptionsCli {
-  // Forms: `machinen snapshot <target> <out-dir>` and
-  // `machinen snapshot <target> --out <dir>`. We strip --json /
-  // --dry-run / --keep-alive first; the first positional left is the target.
+  // Forms: `machinen snapshot [<target>] <out-dir>` and
+  // `machinen snapshot [<target>] --out <dir>`. We strip --json /
+  // --dry-run / --keep-alive first, then default the target to `default`
+  // when only an out-dir remains.
   const { json, rest: afterJson } = consumeJsonFlag(args);
   const { dryRun, rest: afterDry } = consumeDryRunFlag(afterJson);
   const { keepAlive, rest: afterKeepAlive } = consumeKeepAliveFlag(afterDry);
   const { outDir: flaggedOutDir, rest } = consumeSnapshotOutFlag(afterKeepAlive);
-  const { target, rest: afterTarget } = resolveTarget(rest, "snapshot");
-  const outDir = parseSnapshotOutDir(afterTarget, flaggedOutDir);
+  const { target, outDir } = parseSnapshotTargetAndOutDir(rest, flaggedOutDir);
   return { json, dryRun, keepAlive, target, outDir, resolvedOutDir: resolve(outDir) };
 }
 
@@ -62,10 +63,19 @@ function consumeSnapshotOutFlag(args: string[]): { outDir: string | undefined; r
   return { outDir, rest };
 }
 
-function parseSnapshotOutDir(args: string[], flaggedOutDir?: string): string {
-  return flaggedOutDir
-    ? parseFlaggedSnapshotOutDir(args, flaggedOutDir)
-    : parsePositionalSnapshotOutDir(args);
+function parseSnapshotTargetAndOutDir(
+  args: string[],
+  flaggedOutDir?: string,
+): { target: Target; outDir: string } {
+  if (flaggedOutDir) {
+    const { target, rest } = resolveTarget(args, "snapshot");
+    return { target, outDir: parseFlaggedSnapshotOutDir(rest, flaggedOutDir) };
+  }
+  if (args.length === 1) {
+    return { target: { name: DEFAULT_VM_NAME }, outDir: args[0]! };
+  }
+  const { target, rest } = resolveTarget(args, "snapshot");
+  return { target, outDir: parsePositionalSnapshotOutDir(rest) };
 }
 
 function parseFlaggedSnapshotOutDir(args: string[], flaggedOutDir: string): string {
@@ -87,8 +97,8 @@ function parsePositionalSnapshotOutDir(args: string[]): string {
 
 function snapshotUsage(): string {
   return (
-    "usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]\n" +
-    "       machinen snapshot <name|pid> --out <dir> [--keep-alive] [--dry-run] [--json]"
+    "usage: machinen snapshot [<name|pid>] <out-dir> [--keep-alive] [--dry-run] [--json]\n" +
+    "       machinen snapshot [<name|pid>] --out <dir> [--keep-alive] [--dry-run] [--json]"
   );
 }
 

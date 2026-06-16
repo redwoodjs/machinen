@@ -1,6 +1,7 @@
 import { attach, type RegistryEntry, type VmHandle } from "@machinen/runtime";
 import { readFileSync } from "node:fs";
 
+import { DEFAULT_PTY_SESSION_NAME } from "../defaults.ts";
 import { die, handleError } from "../errors.ts";
 import type { Target } from "../parse-target.ts";
 import { tailLines } from "../tail-lines.ts";
@@ -27,7 +28,7 @@ interface AttachOptionsCli {
 function parseAttachOptions(args: string[]): AttachOptionsCli {
   const state = {
     shell: "/bin/bash -i",
-    sessionName: undefined as string | undefined,
+    sessionName: DEFAULT_PTY_SESSION_NAME,
     tail: undefined as number | "all" | undefined,
     rest: [] as string[],
   };
@@ -186,13 +187,10 @@ async function runAttachedPty(
     die("machinen attach: stdin is not a TTY (pipe scripts via `machinen repl` instead)");
   }
   const label = vm.name ?? `pid ${vm.pid}`;
-  if (sessionName) {
-    process.stderr.write(
-      `attached to ${label} session ${sessionName} — kill with machinen session-kill ${label} ${sessionName}.\n`,
-    );
-  } else {
-    process.stderr.write(`attached to ${label} — exit the shell to detach.\n`);
-  }
+  const targetArg = vm.name ?? String(vm.pid);
+  process.stderr.write(
+    `attached to ${label} session ${sessionName} — kill with machinen session-kill ${targetArg} ${sessionName}.\n`,
+  );
   try {
     return await runPtyExec(vm, shell, sessionName);
   } finally {
@@ -244,15 +242,15 @@ function parseSessionKillOptions(args: string[]): {
 } {
   const dryRun = args.includes("--dry-run");
   const positional = args.filter((arg) => arg !== "--dry-run");
-  const name = positional.at(-1);
-  if (!name) {
-    die("machinen session-kill: missing session name");
-  }
+  const name = positional.length >= 2 ? positional.at(-1)! : DEFAULT_PTY_SESSION_NAME;
   validateSessionName(name);
   return {
     dryRun,
     name,
-    target: parseTargetFlags(positional.slice(0, -1), "session-kill"),
+    target: parseTargetFlags(
+      positional.length >= 2 ? positional.slice(0, -1) : positional,
+      "session-kill",
+    ),
   };
 }
 

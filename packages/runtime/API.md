@@ -3104,9 +3104,9 @@ Connect timeout (ms). Default 5000 — agent should already be up.
 
 ##### sessionName?
 
-> `optional` **sessionName?**: `string`
+> `optional` **sessionName?**: `string` \| `false`
 
-Named persistent PTY session to create or reattach.
+Named persistent PTY session to create or reattach. Defaults to `default`; pass `false` for a one-shot PTY.
 
 ***
 
@@ -17906,14 +17906,14 @@ release rootfs path here.
 > `optional` **pid?**: `number`
 
 Look up a VM by the host pid of its VMM process. Kernel-unique
-while alive; mutually exclusive with `name`. Exactly one of
-`pid` / `name` is required.
+while alive; mutually exclusive with `name`. If neither `pid` nor
+`name` is provided, attach uses the default VM name `default`.
 
 ##### name?
 
 > `optional` **name?**: `string`
 
-Look up a VM by the name passed to `boot({ name })`.
+Look up a VM by the name passed to `boot({ name })`. Defaults to `default`.
 
 ##### onLog?
 
@@ -30509,7 +30509,7 @@ resolve the binary through the same lookup chain.
 
 ### attach()
 
-> **attach**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
+> **attach**(`opts?`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
 Reconnect to a running VM registered by an earlier `boot()` call
 (possibly from a different process). Returns a `VmHandle` that can
@@ -30523,9 +30523,9 @@ booter. `output()`/`errorOutput()` resolve with the empty string.
 
 #### Parameters
 
-##### opts
+##### opts?
 
-[`AttachOptions`](#attachoptions)
+[`AttachOptions`](#attachoptions) = `{}`
 
 #### Returns
 

@@ -67,7 +67,7 @@ describe("VsockExec.startPty wire protocol", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("sends a PTY header with cols, rows, and length-prefixed cmd", async () => {
+  it("uses the default persistent PTY session when sessionName is omitted", async () => {
     // Agent: just send X 0 + close so the host resolves quickly. We
     // care about what the host wrote on the wire, not the response.
     const agent = startCapturingAgent(socketPath, (sock) => {
@@ -87,6 +87,34 @@ describe("VsockExec.startPty wire protocol", () => {
         stdin,
         stdout,
         connectTimeoutMs: 2_000,
+      });
+      const res = await handle.result;
+      expect(res.exitCode).toBe(0);
+      const sent = collectBytes(agent.received).toString("utf8");
+      expect(sent.startsWith("PTYSESSION 132 50 7 7\n")).toBe(true);
+      expect(sent.slice("PTYSESSION 132 50 7 7\n".length)).toContain("defaultbash -i");
+    } finally {
+      await agent.stop();
+    }
+  });
+
+  it("sends a one-shot PTY header when sessionName is false", async () => {
+    const agent = startCapturingAgent(socketPath, (sock) => {
+      setTimeout(() => {
+        sock.write("X 0\n");
+        sock.end();
+      }, 10);
+    });
+    try {
+      const stdin = new PassThrough();
+      const stdout = new CapturingWritable();
+      const handle = VsockExec.startPty(socketPath, "bash -i", {
+        cols: 132,
+        rows: 50,
+        stdin,
+        stdout,
+        connectTimeoutMs: 2_000,
+        sessionName: false,
       });
       const res = await handle.result;
       expect(res.exitCode).toBe(0);

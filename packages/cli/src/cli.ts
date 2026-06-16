@@ -9,7 +9,7 @@
 //   machinen exec <name|pid> -- <cmd>
 //   machinen snapshot <name|pid> <out-dir>
 //   machinen attach <name|pid> [--shell <cmd>]   # PTY shell
-//   machinen attach --session <session> <name|pid> # persistent PTY shell
+//   machinen attach [--session <session>] [name|pid] # persistent PTY shell
 //   machinen repl   <name|pid>                   # per-line exec
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help

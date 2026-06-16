@@ -52,6 +52,11 @@ describe("parseRunArgs --env", () => {
     expect(parsed.positional).toEqual(["./my-bundle"]);
   });
 
+  it("defaults the VM name to default", () => {
+    expect(parseRunArgs([]).name).toBe("default");
+    expect(parseRunArgs(["--name", "worker"]).name).toBe("worker");
+  });
+
   it("rejects --env without a '=' separator", () => {
     expect(() => parseRunArgs(["--env", "FOO", "--", "/bin/true"])).toThrow(ParseError);
   });
@@ -854,8 +859,10 @@ describe("extractTarget", () => {
     expect(r.rest).toEqual(["./warm"]);
   });
 
-  it("rejects no target at all", () => {
-    expect(() => extractTarget([], "exec")).toThrow(/requires a target/);
+  it("defaults no target to the default VM name", () => {
+    const r = extractTarget([], "exec");
+    expect(r.target).toEqual({ name: "default" });
+    expect(r.rest).toEqual([]);
   });
 
   it("rejects unknown flags (legacy --name/--pid no longer recognized)", () => {
@@ -864,7 +871,7 @@ describe("extractTarget", () => {
     expect(() => extractTarget(["--bogus"], "exec")).toThrow(/unknown argument: --bogus/);
   });
 
-  it("throws ParseError so the CLI can format it", () => {
-    expect(() => extractTarget([], "exec")).toThrow(ParseError);
+  it("throws ParseError so the CLI can format unknown flags", () => {
+    expect(() => extractTarget(["--bogus"], "exec")).toThrow(ParseError);
   });
 });

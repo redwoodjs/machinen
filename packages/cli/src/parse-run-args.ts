@@ -4,6 +4,8 @@
 
 import { ParseError } from "@machinen/runtime";
 
+import { DEFAULT_VM_NAME } from "./defaults.ts";
+
 export interface ParsedCpuResourceArgs {
   maxVcpus?: number;
   quotaCpus?: number;
@@ -33,7 +35,7 @@ interface ParsedRunArgs {
   snapshot?: string;
   /** Expose arm64 EL2 / `/dev/kvm` to the guest (`--nested`). */
   nested?: boolean;
-  /** Optional VM name registered for `attach` (`--name <name>`). */
+  /** VM name registered for `attach` (`--name <name>`, default `default`). */
   name?: string;
   /**
    * Working directory for the guest cmd (`--cwd <abs-path>`). Lands
@@ -207,7 +209,7 @@ function finishRunArgs(state: RunParseState, double_dash_args: string[]): Parsed
     portForward: state.portForward.length > 0 ? state.portForward : undefined,
     snapshot: state.snapshot,
     nested: state.nested || undefined,
-    name: state.name,
+    name: state.name ?? DEFAULT_VM_NAME,
     guestCwd: state.guestCwd,
     detached: state.detached || undefined,
     memory: state.memory,

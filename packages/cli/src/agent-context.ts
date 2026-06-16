@@ -54,7 +54,9 @@ interface CommandSpec {
 // a single positional, digits → pid, otherwise → name.
 const TARGET_POSITIONAL: PositionalSpec = {
   name: "target",
-  description: "The VM to act on. Pass a registered name or a host pid (digits-only).",
+  required: false,
+  description:
+    "The VM to act on. Pass a registered name or a host pid (digits-only). Defaults to name 'default'.",
 };
 
 /** The top-level commands of the CLI, keyed by canonical name. */
@@ -67,7 +69,7 @@ export const COMMANDS: CommandSpec[] = [
       {
         name: "--name",
         type: "string",
-        description: "Register the VM under a human-friendly name.",
+        description: "Register the VM under a human-friendly name (default: default).",
       },
       {
         name: "--snapshot",
@@ -311,7 +313,7 @@ export const COMMANDS: CommandSpec[] = [
       {
         name: "--session",
         type: "string",
-        description: "Create or reattach a named persistent PTY session.",
+        description: "Create or reattach a named persistent PTY session (default: default).",
       },
       {
         name: "--tail",
@@ -335,7 +337,11 @@ export const COMMANDS: CommandSpec[] = [
     mutating: true,
     positionals: [
       TARGET_POSITIONAL,
-      { name: "session", description: "The persistent session name." },
+      {
+        name: "session",
+        required: false,
+        description: "The persistent session name (default: default).",
+      },
     ],
     flags: [
       {

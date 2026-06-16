@@ -7,6 +7,7 @@ export function printHelp(): void {
       `Usage:\n` +
       `  machinen boot [opts] -- <cmd>                  Boot a microVM and run <cmd>\n` +
       `    --name <name>                                Register under a unique human name\n` +
+      `                                                 (default: default)\n` +
       `                                                 (path-shaped allowed: 'a/b/c').\n` +
       `    --snapshot <path>                            Attach <path> as /dev/vda — scratch\n` +
       `                                                 disk for a future vm.snapshot().\n` +
@@ -49,9 +50,10 @@ export function printHelp(): void {
       `\n` +
       `  Targeting a running VM:\n` +
       `    Pass the name or pid as the first positional arg.\n` +
+      `    Omit it to use the default VM name: default.\n` +
       `    Digits-only is interpreted as a pid; everything else as a name.\n` +
       `\n` +
-      `  machinen exec     <name|pid> [--tty] -- <cmd>\n` +
+      `  machinen exec     [<name|pid>] [--tty] -- <cmd>\n` +
       `                                                 Run a command in a running VM. Pass\n` +
       `                                                 --tty for a real PTY session — needed\n` +
       `                                                 for an interactive shell, vim, htop,\n` +
@@ -59,19 +61,19 @@ export function printHelp(): void {
       `                                                 Without --tty stdio is line-buffered\n` +
       `                                                 pipes (good for one-shot commands).\n` +
       `                                                 Example:\n` +
-      `                                                   machinen exec <name|pid> --tty -- bash -i\n` +
-      `  machinen attach   <name|pid> [--shell <c>]    Drop into an interactive PTY shell\n` +
-      `                                                 in the running VM (default \`bash -i\`).\n` +
+      `                                                   machinen exec [<name|pid>] --tty -- bash -i\n` +
+      `  machinen attach   [<name|pid>] [--shell <c>]  Drop into an interactive PTY shell\n` +
+      `                                                 in the running VM (default VM/session: default; shell: \`bash -i\`).\n` +
       `                                                 \`cd\`, env vars, history, job control\n` +
       `                                                 and full-screen TUIs all work. Exit\n` +
       `                                                 the shell (Ctrl-D) to detach.\n` +
-      `  machinen attach   --session <s> <name|pid>     Create or reattach a named persistent\n` +
+      `  machinen attach   --session <s> [<name|pid>]   Create or reattach a named persistent\n` +
       `                                                 PTY session that survives host\n` +
-      `                                                 disconnects.\n` +
-      `  machinen sessions <name|pid>                   List persistent PTY sessions.\n` +
-      `  machinen session-kill <name|pid> <session>     Kill a persistent PTY session.\n` +
-      `  machinen snapshot <name|pid> <out-dir> [--keep-alive]\n` +
-      `  machinen snapshot <name|pid> --out <dir> [--keep-alive]\n` +
+      `                                                 disconnects (default: default).\n` +
+      `  machinen sessions [<name|pid>]                 List persistent PTY sessions.\n` +
+      `  machinen session-kill [<name|pid>] [<session>] Kill a persistent PTY session.\n` +
+      `  machinen snapshot [<name|pid>] <out-dir> [--keep-alive]\n` +
+      `  machinen snapshot [<name|pid>] --out <dir> [--keep-alive]\n` +
       `                                                 Checkpoint a running VM into <d>.\n` +
       `                                                 Node workloads are detected inside the VM;\n` +
       `                                                 no Node-only snapshot selector is needed.\n` +
@@ -79,7 +81,7 @@ export function printHelp(): void {
       `                                                 and non-destructive. CRIU snapshots stay\n` +
       `                                                 non-incremental; --keep-alive leaves them\n` +
       `                                                 running and closes inherited TCP sockets.\n` +
-      `  machinen fork     <name|pid> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach]\n` +
+      `  machinen fork     [<name|pid>] [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach]\n` +
       `                    [-p ...] [--mount ...] [--mount-live ...] [--env KEY=VALUE]...\n` +
       `                    [--cwd <abs>] [--memory <mib>]\n` +
       `                                                 Snapshot the source live (it keeps\n` +
@@ -99,7 +101,7 @@ export function printHelp(): void {
       `                                                 --mount-live, --env, --cwd, --memory)\n` +
       `                                                 take effect on the forked sibling, not\n` +
       `                                                 the source.\n` +
-      `  machinen repl     <name|pid>                   Per-line exec REPL: each line is a\n` +
+      `  machinen repl     [<name|pid>]                 Per-line exec REPL: each line is a\n` +
       `                                                 fresh one-shot \`exec\`, no persistent\n` +
       `                                                 state. Useful for piping a script of\n` +
       `                                                 one-liners; for an interactive shell\n` +
@@ -133,10 +135,11 @@ export function printHelp(): void {
       `  machinen ls\n` +
       `  machinen exec worker -- ps aux                       # one-off command\n` +
       `  machinen exec worker --tty -- bash -i                # interactive shell w/ job control\n` +
-      `  machinen attach worker                              # interactive shell\n` +
-      `  machinen attach --session pi worker                  # reconnectable shell/session\n` +
+      `  machinen attach                                     # default VM + default session\n` +
+      `  machinen attach worker                              # worker VM + default session\n` +
+      `  machinen attach --session pi worker                  # worker VM + pi session\n` +
       `  machinen sessions worker\n` +
-      `  machinen session-kill worker pi\n` +
+      `  machinen session-kill worker                         # kill worker/default session\n` +
       `  machinen exec worker --tty -- vim /etc/passwd        # full-screen TUI in a PTY\n` +
       `  machinen snapshot worker ./warm                      # CRIU snapshot bundle\n` +
       `  machinen restore ./warm\n` +

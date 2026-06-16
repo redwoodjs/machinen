@@ -1,6 +1,10 @@
 import type { VmHandle } from "@machinen/runtime";
 
-export async function runPtyExec(vm: VmHandle, cmd: string, sessionName?: string): Promise<number> {
+export async function runPtyExec(
+  vm: VmHandle,
+  cmd: string,
+  sessionName?: string | false,
+): Promise<number> {
   const tty = enterPtyRawMode();
   const handle = vm.execPty(cmd, {
     cols: tty.cols,

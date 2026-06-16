@@ -217,8 +217,8 @@ export interface VsockExecPtyOptions {
   stdout: Writable;
   /** Connect timeout (ms). Default 5000 — agent should already be up. */
   connectTimeoutMs?: number;
-  /** Named persistent PTY session to create or reattach. */
-  sessionName?: string;
+  /** Named persistent PTY session to create or reattach. Defaults to `default`; pass `false` for a one-shot PTY. */
+  sessionName?: string | false;
 }
 
 export interface VsockExecPtyResult {
@@ -701,17 +701,20 @@ function validatePtySessionName(name: string): void {
   }
 }
 
+const DEFAULT_PTY_SESSION_NAME = "default";
+
 function writePtyStartFrame(socket: Socket, cmd: string, opts: VsockExecPtyOptions): void {
   const cmdBuf = Buffer.from(cmd, "utf8");
-  if (!opts.sessionName) {
+  if (opts.sessionName === false) {
     socket.write(`PTY ${opts.cols} ${opts.rows} ${cmdBuf.length}\n`);
     if (cmdBuf.length > 0) {
       socket.write(cmdBuf);
     }
     return;
   }
-  validatePtySessionName(opts.sessionName);
-  const nameBuf = Buffer.from(opts.sessionName, "utf8");
+  const sessionName = opts.sessionName ?? DEFAULT_PTY_SESSION_NAME;
+  validatePtySessionName(sessionName);
+  const nameBuf = Buffer.from(sessionName, "utf8");
   socket.write(`PTYSESSION ${opts.cols} ${opts.rows} ${nameBuf.length} ${cmdBuf.length}\n`);
   socket.write(nameBuf);
   if (cmdBuf.length > 0) {
