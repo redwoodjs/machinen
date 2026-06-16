@@ -534,14 +534,17 @@ function parseVmstateRestoreTotal(captured: string): number | undefined {
   return undefined;
 }
 
+function freshSnapshotDir(index: number): string {
+  const snapDir = join(tmpdir(), `bench-snap-${process.pid}-${index}`);
+  cleanupSnapshotDir(snapDir);
+  return snapDir;
+}
+
 async function takeSnapshot(
   assets: AssetPaths,
   index: number,
 ): Promise<{ snapDir: string; sample: SnapshotSample }> {
-  const snapDir = join(tmpdir(), `bench-snap-${process.pid}-${index}`);
-  if (existsSync(snapDir)) {
-    rmSync(snapDir, { recursive: true, force: true });
-  }
+  const snapDir = freshSnapshotDir(index);
   process.stderr.write(`[snapshot-source-${index}] booting + dumping into ${snapDir}\n`);
   const { boot } = await loadRuntime();
   const vm = await boot({
@@ -573,6 +576,9 @@ async function takeSnapshot(
           "not separately exposed by runtime yet; vmstate source is paused during the SIGUSR1/SIGUSR2 snapshot critical section",
       },
     };
+  } catch (err) {
+    cleanupSnapshotDir(snapDir);
+    throw err;
   } finally {
     await vm.kill().catch(() => {});
     await vm.wait().catch(() => undefined);
@@ -598,9 +604,13 @@ async function runLatencyBench(args: Args, assets: AssetPaths): Promise<JsonValu
   try {
     for (let i = 0; i < args.n; i++) {
       const snapshot = await takeSnapshot(assets, i + 1);
-      assertSnapshotBundle(snapshot.snapDir);
       snapDirs.push(snapshot.snapDir);
+      assertSnapshotBundle(snapshot.snapDir);
       snapshots.push(snapshot.sample);
+      if (i > 0) {
+        cleanupSnapshotDir(snapshot.snapDir);
+        snapDirs.pop();
+      }
     }
     const restoreSnapDir = snapDirs[0];
     if (!restoreSnapDir) {

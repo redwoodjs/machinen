@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 export interface ExternalSuiteArgs {
   n: number;
+  guestArch?: string;
 }
 
 interface Stats {
@@ -23,7 +24,7 @@ export function runMountBenchSuite(args: ExternalSuiteArgs, repoRoot: string): J
   const samples = emptyMountSamples();
   for (let i = 0; i < args.n; i++) {
     process.stderr.write(`[mount:${i + 1}] running...\n`);
-    appendMountSamples(samples, runOneMountBench(repoRoot, resultsDir));
+    appendMountSamples(samples, runOneMountBench(args, repoRoot, resultsDir));
   }
   return mountSuiteJson(samples);
 }
@@ -75,11 +76,16 @@ function mountSuiteJson(samples: MountSamples): JsonValue {
   };
 }
 
-function runOneMountBench(repoRoot: string, resultsDir: string): MountResult {
+function runOneMountBench(
+  args: ExternalSuiteArgs,
+  repoRoot: string,
+  resultsDir: string,
+): MountResult {
   const before = latestMountResultPath(resultsDir);
   execFileSync("pnpm", ["exec", "tsx", "scripts/bench/mount.ts"], {
     cwd: repoRoot,
     encoding: "utf8",
+    env: externalSuiteEnv(args),
     stdio: "pipe",
   });
   const resultPath = latestMountResultPath(resultsDir, before);
@@ -114,6 +120,7 @@ export function runNetBenchSuite(args: ExternalSuiteArgs, repoRoot: string): Jso
   const stdout = execFileSync("bash", ["scripts/bench-net.sh", "-n", String(args.n)], {
     cwd: repoRoot,
     encoding: "utf8",
+    env: externalSuiteEnv(args),
     stdio: "pipe",
   });
   return { phases: netPhaseAggregates(parseNetBenchValues(stdout)) };
@@ -161,6 +168,10 @@ function metricForMode(mode: string): string {
 function netBenchMetricValue(line: string, metric: string): number | undefined {
   const value = new RegExp(`${metric}=([0-9.]+)`).exec(line)?.[1];
   return value === undefined ? undefined : Number(value);
+}
+
+function externalSuiteEnv(args: ExternalSuiteArgs): NodeJS.ProcessEnv {
+  return args.guestArch ? { ...process.env, MACHINEN_GUEST_ARCH: args.guestArch } : process.env;
 }
 
 function appendIfNumber(out: number[], value: number | undefined): void {

@@ -50,11 +50,29 @@ fi
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CLI="$ROOT/packages/cli/dist/cli.js"
-VMM="$ROOT/packages/microvm/zig-out/bin/microvm"
+VMM="$ROOT/packages/microvm/zig-out/bin/machinen-vm"
 ASSETS="$ROOT/release-assets"
 BENCH_DIR="$ROOT/scripts/bench-net"
 PORT=38080
 OS=$(uname -s)
+GUEST_ARCH=${MACHINEN_GUEST_ARCH:-}
+if [[ -z "$GUEST_ARCH" ]]; then
+  case "$(uname -m)" in
+    x86_64|amd64) GUEST_ARCH=amd64 ;;
+    *) GUEST_ARCH=arm64 ;;
+  esac
+fi
+case "$GUEST_ARCH" in
+  amd64)
+    GUEST_TARGET=x86_64-linux-musl
+    REQUIRED_ASSETS=("bzImage-x86_64" "rootfs-debian-amd64.tar.gz")
+    ;;
+  arm64)
+    GUEST_TARGET=aarch64-linux-musl
+    REQUIRED_ASSETS=("Image-arm64" "virt-arm64.dtb" "rootfs-debian-arm64.tar.gz")
+    ;;
+  *) echo "bench-net: MACHINEN_GUEST_ARCH must be amd64 or arm64 (got '$GUEST_ARCH')" >&2; exit 2 ;;
+esac
 
 # --- prereqs -------------------------------------------------------
 
@@ -93,9 +111,13 @@ if [[ "$OS" == "Darwin" ]]; then
     "$VMM" 2>/dev/null
 fi
 
-if [[ ! -f "$ASSETS/Image-arm64" ]]; then
-  echo "=== building base assets (~5 min first run) ==="
-  "$ROOT/scripts/build-base-assets.sh"
+assets_missing=0
+for asset in "${REQUIRED_ASSETS[@]}"; do
+  [[ -f "$ASSETS/$asset" ]] || assets_missing=1
+done
+if ((assets_missing)); then
+  echo "=== building ${GUEST_ARCH} base assets (~5 min first run) ==="
+  MACHINEN_GUEST_ARCH="$GUEST_ARCH" "$ROOT/scripts/build-base-assets.sh"
 fi
 
 if [[ ! -f "$CLI" ]]; then
@@ -113,9 +135,8 @@ cleanup() {
 trap cleanup EXIT
 
 echo "=== building bench-net binaries ==="
-# Guest probe — static aarch64-linux-musl; the bundle drops it at
-# /usr/bin/bench-net-demo inside the guest.
-zig cc -target aarch64-linux-musl -static -Os \
+# Guest probe — static musl for the selected guest arch.
+zig cc -target "$GUEST_TARGET" -static -Os \
   -o "$BUILD/bench-net-demo" "$BENCH_DIR/bench-net-demo.c"
 # Host echo — native, matches the developer machine's arch.
 zig cc -O2 \
@@ -161,22 +182,14 @@ if ((elapsed >= 10)); then
   exit 1
 fi
 
-BUNDLE="$BUILD/bundle"
-mkdir -p "$BUNDLE/rootfs/usr/bin"
-cp "$BUILD/bench-net-demo" "$BUNDLE/rootfs/usr/bin/bench-net-demo"
-chmod +x "$BUNDLE/rootfs/usr/bin/bench-net-demo"
+chmod +x "$BUILD/bench-net-demo"
 
 # Compose the guest cmd:
-#   ["/usr/bin/bench-net-demo", MODE, SIZE_OR_0, ITERATIONS]
+#   ["/mnt/bench/bench-net-demo", MODE, SIZE_OR_0, ITERATIONS]
 # SIZE is always passed (as "0" when unset) so iterations can land in
-# argv[3] — keeps the guest parser simple.
+# argv[3] — keeps the guest parser simple. The probe is exposed through
+# the current CLI's boot command rather than the removed bundle `run` API.
 SIZE_ARG=${SIZE:-0}
-cat >"$BUNDLE/machinen-config.json" <<JSON
-{
-  "cmd": ["/usr/bin/bench-net-demo", "$MODE", "$SIZE_ARG", "$ITERATIONS"],
-  "env": { "PATH": "/usr/local/bin:/usr/bin:/bin:/sbin" }
-}
-JSON
 
 echo "=== booting guest (mode=$MODE${SIZE:+ size=$SIZE} iterations=$ITERATIONS) ==="
 GUEST_LOG="$BUILD/guest.log"
@@ -194,25 +207,28 @@ else
   TIMEOUT=$((30 + ITERATIONS * per_iter))
 fi
 (
-  MACHINEN_VMM="$VMM" \
+  MACHINEN_GUEST_ARCH="$GUEST_ARCH" \
+    MACHINEN_VMM="$VMM" \
     MACHINEN_ASSETS_DIR="$ASSETS" \
     MACHINEN_NET_SOCKET="$GV_SOCK" \
-    node "$CLI" run "$BUNDLE" >"$GUEST_LOG" 2>&1
+    node "$CLI" boot --mount-live "$BUILD:/mnt/bench:ro" -- \
+      /mnt/bench/bench-net-demo "$MODE" "$SIZE_ARG" "$ITERATIONS" >"$GUEST_LOG" 2>&1
 ) &
 VM_PID=$!
 
 # Wait for the guest's "=== done ===" marker or timeout.
 elapsed=0
 while ((elapsed < TIMEOUT)) && kill -0 "$VM_PID" 2>/dev/null; do
-  if grep -q '^=== done ===' "$GUEST_LOG" 2>/dev/null; then break; fi
+  if grep -q '=== done ===' "$GUEST_LOG" 2>/dev/null; then break; fi
   sleep 1
   ((++elapsed))
 done
 kill -9 "$VM_PID" 2>/dev/null || true
 wait "$VM_PID" 2>/dev/null || true
 
-# Pull every `bench-net: ...` result line. Empty == nothing ran.
-lines=$(grep '^bench-net: ' "$GUEST_LOG" || true)
+# Pull every `bench-net: ...` result line. amd64 serial output may prefix
+# guest lines with kernel timestamps, so normalize back to `bench-net: ...`.
+lines=$(grep 'bench-net: ' "$GUEST_LOG" | sed 's/^.*bench-net: /bench-net: /' || true)
 if [[ -z "$lines" ]]; then
   echo "bench-net: guest never reported results (log below)" >&2
   tail -40 "$GUEST_LOG" >&2
