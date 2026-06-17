@@ -22,8 +22,9 @@ import type {
   SnapshotResult,
   VmstateSnapshotMeta,
 } from "../vm-handle.ts";
-import { resolveSnapshotEngine, VMSTATE_FILE, VMSTATE_ROOTDISK_FILE } from "./snapshot-engine.ts";
+import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
 import { relativeCheckpointParent, VMSTATE_SECTION, vmstateSectionTags } from "./vmstate-chain.ts";
+import { copyVmstateRootDisk, finalizeVmstateRootDisk } from "./snapshot-rootdisk.ts";
 import {
   currentVmstateBackend,
   currentVmstateGuestArch,
@@ -739,7 +740,7 @@ async function captureVmstateSnapshotBundle(
   phases: PhaseTimer,
 ): Promise<SnapshotResult> {
   phases.start("pause-critical-section");
-  const result = await withPausedVmstateSource(ctx, async () => {
+  const bundle = await withPausedVmstateSource(ctx, async () => {
     phases.start("wait-state-file");
     await waitForVmstateFile(ctx.vmstatePath!, deadlineMs);
     phases.end("wait-state-file");
@@ -747,26 +748,39 @@ async function captureVmstateSnapshotBundle(
     const bundleStatePath = copyVmstateStateIntoBundle(ctx.vmstatePath!, snapDir);
     phases.end("copy-state-file");
     const nextSequence = (ctx.vmstateChain?.sequence ?? 0) + 1;
-    phases.start("build-metadata-and-rootdisk");
-    const vmstateMeta = buildVmstateMeta(
+    const flags = readVmstateSectionFlags(bundleStatePath);
+    phases.start("rootdisk-reflink");
+    const rootDisk = copyVmstateRootDisk(
       ctx,
-      bundleStatePath,
       snapDir,
-      ctx.vmstateChain?.parentDir,
-      nextSequence,
+      shouldCopyRootdiskDeltaOnly(ctx.vmstateChain?.parentDir, flags),
     );
-    phases.end("build-metadata-and-rootdisk");
+    phases.end("rootdisk-reflink");
     phases.start("mount-overlay-reflink");
     const mountDiskMeta = await reflinkMountOverlay(ctx, snapDir, deadlineMs);
     phases.end("mount-overlay-reflink");
-    phases.start("write-meta");
-    writeSnapshotMeta(ctx, snapDir, mountDiskMeta, "vmstate", vmstateMeta);
-    ctx.updateVmstateChain?.({ parentDir: snapDir, sequence: nextSequence });
-    phases.end("write-meta");
-    return vmstateSnapshotResult(snapDir, bundleStatePath, t0);
+    return { bundleStatePath, flags, mountDiskMeta, nextSequence, rootDisk };
   });
   phases.end("pause-critical-section");
-  return result;
+  phases.start("rootdisk-identity");
+  const rootDisk = finalizeVmstateRootDisk(bundle.rootDisk);
+  phases.end("rootdisk-identity");
+  phases.start("build-metadata");
+  const vmstateMeta = buildVmstateMeta(
+    ctx,
+    bundle.bundleStatePath,
+    snapDir,
+    ctx.vmstateChain?.parentDir,
+    bundle.nextSequence,
+    bundle.flags,
+    rootDisk,
+  );
+  phases.end("build-metadata");
+  phases.start("write-meta");
+  writeSnapshotMeta(ctx, snapDir, bundle.mountDiskMeta, "vmstate", vmstateMeta);
+  ctx.updateVmstateChain?.({ parentDir: snapDir, sequence: bundle.nextSequence });
+  phases.end("write-meta");
+  return vmstateSnapshotResult(snapDir, bundle.bundleStatePath, t0);
 }
 
 async function withPausedVmstateSource<T>(
@@ -858,16 +872,17 @@ function buildVmstateMeta(
   snapDir: string,
   parentDir: string | undefined,
   sequence: number,
+  flags: VmstateSectionFlags,
+  rootDisk: VmstateSnapshotMeta["rootDisk"],
 ): VmstateSnapshotMeta {
   const facts = readVmstateFacts(statePath);
-  const flags = readVmstateSectionFlags(statePath);
   return {
     sourceBackend: currentVmstateBackend(),
     guestArch: vmstateGuestArch(facts),
     topologyHash: facts.topologyHash,
     memoryCeilingMib: ctx.memoryCeilingMib,
     guestPauth: vmstateGuestPauth(facts),
-    rootDisk: copyVmstateRootDisk(ctx, snapDir, shouldCopyRootdiskDeltaOnly(parentDir, flags)),
+    rootDisk,
     kernel: optionalFileIdentity(ctx.kernelPath),
     dtb: optionalFileIdentity(ctx.dtbPath),
     checkpoint: buildVmstateCheckpoint(ctx, snapDir, parentDir, sequence, flags),
@@ -934,47 +949,6 @@ function checkpointRootDiskMode(
     return "none";
   }
   return flags.hasRootdiskDelta ? "delta" : "full";
-}
-
-function copyVmstateRootDisk(
-  ctx: SnapshotContext,
-  snapDir: string,
-  deltaOnly: boolean,
-): VmstateSnapshotMeta["rootDisk"] {
-  if (ctx.rootDiskMode === "none") {
-    return { mode: "none" };
-  }
-  if (!ctx.rootDiskPath) {
-    throw new SnapshotError(
-      "SNAPSHOT_DUMP_FAILED",
-      "vm.snapshot: cannot record vmstate rootdisk identity for this VM.\n" +
-        "  Reboot it with the current runtime so the registry records /dev/vda,\n" +
-        "  or boot with rootDisk:false if the guest intentionally has no root block device.",
-    );
-  }
-  if (deltaOnly) {
-    return { mode: "delta" };
-  }
-  const dest = join(snapDir, VMSTATE_ROOTDISK_FILE);
-  try {
-    reflinkCopy(ctx.rootDiskPath, dest);
-  } catch (err) {
-    throw new SnapshotError(
-      "SNAPSHOT_DUMP_FAILED",
-      `vm.snapshot: failed to copy rootdisk into vmstate bundle: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-      { cause: err },
-    );
-  }
-  const identity = fileIdentity(dest);
-  return {
-    mode: "block",
-    file: VMSTATE_ROOTDISK_FILE,
-    path: ctx.rootDiskPath,
-    sizeBytes: identity.sizeBytes,
-    sha256: identity.sha256,
-  };
 }
 
 // Poll for the VMM's atomically-written `.vmstate` to (re)appear. The

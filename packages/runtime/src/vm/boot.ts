@@ -52,8 +52,8 @@ import { applyCpuControls, type CpuControlResult } from "../cpu-cgroup.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
 import { reflinkCopy } from "../reflink.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
+import { materializeRootdisk } from "./boot-rootdisk.ts";
 import { resolveCpuResourcePolicy, type ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
-import { ensureRootfsImage, markRootfsImageClean } from "../rootfs-img.ts";
 import { resolveLiveMounts, type ResolvedLiveMount, synthesizeAndPackBundle } from "./bundle.ts";
 import { installVmExitCleanup } from "./exit-cleanup.ts";
 import { performForkWithRestore } from "./fork-core.ts";
@@ -1451,74 +1451,6 @@ async function bringUpGvproxy(
   };
 }
 
-// Materialize the rootdisk image and reflink it into a per-boot path
-// so guest writes don't leak across boots. Returns the per-boot
-// reflink path so the exit hook can unlink it; undefined when the
-// caller passed a pre-built image (`rootDisk: '<path>'`) — that
-// file's lifecycle is the caller's.
-function materializeRootdisk(
-  opts: BootOptions,
-  env: Record<string, string>,
-  phases: PhaseTimer,
-): string | undefined {
-  if (opts._rootDiskRestorePath) {
-    const rootDiskAbs = resolve(opts.cwd ?? process.cwd(), opts._rootDiskRestorePath);
-    if (!existsSync(rootDiskAbs)) {
-      throw new BootError(
-        "BOOT_SNAPSHOT_NOT_FOUND",
-        `restore: vmstate rootdisk image not found: ${rootDiskAbs}`,
-      );
-    }
-    const perBoot = join(
-      tmpdir(),
-      `machinen-rootdisk-restore-${process.pid}-${randomBytes(6).toString("hex")}.img`,
-    );
-    const reflinkT0 = Date.now();
-    reflinkCopy(rootDiskAbs, perBoot);
-    phases.mark("rootdisk-materialize.restore-reflink", Date.now() - reflinkT0);
-    env.MACHINEN_ROOTDISK = perBoot;
-    return perBoot;
-  }
-  if (typeof opts.rootDisk === "string") {
-    const rootDiskAbs = resolve(opts.cwd ?? process.cwd(), opts.rootDisk);
-    if (!existsSync(rootDiskAbs)) {
-      throw new BootError("BOOT_IMAGE_NOT_FOUND", `rootDisk image not found: ${rootDiskAbs}`);
-    }
-    env.MACHINEN_ROOTDISK = rootDiskAbs;
-    return undefined;
-  }
-  // #121: hand the VMM a per-boot reflink clone of the cached
-  // template, never the template itself. virtio-blk mounts the
-  // image read-write, so without the clone every boot from the
-  // same tarball would inherit the previous boot's writes
-  // (apt installs leaking, /var/log poisoning, two concurrent
-  // boots stomping each other's filesystem). COPYFILE_FICLONE →
-  // APFS clonefile / Linux FICLONE on reflink-capable fs (free,
-  // shared blocks until the guest writes); falls back to a
-  // regular copy elsewhere (one-time cost, sparse).
-  const baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image!);
-  const cachedImg = ensureRootfsImage(baseAbs, {
-    sizeBytes: opts.rootDiskSizeBytes,
-    // #233 follow-up: surface the sub-steps of ensureRootfsImage
-    // (sha256, e2fsck, sparse-extend, …) as dot-separated
-    // children of `rootdisk-materialize` in the boot timeline.
-    onPhase: (name, ms) => phases.mark(`rootdisk-materialize.${name}`, ms),
-  });
-  const perBoot = join(
-    tmpdir(),
-    `machinen-rootdisk-${process.pid}-${randomBytes(6).toString("hex")}.img`,
-  );
-  const reflinkT0 = Date.now();
-  reflinkCopy(cachedImg, perBoot);
-  phases.mark("rootdisk-materialize.reflink", Date.now() - reflinkT0);
-  // The cache file was only READ here — restore the
-  // clean-shutdown marker so the next boot finds a usable
-  // template instead of wiping and rematerializing (#170).
-  markRootfsImageClean(cachedImg);
-  env.MACHINEN_ROOTDISK = perBoot;
-  return perBoot;
-}
-
 // Roll back gvproxy + per-boot disks/dirs after a pre-spawn failure.
 // Live mounts are in-VMM virtio-fs devices configured through env, so
 // there are no separate live-mount helper processes to roll back.
@@ -1882,6 +1814,11 @@ function createBootVmHandle(args: BootHandleArgs): VmHandle {
     errorOutput: () => args.errorCollector,
     exec: makeExec(args.vsockUdsPath, args.onLog, args.child, args.errorCollector),
     execRaw: makeExecRaw(args.vsockUdsPath, args.onLog, args.child, args.errorCollector),
+    reseedVmstateEntropy: makeReseedVmstateEntropy(
+      args.vsockUdsPath,
+      args.child,
+      args.errorCollector,
+    ),
     execPty: makeExecPty(args.vsockUdsPath),
     writeFile: makeWriteFile(() => handle),
     memoryStats: makeMemoryStats(args.childPid, args.statsFilePath, args.memoryCeilingMib),
@@ -1931,6 +1868,21 @@ function makeExecRaw(
     }
     return runVsockWithBootDiagnostics(child, errorCollector, () =>
       VsockExec.run(vsockUdsPath, cmd, teeOnLog(cmd, execOpts, onLog)),
+    );
+  };
+}
+
+function makeReseedVmstateEntropy(
+  vsockUdsPath: string | undefined,
+  child: ChildProcessWithoutNullStreams,
+  errorCollector: Promise<string>,
+): NonNullable<VmHandle["reseedVmstateEntropy"]> {
+  return (seedHex, execOpts) => {
+    if (!vsockUdsPath) {
+      return Promise.reject(missingVsockError("reseedVmstateEntropy"));
+    }
+    return runVsockWithBootDiagnostics(child, errorCollector, () =>
+      VsockExec.reseedVmstate(vsockUdsPath, seedHex, execOpts),
     );
   };
 }

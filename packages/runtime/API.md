@@ -16754,6 +16754,26 @@ Like `exec()` but returns non-zero exit codes instead of throwing.
 
 `Promise`\<[`VsockExecResult`](#vsockexecresult)\>
 
+##### reseedVmstateEntropy()?
+
+> `optional` **reseedVmstateEntropy**(`seedHex`, `opts?`): `Promise`\<[`VsockExecResult`](#vsockexecresult)\>
+
+Internal fast path for vmstate restore entropy reseed; avoids shell startup.
+
+###### Parameters
+
+###### seedHex
+
+`string`
+
+###### opts?
+
+[`VsockExecOptions`](#vsockexecoptions)
+
+###### Returns
+
+`Promise`\<[`VsockExecResult`](#vsockexecresult)\>
+
 ##### execPty()
 
 > **execPty**(`cmd`, `opts`): [`VsockExecPtyHandle`](#vsockexecptyhandle)
@@ -24163,6 +24183,28 @@ tarball-producing tool can pre-populate the lookup cache.
 
 EXEC_AGENT_UNAVAILABLE (retryable) |
   EXEC_AGENT_TIMEOUT (retryable) | EXEC_PROTOCOL
+
+##### reseedVmstate()
+
+> `readonly` **reseedVmstate**(`udsPath`, `seedHex`, `opts?`): `Promise`\<[`VsockExecResult`](#vsockexecresult)\>
+
+###### Parameters
+
+###### udsPath
+
+`string`
+
+###### seedHex
+
+`string`
+
+###### opts?
+
+[`VsockExecOptions`](#vsockexecoptions) = `{}`
+
+###### Returns
+
+`Promise`\<[`VsockExecResult`](#vsockexecresult)\>
 
 ##### startPty()
 

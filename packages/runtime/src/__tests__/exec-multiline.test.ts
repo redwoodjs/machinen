@@ -58,8 +58,8 @@ function startFakeAgent(socketPath: string): {
           }
           header = buf.subarray(0, nl).toString("utf8");
           buf = buf.subarray(nl + 1);
-          if (header.startsWith("EXEC2 ")) {
-            bodyLen = Number.parseInt(header.slice(6), 10);
+          if (header.startsWith("EXEC2 ") || header.startsWith("RESEED ")) {
+            bodyLen = Number.parseInt(header.slice(header.indexOf(" ") + 1), 10);
             phase = "body";
             continue;
           }
@@ -120,6 +120,16 @@ describe("VsockExec multi-line wire format", () => {
     expect(res.exitCode).toBe(0);
     expect(agent.requests).toHaveLength(1);
     expect(agent.requests[0]!.header).toBe("EXEC echo hello");
+  });
+
+  it("sends vmstate reseed over direct RESEED opcode", async () => {
+    const uds = join(workDir, "exec.sock");
+    agent = startFakeAgent(uds);
+    const seed = "ab".repeat(64);
+    const res = await VsockExec.reseedVmstate(uds, seed);
+    expect(res.exitCode).toBe(0);
+    expect(agent.requests[0]!.header).toBe(`RESEED ${seed.length}`);
+    expect(agent.requests[0]!.body.toString("ascii")).toBe(seed);
   });
 
   it("switches to EXEC2 length-prefix opcode when cmd contains newlines", async () => {

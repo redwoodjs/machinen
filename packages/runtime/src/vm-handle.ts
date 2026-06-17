@@ -67,6 +67,9 @@ export interface VmHandle {
   /** Like `exec()` but returns non-zero exit codes instead of throwing. */
   execRaw(cmd: string, opts?: VsockExecOptions): Promise<VsockExecResult>;
 
+  /** Internal fast path for vmstate restore entropy reseed; avoids shell startup. */
+  reseedVmstateEntropy?(seedHex: string, opts?: VsockExecOptions): Promise<VsockExecResult>;
+
   /**
    * Run a shell command inside a pseudoterminal. Bidirectional bytes
    * flow between `opts.stdin` and `opts.stdout`; the returned handle's

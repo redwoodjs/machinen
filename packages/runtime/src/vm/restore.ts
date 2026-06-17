@@ -33,6 +33,7 @@ import {
   PortableSnapshotValidationError,
   validatePortableSnapshotBundle,
 } from "./portable-snapshot.ts";
+import { reseedVmstateGuestEntropy } from "./restore-reseed.ts";
 import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
 import { materializeVmstateChain } from "./vmstate-chain.ts";
 import type {
@@ -46,6 +47,7 @@ import {
   currentVmstateGuestArch,
   fileIdentity,
   readVmstateFacts,
+  trustedFileIdentity,
   type VmstateFacts,
 } from "./vmstate-metadata.ts";
 import {
@@ -57,8 +59,6 @@ import {
 
 const debug = debugLib("machinen:boot");
 const debugRestore = debugLib("machinen:restore");
-
-const VMSTATE_RESEED_MARKER = "/run/machinen-vmstate-reseed";
 
 export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" | "cmd" | "name"> {
   /**
@@ -501,8 +501,11 @@ function planVmstateRestore(
   meta: SnapshotMeta,
   snapDir: string,
   statePath: string,
+  phases?: PhaseTimer,
 ): VmstateRestorePlan {
+  phases?.start("plan.read-vmstate-facts");
   const facts = readVmstateFactsOrBootError(statePath);
+  phases?.end("plan.read-vmstate-facts");
   const vmstate = meta.vmstate;
   if (!vmstate) {
     throw new BootError(
@@ -513,13 +516,23 @@ function planVmstateRestore(
         "  Recreate the snapshot with a current machinen build.",
     );
   }
+  phases?.start("plan.validate-invariants");
   validateVmstateTopology(vmstate, facts);
   validateVmstateGuestArch(vmstate, facts);
   validateVmstateBackendAndPauth(vmstate, facts);
+  phases?.end("plan.validate-invariants");
+  phases?.start("plan.validate-artifacts");
   validateVmstateArtifacts(opts, vmstate);
+  phases?.end("plan.validate-artifacts");
+  phases?.start("plan.resolve-memory");
+  const memoryCeiling = resolveVmstateMemoryCeiling(opts, vmstate);
+  phases?.end("plan.resolve-memory");
+  phases?.start("plan.resolve-rootdisk");
+  const rootDisk = resolveVmstateRootDisk(opts, vmstate, snapDir, phases);
+  phases?.end("plan.resolve-rootdisk");
   return {
-    memoryCeiling: resolveVmstateMemoryCeiling(opts, vmstate),
-    ...resolveVmstateRootDisk(opts, vmstate, snapDir),
+    memoryCeiling,
+    ...rootDisk,
   };
 }
 
@@ -644,10 +657,22 @@ function pauthSctlrLabel(vmstate: VmstateSnapshotMeta, facts: VmstateFacts): str
 
 function validateVmstateArtifacts(opts: RestoreOptions, vmstate: VmstateSnapshotMeta): void {
   if (opts.kernel && vmstate.kernel) {
-    validateIdentity("kernel", resolve(opts.cwd ?? process.cwd(), opts.kernel), vmstate.kernel);
+    validateIdentity(
+      "kernel",
+      resolve(opts.cwd ?? process.cwd(), opts.kernel),
+      vmstate.kernel,
+      undefined,
+      "external",
+    );
   }
   if (opts.dtb && vmstate.dtb) {
-    validateIdentity("dtb", resolve(opts.cwd ?? process.cwd(), opts.dtb), vmstate.dtb);
+    validateIdentity(
+      "dtb",
+      resolve(opts.cwd ?? process.cwd(), opts.dtb),
+      vmstate.dtb,
+      undefined,
+      "external",
+    );
   }
 }
 
@@ -728,6 +753,7 @@ function resolveVmstateRootDisk(
   opts: RestoreOptions,
   vmstate: VmstateSnapshotMeta,
   snapDir: string,
+  phases?: PhaseTimer,
 ): Pick<VmstateRestorePlan, "rootDisk" | "rootDiskRestorePath"> {
   const recorded = vmstate.rootDisk;
   if (!recorded) {
@@ -742,7 +768,7 @@ function resolveVmstateRootDisk(
   if (recorded.mode === "none") {
     return resolveNoneVmstateRootDisk(opts);
   }
-  return resolveFileVmstateRootDisk(opts, snapDir, recorded);
+  return resolveFileVmstateRootDisk(opts, snapDir, recorded, phases);
 }
 
 function resolveMissingVmstateRootDisk(
@@ -782,6 +808,7 @@ function resolveFileVmstateRootDisk(
   opts: RestoreOptions,
   snapDir: string,
   recorded: VmstateRootDiskBlock,
+  phases?: PhaseTimer,
 ): Pick<VmstateRestorePlan, "rootDisk" | "rootDiskRestorePath"> {
   if (opts.rootDisk === false) {
     throw new BootError(
@@ -791,7 +818,7 @@ function resolveFileVmstateRootDisk(
   }
   if (typeof opts.rootDisk === "string") {
     const explicit = resolve(opts.cwd ?? process.cwd(), opts.rootDisk);
-    validateIdentity("rootdisk", explicit, recorded);
+    validateIdentity("rootdisk", explicit, recorded, phases, "external");
     return { rootDisk: explicit };
   }
 
@@ -802,15 +829,24 @@ function resolveFileVmstateRootDisk(
       `restore: vmstate bundle is missing rootdisk image: ${bundled}`,
     );
   }
-  validateIdentity("rootdisk", bundled, recorded);
+  validateIdentity("rootdisk", bundled, recorded, phases, "bundled");
   return { rootDiskRestorePath: bundled };
 }
 
-function validateIdentity(label: string, path: string, expected: SnapshotFileIdentity): void {
+function validateIdentity(
+  label: string,
+  path: string,
+  expected: SnapshotFileIdentity,
+  phases: PhaseTimer | undefined,
+  source: "bundled" | "external",
+): void {
   if (!existsSync(path)) {
     throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `restore: ${label} not found: ${path}`);
   }
-  const actual = fileIdentity(path);
+  const cached = source === "bundled" ? trustedFileIdentity(path) : undefined;
+  phases?.start(cached ? `${label}-identity.cache-hit` : `${label}-identity.sha256`);
+  const actual = cached ?? fileIdentity(path);
+  phases?.end(cached ? `${label}-identity.cache-hit` : `${label}-identity.sha256`);
   if (actual.sizeBytes !== expected.sizeBytes || actual.sha256 !== expected.sha256) {
     throw new BootError(
       "BOOT_VMSTATE_UNSUPPORTED",
@@ -820,47 +856,6 @@ function validateIdentity(label: string, path: string, expected: SnapshotFileIde
         "  vmstate restore requires byte-identical artifacts.",
     );
   }
-}
-
-/**
- * Whole-VM snapshots include the guest kernel's CSPRNG state. Without a
- * restore-time mix-in, two restores from the same bundle can hand out the same
- * post-restore secrets. Mix host entropy into the guest's input pool before
- * returning the restored handle, and leave a non-secret marker for smoke tests
- * and operators to confirm the reseed path ran.
- */
-async function reseedVmstateGuestEntropy(vm: VmHandle): Promise<void> {
-  const seedHex = randomBytes(64).toString("hex");
-  const marker = `vmstate reseeded ${new Date().toISOString()}\n`;
-  const cmd = [
-    "mkdir -p /run",
-    "test -x /sbin/machinen-vmstate-reseed",
-    `/sbin/machinen-vmstate-reseed ${shellQuote(seedHex)}`,
-    `printf %s ${shellQuote(marker)} > ${shellQuote(VMSTATE_RESEED_MARKER)}`,
-    `chmod 0600 ${shellQuote(VMSTATE_RESEED_MARKER)}`,
-  ].join(" && ");
-  const res = await vm
-    .execRaw(cmd, { connectTimeoutMs: 30_000, execTimeoutMs: 10_000 })
-    .catch((err: unknown) => {
-      throw new BootError(
-        "BOOT_VMSTATE_RESEED_FAILED",
-        `restore: failed to inject vmstate restore entropy before handing the VM to the caller.\n` +
-          `  The restored guest may otherwise reuse CSPRNG state from the snapshot.`,
-        { cause: err },
-      );
-    });
-  if (res.exitCode !== 0) {
-    throw new BootError(
-      "BOOT_VMSTATE_RESEED_FAILED",
-      `restore: vmstate entropy reseed command failed (exit ${res.exitCode}).\n` +
-        `stderr:\n${res.stderr}`,
-    );
-  }
-  debugRestore("vmstate restore entropy reseeded marker=%s", VMSTATE_RESEED_MARKER);
-}
-
-function shellQuote(s: string): string {
-  return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
 /**
@@ -879,21 +874,37 @@ function shellQuote(s: string): string {
  */
 async function restoreVmstate(opts: RestoreOptions, snapDir: string): Promise<VmHandle> {
   const phases = new PhaseTimer();
-  let prepared = initialVmstateRestoreBundle(snapDir);
+  let prepared: PreparedVmstateRestoreBundle | undefined;
   let vm: VmHandle;
   try {
+    phases.start("read-meta");
+    prepared = initialVmstateRestoreBundle(snapDir);
+    phases.end("read-meta");
     phases.start("materialize-chain");
     prepared = materializeVmstateRestoreChainIfNeeded(snapDir, prepared);
     phases.end("materialize-chain");
+    phases.start("resolve-image");
+    const resolvedImage = resolveRestoreImage(opts, prepared.meta);
+    phases.end("resolve-image");
+    phases.start("plan");
+    const vmstatePlan = planVmstateRestore(
+      opts,
+      prepared.meta,
+      prepared.effectiveSnapDir,
+      prepared.statePath,
+      phases,
+    );
+    phases.end("plan");
     phases.start("boot");
-    vm = await bootVmstateRestore(opts, snapDir, prepared);
+    vm = await bootVmstateRestore(opts, snapDir, prepared, resolvedImage, vmstatePlan);
     phases.end("boot");
     phases.start("entropy-reseed");
-    await reseedVmstateGuestEntropy(vm);
-    phases.end("entropy-reseed");
+    const reseedMode = await reseedVmstateGuestEntropy(vm);
+    const reseedMs = phases.end("entropy-reseed");
+    phases.mark(`entropy-reseed.${reseedMode}`, reseedMs);
   } finally {
     phases.start("cleanup-materialized-chain");
-    cleanupMaterializedVmstate(prepared.materializedTempDir);
+    cleanupMaterializedVmstate(prepared?.materializedTempDir);
     phases.end("cleanup-materialized-chain");
   }
 
@@ -943,14 +954,9 @@ async function bootVmstateRestore(
   opts: RestoreOptions,
   snapDir: string,
   prepared: PreparedVmstateRestoreBundle,
+  resolvedImage: string,
+  vmstatePlan: VmstateRestorePlan,
 ): Promise<VmHandle> {
-  const resolvedImage = resolveRestoreImage(opts, prepared.meta);
-  const vmstatePlan = planVmstateRestore(
-    opts,
-    prepared.meta,
-    prepared.effectiveSnapDir,
-    prepared.statePath,
-  );
   debugRestore(
     "vmstate restore snapDir=%s state=%s image=%s",
     snapDir,

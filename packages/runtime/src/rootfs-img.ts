@@ -57,7 +57,6 @@
 // to the caller.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   closeSync,
   existsSync,
@@ -78,16 +77,21 @@ import { arch, homedir, platform } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
+import { SPARSE_GUNZIP_WORKER, SPARSE_ZSTD_WORKER } from "./rootfs-sparse-workers.ts";
+import {
+  okMarkerPath,
+  readSha256Sidecar,
+  readVerifiedTemplateMetadata,
+  sha256OfFile,
+  templateMetaPath,
+  writeTemplateMetadata,
+} from "./rootfs-template-metadata.ts";
 
 const debug = debugLib("machinen:rootfs-img");
 
 /** Default cache root: `~/.cache/machinen/rootfs`. */
 export function rootfsImgCacheDir(): string {
   return join(homedir(), ".cache", "machinen", "rootfs");
-}
-
-function okMarkerPath(imgPath: string): string {
-  return `${imgPath}.ok`;
 }
 
 /**
@@ -184,6 +188,7 @@ interface RootfsCachePaths {
   sha: string;
   imgPath: string;
   okPath: string;
+  metaPath: string;
 }
 
 interface RootfsStagingPaths {
@@ -240,11 +245,29 @@ function resolveRootfsCachePaths(
   mkdirSync(cacheDir, { recursive: true });
   opts.onPhase?.("cache-dir", Date.now() - cacheDirT0);
 
+  const sha = resolveTarballSha(tarAbs, opts);
+  const imgPath = join(cacheDir, `${sha}.img`);
+  return {
+    tarAbs,
+    cacheDir,
+    sha,
+    imgPath,
+    okPath: okMarkerPath(imgPath),
+    metaPath: templateMetaPath(imgPath),
+  };
+}
+
+function resolveTarballSha(tarAbs: string, opts: EnsureRootfsImageOptions): string {
+  const sidecarT0 = Date.now();
+  const sidecarSha = readSha256Sidecar(tarAbs);
+  if (sidecarSha) {
+    opts.onPhase?.("sha256.sidecar", Date.now() - sidecarT0);
+    return sidecarSha;
+  }
   const shaT0 = Date.now();
   const sha = sha256OfFile(tarAbs);
   opts.onPhase?.("sha256", Date.now() - shaT0);
-  const imgPath = join(cacheDir, `${sha}.img`);
-  return { tarAbs, cacheDir, sha, imgPath, okPath: okMarkerPath(imgPath) };
+  return sha;
 }
 
 function tryReusableCachedRootfs(
@@ -261,6 +284,10 @@ function tryReusableCachedRootfs(
   if (!cachedImageHasCleanMarker(paths, opts)) {
     return undefined;
   }
+  if (cachedImageHasVerifiedTemplateMetadata(paths, opts)) {
+    growCachedRootfsIfRequested(paths.imgPath, opts);
+    return paths.imgPath;
+  }
   const markInUseT0 = Date.now();
   markCachedImageInUse(paths.okPath);
   opts.onPhase?.("cache-mark-in-use", Date.now() - markInUseT0);
@@ -269,6 +296,7 @@ function tryReusableCachedRootfs(
     return undefined;
   }
   growCachedRootfsIfRequested(paths.imgPath, opts);
+  writeTemplateMetadata(paths, "legacy-fsck");
   return paths.imgPath;
 }
 
@@ -284,6 +312,20 @@ function cachedImageHasCleanMarker(
   }
   debug("cache hit but no clean marker, will rematerialize img=%s", paths.imgPath);
   return false;
+}
+
+function cachedImageHasVerifiedTemplateMetadata(
+  paths: RootfsCachePaths,
+  opts: EnsureRootfsImageOptions,
+): boolean {
+  const metaT0 = Date.now();
+  const meta = readVerifiedTemplateMetadata(paths);
+  opts.onPhase?.("template-metadata", Date.now() - metaT0);
+  if (!meta) {
+    return false;
+  }
+  debug("cache hit immutable template sha=%s img=%s", paths.sha.slice(0, 12), paths.imgPath);
+  return true;
 }
 
 function markCachedImageInUse(okPath: string): void {
@@ -326,22 +368,25 @@ function tryPrebakedRootfs(
     return undefined;
   }
   const siblingProbeT0 = Date.now();
-  const sibling = siblingPrebakePath(paths.tarAbs);
-  const siblingExists = Boolean(sibling && existsSync(sibling));
+  const siblings = siblingPrebakeCandidates(paths.tarAbs).filter((sibling) =>
+    existsSync(sibling.path),
+  );
   opts.onPhase?.("prebake-probe", Date.now() - siblingProbeT0);
-  if (!sibling || !siblingExists) {
-    return undefined;
+  for (const sibling of siblings) {
+    const prebakeT0 = Date.now();
+    const fast = tryPrebakeFromSibling({
+      sibling,
+      cacheDir: paths.cacheDir,
+      sha: paths.sha,
+      imgPath: paths.imgPath,
+      sizeBytes: opts.sizeBytes,
+    });
+    opts.onPhase?.(sibling.phaseName, Date.now() - prebakeT0);
+    if (fast) {
+      return fast;
+    }
   }
-  const prebakeT0 = Date.now();
-  const fast = tryPrebakeFromSibling({
-    sibling,
-    cacheDir: paths.cacheDir,
-    sha: paths.sha,
-    imgPath: paths.imgPath,
-    sizeBytes: opts.sizeBytes,
-  });
-  opts.onPhase?.("gunzip-prebake", Date.now() - prebakeT0);
-  return fast;
+  return undefined;
 }
 
 function resolveMke2fsOrThrow(): string {
@@ -384,6 +429,8 @@ function materializeRootfsFromTar(
     const renameT0 = Date.now();
     renameSync(staging.stagingImg, paths.imgPath);
     opts.onPhase?.("rename", Date.now() - renameT0);
+    markRootfsImageClean(paths.imgPath);
+    writeTemplateMetadata(paths, "materialize");
     debug(
       "materialize done sha=%s img=%s sizeBytes=%d",
       paths.sha.slice(0, 12),
@@ -529,26 +576,6 @@ function looksLikeExt4(path: string): boolean {
   }
 }
 
-function sha256OfFile(path: string): string {
-  // Streaming hash — these tarballs are big (hundreds of MB) and we
-  // call this on every boot in the cache-hit path.
-  const h = createHash("sha256");
-  const fd = openSync(path, "r");
-  try {
-    const buf = Buffer.alloc(64 * 1024);
-    while (true) {
-      const nread = readSync(fd, buf, 0, buf.length, null);
-      if (nread <= 0) {
-        break;
-      }
-      h.update(buf.subarray(0, nread));
-    }
-  } finally {
-    closeSync(fd);
-  }
-  return h.digest("hex");
-}
-
 function whichFirst(names: string[]): string | undefined {
   for (const name of names) {
     try {
@@ -643,21 +670,33 @@ function duBytes(path: string): number {
   return statSync(path).size || 0;
 }
 
-// Resolve the prebake sibling next to a tarball. Only one form is
-// supported: `<basename>.img.gz` — gzipped ext4 image, shipped by
-// build-base-assets.sh for release tarballs where download size
-// matters more than decompress speed. Returns undefined when the
-// input path doesn't end in a recognized tarball suffix.
-//
-// `provision()` no longer emits an uncompressed sibling; it writes
-// the prebake straight into the runtime cache via
-// `prebakeRootfsImageFromTree()` instead.
+interface PrebakeSibling {
+  path: string;
+  format: "zst" | "gz";
+  phaseName: "zstd-prebake" | "gunzip-prebake";
+}
+
+// Resolve the legacy gzip prebake sibling next to a tarball.
 function siblingPrebakePath(tarAbs: string): string | undefined {
-  const m = /^(.*)(\.tar\.gz|\.tgz|\.tar)$/i.exec(tarAbs);
-  if (!m) {
-    return undefined;
+  return siblingPrebakeBase(tarAbs)?.concat(".img.gz");
+}
+
+// Prefer a zstd-compressed prebake when present. Keep gzip as the
+// compatibility fallback for existing release assets and hosts without zstd.
+function siblingPrebakeCandidates(tarAbs: string): PrebakeSibling[] {
+  const base = siblingPrebakeBase(tarAbs);
+  if (!base) {
+    return [];
   }
-  return `${m[1]}.img.gz`;
+  return [
+    { path: `${base}.img.zst`, format: "zst", phaseName: "zstd-prebake" },
+    { path: `${base}.img.gz`, format: "gz", phaseName: "gunzip-prebake" },
+  ];
+}
+
+function siblingPrebakeBase(tarAbs: string): string | undefined {
+  const m = /^(.*)(\.tar\.gz|\.tgz|\.tar)$/i.exec(tarAbs);
+  return m?.[1];
 }
 
 // Populate the cache from a release-built `<base>.img.gz` sibling.
@@ -666,7 +705,7 @@ function siblingPrebakePath(tarAbs: string): string | undefined {
 // renames into place. Any failure returns undefined and the caller
 // falls through to the slow materialize path.
 function tryPrebakeFromSibling(args: {
-  sibling: string;
+  sibling: PrebakeSibling;
   cacheDir: string;
   sha: string;
   imgPath: string;
@@ -676,8 +715,8 @@ function tryPrebakeFromSibling(args: {
   const stagingDir = mkdtempSync(join(cacheDir, `${sha.slice(0, 12)}-prebake-`));
   const stagingImg = join(stagingDir, "rootfs.img");
   try {
-    debug("prebake try sibling=%s sha=%s", sibling, sha.slice(0, 12));
-    if (!gunzipPrebakeToFile(sibling, stagingImg)) {
+    debug("prebake try sibling=%s sha=%s", sibling.path, sha.slice(0, 12));
+    if (!decompressPrebakeToFile(sibling, stagingImg)) {
       return undefined;
     }
     // Sniff ext4 magic so a corrupted / wrong-content sibling can't
@@ -698,16 +737,49 @@ function tryPrebakeFromSibling(args: {
       }
     }
     renameSync(stagingImg, imgPath);
+    markRootfsImageClean(imgPath);
+    writeTemplateMetadata({ sha, imgPath, metaPath: templateMetaPath(imgPath) }, "prebake");
     debug("prebake done sha=%s img=%s", sha.slice(0, 12), imgPath);
     return imgPath;
   } catch (err) {
-    debug("prebake error sibling=%s err=%s", sibling, (err as Error).message);
+    debug("prebake error sibling=%s err=%s", sibling.path, (err as Error).message);
     return undefined;
   } finally {
     try {
       rmSync(stagingDir, { recursive: true, force: true });
     } catch {}
   }
+}
+
+function decompressPrebakeToFile(sibling: PrebakeSibling, dst: string): boolean {
+  return sibling.format === "zst"
+    ? zstdPrebakeToFile(sibling.path, dst)
+    : gunzipPrebakeToFile(sibling.path, dst);
+}
+
+function zstdPrebakeToFile(sibling: string, dst: string): boolean {
+  const zstd = whichFirst(["zstd"]);
+  if (!zstd) {
+    debug("prebake zstd missing; falling back sibling=%s", sibling);
+    return false;
+  }
+  const r = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", SPARSE_ZSTD_WORKER, zstd, sibling, dst],
+    {
+      stdio: ["ignore", "ignore", "pipe"],
+    },
+  );
+  if (r.status === 0) {
+    return true;
+  }
+  debug(
+    "prebake sparse zstd failed sibling=%s status=%s stderr=%s",
+    sibling,
+    r.status,
+    r.stderr?.toString().slice(0, 200) ?? "",
+  );
+  return false;
 }
 
 function gunzipPrebakeToFile(sibling: string, dst: string): boolean {
@@ -759,39 +831,6 @@ function sparseGunzipPrebakeToFile(sibling: string, dst: string): boolean {
   );
   return false;
 }
-
-const SPARSE_GUNZIP_WORKER = String.raw`
-import { closeSync, ftruncateSync, openSync, writeSync } from "node:fs";
-import { createReadStream } from "node:fs";
-import { createGunzip } from "node:zlib";
-
-const [sibling, dst] = process.argv.slice(1);
-const fd = openSync(dst, "w");
-let offset = 0;
-
-function isAllZero(buf) {
-  for (let i = 0; i < buf.length; i++) {
-    if (buf[i] !== 0) return false;
-  }
-  return true;
-}
-
-try {
-  const gunzip = createReadStream(sibling).pipe(createGunzip());
-  for await (const chunk of gunzip) {
-    if (!isAllZero(chunk)) {
-      writeSync(fd, chunk, 0, chunk.length, offset);
-    }
-    offset += chunk.length;
-  }
-  ftruncateSync(fd, offset);
-  closeSync(fd);
-} catch (err) {
-  try { closeSync(fd); } catch {}
-  console.error(err instanceof Error ? err.stack || err.message : String(err));
-  process.exit(1);
-}
-`;
 
 // Extract `tarPath` into `dest` with mode-bit fidelity.
 //
@@ -918,6 +957,7 @@ export function prebakeRootfsImageFromTree(args: {
 
       renameSync(stagingImg, imgPath);
       markRootfsImageClean(imgPath);
+      writeTemplateMetadata({ sha, imgPath, metaPath: templateMetaPath(imgPath) }, "prebake-tree");
       debug("prebake emitted cache=%s sizeBytes=%d", imgPath, sizeBytes);
     } finally {
       try {
@@ -940,7 +980,12 @@ export const _rootfsImgInternal = {
   findBundledMke2fs,
   resolveMke2fsEnvOverride,
   okMarkerPath,
+  templateMetaPath,
+  readSha256Sidecar,
+  readVerifiedTemplateMetadata,
   siblingPrebakePath,
+  siblingPrebakeCandidates,
   extractTarball,
   gunzipPrebakeToFile,
+  zstdPrebakeToFile,
 };
