@@ -4,7 +4,7 @@ import { SnapshotError } from "../errors.ts";
 
 const VMSTATE_FILE_POLL_MS = 10;
 
-export interface VmstateFileWaitStats {
+interface VmstateFileWaitStats {
   pollSleepMs: number;
   detectLatencyMs: number;
 }
