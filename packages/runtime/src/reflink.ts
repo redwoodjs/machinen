@@ -25,9 +25,9 @@ import debugLib from "debug";
 
 const debug = debugLib("machinen:reflink");
 
-export interface ReflinkCopyResult {
+interface ReflinkCopyResult {
   mode: "cow" | "copy";
-  primitive: "darwin-cp-c" | "node-ficlone-force" | "node-copy";
+  primitive: "darwin-cp-c" | "node-ficlone-force" | "linux-cp-sparse" | "node-copy";
   fallbackReason?: string;
 }
 
@@ -64,14 +64,36 @@ function reflinkCopyNode(src: string, dst: string): ReflinkCopyResult {
     copyFileSync(src, dst, fsConstants.COPYFILE_FICLONE_FORCE);
     return { mode: "cow", primitive: "node-ficlone-force" };
   } catch (err) {
+    const fallbackReason = copyErrorFallbackReason(err);
+    rmSync(dst, { force: true });
+    if (platform() === "linux" && sparseCopyLinux(src, dst)) {
+      return { mode: "copy", primitive: "linux-cp-sparse", fallbackReason };
+    }
     rmSync(dst, { force: true });
     copyFileSync(src, dst);
     return {
       mode: "copy",
       primitive: "node-copy",
-      fallbackReason: copyErrorFallbackReason(err),
+      fallbackReason,
     };
   }
+}
+
+function sparseCopyLinux(src: string, dst: string): boolean {
+  const res = spawnSync("cp", ["--sparse=always", "--reflink=never", src, dst], {
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  if (res.status === 0) {
+    return true;
+  }
+  debug(
+    "linux sparse cp failed src=%s dst=%s status=%s stderr=%s",
+    src,
+    dst,
+    res.status,
+    res.stderr?.toString().slice(0, 200) ?? "",
+  );
+  return false;
 }
 
 function logRootdiskReflinkCopy(

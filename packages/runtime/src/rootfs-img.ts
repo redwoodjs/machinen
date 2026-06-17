@@ -677,25 +677,7 @@ function tryPrebakeFromSibling(args: {
   const stagingImg = join(stagingDir, "rootfs.img");
   try {
     debug("prebake try sibling=%s sha=%s", sibling, sha.slice(0, 12));
-    const dstFd = openSync(stagingImg, "w");
-    let gunzipOk = false;
-    try {
-      const r = spawnSync("gunzip", ["-c", sibling], {
-        stdio: ["ignore", dstFd, "pipe"],
-      });
-      gunzipOk = r.status === 0;
-      if (!gunzipOk) {
-        debug(
-          "prebake gunzip failed sibling=%s status=%s stderr=%s",
-          sibling,
-          r.status,
-          r.stderr?.toString().slice(0, 200) ?? "",
-        );
-      }
-    } finally {
-      closeSync(dstFd);
-    }
-    if (!gunzipOk) {
+    if (!gunzipPrebakeToFile(sibling, stagingImg)) {
       return undefined;
     }
     // Sniff ext4 magic so a corrupted / wrong-content sibling can't
@@ -727,6 +709,89 @@ function tryPrebakeFromSibling(args: {
     } catch {}
   }
 }
+
+function gunzipPrebakeToFile(sibling: string, dst: string): boolean {
+  const sparse = sparseGunzipPrebakeToFile(sibling, dst);
+  if (sparse) {
+    return true;
+  }
+  debug("prebake sparse gunzip failed; falling back to full gunzip sibling=%s", sibling);
+  return fullGunzipPrebakeToFile(sibling, dst);
+}
+
+function fullGunzipPrebakeToFile(sibling: string, dst: string): boolean {
+  const dstFd = openSync(dst, "w");
+  try {
+    const r = spawnSync("gunzip", ["-c", sibling], {
+      stdio: ["ignore", dstFd, "pipe"],
+    });
+    if (r.status === 0) {
+      return true;
+    }
+    debug(
+      "prebake gunzip failed sibling=%s status=%s stderr=%s",
+      sibling,
+      r.status,
+      r.stderr?.toString().slice(0, 200) ?? "",
+    );
+    return false;
+  } finally {
+    closeSync(dstFd);
+  }
+}
+
+function sparseGunzipPrebakeToFile(sibling: string, dst: string): boolean {
+  const r = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", SPARSE_GUNZIP_WORKER, sibling, dst],
+    {
+      stdio: ["ignore", "ignore", "pipe"],
+    },
+  );
+  if (r.status === 0) {
+    return true;
+  }
+  debug(
+    "prebake sparse gunzip failed sibling=%s status=%s stderr=%s",
+    sibling,
+    r.status,
+    r.stderr?.toString().slice(0, 200) ?? "",
+  );
+  return false;
+}
+
+const SPARSE_GUNZIP_WORKER = String.raw`
+import { closeSync, ftruncateSync, openSync, writeSync } from "node:fs";
+import { createReadStream } from "node:fs";
+import { createGunzip } from "node:zlib";
+
+const [sibling, dst] = process.argv.slice(1);
+const fd = openSync(dst, "w");
+let offset = 0;
+
+function isAllZero(buf) {
+  for (let i = 0; i < buf.length; i++) {
+    if (buf[i] !== 0) return false;
+  }
+  return true;
+}
+
+try {
+  const gunzip = createReadStream(sibling).pipe(createGunzip());
+  for await (const chunk of gunzip) {
+    if (!isAllZero(chunk)) {
+      writeSync(fd, chunk, 0, chunk.length, offset);
+    }
+    offset += chunk.length;
+  }
+  ftruncateSync(fd, offset);
+  closeSync(fd);
+} catch (err) {
+  try { closeSync(fd); } catch {}
+  console.error(err instanceof Error ? err.stack || err.message : String(err));
+  process.exit(1);
+}
+`;
 
 // Extract `tarPath` into `dest` with mode-bit fidelity.
 //
@@ -877,4 +942,5 @@ export const _rootfsImgInternal = {
   okMarkerPath,
   siblingPrebakePath,
   extractTarball,
+  gunzipPrebakeToFile,
 };
