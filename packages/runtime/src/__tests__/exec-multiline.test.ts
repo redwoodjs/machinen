@@ -132,6 +132,14 @@ describe("VsockExec multi-line wire format", () => {
     expect(agent.requests[0]!.body.toString("ascii")).toBe(seed);
   });
 
+  it("sends vmstate snapshot sync over direct SYNC opcode", async () => {
+    const uds = join(workDir, "exec.sock");
+    agent = startFakeAgent(uds);
+    const res = await VsockExec.syncVmstate(uds);
+    expect(res.exitCode).toBe(0);
+    expect(agent.requests[0]!.header).toBe("SYNC");
+  });
+
   it("switches to EXEC2 length-prefix opcode when cmd contains newlines", async () => {
     const uds = join(workDir, "exec.sock");
     agent = startFakeAgent(uds);

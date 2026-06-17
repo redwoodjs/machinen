@@ -16774,6 +16774,22 @@ Internal fast path for vmstate restore entropy reseed; avoids shell startup.
 
 `Promise`\<[`VsockExecResult`](#vsockexecresult)\>
 
+##### syncVmstateSnapshot()?
+
+> `optional` **syncVmstateSnapshot**(`opts?`): `Promise`\<[`VsockExecResult`](#vsockexecresult)\>
+
+Internal fast path for vmstate pre-snapshot filesystem sync; avoids shell startup.
+
+###### Parameters
+
+###### opts?
+
+[`VsockExecOptions`](#vsockexecoptions)
+
+###### Returns
+
+`Promise`\<[`VsockExecResult`](#vsockexecresult)\>
+
 ##### execPty()
 
 > **execPty**(`cmd`, `opts`): [`VsockExecPtyHandle`](#vsockexecptyhandle)
@@ -24209,6 +24225,24 @@ EXEC_AGENT_UNAVAILABLE (retryable) |
 `string`
 
 ###### seedHex
+
+`string`
+
+###### opts?
+
+[`VsockExecOptions`](#vsockexecoptions) = `{}`
+
+###### Returns
+
+`Promise`\<[`VsockExecResult`](#vsockexecresult)\>
+
+##### syncVmstate()
+
+> `readonly` **syncVmstate**(`udsPath`, `opts?`): `Promise`\<[`VsockExecResult`](#vsockexecresult)\>
+
+###### Parameters
+
+###### udsPath
 
 `string`
 

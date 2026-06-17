@@ -1819,6 +1819,11 @@ function createBootVmHandle(args: BootHandleArgs): VmHandle {
       args.child,
       args.errorCollector,
     ),
+    syncVmstateSnapshot: makeSyncVmstateSnapshot(
+      args.vsockUdsPath,
+      args.child,
+      args.errorCollector,
+    ),
     execPty: makeExecPty(args.vsockUdsPath),
     writeFile: makeWriteFile(() => handle),
     memoryStats: makeMemoryStats(args.childPid, args.statsFilePath, args.memoryCeilingMib),
@@ -1883,6 +1888,21 @@ function makeReseedVmstateEntropy(
     }
     return runVsockWithBootDiagnostics(child, errorCollector, () =>
       VsockExec.reseedVmstate(vsockUdsPath, seedHex, execOpts),
+    );
+  };
+}
+
+function makeSyncVmstateSnapshot(
+  vsockUdsPath: string | undefined,
+  child: ChildProcessWithoutNullStreams,
+  errorCollector: Promise<string>,
+): NonNullable<VmHandle["syncVmstateSnapshot"]> {
+  return (execOpts) => {
+    if (!vsockUdsPath) {
+      return Promise.reject(missingVsockError("syncVmstateSnapshot"));
+    }
+    return runVsockWithBootDiagnostics(child, errorCollector, () =>
+      VsockExec.syncVmstate(vsockUdsPath, execOpts),
     );
   };
 }
@@ -2024,6 +2044,7 @@ function buildBootSnapshotContext(
     updateVmstateChain: snapshotVmstateUpdater(args.vmstate, args.childPid),
     nested: args.nested,
     execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
+    syncVmstateSnapshot: (execOpts) => handle.syncVmstateSnapshot?.(execOpts),
     wait: () => handle.wait(),
     kill: () => handle.kill(),
     teeGuestConsole: (onChunk) => {

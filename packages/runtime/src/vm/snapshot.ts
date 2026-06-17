@@ -119,6 +119,7 @@ export interface SnapshotContext {
    */
   nested?: boolean;
   execRaw: (cmd: string, opts?: VsockExecOptions) => Promise<VsockExecResult>;
+  syncVmstateSnapshot?: (opts?: VsockExecOptions) => Promise<VsockExecResult> | undefined;
   wait: () => Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
   kill: () => Promise<void>;
   teeGuestConsole: ((onChunk: (chunk: Buffer) => void) => void) | undefined;
@@ -676,8 +677,9 @@ async function performSnapshotVmstate(
   clearVmstateStateFile(ctx.vmstatePath!);
   phases.end("prepare");
   phases.start("guest-sync");
-  await syncGuestForVmstateSnapshot(ctx, deadlineMs);
-  phases.end("guest-sync");
+  const syncMode = await syncGuestForVmstateSnapshot(ctx, deadlineMs);
+  const syncMs = phases.end("guest-sync");
+  phases.mark(`guest-sync.${syncMode}`, syncMs);
   const result = await captureVmstateSnapshotBundle(ctx, snapDir, deadlineMs, t0, phases);
   phases.flush(debugVmstate, "snapshot", result.elapsedMs);
   return result;
@@ -715,18 +717,51 @@ function clearVmstateStateFile(vmstatePath: string): void {
 async function syncGuestForVmstateSnapshot(
   ctx: SnapshotContext,
   deadlineMs: number,
-): Promise<void> {
+): Promise<"direct" | "shell" | "failed"> {
   try {
-    await ctx.execRaw(VMSTATE_PRE_SNAPSHOT_SYNC, {
-      connectTimeoutMs: Math.min(deadlineMs, 5_000),
-      execTimeoutMs: 10_000,
-    });
+    const direct = await tryDirectVmstateSync(ctx, deadlineMs);
+    if (direct) {
+      return "direct";
+    }
+    await shellVmstateSync(ctx, deadlineMs);
+    return "shell";
   } catch (err) {
     debugVmstate(
       "pre-snapshot sync failed (continuing): %s",
       err instanceof Error ? err.message : String(err),
     );
+    return "failed";
   }
+}
+
+async function tryDirectVmstateSync(ctx: SnapshotContext, deadlineMs: number): Promise<boolean> {
+  if (!ctx.syncVmstateSnapshot) {
+    return false;
+  }
+  try {
+    const res = await ctx.syncVmstateSnapshot({
+      connectTimeoutMs: Math.min(deadlineMs, 5_000),
+      execTimeoutMs: 10_000,
+    });
+    if (res.exitCode === 0) {
+      debugVmstate("pre-snapshot sync mode=direct");
+      return true;
+    }
+    debugVmstate("pre-snapshot direct sync exit=%d; falling back", res.exitCode);
+  } catch (err) {
+    debugVmstate(
+      "pre-snapshot direct sync unavailable; falling back: %s",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+  return false;
+}
+
+async function shellVmstateSync(ctx: SnapshotContext, deadlineMs: number): Promise<void> {
+  await ctx.execRaw(VMSTATE_PRE_SNAPSHOT_SYNC, {
+    connectTimeoutMs: Math.min(deadlineMs, 5_000),
+    execTimeoutMs: 10_000,
+  });
 }
 
 const VMSTATE_PRE_SNAPSHOT_SYNC =
