@@ -7,6 +7,8 @@ import { restore } from "../index.ts";
 import {
   currentVmstateBackend,
   fileIdentity,
+  fileSampleSha256,
+  managedRootDiskSyntheticSha256,
   readVmstateFacts,
   rememberTrustedFileIdentity,
   trustedFileIdentity,
@@ -293,6 +295,83 @@ describe("vmstate portability metadata", () => {
     await expect(
       restore({ snapDir: dir, image, binary: "/bin/sh", rootDisk: explicitRootDisk }),
     ).rejects.toThrow(/rootdisk identity mismatch/);
+  });
+
+  it("still refuses explicit caller-managed rootDisk for managed bundled samples", async () => {
+    const target = currentVmstateBackend();
+    const { dir, image } = writeBundle(
+      "sample-explicit-rootdisk",
+      { engine: "vmstate", snappedAt: 1, vmstate: { sourceBackend: target } },
+      0n,
+    );
+    const bundled = join(dir, "rootdisk.img");
+    writeFileSync(bundled, "good");
+    const sampleSha256 = fileSampleSha256(bundled);
+    writeFileSync(
+      join(dir, "meta.json"),
+      JSON.stringify({
+        engine: "vmstate",
+        snappedAt: 1,
+        vmstate: {
+          sourceBackend: target,
+          topologyHash: TOPO.toString("hex"),
+          guestPauth: { active: false, sctlrEl1: "0x0" },
+          rootDisk: {
+            mode: "block",
+            file: "rootdisk.img",
+            sizeBytes: 4,
+            sha256: managedRootDiskSyntheticSha256(4, sampleSha256),
+            trustedContentSample: {
+              algorithm: "machinen-rootdisk-sample-v1",
+              sha256: sampleSha256,
+            },
+          },
+        },
+      }),
+    );
+    const explicitRootDisk = join(TMP, "sample-explicit-rootdisk.img");
+    writeFileSync(explicitRootDisk, "good");
+
+    await expect(
+      restore({ snapDir: dir, image, binary: "/bin/sh", rootDisk: explicitRootDisk }),
+    ).rejects.toThrow(/rootdisk identity mismatch/);
+  });
+
+  it("refuses a managed-sample vmstate bundle whose rootdisk sample differs", async () => {
+    const target = currentVmstateBackend();
+    const { dir, image } = writeBundle(
+      "bad-sample-rootdisk",
+      { engine: "vmstate", snappedAt: 1, vmstate: { sourceBackend: target } },
+      0n,
+    );
+    const expectedSample = sha256("not-the-file-sample");
+    writeFileSync(join(dir, "rootdisk.img"), "changed");
+    writeFileSync(
+      join(dir, "meta.json"),
+      JSON.stringify({
+        engine: "vmstate",
+        snappedAt: 1,
+        vmstate: {
+          sourceBackend: target,
+          topologyHash: TOPO.toString("hex"),
+          guestPauth: { active: false, sctlrEl1: "0x0" },
+          rootDisk: {
+            mode: "block",
+            file: "rootdisk.img",
+            sizeBytes: 7,
+            sha256: managedRootDiskSyntheticSha256(7, expectedSample),
+            trustedContentSample: {
+              algorithm: "machinen-rootdisk-sample-v1",
+              sha256: expectedSample,
+            },
+          },
+        },
+      }),
+    );
+
+    await expect(restore({ snapDir: dir, image, binary: "/bin/sh" })).rejects.toThrow(
+      /rootdisk identity mismatch/,
+    );
   });
 
   it("refuses a vmstate bundle whose rootdisk bytes differ from metadata", async () => {

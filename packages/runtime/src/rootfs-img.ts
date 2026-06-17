@@ -699,11 +699,8 @@ function siblingPrebakeBase(tarAbs: string): string | undefined {
   return m?.[1];
 }
 
-// Populate the cache from a release-built `<base>.img.gz` sibling.
-// Decompresses into a staging file with `gunzip -c`, sniffs ext4
-// magic so a corrupt sibling can't poison the cache, then atomically
-// renames into place. Any failure returns undefined and the caller
-// falls through to the slow materialize path.
+// Populate the cache from a release-built prebake sibling. Sniff ext4
+// magic before the atomic rename so corrupt siblings never poison cache.
 function tryPrebakeFromSibling(args: {
   sibling: PrebakeSibling;
   cacheDir: string;
@@ -716,14 +713,11 @@ function tryPrebakeFromSibling(args: {
   const stagingImg = join(stagingDir, "rootfs.img");
   try {
     debug("prebake try sibling=%s sha=%s", sibling.path, sha.slice(0, 12));
-    if (!decompressPrebakeToFile(sibling, stagingImg)) {
+    const prebake = decompressPrebakeToFile(sibling, stagingImg);
+    if (!prebake.ok) {
       return undefined;
     }
-    // Sniff ext4 magic so a corrupted / wrong-content sibling can't
-    // pollute the cache. We don't run e2fsck here — the build
-    // pipeline already produced a clean fs, and a host crash this
-    // soon after rename is rare enough that the .ok marker handles
-    // it on the next boot.
+    // Build already fscked prebakes; ext4 magic plus .ok handles bad payloads/crashes.
     if (!looksLikeExt4(stagingImg)) {
       debug("prebake sibling did not yield an ext4 image — falling back");
       return undefined;
@@ -738,7 +732,9 @@ function tryPrebakeFromSibling(args: {
     }
     renameSync(stagingImg, imgPath);
     markRootfsImageClean(imgPath);
-    writeTemplateMetadata({ sha, imgPath, metaPath: templateMetaPath(imgPath) }, "prebake");
+    writeTemplateMetadata({ sha, imgPath, metaPath: templateMetaPath(imgPath) }, "prebake", {
+      imageSha256: prebake.sha256,
+    });
     debug("prebake done sha=%s img=%s", sha.slice(0, 12), imgPath);
     return imgPath;
   } catch (err) {
@@ -751,27 +747,37 @@ function tryPrebakeFromSibling(args: {
   }
 }
 
-function decompressPrebakeToFile(sibling: PrebakeSibling, dst: string): boolean {
+interface PrebakeDecompressResult {
+  ok: boolean;
+  sha256?: string;
+}
+
+function decompressPrebakeToFile(sibling: PrebakeSibling, dst: string): PrebakeDecompressResult {
   return sibling.format === "zst"
-    ? zstdPrebakeToFile(sibling.path, dst)
-    : gunzipPrebakeToFile(sibling.path, dst);
+    ? zstdPrebakeToFileWithSha(sibling.path, dst)
+    : gunzipPrebakeToFileWithSha(sibling.path, dst);
 }
 
 function zstdPrebakeToFile(sibling: string, dst: string): boolean {
+  return zstdPrebakeToFileWithSha(sibling, dst).ok;
+}
+
+function zstdPrebakeToFileWithSha(sibling: string, dst: string): PrebakeDecompressResult {
   const zstd = whichFirst(["zstd"]);
   if (!zstd) {
     debug("prebake zstd missing; falling back sibling=%s", sibling);
-    return false;
+    return { ok: false };
   }
   const r = spawnSync(
     process.execPath,
     ["--input-type=module", "-e", SPARSE_ZSTD_WORKER, zstd, sibling, dst],
     {
-      stdio: ["ignore", "ignore", "pipe"],
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
     },
   );
   if (r.status === 0) {
-    return true;
+    return { ok: true, sha256: parseWorkerSha256(r.stdout) };
   }
   debug(
     "prebake sparse zstd failed sibling=%s status=%s stderr=%s",
@@ -779,26 +785,30 @@ function zstdPrebakeToFile(sibling: string, dst: string): boolean {
     r.status,
     r.stderr?.toString().slice(0, 200) ?? "",
   );
-  return false;
+  return { ok: false };
 }
 
 function gunzipPrebakeToFile(sibling: string, dst: string): boolean {
-  const sparse = sparseGunzipPrebakeToFile(sibling, dst);
-  if (sparse) {
-    return true;
-  }
-  debug("prebake sparse gunzip failed; falling back to full gunzip sibling=%s", sibling);
-  return fullGunzipPrebakeToFile(sibling, dst);
+  return gunzipPrebakeToFileWithSha(sibling, dst).ok;
 }
 
-function fullGunzipPrebakeToFile(sibling: string, dst: string): boolean {
+function gunzipPrebakeToFileWithSha(sibling: string, dst: string): PrebakeDecompressResult {
+  const sparse = sparseGunzipPrebakeToFileWithSha(sibling, dst);
+  if (sparse.ok) {
+    return sparse;
+  }
+  debug("prebake sparse gunzip failed; falling back to full gunzip sibling=%s", sibling);
+  return fullGunzipPrebakeToFileWithSha(sibling, dst);
+}
+
+function fullGunzipPrebakeToFileWithSha(sibling: string, dst: string): PrebakeDecompressResult {
   const dstFd = openSync(dst, "w");
   try {
     const r = spawnSync("gunzip", ["-c", sibling], {
       stdio: ["ignore", dstFd, "pipe"],
     });
     if (r.status === 0) {
-      return true;
+      return { ok: true, sha256: sha256OfFile(dst) };
     }
     debug(
       "prebake gunzip failed sibling=%s status=%s stderr=%s",
@@ -806,22 +816,23 @@ function fullGunzipPrebakeToFile(sibling: string, dst: string): boolean {
       r.status,
       r.stderr?.toString().slice(0, 200) ?? "",
     );
-    return false;
+    return { ok: false };
   } finally {
     closeSync(dstFd);
   }
 }
 
-function sparseGunzipPrebakeToFile(sibling: string, dst: string): boolean {
+function sparseGunzipPrebakeToFileWithSha(sibling: string, dst: string): PrebakeDecompressResult {
   const r = spawnSync(
     process.execPath,
     ["--input-type=module", "-e", SPARSE_GUNZIP_WORKER, sibling, dst],
     {
-      stdio: ["ignore", "ignore", "pipe"],
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
     },
   );
   if (r.status === 0) {
-    return true;
+    return { ok: true, sha256: parseWorkerSha256(r.stdout) };
   }
   debug(
     "prebake sparse gunzip failed sibling=%s status=%s stderr=%s",
@@ -829,20 +840,17 @@ function sparseGunzipPrebakeToFile(sibling: string, dst: string): boolean {
     r.status,
     r.stderr?.toString().slice(0, 200) ?? "",
   );
-  return false;
+  return { ok: false };
 }
 
-// Extract `tarPath` into `dest` with mode-bit fidelity.
-//
-// `-p` (--preserve-permissions) matters: BSD tar (the macOS default)
-// applies the host umask when extracting as non-root, which silently
-// drops the sticky bit and other "extra" mode bits declared in the
-// archive. /tmp ships at 1777 in our base rootfs but extracts as 0755
-// without -p, which bakes into the ext4 image and breaks `apt-get`
-// in the booted guest — apt drops to the `_apt` user for fetches and
-// can't write to /tmp, so apt-key fails and Release files look
-// unsigned (#262). GNU tar treats -p as a no-op for non-root (umask
-// is already not applied there), so adding it is safe on every host.
+function parseWorkerSha256(stdout: string | Buffer | null | undefined): string | undefined {
+  const first = stdout?.toString().trim().split(/\s+/, 1)[0]?.toLowerCase();
+  return first && /^[0-9a-f]{64}$/.test(first) ? first : undefined;
+}
+
+// Extract with mode-bit fidelity. BSD tar otherwise applies umask for
+// non-root users and drops bits like /tmp's sticky bit, breaking apt in
+// the guest (#262). GNU tar accepts -p safely for this path too.
 function extractTarball(tarPath: string, dest: string): void {
   const r = spawnSync("tar", ["-xpf", tarPath, "-C", dest], {
     stdio: ["ignore", "ignore", "pipe"],

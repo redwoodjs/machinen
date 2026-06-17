@@ -104,19 +104,32 @@ function forkRestoreLine(
     return undefined;
   }
   const phases = new Map<string, number>(restore.phases);
+  appendBootRestorePhases(phases, captured, tools);
+  appendVmstateApplyPhase(phases, captured);
+  return { kind: "restore", total: restore.total, phases };
+}
+
+function appendBootRestorePhases(
+  phases: Map<string, number>,
+  captured: string,
+  tools: Pick<ForkBenchTools, "phaseLinesForKinds">,
+): void {
   const boot = lastPhase(captured, "boot", tools);
-  if (boot) {
-    phases.set("boot-to-first-guest-byte", boot.total);
-    phases.set("boot.total", boot.total);
-    for (const [key, value] of boot.phases) {
-      phases.set(`boot.${key}`, value);
-    }
+  if (!boot) {
+    return;
   }
+  phases.set("boot-to-first-guest-byte", boot.total);
+  phases.set("boot.total", boot.total);
+  for (const [key, value] of boot.phases) {
+    phases.set(`boot.${key}`, value);
+  }
+}
+
+function appendVmstateApplyPhase(phases: Map<string, number>, captured: string): void {
   const vmstateApply = parseVmstateRestoreTotal(captured);
   if (vmstateApply !== undefined) {
     phases.set("vmstate-apply", vmstateApply);
   }
-  return { kind: "restore", total: restore.total, phases };
 }
 
 function lastPhase(

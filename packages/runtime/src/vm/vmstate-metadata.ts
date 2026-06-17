@@ -129,7 +129,14 @@ interface CachedFileIdentity {
   stamp: FileIdentityStamp;
 }
 
+interface ManagedRootDiskStamp {
+  dev: bigint;
+  ino: bigint;
+  size: bigint;
+}
+
 const trustedFileIdentities = new Map<string, CachedFileIdentity>();
+const managedRootDisks = new Map<string, ManagedRootDiskStamp>();
 
 export function fileIdentity(path: string): FileIdentity {
   return {
@@ -160,6 +167,38 @@ export function trustedFileIdentity(path: string): FileIdentity | undefined {
     return undefined;
   }
   return cached.identity;
+}
+
+export function rememberManagedRootDisk(path: string): void {
+  const st = statSync(path, { bigint: true });
+  managedRootDisks.set(path, { dev: st.dev, ino: st.ino, size: st.size });
+}
+
+export function trustedManagedRootDisk(path: string): { sizeBytes: number } | undefined {
+  const stamp = managedRootDisks.get(path);
+  if (!stamp) {
+    return undefined;
+  }
+  const st = statSync(path, { bigint: true });
+  if (stamp.dev !== st.dev || stamp.ino !== st.ino || stamp.size !== st.size) {
+    managedRootDisks.delete(path);
+    return undefined;
+  }
+  return { sizeBytes: Number(st.size) };
+}
+
+export function fileSampleSha256(path: string): string {
+  const st = statSync(path, { bigint: true });
+  return sampleSha256(path, st.size);
+}
+
+export function managedRootDiskSyntheticSha256(sizeBytes: number, sampleSha256: string): string {
+  return createHash("sha256")
+    .update("machinen-managed-rootdisk-v1\0")
+    .update(String(sizeBytes))
+    .update("\0")
+    .update(sampleSha256)
+    .digest("hex");
 }
 
 function fileIdentityStamp(path: string): FileIdentityStamp {
