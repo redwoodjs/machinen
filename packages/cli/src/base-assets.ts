@@ -34,6 +34,8 @@ type BaseAssetSpec = {
   kernelAsset: string;
   dtbAsset?: string;
   rootfsAsset: string;
+  rootfsPrebakeGzAsset: string;
+  rootfsPrebakeZstAsset: string;
 };
 
 export interface CliBaseAssetPaths {
@@ -57,12 +59,16 @@ function baseAssetSpec(): BaseAssetSpec {
         cpu: "amd64",
         kernelAsset: "bzImage-x86_64",
         rootfsAsset: "rootfs-debian-amd64.tar.gz",
+        rootfsPrebakeGzAsset: "rootfs-debian-amd64.img.gz",
+        rootfsPrebakeZstAsset: "rootfs-debian-amd64.img.zst",
       }
     : {
         cpu: "arm64",
         kernelAsset: "Image-arm64",
         dtbAsset: "virt-arm64.dtb",
         rootfsAsset: "rootfs-debian-arm64.tar.gz",
+        rootfsPrebakeGzAsset: "rootfs-debian-arm64.img.gz",
+        rootfsPrebakeZstAsset: "rootfs-debian-arm64.img.zst",
       };
 }
 
@@ -73,11 +79,17 @@ function baseDirFor(tag: string, distro = "debian", cpu = guestCpu()): string {
 export function baseAssetsComplete(tag: string): boolean {
   const spec = baseAssetSpec();
   const base = baseDirFor(tag, "debian", spec.cpu);
-  return (
-    existsSync(join(base, "Image")) &&
-    (!spec.dtbAsset || existsSync(join(base, "virt.dtb"))) &&
-    existsSync(join(base, "rootfs.tar.gz"))
-  );
+  return cachedBaseAssetFiles(spec).every((file) => existsSync(join(base, file)));
+}
+
+function cachedBaseAssetFiles(spec: BaseAssetSpec): string[] {
+  return [
+    "Image",
+    ...(spec.dtbAsset ? ["virt.dtb"] : []),
+    "rootfs.tar.gz",
+    "rootfs.img.gz",
+    "rootfs.img.zst",
+  ];
 }
 
 function validateAssetsDir(dir: string): void {
@@ -110,13 +122,7 @@ export async function ensureBaseAssets(tag: string): Promise<string> {
 }
 
 function cachedBaseAssetsReady(base: string, spec: BaseAssetSpec): boolean {
-  if (!existsSync(join(base, "Image"))) {
-    return false;
-  }
-  if (spec.dtbAsset && !existsSync(join(base, "virt.dtb"))) {
-    return false;
-  }
-  return existsSync(join(base, "rootfs.tar.gz"));
+  return cachedBaseAssetFiles(spec).every((file) => existsSync(join(base, file)));
 }
 
 async function downloadBaseAssets(tag: string, base: string, spec: BaseAssetSpec): Promise<void> {
@@ -133,7 +139,11 @@ function baseAssetDownloads(
   if (spec.dtbAsset) {
     assets.push({ name: spec.dtbAsset, dest: join(base, "virt.dtb") });
   }
-  assets.push({ name: spec.rootfsAsset, dest: join(base, "rootfs.tar.gz") });
+  assets.push(
+    { name: spec.rootfsAsset, dest: join(base, "rootfs.tar.gz") },
+    { name: spec.rootfsPrebakeGzAsset, dest: join(base, "rootfs.img.gz") },
+    { name: spec.rootfsPrebakeZstAsset, dest: join(base, "rootfs.img.zst") },
+  );
   return assets;
 }
 

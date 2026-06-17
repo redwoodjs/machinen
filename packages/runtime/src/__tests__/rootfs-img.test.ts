@@ -107,6 +107,51 @@ describe("ensureRootfsImage", () => {
     }
   });
 
+  it("zstd prebake returns false when zstd is absent", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-rootfs-no-zstd-"));
+    const zst = join(dir, "rootfs.img.zst");
+    const out = join(dir, "rootfs.img");
+    const savedPath = process.env.PATH;
+    writeFileSync(zst, "not used because zstd is unavailable");
+    process.env.PATH = dir;
+    try {
+      expect(_internal.zstdPrebakeToFile(zst, out)).toBe(false);
+    } finally {
+      if (savedPath === undefined) {
+        delete process.env.PATH;
+      } else {
+        process.env.PATH = savedPath;
+      }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("sparse prebake zstd preserves large zero ranges as holes when zstd is available", () => {
+    const zstd = _internal.whichFirst(["zstd"]);
+    if (!zstd) {
+      return;
+    }
+    const dir = mkdtempSync(join(tmpdir(), "machinen-rootfs-sparse-zstd-"));
+    const img = join(dir, "rootfs.img");
+    const zst = join(dir, "rootfs.img.zst");
+    const out = join(dir, "out.img");
+    const image = Buffer.alloc(8 * 1024 * 1024);
+    image[1080] = 0x53;
+    image[1081] = 0xef;
+    image.write("payload", 4 * 1024 * 1024);
+    writeFileSync(img, image);
+    execSync(`${zstd} -q -f -o ${zst} ${img}`);
+    try {
+      expect(_internal.zstdPrebakeToFile(zst, out)).toBe(true);
+      const st = statSync(out);
+      expect(st.size).toBe(image.length);
+      expect(_internal.looksLikeExt4(out)).toBe(true);
+      expect(st.blocks * 512).toBeLessThan(image.length / 4);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("sparse prebake gunzip preserves large zero ranges as holes", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-rootfs-sparse-gunzip-"));
     const gz = join(dir, "rootfs.img.gz");
@@ -430,6 +475,98 @@ describe("ensureRootfsImage", () => {
     }
   }
 
+  it("uses a sha256 sidecar and immutable template metadata to skip tarball hashing and e2fsck", () => {
+    const tarPath = `/tmp/machinen-rootfs-sidecar-template-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-sidecar-template-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-sidecar-template-cache-"));
+    const sha = "a".repeat(64);
+    writeFileSync(join(tmpDir, "stub"), "x");
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    try {
+      writeFileSync(`${tarPath}.sha256`, `${sha}  ${tarPath.split("/").at(-1)}\n`);
+      const imgPath = join(cacheDir, `${sha}.img`);
+      writeFakeExt4Image(imgPath, 4096);
+      writeFileSync(_internal.okMarkerPath(imgPath), "");
+      writeFileSync(
+        _internal.templateMetaPath(imgPath),
+        `${JSON.stringify({
+          version: 1,
+          sha256: sha,
+          sizeBytes: 4096,
+          source: "prebake",
+          createdAt: new Date().toISOString(),
+        })}\n`,
+      );
+
+      const phases: string[] = [];
+      const result = ensureRootfsImage(tarPath, { cacheDir, onPhase: (name) => phases.push(name) });
+
+      expect(result).toBe(imgPath);
+      expect(phases).toContain("sha256.sidecar");
+      expect(phases).toContain("template-metadata");
+      expect(phases).not.toContain("sha256");
+      expect(phases).not.toContain("cache-mark-in-use");
+      expect(phases).not.toContain("e2fsck");
+      expect(existsSync(_internal.okMarkerPath(imgPath))).toBe(true);
+    } finally {
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      try {
+        unlinkSync(`${tarPath}.sha256`);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not trust immutable template metadata without the clean marker", () => {
+    const tarPath = `/tmp/machinen-rootfs-template-dirty-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-template-dirty-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-template-dirty-cache-"));
+    const sha = "b".repeat(64);
+    writeFileSync(join(tmpDir, "stub"), "x");
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    const saved = process.env.MACHINEN_MKE2FS;
+    process.env.MACHINEN_MKE2FS = "/definitely/not/here/mke2fs";
+    try {
+      writeFileSync(`${tarPath}.sha256`, `${sha}  ${tarPath.split("/").at(-1)}\n`);
+      const imgPath = join(cacheDir, `${sha}.img`);
+      writeFakeExt4Image(imgPath, 4096);
+      writeFileSync(
+        _internal.templateMetaPath(imgPath),
+        `${JSON.stringify({
+          version: 1,
+          sha256: sha,
+          sizeBytes: 4096,
+          source: "prebake",
+          createdAt: new Date().toISOString(),
+        })}\n`,
+      );
+
+      expect(() => ensureRootfsImage(tarPath, { cacheDir })).toThrow(ProvisionError);
+      try {
+        ensureRootfsImage(tarPath, { cacheDir });
+      } catch (err) {
+        expect((err as ProvisionError).code).toBe("ROOTFS_IMG_TOOL_MISSING");
+      }
+    } finally {
+      if (saved === undefined) {
+        delete process.env.MACHINEN_MKE2FS;
+      } else {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      try {
+        unlinkSync(`${tarPath}.sha256`);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  });
+
   it("siblingPrebakePath strips .tar.gz / .tgz / .tar and points at .img.gz", () => {
     // Only the gzipped release-build sibling form is recognized;
     // provision() writes its prebake into the runtime cache directly.
@@ -440,7 +577,94 @@ describe("ensureRootfsImage", () => {
     // for them, so the runtime falls through to the materialize path.
     expect(_internal.siblingPrebakePath("/r/rootfs")).toBeUndefined();
     expect(_internal.siblingPrebakePath("/r/rootfs.zip")).toBeUndefined();
+    expect(_internal.siblingPrebakeCandidates("/r/rootfs.tar.gz")).toEqual([
+      { path: "/r/rootfs.img.zst", format: "zst", phaseName: "zstd-prebake" },
+      { path: "/r/rootfs.img.gz", format: "gz", phaseName: "gunzip-prebake" },
+    ]);
   });
+
+  it("uses a sibling .img.zst to populate the cache and skips mke2fs when zstd is available", () => {
+    const zstd = _internal.whichFirst(["zstd"]);
+    if (!zstd) {
+      return;
+    }
+    const tarPath = `/tmp/machinen-rootfs-prebake-zst-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-zst-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-zst-cache-"));
+    writeFileSync(join(tmpDir, "stub"), `prebake-zst-${process.pid}-${Date.now()}`);
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    const fakeImg = join(tmpDir, "fake.img");
+    writeFakeExt4Image(fakeImg, 4096);
+    const sibling = tarPath.replace(/\.tar\.gz$/, ".img.zst");
+    execSync(`${zstd} -q -f -o ${sibling} ${fakeImg}`);
+    const saved = process.env.MACHINEN_MKE2FS;
+    process.env.MACHINEN_MKE2FS = "/definitely/not/here/mke2fs";
+    try {
+      const phases: string[] = [];
+      const sha = execSync(`shasum -a 256 ${tarPath}`, { encoding: "utf8" })
+        .trim()
+        .split(/\s+/, 1)[0]!;
+      const result = ensureRootfsImage(tarPath, { cacheDir, onPhase: (name) => phases.push(name) });
+      expect(result).toBe(join(cacheDir, `${sha}.img`));
+      expect(_internal.looksLikeExt4(result)).toBe(true);
+      expect(phases).toContain("zstd-prebake");
+      expect(phases).not.toContain("gunzip-prebake");
+    } finally {
+      if (saved === undefined) {
+        delete process.env.MACHINEN_MKE2FS;
+      } else {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      try {
+        unlinkSync(sibling);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it("falls back from an invalid .img.zst sibling to a valid .img.gz sibling", () => {
+    const tarPath = `/tmp/machinen-rootfs-prebake-zst-fallback-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-zst-fallback-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-zst-fallback-cache-"));
+    writeFileSync(join(tmpDir, "stub"), `prebake-zst-fallback-${process.pid}-${Date.now()}`);
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    const fakeImg = join(tmpDir, "fake.img");
+    writeFakeExt4Image(fakeImg, 4096);
+    const zstSibling = tarPath.replace(/\.tar\.gz$/, ".img.zst");
+    const gzSibling = tarPath.replace(/\.tar\.gz$/, ".img.gz");
+    writeFileSync(zstSibling, "not zstd");
+    execSync(`gzip -n -c ${fakeImg} > ${gzSibling}`);
+    const saved = process.env.MACHINEN_MKE2FS;
+    process.env.MACHINEN_MKE2FS = "/definitely/not/here/mke2fs";
+    try {
+      const phases: string[] = [];
+      const result = ensureRootfsImage(tarPath, { cacheDir, onPhase: (name) => phases.push(name) });
+      expect(_internal.looksLikeExt4(result)).toBe(true);
+      expect(phases).toContain("zstd-prebake");
+      expect(phases).toContain("gunzip-prebake");
+    } finally {
+      if (saved === undefined) {
+        delete process.env.MACHINEN_MKE2FS;
+      } else {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      try {
+        unlinkSync(zstSibling);
+      } catch {}
+      try {
+        unlinkSync(gzSibling);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  }, 20_000);
 
   it("uses a sibling .img.gz to populate the cache and skips mke2fs", () => {
     // Pair a tarball with a sibling prebake. Pointing MACHINEN_MKE2FS

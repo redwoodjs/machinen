@@ -27,9 +27,11 @@ const PAYLOAD_ASSETS = [
   "virt-arm64.dtb",
   "rootfs-debian-arm64.tar.gz",
   "rootfs-debian-arm64.img.gz",
+  "rootfs-debian-arm64.img.zst",
   "bzImage-x86_64",
   "rootfs-debian-amd64.tar.gz",
   "rootfs-debian-amd64.img.gz",
+  "rootfs-debian-amd64.img.zst",
 ];
 const OPTIONAL_UPLOAD_ASSETS = [
   "Image-arm64.inputs-sha256",

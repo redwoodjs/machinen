@@ -11,10 +11,10 @@
 #   virt-arm64.dtb                 ← compiled device tree
 #   rootfs-debian-arm64.tar.gz     ← debian minbase + /init + /exec-agent
 #   rootfs-debian-arm64.img.gz     ← prebaked ext4 image of the same
-#                                    rootfs; lets cold boots skip
+#   rootfs-debian-arm64.img.zst       rootfs; lets cold boots skip
 #                                    tar -xf + mke2fs (#223). Sparse
-#                                    inside the gzip — wire size is
-#                                    close to the tarball.
+#                                    inside the compressed stream — wire
+#                                    size is close to the tarball.
 #
 # For amd64 guests (`MACHINEN_GUEST_ARCH=amd64`), the same flow emits
 # `bzImage-x86_64`, `rootfs-debian-amd64.tar.gz`, and
@@ -74,6 +74,7 @@ case "$GUEST_ARCH" in
     DTB_ASSET="virt-arm64.dtb"
     ROOTFS_TAR="rootfs-debian-arm64.tar.gz"
     ROOTFS_IMG="rootfs-debian-arm64.img.gz"
+    ROOTFS_IMG_ZST="rootfs-debian-arm64.img.zst"
     ZIG_GUEST_TARGET="aarch64-linux-musl"
     DOCKER_PLATFORM="linux/arm64"
     DEBIAN_ARCH="arm64"
@@ -85,6 +86,7 @@ case "$GUEST_ARCH" in
     DTB_ASSET=""
     ROOTFS_TAR="rootfs-debian-amd64.tar.gz"
     ROOTFS_IMG="rootfs-debian-amd64.img.gz"
+    ROOTFS_IMG_ZST="rootfs-debian-amd64.img.zst"
     ZIG_GUEST_TARGET="x86_64-linux-musl"
     DOCKER_PLATFORM="linux/amd64"
     DEBIAN_ARCH="amd64"
@@ -308,6 +310,7 @@ docker run --rm -i --privileged --platform "${DOCKER_PLATFORM}" \
   -e DEBIAN_ARCH="${DEBIAN_ARCH}" \
   -e ROOTFS_TAR="${ROOTFS_TAR}" \
   -e ROOTFS_IMG="${ROOTFS_IMG}" \
+  -e ROOTFS_IMG_ZST="${ROOTFS_IMG_ZST}" \
   -v "${STAGE}":/stage:ro \
   -v "$OUT":/out \
   debian:bookworm-slim bash -s <<'CONTAINER_SCRIPT'
@@ -315,10 +318,11 @@ set -euo pipefail
 
 apt-get update -qq > /dev/null
 # e2fsprogs is the host-side tool that builds the prebake `.img` from
-# the staged rootfs tree (#223). gzip ships with debian:bookworm-slim
-# already; listed here for clarity.
+# the staged rootfs tree (#223). gzip ships with debian:bookworm-slim;
+# zstd is installed so release builds also emit the faster .img.zst
+# sibling that runtime cold boots prefer when available.
 apt-get install -y --no-install-recommends \
-  mmdebstrap gpg debian-archive-keyring e2fsprogs gzip > /dev/null
+  mmdebstrap gpg debian-archive-keyring e2fsprogs gzip zstd > /dev/null
 
 mkdir -p /work
 
@@ -613,6 +617,7 @@ echo "==> Prebaking rootfs ext4 image: ${SIZE_BYTES} bytes (${BLOCKS} x 4 KiB bl
 truncate -s "$SIZE_BYTES" /tmp/rootfs.img
 mke2fs -d /work/rootfs -t ext4 -F -q -b 4096 /tmp/rootfs.img "$BLOCKS"
 gzip -n -c /tmp/rootfs.img > "/out/${ROOTFS_IMG}"
+zstd -q -T0 --no-check -19 -f -o "/out/${ROOTFS_IMG_ZST}" /tmp/rootfs.img
 rm -f /tmp/rootfs.img
 CONTAINER_SCRIPT
 
@@ -622,7 +627,7 @@ CONTAINER_SCRIPT
 
 echo "==> Writing sha256 sidecars"
 cd "$OUT"
-for f in "$KERNEL_ASSET" ${DTB_ASSET:+"$DTB_ASSET"} "$ROOTFS_TAR" "$ROOTFS_IMG"; do
+for f in "$KERNEL_ASSET" ${DTB_ASSET:+"$DTB_ASSET"} "$ROOTFS_TAR" "$ROOTFS_IMG" "$ROOTFS_IMG_ZST"; do
   shasum -a 256 "$f" > "${f}.sha256"
 done
 
@@ -654,6 +659,7 @@ CACHE_DIR="${HOME}/.machinen/runtime-v${RUNTIME_VERSION}/bases/debian-${GUEST_AR
 mkdir -p "$CACHE_DIR"
 cp "${OUT}/${ROOTFS_TAR}" "${CACHE_DIR}/rootfs.tar.gz"
 cp "${OUT}/${ROOTFS_IMG}" "${CACHE_DIR}/rootfs.img.gz"
+cp "${OUT}/${ROOTFS_IMG_ZST}" "${CACHE_DIR}/rootfs.img.zst"
 cp "${OUT}/${KERNEL_ASSET}" "${CACHE_DIR}/Image"
 if [ -n "$DTB_ASSET" ]; then
   cp "${OUT}/${DTB_ASSET}" "${CACHE_DIR}/virt.dtb"

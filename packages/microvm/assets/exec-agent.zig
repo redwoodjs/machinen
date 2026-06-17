@@ -208,6 +208,8 @@ fn read_exact(fd: c_int, out: []u8) bool {
 // base64-encoded contents `vm.writeFile()` ships through; binary blobs
 // belong in the file/mount paths.
 const MAX_EXEC2_CMD: usize = 1 * 1024 * 1024;
+const MAX_RESEED_HEX: usize = 128;
+const VMSTATE_RESEED_HELPER = "/sbin/machinen-vmstate-reseed";
 
 // Cap on a single PTY `I <n>\n` input frame. Real keystroke bursts are
 // well under 1 KiB; this is a defensive ceiling so a malicious / buggy
@@ -224,6 +226,33 @@ const SessionEntry = struct {
 };
 
 var sessions: [MAX_SESSIONS]SessionEntry = [_]SessionEntry{.{}} ** MAX_SESSIONS;
+
+fn run_vmstate_reseed(client_fd: c_int, seed_hex: []const u8) void {
+    std.debug.assert(client_fd >= 0);
+    if (seed_hex.len == 0 or seed_hex.len > MAX_RESEED_HEX) {
+        return send_exit(client_fd, 2);
+    }
+    var seed_buf: [MAX_RESEED_HEX + 1]u8 = undefined;
+    @memcpy(seed_buf[0..seed_hex.len], seed_hex);
+    seed_buf[seed_hex.len] = 0;
+
+    const pid = fork();
+    if (pid < 0) return send_exit(client_fd, 1);
+    if (pid == 0) {
+        const argv = &[_:null]?[*:0]const u8{
+            VMSTATE_RESEED_HELPER,
+            @ptrCast(&seed_buf),
+            null,
+        };
+        const envp = &[_:null]?[*:0]const u8{
+            "PATH=/usr/local/bin:/usr/bin:/bin:/sbin",
+            null,
+        };
+        _ = execve(VMSTATE_RESEED_HELPER, argv, envp);
+        _exit(127);
+    }
+    send_exit(client_fd, wait_exit_status(pid));
+}
 
 fn run_command(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !void {
     std.debug.assert(client_fd >= 0);
@@ -903,6 +932,7 @@ fn handle_connection(client_fd: c_int, alloc: std.mem.Allocator) void {
         return handle_ptysession(client_fd, line);
     }
     if (std.mem.startsWith(u8, line, "PTY ")) return handle_pty(client_fd, line, alloc);
+    if (std.mem.startsWith(u8, line, "RESEED ")) return handle_reseed(client_fd, line);
     if (std.mem.startsWith(u8, line, "EXEC2 ")) return handle_exec2(client_fd, line, alloc);
     if (line.len < 5 or !std.mem.startsWith(u8, line, "EXEC ")) {
         log_err("exec-agent: unknown op");
@@ -1010,6 +1040,24 @@ fn handle_pty(client_fd: c_int, line: []const u8, alloc: std.mem.Allocator) void
     run_pty_command(client_fd, cmd_buf, h.cols, h.rows, alloc) catch |err| {
         log_run_error("pty", err);
     };
+}
+
+fn handle_reseed(client_fd: c_int, line: []const u8) void {
+    std.debug.assert(client_fd >= 0);
+    const seed_len = std.fmt.parseInt(u32, line[7..], 10) catch {
+        log_err("exec-agent: RESEED bad length");
+        return send_exit(client_fd, 2);
+    };
+    if (seed_len == 0 or seed_len > MAX_RESEED_HEX) {
+        log_err("exec-agent: RESEED seed too large");
+        return send_exit(client_fd, 2);
+    }
+    var seed_buf: [MAX_RESEED_HEX]u8 = undefined;
+    if (!read_exact(client_fd, seed_buf[0..seed_len])) {
+        log_err("exec-agent: RESEED short read");
+        return send_exit(client_fd, 2);
+    }
+    run_vmstate_reseed(client_fd, seed_buf[0..seed_len]);
 }
 
 fn handle_exec2(client_fd: c_int, line: []const u8, alloc: std.mem.Allocator) void {

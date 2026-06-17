@@ -1,9 +1,16 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { restore } from "../index.ts";
-import { currentVmstateBackend, readVmstateFacts } from "../vm/vmstate-metadata.ts";
+import {
+  currentVmstateBackend,
+  fileIdentity,
+  readVmstateFacts,
+  rememberTrustedFileIdentity,
+  trustedFileIdentity,
+} from "../vm/vmstate-metadata.ts";
 
 const MAGIC = Buffer.from("VMSTATE\0");
 const VERSION = 1;
@@ -62,6 +69,10 @@ function u64(v: bigint): Buffer {
   const b = Buffer.alloc(8);
   b.writeBigUInt64LE(v, 0);
   return b;
+}
+
+function sha256(body: string): string {
+  return createHash("sha256").update(body).digest("hex");
 }
 
 function writeBundle(name: string, meta: unknown, sctlr: bigint): { dir: string; image: string } {
@@ -239,6 +250,49 @@ describe("vmstate portability metadata", () => {
     await expect(restore({ snapDir: dir, image, binary: "/bin/sh" })).rejects.toThrow(
       /missing rootdisk image/,
     );
+  });
+
+  it("reuses trusted file identity only while the file stamp is unchanged", () => {
+    const path = join(TMP, "trusted-rootdisk.img");
+    writeFileSync(path, "same-size-a");
+    const identity = fileIdentity(path);
+    rememberTrustedFileIdentity(identity);
+
+    expect(trustedFileIdentity(path)).toMatchObject(identity);
+
+    writeFileSync(path, "same-size-b");
+
+    expect(trustedFileIdentity(path)).toBeUndefined();
+  });
+
+  it("refuses an explicit caller-managed rootDisk whose bytes differ from metadata", async () => {
+    const target = currentVmstateBackend();
+    const { dir, image } = writeBundle(
+      "bad-explicit-rootdisk",
+      {
+        engine: "vmstate",
+        snappedAt: 1,
+        vmstate: {
+          sourceBackend: target,
+          topologyHash: TOPO.toString("hex"),
+          guestPauth: { active: false, sctlrEl1: "0x0" },
+          rootDisk: {
+            mode: "block",
+            file: "rootdisk.img",
+            sizeBytes: 4,
+            sha256: sha256("good"),
+          },
+        },
+      },
+      0n,
+    );
+    const explicitRootDisk = join(TMP, "explicit-rootdisk.img");
+    writeFileSync(join(dir, "rootdisk.img"), "good");
+    writeFileSync(explicitRootDisk, "evil");
+
+    await expect(
+      restore({ snapDir: dir, image, binary: "/bin/sh", rootDisk: explicitRootDisk }),
+    ).rejects.toThrow(/rootdisk identity mismatch/);
   });
 
   it("refuses a vmstate bundle whose rootdisk bytes differ from metadata", async () => {

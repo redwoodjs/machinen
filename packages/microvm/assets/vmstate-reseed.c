@@ -16,6 +16,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #ifndef RNDRESEEDCRNG
@@ -45,6 +47,20 @@ static size_t decode_hex(const char *hex, uint8_t *out, size_t out_cap) {
     out[i] = (uint8_t)((hi << 4) | lo);
   }
   return len / 2;
+}
+
+static void write_marker(void) {
+  if (mkdir("/run", 0755) != 0 && errno != EEXIST) return;
+  const int fd = open("/run/machinen-vmstate-reseed", O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+  if (fd < 0) return;
+  char buf[128];
+  const time_t now = time(NULL);
+  const int n = snprintf(buf, sizeof(buf), "vmstate reseeded %lld\n", (long long)now);
+  if (n > 0) {
+    (void)write(fd, buf, (size_t)n);
+  }
+  (void)fchmod(fd, 0600);
+  close(fd);
 }
 
 int main(int argc, char **argv) {
@@ -95,6 +111,7 @@ int main(int argc, char **argv) {
 
   free(info);
   close(fd);
+  write_marker();
   puts("machinen-vmstate-reseed: ok");
   return 0;
 }

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { openSync, readFileSync, readSync, statSync, closeSync } from "node:fs";
+import { closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import type { SnapshotFileIdentity as FileIdentity, VmstateBackend } from "../vm-handle.ts";
 
@@ -115,12 +115,100 @@ export function readVmstateFacts(path: string): VmstateFacts {
   return { arch, topologyHash, sectionCount, guestPauthActive, sctlrEl1 };
 }
 
+interface FileIdentityStamp {
+  dev: bigint;
+  ino: bigint;
+  size: bigint;
+  mtimeNs: bigint;
+  ctimeNs: bigint;
+  sampleSha256: string;
+}
+
+interface CachedFileIdentity {
+  identity: FileIdentity;
+  stamp: FileIdentityStamp;
+}
+
+const trustedFileIdentities = new Map<string, CachedFileIdentity>();
+
 export function fileIdentity(path: string): FileIdentity {
   return {
     path,
     sizeBytes: statSync(path).size,
     sha256: sha256File(path),
   };
+}
+
+export function rememberTrustedFileIdentity(identity: FileIdentity): void {
+  if (!identity.path) {
+    return;
+  }
+  const stamp = fileIdentityStamp(identity.path);
+  if (stamp.size !== BigInt(identity.sizeBytes)) {
+    return;
+  }
+  trustedFileIdentities.set(identity.path, { identity, stamp });
+}
+
+export function trustedFileIdentity(path: string): FileIdentity | undefined {
+  const cached = trustedFileIdentities.get(path);
+  if (!cached) {
+    return undefined;
+  }
+  if (!sameFileIdentityStamp(cached.stamp, fileIdentityStamp(path))) {
+    trustedFileIdentities.delete(path);
+    return undefined;
+  }
+  return cached.identity;
+}
+
+function fileIdentityStamp(path: string): FileIdentityStamp {
+  const st = statSync(path, { bigint: true });
+  return {
+    dev: st.dev,
+    ino: st.ino,
+    size: st.size,
+    mtimeNs: st.mtimeNs,
+    ctimeNs: st.ctimeNs,
+    sampleSha256: sampleSha256(path, st.size),
+  };
+}
+
+function sameFileIdentityStamp(a: FileIdentityStamp, b: FileIdentityStamp): boolean {
+  return (
+    a.dev === b.dev &&
+    a.ino === b.ino &&
+    a.size === b.size &&
+    a.mtimeNs === b.mtimeNs &&
+    a.ctimeNs === b.ctimeNs &&
+    a.sampleSha256 === b.sampleSha256
+  );
+}
+
+function sampleSha256(path: string, size: bigint): string {
+  const h = createHash("sha256");
+  const fd = openSync(path, "r");
+  try {
+    const offsets = sampleOffsets(size);
+    const buf = Buffer.allocUnsafe(4096);
+    for (const offset of offsets) {
+      const nread = readSync(fd, buf, 0, buf.length, Number(offset));
+      if (nread > 0) {
+        h.update(buf.subarray(0, nread));
+      }
+    }
+  } finally {
+    closeSync(fd);
+  }
+  return h.digest("hex");
+}
+
+function sampleOffsets(size: bigint): bigint[] {
+  if (size <= 0n) {
+    return [];
+  }
+  const last = size > 4096n ? size - 4096n : 0n;
+  return [...new Set([0n, size / 2n, last])];
 }
 
 function sha256File(path: string): string {
