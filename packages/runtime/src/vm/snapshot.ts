@@ -25,6 +25,7 @@ import type {
 import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
 import { relativeCheckpointParent, VMSTATE_SECTION, vmstateSectionTags } from "./vmstate-chain.ts";
 import { copyVmstateRootDisk, finalizeVmstateRootDisk } from "./snapshot-rootdisk.ts";
+import { waitForVmstateFile } from "./vmstate-wait.ts";
 import {
   currentVmstateBackend,
   currentVmstateGuestArch,
@@ -742,8 +743,10 @@ async function captureVmstateSnapshotBundle(
   phases.start("pause-critical-section");
   const bundle = await withPausedVmstateSource(ctx, async () => {
     phases.start("wait-state-file");
-    await waitForVmstateFile(ctx.vmstatePath!, deadlineMs);
+    const waitStats = await waitForVmstateFile(ctx.vmstatePath!, deadlineMs);
     phases.end("wait-state-file");
+    phases.mark("wait-state-file.poll-sleep", waitStats.pollSleepMs);
+    phases.mark("wait-state-file.detect-latency", waitStats.detectLatencyMs);
     phases.start("copy-state-file");
     const bundleStatePath = copyVmstateStateIntoBundle(ctx.vmstatePath!, snapDir);
     phases.end("copy-state-file");
@@ -949,26 +952,4 @@ function checkpointRootDiskMode(
     return "none";
   }
   return flags.hasRootdiskDelta ? "delta" : "full";
-}
-
-// Poll for the VMM's atomically-written `.vmstate` to (re)appear. The
-// VMM writes `<path>.tmp` then rename()s it onto `<path>`, so the file
-// existing with a non-zero size means the dump is complete.
-async function waitForVmstateFile(path: string, deadlineMs: number): Promise<void> {
-  const deadline = Date.now() + deadlineMs;
-  while (Date.now() < deadline) {
-    try {
-      if (statSync(path).size > 0) {
-        return;
-      }
-    } catch {
-      // ENOENT — not written yet.
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  throw new SnapshotError(
-    "SNAPSHOT_TIMEOUT",
-    `vm.snapshot: the VMM did not write its .vmstate within ${deadlineMs}ms (${path}).\n` +
-      `  The VM may not have been booted with MACHINEN_SNAPSHOT_ENGINE=vmstate.`,
-  );
 }
