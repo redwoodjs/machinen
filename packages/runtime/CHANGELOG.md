@@ -1,5 +1,11 @@
 # @machinen/runtime
 
+## 0.6.1
+
+### Patch Changes
+
+- 4b82923: Preserve sparse rootdisk holes during prebake extraction and Linux copy fallback so boot and restore avoid full 2 GiB physical writes when reflinks are unavailable.
+
 ## 0.6.0
 
 ### Minor Changes

@@ -1,5 +1,7 @@
 # @machinen/native-arm64-darwin
 
+## 0.6.1
+
 ## 0.6.0
 
 ## 0.5.0
