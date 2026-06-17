@@ -52,7 +52,7 @@ const TARBALL_CACHE = join(homedir(), ".cache", "machinen-bench", "tarballs");
 // (kernel / dtb / starter image). The fallback path covers a fresh
 // checkout that hasn't built release-assets yet.
 const ASSETS = join(REPO_ROOT, "release-assets");
-const FALLBACK_BASE = join(homedir(), ".machinen", "runtime-v0.0.0", "bases", "debian-arm64");
+type GuestArch = "amd64" | "arm64";
 
 interface CliArgs {
   noDocker: boolean;
@@ -265,7 +265,7 @@ type BenchVmHandle = Awaited<ReturnType<RuntimeBoot>>;
 
 interface BenchVmInputs {
   kernel: string;
-  dtb: string;
+  dtb?: string;
   image: string;
 }
 
@@ -294,16 +294,41 @@ async function runMountBench(tarballPath: string, fixtureKey: string): Promise<R
 }
 
 function resolveBenchVmInputs(): BenchVmInputs {
-  const inputs = {
-    kernel: pickFirstExisting([join(ASSETS, "Image-arm64"), join(FALLBACK_BASE, "Image")]),
-    dtb: pickFirstExisting([join(ASSETS, "virt-arm64.dtb"), join(FALLBACK_BASE, "virt.dtb")]),
-    image: pickFirstExisting([
-      join(ASSETS, "rootfs-debian-arm64.tar.gz"),
-      join(FALLBACK_BASE, "rootfs.tar.gz"),
-    ]),
-  };
-  ensureBenchFixtures([inputs.kernel, inputs.dtb, inputs.image]);
+  const guestArch = defaultGuestArch();
+  const fallbackBase = join(
+    homedir(),
+    ".machinen",
+    "runtime-v0.0.0",
+    "bases",
+    `debian-${guestArch}`,
+  );
+  const inputs =
+    guestArch === "amd64"
+      ? {
+          kernel: pickFirstExisting([join(ASSETS, "bzImage-x86_64"), join(fallbackBase, "Image")]),
+          image: pickFirstExisting([
+            join(ASSETS, "rootfs-debian-amd64.tar.gz"),
+            join(fallbackBase, "rootfs.tar.gz"),
+          ]),
+        }
+      : {
+          kernel: pickFirstExisting([join(ASSETS, "Image-arm64"), join(fallbackBase, "Image")]),
+          dtb: pickFirstExisting([join(ASSETS, "virt-arm64.dtb"), join(fallbackBase, "virt.dtb")]),
+          image: pickFirstExisting([
+            join(ASSETS, "rootfs-debian-arm64.tar.gz"),
+            join(fallbackBase, "rootfs.tar.gz"),
+          ]),
+        };
+  ensureBenchFixtures([inputs.kernel, inputs.dtb, inputs.image].filter(Boolean));
   return inputs;
+}
+
+function defaultGuestArch(): GuestArch {
+  const override = process.env.MACHINEN_GUEST_ARCH;
+  if (override === "amd64" || override === "arm64") {
+    return override;
+  }
+  return arch === "x64" ? "amd64" : "arm64";
 }
 
 function ensureBenchFixtures(paths: string[]): void {

@@ -1,5 +1,16 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import {
+  closeSync,
+  existsSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  truncateSync,
+  writeFileSync,
+  writeSync,
+} from "node:fs";
+import { platform, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { reflinkCopy } from "../reflink.ts";
@@ -33,5 +44,34 @@ describe("reflinkCopy", () => {
     reflinkCopy(src, dst);
     writeFileSync(src, Buffer.from("modified-after-clone"));
     expect(readFileSync(dst).toString()).toBe("original");
+  });
+
+  it("preserves holes when Linux falls back from FICLONE to a byte copy", () => {
+    if (platform() !== "linux") {
+      return;
+    }
+    workDir = mkdtempSync(join(tmpdir(), "reflink-test-sparse-"));
+    const src = join(workDir, "src.bin");
+    const dst = join(workDir, "dst.bin");
+    const fd = openSync(src, "w");
+    try {
+      truncateSync(src, 16 * 1024 * 1024);
+      const payload = Buffer.from("payload");
+      writeSync(fd, payload, 0, payload.length, 8 * 1024 * 1024);
+    } finally {
+      closeSync(fd);
+    }
+
+    reflinkCopy(src, dst);
+
+    const srcStat = statSync(src);
+    const dstStat = statSync(dst);
+    expect(dstStat.size).toBe(srcStat.size);
+    expect(
+      readFileSync(dst)
+        .subarray(8 * 1024 * 1024, 8 * 1024 * 1024 + 7)
+        .toString(),
+    ).toBe("payload");
+    expect(dstStat.blocks * 512).toBeLessThan(srcStat.size / 4);
   });
 });

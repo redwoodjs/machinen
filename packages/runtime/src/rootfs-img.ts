@@ -236,7 +236,9 @@ function resolveRootfsCachePaths(
     );
   }
   const cacheDir = opts.cacheDir ?? rootfsImgCacheDir();
+  const cacheDirT0 = Date.now();
   mkdirSync(cacheDir, { recursive: true });
+  opts.onPhase?.("cache-dir", Date.now() - cacheDirT0);
 
   const shaT0 = Date.now();
   const sha = sha256OfFile(tarAbs);
@@ -249,14 +251,19 @@ function tryReusableCachedRootfs(
   paths: RootfsCachePaths,
   opts: EnsureRootfsImageOptions,
 ): string | undefined {
-  if (opts.force || !existsSync(paths.imgPath)) {
+  const probeT0 = Date.now();
+  const cachePresent = !opts.force && existsSync(paths.imgPath);
+  opts.onPhase?.("cache-probe", Date.now() - probeT0);
+  if (!cachePresent) {
     return undefined;
   }
   debug("cache hit sha=%s img=%s", paths.sha.slice(0, 12), paths.imgPath);
-  if (!cachedImageHasCleanMarker(paths)) {
+  if (!cachedImageHasCleanMarker(paths, opts)) {
     return undefined;
   }
+  const markInUseT0 = Date.now();
   markCachedImageInUse(paths.okPath);
+  opts.onPhase?.("cache-mark-in-use", Date.now() - markInUseT0);
   if (!fsckCachedRootfs(paths.imgPath, opts)) {
     debug("cache hit unusable, will rematerialize img=%s", paths.imgPath);
     return undefined;
@@ -265,8 +272,14 @@ function tryReusableCachedRootfs(
   return paths.imgPath;
 }
 
-function cachedImageHasCleanMarker(paths: RootfsCachePaths): boolean {
-  if (existsSync(paths.okPath)) {
+function cachedImageHasCleanMarker(
+  paths: RootfsCachePaths,
+  opts: EnsureRootfsImageOptions,
+): boolean {
+  const markerT0 = Date.now();
+  const hasMarker = existsSync(paths.okPath);
+  opts.onPhase?.("cache-clean-marker", Date.now() - markerT0);
+  if (hasMarker) {
     return true;
   }
   debug("cache hit but no clean marker, will rematerialize img=%s", paths.imgPath);
@@ -312,8 +325,11 @@ function tryPrebakedRootfs(
   if (opts.force) {
     return undefined;
   }
+  const siblingProbeT0 = Date.now();
   const sibling = siblingPrebakePath(paths.tarAbs);
-  if (!sibling || !existsSync(sibling)) {
+  const siblingExists = Boolean(sibling && existsSync(sibling));
+  opts.onPhase?.("prebake-probe", Date.now() - siblingProbeT0);
+  if (!sibling || !siblingExists) {
     return undefined;
   }
   const prebakeT0 = Date.now();
@@ -354,14 +370,20 @@ function materializeRootfsFromTar(
   opts: EnsureRootfsImageOptions,
   mke2fs: string,
 ): string {
+  const stagingT0 = Date.now();
   const staging = createRootfsStaging(paths);
+  opts.onPhase?.("staging-create", Date.now() - stagingT0);
   try {
     debug("materialize sha=%s tar=%s", paths.sha.slice(0, 12), paths.tarAbs);
     extractRootfsTarball(paths.tarAbs, staging.stagingTree, opts);
     const sizeBytes = sizeRootfsImage(staging.stagingTree, opts);
+    const allocT0 = Date.now();
     allocateSparseFile(staging.stagingImg, sizeBytes);
+    opts.onPhase?.("sparse-allocate", Date.now() - allocT0);
     runMke2fs(mke2fs, staging.stagingTree, staging.stagingImg, sizeBytes, opts);
+    const renameT0 = Date.now();
     renameSync(staging.stagingImg, paths.imgPath);
+    opts.onPhase?.("rename", Date.now() - renameT0);
     debug(
       "materialize done sha=%s img=%s sizeBytes=%d",
       paths.sha.slice(0, 12),
@@ -370,9 +392,11 @@ function materializeRootfsFromTar(
     );
     return paths.imgPath;
   } finally {
+    const cleanupT0 = Date.now();
     try {
       rmSync(staging.stagingDir, { recursive: true, force: true });
     } catch {}
+    opts.onPhase?.("staging-cleanup", Date.now() - cleanupT0);
   }
 }
 
@@ -394,6 +418,7 @@ function extractRootfsTarball(
 }
 
 function sizeRootfsImage(stagingTree: string, opts: EnsureRootfsImageOptions): number {
+  const sizeT0 = Date.now();
   const treeBytes = duBytes(stagingTree);
   const multiplier = opts.sizeMultiplier ?? 2.5;
   const minBytes = opts.minSizeBytes ?? 2 * 1024 * 1024 * 1024;
@@ -405,6 +430,7 @@ function sizeRootfsImage(stagingTree: string, opts: EnsureRootfsImageOptions): n
     multiplier,
     opts.sizeBytes !== undefined,
   );
+  opts.onPhase?.("size", Date.now() - sizeT0);
   return sizeBytes;
 }
 
@@ -651,25 +677,7 @@ function tryPrebakeFromSibling(args: {
   const stagingImg = join(stagingDir, "rootfs.img");
   try {
     debug("prebake try sibling=%s sha=%s", sibling, sha.slice(0, 12));
-    const dstFd = openSync(stagingImg, "w");
-    let gunzipOk = false;
-    try {
-      const r = spawnSync("gunzip", ["-c", sibling], {
-        stdio: ["ignore", dstFd, "pipe"],
-      });
-      gunzipOk = r.status === 0;
-      if (!gunzipOk) {
-        debug(
-          "prebake gunzip failed sibling=%s status=%s stderr=%s",
-          sibling,
-          r.status,
-          r.stderr?.toString().slice(0, 200) ?? "",
-        );
-      }
-    } finally {
-      closeSync(dstFd);
-    }
-    if (!gunzipOk) {
+    if (!gunzipPrebakeToFile(sibling, stagingImg)) {
       return undefined;
     }
     // Sniff ext4 magic so a corrupted / wrong-content sibling can't
@@ -701,6 +709,89 @@ function tryPrebakeFromSibling(args: {
     } catch {}
   }
 }
+
+function gunzipPrebakeToFile(sibling: string, dst: string): boolean {
+  const sparse = sparseGunzipPrebakeToFile(sibling, dst);
+  if (sparse) {
+    return true;
+  }
+  debug("prebake sparse gunzip failed; falling back to full gunzip sibling=%s", sibling);
+  return fullGunzipPrebakeToFile(sibling, dst);
+}
+
+function fullGunzipPrebakeToFile(sibling: string, dst: string): boolean {
+  const dstFd = openSync(dst, "w");
+  try {
+    const r = spawnSync("gunzip", ["-c", sibling], {
+      stdio: ["ignore", dstFd, "pipe"],
+    });
+    if (r.status === 0) {
+      return true;
+    }
+    debug(
+      "prebake gunzip failed sibling=%s status=%s stderr=%s",
+      sibling,
+      r.status,
+      r.stderr?.toString().slice(0, 200) ?? "",
+    );
+    return false;
+  } finally {
+    closeSync(dstFd);
+  }
+}
+
+function sparseGunzipPrebakeToFile(sibling: string, dst: string): boolean {
+  const r = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", SPARSE_GUNZIP_WORKER, sibling, dst],
+    {
+      stdio: ["ignore", "ignore", "pipe"],
+    },
+  );
+  if (r.status === 0) {
+    return true;
+  }
+  debug(
+    "prebake sparse gunzip failed sibling=%s status=%s stderr=%s",
+    sibling,
+    r.status,
+    r.stderr?.toString().slice(0, 200) ?? "",
+  );
+  return false;
+}
+
+const SPARSE_GUNZIP_WORKER = String.raw`
+import { closeSync, ftruncateSync, openSync, writeSync } from "node:fs";
+import { createReadStream } from "node:fs";
+import { createGunzip } from "node:zlib";
+
+const [sibling, dst] = process.argv.slice(1);
+const fd = openSync(dst, "w");
+let offset = 0;
+
+function isAllZero(buf) {
+  for (let i = 0; i < buf.length; i++) {
+    if (buf[i] !== 0) return false;
+  }
+  return true;
+}
+
+try {
+  const gunzip = createReadStream(sibling).pipe(createGunzip());
+  for await (const chunk of gunzip) {
+    if (!isAllZero(chunk)) {
+      writeSync(fd, chunk, 0, chunk.length, offset);
+    }
+    offset += chunk.length;
+  }
+  ftruncateSync(fd, offset);
+  closeSync(fd);
+} catch (err) {
+  try { closeSync(fd); } catch {}
+  console.error(err instanceof Error ? err.stack || err.message : String(err));
+  process.exit(1);
+}
+`;
 
 // Extract `tarPath` into `dest` with mode-bit fidelity.
 //
@@ -851,4 +942,5 @@ export const _rootfsImgInternal = {
   okMarkerPath,
   siblingPrebakePath,
   extractTarball,
+  gunzipPrebakeToFile,
 };

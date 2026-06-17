@@ -17191,7 +17191,7 @@ VMM backend that wrote `state.vmstate`.
 
 ##### guestArch?
 
-> `optional` **guestArch?**: `"amd64"` \| `"arm64"` \| `"unknown"`
+> `optional` **guestArch?**: `"amd64"` \| `"unknown"` \| `"arm64"`
 
 Guest CPU architecture captured in `state.vmstate`; restore must match.
 

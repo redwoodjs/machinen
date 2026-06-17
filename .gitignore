@@ -45,3 +45,9 @@ packages/vmm-arm64-linux/
 
 # Validation profiler outputs.
 .validation-runs/
+
+# Raw benchmark captures are too noisy and large for git history.
+# Store durable runs as GitHub Release assets in redwoodjs/machinen-benchmarks.
+bench-results/**
+!bench-results/
+!bench-results/README.md

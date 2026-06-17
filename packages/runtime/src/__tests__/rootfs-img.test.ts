@@ -24,6 +24,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import {
   boot,
@@ -103,6 +104,26 @@ describe("ensureRootfsImage", () => {
       try {
         unlinkSync(stub);
       } catch {}
+    }
+  });
+
+  it("sparse prebake gunzip preserves large zero ranges as holes", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-rootfs-sparse-gunzip-"));
+    const gz = join(dir, "rootfs.img.gz");
+    const out = join(dir, "rootfs.img");
+    const image = Buffer.alloc(8 * 1024 * 1024);
+    image[1080] = 0x53;
+    image[1081] = 0xef;
+    image.write("payload", 4 * 1024 * 1024);
+    writeFileSync(gz, gzipSync(image));
+    try {
+      expect(_internal.gunzipPrebakeToFile(gz, out)).toBe(true);
+      const st = statSync(out);
+      expect(st.size).toBe(image.length);
+      expect(_internal.looksLikeExt4(out)).toBe(true);
+      expect(st.blocks * 512).toBeLessThan(image.length / 4);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 
