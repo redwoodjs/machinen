@@ -33,21 +33,15 @@ import {
   PortableSnapshotValidationError,
   validatePortableSnapshotBundle,
 } from "./portable-snapshot.ts";
+import { validateIdentity } from "./restore-identity.ts";
 import { reseedVmstateGuestEntropy } from "./restore-reseed.ts";
 import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
 import { materializeVmstateChain } from "./vmstate-chain.ts";
-import type {
-  SnapshotFileIdentity,
-  SnapshotMeta,
-  VmHandle,
-  VmstateSnapshotMeta,
-} from "../vm-handle.ts";
+import type { SnapshotMeta, VmHandle, VmstateSnapshotMeta } from "../vm-handle.ts";
 import {
   currentVmstateBackend,
   currentVmstateGuestArch,
-  fileIdentity,
   readVmstateFacts,
-  trustedFileIdentity,
   type VmstateFacts,
 } from "./vmstate-metadata.ts";
 import {
@@ -831,31 +825,6 @@ function resolveFileVmstateRootDisk(
   }
   validateIdentity("rootdisk", bundled, recorded, phases, "bundled");
   return { rootDiskRestorePath: bundled };
-}
-
-function validateIdentity(
-  label: string,
-  path: string,
-  expected: SnapshotFileIdentity,
-  phases: PhaseTimer | undefined,
-  source: "bundled" | "external",
-): void {
-  if (!existsSync(path)) {
-    throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `restore: ${label} not found: ${path}`);
-  }
-  const cached = source === "bundled" ? trustedFileIdentity(path) : undefined;
-  phases?.start(cached ? `${label}-identity.cache-hit` : `${label}-identity.sha256`);
-  const actual = cached ?? fileIdentity(path);
-  phases?.end(cached ? `${label}-identity.cache-hit` : `${label}-identity.sha256`);
-  if (actual.sizeBytes !== expected.sizeBytes || actual.sha256 !== expected.sha256) {
-    throw new BootError(
-      "BOOT_VMSTATE_UNSUPPORTED",
-      `restore: ${label} identity mismatch.\n` +
-        `  expected: size=${expected.sizeBytes} sha256=${expected.sha256}\n` +
-        `  actual:   size=${actual.sizeBytes} sha256=${actual.sha256}\n` +
-        "  vmstate restore requires byte-identical artifacts.",
-    );
-  }
 }
 
 /**

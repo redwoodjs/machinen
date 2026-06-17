@@ -133,6 +133,10 @@ export async function attach(opts: AttachOptions = {}): Promise<VmHandle> {
       return VsockExec.run(entry.socketPath, cmd, teeOnLog(cmd, execOpts, opts.onLog));
     },
 
+    syncVmstateSnapshot(execOpts) {
+      return VsockExec.syncVmstate(entry.socketPath, execOpts);
+    },
+
     execPty(cmd, ptyOpts) {
       return VsockExec.startPty(entry.socketPath, cmd, ptyOpts);
     },
@@ -234,6 +238,7 @@ export async function attach(opts: AttachOptions = {}): Promise<VmHandle> {
         : undefined,
       nested: entry.nested,
       execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
+      syncVmstateSnapshot: (execOpts) => handle.syncVmstateSnapshot?.(execOpts),
       wait: () => handle.wait(),
       kill: () => handle.kill(),
       // Attach handles don't own the VMM child, so there's no guest

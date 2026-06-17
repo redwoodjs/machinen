@@ -4,7 +4,7 @@
 // the framed output stream until an `X <code>\n` terminator, returns
 // stdout/stderr + the exit code.
 //
-// Two on-the-wire opcodes:
+// Guest exec-agent wire opcodes:
 //   `EXEC <cmd>\n`            — legacy single-line cmd (no \r or \n).
 //                                Compatible with all agents.
 //   `EXEC2 <byte-len>\n<cmd>` — length-prefixed cmd; supports any byte
@@ -100,6 +100,10 @@ export const VsockExec = {
     return runWithRetry(udsPath, opts, "reseedVmstate", (socket) =>
       runReseedOnSocket(socket, seedHex, opts),
     );
+  },
+
+  async syncVmstate(udsPath: string, opts: VsockExecOptions = {}): Promise<VsockExecResult> {
+    return runWithRetry(udsPath, opts, "syncVmstate", (socket) => runSyncOnSocket(socket, opts));
   },
 
   /**
@@ -310,6 +314,16 @@ function runReseedOnSocket(
     () => {
       socket.write(`RESEED ${buf.length}\n`);
       socket.write(buf);
+    },
+    opts,
+  );
+}
+
+function runSyncOnSocket(socket: Socket, opts: VsockExecOptions): Promise<VsockExecResult> {
+  return runFramedRequestOnSocket(
+    socket,
+    () => {
+      socket.write("SYNC\n");
     },
     opts,
   );

@@ -70,6 +70,9 @@ export interface VmHandle {
   /** Internal fast path for vmstate restore entropy reseed; avoids shell startup. */
   reseedVmstateEntropy?(seedHex: string, opts?: VsockExecOptions): Promise<VsockExecResult>;
 
+  /** Internal fast path for vmstate pre-snapshot filesystem sync; avoids shell startup. */
+  syncVmstateSnapshot?(opts?: VsockExecOptions): Promise<VsockExecResult>;
+
   /**
    * Run a shell command inside a pseudoterminal. Bidirectional bytes
    * flow between `opts.stdin` and `opts.stdout`; the returned handle's
@@ -336,6 +339,11 @@ export interface SnapshotFileIdentity {
   sizeBytes: number;
   /** SHA-256 over the logical file bytes. */
   sha256: string;
+  /** Cheap bundled-artifact proof for Machinen-managed rootdisk clones. */
+  trustedContentSample?: {
+    algorithm: "machinen-rootdisk-sample-v1";
+    sha256: string;
+  };
 }
 
 export interface VmstateSnapshotMeta {

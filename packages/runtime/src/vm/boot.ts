@@ -27,6 +27,7 @@ import {
   runVsockWithBootDiagnostics,
   waitForDetachedExecAgent,
 } from "./boot-diagnostics.ts";
+import { makeReseedVmstateEntropy, makeSyncVmstateSnapshot } from "./vsock-handle-ops.ts";
 import { bootSnapshotPath, writeBootSnapshot } from "../detached-log.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "../errors.ts";
 import { VsockExec } from "../exec.ts";
@@ -1819,6 +1820,11 @@ function createBootVmHandle(args: BootHandleArgs): VmHandle {
       args.child,
       args.errorCollector,
     ),
+    syncVmstateSnapshot: makeSyncVmstateSnapshot(
+      args.vsockUdsPath,
+      args.child,
+      args.errorCollector,
+    ),
     execPty: makeExecPty(args.vsockUdsPath),
     writeFile: makeWriteFile(() => handle),
     memoryStats: makeMemoryStats(args.childPid, args.statsFilePath, args.memoryCeilingMib),
@@ -1868,21 +1874,6 @@ function makeExecRaw(
     }
     return runVsockWithBootDiagnostics(child, errorCollector, () =>
       VsockExec.run(vsockUdsPath, cmd, teeOnLog(cmd, execOpts, onLog)),
-    );
-  };
-}
-
-function makeReseedVmstateEntropy(
-  vsockUdsPath: string | undefined,
-  child: ChildProcessWithoutNullStreams,
-  errorCollector: Promise<string>,
-): NonNullable<VmHandle["reseedVmstateEntropy"]> {
-  return (seedHex, execOpts) => {
-    if (!vsockUdsPath) {
-      return Promise.reject(missingVsockError("reseedVmstateEntropy"));
-    }
-    return runVsockWithBootDiagnostics(child, errorCollector, () =>
-      VsockExec.reseedVmstate(vsockUdsPath, seedHex, execOpts),
     );
   };
 }
@@ -2024,6 +2015,7 @@ function buildBootSnapshotContext(
     updateVmstateChain: snapshotVmstateUpdater(args.vmstate, args.childPid),
     nested: args.nested,
     execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
+    syncVmstateSnapshot: (execOpts) => handle.syncVmstateSnapshot?.(execOpts),
     wait: () => handle.wait(),
     kill: () => handle.kill(),
     teeGuestConsole: (onChunk) => {

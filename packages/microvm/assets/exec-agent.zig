@@ -5,6 +5,7 @@
 //!
 //!   client -> "EXEC <shell command>\n"            (single line, legacy)
 //!         or "EXEC2 <byte-len>\n<shell command>"  (length-prefixed; #112)
+//!         or "SYNC\n"                            (direct guest sync)
 //!   agent  -> framed output chunks until the command exits:
 //!               "O <n>\n" + n bytes of stdout
 //!               "E <n>\n" + n bytes of stderr
@@ -54,6 +55,7 @@ extern "c" fn signal(signum: c_int, handler: usize) usize;
 extern "c" fn kill(pid: pid_t, sig: c_int) c_int;
 extern "c" fn unlink(path: [*:0]const u8) c_int;
 extern "c" fn usleep(usec: c_uint) c_int;
+extern "c" fn sync() void;
 // PTY plumbing for the PTY opcode (#133).
 //   forkpty(3) — musl ships it in the main libc (no -lutil needed).
 //     Allocates a /dev/ptmx + /dev/pts/N pair, forks, dups the slave
@@ -932,6 +934,7 @@ fn handle_connection(client_fd: c_int, alloc: std.mem.Allocator) void {
         return handle_ptysession(client_fd, line);
     }
     if (std.mem.startsWith(u8, line, "PTY ")) return handle_pty(client_fd, line, alloc);
+    if (std.mem.eql(u8, line, "SYNC")) return handle_sync(client_fd);
     if (std.mem.startsWith(u8, line, "RESEED ")) return handle_reseed(client_fd, line);
     if (std.mem.startsWith(u8, line, "EXEC2 ")) return handle_exec2(client_fd, line, alloc);
     if (line.len < 5 or !std.mem.startsWith(u8, line, "EXEC ")) {
@@ -1040,6 +1043,12 @@ fn handle_pty(client_fd: c_int, line: []const u8, alloc: std.mem.Allocator) void
     run_pty_command(client_fd, cmd_buf, h.cols, h.rows, alloc) catch |err| {
         log_run_error("pty", err);
     };
+}
+
+fn handle_sync(client_fd: c_int) void {
+    std.debug.assert(client_fd >= 0);
+    sync();
+    send_exit(client_fd, 0);
 }
 
 fn handle_reseed(client_fd: c_int, line: []const u8) void {

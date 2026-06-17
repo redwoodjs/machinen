@@ -25,6 +25,7 @@ import type {
 import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
 import { relativeCheckpointParent, VMSTATE_SECTION, vmstateSectionTags } from "./vmstate-chain.ts";
 import { copyVmstateRootDisk, finalizeVmstateRootDisk } from "./snapshot-rootdisk.ts";
+import { waitForVmstateFile } from "./vmstate-wait.ts";
 import {
   currentVmstateBackend,
   currentVmstateGuestArch,
@@ -118,6 +119,7 @@ export interface SnapshotContext {
    */
   nested?: boolean;
   execRaw: (cmd: string, opts?: VsockExecOptions) => Promise<VsockExecResult>;
+  syncVmstateSnapshot?: (opts?: VsockExecOptions) => Promise<VsockExecResult> | undefined;
   wait: () => Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
   kill: () => Promise<void>;
   teeGuestConsole: ((onChunk: (chunk: Buffer) => void) => void) | undefined;
@@ -675,8 +677,9 @@ async function performSnapshotVmstate(
   clearVmstateStateFile(ctx.vmstatePath!);
   phases.end("prepare");
   phases.start("guest-sync");
-  await syncGuestForVmstateSnapshot(ctx, deadlineMs);
-  phases.end("guest-sync");
+  const syncMode = await syncGuestForVmstateSnapshot(ctx, deadlineMs);
+  const syncMs = phases.end("guest-sync");
+  phases.mark(`guest-sync.${syncMode}`, syncMs);
   const result = await captureVmstateSnapshotBundle(ctx, snapDir, deadlineMs, t0, phases);
   phases.flush(debugVmstate, "snapshot", result.elapsedMs);
   return result;
@@ -714,18 +717,51 @@ function clearVmstateStateFile(vmstatePath: string): void {
 async function syncGuestForVmstateSnapshot(
   ctx: SnapshotContext,
   deadlineMs: number,
-): Promise<void> {
+): Promise<"direct" | "shell" | "failed"> {
   try {
-    await ctx.execRaw(VMSTATE_PRE_SNAPSHOT_SYNC, {
-      connectTimeoutMs: Math.min(deadlineMs, 5_000),
-      execTimeoutMs: 10_000,
-    });
+    const direct = await tryDirectVmstateSync(ctx, deadlineMs);
+    if (direct) {
+      return "direct";
+    }
+    await shellVmstateSync(ctx, deadlineMs);
+    return "shell";
   } catch (err) {
     debugVmstate(
       "pre-snapshot sync failed (continuing): %s",
       err instanceof Error ? err.message : String(err),
     );
+    return "failed";
   }
+}
+
+async function tryDirectVmstateSync(ctx: SnapshotContext, deadlineMs: number): Promise<boolean> {
+  if (!ctx.syncVmstateSnapshot) {
+    return false;
+  }
+  try {
+    const res = await ctx.syncVmstateSnapshot({
+      connectTimeoutMs: Math.min(deadlineMs, 5_000),
+      execTimeoutMs: 10_000,
+    });
+    if (res.exitCode === 0) {
+      debugVmstate("pre-snapshot sync mode=direct");
+      return true;
+    }
+    debugVmstate("pre-snapshot direct sync exit=%d; falling back", res.exitCode);
+  } catch (err) {
+    debugVmstate(
+      "pre-snapshot direct sync unavailable; falling back: %s",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+  return false;
+}
+
+async function shellVmstateSync(ctx: SnapshotContext, deadlineMs: number): Promise<void> {
+  await ctx.execRaw(VMSTATE_PRE_SNAPSHOT_SYNC, {
+    connectTimeoutMs: Math.min(deadlineMs, 5_000),
+    execTimeoutMs: 10_000,
+  });
 }
 
 const VMSTATE_PRE_SNAPSHOT_SYNC =
@@ -742,8 +778,10 @@ async function captureVmstateSnapshotBundle(
   phases.start("pause-critical-section");
   const bundle = await withPausedVmstateSource(ctx, async () => {
     phases.start("wait-state-file");
-    await waitForVmstateFile(ctx.vmstatePath!, deadlineMs);
+    const waitStats = await waitForVmstateFile(ctx.vmstatePath!, deadlineMs);
     phases.end("wait-state-file");
+    phases.mark("wait-state-file.poll-sleep", waitStats.pollSleepMs);
+    phases.mark("wait-state-file.detect-latency", waitStats.detectLatencyMs);
     phases.start("copy-state-file");
     const bundleStatePath = copyVmstateStateIntoBundle(ctx.vmstatePath!, snapDir);
     phases.end("copy-state-file");
@@ -949,26 +987,4 @@ function checkpointRootDiskMode(
     return "none";
   }
   return flags.hasRootdiskDelta ? "delta" : "full";
-}
-
-// Poll for the VMM's atomically-written `.vmstate` to (re)appear. The
-// VMM writes `<path>.tmp` then rename()s it onto `<path>`, so the file
-// existing with a non-zero size means the dump is complete.
-async function waitForVmstateFile(path: string, deadlineMs: number): Promise<void> {
-  const deadline = Date.now() + deadlineMs;
-  while (Date.now() < deadline) {
-    try {
-      if (statSync(path).size > 0) {
-        return;
-      }
-    } catch {
-      // ENOENT — not written yet.
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  throw new SnapshotError(
-    "SNAPSHOT_TIMEOUT",
-    `vm.snapshot: the VMM did not write its .vmstate within ${deadlineMs}ms (${path}).\n` +
-      `  The VM may not have been booted with MACHINEN_SNAPSHOT_ENGINE=vmstate.`,
-  );
 }

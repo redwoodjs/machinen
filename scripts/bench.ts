@@ -1,22 +1,10 @@
-// Raw benchmark capture for #935.
-//
-// Captures one JSON document per run with:
-//   - cold/warm boot phase timing
-//   - cold/warm vmstate restore phase timing
-//   - snapshot wall time and bundle size for the restore source
-//   - raw CPU hash throughput: host native, guest, guest with quota
-//   - host RSS after touching guest tmpfs memory at selected sizes
-//   - optional live-mount and gvproxy network suites
-// Usage:
-//   pnpm bench --json-dir bench-results  # defaults to --n 5 --suite all
-//   pnpm bench --suite core --guest-arch amd64 --n 1 --json /tmp/machinen-bench.json
-
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { arch as hostArch, homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runMountBenchSuite, runNetBenchSuite } from "./bench/external-suites.ts";
+import { runOneFork } from "./bench/fork.ts";
 import {
   assetMetadata,
   filesystemMetadata,
@@ -36,7 +24,7 @@ async function loadRuntime(): Promise<RuntimeMod> {
   if (!runtime) {
     process.env.DEBUG =
       (process.env.DEBUG ?? "") +
-      ",machinen:boot,machinen:restore,machinen:snapshot,machinen:vmstate,machinen:reflink";
+      ",machinen:boot,machinen:restore,machinen:snapshot,machinen:vmstate,machinen:fork,machinen:reflink";
     runtime = await import("@machinen/runtime");
   }
   return runtime;
@@ -99,8 +87,6 @@ interface SnapshotSample {
   bundleApparentBytes: number;
   bundleAllocatedBytes: number;
   phases: Map<string, number>;
-  sourcePauseMs: number | null;
-  sourcePauseNote: string;
 }
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
@@ -605,9 +591,6 @@ async function takeSnapshot(
         bundleApparentBytes: size.apparentBytes,
         bundleAllocatedBytes: size.allocatedBytes,
         phases: snapshotPhases?.phases ?? new Map<string, number>(),
-        sourcePauseMs: null,
-        sourcePauseNote:
-          "not separately exposed by runtime yet; vmstate source is paused during the SIGUSR1/SIGUSR2 snapshot critical section",
       },
     };
   } catch (err) {
@@ -636,6 +619,7 @@ async function runLatencyBench(args: Args, assets: AssetPaths): Promise<JsonValu
   const snapshots: SnapshotSample[] = [];
   const restoreCold: PhaseLine[] = [];
   const restoreWarm: PhaseLine[] = [];
+  const forks: PhaseLine[] = [];
   try {
     for (let i = 0; i < args.n; i++) {
       const snapshot = await takeSnapshot(assets, i + 1);
@@ -664,6 +648,17 @@ async function runLatencyBench(args: Args, assets: AssetPaths): Promise<JsonValu
         await runOneRestore(assets, restoreSnapDir, `restore-warm-${i + 1}`),
       );
     }
+    for (let i = 0; i < args.n; i++) {
+      forks.push(
+        await runOneFork(assets, `fork-${i + 1}`, {
+          loadRuntime,
+          captureStderr,
+          phaseLinesForKinds,
+          elapsedSinceMs,
+          delay,
+        }),
+      );
+    }
   } finally {
     for (const snapDir of snapDirs) {
       cleanupSnapshotDir(snapDir);
@@ -675,6 +670,7 @@ async function runLatencyBench(args: Args, assets: AssetPaths): Promise<JsonValu
   printSnapshotSummary(snapshots);
   printAggregate("RESTORE (cold)", restoreCold);
   printAggregate("RESTORE (warm)", restoreWarm);
+  printAggregate("FORK", forks);
 
   return {
     boot_cold: suiteJson(bootCold),
@@ -682,6 +678,7 @@ async function runLatencyBench(args: Args, assets: AssetPaths): Promise<JsonValu
     snapshot: snapshotSuiteJson(snapshots),
     restore_cold: suiteJson(restoreCold),
     restore_warm: suiteJson(restoreWarm),
+    fork: suiteJson(forks),
   };
 }
 
@@ -735,8 +732,7 @@ function snapshotSuiteJson(samples: SnapshotSample[]): JsonValue {
     },
     phases: aggregateJson(snapshotPhaseLines(samples)),
     source_pause_ms: null,
-    source_pause_note:
-      "not separately exposed by runtime yet; vmstate source is paused during the SIGUSR1/SIGUSR2 snapshot critical section",
+    source_pause_note: "not separately exposed by runtime yet; source is paused during snapshot",
   };
 }
 
