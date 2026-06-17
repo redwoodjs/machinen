@@ -1,13 +1,21 @@
+import { statSync } from "node:fs";
 import { join } from "node:path";
 
 import { SnapshotError } from "../errors.ts";
 import { reflinkCopy } from "../reflink.ts";
-import type { VmstateSnapshotMeta } from "../vm-handle.ts";
+import type { SnapshotFileIdentity, VmstateSnapshotMeta } from "../vm-handle.ts";
 import type { SnapshotContext } from "./snapshot.ts";
 import { VMSTATE_ROOTDISK_FILE } from "./snapshot-engine.ts";
-import { fileIdentity, rememberTrustedFileIdentity } from "./vmstate-metadata.ts";
+import {
+  fileIdentity,
+  fileSampleSha256,
+  managedRootDiskSyntheticSha256,
+  rememberTrustedFileIdentity,
+  trustedFileIdentity,
+  trustedManagedRootDisk,
+} from "./vmstate-metadata.ts";
 
-export type PendingVmstateRootDisk =
+type PendingVmstateRootDisk =
   | { mode: "block"; file: string; path: string; bundlePath: string }
   | { mode: "delta" }
   | { mode: "none" };
@@ -57,7 +65,10 @@ export function finalizeVmstateRootDisk(
   if (rootDisk.mode !== "block") {
     return rootDisk;
   }
-  const identity = fileIdentity(rootDisk.bundlePath);
+  const identity =
+    managedSnapshotRootDiskIdentity(rootDisk) ??
+    trustedSnapshotRootDiskIdentity(rootDisk) ??
+    fileIdentity(rootDisk.bundlePath);
   rememberTrustedFileIdentity(identity);
   return {
     mode: "block",
@@ -65,5 +76,35 @@ export function finalizeVmstateRootDisk(
     path: rootDisk.path,
     sizeBytes: identity.sizeBytes,
     sha256: identity.sha256,
+    trustedContentSample: identity.trustedContentSample,
   };
+}
+
+function managedSnapshotRootDiskIdentity(
+  rootDisk: Extract<PendingVmstateRootDisk, { mode: "block" }>,
+): SnapshotFileIdentity | undefined {
+  const managed = trustedManagedRootDisk(rootDisk.path);
+  if (!managed || statSync(rootDisk.bundlePath).size !== managed.sizeBytes) {
+    return undefined;
+  }
+  const sampleSha256 = fileSampleSha256(rootDisk.bundlePath);
+  return {
+    path: rootDisk.bundlePath,
+    sizeBytes: managed.sizeBytes,
+    sha256: managedRootDiskSyntheticSha256(managed.sizeBytes, sampleSha256),
+    trustedContentSample: {
+      algorithm: "machinen-rootdisk-sample-v1",
+      sha256: sampleSha256,
+    },
+  };
+}
+
+function trustedSnapshotRootDiskIdentity(
+  rootDisk: Extract<PendingVmstateRootDisk, { mode: "block" }>,
+): ReturnType<typeof fileIdentity> | undefined {
+  const trusted = trustedFileIdentity(rootDisk.path);
+  if (!trusted || statSync(rootDisk.bundlePath).size !== trusted.sizeBytes) {
+    return undefined;
+  }
+  return { ...trusted, path: rootDisk.bundlePath };
 }

@@ -7,6 +7,8 @@ import { BootError } from "../errors.ts";
 import type { PhaseTimer } from "../phase-timer.ts";
 import { reflinkCopy } from "../reflink.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "../rootfs-img.ts";
+import { trustedRootfsTemplateIdentity } from "../rootfs-template-metadata.ts";
+import { rememberManagedRootDisk, rememberTrustedFileIdentity } from "./vmstate-metadata.ts";
 import type { BootOptions } from "./boot.ts";
 
 // Materialize the rootdisk image and reflink it into a per-boot path
@@ -74,9 +76,14 @@ function materializeCachedRootdisk(
     tmpdir(),
     `machinen-rootdisk-${process.pid}-${randomBytes(6).toString("hex")}.img`,
   );
+  const trustedTemplateIdentity = trustedRootfsTemplateIdentity(cachedImg);
   const reflinkT0 = Date.now();
   reflinkCopy(cachedImg, perBoot);
   phases.mark("rootdisk-materialize.reflink", Date.now() - reflinkT0);
+  if (trustedTemplateIdentity) {
+    rememberTrustedFileIdentity({ ...trustedTemplateIdentity, path: perBoot });
+    rememberManagedRootDisk(perBoot);
+  }
   // The cache file was only READ here — restore the clean-shutdown
   // marker so the next boot finds a usable template instead of wiping
   // and rematerializing (#170).

@@ -17197,6 +17197,20 @@ Logical file size in bytes.
 
 SHA-256 over the logical file bytes.
 
+##### trustedContentSample?
+
+> `optional` **trustedContentSample?**: `object`
+
+Cheap bundled-artifact proof for Machinen-managed rootdisk clones.
+
+###### algorithm
+
+> **algorithm**: `"machinen-rootdisk-sample-v1"`
+
+###### sha256
+
+> **sha256**: `string`
+
 ***
 
 ### VmstateSnapshotMeta

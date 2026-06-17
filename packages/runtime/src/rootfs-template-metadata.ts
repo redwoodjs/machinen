@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import debugLib from "debug";
+import type { SnapshotFileIdentity } from "./vm-handle.ts";
 
 const debug = debugLib("machinen:rootfs-img");
 
@@ -20,14 +21,15 @@ export function templateMetaPath(imgPath: string): string {
   return `${imgPath}.meta.json`;
 }
 
-export type RootfsTemplateSource = "materialize" | "prebake" | "prebake-tree" | "legacy-fsck";
+type RootfsTemplateSource = "materialize" | "prebake" | "prebake-tree" | "legacy-fsck";
 
-export interface RootfsTemplateMetadata {
+interface RootfsTemplateMetadata {
   version: 1;
   sha256: string;
   sizeBytes: number;
   source: RootfsTemplateSource;
   createdAt: string;
+  imageSha256?: string;
 }
 
 export function readSha256Sidecar(tarAbs: string): string | undefined {
@@ -85,9 +87,28 @@ export function readVerifiedTemplateMetadata(paths: {
   }
 }
 
+export function trustedRootfsTemplateIdentity(imgPath: string): SnapshotFileIdentity | undefined {
+  const metaPath = templateMetaPath(imgPath);
+  if (!existsSync(metaPath)) {
+    return undefined;
+  }
+  try {
+    const meta = JSON.parse(readFileSync(metaPath, "utf8")) as Partial<RootfsTemplateMetadata>;
+    const st = statSync(imgPath);
+    if (!validImageSha256(meta.imageSha256) || meta.sizeBytes !== st.size) {
+      return undefined;
+    }
+    return { path: imgPath, sizeBytes: st.size, sha256: meta.imageSha256 };
+  } catch (err) {
+    debug("template identity invalid meta=%s err=%s", metaPath, (err as Error).message);
+    return undefined;
+  }
+}
+
 export function writeTemplateMetadata(
   paths: { sha: string; imgPath: string; metaPath: string },
   source: RootfsTemplateSource,
+  opts: { imageSha256?: string } = {},
 ): void {
   try {
     const meta: RootfsTemplateMetadata = {
@@ -96,9 +117,14 @@ export function writeTemplateMetadata(
       sizeBytes: statSync(paths.imgPath).size,
       source,
       createdAt: new Date().toISOString(),
+      ...(validImageSha256(opts.imageSha256) ? { imageSha256: opts.imageSha256 } : {}),
     };
     writeFileSync(paths.metaPath, `${JSON.stringify(meta)}\n`);
   } catch (err) {
     debug("template metadata write failed img=%s err=%s", paths.imgPath, (err as Error).message);
   }
+}
+
+function validImageSha256(value: string | undefined): value is string {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 }

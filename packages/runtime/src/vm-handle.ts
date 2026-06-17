@@ -336,6 +336,11 @@ export interface SnapshotFileIdentity {
   sizeBytes: number;
   /** SHA-256 over the logical file bytes. */
   sha256: string;
+  /** Cheap bundled-artifact proof for Machinen-managed rootdisk clones. */
+  trustedContentSample?: {
+    algorithm: "machinen-rootdisk-sample-v1";
+    sha256: string;
+  };
 }
 
 export interface VmstateSnapshotMeta {
