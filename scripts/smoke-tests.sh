@@ -14,7 +14,7 @@
 # Tests:
 #   V1-V4  Validation paths (no boot): host-missing, host-is-a-file,
 #          guest-outside-/mnt/, second --mount.
-#   V5-V8  --mount-live validation, including :ro / :rw modes — #78, #151.
+#   V5-V9  --mount-live validation, including mode/cache modifiers — #78, #151.
 #   T1     Base-only boot — `echo hello-world` reaches the host console.
 #   T2     --mount exposes a host directory readable inside the guest.
 #   T3v    --mount-live :ro streams a host file in over virtio-fs — #332.
@@ -319,7 +319,7 @@ expect_cli_error \
 expect_cli_error \
   "V9: --mount-live rejects a spec with too many colons" \
   "expected <host-dir>:<guest-path>" \
-  boot --mount-live "$EMPTY_DIR:/mnt/x:rw:extra" -- true
+  boot --mount-live "$EMPTY_DIR:/mnt/x:rw:fast:extra" -- true
 
 # ----------------------------------------------------------------
 # Boot tests — need HVF/KVM. Slow.

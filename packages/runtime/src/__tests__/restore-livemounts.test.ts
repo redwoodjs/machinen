@@ -57,6 +57,31 @@ describe("resolveRestoreLiveMounts", () => {
     ]);
   });
 
+  it("preserves recorded cache mode unless an override supplies one", () => {
+    const recorded = [
+      {
+        guest: "/mnt/work",
+        host: "/Users/alice/work",
+        mode: "rw" as const,
+        cache: "fast" as const,
+      },
+      {
+        guest: "/mnt/fixtures",
+        host: "/Users/alice/fixtures",
+        mode: "ro" as const,
+        cache: "strict" as const,
+      },
+    ];
+    const overrides = [
+      { guest: "/mnt/work", host: "/Users/bob/work" },
+      { guest: "/mnt/fixtures", host: "/Users/bob/fixtures", cache: "cached" as const },
+    ];
+    expect(resolveRestoreLiveMounts(recorded, overrides)).toEqual([
+      { guest: "/mnt/work", host: "/Users/bob/work", mode: "rw", cache: "fast" },
+      { guest: "/mnt/fixtures", host: "/Users/bob/fixtures", mode: "ro", cache: "cached" },
+    ]);
+  });
+
   it("partial overrides leave non-overridden recorded entries untouched", () => {
     const recorded = [
       { guest: "/mnt/work", host: "/Users/alice/work", mode: "rw" as const },

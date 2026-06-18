@@ -1,7 +1,10 @@
 # live-mount bench (#329, #332, #338)
 
 Times a `tar -xzf` inside a machinen VM through a `--mount-live` mount,
-against the same extract under docker.
+against the same extract under docker. The current harness also records
+extra decomposed phases so we can split host speed, guest rootfs speed,
+live-read cost, live-write cost, metadata cost, and large sequential
+write cost.
 
 Started as the #329 baseline (JS mount-server → Zig port), then tracked
 the #332 virtio-fs transport. #338 removed the FUSE-over-vsock transport
@@ -14,14 +17,20 @@ A bare `tar -xzf node-v24.x-linux-arm64.tar.gz` inside a machinen VM
 with a `--mount-live rw` mount, against the same tarball extracted
 inside `arm64v8/debian:12` on the host with a docker volume mount.
 
-Two numbers come out:
+The primary numbers are:
 
-1. **Wall-clock** for the tar extract — the user-visible number.
-2. **docker baseline** wall-clock for the same extract.
+1. **Wall-clock** for the current live-read + live-write tar extract —
+   the user-visible number kept as `wallMs` / `phases.tarExtractMs`.
+2. **docker baseline** wall-clock for the same extract, when docker is
+   available.
+3. **decomposed phases** for host native extract, guest rootfs extract,
+   live-read-only extract, live-write-only extract, the current
+   live-read + live-write extract, small-file metadata, and large
+   sequential write.
 
-The in-VMM virtio-fs device runs synchronously on the VMM thread and
-writes no host-side stats file, so there is no per-op handler histogram
-— `wallMs` vs the docker baseline is the comparison.
+The in-VMM virtio-fs device runs synchronously on the VMM thread. The
+benchmark phases split the workload before deeper per-op profiling is
+used to explain a specific bottleneck.
 
 ## How to run
 
@@ -34,6 +43,15 @@ curl -s https://nodejs.org/dist/v24.0.0/SHASUMS256.txt \
 
 # 2. Run the bench. Downloads + caches the tarball on first run.
 pnpm tsx scripts/bench/mount.ts
+
+# Skip extra decomposed phases if you only need the historical tar result.
+pnpm tsx scripts/bench/mount.ts --no-decompose
+
+# Enable opt-in virtio-fs/FUSE profile capture in the result JSON.
+pnpm tsx scripts/bench/mount.ts --profile
+
+# Compare metadata cache policies. Default is cached.
+pnpm tsx scripts/bench/mount.ts --cache-mode fast
 
 # 3. Inspect the result.
 cat scripts/bench/mount/results/<runId>.json
@@ -50,13 +68,43 @@ the docker side with `--no-docker` to get just the mount-side number.
   "runId": "2026-05-14T…",
   "host": { ... },
   "fixtures": { "tarball": "node-24-linux-arm64", "tarballBytes": N },
+  "cacheMode": "cached",
   "workload": "tar -xzf …",
   "wallMs": N,
+  "phases": {
+    "vmBootMs": N,
+    "tarExtractMs": N,
+    "hostNativeExtractMs": N,
+    "guestInputCopyMs": N,
+    "guestRootfsExtractMs": N,
+    "liveReadOnlyExtractMs": N,
+    "liveWriteOnlyExtractMs": N,
+    "liveReadWriteExtractMs": N,
+    "smallFileMetadataMs": N,
+    "largeSequentialWriteMs": N,
+    "largeSequentialWriteMiBPerSec": N
+  },
+  "profiles": {
+    "out": {
+      "transport": {
+        "requestCount": N,
+        "virtqueueGatherNs": N,
+        "fuseDispatchNs": N,
+        "virtqueueScatterNs": N
+      },
+      "ops": {
+        "LOOKUP": { "count": N, "sumNs": N }
+      }
+    },
+    "in": { "transport": { }, "ops": { } }
+  },
   "docker": { "wallMs": N }
 }
 ```
 
-`ratio = wallMs / docker.wallMs`.
+`ratio = wallMs / docker.wallMs`. `tarExtractMs` remains the historical
+current live-read + live-write tar extract metric; the other phase keys
+are decomposition aids.
 
 ## Historical results
 

@@ -35,10 +35,13 @@ import { readImageConfig } from "./image-config.ts";
  * `boot()` into the initramfs packer so the config and the VMM env
  * agree on guest paths and per-mount tags.
  */
+export type LiveMountCacheMode = "strict" | "cached" | "fast";
+
 export interface ResolvedLiveMount {
   host: string;
   guest: string;
   mode: "ro" | "rw";
+  cache: LiveMountCacheMode;
   tag: string;
 }
 
@@ -56,6 +59,7 @@ export function resolveLiveMounts(
     host: string;
     guest: string;
     mode?: "ro" | "rw";
+    cache?: LiveMountCacheMode;
   }>,
   cwd: string | undefined,
 ): ResolvedLiveMount[] {
@@ -91,11 +95,25 @@ export function resolveLiveMounts(
       host: hostAbs,
       guest: normalizeMountGuest(m.guest),
       mode: m.mode ?? "rw",
+      cache: normalizeLiveMountCache(m.cache, i),
       // Tag is the virtio-fs device's config-space identifier and must
       // be ≤ 36 bytes (FsConfig.tag). `machinen-lm<i>` stays well under.
       tag: `machinen-lm${i}`,
     };
   });
+}
+
+function normalizeLiveMountCache(
+  cache: LiveMountCacheMode | undefined,
+  index: number,
+): LiveMountCacheMode {
+  if (cache === undefined || cache === "strict" || cache === "cached" || cache === "fast") {
+    return cache ?? "cached";
+  }
+  throw new BootError(
+    "BOOT_MOUNT_INVALID",
+    `liveMounts[${index}] cache must be 'strict', 'cached', or 'fast'`,
+  );
 }
 
 /**
@@ -144,7 +162,7 @@ export function buildMachinenConfig(input: {
  *     working. Returns undefined when both inputs are empty.
  *   - `recorded` non-empty: each entry is re-established by default.
  *     For each entry in `overrides`, the matching `recorded` entry's
- *     `host` and (optionally) `mode` are replaced. An override whose
+ *     `host` and optional `mode` / `cache` are replaced. An override whose
  *     `guest` doesn't appear in `recorded` is rejected with
  *     BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN — the override knob is for
  *     remapping bundle-recorded mounts, not for adding new ones.
@@ -161,7 +179,10 @@ export function resolveRestoreLiveMounts(
     return overrideList.length > 0 ? overrideList : undefined;
   }
   const recordedByGuest = new Map(recordedList.map((m) => [m.guest, m]));
-  const overridesByGuest = new Map<string, { host: string; guest: string; mode?: "ro" | "rw" }>();
+  const overridesByGuest = new Map<
+    string,
+    { host: string; guest: string; mode?: "ro" | "rw"; cache?: LiveMountCacheMode }
+  >();
   for (const ov of overrideList) {
     if (!recordedByGuest.has(ov.guest)) {
       const known = recordedList.map((m) => m.guest).join(", ");
@@ -172,7 +193,7 @@ export function resolveRestoreLiveMounts(
           `    ${known}\n` +
           `  restore() reproduces the snapshot's mount topology — opts.liveMounts is\n` +
           `  an override map, not an additive list. To override, set 'guest' to one\n` +
-          `  of the recorded paths above and supply a new 'host' / 'mode'.`,
+          `  of the recorded paths above and supply a new 'host' / 'mode' / 'cache'.`,
       );
     }
     overridesByGuest.set(ov.guest, ov);
@@ -180,8 +201,8 @@ export function resolveRestoreLiveMounts(
   return recordedList.map((rec) => {
     const ov = overridesByGuest.get(rec.guest);
     return ov
-      ? { guest: rec.guest, host: ov.host, mode: ov.mode ?? rec.mode }
-      : { guest: rec.guest, host: rec.host, mode: rec.mode };
+      ? { guest: rec.guest, host: ov.host, mode: ov.mode ?? rec.mode, cache: ov.cache ?? rec.cache }
+      : { guest: rec.guest, host: rec.host, mode: rec.mode, cache: rec.cache };
   });
 }
 

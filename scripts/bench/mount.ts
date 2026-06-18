@@ -47,16 +47,22 @@ const BENCH_DIR = join(HERE, "mount");
 const RESULTS_DIR = join(BENCH_DIR, "results");
 const FIXTURES_PATH = join(BENCH_DIR, "fixtures.json");
 const TARBALL_CACHE = join(homedir(), ".cache", "machinen-bench", "tarballs");
+const SMALL_FILE_METADATA_COUNT = 1000;
+const LARGE_SEQUENTIAL_WRITE_MIB = 64;
 
 // Re-use the same base-asset resolution that scripts/bench-boot.ts does
 // (kernel / dtb / starter image). The fallback path covers a fresh
 // checkout that hasn't built release-assets yet.
 const ASSETS = join(REPO_ROOT, "release-assets");
 type GuestArch = "amd64" | "arm64";
+type LiveMountCacheMode = "strict" | "cached" | "fast";
 
 interface CliArgs {
   noDocker: boolean;
   fixtureKey: string;
+  decompose: boolean;
+  profile: boolean;
+  cacheMode: LiveMountCacheMode;
 }
 
 interface ParseContext {
@@ -72,6 +78,15 @@ const BENCH_ARG_HANDLERS: Record<string, BenchArgHandler> = {
   },
   "--fixture": (ctx) => {
     ctx.args.fixtureKey = takeBenchArgValue(ctx, "--fixture");
+  },
+  "--no-decompose": (ctx) => {
+    ctx.args.decompose = false;
+  },
+  "--profile": (ctx) => {
+    ctx.args.profile = true;
+  },
+  "--cache-mode": (ctx) => {
+    ctx.args.cacheMode = parseCacheMode(takeBenchArgValue(ctx, "--cache-mode"));
   },
   "-h": () => printBenchUsageAndExit(),
   "--help": () => printBenchUsageAndExit(),
@@ -89,6 +104,9 @@ function defaultCliArgs(): CliArgs {
   return {
     noDocker: false,
     fixtureKey: "node-24-linux-arm64",
+    decompose: true,
+    profile: false,
+    cacheMode: "cached",
   };
 }
 
@@ -110,13 +128,22 @@ function takeBenchArgValue(ctx: ParseContext, name: string): string {
 }
 
 function printBenchUsageAndExit(): never {
-  console.log("usage: tsx scripts/bench/mount.ts [--no-docker] [--fixture <key>]");
+  console.log(
+    "usage: tsx scripts/bench/mount.ts [--no-docker] [--no-decompose] [--profile] [--cache-mode strict|cached|fast] [--fixture <key>]",
+  );
   process.exit(0);
 }
 
 function exitBenchArgError(message: string): never {
   console.error(message);
   process.exit(2);
+}
+
+function parseCacheMode(value: string): LiveMountCacheMode {
+  if (value === "strict" || value === "cached" || value === "fast") {
+    return value;
+  }
+  exitBenchArgError(`bench-mount: --cache-mode must be strict, cached, or fast (got ${value})`);
 }
 
 interface FixtureEntry {
@@ -246,18 +273,57 @@ function runDockerBaseline(tarballPath: string): DockerResult | null {
   }
 }
 
+type ProfileJson =
+  | null
+  | boolean
+  | number
+  | string
+  | ProfileJson[]
+  | { [key: string]: ProfileJson };
+
 interface RunResult {
   runId: string;
   host: HostInfo;
   fixtures: { tarball: string; tarballBytes: number };
+  cacheMode: LiveMountCacheMode;
   workload: string;
   wallMs: number;
-  phases: {
-    vmBootMs: number;
-    tarExtractMs: number;
-    dockerBaselineMs?: number;
-  };
+  phases: MountBenchPhases;
+  profiles?: Record<string, ProfileJson>;
   docker: { wallMs: number } | null;
+}
+
+interface MountBenchPhases {
+  vmBootMs: number;
+  tarExtractMs: number;
+  dockerBaselineMs?: number;
+  hostNativeExtractMs?: number;
+  guestInputCopyMs?: number;
+  guestRootfsExtractMs?: number;
+  liveReadOnlyExtractMs?: number;
+  liveWriteOnlyExtractMs?: number;
+  liveReadWriteExtractMs?: number;
+  smallFileMetadataMs?: number;
+  largeSequentialWriteMs?: number;
+  largeSequentialWriteMiBPerSec?: number;
+}
+
+interface DecomposedMountPhases {
+  hostNativeExtractMs: number;
+  guestInputCopyMs: number;
+  guestRootfsExtractMs: number;
+  liveReadOnlyExtractMs: number;
+  liveWriteOnlyExtractMs: number;
+  liveReadWriteExtractMs: number;
+  smallFileMetadataMs: number;
+  largeSequentialWriteMs: number;
+  largeSequentialWriteMiBPerSec: number;
+}
+
+interface ProfilePaths {
+  dir: string;
+  out: string;
+  input: string;
 }
 
 type RuntimeBoot = (typeof import("@machinen/runtime"))["boot"];
@@ -276,20 +342,50 @@ interface MountBenchWorkload {
   tarCmd: string;
 }
 
-async function runMountBench(tarballPath: string, fixtureKey: string): Promise<RunResult> {
+// fallow-ignore-next-line complexity
+async function runMountBench(
+  tarballPath: string,
+  fixtureKey: string,
+  args: CliArgs,
+): Promise<RunResult> {
   const { boot } = await import("@machinen/runtime");
   const inputs = resolveBenchVmInputs();
   const scratch = createScratchDir();
+  const profilePaths = args.profile ? createProfilePaths() : undefined;
   const workload = buildMountBenchWorkload(tarballPath);
   const runId = createRunId();
   logRunStart(runId, scratch);
 
-  const booted = await bootMountBenchVm(boot, inputs, scratch, workload.tarballHostDir);
+  const hostNativeExtractMs = args.decompose ? runHostNativeExtract(tarballPath) : undefined;
+  const booted = await bootMountBenchVm(
+    boot,
+    inputs,
+    scratch,
+    workload.tarballHostDir,
+    profilePaths,
+    args.cacheMode,
+  );
   try {
     const wallMs = await runTarWorkload(booted.vm, workload.tarCmd);
-    return buildRunResult(runId, fixtureKey, workload, wallMs, booted.bootMs);
+    const decomposed = args.decompose
+      ? await runDecomposedMountWorkloads(booted.vm, workload, wallMs, hostNativeExtractMs ?? 0)
+      : undefined;
+    if (profilePaths) {
+      await runGuestWorkload(booted.vm, "profile flush nudge", profileFlushCommand(workload));
+    }
+    const profiles = profilePaths ? readProfileFiles(profilePaths) : undefined;
+    return buildRunResult(
+      runId,
+      fixtureKey,
+      args.cacheMode,
+      workload,
+      wallMs,
+      booted.bootMs,
+      decomposed,
+      profiles,
+    );
   } finally {
-    await cleanupMountBenchRun(booted.vm, scratch);
+    await cleanupMountBenchRun(booted.vm, scratch, profilePaths?.dir);
   }
 }
 
@@ -352,6 +448,16 @@ function createScratchDir(): string {
   return scratch;
 }
 
+function createProfilePaths(): ProfilePaths {
+  const dir = join(tmpdir(), `machinen-bench-mount-profile-${process.pid}-${Date.now()}`);
+  mkdirSync(dir, { recursive: true });
+  return {
+    dir,
+    out: join(dir, "virtiofs-out.json"),
+    input: join(dir, "virtiofs-in.json"),
+  };
+}
+
 function buildMountBenchWorkload(tarballPath: string): MountBenchWorkload {
   const tarballName = basename(tarballPath);
   return {
@@ -376,6 +482,8 @@ async function bootMountBenchVm(
   inputs: BenchVmInputs,
   scratch: string,
   tarballHostDir: string,
+  profilePaths: ProfilePaths | undefined,
+  cacheMode: LiveMountCacheMode,
 ): Promise<{ vm: BenchVmHandle; bootMs: number }> {
   const t0 = Date.now();
   const vm = await boot({
@@ -387,9 +495,15 @@ async function bootMountBenchVm(
     // convenience mount carrying the tarball source. Both ride in-VMM
     // virtio-fs devices.
     liveMounts: [
-      { host: scratch, guest: "/mnt/out", mode: "rw" },
-      { host: tarballHostDir, guest: "/mnt/in", mode: "ro" },
+      { host: scratch, guest: "/mnt/out", mode: "rw", cache: cacheMode },
+      { host: tarballHostDir, guest: "/mnt/in", mode: "ro", cache: cacheMode },
     ],
+    vmmEnv: profilePaths
+      ? {
+          MACHINEN_VIRTIOFS_PROFILE_0: profilePaths.out,
+          MACHINEN_VIRTIOFS_PROFILE_1: profilePaths.input,
+        }
+      : undefined,
     timeoutMs: 120_000,
   });
   const bootMs = Date.now() - t0;
@@ -401,41 +515,183 @@ async function runTarWorkload(vm: BenchVmHandle, tarCmd: string): Promise<number
   // Time the actual workload: shell out to tar inside the guest. The
   // `time` line goes to stderr; we read wall via host hrtime because
   // it's the user-visible number we promised in the README.
+  return runGuestWorkload(vm, "live-read+write tar extract", tarCmd);
+}
+
+function runHostNativeExtract(tarballPath: string): number {
+  const scratch = join(tmpdir(), `machinen-bench-mount-host-${process.pid}-${Date.now()}`);
+  mkdirSync(scratch, { recursive: true });
   const ts = Date.now();
-  const tarRes = await vm.execRaw(tarCmd, { execTimeoutMs: 300_000 });
+  try {
+    const result = spawnSync("tar", ["-xzf", tarballPath, "-C", scratch], {
+      encoding: "utf8",
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    const wallMs = Date.now() - ts;
+    if (result.error) {
+      throw result.error;
+    }
+    if (result.status !== 0) {
+      throw new Error(`host tar exited ${result.status}\nstderr: ${result.stderr}`);
+    }
+    console.error(`bench-mount: host-native extract finished in ${wallMs}ms`);
+    return wallMs;
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+async function runDecomposedMountWorkloads(
+  vm: BenchVmHandle,
+  workload: MountBenchWorkload,
+  liveReadWriteExtractMs: number,
+  hostNativeExtractMs: number,
+): Promise<DecomposedMountPhases> {
+  const guestTarball = shellQuote(`/tmp/${workload.tarballName}`);
+  const liveTarball = shellQuote(`/mnt/in/${workload.tarballName}`);
+
+  const guestInputCopyMs = await runGuestWorkload(
+    vm,
+    "guest input copy from live mount",
+    `rm -f ${guestTarball} && cp ${liveTarball} ${guestTarball}`,
+  );
+  const guestRootfsExtractMs = await runGuestWorkload(
+    vm,
+    "guest-rootfs tar extract",
+    `rm -rf /tmp/machinen-bench-rootfs && mkdir -p /tmp/machinen-bench-rootfs && cd /tmp/machinen-bench-rootfs && tar -xzf ${guestTarball}`,
+  );
+  const liveReadOnlyExtractMs = await runGuestWorkload(
+    vm,
+    "live-read-only tar extract",
+    `rm -rf /tmp/machinen-bench-live-read && mkdir -p /tmp/machinen-bench-live-read && cd /tmp/machinen-bench-live-read && tar -xzf ${liveTarball}`,
+  );
+  const liveWriteOnlyExtractMs = await runGuestWorkload(
+    vm,
+    "live-write-only tar extract",
+    `rm -rf /mnt/out/live-write-only && mkdir -p /mnt/out/live-write-only && cd /mnt/out/live-write-only && tar -xzf ${guestTarball}`,
+  );
+  const smallFileMetadataMs = await runGuestWorkload(
+    vm,
+    "small-file metadata microbench",
+    smallFileMetadataCommand(),
+  );
+  const largeSequentialWriteMs = await runGuestWorkload(
+    vm,
+    "large sequential write microbench",
+    `rm -f /mnt/out/large-sequential-write.bin && dd if=/dev/zero of=/mnt/out/large-sequential-write.bin bs=1048576 count=${LARGE_SEQUENTIAL_WRITE_MIB} >/dev/null 2>&1`,
+  );
+
+  return {
+    hostNativeExtractMs,
+    guestInputCopyMs,
+    guestRootfsExtractMs,
+    liveReadOnlyExtractMs,
+    liveWriteOnlyExtractMs,
+    liveReadWriteExtractMs,
+    smallFileMetadataMs,
+    largeSequentialWriteMs,
+    largeSequentialWriteMiBPerSec: mibPerSecond(LARGE_SEQUENTIAL_WRITE_MIB, largeSequentialWriteMs),
+  };
+}
+
+function smallFileMetadataCommand(): string {
+  return (
+    "rm -rf /mnt/out/small-file-metadata && mkdir -p /mnt/out/small-file-metadata && " +
+    `i=0; while [ "$i" -lt ${SMALL_FILE_METADATA_COUNT} ]; do ` +
+    'f="/mnt/out/small-file-metadata/f$i"; ' +
+    ': > "$f"; chmod 600 "$f"; stat "$f" >/dev/null; ' +
+    'mv "$f" "$f.renamed"; rm "$f.renamed"; i=$((i + 1)); ' +
+    "done"
+  );
+}
+
+function profileFlushCommand(workload: MountBenchWorkload): string {
+  const liveTarball = shellQuote(`/mnt/in/${workload.tarballName}`);
+  return (
+    `i=0; while [ "$i" -lt 260 ]; do ` +
+    `stat /mnt/out >/dev/null; stat ${liveTarball} >/dev/null; ` +
+    "i=$((i + 1)); done"
+  );
+}
+
+async function runGuestWorkload(
+  vm: BenchVmHandle,
+  label: string,
+  command: string,
+): Promise<number> {
+  const ts = Date.now();
+  const result = await vm.execRaw(command, { execTimeoutMs: 300_000 });
   const wallMs = Date.now() - ts;
-  if (tarRes.exitCode !== 0) {
+  if (result.exitCode !== 0) {
     throw new Error(
-      `tar exited ${tarRes.exitCode}\nstdout: ${tarRes.stdout}\nstderr: ${tarRes.stderr}`,
+      `${label} exited ${result.exitCode}\nstdout: ${result.stdout}\nstderr: ${result.stderr}`,
     );
   }
-  console.error(`bench-mount: tar finished in ${wallMs}ms`);
+  console.error(`bench-mount: ${label} finished in ${wallMs}ms`);
   return wallMs;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+function mibPerSecond(mib: number, ms: number): number {
+  return ms <= 0 ? 0 : mib / (ms / 1000);
 }
 
 function buildRunResult(
   runId: string,
   fixtureKey: string,
+  cacheMode: LiveMountCacheMode,
   workload: MountBenchWorkload,
   wallMs: number,
   bootMs: number,
+  decomposed?: DecomposedMountPhases,
+  profiles?: Record<string, ProfileJson>,
 ): RunResult {
   return {
     runId,
     host: hostInfo(),
     fixtures: { tarball: fixtureKey, tarballBytes: workload.tarballBytes },
+    cacheMode,
     workload: workload.tarCmd,
     wallMs,
-    phases: { vmBootMs: bootMs, tarExtractMs: wallMs },
+    phases: {
+      vmBootMs: bootMs,
+      tarExtractMs: wallMs,
+      ...decomposed,
+    },
+    ...(profiles ? { profiles } : {}),
     docker: null,
   };
 }
 
-async function cleanupMountBenchRun(vm: BenchVmHandle, scratch: string): Promise<void> {
+function readProfileFiles(profilePaths: ProfilePaths): Record<string, ProfileJson> {
+  return {
+    out: readProfileFile(profilePaths.out),
+    in: readProfileFile(profilePaths.input),
+  };
+}
+
+function readProfileFile(path: string): ProfileJson {
+  if (!existsSync(path)) {
+    return null;
+  }
+  return JSON.parse(readFileSync(path, "utf8")) as ProfileJson;
+}
+
+async function cleanupMountBenchRun(
+  vm: BenchVmHandle,
+  scratch: string,
+  profileDir?: string,
+): Promise<void> {
   await vm.kill().catch(() => {});
   await vm.wait().catch(() => undefined);
   try {
     rmSync(scratch, { recursive: true, force: true });
+    if (profileDir) {
+      rmSync(profileDir, { recursive: true, force: true });
+    }
   } catch {}
 }
 
@@ -448,20 +704,57 @@ function writeResult(result: RunResult): string {
   return out;
 }
 
+// fallow-ignore-next-line complexity
 function printTable(result: RunResult): void {
   const docker = result.docker ? result.docker.wallMs : null;
   const ratio = docker ? (result.wallMs / docker).toFixed(2) : "n/a";
   console.log("");
   console.log(`run: ${result.runId}`);
   console.log(`host: ${result.host.os}/${result.host.arch} ${result.host.hostname}`);
+  console.log(`cache mode: ${result.cacheMode}`);
   console.log("");
   console.log(`wall-clock tar-extract   ${(result.wallMs / 1000).toFixed(2)}s`);
   console.log(
     `docker baseline same     ${docker ? (docker / 1000).toFixed(2) + "s" : "(skipped)"}`,
   );
   console.log(`ratio virtio-fs / docker ${ratio}×`);
+  printDecomposedTable(result.phases);
+  if (result.profiles) {
+    console.log("");
+    console.log(
+      "virtio-fs profiles captured for mounts: " + Object.keys(result.profiles).join(", "),
+    );
+  }
   console.log("");
   console.log(`result JSON:  scripts/bench/mount/results/${result.runId}.json`);
+}
+
+function printDecomposedTable(phases: MountBenchPhases): void {
+  if (phases.hostNativeExtractMs === undefined) {
+    return;
+  }
+  console.log("");
+  console.log("decomposed mount timings");
+  console.log(`host native extract      ${formatMs(phases.hostNativeExtractMs)}`);
+  console.log(`guest input copy         ${formatMs(phases.guestInputCopyMs)}`);
+  console.log(`guest rootfs extract     ${formatMs(phases.guestRootfsExtractMs)}`);
+  console.log(`live-read-only extract   ${formatMs(phases.liveReadOnlyExtractMs)}`);
+  console.log(`live-write-only extract  ${formatMs(phases.liveWriteOnlyExtractMs)}`);
+  console.log(`live-read+write extract  ${formatMs(phases.liveReadWriteExtractMs)}`);
+  console.log(
+    `small-file metadata     ${formatMs(phases.smallFileMetadataMs)} (${SMALL_FILE_METADATA_COUNT} files)`,
+  );
+  console.log(
+    `large sequential write  ${formatMs(phases.largeSequentialWriteMs)} (${formatRate(phases.largeSequentialWriteMiBPerSec)})`,
+  );
+}
+
+function formatMs(value: number | undefined): string {
+  return value === undefined ? "n/a" : `${(value / 1000).toFixed(2)}s`;
+}
+
+function formatRate(value: number | undefined): string {
+  return value === undefined ? "n/a" : `${value.toFixed(1)} MiB/s`;
 }
 
 async function main(): Promise<void> {
@@ -469,7 +762,7 @@ async function main(): Promise<void> {
   const entry = loadFixture(args.fixtureKey);
   const tarballPath = await downloadAndVerify(entry);
 
-  const result = await runMountBench(tarballPath, args.fixtureKey);
+  const result = await runMountBench(tarballPath, args.fixtureKey, args);
 
   if (!args.noDocker) {
     const dock = runDockerBaseline(tarballPath);

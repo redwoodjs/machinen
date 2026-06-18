@@ -12,22 +12,27 @@ export interface ParsedCpuResourceArgs {
   weight?: number;
 }
 
+export type LiveMountCacheMode = "strict" | "cached" | "fast";
+
 interface ParsedRunArgs {
   positional: string[];
   double_dash_args: string[];
   mount?: { host: string; guest: string };
   /**
-   * Live-share mounts (`--mount-live <host>:<guest>[:<mode>]`). Each
+   * Live-share mounts (`--mount-live <host>:<guest>[:<mode>][:<cache>]`). Each
    * entry stays connected to the host filesystem for the VM's life;
    * guest reads stream in on demand. `mode` is `rw` (default,
-   * write-through) or `ro` for read-only. Served by an in-VMM
-   * virtio-fs device (#332); the FUSE-over-vsock transport and its
-   * `:<protocol>` modifier were removed in #338. See #78, #151, #332.
+   * write-through) or `ro` for read-only. `cache` is `cached` by
+   * default; use `strict` for zero metadata TTL or `fast` for longer
+   * metadata TTLs. Served by an in-VMM virtio-fs device (#332); the
+   * FUSE-over-vsock transport and its `:<protocol>` modifier were
+   * removed in #338. See #78, #151, #332.
    */
   liveMounts?: Array<{
     host: string;
     guest: string;
     mode: "ro" | "rw";
+    cache?: LiveMountCacheMode;
   }>;
   env?: Record<string, string>;
   portForward?: Array<{ hostPort: number; guestPort: number }>;
@@ -91,7 +96,7 @@ type RunFlagHandler = (state: RunParseState, flag: string, args: string[], index
 interface RunParseState {
   positional: string[];
   mount?: { host: string; guest: string };
-  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw"; cache?: LiveMountCacheMode }>;
   env: Record<string, string>;
   portForward: Array<{ hostPort: number; guestPort: number }>;
   seenHostPorts: Set<number>;
@@ -482,51 +487,94 @@ export function consumeMount(
 }
 
 /**
- * Consume one `--mount-live <host>:<guest>[:<mode>]` token. `mode`
- * defaults to `"rw"` (write-through). Returns the parsed entry and
- * the new loop index. Caller pushes onto its own array.
+ * Consume one `--mount-live <host>:<guest>[:<mode>][:<cache>]` token. `mode`
+ * defaults to `"rw"` (write-through); `cache` defaults later to the runtime's
+ * compatibility policy. Returns the parsed entry and the new loop index. Caller
+ * pushes onto its own array.
  */
 export function consumeLiveMount(
   flag: string,
   args: string[],
   i: number,
 ): {
-  value: { host: string; guest: string; mode: "ro" | "rw" };
+  value: { host: string; guest: string; mode: "ro" | "rw"; cache?: LiveMountCacheMode };
   next: number;
 } {
   const { spec, next } = takeValue(flag, args, i, "a <host-dir>:<guest-path> value");
-  // Format: `<host>:<guest>[:<mode>]`. The trailing `<mode>` modifier
-  // is optional — `ro` or `rw`. A guest path containing a colon is
-  // rejected — same trade-off as `--mount`.
+  // Format: `<host>:<guest>[:<mode>][:<cache>]`. The trailing modifiers
+  // are optional and order-independent: `ro` / `rw` and `strict` /
+  // `cached` / `fast`. A guest path containing a colon is rejected —
+  // same trade-off as `--mount`.
   const parts = spec.split(":");
-  if (parts.length < 2 || parts.length > 3 || !parts[0] || !parts[1]) {
+  if (parts.length < 2 || parts.length > 4 || !parts[0] || !parts[1]) {
     throw new ParseError(
       "PARSE_FLAG_MALFORMED",
-      `--mount-live: expected <host-dir>:<guest-path>[:<mode>], got '${spec}'`,
+      `--mount-live: expected <host-dir>:<guest-path>[:<mode>][:<cache>], got '${spec}'`,
     );
   }
-  let mode: "ro" | "rw" | undefined;
-  for (const tok of parts.slice(2)) {
-    if (tok === "ro" || tok === "rw") {
-      if (mode !== undefined) {
-        throw new ParseError("PARSE_FLAG_MALFORMED", `--mount-live: mode given twice in '${spec}'`);
-      }
-      mode = tok;
-    } else {
-      throw new ParseError(
-        "PARSE_FLAG_MALFORMED",
-        `--mount-live: trailing modifier must be 'ro' or 'rw', got '${tok}'`,
-      );
-    }
-  }
+  const { mode, cache } = parseLiveMountModifiers(parts.slice(2), spec);
   return {
     value: {
       host: parts[0]!,
       guest: parts[1]!,
       mode: mode ?? "rw",
+      ...(cache ? { cache } : {}),
     },
     next,
   };
+}
+
+interface LiveMountModifiers {
+  mode?: "ro" | "rw";
+  cache?: LiveMountCacheMode;
+}
+
+function parseLiveMountModifiers(tokens: string[], spec: string): LiveMountModifiers {
+  const modifiers: LiveMountModifiers = {};
+  for (const token of tokens) {
+    applyLiveMountModifier(modifiers, token, spec);
+  }
+  return modifiers;
+}
+
+function applyLiveMountModifier(modifiers: LiveMountModifiers, token: string, spec: string): void {
+  if (token === "ro" || token === "rw") {
+    setLiveMountMode(modifiers, token, spec);
+    return;
+  }
+  if (isLiveMountCacheMode(token)) {
+    setLiveMountCache(modifiers, token, spec);
+    return;
+  }
+  throw new ParseError(
+    "PARSE_FLAG_MALFORMED",
+    `--mount-live: trailing modifier must be 'ro', 'rw', 'strict', 'cached', or 'fast', got '${token}'`,
+  );
+}
+
+function setLiveMountMode(modifiers: LiveMountModifiers, mode: "ro" | "rw", spec: string): void {
+  if (modifiers.mode !== undefined) {
+    throw new ParseError("PARSE_FLAG_MALFORMED", `--mount-live: mode given twice in '${spec}'`);
+  }
+  modifiers.mode = mode;
+}
+
+function setLiveMountCache(
+  modifiers: LiveMountModifiers,
+  cache: LiveMountCacheMode,
+  spec: string,
+): void {
+  if (modifiers.cache !== undefined) {
+    throw new ParseError(
+      "PARSE_FLAG_MALFORMED",
+      `--mount-live: cache mode given twice in '${spec}'`,
+    );
+  }
+  modifiers.cache = cache;
+}
+
+function isLiveMountCacheMode(value: string): value is LiveMountCacheMode {
+  return value === "strict" || value === "cached" || value === "fast";
 }
 
 /**

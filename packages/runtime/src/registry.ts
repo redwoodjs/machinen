@@ -199,6 +199,7 @@ export interface RegistryEntry {
     guest: string;
     host: string;
     mode: "ro" | "rw";
+    cache?: "strict" | "cached" | "fast";
   }>;
   /** ms epoch when the entry was created. */
   startedAt: number;

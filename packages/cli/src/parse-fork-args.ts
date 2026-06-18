@@ -21,6 +21,7 @@ import {
   consumePortForward,
   consumeVcpus,
   takeValue,
+  type LiveMountCacheMode,
   type ParsedCpuResourceArgs,
 } from "./parse-run-args.ts";
 
@@ -57,7 +58,7 @@ interface ParsedForkArgs {
    */
   mount?: { host: string; guest: string };
   /**
-   * Live-share mounts (`--mount-live <host>:<guest>[:<mode>]`).
+   * Live-share mounts (`--mount-live <host>:<guest>[:<mode>][:<cache>]`).
    * Establishes the mount on the fork after restore via an in-VMM
    * virtio-fs device (#332). See #78, #151.
    */
@@ -65,6 +66,7 @@ interface ParsedForkArgs {
     host: string;
     guest: string;
     mode: "ro" | "rw";
+    cache?: LiveMountCacheMode;
   }>;
   /** Env vars exposed to the forked guest workload (`--env KEY=VALUE`). */
   env?: Record<string, string>;
@@ -118,7 +120,7 @@ interface ForkParseState {
   portForward: Array<{ hostPort: number; guestPort: number }>;
   seenHostPorts: Set<number>;
   mount?: { host: string; guest: string };
-  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw"; cache?: LiveMountCacheMode }>;
   env: Record<string, string>;
   guestCwd?: string;
   memory?: number;

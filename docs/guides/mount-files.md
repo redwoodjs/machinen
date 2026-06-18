@@ -43,6 +43,15 @@ read-only data dump — pass `:ro`:
 npx machinen boot --mount-live ./fixtures:/mnt/fixtures:ro -- ./run-tests.sh
 ```
 
+Live mounts also accept an optional metadata cache mode: `:strict`
+uses zero metadata TTLs, `:cached` is the default compatibility mode,
+and `:fast` uses longer metadata TTLs for write-heavy workloads where
+brief host-side metadata staleness is acceptable:
+
+```bash
+npx machinen boot --mount-live ./workspace:/mnt/workspace:rw:fast -- make
+```
+
 You can pass `--mount-live` multiple times for separate shares; each
 one gets its own virtio-fs device slot:
 
@@ -76,7 +85,7 @@ await boot({
   image,
   cmd,
   liveMounts: [
-    { host: "./workspace", guest: "/mnt/workspace", mode: "rw" },
+    { host: "./workspace", guest: "/mnt/workspace", mode: "rw", cache: "fast" },
     { host: "./fixtures", guest: "/mnt/fixtures", mode: "ro" },
   ],
 });

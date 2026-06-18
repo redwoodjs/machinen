@@ -1233,6 +1233,7 @@ export type {
   BootOptions,
   BootResourcesOptions,
   ImageConfig,
+  LiveMountCacheMode,
   ResolvedCpuResourcePolicy,
   RestoreOptions,
 } from "./vm/index.ts";

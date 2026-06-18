@@ -46,6 +46,7 @@ const fuse = @import("fuse");
 /// virtio device ID for virtio-fs (virtio spec 1.2 §5.11). Mirrored
 /// into `virtio.DeviceId.virtio_fs`.
 pub const VIRTIO_ID_FS: u32 = 26;
+pub const CacheMode = fuse.CacheMode;
 
 /// `struct virtio_fs_config` — the device-specific config space the
 /// guest reads at MMIO offset 0x100. 36-byte mount tag plus the count
@@ -114,6 +115,18 @@ pub const Device = struct {
         mode_rw: bool,
     ) !Device {
         assert(tag.len > 0);
+        assert(root_abs.len > 0);
+        return init_with_cache(gpa, tag, root_abs, mode_rw, .cached);
+    }
+
+    pub fn init_with_cache(
+        gpa: std.mem.Allocator,
+        tag: []const u8,
+        root_abs: []u8,
+        mode_rw: bool,
+        cache_mode: CacheMode,
+    ) !Device {
+        assert(tag.len > 0);
         assert(tag.len <= 36);
         assert(root_abs.len > 0);
 
@@ -121,7 +134,7 @@ pub const Device = struct {
         @memcpy(cfg.tag[0..tag.len], tag);
 
         return .{
-            .state = try fuse.State.init(gpa, root_abs, mode_rw),
+            .state = try fuse.State.init_with_cache(gpa, root_abs, mode_rw, cache_mode),
             .config = cfg,
         };
     }
@@ -130,10 +143,44 @@ pub const Device = struct {
         self.state.deinit();
     }
 
+    pub fn enable_profile(self: *Device, profile_path: []const u8) void {
+        assert(self.state.root_abs.len > 0);
+        if (profile_path.len == 0) return;
+        self.state.stats_path = profile_path;
+        self.state.profile_enabled = true;
+        fuse.write_stats_atomic(&self.state);
+    }
+
     /// The config-space slice for `virtio.Device.config`. Stable for
     /// the backend's lifetime.
     pub fn config_bytes(self: *const Device) []const u8 {
         return std.mem.asBytes(&self.config);
+    }
+
+    fn record_profile(
+        self: *Device,
+        gather_start_ns: u64,
+        gather_end_ns: u64,
+        dispatch_start_ns: u64,
+        dispatch_end_ns: u64,
+        scatter_start_ns: u64,
+        scatter_end_ns: u64,
+        request_bytes: u64,
+        reply_bytes: u32,
+    ) void {
+        assert(self.state.root_abs.len > 0);
+        if (!self.state.profile_enabled) return;
+        fuse.record_virtqueue_profile(
+            &self.state,
+            gather_end_ns - gather_start_ns,
+            dispatch_end_ns - dispatch_start_ns,
+            scatter_end_ns - scatter_start_ns,
+            request_bytes,
+            reply_bytes,
+        );
+        if (self.state.virtqueue_request_count % 256 == 0) {
+            fuse.write_stats_atomic(&self.state);
+        }
     }
 
     /// `virtio.Device.request_handler` callback. Runs once per
@@ -148,6 +195,9 @@ pub const Device = struct {
         assert(ctx != null);
         const self: *Device = @ptrCast(@alignCast(ctx.?));
         assert(self.state.root_abs.len > 0);
+
+        const profile_enabled = self.state.profile_enabled;
+        const gather_start_ns = if (profile_enabled) fuse.profile_now_ns() else 0;
 
         // Walk the chain once. Device-readable descriptors are the FUSE
         // request — gather them contiguously into `req_buf`. Device-
@@ -181,6 +231,7 @@ pub const Device = struct {
             if ((d.flags & virtio.VringDesc.F_NEXT) == 0) break;
             idx = d.next;
         }
+        const gather_end_ns = if (profile_enabled) fuse.profile_now_ns() else 0;
         assert(steps <= MAX_CHAIN_DESCRIPTORS);
         assert(req_len <= self.req_buf.len);
         assert(writable_count <= writable.len);
@@ -189,6 +240,16 @@ pub const Device = struct {
         // `fuse.dispatch` asserts the precondition. Ack it and move on;
         // a well-formed guest never produces this.
         if (req_len < fuse.FUSE_IN_HEADER_SIZE) {
+            self.record_profile(
+                gather_start_ns,
+                gather_end_ns,
+                gather_end_ns,
+                gather_end_ns,
+                gather_end_ns,
+                gather_end_ns,
+                @intCast(req_len),
+                0,
+            );
             dev.queue_push_used(q_idx, head, 0);
             return;
         }
@@ -198,11 +259,34 @@ pub const Device = struct {
         // no-reply ops (FORGET, INTERRUPT). An error is an allocator
         // failure inside a handler — fail-soft ack, same as a malformed
         // chain.
+        const dispatch_start_ns = if (profile_enabled) fuse.profile_now_ns() else 0;
         const reply_opt = fuse.dispatch(&self.state, self.req_buf[0..req_len]) catch {
+            const dispatch_end_ns = if (profile_enabled) fuse.profile_now_ns() else 0;
+            self.record_profile(
+                gather_start_ns,
+                gather_end_ns,
+                dispatch_start_ns,
+                dispatch_end_ns,
+                dispatch_end_ns,
+                dispatch_end_ns,
+                @intCast(req_len),
+                0,
+            );
             dev.queue_push_used(q_idx, head, 0);
             return;
         };
+        const dispatch_end_ns = if (profile_enabled) fuse.profile_now_ns() else 0;
         const reply = reply_opt orelse {
+            self.record_profile(
+                gather_start_ns,
+                gather_end_ns,
+                dispatch_start_ns,
+                dispatch_end_ns,
+                dispatch_end_ns,
+                dispatch_end_ns,
+                @intCast(req_len),
+                0,
+            );
             dev.queue_push_used(q_idx, head, 0);
             return;
         };
@@ -212,6 +296,7 @@ pub const Device = struct {
         // A well-formed guest sizes the writable window to fit (the
         // kernel knows the op's max reply); if it doesn't, we copy what
         // fits and report the truncated count — fail-soft, not a wedge.
+        const scatter_start_ns = if (profile_enabled) fuse.profile_now_ns() else 0;
         var written: u32 = 0;
         var off: usize = 0;
         for (writable[0..writable_count]) |wd| {
@@ -222,7 +307,18 @@ pub const Device = struct {
             off += n;
             written += @intCast(n);
         }
+        const scatter_end_ns = if (profile_enabled) fuse.profile_now_ns() else 0;
         assert(off <= reply.len);
+        self.record_profile(
+            gather_start_ns,
+            gather_end_ns,
+            dispatch_start_ns,
+            dispatch_end_ns,
+            scatter_start_ns,
+            scatter_end_ns,
+            @intCast(req_len),
+            written,
+        );
         dev.queue_push_used(q_idx, head, written);
     }
 };

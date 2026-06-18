@@ -4,7 +4,12 @@
 
 import { ParseError } from "@machinen/runtime";
 
-import { consumeLiveMount, consumePortForward, takeValue } from "./parse-run-args.ts";
+import {
+  consumeLiveMount,
+  consumePortForward,
+  takeValue,
+  type LiveMountCacheMode,
+} from "./parse-run-args.ts";
 
 // fallow-ignore-next-line code-duplication
 export interface ParsedRestoreCommandArgs {
@@ -50,6 +55,7 @@ export interface ParsedRestoreCommandArgs {
     host: string;
     guest: string;
     mode: "ro" | "rw";
+    cache?: LiveMountCacheMode;
   }>;
 }
 
@@ -69,7 +75,7 @@ interface RestoreParseState {
   image?: string;
   portForward: Array<{ hostPort: number; guestPort: number }>;
   lazy: boolean;
-  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw"; cache?: LiveMountCacheMode }>;
   seenLiveGuests: Set<string>;
   seenHostPorts: Set<number>;
 }
