@@ -46,7 +46,6 @@ const fuse = @import("fuse");
 /// virtio device ID for virtio-fs (virtio spec 1.2 §5.11). Mirrored
 /// into `virtio.DeviceId.virtio_fs`.
 pub const VIRTIO_ID_FS: u32 = 26;
-pub const CacheMode = fuse.CacheMode;
 
 /// `struct virtio_fs_config` — the device-specific config space the
 /// guest reads at MMIO offset 0x100. 36-byte mount tag plus the count
@@ -115,18 +114,6 @@ pub const Device = struct {
         mode_rw: bool,
     ) !Device {
         assert(tag.len > 0);
-        assert(root_abs.len > 0);
-        return init_with_cache(gpa, tag, root_abs, mode_rw, .cached);
-    }
-
-    pub fn init_with_cache(
-        gpa: std.mem.Allocator,
-        tag: []const u8,
-        root_abs: []u8,
-        mode_rw: bool,
-        cache_mode: CacheMode,
-    ) !Device {
-        assert(tag.len > 0);
         assert(tag.len <= 36);
         assert(root_abs.len > 0);
 
@@ -134,7 +121,7 @@ pub const Device = struct {
         @memcpy(cfg.tag[0..tag.len], tag);
 
         return .{
-            .state = try fuse.State.init_with_cache(gpa, root_abs, mode_rw, cache_mode),
+            .state = try fuse.State.init(gpa, root_abs, mode_rw),
             .config = cfg,
         };
     }

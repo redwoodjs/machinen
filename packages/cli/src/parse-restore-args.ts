@@ -8,7 +8,6 @@ import {
   consumeLiveMount,
   consumePortForward,
   takeValue,
-  type LiveMountCacheMode,
   type LiveMountSyncMode,
 } from "./parse-run-args.ts";
 
@@ -56,7 +55,6 @@ export interface ParsedRestoreCommandArgs {
     host: string;
     guest: string;
     mode: "ro" | "rw";
-    cache?: LiveMountCacheMode;
     sync?: LiveMountSyncMode;
   }>;
 }
@@ -81,7 +79,6 @@ interface RestoreParseState {
     host: string;
     guest: string;
     mode: "ro" | "rw";
-    cache?: LiveMountCacheMode;
     sync?: LiveMountSyncMode;
   }>;
   seenLiveGuests: Set<string>;

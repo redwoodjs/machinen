@@ -6,21 +6,21 @@ import { join } from "node:path";
 import { BootError, ExecError } from "../errors.ts";
 import type { VmHandle } from "../vm-handle.ts";
 import type { BootOptions } from "./boot.ts";
-import type { ResolvedLiveMount } from "./bundle.ts";
+import type { LiveMountSyncMode } from "./bundle.ts";
+
+interface BatchLiveMount {
+  host: string;
+  guest: string;
+  sync?: LiveMountSyncMode;
+}
 
 export function validateBatchLiveMounts(
-  opts: BootOptions,
-  liveMounts: ResolvedLiveMount[],
+  _opts: BootOptions,
+  liveMounts: ReadonlyArray<BatchLiveMount>,
   vsockUdsPath: string | undefined,
 ): void {
   if (!liveMounts.some((lm) => lm.sync === "batch")) {
     return;
-  }
-  if (opts.detached) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      "liveMounts: sync='batch' cannot be used with detach yet",
-    );
   }
   if (!vsockUdsPath) {
     throw new BootError(
@@ -32,9 +32,9 @@ export function validateBatchLiveMounts(
 
 export function withBatchLiveMountSync(
   handle: VmHandle,
-  liveMounts: ResolvedLiveMount[],
+  liveMounts: ReadonlyArray<BatchLiveMount>,
 ): VmHandle {
-  const batchMounts = liveMounts.filter((lm) => lm.sync === "batch");
+  const batchMounts = liveMounts.filter(isBatchLiveMount);
   if (batchMounts.length === 0) {
     return handle;
   }
@@ -57,6 +57,10 @@ export function withBatchLiveMountSync(
       return handle.kill();
     },
   };
+}
+
+function isBatchLiveMount(mount: BatchLiveMount): mount is Required<BatchLiveMount> {
+  return mount.sync === "batch";
 }
 
 async function syncAfterBatchOperation<T>(
@@ -85,7 +89,7 @@ async function syncAfterBatchOperation<T>(
 
 async function syncBatchLiveMounts(
   execRaw: VmHandle["execRaw"],
-  mounts: ResolvedLiveMount[],
+  mounts: ReadonlyArray<Required<BatchLiveMount>>,
 ): Promise<void> {
   for (const mount of mounts) {
     await syncOneBatchLiveMount(execRaw, mount);
@@ -94,7 +98,7 @@ async function syncBatchLiveMounts(
 
 async function syncOneBatchLiveMount(
   execRaw: VmHandle["execRaw"],
-  mount: ResolvedLiveMount,
+  mount: Required<BatchLiveMount>,
 ): Promise<void> {
   const chunks: Buffer[] = [];
   const stderr: Buffer[] = [];

@@ -32,8 +32,9 @@ npx machinen boot --mount-live ./workspace:/mnt/workspace -- bash
 In the guest, `/mnt/workspace` is your host's `./workspace` directory.
 Reads stream through virtio-fs on demand — nothing was copied at boot,
 so the mount is essentially free even if the workspace is huge. Writes
-land back on the host immediately. If the guest builds a binary into
-`./workspace/dist/`, you'll see it in your editor.
+are published back to the host at sync points by default. If the guest
+builds a binary into `./workspace/dist/`, you'll see it after the
+workload exits or the next host API sync point.
 
 Default mode is read-write. If you want to share something the guest
 mustn't be able to modify — a directory of test fixtures, say, or a
@@ -43,27 +44,16 @@ read-only data dump — pass `:ro`:
 npx machinen boot --mount-live ./fixtures:/mnt/fixtures:ro -- ./run-tests.sh
 ```
 
-Live mounts also accept an optional metadata cache mode: `:cached` is
-the default compatibility mode, and `:fast` uses longer metadata TTLs
-for write-heavy workloads where brief host-side metadata staleness is
-acceptable:
-
-```bash
-npx machinen boot --mount-live ./workspace:/mnt/workspace:rw:fast -- make
-```
-
-For write-heavy generated trees, read-write live mounts also accept a
-sync mode. `:eager` is the default: every guest write is applied to the
-host path as the filesystem operation happens. `:batch` stages guest
-writes in a VM-local overlay, then publishes the final tree in bulk
+Read-write live mounts batch guest writes by default. Guest writes land
+in a VM-local overlay, then Machinen publishes the final tree in bulk
 when the workload exits, and after host API calls such as `vm.exec()`,
-`vm.snapshot()`, `vm.fork()`, or `vm.kill()`. A batch sync mirrors the
-guest-visible tree over the host directory, so concurrent host edits under
-that share can be overwritten. Use it only when delayed host visibility is
-acceptable:
+`vm.snapshot()`, `vm.fork()`, `vm.kill()`, or `machinen stop`. A batch
+sync mirrors the guest-visible tree over the host directory, so
+concurrent host edits under that share can be overwritten. If you need
+immediate host visibility for every guest write, pass `:eager`:
 
 ```bash
-npx machinen boot --mount-live ./workspace:/mnt/workspace:rw:fast:batch -- make
+npx machinen boot --mount-live ./workspace:/mnt/workspace:rw:eager -- make
 ```
 
 You can pass `--mount-live` multiple times for separate shares; each
@@ -99,7 +89,7 @@ await boot({
   image,
   cmd,
   liveMounts: [
-    { host: "./workspace", guest: "/mnt/workspace", mode: "rw", cache: "fast", sync: "batch" },
+    { host: "./workspace", guest: "/mnt/workspace", mode: "rw" },
     { host: "./fixtures", guest: "/mnt/fixtures", mode: "ro" },
   ],
 });

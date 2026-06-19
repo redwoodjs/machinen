@@ -199,7 +199,6 @@ export interface RegistryEntry {
     guest: string;
     host: string;
     mode: "ro" | "rw";
-    cache?: "cached" | "fast";
     sync?: "eager" | "batch";
   }>;
   /** ms epoch when the entry was created. */

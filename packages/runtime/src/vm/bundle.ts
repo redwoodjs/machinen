@@ -35,14 +35,12 @@ import { readImageConfig } from "./image-config.ts";
  * `boot()` into the initramfs packer so the config and the VMM env
  * agree on guest paths and per-mount tags.
  */
-export type LiveMountCacheMode = "cached" | "fast";
 export type LiveMountSyncMode = "eager" | "batch";
 
 export interface ResolvedLiveMount {
   host: string;
   guest: string;
   mode: "ro" | "rw";
-  cache: LiveMountCacheMode;
   sync: LiveMountSyncMode;
   tag: string;
 }
@@ -61,7 +59,6 @@ export function resolveLiveMounts(
     host: string;
     guest: string;
     mode?: "ro" | "rw";
-    cache?: LiveMountCacheMode;
     sync?: LiveMountSyncMode;
   }>,
   cwd: string | undefined,
@@ -94,11 +91,11 @@ export function resolveLiveMounts(
         `liveMounts[${i}] host path must be a directory: ${m.host}`,
       );
     }
+    rejectRemovedLiveMountCache(m, i);
     return {
       host: hostAbs,
       guest: normalizeMountGuest(m.guest),
       mode: m.mode ?? "rw",
-      cache: normalizeLiveMountCache(m.cache, i),
       sync: normalizeLiveMountSync(m.sync, m.mode ?? "rw", i),
       // Tag is the virtio-fs device's config-space identifier and must
       // be ≤ 36 bytes (FsConfig.tag). `machinen-lm<i>` stays well under.
@@ -107,17 +104,13 @@ export function resolveLiveMounts(
   });
 }
 
-function normalizeLiveMountCache(
-  cache: LiveMountCacheMode | undefined,
-  index: number,
-): LiveMountCacheMode {
-  if (cache === undefined || cache === "cached" || cache === "fast") {
-    return cache ?? "cached";
+function rejectRemovedLiveMountCache(mount: object, index: number): void {
+  if ("cache" in mount) {
+    throw new BootError(
+      "BOOT_MOUNT_INVALID",
+      `liveMounts[${index}] cache is no longer supported; metadata caching uses the fast policy`,
+    );
   }
-  throw new BootError(
-    "BOOT_MOUNT_INVALID",
-    `liveMounts[${index}] cache must be 'cached' or 'fast'`,
-  );
 }
 
 function normalizeLiveMountSync(
@@ -125,7 +118,10 @@ function normalizeLiveMountSync(
   mode: "ro" | "rw",
   index: number,
 ): LiveMountSyncMode {
-  if (sync === undefined || sync === "eager") {
+  if (sync === undefined) {
+    return mode === "rw" ? "batch" : "eager";
+  }
+  if (sync === "eager") {
     return "eager";
   }
   if (sync === "batch" && mode === "rw") {
@@ -188,7 +184,7 @@ export function buildMachinenConfig(input: {
  *     working. Returns undefined when both inputs are empty.
  *   - `recorded` non-empty: each entry is re-established by default.
  *     For each entry in `overrides`, the matching `recorded` entry's
- *     `host` and optional `mode` / `cache` are replaced. An override whose
+ *     `host` and optional `mode` / `sync` are replaced. An override whose
  *     `guest` doesn't appear in `recorded` is rejected with
  *     BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN — the override knob is for
  *     remapping bundle-recorded mounts, not for adding new ones.
@@ -201,6 +197,7 @@ export function resolveRestoreLiveMounts(
 ): BootOptions["liveMounts"] {
   const recordedList = recorded ?? [];
   const overrideList = overrides ?? [];
+  overrideList.forEach((ov, i) => rejectRemovedLiveMountCache(ov, i));
   if (recordedList.length === 0) {
     return overrideList.length > 0 ? overrideList : undefined;
   }
@@ -211,7 +208,6 @@ export function resolveRestoreLiveMounts(
       host: string;
       guest: string;
       mode?: "ro" | "rw";
-      cache?: LiveMountCacheMode;
       sync?: LiveMountSyncMode;
     }
   >();
@@ -225,7 +221,7 @@ export function resolveRestoreLiveMounts(
           `    ${known}\n` +
           `  restore() reproduces the snapshot's mount topology — opts.liveMounts is\n` +
           `  an override map, not an additive list. To override, set 'guest' to one\n` +
-          `  of the recorded paths above and supply a new 'host' / 'mode' / 'cache'.`,
+          `  of the recorded paths above and supply a new 'host' / 'mode' / 'sync'.`,
       );
     }
     overridesByGuest.set(ov.guest, ov);
@@ -237,10 +233,9 @@ export function resolveRestoreLiveMounts(
           guest: rec.guest,
           host: ov.host,
           mode: ov.mode ?? rec.mode,
-          cache: ov.cache ?? rec.cache,
           sync: ov.sync ?? rec.sync,
         }
-      : { guest: rec.guest, host: rec.host, mode: rec.mode, cache: rec.cache, sync: rec.sync };
+      : { guest: rec.guest, host: rec.host, mode: rec.mode, sync: rec.sync };
   });
 }
 

@@ -1828,17 +1828,7 @@ fn parse_one_virtiofs_env(name: [*:0]const u8, profile_name: ?[:0]u8) ?virtiofs_
         return null;
     };
     const mode = rest[0..c2];
-    const cache_and_path = rest[c2 + 1 ..];
-    var cache_mode: virtiofs_mod.CacheMode = .cached;
-    var host_path = cache_and_path;
-    if (cache_and_path.len > 0 and cache_and_path[0] != '/') {
-        const c3 = std.mem.indexOfScalar(u8, cache_and_path, ':') orelse {
-            std.debug.print("virtio-fs: cache mode needs ':<path>'; ignoring\n", .{});
-            return null;
-        };
-        cache_mode = parse_virtiofs_cache_mode(cache_and_path[0..c3]) orelse return null;
-        host_path = cache_and_path[c3 + 1 ..];
-    }
+    const host_path = rest[c2 + 1 ..];
 
     if (tag.len == 0 or tag.len > 36) {
         std.debug.print("virtio-fs: tag must be 1..36 bytes; ignoring\n", .{});
@@ -1859,12 +1849,11 @@ fn parse_one_virtiofs_env(name: [*:0]const u8, profile_name: ?[:0]u8) ?virtiofs_
 
     const gpa = std.heap.c_allocator;
     const root_abs = gpa.dupe(u8, host_path) catch return null;
-    var dev = virtiofs_mod.Device.init_with_cache(
+    var dev = virtiofs_mod.Device.init(
         gpa,
         tag,
         root_abs,
         mode_rw,
-        cache_mode,
     ) catch |err| {
         gpa.free(root_abs);
         std.debug.print("virtio-fs: backend init failed: {s}\n", .{@errorName(err)});
@@ -1877,17 +1866,10 @@ fn parse_one_virtiofs_env(name: [*:0]const u8, profile_name: ?[:0]u8) ?virtiofs_
         }
     }
     std.debug.print(
-        "virtio-fs: {s} {s} {s} <- {s}\n",
-        .{ tag, mode, @tagName(cache_mode), host_path },
+        "virtio-fs: {s} {s} <- {s}\n",
+        .{ tag, mode, host_path },
     );
     return dev;
-}
-
-fn parse_virtiofs_cache_mode(mode: []const u8) ?virtiofs_mod.CacheMode {
-    if (std.mem.eql(u8, mode, "cached")) return .cached;
-    if (std.mem.eql(u8, mode, "fast")) return .fast;
-    std.debug.print("virtio-fs: cache mode must be 'cached' or 'fast'; ignoring\n", .{});
-    return null;
 }
 
 /// Wrap a `virtiofs.Device` backend as a virtio-mmio device on the

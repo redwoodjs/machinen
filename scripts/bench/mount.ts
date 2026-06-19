@@ -55,14 +55,12 @@ const LARGE_SEQUENTIAL_WRITE_MIB = 64;
 // checkout that hasn't built release-assets yet.
 const ASSETS = join(REPO_ROOT, "release-assets");
 type GuestArch = "amd64" | "arm64";
-type LiveMountCacheMode = "cached" | "fast";
 
 interface CliArgs {
   noDocker: boolean;
   fixtureKey: string;
   decompose: boolean;
   profile: boolean;
-  cacheMode: LiveMountCacheMode;
 }
 
 interface ParseContext {
@@ -85,9 +83,6 @@ const BENCH_ARG_HANDLERS: Record<string, BenchArgHandler> = {
   "--profile": (ctx) => {
     ctx.args.profile = true;
   },
-  "--cache-mode": (ctx) => {
-    ctx.args.cacheMode = parseCacheMode(takeBenchArgValue(ctx, "--cache-mode"));
-  },
   "-h": () => printBenchUsageAndExit(),
   "--help": () => printBenchUsageAndExit(),
 };
@@ -106,7 +101,6 @@ function defaultCliArgs(): CliArgs {
     fixtureKey: "node-24-linux-arm64",
     decompose: true,
     profile: false,
-    cacheMode: "cached",
   };
 }
 
@@ -129,7 +123,7 @@ function takeBenchArgValue(ctx: ParseContext, name: string): string {
 
 function printBenchUsageAndExit(): never {
   console.log(
-    "usage: tsx scripts/bench/mount.ts [--no-docker] [--no-decompose] [--profile] [--cache-mode cached|fast] [--fixture <key>]",
+    "usage: tsx scripts/bench/mount.ts [--no-docker] [--no-decompose] [--profile] [--fixture <key>]",
   );
   process.exit(0);
 }
@@ -137,13 +131,6 @@ function printBenchUsageAndExit(): never {
 function exitBenchArgError(message: string): never {
   console.error(message);
   process.exit(2);
-}
-
-function parseCacheMode(value: string): LiveMountCacheMode {
-  if (value === "cached" || value === "fast") {
-    return value;
-  }
-  exitBenchArgError(`bench-mount: --cache-mode must be cached or fast (got ${value})`);
 }
 
 interface FixtureEntry {
@@ -285,7 +272,6 @@ interface RunResult {
   runId: string;
   host: HostInfo;
   fixtures: { tarball: string; tarballBytes: number };
-  cacheMode: LiveMountCacheMode;
   workload: string;
   wallMs: number;
   phases: MountBenchPhases;
@@ -369,7 +355,6 @@ async function runMountBench(
     scratch,
     workload.tarballHostDir,
     profilePaths,
-    args.cacheMode,
   );
   try {
     const wallMs = await runTarWorkload(booted.vm, workload.tarCmd);
@@ -380,16 +365,7 @@ async function runMountBench(
       await runGuestWorkload(booted.vm, "profile flush nudge", profileFlushCommand(workload));
     }
     const profiles = profilePaths ? readProfileFiles(profilePaths) : undefined;
-    return buildRunResult(
-      runId,
-      fixtureKey,
-      args.cacheMode,
-      workload,
-      wallMs,
-      booted.bootMs,
-      decomposed,
-      profiles,
-    );
+    return buildRunResult(runId, fixtureKey, workload, wallMs, booted.bootMs, decomposed, profiles);
   } finally {
     await cleanupMountBenchRun(booted.vm, scratch, profilePaths?.dir);
   }
@@ -489,7 +465,6 @@ async function bootMountBenchVm(
   scratch: string,
   tarballHostDir: string,
   profilePaths: ProfilePaths | undefined,
-  cacheMode: LiveMountCacheMode,
 ): Promise<{ vm: BenchVmHandle; bootMs: number }> {
   const t0 = Date.now();
   const vm = await boot({
@@ -501,8 +476,8 @@ async function bootMountBenchVm(
     // convenience mount carrying the tarball source. Both ride in-VMM
     // virtio-fs devices.
     liveMounts: [
-      { host: scratch, guest: "/mnt/out", mode: "rw", cache: cacheMode },
-      { host: tarballHostDir, guest: "/mnt/in", mode: "ro", cache: cacheMode },
+      { host: scratch, guest: "/mnt/out", mode: "rw" },
+      { host: tarballHostDir, guest: "/mnt/in", mode: "ro" },
     ],
     vmmEnv: profilePaths
       ? {
@@ -693,7 +668,6 @@ function mibPerSecond(mib: number, ms: number): number {
 function buildRunResult(
   runId: string,
   fixtureKey: string,
-  cacheMode: LiveMountCacheMode,
   workload: MountBenchWorkload,
   wallMs: number,
   bootMs: number,
@@ -704,7 +678,6 @@ function buildRunResult(
     runId,
     host: hostInfo(),
     fixtures: { tarball: fixtureKey, tarballBytes: workload.tarballBytes },
-    cacheMode,
     workload: workload.tarCmd,
     wallMs,
     phases: {
@@ -762,7 +735,6 @@ function printTable(result: RunResult): void {
   console.log("");
   console.log(`run: ${result.runId}`);
   console.log(`host: ${result.host.os}/${result.host.arch} ${result.host.hostname}`);
-  console.log(`cache mode: ${result.cacheMode}`);
   console.log("");
   console.log(`wall-clock tar-extract   ${(result.wallMs / 1000).toFixed(2)}s`);
   console.log(

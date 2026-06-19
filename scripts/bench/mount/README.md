@@ -31,7 +31,7 @@ The primary numbers are:
 The in-VMM virtio-fs device runs synchronously on the VMM thread. The
 benchmark phases split the workload before deeper per-op profiling is
 used to explain a specific bottleneck. The batch estimate is an
-upper-bound shape for the product `:batch` mode: it extracts the tree on
+upper-bound shape for the default product batch mode: it extracts the tree on
 guest-local storage, streams that tree back as one tar, and extracts it
 natively on the host, without measuring the full product sync wrapper or
 conflict semantics.
@@ -54,9 +54,6 @@ pnpm tsx scripts/bench/mount.ts --no-decompose
 # Enable opt-in virtio-fs/FUSE profile capture in the result JSON.
 pnpm tsx scripts/bench/mount.ts --profile
 
-# Compare metadata cache policies. Default is cached.
-pnpm tsx scripts/bench/mount.ts --cache-mode fast
-
 # 3. Inspect the result.
 cat scripts/bench/mount/results/<runId>.json
 ```
@@ -72,7 +69,6 @@ the docker side with `--no-docker` to get just the mount-side number.
   "runId": "2026-05-14T…",
   "host": { ... },
   "fixtures": { "tarball": "node-24-linux-arm64", "tarballBytes": N },
-  "cacheMode": "cached",
   "workload": "tar -xzf …",
   "wallMs": N,
   "phases": {

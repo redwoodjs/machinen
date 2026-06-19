@@ -9,6 +9,7 @@ import type { OnLog } from "../log.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
 import { findEntry, isAlive, writeEntry } from "../registry.ts";
 import { performFork } from "./fork.ts";
+import { withBatchLiveMountSync } from "./live-mount-batch.ts";
 import type { MemoryStats, VmHandle } from "../vm-handle.ts";
 import { buildWriteFileCmds, teeOnLog } from "./helpers.ts";
 import { performSnapshot, type SnapshotContext } from "./snapshot.ts";
@@ -248,5 +249,5 @@ export async function attach(opts: AttachOptions = {}): Promise<VmHandle> {
       errorOutput: async () => "",
     };
   }
-  return handle;
+  return withBatchLiveMountSync(handle, entry.liveMounts ?? []);
 }

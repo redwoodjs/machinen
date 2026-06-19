@@ -777,7 +777,6 @@ describe("buildMachinenConfig (cwd)", () => {
           host: "/host/work",
           guest: "/mnt/work",
           mode: "rw",
-          cache: "fast",
           sync: "batch",
           tag: "machinen-lm0",
         },

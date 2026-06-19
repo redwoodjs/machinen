@@ -82,7 +82,7 @@ describe("resolveRestoreLiveMounts", () => {
     ]);
   });
 
-  it("preserves recorded cache mode unless an override supplies one", () => {
+  it("drops legacy recorded cache fields", () => {
     const recorded = [
       {
         guest: "/mnt/work",
@@ -90,21 +90,18 @@ describe("resolveRestoreLiveMounts", () => {
         mode: "rw" as const,
         cache: "fast" as const,
       },
-      {
-        guest: "/mnt/fixtures",
-        host: "/Users/alice/fixtures",
-        mode: "ro" as const,
-        cache: "cached" as const,
-      },
-    ];
-    const overrides = [
-      { guest: "/mnt/work", host: "/Users/bob/work" },
-      { guest: "/mnt/fixtures", host: "/Users/bob/fixtures", cache: "fast" as const },
-    ];
-    expect(resolveRestoreLiveMounts(recorded, overrides)).toEqual([
-      { guest: "/mnt/work", host: "/Users/bob/work", mode: "rw", cache: "fast" },
-      { guest: "/mnt/fixtures", host: "/Users/bob/fixtures", mode: "ro", cache: "fast" },
+    ] as never;
+    expect(resolveRestoreLiveMounts(recorded, undefined)).toEqual([
+      { guest: "/mnt/work", host: "/Users/alice/work", mode: "rw" },
     ]);
+  });
+
+  it("rejects removed cache overrides", () => {
+    expect(() =>
+      resolveRestoreLiveMounts(undefined, [
+        { guest: "/mnt/work", host: "/Users/bob/work", cache: "fast" } as never,
+      ]),
+    ).toThrow(/cache is no longer supported/);
   });
 
   it("partial overrides leave non-overridden recorded entries untouched", () => {

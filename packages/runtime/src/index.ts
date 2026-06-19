@@ -1233,7 +1233,6 @@ export type {
   BootOptions,
   BootResourcesOptions,
   ImageConfig,
-  LiveMountCacheMode,
   LiveMountSyncMode,
   ResolvedCpuResourcePolicy,
   RestoreOptions,

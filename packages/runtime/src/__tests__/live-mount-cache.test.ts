@@ -9,40 +9,32 @@ import { resolveLiveMounts } from "../vm/bundle.ts";
 let hostDir: string;
 
 beforeEach(() => {
-  hostDir = mkdtempSync(join(tmpdir(), "machinen-live-mount-cache-"));
+  hostDir = mkdtempSync(join(tmpdir(), "machinen-live-mount-"));
 });
 
 afterEach(() => {
   rmSync(hostDir, { recursive: true, force: true });
 });
 
-describe("resolveLiveMounts cache modes", () => {
-  it("defaults to rw cached metadata behavior", () => {
+describe("resolveLiveMounts sync defaults", () => {
+  it("defaults rw mounts to batch sync", () => {
     expect(resolveLiveMounts([{ host: hostDir, guest: "/mnt/work" }], undefined)).toEqual([
       {
         host: hostDir,
         guest: "/mnt/work",
         mode: "rw",
-        cache: "cached",
-        sync: "eager",
+        sync: "batch",
         tag: "machinen-lm0",
       },
     ]);
   });
 
-  it("preserves explicit cached/fast cache modes per mount", () => {
+  it("defaults ro mounts to eager sync", () => {
     expect(
-      resolveLiveMounts(
-        [
-          { host: hostDir, guest: "/mnt/cached", cache: "cached" },
-          { host: hostDir, guest: "/mnt/fast", mode: "ro", cache: "fast" },
-        ],
-        undefined,
-      ).map(({ guest, mode, cache, sync, tag }) => ({ guest, mode, cache, sync, tag })),
-    ).toEqual([
-      { guest: "/mnt/cached", mode: "rw", cache: "cached", sync: "eager", tag: "machinen-lm0" },
-      { guest: "/mnt/fast", mode: "ro", cache: "fast", sync: "eager", tag: "machinen-lm1" },
-    ]);
+      resolveLiveMounts([{ host: hostDir, guest: "/mnt/fixtures", mode: "ro" }], undefined).map(
+        ({ guest, mode, sync, tag }) => ({ guest, mode, sync, tag }),
+      ),
+    ).toEqual([{ guest: "/mnt/fixtures", mode: "ro", sync: "eager", tag: "machinen-lm0" }]);
   });
 
   it("preserves explicit eager/batch sync modes", () => {
@@ -69,18 +61,12 @@ describe("resolveLiveMounts cache modes", () => {
     ).toThrow(/sync='batch' requires rw/);
   });
 
-  it("rejects invalid cache modes from untyped callers", () => {
+  it("rejects removed cache modes from untyped callers", () => {
     expect(() =>
-      resolveLiveMounts(
-        [{ host: hostDir, guest: "/mnt/work", cache: "strict" as never }],
-        undefined,
-      ),
-    ).toThrow(/cache must be 'cached' or 'fast'/);
+      resolveLiveMounts([{ host: hostDir, guest: "/mnt/work", cache: "fast" } as never], undefined),
+    ).toThrow(/cache is no longer supported/);
     try {
-      resolveLiveMounts(
-        [{ host: hostDir, guest: "/mnt/work", cache: "strict" as never }],
-        undefined,
-      );
+      resolveLiveMounts([{ host: hostDir, guest: "/mnt/work", cache: "fast" } as never], undefined);
     } catch (err) {
       expect(isMachinenError(err, "BOOT_MOUNT_INVALID")).toBe(true);
     }

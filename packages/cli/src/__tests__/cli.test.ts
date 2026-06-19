@@ -124,7 +124,7 @@ describe("parseRunArgs --mount-live", () => {
 
   it("rejects a malformed spec (missing colon)", () => {
     expect(() => parseRunArgs(["--mount-live", "./src"])).toThrow(
-      /expected <host-dir>:<guest-path>\[:<mode>\]\[:<cache>\]\[:<sync>\]/,
+      /expected <host-dir>:<guest-path>\[:<mode>\]\[:<sync>\]/,
     );
   });
 
@@ -137,29 +137,18 @@ describe("parseRunArgs --mount-live", () => {
     expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "ro" }]);
   });
 
-  it("accepts a :rw suffix for write-through", () => {
+  it("accepts a :rw suffix", () => {
     const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src:rw"]);
     expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "rw" }]);
   });
 
-  it("accepts metadata cache suffixes", () => {
-    const parsed = parseRunArgs([
-      "--mount-live",
-      "./cached:/mnt/cached:cached",
-      "--mount-live",
-      "./fast:/mnt/fast:rw:fast",
-    ]);
-    expect(parsed.liveMounts).toEqual([
-      { host: "./cached", guest: "/mnt/cached", mode: "rw", cache: "cached" },
-      { host: "./fast", guest: "/mnt/fast", mode: "rw", cache: "fast" },
-    ]);
-  });
-
-  it("accepts cache and mode suffixes in either order", () => {
-    const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src:fast:ro"]);
-    expect(parsed.liveMounts).toEqual([
-      { host: "./src", guest: "/mnt/src", mode: "ro", cache: "fast" },
-    ]);
+  it("rejects removed metadata cache suffixes", () => {
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:cached"])).toThrow(
+      /trailing modifier must be 'ro', 'rw', 'eager', or 'batch'/,
+    );
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw:fast"])).toThrow(
+      /trailing modifier must be 'ro', 'rw', 'eager', or 'batch'/,
+    );
   });
 
   it("accepts eager and batch sync suffixes", () => {
@@ -167,11 +156,11 @@ describe("parseRunArgs --mount-live", () => {
       "--mount-live",
       "./eager:/mnt/eager:eager",
       "--mount-live",
-      "./batch:/mnt/batch:rw:fast:batch",
+      "./batch:/mnt/batch:rw:batch",
     ]);
     expect(parsed.liveMounts).toEqual([
       { host: "./eager", guest: "/mnt/eager", mode: "rw", sync: "eager" },
-      { host: "./batch", guest: "/mnt/batch", mode: "rw", cache: "fast", sync: "batch" },
+      { host: "./batch", guest: "/mnt/batch", mode: "rw", sync: "batch" },
     ]);
   });
 
@@ -183,26 +172,26 @@ describe("parseRunArgs --mount-live", () => {
 
   it("rejects the removed :strict cache modifier", () => {
     expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:strict"])).toThrow(
-      /trailing modifier must be 'ro', 'rw', 'cached', 'fast', 'eager', or 'batch'/,
+      /trailing modifier must be 'ro', 'rw', 'eager', or 'batch'/,
     );
   });
 
   it("rejects an unknown trailing modifier", () => {
     expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:xx"])).toThrow(
-      /trailing modifier must be 'ro', 'rw', 'cached', 'fast', 'eager', or 'batch'/,
+      /trailing modifier must be 'ro', 'rw', 'eager', or 'batch'/,
     );
   });
 
   it("rejects a spec with too many colons", () => {
-    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw:fast:eager:extra"])).toThrow(
-      /expected <host-dir>:<guest-path>\[:<mode>\]\[:<cache>\]\[:<sync>\]/,
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw:eager:extra"])).toThrow(
+      /expected <host-dir>:<guest-path>\[:<mode>\]\[:<sync>\]/,
     );
   });
 
   it("rejects the removed :<protocol> modifier", () => {
     // #338 dropped the FUSE-over-vsock transport and its protocol knob.
     expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:ro:virtiofs"])).toThrow(
-      /trailing modifier must be 'ro', 'rw', 'cached', 'fast', 'eager', or 'batch'/,
+      /trailing modifier must be 'ro', 'rw', 'eager', or 'batch'/,
     );
   });
 });
@@ -588,7 +577,7 @@ describe("parseForkArgs", () => {
 
   it("rejects an invalid --mount-live modifier", () => {
     expect(() => parseForkArgs(["--mount-live", "h:/m/x:bogus"])).toThrow(
-      /trailing modifier must be 'ro', 'rw', 'cached', 'fast', 'eager', or 'batch'/,
+      /trailing modifier must be 'ro', 'rw', 'eager', or 'batch'/,
     );
   });
 

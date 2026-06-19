@@ -58,7 +58,6 @@ import { resolveCpuResourcePolicy, type ResolvedCpuResourcePolicy } from "./cpu-
 import {
   resolveLiveMounts,
   synthesizeAndPackBundle,
-  type LiveMountCacheMode,
   type LiveMountSyncMode,
   type ResolvedLiveMount,
 } from "./bundle.ts";
@@ -272,18 +271,19 @@ export interface BootOptions {
   /**
    * Host directories exposed to the guest as live-share mounts (#78,
    * #332). Unlike `mount` (copy-once), these stay connected to the
-   * host: guest reads stream on demand and `"rw"` writes land on the
-   * host. Set `"ro"` for a one-way share.
+   * host: guest reads stream on demand and `"rw"` writes sync back to
+   * the host. Set `"ro"` for a one-way share.
    *
    * Each guest path must live under `/mnt/`. Up to 5 entries are served
    * by in-VMM virtio-fs devices; no guest agent or vsock transport is
-   * involved. `cache` controls metadata TTLs: `"cached"` is the default,
-   * and `"fast"` uses longer TTLs.
+   * involved. Metadata uses the fast policy. `rw` mounts batch writes
+   * by default and sync to the host after guest workload exit and host
+   * lifecycle calls; set `sync: "eager"` for immediate host visibility.
    *
    * Snapshot / restore / fork record host path, guest path, mode, and
-   * cache policy, but not bytes. Restoring on another host fails if the
+   * sync policy, but not bytes. Restoring on another host fails if the
    * recorded host path is missing; pass `restore({ liveMounts })` with
-   * matching `guest` paths to remap host/mode/cache.
+   * matching `guest` paths to remap host/mode/sync.
    *
    * Security note: a live-share mount is a persistent guest-to-host
    * filesystem channel bounded to the configured host root. Prefer
@@ -293,9 +293,7 @@ export interface BootOptions {
     host: string;
     guest: string;
     mode?: "ro" | "rw";
-    /** Metadata cache policy: `cached` default, `fast` longer TTL. */
-    cache?: LiveMountCacheMode;
-    /** Write visibility policy: `eager` default, `batch` applies host updates after exec/snapshot/stop. */
+    /** Write visibility policy: `batch` default for rw, `eager` for immediate host writes. */
     sync?: LiveMountSyncMode;
   }>;
   /**
@@ -1075,7 +1073,7 @@ function setupLiveMountEnv(opts: BootOptions, env: Record<string, string>): Reso
   }
   const resolved = resolveLiveMounts(liveMounts, opts.cwd);
   resolved.forEach((lm, i) => {
-    env[`MACHINEN_VIRTIOFS_${i}`] = `${lm.tag}:${lm.mode}:${lm.cache}:${lm.host}`;
+    env[`MACHINEN_VIRTIOFS_${i}`] = `${lm.tag}:${lm.mode}:${lm.host}`;
   });
   return resolved;
 }
@@ -1682,11 +1680,10 @@ function registryMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
 
 function registryLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
   return nonEmptyList(
-    liveMountsResolved.map(({ guest, host, mode, cache, sync }) => ({
+    liveMountsResolved.map(({ guest, host, mode, sync }) => ({
       guest,
       host,
       mode,
-      cache,
       sync,
     })),
   );
@@ -2035,7 +2032,6 @@ function snapshotLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
       host: lm.host,
       guest: lm.guest,
       mode: lm.mode,
-      cache: lm.cache,
       sync: lm.sync,
     })),
   );

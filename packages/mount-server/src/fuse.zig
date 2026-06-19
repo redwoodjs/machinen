@@ -365,8 +365,6 @@ const FATTR_FH: u32 = 1 << 6;
 const FATTR_ATIME_NOW: u32 = 1 << 7;
 const FATTR_MTIME_NOW: u32 = 1 << 8;
 
-pub const CacheMode = enum { cached, fast };
-
 const CachePolicy = struct {
     entry_valid_sec: u64,
     entry_valid_nsec: u32,
@@ -374,23 +372,12 @@ const CachePolicy = struct {
     attr_valid_nsec: u32,
 };
 
-fn cache_policy(mode: CacheMode) CachePolicy {
-    assert(@sizeOf(CacheMode) > 0);
-    return switch (mode) {
-        .cached => .{
-            .entry_valid_sec = 1,
-            .entry_valid_nsec = 0,
-            .attr_valid_sec = 0,
-            .attr_valid_nsec = 100_000_000,
-        },
-        .fast => .{
-            .entry_valid_sec = 5,
-            .entry_valid_nsec = 0,
-            .attr_valid_sec = 1,
-            .attr_valid_nsec = 0,
-        },
-    };
-}
+const DEFAULT_CACHE_POLICY: CachePolicy = .{
+    .entry_valid_sec = 5,
+    .entry_valid_nsec = 0,
+    .attr_valid_sec = 1,
+    .attr_valid_nsec = 0,
+};
 
 // Hard upper bound on entries snapshotted per OPENDIR. Tiger Style:
 // every loop gets a static ceiling — the readdir() loop would
@@ -557,16 +544,6 @@ pub const State = struct {
 
     pub fn init(gpa: std.mem.Allocator, root_abs: []u8, mode_rw: bool) !State {
         assert(root_abs.len > 0);
-        return init_with_cache(gpa, root_abs, mode_rw, .cached);
-    }
-
-    pub fn init_with_cache(
-        gpa: std.mem.Allocator,
-        root_abs: []u8,
-        mode_rw: bool,
-        cache_mode: CacheMode,
-    ) !State {
-        assert(root_abs.len > 0);
         var inodes = std.AutoHashMap(u64, InodeEntry).init(gpa);
         errdefer inodes.deinit();
         var path_index = std.StringHashMap(u64).init(gpa);
@@ -584,7 +561,7 @@ pub const State = struct {
             .gpa = gpa,
             .root_abs = root_abs,
             .mode_rw = mode_rw,
-            .cache_policy = cache_policy(cache_mode),
+            .cache_policy = DEFAULT_CACHE_POLICY,
             .inodes = inodes,
             .path_index = path_index,
             .handles = std.AutoHashMap(u64, OpenEntry).init(gpa),
@@ -592,14 +569,8 @@ pub const State = struct {
         };
     }
 
-    pub fn set_cache_mode(self: *State, cache_mode: CacheMode) void {
-        assert(self.root_abs.len > 0);
-        self.cache_policy = cache_policy(cache_mode);
-    }
-
-    pub fn cache_mode_for_test(mode: CacheMode) CachePolicy {
-        assert(@sizeOf(CacheMode) > 0);
-        return cache_policy(mode);
+    pub fn cache_policy_for_test() CachePolicy {
+        return DEFAULT_CACHE_POLICY;
     }
 
     pub fn deinit(self: *State) void {
@@ -2358,8 +2329,8 @@ test "dispatch: GETATTR returns sane attrs for the host stat layout" {
     try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, r[4..8], .little));
     try testing.expectEqual(@as(usize, FUSE_OUT_HEADER_SIZE + FUSE_ATTR_OUT_SIZE), r.len);
     const attr_out = r[FUSE_OUT_HEADER_SIZE..];
-    const cached_policy = State.cache_mode_for_test(.cached);
-    try expect_attr_ttl(attr_out, cached_policy.attr_valid_sec, cached_policy.attr_valid_nsec);
+    const policy = State.cache_policy_for_test();
+    try expect_attr_ttl(attr_out, policy.attr_valid_sec, policy.attr_valid_nsec);
 
     const attr = r[FUSE_OUT_HEADER_SIZE + 16 ..];
     const mode = std.mem.readInt(u32, attr[60..64], .little);
@@ -2370,78 +2341,54 @@ test "dispatch: GETATTR returns sane attrs for the host stat layout" {
     try testing.expect(blksize > 0);
 }
 
-test "dispatch: cache modes control LOOKUP and GETATTR TTL" {
+test "dispatch: default cache policy controls LOOKUP and GETATTR TTL" {
     const gpa = testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "cache.txt", .data = "x" });
 
-    var cached = try State.init_with_cache(gpa, try test_tmp_root_abs(gpa, &tmp), true, .cached);
-    defer cached.deinit();
-    var fast = try State.init_with_cache(gpa, try test_tmp_root_abs(gpa, &tmp), true, .fast);
-    defer fast.deinit();
+    var state = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
+    defer state.deinit();
+    const policy = State.cache_policy_for_test();
 
-    const cached_frame = try test_build_frame(gpa, @intFromEnum(Op.GETATTR), 11, 1, &.{});
-    defer gpa.free(cached_frame);
-    const cached_reply = (try dispatch(&cached, cached_frame)) orelse return error.ExpectedReply;
-    defer gpa.free(cached_reply);
-    const cached_attr_out = cached_reply[FUSE_OUT_HEADER_SIZE..];
-    const cached_policy = State.cache_mode_for_test(.cached);
-    try expect_attr_ttl(cached_attr_out, cached_policy.attr_valid_sec, cached_policy.attr_valid_nsec);
+    const getattr_frame = try test_build_frame(gpa, @intFromEnum(Op.GETATTR), 11, 1, &.{});
+    defer gpa.free(getattr_frame);
+    const getattr_reply = (try dispatch(&state, getattr_frame)) orelse return error.ExpectedReply;
+    defer gpa.free(getattr_reply);
+    const attr_out = getattr_reply[FUSE_OUT_HEADER_SIZE..];
+    try expect_attr_ttl(attr_out, policy.attr_valid_sec, policy.attr_valid_nsec);
 
-    const fast_frame = try test_build_frame(gpa, @intFromEnum(Op.GETATTR), 12, 1, &.{});
-    defer gpa.free(fast_frame);
-    const fast_reply = (try dispatch(&fast, fast_frame)) orelse return error.ExpectedReply;
-    defer gpa.free(fast_reply);
-    const fast_attr_out = fast_reply[FUSE_OUT_HEADER_SIZE..];
-    const fast_policy = State.cache_mode_for_test(.fast);
-    try expect_attr_ttl(fast_attr_out, fast_policy.attr_valid_sec, fast_policy.attr_valid_nsec);
-
-    const cached_lookup_frame = try test_build_frame(
+    const lookup_frame = try test_build_frame(
         gpa,
         @intFromEnum(Op.LOOKUP),
         13,
         1,
         "cache.txt\x00",
     );
-    defer gpa.free(cached_lookup_frame);
-    const cached_lookup_reply = (try dispatch(&cached, cached_lookup_frame)) orelse
+    defer gpa.free(lookup_frame);
+    const lookup_reply = (try dispatch(&state, lookup_frame)) orelse
         return error.ExpectedReply;
-    defer gpa.free(cached_lookup_reply);
-    const cached_entry_out = cached_lookup_reply[FUSE_OUT_HEADER_SIZE..];
-    try expect_entry_ttl(cached_entry_out, cached_policy);
+    defer gpa.free(lookup_reply);
+    const entry_out = lookup_reply[FUSE_OUT_HEADER_SIZE..];
+    try expect_entry_ttl(entry_out, policy);
 
     var setattr_body: [24]u8 = @splat(0);
     std.mem.writeInt(u32, setattr_body[0..4], FATTR_SIZE, .little);
     std.mem.writeInt(u64, setattr_body[16..24], 1, .little);
-    const cached_nodeid = std.mem.readInt(u64, cached_entry_out[0..8], .little);
-    const cached_setattr_frame = try test_build_frame(
+    const nodeid = std.mem.readInt(u64, entry_out[0..8], .little);
+    const setattr_frame = try test_build_frame(
         gpa,
         @intFromEnum(Op.SETATTR),
         15,
-        cached_nodeid,
+        nodeid,
         &setattr_body,
     );
-    defer gpa.free(cached_setattr_frame);
-    const cached_setattr_reply = (try dispatch(&cached, cached_setattr_frame)) orelse
+    defer gpa.free(setattr_frame);
+    const setattr_reply = (try dispatch(&state, setattr_frame)) orelse
         return error.ExpectedReply;
-    defer gpa.free(cached_setattr_reply);
-    const cached_setattr_out = cached_setattr_reply[FUSE_OUT_HEADER_SIZE..];
-    try expect_attr_ttl(cached_setattr_out, cached_policy.attr_valid_sec, cached_policy.attr_valid_nsec);
-
-    const fast_lookup_frame = try test_build_frame(
-        gpa,
-        @intFromEnum(Op.LOOKUP),
-        14,
-        1,
-        "cache.txt\x00",
-    );
-    defer gpa.free(fast_lookup_frame);
-    const fast_lookup_reply = (try dispatch(&fast, fast_lookup_frame)) orelse
-        return error.ExpectedReply;
-    defer gpa.free(fast_lookup_reply);
-    const fast_entry_out = fast_lookup_reply[FUSE_OUT_HEADER_SIZE..];
-    try expect_entry_ttl(fast_entry_out, fast_policy);
+    defer gpa.free(setattr_reply);
+    const setattr_out = setattr_reply[FUSE_OUT_HEADER_SIZE..];
+    try expect_attr_ttl(setattr_out, policy.attr_valid_sec, policy.attr_valid_nsec);
 }
 
 /// CREATE `name` under the root inode; returns its (nodeid, fh).
@@ -2570,8 +2517,8 @@ test "dispatch: SETATTR FATTR_SIZE truncates an existing file and honors :ro" {
     defer gpa.free(sr);
     try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, sr[4..8], .little));
     const attr_out = sr[FUSE_OUT_HEADER_SIZE..];
-    const cached_policy = State.cache_mode_for_test(.cached);
-    try expect_attr_ttl(attr_out, cached_policy.attr_valid_sec, cached_policy.attr_valid_nsec);
+    const policy = State.cache_policy_for_test();
+    try expect_attr_ttl(attr_out, policy.attr_valid_sec, policy.attr_valid_nsec);
 
     const got = try tmp.dir.readFileAlloc(std.testing.io, "truncate.txt", gpa, .limited(1024));
     defer gpa.free(got);

@@ -14,11 +14,11 @@
 # Tests:
 #   V1-V4  Validation paths (no boot): host-missing, host-is-a-file,
 #          guest-outside-/mnt/, second --mount.
-#   V5-V10 --mount-live validation, including mode/cache/sync modifiers — #78, #151.
+#   V5-V10 --mount-live validation, including mode/sync modifiers — #78, #151.
 #   T1     Base-only boot — `echo hello-world` reaches the host console.
 #   T2     --mount exposes a host directory readable inside the guest.
 #   T3v    --mount-live :ro streams a host file in over virtio-fs — #332.
-#   T5v    --mount-live :rw guest writes land on the host over virtio-fs — #332.
+#   T5v    --mount-live :rw guest writes flush to the host — #332.
 #   T5b    --mount-live :batch stages writes and flushes on workload exit.
 #   T9v    filesystem-op battery over a virtio-fs live mount — #332.
 #   T4     --env propagates into the guest process env — #89.
@@ -320,7 +320,7 @@ expect_cli_error \
 expect_cli_error \
   "V9: --mount-live rejects a spec with too many colons" \
   "expected <host-dir>:<guest-path>" \
-  boot --mount-live "$EMPTY_DIR:/mnt/x:rw:fast:eager:extra" -- true
+  boot --mount-live "$EMPTY_DIR:/mnt/x:rw:eager:extra" -- true
 
 expect_cli_error \
   "V10: --mount-live rejects :batch on read-only mounts" \
@@ -399,12 +399,12 @@ else
   fail "T3v marker ($T3V_MARKER) not found — virtio-fs live mount didn't stream through"
 fi
 
-# ---- T5v: --mount-live :rw over virtio-fs — guest write reaches host (#151, #332) ----
+# ---- T5v: --mount-live :rw over virtio-fs — guest write flushes to host (#151, #332) ----
 #
 # Mode left unset so the default-`:rw` (#156) path is exercised. The
 # guest echoes a marker into a file under the mount; we assert it
 # appears on the host with the right contents after the VM exits.
-echo "T5v: machinen boot --mount-live (default :rw) — guest write reaches the host"
+echo "T5v: machinen boot --mount-live (default :rw:batch) — guest write reaches the host"
 T5V_MARKER="virtiofs-rw-marker-$$"
 T5V_SRC="$FIXTURE/virtiofs-rw-src"
 T5V_LOG="$FIXTURE/t5v.log"
@@ -414,7 +414,7 @@ run_timeout 60 node "$CLI" boot \
   -- /bin/sh -c "echo $T5V_MARKER >/mnt/live/from-guest.txt && sync" \
   >"$T5V_LOG" 2>&1 || true
 if [[ -f "$T5V_SRC/from-guest.txt" ]] && grep -q "$T5V_MARKER" "$T5V_SRC/from-guest.txt"; then
-  pass "guest write through :rw virtio-fs live-mount visible on the host"
+  pass "guest write through :rw virtio-fs live-mount visible on the host after flush"
 else
   tail -80 "$T5V_LOG" >&2
   echo "  host file: $(ls -la "$T5V_SRC" 2>&1)" >&2
