@@ -365,7 +365,7 @@ const FATTR_FH: u32 = 1 << 6;
 const FATTR_ATIME_NOW: u32 = 1 << 7;
 const FATTR_MTIME_NOW: u32 = 1 << 8;
 
-pub const CacheMode = enum { strict, cached, fast };
+pub const CacheMode = enum { cached, fast };
 
 const CachePolicy = struct {
     entry_valid_sec: u64,
@@ -377,12 +377,6 @@ const CachePolicy = struct {
 fn cache_policy(mode: CacheMode) CachePolicy {
     assert(@sizeOf(CacheMode) > 0);
     return switch (mode) {
-        .strict => .{
-            .entry_valid_sec = 0,
-            .entry_valid_nsec = 0,
-            .attr_valid_sec = 0,
-            .attr_valid_nsec = 0,
-        },
         .cached => .{
             .entry_valid_sec = 1,
             .entry_valid_nsec = 0,
@@ -2382,17 +2376,18 @@ test "dispatch: cache modes control LOOKUP and GETATTR TTL" {
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "cache.txt", .data = "x" });
 
-    var strict = try State.init_with_cache(gpa, try test_tmp_root_abs(gpa, &tmp), true, .strict);
-    defer strict.deinit();
+    var cached = try State.init_with_cache(gpa, try test_tmp_root_abs(gpa, &tmp), true, .cached);
+    defer cached.deinit();
     var fast = try State.init_with_cache(gpa, try test_tmp_root_abs(gpa, &tmp), true, .fast);
     defer fast.deinit();
 
-    const strict_frame = try test_build_frame(gpa, @intFromEnum(Op.GETATTR), 11, 1, &.{});
-    defer gpa.free(strict_frame);
-    const strict_reply = (try dispatch(&strict, strict_frame)) orelse return error.ExpectedReply;
-    defer gpa.free(strict_reply);
-    const strict_attr_out = strict_reply[FUSE_OUT_HEADER_SIZE..];
-    try expect_attr_ttl(strict_attr_out, 0, 0);
+    const cached_frame = try test_build_frame(gpa, @intFromEnum(Op.GETATTR), 11, 1, &.{});
+    defer gpa.free(cached_frame);
+    const cached_reply = (try dispatch(&cached, cached_frame)) orelse return error.ExpectedReply;
+    defer gpa.free(cached_reply);
+    const cached_attr_out = cached_reply[FUSE_OUT_HEADER_SIZE..];
+    const cached_policy = State.cache_mode_for_test(.cached);
+    try expect_attr_ttl(cached_attr_out, cached_policy.attr_valid_sec, cached_policy.attr_valid_nsec);
 
     const fast_frame = try test_build_frame(gpa, @intFromEnum(Op.GETATTR), 12, 1, &.{});
     defer gpa.free(fast_frame);
@@ -2402,37 +2397,37 @@ test "dispatch: cache modes control LOOKUP and GETATTR TTL" {
     const fast_policy = State.cache_mode_for_test(.fast);
     try expect_attr_ttl(fast_attr_out, fast_policy.attr_valid_sec, fast_policy.attr_valid_nsec);
 
-    const strict_lookup_frame = try test_build_frame(
+    const cached_lookup_frame = try test_build_frame(
         gpa,
         @intFromEnum(Op.LOOKUP),
         13,
         1,
         "cache.txt\x00",
     );
-    defer gpa.free(strict_lookup_frame);
-    const strict_lookup_reply = (try dispatch(&strict, strict_lookup_frame)) orelse
+    defer gpa.free(cached_lookup_frame);
+    const cached_lookup_reply = (try dispatch(&cached, cached_lookup_frame)) orelse
         return error.ExpectedReply;
-    defer gpa.free(strict_lookup_reply);
-    const strict_entry_out = strict_lookup_reply[FUSE_OUT_HEADER_SIZE..];
-    try expect_entry_ttl(strict_entry_out, State.cache_mode_for_test(.strict));
+    defer gpa.free(cached_lookup_reply);
+    const cached_entry_out = cached_lookup_reply[FUSE_OUT_HEADER_SIZE..];
+    try expect_entry_ttl(cached_entry_out, cached_policy);
 
     var setattr_body: [24]u8 = @splat(0);
     std.mem.writeInt(u32, setattr_body[0..4], FATTR_SIZE, .little);
     std.mem.writeInt(u64, setattr_body[16..24], 1, .little);
-    const strict_nodeid = std.mem.readInt(u64, strict_entry_out[0..8], .little);
-    const strict_setattr_frame = try test_build_frame(
+    const cached_nodeid = std.mem.readInt(u64, cached_entry_out[0..8], .little);
+    const cached_setattr_frame = try test_build_frame(
         gpa,
         @intFromEnum(Op.SETATTR),
         15,
-        strict_nodeid,
+        cached_nodeid,
         &setattr_body,
     );
-    defer gpa.free(strict_setattr_frame);
-    const strict_setattr_reply = (try dispatch(&strict, strict_setattr_frame)) orelse
+    defer gpa.free(cached_setattr_frame);
+    const cached_setattr_reply = (try dispatch(&cached, cached_setattr_frame)) orelse
         return error.ExpectedReply;
-    defer gpa.free(strict_setattr_reply);
-    const strict_setattr_out = strict_setattr_reply[FUSE_OUT_HEADER_SIZE..];
-    try expect_attr_ttl(strict_setattr_out, 0, 0);
+    defer gpa.free(cached_setattr_reply);
+    const cached_setattr_out = cached_setattr_reply[FUSE_OUT_HEADER_SIZE..];
+    try expect_attr_ttl(cached_setattr_out, cached_policy.attr_valid_sec, cached_policy.attr_valid_nsec);
 
     const fast_lookup_frame = try test_build_frame(
         gpa,

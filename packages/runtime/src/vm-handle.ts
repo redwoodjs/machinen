@@ -434,7 +434,7 @@ export interface SnapshotMeta {
    *   - `guest`: absolute guest path the mount lands at.
    *   - `host`:  absolute host path that was being shared.
    *   - `mode`:  `"ro"` or `"rw"`, the share's write semantics.
-   *   - `cache`: metadata cache policy (`"cached"` default, `"strict"`, or `"fast"`).
+   *   - `cache`: metadata cache policy (`"cached"` default or `"fast"`).
    *   - `sync`: write visibility policy (`"eager"` default, or `"batch"`).
    *
    * Restore policy: the bundle's recorded mounts are re-established
@@ -449,7 +449,7 @@ export interface SnapshotMeta {
     guest: string;
     host: string;
     mode: "ro" | "rw";
-    cache?: "strict" | "cached" | "fast";
+    cache?: "cached" | "fast";
     sync?: "eager" | "batch";
   }>;
 }

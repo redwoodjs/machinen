@@ -15531,7 +15531,7 @@ either; it's re-derived from the resolved order on restore.
 
 ###### cache?
 
-> `optional` **cache?**: `"strict"` \| `"cached"` \| `"fast"`
+> `optional` **cache?**: `"cached"` \| `"fast"`
 
 ###### sync?
 
@@ -17419,7 +17419,7 @@ source's `resolveLiveMounts()`:
   - `guest`: absolute guest path the mount lands at.
   - `host`:  absolute host path that was being shared.
   - `mode`:  `"ro"` or `"rw"`, the share's write semantics.
-  - `cache`: metadata cache policy (`"cached"` default, `"strict"`, or `"fast"`).
+  - `cache`: metadata cache policy (`"cached"` default or `"fast"`).
   - `sync`: write visibility policy (`"eager"` default, or `"batch"`).
 
 Restore policy: the bundle's recorded mounts are re-established
@@ -17444,7 +17444,7 @@ users remap with the override knob.
 
 ###### cache?
 
-> `optional` **cache?**: `"strict"` \| `"cached"` \| `"fast"`
+> `optional` **cache?**: `"cached"` \| `"fast"`
 
 ###### sync?
 
@@ -17752,7 +17752,7 @@ host. Set `"ro"` for a one-way share.
 Each guest path must live under `/mnt/`. Up to 5 entries are served
 by in-VMM virtio-fs devices; no guest agent or vsock transport is
 involved. `cache` controls metadata TTLs: `"cached"` is the default,
-`"strict"` uses zero TTLs, and `"fast"` uses longer TTLs.
+and `"fast"` uses longer TTLs.
 
 Snapshot / restore / fork record host path, guest path, mode, and
 cache policy, but not bytes. Restoring on another host fails if the
@@ -17779,7 +17779,7 @@ filesystem channel bounded to the configured host root. Prefer
 
 > `optional` **cache?**: [`LiveMountCacheMode`](#livemountcachemode)
 
-Metadata cache policy: `cached` default, `strict` zero TTL, `fast` longer TTL.
+Metadata cache policy: `cached` default, `fast` longer TTL.
 
 ###### sync?
 
@@ -18176,7 +18176,7 @@ host. Set `"ro"` for a one-way share.
 Each guest path must live under `/mnt/`. Up to 5 entries are served
 by in-VMM virtio-fs devices; no guest agent or vsock transport is
 involved. `cache` controls metadata TTLs: `"cached"` is the default,
-`"strict"` uses zero TTLs, and `"fast"` uses longer TTLs.
+and `"fast"` uses longer TTLs.
 
 Snapshot / restore / fork record host path, guest path, mode, and
 cache policy, but not bytes. Restoring on another host fails if the
@@ -18203,7 +18203,7 @@ filesystem channel bounded to the configured host root. Prefer
 
 > `optional` **cache?**: [`LiveMountCacheMode`](#livemountcachemode)
 
-Metadata cache policy: `cached` default, `strict` zero TTL, `fast` longer TTL.
+Metadata cache policy: `cached` default, `fast` longer TTL.
 
 ###### sync?
 
@@ -18608,7 +18608,7 @@ host. Set `"ro"` for a one-way share.
 Each guest path must live under `/mnt/`. Up to 5 entries are served
 by in-VMM virtio-fs devices; no guest agent or vsock transport is
 involved. `cache` controls metadata TTLs: `"cached"` is the default,
-`"strict"` uses zero TTLs, and `"fast"` uses longer TTLs.
+and `"fast"` uses longer TTLs.
 
 Snapshot / restore / fork record host path, guest path, mode, and
 cache policy, but not bytes. Restoring on another host fails if the
@@ -18635,7 +18635,7 @@ filesystem channel bounded to the configured host root. Prefer
 
 > `optional` **cache?**: [`LiveMountCacheMode`](#livemountcachemode)
 
-Metadata cache policy: `cached` default, `strict` zero TTL, `fast` longer TTL.
+Metadata cache policy: `cached` default, `fast` longer TTL.
 
 ###### sync?
 
@@ -23769,7 +23769,7 @@ to reconstruct the source VM's name when registering the fork.
 
 ### LiveMountCacheMode
 
-> **LiveMountCacheMode** = `"strict"` \| `"cached"` \| `"fast"`
+> **LiveMountCacheMode** = `"cached"` \| `"fast"`
 
 A caller-provided `liveMounts` entry after validation. Served by an
 in-VMM virtio-fs device (#332) — no detached process, no vsock port,

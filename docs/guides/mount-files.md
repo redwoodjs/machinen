@@ -43,10 +43,10 @@ read-only data dump — pass `:ro`:
 npx machinen boot --mount-live ./fixtures:/mnt/fixtures:ro -- ./run-tests.sh
 ```
 
-Live mounts also accept an optional metadata cache mode: `:strict`
-uses zero metadata TTLs, `:cached` is the default compatibility mode,
-and `:fast` uses longer metadata TTLs for write-heavy workloads where
-brief host-side metadata staleness is acceptable:
+Live mounts also accept an optional metadata cache mode: `:cached` is
+the default compatibility mode, and `:fast` uses longer metadata TTLs
+for write-heavy workloads where brief host-side metadata staleness is
+acceptable:
 
 ```bash
 npx machinen boot --mount-live ./workspace:/mnt/workspace:rw:fast -- make

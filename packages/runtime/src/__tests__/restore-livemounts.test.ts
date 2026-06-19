@@ -94,16 +94,16 @@ describe("resolveRestoreLiveMounts", () => {
         guest: "/mnt/fixtures",
         host: "/Users/alice/fixtures",
         mode: "ro" as const,
-        cache: "strict" as const,
+        cache: "cached" as const,
       },
     ];
     const overrides = [
       { guest: "/mnt/work", host: "/Users/bob/work" },
-      { guest: "/mnt/fixtures", host: "/Users/bob/fixtures", cache: "cached" as const },
+      { guest: "/mnt/fixtures", host: "/Users/bob/fixtures", cache: "fast" as const },
     ];
     expect(resolveRestoreLiveMounts(recorded, overrides)).toEqual([
       { guest: "/mnt/work", host: "/Users/bob/work", mode: "rw", cache: "fast" },
-      { guest: "/mnt/fixtures", host: "/Users/bob/fixtures", mode: "ro", cache: "cached" },
+      { guest: "/mnt/fixtures", host: "/Users/bob/fixtures", mode: "ro", cache: "fast" },
     ]);
   });
 

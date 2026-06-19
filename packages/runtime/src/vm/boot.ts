@@ -278,7 +278,7 @@ export interface BootOptions {
    * Each guest path must live under `/mnt/`. Up to 5 entries are served
    * by in-VMM virtio-fs devices; no guest agent or vsock transport is
    * involved. `cache` controls metadata TTLs: `"cached"` is the default,
-   * `"strict"` uses zero TTLs, and `"fast"` uses longer TTLs.
+   * and `"fast"` uses longer TTLs.
    *
    * Snapshot / restore / fork record host path, guest path, mode, and
    * cache policy, but not bytes. Restoring on another host fails if the
@@ -293,7 +293,7 @@ export interface BootOptions {
     host: string;
     guest: string;
     mode?: "ro" | "rw";
-    /** Metadata cache policy: `cached` default, `strict` zero TTL, `fast` longer TTL. */
+    /** Metadata cache policy: `cached` default, `fast` longer TTL. */
     cache?: LiveMountCacheMode;
     /** Write visibility policy: `eager` default, `batch` applies host updates after exec/snapshot/stop. */
     sync?: LiveMountSyncMode;

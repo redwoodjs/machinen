@@ -35,7 +35,7 @@ import { readImageConfig } from "./image-config.ts";
  * `boot()` into the initramfs packer so the config and the VMM env
  * agree on guest paths and per-mount tags.
  */
-export type LiveMountCacheMode = "strict" | "cached" | "fast";
+export type LiveMountCacheMode = "cached" | "fast";
 export type LiveMountSyncMode = "eager" | "batch";
 
 export interface ResolvedLiveMount {
@@ -111,12 +111,12 @@ function normalizeLiveMountCache(
   cache: LiveMountCacheMode | undefined,
   index: number,
 ): LiveMountCacheMode {
-  if (cache === undefined || cache === "strict" || cache === "cached" || cache === "fast") {
+  if (cache === undefined || cache === "cached" || cache === "fast") {
     return cache ?? "cached";
   }
   throw new BootError(
     "BOOT_MOUNT_INVALID",
-    `liveMounts[${index}] cache must be 'strict', 'cached', or 'fast'`,
+    `liveMounts[${index}] cache must be 'cached' or 'fast'`,
   );
 }
 

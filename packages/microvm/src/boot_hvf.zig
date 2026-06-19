@@ -1884,10 +1884,9 @@ fn parse_one_virtiofs_env(name: [*:0]const u8, profile_name: ?[:0]u8) ?virtiofs_
 }
 
 fn parse_virtiofs_cache_mode(mode: []const u8) ?virtiofs_mod.CacheMode {
-    if (std.mem.eql(u8, mode, "strict")) return .strict;
     if (std.mem.eql(u8, mode, "cached")) return .cached;
     if (std.mem.eql(u8, mode, "fast")) return .fast;
-    std.debug.print("virtio-fs: cache mode must be 'strict', 'cached', or 'fast'; ignoring\n", .{});
+    std.debug.print("virtio-fs: cache mode must be 'cached' or 'fast'; ignoring\n", .{});
     return null;
 }
 

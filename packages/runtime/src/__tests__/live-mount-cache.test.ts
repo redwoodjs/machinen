@@ -30,20 +30,18 @@ describe("resolveLiveMounts cache modes", () => {
     ]);
   });
 
-  it("preserves explicit strict/cached/fast cache modes per mount", () => {
+  it("preserves explicit cached/fast cache modes per mount", () => {
     expect(
       resolveLiveMounts(
         [
-          { host: hostDir, guest: "/mnt/strict", cache: "strict" },
           { host: hostDir, guest: "/mnt/cached", cache: "cached" },
           { host: hostDir, guest: "/mnt/fast", mode: "ro", cache: "fast" },
         ],
         undefined,
       ).map(({ guest, mode, cache, sync, tag }) => ({ guest, mode, cache, sync, tag })),
     ).toEqual([
-      { guest: "/mnt/strict", mode: "rw", cache: "strict", sync: "eager", tag: "machinen-lm0" },
-      { guest: "/mnt/cached", mode: "rw", cache: "cached", sync: "eager", tag: "machinen-lm1" },
-      { guest: "/mnt/fast", mode: "ro", cache: "fast", sync: "eager", tag: "machinen-lm2" },
+      { guest: "/mnt/cached", mode: "rw", cache: "cached", sync: "eager", tag: "machinen-lm0" },
+      { guest: "/mnt/fast", mode: "ro", cache: "fast", sync: "eager", tag: "machinen-lm1" },
     ]);
   });
 
@@ -74,13 +72,13 @@ describe("resolveLiveMounts cache modes", () => {
   it("rejects invalid cache modes from untyped callers", () => {
     expect(() =>
       resolveLiveMounts(
-        [{ host: hostDir, guest: "/mnt/work", cache: "turbo" as never }],
+        [{ host: hostDir, guest: "/mnt/work", cache: "strict" as never }],
         undefined,
       ),
-    ).toThrow(/cache must be 'strict', 'cached', or 'fast'/);
+    ).toThrow(/cache must be 'cached' or 'fast'/);
     try {
       resolveLiveMounts(
-        [{ host: hostDir, guest: "/mnt/work", cache: "turbo" as never }],
+        [{ host: hostDir, guest: "/mnt/work", cache: "strict" as never }],
         undefined,
       );
     } catch (err) {

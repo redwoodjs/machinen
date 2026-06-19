@@ -145,23 +145,20 @@ describe("parseRunArgs --mount-live", () => {
   it("accepts metadata cache suffixes", () => {
     const parsed = parseRunArgs([
       "--mount-live",
-      "./strict:/mnt/strict:strict",
-      "--mount-live",
       "./cached:/mnt/cached:cached",
       "--mount-live",
       "./fast:/mnt/fast:rw:fast",
     ]);
     expect(parsed.liveMounts).toEqual([
-      { host: "./strict", guest: "/mnt/strict", mode: "rw", cache: "strict" },
       { host: "./cached", guest: "/mnt/cached", mode: "rw", cache: "cached" },
       { host: "./fast", guest: "/mnt/fast", mode: "rw", cache: "fast" },
     ]);
   });
 
   it("accepts cache and mode suffixes in either order", () => {
-    const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src:strict:ro"]);
+    const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src:fast:ro"]);
     expect(parsed.liveMounts).toEqual([
-      { host: "./src", guest: "/mnt/src", mode: "ro", cache: "strict" },
+      { host: "./src", guest: "/mnt/src", mode: "ro", cache: "fast" },
     ]);
   });
 
@@ -184,9 +181,15 @@ describe("parseRunArgs --mount-live", () => {
     );
   });
 
+  it("rejects the removed :strict cache modifier", () => {
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:strict"])).toThrow(
+      /trailing modifier must be 'ro', 'rw', 'cached', 'fast', 'eager', or 'batch'/,
+    );
+  });
+
   it("rejects an unknown trailing modifier", () => {
     expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:xx"])).toThrow(
-      /trailing modifier must be 'ro', 'rw', 'strict', 'cached', 'fast', 'eager', or 'batch'/,
+      /trailing modifier must be 'ro', 'rw', 'cached', 'fast', 'eager', or 'batch'/,
     );
   });
 
@@ -199,7 +202,7 @@ describe("parseRunArgs --mount-live", () => {
   it("rejects the removed :<protocol> modifier", () => {
     // #338 dropped the FUSE-over-vsock transport and its protocol knob.
     expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:ro:virtiofs"])).toThrow(
-      /trailing modifier must be 'ro', 'rw', 'strict', 'cached', 'fast', 'eager', or 'batch'/,
+      /trailing modifier must be 'ro', 'rw', 'cached', 'fast', 'eager', or 'batch'/,
     );
   });
 });
@@ -585,7 +588,7 @@ describe("parseForkArgs", () => {
 
   it("rejects an invalid --mount-live modifier", () => {
     expect(() => parseForkArgs(["--mount-live", "h:/m/x:bogus"])).toThrow(
-      /trailing modifier must be 'ro', 'rw', 'strict', 'cached', 'fast', 'eager', or 'batch'/,
+      /trailing modifier must be 'ro', 'rw', 'cached', 'fast', 'eager', or 'batch'/,
     );
   });
 

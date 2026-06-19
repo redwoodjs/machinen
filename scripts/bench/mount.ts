@@ -55,7 +55,7 @@ const LARGE_SEQUENTIAL_WRITE_MIB = 64;
 // checkout that hasn't built release-assets yet.
 const ASSETS = join(REPO_ROOT, "release-assets");
 type GuestArch = "amd64" | "arm64";
-type LiveMountCacheMode = "strict" | "cached" | "fast";
+type LiveMountCacheMode = "cached" | "fast";
 
 interface CliArgs {
   noDocker: boolean;
@@ -129,7 +129,7 @@ function takeBenchArgValue(ctx: ParseContext, name: string): string {
 
 function printBenchUsageAndExit(): never {
   console.log(
-    "usage: tsx scripts/bench/mount.ts [--no-docker] [--no-decompose] [--profile] [--cache-mode strict|cached|fast] [--fixture <key>]",
+    "usage: tsx scripts/bench/mount.ts [--no-docker] [--no-decompose] [--profile] [--cache-mode cached|fast] [--fixture <key>]",
   );
   process.exit(0);
 }
@@ -140,10 +140,10 @@ function exitBenchArgError(message: string): never {
 }
 
 function parseCacheMode(value: string): LiveMountCacheMode {
-  if (value === "strict" || value === "cached" || value === "fast") {
+  if (value === "cached" || value === "fast") {
     return value;
   }
-  exitBenchArgError(`bench-mount: --cache-mode must be strict, cached, or fast (got ${value})`);
+  exitBenchArgError(`bench-mount: --cache-mode must be cached or fast (got ${value})`);
 }
 
 interface FixtureEntry {

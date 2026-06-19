@@ -12,7 +12,7 @@ export interface ParsedCpuResourceArgs {
   weight?: number;
 }
 
-export type LiveMountCacheMode = "strict" | "cached" | "fast";
+export type LiveMountCacheMode = "cached" | "fast";
 export type LiveMountSyncMode = "eager" | "batch";
 
 interface ParsedRunArgs {
@@ -24,8 +24,8 @@ interface ParsedRunArgs {
    * entry stays connected to the host filesystem for the VM's life;
    * guest reads stream in on demand. `mode` is `rw` (default,
    * write-through) or `ro` for read-only. `cache` is `cached` by
-   * default; use `strict` for zero metadata TTL or `fast` for longer
-   * metadata TTLs. `sync` is `eager` (default) or `batch`. Served by
+   * default; use `fast` for longer metadata TTLs. `sync` is `eager`
+   * (default) or `batch`. Served by
    * an in-VMM virtio-fs device (#332); the
    * FUSE-over-vsock transport and its `:<protocol>` modifier were
    * removed in #338. See #78, #151, #332.
@@ -517,8 +517,8 @@ export function consumeLiveMount(
 } {
   const { spec, next } = takeValue(flag, args, i, "a <host-dir>:<guest-path> value");
   // Format: `<host>:<guest>[:<mode>][:<cache>][:<sync>]`. The trailing modifiers
-  // are optional and order-independent: `ro` / `rw`, `strict` /
-  // `cached` / `fast`, and `eager` / `batch`. A guest path containing a colon is rejected —
+  // are optional and order-independent: `ro` / `rw`, `cached` / `fast`,
+  // and `eager` / `batch`. A guest path containing a colon is rejected —
   // same trade-off as `--mount`.
   const parts = spec.split(":");
   if (parts.length < 2 || parts.length > 5 || !parts[0] || !parts[1]) {
@@ -576,7 +576,7 @@ function applyLiveMountModifier(modifiers: LiveMountModifiers, token: string, sp
   }
   throw new ParseError(
     "PARSE_FLAG_MALFORMED",
-    `--mount-live: trailing modifier must be 'ro', 'rw', 'strict', 'cached', 'fast', 'eager', or 'batch', got '${token}'`,
+    `--mount-live: trailing modifier must be 'ro', 'rw', 'cached', 'fast', 'eager', or 'batch', got '${token}'`,
   );
 }
 
@@ -616,7 +616,7 @@ function setLiveMountSync(
 }
 
 function isLiveMountCacheMode(value: string): value is LiveMountCacheMode {
-  return value === "strict" || value === "cached" || value === "fast";
+  return value === "cached" || value === "fast";
 }
 
 function isLiveMountSyncMode(value: string): value is LiveMountSyncMode {

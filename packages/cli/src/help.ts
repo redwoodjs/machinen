@@ -18,8 +18,8 @@ export function printHelp(): void {
       `                                                 Guest reads stream in on demand; no\n` +
       `                                                 copy at boot. mode is 'rw' (default,\n` +
       `                                                 write-through) or 'ro' (read-only).\n` +
-      `                                                 cache is 'cached' (default), 'strict',\n` +
-      `                                                 or 'fast' for write-heavy metadata.\n` +
+      `                                                 cache is 'cached' (default) or\n` +
+      `                                                 'fast' for write-heavy metadata.\n` +
       `                                                 sync is 'eager' (default) or 'batch'.\n` +
       `    --env KEY=VALUE                              Set an env var inside the guest.\n` +
       `    --cwd <abs-path>                             Start the guest cmd in this directory\n` +

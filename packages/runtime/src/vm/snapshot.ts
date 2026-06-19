@@ -92,7 +92,7 @@ export interface SnapshotContext {
     host: string;
     guest: string;
     mode: "ro" | "rw";
-    cache?: "strict" | "cached" | "fast";
+    cache?: "cached" | "fast";
   }>;
   /**
    * Vmstate engine only: absolute path the VMM was told to write its
