@@ -350,7 +350,6 @@ const TOC = {
     "BootResourcesOptions",
     "BootMemoryResourceOptions",
     "BootCpuResourceOptions",
-    "LiveMountSyncMode",
     "ResolvedCpuResourcePolicy",
     "attach",
     "AttachOptions",

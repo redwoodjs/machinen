@@ -92,7 +92,6 @@ export interface SnapshotContext {
     host: string;
     guest: string;
     mode: "ro" | "rw";
-    sync?: "eager" | "batch";
   }>;
   /**
    * Vmstate engine only: absolute path the VMM was told to write its
@@ -639,11 +638,10 @@ function writeSnapshotMeta(
     // carried a resolved list (boot-handle path).
     liveMounts:
       ctx.liveMounts && ctx.liveMounts.length > 0
-        ? ctx.liveMounts.map(({ guest, host, mode, sync }) => ({
+        ? ctx.liveMounts.map(({ guest, host, mode }) => ({
             guest,
             host,
             mode,
-            sync,
           }))
         : undefined,
   };

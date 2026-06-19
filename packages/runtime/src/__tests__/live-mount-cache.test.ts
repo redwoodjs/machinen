@@ -16,49 +16,30 @@ afterEach(() => {
   rmSync(hostDir, { recursive: true, force: true });
 });
 
-describe("resolveLiveMounts sync defaults", () => {
-  it("defaults rw mounts to batch sync", () => {
+describe("resolveLiveMounts live-mount options", () => {
+  it("defaults mounts to rw mode without a public sync option", () => {
     expect(resolveLiveMounts([{ host: hostDir, guest: "/mnt/work" }], undefined)).toEqual([
       {
         host: hostDir,
         guest: "/mnt/work",
         mode: "rw",
-        sync: "batch",
         tag: "machinen-lm0",
       },
     ]);
   });
 
-  it("defaults ro mounts to batch sync", () => {
+  it("preserves ro mode", () => {
     expect(
       resolveLiveMounts([{ host: hostDir, guest: "/mnt/fixtures", mode: "ro" }], undefined).map(
-        ({ guest, mode, sync, tag }) => ({ guest, mode, sync, tag }),
+        ({ guest, mode, tag }) => ({ guest, mode, tag }),
       ),
-    ).toEqual([{ guest: "/mnt/fixtures", mode: "ro", sync: "batch", tag: "machinen-lm0" }]);
+    ).toEqual([{ guest: "/mnt/fixtures", mode: "ro", tag: "machinen-lm0" }]);
   });
 
-  it("preserves explicit eager/batch sync modes", () => {
-    expect(
-      resolveLiveMounts(
-        [
-          { host: hostDir, guest: "/mnt/eager", sync: "eager" },
-          { host: hostDir, guest: "/mnt/batch", sync: "batch" },
-        ],
-        undefined,
-      ).map(({ guest, sync }) => ({ guest, sync })),
-    ).toEqual([
-      { guest: "/mnt/eager", sync: "eager" },
-      { guest: "/mnt/batch", sync: "batch" },
-    ]);
-  });
-
-  it("accepts batch sync for read-only mounts", () => {
-    expect(
-      resolveLiveMounts(
-        [{ host: hostDir, guest: "/mnt/work", mode: "ro", sync: "batch" }],
-        undefined,
-      ).map(({ guest, mode, sync }) => ({ guest, mode, sync })),
-    ).toEqual([{ guest: "/mnt/work", mode: "ro", sync: "batch" }]);
+  it("rejects removed sync modes from untyped callers", () => {
+    expect(() =>
+      resolveLiveMounts([{ host: hostDir, guest: "/mnt/work", sync: "eager" } as never], undefined),
+    ).toThrow(/sync is no longer supported/);
   });
 
   it("rejects removed cache modes from untyped callers", () => {

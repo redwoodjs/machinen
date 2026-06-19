@@ -46,7 +46,7 @@ function restoreUsage(): string {
   return (
     "usage: machinen restore <snap-dir> [--image <tarball>] [--name <name>] " +
     "[--lazy] [-p <hostPort>:<guestPort>] " +
-    "[--mount-live <host>:<guest>[:<mode>][:<sync>]]\n"
+    "[--mount-live <host>:<guest>[:<mode>]]\n"
   );
 }
 

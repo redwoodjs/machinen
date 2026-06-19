@@ -259,7 +259,7 @@ export interface WriteFileOptions {
  * are snapshottable. The runtime unmounts each FUSE mount before
  * CRIU dumps and (for `leaveRunning: true`) re-establishes them
  * after. Bytes are NOT captured into the bundle — only the host
- * path / guest path / mode / sync policy get recorded in `meta.liveMounts` so
+ * path / guest path / mode get recorded in `meta.liveMounts` so
  * `restore()` can reconnect a live window on the other side. See
  * the `liveMounts` doc on `BootOptions` for the full contract.
  */
@@ -434,11 +434,10 @@ export interface SnapshotMeta {
    *   - `guest`: absolute guest path the mount lands at.
    *   - `host`:  absolute host path that was being shared.
    *   - `mode`:  `"ro"` or `"rw"`, the share's write semantics.
-   *   - `sync`: write visibility policy (`"batch"` default, or `"eager"`).
    *
    * Restore policy: the bundle's recorded mounts are re-established
    * verbatim by default. Pass `restore({ liveMounts })` to override
-   * per-guest `host`/`mode`/`sync` — each override entry's `guest` must match
+   * per-guest `host`/`mode` — each override entry's `guest` must match
    * a recorded entry, else BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN.
    * Cross-host bundles where a recorded `host` doesn't exist on the
    * restoring host fail loudly via the boot-time existence check —
@@ -448,7 +447,6 @@ export interface SnapshotMeta {
     guest: string;
     host: string;
     mode: "ro" | "rw";
-    sync?: "eager" | "batch";
   }>;
 }
 

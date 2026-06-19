@@ -13,13 +13,12 @@ export function printHelp(): void {
       `                                                 disk for a future vm.snapshot().\n` +
       `    --mount <host-dir>:<guest-path>              Expose one host dir inside the guest\n` +
       `                                                 (path under /mnt/; copy-once).\n` +
-      `    --mount-live <host-dir>:<guest-path>[:<mode>][:<sync>]\n` +
+      `    --mount-live <host-dir>:<guest-path>[:<mode>]\n` +
       `                                                 Live-share a host dir over FUSE.\n` +
       `                                                 Guest reads stream in on demand; no\n` +
       `                                                 copy at boot. mode is 'rw' (default)\n` +
-      `                                                 or 'ro' (read-only). sync defaults\n` +
-      `                                                 to 'batch'; use 'eager' for\n` +
-      `                                                 immediate rw host visibility.\n` +
+      `                                                 or 'ro' (read-only). rw writes sync\n` +
+      `                                                 back in batches.\n` +
       `    --env KEY=VALUE                              Set an env var inside the guest.\n` +
       `    --cwd <abs-path>                             Start the guest cmd in this directory\n` +
       `                                                 (must be absolute).\n` +
@@ -34,7 +33,7 @@ export function printHelp(): void {
       `                                                 Validate a move descriptor against a VM.\n` +
       `\n` +
       `  machinen restore <snap-dir> [--image <tar.gz>] [--name <name>] [-p ...]\n` +
-      `                              [--mount-live <host>:<guest>[:<mode>][:<sync>]]\n` +
+      `                              [--mount-live <host>:<guest>[:<mode>]]\n` +
       `                                                 Restore a VM from a snapshot bundle.\n` +
       `                                                 Anonymous restores auto-name as\n` +
       `                                                 <source>/<pid>. Pass --image with the\n` +

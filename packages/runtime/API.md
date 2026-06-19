@@ -348,7 +348,6 @@
 - [`BootResourcesOptions`](#bootresourcesoptions)
 - [`BootMemoryResourceOptions`](#bootmemoryresourceoptions)
 - [`BootCpuResourceOptions`](#bootcpuresourceoptions)
-- [`LiveMountSyncMode`](#livemountsyncmode)
 - [`ResolvedCpuResourcePolicy`](#resolvedcpuresourcepolicy)
 - [`attach`](#attach)
 - [`AttachOptions`](#attachoptions)
@@ -15528,10 +15527,6 @@ either; it's re-derived from the resolved order on restore.
 
 > **mode**: `"ro"` \| `"rw"`
 
-###### sync?
-
-> `optional` **sync?**: `"eager"` \| `"batch"`
-
 ##### startedAt
 
 > **startedAt**: `number`
@@ -17093,7 +17088,7 @@ Live-share mount note (#273): VMs booted with `liveMounts: [...]`
 are snapshottable. The runtime unmounts each FUSE mount before
 CRIU dumps and (for `leaveRunning: true`) re-establishes them
 after. Bytes are NOT captured into the bundle — only the host
-path / guest path / mode / sync policy get recorded in `meta.liveMounts` so
+path / guest path / mode get recorded in `meta.liveMounts` so
 `restore()` can reconnect a live window on the other side. See
 the `liveMounts` doc on `BootOptions` for the full contract.
 
@@ -17414,11 +17409,10 @@ source's `resolveLiveMounts()`:
   - `guest`: absolute guest path the mount lands at.
   - `host`:  absolute host path that was being shared.
   - `mode`:  `"ro"` or `"rw"`, the share's write semantics.
-  - `sync`: write visibility policy (`"batch"` default, or `"eager"`).
 
 Restore policy: the bundle's recorded mounts are re-established
 verbatim by default. Pass `restore({ liveMounts })` to override
-per-guest `host`/`mode`/`sync` — each override entry's `guest` must match
+per-guest `host`/`mode` — each override entry's `guest` must match
 a recorded entry, else BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN.
 Cross-host bundles where a recorded `host` doesn't exist on the
 restoring host fail loudly via the boot-time existence check —
@@ -17435,10 +17429,6 @@ users remap with the override knob.
 ###### mode
 
 > **mode**: `"ro"` \| `"rw"`
-
-###### sync?
-
-> `optional` **sync?**: `"eager"` \| `"batch"`
 
 ***
 
@@ -17741,15 +17731,14 @@ the host. Set `"ro"` for a one-way share.
 
 Each guest path must live under `/mnt/`. Up to 5 entries are served
 by in-VMM virtio-fs devices; no guest agent or vsock transport is
-involved. Metadata uses the fast policy. `sync` defaults to `batch`;
-`ro` mounts need no writeback, while `rw` mounts sync to the host
-after guest workload exit and host lifecycle calls. Set
-`sync: "eager"` for immediate `rw` host visibility.
+involved. Metadata uses the fast policy. `ro` mounts are read-only;
+`rw` mounts sync writes back to the host in batches after guest
+workload exit and host lifecycle calls.
 
-Snapshot / restore / fork record host path, guest path, mode, and
-sync policy, but not bytes. Restoring on another host fails if the
-recorded host path is missing; pass `restore({ liveMounts })` with
-matching `guest` paths to remap host/mode/sync.
+Snapshot / restore / fork record host path, guest path, and mode,
+but not bytes. Restoring on another host fails if the recorded host
+path is missing; pass `restore({ liveMounts })` with matching
+`guest` paths to remap host/mode.
 
 Security note: a live-share mount is a persistent guest-to-host
 filesystem channel bounded to the configured host root. Prefer
@@ -17766,12 +17755,6 @@ filesystem channel bounded to the configured host root. Prefer
 ###### mode?
 
 > `optional` **mode?**: `"ro"` \| `"rw"`
-
-###### sync?
-
-> `optional` **sync?**: [`LiveMountSyncMode`](#livemountsyncmode)
-
-Write visibility policy: `batch` default, or `eager` for immediate rw host writes.
 
 ###### Inherited from
 
@@ -18161,15 +18144,14 @@ the host. Set `"ro"` for a one-way share.
 
 Each guest path must live under `/mnt/`. Up to 5 entries are served
 by in-VMM virtio-fs devices; no guest agent or vsock transport is
-involved. Metadata uses the fast policy. `sync` defaults to `batch`;
-`ro` mounts need no writeback, while `rw` mounts sync to the host
-after guest workload exit and host lifecycle calls. Set
-`sync: "eager"` for immediate `rw` host visibility.
+involved. Metadata uses the fast policy. `ro` mounts are read-only;
+`rw` mounts sync writes back to the host in batches after guest
+workload exit and host lifecycle calls.
 
-Snapshot / restore / fork record host path, guest path, mode, and
-sync policy, but not bytes. Restoring on another host fails if the
-recorded host path is missing; pass `restore({ liveMounts })` with
-matching `guest` paths to remap host/mode/sync.
+Snapshot / restore / fork record host path, guest path, and mode,
+but not bytes. Restoring on another host fails if the recorded host
+path is missing; pass `restore({ liveMounts })` with matching
+`guest` paths to remap host/mode.
 
 Security note: a live-share mount is a persistent guest-to-host
 filesystem channel bounded to the configured host root. Prefer
@@ -18186,12 +18168,6 @@ filesystem channel bounded to the configured host root. Prefer
 ###### mode?
 
 > `optional` **mode?**: `"ro"` \| `"rw"`
-
-###### sync?
-
-> `optional` **sync?**: [`LiveMountSyncMode`](#livemountsyncmode)
-
-Write visibility policy: `batch` default, or `eager` for immediate rw host writes.
 
 ##### portForward?
 
@@ -18589,15 +18565,14 @@ the host. Set `"ro"` for a one-way share.
 
 Each guest path must live under `/mnt/`. Up to 5 entries are served
 by in-VMM virtio-fs devices; no guest agent or vsock transport is
-involved. Metadata uses the fast policy. `sync` defaults to `batch`;
-`ro` mounts need no writeback, while `rw` mounts sync to the host
-after guest workload exit and host lifecycle calls. Set
-`sync: "eager"` for immediate `rw` host visibility.
+involved. Metadata uses the fast policy. `ro` mounts are read-only;
+`rw` mounts sync writes back to the host in batches after guest
+workload exit and host lifecycle calls.
 
-Snapshot / restore / fork record host path, guest path, mode, and
-sync policy, but not bytes. Restoring on another host fails if the
-recorded host path is missing; pass `restore({ liveMounts })` with
-matching `guest` paths to remap host/mode/sync.
+Snapshot / restore / fork record host path, guest path, and mode,
+but not bytes. Restoring on another host fails if the recorded host
+path is missing; pass `restore({ liveMounts })` with matching
+`guest` paths to remap host/mode.
 
 Security note: a live-share mount is a persistent guest-to-host
 filesystem channel bounded to the configured host root. Prefer
@@ -18614,12 +18589,6 @@ filesystem channel bounded to the configured host root. Prefer
 ###### mode?
 
 > `optional` **mode?**: `"ro"` \| `"rw"`
-
-###### sync?
-
-> `optional` **sync?**: [`LiveMountSyncMode`](#livemountsyncmode)
-
-Write visibility policy: `batch` default, or `eager` for immediate rw host writes.
 
 ###### Inherited from
 
@@ -23742,19 +23711,6 @@ Result of `validatePid` — easy to switch on at the call site.
 
 On-disk shape of the bundle's `meta.json`. Read by `restore()`
 to reconstruct the source VM's name when registering the fork.
-
-***
-
-### LiveMountSyncMode
-
-> **LiveMountSyncMode** = `"eager"` \| `"batch"`
-
-A caller-provided `liveMounts` entry after validation. Served by an
-in-VMM virtio-fs device (#332) — no detached process, no vsock port,
-no guest fuse-agent. `tag` is the device's config-space identifier;
-`/init` runs `mount -t virtiofs <tag> <guest>`. Threaded from
-`boot()` into the initramfs packer so the config and the VMM env
-agree on guest paths and per-mount tags.
 
 ***
 

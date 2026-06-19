@@ -45,10 +45,7 @@ async function syncBatchLiveMountsBeforeStop(
   entry: RegistryEntry,
   opts: StopOptions,
 ): Promise<void> {
-  if (
-    opts.force ||
-    !entry.liveMounts?.some((mount) => mount.mode === "rw" && mount.sync === "batch")
-  ) {
+  if (opts.force || !entry.liveMounts?.some((mount) => mount.mode === "rw")) {
     return;
   }
   try {
@@ -60,7 +57,7 @@ async function syncBatchLiveMountsBeforeStop(
     }
   } catch (err) {
     process.stderr.write(
-      `machinen stop: warning: failed to sync batch live mounts before stop: ${formatStopSyncError(err)}\n`,
+      `machinen stop: warning: failed to sync live mounts before stop: ${formatStopSyncError(err)}\n`,
     );
   }
 }

@@ -14,12 +14,12 @@
 # Tests:
 #   V1-V4  Validation paths (no boot): host-missing, host-is-a-file,
 #          guest-outside-/mnt/, second --mount.
-#   V5-V9  --mount-live validation, including mode/sync modifiers — #78, #151.
+#   V5-V9  --mount-live validation, including mode modifiers — #78, #151.
 #   T1     Base-only boot — `echo hello-world` reaches the host console.
 #   T2     --mount exposes a host directory readable inside the guest.
 #   T3v    --mount-live :ro streams host data and rejects guest writes — #332.
 #   T5v    --mount-live :rw guest writes flush to the host — #332.
-#   T5b    --mount-live :batch stages writes and flushes on workload exit.
+#   T5b    --mount-live :rw stages writes and flushes on workload exit.
 #   T9v    filesystem-op battery over a virtio-fs live mount — #332.
 #   T4     --env propagates into the guest process env — #89.
 #   P1-P4  Base-rootfs/proof-fixture contract (criu, mounted portable
@@ -320,7 +320,7 @@ expect_cli_error \
 expect_cli_error \
   "V9: --mount-live rejects a spec with too many colons" \
   "expected <host-dir>:<guest-path>" \
-  boot --mount-live "$EMPTY_DIR:/mnt/x:rw:eager:extra" -- true
+  boot --mount-live "$EMPTY_DIR:/mnt/x:rw:extra" -- true
 
 # ----------------------------------------------------------------
 # Boot tests — need HVF/KVM. Slow.
@@ -399,7 +399,7 @@ fi
 # Mode left unset so the default-`:rw` (#156) path is exercised. The
 # guest echoes a marker into a file under the mount; we assert it
 # appears on the host with the right contents after the VM exits.
-echo "T5v: machinen boot --mount-live (default :rw:batch) — guest write reaches the host"
+echo "T5v: machinen boot --mount-live (default :rw) — guest write reaches the host"
 T5V_MARKER="virtiofs-rw-marker-$$"
 T5V_SRC="$FIXTURE/virtiofs-rw-src"
 T5V_LOG="$FIXTURE/t5v.log"
@@ -416,19 +416,19 @@ else
   fail "T5v marker ($T5V_MARKER) not found in $T5V_SRC/from-guest.txt"
 fi
 
-# ---- T5b: --mount-live :batch flushes staged writes at workload exit ----
-echo "T5b: machinen boot --mount-live :batch — guest writes flush at workload exit"
+# ---- T5b: --mount-live :rw flushes staged writes at workload exit ----
+echo "T5b: machinen boot --mount-live :rw — guest writes flush at workload exit"
 T5B_MARKER="virtiofs-batch-marker-$$"
 T5B_SRC="$FIXTURE/virtiofs-batch-src"
 T5B_LOG="$FIXTURE/t5b.log"
 mkdir -p "$T5B_SRC"
 echo "delete-me" >"$T5B_SRC/delete-me.txt"
 run_timeout 60 node "$CLI" boot \
-  --mount-live "$T5B_SRC:/mnt/live:rw:batch" \
+  --mount-live "$T5B_SRC:/mnt/live:rw" \
   -- /bin/sh -c "echo $T5B_MARKER >/mnt/live/from-guest.txt && rm /mnt/live/delete-me.txt" \
   >"$T5B_LOG" 2>&1 || true
 if [[ -f "$T5B_SRC/from-guest.txt" ]] && grep -q "$T5B_MARKER" "$T5B_SRC/from-guest.txt" && [[ ! -e "$T5B_SRC/delete-me.txt" ]]; then
-  pass "guest write/delete through :batch live-mount flushed on workload exit"
+  pass "guest write/delete through :rw live-mount flushed on workload exit"
 else
   tail -80 "$T5B_LOG" >&2
   echo "  host file: $(ls -la "$T5B_SRC" 2>&1)" >&2

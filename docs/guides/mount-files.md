@@ -44,19 +44,13 @@ read-only data dump — pass `:ro`:
 npx machinen boot --mount-live ./fixtures:/mnt/fixtures:ro -- ./run-tests.sh
 ```
 
-Live mounts default to batch sync. Read-only mounts have nothing to
-write back. For read-write mounts, guest writes land in a VM-local
-overlay, then Machinen publishes the final tree in bulk when the
-workload exits, and after host API calls such as `vm.exec()`,
-`vm.snapshot()`, `vm.fork()`, `vm.kill()`, or `machinen stop`. A
-writable batch sync mirrors the guest-visible tree over the host
-directory, so concurrent host edits under that share can be overwritten.
-If you need immediate host visibility for every guest write, pass
-`:eager`:
-
-```bash
-npx machinen boot --mount-live ./workspace:/mnt/workspace:rw:eager -- make
-```
+Read-only mounts have nothing to write back. For read-write mounts,
+guest writes land in a VM-local overlay, then Machinen publishes the
+final tree in bulk when the workload exits, and after host API calls
+such as `vm.exec()`, `vm.snapshot()`, `vm.fork()`, `vm.kill()`, or
+`machinen stop`. A writable live-mount sync mirrors the guest-visible
+tree over the host directory, so concurrent host edits under that share
+can be overwritten.
 
 You can pass `--mount-live` multiple times for separate shares; each
 one gets its own virtio-fs device slot:

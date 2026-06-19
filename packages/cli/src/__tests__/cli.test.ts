@@ -124,7 +124,7 @@ describe("parseRunArgs --mount-live", () => {
 
   it("rejects a malformed spec (missing colon)", () => {
     expect(() => parseRunArgs(["--mount-live", "./src"])).toThrow(
-      /expected <host-dir>:<guest-path>\[:<mode>\]\[:<sync>\]/,
+      /expected <host-dir>:<guest-path>\[:<mode>\]/,
     );
   });
 
@@ -142,57 +142,40 @@ describe("parseRunArgs --mount-live", () => {
     expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "rw" }]);
   });
 
-  it("rejects removed metadata cache suffixes", () => {
+  it("rejects removed metadata cache and sync suffixes", () => {
     expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:cached"])).toThrow(
-      /trailing modifier must be 'ro', 'rw', 'eager', or 'batch'/,
+      /trailing modifier must be 'ro' or 'rw'/,
     );
-    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw:fast"])).toThrow(
-      /trailing modifier must be 'ro', 'rw', 'eager', or 'batch'/,
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:eager"])).toThrow(
+      /trailing modifier must be 'ro' or 'rw'/,
     );
-  });
-
-  it("accepts eager and batch sync suffixes", () => {
-    const parsed = parseRunArgs([
-      "--mount-live",
-      "./eager:/mnt/eager:eager",
-      "--mount-live",
-      "./batch:/mnt/batch:rw:batch",
-    ]);
-    expect(parsed.liveMounts).toEqual([
-      { host: "./eager", guest: "/mnt/eager", mode: "rw", sync: "eager" },
-      { host: "./batch", guest: "/mnt/batch", mode: "rw", sync: "batch" },
-    ]);
-  });
-
-  it("accepts batch sync on read-only mounts", () => {
-    const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src:ro:batch"]);
-    expect(parsed.liveMounts).toEqual([
-      { host: "./src", guest: "/mnt/src", mode: "ro", sync: "batch" },
-    ]);
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:batch"])).toThrow(
+      /trailing modifier must be 'ro' or 'rw'/,
+    );
   });
 
   it("rejects the removed :strict cache modifier", () => {
     expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:strict"])).toThrow(
-      /trailing modifier must be 'ro', 'rw', 'eager', or 'batch'/,
+      /trailing modifier must be 'ro' or 'rw'/,
     );
   });
 
   it("rejects an unknown trailing modifier", () => {
     expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:xx"])).toThrow(
-      /trailing modifier must be 'ro', 'rw', 'eager', or 'batch'/,
+      /trailing modifier must be 'ro' or 'rw'/,
     );
   });
 
   it("rejects a spec with too many colons", () => {
-    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw:eager:extra"])).toThrow(
-      /expected <host-dir>:<guest-path>\[:<mode>\]\[:<sync>\]/,
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw:extra"])).toThrow(
+      /expected <host-dir>:<guest-path>\[:<mode>\]/,
     );
   });
 
   it("rejects the removed :<protocol> modifier", () => {
     // #338 dropped the FUSE-over-vsock transport and its protocol knob.
-    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:ro:virtiofs"])).toThrow(
-      /trailing modifier must be 'ro', 'rw', 'eager', or 'batch'/,
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:virtiofs"])).toThrow(
+      /trailing modifier must be 'ro' or 'rw'/,
     );
   });
 });
@@ -544,11 +527,10 @@ describe("parseForkArgs", () => {
     expect(parsed.liveMounts).toEqual([{ host: "/tmp/live", guest: "/mnt/live", mode: "ro" }]);
   });
 
-  it("captures --mount-live sync mode for fork", () => {
-    const parsed = parseForkArgs(["--mount-live", "/tmp/live:/mnt/live:rw:batch"]);
-    expect(parsed.liveMounts).toEqual([
-      { host: "/tmp/live", guest: "/mnt/live", mode: "rw", sync: "batch" },
-    ]);
+  it("rejects removed --mount-live sync mode for fork", () => {
+    expect(() => parseForkArgs(["--mount-live", "/tmp/live:/mnt/live:rw:batch"])).toThrow(
+      /expected <host-dir>:<guest-path>\[:<mode>\]/,
+    );
   });
 
   it("captures --env (repeatable) and --cwd", () => {
@@ -578,7 +560,7 @@ describe("parseForkArgs", () => {
 
   it("rejects an invalid --mount-live modifier", () => {
     expect(() => parseForkArgs(["--mount-live", "h:/m/x:bogus"])).toThrow(
-      /trailing modifier must be 'ro', 'rw', 'eager', or 'batch'/,
+      /trailing modifier must be 'ro' or 'rw'/,
     );
   });
 
@@ -757,11 +739,10 @@ describe("parseRestoreArgs", () => {
     ]);
   });
 
-  it("collects --mount-live sync mode for restore", () => {
-    const parsed = parseRestoreArgs(["./warm", "--mount-live", "/host/work:/mnt/work:rw:batch"]);
-    expect(parsed.liveMounts).toEqual([
-      { host: "/host/work", guest: "/mnt/work", mode: "rw", sync: "batch" },
-    ]);
+  it("rejects removed --mount-live sync mode for restore", () => {
+    expect(() =>
+      parseRestoreArgs(["./warm", "--mount-live", "/host/work:/mnt/work:rw:batch"]),
+    ).toThrow(/expected <host-dir>:<guest-path>\[:<mode>\]/);
   });
 
   it("rejects two --mount-live overrides for the same guest", () => {

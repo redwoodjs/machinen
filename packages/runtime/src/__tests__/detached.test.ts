@@ -3,8 +3,7 @@
 //   - regression guard against re-introducing the helper-compat gate.
 //     portForward, liveMounts (in-VMM virtio-fs), and `mount`
 //     (squashfs+ext4) all hold no live supervisor state after readiness.
-//     Live mounts, including batch sync, remain detach-compatible — assert
-//     boot() doesn't refuse them.
+//     Live mounts remain detach-compatible — assert boot() doesn't refuse them.
 //
 // The end-to-end "boot --detached, parent exits, VMM keeps running"
 // flow needs the real VMM binary and lives in the smoke suite —
@@ -87,11 +86,11 @@ describe("boot({ detached }) accepts live-mount options", () => {
     expect((err as { code: string }).code).not.toMatch(/INCOMPATIBLE/);
   });
 
-  it("does NOT reject batch liveMounts with detach", async () => {
+  it("does NOT reject read-only liveMounts with detach", async () => {
     const err = await boot({
       detached: true,
       image: "/tmp/does-not-exist.tar.gz",
-      liveMounts: [{ host: "/tmp", guest: "/mnt/live", sync: "batch" }],
+      liveMounts: [{ host: "/tmp", guest: "/mnt/live", mode: "ro" }],
     }).catch((e) => e);
     expect(isMachinenError(err)).toBe(true);
     expect((err as { code: string }).code).not.toBe("BOOT_MOUNT_INVALID");

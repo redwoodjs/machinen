@@ -35,13 +35,10 @@ import { readImageConfig } from "./image-config.ts";
  * `boot()` into the initramfs packer so the config and the VMM env
  * agree on guest paths and per-mount tags.
  */
-export type LiveMountSyncMode = "eager" | "batch";
-
 export interface ResolvedLiveMount {
   host: string;
   guest: string;
   mode: "ro" | "rw";
-  sync: LiveMountSyncMode;
   tag: string;
 }
 
@@ -59,7 +56,6 @@ export function resolveLiveMounts(
     host: string;
     guest: string;
     mode?: "ro" | "rw";
-    sync?: LiveMountSyncMode;
   }>,
   cwd: string | undefined,
 ): ResolvedLiveMount[] {
@@ -91,12 +87,11 @@ export function resolveLiveMounts(
         `liveMounts[${i}] host path must be a directory: ${m.host}`,
       );
     }
-    rejectRemovedLiveMountCache(m, i);
+    rejectRemovedLiveMountOptions(m, i);
     return {
       host: hostAbs,
       guest: normalizeMountGuest(m.guest),
       mode: m.mode ?? "rw",
-      sync: normalizeLiveMountSync(m.sync, i),
       // Tag is the virtio-fs device's config-space identifier and must
       // be ≤ 36 bytes (FsConfig.tag). `machinen-lm<i>` stays well under.
       tag: `machinen-lm${i}`,
@@ -104,26 +99,19 @@ export function resolveLiveMounts(
   });
 }
 
-function rejectRemovedLiveMountCache(mount: object, index: number): void {
+function rejectRemovedLiveMountOptions(mount: object, index: number): void {
   if ("cache" in mount) {
     throw new BootError(
       "BOOT_MOUNT_INVALID",
       `liveMounts[${index}] cache is no longer supported; metadata caching uses the fast policy`,
     );
   }
-}
-
-function normalizeLiveMountSync(
-  sync: LiveMountSyncMode | undefined,
-  index: number,
-): LiveMountSyncMode {
-  if (sync === undefined) {
-    return "batch";
+  if ("sync" in mount) {
+    throw new BootError(
+      "BOOT_MOUNT_INVALID",
+      `liveMounts[${index}] sync is no longer supported; rw live mounts sync in batches`,
+    );
   }
-  if (sync === "eager" || sync === "batch") {
-    return sync;
-  }
-  throw new BootError("BOOT_MOUNT_INVALID", `liveMounts[${index}] sync must be 'eager' or 'batch'`);
 }
 
 /**
@@ -154,14 +142,12 @@ export function buildMachinenConfig(input: {
   }
   if (input.liveMounts.length > 0) {
     // Host paths never cross into the guest's view. /init reads this
-    // and mounts read-only/eager entries directly over virtio-fs (#332);
-    // writable batch mounts get a guest-local overlay upper plus a sync
-    // script.
+    // and mounts read-only entries directly over virtio-fs (#332);
+    // writable entries get a guest-local overlay upper plus a sync script.
     cfg.liveMounts = input.liveMounts.map((lm) => ({
       guest: lm.guest,
       tag: lm.tag,
       mode: lm.mode,
-      sync: lm.sync,
     }));
   }
   return cfg;
@@ -179,8 +165,8 @@ export function buildMachinenConfig(input: {
  *     working. Returns undefined when both inputs are empty.
  *   - `recorded` non-empty: each entry is re-established by default.
  *     For each entry in `overrides`, the matching `recorded` entry's
- *     `host` and optional `mode` / `sync` are replaced. An override whose
- *     `guest` doesn't appear in `recorded` is rejected with
+ *     `host` and optional `mode` are replaced. An override whose `guest`
+ *     doesn't appear in `recorded` is rejected with
  *     BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN — the override knob is for
  *     remapping bundle-recorded mounts, not for adding new ones.
  *
@@ -192,7 +178,7 @@ export function resolveRestoreLiveMounts(
 ): BootOptions["liveMounts"] {
   const recordedList = recorded ?? [];
   const overrideList = overrides ?? [];
-  overrideList.forEach((ov, i) => rejectRemovedLiveMountCache(ov, i));
+  overrideList.forEach((ov, i) => rejectRemovedLiveMountOptions(ov, i));
   if (recordedList.length === 0) {
     return overrideList.length > 0 ? overrideList : undefined;
   }
@@ -203,7 +189,6 @@ export function resolveRestoreLiveMounts(
       host: string;
       guest: string;
       mode?: "ro" | "rw";
-      sync?: LiveMountSyncMode;
     }
   >();
   for (const ov of overrideList) {
@@ -216,7 +201,7 @@ export function resolveRestoreLiveMounts(
           `    ${known}\n` +
           `  restore() reproduces the snapshot's mount topology — opts.liveMounts is\n` +
           `  an override map, not an additive list. To override, set 'guest' to one\n` +
-          `  of the recorded paths above and supply a new 'host' / 'mode' / 'sync'.`,
+          `  of the recorded paths above and supply a new 'host' / 'mode'.`,
       );
     }
     overridesByGuest.set(ov.guest, ov);
@@ -228,9 +213,8 @@ export function resolveRestoreLiveMounts(
           guest: rec.guest,
           host: ov.host,
           mode: ov.mode ?? rec.mode,
-          sync: ov.sync ?? rec.sync,
         }
-      : { guest: rec.guest, host: rec.host, mode: rec.mode, sync: rec.sync };
+      : { guest: rec.guest, host: rec.host, mode: rec.mode };
   });
 }
 
@@ -389,9 +373,7 @@ function wrapBundleCommand(
   if (cmdHead === "/exec-agent" || cmdHead === "/sbin/machinen-restore") {
     return cmd;
   }
-  const workload = liveMounts.some((lm) => lm.mode === "rw" && lm.sync === "batch")
-    ? wrapBatchWorkloadCommand(cmd)
-    : cmd;
+  const workload = liveMounts.some((lm) => lm.mode === "rw") ? wrapBatchWorkloadCommand(cmd) : cmd;
   const supervisorArgs = typeof opts.snapshot === "string" ? ["--session"] : [];
   return ["/sbin/machinen-supervisor", ...supervisorArgs, ...workload];
 }

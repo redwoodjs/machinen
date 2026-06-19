@@ -6,13 +6,10 @@ import { join } from "node:path";
 import { BootError, ExecError } from "../errors.ts";
 import type { VmHandle } from "../vm-handle.ts";
 import type { BootOptions } from "./boot.ts";
-import type { LiveMountSyncMode } from "./bundle.ts";
-
 interface BatchLiveMount {
   host: string;
   guest: string;
   mode?: "ro" | "rw";
-  sync?: LiveMountSyncMode;
 }
 
 export function validateBatchLiveMounts(
@@ -26,7 +23,7 @@ export function validateBatchLiveMounts(
   if (!vsockUdsPath) {
     throw new BootError(
       "BOOT_MOUNT_INVALID",
-      "liveMounts: sync='batch' requires the exec vsock bridge",
+      "liveMounts: writable mounts require the exec vsock bridge for batched sync",
     );
   }
 }
@@ -61,7 +58,7 @@ export function withBatchLiveMountSync(
 }
 
 function isWritableBatchLiveMount(mount: BatchLiveMount): mount is Required<BatchLiveMount> {
-  return mount.mode === "rw" && mount.sync === "batch";
+  return mount.mode === "rw";
 }
 
 async function syncAfterBatchOperation<T>(

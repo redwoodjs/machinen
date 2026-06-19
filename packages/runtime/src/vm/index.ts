@@ -35,7 +35,6 @@ export { boot, type BootOptions } from "./boot.ts";
 export type { BootCpuResourceOptions, ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
 export type { BootMemoryResourceOptions, BootResourcesOptions } from "./memory-resources.ts";
 export { buildMachinenConfig, resolveRestoreLiveMounts } from "./bundle.ts";
-export type { LiveMountSyncMode } from "./bundle.ts";
 export { measureFirstByte } from "./fork.ts";
 export {
   autoSizeMemoryMib,

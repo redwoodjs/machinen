@@ -332,13 +332,11 @@ fn dup_z(arena: std.mem.Allocator, s: []const u8) ![*:0]const u8 {
     return @ptrCast(buf.ptr);
 }
 
-// One `--mount-live` share (#78, #332). /init exposes read-only and
-// eager mounts directly over virtio-fs; writable batch mounts use a
-// guest-local overlay upper over a hidden virtio-fs lower. There's no
-// agent process and no vsock hop. The FUSE-over-vsock transport was
-// removed in #338.
+// One `--mount-live` share (#78, #332). /init exposes read-only mounts
+// directly over virtio-fs; writable mounts use a guest-local overlay
+// upper over a hidden virtio-fs lower. There's no agent process and no
+// vsock hop. The FUSE-over-vsock transport was removed in #338.
 const LiveMountMode = enum { ro, rw };
-const LiveMountSync = enum { eager, batch };
 
 const LiveMount = struct {
     index: u8,
@@ -347,7 +345,6 @@ const LiveMount = struct {
     tag: []const u8,
     tag_z: [*:0]const u8, // NUL-terminated for mount(2)
     mode: LiveMountMode,
-    sync: LiveMountSync,
 };
 
 const Config = struct {
@@ -425,9 +422,9 @@ fn load_config(arena: std.mem.Allocator) !Config {
         cwd_z = try dup_z(arena, cwd_val.string);
     }
 
-    // liveMounts — optional array. Each entry is `{guest, tag, mode,
-    // sync}`: the tag matches the in-VMM virtio-fs device's config-
-    // space tag; mode/sync decide direct vs writable overlay exposure.
+    // liveMounts — optional array. Each entry is `{guest, tag, mode}`:
+    // the tag matches the in-VMM virtio-fs device's config-space tag;
+    // mode decides direct vs writable overlay exposure.
     var live_mounts: []LiveMount = &.{};
     if (obj.get("liveMounts")) |lm_val| {
         if (lm_val != .array) return error.LiveMountsNotArray;
@@ -444,7 +441,6 @@ fn load_config(arena: std.mem.Allocator) !Config {
             if (tag_val != .string) return error.LiveMountTagNotString;
             if (tag_val.string.len == 0) return error.LiveMountTagEmpty;
             const mode = try parse_live_mount_mode(eobj.get("mode"));
-            const sync_mode = try parse_live_mount_sync(eobj.get("sync"));
             buf[i] = .{
                 .index = @intCast(i),
                 .guest = guest_val.string,
@@ -452,7 +448,6 @@ fn load_config(arena: std.mem.Allocator) !Config {
                 .tag = tag_val.string,
                 .tag_z = try dup_z(arena, tag_val.string),
                 .mode = mode,
-                .sync = sync_mode,
             };
         }
         live_mounts = buf;
@@ -479,37 +474,23 @@ fn parse_live_mount_mode(value: ?std.json.Value) !LiveMountMode {
     return error.LiveMountModeInvalid;
 }
 
-fn parse_live_mount_sync(value: ?std.json.Value) !LiveMountSync {
-    std.debug.assert(@sizeOf(LiveMountSync) > 0);
-    const sync_val = value orelse return .batch;
-    if (sync_val != .string) return error.LiveMountSyncNotString;
-    if (std.mem.eql(u8, sync_val.string, "eager")) return .eager;
-    if (std.mem.eql(u8, sync_val.string, "batch")) return .batch;
-    return error.LiveMountSyncInvalid;
-}
-
 // --- live-share mount bring-up (#78, #332) -------------------------------
 
 /// Bring up every live-share mount declared in config. Each entry is
 /// served by an in-VMM virtio-fs device (#332) that's already live; /init
-/// mounts read-only/eager entries directly and writable batch entries as
-/// an overlay over a hidden virtio-fs lower. No agent to fork, no vsock
-/// hop. Waits for each mount to show up in /proc/self/mounts before
-/// returning so the user cmd sees it already populated. The virtio-fs
-/// driver is built into the kernel (CONFIG_VIRTIO_FS=y) so no module load
-/// is needed first.
+/// mounts read-only entries directly and writable entries as an overlay
+/// over a hidden virtio-fs lower. No agent to fork, no vsock hop. Waits
+/// for each mount to show up in /proc/self/mounts before returning so the
+/// user cmd sees it already populated. The virtio-fs driver is built into
+/// the kernel (CONFIG_VIRTIO_FS=y) so no module load is needed first.
 fn bring_up_live_mounts(mounts: []LiveMount) void {
     if (mounts.len == 0) return;
     init_batch_sync_script(mounts);
     for (mounts) |lm| {
-        if (uses_batch_overlay(lm)) {
-            mount_live_batch(lm);
-        } else {
-            mount_live_eager(lm);
-        }
+        if (lm.mode == .rw) mount_live_batch(lm) else mount_live_readonly(lm);
     }
     for (mounts) |lm| {
-        const fstype = if (uses_batch_overlay(lm)) "overlay" else "virtiofs";
+        const fstype = if (lm.mode == .rw) "overlay" else "virtiofs";
         if (!wait_for_live_mount(lm.guest, fstype, 5_000)) {
             var buf: [256]u8 = undefined;
             const msg = std.fmt.bufPrint(
@@ -522,15 +503,10 @@ fn bring_up_live_mounts(mounts: []LiveMount) void {
     }
 }
 
-fn uses_batch_overlay(lm: LiveMount) bool {
-    return lm.mode == .rw and lm.sync == .batch;
-}
-
-fn mount_live_eager(lm: LiveMount) void {
+fn mount_live_readonly(lm: LiveMount) void {
     std.debug.assert(lm.guest.len > 0);
     mkdir_parents(lm.guest);
-    const flags: c_ulong = if (lm.mode == .ro) MS_RDONLY else 0;
-    if (mount(lm.tag_z, lm.guest_z, "virtiofs", flags, null) == 0) return;
+    if (mount(lm.tag_z, lm.guest_z, "virtiofs", MS_RDONLY, null) == 0) return;
     var buf: [256]u8 = undefined;
     const msg = std.fmt.bufPrint(&buf, "init: virtiofs mount {s} (tag {s}) failed", .{
         lm.guest,
@@ -540,7 +516,7 @@ fn mount_live_eager(lm: LiveMount) void {
 }
 
 fn mount_live_batch(lm: LiveMount) void {
-    std.debug.assert(uses_batch_overlay(lm));
+    std.debug.assert(lm.mode == .rw);
     std.debug.assert(lm.guest.len > 0);
     var lower_buf: [128]u8 = undefined;
     var upper_buf: [128]u8 = undefined;
@@ -605,7 +581,7 @@ fn init_batch_sync_script(mounts: []LiveMount) void {
 fn needs_batch_sync_script(mounts: []LiveMount) bool {
     std.debug.assert(mounts.len > 0);
     for (mounts) |lm| {
-        if (lm.mode == .rw and lm.sync == .batch) return true;
+        if (lm.mode == .rw) return true;
     }
     return false;
 }

@@ -55,12 +55,7 @@ import { reflinkCopy } from "../reflink.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
 import { resolveCpuResourcePolicy, type ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
-import {
-  resolveLiveMounts,
-  synthesizeAndPackBundle,
-  type LiveMountSyncMode,
-  type ResolvedLiveMount,
-} from "./bundle.ts";
+import { resolveLiveMounts, synthesizeAndPackBundle, type ResolvedLiveMount } from "./bundle.ts";
 import { installVmExitCleanup } from "./exit-cleanup.ts";
 import { performForkWithRestore } from "./fork-core.ts";
 import { validateBatchLiveMounts, withBatchLiveMountSync } from "./live-mount-batch.ts";
@@ -276,15 +271,14 @@ export interface BootOptions {
    *
    * Each guest path must live under `/mnt/`. Up to 5 entries are served
    * by in-VMM virtio-fs devices; no guest agent or vsock transport is
-   * involved. Metadata uses the fast policy. `sync` defaults to `batch`;
-   * `ro` mounts need no writeback, while `rw` mounts sync to the host
-   * after guest workload exit and host lifecycle calls. Set
-   * `sync: "eager"` for immediate `rw` host visibility.
+   * involved. Metadata uses the fast policy. `ro` mounts are read-only;
+   * `rw` mounts sync writes back to the host in batches after guest
+   * workload exit and host lifecycle calls.
    *
-   * Snapshot / restore / fork record host path, guest path, mode, and
-   * sync policy, but not bytes. Restoring on another host fails if the
-   * recorded host path is missing; pass `restore({ liveMounts })` with
-   * matching `guest` paths to remap host/mode/sync.
+   * Snapshot / restore / fork record host path, guest path, and mode,
+   * but not bytes. Restoring on another host fails if the recorded host
+   * path is missing; pass `restore({ liveMounts })` with matching
+   * `guest` paths to remap host/mode.
    *
    * Security note: a live-share mount is a persistent guest-to-host
    * filesystem channel bounded to the configured host root. Prefer
@@ -294,8 +288,6 @@ export interface BootOptions {
     host: string;
     guest: string;
     mode?: "ro" | "rw";
-    /** Write visibility policy: `batch` default, or `eager` for immediate rw host writes. */
-    sync?: LiveMountSyncMode;
   }>;
   /**
    * Host -> guest TCP port forwards installed via gvproxy's control
@@ -1681,11 +1673,10 @@ function registryMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
 
 function registryLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
   return nonEmptyList(
-    liveMountsResolved.map(({ guest, host, mode, sync }) => ({
+    liveMountsResolved.map(({ guest, host, mode }) => ({
       guest,
       host,
       mode,
-      sync,
     })),
   );
 }
@@ -2033,7 +2024,6 @@ function snapshotLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
       host: lm.host,
       guest: lm.guest,
       mode: lm.mode,
-      sync: lm.sync,
     })),
   );
 }
