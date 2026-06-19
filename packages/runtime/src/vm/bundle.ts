@@ -154,10 +154,9 @@ export function buildMachinenConfig(input: {
   }
   if (input.liveMounts.length > 0) {
     // Host paths never cross into the guest's view. /init reads this
-    // and mounts each entry either directly (:eager) or through the
-    // overlay-backed batch path over virtio-fs (#332). Read-only batch
-    // mounts use a lower-only overlay; writable batch mounts add an upper
-    // plus a sync script.
+    // and mounts read-only/eager entries directly over virtio-fs (#332);
+    // writable batch mounts get a guest-local overlay upper plus a sync
+    // script.
     cfg.liveMounts = input.liveMounts.map((lm) => ({
       guest: lm.guest,
       tag: lm.tag,

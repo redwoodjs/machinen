@@ -332,10 +332,11 @@ fn dup_z(arena: std.mem.Allocator, s: []const u8) ![*:0]const u8 {
     return @ptrCast(buf.ptr);
 }
 
-// One `--mount-live` share (#78, #332). The in-VMM virtio-fs device
-// serves the hidden lower; /init either exposes it directly (:eager) or
-// through the overlay-backed batch path. There's no agent process and
-// no vsock hop. The FUSE-over-vsock transport was removed in #338.
+// One `--mount-live` share (#78, #332). /init exposes read-only and
+// eager mounts directly over virtio-fs; writable batch mounts use a
+// guest-local overlay upper over a hidden virtio-fs lower. There's no
+// agent process and no vsock hop. The FUSE-over-vsock transport was
+// removed in #338.
 const LiveMountMode = enum { ro, rw };
 const LiveMountSync = enum { eager, batch };
 
@@ -426,7 +427,7 @@ fn load_config(arena: std.mem.Allocator) !Config {
 
     // liveMounts — optional array. Each entry is `{guest, tag, mode,
     // sync}`: the tag matches the in-VMM virtio-fs device's config-
-    // space tag; mode/sync decide direct vs overlay-backed exposure.
+    // space tag; mode/sync decide direct vs writable overlay exposure.
     var live_mounts: []LiveMount = &.{};
     if (obj.get("liveMounts")) |lm_val| {
         if (lm_val != .array) return error.LiveMountsNotArray;
@@ -491,22 +492,24 @@ fn parse_live_mount_sync(value: ?std.json.Value) !LiveMountSync {
 
 /// Bring up every live-share mount declared in config. Each entry is
 /// served by an in-VMM virtio-fs device (#332) that's already live; /init
-/// mounts it directly for :eager or as the lower of an overlay-backed
-/// batch mount. No agent to fork, no vsock hop. Waits for each mount to
-/// show up in /proc/self/mounts before returning so the user cmd sees it
-/// already populated. The virtio-fs driver is built into the kernel
-/// (CONFIG_VIRTIO_FS=y) so no module load is needed first.
+/// mounts read-only/eager entries directly and writable batch entries as
+/// an overlay over a hidden virtio-fs lower. No agent to fork, no vsock
+/// hop. Waits for each mount to show up in /proc/self/mounts before
+/// returning so the user cmd sees it already populated. The virtio-fs
+/// driver is built into the kernel (CONFIG_VIRTIO_FS=y) so no module load
+/// is needed first.
 fn bring_up_live_mounts(mounts: []LiveMount) void {
     if (mounts.len == 0) return;
     init_batch_sync_script(mounts);
     for (mounts) |lm| {
-        switch (lm.sync) {
-            .eager => mount_live_eager(lm),
-            .batch => mount_live_batch(lm),
+        if (uses_batch_overlay(lm)) {
+            mount_live_batch(lm);
+        } else {
+            mount_live_eager(lm);
         }
     }
     for (mounts) |lm| {
-        const fstype = if (lm.sync == .batch) "overlay" else "virtiofs";
+        const fstype = if (uses_batch_overlay(lm)) "overlay" else "virtiofs";
         if (!wait_for_live_mount(lm.guest, fstype, 5_000)) {
             var buf: [256]u8 = undefined;
             const msg = std.fmt.bufPrint(
@@ -519,10 +522,15 @@ fn bring_up_live_mounts(mounts: []LiveMount) void {
     }
 }
 
+fn uses_batch_overlay(lm: LiveMount) bool {
+    return lm.mode == .rw and lm.sync == .batch;
+}
+
 fn mount_live_eager(lm: LiveMount) void {
     std.debug.assert(lm.guest.len > 0);
     mkdir_parents(lm.guest);
-    if (mount(lm.tag_z, lm.guest_z, "virtiofs", 0, null) == 0) return;
+    const flags: c_ulong = if (lm.mode == .ro) MS_RDONLY else 0;
+    if (mount(lm.tag_z, lm.guest_z, "virtiofs", flags, null) == 0) return;
     var buf: [256]u8 = undefined;
     const msg = std.fmt.bufPrint(&buf, "init: virtiofs mount {s} (tag {s}) failed", .{
         lm.guest,
@@ -532,57 +540,37 @@ fn mount_live_eager(lm: LiveMount) void {
 }
 
 fn mount_live_batch(lm: LiveMount) void {
+    std.debug.assert(uses_batch_overlay(lm));
     std.debug.assert(lm.guest.len > 0);
     var lower_buf: [128]u8 = undefined;
+    var upper_buf: [128]u8 = undefined;
+    var work_buf: [128]u8 = undefined;
     const lower = batch_mount_path(&lower_buf, lm.index, "lower") catch return;
+    const upper = batch_mount_path(&upper_buf, lm.index, "upper") catch return;
+    const work = batch_mount_path(&work_buf, lm.index, "work") catch return;
     mkdir_parents(lower);
+    mkdir_parents(upper);
+    mkdir_parents(work);
     var lower_z: [129]u8 = undefined;
     if (!copy_z(&lower_z, lower)) return;
-    const lower_flags: c_ulong = if (lm.mode == .ro) MS_RDONLY else 0;
-    if (mount(lm.tag_z, @ptrCast(&lower_z), "virtiofs", lower_flags, null) != 0) {
+    if (mount(lm.tag_z, @ptrCast(&lower_z), "virtiofs", 0, null) != 0) {
         log_line("init: batch lower virtiofs mount failed");
         return;
     }
     mkdir_parents(lm.guest);
-    if (lm.mode == .ro) {
-        _ = mount_live_batch_overlay(
-            lm,
-            lower,
-            MS_RDONLY,
-            "init: read-only batch overlay mount failed",
-        );
-        return;
-    }
-    if (mount_live_batch_overlay(lm, lower, 0, "init: batch overlay mount failed")) {
-        append_batch_sync_entry(lm.guest, lower);
-    }
-}
-
-fn mount_live_batch_overlay(
-    lm: LiveMount,
-    lower: []const u8,
-    flags: c_ulong,
-    fail_msg: []const u8,
-) bool {
-    var upper_buf: [128]u8 = undefined;
-    var work_buf: [128]u8 = undefined;
-    const upper = batch_mount_path(&upper_buf, lm.index, "upper") catch return false;
-    const work = batch_mount_path(&work_buf, lm.index, "work") catch return false;
-    mkdir_parents(upper);
-    mkdir_parents(work);
     var opts_buf: [512]u8 = undefined;
     const opts = std.fmt.bufPrint(&opts_buf, "lowerdir={s},upperdir={s},workdir={s}", .{
         lower,
         upper,
         work,
-    }) catch return false;
+    }) catch return;
     var opts_z: [513]u8 = undefined;
-    if (!copy_z(&opts_z, opts)) return false;
-    if (mount("overlay", lm.guest_z, "overlay", flags, @ptrCast(&opts_z)) != 0) {
-        log_line(fail_msg);
-        return false;
+    if (!copy_z(&opts_z, opts)) return;
+    if (mount("overlay", lm.guest_z, "overlay", 0, @ptrCast(&opts_z)) != 0) {
+        log_line("init: batch overlay mount failed");
+        return;
     }
-    return true;
+    append_batch_sync_entry(lm.guest, lower);
 }
 
 fn init_batch_sync_script(mounts: []LiveMount) void {

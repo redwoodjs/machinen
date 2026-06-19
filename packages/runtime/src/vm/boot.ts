@@ -276,10 +276,10 @@ export interface BootOptions {
    *
    * Each guest path must live under `/mnt/`. Up to 5 entries are served
    * by in-VMM virtio-fs devices; no guest agent or vsock transport is
-   * involved. Metadata uses the fast policy. Mounts use the batch path
-   * by default; `rw` mounts sync to the host after guest workload exit
-   * and host lifecycle calls. Set `sync: "eager"` for immediate `rw`
-   * host visibility.
+   * involved. Metadata uses the fast policy. `sync` defaults to `batch`;
+   * `ro` mounts need no writeback, while `rw` mounts sync to the host
+   * after guest workload exit and host lifecycle calls. Set
+   * `sync: "eager"` for immediate `rw` host visibility.
    *
    * Snapshot / restore / fork record host path, guest path, mode, and
    * sync policy, but not bytes. Restoring on another host fails if the
