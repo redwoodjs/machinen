@@ -1036,7 +1036,11 @@ fn run_loop(
                 }
                 defer if (dirty_bits) |bits| gpa.free(bits);
                 const full_ram = !checkpoint_delta_mode or dirty_bits == null;
-                if (queue_snapshot_write(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, gic_fd, devs, full_ram, dirty_bits)) {
+                // The first checkpoint writes a full sparse RAM image but still reads the
+                // dirty bitmap so it can clear KVM's log after the capture. The capture
+                // job only consumes dirty bits for delta checkpoints.
+                const capture_dirty_bits: ?[]const u64 = if (full_ram) null else dirty_bits;
+                if (queue_snapshot_write(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, gic_fd, devs, full_ram, capture_dirty_bits)) {
                     snapshotted = true;
                     checkpoint_delta_mode = true;
                     if (dirty_bits) |bits| vm.clear_dirty_log(0, bits, page_count);
