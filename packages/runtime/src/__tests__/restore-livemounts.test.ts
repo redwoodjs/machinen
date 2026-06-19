@@ -57,6 +57,31 @@ describe("resolveRestoreLiveMounts", () => {
     ]);
   });
 
+  it("preserves recorded sync mode unless an override supplies one", () => {
+    const recorded = [
+      {
+        guest: "/mnt/work",
+        host: "/Users/alice/work",
+        mode: "rw" as const,
+        sync: "batch" as const,
+      },
+      {
+        guest: "/mnt/cache",
+        host: "/Users/alice/cache",
+        mode: "rw" as const,
+        sync: "eager" as const,
+      },
+    ];
+    const overrides = [
+      { guest: "/mnt/work", host: "/Users/bob/work" },
+      { guest: "/mnt/cache", host: "/Users/bob/cache", sync: "batch" as const },
+    ];
+    expect(resolveRestoreLiveMounts(recorded, overrides)).toEqual([
+      { guest: "/mnt/work", host: "/Users/bob/work", mode: "rw", sync: "batch" },
+      { guest: "/mnt/cache", host: "/Users/bob/cache", mode: "rw", sync: "batch" },
+    ]);
+  });
+
   it("preserves recorded cache mode unless an override supplies one", () => {
     const recorded = [
       {

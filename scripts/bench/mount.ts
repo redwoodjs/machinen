@@ -304,6 +304,9 @@ interface MountBenchPhases {
   liveWriteOnlyExtractMs?: number;
   liveReadWriteExtractMs?: number;
   smallFileMetadataMs?: number;
+  hostBatchApplyMs?: number;
+  hostBatchApplyBytes?: number;
+  batchTotalMs?: number;
   largeSequentialWriteMs?: number;
   largeSequentialWriteMiBPerSec?: number;
 }
@@ -316,6 +319,9 @@ interface DecomposedMountPhases {
   liveWriteOnlyExtractMs: number;
   liveReadWriteExtractMs: number;
   smallFileMetadataMs: number;
+  hostBatchApplyMs: number;
+  hostBatchApplyBytes: number;
+  batchTotalMs: number;
   largeSequentialWriteMs: number;
   largeSequentialWriteMiBPerSec: number;
 }
@@ -575,6 +581,7 @@ async function runDecomposedMountWorkloads(
     "small-file metadata microbench",
     smallFileMetadataCommand(),
   );
+  const hostBatchApply = await runHostBatchApplyFromGuestRootfs(vm);
   const largeSequentialWriteMs = await runGuestWorkload(
     vm,
     "large sequential write microbench",
@@ -589,9 +596,53 @@ async function runDecomposedMountWorkloads(
     liveWriteOnlyExtractMs,
     liveReadWriteExtractMs,
     smallFileMetadataMs,
+    hostBatchApplyMs: hostBatchApply.wallMs,
+    hostBatchApplyBytes: hostBatchApply.bytes,
+    batchTotalMs: guestRootfsExtractMs + hostBatchApply.wallMs,
     largeSequentialWriteMs,
     largeSequentialWriteMiBPerSec: mibPerSecond(LARGE_SEQUENTIAL_WRITE_MIB, largeSequentialWriteMs),
   };
+}
+
+async function runHostBatchApplyFromGuestRootfs(
+  vm: BenchVmHandle,
+): Promise<{ wallMs: number; bytes: number }> {
+  const chunks: Buffer[] = [];
+  const guestStderr: Buffer[] = [];
+  const hostDest = join(tmpdir(), `machinen-bench-host-batch-${process.pid}-${Date.now()}`);
+  mkdirSync(hostDest, { recursive: true });
+  const ts = Date.now();
+  try {
+    const result = await vm.execRaw("cd /tmp/machinen-bench-rootfs && tar -cf - .", {
+      execTimeoutMs: 300_000,
+      onStdout: (chunk) => chunks.push(Buffer.from(chunk)),
+      onStderr: (chunk) => guestStderr.push(Buffer.from(chunk)),
+    });
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `guest tar stream exited ${result.exitCode}\nstderr: ${Buffer.concat(guestStderr).toString("utf8")}`,
+      );
+    }
+    const tarBytes = Buffer.concat(chunks);
+    const extract = spawnSync("tar", ["-xf", "-", "-C", hostDest], {
+      input: tarBytes,
+      encoding: "buffer",
+      stdio: ["pipe", "ignore", "pipe"],
+    });
+    if (extract.error) {
+      throw extract.error;
+    }
+    if (extract.status !== 0) {
+      throw new Error(`host batch tar exited ${extract.status}\nstderr: ${extract.stderr}`);
+    }
+    const wallMs = Date.now() - ts;
+    console.error(
+      `bench-mount: host batch apply from guest rootfs finished in ${wallMs}ms (${tarBytes.length} bytes)`,
+    );
+    return { wallMs, bytes: tarBytes.length };
+  } finally {
+    rmSync(hostDest, { recursive: true, force: true });
+  }
 }
 
 function smallFileMetadataCommand(): string {
@@ -745,6 +796,10 @@ function printDecomposedTable(phases: MountBenchPhases): void {
     `small-file metadata     ${formatMs(phases.smallFileMetadataMs)} (${SMALL_FILE_METADATA_COUNT} files)`,
   );
   console.log(
+    `batch apply estimate    ${formatMs(phases.hostBatchApplyMs)} (${formatBytes(phases.hostBatchApplyBytes)})`,
+  );
+  console.log(`batch total estimate    ${formatMs(phases.batchTotalMs)}`);
+  console.log(
     `large sequential write  ${formatMs(phases.largeSequentialWriteMs)} (${formatRate(phases.largeSequentialWriteMiBPerSec)})`,
   );
 }
@@ -755,6 +810,10 @@ function formatMs(value: number | undefined): string {
 
 function formatRate(value: number | undefined): string {
   return value === undefined ? "n/a" : `${value.toFixed(1)} MiB/s`;
+}
+
+function formatBytes(value: number | undefined): string {
+  return value === undefined ? "n/a" : `${(value / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
 async function main(): Promise<void> {

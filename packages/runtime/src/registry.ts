@@ -200,6 +200,7 @@ export interface RegistryEntry {
     host: string;
     mode: "ro" | "rw";
     cache?: "strict" | "cached" | "fast";
+    sync?: "eager" | "batch";
   }>;
   /** ms epoch when the entry was created. */
   startedAt: number;

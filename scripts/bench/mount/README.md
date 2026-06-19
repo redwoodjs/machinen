@@ -3,8 +3,8 @@
 Times a `tar -xzf` inside a machinen VM through a `--mount-live` mount,
 against the same extract under docker. The current harness also records
 extra decomposed phases so we can split host speed, guest rootfs speed,
-live-read cost, live-write cost, metadata cost, and large sequential
-write cost.
+live-read cost, live-write cost, metadata cost, a batch-apply estimate,
+and large sequential write cost.
 
 Started as the #329 baseline (JS mount-server → Zig port), then tracked
 the #332 virtio-fs transport. #338 removed the FUSE-over-vsock transport
@@ -25,12 +25,16 @@ The primary numbers are:
    available.
 3. **decomposed phases** for host native extract, guest rootfs extract,
    live-read-only extract, live-write-only extract, the current
-   live-read + live-write extract, small-file metadata, and large
-   sequential write.
+   live-read + live-write extract, small-file metadata, a host-side
+   batch apply estimate, and large sequential write.
 
 The in-VMM virtio-fs device runs synchronously on the VMM thread. The
 benchmark phases split the workload before deeper per-op profiling is
-used to explain a specific bottleneck.
+used to explain a specific bottleneck. The batch estimate is an
+upper-bound shape for the product `:batch` mode: it extracts the tree on
+guest-local storage, streams that tree back as one tar, and extracts it
+natively on the host, without measuring the full product sync wrapper or
+conflict semantics.
 
 ## How to run
 
@@ -81,6 +85,9 @@ the docker side with `--no-docker` to get just the mount-side number.
     "liveWriteOnlyExtractMs": N,
     "liveReadWriteExtractMs": N,
     "smallFileMetadataMs": N,
+    "hostBatchApplyMs": N,
+    "hostBatchApplyBytes": N,
+    "batchTotalMs": N,
     "largeSequentialWriteMs": N,
     "largeSequentialWriteMiBPerSec": N
   },

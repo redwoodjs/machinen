@@ -39,6 +39,9 @@ interface MountSamples {
   liveWriteOnlyExtractMs: number[];
   liveReadWriteExtractMs: number[];
   smallFileMetadataMs: number[];
+  hostBatchApplyMs: number[];
+  hostBatchApplyBytes: number[];
+  batchTotalMs: number[];
   largeSequentialWriteMs: number[];
   largeSequentialWriteMiBPerSec: number[];
   dockerWallMs: number[];
@@ -56,6 +59,9 @@ function emptyMountSamples(): MountSamples {
     liveWriteOnlyExtractMs: [],
     liveReadWriteExtractMs: [],
     smallFileMetadataMs: [],
+    hostBatchApplyMs: [],
+    hostBatchApplyBytes: [],
+    batchTotalMs: [],
     largeSequentialWriteMs: [],
     largeSequentialWriteMiBPerSec: [],
     dockerWallMs: [],
@@ -74,6 +80,9 @@ function appendMountSamples(samples: MountSamples, result: MountResult): void {
   appendIfNumber(samples.liveWriteOnlyExtractMs, result.phases?.liveWriteOnlyExtractMs);
   appendIfNumber(samples.liveReadWriteExtractMs, result.phases?.liveReadWriteExtractMs);
   appendIfNumber(samples.smallFileMetadataMs, result.phases?.smallFileMetadataMs);
+  appendIfNumber(samples.hostBatchApplyMs, result.phases?.hostBatchApplyMs);
+  appendIfNumber(samples.hostBatchApplyBytes, result.phases?.hostBatchApplyBytes);
+  appendIfNumber(samples.batchTotalMs, result.phases?.batchTotalMs);
   appendIfNumber(samples.largeSequentialWriteMs, result.phases?.largeSequentialWriteMs);
   appendIfNumber(
     samples.largeSequentialWriteMiBPerSec,
@@ -119,6 +128,9 @@ function mountSuiteJson(samples: MountSamples): JsonValue {
         samples.liveReadWriteExtractMs,
       ) as unknown as JsonValue,
       small_file_metadata_ms: nullableStats(samples.smallFileMetadataMs) as unknown as JsonValue,
+      host_batch_apply_ms: nullableStats(samples.hostBatchApplyMs) as unknown as JsonValue,
+      host_batch_apply_bytes: nullableStats(samples.hostBatchApplyBytes) as unknown as JsonValue,
+      batch_total_estimate_ms: nullableStats(samples.batchTotalMs) as unknown as JsonValue,
       large_sequential_write_ms: nullableStats(
         samples.largeSequentialWriteMs,
       ) as unknown as JsonValue,
@@ -163,6 +175,9 @@ interface MountResult {
     liveWriteOnlyExtractMs?: number;
     liveReadWriteExtractMs?: number;
     smallFileMetadataMs?: number;
+    hostBatchApplyMs?: number;
+    hostBatchApplyBytes?: number;
+    batchTotalMs?: number;
     largeSequentialWriteMs?: number;
     largeSequentialWriteMiBPerSec?: number;
   };

@@ -768,6 +768,23 @@ describe("buildMachinenConfig (cwd)", () => {
     });
     expect(cfg.cwd).toBe("/mnt/workspace");
   });
+
+  it("writes live-mount sync mode into the guest config", () => {
+    const cfg = buildMachinenConfig({
+      ...baseInput,
+      liveMounts: [
+        {
+          host: "/host/work",
+          guest: "/mnt/work",
+          mode: "rw",
+          cache: "fast",
+          sync: "batch",
+          tag: "machinen-lm0",
+        },
+      ],
+    });
+    expect(cfg.liveMounts).toEqual([{ guest: "/mnt/work", tag: "machinen-lm0", sync: "batch" }]);
+  });
 });
 
 describe("guestCwd option", () => {

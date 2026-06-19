@@ -24,6 +24,7 @@ describe("resolveLiveMounts cache modes", () => {
         guest: "/mnt/work",
         mode: "rw",
         cache: "cached",
+        sync: "eager",
         tag: "machinen-lm0",
       },
     ]);
@@ -38,12 +39,36 @@ describe("resolveLiveMounts cache modes", () => {
           { host: hostDir, guest: "/mnt/fast", mode: "ro", cache: "fast" },
         ],
         undefined,
-      ).map(({ guest, mode, cache, tag }) => ({ guest, mode, cache, tag })),
+      ).map(({ guest, mode, cache, sync, tag }) => ({ guest, mode, cache, sync, tag })),
     ).toEqual([
-      { guest: "/mnt/strict", mode: "rw", cache: "strict", tag: "machinen-lm0" },
-      { guest: "/mnt/cached", mode: "rw", cache: "cached", tag: "machinen-lm1" },
-      { guest: "/mnt/fast", mode: "ro", cache: "fast", tag: "machinen-lm2" },
+      { guest: "/mnt/strict", mode: "rw", cache: "strict", sync: "eager", tag: "machinen-lm0" },
+      { guest: "/mnt/cached", mode: "rw", cache: "cached", sync: "eager", tag: "machinen-lm1" },
+      { guest: "/mnt/fast", mode: "ro", cache: "fast", sync: "eager", tag: "machinen-lm2" },
     ]);
+  });
+
+  it("preserves explicit eager/batch sync modes", () => {
+    expect(
+      resolveLiveMounts(
+        [
+          { host: hostDir, guest: "/mnt/eager", sync: "eager" },
+          { host: hostDir, guest: "/mnt/batch", sync: "batch" },
+        ],
+        undefined,
+      ).map(({ guest, sync }) => ({ guest, sync })),
+    ).toEqual([
+      { guest: "/mnt/eager", sync: "eager" },
+      { guest: "/mnt/batch", sync: "batch" },
+    ]);
+  });
+
+  it("rejects batch sync for read-only mounts", () => {
+    expect(() =>
+      resolveLiveMounts(
+        [{ host: hostDir, guest: "/mnt/work", mode: "ro", sync: "batch" }],
+        undefined,
+      ),
+    ).toThrow(/sync='batch' requires rw/);
   });
 
   it("rejects invalid cache modes from untyped callers", () => {

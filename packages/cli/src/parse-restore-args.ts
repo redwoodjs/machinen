@@ -9,6 +9,7 @@ import {
   consumePortForward,
   takeValue,
   type LiveMountCacheMode,
+  type LiveMountSyncMode,
 } from "./parse-run-args.ts";
 
 // fallow-ignore-next-line code-duplication
@@ -56,6 +57,7 @@ export interface ParsedRestoreCommandArgs {
     guest: string;
     mode: "ro" | "rw";
     cache?: LiveMountCacheMode;
+    sync?: LiveMountSyncMode;
   }>;
 }
 
@@ -75,7 +77,13 @@ interface RestoreParseState {
   image?: string;
   portForward: Array<{ hostPort: number; guestPort: number }>;
   lazy: boolean;
-  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw"; cache?: LiveMountCacheMode }>;
+  liveMounts: Array<{
+    host: string;
+    guest: string;
+    mode: "ro" | "rw";
+    cache?: LiveMountCacheMode;
+    sync?: LiveMountSyncMode;
+  }>;
   seenLiveGuests: Set<string>;
   seenHostPorts: Set<number>;
 }

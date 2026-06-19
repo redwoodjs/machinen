@@ -77,7 +77,11 @@ const DT_REG: u8 = 8;
 const DT_LNK: u8 = 10;
 
 const O_RDONLY: c_int = 0;
+const O_WRONLY: c_int = 1;
 const O_RDWR: c_int = 2;
+const O_CREAT: c_int = 0o100;
+const O_TRUNC: c_int = 0o1000;
+const O_APPEND: c_int = 0o2000;
 const O_NONBLOCK: c_int = 0o4000;
 const SEEK_END: c_int = 2;
 const SEEK_SET: c_int = 0;
@@ -94,6 +98,7 @@ const BLKGETSIZE64: c_ulong = 0x80081272;
 const EXT4_IOC_RESIZE_FS: c_ulong = 0x40086610;
 
 const CONFIG_PATH = "/machinen-config.json";
+const BATCH_SYNC_SCRIPT = "/run/machinen-batch-sync.sh";
 
 // Where the rootdisk gets mounted before the chroot. Anything not
 // already in use under / works; we pick a name unlikely to collide with
@@ -124,6 +129,20 @@ const OVERLAY_WORK_DIR = "/run/.mountdisk-upper/work";
 
 fn write_str(fd: c_int, s: []const u8) void {
     _ = write(fd, s.ptr, s.len);
+}
+
+fn write_shell_single_quoted(fd: c_int, s: []const u8) void {
+    std.debug.assert(fd >= 0);
+    write_str(fd, "'");
+    var start: @TypeOf(s.len) = 0;
+    for (s, 0..) |c, i| {
+        if (c != '\'') continue;
+        if (i > start) write_str(fd, s[start..i]);
+        write_str(fd, "'\\''");
+        start = i + 1;
+    }
+    if (start < s.len) write_str(fd, s[start..]);
+    write_str(fd, "'");
 }
 
 // /dev/kmsg cache. Opened lazily on first klog() and reused. If the
@@ -316,11 +335,15 @@ fn dup_z(arena: std.mem.Allocator, s: []const u8) ![*:0]const u8 {
 // `mount -t virtiofs <tag>` — the in-VMM virtio-fs device serves it, so
 // there's no agent process and no vsock hop. The FUSE-over-vsock
 // transport was removed in #338.
+const LiveMountSync = enum { eager, batch };
+
 const LiveMount = struct {
+    index: u8,
     guest_z: [*:0]const u8,
     guest: []const u8,
     tag: []const u8,
     tag_z: [*:0]const u8, // NUL-terminated for mount(2)
+    sync: LiveMountSync,
 };
 
 const Config = struct {
@@ -416,11 +439,14 @@ fn load_config(arena: std.mem.Allocator) !Config {
             const tag_val = eobj.get("tag") orelse return error.LiveMountMissingTag;
             if (tag_val != .string) return error.LiveMountTagNotString;
             if (tag_val.string.len == 0) return error.LiveMountTagEmpty;
+            const sync_mode = try parse_live_mount_sync(eobj.get("sync"));
             buf[i] = .{
+                .index = @intCast(i),
                 .guest = guest_val.string,
                 .guest_z = guest_z,
                 .tag = tag_val.string,
                 .tag_z = try dup_z(arena, tag_val.string),
+                .sync = sync_mode,
             };
         }
         live_mounts = buf;
@@ -438,6 +464,15 @@ fn load_config(arena: std.mem.Allocator) !Config {
     };
 }
 
+fn parse_live_mount_sync(value: ?std.json.Value) !LiveMountSync {
+    std.debug.assert(@sizeOf(LiveMountSync) > 0);
+    const sync_val = value orelse return .eager;
+    if (sync_val != .string) return error.LiveMountSyncNotString;
+    if (std.mem.eql(u8, sync_val.string, "eager")) return .eager;
+    if (std.mem.eql(u8, sync_val.string, "batch")) return .batch;
+    return error.LiveMountSyncInvalid;
+}
+
 // --- live-share mount bring-up (#78, #332) -------------------------------
 
 /// Bring up every live-share mount declared in config. Each entry is
@@ -449,23 +484,16 @@ fn load_config(arena: std.mem.Allocator) !Config {
 /// module load is needed first.
 fn bring_up_live_mounts(mounts: []LiveMount) void {
     if (mounts.len == 0) return;
+    init_batch_sync_script(mounts);
     for (mounts) |lm| {
-        // mkdir the guest path first — a lean on-disk rootfs may not
-        // carry it.
-        mkdir_parents(lm.guest);
-        if (mount(lm.tag_z, lm.guest_z, "virtiofs", 0, null) != 0) {
-            var buf: [256]u8 = undefined;
-            const msg = std.fmt.bufPrint(
-                &buf,
-                "init: virtiofs mount {s} (tag {s}) failed",
-                .{ lm.guest, lm.tag },
-            ) catch "init: virtiofs mount failed";
-            log_line(msg);
-            continue;
+        switch (lm.sync) {
+            .eager => mount_live_eager(lm),
+            .batch => mount_live_batch(lm),
         }
     }
     for (mounts) |lm| {
-        if (!wait_for_live_mount(lm.guest, 5_000)) {
+        const fstype = if (lm.sync == .batch) "overlay" else "virtiofs";
+        if (!wait_for_live_mount(lm.guest, fstype, 5_000)) {
             var buf: [256]u8 = undefined;
             const msg = std.fmt.bufPrint(
                 &buf,
@@ -477,26 +505,128 @@ fn bring_up_live_mounts(mounts: []LiveMount) void {
     }
 }
 
+fn mount_live_eager(lm: LiveMount) void {
+    std.debug.assert(lm.guest.len > 0);
+    mkdir_parents(lm.guest);
+    if (mount(lm.tag_z, lm.guest_z, "virtiofs", 0, null) == 0) return;
+    var buf: [256]u8 = undefined;
+    const msg = std.fmt.bufPrint(&buf, "init: virtiofs mount {s} (tag {s}) failed", .{
+        lm.guest,
+        lm.tag,
+    }) catch "init: virtiofs mount failed";
+    log_line(msg);
+}
+
+fn mount_live_batch(lm: LiveMount) void {
+    std.debug.assert(lm.guest.len > 0);
+    var lower_buf: [128]u8 = undefined;
+    var upper_buf: [128]u8 = undefined;
+    var work_buf: [128]u8 = undefined;
+    const lower = batch_mount_path(&lower_buf, lm.index, "lower") catch return;
+    const upper = batch_mount_path(&upper_buf, lm.index, "upper") catch return;
+    const work = batch_mount_path(&work_buf, lm.index, "work") catch return;
+    mkdir_parents(lower);
+    mkdir_parents(upper);
+    mkdir_parents(work);
+    var lower_z: [129]u8 = undefined;
+    if (!copy_z(&lower_z, lower)) return;
+    if (mount(lm.tag_z, @ptrCast(&lower_z), "virtiofs", 0, null) != 0) {
+        log_line("init: batch lower virtiofs mount failed");
+        return;
+    }
+    mkdir_parents(lm.guest);
+    var opts_buf: [512]u8 = undefined;
+    const opts = std.fmt.bufPrint(&opts_buf, "lowerdir={s},upperdir={s},workdir={s}", .{
+        lower,
+        upper,
+        work,
+    }) catch return;
+    var opts_z: [513]u8 = undefined;
+    if (!copy_z(&opts_z, opts)) return;
+    if (mount("overlay", lm.guest_z, "overlay", 0, @ptrCast(&opts_z)) != 0) {
+        log_line("init: batch overlay mount failed");
+        return;
+    }
+    append_batch_sync_entry(lm.guest, lower);
+}
+
+fn init_batch_sync_script(mounts: []LiveMount) void {
+    std.debug.assert(mounts.len > 0);
+    for (mounts) |lm| {
+        if (lm.sync != .batch) continue;
+        const fd = open(BATCH_SYNC_SCRIPT, O_WRONLY | O_CREAT | O_TRUNC, @as(c_uint, 0o755));
+        if (fd < 0) return;
+        defer _ = close(fd);
+        write_str(fd,
+            \\#!/bin/sh
+            \\set -u
+            \\sync_live_mount() {
+            \\  guest="$1"
+            \\  lower="$2"
+            \\  [ -d "$guest" ] && [ -d "$lower" ] || return 0
+            \\  tmp="/run/machinen-batch-sync-$$.tar"
+            \\  rm -f "$tmp"
+            \\  (cd "$guest" && tar -cf "$tmp" .) || { rm -f "$tmp"; return 1; }
+            \\  for p in "$lower"/..?* "$lower"/.[!.]* "$lower"/*; do
+            \\    [ -e "$p" ] || [ -L "$p" ] || continue
+            \\    rm -rf "$p"
+            \\  done
+            \\  (cd "$lower" && tar -xf "$tmp")
+            \\  status=$?
+            \\  rm -f "$tmp"
+            \\  return "$status"
+            \\}
+            \\
+        );
+        return;
+    }
+}
+
+fn append_batch_sync_entry(guest: []const u8, lower: []const u8) void {
+    std.debug.assert(guest.len > 0);
+    std.debug.assert(lower.len > 0);
+    const fd = open(BATCH_SYNC_SCRIPT, O_WRONLY | O_CREAT | O_APPEND, @as(c_uint, 0o755));
+    if (fd < 0) return;
+    defer _ = close(fd);
+    write_str(fd, "sync_live_mount ");
+    write_shell_single_quoted(fd, guest);
+    write_str(fd, " ");
+    write_shell_single_quoted(fd, lower);
+    write_str(fd, "\n");
+}
+
+fn batch_mount_path(buf: []u8, index: u8, name: []const u8) ![]const u8 {
+    std.debug.assert(name.len > 0);
+    return try std.fmt.bufPrint(buf, "/run/machinen-live-batch/{d}/{s}", .{ index, name });
+}
+
+fn copy_z(dst: []u8, src: []const u8) bool {
+    std.debug.assert(dst.len > 0);
+    if (src.len >= dst.len) return false;
+    @memcpy(dst[0..src.len], src);
+    dst[src.len] = 0;
+    return true;
+}
+
 /// Wait for `guest` to show up in /proc/self/mounts as a virtio-fs
 /// mount. We parse /proc rather than statfs() because statfs() on
 /// AArch64 musl needs a struct we'd have to redeclare, while /proc
 /// parsing needs no extra bindings.
-fn wait_for_live_mount(guest: []const u8, timeout_ms: i64) bool {
+fn wait_for_live_mount(guest: []const u8, fstype: []const u8, timeout_ms: i64) bool {
     const deadline_ms = now_ms() + timeout_ms;
     while (now_ms() < deadline_ms) {
-        if (live_mount_present(guest)) return true;
+        if (live_mount_present(guest, fstype)) return true;
         sleep_ms(25);
     }
     return false;
 }
 
-fn live_mount_present(guest: []const u8) bool {
+fn live_mount_present(guest: []const u8, want_fstype: []const u8) bool {
     // /proc/self/mounts is fstab-like: `<src> <target> <fstype> ...`.
     // /init issues mount(src=<tag>, target=guest, fstype="virtiofs"),
     // so we check the 2nd field (target) and 3rd field (fstype). The
     // src field is the per-mount virtio-fs tag, so a leading-token
     // match won't do — tokenize instead.
-    const want_fstype = "virtiofs";
     const fd = open("/proc/self/mounts", O_RDONLY);
     if (fd < 0) return false;
     defer _ = close(fd);

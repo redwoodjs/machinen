@@ -59,10 +59,12 @@ import {
   resolveLiveMounts,
   synthesizeAndPackBundle,
   type LiveMountCacheMode,
+  type LiveMountSyncMode,
   type ResolvedLiveMount,
 } from "./bundle.ts";
 import { installVmExitCleanup } from "./exit-cleanup.ts";
 import { performForkWithRestore } from "./fork-core.ts";
+import { validateBatchLiveMounts, withBatchLiveMountSync } from "./live-mount-batch.ts";
 import { resolveExplicitMemoryCeilingMib, type BootResourcesOptions } from "./memory-resources.ts";
 import { registryCpu } from "./registry-cpu.ts";
 import type { VmHandle } from "../vm-handle.ts";
@@ -293,6 +295,8 @@ export interface BootOptions {
     mode?: "ro" | "rw";
     /** Metadata cache policy: `cached` default, `strict` zero TTL, `fast` longer TTL. */
     cache?: LiveMountCacheMode;
+    /** Write visibility policy: `eager` default, `batch` applies host updates after exec/snapshot/stop. */
+    sync?: LiveMountSyncMode;
   }>;
   /**
    * Host -> guest TCP port forwards installed via gvproxy's control
@@ -493,7 +497,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     installDetachedBootCapture(child, detachedBootChunks);
   }
 
-  const handle = createBootVmHandle({
+  let handle = createBootVmHandle({
     child,
     childPid,
     vmName,
@@ -544,6 +548,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     });
   }
 
+  handle = withBatchLiveMountSync(handle, liveMountsResolved);
   return handle;
 }
 
@@ -945,6 +950,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
   const stats = setupStatsFile(env, vsock.vsockTempDir);
   const vmstateSetup = setupVmstateBoot(opts, env, vsock.vsockTempDir);
   const liveMountsResolved = setupLiveMountEnv(opts, env);
+  validateBatchLiveMounts(opts, liveMountsResolved, vsock.vsockUdsPath);
   return {
     ...assets,
     env,
@@ -1676,11 +1682,12 @@ function registryMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
 
 function registryLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
   return nonEmptyList(
-    liveMountsResolved.map(({ guest, host, mode, cache }) => ({
+    liveMountsResolved.map(({ guest, host, mode, cache, sync }) => ({
       guest,
       host,
       mode,
       cache,
+      sync,
     })),
   );
 }
@@ -2029,6 +2036,7 @@ function snapshotLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
       guest: lm.guest,
       mode: lm.mode,
       cache: lm.cache,
+      sync: lm.sync,
     })),
   );
 }

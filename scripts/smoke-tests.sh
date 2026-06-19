@@ -14,11 +14,12 @@
 # Tests:
 #   V1-V4  Validation paths (no boot): host-missing, host-is-a-file,
 #          guest-outside-/mnt/, second --mount.
-#   V5-V9  --mount-live validation, including mode/cache modifiers — #78, #151.
+#   V5-V10 --mount-live validation, including mode/cache/sync modifiers — #78, #151.
 #   T1     Base-only boot — `echo hello-world` reaches the host console.
 #   T2     --mount exposes a host directory readable inside the guest.
 #   T3v    --mount-live :ro streams a host file in over virtio-fs — #332.
 #   T5v    --mount-live :rw guest writes land on the host over virtio-fs — #332.
+#   T5b    --mount-live :batch stages writes and flushes on workload exit.
 #   T9v    filesystem-op battery over a virtio-fs live mount — #332.
 #   T4     --env propagates into the guest process env — #89.
 #   P1-P4  Base-rootfs/proof-fixture contract (criu, mounted portable
@@ -319,7 +320,12 @@ expect_cli_error \
 expect_cli_error \
   "V9: --mount-live rejects a spec with too many colons" \
   "expected <host-dir>:<guest-path>" \
-  boot --mount-live "$EMPTY_DIR:/mnt/x:rw:fast:extra" -- true
+  boot --mount-live "$EMPTY_DIR:/mnt/x:rw:fast:eager:extra" -- true
+
+expect_cli_error \
+  "V10: --mount-live rejects :batch on read-only mounts" \
+  "batch sync requires rw" \
+  boot --mount-live "$EMPTY_DIR:/mnt/x:ro:batch" -- true
 
 # ----------------------------------------------------------------
 # Boot tests — need HVF/KVM. Slow.
@@ -413,6 +419,25 @@ else
   tail -80 "$T5V_LOG" >&2
   echo "  host file: $(ls -la "$T5V_SRC" 2>&1)" >&2
   fail "T5v marker ($T5V_MARKER) not found in $T5V_SRC/from-guest.txt"
+fi
+
+# ---- T5b: --mount-live :batch flushes staged writes at workload exit ----
+echo "T5b: machinen boot --mount-live :batch — guest writes flush at workload exit"
+T5B_MARKER="virtiofs-batch-marker-$$"
+T5B_SRC="$FIXTURE/virtiofs-batch-src"
+T5B_LOG="$FIXTURE/t5b.log"
+mkdir -p "$T5B_SRC"
+echo "delete-me" >"$T5B_SRC/delete-me.txt"
+run_timeout 60 node "$CLI" boot \
+  --mount-live "$T5B_SRC:/mnt/live:rw:batch" \
+  -- /bin/sh -c "echo $T5B_MARKER >/mnt/live/from-guest.txt && rm /mnt/live/delete-me.txt" \
+  >"$T5B_LOG" 2>&1 || true
+if [[ -f "$T5B_SRC/from-guest.txt" ]] && grep -q "$T5B_MARKER" "$T5B_SRC/from-guest.txt" && [[ ! -e "$T5B_SRC/delete-me.txt" ]]; then
+  pass "guest write/delete through :batch live-mount flushed on workload exit"
+else
+  tail -80 "$T5B_LOG" >&2
+  echo "  host file: $(ls -la "$T5B_SRC" 2>&1)" >&2
+  fail "T5b batch flush did not publish expected host tree"
 fi
 
 # ---- T9v: filesystem-operations coverage over a virtio-fs live mount ----

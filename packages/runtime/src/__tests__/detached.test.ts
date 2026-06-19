@@ -3,7 +3,7 @@
 //   - regression guard against re-introducing the helper-compat gate.
 //     portForward, liveMounts (in-VMM virtio-fs), and `mount`
 //     (squashfs+ext4) all hold no live supervisor state after readiness.
-//     Every boot option is now detach-compatible — assert boot() doesn't
+//     Eager live mounts remain detach-compatible — assert boot() doesn't
 //     refuse them.
 //
 // The end-to-end "boot --detached, parent exits, VMM keeps running"
@@ -61,7 +61,7 @@ describe("detached-log helpers", () => {
   });
 });
 
-describe("boot({ detached }) accepts every option", () => {
+describe("boot({ detached }) accepts eager live-mount options", () => {
   // Regression guard. Each boot() call resolves to a BootError because
   // the image path is fake — the assertion is only that the failure is
   // some downstream BootError, never a compat-gate refusal. Runs before
@@ -85,5 +85,15 @@ describe("boot({ detached }) accepts every option", () => {
     }).catch((e) => e);
     expect(isMachinenError(err)).toBe(true);
     expect((err as { code: string }).code).not.toMatch(/INCOMPATIBLE/);
+  });
+
+  it("rejects batch liveMounts with detach", async () => {
+    await expect(
+      boot({
+        binary: "/bin/sh",
+        detached: true,
+        liveMounts: [{ host: "/tmp", guest: "/mnt/live", sync: "batch" }],
+      }),
+    ).rejects.toThrow(/sync='batch' cannot be used with detach/);
   });
 });

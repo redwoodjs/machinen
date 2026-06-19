@@ -435,10 +435,11 @@ export interface SnapshotMeta {
    *   - `host`:  absolute host path that was being shared.
    *   - `mode`:  `"ro"` or `"rw"`, the share's write semantics.
    *   - `cache`: metadata cache policy (`"cached"` default, `"strict"`, or `"fast"`).
+   *   - `sync`: write visibility policy (`"eager"` default, or `"batch"`).
    *
    * Restore policy: the bundle's recorded mounts are re-established
    * verbatim by default. Pass `restore({ liveMounts })` to override
-   * per-guest `host`/`mode`/`cache` — each override entry's `guest` must match
+   * per-guest `host`/`mode`/`cache`/`sync` — each override entry's `guest` must match
    * a recorded entry, else BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN.
    * Cross-host bundles where a recorded `host` doesn't exist on the
    * restoring host fail loudly via the boot-time existence check —
@@ -449,6 +450,7 @@ export interface SnapshotMeta {
     host: string;
     mode: "ro" | "rw";
     cache?: "strict" | "cached" | "fast";
+    sync?: "eager" | "batch";
   }>;
 }
 

@@ -349,6 +349,7 @@
 - [`BootMemoryResourceOptions`](#bootmemoryresourceoptions)
 - [`BootCpuResourceOptions`](#bootcpuresourceoptions)
 - [`LiveMountCacheMode`](#livemountcachemode)
+- [`LiveMountSyncMode`](#livemountsyncmode)
 - [`ResolvedCpuResourcePolicy`](#resolvedcpuresourcepolicy)
 - [`attach`](#attach)
 - [`AttachOptions`](#attachoptions)
@@ -15532,6 +15533,10 @@ either; it's re-derived from the resolved order on restore.
 
 > `optional` **cache?**: `"strict"` \| `"cached"` \| `"fast"`
 
+###### sync?
+
+> `optional` **sync?**: `"eager"` \| `"batch"`
+
 ##### startedAt
 
 > **startedAt**: `number`
@@ -17415,10 +17420,11 @@ source's `resolveLiveMounts()`:
   - `host`:  absolute host path that was being shared.
   - `mode`:  `"ro"` or `"rw"`, the share's write semantics.
   - `cache`: metadata cache policy (`"cached"` default, `"strict"`, or `"fast"`).
+  - `sync`: write visibility policy (`"eager"` default, or `"batch"`).
 
 Restore policy: the bundle's recorded mounts are re-established
 verbatim by default. Pass `restore({ liveMounts })` to override
-per-guest `host`/`mode`/`cache` — each override entry's `guest` must match
+per-guest `host`/`mode`/`cache`/`sync` — each override entry's `guest` must match
 a recorded entry, else BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN.
 Cross-host bundles where a recorded `host` doesn't exist on the
 restoring host fail loudly via the boot-time existence check —
@@ -17439,6 +17445,10 @@ users remap with the override knob.
 ###### cache?
 
 > `optional` **cache?**: `"strict"` \| `"cached"` \| `"fast"`
+
+###### sync?
+
+> `optional` **sync?**: `"eager"` \| `"batch"`
 
 ***
 
@@ -17770,6 +17780,12 @@ filesystem channel bounded to the configured host root. Prefer
 > `optional` **cache?**: [`LiveMountCacheMode`](#livemountcachemode)
 
 Metadata cache policy: `cached` default, `strict` zero TTL, `fast` longer TTL.
+
+###### sync?
+
+> `optional` **sync?**: [`LiveMountSyncMode`](#livemountsyncmode)
+
+Write visibility policy: `eager` default, `batch` applies host updates after exec/snapshot/stop.
 
 ###### Inherited from
 
@@ -18188,6 +18204,12 @@ filesystem channel bounded to the configured host root. Prefer
 > `optional` **cache?**: [`LiveMountCacheMode`](#livemountcachemode)
 
 Metadata cache policy: `cached` default, `strict` zero TTL, `fast` longer TTL.
+
+###### sync?
+
+> `optional` **sync?**: [`LiveMountSyncMode`](#livemountsyncmode)
+
+Write visibility policy: `eager` default, `batch` applies host updates after exec/snapshot/stop.
 
 ##### portForward?
 
@@ -18614,6 +18636,12 @@ filesystem channel bounded to the configured host root. Prefer
 > `optional` **cache?**: [`LiveMountCacheMode`](#livemountcachemode)
 
 Metadata cache policy: `cached` default, `strict` zero TTL, `fast` longer TTL.
+
+###### sync?
+
+> `optional` **sync?**: [`LiveMountSyncMode`](#livemountsyncmode)
+
+Write visibility policy: `eager` default, `batch` applies host updates after exec/snapshot/stop.
 
 ###### Inherited from
 
@@ -23749,6 +23777,12 @@ no guest fuse-agent. `tag` is the device's config-space identifier;
 `/init` runs `mount -t virtiofs <tag> <guest>`. Threaded from
 `boot()` into the initramfs packer so the config and the VMM env
 agree on guest paths and per-mount tags.
+
+***
+
+### LiveMountSyncMode
+
+> **LiveMountSyncMode** = `"eager"` \| `"batch"`
 
 ***
 

@@ -36,12 +36,14 @@ import { readImageConfig } from "./image-config.ts";
  * agree on guest paths and per-mount tags.
  */
 export type LiveMountCacheMode = "strict" | "cached" | "fast";
+export type LiveMountSyncMode = "eager" | "batch";
 
 export interface ResolvedLiveMount {
   host: string;
   guest: string;
   mode: "ro" | "rw";
   cache: LiveMountCacheMode;
+  sync: LiveMountSyncMode;
   tag: string;
 }
 
@@ -60,6 +62,7 @@ export function resolveLiveMounts(
     guest: string;
     mode?: "ro" | "rw";
     cache?: LiveMountCacheMode;
+    sync?: LiveMountSyncMode;
   }>,
   cwd: string | undefined,
 ): ResolvedLiveMount[] {
@@ -96,6 +99,7 @@ export function resolveLiveMounts(
       guest: normalizeMountGuest(m.guest),
       mode: m.mode ?? "rw",
       cache: normalizeLiveMountCache(m.cache, i),
+      sync: normalizeLiveMountSync(m.sync, m.mode ?? "rw", i),
       // Tag is the virtio-fs device's config-space identifier and must
       // be ≤ 36 bytes (FsConfig.tag). `machinen-lm<i>` stays well under.
       tag: `machinen-lm${i}`,
@@ -114,6 +118,23 @@ function normalizeLiveMountCache(
     "BOOT_MOUNT_INVALID",
     `liveMounts[${index}] cache must be 'strict', 'cached', or 'fast'`,
   );
+}
+
+function normalizeLiveMountSync(
+  sync: LiveMountSyncMode | undefined,
+  mode: "ro" | "rw",
+  index: number,
+): LiveMountSyncMode {
+  if (sync === undefined || sync === "eager") {
+    return "eager";
+  }
+  if (sync === "batch" && mode === "rw") {
+    return "batch";
+  }
+  if (sync === "batch") {
+    throw new BootError("BOOT_MOUNT_INVALID", `liveMounts[${index}] sync='batch' requires rw`);
+  }
+  throw new BootError("BOOT_MOUNT_INVALID", `liveMounts[${index}] sync must be 'eager' or 'batch'`);
 }
 
 /**
@@ -144,8 +165,13 @@ export function buildMachinenConfig(input: {
   }
   if (input.liveMounts.length > 0) {
     // Host paths never cross into the guest's view. /init reads this
-    // and, per entry, runs `mount -t virtiofs <tag> <guest>` (#332).
-    cfg.liveMounts = input.liveMounts.map((lm) => ({ guest: lm.guest, tag: lm.tag }));
+    // and mounts each entry either directly (:eager) or through a
+    // guest-local overlay upper (:batch) over virtio-fs (#332).
+    cfg.liveMounts = input.liveMounts.map((lm) => ({
+      guest: lm.guest,
+      tag: lm.tag,
+      sync: lm.sync,
+    }));
   }
   return cfg;
 }
@@ -181,7 +207,13 @@ export function resolveRestoreLiveMounts(
   const recordedByGuest = new Map(recordedList.map((m) => [m.guest, m]));
   const overridesByGuest = new Map<
     string,
-    { host: string; guest: string; mode?: "ro" | "rw"; cache?: LiveMountCacheMode }
+    {
+      host: string;
+      guest: string;
+      mode?: "ro" | "rw";
+      cache?: LiveMountCacheMode;
+      sync?: LiveMountSyncMode;
+    }
   >();
   for (const ov of overrideList) {
     if (!recordedByGuest.has(ov.guest)) {
@@ -201,8 +233,14 @@ export function resolveRestoreLiveMounts(
   return recordedList.map((rec) => {
     const ov = overridesByGuest.get(rec.guest);
     return ov
-      ? { guest: rec.guest, host: ov.host, mode: ov.mode ?? rec.mode, cache: ov.cache ?? rec.cache }
-      : { guest: rec.guest, host: rec.host, mode: rec.mode, cache: rec.cache };
+      ? {
+          guest: rec.guest,
+          host: ov.host,
+          mode: ov.mode ?? rec.mode,
+          cache: ov.cache ?? rec.cache,
+          sync: ov.sync ?? rec.sync,
+        }
+      : { guest: rec.guest, host: rec.host, mode: rec.mode, cache: rec.cache, sync: rec.sync };
   });
 }
 
@@ -259,7 +297,7 @@ export function synthesizeAndPackBundle(
   try {
     validateOptionalGuestCwd(opts);
     const image = resolveBundleImage(opts, packerOpts);
-    const cmd = wrapBundleCommand(resolveBundleCommand(opts, image.imageConfig), opts);
+    const cmd = wrapBundleCommand(resolveBundleCommand(opts, image.imageConfig), opts, liveMounts);
     const effectiveEnv = { ...image.imageConfig?.env, ...mergedGuestEnv };
     writeBundleConfig(workspace, {
       cmd,
@@ -352,13 +390,30 @@ function explicitOrSyntheticCommand(
   return imageConfig?.cmd;
 }
 
-function wrapBundleCommand(cmd: string[], opts: BootOptions): string[] {
+function wrapBundleCommand(
+  cmd: string[],
+  opts: BootOptions,
+  liveMounts: ResolvedLiveMount[],
+): string[] {
   const cmdHead = cmd[0];
   if (cmdHead === "/exec-agent" || cmdHead === "/sbin/machinen-restore") {
     return cmd;
   }
+  const workload = liveMounts.some((lm) => lm.sync === "batch")
+    ? wrapBatchWorkloadCommand(cmd)
+    : cmd;
   const supervisorArgs = typeof opts.snapshot === "string" ? ["--session"] : [];
-  return ["/sbin/machinen-supervisor", ...supervisorArgs, ...cmd];
+  return ["/sbin/machinen-supervisor", ...supervisorArgs, ...workload];
+}
+
+function wrapBatchWorkloadCommand(cmd: string[]): string[] {
+  return [
+    "/bin/sh",
+    "-c",
+    'batch_sync() { if [ -s /run/machinen-batch-sync.sh ]; then sh /run/machinen-batch-sync.sh; fi; }; "$@" & child=$!; trap \'kill -TERM "$child" 2>/dev/null\' TERM; trap \'kill -INT "$child" 2>/dev/null\' INT; wait "$child"; status=$?; batch_sync || { sync_status=$?; if [ "$status" -eq 0 ]; then status=$sync_status; fi; }; exit "$status"',
+    "machinen-batch-wrapper",
+    ...cmd,
+  ];
 }
 
 function writeBundleConfig(

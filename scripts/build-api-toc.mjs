@@ -6,7 +6,6 @@ import { readFileSync, writeFileSync } from "node:fs";
 // copy without clobbering the committed file. Defaults to the path
 // `pnpm run build:docs` uses.
 const API_PATH = process.argv[2] ?? "packages/runtime/API.md";
-
 // Categories ordered top-to-bottom in the rendered TOC. Each value is
 // the list of H3 headers (i.e. symbol names) typedoc emits for that
 // category. Plain function/type names map 1:1 to typedoc's H3 text.
@@ -352,6 +351,7 @@ const TOC = {
     "BootMemoryResourceOptions",
     "BootCpuResourceOptions",
     "LiveMountCacheMode",
+    "LiveMountSyncMode",
     "ResolvedCpuResourcePolicy",
     "attach",
     "AttachOptions",
