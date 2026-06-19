@@ -96,7 +96,7 @@ export function resolveLiveMounts(
       host: hostAbs,
       guest: normalizeMountGuest(m.guest),
       mode: m.mode ?? "rw",
-      sync: normalizeLiveMountSync(m.sync, m.mode ?? "rw", i),
+      sync: normalizeLiveMountSync(m.sync, i),
       // Tag is the virtio-fs device's config-space identifier and must
       // be ≤ 36 bytes (FsConfig.tag). `machinen-lm<i>` stays well under.
       tag: `machinen-lm${i}`,
@@ -115,20 +115,13 @@ function rejectRemovedLiveMountCache(mount: object, index: number): void {
 
 function normalizeLiveMountSync(
   sync: LiveMountSyncMode | undefined,
-  mode: "ro" | "rw",
   index: number,
 ): LiveMountSyncMode {
   if (sync === undefined) {
-    return mode === "rw" ? "batch" : "eager";
-  }
-  if (sync === "eager") {
-    return "eager";
-  }
-  if (sync === "batch" && mode === "rw") {
     return "batch";
   }
-  if (sync === "batch") {
-    throw new BootError("BOOT_MOUNT_INVALID", `liveMounts[${index}] sync='batch' requires rw`);
+  if (sync === "eager" || sync === "batch") {
+    return sync;
   }
   throw new BootError("BOOT_MOUNT_INVALID", `liveMounts[${index}] sync must be 'eager' or 'batch'`);
 }
@@ -161,11 +154,14 @@ export function buildMachinenConfig(input: {
   }
   if (input.liveMounts.length > 0) {
     // Host paths never cross into the guest's view. /init reads this
-    // and mounts each entry either directly (:eager) or through a
-    // guest-local overlay upper (:batch) over virtio-fs (#332).
+    // and mounts each entry either directly (:eager) or through the
+    // overlay-backed batch path over virtio-fs (#332). Read-only batch
+    // mounts use a lower-only overlay; writable batch mounts add an upper
+    // plus a sync script.
     cfg.liveMounts = input.liveMounts.map((lm) => ({
       guest: lm.guest,
       tag: lm.tag,
+      mode: lm.mode,
       sync: lm.sync,
     }));
   }
@@ -394,7 +390,7 @@ function wrapBundleCommand(
   if (cmdHead === "/exec-agent" || cmdHead === "/sbin/machinen-restore") {
     return cmd;
   }
-  const workload = liveMounts.some((lm) => lm.sync === "batch")
+  const workload = liveMounts.some((lm) => lm.mode === "rw" && lm.sync === "batch")
     ? wrapBatchWorkloadCommand(cmd)
     : cmd;
   const supervisorArgs = typeof opts.snapshot === "string" ? ["--session"] : [];

@@ -191,9 +191,9 @@ trap 'kill -TERM "$(cat /run/machinen-workload.pid 2>/dev/null)" 2>/dev/null; wa
 
 wait "$PID"
 
-# Batch live mounts stage guest writes in an overlay upper. Flush them
-# through the hidden virtio-fs lower before the VM powers off so one-shot
-# `machinen boot -- ...` commands publish their final tree.
+# Writable batch live mounts stage guest writes in an overlay upper.
+# Flush them through the hidden virtio-fs lower before the VM powers off
+# so one-shot `machinen boot -- ...` commands publish their final tree.
 if [ -s /run/machinen-batch-sync.sh ]; then
     sh /run/machinen-batch-sync.sh || true
 fi

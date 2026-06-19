@@ -45,7 +45,10 @@ async function syncBatchLiveMountsBeforeStop(
   entry: RegistryEntry,
   opts: StopOptions,
 ): Promise<void> {
-  if (opts.force || !entry.liveMounts?.some((mount) => mount.sync === "batch")) {
+  if (
+    opts.force ||
+    !entry.liveMounts?.some((mount) => mount.mode === "rw" && mount.sync === "batch")
+  ) {
     return;
   }
   try {

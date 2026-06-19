@@ -14,10 +14,10 @@
 # Tests:
 #   V1-V4  Validation paths (no boot): host-missing, host-is-a-file,
 #          guest-outside-/mnt/, second --mount.
-#   V5-V10 --mount-live validation, including mode/sync modifiers — #78, #151.
+#   V5-V9  --mount-live validation, including mode/sync modifiers — #78, #151.
 #   T1     Base-only boot — `echo hello-world` reaches the host console.
 #   T2     --mount exposes a host directory readable inside the guest.
-#   T3v    --mount-live :ro streams a host file in over virtio-fs — #332.
+#   T3v    --mount-live :ro streams host data and rejects guest writes — #332.
 #   T5v    --mount-live :rw guest writes flush to the host — #332.
 #   T5b    --mount-live :batch stages writes and flushes on workload exit.
 #   T9v    filesystem-op battery over a virtio-fs live mount — #332.
@@ -322,11 +322,6 @@ expect_cli_error \
   "expected <host-dir>:<guest-path>" \
   boot --mount-live "$EMPTY_DIR:/mnt/x:rw:eager:extra" -- true
 
-expect_cli_error \
-  "V10: --mount-live rejects :batch on read-only mounts" \
-  "batch sync requires rw" \
-  boot --mount-live "$EMPTY_DIR:/mnt/x:ro:batch" -- true
-
 # ----------------------------------------------------------------
 # Boot tests — need HVF/KVM. Slow.
 # ----------------------------------------------------------------
@@ -373,7 +368,7 @@ fi
 #
 # #338 removed the FUSE-over-vsock transport, so this is the only
 # `--mount-live` streaming path.
-echo "T3v: machinen boot --mount-live ./fixture:/mnt/live:ro -- cat /mnt/live/hello.txt"
+echo "T3v: machinen boot --mount-live ./fixture:/mnt/live:ro -- read and reject writes"
 T3V_MARKER="virtiofs-ro-marker-$$"
 T3V_SRC="$FIXTURE/virtiofs-ro-src"
 T3V_LOG="$FIXTURE/t3v.log"
@@ -389,14 +384,14 @@ T3V_SEEDER=$!
 # intentionally exercises the read-only path.
 run_timeout 60 node "$CLI" boot \
   --mount-live "$T3V_SRC:/mnt/live:ro" \
-  -- /bin/sh -c 'sleep 4 && cat /mnt/live/hello.txt' \
+  -- /bin/sh -c 'sleep 4 && cat /mnt/live/hello.txt && if (echo nope >/mnt/live/blocked.txt) 2>/tmp/ro.err; then echo ro-write-succeeded; else echo ro-write-blocked; fi' \
   >"$T3V_LOG" 2>&1 || true
 wait "$T3V_SEEDER" 2>/dev/null || true
-if grep -q "$T3V_MARKER" "$T3V_LOG"; then
-  pass "virtio-fs live-mount streamed a file written after boot"
+if grep -q "$T3V_MARKER" "$T3V_LOG" && grep -q "ro-write-blocked" "$T3V_LOG" && [[ ! -e "$T3V_SRC/blocked.txt" ]]; then
+  pass "read-only live-mount streamed host data and rejected guest writes"
 else
   tail -80 "$T3V_LOG" >&2
-  fail "T3v marker ($T3V_MARKER) not found — virtio-fs live mount didn't stream through"
+  fail "T3v either missed the marker or allowed a write through read-only live mount"
 fi
 
 # ---- T5v: --mount-live :rw over virtio-fs — guest write flushes to host (#151, #332) ----

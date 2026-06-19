@@ -434,7 +434,7 @@ export interface SnapshotMeta {
    *   - `guest`: absolute guest path the mount lands at.
    *   - `host`:  absolute host path that was being shared.
    *   - `mode`:  `"ro"` or `"rw"`, the share's write semantics.
-   *   - `sync`: write visibility policy (`"batch"` default for rw, or `"eager"`).
+   *   - `sync`: write visibility policy (`"batch"` default, or `"eager"`).
    *
    * Restore policy: the bundle's recorded mounts are re-established
    * verbatim by default. Pass `restore({ liveMounts })` to override

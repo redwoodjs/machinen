@@ -11,6 +11,7 @@ import type { LiveMountSyncMode } from "./bundle.ts";
 interface BatchLiveMount {
   host: string;
   guest: string;
+  mode?: "ro" | "rw";
   sync?: LiveMountSyncMode;
 }
 
@@ -19,7 +20,7 @@ export function validateBatchLiveMounts(
   liveMounts: ReadonlyArray<BatchLiveMount>,
   vsockUdsPath: string | undefined,
 ): void {
-  if (!liveMounts.some((lm) => lm.sync === "batch")) {
+  if (!liveMounts.some(isWritableBatchLiveMount)) {
     return;
   }
   if (!vsockUdsPath) {
@@ -34,7 +35,7 @@ export function withBatchLiveMountSync(
   handle: VmHandle,
   liveMounts: ReadonlyArray<BatchLiveMount>,
 ): VmHandle {
-  const batchMounts = liveMounts.filter(isBatchLiveMount);
+  const batchMounts = liveMounts.filter(isWritableBatchLiveMount);
   if (batchMounts.length === 0) {
     return handle;
   }
@@ -59,8 +60,8 @@ export function withBatchLiveMountSync(
   };
 }
 
-function isBatchLiveMount(mount: BatchLiveMount): mount is Required<BatchLiveMount> {
-  return mount.sync === "batch";
+function isWritableBatchLiveMount(mount: BatchLiveMount): mount is Required<BatchLiveMount> {
+  return mount.mode === "rw" && mount.sync === "batch";
 }
 
 async function syncAfterBatchOperation<T>(

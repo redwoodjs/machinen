@@ -29,12 +29,12 @@ describe("resolveLiveMounts sync defaults", () => {
     ]);
   });
 
-  it("defaults ro mounts to eager sync", () => {
+  it("defaults ro mounts to batch sync", () => {
     expect(
       resolveLiveMounts([{ host: hostDir, guest: "/mnt/fixtures", mode: "ro" }], undefined).map(
         ({ guest, mode, sync, tag }) => ({ guest, mode, sync, tag }),
       ),
-    ).toEqual([{ guest: "/mnt/fixtures", mode: "ro", sync: "eager", tag: "machinen-lm0" }]);
+    ).toEqual([{ guest: "/mnt/fixtures", mode: "ro", sync: "batch", tag: "machinen-lm0" }]);
   });
 
   it("preserves explicit eager/batch sync modes", () => {
@@ -52,13 +52,13 @@ describe("resolveLiveMounts sync defaults", () => {
     ]);
   });
 
-  it("rejects batch sync for read-only mounts", () => {
-    expect(() =>
+  it("accepts batch sync for read-only mounts", () => {
+    expect(
       resolveLiveMounts(
         [{ host: hostDir, guest: "/mnt/work", mode: "ro", sync: "batch" }],
         undefined,
-      ),
-    ).toThrow(/sync='batch' requires rw/);
+      ).map(({ guest, mode, sync }) => ({ guest, mode, sync })),
+    ).toEqual([{ guest: "/mnt/work", mode: "ro", sync: "batch" }]);
   });
 
   it("rejects removed cache modes from untyped callers", () => {

@@ -782,7 +782,9 @@ describe("buildMachinenConfig (cwd)", () => {
         },
       ],
     });
-    expect(cfg.liveMounts).toEqual([{ guest: "/mnt/work", tag: "machinen-lm0", sync: "batch" }]);
+    expect(cfg.liveMounts).toEqual([
+      { guest: "/mnt/work", tag: "machinen-lm0", mode: "rw", sync: "batch" },
+    ]);
   });
 });
 

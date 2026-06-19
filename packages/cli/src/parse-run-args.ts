@@ -22,8 +22,8 @@ interface ParsedRunArgs {
    * Live-share mounts (`--mount-live <host>:<guest>[:<mode>][:<sync>]`). Each
    * entry stays connected to the host filesystem for the VM's life;
    * guest reads stream in on demand. `mode` is `rw` (default) or `ro`
-   * for read-only. `sync` is `batch` by default for `rw` mounts and
-   * `eager` for `ro`; `rw:eager` opts back into immediate host writes.
+   * for read-only. `sync` is `batch` by default; `rw:eager` opts back
+   * into immediate host writes.
    * Served by an in-VMM virtio-fs device (#332); the FUSE-over-vsock
    * transport and its `:<protocol>` modifier were removed in #338. See
    * #78, #151, #332.
@@ -521,18 +521,11 @@ export function consumeLiveMount(
     );
   }
   const { mode, sync } = parseLiveMountModifiers(parts.slice(2), spec);
-  const resolvedMode = mode ?? "rw";
-  if (resolvedMode === "ro" && sync === "batch") {
-    throw new ParseError(
-      "PARSE_FLAG_MALFORMED",
-      `--mount-live: batch sync requires rw in '${spec}'`,
-    );
-  }
   return {
     value: {
       host: parts[0]!,
       guest: parts[1]!,
-      mode: resolvedMode,
+      mode: mode ?? "rw",
       ...(sync ? { sync } : {}),
     },
     next,

@@ -164,10 +164,11 @@ describe("parseRunArgs --mount-live", () => {
     ]);
   });
 
-  it("rejects batch sync on read-only mounts", () => {
-    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:ro:batch"])).toThrow(
-      /batch sync requires rw/,
-    );
+  it("accepts batch sync on read-only mounts", () => {
+    const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src:ro:batch"]);
+    expect(parsed.liveMounts).toEqual([
+      { host: "./src", guest: "/mnt/src", mode: "ro", sync: "batch" },
+    ]);
   });
 
   it("rejects the removed :strict cache modifier", () => {

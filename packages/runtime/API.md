@@ -17414,7 +17414,7 @@ source's `resolveLiveMounts()`:
   - `guest`: absolute guest path the mount lands at.
   - `host`:  absolute host path that was being shared.
   - `mode`:  `"ro"` or `"rw"`, the share's write semantics.
-  - `sync`: write visibility policy (`"batch"` default for rw, or `"eager"`).
+  - `sync`: write visibility policy (`"batch"` default, or `"eager"`).
 
 Restore policy: the bundle's recorded mounts are re-established
 verbatim by default. Pass `restore({ liveMounts })` to override
@@ -17741,9 +17741,10 @@ the host. Set `"ro"` for a one-way share.
 
 Each guest path must live under `/mnt/`. Up to 5 entries are served
 by in-VMM virtio-fs devices; no guest agent or vsock transport is
-involved. Metadata uses the fast policy. `rw` mounts batch writes
-by default and sync to the host after guest workload exit and host
-lifecycle calls; set `sync: "eager"` for immediate host visibility.
+involved. Metadata uses the fast policy. Mounts use the batch path
+by default; `rw` mounts sync to the host after guest workload exit
+and host lifecycle calls. Set `sync: "eager"` for immediate `rw`
+host visibility.
 
 Snapshot / restore / fork record host path, guest path, mode, and
 sync policy, but not bytes. Restoring on another host fails if the
@@ -17770,7 +17771,7 @@ filesystem channel bounded to the configured host root. Prefer
 
 > `optional` **sync?**: [`LiveMountSyncMode`](#livemountsyncmode)
 
-Write visibility policy: `batch` default for rw, `eager` for immediate host writes.
+Write visibility policy: `batch` default, or `eager` for immediate rw host writes.
 
 ###### Inherited from
 
@@ -18160,9 +18161,10 @@ the host. Set `"ro"` for a one-way share.
 
 Each guest path must live under `/mnt/`. Up to 5 entries are served
 by in-VMM virtio-fs devices; no guest agent or vsock transport is
-involved. Metadata uses the fast policy. `rw` mounts batch writes
-by default and sync to the host after guest workload exit and host
-lifecycle calls; set `sync: "eager"` for immediate host visibility.
+involved. Metadata uses the fast policy. Mounts use the batch path
+by default; `rw` mounts sync to the host after guest workload exit
+and host lifecycle calls. Set `sync: "eager"` for immediate `rw`
+host visibility.
 
 Snapshot / restore / fork record host path, guest path, mode, and
 sync policy, but not bytes. Restoring on another host fails if the
@@ -18189,7 +18191,7 @@ filesystem channel bounded to the configured host root. Prefer
 
 > `optional` **sync?**: [`LiveMountSyncMode`](#livemountsyncmode)
 
-Write visibility policy: `batch` default for rw, `eager` for immediate host writes.
+Write visibility policy: `batch` default, or `eager` for immediate rw host writes.
 
 ##### portForward?
 
@@ -18587,9 +18589,10 @@ the host. Set `"ro"` for a one-way share.
 
 Each guest path must live under `/mnt/`. Up to 5 entries are served
 by in-VMM virtio-fs devices; no guest agent or vsock transport is
-involved. Metadata uses the fast policy. `rw` mounts batch writes
-by default and sync to the host after guest workload exit and host
-lifecycle calls; set `sync: "eager"` for immediate host visibility.
+involved. Metadata uses the fast policy. Mounts use the batch path
+by default; `rw` mounts sync to the host after guest workload exit
+and host lifecycle calls. Set `sync: "eager"` for immediate `rw`
+host visibility.
 
 Snapshot / restore / fork record host path, guest path, mode, and
 sync policy, but not bytes. Restoring on another host fails if the
@@ -18616,7 +18619,7 @@ filesystem channel bounded to the configured host root. Prefer
 
 > `optional` **sync?**: [`LiveMountSyncMode`](#livemountsyncmode)
 
-Write visibility policy: `batch` default for rw, `eager` for immediate host writes.
+Write visibility policy: `batch` default, or `eager` for immediate rw host writes.
 
 ###### Inherited from
 
