@@ -33,6 +33,11 @@ pub const PidExpected = struct {
     started_at_ms: ?i64 = null,
 };
 
+pub const HostMemory = struct {
+    free_bytes: u64,
+    total_bytes: u64,
+};
+
 pub const CpuCgroupOptions = struct {
     pid: u32,
     weight: u32,
@@ -81,6 +86,14 @@ pub fn validatePid(allocator: std.mem.Allocator, io: std.Io, pid: u32, expected:
     }
     if (!startTimesMatch(expected.started_at_ms, observed.started_at_ms)) return .recycled;
     return .alive;
+}
+
+pub fn readHostMemory(allocator: std.mem.Allocator, io: std.Io) Error!HostMemory {
+    return switch (builtin.os.tag) {
+        .linux => readHostMemoryLinux(allocator, io),
+        .macos => readHostMemoryDarwin(allocator, io),
+        else => error.UnsupportedHostMemory,
+    };
 }
 
 pub fn applyCpuCgroup(allocator: std.mem.Allocator, io: std.Io, opts: CpuCgroupOptions) Error!CpuCgroupResult {
@@ -158,6 +171,88 @@ pub fn readHostRss(allocator: std.mem.Allocator, io: std.Io, targets: []const Rs
     }
 
     return readings.toOwnedSlice(allocator);
+}
+
+fn readHostMemoryLinux(allocator: std.mem.Allocator, io: std.Io) Error!HostMemory {
+    const data = try readFileAlloc(allocator, io, "/proc/meminfo");
+    defer allocator.free(data);
+    const total = parseMeminfoKb(data, "MemTotal") orelse return error.InvalidHostMemory;
+    const free = parseMeminfoKb(data, "MemAvailable") orelse parseMeminfoKb(data, "MemFree") orelse return error.InvalidHostMemory;
+    return .{ .free_bytes = free * 1024, .total_bytes = total * 1024 };
+}
+
+fn readHostMemoryDarwin(allocator: std.mem.Allocator, io: std.Io) Error!HostMemory {
+    const total = try readDarwinTotalMemory(allocator, io);
+    const vm_stat = std.process.run(allocator, io, .{
+        .argv = &.{"/usr/bin/vm_stat"},
+        .stdout_limit = .limited(64 * 1024),
+        .stderr_limit = .limited(16 * 1024),
+    }) catch return error.InvalidHostMemory;
+    defer allocator.free(vm_stat.stdout);
+    defer allocator.free(vm_stat.stderr);
+    switch (vm_stat.term) {
+        .exited => |code| if (code != 0) return error.InvalidHostMemory,
+        else => return error.InvalidHostMemory,
+    }
+    const free = parseVmStatAvailableBytes(vm_stat.stdout) orelse return error.InvalidHostMemory;
+    return .{ .free_bytes = free, .total_bytes = total };
+}
+
+fn readDarwinTotalMemory(allocator: std.mem.Allocator, io: std.Io) Error!u64 {
+    const result = std.process.run(allocator, io, .{
+        .argv = &.{ "/usr/sbin/sysctl", "-n", "hw.memsize" },
+        .stdout_limit = .limited(16 * 1024),
+        .stderr_limit = .limited(16 * 1024),
+    }) catch return error.InvalidHostMemory;
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    switch (result.term) {
+        .exited => |code| if (code != 0) return error.InvalidHostMemory,
+        else => return error.InvalidHostMemory,
+    }
+    const trimmed = std.mem.trim(u8, result.stdout, " \t\r\n");
+    return std.fmt.parseUnsigned(u64, trimmed, 10) catch error.InvalidHostMemory;
+}
+
+pub fn parseMeminfoKb(meminfo: []const u8, field: []const u8) ?u64 {
+    var lines = std.mem.splitScalar(u8, meminfo, '\n');
+    while (lines.next()) |line| {
+        if (!std.mem.startsWith(u8, line, field) or line.len <= field.len or line[field.len] != ':') continue;
+        var it = std.mem.tokenizeAny(u8, line[field.len + 1 ..], " \t");
+        const number_text = it.next() orelse return null;
+        const unit_text = it.next() orelse return null;
+        if (!std.mem.eql(u8, unit_text, "kB")) return null;
+        return std.fmt.parseUnsigned(u64, number_text, 10) catch null;
+    }
+    return null;
+}
+
+pub fn parseVmStatAvailableBytes(vm_stat: []const u8) ?u64 {
+    const page_size = parseVmStatPageSize(vm_stat) orelse 4096;
+    const free = parseVmStatPages(vm_stat, "Pages free") orelse 0;
+    const speculative = parseVmStatPages(vm_stat, "Pages speculative") orelse 0;
+    const purgeable = parseVmStatPages(vm_stat, "Pages purgeable") orelse 0;
+    return (free + speculative + purgeable) * page_size;
+}
+
+fn parseVmStatPageSize(vm_stat: []const u8) ?u64 {
+    const marker = "page size of ";
+    const start = std.mem.indexOf(u8, vm_stat, marker) orelse return null;
+    const after = vm_stat[start + marker.len ..];
+    var it = std.mem.tokenizeAny(u8, after, " \t\r\n");
+    const raw = it.next() orelse return null;
+    return std.fmt.parseUnsigned(u64, raw, 10) catch null;
+}
+
+fn parseVmStatPages(vm_stat: []const u8, label: []const u8) ?u64 {
+    var lines = std.mem.splitScalar(u8, vm_stat, '\n');
+    while (lines.next()) |line| {
+        const trimmed = std.mem.trim(u8, line, " \t\r");
+        if (!std.mem.startsWith(u8, trimmed, label) or trimmed.len <= label.len or trimmed[label.len] != ':') continue;
+        const rest = std.mem.trim(u8, trimmed[label.len + 1 ..], " \t.");
+        return std.fmt.parseUnsigned(u64, rest, 10) catch null;
+    }
+    return null;
 }
 
 fn pidAlive(pid: u32) bool {
@@ -459,6 +554,31 @@ test "applyCpuCgroupLinux writes cgroup v2 files" {
 
     removeCpuCgroup(std.testing.io, result.cgroup_path.?);
     try std.testing.expect(!existsPath(std.testing.io, result.cgroup_path.?));
+}
+
+test "parseMeminfoKb reads Linux memory fields" {
+    const meminfo = "MemTotal:       8388608 kB\nMemFree:        1000000 kB\nMemAvailable:   2000000 kB\n";
+    try std.testing.expectEqual(@as(?u64, 8_388_608), parseMeminfoKb(meminfo, "MemTotal"));
+    try std.testing.expectEqual(@as(?u64, 2_000_000), parseMeminfoKb(meminfo, "MemAvailable"));
+    try std.testing.expectEqual(@as(?u64, null), parseMeminfoKb(meminfo, "SwapTotal"));
+}
+
+test "parseVmStatAvailableBytes sums Darwin free speculative purgeable pages" {
+    const vm_stat =
+        \\Mach Virtual Memory Statistics: (page size of 16384 bytes)
+        \\Pages free:                               10.
+        \\Pages active:                             99.
+        \\Pages speculative:                         5.
+        \\Pages purgeable:                           2.
+    ;
+    try std.testing.expectEqual(@as(?u64, 17 * 16_384), parseVmStatAvailableBytes(vm_stat));
+}
+
+test "readHostMemory returns positive values on supported platforms" {
+    if (builtin.os.tag != .linux and builtin.os.tag != .macos) return;
+    const memory = try readHostMemory(std.testing.allocator, std.testing.io);
+    try std.testing.expect(memory.free_bytes > 0);
+    try std.testing.expect(memory.total_bytes >= memory.free_bytes);
 }
 
 test "parseBootTimeSeconds reads Linux btime" {
