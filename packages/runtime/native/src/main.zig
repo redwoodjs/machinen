@@ -1,5 +1,6 @@
 const std = @import("std");
 const protocol = @import("protocol.zig");
+const host_rss = @import("commands/host_rss.zig");
 const mkinitramfs = @import("commands/mkinitramfs.zig");
 const mountdisk_image = @import("commands/mountdisk_image.zig");
 const mountdisk_upper = @import("commands/mountdisk_upper.zig");
@@ -21,6 +22,14 @@ pub fn main(init: std.process.Init) !u8 {
         try protocol.writeError(g_io, "USAGE", "missing command");
         return @intFromEnum(protocol.Exit.usage);
     };
+
+    if (std.mem.eql(u8, command, host_rss.name)) {
+        if (it.next() != null) {
+            try protocol.writeError(g_io, "USAGE", "host-rss reads its JSON request from stdin and accepts no positional arguments");
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try host_rss.run(init.gpa, g_io));
+    }
 
     if (std.mem.eql(u8, command, mkinitramfs.name)) {
         if (it.next() != null) {
@@ -95,7 +104,7 @@ pub fn main(init: std.process.Init) !u8 {
     }
 
     if (std.mem.eql(u8, command, "--help") or std.mem.eql(u8, command, "-h") or std.mem.eql(u8, command, "help")) {
-        try protocol.stdout(g_io, "{\"ok\":true,\"protocolVersion\":1,\"commands\":[\"mkinitramfs\",\"mountdisk-image\",\"mountdisk-upper\",\"reflink-copy\",\"rootfs-cache-key\",\"rootfs-materialize\",\"rootfs-prebake-decompress\",\"rootfs-prebake-tree\",\"tree-manifest-hash\"]}\n");
+        try protocol.stdout(g_io, "{\"ok\":true,\"protocolVersion\":1,\"commands\":[\"host-rss\",\"mkinitramfs\",\"mountdisk-image\",\"mountdisk-upper\",\"reflink-copy\",\"rootfs-cache-key\",\"rootfs-materialize\",\"rootfs-prebake-decompress\",\"rootfs-prebake-tree\",\"tree-manifest-hash\"]}\n");
         return @intFromEnum(protocol.Exit.ok);
     }
 
