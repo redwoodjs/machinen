@@ -77,8 +77,11 @@ import { arch, homedir, platform } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
-import { rootfsCacheKeyNative, rootfsMaterializeNative } from "./native/rootfs.ts";
-import { SPARSE_GUNZIP_WORKER, SPARSE_ZSTD_WORKER } from "./rootfs-sparse-workers.ts";
+import {
+  rootfsCacheKeyNative,
+  rootfsMaterializeNative,
+  rootfsPrebakeDecompressNative,
+} from "./native/rootfs.ts";
 import {
   okMarkerPath,
   readSha256Sidecar,
@@ -707,29 +710,11 @@ function zstdPrebakeToFile(sibling: string, dst: string): boolean {
 }
 
 function zstdPrebakeToFileWithSha(sibling: string, dst: string): PrebakeDecompressResult {
-  const zstd = whichFirst(["zstd"]);
-  if (!zstd) {
-    debug("prebake zstd missing; falling back sibling=%s", sibling);
-    return { ok: false };
+  const result = rootfsPrebakeDecompressNative({ path: sibling, dst, format: "zst" });
+  if (!result.ok) {
+    debug("prebake sparse zstd failed sibling=%s", sibling);
   }
-  const r = spawnSync(
-    process.execPath,
-    ["--input-type=module", "-e", SPARSE_ZSTD_WORKER, zstd, sibling, dst],
-    {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-  if (r.status === 0) {
-    return { ok: true, sha256: parseWorkerSha256(r.stdout) };
-  }
-  debug(
-    "prebake sparse zstd failed sibling=%s status=%s stderr=%s",
-    sibling,
-    r.status,
-    r.stderr?.toString().slice(0, 200) ?? "",
-  );
-  return { ok: false };
+  return result;
 }
 
 function gunzipPrebakeToFile(sibling: string, dst: string): boolean {
@@ -737,59 +722,11 @@ function gunzipPrebakeToFile(sibling: string, dst: string): boolean {
 }
 
 function gunzipPrebakeToFileWithSha(sibling: string, dst: string): PrebakeDecompressResult {
-  const sparse = sparseGunzipPrebakeToFileWithSha(sibling, dst);
-  if (sparse.ok) {
-    return sparse;
+  const result = rootfsPrebakeDecompressNative({ path: sibling, dst, format: "gz" });
+  if (!result.ok) {
+    debug("prebake sparse gunzip failed sibling=%s", sibling);
   }
-  debug("prebake sparse gunzip failed; falling back to full gunzip sibling=%s", sibling);
-  return fullGunzipPrebakeToFileWithSha(sibling, dst);
-}
-
-function fullGunzipPrebakeToFileWithSha(sibling: string, dst: string): PrebakeDecompressResult {
-  const dstFd = openSync(dst, "w");
-  try {
-    const r = spawnSync("gunzip", ["-c", sibling], {
-      stdio: ["ignore", dstFd, "pipe"],
-    });
-    if (r.status === 0) {
-      return { ok: true, sha256: sha256OfFile(dst) };
-    }
-    debug(
-      "prebake gunzip failed sibling=%s status=%s stderr=%s",
-      sibling,
-      r.status,
-      r.stderr?.toString().slice(0, 200) ?? "",
-    );
-    return { ok: false };
-  } finally {
-    closeSync(dstFd);
-  }
-}
-
-function sparseGunzipPrebakeToFileWithSha(sibling: string, dst: string): PrebakeDecompressResult {
-  const r = spawnSync(
-    process.execPath,
-    ["--input-type=module", "-e", SPARSE_GUNZIP_WORKER, sibling, dst],
-    {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-  if (r.status === 0) {
-    return { ok: true, sha256: parseWorkerSha256(r.stdout) };
-  }
-  debug(
-    "prebake sparse gunzip failed sibling=%s status=%s stderr=%s",
-    sibling,
-    r.status,
-    r.stderr?.toString().slice(0, 200) ?? "",
-  );
-  return { ok: false };
-}
-
-function parseWorkerSha256(stdout: string | Buffer | null | undefined): string | undefined {
-  const first = stdout?.toString().trim().split(/\s+/, 1)[0]?.toLowerCase();
-  return first && /^[0-9a-f]{64}$/.test(first) ? first : undefined;
+  return result;
 }
 
 // Extract with mode-bit fidelity. BSD tar otherwise applies umask for

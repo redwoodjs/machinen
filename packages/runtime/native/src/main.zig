@@ -6,6 +6,7 @@ const mountdisk_upper = @import("commands/mountdisk_upper.zig");
 const reflink_copy = @import("commands/reflink_copy.zig");
 const rootfs_cache_key = @import("commands/rootfs_cache_key.zig");
 const rootfs_materialize = @import("commands/rootfs_materialize.zig");
+const rootfs_prebake_decompress = @import("commands/rootfs_prebake_decompress.zig");
 const tree_manifest_hash = @import("commands/tree_manifest_hash.zig");
 
 const assert = std.debug.assert;
@@ -19,6 +20,7 @@ pub fn main(init: std.process.Init) !u8 {
     assert(reflink_copy.name.len > 0);
     assert(rootfs_cache_key.name.len > 0);
     assert(rootfs_materialize.name.len > 0);
+    assert(rootfs_prebake_decompress.name.len > 0);
     assert(tree_manifest_hash.name.len > 0);
 
     g_io = init.io;
@@ -79,6 +81,12 @@ fn runKnownCommand(
         }
         return @intFromEnum(try rootfs_materialize.run(allocator, g_io));
     }
+    if (std.mem.eql(u8, command, rootfs_prebake_decompress.name)) {
+        if (try rejectExtraArgs(it, rootfs_prebake_decompress.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try rootfs_prebake_decompress.run(allocator, g_io));
+    }
     if (std.mem.eql(u8, command, tree_manifest_hash.name)) {
         if (try rejectExtraArgs(it, tree_manifest_hash.name)) {
             return @intFromEnum(protocol.Exit.usage);
@@ -117,6 +125,7 @@ fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
     assert(reflink_copy.name.len > 0);
     assert(rootfs_cache_key.name.len > 0);
     assert(rootfs_materialize.name.len > 0);
+    assert(rootfs_prebake_decompress.name.len > 0);
     assert(tree_manifest_hash.name.len > 0);
 
     try protocol.writeJson(allocator, io, .{
@@ -129,6 +138,7 @@ fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
             reflink_copy.name,
             rootfs_cache_key.name,
             rootfs_materialize.name,
+            rootfs_prebake_decompress.name,
             tree_manifest_hash.name,
         },
     });

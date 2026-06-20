@@ -39,6 +39,22 @@ pub const MaterializeResult = struct {
     phases: MaterializePhases,
 };
 
+pub const PrebakeFormat = enum {
+    gz,
+    zst,
+};
+
+pub const PrebakeDecompressOptions = struct {
+    path: []const u8,
+    dst: []const u8,
+    format: PrebakeFormat,
+};
+
+pub const PrebakeDecompressResult = struct {
+    ok: bool,
+    sha256: ?[64]u8 = null,
+};
+
 pub fn materializeFromTar(allocator: std.mem.Allocator, io: std.Io, opts: MaterializeOptions) Error!MaterializeResult {
     var phases: MaterializePhases = .{};
 
@@ -80,6 +96,17 @@ pub fn materializeFromTar(allocator: std.mem.Allocator, io: std.Io, opts: Materi
     phases.staging_cleanup = nowMs(io) - cleanup_start;
 
     return .{ .img_path = try allocator.dupe(u8, opts.img_path), .size_bytes = computed_size, .phases = phases };
+}
+
+pub fn decompressPrebake(allocator: std.mem.Allocator, io: std.Io, opts: PrebakeDecompressOptions) Error!PrebakeDecompressResult {
+    const argv: []const []const u8 = switch (opts.format) {
+        .gz => &.{ "gunzip", "-c", opts.path },
+        .zst => &.{ "zstd", "-dc", opts.path },
+    };
+    return sparseDecompressCommand(allocator, io, argv, opts.dst) catch |err| switch (err) {
+        error.FileNotFound, error.DecompressFailed => return .{ .ok = false },
+        else => |e| return e,
+    };
 }
 
 pub fn rootfsCacheKey(allocator: std.mem.Allocator, io: std.Io, tar_path: []const u8) Error!CacheKeyResult {
@@ -152,6 +179,55 @@ fn readFileAlloc(allocator: std.mem.Allocator, io: std.Io, path: []const u8) Err
         try out.appendSlice(allocator, buf[0..n]);
     }
     return out.toOwnedSlice(allocator);
+}
+
+fn sparseDecompressCommand(_: std.mem.Allocator, io: std.Io, argv: []const []const u8, dst: []const u8) Error!PrebakeDecompressResult {
+    var child = try std.process.spawn(io, .{
+        .argv = argv,
+        .stdin = .ignore,
+        .stdout = .pipe,
+        .stderr = .ignore,
+    });
+    var stdout = child.stdout.?;
+    child.stdout = null;
+    defer stdout.close(io);
+
+    var out_file = try std.Io.Dir.cwd().createFile(io, dst, .{ .truncate = true });
+    defer out_file.close(io);
+
+    var sha = std.crypto.hash.sha2.Sha256.init(.{});
+    var offset: u64 = 0;
+    var buf: [128 * 1024]u8 = undefined;
+    while (true) {
+        const n = stdout.readStreaming(io, &.{buf[0..]}) catch |err| switch (err) {
+            error.EndOfStream => break,
+            else => |e| return e,
+        };
+        if (n == 0) break;
+        sha.update(buf[0..n]);
+        if (!isAllZero(buf[0..n])) {
+            try out_file.writePositionalAll(io, buf[0..n], offset);
+        }
+        offset += n;
+    }
+    if (std.c.ftruncate(out_file.handle, @intCast(offset)) != 0) return error.TruncateFailed;
+
+    const term = try child.wait(io);
+    switch (term) {
+        .exited => |code| if (code != 0) return error.DecompressFailed,
+        else => return error.DecompressFailed,
+    }
+
+    var digest: [32]u8 = undefined;
+    sha.final(&digest);
+    return .{ .ok = true, .sha256 = hexDigest(digest) };
+}
+
+fn isAllZero(bytes: []const u8) bool {
+    for (bytes) |b| {
+        if (b != 0) return false;
+    }
+    return true;
 }
 
 fn runTarExtract(allocator: std.mem.Allocator, io: std.Io, tar_abs: []const u8, dest: []const u8) Error!void {
@@ -234,6 +310,43 @@ fn tmpRootAbs(allocator: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u
     const cwd = try std.process.currentPathAlloc(std.testing.io, allocator);
     defer allocator.free(cwd);
     return std.fs.path.join(allocator, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path });
+}
+
+test "decompressPrebake gunzip writes bytes and sha256" {
+    const allocator = std.testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const raw = "\x53\xef" ++ ("\x00" ** 4096) ++ "payload";
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "rootfs.img", .data = raw });
+    const root = try tmpRootAbs(allocator, &tmp);
+    defer allocator.free(root);
+    const img = try std.fs.path.join(allocator, &.{ root, "rootfs.img" });
+    defer allocator.free(img);
+    const gz = try std.fs.path.join(allocator, &.{ root, "rootfs.img.gz" });
+    defer allocator.free(gz);
+    const out = try std.fs.path.join(allocator, &.{ root, "out.img" });
+    defer allocator.free(out);
+
+    const gzip_result = try std.process.run(allocator, std.testing.io, .{
+        .argv = &.{ "gzip", "-c", img },
+        .stdout_limit = .limited(1024 * 1024),
+        .stderr_limit = .limited(1024 * 1024),
+    });
+    defer allocator.free(gzip_result.stdout);
+    defer allocator.free(gzip_result.stderr);
+    switch (gzip_result.term) {
+        .exited => |code| try std.testing.expectEqual(@as(u8, 0), code),
+        else => return error.TestUnexpectedResult,
+    }
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "rootfs.img.gz", .data = gzip_result.stdout });
+
+    const result = try decompressPrebake(allocator, std.testing.io, .{ .path = gz, .dst = out, .format = .gz });
+    try std.testing.expect(result.ok);
+    try std.testing.expect(result.sha256 != null);
+    const bytes = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, allocator, out, 1024 * 1024);
+    defer allocator.free(bytes);
+    try std.testing.expectEqualStrings(raw, bytes);
+    try std.testing.expectEqualStrings("90990ba2fa6430a8f8d65a2a445c1c53a19e01e9561e6d0c6057c4608bc39762", &result.sha256.?);
 }
 
 test "rootfsCacheKey hashes file when sidecar is absent" {
