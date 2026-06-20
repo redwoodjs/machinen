@@ -21,6 +21,8 @@ export const binary = join(here, "vmm", "bin", "machinen-vm");
 export const runtimeHelper = join(here, "vmm", "bin", "machinen-runtime-helper");
 /** Parent-death wrapper used to keep host sidecars bound to the runtime process. */
 export const pdeathsig = join(here, "vmm", "bin", "machinen-pdeathsig");
+/** Native PTY shim used by bootPty(). */
+export const pty = join(here, "vmm", "bin", "machinen-pty");
 /**
  * gvproxy (containers/gvisor-tap-vsock) — the userspace TCP/IP sidecar
  * the runtime auto-spawns for virtio-net. Optional; absent installs

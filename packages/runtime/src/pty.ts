@@ -2,91 +2,12 @@
 //
 // `bootPty()` is the terminal-aware sibling of `boot()`. Same handle
 // shape (Sandboxes.add takes either one) plus a `.resize(cols, rows)`
-// method that routes through to the master fd, so SIGWINCH on the
-// supervisor's terminal can shrink/grow the attached sandbox's view.
-//
-// On the inside it's `@homebridge/node-pty-prebuilt-multiarch`: an
-// API-compatible fork of node-pty that ships prebuilt binaries for
-// darwin/linux (arm64 + x64) without requiring python/node-gyp at
-// install time. The only gotcha is that on macOS the companion
-// `spawn-helper` binary sometimes lands with its exec bit stripped
-// after a pnpm install; `ensureSpawnHelper` fixes that up lazily.
+// method that routes through to the native PTY shim, so SIGWINCH on
+// the supervisor's terminal can shrink/grow the attached sandbox's view.
 
-import { chmodSync, constants as fsConstants, readdirSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { spawn } from "node:child_process";
 import { PassThrough, type Readable, type Writable } from "node:stream";
-import { createRequire } from "node:module";
-
-const PTY_MODULE = "@homebridge/node-pty-prebuilt-multiarch";
-
-// The prebuilt-multiarch fork publishes CommonJS only; import via
-// createRequire so this file stays ESM like the rest of the package.
-const require_ = createRequire(import.meta.url);
-type NodePty = typeof import("@homebridge/node-pty-prebuilt-multiarch");
-let ptyMod: NodePty | null = null;
-function loadPty(): NodePty {
-  if (ptyMod) {
-    return ptyMod;
-  }
-  ensureSpawnHelper();
-  ptyMod = require_(PTY_MODULE) as NodePty;
-  return ptyMod;
-}
-
-/**
- * Walk the pty package's prebuilds dir and make sure the spawn-helper
- * is executable. pnpm sometimes unpacks prebuilt binaries without the
- * exec bit; posix_spawnp then fails with a cryptic "posix_spawnp
- * failed." This is a one-shot no-op on healthy installs.
- */
-function ensureSpawnHelper(): void {
-  try {
-    const resolved = require_.resolve(PTY_MODULE);
-    const pkgDir = findPackageDir(resolved);
-    if (!pkgDir) {
-      return;
-    }
-    const prebuilds = join(pkgDir, "prebuilds");
-    const platforms = readdirSync(prebuilds, { withFileTypes: true });
-    for (const p of platforms) {
-      if (!p.isDirectory()) {
-        continue;
-      }
-      const helper = join(prebuilds, p.name, "spawn-helper");
-      try {
-        const s = statSync(helper);
-        if ((s.mode & fsConstants.S_IXUSR) === 0) {
-          chmodSync(helper, 0o755);
-        }
-      } catch {
-        // Missing helpers for other platforms are fine.
-      }
-    }
-  } catch {
-    // Best-effort only. If we can't find the package dir, fall through
-    // and let the require() error bubble up with a real stack.
-  }
-}
-
-function findPackageDir(entry: string): string | null {
-  let dir = dirname(entry);
-  for (let i = 0; i < 6; i++) {
-    try {
-      const pkg = statSync(join(dir, "package.json"));
-      if (pkg.isFile()) {
-        return dir;
-      }
-    } catch {
-      // keep walking up
-    }
-    const parent = dirname(dir);
-    if (parent === dir) {
-      break;
-    }
-    dir = parent;
-  }
-  return null;
-}
+import { resolvePtyShim } from "./native/pty.ts";
 
 export interface PtyBootOptions {
   /** Absolute or cwd-relative path to the binary to fork. */
@@ -123,66 +44,84 @@ export interface PtyVmHandle {
  * registry can hold it.
  */
 export function bootPty(opts: PtyBootOptions): PtyVmHandle {
-  const pty = loadPty();
-  const child = pty.spawn(opts.binary, opts.args ?? [], {
-    name: opts.name ?? "xterm-256color",
-    cols: opts.cols ?? 80,
-    rows: opts.rows ?? 24,
-    cwd: opts.cwd ?? process.cwd(),
-    env: { ...(process.env as Record<string, string>), ...opts.env },
-  });
-
-  // Wrap the pty data stream as a Node Readable so it works with
-  // Sandboxes.add (which listens on `.on('data', ...)`). The pty
-  // emits strings by default; we forward them as Buffers — matching
-  // what a child_process.spawn'd child gives us.
-  //
-  // Collection happens at the node-pty callback layer (not via a
-  // PassThrough 'data' listener), so the PassThrough stays in paused
-  // mode until the real consumer (Sandboxes / Supervisor / caller)
-  // attaches. Otherwise an internal listener would drain data before
-  // the consumer subscribed.
-  const collected: Buffer[] = [];
-  const out = new PassThrough();
-  const dataUnsub = child.onData((chunk) => {
-    const buf = typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk;
-    collected.push(buf);
-    out.write(buf);
-  });
-
-  // stdin side: Writable adapter that pipes into pty.write(). Bytes
-  // go through the kernel's tty line discipline on the way to the
-  // child — i.e. Ctrl-C generates SIGINT just like in a real terminal.
-  const stdin = new PassThrough();
-  stdin.on("data", (buf: Buffer) => child.write(buf.toString("utf8")));
+  const shim = resolvePtyShim();
+  const cols = opts.cols ?? 80;
+  const rows = opts.rows ?? 24;
+  const term = opts.name ?? "xterm-256color";
+  const child = spawn(
+    shim,
+    [
+      "--cols",
+      String(cols),
+      "--rows",
+      String(rows),
+      "--term",
+      term,
+      "--",
+      opts.binary,
+      ...(opts.args ?? []),
+    ],
+    {
+      cwd: opts.cwd ?? process.cwd(),
+      env: { ...(process.env as Record<string, string>), ...opts.env },
+      stdio: ["pipe", "pipe", "ignore", "pipe"],
+    },
+  );
+  const control = child.stdio[3] as Writable | undefined;
 
   const exitP = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((done) => {
-    child.onExit((ev) => {
-      dataUnsub.dispose();
-      out.end();
-      done({
-        code: ev.exitCode ?? null,
-        signal: ev.signal ? (("SIG" + ev.signal) as NodeJS.Signals) : null,
-      });
+    child.on("error", () => {
+      done({ code: null, signal: null });
+    });
+    child.on("exit", (code, signal) => {
+      done({ code, signal });
     });
   });
 
+  // Wrap the pty data stream as a Node Readable so it works with
+  // Sandboxes.add (which listens on `.on('data', ...)`). Collection
+  // happens at the native shim stdout layer, so the PassThrough stays
+  // in paused mode until the real consumer attaches.
+  const collected: Buffer[] = [];
+  const out = new PassThrough();
+  child.stdout.on("data", (chunk: Buffer) => {
+    collected.push(chunk);
+    out.write(chunk);
+  });
+  child.stdout.on("close", () => out.end());
+
+  // stdin side: Writable adapter that pipes into the shim. Bytes go
+  // through the kernel's tty line discipline on the way to the child
+  // — i.e. Ctrl-C generates SIGINT just like in a real terminal.
+  const stdin = new PassThrough();
+  stdin.on("data", (buf: Buffer) => {
+    child.stdin.write(buf);
+  });
+  stdin.on("end", () => {
+    child.stdin.end();
+  });
+
+  exitP.then(
+    () => out.end(),
+    () => out.end(),
+  );
+
   return {
-    pid: child.pid,
+    pid: child.pid ?? 0,
     stdin,
     stdout: out,
     stderr: out,
-    resize(cols, rows) {
-      child.resize(cols, rows);
+    resize(nextCols, nextRows) {
+      control?.write(`R ${nextCols} ${nextRows}\n`);
     },
     wait: () => exitP,
     async kill() {
-      try {
-        child.kill("SIGKILL");
-      } catch {
-        /* already gone */
-      }
+      control?.write("K\n");
+      child.stdin.end();
+      const force = setTimeout(() => child.kill("SIGKILL"), 500);
+      force.unref();
       await exitP;
+      clearTimeout(force);
     },
     async output() {
       await exitP;
