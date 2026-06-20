@@ -23,6 +23,8 @@ export const runtimeHelper = join(here, "vmm", "bin", "machinen-runtime-helper")
 export const pdeathsig = join(here, "vmm", "bin", "machinen-pdeathsig");
 /** Native PTY shim used by bootPty(). */
 export const pty = join(here, "vmm", "bin", "machinen-pty");
+/** Native winsize socket forwarder used by VsockWinsize. */
+export const winsize = join(here, "vmm", "bin", "machinen-winsize");
 /**
  * gvproxy (containers/gvisor-tap-vsock) — the userspace TCP/IP sidecar
  * the runtime auto-spawns for virtio-net. Optional; absent installs
