@@ -70,6 +70,11 @@ pub const NestedVirtResult = struct {
     }
 };
 
+pub const CleanupPathResult = struct {
+    removed: bool,
+    failed: bool,
+};
+
 pub const CpuCgroupOptions = struct {
     pid: u32,
     weight: u32,
@@ -157,6 +162,36 @@ pub fn probeNestedVirtualization(
     const observation = observed orelse try observeNestedVirtualizationHost(allocator, io);
     defer if (observed == null) deinitObservedNestedVirtualizationHost(allocator, observation);
     return evaluateNestedVirtualization(allocator, observation);
+}
+
+pub fn cleanupPath(io: std.Io, path: []const u8, dry_run: bool) CleanupPathResult {
+    assert(path.len > 0);
+
+    const st = std.Io.Dir.cwd().statFile(
+        io,
+        path,
+        .{ .follow_symlinks = false },
+    ) catch return .{ .removed = false, .failed = false };
+    if (dry_run) return .{ .removed = true, .failed = false };
+    if (st.kind == .directory) {
+        if (std.mem.startsWith(u8, path, DEFAULT_CGROUP_PARENT ++ "/")) {
+            std.Io.Dir.cwd().deleteDir(io, path) catch return .{
+                .removed = false,
+                .failed = true,
+            };
+        } else {
+            std.Io.Dir.cwd().deleteTree(io, path) catch return .{
+                .removed = false,
+                .failed = true,
+            };
+        }
+    } else {
+        std.Io.Dir.cwd().deleteFile(io, path) catch return .{
+            .removed = false,
+            .failed = true,
+        };
+    }
+    return .{ .removed = true, .failed = false };
 }
 
 fn observeNestedVirtualizationHost(
@@ -1016,6 +1051,41 @@ fn tmpRootAbs(allocator: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u
     const cwd = try std.process.currentPathAlloc(std.testing.io, allocator);
     defer allocator.free(cwd);
     return std.fs.path.join(allocator, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path });
+}
+
+test "cleanupPath removes files and directories" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "file.txt", .data = "x" });
+    try tmp.dir.createDir(std.testing.io, "dir", .default_dir);
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "dir/nested.txt", .data = "y" });
+    const root = try tmpRootAbs(std.testing.allocator, &tmp);
+    defer std.testing.allocator.free(root);
+    const file_path = try std.fs.path.join(std.testing.allocator, &.{ root, "file.txt" });
+    defer std.testing.allocator.free(file_path);
+    const dir_path = try std.fs.path.join(std.testing.allocator, &.{ root, "dir" });
+    defer std.testing.allocator.free(dir_path);
+
+    try std.testing.expectEqual(CleanupPathResult{ .removed = true, .failed = false }, cleanupPath(std.testing.io, file_path, false));
+    try std.testing.expectEqual(CleanupPathResult{ .removed = true, .failed = false }, cleanupPath(std.testing.io, dir_path, false));
+    try std.testing.expect(!existsPath(std.testing.io, file_path));
+    try std.testing.expect(!existsPath(std.testing.io, dir_path));
+}
+
+test "cleanupPath dry-run and missing paths do not touch disk" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "file.txt", .data = "x" });
+    const root = try tmpRootAbs(std.testing.allocator, &tmp);
+    defer std.testing.allocator.free(root);
+    const file_path = try std.fs.path.join(std.testing.allocator, &.{ root, "file.txt" });
+    defer std.testing.allocator.free(file_path);
+    const missing_path = try std.fs.path.join(std.testing.allocator, &.{ root, "missing.txt" });
+    defer std.testing.allocator.free(missing_path);
+
+    try std.testing.expectEqual(CleanupPathResult{ .removed = true, .failed = false }, cleanupPath(std.testing.io, file_path, true));
+    try std.testing.expect(existsPath(std.testing.io, file_path));
+    try std.testing.expectEqual(CleanupPathResult{ .removed = false, .failed = false }, cleanupPath(std.testing.io, missing_path, false));
 }
 
 test "applyCpuCgroup returns explicit unsupported outside Linux" {
