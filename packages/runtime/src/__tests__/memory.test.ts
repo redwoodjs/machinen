@@ -294,6 +294,50 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans provision asset names", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const amd64 = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, provisionGuestCpu: "amd64" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(amd64.status).toBe(0);
+    expect(JSON.parse(amd64.stdout).data.provisionAssets).toEqual({
+      cpu: "amd64",
+      kernelAsset: "bzImage-x86_64",
+      dtbAsset: null,
+      rootfsAsset: "rootfs-debian-amd64.tar.gz",
+    });
+
+    const arm64 = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, provisionGuestCpu: "arm64" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(arm64.status).toBe(0);
+    expect(JSON.parse(arm64.stdout).data.provisionAssets).toEqual({
+      cpu: "arm64",
+      kernelAsset: "Image-arm64",
+      dtbAsset: "virt-arm64.dtb",
+      rootfsAsset: "rootfs-debian-arm64.tar.gz",
+    });
+  });
+
   it("plans bundle env overlays", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

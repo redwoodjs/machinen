@@ -40,6 +40,7 @@ import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
 import { VsockExec } from "./exec.ts";
 import type { OnLog } from "./log.ts";
+import { planProvisionAssetsNative } from "./native/boot-plan.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { reflinkCopy } from "./reflink.ts";
 import { boot, warmImageConfigCache } from "./vm/index.ts";
@@ -284,18 +285,13 @@ function baseAssetSpec(): {
   dtbAsset?: string;
   rootfsAsset: string;
 } {
-  return guestCpu() === "amd64"
-    ? {
-        cpu: "amd64",
-        kernelAsset: "bzImage-x86_64",
-        rootfsAsset: "rootfs-debian-amd64.tar.gz",
-      }
-    : {
-        cpu: "arm64",
-        kernelAsset: "Image-arm64",
-        dtbAsset: "virt-arm64.dtb",
-        rootfsAsset: "rootfs-debian-arm64.tar.gz",
-      };
+  const plan = planProvisionAssetsNative(guestCpu());
+  return {
+    cpu: plan.cpu,
+    kernelAsset: plan.kernelAsset,
+    ...(plan.dtbAsset ? { dtbAsset: plan.dtbAsset } : {}),
+    rootfsAsset: plan.rootfsAsset,
+  };
 }
 
 interface BaseAssetSpec {
