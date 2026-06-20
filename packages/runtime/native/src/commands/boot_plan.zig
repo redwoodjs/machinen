@@ -14,6 +14,8 @@ const ParsedRequest = struct {
     has_image: bool,
     has_cmd: bool,
     root_disk: boot_plan.RootDiskMode,
+    guest_cwd: ?[]const u8,
+    mount_guest: ?[]const u8,
 };
 
 const ParsedResourcesMemory = struct {
@@ -41,6 +43,8 @@ const RequestError = error{
     InvalidHasCmd,
     MissingRootDisk,
     InvalidRootDisk,
+    InvalidGuestCwd,
+    InvalidMountGuest,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -63,25 +67,35 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         return .fail;
     };
 
-    const memory_text = if (plan.memory_ceiling_mib) |mib|
-        try std.fmt.allocPrint(allocator, "{d}", .{mib})
-    else
-        try allocator.dupe(u8, "null");
-    defer allocator.free(memory_text);
-    const vmm_memory_text = if (plan.vmm_memory_mib) |mib|
-        try std.fmt.allocPrint(allocator, "\"{d}\"", .{mib})
-    else
-        try allocator.dupe(u8, "null");
-    defer allocator.free(vmm_memory_text);
-    const wants_root_disk = if (plan.wants_root_disk) "true" else "false";
-    const out = try std.fmt.allocPrint(
-        allocator,
-        "{{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{{\"memoryCeilingMib\":{s},\"vmmMemory\":{s},\"wantsRootDisk\":{s}}}}}\n",
-        .{ memory_text, vmm_memory_text, wants_root_disk },
-    );
-    defer allocator.free(out);
-    try protocol.stdout(io, out);
+    try writePlan(io, plan);
     return .ok;
+}
+
+fn writePlan(io: std.Io, plan: boot_plan.Plan) !void {
+    try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{");
+    try protocol.stdout(io, "\"memoryCeilingMib\":");
+    if (plan.memory_ceiling_mib) |mib| {
+        var buf: [32]u8 = undefined;
+        try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{mib}));
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"vmmMemory\":");
+    if (plan.vmm_memory_mib) |mib| {
+        var buf: [32]u8 = undefined;
+        try protocol.writeJsonString(io, try std.fmt.bufPrint(&buf, "{d}", .{mib}));
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"wantsRootDisk\":");
+    try protocol.stdout(io, if (plan.wants_root_disk) "true" else "false");
+    try protocol.stdout(io, ",\"normalizedMountGuest\":");
+    if (plan.normalized_mount_guest) |guest| {
+        try protocol.writeJsonString(io, guest);
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, "}}\n");
 }
 
 fn makePlanInput(allocator: std.mem.Allocator, io: std.Io, parsed: ParsedRequest) anyerror!boot_plan.Input {
@@ -106,6 +120,8 @@ fn makePlanInput(allocator: std.mem.Allocator, io: std.Io, parsed: ParsedRequest
         .has_image = parsed.has_image,
         .has_cmd = parsed.has_cmd,
         .root_disk = parsed.root_disk,
+        .guest_cwd = parsed.guest_cwd,
+        .mount_guest = parsed.mount_guest,
     };
 }
 
@@ -140,7 +156,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -150,11 +166,22 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .has_image = try requiredBool(object, "hasImage", error.MissingHasImage, error.InvalidHasImage),
         .has_cmd = try requiredBool(object, "hasCmd", error.MissingHasCmd, error.InvalidHasCmd),
         .root_disk = try requiredRootDisk(object),
+        .guest_cwd = try optionalStringDefaultNull(object, "guestCwd", error.InvalidGuestCwd),
+        .mount_guest = try optionalStringDefaultNull(object, "mountGuest", error.InvalidMountGuest),
     };
 }
 
 fn optionalString(object: std.json.ObjectMap, field: []const u8, missing: RequestError, invalid: RequestError) RequestError!?[]const u8 {
     const value = object.get(field) orelse return missing;
+    return switch (value) {
+        .null => null,
+        .string => |s| s,
+        else => invalid,
+    };
+}
+
+fn optionalStringDefaultNull(object: std.json.ObjectMap, field: []const u8, invalid: RequestError) RequestError!?[]const u8 {
+    const value = object.get(field) orelse return null;
     return switch (value) {
         .null => null,
         .string => |s| s,
@@ -203,6 +230,10 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
         error.CmdWithoutImage => try protocol.writeError(io, "BOOT_CMD_WITHOUT_IMAGE", "boot: `image` is required when `cmd` is set."),
         error.RootDiskWithoutImage => try protocol.writeError(io, "BOOT_CMD_WITHOUT_IMAGE", "boot: rootDisk: true requires an `image` (the .tar.gz to materialize)."),
         error.MissingAutoMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: memory auto-size input is missing"),
+        error.InvalidGuestCwdAbsolute => try protocol.writeError(io, "BOOT_CWD_INVALID", "guestCwd must be an absolute path"),
+        error.InvalidGuestCwdNul => try protocol.writeError(io, "BOOT_CWD_INVALID", "guestCwd must not contain NUL bytes"),
+        error.InvalidMountGuestAbsolute => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "mount guest path must be absolute"),
+        error.InvalidMountGuestRoot => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "mount guest path must live under /mnt/"),
         error.UnsupportedHostMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: host memory probing is unsupported on this platform"),
         else => try protocol.writeError(io, "BOOT_MEMORY_INVALID", @errorName(err)),
     }

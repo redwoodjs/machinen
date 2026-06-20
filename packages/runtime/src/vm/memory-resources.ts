@@ -26,11 +26,6 @@ export interface BootMemoryResourceOptions {
   reclaim?: "auto";
 }
 
-type MemoryCeilingInput = {
-  memory?: number;
-  resources?: BootResourcesOptions;
-};
-
 export function resolveMemoryCeilingMib(
   opts: { memory?: number; resources?: BootResourcesOptions },
   autoSize: () => number = autoSizeMemoryMib,
@@ -49,20 +44,4 @@ export function resolveMemoryCeilingMib(
     throw new Error("boot: native memory planner returned no ceiling");
   }
   return plan.memoryCeilingMib;
-}
-
-export function resolveExplicitMemoryCeilingMib(opts: MemoryCeilingInput): number | undefined {
-  if (opts.memory === undefined && opts.resources?.memory === undefined) {
-    return undefined;
-  }
-  const plan = planBootCoreNative({
-    memoryMib: opts.memory,
-    resourcesMemory: opts.resources?.memory,
-    autoMemoryMib: 512,
-    vmmMemoryPreset: false,
-    hasImage: false,
-    hasCmd: false,
-    rootDisk: "false",
-  });
-  return plan.memoryCeilingMib ?? undefined;
 }

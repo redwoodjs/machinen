@@ -24,12 +24,15 @@ pub const Input = struct {
     has_image: bool = false,
     has_cmd: bool = false,
     root_disk: RootDiskMode = .unset,
+    guest_cwd: ?[]const u8 = null,
+    mount_guest: ?[]const u8 = null,
 };
 
 pub const Plan = struct {
     memory_ceiling_mib: ?u64,
     vmm_memory_mib: ?u64,
     wants_root_disk: bool,
+    normalized_mount_guest: ?[]const u8,
 };
 
 pub const PlanError = error{
@@ -39,6 +42,10 @@ pub const PlanError = error{
     CmdWithoutImage,
     RootDiskWithoutImage,
     MissingAutoMemory,
+    InvalidGuestCwdAbsolute,
+    InvalidGuestCwdNul,
+    InvalidMountGuestAbsolute,
+    InvalidMountGuestRoot,
 };
 
 pub fn autoSizeMemoryMib(host_total_bytes: u64) u64 {
@@ -60,6 +67,8 @@ pub fn planCore(input: Input) PlanError!Plan {
     if (wants_root_disk and input.root_disk != .path and !input.has_image) {
         return error.RootDiskWithoutImage;
     }
+    if (input.guest_cwd) |cwd| try validateGuestCwd(cwd);
+    const normalized_mount_guest = if (input.mount_guest) |guest| try normalizeMountGuest(guest) else null;
 
     const explicit = try resolveExplicitMemory(input);
     if (input.vmm_memory_preset) {
@@ -67,6 +76,7 @@ pub fn planCore(input: Input) PlanError!Plan {
             .memory_ceiling_mib = null,
             .vmm_memory_mib = null,
             .wants_root_disk = wants_root_disk,
+            .normalized_mount_guest = normalized_mount_guest,
         };
     }
 
@@ -78,7 +88,24 @@ pub fn planCore(input: Input) PlanError!Plan {
         .memory_ceiling_mib = ceiling,
         .vmm_memory_mib = ceiling,
         .wants_root_disk = wants_root_disk,
+        .normalized_mount_guest = normalized_mount_guest,
     };
+}
+
+pub fn validateGuestCwd(cwd: []const u8) PlanError!void {
+    if (cwd.len == 0 or cwd[0] != '/') return error.InvalidGuestCwdAbsolute;
+    if (std.mem.indexOfScalar(u8, cwd, 0) != null) return error.InvalidGuestCwdNul;
+}
+
+pub fn normalizeMountGuest(guest: []const u8) PlanError![]const u8 {
+    if (guest.len == 0 or guest[0] != '/') return error.InvalidMountGuestAbsolute;
+    var end = guest.len;
+    while (end > 0 and guest[end - 1] == '/') : (end -= 1) {}
+    const trimmed = guest[0..end];
+    if (!std.mem.startsWith(u8, trimmed, "/mnt/") or std.mem.eql(u8, trimmed, "/mnt")) {
+        return error.InvalidMountGuestRoot;
+    }
+    return trimmed;
 }
 
 fn resolveExplicitMemory(input: Input) PlanError!?u64 {
@@ -139,6 +166,30 @@ test "planCore validates command and rootdisk image requirements" {
         .root_disk = .false_value,
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     })).wants_root_disk);
+}
+
+test "planCore validates guest cwd and normalizes mount guest paths" {
+    try std.testing.expectError(error.InvalidGuestCwdAbsolute, planCore(.{
+        .guest_cwd = "relative/dir",
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    try std.testing.expectError(error.InvalidGuestCwdNul, planCore(.{
+        .guest_cwd = "/mnt/work\x00space",
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    try std.testing.expectError(error.InvalidMountGuestAbsolute, planCore(.{
+        .mount_guest = "mnt/app",
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    try std.testing.expectError(error.InvalidMountGuestRoot, planCore(.{
+        .mount_guest = "/srv/app",
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    const plan = try planCore(.{
+        .mount_guest = "/mnt/app///",
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    });
+    try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
 }
 
 test "planCore honors preset VMM memory after validating public input" {
