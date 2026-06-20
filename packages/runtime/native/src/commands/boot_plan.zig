@@ -63,7 +63,9 @@ const ParsedRequest = struct {
     mount_disk_source_upper_path: ?[]const u8 = null,
     mount_disk_guest: ?[]const u8 = null,
     mount_disk_upper_size_text: ?[]const u8 = null,
+    registry_source_image_path: ?[]const u8 = null,
     registry_per_boot_root_disk: ?[]const u8 = null,
+    registry_caller_root_disk_path: ?[]const u8 = null,
     registry_per_boot_snap_disk: ?[]const u8 = null,
     registry_per_boot_mount_upper: ?[]const u8 = null,
     registry_bundle_temp_dir: ?[]const u8 = null,
@@ -137,7 +139,9 @@ const boot_plan_fields = [_][]const u8{
     "mountDiskSourceUpperPath",
     "mountDiskGuest",
     "mountDiskUpperSize",
+    "registrySourceImagePath",
     "registryPerBootRootDisk",
+    "registryCallerRootDiskPath",
     "registryPerBootSnapDisk",
     "registryPerBootMountUpper",
     "registryBundleTempDir",
@@ -226,6 +230,8 @@ const RequestError = error{
     InvalidMountDiskSourceUpperPath,
     InvalidMountDiskGuest,
     InvalidMountDiskUpperSize,
+    InvalidRegistrySourceImagePath,
+    InvalidRegistryRootDiskPath,
     InvalidRegistryCleanupPath,
     InvalidRegistryMountGuest,
     InvalidRegistryMountLowerPath,
@@ -452,6 +458,9 @@ fn makeRegistryShape(
     assert(@sizeOf(boot_plan.RegistryShapePlan) > 0);
 
     return boot_plan.planRegistryShape(arena, .{
+        .source_image_path = parsed.registry_source_image_path,
+        .per_boot_root_disk = parsed.registry_per_boot_root_disk,
+        .caller_root_disk_path = parsed.registry_caller_root_disk_path,
         .cleanup = .{
             .per_boot_root_disk = parsed.registry_per_boot_root_disk,
             .per_boot_snap_disk = parsed.registry_per_boot_snap_disk,
@@ -762,7 +771,11 @@ fn writeRegistryShapeField(
 
     try writeFieldName(io, field, comma);
     try protocol.stdout(io, "{");
-    try writeStringArrayField(io, "cleanupPaths", registry.cleanup_paths, false);
+    try writeNullableStringField(io, "sourceImagePath", registry.source_image_path, false);
+    try writeNullableStringField(io, "rootDiskPath", registry.root_disk_path, true);
+    try writeFieldName(io, "rootDiskMode", true);
+    try protocol.writeJsonString(io, registry.root_disk_mode);
+    try writeStringArrayField(io, "cleanupPaths", registry.cleanup_paths, true);
     try writeRegistryMountDiskField(io, "mountDisk", registry.mount_disk, true);
     try writeRegistryLiveMountsField(io, "liveMounts", registry.live_mounts, true);
     try protocol.stdout(io, "}");
@@ -1356,7 +1369,9 @@ fn parseMountDiskRuntimeFields(
     request.mount_disk_upper_size_text = try optionalStringDefaultNull(
         object,
         "mountDiskUpperSize",
+        "registrySourceImagePath",
         "registryPerBootRootDisk",
+        "registryCallerRootDiskPath",
         "registryPerBootSnapDisk",
         "registryPerBootMountUpper",
         "registryBundleTempDir",
@@ -1379,7 +1394,9 @@ fn parseRegistryShapeFields(
 
     request.registry_per_boot_root_disk = try optionalStringDefaultNull(
         object,
+        "registrySourceImagePath",
         "registryPerBootRootDisk",
+        "registryCallerRootDiskPath",
         error.InvalidRegistryCleanupPath,
     );
     request.registry_per_boot_snap_disk = try optionalStringDefaultNull(

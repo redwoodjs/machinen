@@ -453,7 +453,9 @@ describe("boot-plan helper schema", () => {
         protocolVersion: 1,
         data: {
           ...baseData,
+          registrySourceImagePath: "/images/rootfs.tar.gz",
           registryPerBootRootDisk: "/tmp/root.img",
+          registryCallerRootDiskPath: "/caller/root.img",
           registryPerBootSnapDisk: null,
           registryPerBootMountUpper: "/tmp/upper.img",
           registryBundleTempDir: "/tmp/bundle",
@@ -474,6 +476,9 @@ describe("boot-plan helper schema", () => {
     });
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout).data.registryShape).toEqual({
+      sourceImagePath: "/images/rootfs.tar.gz",
+      rootDiskPath: "/tmp/root.img",
+      rootDiskMode: "block",
       cleanupPaths: [
         "/tmp/root.img",
         "/tmp/upper.img",
