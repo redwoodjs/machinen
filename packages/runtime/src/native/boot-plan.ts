@@ -34,6 +34,8 @@ interface NativeBootPlanInput {
   enableVmstateTiming?: boolean;
   existingVmstateTiming?: string;
   liveMountsResolved?: LiveMountPlanInput[];
+  existingStatsFile?: string;
+  statsFilePath?: string;
 }
 
 interface NativeBootPlanResult {
@@ -52,6 +54,8 @@ interface NativeBootPlanResult {
   vmmRestorePath: string | null;
   vmmVmstateTiming: string | null;
   virtiofsEnv: Record<string, string>;
+  statsFilePath: string | null;
+  vmmStatsFile: string | null;
 }
 
 export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanResult {
@@ -92,6 +96,8 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     enableVmstateTiming: input.enableVmstateTiming === true,
     existingVmstateTiming: nullDefault(input.existingVmstateTiming),
     liveMountsResolved: input.liveMountsResolved ?? [],
+    existingStatsFile: nullDefault(input.existingStatsFile),
+    statsFilePath: nullDefault(input.statsFilePath),
   };
 }
 
@@ -107,6 +113,24 @@ function resourcesMemoryData(memory: BootMemoryResourceOptions | undefined): unk
 
 function nullDefault<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
+}
+
+export function planBootStatsFileNative(input: { existingPath?: string; plannedPath?: string }): {
+  statsFilePath?: string;
+  vmmStatsFile?: string;
+} {
+  const plan = planBootCoreNative({
+    existingStatsFile: input.existingPath,
+    statsFilePath: input.plannedPath,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  return {
+    statsFilePath: plan.statsFilePath ?? undefined,
+    vmmStatsFile: plan.vmmStatsFile ?? undefined,
+  };
 }
 
 export function planBootVirtiofsEnvNative(
@@ -238,6 +262,8 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     nullableString(data.vmmRestorePath),
     nullableString(data.vmmVmstateTiming),
     isStringRecord(data.virtiofsEnv),
+    nullableString(data.statsFilePath),
+    nullableString(data.vmmStatsFile),
   ].every(Boolean);
 }
 

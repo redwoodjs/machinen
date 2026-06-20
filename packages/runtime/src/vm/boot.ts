@@ -54,6 +54,7 @@ import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
   planBootKernelDtbNative,
+  planBootStatsFileNative,
   planBootVirtiofsEnvNative,
   planBootVmstateEnvNative,
   planBootVmmArgvNative,
@@ -1330,24 +1331,31 @@ function setupStatsFile(
   vsockTempDir: string | undefined,
 ): { statsFilePath: string | undefined; statsTempDir: string | undefined } {
   if (env.MACHINEN_STATS_FILE !== undefined) {
-    return { statsFilePath: env.MACHINEN_STATS_FILE, statsTempDir: undefined };
+    const plan = planBootStatsFileNative({ existingPath: env.MACHINEN_STATS_FILE });
+    return { statsFilePath: plan.statsFilePath, statsTempDir: undefined };
   }
   let statsTempDir: string | undefined;
-  let statsFilePath: string;
+  let plannedPath: string;
   if (vsockTempDir) {
-    statsFilePath = join(vsockTempDir, "stats.bin");
+    plannedPath = join(vsockTempDir, "stats.bin");
   } else {
     statsTempDir = mkdtempSync(join(tmpdir(), "machinen-stats-"));
-    statsFilePath = join(statsTempDir, "stats.bin");
+    plannedPath = join(statsTempDir, "stats.bin");
   }
-  const fd = openSync(statsFilePath, "w");
+  const plan = planBootStatsFileNative({ plannedPath });
+  if (!plan.statsFilePath) {
+    return { statsFilePath: undefined, statsTempDir };
+  }
+  const fd = openSync(plan.statsFilePath, "w");
   try {
     writeSync(fd, Buffer.alloc(16), 0, 16, 0);
   } finally {
     closeSync(fd);
   }
-  env.MACHINEN_STATS_FILE = statsFilePath;
-  return { statsFilePath, statsTempDir };
+  if (plan.vmmStatsFile) {
+    env.MACHINEN_STATS_FILE = plan.vmmStatsFile;
+  }
+  return { statsFilePath: plan.statsFilePath, statsTempDir };
 }
 
 interface GvproxyResult {

@@ -169,6 +169,46 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans stats-file env from caller or runtime-owned paths", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const existing = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, existingStatsFile: "/tmp/caller-stats.bin" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(existing.status).toBe(0);
+    expect(JSON.parse(existing.stdout).data).toMatchObject({
+      statsFilePath: "/tmp/caller-stats.bin",
+      vmmStatsFile: null,
+    });
+
+    const planned = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, statsFilePath: "/tmp/runtime-stats.bin" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(planned.status).toBe(0);
+    expect(JSON.parse(planned.stdout).data).toMatchObject({
+      statsFilePath: "/tmp/runtime-stats.bin",
+      vmmStatsFile: "/tmp/runtime-stats.bin",
+    });
+  });
+
   it("plans virtiofs env entries for resolved live mounts", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
