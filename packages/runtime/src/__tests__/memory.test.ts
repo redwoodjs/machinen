@@ -169,6 +169,37 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans machinen-config guest payloads", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      configCmd: ["/bin/sh", "-c", "echo hi"],
+      configEnv: { FOO: "bar" },
+      configGuestCwd: "/mnt/work",
+      configImageCwd: "/srv/app",
+      configLiveMounts: [{ host: "/host", guest: "/mnt/live", mode: "ro", tag: "machinen-lm0" }],
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.machinenConfig).toEqual({
+      cmd: ["/bin/sh", "-c", "echo hi"],
+      env: { FOO: "bar" },
+      cwd: "/mnt/work",
+      liveMounts: [{ guest: "/mnt/live", tag: "machinen-lm0", mode: "ro" }],
+    });
+  });
+
   it("plans live-mount guest paths modes and tags", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
