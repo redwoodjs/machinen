@@ -1,6 +1,8 @@
 const std = @import("std");
 const protocol = @import("protocol.zig");
 const mkinitramfs = @import("commands/mkinitramfs.zig");
+const mountdisk_image = @import("commands/mountdisk_image.zig");
+const mountdisk_upper = @import("commands/mountdisk_upper.zig");
 const tree_manifest_hash = @import("commands/tree_manifest_hash.zig");
 
 const assert = std.debug.assert;
@@ -9,6 +11,8 @@ var g_io: std.Io = undefined;
 
 pub fn main(init: std.process.Init) !u8 {
     assert(mkinitramfs.name.len > 0);
+    assert(mountdisk_image.name.len > 0);
+    assert(mountdisk_upper.name.len > 0);
     assert(tree_manifest_hash.name.len > 0);
 
     g_io = init.io;
@@ -21,44 +25,75 @@ pub fn main(init: std.process.Init) !u8 {
     };
     assert(command.len > 0);
 
-    if (std.mem.eql(u8, command, mkinitramfs.name)) {
-        if (it.next() != null) {
-            try protocol.writeError(
-                g_io,
-                "USAGE",
-                "mkinitramfs reads its JSON request from stdin " ++
-                    "and accepts no positional arguments",
-            );
-            return @intFromEnum(protocol.Exit.usage);
-        }
-        return @intFromEnum(try mkinitramfs.run(init.gpa, g_io));
-    }
-
-    if (std.mem.eql(u8, command, tree_manifest_hash.name)) {
-        if (it.next() != null) {
-            try protocol.writeError(
-                g_io,
-                "USAGE",
-                "tree-manifest-hash reads its JSON request from stdin " ++
-                    "and accepts no positional arguments",
-            );
-            return @intFromEnum(protocol.Exit.usage);
-        }
-        return @intFromEnum(try tree_manifest_hash.run(init.gpa, g_io));
-    }
-
-    const wants_help = std.mem.eql(u8, command, "--help") or
-        std.mem.eql(u8, command, "-h") or
-        std.mem.eql(u8, command, "help");
-    if (wants_help) {
-        try protocol.stdout(
-            g_io,
-            "{\"ok\":true,\"protocolVersion\":1," ++
-                "\"commands\":[\"mkinitramfs\",\"tree-manifest-hash\"]}\n",
-        );
-        return @intFromEnum(protocol.Exit.ok);
-    }
+    if (try runKnownCommand(init.gpa, &it, command)) |exit| return exit;
+    if (isHelp(command)) return try writeHelp(g_io);
 
     try protocol.writeError(g_io, "UNKNOWN_COMMAND", "unknown command");
     return @intFromEnum(protocol.Exit.usage);
+}
+
+fn runKnownCommand(
+    allocator: std.mem.Allocator,
+    it: anytype,
+    command: []const u8,
+) !?u8 {
+    assert(command.len > 0);
+
+    if (std.mem.eql(u8, command, mkinitramfs.name)) {
+        if (try rejectExtraArgs(it, mkinitramfs.name)) return @intFromEnum(protocol.Exit.usage);
+        return @intFromEnum(try mkinitramfs.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, mountdisk_image.name)) {
+        if (try rejectExtraArgs(it, mountdisk_image.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try mountdisk_image.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, mountdisk_upper.name)) {
+        if (try rejectExtraArgs(it, mountdisk_upper.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try mountdisk_upper.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, tree_manifest_hash.name)) {
+        if (try rejectExtraArgs(it, tree_manifest_hash.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try tree_manifest_hash.run(allocator, g_io));
+    }
+    return null;
+}
+
+fn rejectExtraArgs(it: anytype, command_name: []const u8) !bool {
+    assert(command_name.len > 0);
+
+    if (it.next() == null) return false;
+    var message_buf: [128]u8 = undefined;
+    const message = try std.fmt.bufPrint(
+        &message_buf,
+        "{s} reads its JSON request from stdin and accepts no positional arguments",
+        .{command_name},
+    );
+    try protocol.writeError(g_io, "USAGE", message);
+    return true;
+}
+
+fn isHelp(command: []const u8) bool {
+    assert(command.len > 0);
+
+    return std.mem.eql(u8, command, "--help") or
+        std.mem.eql(u8, command, "-h") or
+        std.mem.eql(u8, command, "help");
+}
+
+fn writeHelp(io: std.Io) !u8 {
+    assert(mkinitramfs.name.len > 0);
+
+    try protocol.stdout(
+        io,
+        "{\"ok\":true,\"protocolVersion\":1," ++
+            "\"commands\":[\"mkinitramfs\",\"mountdisk-image\"," ++
+            "\"mountdisk-upper\",\"tree-manifest-hash\"]}\n",
+    );
+    return @intFromEnum(protocol.Exit.ok);
 }

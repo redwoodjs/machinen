@@ -326,6 +326,25 @@ describe("ensureMountDiskImage", () => {
     }
   });
 
+  it("treats an empty MACHINEN_MKSQUASHFS override as unset", () => {
+    const prev = process.env.MACHINEN_MKSQUASHFS;
+    process.env.MACHINEN_MKSQUASHFS = "";
+    try {
+      const call = () => ensureMountDiskImage(host, { cacheDir });
+      if (resolveMksquashfs()) {
+        expect(call).not.toThrow();
+      } else {
+        expect(call).toThrow(/no mksquashfs binary found|mksquashfs/);
+      }
+    } finally {
+      if (prev === undefined) {
+        delete process.env.MACHINEN_MKSQUASHFS;
+      } else {
+        process.env.MACHINEN_MKSQUASHFS = prev;
+      }
+    }
+  });
+
   it("throws BOOT_MOUNT_HOST_NOT_FOUND when the host dir is missing", () => {
     expect(() => ensureMountDiskImage(join(tmp, "missing"), { cacheDir })).toThrow(
       /host directory not found/,
