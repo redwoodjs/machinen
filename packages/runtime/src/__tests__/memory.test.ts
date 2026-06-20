@@ -294,6 +294,42 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans provision workload and repack commands", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionRepackDiskPath: "/tmp/scratch.img",
+          provisionRepackOutPath: "/tmp/out.tar.gz",
+          provisionRepackExtractDir: "/tmp/extract",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    const data = JSON.parse(result.stdout).data;
+    expect(data.provisionWorkload.tarToDiskCommand).toContain("--exclude=./proc");
+    expect(data.provisionWorkload.tarToDiskCommand).toContain("-cf /dev/vdb .");
+    expect(data.provisionWorkload.poweroffCommand).toBe("/sbin/machinen-poweroff");
+    expect(data.provisionRepack).toEqual({
+      extractArgs: ["-xf", "/tmp/scratch.img", "-C", "/tmp/extract"],
+      targzArgs: ["-czf", "/tmp/out.tar.gz", "-C", "/tmp/extract", "."],
+    });
+  });
+
   it("plans provision boot inputs", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

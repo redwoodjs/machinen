@@ -57,6 +57,9 @@ const ParsedRequest = struct {
     provision_uds_path: ?[]const u8 = null,
     provision_scratch_disk_path: ?[]const u8 = null,
     provision_root_disk_path: ?[]const u8 = null,
+    provision_repack_disk_path: ?[]const u8 = null,
+    provision_repack_out_path: ?[]const u8 = null,
+    provision_repack_extract_dir: ?[]const u8 = null,
     scratch_mode: boot_plan.ScratchDiskMode = .unset,
     scratch_snapshot_path: ?[]const u8 = null,
     scratch_restore_clone_path: ?[]const u8 = null,
@@ -140,6 +143,9 @@ const boot_plan_fields = [_][]const u8{
     "provisionUdsPath",
     "provisionScratchDiskPath",
     "provisionRootDiskPath",
+    "provisionRepackDiskPath",
+    "provisionRepackOutPath",
+    "provisionRepackExtractDir",
     "scratchMode",
     "scratchSnapshotPath",
     "scratchRestoreClonePath",
@@ -237,6 +243,9 @@ const RequestError = error{
     InvalidProvisionUdsPath,
     InvalidProvisionScratchDiskPath,
     InvalidProvisionRootDiskPath,
+    InvalidProvisionRepackDiskPath,
+    InvalidProvisionRepackOutPath,
+    InvalidProvisionRepackExtractDir,
     InvalidBundleEnvValue,
     InvalidScratchMode,
     InvalidScratchSnapshotPath,
@@ -303,6 +312,8 @@ const PlanParts = struct {
     bundle_env: []const boot_plan.EnvPair,
     provision_assets: boot_plan.ProvisionAssetsPlan,
     provision_boot: boot_plan.ProvisionBootPlan,
+    provision_workload: boot_plan.ProvisionWorkloadPlan,
+    provision_repack: boot_plan.ProvisionRepackPlan,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
@@ -330,6 +341,8 @@ const RuntimeParts = struct {
     bundle_env: []const boot_plan.EnvPair,
     provision_assets: boot_plan.ProvisionAssetsPlan,
     provision_boot: boot_plan.ProvisionBootPlan,
+    provision_workload: boot_plan.ProvisionWorkloadPlan,
+    provision_repack: boot_plan.ProvisionRepackPlan,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
@@ -382,6 +395,8 @@ fn makePlanParts(
             .guest_cpu = parsed.provision_guest_cpu,
         }),
         .provision_boot = try makeProvisionBoot(arena, parsed),
+        .provision_workload = boot_plan.planProvisionWorkload(),
+        .provision_repack = try makeProvisionRepack(arena, parsed),
         .scratch_disk = runtime.scratch_disk,
         .root_disk_runtime = runtime.root_disk_runtime,
         .mount_disk_runtime = runtime.mount_disk_runtime,
@@ -496,6 +511,19 @@ fn makeProvisionBoot(
     });
 }
 
+fn makeProvisionRepack(
+    arena: std.mem.Allocator,
+    parsed: ParsedRequest,
+) !boot_plan.ProvisionRepackPlan {
+    assert(@sizeOf(boot_plan.ProvisionRepackPlan) > 0);
+
+    return boot_plan.planProvisionRepack(arena, .{
+        .disk_path = parsed.provision_repack_disk_path,
+        .out_path = parsed.provision_repack_out_path,
+        .extract_dir = parsed.provision_repack_extract_dir,
+    });
+}
+
 fn makeRegistryShape(
     arena: std.mem.Allocator,
     parsed: ParsedRequest,
@@ -558,6 +586,8 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeEnvObjectField(io, "bundleEnv", parts.bundle_env, true);
     try writeProvisionAssetsField(io, "provisionAssets", parts.provision_assets, true);
     try writeProvisionBootField(io, "provisionBoot", parts.provision_boot, true);
+    try writeProvisionWorkloadField(io, "provisionWorkload", parts.provision_workload, true);
+    try writeProvisionRepackField(io, "provisionRepack", parts.provision_repack, true);
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
     try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
@@ -738,6 +768,37 @@ fn writeProvisionBootField(
     try writeEnvObjectField(io, "env", boot.env, true);
     try writeNullableStringField(io, "snapshotPath", boot.snapshot_path, true);
     try writeNullableStringField(io, "rootDiskPath", boot.root_disk_path, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeProvisionWorkloadField(
+    io: std.Io,
+    comptime field: []const u8,
+    workload: boot_plan.ProvisionWorkloadPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"tarToDiskCommand\":");
+    try protocol.writeJsonString(io, workload.tar_to_disk_command);
+    try protocol.stdout(io, ",\"poweroffCommand\":");
+    try protocol.writeJsonString(io, workload.poweroff_command);
+    try protocol.stdout(io, "}");
+}
+
+fn writeProvisionRepackField(
+    io: std.Io,
+    comptime field: []const u8,
+    repack: boot_plan.ProvisionRepackPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeStringArrayField(io, "extractArgs", repack.extract_args, false);
+    try writeStringArrayField(io, "targzArgs", repack.targz_args, true);
     try protocol.stdout(io, "}");
 }
 
@@ -1378,6 +1439,9 @@ fn parseBundleFields(
         "provisionUdsPath",
         "provisionScratchDiskPath",
         "provisionRootDiskPath",
+        "provisionRepackDiskPath",
+        "provisionRepackOutPath",
+        "provisionRepackExtractDir",
         error.InvalidBundleGuestEnv,
     );
 }

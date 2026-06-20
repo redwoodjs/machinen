@@ -40,7 +40,12 @@ import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
 import { VsockExec } from "./exec.ts";
 import type { OnLog } from "./log.ts";
-import { planProvisionAssetsNative, planProvisionBootNative } from "./native/boot-plan.ts";
+import {
+  planProvisionAssetsNative,
+  planProvisionBootNative,
+  planProvisionRepackNative,
+  planProvisionWorkloadNative,
+} from "./native/boot-plan.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { reflinkCopy } from "./reflink.ts";
 import { boot, warmImageConfigCache } from "./vm/index.ts";
@@ -156,34 +161,6 @@ export interface ProvisionResult {
   /** Wall-clock time from build() entry to return. */
   elapsedMs: number;
 }
-
-/**
- * The guest-side command we run after `install` completes to capture
- * the rootfs state onto the scratch disk. Excludes volatile + special
- * filesystems; everything else goes into the tar stream we write raw
- * to `/dev/vdb`. The scratch disk is the second virtio-blk slot (vda
- * holds the live ext4 rootfs the guest is running from); at pack-time
- * vdb has no filesystem so we append tar directly to the block device.
- * The host reads it back the same way (the trailing two zero blocks
- * mark the end).
- */
-const TAR_TO_DISK_CMD = [
-  "tar",
-  "-C /",
-  "--exclude=./proc",
-  "--exclude=./sys",
-  "--exclude=./dev",
-  "--exclude=./tmp",
-  "--exclude=./run",
-  "--exclude=./machinen-config.json",
-  "--exclude=./etc/machinen-boot-epoch",
-  "--sort=name",
-  "--numeric-owner",
-  "--owner=0",
-  "--group=0",
-  "-cf /dev/vdb",
-  ".",
-].join(" ");
 
 /**
  * Resolve the path to the base rootfs tarball, in the same order
@@ -559,9 +536,10 @@ async function tarProvisionRootfsToDisk(
   debug("tar / -> /dev/vdb starting");
   const tarT0 = Date.now();
   ctx.phases.start("tar-to-disk");
-  const tar = await VsockExec.run(ctx.udsPath, TAR_TO_DISK_CMD, {
+  const workload = planProvisionWorkloadNative();
+  const tar = await VsockExec.run(ctx.udsPath, workload.tarToDiskCommand, {
     execTimeoutMs: deadlineMs,
-    ...tapExecForLog(TAR_TO_DISK_CMD, opts.onLog),
+    ...tapExecForLog(workload.tarToDiskCommand, opts.onLog),
   });
   ctx.phases.end("tar-to-disk");
   debug("tar / -> /dev/vdb done exit=%d elapsed=%dms", tar.exitCode, Date.now() - tarT0);
@@ -581,9 +559,10 @@ async function poweroffProvisionGuest(
 ): Promise<void> {
   debug("requesting guest poweroff");
   ctx.phases.start("poweroff-wait");
-  await VsockExec.run(ctx.udsPath, "/sbin/machinen-poweroff", {
+  const workload = planProvisionWorkloadNative();
+  await VsockExec.run(ctx.udsPath, workload.poweroffCommand, {
     connectTimeoutMs: 2_000,
-    ...tapExecForLog("/sbin/machinen-poweroff", opts.onLog),
+    ...tapExecForLog(workload.poweroffCommand, opts.onLog),
   }).catch(() => {});
   console.error("provision: waiting for guest exit…");
   await vm.wait();
@@ -705,8 +684,9 @@ function repackDiskTarToGz(
     // Visible progress so the silent multi-GB tar pass doesn't look
     // like a hang. See #162.
     console.error("provision: packaging rootfs…");
+    const repackPlan = planProvisionRepackNative({ diskPath, outPath: outAbs, extractDir });
     const extractT0 = Date.now();
-    execFileSync("tar", ["-xf", diskPath, "-C", extractDir]);
+    execFileSync("tar", repackPlan.extractArgs);
     opts.onPhase?.("disk-tar-extract", Date.now() - extractT0);
     // Bake the image's default cmd/env into /machinen-config.json so
     // `boot({ image })` can run without every caller re-passing the
@@ -721,7 +701,7 @@ function repackDiskTarToGz(
       );
     }
     const tarT0 = Date.now();
-    execFileSync("tar", ["-czf", outAbs, "-C", extractDir, "."], {
+    execFileSync("tar", repackPlan.targzArgs, {
       stdio: ["ignore", "ignore", "inherit"],
     });
     opts.onPhase?.("targz", Date.now() - tarT0);
