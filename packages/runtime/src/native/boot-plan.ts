@@ -1,62 +1,30 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
 import { callRuntimeHelper } from "../native-helper.ts";
 import type { BootMemoryResourceOptions } from "../vm/memory-resources.ts";
+import { isNativeBootPlanResult } from "./boot-plan-schema.ts";
+import type {
+  MountDiskRuntimePlan,
+  PlannedLiveMount,
+  ProvisionAssetsPlan,
+  ProvisionBootPlan,
+  ProvisionGuestCpu,
+  ProvisionImageConfigPlan,
+  ProvisionRepackPlan,
+  ProvisionRuntimePlan,
+  ProvisionWorkloadPlan,
+  RegistryShapePlan,
+  RootDiskRuntimePlan,
+  ScratchDiskPlan,
+  NativeBootPlanResult,
+} from "./boot-plan-schema.ts";
 
 type RootDiskPlanMode = "unset" | "false" | "path" | "true";
 type ScratchDiskMode = "false" | "path" | "auto";
-type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
 type RootDiskRuntimeMode = "none" | "path" | "restore" | "cached";
-type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
 type MountDiskRuntimeMode = "none" | "restore" | "fresh";
-type MountDiskRuntimeAction = "none" | "restore" | "fresh";
-type ProvisionGuestCpu = "arm64" | "amd64";
 
 type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
 type LiveMountPlanInput = { host: string; guest: string; mode?: string };
-type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
-type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
-type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
-type ProvisionAssetsPlan = {
-  cpu: ProvisionGuestCpu;
-  kernelAsset: string;
-  dtbAsset: string | null;
-  rootfsAsset: string;
-};
-
-type ProvisionBootPlan = {
-  imagePath: string | null;
-  kernelPath: string | null;
-  dtbPath: string | null;
-  vmmVsock: string | null;
-  cmd: string[];
-  env: Record<string, string>;
-  snapshotPath: string | null;
-  rootDiskPath: string | null;
-};
-
-type ProvisionWorkloadPlan = {
-  tarToDiskCommand: string;
-  poweroffCommand: string;
-};
-
-type ProvisionRepackPlan = {
-  extractArgs: string[];
-  targzArgs: string[];
-};
-
-type ProvisionImageConfigPlan = {
-  cmd?: string[];
-  env?: Record<string, string>;
-} | null;
-
-type RegistryShapePlan = {
-  sourceImagePath: string | null;
-  rootDiskPath: string | null;
-  rootDiskMode: "block" | "none";
-  cleanupPaths: string[];
-  mountDisk: RegistryMountDiskPlan | null;
-  liveMounts: RegistryLiveMountPlan[];
-};
 
 interface NativeBootPlanInput {
   memoryMib?: number;
@@ -113,6 +81,9 @@ interface NativeBootPlanInput {
   provisionRepackExtractDir?: string;
   provisionImageConfigCmd?: string[];
   provisionImageConfigEnv?: Record<string, string>;
+  provisionWorkDir?: string;
+  provisionScratchSizeBytes?: number;
+  provisionTimeoutMs?: number;
   scratchMode?: ScratchDiskMode;
   scratchSnapshotPath?: string;
   scratchRestoreClonePath?: string;
@@ -140,70 +111,6 @@ interface NativeBootPlanInput {
   registryMountLowerPath?: string;
   registryMountUpperPath?: string;
 }
-
-interface NativeBootPlanResult {
-  memoryCeilingMib: number | null;
-  vmmMemory: string | null;
-  wantsRootDisk: boolean;
-  normalizedMountGuest: string | null;
-  mergedGuestEnv: Record<string, string>;
-  vsockUdsPath: string | null;
-  vmmVsock: string | null;
-  vmmCommand: string | null;
-  vmmArgs: string[];
-  vmmKernel: string | null;
-  vmmDtb: string | null;
-  vmmSnapshotPath: string | null;
-  vmmRestorePath: string | null;
-  vmmVmstateTiming: string | null;
-  virtiofsEnv: Record<string, string>;
-  plannedLiveMounts: PlannedLiveMount[];
-  statsFilePath: string | null;
-  vmmStatsFile: string | null;
-  machinenConfig: MachinenConfigPlan;
-  bundleCommand: string[];
-  bundleEnv: Record<string, string>;
-  provisionAssets: ProvisionAssetsPlan;
-  provisionBoot: ProvisionBootPlan;
-  provisionWorkload: ProvisionWorkloadPlan;
-  provisionRepack: ProvisionRepackPlan;
-  provisionImageConfig: ProvisionImageConfigPlan;
-  scratchDisk: ScratchDiskPlan;
-  rootDiskRuntime: RootDiskRuntimePlan;
-  mountDiskRuntime: MountDiskRuntimePlan;
-  registryShape: RegistryShapePlan;
-}
-
-type ScratchDiskPlan = {
-  action: ScratchDiskAction;
-  diskPath: string | null;
-  perBootSnapDisk: string | null;
-  vmmDisk: string | null;
-};
-
-type RootDiskRuntimePlan = {
-  action: RootDiskRuntimeAction;
-  sourcePath: string | null;
-  targetPath: string | null;
-  perBootRootDisk: string | null;
-  vmmRootDisk: string | null;
-};
-
-type MountDiskRuntimePlan = {
-  action: MountDiskRuntimeAction;
-  lowerPath: string | null;
-  upperPath: string | null;
-  sourceUpperPath: string | null;
-  guest: string | null;
-  upperSizeBytes: number | null;
-};
-
-type MachinenConfigPlan = Record<string, unknown> & {
-  cmd: string[];
-  env: Record<string, string>;
-  cwd?: string;
-  liveMounts?: Array<{ guest: string; tag: string; mode: "ro" | "rw" }>;
-};
 
 export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanResult {
   return callRuntimeHelper({
@@ -289,6 +196,9 @@ function provisionData(input: NativeBootPlanInput): Record<string, unknown> {
     provisionImageConfigCmd: input.provisionImageConfigCmd ?? [],
     provisionImageConfigHasEnv: input.provisionImageConfigEnv !== undefined,
     provisionImageConfigEnv: input.provisionImageConfigEnv ?? {},
+    provisionWorkDir: nullDefault(input.provisionWorkDir),
+    provisionScratchSizeBytes: numberText(input.provisionScratchSizeBytes),
+    provisionTimeoutMs: numberText(input.provisionTimeoutMs),
   };
 }
 
@@ -383,6 +293,22 @@ export function planProvisionRepackNative(input: {
     hasCmd: false,
     rootDisk: "false",
   }).provisionRepack;
+}
+
+export function planProvisionRuntimeNative(input: {
+  workDir: string;
+  scratchDiskSizeBytes?: number;
+  timeoutMs?: number;
+}): ProvisionRuntimePlan {
+  return planBootCoreNative({
+    provisionWorkDir: input.workDir,
+    provisionScratchSizeBytes: input.scratchDiskSizeBytes,
+    provisionTimeoutMs: input.timeoutMs,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).provisionRuntime;
 }
 
 export function planProvisionImageConfigNative(input: {
@@ -717,281 +643,4 @@ function numberText(value: number | undefined): string | null {
 
 function numberTextRequired(value: number): string {
   return String(value);
-}
-
-function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const data = value as Partial<NativeBootPlanResult>;
-  return [
-    nullableNonNegativeNumber(data.memoryCeilingMib),
-    nullableString(data.vmmMemory),
-    typeof data.wantsRootDisk === "boolean",
-    nullableString(data.normalizedMountGuest),
-    isStringRecord(data.mergedGuestEnv),
-    nullableString(data.vsockUdsPath),
-    nullableString(data.vmmVsock),
-    nullableString(data.vmmCommand),
-    isStringArray(data.vmmArgs),
-    nullableString(data.vmmKernel),
-    nullableString(data.vmmDtb),
-    nullableString(data.vmmSnapshotPath),
-    nullableString(data.vmmRestorePath),
-    nullableString(data.vmmVmstateTiming),
-    isStringRecord(data.virtiofsEnv),
-    isPlannedLiveMountArray(data.plannedLiveMounts),
-    nullableString(data.statsFilePath),
-    nullableString(data.vmmStatsFile),
-    isMachinenConfigPlan(data.machinenConfig),
-    isStringArray(data.bundleCommand),
-    isStringRecord(data.bundleEnv),
-    isProvisionAssetsPlan(data.provisionAssets),
-    isProvisionBootPlan(data.provisionBoot),
-    isProvisionWorkloadPlan(data.provisionWorkload),
-    isProvisionRepackPlan(data.provisionRepack),
-    isProvisionImageConfigPlan(data.provisionImageConfig),
-    isScratchDiskPlan(data.scratchDisk),
-    isRootDiskRuntimePlan(data.rootDiskRuntime),
-    isMountDiskRuntimePlan(data.mountDiskRuntime),
-    isRegistryShapePlan(data.registryShape),
-  ].every(Boolean);
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
-}
-
-function isPlannedLiveMountArray(value: unknown): value is PlannedLiveMount[] {
-  return Array.isArray(value) && value.every(isPlannedLiveMount);
-}
-
-function isProvisionAssetsPlan(value: unknown): value is ProvisionAssetsPlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<ProvisionAssetsPlan>;
-  return (
-    (plan.cpu === "arm64" || plan.cpu === "amd64") &&
-    typeof plan.kernelAsset === "string" &&
-    nullableString(plan.dtbAsset) &&
-    typeof plan.rootfsAsset === "string"
-  );
-}
-
-function isProvisionWorkloadPlan(value: unknown): value is ProvisionWorkloadPlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<ProvisionWorkloadPlan>;
-  return typeof plan.tarToDiskCommand === "string" && typeof plan.poweroffCommand === "string";
-}
-
-function isProvisionRepackPlan(value: unknown): value is ProvisionRepackPlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<ProvisionRepackPlan>;
-  return isStringArray(plan.extractArgs) && isStringArray(plan.targzArgs);
-}
-
-function isProvisionImageConfigPlan(value: unknown): value is ProvisionImageConfigPlan {
-  if (value === null) {
-    return true;
-  }
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<NonNullable<ProvisionImageConfigPlan>>;
-  if (plan.cmd !== undefined && !isStringArray(plan.cmd)) {
-    return false;
-  }
-  if (plan.env !== undefined && !isStringRecord(plan.env)) {
-    return false;
-  }
-  return plan.cmd !== undefined || plan.env !== undefined;
-}
-
-function isProvisionBootPlan(value: unknown): value is ProvisionBootPlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<ProvisionBootPlan>;
-  return [
-    nullableString(plan.imagePath),
-    nullableString(plan.kernelPath),
-    nullableString(plan.dtbPath),
-    nullableString(plan.vmmVsock),
-    isStringArray(plan.cmd),
-    isStringRecord(plan.env),
-    nullableString(plan.snapshotPath),
-    nullableString(plan.rootDiskPath),
-  ].every(Boolean);
-}
-
-function isScratchDiskPlan(value: unknown): value is ScratchDiskPlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<ScratchDiskPlan>;
-  return (
-    isScratchDiskAction(plan.action) &&
-    nullableString(plan.diskPath) &&
-    nullableString(plan.perBootSnapDisk) &&
-    nullableString(plan.vmmDisk)
-  );
-}
-
-function isScratchDiskAction(value: unknown): value is ScratchDiskAction {
-  return value === "none" || value === "existing" || value === "clone" || value === "allocate";
-}
-
-function isRootDiskRuntimePlan(value: unknown): value is RootDiskRuntimePlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<RootDiskRuntimePlan>;
-  return (
-    isRootDiskRuntimeAction(plan.action) &&
-    nullableString(plan.sourcePath) &&
-    nullableString(plan.targetPath) &&
-    nullableString(plan.perBootRootDisk) &&
-    nullableString(plan.vmmRootDisk)
-  );
-}
-
-function isRootDiskRuntimeAction(value: unknown): value is RootDiskRuntimeAction {
-  return (
-    value === "none" ||
-    value === "existing" ||
-    value === "clone-restore" ||
-    value === "clone-cached"
-  );
-}
-
-function isMountDiskRuntimePlan(value: unknown): value is MountDiskRuntimePlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<MountDiskRuntimePlan>;
-  return (
-    isMountDiskRuntimeAction(plan.action) &&
-    nullableString(plan.lowerPath) &&
-    nullableString(plan.upperPath) &&
-    nullableString(plan.sourceUpperPath) &&
-    nullableString(plan.guest) &&
-    nullableNonNegativeNumber(plan.upperSizeBytes)
-  );
-}
-
-function isMountDiskRuntimeAction(value: unknown): value is MountDiskRuntimeAction {
-  return value === "none" || value === "restore" || value === "fresh";
-}
-
-function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<RegistryShapePlan>;
-  return [
-    nullableString(plan.sourceImagePath),
-    nullableString(plan.rootDiskPath),
-    isRegistryRootDiskMode(plan.rootDiskMode),
-    isStringArray(plan.cleanupPaths),
-    plan.mountDisk === null || isRegistryMountDisk(plan.mountDisk),
-    Array.isArray(plan.liveMounts) && plan.liveMounts.every(isRegistryLiveMount),
-  ].every(Boolean);
-}
-
-function isRegistryRootDiskMode(value: unknown): value is "block" | "none" {
-  return value === "block" || value === "none";
-}
-
-function isRegistryMountDisk(value: unknown): value is RegistryMountDiskPlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const mount = value as Partial<RegistryMountDiskPlan>;
-  return (
-    typeof mount.guest === "string" &&
-    typeof mount.lowerPath === "string" &&
-    typeof mount.upperPath === "string"
-  );
-}
-
-function isRegistryLiveMount(value: unknown): value is RegistryLiveMountPlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const mount = value as Partial<RegistryLiveMountPlan>;
-  return (
-    typeof mount.guest === "string" &&
-    typeof mount.host === "string" &&
-    (mount.mode === "ro" || mount.mode === "rw")
-  );
-}
-
-function isPlannedLiveMount(value: unknown): value is PlannedLiveMount {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const mount = value as Partial<PlannedLiveMount>;
-  return (
-    typeof mount.host === "string" &&
-    typeof mount.guest === "string" &&
-    (mount.mode === "ro" || mount.mode === "rw") &&
-    typeof mount.tag === "string"
-  );
-}
-
-function isMachinenConfigPlan(value: unknown): value is MachinenConfigPlan {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const config = value as Partial<MachinenConfigPlan>;
-  return (
-    isStringArray(config.cmd) &&
-    isStringRecord(config.env) &&
-    optionalString(config.cwd) &&
-    optionalConfigLiveMounts(config.liveMounts)
-  );
-}
-
-function optionalConfigLiveMounts(value: unknown): boolean {
-  if (value === undefined) {
-    return true;
-  }
-  return (
-    Array.isArray(value) &&
-    value.every((mount) => {
-      if (!mount || typeof mount !== "object") {
-        return false;
-      }
-      const entry = mount as { guest?: unknown; tag?: unknown; mode?: unknown };
-      return (
-        typeof entry.guest === "string" &&
-        typeof entry.tag === "string" &&
-        (entry.mode === "ro" || entry.mode === "rw")
-      );
-    })
-  );
-}
-
-function optionalString(value: unknown): boolean {
-  return value === undefined || typeof value === "string";
-}
-
-function nullableString(value: unknown): boolean {
-  return value === null || typeof value === "string";
-}
-
-function isStringRecord(value: unknown): value is Record<string, string> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  return Object.values(value).every((entry) => typeof entry === "string");
-}
-
-function nullableNonNegativeNumber(value: unknown): boolean {
-  return value === null || (typeof value === "number" && Number.isFinite(value) && value >= 0);
 }

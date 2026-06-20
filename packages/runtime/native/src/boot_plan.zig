@@ -142,6 +142,20 @@ pub const ProvisionImageConfigPlan = struct {
     env: []const EnvPair,
 };
 
+pub const ProvisionRuntimeInput = struct {
+    work_dir: ?[]const u8 = null,
+    scratch_size_bytes: ?u64 = null,
+    timeout_ms: ?u64 = null,
+};
+
+pub const ProvisionRuntimePlan = struct {
+    scratch_size_bytes: u64,
+    deadline_ms: u64,
+    disk_path: ?[]const u8,
+    root_disk_path: ?[]const u8,
+    uds_path: ?[]const u8,
+};
+
 pub const KernelDtbInput = struct {
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
@@ -446,6 +460,24 @@ pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
 
 pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
     return input.guest_cwd orelse input.image_cwd;
+}
+
+pub fn planProvisionRuntime(allocator: std.mem.Allocator, input: ProvisionRuntimeInput) !ProvisionRuntimePlan {
+    var disk_path: ?[]const u8 = null;
+    var root_disk_path: ?[]const u8 = null;
+    var uds_path: ?[]const u8 = null;
+    if (input.work_dir) |work_dir| {
+        disk_path = try std.fs.path.join(allocator, &.{ work_dir, "scratch.img" });
+        root_disk_path = try std.fs.path.join(allocator, &.{ work_dir, "rootfs.img" });
+        uds_path = try std.fs.path.join(allocator, &.{ work_dir, "exec.sock" });
+    }
+    return .{
+        .scratch_size_bytes = input.scratch_size_bytes orelse 1024 * 1024 * 1024,
+        .deadline_ms = input.timeout_ms orelse 10 * 60 * 1000,
+        .disk_path = disk_path,
+        .root_disk_path = root_disk_path,
+        .uds_path = uds_path,
+    };
 }
 
 pub fn planProvisionImageConfig(input: ProvisionImageConfigInput) ProvisionImageConfigPlan {
@@ -1029,6 +1061,24 @@ test "planMountDiskRuntime selects restore and fresh actions" {
     try std.testing.expectEqualStrings("fresh", fresh.action);
     try std.testing.expect(fresh.source_upper_path == null);
     try std.testing.expectEqual(@as(u64, 8192), fresh.upper_size_bytes.?);
+}
+
+test "planProvisionRuntime defaults and derives workdir paths" {
+    const allocator = std.testing.allocator;
+    const plan = try planProvisionRuntime(allocator, .{ .work_dir = "/tmp/machinen-provision-a", .scratch_size_bytes = 42, .timeout_ms = 99 });
+    defer allocator.free(plan.disk_path.?);
+    defer allocator.free(plan.root_disk_path.?);
+    defer allocator.free(plan.uds_path.?);
+    try std.testing.expectEqual(@as(u64, 42), plan.scratch_size_bytes);
+    try std.testing.expectEqual(@as(u64, 99), plan.deadline_ms);
+    try std.testing.expectEqualStrings("/tmp/machinen-provision-a/scratch.img", plan.disk_path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-provision-a/rootfs.img", plan.root_disk_path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-provision-a/exec.sock", plan.uds_path.?);
+
+    const defaults = try planProvisionRuntime(allocator, .{});
+    try std.testing.expectEqual(@as(u64, 1024 * 1024 * 1024), defaults.scratch_size_bytes);
+    try std.testing.expectEqual(@as(u64, 10 * 60 * 1000), defaults.deadline_ms);
+    try std.testing.expect(defaults.disk_path == null);
 }
 
 test "planProvisionImageConfig preserves optional cmd and env" {

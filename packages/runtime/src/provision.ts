@@ -45,6 +45,7 @@ import {
   planProvisionBootNative,
   planProvisionImageConfigNative,
   planProvisionRepackNative,
+  planProvisionRuntimeNative,
   planProvisionWorkloadNative,
 } from "./native/boot-plan.ts";
 import { PhaseTimer } from "./phase-timer.ts";
@@ -340,6 +341,8 @@ interface ProvisionContext {
   diskPath: string;
   rootDiskPath: string;
   udsPath: string;
+  scratchDiskSizeBytes: number;
+  deadlineMs: number;
   phases: PhaseTimer;
 }
 
@@ -381,6 +384,11 @@ function createProvisionContext(opts: ProvisionOptions): ProvisionContext {
   mkdirSync(dirname(outAbs), { recursive: true });
 
   const workDir = mkdtempSync(join(tmpdir(), "machinen-provision-"));
+  const runtimePlan = planProvisionRuntimeNative({
+    workDir,
+    scratchDiskSizeBytes: opts.scratchDiskSizeBytes,
+    timeoutMs: opts.timeoutMs,
+  });
   const ctx = {
     cwd,
     baseAbs,
@@ -389,9 +397,11 @@ function createProvisionContext(opts: ProvisionOptions): ProvisionContext {
     outAbs,
     t0: Date.now(),
     workDir,
-    diskPath: join(workDir, "scratch.img"),
-    rootDiskPath: join(workDir, "rootfs.img"),
-    udsPath: join(workDir, "exec.sock"),
+    diskPath: requireProvisionPlanString(runtimePlan.diskPath, "diskPath"),
+    rootDiskPath: requireProvisionPlanString(runtimePlan.rootDiskPath, "rootDiskPath"),
+    udsPath: requireProvisionPlanString(runtimePlan.udsPath, "udsPath"),
+    scratchDiskSizeBytes: runtimePlan.scratchSizeBytes,
+    deadlineMs: runtimePlan.deadlineMs,
     phases: new PhaseTimer(),
   };
   debug("provision start base=%s out=%s workDir=%s", baseAbs, outAbs, workDir);
@@ -404,9 +414,8 @@ function prepareProvisionDisks(opts: ProvisionOptions, ctx: ProvisionContext): v
 }
 
 function allocateProvisionScratch(opts: ProvisionOptions, ctx: ProvisionContext): void {
-  const scratchBytes = opts.scratchDiskSizeBytes ?? 1024 * 1024 * 1024;
-  allocateSparseFile(ctx.diskPath, scratchBytes);
-  debug("scratch disk allocated path=%s sizeBytes=%d", ctx.diskPath, scratchBytes);
+  allocateSparseFile(ctx.diskPath, ctx.scratchDiskSizeBytes);
+  debug("scratch disk allocated path=%s sizeBytes=%d", ctx.diskPath, ctx.scratchDiskSizeBytes);
 }
 
 function cloneProvisionRootDisk(ctx: ProvisionContext): void {
@@ -468,13 +477,12 @@ async function runProvisionVmWorkload(
   ctx: ProvisionContext,
   vm: VmHandle,
 ): Promise<void> {
-  const deadlineMs = opts.timeoutMs ?? 10 * 60 * 1000;
-  const killTimer = setTimeout(() => void vm.kill(), deadlineMs);
+  const killTimer = setTimeout(() => void vm.kill(), ctx.deadlineMs);
   killTimer.unref();
   const stderrTail = captureProvisionStderrTail(vm);
   try {
     await runInstallHook(opts, ctx, vm, stderrTail);
-    await tarProvisionRootfsToDisk(opts, ctx, deadlineMs);
+    await tarProvisionRootfsToDisk(opts, ctx, ctx.deadlineMs);
     await poweroffProvisionGuest(opts, ctx, vm);
   } finally {
     clearTimeout(killTimer);

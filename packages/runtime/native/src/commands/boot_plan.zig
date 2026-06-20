@@ -62,6 +62,9 @@ const ParsedRequest = struct {
     provision_image_config_cmd: []const []const u8,
     provision_image_config_has_env: bool,
     provision_image_config_env: std.json.ObjectMap,
+    provision_work_dir: ?[]const u8,
+    provision_scratch_size_bytes_text: ?[]const u8,
+    provision_timeout_ms_text: ?[]const u8,
     scratch_mode: boot_plan.ScratchDiskMode,
     scratch_snapshot_path: ?[]const u8,
     scratch_restore_clone_path: ?[]const u8,
@@ -172,6 +175,9 @@ const RequestError = error{
     InvalidProvisionImageConfigHasEnv,
     InvalidProvisionImageConfigEnv,
     InvalidProvisionImageConfigEnvValue,
+    InvalidProvisionWorkDir,
+    InvalidProvisionScratchSizeBytes,
+    InvalidProvisionTimeoutMs,
     InvalidBundleEnvValue,
     InvalidScratchMode,
     InvalidScratchSnapshotPath,
@@ -298,6 +304,10 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         return .fail;
     };
     const provision_workload = boot_plan.planProvisionWorkload();
+    const provision_runtime = makeProvisionRuntime(arena, parsed) catch |err| {
+        try writePlanError(io, err);
+        return .fail;
+    };
     const provision_image_config = makeProvisionImageConfig(arena, parsed) catch |err| {
         try writePlanError(io, err);
         return .fail;
@@ -372,7 +382,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         return .fail;
     };
 
-    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env, stats_file, planned_live_mounts, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, scratch_disk, root_disk_runtime, mount_disk_runtime, registry_shape);
+    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env, stats_file, planned_live_mounts, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, scratch_disk, root_disk_runtime, mount_disk_runtime, registry_shape);
     return .ok;
 }
 
@@ -398,6 +408,7 @@ fn writePlan(
     provision_workload: boot_plan.ProvisionWorkloadPlan,
     provision_repack: boot_plan.ProvisionRepackPlan,
     provision_image_config: boot_plan.ProvisionImageConfigPlan,
+    provision_runtime: boot_plan.ProvisionRuntimePlan,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
@@ -590,6 +601,18 @@ fn writePlan(
     } else {
         try protocol.stdout(io, "null");
     }
+    try protocol.stdout(io, ",\"provisionRuntime\":{");
+    try protocol.stdout(io, "\"scratchSizeBytes\":");
+    try writeU64(io, provision_runtime.scratch_size_bytes);
+    try protocol.stdout(io, ",\"deadlineMs\":");
+    try writeU64(io, provision_runtime.deadline_ms);
+    try protocol.stdout(io, ",\"diskPath\":");
+    try writeNullableJsonString(io, provision_runtime.disk_path);
+    try protocol.stdout(io, ",\"rootDiskPath\":");
+    try writeNullableJsonString(io, provision_runtime.root_disk_path);
+    try protocol.stdout(io, ",\"udsPath\":");
+    try writeNullableJsonString(io, provision_runtime.uds_path);
+    try protocol.stdout(io, "}");
     try protocol.stdout(io, ",\"scratchDisk\":{");
     try protocol.stdout(io, "\"action\":");
     try protocol.writeJsonString(io, scratch_disk.action);
@@ -734,6 +757,11 @@ fn writeNullableJsonString(io: std.Io, value: ?[]const u8) !void {
     }
 }
 
+fn writeU64(io: std.Io, number: u64) !void {
+    var buf: [32]u8 = undefined;
+    try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{number}));
+}
+
 fn writeNullableU64(io: std.Io, value: ?u64) !void {
     if (value) |number| {
         var buf: [32]u8 = undefined;
@@ -760,6 +788,14 @@ fn makeBundleEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_pl
     return boot_plan.planBundleEnv(allocator, .{
         .image_env = try objectStringPairs(allocator, parsed.bundle_image_env, error.InvalidBundleEnvValue),
         .guest_env = try objectStringPairs(allocator, parsed.bundle_guest_env, error.InvalidBundleEnvValue),
+    });
+}
+
+fn makeProvisionRuntime(allocator: std.mem.Allocator, parsed: ParsedRequest) !boot_plan.ProvisionRuntimePlan {
+    return boot_plan.planProvisionRuntime(allocator, .{
+        .work_dir = parsed.provision_work_dir,
+        .scratch_size_bytes = if (parsed.provision_scratch_size_bytes_text) |text| parseUnsigned(text) catch return error.InvalidProvisionScratchSizeBytes else null,
+        .timeout_ms = if (parsed.provision_timeout_ms_text) |text| parseUnsigned(text) catch return error.InvalidProvisionTimeoutMs else null,
     });
 }
 
@@ -841,7 +877,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -899,6 +935,9 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .provision_image_config_cmd = try optionalStringArrayDefaultEmpty(allocator, object, "provisionImageConfigCmd", error.InvalidProvisionImageConfigCmd),
         .provision_image_config_has_env = try optionalBoolDefaultFalse(object, "provisionImageConfigHasEnv", error.InvalidProvisionImageConfigHasEnv),
         .provision_image_config_env = try optionalObjectDefaultEmpty(object, "provisionImageConfigEnv", error.InvalidProvisionImageConfigEnv),
+        .provision_work_dir = try optionalStringDefaultNull(object, "provisionWorkDir", error.InvalidProvisionWorkDir),
+        .provision_scratch_size_bytes_text = try optionalStringDefaultNull(object, "provisionScratchSizeBytes", error.InvalidProvisionScratchSizeBytes),
+        .provision_timeout_ms_text = try optionalStringDefaultNull(object, "provisionTimeoutMs", error.InvalidProvisionTimeoutMs),
         .scratch_mode = try optionalScratchMode(object),
         .scratch_snapshot_path = try optionalStringDefaultNull(object, "scratchSnapshotPath", error.InvalidScratchSnapshotPath),
         .scratch_restore_clone_path = try optionalStringDefaultNull(object, "scratchRestoreClonePath", error.InvalidScratchRestoreClonePath),
@@ -1210,6 +1249,8 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
         error.InvalidGuestEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan guestEnv values must be strings"),
         error.InvalidBundleEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan bundle env values must be strings"),
         error.InvalidProvisionImageConfigEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision image config env values must be strings"),
+        error.InvalidProvisionScratchSizeBytes => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision scratch size must be a decimal integer"),
+        error.InvalidProvisionTimeoutMs => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision timeout must be a decimal integer"),
         else => try protocol.writeError(io, "BOOT_MEMORY_INVALID", @errorName(err)),
     }
 }
