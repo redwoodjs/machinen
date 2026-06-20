@@ -19,10 +19,10 @@ interface ParsedRunArgs {
   /**
    * Live-share mounts (`--mount-live <host>:<guest>[:<mode>]`). Each
    * entry stays connected to the host filesystem for the VM's life;
-   * guest reads stream in on demand. `mode` is `rw` (default,
-   * write-through) or `ro` for read-only. Served by an in-VMM
-   * virtio-fs device (#332); the FUSE-over-vsock transport and its
-   * `:<protocol>` modifier were removed in #338. See #78, #151, #332.
+   * guest reads stream in on demand. `mode` is `rw` (default) or `ro`
+   * for read-only. Served by an in-VMM virtio-fs device (#332); the
+   * FUSE-over-vsock transport and its `:<protocol>` modifier were
+   * removed in #338. See #78, #151, #332.
    */
   liveMounts?: Array<{
     host: string;
@@ -91,7 +91,11 @@ type RunFlagHandler = (state: RunParseState, flag: string, args: string[], index
 interface RunParseState {
   positional: string[];
   mount?: { host: string; guest: string };
-  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  liveMounts: Array<{
+    host: string;
+    guest: string;
+    mode: "ro" | "rw";
+  }>;
   env: Record<string, string>;
   portForward: Array<{ hostPort: number; guestPort: number }>;
   seenHostPorts: Set<number>;
@@ -483,20 +487,23 @@ export function consumeMount(
 
 /**
  * Consume one `--mount-live <host>:<guest>[:<mode>]` token. `mode`
- * defaults to `"rw"` (write-through). Returns the parsed entry and
- * the new loop index. Caller pushes onto its own array.
+ * defaults to `"rw"`. Returns the parsed entry and the new loop index.
+ * Caller pushes onto its own array.
  */
 export function consumeLiveMount(
   flag: string,
   args: string[],
   i: number,
 ): {
-  value: { host: string; guest: string; mode: "ro" | "rw" };
+  value: {
+    host: string;
+    guest: string;
+    mode: "ro" | "rw";
+  };
   next: number;
 } {
   const { spec, next } = takeValue(flag, args, i, "a <host-dir>:<guest-path> value");
-  // Format: `<host>:<guest>[:<mode>]`. The trailing `<mode>` modifier
-  // is optional — `ro` or `rw`. A guest path containing a colon is
+  // Format: `<host>:<guest>[:<mode>]`. A guest path containing a colon is
   // rejected — same trade-off as `--mount`.
   const parts = spec.split(":");
   if (parts.length < 2 || parts.length > 3 || !parts[0] || !parts[1]) {
@@ -505,28 +512,28 @@ export function consumeLiveMount(
       `--mount-live: expected <host-dir>:<guest-path>[:<mode>], got '${spec}'`,
     );
   }
-  let mode: "ro" | "rw" | undefined;
-  for (const tok of parts.slice(2)) {
-    if (tok === "ro" || tok === "rw") {
-      if (mode !== undefined) {
-        throw new ParseError("PARSE_FLAG_MALFORMED", `--mount-live: mode given twice in '${spec}'`);
-      }
-      mode = tok;
-    } else {
-      throw new ParseError(
-        "PARSE_FLAG_MALFORMED",
-        `--mount-live: trailing modifier must be 'ro' or 'rw', got '${tok}'`,
-      );
-    }
-  }
+  const mode = parseLiveMountMode(parts[2]);
   return {
     value: {
       host: parts[0]!,
       guest: parts[1]!,
-      mode: mode ?? "rw",
+      mode,
     },
     next,
   };
+}
+
+function parseLiveMountMode(token: string | undefined): "ro" | "rw" {
+  if (token === undefined) {
+    return "rw";
+  }
+  if (token === "ro" || token === "rw") {
+    return token;
+  }
+  throw new ParseError(
+    "PARSE_FLAG_MALFORMED",
+    `--mount-live: trailing modifier must be 'ro' or 'rw', got '${token}'`,
+  );
 }
 
 /**

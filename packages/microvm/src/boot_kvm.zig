@@ -754,18 +754,25 @@ fn make_vsock_device(ram: []u8, cfg: *const Config, cid_ptr: *const u64) virtio.
 /// the c_allocator rationale. A missing slot is null; a malformed value
 /// is left null (warn-and-continue).
 fn parse_virtiofs_env() [MAX_VIRTIOFS_SLOTS]?virtiofs_mod.Device {
+    assert(MAX_VIRTIOFS_SLOTS > 0);
     var out: [MAX_VIRTIOFS_SLOTS]?virtiofs_mod.Device = @splat(null);
     for (0..MAX_VIRTIOFS_SLOTS) |i| {
         var name_buf: [32]u8 = undefined;
+        var profile_name_buf: [40]u8 = undefined;
         const name = std.fmt.bufPrintZ(&name_buf, "MACHINEN_VIRTIOFS_{d}", .{i}) catch continue;
-        out[i] = parse_one_virtiofs_env(name);
+        const profile_name = std.fmt.bufPrintZ(
+            &profile_name_buf,
+            "MACHINEN_VIRTIOFS_PROFILE_{d}",
+            .{i},
+        ) catch null;
+        out[i] = parse_one_virtiofs_env(name, profile_name);
     }
     return out;
 }
 
 /// Parse a single `MACHINEN_VIRTIOFS_<i>` env var into a backend, or
 /// null if unset / malformed. See `parseVirtiofsEnv`.
-fn parse_one_virtiofs_env(name: [*:0]const u8) ?virtiofs_mod.Device {
+fn parse_one_virtiofs_env(name: [*:0]const u8, profile_name: ?[:0]u8) ?virtiofs_mod.Device {
     const raw = getenv(name) orelse return null;
     const s = std.mem.span(raw);
     if (s.len == 0) return null;
@@ -802,12 +809,26 @@ fn parse_one_virtiofs_env(name: [*:0]const u8) ?virtiofs_mod.Device {
 
     const gpa = std.heap.c_allocator;
     const root_abs = gpa.dupe(u8, host_path) catch return null;
-    const dev = virtiofs_mod.Device.init(gpa, tag, root_abs, mode_rw) catch |err| {
+    var dev = virtiofs_mod.Device.init(
+        gpa,
+        tag,
+        root_abs,
+        mode_rw,
+    ) catch |err| {
         gpa.free(root_abs);
         std.debug.print("virtio-fs: backend init failed: {s}\n", .{@errorName(err)});
         return null;
     };
-    std.debug.print("virtio-fs: {s} {s} <- {s}\n", .{ tag, mode, host_path });
+    if (profile_name) |pn| {
+        if (getenv(pn)) |profile_raw| {
+            const profile_path = std.mem.span(profile_raw);
+            dev.enable_profile(profile_path);
+        }
+    }
+    std.debug.print(
+        "virtio-fs: {s} {s} <- {s}\n",
+        .{ tag, mode, host_path },
+    );
     return dev;
 }
 
@@ -1015,7 +1036,11 @@ fn run_loop(
                 }
                 defer if (dirty_bits) |bits| gpa.free(bits);
                 const full_ram = !checkpoint_delta_mode or dirty_bits == null;
-                if (queue_snapshot_write(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, gic_fd, devs, full_ram, dirty_bits)) {
+                // The first checkpoint writes a full sparse RAM image but still reads the
+                // dirty bitmap so it can clear KVM's log after the capture. The capture
+                // job only consumes dirty bits for delta checkpoints.
+                const capture_dirty_bits: ?[]const u64 = if (full_ram) null else dirty_bits;
+                if (queue_snapshot_write(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, gic_fd, devs, full_ram, capture_dirty_bits)) {
                     snapshotted = true;
                     checkpoint_delta_mode = true;
                     if (dirty_bits) |bits| vm.clear_dirty_log(0, bits, page_count);

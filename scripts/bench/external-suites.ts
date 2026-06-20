@@ -32,17 +32,62 @@ export function runMountBenchSuite(args: ExternalSuiteArgs, repoRoot: string): J
 interface MountSamples {
   wallMs: number[];
   vmBootMs: number[];
+  hostNativeExtractMs: number[];
+  guestInputCopyMs: number[];
+  guestRootfsExtractMs: number[];
+  liveReadOnlyExtractMs: number[];
+  liveWriteOnlyExtractMs: number[];
+  liveReadWriteExtractMs: number[];
+  smallFileMetadataMs: number[];
+  hostBatchApplyMs: number[];
+  hostBatchApplyBytes: number[];
+  batchTotalMs: number[];
+  largeSequentialWriteMs: number[];
+  largeSequentialWriteMiBPerSec: number[];
   dockerWallMs: number[];
   ratios: number[];
 }
 
 function emptyMountSamples(): MountSamples {
-  return { wallMs: [], vmBootMs: [], dockerWallMs: [], ratios: [] };
+  return {
+    wallMs: [],
+    vmBootMs: [],
+    hostNativeExtractMs: [],
+    guestInputCopyMs: [],
+    guestRootfsExtractMs: [],
+    liveReadOnlyExtractMs: [],
+    liveWriteOnlyExtractMs: [],
+    liveReadWriteExtractMs: [],
+    smallFileMetadataMs: [],
+    hostBatchApplyMs: [],
+    hostBatchApplyBytes: [],
+    batchTotalMs: [],
+    largeSequentialWriteMs: [],
+    largeSequentialWriteMiBPerSec: [],
+    dockerWallMs: [],
+    ratios: [],
+  };
 }
 
+// fallow-ignore-next-line complexity
 function appendMountSamples(samples: MountSamples, result: MountResult): void {
   samples.wallMs.push(mountTarExtractMs(result));
   appendIfNumber(samples.vmBootMs, mountVmBootMs(result));
+  appendIfNumber(samples.hostNativeExtractMs, result.phases?.hostNativeExtractMs);
+  appendIfNumber(samples.guestInputCopyMs, result.phases?.guestInputCopyMs);
+  appendIfNumber(samples.guestRootfsExtractMs, result.phases?.guestRootfsExtractMs);
+  appendIfNumber(samples.liveReadOnlyExtractMs, result.phases?.liveReadOnlyExtractMs);
+  appendIfNumber(samples.liveWriteOnlyExtractMs, result.phases?.liveWriteOnlyExtractMs);
+  appendIfNumber(samples.liveReadWriteExtractMs, result.phases?.liveReadWriteExtractMs);
+  appendIfNumber(samples.smallFileMetadataMs, result.phases?.smallFileMetadataMs);
+  appendIfNumber(samples.hostBatchApplyMs, result.phases?.hostBatchApplyMs);
+  appendIfNumber(samples.hostBatchApplyBytes, result.phases?.hostBatchApplyBytes);
+  appendIfNumber(samples.batchTotalMs, result.phases?.batchTotalMs);
+  appendIfNumber(samples.largeSequentialWriteMs, result.phases?.largeSequentialWriteMs);
+  appendIfNumber(
+    samples.largeSequentialWriteMiBPerSec,
+    result.phases?.largeSequentialWriteMiBPerSec,
+  );
   appendIfNumber(samples.dockerWallMs, mountDockerWallMs(result));
   appendMountDockerRatio(samples.ratios, result);
 }
@@ -70,6 +115,28 @@ function mountSuiteJson(samples: MountSamples): JsonValue {
     phases: {
       vm_boot_ms: nullableStats(samples.vmBootMs) as unknown as JsonValue,
       tar_extract_wall_ms: stats(samples.wallMs) as unknown as JsonValue,
+      host_native_extract_ms: nullableStats(samples.hostNativeExtractMs) as unknown as JsonValue,
+      guest_input_copy_ms: nullableStats(samples.guestInputCopyMs) as unknown as JsonValue,
+      guest_rootfs_extract_ms: nullableStats(samples.guestRootfsExtractMs) as unknown as JsonValue,
+      live_read_only_extract_ms: nullableStats(
+        samples.liveReadOnlyExtractMs,
+      ) as unknown as JsonValue,
+      live_write_only_extract_ms: nullableStats(
+        samples.liveWriteOnlyExtractMs,
+      ) as unknown as JsonValue,
+      live_read_write_extract_ms: nullableStats(
+        samples.liveReadWriteExtractMs,
+      ) as unknown as JsonValue,
+      small_file_metadata_ms: nullableStats(samples.smallFileMetadataMs) as unknown as JsonValue,
+      host_batch_apply_ms: nullableStats(samples.hostBatchApplyMs) as unknown as JsonValue,
+      host_batch_apply_bytes: nullableStats(samples.hostBatchApplyBytes) as unknown as JsonValue,
+      batch_total_estimate_ms: nullableStats(samples.batchTotalMs) as unknown as JsonValue,
+      large_sequential_write_ms: nullableStats(
+        samples.largeSequentialWriteMs,
+      ) as unknown as JsonValue,
+      large_sequential_write_mib_per_sec: nullableStats(
+        samples.largeSequentialWriteMiBPerSec,
+      ) as unknown as JsonValue,
       docker_wall_ms: nullableStats(samples.dockerWallMs) as unknown as JsonValue,
       ratio_to_docker: nullableStats(samples.ratios) as unknown as JsonValue,
     },
@@ -97,7 +164,23 @@ function runOneMountBench(
 
 interface MountResult {
   wallMs: number;
-  phases?: { vmBootMs?: number; tarExtractMs?: number; dockerBaselineMs?: number };
+  phases?: {
+    vmBootMs?: number;
+    tarExtractMs?: number;
+    dockerBaselineMs?: number;
+    hostNativeExtractMs?: number;
+    guestInputCopyMs?: number;
+    guestRootfsExtractMs?: number;
+    liveReadOnlyExtractMs?: number;
+    liveWriteOnlyExtractMs?: number;
+    liveReadWriteExtractMs?: number;
+    smallFileMetadataMs?: number;
+    hostBatchApplyMs?: number;
+    hostBatchApplyBytes?: number;
+    batchTotalMs?: number;
+    largeSequentialWriteMs?: number;
+    largeSequentialWriteMiBPerSec?: number;
+  };
   docker?: { wallMs: number } | null;
 }
 

@@ -16,8 +16,9 @@ export function printHelp(): void {
       `    --mount-live <host-dir>:<guest-path>[:<mode>]\n` +
       `                                                 Live-share a host dir over FUSE.\n` +
       `                                                 Guest reads stream in on demand; no\n` +
-      `                                                 copy at boot. mode is 'rw' (default,\n` +
-      `                                                 write-through) or 'ro' (read-only).\n` +
+      `                                                 copy at boot. mode is 'rw' (default)\n` +
+      `                                                 or 'ro' (read-only). rw writes sync\n` +
+      `                                                 back in batches.\n` +
       `    --env KEY=VALUE                              Set an env var inside the guest.\n` +
       `    --cwd <abs-path>                             Start the guest cmd in this directory\n` +
       `                                                 (must be absolute).\n` +

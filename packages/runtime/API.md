@@ -17725,45 +17725,24 @@ Must be a positive multiple of 4096. Default 4 GiB.
 > `optional` **liveMounts?**: `object`[]
 
 Host directories exposed to the guest as live-share mounts (#78,
-#332). Unlike `mount` (copy-once into the boot rootfs), these stay
-connected to the host: the guest reads on demand and nothing is
-copied at boot. `mode` defaults to `"rw"` — guest writes land on
-the host (#151, #156). Set `"ro"` for a one-way share (host
-caches, untrusted guests).
+#332). Unlike `mount` (copy-once), these stay connected to the
+host: guest reads stream on demand and `"rw"` writes sync back to
+the host. Set `"ro"` for a one-way share.
 
-Each guest path must live under `/mnt/` (same rule as `mount`).
-Repeatable up to 5 entries per VM — each is served by its own
-in-VMM virtio-fs device (the VMM wires 5 virtio-fs slots). The
-FUSE opcode handlers run inside the VMM and the guest mounts each
-share directly with `mount -t virtiofs` — no agent process, no
-vsock hop. Requires a guest kernel with `CONFIG_VIRTIO_FS` — every
-machinen-built kernel has it. (The older FUSE-over-vsock transport
-and its `protocol` knob were removed in #338.)
+Each guest path must live under `/mnt/`. Up to 5 entries are served
+by in-VMM virtio-fs devices; no guest agent or vsock transport is
+involved. Metadata uses the fast policy. `ro` mounts are read-only;
+`rw` mounts sync writes back to the host in batches after guest
+workload exit and host lifecycle calls.
 
-Snapshot / restore / fork (#273): liveMount has no guest-side
-state worth checkpointing — reads come from the host on demand,
-writes (in `"rw"`) land on the host immediately. The in-VMM
-virtio-fs device persists across the CRIU dump, so the workload's
-view of `/mnt/<guest>/` survives `vm.snapshot({ leaveRunning:
-true })` and `vm.fork()` without an unmount/remount window.
+Snapshot / restore / fork record host path, guest path, and mode,
+but not bytes. Restoring on another host fails if the recorded host
+path is missing; pass `restore({ liveMounts })` with matching
+`guest` paths to remap host/mode.
 
-Concurrent writes from multiple forks against the same host
-directory are no different from any other shared filesystem —
-each VM gets its own device but the runtime doesn't coordinate
-writes between siblings. If two forks need non-overlapping write
-surfaces, point each at a distinct `host` path or use `mount`
-(copy-once, per-VM upper).
-
-Restore on a host where the recorded `host` path doesn't exist:
-fails loudly via `BOOT_MOUNT_HOST_NOT_FOUND`. Pass
-`restore({ liveMounts: [...] })` to override per-`guest` —
-each override entry's `guest` must match a recorded entry.
-
-Security note: a live-share mount gives a compromised guest a
-persistent channel back to the host filesystem. Containment keeps
-that bounded to the configured host root. `mount` (copy-once) has
-no such runtime channel and is strictly safer — prefer it for
-inputs you don't need write-through on.
+Security note: a live-share mount is a persistent guest-to-host
+filesystem channel bounded to the configured host root. Prefer
+`mount` for untrusted inputs that do not need write-through.
 
 ###### host
 
@@ -18159,45 +18138,24 @@ Must be a positive multiple of 4096. Default 4 GiB.
 > `optional` **liveMounts?**: `object`[]
 
 Host directories exposed to the guest as live-share mounts (#78,
-#332). Unlike `mount` (copy-once into the boot rootfs), these stay
-connected to the host: the guest reads on demand and nothing is
-copied at boot. `mode` defaults to `"rw"` — guest writes land on
-the host (#151, #156). Set `"ro"` for a one-way share (host
-caches, untrusted guests).
+#332). Unlike `mount` (copy-once), these stay connected to the
+host: guest reads stream on demand and `"rw"` writes sync back to
+the host. Set `"ro"` for a one-way share.
 
-Each guest path must live under `/mnt/` (same rule as `mount`).
-Repeatable up to 5 entries per VM — each is served by its own
-in-VMM virtio-fs device (the VMM wires 5 virtio-fs slots). The
-FUSE opcode handlers run inside the VMM and the guest mounts each
-share directly with `mount -t virtiofs` — no agent process, no
-vsock hop. Requires a guest kernel with `CONFIG_VIRTIO_FS` — every
-machinen-built kernel has it. (The older FUSE-over-vsock transport
-and its `protocol` knob were removed in #338.)
+Each guest path must live under `/mnt/`. Up to 5 entries are served
+by in-VMM virtio-fs devices; no guest agent or vsock transport is
+involved. Metadata uses the fast policy. `ro` mounts are read-only;
+`rw` mounts sync writes back to the host in batches after guest
+workload exit and host lifecycle calls.
 
-Snapshot / restore / fork (#273): liveMount has no guest-side
-state worth checkpointing — reads come from the host on demand,
-writes (in `"rw"`) land on the host immediately. The in-VMM
-virtio-fs device persists across the CRIU dump, so the workload's
-view of `/mnt/<guest>/` survives `vm.snapshot({ leaveRunning:
-true })` and `vm.fork()` without an unmount/remount window.
+Snapshot / restore / fork record host path, guest path, and mode,
+but not bytes. Restoring on another host fails if the recorded host
+path is missing; pass `restore({ liveMounts })` with matching
+`guest` paths to remap host/mode.
 
-Concurrent writes from multiple forks against the same host
-directory are no different from any other shared filesystem —
-each VM gets its own device but the runtime doesn't coordinate
-writes between siblings. If two forks need non-overlapping write
-surfaces, point each at a distinct `host` path or use `mount`
-(copy-once, per-VM upper).
-
-Restore on a host where the recorded `host` path doesn't exist:
-fails loudly via `BOOT_MOUNT_HOST_NOT_FOUND`. Pass
-`restore({ liveMounts: [...] })` to override per-`guest` —
-each override entry's `guest` must match a recorded entry.
-
-Security note: a live-share mount gives a compromised guest a
-persistent channel back to the host filesystem. Containment keeps
-that bounded to the configured host root. `mount` (copy-once) has
-no such runtime channel and is strictly safer — prefer it for
-inputs you don't need write-through on.
+Security note: a live-share mount is a persistent guest-to-host
+filesystem channel bounded to the configured host root. Prefer
+`mount` for untrusted inputs that do not need write-through.
 
 ###### host
 
@@ -18601,45 +18559,24 @@ Must be a positive multiple of 4096. Default 4 GiB.
 > `optional` **liveMounts?**: `object`[]
 
 Host directories exposed to the guest as live-share mounts (#78,
-#332). Unlike `mount` (copy-once into the boot rootfs), these stay
-connected to the host: the guest reads on demand and nothing is
-copied at boot. `mode` defaults to `"rw"` — guest writes land on
-the host (#151, #156). Set `"ro"` for a one-way share (host
-caches, untrusted guests).
+#332). Unlike `mount` (copy-once), these stay connected to the
+host: guest reads stream on demand and `"rw"` writes sync back to
+the host. Set `"ro"` for a one-way share.
 
-Each guest path must live under `/mnt/` (same rule as `mount`).
-Repeatable up to 5 entries per VM — each is served by its own
-in-VMM virtio-fs device (the VMM wires 5 virtio-fs slots). The
-FUSE opcode handlers run inside the VMM and the guest mounts each
-share directly with `mount -t virtiofs` — no agent process, no
-vsock hop. Requires a guest kernel with `CONFIG_VIRTIO_FS` — every
-machinen-built kernel has it. (The older FUSE-over-vsock transport
-and its `protocol` knob were removed in #338.)
+Each guest path must live under `/mnt/`. Up to 5 entries are served
+by in-VMM virtio-fs devices; no guest agent or vsock transport is
+involved. Metadata uses the fast policy. `ro` mounts are read-only;
+`rw` mounts sync writes back to the host in batches after guest
+workload exit and host lifecycle calls.
 
-Snapshot / restore / fork (#273): liveMount has no guest-side
-state worth checkpointing — reads come from the host on demand,
-writes (in `"rw"`) land on the host immediately. The in-VMM
-virtio-fs device persists across the CRIU dump, so the workload's
-view of `/mnt/<guest>/` survives `vm.snapshot({ leaveRunning:
-true })` and `vm.fork()` without an unmount/remount window.
+Snapshot / restore / fork record host path, guest path, and mode,
+but not bytes. Restoring on another host fails if the recorded host
+path is missing; pass `restore({ liveMounts })` with matching
+`guest` paths to remap host/mode.
 
-Concurrent writes from multiple forks against the same host
-directory are no different from any other shared filesystem —
-each VM gets its own device but the runtime doesn't coordinate
-writes between siblings. If two forks need non-overlapping write
-surfaces, point each at a distinct `host` path or use `mount`
-(copy-once, per-VM upper).
-
-Restore on a host where the recorded `host` path doesn't exist:
-fails loudly via `BOOT_MOUNT_HOST_NOT_FOUND`. Pass
-`restore({ liveMounts: [...] })` to override per-`guest` —
-each override entry's `guest` must match a recorded entry.
-
-Security note: a live-share mount gives a compromised guest a
-persistent channel back to the host filesystem. Containment keeps
-that bounded to the configured host root. `mount` (copy-once) has
-no such runtime channel and is strictly safer — prefer it for
-inputs you don't need write-through on.
+Security note: a live-share mount is a persistent guest-to-host
+filesystem channel bounded to the configured host root. Prefer
+`mount` for untrusted inputs that do not need write-through.
 
 ###### host
 

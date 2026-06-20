@@ -57,6 +57,47 @@ describe("resolveRestoreLiveMounts", () => {
     ]);
   });
 
+  it("drops legacy recorded sync fields", () => {
+    const recorded = [
+      {
+        guest: "/mnt/work",
+        host: "/Users/alice/work",
+        mode: "rw" as const,
+        sync: "batch" as const,
+      },
+    ] as never;
+    expect(resolveRestoreLiveMounts(recorded, undefined)).toEqual([
+      { guest: "/mnt/work", host: "/Users/alice/work", mode: "rw" },
+    ]);
+  });
+
+  it("drops legacy recorded cache fields", () => {
+    const recorded = [
+      {
+        guest: "/mnt/work",
+        host: "/Users/alice/work",
+        mode: "rw" as const,
+        cache: "fast" as const,
+      },
+    ] as never;
+    expect(resolveRestoreLiveMounts(recorded, undefined)).toEqual([
+      { guest: "/mnt/work", host: "/Users/alice/work", mode: "rw" },
+    ]);
+  });
+
+  it("rejects removed cache/sync overrides", () => {
+    expect(() =>
+      resolveRestoreLiveMounts(undefined, [
+        { guest: "/mnt/work", host: "/Users/bob/work", cache: "fast" } as never,
+      ]),
+    ).toThrow(/cache is no longer supported/);
+    expect(() =>
+      resolveRestoreLiveMounts(undefined, [
+        { guest: "/mnt/work", host: "/Users/bob/work", sync: "eager" } as never,
+      ]),
+    ).toThrow(/sync is no longer supported/);
+  });
+
   it("partial overrides leave non-overridden recorded entries untouched", () => {
     const recorded = [
       { guest: "/mnt/work", host: "/Users/alice/work", mode: "rw" as const },

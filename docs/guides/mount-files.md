@@ -32,8 +32,9 @@ npx machinen boot --mount-live ./workspace:/mnt/workspace -- bash
 In the guest, `/mnt/workspace` is your host's `./workspace` directory.
 Reads stream through virtio-fs on demand — nothing was copied at boot,
 so the mount is essentially free even if the workspace is huge. Writes
-land back on the host immediately. If the guest builds a binary into
-`./workspace/dist/`, you'll see it in your editor.
+are published back to the host at sync points by default. If the guest
+builds a binary into `./workspace/dist/`, you'll see it after the
+workload exits or the next host API sync point.
 
 Default mode is read-write. If you want to share something the guest
 mustn't be able to modify — a directory of test fixtures, say, or a
@@ -42,6 +43,14 @@ read-only data dump — pass `:ro`:
 ```bash
 npx machinen boot --mount-live ./fixtures:/mnt/fixtures:ro -- ./run-tests.sh
 ```
+
+Read-only mounts have nothing to write back. For read-write mounts,
+guest writes land in a VM-local overlay, then Machinen publishes the
+final tree in bulk when the workload exits, and after host API calls
+such as `vm.exec()`, `vm.snapshot()`, `vm.fork()`, `vm.kill()`, or
+`machinen stop`. A writable live-mount sync mirrors the guest-visible
+tree over the host directory, so concurrent host edits under that share
+can be overwritten.
 
 You can pass `--mount-live` multiple times for separate shares; each
 one gets its own virtio-fs device slot:

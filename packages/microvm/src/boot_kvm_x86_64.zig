@@ -1096,15 +1096,21 @@ fn parse_virtiofs_env() [MAX_VIRTIOFS_SLOTS]?virtiofs_mod.Device {
     var out: [MAX_VIRTIOFS_SLOTS]?virtiofs_mod.Device = @splat(null);
     for (0..MAX_VIRTIOFS_SLOTS) |i| {
         var name_buf: [32]u8 = undefined;
+        var profile_name_buf: [40]u8 = undefined;
         const name = std.fmt.bufPrintZ(&name_buf, "MACHINEN_VIRTIOFS_{d}", .{i}) catch continue;
-        out[i] = parse_one_virtiofs_env(name);
+        const profile_name = std.fmt.bufPrintZ(
+            &profile_name_buf,
+            "MACHINEN_VIRTIOFS_PROFILE_{d}",
+            .{i},
+        ) catch null;
+        out[i] = parse_one_virtiofs_env(name, profile_name);
     }
     return out;
 }
 
 /// Parse a single `MACHINEN_VIRTIOFS_<i>` env var into a backend, or
 /// null if unset / malformed. See `parseVirtiofsEnv`.
-fn parse_one_virtiofs_env(name: [*:0]const u8) ?virtiofs_mod.Device {
+fn parse_one_virtiofs_env(name: [*:0]const u8, profile_name: ?[:0]u8) ?virtiofs_mod.Device {
     const raw = getenv(name) orelse return null;
     const s = std.mem.span(raw);
     if (s.len == 0) return null;
@@ -1141,12 +1147,26 @@ fn parse_one_virtiofs_env(name: [*:0]const u8) ?virtiofs_mod.Device {
 
     const gpa = std.heap.c_allocator;
     const root_abs = gpa.dupe(u8, host_path) catch return null;
-    const dev = virtiofs_mod.Device.init(gpa, tag, root_abs, mode_rw) catch |err| {
+    var dev = virtiofs_mod.Device.init(
+        gpa,
+        tag,
+        root_abs,
+        mode_rw,
+    ) catch |err| {
         gpa.free(root_abs);
         std.debug.print("virtio-fs: backend init failed: {s}\n", .{@errorName(err)});
         return null;
     };
-    std.debug.print("virtio-fs: {s} {s} <- {s}\n", .{ tag, mode, host_path });
+    if (profile_name) |pn| {
+        if (getenv(pn)) |profile_raw| {
+            const profile_path = std.mem.span(profile_raw);
+            dev.enable_profile(profile_path);
+        }
+    }
+    std.debug.print(
+        "virtio-fs: {s} {s} <- {s}\n",
+        .{ tag, mode, host_path },
+    );
     return dev;
 }
 

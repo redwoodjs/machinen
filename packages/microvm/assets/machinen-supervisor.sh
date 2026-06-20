@@ -191,6 +191,13 @@ trap 'kill -TERM "$(cat /run/machinen-workload.pid 2>/dev/null)" 2>/dev/null; wa
 
 wait "$PID"
 
+# Writable live mounts stage guest writes in an overlay upper. Flush
+# them through the hidden virtio-fs lower before the VM powers off so
+# one-shot `machinen boot -- ...` commands publish their final tree.
+if [ -s /run/machinen-batch-sync.sh ]; then
+    sh /run/machinen-batch-sync.sh || true
+fi
+
 # Workload exited — stop the agents and power off cleanly.
 kill -TERM "$AGENT_PID" 2>/dev/null || true
 wait "$AGENT_PID" 2>/dev/null || true

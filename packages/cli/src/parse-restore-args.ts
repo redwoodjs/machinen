@@ -69,7 +69,11 @@ interface RestoreParseState {
   image?: string;
   portForward: Array<{ hostPort: number; guestPort: number }>;
   lazy: boolean;
-  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  liveMounts: Array<{
+    host: string;
+    guest: string;
+    mode: "ro" | "rw";
+  }>;
   seenLiveGuests: Set<string>;
   seenHostPorts: Set<number>;
 }

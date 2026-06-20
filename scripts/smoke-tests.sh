@@ -14,11 +14,12 @@
 # Tests:
 #   V1-V4  Validation paths (no boot): host-missing, host-is-a-file,
 #          guest-outside-/mnt/, second --mount.
-#   V5-V8  --mount-live validation, including :ro / :rw modes — #78, #151.
+#   V5-V9  --mount-live validation, including mode modifiers — #78, #151.
 #   T1     Base-only boot — `echo hello-world` reaches the host console.
 #   T2     --mount exposes a host directory readable inside the guest.
-#   T3v    --mount-live :ro streams a host file in over virtio-fs — #332.
-#   T5v    --mount-live :rw guest writes land on the host over virtio-fs — #332.
+#   T3v    --mount-live :ro streams host data and rejects guest writes — #332.
+#   T5v    --mount-live :rw guest writes flush to the host — #332.
+#   T5b    --mount-live :rw stages writes and flushes on workload exit.
 #   T9v    filesystem-op battery over a virtio-fs live mount — #332.
 #   T4     --env propagates into the guest process env — #89.
 #   P1-P4  Base-rootfs/proof-fixture contract (criu, mounted portable
@@ -367,7 +368,7 @@ fi
 #
 # #338 removed the FUSE-over-vsock transport, so this is the only
 # `--mount-live` streaming path.
-echo "T3v: machinen boot --mount-live ./fixture:/mnt/live:ro -- cat /mnt/live/hello.txt"
+echo "T3v: machinen boot --mount-live ./fixture:/mnt/live:ro -- read and reject writes"
 T3V_MARKER="virtiofs-ro-marker-$$"
 T3V_SRC="$FIXTURE/virtiofs-ro-src"
 T3V_LOG="$FIXTURE/t3v.log"
@@ -383,17 +384,17 @@ T3V_SEEDER=$!
 # intentionally exercises the read-only path.
 run_timeout 60 node "$CLI" boot \
   --mount-live "$T3V_SRC:/mnt/live:ro" \
-  -- /bin/sh -c 'sleep 4 && cat /mnt/live/hello.txt' \
+  -- /bin/sh -c 'sleep 4 && cat /mnt/live/hello.txt && if (echo nope >/mnt/live/blocked.txt) 2>/tmp/ro.err; then echo ro-write-succeeded; else echo ro-write-blocked; fi' \
   >"$T3V_LOG" 2>&1 || true
 wait "$T3V_SEEDER" 2>/dev/null || true
-if grep -q "$T3V_MARKER" "$T3V_LOG"; then
-  pass "virtio-fs live-mount streamed a file written after boot"
+if grep -q "$T3V_MARKER" "$T3V_LOG" && grep -q "ro-write-blocked" "$T3V_LOG" && [[ ! -e "$T3V_SRC/blocked.txt" ]]; then
+  pass "read-only live-mount streamed host data and rejected guest writes"
 else
   tail -80 "$T3V_LOG" >&2
-  fail "T3v marker ($T3V_MARKER) not found — virtio-fs live mount didn't stream through"
+  fail "T3v either missed the marker or allowed a write through read-only live mount"
 fi
 
-# ---- T5v: --mount-live :rw over virtio-fs — guest write reaches host (#151, #332) ----
+# ---- T5v: --mount-live :rw over virtio-fs — guest write flushes to host (#151, #332) ----
 #
 # Mode left unset so the default-`:rw` (#156) path is exercised. The
 # guest echoes a marker into a file under the mount; we assert it
@@ -408,11 +409,30 @@ run_timeout 60 node "$CLI" boot \
   -- /bin/sh -c "echo $T5V_MARKER >/mnt/live/from-guest.txt && sync" \
   >"$T5V_LOG" 2>&1 || true
 if [[ -f "$T5V_SRC/from-guest.txt" ]] && grep -q "$T5V_MARKER" "$T5V_SRC/from-guest.txt"; then
-  pass "guest write through :rw virtio-fs live-mount visible on the host"
+  pass "guest write through :rw virtio-fs live-mount visible on the host after flush"
 else
   tail -80 "$T5V_LOG" >&2
   echo "  host file: $(ls -la "$T5V_SRC" 2>&1)" >&2
   fail "T5v marker ($T5V_MARKER) not found in $T5V_SRC/from-guest.txt"
+fi
+
+# ---- T5b: --mount-live :rw flushes staged writes at workload exit ----
+echo "T5b: machinen boot --mount-live :rw — guest writes flush at workload exit"
+T5B_MARKER="virtiofs-batch-marker-$$"
+T5B_SRC="$FIXTURE/virtiofs-batch-src"
+T5B_LOG="$FIXTURE/t5b.log"
+mkdir -p "$T5B_SRC"
+echo "delete-me" >"$T5B_SRC/delete-me.txt"
+run_timeout 60 node "$CLI" boot \
+  --mount-live "$T5B_SRC:/mnt/live:rw" \
+  -- /bin/sh -c "echo $T5B_MARKER >/mnt/live/from-guest.txt && rm /mnt/live/delete-me.txt" \
+  >"$T5B_LOG" 2>&1 || true
+if [[ -f "$T5B_SRC/from-guest.txt" ]] && grep -q "$T5B_MARKER" "$T5B_SRC/from-guest.txt" && [[ ! -e "$T5B_SRC/delete-me.txt" ]]; then
+  pass "guest write/delete through :rw live-mount flushed on workload exit"
+else
+  tail -80 "$T5B_LOG" >&2
+  echo "  host file: $(ls -la "$T5B_SRC" 2>&1)" >&2
+  fail "T5b batch flush did not publish expected host tree"
 fi
 
 # ---- T9v: filesystem-operations coverage over a virtio-fs live mount ----

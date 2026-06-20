@@ -1,7 +1,4 @@
-// Inject a task-grouped table of contents into packages/runtime/API.md.
-// typedoc groups by TypeScript kind; this post-processor prepends a
-// hand-curated TOC and validates every referenced/generated H3 so drift
-// fails the build instead of silently producing broken anchors.
+// Inject and validate a task-grouped table of contents in packages/runtime/API.md.
 
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -9,7 +6,6 @@ import { readFileSync, writeFileSync } from "node:fs";
 // copy without clobbering the committed file. Defaults to the path
 // `pnpm run build:docs` uses.
 const API_PATH = process.argv[2] ?? "packages/runtime/API.md";
-
 // Categories ordered top-to-bottom in the rendered TOC. Each value is
 // the list of H3 headers (i.e. symbol names) typedoc emits for that
 // category. Plain function/type names map 1:1 to typedoc's H3 text.

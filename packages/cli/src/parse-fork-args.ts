@@ -118,7 +118,11 @@ interface ForkParseState {
   portForward: Array<{ hostPort: number; guestPort: number }>;
   seenHostPorts: Set<number>;
   mount?: { host: string; guest: string };
-  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  liveMounts: Array<{
+    host: string;
+    guest: string;
+    mode: "ro" | "rw";
+  }>;
   env: Record<string, string>;
   guestCwd?: string;
   memory?: number;

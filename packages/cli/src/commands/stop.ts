@@ -1,4 +1,4 @@
-import { runGc, validatePid, type RegistryEntry } from "@machinen/runtime";
+import { attach, runGc, validatePid, type RegistryEntry } from "@machinen/runtime";
 
 import type { Target } from "../parse-target.ts";
 import { describeTarget, lookupEntry, parseTargetFlags } from "./target.ts";
@@ -30,6 +30,7 @@ async function stopExistingEntry(entry: RegistryEntry, opts: StopOptions): Promi
 }
 
 async function stopLiveEntry(entry: RegistryEntry, opts: StopOptions): Promise<number> {
+  await syncBatchLiveMountsBeforeStop(entry, opts);
   const sig = stopSignal(opts.force);
   if (!signalStopProcess(entry.pid, sig, opts, "STOP_KILL_FAILED")) {
     return 1;
@@ -38,6 +39,31 @@ async function stopLiveEntry(entry: RegistryEntry, opts: StopOptions): Promise<n
   await stopGvproxy(entry, sig, opts.force);
   finishStoppedEntry(entry, opts);
   return 0;
+}
+
+async function syncBatchLiveMountsBeforeStop(
+  entry: RegistryEntry,
+  opts: StopOptions,
+): Promise<void> {
+  if (opts.force || !entry.liveMounts?.some((mount) => mount.mode === "rw")) {
+    return;
+  }
+  try {
+    const vm = await attach({ pid: entry.pid });
+    try {
+      await vm.execRaw("true", { execTimeoutMs: 300_000 });
+    } finally {
+      await vm.detach().catch(() => undefined);
+    }
+  } catch (err) {
+    process.stderr.write(
+      `machinen stop: warning: failed to sync live mounts before stop: ${formatStopSyncError(err)}\n`,
+    );
+  }
+}
+
+function formatStopSyncError(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 type StopStatus = "stopped" | "would_stop" | "already_dead" | "recycled";

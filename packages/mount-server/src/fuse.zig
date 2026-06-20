@@ -216,6 +216,30 @@ fn now_ms() i64 {
     return @as(i64, ts.tv_sec) * 1000 + @divFloor(@as(i64, ts.tv_nsec), 1_000_000);
 }
 
+pub fn profile_now_ns() u64 {
+    const ns = now_ns();
+    assert(ns > 0);
+    return ns;
+}
+
+pub fn record_virtqueue_profile(
+    state: *State,
+    gather_ns: u64,
+    dispatch_ns: u64,
+    scatter_ns: u64,
+    request_bytes: u64,
+    reply_bytes: u32,
+) void {
+    assert(state.root_abs.len > 0);
+    if (!state.profile_enabled) return;
+    state.virtqueue_request_count += 1;
+    state.virtqueue_gather_ns += gather_ns;
+    state.virtqueue_dispatch_ns += dispatch_ns;
+    state.virtqueue_scatter_ns += scatter_ns;
+    state.virtqueue_request_bytes += request_bytes;
+    state.virtqueue_reply_bytes += reply_bytes;
+}
+
 fn errno() c_int {
     return if (builtin.os.tag == .macos) __error().* else __errno_location().*;
 }
@@ -340,6 +364,20 @@ const FATTR_MTIME: u32 = 1 << 5;
 const FATTR_FH: u32 = 1 << 6;
 const FATTR_ATIME_NOW: u32 = 1 << 7;
 const FATTR_MTIME_NOW: u32 = 1 << 8;
+
+const CachePolicy = struct {
+    entry_valid_sec: u64,
+    entry_valid_nsec: u32,
+    attr_valid_sec: u64,
+    attr_valid_nsec: u32,
+};
+
+const DEFAULT_CACHE_POLICY: CachePolicy = .{
+    .entry_valid_sec = 5,
+    .entry_valid_nsec = 0,
+    .attr_valid_sec = 1,
+    .attr_valid_nsec = 0,
+};
 
 // Hard upper bound on entries snapshotted per OPENDIR. Tiger Style:
 // every loop gets a static ceiling — the readdir() loop would
@@ -474,8 +512,10 @@ pub const State = struct {
     gpa: std.mem.Allocator,
     root_abs: []u8,
     mode_rw: bool,
+    cache_policy: CachePolicy,
 
     inodes: std.AutoHashMap(u64, InodeEntry),
+    path_index: std.StringHashMap(u64),
     next_inode: u64 = 2,
 
     handles: std.AutoHashMap(u64, OpenEntry),
@@ -484,8 +524,15 @@ pub const State = struct {
     profile_enabled: bool = false,
     op_stats: std.AutoHashMap(u32, OpStat),
 
-    stats_path: ?[]u8 = null,
+    stats_path: ?[]const u8 = null,
     bytes_served_on_pages_img: u64 = 0,
+
+    virtqueue_request_count: u64 = 0,
+    virtqueue_gather_ns: u64 = 0,
+    virtqueue_dispatch_ns: u64 = 0,
+    virtqueue_scatter_ns: u64 = 0,
+    virtqueue_request_bytes: u64 = 0,
+    virtqueue_reply_bytes: u64 = 0,
 
     // Periodic stats flush bookkeeping. The bench harness reads the
     // stats file before stopping the VM (so the shutdown final-flush
@@ -496,26 +543,41 @@ pub const State = struct {
     ops_since_last_publish: u32 = 0,
 
     pub fn init(gpa: std.mem.Allocator, root_abs: []u8, mode_rw: bool) !State {
+        assert(root_abs.len > 0);
         var inodes = std.AutoHashMap(u64, InodeEntry).init(gpa);
+        errdefer inodes.deinit();
+        var path_index = std.StringHashMap(u64).init(gpa);
+        errdefer path_index.deinit();
+
+        const root_rel = try gpa.dupe(u8, "");
+        errdefer gpa.free(root_rel);
         // Root pinned at nodeid=1 with empty rel_path.
         try inodes.put(1, .{
-            .rel_path = try gpa.dupe(u8, ""),
+            .rel_path = root_rel,
             .nlookup = NLOOKUP_PINNED,
         });
+        try path_index.put(root_rel, 1);
         return .{
             .gpa = gpa,
             .root_abs = root_abs,
             .mode_rw = mode_rw,
+            .cache_policy = DEFAULT_CACHE_POLICY,
             .inodes = inodes,
+            .path_index = path_index,
             .handles = std.AutoHashMap(u64, OpenEntry).init(gpa),
             .op_stats = std.AutoHashMap(u32, OpStat).init(gpa),
         };
+    }
+
+    pub fn cache_policy_for_test() CachePolicy {
+        return DEFAULT_CACHE_POLICY;
     }
 
     pub fn deinit(self: *State) void {
         var it = self.inodes.iterator();
         while (it.next()) |e| self.gpa.free(e.value_ptr.rel_path);
         self.inodes.deinit();
+        self.path_index.deinit();
 
         var hit = self.handles.iterator();
         while (hit.next()) |e| free_handle(self, e.value_ptr);
@@ -523,7 +585,6 @@ pub const State = struct {
 
         self.op_stats.deinit();
         self.gpa.free(self.root_abs);
-        if (self.stats_path) |p| self.gpa.free(p);
     }
 
     /// Serialise the host-side FUSE state — the nodeid→path map and the
@@ -576,6 +637,7 @@ pub const State = struct {
         var it = self.inodes.iterator();
         while (it.next()) |e| self.gpa.free(e.value_ptr.rel_path);
         self.inodes.clearRetainingCapacity();
+        self.path_index.clearRetainingCapacity();
 
         var hit = self.handles.iterator();
         while (hit.next()) |e| free_handle(self, e.value_ptr);
@@ -588,6 +650,7 @@ pub const State = struct {
         for (d.inodes) |rec| {
             const dup = try self.gpa.dupe(u8, rec.path);
             try self.inodes.put(rec.nodeid, .{ .rel_path = dup, .nlookup = rec.nlookup });
+            try self.path_index.put(dup, rec.nodeid);
         }
         for (d.handles) |rec| {
             switch (rec.kind) {
@@ -675,20 +738,25 @@ fn require_inode(state: *State, ino: u64) ?*const InodeEntry {
 }
 
 fn bind_inode(state: *State, rel_path: []const u8) !u64 {
-    // Reuse an existing entry so nlookup accumulates correctly.
-    var it = state.inodes.iterator();
-    while (it.next()) |e| {
-        if (std.mem.eql(u8, e.value_ptr.rel_path, rel_path)) {
-            if (e.value_ptr.nlookup != NLOOKUP_PINNED) {
-                e.value_ptr.nlookup += 1;
+    // Reuse an existing entry so nlookup accumulates correctly. The
+    // path index keeps tar-style create storms off the old O(n) scan.
+    if (state.path_index.get(rel_path)) |ino| {
+        if (state.inodes.getPtr(ino)) |entry| {
+            if (entry.nlookup != NLOOKUP_PINNED) {
+                entry.nlookup += 1;
             }
-            return e.key_ptr.*;
+            return ino;
         }
+        _ = state.path_index.remove(rel_path);
     }
+
     const ino = state.next_inode;
     state.next_inode += 1;
     const dup = try state.gpa.dupe(u8, rel_path);
+    errdefer state.gpa.free(dup);
     try state.inodes.put(ino, .{ .rel_path = dup, .nlookup = 1 });
+    errdefer _ = state.inodes.remove(ino);
+    try state.path_index.put(dup, ino);
     return ino;
 }
 
@@ -698,6 +766,7 @@ fn decref_inode(state: *State, ino: u64, n: u64) void {
     if (n >= e.nlookup) {
         // Drop the entry; free its owned path before remove() invalidates the value pointer.
         const path_to_free = e.rel_path;
+        _ = state.path_index.remove(path_to_free);
         _ = state.inodes.remove(ino);
         state.gpa.free(path_to_free);
     } else {
@@ -945,10 +1014,10 @@ fn on_lookup(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     var payload: [FUSE_ENTRY_OUT_SIZE]u8 = @splat(0);
     std.mem.writeInt(u64, payload[0..8], ino, .little);
     std.mem.writeInt(u64, payload[8..16], 0, .little); // generation
-    std.mem.writeInt(u64, payload[16..24], 1, .little); // entry_valid (1s)
-    std.mem.writeInt(u64, payload[24..32], 0, .little); // attr_valid — force fresh GETATTR after mutations
-    std.mem.writeInt(u32, payload[32..36], 0, .little); // entry_valid_nsec
-    std.mem.writeInt(u32, payload[36..40], 0, .little); // attr_valid_nsec
+    std.mem.writeInt(u64, payload[16..24], state.cache_policy.entry_valid_sec, .little);
+    std.mem.writeInt(u64, payload[24..32], state.cache_policy.attr_valid_sec, .little);
+    std.mem.writeInt(u32, payload[32..36], state.cache_policy.entry_valid_nsec, .little);
+    std.mem.writeInt(u32, payload[36..40], state.cache_policy.attr_valid_nsec, .little);
     write_attr(payload[40..128], stat_to_attr(st, ino));
     return try build_reply(state, hdr.unique, &payload);
 }
@@ -967,8 +1036,8 @@ fn on_getattr(state: *State, hdr: InHeader) ![]u8 {
     host_lstat(abs, &st) catch |e| return try build_error_reply(state, hdr.unique, map_fs_error(e));
 
     var payload: [FUSE_ATTR_OUT_SIZE]u8 = @splat(0);
-    std.mem.writeInt(u64, payload[0..8], 0, .little); // attr_valid — host attrs may change through aliases
-    std.mem.writeInt(u32, payload[8..12], 0, .little); // attr_valid_nsec
+    std.mem.writeInt(u64, payload[0..8], state.cache_policy.attr_valid_sec, .little);
+    std.mem.writeInt(u32, payload[8..12], state.cache_policy.attr_valid_nsec, .little);
     // dummy at offset 12
     write_attr(payload[16..104], stat_to_attr(st, hdr.nodeid));
     return try build_reply(state, hdr.unique, &payload);
@@ -1046,10 +1115,10 @@ fn on_create(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     var payload: [FUSE_ENTRY_OUT_SIZE + 16]u8 = @splat(0);
     std.mem.writeInt(u64, payload[0..8], ino, .little);
     std.mem.writeInt(u64, payload[8..16], 0, .little); // generation
-    std.mem.writeInt(u64, payload[16..24], 1, .little); // entry_valid (1s)
-    std.mem.writeInt(u64, payload[24..32], 0, .little); // attr_valid — force fresh GETATTR after mutations
-    std.mem.writeInt(u32, payload[32..36], 0, .little); // entry_valid_nsec
-    std.mem.writeInt(u32, payload[36..40], 0, .little); // attr_valid_nsec
+    std.mem.writeInt(u64, payload[16..24], state.cache_policy.entry_valid_sec, .little);
+    std.mem.writeInt(u64, payload[24..32], state.cache_policy.attr_valid_sec, .little);
+    std.mem.writeInt(u32, payload[32..36], state.cache_policy.entry_valid_nsec, .little);
+    std.mem.writeInt(u32, payload[36..40], state.cache_policy.attr_valid_nsec, .little);
     write_attr(payload[40..128], stat_to_attr(st, ino));
     std.mem.writeInt(u64, payload[128..136], id, .little); // fh
     std.mem.writeInt(u32, payload[136..140], 0, .little); // open_flags
@@ -1203,10 +1272,10 @@ fn on_mkdir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     var payload: [FUSE_ENTRY_OUT_SIZE]u8 = @splat(0);
     std.mem.writeInt(u64, payload[0..8], ino, .little);
     std.mem.writeInt(u64, payload[8..16], 0, .little);
-    std.mem.writeInt(u64, payload[16..24], 1, .little);
-    std.mem.writeInt(u64, payload[24..32], 0, .little);
-    std.mem.writeInt(u32, payload[32..36], 0, .little);
-    std.mem.writeInt(u32, payload[36..40], 0, .little);
+    std.mem.writeInt(u64, payload[16..24], state.cache_policy.entry_valid_sec, .little);
+    std.mem.writeInt(u64, payload[24..32], state.cache_policy.attr_valid_sec, .little);
+    std.mem.writeInt(u32, payload[32..36], state.cache_policy.entry_valid_nsec, .little);
+    std.mem.writeInt(u32, payload[36..40], state.cache_policy.attr_valid_nsec, .little);
     write_attr(payload[40..128], stat_to_attr(st, ino));
     return try build_reply(state, hdr.unique, &payload);
 }
@@ -1317,10 +1386,10 @@ fn on_link(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     var payload: [FUSE_ENTRY_OUT_SIZE]u8 = @splat(0);
     std.mem.writeInt(u64, payload[0..8], ino, .little);
     std.mem.writeInt(u64, payload[8..16], 0, .little);
-    std.mem.writeInt(u64, payload[16..24], 1, .little);
-    std.mem.writeInt(u64, payload[24..32], 0, .little);
-    std.mem.writeInt(u32, payload[32..36], 0, .little);
-    std.mem.writeInt(u32, payload[36..40], 0, .little);
+    std.mem.writeInt(u64, payload[16..24], state.cache_policy.entry_valid_sec, .little);
+    std.mem.writeInt(u64, payload[24..32], state.cache_policy.attr_valid_sec, .little);
+    std.mem.writeInt(u32, payload[32..36], state.cache_policy.entry_valid_nsec, .little);
+    std.mem.writeInt(u32, payload[36..40], state.cache_policy.attr_valid_nsec, .little);
     write_attr(payload[40..128], stat_to_attr(st, ino));
     return try build_reply(state, hdr.unique, &payload);
 }
@@ -1379,7 +1448,16 @@ fn on_rename(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     // rename. Destination dentries are left path-bound; if the guest
     // had looked one up before replacement, that nodeid still resolves
     // the destination path, which now contains the renamed bytes.
-    update_bound_inodes_after_rename(state, old_rel, new_rel) catch return try build_error_reply(state, hdr.unique, -E.IO);
+    // Descendant rewrites are only needed for directory renames; file
+    // renames are the hot metadata-microbench path and can avoid a
+    // full inode-table scan.
+    var renamed_st = std.mem.zeroes(Stat);
+    const renamed_is_dir = if (host_lstat(new_abs, &renamed_st))
+        (renamed_st.mode & 0o170000) == 0o040000
+    else |_|
+        true;
+    update_bound_inodes_after_rename(state, old_rel, new_rel, renamed_is_dir) catch
+        return try build_error_reply(state, hdr.unique, -E.IO);
     return try build_error_reply(state, hdr.unique, 0);
 }
 
@@ -1435,10 +1513,10 @@ fn on_symlink(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     var payload: [FUSE_ENTRY_OUT_SIZE]u8 = @splat(0);
     std.mem.writeInt(u64, payload[0..8], ino, .little);
     std.mem.writeInt(u64, payload[8..16], 0, .little);
-    std.mem.writeInt(u64, payload[16..24], 1, .little);
-    std.mem.writeInt(u64, payload[24..32], 0, .little);
-    std.mem.writeInt(u32, payload[32..36], 0, .little);
-    std.mem.writeInt(u32, payload[36..40], 0, .little);
+    std.mem.writeInt(u64, payload[16..24], state.cache_policy.entry_valid_sec, .little);
+    std.mem.writeInt(u64, payload[24..32], state.cache_policy.attr_valid_sec, .little);
+    std.mem.writeInt(u32, payload[32..36], state.cache_policy.entry_valid_nsec, .little);
+    std.mem.writeInt(u32, payload[36..40], state.cache_policy.attr_valid_nsec, .little);
     write_attr(payload[40..128], stat_to_attr(st, ino));
     return try build_reply(state, hdr.unique, &payload);
 }
@@ -1543,8 +1621,8 @@ fn on_setattr(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     host_lstat(abs, &st) catch |e| return try build_error_reply(state, hdr.unique, map_fs_error(e));
 
     var payload: [FUSE_ATTR_OUT_SIZE]u8 = @splat(0);
-    std.mem.writeInt(u64, payload[0..8], 1, .little);
-    std.mem.writeInt(u32, payload[8..12], 0, .little);
+    std.mem.writeInt(u64, payload[0..8], state.cache_policy.attr_valid_sec, .little);
+    std.mem.writeInt(u32, payload[8..12], state.cache_policy.attr_valid_nsec, .little);
     write_attr(payload[16..104], stat_to_attr(st, hdr.nodeid));
     return try build_reply(state, hdr.unique, &payload);
 }
@@ -1836,24 +1914,45 @@ fn linux_open_to_host(linux_flags: u32) c_int {
     return host;
 }
 
-fn update_bound_inodes_after_rename(state: *State, old_rel: []const u8, new_rel: []const u8) !void {
+fn update_bound_inodes_after_rename(
+    state: *State,
+    old_rel: []const u8,
+    new_rel: []const u8,
+    renamed_is_dir: bool,
+) !void {
+    assert(old_rel.len > 0);
+    assert(new_rel.len > 0);
+    if (state.path_index.get(old_rel)) |nodeid| {
+        const replacement = try state.gpa.dupe(u8, new_rel);
+        try replace_inode_rel_path(state, nodeid, replacement);
+    }
+
+    if (!renamed_is_dir) return;
+
     var it = state.inodes.iterator();
     while (it.next()) |e| {
         const rel = e.value_ptr.rel_path;
-        if (std.mem.eql(u8, rel, old_rel)) {
-            const replacement = try state.gpa.dupe(u8, new_rel);
-            state.gpa.free(e.value_ptr.rel_path);
-            e.value_ptr.rel_path = replacement;
-        } else if (rel.len > old_rel.len and
+        if (rel.len > old_rel.len and
             std.mem.startsWith(u8, rel, old_rel) and
             rel[old_rel.len] == '/')
         {
             const suffix = rel[old_rel.len..];
             const replacement = try std.mem.concat(state.gpa, u8, &.{ new_rel, suffix });
-            state.gpa.free(e.value_ptr.rel_path);
-            e.value_ptr.rel_path = replacement;
+            try replace_inode_rel_path(state, e.key_ptr.*, replacement);
         }
     }
+}
+
+fn replace_inode_rel_path(state: *State, nodeid: u64, replacement: []u8) !void {
+    assert(replacement.len > 0);
+    const entry = state.inodes.getPtr(nodeid) orelse {
+        state.gpa.free(replacement);
+        return error.StalePathIndex;
+    };
+    _ = state.path_index.remove(entry.rel_path);
+    state.gpa.free(entry.rel_path);
+    entry.rel_path = replacement;
+    try state.path_index.put(replacement, nodeid);
 }
 
 fn stat_to_attr(st: Stat, ino: u64) Attr {
@@ -1901,13 +2000,31 @@ pub fn write_stats_atomic(state: *State) void {
     var body_buf: [16 * 1024]u8 = undefined;
     var cur: usize = 0;
 
-    var slice = std.fmt.bufPrint(body_buf[cur..], "{{\"bytesServedOnPagesImg\":{d},\"updatedAtMs\":{d}", .{
+    const header_fmt =
+        "{{\"bytesServedOnPagesImg\":{d}," ++
+        "\"updatedAtMs\":{d}";
+    var slice = std.fmt.bufPrint(body_buf[cur..], header_fmt, .{
         state.bytes_served_on_pages_img,
         now_ms(),
     }) catch return;
     cur += slice.len;
 
     if (state.profile_enabled) {
+        const transport_fmt =
+            ",\"transport\":{{\"requestCount\":{d}," ++
+            "\"virtqueueGatherNs\":{d},\"fuseDispatchNs\":{d}," ++
+            "\"virtqueueScatterNs\":{d},\"requestBytes\":{d}," ++
+            "\"replyBytes\":{d}}}";
+        slice = std.fmt.bufPrint(body_buf[cur..], transport_fmt, .{
+            state.virtqueue_request_count,
+            state.virtqueue_gather_ns,
+            state.virtqueue_dispatch_ns,
+            state.virtqueue_scatter_ns,
+            state.virtqueue_request_bytes,
+            state.virtqueue_reply_bytes,
+        }) catch return;
+        cur += slice.len;
+
         slice = std.fmt.bufPrint(body_buf[cur..], ",\"ops\":{{", .{}) catch return;
         cur += slice.len;
         var first = true;
@@ -1918,7 +2035,10 @@ pub fn write_stats_atomic(state: *State) void {
                 cur += slice.len;
             }
             first = false;
-            slice = std.fmt.bufPrint(body_buf[cur..], "\"{s}\":{{\"count\":{d},\"sumNs\":{d},\"p50Ns\":0,\"p99Ns\":0}}", .{
+            const op_fmt =
+                "\"{s}\":{{\"count\":{d},\"sumNs\":{d}," ++
+                "\"p50Ns\":0,\"p99Ns\":0}}";
+            slice = std.fmt.bufPrint(body_buf[cur..], op_fmt, .{
                 op_name(e.key_ptr.*),
                 e.value_ptr.count,
                 e.value_ptr.sum_ns,
@@ -2107,6 +2227,60 @@ test "validateName rejects path-escape and empty names" {
     try validate_name("normal-file.txt");
 }
 
+test "path index reuses and removes bound inodes" {
+    const gpa = testing.allocator;
+    var state = try test_state(gpa, true);
+    defer state.deinit();
+
+    const first = try bind_inode(&state, "dir/file");
+    const second = try bind_inode(&state, "dir/file");
+    try testing.expectEqual(first, second);
+    try testing.expectEqual(first, state.path_index.get("dir/file").?);
+    try testing.expectEqual(@as(u64, 2), state.inodes.get(first).?.nlookup);
+
+    decref_inode(&state, first, 2);
+    try testing.expect(state.path_index.get("dir/file") == null);
+    try testing.expect(state.inodes.get(first) == null);
+}
+
+test "path index survives dump/apply and rename rebuilds it" {
+    const gpa = testing.allocator;
+    var state = try test_state(gpa, true);
+    defer state.deinit();
+
+    const dir = try bind_inode(&state, "old");
+    const child = try bind_inode(&state, "old/file");
+    try update_bound_inodes_after_rename(&state, "old", "new", true);
+    try testing.expect(state.path_index.get("old") == null);
+    try testing.expect(state.path_index.get("old/file") == null);
+    try testing.expectEqual(dir, state.path_index.get("new").?);
+    try testing.expectEqual(child, state.path_index.get("new/file").?);
+
+    const payload = try state.dump_state(gpa);
+    defer gpa.free(payload);
+
+    var restored = try test_state(gpa, true);
+    defer restored.deinit();
+    try restored.apply_state(payload);
+    try testing.expectEqual(dir, restored.path_index.get("new").?);
+    try testing.expectEqual(child, restored.path_index.get("new/file").?);
+}
+
+test "path index rename skips descendant scan for file renames" {
+    const gpa = testing.allocator;
+    var state = try test_state(gpa, true);
+    defer state.deinit();
+
+    const file = try bind_inode(&state, "old");
+    const impossible_child = try bind_inode(&state, "old/file");
+    try update_bound_inodes_after_rename(&state, "old", "new", false);
+
+    try testing.expect(state.path_index.get("old") == null);
+    try testing.expectEqual(file, state.path_index.get("new").?);
+    try testing.expectEqual(impossible_child, state.path_index.get("old/file").?);
+    try testing.expect(state.path_index.get("new/file") == null);
+}
+
 // --- snapshot (dumpState / applyState) tests ---------------------------
 //
 // The vmstate whole-VM snapshot captures a virtio-fs device's host-side
@@ -2125,6 +2299,20 @@ fn test_tmp_root_abs(gpa: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]
     return std.fs.path.join(gpa, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path });
 }
 
+fn expect_attr_ttl(payload: []const u8, sec: u64, nsec: u32) !void {
+    assert(payload.len >= 12);
+    try testing.expectEqual(sec, std.mem.readInt(u64, payload[0..8], .little));
+    try testing.expectEqual(nsec, std.mem.readInt(u32, payload[8..12], .little));
+}
+
+fn expect_entry_ttl(payload: []const u8, policy: CachePolicy) !void {
+    assert(payload.len >= 40);
+    try testing.expectEqual(policy.entry_valid_sec, std.mem.readInt(u64, payload[16..24], .little));
+    try testing.expectEqual(policy.attr_valid_sec, std.mem.readInt(u64, payload[24..32], .little));
+    try testing.expectEqual(policy.entry_valid_nsec, std.mem.readInt(u32, payload[32..36], .little));
+    try testing.expectEqual(policy.attr_valid_nsec, std.mem.readInt(u32, payload[36..40], .little));
+}
+
 test "dispatch: GETATTR returns sane attrs for the host stat layout" {
     const gpa = testing.allocator;
     var tmp = std.testing.tmpDir(.{});
@@ -2140,6 +2328,9 @@ test "dispatch: GETATTR returns sane attrs for the host stat layout" {
 
     try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, r[4..8], .little));
     try testing.expectEqual(@as(usize, FUSE_OUT_HEADER_SIZE + FUSE_ATTR_OUT_SIZE), r.len);
+    const attr_out = r[FUSE_OUT_HEADER_SIZE..];
+    const policy = State.cache_policy_for_test();
+    try expect_attr_ttl(attr_out, policy.attr_valid_sec, policy.attr_valid_nsec);
 
     const attr = r[FUSE_OUT_HEADER_SIZE + 16 ..];
     const mode = std.mem.readInt(u32, attr[60..64], .little);
@@ -2148,6 +2339,56 @@ test "dispatch: GETATTR returns sane attrs for the host stat layout" {
     try testing.expectEqual(@as(u32, 0o040000), mode & 0o170000);
     try testing.expect(nlink > 0);
     try testing.expect(blksize > 0);
+}
+
+test "dispatch: default cache policy controls LOOKUP and GETATTR TTL" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "cache.txt", .data = "x" });
+
+    var state = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
+    defer state.deinit();
+    const policy = State.cache_policy_for_test();
+
+    const getattr_frame = try test_build_frame(gpa, @intFromEnum(Op.GETATTR), 11, 1, &.{});
+    defer gpa.free(getattr_frame);
+    const getattr_reply = (try dispatch(&state, getattr_frame)) orelse return error.ExpectedReply;
+    defer gpa.free(getattr_reply);
+    const attr_out = getattr_reply[FUSE_OUT_HEADER_SIZE..];
+    try expect_attr_ttl(attr_out, policy.attr_valid_sec, policy.attr_valid_nsec);
+
+    const lookup_frame = try test_build_frame(
+        gpa,
+        @intFromEnum(Op.LOOKUP),
+        13,
+        1,
+        "cache.txt\x00",
+    );
+    defer gpa.free(lookup_frame);
+    const lookup_reply = (try dispatch(&state, lookup_frame)) orelse
+        return error.ExpectedReply;
+    defer gpa.free(lookup_reply);
+    const entry_out = lookup_reply[FUSE_OUT_HEADER_SIZE..];
+    try expect_entry_ttl(entry_out, policy);
+
+    var setattr_body: [24]u8 = @splat(0);
+    std.mem.writeInt(u32, setattr_body[0..4], FATTR_SIZE, .little);
+    std.mem.writeInt(u64, setattr_body[16..24], 1, .little);
+    const nodeid = std.mem.readInt(u64, entry_out[0..8], .little);
+    const setattr_frame = try test_build_frame(
+        gpa,
+        @intFromEnum(Op.SETATTR),
+        15,
+        nodeid,
+        &setattr_body,
+    );
+    defer gpa.free(setattr_frame);
+    const setattr_reply = (try dispatch(&state, setattr_frame)) orelse
+        return error.ExpectedReply;
+    defer gpa.free(setattr_reply);
+    const setattr_out = setattr_reply[FUSE_OUT_HEADER_SIZE..];
+    try expect_attr_ttl(setattr_out, policy.attr_valid_sec, policy.attr_valid_nsec);
 }
 
 /// CREATE `name` under the root inode; returns its (nodeid, fh).
@@ -2275,6 +2516,9 @@ test "dispatch: SETATTR FATTR_SIZE truncates an existing file and honors :ro" {
     const sr = (try dispatch(&rw, sf)) orelse return error.ExpectedReply;
     defer gpa.free(sr);
     try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, sr[4..8], .little));
+    const attr_out = sr[FUSE_OUT_HEADER_SIZE..];
+    const policy = State.cache_policy_for_test();
+    try expect_attr_ttl(attr_out, policy.attr_valid_sec, policy.attr_valid_nsec);
 
     const got = try tmp.dir.readFileAlloc(std.testing.io, "truncate.txt", gpa, .limited(1024));
     defer gpa.free(got);

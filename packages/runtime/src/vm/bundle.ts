@@ -87,6 +87,7 @@ export function resolveLiveMounts(
         `liveMounts[${i}] host path must be a directory: ${m.host}`,
       );
     }
+    rejectRemovedLiveMountOptions(m, i);
     return {
       host: hostAbs,
       guest: normalizeMountGuest(m.guest),
@@ -96,6 +97,21 @@ export function resolveLiveMounts(
       tag: `machinen-lm${i}`,
     };
   });
+}
+
+function rejectRemovedLiveMountOptions(mount: object, index: number): void {
+  if ("cache" in mount) {
+    throw new BootError(
+      "BOOT_MOUNT_INVALID",
+      `liveMounts[${index}] cache is no longer supported; metadata caching uses the fast policy`,
+    );
+  }
+  if ("sync" in mount) {
+    throw new BootError(
+      "BOOT_MOUNT_INVALID",
+      `liveMounts[${index}] sync is no longer supported; rw live mounts sync in batches`,
+    );
+  }
 }
 
 /**
@@ -126,8 +142,13 @@ export function buildMachinenConfig(input: {
   }
   if (input.liveMounts.length > 0) {
     // Host paths never cross into the guest's view. /init reads this
-    // and, per entry, runs `mount -t virtiofs <tag> <guest>` (#332).
-    cfg.liveMounts = input.liveMounts.map((lm) => ({ guest: lm.guest, tag: lm.tag }));
+    // and mounts read-only entries directly over virtio-fs (#332);
+    // writable entries get a guest-local overlay upper plus a sync script.
+    cfg.liveMounts = input.liveMounts.map((lm) => ({
+      guest: lm.guest,
+      tag: lm.tag,
+      mode: lm.mode,
+    }));
   }
   return cfg;
 }
@@ -144,8 +165,8 @@ export function buildMachinenConfig(input: {
  *     working. Returns undefined when both inputs are empty.
  *   - `recorded` non-empty: each entry is re-established by default.
  *     For each entry in `overrides`, the matching `recorded` entry's
- *     `host` and (optionally) `mode` are replaced. An override whose
- *     `guest` doesn't appear in `recorded` is rejected with
+ *     `host` and optional `mode` are replaced. An override whose `guest`
+ *     doesn't appear in `recorded` is rejected with
  *     BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN — the override knob is for
  *     remapping bundle-recorded mounts, not for adding new ones.
  *
@@ -157,11 +178,19 @@ export function resolveRestoreLiveMounts(
 ): BootOptions["liveMounts"] {
   const recordedList = recorded ?? [];
   const overrideList = overrides ?? [];
+  overrideList.forEach((ov, i) => rejectRemovedLiveMountOptions(ov, i));
   if (recordedList.length === 0) {
     return overrideList.length > 0 ? overrideList : undefined;
   }
   const recordedByGuest = new Map(recordedList.map((m) => [m.guest, m]));
-  const overridesByGuest = new Map<string, { host: string; guest: string; mode?: "ro" | "rw" }>();
+  const overridesByGuest = new Map<
+    string,
+    {
+      host: string;
+      guest: string;
+      mode?: "ro" | "rw";
+    }
+  >();
   for (const ov of overrideList) {
     if (!recordedByGuest.has(ov.guest)) {
       const known = recordedList.map((m) => m.guest).join(", ");
@@ -180,7 +209,11 @@ export function resolveRestoreLiveMounts(
   return recordedList.map((rec) => {
     const ov = overridesByGuest.get(rec.guest);
     return ov
-      ? { guest: rec.guest, host: ov.host, mode: ov.mode ?? rec.mode }
+      ? {
+          guest: rec.guest,
+          host: ov.host,
+          mode: ov.mode ?? rec.mode,
+        }
       : { guest: rec.guest, host: rec.host, mode: rec.mode };
   });
 }
@@ -238,7 +271,7 @@ export function synthesizeAndPackBundle(
   try {
     validateOptionalGuestCwd(opts);
     const image = resolveBundleImage(opts, packerOpts);
-    const cmd = wrapBundleCommand(resolveBundleCommand(opts, image.imageConfig), opts);
+    const cmd = wrapBundleCommand(resolveBundleCommand(opts, image.imageConfig), opts, liveMounts);
     const effectiveEnv = { ...image.imageConfig?.env, ...mergedGuestEnv };
     writeBundleConfig(workspace, {
       cmd,
@@ -331,13 +364,28 @@ function explicitOrSyntheticCommand(
   return imageConfig?.cmd;
 }
 
-function wrapBundleCommand(cmd: string[], opts: BootOptions): string[] {
+function wrapBundleCommand(
+  cmd: string[],
+  opts: BootOptions,
+  liveMounts: ResolvedLiveMount[],
+): string[] {
   const cmdHead = cmd[0];
   if (cmdHead === "/exec-agent" || cmdHead === "/sbin/machinen-restore") {
     return cmd;
   }
+  const workload = liveMounts.some((lm) => lm.mode === "rw") ? wrapBatchWorkloadCommand(cmd) : cmd;
   const supervisorArgs = typeof opts.snapshot === "string" ? ["--session"] : [];
-  return ["/sbin/machinen-supervisor", ...supervisorArgs, ...cmd];
+  return ["/sbin/machinen-supervisor", ...supervisorArgs, ...workload];
+}
+
+function wrapBatchWorkloadCommand(cmd: string[]): string[] {
+  return [
+    "/bin/sh",
+    "-c",
+    'batch_sync() { if [ -s /run/machinen-batch-sync.sh ]; then sh /run/machinen-batch-sync.sh; fi; }; "$@" & child=$!; trap \'kill -TERM "$child" 2>/dev/null\' TERM; trap \'kill -INT "$child" 2>/dev/null\' INT; wait "$child"; status=$?; batch_sync || { sync_status=$?; if [ "$status" -eq 0 ]; then status=$sync_status; fi; }; exit "$status"',
+    "machinen-batch-wrapper",
+    ...cmd,
+  ];
 }
 
 function writeBundleConfig(

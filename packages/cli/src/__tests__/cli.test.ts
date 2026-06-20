@@ -137,9 +137,27 @@ describe("parseRunArgs --mount-live", () => {
     expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "ro" }]);
   });
 
-  it("accepts a :rw suffix for write-through", () => {
+  it("accepts a :rw suffix", () => {
     const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src:rw"]);
     expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "rw" }]);
+  });
+
+  it("rejects removed metadata cache and sync suffixes", () => {
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:cached"])).toThrow(
+      /trailing modifier must be 'ro' or 'rw'/,
+    );
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:eager"])).toThrow(
+      /trailing modifier must be 'ro' or 'rw'/,
+    );
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:batch"])).toThrow(
+      /trailing modifier must be 'ro' or 'rw'/,
+    );
+  });
+
+  it("rejects the removed :strict cache modifier", () => {
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:strict"])).toThrow(
+      /trailing modifier must be 'ro' or 'rw'/,
+    );
   });
 
   it("rejects an unknown trailing modifier", () => {
@@ -156,8 +174,8 @@ describe("parseRunArgs --mount-live", () => {
 
   it("rejects the removed :<protocol> modifier", () => {
     // #338 dropped the FUSE-over-vsock transport and its protocol knob.
-    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:ro:virtiofs"])).toThrow(
-      /expected <host-dir>:<guest-path>\[:<mode>\]/,
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:virtiofs"])).toThrow(
+      /trailing modifier must be 'ro' or 'rw'/,
     );
   });
 });
@@ -509,6 +527,12 @@ describe("parseForkArgs", () => {
     expect(parsed.liveMounts).toEqual([{ host: "/tmp/live", guest: "/mnt/live", mode: "ro" }]);
   });
 
+  it("rejects removed --mount-live sync mode for fork", () => {
+    expect(() => parseForkArgs(["--mount-live", "/tmp/live:/mnt/live:rw:batch"])).toThrow(
+      /expected <host-dir>:<guest-path>\[:<mode>\]/,
+    );
+  });
+
   it("captures --env (repeatable) and --cwd", () => {
     const parsed = parseForkArgs(["--env", "FOO=bar", "--env=BAZ=qux", "--cwd", "/mnt/in"]);
     expect(parsed.env).toEqual({ FOO: "bar", BAZ: "qux" });
@@ -713,6 +737,12 @@ describe("parseRestoreArgs", () => {
       { host: "/host/cache", guest: "/mnt/cache", mode: "ro" },
       { host: "/host/work", guest: "/mnt/work", mode: "rw" },
     ]);
+  });
+
+  it("rejects removed --mount-live sync mode for restore", () => {
+    expect(() =>
+      parseRestoreArgs(["./warm", "--mount-live", "/host/work:/mnt/work:rw:batch"]),
+    ).toThrow(/expected <host-dir>:<guest-path>\[:<mode>\]/);
   });
 
   it("rejects two --mount-live overrides for the same guest", () => {
