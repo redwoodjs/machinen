@@ -61,7 +61,9 @@ const ParsedRequest = struct {
     mount_disk_source_upper_path: ?[]const u8,
     mount_disk_guest: ?[]const u8,
     mount_disk_upper_size_text: ?[]const u8,
+    registry_source_image_path: ?[]const u8,
     registry_per_boot_root_disk: ?[]const u8,
+    registry_caller_root_disk_path: ?[]const u8,
     registry_per_boot_snap_disk: ?[]const u8,
     registry_per_boot_mount_upper: ?[]const u8,
     registry_bundle_temp_dir: ?[]const u8,
@@ -155,6 +157,8 @@ const RequestError = error{
     InvalidMountDiskSourceUpperPath,
     InvalidMountDiskGuest,
     InvalidMountDiskUpperSize,
+    InvalidRegistrySourceImagePath,
+    InvalidRegistryRootDiskPath,
     InvalidRegistryCleanupPath,
     InvalidRegistryMountGuest,
     InvalidRegistryMountLowerPath,
@@ -290,6 +294,9 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         return .fail;
     };
     const registry_shape = boot_plan.planRegistryShape(arena, .{
+        .source_image_path = parsed.registry_source_image_path,
+        .per_boot_root_disk = parsed.registry_per_boot_root_disk,
+        .caller_root_disk_path = parsed.registry_caller_root_disk_path,
         .cleanup = .{
             .per_boot_root_disk = parsed.registry_per_boot_root_disk,
             .per_boot_snap_disk = parsed.registry_per_boot_snap_disk,
@@ -479,7 +486,13 @@ fn writePlan(
     try writeNullableU64(io, mount_disk_runtime.upper_size_bytes);
     try protocol.stdout(io, "}");
     try protocol.stdout(io, ",\"registryShape\":{");
-    try protocol.stdout(io, "\"cleanupPaths\":[");
+    try protocol.stdout(io, "\"sourceImagePath\":");
+    try writeNullableJsonString(io, registry_shape.source_image_path);
+    try protocol.stdout(io, ",\"rootDiskPath\":");
+    try writeNullableJsonString(io, registry_shape.root_disk_path);
+    try protocol.stdout(io, ",\"rootDiskMode\":");
+    try protocol.writeJsonString(io, registry_shape.root_disk_mode);
+    try protocol.stdout(io, ",\"cleanupPaths\":[");
     for (registry_shape.cleanup_paths, 0..) |path, i| {
         if (i != 0) try protocol.stdout(io, ",");
         try protocol.writeJsonString(io, path);
@@ -678,7 +691,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registryPerBootRootDisk", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -735,7 +748,9 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .mount_disk_source_upper_path = try optionalStringDefaultNull(object, "mountDiskSourceUpperPath", error.InvalidMountDiskSourceUpperPath),
         .mount_disk_guest = try optionalStringDefaultNull(object, "mountDiskGuest", error.InvalidMountDiskGuest),
         .mount_disk_upper_size_text = try optionalStringDefaultNull(object, "mountDiskUpperSize", error.InvalidMountDiskUpperSize),
-        .registry_per_boot_root_disk = try optionalStringDefaultNull(object, "registryPerBootRootDisk", error.InvalidRegistryCleanupPath),
+        .registry_source_image_path = try optionalStringDefaultNull(object, "registrySourceImagePath", error.InvalidRegistrySourceImagePath),
+        .registry_per_boot_root_disk = try optionalStringDefaultNull(object, "registryPerBootRootDisk", error.InvalidRegistryRootDiskPath),
+        .registry_caller_root_disk_path = try optionalStringDefaultNull(object, "registryCallerRootDiskPath", error.InvalidRegistryRootDiskPath),
         .registry_per_boot_snap_disk = try optionalStringDefaultNull(object, "registryPerBootSnapDisk", error.InvalidRegistryCleanupPath),
         .registry_per_boot_mount_upper = try optionalStringDefaultNull(object, "registryPerBootMountUpper", error.InvalidRegistryCleanupPath),
         .registry_bundle_temp_dir = try optionalStringDefaultNull(object, "registryBundleTempDir", error.InvalidRegistryCleanupPath),

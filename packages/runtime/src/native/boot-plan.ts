@@ -16,6 +16,9 @@ type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: s
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
 type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
 type RegistryShapePlan = {
+  sourceImagePath: string | null;
+  rootDiskPath: string | null;
+  rootDiskMode: "block" | "none";
   cleanupPaths: string[];
   mountDisk: RegistryMountDiskPlan | null;
   liveMounts: RegistryLiveMountPlan[];
@@ -77,7 +80,9 @@ interface NativeBootPlanInput {
   mountDiskSourceUpperPath?: string;
   mountDiskGuest?: string;
   mountDiskUpperSize?: number;
+  registrySourceImagePath?: string;
   registryPerBootRootDisk?: string;
+  registryCallerRootDiskPath?: string;
   registryPerBootSnapDisk?: string;
   registryPerBootMountUpper?: string;
   registryBundleTempDir?: string;
@@ -246,7 +251,9 @@ function mountDiskRuntimeData(input: NativeBootPlanInput): Record<string, unknow
 
 function registryShapeData(input: NativeBootPlanInput): Record<string, unknown> {
   return {
+    registrySourceImagePath: nullDefault(input.registrySourceImagePath),
     registryPerBootRootDisk: nullDefault(input.registryPerBootRootDisk),
+    registryCallerRootDiskPath: nullDefault(input.registryCallerRootDiskPath),
     registryPerBootSnapDisk: nullDefault(input.registryPerBootSnapDisk),
     registryPerBootMountUpper: nullDefault(input.registryPerBootMountUpper),
     registryBundleTempDir: nullDefault(input.registryBundleTempDir),
@@ -305,6 +312,11 @@ export function planBootMountDiskRuntimeNative(input: {
 }
 
 export function planBootRegistryShapeNative(input: {
+  sourceImagePath?: string;
+  rootDisk?: {
+    perBootRootDisk?: string;
+    callerRootDiskPath?: string;
+  };
   cleanup?: {
     perBootRootDisk?: string;
     perBootSnapDisk?: string;
@@ -319,7 +331,9 @@ export function planBootRegistryShapeNative(input: {
   liveMounts?: PlannedLiveMount[];
 }): RegistryShapePlan {
   return planBootCoreNative({
-    registryPerBootRootDisk: input.cleanup?.perBootRootDisk,
+    registrySourceImagePath: input.sourceImagePath,
+    registryPerBootRootDisk: input.rootDisk?.perBootRootDisk ?? input.cleanup?.perBootRootDisk,
+    registryCallerRootDiskPath: input.rootDisk?.callerRootDiskPath,
     registryPerBootSnapDisk: input.cleanup?.perBootSnapDisk,
     registryPerBootMountUpper: input.cleanup?.perBootMountUpper,
     registryBundleTempDir: input.cleanup?.bundleTempDir,
@@ -669,13 +683,18 @@ function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
     return false;
   }
   const plan = value as Partial<RegistryShapePlan>;
-  return (
-    Array.isArray(plan.cleanupPaths) &&
-    plan.cleanupPaths.every((path) => typeof path === "string") &&
-    (plan.mountDisk === null || isRegistryMountDisk(plan.mountDisk)) &&
-    Array.isArray(plan.liveMounts) &&
-    plan.liveMounts.every(isRegistryLiveMount)
-  );
+  return [
+    nullableString(plan.sourceImagePath),
+    nullableString(plan.rootDiskPath),
+    isRegistryRootDiskMode(plan.rootDiskMode),
+    isStringArray(plan.cleanupPaths),
+    plan.mountDisk === null || isRegistryMountDisk(plan.mountDisk),
+    Array.isArray(plan.liveMounts) && plan.liveMounts.every(isRegistryLiveMount),
+  ].every(Boolean);
+}
+
+function isRegistryRootDiskMode(value: unknown): value is "block" | "none" {
+  return value === "block" || value === "none";
 }
 
 function isRegistryMountDisk(value: unknown): value is RegistryMountDiskPlan {

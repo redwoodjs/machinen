@@ -797,13 +797,19 @@ function buildBootRegistryState(
   spawned: SpawnedBootVmm,
 ): BootRegistryState {
   const childPid = spawned.child.pid ?? -1;
-  const rootDiskPath = registryRootDiskPath(opts, resources.perBootRootDisk);
+  const registryShape = planBootRegistryShapeNative({
+    sourceImagePath: registrySourceImage(opts),
+    rootDisk: {
+      perBootRootDisk: resources.perBootRootDisk,
+      callerRootDiskPath: registryCallerRootDiskPath(opts),
+    },
+  });
   return {
     childPid,
     vmName: opts.name,
-    sourceImageAbs: registrySourceImage(opts),
-    rootDiskPath,
-    rootDiskMode: rootDiskPath ? "block" : "none",
+    sourceImageAbs: registryShape.sourceImagePath ?? undefined,
+    rootDiskPath: registryShape.rootDiskPath ?? undefined,
+    rootDiskMode: registryShape.rootDiskMode,
     bootLogPath: registryBootLogPath(opts, childPid),
   };
 }
@@ -812,13 +818,7 @@ function registrySourceImage(opts: BootOptions): string | undefined {
   return opts.image ? resolve(opts.cwd ?? process.cwd(), opts.image) : undefined;
 }
 
-function registryRootDiskPath(
-  opts: BootOptions,
-  perBootRootDisk: string | undefined,
-): string | undefined {
-  if (perBootRootDisk) {
-    return perBootRootDisk;
-  }
+function registryCallerRootDiskPath(opts: BootOptions): string | undefined {
   return typeof opts.rootDisk === "string"
     ? resolve(opts.cwd ?? process.cwd(), opts.rootDisk)
     : undefined;

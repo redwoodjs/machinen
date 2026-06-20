@@ -219,12 +219,18 @@ pub const RegistryLiveMountPlan = struct {
 };
 
 pub const RegistryShapeInput = struct {
+    source_image_path: ?[]const u8 = null,
+    per_boot_root_disk: ?[]const u8 = null,
+    caller_root_disk_path: ?[]const u8 = null,
     cleanup: RegistryCleanupInput = .{},
     mount_disk: RegistryMountDiskInput = .{},
     live_mounts: []const LiveMount = &.{},
 };
 
 pub const RegistryShapePlan = struct {
+    source_image_path: ?[]const u8,
+    root_disk_path: ?[]const u8,
+    root_disk_mode: []const u8,
     cleanup_paths: []const []const u8,
     mount_disk: ?RegistryMountDiskPlan,
     live_mounts: []const RegistryLiveMountPlan,
@@ -519,7 +525,11 @@ pub fn planRegistryShape(allocator: std.mem.Allocator, input: RegistryShapeInput
             .upper_path = input.mount_disk.upper_path orelse return error.IncompleteRegistryMountDisk,
         };
 
+    const root_disk_path = input.per_boot_root_disk orelse input.caller_root_disk_path;
     return .{
+        .source_image_path = input.source_image_path,
+        .root_disk_path = root_disk_path,
+        .root_disk_mode = if (root_disk_path != null) "block" else "none",
         .cleanup_paths = try cleanup_paths.toOwnedSlice(allocator),
         .mount_disk = mount_disk,
         .live_mounts = try live_mounts.toOwnedSlice(allocator),
@@ -803,6 +813,9 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
         .{ .host = "/host/cache", .guest = "/mnt/cache", .mode = "ro", .tag = "machinen-lm1" },
     };
     const plan = try planRegistryShape(allocator, .{
+        .source_image_path = "/images/rootfs.tar.gz",
+        .per_boot_root_disk = "/tmp/per-boot-root.img",
+        .caller_root_disk_path = "/caller/root.img",
         .cleanup = .{
             .per_boot_root_disk = "/tmp/root.img",
             .per_boot_snap_disk = null,
@@ -823,6 +836,9 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     defer allocator.free(plan.cleanup_paths);
     defer allocator.free(plan.live_mounts);
 
+    try std.testing.expectEqualStrings("/images/rootfs.tar.gz", plan.source_image_path.?);
+    try std.testing.expectEqualStrings("/tmp/per-boot-root.img", plan.root_disk_path.?);
+    try std.testing.expectEqualStrings("block", plan.root_disk_mode);
     try std.testing.expectEqual(@as(usize, 6), plan.cleanup_paths.len);
     try std.testing.expectEqualStrings("/tmp/root.img", plan.cleanup_paths[0]);
     try std.testing.expectEqualStrings("/tmp/upper.img", plan.cleanup_paths[1]);
