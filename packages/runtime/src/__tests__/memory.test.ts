@@ -294,6 +294,54 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans provision runtime defaults paths and explicit limits", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const explicit = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionWorkDir: "/tmp/machinen-provision-test",
+          provisionScratchSizeBytes: "4096",
+          provisionTimeoutMs: "12345",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(explicit.status).toBe(0);
+    expect(JSON.parse(explicit.stdout).data.provisionRuntime).toEqual({
+      scratchSizeBytes: 4096,
+      deadlineMs: 12345,
+      diskPath: "/tmp/machinen-provision-test/scratch.img",
+      rootDiskPath: "/tmp/machinen-provision-test/rootfs.img",
+      udsPath: "/tmp/machinen-provision-test/exec.sock",
+    });
+
+    const defaults = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(defaults.status).toBe(0);
+    expect(JSON.parse(defaults.stdout).data.provisionRuntime).toEqual({
+      scratchSizeBytes: 1024 * 1024 * 1024,
+      deadlineMs: 10 * 60 * 1000,
+      diskPath: null,
+      rootDiskPath: null,
+      udsPath: null,
+    });
+  });
+
   it("plans provision image config payloads", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

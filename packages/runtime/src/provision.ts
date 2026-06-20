@@ -23,16 +23,13 @@
 
 import { execFileSync } from "node:child_process";
 import {
-  closeSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
-  openSync,
   readFileSync,
   rmSync,
   statSync,
   writeFileSync,
-  writeSync,
 } from "node:fs";
 import { arch as osArch, homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -45,9 +42,11 @@ import {
   planProvisionBootNative,
   planProvisionImageConfigNative,
   planProvisionRepackNative,
+  planProvisionRuntimeNative,
   planProvisionWorkloadNative,
 } from "./native/boot-plan.ts";
 import { PhaseTimer } from "./phase-timer.ts";
+import { allocateSparseFile } from "./vm/helpers.ts";
 import { reflinkCopy } from "./reflink.ts";
 import { boot, warmImageConfigCache } from "./vm/index.ts";
 import type { VmHandle } from "./vm-handle.ts";
@@ -340,6 +339,8 @@ interface ProvisionContext {
   diskPath: string;
   rootDiskPath: string;
   udsPath: string;
+  scratchDiskSizeBytes: number;
+  deadlineMs: number;
   phases: PhaseTimer;
 }
 
@@ -362,7 +363,7 @@ const PROVISION_STDERR_TAIL_MAX = 128 * 1024;
 export async function provision(opts: ProvisionOptions): Promise<ProvisionResult> {
   const ctx = createProvisionContext(opts);
   try {
-    prepareProvisionDisks(opts, ctx);
+    prepareProvisionDisks(ctx);
     const vm = await bootProvisionVm(opts, ctx);
     await runProvisionVmWorkload(opts, ctx, vm);
     repackProvisionOutput(opts, ctx);
@@ -381,6 +382,11 @@ function createProvisionContext(opts: ProvisionOptions): ProvisionContext {
   mkdirSync(dirname(outAbs), { recursive: true });
 
   const workDir = mkdtempSync(join(tmpdir(), "machinen-provision-"));
+  const runtimePlan = planProvisionRuntimeNative({
+    workDir,
+    scratchDiskSizeBytes: opts.scratchDiskSizeBytes,
+    timeoutMs: opts.timeoutMs,
+  });
   const ctx = {
     cwd,
     baseAbs,
@@ -389,24 +395,25 @@ function createProvisionContext(opts: ProvisionOptions): ProvisionContext {
     outAbs,
     t0: Date.now(),
     workDir,
-    diskPath: join(workDir, "scratch.img"),
-    rootDiskPath: join(workDir, "rootfs.img"),
-    udsPath: join(workDir, "exec.sock"),
+    diskPath: requireProvisionPlanString(runtimePlan.diskPath, "diskPath"),
+    rootDiskPath: requireProvisionPlanString(runtimePlan.rootDiskPath, "rootDiskPath"),
+    udsPath: requireProvisionPlanString(runtimePlan.udsPath, "udsPath"),
+    scratchDiskSizeBytes: runtimePlan.scratchSizeBytes,
+    deadlineMs: runtimePlan.deadlineMs,
     phases: new PhaseTimer(),
   };
   debug("provision start base=%s out=%s workDir=%s", baseAbs, outAbs, workDir);
   return ctx;
 }
 
-function prepareProvisionDisks(opts: ProvisionOptions, ctx: ProvisionContext): void {
-  allocateProvisionScratch(opts, ctx);
+function prepareProvisionDisks(ctx: ProvisionContext): void {
+  allocateProvisionScratch(ctx);
   cloneProvisionRootDisk(ctx);
 }
 
-function allocateProvisionScratch(opts: ProvisionOptions, ctx: ProvisionContext): void {
-  const scratchBytes = opts.scratchDiskSizeBytes ?? 1024 * 1024 * 1024;
-  allocateSparseFile(ctx.diskPath, scratchBytes);
-  debug("scratch disk allocated path=%s sizeBytes=%d", ctx.diskPath, scratchBytes);
+function allocateProvisionScratch(ctx: ProvisionContext): void {
+  allocateSparseFile(ctx.diskPath, ctx.scratchDiskSizeBytes);
+  debug("scratch disk allocated path=%s sizeBytes=%d", ctx.diskPath, ctx.scratchDiskSizeBytes);
 }
 
 function cloneProvisionRootDisk(ctx: ProvisionContext): void {
@@ -468,13 +475,12 @@ async function runProvisionVmWorkload(
   ctx: ProvisionContext,
   vm: VmHandle,
 ): Promise<void> {
-  const deadlineMs = opts.timeoutMs ?? 10 * 60 * 1000;
-  const killTimer = setTimeout(() => void vm.kill(), deadlineMs);
+  const killTimer = setTimeout(() => void vm.kill(), ctx.deadlineMs);
   killTimer.unref();
   const stderrTail = captureProvisionStderrTail(vm);
   try {
     await runInstallHook(opts, ctx, vm, stderrTail);
-    await tarProvisionRootfsToDisk(opts, ctx, deadlineMs);
+    await tarProvisionRootfsToDisk(opts, ctx, ctx.deadlineMs);
     await poweroffProvisionGuest(opts, ctx, vm);
   } finally {
     clearTimeout(killTimer);
@@ -629,16 +635,6 @@ function tapExecForLog(
     onStdout: (chunk) => onLog({ source: "exec-stdout", cmd, chunk }),
     onStderr: (chunk) => onLog({ source: "exec-stderr", cmd, chunk }),
   };
-}
-
-function allocateSparseFile(path: string, sizeBytes: number): void {
-  const fd = openSync(path, "w");
-  try {
-    const buf = Buffer.alloc(1);
-    writeSync(fd, buf, 0, 1, sizeBytes - 1);
-  } finally {
-    closeSync(fd);
-  }
 }
 
 /**
