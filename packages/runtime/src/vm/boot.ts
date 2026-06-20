@@ -54,6 +54,7 @@ import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
   planBootKernelDtbNative,
+  planBootRegistryShapeNative,
   planBootScratchDiskNative,
   planBootStatsFileNative,
   planBootVirtiofsEnvNative,
@@ -902,16 +903,18 @@ function cleanupPathsForBoot(
   resources: BootResources,
   spawned: SpawnedBootVmm,
 ): string[] {
-  return collectCleanupPaths({
-    perBootRootDisk: resources.perBootRootDisk,
-    perBootSnapDisk: plan.perBootSnapDisk,
-    perBootMountUpper: spawned.perBootMountUpper,
-    bundleTempDir: resources.bundleTempDir,
-    vsockTempDir: plan.vsockTempDir,
-    statsTempDir: plan.statsTempDir,
-    gvSocketDir: resources.gvSocketDir,
-    cpuCgroupPath: spawned.cpuControl.cgroupPath,
-  });
+  return planBootRegistryShapeNative({
+    cleanup: {
+      perBootRootDisk: resources.perBootRootDisk,
+      perBootSnapDisk: plan.perBootSnapDisk,
+      perBootMountUpper: spawned.perBootMountUpper,
+      bundleTempDir: resources.bundleTempDir,
+      vsockTempDir: plan.vsockTempDir,
+      statsTempDir: plan.statsTempDir,
+      gvSocketDir: resources.gvSocketDir,
+      cpuCgroupPath: spawned.cpuControl.cgroupPath,
+    },
+  }).cleanupPaths;
 }
 
 function installBootExitCleanup(
@@ -1524,34 +1527,6 @@ function claimNameOrThrow(
   );
 }
 
-function collectCleanupPaths(state: {
-  perBootRootDisk: string | undefined;
-  perBootSnapDisk: string | undefined;
-  perBootMountUpper: string | undefined;
-  bundleTempDir: string | undefined;
-  vsockTempDir: string | undefined;
-  statsTempDir: string | undefined;
-  gvSocketDir: string | undefined;
-  cpuCgroupPath: string | undefined;
-}): string[] {
-  const paths: string[] = [];
-  for (const p of [
-    state.perBootRootDisk,
-    state.perBootSnapDisk,
-    state.perBootMountUpper,
-    state.bundleTempDir,
-    state.vsockTempDir,
-    state.statsTempDir,
-    state.gvSocketDir,
-    state.cpuCgroupPath,
-  ]) {
-    if (p) {
-      paths.push(p);
-    }
-  }
-  return paths;
-}
-
 interface RegisterArgs {
   childPid: number;
   vmName: string | undefined;
@@ -1653,21 +1628,19 @@ function registryMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
   if (!mountDiskPaths) {
     return undefined;
   }
-  return {
-    guest: mountDiskPaths.guest,
-    lowerPath: mountDiskPaths.lowerPath,
-    upperPath: mountDiskPaths.upperPath,
-  };
+  return (
+    planBootRegistryShapeNative({
+      mountDisk: {
+        guest: mountDiskPaths.guest,
+        lowerPath: mountDiskPaths.lowerPath,
+        upperPath: mountDiskPaths.upperPath,
+      },
+    }).mountDisk ?? undefined
+  );
 }
 
 function registryLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
-  return nonEmptyList(
-    liveMountsResolved.map(({ guest, host, mode }) => ({
-      guest,
-      host,
-      mode,
-    })),
-  );
+  return nonEmptyList(planBootRegistryShapeNative({ liveMounts: liveMountsResolved }).liveMounts);
 }
 
 // #221/#233: stamp first-guest-byte and emit the boot timeline. Either

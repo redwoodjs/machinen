@@ -63,6 +63,17 @@ const ParsedRequest = struct {
     mount_disk_source_upper_path: ?[]const u8 = null,
     mount_disk_guest: ?[]const u8 = null,
     mount_disk_upper_size_text: ?[]const u8 = null,
+    registry_per_boot_root_disk: ?[]const u8 = null,
+    registry_per_boot_snap_disk: ?[]const u8 = null,
+    registry_per_boot_mount_upper: ?[]const u8 = null,
+    registry_bundle_temp_dir: ?[]const u8 = null,
+    registry_vsock_temp_dir: ?[]const u8 = null,
+    registry_stats_temp_dir: ?[]const u8 = null,
+    registry_gv_socket_dir: ?[]const u8 = null,
+    registry_cpu_cgroup_path: ?[]const u8 = null,
+    registry_mount_guest: ?[]const u8 = null,
+    registry_mount_lower_path: ?[]const u8 = null,
+    registry_mount_upper_path: ?[]const u8 = null,
 };
 
 const ParsedResourcesMemory = struct {
@@ -126,6 +137,17 @@ const boot_plan_fields = [_][]const u8{
     "mountDiskSourceUpperPath",
     "mountDiskGuest",
     "mountDiskUpperSize",
+    "registryPerBootRootDisk",
+    "registryPerBootSnapDisk",
+    "registryPerBootMountUpper",
+    "registryBundleTempDir",
+    "registryVsockTempDir",
+    "registryStatsTempDir",
+    "registryGvSocketDir",
+    "registryCpuCgroupPath",
+    "registryMountGuest",
+    "registryMountLowerPath",
+    "registryMountUpperPath",
 };
 
 const RequestError = error{
@@ -204,6 +226,10 @@ const RequestError = error{
     InvalidMountDiskSourceUpperPath,
     InvalidMountDiskGuest,
     InvalidMountDiskUpperSize,
+    InvalidRegistryCleanupPath,
+    InvalidRegistryMountGuest,
+    InvalidRegistryMountLowerPath,
+    InvalidRegistryMountUpperPath,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -251,6 +277,7 @@ const PlanParts = struct {
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
+    registry_shape: boot_plan.RegistryShapePlan,
 };
 
 fn makeCorePlan(
@@ -275,6 +302,7 @@ const RuntimeParts = struct {
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
+    registry_shape: boot_plan.RegistryShapePlan,
 };
 
 fn makePlanParts(
@@ -322,6 +350,7 @@ fn makePlanParts(
         .scratch_disk = runtime.scratch_disk,
         .root_disk_runtime = runtime.root_disk_runtime,
         .mount_disk_runtime = runtime.mount_disk_runtime,
+        .registry_shape = runtime.registry_shape,
     };
 }
 
@@ -344,6 +373,7 @@ fn makeRuntimeParts(arena: std.mem.Allocator, parsed: ParsedRequest) !RuntimePar
         .scratch_disk = disks.scratch,
         .root_disk_runtime = disks.root,
         .mount_disk_runtime = disks.mount,
+        .registry_shape = try makeRegistryShape(arena, parsed),
     };
 }
 
@@ -415,6 +445,32 @@ fn makeMountDiskRuntime(parsed: ParsedRequest) !boot_plan.MountDiskRuntimePlan {
     });
 }
 
+fn makeRegistryShape(
+    arena: std.mem.Allocator,
+    parsed: ParsedRequest,
+) !boot_plan.RegistryShapePlan {
+    assert(@sizeOf(boot_plan.RegistryShapePlan) > 0);
+
+    return boot_plan.planRegistryShape(arena, .{
+        .cleanup = .{
+            .per_boot_root_disk = parsed.registry_per_boot_root_disk,
+            .per_boot_snap_disk = parsed.registry_per_boot_snap_disk,
+            .per_boot_mount_upper = parsed.registry_per_boot_mount_upper,
+            .bundle_temp_dir = parsed.registry_bundle_temp_dir,
+            .vsock_temp_dir = parsed.registry_vsock_temp_dir,
+            .stats_temp_dir = parsed.registry_stats_temp_dir,
+            .gv_socket_dir = parsed.registry_gv_socket_dir,
+            .cpu_cgroup_path = parsed.registry_cpu_cgroup_path,
+        },
+        .mount_disk = .{
+            .guest = parsed.registry_mount_guest,
+            .lower_path = parsed.registry_mount_lower_path,
+            .upper_path = parsed.registry_mount_upper_path,
+        },
+        .live_mounts = parsed.live_mounts_resolved,
+    });
+}
+
 fn writePortForwardFailure(
     io: std.Io,
     mappings: []const boot_plan.PortForwardMapping,
@@ -449,6 +505,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
     try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
+    try writeRegistryShapeField(io, "registryShape", parts.registry_shape, true);
     try protocol.stdout(io, "}}\n");
 }
 
@@ -688,6 +745,67 @@ fn writeConfigLiveMountsField(
         try protocol.writeJsonString(io, mount.guest);
         try protocol.stdout(io, ",\"tag\":");
         try protocol.writeJsonString(io, mount.tag);
+        try protocol.stdout(io, ",\"mode\":");
+        try protocol.writeJsonString(io, mount.mode);
+        try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]");
+}
+
+fn writeRegistryShapeField(
+    io: std.Io,
+    comptime field: []const u8,
+    registry: boot_plan.RegistryShapePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeStringArrayField(io, "cleanupPaths", registry.cleanup_paths, false);
+    try writeRegistryMountDiskField(io, "mountDisk", registry.mount_disk, true);
+    try writeRegistryLiveMountsField(io, "liveMounts", registry.live_mounts, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeRegistryMountDiskField(
+    io: std.Io,
+    comptime field: []const u8,
+    mount_disk: ?boot_plan.RegistryMountDiskPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    if (mount_disk) |disk| {
+        try protocol.stdout(io, "{\"guest\":");
+        try protocol.writeJsonString(io, disk.guest);
+        try protocol.stdout(io, ",\"lowerPath\":");
+        try protocol.writeJsonString(io, disk.lower_path);
+        try protocol.stdout(io, ",\"upperPath\":");
+        try protocol.writeJsonString(io, disk.upper_path);
+        try protocol.stdout(io, "}");
+    } else {
+        try protocol.stdout(io, "null");
+    }
+}
+
+fn writeRegistryLiveMountsField(
+    io: std.Io,
+    comptime field: []const u8,
+    mounts: []const boot_plan.RegistryLiveMountPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "[");
+    for (mounts, 0..) |mount, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.stdout(io, "{\"guest\":");
+        try protocol.writeJsonString(io, mount.guest);
+        try protocol.stdout(io, ",\"host\":");
+        try protocol.writeJsonString(io, mount.host);
         try protocol.stdout(io, ",\"mode\":");
         try protocol.writeJsonString(io, mount.mode);
         try protocol.stdout(io, "}");
@@ -1238,7 +1356,81 @@ fn parseMountDiskRuntimeFields(
     request.mount_disk_upper_size_text = try optionalStringDefaultNull(
         object,
         "mountDiskUpperSize",
+        "registryPerBootRootDisk",
+        "registryPerBootSnapDisk",
+        "registryPerBootMountUpper",
+        "registryBundleTempDir",
+        "registryVsockTempDir",
+        "registryStatsTempDir",
+        "registryGvSocketDir",
+        "registryCpuCgroupPath",
+        "registryMountGuest",
+        "registryMountLowerPath",
+        "registryMountUpperPath",
         error.InvalidMountDiskUpperSize,
+    );
+}
+
+fn parseRegistryShapeFields(
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    request.registry_per_boot_root_disk = try optionalStringDefaultNull(
+        object,
+        "registryPerBootRootDisk",
+        error.InvalidRegistryCleanupPath,
+    );
+    request.registry_per_boot_snap_disk = try optionalStringDefaultNull(
+        object,
+        "registryPerBootSnapDisk",
+        error.InvalidRegistryCleanupPath,
+    );
+    request.registry_per_boot_mount_upper = try optionalStringDefaultNull(
+        object,
+        "registryPerBootMountUpper",
+        error.InvalidRegistryCleanupPath,
+    );
+    request.registry_bundle_temp_dir = try optionalStringDefaultNull(
+        object,
+        "registryBundleTempDir",
+        error.InvalidRegistryCleanupPath,
+    );
+    request.registry_vsock_temp_dir = try optionalStringDefaultNull(
+        object,
+        "registryVsockTempDir",
+        error.InvalidRegistryCleanupPath,
+    );
+    request.registry_stats_temp_dir = try optionalStringDefaultNull(
+        object,
+        "registryStatsTempDir",
+        error.InvalidRegistryCleanupPath,
+    );
+    request.registry_gv_socket_dir = try optionalStringDefaultNull(
+        object,
+        "registryGvSocketDir",
+        error.InvalidRegistryCleanupPath,
+    );
+    request.registry_cpu_cgroup_path = try optionalStringDefaultNull(
+        object,
+        "registryCpuCgroupPath",
+        error.InvalidRegistryCleanupPath,
+    );
+    request.registry_mount_guest = try optionalStringDefaultNull(
+        object,
+        "registryMountGuest",
+        error.InvalidRegistryMountGuest,
+    );
+    request.registry_mount_lower_path = try optionalStringDefaultNull(
+        object,
+        "registryMountLowerPath",
+        error.InvalidRegistryMountLowerPath,
+    );
+    request.registry_mount_upper_path = try optionalStringDefaultNull(
+        object,
+        "registryMountUpperPath",
+        error.InvalidRegistryMountUpperPath,
     );
 }
 
@@ -1717,6 +1909,11 @@ fn writeDiskPlanError(io: std.Io, err: anyerror) !bool {
             io,
             "BOOT_MOUNT_INVALID",
             "boot-plan mountDisk field missing",
+        ),
+        error.IncompleteRegistryMountDisk => try writeBootError(
+            io,
+            "BOOT_MOUNT_INVALID",
+            "boot-plan registry mountDisk field missing",
         ),
         error.InvalidMountDiskUpperSize => try writeBootError(
             io,
