@@ -15,6 +15,17 @@ pub const ResourcesMemory = struct {
     reclaim: ?[]const u8,
 };
 
+pub const EnvPair = struct {
+    key: []const u8,
+    value: []const u8,
+};
+
+pub const GuestEnvInput = struct {
+    env: []const EnvPair,
+    name: ?[]const u8 = null,
+    vsock_uds_path: ?[]const u8 = null,
+};
+
 pub const Input = struct {
     memory_mib: ?u64 = null,
     resources_memory: ?ResourcesMemory = null,
@@ -47,6 +58,25 @@ pub const PlanError = error{
     InvalidMountGuestAbsolute,
     InvalidMountGuestRoot,
 };
+
+pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
+    var out: std.ArrayList(EnvPair) = .empty;
+    errdefer out.deinit(allocator);
+    var has_name = false;
+    var has_hostname_wait = false;
+    for (input.env) |pair| {
+        try out.append(allocator, pair);
+        if (std.mem.eql(u8, pair.key, "MACHINEN_VM_NAME")) has_name = true;
+        if (std.mem.eql(u8, pair.key, "MACHINEN_VM_HOSTNAME_WAIT")) has_hostname_wait = true;
+    }
+    if (input.name) |name| {
+        if (!has_name) try out.append(allocator, .{ .key = "MACHINEN_VM_NAME", .value = name });
+    }
+    if (input.vsock_uds_path != null and !has_hostname_wait) {
+        try out.append(allocator, .{ .key = "MACHINEN_VM_HOSTNAME_WAIT", .value = "1" });
+    }
+    return out.toOwnedSlice(allocator);
+}
 
 pub fn autoSizeMemoryMib(host_total_bytes: u64) u64 {
     const host_mib = host_total_bytes / (1024 * 1024);
@@ -190,6 +220,36 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planGuestEnv applies name and hostname wait defaults without overriding caller env" {
+    const env = [_]EnvPair{.{ .key = "FOO", .value = "bar" }};
+    const planned = try planGuestEnv(std.testing.allocator, .{
+        .env = &env,
+        .name = "worker",
+        .vsock_uds_path = "/tmp/exec.sock",
+    });
+    defer std.testing.allocator.free(planned);
+    try std.testing.expectEqual(@as(usize, 3), planned.len);
+    try std.testing.expectEqualStrings("FOO", planned[0].key);
+    try std.testing.expectEqualStrings("MACHINEN_VM_NAME", planned[1].key);
+    try std.testing.expectEqualStrings("worker", planned[1].value);
+    try std.testing.expectEqualStrings("MACHINEN_VM_HOSTNAME_WAIT", planned[2].key);
+    try std.testing.expectEqualStrings("1", planned[2].value);
+
+    const caller_env = [_]EnvPair{
+        .{ .key = "MACHINEN_VM_NAME", .value = "caller" },
+        .{ .key = "MACHINEN_VM_HOSTNAME_WAIT", .value = "0" },
+    };
+    const preserved = try planGuestEnv(std.testing.allocator, .{
+        .env = &caller_env,
+        .name = "worker",
+        .vsock_uds_path = "/tmp/exec.sock",
+    });
+    defer std.testing.allocator.free(preserved);
+    try std.testing.expectEqual(@as(usize, 2), preserved.len);
+    try std.testing.expectEqualStrings("caller", preserved[0].value);
+    try std.testing.expectEqualStrings("0", preserved[1].value);
 }
 
 test "planCore honors preset VMM memory after validating public input" {

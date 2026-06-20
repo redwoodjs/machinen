@@ -16,6 +16,9 @@ const ParsedRequest = struct {
     root_disk: boot_plan.RootDiskMode,
     guest_cwd: ?[]const u8,
     mount_guest: ?[]const u8,
+    guest_env: std.json.ObjectMap,
+    name: ?[]const u8,
+    vsock_uds_path: ?[]const u8,
 };
 
 const ParsedResourcesMemory = struct {
@@ -45,6 +48,10 @@ const RequestError = error{
     InvalidRootDisk,
     InvalidGuestCwd,
     InvalidMountGuest,
+    InvalidGuestEnv,
+    InvalidGuestEnvValue,
+    InvalidName,
+    InvalidVsockUdsPath,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -66,12 +73,16 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
+    const guest_env = makeGuestEnv(arena, parsed) catch |err| {
+        try writePlanError(io, err);
+        return .fail;
+    };
 
-    try writePlan(io, plan);
+    try writePlan(io, plan, guest_env);
     return .ok;
 }
 
-fn writePlan(io: std.Io, plan: boot_plan.Plan) !void {
+fn writePlan(io: std.Io, plan: boot_plan.Plan, guest_env: []const boot_plan.EnvPair) !void {
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{");
     try protocol.stdout(io, "\"memoryCeilingMib\":");
     if (plan.memory_ceiling_mib) |mib| {
@@ -95,7 +106,30 @@ fn writePlan(io: std.Io, plan: boot_plan.Plan) !void {
     } else {
         try protocol.stdout(io, "null");
     }
-    try protocol.stdout(io, "}}\n");
+    try protocol.stdout(io, ",\"mergedGuestEnv\":{");
+    for (guest_env, 0..) |pair, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.writeJsonString(io, pair.key);
+        try protocol.stdout(io, ":");
+        try protocol.writeJsonString(io, pair.value);
+    }
+    try protocol.stdout(io, "}}}\n");
+}
+
+fn makeGuestEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.EnvPair {
+    var pairs: std.ArrayList(boot_plan.EnvPair) = .empty;
+    errdefer pairs.deinit(allocator);
+    var it = parsed.guest_env.iterator();
+    while (it.next()) |entry| {
+        if (entry.value_ptr.* != .string) return error.InvalidGuestEnvValue;
+        try pairs.append(allocator, .{ .key = entry.key_ptr.*, .value = entry.value_ptr.string });
+    }
+    const env_pairs = try pairs.toOwnedSlice(allocator);
+    return boot_plan.planGuestEnv(allocator, .{
+        .env = env_pairs,
+        .name = parsed.name,
+        .vsock_uds_path = parsed.vsock_uds_path,
+    });
 }
 
 fn makePlanInput(allocator: std.mem.Allocator, io: std.Io, parsed: ParsedRequest) anyerror!boot_plan.Input {
@@ -156,7 +190,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -168,6 +202,9 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .root_disk = try requiredRootDisk(object),
         .guest_cwd = try optionalStringDefaultNull(object, "guestCwd", error.InvalidGuestCwd),
         .mount_guest = try optionalStringDefaultNull(object, "mountGuest", error.InvalidMountGuest),
+        .guest_env = try optionalObjectDefaultEmpty(object, "guestEnv", error.InvalidGuestEnv),
+        .name = try optionalStringDefaultNull(object, "name", error.InvalidName),
+        .vsock_uds_path = try optionalStringDefaultNull(object, "vsockUdsPath", error.InvalidVsockUdsPath),
     };
 }
 
@@ -176,6 +213,14 @@ fn optionalString(object: std.json.ObjectMap, field: []const u8, missing: Reques
     return switch (value) {
         .null => null,
         .string => |s| s,
+        else => invalid,
+    };
+}
+
+fn optionalObjectDefaultEmpty(object: std.json.ObjectMap, field: []const u8, invalid: RequestError) RequestError!std.json.ObjectMap {
+    const value = object.get(field) orelse return .{};
+    return switch (value) {
+        .object => |o| o,
         else => invalid,
     };
 }
@@ -235,6 +280,7 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
         error.InvalidMountGuestAbsolute => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "mount guest path must be absolute"),
         error.InvalidMountGuestRoot => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "mount guest path must live under /mnt/"),
         error.UnsupportedHostMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: host memory probing is unsupported on this platform"),
+        error.InvalidGuestEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan guestEnv values must be strings"),
         else => try protocol.writeError(io, "BOOT_MEMORY_INVALID", @errorName(err)),
     }
 }

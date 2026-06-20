@@ -1067,25 +1067,15 @@ function buildMergedGuestEnv(
   opts: BootOptions,
   vsockUdsPath: string | undefined,
 ): Record<string, string> {
-  const mergedGuestEnv: Record<string, string> = { ...opts.env };
-  applyGuestNameFallback(opts, mergedGuestEnv);
-  applyHostnameWait(vsockUdsPath, mergedGuestEnv);
-  return mergedGuestEnv;
-}
-
-function applyGuestNameFallback(opts: BootOptions, mergedGuestEnv: Record<string, string>): void {
-  if (opts.name && !mergedGuestEnv.MACHINEN_VM_NAME) {
-    mergedGuestEnv.MACHINEN_VM_NAME = opts.name;
-  }
-}
-
-function applyHostnameWait(
-  vsockUdsPath: string | undefined,
-  mergedGuestEnv: Record<string, string>,
-): void {
-  if (vsockUdsPath && !mergedGuestEnv.MACHINEN_VM_HOSTNAME_WAIT) {
-    mergedGuestEnv.MACHINEN_VM_HOSTNAME_WAIT = "1";
-  }
+  return planBootCoreNative({
+    guestEnv: opts.env,
+    name: opts.name,
+    vsockUdsPath,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).mergedGuestEnv;
 }
 
 // Validate portForward up front — before resolving the binary or
