@@ -82,6 +82,12 @@ pub const VmstateEnvPlan = struct {
     vmstate_timing: ?[]const u8,
 };
 
+pub const LiveMount = struct {
+    host: []const u8,
+    mode: []const u8,
+    tag: []const u8,
+};
+
 pub const Input = struct {
     memory_mib: ?u64 = null,
     resources_memory: ?ResourcesMemory = null,
@@ -175,6 +181,17 @@ pub fn planVmstateEnv(input: VmstateEnvInput) VmstateEnvPlan {
         .restore_path = input.restore_path,
         .vmstate_timing = if (should_set_timing) "1" else null,
     };
+}
+
+pub fn planVirtiofsEnv(allocator: std.mem.Allocator, mounts: []const LiveMount) ![]EnvPair {
+    var out: std.ArrayList(EnvPair) = .empty;
+    errdefer out.deinit(allocator);
+    for (mounts, 0..) |mount, i| {
+        const key = try std.fmt.allocPrint(allocator, "MACHINEN_VIRTIOFS_{d}", .{i});
+        const value = try std.fmt.allocPrint(allocator, "{s}:{s}:{s}", .{ mount.tag, mount.mode, mount.host });
+        try out.append(allocator, .{ .key = key, .value = value });
+    }
+    return out.toOwnedSlice(allocator);
 }
 
 pub fn planVmmArgv(allocator: std.mem.Allocator, input: VmmArgvInput) !VmmArgvPlan {
@@ -354,6 +371,26 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planVirtiofsEnv formats indexed virtiofs env entries" {
+    const mounts = [_]LiveMount{
+        .{ .host = "/host/a", .mode = "rw", .tag = "machinen-lm0" },
+        .{ .host = "/host/b", .mode = "ro", .tag = "machinen-lm1" },
+    };
+    const env = try planVirtiofsEnv(std.testing.allocator, &mounts);
+    defer {
+        for (env) |pair| {
+            std.testing.allocator.free(pair.key);
+            std.testing.allocator.free(pair.value);
+        }
+        std.testing.allocator.free(env);
+    }
+    try std.testing.expectEqual(@as(usize, 2), env.len);
+    try std.testing.expectEqualStrings("MACHINEN_VIRTIOFS_0", env[0].key);
+    try std.testing.expectEqualStrings("machinen-lm0:rw:/host/a", env[0].value);
+    try std.testing.expectEqualStrings("MACHINEN_VIRTIOFS_1", env[1].key);
+    try std.testing.expectEqualStrings("machinen-lm1:ro:/host/b", env[1].value);
 }
 
 test "planVmstateEnv forwards snapshot restore and timing env" {

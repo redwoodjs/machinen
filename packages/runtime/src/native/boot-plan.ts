@@ -5,6 +5,7 @@ import type { BootMemoryResourceOptions } from "../vm/memory-resources.ts";
 type RootDiskPlanMode = "unset" | "false" | "path" | "true";
 
 type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
+type LiveMountPlanInput = { host: string; mode: "ro" | "rw"; tag: string };
 
 interface NativeBootPlanInput {
   memoryMib?: number;
@@ -32,6 +33,7 @@ interface NativeBootPlanInput {
   restorePath?: string;
   enableVmstateTiming?: boolean;
   existingVmstateTiming?: string;
+  liveMountsResolved?: LiveMountPlanInput[];
 }
 
 interface NativeBootPlanResult {
@@ -49,6 +51,7 @@ interface NativeBootPlanResult {
   vmmSnapshotPath: string | null;
   vmmRestorePath: string | null;
   vmmVmstateTiming: string | null;
+  virtiofsEnv: Record<string, string>;
 }
 
 export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanResult {
@@ -88,6 +91,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     restorePath: nullDefault(input.restorePath),
     enableVmstateTiming: input.enableVmstateTiming === true,
     existingVmstateTiming: nullDefault(input.existingVmstateTiming),
+    liveMountsResolved: input.liveMountsResolved ?? [],
   };
 }
 
@@ -103,6 +107,18 @@ function resourcesMemoryData(memory: BootMemoryResourceOptions | undefined): unk
 
 function nullDefault<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
+}
+
+export function planBootVirtiofsEnvNative(
+  liveMounts: LiveMountPlanInput[],
+): Record<string, string> {
+  return planBootCoreNative({
+    liveMountsResolved: liveMounts,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).virtiofsEnv;
 }
 
 export function planBootVmstateEnvNative(input: {
@@ -221,6 +237,7 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     nullableString(data.vmmSnapshotPath),
     nullableString(data.vmmRestorePath),
     nullableString(data.vmmVmstateTiming),
+    isStringRecord(data.virtiofsEnv),
   ].every(Boolean);
 }
 

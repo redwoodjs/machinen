@@ -54,6 +54,7 @@ import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
   planBootKernelDtbNative,
+  planBootVirtiofsEnvNative,
   planBootVmstateEnvNative,
   planBootVmmArgvNative,
   rootDiskPlanMode,
@@ -1074,9 +1075,7 @@ function setupLiveMountEnv(opts: BootOptions, env: Record<string, string>): Reso
     return [];
   }
   const resolved = resolveLiveMounts(liveMounts, opts.cwd);
-  resolved.forEach((lm, i) => {
-    env[`MACHINEN_VIRTIOFS_${i}`] = `${lm.tag}:${lm.mode}:${lm.host}`;
-  });
+  Object.assign(env, planBootVirtiofsEnvNative(resolved));
   return resolved;
 }
 

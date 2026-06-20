@@ -31,6 +31,7 @@ const ParsedRequest = struct {
     restore_path: ?[]const u8,
     enable_vmstate_timing: bool,
     existing_vmstate_timing: ?[]const u8,
+    live_mounts_resolved: []const boot_plan.LiveMount,
 };
 
 const ParsedResourcesMemory = struct {
@@ -78,6 +79,10 @@ const RequestError = error{
     InvalidRestorePath,
     InvalidEnableVmstateTiming,
     InvalidExistingVmstateTiming,
+    InvalidLiveMountsResolved,
+    InvalidLiveMountHost,
+    InvalidLiveMountMode,
+    InvalidLiveMountTag,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -137,8 +142,9 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .enable_timing = parsed.enable_vmstate_timing,
         .existing_timing = parsed.existing_vmstate_timing,
     });
+    const virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved);
 
-    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env);
+    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env);
     return .ok;
 }
 
@@ -150,6 +156,7 @@ fn writePlan(
     vmm_argv: boot_plan.VmmArgvPlan,
     kernel_dtb: boot_plan.KernelDtbPlan,
     vmstate_env: boot_plan.VmstateEnvPlan,
+    virtiofs_env: []const boot_plan.EnvPair,
 ) !void {
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{");
     try protocol.stdout(io, "\"memoryCeilingMib\":");
@@ -216,6 +223,14 @@ fn writePlan(
     } else {
         try protocol.stdout(io, "null");
     }
+    try protocol.stdout(io, ",\"virtiofsEnv\":{");
+    for (virtiofs_env, 0..) |pair, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.writeJsonString(io, pair.key);
+        try protocol.stdout(io, ":");
+        try protocol.writeJsonString(io, pair.value);
+    }
+    try protocol.stdout(io, "}");
     try protocol.stdout(io, ",\"vmmCommand\":");
     if (vmm_argv.command) |command| {
         try protocol.writeJsonString(io, command);
@@ -312,7 +327,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMountsResolved" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -339,7 +354,29 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .restore_path = try optionalStringDefaultNull(object, "restorePath", error.InvalidRestorePath),
         .enable_vmstate_timing = try optionalBoolDefaultFalse(object, "enableVmstateTiming", error.InvalidEnableVmstateTiming),
         .existing_vmstate_timing = try optionalStringDefaultNull(object, "existingVmstateTiming", error.InvalidExistingVmstateTiming),
+        .live_mounts_resolved = try optionalLiveMountsResolved(allocator, object),
     };
+}
+
+fn optionalLiveMountsResolved(allocator: std.mem.Allocator, object: std.json.ObjectMap) RequestError![]const boot_plan.LiveMount {
+    const value = object.get("liveMountsResolved") orelse return &.{};
+    if (value == .null) return &.{};
+    if (value != .array) return error.InvalidLiveMountsResolved;
+    var mounts: std.ArrayList(boot_plan.LiveMount) = .empty;
+    errdefer mounts.deinit(allocator);
+    for (value.array.items) |item| {
+        if (item != .object) return error.InvalidLiveMountsResolved;
+        try protocol.rejectUnknownFields(item.object, &.{ "host", "mode", "tag" });
+        const host = item.object.get("host") orelse return error.InvalidLiveMountHost;
+        const mode = item.object.get("mode") orelse return error.InvalidLiveMountMode;
+        const tag = item.object.get("tag") orelse return error.InvalidLiveMountTag;
+        if (host != .string) return error.InvalidLiveMountHost;
+        if (mode != .string) return error.InvalidLiveMountMode;
+        if (!std.mem.eql(u8, mode.string, "ro") and !std.mem.eql(u8, mode.string, "rw")) return error.InvalidLiveMountMode;
+        if (tag != .string) return error.InvalidLiveMountTag;
+        try mounts.append(allocator, .{ .host = host.string, .mode = mode.string, .tag = tag.string });
+    }
+    return mounts.toOwnedSlice(allocator);
 }
 
 fn optionalBoolDefaultFalse(object: std.json.ObjectMap, field: []const u8, invalid: RequestError) RequestError!bool {
@@ -499,6 +536,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         error.InvalidJson => try protocol.writeError(io, "INVALID_JSON", "request body is not valid JSON"),
         error.InvalidShape => try protocol.writeError(io, "INVALID_REQUEST", "request body must be a JSON object"),
         error.InvalidPortForward, error.InvalidHostPort, error.InvalidGuestPort => try protocol.writeError(io, "BOOT_PORT_FORWARD_INVALID", "portForward: hostPort and guestPort must be integers in 1..65535"),
+        error.InvalidLiveMountsResolved, error.InvalidLiveMountHost, error.InvalidLiveMountMode, error.InvalidLiveMountTag => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: resolved live mount entries must include host, tag, and mode ro/rw"),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
 }
