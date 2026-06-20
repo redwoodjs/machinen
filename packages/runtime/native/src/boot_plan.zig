@@ -36,6 +36,18 @@ pub const VsockPlan = struct {
     vmm_vsock: ?[]const u8,
 };
 
+pub const PortForwardMapping = struct {
+    host_port: i64,
+    guest_port: i64,
+};
+
+pub const PortForwardValidation = union(enum) {
+    ok,
+    invalid_host_port: i64,
+    invalid_guest_port: i64,
+    duplicate_host_port: u16,
+};
+
 pub const Input = struct {
     memory_mib: ?u64 = null,
     resources_memory: ?ResourcesMemory = null,
@@ -114,6 +126,22 @@ pub fn parseVsockUdsPath(spec: []const u8) ?[]const u8 {
         if (path.len > 0) return path;
     }
     return null;
+}
+
+pub fn validatePortForward(mappings: []const PortForwardMapping) PortForwardValidation {
+    var seen = std.StaticBitSet(65536).initEmpty();
+    for (mappings) |mapping| {
+        const host_port = validateTcpPort(mapping.host_port) orelse return .{ .invalid_host_port = mapping.host_port };
+        _ = validateTcpPort(mapping.guest_port) orelse return .{ .invalid_guest_port = mapping.guest_port };
+        if (seen.isSet(host_port)) return .{ .duplicate_host_port = @intCast(host_port) };
+        seen.set(host_port);
+    }
+    return .ok;
+}
+
+fn validateTcpPort(port: i64) ?usize {
+    if (port < 1 or port > 65535) return null;
+    return @intCast(port);
 }
 
 pub fn autoSizeMemoryMib(host_total_bytes: u64) u64 {
@@ -266,6 +294,28 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "validatePortForward rejects invalid and duplicate ports" {
+    try std.testing.expectEqual(PortForwardValidation.ok, validatePortForward(&.{
+        .{ .host_port = 8080, .guest_port = 3000 },
+        .{ .host_port = 8081, .guest_port = 3001 },
+    }));
+    try std.testing.expectEqual(
+        PortForwardValidation{ .invalid_host_port = 0 },
+        validatePortForward(&.{.{ .host_port = 0, .guest_port = 3000 }}),
+    );
+    try std.testing.expectEqual(
+        PortForwardValidation{ .invalid_guest_port = 70000 },
+        validatePortForward(&.{.{ .host_port = 8080, .guest_port = 70000 }}),
+    );
+    try std.testing.expectEqual(
+        PortForwardValidation{ .duplicate_host_port = 8080 },
+        validatePortForward(&.{
+            .{ .host_port = 8080, .guest_port = 3000 },
+            .{ .host_port = 8080, .guest_port = 3001 },
+        }),
+    );
 }
 
 test "planVsock parses existing specs and formats auto specs" {
