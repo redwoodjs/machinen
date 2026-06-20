@@ -77,7 +77,7 @@ import { arch, homedir, platform } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
-import { rootfsCacheKeyNative } from "./native/rootfs.ts";
+import { rootfsCacheKeyNative, rootfsMaterializeNative } from "./native/rootfs.ts";
 import { SPARSE_GUNZIP_WORKER, SPARSE_ZSTD_WORKER } from "./rootfs-sparse-workers.ts";
 import {
   okMarkerPath,
@@ -190,12 +190,6 @@ interface RootfsCachePaths {
   imgPath: string;
   okPath: string;
   metaPath: string;
-}
-
-interface RootfsStagingPaths {
-  stagingDir: string;
-  stagingTree: string;
-  stagingImg: string;
 }
 
 /**
@@ -410,93 +404,48 @@ function materializeRootfsFromTar(
   opts: EnsureRootfsImageOptions,
   mke2fs: string,
 ): string {
-  const stagingT0 = Date.now();
-  const staging = createRootfsStaging(paths);
-  opts.onPhase?.("staging-create", Date.now() - stagingT0);
-  try {
-    debug("materialize sha=%s tar=%s", paths.sha.slice(0, 12), paths.tarAbs);
-    extractRootfsTarball(paths.tarAbs, staging.stagingTree, opts);
-    const sizeBytes = sizeRootfsImage(staging.stagingTree, opts);
-    const allocT0 = Date.now();
-    allocateSparseFile(staging.stagingImg, sizeBytes);
-    opts.onPhase?.("sparse-allocate", Date.now() - allocT0);
-    runMke2fs(mke2fs, staging.stagingTree, staging.stagingImg, sizeBytes, opts);
-    const renameT0 = Date.now();
-    renameSync(staging.stagingImg, paths.imgPath);
-    opts.onPhase?.("rename", Date.now() - renameT0);
-    markRootfsImageClean(paths.imgPath);
-    writeTemplateMetadata(paths, "materialize");
-    debug(
-      "materialize done sha=%s img=%s sizeBytes=%d",
-      paths.sha.slice(0, 12),
-      paths.imgPath,
-      sizeBytes,
-    );
-    return paths.imgPath;
-  } finally {
-    const cleanupT0 = Date.now();
-    try {
-      rmSync(staging.stagingDir, { recursive: true, force: true });
-    } catch {}
-    opts.onPhase?.("staging-cleanup", Date.now() - cleanupT0);
-  }
-}
-
-function createRootfsStaging(paths: RootfsCachePaths): RootfsStagingPaths {
-  const stagingDir = mkdtempSync(join(paths.cacheDir, `${paths.sha.slice(0, 12)}-staging-`));
-  const stagingTree = join(stagingDir, "tree");
-  mkdirSync(stagingTree, { recursive: true });
-  return { stagingDir, stagingTree, stagingImg: join(stagingDir, "rootfs.img") };
-}
-
-function extractRootfsTarball(
-  tarAbs: string,
-  stagingTree: string,
-  opts: EnsureRootfsImageOptions,
-): void {
-  const extractT0 = Date.now();
-  extractTarball(tarAbs, stagingTree);
-  opts.onPhase?.("tar-extract", Date.now() - extractT0);
-}
-
-function sizeRootfsImage(stagingTree: string, opts: EnsureRootfsImageOptions): number {
-  const sizeT0 = Date.now();
-  const treeBytes = duBytes(stagingTree);
-  const multiplier = opts.sizeMultiplier ?? 2.5;
-  const minBytes = opts.minSizeBytes ?? 2 * 1024 * 1024 * 1024;
-  const sizeBytes = opts.sizeBytes ?? Math.max(minBytes, Math.ceil(treeBytes * multiplier));
+  debug("materialize sha=%s tar=%s", paths.sha.slice(0, 12), paths.tarAbs);
+  const result = rootfsMaterializeNative(rootfsMaterializeRequest(paths, opts, mke2fs));
+  emitRootfsMaterializePhases(opts, result.phases);
+  markRootfsImageClean(paths.imgPath);
+  writeTemplateMetadata(paths, "materialize");
   debug(
-    "size tree=%d size=%d multiplier=%s explicit=%s",
-    treeBytes,
-    sizeBytes,
-    multiplier,
-    opts.sizeBytes !== undefined,
+    "materialize done sha=%s img=%s sizeBytes=%d",
+    paths.sha.slice(0, 12),
+    result.imgPath,
+    result.sizeBytes,
   );
-  opts.onPhase?.("size", Date.now() - sizeT0);
-  return sizeBytes;
+  return result.imgPath;
 }
 
-function runMke2fs(
-  mke2fs: string,
-  stagingTree: string,
-  stagingImg: string,
-  sizeBytes: number,
+function rootfsMaterializeRequest(
+  paths: RootfsCachePaths,
   opts: EnsureRootfsImageOptions,
-): void {
-  const blocks = Math.floor(sizeBytes / 4096);
-  const mkT0 = Date.now();
-  const mk = spawnSync(
+  mke2fs: string,
+): Parameters<typeof rootfsMaterializeNative>[0] {
+  return {
+    tarAbs: paths.tarAbs,
+    cacheDir: paths.cacheDir,
+    sha: paths.sha,
+    imgPath: paths.imgPath,
     mke2fs,
-    ["-d", stagingTree, "-t", "ext4", "-F", "-q", "-b", "4096", stagingImg, String(blocks)],
-    { stdio: ["ignore", "ignore", "pipe"] },
-  );
-  opts.onPhase?.("mke2fs", Date.now() - mkT0);
-  if (mk.status !== 0) {
-    throw new ProvisionError(
-      "PROVISION_INSTALL_HOOK_FAILED",
-      `ensureRootfsImage: ${mke2fs} failed (code ${mk.status}): ${mk.stderr?.toString() ?? ""}`,
-    );
-  }
+    sizeMultiplier: opts.sizeMultiplier ?? 2.5,
+    minSizeBytes: opts.minSizeBytes ?? 2 * 1024 * 1024 * 1024,
+    sizeBytes: opts.sizeBytes,
+  };
+}
+
+function emitRootfsMaterializePhases(
+  opts: EnsureRootfsImageOptions,
+  phases: ReturnType<typeof rootfsMaterializeNative>["phases"],
+): void {
+  opts.onPhase?.("staging-create", phases.stagingCreate);
+  opts.onPhase?.("tar-extract", phases.tarExtract);
+  opts.onPhase?.("size", phases.size);
+  opts.onPhase?.("sparse-allocate", phases.sparseAllocate);
+  opts.onPhase?.("mke2fs", phases.mke2fs);
+  opts.onPhase?.("rename", phases.rename);
+  opts.onPhase?.("staging-cleanup", phases.stagingCleanup);
 }
 
 // Decide whether a cache-hit `.img` is safe to hand back to virtio-blk.
