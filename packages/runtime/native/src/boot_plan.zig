@@ -70,6 +70,11 @@ pub const BundleCommandInput = struct {
     live_mounts: []const LiveMount = &.{},
 };
 
+pub const BundleEnvInput = struct {
+    image_env: []const EnvPair = &.{},
+    guest_env: []const EnvPair = &.{},
+};
+
 pub const KernelDtbInput = struct {
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
@@ -299,6 +304,29 @@ pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
 
 pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
     return input.guest_cwd orelse input.image_cwd;
+}
+
+pub fn planBundleEnv(allocator: std.mem.Allocator, input: BundleEnvInput) ![]EnvPair {
+    var out: std.ArrayList(EnvPair) = .empty;
+    errdefer out.deinit(allocator);
+    for (input.image_env) |pair| {
+        try out.append(allocator, pair);
+    }
+    for (input.guest_env) |pair| {
+        if (indexOfEnvKey(out.items, pair.key)) |index| {
+            out.items[index].value = pair.value;
+        } else {
+            try out.append(allocator, pair);
+        }
+    }
+    return out.toOwnedSlice(allocator);
+}
+
+fn indexOfEnvKey(pairs: []const EnvPair, key: []const u8) ?usize {
+    for (pairs, 0..) |pair, i| {
+        if (std.mem.eql(u8, pair.key, key)) return i;
+    }
+    return null;
 }
 
 pub fn planRootDiskRuntime(input: RootDiskRuntimeInput) PlanError!RootDiskRuntimePlan {
@@ -613,6 +641,26 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planBundleEnv overlays guest env on image env" {
+    const image = [_]EnvPair{
+        .{ .key = "FOO", .value = "image" },
+        .{ .key = "BAR", .value = "image" },
+    };
+    const guest = [_]EnvPair{
+        .{ .key = "FOO", .value = "guest" },
+        .{ .key = "BAZ", .value = "guest" },
+    };
+    const planned = try planBundleEnv(std.testing.allocator, .{ .image_env = &image, .guest_env = &guest });
+    defer std.testing.allocator.free(planned);
+    try std.testing.expectEqual(@as(usize, 3), planned.len);
+    try std.testing.expectEqualStrings("FOO", planned[0].key);
+    try std.testing.expectEqualStrings("guest", planned[0].value);
+    try std.testing.expectEqualStrings("BAR", planned[1].key);
+    try std.testing.expectEqualStrings("image", planned[1].value);
+    try std.testing.expectEqualStrings("BAZ", planned[2].key);
+    try std.testing.expectEqualStrings("guest", planned[2].value);
 }
 
 test "planRootDiskRuntime selects existing restore and cached clone actions" {

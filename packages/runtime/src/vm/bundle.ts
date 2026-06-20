@@ -24,6 +24,7 @@ import {
 import { reflinkCopy } from "../reflink.ts";
 import {
   planBootBundleCommandNative,
+  planBootBundleEnvNative,
   planBootLiveMountsNative,
   planBootMachinenConfigNative,
 } from "../native/boot-plan.ts";
@@ -230,7 +231,10 @@ export function synthesizeAndPackBundle(
     validateOptionalGuestCwd(opts);
     const image = resolveBundleImage(opts, packerOpts);
     const cmd = planBundleCommand(opts, image.imageConfig, liveMounts);
-    const effectiveEnv = { ...image.imageConfig?.env, ...mergedGuestEnv };
+    const effectiveEnv = planBootBundleEnvNative({
+      imageEnv: image.imageConfig?.env,
+      guestEnv: mergedGuestEnv,
+    });
     writeBundleConfig(workspace, {
       cmd,
       env: effectiveEnv,
