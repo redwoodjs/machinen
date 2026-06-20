@@ -435,6 +435,65 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans registry cleanup paths and mount shapes", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          registryPerBootRootDisk: "/tmp/root.img",
+          registryPerBootSnapDisk: null,
+          registryPerBootMountUpper: "/tmp/upper.img",
+          registryBundleTempDir: "/tmp/bundle",
+          registryVsockTempDir: "/tmp/vsock",
+          registryStatsTempDir: null,
+          registryGvSocketDir: "/tmp/gv",
+          registryCpuCgroupPath: "/sys/fs/cgroup/machinen",
+          registryMountGuest: "/mnt/data",
+          registryMountLowerPath: "/cache/lower.sqfs",
+          registryMountUpperPath: "/tmp/upper.img",
+          liveMountsResolved: [
+            { host: "/host/work", guest: "/mnt/work", mode: "rw", tag: "machinen-lm0" },
+            { host: "/host/cache", guest: "/mnt/cache", mode: "ro", tag: "machinen-lm1" },
+          ],
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.registryShape).toEqual({
+      cleanupPaths: [
+        "/tmp/root.img",
+        "/tmp/upper.img",
+        "/tmp/bundle",
+        "/tmp/vsock",
+        "/tmp/gv",
+        "/sys/fs/cgroup/machinen",
+      ],
+      mountDisk: {
+        guest: "/mnt/data",
+        lowerPath: "/cache/lower.sqfs",
+        upperPath: "/tmp/upper.img",
+      },
+      liveMounts: [
+        { guest: "/mnt/work", host: "/host/work", mode: "rw" },
+        { guest: "/mnt/cache", host: "/host/cache", mode: "ro" },
+      ],
+    });
+  });
+
   it("plans machinen-config guest payloads", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

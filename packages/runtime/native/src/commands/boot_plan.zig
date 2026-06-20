@@ -61,6 +61,17 @@ const ParsedRequest = struct {
     mount_disk_source_upper_path: ?[]const u8,
     mount_disk_guest: ?[]const u8,
     mount_disk_upper_size_text: ?[]const u8,
+    registry_per_boot_root_disk: ?[]const u8,
+    registry_per_boot_snap_disk: ?[]const u8,
+    registry_per_boot_mount_upper: ?[]const u8,
+    registry_bundle_temp_dir: ?[]const u8,
+    registry_vsock_temp_dir: ?[]const u8,
+    registry_stats_temp_dir: ?[]const u8,
+    registry_gv_socket_dir: ?[]const u8,
+    registry_cpu_cgroup_path: ?[]const u8,
+    registry_mount_guest: ?[]const u8,
+    registry_mount_lower_path: ?[]const u8,
+    registry_mount_upper_path: ?[]const u8,
 };
 
 const ParsedResourcesMemory = struct {
@@ -144,6 +155,10 @@ const RequestError = error{
     InvalidMountDiskSourceUpperPath,
     InvalidMountDiskGuest,
     InvalidMountDiskUpperSize,
+    InvalidRegistryCleanupPath,
+    InvalidRegistryMountGuest,
+    InvalidRegistryMountLowerPath,
+    InvalidRegistryMountUpperPath,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -274,8 +289,29 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
+    const registry_shape = boot_plan.planRegistryShape(arena, .{
+        .cleanup = .{
+            .per_boot_root_disk = parsed.registry_per_boot_root_disk,
+            .per_boot_snap_disk = parsed.registry_per_boot_snap_disk,
+            .per_boot_mount_upper = parsed.registry_per_boot_mount_upper,
+            .bundle_temp_dir = parsed.registry_bundle_temp_dir,
+            .vsock_temp_dir = parsed.registry_vsock_temp_dir,
+            .stats_temp_dir = parsed.registry_stats_temp_dir,
+            .gv_socket_dir = parsed.registry_gv_socket_dir,
+            .cpu_cgroup_path = parsed.registry_cpu_cgroup_path,
+        },
+        .mount_disk = .{
+            .guest = parsed.registry_mount_guest,
+            .lower_path = parsed.registry_mount_lower_path,
+            .upper_path = parsed.registry_mount_upper_path,
+        },
+        .live_mounts = parsed.live_mounts_resolved,
+    }) catch |err| {
+        try writePlanError(io, err);
+        return .fail;
+    };
 
-    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env, stats_file, planned_live_mounts, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, scratch_disk, root_disk_runtime, mount_disk_runtime);
+    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env, stats_file, planned_live_mounts, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, scratch_disk, root_disk_runtime, mount_disk_runtime, registry_shape);
     return .ok;
 }
 
@@ -299,6 +335,7 @@ fn writePlan(
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
+    registry_shape: boot_plan.RegistryShapePlan,
 ) !void {
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{");
     try protocol.stdout(io, "\"memoryCeilingMib\":");
@@ -441,6 +478,37 @@ fn writePlan(
     try protocol.stdout(io, ",\"upperSizeBytes\":");
     try writeNullableU64(io, mount_disk_runtime.upper_size_bytes);
     try protocol.stdout(io, "}");
+    try protocol.stdout(io, ",\"registryShape\":{");
+    try protocol.stdout(io, "\"cleanupPaths\":[");
+    for (registry_shape.cleanup_paths, 0..) |path, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.writeJsonString(io, path);
+    }
+    try protocol.stdout(io, "]");
+    try protocol.stdout(io, ",\"mountDisk\":");
+    if (registry_shape.mount_disk) |mount_disk| {
+        try protocol.stdout(io, "{\"guest\":");
+        try protocol.writeJsonString(io, mount_disk.guest);
+        try protocol.stdout(io, ",\"lowerPath\":");
+        try protocol.writeJsonString(io, mount_disk.lower_path);
+        try protocol.stdout(io, ",\"upperPath\":");
+        try protocol.writeJsonString(io, mount_disk.upper_path);
+        try protocol.stdout(io, "}");
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"liveMounts\":[");
+    for (registry_shape.live_mounts, 0..) |mount, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.stdout(io, "{\"guest\":");
+        try protocol.writeJsonString(io, mount.guest);
+        try protocol.stdout(io, ",\"host\":");
+        try protocol.writeJsonString(io, mount.host);
+        try protocol.stdout(io, ",\"mode\":");
+        try protocol.writeJsonString(io, mount.mode);
+        try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]}");
     try protocol.stdout(io, ",\"machinenConfig\":{");
     try protocol.stdout(io, "\"cmd\":[");
     for (config_cmd, 0..) |arg, i| {
@@ -610,7 +678,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registryPerBootRootDisk", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -667,6 +735,17 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .mount_disk_source_upper_path = try optionalStringDefaultNull(object, "mountDiskSourceUpperPath", error.InvalidMountDiskSourceUpperPath),
         .mount_disk_guest = try optionalStringDefaultNull(object, "mountDiskGuest", error.InvalidMountDiskGuest),
         .mount_disk_upper_size_text = try optionalStringDefaultNull(object, "mountDiskUpperSize", error.InvalidMountDiskUpperSize),
+        .registry_per_boot_root_disk = try optionalStringDefaultNull(object, "registryPerBootRootDisk", error.InvalidRegistryCleanupPath),
+        .registry_per_boot_snap_disk = try optionalStringDefaultNull(object, "registryPerBootSnapDisk", error.InvalidRegistryCleanupPath),
+        .registry_per_boot_mount_upper = try optionalStringDefaultNull(object, "registryPerBootMountUpper", error.InvalidRegistryCleanupPath),
+        .registry_bundle_temp_dir = try optionalStringDefaultNull(object, "registryBundleTempDir", error.InvalidRegistryCleanupPath),
+        .registry_vsock_temp_dir = try optionalStringDefaultNull(object, "registryVsockTempDir", error.InvalidRegistryCleanupPath),
+        .registry_stats_temp_dir = try optionalStringDefaultNull(object, "registryStatsTempDir", error.InvalidRegistryCleanupPath),
+        .registry_gv_socket_dir = try optionalStringDefaultNull(object, "registryGvSocketDir", error.InvalidRegistryCleanupPath),
+        .registry_cpu_cgroup_path = try optionalStringDefaultNull(object, "registryCpuCgroupPath", error.InvalidRegistryCleanupPath),
+        .registry_mount_guest = try optionalStringDefaultNull(object, "registryMountGuest", error.InvalidRegistryMountGuest),
+        .registry_mount_lower_path = try optionalStringDefaultNull(object, "registryMountLowerPath", error.InvalidRegistryMountLowerPath),
+        .registry_mount_upper_path = try optionalStringDefaultNull(object, "registryMountUpperPath", error.InvalidRegistryMountUpperPath),
     };
 }
 
@@ -937,6 +1016,7 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
         error.MissingScratchPath => try protocol.writeError(io, "BOOT_SNAPSHOT_NOT_FOUND", "boot-plan scratch disk path missing"),
         error.MissingRootDiskRuntimePath => try protocol.writeError(io, "BOOT_IMAGE_NOT_FOUND", "boot-plan rootDisk path missing"),
         error.MissingMountDiskRuntimeField => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan mountDisk field missing"),
+        error.IncompleteRegistryMountDisk => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan registry mountDisk field missing"),
         error.UnsupportedHostMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: host memory probing is unsupported on this platform"),
         error.InvalidGuestEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan guestEnv values must be strings"),
         error.InvalidBundleEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan bundle env values must be strings"),

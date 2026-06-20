@@ -13,6 +13,13 @@ type MountDiskRuntimeAction = "none" | "restore" | "fresh";
 type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
 type LiveMountPlanInput = { host: string; guest: string; mode?: string };
 type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
+type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
+type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
+type RegistryShapePlan = {
+  cleanupPaths: string[];
+  mountDisk: RegistryMountDiskPlan | null;
+  liveMounts: RegistryLiveMountPlan[];
+};
 
 interface NativeBootPlanInput {
   memoryMib?: number;
@@ -70,6 +77,17 @@ interface NativeBootPlanInput {
   mountDiskSourceUpperPath?: string;
   mountDiskGuest?: string;
   mountDiskUpperSize?: number;
+  registryPerBootRootDisk?: string;
+  registryPerBootSnapDisk?: string;
+  registryPerBootMountUpper?: string;
+  registryBundleTempDir?: string;
+  registryVsockTempDir?: string;
+  registryStatsTempDir?: string;
+  registryGvSocketDir?: string;
+  registryCpuCgroupPath?: string;
+  registryMountGuest?: string;
+  registryMountLowerPath?: string;
+  registryMountUpperPath?: string;
 }
 
 interface NativeBootPlanResult {
@@ -97,6 +115,7 @@ interface NativeBootPlanResult {
   scratchDisk: ScratchDiskPlan;
   rootDiskRuntime: RootDiskRuntimePlan;
   mountDiskRuntime: MountDiskRuntimePlan;
+  registryShape: RegistryShapePlan;
 }
 
 type ScratchDiskPlan = {
@@ -180,6 +199,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     ...scratchDiskData(input),
     ...rootDiskRuntimeData(input),
     ...mountDiskRuntimeData(input),
+    ...registryShapeData(input),
   };
 }
 
@@ -221,6 +241,22 @@ function mountDiskRuntimeData(input: NativeBootPlanInput): Record<string, unknow
     mountDiskSourceUpperPath: nullDefault(input.mountDiskSourceUpperPath),
     mountDiskGuest: nullDefault(input.mountDiskGuest),
     mountDiskUpperSize: numberText(input.mountDiskUpperSize),
+  };
+}
+
+function registryShapeData(input: NativeBootPlanInput): Record<string, unknown> {
+  return {
+    registryPerBootRootDisk: nullDefault(input.registryPerBootRootDisk),
+    registryPerBootSnapDisk: nullDefault(input.registryPerBootSnapDisk),
+    registryPerBootMountUpper: nullDefault(input.registryPerBootMountUpper),
+    registryBundleTempDir: nullDefault(input.registryBundleTempDir),
+    registryVsockTempDir: nullDefault(input.registryVsockTempDir),
+    registryStatsTempDir: nullDefault(input.registryStatsTempDir),
+    registryGvSocketDir: nullDefault(input.registryGvSocketDir),
+    registryCpuCgroupPath: nullDefault(input.registryCpuCgroupPath),
+    registryMountGuest: nullDefault(input.registryMountGuest),
+    registryMountLowerPath: nullDefault(input.registryMountLowerPath),
+    registryMountUpperPath: nullDefault(input.registryMountUpperPath),
   };
 }
 
@@ -266,6 +302,40 @@ export function planBootMountDiskRuntimeNative(input: {
     hasCmd: false,
     rootDisk: "false",
   }).mountDiskRuntime;
+}
+
+export function planBootRegistryShapeNative(input: {
+  cleanup?: {
+    perBootRootDisk?: string;
+    perBootSnapDisk?: string;
+    perBootMountUpper?: string;
+    bundleTempDir?: string;
+    vsockTempDir?: string;
+    statsTempDir?: string;
+    gvSocketDir?: string;
+    cpuCgroupPath?: string;
+  };
+  mountDisk?: { guest: string; lowerPath: string; upperPath: string };
+  liveMounts?: PlannedLiveMount[];
+}): RegistryShapePlan {
+  return planBootCoreNative({
+    registryPerBootRootDisk: input.cleanup?.perBootRootDisk,
+    registryPerBootSnapDisk: input.cleanup?.perBootSnapDisk,
+    registryPerBootMountUpper: input.cleanup?.perBootMountUpper,
+    registryBundleTempDir: input.cleanup?.bundleTempDir,
+    registryVsockTempDir: input.cleanup?.vsockTempDir,
+    registryStatsTempDir: input.cleanup?.statsTempDir,
+    registryGvSocketDir: input.cleanup?.gvSocketDir,
+    registryCpuCgroupPath: input.cleanup?.cpuCgroupPath,
+    registryMountGuest: input.mountDisk?.guest,
+    registryMountLowerPath: input.mountDisk?.lowerPath,
+    registryMountUpperPath: input.mountDisk?.upperPath,
+    liveMountsResolved: input.liveMounts,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).registryShape;
 }
 
 export function planBootBundleEnvNative(input: {
@@ -523,6 +593,7 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     isScratchDiskPlan(data.scratchDisk),
     isRootDiskRuntimePlan(data.rootDiskRuntime),
     isMountDiskRuntimePlan(data.mountDiskRuntime),
+    isRegistryShapePlan(data.registryShape),
   ].every(Boolean);
 }
 
@@ -591,6 +662,44 @@ function isMountDiskRuntimePlan(value: unknown): value is MountDiskRuntimePlan {
 
 function isMountDiskRuntimeAction(value: unknown): value is MountDiskRuntimeAction {
   return value === "none" || value === "restore" || value === "fresh";
+}
+
+function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<RegistryShapePlan>;
+  return (
+    Array.isArray(plan.cleanupPaths) &&
+    plan.cleanupPaths.every((path) => typeof path === "string") &&
+    (plan.mountDisk === null || isRegistryMountDisk(plan.mountDisk)) &&
+    Array.isArray(plan.liveMounts) &&
+    plan.liveMounts.every(isRegistryLiveMount)
+  );
+}
+
+function isRegistryMountDisk(value: unknown): value is RegistryMountDiskPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const mount = value as Partial<RegistryMountDiskPlan>;
+  return (
+    typeof mount.guest === "string" &&
+    typeof mount.lowerPath === "string" &&
+    typeof mount.upperPath === "string"
+  );
+}
+
+function isRegistryLiveMount(value: unknown): value is RegistryLiveMountPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const mount = value as Partial<RegistryLiveMountPlan>;
+  return (
+    typeof mount.guest === "string" &&
+    typeof mount.host === "string" &&
+    (mount.mode === "ro" || mount.mode === "rw")
+  );
 }
 
 function isPlannedLiveMount(value: unknown): value is PlannedLiveMount {

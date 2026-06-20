@@ -189,6 +189,47 @@ pub const MountDiskRuntimePlan = struct {
     upper_size_bytes: ?u64,
 };
 
+pub const RegistryCleanupInput = struct {
+    per_boot_root_disk: ?[]const u8 = null,
+    per_boot_snap_disk: ?[]const u8 = null,
+    per_boot_mount_upper: ?[]const u8 = null,
+    bundle_temp_dir: ?[]const u8 = null,
+    vsock_temp_dir: ?[]const u8 = null,
+    stats_temp_dir: ?[]const u8 = null,
+    gv_socket_dir: ?[]const u8 = null,
+    cpu_cgroup_path: ?[]const u8 = null,
+};
+
+pub const RegistryMountDiskInput = struct {
+    guest: ?[]const u8 = null,
+    lower_path: ?[]const u8 = null,
+    upper_path: ?[]const u8 = null,
+};
+
+pub const RegistryMountDiskPlan = struct {
+    guest: []const u8,
+    lower_path: []const u8,
+    upper_path: []const u8,
+};
+
+pub const RegistryLiveMountPlan = struct {
+    guest: []const u8,
+    host: []const u8,
+    mode: []const u8,
+};
+
+pub const RegistryShapeInput = struct {
+    cleanup: RegistryCleanupInput = .{},
+    mount_disk: RegistryMountDiskInput = .{},
+    live_mounts: []const LiveMount = &.{},
+};
+
+pub const RegistryShapePlan = struct {
+    cleanup_paths: []const []const u8,
+    mount_disk: ?RegistryMountDiskPlan,
+    live_mounts: []const RegistryLiveMountPlan,
+};
+
 pub const MachinenConfigInput = struct {
     guest_cwd: ?[]const u8 = null,
     image_cwd: ?[]const u8 = null,
@@ -215,6 +256,7 @@ pub const Plan = struct {
 };
 
 pub const PlanError = error{
+    OutOfMemory,
     InvalidMemory,
     ConflictingMemory,
     InvalidReclaim,
@@ -231,6 +273,7 @@ pub const PlanError = error{
     MissingScratchPath,
     MissingRootDiskRuntimePath,
     MissingMountDiskRuntimeField,
+    IncompleteRegistryMountDisk,
 };
 
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
@@ -437,6 +480,49 @@ pub fn planMountDiskRuntime(input: MountDiskRuntimeInput) PlanError!MountDiskRun
                 .upper_size_bytes = upper_size,
             };
         },
+    };
+}
+
+pub fn planRegistryShape(allocator: std.mem.Allocator, input: RegistryShapeInput) PlanError!RegistryShapePlan {
+    var cleanup_paths: std.ArrayList([]const u8) = .empty;
+    errdefer cleanup_paths.deinit(allocator);
+    const cleanup = input.cleanup;
+    for ([_]?[]const u8{
+        cleanup.per_boot_root_disk,
+        cleanup.per_boot_snap_disk,
+        cleanup.per_boot_mount_upper,
+        cleanup.bundle_temp_dir,
+        cleanup.vsock_temp_dir,
+        cleanup.stats_temp_dir,
+        cleanup.gv_socket_dir,
+        cleanup.cpu_cgroup_path,
+    }) |path| {
+        if (path) |p| try cleanup_paths.append(allocator, p);
+    }
+
+    var live_mounts: std.ArrayList(RegistryLiveMountPlan) = .empty;
+    errdefer live_mounts.deinit(allocator);
+    for (input.live_mounts) |mount| {
+        try live_mounts.append(allocator, .{
+            .guest = mount.guest,
+            .host = mount.host,
+            .mode = mount.mode,
+        });
+    }
+
+    const mount_disk = if (input.mount_disk.guest == null and input.mount_disk.lower_path == null and input.mount_disk.upper_path == null)
+        null
+    else
+        RegistryMountDiskPlan{
+            .guest = input.mount_disk.guest orelse return error.IncompleteRegistryMountDisk,
+            .lower_path = input.mount_disk.lower_path orelse return error.IncompleteRegistryMountDisk,
+            .upper_path = input.mount_disk.upper_path orelse return error.IncompleteRegistryMountDisk,
+        };
+
+    return .{
+        .cleanup_paths = try cleanup_paths.toOwnedSlice(allocator),
+        .mount_disk = mount_disk,
+        .live_mounts = try live_mounts.toOwnedSlice(allocator),
     };
 }
 
@@ -708,6 +794,49 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planRegistryShape collects cleanup paths and strips registry-only mount fields" {
+    const allocator = std.testing.allocator;
+    const live = [_]LiveMount{
+        .{ .host = "/host/work", .guest = "/mnt/work", .mode = "rw", .tag = "machinen-lm0" },
+        .{ .host = "/host/cache", .guest = "/mnt/cache", .mode = "ro", .tag = "machinen-lm1" },
+    };
+    const plan = try planRegistryShape(allocator, .{
+        .cleanup = .{
+            .per_boot_root_disk = "/tmp/root.img",
+            .per_boot_snap_disk = null,
+            .per_boot_mount_upper = "/tmp/upper.img",
+            .bundle_temp_dir = "/tmp/bundle",
+            .vsock_temp_dir = "/tmp/vsock",
+            .stats_temp_dir = null,
+            .gv_socket_dir = "/tmp/gv",
+            .cpu_cgroup_path = "/sys/fs/cgroup/machinen",
+        },
+        .mount_disk = .{
+            .guest = "/mnt/data",
+            .lower_path = "/cache/lower.sqfs",
+            .upper_path = "/tmp/upper.img",
+        },
+        .live_mounts = &live,
+    });
+    defer allocator.free(plan.cleanup_paths);
+    defer allocator.free(plan.live_mounts);
+
+    try std.testing.expectEqual(@as(usize, 6), plan.cleanup_paths.len);
+    try std.testing.expectEqualStrings("/tmp/root.img", plan.cleanup_paths[0]);
+    try std.testing.expectEqualStrings("/tmp/upper.img", plan.cleanup_paths[1]);
+    try std.testing.expectEqualStrings("/tmp/bundle", plan.cleanup_paths[2]);
+    try std.testing.expectEqualStrings("/tmp/vsock", plan.cleanup_paths[3]);
+    try std.testing.expectEqualStrings("/tmp/gv", plan.cleanup_paths[4]);
+    try std.testing.expectEqualStrings("/sys/fs/cgroup/machinen", plan.cleanup_paths[5]);
+    try std.testing.expectEqualStrings("/mnt/data", plan.mount_disk.?.guest);
+    try std.testing.expectEqualStrings("/cache/lower.sqfs", plan.mount_disk.?.lower_path);
+    try std.testing.expectEqualStrings("/tmp/upper.img", plan.mount_disk.?.upper_path);
+    try std.testing.expectEqual(@as(usize, 2), plan.live_mounts.len);
+    try std.testing.expectEqualStrings("/mnt/work", plan.live_mounts[0].guest);
+    try std.testing.expectEqualStrings("/host/work", plan.live_mounts[0].host);
+    try std.testing.expectEqualStrings("rw", plan.live_mounts[0].mode);
 }
 
 test "planMountDiskRuntime selects restore and fresh actions" {
