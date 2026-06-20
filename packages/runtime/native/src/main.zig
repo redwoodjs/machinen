@@ -1,5 +1,6 @@
 const std = @import("std");
 const protocol = @import("protocol.zig");
+const host_rss = @import("commands/host_rss.zig");
 const mkinitramfs = @import("commands/mkinitramfs.zig");
 const mountdisk_image = @import("commands/mountdisk_image.zig");
 const mountdisk_upper = @import("commands/mountdisk_upper.zig");
@@ -15,6 +16,7 @@ const assert = std.debug.assert;
 var g_io: std.Io = undefined;
 
 pub fn main(init: std.process.Init) !u8 {
+    assert(host_rss.name.len > 0);
     assert(mkinitramfs.name.len > 0);
     assert(mountdisk_image.name.len > 0);
     assert(mountdisk_upper.name.len > 0);
@@ -49,6 +51,10 @@ fn runKnownCommand(
 ) !?u8 {
     assert(command.len > 0);
 
+    if (std.mem.eql(u8, command, host_rss.name)) {
+        if (try rejectExtraArgs(it, host_rss.name)) return @intFromEnum(protocol.Exit.usage);
+        return @intFromEnum(try host_rss.run(allocator, g_io));
+    }
     if (std.mem.eql(u8, command, mkinitramfs.name)) {
         if (try rejectExtraArgs(it, mkinitramfs.name)) return @intFromEnum(protocol.Exit.usage);
         return @intFromEnum(try mkinitramfs.run(allocator, g_io));
@@ -127,6 +133,7 @@ fn isHelp(command: []const u8) bool {
 }
 
 fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
+    assert(host_rss.name.len > 0);
     assert(mkinitramfs.name.len > 0);
     assert(mountdisk_image.name.len > 0);
     assert(mountdisk_upper.name.len > 0);
@@ -141,6 +148,7 @@ fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
         .ok = true,
         .protocolVersion = @as(u8, protocol.version),
         .commands = .{
+            host_rss.name,
             mkinitramfs.name,
             mountdisk_image.name,
             mountdisk_upper.name,
