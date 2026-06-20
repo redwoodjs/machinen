@@ -3,6 +3,8 @@ const std = @import("std");
 const memory_floor_mib: u64 = 512;
 const memory_default_ceiling_mib: u64 = 4096;
 const max_live_mounts: usize = 5;
+const restore_command = [_][]const u8{"/sbin/machinen-restore"};
+const poweroff_command = [_][]const u8{"/sbin/machinen-poweroff"};
 
 pub const RootDiskMode = enum {
     unset,
@@ -58,6 +60,14 @@ pub const VmmArgvInput = struct {
 pub const VmmArgvPlan = struct {
     command: ?[]const u8,
     args: []const []const u8,
+};
+
+pub const BundleCommandInput = struct {
+    explicit_cmd: ?[]const []const u8 = null,
+    image_cmd: ?[]const []const u8 = null,
+    snapshot_restore: bool = false,
+    vmstate_restore: bool = false,
+    live_mounts: []const LiveMount = &.{},
 };
 
 pub const KernelDtbInput = struct {
@@ -144,6 +154,7 @@ pub const PlanError = error{
     InvalidMountGuestRoot,
     TooManyLiveMounts,
     InvalidLiveMountMode,
+    MissingBundleCommand,
 };
 
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
@@ -242,6 +253,54 @@ pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
 
 pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
     return input.guest_cwd orelse input.image_cwd;
+}
+
+pub fn planBundleCommand(allocator: std.mem.Allocator, input: BundleCommandInput) ![]const []const u8 {
+    const base_cmd = input.explicit_cmd orelse if (input.snapshot_restore)
+        restore_command[0..]
+    else if (input.vmstate_restore)
+        poweroff_command[0..]
+    else
+        input.image_cmd orelse return error.MissingBundleCommand;
+
+    if (base_cmd.len > 0 and (std.mem.eql(u8, base_cmd[0], "/exec-agent") or std.mem.eql(u8, base_cmd[0], "/sbin/machinen-restore"))) {
+        return base_cmd;
+    }
+
+    const workload = if (hasWritableLiveMount(input.live_mounts))
+        try wrapBatchWorkloadCommand(allocator, base_cmd)
+    else
+        base_cmd;
+    const session_count: usize = if (input.snapshot_restore) 1 else 0;
+    const out = try allocator.alloc([]const u8, 1 + session_count + workload.len);
+    out[0] = "/sbin/machinen-supervisor";
+    var index: usize = 1;
+    if (input.snapshot_restore) {
+        out[index] = "--session";
+        index += 1;
+    }
+    @memcpy(out[index..], workload);
+    return out;
+}
+
+fn hasWritableLiveMount(mounts: []const LiveMount) bool {
+    for (mounts) |mount| {
+        if (std.mem.eql(u8, mount.mode, "rw")) return true;
+    }
+    return false;
+}
+
+fn wrapBatchWorkloadCommand(allocator: std.mem.Allocator, cmd: []const []const u8) ![]const []const u8 {
+    const prefix = [_][]const u8{
+        "/bin/sh",
+        "-c",
+        "batch_sync() { if [ -s /run/machinen-batch-sync.sh ]; then sh /run/machinen-batch-sync.sh; fi; }; \"$@\" & child=$!; trap 'kill -TERM \"$child\" 2>/dev/null' TERM; trap 'kill -INT \"$child\" 2>/dev/null' INT; wait \"$child\"; status=$?; batch_sync || { sync_status=$?; if [ \"$status\" -eq 0 ]; then status=$sync_status; fi; }; exit \"$status\"",
+        "machinen-batch-wrapper",
+    };
+    const out = try allocator.alloc([]const u8, prefix.len + cmd.len);
+    @memcpy(out[0..prefix.len], &prefix);
+    @memcpy(out[prefix.len..], cmd);
+    return out;
 }
 
 pub fn planVmmArgv(allocator: std.mem.Allocator, input: VmmArgvInput) !VmmArgvPlan {
@@ -421,6 +480,27 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planBundleCommand resolves image restore supervisor and batch wrappers" {
+    const ro_mounts = [_]LiveMount{.{ .host = "/host", .guest = "/mnt/ro", .mode = "ro", .tag = "machinen-lm0" }};
+    const image = [_][]const u8{"/bin/true"};
+    const planned = try planBundleCommand(std.testing.allocator, .{ .image_cmd = &image, .live_mounts = &ro_mounts });
+    defer std.testing.allocator.free(planned);
+    try std.testing.expectEqualStrings("/sbin/machinen-supervisor", planned[0]);
+    try std.testing.expectEqualStrings("/bin/true", planned[1]);
+
+    const restore = try planBundleCommand(std.testing.allocator, .{ .snapshot_restore = true });
+    try std.testing.expectEqualStrings("/sbin/machinen-restore", restore[0]);
+
+    const rw_mounts = [_]LiveMount{.{ .host = "/host", .guest = "/mnt/rw", .mode = "rw", .tag = "machinen-lm0" }};
+    const explicit = [_][]const u8{ "/bin/echo", "hi" };
+    const batched = try planBundleCommand(std.testing.allocator, .{ .explicit_cmd = &explicit, .live_mounts = &rw_mounts });
+    defer std.testing.allocator.free(batched);
+    try std.testing.expectEqualStrings("/sbin/machinen-supervisor", batched[0]);
+    try std.testing.expectEqualStrings("/bin/sh", batched[1]);
+    try std.testing.expectEqualStrings("machinen-batch-wrapper", batched[4]);
+    try std.testing.expectEqualStrings("/bin/echo", batched[5]);
 }
 
 test "planMachinenConfigCwd prefers guest cwd over image cwd" {

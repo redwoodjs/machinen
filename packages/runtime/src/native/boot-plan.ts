@@ -43,6 +43,12 @@ interface NativeBootPlanInput {
   configGuestCwd?: string;
   configImageCwd?: string;
   configLiveMounts?: PlannedLiveMount[];
+  bundleExplicitCmd?: string[];
+  bundleImageCmd?: string[];
+  bundleSnapshotRestore?: boolean;
+  bundleVmstateRestore?: boolean;
+  bundleLiveMounts?: PlannedLiveMount[];
+  bundleCommandRequired?: boolean;
 }
 
 interface NativeBootPlanResult {
@@ -65,6 +71,7 @@ interface NativeBootPlanResult {
   statsFilePath: string | null;
   vmmStatsFile: string | null;
   machinenConfig: MachinenConfigPlan;
+  bundleCommand: string[];
 }
 
 type MachinenConfigPlan = Record<string, unknown> & {
@@ -120,6 +127,18 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     configGuestCwd: nullDefault(input.configGuestCwd),
     configImageCwd: nullDefault(input.configImageCwd),
     configLiveMounts: input.configLiveMounts ?? [],
+    ...bundleCommandData(input),
+  };
+}
+
+function bundleCommandData(input: NativeBootPlanInput): Record<string, unknown> {
+  return {
+    bundleExplicitCmd: input.bundleExplicitCmd ?? null,
+    bundleImageCmd: input.bundleImageCmd ?? null,
+    bundleSnapshotRestore: input.bundleSnapshotRestore === true,
+    bundleVmstateRestore: input.bundleVmstateRestore === true,
+    bundleLiveMounts: input.bundleLiveMounts ?? [],
+    bundleCommandRequired: input.bundleCommandRequired === true,
   };
 }
 
@@ -143,6 +162,27 @@ function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[]
 
 function nullDefault<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
+}
+
+export function planBootBundleCommandNative(input: {
+  explicitCmd?: string[];
+  imageCmd?: string[];
+  snapshotRestore: boolean;
+  vmstateRestore: boolean;
+  liveMounts: PlannedLiveMount[];
+}): string[] {
+  return planBootCoreNative({
+    bundleExplicitCmd: input.explicitCmd,
+    bundleImageCmd: input.imageCmd,
+    bundleSnapshotRestore: input.snapshotRestore,
+    bundleVmstateRestore: input.vmstateRestore,
+    bundleLiveMounts: input.liveMounts,
+    bundleCommandRequired: true,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).bundleCommand;
 }
 
 export function planBootMachinenConfigNative(input: {
@@ -324,6 +364,7 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     nullableString(data.statsFilePath),
     nullableString(data.vmmStatsFile),
     isMachinenConfigPlan(data.machinenConfig),
+    isStringArray(data.bundleCommand),
   ].every(Boolean);
 }
 

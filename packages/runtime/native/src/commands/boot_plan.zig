@@ -40,6 +40,12 @@ const ParsedRequest = struct {
     config_guest_cwd: ?[]const u8,
     config_image_cwd: ?[]const u8,
     config_live_mounts: []const boot_plan.LiveMount,
+    bundle_explicit_cmd: ?[]const []const u8,
+    bundle_image_cmd: ?[]const []const u8,
+    bundle_snapshot_restore: bool,
+    bundle_vmstate_restore: bool,
+    bundle_live_mounts: []const boot_plan.LiveMount,
+    bundle_command_requested: bool,
 };
 
 const ParsedResourcesMemory = struct {
@@ -101,6 +107,12 @@ const RequestError = error{
     InvalidConfigGuestCwd,
     InvalidConfigImageCwd,
     InvalidConfigLiveMounts,
+    InvalidBundleExplicitCmd,
+    InvalidBundleImageCmd,
+    InvalidBundleSnapshotRestore,
+    InvalidBundleVmstateRestore,
+    InvalidBundleLiveMounts,
+    InvalidBundleCommandRequired,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -177,8 +189,21 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .guest_cwd = parsed.config_guest_cwd,
         .image_cwd = parsed.config_image_cwd,
     });
+    const bundle_command = if (parsed.bundle_command_requested)
+        boot_plan.planBundleCommand(arena, .{
+            .explicit_cmd = parsed.bundle_explicit_cmd,
+            .image_cmd = parsed.bundle_image_cmd,
+            .snapshot_restore = parsed.bundle_snapshot_restore,
+            .vmstate_restore = parsed.bundle_vmstate_restore,
+            .live_mounts = parsed.bundle_live_mounts,
+        }) catch |err| {
+            try writePlanError(io, err);
+            return .fail;
+        }
+    else
+        &.{};
 
-    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env, stats_file, planned_live_mounts, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts);
+    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env, stats_file, planned_live_mounts, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command);
     return .ok;
 }
 
@@ -197,6 +222,7 @@ fn writePlan(
     config_env: []const boot_plan.EnvPair,
     config_cwd: ?[]const u8,
     config_live_mounts: []const boot_plan.LiveMount,
+    bundle_command: []const []const u8,
 ) !void {
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{");
     try protocol.stdout(io, "\"memoryCeilingMib\":");
@@ -287,6 +313,12 @@ fn writePlan(
         try protocol.stdout(io, ",\"tag\":");
         try protocol.writeJsonString(io, mount.tag);
         try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]");
+    try protocol.stdout(io, ",\"bundleCommand\":[");
+    for (bundle_command, 0..) |arg, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.writeJsonString(io, arg);
     }
     try protocol.stdout(io, "]");
     try protocol.stdout(io, ",\"machinenConfig\":{");
@@ -434,7 +466,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -470,7 +502,29 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .config_guest_cwd = try optionalStringDefaultNull(object, "configGuestCwd", error.InvalidConfigGuestCwd),
         .config_image_cwd = try optionalStringDefaultNull(object, "configImageCwd", error.InvalidConfigImageCwd),
         .config_live_mounts = try optionalLiveMountsResolvedField(allocator, object, "configLiveMounts", error.InvalidConfigLiveMounts),
+        .bundle_explicit_cmd = try optionalStringArrayDefaultNull(allocator, object, "bundleExplicitCmd", error.InvalidBundleExplicitCmd),
+        .bundle_image_cmd = try optionalStringArrayDefaultNull(allocator, object, "bundleImageCmd", error.InvalidBundleImageCmd),
+        .bundle_snapshot_restore = try optionalBoolDefaultFalse(object, "bundleSnapshotRestore", error.InvalidBundleSnapshotRestore),
+        .bundle_vmstate_restore = try optionalBoolDefaultFalse(object, "bundleVmstateRestore", error.InvalidBundleVmstateRestore),
+        .bundle_live_mounts = try optionalLiveMountsResolvedField(allocator, object, "bundleLiveMounts", error.InvalidBundleLiveMounts),
+        .bundle_command_requested = (try optionalBoolDefaultFalse(object, "bundleCommandRequired", error.InvalidBundleCommandRequired)) or hasBundleCommandField(object),
     };
+}
+
+fn hasBundleCommandField(object: std.json.ObjectMap) bool {
+    if (object.get("bundleExplicitCmd")) |value| {
+        if (value != .null) return true;
+    }
+    if (object.get("bundleImageCmd")) |value| {
+        if (value != .null) return true;
+    }
+    if (object.get("bundleSnapshotRestore")) |value| {
+        if (value == .bool and value.bool) return true;
+    }
+    if (object.get("bundleVmstateRestore")) |value| {
+        if (value == .bool and value.bool) return true;
+    }
+    return false;
 }
 
 fn optionalLiveMounts(allocator: std.mem.Allocator, object: std.json.ObjectMap) RequestError![]const boot_plan.LiveMountInput {
@@ -537,6 +591,19 @@ fn optionalBoolDefaultFalse(object: std.json.ObjectMap, field: []const u8, inval
     };
 }
 
+fn optionalStringArrayDefaultNull(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+    field: []const u8,
+    invalid: RequestError,
+) RequestError!?[]const []const u8 {
+    const value = object.get(field) orelse return null;
+    if (value == .null) return null;
+    if (value != .array) return invalid;
+    const array = try stringArrayFromJson(allocator, value, invalid);
+    return array;
+}
+
 fn optionalStringArrayDefaultEmpty(
     allocator: std.mem.Allocator,
     object: std.json.ObjectMap,
@@ -546,6 +613,10 @@ fn optionalStringArrayDefaultEmpty(
     const value = object.get(field) orelse return &.{};
     if (value == .null) return &.{};
     if (value != .array) return invalid;
+    return stringArrayFromJson(allocator, value, invalid);
+}
+
+fn stringArrayFromJson(allocator: std.mem.Allocator, value: std.json.Value, invalid: RequestError) RequestError![]const []const u8 {
     var out: std.ArrayList([]const u8) = .empty;
     errdefer out.deinit(allocator);
     for (value.array.items) |item| {
@@ -672,6 +743,7 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
         error.InvalidMountGuestRoot => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "mount guest path must live under /mnt/"),
         error.TooManyLiveMounts => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: at most 5 live mounts are supported per VM — the VMM wires 5 virtio-fs slots."),
         error.InvalidLiveMountMode => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: mode must be ro or rw"),
+        error.MissingBundleCommand => try protocol.writeError(io, "BOOT_CMD_MISSING", "boot: no cmd to run — pass `cmd` on boot() or bake one into the image via `provision({ cmd })`."),
         error.UnsupportedHostMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: host memory probing is unsupported on this platform"),
         error.InvalidGuestEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan guestEnv values must be strings"),
         else => try protocol.writeError(io, "BOOT_MEMORY_INVALID", @errorName(err)),
