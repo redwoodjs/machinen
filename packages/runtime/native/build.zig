@@ -38,6 +38,21 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(pdeathsig);
 
+    const pty_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    pty_mod.addCSourceFile(.{
+        .file = b.path("src/pty.c"),
+        .flags = &.{ "-O2", "-Wall", "-Wextra" },
+    });
+    const pty = b.addExecutable(.{
+        .name = "machinen-pty",
+        .root_module = pty_mod,
+    });
+    b.installArtifact(pty);
+
     const run_step = b.step("run", "Run machinen-runtime-helper");
     const run_cmd = b.addRunArtifact(exe);
     run_step.dependOn(&run_cmd.step);

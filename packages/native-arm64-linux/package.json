@@ -13,6 +13,7 @@
     "machinen-mke2fs": "./e2fsprogs/bin/mke2fs",
     "machinen-mksquashfs": "./squashfs/bin/mksquashfs",
     "machinen-pdeathsig": "./vmm/bin/machinen-pdeathsig",
+    "machinen-pty": "./vmm/bin/machinen-pty",
     "machinen-runtime-helper": "./vmm/bin/machinen-runtime-helper",
     "machinen-vm": "./vmm/bin/machinen-vm"
   },
