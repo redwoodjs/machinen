@@ -44,6 +44,11 @@ type ProvisionRepackPlan = {
   targzArgs: string[];
 };
 
+type ProvisionImageConfigPlan = {
+  cmd?: string[];
+  env?: Record<string, string>;
+} | null;
+
 type RegistryShapePlan = {
   sourceImagePath: string | null;
   rootDiskPath: string | null;
@@ -106,6 +111,8 @@ interface NativeBootPlanInput {
   provisionRepackDiskPath?: string;
   provisionRepackOutPath?: string;
   provisionRepackExtractDir?: string;
+  provisionImageConfigCmd?: string[];
+  provisionImageConfigEnv?: Record<string, string>;
   scratchMode?: ScratchDiskMode;
   scratchSnapshotPath?: string;
   scratchRestoreClonePath?: string;
@@ -160,6 +167,7 @@ interface NativeBootPlanResult {
   provisionBoot: ProvisionBootPlan;
   provisionWorkload: ProvisionWorkloadPlan;
   provisionRepack: ProvisionRepackPlan;
+  provisionImageConfig: ProvisionImageConfigPlan;
   scratchDisk: ScratchDiskPlan;
   rootDiskRuntime: RootDiskRuntimePlan;
   mountDiskRuntime: MountDiskRuntimePlan;
@@ -277,6 +285,10 @@ function provisionData(input: NativeBootPlanInput): Record<string, unknown> {
     provisionRepackDiskPath: nullDefault(input.provisionRepackDiskPath),
     provisionRepackOutPath: nullDefault(input.provisionRepackOutPath),
     provisionRepackExtractDir: nullDefault(input.provisionRepackExtractDir),
+    provisionImageConfigHasCmd: input.provisionImageConfigCmd !== undefined,
+    provisionImageConfigCmd: input.provisionImageConfigCmd ?? [],
+    provisionImageConfigHasEnv: input.provisionImageConfigEnv !== undefined,
+    provisionImageConfigEnv: input.provisionImageConfigEnv ?? {},
   };
 }
 
@@ -371,6 +383,20 @@ export function planProvisionRepackNative(input: {
     hasCmd: false,
     rootDisk: "false",
   }).provisionRepack;
+}
+
+export function planProvisionImageConfigNative(input: {
+  cmd?: string[];
+  env?: Record<string, string>;
+}): ProvisionImageConfigPlan {
+  return planBootCoreNative({
+    provisionImageConfigCmd: input.cmd,
+    provisionImageConfigEnv: input.env,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).provisionImageConfig;
 }
 
 export function planProvisionBootNative(input: {
@@ -724,6 +750,7 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     isProvisionBootPlan(data.provisionBoot),
     isProvisionWorkloadPlan(data.provisionWorkload),
     isProvisionRepackPlan(data.provisionRepack),
+    isProvisionImageConfigPlan(data.provisionImageConfig),
     isScratchDiskPlan(data.scratchDisk),
     isRootDiskRuntimePlan(data.rootDiskRuntime),
     isMountDiskRuntimePlan(data.mountDiskRuntime),
@@ -766,6 +793,23 @@ function isProvisionRepackPlan(value: unknown): value is ProvisionRepackPlan {
   }
   const plan = value as Partial<ProvisionRepackPlan>;
   return isStringArray(plan.extractArgs) && isStringArray(plan.targzArgs);
+}
+
+function isProvisionImageConfigPlan(value: unknown): value is ProvisionImageConfigPlan {
+  if (value === null) {
+    return true;
+  }
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<NonNullable<ProvisionImageConfigPlan>>;
+  if (plan.cmd !== undefined && !isStringArray(plan.cmd)) {
+    return false;
+  }
+  if (plan.env !== undefined && !isStringRecord(plan.env)) {
+    return false;
+  }
+  return plan.cmd !== undefined || plan.env !== undefined;
 }
 
 function isProvisionBootPlan(value: unknown): value is ProvisionBootPlan {

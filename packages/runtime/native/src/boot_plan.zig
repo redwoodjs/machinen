@@ -127,6 +127,21 @@ pub const ProvisionRepackPlan = struct {
     targz_args: []const []const u8,
 };
 
+pub const ProvisionImageConfigInput = struct {
+    has_cmd: bool = false,
+    cmd: []const []const u8 = &.{},
+    has_env: bool = false,
+    env: []const EnvPair = &.{},
+};
+
+pub const ProvisionImageConfigPlan = struct {
+    has_config: bool,
+    has_cmd: bool,
+    cmd: []const []const u8,
+    has_env: bool,
+    env: []const EnvPair,
+};
+
 pub const KernelDtbInput = struct {
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
@@ -431,6 +446,16 @@ pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
 
 pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
     return input.guest_cwd orelse input.image_cwd;
+}
+
+pub fn planProvisionImageConfig(input: ProvisionImageConfigInput) ProvisionImageConfigPlan {
+    return .{
+        .has_config = input.has_cmd or input.has_env,
+        .has_cmd = input.has_cmd,
+        .cmd = input.cmd,
+        .has_env = input.has_env,
+        .env = input.env,
+    };
 }
 
 pub fn planProvisionWorkload() ProvisionWorkloadPlan {
@@ -1004,6 +1029,24 @@ test "planMountDiskRuntime selects restore and fresh actions" {
     try std.testing.expectEqualStrings("fresh", fresh.action);
     try std.testing.expect(fresh.source_upper_path == null);
     try std.testing.expectEqual(@as(u64, 8192), fresh.upper_size_bytes.?);
+}
+
+test "planProvisionImageConfig preserves optional cmd and env" {
+    const env = [_]EnvPair{.{ .key = "FOO", .value = "bar" }};
+    const cmd = [_][]const u8{ "/bin/echo", "hi" };
+    const both = planProvisionImageConfig(.{ .has_cmd = true, .cmd = &cmd, .has_env = true, .env = &env });
+    try std.testing.expect(both.has_config);
+    try std.testing.expect(both.has_cmd);
+    try std.testing.expect(both.has_env);
+    try std.testing.expectEqualSlices([]const u8, &cmd, both.cmd);
+    try std.testing.expectEqual(@as(usize, 1), both.env.len);
+    try std.testing.expectEqualStrings("FOO", both.env[0].key);
+    try std.testing.expectEqualStrings("bar", both.env[0].value);
+
+    const none = planProvisionImageConfig(.{});
+    try std.testing.expect(!none.has_config);
+    try std.testing.expect(!none.has_cmd);
+    try std.testing.expect(!none.has_env);
 }
 
 test "planProvisionWorkload and planProvisionRepack build commands" {
