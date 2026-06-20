@@ -169,6 +169,34 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans virtiofs env entries for resolved live mounts", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      liveMountsResolved: [
+        { host: "/host/a", mode: "rw", tag: "machinen-lm0" },
+        { host: "/host/b", mode: "ro", tag: "machinen-lm1" },
+      ],
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.virtiofsEnv).toEqual({
+      MACHINEN_VIRTIOFS_0: "machinen-lm0:rw:/host/a",
+      MACHINEN_VIRTIOFS_1: "machinen-lm1:ro:/host/b",
+    });
+  });
+
   it("plans kernel and dtb env paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
