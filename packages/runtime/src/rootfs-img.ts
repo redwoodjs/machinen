@@ -70,7 +70,6 @@ import {
   statSync,
   truncateSync,
   unlinkSync,
-  writeSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import { arch, homedir, platform } from "node:os";
@@ -81,6 +80,7 @@ import {
   rootfsCacheKeyNative,
   rootfsMaterializeNative,
   rootfsPrebakeDecompressNative,
+  rootfsPrebakeTreeNative,
 } from "./native/rootfs.ts";
 import {
   okMarkerPath,
@@ -603,20 +603,6 @@ function findBundledMke2fs(): string | undefined {
   return undefined;
 }
 
-function duBytes(path: string): number {
-  // `du -sk` returns size-on-disk in 1-KiB blocks. Faster than walking
-  // ourselves and works on both GNU and BSD du.
-  try {
-    const out = execFileSync("du", ["-sk", path], { encoding: "utf8" }).trim();
-    const kib = parseInt(out.split(/\s+/, 1)[0]!, 10);
-    if (Number.isFinite(kib) && kib > 0) {
-      return kib * 1024;
-    }
-  } catch {}
-  // Fallback: stat the directory itself (won't be accurate for trees).
-  return statSync(path).size || 0;
-}
-
 interface PrebakeSibling {
   path: string;
   format: "zst" | "gz";
@@ -744,16 +730,6 @@ function extractTarball(tarPath: string, dest: string): void {
   }
 }
 
-function allocateSparseFile(path: string, sizeBytes: number): void {
-  const fd = openSync(path, "w");
-  try {
-    const buf = Buffer.alloc(1);
-    writeSync(fd, buf, 0, 1, sizeBytes - 1);
-  } finally {
-    closeSync(fd);
-  }
-}
-
 /**
  * Resolve the mke2fs binary path using the same lookup order as
  * `ensureRootfsImage` itself: env override → bundled package → PATH →
@@ -806,53 +782,24 @@ export function prebakeRootfsImageFromTree(args: {
       return;
     }
 
-    mkdirSync(cacheDir, { recursive: true });
-    const shaT0 = Date.now();
-    const sha = sha256OfFile(tarPath);
-    onPhase?.("prebake.sha256", Date.now() - shaT0);
-    const imgPath = join(cacheDir, `${sha}.img`);
-    if (existsSync(imgPath)) {
-      // Skip when the cache is already populated — a concurrent boot()
-      // may have the file open via virtio-blk, and renaming over it
-      // would leave that boot writing to a dead inode while the next
-      // boot reads our fresh bytes.
-      debug("prebake skip: cache already populated sha=%s", sha.slice(0, 12));
+    const result = rootfsPrebakeTreeNative({ tarPath, treeDir, cacheDir, mke2fs });
+    onPhase?.("prebake.sha256", result.phases.sha256);
+    if (!result.ok || !result.sha || !result.imgPath) {
+      debug("prebake skip: native helper did not emit image");
+      return;
+    }
+    if (result.skipped) {
+      debug("prebake skip: cache already populated sha=%s", result.sha.slice(0, 12));
       return;
     }
 
-    const stagingDir = mkdtempSync(join(cacheDir, `${sha.slice(0, 12)}-prebake-tree-`));
-    const stagingImg = join(stagingDir, "rootfs.img");
-    try {
-      const treeBytes = duBytes(treeDir);
-      const sizeBytes = Math.max(2 * 1024 * 1024 * 1024, Math.ceil(treeBytes * 2.5));
-      allocateSparseFile(stagingImg, sizeBytes);
-
-      const blocks = Math.floor(sizeBytes / 4096);
-      const mkT0 = Date.now();
-      const mk = spawnSync(
-        mke2fs,
-        ["-d", treeDir, "-t", "ext4", "-F", "-q", "-b", "4096", stagingImg, String(blocks)],
-        { stdio: ["ignore", "ignore", "pipe"] },
-      );
-      onPhase?.("prebake.mke2fs", Date.now() - mkT0);
-      if (mk.status !== 0) {
-        debug(
-          "prebake mke2fs failed status=%s stderr=%s",
-          mk.status,
-          mk.stderr?.toString().slice(0, 200) ?? "",
-        );
-        return;
-      }
-
-      renameSync(stagingImg, imgPath);
-      markRootfsImageClean(imgPath);
-      writeTemplateMetadata({ sha, imgPath, metaPath: templateMetaPath(imgPath) }, "prebake-tree");
-      debug("prebake emitted cache=%s sizeBytes=%d", imgPath, sizeBytes);
-    } finally {
-      try {
-        rmSync(stagingDir, { recursive: true, force: true });
-      } catch {}
-    }
+    onPhase?.("prebake.mke2fs", result.phases.mke2fs);
+    markRootfsImageClean(result.imgPath);
+    writeTemplateMetadata(
+      { sha: result.sha, imgPath: result.imgPath, metaPath: templateMetaPath(result.imgPath) },
+      "prebake-tree",
+    );
+    debug("prebake emitted cache=%s sizeBytes=%d", result.imgPath, result.sizeBytes ?? 0);
   } catch (err) {
     debug("prebake error err=%s", (err as Error).message);
   }

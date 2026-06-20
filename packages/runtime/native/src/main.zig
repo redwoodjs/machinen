@@ -7,6 +7,7 @@ const reflink_copy = @import("commands/reflink_copy.zig");
 const rootfs_cache_key = @import("commands/rootfs_cache_key.zig");
 const rootfs_materialize = @import("commands/rootfs_materialize.zig");
 const rootfs_prebake_decompress = @import("commands/rootfs_prebake_decompress.zig");
+const rootfs_prebake_tree = @import("commands/rootfs_prebake_tree.zig");
 const tree_manifest_hash = @import("commands/tree_manifest_hash.zig");
 
 var g_io: std.Io = undefined;
@@ -77,6 +78,14 @@ pub fn main(init: std.process.Init) !u8 {
         return @intFromEnum(try rootfs_prebake_decompress.run(init.gpa, g_io));
     }
 
+    if (std.mem.eql(u8, command, rootfs_prebake_tree.name)) {
+        if (it.next() != null) {
+            try protocol.writeError(g_io, "USAGE", "rootfs-prebake-tree reads its JSON request from stdin and accepts no positional arguments");
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try rootfs_prebake_tree.run(init.gpa, g_io));
+    }
+
     if (std.mem.eql(u8, command, tree_manifest_hash.name)) {
         if (it.next() != null) {
             try protocol.writeError(g_io, "USAGE", "tree-manifest-hash reads its JSON request from stdin and accepts no positional arguments");
@@ -86,7 +95,7 @@ pub fn main(init: std.process.Init) !u8 {
     }
 
     if (std.mem.eql(u8, command, "--help") or std.mem.eql(u8, command, "-h") or std.mem.eql(u8, command, "help")) {
-        try protocol.stdout(g_io, "{\"ok\":true,\"protocolVersion\":1,\"commands\":[\"mkinitramfs\",\"mountdisk-image\",\"mountdisk-upper\",\"reflink-copy\",\"rootfs-cache-key\",\"rootfs-materialize\",\"rootfs-prebake-decompress\",\"tree-manifest-hash\"]}\n");
+        try protocol.stdout(g_io, "{\"ok\":true,\"protocolVersion\":1,\"commands\":[\"mkinitramfs\",\"mountdisk-image\",\"mountdisk-upper\",\"reflink-copy\",\"rootfs-cache-key\",\"rootfs-materialize\",\"rootfs-prebake-decompress\",\"rootfs-prebake-tree\",\"tree-manifest-hash\"]}\n");
         return @intFromEnum(protocol.Exit.ok);
     }
 

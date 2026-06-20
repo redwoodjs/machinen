@@ -42,6 +42,25 @@ interface RootfsPrebakeDecompressData {
   sha256?: string;
 }
 
+interface RootfsPrebakeTreeRequest {
+  tarPath: string;
+  treeDir: string;
+  cacheDir: string;
+  mke2fs: string;
+}
+
+interface RootfsPrebakeTreeData {
+  ok: boolean;
+  skipped?: boolean;
+  sha?: string;
+  imgPath?: string;
+  sizeBytes?: number;
+  phases: {
+    sha256: number;
+    mke2fs: number;
+  };
+}
+
 export function rootfsCacheKeyNative(tar: string): RootfsCacheKeyData {
   return callRuntimeHelper({
     command: "rootfs-cache-key",
@@ -71,6 +90,16 @@ export function rootfsPrebakeDecompressNative(
     errorCode: "PROVISION_INSTALL_HOOK_FAILED",
     makeError: rootfsError,
     isData: isRootfsPrebakeDecompressData,
+  });
+}
+
+export function rootfsPrebakeTreeNative(request: RootfsPrebakeTreeRequest): RootfsPrebakeTreeData {
+  return callRuntimeHelper({
+    command: "rootfs-prebake-tree",
+    data: request,
+    errorCode: "PROVISION_INSTALL_HOOK_FAILED",
+    makeError: rootfsError,
+    isData: isRootfsPrebakeTreeData,
   });
 }
 
@@ -110,6 +139,45 @@ function isRootfsPrebakeDecompressData(value: unknown): value is RootfsPrebakeDe
     typeof data.ok === "boolean" &&
     (data.sha256 === undefined || /^[0-9a-f]{64}$/.test(data.sha256))
   );
+}
+
+function isRootfsPrebakeTreeData(value: unknown): value is RootfsPrebakeTreeData {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const data = value as Partial<RootfsPrebakeTreeData>;
+  return (
+    typeof data.ok === "boolean" &&
+    optionalBoolean(data.skipped) &&
+    optionalSha(data.sha) &&
+    optionalString(data.imgPath) &&
+    optionalFiniteNumber(data.sizeBytes) &&
+    isPrebakeTreePhases(data.phases)
+  );
+}
+
+function optionalBoolean(value: unknown): boolean {
+  return value === undefined || typeof value === "boolean";
+}
+
+function optionalSha(value: unknown): boolean {
+  return value === undefined || (typeof value === "string" && /^[0-9a-f]{64}$/.test(value));
+}
+
+function optionalString(value: unknown): boolean {
+  return value === undefined || typeof value === "string";
+}
+
+function optionalFiniteNumber(value: unknown): boolean {
+  return value === undefined || isFiniteNumber(value);
+}
+
+function isPrebakeTreePhases(value: unknown): value is RootfsPrebakeTreeData["phases"] {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const phases = value as Partial<RootfsPrebakeTreeData["phases"]>;
+  return isFiniteNumber(phases.sha256) && isFiniteNumber(phases.mke2fs);
 }
 
 const MATERIALIZE_PHASES = [

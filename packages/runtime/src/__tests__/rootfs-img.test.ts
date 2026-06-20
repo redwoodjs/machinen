@@ -848,6 +848,58 @@ describe("ensureRootfsImage", () => {
     }
   });
 
+  it("prebakeRootfsImageFromTree emits a clean prebake-tree cache image", () => {
+    const tarPath = `/tmp/machinen-rootfs-prebake-tree-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-tree-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-tree-cache-"));
+    const fakeMke2fs = join(tmpDir, "mke2fs");
+    writeFileSync(join(tmpDir, "stub"), `prebake-tree-${process.pid}-${Date.now()}`);
+    writeFileSync(
+      fakeMke2fs,
+      '#!/bin/sh\nimg="$9"\n: > "$img"\ndd if=/dev/zero of="$img" bs=1 count=0 seek=2048 2>/dev/null\nprintf "\\123\\357" | dd of="$img" bs=1 seek=1080 conv=notrunc 2>/dev/null\nexit 0\n',
+    );
+    chmodSync(fakeMke2fs, 0o755);
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} stub`);
+    const saved = process.env.MACHINEN_MKE2FS;
+    process.env.MACHINEN_MKE2FS = fakeMke2fs;
+    try {
+      const phases: string[] = [];
+      prebakeRootfsImageFromTree({
+        tarPath,
+        treeDir: tmpDir,
+        cacheDir,
+        onPhase: (name) => phases.push(name),
+      });
+      const sha = execSync(`shasum -a 256 ${tarPath}`, { encoding: "utf8" })
+        .trim()
+        .split(/\s+/, 1)[0]!;
+      const imgPath = join(cacheDir, `${sha}.img`);
+      expect(existsSync(imgPath)).toBe(true);
+      expect(existsSync(_internal.okMarkerPath(imgPath))).toBe(true);
+      expect(_internal.looksLikeExt4(imgPath)).toBe(true);
+      expect(
+        _internal.readVerifiedTemplateMetadata({
+          sha,
+          imgPath,
+          metaPath: _internal.templateMetaPath(imgPath),
+        })?.source,
+      ).toBe("prebake-tree");
+      expect(phases).toContain("prebake.sha256");
+      expect(phases).toContain("prebake.mke2fs");
+    } finally {
+      if (saved === undefined) {
+        delete process.env.MACHINEN_MKE2FS;
+      } else {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  });
+
   it("prebakeRootfsImageFromTree no-ops when no mke2fs is available", () => {
     // Best-effort contract: missing tooling logs and returns, never
     // throws. We point MACHINEN_MKE2FS at a non-existent path —
