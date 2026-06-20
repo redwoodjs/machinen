@@ -1,5 +1,6 @@
 const std = @import("std");
 const protocol = @import("protocol.zig");
+const mkinitramfs = @import("commands/mkinitramfs.zig");
 const tree_manifest_hash = @import("commands/tree_manifest_hash.zig");
 
 const assert = std.debug.assert;
@@ -7,6 +8,7 @@ const assert = std.debug.assert;
 var g_io: std.Io = undefined;
 
 pub fn main(init: std.process.Init) !u8 {
+    assert(mkinitramfs.name.len > 0);
     assert(tree_manifest_hash.name.len > 0);
 
     g_io = init.io;
@@ -18,6 +20,19 @@ pub fn main(init: std.process.Init) !u8 {
         return @intFromEnum(protocol.Exit.usage);
     };
     assert(command.len > 0);
+
+    if (std.mem.eql(u8, command, mkinitramfs.name)) {
+        if (it.next() != null) {
+            try protocol.writeError(
+                g_io,
+                "USAGE",
+                "mkinitramfs reads its JSON request from stdin " ++
+                    "and accepts no positional arguments",
+            );
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try mkinitramfs.run(init.gpa, g_io));
+    }
 
     if (std.mem.eql(u8, command, tree_manifest_hash.name)) {
         if (it.next() != null) {
@@ -39,7 +54,7 @@ pub fn main(init: std.process.Init) !u8 {
         try protocol.stdout(
             g_io,
             "{\"ok\":true,\"protocolVersion\":1," ++
-                "\"commands\":[\"tree-manifest-hash\"]}\n",
+                "\"commands\":[\"mkinitramfs\",\"tree-manifest-hash\"]}\n",
         );
         return @intFromEnum(protocol.Exit.ok);
     }
