@@ -141,6 +141,34 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans vmstate snapshot restore and timing env", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      vmstatePath: "/tmp/state.vmstate",
+      restorePath: "/tmp/restore.vmstate",
+      enableVmstateTiming: true,
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data).toMatchObject({
+      vmmSnapshotPath: "/tmp/state.vmstate",
+      vmmRestorePath: "/tmp/restore.vmstate",
+      vmmVmstateTiming: "1",
+    });
+  });
+
   it("plans kernel and dtb env paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

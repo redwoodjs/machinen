@@ -28,6 +28,10 @@ interface NativeBootPlanInput {
   pdeathsigPath?: string;
   kernelPath?: string;
   dtbPath?: string;
+  vmstatePath?: string;
+  restorePath?: string;
+  enableVmstateTiming?: boolean;
+  existingVmstateTiming?: string;
 }
 
 interface NativeBootPlanResult {
@@ -42,43 +46,86 @@ interface NativeBootPlanResult {
   vmmArgs: string[];
   vmmKernel: string | null;
   vmmDtb: string | null;
+  vmmSnapshotPath: string | null;
+  vmmRestorePath: string | null;
+  vmmVmstateTiming: string | null;
 }
 
 export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanResult {
   return callRuntimeHelper({
     command: "boot-plan",
-    data: {
-      memoryMib: numberText(input.memoryMib),
-      resourcesMemory: input.resourcesMemory
-        ? {
-            maxMib: numberTextRequired(input.resourcesMemory.maxMib),
-            reclaim: input.resourcesMemory.reclaim ?? null,
-          }
-        : null,
-      autoMemoryMib: numberText(input.autoMemoryMib),
-      hostTotalBytes: numberText(input.hostTotalBytes),
-      vmmMemoryPreset: input.vmmMemoryPreset,
-      hasImage: input.hasImage,
-      hasCmd: input.hasCmd,
-      rootDisk: input.rootDisk,
-      guestCwd: input.guestCwd ?? null,
-      mountGuest: input.mountGuest ?? null,
-      guestEnv: input.guestEnv ?? {},
-      name: input.name ?? null,
-      vsockUdsPath: input.vsockUdsPath ?? null,
-      existingVsockSpec: input.existingVsockSpec ?? null,
-      autoVsockUdsPath: input.autoVsockUdsPath ?? null,
-      portForward: input.portForward ?? [],
-      vmmBinary: input.vmmBinary ?? null,
-      vmmArgs: input.vmmArgs ?? [],
-      pdeathsigPath: input.pdeathsigPath ?? null,
-      kernelPath: input.kernelPath ?? null,
-      dtbPath: input.dtbPath ?? null,
-    },
+    data: buildBootPlanRequestData(input),
     errorCode: "BOOT_MEMORY_INVALID",
     makeError: bootPlanError,
     isData: isNativeBootPlanResult,
   });
+}
+
+function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, unknown> {
+  return {
+    memoryMib: numberText(input.memoryMib),
+    resourcesMemory: resourcesMemoryData(input.resourcesMemory),
+    autoMemoryMib: numberText(input.autoMemoryMib),
+    hostTotalBytes: numberText(input.hostTotalBytes),
+    vmmMemoryPreset: input.vmmMemoryPreset,
+    hasImage: input.hasImage,
+    hasCmd: input.hasCmd,
+    rootDisk: input.rootDisk,
+    guestCwd: nullDefault(input.guestCwd),
+    mountGuest: nullDefault(input.mountGuest),
+    guestEnv: input.guestEnv ?? {},
+    name: nullDefault(input.name),
+    vsockUdsPath: nullDefault(input.vsockUdsPath),
+    existingVsockSpec: nullDefault(input.existingVsockSpec),
+    autoVsockUdsPath: nullDefault(input.autoVsockUdsPath),
+    portForward: input.portForward ?? [],
+    vmmBinary: nullDefault(input.vmmBinary),
+    vmmArgs: input.vmmArgs ?? [],
+    pdeathsigPath: nullDefault(input.pdeathsigPath),
+    kernelPath: nullDefault(input.kernelPath),
+    dtbPath: nullDefault(input.dtbPath),
+    vmstatePath: nullDefault(input.vmstatePath),
+    restorePath: nullDefault(input.restorePath),
+    enableVmstateTiming: input.enableVmstateTiming === true,
+    existingVmstateTiming: nullDefault(input.existingVmstateTiming),
+  };
+}
+
+function resourcesMemoryData(memory: BootMemoryResourceOptions | undefined): unknown {
+  if (!memory) {
+    return null;
+  }
+  return {
+    maxMib: numberTextRequired(memory.maxMib),
+    reclaim: nullDefault(memory.reclaim),
+  };
+}
+
+function nullDefault<T>(value: T | undefined): T | null {
+  return value === undefined ? null : value;
+}
+
+export function planBootVmstateEnvNative(input: {
+  vmstatePath?: string;
+  restorePath?: string;
+  enableTiming: boolean;
+  existingTiming?: string;
+}): { snapshotPath?: string; restorePath?: string; vmstateTiming?: string } {
+  const plan = planBootCoreNative({
+    vmstatePath: input.vmstatePath,
+    restorePath: input.restorePath,
+    enableVmstateTiming: input.enableTiming,
+    existingVmstateTiming: input.existingTiming,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  return {
+    snapshotPath: plan.vmmSnapshotPath ?? undefined,
+    restorePath: plan.vmmRestorePath ?? undefined,
+    vmstateTiming: plan.vmmVmstateTiming ?? undefined,
+  };
 }
 
 export function planBootKernelDtbNative(input: { kernelPath?: string; dtbPath?: string }): {
@@ -171,6 +218,9 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     isStringArray(data.vmmArgs),
     nullableString(data.vmmKernel),
     nullableString(data.vmmDtb),
+    nullableString(data.vmmSnapshotPath),
+    nullableString(data.vmmRestorePath),
+    nullableString(data.vmmVmstateTiming),
   ].every(Boolean);
 }
 

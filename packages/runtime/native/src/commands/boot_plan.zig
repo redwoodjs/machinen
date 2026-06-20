@@ -27,6 +27,10 @@ const ParsedRequest = struct {
     pdeathsig_path: ?[]const u8,
     kernel_path: ?[]const u8,
     dtb_path: ?[]const u8,
+    vmstate_path: ?[]const u8,
+    restore_path: ?[]const u8,
+    enable_vmstate_timing: bool,
+    existing_vmstate_timing: ?[]const u8,
 };
 
 const ParsedResourcesMemory = struct {
@@ -70,6 +74,10 @@ const RequestError = error{
     InvalidPdeathsigPath,
     InvalidKernelPath,
     InvalidDtbPath,
+    InvalidVmstatePath,
+    InvalidRestorePath,
+    InvalidEnableVmstateTiming,
+    InvalidExistingVmstateTiming,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -123,8 +131,14 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .kernel_path = parsed.kernel_path,
         .dtb_path = parsed.dtb_path,
     });
+    const vmstate_env = boot_plan.planVmstateEnv(.{
+        .state_path = parsed.vmstate_path,
+        .restore_path = parsed.restore_path,
+        .enable_timing = parsed.enable_vmstate_timing,
+        .existing_timing = parsed.existing_vmstate_timing,
+    });
 
-    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb);
+    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env);
     return .ok;
 }
 
@@ -135,6 +149,7 @@ fn writePlan(
     vsock_plan: boot_plan.VsockPlan,
     vmm_argv: boot_plan.VmmArgvPlan,
     kernel_dtb: boot_plan.KernelDtbPlan,
+    vmstate_env: boot_plan.VmstateEnvPlan,
 ) !void {
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{");
     try protocol.stdout(io, "\"memoryCeilingMib\":");
@@ -180,6 +195,24 @@ fn writePlan(
     try protocol.stdout(io, ",\"vmmDtb\":");
     if (kernel_dtb.vmm_dtb) |dtb| {
         try protocol.writeJsonString(io, dtb);
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"vmmSnapshotPath\":");
+    if (vmstate_env.snapshot_path) |snapshot_path| {
+        try protocol.writeJsonString(io, snapshot_path);
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"vmmRestorePath\":");
+    if (vmstate_env.restore_path) |restore_path| {
+        try protocol.writeJsonString(io, restore_path);
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"vmmVmstateTiming\":");
+    if (vmstate_env.vmstate_timing) |timing| {
+        try protocol.writeJsonString(io, timing);
     } else {
         try protocol.stdout(io, "null");
     }
@@ -279,7 +312,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -302,6 +335,18 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .pdeathsig_path = try optionalStringDefaultNull(object, "pdeathsigPath", error.InvalidPdeathsigPath),
         .kernel_path = try optionalStringDefaultNull(object, "kernelPath", error.InvalidKernelPath),
         .dtb_path = try optionalStringDefaultNull(object, "dtbPath", error.InvalidDtbPath),
+        .vmstate_path = try optionalStringDefaultNull(object, "vmstatePath", error.InvalidVmstatePath),
+        .restore_path = try optionalStringDefaultNull(object, "restorePath", error.InvalidRestorePath),
+        .enable_vmstate_timing = try optionalBoolDefaultFalse(object, "enableVmstateTiming", error.InvalidEnableVmstateTiming),
+        .existing_vmstate_timing = try optionalStringDefaultNull(object, "existingVmstateTiming", error.InvalidExistingVmstateTiming),
+    };
+}
+
+fn optionalBoolDefaultFalse(object: std.json.ObjectMap, field: []const u8, invalid: RequestError) RequestError!bool {
+    const value = object.get(field) orelse return false;
+    return switch (value) {
+        .bool => |b| b,
+        else => invalid,
     };
 }
 

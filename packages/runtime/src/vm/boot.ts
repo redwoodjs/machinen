@@ -54,6 +54,7 @@ import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
   planBootKernelDtbNative,
+  planBootVmstateEnvNative,
   planBootVmmArgvNative,
   rootDiskPlanMode,
   validateBootPortForwardNative,
@@ -1036,9 +1037,8 @@ function setupVmstateBoot(
   if (resolveSnapshotEngine() === "vmstate" && opts.snapshot !== false) {
     vsockTempDir = ensureVsockTempDir(vsockTempDir);
     vmstate.statePath = join(vsockTempDir, VMSTATE_FILE);
-    env.MACHINEN_SNAPSHOT_PATH = vmstate.statePath;
   }
-  configureVmstateRestoreEnv(opts, env);
+  applyVmstateEnvPlan(opts, env, vmstate.statePath);
   return { vmstate, vsockTempDir };
 }
 
@@ -1046,18 +1046,26 @@ function ensureVsockTempDir(vsockTempDir: string | undefined): string {
   return vsockTempDir ?? mkdtempSync(join(tmpdir(), "machinen-vsock-"));
 }
 
-function configureVmstateRestoreEnv(opts: BootOptions, env: Record<string, string>): void {
-  if (!opts._vmstateRestorePath) {
-    return;
+function applyVmstateEnvPlan(
+  opts: BootOptions,
+  env: Record<string, string>,
+  vmstatePath: string | undefined,
+): void {
+  const plan = planBootVmstateEnvNative({
+    vmstatePath,
+    restorePath: opts._vmstateRestorePath,
+    enableTiming: vmstateDebug.enabled || restoreDebug.enabled,
+    existingTiming: env.MACHINEN_VMSTATE_TIMING,
+  });
+  if (plan.snapshotPath) {
+    env.MACHINEN_SNAPSHOT_PATH = plan.snapshotPath;
   }
-  env.MACHINEN_RESTORE_PATH = opts._vmstateRestorePath;
-  if (shouldEnableVmstateTiming(env)) {
-    env.MACHINEN_VMSTATE_TIMING = "1";
+  if (plan.restorePath) {
+    env.MACHINEN_RESTORE_PATH = plan.restorePath;
   }
-}
-
-function shouldEnableVmstateTiming(env: Record<string, string>): boolean {
-  return (vmstateDebug.enabled || restoreDebug.enabled) && !env.MACHINEN_VMSTATE_TIMING;
+  if (plan.vmstateTiming) {
+    env.MACHINEN_VMSTATE_TIMING = plan.vmstateTiming;
+  }
 }
 
 function setupLiveMountEnv(opts: BootOptions, env: Record<string, string>): ResolvedLiveMount[] {
