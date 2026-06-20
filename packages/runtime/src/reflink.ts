@@ -8,28 +8,17 @@
 // `cp -c` (which calls `clonefile(2)` directly). On every warm boot
 // this was 73 % of `rootdisk-materialize`. See issue #221.
 //
-// Strategy:
-//   - Darwin: spawnSync `/bin/cp -c src dst`. Process spawn is ~5 ms,
-//     dwarfed by the saving. If it fails (e.g. cross-volume — clonefile
-//     is volume-local), fall back to plain copyFileSync without the
-//     reflink flag (correctness over speed for the rare cross-volume
-//     case).
-//   - Everywhere else: try COPYFILE_FICLONE_FORCE first so the caller
-//     can tell true CoW from fallback copy, then fall back explicitly.
+// TypeScript keeps the public wrapper and debug logging; the native
+// runtime helper owns platform-specific CoW/sparse-copy behavior.
 
-import { spawnSync } from "node:child_process";
-import { constants as fsConstants, copyFileSync, rmSync, statSync } from "node:fs";
-import { platform } from "node:os";
+import { statSync } from "node:fs";
 import { basename } from "node:path";
 import debugLib from "debug";
+import { reflinkCopyNative, type NativeReflinkCopyResult } from "./native/reflink.ts";
 
 const debug = debugLib("machinen:reflink");
 
-interface ReflinkCopyResult {
-  mode: "cow" | "copy";
-  primitive: "darwin-cp-c" | "node-ficlone-force" | "linux-cp-sparse" | "node-copy";
-  fallbackReason?: string;
-}
+type ReflinkCopyResult = NativeReflinkCopyResult;
 
 /**
  * Reflink-clone `src` to `dst`. The destination must NOT exist (same
@@ -38,62 +27,9 @@ interface ReflinkCopyResult {
  */
 export function reflinkCopy(src: string, dst: string): ReflinkCopyResult {
   const start = Date.now();
-  const result = platform() === "darwin" ? reflinkCopyDarwin(src, dst) : reflinkCopyNode(src, dst);
+  const result = reflinkCopyNative(src, dst);
   logRootdiskReflinkCopy(src, dst, result, Date.now() - start);
   return result;
-}
-
-function reflinkCopyDarwin(src: string, dst: string): ReflinkCopyResult {
-  const res = spawnSync("/bin/cp", ["-c", src, dst], {
-    stdio: ["ignore", "ignore", "pipe"],
-  });
-  if (res.status === 0) {
-    return { mode: "cow", primitive: "darwin-cp-c" };
-  }
-  // `cp -c` failed (cross-volume, EACCES, dst exists, etc). Fall
-  // through to a plain copy — slower but correct. We deliberately
-  // drop COPYFILE_FICLONE on the fallback because the only reason
-  // to retry is when the reflink path didn't work.
-  const fallbackReason = darwinCpFallbackReason(res);
-  copyFileSync(src, dst);
-  return { mode: "copy", primitive: "node-copy", fallbackReason };
-}
-
-function reflinkCopyNode(src: string, dst: string): ReflinkCopyResult {
-  try {
-    copyFileSync(src, dst, fsConstants.COPYFILE_FICLONE_FORCE);
-    return { mode: "cow", primitive: "node-ficlone-force" };
-  } catch (err) {
-    const fallbackReason = copyErrorFallbackReason(err);
-    rmSync(dst, { force: true });
-    if (platform() === "linux" && sparseCopyLinux(src, dst)) {
-      return { mode: "copy", primitive: "linux-cp-sparse", fallbackReason };
-    }
-    rmSync(dst, { force: true });
-    copyFileSync(src, dst);
-    return {
-      mode: "copy",
-      primitive: "node-copy",
-      fallbackReason,
-    };
-  }
-}
-
-function sparseCopyLinux(src: string, dst: string): boolean {
-  const res = spawnSync("cp", ["--sparse=always", "--reflink=never", src, dst], {
-    stdio: ["ignore", "ignore", "pipe"],
-  });
-  if (res.status === 0) {
-    return true;
-  }
-  debug(
-    "linux sparse cp failed src=%s dst=%s status=%s stderr=%s",
-    src,
-    dst,
-    res.status,
-    res.stderr?.toString().slice(0, 200) ?? "",
-  );
-  return false;
 }
 
 function logRootdiskReflinkCopy(
@@ -138,24 +74,4 @@ function copyBytes(src: string, dst: string): number {
     return statSync(src).size;
   } catch {}
   return 0;
-}
-
-function darwinCpFallbackReason(res: ReturnType<typeof spawnSync>): string {
-  if (res.error) {
-    return `cp-c-error-${sanitizeReason(res.error.message)}`;
-  }
-  if (res.signal) {
-    return `cp-c-signal-${sanitizeReason(res.signal)}`;
-  }
-  return `cp-c-status-${res.status ?? "unknown"}`;
-}
-
-function copyErrorFallbackReason(err: unknown): string {
-  const code = typeof err === "object" && err && "code" in err ? String(err.code) : "error";
-  const message = err instanceof Error ? err.message : String(err);
-  return `${sanitizeReason(code)}-${sanitizeReason(message)}`.slice(0, 120);
-}
-
-function sanitizeReason(value: string): string {
-  return value.replace(/[^A-Za-z0-9_.-]+/g, "_").replace(/^_+|_+$/g, "") || "unknown";
 }
