@@ -7,6 +7,7 @@ const host_rss = @import("commands/host_rss.zig");
 const mkinitramfs = @import("commands/mkinitramfs.zig");
 const mountdisk_image = @import("commands/mountdisk_image.zig");
 const mountdisk_upper = @import("commands/mountdisk_upper.zig");
+const nested_virt_probe = @import("commands/nested_virt_probe.zig");
 const pid_validate = @import("commands/pid_validate.zig");
 const process_identity = @import("commands/process_identity.zig");
 const reflink_copy = @import("commands/reflink_copy.zig");
@@ -84,6 +85,14 @@ pub fn main(init: std.process.Init) !u8 {
         return @intFromEnum(try mountdisk_upper.run(init.gpa, g_io));
     }
 
+    if (std.mem.eql(u8, command, nested_virt_probe.name)) {
+        if (it.next() != null) {
+            try protocol.writeError(g_io, "USAGE", "nested-virt-probe reads its JSON request from stdin and accepts no positional arguments");
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try nested_virt_probe.run(init.gpa, g_io));
+    }
+
     if (std.mem.eql(u8, command, pid_validate.name)) {
         if (it.next() != null) {
             try protocol.writeError(g_io, "USAGE", "pid-validate reads its JSON request from stdin and accepts no positional arguments");
@@ -149,7 +158,7 @@ pub fn main(init: std.process.Init) !u8 {
     }
 
     if (std.mem.eql(u8, command, "--help") or std.mem.eql(u8, command, "-h") or std.mem.eql(u8, command, "help")) {
-        try protocol.stdout(g_io, "{\"ok\":true,\"protocolVersion\":1,\"commands\":[\"cpu-cgroup-apply\",\"cpu-cgroup-remove\",\"host-memory\",\"host-rss\",\"mkinitramfs\",\"mountdisk-image\",\"mountdisk-upper\",\"pid-validate\",\"process-identity\",\"reflink-copy\",\"rootfs-cache-key\",\"rootfs-materialize\",\"rootfs-prebake-decompress\",\"rootfs-prebake-tree\",\"tree-manifest-hash\"]}\n");
+        try protocol.stdout(g_io, "{\"ok\":true,\"protocolVersion\":1,\"commands\":[\"cpu-cgroup-apply\",\"cpu-cgroup-remove\",\"host-memory\",\"host-rss\",\"mkinitramfs\",\"mountdisk-image\",\"mountdisk-upper\",\"nested-virt-probe\",\"pid-validate\",\"process-identity\",\"reflink-copy\",\"rootfs-cache-key\",\"rootfs-materialize\",\"rootfs-prebake-decompress\",\"rootfs-prebake-tree\",\"tree-manifest-hash\"]}\n");
         return @intFromEnum(protocol.Exit.ok);
     }
 
