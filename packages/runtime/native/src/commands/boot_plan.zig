@@ -31,6 +31,7 @@ const ParsedRequest = struct {
     restore_path: ?[]const u8,
     enable_vmstate_timing: bool,
     existing_vmstate_timing: ?[]const u8,
+    live_mounts: []const boot_plan.LiveMountInput,
     live_mounts_resolved: []const boot_plan.LiveMount,
     existing_stats_file: ?[]const u8,
     stats_file_path: ?[]const u8,
@@ -81,6 +82,8 @@ const RequestError = error{
     InvalidRestorePath,
     InvalidEnableVmstateTiming,
     InvalidExistingVmstateTiming,
+    InvalidLiveMounts,
+    InvalidLiveMountGuest,
     InvalidLiveMountsResolved,
     InvalidLiveMountHost,
     InvalidLiveMountMode,
@@ -146,13 +149,17 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .enable_timing = parsed.enable_vmstate_timing,
         .existing_timing = parsed.existing_vmstate_timing,
     });
+    const planned_live_mounts = boot_plan.planLiveMounts(arena, parsed.live_mounts) catch |err| {
+        try writePlanError(io, err);
+        return .fail;
+    };
     const virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved);
     const stats_file = boot_plan.planStatsFile(.{
         .existing_path = parsed.existing_stats_file,
         .planned_path = parsed.stats_file_path,
     });
 
-    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env, stats_file);
+    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env, stats_file, planned_live_mounts);
     return .ok;
 }
 
@@ -166,6 +173,7 @@ fn writePlan(
     vmstate_env: boot_plan.VmstateEnvPlan,
     virtiofs_env: []const boot_plan.EnvPair,
     stats_file: boot_plan.StatsFilePlan,
+    planned_live_mounts: []const boot_plan.LiveMount,
 ) !void {
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{");
     try protocol.stdout(io, "\"memoryCeilingMib\":");
@@ -244,6 +252,20 @@ fn writePlan(
     } else {
         try protocol.stdout(io, "null");
     }
+    try protocol.stdout(io, ",\"plannedLiveMounts\":[");
+    for (planned_live_mounts, 0..) |mount, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.stdout(io, "{\"host\":");
+        try protocol.writeJsonString(io, mount.host);
+        try protocol.stdout(io, ",\"guest\":");
+        try protocol.writeJsonString(io, mount.guest);
+        try protocol.stdout(io, ",\"mode\":");
+        try protocol.writeJsonString(io, mount.mode);
+        try protocol.stdout(io, ",\"tag\":");
+        try protocol.writeJsonString(io, mount.tag);
+        try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]");
     try protocol.stdout(io, ",\"virtiofsEnv\":{");
     for (virtiofs_env, 0..) |pair, i| {
         if (i != 0) try protocol.stdout(io, ",");
@@ -348,7 +370,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMountsResolved", "existingStatsFile", "statsFilePath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -375,10 +397,35 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .restore_path = try optionalStringDefaultNull(object, "restorePath", error.InvalidRestorePath),
         .enable_vmstate_timing = try optionalBoolDefaultFalse(object, "enableVmstateTiming", error.InvalidEnableVmstateTiming),
         .existing_vmstate_timing = try optionalStringDefaultNull(object, "existingVmstateTiming", error.InvalidExistingVmstateTiming),
+        .live_mounts = try optionalLiveMounts(allocator, object),
         .live_mounts_resolved = try optionalLiveMountsResolved(allocator, object),
         .existing_stats_file = try optionalStringDefaultNull(object, "existingStatsFile", error.InvalidExistingStatsFile),
         .stats_file_path = try optionalStringDefaultNull(object, "statsFilePath", error.InvalidStatsFilePath),
     };
+}
+
+fn optionalLiveMounts(allocator: std.mem.Allocator, object: std.json.ObjectMap) RequestError![]const boot_plan.LiveMountInput {
+    const value = object.get("liveMounts") orelse return &.{};
+    if (value == .null) return &.{};
+    if (value != .array) return error.InvalidLiveMounts;
+    var mounts: std.ArrayList(boot_plan.LiveMountInput) = .empty;
+    errdefer mounts.deinit(allocator);
+    for (value.array.items) |item| {
+        if (item != .object) return error.InvalidLiveMounts;
+        try protocol.rejectUnknownFields(item.object, &.{ "host", "guest", "mode" });
+        const host = item.object.get("host") orelse return error.InvalidLiveMountHost;
+        const guest = item.object.get("guest") orelse return error.InvalidLiveMountGuest;
+        const mode = item.object.get("mode") orelse .null;
+        if (host != .string) return error.InvalidLiveMountHost;
+        if (guest != .string) return error.InvalidLiveMountGuest;
+        if (mode != .null and mode != .string) return error.InvalidLiveMountMode;
+        try mounts.append(allocator, .{
+            .host = host.string,
+            .guest = guest.string,
+            .mode = if (mode == .string) mode.string else null,
+        });
+    }
+    return mounts.toOwnedSlice(allocator);
 }
 
 fn optionalLiveMountsResolved(allocator: std.mem.Allocator, object: std.json.ObjectMap) RequestError![]const boot_plan.LiveMount {
@@ -389,15 +436,17 @@ fn optionalLiveMountsResolved(allocator: std.mem.Allocator, object: std.json.Obj
     errdefer mounts.deinit(allocator);
     for (value.array.items) |item| {
         if (item != .object) return error.InvalidLiveMountsResolved;
-        try protocol.rejectUnknownFields(item.object, &.{ "host", "mode", "tag" });
+        try protocol.rejectUnknownFields(item.object, &.{ "host", "guest", "mode", "tag" });
         const host = item.object.get("host") orelse return error.InvalidLiveMountHost;
+        const guest = item.object.get("guest") orelse return error.InvalidLiveMountGuest;
         const mode = item.object.get("mode") orelse return error.InvalidLiveMountMode;
         const tag = item.object.get("tag") orelse return error.InvalidLiveMountTag;
         if (host != .string) return error.InvalidLiveMountHost;
+        if (guest != .string) return error.InvalidLiveMountGuest;
         if (mode != .string) return error.InvalidLiveMountMode;
         if (!std.mem.eql(u8, mode.string, "ro") and !std.mem.eql(u8, mode.string, "rw")) return error.InvalidLiveMountMode;
         if (tag != .string) return error.InvalidLiveMountTag;
-        try mounts.append(allocator, .{ .host = host.string, .mode = mode.string, .tag = tag.string });
+        try mounts.append(allocator, .{ .host = host.string, .guest = guest.string, .mode = mode.string, .tag = tag.string });
     }
     return mounts.toOwnedSlice(allocator);
 }
@@ -543,6 +592,8 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
         error.InvalidGuestCwdNul => try protocol.writeError(io, "BOOT_CWD_INVALID", "guestCwd must not contain NUL bytes"),
         error.InvalidMountGuestAbsolute => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "mount guest path must be absolute"),
         error.InvalidMountGuestRoot => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "mount guest path must live under /mnt/"),
+        error.TooManyLiveMounts => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: at most 5 live mounts are supported per VM — the VMM wires 5 virtio-fs slots."),
+        error.InvalidLiveMountMode => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: mode must be ro or rw"),
         error.UnsupportedHostMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: host memory probing is unsupported on this platform"),
         error.InvalidGuestEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan guestEnv values must be strings"),
         else => try protocol.writeError(io, "BOOT_MEMORY_INVALID", @errorName(err)),
@@ -559,7 +610,8 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         error.InvalidJson => try protocol.writeError(io, "INVALID_JSON", "request body is not valid JSON"),
         error.InvalidShape => try protocol.writeError(io, "INVALID_REQUEST", "request body must be a JSON object"),
         error.InvalidPortForward, error.InvalidHostPort, error.InvalidGuestPort => try protocol.writeError(io, "BOOT_PORT_FORWARD_INVALID", "portForward: hostPort and guestPort must be integers in 1..65535"),
-        error.InvalidLiveMountsResolved, error.InvalidLiveMountHost, error.InvalidLiveMountMode, error.InvalidLiveMountTag => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: resolved live mount entries must include host, tag, and mode ro/rw"),
+        error.InvalidLiveMounts, error.InvalidLiveMountGuest => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: entries must include host and guest paths"),
+        error.InvalidLiveMountsResolved, error.InvalidLiveMountHost, error.InvalidLiveMountMode, error.InvalidLiveMountTag => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: resolved live mount entries must include host, guest, tag, and mode ro/rw"),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
 }

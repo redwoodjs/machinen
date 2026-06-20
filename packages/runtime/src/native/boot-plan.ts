@@ -5,7 +5,8 @@ import type { BootMemoryResourceOptions } from "../vm/memory-resources.ts";
 type RootDiskPlanMode = "unset" | "false" | "path" | "true";
 
 type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
-type LiveMountPlanInput = { host: string; mode: "ro" | "rw"; tag: string };
+type LiveMountPlanInput = { host: string; guest: string; mode?: string };
+type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
 
 interface NativeBootPlanInput {
   memoryMib?: number;
@@ -33,7 +34,8 @@ interface NativeBootPlanInput {
   restorePath?: string;
   enableVmstateTiming?: boolean;
   existingVmstateTiming?: string;
-  liveMountsResolved?: LiveMountPlanInput[];
+  liveMounts?: LiveMountPlanInput[];
+  liveMountsResolved?: PlannedLiveMount[];
   existingStatsFile?: string;
   statsFilePath?: string;
 }
@@ -54,6 +56,7 @@ interface NativeBootPlanResult {
   vmmRestorePath: string | null;
   vmmVmstateTiming: string | null;
   virtiofsEnv: Record<string, string>;
+  plannedLiveMounts: PlannedLiveMount[];
   statsFilePath: string | null;
   vmmStatsFile: string | null;
 }
@@ -95,6 +98,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     restorePath: nullDefault(input.restorePath),
     enableVmstateTiming: input.enableVmstateTiming === true,
     existingVmstateTiming: nullDefault(input.existingVmstateTiming),
+    liveMounts: liveMountsData(input.liveMounts),
     liveMountsResolved: input.liveMountsResolved ?? [],
     existingStatsFile: nullDefault(input.existingStatsFile),
     statsFilePath: nullDefault(input.statsFilePath),
@@ -109,6 +113,14 @@ function resourcesMemoryData(memory: BootMemoryResourceOptions | undefined): unk
     maxMib: numberTextRequired(memory.maxMib),
     reclaim: nullDefault(memory.reclaim),
   };
+}
+
+function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[] {
+  return (liveMounts ?? []).map((mount) => ({
+    host: mount.host,
+    guest: mount.guest,
+    mode: mount.mode ?? null,
+  }));
 }
 
 function nullDefault<T>(value: T | undefined): T | null {
@@ -133,9 +145,17 @@ export function planBootStatsFileNative(input: { existingPath?: string; plannedP
   };
 }
 
-export function planBootVirtiofsEnvNative(
-  liveMounts: LiveMountPlanInput[],
-): Record<string, string> {
+export function planBootLiveMountsNative(liveMounts: LiveMountPlanInput[]): PlannedLiveMount[] {
+  return planBootCoreNative({
+    liveMounts,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).plannedLiveMounts;
+}
+
+export function planBootVirtiofsEnvNative(liveMounts: PlannedLiveMount[]): Record<string, string> {
   return planBootCoreNative({
     liveMountsResolved: liveMounts,
     vmmMemoryPreset: true,
@@ -262,6 +282,7 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     nullableString(data.vmmRestorePath),
     nullableString(data.vmmVmstateTiming),
     isStringRecord(data.virtiofsEnv),
+    isPlannedLiveMountArray(data.plannedLiveMounts),
     nullableString(data.statsFilePath),
     nullableString(data.vmmStatsFile),
   ].every(Boolean);
@@ -269,6 +290,23 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function isPlannedLiveMountArray(value: unknown): value is PlannedLiveMount[] {
+  return Array.isArray(value) && value.every(isPlannedLiveMount);
+}
+
+function isPlannedLiveMount(value: unknown): value is PlannedLiveMount {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const mount = value as Partial<PlannedLiveMount>;
+  return (
+    typeof mount.host === "string" &&
+    typeof mount.guest === "string" &&
+    (mount.mode === "ro" || mount.mode === "rw") &&
+    typeof mount.tag === "string"
+  );
 }
 
 function nullableString(value: unknown): boolean {
