@@ -1,8 +1,6 @@
 const std = @import("std");
 
-pub const Error = error{
-    PathNotFound,
-} || std.mem.Allocator.Error || std.Io.File.OpenError || std.Io.File.ReadStreamingError;
+pub const Error = anyerror;
 
 pub const CacheKeySource = enum {
     sidecar,
@@ -13,6 +11,76 @@ pub const CacheKeyResult = struct {
     sha: [64]u8,
     source: CacheKeySource,
 };
+
+pub const MaterializeOptions = struct {
+    tar_abs: []const u8,
+    cache_dir: []const u8,
+    sha: []const u8,
+    img_path: []const u8,
+    mke2fs: []const u8,
+    size_multiplier: f64 = 2.5,
+    min_size_bytes: u64 = 2 * 1024 * 1024 * 1024,
+    size_bytes: ?u64 = null,
+};
+
+pub const MaterializePhases = struct {
+    staging_create: i64 = 0,
+    tar_extract: i64 = 0,
+    size: i64 = 0,
+    sparse_allocate: i64 = 0,
+    mke2fs: i64 = 0,
+    rename: i64 = 0,
+    staging_cleanup: i64 = 0,
+};
+
+pub const MaterializeResult = struct {
+    img_path: []u8,
+    size_bytes: u64,
+    phases: MaterializePhases,
+};
+
+pub fn materializeFromTar(allocator: std.mem.Allocator, io: std.Io, opts: MaterializeOptions) Error!MaterializeResult {
+    var phases: MaterializePhases = .{};
+
+    const staging_start = nowMs(io);
+    const staging_dir = try std.fmt.allocPrint(allocator, "{s}/{s}-staging-{d}", .{ opts.cache_dir, opts.sha[0..@min(opts.sha.len, 12)], nowNs(io) });
+    defer allocator.free(staging_dir);
+    try std.Io.Dir.cwd().createDir(io, staging_dir, .default_dir);
+    errdefer std.Io.Dir.cwd().deleteTree(io, staging_dir) catch {};
+    const staging_tree = try std.fmt.allocPrint(allocator, "{s}/tree", .{staging_dir});
+    defer allocator.free(staging_tree);
+    try std.Io.Dir.cwd().createDir(io, staging_tree, .default_dir);
+    const staging_img = try std.fmt.allocPrint(allocator, "{s}/rootfs.img", .{staging_dir});
+    defer allocator.free(staging_img);
+    phases.staging_create = nowMs(io) - staging_start;
+
+    const extract_start = nowMs(io);
+    try runTarExtract(allocator, io, opts.tar_abs, staging_tree);
+    phases.tar_extract = nowMs(io) - extract_start;
+
+    const size_start = nowMs(io);
+    const tree_bytes = try duBytes(allocator, io, staging_tree);
+    const computed_size = opts.size_bytes orelse @max(opts.min_size_bytes, @as(u64, @intFromFloat(@ceil(@as(f64, @floatFromInt(tree_bytes)) * opts.size_multiplier))));
+    phases.size = nowMs(io) - size_start;
+
+    const alloc_start = nowMs(io);
+    try allocateSparseFile(io, staging_img, computed_size);
+    phases.sparse_allocate = nowMs(io) - alloc_start;
+
+    const mke_start = nowMs(io);
+    try runMke2fs(allocator, io, opts.mke2fs, staging_tree, staging_img, computed_size / 4096);
+    phases.mke2fs = nowMs(io) - mke_start;
+
+    const rename_start = nowMs(io);
+    try std.Io.Dir.renameAbsolute(staging_img, opts.img_path, io);
+    phases.rename = nowMs(io) - rename_start;
+
+    const cleanup_start = nowMs(io);
+    std.Io.Dir.cwd().deleteTree(io, staging_dir) catch {};
+    phases.staging_cleanup = nowMs(io) - cleanup_start;
+
+    return .{ .img_path = try allocator.dupe(u8, opts.img_path), .size_bytes = computed_size, .phases = phases };
+}
 
 pub fn rootfsCacheKey(allocator: std.mem.Allocator, io: std.Io, tar_path: []const u8) Error!CacheKeyResult {
     if (try readSha256Sidecar(allocator, io, tar_path)) |sha| {
@@ -84,6 +152,72 @@ fn readFileAlloc(allocator: std.mem.Allocator, io: std.Io, path: []const u8) Err
         try out.appendSlice(allocator, buf[0..n]);
     }
     return out.toOwnedSlice(allocator);
+}
+
+fn runTarExtract(allocator: std.mem.Allocator, io: std.Io, tar_abs: []const u8, dest: []const u8) Error!void {
+    const result = try std.process.run(allocator, io, .{
+        .argv = &.{ "tar", "-xpf", tar_abs, "-C", dest },
+        .stdout_limit = .limited(1024 * 1024),
+        .stderr_limit = .limited(1024 * 1024),
+    });
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    switch (result.term) {
+        .exited => |code| if (code == 0) return else return error.TarExtractFailed,
+        else => return error.TarExtractFailed,
+    }
+}
+
+fn runMke2fs(allocator: std.mem.Allocator, io: std.Io, mke2fs: []const u8, staging_tree: []const u8, staging_img: []const u8, blocks: u64) Error!void {
+    const blocks_text = try std.fmt.allocPrint(allocator, "{d}", .{blocks});
+    defer allocator.free(blocks_text);
+    const result = try std.process.run(allocator, io, .{
+        .argv = &.{ mke2fs, "-d", staging_tree, "-t", "ext4", "-F", "-q", "-b", "4096", staging_img, blocks_text },
+        .stdout_limit = .limited(1024 * 1024),
+        .stderr_limit = .limited(1024 * 1024),
+    });
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    switch (result.term) {
+        .exited => |code| if (code == 0) return else return error.Mke2fsFailed,
+        else => return error.Mke2fsFailed,
+    }
+}
+
+fn allocateSparseFile(io: std.Io, path: []const u8, size_bytes: u64) Error!void {
+    var file = try std.Io.Dir.cwd().createFile(io, path, .{ .truncate = true });
+    defer file.close(io);
+    const zero = [_]u8{0};
+    try file.writePositionalAll(io, &zero, size_bytes - 1);
+}
+
+fn duBytes(allocator: std.mem.Allocator, io: std.Io, root: []const u8) Error!u64 {
+    const st = try std.Io.Dir.cwd().statFile(io, root, .{ .follow_symlinks = false });
+    switch (st.kind) {
+        .directory => {
+            var total: u64 = 4096;
+            var dir = try std.Io.Dir.cwd().openDir(io, root, .{ .iterate = true });
+            defer dir.close(io);
+            var it = dir.iterateAssumeFirstIteration();
+            while (try it.next(io)) |entry| {
+                const child = try std.fs.path.join(allocator, &.{ root, entry.name });
+                defer allocator.free(child);
+                total += try duBytes(allocator, io, child);
+            }
+            return total;
+        },
+        .file => return @intCast(st.size),
+        .sym_link => return @max(1, @as(u64, @intCast(st.size))),
+        else => return 0,
+    }
+}
+
+fn nowMs(io: std.Io) i64 {
+    return @intCast(@divFloor(nowNs(io), std.time.ns_per_ms));
+}
+
+fn nowNs(io: std.Io) i96 {
+    return std.Io.Clock.awake.now(io).nanoseconds;
 }
 
 fn hexDigest(digest: [32]u8) [64]u8 {
