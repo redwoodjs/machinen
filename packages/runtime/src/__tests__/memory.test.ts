@@ -169,6 +169,34 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans live-mount guest paths modes and tags", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      liveMounts: [
+        { host: "./a", guest: "/mnt/a/" },
+        { host: "./b", guest: "/mnt/b", mode: "ro" },
+      ],
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.plannedLiveMounts).toEqual([
+      { host: "./a", guest: "/mnt/a", mode: "rw", tag: "machinen-lm0" },
+      { host: "./b", guest: "/mnt/b", mode: "ro", tag: "machinen-lm1" },
+    ]);
+  });
+
   it("plans stats-file env from caller or runtime-owned paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
@@ -222,8 +250,8 @@ describe("boot-plan helper schema", () => {
       hasCmd: false,
       rootDisk: "false",
       liveMountsResolved: [
-        { host: "/host/a", mode: "rw", tag: "machinen-lm0" },
-        { host: "/host/b", mode: "ro", tag: "machinen-lm1" },
+        { host: "/host/a", guest: "/mnt/a", mode: "rw", tag: "machinen-lm0" },
+        { host: "/host/b", guest: "/mnt/b", mode: "ro", tag: "machinen-lm1" },
       ],
     };
     const result = spawnSync(helper, ["boot-plan"], {

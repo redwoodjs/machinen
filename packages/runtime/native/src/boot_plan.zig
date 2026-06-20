@@ -12,6 +12,7 @@ const assert = std.debug.assert;
 
 const memory_floor_mib: u64 = 512;
 const memory_default_ceiling_mib: u64 = 4096;
+const max_live_mounts: usize = 5;
 
 pub const RootDiskMode = enum {
     unset,
@@ -92,8 +93,15 @@ pub const VmstateEnvPlan = struct {
     vmstate_timing: ?[]const u8,
 };
 
+pub const LiveMountInput = struct {
+    host: []const u8,
+    guest: []const u8,
+    mode: ?[]const u8 = null,
+};
+
 pub const LiveMount = struct {
     host: []const u8,
+    guest: []const u8,
     mode: []const u8,
     tag: []const u8,
 };
@@ -139,6 +147,8 @@ pub const PlanError = error{
     InvalidGuestCwdNul,
     InvalidMountGuestAbsolute,
     InvalidMountGuestRoot,
+    TooManyLiveMounts,
+    InvalidLiveMountMode,
 };
 
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
@@ -211,6 +221,20 @@ pub fn planVmstateEnv(input: VmstateEnvInput) VmstateEnvPlan {
         .restore_path = input.restore_path,
         .vmstate_timing = if (should_set_timing) "1" else null,
     };
+}
+
+pub fn planLiveMounts(allocator: std.mem.Allocator, mounts: []const LiveMountInput) ![]LiveMount {
+    if (mounts.len > max_live_mounts) return error.TooManyLiveMounts;
+    var out: std.ArrayList(LiveMount) = .empty;
+    errdefer out.deinit(allocator);
+    for (mounts, 0..) |mount, i| {
+        const mode = mount.mode orelse "rw";
+        if (!std.mem.eql(u8, mode, "ro") and !std.mem.eql(u8, mode, "rw")) return error.InvalidLiveMountMode;
+        const guest = try normalizeMountGuest(mount.guest);
+        const tag = try std.fmt.allocPrint(allocator, "machinen-lm{d}", .{i});
+        try out.append(allocator, .{ .host = mount.host, .guest = guest, .mode = mode, .tag = tag });
+    }
+    return out.toOwnedSlice(allocator);
 }
 
 pub fn planVirtiofsEnv(allocator: std.mem.Allocator, mounts: []const LiveMount) ![]EnvPair {
@@ -452,6 +476,29 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
 }
 
+test "planLiveMounts validates count guest paths modes and tags" {
+    const mounts = [_]LiveMountInput{
+        .{ .host = "./a", .guest = "/mnt/a", .mode = null },
+        .{ .host = "./b", .guest = "/mnt/b/", .mode = "ro" },
+    };
+    const planned = try planLiveMounts(std.testing.allocator, &mounts);
+    defer {
+        for (planned) |mount| std.testing.allocator.free(mount.tag);
+        std.testing.allocator.free(planned);
+    }
+    try std.testing.expectEqual(@as(usize, 2), planned.len);
+    try std.testing.expectEqualStrings("./a", planned[0].host);
+    try std.testing.expectEqualStrings("/mnt/a", planned[0].guest);
+    try std.testing.expectEqualStrings("rw", planned[0].mode);
+    try std.testing.expectEqualStrings("machinen-lm0", planned[0].tag);
+    try std.testing.expectEqualStrings("/mnt/b", planned[1].guest);
+    try std.testing.expectEqualStrings("ro", planned[1].mode);
+    try std.testing.expectEqualStrings("machinen-lm1", planned[1].tag);
+
+    const bad_mode = [_]LiveMountInput{.{ .host = "./a", .guest = "/mnt/a", .mode = "eager" }};
+    try std.testing.expectError(error.InvalidLiveMountMode, planLiveMounts(std.testing.allocator, &bad_mode));
+}
+
 test "planStatsFile preserves caller path or returns runtime-owned env value" {
     const existing = planStatsFile(.{ .existing_path = "/tmp/caller-stats.bin" });
     try std.testing.expectEqualStrings("/tmp/caller-stats.bin", existing.stats_file_path.?);
@@ -464,8 +511,8 @@ test "planStatsFile preserves caller path or returns runtime-owned env value" {
 
 test "planVirtiofsEnv formats indexed virtiofs env entries" {
     const mounts = [_]LiveMount{
-        .{ .host = "/host/a", .mode = "rw", .tag = "machinen-lm0" },
-        .{ .host = "/host/b", .mode = "ro", .tag = "machinen-lm1" },
+        .{ .host = "/host/a", .guest = "/mnt/a", .mode = "rw", .tag = "machinen-lm0" },
+        .{ .host = "/host/b", .guest = "/mnt/b", .mode = "ro", .tag = "machinen-lm1" },
     };
     const env = try planVirtiofsEnv(std.testing.allocator, &mounts);
     defer {

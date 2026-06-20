@@ -22,6 +22,7 @@ import {
   markMountDiskImageClean,
 } from "../mountdisk-img.ts";
 import { reflinkCopy } from "../reflink.ts";
+import { planBootLiveMountsNative } from "../native/boot-plan.ts";
 import type { BootOptions } from "./boot.ts";
 import type { SnapshotMeta } from "../vm-handle.ts";
 import { normalizeMountGuest, validateGuestCwd, validateMountGuest } from "./helpers.ts";
@@ -42,15 +43,6 @@ export interface ResolvedLiveMount {
   tag: string;
 }
 
-/**
- * The VMM wires this many virtio-fs slots (slots 7..11 — see
- * `MAX_VIRTIOFS_SLOTS` in boot_hvf.zig / boot_kvm.zig). One
- * `--mount-live` per slot. Note `restore({ lazy: true })` consumes
- * one slot internally to serve the page image, so a lazy restore can
- * carry at most `MAX_LIVE_MOUNTS - 1` user mounts.
- */
-const MAX_LIVE_MOUNTS = 5;
-
 export function resolveLiveMounts(
   mounts: Array<{
     host: string;
@@ -59,43 +51,23 @@ export function resolveLiveMounts(
   }>,
   cwd: string | undefined,
 ): ResolvedLiveMount[] {
-  // Every live mount is served by an in-VMM virtio-fs device (#332).
-  // The VMM wires MAX_LIVE_MOUNTS slots; a caller asking for more has
-  // nowhere to put the extras, so reject up front. (FUSE-over-vsock,
-  // the old unbounded fallback transport, was removed in #338.)
-  // Note: a `restore({ lazy: true })` appends one internal mount for
-  // the page image, so this cap counts that entry too.
-  if (mounts.length > MAX_LIVE_MOUNTS) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `liveMounts: at most ${MAX_LIVE_MOUNTS} live mounts are supported per VM ` +
-        `(got ${mounts.length}) — the VMM wires ${MAX_LIVE_MOUNTS} virtio-fs slots.`,
-    );
-  }
-  return mounts.map((m, i) => {
-    validateMountGuest(m.guest);
-    const hostAbs = resolve(cwd ?? process.cwd(), m.host);
+  const planned = planBootLiveMountsNative(mounts);
+  return planned.map((mount, i) => {
+    const hostAbs = resolve(cwd ?? process.cwd(), mount.host);
     if (!existsSync(hostAbs)) {
       throw new BootError(
         "BOOT_MOUNT_HOST_NOT_FOUND",
-        `liveMounts[${i}] host path not found: ${m.host}`,
+        `liveMounts[${i}] host path not found: ${mount.host}`,
       );
     }
     if (!statSync(hostAbs).isDirectory()) {
       throw new BootError(
         "BOOT_MOUNT_INVALID",
-        `liveMounts[${i}] host path must be a directory: ${m.host}`,
+        `liveMounts[${i}] host path must be a directory: ${mount.host}`,
       );
     }
-    rejectRemovedLiveMountOptions(m, i);
-    return {
-      host: hostAbs,
-      guest: normalizeMountGuest(m.guest),
-      mode: m.mode ?? "rw",
-      // Tag is the virtio-fs device's config-space identifier and must
-      // be ≤ 36 bytes (FsConfig.tag). `machinen-lm<i>` stays well under.
-      tag: `machinen-lm${i}`,
-    };
+    rejectRemovedLiveMountOptions(mounts[i] ?? {}, i);
+    return { ...mount, host: hostAbs };
   });
 }
 
