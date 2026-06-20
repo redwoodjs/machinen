@@ -37,6 +37,11 @@ const ParsedRequest = struct {
     live_mounts_resolved: []const boot_plan.LiveMount = &.{},
     existing_stats_file: ?[]const u8 = null,
     stats_file_path: ?[]const u8 = null,
+    config_cmd: []const []const u8 = &.{},
+    config_env: std.json.ObjectMap = .{},
+    config_guest_cwd: ?[]const u8 = null,
+    config_image_cwd: ?[]const u8 = null,
+    config_live_mounts: []const boot_plan.LiveMount = &.{},
 };
 
 const ParsedResourcesMemory = struct {
@@ -74,6 +79,11 @@ const boot_plan_fields = [_][]const u8{
     "liveMountsResolved",
     "existingStatsFile",
     "statsFilePath",
+    "configCmd",
+    "configEnv",
+    "configGuestCwd",
+    "configImageCwd",
+    "configLiveMounts",
 };
 
 const RequestError = error{
@@ -124,6 +134,12 @@ const RequestError = error{
     InvalidLiveMountTag,
     InvalidExistingStatsFile,
     InvalidStatsFilePath,
+    InvalidConfigCmd,
+    InvalidConfigEnv,
+    InvalidConfigEnvValue,
+    InvalidConfigGuestCwd,
+    InvalidConfigImageCwd,
+    InvalidConfigLiveMounts,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -162,6 +178,10 @@ const PlanParts = struct {
     virtiofs_env: []const boot_plan.EnvPair,
     stats_file: boot_plan.StatsFilePlan,
     planned_live_mounts: []const boot_plan.LiveMount,
+    config_cmd: []const []const u8,
+    config_env: []const boot_plan.EnvPair,
+    config_cwd: ?[]const u8,
+    config_live_mounts: []const boot_plan.LiveMount,
 };
 
 fn makeCorePlan(
@@ -208,6 +228,11 @@ fn makePlanParts(
         .existing_path = parsed.existing_stats_file,
         .planned_path = parsed.stats_file_path,
     });
+    const config_env = try makeConfigEnv(arena, parsed);
+    const config_cwd = boot_plan.planMachinenConfigCwd(.{
+        .guest_cwd = parsed.config_guest_cwd,
+        .image_cwd = parsed.config_image_cwd,
+    });
     return .{
         .plan = plan,
         .guest_env = guest_env,
@@ -218,6 +243,10 @@ fn makePlanParts(
         .virtiofs_env = virtiofs_env,
         .stats_file = stats_file,
         .planned_live_mounts = planned_live_mounts,
+        .config_cmd = parsed.config_cmd,
+        .config_env = config_env,
+        .config_cwd = config_cwd,
+        .config_live_mounts = parsed.config_live_mounts,
     };
 }
 
@@ -249,6 +278,10 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeNullableStringField(io, "vmmCommand", parts.vmm_argv.command, true);
     try writeStringArrayField(io, "vmmArgs", parts.vmm_argv.args, true);
     try writeEnvObjectField(io, "mergedGuestEnv", parts.guest_env, true);
+    try writeStringArrayField(io, "configCmd", parts.config_cmd, true);
+    try writeEnvObjectField(io, "configEnv", parts.config_env, true);
+    try writeNullableStringField(io, "configCwd", parts.config_cwd, true);
+    try writeLiveMountsArrayField(io, "configLiveMounts", parts.config_live_mounts, true);
     try protocol.stdout(io, "}}\n");
 }
 
@@ -440,6 +473,22 @@ fn makeGuestEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_pla
         .name = parsed.name,
         .vsock_uds_path = parsed.vsock_uds_path,
     });
+}
+
+fn makeConfigEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.EnvPair {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    var pairs: std.array_list.Aligned(boot_plan.EnvPair, null) = .empty;
+    errdefer pairs.deinit(allocator);
+    var it = parsed.config_env.iterator();
+    while (it.next()) |entry| {
+        if (entry.value_ptr.* != .string) return error.InvalidConfigEnvValue;
+        try pairs.append(allocator, .{
+            .key = entry.key_ptr.*,
+            .value = entry.value_ptr.string,
+        });
+    }
+    return pairs.toOwnedSlice(allocator);
 }
 
 fn makePlanInput(
@@ -666,7 +715,12 @@ fn parseKernelVmstateFields(
         error.InvalidExistingVmstateTiming,
     );
     request.live_mounts = try optionalLiveMounts(allocator, object);
-    request.live_mounts_resolved = try optionalLiveMountsResolved(allocator, object);
+    request.live_mounts_resolved = try optionalLiveMountsResolved(
+        allocator,
+        object,
+        "liveMountsResolved",
+        error.InvalidLiveMountsResolved,
+    );
     request.existing_stats_file = try optionalStringDefaultNull(
         object,
         "existingStatsFile",
@@ -676,6 +730,33 @@ fn parseKernelVmstateFields(
         object,
         "statsFilePath",
         error.InvalidStatsFilePath,
+    );
+    request.config_cmd = try optionalStringArrayDefaultEmpty(
+        allocator,
+        object,
+        "configCmd",
+        error.InvalidConfigCmd,
+    );
+    request.config_env = try optionalObjectDefaultEmpty(
+        object,
+        "configEnv",
+        error.InvalidConfigEnv,
+    );
+    request.config_guest_cwd = try optionalStringDefaultNull(
+        object,
+        "configGuestCwd",
+        error.InvalidConfigGuestCwd,
+    );
+    request.config_image_cwd = try optionalStringDefaultNull(
+        object,
+        "configImageCwd",
+        error.InvalidConfigImageCwd,
+    );
+    request.config_live_mounts = try optionalLiveMountsResolved(
+        allocator,
+        object,
+        "configLiveMounts",
+        error.InvalidConfigLiveMounts,
     );
 }
 
@@ -711,16 +792,18 @@ fn optionalLiveMounts(
 fn optionalLiveMountsResolved(
     allocator: std.mem.Allocator,
     object: std.json.ObjectMap,
+    comptime field: []const u8,
+    invalid: RequestError,
 ) RequestError![]const boot_plan.LiveMount {
     assert(@sizeOf(boot_plan.LiveMount) > 0);
 
-    const value = object.get("liveMountsResolved") orelse return &.{};
+    const value = object.get(field) orelse return &.{};
     if (value == .null) return &.{};
-    if (value != .array) return error.InvalidLiveMountsResolved;
+    if (value != .array) return invalid;
     var mounts: std.array_list.Aligned(boot_plan.LiveMount, null) = .empty;
     errdefer mounts.deinit(allocator);
     for (value.array.items) |item| {
-        if (item != .object) return error.InvalidLiveMountsResolved;
+        if (item != .object) return invalid;
         try protocol.rejectUnknownFields(item.object, &.{ "host", "guest", "mode", "tag" });
         const host = item.object.get("host") orelse return error.InvalidLiveMountHost;
         const guest = item.object.get("guest") orelse return error.InvalidLiveMountGuest;
@@ -1005,6 +1088,11 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
             "INVALID_REQUEST",
             "boot-plan guestEnv values must be strings",
         ),
+        error.InvalidConfigEnvValue => try writeBootError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan configEnv values must be strings",
+        ),
         else => try writeBootError(io, "BOOT_MEMORY_INVALID", @errorName(err)),
     }
 }
@@ -1037,6 +1125,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
             "liveMounts: entries must include host and guest paths",
         ),
         error.InvalidLiveMountsResolved,
+        error.InvalidConfigLiveMounts,
         error.InvalidLiveMountHost,
         error.InvalidLiveMountMode,
         error.InvalidLiveMountTag,

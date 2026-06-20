@@ -38,6 +38,11 @@ interface NativeBootPlanInput {
   liveMountsResolved?: PlannedLiveMount[];
   existingStatsFile?: string;
   statsFilePath?: string;
+  configCmd?: string[];
+  configEnv?: Record<string, string>;
+  configGuestCwd?: string;
+  configImageCwd?: string;
+  configLiveMounts?: PlannedLiveMount[];
 }
 
 interface NativeBootPlanResult {
@@ -59,7 +64,15 @@ interface NativeBootPlanResult {
   plannedLiveMounts: PlannedLiveMount[];
   statsFilePath: string | null;
   vmmStatsFile: string | null;
+  machinenConfig: MachinenConfigPlan;
 }
+
+type MachinenConfigPlan = Record<string, unknown> & {
+  cmd: string[];
+  env: Record<string, string>;
+  cwd?: string;
+  liveMounts?: Array<{ guest: string; tag: string; mode: "ro" | "rw" }>;
+};
 
 export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanResult {
   return callRuntimeHelper({
@@ -102,6 +115,11 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     liveMountsResolved: input.liveMountsResolved ?? [],
     existingStatsFile: nullDefault(input.existingStatsFile),
     statsFilePath: nullDefault(input.statsFilePath),
+    configCmd: input.configCmd ?? [],
+    configEnv: input.configEnv ?? {},
+    configGuestCwd: nullDefault(input.configGuestCwd),
+    configImageCwd: nullDefault(input.configImageCwd),
+    configLiveMounts: input.configLiveMounts ?? [],
   };
 }
 
@@ -125,6 +143,26 @@ function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[]
 
 function nullDefault<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
+}
+
+export function planBootMachinenConfigNative(input: {
+  cmd: string[];
+  env: Record<string, string>;
+  guestCwd?: string;
+  imageCwd?: string;
+  liveMounts: PlannedLiveMount[];
+}): Record<string, unknown> {
+  return planBootCoreNative({
+    configCmd: input.cmd,
+    configEnv: input.env,
+    configGuestCwd: input.guestCwd,
+    configImageCwd: input.imageCwd,
+    configLiveMounts: input.liveMounts,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).machinenConfig;
 }
 
 export function planBootStatsFileNative(input: { existingPath?: string; plannedPath?: string }): {
@@ -285,6 +323,7 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     isPlannedLiveMountArray(data.plannedLiveMounts),
     nullableString(data.statsFilePath),
     nullableString(data.vmmStatsFile),
+    isMachinenConfigPlan(data.machinenConfig),
   ].every(Boolean);
 }
 
@@ -307,6 +346,43 @@ function isPlannedLiveMount(value: unknown): value is PlannedLiveMount {
     (mount.mode === "ro" || mount.mode === "rw") &&
     typeof mount.tag === "string"
   );
+}
+
+function isMachinenConfigPlan(value: unknown): value is MachinenConfigPlan {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const config = value as Partial<MachinenConfigPlan>;
+  return (
+    isStringArray(config.cmd) &&
+    isStringRecord(config.env) &&
+    optionalString(config.cwd) &&
+    optionalConfigLiveMounts(config.liveMounts)
+  );
+}
+
+function optionalConfigLiveMounts(value: unknown): boolean {
+  if (value === undefined) {
+    return true;
+  }
+  return (
+    Array.isArray(value) &&
+    value.every((mount) => {
+      if (!mount || typeof mount !== "object") {
+        return false;
+      }
+      const entry = mount as { guest?: unknown; tag?: unknown; mode?: unknown };
+      return (
+        typeof entry.guest === "string" &&
+        typeof entry.tag === "string" &&
+        (entry.mode === "ro" || entry.mode === "rw")
+      );
+    })
+  );
+}
+
+function optionalString(value: unknown): boolean {
+  return value === undefined || typeof value === "string";
 }
 
 function nullableString(value: unknown): boolean {

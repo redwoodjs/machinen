@@ -116,6 +116,11 @@ pub const StatsFilePlan = struct {
     vmm_stats_file: ?[]const u8,
 };
 
+pub const MachinenConfigInput = struct {
+    guest_cwd: ?[]const u8 = null,
+    image_cwd: ?[]const u8 = null,
+};
+
 pub const Input = struct {
     memory_mib: ?u64 = null,
     resources_memory: ?ResourcesMemory = null,
@@ -263,6 +268,10 @@ pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
         return .{ .stats_file_path = path, .vmm_stats_file = null };
     }
     return .{ .stats_file_path = input.planned_path, .vmm_stats_file = input.planned_path };
+}
+
+pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
+    return input.guest_cwd orelse input.image_cwd;
 }
 
 pub fn planVmmArgv(allocator: std.mem.Allocator, input: VmmArgvInput) !VmmArgvPlan {
@@ -474,6 +483,12 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planMachinenConfigCwd prefers guest cwd over image cwd" {
+    try std.testing.expectEqualStrings("/mnt/work", planMachinenConfigCwd(.{ .guest_cwd = "/mnt/work", .image_cwd = "/srv/app" }).?);
+    try std.testing.expectEqualStrings("/srv/app", planMachinenConfigCwd(.{ .image_cwd = "/srv/app" }).?);
+    try std.testing.expectEqual(@as(?[]const u8, null), planMachinenConfigCwd(.{}));
 }
 
 test "planLiveMounts validates count guest paths modes and tags" {

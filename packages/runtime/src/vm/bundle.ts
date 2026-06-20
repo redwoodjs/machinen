@@ -22,7 +22,7 @@ import {
   markMountDiskImageClean,
 } from "../mountdisk-img.ts";
 import { reflinkCopy } from "../reflink.ts";
-import { planBootLiveMountsNative } from "../native/boot-plan.ts";
+import { planBootLiveMountsNative, planBootMachinenConfigNative } from "../native/boot-plan.ts";
 import type { BootOptions } from "./boot.ts";
 import type { SnapshotMeta } from "../vm-handle.ts";
 import { normalizeMountGuest, validateGuestCwd, validateMountGuest } from "./helpers.ts";
@@ -104,25 +104,7 @@ export function buildMachinenConfig(input: {
   imageCwd?: string;
   liveMounts: ResolvedLiveMount[];
 }): Record<string, unknown> {
-  // cwd: image-baked default overlaid by user's guestCwd (same
-  // precedence as cmd/env). /init reads `cwd` and chdirs before exec.
-  const effectiveCwd = input.guestCwd ?? input.imageCwd;
-
-  const cfg: Record<string, unknown> = { cmd: input.cmd, env: input.env };
-  if (effectiveCwd !== undefined) {
-    cfg.cwd = effectiveCwd;
-  }
-  if (input.liveMounts.length > 0) {
-    // Host paths never cross into the guest's view. /init reads this
-    // and mounts read-only entries directly over virtio-fs (#332);
-    // writable entries get a guest-local overlay upper plus a sync script.
-    cfg.liveMounts = input.liveMounts.map((lm) => ({
-      guest: lm.guest,
-      tag: lm.tag,
-      mode: lm.mode,
-    }));
-  }
-  return cfg;
+  return planBootMachinenConfigNative(input);
 }
 
 /**
