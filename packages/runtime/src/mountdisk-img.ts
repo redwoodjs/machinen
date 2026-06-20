@@ -46,7 +46,6 @@
 // caller's PATH, or the env override.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   closeSync,
   existsSync,
@@ -54,22 +53,19 @@ import {
   mkdirSync,
   mkdtempSync,
   openSync,
-  readSync,
-  readdirSync,
-  readlinkSync,
   renameSync,
   rmSync,
   statSync,
   truncateSync,
   unlinkSync,
   writeSync,
-  lstatSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import { arch, homedir, platform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
 import { BootError, ProvisionError } from "./errors.ts";
+import { treeManifestHashNative } from "./native/tree-manifest-hash.ts";
 import { resolveMke2fs } from "./rootfs-img.ts";
 
 const debug = debugLib("machinen:mountdisk-img");
@@ -430,147 +426,13 @@ function whichFirst(names: string[]): string | undefined {
 }
 
 /**
- * Compute a sha256 over a sorted manifest of every entry under
- * `root`. Each line is `<relpath>\0<mode>\0<size>\0<mtime_ns>\0<extra>\n`,
- * where `<extra>` is the symlink target for symlinks or the file
- * sha256 for regular files.
- *
- * Trade-off: file-content sha makes the cache key bulletproof
- * (mtime alone could be wrong-but-same after a rebuild) but reads
- * every byte. Acceptable because the materialise path needs the
- * bytes anyway, and on cache *hits* the manifest still pays for one
- * walk + read of every file. If profiling demands, we can drop to
- * `(relpath, mode, size, mtime_ns)` later.
+ * Compute the mountdisk cache-key manifest hash in Zig. The manifest
+ * contract is intentionally still documented and tested here, but the
+ * filesystem walk, metadata normalization, and file hashing live in
+ * `machinen-runtime-helper tree-manifest-hash`.
  */
 export function treeManifestHash(root: string): string {
-  const lines: string[] = [];
-  walkForManifest(root, "", lines);
-  lines.sort();
-  const h = createHash("sha256");
-  for (const line of lines) {
-    h.update(line);
-    h.update("\n");
-  }
-  return h.digest("hex");
-}
-
-type ManifestStats = import("node:fs").Stats & { mtimeNs?: bigint };
-
-function walkForManifest(root: string, rel: string, out: string[]): void {
-  const here = rel ? join(root, rel) : root;
-  const entries = readManifestDir(here);
-  if (!entries) {
-    return;
-  }
-  for (const name of entries) {
-    appendManifestChild(root, rel, here, name, out);
-  }
-}
-
-function appendManifestChild(
-  root: string,
-  rel: string,
-  parentAbs: string,
-  name: string,
-  out: string[],
-): void {
-  const childRel = rel ? `${rel}/${name}` : name;
-  const childAbs = join(parentAbs, name);
-  const st = tryManifestLstat(childAbs);
-  if (!st) {
-    return;
-  }
-  out.push(manifestLineForStats(childRel, childAbs, st));
-  walkManifestDirectoryIfNeeded(root, childRel, st, out);
-}
-
-function manifestLineForStats(childRel: string, childAbs: string, st: ManifestStats): string {
-  const mode = (st.mode & 0o7777).toString(8);
-  const mtimeNs = manifestMtimeNs(st);
-  if (st.isSymbolicLink()) {
-    return symlinkManifestLine(childRel, childAbs, mode, mtimeNs);
-  }
-  if (st.isDirectory()) {
-    return `${childRel}\0D\0${mode}\0\0${mtimeNs}\0`;
-  }
-  if (st.isFile()) {
-    return `${childRel}\0F\0${mode}\0${st.size}\0${mtimeNs}\0${sha256OfFile(childAbs)}`;
-  }
-  // sockets, pipes, device nodes — squashfs would refuse those on a
-  // regular host fs anyway. Hash a placeholder so the key changes when
-  // they appear/disappear.
-  return `${childRel}\0?\0${mode}\0\0${mtimeNs}\0`;
-}
-
-function symlinkManifestLine(
-  childRel: string,
-  childAbs: string,
-  mode: string,
-  mtimeNs: string,
-): string {
-  const target = tryReadlink(childAbs);
-  return `${childRel}\0L\0${mode}\0${target.length}\0${mtimeNs}\0${target}`;
-}
-
-function manifestMtimeNs(st: ManifestStats): string {
-  // mtimeMs is a non-integer float on some platforms; mtimeNs is a
-  // bigint when bigint=true and unset otherwise. Either way, we need a
-  // stable string. Floor to ms when nanoseconds aren't available — same
-  // precision Node 18+ exposes anyway.
-  return String(st.mtimeNs ?? BigInt(Math.floor(st.mtimeMs)) * BigInt(1_000_000));
-}
-
-function walkManifestDirectoryIfNeeded(
-  root: string,
-  childRel: string,
-  st: ManifestStats,
-  out: string[],
-): void {
-  if (st.isDirectory()) {
-    walkForManifest(root, childRel, out);
-  }
-}
-
-function readManifestDir(here: string): string[] | undefined {
-  try {
-    return readdirSync(here).sort();
-  } catch {
-    return undefined;
-  }
-}
-
-function tryManifestLstat(childAbs: string): ManifestStats | undefined {
-  try {
-    return lstatSync(childAbs);
-  } catch {
-    return undefined;
-  }
-}
-
-function tryReadlink(childAbs: string): string {
-  try {
-    return readlinkSync(childAbs);
-  } catch {
-    return "";
-  }
-}
-
-function sha256OfFile(path: string): string {
-  const h = createHash("sha256");
-  const fd = openSync(path, "r");
-  try {
-    const buf = Buffer.alloc(64 * 1024);
-    while (true) {
-      const nread = readSync(fd, buf, 0, buf.length, null);
-      if (nread <= 0) {
-        break;
-      }
-      h.update(buf.subarray(0, nread));
-    }
-  } finally {
-    closeSync(fd);
-  }
-  return h.digest("hex");
+  return treeManifestHashNative(root);
 }
 
 function allocateSparseFile(path: string, sizeBytes: number): void {

@@ -20,6 +20,8 @@
   },
   "scripts": {
     "build": "tsup",
+    "native:build": "cd native && zig build",
+    "native:test": "cd native && zig build test",
     "typecheck": "tsgo --noEmit",
     "test": "vitest run",
     "prepublishOnly": "pnpm build"
