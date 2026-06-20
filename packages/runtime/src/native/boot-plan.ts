@@ -53,6 +53,8 @@ interface NativeBootPlanInput {
   bundleVmstateRestore?: boolean;
   bundleLiveMounts?: PlannedLiveMount[];
   bundleCommandRequired?: boolean;
+  bundleImageEnv?: Record<string, string>;
+  bundleGuestEnv?: Record<string, string>;
   scratchMode?: ScratchDiskMode;
   scratchSnapshotPath?: string;
   scratchRestoreClonePath?: string;
@@ -83,6 +85,7 @@ interface NativeBootPlanResult {
   vmmStatsFile: string | null;
   machinenConfig: MachinenConfigPlan;
   bundleCommand: string[];
+  bundleEnv: Record<string, string>;
   scratchDisk: ScratchDiskPlan;
   rootDiskRuntime: RootDiskRuntimePlan;
 }
@@ -169,6 +172,8 @@ function bundleCommandData(input: NativeBootPlanInput): Record<string, unknown> 
     bundleVmstateRestore: input.bundleVmstateRestore === true,
     bundleLiveMounts: input.bundleLiveMounts ?? [],
     bundleCommandRequired: input.bundleCommandRequired === true,
+    bundleImageEnv: input.bundleImageEnv ?? {},
+    bundleGuestEnv: input.bundleGuestEnv ?? {},
   };
 }
 
@@ -209,6 +214,20 @@ function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[]
 
 function nullDefault<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
+}
+
+export function planBootBundleEnvNative(input: {
+  imageEnv?: Record<string, string>;
+  guestEnv: Record<string, string>;
+}): Record<string, string> {
+  return planBootCoreNative({
+    bundleImageEnv: input.imageEnv,
+    bundleGuestEnv: input.guestEnv,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).bundleEnv;
 }
 
 export function planBootRootDiskRuntimeNative(input: {
@@ -448,6 +467,7 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     nullableString(data.vmmStatsFile),
     isMachinenConfigPlan(data.machinenConfig),
     isStringArray(data.bundleCommand),
+    isStringRecord(data.bundleEnv),
     isScratchDiskPlan(data.scratchDisk),
     isRootDiskRuntimePlan(data.rootDiskRuntime),
   ].every(Boolean);

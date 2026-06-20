@@ -48,6 +48,8 @@ const ParsedRequest = struct {
     bundle_vmstate_restore: bool = false,
     bundle_live_mounts: []const boot_plan.LiveMount = &.{},
     bundle_command_required: bool = false,
+    bundle_image_env: std.json.ObjectMap = .{},
+    bundle_guest_env: std.json.ObjectMap = .{},
     scratch_mode: boot_plan.ScratchDiskMode = .unset,
     scratch_snapshot_path: ?[]const u8 = null,
     scratch_restore_clone_path: ?[]const u8 = null,
@@ -103,6 +105,8 @@ const boot_plan_fields = [_][]const u8{
     "bundleVmstateRestore",
     "bundleLiveMounts",
     "bundleCommandRequired",
+    "bundleImageEnv",
+    "bundleGuestEnv",
     "scratchMode",
     "scratchSnapshotPath",
     "scratchRestoreClonePath",
@@ -172,6 +176,9 @@ const RequestError = error{
     InvalidBundleVmstateRestore,
     InvalidBundleLiveMounts,
     InvalidBundleCommandRequired,
+    InvalidBundleImageEnv,
+    InvalidBundleGuestEnv,
+    InvalidBundleEnvValue,
     InvalidScratchMode,
     InvalidScratchSnapshotPath,
     InvalidScratchRestoreClonePath,
@@ -222,6 +229,7 @@ const PlanParts = struct {
     config_cwd: ?[]const u8,
     config_live_mounts: []const boot_plan.LiveMount,
     bundle_command: []const []const u8,
+    bundle_env: []const boot_plan.EnvPair,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
 };
@@ -285,6 +293,7 @@ fn makePlanParts(
         })
     else
         &.{};
+    const bundle_env = try makeBundleEnv(arena, parsed);
     const scratch_disk = try boot_plan.planScratchDisk(.{
         .mode = parsed.scratch_mode,
         .has_cmd = parsed.has_cmd,
@@ -313,6 +322,7 @@ fn makePlanParts(
         .config_cwd = config_cwd,
         .config_live_mounts = parsed.config_live_mounts,
         .bundle_command = bundle_command,
+        .bundle_env = bundle_env,
         .scratch_disk = scratch_disk,
         .root_disk_runtime = root_disk_runtime,
     };
@@ -351,6 +361,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeNullableStringField(io, "configCwd", parts.config_cwd, true);
     try writeLiveMountsArrayField(io, "configLiveMounts", parts.config_live_mounts, true);
     try writeStringArrayField(io, "bundleCommand", parts.bundle_command, true);
+    try writeEnvObjectField(io, "bundleEnv", parts.bundle_env, true);
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
     try protocol.stdout(io, "}}\n");
@@ -594,6 +605,43 @@ fn makeConfigEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_pl
     var it = parsed.config_env.iterator();
     while (it.next()) |entry| {
         if (entry.value_ptr.* != .string) return error.InvalidConfigEnvValue;
+        try pairs.append(allocator, .{
+            .key = entry.key_ptr.*,
+            .value = entry.value_ptr.string,
+        });
+    }
+    return pairs.toOwnedSlice(allocator);
+}
+
+fn makeBundleEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.EnvPair {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return boot_plan.planBundleEnv(allocator, .{
+        .image_env = try objectStringPairs(
+            allocator,
+            parsed.bundle_image_env,
+            error.InvalidBundleEnvValue,
+        ),
+        .guest_env = try objectStringPairs(
+            allocator,
+            parsed.bundle_guest_env,
+            error.InvalidBundleEnvValue,
+        ),
+    });
+}
+
+fn objectStringPairs(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+    invalid: anyerror,
+) ![]boot_plan.EnvPair {
+    assert(@sizeOf(boot_plan.EnvPair) > 0);
+
+    var pairs: std.array_list.Aligned(boot_plan.EnvPair, null) = .empty;
+    errdefer pairs.deinit(allocator);
+    var it = object.iterator();
+    while (it.next()) |entry| {
+        if (entry.value_ptr.* != .string) return invalid;
         try pairs.append(allocator, .{
             .key = entry.key_ptr.*,
             .value = entry.value_ptr.string,
@@ -902,6 +950,16 @@ fn parseKernelVmstateFields(
         "bundleCommandRequired",
         error.InvalidBundleCommandRequired,
     )) or hasBundleCommandField(object);
+    request.bundle_image_env = try optionalObjectDefaultEmpty(
+        object,
+        "bundleImageEnv",
+        error.InvalidBundleImageEnv,
+    );
+    request.bundle_guest_env = try optionalObjectDefaultEmpty(
+        object,
+        "bundleGuestEnv",
+        error.InvalidBundleGuestEnv,
+    );
     request.scratch_mode = try optionalScratchMode(object);
     request.scratch_snapshot_path = try optionalStringDefaultNull(
         object,
@@ -1320,6 +1378,11 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
             io,
             "INVALID_REQUEST",
             "boot-plan configEnv values must be strings",
+        ),
+        error.InvalidBundleEnvValue => try writeBootError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan bundle env values must be strings",
         ),
         error.MissingBundleCommand => try writeBootError(
             io,

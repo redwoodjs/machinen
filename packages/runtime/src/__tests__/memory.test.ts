@@ -294,6 +294,33 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans bundle env overlays", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      bundleImageEnv: { FOO: "image", BAR: "image" },
+      bundleGuestEnv: { FOO: "guest", BAZ: "guest" },
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.bundleEnv).toEqual({
+      FOO: "guest",
+      BAR: "image",
+      BAZ: "guest",
+    });
+  });
+
   it("plans rootdisk runtime actions", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
