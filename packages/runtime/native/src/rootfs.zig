@@ -55,6 +55,27 @@ pub const PrebakeDecompressResult = struct {
     sha256: ?[64]u8 = null,
 };
 
+pub const PrebakeTreeOptions = struct {
+    tar_path: []const u8,
+    tree_dir: []const u8,
+    cache_dir: []const u8,
+    mke2fs: []const u8,
+};
+
+pub const PrebakeTreePhases = struct {
+    sha256: i64 = 0,
+    mke2fs: i64 = 0,
+};
+
+pub const PrebakeTreeResult = struct {
+    ok: bool,
+    skipped: bool = false,
+    sha: ?[64]u8 = null,
+    img_path: ?[]u8 = null,
+    size_bytes: u64 = 0,
+    phases: PrebakeTreePhases = .{},
+};
+
 pub fn materializeFromTar(allocator: std.mem.Allocator, io: std.Io, opts: MaterializeOptions) Error!MaterializeResult {
     var phases: MaterializePhases = .{};
 
@@ -96,6 +117,46 @@ pub fn materializeFromTar(allocator: std.mem.Allocator, io: std.Io, opts: Materi
     phases.staging_cleanup = nowMs(io) - cleanup_start;
 
     return .{ .img_path = try allocator.dupe(u8, opts.img_path), .size_bytes = computed_size, .phases = phases };
+}
+
+pub fn prebakeFromTree(allocator: std.mem.Allocator, io: std.Io, opts: PrebakeTreeOptions) Error!PrebakeTreeResult {
+    var phases: PrebakeTreePhases = .{};
+
+    try std.Io.Dir.cwd().createDirPath(io, opts.cache_dir);
+    const sha_start = nowMs(io);
+    const sha = try sha256FileHex(io, opts.tar_path);
+    phases.sha256 = nowMs(io) - sha_start;
+
+    const img_path = try std.fmt.allocPrint(allocator, "{s}/{s}.img", .{ opts.cache_dir, &sha });
+    errdefer allocator.free(img_path);
+    if (existsFile(io, img_path)) {
+        return .{ .ok = true, .skipped = true, .sha = sha, .img_path = img_path, .phases = phases };
+    }
+
+    const staging_dir = try std.fmt.allocPrint(allocator, "{s}/{s}-prebake-tree-{d}", .{ opts.cache_dir, sha[0..12], nowNs(io) });
+    defer allocator.free(staging_dir);
+    try std.Io.Dir.cwd().createDir(io, staging_dir, .default_dir);
+    errdefer std.Io.Dir.cwd().deleteTree(io, staging_dir) catch {};
+    const staging_img = try std.fmt.allocPrint(allocator, "{s}/rootfs.img", .{staging_dir});
+    defer allocator.free(staging_img);
+
+    const tree_bytes = try duBytes(allocator, io, opts.tree_dir);
+    const size_bytes = @max(@as(u64, 2 * 1024 * 1024 * 1024), @as(u64, @intFromFloat(@ceil(@as(f64, @floatFromInt(tree_bytes)) * 2.5))));
+    try allocateSparseFile(io, staging_img, size_bytes);
+
+    const mke_start = nowMs(io);
+    runMke2fs(allocator, io, opts.mke2fs, opts.tree_dir, staging_img, size_bytes / 4096) catch |err| {
+        phases.mke2fs = nowMs(io) - mke_start;
+        switch (err) {
+            error.Mke2fsFailed => return .{ .ok = false, .sha = sha, .phases = phases },
+            else => |e| return e,
+        }
+    };
+    phases.mke2fs = nowMs(io) - mke_start;
+
+    try std.Io.Dir.renameAbsolute(staging_img, img_path, io);
+    std.Io.Dir.cwd().deleteTree(io, staging_dir) catch {};
+    return .{ .ok = true, .sha = sha, .img_path = img_path, .size_bytes = size_bytes, .phases = phases };
 }
 
 pub fn decompressPrebake(allocator: std.mem.Allocator, io: std.Io, opts: PrebakeDecompressOptions) Error!PrebakeDecompressResult {
@@ -223,6 +284,11 @@ fn sparseDecompressCommand(_: std.mem.Allocator, io: std.Io, argv: []const []con
     return .{ .ok = true, .sha256 = hexDigest(digest) };
 }
 
+fn existsFile(io: std.Io, path: []const u8) bool {
+    const st = std.Io.Dir.cwd().statFile(io, path, .{ .follow_symlinks = false }) catch return false;
+    return st.kind == .file;
+}
+
 fn isAllZero(bytes: []const u8) bool {
     for (bytes) |b| {
         if (b != 0) return false;
@@ -310,6 +376,52 @@ fn tmpRootAbs(allocator: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u
     const cwd = try std.process.currentPathAlloc(std.testing.io, allocator);
     defer allocator.free(cwd);
     return std.fs.path.join(allocator, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path });
+}
+
+test "prebakeFromTree builds cache image and skips existing image" {
+    const allocator = std.testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "rootfs.tar.gz", .data = "tarball" });
+    try tmp.dir.createDir(std.testing.io, "tree", .default_dir);
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "tree/file.txt", .data = "hello" });
+    try tmp.dir.createDir(std.testing.io, "cache", .default_dir);
+    var fake = try tmp.dir.createFile(std.testing.io, "mke2fs", .{ .permissions = .executable_file });
+    try fake.writeStreamingAll(std.testing.io,
+        \\#!/bin/sh
+        \\img="$9"
+        \\: > "$img"
+        \\dd if=/dev/zero of="$img" bs=1 count=0 seek=2048 2>/dev/null
+        \\printf '\123\357' | dd of="$img" bs=1 seek=1080 conv=notrunc 2>/dev/null
+        \\exit 0
+        \\
+    );
+    fake.close(std.testing.io);
+
+    const root = try tmpRootAbs(allocator, &tmp);
+    defer allocator.free(root);
+    const tar = try std.fs.path.join(allocator, &.{ root, "rootfs.tar.gz" });
+    defer allocator.free(tar);
+    const tree = try std.fs.path.join(allocator, &.{ root, "tree" });
+    defer allocator.free(tree);
+    const cache = try std.fs.path.join(allocator, &.{ root, "cache" });
+    defer allocator.free(cache);
+    const mke2fs = try std.fs.path.join(allocator, &.{ root, "mke2fs" });
+    defer allocator.free(mke2fs);
+
+    const result = try prebakeFromTree(allocator, std.testing.io, .{ .tar_path = tar, .tree_dir = tree, .cache_dir = cache, .mke2fs = mke2fs });
+    defer if (result.img_path) |img_path| allocator.free(img_path);
+    try std.testing.expect(result.ok);
+    try std.testing.expect(!result.skipped);
+    try std.testing.expectEqualStrings("db4b4d0d1cb480bf9aeea253771c00febe627f236765fa37d6a5614f079a3aa0", &result.sha.?);
+    try std.testing.expect(result.img_path != null);
+    const st = try std.Io.Dir.cwd().statFile(std.testing.io, result.img_path.?, .{});
+    try std.testing.expect(st.size >= 2048);
+
+    const skipped = try prebakeFromTree(allocator, std.testing.io, .{ .tar_path = tar, .tree_dir = tree, .cache_dir = cache, .mke2fs = mke2fs });
+    defer if (skipped.img_path) |img_path| allocator.free(img_path);
+    try std.testing.expect(skipped.ok);
+    try std.testing.expect(skipped.skipped);
 }
 
 test "decompressPrebake gunzip writes bytes and sha256" {
