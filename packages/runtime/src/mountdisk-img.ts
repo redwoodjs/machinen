@@ -45,26 +45,22 @@
 // overlay path. The runtime expects a working bundled package, the
 // caller's PATH, or the env override.
 
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import {
   closeSync,
   existsSync,
   fsyncSync,
   mkdirSync,
-  mkdtempSync,
   openSync,
   renameSync,
-  rmSync,
-  statSync,
-  truncateSync,
   unlinkSync,
-  writeSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import { arch, homedir, platform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
-import { BootError, ProvisionError } from "./errors.ts";
+import { BootError } from "./errors.ts";
+import { ensureMountDiskImageNative, ensureMountDiskUpperNative } from "./native/mountdisk.ts";
 import { treeManifestHashNative } from "./native/tree-manifest-hash.ts";
 import { resolveMke2fs } from "./rootfs-img.ts";
 
@@ -163,109 +159,32 @@ export function ensureMountDiskImage(
   opts: EnsureMountDiskImageOptions = {},
 ): EnsureMountDiskImageResult {
   const hostResolved = resolve(hostAbs);
-  if (!existsSync(hostResolved)) {
-    throw new BootError(
-      "BOOT_MOUNT_HOST_NOT_FOUND",
-      `ensureMountDiskImage: host directory not found at ${hostResolved}`,
-    );
-  }
-  if (!statSync(hostResolved).isDirectory()) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `ensureMountDiskImage: host path must be a directory: ${hostResolved}`,
-    );
-  }
-
   const cacheDir = opts.cacheDir ?? mountdiskImgCacheDir();
   mkdirSync(cacheDir, { recursive: true });
 
-  const hashT0 = Date.now();
-  const key = treeManifestHash(hostResolved);
-  opts.onPhase?.("manifest-hash", Date.now() - hashT0);
-  const imgPath = join(cacheDir, `${key}.sqfs`);
-  const okPath = okMarkerPath(imgPath);
+  const result = ensureMountDiskImageNative({
+    host: hostResolved,
+    cacheDir,
+    force: opts.force ?? false,
+    mksquashfsEnvOverride: process.env.MACHINEN_MKSQUASHFS,
+    mksquashfsCandidates: mksquashfsCandidates(),
+  });
 
-  if (!opts.force && existsSync(imgPath)) {
-    debug("cache hit key=%s img=%s", key.slice(0, 12), imgPath);
-    if (!existsSync(okPath)) {
-      // No clean-shutdown marker → the previous owner died mid-build
-      // (or the file was hand-placed). Treat as poisoned and rebuild.
-      debug("cache hit but no clean marker — rematerialising img=%s", imgPath);
-    } else {
-      try {
-        unlinkSync(okPath);
-      } catch {}
-      return { lowerPath: imgPath, key };
-    }
+  opts.onPhase?.("manifest-hash", result.phases.manifestHash);
+  if (result.phases.mksquashfs > 0) {
+    opts.onPhase?.("mksquashfs", result.phases.mksquashfs);
+  }
+  if (result.phases.stagingRename > 0) {
+    opts.onPhase?.("staging-rename", result.phases.stagingRename);
   }
 
-  // Resolve mksquashfs. Same precedence as `resolveMksquashfs()` below.
-  const mksquashfs = resolveMksquashfs();
-  if (!mksquashfs) {
-    throw new BootError(
-      "BOOT_MOUNTDISK_TOOL_MISSING",
-      "ensureMountDiskImage: no mksquashfs binary found (no bundled " +
-        "package for this platform; looked for mksquashfs on PATH and " +
-        "in Homebrew's prefix). Install it:\n" +
-        "  • macOS:  brew install squashfs\n" +
-        "  • Linux:  apt-get install -y squashfs-tools (or your distro's package)\n" +
-        "  • or set MACHINEN_MKSQUASHFS=/abs/path/to/mksquashfs to point at a vendored copy.",
-    );
-  }
-
-  // Materialize into a staging file so a host crash mid-write doesn't
-  // leave a torn `.sqfs` in the cache.
-  const stagingDir = mkdtempSync(join(cacheDir, `${key.slice(0, 12)}-staging-`));
-  const stagingImg = join(stagingDir, "lower.sqfs");
-  try {
-    debug("materialize key=%s host=%s", key.slice(0, 12), hostResolved);
-    const mkT0 = Date.now();
-    const args = [
-      hostResolved,
-      stagingImg,
-      // Determinism: zero out the filesystem-level timestamp and the
-      // per-file timestamps so the same input produces the same bytes.
-      "-mkfs-time",
-      "0",
-      "-all-time",
-      "0",
-      // Quiet output and disable on-write recovery file (we own the
-      // staging dir; if it dies we delete it).
-      "-no-progress",
-      "-no-recovery",
-      // Compression: zstd matches the kernel's CONFIG_SQUASHFS_ZSTD.
-      "-comp",
-      "zstd",
-      // Don't capture xattrs — we don't need them for the per-mount
-      // payload, and skipping makes the manifest hash and the
-      // mksquashfs output align (no xattr bytes vary across host fs).
-      "-no-xattrs",
-    ];
-    const mk = spawnSync(mksquashfs, args, {
-      stdio: ["ignore", "ignore", "pipe"],
-    });
-    opts.onPhase?.("mksquashfs", Date.now() - mkT0);
-    if (mk.status !== 0) {
-      throw new ProvisionError(
-        "PROVISION_INSTALL_HOOK_FAILED",
-        `ensureMountDiskImage: ${mksquashfs} failed (code ${mk.status}): ${mk.stderr?.toString() ?? ""}`,
-      );
-    }
-
-    // squashfs-tools writes a length that's a multiple of 4 KiB but
-    // not always of 512. Round up to the next 512-byte sector if
-    // needed — the VMM's blk.Backend asserts on the alignment.
-    const renameT0 = Date.now();
-    padTo512Boundary(stagingImg);
-    renameSync(stagingImg, imgPath);
-    opts.onPhase?.("staging-rename", Date.now() - renameT0);
-    debug("materialize done key=%s img=%s", key.slice(0, 12), imgPath);
-    return { lowerPath: imgPath, key };
-  } finally {
-    try {
-      rmSync(stagingDir, { recursive: true, force: true });
-    } catch {}
-  }
+  debug(
+    "%s key=%s img=%s",
+    result.cacheHit ? "cache hit" : "materialize done",
+    result.key.slice(0, 12),
+    result.lowerPath,
+  );
+  return { lowerPath: result.lowerPath, key: result.key };
 }
 
 export interface EnsureMountDiskUpperOptions {
@@ -311,7 +230,6 @@ export function ensureMountDiskUpper(
       `mountDiskUpperSizeBytes must be a positive multiple of 4096 (got ${sizeBytes})`,
     );
   }
-  // mke2fs lookup is shared with rootfs-img.ts.
   const mke2fs = resolveMke2fs();
   if (!mke2fs) {
     throw new BootError(
@@ -324,22 +242,11 @@ export function ensureMountDiskUpper(
     );
   }
 
-  const upperPath = join(tmpdir(), `machinen-mountdisk-upper-${process.pid}-${randomSuffix()}.img`);
-  allocateSparseFile(upperPath, sizeBytes);
-  const blocks = Math.floor(sizeBytes / 4096);
-  const r = spawnSync(mke2fs, ["-t", "ext4", "-F", "-q", "-b", "4096", upperPath, String(blocks)], {
-    stdio: ["ignore", "ignore", "pipe"],
+  return ensureMountDiskUpperNative({
+    tmpDir: tmpdir(),
+    sizeBytes,
+    mke2fs,
   });
-  if (r.status !== 0) {
-    try {
-      unlinkSync(upperPath);
-    } catch {}
-    throw new ProvisionError(
-      "PROVISION_INSTALL_HOOK_FAILED",
-      `ensureMountDiskUpper: ${mke2fs} failed (code ${r.status}): ${r.stderr?.toString() ?? ""}`,
-    );
-  }
-  return { upperPath, sizeBytes };
 }
 
 /**
@@ -354,6 +261,12 @@ export function resolveMksquashfs(): string | undefined {
     findBundledMksquashfs() ??
     whichFirst(["mksquashfs"]) ??
     findKegOnlyMksquashfs()
+  );
+}
+
+function mksquashfsCandidates(): string[] {
+  return [findBundledMksquashfs(), whichFirst(["mksquashfs"]), findKegOnlyMksquashfs()].filter(
+    (candidate): candidate is string => Boolean(candidate),
   );
 }
 
@@ -435,38 +348,6 @@ export function treeManifestHash(root: string): string {
   return treeManifestHashNative(root);
 }
 
-function allocateSparseFile(path: string, sizeBytes: number): void {
-  const fd = openSync(path, "w");
-  try {
-    const buf = Buffer.alloc(1);
-    writeSync(fd, buf, 0, 1, sizeBytes - 1);
-  } finally {
-    closeSync(fd);
-  }
-}
-
-/**
- * Pad a file's length up to the next multiple of 512 bytes. Squashfs
- * writes 4-KiB-aligned images, but mksquashfs sometimes emits a tail
- * that's not 512-aligned (xattr table, padding) — and the VMM's
- * blk.Backend.initFromFd asserts on `size % 512 == 0`. We grow with
- * truncate-up (sparse, free) rather than rewriting the file.
- */
-function padTo512Boundary(path: string): void {
-  const sz = statSync(path).size;
-  const remainder = sz % 512;
-  if (remainder === 0) {
-    return;
-  }
-  const padded = sz + (512 - remainder);
-  truncateSync(path, padded);
-}
-
-function randomSuffix(): string {
-  // 12 hex chars is overkill for collision avoidance inside one process.
-  return Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-6);
-}
-
 /**
  * Visible to tests that want to assert without invoking the real
  * materializer.
@@ -477,5 +358,4 @@ export const _mountdiskImgInternal = {
   findBundledMksquashfs,
   findKegOnlyMksquashfs,
   treeManifestHash,
-  padTo512Boundary,
 };

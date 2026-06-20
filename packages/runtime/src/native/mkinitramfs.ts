@@ -1,7 +1,7 @@
 import { MkinitramfsError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
 import { callRuntimeHelper } from "../native-helper.ts";
 
-export interface NativeMkinitramfsRequest {
+interface NativeMkinitramfsRequest {
   mode: "tiny" | "rootfs" | "workspace" | "minimal";
   out: string;
   rootfs?: string;
