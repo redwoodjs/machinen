@@ -1,5 +1,6 @@
 const std = @import("std");
 const protocol = @import("protocol.zig");
+const balloon_stats = @import("commands/balloon_stats.zig");
 const cleanup_path = @import("commands/cleanup_path.zig");
 const cpu_cgroup_apply = @import("commands/cpu_cgroup_apply.zig");
 const cpu_cgroup_remove = @import("commands/cpu_cgroup_remove.zig");
@@ -29,6 +30,14 @@ pub fn main(init: std.process.Init) !u8 {
         try protocol.writeError(g_io, "USAGE", "missing command");
         return @intFromEnum(protocol.Exit.usage);
     };
+
+    if (std.mem.eql(u8, command, balloon_stats.name)) {
+        if (it.next() != null) {
+            try protocol.writeError(g_io, "USAGE", "balloon-stats reads its JSON request from stdin and accepts no positional arguments");
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try balloon_stats.run(init.gpa, g_io));
+    }
 
     if (std.mem.eql(u8, command, cleanup_path.name)) {
         if (it.next() != null) {
@@ -167,7 +176,7 @@ pub fn main(init: std.process.Init) !u8 {
     }
 
     if (std.mem.eql(u8, command, "--help") or std.mem.eql(u8, command, "-h") or std.mem.eql(u8, command, "help")) {
-        try protocol.stdout(g_io, "{\"ok\":true,\"protocolVersion\":1,\"commands\":[\"cleanup-path\",\"cpu-cgroup-apply\",\"cpu-cgroup-remove\",\"host-memory\",\"host-rss\",\"mkinitramfs\",\"mountdisk-image\",\"mountdisk-upper\",\"nested-virt-probe\",\"pid-validate\",\"process-identity\",\"reflink-copy\",\"rootfs-cache-key\",\"rootfs-materialize\",\"rootfs-prebake-decompress\",\"rootfs-prebake-tree\",\"tree-manifest-hash\"]}\n");
+        try protocol.stdout(g_io, "{\"ok\":true,\"protocolVersion\":1,\"commands\":[\"balloon-stats\",\"cleanup-path\",\"cpu-cgroup-apply\",\"cpu-cgroup-remove\",\"host-memory\",\"host-rss\",\"mkinitramfs\",\"mountdisk-image\",\"mountdisk-upper\",\"nested-virt-probe\",\"pid-validate\",\"process-identity\",\"reflink-copy\",\"rootfs-cache-key\",\"rootfs-materialize\",\"rootfs-prebake-decompress\",\"rootfs-prebake-tree\",\"tree-manifest-hash\"]}\n");
         return @intFromEnum(protocol.Exit.ok);
     }
 

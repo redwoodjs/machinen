@@ -58,6 +58,12 @@ pub const NestedVirtResult = struct {
     }
 };
 
+pub const BalloonStats = struct {
+    bytes_reported: u64,
+    bytes_inflated: u64,
+    host_phys_footprint_bytes: u64,
+};
+
 pub const CleanupPathResult = struct {
     removed: bool,
     failed: bool,
@@ -133,6 +139,19 @@ pub fn applyCpuCgroup(allocator: std.mem.Allocator, io: std.Io, opts: CpuCgroupO
         return .{ .status = .unsupported, .reason = "hard CPU quota uses Linux cgroup v2" };
     }
     return applyCpuCgroupLinux(allocator, io, opts);
+}
+
+pub fn readBalloonStats(io: std.Io, path: []const u8) ?BalloonStats {
+    var file = std.Io.Dir.cwd().openFile(io, path, .{ .allow_directory = false }) catch return null;
+    defer file.close(io);
+    var buf: [24]u8 = undefined;
+    const n = file.readStreaming(io, &.{buf[0..]}) catch return null;
+    if (n < buf.len) return null;
+    return .{
+        .bytes_reported = std.mem.readInt(u64, buf[0..8], .little),
+        .bytes_inflated = std.mem.readInt(u64, buf[8..16], .little),
+        .host_phys_footprint_bytes = std.mem.readInt(u64, buf[16..24], .little),
+    };
 }
 
 pub fn cleanupPath(io: std.Io, path: []const u8, dry_run: bool) CleanupPathResult {
@@ -747,6 +766,40 @@ fn tmpRootAbs(allocator: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u
     const cwd = try std.process.currentPathAlloc(std.testing.io, allocator);
     defer allocator.free(cwd);
     return std.fs.path.join(allocator, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path });
+}
+
+test "readBalloonStats decodes 24-byte little-endian counters" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var buf: [24]u8 = undefined;
+    std.mem.writeInt(u64, buf[0..8], 0x1122_3344_5566_7788, .little);
+    std.mem.writeInt(u64, buf[8..16], 0x99aa_bbcc_ddee_ff00, .little);
+    std.mem.writeInt(u64, buf[16..24], 0x0011_2233_4455_6677, .little);
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "stats.bin", .data = &buf });
+    const root = try tmpRootAbs(std.testing.allocator, &tmp);
+    defer std.testing.allocator.free(root);
+    const path = try std.fs.path.join(std.testing.allocator, &.{ root, "stats.bin" });
+    defer std.testing.allocator.free(path);
+
+    const stats = readBalloonStats(std.testing.io, path).?;
+    try std.testing.expectEqual(@as(u64, 0x1122_3344_5566_7788), stats.bytes_reported);
+    try std.testing.expectEqual(@as(u64, 0x99aa_bbcc_ddee_ff00), stats.bytes_inflated);
+    try std.testing.expectEqual(@as(u64, 0x0011_2233_4455_6677), stats.host_phys_footprint_bytes);
+}
+
+test "readBalloonStats returns null for missing or short files" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "short.bin", .data = "too short" });
+    const root = try tmpRootAbs(std.testing.allocator, &tmp);
+    defer std.testing.allocator.free(root);
+    const short_path = try std.fs.path.join(std.testing.allocator, &.{ root, "short.bin" });
+    defer std.testing.allocator.free(short_path);
+    const missing_path = try std.fs.path.join(std.testing.allocator, &.{ root, "missing.bin" });
+    defer std.testing.allocator.free(missing_path);
+
+    try std.testing.expect(readBalloonStats(std.testing.io, short_path) == null);
+    try std.testing.expect(readBalloonStats(std.testing.io, missing_path) == null);
 }
 
 test "cleanupPath removes files and directories" {
