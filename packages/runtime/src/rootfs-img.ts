@@ -77,6 +77,7 @@ import { arch, homedir, platform } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
+import { rootfsCacheKeyNative } from "./native/rootfs.ts";
 import { SPARSE_GUNZIP_WORKER, SPARSE_ZSTD_WORKER } from "./rootfs-sparse-workers.ts";
 import {
   okMarkerPath,
@@ -258,16 +259,10 @@ function resolveRootfsCachePaths(
 }
 
 function resolveTarballSha(tarAbs: string, opts: EnsureRootfsImageOptions): string {
-  const sidecarT0 = Date.now();
-  const sidecarSha = readSha256Sidecar(tarAbs);
-  if (sidecarSha) {
-    opts.onPhase?.("sha256.sidecar", Date.now() - sidecarT0);
-    return sidecarSha;
-  }
-  const shaT0 = Date.now();
-  const sha = sha256OfFile(tarAbs);
-  opts.onPhase?.("sha256", Date.now() - shaT0);
-  return sha;
+  const keyT0 = Date.now();
+  const result = rootfsCacheKeyNative(tarAbs);
+  opts.onPhase?.(result.source === "sidecar" ? "sha256.sidecar" : "sha256", Date.now() - keyT0);
+  return result.sha;
 }
 
 function tryReusableCachedRootfs(

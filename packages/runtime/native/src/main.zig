@@ -3,6 +3,7 @@ const protocol = @import("protocol.zig");
 const mkinitramfs = @import("commands/mkinitramfs.zig");
 const mountdisk_image = @import("commands/mountdisk_image.zig");
 const mountdisk_upper = @import("commands/mountdisk_upper.zig");
+const rootfs_cache_key = @import("commands/rootfs_cache_key.zig");
 const tree_manifest_hash = @import("commands/tree_manifest_hash.zig");
 
 const assert = std.debug.assert;
@@ -13,6 +14,7 @@ pub fn main(init: std.process.Init) !u8 {
     assert(mkinitramfs.name.len > 0);
     assert(mountdisk_image.name.len > 0);
     assert(mountdisk_upper.name.len > 0);
+    assert(rootfs_cache_key.name.len > 0);
     assert(tree_manifest_hash.name.len > 0);
 
     g_io = init.io;
@@ -26,7 +28,7 @@ pub fn main(init: std.process.Init) !u8 {
     assert(command.len > 0);
 
     if (try runKnownCommand(init.gpa, &it, command)) |exit| return exit;
-    if (isHelp(command)) return try writeHelp(g_io);
+    if (isHelp(command)) return try writeHelp(init.gpa, g_io);
 
     try protocol.writeError(g_io, "UNKNOWN_COMMAND", "unknown command");
     return @intFromEnum(protocol.Exit.usage);
@@ -54,6 +56,12 @@ fn runKnownCommand(
             return @intFromEnum(protocol.Exit.usage);
         }
         return @intFromEnum(try mountdisk_upper.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, rootfs_cache_key.name)) {
+        if (try rejectExtraArgs(it, rootfs_cache_key.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try rootfs_cache_key.run(allocator, g_io));
     }
     if (std.mem.eql(u8, command, tree_manifest_hash.name)) {
         if (try rejectExtraArgs(it, tree_manifest_hash.name)) {
@@ -86,14 +94,23 @@ fn isHelp(command: []const u8) bool {
         std.mem.eql(u8, command, "help");
 }
 
-fn writeHelp(io: std.Io) !u8 {
+fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
     assert(mkinitramfs.name.len > 0);
+    assert(mountdisk_image.name.len > 0);
+    assert(mountdisk_upper.name.len > 0);
+    assert(rootfs_cache_key.name.len > 0);
+    assert(tree_manifest_hash.name.len > 0);
 
-    try protocol.stdout(
-        io,
-        "{\"ok\":true,\"protocolVersion\":1," ++
-            "\"commands\":[\"mkinitramfs\",\"mountdisk-image\"," ++
-            "\"mountdisk-upper\",\"tree-manifest-hash\"]}\n",
-    );
+    try protocol.writeJson(allocator, io, .{
+        .ok = true,
+        .protocolVersion = @as(u8, protocol.version),
+        .commands = .{
+            mkinitramfs.name,
+            mountdisk_image.name,
+            mountdisk_upper.name,
+            rootfs_cache_key.name,
+            tree_manifest_hash.name,
+        },
+    });
     return @intFromEnum(protocol.Exit.ok);
 }
