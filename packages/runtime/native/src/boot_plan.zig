@@ -139,6 +139,27 @@ pub const ScratchDiskPlan = struct {
     vmm_disk: ?[]const u8,
 };
 
+pub const RootDiskRuntimeMode = enum {
+    none,
+    path,
+    restore,
+    cached,
+};
+
+pub const RootDiskRuntimeInput = struct {
+    mode: RootDiskRuntimeMode = .none,
+    source_path: ?[]const u8 = null,
+    clone_path: ?[]const u8 = null,
+};
+
+pub const RootDiskRuntimePlan = struct {
+    action: []const u8,
+    source_path: ?[]const u8,
+    target_path: ?[]const u8,
+    per_boot_root_disk: ?[]const u8,
+    vmm_root_disk: ?[]const u8,
+};
+
 pub const MachinenConfigInput = struct {
     guest_cwd: ?[]const u8 = null,
     image_cwd: ?[]const u8 = null,
@@ -179,6 +200,7 @@ pub const PlanError = error{
     InvalidLiveMountMode,
     MissingBundleCommand,
     MissingScratchPath,
+    MissingRootDiskRuntimePath,
 };
 
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
@@ -277,6 +299,50 @@ pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
 
 pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
     return input.guest_cwd orelse input.image_cwd;
+}
+
+pub fn planRootDiskRuntime(input: RootDiskRuntimeInput) PlanError!RootDiskRuntimePlan {
+    return switch (input.mode) {
+        .none => .{
+            .action = "none",
+            .source_path = null,
+            .target_path = null,
+            .per_boot_root_disk = null,
+            .vmm_root_disk = null,
+        },
+        .path => blk: {
+            const source = input.source_path orelse return error.MissingRootDiskRuntimePath;
+            break :blk .{
+                .action = "existing",
+                .source_path = source,
+                .target_path = null,
+                .per_boot_root_disk = null,
+                .vmm_root_disk = source,
+            };
+        },
+        .restore => blk: {
+            const source = input.source_path orelse return error.MissingRootDiskRuntimePath;
+            const target = input.clone_path orelse return error.MissingRootDiskRuntimePath;
+            break :blk .{
+                .action = "clone-restore",
+                .source_path = source,
+                .target_path = target,
+                .per_boot_root_disk = target,
+                .vmm_root_disk = target,
+            };
+        },
+        .cached => blk: {
+            const source = input.source_path orelse return error.MissingRootDiskRuntimePath;
+            const target = input.clone_path orelse return error.MissingRootDiskRuntimePath;
+            break :blk .{
+                .action = "clone-cached",
+                .source_path = source,
+                .target_path = target,
+                .per_boot_root_disk = target,
+                .vmm_root_disk = target,
+            };
+        },
+    };
 }
 
 pub fn planScratchDisk(input: ScratchDiskInput) PlanError!ScratchDiskPlan {
@@ -547,6 +613,28 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planRootDiskRuntime selects existing restore and cached clone actions" {
+    const none = try planRootDiskRuntime(.{});
+    try std.testing.expectEqualStrings("none", none.action);
+    try std.testing.expect(none.vmm_root_disk == null);
+
+    const existing = try planRootDiskRuntime(.{ .mode = .path, .source_path = "/root.img" });
+    try std.testing.expectEqualStrings("existing", existing.action);
+    try std.testing.expectEqualStrings("/root.img", existing.vmm_root_disk.?);
+    try std.testing.expect(existing.per_boot_root_disk == null);
+
+    const restore = try planRootDiskRuntime(.{ .mode = .restore, .source_path = "/restore.img", .clone_path = "/restore-clone.img" });
+    try std.testing.expectEqualStrings("clone-restore", restore.action);
+    try std.testing.expectEqualStrings("/restore.img", restore.source_path.?);
+    try std.testing.expectEqualStrings("/restore-clone.img", restore.target_path.?);
+    try std.testing.expectEqualStrings("/restore-clone.img", restore.per_boot_root_disk.?);
+
+    const cached = try planRootDiskRuntime(.{ .mode = .cached, .source_path = "/cache.img", .clone_path = "/boot.img" });
+    try std.testing.expectEqualStrings("clone-cached", cached.action);
+    try std.testing.expectEqualStrings("/cache.img", cached.source_path.?);
+    try std.testing.expectEqualStrings("/boot.img", cached.vmm_root_disk.?);
 }
 
 test "planScratchDisk selects restore clone auto allocation and no-disk cases" {

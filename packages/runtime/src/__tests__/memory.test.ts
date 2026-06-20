@@ -294,6 +294,57 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans rootdisk runtime actions", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const existing = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, rootDiskRuntimeMode: "path", rootDiskSourcePath: "/tmp/root.img" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(existing.status).toBe(0);
+    expect(JSON.parse(existing.stdout).data.rootDiskRuntime).toEqual({
+      action: "existing",
+      sourcePath: "/tmp/root.img",
+      targetPath: null,
+      perBootRootDisk: null,
+      vmmRootDisk: "/tmp/root.img",
+    });
+
+    const cached = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          rootDiskRuntimeMode: "cached",
+          rootDiskSourcePath: "/tmp/cache.img",
+          rootDiskClonePath: "/tmp/boot.img",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(cached.status).toBe(0);
+    expect(JSON.parse(cached.stdout).data.rootDiskRuntime).toEqual({
+      action: "clone-cached",
+      sourcePath: "/tmp/cache.img",
+      targetPath: "/tmp/boot.img",
+      perBootRootDisk: "/tmp/boot.img",
+      vmmRootDisk: "/tmp/boot.img",
+    });
+  });
+
   it("plans machinen-config guest payloads", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
