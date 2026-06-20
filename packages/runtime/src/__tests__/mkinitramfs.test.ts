@@ -5,6 +5,7 @@
 // `cpio -id`) keeps the tests hermetic — not every CI runner ships a
 // cpio binary with matching flag semantics.
 
+import { execFileSync } from "node:child_process";
 import {
   closeSync,
   ftruncateSync,
@@ -18,8 +19,32 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { packBundle, packTinyBundle, patchConfigEnv } from "../mkinitramfs.ts";
+
+let helperTmp: string | undefined;
+let previousHelper: string | undefined;
+
+beforeAll(() => {
+  helperTmp = mkdtempSync(join(tmpdir(), "machinen-runtime-helper-test-"));
+  execFileSync("zig", ["build", "--prefix", helperTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousHelper = process.env.MACHINEN_RUNTIME_HELPER;
+  process.env.MACHINEN_RUNTIME_HELPER = join(helperTmp, "bin", "machinen-runtime-helper");
+});
+
+afterAll(() => {
+  if (previousHelper === undefined) {
+    delete process.env.MACHINEN_RUNTIME_HELPER;
+  } else {
+    process.env.MACHINEN_RUNTIME_HELPER = previousHelper;
+  }
+  if (helperTmp) {
+    rmSync(helperTmp, { recursive: true, force: true });
+  }
+});
 
 // Minimal parser for the newc cpio format produced by mkinitramfs.ts.
 // Returns a name → {data, mode} map for all non-TRAILER entries.
