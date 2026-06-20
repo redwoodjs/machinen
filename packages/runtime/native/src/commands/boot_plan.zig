@@ -51,6 +51,12 @@ const ParsedRequest = struct {
     bundle_image_env: std.json.ObjectMap = .{},
     bundle_guest_env: std.json.ObjectMap = .{},
     provision_guest_cpu: boot_plan.ProvisionGuestCpu = .arm64,
+    provision_base_path: ?[]const u8 = null,
+    provision_kernel_path: ?[]const u8 = null,
+    provision_dtb_path: ?[]const u8 = null,
+    provision_uds_path: ?[]const u8 = null,
+    provision_scratch_disk_path: ?[]const u8 = null,
+    provision_root_disk_path: ?[]const u8 = null,
     scratch_mode: boot_plan.ScratchDiskMode = .unset,
     scratch_snapshot_path: ?[]const u8 = null,
     scratch_restore_clone_path: ?[]const u8 = null,
@@ -128,6 +134,12 @@ const boot_plan_fields = [_][]const u8{
     "bundleImageEnv",
     "bundleGuestEnv",
     "provisionGuestCpu",
+    "provisionBasePath",
+    "provisionKernelPath",
+    "provisionDtbPath",
+    "provisionUdsPath",
+    "provisionScratchDiskPath",
+    "provisionRootDiskPath",
     "scratchMode",
     "scratchSnapshotPath",
     "scratchRestoreClonePath",
@@ -219,6 +231,12 @@ const RequestError = error{
     InvalidBundleImageEnv,
     InvalidBundleGuestEnv,
     InvalidProvisionGuestCpu,
+    InvalidProvisionBasePath,
+    InvalidProvisionKernelPath,
+    InvalidProvisionDtbPath,
+    InvalidProvisionUdsPath,
+    InvalidProvisionScratchDiskPath,
+    InvalidProvisionRootDiskPath,
     InvalidBundleEnvValue,
     InvalidScratchMode,
     InvalidScratchSnapshotPath,
@@ -284,6 +302,7 @@ const PlanParts = struct {
     bundle_command: []const []const u8,
     bundle_env: []const boot_plan.EnvPair,
     provision_assets: boot_plan.ProvisionAssetsPlan,
+    provision_boot: boot_plan.ProvisionBootPlan,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
@@ -310,6 +329,7 @@ const RuntimeParts = struct {
     bundle_command: []const []const u8,
     bundle_env: []const boot_plan.EnvPair,
     provision_assets: boot_plan.ProvisionAssetsPlan,
+    provision_boot: boot_plan.ProvisionBootPlan,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
@@ -361,6 +381,7 @@ fn makePlanParts(
         .provision_assets = boot_plan.planProvisionAssets(.{
             .guest_cpu = parsed.provision_guest_cpu,
         }),
+        .provision_boot = try makeProvisionBoot(arena, parsed),
         .scratch_disk = runtime.scratch_disk,
         .root_disk_runtime = runtime.root_disk_runtime,
         .mount_disk_runtime = runtime.mount_disk_runtime,
@@ -459,6 +480,22 @@ fn makeMountDiskRuntime(parsed: ParsedRequest) !boot_plan.MountDiskRuntimePlan {
     });
 }
 
+fn makeProvisionBoot(
+    arena: std.mem.Allocator,
+    parsed: ParsedRequest,
+) !boot_plan.ProvisionBootPlan {
+    assert(@sizeOf(boot_plan.ProvisionBootPlan) > 0);
+
+    return boot_plan.planProvisionBoot(arena, .{
+        .base_path = parsed.provision_base_path,
+        .kernel_path = parsed.provision_kernel_path,
+        .dtb_path = parsed.provision_dtb_path,
+        .uds_path = parsed.provision_uds_path,
+        .scratch_disk_path = parsed.provision_scratch_disk_path,
+        .root_disk_path = parsed.provision_root_disk_path,
+    });
+}
+
 fn makeRegistryShape(
     arena: std.mem.Allocator,
     parsed: ParsedRequest,
@@ -520,6 +557,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeStringArrayField(io, "bundleCommand", parts.bundle_command, true);
     try writeEnvObjectField(io, "bundleEnv", parts.bundle_env, true);
     try writeProvisionAssetsField(io, "provisionAssets", parts.provision_assets, true);
+    try writeProvisionBootField(io, "provisionBoot", parts.provision_boot, true);
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
     try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
@@ -679,6 +717,27 @@ fn writeProvisionAssetsField(
     try writeNullableStringField(io, "dtbAsset", assets.dtb_asset, true);
     try protocol.stdout(io, ",\"rootfsAsset\":");
     try protocol.writeJsonString(io, assets.rootfs_asset);
+    try protocol.stdout(io, "}");
+}
+
+fn writeProvisionBootField(
+    io: std.Io,
+    comptime field: []const u8,
+    boot: boot_plan.ProvisionBootPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "imagePath", boot.image_path, false);
+    try writeNullableStringField(io, "kernelPath", boot.kernel_path, true);
+    try writeNullableStringField(io, "dtbPath", boot.dtb_path, true);
+    try writeNullableStringField(io, "vmmVsock", boot.vmm_vsock, true);
+    try writeStringArrayField(io, "cmd", boot.cmd, true);
+    try writeEnvObjectField(io, "env", boot.env, true);
+    try writeNullableStringField(io, "snapshotPath", boot.snapshot_path, true);
+    try writeNullableStringField(io, "rootDiskPath", boot.root_disk_path, true);
     try protocol.stdout(io, "}");
 }
 
@@ -1313,6 +1372,12 @@ fn parseBundleFields(
         object,
         "bundleGuestEnv",
         "provisionGuestCpu",
+        "provisionBasePath",
+        "provisionKernelPath",
+        "provisionDtbPath",
+        "provisionUdsPath",
+        "provisionScratchDiskPath",
+        "provisionRootDiskPath",
         error.InvalidBundleGuestEnv,
     );
 }

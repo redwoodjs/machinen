@@ -294,6 +294,47 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans provision boot inputs", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionBasePath: "/base.tar.gz",
+          provisionKernelPath: "/Image",
+          provisionDtbPath: "/virt.dtb",
+          provisionUdsPath: "/tmp/exec.sock",
+          provisionScratchDiskPath: "/tmp/scratch.img",
+          provisionRootDiskPath: "/tmp/rootfs.img",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.provisionBoot).toEqual({
+      imagePath: "/base.tar.gz",
+      kernelPath: "/Image",
+      dtbPath: "/virt.dtb",
+      vmmVsock: "in:1978:/tmp/exec.sock",
+      cmd: ["/exec-agent"],
+      env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },
+      snapshotPath: "/tmp/scratch.img",
+      rootDiskPath: "/tmp/rootfs.img",
+    });
+  });
+
   it("plans provision asset names", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

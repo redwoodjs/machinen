@@ -40,7 +40,7 @@ import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
 import { VsockExec } from "./exec.ts";
 import type { OnLog } from "./log.ts";
-import { planProvisionAssetsNative } from "./native/boot-plan.ts";
+import { planProvisionAssetsNative, planProvisionBootNative } from "./native/boot-plan.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { reflinkCopy } from "./reflink.ts";
 import { boot, warmImageConfigCache } from "./vm/index.ts";
@@ -446,25 +446,43 @@ function cloneProvisionRootDisk(ctx: ProvisionContext): void {
 
 async function bootProvisionVm(opts: ProvisionOptions, ctx: ProvisionContext): Promise<VmHandle> {
   ctx.phases.start("boot");
+  const plan = planProvisionBootNative({
+    basePath: ctx.baseAbs,
+    kernelPath: ctx.kernelAbs,
+    dtbPath: ctx.dtbAbs,
+    udsPath: ctx.udsPath,
+    scratchDiskPath: ctx.diskPath,
+    rootDiskPath: ctx.rootDiskPath,
+  });
   const vm = await boot({
     binary: opts.binary,
     cwd: opts.cwd,
     vmmEnv: {
       ...opts.vmmEnv,
-      MACHINEN_VSOCK: `in:1978:${ctx.udsPath}`,
+      ...(plan.vmmVsock ? { MACHINEN_VSOCK: plan.vmmVsock } : {}),
     },
-    kernel: ctx.kernelAbs,
-    ...(ctx.dtbAbs ? { dtb: ctx.dtbAbs } : {}),
-    image: ctx.baseAbs,
-    cmd: ["/exec-agent"],
-    env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },
-    snapshot: ctx.diskPath,
-    rootDisk: ctx.rootDiskPath,
+    kernel: requireProvisionPlanString(plan.kernelPath, "kernelPath"),
+    ...(plan.dtbPath ? { dtb: plan.dtbPath } : {}),
+    image: requireProvisionPlanString(plan.imagePath, "imagePath"),
+    cmd: plan.cmd,
+    env: plan.env,
+    snapshot: requireProvisionPlanString(plan.snapshotPath, "snapshotPath"),
+    rootDisk: requireProvisionPlanString(plan.rootDiskPath, "rootDiskPath"),
     timeoutMs: null,
     onLog: opts.onLog,
   });
   ctx.phases.end("boot");
   return vm;
+}
+
+function requireProvisionPlanString(value: string | null, field: string): string {
+  if (value === null) {
+    throw new ProvisionError(
+      "PROVISION_BASE_NOT_FOUND",
+      `provision native planner returned missing ${field}`,
+    );
+  }
+  return value;
 }
 
 async function runProvisionVmWorkload(

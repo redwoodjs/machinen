@@ -101,6 +101,26 @@ pub const ProvisionAssetsPlan = struct {
     rootfs_asset: []const u8,
 };
 
+pub const ProvisionBootInput = struct {
+    base_path: ?[]const u8 = null,
+    kernel_path: ?[]const u8 = null,
+    dtb_path: ?[]const u8 = null,
+    uds_path: ?[]const u8 = null,
+    scratch_disk_path: ?[]const u8 = null,
+    root_disk_path: ?[]const u8 = null,
+};
+
+pub const ProvisionBootPlan = struct {
+    image_path: ?[]const u8,
+    kernel_path: ?[]const u8,
+    dtb_path: ?[]const u8,
+    vmm_vsock: ?[]const u8,
+    cmd: []const []const u8,
+    env: []const EnvPair,
+    snapshot_path: ?[]const u8,
+    root_disk_path: ?[]const u8,
+};
+
 pub const KernelDtbInput = struct {
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
@@ -437,6 +457,28 @@ pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
     assert(@sizeOf(MachinenConfigInput) > 0);
 
     return input.guest_cwd orelse input.image_cwd;
+}
+
+pub fn planProvisionBoot(allocator: std.mem.Allocator, input: ProvisionBootInput) !ProvisionBootPlan {
+    const cmd = try allocator.dupe([]const u8, &[_][]const u8{"/exec-agent"});
+    errdefer allocator.free(cmd);
+    const env = try allocator.dupe(EnvPair, &[_]EnvPair{.{ .key = "PATH", .value = "/usr/local/bin:/usr/bin:/bin:/sbin" }});
+    errdefer allocator.free(env);
+    const vmm_vsock = if (input.uds_path) |uds|
+        try std.fmt.allocPrint(allocator, "in:1978:{s}", .{uds})
+    else
+        null;
+    errdefer if (vmm_vsock) |spec| allocator.free(spec);
+    return .{
+        .image_path = input.base_path,
+        .kernel_path = input.kernel_path,
+        .dtb_path = input.dtb_path,
+        .vmm_vsock = vmm_vsock,
+        .cmd = cmd,
+        .env = env,
+        .snapshot_path = input.scratch_disk_path,
+        .root_disk_path = input.root_disk_path,
+    };
 }
 
 pub fn planProvisionAssets(input: ProvisionAssetsInput) ProvisionAssetsPlan {
@@ -1028,6 +1070,33 @@ test "planMountDiskRuntime selects restore and fresh actions" {
     try std.testing.expectEqualStrings("fresh", fresh.action);
     try std.testing.expect(fresh.source_upper_path == null);
     try std.testing.expectEqual(@as(u64, 8192), fresh.upper_size_bytes.?);
+}
+
+test "planProvisionBoot builds provision boot inputs" {
+    const allocator = std.testing.allocator;
+    const plan = try planProvisionBoot(allocator, .{
+        .base_path = "/base.tar.gz",
+        .kernel_path = "/Image",
+        .dtb_path = "/virt.dtb",
+        .uds_path = "/tmp/exec.sock",
+        .scratch_disk_path = "/tmp/scratch.img",
+        .root_disk_path = "/tmp/rootfs.img",
+    });
+    defer allocator.free(plan.cmd);
+    defer allocator.free(plan.env);
+    defer if (plan.vmm_vsock) |spec| allocator.free(spec);
+
+    try std.testing.expectEqualStrings("/base.tar.gz", plan.image_path.?);
+    try std.testing.expectEqualStrings("/Image", plan.kernel_path.?);
+    try std.testing.expectEqualStrings("/virt.dtb", plan.dtb_path.?);
+    try std.testing.expectEqualStrings("in:1978:/tmp/exec.sock", plan.vmm_vsock.?);
+    try std.testing.expectEqual(@as(usize, 1), plan.cmd.len);
+    try std.testing.expectEqualStrings("/exec-agent", plan.cmd[0]);
+    try std.testing.expectEqual(@as(usize, 1), plan.env.len);
+    try std.testing.expectEqualStrings("PATH", plan.env[0].key);
+    try std.testing.expectEqualStrings("/usr/local/bin:/usr/bin:/bin:/sbin", plan.env[0].value);
+    try std.testing.expectEqualStrings("/tmp/scratch.img", plan.snapshot_path.?);
+    try std.testing.expectEqualStrings("/tmp/rootfs.img", plan.root_disk_path.?);
 }
 
 test "planProvisionAssets selects asset names by guest CPU" {
