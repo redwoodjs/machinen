@@ -56,6 +56,21 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(pty);
 
+    const winsize_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    winsize_mod.addCSourceFile(.{
+        .file = b.path("src/winsize.c"),
+        .flags = &.{ "-O2", "-Wall", "-Wextra" },
+    });
+    const winsize = b.addExecutable(.{
+        .name = "machinen-winsize",
+        .root_module = winsize_mod,
+    });
+    b.installArtifact(winsize);
+
     const run_step = b.step("run", "Run machinen-runtime-helper");
     const run_cmd = b.addRunArtifact(exe);
     run_step.dependOn(&run_cmd.step);

@@ -24,6 +24,7 @@ DEST_DIR="$ROOT/packages/native-${PKG_ARCH}-${PKG_OS}/vmm/bin"
 DEST="$DEST_DIR/machinen-runtime-helper"
 PDEATHSIG_DEST="$DEST_DIR/machinen-pdeathsig"
 PTY_DEST="$DEST_DIR/machinen-pty"
+WINSIZE_DEST="$DEST_DIR/machinen-winsize"
 
 echo "==> building machinen-runtime-helper (zig ReleaseSafe)"
 ( cd "$PKG" && zig build -Doptimize=ReleaseSafe )
@@ -33,6 +34,7 @@ mkdir -p "$DEST_DIR"
 cp "$PKG/zig-out/bin/machinen-runtime-helper" "$DEST"
 cp "$PKG/zig-out/bin/machinen-pdeathsig" "$PDEATHSIG_DEST"
 cp "$PKG/zig-out/bin/machinen-pty" "$PTY_DEST"
+cp "$PKG/zig-out/bin/machinen-winsize" "$WINSIZE_DEST"
 
 if [[ "$OS" == "Darwin" ]]; then
   # machinen-runtime-helper does not need entitlements, but clearing provenance
@@ -40,6 +42,7 @@ if [[ "$OS" == "Darwin" ]]; then
   xattr -c "$DEST" || true
   xattr -c "$PDEATHSIG_DEST" || true
   xattr -c "$PTY_DEST" || true
+  xattr -c "$WINSIZE_DEST" || true
 fi
 
 echo "==> Done."
