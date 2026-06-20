@@ -51,6 +51,7 @@ import { PhaseTimer } from "../phase-timer.ts";
 import { readProcessIdentity } from "../pid-validate.ts";
 import { applyCpuControls, type CpuControlResult } from "../cpu-cgroup.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
+import { planBootCoreNative, rootDiskPlanMode } from "../native/boot-plan.ts";
 import { reflinkCopy } from "../reflink.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
@@ -59,12 +60,11 @@ import { resolveLiveMounts, synthesizeAndPackBundle, type ResolvedLiveMount } fr
 import { installVmExitCleanup } from "./exit-cleanup.ts";
 import { performForkWithRestore } from "./fork-core.ts";
 import { validateBatchLiveMounts, withBatchLiveMountSync } from "./live-mount-batch.ts";
-import { resolveExplicitMemoryCeilingMib, type BootResourcesOptions } from "./memory-resources.ts";
+import type { BootResourcesOptions } from "./memory-resources.ts";
 import { registryCpu } from "./registry-cpu.ts";
 import type { VmHandle } from "../vm-handle.ts";
 import {
   allocateSparseFile,
-  autoSizeMemoryMib,
   buildGuestHostname,
   buildWriteFileCmds,
   collect,
@@ -931,11 +931,26 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
   const assets = await resolveBootAssets(opts, phases);
   const env = buildVmmEnv(opts);
   configureNestedVirtualization(opts, assets.binary, env);
-  const memoryCeilingMib = setMemoryCeiling(opts, env);
+  const corePlan = planBootCoreNative({
+    memoryMib: opts.memory,
+    resourcesMemory: opts.resources?.memory,
+    vmmMemoryPreset: env.MACHINEN_MEMORY !== undefined,
+    hasImage: opts.image !== undefined,
+    hasCmd: opts.cmd !== undefined,
+    rootDisk:
+      opts.rootDisk === false
+        ? "false"
+        : opts._rootDiskRestorePath !== undefined
+          ? "path"
+          : rootDiskPlanMode(opts.rootDisk),
+  });
+  if (corePlan.vmmMemory !== null) {
+    env.MACHINEN_MEMORY = corePlan.vmmMemory;
+  }
+  const memoryCeilingMib = corePlan.memoryCeilingMib ?? undefined;
   const cpuPolicy = resolveCpuResourcePolicy(opts.resources?.cpu);
   const scratch = prepareBootScratchDisk(opts, env, phases);
-  const wantsRootDisk = wantsRootDiskBoot(opts);
-  validateRootDiskRequest(opts, wantsRootDisk);
+  const wantsRootDisk = corePlan.wantsRootDisk;
   validateKernelDtb(opts, env);
   const vsock = setupVsockBridge(env);
   const stats = setupStatsFile(env, vsock.vsockTempDir);
@@ -966,7 +981,6 @@ async function resolveBootAssets(
   const portForward = opts.portForward ?? [];
   await validatePortForwardOpts(opts, portForward);
   const binary = resolveBootBinary(opts);
-  validateBootCommandPair(opts);
   phases.end("asset-resolve");
   return { portForward, binary };
 }
@@ -978,12 +992,6 @@ function resolveBootBinary(opts: BootOptions): string {
     throw new BootError("BOOT_VMM_MISSING", `VMM binary not found at ${binary}`);
   }
   return binary;
-}
-
-function validateBootCommandPair(opts: BootOptions): void {
-  if (opts.cmd && !opts.image) {
-    throw new BootError("BOOT_CMD_WITHOUT_IMAGE", "boot: `image` is required when `cmd` is set.");
-  }
 }
 
 function buildVmmEnv(opts: BootOptions): Record<string, string> {
@@ -1002,22 +1010,6 @@ function prepareBootScratchDisk(
   const scratch = prepareScratchDisk(opts, env);
   phases.end("disk-prep");
   return scratch;
-}
-
-function wantsRootDiskBoot(opts: BootOptions): boolean {
-  return (
-    opts.rootDisk !== false &&
-    (opts._rootDiskRestorePath !== undefined || opts.rootDisk !== undefined || !!opts.image)
-  );
-}
-
-function validateRootDiskRequest(opts: BootOptions, wantsRootDisk: boolean): void {
-  if (wantsRootDisk && typeof opts.rootDisk !== "string" && !opts.image) {
-    throw new BootError(
-      "BOOT_CMD_WITHOUT_IMAGE",
-      "boot: rootDisk: true requires an `image` (the .tar.gz to materialize).",
-    );
-  }
 }
 
 function setupVmstateBoot(
@@ -1230,17 +1222,6 @@ function runtimeEntryImportPath(): string {
     return "../index.js";
   }
   return "./index.js";
-}
-
-function setMemoryCeiling(opts: BootOptions, env: Record<string, string>): number | undefined {
-  // Validate public API input even when lower-level vmmEnv wins.
-  const explicitCeiling = resolveExplicitMemoryCeilingMib(opts);
-  if (env.MACHINEN_MEMORY !== undefined) {
-    return undefined;
-  }
-  const ceiling = explicitCeiling ?? autoSizeMemoryMib();
-  env.MACHINEN_MEMORY = String(ceiling);
-  return ceiling;
 }
 
 // The scratch virtio-blk device serves two unrelated workloads:
