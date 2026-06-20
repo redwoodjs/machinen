@@ -1961,6 +1961,10 @@ function buildBootSnapshotContext(
   args: BootSnapshotContextArgs,
   handle: VmHandle,
 ): SnapshotContext {
+  const execRawForSnapshot: SnapshotContext["execRaw"] = handle.execRaw.bind(handle);
+  const syncVmstateForSnapshot = handle.syncVmstateSnapshot?.bind(handle);
+  const waitForSnapshot = handle.wait.bind(handle);
+  const killForSnapshot = handle.kill.bind(handle);
   return {
     pid: args.childPid,
     sourceName: args.vmName,
@@ -1977,10 +1981,10 @@ function buildBootSnapshotContext(
     vmstateChain: snapshotVmstateChain(args.vmstate),
     updateVmstateChain: snapshotVmstateUpdater(args.vmstate, args.childPid),
     nested: args.nested,
-    execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
-    syncVmstateSnapshot: (execOpts) => handle.syncVmstateSnapshot?.(execOpts),
-    wait: () => handle.wait(),
-    kill: () => handle.kill(),
+    execRaw: execRawForSnapshot,
+    syncVmstateSnapshot: syncVmstateForSnapshot,
+    wait: waitForSnapshot,
+    kill: killForSnapshot,
     teeGuestConsole: (onChunk) => {
       args.child.stderr.on("data", onChunk);
     },

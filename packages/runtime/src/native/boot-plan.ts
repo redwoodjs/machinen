@@ -4,7 +4,7 @@ import type { BootMemoryResourceOptions } from "../vm/memory-resources.ts";
 
 type RootDiskPlanMode = "unset" | "false" | "path" | "true";
 
-export interface NativeBootPlanInput {
+interface NativeBootPlanInput {
   memoryMib?: number;
   resourcesMemory?: BootMemoryResourceOptions;
   autoMemoryMib?: number;
@@ -13,12 +13,15 @@ export interface NativeBootPlanInput {
   hasImage: boolean;
   hasCmd: boolean;
   rootDisk: RootDiskPlanMode;
+  guestCwd?: string;
+  mountGuest?: string;
 }
 
-export interface NativeBootPlanResult {
+interface NativeBootPlanResult {
   memoryCeilingMib: number | null;
   vmmMemory: string | null;
   wantsRootDisk: boolean;
+  normalizedMountGuest: string | null;
 }
 
 export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanResult {
@@ -38,6 +41,8 @@ export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanRe
       hasImage: input.hasImage,
       hasCmd: input.hasCmd,
       rootDisk: input.rootDisk,
+      guestCwd: input.guestCwd ?? null,
+      mountGuest: input.mountGuest ?? null,
     },
     errorCode: "BOOT_MEMORY_INVALID",
     makeError: bootPlanError,
@@ -78,7 +83,8 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
   return (
     nullableNonNegativeNumber(data.memoryCeilingMib) &&
     (data.vmmMemory === null || typeof data.vmmMemory === "string") &&
-    typeof data.wantsRootDisk === "boolean"
+    typeof data.wantsRootDisk === "boolean" &&
+    (data.normalizedMountGuest === null || typeof data.normalizedMountGuest === "string")
   );
 }
 

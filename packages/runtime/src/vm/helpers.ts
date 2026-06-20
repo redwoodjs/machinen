@@ -145,35 +145,34 @@ export function parseVsockUdsPath(spec: string): string | undefined {
   return undefined;
 }
 
-// The user-facing mount root. Guest paths must live under this prefix
-// so mounts can never shadow the base rootfs or kernel filesystems.
-const MOUNT_ROOT = "/mnt/";
-
+// Guest path validation lives in the native boot planner so mount
+// planning rules stay aligned across boot, restore, and live mounts.
 export function normalizeMountGuest(guest: string): string {
-  return guest.replace(/\/+$/, "");
+  const plan = planBootCoreNative({
+    mountGuest: guest,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  if (plan.normalizedMountGuest === null) {
+    throw new BootError("BOOT_MOUNT_INVALID", "boot: native planner returned no mount guest");
+  }
+  return plan.normalizedMountGuest;
 }
 
 export function validateGuestCwd(cwd: string): void {
-  if (!cwd || !cwd.startsWith("/")) {
-    throw new BootError("BOOT_CWD_INVALID", `guestCwd must be an absolute path (got '${cwd}')`);
-  }
-  if (cwd.includes("\0")) {
-    throw new BootError("BOOT_CWD_INVALID", "guestCwd must not contain NUL bytes");
-  }
+  planBootCoreNative({
+    guestCwd: cwd,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
 }
 
 export function validateMountGuest(guest: string): void {
-  if (!guest || !guest.startsWith("/")) {
-    throw new BootError("BOOT_MOUNT_INVALID", `mount guest path must be absolute: ${guest}`);
-  }
-  const trimmed = normalizeMountGuest(guest);
-  if (!trimmed.startsWith(MOUNT_ROOT) || trimmed === MOUNT_ROOT.replace(/\/$/, "")) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `mount guest path must live under ${MOUNT_ROOT} (got ${guest}) — ` +
-        `pick a sub-path like ${MOUNT_ROOT}app`,
-    );
-  }
+  normalizeMountGuest(guest);
 }
 
 /**

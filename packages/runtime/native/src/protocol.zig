@@ -143,7 +143,7 @@ pub fn writeError(io: std.Io, code: []const u8, message: []const u8) !void {
     try stdout(io, "}}\n");
 }
 
-fn writeJsonString(io: std.Io, s: []const u8) !void {
+pub fn writeJsonString(io: std.Io, s: []const u8) !void {
     assert(s.len > 0);
 
     try stdout(io, "\"");
