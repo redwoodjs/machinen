@@ -19,6 +19,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const binary = join(here, "vmm", "bin", "machinen-vm");
 /** Host-side Zig helper for runtime-owned native operations. */
 export const runtimeHelper = join(here, "vmm", "bin", "machinen-runtime-helper");
+/** Parent-death wrapper used to keep host sidecars bound to the runtime process. */
+export const pdeathsig = join(here, "vmm", "bin", "machinen-pdeathsig");
 /**
  * gvproxy (containers/gvisor-tap-vsock) — the userspace TCP/IP sidecar
  * the runtime auto-spawns for virtio-net. Optional; absent installs
