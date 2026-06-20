@@ -69,6 +69,19 @@ pub const KernelDtbPlan = struct {
     vmm_dtb: ?[]const u8,
 };
 
+pub const VmstateEnvInput = struct {
+    state_path: ?[]const u8 = null,
+    restore_path: ?[]const u8 = null,
+    enable_timing: bool = false,
+    existing_timing: ?[]const u8 = null,
+};
+
+pub const VmstateEnvPlan = struct {
+    snapshot_path: ?[]const u8,
+    restore_path: ?[]const u8,
+    vmstate_timing: ?[]const u8,
+};
+
 pub const Input = struct {
     memory_mib: ?u64 = null,
     resources_memory: ?ResourcesMemory = null,
@@ -151,6 +164,17 @@ pub fn parseVsockUdsPath(spec: []const u8) ?[]const u8 {
 
 pub fn planKernelDtb(input: KernelDtbInput) KernelDtbPlan {
     return .{ .vmm_kernel = input.kernel_path, .vmm_dtb = input.dtb_path };
+}
+
+pub fn planVmstateEnv(input: VmstateEnvInput) VmstateEnvPlan {
+    const should_set_timing = input.restore_path != null and
+        input.enable_timing and
+        (input.existing_timing == null or input.existing_timing.?.len == 0);
+    return .{
+        .snapshot_path = input.state_path,
+        .restore_path = input.restore_path,
+        .vmstate_timing = if (should_set_timing) "1" else null,
+    };
 }
 
 pub fn planVmmArgv(allocator: std.mem.Allocator, input: VmmArgvInput) !VmmArgvPlan {
@@ -330,6 +354,24 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planVmstateEnv forwards snapshot restore and timing env" {
+    const plan = planVmstateEnv(.{
+        .state_path = "/tmp/state.vmstate",
+        .restore_path = "/tmp/restore.vmstate",
+        .enable_timing = true,
+    });
+    try std.testing.expectEqualStrings("/tmp/state.vmstate", plan.snapshot_path.?);
+    try std.testing.expectEqualStrings("/tmp/restore.vmstate", plan.restore_path.?);
+    try std.testing.expectEqualStrings("1", plan.vmstate_timing.?);
+
+    const preset = planVmstateEnv(.{
+        .restore_path = "/tmp/restore.vmstate",
+        .enable_timing = true,
+        .existing_timing = "0",
+    });
+    try std.testing.expectEqual(@as(?[]const u8, null), preset.vmstate_timing);
 }
 
 test "planKernelDtb forwards resolved kernel and dtb paths" {
