@@ -26,6 +26,7 @@ import {
   planBootBundleCommandNative,
   planBootBundleEnvNative,
   planBootLiveMountsNative,
+  planBootMountDiskRuntimeNative,
   planBootMachinenConfigNative,
 } from "../native/boot-plan.ts";
 import type { BootOptions } from "./boot.ts";
@@ -426,12 +427,16 @@ function materializeRestoredMountDisk(
     `machinen-mountdisk-upper-${process.pid}-${randomBytes(6).toString("hex")}.img`,
   );
   reflinkCopy(restoreMount.upperPath, perVMUpper);
-  return {
-    lowerPath: restoreMount.lowerPath,
-    upperPath: perVMUpper,
-    guest: restoreMount.guest,
-    upperSizeBytes: statSync(perVMUpper).size,
-  };
+  return requireMountDiskPlan(
+    planBootMountDiskRuntimeNative({
+      mode: "restore",
+      lowerPath: restoreMount.lowerPath,
+      upperPath: perVMUpper,
+      sourceUpperPath: restoreMount.upperPath,
+      guest: restoreMount.guest,
+      upperSizeBytes: statSync(perVMUpper).size,
+    }),
+  );
 }
 
 function materializeFreshMountDisk(
@@ -447,10 +452,35 @@ function materializeFreshMountDisk(
     sizeBytes: packerOpts.mountDiskUpperSizeBytes,
   });
   markMountDiskImageClean(lower.lowerPath);
+  return requireMountDiskPlan(
+    planBootMountDiskRuntimeNative({
+      mode: "fresh",
+      lowerPath: lower.lowerPath,
+      upperPath: upper.upperPath,
+      guest: mount.guest,
+      upperSizeBytes: upper.sizeBytes,
+    }),
+  );
+}
+
+function requireMountDiskPlan(
+  plan: ReturnType<typeof planBootMountDiskRuntimeNative>,
+): BundleMountDisk {
+  if (
+    plan.lowerPath === null ||
+    plan.upperPath === null ||
+    plan.guest === null ||
+    plan.upperSizeBytes === null
+  ) {
+    throw new BootError(
+      "BOOT_MOUNT_INVALID",
+      "boot: native planner returned incomplete mount disk plan",
+    );
+  }
   return {
-    lowerPath: lower.lowerPath,
-    upperPath: upper.upperPath,
-    guest: mount.guest,
-    upperSizeBytes: upper.sizeBytes,
+    lowerPath: plan.lowerPath,
+    upperPath: plan.upperPath,
+    guest: plan.guest,
+    upperSizeBytes: plan.upperSizeBytes,
   };
 }

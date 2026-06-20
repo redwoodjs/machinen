@@ -7,6 +7,8 @@ type ScratchDiskMode = "false" | "path" | "auto";
 type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
 type RootDiskRuntimeMode = "none" | "path" | "restore" | "cached";
 type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
+type MountDiskRuntimeMode = "none" | "restore" | "fresh";
+type MountDiskRuntimeAction = "none" | "restore" | "fresh";
 
 type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
 type LiveMountPlanInput = { host: string; guest: string; mode?: string };
@@ -62,6 +64,12 @@ interface NativeBootPlanInput {
   rootDiskRuntimeMode?: RootDiskRuntimeMode;
   rootDiskSourcePath?: string;
   rootDiskClonePath?: string;
+  mountDiskRuntimeMode?: MountDiskRuntimeMode;
+  mountDiskLowerPath?: string;
+  mountDiskUpperPath?: string;
+  mountDiskSourceUpperPath?: string;
+  mountDiskGuest?: string;
+  mountDiskUpperSize?: number;
 }
 
 interface NativeBootPlanResult {
@@ -88,6 +96,7 @@ interface NativeBootPlanResult {
   bundleEnv: Record<string, string>;
   scratchDisk: ScratchDiskPlan;
   rootDiskRuntime: RootDiskRuntimePlan;
+  mountDiskRuntime: MountDiskRuntimePlan;
 }
 
 type ScratchDiskPlan = {
@@ -103,6 +112,15 @@ type RootDiskRuntimePlan = {
   targetPath: string | null;
   perBootRootDisk: string | null;
   vmmRootDisk: string | null;
+};
+
+type MountDiskRuntimePlan = {
+  action: MountDiskRuntimeAction;
+  lowerPath: string | null;
+  upperPath: string | null;
+  sourceUpperPath: string | null;
+  guest: string | null;
+  upperSizeBytes: number | null;
 };
 
 type MachinenConfigPlan = Record<string, unknown> & {
@@ -161,6 +179,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     ...bundleCommandData(input),
     ...scratchDiskData(input),
     ...rootDiskRuntimeData(input),
+    ...mountDiskRuntimeData(input),
   };
 }
 
@@ -194,6 +213,17 @@ function rootDiskRuntimeData(input: NativeBootPlanInput): Record<string, unknown
   };
 }
 
+function mountDiskRuntimeData(input: NativeBootPlanInput): Record<string, unknown> {
+  return {
+    mountDiskRuntimeMode: input.mountDiskRuntimeMode ?? null,
+    mountDiskLowerPath: nullDefault(input.mountDiskLowerPath),
+    mountDiskUpperPath: nullDefault(input.mountDiskUpperPath),
+    mountDiskSourceUpperPath: nullDefault(input.mountDiskSourceUpperPath),
+    mountDiskGuest: nullDefault(input.mountDiskGuest),
+    mountDiskUpperSize: numberText(input.mountDiskUpperSize),
+  };
+}
+
 function resourcesMemoryData(memory: BootMemoryResourceOptions | undefined): unknown {
   if (!memory) {
     return null;
@@ -214,6 +244,28 @@ function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[]
 
 function nullDefault<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
+}
+
+export function planBootMountDiskRuntimeNative(input: {
+  mode: MountDiskRuntimeMode;
+  lowerPath?: string;
+  upperPath?: string;
+  sourceUpperPath?: string;
+  guest?: string;
+  upperSizeBytes?: number;
+}): MountDiskRuntimePlan {
+  return planBootCoreNative({
+    mountDiskRuntimeMode: input.mode,
+    mountDiskLowerPath: input.lowerPath,
+    mountDiskUpperPath: input.upperPath,
+    mountDiskSourceUpperPath: input.sourceUpperPath,
+    mountDiskGuest: input.guest,
+    mountDiskUpperSize: input.upperSizeBytes,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).mountDiskRuntime;
 }
 
 export function planBootBundleEnvNative(input: {
@@ -470,6 +522,7 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     isStringRecord(data.bundleEnv),
     isScratchDiskPlan(data.scratchDisk),
     isRootDiskRuntimePlan(data.rootDiskRuntime),
+    isMountDiskRuntimePlan(data.mountDiskRuntime),
   ].every(Boolean);
 }
 
@@ -519,6 +572,25 @@ function isRootDiskRuntimeAction(value: unknown): value is RootDiskRuntimeAction
     value === "clone-restore" ||
     value === "clone-cached"
   );
+}
+
+function isMountDiskRuntimePlan(value: unknown): value is MountDiskRuntimePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<MountDiskRuntimePlan>;
+  return (
+    isMountDiskRuntimeAction(plan.action) &&
+    nullableString(plan.lowerPath) &&
+    nullableString(plan.upperPath) &&
+    nullableString(plan.sourceUpperPath) &&
+    nullableString(plan.guest) &&
+    nullableNonNegativeNumber(plan.upperSizeBytes)
+  );
+}
+
+function isMountDiskRuntimeAction(value: unknown): value is MountDiskRuntimeAction {
+  return value === "none" || value === "restore" || value === "fresh";
 }
 
 function isPlannedLiveMount(value: unknown): value is PlannedLiveMount {

@@ -175,6 +175,30 @@ pub const RootDiskRuntimePlan = struct {
     vmm_root_disk: ?[]const u8,
 };
 
+pub const MountDiskRuntimeMode = enum {
+    none,
+    restore,
+    fresh,
+};
+
+pub const MountDiskRuntimeInput = struct {
+    mode: MountDiskRuntimeMode = .none,
+    lower_path: ?[]const u8 = null,
+    upper_path: ?[]const u8 = null,
+    source_upper_path: ?[]const u8 = null,
+    guest: ?[]const u8 = null,
+    upper_size_bytes: ?u64 = null,
+};
+
+pub const MountDiskRuntimePlan = struct {
+    action: []const u8,
+    lower_path: ?[]const u8,
+    upper_path: ?[]const u8,
+    source_upper_path: ?[]const u8,
+    guest: ?[]const u8,
+    upper_size_bytes: ?u64,
+};
+
 pub const MachinenConfigInput = struct {
     guest_cwd: ?[]const u8 = null,
     image_cwd: ?[]const u8 = null,
@@ -216,6 +240,7 @@ pub const PlanError = error{
     MissingBundleCommand,
     MissingScratchPath,
     MissingRootDiskRuntimePath,
+    MissingMountDiskRuntimeField,
 };
 
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
@@ -398,6 +423,48 @@ pub fn planRootDiskRuntime(input: RootDiskRuntimeInput) PlanError!RootDiskRuntim
                 .target_path = target,
                 .per_boot_root_disk = target,
                 .vmm_root_disk = target,
+            };
+        },
+    };
+}
+
+pub fn planMountDiskRuntime(input: MountDiskRuntimeInput) PlanError!MountDiskRuntimePlan {
+    return switch (input.mode) {
+        .none => .{
+            .action = "none",
+            .lower_path = null,
+            .upper_path = null,
+            .source_upper_path = null,
+            .guest = null,
+            .upper_size_bytes = null,
+        },
+        .restore => blk: {
+            const lower = input.lower_path orelse return error.MissingMountDiskRuntimeField;
+            const upper = input.upper_path orelse return error.MissingMountDiskRuntimeField;
+            const source_upper = input.source_upper_path orelse return error.MissingMountDiskRuntimeField;
+            const guest = input.guest orelse return error.MissingMountDiskRuntimeField;
+            const upper_size = input.upper_size_bytes orelse return error.MissingMountDiskRuntimeField;
+            break :blk .{
+                .action = "restore",
+                .lower_path = lower,
+                .upper_path = upper,
+                .source_upper_path = source_upper,
+                .guest = guest,
+                .upper_size_bytes = upper_size,
+            };
+        },
+        .fresh => blk: {
+            const lower = input.lower_path orelse return error.MissingMountDiskRuntimeField;
+            const upper = input.upper_path orelse return error.MissingMountDiskRuntimeField;
+            const guest = input.guest orelse return error.MissingMountDiskRuntimeField;
+            const upper_size = input.upper_size_bytes orelse return error.MissingMountDiskRuntimeField;
+            break :blk .{
+                .action = "fresh",
+                .lower_path = lower,
+                .upper_path = upper,
+                .source_upper_path = null,
+                .guest = guest,
+                .upper_size_bytes = upper_size,
             };
         },
     };
@@ -703,6 +770,38 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planMountDiskRuntime selects restore and fresh actions" {
+    const none = try planMountDiskRuntime(.{});
+    try std.testing.expectEqualStrings("none", none.action);
+    try std.testing.expect(none.lower_path == null);
+
+    const restore = try planMountDiskRuntime(.{
+        .mode = .restore,
+        .lower_path = "/lower.sqfs",
+        .upper_path = "/upper-copy.img",
+        .source_upper_path = "/upper.img",
+        .guest = "/mnt/data",
+        .upper_size_bytes = 4096,
+    });
+    try std.testing.expectEqualStrings("restore", restore.action);
+    try std.testing.expectEqualStrings("/lower.sqfs", restore.lower_path.?);
+    try std.testing.expectEqualStrings("/upper-copy.img", restore.upper_path.?);
+    try std.testing.expectEqualStrings("/upper.img", restore.source_upper_path.?);
+    try std.testing.expectEqualStrings("/mnt/data", restore.guest.?);
+    try std.testing.expectEqual(@as(u64, 4096), restore.upper_size_bytes.?);
+
+    const fresh = try planMountDiskRuntime(.{
+        .mode = .fresh,
+        .lower_path = "/lower.sqfs",
+        .upper_path = "/upper.img",
+        .guest = "/mnt/data",
+        .upper_size_bytes = 8192,
+    });
+    try std.testing.expectEqualStrings("fresh", fresh.action);
+    try std.testing.expect(fresh.source_upper_path == null);
+    try std.testing.expectEqual(@as(u64, 8192), fresh.upper_size_bytes.?);
 }
 
 test "planBundleEnv overlays guest env on image env" {

@@ -372,6 +372,69 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans mountdisk runtime actions", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const restore = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          mountDiskRuntimeMode: "restore",
+          mountDiskLowerPath: "/tmp/lower.sqfs",
+          mountDiskUpperPath: "/tmp/upper-copy.img",
+          mountDiskSourceUpperPath: "/tmp/upper.img",
+          mountDiskGuest: "/mnt/data",
+          mountDiskUpperSize: "4096",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(restore.status).toBe(0);
+    expect(JSON.parse(restore.stdout).data.mountDiskRuntime).toEqual({
+      action: "restore",
+      lowerPath: "/tmp/lower.sqfs",
+      upperPath: "/tmp/upper-copy.img",
+      sourceUpperPath: "/tmp/upper.img",
+      guest: "/mnt/data",
+      upperSizeBytes: 4096,
+    });
+
+    const fresh = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          mountDiskRuntimeMode: "fresh",
+          mountDiskLowerPath: "/tmp/lower.sqfs",
+          mountDiskUpperPath: "/tmp/upper.img",
+          mountDiskGuest: "/mnt/data",
+          mountDiskUpperSize: "8192",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(fresh.status).toBe(0);
+    expect(JSON.parse(fresh.stdout).data.mountDiskRuntime).toEqual({
+      action: "fresh",
+      lowerPath: "/tmp/lower.sqfs",
+      upperPath: "/tmp/upper.img",
+      sourceUpperPath: null,
+      guest: "/mnt/data",
+      upperSizeBytes: 8192,
+    });
+  });
+
   it("plans machinen-config guest payloads", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

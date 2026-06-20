@@ -57,6 +57,12 @@ const ParsedRequest = struct {
     root_disk_runtime_mode: boot_plan.RootDiskRuntimeMode = .none,
     root_disk_source_path: ?[]const u8 = null,
     root_disk_clone_path: ?[]const u8 = null,
+    mount_disk_runtime_mode: boot_plan.MountDiskRuntimeMode = .none,
+    mount_disk_lower_path: ?[]const u8 = null,
+    mount_disk_upper_path: ?[]const u8 = null,
+    mount_disk_source_upper_path: ?[]const u8 = null,
+    mount_disk_guest: ?[]const u8 = null,
+    mount_disk_upper_size_text: ?[]const u8 = null,
 };
 
 const ParsedResourcesMemory = struct {
@@ -114,6 +120,12 @@ const boot_plan_fields = [_][]const u8{
     "rootDiskRuntimeMode",
     "rootDiskSourcePath",
     "rootDiskClonePath",
+    "mountDiskRuntimeMode",
+    "mountDiskLowerPath",
+    "mountDiskUpperPath",
+    "mountDiskSourceUpperPath",
+    "mountDiskGuest",
+    "mountDiskUpperSize",
 };
 
 const RequestError = error{
@@ -186,6 +198,12 @@ const RequestError = error{
     InvalidRootDiskRuntimeMode,
     InvalidRootDiskSourcePath,
     InvalidRootDiskClonePath,
+    InvalidMountDiskRuntimeMode,
+    InvalidMountDiskLowerPath,
+    InvalidMountDiskUpperPath,
+    InvalidMountDiskSourceUpperPath,
+    InvalidMountDiskGuest,
+    InvalidMountDiskUpperSize,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -232,6 +250,7 @@ const PlanParts = struct {
     bundle_env: []const boot_plan.EnvPair,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
+    mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
 };
 
 fn makeCorePlan(
@@ -307,6 +326,18 @@ fn makePlanParts(
         .source_path = parsed.root_disk_source_path,
         .clone_path = parsed.root_disk_clone_path,
     });
+    const mount_disk_upper_size = if (parsed.mount_disk_upper_size_text) |text|
+        parseUnsigned(text) catch return error.InvalidMountDiskUpperSize
+    else
+        null;
+    const mount_disk_runtime = try boot_plan.planMountDiskRuntime(.{
+        .mode = parsed.mount_disk_runtime_mode,
+        .lower_path = parsed.mount_disk_lower_path,
+        .upper_path = parsed.mount_disk_upper_path,
+        .source_upper_path = parsed.mount_disk_source_upper_path,
+        .guest = parsed.mount_disk_guest,
+        .upper_size_bytes = mount_disk_upper_size,
+    });
     return .{
         .plan = plan,
         .guest_env = guest_env,
@@ -325,6 +356,7 @@ fn makePlanParts(
         .bundle_env = bundle_env,
         .scratch_disk = scratch_disk,
         .root_disk_runtime = root_disk_runtime,
+        .mount_disk_runtime = mount_disk_runtime,
     };
 }
 
@@ -364,6 +396,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeEnvObjectField(io, "bundleEnv", parts.bundle_env, true);
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
+    try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
     try protocol.stdout(io, "}}\n");
 }
 
@@ -540,6 +573,30 @@ fn writeRootDiskRuntimeField(
         true,
     );
     try writeNullableStringField(io, "vmmRootDisk", root_disk.vmm_root_disk, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeMountDiskRuntimeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mount_disk: boot_plan.MountDiskRuntimePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, mount_disk.action);
+    try writeNullableStringField(io, "lowerPath", mount_disk.lower_path, true);
+    try writeNullableStringField(io, "upperPath", mount_disk.upper_path, true);
+    try writeNullableStringField(
+        io,
+        "sourceUpperPath",
+        mount_disk.source_upper_path,
+        true,
+    );
+    try writeNullableStringField(io, "guest", mount_disk.guest, true);
+    try writeNullableU64Field(io, "upperSizeBytes", mount_disk.upper_size_bytes, true);
     try protocol.stdout(io, "}");
 }
 
@@ -987,6 +1044,32 @@ fn parseKernelVmstateFields(
         "rootDiskClonePath",
         error.InvalidRootDiskClonePath,
     );
+    request.mount_disk_runtime_mode = try optionalMountDiskRuntimeMode(object);
+    request.mount_disk_lower_path = try optionalStringDefaultNull(
+        object,
+        "mountDiskLowerPath",
+        error.InvalidMountDiskLowerPath,
+    );
+    request.mount_disk_upper_path = try optionalStringDefaultNull(
+        object,
+        "mountDiskUpperPath",
+        error.InvalidMountDiskUpperPath,
+    );
+    request.mount_disk_source_upper_path = try optionalStringDefaultNull(
+        object,
+        "mountDiskSourceUpperPath",
+        error.InvalidMountDiskSourceUpperPath,
+    );
+    request.mount_disk_guest = try optionalStringDefaultNull(
+        object,
+        "mountDiskGuest",
+        error.InvalidMountDiskGuest,
+    );
+    request.mount_disk_upper_size_text = try optionalStringDefaultNull(
+        object,
+        "mountDiskUpperSize",
+        error.InvalidMountDiskUpperSize,
+    );
 }
 
 fn hasBundleCommandField(object: std.json.ObjectMap) bool {
@@ -1024,6 +1107,16 @@ fn optionalRootDiskRuntimeMode(object: std.json.ObjectMap) RequestError!boot_pla
     if (std.mem.eql(u8, value.string, "restore")) return .restore;
     if (std.mem.eql(u8, value.string, "cached")) return .cached;
     return error.InvalidRootDiskRuntimeMode;
+}
+
+fn optionalMountDiskRuntimeMode(object: std.json.ObjectMap) RequestError!boot_plan.MountDiskRuntimeMode {
+    const value = object.get("mountDiskRuntimeMode") orelse return .none;
+    if (value == .null) return .none;
+    if (value != .string) return error.InvalidMountDiskRuntimeMode;
+    if (std.mem.eql(u8, value.string, "none")) return .none;
+    if (std.mem.eql(u8, value.string, "restore")) return .restore;
+    if (std.mem.eql(u8, value.string, "fresh")) return .fresh;
+    return error.InvalidMountDiskRuntimeMode;
 }
 
 fn optionalLiveMounts(
@@ -1398,6 +1491,16 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
             io,
             "BOOT_IMAGE_NOT_FOUND",
             "boot-plan rootDisk path missing",
+        ),
+        error.MissingMountDiskRuntimeField => try writeBootError(
+            io,
+            "BOOT_MOUNT_INVALID",
+            "boot-plan mountDisk field missing",
+        ),
+        error.InvalidMountDiskUpperSize => try writeBootError(
+            io,
+            "BOOT_MOUNT_INVALID",
+            "boot-plan mountDisk upper size must be an integer",
         ),
         else => try writeBootError(io, "BOOT_MEMORY_INVALID", @errorName(err)),
     }
