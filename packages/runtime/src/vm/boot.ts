@@ -53,6 +53,7 @@ import { applyCpuControls, type CpuControlResult } from "../cpu-cgroup.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
+  planBootKernelDtbNative,
   planBootVmmArgvNative,
   rootDiskPlanMode,
   validateBootPortForwardNative,
@@ -959,7 +960,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
   const cpuPolicy = resolveCpuResourcePolicy(opts.resources?.cpu);
   const scratch = prepareBootScratchDisk(opts, env, phases);
   const wantsRootDisk = corePlan.wantsRootDisk;
-  validateKernelDtb(opts, env);
+  setupKernelDtbEnv(opts, env);
   const vsock = setupVsockBridge(env);
   const stats = setupStatsFile(env, vsock.vsockTempDir);
   const vmstateSetup = setupVmstateBoot(opts, env, vsock.vsockTempDir);
@@ -1247,21 +1248,37 @@ function prepareScratchDisk(
   return { diskAbs: scratchPath, perBootSnapDisk: scratchPath };
 }
 
-function validateKernelDtb(opts: BootOptions, env: Record<string, string>): void {
-  if (opts.kernel) {
-    const abs = resolve(opts.cwd ?? process.cwd(), opts.kernel);
-    if (!existsSync(abs)) {
-      throw new BootError("BOOT_KERNEL_NOT_FOUND", `kernel not found: ${abs}`);
-    }
-    env.MACHINEN_KERNEL = abs;
+function setupKernelDtbEnv(opts: BootOptions, env: Record<string, string>): void {
+  const kernelPath = resolveOptionalBootPath(
+    opts.kernel,
+    opts.cwd,
+    "BOOT_KERNEL_NOT_FOUND",
+    "kernel",
+  );
+  const dtbPath = resolveOptionalBootPath(opts.dtb, opts.cwd, "BOOT_DTB_NOT_FOUND", "dtb");
+  const plan = planBootKernelDtbNative({ kernelPath, dtbPath });
+  if (plan.kernelPath) {
+    env.MACHINEN_KERNEL = plan.kernelPath;
   }
-  if (opts.dtb) {
-    const abs = resolve(opts.cwd ?? process.cwd(), opts.dtb);
-    if (!existsSync(abs)) {
-      throw new BootError("BOOT_DTB_NOT_FOUND", `dtb not found: ${abs}`);
-    }
-    env.MACHINEN_DTB = abs;
+  if (plan.dtbPath) {
+    env.MACHINEN_DTB = plan.dtbPath;
   }
+}
+
+function resolveOptionalBootPath(
+  input: string | undefined,
+  cwd: string | undefined,
+  code: "BOOT_KERNEL_NOT_FOUND" | "BOOT_DTB_NOT_FOUND",
+  label: "kernel" | "dtb",
+): string | undefined {
+  if (!input) {
+    return undefined;
+  }
+  const abs = resolve(cwd ?? process.cwd(), input);
+  if (!existsSync(abs)) {
+    throw new BootError(code, `${label} not found: ${abs}`);
+  }
+  return abs;
 }
 
 // #94: always wire up a vsock UDS bridge so `vm.exec()` works out of
