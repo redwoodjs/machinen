@@ -23,6 +23,21 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(exe);
 
+    const pdeathsig_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    pdeathsig_mod.addCSourceFile(.{
+        .file = b.path("src/pdeathsig.c"),
+        .flags = &.{ "-O2", "-Wall", "-Wextra" },
+    });
+    const pdeathsig = b.addExecutable(.{
+        .name = "machinen-pdeathsig",
+        .root_module = pdeathsig_mod,
+    });
+    b.installArtifact(pdeathsig);
+
     const run_step = b.step("run", "Run machinen-runtime-helper");
     const run_cmd = b.addRunArtifact(exe);
     run_step.dependOn(&run_cmd.step);
