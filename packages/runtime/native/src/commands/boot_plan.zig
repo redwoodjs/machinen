@@ -55,6 +55,9 @@ const ParsedRequest = struct {
     provision_uds_path: ?[]const u8,
     provision_scratch_disk_path: ?[]const u8,
     provision_root_disk_path: ?[]const u8,
+    provision_repack_disk_path: ?[]const u8,
+    provision_repack_out_path: ?[]const u8,
+    provision_repack_extract_dir: ?[]const u8,
     scratch_mode: boot_plan.ScratchDiskMode,
     scratch_snapshot_path: ?[]const u8,
     scratch_restore_clone_path: ?[]const u8,
@@ -157,6 +160,9 @@ const RequestError = error{
     InvalidProvisionUdsPath,
     InvalidProvisionScratchDiskPath,
     InvalidProvisionRootDiskPath,
+    InvalidProvisionRepackDiskPath,
+    InvalidProvisionRepackOutPath,
+    InvalidProvisionRepackExtractDir,
     InvalidBundleEnvValue,
     InvalidScratchMode,
     InvalidScratchSnapshotPath,
@@ -282,6 +288,15 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
+    const provision_workload = boot_plan.planProvisionWorkload();
+    const provision_repack = boot_plan.planProvisionRepack(arena, .{
+        .disk_path = parsed.provision_repack_disk_path,
+        .out_path = parsed.provision_repack_out_path,
+        .extract_dir = parsed.provision_repack_extract_dir,
+    }) catch |err| {
+        try writePlanError(io, err);
+        return .fail;
+    };
     const scratch_disk = boot_plan.planScratchDisk(.{
         .mode = parsed.scratch_mode,
         .has_cmd = parsed.has_cmd,
@@ -344,7 +359,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         return .fail;
     };
 
-    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env, stats_file, planned_live_mounts, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, provision_assets, provision_boot, scratch_disk, root_disk_runtime, mount_disk_runtime, registry_shape);
+    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env, stats_file, planned_live_mounts, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, provision_assets, provision_boot, provision_workload, provision_repack, scratch_disk, root_disk_runtime, mount_disk_runtime, registry_shape);
     return .ok;
 }
 
@@ -367,6 +382,8 @@ fn writePlan(
     bundle_env: []const boot_plan.EnvPair,
     provision_assets: boot_plan.ProvisionAssetsPlan,
     provision_boot: boot_plan.ProvisionBootPlan,
+    provision_workload: boot_plan.ProvisionWorkloadPlan,
+    provision_repack: boot_plan.ProvisionRepackPlan,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
@@ -513,6 +530,24 @@ fn writePlan(
     try protocol.stdout(io, ",\"rootDiskPath\":");
     try writeNullableJsonString(io, provision_boot.root_disk_path);
     try protocol.stdout(io, "}");
+    try protocol.stdout(io, ",\"provisionWorkload\":{");
+    try protocol.stdout(io, "\"tarToDiskCommand\":");
+    try protocol.writeJsonString(io, provision_workload.tar_to_disk_command);
+    try protocol.stdout(io, ",\"poweroffCommand\":");
+    try protocol.writeJsonString(io, provision_workload.poweroff_command);
+    try protocol.stdout(io, "}");
+    try protocol.stdout(io, ",\"provisionRepack\":{");
+    try protocol.stdout(io, "\"extractArgs\":[");
+    for (provision_repack.extract_args, 0..) |arg, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.writeJsonString(io, arg);
+    }
+    try protocol.stdout(io, "],\"targzArgs\":[");
+    for (provision_repack.targz_args, 0..) |arg, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.writeJsonString(io, arg);
+    }
+    try protocol.stdout(io, "]}");
     try protocol.stdout(io, ",\"scratchDisk\":{");
     try protocol.stdout(io, "\"action\":");
     try protocol.writeJsonString(io, scratch_disk.action);
@@ -755,7 +790,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -806,6 +841,9 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .provision_uds_path = try optionalStringDefaultNull(object, "provisionUdsPath", error.InvalidProvisionUdsPath),
         .provision_scratch_disk_path = try optionalStringDefaultNull(object, "provisionScratchDiskPath", error.InvalidProvisionScratchDiskPath),
         .provision_root_disk_path = try optionalStringDefaultNull(object, "provisionRootDiskPath", error.InvalidProvisionRootDiskPath),
+        .provision_repack_disk_path = try optionalStringDefaultNull(object, "provisionRepackDiskPath", error.InvalidProvisionRepackDiskPath),
+        .provision_repack_out_path = try optionalStringDefaultNull(object, "provisionRepackOutPath", error.InvalidProvisionRepackOutPath),
+        .provision_repack_extract_dir = try optionalStringDefaultNull(object, "provisionRepackExtractDir", error.InvalidProvisionRepackExtractDir),
         .scratch_mode = try optionalScratchMode(object),
         .scratch_snapshot_path = try optionalStringDefaultNull(object, "scratchSnapshotPath", error.InvalidScratchSnapshotPath),
         .scratch_restore_clone_path = try optionalStringDefaultNull(object, "scratchRestoreClonePath", error.InvalidScratchRestoreClonePath),
@@ -1112,6 +1150,7 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
         error.MissingRootDiskRuntimePath => try protocol.writeError(io, "BOOT_IMAGE_NOT_FOUND", "boot-plan rootDisk path missing"),
         error.MissingMountDiskRuntimeField => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan mountDisk field missing"),
         error.IncompleteRegistryMountDisk => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan registry mountDisk field missing"),
+        error.MissingProvisionRepackField => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision repack field missing"),
         error.UnsupportedHostMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: host memory probing is unsupported on this platform"),
         error.InvalidGuestEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan guestEnv values must be strings"),
         error.InvalidBundleEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan bundle env values must be strings"),

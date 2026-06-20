@@ -111,6 +111,22 @@ pub const ProvisionBootPlan = struct {
     root_disk_path: ?[]const u8,
 };
 
+pub const ProvisionWorkloadPlan = struct {
+    tar_to_disk_command: []const u8,
+    poweroff_command: []const u8,
+};
+
+pub const ProvisionRepackInput = struct {
+    disk_path: ?[]const u8 = null,
+    out_path: ?[]const u8 = null,
+    extract_dir: ?[]const u8 = null,
+};
+
+pub const ProvisionRepackPlan = struct {
+    extract_args: []const []const u8,
+    targz_args: []const []const u8,
+};
+
 pub const KernelDtbInput = struct {
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
@@ -316,6 +332,7 @@ pub const PlanError = error{
     MissingRootDiskRuntimePath,
     MissingMountDiskRuntimeField,
     IncompleteRegistryMountDisk,
+    MissingProvisionRepackField,
 };
 
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
@@ -414,6 +431,33 @@ pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
 
 pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
     return input.guest_cwd orelse input.image_cwd;
+}
+
+pub fn planProvisionWorkload() ProvisionWorkloadPlan {
+    return .{
+        .tar_to_disk_command = "tar -C / --exclude=./proc --exclude=./sys --exclude=./dev --exclude=./tmp --exclude=./run --exclude=./machinen-config.json --exclude=./etc/machinen-boot-epoch --sort=name --numeric-owner --owner=0 --group=0 -cf /dev/vdb .",
+        .poweroff_command = "/sbin/machinen-poweroff",
+    };
+}
+
+pub fn planProvisionRepack(allocator: std.mem.Allocator, input: ProvisionRepackInput) !ProvisionRepackPlan {
+    if (input.disk_path == null and input.out_path == null and input.extract_dir == null) {
+        return .{
+            .extract_args = &.{},
+            .targz_args = &.{},
+        };
+    }
+    const disk_path = input.disk_path orelse return error.MissingProvisionRepackField;
+    const out_path = input.out_path orelse return error.MissingProvisionRepackField;
+    const extract_dir = input.extract_dir orelse return error.MissingProvisionRepackField;
+    const extract_args = try allocator.dupe([]const u8, &[_][]const u8{ "-xf", disk_path, "-C", extract_dir });
+    errdefer allocator.free(extract_args);
+    const targz_args = try allocator.dupe([]const u8, &[_][]const u8{ "-czf", out_path, "-C", extract_dir, "." });
+    errdefer allocator.free(targz_args);
+    return .{
+        .extract_args = extract_args,
+        .targz_args = targz_args,
+    };
 }
 
 pub fn planProvisionBoot(allocator: std.mem.Allocator, input: ProvisionBootInput) !ProvisionBootPlan {
@@ -960,6 +1004,24 @@ test "planMountDiskRuntime selects restore and fresh actions" {
     try std.testing.expectEqualStrings("fresh", fresh.action);
     try std.testing.expect(fresh.source_upper_path == null);
     try std.testing.expectEqual(@as(u64, 8192), fresh.upper_size_bytes.?);
+}
+
+test "planProvisionWorkload and planProvisionRepack build commands" {
+    const workload = planProvisionWorkload();
+    try std.testing.expect(std.mem.startsWith(u8, workload.tar_to_disk_command, "tar -C /"));
+    try std.testing.expect(std.mem.endsWith(u8, workload.tar_to_disk_command, "-cf /dev/vdb ."));
+    try std.testing.expectEqualStrings("/sbin/machinen-poweroff", workload.poweroff_command);
+
+    const allocator = std.testing.allocator;
+    const repack = try planProvisionRepack(allocator, .{
+        .disk_path = "/tmp/scratch.img",
+        .out_path = "/tmp/out.tar.gz",
+        .extract_dir = "/tmp/extract",
+    });
+    defer allocator.free(repack.extract_args);
+    defer allocator.free(repack.targz_args);
+    try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "-xf", "/tmp/scratch.img", "-C", "/tmp/extract" }, repack.extract_args);
+    try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "-czf", "/tmp/out.tar.gz", "-C", "/tmp/extract", "." }, repack.targz_args);
 }
 
 test "planProvisionBoot builds provision boot inputs" {
