@@ -69,7 +69,6 @@ import {
   buildWriteFileCmds,
   collect,
   CONSOLE_TAIL_BYTES,
-  parseVsockUdsPath,
   resolveVmmBinary,
   setGuestHostname,
   SNAP_SCRATCH_BYTES,
@@ -1307,20 +1306,26 @@ function setupVsockBridge(env: Record<string, string>): {
   vsockUdsPath: string | undefined;
   vsockTempDir: string | undefined;
 } {
-  if (env.MACHINEN_VSOCK) {
-    const vsockUdsPath = parseVsockUdsPath(env.MACHINEN_VSOCK);
-    debug(
-      "vsock spec from caller env: %s (uds=%s)",
-      env.MACHINEN_VSOCK,
-      vsockUdsPath ?? "<unparsed>",
-    );
-    return { vsockUdsPath, vsockTempDir: undefined };
+  const existingSpec = env.MACHINEN_VSOCK;
+  const vsockTempDir = existingSpec ? undefined : mkdtempSync(join(tmpdir(), "machinen-vsock-"));
+  const autoVsockUdsPath = vsockTempDir ? join(vsockTempDir, "exec.sock") : undefined;
+  const plan = planBootCoreNative({
+    existingVsockSpec: existingSpec,
+    autoVsockUdsPath,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  if (plan.vmmVsock !== null) {
+    env.MACHINEN_VSOCK = plan.vmmVsock;
   }
-  const vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
-  const vsockUdsPath = join(vsockTempDir, "exec.sock");
-  env.MACHINEN_VSOCK = `in:1978:${vsockUdsPath}`;
-  debug("vsock auto uds=%s", vsockUdsPath);
-  return { vsockUdsPath, vsockTempDir };
+  debug(
+    existingSpec ? "vsock spec from caller env: %s (uds=%s)" : "vsock auto spec=%s uds=%s",
+    existingSpec ?? plan.vmmVsock ?? "<unset>",
+    plan.vsockUdsPath ?? "<unparsed>",
+  );
+  return { vsockUdsPath: plan.vsockUdsPath ?? undefined, vsockTempDir };
 }
 
 // #274: shared stats file the balloon backend writes counters to.

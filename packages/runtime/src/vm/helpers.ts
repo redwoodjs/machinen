@@ -126,25 +126,6 @@ export function resolveVmmBinary(): string {
   }
 }
 
-/**
- * Parse the UDS path out of a `MACHINEN_VSOCK` spec. The spec may be a
- * single `<direction>:<port>:<uds-path>` entry or a comma-joined list
- * of them (`in:1978:/a,in:1974:/b,out:1970:/c`). For attach/exec we want
- * the FIRST `in:` entry's path — that's the exec-agent UDS the runtime
- * just allocated (or, when the caller set MACHINEN_VSOCK explicitly,
- * the entry they put first). Returns undefined on unrecognized shapes
- * so the handle can throw a clear error if `.exec()` ends up called on it.
- */
-export function parseVsockUdsPath(spec: string): string | undefined {
-  for (const entry of spec.split(",")) {
-    const match = entry.match(/^[^:]+:\d+:(.+)$/);
-    if (match) {
-      return match[1];
-    }
-  }
-  return undefined;
-}
-
 // Guest path validation lives in the native boot planner so mount
 // planning rules stay aligned across boot, restore, and live mounts.
 export function normalizeMountGuest(guest: string): string {

@@ -101,6 +101,46 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans vsock specs from caller env or auto UDS paths", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const existing = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, existingVsockSpec: "out:1970:/tmp/a.sock,in:1978:/tmp/b.sock" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(existing.status).toBe(0);
+    expect(JSON.parse(existing.stdout).data).toMatchObject({
+      vsockUdsPath: "/tmp/a.sock",
+      vmmVsock: null,
+    });
+
+    const auto = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, autoVsockUdsPath: "/tmp/exec.sock" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(auto.status).toBe(0);
+    expect(JSON.parse(auto.stdout).data).toMatchObject({
+      vsockUdsPath: "/tmp/exec.sock",
+      vmmVsock: "in:1978:/tmp/exec.sock",
+    });
+  });
+
   it("rejects unknown request fields", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

@@ -18,6 +18,8 @@ interface NativeBootPlanInput {
   guestEnv?: Record<string, string>;
   name?: string;
   vsockUdsPath?: string;
+  existingVsockSpec?: string;
+  autoVsockUdsPath?: string;
 }
 
 interface NativeBootPlanResult {
@@ -26,6 +28,8 @@ interface NativeBootPlanResult {
   wantsRootDisk: boolean;
   normalizedMountGuest: string | null;
   mergedGuestEnv: Record<string, string>;
+  vsockUdsPath: string | null;
+  vmmVsock: string | null;
 }
 
 export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanResult {
@@ -50,6 +54,8 @@ export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanRe
       guestEnv: input.guestEnv ?? {},
       name: input.name ?? null,
       vsockUdsPath: input.vsockUdsPath ?? null,
+      existingVsockSpec: input.existingVsockSpec ?? null,
+      autoVsockUdsPath: input.autoVsockUdsPath ?? null,
     },
     errorCode: "BOOT_MEMORY_INVALID",
     makeError: bootPlanError,
@@ -87,13 +93,19 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     return false;
   }
   const data = value as Partial<NativeBootPlanResult>;
-  return (
-    nullableNonNegativeNumber(data.memoryCeilingMib) &&
-    (data.vmmMemory === null || typeof data.vmmMemory === "string") &&
-    typeof data.wantsRootDisk === "boolean" &&
-    (data.normalizedMountGuest === null || typeof data.normalizedMountGuest === "string") &&
-    isStringRecord(data.mergedGuestEnv)
-  );
+  return [
+    nullableNonNegativeNumber(data.memoryCeilingMib),
+    nullableString(data.vmmMemory),
+    typeof data.wantsRootDisk === "boolean",
+    nullableString(data.normalizedMountGuest),
+    isStringRecord(data.mergedGuestEnv),
+    nullableString(data.vsockUdsPath),
+    nullableString(data.vmmVsock),
+  ].every(Boolean);
+}
+
+function nullableString(value: unknown): boolean {
+  return value === null || typeof value === "string";
 }
 
 function isStringRecord(value: unknown): value is Record<string, string> {

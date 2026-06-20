@@ -26,6 +26,16 @@ pub const GuestEnvInput = struct {
     vsock_uds_path: ?[]const u8 = null,
 };
 
+pub const VsockPlanInput = struct {
+    existing_spec: ?[]const u8 = null,
+    auto_uds_path: ?[]const u8 = null,
+};
+
+pub const VsockPlan = struct {
+    uds_path: ?[]const u8,
+    vmm_vsock: ?[]const u8,
+};
+
 pub const Input = struct {
     memory_mib: ?u64 = null,
     resources_memory: ?ResourcesMemory = null,
@@ -76,6 +86,34 @@ pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPa
         try out.append(allocator, .{ .key = "MACHINEN_VM_HOSTNAME_WAIT", .value = "1" });
     }
     return out.toOwnedSlice(allocator);
+}
+
+pub fn planVsock(allocator: std.mem.Allocator, input: VsockPlanInput) !VsockPlan {
+    if (input.existing_spec) |spec| {
+        return .{ .uds_path = parseVsockUdsPath(spec), .vmm_vsock = null };
+    }
+    if (input.auto_uds_path) |uds| {
+        return .{
+            .uds_path = uds,
+            .vmm_vsock = try std.fmt.allocPrint(allocator, "in:1978:{s}", .{uds}),
+        };
+    }
+    return .{ .uds_path = null, .vmm_vsock = null };
+}
+
+pub fn parseVsockUdsPath(spec: []const u8) ?[]const u8 {
+    var entries = std.mem.splitScalar(u8, spec, ',');
+    while (entries.next()) |entry| {
+        const first_colon = std.mem.indexOfScalar(u8, entry, ':') orelse continue;
+        const rest = entry[first_colon + 1 ..];
+        const second_rel = std.mem.indexOfScalar(u8, rest, ':') orelse continue;
+        const port = rest[0..second_rel];
+        if (port.len == 0) continue;
+        if (!isDecimal(port)) continue;
+        const path = rest[second_rel + 1 ..];
+        if (path.len > 0) return path;
+    }
+    return null;
 }
 
 pub fn autoSizeMemoryMib(host_total_bytes: u64) u64 {
@@ -136,6 +174,14 @@ pub fn normalizeMountGuest(guest: []const u8) PlanError![]const u8 {
         return error.InvalidMountGuestRoot;
     }
     return trimmed;
+}
+
+fn isDecimal(text: []const u8) bool {
+    if (text.len == 0) return false;
+    for (text) |c| {
+        if (c < '0' or c > '9') return false;
+    }
+    return true;
 }
 
 fn resolveExplicitMemory(input: Input) PlanError!?u64 {
@@ -220,6 +266,27 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planVsock parses existing specs and formats auto specs" {
+    try std.testing.expectEqualStrings(
+        "/tmp/exec.sock",
+        parseVsockUdsPath("in:1978:/tmp/exec.sock").?,
+    );
+    try std.testing.expectEqualStrings(
+        "/tmp/first.sock",
+        parseVsockUdsPath("out:1970:/tmp/first.sock,in:1978:/tmp/second.sock").?,
+    );
+    try std.testing.expectEqual(@as(?[]const u8, null), parseVsockUdsPath("in:not-a-port:/tmp/nope"));
+
+    const existing = try planVsock(std.testing.allocator, .{ .existing_spec = "in:1978:/tmp/caller.sock" });
+    try std.testing.expectEqualStrings("/tmp/caller.sock", existing.uds_path.?);
+    try std.testing.expectEqual(@as(?[]const u8, null), existing.vmm_vsock);
+
+    const auto = try planVsock(std.testing.allocator, .{ .auto_uds_path = "/tmp/auto.sock" });
+    defer std.testing.allocator.free(auto.vmm_vsock.?);
+    try std.testing.expectEqualStrings("/tmp/auto.sock", auto.uds_path.?);
+    try std.testing.expectEqualStrings("in:1978:/tmp/auto.sock", auto.vmm_vsock.?);
 }
 
 test "planGuestEnv applies name and hostname wait defaults without overriding caller env" {
