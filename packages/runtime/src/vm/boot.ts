@@ -54,6 +54,7 @@ import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
   planBootKernelDtbNative,
+  planBootScratchDiskNative,
   planBootStatsFileNative,
   planBootVirtiofsEnvNative,
   planBootVmstateEnvNative,
@@ -1204,56 +1205,72 @@ function prepareScratchDisk(
   opts: BootOptions,
   env: Record<string, string>,
 ): { diskAbs: string | undefined; perBootSnapDisk: string | undefined } {
-  if (opts.snapshot === false) {
-    return { diskAbs: undefined, perBootSnapDisk: undefined };
+  const snapshotPath = resolveSnapshotDiskPath(opts);
+  const scratchPlan = planBootScratchDiskNative({
+    mode: scratchMode(opts.snapshot),
+    hasCmd: opts.cmd !== undefined,
+    hasImage: opts.image !== undefined,
+    snapshotPath,
+    restoreClonePath: snapshotPath ? scratchRestoreClonePath() : undefined,
+    autoPath: opts.snapshot === undefined ? autoScratchPath() : undefined,
+  });
+  applyScratchDiskPlan(scratchPlan, snapshotPath, env);
+  return {
+    diskAbs: scratchPlan.diskPath ?? undefined,
+    perBootSnapDisk: scratchPlan.perBootSnapDisk ?? undefined,
+  };
+}
+
+function resolveSnapshotDiskPath(opts: BootOptions): string | undefined {
+  if (typeof opts.snapshot !== "string") {
+    return undefined;
   }
-  if (typeof opts.snapshot === "string") {
-    const bundleDisk = resolve(opts.cwd ?? process.cwd(), opts.snapshot);
-    if (!existsSync(bundleDisk)) {
-      throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `snapshot image not found: ${bundleDisk}`);
-    }
-    // An explicit `cmd` means the caller is running their own workload
-    // (e.g. provision()'s tar-to-/dev/vdb dump), not restoring a CRIU
-    // bundle — so attach the disk in place. The reflink-clone below is
-    // only needed for the restore path, where machinen-dump.sh later
-    // mkfs's the scratch disk and would otherwise corrupt the source
-    // bundle on the host fs (#207).
-    if (opts.cmd) {
-      env.MACHINEN_DISK = bundleDisk;
-      debug("snap-restore in-place (explicit cmd) path=%s", bundleDisk);
-      return { diskAbs: bundleDisk, perBootSnapDisk: undefined };
-    }
-    // Reflink-clone the bundle disk into a per-boot path so the
-    // restored VM can be snapshotted again (#207). Same pattern as
-    // #121 for the rootdisk: COPYFILE_FICLONE → cheap shared blocks
-    // until guest writes, falls back to a full copy on non-reflink
-    // filesystems.
-    const perBoot = join(
-      tmpdir(),
-      `machinen-snap-restore-${process.pid}-${randomBytes(6).toString("hex")}.img`,
-    );
-    reflinkCopy(bundleDisk, perBoot);
-    env.MACHINEN_DISK = perBoot;
-    debug("snap-restore reflink-clone src=%s dst=%s", bundleDisk, perBoot);
-    return { diskAbs: perBoot, perBootSnapDisk: perBoot };
+  const bundleDisk = resolve(opts.cwd ?? process.cwd(), opts.snapshot);
+  if (!existsSync(bundleDisk)) {
+    throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `snapshot image not found: ${bundleDisk}`);
   }
-  if (!opts.image) {
-    return { diskAbs: undefined, perBootSnapDisk: undefined };
+  return bundleDisk;
+}
+
+function scratchMode(snapshot: BootOptions["snapshot"]): "false" | "path" | "auto" {
+  if (snapshot === false) {
+    return "false";
   }
-  // Auto-allocate only when the caller is booting a real image-backed
-  // guest. VMM-only smoke boots (no image — e.g. MACHINEN_BOOT_TEST=1)
-  // would otherwise be handed a zero-byte file as /dev/vda, failing
-  // root mount; they have nothing to snapshot anyway. `cmd && !image`
-  // already errors above, so this check covers all snapshotable
-  // workload paths.
-  const scratchPath = join(
+  return typeof snapshot === "string" ? "path" : "auto";
+}
+
+function scratchRestoreClonePath(): string {
+  return join(
     tmpdir(),
-    `machinen-snap-${process.pid}-${randomBytes(6).toString("hex")}.img`,
+    `machinen-snap-restore-${process.pid}-${randomBytes(6).toString("hex")}.img`,
   );
-  allocateSparseFile(scratchPath, SNAP_SCRATCH_BYTES);
-  env.MACHINEN_DISK = scratchPath;
-  debug("snap-scratch auto path=%s sizeBytes=%d", scratchPath, SNAP_SCRATCH_BYTES);
-  return { diskAbs: scratchPath, perBootSnapDisk: scratchPath };
+}
+
+function autoScratchPath(): string {
+  return join(tmpdir(), `machinen-snap-${process.pid}-${randomBytes(6).toString("hex")}.img`);
+}
+
+function applyScratchDiskPlan(
+  plan: ReturnType<typeof planBootScratchDiskNative>,
+  snapshotPath: string | undefined,
+  env: Record<string, string>,
+): void {
+  if (plan.vmmDisk) {
+    env.MACHINEN_DISK = plan.vmmDisk;
+  }
+  if (plan.action === "existing") {
+    debug("snap-restore in-place (explicit cmd) path=%s", plan.diskPath);
+    return;
+  }
+  if (plan.action === "clone") {
+    reflinkCopy(snapshotPath!, plan.diskPath!);
+    debug("snap-restore reflink-clone src=%s dst=%s", snapshotPath, plan.diskPath);
+    return;
+  }
+  if (plan.action === "allocate") {
+    allocateSparseFile(plan.diskPath!, SNAP_SCRATCH_BYTES);
+    debug("snap-scratch auto path=%s sizeBytes=%d", plan.diskPath, SNAP_SCRATCH_BYTES);
+  }
 }
 
 function setupKernelDtbEnv(opts: BootOptions, env: Record<string, string>): void {

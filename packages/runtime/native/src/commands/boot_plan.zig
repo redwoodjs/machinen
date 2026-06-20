@@ -47,7 +47,11 @@ const ParsedRequest = struct {
     bundle_snapshot_restore: bool = false,
     bundle_vmstate_restore: bool = false,
     bundle_live_mounts: []const boot_plan.LiveMount = &.{},
-    bundle_command_requested: bool = false,
+    bundle_command_required: bool = false,
+    scratch_mode: boot_plan.ScratchDiskMode = .unset,
+    scratch_snapshot_path: ?[]const u8 = null,
+    scratch_restore_clone_path: ?[]const u8 = null,
+    scratch_auto_path: ?[]const u8 = null,
 };
 
 const ParsedResourcesMemory = struct {
@@ -95,7 +99,11 @@ const boot_plan_fields = [_][]const u8{
     "bundleSnapshotRestore",
     "bundleVmstateRestore",
     "bundleLiveMounts",
-    "bundleCommandRequested",
+    "bundleCommandRequired",
+    "scratchMode",
+    "scratchSnapshotPath",
+    "scratchRestoreClonePath",
+    "scratchAutoPath",
 };
 
 const RequestError = error{
@@ -157,7 +165,11 @@ const RequestError = error{
     InvalidBundleSnapshotRestore,
     InvalidBundleVmstateRestore,
     InvalidBundleLiveMounts,
-    InvalidBundleCommandRequested,
+    InvalidBundleCommandRequired,
+    InvalidScratchMode,
+    InvalidScratchSnapshotPath,
+    InvalidScratchRestoreClonePath,
+    InvalidScratchAutoPath,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -201,6 +213,7 @@ const PlanParts = struct {
     config_cwd: ?[]const u8,
     config_live_mounts: []const boot_plan.LiveMount,
     bundle_command: []const []const u8,
+    scratch_disk: boot_plan.ScratchDiskPlan,
 };
 
 fn makeCorePlan(
@@ -252,7 +265,7 @@ fn makePlanParts(
         .guest_cwd = parsed.config_guest_cwd,
         .image_cwd = parsed.config_image_cwd,
     });
-    const bundle_command = if (parsed.bundle_command_requested)
+    const bundle_command = if (parsed.bundle_command_required)
         try boot_plan.planBundleCommand(arena, .{
             .explicit_cmd = parsed.bundle_explicit_cmd,
             .image_cmd = parsed.bundle_image_cmd,
@@ -262,6 +275,14 @@ fn makePlanParts(
         })
     else
         &.{};
+    const scratch_disk = try boot_plan.planScratchDisk(.{
+        .mode = parsed.scratch_mode,
+        .has_cmd = parsed.has_cmd,
+        .has_image = parsed.has_image,
+        .snapshot_path = parsed.scratch_snapshot_path,
+        .restore_clone_path = parsed.scratch_restore_clone_path,
+        .auto_path = parsed.scratch_auto_path,
+    });
     return .{
         .plan = plan,
         .guest_env = guest_env,
@@ -277,6 +298,7 @@ fn makePlanParts(
         .config_cwd = config_cwd,
         .config_live_mounts = parsed.config_live_mounts,
         .bundle_command = bundle_command,
+        .scratch_disk = scratch_disk,
     };
 }
 
@@ -313,6 +335,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeNullableStringField(io, "configCwd", parts.config_cwd, true);
     try writeLiveMountsArrayField(io, "configLiveMounts", parts.config_live_mounts, true);
     try writeStringArrayField(io, "bundleCommand", parts.bundle_command, true);
+    try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try protocol.stdout(io, "}}\n");
 }
 
@@ -450,6 +473,23 @@ fn writeLiveMountsArrayField(
         try protocol.stdout(io, "}");
     }
     try protocol.stdout(io, "]");
+}
+
+fn writeScratchDiskField(
+    io: std.Io,
+    comptime field: []const u8,
+    scratch: boot_plan.ScratchDiskPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, scratch.action);
+    try writeNullableStringField(io, "diskPath", scratch.disk_path, true);
+    try writeNullableStringField(io, "perBootSnapDisk", scratch.per_boot_snap_disk, true);
+    try writeNullableStringField(io, "vmmDisk", scratch.vmm_disk, true);
+    try protocol.stdout(io, "}");
 }
 
 fn writeEnvObjectField(
@@ -817,11 +857,53 @@ fn parseKernelVmstateFields(
         "bundleLiveMounts",
         error.InvalidBundleLiveMounts,
     );
-    request.bundle_command_requested = try optionalBoolDefaultFalse(
+    request.bundle_command_required = (try optionalBoolDefaultFalse(
         object,
-        "bundleCommandRequested",
-        error.InvalidBundleCommandRequested,
+        "bundleCommandRequired",
+        error.InvalidBundleCommandRequired,
+    )) or hasBundleCommandField(object);
+    request.scratch_mode = try optionalScratchMode(object);
+    request.scratch_snapshot_path = try optionalStringDefaultNull(
+        object,
+        "scratchSnapshotPath",
+        error.InvalidScratchSnapshotPath,
     );
+    request.scratch_restore_clone_path = try optionalStringDefaultNull(
+        object,
+        "scratchRestoreClonePath",
+        error.InvalidScratchRestoreClonePath,
+    );
+    request.scratch_auto_path = try optionalStringDefaultNull(
+        object,
+        "scratchAutoPath",
+        error.InvalidScratchAutoPath,
+    );
+}
+
+fn hasBundleCommandField(object: std.json.ObjectMap) bool {
+    if (object.get("bundleExplicitCmd")) |value| {
+        if (value != .null) return true;
+    }
+    if (object.get("bundleImageCmd")) |value| {
+        if (value != .null) return true;
+    }
+    if (object.get("bundleSnapshotRestore")) |value| {
+        if (value == .bool and value.bool) return true;
+    }
+    if (object.get("bundleVmstateRestore")) |value| {
+        if (value == .bool and value.bool) return true;
+    }
+    return false;
+}
+
+fn optionalScratchMode(object: std.json.ObjectMap) RequestError!boot_plan.ScratchDiskMode {
+    const value = object.get("scratchMode") orelse return .unset;
+    if (value == .null) return .unset;
+    if (value != .string) return error.InvalidScratchMode;
+    if (std.mem.eql(u8, value.string, "false")) return .false_value;
+    if (std.mem.eql(u8, value.string, "path")) return .path;
+    if (std.mem.eql(u8, value.string, "auto")) return .auto;
+    return error.InvalidScratchMode;
 }
 
 fn optionalLiveMounts(
@@ -1176,6 +1258,16 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
             io,
             "INVALID_REQUEST",
             "boot-plan configEnv values must be strings",
+        ),
+        error.MissingBundleCommand => try writeBootError(
+            io,
+            "BOOT_CMD_WITHOUT_IMAGE",
+            "boot-plan bundle command input is missing",
+        ),
+        error.MissingScratchPath => try writeBootError(
+            io,
+            "BOOT_SNAPSHOT_NOT_FOUND",
+            "boot-plan scratch disk path missing",
         ),
         else => try writeBootError(io, "BOOT_MEMORY_INVALID", @errorName(err)),
     }
