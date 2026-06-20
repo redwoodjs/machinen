@@ -3,7 +3,7 @@
 // the guest actually see N MiB?" check lives in the smoke suite —
 // this file just covers the policy + validation logic.
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -69,6 +69,36 @@ describe("autoSizeMemoryMib", () => {
     expect(autoSizeMemoryMib(512 * 1024 * 1024)).toBe(512);
     expect(autoSizeMemoryMib(256 * 1024 * 1024)).toBe(512);
     expect(autoSizeMemoryMib(0)).toBe(512);
+  });
+});
+
+describe("boot-plan helper schema", () => {
+  it("rejects unknown request fields", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          memoryMib: null,
+          resourcesMemory: null,
+          autoMemoryMib: "1024",
+          hostTotalBytes: null,
+          vmmMemoryPreset: false,
+          hasImage: false,
+          hasCmd: false,
+          rootDisk: "false",
+          extra: true,
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(1);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: false,
+      protocolVersion: 1,
+      error: { code: "UNKNOWN_FIELD" },
+    });
   });
 });
 

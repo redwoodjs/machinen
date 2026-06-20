@@ -1,0 +1,222 @@
+const std = @import("std");
+const runtime_helper = @import("runtime_helper");
+const boot_plan = @import("../boot_plan.zig");
+const protocol = @import("../protocol.zig");
+
+pub const name = "boot-plan";
+
+const ParsedRequest = struct {
+    memory_mib_text: ?[]const u8,
+    resources_memory: ?ParsedResourcesMemory,
+    auto_memory_mib_text: ?[]const u8,
+    host_total_bytes_text: ?[]const u8,
+    vmm_memory_preset: bool,
+    has_image: bool,
+    has_cmd: bool,
+    root_disk: boot_plan.RootDiskMode,
+};
+
+const ParsedResourcesMemory = struct {
+    max_mib_text: []const u8,
+    reclaim: ?[]const u8,
+};
+
+const RequestError = error{
+    MissingMemoryMib,
+    InvalidMemoryMib,
+    MissingResourcesMemory,
+    InvalidResourcesMemory,
+    MissingResourcesMaxMib,
+    InvalidResourcesMaxMib,
+    InvalidResourcesReclaim,
+    MissingAutoMemoryMib,
+    InvalidAutoMemoryMib,
+    MissingHostTotalBytes,
+    InvalidHostTotalBytes,
+    MissingVmmMemoryPreset,
+    InvalidVmmMemoryPreset,
+    MissingHasImage,
+    InvalidHasImage,
+    MissingHasCmd,
+    InvalidHasCmd,
+    MissingRootDisk,
+    InvalidRootDisk,
+} || protocol.RequestError;
+
+pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
+    var arena_state = std.heap.ArenaAllocator.init(allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+
+    const parsed = parseRequest(arena, io) catch |err| {
+        try writeRequestError(io, err);
+        return .fail;
+    };
+
+    const input = makePlanInput(allocator, io, parsed) catch |err| {
+        try writePlanError(io, err);
+        return .fail;
+    };
+
+    const plan = boot_plan.planCore(input) catch |err| {
+        try writePlanError(io, err);
+        return .fail;
+    };
+
+    const memory_text = if (plan.memory_ceiling_mib) |mib|
+        try std.fmt.allocPrint(allocator, "{d}", .{mib})
+    else
+        try allocator.dupe(u8, "null");
+    defer allocator.free(memory_text);
+    const vmm_memory_text = if (plan.vmm_memory_mib) |mib|
+        try std.fmt.allocPrint(allocator, "\"{d}\"", .{mib})
+    else
+        try allocator.dupe(u8, "null");
+    defer allocator.free(vmm_memory_text);
+    const wants_root_disk = if (plan.wants_root_disk) "true" else "false";
+    const out = try std.fmt.allocPrint(
+        allocator,
+        "{{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{{\"memoryCeilingMib\":{s},\"vmmMemory\":{s},\"wantsRootDisk\":{s}}}}}\n",
+        .{ memory_text, vmm_memory_text, wants_root_disk },
+    );
+    defer allocator.free(out);
+    try protocol.stdout(io, out);
+    return .ok;
+}
+
+fn makePlanInput(allocator: std.mem.Allocator, io: std.Io, parsed: ParsedRequest) anyerror!boot_plan.Input {
+    const explicit_memory = if (parsed.memory_mib_text) |text| try parseMib(text) else null;
+    const resources_memory = if (parsed.resources_memory) |memory| boot_plan.ResourcesMemory{
+        .max_mib = try parseMib(memory.max_mib_text),
+        .reclaim = memory.reclaim,
+    } else null;
+    const auto_memory = if (parsed.auto_memory_mib_text) |text| try parseMib(text) else null;
+    const host_total_bytes = if (parsed.host_total_bytes_text) |text|
+        parseUnsigned(text) catch return error.InvalidMemory
+    else if (explicit_memory == null and resources_memory == null and auto_memory == null and !parsed.vmm_memory_preset)
+        (try runtime_helper.host.readHostMemory(allocator, io)).total_bytes
+    else
+        null;
+    return .{
+        .memory_mib = explicit_memory,
+        .resources_memory = resources_memory,
+        .auto_memory_mib = auto_memory,
+        .host_total_bytes = host_total_bytes,
+        .vmm_memory_preset = parsed.vmm_memory_preset,
+        .has_image = parsed.has_image,
+        .has_cmd = parsed.has_cmd,
+        .root_disk = parsed.root_disk,
+    };
+}
+
+fn parseMib(text: []const u8) boot_plan.PlanError!u64 {
+    const value = parseUnsigned(text) catch return error.InvalidMemory;
+    return boot_plan.validateMemoryMib(value);
+}
+
+fn parseUnsigned(text: []const u8) !u64 {
+    if (text.len == 0) return error.Invalid;
+    for (text) |c| {
+        if (c < '0' or c > '9') return error.Invalid;
+    }
+    return std.fmt.parseUnsigned(u64, text, 10);
+}
+
+fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedRequest {
+    const data = try protocol.readStdinAll(allocator, io, protocol.max_request_bytes);
+    const parsed = std.json.parseFromSlice(std.json.Value, allocator, data, .{
+        .duplicate_field_behavior = .@"error",
+        .ignore_unknown_fields = false,
+        .max_value_len = data.len,
+        .allocate = .alloc_if_needed,
+        .parse_numbers = true,
+    }) catch return error.InvalidJson;
+    const request_value = parsed.value;
+    if (request_value != .object) return error.InvalidShape;
+    const envelope = request_value.object;
+    try protocol.rejectUnknownFields(envelope, &.{ "protocolVersion", "data" });
+    const protocol_version = envelope.get("protocolVersion") orelse return error.UnsupportedProtocolVersion;
+    if (protocol_version != .integer or protocol_version.integer != protocol.version) return error.UnsupportedProtocolVersion;
+    const data_value = envelope.get("data") orelse return error.MissingData;
+    if (data_value != .object) return error.InvalidData;
+    const object = data_value.object;
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk" });
+    return .{
+        .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
+        .resources_memory = try optionalResourcesMemory(object),
+        .auto_memory_mib_text = try optionalString(object, "autoMemoryMib", error.MissingAutoMemoryMib, error.InvalidAutoMemoryMib),
+        .host_total_bytes_text = try optionalString(object, "hostTotalBytes", error.MissingHostTotalBytes, error.InvalidHostTotalBytes),
+        .vmm_memory_preset = try requiredBool(object, "vmmMemoryPreset", error.MissingVmmMemoryPreset, error.InvalidVmmMemoryPreset),
+        .has_image = try requiredBool(object, "hasImage", error.MissingHasImage, error.InvalidHasImage),
+        .has_cmd = try requiredBool(object, "hasCmd", error.MissingHasCmd, error.InvalidHasCmd),
+        .root_disk = try requiredRootDisk(object),
+    };
+}
+
+fn optionalString(object: std.json.ObjectMap, field: []const u8, missing: RequestError, invalid: RequestError) RequestError!?[]const u8 {
+    const value = object.get(field) orelse return missing;
+    return switch (value) {
+        .null => null,
+        .string => |s| s,
+        else => invalid,
+    };
+}
+
+fn requiredBool(object: std.json.ObjectMap, field: []const u8, missing: RequestError, invalid: RequestError) RequestError!bool {
+    const value = object.get(field) orelse return missing;
+    return switch (value) {
+        .bool => |b| b,
+        else => invalid,
+    };
+}
+
+fn optionalResourcesMemory(object: std.json.ObjectMap) RequestError!?ParsedResourcesMemory {
+    const value = object.get("resourcesMemory") orelse return error.MissingResourcesMemory;
+    if (value == .null) return null;
+    if (value != .object) return error.InvalidResourcesMemory;
+    try protocol.rejectUnknownFields(value.object, &.{ "maxMib", "reclaim" });
+    const max_mib = value.object.get("maxMib") orelse return error.MissingResourcesMaxMib;
+    if (max_mib != .string) return error.InvalidResourcesMaxMib;
+    const reclaim = value.object.get("reclaim") orelse .null;
+    if (reclaim != .null and reclaim != .string) return error.InvalidResourcesReclaim;
+    return .{
+        .max_mib_text = max_mib.string,
+        .reclaim = if (reclaim == .string) reclaim.string else null,
+    };
+}
+
+fn requiredRootDisk(object: std.json.ObjectMap) RequestError!boot_plan.RootDiskMode {
+    const value = object.get("rootDisk") orelse return error.MissingRootDisk;
+    if (value != .string) return error.InvalidRootDisk;
+    if (std.mem.eql(u8, value.string, "unset")) return .unset;
+    if (std.mem.eql(u8, value.string, "false")) return .false_value;
+    if (std.mem.eql(u8, value.string, "path")) return .path;
+    if (std.mem.eql(u8, value.string, "true")) return .true_value;
+    return error.InvalidRootDisk;
+}
+
+fn writePlanError(io: std.Io, err: anyerror) !void {
+    switch (err) {
+        error.InvalidMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: memory must be a positive integer at least 512 MiB"),
+        error.ConflictingMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: memory conflicts with resources.memory.maxMib. Use one value."),
+        error.InvalidReclaim => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: resources.memory.reclaim must be \"auto\" when set."),
+        error.CmdWithoutImage => try protocol.writeError(io, "BOOT_CMD_WITHOUT_IMAGE", "boot: `image` is required when `cmd` is set."),
+        error.RootDiskWithoutImage => try protocol.writeError(io, "BOOT_CMD_WITHOUT_IMAGE", "boot: rootDisk: true requires an `image` (the .tar.gz to materialize)."),
+        error.MissingAutoMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: memory auto-size input is missing"),
+        error.UnsupportedHostMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: host memory probing is unsupported on this platform"),
+        else => try protocol.writeError(io, "BOOT_MEMORY_INVALID", @errorName(err)),
+    }
+}
+
+fn writeRequestError(io: std.Io, err: RequestError) !void {
+    switch (err) {
+        error.RequestTooLarge => try protocol.writeError(io, "REQUEST_TOO_LARGE", "request JSON exceeds the maximum size"),
+        error.UnknownField => try protocol.writeError(io, "UNKNOWN_FIELD", "request contains an unknown field"),
+        error.UnsupportedProtocolVersion => try protocol.writeError(io, "UNSUPPORTED_PROTOCOL_VERSION", "request protocolVersion must be 1"),
+        error.MissingData => try protocol.writeError(io, "INVALID_REQUEST", "request must include a data object"),
+        error.InvalidData => try protocol.writeError(io, "INVALID_REQUEST", "request data field must be an object"),
+        error.InvalidJson => try protocol.writeError(io, "INVALID_JSON", "request body is not valid JSON"),
+        error.InvalidShape => try protocol.writeError(io, "INVALID_REQUEST", "request body must be a JSON object"),
+        else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
+    }
+}

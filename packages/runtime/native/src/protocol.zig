@@ -44,13 +44,39 @@ pub fn rejectUnknownFields(object: std.json.ObjectMap, allowed: []const []const 
 }
 
 pub fn writeError(io: std.Io, code: []const u8, message: []const u8) !void {
-    var buf: [1024]u8 = undefined;
-    const payload = try std.fmt.bufPrint(
-        &buf,
-        "{{\"ok\":false,\"protocolVersion\":1,\"error\":{{\"code\":\"{s}\",\"message\":\"{s}\"}}}}\n",
-        .{ code, message },
-    );
-    try stdout(io, payload);
+    try stdout(io, "{\"ok\":false,\"protocolVersion\":1,\"error\":{\"code\":");
+    try writeJsonString(io, code);
+    try stdout(io, ",\"message\":");
+    try writeJsonString(io, message);
+    try stdout(io, "}}\n");
+}
+
+fn writeJsonString(io: std.Io, s: []const u8) !void {
+    try stdout(io, "\"");
+    var start: usize = 0;
+    for (s, 0..) |c, i| {
+        const replacement: ?[]const u8 = switch (c) {
+            '"' => "\\\"",
+            '\\' => "\\\\",
+            '\n' => "\\n",
+            '\r' => "\\r",
+            '\t' => "\\t",
+            else => if (c < 0x20) "" else null,
+        };
+        if (replacement) |r| {
+            if (i > start) try stdout(io, s[start..i]);
+            if (r.len == 0) {
+                var buf: [6]u8 = undefined;
+                const escaped = try std.fmt.bufPrint(&buf, "\\u00{x:0>2}", .{c});
+                try stdout(io, escaped);
+            } else {
+                try stdout(io, r);
+            }
+            start = i + 1;
+        }
+    }
+    if (start < s.len) try stdout(io, s[start..]);
+    try stdout(io, "\"");
 }
 
 pub fn stdout(io: std.Io, s: []const u8) !void {

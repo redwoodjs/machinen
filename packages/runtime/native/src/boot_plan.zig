@@ -1,0 +1,155 @@
+const std = @import("std");
+
+const memory_floor_mib: u64 = 512;
+const memory_default_ceiling_mib: u64 = 4096;
+
+pub const RootDiskMode = enum {
+    unset,
+    false_value,
+    path,
+    true_value,
+};
+
+pub const ResourcesMemory = struct {
+    max_mib: u64,
+    reclaim: ?[]const u8,
+};
+
+pub const Input = struct {
+    memory_mib: ?u64 = null,
+    resources_memory: ?ResourcesMemory = null,
+    auto_memory_mib: ?u64 = null,
+    host_total_bytes: ?u64 = null,
+    vmm_memory_preset: bool = false,
+    has_image: bool = false,
+    has_cmd: bool = false,
+    root_disk: RootDiskMode = .unset,
+};
+
+pub const Plan = struct {
+    memory_ceiling_mib: ?u64,
+    vmm_memory_mib: ?u64,
+    wants_root_disk: bool,
+};
+
+pub const PlanError = error{
+    InvalidMemory,
+    ConflictingMemory,
+    InvalidReclaim,
+    CmdWithoutImage,
+    RootDiskWithoutImage,
+    MissingAutoMemory,
+};
+
+pub fn autoSizeMemoryMib(host_total_bytes: u64) u64 {
+    const host_mib = host_total_bytes / (1024 * 1024);
+    const host_aware_ceiling = host_mib / 2;
+    return @max(memory_floor_mib, @min(host_aware_ceiling, memory_default_ceiling_mib));
+}
+
+pub fn validateMemoryMib(mib: u64) PlanError!u64 {
+    if (mib < memory_floor_mib) return error.InvalidMemory;
+    return mib;
+}
+
+pub fn planCore(input: Input) PlanError!Plan {
+    if (input.has_cmd and !input.has_image) return error.CmdWithoutImage;
+
+    const wants_root_disk = input.root_disk != .false_value and
+        (input.root_disk == .path or input.root_disk == .true_value or input.has_image);
+    if (wants_root_disk and input.root_disk != .path and !input.has_image) {
+        return error.RootDiskWithoutImage;
+    }
+
+    const explicit = try resolveExplicitMemory(input);
+    if (input.vmm_memory_preset) {
+        return .{
+            .memory_ceiling_mib = null,
+            .vmm_memory_mib = null,
+            .wants_root_disk = wants_root_disk,
+        };
+    }
+
+    const ceiling = explicit orelse input.auto_memory_mib orelse if (input.host_total_bytes) |bytes|
+        autoSizeMemoryMib(bytes)
+    else
+        return error.MissingAutoMemory;
+    return .{
+        .memory_ceiling_mib = ceiling,
+        .vmm_memory_mib = ceiling,
+        .wants_root_disk = wants_root_disk,
+    };
+}
+
+fn resolveExplicitMemory(input: Input) PlanError!?u64 {
+    const alias_ceiling = if (input.memory_mib) |mib| try validateMemoryMib(mib) else null;
+    const resource_ceiling = if (input.resources_memory) |memory| blk: {
+        if (memory.reclaim) |reclaim| {
+            if (!std.mem.eql(u8, reclaim, "auto")) return error.InvalidReclaim;
+        }
+        break :blk try validateMemoryMib(memory.max_mib);
+    } else null;
+    if (alias_ceiling != null and resource_ceiling != null and alias_ceiling.? != resource_ceiling.?) {
+        return error.ConflictingMemory;
+    }
+    return resource_ceiling orelse alias_ceiling;
+}
+
+test "autoSizeMemoryMib applies floor, half-host, and default ceiling" {
+    try std.testing.expectEqual(@as(u64, 4096), autoSizeMemoryMib(32 * 1024 * 1024 * 1024));
+    try std.testing.expectEqual(@as(u64, 3072), autoSizeMemoryMib(6 * 1024 * 1024 * 1024));
+    try std.testing.expectEqual(@as(u64, 512), autoSizeMemoryMib(256 * 1024 * 1024));
+}
+
+test "planCore resolves explicit memory aliases" {
+    try std.testing.expectEqual(@as(?u64, 2048), (try planCore(.{
+        .memory_mib = 2048,
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    })).memory_ceiling_mib);
+    try std.testing.expectEqual(@as(?u64, 4096), (try planCore(.{
+        .resources_memory = .{ .max_mib = 4096, .reclaim = "auto" },
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    })).memory_ceiling_mib);
+    try std.testing.expectError(error.ConflictingMemory, planCore(.{
+        .memory_mib = 1024,
+        .resources_memory = .{ .max_mib = 2048, .reclaim = "auto" },
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    try std.testing.expectError(error.InvalidReclaim, planCore(.{
+        .resources_memory = .{ .max_mib = 2048, .reclaim = "manual" },
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+}
+
+test "planCore validates command and rootdisk image requirements" {
+    try std.testing.expectError(error.CmdWithoutImage, planCore(.{
+        .has_cmd = true,
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    try std.testing.expectError(error.RootDiskWithoutImage, planCore(.{
+        .root_disk = .true_value,
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    try std.testing.expect((try planCore(.{
+        .has_image = true,
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    })).wants_root_disk);
+    try std.testing.expect(!(try planCore(.{
+        .has_image = true,
+        .root_disk = .false_value,
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    })).wants_root_disk);
+}
+
+test "planCore honors preset VMM memory after validating public input" {
+    const plan = try planCore(.{
+        .memory_mib = 1024,
+        .vmm_memory_preset = true,
+    });
+    try std.testing.expectEqual(@as(?u64, null), plan.memory_ceiling_mib);
+    try std.testing.expectEqual(@as(?u64, null), plan.vmm_memory_mib);
+    try std.testing.expectError(error.InvalidMemory, planCore(.{
+        .memory_mib = 64,
+        .vmm_memory_preset = true,
+    }));
+}
