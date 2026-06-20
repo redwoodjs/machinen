@@ -169,6 +169,61 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans bundle commands from explicit image restore and live-mount inputs", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const image = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, bundleImageCmd: ["/bin/true"] } })}\n`,
+      encoding: "utf8",
+    });
+    expect(image.status).toBe(0);
+    expect(JSON.parse(image.stdout).data.bundleCommand).toEqual([
+      "/sbin/machinen-supervisor",
+      "/bin/true",
+    ]);
+
+    const restore = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, bundleSnapshotRestore: true } })}\n`,
+      encoding: "utf8",
+    });
+    expect(restore.status).toBe(0);
+    expect(JSON.parse(restore.stdout).data.bundleCommand).toEqual(["/sbin/machinen-restore"]);
+
+    const live = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          bundleExplicitCmd: ["/bin/echo", "hi"],
+          bundleLiveMounts: [
+            { host: "/host", guest: "/mnt/live", mode: "rw", tag: "machinen-lm0" },
+          ],
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(live.status).toBe(0);
+    const liveCommand = JSON.parse(live.stdout).data.bundleCommand;
+    expect(liveCommand.slice(0, 5)).toEqual([
+      "/sbin/machinen-supervisor",
+      "/bin/sh",
+      "-c",
+      expect.stringContaining("batch_sync"),
+      "machinen-batch-wrapper",
+    ]);
+    expect(liveCommand.slice(5)).toEqual(["/bin/echo", "hi"]);
+  });
+
   it("plans machinen-config guest payloads", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

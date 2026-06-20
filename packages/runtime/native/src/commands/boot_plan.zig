@@ -42,6 +42,12 @@ const ParsedRequest = struct {
     config_guest_cwd: ?[]const u8 = null,
     config_image_cwd: ?[]const u8 = null,
     config_live_mounts: []const boot_plan.LiveMount = &.{},
+    bundle_explicit_cmd: ?[]const []const u8 = null,
+    bundle_image_cmd: ?[]const []const u8 = null,
+    bundle_snapshot_restore: bool = false,
+    bundle_vmstate_restore: bool = false,
+    bundle_live_mounts: []const boot_plan.LiveMount = &.{},
+    bundle_command_requested: bool = false,
 };
 
 const ParsedResourcesMemory = struct {
@@ -84,6 +90,12 @@ const boot_plan_fields = [_][]const u8{
     "configGuestCwd",
     "configImageCwd",
     "configLiveMounts",
+    "bundleExplicitCmd",
+    "bundleImageCmd",
+    "bundleSnapshotRestore",
+    "bundleVmstateRestore",
+    "bundleLiveMounts",
+    "bundleCommandRequested",
 };
 
 const RequestError = error{
@@ -140,6 +152,12 @@ const RequestError = error{
     InvalidConfigGuestCwd,
     InvalidConfigImageCwd,
     InvalidConfigLiveMounts,
+    InvalidBundleExplicitCmd,
+    InvalidBundleImageCmd,
+    InvalidBundleSnapshotRestore,
+    InvalidBundleVmstateRestore,
+    InvalidBundleLiveMounts,
+    InvalidBundleCommandRequested,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -182,6 +200,7 @@ const PlanParts = struct {
     config_env: []const boot_plan.EnvPair,
     config_cwd: ?[]const u8,
     config_live_mounts: []const boot_plan.LiveMount,
+    bundle_command: []const []const u8,
 };
 
 fn makeCorePlan(
@@ -233,6 +252,16 @@ fn makePlanParts(
         .guest_cwd = parsed.config_guest_cwd,
         .image_cwd = parsed.config_image_cwd,
     });
+    const bundle_command = if (parsed.bundle_command_requested)
+        try boot_plan.planBundleCommand(arena, .{
+            .explicit_cmd = parsed.bundle_explicit_cmd,
+            .image_cmd = parsed.bundle_image_cmd,
+            .snapshot_restore = parsed.bundle_snapshot_restore,
+            .vmstate_restore = parsed.bundle_vmstate_restore,
+            .live_mounts = parsed.bundle_live_mounts,
+        })
+    else
+        &.{};
     return .{
         .plan = plan,
         .guest_env = guest_env,
@@ -247,6 +276,7 @@ fn makePlanParts(
         .config_env = config_env,
         .config_cwd = config_cwd,
         .config_live_mounts = parsed.config_live_mounts,
+        .bundle_command = bundle_command,
     };
 }
 
@@ -282,6 +312,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeEnvObjectField(io, "configEnv", parts.config_env, true);
     try writeNullableStringField(io, "configCwd", parts.config_cwd, true);
     try writeLiveMountsArrayField(io, "configLiveMounts", parts.config_live_mounts, true);
+    try writeStringArrayField(io, "bundleCommand", parts.bundle_command, true);
     try protocol.stdout(io, "}}\n");
 }
 
@@ -758,6 +789,39 @@ fn parseKernelVmstateFields(
         "configLiveMounts",
         error.InvalidConfigLiveMounts,
     );
+    request.bundle_explicit_cmd = try optionalStringArrayOrNull(
+        allocator,
+        object,
+        "bundleExplicitCmd",
+        error.InvalidBundleExplicitCmd,
+    );
+    request.bundle_image_cmd = try optionalStringArrayOrNull(
+        allocator,
+        object,
+        "bundleImageCmd",
+        error.InvalidBundleImageCmd,
+    );
+    request.bundle_snapshot_restore = try optionalBoolDefaultFalse(
+        object,
+        "bundleSnapshotRestore",
+        error.InvalidBundleSnapshotRestore,
+    );
+    request.bundle_vmstate_restore = try optionalBoolDefaultFalse(
+        object,
+        "bundleVmstateRestore",
+        error.InvalidBundleVmstateRestore,
+    );
+    request.bundle_live_mounts = try optionalLiveMountsResolved(
+        allocator,
+        object,
+        "bundleLiveMounts",
+        error.InvalidBundleLiveMounts,
+    );
+    request.bundle_command_requested = try optionalBoolDefaultFalse(
+        object,
+        "bundleCommandRequested",
+        error.InvalidBundleCommandRequested,
+    );
 }
 
 fn optionalLiveMounts(
@@ -853,6 +917,26 @@ fn optionalStringArrayDefaultEmpty(
     if (value != .array) return invalid;
     assert(field.len > 0);
 
+    var out: std.array_list.Aligned([]const u8, null) = .empty;
+    errdefer out.deinit(allocator);
+    for (value.array.items) |item| {
+        if (item != .string) return invalid;
+        try out.append(allocator, item.string);
+    }
+    return out.toOwnedSlice(allocator);
+}
+
+fn optionalStringArrayOrNull(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+    field: []const u8,
+    invalid: RequestError,
+) RequestError!?[]const []const u8 {
+    assert(field.len > 0);
+
+    const value = object.get(field) orelse return null;
+    if (value == .null) return null;
+    if (value != .array) return invalid;
     var out: std.array_list.Aligned([]const u8, null) = .empty;
     errdefer out.deinit(allocator);
     for (value.array.items) |item| {
@@ -1126,6 +1210,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         error.InvalidLiveMountsResolved,
         error.InvalidConfigLiveMounts,
+        error.InvalidBundleLiveMounts,
         error.InvalidLiveMountHost,
         error.InvalidLiveMountMode,
         error.InvalidLiveMountTag,

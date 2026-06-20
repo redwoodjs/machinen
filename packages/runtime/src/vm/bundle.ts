@@ -22,7 +22,11 @@ import {
   markMountDiskImageClean,
 } from "../mountdisk-img.ts";
 import { reflinkCopy } from "../reflink.ts";
-import { planBootLiveMountsNative, planBootMachinenConfigNative } from "../native/boot-plan.ts";
+import {
+  planBootBundleCommandNative,
+  planBootLiveMountsNative,
+  planBootMachinenConfigNative,
+} from "../native/boot-plan.ts";
 import type { BootOptions } from "./boot.ts";
 import type { SnapshotMeta } from "../vm-handle.ts";
 import { normalizeMountGuest, validateGuestCwd, validateMountGuest } from "./helpers.ts";
@@ -225,7 +229,7 @@ export function synthesizeAndPackBundle(
   try {
     validateOptionalGuestCwd(opts);
     const image = resolveBundleImage(opts, packerOpts);
-    const cmd = wrapBundleCommand(resolveBundleCommand(opts, image.imageConfig), opts, liveMounts);
+    const cmd = planBundleCommand(opts, image.imageConfig, liveMounts);
     const effectiveEnv = { ...image.imageConfig?.env, ...mergedGuestEnv };
     writeBundleConfig(workspace, {
       cmd,
@@ -281,65 +285,18 @@ function resolveBundleImage(opts: BootOptions, packerOpts: BundlePackerOptions):
   return { baseAbs, imageConfig };
 }
 
-function resolveBundleCommand(
+function planBundleCommand(
   opts: BootOptions,
   imageConfig: BundleImageConfig | undefined,
-): string[] {
-  const cmd = explicitOrSyntheticCommand(opts, imageConfig);
-  if (cmd) {
-    return cmd;
-  }
-  throw new BootError(
-    "BOOT_CMD_MISSING",
-    "boot: no cmd to run — pass `cmd` on boot() or bake one into the " +
-      "image via `provision({ cmd })`.",
-  );
-}
-
-function explicitOrSyntheticCommand(
-  opts: BootOptions,
-  imageConfig: BundleImageConfig | undefined,
-): string[] | undefined {
-  if (opts.cmd) {
-    return opts.cmd;
-  }
-  if (typeof opts.snapshot === "string") {
-    // Only synthesize the restore helper when the caller explicitly
-    // passed a snapshot path. The auto-allocated scratch (default
-    // `snapshot: undefined`) is empty, so synthesizing here would feed
-    // CRIU a bundle-less file and fail.
-    return ["/sbin/machinen-restore"];
-  }
-  if (opts._vmstateRestorePath) {
-    // Vmstate restore: the VMM overwrites guest RAM before /init runs,
-    // but the VMM still needs a valid initramfs path.
-    return ["/sbin/machinen-poweroff"];
-  }
-  return imageConfig?.cmd;
-}
-
-function wrapBundleCommand(
-  cmd: string[],
-  opts: BootOptions,
   liveMounts: ResolvedLiveMount[],
 ): string[] {
-  const cmdHead = cmd[0];
-  if (cmdHead === "/exec-agent" || cmdHead === "/sbin/machinen-restore") {
-    return cmd;
-  }
-  const workload = liveMounts.some((lm) => lm.mode === "rw") ? wrapBatchWorkloadCommand(cmd) : cmd;
-  const supervisorArgs = typeof opts.snapshot === "string" ? ["--session"] : [];
-  return ["/sbin/machinen-supervisor", ...supervisorArgs, ...workload];
-}
-
-function wrapBatchWorkloadCommand(cmd: string[]): string[] {
-  return [
-    "/bin/sh",
-    "-c",
-    'batch_sync() { if [ -s /run/machinen-batch-sync.sh ]; then sh /run/machinen-batch-sync.sh; fi; }; "$@" & child=$!; trap \'kill -TERM "$child" 2>/dev/null\' TERM; trap \'kill -INT "$child" 2>/dev/null\' INT; wait "$child"; status=$?; batch_sync || { sync_status=$?; if [ "$status" -eq 0 ]; then status=$sync_status; fi; }; exit "$status"',
-    "machinen-batch-wrapper",
-    ...cmd,
-  ];
+  return planBootBundleCommandNative({
+    explicitCmd: opts.cmd,
+    imageCmd: imageConfig?.cmd,
+    snapshotRestore: typeof opts.snapshot === "string",
+    vmstateRestore: opts._vmstateRestorePath !== undefined,
+    liveMounts,
+  });
 }
 
 function writeBundleConfig(
