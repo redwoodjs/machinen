@@ -5,6 +5,8 @@ import type { BootMemoryResourceOptions } from "../vm/memory-resources.ts";
 type RootDiskPlanMode = "unset" | "false" | "path" | "true";
 type ScratchDiskMode = "false" | "path" | "auto";
 type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
+type RootDiskRuntimeMode = "none" | "path" | "restore" | "cached";
+type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
 
 type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
 type LiveMountPlanInput = { host: string; guest: string; mode?: string };
@@ -55,6 +57,9 @@ interface NativeBootPlanInput {
   scratchSnapshotPath?: string;
   scratchRestoreClonePath?: string;
   scratchAutoPath?: string;
+  rootDiskRuntimeMode?: RootDiskRuntimeMode;
+  rootDiskSourcePath?: string;
+  rootDiskClonePath?: string;
 }
 
 interface NativeBootPlanResult {
@@ -79,6 +84,7 @@ interface NativeBootPlanResult {
   machinenConfig: MachinenConfigPlan;
   bundleCommand: string[];
   scratchDisk: ScratchDiskPlan;
+  rootDiskRuntime: RootDiskRuntimePlan;
 }
 
 type ScratchDiskPlan = {
@@ -86,6 +92,14 @@ type ScratchDiskPlan = {
   diskPath: string | null;
   perBootSnapDisk: string | null;
   vmmDisk: string | null;
+};
+
+type RootDiskRuntimePlan = {
+  action: RootDiskRuntimeAction;
+  sourcePath: string | null;
+  targetPath: string | null;
+  perBootRootDisk: string | null;
+  vmmRootDisk: string | null;
 };
 
 type MachinenConfigPlan = Record<string, unknown> & {
@@ -143,6 +157,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     configLiveMounts: input.configLiveMounts ?? [],
     ...bundleCommandData(input),
     ...scratchDiskData(input),
+    ...rootDiskRuntimeData(input),
   };
 }
 
@@ -166,6 +181,14 @@ function scratchDiskData(input: NativeBootPlanInput): Record<string, unknown> {
   };
 }
 
+function rootDiskRuntimeData(input: NativeBootPlanInput): Record<string, unknown> {
+  return {
+    rootDiskRuntimeMode: input.rootDiskRuntimeMode ?? null,
+    rootDiskSourcePath: nullDefault(input.rootDiskSourcePath),
+    rootDiskClonePath: nullDefault(input.rootDiskClonePath),
+  };
+}
+
 function resourcesMemoryData(memory: BootMemoryResourceOptions | undefined): unknown {
   if (!memory) {
     return null;
@@ -186,6 +209,22 @@ function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[]
 
 function nullDefault<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
+}
+
+export function planBootRootDiskRuntimeNative(input: {
+  mode: RootDiskRuntimeMode;
+  sourcePath?: string;
+  clonePath?: string;
+}): RootDiskRuntimePlan {
+  return planBootCoreNative({
+    rootDiskRuntimeMode: input.mode,
+    rootDiskSourcePath: input.sourcePath,
+    rootDiskClonePath: input.clonePath,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).rootDiskRuntime;
 }
 
 export function planBootScratchDiskNative(input: {
@@ -410,6 +449,7 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     isMachinenConfigPlan(data.machinenConfig),
     isStringArray(data.bundleCommand),
     isScratchDiskPlan(data.scratchDisk),
+    isRootDiskRuntimePlan(data.rootDiskRuntime),
   ].every(Boolean);
 }
 
@@ -436,6 +476,29 @@ function isScratchDiskPlan(value: unknown): value is ScratchDiskPlan {
 
 function isScratchDiskAction(value: unknown): value is ScratchDiskAction {
   return value === "none" || value === "existing" || value === "clone" || value === "allocate";
+}
+
+function isRootDiskRuntimePlan(value: unknown): value is RootDiskRuntimePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<RootDiskRuntimePlan>;
+  return (
+    isRootDiskRuntimeAction(plan.action) &&
+    nullableString(plan.sourcePath) &&
+    nullableString(plan.targetPath) &&
+    nullableString(plan.perBootRootDisk) &&
+    nullableString(plan.vmmRootDisk)
+  );
+}
+
+function isRootDiskRuntimeAction(value: unknown): value is RootDiskRuntimeAction {
+  return (
+    value === "none" ||
+    value === "existing" ||
+    value === "clone-restore" ||
+    value === "clone-cached"
+  );
 }
 
 function isPlannedLiveMount(value: unknown): value is PlannedLiveMount {

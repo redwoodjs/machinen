@@ -52,6 +52,9 @@ const ParsedRequest = struct {
     scratch_snapshot_path: ?[]const u8 = null,
     scratch_restore_clone_path: ?[]const u8 = null,
     scratch_auto_path: ?[]const u8 = null,
+    root_disk_runtime_mode: boot_plan.RootDiskRuntimeMode = .none,
+    root_disk_source_path: ?[]const u8 = null,
+    root_disk_clone_path: ?[]const u8 = null,
 };
 
 const ParsedResourcesMemory = struct {
@@ -104,6 +107,9 @@ const boot_plan_fields = [_][]const u8{
     "scratchSnapshotPath",
     "scratchRestoreClonePath",
     "scratchAutoPath",
+    "rootDiskRuntimeMode",
+    "rootDiskSourcePath",
+    "rootDiskClonePath",
 };
 
 const RequestError = error{
@@ -170,6 +176,9 @@ const RequestError = error{
     InvalidScratchSnapshotPath,
     InvalidScratchRestoreClonePath,
     InvalidScratchAutoPath,
+    InvalidRootDiskRuntimeMode,
+    InvalidRootDiskSourcePath,
+    InvalidRootDiskClonePath,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -214,6 +223,7 @@ const PlanParts = struct {
     config_live_mounts: []const boot_plan.LiveMount,
     bundle_command: []const []const u8,
     scratch_disk: boot_plan.ScratchDiskPlan,
+    root_disk_runtime: boot_plan.RootDiskRuntimePlan,
 };
 
 fn makeCorePlan(
@@ -283,6 +293,11 @@ fn makePlanParts(
         .restore_clone_path = parsed.scratch_restore_clone_path,
         .auto_path = parsed.scratch_auto_path,
     });
+    const root_disk_runtime = try boot_plan.planRootDiskRuntime(.{
+        .mode = parsed.root_disk_runtime_mode,
+        .source_path = parsed.root_disk_source_path,
+        .clone_path = parsed.root_disk_clone_path,
+    });
     return .{
         .plan = plan,
         .guest_env = guest_env,
@@ -299,6 +314,7 @@ fn makePlanParts(
         .config_live_mounts = parsed.config_live_mounts,
         .bundle_command = bundle_command,
         .scratch_disk = scratch_disk,
+        .root_disk_runtime = root_disk_runtime,
     };
 }
 
@@ -336,6 +352,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeLiveMountsArrayField(io, "configLiveMounts", parts.config_live_mounts, true);
     try writeStringArrayField(io, "bundleCommand", parts.bundle_command, true);
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
+    try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
     try protocol.stdout(io, "}}\n");
 }
 
@@ -489,6 +506,29 @@ fn writeScratchDiskField(
     try writeNullableStringField(io, "diskPath", scratch.disk_path, true);
     try writeNullableStringField(io, "perBootSnapDisk", scratch.per_boot_snap_disk, true);
     try writeNullableStringField(io, "vmmDisk", scratch.vmm_disk, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeRootDiskRuntimeField(
+    io: std.Io,
+    comptime field: []const u8,
+    root_disk: boot_plan.RootDiskRuntimePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, root_disk.action);
+    try writeNullableStringField(io, "sourcePath", root_disk.source_path, true);
+    try writeNullableStringField(io, "targetPath", root_disk.target_path, true);
+    try writeNullableStringField(
+        io,
+        "perBootRootDisk",
+        root_disk.per_boot_root_disk,
+        true,
+    );
+    try writeNullableStringField(io, "vmmRootDisk", root_disk.vmm_root_disk, true);
     try protocol.stdout(io, "}");
 }
 
@@ -878,6 +918,17 @@ fn parseKernelVmstateFields(
         "scratchAutoPath",
         error.InvalidScratchAutoPath,
     );
+    request.root_disk_runtime_mode = try optionalRootDiskRuntimeMode(object);
+    request.root_disk_source_path = try optionalStringDefaultNull(
+        object,
+        "rootDiskSourcePath",
+        error.InvalidRootDiskSourcePath,
+    );
+    request.root_disk_clone_path = try optionalStringDefaultNull(
+        object,
+        "rootDiskClonePath",
+        error.InvalidRootDiskClonePath,
+    );
 }
 
 fn hasBundleCommandField(object: std.json.ObjectMap) bool {
@@ -904,6 +955,17 @@ fn optionalScratchMode(object: std.json.ObjectMap) RequestError!boot_plan.Scratc
     if (std.mem.eql(u8, value.string, "path")) return .path;
     if (std.mem.eql(u8, value.string, "auto")) return .auto;
     return error.InvalidScratchMode;
+}
+
+fn optionalRootDiskRuntimeMode(object: std.json.ObjectMap) RequestError!boot_plan.RootDiskRuntimeMode {
+    const value = object.get("rootDiskRuntimeMode") orelse return .none;
+    if (value == .null) return .none;
+    if (value != .string) return error.InvalidRootDiskRuntimeMode;
+    if (std.mem.eql(u8, value.string, "none")) return .none;
+    if (std.mem.eql(u8, value.string, "path")) return .path;
+    if (std.mem.eql(u8, value.string, "restore")) return .restore;
+    if (std.mem.eql(u8, value.string, "cached")) return .cached;
+    return error.InvalidRootDiskRuntimeMode;
 }
 
 fn optionalLiveMounts(
@@ -1268,6 +1330,11 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
             io,
             "BOOT_SNAPSHOT_NOT_FOUND",
             "boot-plan scratch disk path missing",
+        ),
+        error.MissingRootDiskRuntimePath => try writeBootError(
+            io,
+            "BOOT_IMAGE_NOT_FOUND",
+            "boot-plan rootDisk path missing",
         ),
         else => try writeBootError(io, "BOOT_MEMORY_INVALID", @errorName(err)),
     }
