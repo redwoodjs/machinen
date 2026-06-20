@@ -43,6 +43,7 @@ import type { OnLog } from "./log.ts";
 import {
   planProvisionAssetsNative,
   planProvisionBootNative,
+  planProvisionImageConfigNative,
   planProvisionRepackNative,
   planProvisionWorkloadNative,
 } from "./native/boot-plan.ts";
@@ -602,13 +603,7 @@ function finishProvision(opts: ProvisionOptions, ctx: ProvisionContext): Provisi
 function provisionImageConfig(
   opts: ProvisionOptions,
 ): { cmd?: string[]; env?: Record<string, string> } | null {
-  if (!opts.cmd && !opts.env) {
-    return null;
-  }
-  return {
-    ...(opts.cmd ? { cmd: opts.cmd } : {}),
-    ...(opts.env ? { env: opts.env } : {}),
-  };
+  return planProvisionImageConfigNative({ cmd: opts.cmd, env: opts.env });
 }
 
 function cleanupProvisionWorkDir(workDir: string): void {
@@ -691,14 +686,9 @@ function repackDiskTarToGz(
     // Bake the image's default cmd/env into /machinen-config.json so
     // `boot({ image })` can run without every caller re-passing the
     // same cmd. User-supplied cmd/env on boot() still override.
-    if (opts.cmd || opts.env) {
-      writeFileSync(
-        join(extractDir, "machinen-config.json"),
-        JSON.stringify({
-          ...(opts.cmd ? { cmd: opts.cmd } : {}),
-          ...(opts.env ? { env: opts.env } : {}),
-        }),
-      );
+    const imageConfig = planProvisionImageConfigNative({ cmd: opts.cmd, env: opts.env });
+    if (imageConfig) {
+      writeFileSync(join(extractDir, "machinen-config.json"), JSON.stringify(imageConfig));
     }
     const tarT0 = Date.now();
     execFileSync("tar", repackPlan.targzArgs, {

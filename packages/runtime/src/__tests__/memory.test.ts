@@ -294,6 +294,46 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans provision image config payloads", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const withConfig = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionImageConfigHasCmd: true,
+          provisionImageConfigCmd: ["/bin/echo", "hi"],
+          provisionImageConfigHasEnv: true,
+          provisionImageConfigEnv: { FOO: "bar" },
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(withConfig.status).toBe(0);
+    expect(JSON.parse(withConfig.stdout).data.provisionImageConfig).toEqual({
+      cmd: ["/bin/echo", "hi"],
+      env: { FOO: "bar" },
+    });
+
+    const empty = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(empty.status).toBe(0);
+    expect(JSON.parse(empty.stdout).data.provisionImageConfig).toBeNull();
+  });
+
   it("plans provision workload and repack commands", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
