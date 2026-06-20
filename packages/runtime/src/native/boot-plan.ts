@@ -3,6 +3,8 @@ import { callRuntimeHelper } from "../native-helper.ts";
 import type { BootMemoryResourceOptions } from "../vm/memory-resources.ts";
 
 type RootDiskPlanMode = "unset" | "false" | "path" | "true";
+type ScratchDiskMode = "false" | "path" | "auto";
+type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
 
 type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
 type LiveMountPlanInput = { host: string; guest: string; mode?: string };
@@ -49,6 +51,10 @@ interface NativeBootPlanInput {
   bundleVmstateRestore?: boolean;
   bundleLiveMounts?: PlannedLiveMount[];
   bundleCommandRequired?: boolean;
+  scratchMode?: ScratchDiskMode;
+  scratchSnapshotPath?: string;
+  scratchRestoreClonePath?: string;
+  scratchAutoPath?: string;
 }
 
 interface NativeBootPlanResult {
@@ -72,7 +78,15 @@ interface NativeBootPlanResult {
   vmmStatsFile: string | null;
   machinenConfig: MachinenConfigPlan;
   bundleCommand: string[];
+  scratchDisk: ScratchDiskPlan;
 }
+
+type ScratchDiskPlan = {
+  action: ScratchDiskAction;
+  diskPath: string | null;
+  perBootSnapDisk: string | null;
+  vmmDisk: string | null;
+};
 
 type MachinenConfigPlan = Record<string, unknown> & {
   cmd: string[];
@@ -128,6 +142,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     configImageCwd: nullDefault(input.configImageCwd),
     configLiveMounts: input.configLiveMounts ?? [],
     ...bundleCommandData(input),
+    ...scratchDiskData(input),
   };
 }
 
@@ -139,6 +154,15 @@ function bundleCommandData(input: NativeBootPlanInput): Record<string, unknown> 
     bundleVmstateRestore: input.bundleVmstateRestore === true,
     bundleLiveMounts: input.bundleLiveMounts ?? [],
     bundleCommandRequired: input.bundleCommandRequired === true,
+  };
+}
+
+function scratchDiskData(input: NativeBootPlanInput): Record<string, unknown> {
+  return {
+    scratchMode: input.scratchMode ?? null,
+    scratchSnapshotPath: nullDefault(input.scratchSnapshotPath),
+    scratchRestoreClonePath: nullDefault(input.scratchRestoreClonePath),
+    scratchAutoPath: nullDefault(input.scratchAutoPath),
   };
 }
 
@@ -162,6 +186,26 @@ function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[]
 
 function nullDefault<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
+}
+
+export function planBootScratchDiskNative(input: {
+  mode: ScratchDiskMode;
+  hasCmd: boolean;
+  hasImage: boolean;
+  snapshotPath?: string;
+  restoreClonePath?: string;
+  autoPath?: string;
+}): ScratchDiskPlan {
+  return planBootCoreNative({
+    scratchMode: input.mode,
+    scratchSnapshotPath: input.snapshotPath,
+    scratchRestoreClonePath: input.restoreClonePath,
+    scratchAutoPath: input.autoPath,
+    vmmMemoryPreset: true,
+    hasImage: input.hasImage,
+    hasCmd: input.hasCmd,
+    rootDisk: "false",
+  }).scratchDisk;
 }
 
 export function planBootBundleCommandNative(input: {
@@ -365,6 +409,7 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     nullableString(data.vmmStatsFile),
     isMachinenConfigPlan(data.machinenConfig),
     isStringArray(data.bundleCommand),
+    isScratchDiskPlan(data.scratchDisk),
   ].every(Boolean);
 }
 
@@ -374,6 +419,23 @@ function isStringArray(value: unknown): value is string[] {
 
 function isPlannedLiveMountArray(value: unknown): value is PlannedLiveMount[] {
   return Array.isArray(value) && value.every(isPlannedLiveMount);
+}
+
+function isScratchDiskPlan(value: unknown): value is ScratchDiskPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<ScratchDiskPlan>;
+  return (
+    isScratchDiskAction(plan.action) &&
+    nullableString(plan.diskPath) &&
+    nullableString(plan.perBootSnapDisk) &&
+    nullableString(plan.vmmDisk)
+  );
+}
+
+function isScratchDiskAction(value: unknown): value is ScratchDiskAction {
+  return value === "none" || value === "existing" || value === "clone" || value === "allocate";
 }
 
 function isPlannedLiveMount(value: unknown): value is PlannedLiveMount {

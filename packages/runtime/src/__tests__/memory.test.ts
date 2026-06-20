@@ -224,6 +224,76 @@ describe("boot-plan helper schema", () => {
     expect(liveCommand.slice(5)).toEqual(["/bin/echo", "hi"]);
   });
 
+  it("plans scratch disk modes", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: true,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const restore = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          scratchMode: "path",
+          scratchSnapshotPath: "/tmp/source.img",
+          scratchRestoreClonePath: "/tmp/clone.img",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(restore.status).toBe(0);
+    expect(JSON.parse(restore.stdout).data.scratchDisk).toEqual({
+      action: "clone",
+      diskPath: "/tmp/clone.img",
+      perBootSnapDisk: "/tmp/clone.img",
+      vmmDisk: "/tmp/clone.img",
+    });
+
+    const existing = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          hasCmd: true,
+          scratchMode: "path",
+          scratchSnapshotPath: "/tmp/source.img",
+          scratchRestoreClonePath: "/tmp/clone.img",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(existing.status).toBe(0);
+    expect(JSON.parse(existing.stdout).data.scratchDisk).toEqual({
+      action: "existing",
+      diskPath: "/tmp/source.img",
+      perBootSnapDisk: null,
+      vmmDisk: "/tmp/source.img",
+    });
+
+    const auto = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, scratchMode: "auto", scratchAutoPath: "/tmp/auto.img" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(auto.status).toBe(0);
+    expect(JSON.parse(auto.stdout).data.scratchDisk).toEqual({
+      action: "allocate",
+      diskPath: "/tmp/auto.img",
+      perBootSnapDisk: "/tmp/auto.img",
+      vmmDisk: "/tmp/auto.img",
+    });
+  });
+
   it("plans machinen-config guest payloads", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

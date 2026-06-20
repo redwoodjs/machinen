@@ -116,6 +116,29 @@ pub const StatsFilePlan = struct {
     vmm_stats_file: ?[]const u8,
 };
 
+pub const ScratchDiskMode = enum {
+    unset,
+    false_value,
+    path,
+    auto,
+};
+
+pub const ScratchDiskInput = struct {
+    mode: ScratchDiskMode = .unset,
+    has_cmd: bool = false,
+    has_image: bool = false,
+    snapshot_path: ?[]const u8 = null,
+    restore_clone_path: ?[]const u8 = null,
+    auto_path: ?[]const u8 = null,
+};
+
+pub const ScratchDiskPlan = struct {
+    action: []const u8,
+    disk_path: ?[]const u8,
+    per_boot_snap_disk: ?[]const u8,
+    vmm_disk: ?[]const u8,
+};
+
 pub const MachinenConfigInput = struct {
     guest_cwd: ?[]const u8 = null,
     image_cwd: ?[]const u8 = null,
@@ -155,6 +178,7 @@ pub const PlanError = error{
     TooManyLiveMounts,
     InvalidLiveMountMode,
     MissingBundleCommand,
+    MissingScratchPath,
 };
 
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
@@ -253,6 +277,49 @@ pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
 
 pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
     return input.guest_cwd orelse input.image_cwd;
+}
+
+pub fn planScratchDisk(input: ScratchDiskInput) PlanError!ScratchDiskPlan {
+    return switch (input.mode) {
+        .unset, .false_value => .{
+            .action = "none",
+            .disk_path = null,
+            .per_boot_snap_disk = null,
+            .vmm_disk = null,
+        },
+        .path => blk: {
+            const snapshot_path = input.snapshot_path orelse return error.MissingScratchPath;
+            if (input.has_cmd) {
+                break :blk .{
+                    .action = "existing",
+                    .disk_path = snapshot_path,
+                    .per_boot_snap_disk = null,
+                    .vmm_disk = snapshot_path,
+                };
+            }
+            const clone_path = input.restore_clone_path orelse return error.MissingScratchPath;
+            break :blk .{
+                .action = "clone",
+                .disk_path = clone_path,
+                .per_boot_snap_disk = clone_path,
+                .vmm_disk = clone_path,
+            };
+        },
+        .auto => if (!input.has_image) .{
+            .action = "none",
+            .disk_path = null,
+            .per_boot_snap_disk = null,
+            .vmm_disk = null,
+        } else blk: {
+            const auto_path = input.auto_path orelse return error.MissingScratchPath;
+            break :blk .{
+                .action = "allocate",
+                .disk_path = auto_path,
+                .per_boot_snap_disk = auto_path,
+                .vmm_disk = auto_path,
+            };
+        },
+    };
 }
 
 pub fn planBundleCommand(allocator: std.mem.Allocator, input: BundleCommandInput) ![]const []const u8 {
@@ -480,6 +547,29 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planScratchDisk selects restore clone auto allocation and no-disk cases" {
+    const disabled = try planScratchDisk(.{ .mode = .false_value, .has_image = true });
+    try std.testing.expectEqualStrings("none", disabled.action);
+    try std.testing.expect(disabled.vmm_disk == null);
+
+    const existing = try planScratchDisk(.{ .mode = .path, .has_cmd = true, .snapshot_path = "/snap.img", .restore_clone_path = "/clone.img" });
+    try std.testing.expectEqualStrings("existing", existing.action);
+    try std.testing.expectEqualStrings("/snap.img", existing.vmm_disk.?);
+    try std.testing.expect(existing.per_boot_snap_disk == null);
+
+    const clone = try planScratchDisk(.{ .mode = .path, .snapshot_path = "/snap.img", .restore_clone_path = "/clone.img" });
+    try std.testing.expectEqualStrings("clone", clone.action);
+    try std.testing.expectEqualStrings("/clone.img", clone.disk_path.?);
+    try std.testing.expectEqualStrings("/clone.img", clone.per_boot_snap_disk.?);
+
+    const auto_without_image = try planScratchDisk(.{ .mode = .auto });
+    try std.testing.expectEqualStrings("none", auto_without_image.action);
+
+    const auto = try planScratchDisk(.{ .mode = .auto, .has_image = true, .auto_path = "/auto.img" });
+    try std.testing.expectEqualStrings("allocate", auto.action);
+    try std.testing.expectEqualStrings("/auto.img", auto.vmm_disk.?);
 }
 
 test "planBundleCommand resolves image restore supervisor and batch wrappers" {
