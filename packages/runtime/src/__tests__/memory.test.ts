@@ -73,6 +73,34 @@ describe("autoSizeMemoryMib", () => {
 });
 
 describe("boot-plan helper schema", () => {
+  it("plans guest env defaults without overriding caller-provided values", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      guestEnv: { FOO: "bar", MACHINEN_VM_HOSTNAME_WAIT: "0" },
+      name: "worker",
+      vsockUdsPath: "/tmp/exec.sock",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.mergedGuestEnv).toEqual({
+      FOO: "bar",
+      MACHINEN_VM_HOSTNAME_WAIT: "0",
+      MACHINEN_VM_NAME: "worker",
+    });
+  });
+
   it("rejects unknown request fields", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

@@ -15,6 +15,9 @@ interface NativeBootPlanInput {
   rootDisk: RootDiskPlanMode;
   guestCwd?: string;
   mountGuest?: string;
+  guestEnv?: Record<string, string>;
+  name?: string;
+  vsockUdsPath?: string;
 }
 
 interface NativeBootPlanResult {
@@ -22,6 +25,7 @@ interface NativeBootPlanResult {
   vmmMemory: string | null;
   wantsRootDisk: boolean;
   normalizedMountGuest: string | null;
+  mergedGuestEnv: Record<string, string>;
 }
 
 export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanResult {
@@ -43,6 +47,9 @@ export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanRe
       rootDisk: input.rootDisk,
       guestCwd: input.guestCwd ?? null,
       mountGuest: input.mountGuest ?? null,
+      guestEnv: input.guestEnv ?? {},
+      name: input.name ?? null,
+      vsockUdsPath: input.vsockUdsPath ?? null,
     },
     errorCode: "BOOT_MEMORY_INVALID",
     makeError: bootPlanError,
@@ -84,8 +91,16 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     nullableNonNegativeNumber(data.memoryCeilingMib) &&
     (data.vmmMemory === null || typeof data.vmmMemory === "string") &&
     typeof data.wantsRootDisk === "boolean" &&
-    (data.normalizedMountGuest === null || typeof data.normalizedMountGuest === "string")
+    (data.normalizedMountGuest === null || typeof data.normalizedMountGuest === "string") &&
+    isStringRecord(data.mergedGuestEnv)
   );
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  return Object.values(value).every((entry) => typeof entry === "string");
 }
 
 function nullableNonNegativeNumber(value: unknown): boolean {
