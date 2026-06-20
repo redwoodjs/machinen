@@ -59,6 +59,16 @@ pub const VmmArgvPlan = struct {
     args: []const []const u8,
 };
 
+pub const KernelDtbInput = struct {
+    kernel_path: ?[]const u8 = null,
+    dtb_path: ?[]const u8 = null,
+};
+
+pub const KernelDtbPlan = struct {
+    vmm_kernel: ?[]const u8,
+    vmm_dtb: ?[]const u8,
+};
+
 pub const Input = struct {
     memory_mib: ?u64 = null,
     resources_memory: ?ResourcesMemory = null,
@@ -137,6 +147,10 @@ pub fn parseVsockUdsPath(spec: []const u8) ?[]const u8 {
         if (path.len > 0) return path;
     }
     return null;
+}
+
+pub fn planKernelDtb(input: KernelDtbInput) KernelDtbPlan {
+    return .{ .vmm_kernel = input.kernel_path, .vmm_dtb = input.dtb_path };
 }
 
 pub fn planVmmArgv(allocator: std.mem.Allocator, input: VmmArgvInput) !VmmArgvPlan {
@@ -316,6 +330,15 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planKernelDtb forwards resolved kernel and dtb paths" {
+    const plan = planKernelDtb(.{ .kernel_path = "/tmp/Image", .dtb_path = "/tmp/virt.dtb" });
+    try std.testing.expectEqualStrings("/tmp/Image", plan.vmm_kernel.?);
+    try std.testing.expectEqualStrings("/tmp/virt.dtb", plan.vmm_dtb.?);
+    const empty = planKernelDtb(.{});
+    try std.testing.expectEqual(@as(?[]const u8, null), empty.vmm_kernel);
+    try std.testing.expectEqual(@as(?[]const u8, null), empty.vmm_dtb);
 }
 
 test "planVmmArgv wraps VMM argv with pdeathsig when present" {

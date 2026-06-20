@@ -141,6 +141,32 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans kernel and dtb env paths", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      kernelPath: "/tmp/Image",
+      dtbPath: "/tmp/virt.dtb",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data).toMatchObject({
+      vmmKernel: "/tmp/Image",
+      vmmDtb: "/tmp/virt.dtb",
+    });
+  });
+
   it("plans VMM argv with optional pdeathsig wrapping", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

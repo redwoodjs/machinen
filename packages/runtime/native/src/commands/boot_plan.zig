@@ -25,6 +25,8 @@ const ParsedRequest = struct {
     vmm_binary: ?[]const u8,
     vmm_args: []const []const u8,
     pdeathsig_path: ?[]const u8,
+    kernel_path: ?[]const u8,
+    dtb_path: ?[]const u8,
 };
 
 const ParsedResourcesMemory = struct {
@@ -66,6 +68,8 @@ const RequestError = error{
     InvalidVmmBinary,
     InvalidVmmArgs,
     InvalidPdeathsigPath,
+    InvalidKernelPath,
+    InvalidDtbPath,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -115,8 +119,12 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .args = parsed.vmm_args,
         .pdeathsig_path = parsed.pdeathsig_path,
     });
+    const kernel_dtb = boot_plan.planKernelDtb(.{
+        .kernel_path = parsed.kernel_path,
+        .dtb_path = parsed.dtb_path,
+    });
 
-    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv);
+    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb);
     return .ok;
 }
 
@@ -126,6 +134,7 @@ fn writePlan(
     guest_env: []const boot_plan.EnvPair,
     vsock_plan: boot_plan.VsockPlan,
     vmm_argv: boot_plan.VmmArgvPlan,
+    kernel_dtb: boot_plan.KernelDtbPlan,
 ) !void {
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{");
     try protocol.stdout(io, "\"memoryCeilingMib\":");
@@ -159,6 +168,18 @@ fn writePlan(
     try protocol.stdout(io, ",\"vmmVsock\":");
     if (vsock_plan.vmm_vsock) |spec| {
         try protocol.writeJsonString(io, spec);
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"vmmKernel\":");
+    if (kernel_dtb.vmm_kernel) |kernel| {
+        try protocol.writeJsonString(io, kernel);
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"vmmDtb\":");
+    if (kernel_dtb.vmm_dtb) |dtb| {
+        try protocol.writeJsonString(io, dtb);
     } else {
         try protocol.stdout(io, "null");
     }
@@ -258,7 +279,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -279,6 +300,8 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .vmm_binary = try optionalStringDefaultNull(object, "vmmBinary", error.InvalidVmmBinary),
         .vmm_args = try optionalStringArrayDefaultEmpty(allocator, object, "vmmArgs", error.InvalidVmmArgs),
         .pdeathsig_path = try optionalStringDefaultNull(object, "pdeathsigPath", error.InvalidPdeathsigPath),
+        .kernel_path = try optionalStringDefaultNull(object, "kernelPath", error.InvalidKernelPath),
+        .dtb_path = try optionalStringDefaultNull(object, "dtbPath", error.InvalidDtbPath),
     };
 }
 

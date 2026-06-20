@@ -26,6 +26,8 @@ interface NativeBootPlanInput {
   vmmBinary?: string;
   vmmArgs?: string[];
   pdeathsigPath?: string;
+  kernelPath?: string;
+  dtbPath?: string;
 }
 
 interface NativeBootPlanResult {
@@ -38,6 +40,8 @@ interface NativeBootPlanResult {
   vmmVsock: string | null;
   vmmCommand: string | null;
   vmmArgs: string[];
+  vmmKernel: string | null;
+  vmmDtb: string | null;
 }
 
 export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanResult {
@@ -68,11 +72,31 @@ export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanRe
       vmmBinary: input.vmmBinary ?? null,
       vmmArgs: input.vmmArgs ?? [],
       pdeathsigPath: input.pdeathsigPath ?? null,
+      kernelPath: input.kernelPath ?? null,
+      dtbPath: input.dtbPath ?? null,
     },
     errorCode: "BOOT_MEMORY_INVALID",
     makeError: bootPlanError,
     isData: isNativeBootPlanResult,
   });
+}
+
+export function planBootKernelDtbNative(input: { kernelPath?: string; dtbPath?: string }): {
+  kernelPath?: string;
+  dtbPath?: string;
+} {
+  const plan = planBootCoreNative({
+    kernelPath: input.kernelPath,
+    dtbPath: input.dtbPath,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  return {
+    kernelPath: plan.vmmKernel ?? undefined,
+    dtbPath: plan.vmmDtb ?? undefined,
+  };
 }
 
 export function planBootVmmArgvNative(input: {
@@ -145,6 +169,8 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     nullableString(data.vmmVsock),
     nullableString(data.vmmCommand),
     isStringArray(data.vmmArgs),
+    nullableString(data.vmmKernel),
+    nullableString(data.vmmDtb),
   ].every(Boolean);
 }
 
