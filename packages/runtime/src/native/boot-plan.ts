@@ -23,6 +23,17 @@ type ProvisionAssetsPlan = {
   rootfsAsset: string;
 };
 
+type ProvisionBootPlan = {
+  imagePath: string | null;
+  kernelPath: string | null;
+  dtbPath: string | null;
+  vmmVsock: string | null;
+  cmd: string[];
+  env: Record<string, string>;
+  snapshotPath: string | null;
+  rootDiskPath: string | null;
+};
+
 type RegistryShapePlan = {
   sourceImagePath: string | null;
   rootDiskPath: string | null;
@@ -76,6 +87,12 @@ interface NativeBootPlanInput {
   bundleImageEnv?: Record<string, string>;
   bundleGuestEnv?: Record<string, string>;
   provisionGuestCpu?: ProvisionGuestCpu;
+  provisionBasePath?: string;
+  provisionKernelPath?: string;
+  provisionDtbPath?: string;
+  provisionUdsPath?: string;
+  provisionScratchDiskPath?: string;
+  provisionRootDiskPath?: string;
   scratchMode?: ScratchDiskMode;
   scratchSnapshotPath?: string;
   scratchRestoreClonePath?: string;
@@ -127,6 +144,7 @@ interface NativeBootPlanResult {
   bundleCommand: string[];
   bundleEnv: Record<string, string>;
   provisionAssets: ProvisionAssetsPlan;
+  provisionBoot: ProvisionBootPlan;
   scratchDisk: ScratchDiskPlan;
   rootDiskRuntime: RootDiskRuntimePlan;
   mountDiskRuntime: MountDiskRuntimePlan;
@@ -211,7 +229,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     configImageCwd: nullDefault(input.configImageCwd),
     configLiveMounts: input.configLiveMounts ?? [],
     ...bundleCommandData(input),
-    provisionGuestCpu: input.provisionGuestCpu ?? null,
+    ...provisionData(input),
     ...scratchDiskData(input),
     ...rootDiskRuntimeData(input),
     ...mountDiskRuntimeData(input),
@@ -229,6 +247,18 @@ function bundleCommandData(input: NativeBootPlanInput): Record<string, unknown> 
     bundleCommandRequired: input.bundleCommandRequired === true,
     bundleImageEnv: input.bundleImageEnv ?? {},
     bundleGuestEnv: input.bundleGuestEnv ?? {},
+  };
+}
+
+function provisionData(input: NativeBootPlanInput): Record<string, unknown> {
+  return {
+    provisionGuestCpu: input.provisionGuestCpu ?? null,
+    provisionBasePath: nullDefault(input.provisionBasePath),
+    provisionKernelPath: nullDefault(input.provisionKernelPath),
+    provisionDtbPath: nullDefault(input.provisionDtbPath),
+    provisionUdsPath: nullDefault(input.provisionUdsPath),
+    provisionScratchDiskPath: nullDefault(input.provisionScratchDiskPath),
+    provisionRootDiskPath: nullDefault(input.provisionRootDiskPath),
   };
 }
 
@@ -298,6 +328,28 @@ function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[]
 
 function nullDefault<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
+}
+
+export function planProvisionBootNative(input: {
+  basePath: string;
+  kernelPath: string;
+  dtbPath?: string;
+  udsPath: string;
+  scratchDiskPath: string;
+  rootDiskPath: string;
+}): ProvisionBootPlan {
+  return planBootCoreNative({
+    provisionBasePath: input.basePath,
+    provisionKernelPath: input.kernelPath,
+    provisionDtbPath: input.dtbPath,
+    provisionUdsPath: input.udsPath,
+    provisionScratchDiskPath: input.scratchDiskPath,
+    provisionRootDiskPath: input.rootDiskPath,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).provisionBoot;
 }
 
 export function planProvisionAssetsNative(cpu: ProvisionGuestCpu): ProvisionAssetsPlan {
@@ -626,6 +678,7 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     isStringArray(data.bundleCommand),
     isStringRecord(data.bundleEnv),
     isProvisionAssetsPlan(data.provisionAssets),
+    isProvisionBootPlan(data.provisionBoot),
     isScratchDiskPlan(data.scratchDisk),
     isRootDiskRuntimePlan(data.rootDiskRuntime),
     isMountDiskRuntimePlan(data.mountDiskRuntime),
@@ -652,6 +705,23 @@ function isProvisionAssetsPlan(value: unknown): value is ProvisionAssetsPlan {
     nullableString(plan.dtbAsset) &&
     typeof plan.rootfsAsset === "string"
   );
+}
+
+function isProvisionBootPlan(value: unknown): value is ProvisionBootPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<ProvisionBootPlan>;
+  return [
+    nullableString(plan.imagePath),
+    nullableString(plan.kernelPath),
+    nullableString(plan.dtbPath),
+    nullableString(plan.vmmVsock),
+    isStringArray(plan.cmd),
+    isStringRecord(plan.env),
+    nullableString(plan.snapshotPath),
+    nullableString(plan.rootDiskPath),
+  ].every(Boolean);
 }
 
 function isScratchDiskPlan(value: unknown): value is ScratchDiskPlan {
