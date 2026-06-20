@@ -13,6 +13,26 @@ pub const RssReading = struct {
     rss_bytes: u64,
 };
 
+pub const PidStatus = enum {
+    alive,
+    dead,
+    recycled,
+};
+
+pub const ProcessIdentity = struct {
+    exe_base: []u8,
+    started_at_ms: ?i64 = null,
+
+    pub fn deinit(self: ProcessIdentity, allocator: std.mem.Allocator) void {
+        allocator.free(self.exe_base);
+    }
+};
+
+pub const PidExpected = struct {
+    vmm_exe: ?[]const u8 = null,
+    started_at_ms: ?i64 = null,
+};
+
 pub const CpuCgroupOptions = struct {
     pid: u32,
     weight: u32,
@@ -34,6 +54,34 @@ pub const CpuCgroupResult = struct {
 
 const CPU_PERIOD_US = 100_000;
 const DEFAULT_CGROUP_PARENT = "/sys/fs/cgroup";
+const STARTTIME_SKEW_MS = 5_000;
+
+pub fn readProcessIdentity(allocator: std.mem.Allocator, io: std.Io, pid: u32) Error!?ProcessIdentity {
+    return switch (builtin.os.tag) {
+        .linux => readLinuxIdentity(allocator, io, pid),
+        .macos => readPsIdentity(allocator, io, pid),
+        else => readPsIdentity(allocator, io, pid),
+    };
+}
+
+pub fn validatePid(allocator: std.mem.Allocator, io: std.Io, pid: u32, expected: PidExpected) Error!PidStatus {
+    if (pid == 0) return .dead;
+    if (!pidAlive(pid)) return .dead;
+    if (expected.vmm_exe == null and expected.started_at_ms == null) return .alive;
+    const observed = (try readProcessIdentity(allocator, io, pid)) orelse return .alive;
+    defer observed.deinit(allocator);
+
+    if (expected.vmm_exe) |vmm_exe| {
+        const expected_base = std.fs.path.basename(vmm_exe);
+        if (!std.mem.eql(u8, observed.exe_base, expected_base)) {
+            if (builtin.os.tag != .linux or !std.mem.eql(u8, observed.exe_base, "pdeathsig") or !startTimesMatch(expected.started_at_ms, observed.started_at_ms)) {
+                return .recycled;
+            }
+        }
+    }
+    if (!startTimesMatch(expected.started_at_ms, observed.started_at_ms)) return .recycled;
+    return .alive;
+}
 
 pub fn applyCpuCgroup(allocator: std.mem.Allocator, io: std.Io, opts: CpuCgroupOptions) Error!CpuCgroupResult {
     if (builtin.os.tag != .linux) {
@@ -110,6 +158,130 @@ pub fn readHostRss(allocator: std.mem.Allocator, io: std.Io, targets: []const Rs
     }
 
     return readings.toOwnedSlice(allocator);
+}
+
+fn pidAlive(pid: u32) bool {
+    std.posix.kill(@intCast(pid), @enumFromInt(0)) catch return false;
+    return true;
+}
+
+fn startTimesMatch(expected: ?i64, observed: ?i64) bool {
+    const e = expected orelse return true;
+    const o = observed orelse return true;
+    return @abs(e - o) <= STARTTIME_SKEW_MS;
+}
+
+fn readLinuxIdentity(allocator: std.mem.Allocator, io: std.Io, pid: u32) Error!?ProcessIdentity {
+    var link_buf: [4096]u8 = undefined;
+    const exe_path = try std.fmt.allocPrint(allocator, "/proc/{d}/exe", .{pid});
+    defer allocator.free(exe_path);
+    const link_len = std.Io.Dir.readLinkAbsolute(io, exe_path, &link_buf) catch return null;
+    const exe_base = try allocator.dupe(u8, std.fs.path.basename(link_buf[0..link_len]));
+    errdefer allocator.free(exe_base);
+
+    var started_at_ms: ?i64 = null;
+    const stat_path = try std.fmt.allocPrint(allocator, "/proc/{d}/stat", .{pid});
+    defer allocator.free(stat_path);
+    if (readFileAlloc(allocator, io, stat_path) catch null) |stat_data| {
+        defer allocator.free(stat_data);
+        if (try readBootTimeSeconds(allocator, io)) |boot_time_seconds| {
+            started_at_ms = parseLinuxStartTimeMs(stat_data, boot_time_seconds);
+        }
+    }
+
+    return .{ .exe_base = exe_base, .started_at_ms = started_at_ms };
+}
+
+fn readBootTimeSeconds(allocator: std.mem.Allocator, io: std.Io) Error!?i64 {
+    const data = readFileAlloc(allocator, io, "/proc/stat") catch return null;
+    defer allocator.free(data);
+    return parseBootTimeSeconds(data);
+}
+
+pub fn parseBootTimeSeconds(proc_stat: []const u8) ?i64 {
+    var lines = std.mem.splitScalar(u8, proc_stat, '\n');
+    while (lines.next()) |line| {
+        if (!std.mem.startsWith(u8, line, "btime ")) continue;
+        const raw = std.mem.trim(u8, line[6..], " \t");
+        return std.fmt.parseInt(i64, raw, 10) catch null;
+    }
+    return null;
+}
+
+pub fn parseLinuxStartTimeMs(proc_pid_stat: []const u8, boot_time_seconds: i64) ?i64 {
+    const last_paren = std.mem.lastIndexOfScalar(u8, proc_pid_stat, ')') orelse return null;
+    if (last_paren + 2 > proc_pid_stat.len) return null;
+    var fields = std.mem.tokenizeScalar(u8, proc_pid_stat[last_paren + 2 ..], ' ');
+    var index: usize = 0;
+    while (fields.next()) |field| : (index += 1) {
+        if (index != 19) continue;
+        const ticks = std.fmt.parseInt(i64, field, 10) catch return null;
+        return boot_time_seconds * 1000 + ticks * 10;
+    }
+    return null;
+}
+
+fn readPsIdentity(allocator: std.mem.Allocator, io: std.Io, pid: u32) Error!?ProcessIdentity {
+    const pid_text = try std.fmt.allocPrint(allocator, "{d}", .{pid});
+    defer allocator.free(pid_text);
+    const result = std.process.run(allocator, io, .{
+        .argv = &.{ "/bin/ps", "-o", "lstart=,command=", "-p", pid_text },
+        .stdout_limit = .limited(16 * 1024),
+        .stderr_limit = .limited(16 * 1024),
+    }) catch return null;
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    switch (result.term) {
+        .exited => |code| if (code != 0) return null,
+        else => return null,
+    }
+    const parsed = try parsePsLstartLine(allocator, result.stdout);
+    const parts = parsed orelse return null;
+    defer allocator.free(parts.lstart);
+    defer allocator.free(parts.command);
+    return try identityFromPsParts(allocator, parts.command, try parseDarwinLstartMs(allocator, io, parts.lstart));
+}
+
+const PsLstartParts = struct {
+    lstart: []u8,
+    command: []u8,
+};
+
+pub fn parsePsLstartLine(allocator: std.mem.Allocator, output: []const u8) Error!?PsLstartParts {
+    const trimmed = std.mem.trim(u8, output, " \t\r\n");
+    if (trimmed.len < 24) return null;
+    const lstart = std.mem.trim(u8, trimmed[0..24], " \t");
+    const rest = std.mem.trim(u8, trimmed[24..], " \t");
+    var command_it = std.mem.tokenizeAny(u8, rest, " \t\r\n");
+    const command = command_it.next() orelse return null;
+    return .{
+        .lstart = try allocator.dupe(u8, lstart),
+        .command = try allocator.dupe(u8, command),
+    };
+}
+
+fn identityFromPsParts(allocator: std.mem.Allocator, command: []const u8, started_at_ms: ?i64) Error!ProcessIdentity {
+    return .{
+        .exe_base = try allocator.dupe(u8, std.fs.path.basename(command)),
+        .started_at_ms = started_at_ms,
+    };
+}
+
+fn parseDarwinLstartMs(allocator: std.mem.Allocator, io: std.Io, lstart: []const u8) Error!?i64 {
+    const result = std.process.run(allocator, io, .{
+        .argv = &.{ "/bin/date", "-j", "-f", "%a %e %b %T %Y", lstart, "+%s" },
+        .stdout_limit = .limited(16 * 1024),
+        .stderr_limit = .limited(16 * 1024),
+    }) catch return null;
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    switch (result.term) {
+        .exited => |code| if (code != 0) return null,
+        else => return null,
+    }
+    const trimmed = std.mem.trim(u8, result.stdout, " \t\r\n");
+    const seconds = std.fmt.parseInt(i64, trimmed, 10) catch return null;
+    return seconds * 1000;
 }
 
 fn looksLikeCgroupV2(io: std.Io, parent_dir: []const u8) bool {
@@ -287,6 +459,36 @@ test "applyCpuCgroupLinux writes cgroup v2 files" {
 
     removeCpuCgroup(std.testing.io, result.cgroup_path.?);
     try std.testing.expect(!existsPath(std.testing.io, result.cgroup_path.?));
+}
+
+test "parseBootTimeSeconds reads Linux btime" {
+    try std.testing.expectEqual(@as(?i64, 1_700_000_000), parseBootTimeSeconds("cpu 0 0 0\nbtime 1700000000\n"));
+    try std.testing.expectEqual(@as(?i64, null), parseBootTimeSeconds("cpu 0 0 0\n"));
+}
+
+test "parseLinuxStartTimeMs reads field 22 after process name" {
+    const stat = "1234 (name with spaces) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 250 21";
+    try std.testing.expectEqual(@as(?i64, 1_700_000_002_500), parseLinuxStartTimeMs(stat, 1_700_000_000));
+}
+
+test "parsePsLstartLine reads lstart and command basename" {
+    const parts = (try parsePsLstartLine(std.testing.allocator, "Sat 20 Jun 16:59:31 2026     /tmp/machinen-vm --flag\n")).?;
+    defer std.testing.allocator.free(parts.lstart);
+    defer std.testing.allocator.free(parts.command);
+    try std.testing.expectEqualStrings("Sat 20 Jun 16:59:31 2026", parts.lstart);
+    const identity = try identityFromPsParts(std.testing.allocator, parts.command, 1_700_000_058_000);
+    defer identity.deinit(std.testing.allocator);
+    try std.testing.expectEqualStrings("machinen-vm", identity.exe_base);
+    try std.testing.expectEqual(@as(?i64, 1_700_000_058_000), identity.started_at_ms);
+}
+
+test "validatePid returns alive for this process without expectations" {
+    const pid: u32 = @intCast(std.c.getpid());
+    try std.testing.expectEqual(.alive, try validatePid(std.testing.allocator, std.testing.io, pid, .{}));
+}
+
+test "validatePid returns dead for an invalid pid" {
+    try std.testing.expectEqual(.dead, try validatePid(std.testing.allocator, std.testing.io, 0, .{}));
 }
 
 test "parseVmRssStatus reads VmRSS in bytes" {

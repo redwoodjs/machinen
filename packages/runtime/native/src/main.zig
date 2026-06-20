@@ -6,6 +6,8 @@ const host_rss = @import("commands/host_rss.zig");
 const mkinitramfs = @import("commands/mkinitramfs.zig");
 const mountdisk_image = @import("commands/mountdisk_image.zig");
 const mountdisk_upper = @import("commands/mountdisk_upper.zig");
+const pid_validate = @import("commands/pid_validate.zig");
+const process_identity = @import("commands/process_identity.zig");
 const reflink_copy = @import("commands/reflink_copy.zig");
 const rootfs_cache_key = @import("commands/rootfs_cache_key.zig");
 const rootfs_materialize = @import("commands/rootfs_materialize.zig");
@@ -24,6 +26,8 @@ pub fn main(init: std.process.Init) !u8 {
     assert(mkinitramfs.name.len > 0);
     assert(mountdisk_image.name.len > 0);
     assert(mountdisk_upper.name.len > 0);
+    assert(pid_validate.name.len > 0);
+    assert(process_identity.name.len > 0);
     assert(reflink_copy.name.len > 0);
     assert(rootfs_cache_key.name.len > 0);
     assert(rootfs_materialize.name.len > 0);
@@ -86,6 +90,18 @@ fn runKnownCommand(
             return @intFromEnum(protocol.Exit.usage);
         }
         return @intFromEnum(try mountdisk_upper.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, pid_validate.name)) {
+        if (try rejectExtraArgs(it, pid_validate.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try pid_validate.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, process_identity.name)) {
+        if (try rejectExtraArgs(it, process_identity.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try process_identity.run(allocator, g_io));
     }
     if (std.mem.eql(u8, command, reflink_copy.name)) {
         if (try rejectExtraArgs(it, reflink_copy.name)) {
@@ -155,6 +171,8 @@ fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
     assert(mkinitramfs.name.len > 0);
     assert(mountdisk_image.name.len > 0);
     assert(mountdisk_upper.name.len > 0);
+    assert(pid_validate.name.len > 0);
+    assert(process_identity.name.len > 0);
     assert(reflink_copy.name.len > 0);
     assert(rootfs_cache_key.name.len > 0);
     assert(rootfs_materialize.name.len > 0);
@@ -172,6 +190,8 @@ fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
             mkinitramfs.name,
             mountdisk_image.name,
             mountdisk_upper.name,
+            pid_validate.name,
+            process_identity.name,
             reflink_copy.name,
             rootfs_cache_key.name,
             rootfs_materialize.name,

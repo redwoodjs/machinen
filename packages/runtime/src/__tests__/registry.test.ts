@@ -5,11 +5,12 @@
 // boot()→list()→attach() against a long-running /usr/bin/yes "VMM" so
 // we don't need real HVF.
 
+import { execFileSync } from "node:child_process";
 import { createServer } from "node:net";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { RegistryError, attach, boot, list, type RegistryEntry } from "../index.ts";
 import {
   claimName,
@@ -29,6 +30,30 @@ import { readProcessIdentity } from "../pid-validate.ts";
  * exe basename so the snapshot in the entry matches what
  * `validatePid` re-reads from `ps` / `/proc`.
  */
+let helperTmp: string | undefined;
+let previousHelper: string | undefined;
+
+beforeAll(() => {
+  helperTmp = mkdtempSync(join(tmpdir(), "machinen-runtime-helper-test-"));
+  execFileSync("zig", ["build", "--prefix", helperTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousHelper = process.env.MACHINEN_RUNTIME_HELPER;
+  process.env.MACHINEN_RUNTIME_HELPER = join(helperTmp, "bin", "machinen-runtime-helper");
+});
+
+afterAll(() => {
+  if (previousHelper === undefined) {
+    delete process.env.MACHINEN_RUNTIME_HELPER;
+  } else {
+    process.env.MACHINEN_RUNTIME_HELPER = previousHelper;
+  }
+  if (helperTmp) {
+    rmSync(helperTmp, { recursive: true, force: true });
+  }
+});
+
 function entryForSelf(name: string): RegistryEntry {
   const observed = readProcessIdentity(process.pid);
   return {
