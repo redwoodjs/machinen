@@ -32,6 +32,8 @@ const ParsedRequest = struct {
     enable_vmstate_timing: bool,
     existing_vmstate_timing: ?[]const u8,
     live_mounts_resolved: []const boot_plan.LiveMount,
+    existing_stats_file: ?[]const u8,
+    stats_file_path: ?[]const u8,
 };
 
 const ParsedResourcesMemory = struct {
@@ -83,6 +85,8 @@ const RequestError = error{
     InvalidLiveMountHost,
     InvalidLiveMountMode,
     InvalidLiveMountTag,
+    InvalidExistingStatsFile,
+    InvalidStatsFilePath,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -143,8 +147,12 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .existing_timing = parsed.existing_vmstate_timing,
     });
     const virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved);
+    const stats_file = boot_plan.planStatsFile(.{
+        .existing_path = parsed.existing_stats_file,
+        .planned_path = parsed.stats_file_path,
+    });
 
-    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env);
+    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env, stats_file);
     return .ok;
 }
 
@@ -157,6 +165,7 @@ fn writePlan(
     kernel_dtb: boot_plan.KernelDtbPlan,
     vmstate_env: boot_plan.VmstateEnvPlan,
     virtiofs_env: []const boot_plan.EnvPair,
+    stats_file: boot_plan.StatsFilePlan,
 ) !void {
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{");
     try protocol.stdout(io, "\"memoryCeilingMib\":");
@@ -220,6 +229,18 @@ fn writePlan(
     try protocol.stdout(io, ",\"vmmVmstateTiming\":");
     if (vmstate_env.vmstate_timing) |timing| {
         try protocol.writeJsonString(io, timing);
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"statsFilePath\":");
+    if (stats_file.stats_file_path) |path| {
+        try protocol.writeJsonString(io, path);
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"vmmStatsFile\":");
+    if (stats_file.vmm_stats_file) |path| {
+        try protocol.writeJsonString(io, path);
     } else {
         try protocol.stdout(io, "null");
     }
@@ -327,7 +348,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMountsResolved" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMountsResolved", "existingStatsFile", "statsFilePath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -355,6 +376,8 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .enable_vmstate_timing = try optionalBoolDefaultFalse(object, "enableVmstateTiming", error.InvalidEnableVmstateTiming),
         .existing_vmstate_timing = try optionalStringDefaultNull(object, "existingVmstateTiming", error.InvalidExistingVmstateTiming),
         .live_mounts_resolved = try optionalLiveMountsResolved(allocator, object),
+        .existing_stats_file = try optionalStringDefaultNull(object, "existingStatsFile", error.InvalidExistingStatsFile),
+        .stats_file_path = try optionalStringDefaultNull(object, "statsFilePath", error.InvalidStatsFilePath),
     };
 }
 
