@@ -46,13 +46,14 @@ import {
   preflightNestedVirtualization,
   probeVmmNestedVirtualization,
 } from "../nested-virt.ts";
-import { ensurePdeathsig, wrapWithPdeathsig } from "../pdeathsig.ts";
+import { ensurePdeathsig } from "../pdeathsig.ts";
 import { PhaseTimer } from "../phase-timer.ts";
 import { readProcessIdentity } from "../pid-validate.ts";
 import { applyCpuControls, type CpuControlResult } from "../cpu-cgroup.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
+  planBootVmmArgvNative,
   rootDiskPlanMode,
   validateBootPortForwardNative,
 } from "../native/boot-plan.ts";
@@ -686,10 +687,14 @@ interface SpawnedBootVmm {
 async function spawnBootVmm(args: SpawnBootArgs): Promise<SpawnedBootVmm> {
   args.phases.start("vmm-spawn");
   const vmmPdeathsig = await resolveVmmPdeathsig(args.opts);
-  const wrappedVmm = wrapWithPdeathsig(vmmPdeathsig, args.plan.binary, args.opts.args ?? []);
+  const vmmArgv = planBootVmmArgvNative({
+    binary: args.plan.binary,
+    args: args.opts.args ?? [],
+    pdeathsigPath: vmmPdeathsig,
+  });
   const stdio: Array<"pipe" | number> = ["pipe", "pipe", "pipe"];
   const mountDiskFds = maybeOpenMountDiskFds(args.resources.mountDiskPaths, args.plan.env, stdio);
-  const child = nodeSpawn(wrappedVmm.command, wrappedVmm.args, {
+  const child = nodeSpawn(vmmArgv.command, vmmArgv.args, {
     cwd: args.opts.cwd,
     env: args.plan.env,
     stdio,
