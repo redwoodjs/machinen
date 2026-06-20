@@ -19,6 +19,8 @@ const ParsedRequest = struct {
     guest_env: std.json.ObjectMap,
     name: ?[]const u8,
     vsock_uds_path: ?[]const u8,
+    existing_vsock_spec: ?[]const u8,
+    auto_vsock_uds_path: ?[]const u8,
 };
 
 const ParsedResourcesMemory = struct {
@@ -52,6 +54,8 @@ const RequestError = error{
     InvalidGuestEnvValue,
     InvalidName,
     InvalidVsockUdsPath,
+    InvalidExistingVsockSpec,
+    InvalidAutoVsockUdsPath,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -73,16 +77,20 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
+    const vsock_plan = try boot_plan.planVsock(arena, .{
+        .existing_spec = parsed.existing_vsock_spec,
+        .auto_uds_path = parsed.auto_vsock_uds_path,
+    });
     const guest_env = makeGuestEnv(arena, parsed) catch |err| {
         try writePlanError(io, err);
         return .fail;
     };
 
-    try writePlan(io, plan, guest_env);
+    try writePlan(io, plan, guest_env, vsock_plan);
     return .ok;
 }
 
-fn writePlan(io: std.Io, plan: boot_plan.Plan, guest_env: []const boot_plan.EnvPair) !void {
+fn writePlan(io: std.Io, plan: boot_plan.Plan, guest_env: []const boot_plan.EnvPair, vsock_plan: boot_plan.VsockPlan) !void {
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{");
     try protocol.stdout(io, "\"memoryCeilingMib\":");
     if (plan.memory_ceiling_mib) |mib| {
@@ -103,6 +111,18 @@ fn writePlan(io: std.Io, plan: boot_plan.Plan, guest_env: []const boot_plan.EnvP
     try protocol.stdout(io, ",\"normalizedMountGuest\":");
     if (plan.normalized_mount_guest) |guest| {
         try protocol.writeJsonString(io, guest);
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"vsockUdsPath\":");
+    if (vsock_plan.uds_path) |path| {
+        try protocol.writeJsonString(io, path);
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"vmmVsock\":");
+    if (vsock_plan.vmm_vsock) |spec| {
+        try protocol.writeJsonString(io, spec);
     } else {
         try protocol.stdout(io, "null");
     }
@@ -190,7 +210,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -205,6 +225,8 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .guest_env = try optionalObjectDefaultEmpty(object, "guestEnv", error.InvalidGuestEnv),
         .name = try optionalStringDefaultNull(object, "name", error.InvalidName),
         .vsock_uds_path = try optionalStringDefaultNull(object, "vsockUdsPath", error.InvalidVsockUdsPath),
+        .existing_vsock_spec = try optionalStringDefaultNull(object, "existingVsockSpec", error.InvalidExistingVsockSpec),
+        .auto_vsock_uds_path = try optionalStringDefaultNull(object, "autoVsockUdsPath", error.InvalidAutoVsockUdsPath),
     };
 }
 
