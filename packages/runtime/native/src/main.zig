@@ -7,6 +7,7 @@ const host_rss = @import("commands/host_rss.zig");
 const mkinitramfs = @import("commands/mkinitramfs.zig");
 const mountdisk_image = @import("commands/mountdisk_image.zig");
 const mountdisk_upper = @import("commands/mountdisk_upper.zig");
+const nested_virt_probe = @import("commands/nested_virt_probe.zig");
 const pid_validate = @import("commands/pid_validate.zig");
 const process_identity = @import("commands/process_identity.zig");
 const reflink_copy = @import("commands/reflink_copy.zig");
@@ -28,6 +29,7 @@ pub fn main(init: std.process.Init) !u8 {
     assert(mkinitramfs.name.len > 0);
     assert(mountdisk_image.name.len > 0);
     assert(mountdisk_upper.name.len > 0);
+    assert(nested_virt_probe.name.len > 0);
     assert(pid_validate.name.len > 0);
     assert(process_identity.name.len > 0);
     assert(reflink_copy.name.len > 0);
@@ -96,6 +98,12 @@ fn runHostCommand(
             return @intFromEnum(protocol.Exit.usage);
         }
         return @intFromEnum(try host_rss.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, nested_virt_probe.name)) {
+        if (try rejectExtraArgs(it, nested_virt_probe.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try nested_virt_probe.run(allocator, g_io));
     }
     if (std.mem.eql(u8, command, pid_validate.name)) {
         if (try rejectExtraArgs(it, pid_validate.name)) {
@@ -206,6 +214,7 @@ fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
     assert(mkinitramfs.name.len > 0);
     assert(mountdisk_image.name.len > 0);
     assert(mountdisk_upper.name.len > 0);
+    assert(nested_virt_probe.name.len > 0);
     assert(pid_validate.name.len > 0);
     assert(process_identity.name.len > 0);
     assert(reflink_copy.name.len > 0);
@@ -226,6 +235,7 @@ fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
             mkinitramfs.name,
             mountdisk_image.name,
             mountdisk_upper.name,
+            nested_virt_probe.name,
             pid_validate.name,
             process_identity.name,
             reflink_copy.name,

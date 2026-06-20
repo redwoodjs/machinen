@@ -1,6 +1,9 @@
-import { execFileSync as nodeExecFileSync, spawnSync } from "node:child_process";
-import { existsSync as nodeExistsSync, readFileSync as nodeReadFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { BootError } from "./errors.ts";
+import {
+  probeNestedVirtualizationNative,
+  type NestedVirtProbeObservation,
+} from "./native/nested-virt.ts";
 
 const UNSUPPORTED_MESSAGE =
   "nested virtualization needs Linux/arm64 KVM with EL2 support, or macOS 15+ on M3/M4-class Apple Silicon";
@@ -18,27 +21,44 @@ export interface NestedVirtProbeResult {
   reason?: string;
 }
 
-function defaultProbeHost(): NestedVirtProbeHost {
-  return {
-    platform: process.platform,
-    arch: process.arch,
-    existsSync: nodeExistsSync,
-    readText: (path) => nodeReadFileSync(path, "utf8"),
-    execFileSync: (file, args) => nodeExecFileSync(file, args, { encoding: "utf8" }),
+export function probeNestedVirtualization(host?: NestedVirtProbeHost): NestedVirtProbeResult {
+  return probeNestedVirtualizationNative(host ? observeNestedVirtHost(host) : undefined);
+}
+
+function observeNestedVirtHost(host: NestedVirtProbeHost): NestedVirtProbeObservation {
+  const observed: NestedVirtProbeObservation = {
+    platform: host.platform,
+    arch: host.arch,
   };
+  if (host.platform === "linux") {
+    observed.linuxDevKvm = safeExists(host, "/dev/kvm");
+    observed.linuxKvmNested = readIfPresent(host, "/sys/module/kvm/parameters/nested");
+    observed.linuxKvmArmNested = readIfPresent(host, "/sys/module/kvm_arm/parameters/nested");
+  } else if (host.platform === "darwin") {
+    observed.darwinHvSupport = sysctl(host, "kern.hv_support") ?? null;
+    observed.darwinProductVersion = swVersProductVersion(host) ?? null;
+    observed.darwinCpuBrand = sysctl(host, "machdep.cpu.brand_string") ?? null;
+  }
+  return observed;
 }
 
-function unsupported(reason: string): NestedVirtProbeResult {
-  return { supported: false, reason };
+function safeExists(host: NestedVirtProbeHost, path: string): boolean {
+  try {
+    return host.existsSync(path);
+  } catch {
+    return false;
+  }
 }
 
-function trimLower(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function isDisabledKernelToggle(value: string): boolean {
-  const v = trimLower(value);
-  return v === "0" || v === "n" || v === "no" || v === "false" || v === "off";
+function readIfPresent(host: NestedVirtProbeHost, path: string): string | null {
+  if (!safeExists(host, path)) {
+    return null;
+  }
+  try {
+    return host.readText(path);
+  } catch {
+    return null;
+  }
 }
 
 function sysctl(host: NestedVirtProbeHost, name: string): string | undefined {
@@ -65,91 +85,7 @@ function swVersProductVersion(host: NestedVirtProbeHost): string | undefined {
   }
 }
 
-function darwinMajor(version: string | undefined): number | undefined {
-  const first = version?.split(".")[0];
-  if (!first || !/^[0-9]+$/.test(first)) {
-    return undefined;
-  }
-  return Number(first);
-}
-
-function appleSiliconGeneration(brand: string | undefined): number | undefined {
-  const m = brand?.match(/\bApple\s+M(\d+)\b/i);
-  return m ? Number(m[1]) : undefined;
-}
-
-export function probeNestedVirtualization(host = defaultProbeHost()): NestedVirtProbeResult {
-  if (host.arch !== "arm64") {
-    return unsupported(`${UNSUPPORTED_MESSAGE}; this host is ${host.arch}, not arm64`);
-  }
-  if (host.platform === "linux") {
-    return probeLinuxNestedVirtualization(host);
-  }
-  if (host.platform === "darwin") {
-    return probeDarwinNestedVirtualization(host);
-  }
-  return unsupported(`${UNSUPPORTED_MESSAGE}; ${host.platform} hosts are not supported`);
-}
-
-function probeLinuxNestedVirtualization(host: NestedVirtProbeHost): NestedVirtProbeResult {
-  if (!host.existsSync("/dev/kvm")) {
-    return unsupported(`${UNSUPPORTED_MESSAGE}; /dev/kvm is not present`);
-  }
-  const disabled = firstDisabledLinuxNestedToggle(host);
-  if (disabled) {
-    return unsupported(`${UNSUPPORTED_MESSAGE}; ${disabled}`);
-  }
-  return { supported: true };
-}
-
-function firstDisabledLinuxNestedToggle(host: NestedVirtProbeHost): string | undefined {
-  for (const path of [
-    "/sys/module/kvm/parameters/nested",
-    "/sys/module/kvm_arm/parameters/nested",
-  ]) {
-    if (!host.existsSync(path)) {
-      continue;
-    }
-    const value = host.readText(path);
-    if (isDisabledKernelToggle(value)) {
-      return `${path} is ${value.trim() || "disabled"}`;
-    }
-  }
-  return undefined;
-}
-
-function probeDarwinNestedVirtualization(host: NestedVirtProbeHost): NestedVirtProbeResult {
-  if (sysctl(host, "kern.hv_support") !== "1") {
-    return unsupported(`${UNSUPPORTED_MESSAGE}; Hypervisor.framework support is not available`);
-  }
-  const osReason = unsupportedDarwinVersionReason(host);
-  if (osReason) {
-    return unsupported(osReason);
-  }
-  const cpuReason = unsupportedAppleSiliconReason(host);
-  if (cpuReason) {
-    return unsupported(cpuReason);
-  }
-  return { supported: true };
-}
-
-function unsupportedDarwinVersionReason(host: NestedVirtProbeHost): string | undefined {
-  const major = darwinMajor(swVersProductVersion(host));
-  if (major !== undefined && major < 15) {
-    return `${UNSUPPORTED_MESSAGE}; macOS ${major} is older than macOS 15`;
-  }
-  return undefined;
-}
-
-function unsupportedAppleSiliconReason(host: NestedVirtProbeHost): string | undefined {
-  const generation = appleSiliconGeneration(sysctl(host, "machdep.cpu.brand_string"));
-  if (generation !== undefined && generation < 3) {
-    return `${UNSUPPORTED_MESSAGE}; Apple M${generation} does not expose nested EL2`;
-  }
-  return undefined;
-}
-
-export function preflightNestedVirtualization(host = defaultProbeHost()): void {
+export function preflightNestedVirtualization(host?: NestedVirtProbeHost): void {
   const result = probeNestedVirtualization(host);
   if (!result.supported) {
     throw new BootError("BOOT_NESTED_VIRT_UNSUPPORTED", result.reason ?? UNSUPPORTED_MESSAGE);

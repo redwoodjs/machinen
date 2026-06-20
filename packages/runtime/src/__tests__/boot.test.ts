@@ -6,7 +6,7 @@
 // expression. Skipped (not failed) if the prerequisites aren't there:
 // Image/virt.dtb/initramfs fixtures, or the HVF-entitled test binary.
 
-import { execSync, spawn } from "node:child_process";
+import { execFileSync, execSync, spawn } from "node:child_process";
 import {
   chmodSync,
   existsSync,
@@ -21,7 +21,7 @@ import {
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BootError, ExecError, boot, buildMachinenConfig, measureFirstByte } from "../index.ts";
 import {
   applyNestedVirtualizationEnv,
@@ -33,6 +33,30 @@ import { performSnapshot } from "../vm/snapshot.ts";
 import { buildGuestHostname } from "../vm/helpers.ts";
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
+
+let helperTmp: string | undefined;
+let previousHelper: string | undefined;
+
+beforeAll(() => {
+  helperTmp = mkdtempSync(join(tmpdir(), "machinen-boot-helper-test-"));
+  execFileSync("zig", ["build", "--prefix", helperTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousHelper = process.env.MACHINEN_RUNTIME_HELPER;
+  process.env.MACHINEN_RUNTIME_HELPER = join(helperTmp, "bin", "machinen-runtime-helper");
+});
+
+afterAll(() => {
+  if (previousHelper === undefined) {
+    delete process.env.MACHINEN_RUNTIME_HELPER;
+  } else {
+    process.env.MACHINEN_RUNTIME_HELPER = previousHelper;
+  }
+  if (helperTmp) {
+    rmSync(helperTmp, { recursive: true, force: true });
+  }
+});
 
 function writePanicVmm(path: string): void {
   writeFileSync(
