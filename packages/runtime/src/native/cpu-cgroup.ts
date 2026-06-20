@@ -1,9 +1,9 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
 import { callRuntimeHelper } from "../native-helper.ts";
 
-export type NativeCpuControlStatus = "linux-cgroup-v2" | "unsupported";
+type NativeCpuControlStatus = "linux-cgroup-v2" | "unsupported";
 
-export interface NativeCpuControlResult {
+interface NativeCpuControlResult {
   status: NativeCpuControlStatus;
   cgroupPath?: string;
   reason?: string;
