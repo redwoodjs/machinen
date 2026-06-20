@@ -48,6 +48,17 @@ pub const PortForwardValidation = union(enum) {
     duplicate_host_port: u16,
 };
 
+pub const VmmArgvInput = struct {
+    binary: ?[]const u8 = null,
+    args: []const []const u8 = &.{},
+    pdeathsig_path: ?[]const u8 = null,
+};
+
+pub const VmmArgvPlan = struct {
+    command: ?[]const u8,
+    args: []const []const u8,
+};
+
 pub const Input = struct {
     memory_mib: ?u64 = null,
     resources_memory: ?ResourcesMemory = null,
@@ -126,6 +137,17 @@ pub fn parseVsockUdsPath(spec: []const u8) ?[]const u8 {
         if (path.len > 0) return path;
     }
     return null;
+}
+
+pub fn planVmmArgv(allocator: std.mem.Allocator, input: VmmArgvInput) !VmmArgvPlan {
+    const binary = input.binary orelse return .{ .command = null, .args = &.{} };
+    if (input.pdeathsig_path) |pdeathsig| {
+        var args = try allocator.alloc([]const u8, input.args.len + 1);
+        args[0] = binary;
+        @memcpy(args[1..], input.args);
+        return .{ .command = pdeathsig, .args = args };
+    }
+    return .{ .command = binary, .args = input.args };
 }
 
 pub fn validatePortForward(mappings: []const PortForwardMapping) PortForwardValidation {
@@ -294,6 +316,27 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planVmmArgv wraps VMM argv with pdeathsig when present" {
+    const direct = try planVmmArgv(std.testing.allocator, .{
+        .binary = "/bin/vmm",
+        .args = &.{ "--dev", "1" },
+    });
+    try std.testing.expectEqualStrings("/bin/vmm", direct.command.?);
+    try std.testing.expectEqual(@as(usize, 2), direct.args.len);
+    try std.testing.expectEqualStrings("--dev", direct.args[0]);
+
+    const wrapped = try planVmmArgv(std.testing.allocator, .{
+        .binary = "/bin/vmm",
+        .args = &.{"--dev"},
+        .pdeathsig_path = "/bin/pdeathsig",
+    });
+    defer std.testing.allocator.free(wrapped.args);
+    try std.testing.expectEqualStrings("/bin/pdeathsig", wrapped.command.?);
+    try std.testing.expectEqual(@as(usize, 2), wrapped.args.len);
+    try std.testing.expectEqualStrings("/bin/vmm", wrapped.args[0]);
+    try std.testing.expectEqualStrings("--dev", wrapped.args[1]);
 }
 
 test "validatePortForward rejects invalid and duplicate ports" {

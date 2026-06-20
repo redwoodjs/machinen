@@ -22,6 +22,9 @@ const ParsedRequest = struct {
     existing_vsock_spec: ?[]const u8,
     auto_vsock_uds_path: ?[]const u8,
     port_forward: []const boot_plan.PortForwardMapping,
+    vmm_binary: ?[]const u8,
+    vmm_args: []const []const u8,
+    pdeathsig_path: ?[]const u8,
 };
 
 const ParsedResourcesMemory = struct {
@@ -60,6 +63,9 @@ const RequestError = error{
     InvalidPortForward,
     InvalidHostPort,
     InvalidGuestPort,
+    InvalidVmmBinary,
+    InvalidVmmArgs,
+    InvalidPdeathsigPath,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -104,12 +110,23 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
+    const vmm_argv = try boot_plan.planVmmArgv(arena, .{
+        .binary = parsed.vmm_binary,
+        .args = parsed.vmm_args,
+        .pdeathsig_path = parsed.pdeathsig_path,
+    });
 
-    try writePlan(io, plan, guest_env, vsock_plan);
+    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv);
     return .ok;
 }
 
-fn writePlan(io: std.Io, plan: boot_plan.Plan, guest_env: []const boot_plan.EnvPair, vsock_plan: boot_plan.VsockPlan) !void {
+fn writePlan(
+    io: std.Io,
+    plan: boot_plan.Plan,
+    guest_env: []const boot_plan.EnvPair,
+    vsock_plan: boot_plan.VsockPlan,
+    vmm_argv: boot_plan.VmmArgvPlan,
+) !void {
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{");
     try protocol.stdout(io, "\"memoryCeilingMib\":");
     if (plan.memory_ceiling_mib) |mib| {
@@ -145,6 +162,18 @@ fn writePlan(io: std.Io, plan: boot_plan.Plan, guest_env: []const boot_plan.EnvP
     } else {
         try protocol.stdout(io, "null");
     }
+    try protocol.stdout(io, ",\"vmmCommand\":");
+    if (vmm_argv.command) |command| {
+        try protocol.writeJsonString(io, command);
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"vmmArgs\":[");
+    for (vmm_argv.args, 0..) |arg, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.writeJsonString(io, arg);
+    }
+    try protocol.stdout(io, "]");
     try protocol.stdout(io, ",\"mergedGuestEnv\":{");
     for (guest_env, 0..) |pair, i| {
         if (i != 0) try protocol.stdout(io, ",");
@@ -229,7 +258,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -247,7 +276,28 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .existing_vsock_spec = try optionalStringDefaultNull(object, "existingVsockSpec", error.InvalidExistingVsockSpec),
         .auto_vsock_uds_path = try optionalStringDefaultNull(object, "autoVsockUdsPath", error.InvalidAutoVsockUdsPath),
         .port_forward = try optionalPortForward(allocator, object),
+        .vmm_binary = try optionalStringDefaultNull(object, "vmmBinary", error.InvalidVmmBinary),
+        .vmm_args = try optionalStringArrayDefaultEmpty(allocator, object, "vmmArgs", error.InvalidVmmArgs),
+        .pdeathsig_path = try optionalStringDefaultNull(object, "pdeathsigPath", error.InvalidPdeathsigPath),
     };
+}
+
+fn optionalStringArrayDefaultEmpty(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+    field: []const u8,
+    invalid: RequestError,
+) RequestError![]const []const u8 {
+    const value = object.get(field) orelse return &.{};
+    if (value == .null) return &.{};
+    if (value != .array) return invalid;
+    var out: std.ArrayList([]const u8) = .empty;
+    errdefer out.deinit(allocator);
+    for (value.array.items) |item| {
+        if (item != .string) return invalid;
+        try out.append(allocator, item.string);
+    }
+    return out.toOwnedSlice(allocator);
 }
 
 fn optionalPortForward(allocator: std.mem.Allocator, object: std.json.ObjectMap) RequestError![]const boot_plan.PortForwardMapping {

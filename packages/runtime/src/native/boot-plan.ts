@@ -23,6 +23,9 @@ interface NativeBootPlanInput {
   existingVsockSpec?: string;
   autoVsockUdsPath?: string;
   portForward?: PortForwardPlanMapping[];
+  vmmBinary?: string;
+  vmmArgs?: string[];
+  pdeathsigPath?: string;
 }
 
 interface NativeBootPlanResult {
@@ -33,6 +36,8 @@ interface NativeBootPlanResult {
   mergedGuestEnv: Record<string, string>;
   vsockUdsPath: string | null;
   vmmVsock: string | null;
+  vmmCommand: string | null;
+  vmmArgs: string[];
 }
 
 export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanResult {
@@ -60,11 +65,34 @@ export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanRe
       existingVsockSpec: input.existingVsockSpec ?? null,
       autoVsockUdsPath: input.autoVsockUdsPath ?? null,
       portForward: input.portForward ?? [],
+      vmmBinary: input.vmmBinary ?? null,
+      vmmArgs: input.vmmArgs ?? [],
+      pdeathsigPath: input.pdeathsigPath ?? null,
     },
     errorCode: "BOOT_MEMORY_INVALID",
     makeError: bootPlanError,
     isData: isNativeBootPlanResult,
   });
+}
+
+export function planBootVmmArgvNative(input: {
+  binary: string;
+  args: string[];
+  pdeathsigPath: string | null;
+}): { command: string; args: string[] } {
+  const plan = planBootCoreNative({
+    vmmBinary: input.binary,
+    vmmArgs: input.args,
+    pdeathsigPath: input.pdeathsigPath ?? undefined,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  if (plan.vmmCommand === null) {
+    throw new BootError("BOOT_VMM_MISSING", "boot: native planner returned no VMM command");
+  }
+  return { command: plan.vmmCommand, args: plan.vmmArgs };
 }
 
 export function validateBootPortForwardNative(portForward: PortForwardPlanMapping[]): void {
@@ -115,7 +143,13 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     isStringRecord(data.mergedGuestEnv),
     nullableString(data.vsockUdsPath),
     nullableString(data.vmmVsock),
+    nullableString(data.vmmCommand),
+    isStringArray(data.vmmArgs),
   ].every(Boolean);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 
 function nullableString(value: unknown): boolean {
