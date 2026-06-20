@@ -17,6 +17,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 /** The microVM hypervisor binary the runtime spawns per guest. */
 export const binary = join(here, "vmm", "bin", "machinen-vm");
+/** Host-side Zig helper for runtime-owned native operations. */
+export const runtimeHelper = join(here, "vmm", "bin", "machinen-runtime-helper");
 /**
  * gvproxy (containers/gvisor-tap-vsock) — the userspace TCP/IP sidecar
  * the runtime auto-spawns for virtio-net. Optional; absent installs
