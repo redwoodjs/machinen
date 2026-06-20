@@ -31,6 +31,17 @@ interface RootfsMaterializeData {
   };
 }
 
+interface RootfsPrebakeDecompressRequest {
+  path: string;
+  dst: string;
+  format: "gz" | "zst";
+}
+
+interface RootfsPrebakeDecompressData {
+  ok: boolean;
+  sha256?: string;
+}
+
 export function rootfsCacheKeyNative(tar: string): RootfsCacheKeyData {
   return callRuntimeHelper({
     command: "rootfs-cache-key",
@@ -48,6 +59,18 @@ export function rootfsMaterializeNative(request: RootfsMaterializeRequest): Root
     errorCode: "PROVISION_INSTALL_HOOK_FAILED",
     makeError: rootfsError,
     isData: isRootfsMaterializeData,
+  });
+}
+
+export function rootfsPrebakeDecompressNative(
+  request: RootfsPrebakeDecompressRequest,
+): RootfsPrebakeDecompressData {
+  return callRuntimeHelper({
+    command: "rootfs-prebake-decompress",
+    data: request,
+    errorCode: "PROVISION_INSTALL_HOOK_FAILED",
+    makeError: rootfsError,
+    isData: isRootfsPrebakeDecompressData,
   });
 }
 
@@ -75,6 +98,17 @@ function isRootfsMaterializeData(value: unknown): value is RootfsMaterializeData
     typeof data.sizeBytes === "number" &&
     Number.isFinite(data.sizeBytes) &&
     isMaterializePhases(data.phases)
+  );
+}
+
+function isRootfsPrebakeDecompressData(value: unknown): value is RootfsPrebakeDecompressData {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const data = value as Partial<RootfsPrebakeDecompressData>;
+  return (
+    typeof data.ok === "boolean" &&
+    (data.sha256 === undefined || /^[0-9a-f]{64}$/.test(data.sha256))
   );
 }
 
