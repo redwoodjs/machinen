@@ -1,5 +1,7 @@
 const std = @import("std");
 const protocol = @import("protocol.zig");
+const cpu_cgroup_apply = @import("commands/cpu_cgroup_apply.zig");
+const cpu_cgroup_remove = @import("commands/cpu_cgroup_remove.zig");
 const host_rss = @import("commands/host_rss.zig");
 const mkinitramfs = @import("commands/mkinitramfs.zig");
 const mountdisk_image = @import("commands/mountdisk_image.zig");
@@ -16,6 +18,8 @@ const assert = std.debug.assert;
 var g_io: std.Io = undefined;
 
 pub fn main(init: std.process.Init) !u8 {
+    assert(cpu_cgroup_apply.name.len > 0);
+    assert(cpu_cgroup_remove.name.len > 0);
     assert(host_rss.name.len > 0);
     assert(mkinitramfs.name.len > 0);
     assert(mountdisk_image.name.len > 0);
@@ -51,6 +55,18 @@ fn runKnownCommand(
 ) !?u8 {
     assert(command.len > 0);
 
+    if (std.mem.eql(u8, command, cpu_cgroup_apply.name)) {
+        if (try rejectExtraArgs(it, cpu_cgroup_apply.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try cpu_cgroup_apply.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, cpu_cgroup_remove.name)) {
+        if (try rejectExtraArgs(it, cpu_cgroup_remove.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try cpu_cgroup_remove.run(allocator, g_io));
+    }
     if (std.mem.eql(u8, command, host_rss.name)) {
         if (try rejectExtraArgs(it, host_rss.name)) return @intFromEnum(protocol.Exit.usage);
         return @intFromEnum(try host_rss.run(allocator, g_io));
@@ -133,6 +149,8 @@ fn isHelp(command: []const u8) bool {
 }
 
 fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
+    assert(cpu_cgroup_apply.name.len > 0);
+    assert(cpu_cgroup_remove.name.len > 0);
     assert(host_rss.name.len > 0);
     assert(mkinitramfs.name.len > 0);
     assert(mountdisk_image.name.len > 0);
@@ -148,6 +166,8 @@ fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
         .ok = true,
         .protocolVersion = @as(u8, protocol.version),
         .commands = .{
+            cpu_cgroup_apply.name,
+            cpu_cgroup_remove.name,
             host_rss.name,
             mkinitramfs.name,
             mountdisk_image.name,

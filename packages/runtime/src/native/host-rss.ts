@@ -1,12 +1,12 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
 import { callRuntimeHelper } from "../native-helper.ts";
 
-export interface HostRssTarget {
+interface HostRssTarget {
   pid: number;
   statsPath?: string;
 }
 
-export interface HostRssReading {
+interface HostRssReading {
   pid: number;
   rssBytes: number;
 }
