@@ -50,6 +50,7 @@ const ParsedRequest = struct {
     bundle_command_required: bool = false,
     bundle_image_env: std.json.ObjectMap = .{},
     bundle_guest_env: std.json.ObjectMap = .{},
+    provision_guest_cpu: boot_plan.ProvisionGuestCpu = .arm64,
     scratch_mode: boot_plan.ScratchDiskMode = .unset,
     scratch_snapshot_path: ?[]const u8 = null,
     scratch_restore_clone_path: ?[]const u8 = null,
@@ -126,6 +127,7 @@ const boot_plan_fields = [_][]const u8{
     "bundleCommandRequired",
     "bundleImageEnv",
     "bundleGuestEnv",
+    "provisionGuestCpu",
     "scratchMode",
     "scratchSnapshotPath",
     "scratchRestoreClonePath",
@@ -216,6 +218,7 @@ const RequestError = error{
     InvalidBundleCommandRequired,
     InvalidBundleImageEnv,
     InvalidBundleGuestEnv,
+    InvalidProvisionGuestCpu,
     InvalidBundleEnvValue,
     InvalidScratchMode,
     InvalidScratchSnapshotPath,
@@ -280,6 +283,7 @@ const PlanParts = struct {
     config_live_mounts: []const boot_plan.LiveMount,
     bundle_command: []const []const u8,
     bundle_env: []const boot_plan.EnvPair,
+    provision_assets: boot_plan.ProvisionAssetsPlan,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
@@ -305,6 +309,7 @@ const RuntimeParts = struct {
     config_live_mounts: []const boot_plan.LiveMount,
     bundle_command: []const []const u8,
     bundle_env: []const boot_plan.EnvPair,
+    provision_assets: boot_plan.ProvisionAssetsPlan,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
@@ -353,6 +358,9 @@ fn makePlanParts(
         .config_live_mounts = runtime.config_live_mounts,
         .bundle_command = runtime.bundle_command,
         .bundle_env = runtime.bundle_env,
+        .provision_assets = boot_plan.planProvisionAssets(.{
+            .guest_cpu = parsed.provision_guest_cpu,
+        }),
         .scratch_disk = runtime.scratch_disk,
         .root_disk_runtime = runtime.root_disk_runtime,
         .mount_disk_runtime = runtime.mount_disk_runtime,
@@ -511,6 +519,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeMachinenConfigField(io, "machinenConfig", parts, true);
     try writeStringArrayField(io, "bundleCommand", parts.bundle_command, true);
     try writeEnvObjectField(io, "bundleEnv", parts.bundle_env, true);
+    try writeProvisionAssetsField(io, "provisionAssets", parts.provision_assets, true);
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
     try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
@@ -652,6 +661,25 @@ fn writeLiveMountsArrayField(
         try protocol.stdout(io, "}");
     }
     try protocol.stdout(io, "]");
+}
+
+fn writeProvisionAssetsField(
+    io: std.Io,
+    comptime field: []const u8,
+    assets: boot_plan.ProvisionAssetsPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"cpu\":");
+    try protocol.writeJsonString(io, assets.cpu);
+    try protocol.stdout(io, ",\"kernelAsset\":");
+    try protocol.writeJsonString(io, assets.kernel_asset);
+    try writeNullableStringField(io, "dtbAsset", assets.dtb_asset, true);
+    try protocol.stdout(io, ",\"rootfsAsset\":");
+    try protocol.writeJsonString(io, assets.rootfs_asset);
+    try protocol.stdout(io, "}");
 }
 
 fn writeScratchDiskField(
@@ -1284,6 +1312,7 @@ fn parseBundleFields(
     request.bundle_guest_env = try optionalObjectDefaultEmpty(
         object,
         "bundleGuestEnv",
+        "provisionGuestCpu",
         error.InvalidBundleGuestEnv,
     );
 }

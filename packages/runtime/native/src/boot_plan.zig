@@ -85,6 +85,22 @@ pub const BundleEnvInput = struct {
     guest_env: []const EnvPair = &.{},
 };
 
+pub const ProvisionGuestCpu = enum {
+    arm64,
+    amd64,
+};
+
+pub const ProvisionAssetsInput = struct {
+    guest_cpu: ProvisionGuestCpu = .arm64,
+};
+
+pub const ProvisionAssetsPlan = struct {
+    cpu: []const u8,
+    kernel_asset: []const u8,
+    dtb_asset: ?[]const u8,
+    rootfs_asset: []const u8,
+};
+
 pub const KernelDtbInput = struct {
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
@@ -421,6 +437,23 @@ pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
     assert(@sizeOf(MachinenConfigInput) > 0);
 
     return input.guest_cwd orelse input.image_cwd;
+}
+
+pub fn planProvisionAssets(input: ProvisionAssetsInput) ProvisionAssetsPlan {
+    return switch (input.guest_cpu) {
+        .amd64 => .{
+            .cpu = "amd64",
+            .kernel_asset = "bzImage-x86_64",
+            .dtb_asset = null,
+            .rootfs_asset = "rootfs-debian-amd64.tar.gz",
+        },
+        .arm64 => .{
+            .cpu = "arm64",
+            .kernel_asset = "Image-arm64",
+            .dtb_asset = "virt-arm64.dtb",
+            .rootfs_asset = "rootfs-debian-arm64.tar.gz",
+        },
+    };
 }
 
 pub fn planBundleEnv(allocator: std.mem.Allocator, input: BundleEnvInput) ![]EnvPair {
@@ -995,6 +1028,20 @@ test "planMountDiskRuntime selects restore and fresh actions" {
     try std.testing.expectEqualStrings("fresh", fresh.action);
     try std.testing.expect(fresh.source_upper_path == null);
     try std.testing.expectEqual(@as(u64, 8192), fresh.upper_size_bytes.?);
+}
+
+test "planProvisionAssets selects asset names by guest CPU" {
+    const arm = planProvisionAssets(.{ .guest_cpu = .arm64 });
+    try std.testing.expectEqualStrings("arm64", arm.cpu);
+    try std.testing.expectEqualStrings("Image-arm64", arm.kernel_asset);
+    try std.testing.expectEqualStrings("virt-arm64.dtb", arm.dtb_asset.?);
+    try std.testing.expectEqualStrings("rootfs-debian-arm64.tar.gz", arm.rootfs_asset);
+
+    const x64 = planProvisionAssets(.{ .guest_cpu = .amd64 });
+    try std.testing.expectEqualStrings("amd64", x64.cpu);
+    try std.testing.expectEqualStrings("bzImage-x86_64", x64.kernel_asset);
+    try std.testing.expect(x64.dtb_asset == null);
+    try std.testing.expectEqualStrings("rootfs-debian-amd64.tar.gz", x64.rootfs_asset);
 }
 
 test "planBundleEnv overlays guest env on image env" {

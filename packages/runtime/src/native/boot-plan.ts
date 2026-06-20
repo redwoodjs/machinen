@@ -9,12 +9,20 @@ type RootDiskRuntimeMode = "none" | "path" | "restore" | "cached";
 type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
 type MountDiskRuntimeMode = "none" | "restore" | "fresh";
 type MountDiskRuntimeAction = "none" | "restore" | "fresh";
+type ProvisionGuestCpu = "arm64" | "amd64";
 
 type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
 type LiveMountPlanInput = { host: string; guest: string; mode?: string };
 type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
 type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
+type ProvisionAssetsPlan = {
+  cpu: ProvisionGuestCpu;
+  kernelAsset: string;
+  dtbAsset: string | null;
+  rootfsAsset: string;
+};
+
 type RegistryShapePlan = {
   sourceImagePath: string | null;
   rootDiskPath: string | null;
@@ -67,6 +75,7 @@ interface NativeBootPlanInput {
   bundleCommandRequired?: boolean;
   bundleImageEnv?: Record<string, string>;
   bundleGuestEnv?: Record<string, string>;
+  provisionGuestCpu?: ProvisionGuestCpu;
   scratchMode?: ScratchDiskMode;
   scratchSnapshotPath?: string;
   scratchRestoreClonePath?: string;
@@ -117,6 +126,7 @@ interface NativeBootPlanResult {
   machinenConfig: MachinenConfigPlan;
   bundleCommand: string[];
   bundleEnv: Record<string, string>;
+  provisionAssets: ProvisionAssetsPlan;
   scratchDisk: ScratchDiskPlan;
   rootDiskRuntime: RootDiskRuntimePlan;
   mountDiskRuntime: MountDiskRuntimePlan;
@@ -201,6 +211,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     configImageCwd: nullDefault(input.configImageCwd),
     configLiveMounts: input.configLiveMounts ?? [],
     ...bundleCommandData(input),
+    provisionGuestCpu: input.provisionGuestCpu ?? null,
     ...scratchDiskData(input),
     ...rootDiskRuntimeData(input),
     ...mountDiskRuntimeData(input),
@@ -287,6 +298,16 @@ function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[]
 
 function nullDefault<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
+}
+
+export function planProvisionAssetsNative(cpu: ProvisionGuestCpu): ProvisionAssetsPlan {
+  return planBootCoreNative({
+    provisionGuestCpu: cpu,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).provisionAssets;
 }
 
 export function planBootMountDiskRuntimeNative(input: {
@@ -604,6 +625,7 @@ function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
     isMachinenConfigPlan(data.machinenConfig),
     isStringArray(data.bundleCommand),
     isStringRecord(data.bundleEnv),
+    isProvisionAssetsPlan(data.provisionAssets),
     isScratchDiskPlan(data.scratchDisk),
     isRootDiskRuntimePlan(data.rootDiskRuntime),
     isMountDiskRuntimePlan(data.mountDiskRuntime),
@@ -617,6 +639,19 @@ function isStringArray(value: unknown): value is string[] {
 
 function isPlannedLiveMountArray(value: unknown): value is PlannedLiveMount[] {
   return Array.isArray(value) && value.every(isPlannedLiveMount);
+}
+
+function isProvisionAssetsPlan(value: unknown): value is ProvisionAssetsPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<ProvisionAssetsPlan>;
+  return (
+    (plan.cpu === "arm64" || plan.cpu === "amd64") &&
+    typeof plan.kernelAsset === "string" &&
+    nullableString(plan.dtbAsset) &&
+    typeof plan.rootfsAsset === "string"
+  );
 }
 
 function isScratchDiskPlan(value: unknown): value is ScratchDiskPlan {
