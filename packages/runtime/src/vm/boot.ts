@@ -51,7 +51,11 @@ import { PhaseTimer } from "../phase-timer.ts";
 import { readProcessIdentity } from "../pid-validate.ts";
 import { applyCpuControls, type CpuControlResult } from "../cpu-cgroup.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
-import { planBootCoreNative, rootDiskPlanMode } from "../native/boot-plan.ts";
+import {
+  planBootCoreNative,
+  rootDiskPlanMode,
+  validateBootPortForwardNative,
+} from "../native/boot-plan.ts";
 import { reflinkCopy } from "../reflink.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
@@ -1089,7 +1093,7 @@ async function validatePortForwardOpts(
     return;
   }
   rejectPresetNetSocket(opts);
-  validatePortForwardShape(portForward);
+  validateBootPortForwardNative(portForward);
   await validatePortForwardAvailability(portForward);
 }
 
@@ -1104,50 +1108,6 @@ function rejectPresetNetSocket(opts: BootOptions): void {
         "against your gvproxy's control API.",
     );
   }
-}
-
-function validatePortForwardShape(portForward: NonNullable<BootOptions["portForward"]>): void {
-  const seen = new Set<number>();
-  for (const mapping of portForward) {
-    validatePortMappingNumbers(mapping);
-    rejectDuplicateHostPort(mapping.hostPort, seen);
-  }
-}
-
-function validatePortMappingNumbers(
-  mapping: NonNullable<BootOptions["portForward"]>[number],
-): void {
-  for (const [label, port] of portMappingPorts(mapping)) {
-    if (!validTcpPort(port)) {
-      throw new BootError(
-        "BOOT_PORT_FORWARD_INVALID",
-        `portForward: ${label} must be an integer in 1..65535 (got ${port})`,
-      );
-    }
-  }
-}
-
-function portMappingPorts(
-  mapping: NonNullable<BootOptions["portForward"]>[number],
-): Array<readonly ["hostPort" | "guestPort", number]> {
-  return [
-    ["hostPort", mapping.hostPort],
-    ["guestPort", mapping.guestPort],
-  ];
-}
-
-function validTcpPort(port: number): boolean {
-  return Number.isInteger(port) && port >= 1 && port <= 65535;
-}
-
-function rejectDuplicateHostPort(hostPort: number, seen: Set<number>): void {
-  if (seen.has(hostPort)) {
-    throw new BootError(
-      "BOOT_PORT_FORWARD_CONFLICT",
-      `portForward: duplicate hostPort ${hostPort}`,
-    );
-  }
-  seen.add(hostPort);
 }
 
 async function validatePortForwardAvailability(

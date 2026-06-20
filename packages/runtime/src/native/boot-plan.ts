@@ -4,6 +4,8 @@ import type { BootMemoryResourceOptions } from "../vm/memory-resources.ts";
 
 type RootDiskPlanMode = "unset" | "false" | "path" | "true";
 
+type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
+
 interface NativeBootPlanInput {
   memoryMib?: number;
   resourcesMemory?: BootMemoryResourceOptions;
@@ -20,6 +22,7 @@ interface NativeBootPlanInput {
   vsockUdsPath?: string;
   existingVsockSpec?: string;
   autoVsockUdsPath?: string;
+  portForward?: PortForwardPlanMapping[];
 }
 
 interface NativeBootPlanResult {
@@ -56,10 +59,21 @@ export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanRe
       vsockUdsPath: input.vsockUdsPath ?? null,
       existingVsockSpec: input.existingVsockSpec ?? null,
       autoVsockUdsPath: input.autoVsockUdsPath ?? null,
+      portForward: input.portForward ?? [],
     },
     errorCode: "BOOT_MEMORY_INVALID",
     makeError: bootPlanError,
     isData: isNativeBootPlanResult,
+  });
+}
+
+export function validateBootPortForwardNative(portForward: PortForwardPlanMapping[]): void {
+  planBootCoreNative({
+    portForward,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
   });
 }
 

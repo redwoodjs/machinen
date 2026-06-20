@@ -21,6 +21,7 @@ const ParsedRequest = struct {
     vsock_uds_path: ?[]const u8,
     existing_vsock_spec: ?[]const u8,
     auto_vsock_uds_path: ?[]const u8,
+    port_forward: []const boot_plan.PortForwardMapping,
 };
 
 const ParsedResourcesMemory = struct {
@@ -56,6 +57,9 @@ const RequestError = error{
     InvalidVsockUdsPath,
     InvalidExistingVsockSpec,
     InvalidAutoVsockUdsPath,
+    InvalidPortForward,
+    InvalidHostPort,
+    InvalidGuestPort,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -77,6 +81,21 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
+    switch (boot_plan.validatePortForward(parsed.port_forward)) {
+        .ok => {},
+        .invalid_host_port => |port| {
+            try writePortForwardInvalid(io, "hostPort", port);
+            return .fail;
+        },
+        .invalid_guest_port => |port| {
+            try writePortForwardInvalid(io, "guestPort", port);
+            return .fail;
+        },
+        .duplicate_host_port => |port| {
+            try writeDuplicateHostPort(io, port);
+            return .fail;
+        },
+    }
     const vsock_plan = try boot_plan.planVsock(arena, .{
         .existing_spec = parsed.existing_vsock_spec,
         .auto_uds_path = parsed.auto_vsock_uds_path,
@@ -210,7 +229,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -227,6 +246,33 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .vsock_uds_path = try optionalStringDefaultNull(object, "vsockUdsPath", error.InvalidVsockUdsPath),
         .existing_vsock_spec = try optionalStringDefaultNull(object, "existingVsockSpec", error.InvalidExistingVsockSpec),
         .auto_vsock_uds_path = try optionalStringDefaultNull(object, "autoVsockUdsPath", error.InvalidAutoVsockUdsPath),
+        .port_forward = try optionalPortForward(allocator, object),
+    };
+}
+
+fn optionalPortForward(allocator: std.mem.Allocator, object: std.json.ObjectMap) RequestError![]const boot_plan.PortForwardMapping {
+    const value = object.get("portForward") orelse return &.{};
+    if (value == .null) return &.{};
+    if (value != .array) return error.InvalidPortForward;
+    var mappings: std.ArrayList(boot_plan.PortForwardMapping) = .empty;
+    errdefer mappings.deinit(allocator);
+    for (value.array.items) |item| {
+        if (item != .object) return error.InvalidPortForward;
+        try protocol.rejectUnknownFields(item.object, &.{ "hostPort", "guestPort", "hostAddr" });
+        const host_port = try requiredPort(item.object, "hostPort", error.InvalidHostPort);
+        const guest_port = try requiredPort(item.object, "guestPort", error.InvalidGuestPort);
+        const host_addr = item.object.get("hostAddr") orelse .null;
+        if (host_addr != .null and host_addr != .string) return error.InvalidPortForward;
+        try mappings.append(allocator, .{ .host_port = host_port, .guest_port = guest_port });
+    }
+    return mappings.toOwnedSlice(allocator);
+}
+
+fn requiredPort(object: std.json.ObjectMap, field: []const u8, invalid: RequestError) RequestError!i64 {
+    const value = object.get(field) orelse return invalid;
+    return switch (value) {
+        .integer => |i| i,
+        else => invalid,
     };
 }
 
@@ -289,6 +335,24 @@ fn requiredRootDisk(object: std.json.ObjectMap) RequestError!boot_plan.RootDiskM
     return error.InvalidRootDisk;
 }
 
+fn writePortForwardInvalid(io: std.Io, label: []const u8, port: i64) !void {
+    var buf: [256]u8 = undefined;
+    try protocol.writeError(
+        io,
+        "BOOT_PORT_FORWARD_INVALID",
+        try std.fmt.bufPrint(&buf, "portForward: {s} must be an integer in 1..65535 (got {d})", .{ label, port }),
+    );
+}
+
+fn writeDuplicateHostPort(io: std.Io, port: u16) !void {
+    var buf: [128]u8 = undefined;
+    try protocol.writeError(
+        io,
+        "BOOT_PORT_FORWARD_CONFLICT",
+        try std.fmt.bufPrint(&buf, "portForward: duplicate hostPort {d}", .{port}),
+    );
+}
+
 fn writePlanError(io: std.Io, err: anyerror) !void {
     switch (err) {
         error.InvalidMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: memory must be a positive integer at least 512 MiB"),
@@ -316,6 +380,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         error.InvalidData => try protocol.writeError(io, "INVALID_REQUEST", "request data field must be an object"),
         error.InvalidJson => try protocol.writeError(io, "INVALID_JSON", "request body is not valid JSON"),
         error.InvalidShape => try protocol.writeError(io, "INVALID_REQUEST", "request body must be a JSON object"),
+        error.InvalidPortForward, error.InvalidHostPort, error.InvalidGuestPort => try protocol.writeError(io, "BOOT_PORT_FORWARD_INVALID", "portForward: hostPort and guestPort must be integers in 1..65535"),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
 }
