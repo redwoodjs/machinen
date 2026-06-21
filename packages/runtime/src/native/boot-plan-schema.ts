@@ -160,6 +160,7 @@ export interface NativeBootPlanResult {
   bundleEnv: Record<string, string>;
   bundleWorkspace: BundleWorkspacePlan;
   bundleConfigPaths: BundleConfigPathsPlan;
+  bundlePack: BundlePackPlan;
   provisionAssets: ProvisionAssetsPlan;
   provisionBoot: ProvisionBootPlan;
   provisionWorkload: ProvisionWorkloadPlan;
@@ -217,6 +218,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isStringRecord(data.bundleEnv),
     isBundleWorkspacePlan(data.bundleWorkspace),
     isBundleConfigPathsPlan(data.bundleConfigPaths),
+    isBundlePackPlan(data.bundlePack),
     isProvisionAssetsPlan(data.provisionAssets),
     isProvisionBootPlan(data.provisionBoot),
     isProvisionWorkloadPlan(data.provisionWorkload),
@@ -263,6 +265,14 @@ function isCpuPolicyPlan(value: unknown): value is CpuPolicyPlan {
     plan.quotaCpus === undefined || nonNegativeNumber(plan.quotaCpus),
     nonNegativeNumber(plan.weight),
   ].every(Boolean);
+}
+
+function isBundlePackPlan(value: unknown): value is BundlePackPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<BundlePackPlan>;
+  return isOneOf(plan.kind, ["fat", "tiny"] as const) && nullableString(plan.tinyMountGuest);
 }
 
 function isProvisionAssetsPlan(value: unknown): value is ProvisionAssetsPlan {

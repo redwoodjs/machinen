@@ -801,6 +801,43 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans bundle initramfs pack mode and tiny mount guest", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const tiny = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, bundlePackUseTiny: true, bundlePackMountGuest: "/mnt/data" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(tiny.status).toBe(0);
+    expect(JSON.parse(tiny.stdout).data.bundlePack).toEqual({
+      kind: "tiny",
+      tinyMountGuest: "/mnt/data",
+    });
+
+    const fat = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(fat.status).toBe(0);
+    expect(JSON.parse(fat.stdout).data.bundlePack).toEqual({
+      kind: "fat",
+      tinyMountGuest: null,
+    });
+  });
+
   it("plans bundle env overlays", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

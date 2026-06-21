@@ -76,6 +76,9 @@ const ParsedRequest = struct {
     bundle_guest_env: std.json.ObjectMap = .{},
     bundle_workspace_temp_dir: ?[]const u8 = null,
     bundle_config_synth_dir: ?[]const u8 = null,
+    bundle_pack_use_tiny: bool = false,
+    bundle_pack_mount_guest: ?[]const u8 = null,
+    bundle_pack_restore_mount_guest: ?[]const u8 = null,
     provision_guest_cpu: ?boot_plan.ProvisionGuestCpu = null,
     provision_guest_arch_override: ?[]const u8 = null,
     provision_host_arch: ?[]const u8 = null,
@@ -237,6 +240,9 @@ const boot_plan_fields = [_][]const u8{
     "bundleGuestEnv",
     "bundleWorkspaceTempDir",
     "bundleConfigSynthDir",
+    "bundlePackUseTiny",
+    "bundlePackMountGuest",
+    "bundlePackRestoreMountGuest",
     "provisionGuestCpu",
     "provisionGuestArchOverride",
     "provisionHostArch",
@@ -409,6 +415,9 @@ const RequestError = error{
     InvalidBundleGuestEnv,
     InvalidBundleWorkspaceTempDir,
     InvalidBundleConfigSynthDir,
+    InvalidBundlePackUseTiny,
+    InvalidBundlePackMountGuest,
+    InvalidBundlePackRestoreMountGuest,
     InvalidProvisionGuestCpu,
     InvalidProvisionGuestArchOverride,
     InvalidProvisionHostArch,
@@ -545,6 +554,7 @@ const PlanParts = struct {
     bundle_env: []const boot_plan.EnvPair,
     bundle_workspace: boot_plan.BundleWorkspacePlan,
     bundle_config_paths: boot_plan.BundleConfigPathsPlan,
+    bundle_pack: boot_plan.BundlePackPlan,
     provision_assets: boot_plan.ProvisionAssetsPlan,
     provision_boot: boot_plan.ProvisionBootPlan,
     provision_workload: boot_plan.ProvisionWorkloadPlan,
@@ -644,6 +654,11 @@ fn makePlanParts(
         }),
         .bundle_config_paths = try boot_plan.planBundleConfigPaths(arena, .{
             .synth_bundle_dir = parsed.bundle_config_synth_dir,
+        }),
+        .bundle_pack = boot_plan.planBundlePack(.{
+            .use_tiny = parsed.bundle_pack_use_tiny,
+            .mount_guest = parsed.bundle_pack_mount_guest,
+            .restore_mount_guest = parsed.bundle_pack_restore_mount_guest,
         }),
         .provision_assets = boot_plan.planProvisionAssets(.{
             .guest_cpu = parsed.provision_guest_cpu,
@@ -1152,6 +1167,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeEnvObjectField(io, "bundleEnv", parts.bundle_env, true);
     try writeBundleWorkspaceField(io, "bundleWorkspace", parts.bundle_workspace, true);
     try writeBundleConfigPathsField(io, "bundleConfigPaths", parts.bundle_config_paths, true);
+    try writeBundlePackField(io, "bundlePack", parts.bundle_pack, true);
     try writeProvisionAssetsField(io, "provisionAssets", parts.provision_assets, true);
     try writeProvisionBootField(io, "provisionBoot", parts.provision_boot, true);
     try writeProvisionWorkloadField(io, "provisionWorkload", parts.provision_workload, true);
@@ -1468,6 +1484,22 @@ fn writeBundleConfigPathsField(
     try protocol.stdout(io, "{");
     try writeNullableStringField(io, "rootfsDir", paths.rootfs_dir, false);
     try writeNullableStringField(io, "configPath", paths.config_path, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeBundlePackField(
+    io: std.Io,
+    comptime field: []const u8,
+    plan: boot_plan.BundlePackPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeFieldName(io, "kind", false);
+    try protocol.writeJsonString(io, plan.kind);
+    try writeNullableStringField(io, "tinyMountGuest", plan.tiny_mount_guest, true);
     try protocol.stdout(io, "}");
 }
 
@@ -2558,6 +2590,21 @@ fn parseBundleFields(
         object,
         "bundleConfigSynthDir",
         error.InvalidBundleConfigSynthDir,
+    );
+    request.bundle_pack_use_tiny = try optionalBoolDefaultFalse(
+        object,
+        "bundlePackUseTiny",
+        error.InvalidBundlePackUseTiny,
+    );
+    request.bundle_pack_mount_guest = try optionalStringDefaultNull(
+        object,
+        "bundlePackMountGuest",
+        error.InvalidBundlePackMountGuest,
+    );
+    request.bundle_pack_restore_mount_guest = try optionalStringDefaultNull(
+        object,
+        "bundlePackRestoreMountGuest",
+        error.InvalidBundlePackRestoreMountGuest,
     );
 }
 
@@ -3819,6 +3866,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
     if (try writePortForwardRequestError(io, err)) return;
     if (try writeSnapshotRequestError(io, err)) return;
     if (try writeLiveMountRequestError(io, err)) return;
+    if (try writeBundleRequestError(io, err)) return;
 
     switch (err) {
         error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
@@ -3838,6 +3886,27 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
+}
+
+fn writeBundleRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidBundlePackUseTiny => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan bundle pack tiny flag must be a boolean",
+        ),
+        error.InvalidBundlePackMountGuest,
+        error.InvalidBundlePackRestoreMountGuest,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan bundle pack mount guests must be strings",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writePortForwardRequestError(io: std.Io, err: RequestError) !bool {

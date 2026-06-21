@@ -31,6 +31,8 @@ import {
   planBootMountDiskRuntimeNative,
   planBootMachinenConfigNative,
 } from "../native/boot-plan.ts";
+import { planBootBundlePackNative } from "../native/bundle-pack.ts";
+import type { BundlePackPlan } from "../native/boot-plan-schema.ts";
 import { planRestoreLiveMountsNative } from "../native/restore-live-mounts.ts";
 import type { BootOptions } from "./boot.ts";
 import type { SnapshotMeta } from "../vm-handle.ts";
@@ -211,11 +213,16 @@ export function synthesizeAndPackBundle(
       liveMounts,
     });
     const mount = resolveBundleMount(opts);
-    packSynthesizedInitramfs(workspace, image.baseAbs, mount, opts, effectiveEnv, packerOpts);
+    const packPlan = planBootBundlePackNative({
+      useTiny: packerOpts.useTiny,
+      mountGuest: mount?.guest,
+      restoreMountGuest: opts._restoreMountDisk?.guest,
+    });
+    packSynthesizedInitramfs(workspace, image.baseAbs, mount, packPlan, effectiveEnv, packerOpts);
     return {
       tempDir: workspace.tempDir,
       cpioPath: workspace.cpioPath,
-      mountDisk: materializeBundleMountDisk(opts, mount, packerOpts),
+      mountDisk: materializeBundleMountDisk(opts, mount, packerOpts, packPlan),
     };
   } catch (err) {
     workspace.cleanup();
@@ -313,14 +320,14 @@ function packSynthesizedInitramfs(
   workspace: BundleWorkspace,
   baseAbs: string | undefined,
   mount: ResolvedMountInput | undefined,
-  opts: BootOptions,
+  packPlan: BundlePackPlan,
   effectiveEnv: Record<string, string>,
   packerOpts: BundlePackerOptions,
 ): void {
   const packT0 = Date.now();
   try {
-    if (packerOpts.useTiny) {
-      packTinyInitramfs(workspace, mount, opts, effectiveEnv);
+    if (packPlan.kind === "tiny") {
+      packTinyInitramfs(workspace, packPlan.tinyMountGuest, effectiveEnv);
     } else {
       packFatInitramfs(workspace, baseAbs, mount, effectiveEnv);
     }
@@ -333,8 +340,7 @@ function packSynthesizedInitramfs(
 
 function packTinyInitramfs(
   workspace: BundleWorkspace,
-  mount: ResolvedMountInput | undefined,
-  opts: BootOptions,
+  mountGuest: string | null,
   effectiveEnv: Record<string, string>,
 ): void {
   mkinitramfsPackTinyBundle({
@@ -342,7 +348,7 @@ function packTinyInitramfs(
     out: workspace.cpioPath,
     // The cpio just carries the guest mountpoint string for /init to
     // read. The actual payload rides on virtio-blk slots 5+6.
-    mountGuest: mount?.guest ?? opts._restoreMountDisk?.guest,
+    mountGuest: mountGuest ?? undefined,
     env: effectiveEnv,
   });
 }
@@ -366,8 +372,9 @@ function materializeBundleMountDisk(
   opts: BootOptions,
   mount: ResolvedMountInput | undefined,
   packerOpts: BundlePackerOptions,
+  packPlan: BundlePackPlan,
 ): BundleMountDisk | undefined {
-  if (!packerOpts.useTiny) {
+  if (packPlan.kind !== "tiny") {
     return undefined;
   }
   if (opts._restoreMountDisk) {
