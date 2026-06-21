@@ -51,6 +51,7 @@ const ParsedRequest = struct {
     nested_requested: bool = false,
     live_mounts: []const boot_plan.LiveMountInput = &.{},
     live_mounts_resolved: []const boot_plan.LiveMount = &.{},
+    batch_live_mount_validation_required: bool = false,
     existing_stats_file: ?[]const u8 = null,
     stats_file_path: ?[]const u8 = null,
     stats_file_temp_dir: ?[]const u8 = null,
@@ -190,6 +191,7 @@ const boot_plan_fields = [_][]const u8{
     "nested",
     "liveMounts",
     "liveMountsResolved",
+    "batchLiveMountValidationRequired",
     "existingStatsFile",
     "statsFilePath",
     "statsFileTempDir",
@@ -339,6 +341,7 @@ const RequestError = error{
     InvalidLiveMountHost,
     InvalidLiveMountMode,
     InvalidLiveMountTag,
+    InvalidBatchLiveMountValidationRequired,
     InvalidExistingStatsFile,
     InvalidStatsFilePath,
     InvalidStatsFileTempDir,
@@ -458,6 +461,7 @@ const PlanParts = struct {
     vmstate_runtime: boot_plan.VmstateRuntimePlan,
     nested_env: ?[]const u8,
     virtiofs_env: []const boot_plan.EnvPair,
+    batch_live_mount_sync: boot_plan.BatchLiveMountPlan,
     stats_file: boot_plan.StatsFilePlan,
     planned_live_mounts: []const boot_plan.LiveMount,
     config_cmd: []const []const u8,
@@ -502,6 +506,7 @@ const BootEnvParts = struct {
     vmstate_runtime: boot_plan.VmstateRuntimePlan,
     nested_env: ?[]const u8,
     virtiofs_env: []const boot_plan.EnvPair,
+    batch_live_mount_sync: boot_plan.BatchLiveMountPlan,
     stats_file: boot_plan.StatsFilePlan,
 };
 
@@ -544,6 +549,7 @@ fn makePlanParts(
         .vmstate_runtime = boot_env.vmstate_runtime,
         .nested_env = boot_env.nested_env,
         .virtiofs_env = boot_env.virtiofs_env,
+        .batch_live_mount_sync = boot_env.batch_live_mount_sync,
         .stats_file = boot_env.stats_file,
         .planned_live_mounts = runtime.planned_live_mounts,
         .config_cmd = runtime.config_cmd,
@@ -616,6 +622,11 @@ fn makeBootEnvParts(arena: std.mem.Allocator, parsed: ParsedRequest) !BootEnvPar
         }),
         .nested_env = boot_plan.planNestedEnv(parsed.nested_requested),
         .virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved),
+        .batch_live_mount_sync = try boot_plan.planBatchLiveMountSync(.{
+            .live_mounts = parsed.live_mounts_resolved,
+            .vsock_uds_path = parsed.vsock_uds_path,
+            .validation_required = parsed.batch_live_mount_validation_required,
+        }),
         .stats_file = try boot_plan.planStatsFile(arena, .{
             .existing_path = parsed.existing_stats_file,
             .planned_path = parsed.stats_file_path,
@@ -946,6 +957,12 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeGuestHostnameField(io, "guestHostname", parts.guest_hostname, true);
     try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file);
     try writeVmstateRuntimeField(io, "vmstateRuntime", parts.vmstate_runtime, true);
+    try writeBoolField(
+        io,
+        "batchLiveMountSyncRequired",
+        parts.batch_live_mount_sync.sync_required,
+        true,
+    );
     try writeNullableStringField(io, "vmmNested", parts.nested_env, true);
     try writeLiveMountsArrayField(io, "plannedLiveMounts", parts.planned_live_mounts, true);
     try writePortForwardField(io, "plannedPortForward", parts.planned_port_forwards, false, true);
@@ -2094,6 +2111,11 @@ fn parseRuntimeMountStatsFields(
         "liveMountsResolved",
         error.InvalidLiveMountsResolved,
     );
+    request.batch_live_mount_validation_required = try optionalBoolDefaultFalse(
+        object,
+        "batchLiveMountValidationRequired",
+        error.InvalidBatchLiveMountValidationRequired,
+    );
     request.existing_stats_file = try optionalStringDefaultNull(
         object,
         "existingStatsFile",
@@ -3182,6 +3204,11 @@ fn writeEnvPlanError(io: std.Io, err: anyerror) !bool {
             "BOOT_MOUNT_INVALID",
             "liveMounts: mode must be ro or rw",
         ),
+        error.MissingBatchLiveMountVsock => try writeBootError(
+            io,
+            "BOOT_MOUNT_INVALID",
+            "liveMounts: writable mounts require the exec vsock bridge for batched sync",
+        ),
         error.InvalidGuestEnvValue => try writeBootError(
             io,
             "INVALID_REQUEST",
@@ -3299,6 +3326,11 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
             io,
             "BOOT_MOUNT_INVALID",
             "liveMounts: resolved entries must include host, guest, tag, and mode ro/rw",
+        ),
+        error.InvalidBatchLiveMountValidationRequired => try protocol.writeError(
+            io,
+            "BOOT_MOUNT_INVALID",
+            "boot-plan batch live mount validation flag must be a boolean",
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }

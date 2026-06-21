@@ -287,6 +287,16 @@ pub const LiveMount = struct {
     tag: []const u8,
 };
 
+pub const BatchLiveMountInput = struct {
+    live_mounts: []const LiveMount = &.{},
+    vsock_uds_path: ?[]const u8 = null,
+    validation_required: bool = false,
+};
+
+pub const BatchLiveMountPlan = struct {
+    sync_required: bool,
+};
+
 pub const StatsFileInput = struct {
     existing_path: ?[]const u8 = null,
     planned_path: ?[]const u8 = null,
@@ -535,6 +545,7 @@ pub const PlanError = error{
     MissingRootDiskRuntimePath,
     MissingMountDiskRuntimeField,
     MissingMountDiskFdField,
+    MissingBatchLiveMountVsock,
     IncompleteRegistryMountDisk,
     MissingProvisionRepackField,
     MissingRegistryCpuStatus,
@@ -799,6 +810,16 @@ pub fn planVirtiofsEnv(allocator: std.mem.Allocator, mounts: []const LiveMount) 
         try out.append(allocator, .{ .key = key, .value = value });
     }
     return out.toOwnedSlice(allocator);
+}
+
+pub fn planBatchLiveMountSync(input: BatchLiveMountInput) PlanError!BatchLiveMountPlan {
+    for (input.live_mounts) |mount| {
+        if (std.mem.eql(u8, mount.mode, "rw")) {
+            if (input.validation_required and input.vsock_uds_path == null) return error.MissingBatchLiveMountVsock;
+            return .{ .sync_required = true };
+        }
+    }
+    return .{ .sync_required = false };
 }
 
 pub fn planStatsFile(allocator: std.mem.Allocator, input: StatsFileInput) !StatsFilePlan {
@@ -2270,6 +2291,25 @@ test "planLiveMounts validates count guest paths modes and tags" {
         error.InvalidLiveMountMode,
         planLiveMounts(std.testing.allocator, &bad_mode),
     );
+}
+
+test "planBatchLiveMountSync requires vsock for rw mounts when validation is requested" {
+    const mounts = [_]LiveMount{
+        .{ .host = "/host/a", .guest = "/mnt/a", .mode = "ro", .tag = "machinen-lm0" },
+        .{ .host = "/host/b", .guest = "/mnt/b", .mode = "rw", .tag = "machinen-lm1" },
+    };
+    try std.testing.expectError(error.MissingBatchLiveMountVsock, planBatchLiveMountSync(.{
+        .live_mounts = &mounts,
+        .validation_required = true,
+    }));
+    const planned = try planBatchLiveMountSync(.{
+        .live_mounts = &mounts,
+        .vsock_uds_path = "/tmp/exec.sock",
+        .validation_required = true,
+    });
+    try std.testing.expect(planned.sync_required);
+    const none = try planBatchLiveMountSync(.{});
+    try std.testing.expect(!none.sync_required);
 }
 
 test "planStatsFile preserves caller path or returns runtime-owned env value" {

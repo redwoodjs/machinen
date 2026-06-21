@@ -1161,6 +1161,40 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("validates batch live-mount sync vsock requirements", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      liveMountsResolved: [{ host: "/host/a", guest: "/mnt/a", mode: "rw", tag: "machinen-lm0" }],
+      vsockUdsPath: "/tmp/exec.sock",
+      batchLiveMountValidationRequired: true,
+    };
+    const ok = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(ok.status).toBe(0);
+    expect(JSON.parse(ok.stdout).data.batchLiveMountSyncRequired).toBe(true);
+
+    const missingVsock = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...requestData, vsockUdsPath: null },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(missingVsock.status).toBe(1);
+    expect(JSON.parse(missingVsock.stdout).error.code).toBe("BOOT_MOUNT_INVALID");
+  });
+
   it("plans kernel dtb and initrd env paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

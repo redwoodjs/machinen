@@ -134,6 +134,7 @@ export interface NativeBootPlanResult {
   vmmVmstateTiming: string | null;
   vmmNested: string | null;
   virtiofsEnv: Record<string, string>;
+  batchLiveMountSyncRequired: boolean;
   plannedLiveMounts: PlannedLiveMount[];
   statsFilePath: string | null;
   vmmStatsFile: string | null;
@@ -186,6 +187,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmVmstateTiming),
     nullableString(data.vmmNested),
     isStringRecord(data.virtiofsEnv),
+    typeof data.batchLiveMountSyncRequired === "boolean",
     Array.isArray(data.plannedLiveMounts) && data.plannedLiveMounts.every(isPlannedLiveMount),
     nullableString(data.statsFilePath),
     nullableString(data.vmmStatsFile),
