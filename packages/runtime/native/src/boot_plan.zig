@@ -130,6 +130,15 @@ pub const BundleWorkspacePlan = struct {
     synth_bundle_dir: ?[]const u8,
 };
 
+pub const BundleConfigPathsInput = struct {
+    synth_bundle_dir: ?[]const u8 = null,
+};
+
+pub const BundleConfigPathsPlan = struct {
+    rootfs_dir: ?[]const u8,
+    config_path: ?[]const u8,
+};
+
 pub const ProvisionGuestCpu = enum {
     arm64,
     amd64,
@@ -979,6 +988,16 @@ pub fn planBundleWorkspace(allocator: std.mem.Allocator, input: BundleWorkspaceI
     return .{
         .cpio_path = cpio_path,
         .synth_bundle_dir = try std.fs.path.join(allocator, &.{ temp_dir, "bundle" }),
+    };
+}
+
+pub fn planBundleConfigPaths(allocator: std.mem.Allocator, input: BundleConfigPathsInput) !BundleConfigPathsPlan {
+    const synth_bundle_dir = input.synth_bundle_dir orelse return .{ .rootfs_dir = null, .config_path = null };
+    const rootfs_dir = try std.fs.path.join(allocator, &.{ synth_bundle_dir, "rootfs" });
+    errdefer allocator.free(rootfs_dir);
+    return .{
+        .rootfs_dir = rootfs_dir,
+        .config_path = try std.fs.path.join(allocator, &.{ synth_bundle_dir, "machinen-config.json" }),
     };
 }
 
@@ -1958,6 +1977,17 @@ test "planBundleWorkspace derives staging paths from the runtime-owned temp dir"
     const none = try planBundleWorkspace(std.testing.allocator, .{});
     try std.testing.expect(none.cpio_path == null);
     try std.testing.expect(none.synth_bundle_dir == null);
+}
+
+test "planBundleConfigPaths derives bundle config staging paths" {
+    const planned = try planBundleConfigPaths(std.testing.allocator, .{ .synth_bundle_dir = "/tmp/machinen-bundle-abc/bundle" });
+    defer std.testing.allocator.free(planned.rootfs_dir.?);
+    defer std.testing.allocator.free(planned.config_path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-bundle-abc/bundle/rootfs", planned.rootfs_dir.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-bundle-abc/bundle/machinen-config.json", planned.config_path.?);
+    const none = try planBundleConfigPaths(std.testing.allocator, .{});
+    try std.testing.expect(none.rootfs_dir == null);
+    try std.testing.expect(none.config_path == null);
 }
 
 test "planBundleEnv overlays guest env on image env" {

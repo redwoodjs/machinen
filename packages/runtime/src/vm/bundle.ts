@@ -24,6 +24,7 @@ import {
 import { reflinkCopy } from "../reflink.ts";
 import {
   planBootBundleCommandNative,
+  planBootBundleConfigPathsNative,
   planBootBundleEnvNative,
   planBootBundleWorkspaceNative,
   planBootLiveMountsNative,
@@ -316,9 +317,10 @@ function writeBundleConfig(
     liveMounts: ResolvedLiveMount[];
   },
 ): void {
-  mkdirSync(join(workspace.synthBundleDir, "rootfs"), { recursive: true });
+  const paths = planBootBundleConfigPathsNative(workspace.synthBundleDir);
+  mkdirSync(paths.rootfsDir, { recursive: true });
   const configJson = buildMachinenConfig(input);
-  writeFileSync(join(workspace.synthBundleDir, "machinen-config.json"), JSON.stringify(configJson));
+  writeFileSync(paths.configPath, JSON.stringify(configJson));
 }
 
 function resolveBundleMount(opts: BootOptions): ResolvedMountInput | undefined {

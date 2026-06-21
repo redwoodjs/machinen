@@ -67,6 +67,7 @@ const ParsedRequest = struct {
     bundle_image_env: std.json.ObjectMap = .{},
     bundle_guest_env: std.json.ObjectMap = .{},
     bundle_workspace_temp_dir: ?[]const u8 = null,
+    bundle_config_synth_dir: ?[]const u8 = null,
     provision_guest_cpu: ?boot_plan.ProvisionGuestCpu = null,
     provision_guest_arch_override: ?[]const u8 = null,
     provision_host_arch: ?[]const u8 = null,
@@ -202,6 +203,7 @@ const boot_plan_fields = [_][]const u8{
     "bundleImageEnv",
     "bundleGuestEnv",
     "bundleWorkspaceTempDir",
+    "bundleConfigSynthDir",
     "provisionGuestCpu",
     "provisionGuestArchOverride",
     "provisionHostArch",
@@ -348,6 +350,7 @@ const RequestError = error{
     InvalidBundleImageEnv,
     InvalidBundleGuestEnv,
     InvalidBundleWorkspaceTempDir,
+    InvalidBundleConfigSynthDir,
     InvalidProvisionGuestCpu,
     InvalidProvisionGuestArchOverride,
     InvalidProvisionHostArch,
@@ -454,6 +457,7 @@ const PlanParts = struct {
     bundle_command: []const []const u8,
     bundle_env: []const boot_plan.EnvPair,
     bundle_workspace: boot_plan.BundleWorkspacePlan,
+    bundle_config_paths: boot_plan.BundleConfigPathsPlan,
     provision_assets: boot_plan.ProvisionAssetsPlan,
     provision_boot: boot_plan.ProvisionBootPlan,
     provision_workload: boot_plan.ProvisionWorkloadPlan,
@@ -552,6 +556,9 @@ fn makePlanParts(
         .bundle_env = runtime.bundle_env,
         .bundle_workspace = try boot_plan.planBundleWorkspace(arena, .{
             .temp_dir = parsed.bundle_workspace_temp_dir,
+        }),
+        .bundle_config_paths = try boot_plan.planBundleConfigPaths(arena, .{
+            .synth_bundle_dir = parsed.bundle_config_synth_dir,
         }),
         .provision_assets = boot_plan.planProvisionAssets(.{
             .guest_cpu = parsed.provision_guest_cpu,
@@ -885,6 +892,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeStringArrayField(io, "bundleCommand", parts.bundle_command, true);
     try writeEnvObjectField(io, "bundleEnv", parts.bundle_env, true);
     try writeBundleWorkspaceField(io, "bundleWorkspace", parts.bundle_workspace, true);
+    try writeBundleConfigPathsField(io, "bundleConfigPaths", parts.bundle_config_paths, true);
     try writeProvisionAssetsField(io, "provisionAssets", parts.provision_assets, true);
     try writeProvisionBootField(io, "provisionBoot", parts.provision_boot, true);
     try writeProvisionWorkloadField(io, "provisionWorkload", parts.provision_workload, true);
@@ -1147,6 +1155,21 @@ fn writeBundleWorkspaceField(
     try protocol.stdout(io, "{");
     try writeNullableStringField(io, "cpioPath", workspace.cpio_path, false);
     try writeNullableStringField(io, "synthBundleDir", workspace.synth_bundle_dir, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeBundleConfigPathsField(
+    io: std.Io,
+    comptime field: []const u8,
+    paths: boot_plan.BundleConfigPathsPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "rootfsDir", paths.rootfs_dir, false);
+    try writeNullableStringField(io, "configPath", paths.config_path, true);
     try protocol.stdout(io, "}");
 }
 
@@ -2105,6 +2128,11 @@ fn parseBundleFields(
         object,
         "bundleWorkspaceTempDir",
         error.InvalidBundleWorkspaceTempDir,
+    );
+    request.bundle_config_synth_dir = try optionalStringDefaultNull(
+        object,
+        "bundleConfigSynthDir",
+        error.InvalidBundleConfigSynthDir,
     );
 }
 
