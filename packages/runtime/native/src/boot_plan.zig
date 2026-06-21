@@ -382,6 +382,18 @@ pub const LiveMountInput = struct {
     mode: ?[]const u8 = null,
 };
 
+pub const LiveMountRemovedOptionsInput = struct {
+    index: u64,
+    has_cache: bool = false,
+    has_sync: bool = false,
+};
+
+pub const LiveMountRemovedOptionsValidation = union(enum) {
+    ok,
+    cache: u64,
+    sync: u64,
+};
+
 pub const LiveMount = struct {
     host: []const u8,
     guest: []const u8,
@@ -989,6 +1001,12 @@ pub fn planLiveMounts(allocator: std.mem.Allocator, mounts: []const LiveMountInp
         try out.append(allocator, .{ .host = mount.host, .guest = guest, .mode = mode, .tag = tag });
     }
     return out.toOwnedSlice(allocator);
+}
+
+pub fn validateLiveMountRemovedOptions(input: LiveMountRemovedOptionsInput) LiveMountRemovedOptionsValidation {
+    if (input.has_cache) return .{ .cache = input.index };
+    if (input.has_sync) return .{ .sync = input.index };
+    return .ok;
 }
 
 pub fn planVirtiofsEnv(allocator: std.mem.Allocator, mounts: []const LiveMount) ![]EnvPair {
@@ -2597,6 +2615,13 @@ test "planLiveMounts validates count guest paths modes and tags" {
 
     const bad_mode = [_]LiveMountInput{.{ .host = "./a", .guest = "/mnt/a", .mode = "eager" }};
     try std.testing.expectError(error.InvalidLiveMountMode, planLiveMounts(std.testing.allocator, &bad_mode));
+}
+
+test "validateLiveMountRemovedOptions preserves deprecated option precedence" {
+    try std.testing.expectEqual(.ok, validateLiveMountRemovedOptions(.{ .index = 1 }));
+    try std.testing.expectEqual(@as(u64, 2), validateLiveMountRemovedOptions(.{ .index = 2, .has_cache = true }).cache);
+    try std.testing.expectEqual(@as(u64, 3), validateLiveMountRemovedOptions(.{ .index = 3, .has_sync = true }).sync);
+    try std.testing.expectEqual(@as(u64, 4), validateLiveMountRemovedOptions(.{ .index = 4, .has_cache = true, .has_sync = true }).cache);
 }
 
 test "planBatchLiveMountSync requires vsock for rw mounts when validation is requested" {

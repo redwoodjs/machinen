@@ -1577,6 +1577,47 @@ describe("boot-plan helper schema", () => {
     ]);
   });
 
+  it("rejects removed live-mount options in the native planner", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      liveMountRemovedOptionIndex: "2",
+    };
+    const cache = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, liveMountRemovedOptionHasCache: true },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(cache.status).toBe(1);
+    expect(JSON.parse(cache.stdout).error).toMatchObject({
+      code: "BOOT_MOUNT_INVALID",
+      message: "liveMounts[2] cache is no longer supported; metadata caching uses the fast policy",
+    });
+
+    const sync = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, liveMountRemovedOptionHasSync: true },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(sync.status).toBe(1);
+    expect(JSON.parse(sync.stdout).error).toMatchObject({
+      code: "BOOT_MOUNT_INVALID",
+      message: "liveMounts[2] sync is no longer supported; rw live mounts sync in batches",
+    });
+  });
+
   it("plans stats-file env from caller or runtime-owned paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

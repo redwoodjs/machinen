@@ -65,6 +65,9 @@ const ParsedRequest = struct {
     boot_vmstate_forked_from: ?[]const u8,
     nested_requested: bool,
     live_mounts: []const boot_plan.LiveMountInput,
+    live_mount_removed_option_index_text: ?[]const u8,
+    live_mount_removed_option_has_cache: bool,
+    live_mount_removed_option_has_sync: bool,
     live_mounts_resolved: []const boot_plan.LiveMount,
     batch_live_mount_validation_required: bool,
     restore_live_mounts_recorded: []const boot_plan.RestoreRecordedLiveMount,
@@ -279,6 +282,9 @@ const RequestError = error{
     InvalidNested,
     InvalidLiveMounts,
     InvalidLiveMountGuest,
+    InvalidLiveMountRemovedOptionIndex,
+    InvalidLiveMountRemovedOptionHasCache,
+    InvalidLiveMountRemovedOptionHasSync,
     InvalidLiveMountsResolved,
     InvalidLiveMountHost,
     InvalidLiveMountMode,
@@ -533,6 +539,35 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
+    const live_mount_removed_option_index = if (parsed.live_mount_removed_option_index_text) |text|
+        parseUnsigned(text) catch {
+            try writeRequestError(io, error.InvalidLiveMountRemovedOptionIndex);
+            return .fail;
+        }
+    else
+        null;
+    if (parsed.live_mount_removed_option_has_cache or parsed.live_mount_removed_option_has_sync) {
+        const index = live_mount_removed_option_index orelse {
+            try writeRequestError(io, error.InvalidLiveMountRemovedOptionIndex);
+            return .fail;
+        };
+        const removed_options = boot_plan.validateLiveMountRemovedOptions(.{
+            .index = index,
+            .has_cache = parsed.live_mount_removed_option_has_cache,
+            .has_sync = parsed.live_mount_removed_option_has_sync,
+        });
+        switch (removed_options) {
+            .ok => {},
+            .cache => |i| {
+                try writeRemovedLiveMountCacheError(io, i);
+                return .fail;
+            },
+            .sync => |i| {
+                try writeRemovedLiveMountSyncError(io, i);
+                return .fail;
+            },
+        }
+    }
     const virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved);
     const batch_live_mount_sync = boot_plan.planBatchLiveMountSync(.{
         .live_mounts = parsed.live_mounts_resolved,
@@ -1762,7 +1797,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "rootDiskOptionFalse", "rootDiskOptionTrue", "rootDiskOptionPath", "rootDiskRestorePath", "guestCwd", "mountGuest", "guestEnv", "vmmEnvBase", "vmmEnvOverrides", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "guestHostnameSetPid", "guestHostnameSetName", "guestHostnameSetVsockUdsPath", "guestHostnameSetSkip", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "portForwardNetSocket", "gvproxyPlanningRequired", "gvproxyNetSocket", "gvproxyPath", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateEngine", "bootVmstateSnapshotDisabled", "bootVmstateExistingTempDir", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountsResolved", "batchLiveMountValidationRequired", "restoreLiveMountsRecorded", "restoreLiveMountsOverrides", "existingStatsFile", "statsFilePath", "statsFileTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "bundlePackUseTiny", "bundlePackMountGuest", "bundlePackRestoreMountGuest", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionDtbExplicit", "provisionCliCacheHome", "provisionCliCacheVersion", "provisionAssetExplicitPath", "provisionAssetExplicitExists", "provisionAssetAssetsDirPath", "provisionAssetAssetsDirExists", "provisionAssetCachePath", "provisionAssetCacheExists", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionBootVmmEnv", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchOptionFalse", "scratchOptionPath", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "snapshotMountGuest", "snapshotMountLowerPath", "snapshotMountUpperPath", "snapshotLiveMounts", "snapshotVmstatePath", "snapshotVmstateChainId", "snapshotVmstateCheckpointParent", "snapshotVmstateCheckpointSequence", "snapshotBackingEngine", "snapshotBackingAction", "snapshotBackingDiskPath", "snapshotBackingVmstatePath", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryLifecycleName", "registryLifecycleVsockUdsPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath", "registryHostPlatform", "registryVmmBinary", "registryVmmPdeathsig", "registryVmmObservedExeBase", "registryGvPid", "registryGvExe", "registryGvObservedExeBase" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "rootDiskOptionFalse", "rootDiskOptionTrue", "rootDiskOptionPath", "rootDiskRestorePath", "guestCwd", "mountGuest", "guestEnv", "vmmEnvBase", "vmmEnvOverrides", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "guestHostnameSetPid", "guestHostnameSetName", "guestHostnameSetVsockUdsPath", "guestHostnameSetSkip", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "portForwardNetSocket", "gvproxyPlanningRequired", "gvproxyNetSocket", "gvproxyPath", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateEngine", "bootVmstateSnapshotDisabled", "bootVmstateExistingTempDir", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountRemovedOptionIndex", "liveMountRemovedOptionHasCache", "liveMountRemovedOptionHasSync", "liveMountsResolved", "batchLiveMountValidationRequired", "restoreLiveMountsRecorded", "restoreLiveMountsOverrides", "existingStatsFile", "statsFilePath", "statsFileTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "bundlePackUseTiny", "bundlePackMountGuest", "bundlePackRestoreMountGuest", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionDtbExplicit", "provisionCliCacheHome", "provisionCliCacheVersion", "provisionAssetExplicitPath", "provisionAssetExplicitExists", "provisionAssetAssetsDirPath", "provisionAssetAssetsDirExists", "provisionAssetCachePath", "provisionAssetCacheExists", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionBootVmmEnv", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchOptionFalse", "scratchOptionPath", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "snapshotMountGuest", "snapshotMountLowerPath", "snapshotMountUpperPath", "snapshotLiveMounts", "snapshotVmstatePath", "snapshotVmstateChainId", "snapshotVmstateCheckpointParent", "snapshotVmstateCheckpointSequence", "snapshotBackingEngine", "snapshotBackingAction", "snapshotBackingDiskPath", "snapshotBackingVmstatePath", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryLifecycleName", "registryLifecycleVsockUdsPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath", "registryHostPlatform", "registryVmmBinary", "registryVmmPdeathsig", "registryVmmObservedExeBase", "registryGvPid", "registryGvExe", "registryGvObservedExeBase" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -1823,6 +1858,9 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .boot_vmstate_forked_from = try optionalStringDefaultNull(object, "bootVmstateForkedFrom", error.InvalidBootVmstateForkedFrom),
         .nested_requested = try optionalBoolDefaultFalse(object, "nested", error.InvalidNested),
         .live_mounts = try optionalLiveMounts(allocator, object),
+        .live_mount_removed_option_index_text = try optionalStringDefaultNull(object, "liveMountRemovedOptionIndex", error.InvalidLiveMountRemovedOptionIndex),
+        .live_mount_removed_option_has_cache = try optionalBoolDefaultFalse(object, "liveMountRemovedOptionHasCache", error.InvalidLiveMountRemovedOptionHasCache),
+        .live_mount_removed_option_has_sync = try optionalBoolDefaultFalse(object, "liveMountRemovedOptionHasSync", error.InvalidLiveMountRemovedOptionHasSync),
         .live_mounts_resolved = try optionalLiveMountsResolved(allocator, object),
         .batch_live_mount_validation_required = try optionalBoolDefaultFalse(object, "batchLiveMountValidationRequired", error.InvalidBatchLiveMountValidationRequired),
         .restore_live_mounts_recorded = try optionalRestoreLiveMountsRecorded(allocator, object),
@@ -2293,6 +2331,24 @@ fn writeDuplicateHostPort(io: std.Io, port: u16) !void {
     );
 }
 
+fn writeRemovedLiveMountCacheError(io: std.Io, index: u64) !void {
+    var buf: [256]u8 = undefined;
+    try protocol.writeError(
+        io,
+        "BOOT_MOUNT_INVALID",
+        try std.fmt.bufPrint(&buf, "liveMounts[{d}] cache is no longer supported; metadata caching uses the fast policy", .{index}),
+    );
+}
+
+fn writeRemovedLiveMountSyncError(io: std.Io, index: u64) !void {
+    var buf: [256]u8 = undefined;
+    try protocol.writeError(
+        io,
+        "BOOT_MOUNT_INVALID",
+        try std.fmt.bufPrint(&buf, "liveMounts[{d}] sync is no longer supported; rw live mounts sync in batches", .{index}),
+    );
+}
+
 fn writeRestoreLiveMountOverrideError(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -2405,6 +2461,8 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         error.InvalidSnapshotVmstateCheckpointSequence => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan snapshot vmstate checkpoint sequence must be a decimal integer"),
         error.InvalidSnapshotBackingEngine, error.InvalidSnapshotBackingAction, error.InvalidSnapshotBackingDiskPath, error.InvalidSnapshotBackingVmstatePath => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan snapshot backing fields must be strings"),
         error.InvalidLiveMounts, error.InvalidLiveMountGuest => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: entries must include host and guest paths"),
+        error.InvalidLiveMountRemovedOptionIndex => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan live mount removed option index must be a decimal integer"),
+        error.InvalidLiveMountRemovedOptionHasCache, error.InvalidLiveMountRemovedOptionHasSync => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan live mount removed option flags must be booleans"),
         error.InvalidLiveMountsResolved, error.InvalidLiveMountHost, error.InvalidLiveMountMode, error.InvalidLiveMountTag => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: resolved live mount entries must include host, guest, tag, and mode ro/rw"),
         error.InvalidBatchLiveMountValidationRequired => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan batch live mount validation flag must be a boolean"),
         error.InvalidRestoreLiveMountsRecorded, error.InvalidRestoreLiveMountsOverrides => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "restore liveMount entries must include host, guest, and valid mode fields"),
