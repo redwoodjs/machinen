@@ -640,6 +640,7 @@ const PlanParts = struct {
     bundle_workspace: boot_plan.BundleWorkspacePlan,
     bundle_config_paths: boot_plan.BundleConfigPathsPlan,
     bundle_pack: boot_plan.BundlePackPlan,
+    bundle_mount_disk_mode: boot_plan.BundleMountDiskModePlan,
     provision_assets: boot_plan.ProvisionAssetsPlan,
     provision_dtb: boot_plan.ProvisionDtbPlan,
     provision_cli_cache: boot_plan.ProvisionCliCachePlan,
@@ -716,6 +717,7 @@ fn makePlanParts(
     const boot_env = try makeBootEnvParts(arena, parsed);
     const runtime = try makeRuntimeParts(arena, parsed);
     const provision = try makeProvisionParts(arena, parsed);
+    const bundle_pack_input = makeBundlePackInput(parsed);
     return .{
         .plan = plan,
         .cpu_policy = try makeCpuResources(parsed),
@@ -758,11 +760,8 @@ fn makePlanParts(
         .bundle_config_paths = try boot_plan.planBundleConfigPaths(arena, .{
             .synth_bundle_dir = parsed.bundle_config_synth_dir,
         }),
-        .bundle_pack = boot_plan.planBundlePack(.{
-            .use_tiny = parsed.bundle_pack_use_tiny,
-            .mount_guest = parsed.bundle_pack_mount_guest,
-            .restore_mount_guest = parsed.bundle_pack_restore_mount_guest,
-        }),
+        .bundle_pack = boot_plan.planBundlePack(bundle_pack_input),
+        .bundle_mount_disk_mode = boot_plan.planBundleMountDiskMode(bundle_pack_input),
         .provision_assets = provision.assets,
         .provision_dtb = provision.dtb,
         .provision_cli_cache = provision.cli_cache,
@@ -781,6 +780,16 @@ fn makePlanParts(
         .registry_shape = runtime.registry_shape,
         .registry_lifecycle = runtime.registry_lifecycle,
         .registry_process = runtime.registry_process,
+    };
+}
+
+fn makeBundlePackInput(parsed: ParsedRequest) boot_plan.BundlePackInput {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return .{
+        .use_tiny = parsed.bundle_pack_use_tiny,
+        .mount_guest = parsed.bundle_pack_mount_guest,
+        .restore_mount_guest = parsed.bundle_pack_restore_mount_guest,
     };
 }
 
@@ -1349,6 +1358,12 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeBundleWorkspaceField(io, "bundleWorkspace", parts.bundle_workspace, true);
     try writeBundleConfigPathsField(io, "bundleConfigPaths", parts.bundle_config_paths, true);
     try writeBundlePackField(io, "bundlePack", parts.bundle_pack, true);
+    try writeBundleMountDiskModeField(
+        io,
+        "bundleMountDiskMode",
+        parts.bundle_mount_disk_mode,
+        true,
+    );
     try writeProvisionAssetsField(io, "provisionAssets", parts.provision_assets, true);
     try writeProvisionDtbField(io, "provisionDtb", parts.provision_dtb, true);
     try writeProvisionCliCacheField(io, "provisionCliCache", parts.provision_cli_cache, true);
@@ -1777,6 +1792,20 @@ fn writeBundlePackField(
     try writeFieldName(io, "kind", false);
     try protocol.writeJsonString(io, plan.kind);
     try writeNullableStringField(io, "tinyMountGuest", plan.tiny_mount_guest, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeBundleMountDiskModeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mode: boot_plan.BundleMountDiskModePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, mode.action);
     try protocol.stdout(io, "}");
 }
 
