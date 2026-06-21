@@ -8,6 +8,7 @@ export type ProvisionGuestCpu = "arm64" | "amd64";
 export type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
 export type RestoreLiveMount = { host: string; guest: string; mode?: "ro" | "rw" };
 export type PlannedPortForward = { hostPort: number; guestPort: number; hostAddr?: string };
+export type PortForwardProbePlan = { hostPort: number; probeHost: string };
 export type GvproxyPlan = { action: GvproxyAction; gvproxyPath: string | null };
 type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
@@ -157,6 +158,7 @@ export interface NativeBootPlanResult {
   guestHostname: string | null;
   guestHostnameSet: string | null;
   plannedPortForward: PlannedPortForward[];
+  portForwardProbe: PortForwardProbePlan[];
   gvproxyPlan: GvproxyPlan;
   mergedGuestEnv: Record<string, string>;
   vsockUdsPath: string | null;
@@ -223,6 +225,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.guestHostname),
     nullableString(data.guestHostnameSet),
     Array.isArray(data.plannedPortForward) && data.plannedPortForward.every(isPlannedPortForward),
+    Array.isArray(data.portForwardProbe) && data.portForwardProbe.every(isPortForwardProbePlan),
     isGvproxyPlan(data.gvproxyPlan),
     isStringRecord(data.mergedGuestEnv),
     nullableString(data.vsockUdsPath),
@@ -628,6 +631,14 @@ function isRegistryLiveMount(value: unknown): value is RegistryLiveMountPlan {
 
 function isRegistryPortForwardArray(value: unknown): value is RegistryPortForwardPlan[] {
   return Array.isArray(value) && value.every(isPlannedPortForward);
+}
+
+function isPortForwardProbePlan(value: unknown): value is PortForwardProbePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<PortForwardProbePlan>;
+  return nonNegativeNumber(plan.hostPort) && typeof plan.probeHost === "string";
 }
 
 function isGvproxyPlan(value: unknown): value is GvproxyPlan {

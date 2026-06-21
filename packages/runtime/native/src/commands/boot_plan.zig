@@ -439,6 +439,10 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
+    const port_forward_probe = boot_plan.planPortForwardProbe(arena, parsed.port_forward) catch |err| {
+        try writePlanError(io, err);
+        return .fail;
+    };
     const gvproxy_plan = boot_plan.planGvproxy(.{
         .planning_required = parsed.gvproxy_planning_required,
         .existing_net_socket = parsed.gvproxy_net_socket,
@@ -800,7 +804,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .gv_observed_exe_base = parsed.registry_gv_observed_exe_base,
     });
 
-    try writePlan(io, plan, root_disk_mode, cpu_plan, guest_env, vmm_env, guest_hostname, guest_hostname_set, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file, planned_live_mounts, parsed.port_forward, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, provision_assets, provision_dtb, provision_cli_cache, provision_asset_lookup, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, planned_scratch_mode, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, snapshot_context, registry_shape, registry_lifecycle, registry_process);
+    try writePlan(io, plan, root_disk_mode, cpu_plan, guest_env, vmm_env, guest_hostname, guest_hostname_set, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file, planned_live_mounts, parsed.port_forward, port_forward_probe, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, provision_assets, provision_dtb, provision_cli_cache, provision_asset_lookup, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, planned_scratch_mode, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, snapshot_context, registry_shape, registry_lifecycle, registry_process);
     return .ok;
 }
 
@@ -828,6 +832,7 @@ fn writePlan(
     stats_file: boot_plan.StatsFilePlan,
     planned_live_mounts: []const boot_plan.LiveMount,
     planned_port_forwards: []const boot_plan.PortForwardMapping,
+    port_forward_probe: []const boot_plan.PortForwardProbePlan,
     config_cmd: []const []const u8,
     config_env: []const boot_plan.EnvPair,
     config_cwd: ?[]const u8,
@@ -1353,6 +1358,16 @@ fn writePlan(
     try writeNullableJsonString(io, guest_hostname_set);
     try protocol.stdout(io, ",\"plannedPortForward\":");
     try writePortForwardPlan(io, planned_port_forwards, false);
+    try protocol.stdout(io, ",\"portForwardProbe\":[");
+    for (port_forward_probe, 0..) |probe, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.stdout(io, "{\"hostPort\":");
+        try writeI64(io, probe.host_port);
+        try protocol.stdout(io, ",\"probeHost\":");
+        try protocol.writeJsonString(io, probe.probe_host);
+        try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]");
     try protocol.stdout(io, ",\"gvproxyPlan\":{\"action\":");
     try protocol.writeJsonString(io, gvproxy_plan.action);
     try protocol.stdout(io, ",\"gvproxyPath\":");

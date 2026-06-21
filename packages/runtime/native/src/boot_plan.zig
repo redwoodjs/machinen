@@ -88,6 +88,11 @@ pub const PortForwardMapping = struct {
     host_addr: ?[]const u8 = null,
 };
 
+pub const PortForwardProbePlan = struct {
+    host_port: i64,
+    probe_host: []const u8,
+};
+
 pub const PortForwardNetSocketInput = struct {
     port_forwards: []const PortForwardMapping = &.{},
     net_socket: ?[]const u8 = null,
@@ -1573,6 +1578,14 @@ pub fn validatePortForward(mappings: []const PortForwardMapping) PortForwardVali
     return .ok;
 }
 
+pub fn planPortForwardProbe(allocator: std.mem.Allocator, mappings: []const PortForwardMapping) ![]PortForwardProbePlan {
+    const plans = try allocator.alloc(PortForwardProbePlan, mappings.len);
+    for (mappings, 0..) |mapping, i| {
+        plans[i] = .{ .host_port = mapping.host_port, .probe_host = mapping.host_addr orelse "127.0.0.1" };
+    }
+    return plans;
+}
+
 pub fn validatePortForwardNetSocket(input: PortForwardNetSocketInput) PlanError!void {
     if (input.port_forwards.len > 0 and input.net_socket != null) return error.PortForwardNetSocketPreset;
 }
@@ -2682,6 +2695,19 @@ test "validatePortForward rejects invalid and duplicate ports" {
             .{ .host_port = 8080, .guest_port = 3001 },
         }),
     );
+}
+
+test "planPortForwardProbe defaults host address for availability checks" {
+    const planned = try planPortForwardProbe(std.testing.allocator, &.{
+        .{ .host_port = 8080, .guest_port = 80 },
+        .{ .host_port = 8443, .guest_port = 443, .host_addr = "0.0.0.0" },
+    });
+    defer std.testing.allocator.free(planned);
+    try std.testing.expectEqual(@as(usize, 2), planned.len);
+    try std.testing.expectEqual(@as(i64, 8080), planned[0].host_port);
+    try std.testing.expectEqualStrings("127.0.0.1", planned[0].probe_host);
+    try std.testing.expectEqual(@as(i64, 8443), planned[1].host_port);
+    try std.testing.expectEqualStrings("0.0.0.0", planned[1].probe_host);
 }
 
 test "planVsock parses existing specs and formats auto specs" {
