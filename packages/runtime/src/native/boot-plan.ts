@@ -114,6 +114,10 @@ interface NativeBootPlanInput {
   mountDiskGuest?: string;
   mountDiskUpperSize?: number;
   registrySourceImagePath?: string;
+  registryDiskPath?: string;
+  registryForkedFrom?: string;
+  registryMemoryCeilingMib?: number;
+  registryStatsPath?: string;
   registryPerBootRootDisk?: string;
   registryCallerRootDiskPath?: string;
   registryBootLogRoot?: string;
@@ -279,6 +283,10 @@ function mountDiskRuntimeData(input: NativeBootPlanInput): Record<string, unknow
 function registryShapeData(input: NativeBootPlanInput): Record<string, unknown> {
   return {
     registrySourceImagePath: nullDefault(input.registrySourceImagePath),
+    registryDiskPath: nullDefault(input.registryDiskPath),
+    registryForkedFrom: nullDefault(input.registryForkedFrom),
+    registryMemoryCeilingMib: numberText(input.registryMemoryCeilingMib),
+    registryStatsPath: nullDefault(input.registryStatsPath),
     registryPerBootRootDisk: nullDefault(input.registryPerBootRootDisk),
     registryCallerRootDiskPath: nullDefault(input.registryCallerRootDiskPath),
     registryBootLogRoot: nullDefault(input.registryBootLogRoot),
@@ -480,6 +488,10 @@ export function planBootMountDiskRuntimeNative(input: {
 
 interface BootRegistryShapeNativeInput {
   sourceImagePath?: string;
+  diskPath?: string;
+  forkedFrom?: string;
+  memoryCeilingMib?: number;
+  statsPath?: string;
   rootDisk?: {
     perBootRootDisk?: string;
     callerRootDiskPath?: string;
@@ -516,6 +528,10 @@ export function planBootRegistryShapeNative(
 ): RegistryShapePlan {
   return planBootCoreNative({
     registrySourceImagePath: input.sourceImagePath,
+    registryDiskPath: input.diskPath,
+    registryForkedFrom: input.forkedFrom,
+    registryMemoryCeilingMib: input.memoryCeilingMib,
+    registryStatsPath: input.statsPath,
     ...registryRootDiskData(input),
     ...registryBootLogData(input),
     ...registryCleanupData(input),
@@ -608,6 +624,21 @@ export function planBootRegistryPortForwardNative(
   portForward: PortForwardPlanMapping[],
 ): RegistryShapePlan["portForward"] | undefined {
   return planBootRegistryShapeNative({ portForward }).portForward ?? undefined;
+}
+
+export function planBootRegistryScalarsNative(input: {
+  diskPath?: string;
+  forkedFrom?: string;
+  memoryCeilingMib?: number;
+  statsPath?: string;
+}): Pick<RegistryShapePlan, "diskPath" | "forkedFrom" | "memoryCeilingMib" | "statsPath"> {
+  const plan = planBootRegistryShapeNative(input);
+  return {
+    diskPath: plan.diskPath,
+    forkedFrom: plan.forkedFrom,
+    memoryCeilingMib: plan.memoryCeilingMib,
+    statsPath: plan.statsPath,
+  };
 }
 
 export function planBootPortForwardNative(

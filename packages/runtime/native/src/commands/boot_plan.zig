@@ -92,6 +92,10 @@ const ParsedRequest = struct {
     mount_disk_guest: ?[]const u8,
     mount_disk_upper_size_text: ?[]const u8,
     registry_source_image_path: ?[]const u8,
+    registry_disk_path: ?[]const u8,
+    registry_forked_from: ?[]const u8,
+    registry_memory_ceiling_mib_text: ?[]const u8,
+    registry_stats_path: ?[]const u8,
     registry_per_boot_root_disk: ?[]const u8,
     registry_caller_root_disk_path: ?[]const u8,
     registry_boot_log_root: ?[]const u8,
@@ -241,6 +245,10 @@ const RequestError = error{
     InvalidMountDiskGuest,
     InvalidMountDiskUpperSize,
     InvalidRegistrySourceImagePath,
+    InvalidRegistryDiskPath,
+    InvalidRegistryForkedFrom,
+    InvalidRegistryMemoryCeilingMib,
+    InvalidRegistryStatsPath,
     InvalidRegistryRootDiskPath,
     InvalidRegistryBootLogRoot,
     InvalidRegistryChildPid,
@@ -453,6 +461,13 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         }
     else
         null;
+    const registry_memory_ceiling_mib = if (parsed.registry_memory_ceiling_mib_text) |text|
+        parseUnsigned(text) catch {
+            try writeRequestError(io, error.InvalidRegistryMemoryCeilingMib);
+            return .fail;
+        }
+    else
+        null;
     const registry_vmstate_checkpoint_sequence = if (parsed.registry_vmstate_checkpoint_sequence_text) |text|
         parseUnsigned(text) catch {
             try writeRequestError(io, error.InvalidRegistryVmstateCheckpointSequence);
@@ -462,6 +477,10 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         null;
     const registry_shape = boot_plan.planRegistryShape(arena, .{
         .source_image_path = parsed.registry_source_image_path,
+        .disk_path = parsed.registry_disk_path,
+        .forked_from = parsed.registry_forked_from,
+        .memory_ceiling_mib = registry_memory_ceiling_mib,
+        .stats_path = parsed.registry_stats_path,
         .per_boot_root_disk = parsed.registry_per_boot_root_disk,
         .caller_root_disk_path = parsed.registry_caller_root_disk_path,
         .boot_log_root = parsed.registry_boot_log_root,
@@ -809,6 +828,14 @@ fn writePlan(
     try protocol.stdout(io, ",\"registryShape\":{");
     try protocol.stdout(io, "\"sourceImagePath\":");
     try writeNullableJsonString(io, registry_shape.source_image_path);
+    try protocol.stdout(io, ",\"diskPath\":");
+    try writeNullableJsonString(io, registry_shape.disk_path);
+    try protocol.stdout(io, ",\"forkedFrom\":");
+    try writeNullableJsonString(io, registry_shape.forked_from);
+    try protocol.stdout(io, ",\"memoryCeilingMib\":");
+    try writeNullableU64(io, registry_shape.memory_ceiling_mib);
+    try protocol.stdout(io, ",\"statsPath\":");
+    try writeNullableJsonString(io, registry_shape.stats_path);
     try protocol.stdout(io, ",\"rootDiskPath\":");
     try writeNullableJsonString(io, registry_shape.root_disk_path);
     try protocol.stdout(io, ",\"rootDiskMode\":");
@@ -1163,7 +1190,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateStatePath", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateStatePath", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -1251,6 +1278,10 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .mount_disk_guest = try optionalStringDefaultNull(object, "mountDiskGuest", error.InvalidMountDiskGuest),
         .mount_disk_upper_size_text = try optionalStringDefaultNull(object, "mountDiskUpperSize", error.InvalidMountDiskUpperSize),
         .registry_source_image_path = try optionalStringDefaultNull(object, "registrySourceImagePath", error.InvalidRegistrySourceImagePath),
+        .registry_disk_path = try optionalStringDefaultNull(object, "registryDiskPath", error.InvalidRegistryDiskPath),
+        .registry_forked_from = try optionalStringDefaultNull(object, "registryForkedFrom", error.InvalidRegistryForkedFrom),
+        .registry_memory_ceiling_mib_text = try optionalStringDefaultNull(object, "registryMemoryCeilingMib", error.InvalidRegistryMemoryCeilingMib),
+        .registry_stats_path = try optionalStringDefaultNull(object, "registryStatsPath", error.InvalidRegistryStatsPath),
         .registry_per_boot_root_disk = try optionalStringDefaultNull(object, "registryPerBootRootDisk", error.InvalidRegistryRootDiskPath),
         .registry_caller_root_disk_path = try optionalStringDefaultNull(object, "registryCallerRootDiskPath", error.InvalidRegistryRootDiskPath),
         .registry_boot_log_root = try optionalStringDefaultNull(object, "registryBootLogRoot", error.InvalidRegistryBootLogRoot),
@@ -1636,6 +1667,10 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         error.InvalidRegistryVmstatePath, error.InvalidRegistryVmstateChainId, error.InvalidRegistryVmstateCheckpointParent => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry vmstate path fields must be strings"),
         error.InvalidRegistryVmstateCheckpointSequence => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry vmstate checkpoint sequence must be a decimal integer"),
         error.InvalidBootVmstateStatePath, error.InvalidBootVmstateChainId, error.InvalidBootVmstateRestorePath, error.InvalidBootVmstateForkedFrom => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan vmstate runtime fields must be strings"),
+        error.InvalidRegistryDiskPath => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry disk path must be a string"),
+        error.InvalidRegistryForkedFrom => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry forked-from path must be a string"),
+        error.InvalidRegistryMemoryCeilingMib => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry memory ceiling must be a decimal integer"),
+        error.InvalidRegistryStatsPath => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry stats path must be a string"),
         error.InvalidRegistryBootLogRoot => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry boot log root must be a string"),
         error.InvalidRegistryChildPid => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry child pid must be a decimal integer"),
         error.InvalidRegistryDetached => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry detached flag must be a boolean"),

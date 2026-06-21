@@ -787,6 +787,10 @@ describe("boot-plan helper schema", () => {
         data: {
           ...baseData,
           registrySourceImagePath: "/images/rootfs.tar.gz",
+          registryDiskPath: "/tmp/scratch.img",
+          registryForkedFrom: "/snap/source",
+          registryMemoryCeilingMib: "2048",
+          registryStatsPath: "/tmp/stats.bin",
           registryPerBootRootDisk: "/tmp/root.img",
           registryCallerRootDiskPath: "/caller/root.img",
           registryBootLogRoot: "/tmp/machinen-logs",
@@ -827,6 +831,10 @@ describe("boot-plan helper schema", () => {
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout).data.registryShape).toEqual({
       sourceImagePath: "/images/rootfs.tar.gz",
+      diskPath: "/tmp/scratch.img",
+      forkedFrom: "/snap/source",
+      memoryCeilingMib: 2048,
+      statsPath: "/tmp/stats.bin",
       rootDiskPath: "/tmp/root.img",
       rootDiskMode: "block",
       bootLogPath: "/tmp/machinen-logs/1234.boot.log",

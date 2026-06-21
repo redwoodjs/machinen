@@ -371,6 +371,10 @@ pub const RegistryVmstatePlan = struct {
 
 pub const RegistryShapeInput = struct {
     source_image_path: ?[]const u8 = null,
+    disk_path: ?[]const u8 = null,
+    forked_from: ?[]const u8 = null,
+    memory_ceiling_mib: ?u64 = null,
+    stats_path: ?[]const u8 = null,
     per_boot_root_disk: ?[]const u8 = null,
     caller_root_disk_path: ?[]const u8 = null,
     boot_log_root: ?[]const u8 = null,
@@ -389,6 +393,10 @@ pub const RegistryShapeInput = struct {
 
 pub const RegistryShapePlan = struct {
     source_image_path: ?[]const u8,
+    disk_path: ?[]const u8,
+    forked_from: ?[]const u8,
+    memory_ceiling_mib: ?u64,
+    stats_path: ?[]const u8,
     root_disk_path: ?[]const u8,
     root_disk_mode: []const u8,
     boot_log_path: ?[]const u8,
@@ -936,6 +944,10 @@ pub fn planRegistryShape(allocator: std.mem.Allocator, input: RegistryShapeInput
     errdefer if (boot_log_path) |path| allocator.free(path);
     return .{
         .source_image_path = input.source_image_path,
+        .disk_path = input.disk_path,
+        .forked_from = input.forked_from,
+        .memory_ceiling_mib = input.memory_ceiling_mib,
+        .stats_path = input.stats_path,
         .root_disk_path = root_disk_path,
         .root_disk_mode = if (root_disk_path != null) "block" else "none",
         .boot_log_path = boot_log_path,
@@ -1304,6 +1316,10 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     };
     const plan = try planRegistryShape(allocator, .{
         .source_image_path = "/images/rootfs.tar.gz",
+        .disk_path = "/tmp/scratch.img",
+        .forked_from = "/snap/source",
+        .memory_ceiling_mib = 2048,
+        .stats_path = "/tmp/stats.bin",
         .per_boot_root_disk = "/tmp/per-boot-root.img",
         .caller_root_disk_path = "/caller/root.img",
         .cleanup = .{
@@ -1343,6 +1359,10 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     defer allocator.free(plan.port_forwards);
 
     try std.testing.expectEqualStrings("/images/rootfs.tar.gz", plan.source_image_path.?);
+    try std.testing.expectEqualStrings("/tmp/scratch.img", plan.disk_path.?);
+    try std.testing.expectEqualStrings("/snap/source", plan.forked_from.?);
+    try std.testing.expectEqual(@as(u64, 2048), plan.memory_ceiling_mib.?);
+    try std.testing.expectEqualStrings("/tmp/stats.bin", plan.stats_path.?);
     try std.testing.expectEqualStrings("/tmp/per-boot-root.img", plan.root_disk_path.?);
     try std.testing.expectEqualStrings("block", plan.root_disk_mode);
     try std.testing.expectEqualStrings("/tmp/machinen-logs/1234.boot.log", plan.boot_log_path.?);
