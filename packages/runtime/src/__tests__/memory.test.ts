@@ -574,6 +574,7 @@ describe("boot-plan helper schema", () => {
     expect(data.provisionRepack).toEqual({
       extractArgs: ["-xf", "/tmp/scratch.img", "-C", "/tmp/extract"],
       targzArgs: ["-czf", "/tmp/out.tar.gz", "-C", "/tmp/extract", "."],
+      imageConfigPath: "/tmp/extract/machinen-config.json",
     });
   });
 

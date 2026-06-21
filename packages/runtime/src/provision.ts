@@ -691,7 +691,10 @@ function repackDiskTarToGz(
     // same cmd. User-supplied cmd/env on boot() still override.
     const imageConfig = planProvisionImageConfigNative({ cmd: opts.cmd, env: opts.env });
     if (imageConfig) {
-      writeFileSync(join(extractDir, "machinen-config.json"), JSON.stringify(imageConfig));
+      writeFileSync(
+        requireProvisionPlanString(repackPlan.imageConfigPath, "provisionRepack.imageConfigPath"),
+        JSON.stringify(imageConfig),
+      );
     }
     const tarT0 = Date.now();
     execFileSync("tar", repackPlan.targzArgs, {

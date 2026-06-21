@@ -180,6 +180,7 @@ pub const ProvisionRepackInput = struct {
 pub const ProvisionRepackPlan = struct {
     extract_args: []const []const u8,
     targz_args: []const []const u8,
+    image_config_path: ?[]const u8,
 };
 
 pub const ProvisionImageConfigInput = struct {
@@ -749,6 +750,7 @@ pub fn planProvisionRepack(allocator: std.mem.Allocator, input: ProvisionRepackI
         return .{
             .extract_args = &.{},
             .targz_args = &.{},
+            .image_config_path = null,
         };
     }
     const disk_path = input.disk_path orelse return error.MissingProvisionRepackField;
@@ -758,9 +760,12 @@ pub fn planProvisionRepack(allocator: std.mem.Allocator, input: ProvisionRepackI
     errdefer allocator.free(extract_args);
     const targz_args = try allocator.dupe([]const u8, &[_][]const u8{ "-czf", out_path, "-C", extract_dir, "." });
     errdefer allocator.free(targz_args);
+    const image_config_path = try std.fs.path.join(allocator, &.{ extract_dir, "machinen-config.json" });
+    errdefer allocator.free(image_config_path);
     return .{
         .extract_args = extract_args,
         .targz_args = targz_args,
+        .image_config_path = image_config_path,
     };
 }
 
@@ -1587,8 +1592,15 @@ test "planProvisionWorkload and planProvisionRepack build commands" {
     });
     defer allocator.free(repack.extract_args);
     defer allocator.free(repack.targz_args);
+    defer allocator.free(repack.image_config_path.?);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "-xf", "/tmp/scratch.img", "-C", "/tmp/extract" }, repack.extract_args);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "-czf", "/tmp/out.tar.gz", "-C", "/tmp/extract", "." }, repack.targz_args);
+    try std.testing.expectEqualStrings("/tmp/extract/machinen-config.json", repack.image_config_path.?);
+
+    const none = try planProvisionRepack(allocator, .{});
+    try std.testing.expectEqual(@as(usize, 0), none.extract_args.len);
+    try std.testing.expectEqual(@as(usize, 0), none.targz_args.len);
+    try std.testing.expect(none.image_config_path == null);
 }
 
 test "planProvisionBoot builds provision boot inputs" {

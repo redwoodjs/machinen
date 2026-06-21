@@ -797,7 +797,9 @@ fn writePlan(
         if (i != 0) try protocol.stdout(io, ",");
         try protocol.writeJsonString(io, arg);
     }
-    try protocol.stdout(io, "]}");
+    try protocol.stdout(io, "],\"imageConfigPath\":");
+    try writeNullableJsonString(io, provision_repack.image_config_path);
+    try protocol.stdout(io, "}");
     try protocol.stdout(io, ",\"provisionImageConfig\":");
     if (provision_image_config.has_config) {
         try protocol.stdout(io, "{");
