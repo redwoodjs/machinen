@@ -69,6 +69,7 @@ export type ProvisionBootPlan = {
   kernelPath: string | null;
   dtbPath: string | null;
   vmmVsock: string | null;
+  timeoutMs: number | null;
   vmmEnv: Record<string, string>;
   cmd: string[];
   env: Record<string, string>;
@@ -370,6 +371,7 @@ function isProvisionBootPlan(value: unknown): value is ProvisionBootPlan {
     nullableString(plan.kernelPath),
     nullableString(plan.dtbPath),
     nullableString(plan.vmmVsock),
+    nullableNonNegativeNumber(plan.timeoutMs),
     isStringRecord(plan.vmmEnv),
     isStringArray(plan.cmd),
     isStringRecord(plan.env),

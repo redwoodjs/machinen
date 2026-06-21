@@ -1915,6 +1915,7 @@ fn writeProvisionBootField(
     try writeNullableStringField(io, "kernelPath", boot.kernel_path, true);
     try writeNullableStringField(io, "dtbPath", boot.dtb_path, true);
     try writeNullableStringField(io, "vmmVsock", boot.vmm_vsock, true);
+    try writeNullableU64Field(io, "timeoutMs", boot.timeout_ms, true);
     try writeEnvObjectField(io, "vmmEnv", boot.vmm_env, true);
     try writeStringArrayField(io, "cmd", boot.cmd, true);
     try writeEnvObjectField(io, "env", boot.env, true);

@@ -514,7 +514,7 @@ async function bootProvisionVm(opts: ProvisionOptions, ctx: ProvisionContext): P
     env: plan.env,
     snapshot: requireProvisionPlanString(plan.snapshotPath, "snapshotPath"),
     rootDisk: requireProvisionPlanString(plan.rootDiskPath, "rootDiskPath"),
-    timeoutMs: null,
+    timeoutMs: plan.timeoutMs,
     onLog: opts.onLog,
   });
   ctx.phases.end("boot");

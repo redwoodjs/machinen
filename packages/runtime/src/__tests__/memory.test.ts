@@ -837,6 +837,7 @@ describe("boot-plan helper schema", () => {
       kernelPath: "/Image",
       dtbPath: "/virt.dtb",
       vmmVsock: "in:1978:/tmp/exec.sock",
+      timeoutMs: null,
       vmmEnv: { MACHINEN_BOOT_TEST: "1", MACHINEN_VSOCK: "in:1978:/tmp/exec.sock" },
       cmd: ["/exec-agent"],
       env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },
