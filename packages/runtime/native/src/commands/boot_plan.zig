@@ -846,6 +846,11 @@ fn writeU64Bare(io: std.Io, value: u64) !void {
     try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{value}));
 }
 
+fn writeI64Bare(io: std.Io, value: i64) !void {
+    var buf: [32]u8 = undefined;
+    try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{value}));
+}
+
 fn writeF64Bare(io: std.Io, value: f64) !void {
     var buf: [64]u8 = undefined;
     try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{value}));
@@ -1212,6 +1217,7 @@ fn writeRegistryShapeField(
     try writeStringArrayField(io, "cleanupPaths", registry.cleanup_paths, true);
     try writeRegistryMountDiskField(io, "mountDisk", registry.mount_disk, true);
     try writeRegistryLiveMountsField(io, "liveMounts", registry.live_mounts, true);
+    try writeRegistryPortForwardsField(io, "portForward", registry.port_forwards, true);
     try writeRegistryCpuField(io, "cpu", registry.cpu, true);
     try writeRegistryVmstateField(io, "vmstate", registry.vmstate, true);
     try protocol.stdout(io, "}");
@@ -1257,6 +1263,35 @@ fn writeRegistryLiveMountsField(
         try protocol.writeJsonString(io, mount.host);
         try protocol.stdout(io, ",\"mode\":");
         try protocol.writeJsonString(io, mount.mode);
+        try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]");
+}
+
+fn writeRegistryPortForwardsField(
+    io: std.Io,
+    comptime field: []const u8,
+    forwards: []const boot_plan.RegistryPortForwardPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    if (forwards.len == 0) {
+        try protocol.stdout(io, "null");
+        return;
+    }
+    try protocol.stdout(io, "[");
+    for (forwards, 0..) |mapping, i| {
+        if (i > 0) try protocol.stdout(io, ",");
+        try protocol.stdout(io, "{\"hostPort\":");
+        try writeI64Bare(io, mapping.host_port);
+        try protocol.stdout(io, ",\"guestPort\":");
+        try writeI64Bare(io, mapping.guest_port);
+        if (mapping.host_addr) |host_addr| {
+            try protocol.stdout(io, ",\"hostAddr\":");
+            try protocol.writeJsonString(io, host_addr);
+        }
         try protocol.stdout(io, "}");
     }
     try protocol.stdout(io, "]");
@@ -2407,7 +2442,11 @@ fn optionalPortForward(
         const guest_port = try requiredPort(item.object, "guestPort", error.InvalidGuestPort);
         const host_addr = item.object.get("hostAddr") orelse .null;
         if (host_addr != .null and host_addr != .string) return error.InvalidPortForward;
-        try mappings.append(allocator, .{ .host_port = host_port, .guest_port = guest_port });
+        try mappings.append(allocator, .{
+            .host_port = host_port,
+            .guest_port = guest_port,
+            .host_addr = if (host_addr == .string) host_addr.string else null,
+        });
     }
     return mappings.toOwnedSlice(allocator);
 }

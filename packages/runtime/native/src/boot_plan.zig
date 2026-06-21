@@ -73,6 +73,7 @@ pub const VsockPlan = struct {
 pub const PortForwardMapping = struct {
     host_port: i64,
     guest_port: i64,
+    host_addr: ?[]const u8 = null,
 };
 
 pub const PortForwardValidation = union(enum) {
@@ -104,6 +105,7 @@ pub const BundleCommandInput = struct {
     snapshot_restore: bool = false,
     vmstate_restore: bool = false,
     live_mounts: []const LiveMount = &.{},
+    port_forwards: []const PortForwardMapping = &.{},
     cpu_policy: ?CpuPolicyPlan = null,
     cpu_control_status: ?[]const u8 = null,
     cpu_control_reason: ?[]const u8 = null,
@@ -339,6 +341,12 @@ pub const RegistryLiveMountPlan = struct {
     mode: []const u8,
 };
 
+pub const RegistryPortForwardPlan = struct {
+    host_port: i64,
+    guest_port: i64,
+    host_addr: ?[]const u8,
+};
+
 pub const RegistryCpuPlan = struct {
     max_vcpus: u64,
     quota_cpus: ?f64,
@@ -368,6 +376,7 @@ pub const RegistryShapeInput = struct {
     cleanup: RegistryCleanupInput = .{},
     mount_disk: RegistryMountDiskInput = .{},
     live_mounts: []const LiveMount = &.{},
+    port_forwards: []const PortForwardMapping = &.{},
     cpu_policy: ?CpuPolicyPlan = null,
     cpu_control_status: ?[]const u8 = null,
     cpu_control_reason: ?[]const u8 = null,
@@ -381,6 +390,7 @@ pub const RegistryShapePlan = struct {
     cleanup_paths: []const []const u8,
     mount_disk: ?RegistryMountDiskPlan,
     live_mounts: []const RegistryLiveMountPlan,
+    port_forwards: []const RegistryPortForwardPlan,
     cpu: ?RegistryCpuPlan,
     vmstate: RegistryVmstatePlan,
 };
@@ -930,9 +940,28 @@ pub fn planRegistryShape(
         .cleanup_paths = try planRegistryCleanupPaths(allocator, input.cleanup),
         .mount_disk = try planRegistryMountDisk(input.mount_disk),
         .live_mounts = try planRegistryLiveMounts(allocator, input.live_mounts),
+        .port_forwards = try planRegistryPortForwards(allocator, input.port_forwards),
         .cpu = try planRegistryCpu(input),
         .vmstate = try planRegistryVmstate(input.vmstate),
     };
+}
+
+fn planRegistryPortForwards(
+    allocator: std.mem.Allocator,
+    input: []const PortForwardMapping,
+) ![]const RegistryPortForwardPlan {
+    assert(@sizeOf(PortForwardMapping) > 0);
+
+    var forwards: std.array_list.Aligned(RegistryPortForwardPlan, null) = .empty;
+    errdefer forwards.deinit(allocator);
+    for (input) |mapping| {
+        try forwards.append(allocator, .{
+            .host_port = mapping.host_port,
+            .guest_port = mapping.guest_port,
+            .host_addr = mapping.host_addr,
+        });
+    }
+    return forwards.toOwnedSlice(allocator);
 }
 
 fn planRegistryVmstate(input: RegistryVmstateInput) PlanError!RegistryVmstatePlan {
@@ -1447,9 +1476,14 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
             .upper_path = "/tmp/upper.img",
         },
         .live_mounts = &live,
+        .port_forwards = &[_]PortForwardMapping{
+            .{ .host_port = 8080, .guest_port = 80, .host_addr = "127.0.0.1" },
+            .{ .host_port = 8443, .guest_port = 443 },
+        },
     });
     defer allocator.free(plan.cleanup_paths);
     defer allocator.free(plan.live_mounts);
+    defer allocator.free(plan.port_forwards);
 
     try std.testing.expectEqualStrings("/images/rootfs.tar.gz", plan.source_image_path.?);
     try std.testing.expectEqualStrings("/tmp/per-boot-root.img", plan.root_disk_path.?);

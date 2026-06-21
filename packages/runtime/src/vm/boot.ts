@@ -55,6 +55,7 @@ import {
   planBootCoreNative,
   planBootKernelDtbNative,
   planBootRegistryNestedNative,
+  planBootRegistryPortForwardNative,
   planBootRegistryShapeNative,
   planBootRegistryVmstateNative,
   planBootScratchDiskNative,
@@ -1612,7 +1613,7 @@ function buildRegistryEntry(args: RegisterArgs) {
     vmmExe: registryVmmExe(args),
     gvproxyPid: args.gvPid,
     gvproxyExe: registryGvproxyExe(args),
-    portForward: nonEmptyList(args.portForward),
+    portForward: registryPortForward(args.portForward),
     memoryCeilingMib: args.memoryCeilingMib,
     cpu: registryCpu(args.cpuPolicy, args.cpuControl),
     statsPath: args.statsFilePath,
@@ -1665,6 +1666,10 @@ function registryMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
 
 function registryLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
   return nonEmptyList(planBootRegistryShapeNative({ liveMounts: liveMountsResolved }).liveMounts);
+}
+
+function registryPortForward(portForward: NonNullable<BootOptions["portForward"]>) {
+  return planBootRegistryPortForwardNative(portForward);
 }
 
 // #221/#233: stamp first-guest-byte and emit the boot timeline. Either

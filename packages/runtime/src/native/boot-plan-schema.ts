@@ -326,6 +326,22 @@ function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
   ].every(Boolean);
 }
 
+function isRegistryPortForwardArray(value: unknown): value is RegistryPortForwardPlan[] {
+  return Array.isArray(value) && value.every(isRegistryPortForward);
+}
+
+function isRegistryPortForward(value: unknown): value is RegistryPortForwardPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const mapping = value as Partial<RegistryPortForwardPlan>;
+  return [
+    nonNegativeNumber(mapping.hostPort),
+    nonNegativeNumber(mapping.guestPort),
+    optionalString(mapping.hostAddr),
+  ].every(Boolean);
+}
+
 function isRegistryVmstatePlan(value: unknown): value is RegistryVmstatePlan {
   if (!value || typeof value !== "object") {
     return false;
