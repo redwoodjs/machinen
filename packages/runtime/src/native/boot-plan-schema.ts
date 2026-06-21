@@ -30,6 +30,10 @@ export type BundleWorkspacePlan = {
   cpioPath: string | null;
   synthBundleDir: string | null;
 };
+export type BundleConfigPathsPlan = {
+  rootfsDir: string | null;
+  configPath: string | null;
+};
 export type ProvisionAssetsPlan = {
   cpu: ProvisionGuestCpu;
   kernelAsset: string;
@@ -133,6 +137,7 @@ export interface NativeBootPlanResult {
   bundleCommand: string[];
   bundleEnv: Record<string, string>;
   bundleWorkspace: BundleWorkspacePlan;
+  bundleConfigPaths: BundleConfigPathsPlan;
   provisionAssets: ProvisionAssetsPlan;
   provisionBoot: ProvisionBootPlan;
   provisionWorkload: ProvisionWorkloadPlan;
@@ -182,6 +187,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isStringArray(data.bundleCommand),
     isStringRecord(data.bundleEnv),
     isBundleWorkspacePlan(data.bundleWorkspace),
+    isBundleConfigPathsPlan(data.bundleConfigPaths),
     isProvisionAssetsPlan(data.provisionAssets),
     isProvisionBootPlan(data.provisionBoot),
     isProvisionWorkloadPlan(data.provisionWorkload),
@@ -213,6 +219,14 @@ function isBundleWorkspacePlan(value: unknown): value is BundleWorkspacePlan {
   }
   const plan = value as Partial<BundleWorkspacePlan>;
   return nullableString(plan.cpioPath) && nullableString(plan.synthBundleDir);
+}
+
+function isBundleConfigPathsPlan(value: unknown): value is BundleConfigPathsPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<BundleConfigPathsPlan>;
+  return nullableString(plan.rootfsDir) && nullableString(plan.configPath);
 }
 
 function isProvisionAssetsPlan(value: unknown): value is ProvisionAssetsPlan {

@@ -5,6 +5,7 @@ import type { BootCpuResourceOptions, ResolvedCpuResourcePolicy } from "../vm/cp
 import type { BootMemoryResourceOptions } from "../vm/memory-resources.ts";
 import { isNativeBootPlanResult } from "./boot-plan-schema.ts";
 import type {
+  BundleConfigPathsPlan,
   BundleWorkspacePlan,
   MountDiskRuntimePlan,
   PlannedLiveMount,
@@ -30,6 +31,10 @@ type MountDiskRuntimeMode = "none" | "restore" | "fresh";
 type RequiredBundleWorkspacePlan = {
   cpioPath: NonNullable<BundleWorkspacePlan["cpioPath"]>;
   synthBundleDir: NonNullable<BundleWorkspacePlan["synthBundleDir"]>;
+};
+type RequiredBundleConfigPathsPlan = {
+  rootfsDir: NonNullable<BundleConfigPathsPlan["rootfsDir"]>;
+  configPath: NonNullable<BundleConfigPathsPlan["configPath"]>;
 };
 
 type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
@@ -94,6 +99,7 @@ interface NativeBootPlanInput {
   bundleImageEnv?: Record<string, string>;
   bundleGuestEnv?: Record<string, string>;
   bundleWorkspaceTempDir?: string;
+  bundleConfigSynthDir?: string;
   provisionGuestCpu?: ProvisionGuestCpu;
   provisionGuestArchOverride?: string;
   provisionHostArch?: string;
@@ -242,6 +248,7 @@ function bundleCommandData(input: NativeBootPlanInput): Record<string, unknown> 
     bundleImageEnv: input.bundleImageEnv ?? {},
     bundleGuestEnv: input.bundleGuestEnv ?? {},
     bundleWorkspaceTempDir: nullDefault(input.bundleWorkspaceTempDir),
+    bundleConfigSynthDir: nullDefault(input.bundleConfigSynthDir),
   };
 }
 
@@ -689,6 +696,25 @@ export function planBootBundleWorkspaceNative(tempDir: string): RequiredBundleWo
     );
   }
   return { cpioPath: plan.cpioPath, synthBundleDir: plan.synthBundleDir };
+}
+
+export function planBootBundleConfigPathsNative(
+  synthBundleDir: string,
+): RequiredBundleConfigPathsPlan {
+  const plan = planBootCoreNative({
+    bundleConfigSynthDir: synthBundleDir,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).bundleConfigPaths;
+  if (plan.rootfsDir === null || plan.configPath === null) {
+    throw new BootError(
+      "BOOT_PACK_FAILED",
+      "boot: native planner returned incomplete bundle config paths",
+    );
+  }
+  return { rootfsDir: plan.rootfsDir, configPath: plan.configPath };
 }
 
 export function planBootBundleEnvNative(input: {
