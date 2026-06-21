@@ -2,6 +2,7 @@ type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
 type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
 type MountDiskRuntimeAction = "none" | "restore" | "fresh";
 export type ProvisionGuestCpu = "arm64" | "amd64";
+type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
 export type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
 type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
@@ -77,6 +78,7 @@ const liveMountModes = ["ro", "rw"] as const;
 export interface NativeBootPlanResult {
   memoryCeilingMib: number | null;
   vmmMemory: string | null;
+  cpuPolicy: CpuPolicyPlan | null;
   wantsRootDisk: boolean;
   normalizedMountGuest: string | null;
   mergedGuestEnv: Record<string, string>;
@@ -116,6 +118,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
   return [
     nullableNonNegativeNumber(data.memoryCeilingMib),
     nullableString(data.vmmMemory),
+    nullableCpuPolicy(data.cpuPolicy),
     typeof data.wantsRootDisk === "boolean",
     nullableString(data.normalizedMountGuest),
     isStringRecord(data.mergedGuestEnv),
@@ -145,6 +148,22 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isRootDiskRuntimePlan(data.rootDiskRuntime),
     isMountDiskRuntimePlan(data.mountDiskRuntime),
     isRegistryShapePlan(data.registryShape),
+  ].every(Boolean);
+}
+
+function nullableCpuPolicy(value: unknown): value is CpuPolicyPlan | null {
+  return value === null || isCpuPolicyPlan(value);
+}
+
+function isCpuPolicyPlan(value: unknown): value is CpuPolicyPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<CpuPolicyPlan>;
+  return [
+    nonNegativeNumber(plan.maxVcpus),
+    plan.quotaCpus === undefined || nonNegativeNumber(plan.quotaCpus),
+    nonNegativeNumber(plan.weight),
   ].every(Boolean);
 }
 

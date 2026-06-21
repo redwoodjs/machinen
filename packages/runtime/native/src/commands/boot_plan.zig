@@ -10,6 +10,7 @@ pub const name = "boot-plan";
 const ParsedRequest = struct {
     memory_mib_text: ?[]const u8 = null,
     resources_memory: ?ParsedResourcesMemory = null,
+    resources_cpu: ?ParsedResourcesCpu = null,
     auto_memory_mib_text: ?[]const u8 = null,
     host_total_bytes_text: ?[]const u8 = null,
     vmm_memory_preset: bool = false,
@@ -100,9 +101,16 @@ const ParsedResourcesMemory = struct {
     reclaim: ?[]const u8,
 };
 
+const ParsedResourcesCpu = struct {
+    max_vcpus_text: ?[]const u8,
+    quota_cpus_text: ?[]const u8,
+    weight_text: ?[]const u8,
+};
+
 const boot_plan_fields = [_][]const u8{
     "memoryMib",
     "resourcesMemory",
+    "resourcesCpu",
     "autoMemoryMib",
     "hostTotalBytes",
     "vmmMemoryPreset",
@@ -196,6 +204,10 @@ const RequestError = error{
     MissingResourcesMaxMib,
     InvalidResourcesMaxMib,
     InvalidResourcesReclaim,
+    InvalidResourcesCpu,
+    InvalidResourcesCpuMaxVcpus,
+    InvalidResourcesCpuQuotaCpus,
+    InvalidResourcesCpuWeight,
     MissingAutoMemoryMib,
     InvalidAutoMemoryMib,
     MissingHostTotalBytes,
@@ -318,6 +330,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
 
 const PlanParts = struct {
     plan: boot_plan.Plan,
+    cpu_policy: ?boot_plan.CpuPolicyPlan,
     guest_env: []const boot_plan.EnvPair,
     vsock_plan: boot_plan.VsockPlan,
     vmm_argv: boot_plan.VmmArgvPlan,
@@ -379,6 +392,7 @@ fn makePlanParts(
     const runtime = try makeRuntimeParts(arena, parsed);
     return .{
         .plan = plan,
+        .cpu_policy = try makeCpuResources(parsed),
         .guest_env = try makeGuestEnv(arena, parsed),
         .vsock_plan = try boot_plan.planVsock(arena, .{
             .existing_spec = parsed.existing_vsock_spec,
@@ -533,6 +547,30 @@ fn makeProvisionBoot(
     });
 }
 
+fn makeCpuResources(parsed: ParsedRequest) !?boot_plan.CpuPolicyPlan {
+    const cpu = parsed.resources_cpu orelse return null;
+    return boot_plan.planCpuResources(.{
+        .max_vcpus = try optionalUnsignedText(
+            cpu.max_vcpus_text,
+            error.InvalidResourcesCpuMaxVcpus,
+        ),
+        .quota_cpus = try optionalFloatText(
+            cpu.quota_cpus_text,
+            error.InvalidResourcesCpuQuotaCpus,
+        ),
+        .weight = try optionalUnsignedText(cpu.weight_text, error.InvalidResourcesCpuWeight),
+    });
+}
+
+fn optionalFloatText(text: ?[]const u8, err: RequestError) RequestError!?f64 {
+    assert(@errorName(err).len > 0);
+
+    if (text) |value| {
+        return parseFloat(value) catch err;
+    }
+    return null;
+}
+
 fn makeProvisionRuntime(
     arena: std.mem.Allocator,
     parsed: ParsedRequest,
@@ -644,7 +682,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
 
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,");
     try protocol.stdout(io, "\"command\":\"boot-plan\",\"data\":{");
-    try writeCoreFields(io, parts.plan);
+    try writeCoreFields(io, parts.plan, parts.cpu_policy);
     try writeVsockKernelFields(io, parts.vsock_plan, parts.kernel_dtb);
     try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file);
     try writeLiveMountsArrayField(io, "plannedLiveMounts", parts.planned_live_mounts, true);
@@ -673,11 +711,16 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try protocol.stdout(io, "}}\n");
 }
 
-fn writeCoreFields(io: std.Io, plan: boot_plan.Plan) !void {
+fn writeCoreFields(
+    io: std.Io,
+    plan: boot_plan.Plan,
+    cpu_policy: ?boot_plan.CpuPolicyPlan,
+) !void {
     assert(@sizeOf(boot_plan.Plan) > 0);
 
     try writeNullableU64Field(io, "memoryCeilingMib", plan.memory_ceiling_mib, false);
     try writeNullableU64StringField(io, "vmmMemory", plan.vmm_memory_mib, true);
+    try writeCpuPolicyField(io, "cpuPolicy", cpu_policy, true);
     try writeBoolField(io, "wantsRootDisk", plan.wants_root_disk, true);
     try writeNullableStringField(
         io,
@@ -685,6 +728,40 @@ fn writeCoreFields(io: std.Io, plan: boot_plan.Plan) !void {
         plan.normalized_mount_guest,
         true,
     );
+}
+
+fn writeCpuPolicyField(
+    io: std.Io,
+    comptime field: []const u8,
+    cpu_policy: ?boot_plan.CpuPolicyPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    if (cpu_policy) |cpu| {
+        try protocol.stdout(io, "{\"maxVcpus\":");
+        try writeU64Bare(io, cpu.max_vcpus);
+        if (cpu.quota_cpus) |quota| {
+            try protocol.stdout(io, ",\"quotaCpus\":");
+            try writeF64Bare(io, quota);
+        }
+        try protocol.stdout(io, ",\"weight\":");
+        try writeU64Bare(io, cpu.weight);
+        try protocol.stdout(io, "}");
+    } else {
+        try protocol.stdout(io, "null");
+    }
+}
+
+fn writeU64Bare(io: std.Io, value: u64) !void {
+    var buf: [32]u8 = undefined;
+    try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{value}));
+}
+
+fn writeF64Bare(io: std.Io, value: f64) !void {
+    var buf: [64]u8 = undefined;
+    try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{value}));
 }
 
 fn writeVsockKernelFields(
@@ -1259,6 +1336,13 @@ fn parseUnsigned(text: []const u8) !u64 {
     return std.fmt.parseUnsigned(u64, text, 10);
 }
 
+fn parseFloat(text: []const u8) !f64 {
+    assert(@sizeOf(f64) > 0);
+
+    if (text.len == 0) return error.Invalid;
+    return std.fmt.parseFloat(f64, text);
+}
+
 fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedRequest {
     assert(protocol.version == 1);
 
@@ -1308,6 +1392,7 @@ fn parseMemoryFields(
         error.InvalidMemoryMib,
     );
     request.resources_memory = try optionalResourcesMemory(object);
+    request.resources_cpu = try optionalResourcesCpu(object);
     request.auto_memory_mib_text = try optionalString(
         object,
         "autoMemoryMib",
@@ -2153,6 +2238,30 @@ fn requiredBool(
     return switch (value) {
         .bool => |b| b,
         else => invalid,
+    };
+}
+
+fn optionalResourcesCpu(object: std.json.ObjectMap) RequestError!?ParsedResourcesCpu {
+    const value = object.get("resourcesCpu") orelse return null;
+    if (value == .null) return null;
+    if (value != .object) return error.InvalidResourcesCpu;
+    try protocol.rejectUnknownFields(value.object, &.{ "maxVcpus", "quotaCpus", "weight" });
+    return .{
+        .max_vcpus_text = try optionalStringDefaultNull(
+            value.object,
+            "maxVcpus",
+            error.InvalidResourcesCpuMaxVcpus,
+        ),
+        .quota_cpus_text = try optionalStringDefaultNull(
+            value.object,
+            "quotaCpus",
+            error.InvalidResourcesCpuQuotaCpus,
+        ),
+        .weight_text = try optionalStringDefaultNull(
+            value.object,
+            "weight",
+            error.InvalidResourcesCpuWeight,
+        ),
     };
 }
 
