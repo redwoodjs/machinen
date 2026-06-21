@@ -217,6 +217,18 @@ pub const ProvisionDtbPlan = struct {
     cli_cache_name: ?[]const u8,
 };
 
+pub const ProvisionCliCacheInput = struct {
+    home_dir: ?[]const u8 = null,
+    version: ?[]const u8 = null,
+    guest_cpu: ?ProvisionGuestCpu = null,
+    arch_override: ?[]const u8 = null,
+    host_arch: ?[]const u8 = null,
+};
+
+pub const ProvisionCliCachePlan = struct {
+    base_dir: ?[]const u8,
+};
+
 pub const ProvisionBootInput = struct {
     base_path: ?[]const u8 = null,
     kernel_path: ?[]const u8 = null,
@@ -1200,6 +1212,31 @@ pub fn planProvisionDtb(input: ProvisionDtbInput) ProvisionDtbPlan {
         .cli_cache_name = null,
     };
     return .{ .required = true, .asset = asset, .cli_cache_name = "virt.dtb" };
+}
+
+pub fn planProvisionCliCacheBaseDir(
+    allocator: std.mem.Allocator,
+    input: ProvisionCliCacheInput,
+) !ProvisionCliCachePlan {
+    assert(@sizeOf(ProvisionCliCacheInput) > 0);
+
+    const home_dir = input.home_dir orelse return .{ .base_dir = null };
+    const version = input.version orelse return .{ .base_dir = null };
+    const assets = planProvisionAssets(.{
+        .guest_cpu = input.guest_cpu,
+        .arch_override = input.arch_override,
+        .host_arch = input.host_arch,
+    });
+    const release_dir = try std.fmt.allocPrint(allocator, "runtime-v{s}", .{version});
+    defer allocator.free(release_dir);
+    const cpu_dir = try std.fmt.allocPrint(allocator, "debian-{s}", .{assets.cpu});
+    defer allocator.free(cpu_dir);
+    return .{
+        .base_dir = try std.fs.path.join(
+            allocator,
+            &.{ home_dir, ".machinen", release_dir, "bases", cpu_dir },
+        ),
+    };
 }
 
 pub fn planProvisionBoot(
@@ -2498,6 +2535,28 @@ test "planScratchMode applies option precedence" {
         .false_value = true,
         .path = "/tmp/scratch.img",
     }));
+}
+
+test "planProvisionCliCacheBaseDir derives release cache by guest cpu" {
+    const amd64 = (try planProvisionCliCacheBaseDir(std.testing.allocator, .{
+        .home_dir = "/home/friend",
+        .version = "0.6.1",
+        .arch_override = "amd64",
+    })).base_dir.?;
+    defer std.testing.allocator.free(amd64);
+    try std.testing.expectEqualStrings("/home/friend/.machinen/runtime-v0.6.1/bases/debian-amd64", amd64);
+
+    const arm64 = (try planProvisionCliCacheBaseDir(std.testing.allocator, .{
+        .home_dir = "/home/friend",
+        .version = "0.6.1",
+        .arch_override = "arm64",
+    })).base_dir.?;
+    defer std.testing.allocator.free(arm64);
+    try std.testing.expectEqualStrings("/home/friend/.machinen/runtime-v0.6.1/bases/debian-arm64", arm64);
+
+    try std.testing.expect((try planProvisionCliCacheBaseDir(std.testing.allocator, .{
+        .version = "0.6.1",
+    })).base_dir == null);
 }
 
 test "planProvisionDtb plans omitted dtb requirement by guest cpu" {

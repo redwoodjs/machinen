@@ -91,6 +91,8 @@ const ParsedRequest = struct {
     provision_guest_arch_override: ?[]const u8 = null,
     provision_host_arch: ?[]const u8 = null,
     provision_dtb_explicit: bool = false,
+    provision_cli_cache_home: ?[]const u8 = null,
+    provision_cli_cache_version: ?[]const u8 = null,
     provision_base_path: ?[]const u8 = null,
     provision_kernel_path: ?[]const u8 = null,
     provision_dtb_path: ?[]const u8 = null,
@@ -266,6 +268,8 @@ const boot_plan_fields = [_][]const u8{
     "provisionGuestArchOverride",
     "provisionHostArch",
     "provisionDtbExplicit",
+    "provisionCliCacheHome",
+    "provisionCliCacheVersion",
     "provisionBasePath",
     "provisionKernelPath",
     "provisionDtbPath",
@@ -452,6 +456,8 @@ const RequestError = error{
     InvalidProvisionGuestArchOverride,
     InvalidProvisionHostArch,
     InvalidProvisionDtbExplicit,
+    InvalidProvisionCliCacheHome,
+    InvalidProvisionCliCacheVersion,
     InvalidProvisionBasePath,
     InvalidProvisionKernelPath,
     InvalidProvisionDtbPath,
@@ -591,6 +597,7 @@ const PlanParts = struct {
     bundle_pack: boot_plan.BundlePackPlan,
     provision_assets: boot_plan.ProvisionAssetsPlan,
     provision_dtb: boot_plan.ProvisionDtbPlan,
+    provision_cli_cache: boot_plan.ProvisionCliCachePlan,
     provision_boot: boot_plan.ProvisionBootPlan,
     provision_workload: boot_plan.ProvisionWorkloadPlan,
     provision_repack: boot_plan.ProvisionRepackPlan,
@@ -705,6 +712,13 @@ fn makePlanParts(
         }),
         .provision_dtb = boot_plan.planProvisionDtb(.{
             .explicit = parsed.provision_dtb_explicit,
+            .guest_cpu = parsed.provision_guest_cpu,
+            .arch_override = parsed.provision_guest_arch_override,
+            .host_arch = parsed.provision_host_arch,
+        }),
+        .provision_cli_cache = try boot_plan.planProvisionCliCacheBaseDir(arena, .{
+            .home_dir = parsed.provision_cli_cache_home,
+            .version = parsed.provision_cli_cache_version,
             .guest_cpu = parsed.provision_guest_cpu,
             .arch_override = parsed.provision_guest_arch_override,
             .host_arch = parsed.provision_host_arch,
@@ -1223,6 +1237,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeBundlePackField(io, "bundlePack", parts.bundle_pack, true);
     try writeProvisionAssetsField(io, "provisionAssets", parts.provision_assets, true);
     try writeProvisionDtbField(io, "provisionDtb", parts.provision_dtb, true);
+    try writeProvisionCliCacheField(io, "provisionCliCache", parts.provision_cli_cache, true);
     try writeProvisionBootField(io, "provisionBoot", parts.provision_boot, true);
     try writeProvisionWorkloadField(io, "provisionWorkload", parts.provision_workload, true);
     try writeProvisionRepackField(io, "provisionRepack", parts.provision_repack, true);
@@ -1604,6 +1619,20 @@ fn writeProvisionDtbField(
     try writeBoolField(io, "required", plan.required, false);
     try writeNullableStringField(io, "asset", plan.asset, true);
     try writeNullableStringField(io, "cliCacheName", plan.cli_cache_name, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeProvisionCliCacheField(
+    io: std.Io,
+    comptime field: []const u8,
+    plan: boot_plan.ProvisionCliCachePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "baseDir", plan.base_dir, false);
     try protocol.stdout(io, "}");
 }
 
@@ -2799,6 +2828,16 @@ fn parseProvisionFields(
         object,
         "provisionDtbExplicit",
         error.InvalidProvisionDtbExplicit,
+    );
+    request.provision_cli_cache_home = try optionalStringDefaultNull(
+        object,
+        "provisionCliCacheHome",
+        error.InvalidProvisionCliCacheHome,
+    );
+    request.provision_cli_cache_version = try optionalStringDefaultNull(
+        object,
+        "provisionCliCacheVersion",
+        error.InvalidProvisionCliCacheVersion,
     );
     try parseProvisionBootFields(object, request);
     try parseProvisionRepackFields(object, request);
@@ -4055,6 +4094,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
     if (try writeRootDiskRequestError(io, err)) return;
     if (try writeScratchRequestError(io, err)) return;
     if (try writeProvisionDtbRequestError(io, err)) return;
+    if (try writeProvisionCliCacheRequestError(io, err)) return;
 
     switch (err) {
         error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
@@ -4074,6 +4114,22 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
+}
+
+fn writeProvisionCliCacheRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidProvisionCliCacheHome,
+        error.InvalidProvisionCliCacheVersion,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan provision cli cache fields must be strings",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writeProvisionDtbRequestError(io: std.Io, err: RequestError) !bool {

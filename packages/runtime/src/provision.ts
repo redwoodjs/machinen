@@ -45,6 +45,7 @@ import {
   planProvisionRuntimeNative,
   planProvisionWorkloadNative,
 } from "./native/boot-plan.ts";
+import { planProvisionCliCacheNative } from "./native/provision-cli-cache.ts";
 import { planProvisionDtbNative } from "./native/provision-dtb.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { allocateSparseFile } from "./vm/helpers.ts";
@@ -337,8 +338,19 @@ function cliCachedBaseDir(): string {
   // packages/cli/src/cli.ts).
   const pkgPath = resolve(import.meta.dirname, "..", "package.json");
   const version = (JSON.parse(readFileSync(pkgPath, "utf8")) as { version: string }).version;
-  const spec = baseAssetSpec();
-  return join(homedir(), ".machinen", `runtime-v${version}`, "bases", `debian-${spec.cpu}`);
+  const plan = planProvisionCliCacheNative({
+    homeDir: homedir(),
+    version,
+    guestArchOverride: process.env.MACHINEN_GUEST_ARCH,
+    hostArch: osArch(),
+  });
+  if (!plan.baseDir) {
+    throw new ProvisionError(
+      "PROVISION_BASE_NOT_FOUND",
+      "provision native planner returned missing cli cache base dir",
+    );
+  }
+  return plan.baseDir;
 }
 
 interface ProvisionContext {

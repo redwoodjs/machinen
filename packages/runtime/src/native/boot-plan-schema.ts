@@ -51,6 +51,7 @@ export type ProvisionDtbPlan = {
   asset: string | null;
   cliCacheName: string | null;
 };
+export type ProvisionCliCachePlan = { baseDir: string | null };
 export type ProvisionBootPlan = {
   imagePath: string | null;
   kernelPath: string | null;
@@ -170,6 +171,7 @@ export interface NativeBootPlanResult {
   bundlePack: BundlePackPlan;
   provisionAssets: ProvisionAssetsPlan;
   provisionDtb: ProvisionDtbPlan;
+  provisionCliCache: ProvisionCliCachePlan;
   provisionBoot: ProvisionBootPlan;
   provisionWorkload: ProvisionWorkloadPlan;
   provisionRepack: ProvisionRepackPlan;
@@ -231,6 +233,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isBundlePackPlan(data.bundlePack),
     isProvisionAssetsPlan(data.provisionAssets),
     isProvisionDtbPlan(data.provisionDtb),
+    isProvisionCliCachePlan(data.provisionCliCache),
     isProvisionBootPlan(data.provisionBoot),
     isProvisionWorkloadPlan(data.provisionWorkload),
     isProvisionRepackPlan(data.provisionRepack),
@@ -300,16 +303,12 @@ function isProvisionAssetsPlan(value: unknown): value is ProvisionAssetsPlan {
   ].every(Boolean);
 }
 
-function isProvisionDtbPlan(value: unknown): value is ProvisionDtbPlan {
+function isProvisionCliCachePlan(value: unknown): value is ProvisionCliCachePlan {
   if (!value || typeof value !== "object") {
     return false;
   }
-  const plan = value as Partial<ProvisionDtbPlan>;
-  return (
-    typeof plan.required === "boolean" &&
-    nullableString(plan.asset) &&
-    nullableString(plan.cliCacheName)
-  );
+  const plan = value as Partial<ProvisionCliCachePlan>;
+  return nullableString(plan.baseDir);
 }
 
 function isProvisionDtbPlan(value: unknown): value is ProvisionDtbPlan {
@@ -322,6 +321,33 @@ function isProvisionDtbPlan(value: unknown): value is ProvisionDtbPlan {
     nullableString(plan.asset) &&
     nullableString(plan.cliCacheName)
   );
+}
+
+function isProvisionCliCachePlan(value: unknown): value is ProvisionCliCachePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<ProvisionCliCachePlan>;
+  return nullableString(plan.baseDir);
+}
+
+function isProvisionDtbPlan(value: unknown): value is ProvisionDtbPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<ProvisionDtbPlan>;
+  return (
+    typeof plan.required === "boolean" &&
+    nullableString(plan.asset) &&
+    nullableString(plan.cliCacheName)
+  );
+}
+
+function isProvisionCliCachePlan(value: unknown): value is ProvisionCliCachePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  return nullableString((value as Partial<ProvisionCliCachePlan>).baseDir);
 }
 
 function isProvisionBootPlan(value: unknown): value is ProvisionBootPlan {
