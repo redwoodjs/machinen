@@ -759,6 +759,9 @@ describe("boot-plan helper schema", () => {
           registrySourceImagePath: "/images/rootfs.tar.gz",
           registryPerBootRootDisk: "/tmp/root.img",
           registryCallerRootDiskPath: "/caller/root.img",
+          registryBootLogRoot: "/tmp/machinen-logs",
+          registryChildPid: "1234",
+          registryDetached: true,
           registryPerBootSnapDisk: null,
           registryPerBootMountUpper: "/tmp/upper.img",
           registryBundleTempDir: "/tmp/bundle",
@@ -796,6 +799,7 @@ describe("boot-plan helper schema", () => {
       sourceImagePath: "/images/rootfs.tar.gz",
       rootDiskPath: "/tmp/root.img",
       rootDiskMode: "block",
+      bootLogPath: "/tmp/machinen-logs/1234.boot.log",
       cleanupPaths: [
         "/tmp/root.img",
         "/tmp/upper.img",

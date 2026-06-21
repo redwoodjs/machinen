@@ -373,6 +373,9 @@ pub const RegistryVmstatePlan = struct {
 pub const RegistryShapeInput = struct {
     source_image_path: ?[]const u8 = null,
     per_boot_root_disk: ?[]const u8 = null,
+    boot_log_root: ?[]const u8 = null,
+    child_pid: ?i64 = null,
+    detached: bool = false,
     caller_root_disk_path: ?[]const u8 = null,
     cleanup: RegistryCleanupInput = .{},
     mount_disk: RegistryMountDiskInput = .{},
@@ -388,6 +391,7 @@ pub const RegistryShapePlan = struct {
     source_image_path: ?[]const u8,
     root_disk_path: ?[]const u8,
     root_disk_mode: []const u8,
+    boot_log_path: ?[]const u8,
     cleanup_paths: []const []const u8,
     mount_disk: ?RegistryMountDiskPlan,
     live_mounts: []const RegistryLiveMountPlan,
@@ -942,10 +946,13 @@ pub fn planRegistryShape(
     assert(@sizeOf(RegistryShapeInput) > 0);
 
     const root_disk_path = input.per_boot_root_disk orelse input.caller_root_disk_path;
+    const boot_log_path = try planRegistryBootLogPath(allocator, input);
+    errdefer if (boot_log_path) |path| allocator.free(path);
     return .{
         .source_image_path = input.source_image_path,
         .root_disk_path = root_disk_path,
         .root_disk_mode = if (root_disk_path != null) "block" else "none",
+        .boot_log_path = boot_log_path,
         .cleanup_paths = try planRegistryCleanupPaths(allocator, input.cleanup),
         .mount_disk = try planRegistryMountDisk(input.mount_disk),
         .live_mounts = try planRegistryLiveMounts(allocator, input.live_mounts),
@@ -971,6 +978,16 @@ fn planRegistryPortForwards(
         });
     }
     return forwards.toOwnedSlice(allocator);
+}
+
+fn planRegistryBootLogPath(allocator: std.mem.Allocator, input: RegistryShapeInput) !?[]const u8 {
+    if (!input.detached) return null;
+    const pid = input.child_pid orelse return null;
+    if (pid <= 0) return null;
+    const root = input.boot_log_root orelse return null;
+    const file = try std.fmt.allocPrint(allocator, "{d}.boot.log", .{pid});
+    defer allocator.free(file);
+    return try std.fs.path.join(allocator, &.{ root, file });
 }
 
 fn planRegistryVmstate(input: RegistryVmstateInput) PlanError!RegistryVmstatePlan {
@@ -1502,11 +1519,15 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
             .upper_path = "/tmp/upper.img",
         },
         .live_mounts = &live,
+        .boot_log_root = "/tmp/machinen-logs",
+        .child_pid = 1234,
+        .detached = true,
         .port_forwards = &[_]PortForwardMapping{
             .{ .host_port = 8080, .guest_port = 80, .host_addr = "127.0.0.1" },
             .{ .host_port = 8443, .guest_port = 443 },
         },
     });
+    defer allocator.free(plan.boot_log_path.?);
     defer allocator.free(plan.cleanup_paths);
     defer allocator.free(plan.live_mounts);
     defer allocator.free(plan.port_forwards);
@@ -1514,6 +1535,7 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectEqualStrings("/images/rootfs.tar.gz", plan.source_image_path.?);
     try std.testing.expectEqualStrings("/tmp/per-boot-root.img", plan.root_disk_path.?);
     try std.testing.expectEqualStrings("block", plan.root_disk_mode);
+    try std.testing.expectEqualStrings("/tmp/machinen-logs/1234.boot.log", plan.boot_log_path.?);
     try std.testing.expectEqual(@as(@TypeOf(plan.cleanup_paths.len), 6), plan.cleanup_paths.len);
     try std.testing.expectEqualStrings("/tmp/root.img", plan.cleanup_paths[0]);
     try std.testing.expectEqualStrings("/tmp/upper.img", plan.cleanup_paths[1]);

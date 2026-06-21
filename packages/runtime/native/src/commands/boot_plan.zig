@@ -92,6 +92,9 @@ const ParsedRequest = struct {
     registry_source_image_path: ?[]const u8 = null,
     registry_per_boot_root_disk: ?[]const u8 = null,
     registry_caller_root_disk_path: ?[]const u8 = null,
+    registry_boot_log_root: ?[]const u8 = null,
+    registry_child_pid_text: ?[]const u8 = null,
+    registry_detached: bool = false,
     registry_per_boot_snap_disk: ?[]const u8 = null,
     registry_per_boot_mount_upper: ?[]const u8 = null,
     registry_bundle_temp_dir: ?[]const u8 = null,
@@ -208,6 +211,9 @@ const boot_plan_fields = [_][]const u8{
     "registrySourceImagePath",
     "registryPerBootRootDisk",
     "registryCallerRootDiskPath",
+    "registryBootLogRoot",
+    "registryChildPid",
+    "registryDetached",
     "registryPerBootSnapDisk",
     "registryPerBootMountUpper",
     "registryBundleTempDir",
@@ -337,6 +343,9 @@ const RequestError = error{
     InvalidMountDiskUpperSize,
     InvalidRegistrySourceImagePath,
     InvalidRegistryRootDiskPath,
+    InvalidRegistryBootLogRoot,
+    InvalidRegistryChildPid,
+    InvalidRegistryDetached,
     InvalidRegistryCleanupPath,
     InvalidRegistryCpuPolicy,
     InvalidRegistryCpuControlStatus,
@@ -724,10 +733,17 @@ fn makeRegistryShape(
         parsed.registry_vmstate_checkpoint_sequence_text,
         error.InvalidRegistryVmstateCheckpointSequence,
     );
+    const registry_child_pid = if (parsed.registry_child_pid_text) |text|
+        parseSigned(text) catch return error.InvalidRegistryChildPid
+    else
+        null;
     return boot_plan.planRegistryShape(arena, .{
         .source_image_path = parsed.registry_source_image_path,
         .per_boot_root_disk = parsed.registry_per_boot_root_disk,
         .caller_root_disk_path = parsed.registry_caller_root_disk_path,
+        .boot_log_root = parsed.registry_boot_log_root,
+        .child_pid = registry_child_pid,
+        .detached = parsed.registry_detached,
         .cleanup = .{
             .per_boot_root_disk = parsed.registry_per_boot_root_disk,
             .per_boot_snap_disk = parsed.registry_per_boot_snap_disk,
@@ -2126,6 +2142,21 @@ fn parseRegistryRootDiskFields(
         object,
         "registryCallerRootDiskPath",
         error.InvalidRegistryRootDiskPath,
+    );
+    request.registry_boot_log_root = try optionalStringDefaultNull(
+        object,
+        "registryBootLogRoot",
+        error.InvalidRegistryBootLogRoot,
+    );
+    request.registry_child_pid_text = try optionalStringDefaultNull(
+        object,
+        "registryChildPid",
+        error.InvalidRegistryChildPid,
+    );
+    request.registry_detached = try optionalBoolDefaultFalse(
+        object,
+        "registryDetached",
+        error.InvalidRegistryDetached,
     );
 }
 
