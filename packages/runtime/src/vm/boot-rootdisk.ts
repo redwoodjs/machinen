@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 
 import { BootError } from "../errors.ts";
 import { planBootRootDiskRuntimeNative } from "../native/boot-plan.ts";
+import { planBootRootDiskMaterializeModeNative } from "../native/root-disk-materialize-mode.ts";
 import type { PhaseTimer } from "../phase-timer.ts";
 import { reflinkCopy } from "../reflink.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "../rootfs-img.ts";
@@ -22,10 +23,14 @@ export function materializeRootdisk(
   env: Record<string, string>,
   phases: PhaseTimer,
 ): string | undefined {
-  if (opts._rootDiskRestorePath) {
+  const mode = planBootRootDiskMaterializeModeNative({
+    restorePath: opts._rootDiskRestorePath,
+    callerPath: typeof opts.rootDisk === "string" ? opts.rootDisk : undefined,
+  });
+  if (mode.action === "restore") {
     return materializeRestoredRootdisk(opts, env, phases);
   }
-  if (typeof opts.rootDisk === "string") {
+  if (mode.action === "caller") {
     return useCallerRootdisk(opts, env);
   }
   return materializeCachedRootdisk(opts, env, phases);

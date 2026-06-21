@@ -133,6 +133,8 @@ const ParsedRequest = struct {
     root_disk_runtime_mode: boot_plan.RootDiskRuntimeMode = .none,
     root_disk_source_path: ?[]const u8 = null,
     root_disk_clone_path: ?[]const u8 = null,
+    root_disk_materialize_restore_path: ?[]const u8 = null,
+    root_disk_materialize_caller_path: ?[]const u8 = null,
     mount_disk_upper_size_option_text: ?[]const u8 = null,
     mount_disk_runtime_mode: boot_plan.MountDiskRuntimeMode = .none,
     mount_disk_lower_path: ?[]const u8 = null,
@@ -332,6 +334,8 @@ const boot_plan_fields = [_][]const u8{
     "rootDiskRuntimeMode",
     "rootDiskSourcePath",
     "rootDiskClonePath",
+    "rootDiskMaterializeRestorePath",
+    "rootDiskMaterializeCallerPath",
     "mountDiskUpperSizeOption",
     "mountDiskRuntimeMode",
     "mountDiskLowerPath",
@@ -546,6 +550,8 @@ const RequestError = error{
     InvalidRootDiskRuntimeMode,
     InvalidRootDiskSourcePath,
     InvalidRootDiskClonePath,
+    InvalidRootDiskMaterializeRestorePath,
+    InvalidRootDiskMaterializeCallerPath,
     InvalidMountDiskUpperSizeOption,
     InvalidMountDiskRuntimeMode,
     InvalidMountDiskLowerPath,
@@ -683,6 +689,7 @@ const PlanParts = struct {
     planned_scratch_mode: boot_plan.ScratchDiskMode,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
+    root_disk_materialize_mode: boot_plan.RootDiskMaterializeModePlan,
     planned_mount_disk_upper_size: u64,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
     mount_disk_fd_env: []const boot_plan.EnvPair,
@@ -798,6 +805,7 @@ fn makePlanParts(
         .planned_scratch_mode = runtime.planned_scratch_mode,
         .scratch_disk = runtime.scratch_disk,
         .root_disk_runtime = runtime.root_disk_runtime,
+        .root_disk_materialize_mode = makeRootDiskMaterializeMode(parsed),
         .planned_mount_disk_upper_size = try makeMountDiskUpperSize(parsed),
         .mount_disk_runtime = runtime.mount_disk_runtime,
         .mount_disk_fd_env = runtime.mount_disk_fd_env,
@@ -1031,6 +1039,15 @@ fn makeDiskParts(parsed: ParsedRequest) !DiskParts {
         }),
         .mount = try makeMountDiskRuntime(parsed),
     };
+}
+
+fn makeRootDiskMaterializeMode(parsed: ParsedRequest) boot_plan.RootDiskMaterializeModePlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return boot_plan.planRootDiskMaterializeMode(.{
+        .restore_path = parsed.root_disk_materialize_restore_path,
+        .caller_path = parsed.root_disk_materialize_caller_path,
+    });
 }
 
 fn makeMountDiskUpperSize(parsed: ParsedRequest) !u64 {
@@ -1558,6 +1575,12 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeScratchModeField(io, "plannedScratchMode", parts.planned_scratch_mode, true);
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
+    try writeRootDiskMaterializeModeField(
+        io,
+        "rootDiskMaterializeMode",
+        parts.root_disk_materialize_mode,
+        true,
+    );
     try writeU64Field(io, "mountDiskUpperSizeBytes", parts.planned_mount_disk_upper_size, true);
     try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
     try writeEnvObjectField(io, "mountDiskFdEnv", parts.mount_disk_fd_env, true);
@@ -2207,6 +2230,20 @@ fn writeScratchDiskField(
     try writeNullableStringField(io, "diskPath", scratch.disk_path, true);
     try writeNullableStringField(io, "perBootSnapDisk", scratch.per_boot_snap_disk, true);
     try writeNullableStringField(io, "vmmDisk", scratch.vmm_disk, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeRootDiskMaterializeModeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mode: boot_plan.RootDiskMaterializeModePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, mode.action);
     try protocol.stdout(io, "}");
 }
 
