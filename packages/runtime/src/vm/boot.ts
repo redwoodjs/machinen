@@ -73,6 +73,7 @@ import {
 import { reflinkCopy } from "../reflink.ts";
 import { planGvproxyNative } from "../native/gvproxy-plan.ts";
 import { validatePortForwardNetSocketNative } from "../native/port-forward.ts";
+import { planBootRegistryProcessNative } from "../native/registry-process.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
@@ -1622,6 +1623,15 @@ function registerInRegistry(args: RegisterArgs): boolean {
 
 function buildRegistryEntry(args: RegisterArgs) {
   const scalars = planBootRegistryScalarsNative(args);
+  const processPlan = planBootRegistryProcessNative({
+    hostPlatform: process.platform,
+    vmmBinary: args.binary,
+    vmmPdeathsig: args.vmmPdeathsig !== null,
+    vmmObservedExeBase: observedDarwinVmmExe(args),
+    gvPid: args.gvPid,
+    gvExe: args.gvExe,
+    gvObservedExeBase: observedDarwinGvproxyExe(args),
+  });
   return {
     pid: args.childPid,
     name: args.vmName,
@@ -1633,9 +1643,9 @@ function buildRegistryEntry(args: RegisterArgs) {
     forkedFrom: scalars.forkedFrom ?? undefined,
     bootLogPath: args.bootLogPath,
     cleanupPaths: nonEmptyList(args.cleanupPaths),
-    vmmExe: registryVmmExe(args),
+    vmmExe: processPlan.vmmExe,
     gvproxyPid: args.gvPid,
-    gvproxyExe: registryGvproxyExe(args),
+    gvproxyExe: processPlan.gvproxyExe,
     portForward: registryPortForward(args.portForward),
     memoryCeilingMib: scalars.memoryCeilingMib ?? undefined,
     cpu: registryCpu(args.cpuPolicy, args.cpuControl),
@@ -1655,21 +1665,21 @@ function nonEmptyList<T>(items: T[]): T[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
-function registryVmmExe(args: RegisterArgs): string {
+function observedDarwinVmmExe(args: RegisterArgs): string | undefined {
   // The pdeathsig shim works differently per platform. On macOS child.pid
   // is the watcher, so snapshot its identity now; on Linux the shim execs in
   // place, so deferring avoids recording the shim during the exec race.
-  if (process.platform === "darwin" && args.vmmPdeathsig) {
-    return readProcessIdentity(args.childPid)?.exeBase ?? args.binary;
+  if (process.platform !== "darwin" || !args.vmmPdeathsig) {
+    return undefined;
   }
-  return args.binary;
+  return readProcessIdentity(args.childPid)?.exeBase;
 }
 
-function registryGvproxyExe(args: RegisterArgs): string | undefined {
-  if (process.platform === "darwin" && args.gvPid !== undefined && args.gvPid > 0) {
-    return readProcessIdentity(args.gvPid)?.exeBase ?? args.gvExe;
+function observedDarwinGvproxyExe(args: RegisterArgs): string | undefined {
+  if (process.platform !== "darwin" || args.gvPid === undefined || args.gvPid <= 0) {
+    return undefined;
   }
-  return args.gvExe;
+  return readProcessIdentity(args.gvPid)?.exeBase;
 }
 
 function registryMountDisk(mountDiskPaths: MountDiskPaths | undefined) {

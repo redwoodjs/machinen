@@ -504,6 +504,21 @@ pub const RegistryVmstatePlan = struct {
     checkpoint_sequence: ?u64,
 };
 
+pub const RegistryProcessInput = struct {
+    host_platform: ?[]const u8 = null,
+    vmm_binary: ?[]const u8 = null,
+    vmm_pdeathsig: bool = false,
+    vmm_observed_exe_base: ?[]const u8 = null,
+    gv_pid: ?i64 = null,
+    gv_exe: ?[]const u8 = null,
+    gv_observed_exe_base: ?[]const u8 = null,
+};
+
+pub const RegistryProcessPlan = struct {
+    vmm_exe: ?[]const u8,
+    gvproxy_exe: ?[]const u8,
+};
+
 pub const RegistryShapeInput = struct {
     source_image_path: ?[]const u8 = null,
     disk_path: ?[]const u8 = null,
@@ -1159,6 +1174,19 @@ fn planRegistryVmstate(input: RegistryVmstateInput) PlanError!RegistryVmstatePla
     };
 }
 
+pub fn planRegistryProcess(input: RegistryProcessInput) RegistryProcessPlan {
+    const is_darwin = if (input.host_platform) |platform| std.mem.eql(u8, platform, "darwin") else false;
+    const vmm_exe = if (input.vmm_binary) |binary|
+        if (is_darwin and input.vmm_pdeathsig) input.vmm_observed_exe_base orelse binary else binary
+    else
+        null;
+    const gvproxy_exe = if (is_darwin and (input.gv_pid orelse 0) > 0)
+        input.gv_observed_exe_base orelse input.gv_exe
+    else
+        input.gv_exe;
+    return .{ .vmm_exe = vmm_exe, .gvproxy_exe = gvproxy_exe };
+}
+
 fn planRegistryBootLogPath(allocator: std.mem.Allocator, input: RegistryShapeInput) !?[]const u8 {
     if (!input.detached) return null;
     const pid = input.child_pid orelse return null;
@@ -1771,6 +1799,43 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectError(error.MissingRegistryVmstateField, planRegistryShape(allocator, .{
         .vmstate = .{ .state_path = "/tmp/state.vmstate", .checkpoint_sequence = 1 },
     }));
+}
+
+test "planRegistryProcess projects platform-specific executable metadata" {
+    const darwin = planRegistryProcess(.{
+        .host_platform = "darwin",
+        .vmm_binary = "/pkg/machinen-vm",
+        .vmm_pdeathsig = true,
+        .vmm_observed_exe_base = "machinen-pdeathsig",
+        .gv_pid = 42,
+        .gv_exe = "/pkg/gvproxy",
+        .gv_observed_exe_base = "gvproxy",
+    });
+    try std.testing.expectEqualStrings("machinen-pdeathsig", darwin.vmm_exe.?);
+    try std.testing.expectEqualStrings("gvproxy", darwin.gvproxy_exe.?);
+
+    const linux = planRegistryProcess(.{
+        .host_platform = "linux",
+        .vmm_binary = "/pkg/machinen-vm",
+        .vmm_pdeathsig = true,
+        .vmm_observed_exe_base = "machinen-pdeathsig",
+        .gv_pid = 42,
+        .gv_exe = "/pkg/gvproxy",
+        .gv_observed_exe_base = "gvproxy-observed",
+    });
+    try std.testing.expectEqualStrings("/pkg/machinen-vm", linux.vmm_exe.?);
+    try std.testing.expectEqualStrings("/pkg/gvproxy", linux.gvproxy_exe.?);
+
+    const darwin_fallback = planRegistryProcess(.{
+        .host_platform = "darwin",
+        .vmm_binary = "/pkg/machinen-vm",
+        .vmm_pdeathsig = true,
+        .gv_pid = -1,
+        .gv_exe = "/pkg/gvproxy",
+        .gv_observed_exe_base = "ignored",
+    });
+    try std.testing.expectEqualStrings("/pkg/machinen-vm", darwin_fallback.vmm_exe.?);
+    try std.testing.expectEqualStrings("/pkg/gvproxy", darwin_fallback.gvproxy_exe.?);
 }
 
 test "planMountDiskFdEnv formats inherited fd env entries" {
