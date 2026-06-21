@@ -968,6 +968,45 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans snapshot context mount live-mount and vmstate shapes", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      snapshotMountGuest: "/mnt/data",
+      snapshotMountLowerPath: "/cache/lower.sqfs",
+      snapshotMountUpperPath: "/tmp/upper.img",
+      snapshotLiveMounts: [
+        { host: "/host/work", guest: "/mnt/work", mode: "rw", tag: "machinen-lm0" },
+      ],
+      snapshotVmstatePath: "/tmp/state.vmstate",
+      snapshotVmstateChainId: "chain-1",
+      snapshotVmstateCheckpointParent: "/snap/parent",
+      snapshotVmstateCheckpointSequence: "3",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.snapshotContext).toEqual({
+      mountDisk: {
+        guest: "/mnt/data",
+        lowerPath: "/cache/lower.sqfs",
+        upperPath: "/tmp/upper.img",
+      },
+      liveMounts: [{ host: "/host/work", guest: "/mnt/work", mode: "rw" }],
+      vmstateChain: { chainId: "chain-1", parentDir: "/snap/parent", sequence: 3 },
+    });
+  });
+
   it("plans registry cleanup paths, mount shapes, and CPU shape", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

@@ -110,6 +110,14 @@ const ParsedRequest = struct {
     mount_disk_upper_size_text: ?[]const u8 = null,
     mount_disk_lower_fd_text: ?[]const u8 = null,
     mount_disk_upper_fd_text: ?[]const u8 = null,
+    snapshot_mount_guest: ?[]const u8 = null,
+    snapshot_mount_lower_path: ?[]const u8 = null,
+    snapshot_mount_upper_path: ?[]const u8 = null,
+    snapshot_live_mounts: []const boot_plan.LiveMount = &.{},
+    snapshot_vmstate_path: ?[]const u8 = null,
+    snapshot_vmstate_chain_id: ?[]const u8 = null,
+    snapshot_vmstate_checkpoint_parent: ?[]const u8 = null,
+    snapshot_vmstate_checkpoint_sequence_text: ?[]const u8 = null,
     registry_source_image_path: ?[]const u8 = null,
     registry_per_boot_root_disk: ?[]const u8 = null,
     registry_caller_root_disk_path: ?[]const u8 = null,
@@ -256,6 +264,14 @@ const boot_plan_fields = [_][]const u8{
     "mountDiskUpperSize",
     "mountDiskLowerFd",
     "mountDiskUpperFd",
+    "snapshotMountGuest",
+    "snapshotMountLowerPath",
+    "snapshotMountUpperPath",
+    "snapshotLiveMounts",
+    "snapshotVmstatePath",
+    "snapshotVmstateChainId",
+    "snapshotVmstateCheckpointParent",
+    "snapshotVmstateCheckpointSequence",
     "registrySourceImagePath",
     "registryPerBootRootDisk",
     "registryCallerRootDiskPath",
@@ -415,6 +431,14 @@ const RequestError = error{
     InvalidMountDiskUpperSize,
     InvalidMountDiskLowerFd,
     InvalidMountDiskUpperFd,
+    InvalidSnapshotMountGuest,
+    InvalidSnapshotMountLowerPath,
+    InvalidSnapshotMountUpperPath,
+    InvalidSnapshotLiveMounts,
+    InvalidSnapshotVmstatePath,
+    InvalidSnapshotVmstateChainId,
+    InvalidSnapshotVmstateCheckpointParent,
+    InvalidSnapshotVmstateCheckpointSequence,
     InvalidRegistrySourceImagePath,
     InvalidRegistryRootDiskPath,
     InvalidRegistryBootLogRoot,
@@ -510,6 +534,7 @@ const PlanParts = struct {
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
     mount_disk_fd_env: []const boot_plan.EnvPair,
+    snapshot_context: boot_plan.SnapshotContextPlan,
     registry_shape: boot_plan.RegistryShapePlan,
 };
 
@@ -552,6 +577,7 @@ const RuntimeParts = struct {
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
     mount_disk_fd_env: []const boot_plan.EnvPair,
+    snapshot_context: boot_plan.SnapshotContextPlan,
     registry_shape: boot_plan.RegistryShapePlan,
 };
 
@@ -610,6 +636,7 @@ fn makePlanParts(
         .root_disk_runtime = runtime.root_disk_runtime,
         .mount_disk_runtime = runtime.mount_disk_runtime,
         .mount_disk_fd_env = runtime.mount_disk_fd_env,
+        .snapshot_context = runtime.snapshot_context,
         .registry_shape = runtime.registry_shape,
     };
 }
@@ -708,6 +735,7 @@ fn makeRuntimeParts(arena: std.mem.Allocator, parsed: ParsedRequest) !RuntimePar
         .root_disk_runtime = disks.root,
         .mount_disk_runtime = disks.mount,
         .mount_disk_fd_env = try makeMountDiskFdEnv(arena, parsed),
+        .snapshot_context = try makeSnapshotContext(arena, parsed),
         .registry_shape = try makeRegistryShape(arena, parsed),
     };
 }
@@ -925,6 +953,31 @@ fn makeMountDiskFdEnv(
     return boot_plan.planMountDiskFdEnv(allocator, .{ .lower_fd = lower_fd, .upper_fd = upper_fd });
 }
 
+fn makeSnapshotContext(
+    allocator: std.mem.Allocator,
+    parsed: ParsedRequest,
+) !boot_plan.SnapshotContextPlan {
+    assert(@sizeOf(boot_plan.SnapshotContextInput) > 0);
+
+    return boot_plan.planSnapshotContext(allocator, .{
+        .mount_disk = .{
+            .guest = parsed.snapshot_mount_guest,
+            .lower_path = parsed.snapshot_mount_lower_path,
+            .upper_path = parsed.snapshot_mount_upper_path,
+        },
+        .live_mounts = parsed.snapshot_live_mounts,
+        .vmstate = .{
+            .state_path = parsed.snapshot_vmstate_path,
+            .chain_id = parsed.snapshot_vmstate_chain_id,
+            .checkpoint_parent = parsed.snapshot_vmstate_checkpoint_parent,
+            .checkpoint_sequence = try optionalUnsignedText(
+                parsed.snapshot_vmstate_checkpoint_sequence_text,
+                error.InvalidSnapshotVmstateCheckpointSequence,
+            ),
+        },
+    });
+}
+
 fn makeRegistryShape(
     arena: std.mem.Allocator,
     parsed: ParsedRequest,
@@ -1058,6 +1111,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
     try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
     try writeEnvObjectField(io, "mountDiskFdEnv", parts.mount_disk_fd_env, true);
+    try writeSnapshotContextField(io, "snapshotContext", parts.snapshot_context, true);
     try writeRegistryShapeField(io, "registryShape", parts.registry_shape, true);
     try protocol.stdout(io, "}}\n");
 }
@@ -1581,6 +1635,73 @@ fn writeConfigLiveMountsField(
         try protocol.stdout(io, "}");
     }
     try protocol.stdout(io, "]");
+}
+
+fn writeSnapshotContextField(
+    io: std.Io,
+    comptime field: []const u8,
+    context: boot_plan.SnapshotContextPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeSnapshotMountDiskField(io, "mountDisk", context.mount_disk, false);
+    try writeSnapshotLiveMountsField(io, "liveMounts", context.live_mounts, true);
+    try writeSnapshotVmstateChainField(io, "vmstateChain", context.vmstate_chain, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeSnapshotMountDiskField(
+    io: std.Io,
+    comptime field: []const u8,
+    mount: ?boot_plan.SnapshotMountDiskPlan,
+    comma: bool,
+) !void {
+    try writeFieldName(io, field, comma);
+    if (mount) |disk| {
+        try protocol.stdout(io, "{");
+        try writeNullableStringField(io, "guest", disk.guest, false);
+        try writeNullableStringField(io, "lowerPath", disk.lower_path, true);
+        try writeNullableStringField(io, "upperPath", disk.upper_path, true);
+        try protocol.stdout(io, "}");
+    } else try protocol.stdout(io, "null");
+}
+
+fn writeSnapshotLiveMountsField(
+    io: std.Io,
+    comptime field: []const u8,
+    mounts: []const boot_plan.SnapshotLiveMountPlan,
+    comma: bool,
+) !void {
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "[");
+    for (mounts, 0..) |mount, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.stdout(io, "{");
+        try writeNullableStringField(io, "host", mount.host, false);
+        try writeNullableStringField(io, "guest", mount.guest, true);
+        try writeNullableStringField(io, "mode", mount.mode, true);
+        try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]");
+}
+
+fn writeSnapshotVmstateChainField(
+    io: std.Io,
+    comptime field: []const u8,
+    chain: ?boot_plan.SnapshotVmstateChainPlan,
+    comma: bool,
+) !void {
+    try writeFieldName(io, field, comma);
+    if (chain) |vmstate| {
+        try protocol.stdout(io, "{");
+        try writeNullableStringField(io, "chainId", vmstate.chain_id, false);
+        try writeNullableStringField(io, "parentDir", vmstate.parent_dir, true);
+        try writeU64Field(io, "sequence", vmstate.sequence, true);
+        try protocol.stdout(io, "}");
+    } else try protocol.stdout(io, "null");
 }
 
 fn writeRegistryShapeField(
@@ -2150,7 +2271,7 @@ fn parseKernelVmstateFields(
     try parseConfigFields(allocator, object, request);
     try parseBundleFields(allocator, object, request);
     try parseProvisionFields(allocator, object, request);
-    try parseDiskRuntimeFields(object, request);
+    try parseDiskRuntimeFields(allocator, object, request);
 }
 
 fn parseKernelFields(object: std.json.ObjectMap, request: *ParsedRequest) RequestError!void {
@@ -2492,6 +2613,7 @@ fn parseProvisionImageConfigFields(
 }
 
 fn parseDiskRuntimeFields(
+    allocator: std.mem.Allocator,
     object: std.json.ObjectMap,
     request: *ParsedRequest,
 ) RequestError!void {
@@ -2499,7 +2621,7 @@ fn parseDiskRuntimeFields(
 
     try parseScratchFields(object, request);
     try parseRootDiskRuntimeFields(object, request);
-    try parseMountDiskRuntimeFields(object, request);
+    try parseMountDiskRuntimeFields(allocator, object, request);
 }
 
 fn parseScratchFields(object: std.json.ObjectMap, request: *ParsedRequest) RequestError!void {
@@ -2543,6 +2665,7 @@ fn parseRootDiskRuntimeFields(
 }
 
 fn parseMountDiskRuntimeFields(
+    allocator: std.mem.Allocator,
     object: std.json.ObjectMap,
     request: *ParsedRequest,
 ) RequestError!void {
@@ -2583,6 +2706,47 @@ fn parseMountDiskRuntimeFields(
         object,
         "mountDiskUpperFd",
         error.InvalidMountDiskUpperFd,
+    );
+    request.snapshot_mount_guest = try optionalStringDefaultNull(
+        object,
+        "snapshotMountGuest",
+        error.InvalidSnapshotMountGuest,
+    );
+    request.snapshot_mount_lower_path = try optionalStringDefaultNull(
+        object,
+        "snapshotMountLowerPath",
+        error.InvalidSnapshotMountLowerPath,
+    );
+    request.snapshot_mount_upper_path = try optionalStringDefaultNull(
+        object,
+        "snapshotMountUpperPath",
+        error.InvalidSnapshotMountUpperPath,
+    );
+    request.snapshot_live_mounts = try optionalLiveMountsResolved(
+        allocator,
+        object,
+        "snapshotLiveMounts",
+        error.InvalidSnapshotLiveMounts,
+    );
+    request.snapshot_vmstate_path = try optionalStringDefaultNull(
+        object,
+        "snapshotVmstatePath",
+        error.InvalidSnapshotVmstatePath,
+    );
+    request.snapshot_vmstate_chain_id = try optionalStringDefaultNull(
+        object,
+        "snapshotVmstateChainId",
+        error.InvalidSnapshotVmstateChainId,
+    );
+    request.snapshot_vmstate_checkpoint_parent = try optionalStringDefaultNull(
+        object,
+        "snapshotVmstateCheckpointParent",
+        error.InvalidSnapshotVmstateCheckpointParent,
+    );
+    request.snapshot_vmstate_checkpoint_sequence_text = try optionalStringDefaultNull(
+        object,
+        "snapshotVmstateCheckpointSequence",
+        error.InvalidSnapshotVmstateCheckpointSequence,
     );
     try parseRegistryShapeFields(object, request);
 }
@@ -3435,6 +3599,16 @@ fn writeEnvPlanError(io: std.Io, err: anyerror) !bool {
             "BOOT_PORT_FORWARD_NO_GVPROXY",
             "portForward requires gvproxy, but no gvproxy binary was found",
         ),
+        error.MissingSnapshotMountDiskField => try writeBootError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan snapshot mountDisk fields are incomplete",
+        ),
+        error.MissingSnapshotVmstateField => try writeBootError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan snapshot vmstate fields are incomplete",
+        ),
         error.InvalidGuestEnvValue => try writeBootError(
             io,
             "INVALID_REQUEST",
@@ -3534,6 +3708,23 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
             io,
             "BOOT_PORT_FORWARD_NO_GVPROXY",
             "boot-plan gvproxy fields must be strings",
+        ),
+        error.InvalidSnapshotMountGuest,
+        error.InvalidSnapshotMountLowerPath,
+        error.InvalidSnapshotMountUpperPath,
+        error.InvalidSnapshotLiveMounts,
+        error.InvalidSnapshotVmstatePath,
+        error.InvalidSnapshotVmstateChainId,
+        error.InvalidSnapshotVmstateCheckpointParent,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan snapshot fields must be strings or resolved live mounts",
+        ),
+        error.InvalidSnapshotVmstateCheckpointSequence => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan snapshot vmstate checkpoint sequence must be a decimal integer",
         ),
         error.InvalidLiveMounts,
         error.InvalidLiveMountGuest,
