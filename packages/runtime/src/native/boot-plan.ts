@@ -55,6 +55,7 @@ interface NativeBootPlanInput {
   pdeathsigPath?: string;
   pdeathsig?: boolean;
   detached?: boolean;
+  bootTimeoutMs?: number | null;
   kernelPath?: string;
   dtbPath?: string;
   vmstatePath?: string;
@@ -167,6 +168,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     pdeathsigPath: nullDefault(input.pdeathsigPath),
     pdeathsig: input.pdeathsig ?? null,
     detached: input.detached === true,
+    ...bootTimeoutData(input),
     kernelPath: nullDefault(input.kernelPath),
     dtbPath: nullDefault(input.dtbPath),
     vmstatePath: nullDefault(input.vmstatePath),
@@ -189,6 +191,13 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     ...rootDiskRuntimeData(input),
     ...mountDiskRuntimeData(input),
     ...registryShapeData(input),
+  };
+}
+
+function bootTimeoutData(input: NativeBootPlanInput): Record<string, unknown> {
+  return {
+    bootTimeoutMs: input.bootTimeoutMs === null ? null : numberText(input.bootTimeoutMs),
+    bootTimeoutForever: input.bootTimeoutMs === null,
   };
 }
 

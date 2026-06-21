@@ -16,6 +16,7 @@ const ParsedRequest = struct {
     vmm_memory_preset: bool = false,
     has_image: bool = false,
     has_cmd: bool = false,
+    has_snapshot: bool = false,
     root_disk: boot_plan.RootDiskMode = .unset,
     guest_cwd: ?[]const u8 = null,
     mount_guest: ?[]const u8 = null,
@@ -32,6 +33,8 @@ const ParsedRequest = struct {
     pdeathsig_path: ?[]const u8 = null,
     pdeathsig_requested: ?bool = null,
     detached: bool = false,
+    boot_timeout_ms_text: ?[]const u8 = null,
+    boot_timeout_forever: bool = false,
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
     vmstate_path: ?[]const u8 = null,
@@ -146,6 +149,8 @@ const boot_plan_fields = [_][]const u8{
     "pdeathsigPath",
     "pdeathsig",
     "detached",
+    "bootTimeoutMs",
+    "bootTimeoutForever",
     "kernelPath",
     "dtbPath",
     "vmstatePath",
@@ -246,6 +251,7 @@ const RequestError = error{
     InvalidHasImage,
     MissingHasCmd,
     InvalidHasCmd,
+    InvalidHasSnapshot,
     MissingRootDisk,
     InvalidRootDisk,
     InvalidGuestCwd,
@@ -266,6 +272,8 @@ const RequestError = error{
     InvalidPdeathsigPath,
     InvalidPdeathsig,
     InvalidDetached,
+    InvalidBootTimeoutMs,
+    InvalidBootTimeoutForever,
     InvalidKernelPath,
     InvalidDtbPath,
     InvalidVmstatePath,
@@ -808,6 +816,7 @@ fn writeCoreFields(
 
     try writeNullableU64Field(io, "memoryCeilingMib", plan.memory_ceiling_mib, false);
     try writeNullableU64StringField(io, "vmmMemory", plan.vmm_memory_mib, true);
+    try writeNullableU64Field(io, "timeoutMs", plan.timeout_ms, true);
     try writeBoolField(io, "needsInitramfs", plan.needs_initramfs, true);
     try writeCpuPolicyField(io, "cpuPolicy", cpu_policy, true);
     try writeBoolField(io, "wantsRootDisk", plan.wants_root_disk, true);
@@ -1486,14 +1495,21 @@ fn makePlanInput(
         parseUnsigned(text) catch return error.InvalidMemory
     else
         probed_host_bytes;
+    const boot_timeout_ms = try optionalUnsignedText(
+        parsed.boot_timeout_ms_text,
+        error.InvalidBootTimeoutMs,
+    );
     return .{
         .memory_mib = explicit_memory,
         .resources_memory = resources_memory,
         .auto_memory_mib = auto_memory,
         .host_total_bytes = host_total_bytes,
         .vmm_memory_preset = parsed.vmm_memory_preset,
+        .boot_timeout_ms = boot_timeout_ms,
+        .boot_timeout_forever = parsed.boot_timeout_forever,
         .has_image = parsed.has_image,
         .has_cmd = parsed.has_cmd,
+        .has_snapshot = parsed.has_snapshot,
         .root_disk = parsed.root_disk,
         .guest_cwd = parsed.guest_cwd,
         .mount_guest = parsed.mount_guest,
@@ -1614,6 +1630,11 @@ fn parseBootShapeFields(
         error.InvalidHasImage,
     );
     request.has_cmd = try requiredBool(object, "hasCmd", error.MissingHasCmd, error.InvalidHasCmd);
+    request.has_snapshot = try optionalBoolDefaultFalse(
+        object,
+        "hasSnapshot",
+        error.InvalidHasSnapshot,
+    );
     request.root_disk = try requiredRootDisk(object);
     request.guest_cwd = try optionalStringDefaultNull(
         object,
@@ -1690,6 +1711,16 @@ fn parseTransportFields(
         error.InvalidPdeathsig,
     );
     request.detached = try optionalBoolDefaultFalse(object, "detached", error.InvalidDetached);
+    request.boot_timeout_ms_text = try optionalStringDefaultNull(
+        object,
+        "bootTimeoutMs",
+        error.InvalidBootTimeoutMs,
+    );
+    request.boot_timeout_forever = try optionalBoolDefaultFalse(
+        object,
+        "bootTimeoutForever",
+        error.InvalidBootTimeoutForever,
+    );
 }
 
 fn parseKernelVmstateFields(

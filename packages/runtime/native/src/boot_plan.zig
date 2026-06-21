@@ -14,6 +14,7 @@ const memory_floor_mib: u64 = 512;
 const memory_default_ceiling_mib: u64 = 4096;
 const default_cpu_max_vcpus: u64 = 1;
 const default_cpu_weight: u64 = 100;
+const default_boot_timeout_ms: u64 = 60_000;
 const min_cpu_weight: u64 = 1;
 const max_cpu_weight: u64 = 10_000;
 const max_live_mounts = 5;
@@ -406,6 +407,8 @@ pub const Input = struct {
     auto_memory_mib: ?u64 = null,
     host_total_bytes: ?u64 = null,
     vmm_memory_preset: bool = false,
+    boot_timeout_ms: ?u64 = null,
+    boot_timeout_forever: bool = false,
     has_image: bool = false,
     has_cmd: bool = false,
     has_snapshot: bool = false,
@@ -417,6 +420,7 @@ pub const Input = struct {
 pub const Plan = struct {
     memory_ceiling_mib: ?u64,
     vmm_memory_mib: ?u64,
+    timeout_ms: ?u64,
     wants_root_disk: bool,
     needs_initramfs: bool,
     normalized_mount_guest: ?[]const u8,
@@ -450,6 +454,11 @@ pub const PlanError = error{
     MissingRegistryCpuStatus,
     MissingRegistryVmstateField,
 };
+
+pub fn planBootTimeout(timeout_ms: ?u64, forever: bool) ?u64 {
+    if (forever) return null;
+    return timeout_ms orelse default_boot_timeout_ms;
+}
 
 pub fn planPdeathsig(input: PdeathsigInput) bool {
     assert(@sizeOf(PdeathsigInput) > 0);
@@ -1239,6 +1248,7 @@ pub fn planCore(input: Input) PlanError!Plan {
     const wants_root_disk = input.root_disk != .false_value and
         (input.root_disk == .path or input.root_disk == .true_value or input.has_image);
     const needs_initramfs = input.has_image or input.has_cmd or input.has_snapshot;
+    const timeout_ms = planBootTimeout(input.boot_timeout_ms, input.boot_timeout_forever);
     if (wants_root_disk and input.root_disk != .path and !input.has_image) {
         return error.RootDiskWithoutImage;
     }
@@ -1253,6 +1263,7 @@ pub fn planCore(input: Input) PlanError!Plan {
         return .{
             .memory_ceiling_mib = null,
             .vmm_memory_mib = null,
+            .timeout_ms = timeout_ms,
             .wants_root_disk = wants_root_disk,
             .needs_initramfs = needs_initramfs,
             .normalized_mount_guest = normalized_mount_guest,
@@ -1268,6 +1279,7 @@ pub fn planCore(input: Input) PlanError!Plan {
     return .{
         .memory_ceiling_mib = ceiling,
         .vmm_memory_mib = ceiling,
+        .timeout_ms = timeout_ms,
         .wants_root_disk = wants_root_disk,
         .needs_initramfs = needs_initramfs,
         .normalized_mount_guest = normalized_mount_guest,
@@ -1347,6 +1359,20 @@ test "planCore resolves explicit memory aliases" {
         .resources_memory = .{ .max_mib = 2048, .reclaim = "manual" },
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     }));
+}
+
+test "planBootTimeout defaults, preserves explicit values, and supports forever" {
+    try std.testing.expectEqual(@as(?u64, 60_000), planBootTimeout(null, false));
+    try std.testing.expectEqual(@as(?u64, 2_500), planBootTimeout(2_500, false));
+    try std.testing.expect(planBootTimeout(2_500, true) == null);
+    try std.testing.expect((try planCore(std.testing.allocator, .{
+        .memory_mib = 256,
+        .boot_timeout_ms = 1_234,
+    })).timeout_ms.? == 1_234);
+    try std.testing.expect((try planCore(std.testing.allocator, .{
+        .memory_mib = 256,
+        .boot_timeout_forever = true,
+    })).timeout_ms == null);
 }
 
 test "planGuestHostname sanitizes names and includes pid" {

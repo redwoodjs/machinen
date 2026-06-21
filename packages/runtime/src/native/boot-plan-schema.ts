@@ -95,6 +95,7 @@ export interface NativeBootPlanResult {
   cpuPolicy: CpuPolicyPlan | null;
   wantsRootDisk: boolean;
   needsInitramfs: boolean;
+  timeoutMs: number | null;
   normalizedMountGuest: string | null;
   guestHostname: string | null;
   mergedGuestEnv: Record<string, string>;
@@ -140,6 +141,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableCpuPolicy(data.cpuPolicy),
     typeof data.wantsRootDisk === "boolean",
     typeof data.needsInitramfs === "boolean",
+    nullableNonNegativeNumber(data.timeoutMs),
     nullableString(data.normalizedMountGuest),
     nullableString(data.guestHostname),
     isStringRecord(data.mergedGuestEnv),
