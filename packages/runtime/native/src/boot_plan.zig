@@ -196,6 +196,7 @@ pub const ProvisionRepackInput = struct {
 pub const ProvisionRepackPlan = struct {
     extract_args: []const []const u8,
     targz_args: []const []const u8,
+    image_config_path: ?[]const u8,
 };
 
 pub const ProvisionImageConfigInput = struct {
@@ -880,7 +881,7 @@ pub fn planProvisionRepack(
     assert(@sizeOf(ProvisionRepackInput) > 0);
 
     if (provisionRepackInputEmpty(input)) {
-        return .{ .extract_args = &.{}, .targz_args = &.{} };
+        return .{ .extract_args = &.{}, .targz_args = &.{}, .image_config_path = null };
     }
     const disk_path = input.disk_path orelse return error.MissingProvisionRepackField;
     const out_path = input.out_path orelse return error.MissingProvisionRepackField;
@@ -897,7 +898,16 @@ pub fn planProvisionRepack(
         &.{&[_][]const u8{ "-czf", out_path, "-C", extract_dir, "." }},
     );
     errdefer allocator.free(targz_args);
-    return .{ .extract_args = extract_args, .targz_args = targz_args };
+    const image_config_path = try std.fs.path.join(allocator, &.{
+        extract_dir,
+        "machinen-config.json",
+    });
+    errdefer allocator.free(image_config_path);
+    return .{
+        .extract_args = extract_args,
+        .targz_args = targz_args,
+        .image_config_path = image_config_path,
+    };
 }
 
 fn provisionRepackInputEmpty(input: ProvisionRepackInput) bool {
@@ -1899,6 +1909,7 @@ test "planProvisionWorkload and planProvisionRepack build commands" {
     });
     defer allocator.free(repack.extract_args);
     defer allocator.free(repack.targz_args);
+    defer allocator.free(repack.image_config_path.?);
     try std.testing.expectEqualSlices(
         []const u8,
         &[_][]const u8{ "-xf", "/tmp/scratch.img", "-C", "/tmp/extract" },

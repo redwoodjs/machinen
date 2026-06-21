@@ -45,7 +45,11 @@ export type ProvisionBootPlan = {
   rootDiskPath: string | null;
 };
 export type ProvisionWorkloadPlan = { tarToDiskCommand: string; poweroffCommand: string };
-export type ProvisionRepackPlan = { extractArgs: string[]; targzArgs: string[] };
+export type ProvisionRepackPlan = {
+  extractArgs: string[];
+  targzArgs: string[];
+  imageConfigPath: string | null;
+};
 export type ProvisionImageConfigPlan = { cmd?: string[]; env?: Record<string, string> } | null;
 export type ProvisionRuntimePlan = {
   scratchSizeBytes: number;
@@ -277,7 +281,11 @@ function isProvisionRepackPlan(value: unknown): value is ProvisionRepackPlan {
     return false;
   }
   const plan = value as Partial<ProvisionRepackPlan>;
-  return isStringArray(plan.extractArgs) && isStringArray(plan.targzArgs);
+  return (
+    isStringArray(plan.extractArgs) &&
+    isStringArray(plan.targzArgs) &&
+    nullableString(plan.imageConfigPath)
+  );
 }
 
 function isProvisionImageConfigPlan(value: unknown): value is ProvisionImageConfigPlan {

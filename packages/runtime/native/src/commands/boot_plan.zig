@@ -1241,6 +1241,7 @@ fn writeProvisionRepackField(
     try protocol.stdout(io, "{");
     try writeStringArrayField(io, "extractArgs", repack.extract_args, false);
     try writeStringArrayField(io, "targzArgs", repack.targz_args, true);
+    try writeNullableStringField(io, "imageConfigPath", repack.image_config_path, true);
     try protocol.stdout(io, "}");
 }
 
