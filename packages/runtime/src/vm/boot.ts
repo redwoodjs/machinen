@@ -71,6 +71,7 @@ import {
   rootDiskPlanMode,
 } from "../native/boot-plan.ts";
 import { reflinkCopy } from "../reflink.ts";
+import { planGuestHostnameSetNative } from "../native/guest-hostname.ts";
 import { planGvproxyNative } from "../native/gvproxy-plan.ts";
 import { validatePortForwardNetSocketNative } from "../native/port-forward.ts";
 import { planBootRegistryProcessNative } from "../native/registry-process.ts";
@@ -87,7 +88,6 @@ import { registryCpu } from "./registry-cpu.ts";
 import type { VmHandle } from "../vm-handle.ts";
 import {
   allocateSparseFile,
-  buildGuestHostname,
   buildWriteFileCmds,
   collect,
   CONSOLE_TAIL_BYTES,
@@ -571,11 +571,17 @@ function setPlannedGuestHostnameIfEnabled(
   vsockUdsPath: string | undefined,
   env: Record<string, string>,
 ): void {
-  if (!vsockUdsPath || env.MACHINEN_SKIP_GUEST_HOSTNAME === "1") {
-    return;
-  }
   try {
-    void setGuestHostname(handle, buildGuestHostname(handle.pid, handle.name));
+    const hostname = planGuestHostnameSetNative({
+      pid: handle.pid,
+      name: handle.name,
+      vsockUdsPath,
+      skip: env.MACHINEN_SKIP_GUEST_HOSTNAME === "1",
+    });
+    if (!hostname) {
+      return;
+    }
+    void setGuestHostname(handle, hostname);
   } catch (err) {
     debug(
       "setGuestHostname: planner failed pid=%d name=%s err=%s",

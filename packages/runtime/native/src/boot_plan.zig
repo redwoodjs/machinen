@@ -52,6 +52,13 @@ pub const GuestHostnameInput = struct {
     name: ?[]const u8 = null,
 };
 
+pub const GuestHostnameSetInput = struct {
+    pid: ?i64 = null,
+    name: ?[]const u8 = null,
+    vsock_uds_path: ?[]const u8 = null,
+    skip: bool = false,
+};
+
 pub const VsockPlanInput = struct {
     existing_spec: ?[]const u8 = null,
     auto_uds_path: ?[]const u8 = null,
@@ -682,6 +689,11 @@ pub fn planGuestHostname(allocator: std.mem.Allocator, input: GuestHostnameInput
         return try std.fmt.allocPrint(allocator, "vm-{s}", .{tag});
     }
     return try std.fmt.allocPrint(allocator, "{s}-{s}", .{ safe_name, tag });
+}
+
+pub fn planGuestHostnameSet(allocator: std.mem.Allocator, input: GuestHostnameSetInput) !?[]const u8 {
+    if (input.skip or input.vsock_uds_path == null) return null;
+    return planGuestHostname(allocator, .{ .pid = input.pid, .name = input.name });
 }
 
 fn sanitizeHostnameName(allocator: std.mem.Allocator, name: []const u8) ![]const u8 {
@@ -1595,6 +1607,27 @@ test "planGuestHostname sanitizes names and includes pid" {
     try std.testing.expectEqualStrings("vm-pid-99", empty);
 
     try std.testing.expect((try planGuestHostname(std.testing.allocator, .{})) == null);
+}
+
+test "planGuestHostnameSet gates hostname side effect on vsock and skip flag" {
+    const planned = (try planGuestHostnameSet(std.testing.allocator, .{
+        .pid = 1234,
+        .name = "worker",
+        .vsock_uds_path = "/tmp/exec.sock",
+    })).?;
+    defer std.testing.allocator.free(planned);
+    try std.testing.expectEqualStrings("worker-pid-1234", planned);
+
+    try std.testing.expect((try planGuestHostnameSet(std.testing.allocator, .{
+        .pid = 1234,
+        .name = "worker",
+    })) == null);
+    try std.testing.expect((try planGuestHostnameSet(std.testing.allocator, .{
+        .pid = 1234,
+        .name = "worker",
+        .vsock_uds_path = "/tmp/exec.sock",
+        .skip = true,
+    })) == null);
 }
 
 test "autoSizeMemoryMib applies floor, half-host, and default ceiling" {

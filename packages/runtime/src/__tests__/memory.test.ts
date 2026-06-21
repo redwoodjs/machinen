@@ -1507,6 +1507,46 @@ describe("boot-plan helper schema", () => {
     expect(JSON.parse(disabled.stdout).data.usePdeathsig).toBe(false);
   });
 
+  it("plans guest hostname side-effect gating", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      guestHostnameSetPid: "1234",
+      guestHostnameSetName: "worker",
+    };
+    const planned = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, guestHostnameSetVsockUdsPath: "/tmp/exec.sock" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(planned.status).toBe(0);
+    expect(JSON.parse(planned.stdout).data.guestHostnameSet).toBe("worker-pid-1234");
+
+    const skipped = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          guestHostnameSetVsockUdsPath: "/tmp/exec.sock",
+          guestHostnameSetSkip: true,
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(skipped.status).toBe(0);
+    expect(JSON.parse(skipped.stdout).data.guestHostnameSet).toBeNull();
+  });
+
   it("plans boot timeout default explicit and forever values", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

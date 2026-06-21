@@ -23,6 +23,10 @@ const ParsedRequest = struct {
     vsock_uds_path: ?[]const u8,
     guest_hostname_pid_text: ?[]const u8,
     guest_hostname_name: ?[]const u8,
+    guest_hostname_set_pid_text: ?[]const u8,
+    guest_hostname_set_name: ?[]const u8,
+    guest_hostname_set_vsock_uds_path: ?[]const u8,
+    guest_hostname_set_skip: bool,
     existing_vsock_spec: ?[]const u8,
     auto_vsock_uds_path: ?[]const u8,
     auto_vsock_temp_dir: ?[]const u8,
@@ -202,6 +206,10 @@ const RequestError = error{
     InvalidVsockUdsPath,
     InvalidGuestHostnamePid,
     InvalidGuestHostnameName,
+    InvalidGuestHostnameSetPid,
+    InvalidGuestHostnameSetName,
+    InvalidGuestHostnameSetVsockUdsPath,
+    InvalidGuestHostnameSetSkip,
     InvalidExistingVsockSpec,
     InvalidAutoVsockUdsPath,
     InvalidAutoVsockTempDir,
@@ -405,6 +413,10 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         return .fail;
     };
     const guest_hostname = makeGuestHostname(arena, parsed) catch |err| {
+        try writeRequestError(io, err);
+        return .fail;
+    };
+    const guest_hostname_set = makeGuestHostnameSet(arena, parsed) catch |err| {
         try writeRequestError(io, err);
         return .fail;
     };
@@ -706,7 +718,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .gv_observed_exe_base = parsed.registry_gv_observed_exe_base,
     });
 
-    try writePlan(io, plan, cpu_plan, guest_env, guest_hostname, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file, planned_live_mounts, parsed.port_forward, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, snapshot_context, registry_shape, registry_process);
+    try writePlan(io, plan, cpu_plan, guest_env, guest_hostname, guest_hostname_set, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file, planned_live_mounts, parsed.port_forward, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, snapshot_context, registry_shape, registry_process);
     return .ok;
 }
 
@@ -716,6 +728,7 @@ fn writePlan(
     cpu_policy: ?boot_plan.CpuPolicyPlan,
     guest_env: []const boot_plan.EnvPair,
     guest_hostname: ?[]const u8,
+    guest_hostname_set: ?[]const u8,
     vsock_plan: boot_plan.VsockPlan,
     gvproxy_plan: boot_plan.GvproxyPlan,
     vmm_argv: boot_plan.VmmArgvPlan,
@@ -1219,6 +1232,8 @@ fn writePlan(
     try protocol.stdout(io, if (use_pdeathsig) "true" else "false");
     try protocol.stdout(io, ",\"guestHostname\":");
     try writeNullableJsonString(io, guest_hostname);
+    try protocol.stdout(io, ",\"guestHostnameSet\":");
+    try writeNullableJsonString(io, guest_hostname_set);
     try protocol.stdout(io, ",\"plannedPortForward\":");
     try writePortForwardPlan(io, planned_port_forwards, false);
     try protocol.stdout(io, ",\"gvproxyPlan\":{\"action\":");
@@ -1343,6 +1358,15 @@ fn makeGuestHostname(allocator: std.mem.Allocator, parsed: ParsedRequest) Reques
         .pid = if (parsed.guest_hostname_pid_text) |text| parseSigned(text) catch return error.InvalidGuestHostnamePid else null,
         .name = parsed.guest_hostname_name,
     }) catch return error.InvalidGuestHostnameName;
+}
+
+fn makeGuestHostnameSet(allocator: std.mem.Allocator, parsed: ParsedRequest) RequestError!?[]const u8 {
+    return boot_plan.planGuestHostnameSet(allocator, .{
+        .pid = if (parsed.guest_hostname_set_pid_text) |text| parseSigned(text) catch return error.InvalidGuestHostnameSetPid else null,
+        .name = parsed.guest_hostname_set_name,
+        .vsock_uds_path = parsed.guest_hostname_set_vsock_uds_path,
+        .skip = parsed.guest_hostname_set_skip,
+    }) catch return error.InvalidGuestHostnameSetName;
 }
 
 fn makeCpuResources(parsed: ParsedRequest) !?boot_plan.CpuResourcesInput {
@@ -1492,7 +1516,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "portForwardNetSocket", "gvproxyPlanningRequired", "gvproxyNetSocket", "gvproxyPath", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountsResolved", "batchLiveMountValidationRequired", "restoreLiveMountsRecorded", "restoreLiveMountsOverrides", "existingStatsFile", "statsFilePath", "statsFileTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "bundlePackUseTiny", "bundlePackMountGuest", "bundlePackRestoreMountGuest", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "snapshotMountGuest", "snapshotMountLowerPath", "snapshotMountUpperPath", "snapshotLiveMounts", "snapshotVmstatePath", "snapshotVmstateChainId", "snapshotVmstateCheckpointParent", "snapshotVmstateCheckpointSequence", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath", "registryHostPlatform", "registryVmmBinary", "registryVmmPdeathsig", "registryVmmObservedExeBase", "registryGvPid", "registryGvExe", "registryGvObservedExeBase" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "guestHostnameSetPid", "guestHostnameSetName", "guestHostnameSetVsockUdsPath", "guestHostnameSetSkip", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "portForwardNetSocket", "gvproxyPlanningRequired", "gvproxyNetSocket", "gvproxyPath", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountsResolved", "batchLiveMountValidationRequired", "restoreLiveMountsRecorded", "restoreLiveMountsOverrides", "existingStatsFile", "statsFilePath", "statsFileTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "bundlePackUseTiny", "bundlePackMountGuest", "bundlePackRestoreMountGuest", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "snapshotMountGuest", "snapshotMountLowerPath", "snapshotMountUpperPath", "snapshotLiveMounts", "snapshotVmstatePath", "snapshotVmstateChainId", "snapshotVmstateCheckpointParent", "snapshotVmstateCheckpointSequence", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath", "registryHostPlatform", "registryVmmBinary", "registryVmmPdeathsig", "registryVmmObservedExeBase", "registryGvPid", "registryGvExe", "registryGvObservedExeBase" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -1511,6 +1535,10 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .vsock_uds_path = try optionalStringDefaultNull(object, "vsockUdsPath", error.InvalidVsockUdsPath),
         .guest_hostname_pid_text = try optionalStringDefaultNull(object, "guestHostnamePid", error.InvalidGuestHostnamePid),
         .guest_hostname_name = try optionalStringDefaultNull(object, "guestHostnameName", error.InvalidGuestHostnameName),
+        .guest_hostname_set_pid_text = try optionalStringDefaultNull(object, "guestHostnameSetPid", error.InvalidGuestHostnameSetPid),
+        .guest_hostname_set_name = try optionalStringDefaultNull(object, "guestHostnameSetName", error.InvalidGuestHostnameSetName),
+        .guest_hostname_set_vsock_uds_path = try optionalStringDefaultNull(object, "guestHostnameSetVsockUdsPath", error.InvalidGuestHostnameSetVsockUdsPath),
+        .guest_hostname_set_skip = try optionalBoolDefaultFalse(object, "guestHostnameSetSkip", error.InvalidGuestHostnameSetSkip),
         .existing_vsock_spec = try optionalStringDefaultNull(object, "existingVsockSpec", error.InvalidExistingVsockSpec),
         .auto_vsock_uds_path = try optionalStringDefaultNull(object, "autoVsockUdsPath", error.InvalidAutoVsockUdsPath),
         .auto_vsock_temp_dir = try optionalStringDefaultNull(object, "autoVsockTempDir", error.InvalidAutoVsockTempDir),
@@ -2077,6 +2105,9 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         error.InvalidPortForwardNetSocket => try protocol.writeError(io, "BOOT_PORT_FORWARD_INVALID", "boot-plan portForward net socket field must be a string"),
         error.InvalidGvproxyPlanningRequired => try protocol.writeError(io, "BOOT_PORT_FORWARD_NO_GVPROXY", "boot-plan gvproxy planning flag must be a boolean"),
         error.InvalidGvproxyNetSocket, error.InvalidGvproxyPath => try protocol.writeError(io, "BOOT_PORT_FORWARD_NO_GVPROXY", "boot-plan gvproxy fields must be strings"),
+        error.InvalidGuestHostnameSetPid => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan guest hostname set pid must be a decimal integer"),
+        error.InvalidGuestHostnameSetSkip => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan guest hostname set skip flag must be a boolean"),
+        error.InvalidGuestHostnameSetName, error.InvalidGuestHostnameSetVsockUdsPath => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan guest hostname set fields must be strings"),
         error.InvalidSnapshotMountGuest, error.InvalidSnapshotMountLowerPath, error.InvalidSnapshotMountUpperPath => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan snapshot mountDisk fields must be strings"),
         error.InvalidSnapshotLiveMounts => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan snapshot liveMounts entries are invalid"),
         error.InvalidSnapshotVmstatePath, error.InvalidSnapshotVmstateChainId, error.InvalidSnapshotVmstateCheckpointParent => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan snapshot vmstate path fields must be strings"),

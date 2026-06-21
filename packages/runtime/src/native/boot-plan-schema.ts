@@ -138,6 +138,7 @@ export interface NativeBootPlanResult {
   detachedReadinessTimeoutMs: number;
   normalizedMountGuest: string | null;
   guestHostname: string | null;
+  guestHostnameSet: string | null;
   plannedPortForward: PlannedPortForward[];
   gvproxyPlan: GvproxyPlan;
   mergedGuestEnv: Record<string, string>;
@@ -196,6 +197,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nonNegativeNumber(data.detachedReadinessTimeoutMs),
     nullableString(data.normalizedMountGuest),
     nullableString(data.guestHostname),
+    nullableString(data.guestHostnameSet),
     Array.isArray(data.plannedPortForward) && data.plannedPortForward.every(isPlannedPortForward),
     isGvproxyPlan(data.gvproxyPlan),
     isStringRecord(data.mergedGuestEnv),
