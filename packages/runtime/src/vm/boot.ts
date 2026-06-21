@@ -1397,14 +1397,9 @@ function setupStatsFile(
     return { statsFilePath: plan.statsFilePath, statsTempDir: undefined };
   }
   let statsTempDir: string | undefined;
-  let plannedPath: string;
-  if (vsockTempDir) {
-    plannedPath = join(vsockTempDir, "stats.bin");
-  } else {
-    statsTempDir = mkdtempSync(join(tmpdir(), "machinen-stats-"));
-    plannedPath = join(statsTempDir, "stats.bin");
-  }
-  const plan = planBootStatsFileNative({ plannedPath });
+  const statsFileTempDir =
+    vsockTempDir ?? (statsTempDir = mkdtempSync(join(tmpdir(), "machinen-stats-")));
+  const plan = planBootStatsFileNative({ tempDir: statsFileTempDir });
   if (!plan.statsFilePath) {
     return { statsFilePath: undefined, statsTempDir };
   }
