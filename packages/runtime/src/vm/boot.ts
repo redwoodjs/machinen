@@ -53,6 +53,7 @@ import { applyCpuControls, type CpuControlResult } from "../cpu-cgroup.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
+  planBootInitrdEnvNative,
   planBootKernelDtbNative,
   planBootMountDiskFdEnvNative,
   planBootPortForwardNative,
@@ -662,7 +663,7 @@ function packBootInitramfsIfNeeded(
     mountDiskUpperSizeBytes: opts.mountDiskUpperSizeBytes,
     onPhase: (name, ms) => phases.mark(`initramfs-pack.${name}`, ms),
   });
-  plan.env.MACHINEN_INITRD = packed.cpioPath;
+  plan.env.MACHINEN_INITRD = planBootInitrdEnvNative(packed.cpioPath);
   const packMs = phases.end("initramfs-pack");
   debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, packMs ?? -1);
   return { bundleTempDir: packed.tempDir, mountDiskPaths: packed.mountDisk };

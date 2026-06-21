@@ -238,6 +238,14 @@ pub const KernelDtbPlan = struct {
     vmm_dtb: ?[]const u8,
 };
 
+pub const InitrdInput = struct {
+    initrd_path: ?[]const u8 = null,
+};
+
+pub const InitrdPlan = struct {
+    vmm_initrd: ?[]const u8,
+};
+
 pub const VmstateEnvInput = struct {
     state_path: ?[]const u8 = null,
     restore_path: ?[]const u8 = null,
@@ -606,7 +614,10 @@ fn isHostnameAlnum(c: u8) bool {
     return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9');
 }
 
-pub fn planVmstateRuntime(allocator: std.mem.Allocator, input: VmstateRuntimeInput) PlanError!VmstateRuntimePlan {
+pub fn planVmstateRuntime(
+    allocator: std.mem.Allocator,
+    input: VmstateRuntimeInput,
+) PlanError!VmstateRuntimePlan {
     assert(@sizeOf(VmstateRuntimeInput) > 0);
 
     if (input.state_path == null and
@@ -698,7 +709,7 @@ pub fn planVsock(allocator: std.mem.Allocator, input: VsockPlanInput) !VsockPlan
         errdefer allocator.free(uds);
         return .{
             .uds_path = uds,
-            .vmm_vsock = try std.fmt.allocPrint(allocator, "in:1978:{s}", .{uds}),
+            .vmm_vsock = try std.mem.concat(allocator, u8, &.{ "in:1978:", uds }),
         };
     }
     return .{ .uds_path = null, .vmm_vsock = null };
@@ -725,6 +736,12 @@ pub fn planKernelDtb(input: KernelDtbInput) KernelDtbPlan {
     assert(@sizeOf(KernelDtbInput) > 0);
 
     return .{ .vmm_kernel = input.kernel_path, .vmm_dtb = input.dtb_path };
+}
+
+pub fn planInitrdEnv(input: InitrdInput) InitrdPlan {
+    assert(@sizeOf(InitrdInput) > 0);
+
+    return .{ .vmm_initrd = input.initrd_path };
 }
 
 pub fn planVmstateEnv(input: VmstateEnvInput) VmstateEnvPlan {
@@ -997,8 +1014,16 @@ pub fn planProvisionAssets(input: ProvisionAssetsInput) ProvisionAssetsPlan {
     };
 }
 
-pub fn planBundleWorkspace(allocator: std.mem.Allocator, input: BundleWorkspaceInput) !BundleWorkspacePlan {
-    const temp_dir = input.temp_dir orelse return .{ .cpio_path = null, .synth_bundle_dir = null };
+pub fn planBundleWorkspace(
+    allocator: std.mem.Allocator,
+    input: BundleWorkspaceInput,
+) !BundleWorkspacePlan {
+    assert(@sizeOf(BundleWorkspaceInput) > 0);
+
+    const temp_dir = input.temp_dir orelse return .{
+        .cpio_path = null,
+        .synth_bundle_dir = null,
+    };
     const cpio_path = try std.fs.path.join(allocator, &.{ temp_dir, "initramfs.cpio" });
     errdefer allocator.free(cpio_path);
     return .{
@@ -1007,13 +1032,24 @@ pub fn planBundleWorkspace(allocator: std.mem.Allocator, input: BundleWorkspaceI
     };
 }
 
-pub fn planBundleConfigPaths(allocator: std.mem.Allocator, input: BundleConfigPathsInput) !BundleConfigPathsPlan {
-    const synth_bundle_dir = input.synth_bundle_dir orelse return .{ .rootfs_dir = null, .config_path = null };
+pub fn planBundleConfigPaths(
+    allocator: std.mem.Allocator,
+    input: BundleConfigPathsInput,
+) !BundleConfigPathsPlan {
+    assert(@sizeOf(BundleConfigPathsInput) > 0);
+
+    const synth_bundle_dir = input.synth_bundle_dir orelse return .{
+        .rootfs_dir = null,
+        .config_path = null,
+    };
     const rootfs_dir = try std.fs.path.join(allocator, &.{ synth_bundle_dir, "rootfs" });
     errdefer allocator.free(rootfs_dir);
     return .{
         .rootfs_dir = rootfs_dir,
-        .config_path = try std.fs.path.join(allocator, &.{ synth_bundle_dir, "machinen-config.json" }),
+        .config_path = try std.fs.path.join(allocator, &.{
+            synth_bundle_dir,
+            "machinen-config.json",
+        }),
     };
 }
 
@@ -1209,21 +1245,27 @@ fn planRegistryVmstate(input: RegistryVmstateInput) PlanError!RegistryVmstatePla
     };
 }
 
-pub fn planMountDiskFdEnv(allocator: std.mem.Allocator, input: MountDiskFdEnvInput) ![]EnvPair {
+pub fn planMountDiskFdEnv(
+    allocator: std.mem.Allocator,
+    input: MountDiskFdEnvInput,
+) ![]EnvPair {
     assert(@sizeOf(MountDiskFdEnvInput) > 0);
 
     if (input.lower_fd == null and input.upper_fd == null) return &.{};
     const lower_fd = input.lower_fd orelse return error.MissingMountDiskFdField;
     const upper_fd = input.upper_fd orelse return error.MissingMountDiskFdField;
-    const lower_value = try std.fmt.allocPrint(allocator, "{d}", .{lower_fd});
+    var lower_buf: [20]u8 = undefined;
+    var upper_buf: [20]u8 = undefined;
+    const lower_text = try std.fmt.bufPrint(&lower_buf, "{d}", .{lower_fd});
+    const upper_text = try std.fmt.bufPrint(&upper_buf, "{d}", .{upper_fd});
+    const lower_value = try std.mem.concat(allocator, u8, &.{lower_text});
     errdefer allocator.free(lower_value);
-    const upper_value = try std.fmt.allocPrint(allocator, "{d}", .{upper_fd});
+    const upper_value = try std.mem.concat(allocator, u8, &.{upper_text});
     errdefer allocator.free(upper_value);
-    const env = try allocator.alloc(EnvPair, 2);
-    errdefer allocator.free(env);
-    env[0] = .{ .key = "MACHINEN_MOUNTDISK_LOWER_FD", .value = lower_value };
-    env[1] = .{ .key = "MACHINEN_MOUNTDISK_UPPER_FD", .value = upper_value };
-    return env;
+    return try std.mem.concat(allocator, EnvPair, &.{&[_]EnvPair{
+        .{ .key = "MACHINEN_MOUNTDISK_LOWER_FD", .value = lower_value },
+        .{ .key = "MACHINEN_MOUNTDISK_UPPER_FD", .value = upper_value },
+    }});
 }
 
 fn planRegistryCpu(input: RegistryShapeInput) PlanError!?RegistryCpuPlan {
@@ -1844,15 +1886,18 @@ test "planMountDiskFdEnv formats inherited fd env entries" {
     defer allocator.free(env[0].value);
     defer allocator.free(env[1].value);
     defer allocator.free(env);
-    try std.testing.expectEqual(@as(usize, 2), env.len);
+    try std.testing.expect(env.len == 2);
     try std.testing.expectEqualStrings("MACHINEN_MOUNTDISK_LOWER_FD", env[0].key);
     try std.testing.expectEqualStrings("3", env[0].value);
     try std.testing.expectEqualStrings("MACHINEN_MOUNTDISK_UPPER_FD", env[1].key);
     try std.testing.expectEqualStrings("4", env[1].value);
 
     const none = try planMountDiskFdEnv(allocator, .{});
-    try std.testing.expectEqual(@as(usize, 0), none.len);
-    try std.testing.expectError(error.MissingMountDiskFdField, planMountDiskFdEnv(allocator, .{ .lower_fd = 3 }));
+    try std.testing.expect(none.len == 0);
+    try std.testing.expectError(
+        error.MissingMountDiskFdField,
+        planMountDiskFdEnv(allocator, .{ .lower_fd = 3 }),
+    );
 }
 
 test "planMountDiskRuntime selects restore and fresh actions" {
@@ -2020,22 +2065,40 @@ test "planProvisionAssets selects asset names by guest CPU" {
 }
 
 test "planBundleWorkspace derives staging paths from the runtime-owned temp dir" {
-    const planned = try planBundleWorkspace(std.testing.allocator, .{ .temp_dir = "/tmp/machinen-bundle-abc" });
+    const planned = try planBundleWorkspace(
+        std.testing.allocator,
+        .{ .temp_dir = "/tmp/machinen-bundle-abc" },
+    );
     defer std.testing.allocator.free(planned.cpio_path.?);
     defer std.testing.allocator.free(planned.synth_bundle_dir.?);
-    try std.testing.expectEqualStrings("/tmp/machinen-bundle-abc/initramfs.cpio", planned.cpio_path.?);
-    try std.testing.expectEqualStrings("/tmp/machinen-bundle-abc/bundle", planned.synth_bundle_dir.?);
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-bundle-abc/initramfs.cpio",
+        planned.cpio_path.?,
+    );
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-bundle-abc/bundle",
+        planned.synth_bundle_dir.?,
+    );
     const none = try planBundleWorkspace(std.testing.allocator, .{});
     try std.testing.expect(none.cpio_path == null);
     try std.testing.expect(none.synth_bundle_dir == null);
 }
 
 test "planBundleConfigPaths derives bundle config staging paths" {
-    const planned = try planBundleConfigPaths(std.testing.allocator, .{ .synth_bundle_dir = "/tmp/machinen-bundle-abc/bundle" });
+    const planned = try planBundleConfigPaths(
+        std.testing.allocator,
+        .{ .synth_bundle_dir = "/tmp/machinen-bundle-abc/bundle" },
+    );
     defer std.testing.allocator.free(planned.rootfs_dir.?);
     defer std.testing.allocator.free(planned.config_path.?);
-    try std.testing.expectEqualStrings("/tmp/machinen-bundle-abc/bundle/rootfs", planned.rootfs_dir.?);
-    try std.testing.expectEqualStrings("/tmp/machinen-bundle-abc/bundle/machinen-config.json", planned.config_path.?);
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-bundle-abc/bundle/rootfs",
+        planned.rootfs_dir.?,
+    );
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-bundle-abc/bundle/machinen-config.json",
+        planned.config_path.?,
+    );
     const none = try planBundleConfigPaths(std.testing.allocator, .{});
     try std.testing.expect(none.rootfs_dir == null);
     try std.testing.expect(none.config_path == null);
@@ -2280,6 +2343,13 @@ test "planKernelDtb forwards resolved kernel and dtb paths" {
     try std.testing.expectEqual(@as(?[]const u8, null), empty.vmm_dtb);
 }
 
+test "planInitrdEnv forwards resolved initrd path" {
+    const plan = planInitrdEnv(.{ .initrd_path = "/tmp/initramfs.cpio" });
+    try std.testing.expectEqualStrings("/tmp/initramfs.cpio", plan.vmm_initrd.?);
+    const empty = planInitrdEnv(.{});
+    try std.testing.expectEqual(@as(?[]const u8, null), empty.vmm_initrd);
+}
+
 test "planVmmArgv wraps VMM argv with pdeathsig when present" {
     const direct = try planVmmArgv(std.testing.allocator, .{
         .binary = "/bin/vmm",
@@ -2348,11 +2418,17 @@ test "planVsock parses existing specs and formats auto specs" {
     try std.testing.expectEqualStrings("/tmp/auto.sock", auto.uds_path.?);
     try std.testing.expectEqualStrings("in:1978:/tmp/auto.sock", auto.vmm_vsock.?);
 
-    const auto_dir = try planVsock(std.testing.allocator, .{ .auto_temp_dir = "/tmp/machinen-vsock-abc" });
+    const auto_dir = try planVsock(
+        std.testing.allocator,
+        .{ .auto_temp_dir = "/tmp/machinen-vsock-abc" },
+    );
     defer std.testing.allocator.free(auto_dir.uds_path.?);
     defer std.testing.allocator.free(auto_dir.vmm_vsock.?);
     try std.testing.expectEqualStrings("/tmp/machinen-vsock-abc/exec.sock", auto_dir.uds_path.?);
-    try std.testing.expectEqualStrings("in:1978:/tmp/machinen-vsock-abc/exec.sock", auto_dir.vmm_vsock.?);
+    try std.testing.expectEqualStrings(
+        "in:1978:/tmp/machinen-vsock-abc/exec.sock",
+        auto_dir.vmm_vsock.?,
+    );
 }
 
 test "planGuestEnv applies name and hostname wait defaults without overriding caller env" {

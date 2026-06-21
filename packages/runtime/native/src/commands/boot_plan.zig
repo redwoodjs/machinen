@@ -38,6 +38,7 @@ const ParsedRequest = struct {
     boot_timeout_forever: bool = false,
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
+    initrd_path: ?[]const u8 = null,
     vmstate_path: ?[]const u8 = null,
     restore_path: ?[]const u8 = null,
     enable_vmstate_timing: bool = false,
@@ -176,6 +177,7 @@ const boot_plan_fields = [_][]const u8{
     "bootTimeoutForever",
     "kernelPath",
     "dtbPath",
+    "initrdPath",
     "vmstatePath",
     "restorePath",
     "enableVmstateTiming",
@@ -320,6 +322,7 @@ const RequestError = error{
     InvalidBootTimeoutForever,
     InvalidKernelPath,
     InvalidDtbPath,
+    InvalidInitrdPath,
     InvalidVmstatePath,
     InvalidRestorePath,
     InvalidEnableVmstateTiming,
@@ -450,6 +453,7 @@ const PlanParts = struct {
     use_pdeathsig: bool,
     planned_port_forwards: []const boot_plan.PortForwardMapping,
     kernel_dtb: boot_plan.KernelDtbPlan,
+    initrd_env: boot_plan.InitrdPlan,
     vmstate_env: boot_plan.VmstateEnvPlan,
     vmstate_runtime: boot_plan.VmstateRuntimePlan,
     nested_env: ?[]const u8,
@@ -488,6 +492,19 @@ fn makeCorePlan(
     return boot_plan.planCore(input);
 }
 
+const BootEnvParts = struct {
+    vsock_plan: boot_plan.VsockPlan,
+    vmm_argv: boot_plan.VmmArgvPlan,
+    use_pdeathsig: bool,
+    kernel_dtb: boot_plan.KernelDtbPlan,
+    initrd_env: boot_plan.InitrdPlan,
+    vmstate_env: boot_plan.VmstateEnvPlan,
+    vmstate_runtime: boot_plan.VmstateRuntimePlan,
+    nested_env: ?[]const u8,
+    virtiofs_env: []const boot_plan.EnvPair,
+    stats_file: boot_plan.StatsFilePlan,
+};
+
 const RuntimeParts = struct {
     planned_live_mounts: []const boot_plan.LiveMount,
     config_cmd: []const []const u8,
@@ -510,51 +527,24 @@ fn makePlanParts(
 ) !PlanParts {
     assert(@sizeOf(PlanParts) > 0);
 
+    const boot_env = try makeBootEnvParts(arena, parsed);
     const runtime = try makeRuntimeParts(arena, parsed);
     return .{
         .plan = plan,
         .cpu_policy = try makeCpuResources(parsed),
         .guest_env = try makeGuestEnv(arena, parsed),
         .guest_hostname = try makeGuestHostname(parsed),
-        .vsock_plan = try boot_plan.planVsock(arena, .{
-            .existing_spec = parsed.existing_vsock_spec,
-            .auto_uds_path = parsed.auto_vsock_uds_path,
-            .auto_temp_dir = parsed.auto_vsock_temp_dir,
-        }),
-        .vmm_argv = try boot_plan.planVmmArgv(arena, .{
-            .binary = parsed.vmm_binary,
-            .args = parsed.vmm_args,
-            .pdeathsig_path = parsed.pdeathsig_path,
-        }),
-        .use_pdeathsig = boot_plan.planPdeathsig(.{
-            .detached = parsed.detached,
-            .pdeathsig = parsed.pdeathsig_requested,
-        }),
+        .vsock_plan = boot_env.vsock_plan,
+        .vmm_argv = boot_env.vmm_argv,
+        .use_pdeathsig = boot_env.use_pdeathsig,
         .planned_port_forwards = parsed.port_forward,
-        .kernel_dtb = boot_plan.planKernelDtb(.{
-            .kernel_path = parsed.kernel_path,
-            .dtb_path = parsed.dtb_path,
-        }),
-        .vmstate_env = boot_plan.planVmstateEnv(.{
-            .state_path = parsed.vmstate_path,
-            .restore_path = parsed.restore_path,
-            .enable_timing = parsed.enable_vmstate_timing,
-            .existing_timing = parsed.existing_vmstate_timing,
-        }),
-        .vmstate_runtime = try boot_plan.planVmstateRuntime(arena, .{
-            .state_path = parsed.boot_vmstate_state_path,
-            .state_temp_dir = parsed.boot_vmstate_temp_dir,
-            .chain_id = parsed.boot_vmstate_chain_id,
-            .restore_path = parsed.boot_vmstate_restore_path,
-            .forked_from = parsed.boot_vmstate_forked_from,
-        }),
-        .nested_env = boot_plan.planNestedEnv(parsed.nested_requested),
-        .virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved),
-        .stats_file = try boot_plan.planStatsFile(arena, .{
-            .existing_path = parsed.existing_stats_file,
-            .planned_path = parsed.stats_file_path,
-            .planned_temp_dir = parsed.stats_file_temp_dir,
-        }),
+        .kernel_dtb = boot_env.kernel_dtb,
+        .initrd_env = boot_env.initrd_env,
+        .vmstate_env = boot_env.vmstate_env,
+        .vmstate_runtime = boot_env.vmstate_runtime,
+        .nested_env = boot_env.nested_env,
+        .virtiofs_env = boot_env.virtiofs_env,
+        .stats_file = boot_env.stats_file,
         .planned_live_mounts = runtime.planned_live_mounts,
         .config_cmd = runtime.config_cmd,
         .config_env = runtime.config_env,
@@ -583,6 +573,54 @@ fn makePlanParts(
         .mount_disk_runtime = runtime.mount_disk_runtime,
         .mount_disk_fd_env = runtime.mount_disk_fd_env,
         .registry_shape = runtime.registry_shape,
+    };
+}
+
+fn makeBootEnvParts(arena: std.mem.Allocator, parsed: ParsedRequest) !BootEnvParts {
+    assert(@sizeOf(BootEnvParts) > 0);
+
+    return .{
+        .vsock_plan = try boot_plan.planVsock(arena, .{
+            .existing_spec = parsed.existing_vsock_spec,
+            .auto_uds_path = parsed.auto_vsock_uds_path,
+            .auto_temp_dir = parsed.auto_vsock_temp_dir,
+        }),
+        .vmm_argv = try boot_plan.planVmmArgv(arena, .{
+            .binary = parsed.vmm_binary,
+            .args = parsed.vmm_args,
+            .pdeathsig_path = parsed.pdeathsig_path,
+        }),
+        .use_pdeathsig = boot_plan.planPdeathsig(.{
+            .detached = parsed.detached,
+            .pdeathsig = parsed.pdeathsig_requested,
+        }),
+        .kernel_dtb = boot_plan.planKernelDtb(.{
+            .kernel_path = parsed.kernel_path,
+            .dtb_path = parsed.dtb_path,
+        }),
+        .initrd_env = boot_plan.planInitrdEnv(.{
+            .initrd_path = parsed.initrd_path,
+        }),
+        .vmstate_env = boot_plan.planVmstateEnv(.{
+            .state_path = parsed.vmstate_path,
+            .restore_path = parsed.restore_path,
+            .enable_timing = parsed.enable_vmstate_timing,
+            .existing_timing = parsed.existing_vmstate_timing,
+        }),
+        .vmstate_runtime = try boot_plan.planVmstateRuntime(arena, .{
+            .state_path = parsed.boot_vmstate_state_path,
+            .state_temp_dir = parsed.boot_vmstate_temp_dir,
+            .chain_id = parsed.boot_vmstate_chain_id,
+            .restore_path = parsed.boot_vmstate_restore_path,
+            .forked_from = parsed.boot_vmstate_forked_from,
+        }),
+        .nested_env = boot_plan.planNestedEnv(parsed.nested_requested),
+        .virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved),
+        .stats_file = try boot_plan.planStatsFile(arena, .{
+            .existing_path = parsed.existing_stats_file,
+            .planned_path = parsed.stats_file_path,
+            .planned_temp_dir = parsed.stats_file_temp_dir,
+        }),
     };
 }
 
@@ -810,6 +848,8 @@ fn makeMountDiskFdEnv(
     allocator: std.mem.Allocator,
     parsed: ParsedRequest,
 ) ![]const boot_plan.EnvPair {
+    assert(@sizeOf(boot_plan.MountDiskFdEnvInput) > 0);
+
     const lower_fd = if (parsed.mount_disk_lower_fd_text) |text|
         parseUnsigned(text) catch return error.InvalidMountDiskLowerFd
     else
@@ -902,6 +942,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try protocol.stdout(io, "\"command\":\"boot-plan\",\"data\":{");
     try writeCoreFields(io, parts.plan, parts.cpu_policy);
     try writeVsockKernelFields(io, parts.vsock_plan, parts.kernel_dtb);
+    try writeNullableStringField(io, "vmmInitrd", parts.initrd_env.vmm_initrd, true);
     try writeGuestHostnameField(io, "guestHostname", parts.guest_hostname, true);
     try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file);
     try writeVmstateRuntimeField(io, "vmstateRuntime", parts.vmstate_runtime, true);
@@ -1981,6 +2022,11 @@ fn parseKernelFields(object: std.json.ObjectMap, request: *ParsedRequest) Reques
         error.InvalidKernelPath,
     );
     request.dtb_path = try optionalStringDefaultNull(object, "dtbPath", error.InvalidDtbPath);
+    request.initrd_path = try optionalStringDefaultNull(
+        object,
+        "initrdPath",
+        error.InvalidInitrdPath,
+    );
 }
 
 fn parseVmstateFields(object: std.json.ObjectMap, request: *ParsedRequest) RequestError!void {
