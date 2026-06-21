@@ -1161,7 +1161,7 @@ describe("boot-plan helper schema", () => {
     });
   });
 
-  it("plans kernel and dtb env paths", () => {
+  it("plans kernel dtb and initrd env paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
     const requestData = {
@@ -1175,6 +1175,7 @@ describe("boot-plan helper schema", () => {
       rootDisk: "false",
       kernelPath: "/tmp/Image",
       dtbPath: "/tmp/virt.dtb",
+      initrdPath: "/tmp/initramfs.cpio",
     };
     const result = spawnSync(helper, ["boot-plan"], {
       input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
@@ -1184,6 +1185,7 @@ describe("boot-plan helper schema", () => {
     expect(JSON.parse(result.stdout).data).toMatchObject({
       vmmKernel: "/tmp/Image",
       vmmDtb: "/tmp/virt.dtb",
+      vmmInitrd: "/tmp/initramfs.cpio",
     });
   });
 

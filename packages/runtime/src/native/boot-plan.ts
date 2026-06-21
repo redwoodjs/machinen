@@ -70,6 +70,7 @@ interface NativeBootPlanInput {
   bootTimeoutMs?: number | null;
   kernelPath?: string;
   dtbPath?: string;
+  initrdPath?: string;
   vmstatePath?: string;
   restorePath?: string;
   enableVmstateTiming?: boolean;
@@ -203,6 +204,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     ...bootTimeoutData(input),
     kernelPath: nullDefault(input.kernelPath),
     dtbPath: nullDefault(input.dtbPath),
+    initrdPath: nullDefault(input.initrdPath),
     vmstatePath: nullDefault(input.vmstatePath),
     restorePath: nullDefault(input.restorePath),
     enableVmstateTiming: input.enableVmstateTiming === true,
@@ -942,6 +944,20 @@ export function planBootKernelDtbNative(input: { kernelPath?: string; dtbPath?: 
   };
 }
 
+export function planBootInitrdEnvNative(initrdPath: string): string {
+  const plan = planBootCoreNative({
+    initrdPath,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  if (plan.vmmInitrd === null) {
+    throw new BootError("BOOT_PACK_FAILED", "boot: native planner returned no initrd path");
+  }
+  return plan.vmmInitrd;
+}
+
 export function planBootVmmArgvNative(input: {
   binary: string;
   args: string[];
@@ -963,16 +979,13 @@ export function planBootVmmArgvNative(input: {
 }
 
 export function rootDiskPlanMode(rootDisk: boolean | string | undefined): RootDiskPlanMode {
-  if (rootDisk === false) {
-    return "false";
-  }
-  if (rootDisk === true) {
-    return "true";
-  }
-  if (typeof rootDisk === "string") {
-    return "path";
-  }
-  return "unset";
+  return rootDisk === false
+    ? "false"
+    : rootDisk === true
+      ? "true"
+      : typeof rootDisk === "string"
+        ? "path"
+        : "unset";
 }
 
 function bootPlanError(code: ErrorCode, message: string, opts?: MachinenErrorOptions): Error {
@@ -983,6 +996,4 @@ function numberText(value: number | undefined): string | null {
   return value === undefined ? null : String(value);
 }
 
-function numberTextRequired(value: number): string {
-  return String(value);
-}
+const numberTextRequired = (value: number): string => String(value);

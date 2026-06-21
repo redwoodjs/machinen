@@ -222,6 +222,14 @@ pub const KernelDtbPlan = struct {
     vmm_dtb: ?[]const u8,
 };
 
+pub const InitrdInput = struct {
+    initrd_path: ?[]const u8 = null,
+};
+
+pub const InitrdPlan = struct {
+    vmm_initrd: ?[]const u8,
+};
+
 pub const VmstateEnvInput = struct {
     state_path: ?[]const u8 = null,
     restore_path: ?[]const u8 = null,
@@ -635,6 +643,10 @@ pub fn parseVsockUdsPath(spec: []const u8) ?[]const u8 {
 
 pub fn planKernelDtb(input: KernelDtbInput) KernelDtbPlan {
     return .{ .vmm_kernel = input.kernel_path, .vmm_dtb = input.dtb_path };
+}
+
+pub fn planInitrdEnv(input: InitrdInput) InitrdPlan {
+    return .{ .vmm_initrd = input.initrd_path };
 }
 
 pub fn planVmstateEnv(input: VmstateEnvInput) VmstateEnvPlan {
@@ -1925,6 +1937,13 @@ test "planKernelDtb forwards resolved kernel and dtb paths" {
     const empty = planKernelDtb(.{});
     try std.testing.expectEqual(@as(?[]const u8, null), empty.vmm_kernel);
     try std.testing.expectEqual(@as(?[]const u8, null), empty.vmm_dtb);
+}
+
+test "planInitrdEnv forwards resolved initrd path" {
+    const plan = planInitrdEnv(.{ .initrd_path = "/tmp/initramfs.cpio" });
+    try std.testing.expectEqualStrings("/tmp/initramfs.cpio", plan.vmm_initrd.?);
+    const empty = planInitrdEnv(.{});
+    try std.testing.expectEqual(@as(?[]const u8, null), empty.vmm_initrd);
 }
 
 test "planVmmArgv wraps VMM argv with pdeathsig when present" {
