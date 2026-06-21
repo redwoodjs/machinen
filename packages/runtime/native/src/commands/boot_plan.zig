@@ -43,6 +43,7 @@ const ParsedRequest = struct {
     enable_vmstate_timing: bool = false,
     existing_vmstate_timing: ?[]const u8 = null,
     boot_vmstate_state_path: ?[]const u8 = null,
+    boot_vmstate_temp_dir: ?[]const u8 = null,
     boot_vmstate_chain_id: ?[]const u8 = null,
     boot_vmstate_restore_path: ?[]const u8 = null,
     boot_vmstate_forked_from: ?[]const u8 = null,
@@ -177,6 +178,7 @@ const boot_plan_fields = [_][]const u8{
     "enableVmstateTiming",
     "existingVmstateTiming",
     "bootVmstateStatePath",
+    "bootVmstateTempDir",
     "bootVmstateChainId",
     "bootVmstateRestorePath",
     "bootVmstateForkedFrom",
@@ -317,6 +319,7 @@ const RequestError = error{
     InvalidEnableVmstateTiming,
     InvalidExistingVmstateTiming,
     InvalidBootVmstateStatePath,
+    InvalidBootVmstateTempDir,
     InvalidBootVmstateChainId,
     InvalidBootVmstateRestorePath,
     InvalidBootVmstateForkedFrom,
@@ -526,8 +529,9 @@ fn makePlanParts(
             .enable_timing = parsed.enable_vmstate_timing,
             .existing_timing = parsed.existing_vmstate_timing,
         }),
-        .vmstate_runtime = try boot_plan.planVmstateRuntime(.{
+        .vmstate_runtime = try boot_plan.planVmstateRuntime(arena, .{
             .state_path = parsed.boot_vmstate_state_path,
+            .state_temp_dir = parsed.boot_vmstate_temp_dir,
             .chain_id = parsed.boot_vmstate_chain_id,
             .restore_path = parsed.boot_vmstate_restore_path,
             .forked_from = parsed.boot_vmstate_forked_from,
@@ -1956,6 +1960,11 @@ fn parseVmstateFields(object: std.json.ObjectMap, request: *ParsedRequest) Reque
         object,
         "bootVmstateStatePath",
         error.InvalidBootVmstateStatePath,
+    );
+    request.boot_vmstate_temp_dir = try optionalStringDefaultNull(
+        object,
+        "bootVmstateTempDir",
+        error.InvalidBootVmstateTempDir,
     );
     request.boot_vmstate_chain_id = try optionalStringDefaultNull(
         object,

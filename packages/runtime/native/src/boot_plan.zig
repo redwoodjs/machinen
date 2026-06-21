@@ -243,6 +243,7 @@ pub const VmstateEnvPlan = struct {
 
 pub const VmstateRuntimeInput = struct {
     state_path: ?[]const u8 = null,
+    state_temp_dir: ?[]const u8 = null,
     chain_id: ?[]const u8 = null,
     restore_path: ?[]const u8 = null,
     forked_from: ?[]const u8 = null,
@@ -589,10 +590,11 @@ fn isHostnameAlnum(c: u8) bool {
     return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9');
 }
 
-pub fn planVmstateRuntime(input: VmstateRuntimeInput) PlanError!VmstateRuntimePlan {
+pub fn planVmstateRuntime(allocator: std.mem.Allocator, input: VmstateRuntimeInput) PlanError!VmstateRuntimePlan {
     assert(@sizeOf(VmstateRuntimeInput) > 0);
 
     if (input.state_path == null and
+        input.state_temp_dir == null and
         input.chain_id == null and
         input.restore_path == null and
         input.forked_from == null)
@@ -605,8 +607,12 @@ pub fn planVmstateRuntime(input: VmstateRuntimeInput) PlanError!VmstateRuntimePl
         };
     }
     const chain_id = input.chain_id orelse return error.MissingVmstateRuntimeChainId;
+    const state_path = input.state_path orelse blk: {
+        const dir = input.state_temp_dir orelse break :blk null;
+        break :blk try std.fs.path.join(allocator, &.{ dir, "state.vmstate" });
+    };
     return .{
-        .state_path = input.state_path,
+        .state_path = state_path,
         .chain_id = chain_id,
         .checkpoint_parent = if (input.restore_path != null) input.forked_from else null,
         .checkpoint_sequence = 0,
@@ -1585,7 +1591,7 @@ test "planPdeathsig defaults on and lets detach or explicit false disable it" {
 }
 
 test "planVmstateRuntime projects chain defaults and restore parent" {
-    const fresh = try planVmstateRuntime(.{
+    const fresh = try planVmstateRuntime(std.testing.allocator, .{
         .state_path = "/tmp/state.vmstate",
         .chain_id = "chain-1",
     });
@@ -1594,7 +1600,7 @@ test "planVmstateRuntime projects chain defaults and restore parent" {
     try std.testing.expect(fresh.checkpoint_parent == null);
     try std.testing.expectEqual(@as(u64, 0), fresh.checkpoint_sequence.?);
 
-    const restore = try planVmstateRuntime(.{
+    const restore = try planVmstateRuntime(std.testing.allocator, .{
         .state_path = "/tmp/state.vmstate",
         .chain_id = "chain-2",
         .restore_path = "/tmp/restore.vmstate",
@@ -1603,14 +1609,22 @@ test "planVmstateRuntime projects chain defaults and restore parent" {
     try std.testing.expectEqualStrings("/snap/parent", restore.checkpoint_parent.?);
     try std.testing.expectEqual(@as(u64, 0), restore.checkpoint_sequence.?);
 
-    const empty = try planVmstateRuntime(.{});
+    const empty = try planVmstateRuntime(std.testing.allocator, .{});
     try std.testing.expect(empty.state_path == null);
     try std.testing.expect(empty.chain_id == null);
     try std.testing.expect(empty.checkpoint_sequence == null);
 
-    try std.testing.expectError(error.MissingVmstateRuntimeChainId, planVmstateRuntime(.{
-        .state_path = "/tmp/state.vmstate",
-    }));
+    const temp = try planVmstateRuntime(std.testing.allocator, .{
+        .state_temp_dir = "/tmp/machinen-vsock-abc",
+        .chain_id = "chain-3",
+    });
+    defer std.testing.allocator.free(temp.state_path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-vsock-abc/state.vmstate", temp.state_path.?);
+
+    try std.testing.expectError(error.MissingVmstateRuntimeChainId, planVmstateRuntime(
+        std.testing.allocator,
+        .{ .state_path = "/tmp/state.vmstate" },
+    ));
 }
 
 test "planNestedEnv sets nested only when requested" {
