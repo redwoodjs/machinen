@@ -18,6 +18,10 @@ const ParsedRequest = struct {
     has_cmd: bool = false,
     has_snapshot: bool = false,
     root_disk: boot_plan.RootDiskMode = .unset,
+    root_disk_option_false: bool = false,
+    root_disk_option_true: bool = false,
+    root_disk_option_path: ?[]const u8 = null,
+    root_disk_restore_path: ?[]const u8 = null,
     guest_cwd: ?[]const u8 = null,
     mount_guest: ?[]const u8 = null,
     guest_env: std.json.ObjectMap = .{},
@@ -186,6 +190,10 @@ const boot_plan_fields = [_][]const u8{
     "hasCmd",
     "hasSnapshot",
     "rootDisk",
+    "rootDiskOptionFalse",
+    "rootDiskOptionTrue",
+    "rootDiskOptionPath",
+    "rootDiskRestorePath",
     "guestCwd",
     "mountGuest",
     "guestEnv",
@@ -357,6 +365,10 @@ const RequestError = error{
     InvalidHasSnapshot,
     MissingRootDisk,
     InvalidRootDisk,
+    InvalidRootDiskOptionFalse,
+    InvalidRootDiskOptionTrue,
+    InvalidRootDiskOptionPath,
+    InvalidRootDiskRestorePath,
     InvalidGuestCwd,
     InvalidMountGuest,
     InvalidGuestEnv,
@@ -2292,7 +2304,34 @@ fn parseBootShapeFields(
         "hasSnapshot",
         error.InvalidHasSnapshot,
     );
-    request.root_disk = try requiredRootDisk(object);
+    request.root_disk_option_false = try optionalBoolDefaultFalse(
+        object,
+        "rootDiskOptionFalse",
+        error.InvalidRootDiskOptionFalse,
+    );
+    request.root_disk_option_true = try optionalBoolDefaultFalse(
+        object,
+        "rootDiskOptionTrue",
+        error.InvalidRootDiskOptionTrue,
+    );
+    request.root_disk_option_path = try optionalStringDefaultNull(
+        object,
+        "rootDiskOptionPath",
+        error.InvalidRootDiskOptionPath,
+    );
+    request.root_disk_restore_path = try optionalStringDefaultNull(
+        object,
+        "rootDiskRestorePath",
+        error.InvalidRootDiskRestorePath,
+    );
+    const legacy_root_disk = try optionalRootDisk(object);
+    const option_root_disk = boot_plan.planRootDiskMode(.{
+        .false_value = request.root_disk_option_false,
+        .true_value = request.root_disk_option_true,
+        .path = request.root_disk_option_path,
+        .restore_path = request.root_disk_restore_path,
+    });
+    request.root_disk = if (option_root_disk != .unset) option_root_disk else legacy_root_disk;
     request.guest_cwd = try optionalStringDefaultNull(
         object,
         "guestCwd",
@@ -3626,10 +3665,10 @@ fn optionalResourcesMemory(object: std.json.ObjectMap) RequestError!?ParsedResou
     };
 }
 
-fn requiredRootDisk(object: std.json.ObjectMap) RequestError!boot_plan.RootDiskMode {
+fn optionalRootDisk(object: std.json.ObjectMap) RequestError!boot_plan.RootDiskMode {
     assert(@sizeOf(boot_plan.RootDiskMode) > 0);
 
-    const value = object.get("rootDisk") orelse return error.MissingRootDisk;
+    const value = object.get("rootDisk") orelse return .unset;
     if (value != .string) return error.InvalidRootDisk;
     if (std.mem.eql(u8, value.string, "unset")) return .unset;
     if (std.mem.eql(u8, value.string, "false")) return .false_value;
@@ -3931,6 +3970,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
     if (try writeLiveMountRequestError(io, err)) return;
     if (try writeBundleRequestError(io, err)) return;
     if (try writeGuestHostnameRequestError(io, err)) return;
+    if (try writeRootDiskRequestError(io, err)) return;
 
     switch (err) {
         error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
@@ -3950,6 +3990,29 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
+}
+
+fn writeRootDiskRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidRootDiskOptionFalse,
+        error.InvalidRootDiskOptionTrue,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan rootDisk option flags must be booleans",
+        ),
+        error.InvalidRootDiskOptionPath,
+        error.InvalidRootDiskRestorePath,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan rootDisk option paths must be strings",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writeGuestHostnameRequestError(io: std.Io, err: RequestError) !bool {

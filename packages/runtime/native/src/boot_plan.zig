@@ -29,6 +29,13 @@ pub const RootDiskMode = enum {
     true_value,
 };
 
+pub const RootDiskOptionInput = struct {
+    false_value: bool = false,
+    true_value: bool = false,
+    path: ?[]const u8 = null,
+    restore_path: ?[]const u8 = null,
+};
+
 pub const ResourcesMemory = struct {
     max_mib: u64,
     reclaim: ?[]const u8,
@@ -788,6 +795,16 @@ pub fn planNestedEnv(nested: bool) ?[]const u8 {
     assert(@sizeOf(bool) > 0);
 
     return if (nested) "1" else null;
+}
+
+pub fn planRootDiskMode(input: RootDiskOptionInput) RootDiskMode {
+    assert(@sizeOf(RootDiskOptionInput) > 0);
+
+    if (input.false_value) return .false_value;
+    if (input.restore_path != null) return .path;
+    if (input.path != null) return .path;
+    if (input.true_value) return .true_value;
+    return .unset;
 }
 
 pub fn planCpuResources(input: ?CpuResourcesInput) PlanError!?CpuPolicyPlan {
@@ -2038,6 +2055,17 @@ test "planCpuResources applies defaults and validates cpu policy" {
     );
     try std.testing.expectError(error.InvalidCpuWeight, planCpuResources(.{ .weight = 0 }));
     try std.testing.expectError(error.InvalidCpuWeight, planCpuResources(.{ .weight = 10_001 }));
+}
+
+test "planRootDiskMode applies option precedence" {
+    try std.testing.expectEqual(RootDiskMode.unset, planRootDiskMode(.{}));
+    try std.testing.expectEqual(RootDiskMode.true_value, planRootDiskMode(.{ .true_value = true }));
+    try std.testing.expectEqual(RootDiskMode.path, planRootDiskMode(.{ .path = "/tmp/root.img" }));
+    try std.testing.expectEqual(RootDiskMode.path, planRootDiskMode(.{ .restore_path = "/restore/root.img" }));
+    try std.testing.expectEqual(RootDiskMode.false_value, planRootDiskMode(.{
+        .false_value = true,
+        .restore_path = "/restore/root.img",
+    }));
 }
 
 test "planCore validates command and rootdisk image requirements" {
