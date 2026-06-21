@@ -670,7 +670,7 @@ describe("boot-plan helper schema", () => {
     });
   });
 
-  it("plans registry cleanup paths and mount shapes", () => {
+  it("plans registry cleanup paths, mount shapes, and CPU shape", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
     const baseData = {
@@ -698,6 +698,11 @@ describe("boot-plan helper schema", () => {
           registryStatsTempDir: null,
           registryGvSocketDir: "/tmp/gv",
           registryCpuCgroupPath: "/sys/fs/cgroup/machinen",
+          registryCpuPolicyMaxVcpus: "1",
+          registryCpuPolicyQuotaCpus: "0.5",
+          registryCpuPolicyWeight: "200",
+          registryCpuControlStatus: "linux-cgroup-v2",
+          registryCpuControlReason: "limited",
           registryMountGuest: "/mnt/data",
           registryMountLowerPath: "/cache/lower.sqfs",
           registryMountUpperPath: "/tmp/upper.img",
@@ -731,6 +736,12 @@ describe("boot-plan helper schema", () => {
         { guest: "/mnt/work", host: "/host/work", mode: "rw" },
         { guest: "/mnt/cache", host: "/host/cache", mode: "ro" },
       ],
+      cpu: {
+        maxVcpus: 1,
+        quotaCpus: 0.5,
+        weight: 200,
+        enforcement: { status: "linux-cgroup-v2", reason: "limited" },
+      },
     });
   });
 

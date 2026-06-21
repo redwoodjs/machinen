@@ -89,6 +89,11 @@ const ParsedRequest = struct {
     registry_stats_temp_dir: ?[]const u8,
     registry_gv_socket_dir: ?[]const u8,
     registry_cpu_cgroup_path: ?[]const u8,
+    registry_cpu_policy_max_vcpus_text: ?[]const u8,
+    registry_cpu_policy_quota_cpus_text: ?[]const u8,
+    registry_cpu_policy_weight_text: ?[]const u8,
+    registry_cpu_control_status: ?[]const u8,
+    registry_cpu_control_reason: ?[]const u8,
     registry_mount_guest: ?[]const u8,
     registry_mount_lower_path: ?[]const u8,
     registry_mount_upper_path: ?[]const u8,
@@ -206,6 +211,9 @@ const RequestError = error{
     InvalidRegistrySourceImagePath,
     InvalidRegistryRootDiskPath,
     InvalidRegistryCleanupPath,
+    InvalidRegistryCpuPolicy,
+    InvalidRegistryCpuControlStatus,
+    InvalidRegistryCpuControlReason,
     InvalidRegistryMountGuest,
     InvalidRegistryMountLowerPath,
     InvalidRegistryMountUpperPath,
@@ -376,6 +384,10 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
+    const registry_cpu_policy = makeRegistryCpuPolicy(parsed) catch |err| {
+        try writeRequestError(io, err);
+        return .fail;
+    };
     const registry_shape = boot_plan.planRegistryShape(arena, .{
         .source_image_path = parsed.registry_source_image_path,
         .per_boot_root_disk = parsed.registry_per_boot_root_disk,
@@ -396,6 +408,9 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
             .upper_path = parsed.registry_mount_upper_path,
         },
         .live_mounts = parsed.live_mounts_resolved,
+        .cpu_policy = registry_cpu_policy,
+        .cpu_control_status = parsed.registry_cpu_control_status,
+        .cpu_control_reason = parsed.registry_cpu_control_reason,
     }) catch |err| {
         try writePlanError(io, err);
         return .fail;
@@ -719,7 +734,27 @@ fn writePlan(
         try protocol.writeJsonString(io, mount.mode);
         try protocol.stdout(io, "}");
     }
-    try protocol.stdout(io, "]}");
+    try protocol.stdout(io, "],\"cpu\":");
+    if (registry_shape.cpu) |cpu| {
+        try protocol.stdout(io, "{\"maxVcpus\":");
+        try writeU64(io, cpu.max_vcpus);
+        if (cpu.quota_cpus) |quota| {
+            try protocol.stdout(io, ",\"quotaCpus\":");
+            try writeF64(io, quota);
+        }
+        try protocol.stdout(io, ",\"weight\":");
+        try writeU64(io, cpu.weight);
+        try protocol.stdout(io, ",\"enforcement\":{\"status\":");
+        try protocol.writeJsonString(io, cpu.enforcement_status);
+        if (cpu.enforcement_reason) |reason| {
+            try protocol.stdout(io, ",\"reason\":");
+            try protocol.writeJsonString(io, reason);
+        }
+        try protocol.stdout(io, "}}");
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, "}");
     try protocol.stdout(io, ",\"machinenConfig\":{");
     try protocol.stdout(io, "\"cmd\":[");
     for (config_cmd, 0..) |arg, i| {
@@ -828,6 +863,22 @@ fn makeCpuResources(parsed: ParsedRequest) !?boot_plan.CpuResourcesInput {
     };
 }
 
+fn makeRegistryCpuPolicy(parsed: ParsedRequest) RequestError!?boot_plan.CpuPolicyPlan {
+    if (parsed.registry_cpu_policy_max_vcpus_text == null and
+        parsed.registry_cpu_policy_quota_cpus_text == null and
+        parsed.registry_cpu_policy_weight_text == null)
+    {
+        return null;
+    }
+    const max_vcpus_text = parsed.registry_cpu_policy_max_vcpus_text orelse return error.InvalidRegistryCpuPolicy;
+    const weight_text = parsed.registry_cpu_policy_weight_text orelse return error.InvalidRegistryCpuPolicy;
+    return .{
+        .max_vcpus = parseUnsigned(max_vcpus_text) catch return error.InvalidRegistryCpuPolicy,
+        .quota_cpus = if (parsed.registry_cpu_policy_quota_cpus_text) |text| parseFloat(text) catch return error.InvalidRegistryCpuPolicy else null,
+        .weight = parseUnsigned(weight_text) catch return error.InvalidRegistryCpuPolicy,
+    };
+}
+
 fn makeConfigEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.EnvPair {
     return objectStringPairs(allocator, parsed.config_env, error.InvalidConfigEnvValue);
 }
@@ -930,7 +981,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -1015,6 +1066,11 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .registry_stats_temp_dir = try optionalStringDefaultNull(object, "registryStatsTempDir", error.InvalidRegistryCleanupPath),
         .registry_gv_socket_dir = try optionalStringDefaultNull(object, "registryGvSocketDir", error.InvalidRegistryCleanupPath),
         .registry_cpu_cgroup_path = try optionalStringDefaultNull(object, "registryCpuCgroupPath", error.InvalidRegistryCleanupPath),
+        .registry_cpu_policy_max_vcpus_text = try optionalStringDefaultNull(object, "registryCpuPolicyMaxVcpus", error.InvalidRegistryCpuPolicy),
+        .registry_cpu_policy_quota_cpus_text = try optionalStringDefaultNull(object, "registryCpuPolicyQuotaCpus", error.InvalidRegistryCpuPolicy),
+        .registry_cpu_policy_weight_text = try optionalStringDefaultNull(object, "registryCpuPolicyWeight", error.InvalidRegistryCpuPolicy),
+        .registry_cpu_control_status = try optionalRegistryCpuControlStatus(object),
+        .registry_cpu_control_reason = try optionalStringDefaultNull(object, "registryCpuControlReason", error.InvalidRegistryCpuControlReason),
         .registry_mount_guest = try optionalStringDefaultNull(object, "registryMountGuest", error.InvalidRegistryMountGuest),
         .registry_mount_lower_path = try optionalStringDefaultNull(object, "registryMountLowerPath", error.InvalidRegistryMountLowerPath),
         .registry_mount_upper_path = try optionalStringDefaultNull(object, "registryMountUpperPath", error.InvalidRegistryMountUpperPath),
@@ -1270,6 +1326,16 @@ fn optionalObjectStringField(object: std.json.ObjectMap, field: []const u8, inva
     return value.string;
 }
 
+fn optionalRegistryCpuControlStatus(object: std.json.ObjectMap) RequestError!?[]const u8 {
+    const value = object.get("registryCpuControlStatus") orelse return null;
+    if (value == .null) return null;
+    if (value != .string) return error.InvalidRegistryCpuControlStatus;
+    if (std.mem.eql(u8, value.string, "none")) return value.string;
+    if (std.mem.eql(u8, value.string, "linux-cgroup-v2")) return value.string;
+    if (std.mem.eql(u8, value.string, "unsupported")) return value.string;
+    return error.InvalidRegistryCpuControlStatus;
+}
+
 fn requiredRootDisk(object: std.json.ObjectMap) RequestError!boot_plan.RootDiskMode {
     const value = object.get("rootDisk") orelse return error.MissingRootDisk;
     if (value != .string) return error.InvalidRootDisk;
@@ -1322,6 +1388,7 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
         error.MissingRootDiskRuntimePath => try protocol.writeError(io, "BOOT_IMAGE_NOT_FOUND", "boot-plan rootDisk path missing"),
         error.MissingMountDiskRuntimeField => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan mountDisk field missing"),
         error.IncompleteRegistryMountDisk => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan registry mountDisk field missing"),
+        error.MissingRegistryCpuStatus => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu control status missing"),
         error.MissingProvisionRepackField => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision repack field missing"),
         error.UnsupportedHostMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: host memory probing is unsupported on this platform"),
         error.InvalidGuestEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan guestEnv values must be strings"),
@@ -1345,6 +1412,9 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         error.InvalidPortForward, error.InvalidHostPort, error.InvalidGuestPort => try protocol.writeError(io, "BOOT_PORT_FORWARD_INVALID", "portForward: hostPort and guestPort must be integers in 1..65535"),
         error.InvalidLiveMounts, error.InvalidLiveMountGuest => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: entries must include host and guest paths"),
         error.InvalidLiveMountsResolved, error.InvalidLiveMountHost, error.InvalidLiveMountMode, error.InvalidLiveMountTag => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: resolved live mount entries must include host, guest, tag, and mode ro/rw"),
+        error.InvalidRegistryCpuPolicy => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu policy fields are invalid"),
+        error.InvalidRegistryCpuControlStatus => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu control status must be none, linux-cgroup-v2, or unsupported"),
+        error.InvalidRegistryCpuControlReason => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu control reason must be a string"),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
 }

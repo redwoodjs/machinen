@@ -315,6 +315,14 @@ pub const RegistryLiveMountPlan = struct {
     mode: []const u8,
 };
 
+pub const RegistryCpuPlan = struct {
+    max_vcpus: u64,
+    quota_cpus: ?f64,
+    weight: u64,
+    enforcement_status: []const u8,
+    enforcement_reason: ?[]const u8,
+};
+
 pub const RegistryShapeInput = struct {
     source_image_path: ?[]const u8 = null,
     per_boot_root_disk: ?[]const u8 = null,
@@ -322,6 +330,9 @@ pub const RegistryShapeInput = struct {
     cleanup: RegistryCleanupInput = .{},
     mount_disk: RegistryMountDiskInput = .{},
     live_mounts: []const LiveMount = &.{},
+    cpu_policy: ?CpuPolicyPlan = null,
+    cpu_control_status: ?[]const u8 = null,
+    cpu_control_reason: ?[]const u8 = null,
 };
 
 pub const RegistryShapePlan = struct {
@@ -331,6 +342,7 @@ pub const RegistryShapePlan = struct {
     cleanup_paths: []const []const u8,
     mount_disk: ?RegistryMountDiskPlan,
     live_mounts: []const RegistryLiveMountPlan,
+    cpu: ?RegistryCpuPlan,
 };
 
 pub const MachinenConfigInput = struct {
@@ -382,6 +394,7 @@ pub const PlanError = error{
     MissingRootDiskRuntimePath,
     MissingMountDiskRuntimeField,
     IncompleteRegistryMountDisk,
+    MissingRegistryCpuStatus,
     MissingProvisionRepackField,
 };
 
@@ -703,6 +716,18 @@ pub fn planMountDiskRuntime(input: MountDiskRuntimeInput) PlanError!MountDiskRun
     };
 }
 
+fn planRegistryCpu(input: RegistryShapeInput) PlanError!?RegistryCpuPlan {
+    const policy = input.cpu_policy orelse return null;
+    const status = input.cpu_control_status orelse return error.MissingRegistryCpuStatus;
+    return .{
+        .max_vcpus = policy.max_vcpus,
+        .quota_cpus = policy.quota_cpus,
+        .weight = policy.weight,
+        .enforcement_status = status,
+        .enforcement_reason = input.cpu_control_reason,
+    };
+}
+
 pub fn planRegistryShape(allocator: std.mem.Allocator, input: RegistryShapeInput) PlanError!RegistryShapePlan {
     var cleanup_paths: std.ArrayList([]const u8) = .empty;
     errdefer cleanup_paths.deinit(allocator);
@@ -747,6 +772,7 @@ pub fn planRegistryShape(allocator: std.mem.Allocator, input: RegistryShapeInput
         .cleanup_paths = try cleanup_paths.toOwnedSlice(allocator),
         .mount_disk = mount_disk,
         .live_mounts = try live_mounts.toOwnedSlice(allocator),
+        .cpu = try planRegistryCpu(input),
     };
 }
 
@@ -1067,6 +1093,9 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
             .upper_path = "/tmp/upper.img",
         },
         .live_mounts = &live,
+        .cpu_policy = .{ .max_vcpus = 1, .quota_cpus = 0.5, .weight = 200 },
+        .cpu_control_status = "linux-cgroup-v2",
+        .cpu_control_reason = "limited",
     });
     defer allocator.free(plan.cleanup_paths);
     defer allocator.free(plan.live_mounts);
@@ -1088,6 +1117,11 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectEqualStrings("/mnt/work", plan.live_mounts[0].guest);
     try std.testing.expectEqualStrings("/host/work", plan.live_mounts[0].host);
     try std.testing.expectEqualStrings("rw", plan.live_mounts[0].mode);
+    try std.testing.expectEqual(@as(u64, 1), plan.cpu.?.max_vcpus);
+    try std.testing.expectEqual(@as(f64, 0.5), plan.cpu.?.quota_cpus.?);
+    try std.testing.expectEqual(@as(u64, 200), plan.cpu.?.weight);
+    try std.testing.expectEqualStrings("linux-cgroup-v2", plan.cpu.?.enforcement_status);
+    try std.testing.expectEqualStrings("limited", plan.cpu.?.enforcement_reason.?);
 }
 
 test "planMountDiskRuntime selects restore and fresh actions" {
