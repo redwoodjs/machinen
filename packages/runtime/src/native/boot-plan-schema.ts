@@ -10,6 +10,10 @@ type SnapshotContextPlan = {
 export type ProvisionGuestCpu = "arm64" | "amd64";
 export type RestoreLiveMount = { host: string; guest: string; mode?: "ro" | "rw" };
 export type GvproxyPlan = { action: GvproxyAction; gvproxyPath: string | null };
+export type RegistryProcessPlan = {
+  vmmExe: string | null;
+  gvproxyExe: string | null;
+};
 type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
 type RegistryCpuPlan = {
   maxVcpus: number;
@@ -168,6 +172,7 @@ export interface NativeBootPlanResult {
   mountDiskFdEnv: Record<string, string>;
   snapshotContext: SnapshotContextPlan;
   registryShape: RegistryShapePlan;
+  registryProcess: RegistryProcessPlan;
 }
 
 export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
@@ -224,6 +229,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isStringRecord(data.mountDiskFdEnv),
     isSnapshotContextPlan(data.snapshotContext),
     isRegistryShapePlan(data.registryShape),
+    isRegistryProcessPlan(data.registryProcess),
   ].every(Boolean);
 }
 
@@ -382,6 +388,14 @@ function isMountDiskRuntimePlan(value: unknown): value is MountDiskRuntimePlan {
   ].every(Boolean);
 }
 
+function isRegistryProcessPlan(value: unknown): value is RegistryProcessPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<RegistryProcessPlan>;
+  return nullableString(plan.vmmExe) && nullableString(plan.gvproxyExe);
+}
+
 function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
   if (!value || typeof value !== "object") {
     return false;
@@ -514,12 +528,18 @@ function isSnapshotContextPlan(value: unknown): value is SnapshotContextPlan {
   ].every(Boolean);
 }
 
-function isSnapshotMountDisk(value: unknown): value is NonNullable<SnapshotContextPlan["mountDisk"]> {
+function isSnapshotMountDisk(
+  value: unknown,
+): value is NonNullable<SnapshotContextPlan["mountDisk"]> {
   if (!value || typeof value !== "object") {
     return false;
   }
   const disk = value as Partial<NonNullable<SnapshotContextPlan["mountDisk"]>>;
-  return [typeof disk.guest === "string", typeof disk.lowerPath === "string", typeof disk.upperPath === "string"].every(Boolean);
+  return [
+    typeof disk.guest === "string",
+    typeof disk.lowerPath === "string",
+    typeof disk.upperPath === "string",
+  ].every(Boolean);
 }
 
 function isSnapshotLiveMount(value: unknown): value is SnapshotContextPlan["liveMounts"][number] {
@@ -527,15 +547,25 @@ function isSnapshotLiveMount(value: unknown): value is SnapshotContextPlan["live
     return false;
   }
   const mount = value as Partial<SnapshotContextPlan["liveMounts"][number]>;
-  return [typeof mount.host === "string", typeof mount.guest === "string", oneOfString(mount.mode, liveMountModes)].every(Boolean);
+  return [
+    typeof mount.host === "string",
+    typeof mount.guest === "string",
+    isOneOf(mount.mode, liveMountModes),
+  ].every(Boolean);
 }
 
-function isSnapshotVmstateChain(value: unknown): value is NonNullable<SnapshotContextPlan["vmstateChain"]> {
+function isSnapshotVmstateChain(
+  value: unknown,
+): value is NonNullable<SnapshotContextPlan["vmstateChain"]> {
   if (!value || typeof value !== "object") {
     return false;
   }
   const chain = value as Partial<NonNullable<SnapshotContextPlan["vmstateChain"]>>;
-  return [typeof chain.chainId === "string", nullableString(chain.parentDir), nonNegativeNumber(chain.sequence)].every(Boolean);
+  return [
+    typeof chain.chainId === "string",
+    nullableString(chain.parentDir),
+    nonNegativeNumber(chain.sequence),
+  ].every(Boolean);
 }
 
 function isGvproxyPlan(value: unknown): value is GvproxyPlan {
@@ -543,7 +573,7 @@ function isGvproxyPlan(value: unknown): value is GvproxyPlan {
     return false;
   }
   const plan = value as Partial<GvproxyPlan>;
-  return oneOfString(plan.action, gvproxyActions) && nullableString(plan.gvproxyPath);
+  return isOneOf(plan.action, gvproxyActions) && nullableString(plan.gvproxyPath);
 }
 
 function isRestoreLiveMount(value: unknown): value is RestoreLiveMount {
@@ -551,8 +581,10 @@ function isRestoreLiveMount(value: unknown): value is RestoreLiveMount {
     return false;
   }
   const mount = value as Partial<RestoreLiveMount>;
-  return [typeof mount.host === "string", typeof mount.guest === "string"].every(Boolean) &&
-    (mount.mode === undefined || oneOfString(mount.mode, liveMountModes));
+  return (
+    [typeof mount.host === "string", typeof mount.guest === "string"].every(Boolean) &&
+    (mount.mode === undefined || isOneOf(mount.mode, liveMountModes))
+  );
 }
 
 function isPlannedLiveMount(value: unknown): value is PlannedLiveMount {

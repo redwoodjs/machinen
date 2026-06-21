@@ -520,6 +520,21 @@ pub const RegistryVmstatePlan = struct {
     checkpoint_sequence: ?u64,
 };
 
+pub const RegistryProcessInput = struct {
+    host_platform: ?[]const u8 = null,
+    vmm_binary: ?[]const u8 = null,
+    vmm_pdeathsig: bool = false,
+    vmm_observed_exe_base: ?[]const u8 = null,
+    gv_pid: ?i64 = null,
+    gv_exe: ?[]const u8 = null,
+    gv_observed_exe_base: ?[]const u8 = null,
+};
+
+pub const RegistryProcessPlan = struct {
+    vmm_exe: ?[]const u8,
+    gvproxy_exe: ?[]const u8,
+};
+
 pub const RegistryShapeInput = struct {
     source_image_path: ?[]const u8 = null,
     per_boot_root_disk: ?[]const u8 = null,
@@ -899,25 +914,34 @@ pub fn planVirtiofsEnv(allocator: std.mem.Allocator, mounts: []const LiveMount) 
 }
 
 pub fn planBatchLiveMountSync(input: BatchLiveMountInput) PlanError!BatchLiveMountPlan {
+    assert(@sizeOf(BatchLiveMountInput) > 0);
+
     for (input.live_mounts) |mount| {
         if (std.mem.eql(u8, mount.mode, "rw")) {
-            if (input.validation_required and input.vsock_uds_path == null) return error.MissingBatchLiveMountVsock;
+            if (input.validation_required and input.vsock_uds_path == null) {
+                return error.MissingBatchLiveMountVsock;
+            }
             return .{ .sync_required = true };
         }
     }
     return .{ .sync_required = false };
 }
 
-pub fn planRestoreLiveMounts(allocator: std.mem.Allocator, input: RestoreLiveMountPlanInput) !RestoreLiveMountPlan {
+pub fn planRestoreLiveMounts(
+    allocator: std.mem.Allocator,
+    input: RestoreLiveMountPlanInput,
+) !RestoreLiveMountPlan {
+    assert(@sizeOf(RestoreLiveMountPlanInput) > 0);
+
     if (input.recorded.len == 0) {
-        return .{ .mounts = try allocator.dupe(RestoreLiveMountInput, input.overrides) };
+        return .{ .mounts = input.overrides };
     }
     for (input.overrides) |override| {
         if (findRecordedLiveMount(input.recorded, override.guest) == null) {
             return .{ .mounts = &.{}, .unknown_guest = override.guest };
         }
     }
-    var out: std.ArrayList(RestoreLiveMountInput) = .empty;
+    var out: std.array_list.Aligned(RestoreLiveMountInput, null) = .empty;
     errdefer out.deinit(allocator);
     for (input.recorded) |recorded| {
         if (findRestoreLiveMountOverride(input.overrides, recorded.guest)) |override| {
@@ -927,20 +951,34 @@ pub fn planRestoreLiveMounts(allocator: std.mem.Allocator, input: RestoreLiveMou
                 .mode = override.mode orelse recorded.mode,
             });
         } else {
-            try out.append(allocator, .{ .host = recorded.host, .guest = recorded.guest, .mode = recorded.mode });
+            try out.append(allocator, .{
+                .host = recorded.host,
+                .guest = recorded.guest,
+                .mode = recorded.mode,
+            });
         }
     }
     return .{ .mounts = try out.toOwnedSlice(allocator) };
 }
 
-fn findRecordedLiveMount(recorded: []const RestoreRecordedLiveMount, guest: []const u8) ?RestoreRecordedLiveMount {
+fn findRecordedLiveMount(
+    recorded: []const RestoreRecordedLiveMount,
+    guest: []const u8,
+) ?RestoreRecordedLiveMount {
+    assert(@sizeOf(RestoreRecordedLiveMount) > 0);
+
     for (recorded) |mount| {
         if (std.mem.eql(u8, mount.guest, guest)) return mount;
     }
     return null;
 }
 
-fn findRestoreLiveMountOverride(overrides: []const RestoreLiveMountInput, guest: []const u8) ?RestoreLiveMountInput {
+fn findRestoreLiveMountOverride(
+    overrides: []const RestoreLiveMountInput,
+    guest: []const u8,
+) ?RestoreLiveMountInput {
+    assert(@sizeOf(RestoreLiveMountInput) > 0);
+
     var found: ?RestoreLiveMountInput = null;
     for (overrides) |mount| {
         if (std.mem.eql(u8, mount.guest, guest)) found = mount;
@@ -1360,6 +1398,24 @@ fn planSnapshotVmstateChain(input: SnapshotVmstateInput) PlanError!?SnapshotVmst
         .parent_dir = input.checkpoint_parent,
         .sequence = input.checkpoint_sequence orelse return error.MissingSnapshotVmstateField,
     };
+}
+
+pub fn planRegistryProcess(input: RegistryProcessInput) RegistryProcessPlan {
+    assert(@sizeOf(RegistryProcessInput) > 0);
+
+    const is_darwin = if (input.host_platform) |platform|
+        std.mem.eql(u8, platform, "darwin")
+    else
+        false;
+    const vmm_exe = if (input.vmm_binary) |binary|
+        if (is_darwin and input.vmm_pdeathsig) input.vmm_observed_exe_base orelse binary else binary
+    else
+        null;
+    const gvproxy_exe = if (is_darwin and (input.gv_pid orelse 0) > 0)
+        input.gv_observed_exe_base orelse input.gv_exe
+    else
+        input.gv_exe;
+    return .{ .vmm_exe = vmm_exe, .gvproxy_exe = gvproxy_exe };
 }
 
 pub fn planRegistryShape(
@@ -1997,6 +2053,43 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
 }
 
+test "planRegistryProcess projects platform-specific executable metadata" {
+    const darwin = planRegistryProcess(.{
+        .host_platform = "darwin",
+        .vmm_binary = "/pkg/machinen-vm",
+        .vmm_pdeathsig = true,
+        .vmm_observed_exe_base = "machinen-pdeathsig",
+        .gv_pid = 42,
+        .gv_exe = "/pkg/gvproxy",
+        .gv_observed_exe_base = "gvproxy",
+    });
+    try std.testing.expectEqualStrings("machinen-pdeathsig", darwin.vmm_exe.?);
+    try std.testing.expectEqualStrings("gvproxy", darwin.gvproxy_exe.?);
+
+    const linux = planRegistryProcess(.{
+        .host_platform = "linux",
+        .vmm_binary = "/pkg/machinen-vm",
+        .vmm_pdeathsig = true,
+        .vmm_observed_exe_base = "machinen-pdeathsig",
+        .gv_pid = 42,
+        .gv_exe = "/pkg/gvproxy",
+        .gv_observed_exe_base = "gvproxy-observed",
+    });
+    try std.testing.expectEqualStrings("/pkg/machinen-vm", linux.vmm_exe.?);
+    try std.testing.expectEqualStrings("/pkg/gvproxy", linux.gvproxy_exe.?);
+
+    const fallback = planRegistryProcess(.{
+        .host_platform = "darwin",
+        .vmm_binary = "/pkg/machinen-vm",
+        .vmm_pdeathsig = true,
+        .gv_pid = -1,
+        .gv_exe = "/pkg/gvproxy",
+        .gv_observed_exe_base = "ignored",
+    });
+    try std.testing.expectEqualStrings("/pkg/machinen-vm", fallback.vmm_exe.?);
+    try std.testing.expectEqualStrings("/pkg/gvproxy", fallback.gvproxy_exe.?);
+}
+
 test "planSnapshotContext projects mount live mount and vmstate chain fields" {
     const allocator = std.testing.allocator;
     const live = [_]LiveMount{.{
@@ -2036,9 +2129,12 @@ test "planSnapshotContext projects mount live mount and vmstate chain fields" {
     try std.testing.expect(empty.mount_disk == null);
     try std.testing.expect(empty.vmstate_chain == null);
 
-    try std.testing.expectError(error.MissingSnapshotMountDiskField, planSnapshotContext(allocator, .{
-        .mount_disk = .{ .guest = "/mnt/data" },
-    }));
+    try std.testing.expectError(
+        error.MissingSnapshotMountDiskField,
+        planSnapshotContext(allocator, .{
+            .mount_disk = .{ .guest = "/mnt/data" },
+        }),
+    );
     try std.testing.expectError(error.MissingSnapshotVmstateField, planSnapshotContext(allocator, .{
         .vmstate = .{ .state_path = "/tmp/state.vmstate" },
     }));
@@ -2542,10 +2638,13 @@ test "planRestoreLiveMounts merges recorded mounts with overrides" {
     const overrides = [_]RestoreLiveMountInput{
         .{ .host = "/new/cache", .guest = "/mnt/cache" },
     };
-    const planned = try planRestoreLiveMounts(std.testing.allocator, .{ .recorded = &recorded, .overrides = &overrides });
+    const planned = try planRestoreLiveMounts(
+        std.testing.allocator,
+        .{ .recorded = &recorded, .overrides = &overrides },
+    );
     defer std.testing.allocator.free(planned.mounts);
     try std.testing.expect(planned.unknown_guest == null);
-    try std.testing.expectEqual(@as(usize, 2), planned.mounts.len);
+    try std.testing.expect(planned.mounts.len == 2);
     try std.testing.expectEqualStrings("/host/work", planned.mounts[0].host);
     try std.testing.expectEqualStrings("rw", planned.mounts[0].mode.?);
     try std.testing.expectEqualStrings("/new/cache", planned.mounts[1].host);
@@ -2553,12 +2652,19 @@ test "planRestoreLiveMounts merges recorded mounts with overrides" {
 
     const legacy = try planRestoreLiveMounts(std.testing.allocator, .{ .overrides = &overrides });
     defer std.testing.allocator.free(legacy.mounts);
-    try std.testing.expectEqual(@as(usize, 1), legacy.mounts.len);
+    try std.testing.expect(legacy.mounts.len == 1);
     try std.testing.expectEqualStrings("/new/cache", legacy.mounts[0].host);
     try std.testing.expect(legacy.mounts[0].mode == null);
 
-    const bad = [_]RestoreLiveMountInput{.{ .host = "/new/extra", .guest = "/mnt/extra", .mode = "rw" }};
-    const rejected = try planRestoreLiveMounts(std.testing.allocator, .{ .recorded = &recorded, .overrides = &bad });
+    const bad = [_]RestoreLiveMountInput{.{
+        .host = "/new/extra",
+        .guest = "/mnt/extra",
+        .mode = "rw",
+    }};
+    const rejected = try planRestoreLiveMounts(
+        std.testing.allocator,
+        .{ .recorded = &recorded, .overrides = &bad },
+    );
     try std.testing.expectEqualStrings("/mnt/extra", rejected.unknown_guest.?);
 }
 
@@ -2682,7 +2788,10 @@ pub fn planGvproxy(input: GvproxyPlanInput) PlanError!GvproxyPlan {
 
 test "planGvproxy selects skip spawn missing-ok and missing-gvproxy actions" {
     const forwards = [_]PortForwardMapping{.{ .host_port = 8080, .guest_port = 3000 }};
-    const existing = try planGvproxy(.{ .existing_net_socket = "/tmp/net.sock", .port_forwards = &forwards });
+    const existing = try planGvproxy(.{
+        .existing_net_socket = "/tmp/net.sock",
+        .port_forwards = &forwards,
+    });
     try std.testing.expectEqualStrings("skip-existing", existing.action);
     try std.testing.expect(existing.gvproxy_path == null);
 

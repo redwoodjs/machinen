@@ -1055,6 +1055,13 @@ describe("boot-plan helper schema", () => {
           registryMountGuest: "/mnt/data",
           registryMountLowerPath: "/cache/lower.sqfs",
           registryMountUpperPath: "/tmp/upper.img",
+          registryHostPlatform: "darwin",
+          registryVmmBinary: "/pkg/machinen-vm",
+          registryVmmPdeathsig: true,
+          registryVmmObservedExeBase: "machinen-pdeathsig",
+          registryGvPid: "4321",
+          registryGvExe: "/pkg/gvproxy",
+          registryGvObservedExeBase: "gvproxy",
           portForward: [
             { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
             { hostPort: 8443, guestPort: 443 },
@@ -1068,7 +1075,8 @@ describe("boot-plan helper schema", () => {
       encoding: "utf8",
     });
     expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout).data.registryShape).toEqual({
+    const parsed = JSON.parse(result.stdout).data;
+    expect(parsed.registryShape).toEqual({
       sourceImagePath: "/images/rootfs.tar.gz",
       diskPath: "/tmp/scratch.img",
       forkedFrom: "/snap/source",
@@ -1111,6 +1119,10 @@ describe("boot-plan helper schema", () => {
         checkpointSequence: 3,
       },
       nested: true,
+    });
+    expect(parsed.registryProcess).toEqual({
+      vmmExe: "machinen-pdeathsig",
+      gvproxyExe: "gvproxy",
     });
   });
 

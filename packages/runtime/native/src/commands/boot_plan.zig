@@ -145,6 +145,13 @@ const ParsedRequest = struct {
     registry_vmstate_checkpoint_parent: ?[]const u8 = null,
     registry_vmstate_checkpoint_sequence_text: ?[]const u8 = null,
     registry_nested: bool = false,
+    registry_host_platform: ?[]const u8 = null,
+    registry_vmm_binary: ?[]const u8 = null,
+    registry_vmm_pdeathsig: bool = false,
+    registry_vmm_observed_exe_base: ?[]const u8 = null,
+    registry_gv_pid_text: ?[]const u8 = null,
+    registry_gv_exe: ?[]const u8 = null,
+    registry_gv_observed_exe_base: ?[]const u8 = null,
     registry_mount_guest: ?[]const u8 = null,
     registry_mount_lower_path: ?[]const u8 = null,
     registry_mount_upper_path: ?[]const u8 = null,
@@ -299,6 +306,13 @@ const boot_plan_fields = [_][]const u8{
     "registryVmstateCheckpointParent",
     "registryVmstateCheckpointSequence",
     "registryNested",
+    "registryHostPlatform",
+    "registryVmmBinary",
+    "registryVmmPdeathsig",
+    "registryVmmObservedExeBase",
+    "registryGvPid",
+    "registryGvExe",
+    "registryGvObservedExeBase",
     "registryMountGuest",
     "registryMountLowerPath",
     "registryMountUpperPath",
@@ -457,6 +471,13 @@ const RequestError = error{
     InvalidRegistryVmstateCheckpointParent,
     InvalidRegistryVmstateCheckpointSequence,
     InvalidRegistryNested,
+    InvalidRegistryHostPlatform,
+    InvalidRegistryVmmBinary,
+    InvalidRegistryVmmPdeathsig,
+    InvalidRegistryVmmObservedExeBase,
+    InvalidRegistryGvPid,
+    InvalidRegistryGvExe,
+    InvalidRegistryGvObservedExeBase,
     InvalidRegistryMountGuest,
     InvalidRegistryMountLowerPath,
     InvalidRegistryMountUpperPath,
@@ -536,6 +557,7 @@ const PlanParts = struct {
     mount_disk_fd_env: []const boot_plan.EnvPair,
     snapshot_context: boot_plan.SnapshotContextPlan,
     registry_shape: boot_plan.RegistryShapePlan,
+    registry_process: boot_plan.RegistryProcessPlan,
 };
 
 fn makeCorePlan(
@@ -579,6 +601,7 @@ const RuntimeParts = struct {
     mount_disk_fd_env: []const boot_plan.EnvPair,
     snapshot_context: boot_plan.SnapshotContextPlan,
     registry_shape: boot_plan.RegistryShapePlan,
+    registry_process: boot_plan.RegistryProcessPlan,
 };
 
 fn makePlanParts(
@@ -638,6 +661,7 @@ fn makePlanParts(
         .mount_disk_fd_env = runtime.mount_disk_fd_env,
         .snapshot_context = runtime.snapshot_context,
         .registry_shape = runtime.registry_shape,
+        .registry_process = runtime.registry_process,
     };
 }
 
@@ -737,6 +761,7 @@ fn makeRuntimeParts(arena: std.mem.Allocator, parsed: ParsedRequest) !RuntimePar
         .mount_disk_fd_env = try makeMountDiskFdEnv(arena, parsed),
         .snapshot_context = try makeSnapshotContext(arena, parsed),
         .registry_shape = try makeRegistryShape(arena, parsed),
+        .registry_process = try makeRegistryProcess(parsed),
     };
 }
 
@@ -978,6 +1003,24 @@ fn makeSnapshotContext(
     });
 }
 
+fn makeRegistryProcess(parsed: ParsedRequest) !boot_plan.RegistryProcessPlan {
+    assert(@sizeOf(boot_plan.RegistryProcessInput) > 0);
+
+    const gv_pid = if (parsed.registry_gv_pid_text) |text|
+        parseSigned(text) catch return error.InvalidRegistryGvPid
+    else
+        null;
+    return boot_plan.planRegistryProcess(.{
+        .host_platform = parsed.registry_host_platform,
+        .vmm_binary = parsed.registry_vmm_binary,
+        .vmm_pdeathsig = parsed.registry_vmm_pdeathsig,
+        .vmm_observed_exe_base = parsed.registry_vmm_observed_exe_base,
+        .gv_pid = gv_pid,
+        .gv_exe = parsed.registry_gv_exe,
+        .gv_observed_exe_base = parsed.registry_gv_observed_exe_base,
+    });
+}
+
 fn makeRegistryShape(
     arena: std.mem.Allocator,
     parsed: ParsedRequest,
@@ -1046,19 +1089,32 @@ fn writePortForwardFailure(
 
     switch (boot_plan.validatePortForward(mappings)) {
         .ok => {},
-        .invalid_host_port => |port| try writePortForwardInvalid(io, "hostPort", port),
-        .invalid_guest_port => |port| try writePortForwardInvalid(io, "guestPort", port),
-        .duplicate_host_port => |port| try writeDuplicateHostPort(io, port),
+        .invalid_host_port => |port| {
+            try writePortForwardInvalid(io, "hostPort", port);
+            return true;
+        },
+        .invalid_guest_port => |port| {
+            try writePortForwardInvalid(io, "guestPort", port);
+            return true;
+        },
+        .duplicate_host_port => |port| {
+            try writeDuplicateHostPort(io, port);
+            return true;
+        },
     }
     boot_plan.validatePortForwardNetSocket(.{
         .port_forwards = mappings,
         .net_socket = net_socket,
     }) catch |err| switch (err) {
-        error.PortForwardNetSocketPreset => try writeBootError(
-            io,
-            "BOOT_PORT_FORWARD_INVALID",
-            "portForward requires the runtime to own gvproxy, but MACHINEN_NET_SOCKET is already set",
-        ),
+        error.PortForwardNetSocketPreset => {
+            try writeBootError(
+                io,
+                "BOOT_PORT_FORWARD_INVALID",
+                "portForward requires the runtime to own gvproxy, " ++
+                    "MACHINEN_NET_SOCKET is already set",
+            );
+            return true;
+        },
         else => return err,
     };
     return false;
@@ -1113,6 +1169,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeEnvObjectField(io, "mountDiskFdEnv", parts.mount_disk_fd_env, true);
     try writeSnapshotContextField(io, "snapshotContext", parts.snapshot_context, true);
     try writeRegistryShapeField(io, "registryShape", parts.registry_shape, true);
+    try writeRegistryProcessField(io, "registryProcess", parts.registry_process, true);
     try protocol.stdout(io, "}}\n");
 }
 
@@ -1659,6 +1716,8 @@ fn writeSnapshotMountDiskField(
     mount: ?boot_plan.SnapshotMountDiskPlan,
     comma: bool,
 ) !void {
+    assert(field.len > 0);
+
     try writeFieldName(io, field, comma);
     if (mount) |disk| {
         try protocol.stdout(io, "{");
@@ -1675,6 +1734,8 @@ fn writeSnapshotLiveMountsField(
     mounts: []const boot_plan.SnapshotLiveMountPlan,
     comma: bool,
 ) !void {
+    assert(field.len > 0);
+
     try writeFieldName(io, field, comma);
     try protocol.stdout(io, "[");
     for (mounts, 0..) |mount, i| {
@@ -1694,6 +1755,8 @@ fn writeSnapshotVmstateChainField(
     chain: ?boot_plan.SnapshotVmstateChainPlan,
     comma: bool,
 ) !void {
+    assert(field.len > 0);
+
     try writeFieldName(io, field, comma);
     if (chain) |vmstate| {
         try protocol.stdout(io, "{");
@@ -1702,6 +1765,21 @@ fn writeSnapshotVmstateChainField(
         try writeU64Field(io, "sequence", vmstate.sequence, true);
         try protocol.stdout(io, "}");
     } else try protocol.stdout(io, "null");
+}
+
+fn writeRegistryProcessField(
+    io: std.Io,
+    comptime field: []const u8,
+    process: boot_plan.RegistryProcessPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "vmmExe", process.vmm_exe, false);
+    try writeNullableStringField(io, "gvproxyExe", process.gvproxy_exe, true);
+    try protocol.stdout(io, "}");
 }
 
 fn writeRegistryShapeField(
@@ -2707,6 +2785,17 @@ fn parseMountDiskRuntimeFields(
         "mountDiskUpperFd",
         error.InvalidMountDiskUpperFd,
     );
+    try parseSnapshotContextFields(allocator, object, request);
+    try parseRegistryShapeFields(object, request);
+}
+
+fn parseSnapshotContextFields(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
     request.snapshot_mount_guest = try optionalStringDefaultNull(
         object,
         "snapshotMountGuest",
@@ -2748,7 +2837,6 @@ fn parseMountDiskRuntimeFields(
         "snapshotVmstateCheckpointSequence",
         error.InvalidSnapshotVmstateCheckpointSequence,
     );
-    try parseRegistryShapeFields(object, request);
 }
 
 fn parseRegistryShapeFields(
@@ -2930,6 +3018,41 @@ fn parseRegistryVmstateFields(
         object,
         "registryNested",
         error.InvalidRegistryNested,
+    );
+    request.registry_host_platform = try optionalStringDefaultNull(
+        object,
+        "registryHostPlatform",
+        error.InvalidRegistryHostPlatform,
+    );
+    request.registry_vmm_binary = try optionalStringDefaultNull(
+        object,
+        "registryVmmBinary",
+        error.InvalidRegistryVmmBinary,
+    );
+    request.registry_vmm_pdeathsig = try optionalBoolDefaultFalse(
+        object,
+        "registryVmmPdeathsig",
+        error.InvalidRegistryVmmPdeathsig,
+    );
+    request.registry_vmm_observed_exe_base = try optionalStringDefaultNull(
+        object,
+        "registryVmmObservedExeBase",
+        error.InvalidRegistryVmmObservedExeBase,
+    );
+    request.registry_gv_pid_text = try optionalStringDefaultNull(
+        object,
+        "registryGvPid",
+        error.InvalidRegistryGvPid,
+    );
+    request.registry_gv_exe = try optionalStringDefaultNull(
+        object,
+        "registryGvExe",
+        error.InvalidRegistryGvExe,
+    );
+    request.registry_gv_observed_exe_base = try optionalStringDefaultNull(
+        object,
+        "registryGvObservedExeBase",
+        error.InvalidRegistryGvObservedExeBase,
     );
 }
 
@@ -3121,7 +3244,10 @@ fn optionalRestoreLiveMountsRecorded(
     errdefer mounts.deinit(allocator);
     for (value.array.items) |item| {
         if (item != .object) return error.InvalidRestoreLiveMountsRecorded;
-        try protocol.rejectUnknownFields(item.object, &.{ "host", "guest", "mode" });
+        try protocol.rejectUnknownFields(
+            item.object,
+            &.{ "host", "guest", "mode", "sync", "cache" },
+        );
         const host = item.object.get("host") orelse return error.InvalidRestoreLiveMountsRecorded;
         const guest = item.object.get("guest") orelse return error.InvalidRestoreLiveMountsRecorded;
         const mode = item.object.get("mode") orelse return error.InvalidRestoreLiveMountsRecorded;
@@ -3129,7 +3255,11 @@ fn optionalRestoreLiveMountsRecorded(
             return error.InvalidRestoreLiveMountsRecorded;
         }
         if (!isLiveMountMode(mode.string)) return error.InvalidRestoreLiveMountsRecorded;
-        try mounts.append(allocator, .{ .host = host.string, .guest = guest.string, .mode = mode.string });
+        try mounts.append(allocator, .{
+            .host = host.string,
+            .guest = guest.string,
+            .mode = mode.string,
+        });
     }
     return mounts.toOwnedSlice(allocator);
 }
@@ -3149,7 +3279,9 @@ fn optionalRestoreLiveMountsOverrides(
         if (item != .object) return error.InvalidRestoreLiveMountsOverrides;
         try protocol.rejectUnknownFields(item.object, &.{ "host", "guest", "mode" });
         const host = item.object.get("host") orelse return error.InvalidRestoreLiveMountsOverrides;
-        const guest = item.object.get("guest") orelse return error.InvalidRestoreLiveMountsOverrides;
+        const guest = item.object.get("guest") orelse {
+            return error.InvalidRestoreLiveMountsOverrides;
+        };
         const mode = item.object.get("mode") orelse .null;
         if (host != .string or guest != .string) return error.InvalidRestoreLiveMountsOverrides;
         if (mode != .null and (mode != .string or !isLiveMountMode(mode.string))) {
@@ -3444,7 +3576,7 @@ fn writeRestoreLiveMountOverrideError(
         "BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN",
         try std.fmt.bufPrint(
             &buf,
-            "restore: liveMounts override for guest={s} doesn't match any recorded mount; recorded includes {s}",
+            "restore: liveMounts override guest={s} has no recorded mount; recorded includes {s}",
             .{ guest, recorded },
         ),
     );
@@ -3684,6 +3816,32 @@ fn writeBootError(io: std.Io, code: []const u8, message: []const u8) !void {
 fn writeRequestError(io: std.Io, err: RequestError) !void {
     assert(@errorName(err).len > 0);
     if (try protocol.writeCommonRequestError(io, err)) return;
+    if (try writePortForwardRequestError(io, err)) return;
+    if (try writeSnapshotRequestError(io, err)) return;
+    if (try writeLiveMountRequestError(io, err)) return;
+
+    switch (err) {
+        error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
+            io,
+            "BOOT_CPU_INVALID",
+            "boot: resources.cpu.maxVcpus must be a positive integer",
+        ),
+        error.InvalidResourcesCpuQuotaCpus => try protocol.writeError(
+            io,
+            "BOOT_CPU_INVALID",
+            "boot: resources.cpu.quotaCpus must be > 0 when set",
+        ),
+        error.InvalidResourcesCpuWeight => try protocol.writeError(
+            io,
+            "BOOT_CPU_INVALID",
+            "boot: resources.cpu.weight must be an integer in 1..10000",
+        ),
+        else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
+    }
+}
+
+fn writePortForwardRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
 
     switch (err) {
         error.InvalidPortForward,
@@ -3704,11 +3862,22 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
             "BOOT_PORT_FORWARD_NO_GVPROXY",
             "boot-plan gvproxy planning flag must be a boolean",
         ),
-        error.InvalidGvproxyNetSocket, error.InvalidGvproxyPath => try protocol.writeError(
+        error.InvalidGvproxyNetSocket,
+        error.InvalidGvproxyPath,
+        => try protocol.writeError(
             io,
             "BOOT_PORT_FORWARD_NO_GVPROXY",
             "boot-plan gvproxy fields must be strings",
         ),
+        else => return false,
+    }
+    return true;
+}
+
+fn writeSnapshotRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
         error.InvalidSnapshotMountGuest,
         error.InvalidSnapshotMountLowerPath,
         error.InvalidSnapshotMountUpperPath,
@@ -3726,27 +3895,21 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
             "INVALID_REQUEST",
             "boot-plan snapshot vmstate checkpoint sequence must be a decimal integer",
         ),
+        else => return false,
+    }
+    return true;
+}
+
+fn writeLiveMountRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
         error.InvalidLiveMounts,
         error.InvalidLiveMountGuest,
         => try protocol.writeError(
             io,
             "BOOT_MOUNT_INVALID",
             "liveMounts: entries must include host and guest paths",
-        ),
-        error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
-            io,
-            "BOOT_CPU_INVALID",
-            "boot: resources.cpu.maxVcpus must be a positive integer",
-        ),
-        error.InvalidResourcesCpuQuotaCpus => try protocol.writeError(
-            io,
-            "BOOT_CPU_INVALID",
-            "boot: resources.cpu.quotaCpus must be > 0 when set",
-        ),
-        error.InvalidResourcesCpuWeight => try protocol.writeError(
-            io,
-            "BOOT_CPU_INVALID",
-            "boot: resources.cpu.weight must be an integer in 1..10000",
         ),
         error.InvalidLiveMountsResolved,
         error.InvalidConfigLiveMounts,
@@ -3771,6 +3934,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
             "BOOT_MOUNT_INVALID",
             "restore liveMount entries must include host, guest, and valid mode fields",
         ),
-        else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
+        else => return false,
     }
+    return true;
 }
