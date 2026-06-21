@@ -830,6 +830,34 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans provision CLI cache base directory", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      provisionCliCacheHome: "/home/friend",
+      provisionCliCacheVersion: "0.6.1",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, provisionGuestArchOverride: "amd64" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.provisionCliCache).toEqual({
+      baseDir: "/home/friend/.machinen/runtime-v0.6.1/bases/debian-amd64",
+    });
+  });
+
   it("plans provision dtb resolution requirement", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

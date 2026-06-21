@@ -66,6 +66,7 @@ export type ProvisionDtbPlan = {
   asset: string | null;
   cliCacheName: string | null;
 };
+export type ProvisionCliCachePlan = { baseDir: string | null };
 export type ProvisionBootPlan = {
   imagePath: string | null;
   kernelPath: string | null;
@@ -177,6 +178,7 @@ export interface NativeBootPlanResult {
   bundlePack: BundlePackPlan;
   provisionAssets: ProvisionAssetsPlan;
   provisionDtb: ProvisionDtbPlan;
+  provisionCliCache: ProvisionCliCachePlan;
   provisionBoot: ProvisionBootPlan;
   provisionWorkload: ProvisionWorkloadPlan;
   provisionRepack: ProvisionRepackPlan;
@@ -239,6 +241,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isBundlePackPlan(data.bundlePack),
     isProvisionAssetsPlan(data.provisionAssets),
     isProvisionDtbPlan(data.provisionDtb),
+    isProvisionCliCachePlan(data.provisionCliCache),
     isProvisionBootPlan(data.provisionBoot),
     isProvisionWorkloadPlan(data.provisionWorkload),
     isProvisionRepackPlan(data.provisionRepack),
@@ -314,6 +317,13 @@ function isProvisionDtbPlan(value: unknown): value is ProvisionDtbPlan {
     nullableString(plan.asset) &&
     nullableString(plan.cliCacheName)
   );
+}
+
+function isProvisionCliCachePlan(value: unknown): value is ProvisionCliCachePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  return nullableString((value as Partial<ProvisionCliCachePlan>).baseDir);
 }
 
 function isProvisionBootPlan(value: unknown): value is ProvisionBootPlan {
