@@ -50,6 +50,7 @@ import {
 import { planProvisionAssetLookupNative } from "./native/provision-asset-lookup.ts";
 import { planProvisionBootNative } from "./native/provision-boot.ts";
 import { planProvisionCliCacheNative } from "./native/provision-cli-cache.ts";
+import { planProvisionResultNative } from "./native/provision-result.ts";
 import { planProvisionDtbNative } from "./native/provision-dtb.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { reflinkCopy } from "./reflink.ts";
@@ -663,10 +664,11 @@ function finishProvision(opts: ProvisionOptions, ctx: ProvisionContext): Provisi
   const sizeBytes = statSync(ctx.outAbs).size;
   warmImageConfigCache(ctx.outAbs, provisionImageConfig(opts));
   const elapsedMs = Date.now() - ctx.t0;
-  debug("provision complete sizeBytes=%d totalElapsed=%dms", sizeBytes, elapsedMs);
-  ctx.phases.flush(debug, "provision", elapsedMs);
-  opts.onLog?.(ctx.phases.toEvent("provision", elapsedMs));
-  return { imagePath: ctx.outAbs, sizeBytes, elapsedMs };
+  const result = planProvisionResultNative({ imagePath: ctx.outAbs, sizeBytes, elapsedMs });
+  debug("provision complete sizeBytes=%d totalElapsed=%dms", result.sizeBytes, result.elapsedMs);
+  ctx.phases.flush(debug, "provision", result.elapsedMs);
+  opts.onLog?.(ctx.phases.toEvent("provision", result.elapsedMs));
+  return result;
 }
 
 function provisionImageConfig(

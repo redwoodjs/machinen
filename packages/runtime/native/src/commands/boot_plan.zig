@@ -123,6 +123,9 @@ const ParsedRequest = struct {
     provision_work_dir: ?[]const u8,
     provision_scratch_size_bytes_text: ?[]const u8,
     provision_timeout_ms_text: ?[]const u8,
+    provision_result_image_path: ?[]const u8,
+    provision_result_size_bytes_text: ?[]const u8,
+    provision_result_elapsed_ms_text: ?[]const u8,
     scratch_option_false: bool,
     scratch_option_path: ?[]const u8,
     scratch_temp_kind: boot_plan.ScratchTempPathKind,
@@ -362,6 +365,9 @@ const RequestError = error{
     InvalidProvisionWorkDir,
     InvalidProvisionScratchSizeBytes,
     InvalidProvisionTimeoutMs,
+    InvalidProvisionResultImagePath,
+    InvalidProvisionResultSizeBytes,
+    InvalidProvisionResultElapsedMs,
     InvalidBundleEnvValue,
     InvalidScratchOptionFalse,
     InvalidScratchOptionPath,
@@ -711,6 +717,25 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
+    const provision_result_size_bytes = if (parsed.provision_result_size_bytes_text) |text|
+        parseUnsigned(text) catch {
+            try writeRequestError(io, error.InvalidProvisionResultSizeBytes);
+            return .fail;
+        }
+    else
+        null;
+    const provision_result_elapsed_ms = if (parsed.provision_result_elapsed_ms_text) |text|
+        parseUnsigned(text) catch {
+            try writeRequestError(io, error.InvalidProvisionResultElapsedMs);
+            return .fail;
+        }
+    else
+        null;
+    const provision_result = boot_plan.planProvisionResult(.{
+        .image_path = parsed.provision_result_image_path,
+        .size_bytes = provision_result_size_bytes,
+        .elapsed_ms = provision_result_elapsed_ms,
+    });
     const provision_image_config = makeProvisionImageConfig(arena, parsed) catch |err| {
         try writePlanError(io, err);
         return .fail;
@@ -979,7 +1004,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .gv_observed_exe_base = parsed.registry_gv_observed_exe_base,
     });
 
-    try writePlan(io, plan, root_disk_mode, cpu_plan, guest_env, vmm_env, guest_hostname, guest_hostname_set, vsock_mode, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_temp_mode, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file_mode, stats_file_temp_mode, stats_file, planned_live_mounts, parsed.port_forward, port_forward_probe, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, bundle_mount_disk_mode, provision_assets, provision_dtb, provision_cli_cache, provision_asset_lookup, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, planned_scratch_mode, scratch_temp_path, scratch_disk, root_disk_runtime, root_disk_temp_path, root_disk_materialize_mode, planned_mount_disk_upper_size, mount_disk_temp_path, mount_disk_runtime, mount_disk_fd_env, snapshot_context, snapshot_backing, registry_shape, registry_lifecycle, registry_process_identity, registry_process);
+    try writePlan(io, plan, root_disk_mode, cpu_plan, guest_env, vmm_env, guest_hostname, guest_hostname_set, vsock_mode, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_temp_mode, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file_mode, stats_file_temp_mode, stats_file, planned_live_mounts, parsed.port_forward, port_forward_probe, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, bundle_mount_disk_mode, provision_assets, provision_dtb, provision_cli_cache, provision_asset_lookup, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, provision_result, planned_scratch_mode, scratch_temp_path, scratch_disk, root_disk_runtime, root_disk_temp_path, root_disk_materialize_mode, planned_mount_disk_upper_size, mount_disk_temp_path, mount_disk_runtime, mount_disk_fd_env, snapshot_context, snapshot_backing, registry_shape, registry_lifecycle, registry_process_identity, registry_process);
     return .ok;
 }
 
@@ -1031,6 +1056,7 @@ fn writePlan(
     provision_repack: boot_plan.ProvisionRepackPlan,
     provision_image_config: boot_plan.ProvisionImageConfigPlan,
     provision_runtime: boot_plan.ProvisionRuntimePlan,
+    provision_result: boot_plan.ProvisionResultPlan,
     planned_scratch_mode: boot_plan.ScratchDiskMode,
     scratch_temp_path: boot_plan.ScratchTempPathPlan,
     scratch_disk: boot_plan.ScratchDiskPlan,
@@ -1367,6 +1393,14 @@ fn writePlan(
     try writeNullableJsonString(io, provision_runtime.root_disk_path);
     try protocol.stdout(io, ",\"udsPath\":");
     try writeNullableJsonString(io, provision_runtime.uds_path);
+    try protocol.stdout(io, "}");
+    try protocol.stdout(io, ",\"provisionResult\":{");
+    try protocol.stdout(io, "\"imagePath\":");
+    try writeNullableJsonString(io, provision_result.image_path);
+    try protocol.stdout(io, ",\"sizeBytes\":");
+    try writeNullableU64(io, provision_result.size_bytes);
+    try protocol.stdout(io, ",\"elapsedMs\":");
+    try writeNullableU64(io, provision_result.elapsed_ms);
     try protocol.stdout(io, "}");
     try protocol.stdout(io, ",\"plannedScratchMode\":");
     try protocol.writeJsonString(io, scratchDiskModeName(planned_scratch_mode));
@@ -1950,7 +1984,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "rootDiskOptionFalse", "rootDiskOptionTrue", "rootDiskOptionPath", "rootDiskRestorePath", "guestCwd", "mountGuest", "guestEnv", "vmmEnvBase", "vmmEnvOverrides", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "guestHostnameSetPid", "guestHostnameSetName", "guestHostnameSetVsockUdsPath", "guestHostnameSetSkip", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "portForwardNetSocket", "gvproxyPlanningRequired", "gvproxyNetSocket", "gvproxyPath", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateEngine", "bootVmstateSnapshotDisabled", "bootVmstateExistingTempDir", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountRemovedOptionIndex", "liveMountRemovedOptionHasCache", "liveMountRemovedOptionHasSync", "liveMountsResolved", "batchLiveMountValidationRequired", "restoreLiveMountsRecorded", "restoreLiveMountsOverrides", "existingStatsFile", "statsFilePath", "statsFileTempDir", "statsFileVsockTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "bundlePackUseTiny", "bundlePackMountGuest", "bundlePackRestoreMountGuest", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionDtbExplicit", "provisionCliCacheHome", "provisionCliCacheVersion", "provisionAssetExplicitPath", "provisionAssetExplicitExists", "provisionAssetAssetsDirPath", "provisionAssetAssetsDirExists", "provisionAssetCachePath", "provisionAssetCacheExists", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionBootVmmEnv", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchOptionFalse", "scratchOptionPath", "scratchTempKind", "scratchTempDir", "scratchTempPid", "scratchTempNonce", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "rootDiskTempKind", "rootDiskTempDir", "rootDiskTempPid", "rootDiskTempNonce", "rootDiskMaterializeRestorePath", "rootDiskMaterializeCallerPath", "mountDiskUpperSizeOption", "mountDiskTempKind", "mountDiskTempDir", "mountDiskTempPid", "mountDiskTempNonce", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "snapshotMountGuest", "snapshotMountLowerPath", "snapshotMountUpperPath", "snapshotLiveMounts", "snapshotVmstatePath", "snapshotVmstateChainId", "snapshotVmstateCheckpointParent", "snapshotVmstateCheckpointSequence", "snapshotBackingEngine", "snapshotBackingAction", "snapshotBackingDiskPath", "snapshotBackingVmstatePath", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryLifecycleName", "registryLifecycleVsockUdsPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath", "registryHostPlatform", "registryVmmBinary", "registryVmmPdeathsig", "registryVmmObservedExeBase", "registryGvPid", "registryGvExe", "registryGvObservedExeBase" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "rootDiskOptionFalse", "rootDiskOptionTrue", "rootDiskOptionPath", "rootDiskRestorePath", "guestCwd", "mountGuest", "guestEnv", "vmmEnvBase", "vmmEnvOverrides", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "guestHostnameSetPid", "guestHostnameSetName", "guestHostnameSetVsockUdsPath", "guestHostnameSetSkip", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "portForwardNetSocket", "gvproxyPlanningRequired", "gvproxyNetSocket", "gvproxyPath", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateEngine", "bootVmstateSnapshotDisabled", "bootVmstateExistingTempDir", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountRemovedOptionIndex", "liveMountRemovedOptionHasCache", "liveMountRemovedOptionHasSync", "liveMountsResolved", "batchLiveMountValidationRequired", "restoreLiveMountsRecorded", "restoreLiveMountsOverrides", "existingStatsFile", "statsFilePath", "statsFileTempDir", "statsFileVsockTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "bundlePackUseTiny", "bundlePackMountGuest", "bundlePackRestoreMountGuest", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionDtbExplicit", "provisionCliCacheHome", "provisionCliCacheVersion", "provisionAssetExplicitPath", "provisionAssetExplicitExists", "provisionAssetAssetsDirPath", "provisionAssetAssetsDirExists", "provisionAssetCachePath", "provisionAssetCacheExists", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionBootVmmEnv", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "provisionResultImagePath", "provisionResultSizeBytes", "provisionResultElapsedMs", "scratchOptionFalse", "scratchOptionPath", "scratchTempKind", "scratchTempDir", "scratchTempPid", "scratchTempNonce", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "rootDiskTempKind", "rootDiskTempDir", "rootDiskTempPid", "rootDiskTempNonce", "rootDiskMaterializeRestorePath", "rootDiskMaterializeCallerPath", "mountDiskUpperSizeOption", "mountDiskTempKind", "mountDiskTempDir", "mountDiskTempPid", "mountDiskTempNonce", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "snapshotMountGuest", "snapshotMountLowerPath", "snapshotMountUpperPath", "snapshotLiveMounts", "snapshotVmstatePath", "snapshotVmstateChainId", "snapshotVmstateCheckpointParent", "snapshotVmstateCheckpointSequence", "snapshotBackingEngine", "snapshotBackingAction", "snapshotBackingDiskPath", "snapshotBackingVmstatePath", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryLifecycleName", "registryLifecycleVsockUdsPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath", "registryHostPlatform", "registryVmmBinary", "registryVmmPdeathsig", "registryVmmObservedExeBase", "registryGvPid", "registryGvExe", "registryGvObservedExeBase" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -2069,6 +2103,9 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .provision_work_dir = try optionalStringDefaultNull(object, "provisionWorkDir", error.InvalidProvisionWorkDir),
         .provision_scratch_size_bytes_text = try optionalStringDefaultNull(object, "provisionScratchSizeBytes", error.InvalidProvisionScratchSizeBytes),
         .provision_timeout_ms_text = try optionalStringDefaultNull(object, "provisionTimeoutMs", error.InvalidProvisionTimeoutMs),
+        .provision_result_image_path = try optionalStringDefaultNull(object, "provisionResultImagePath", error.InvalidProvisionResultImagePath),
+        .provision_result_size_bytes_text = try optionalStringDefaultNull(object, "provisionResultSizeBytes", error.InvalidProvisionResultSizeBytes),
+        .provision_result_elapsed_ms_text = try optionalStringDefaultNull(object, "provisionResultElapsedMs", error.InvalidProvisionResultElapsedMs),
         .scratch_option_false = try optionalBoolDefaultFalse(object, "scratchOptionFalse", error.InvalidScratchOptionFalse),
         .scratch_option_path = try optionalStringDefaultNull(object, "scratchOptionPath", error.InvalidScratchOptionPath),
         .scratch_temp_kind = try optionalScratchTempKind(object),

@@ -764,6 +764,36 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans provision result fields", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          memoryMib: null,
+          resourcesMemory: null,
+          autoMemoryMib: "1024",
+          hostTotalBytes: null,
+          vmmMemoryPreset: false,
+          hasImage: false,
+          hasCmd: false,
+          rootDisk: "false",
+          provisionResultImagePath: "/tmp/warm.tar.gz",
+          provisionResultSizeBytes: "1234",
+          provisionResultElapsedMs: "56",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.provisionResult).toEqual({
+      imagePath: "/tmp/warm.tar.gz",
+      sizeBytes: 1234,
+      elapsedMs: 56,
+    });
+  });
+
   it("plans provision image config payloads", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

@@ -320,6 +320,18 @@ pub const ProvisionRuntimePlan = struct {
     uds_path: ?[]const u8,
 };
 
+pub const ProvisionResultInput = struct {
+    image_path: ?[]const u8 = null,
+    size_bytes: ?u64 = null,
+    elapsed_ms: ?u64 = null,
+};
+
+pub const ProvisionResultPlan = struct {
+    image_path: ?[]const u8,
+    size_bytes: ?u64,
+    elapsed_ms: ?u64,
+};
+
 pub const KernelDtbInput = struct {
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
@@ -1210,6 +1222,14 @@ pub fn planProvisionImageConfig(input: ProvisionImageConfigInput) ProvisionImage
         .cmd = input.cmd,
         .has_env = input.has_env,
         .env = input.env,
+    };
+}
+
+pub fn planProvisionResult(input: ProvisionResultInput) ProvisionResultPlan {
+    return .{
+        .image_path = input.image_path,
+        .size_bytes = input.size_bytes,
+        .elapsed_ms = input.elapsed_ms,
     };
 }
 
@@ -2517,6 +2537,22 @@ test "planProvisionRuntime defaults and derives workdir paths" {
     try std.testing.expectEqual(@as(u64, 1024 * 1024 * 1024), defaults.scratch_size_bytes);
     try std.testing.expectEqual(@as(u64, 10 * 60 * 1000), defaults.deadline_ms);
     try std.testing.expect(defaults.disk_path == null);
+}
+
+test "planProvisionResult projects provision result fields" {
+    const plan = planProvisionResult(.{
+        .image_path = "/tmp/warm.tar.gz",
+        .size_bytes = 1234,
+        .elapsed_ms = 56,
+    });
+    try std.testing.expectEqualStrings("/tmp/warm.tar.gz", plan.image_path.?);
+    try std.testing.expectEqual(@as(?u64, 1234), plan.size_bytes);
+    try std.testing.expectEqual(@as(?u64, 56), plan.elapsed_ms);
+
+    const empty = planProvisionResult(.{});
+    try std.testing.expect(empty.image_path == null);
+    try std.testing.expect(empty.size_bytes == null);
+    try std.testing.expect(empty.elapsed_ms == null);
 }
 
 test "planProvisionImageConfig preserves optional cmd and env" {
