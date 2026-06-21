@@ -91,6 +91,7 @@ export interface NativeBootPlanResult {
   vmmSnapshotPath: string | null;
   vmmRestorePath: string | null;
   vmmVmstateTiming: string | null;
+  vmmNested: string | null;
   virtiofsEnv: Record<string, string>;
   plannedLiveMounts: PlannedLiveMount[];
   statsFilePath: string | null;
@@ -131,6 +132,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmSnapshotPath),
     nullableString(data.vmmRestorePath),
     nullableString(data.vmmVmstateTiming),
+    nullableString(data.vmmNested),
     isStringRecord(data.virtiofsEnv),
     Array.isArray(data.plannedLiveMounts) && data.plannedLiveMounts.every(isPlannedLiveMount),
     nullableString(data.statsFilePath),

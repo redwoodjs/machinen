@@ -195,6 +195,34 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans nested virtualization VMM env", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const requested = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, nested: true } })}\n`,
+      encoding: "utf8",
+    });
+    expect(requested.status).toBe(0);
+    expect(JSON.parse(requested.stdout).data.vmmNested).toBe("1");
+
+    const omitted = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(omitted.status).toBe(0);
+    expect(JSON.parse(omitted.stdout).data.vmmNested).toBeNull();
+  });
+
   it("plans bundle commands from explicit image restore and live-mount inputs", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

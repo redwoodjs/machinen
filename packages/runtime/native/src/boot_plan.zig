@@ -415,6 +415,10 @@ pub fn planCpuResources(input: ?CpuResourcesInput) PlanError!?CpuPolicyPlan {
     return .{ .max_vcpus = max_vcpus, .quota_cpus = quota_cpus, .weight = weight };
 }
 
+pub fn planNestedEnv(nested: bool) ?[]const u8 {
+    return if (nested) "1" else null;
+}
+
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
     var out: std.ArrayList(EnvPair) = .empty;
     errdefer out.deinit(allocator);
@@ -995,6 +999,11 @@ test "planCpuResources applies defaults and validates cpu policy" {
     try std.testing.expectError(error.CpuQuotaExceedsMaxVcpus, planCpuResources(.{ .quota_cpus = 1.5 }));
     try std.testing.expectError(error.InvalidCpuWeight, planCpuResources(.{ .weight = 0 }));
     try std.testing.expectError(error.InvalidCpuWeight, planCpuResources(.{ .weight = 10_001 }));
+}
+
+test "planNestedEnv sets nested only when requested" {
+    try std.testing.expectEqualStrings("1", planNestedEnv(true).?);
+    try std.testing.expect(planNestedEnv(false) == null);
 }
 
 test "autoSizeMemoryMib applies floor, half-host, and default ceiling" {
