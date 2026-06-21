@@ -482,6 +482,15 @@ pub const ScratchDiskPlan = struct {
     vmm_disk: ?[]const u8,
 };
 
+pub const RootDiskMaterializeModeInput = struct {
+    restore_path: ?[]const u8 = null,
+    caller_path: ?[]const u8 = null,
+};
+
+pub const RootDiskMaterializeModePlan = struct {
+    action: []const u8,
+};
+
 pub const RootDiskRuntimeMode = enum {
     none,
     path,
@@ -1311,6 +1320,12 @@ pub fn planScratchMode(input: ScratchOptionInput) ScratchDiskMode {
     if (input.false_value) return .false_value;
     if (input.path != null) return .path;
     return .auto;
+}
+
+pub fn planRootDiskMaterializeMode(input: RootDiskMaterializeModeInput) RootDiskMaterializeModePlan {
+    if (input.restore_path != null) return .{ .action = "restore" };
+    if (input.caller_path != null) return .{ .action = "caller" };
+    return .{ .action = "cached" };
 }
 
 pub fn planRootDiskRuntime(input: RootDiskRuntimeInput) PlanError!RootDiskRuntimePlan {
@@ -2543,6 +2558,13 @@ test "planVmmEnv overlays caller env on host env" {
     try std.testing.expectEqualStrings("1024", planned[1].value);
     try std.testing.expectEqualStrings("MACHINEN_TRACE", planned[2].key);
     try std.testing.expectEqualStrings("1", planned[2].value);
+}
+
+test "planRootDiskMaterializeMode selects restore caller and cached precedence" {
+    try std.testing.expectEqualStrings("cached", planRootDiskMaterializeMode(.{}).action);
+    try std.testing.expectEqualStrings("caller", planRootDiskMaterializeMode(.{ .caller_path = "/caller.img" }).action);
+    try std.testing.expectEqualStrings("restore", planRootDiskMaterializeMode(.{ .restore_path = "/restore.img" }).action);
+    try std.testing.expectEqualStrings("restore", planRootDiskMaterializeMode(.{ .restore_path = "/restore.img", .caller_path = "/caller.img" }).action);
 }
 
 test "planRootDiskRuntime selects existing restore and cached clone actions" {

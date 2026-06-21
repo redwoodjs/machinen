@@ -1164,6 +1164,51 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans rootdisk materialization mode precedence", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const cached = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(cached.status).toBe(0);
+    expect(JSON.parse(cached.stdout).data.rootDiskMaterializeMode).toEqual({ action: "cached" });
+
+    const caller = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, rootDiskMaterializeCallerPath: "caller.img" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(caller.status).toBe(0);
+    expect(JSON.parse(caller.stdout).data.rootDiskMaterializeMode).toEqual({ action: "caller" });
+
+    const restore = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          rootDiskMaterializeRestorePath: "restore.img",
+          rootDiskMaterializeCallerPath: "caller.img",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(restore.status).toBe(0);
+    expect(JSON.parse(restore.stdout).data.rootDiskMaterializeMode).toEqual({ action: "restore" });
+  });
+
   it("plans rootdisk runtime actions", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
