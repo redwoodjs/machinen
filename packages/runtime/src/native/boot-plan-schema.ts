@@ -67,6 +67,10 @@ export type ProvisionDtbPlan = {
   cliCacheName: string | null;
 };
 export type ProvisionCliCachePlan = { baseDir: string | null };
+export type ProvisionAssetLookupPlan = {
+  path: string | null;
+  error: "missing" | "assets-dir-invalid" | null;
+};
 export type ProvisionBootPlan = {
   imagePath: string | null;
   kernelPath: string | null;
@@ -179,6 +183,7 @@ export interface NativeBootPlanResult {
   provisionAssets: ProvisionAssetsPlan;
   provisionDtb: ProvisionDtbPlan;
   provisionCliCache: ProvisionCliCachePlan;
+  provisionAssetLookup: ProvisionAssetLookupPlan;
   provisionBoot: ProvisionBootPlan;
   provisionWorkload: ProvisionWorkloadPlan;
   provisionRepack: ProvisionRepackPlan;
@@ -242,6 +247,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isProvisionAssetsPlan(data.provisionAssets),
     isProvisionDtbPlan(data.provisionDtb),
     isProvisionCliCachePlan(data.provisionCliCache),
+    isProvisionAssetLookupPlan(data.provisionAssetLookup),
     isProvisionBootPlan(data.provisionBoot),
     isProvisionWorkloadPlan(data.provisionWorkload),
     isProvisionRepackPlan(data.provisionRepack),
@@ -324,6 +330,17 @@ function isProvisionCliCachePlan(value: unknown): value is ProvisionCliCachePlan
     return false;
   }
   return nullableString((value as Partial<ProvisionCliCachePlan>).baseDir);
+}
+
+function isProvisionAssetLookupPlan(value: unknown): value is ProvisionAssetLookupPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<ProvisionAssetLookupPlan>;
+  return (
+    nullableString(plan.path) &&
+    (plan.error === null || plan.error === "missing" || plan.error === "assets-dir-invalid")
+  );
 }
 
 function isProvisionBootPlan(value: unknown): value is ProvisionBootPlan {

@@ -213,6 +213,20 @@ pub const ProvisionCliCachePlan = struct {
     base_dir: ?[]const u8,
 };
 
+pub const ProvisionAssetLookupInput = struct {
+    explicit_path: ?[]const u8 = null,
+    explicit_exists: ?bool = null,
+    assets_dir_path: ?[]const u8 = null,
+    assets_dir_exists: ?bool = null,
+    cache_path: ?[]const u8 = null,
+    cache_exists: ?bool = null,
+};
+
+pub const ProvisionAssetLookupPlan = struct {
+    path: ?[]const u8,
+    error_kind: ?[]const u8,
+};
+
 pub const ProvisionBootInput = struct {
     base_path: ?[]const u8 = null,
     kernel_path: ?[]const u8 = null,
@@ -1097,6 +1111,21 @@ pub fn planProvisionCliCacheBaseDir(allocator: std.mem.Allocator, input: Provisi
     return .{ .base_dir = try std.fs.path.join(allocator, &.{ home_dir, ".machinen", release_dir, "bases", cpu_dir }) };
 }
 
+pub fn planProvisionAssetLookup(input: ProvisionAssetLookupInput) ProvisionAssetLookupPlan {
+    if (input.explicit_path) |path| {
+        if (input.explicit_exists == true) return .{ .path = path, .error_kind = null };
+        return .{ .path = null, .error_kind = "missing" };
+    }
+    if (input.assets_dir_path) |path| {
+        if (input.assets_dir_exists == true) return .{ .path = path, .error_kind = null };
+        return .{ .path = null, .error_kind = "assets-dir-invalid" };
+    }
+    if (input.cache_path) |path| {
+        if (input.cache_exists == true) return .{ .path = path, .error_kind = null };
+    }
+    return .{ .path = null, .error_kind = "missing" };
+}
+
 pub fn planBundleWorkspace(allocator: std.mem.Allocator, input: BundleWorkspaceInput) !BundleWorkspacePlan {
     const temp_dir = input.temp_dir orelse return .{ .cpio_path = null, .synth_bundle_dir = null };
     const cpio_path = try std.fs.path.join(allocator, &.{ temp_dir, "initramfs.cpio" });
@@ -1688,6 +1717,46 @@ test "planProvisionCliCacheBaseDir derives release cache by guest cpu" {
     try std.testing.expectEqualStrings("/Users/friend/.machinen/runtime-v0.6.1/bases/debian-arm64", arm64);
 
     try std.testing.expect((try planProvisionCliCacheBaseDir(std.testing.allocator, .{ .version = "0.6.1" })).base_dir == null);
+}
+
+test "planProvisionAssetLookup preserves explicit assets-dir cache order" {
+    const explicit_hit = planProvisionAssetLookup(.{
+        .explicit_path = "/explicit/rootfs.tar.gz",
+        .explicit_exists = true,
+        .assets_dir_path = "/assets/rootfs.tar.gz",
+        .assets_dir_exists = true,
+        .cache_path = "/cache/rootfs.tar.gz",
+        .cache_exists = true,
+    });
+    try std.testing.expectEqualStrings("/explicit/rootfs.tar.gz", explicit_hit.path.?);
+    try std.testing.expect(explicit_hit.error_kind == null);
+
+    const explicit_missing = planProvisionAssetLookup(.{
+        .explicit_path = "/explicit/missing.tar.gz",
+        .explicit_exists = false,
+        .assets_dir_path = "/assets/rootfs.tar.gz",
+        .assets_dir_exists = true,
+        .cache_path = "/cache/rootfs.tar.gz",
+        .cache_exists = true,
+    });
+    try std.testing.expect(explicit_missing.path == null);
+    try std.testing.expectEqualStrings("missing", explicit_missing.error_kind.?);
+
+    const assets_missing = planProvisionAssetLookup(.{
+        .assets_dir_path = "/assets/missing.tar.gz",
+        .assets_dir_exists = false,
+        .cache_path = "/cache/rootfs.tar.gz",
+        .cache_exists = true,
+    });
+    try std.testing.expect(assets_missing.path == null);
+    try std.testing.expectEqualStrings("assets-dir-invalid", assets_missing.error_kind.?);
+
+    const cache_hit = planProvisionAssetLookup(.{
+        .cache_path = "/cache/rootfs.tar.gz",
+        .cache_exists = true,
+    });
+    try std.testing.expectEqualStrings("/cache/rootfs.tar.gz", cache_hit.path.?);
+    try std.testing.expect(cache_hit.error_kind == null);
 }
 
 test "planRootDiskMode preserves false and restore precedence" {
