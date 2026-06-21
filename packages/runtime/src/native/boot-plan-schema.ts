@@ -1,10 +1,11 @@
-export type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
-export type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
-export type MountDiskRuntimeAction = "none" | "restore" | "fresh";
+type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
+type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
+type MountDiskRuntimeAction = "none" | "restore" | "fresh";
 export type ProvisionGuestCpu = "arm64" | "amd64";
 export type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
-export type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
-export type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
+type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
+type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
+type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
 export type ProvisionAssetsPlan = {
   cpu: ProvisionGuestCpu;
   kernelAsset: string;
@@ -60,7 +61,7 @@ export type MountDiskRuntimePlan = {
   guest: string | null;
   upperSizeBytes: number | null;
 };
-export type MachinenConfigPlan = Record<string, unknown> & {
+type MachinenConfigPlan = Record<string, unknown> & {
   cmd: string[];
   env: Record<string, string>;
   cwd?: string;
@@ -70,6 +71,7 @@ export type MachinenConfigPlan = Record<string, unknown> & {
 export interface NativeBootPlanResult {
   memoryCeilingMib: number | null;
   vmmMemory: string | null;
+  cpuPolicy: CpuPolicyPlan | null;
   wantsRootDisk: boolean;
   normalizedMountGuest: string | null;
   mergedGuestEnv: Record<string, string>;
@@ -109,6 +111,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
   return [
     nullableNonNegativeNumber(data.memoryCeilingMib),
     nullableString(data.vmmMemory),
+    data.cpuPolicy === null || isCpuPolicyPlan(data.cpuPolicy),
     typeof data.wantsRootDisk === "boolean",
     nullableString(data.normalizedMountGuest),
     isStringRecord(data.mergedGuestEnv),
@@ -141,6 +144,18 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
   ].every(Boolean);
 }
 
+function isCpuPolicyPlan(value: unknown): value is CpuPolicyPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<CpuPolicyPlan>;
+  return (
+    nonNegativeNumber(plan.maxVcpus) &&
+    (plan.quotaCpus === undefined || nonNegativeNumber(plan.quotaCpus)) &&
+    nonNegativeNumber(plan.weight)
+  );
+}
+
 function isProvisionAssetsPlan(value: unknown): value is ProvisionAssetsPlan {
   if (!value || typeof value !== "object") {
     return false;
@@ -159,16 +174,16 @@ function isProvisionBootPlan(value: unknown): value is ProvisionBootPlan {
     return false;
   }
   const plan = value as Partial<ProvisionBootPlan>;
-  return (
-    nullableString(plan.imagePath) &&
-    nullableString(plan.kernelPath) &&
-    nullableString(plan.dtbPath) &&
-    nullableString(plan.vmmVsock) &&
-    isStringArray(plan.cmd) &&
-    isStringRecord(plan.env) &&
-    nullableString(plan.snapshotPath) &&
-    nullableString(plan.rootDiskPath)
-  );
+  return [
+    nullableString(plan.imagePath),
+    nullableString(plan.kernelPath),
+    nullableString(plan.dtbPath),
+    nullableString(plan.vmmVsock),
+    isStringArray(plan.cmd),
+    isStringRecord(plan.env),
+    nullableString(plan.snapshotPath),
+    nullableString(plan.rootDiskPath),
+  ].every(Boolean);
 }
 
 function isProvisionWorkloadPlan(value: unknown): value is ProvisionWorkloadPlan {
@@ -239,16 +254,13 @@ function isRootDiskRuntimePlan(value: unknown): value is RootDiskRuntimePlan {
     return false;
   }
   const plan = value as Partial<RootDiskRuntimePlan>;
-  return (
-    (plan.action === "none" ||
-      plan.action === "existing" ||
-      plan.action === "clone-restore" ||
-      plan.action === "clone-cached") &&
-    nullableString(plan.sourcePath) &&
-    nullableString(plan.targetPath) &&
-    nullableString(plan.perBootRootDisk) &&
-    nullableString(plan.vmmRootDisk)
-  );
+  return [
+    oneOfString(plan.action, ["none", "existing", "clone-restore", "clone-cached"]),
+    nullableString(plan.sourcePath),
+    nullableString(plan.targetPath),
+    nullableString(plan.perBootRootDisk),
+    nullableString(plan.vmmRootDisk),
+  ].every(Boolean);
 }
 
 function isMountDiskRuntimePlan(value: unknown): value is MountDiskRuntimePlan {
@@ -256,14 +268,14 @@ function isMountDiskRuntimePlan(value: unknown): value is MountDiskRuntimePlan {
     return false;
   }
   const plan = value as Partial<MountDiskRuntimePlan>;
-  return (
-    (plan.action === "none" || plan.action === "restore" || plan.action === "fresh") &&
-    nullableString(plan.lowerPath) &&
-    nullableString(plan.upperPath) &&
-    nullableString(plan.sourceUpperPath) &&
-    nullableString(plan.guest) &&
-    nullableNonNegativeNumber(plan.upperSizeBytes)
-  );
+  return [
+    oneOfString(plan.action, ["none", "restore", "fresh"]),
+    nullableString(plan.lowerPath),
+    nullableString(plan.upperPath),
+    nullableString(plan.sourceUpperPath),
+    nullableString(plan.guest),
+    nullableNonNegativeNumber(plan.upperSizeBytes),
+  ].every(Boolean);
 }
 
 function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
@@ -271,15 +283,14 @@ function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
     return false;
   }
   const plan = value as Partial<RegistryShapePlan>;
-  return (
-    nullableString(plan.sourceImagePath) &&
-    nullableString(plan.rootDiskPath) &&
-    (plan.rootDiskMode === "block" || plan.rootDiskMode === "none") &&
-    isStringArray(plan.cleanupPaths) &&
-    (plan.mountDisk === null || isRegistryMountDisk(plan.mountDisk)) &&
-    Array.isArray(plan.liveMounts) &&
-    plan.liveMounts.every(isRegistryLiveMount)
-  );
+  return [
+    nullableString(plan.sourceImagePath),
+    nullableString(plan.rootDiskPath),
+    oneOfString(plan.rootDiskMode, ["block", "none"]),
+    isStringArray(plan.cleanupPaths),
+    nullableObject(plan.mountDisk, isRegistryMountDisk),
+    Array.isArray(plan.liveMounts) && plan.liveMounts.every(isRegistryLiveMount),
+  ].every(Boolean);
 }
 
 function isRegistryMountDisk(value: unknown): value is RegistryMountDiskPlan {
@@ -347,6 +358,14 @@ function isMachinenConfigPlan(value: unknown): value is MachinenConfigPlan {
     });
   }
   return true;
+}
+
+function oneOfString(value: unknown, allowed: string[]): boolean {
+  return typeof value === "string" && allowed.includes(value);
+}
+
+function nullableObject<T>(value: unknown, guard: (item: unknown) => item is T): boolean {
+  return value === null || guard(value);
 }
 
 function isStringArray(value: unknown): value is string[] {

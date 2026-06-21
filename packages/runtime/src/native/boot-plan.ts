@@ -1,5 +1,6 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
 import { callRuntimeHelper } from "../native-helper.ts";
+import type { BootCpuResourceOptions, ResolvedCpuResourcePolicy } from "../vm/cpu-resources.ts";
 import type { BootMemoryResourceOptions } from "../vm/memory-resources.ts";
 import { isNativeBootPlanResult } from "./boot-plan-schema.ts";
 import type {
@@ -29,6 +30,7 @@ type LiveMountPlanInput = { host: string; guest: string; mode?: string };
 interface NativeBootPlanInput {
   memoryMib?: number;
   resourcesMemory?: BootMemoryResourceOptions;
+  resourcesCpu?: BootCpuResourceOptions;
   autoMemoryMib?: number;
   hostTotalBytes?: number;
   vmmMemoryPreset: boolean;
@@ -126,6 +128,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
   return {
     memoryMib: numberText(input.memoryMib),
     resourcesMemory: resourcesMemoryData(input.resourcesMemory),
+    resourcesCpu: resourcesCpuData(input.resourcesCpu),
     autoMemoryMib: numberText(input.autoMemoryMib),
     hostTotalBytes: numberText(input.hostTotalBytes),
     vmmMemoryPreset: input.vmmMemoryPreset,
@@ -258,6 +261,17 @@ function resourcesMemoryData(memory: BootMemoryResourceOptions | undefined): unk
   };
 }
 
+function resourcesCpuData(cpu: BootCpuResourceOptions | undefined): unknown {
+  if (!cpu) {
+    return null;
+  }
+  return {
+    maxVcpus: numberText(cpu.maxVcpus),
+    quotaCpus: numberText(cpu.quotaCpus),
+    weight: numberText(cpu.weight),
+  };
+}
+
 function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[] {
   return (liveMounts ?? []).map((mount) => ({
     host: mount.host,
@@ -268,6 +282,20 @@ function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[]
 
 function nullDefault<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
+}
+
+export function planBootCpuResourcesNative(
+  cpu: BootCpuResourceOptions | undefined,
+): ResolvedCpuResourcePolicy | undefined {
+  return (
+    planBootCoreNative({
+      resourcesCpu: cpu,
+      vmmMemoryPreset: true,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    }).cpuPolicy ?? undefined
+  );
 }
 
 export function planProvisionWorkloadNative(): ProvisionWorkloadPlan {

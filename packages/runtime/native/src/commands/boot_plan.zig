@@ -8,6 +8,7 @@ pub const name = "boot-plan";
 const ParsedRequest = struct {
     memory_mib_text: ?[]const u8,
     resources_memory: ?ParsedResourcesMemory,
+    resources_cpu: ?ParsedResourcesCpu,
     auto_memory_mib_text: ?[]const u8,
     host_total_bytes_text: ?[]const u8,
     vmm_memory_preset: bool,
@@ -98,6 +99,12 @@ const ParsedResourcesMemory = struct {
     reclaim: ?[]const u8,
 };
 
+const ParsedResourcesCpu = struct {
+    max_vcpus_text: ?[]const u8,
+    quota_cpus_text: ?[]const u8,
+    weight_text: ?[]const u8,
+};
+
 const RequestError = error{
     MissingMemoryMib,
     InvalidMemoryMib,
@@ -106,6 +113,10 @@ const RequestError = error{
     MissingResourcesMaxMib,
     InvalidResourcesMaxMib,
     InvalidResourcesReclaim,
+    InvalidResourcesCpu,
+    InvalidResourcesCpuMaxVcpus,
+    InvalidResourcesCpuQuotaCpus,
+    InvalidResourcesCpuWeight,
     MissingAutoMemoryMib,
     InvalidAutoMemoryMib,
     MissingHostTotalBytes,
@@ -216,6 +227,14 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
     };
 
     const plan = boot_plan.planCore(input) catch |err| {
+        try writePlanError(io, err);
+        return .fail;
+    };
+    const cpu_policy = makeCpuResources(parsed) catch |err| {
+        try writePlanError(io, err);
+        return .fail;
+    };
+    const cpu_plan = boot_plan.planCpuResources(cpu_policy) catch |err| {
         try writePlanError(io, err);
         return .fail;
     };
@@ -382,13 +401,14 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         return .fail;
     };
 
-    try writePlan(io, plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env, stats_file, planned_live_mounts, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, scratch_disk, root_disk_runtime, mount_disk_runtime, registry_shape);
+    try writePlan(io, plan, cpu_plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, virtiofs_env, stats_file, planned_live_mounts, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, scratch_disk, root_disk_runtime, mount_disk_runtime, registry_shape);
     return .ok;
 }
 
 fn writePlan(
     io: std.Io,
     plan: boot_plan.Plan,
+    cpu_policy: ?boot_plan.CpuPolicyPlan,
     guest_env: []const boot_plan.EnvPair,
     vsock_plan: boot_plan.VsockPlan,
     vmm_argv: boot_plan.VmmArgvPlan,
@@ -426,6 +446,20 @@ fn writePlan(
     if (plan.vmm_memory_mib) |mib| {
         var buf: [32]u8 = undefined;
         try protocol.writeJsonString(io, try std.fmt.bufPrint(&buf, "{d}", .{mib}));
+    } else {
+        try protocol.stdout(io, "null");
+    }
+    try protocol.stdout(io, ",\"cpuPolicy\":");
+    if (cpu_policy) |cpu| {
+        try protocol.stdout(io, "{\"maxVcpus\":");
+        try writeU64(io, cpu.max_vcpus);
+        if (cpu.quota_cpus) |quota| {
+            try protocol.stdout(io, ",\"quotaCpus\":");
+            try writeF64(io, quota);
+        }
+        try protocol.stdout(io, ",\"weight\":");
+        try writeU64(io, cpu.weight);
+        try protocol.stdout(io, "}");
     } else {
         try protocol.stdout(io, "null");
     }
@@ -762,6 +796,11 @@ fn writeU64(io: std.Io, number: u64) !void {
     try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{number}));
 }
 
+fn writeF64(io: std.Io, number: f64) !void {
+    var buf: [64]u8 = undefined;
+    try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{number}));
+}
+
 fn writeNullableU64(io: std.Io, value: ?u64) !void {
     if (value) |number| {
         var buf: [32]u8 = undefined;
@@ -778,6 +817,15 @@ fn makeGuestEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_pla
         .name = parsed.name,
         .vsock_uds_path = parsed.vsock_uds_path,
     });
+}
+
+fn makeCpuResources(parsed: ParsedRequest) !?boot_plan.CpuResourcesInput {
+    const cpu = parsed.resources_cpu orelse return null;
+    return .{
+        .max_vcpus = if (cpu.max_vcpus_text) |text| parseUnsigned(text) catch return error.InvalidCpuMaxVcpus else null,
+        .quota_cpus = if (cpu.quota_cpus_text) |text| parseFloat(text) catch return error.InvalidCpuQuotaCpus else null,
+        .weight = if (cpu.weight_text) |text| parseUnsigned(text) catch return error.InvalidCpuWeight else null,
+    };
 }
 
 fn makeConfigEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.EnvPair {
@@ -859,6 +907,11 @@ fn parseUnsigned(text: []const u8) !u64 {
     return std.fmt.parseUnsigned(u64, text, 10);
 }
 
+fn parseFloat(text: []const u8) !f64 {
+    if (text.len == 0) return error.Invalid;
+    return std.fmt.parseFloat(f64, text);
+}
+
 fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedRequest {
     const data = try protocol.readStdinAll(allocator, io, protocol.max_request_bytes);
     const parsed = std.json.parseFromSlice(std.json.Value, allocator, data, .{
@@ -877,10 +930,11 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
+        .resources_cpu = try optionalResourcesCpu(object),
         .auto_memory_mib_text = try optionalString(object, "autoMemoryMib", error.MissingAutoMemoryMib, error.InvalidAutoMemoryMib),
         .host_total_bytes_text = try optionalString(object, "hostTotalBytes", error.MissingHostTotalBytes, error.InvalidHostTotalBytes),
         .vmm_memory_preset = try requiredBool(object, "vmmMemoryPreset", error.MissingVmmMemoryPreset, error.InvalidVmmMemoryPreset),
@@ -1197,6 +1251,25 @@ fn optionalResourcesMemory(object: std.json.ObjectMap) RequestError!?ParsedResou
     };
 }
 
+fn optionalResourcesCpu(object: std.json.ObjectMap) RequestError!?ParsedResourcesCpu {
+    const value = object.get("resourcesCpu") orelse return null;
+    if (value == .null) return null;
+    if (value != .object) return error.InvalidResourcesCpu;
+    try protocol.rejectUnknownFields(value.object, &.{ "maxVcpus", "quotaCpus", "weight" });
+    return .{
+        .max_vcpus_text = try optionalObjectStringField(value.object, "maxVcpus", error.InvalidResourcesCpuMaxVcpus),
+        .quota_cpus_text = try optionalObjectStringField(value.object, "quotaCpus", error.InvalidResourcesCpuQuotaCpus),
+        .weight_text = try optionalObjectStringField(value.object, "weight", error.InvalidResourcesCpuWeight),
+    };
+}
+
+fn optionalObjectStringField(object: std.json.ObjectMap, field: []const u8, invalid: RequestError) RequestError!?[]const u8 {
+    const value = object.get(field) orelse return null;
+    if (value == .null) return null;
+    if (value != .string) return invalid;
+    return value.string;
+}
+
 fn requiredRootDisk(object: std.json.ObjectMap) RequestError!boot_plan.RootDiskMode {
     const value = object.get("rootDisk") orelse return error.MissingRootDisk;
     if (value != .string) return error.InvalidRootDisk;
@@ -1230,6 +1303,11 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
         error.InvalidMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: memory must be a positive integer at least 512 MiB"),
         error.ConflictingMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: memory conflicts with resources.memory.maxMib. Use one value."),
         error.InvalidReclaim => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: resources.memory.reclaim must be \"auto\" when set."),
+        error.InvalidCpuMaxVcpus => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot: resources.cpu.maxVcpus must be a positive integer"),
+        error.UnsupportedCpuMaxVcpus => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot: resources.cpu.maxVcpus greater than 1 is not supported yet. CPU quota is scheduling budget, not extra guest-visible CPUs."),
+        error.InvalidCpuQuotaCpus => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot: resources.cpu.quotaCpus must be > 0 when set"),
+        error.CpuQuotaExceedsMaxVcpus => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot: resources.cpu.quotaCpus cannot exceed resources.cpu.maxVcpus"),
+        error.InvalidCpuWeight => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot: resources.cpu.weight must be an integer in 1..10000"),
         error.CmdWithoutImage => try protocol.writeError(io, "BOOT_CMD_WITHOUT_IMAGE", "boot: `image` is required when `cmd` is set."),
         error.RootDiskWithoutImage => try protocol.writeError(io, "BOOT_CMD_WITHOUT_IMAGE", "boot: rootDisk: true requires an `image` (the .tar.gz to materialize)."),
         error.MissingAutoMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: memory auto-size input is missing"),

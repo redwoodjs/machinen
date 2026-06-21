@@ -66,7 +66,7 @@ import {
 import { reflinkCopy } from "../reflink.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
-import { resolveCpuResourcePolicy, type ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
+import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
 import { resolveLiveMounts, synthesizeAndPackBundle, type ResolvedLiveMount } from "./bundle.ts";
 import { installVmExitCleanup } from "./exit-cleanup.ts";
 import { performForkWithRestore } from "./fork-core.ts";
@@ -950,6 +950,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
   const corePlan = planBootCoreNative({
     memoryMib: opts.memory,
     resourcesMemory: opts.resources?.memory,
+    resourcesCpu: opts.resources?.cpu,
     vmmMemoryPreset: env.MACHINEN_MEMORY !== undefined,
     hasImage: opts.image !== undefined,
     hasCmd: opts.cmd !== undefined,
@@ -964,7 +965,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
     env.MACHINEN_MEMORY = corePlan.vmmMemory;
   }
   const memoryCeilingMib = corePlan.memoryCeilingMib ?? undefined;
-  const cpuPolicy = resolveCpuResourcePolicy(opts.resources?.cpu);
+  const cpuPolicy = corePlan.cpuPolicy ?? undefined;
   const scratch = prepareBootScratchDisk(opts, env, phases);
   const wantsRootDisk = corePlan.wantsRootDisk;
   setupKernelDtbEnv(opts, env);

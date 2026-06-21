@@ -1,7 +1,35 @@
-import { describe, expect, it } from "vitest";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { _internal, BootError } from "../index.ts";
 
 const { resolveCpuResourcePolicy } = _internal;
+
+let helperTmp: string | undefined;
+let previousHelper: string | undefined;
+
+beforeAll(() => {
+  helperTmp = mkdtempSync(join(tmpdir(), "machinen-runtime-helper-test-"));
+  execFileSync("zig", ["build", "--prefix", helperTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousHelper = process.env.MACHINEN_RUNTIME_HELPER;
+  process.env.MACHINEN_RUNTIME_HELPER = join(helperTmp, "bin", "machinen-runtime-helper");
+});
+
+afterAll(() => {
+  if (previousHelper === undefined) {
+    delete process.env.MACHINEN_RUNTIME_HELPER;
+  } else {
+    process.env.MACHINEN_RUNTIME_HELPER = previousHelper;
+  }
+  if (helperTmp) {
+    rmSync(helperTmp, { recursive: true, force: true });
+  }
+});
 
 describe("resolveCpuResourcePolicy", () => {
   it("returns undefined when CPU resources are omitted", () => {

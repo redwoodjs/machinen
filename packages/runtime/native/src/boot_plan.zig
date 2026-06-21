@@ -2,6 +2,10 @@ const std = @import("std");
 
 const memory_floor_mib: u64 = 512;
 const memory_default_ceiling_mib: u64 = 4096;
+const default_cpu_max_vcpus: u64 = 1;
+const default_cpu_weight: u64 = 100;
+const min_cpu_weight: u64 = 1;
+const max_cpu_weight: u64 = 10_000;
 const max_live_mounts: usize = 5;
 const restore_command = [_][]const u8{"/sbin/machinen-restore"};
 const poweroff_command = [_][]const u8{"/sbin/machinen-poweroff"};
@@ -16,6 +20,18 @@ pub const RootDiskMode = enum {
 pub const ResourcesMemory = struct {
     max_mib: u64,
     reclaim: ?[]const u8,
+};
+
+pub const CpuResourcesInput = struct {
+    max_vcpus: ?u64 = null,
+    quota_cpus: ?f64 = null,
+    weight: ?u64 = null,
+};
+
+pub const CpuPolicyPlan = struct {
+    max_vcpus: u64,
+    quota_cpus: ?f64,
+    weight: u64,
 };
 
 pub const EnvPair = struct {
@@ -347,6 +363,11 @@ pub const PlanError = error{
     InvalidMemory,
     ConflictingMemory,
     InvalidReclaim,
+    InvalidCpuMaxVcpus,
+    UnsupportedCpuMaxVcpus,
+    InvalidCpuQuotaCpus,
+    CpuQuotaExceedsMaxVcpus,
+    InvalidCpuWeight,
     CmdWithoutImage,
     RootDiskWithoutImage,
     MissingAutoMemory,
@@ -363,6 +384,23 @@ pub const PlanError = error{
     IncompleteRegistryMountDisk,
     MissingProvisionRepackField,
 };
+
+pub fn planCpuResources(input: ?CpuResourcesInput) PlanError!?CpuPolicyPlan {
+    const cpu = input orelse return null;
+    const max_vcpus = cpu.max_vcpus orelse default_cpu_max_vcpus;
+    if (max_vcpus < 1) return error.InvalidCpuMaxVcpus;
+    if (max_vcpus != default_cpu_max_vcpus) return error.UnsupportedCpuMaxVcpus;
+
+    const quota_cpus = if (cpu.quota_cpus) |quota| blk: {
+        if (!std.math.isFinite(quota) or quota <= 0) return error.InvalidCpuQuotaCpus;
+        if (quota > @as(f64, @floatFromInt(max_vcpus))) return error.CpuQuotaExceedsMaxVcpus;
+        break :blk quota;
+    } else null;
+
+    const weight = cpu.weight orelse default_cpu_weight;
+    if (weight < min_cpu_weight or weight > max_cpu_weight) return error.InvalidCpuWeight;
+    return .{ .max_vcpus = max_vcpus, .quota_cpus = quota_cpus, .weight = weight };
+}
 
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
     var out: std.ArrayList(EnvPair) = .empty;
@@ -910,6 +948,27 @@ fn resolveExplicitMemory(input: Input) PlanError!?u64 {
         return error.ConflictingMemory;
     }
     return resource_ceiling orelse alias_ceiling;
+}
+
+test "planCpuResources applies defaults and validates cpu policy" {
+    try std.testing.expect((try planCpuResources(null)) == null);
+
+    const defaults = (try planCpuResources(.{})).?;
+    try std.testing.expectEqual(@as(u64, 1), defaults.max_vcpus);
+    try std.testing.expect(defaults.quota_cpus == null);
+    try std.testing.expectEqual(@as(u64, 100), defaults.weight);
+
+    const constrained = (try planCpuResources(.{ .max_vcpus = 1, .quota_cpus = 0.5, .weight = 200 })).?;
+    try std.testing.expectEqual(@as(u64, 1), constrained.max_vcpus);
+    try std.testing.expectEqual(@as(f64, 0.5), constrained.quota_cpus.?);
+    try std.testing.expectEqual(@as(u64, 200), constrained.weight);
+
+    try std.testing.expectError(error.InvalidCpuMaxVcpus, planCpuResources(.{ .max_vcpus = 0 }));
+    try std.testing.expectError(error.UnsupportedCpuMaxVcpus, planCpuResources(.{ .max_vcpus = 2 }));
+    try std.testing.expectError(error.InvalidCpuQuotaCpus, planCpuResources(.{ .quota_cpus = 0 }));
+    try std.testing.expectError(error.CpuQuotaExceedsMaxVcpus, planCpuResources(.{ .quota_cpus = 1.5 }));
+    try std.testing.expectError(error.InvalidCpuWeight, planCpuResources(.{ .weight = 0 }));
+    try std.testing.expectError(error.InvalidCpuWeight, planCpuResources(.{ .weight = 10_001 }));
 }
 
 test "autoSizeMemoryMib applies floor, half-host, and default ceiling" {

@@ -101,6 +101,32 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans CPU resource policy defaults and fractional quota", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      resourcesCpu: { maxVcpus: "1", quotaCpus: "0.5", weight: "200" },
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.cpuPolicy).toEqual({
+      maxVcpus: 1,
+      quotaCpus: 0.5,
+      weight: 200,
+    });
+  });
+
   it("plans vsock specs from caller env or auto UDS paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
