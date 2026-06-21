@@ -5,6 +5,7 @@ import type { BootCpuResourceOptions, ResolvedCpuResourcePolicy } from "../vm/cp
 import type { BootMemoryResourceOptions } from "../vm/memory-resources.ts";
 import { isNativeBootPlanResult } from "./boot-plan-schema.ts";
 import type {
+  BundleWorkspacePlan,
   MountDiskRuntimePlan,
   PlannedLiveMount,
   PlannedPortForward,
@@ -26,6 +27,10 @@ type RootDiskPlanMode = "unset" | "false" | "path" | "true";
 type ScratchDiskMode = "false" | "path" | "auto";
 type RootDiskRuntimeMode = "none" | "path" | "restore" | "cached";
 type MountDiskRuntimeMode = "none" | "restore" | "fresh";
+type RequiredBundleWorkspacePlan = {
+  cpioPath: NonNullable<BundleWorkspacePlan["cpioPath"]>;
+  synthBundleDir: NonNullable<BundleWorkspacePlan["synthBundleDir"]>;
+};
 
 type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
 type LiveMountPlanInput = { host: string; guest: string; mode?: string };
@@ -85,6 +90,7 @@ interface NativeBootPlanInput {
   bundleCommandRequired?: boolean;
   bundleImageEnv?: Record<string, string>;
   bundleGuestEnv?: Record<string, string>;
+  bundleWorkspaceTempDir?: string;
   provisionGuestCpu?: ProvisionGuestCpu;
   provisionGuestArchOverride?: string;
   provisionHostArch?: string;
@@ -229,6 +235,7 @@ function bundleCommandData(input: NativeBootPlanInput): Record<string, unknown> 
     bundleCommandRequired: input.bundleCommandRequired === true,
     bundleImageEnv: input.bundleImageEnv ?? {},
     bundleGuestEnv: input.bundleGuestEnv ?? {},
+    bundleWorkspaceTempDir: nullDefault(input.bundleWorkspaceTempDir),
   };
 }
 
@@ -659,6 +666,23 @@ export function planBootPortForwardNative(
     hasCmd: false,
     rootDisk: "false",
   }).plannedPortForward;
+}
+
+export function planBootBundleWorkspaceNative(tempDir: string): RequiredBundleWorkspacePlan {
+  const plan = planBootCoreNative({
+    bundleWorkspaceTempDir: tempDir,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).bundleWorkspace;
+  if (plan.cpioPath === null || plan.synthBundleDir === null) {
+    throw new BootError(
+      "BOOT_PACK_FAILED",
+      "boot: native planner returned incomplete bundle workspace",
+    );
+  }
+  return { cpioPath: plan.cpioPath, synthBundleDir: plan.synthBundleDir };
 }
 
 export function planBootBundleEnvNative(input: {

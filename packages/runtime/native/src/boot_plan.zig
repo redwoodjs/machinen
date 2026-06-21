@@ -103,6 +103,15 @@ pub const BundleEnvInput = struct {
     guest_env: []const EnvPair = &.{},
 };
 
+pub const BundleWorkspaceInput = struct {
+    temp_dir: ?[]const u8 = null,
+};
+
+pub const BundleWorkspacePlan = struct {
+    cpio_path: ?[]const u8,
+    synth_bundle_dir: ?[]const u8,
+};
+
 pub const ProvisionGuestCpu = enum {
     arm64,
     amd64,
@@ -771,6 +780,16 @@ pub fn planProvisionAssets(input: ProvisionAssetsInput) ProvisionAssetsPlan {
             .dtb_asset = "virt-arm64.dtb",
             .rootfs_asset = "rootfs-debian-arm64.tar.gz",
         },
+    };
+}
+
+pub fn planBundleWorkspace(allocator: std.mem.Allocator, input: BundleWorkspaceInput) !BundleWorkspacePlan {
+    const temp_dir = input.temp_dir orelse return .{ .cpio_path = null, .synth_bundle_dir = null };
+    const cpio_path = try std.fs.path.join(allocator, &.{ temp_dir, "initramfs.cpio" });
+    errdefer allocator.free(cpio_path);
+    return .{
+        .cpio_path = cpio_path,
+        .synth_bundle_dir = try std.fs.path.join(allocator, &.{ temp_dir, "bundle" }),
     };
 }
 
@@ -1575,6 +1594,17 @@ test "planProvisionAssets selects asset names by guest CPU" {
     const override = planProvisionAssets(.{ .arch_override = "amd64", .host_arch = "arm64" });
     try std.testing.expectEqualStrings("amd64", override.cpu);
     try std.testing.expectEqualStrings("bzImage-x86_64", override.kernel_asset);
+}
+
+test "planBundleWorkspace derives staging paths from the runtime-owned temp dir" {
+    const planned = try planBundleWorkspace(std.testing.allocator, .{ .temp_dir = "/tmp/machinen-bundle-abc" });
+    defer std.testing.allocator.free(planned.cpio_path.?);
+    defer std.testing.allocator.free(planned.synth_bundle_dir.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-bundle-abc/initramfs.cpio", planned.cpio_path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-bundle-abc/bundle", planned.synth_bundle_dir.?);
+    const none = try planBundleWorkspace(std.testing.allocator, .{});
+    try std.testing.expect(none.cpio_path == null);
+    try std.testing.expect(none.synth_bundle_dir == null);
 }
 
 test "planBundleEnv overlays guest env on image env" {

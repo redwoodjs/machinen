@@ -26,6 +26,10 @@ export type BootVmstateRuntimePlan = {
   checkpointParent: string | null;
   checkpointSequence: number | null;
 };
+export type BundleWorkspacePlan = {
+  cpioPath: string | null;
+  synthBundleDir: string | null;
+};
 export type ProvisionAssetsPlan = {
   cpu: ProvisionGuestCpu;
   kernelAsset: string;
@@ -128,6 +132,7 @@ export interface NativeBootPlanResult {
   machinenConfig: MachinenConfigPlan;
   bundleCommand: string[];
   bundleEnv: Record<string, string>;
+  bundleWorkspace: BundleWorkspacePlan;
   provisionAssets: ProvisionAssetsPlan;
   provisionBoot: ProvisionBootPlan;
   provisionWorkload: ProvisionWorkloadPlan;
@@ -176,6 +181,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isMachinenConfigPlan(data.machinenConfig),
     isStringArray(data.bundleCommand),
     isStringRecord(data.bundleEnv),
+    isBundleWorkspacePlan(data.bundleWorkspace),
     isProvisionAssetsPlan(data.provisionAssets),
     isProvisionBootPlan(data.provisionBoot),
     isProvisionWorkloadPlan(data.provisionWorkload),
@@ -199,6 +205,14 @@ function isCpuPolicyPlan(value: unknown): value is CpuPolicyPlan {
     (plan.quotaCpus === undefined || nonNegativeNumber(plan.quotaCpus)) &&
     nonNegativeNumber(plan.weight)
   );
+}
+
+function isBundleWorkspacePlan(value: unknown): value is BundleWorkspacePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<BundleWorkspacePlan>;
+  return nullableString(plan.cpioPath) && nullableString(plan.synthBundleDir);
 }
 
 function isProvisionAssetsPlan(value: unknown): value is ProvisionAssetsPlan {
