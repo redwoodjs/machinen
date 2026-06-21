@@ -75,6 +75,7 @@ import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
 import { planBootScratchModeNative } from "../native/scratch-mode.ts";
 import { planBootStatsFileModeNative } from "../native/stats-file-mode.ts";
 import { planBootVsockModeNative } from "../native/vsock-mode.ts";
+import { planBootVmstateTempModeNative as planVmstateTempMode } from "../native/vmstate-temp-mode.ts";
 import { planGvproxyNative } from "../native/gvproxy-plan.ts";
 import {
   planPortForwardProbeNative,
@@ -1098,8 +1099,15 @@ function setupVmstateBoot(
   let vsockTempDir = inputVsockTempDir;
   let stateTempDir: string | undefined;
   const chainId = randomBytes(16).toString("hex");
-  if (resolveSnapshotEngine() === "vmstate" && opts.snapshot !== false) {
-    stateTempDir = vsockTempDir = ensureVsockTempDir(vsockTempDir);
+  const tempMode = planVmstateTempMode(
+    resolveSnapshotEngine(),
+    opts.snapshot === false,
+    vsockTempDir,
+  );
+  if (tempMode.action === "allocate") {
+    stateTempDir = vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
+  } else if (tempMode.tempDir) {
+    stateTempDir = vsockTempDir = tempMode.tempDir;
   }
   const runtime = planBootVmstateRuntimeNative({
     stateTempDir,
@@ -1116,11 +1124,6 @@ function setupVmstateBoot(
   applyVmstateEnvPlan(opts, env, vmstate.statePath);
   return { vmstate, vsockTempDir };
 }
-
-function ensureVsockTempDir(vsockTempDir: string | undefined): string {
-  return vsockTempDir ?? mkdtempSync(join(tmpdir(), "machinen-vsock-"));
-}
-
 function applyVmstateEnvPlan(
   opts: BootOptions,
   env: Record<string, string>,
@@ -1142,7 +1145,6 @@ function applyVmstateEnvPlan(
     env.MACHINEN_VMSTATE_TIMING = plan.vmstateTiming;
   }
 }
-
 function setupLiveMountEnv(opts: BootOptions, env: Record<string, string>): ResolvedLiveMount[] {
   const liveMounts = opts.liveMounts ?? [];
   if (liveMounts.length === 0) {
@@ -1152,7 +1154,6 @@ function setupLiveMountEnv(opts: BootOptions, env: Record<string, string>): Reso
   Object.assign(env, planBootVirtiofsEnvNative(resolved));
   return resolved;
 }
-
 function buildMergedGuestEnv(
   opts: BootOptions,
   vsockUdsPath: string | undefined,
@@ -1167,7 +1168,6 @@ function buildMergedGuestEnv(
     rootDisk: "false",
   }).mergedGuestEnv;
 }
-
 // Validate portForward up front — before resolving the binary or
 // touching the filesystem — so caller-input errors surface with a
 // clear message. The env-dependent "pre-set MACHINEN_NET_SOCKET"

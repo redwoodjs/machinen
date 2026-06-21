@@ -469,6 +469,61 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans vmstate temp allocation mode", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+
+    const reuse = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          bootVmstateEngine: "vmstate",
+          bootVmstateExistingTempDir: "/tmp/machinen-vsock-test",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(reuse.status).toBe(0);
+    expect(JSON.parse(reuse.stdout).data.vmstateTempMode).toEqual({
+      action: "reuse",
+      tempDir: "/tmp/machinen-vsock-test",
+    });
+
+    const allocate = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, bootVmstateEngine: "vmstate" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(allocate.status).toBe(0);
+    expect(JSON.parse(allocate.stdout).data.vmstateTempMode).toEqual({
+      action: "allocate",
+      tempDir: null,
+    });
+
+    const skip = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, bootVmstateEngine: "vmstate", bootVmstateSnapshotDisabled: true },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(skip.status).toBe(0);
+    expect(JSON.parse(skip.stdout).data.vmstateTempMode).toEqual({ action: "skip", tempDir: null });
+  });
+
   it("plans nested virtualization VMM env", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

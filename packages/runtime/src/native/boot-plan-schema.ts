@@ -11,6 +11,7 @@ export type PlannedPortForward = { hostPort: number; guestPort: number; hostAddr
 export type PortForwardProbePlan = { hostPort: number; probeHost: string };
 export type GvproxyPlan = { action: GvproxyAction; gvproxyPath: string | null };
 export type VsockModePlan = { action: "existing" | "allocate"; existingSpec: string | null };
+export type VmstateTempModePlan = { action: "skip" | "reuse" | "allocate"; tempDir: string | null };
 export type StatsFileModePlan = { action: "existing" | "allocate"; existingPath: string | null };
 type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
@@ -176,6 +177,7 @@ export interface NativeBootPlanResult {
   vmmSnapshotPath: string | null;
   vmmRestorePath: string | null;
   vmmVmstateTiming: string | null;
+  vmstateTempMode: VmstateTempModePlan;
   vmstateRuntime: BootVmstateRuntimePlan;
   vmmNested: string | null;
   virtiofsEnv: Record<string, string>;
@@ -245,6 +247,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmSnapshotPath),
     nullableString(data.vmmRestorePath),
     nullableString(data.vmmVmstateTiming),
+    isVmstateTempModePlan(data.vmstateTempMode),
     isBootVmstateRuntimePlan(data.vmstateRuntime),
     nullableString(data.vmmNested),
     isStringRecord(data.virtiofsEnv),
@@ -702,6 +705,17 @@ function isVsockModePlan(value: unknown): value is VsockModePlan {
   const plan = value as Partial<VsockModePlan>;
   return (
     (plan.action === "existing" || plan.action === "allocate") && nullableString(plan.existingSpec)
+  );
+}
+
+function isVmstateTempModePlan(value: unknown): value is VmstateTempModePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<VmstateTempModePlan>;
+  return (
+    (plan.action === "skip" || plan.action === "reuse" || plan.action === "allocate") &&
+    nullableString(plan.tempDir)
   );
 }
 
