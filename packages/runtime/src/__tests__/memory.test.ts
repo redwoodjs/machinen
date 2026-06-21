@@ -1708,6 +1708,10 @@ describe("boot-plan helper schema", () => {
       claimName: "worker",
       shouldWrite: true,
     });
+    expect(parsed.registryProcessIdentity).toEqual({
+      vmmPid: 1234,
+      gvPid: 4321,
+    });
     expect(parsed.registryProcess).toEqual({
       vmmExe: "machinen-pdeathsig",
       gvproxyExe: "gvproxy",

@@ -755,6 +755,7 @@ const PlanParts = struct {
     snapshot_backing: boot_plan.SnapshotBackingPlan,
     registry_shape: boot_plan.RegistryShapePlan,
     registry_lifecycle: boot_plan.RegistryLifecyclePlan,
+    registry_process_identity: boot_plan.RegistryProcessIdentityPlan,
     registry_process: boot_plan.RegistryProcessPlan,
 };
 
@@ -875,6 +876,7 @@ fn makePlanParts(
         .snapshot_backing = makeSnapshotBacking(parsed),
         .registry_shape = runtime.registry_shape,
         .registry_lifecycle = runtime.registry_lifecycle,
+        .registry_process_identity = try makeRegistryProcessIdentity(parsed),
         .registry_process = runtime.registry_process,
     };
 }
@@ -1448,6 +1450,25 @@ fn makeRegistryLifecycle(parsed: ParsedRequest) RequestError!boot_plan.RegistryL
     });
 }
 
+fn makeRegistryProcessIdentity(parsed: ParsedRequest) !boot_plan.RegistryProcessIdentityPlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    const child_pid = if (parsed.registry_child_pid_text) |text|
+        parseSigned(text) catch return error.InvalidRegistryChildPid
+    else
+        null;
+    const gv_pid = if (parsed.registry_gv_pid_text) |text|
+        parseSigned(text) catch return error.InvalidRegistryGvPid
+    else
+        null;
+    return boot_plan.planRegistryProcessIdentityReads(.{
+        .host_platform = parsed.registry_host_platform,
+        .child_pid = child_pid,
+        .vmm_pdeathsig = parsed.registry_vmm_pdeathsig,
+        .gv_pid = gv_pid,
+    });
+}
+
 fn makeRegistryProcess(parsed: ParsedRequest) !boot_plan.RegistryProcessPlan {
     assert(@sizeOf(boot_plan.RegistryProcessInput) > 0);
 
@@ -1722,6 +1743,12 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeSnapshotBackingField(io, "snapshotBacking", parts.snapshot_backing, true);
     try writeRegistryShapeField(io, "registryShape", parts.registry_shape, true);
     try writeRegistryLifecycleField(io, "registryLifecycle", parts.registry_lifecycle, true);
+    try writeRegistryProcessIdentityField(
+        io,
+        "registryProcessIdentity",
+        parts.registry_process_identity,
+        true,
+    );
     try writeRegistryProcessField(io, "registryProcess", parts.registry_process, true);
     try protocol.stdout(io, "}}\n");
 }
@@ -2039,6 +2066,23 @@ fn writeNullableU64Field(
     io: std.Io,
     comptime field: []const u8,
     value: ?u64,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    if (value) |number| {
+        var buf: [32]u8 = undefined;
+        try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{number}));
+    } else {
+        try protocol.stdout(io, "null");
+    }
+}
+
+fn writeNullableI64Field(
+    io: std.Io,
+    comptime field: []const u8,
+    value: ?i64,
     comma: bool,
 ) !void {
     assert(field.len > 0);
@@ -2574,6 +2618,21 @@ fn writeRegistryLifecycleField(
     try protocol.stdout(io, "{");
     try writeNullableStringField(io, "claimName", lifecycle.claim_name, false);
     try writeBoolField(io, "shouldWrite", lifecycle.should_write, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeRegistryProcessIdentityField(
+    io: std.Io,
+    comptime field: []const u8,
+    identity: boot_plan.RegistryProcessIdentityPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableI64Field(io, "vmmPid", identity.vmm_pid, false);
+    try writeNullableI64Field(io, "gvPid", identity.gv_pid, true);
     try protocol.stdout(io, "}");
 }
 
