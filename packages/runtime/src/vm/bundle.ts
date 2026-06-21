@@ -31,6 +31,7 @@ import {
   planBootMountDiskRuntimeNative,
   planBootMachinenConfigNative,
 } from "../native/boot-plan.ts";
+import { planBootBundleMountDiskModeNative } from "../native/bundle-mount-disk-mode.ts";
 import { planBootBundlePackNative } from "../native/bundle-pack.ts";
 import type { BundlePackPlan } from "../native/boot-plan-schema.ts";
 import { planRestoreLiveMountsNative } from "../native/restore-live-mounts.ts";
@@ -374,13 +375,18 @@ function materializeBundleMountDisk(
   packerOpts: BundlePackerOptions,
   packPlan: BundlePackPlan,
 ): BundleMountDisk | undefined {
-  if (packPlan.kind !== "tiny") {
-    return undefined;
-  }
-  if (opts._restoreMountDisk) {
+  const mode = planBootBundleMountDiskModeNative({
+    useTiny: packPlan.kind === "tiny",
+    mountGuest: mount?.guest,
+    restoreMountGuest: opts._restoreMountDisk?.guest,
+  });
+  if (mode.action === "restore" && opts._restoreMountDisk) {
     return materializeRestoredMountDisk(opts._restoreMountDisk);
   }
-  return mount ? materializeFreshMountDisk(mount, packerOpts) : undefined;
+  if (mode.action === "fresh" && mount) {
+    return materializeFreshMountDisk(mount, packerOpts);
+  }
+  return undefined;
 }
 
 function materializeRestoredMountDisk(

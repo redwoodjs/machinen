@@ -584,11 +584,13 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
-    const bundle_pack = boot_plan.planBundlePack(.{
+    const bundle_pack_input: boot_plan.BundlePackInput = .{
         .use_tiny = parsed.bundle_pack_use_tiny,
         .mount_guest = parsed.bundle_pack_mount_guest,
         .restore_mount_guest = parsed.bundle_pack_restore_mount_guest,
-    });
+    };
+    const bundle_pack = boot_plan.planBundlePack(bundle_pack_input);
+    const bundle_mount_disk_mode = boot_plan.planBundleMountDiskMode(bundle_pack_input);
     const provision_assets = boot_plan.planProvisionAssets(.{
         .guest_cpu = parsed.provision_guest_cpu,
         .arch_override = parsed.provision_guest_arch_override,
@@ -821,7 +823,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .gv_observed_exe_base = parsed.registry_gv_observed_exe_base,
     });
 
-    try writePlan(io, plan, root_disk_mode, cpu_plan, guest_env, vmm_env, guest_hostname, guest_hostname_set, vsock_mode, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_temp_mode, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file_mode, stats_file, planned_live_mounts, parsed.port_forward, port_forward_probe, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, provision_assets, provision_dtb, provision_cli_cache, provision_asset_lookup, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, planned_scratch_mode, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, snapshot_context, registry_shape, registry_lifecycle, registry_process);
+    try writePlan(io, plan, root_disk_mode, cpu_plan, guest_env, vmm_env, guest_hostname, guest_hostname_set, vsock_mode, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_temp_mode, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file_mode, stats_file, planned_live_mounts, parsed.port_forward, port_forward_probe, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, bundle_mount_disk_mode, provision_assets, provision_dtb, provision_cli_cache, provision_asset_lookup, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, planned_scratch_mode, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, snapshot_context, registry_shape, registry_lifecycle, registry_process);
     return .ok;
 }
 
@@ -862,6 +864,7 @@ fn writePlan(
     bundle_workspace: boot_plan.BundleWorkspacePlan,
     bundle_config_paths: boot_plan.BundleConfigPathsPlan,
     bundle_pack: boot_plan.BundlePackPlan,
+    bundle_mount_disk_mode: boot_plan.BundleMountDiskModePlan,
     provision_assets: boot_plan.ProvisionAssetsPlan,
     provision_dtb: boot_plan.ProvisionDtbPlan,
     provision_cli_cache: boot_plan.ProvisionCliCachePlan,
@@ -1065,6 +1068,10 @@ fn writePlan(
     try protocol.writeJsonString(io, bundle_pack.kind);
     try protocol.stdout(io, ",\"tinyMountGuest\":");
     try writeNullableJsonString(io, bundle_pack.tiny_mount_guest);
+    try protocol.stdout(io, "}");
+    try protocol.stdout(io, ",\"bundleMountDiskMode\":{");
+    try protocol.stdout(io, "\"action\":");
+    try protocol.writeJsonString(io, bundle_mount_disk_mode.action);
     try protocol.stdout(io, "}");
     try protocol.stdout(io, ",\"provisionAssets\":{");
     try protocol.stdout(io, "\"cpu\":");

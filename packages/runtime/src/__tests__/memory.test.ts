@@ -1097,9 +1097,12 @@ describe("boot-plan helper schema", () => {
       encoding: "utf8",
     });
     expect(tiny.status).toBe(0);
-    expect(JSON.parse(tiny.stdout).data.bundlePack).toEqual({
-      kind: "tiny",
-      tinyMountGuest: "/mnt/data",
+    expect(JSON.parse(tiny.stdout).data).toMatchObject({
+      bundlePack: {
+        kind: "tiny",
+        tinyMountGuest: "/mnt/data",
+      },
+      bundleMountDiskMode: { action: "fresh" },
     });
 
     const fat = spawnSync(helper, ["boot-plan"], {
@@ -1107,10 +1110,28 @@ describe("boot-plan helper schema", () => {
       encoding: "utf8",
     });
     expect(fat.status).toBe(0);
-    expect(JSON.parse(fat.stdout).data.bundlePack).toEqual({
-      kind: "fat",
-      tinyMountGuest: null,
+    expect(JSON.parse(fat.stdout).data).toMatchObject({
+      bundlePack: {
+        kind: "fat",
+        tinyMountGuest: null,
+      },
+      bundleMountDiskMode: { action: "none" },
     });
+
+    const restore = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          bundlePackUseTiny: true,
+          bundlePackMountGuest: "/mnt/data",
+          bundlePackRestoreMountGuest: "/mnt/restore",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(restore.status).toBe(0);
+    expect(JSON.parse(restore.stdout).data.bundleMountDiskMode).toEqual({ action: "restore" });
   });
 
   it("plans bundle env overlays", () => {

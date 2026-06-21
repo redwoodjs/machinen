@@ -184,6 +184,10 @@ pub const BundlePackPlan = struct {
     tiny_mount_guest: ?[]const u8,
 };
 
+pub const BundleMountDiskModePlan = struct {
+    action: []const u8,
+};
+
 pub const ProvisionGuestCpu = enum {
     arm64,
     amd64,
@@ -1234,6 +1238,13 @@ pub fn planBundleConfigPaths(allocator: std.mem.Allocator, input: BundleConfigPa
 pub fn planBundlePack(input: BundlePackInput) BundlePackPlan {
     if (!input.use_tiny) return .{ .kind = "fat", .tiny_mount_guest = null };
     return .{ .kind = "tiny", .tiny_mount_guest = input.mount_guest orelse input.restore_mount_guest };
+}
+
+pub fn planBundleMountDiskMode(input: BundlePackInput) BundleMountDiskModePlan {
+    if (!input.use_tiny) return .{ .action = "none" };
+    if (input.restore_mount_guest != null) return .{ .action = "restore" };
+    if (input.mount_guest != null) return .{ .action = "fresh" };
+    return .{ .action = "none" };
 }
 
 pub fn planBundleEnv(allocator: std.mem.Allocator, input: BundleEnvInput) ![]EnvPair {
@@ -2373,6 +2384,20 @@ test "planBundleConfigPaths derives bundle config staging paths" {
     const none = try planBundleConfigPaths(std.testing.allocator, .{});
     try std.testing.expect(none.rootfs_dir == null);
     try std.testing.expect(none.config_path == null);
+}
+
+test "planBundleMountDiskMode selects mount disk materialization action" {
+    const fat = planBundleMountDiskMode(.{});
+    try std.testing.expectEqualStrings("none", fat.action);
+
+    const tiny_none = planBundleMountDiskMode(.{ .use_tiny = true });
+    try std.testing.expectEqualStrings("none", tiny_none.action);
+
+    const fresh = planBundleMountDiskMode(.{ .use_tiny = true, .mount_guest = "/mnt/data" });
+    try std.testing.expectEqualStrings("fresh", fresh.action);
+
+    const restore = planBundleMountDiskMode(.{ .use_tiny = true, .mount_guest = "/mnt/data", .restore_mount_guest = "/mnt/restore" });
+    try std.testing.expectEqualStrings("restore", restore.action);
 }
 
 test "planBundlePack selects fat or tiny initramfs inputs" {
