@@ -150,6 +150,8 @@ const ParsedRequest = struct {
     registry_boot_log_root: ?[]const u8 = null,
     registry_child_pid_text: ?[]const u8 = null,
     registry_detached: bool = false,
+    registry_lifecycle_name: ?[]const u8 = null,
+    registry_lifecycle_vsock_uds_path: ?[]const u8 = null,
     registry_per_boot_snap_disk: ?[]const u8 = null,
     registry_per_boot_mount_upper: ?[]const u8 = null,
     registry_bundle_temp_dir: ?[]const u8 = null,
@@ -333,6 +335,8 @@ const boot_plan_fields = [_][]const u8{
     "registryBootLogRoot",
     "registryChildPid",
     "registryDetached",
+    "registryLifecycleName",
+    "registryLifecycleVsockUdsPath",
     "registryPerBootSnapDisk",
     "registryPerBootMountUpper",
     "registryBundleTempDir",
@@ -524,6 +528,8 @@ const RequestError = error{
     InvalidRegistryBootLogRoot,
     InvalidRegistryChildPid,
     InvalidRegistryDetached,
+    InvalidRegistryLifecycleName,
+    InvalidRegistryLifecycleVsockUdsPath,
     InvalidRegistryDiskPath,
     InvalidRegistryForkedFrom,
     InvalidRegistryMemoryCeilingMib,
@@ -630,6 +636,7 @@ const PlanParts = struct {
     mount_disk_fd_env: []const boot_plan.EnvPair,
     snapshot_context: boot_plan.SnapshotContextPlan,
     registry_shape: boot_plan.RegistryShapePlan,
+    registry_lifecycle: boot_plan.RegistryLifecyclePlan,
     registry_process: boot_plan.RegistryProcessPlan,
 };
 
@@ -675,6 +682,7 @@ const RuntimeParts = struct {
     mount_disk_fd_env: []const boot_plan.EnvPair,
     snapshot_context: boot_plan.SnapshotContextPlan,
     registry_shape: boot_plan.RegistryShapePlan,
+    registry_lifecycle: boot_plan.RegistryLifecyclePlan,
     registry_process: boot_plan.RegistryProcessPlan,
 };
 
@@ -743,6 +751,7 @@ fn makePlanParts(
         .mount_disk_fd_env = runtime.mount_disk_fd_env,
         .snapshot_context = runtime.snapshot_context,
         .registry_shape = runtime.registry_shape,
+        .registry_lifecycle = runtime.registry_lifecycle,
         .registry_process = runtime.registry_process,
     };
 }
@@ -844,6 +853,7 @@ fn makeRuntimeParts(arena: std.mem.Allocator, parsed: ParsedRequest) !RuntimePar
         .mount_disk_fd_env = try makeMountDiskFdEnv(arena, parsed),
         .snapshot_context = try makeSnapshotContext(arena, parsed),
         .registry_shape = try makeRegistryShape(arena, parsed),
+        .registry_lifecycle = try makeRegistryLifecycle(parsed),
         .registry_process = try makeRegistryProcess(parsed),
     };
 }
@@ -1142,6 +1152,20 @@ fn makeSnapshotContext(
     });
 }
 
+fn makeRegistryLifecycle(parsed: ParsedRequest) RequestError!boot_plan.RegistryLifecyclePlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    const child_pid = if (parsed.registry_child_pid_text) |text|
+        parseSigned(text) catch return error.InvalidRegistryChildPid
+    else
+        null;
+    return boot_plan.planRegistryLifecycle(.{
+        .name = parsed.registry_lifecycle_name,
+        .child_pid = child_pid,
+        .vsock_uds_path = parsed.registry_lifecycle_vsock_uds_path,
+    });
+}
+
 fn makeRegistryProcess(parsed: ParsedRequest) !boot_plan.RegistryProcessPlan {
     assert(@sizeOf(boot_plan.RegistryProcessInput) > 0);
 
@@ -1319,6 +1343,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeEnvObjectField(io, "mountDiskFdEnv", parts.mount_disk_fd_env, true);
     try writeSnapshotContextField(io, "snapshotContext", parts.snapshot_context, true);
     try writeRegistryShapeField(io, "registryShape", parts.registry_shape, true);
+    try writeRegistryLifecycleField(io, "registryLifecycle", parts.registry_lifecycle, true);
     try writeRegistryProcessField(io, "registryProcess", parts.registry_process, true);
     try protocol.stdout(io, "}}\n");
 }
@@ -2038,6 +2063,21 @@ fn writeSnapshotVmstateChainField(
         try writeU64Field(io, "sequence", vmstate.sequence, true);
         try protocol.stdout(io, "}");
     } else try protocol.stdout(io, "null");
+}
+
+fn writeRegistryLifecycleField(
+    io: std.Io,
+    comptime field: []const u8,
+    lifecycle: boot_plan.RegistryLifecyclePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "claimName", lifecycle.claim_name, false);
+    try writeBoolField(io, "shouldWrite", lifecycle.should_write, true);
+    try protocol.stdout(io, "}");
 }
 
 fn writeRegistryProcessField(
@@ -3319,6 +3359,16 @@ fn parseRegistryRootDiskFields(
         "registryDetached",
         error.InvalidRegistryDetached,
     );
+    request.registry_lifecycle_name = try optionalStringDefaultNull(
+        object,
+        "registryLifecycleName",
+        error.InvalidRegistryLifecycleName,
+    );
+    request.registry_lifecycle_vsock_uds_path = try optionalStringDefaultNull(
+        object,
+        "registryLifecycleVsockUdsPath",
+        error.InvalidRegistryLifecycleVsockUdsPath,
+    );
 }
 
 fn parseRegistryCleanupFields(
@@ -4239,6 +4289,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
     if (try writeProvisionDtbRequestError(io, err)) return;
     if (try writeProvisionCliCacheRequestError(io, err)) return;
     if (try writeProvisionAssetLookupRequestError(io, err)) return;
+    if (try writeRegistryLifecycleRequestError(io, err)) return;
 
     switch (err) {
         error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
@@ -4258,6 +4309,22 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
+}
+
+fn writeRegistryLifecycleRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidRegistryLifecycleName,
+        error.InvalidRegistryLifecycleVsockUdsPath,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan registry lifecycle fields must be strings",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writeProvisionAssetLookupRequestError(io: std.Io, err: RequestError) !bool {
