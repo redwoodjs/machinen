@@ -35,6 +35,10 @@ const ParsedRequest = struct {
     vmm_args: []const []const u8 = &.{},
     guest_hostname_pid_text: ?[]const u8 = null,
     guest_hostname_name: ?[]const u8 = null,
+    guest_hostname_set_pid_text: ?[]const u8 = null,
+    guest_hostname_set_name: ?[]const u8 = null,
+    guest_hostname_set_vsock_uds_path: ?[]const u8 = null,
+    guest_hostname_set_skip: bool = false,
     pdeathsig_path: ?[]const u8 = null,
     pdeathsig_requested: ?bool = null,
     detached: bool = false,
@@ -199,6 +203,10 @@ const boot_plan_fields = [_][]const u8{
     "vmmArgs",
     "guestHostnamePid",
     "guestHostnameName",
+    "guestHostnameSetPid",
+    "guestHostnameSetName",
+    "guestHostnameSetVsockUdsPath",
+    "guestHostnameSetSkip",
     "pdeathsigPath",
     "pdeathsig",
     "detached",
@@ -369,6 +377,10 @@ const RequestError = error{
     InvalidVmmArgs,
     InvalidGuestHostnamePid,
     InvalidGuestHostnameName,
+    InvalidGuestHostnameSetPid,
+    InvalidGuestHostnameSetName,
+    InvalidGuestHostnameSetVsockUdsPath,
+    InvalidGuestHostnameSetSkip,
     InvalidPdeathsigPath,
     InvalidPdeathsig,
     InvalidDetached,
@@ -533,6 +545,7 @@ const PlanParts = struct {
     vsock_plan: boot_plan.VsockPlan,
     gvproxy_plan: boot_plan.GvproxyPlan,
     guest_hostname: boot_plan.GuestHostnameInput,
+    guest_hostname_set: boot_plan.GuestHostnameSetInput,
     vmm_argv: boot_plan.VmmArgvPlan,
     use_pdeathsig: bool,
     planned_port_forwards: []const boot_plan.PortForwardMapping,
@@ -628,6 +641,7 @@ fn makePlanParts(
         .cpu_policy = try makeCpuResources(parsed),
         .guest_env = try makeGuestEnv(arena, parsed),
         .guest_hostname = try makeGuestHostname(parsed),
+        .guest_hostname_set = try makeGuestHostnameSet(parsed),
         .vsock_plan = boot_env.vsock_plan,
         .gvproxy_plan = boot_env.gvproxy_plan,
         .vmm_argv = boot_env.vmm_argv,
@@ -1145,6 +1159,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeGvproxyPlanField(io, "gvproxyPlan", parts.gvproxy_plan, true);
     try writeNullableStringField(io, "vmmInitrd", parts.initrd_env.vmm_initrd, true);
     try writeGuestHostnameField(io, "guestHostname", parts.guest_hostname, true);
+    try writeGuestHostnameSetField(io, "guestHostnameSet", parts.guest_hostname_set, true);
     try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file);
     try writeVmstateRuntimeField(io, "vmstateRuntime", parts.vmstate_runtime, true);
     try writeBoolField(
@@ -1295,6 +1310,20 @@ fn writeGuestHostnameField(
     var buffer: [256]u8 = undefined;
     const hostname = boot_plan.formatGuestHostname(&buffer, input) catch
         return error.InvalidGuestHostnameName;
+    try writeNullableStringField(io, field, hostname, comma);
+}
+
+fn writeGuestHostnameSetField(
+    io: std.Io,
+    comptime field: []const u8,
+    input: boot_plan.GuestHostnameSetInput,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    var buffer: [256]u8 = undefined;
+    const hostname = boot_plan.formatGuestHostnameSet(&buffer, input) catch
+        return error.InvalidGuestHostnameSetName;
     try writeNullableStringField(io, field, hostname, comma);
 }
 
@@ -2013,6 +2042,20 @@ fn makeGuestHostname(parsed: ParsedRequest) RequestError!boot_plan.GuestHostname
     };
 }
 
+fn makeGuestHostnameSet(parsed: ParsedRequest) RequestError!boot_plan.GuestHostnameSetInput {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return .{
+        .pid = if (parsed.guest_hostname_set_pid_text) |text|
+            parseSigned(text) catch return error.InvalidGuestHostnameSetPid
+        else
+            null,
+        .name = parsed.guest_hostname_set_name,
+        .vsock_uds_path = parsed.guest_hostname_set_vsock_uds_path,
+        .skip = parsed.guest_hostname_set_skip,
+    };
+}
+
 fn makeGuestEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.EnvPair {
     assert(@sizeOf(ParsedRequest) > 0);
 
@@ -2292,6 +2335,26 @@ fn parseVsockFields(object: std.json.ObjectMap, request: *ParsedRequest) Request
         object,
         "guestHostnameName",
         error.InvalidGuestHostnameName,
+    );
+    request.guest_hostname_set_pid_text = try optionalStringDefaultNull(
+        object,
+        "guestHostnameSetPid",
+        error.InvalidGuestHostnameSetPid,
+    );
+    request.guest_hostname_set_name = try optionalStringDefaultNull(
+        object,
+        "guestHostnameSetName",
+        error.InvalidGuestHostnameSetName,
+    );
+    request.guest_hostname_set_vsock_uds_path = try optionalStringDefaultNull(
+        object,
+        "guestHostnameSetVsockUdsPath",
+        error.InvalidGuestHostnameSetVsockUdsPath,
+    );
+    request.guest_hostname_set_skip = try optionalBoolDefaultFalse(
+        object,
+        "guestHostnameSetSkip",
+        error.InvalidGuestHostnameSetSkip,
     );
     request.existing_vsock_spec = try optionalStringDefaultNull(
         object,
@@ -3867,6 +3930,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
     if (try writeSnapshotRequestError(io, err)) return;
     if (try writeLiveMountRequestError(io, err)) return;
     if (try writeBundleRequestError(io, err)) return;
+    if (try writeGuestHostnameRequestError(io, err)) return;
 
     switch (err) {
         error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
@@ -3886,6 +3950,32 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
+}
+
+fn writeGuestHostnameRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidGuestHostnameSetPid => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan guest hostname set pid must be a decimal integer",
+        ),
+        error.InvalidGuestHostnameSetSkip => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan guest hostname set skip flag must be a boolean",
+        ),
+        error.InvalidGuestHostnameSetName,
+        error.InvalidGuestHostnameSetVsockUdsPath,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan guest hostname set fields must be strings",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writeBundleRequestError(io: std.Io, err: RequestError) !bool {

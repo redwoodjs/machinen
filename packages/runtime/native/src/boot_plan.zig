@@ -62,6 +62,13 @@ pub const GuestHostnameInput = struct {
     name: ?[]const u8 = null,
 };
 
+pub const GuestHostnameSetInput = struct {
+    pid: ?i64 = null,
+    name: ?[]const u8 = null,
+    vsock_uds_path: ?[]const u8 = null,
+    skip: bool = false,
+};
+
 pub const VsockPlanInput = struct {
     existing_spec: ?[]const u8 = null,
     auto_uds_path: ?[]const u8 = null,
@@ -698,6 +705,14 @@ pub fn formatGuestHostname(buffer: []u8, input: GuestHostnameInput) !?[]const u8
     const pid_text = try std.fmt.bufPrint(buffer[len..], "{d}", .{pid});
     len += @intCast(pid_text.len);
     return buffer[0..len];
+}
+
+pub fn formatGuestHostnameSet(buffer: []u8, input: GuestHostnameSetInput) !?[]const u8 {
+    assert(buffer.len > 0);
+
+    if (input.skip) return null;
+    if (input.vsock_uds_path == null) return null;
+    return formatGuestHostname(buffer, .{ .pid = input.pid, .name = input.name });
 }
 
 fn appendSanitizedHostnameName(buffer: []u8, len: *u16, name: []const u8) !void {
@@ -2905,6 +2920,29 @@ test "planVsock parses existing specs and formats auto specs" {
         "in:1978:/tmp/machinen-vsock-abc/exec.sock",
         auto_dir.vmm_vsock.?,
     );
+}
+
+test "formatGuestHostnameSet gates hostname side effect on vsock and skip flag" {
+    var planned_buffer: [256]u8 = undefined;
+    const planned = (try formatGuestHostnameSet(&planned_buffer, .{
+        .pid = 1234,
+        .name = "worker",
+        .vsock_uds_path = "/tmp/exec.sock",
+    })).?;
+    try std.testing.expectEqualStrings("worker-pid-1234", planned);
+
+    var missing_vsock_buffer: [256]u8 = undefined;
+    try std.testing.expect((try formatGuestHostnameSet(&missing_vsock_buffer, .{
+        .pid = 1234,
+        .name = "worker",
+    })) == null);
+    var skip_buffer: [256]u8 = undefined;
+    try std.testing.expect((try formatGuestHostnameSet(&skip_buffer, .{
+        .pid = 1234,
+        .name = "worker",
+        .vsock_uds_path = "/tmp/exec.sock",
+        .skip = true,
+    })) == null);
 }
 
 test "planGuestEnv applies name and hostname wait defaults without overriding caller env" {

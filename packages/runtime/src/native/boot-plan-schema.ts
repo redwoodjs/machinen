@@ -133,6 +133,7 @@ export interface NativeBootPlanResult {
   detachedReadinessTimeoutMs: number;
   normalizedMountGuest: string | null;
   guestHostname: string | null;
+  guestHostnameSet: string | null;
   mergedGuestEnv: Record<string, string>;
   vsockUdsPath: string | null;
   vmmVsock: string | null;
@@ -191,6 +192,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nonNegativeNumber(data.detachedReadinessTimeoutMs),
     nullableString(data.normalizedMountGuest),
     nullableString(data.guestHostname),
+    nullableString(data.guestHostnameSet),
     isStringRecord(data.mergedGuestEnv),
     nullableString(data.vsockUdsPath),
     nullableString(data.vmmVsock),
