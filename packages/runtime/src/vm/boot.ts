@@ -54,6 +54,7 @@ import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
   planBootKernelDtbNative,
+  planBootPortForwardNative,
   planBootRegistryNestedNative,
   planBootRegistryPortForwardNative,
   planBootRegistryShapeNative,
@@ -64,7 +65,6 @@ import {
   planBootVmstateEnvNative,
   planBootVmmArgvNative,
   rootDiskPlanMode,
-  validateBootPortForwardNative,
 } from "../native/boot-plan.ts";
 import { reflinkCopy } from "../reflink.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
@@ -1019,8 +1019,7 @@ async function resolveBootAssets(
   phases: PhaseTimer,
 ): Promise<Pick<BootPlan, "portForward" | "binary">> {
   phases.start("asset-resolve");
-  const portForward = opts.portForward ?? [];
-  await validatePortForwardOpts(opts, portForward);
+  const portForward = await planPortForwardOpts(opts);
   const binary = resolveBootBinary(opts);
   phases.end("asset-resolve");
   return { portForward, binary };
@@ -1128,16 +1127,16 @@ function buildMergedGuestEnv(
 // touching the filesystem — so caller-input errors surface with a
 // clear message. The env-dependent "pre-set MACHINEN_NET_SOCKET"
 // check happens alongside since it only reads env.
-async function validatePortForwardOpts(
+async function planPortForwardOpts(
   opts: BootOptions,
-  portForward: NonNullable<BootOptions["portForward"]>,
-): Promise<void> {
-  if (portForward.length === 0) {
-    return;
+): Promise<NonNullable<BootOptions["portForward"]>> {
+  if ((opts.portForward ?? []).length === 0) {
+    return planBootPortForwardNative(opts.portForward);
   }
   rejectPresetNetSocket(opts);
-  validateBootPortForwardNative(portForward);
+  const portForward = planBootPortForwardNative(opts.portForward);
   await validatePortForwardAvailability(portForward);
+  return portForward;
 }
 
 function rejectPresetNetSocket(opts: BootOptions): void {

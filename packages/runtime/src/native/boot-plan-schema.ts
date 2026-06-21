@@ -113,6 +113,7 @@ export interface NativeBootPlanResult {
   plannedLiveMounts: PlannedLiveMount[];
   statsFilePath: string | null;
   vmmStatsFile: string | null;
+  plannedPortForward: PlannedPortForward[];
   machinenConfig: MachinenConfigPlan;
   bundleCommand: string[];
   bundleEnv: Record<string, string>;
@@ -157,6 +158,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     Array.isArray(data.plannedLiveMounts) && data.plannedLiveMounts.every(isPlannedLiveMount),
     nullableString(data.statsFilePath),
     nullableString(data.vmmStatsFile),
+    Array.isArray(data.plannedPortForward) && data.plannedPortForward.every(isPlannedPortForward),
     isMachinenConfigPlan(data.machinenConfig),
     isStringArray(data.bundleCommand),
     isStringRecord(data.bundleEnv),
@@ -327,14 +329,14 @@ function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
 }
 
 function isRegistryPortForwardArray(value: unknown): value is RegistryPortForwardPlan[] {
-  return Array.isArray(value) && value.every(isRegistryPortForward);
+  return Array.isArray(value) && value.every(isPlannedPortForward);
 }
 
-function isRegistryPortForward(value: unknown): value is RegistryPortForwardPlan {
+function isPlannedPortForward(value: unknown): value is PlannedPortForward {
   if (!value || typeof value !== "object") {
     return false;
   }
-  const mapping = value as Partial<RegistryPortForwardPlan>;
+  const mapping = value as Partial<PlannedPortForward>;
   return [
     nonNegativeNumber(mapping.hostPort),
     nonNegativeNumber(mapping.guestPort),

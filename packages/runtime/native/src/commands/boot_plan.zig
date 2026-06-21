@@ -376,6 +376,7 @@ const PlanParts = struct {
     guest_hostname: ?[]const u8,
     vmm_argv: boot_plan.VmmArgvPlan,
     use_pdeathsig: bool,
+    planned_port_forwards: []const boot_plan.PortForwardMapping,
     kernel_dtb: boot_plan.KernelDtbPlan,
     vmstate_env: boot_plan.VmstateEnvPlan,
     nested_env: ?[]const u8,
@@ -451,6 +452,7 @@ fn makePlanParts(
             .detached = parsed.detached,
             .pdeathsig = parsed.pdeathsig_requested,
         }),
+        .planned_port_forwards = parsed.port_forward,
         .kernel_dtb = boot_plan.planKernelDtb(.{
             .kernel_path = parsed.kernel_path,
             .dtb_path = parsed.dtb_path,
@@ -1217,7 +1219,7 @@ fn writeRegistryShapeField(
     try writeStringArrayField(io, "cleanupPaths", registry.cleanup_paths, true);
     try writeRegistryMountDiskField(io, "mountDisk", registry.mount_disk, true);
     try writeRegistryLiveMountsField(io, "liveMounts", registry.live_mounts, true);
-    try writeRegistryPortForwardsField(io, "portForward", registry.port_forwards, true);
+    try writePortForwardField(io, "portForward", registry.port_forwards, true, true);
     try writeRegistryCpuField(io, "cpu", registry.cpu, true);
     try writeRegistryVmstateField(io, "vmstate", registry.vmstate, true);
     try protocol.stdout(io, "}");
@@ -1268,21 +1270,22 @@ fn writeRegistryLiveMountsField(
     try protocol.stdout(io, "]");
 }
 
-fn writeRegistryPortForwardsField(
+fn writePortForwardField(
     io: std.Io,
     comptime field: []const u8,
-    forwards: []const boot_plan.RegistryPortForwardPlan,
+    mappings: anytype,
+    null_when_empty: bool,
     comma: bool,
 ) !void {
     assert(field.len > 0);
 
     try writeFieldName(io, field, comma);
-    if (forwards.len == 0) {
+    if (mappings.len == 0 and null_when_empty) {
         try protocol.stdout(io, "null");
         return;
     }
     try protocol.stdout(io, "[");
-    for (forwards, 0..) |mapping, i| {
+    for (mappings, 0..) |mapping, i| {
         if (i > 0) try protocol.stdout(io, ",");
         try protocol.stdout(io, "{\"hostPort\":");
         try writeI64Bare(io, mapping.host_port);

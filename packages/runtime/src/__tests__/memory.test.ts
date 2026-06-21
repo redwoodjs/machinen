@@ -127,6 +127,46 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans portForward defaults and preserves hostAddr", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const omitted = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(omitted.status).toBe(0);
+    expect(JSON.parse(omitted.stdout).data.plannedPortForward).toEqual([]);
+
+    const planned = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          portForward: [
+            { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
+            { hostPort: 8443, guestPort: 443 },
+          ],
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(planned.status).toBe(0);
+    expect(JSON.parse(planned.stdout).data.plannedPortForward).toEqual([
+      { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
+      { hostPort: 8443, guestPort: 443 },
+    ]);
+  });
+
   it("plans vsock specs from caller env or auto UDS paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
