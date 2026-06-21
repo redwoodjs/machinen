@@ -125,6 +125,9 @@ const ParsedRequest = struct {
     provision_work_dir: ?[]const u8 = null,
     provision_scratch_size_bytes_text: ?[]const u8 = null,
     provision_timeout_ms_text: ?[]const u8 = null,
+    provision_result_image_path: ?[]const u8 = null,
+    provision_result_size_bytes_text: ?[]const u8 = null,
+    provision_result_elapsed_ms_text: ?[]const u8 = null,
     scratch_option_false: bool = false,
     scratch_option_path: ?[]const u8 = null,
     scratch_temp_kind: boot_plan.ScratchTempPathKind = .none,
@@ -339,6 +342,9 @@ const boot_plan_fields = [_][]const u8{
     "provisionWorkDir",
     "provisionScratchSizeBytes",
     "provisionTimeoutMs",
+    "provisionResultImagePath",
+    "provisionResultSizeBytes",
+    "provisionResultElapsedMs",
     "scratchOptionFalse",
     "scratchOptionPath",
     "scratchTempKind",
@@ -567,6 +573,9 @@ const RequestError = error{
     InvalidProvisionWorkDir,
     InvalidProvisionScratchSizeBytes,
     InvalidProvisionTimeoutMs,
+    InvalidProvisionResultImagePath,
+    InvalidProvisionResultSizeBytes,
+    InvalidProvisionResultElapsedMs,
     InvalidBundleEnvValue,
     InvalidScratchOptionFalse,
     InvalidScratchOptionPath,
@@ -686,6 +695,14 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
                 try writeRequestError(io, error.InvalidMountDiskTempPid);
                 return .fail;
             },
+            error.InvalidProvisionResultSizeBytes => {
+                try writeRequestError(io, error.InvalidProvisionResultSizeBytes);
+                return .fail;
+            },
+            error.InvalidProvisionResultElapsedMs => {
+                try writeRequestError(io, error.InvalidProvisionResultElapsedMs);
+                return .fail;
+            },
             else => {},
         }
         try writePlanError(io, err);
@@ -741,6 +758,7 @@ const PlanParts = struct {
     provision_repack: boot_plan.ProvisionRepackPlan,
     provision_image_config: boot_plan.ProvisionImageConfigPlan,
     provision_runtime: boot_plan.ProvisionRuntimePlan,
+    provision_result: boot_plan.ProvisionResultPlan,
     planned_scratch_mode: boot_plan.ScratchDiskMode,
     scratch_temp_path: boot_plan.ScratchTempPathPlan,
     scratch_disk: boot_plan.ScratchDiskPlan,
@@ -862,6 +880,7 @@ fn makePlanParts(
         .provision_repack = provision.repack,
         .provision_image_config = provision.image_config,
         .provision_runtime = provision.runtime,
+        .provision_result = try makeProvisionResult(parsed),
         .planned_scratch_mode = runtime.planned_scratch_mode,
         .scratch_temp_path = try makeScratchTempPath(arena, parsed),
         .scratch_disk = runtime.scratch_disk,
@@ -1222,6 +1241,24 @@ const ProvisionParts = struct {
     image_config: boot_plan.ProvisionImageConfigPlan,
     runtime: boot_plan.ProvisionRuntimePlan,
 };
+
+fn makeProvisionResult(parsed: ParsedRequest) !boot_plan.ProvisionResultPlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    const size_bytes = if (parsed.provision_result_size_bytes_text) |text|
+        parseUnsigned(text) catch return error.InvalidProvisionResultSizeBytes
+    else
+        null;
+    const elapsed_ms = if (parsed.provision_result_elapsed_ms_text) |text|
+        parseUnsigned(text) catch return error.InvalidProvisionResultElapsedMs
+    else
+        null;
+    return boot_plan.planProvisionResult(.{
+        .image_path = parsed.provision_result_image_path,
+        .size_bytes = size_bytes,
+        .elapsed_ms = elapsed_ms,
+    });
+}
 
 fn makeProvisionParts(arena: std.mem.Allocator, parsed: ParsedRequest) !ProvisionParts {
     assert(@sizeOf(ProvisionParts) > 0);
@@ -1775,6 +1812,7 @@ fn writeProvisionFields(io: std.Io, parts: PlanParts) !void {
         true,
     );
     try writeProvisionRuntimeField(io, "provisionRuntime", parts.provision_runtime, true);
+    try writeProvisionResultField(io, "provisionResult", parts.provision_result, true);
 }
 
 fn writeCoreFields(
@@ -2368,6 +2406,22 @@ fn writeProvisionImageConfigField(
     if (config.has_env) {
         try writeEnvObjectField(io, "env", config.env, wrote);
     }
+    try protocol.stdout(io, "}");
+}
+
+fn writeProvisionResultField(
+    io: std.Io,
+    comptime field: []const u8,
+    result: boot_plan.ProvisionResultPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "imagePath", result.image_path, false);
+    try writeNullableU64Field(io, "sizeBytes", result.size_bytes, true);
+    try writeNullableU64Field(io, "elapsedMs", result.elapsed_ms, true);
     try protocol.stdout(io, "}");
 }
 
