@@ -55,6 +55,7 @@ interface NativeBootPlanInput {
   restorePath?: string;
   enableVmstateTiming?: boolean;
   existingVmstateTiming?: string;
+  nested?: boolean;
   liveMounts?: LiveMountPlanInput[];
   liveMountsResolved?: PlannedLiveMount[];
   existingStatsFile?: string;
@@ -156,6 +157,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     restorePath: nullDefault(input.restorePath),
     enableVmstateTiming: input.enableVmstateTiming === true,
     existingVmstateTiming: nullDefault(input.existingVmstateTiming),
+    nested: input.nested === true,
     liveMounts: liveMountsData(input.liveMounts),
     liveMountsResolved: input.liveMountsResolved ?? [],
     existingStatsFile: nullDefault(input.existingStatsFile),
@@ -598,6 +600,18 @@ export function planBootVirtiofsEnvNative(liveMounts: PlannedLiveMount[]): Recor
     hasCmd: false,
     rootDisk: "false",
   }).virtiofsEnv;
+}
+
+export function planBootNestedEnvNative(nested: boolean | undefined): string | undefined {
+  return (
+    planBootCoreNative({
+      nested,
+      vmmMemoryPreset: true,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    }).vmmNested ?? undefined
+  );
 }
 
 export function planBootVmstateEnvNative(input: {

@@ -34,6 +34,7 @@ const ParsedRequest = struct {
     restore_path: ?[]const u8 = null,
     enable_vmstate_timing: bool = false,
     existing_vmstate_timing: ?[]const u8 = null,
+    nested_requested: bool = false,
     live_mounts: []const boot_plan.LiveMountInput = &.{},
     live_mounts_resolved: []const boot_plan.LiveMount = &.{},
     existing_stats_file: ?[]const u8 = null,
@@ -139,6 +140,7 @@ const boot_plan_fields = [_][]const u8{
     "restorePath",
     "enableVmstateTiming",
     "existingVmstateTiming",
+    "nested",
     "liveMounts",
     "liveMountsResolved",
     "existingStatsFile",
@@ -250,6 +252,7 @@ const RequestError = error{
     InvalidRestorePath,
     InvalidEnableVmstateTiming,
     InvalidExistingVmstateTiming,
+    InvalidNested,
     InvalidLiveMounts,
     InvalidLiveMountGuest,
     InvalidLiveMountsResolved,
@@ -349,6 +352,7 @@ const PlanParts = struct {
     vmm_argv: boot_plan.VmmArgvPlan,
     kernel_dtb: boot_plan.KernelDtbPlan,
     vmstate_env: boot_plan.VmstateEnvPlan,
+    nested_env: ?[]const u8,
     virtiofs_env: []const boot_plan.EnvPair,
     stats_file: boot_plan.StatsFilePlan,
     planned_live_mounts: []const boot_plan.LiveMount,
@@ -426,6 +430,7 @@ fn makePlanParts(
             .enable_timing = parsed.enable_vmstate_timing,
             .existing_timing = parsed.existing_vmstate_timing,
         }),
+        .nested_env = boot_plan.planNestedEnv(parsed.nested_requested),
         .virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved),
         .stats_file = boot_plan.planStatsFile(.{
             .existing_path = parsed.existing_stats_file,
@@ -723,6 +728,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeCoreFields(io, parts.plan, parts.cpu_policy);
     try writeVsockKernelFields(io, parts.vsock_plan, parts.kernel_dtb);
     try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file);
+    try writeNullableStringField(io, "vmmNested", parts.nested_env, true);
     try writeLiveMountsArrayField(io, "plannedLiveMounts", parts.planned_live_mounts, true);
     try writeEnvObjectField(io, "virtiofsEnv", parts.virtiofs_env, true);
     try writeNullableStringField(io, "vmmCommand", parts.vmm_argv.command, true);
@@ -1597,6 +1603,7 @@ fn parseVmstateFields(object: std.json.ObjectMap, request: *ParsedRequest) Reque
         "existingVmstateTiming",
         error.InvalidExistingVmstateTiming,
     );
+    request.nested_requested = try optionalBoolDefaultFalse(object, "nested", error.InvalidNested);
 }
 
 fn parseRuntimeMountStatsFields(

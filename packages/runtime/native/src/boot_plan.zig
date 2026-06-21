@@ -411,6 +411,12 @@ pub const PlanError = error{
     MissingRegistryCpuStatus,
 };
 
+pub fn planNestedEnv(nested: bool) ?[]const u8 {
+    assert(@sizeOf(bool) > 0);
+
+    return if (nested) "1" else null;
+}
+
 pub fn planCpuResources(input: ?CpuResourcesInput) PlanError!?CpuPolicyPlan {
     const cpu = input orelse return null;
     const max_vcpus = cpu.max_vcpus orelse default_cpu_max_vcpus;
@@ -1215,6 +1221,11 @@ test "planCore resolves explicit memory aliases" {
         .resources_memory = .{ .max_mib = 2048, .reclaim = "manual" },
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     }));
+}
+
+test "planNestedEnv sets nested only when requested" {
+    try std.testing.expectEqualStrings("1", planNestedEnv(true).?);
+    try std.testing.expect(planNestedEnv(false) == null);
 }
 
 test "planCpuResources applies defaults and validates cpu policy" {
