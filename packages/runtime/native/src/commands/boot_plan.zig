@@ -91,6 +91,11 @@ const ParsedRequest = struct {
     registry_stats_temp_dir: ?[]const u8 = null,
     registry_gv_socket_dir: ?[]const u8 = null,
     registry_cpu_cgroup_path: ?[]const u8 = null,
+    registry_cpu_policy_max_vcpus_text: ?[]const u8 = null,
+    registry_cpu_policy_quota_cpus_text: ?[]const u8 = null,
+    registry_cpu_policy_weight_text: ?[]const u8 = null,
+    registry_cpu_control_status: ?[]const u8 = null,
+    registry_cpu_control_reason: ?[]const u8 = null,
     registry_mount_guest: ?[]const u8 = null,
     registry_mount_lower_path: ?[]const u8 = null,
     registry_mount_upper_path: ?[]const u8 = null,
@@ -191,6 +196,11 @@ const boot_plan_fields = [_][]const u8{
     "registryStatsTempDir",
     "registryGvSocketDir",
     "registryCpuCgroupPath",
+    "registryCpuPolicyMaxVcpus",
+    "registryCpuPolicyQuotaCpus",
+    "registryCpuPolicyWeight",
+    "registryCpuControlStatus",
+    "registryCpuControlReason",
     "registryMountGuest",
     "registryMountLowerPath",
     "registryMountUpperPath",
@@ -297,6 +307,9 @@ const RequestError = error{
     InvalidRegistrySourceImagePath,
     InvalidRegistryRootDiskPath,
     InvalidRegistryCleanupPath,
+    InvalidRegistryCpuPolicy,
+    InvalidRegistryCpuControlStatus,
+    InvalidRegistryCpuControlReason,
     InvalidRegistryMountGuest,
     InvalidRegistryMountLowerPath,
     InvalidRegistryMountUpperPath,
@@ -633,6 +646,28 @@ fn makeProvisionRepack(
     });
 }
 
+fn makeRegistryCpuPolicy(parsed: ParsedRequest) RequestError!?boot_plan.CpuPolicyPlan {
+    if (parsed.registry_cpu_policy_max_vcpus_text == null and
+        parsed.registry_cpu_policy_quota_cpus_text == null and
+        parsed.registry_cpu_policy_weight_text == null)
+    {
+        return null;
+    }
+
+    const max_vcpus_text = parsed.registry_cpu_policy_max_vcpus_text orelse
+        return error.InvalidRegistryCpuPolicy;
+    const weight_text = parsed.registry_cpu_policy_weight_text orelse
+        return error.InvalidRegistryCpuPolicy;
+    return .{
+        .max_vcpus = parseUnsigned(max_vcpus_text) catch return error.InvalidRegistryCpuPolicy,
+        .quota_cpus = try optionalFloatText(
+            parsed.registry_cpu_policy_quota_cpus_text,
+            error.InvalidRegistryCpuPolicy,
+        ),
+        .weight = parseUnsigned(weight_text) catch return error.InvalidRegistryCpuPolicy,
+    };
+}
+
 fn makeRegistryShape(
     arena: std.mem.Allocator,
     parsed: ParsedRequest,
@@ -659,6 +694,9 @@ fn makeRegistryShape(
             .upper_path = parsed.registry_mount_upper_path,
         },
         .live_mounts = parsed.live_mounts_resolved,
+        .cpu_policy = try makeRegistryCpuPolicy(parsed),
+        .cpu_control_status = parsed.registry_cpu_control_status,
+        .cpu_control_reason = parsed.registry_cpu_control_reason,
     });
 }
 
@@ -1125,6 +1163,7 @@ fn writeRegistryShapeField(
     try writeStringArrayField(io, "cleanupPaths", registry.cleanup_paths, true);
     try writeRegistryMountDiskField(io, "mountDisk", registry.mount_disk, true);
     try writeRegistryLiveMountsField(io, "liveMounts", registry.live_mounts, true);
+    try writeRegistryCpuField(io, "cpu", registry.cpu, true);
     try protocol.stdout(io, "}");
 }
 
@@ -1171,6 +1210,36 @@ fn writeRegistryLiveMountsField(
         try protocol.stdout(io, "}");
     }
     try protocol.stdout(io, "]");
+}
+
+fn writeRegistryCpuField(
+    io: std.Io,
+    comptime field: []const u8,
+    cpu: ?boot_plan.RegistryCpuPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    if (cpu) |plan| {
+        try protocol.stdout(io, "{\"maxVcpus\":");
+        try writeU64Bare(io, plan.max_vcpus);
+        if (plan.quota_cpus) |quota| {
+            try protocol.stdout(io, ",\"quotaCpus\":");
+            try writeF64Bare(io, quota);
+        }
+        try protocol.stdout(io, ",\"weight\":");
+        try writeU64Bare(io, plan.weight);
+        try protocol.stdout(io, ",\"enforcement\":{\"status\":");
+        try protocol.writeJsonString(io, plan.enforcement_status);
+        if (plan.enforcement_reason) |reason| {
+            try protocol.stdout(io, ",\"reason\":");
+            try protocol.writeJsonString(io, reason);
+        }
+        try protocol.stdout(io, "}}");
+    } else {
+        try protocol.stdout(io, "null");
+    }
 }
 
 fn writeEnvObjectField(
@@ -1924,6 +1993,27 @@ fn parseRegistryCleanupFields(
         "registryCpuCgroupPath",
         error.InvalidRegistryCleanupPath,
     );
+    request.registry_cpu_policy_max_vcpus_text = try optionalStringDefaultNull(
+        object,
+        "registryCpuPolicyMaxVcpus",
+        error.InvalidRegistryCpuPolicy,
+    );
+    request.registry_cpu_policy_quota_cpus_text = try optionalStringDefaultNull(
+        object,
+        "registryCpuPolicyQuotaCpus",
+        error.InvalidRegistryCpuPolicy,
+    );
+    request.registry_cpu_policy_weight_text = try optionalStringDefaultNull(
+        object,
+        "registryCpuPolicyWeight",
+        error.InvalidRegistryCpuPolicy,
+    );
+    request.registry_cpu_control_status = try optionalRegistryCpuControlStatus(object);
+    request.registry_cpu_control_reason = try optionalStringDefaultNull(
+        object,
+        "registryCpuControlReason",
+        error.InvalidRegistryCpuControlReason,
+    );
 }
 
 fn parseRegistryMountDiskFields(
@@ -1965,6 +2055,18 @@ fn hasBundleCommandField(object: std.json.ObjectMap) bool {
         if (value == .bool and value.bool) return true;
     }
     return false;
+}
+
+fn optionalRegistryCpuControlStatus(object: std.json.ObjectMap) RequestError!?[]const u8 {
+    assert(@sizeOf(std.json.ObjectMap) > 0);
+
+    const value = object.get("registryCpuControlStatus") orelse return null;
+    if (value == .null) return null;
+    if (value != .string) return error.InvalidRegistryCpuControlStatus;
+    if (std.mem.eql(u8, value.string, "none")) return value.string;
+    if (std.mem.eql(u8, value.string, "linux-cgroup-v2")) return value.string;
+    if (std.mem.eql(u8, value.string, "unsupported")) return value.string;
+    return error.InvalidRegistryCpuControlStatus;
 }
 
 fn optionalProvisionGuestCpu(

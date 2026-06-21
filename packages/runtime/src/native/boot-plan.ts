@@ -1,3 +1,4 @@
+import type { CpuControlResult } from "../cpu-cgroup.ts";
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
 import { callRuntimeHelper } from "../native-helper.ts";
 import type { BootCpuResourceOptions, ResolvedCpuResourcePolicy } from "../vm/cpu-resources.ts";
@@ -109,6 +110,9 @@ interface NativeBootPlanInput {
   registryStatsTempDir?: string;
   registryGvSocketDir?: string;
   registryCpuCgroupPath?: string;
+  registryCpuPolicy?: ResolvedCpuResourcePolicy;
+  registryCpuControlStatus?: CpuControlResult["status"];
+  registryCpuControlReason?: string;
   registryMountGuest?: string;
   registryMountLowerPath?: string;
   registryMountUpperPath?: string;
@@ -245,6 +249,11 @@ function registryShapeData(input: NativeBootPlanInput): Record<string, unknown> 
     registryStatsTempDir: nullDefault(input.registryStatsTempDir),
     registryGvSocketDir: nullDefault(input.registryGvSocketDir),
     registryCpuCgroupPath: nullDefault(input.registryCpuCgroupPath),
+    registryCpuPolicyMaxVcpus: numberText(input.registryCpuPolicy?.maxVcpus),
+    registryCpuPolicyQuotaCpus: numberText(input.registryCpuPolicy?.quotaCpus),
+    registryCpuPolicyWeight: numberText(input.registryCpuPolicy?.weight),
+    registryCpuControlStatus: nullDefault(input.registryCpuControlStatus),
+    registryCpuControlReason: nullDefault(input.registryCpuControlReason),
     registryMountGuest: nullDefault(input.registryMountGuest),
     registryMountLowerPath: nullDefault(input.registryMountLowerPath),
     registryMountUpperPath: nullDefault(input.registryMountUpperPath),
@@ -423,6 +432,10 @@ export function planBootRegistryShapeNative(input: {
     gvSocketDir?: string;
     cpuCgroupPath?: string;
   };
+  cpu?: {
+    policy: ResolvedCpuResourcePolicy | undefined;
+    control: CpuControlResult;
+  };
   mountDisk?: { guest: string; lowerPath: string; upperPath: string };
   liveMounts?: PlannedLiveMount[];
 }): RegistryShapePlan {
@@ -437,6 +450,9 @@ export function planBootRegistryShapeNative(input: {
     registryStatsTempDir: input.cleanup?.statsTempDir,
     registryGvSocketDir: input.cleanup?.gvSocketDir,
     registryCpuCgroupPath: input.cleanup?.cpuCgroupPath,
+    registryCpuPolicy: input.cpu?.policy,
+    registryCpuControlStatus: input.cpu?.control.status,
+    registryCpuControlReason: input.cpu?.control.reason,
     registryMountGuest: input.mountDisk?.guest,
     registryMountLowerPath: input.mountDisk?.lowerPath,
     registryMountUpperPath: input.mountDisk?.upperPath,
@@ -446,6 +462,13 @@ export function planBootRegistryShapeNative(input: {
     hasCmd: false,
     rootDisk: "false",
   }).registryShape;
+}
+
+export function planBootRegistryCpuNative(input: {
+  policy: ResolvedCpuResourcePolicy | undefined;
+  control: CpuControlResult;
+}): RegistryShapePlan["cpu"] | undefined {
+  return planBootRegistryShapeNative({ cpu: input }).cpu ?? undefined;
 }
 
 export function planBootBundleEnvNative(input: {

@@ -94,6 +94,9 @@ pub const BundleCommandInput = struct {
     snapshot_restore: bool = false,
     vmstate_restore: bool = false,
     live_mounts: []const LiveMount = &.{},
+    cpu_policy: ?CpuPolicyPlan = null,
+    cpu_control_status: ?[]const u8 = null,
+    cpu_control_reason: ?[]const u8 = null,
 };
 
 pub const BundleEnvInput = struct {
@@ -325,6 +328,14 @@ pub const RegistryLiveMountPlan = struct {
     mode: []const u8,
 };
 
+pub const RegistryCpuPlan = struct {
+    max_vcpus: u64,
+    quota_cpus: ?f64,
+    weight: u64,
+    enforcement_status: []const u8,
+    enforcement_reason: ?[]const u8,
+};
+
 pub const RegistryShapeInput = struct {
     source_image_path: ?[]const u8 = null,
     per_boot_root_disk: ?[]const u8 = null,
@@ -332,6 +343,9 @@ pub const RegistryShapeInput = struct {
     cleanup: RegistryCleanupInput = .{},
     mount_disk: RegistryMountDiskInput = .{},
     live_mounts: []const LiveMount = &.{},
+    cpu_policy: ?CpuPolicyPlan = null,
+    cpu_control_status: ?[]const u8 = null,
+    cpu_control_reason: ?[]const u8 = null,
 };
 
 pub const RegistryShapePlan = struct {
@@ -341,6 +355,7 @@ pub const RegistryShapePlan = struct {
     cleanup_paths: []const []const u8,
     mount_disk: ?RegistryMountDiskPlan,
     live_mounts: []const RegistryLiveMountPlan,
+    cpu: ?RegistryCpuPlan,
 };
 
 pub const MachinenConfigInput = struct {
@@ -393,6 +408,7 @@ pub const PlanError = error{
     MissingMountDiskRuntimeField,
     IncompleteRegistryMountDisk,
     MissingProvisionRepackField,
+    MissingRegistryCpuStatus,
 };
 
 pub fn planCpuResources(input: ?CpuResourcesInput) PlanError!?CpuPolicyPlan {
@@ -835,6 +851,21 @@ pub fn planRegistryShape(
         .cleanup_paths = try planRegistryCleanupPaths(allocator, input.cleanup),
         .mount_disk = try planRegistryMountDisk(input.mount_disk),
         .live_mounts = try planRegistryLiveMounts(allocator, input.live_mounts),
+        .cpu = try planRegistryCpu(input),
+    };
+}
+
+fn planRegistryCpu(input: RegistryShapeInput) PlanError!?RegistryCpuPlan {
+    assert(@sizeOf(RegistryShapeInput) > 0);
+
+    const policy = input.cpu_policy orelse return null;
+    const status = input.cpu_control_status orelse return error.MissingRegistryCpuStatus;
+    return .{
+        .max_vcpus = policy.max_vcpus,
+        .quota_cpus = policy.quota_cpus,
+        .weight = policy.weight,
+        .enforcement_status = status,
+        .enforcement_reason = input.cpu_control_reason,
     };
 }
 
@@ -1298,6 +1329,11 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectEqualStrings("/mnt/data", plan.mount_disk.?.guest);
     try std.testing.expectEqualStrings("/cache/lower.sqfs", plan.mount_disk.?.lower_path);
     try std.testing.expectEqualStrings("/tmp/upper.img", plan.mount_disk.?.upper_path);
+    try std.testing.expectEqual(@as(u64, 1), plan.cpu.?.max_vcpus);
+    try std.testing.expectEqual(@as(f64, 0.5), plan.cpu.?.quota_cpus.?);
+    try std.testing.expectEqual(@as(u64, 200), plan.cpu.?.weight);
+    try std.testing.expectEqualStrings("linux-cgroup-v2", plan.cpu.?.enforcement_status);
+    try std.testing.expectEqualStrings("limited", plan.cpu.?.enforcement_reason.?);
     try std.testing.expectEqual(@as(@TypeOf(plan.live_mounts.len), 2), plan.live_mounts.len);
     try std.testing.expectEqualStrings("/mnt/work", plan.live_mounts[0].guest);
     try std.testing.expectEqualStrings("/host/work", plan.live_mounts[0].host);

@@ -3,6 +3,12 @@ type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cach
 type MountDiskRuntimeAction = "none" | "restore" | "fresh";
 export type ProvisionGuestCpu = "arm64" | "amd64";
 type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
+type RegistryCpuPlan = {
+  maxVcpus: number;
+  quotaCpus?: number;
+  weight: number;
+  enforcement: { status: "none" | "linux-cgroup-v2" | "unsupported"; reason?: string };
+};
 export type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
 type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
@@ -39,6 +45,7 @@ export type RegistryShapePlan = {
   cleanupPaths: string[];
   mountDisk: RegistryMountDiskPlan | null;
   liveMounts: RegistryLiveMountPlan[];
+  cpu: RegistryCpuPlan | null;
 };
 export type ScratchDiskPlan = {
   action: ScratchDiskAction;
@@ -299,6 +306,35 @@ function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
     nullableRegistryMountDisk(plan.mountDisk),
     Array.isArray(plan.liveMounts),
     plan.liveMounts?.every(isRegistryLiveMount) === true,
+    nullableRegistryCpu(plan.cpu),
+  ].every(Boolean);
+}
+
+function nullableRegistryCpu(value: unknown): value is RegistryCpuPlan | null {
+  return value === null || isRegistryCpuPlan(value);
+}
+
+function isRegistryCpuPlan(value: unknown): value is RegistryCpuPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<RegistryCpuPlan>;
+  return [
+    nonNegativeNumber(plan.maxVcpus),
+    plan.quotaCpus === undefined || nonNegativeNumber(plan.quotaCpus),
+    nonNegativeNumber(plan.weight),
+    isRegistryCpuEnforcement(plan.enforcement),
+  ].every(Boolean);
+}
+
+function isRegistryCpuEnforcement(value: unknown): value is RegistryCpuPlan["enforcement"] {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const enforcement = value as Partial<RegistryCpuPlan["enforcement"]>;
+  return [
+    isOneOf(enforcement.status, ["none", "linux-cgroup-v2", "unsupported"] as const),
+    enforcement.reason === undefined || typeof enforcement.reason === "string",
   ].every(Boolean);
 }
 
