@@ -138,6 +138,10 @@ const ParsedRequest = struct {
     root_disk_runtime_mode: boot_plan.RootDiskRuntimeMode = .none,
     root_disk_source_path: ?[]const u8 = null,
     root_disk_clone_path: ?[]const u8 = null,
+    root_disk_temp_kind: boot_plan.RootDiskTempPathKind = .none,
+    root_disk_temp_dir: ?[]const u8 = null,
+    root_disk_temp_pid_text: ?[]const u8 = null,
+    root_disk_temp_nonce: ?[]const u8 = null,
     root_disk_materialize_restore_path: ?[]const u8 = null,
     root_disk_materialize_caller_path: ?[]const u8 = null,
     mount_disk_upper_size_option_text: ?[]const u8 = null,
@@ -344,6 +348,10 @@ const boot_plan_fields = [_][]const u8{
     "rootDiskRuntimeMode",
     "rootDiskSourcePath",
     "rootDiskClonePath",
+    "rootDiskTempKind",
+    "rootDiskTempDir",
+    "rootDiskTempPid",
+    "rootDiskTempNonce",
     "rootDiskMaterializeRestorePath",
     "rootDiskMaterializeCallerPath",
     "mountDiskUpperSizeOption",
@@ -565,6 +573,10 @@ const RequestError = error{
     InvalidRootDiskRuntimeMode,
     InvalidRootDiskSourcePath,
     InvalidRootDiskClonePath,
+    InvalidRootDiskTempKind,
+    InvalidRootDiskTempDir,
+    InvalidRootDiskTempPid,
+    InvalidRootDiskTempNonce,
     InvalidRootDiskMaterializeRestorePath,
     InvalidRootDiskMaterializeCallerPath,
     InvalidMountDiskUpperSizeOption,
@@ -654,6 +666,10 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
                 try writeRequestError(io, error.InvalidScratchTempPid);
                 return .fail;
             },
+            error.InvalidRootDiskTempPid => {
+                try writeRequestError(io, error.InvalidRootDiskTempPid);
+                return .fail;
+            },
             else => {},
         }
         try writePlanError(io, err);
@@ -713,6 +729,7 @@ const PlanParts = struct {
     scratch_temp_path: boot_plan.ScratchTempPathPlan,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
+    root_disk_temp_path: boot_plan.RootDiskTempPathPlan,
     root_disk_materialize_mode: boot_plan.RootDiskMaterializeModePlan,
     planned_mount_disk_upper_size: u64,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
@@ -831,6 +848,7 @@ fn makePlanParts(
         .scratch_temp_path = try makeScratchTempPath(arena, parsed),
         .scratch_disk = runtime.scratch_disk,
         .root_disk_runtime = runtime.root_disk_runtime,
+        .root_disk_temp_path = try makeRootDiskTempPath(arena, parsed),
         .root_disk_materialize_mode = makeRootDiskMaterializeMode(parsed),
         .planned_mount_disk_upper_size = try makeMountDiskUpperSize(parsed),
         .mount_disk_runtime = runtime.mount_disk_runtime,
@@ -1092,6 +1110,24 @@ fn makeDiskParts(parsed: ParsedRequest) !DiskParts {
         }),
         .mount = try makeMountDiskRuntime(parsed),
     };
+}
+
+fn makeRootDiskTempPath(
+    allocator: std.mem.Allocator,
+    parsed: ParsedRequest,
+) !boot_plan.RootDiskTempPathPlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    const pid = if (parsed.root_disk_temp_pid_text) |text|
+        parseUnsigned(text) catch return error.InvalidRootDiskTempPid
+    else
+        null;
+    return boot_plan.planRootDiskTempPath(allocator, .{
+        .kind = parsed.root_disk_temp_kind,
+        .tmp_dir = parsed.root_disk_temp_dir,
+        .pid = pid,
+        .nonce = parsed.root_disk_temp_nonce,
+    });
 }
 
 fn makeRootDiskMaterializeMode(parsed: ParsedRequest) boot_plan.RootDiskMaterializeModePlan {
@@ -1635,6 +1671,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeNullableStringField(io, "scratchTempPath", parts.scratch_temp_path.path, true);
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
+    try writeNullableStringField(io, "rootDiskTempPath", parts.root_disk_temp_path.path, true);
     try writeRootDiskMaterializeModeField(
         io,
         "rootDiskMaterializeMode",
@@ -4157,6 +4194,15 @@ fn optionalScratchMode(object: std.json.ObjectMap) RequestError!boot_plan.Scratc
     if (std.mem.eql(u8, value.string, "path")) return .path;
     if (std.mem.eql(u8, value.string, "auto")) return .auto;
     return error.InvalidScratchMode;
+}
+
+fn optionalRootDiskTempKind(object: std.json.ObjectMap) RequestError!boot_plan.RootDiskTempPathKind {
+    const value = object.get("rootDiskTempKind") orelse return .none;
+    if (value == .null) return .none;
+    if (value != .string) return error.InvalidRootDiskTempKind;
+    if (std.mem.eql(u8, value.string, "restore")) return .restore;
+    if (std.mem.eql(u8, value.string, "cached")) return .cached;
+    return error.InvalidRootDiskTempKind;
 }
 
 fn optionalRootDiskRuntimeMode(

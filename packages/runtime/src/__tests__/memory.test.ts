@@ -1248,6 +1248,47 @@ describe("boot-plan helper schema", () => {
     expect(JSON.parse(restore.stdout).data.rootDiskMaterializeMode).toEqual({ action: "restore" });
   });
 
+  it("plans rootdisk temp paths from host-generated entropy", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      rootDiskTempDir: "/tmp",
+      rootDiskTempPid: "1234",
+      rootDiskTempNonce: "abcdef",
+    };
+    const restore = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, rootDiskTempKind: "restore" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(restore.status).toBe(0);
+    expect(JSON.parse(restore.stdout).data.rootDiskTempPath).toBe(
+      "/tmp/machinen-rootdisk-restore-1234-abcdef.img",
+    );
+
+    const cached = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, rootDiskTempKind: "cached" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(cached.status).toBe(0);
+    expect(JSON.parse(cached.stdout).data.rootDiskTempPath).toBe(
+      "/tmp/machinen-rootdisk-1234-abcdef.img",
+    );
+  });
+
   it("plans rootdisk runtime actions", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
