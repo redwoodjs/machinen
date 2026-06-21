@@ -1,4 +1,5 @@
 type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
+export type BootRootDiskMode = "unset" | "false" | "path" | "true";
 type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
 type MountDiskRuntimeAction = "none" | "restore" | "fresh";
 type GvproxyAction = "skip-existing" | "spawn" | "missing-ok";
@@ -133,6 +134,7 @@ export interface NativeBootPlanResult {
   vmmMemory: string | null;
   cpuPolicy: CpuPolicyPlan | null;
   wantsRootDisk: boolean;
+  rootDiskMode: BootRootDiskMode;
   needsInitramfs: boolean;
   timeoutMs: number | null;
   detachedReadinessTimeoutMs: number;
@@ -192,6 +194,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmMemory),
     data.cpuPolicy === null || isCpuPolicyPlan(data.cpuPolicy),
     typeof data.wantsRootDisk === "boolean",
+    isBootRootDiskMode(data.rootDiskMode),
     typeof data.needsInitramfs === "boolean",
     nullableNonNegativeNumber(data.timeoutMs),
     nonNegativeNumber(data.detachedReadinessTimeoutMs),
@@ -654,6 +657,10 @@ function isStringArray(value: unknown): value is string[] {
 
 function nullableString(value: unknown): boolean {
   return value === null || typeof value === "string";
+}
+
+function isBootRootDiskMode(value: unknown): value is BootRootDiskMode {
+  return value === "unset" || value === "false" || value === "path" || value === "true";
 }
 
 function isStringRecord(value: unknown): value is Record<string, string> {

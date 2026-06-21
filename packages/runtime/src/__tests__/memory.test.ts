@@ -101,6 +101,44 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans rootDisk option mode with restore precedence", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const restored = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, rootDiskRestorePath: "/restore/root.img" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(restored.status).toBe(0);
+    expect(JSON.parse(restored.stdout).data.rootDiskMode).toBe("path");
+
+    const falseWins = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          rootDiskOptionFalse: true,
+          rootDiskRestorePath: "/restore/root.img",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(falseWins.status).toBe(0);
+    expect(JSON.parse(falseWins.stdout).data.rootDiskMode).toBe("false");
+  });
+
   it("plans CPU resource policy defaults and fractional quota", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

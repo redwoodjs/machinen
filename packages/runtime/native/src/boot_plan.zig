@@ -19,6 +19,13 @@ pub const RootDiskMode = enum {
     true_value,
 };
 
+pub const RootDiskOptionInput = struct {
+    false_value: bool = false,
+    true_value: bool = false,
+    path: ?[]const u8 = null,
+    restore_path: ?[]const u8 = null,
+};
+
 pub const ResourcesMemory = struct {
     max_mib: u64,
     reclaim: ?[]const u8,
@@ -643,6 +650,14 @@ pub const PlanError = error{
     MissingVmstateRuntimeChainId,
     MissingProvisionRepackField,
 };
+
+pub fn planRootDiskMode(input: RootDiskOptionInput) RootDiskMode {
+    if (input.false_value) return .false_value;
+    if (input.restore_path != null) return .path;
+    if (input.path != null) return .path;
+    if (input.true_value) return .true_value;
+    return .unset;
+}
 
 pub fn planCpuResources(input: ?CpuResourcesInput) PlanError!?CpuPolicyPlan {
     const cpu = input orelse return null;
@@ -1574,6 +1589,14 @@ test "planPdeathsig defaults on and lets detach or explicit false disable it" {
     try std.testing.expect(planPdeathsig(.{ .pdeathsig = true }));
     try std.testing.expect(!planPdeathsig(.{ .pdeathsig = false }));
     try std.testing.expect(!planPdeathsig(.{ .detached = true, .pdeathsig = true }));
+}
+
+test "planRootDiskMode preserves false and restore precedence" {
+    try std.testing.expectEqual(RootDiskMode.unset, planRootDiskMode(.{}));
+    try std.testing.expectEqual(RootDiskMode.true_value, planRootDiskMode(.{ .true_value = true }));
+    try std.testing.expectEqual(RootDiskMode.path, planRootDiskMode(.{ .path = "/root.img" }));
+    try std.testing.expectEqual(RootDiskMode.path, planRootDiskMode(.{ .restore_path = "/restore.img" }));
+    try std.testing.expectEqual(RootDiskMode.false_value, planRootDiskMode(.{ .false_value = true, .restore_path = "/restore.img" }));
 }
 
 test "planBootTimeout defaults, preserves explicit values, and supports forever" {

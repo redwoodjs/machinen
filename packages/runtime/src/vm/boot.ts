@@ -68,10 +68,10 @@ import {
   planBootVmstateEnvNative,
   planBootVmstateRuntimeNative,
   planBootVmmArgvNative,
-  rootDiskPlanMode,
 } from "../native/boot-plan.ts";
 import { reflinkCopy } from "../reflink.ts";
 import { planGuestHostnameSetNative } from "../native/guest-hostname.ts";
+import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
 import { planGvproxyNative } from "../native/gvproxy-plan.ts";
 import { validatePortForwardNetSocketNative } from "../native/port-forward.ts";
 import { planBootRegistryProcessNative } from "../native/registry-process.ts";
@@ -997,12 +997,10 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
     detached: opts.detached,
     pdeathsig: opts.pdeathsig,
     bootTimeoutMs: opts.timeoutMs,
-    rootDisk:
-      opts.rootDisk === false
-        ? "false"
-        : opts._rootDiskRestorePath !== undefined
-          ? "path"
-          : rootDiskPlanMode(opts.rootDisk),
+    rootDisk: planBootRootDiskModeNative({
+      rootDisk: opts.rootDisk,
+      restorePath: opts._rootDiskRestorePath,
+    }),
   });
   if (corePlan.vmmMemory !== null) {
     env.MACHINEN_MEMORY = corePlan.vmmMemory;
