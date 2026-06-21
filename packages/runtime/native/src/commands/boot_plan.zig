@@ -462,7 +462,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         return .fail;
     };
 
-    try writePlan(io, plan, cpu_plan, guest_env, guest_hostname, vsock_plan, vmm_argv, use_pdeathsig, kernel_dtb, vmstate_env, nested_env, virtiofs_env, stats_file, planned_live_mounts, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, scratch_disk, root_disk_runtime, mount_disk_runtime, registry_shape);
+    try writePlan(io, plan, cpu_plan, guest_env, guest_hostname, vsock_plan, vmm_argv, use_pdeathsig, kernel_dtb, vmstate_env, nested_env, virtiofs_env, stats_file, planned_live_mounts, parsed.port_forward, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, scratch_disk, root_disk_runtime, mount_disk_runtime, registry_shape);
     return .ok;
 }
 
@@ -481,6 +481,7 @@ fn writePlan(
     virtiofs_env: []const boot_plan.EnvPair,
     stats_file: boot_plan.StatsFilePlan,
     planned_live_mounts: []const boot_plan.LiveMount,
+    planned_port_forwards: []const boot_plan.PortForwardMapping,
     config_cmd: []const []const u8,
     config_env: []const boot_plan.EnvPair,
     config_cwd: ?[]const u8,
@@ -792,24 +793,7 @@ fn writePlan(
         try protocol.stdout(io, "}");
     }
     try protocol.stdout(io, "],\"portForward\":");
-    if (registry_shape.port_forwards.len == 0) {
-        try protocol.stdout(io, "null");
-    } else {
-        try protocol.stdout(io, "[");
-        for (registry_shape.port_forwards, 0..) |mapping, i| {
-            if (i != 0) try protocol.stdout(io, ",");
-            try protocol.stdout(io, "{\"hostPort\":");
-            try writeI64(io, mapping.host_port);
-            try protocol.stdout(io, ",\"guestPort\":");
-            try writeI64(io, mapping.guest_port);
-            if (mapping.host_addr) |host_addr| {
-                try protocol.stdout(io, ",\"hostAddr\":");
-                try protocol.writeJsonString(io, host_addr);
-            }
-            try protocol.stdout(io, "}");
-        }
-        try protocol.stdout(io, "]");
-    }
+    try writePortForwardPlan(io, registry_shape.port_forwards, true);
     try protocol.stdout(io, ",\"cpu\":");
     if (registry_shape.cpu) |cpu| {
         try protocol.stdout(io, "{\"maxVcpus\":");
@@ -899,6 +883,8 @@ fn writePlan(
     try protocol.stdout(io, if (use_pdeathsig) "true" else "false");
     try protocol.stdout(io, ",\"guestHostname\":");
     try writeNullableJsonString(io, guest_hostname);
+    try protocol.stdout(io, ",\"plannedPortForward\":");
+    try writePortForwardPlan(io, planned_port_forwards, false);
     try protocol.stdout(io, ",\"mergedGuestEnv\":{");
     for (guest_env, 0..) |pair, i| {
         if (i != 0) try protocol.stdout(io, ",");
@@ -915,6 +901,27 @@ fn writeNullableJsonString(io: std.Io, value: ?[]const u8) !void {
     } else {
         try protocol.stdout(io, "null");
     }
+}
+
+fn writePortForwardPlan(io: std.Io, mappings: anytype, null_when_empty: bool) !void {
+    if (mappings.len == 0 and null_when_empty) {
+        try protocol.stdout(io, "null");
+        return;
+    }
+    try protocol.stdout(io, "[");
+    for (mappings, 0..) |mapping, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.stdout(io, "{\"hostPort\":");
+        try writeI64(io, mapping.host_port);
+        try protocol.stdout(io, ",\"guestPort\":");
+        try writeI64(io, mapping.guest_port);
+        if (mapping.host_addr) |host_addr| {
+            try protocol.stdout(io, ",\"hostAddr\":");
+            try protocol.writeJsonString(io, host_addr);
+        }
+        try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]");
 }
 
 fn writeU64(io: std.Io, number: u64) !void {

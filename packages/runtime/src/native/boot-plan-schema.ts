@@ -3,10 +3,11 @@ type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cach
 type MountDiskRuntimeAction = "none" | "restore" | "fresh";
 export type ProvisionGuestCpu = "arm64" | "amd64";
 export type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
+export type PlannedPortForward = { hostPort: number; guestPort: number; hostAddr?: string };
 type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
 type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
-type RegistryPortForwardPlan = { hostPort: number; guestPort: number; hostAddr?: string };
+type RegistryPortForwardPlan = PlannedPortForward;
 type RegistryCpuPlan = {
   maxVcpus: number;
   quotaCpus?: number;
@@ -93,6 +94,7 @@ export interface NativeBootPlanResult {
   needsInitramfs: boolean;
   normalizedMountGuest: string | null;
   guestHostname: string | null;
+  plannedPortForward: PlannedPortForward[];
   mergedGuestEnv: Record<string, string>;
   vsockUdsPath: string | null;
   vmmVsock: string | null;
@@ -137,6 +139,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     typeof data.needsInitramfs === "boolean",
     nullableString(data.normalizedMountGuest),
     nullableString(data.guestHostname),
+    Array.isArray(data.plannedPortForward) && data.plannedPortForward.every(isPlannedPortForward),
     isStringRecord(data.mergedGuestEnv),
     nullableString(data.vsockUdsPath),
     nullableString(data.vmmVsock),
@@ -384,14 +387,14 @@ function isRegistryLiveMount(value: unknown): value is RegistryLiveMountPlan {
 }
 
 function isRegistryPortForwardArray(value: unknown): value is RegistryPortForwardPlan[] {
-  return Array.isArray(value) && value.every(isRegistryPortForward);
+  return Array.isArray(value) && value.every(isPlannedPortForward);
 }
 
-function isRegistryPortForward(value: unknown): value is RegistryPortForwardPlan {
+function isPlannedPortForward(value: unknown): value is PlannedPortForward {
   if (!value || typeof value !== "object") {
     return false;
   }
-  const mapping = value as Partial<RegistryPortForwardPlan>;
+  const mapping = value as Partial<PlannedPortForward>;
   return (
     nonNegativeNumber(mapping.hostPort) &&
     nonNegativeNumber(mapping.guestPort) &&

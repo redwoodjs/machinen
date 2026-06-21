@@ -7,6 +7,7 @@ import { isNativeBootPlanResult } from "./boot-plan-schema.ts";
 import type {
   MountDiskRuntimePlan,
   PlannedLiveMount,
+  PlannedPortForward,
   ProvisionAssetsPlan,
   ProvisionBootPlan,
   ProvisionGuestCpu,
@@ -541,6 +542,18 @@ export function planBootRegistryPortForwardNative(
   return planBootRegistryShapeNative({ portForward }).portForward ?? undefined;
 }
 
+export function planBootPortForwardNative(
+  portForward: PortForwardPlanMapping[] | undefined,
+): PlannedPortForward[] {
+  return planBootCoreNative({
+    portForward,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).plannedPortForward;
+}
+
 export function planBootBundleEnvNative(input: {
   imageEnv?: Record<string, string>;
   guestEnv: Record<string, string>;
@@ -741,16 +754,6 @@ export function planBootVmmArgvNative(input: {
     throw new BootError("BOOT_VMM_MISSING", "boot: native planner returned no VMM command");
   }
   return { command: plan.vmmCommand, args: plan.vmmArgs };
-}
-
-export function validateBootPortForwardNative(portForward: PortForwardPlanMapping[]): void {
-  planBootCoreNative({
-    portForward,
-    vmmMemoryPreset: true,
-    hasImage: false,
-    hasCmd: false,
-    rootDisk: "false",
-  });
 }
 
 export function rootDiskPlanMode(rootDisk: boolean | string | undefined): RootDiskPlanMode {
