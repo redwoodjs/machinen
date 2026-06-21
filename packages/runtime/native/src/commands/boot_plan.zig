@@ -145,6 +145,10 @@ const ParsedRequest = struct {
     root_disk_materialize_restore_path: ?[]const u8 = null,
     root_disk_materialize_caller_path: ?[]const u8 = null,
     mount_disk_upper_size_option_text: ?[]const u8 = null,
+    mount_disk_temp_kind: boot_plan.MountDiskTempPathKind = .none,
+    mount_disk_temp_dir: ?[]const u8 = null,
+    mount_disk_temp_pid_text: ?[]const u8 = null,
+    mount_disk_temp_nonce: ?[]const u8 = null,
     mount_disk_runtime_mode: boot_plan.MountDiskRuntimeMode = .none,
     mount_disk_lower_path: ?[]const u8 = null,
     mount_disk_upper_path: ?[]const u8 = null,
@@ -355,6 +359,10 @@ const boot_plan_fields = [_][]const u8{
     "rootDiskMaterializeRestorePath",
     "rootDiskMaterializeCallerPath",
     "mountDiskUpperSizeOption",
+    "mountDiskTempKind",
+    "mountDiskTempDir",
+    "mountDiskTempPid",
+    "mountDiskTempNonce",
     "mountDiskRuntimeMode",
     "mountDiskLowerPath",
     "mountDiskUpperPath",
@@ -580,6 +588,10 @@ const RequestError = error{
     InvalidRootDiskMaterializeRestorePath,
     InvalidRootDiskMaterializeCallerPath,
     InvalidMountDiskUpperSizeOption,
+    InvalidMountDiskTempKind,
+    InvalidMountDiskTempDir,
+    InvalidMountDiskTempPid,
+    InvalidMountDiskTempNonce,
     InvalidMountDiskRuntimeMode,
     InvalidMountDiskLowerPath,
     InvalidMountDiskUpperPath,
@@ -670,6 +682,10 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
                 try writeRequestError(io, error.InvalidRootDiskTempPid);
                 return .fail;
             },
+            error.InvalidMountDiskTempPid => {
+                try writeRequestError(io, error.InvalidMountDiskTempPid);
+                return .fail;
+            },
             else => {},
         }
         try writePlanError(io, err);
@@ -732,6 +748,7 @@ const PlanParts = struct {
     root_disk_temp_path: boot_plan.RootDiskTempPathPlan,
     root_disk_materialize_mode: boot_plan.RootDiskMaterializeModePlan,
     planned_mount_disk_upper_size: u64,
+    mount_disk_temp_path: boot_plan.MountDiskTempPathPlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
     mount_disk_fd_env: []const boot_plan.EnvPair,
     snapshot_context: boot_plan.SnapshotContextPlan,
@@ -851,6 +868,7 @@ fn makePlanParts(
         .root_disk_temp_path = try makeRootDiskTempPath(arena, parsed),
         .root_disk_materialize_mode = makeRootDiskMaterializeMode(parsed),
         .planned_mount_disk_upper_size = try makeMountDiskUpperSize(parsed),
+        .mount_disk_temp_path = try makeMountDiskTempPath(arena, parsed),
         .mount_disk_runtime = runtime.mount_disk_runtime,
         .mount_disk_fd_env = runtime.mount_disk_fd_env,
         .snapshot_context = runtime.snapshot_context,
@@ -1136,6 +1154,24 @@ fn makeRootDiskMaterializeMode(parsed: ParsedRequest) boot_plan.RootDiskMaterial
     return boot_plan.planRootDiskMaterializeMode(.{
         .restore_path = parsed.root_disk_materialize_restore_path,
         .caller_path = parsed.root_disk_materialize_caller_path,
+    });
+}
+
+fn makeMountDiskTempPath(
+    allocator: std.mem.Allocator,
+    parsed: ParsedRequest,
+) !boot_plan.MountDiskTempPathPlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    const pid = if (parsed.mount_disk_temp_pid_text) |text|
+        parseUnsigned(text) catch return error.InvalidMountDiskTempPid
+    else
+        null;
+    return boot_plan.planMountDiskTempPath(allocator, .{
+        .kind = parsed.mount_disk_temp_kind,
+        .tmp_dir = parsed.mount_disk_temp_dir,
+        .pid = pid,
+        .nonce = parsed.mount_disk_temp_nonce,
     });
 }
 
@@ -1679,6 +1715,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
         true,
     );
     try writeU64Field(io, "mountDiskUpperSizeBytes", parts.planned_mount_disk_upper_size, true);
+    try writeNullableStringField(io, "mountDiskTempPath", parts.mount_disk_temp_path.path, true);
     try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
     try writeEnvObjectField(io, "mountDiskFdEnv", parts.mount_disk_fd_env, true);
     try writeSnapshotContextField(io, "snapshotContext", parts.snapshot_context, true);
@@ -4220,6 +4257,14 @@ fn optionalRootDiskRuntimeMode(
     return error.InvalidRootDiskRuntimeMode;
 }
 
+fn optionalMountDiskTempKind(object: std.json.ObjectMap) RequestError!boot_plan.MountDiskTempPathKind {
+    const value = object.get("mountDiskTempKind") orelse return .none;
+    if (value == .null) return .none;
+    if (value != .string) return error.InvalidMountDiskTempKind;
+    if (std.mem.eql(u8, value.string, "restore-upper")) return .restore_upper;
+    return error.InvalidMountDiskTempKind;
+}
+
 fn optionalMountDiskRuntimeMode(
     object: std.json.ObjectMap,
 ) RequestError!boot_plan.MountDiskRuntimeMode {
@@ -4930,6 +4975,23 @@ fn writeMountDiskUpperSizeRequestError(io: std.Io, err: RequestError) !bool {
             io,
             "INVALID_REQUEST",
             "boot-plan mountDisk upper size option must be a decimal integer",
+        ),
+        error.InvalidMountDiskTempKind => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan mountDisk temp kind must be restore-upper",
+        ),
+        error.InvalidMountDiskTempDir,
+        error.InvalidMountDiskTempNonce,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan mountDisk temp fields must be strings",
+        ),
+        error.InvalidMountDiskTempPid => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan mountDisk temp pid must be a decimal integer",
         ),
         else => return false,
     }
