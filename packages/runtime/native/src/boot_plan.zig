@@ -449,6 +449,17 @@ pub const StatsFileModePlan = struct {
     existing_path: ?[]const u8,
 };
 
+pub const StatsFileTempModeInput = struct {
+    existing_path: ?[]const u8 = null,
+    vsock_temp_dir: ?[]const u8 = null,
+};
+
+pub const StatsFileTempModePlan = struct {
+    action: []const u8,
+    existing_path: ?[]const u8,
+    temp_dir: ?[]const u8,
+};
+
 pub const StatsFilePlan = struct {
     stats_file_path: ?[]const u8,
     vmm_stats_file: ?[]const u8,
@@ -1092,6 +1103,12 @@ fn findRestoreLiveMountOverride(overrides: []const RestoreLiveMountInput, guest:
 pub fn planStatsFileMode(input: StatsFileModeInput) StatsFileModePlan {
     if (input.existing_path) |path| return .{ .action = "existing", .existing_path = path };
     return .{ .action = "allocate", .existing_path = null };
+}
+
+pub fn planStatsFileTempMode(input: StatsFileTempModeInput) StatsFileTempModePlan {
+    if (input.existing_path) |path| return .{ .action = "existing", .existing_path = path, .temp_dir = null };
+    if (input.vsock_temp_dir) |dir| return .{ .action = "reuse", .existing_path = null, .temp_dir = dir };
+    return .{ .action = "allocate", .existing_path = null, .temp_dir = null };
 }
 
 pub fn planStatsFile(allocator: std.mem.Allocator, input: StatsFileInput) !StatsFilePlan {
@@ -2724,6 +2741,23 @@ test "planStatsFileMode selects existing or allocate" {
     const allocate = planStatsFileMode(.{});
     try std.testing.expectEqualStrings("allocate", allocate.action);
     try std.testing.expect(allocate.existing_path == null);
+}
+
+test "planStatsFileTempMode selects existing reuse or allocate" {
+    const existing = planStatsFileTempMode(.{ .existing_path = "/tmp/caller-stats.bin", .vsock_temp_dir = "/tmp/vsock" });
+    try std.testing.expectEqualStrings("existing", existing.action);
+    try std.testing.expectEqualStrings("/tmp/caller-stats.bin", existing.existing_path.?);
+    try std.testing.expect(existing.temp_dir == null);
+
+    const reuse = planStatsFileTempMode(.{ .vsock_temp_dir = "/tmp/vsock" });
+    try std.testing.expectEqualStrings("reuse", reuse.action);
+    try std.testing.expect(reuse.existing_path == null);
+    try std.testing.expectEqualStrings("/tmp/vsock", reuse.temp_dir.?);
+
+    const allocate = planStatsFileTempMode(.{});
+    try std.testing.expectEqualStrings("allocate", allocate.action);
+    try std.testing.expect(allocate.existing_path == null);
+    try std.testing.expect(allocate.temp_dir == null);
 }
 
 test "planStatsFile preserves caller path or returns runtime-owned env value" {

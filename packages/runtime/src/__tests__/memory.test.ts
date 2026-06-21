@@ -1730,8 +1730,27 @@ describe("boot-plan helper schema", () => {
     expect(existing.status).toBe(0);
     expect(JSON.parse(existing.stdout).data).toMatchObject({
       statsFileMode: { action: "existing", existingPath: "/tmp/caller-stats.bin" },
+      statsFileTempMode: {
+        action: "existing",
+        existingPath: "/tmp/caller-stats.bin",
+        tempDir: null,
+      },
       statsFilePath: "/tmp/caller-stats.bin",
       vmmStatsFile: null,
+    });
+
+    const reuse = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, statsFileVsockTempDir: "/tmp/machinen-vsock-test" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(reuse.status).toBe(0);
+    expect(JSON.parse(reuse.stdout).data.statsFileTempMode).toEqual({
+      action: "reuse",
+      existingPath: null,
+      tempDir: "/tmp/machinen-vsock-test",
     });
 
     const planned = spawnSync(helper, ["boot-plan"], {
@@ -1744,6 +1763,7 @@ describe("boot-plan helper schema", () => {
     expect(planned.status).toBe(0);
     expect(JSON.parse(planned.stdout).data).toMatchObject({
       statsFileMode: { action: "allocate", existingPath: null },
+      statsFileTempMode: { action: "allocate", existingPath: null, tempDir: null },
       statsFilePath: "/tmp/runtime-stats.bin",
       vmmStatsFile: "/tmp/runtime-stats.bin",
     });
@@ -1758,6 +1778,7 @@ describe("boot-plan helper schema", () => {
     expect(tempDir.status).toBe(0);
     expect(JSON.parse(tempDir.stdout).data).toMatchObject({
       statsFileMode: { action: "allocate", existingPath: null },
+      statsFileTempMode: { action: "allocate", existingPath: null, tempDir: null },
       statsFilePath: "/tmp/machinen-stats-test/stats.bin",
       vmmStatsFile: "/tmp/machinen-stats-test/stats.bin",
     });
