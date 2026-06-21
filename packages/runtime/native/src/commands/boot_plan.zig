@@ -49,6 +49,7 @@ const ParsedRequest = struct {
     nested_requested: bool,
     live_mounts: []const boot_plan.LiveMountInput,
     live_mounts_resolved: []const boot_plan.LiveMount,
+    batch_live_mount_validation_required: bool,
     existing_stats_file: ?[]const u8,
     stats_file_path: ?[]const u8,
     stats_file_temp_dir: ?[]const u8,
@@ -209,6 +210,7 @@ const RequestError = error{
     InvalidLiveMountHost,
     InvalidLiveMountMode,
     InvalidLiveMountTag,
+    InvalidBatchLiveMountValidationRequired,
     InvalidExistingStatsFile,
     InvalidStatsFilePath,
     InvalidStatsFileTempDir,
@@ -378,6 +380,14 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         return .fail;
     };
     const virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved);
+    const batch_live_mount_sync = boot_plan.planBatchLiveMountSync(.{
+        .live_mounts = parsed.live_mounts_resolved,
+        .vsock_uds_path = parsed.vsock_uds_path,
+        .validation_required = parsed.batch_live_mount_validation_required,
+    }) catch |err| {
+        try writePlanError(io, err);
+        return .fail;
+    };
     const stats_file = try boot_plan.planStatsFile(arena, .{
         .existing_path = parsed.existing_stats_file,
         .planned_path = parsed.stats_file_path,
@@ -579,7 +589,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         return .fail;
     };
 
-    try writePlan(io, plan, cpu_plan, guest_env, guest_hostname, vsock_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_runtime, nested_env, virtiofs_env, stats_file, planned_live_mounts, parsed.port_forward, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, registry_shape);
+    try writePlan(io, plan, cpu_plan, guest_env, guest_hostname, vsock_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, stats_file, planned_live_mounts, parsed.port_forward, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, registry_shape);
     return .ok;
 }
 
@@ -598,6 +608,7 @@ fn writePlan(
     vmstate_runtime: boot_plan.VmstateRuntimePlan,
     nested_env: ?[]const u8,
     virtiofs_env: []const boot_plan.EnvPair,
+    batch_live_mount_sync: boot_plan.BatchLiveMountPlan,
     stats_file: boot_plan.StatsFilePlan,
     planned_live_mounts: []const boot_plan.LiveMount,
     planned_port_forwards: []const boot_plan.PortForwardMapping,
@@ -1041,6 +1052,8 @@ fn writePlan(
         try protocol.writeJsonString(io, pair.value);
     }
     try protocol.stdout(io, "}");
+    try protocol.stdout(io, ",\"batchLiveMountSyncRequired\":");
+    try protocol.stdout(io, if (batch_live_mount_sync.sync_required) "true" else "false");
     try protocol.stdout(io, ",\"vmmCommand\":");
     if (vmm_argv.command) |command| {
         try protocol.writeJsonString(io, command);
@@ -1285,7 +1298,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "statsFileTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountsResolved", "batchLiveMountValidationRequired", "existingStatsFile", "statsFilePath", "statsFileTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -1330,6 +1343,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .nested_requested = try optionalBoolDefaultFalse(object, "nested", error.InvalidNested),
         .live_mounts = try optionalLiveMounts(allocator, object),
         .live_mounts_resolved = try optionalLiveMountsResolved(allocator, object),
+        .batch_live_mount_validation_required = try optionalBoolDefaultFalse(object, "batchLiveMountValidationRequired", error.InvalidBatchLiveMountValidationRequired),
         .existing_stats_file = try optionalStringDefaultNull(object, "existingStatsFile", error.InvalidExistingStatsFile),
         .stats_file_path = try optionalStringDefaultNull(object, "statsFilePath", error.InvalidStatsFilePath),
         .stats_file_temp_dir = try optionalStringDefaultNull(object, "statsFileTempDir", error.InvalidStatsFileTempDir),
@@ -1739,6 +1753,7 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
         error.MissingRootDiskRuntimePath => try protocol.writeError(io, "BOOT_IMAGE_NOT_FOUND", "boot-plan rootDisk path missing"),
         error.MissingMountDiskRuntimeField => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan mountDisk field missing"),
         error.MissingMountDiskFdField => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan mountDisk fd field missing"),
+        error.MissingBatchLiveMountVsock => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: writable mounts require the exec vsock bridge for batched sync"),
         error.IncompleteRegistryMountDisk => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan registry mountDisk field missing"),
         error.MissingRegistryCpuStatus => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu control status missing"),
         error.MissingRegistryVmstateField => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry vmstate fields are incomplete"),
@@ -1767,6 +1782,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         error.InvalidPortForward, error.InvalidHostPort, error.InvalidGuestPort => try protocol.writeError(io, "BOOT_PORT_FORWARD_INVALID", "portForward: hostPort and guestPort must be integers in 1..65535"),
         error.InvalidLiveMounts, error.InvalidLiveMountGuest => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: entries must include host and guest paths"),
         error.InvalidLiveMountsResolved, error.InvalidLiveMountHost, error.InvalidLiveMountMode, error.InvalidLiveMountTag => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: resolved live mount entries must include host, guest, tag, and mode ro/rw"),
+        error.InvalidBatchLiveMountValidationRequired => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan batch live mount validation flag must be a boolean"),
         error.InvalidRegistryCpuPolicy => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu policy fields are invalid"),
         error.InvalidRegistryCpuControlStatus => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu control status must be none, linux-cgroup-v2, or unsupported"),
         error.InvalidRegistryCpuControlReason => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu control reason must be a string"),

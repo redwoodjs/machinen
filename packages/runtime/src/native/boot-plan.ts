@@ -83,6 +83,7 @@ interface NativeBootPlanInput {
   nested?: boolean;
   liveMounts?: LiveMountPlanInput[];
   liveMountsResolved?: PlannedLiveMount[];
+  batchLiveMountValidationRequired?: boolean;
   existingStatsFile?: string;
   statsFilePath?: string;
   statsFileTempDir?: string;
@@ -217,6 +218,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     nested: input.nested === true,
     liveMounts: liveMountsData(input.liveMounts),
     liveMountsResolved: input.liveMountsResolved ?? [],
+    batchLiveMountValidationRequired: input.batchLiveMountValidationRequired === true,
     existingStatsFile: nullDefault(input.existingStatsFile),
     statsFilePath: nullDefault(input.statsFilePath),
     statsFileTempDir: nullDefault(input.statsFileTempDir),
@@ -988,12 +990,10 @@ export function rootDiskPlanMode(rootDisk: boolean | string | undefined): RootDi
         : "unset";
 }
 
-function bootPlanError(code: ErrorCode, message: string, opts?: MachinenErrorOptions): Error {
-  return new BootError(code, message, opts);
-}
+const bootPlanError = (code: ErrorCode, message: string, opts?: MachinenErrorOptions): Error =>
+  new BootError(code, message, opts);
 
-function numberText(value: number | undefined): string | null {
-  return value === undefined ? null : String(value);
-}
+const numberText = (value: number | undefined): string | null =>
+  value === undefined ? null : String(value);
 
 const numberTextRequired = (value: number): string => String(value);

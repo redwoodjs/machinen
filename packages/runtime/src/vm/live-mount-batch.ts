@@ -3,7 +3,8 @@ import { mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { BootError, ExecError } from "../errors.ts";
+import { ExecError } from "../errors.ts";
+import { validateBatchLiveMountsNative } from "../native/live-mount-batch.ts";
 import type { VmHandle } from "../vm-handle.ts";
 import type { BootOptions } from "./boot.ts";
 interface BatchLiveMount {
@@ -14,18 +15,10 @@ interface BatchLiveMount {
 
 export function validateBatchLiveMounts(
   _opts: BootOptions,
-  liveMounts: ReadonlyArray<BatchLiveMount>,
+  liveMounts: ReadonlyArray<BatchLiveMount & { tag: string; mode: "ro" | "rw" }>,
   vsockUdsPath: string | undefined,
 ): void {
-  if (!liveMounts.some(isWritableBatchLiveMount)) {
-    return;
-  }
-  if (!vsockUdsPath) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      "liveMounts: writable mounts require the exec vsock bridge for batched sync",
-    );
-  }
+  validateBatchLiveMountsNative(liveMounts, vsockUdsPath);
 }
 
 export function withBatchLiveMountSync(
