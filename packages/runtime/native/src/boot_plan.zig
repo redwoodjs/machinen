@@ -359,6 +359,17 @@ pub const VmstateEnvPlan = struct {
     vmstate_timing: ?[]const u8,
 };
 
+pub const VmstateTempModeInput = struct {
+    engine: ?[]const u8 = null,
+    snapshot_disabled: bool = false,
+    existing_temp_dir: ?[]const u8 = null,
+};
+
+pub const VmstateTempModePlan = struct {
+    action: []const u8,
+    temp_dir: ?[]const u8,
+};
+
 pub const VmstateRuntimeInput = struct {
     state_path: ?[]const u8 = null,
     state_temp_dir: ?[]const u8 = null,
@@ -840,6 +851,17 @@ fn isHostnameAlnum(c: u8) bool {
     assert(@sizeOf(u8) == 1);
 
     return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9');
+}
+
+pub fn planVmstateTempMode(input: VmstateTempModeInput) VmstateTempModePlan {
+    assert(@sizeOf(VmstateTempModeInput) > 0);
+
+    const engine = input.engine orelse return .{ .action = "skip", .temp_dir = null };
+    if (!std.mem.eql(u8, engine, "vmstate") or input.snapshot_disabled) {
+        return .{ .action = "skip", .temp_dir = null };
+    }
+    if (input.existing_temp_dir) |temp_dir| return .{ .action = "reuse", .temp_dir = temp_dir };
+    return .{ .action = "allocate", .temp_dir = null };
 }
 
 pub fn planVmstateRuntime(
@@ -2187,6 +2209,27 @@ test "planPdeathsig defaults on and lets detach or explicit false disable it" {
     try std.testing.expect(planPdeathsig(.{ .pdeathsig = true }));
     try std.testing.expect(!planPdeathsig(.{ .pdeathsig = false }));
     try std.testing.expect(!planPdeathsig(.{ .detached = true, .pdeathsig = true }));
+}
+
+test "planVmstateTempMode selects skip reuse or allocate" {
+    const skip_engine = planVmstateTempMode(.{ .engine = "none" });
+    try std.testing.expectEqualStrings("skip", skip_engine.action);
+    try std.testing.expect(skip_engine.temp_dir == null);
+
+    const skip_snapshot = planVmstateTempMode(.{ .engine = "vmstate", .snapshot_disabled = true });
+    try std.testing.expectEqualStrings("skip", skip_snapshot.action);
+    try std.testing.expect(skip_snapshot.temp_dir == null);
+
+    const reuse = planVmstateTempMode(.{
+        .engine = "vmstate",
+        .existing_temp_dir = "/tmp/machinen-vsock-abc",
+    });
+    try std.testing.expectEqualStrings("reuse", reuse.action);
+    try std.testing.expectEqualStrings("/tmp/machinen-vsock-abc", reuse.temp_dir.?);
+
+    const allocate = planVmstateTempMode(.{ .engine = "vmstate" });
+    try std.testing.expectEqualStrings("allocate", allocate.action);
+    try std.testing.expect(allocate.temp_dir == null);
 }
 
 test "planVmstateRuntime projects chain defaults and restore parent" {

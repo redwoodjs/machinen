@@ -84,6 +84,7 @@ import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
 import { planBootStatsFileModeNative } from "../native/stats-file-mode.ts";
 import { planBootVmmEnvNative } from "../native/vmm-env.ts";
 import { planBootVsockModeNative } from "../native/vsock-mode.ts";
+import { planBootVmstateTempModeNative as planVmstateTempMode } from "../native/vmstate-temp-mode.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
 import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
@@ -1085,8 +1086,15 @@ function setupVmstateBoot(
   let vsockTempDir = inputVsockTempDir;
   let stateTempDir: string | undefined;
   const chainId = randomBytes(16).toString("hex");
-  if (resolveSnapshotEngine() === "vmstate" && opts.snapshot !== false) {
-    stateTempDir = vsockTempDir = ensureVsockTempDir(vsockTempDir);
+  const tempMode = planVmstateTempMode(
+    resolveSnapshotEngine(),
+    opts.snapshot === false,
+    vsockTempDir,
+  );
+  if (tempMode.action === "allocate") {
+    stateTempDir = vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
+  } else if (tempMode.tempDir) {
+    stateTempDir = vsockTempDir = tempMode.tempDir;
   }
   const runtime = planBootVmstateRuntimeNative({
     stateTempDir,
@@ -1102,10 +1110,6 @@ function setupVmstateBoot(
   };
   applyVmstateEnvPlan(opts, env, vmstate.statePath);
   return { vmstate, vsockTempDir };
-}
-
-function ensureVsockTempDir(vsockTempDir: string | undefined): string {
-  return vsockTempDir ?? mkdtempSync(join(tmpdir(), "machinen-vsock-"));
 }
 
 function applyVmstateEnvPlan(

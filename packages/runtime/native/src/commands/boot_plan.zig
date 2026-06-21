@@ -57,6 +57,9 @@ const ParsedRequest = struct {
     restore_path: ?[]const u8 = null,
     enable_vmstate_timing: bool = false,
     existing_vmstate_timing: ?[]const u8 = null,
+    boot_vmstate_engine: ?[]const u8 = null,
+    boot_vmstate_snapshot_disabled: bool = false,
+    boot_vmstate_existing_temp_dir: ?[]const u8 = null,
     boot_vmstate_state_path: ?[]const u8 = null,
     boot_vmstate_temp_dir: ?[]const u8 = null,
     boot_vmstate_chain_id: ?[]const u8 = null,
@@ -244,6 +247,9 @@ const boot_plan_fields = [_][]const u8{
     "restorePath",
     "enableVmstateTiming",
     "existingVmstateTiming",
+    "bootVmstateEngine",
+    "bootVmstateSnapshotDisabled",
+    "bootVmstateExistingTempDir",
     "bootVmstateStatePath",
     "bootVmstateTempDir",
     "bootVmstateChainId",
@@ -438,6 +444,9 @@ const RequestError = error{
     InvalidRestorePath,
     InvalidEnableVmstateTiming,
     InvalidExistingVmstateTiming,
+    InvalidBootVmstateEngine,
+    InvalidBootVmstateSnapshotDisabled,
+    InvalidBootVmstateExistingTempDir,
     InvalidBootVmstateStatePath,
     InvalidBootVmstateTempDir,
     InvalidBootVmstateChainId,
@@ -613,6 +622,7 @@ const PlanParts = struct {
     kernel_dtb: boot_plan.KernelDtbPlan,
     initrd_env: boot_plan.InitrdPlan,
     vmstate_env: boot_plan.VmstateEnvPlan,
+    vmstate_temp_mode: boot_plan.VmstateTempModePlan,
     vmstate_runtime: boot_plan.VmstateRuntimePlan,
     nested_env: ?[]const u8,
     virtiofs_env: []const boot_plan.EnvPair,
@@ -723,6 +733,11 @@ fn makePlanParts(
         .kernel_dtb = boot_env.kernel_dtb,
         .initrd_env = boot_env.initrd_env,
         .vmstate_env = boot_env.vmstate_env,
+        .vmstate_temp_mode = boot_plan.planVmstateTempMode(.{
+            .engine = parsed.boot_vmstate_engine,
+            .snapshot_disabled = parsed.boot_vmstate_snapshot_disabled,
+            .existing_temp_dir = parsed.boot_vmstate_existing_temp_dir,
+        }),
         .vmstate_runtime = boot_env.vmstate_runtime,
         .nested_env = boot_env.nested_env,
         .virtiofs_env = boot_env.virtiofs_env,
@@ -1310,6 +1325,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeGuestHostnameField(io, "guestHostname", parts.guest_hostname, true);
     try writeGuestHostnameSetField(io, "guestHostnameSet", parts.guest_hostname_set, true);
     try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file_mode, parts.stats_file);
+    try writeVmstateTempModeField(io, "vmstateTempMode", parts.vmstate_temp_mode, true);
     try writeVmstateRuntimeField(io, "vmstateRuntime", parts.vmstate_runtime, true);
     try writeBoolField(
         io,
@@ -1561,6 +1577,21 @@ fn writeRestoreLiveMountsField(
         try protocol.stdout(io, "}");
     }
     try protocol.stdout(io, "]");
+}
+
+fn writeVmstateTempModeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mode: boot_plan.VmstateTempModePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, mode.action);
+    try writeNullableStringField(io, "tempDir", mode.temp_dir, true);
+    try protocol.stdout(io, "}");
 }
 
 fn writeVmstateRuntimeField(
@@ -2853,6 +2884,21 @@ fn parseVmstateFields(object: std.json.ObjectMap, request: *ParsedRequest) Reque
         object,
         "existingVmstateTiming",
         error.InvalidExistingVmstateTiming,
+    );
+    request.boot_vmstate_engine = try optionalStringDefaultNull(
+        object,
+        "bootVmstateEngine",
+        error.InvalidBootVmstateEngine,
+    );
+    request.boot_vmstate_snapshot_disabled = try optionalBoolDefaultFalse(
+        object,
+        "bootVmstateSnapshotDisabled",
+        error.InvalidBootVmstateSnapshotDisabled,
+    );
+    request.boot_vmstate_existing_temp_dir = try optionalStringDefaultNull(
+        object,
+        "bootVmstateExistingTempDir",
+        error.InvalidBootVmstateExistingTempDir,
     );
     request.boot_vmstate_state_path = try optionalStringDefaultNull(
         object,

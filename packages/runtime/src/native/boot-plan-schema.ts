@@ -11,6 +11,7 @@ export type ProvisionGuestCpu = "arm64" | "amd64";
 export type RestoreLiveMount = { host: string; guest: string; mode?: "ro" | "rw" };
 export type GvproxyPlan = { action: GvproxyAction; gvproxyPath: string | null };
 export type VsockModePlan = { action: "existing" | "allocate"; existingSpec: string | null };
+export type VmstateTempModePlan = { action: "skip" | "reuse" | "allocate"; tempDir: string | null };
 export type StatsFileModePlan = { action: "existing" | "allocate"; existingPath: string | null };
 export type BootRootDiskMode = "unset" | "false" | "path" | "true";
 type BootScratchMode = "unset" | "false" | "path" | "auto";
@@ -703,6 +704,17 @@ function isVsockModePlan(value: unknown): value is VsockModePlan {
   const plan = value as Partial<VsockModePlan>;
   return (
     (plan.action === "existing" || plan.action === "allocate") && nullableString(plan.existingSpec)
+  );
+}
+
+function isVmstateTempModePlan(value: unknown): value is VmstateTempModePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<VmstateTempModePlan>;
+  return (
+    (plan.action === "skip" || plan.action === "reuse" || plan.action === "allocate") &&
+    nullableString(plan.tempDir)
   );
 }
 
