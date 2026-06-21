@@ -54,7 +54,9 @@ import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
   planBootKernelDtbNative,
+  planBootRegistryNestedNative,
   planBootRegistryShapeNative,
+  planBootRegistryVmstateNative,
   planBootScratchDiskNative,
   planBootStatsFileNative,
   planBootVirtiofsEnvNative,
@@ -861,6 +863,7 @@ function buildRegisterArgs(
   },
   state: BootRegistryState,
 ): RegisterArgs {
+  const vmstate = registryVmstate(args.plan.vmstate);
   return {
     childPid: state.childPid,
     vmName: state.vmName,
@@ -883,19 +886,21 @@ function buildRegisterArgs(
     statsFilePath: args.plan.statsFilePath,
     mountDiskPaths: args.resources.mountDiskPaths,
     liveMountsResolved: args.plan.liveMountsResolved,
-    vmstateStatePath: args.plan.vmstate.statePath,
-    vmstateChainId: vmstateValue(args.plan.vmstate, args.plan.vmstate.chainId),
-    vmstateCheckpointParent: vmstateValue(args.plan.vmstate, args.plan.vmstate.checkpointParent),
-    vmstateCheckpointSequence: vmstateValue(
-      args.plan.vmstate,
-      args.plan.vmstate.checkpointSequence,
-    ),
-    nested: args.opts.nested,
+    vmstateStatePath: vmstate.statePath ?? undefined,
+    vmstateChainId: vmstate.chainId ?? undefined,
+    vmstateCheckpointParent: vmstate.checkpointParent ?? undefined,
+    vmstateCheckpointSequence: vmstate.checkpointSequence ?? undefined,
+    nested: planBootRegistryNestedNative(args.opts.nested),
   };
 }
 
-function vmstateValue<T>(vmstate: BootVmstateRuntime, value: T): T | undefined {
-  return vmstate.statePath ? value : undefined;
+function registryVmstate(vmstate: BootVmstateRuntime) {
+  return planBootRegistryVmstateNative({
+    statePath: vmstate.statePath,
+    chainId: vmstate.chainId,
+    checkpointParent: vmstate.checkpointParent,
+    checkpointSequence: vmstate.checkpointSequence,
+  });
 }
 
 function cleanupPathsForBoot(

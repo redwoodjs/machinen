@@ -95,6 +95,11 @@ const ParsedRequest = struct {
     registry_cpu_policy_weight_text: ?[]const u8,
     registry_cpu_control_status: ?[]const u8,
     registry_cpu_control_reason: ?[]const u8,
+    registry_vmstate_path: ?[]const u8,
+    registry_vmstate_chain_id: ?[]const u8,
+    registry_vmstate_checkpoint_parent: ?[]const u8,
+    registry_vmstate_checkpoint_sequence_text: ?[]const u8,
+    registry_nested: bool,
     registry_mount_guest: ?[]const u8,
     registry_mount_lower_path: ?[]const u8,
     registry_mount_upper_path: ?[]const u8,
@@ -216,6 +221,11 @@ const RequestError = error{
     InvalidRegistryCpuPolicy,
     InvalidRegistryCpuControlStatus,
     InvalidRegistryCpuControlReason,
+    InvalidRegistryVmstatePath,
+    InvalidRegistryVmstateChainId,
+    InvalidRegistryVmstateCheckpointParent,
+    InvalidRegistryVmstateCheckpointSequence,
+    InvalidRegistryNested,
     InvalidRegistryMountGuest,
     InvalidRegistryMountLowerPath,
     InvalidRegistryMountUpperPath,
@@ -391,6 +401,13 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writeRequestError(io, err);
         return .fail;
     };
+    const registry_vmstate_checkpoint_sequence = if (parsed.registry_vmstate_checkpoint_sequence_text) |text|
+        parseUnsigned(text) catch {
+            try writeRequestError(io, error.InvalidRegistryVmstateCheckpointSequence);
+            return .fail;
+        }
+    else
+        null;
     const registry_shape = boot_plan.planRegistryShape(arena, .{
         .source_image_path = parsed.registry_source_image_path,
         .per_boot_root_disk = parsed.registry_per_boot_root_disk,
@@ -414,6 +431,13 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .cpu_policy = registry_cpu_policy,
         .cpu_control_status = parsed.registry_cpu_control_status,
         .cpu_control_reason = parsed.registry_cpu_control_reason,
+        .vmstate = .{
+            .state_path = parsed.registry_vmstate_path,
+            .chain_id = parsed.registry_vmstate_chain_id,
+            .checkpoint_parent = parsed.registry_vmstate_checkpoint_parent,
+            .checkpoint_sequence = registry_vmstate_checkpoint_sequence,
+        },
+        .nested = parsed.registry_nested,
     }) catch |err| {
         try writePlanError(io, err);
         return .fail;
@@ -764,6 +788,17 @@ fn writePlan(
     } else {
         try protocol.stdout(io, "null");
     }
+    try protocol.stdout(io, ",\"vmstate\":{");
+    try protocol.stdout(io, "\"statePath\":");
+    try writeNullableJsonString(io, registry_shape.vmstate.state_path);
+    try protocol.stdout(io, ",\"chainId\":");
+    try writeNullableJsonString(io, registry_shape.vmstate.chain_id);
+    try protocol.stdout(io, ",\"checkpointParent\":");
+    try writeNullableJsonString(io, registry_shape.vmstate.checkpoint_parent);
+    try protocol.stdout(io, ",\"checkpointSequence\":");
+    try writeNullableU64(io, registry_shape.vmstate.checkpoint_sequence);
+    try protocol.stdout(io, "},\"nested\":");
+    try protocol.stdout(io, if (registry_shape.nested) "true" else "false");
     try protocol.stdout(io, "}");
     try protocol.stdout(io, ",\"machinenConfig\":{");
     try protocol.stdout(io, "\"cmd\":[");
@@ -991,7 +1026,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "nested", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "nested", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -1082,6 +1117,11 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .registry_cpu_policy_weight_text = try optionalStringDefaultNull(object, "registryCpuPolicyWeight", error.InvalidRegistryCpuPolicy),
         .registry_cpu_control_status = try optionalRegistryCpuControlStatus(object),
         .registry_cpu_control_reason = try optionalStringDefaultNull(object, "registryCpuControlReason", error.InvalidRegistryCpuControlReason),
+        .registry_vmstate_path = try optionalStringDefaultNull(object, "registryVmstatePath", error.InvalidRegistryVmstatePath),
+        .registry_vmstate_chain_id = try optionalStringDefaultNull(object, "registryVmstateChainId", error.InvalidRegistryVmstateChainId),
+        .registry_vmstate_checkpoint_parent = try optionalStringDefaultNull(object, "registryVmstateCheckpointParent", error.InvalidRegistryVmstateCheckpointParent),
+        .registry_vmstate_checkpoint_sequence_text = try optionalStringDefaultNull(object, "registryVmstateCheckpointSequence", error.InvalidRegistryVmstateCheckpointSequence),
+        .registry_nested = try optionalBoolDefaultFalse(object, "registryNested", error.InvalidRegistryNested),
         .registry_mount_guest = try optionalStringDefaultNull(object, "registryMountGuest", error.InvalidRegistryMountGuest),
         .registry_mount_lower_path = try optionalStringDefaultNull(object, "registryMountLowerPath", error.InvalidRegistryMountLowerPath),
         .registry_mount_upper_path = try optionalStringDefaultNull(object, "registryMountUpperPath", error.InvalidRegistryMountUpperPath),
@@ -1400,6 +1440,7 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
         error.MissingMountDiskRuntimeField => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan mountDisk field missing"),
         error.IncompleteRegistryMountDisk => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan registry mountDisk field missing"),
         error.MissingRegistryCpuStatus => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu control status missing"),
+        error.MissingRegistryVmstateField => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry vmstate fields are incomplete"),
         error.MissingProvisionRepackField => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision repack field missing"),
         error.UnsupportedHostMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: host memory probing is unsupported on this platform"),
         error.InvalidGuestEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan guestEnv values must be strings"),
@@ -1426,6 +1467,9 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         error.InvalidRegistryCpuPolicy => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu policy fields are invalid"),
         error.InvalidRegistryCpuControlStatus => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu control status must be none, linux-cgroup-v2, or unsupported"),
         error.InvalidRegistryCpuControlReason => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu control reason must be a string"),
+        error.InvalidRegistryVmstatePath, error.InvalidRegistryVmstateChainId, error.InvalidRegistryVmstateCheckpointParent => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry vmstate path fields must be strings"),
+        error.InvalidRegistryVmstateCheckpointSequence => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry vmstate checkpoint sequence must be a decimal integer"),
+        error.InvalidRegistryNested => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan registry nested flag must be a boolean"),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
 }

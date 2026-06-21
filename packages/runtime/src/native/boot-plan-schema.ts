@@ -12,6 +12,12 @@ type RegistryCpuPlan = {
   weight: number;
   enforcement: { status: "none" | "linux-cgroup-v2" | "unsupported"; reason?: string };
 };
+type RegistryVmstatePlan = {
+  statePath: string | null;
+  chainId: string | null;
+  checkpointParent: string | null;
+  checkpointSequence: number | null;
+};
 export type ProvisionAssetsPlan = {
   cpu: ProvisionGuestCpu;
   kernelAsset: string;
@@ -46,6 +52,8 @@ export type RegistryShapePlan = {
   mountDisk: RegistryMountDiskPlan | null;
   liveMounts: RegistryLiveMountPlan[];
   cpu: RegistryCpuPlan | null;
+  vmstate: RegistryVmstatePlan;
+  nested: boolean;
 };
 export type ScratchDiskPlan = {
   action: ScratchDiskAction;
@@ -300,7 +308,22 @@ function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
     nullableObject(plan.mountDisk, isRegistryMountDisk),
     Array.isArray(plan.liveMounts) && plan.liveMounts.every(isRegistryLiveMount),
     nullableObject(plan.cpu, isRegistryCpuPlan),
+    isRegistryVmstatePlan(plan.vmstate),
+    typeof plan.nested === "boolean",
   ].every(Boolean);
+}
+
+function isRegistryVmstatePlan(value: unknown): value is RegistryVmstatePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<RegistryVmstatePlan>;
+  return (
+    nullableString(plan.statePath) &&
+    nullableString(plan.chainId) &&
+    nullableString(plan.checkpointParent) &&
+    nullableNonNegativeNumber(plan.checkpointSequence)
+  );
 }
 
 function isRegistryCpuPlan(value: unknown): value is RegistryCpuPlan {

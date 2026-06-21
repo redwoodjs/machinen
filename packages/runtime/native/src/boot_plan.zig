@@ -323,6 +323,20 @@ pub const RegistryCpuPlan = struct {
     enforcement_reason: ?[]const u8,
 };
 
+pub const RegistryVmstateInput = struct {
+    state_path: ?[]const u8 = null,
+    chain_id: ?[]const u8 = null,
+    checkpoint_parent: ?[]const u8 = null,
+    checkpoint_sequence: ?u64 = null,
+};
+
+pub const RegistryVmstatePlan = struct {
+    state_path: ?[]const u8,
+    chain_id: ?[]const u8,
+    checkpoint_parent: ?[]const u8,
+    checkpoint_sequence: ?u64,
+};
+
 pub const RegistryShapeInput = struct {
     source_image_path: ?[]const u8 = null,
     per_boot_root_disk: ?[]const u8 = null,
@@ -333,6 +347,8 @@ pub const RegistryShapeInput = struct {
     cpu_policy: ?CpuPolicyPlan = null,
     cpu_control_status: ?[]const u8 = null,
     cpu_control_reason: ?[]const u8 = null,
+    vmstate: RegistryVmstateInput = .{},
+    nested: bool = false,
 };
 
 pub const RegistryShapePlan = struct {
@@ -343,6 +359,8 @@ pub const RegistryShapePlan = struct {
     mount_disk: ?RegistryMountDiskPlan,
     live_mounts: []const RegistryLiveMountPlan,
     cpu: ?RegistryCpuPlan,
+    vmstate: RegistryVmstatePlan,
+    nested: bool,
 };
 
 pub const MachinenConfigInput = struct {
@@ -395,6 +413,7 @@ pub const PlanError = error{
     MissingMountDiskRuntimeField,
     IncompleteRegistryMountDisk,
     MissingRegistryCpuStatus,
+    MissingRegistryVmstateField,
     MissingProvisionRepackField,
 };
 
@@ -732,6 +751,21 @@ fn planRegistryCpu(input: RegistryShapeInput) PlanError!?RegistryCpuPlan {
     };
 }
 
+fn planRegistryVmstate(input: RegistryVmstateInput) PlanError!RegistryVmstatePlan {
+    const state_path = input.state_path orelse return .{
+        .state_path = null,
+        .chain_id = null,
+        .checkpoint_parent = null,
+        .checkpoint_sequence = null,
+    };
+    return .{
+        .state_path = state_path,
+        .chain_id = input.chain_id orelse return error.MissingRegistryVmstateField,
+        .checkpoint_parent = input.checkpoint_parent,
+        .checkpoint_sequence = input.checkpoint_sequence orelse return error.MissingRegistryVmstateField,
+    };
+}
+
 pub fn planRegistryShape(allocator: std.mem.Allocator, input: RegistryShapeInput) PlanError!RegistryShapePlan {
     var cleanup_paths: std.ArrayList([]const u8) = .empty;
     errdefer cleanup_paths.deinit(allocator);
@@ -777,6 +811,8 @@ pub fn planRegistryShape(allocator: std.mem.Allocator, input: RegistryShapeInput
         .mount_disk = mount_disk,
         .live_mounts = try live_mounts.toOwnedSlice(allocator),
         .cpu = try planRegistryCpu(input),
+        .vmstate = try planRegistryVmstate(input.vmstate),
+        .nested = input.nested,
     };
 }
 
@@ -1105,6 +1141,13 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
         .cpu_policy = .{ .max_vcpus = 1, .quota_cpus = 0.5, .weight = 200 },
         .cpu_control_status = "linux-cgroup-v2",
         .cpu_control_reason = "limited",
+        .vmstate = .{
+            .state_path = "/tmp/state.vmstate",
+            .chain_id = "chain-1",
+            .checkpoint_parent = "/snap/parent",
+            .checkpoint_sequence = 3,
+        },
+        .nested = true,
     });
     defer allocator.free(plan.cleanup_paths);
     defer allocator.free(plan.live_mounts);
@@ -1131,6 +1174,23 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectEqual(@as(u64, 200), plan.cpu.?.weight);
     try std.testing.expectEqualStrings("linux-cgroup-v2", plan.cpu.?.enforcement_status);
     try std.testing.expectEqualStrings("limited", plan.cpu.?.enforcement_reason.?);
+    try std.testing.expectEqualStrings("/tmp/state.vmstate", plan.vmstate.state_path.?);
+    try std.testing.expectEqualStrings("chain-1", plan.vmstate.chain_id.?);
+    try std.testing.expectEqualStrings("/snap/parent", plan.vmstate.checkpoint_parent.?);
+    try std.testing.expectEqual(@as(u64, 3), plan.vmstate.checkpoint_sequence.?);
+    try std.testing.expect(plan.nested);
+
+    const no_vmstate = try planRegistryShape(allocator, .{
+        .vmstate = .{ .chain_id = "ignored", .checkpoint_sequence = 99 },
+    });
+    defer allocator.free(no_vmstate.cleanup_paths);
+    defer allocator.free(no_vmstate.live_mounts);
+    try std.testing.expect(no_vmstate.vmstate.state_path == null);
+    try std.testing.expect(!no_vmstate.nested);
+
+    try std.testing.expectError(error.MissingRegistryVmstateField, planRegistryShape(allocator, .{
+        .vmstate = .{ .state_path = "/tmp/state.vmstate", .checkpoint_sequence = 1 },
+    }));
 }
 
 test "planMountDiskRuntime selects restore and fresh actions" {

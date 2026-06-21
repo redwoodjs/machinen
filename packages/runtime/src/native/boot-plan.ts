@@ -114,6 +114,11 @@ interface NativeBootPlanInput {
   registryCpuPolicy?: ResolvedCpuResourcePolicy;
   registryCpuControlStatus?: CpuControlResult["status"];
   registryCpuControlReason?: string;
+  registryVmstatePath?: string;
+  registryVmstateChainId?: string;
+  registryVmstateCheckpointParent?: string;
+  registryVmstateCheckpointSequence?: number;
+  registryNested?: boolean;
   registryMountGuest?: string;
   registryMountLowerPath?: string;
   registryMountUpperPath?: string;
@@ -256,6 +261,11 @@ function registryShapeData(input: NativeBootPlanInput): Record<string, unknown> 
     registryCpuPolicyWeight: numberText(input.registryCpuPolicy?.weight),
     registryCpuControlStatus: nullDefault(input.registryCpuControlStatus),
     registryCpuControlReason: nullDefault(input.registryCpuControlReason),
+    registryVmstatePath: nullDefault(input.registryVmstatePath),
+    registryVmstateChainId: nullDefault(input.registryVmstateChainId),
+    registryVmstateCheckpointParent: nullDefault(input.registryVmstateCheckpointParent),
+    registryVmstateCheckpointSequence: numberText(input.registryVmstateCheckpointSequence),
+    registryNested: input.registryNested === true,
     registryMountGuest: nullDefault(input.registryMountGuest),
     registryMountLowerPath: nullDefault(input.registryMountLowerPath),
     registryMountUpperPath: nullDefault(input.registryMountUpperPath),
@@ -438,6 +448,13 @@ export function planBootRegistryShapeNative(input: {
     policy: ResolvedCpuResourcePolicy | undefined;
     control: CpuControlResult;
   };
+  vmstate?: {
+    statePath?: string;
+    chainId?: string;
+    checkpointParent?: string;
+    checkpointSequence?: number;
+  };
+  nested?: boolean;
   mountDisk?: { guest: string; lowerPath: string; upperPath: string };
   liveMounts?: PlannedLiveMount[];
 }): RegistryShapePlan {
@@ -455,6 +472,11 @@ export function planBootRegistryShapeNative(input: {
     registryCpuPolicy: input.cpu?.policy,
     registryCpuControlStatus: input.cpu?.control.status,
     registryCpuControlReason: input.cpu?.control.reason,
+    registryVmstatePath: input.vmstate?.statePath,
+    registryVmstateChainId: input.vmstate?.chainId,
+    registryVmstateCheckpointParent: input.vmstate?.checkpointParent,
+    registryVmstateCheckpointSequence: input.vmstate?.checkpointSequence,
+    registryNested: input.nested,
     registryMountGuest: input.mountDisk?.guest,
     registryMountLowerPath: input.mountDisk?.lowerPath,
     registryMountUpperPath: input.mountDisk?.upperPath,
@@ -471,6 +493,19 @@ export function planBootRegistryCpuNative(input: {
   control: CpuControlResult;
 }): RegistryShapePlan["cpu"] | undefined {
   return planBootRegistryShapeNative({ cpu: input }).cpu ?? undefined;
+}
+
+export function planBootRegistryVmstateNative(input: {
+  statePath?: string;
+  chainId?: string;
+  checkpointParent?: string;
+  checkpointSequence?: number;
+}): RegistryShapePlan["vmstate"] {
+  return planBootRegistryShapeNative({ vmstate: input }).vmstate;
+}
+
+export function planBootRegistryNestedNative(nested: boolean | undefined): boolean | undefined {
+  return planBootRegistryShapeNative({ nested }).nested || undefined;
 }
 
 export function planBootBundleEnvNative(input: {
