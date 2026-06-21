@@ -97,6 +97,10 @@ const ParsedRequest = struct {
     registry_cpu_policy_weight_text: ?[]const u8 = null,
     registry_cpu_control_status: ?[]const u8 = null,
     registry_cpu_control_reason: ?[]const u8 = null,
+    registry_vmstate_path: ?[]const u8 = null,
+    registry_vmstate_chain_id: ?[]const u8 = null,
+    registry_vmstate_checkpoint_parent: ?[]const u8 = null,
+    registry_vmstate_checkpoint_sequence_text: ?[]const u8 = null,
     registry_mount_guest: ?[]const u8 = null,
     registry_mount_lower_path: ?[]const u8 = null,
     registry_mount_upper_path: ?[]const u8 = null,
@@ -203,6 +207,10 @@ const boot_plan_fields = [_][]const u8{
     "registryCpuPolicyWeight",
     "registryCpuControlStatus",
     "registryCpuControlReason",
+    "registryVmstatePath",
+    "registryVmstateChainId",
+    "registryVmstateCheckpointParent",
+    "registryVmstateCheckpointSequence",
     "registryMountGuest",
     "registryMountLowerPath",
     "registryMountUpperPath",
@@ -313,6 +321,10 @@ const RequestError = error{
     InvalidRegistryCpuPolicy,
     InvalidRegistryCpuControlStatus,
     InvalidRegistryCpuControlReason,
+    InvalidRegistryVmstatePath,
+    InvalidRegistryVmstateChainId,
+    InvalidRegistryVmstateCheckpointParent,
+    InvalidRegistryVmstateCheckpointSequence,
     InvalidRegistryMountGuest,
     InvalidRegistryMountLowerPath,
     InvalidRegistryMountUpperPath,
@@ -679,6 +691,10 @@ fn makeRegistryShape(
 ) !boot_plan.RegistryShapePlan {
     assert(@sizeOf(boot_plan.RegistryShapePlan) > 0);
 
+    const registry_vmstate_checkpoint_sequence = try optionalUnsignedText(
+        parsed.registry_vmstate_checkpoint_sequence_text,
+        error.InvalidRegistryVmstateCheckpointSequence,
+    );
     return boot_plan.planRegistryShape(arena, .{
         .source_image_path = parsed.registry_source_image_path,
         .per_boot_root_disk = parsed.registry_per_boot_root_disk,
@@ -702,6 +718,12 @@ fn makeRegistryShape(
         .cpu_policy = try makeRegistryCpuPolicy(parsed),
         .cpu_control_status = parsed.registry_cpu_control_status,
         .cpu_control_reason = parsed.registry_cpu_control_reason,
+        .vmstate = .{
+            .state_path = parsed.registry_vmstate_path,
+            .chain_id = parsed.registry_vmstate_chain_id,
+            .checkpoint_parent = parsed.registry_vmstate_checkpoint_parent,
+            .checkpoint_sequence = registry_vmstate_checkpoint_sequence,
+        },
     });
 }
 
@@ -1170,6 +1192,7 @@ fn writeRegistryShapeField(
     try writeRegistryMountDiskField(io, "mountDisk", registry.mount_disk, true);
     try writeRegistryLiveMountsField(io, "liveMounts", registry.live_mounts, true);
     try writeRegistryCpuField(io, "cpu", registry.cpu, true);
+    try writeRegistryVmstateField(io, "vmstate", registry.vmstate, true);
     try protocol.stdout(io, "}");
 }
 
@@ -1216,6 +1239,23 @@ fn writeRegistryLiveMountsField(
         try protocol.stdout(io, "}");
     }
     try protocol.stdout(io, "]");
+}
+
+fn writeRegistryVmstateField(
+    io: std.Io,
+    comptime field: []const u8,
+    vmstate: boot_plan.RegistryVmstatePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "statePath", vmstate.state_path, false);
+    try writeNullableStringField(io, "chainId", vmstate.chain_id, true);
+    try writeNullableStringField(io, "checkpointParent", vmstate.checkpoint_parent, true);
+    try writeNullableU64Field(io, "checkpointSequence", vmstate.checkpoint_sequence, true);
+    try protocol.stdout(io, "}");
 }
 
 fn writeRegistryCpuField(
@@ -2020,6 +2060,26 @@ fn parseRegistryCleanupFields(
         object,
         "registryCpuControlReason",
         error.InvalidRegistryCpuControlReason,
+    );
+    request.registry_vmstate_path = try optionalStringDefaultNull(
+        object,
+        "registryVmstatePath",
+        error.InvalidRegistryVmstatePath,
+    );
+    request.registry_vmstate_chain_id = try optionalStringDefaultNull(
+        object,
+        "registryVmstateChainId",
+        error.InvalidRegistryVmstateChainId,
+    );
+    request.registry_vmstate_checkpoint_parent = try optionalStringDefaultNull(
+        object,
+        "registryVmstateCheckpointParent",
+        error.InvalidRegistryVmstateCheckpointParent,
+    );
+    request.registry_vmstate_checkpoint_sequence_text = try optionalStringDefaultNull(
+        object,
+        "registryVmstateCheckpointSequence",
+        error.InvalidRegistryVmstateCheckpointSequence,
     );
 }
 

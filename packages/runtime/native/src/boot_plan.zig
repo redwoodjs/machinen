@@ -97,6 +97,7 @@ pub const BundleCommandInput = struct {
     cpu_policy: ?CpuPolicyPlan = null,
     cpu_control_status: ?[]const u8 = null,
     cpu_control_reason: ?[]const u8 = null,
+    vmstate: RegistryVmstateInput = .{},
 };
 
 pub const BundleEnvInput = struct {
@@ -336,6 +337,20 @@ pub const RegistryCpuPlan = struct {
     enforcement_reason: ?[]const u8,
 };
 
+pub const RegistryVmstateInput = struct {
+    state_path: ?[]const u8 = null,
+    chain_id: ?[]const u8 = null,
+    checkpoint_parent: ?[]const u8 = null,
+    checkpoint_sequence: ?u64 = null,
+};
+
+pub const RegistryVmstatePlan = struct {
+    state_path: ?[]const u8,
+    chain_id: ?[]const u8,
+    checkpoint_parent: ?[]const u8,
+    checkpoint_sequence: ?u64,
+};
+
 pub const RegistryShapeInput = struct {
     source_image_path: ?[]const u8 = null,
     per_boot_root_disk: ?[]const u8 = null,
@@ -346,6 +361,7 @@ pub const RegistryShapeInput = struct {
     cpu_policy: ?CpuPolicyPlan = null,
     cpu_control_status: ?[]const u8 = null,
     cpu_control_reason: ?[]const u8 = null,
+    vmstate: RegistryVmstateInput = .{},
 };
 
 pub const RegistryShapePlan = struct {
@@ -356,6 +372,7 @@ pub const RegistryShapePlan = struct {
     mount_disk: ?RegistryMountDiskPlan,
     live_mounts: []const RegistryLiveMountPlan,
     cpu: ?RegistryCpuPlan,
+    vmstate: RegistryVmstatePlan,
 };
 
 pub const MachinenConfigInput = struct {
@@ -409,6 +426,7 @@ pub const PlanError = error{
     IncompleteRegistryMountDisk,
     MissingProvisionRepackField,
     MissingRegistryCpuStatus,
+    MissingRegistryVmstateField,
 };
 
 pub fn planNestedEnv(nested: bool) ?[]const u8 {
@@ -858,6 +876,27 @@ pub fn planRegistryShape(
         .mount_disk = try planRegistryMountDisk(input.mount_disk),
         .live_mounts = try planRegistryLiveMounts(allocator, input.live_mounts),
         .cpu = try planRegistryCpu(input),
+        .vmstate = try planRegistryVmstate(input.vmstate),
+    };
+}
+
+fn planRegistryVmstate(input: RegistryVmstateInput) PlanError!RegistryVmstatePlan {
+    assert(@sizeOf(RegistryVmstateInput) > 0);
+
+    if (input.state_path == null) {
+        return .{
+            .state_path = null,
+            .chain_id = null,
+            .checkpoint_parent = null,
+            .checkpoint_sequence = null,
+        };
+    }
+    return .{
+        .state_path = input.state_path,
+        .chain_id = input.chain_id orelse return error.MissingRegistryVmstateField,
+        .checkpoint_parent = input.checkpoint_parent,
+        .checkpoint_sequence = input.checkpoint_sequence orelse
+            return error.MissingRegistryVmstateField,
     };
 }
 
@@ -1345,6 +1384,10 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectEqual(@as(u64, 200), plan.cpu.?.weight);
     try std.testing.expectEqualStrings("linux-cgroup-v2", plan.cpu.?.enforcement_status);
     try std.testing.expectEqualStrings("limited", plan.cpu.?.enforcement_reason.?);
+    try std.testing.expectEqualStrings("/tmp/state.vmstate", plan.vmstate.state_path.?);
+    try std.testing.expectEqualStrings("chain-1", plan.vmstate.chain_id.?);
+    try std.testing.expectEqualStrings("/snap/parent", plan.vmstate.checkpoint_parent.?);
+    try std.testing.expectEqual(@as(u64, 3), plan.vmstate.checkpoint_sequence.?);
     try std.testing.expectEqual(@as(@TypeOf(plan.live_mounts.len), 2), plan.live_mounts.len);
     try std.testing.expectEqualStrings("/mnt/work", plan.live_mounts[0].guest);
     try std.testing.expectEqualStrings("/host/work", plan.live_mounts[0].host);

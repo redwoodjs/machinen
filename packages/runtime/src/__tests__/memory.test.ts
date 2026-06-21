@@ -731,6 +731,11 @@ describe("boot-plan helper schema", () => {
           registryCpuPolicyWeight: "200",
           registryCpuControlStatus: "linux-cgroup-v2",
           registryCpuControlReason: "limited",
+          registryVmstatePath: "/tmp/state.vmstate",
+          registryVmstateChainId: "chain-1",
+          registryVmstateCheckpointParent: "/snap/parent",
+          registryVmstateCheckpointSequence: "3",
+          registryNested: true,
           registryMountGuest: "/mnt/data",
           registryMountLowerPath: "/cache/lower.sqfs",
           registryMountUpperPath: "/tmp/upper.img",
@@ -770,6 +775,13 @@ describe("boot-plan helper schema", () => {
         weight: 200,
         enforcement: { status: "linux-cgroup-v2", reason: "limited" },
       },
+      vmstate: {
+        statePath: "/tmp/state.vmstate",
+        chainId: "chain-1",
+        checkpointParent: "/snap/parent",
+        checkpointSequence: 3,
+      },
+      nested: true,
     });
   });
 

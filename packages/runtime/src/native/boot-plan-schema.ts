@@ -9,6 +9,12 @@ type RegistryCpuPlan = {
   weight: number;
   enforcement: { status: "none" | "linux-cgroup-v2" | "unsupported"; reason?: string };
 };
+type RegistryVmstatePlan = {
+  statePath: string | null;
+  chainId: string | null;
+  checkpointParent: string | null;
+  checkpointSequence: number | null;
+};
 export type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
 type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
@@ -46,6 +52,7 @@ export type RegistryShapePlan = {
   mountDisk: RegistryMountDiskPlan | null;
   liveMounts: RegistryLiveMountPlan[];
   cpu: RegistryCpuPlan | null;
+  vmstate: RegistryVmstatePlan;
 };
 export type ScratchDiskPlan = {
   action: ScratchDiskAction;
@@ -309,6 +316,20 @@ function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
     Array.isArray(plan.liveMounts),
     plan.liveMounts?.every(isRegistryLiveMount) === true,
     nullableRegistryCpu(plan.cpu),
+    isRegistryVmstatePlan(plan.vmstate),
+  ].every(Boolean);
+}
+
+function isRegistryVmstatePlan(value: unknown): value is RegistryVmstatePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<RegistryVmstatePlan>;
+  return [
+    nullableString(plan.statePath),
+    nullableString(plan.chainId),
+    nullableString(plan.checkpointParent),
+    nullableNonNegativeNumber(plan.checkpointSequence),
   ].every(Boolean);
 }
 
