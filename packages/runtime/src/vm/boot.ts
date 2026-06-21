@@ -78,6 +78,7 @@ import { validatePortForwardNetSocketNative } from "../native/port-forward.ts";
 import { planBootRegistryProcessNative } from "../native/registry-process.ts";
 import { planBootRegistryLifecycleNative } from "../native/registry-lifecycle.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
+import { planBootVmmEnvNative } from "../native/vmm-env.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
 import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
@@ -1067,10 +1068,10 @@ function resolveBootBinary(opts: BootOptions): string {
 }
 
 function buildVmmEnv(opts: BootOptions): Record<string, string> {
-  return {
-    ...(process.env as Record<string, string>),
-    ...opts.vmmEnv,
-  };
+  return planBootVmmEnvNative({
+    hostEnv: process.env,
+    overrides: opts.vmmEnv,
+  });
 }
 
 function prepareBootScratchDisk(
