@@ -724,12 +724,18 @@ pub const RegistryVmstatePlan = struct {
 
 pub const RegistryProcessInput = struct {
     host_platform: ?[]const u8 = null,
+    child_pid: ?i64 = null,
     vmm_binary: ?[]const u8 = null,
     vmm_pdeathsig: bool = false,
     vmm_observed_exe_base: ?[]const u8 = null,
     gv_pid: ?i64 = null,
     gv_exe: ?[]const u8 = null,
     gv_observed_exe_base: ?[]const u8 = null,
+};
+
+pub const RegistryProcessIdentityPlan = struct {
+    vmm_pid: ?i64,
+    gv_pid: ?i64,
 };
 
 pub const RegistryProcessPlan = struct {
@@ -1570,6 +1576,17 @@ fn planRegistryVmstate(input: RegistryVmstateInput) PlanError!RegistryVmstatePla
     };
 }
 
+pub fn planRegistryProcessIdentityReads(input: RegistryProcessInput) RegistryProcessIdentityPlan {
+    const is_darwin = if (input.host_platform) |platform| std.mem.eql(u8, platform, "darwin") else false;
+    if (!is_darwin) return .{ .vmm_pid = null, .gv_pid = null };
+    const child_pid = input.child_pid orelse -1;
+    const gv_pid = input.gv_pid orelse -1;
+    return .{
+        .vmm_pid = if (input.vmm_pdeathsig and child_pid > 0) child_pid else null,
+        .gv_pid = if (gv_pid > 0) gv_pid else null,
+    };
+}
+
 pub fn planRegistryProcess(input: RegistryProcessInput) RegistryProcessPlan {
     const is_darwin = if (input.host_platform) |platform| std.mem.eql(u8, platform, "darwin") else false;
     const vmm_exe = if (input.vmm_binary) |binary|
@@ -2360,6 +2377,35 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectError(error.MissingRegistryVmstateField, planRegistryShape(allocator, .{
         .vmstate = .{ .state_path = "/tmp/state.vmstate", .checkpoint_sequence = 1 },
     }));
+}
+
+test "planRegistryProcessIdentityReads plans darwin process identity reads" {
+    const darwin = planRegistryProcessIdentityReads(.{
+        .host_platform = "darwin",
+        .child_pid = 1234,
+        .vmm_pdeathsig = true,
+        .gv_pid = 4321,
+    });
+    try std.testing.expectEqual(@as(?i64, 1234), darwin.vmm_pid);
+    try std.testing.expectEqual(@as(?i64, 4321), darwin.gv_pid);
+
+    const linux = planRegistryProcessIdentityReads(.{
+        .host_platform = "linux",
+        .child_pid = 1234,
+        .vmm_pdeathsig = true,
+        .gv_pid = 4321,
+    });
+    try std.testing.expect(linux.vmm_pid == null);
+    try std.testing.expect(linux.gv_pid == null);
+
+    const darwin_no_watch = planRegistryProcessIdentityReads(.{
+        .host_platform = "darwin",
+        .child_pid = 1234,
+        .vmm_pdeathsig = false,
+        .gv_pid = -1,
+    });
+    try std.testing.expect(darwin_no_watch.vmm_pid == null);
+    try std.testing.expect(darwin_no_watch.gv_pid == null);
 }
 
 test "planRegistryProcess projects platform-specific executable metadata" {

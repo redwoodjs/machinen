@@ -963,6 +963,12 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         }
     else
         null;
+    const registry_process_identity = boot_plan.planRegistryProcessIdentityReads(.{
+        .host_platform = parsed.registry_host_platform,
+        .child_pid = registry_child_pid,
+        .vmm_pdeathsig = parsed.registry_vmm_pdeathsig,
+        .gv_pid = registry_gv_pid,
+    });
     const registry_process = boot_plan.planRegistryProcess(.{
         .host_platform = parsed.registry_host_platform,
         .vmm_binary = parsed.registry_vmm_binary,
@@ -973,7 +979,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .gv_observed_exe_base = parsed.registry_gv_observed_exe_base,
     });
 
-    try writePlan(io, plan, root_disk_mode, cpu_plan, guest_env, vmm_env, guest_hostname, guest_hostname_set, vsock_mode, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_temp_mode, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file_mode, stats_file_temp_mode, stats_file, planned_live_mounts, parsed.port_forward, port_forward_probe, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, bundle_mount_disk_mode, provision_assets, provision_dtb, provision_cli_cache, provision_asset_lookup, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, planned_scratch_mode, scratch_temp_path, scratch_disk, root_disk_runtime, root_disk_temp_path, root_disk_materialize_mode, planned_mount_disk_upper_size, mount_disk_temp_path, mount_disk_runtime, mount_disk_fd_env, snapshot_context, snapshot_backing, registry_shape, registry_lifecycle, registry_process);
+    try writePlan(io, plan, root_disk_mode, cpu_plan, guest_env, vmm_env, guest_hostname, guest_hostname_set, vsock_mode, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_temp_mode, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file_mode, stats_file_temp_mode, stats_file, planned_live_mounts, parsed.port_forward, port_forward_probe, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, bundle_mount_disk_mode, provision_assets, provision_dtb, provision_cli_cache, provision_asset_lookup, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, planned_scratch_mode, scratch_temp_path, scratch_disk, root_disk_runtime, root_disk_temp_path, root_disk_materialize_mode, planned_mount_disk_upper_size, mount_disk_temp_path, mount_disk_runtime, mount_disk_fd_env, snapshot_context, snapshot_backing, registry_shape, registry_lifecycle, registry_process_identity, registry_process);
     return .ok;
 }
 
@@ -1039,6 +1045,7 @@ fn writePlan(
     snapshot_backing: boot_plan.SnapshotBackingPlan,
     registry_shape: boot_plan.RegistryShapePlan,
     registry_lifecycle: boot_plan.RegistryLifecyclePlan,
+    registry_process_identity: boot_plan.RegistryProcessIdentityPlan,
     registry_process: boot_plan.RegistryProcessPlan,
 ) !void {
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,\"command\":\"boot-plan\",\"data\":{");
@@ -1510,6 +1517,12 @@ fn writePlan(
     try protocol.stdout(io, ",\"shouldWrite\":");
     try protocol.stdout(io, if (registry_lifecycle.should_write) "true" else "false");
     try protocol.stdout(io, "}");
+    try protocol.stdout(io, ",\"registryProcessIdentity\":{");
+    try protocol.stdout(io, "\"vmmPid\":");
+    try writeNullableI64(io, registry_process_identity.vmm_pid);
+    try protocol.stdout(io, ",\"gvPid\":");
+    try writeNullableI64(io, registry_process_identity.gv_pid);
+    try protocol.stdout(io, "}");
     try protocol.stdout(io, ",\"registryProcess\":{");
     try protocol.stdout(io, "\"vmmExe\":");
     try writeNullableJsonString(io, registry_process.vmm_exe);
@@ -1729,6 +1742,15 @@ fn writeF64(io: std.Io, number: f64) !void {
 }
 
 fn writeNullableU64(io: std.Io, value: ?u64) !void {
+    if (value) |number| {
+        var buf: [32]u8 = undefined;
+        try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{number}));
+    } else {
+        try protocol.stdout(io, "null");
+    }
+}
+
+fn writeNullableI64(io: std.Io, value: ?i64) !void {
     if (value) |number| {
         var buf: [32]u8 = undefined;
         try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{number}));

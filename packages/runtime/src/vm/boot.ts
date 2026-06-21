@@ -72,7 +72,10 @@ import {
   planPortForwardProbeNative,
   validatePortForwardNetSocketNative,
 } from "../native/port-forward.ts";
-import { planBootRegistryProcessNative } from "../native/registry-process.ts";
+import {
+  planBootRegistryProcessIdentityNative,
+  planBootRegistryProcessNative,
+} from "../native/registry-process.ts";
 import { planBootRegistryLifecycleNative } from "../native/registry-lifecycle.ts";
 import { planBootSnapshotBackingNative as planSnapshotBacking } from "../native/snapshot-backing.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
@@ -1601,14 +1604,20 @@ function registerInRegistry(args: RegisterArgs): boolean {
 
 function buildRegistryEntry(args: RegisterArgs) {
   const scalars = planBootRegistryScalarsNative(args);
+  const identityReads = planBootRegistryProcessIdentityNative({
+    hostPlatform: process.platform,
+    childPid: args.childPid,
+    vmmPdeathsig: args.vmmPdeathsig !== null,
+    gvPid: args.gvPid,
+  });
   const processPlan = planBootRegistryProcessNative({
     hostPlatform: process.platform,
     vmmBinary: args.binary,
     vmmPdeathsig: args.vmmPdeathsig !== null,
-    vmmObservedExeBase: observedDarwinVmmExe(args),
+    vmmObservedExeBase: observedProcessExeBase(identityReads.vmmPid),
     gvPid: args.gvPid,
     gvExe: args.gvExe,
-    gvObservedExeBase: observedDarwinGvproxyExe(args),
+    gvObservedExeBase: observedProcessExeBase(identityReads.gvPid),
   });
   return {
     pid: args.childPid,
@@ -1643,21 +1652,8 @@ function nonEmptyList<T>(items: T[]): T[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
-function observedDarwinVmmExe(args: RegisterArgs): string | undefined {
-  // The pdeathsig shim works differently per platform. On macOS child.pid
-  // is the watcher, so snapshot its identity now; on Linux the shim execs in
-  // place, so deferring avoids recording the shim during the exec race.
-  if (process.platform !== "darwin" || !args.vmmPdeathsig) {
-    return undefined;
-  }
-  return readProcessIdentity(args.childPid)?.exeBase;
-}
-
-function observedDarwinGvproxyExe(args: RegisterArgs): string | undefined {
-  if (process.platform !== "darwin" || args.gvPid === undefined || args.gvPid <= 0) {
-    return undefined;
-  }
-  return readProcessIdentity(args.gvPid)?.exeBase;
+function observedProcessExeBase(pid: number | undefined): string | undefined {
+  return pid === undefined ? undefined : readProcessIdentity(pid)?.exeBase;
 }
 
 function registryMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
