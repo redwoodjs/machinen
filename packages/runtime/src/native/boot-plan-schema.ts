@@ -50,6 +50,7 @@ export type RegistryShapePlan = {
   sourceImagePath: string | null;
   rootDiskPath: string | null;
   rootDiskMode: "block" | "none";
+  bootLogPath: string | null;
   cleanupPaths: string[];
   mountDisk: RegistryMountDiskPlan | null;
   liveMounts: RegistryLiveMountPlan[];
@@ -317,6 +318,7 @@ function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
     nullableString(plan.sourceImagePath),
     nullableString(plan.rootDiskPath),
     oneOfString(plan.rootDiskMode, ["block", "none"]),
+    nullableString(plan.bootLogPath),
     isStringArray(plan.cleanupPaths),
     nullableObject(plan.mountDisk, isRegistryMountDisk),
     Array.isArray(plan.liveMounts) && plan.liveMounts.every(isRegistryLiveMount),

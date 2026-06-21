@@ -28,7 +28,7 @@ import {
   waitForDetachedExecAgent,
 } from "./boot-diagnostics.ts";
 import { makeReseedVmstateEntropy, makeSyncVmstateSnapshot } from "./vsock-handle-ops.ts";
-import { bootSnapshotPath, writeBootSnapshot } from "../detached-log.ts";
+import { detachedLogRoot, writeBootSnapshot } from "../detached-log.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "../errors.ts";
 import { VsockExec } from "../exec.ts";
 import { runGc } from "../gc.ts";
@@ -842,7 +842,11 @@ function registryCallerRootDiskPath(opts: BootOptions): string | undefined {
 }
 
 function registryBootLogPath(opts: BootOptions, childPid: number): string | undefined {
-  return opts.detached && childPid > 0 ? bootSnapshotPath(childPid) : undefined;
+  return (
+    planBootRegistryShapeNative({
+      bootLog: { root: detachedLogRoot(), childPid, detached: opts.detached },
+    }).bootLogPath ?? undefined
+  );
 }
 
 function claimBootNameIfNeeded(

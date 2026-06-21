@@ -111,6 +111,9 @@ interface NativeBootPlanInput {
   registrySourceImagePath?: string;
   registryPerBootRootDisk?: string;
   registryCallerRootDiskPath?: string;
+  registryBootLogRoot?: string;
+  registryChildPid?: number;
+  registryDetached?: boolean;
   registryPerBootSnapDisk?: string;
   registryPerBootMountUpper?: string;
   registryBundleTempDir?: string;
@@ -269,6 +272,9 @@ function registryShapeData(input: NativeBootPlanInput): Record<string, unknown> 
     registrySourceImagePath: nullDefault(input.registrySourceImagePath),
     registryPerBootRootDisk: nullDefault(input.registryPerBootRootDisk),
     registryCallerRootDiskPath: nullDefault(input.registryCallerRootDiskPath),
+    registryBootLogRoot: nullDefault(input.registryBootLogRoot),
+    registryChildPid: numberText(input.registryChildPid),
+    registryDetached: input.registryDetached === true,
     registryPerBootSnapDisk: nullDefault(input.registryPerBootSnapDisk),
     registryPerBootMountUpper: nullDefault(input.registryPerBootMountUpper),
     registryBundleTempDir: nullDefault(input.registryBundleTempDir),
@@ -463,12 +469,13 @@ export function planBootMountDiskRuntimeNative(input: {
   }).mountDiskRuntime;
 }
 
-export function planBootRegistryShapeNative(input: {
+interface BootRegistryShapeNativeInput {
   sourceImagePath?: string;
   rootDisk?: {
     perBootRootDisk?: string;
     callerRootDiskPath?: string;
   };
+  bootLog?: { root: string; childPid: number; detached?: boolean };
   cleanup?: {
     perBootRootDisk?: string;
     perBootSnapDisk?: string;
@@ -493,29 +500,20 @@ export function planBootRegistryShapeNative(input: {
   mountDisk?: { guest: string; lowerPath: string; upperPath: string };
   liveMounts?: PlannedLiveMount[];
   portForward?: PortForwardPlanMapping[];
-}): RegistryShapePlan {
+}
+
+export function planBootRegistryShapeNative(
+  input: BootRegistryShapeNativeInput,
+): RegistryShapePlan {
   return planBootCoreNative({
     registrySourceImagePath: input.sourceImagePath,
-    registryPerBootRootDisk: input.rootDisk?.perBootRootDisk ?? input.cleanup?.perBootRootDisk,
-    registryCallerRootDiskPath: input.rootDisk?.callerRootDiskPath,
-    registryPerBootSnapDisk: input.cleanup?.perBootSnapDisk,
-    registryPerBootMountUpper: input.cleanup?.perBootMountUpper,
-    registryBundleTempDir: input.cleanup?.bundleTempDir,
-    registryVsockTempDir: input.cleanup?.vsockTempDir,
-    registryStatsTempDir: input.cleanup?.statsTempDir,
-    registryGvSocketDir: input.cleanup?.gvSocketDir,
-    registryCpuCgroupPath: input.cleanup?.cpuCgroupPath,
-    registryCpuPolicy: input.cpu?.policy,
-    registryCpuControlStatus: input.cpu?.control.status,
-    registryCpuControlReason: input.cpu?.control.reason,
-    registryVmstatePath: input.vmstate?.statePath,
-    registryVmstateChainId: input.vmstate?.chainId,
-    registryVmstateCheckpointParent: input.vmstate?.checkpointParent,
-    registryVmstateCheckpointSequence: input.vmstate?.checkpointSequence,
+    ...registryRootDiskData(input),
+    ...registryBootLogData(input),
+    ...registryCleanupData(input),
+    ...registryCpuData(input),
+    ...registryVmstateData(input),
     registryNested: input.nested,
-    registryMountGuest: input.mountDisk?.guest,
-    registryMountLowerPath: input.mountDisk?.lowerPath,
-    registryMountUpperPath: input.mountDisk?.upperPath,
+    ...registryMountDiskData(input),
     liveMountsResolved: input.liveMounts,
     portForward: input.portForward,
     vmmMemoryPreset: true,
@@ -523,6 +521,58 @@ export function planBootRegistryShapeNative(input: {
     hasCmd: false,
     rootDisk: "false",
   }).registryShape;
+}
+
+function registryRootDiskData(input: BootRegistryShapeNativeInput): Partial<NativeBootPlanInput> {
+  return {
+    registryPerBootRootDisk: input.rootDisk?.perBootRootDisk ?? input.cleanup?.perBootRootDisk,
+    registryCallerRootDiskPath: input.rootDisk?.callerRootDiskPath,
+  };
+}
+
+function registryBootLogData(input: BootRegistryShapeNativeInput): Partial<NativeBootPlanInput> {
+  return {
+    registryBootLogRoot: input.bootLog?.root,
+    registryChildPid: input.bootLog?.childPid,
+    registryDetached: input.bootLog?.detached,
+  };
+}
+
+function registryCleanupData(input: BootRegistryShapeNativeInput): Partial<NativeBootPlanInput> {
+  return {
+    registryPerBootSnapDisk: input.cleanup?.perBootSnapDisk,
+    registryPerBootMountUpper: input.cleanup?.perBootMountUpper,
+    registryBundleTempDir: input.cleanup?.bundleTempDir,
+    registryVsockTempDir: input.cleanup?.vsockTempDir,
+    registryStatsTempDir: input.cleanup?.statsTempDir,
+    registryGvSocketDir: input.cleanup?.gvSocketDir,
+    registryCpuCgroupPath: input.cleanup?.cpuCgroupPath,
+  };
+}
+
+function registryCpuData(input: BootRegistryShapeNativeInput): Partial<NativeBootPlanInput> {
+  return {
+    registryCpuPolicy: input.cpu?.policy,
+    registryCpuControlStatus: input.cpu?.control.status,
+    registryCpuControlReason: input.cpu?.control.reason,
+  };
+}
+
+function registryVmstateData(input: BootRegistryShapeNativeInput): Partial<NativeBootPlanInput> {
+  return {
+    registryVmstatePath: input.vmstate?.statePath,
+    registryVmstateChainId: input.vmstate?.chainId,
+    registryVmstateCheckpointParent: input.vmstate?.checkpointParent,
+    registryVmstateCheckpointSequence: input.vmstate?.checkpointSequence,
+  };
+}
+
+function registryMountDiskData(input: BootRegistryShapeNativeInput): Partial<NativeBootPlanInput> {
+  return {
+    registryMountGuest: input.mountDisk?.guest,
+    registryMountLowerPath: input.mountDisk?.lowerPath,
+    registryMountUpperPath: input.mountDisk?.upperPath,
+  };
 }
 
 export function planBootRegistryCpuNative(input: {
