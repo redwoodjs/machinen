@@ -87,6 +87,15 @@ pub const VsockPlanInput = struct {
     auto_temp_dir: ?[]const u8 = null,
 };
 
+pub const VsockModeInput = struct {
+    existing_spec: ?[]const u8 = null,
+};
+
+pub const VsockModePlan = struct {
+    action: []const u8,
+    existing_spec: ?[]const u8,
+};
+
 pub const VsockPlan = struct {
     uds_path: ?[]const u8,
     vmm_vsock: ?[]const u8,
@@ -414,6 +423,15 @@ pub const StatsFileInput = struct {
     existing_path: ?[]const u8 = null,
     planned_path: ?[]const u8 = null,
     planned_temp_dir: ?[]const u8 = null,
+};
+
+pub const StatsFileModeInput = struct {
+    existing_path: ?[]const u8 = null,
+};
+
+pub const StatsFileModePlan = struct {
+    action: []const u8,
+    existing_path: ?[]const u8,
 };
 
 pub const StatsFilePlan = struct {
@@ -918,6 +936,13 @@ pub fn planVmmEnv(allocator: std.mem.Allocator, input: VmmEnvInput) ![]EnvPair {
     return mergeEnvPairs(allocator, input.base, input.overrides);
 }
 
+pub fn planVsockMode(input: VsockModeInput) VsockModePlan {
+    assert(@sizeOf(VsockModeInput) > 0);
+
+    if (input.existing_spec) |spec| return .{ .action = "existing", .existing_spec = spec };
+    return .{ .action = "allocate", .existing_spec = null };
+}
+
 pub fn planVsock(allocator: std.mem.Allocator, input: VsockPlanInput) !VsockPlan {
     assert(@sizeOf(VsockPlanInput) > 0);
 
@@ -1098,6 +1123,13 @@ fn findRestoreLiveMountOverride(
         if (std.mem.eql(u8, mount.guest, guest)) found = mount;
     }
     return found;
+}
+
+pub fn planStatsFileMode(input: StatsFileModeInput) StatsFileModePlan {
+    assert(@sizeOf(StatsFileModeInput) > 0);
+
+    if (input.existing_path) |path| return .{ .action = "existing", .existing_path = path };
+    return .{ .action = "allocate", .existing_path = null };
 }
 
 pub fn planStatsFile(allocator: std.mem.Allocator, input: StatsFileInput) !StatsFilePlan {
@@ -3054,6 +3086,16 @@ test "planRestoreLiveMounts merges recorded mounts with overrides" {
     try std.testing.expectEqualStrings("/mnt/extra", rejected.unknown_guest.?);
 }
 
+test "planStatsFileMode selects existing or allocate" {
+    const existing = planStatsFileMode(.{ .existing_path = "/tmp/caller-stats.bin" });
+    try std.testing.expectEqualStrings("existing", existing.action);
+    try std.testing.expectEqualStrings("/tmp/caller-stats.bin", existing.existing_path.?);
+
+    const allocate = planStatsFileMode(.{});
+    try std.testing.expectEqualStrings("allocate", allocate.action);
+    try std.testing.expect(allocate.existing_path == null);
+}
+
 test "planStatsFile preserves caller path or returns runtime-owned env value" {
     const existing = try planStatsFile(std.testing.allocator, .{
         .existing_path = "/tmp/caller-stats.bin",
@@ -3223,6 +3265,16 @@ test "validatePortForward rejects invalid and duplicate ports" {
             .{ .host_port = 8080, .guest_port = 3001 },
         }),
     );
+}
+
+test "planVsockMode selects existing or allocate" {
+    const existing = planVsockMode(.{ .existing_spec = "in:1978:/tmp/caller.sock" });
+    try std.testing.expectEqualStrings("existing", existing.action);
+    try std.testing.expectEqualStrings("in:1978:/tmp/caller.sock", existing.existing_spec.?);
+
+    const allocate = planVsockMode(.{});
+    try std.testing.expectEqualStrings("allocate", allocate.action);
+    try std.testing.expect(allocate.existing_spec == null);
 }
 
 test "planVsock parses existing specs and formats auto specs" {

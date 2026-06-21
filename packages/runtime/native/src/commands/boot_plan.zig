@@ -602,6 +602,7 @@ const PlanParts = struct {
     root_disk_mode: boot_plan.RootDiskMode,
     guest_env: []const boot_plan.EnvPair,
     vmm_env: []const boot_plan.EnvPair,
+    vsock_mode: boot_plan.VsockModePlan,
     vsock_plan: boot_plan.VsockPlan,
     gvproxy_plan: boot_plan.GvproxyPlan,
     guest_hostname: boot_plan.GuestHostnameInput,
@@ -617,6 +618,7 @@ const PlanParts = struct {
     virtiofs_env: []const boot_plan.EnvPair,
     batch_live_mount_sync: boot_plan.BatchLiveMountPlan,
     restore_live_mounts: []const boot_plan.RestoreLiveMountInput,
+    stats_file_mode: boot_plan.StatsFileModePlan,
     stats_file: boot_plan.StatsFilePlan,
     planned_live_mounts: []const boot_plan.LiveMount,
     config_cmd: []const []const u8,
@@ -712,6 +714,7 @@ fn makePlanParts(
         .vmm_env = try makeVmmEnv(arena, parsed),
         .guest_hostname = try makeGuestHostname(parsed),
         .guest_hostname_set = try makeGuestHostnameSet(parsed),
+        .vsock_mode = boot_plan.planVsockMode(.{ .existing_spec = parsed.existing_vsock_spec }),
         .vsock_plan = boot_env.vsock_plan,
         .gvproxy_plan = boot_env.gvproxy_plan,
         .vmm_argv = boot_env.vmm_argv,
@@ -725,6 +728,7 @@ fn makePlanParts(
         .virtiofs_env = boot_env.virtiofs_env,
         .batch_live_mount_sync = boot_env.batch_live_mount_sync,
         .restore_live_mounts = boot_env.restore_live_mounts,
+        .stats_file_mode = boot_plan.planStatsFileMode(.{ .existing_path = parsed.existing_stats_file }),
         .stats_file = boot_env.stats_file,
         .planned_live_mounts = runtime.planned_live_mounts,
         .config_cmd = runtime.config_cmd,
@@ -1298,13 +1302,14 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,");
     try protocol.stdout(io, "\"command\":\"boot-plan\",\"data\":{");
     try writeCoreFields(io, parts.plan, parts.cpu_policy, parts.root_disk_mode);
+    try writeVsockModeField(io, "vsockMode", parts.vsock_mode, true);
     try writeVsockKernelFields(io, parts.vsock_plan, parts.kernel_dtb);
     try writeEnvObjectField(io, "vmmEnv", parts.vmm_env, true);
     try writeGvproxyPlanField(io, "gvproxyPlan", parts.gvproxy_plan, true);
     try writeNullableStringField(io, "vmmInitrd", parts.initrd_env.vmm_initrd, true);
     try writeGuestHostnameField(io, "guestHostname", parts.guest_hostname, true);
     try writeGuestHostnameSetField(io, "guestHostnameSet", parts.guest_hostname_set, true);
-    try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file);
+    try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file_mode, parts.stats_file);
     try writeVmstateRuntimeField(io, "vmstateRuntime", parts.vmstate_runtime, true);
     try writeBoolField(
         io,
@@ -1464,6 +1469,36 @@ fn writeVsockKernelFields(
     try writeNullableStringField(io, "vmmDtb", kernel_dtb.vmm_dtb, true);
 }
 
+fn writeVsockModeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mode: boot_plan.VsockModePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, mode.action);
+    try writeNullableStringField(io, "existingSpec", mode.existing_spec, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeStatsFileModeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mode: boot_plan.StatsFileModePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, mode.action);
+    try writeNullableStringField(io, "existingPath", mode.existing_path, true);
+    try protocol.stdout(io, "}");
+}
+
 fn writeGvproxyPlanField(
     io: std.Io,
     comptime field: []const u8,
@@ -1548,6 +1583,7 @@ fn writeVmstateRuntimeField(
 fn writeVmstateStatsFields(
     io: std.Io,
     vmstate_env: boot_plan.VmstateEnvPlan,
+    stats_file_mode: boot_plan.StatsFileModePlan,
     stats_file: boot_plan.StatsFilePlan,
 ) !void {
     assert(@sizeOf(boot_plan.VmstateEnvPlan) > 0);
@@ -1555,6 +1591,7 @@ fn writeVmstateStatsFields(
     try writeNullableStringField(io, "vmmSnapshotPath", vmstate_env.snapshot_path, true);
     try writeNullableStringField(io, "vmmRestorePath", vmstate_env.restore_path, true);
     try writeNullableStringField(io, "vmmVmstateTiming", vmstate_env.vmstate_timing, true);
+    try writeStatsFileModeField(io, "statsFileMode", stats_file_mode, true);
     try writeNullableStringField(io, "statsFilePath", stats_file.stats_file_path, true);
     try writeNullableStringField(io, "vmmStatsFile", stats_file.vmm_stats_file, true);
 }

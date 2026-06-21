@@ -355,6 +355,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(existing.status).toBe(0);
     expect(JSON.parse(existing.stdout).data).toMatchObject({
+      vsockMode: { action: "existing", existingSpec: "out:1970:/tmp/a.sock,in:1978:/tmp/b.sock" },
       vsockUdsPath: "/tmp/a.sock",
       vmmVsock: null,
     });
@@ -368,6 +369,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(auto.status).toBe(0);
     expect(JSON.parse(auto.stdout).data).toMatchObject({
+      vsockMode: { action: "allocate", existingSpec: null },
       vsockUdsPath: "/tmp/exec.sock",
       vmmVsock: "in:1978:/tmp/exec.sock",
     });
@@ -381,6 +383,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(autoTempDir.status).toBe(0);
     expect(JSON.parse(autoTempDir.stdout).data).toMatchObject({
+      vsockMode: { action: "allocate", existingSpec: null },
       vsockUdsPath: "/tmp/machinen-vsock-test/exec.sock",
       vmmVsock: "in:1978:/tmp/machinen-vsock-test/exec.sock",
     });
@@ -1467,6 +1470,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(existing.status).toBe(0);
     expect(JSON.parse(existing.stdout).data).toMatchObject({
+      statsFileMode: { action: "existing", existingPath: "/tmp/caller-stats.bin" },
       statsFilePath: "/tmp/caller-stats.bin",
       vmmStatsFile: null,
     });
@@ -1480,6 +1484,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(planned.status).toBe(0);
     expect(JSON.parse(planned.stdout).data).toMatchObject({
+      statsFileMode: { action: "allocate", existingPath: null },
       statsFilePath: "/tmp/runtime-stats.bin",
       vmmStatsFile: "/tmp/runtime-stats.bin",
     });
@@ -1493,6 +1498,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(tempDir.status).toBe(0);
     expect(JSON.parse(tempDir.stdout).data).toMatchObject({
+      statsFileMode: { action: "allocate", existingPath: null },
       statsFilePath: "/tmp/machinen-stats-test/stats.bin",
       vmmStatsFile: "/tmp/machinen-stats-test/stats.bin",
     });
