@@ -152,6 +152,7 @@ export interface NativeBootPlanResult {
   scratchDisk: ScratchDiskPlan;
   rootDiskRuntime: RootDiskRuntimePlan;
   mountDiskRuntime: MountDiskRuntimePlan;
+  mountDiskFdEnv: Record<string, string>;
   registryShape: RegistryShapePlan;
 }
 
@@ -202,6 +203,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isScratchDiskPlan(data.scratchDisk),
     isRootDiskRuntimePlan(data.rootDiskRuntime),
     isMountDiskRuntimePlan(data.mountDiskRuntime),
+    isStringRecord(data.mountDiskFdEnv),
     isRegistryShapePlan(data.registryShape),
   ].every(Boolean);
 }

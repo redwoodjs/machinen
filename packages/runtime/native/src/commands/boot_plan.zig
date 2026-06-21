@@ -100,6 +100,8 @@ const ParsedRequest = struct {
     mount_disk_source_upper_path: ?[]const u8 = null,
     mount_disk_guest: ?[]const u8 = null,
     mount_disk_upper_size_text: ?[]const u8 = null,
+    mount_disk_lower_fd_text: ?[]const u8 = null,
+    mount_disk_upper_fd_text: ?[]const u8 = null,
     registry_source_image_path: ?[]const u8 = null,
     registry_per_boot_root_disk: ?[]const u8 = null,
     registry_caller_root_disk_path: ?[]const u8 = null,
@@ -236,6 +238,8 @@ const boot_plan_fields = [_][]const u8{
     "mountDiskSourceUpperPath",
     "mountDiskGuest",
     "mountDiskUpperSize",
+    "mountDiskLowerFd",
+    "mountDiskUpperFd",
     "registrySourceImagePath",
     "registryPerBootRootDisk",
     "registryCallerRootDiskPath",
@@ -385,6 +389,8 @@ const RequestError = error{
     InvalidMountDiskSourceUpperPath,
     InvalidMountDiskGuest,
     InvalidMountDiskUpperSize,
+    InvalidMountDiskLowerFd,
+    InvalidMountDiskUpperFd,
     InvalidRegistrySourceImagePath,
     InvalidRegistryRootDiskPath,
     InvalidRegistryBootLogRoot,
@@ -467,6 +473,7 @@ const PlanParts = struct {
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
+    mount_disk_fd_env: []const boot_plan.EnvPair,
     registry_shape: boot_plan.RegistryShapePlan,
 };
 
@@ -492,6 +499,7 @@ const RuntimeParts = struct {
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
+    mount_disk_fd_env: []const boot_plan.EnvPair,
     registry_shape: boot_plan.RegistryShapePlan,
 };
 
@@ -573,6 +581,7 @@ fn makePlanParts(
         .scratch_disk = runtime.scratch_disk,
         .root_disk_runtime = runtime.root_disk_runtime,
         .mount_disk_runtime = runtime.mount_disk_runtime,
+        .mount_disk_fd_env = runtime.mount_disk_fd_env,
         .registry_shape = runtime.registry_shape,
     };
 }
@@ -596,6 +605,7 @@ fn makeRuntimeParts(arena: std.mem.Allocator, parsed: ParsedRequest) !RuntimePar
         .scratch_disk = disks.scratch,
         .root_disk_runtime = disks.root,
         .mount_disk_runtime = disks.mount,
+        .mount_disk_fd_env = try makeMountDiskFdEnv(arena, parsed),
         .registry_shape = try makeRegistryShape(arena, parsed),
     };
 }
@@ -796,6 +806,21 @@ fn makeRegistryCpuPolicy(parsed: ParsedRequest) RequestError!?boot_plan.CpuPolic
     };
 }
 
+fn makeMountDiskFdEnv(
+    allocator: std.mem.Allocator,
+    parsed: ParsedRequest,
+) ![]const boot_plan.EnvPair {
+    const lower_fd = if (parsed.mount_disk_lower_fd_text) |text|
+        parseUnsigned(text) catch return error.InvalidMountDiskLowerFd
+    else
+        null;
+    const upper_fd = if (parsed.mount_disk_upper_fd_text) |text|
+        parseUnsigned(text) catch return error.InvalidMountDiskUpperFd
+    else
+        null;
+    return boot_plan.planMountDiskFdEnv(allocator, .{ .lower_fd = lower_fd, .upper_fd = upper_fd });
+}
+
 fn makeRegistryShape(
     arena: std.mem.Allocator,
     parsed: ParsedRequest,
@@ -907,6 +932,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
     try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
+    try writeEnvObjectField(io, "mountDiskFdEnv", parts.mount_disk_fd_env, true);
     try writeRegistryShapeField(io, "registryShape", parts.registry_shape, true);
     try protocol.stdout(io, "}}\n");
 }
@@ -2349,6 +2375,16 @@ fn parseMountDiskRuntimeFields(
         "mountDiskUpperSize",
         error.InvalidMountDiskUpperSize,
     );
+    request.mount_disk_lower_fd_text = try optionalStringDefaultNull(
+        object,
+        "mountDiskLowerFd",
+        error.InvalidMountDiskLowerFd,
+    );
+    request.mount_disk_upper_fd_text = try optionalStringDefaultNull(
+        object,
+        "mountDiskUpperFd",
+        error.InvalidMountDiskUpperFd,
+    );
     try parseRegistryShapeFields(object, request);
 }
 
@@ -3144,6 +3180,11 @@ fn writeDiskPlanError(io: std.Io, err: anyerror) !bool {
             io,
             "BOOT_MOUNT_INVALID",
             "boot-plan mountDisk field missing",
+        ),
+        error.MissingMountDiskFdField => try writeBootError(
+            io,
+            "BOOT_MOUNT_INVALID",
+            "boot-plan mountDisk fd field missing",
         ),
         error.IncompleteRegistryMountDisk => try writeBootError(
             io,

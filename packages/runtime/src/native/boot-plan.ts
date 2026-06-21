@@ -130,6 +130,8 @@ interface NativeBootPlanInput {
   mountDiskSourceUpperPath?: string;
   mountDiskGuest?: string;
   mountDiskUpperSize?: number;
+  mountDiskLowerFd?: number;
+  mountDiskUpperFd?: number;
   registrySourceImagePath?: string;
   registryDiskPath?: string;
   registryForkedFrom?: string;
@@ -301,6 +303,8 @@ function mountDiskRuntimeData(input: NativeBootPlanInput): Record<string, unknow
     mountDiskSourceUpperPath: nullDefault(input.mountDiskSourceUpperPath),
     mountDiskGuest: nullDefault(input.mountDiskGuest),
     mountDiskUpperSize: numberText(input.mountDiskUpperSize),
+    mountDiskLowerFd: numberText(input.mountDiskLowerFd),
+    mountDiskUpperFd: numberText(input.mountDiskUpperFd),
   };
 }
 
@@ -512,6 +516,20 @@ export function planBootMountDiskRuntimeNative(input: {
     hasCmd: false,
     rootDisk: "false",
   }).mountDiskRuntime;
+}
+
+export function planBootMountDiskFdEnvNative(input: {
+  lowerFd: number;
+  upperFd: number;
+}): Record<string, string> {
+  return planBootCoreNative({
+    mountDiskLowerFd: input.lowerFd,
+    mountDiskUpperFd: input.upperFd,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).mountDiskFdEnv;
 }
 
 interface BootRegistryShapeNativeInput {

@@ -54,6 +54,7 @@ import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
   planBootKernelDtbNative,
+  planBootMountDiskFdEnvNative,
   planBootPortForwardNative,
   planBootRegistryNestedNative,
   planBootRegistryPortForwardNative,
@@ -1502,9 +1503,14 @@ function openMountDiskFds(
       { cause: err },
     );
   }
-  stdio.push(lowerFd, upperFd);
-  env.MACHINEN_MOUNTDISK_LOWER_FD = "3";
-  env.MACHINEN_MOUNTDISK_UPPER_FD = "4";
+  const lowerChildFd = stdio.length;
+  stdio.push(lowerFd);
+  const upperChildFd = stdio.length;
+  stdio.push(upperFd);
+  Object.assign(
+    env,
+    planBootMountDiskFdEnvNative({ lowerFd: lowerChildFd, upperFd: upperChildFd }),
+  );
   return { lowerFd, upperFd };
 }
 
