@@ -33,6 +33,7 @@ import {
 } from "../native/boot-plan.ts";
 import { planBootBundleMountDiskModeNative } from "../native/bundle-mount-disk-mode.ts";
 import { planBootBundlePackNative } from "../native/bundle-pack.ts";
+import { planBootMountDiskTempPathNative } from "../native/mount-disk-temp-path.ts";
 import { validateLiveMountRemovedOptionsNative } from "../native/live-mount-options.ts";
 import type { BundlePackPlan } from "../native/boot-plan-schema.ts";
 import { planRestoreLiveMountsNative } from "../native/restore-live-mounts.ts";
@@ -394,10 +395,7 @@ function materializeRestoredMountDisk(
       `restore: bundle is missing mount-upper at ${restoreMount.upperPath}`,
     );
   }
-  const perVMUpper = join(
-    tmpdir(),
-    `machinen-mountdisk-upper-${process.pid}-${randomBytes(6).toString("hex")}.img`,
-  );
+  const perVMUpper = mountDiskRestoreUpperPath();
   reflinkCopy(restoreMount.upperPath, perVMUpper);
   return requireMountDiskPlan(
     planBootMountDiskRuntimeNative({
@@ -409,6 +407,15 @@ function materializeRestoredMountDisk(
       upperSizeBytes: statSync(perVMUpper).size,
     }),
   );
+}
+
+function mountDiskRestoreUpperPath(): string {
+  return planBootMountDiskTempPathNative({
+    kind: "restore-upper",
+    tmpDir: tmpdir(),
+    pid: process.pid,
+    nonce: randomBytes(6).toString("hex"),
+  });
 }
 
 function materializeFreshMountDisk(

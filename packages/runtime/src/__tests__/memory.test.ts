@@ -1289,6 +1289,33 @@ describe("boot-plan helper schema", () => {
     );
   });
 
+  it("plans restored mountdisk upper temp paths from host-generated entropy", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      mountDiskTempKind: "restore-upper",
+      mountDiskTempDir: "/tmp",
+      mountDiskTempPid: "1234",
+      mountDiskTempNonce: "abcdef",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.mountDiskTempPath).toBe(
+      "/tmp/machinen-mountdisk-upper-1234-abcdef.img",
+    );
+  });
+
   it("plans rootdisk runtime actions", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

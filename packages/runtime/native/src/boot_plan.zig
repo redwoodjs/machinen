@@ -567,6 +567,22 @@ pub const MountDiskUpperSizeInput = struct {
     size_bytes: ?u64 = null,
 };
 
+pub const MountDiskTempPathKind = enum {
+    none,
+    restore_upper,
+};
+
+pub const MountDiskTempPathInput = struct {
+    kind: MountDiskTempPathKind = .none,
+    tmp_dir: ?[]const u8 = null,
+    pid: ?u64 = null,
+    nonce: ?[]const u8 = null,
+};
+
+pub const MountDiskTempPathPlan = struct {
+    path: ?[]const u8,
+};
+
 pub const MountDiskUpperSizeValidation = union(enum) {
     ok: u64,
     invalid: u64,
@@ -1449,6 +1465,19 @@ pub fn planRootDiskRuntime(input: RootDiskRuntimeInput) PlanError!RootDiskRuntim
             };
         },
     };
+}
+
+pub fn planMountDiskTempPath(allocator: std.mem.Allocator, input: MountDiskTempPathInput) !MountDiskTempPathPlan {
+    if (input.kind == .none) return .{ .path = null };
+    const tmp_dir = input.tmp_dir orelse return .{ .path = null };
+    const pid = input.pid orelse return .{ .path = null };
+    const nonce = input.nonce orelse return .{ .path = null };
+    const file_name = switch (input.kind) {
+        .none => unreachable,
+        .restore_upper => try std.fmt.allocPrint(allocator, "machinen-mountdisk-upper-{d}-{s}.img", .{ pid, nonce }),
+    };
+    defer allocator.free(file_name);
+    return .{ .path = try std.fs.path.join(allocator, &.{ tmp_dir, file_name }) };
 }
 
 pub fn planMountDiskUpperSize(input: MountDiskUpperSizeInput) MountDiskUpperSizeValidation {
@@ -2659,6 +2688,20 @@ test "planRootDiskTempPath formats restore and cached rootdisk paths" {
     try std.testing.expectEqualStrings("/tmp/machinen-rootdisk-1234-abcdef.img", cached.path.?);
 
     const missing = try planRootDiskTempPath(std.testing.allocator, .{});
+    try std.testing.expect(missing.path == null);
+}
+
+test "planMountDiskTempPath formats restored upper paths" {
+    const restore_upper = try planMountDiskTempPath(std.testing.allocator, .{
+        .kind = .restore_upper,
+        .tmp_dir = "/tmp",
+        .pid = 1234,
+        .nonce = "abcdef",
+    });
+    defer std.testing.allocator.free(restore_upper.path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-mountdisk-upper-1234-abcdef.img", restore_upper.path.?);
+
+    const missing = try planMountDiskTempPath(std.testing.allocator, .{});
     try std.testing.expect(missing.path == null);
 }
 
