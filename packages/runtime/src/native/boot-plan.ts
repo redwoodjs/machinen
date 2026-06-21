@@ -78,6 +78,7 @@ interface NativeBootPlanInput {
   liveMountsResolved?: PlannedLiveMount[];
   existingStatsFile?: string;
   statsFilePath?: string;
+  statsFileTempDir?: string;
   configCmd?: string[];
   configEnv?: Record<string, string>;
   configGuestCwd?: string;
@@ -206,6 +207,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     liveMountsResolved: input.liveMountsResolved ?? [],
     existingStatsFile: nullDefault(input.existingStatsFile),
     statsFilePath: nullDefault(input.statsFilePath),
+    statsFileTempDir: nullDefault(input.statsFileTempDir),
     configCmd: input.configCmd ?? [],
     configEnv: input.configEnv ?? {},
     configGuestCwd: nullDefault(input.configGuestCwd),
@@ -778,13 +780,18 @@ export function planBootMachinenConfigNative(input: {
   }).machinenConfig;
 }
 
-export function planBootStatsFileNative(input: { existingPath?: string; plannedPath?: string }): {
+export function planBootStatsFileNative(input: {
+  existingPath?: string;
+  plannedPath?: string;
+  tempDir?: string;
+}): {
   statsFilePath?: string;
   vmmStatsFile?: string;
 } {
   const plan = planBootCoreNative({
     existingStatsFile: input.existingPath,
     statsFilePath: input.plannedPath,
+    statsFileTempDir: input.tempDir,
     vmmMemoryPreset: true,
     hasImage: false,
     hasCmd: false,

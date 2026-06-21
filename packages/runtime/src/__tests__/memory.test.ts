@@ -1044,6 +1044,19 @@ describe("boot-plan helper schema", () => {
       statsFilePath: "/tmp/runtime-stats.bin",
       vmmStatsFile: "/tmp/runtime-stats.bin",
     });
+
+    const tempDir = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, statsFileTempDir: "/tmp/machinen-stats-test" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(tempDir.status).toBe(0);
+    expect(JSON.parse(tempDir.stdout).data).toMatchObject({
+      statsFilePath: "/tmp/machinen-stats-test/stats.bin",
+      vmmStatsFile: "/tmp/machinen-stats-test/stats.bin",
+    });
   });
 
   it("plans virtiofs env entries for resolved live mounts", () => {

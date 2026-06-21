@@ -271,6 +271,7 @@ pub const LiveMount = struct {
 pub const StatsFileInput = struct {
     existing_path: ?[]const u8 = null,
     planned_path: ?[]const u8 = null,
+    planned_temp_dir: ?[]const u8 = null,
 };
 
 pub const StatsFilePlan = struct {
@@ -761,13 +762,20 @@ pub fn planVirtiofsEnv(allocator: std.mem.Allocator, mounts: []const LiveMount) 
     return out.toOwnedSlice(allocator);
 }
 
-pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
+pub fn planStatsFile(allocator: std.mem.Allocator, input: StatsFileInput) !StatsFilePlan {
     assert(@sizeOf(StatsFileInput) > 0);
 
     if (input.existing_path) |path| {
         return .{ .stats_file_path = path, .vmm_stats_file = null };
     }
-    return .{ .stats_file_path = input.planned_path, .vmm_stats_file = input.planned_path };
+    const planned_path = input.planned_path orelse if (input.planned_temp_dir) |dir|
+        try std.fs.path.join(allocator, &.{ dir, "stats.bin" })
+    else
+        null;
+    if (planned_path) |path| {
+        return .{ .stats_file_path = path, .vmm_stats_file = path };
+    }
+    return .{ .stats_file_path = null, .vmm_stats_file = null };
 }
 
 pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
@@ -2107,13 +2115,27 @@ test "planLiveMounts validates count guest paths modes and tags" {
 }
 
 test "planStatsFile preserves caller path or returns runtime-owned env value" {
-    const existing = planStatsFile(.{ .existing_path = "/tmp/caller-stats.bin" });
+    const existing = try planStatsFile(std.testing.allocator, .{
+        .existing_path = "/tmp/caller-stats.bin",
+    });
     try std.testing.expectEqualStrings("/tmp/caller-stats.bin", existing.stats_file_path.?);
     try std.testing.expectEqual(@as(?[]const u8, null), existing.vmm_stats_file);
 
-    const planned = planStatsFile(.{ .planned_path = "/tmp/runtime-stats.bin" });
+    const planned = try planStatsFile(std.testing.allocator, .{
+        .planned_path = "/tmp/runtime-stats.bin",
+    });
     try std.testing.expectEqualStrings("/tmp/runtime-stats.bin", planned.stats_file_path.?);
     try std.testing.expectEqualStrings("/tmp/runtime-stats.bin", planned.vmm_stats_file.?);
+
+    const planned_dir = try planStatsFile(std.testing.allocator, .{
+        .planned_temp_dir = "/tmp/machinen-stats-abc",
+    });
+    defer std.testing.allocator.free(planned_dir.stats_file_path.?);
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-stats-abc/stats.bin",
+        planned_dir.stats_file_path.?,
+    );
+    try std.testing.expectEqualStrings(planned_dir.stats_file_path.?, planned_dir.vmm_stats_file.?);
 }
 
 test "planVirtiofsEnv formats indexed virtiofs env entries" {

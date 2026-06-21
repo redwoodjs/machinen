@@ -51,6 +51,7 @@ const ParsedRequest = struct {
     live_mounts_resolved: []const boot_plan.LiveMount = &.{},
     existing_stats_file: ?[]const u8 = null,
     stats_file_path: ?[]const u8 = null,
+    stats_file_temp_dir: ?[]const u8 = null,
     config_cmd: []const []const u8 = &.{},
     config_env: std.json.ObjectMap = .{},
     config_guest_cwd: ?[]const u8 = null,
@@ -184,6 +185,7 @@ const boot_plan_fields = [_][]const u8{
     "liveMountsResolved",
     "existingStatsFile",
     "statsFilePath",
+    "statsFileTempDir",
     "configCmd",
     "configEnv",
     "configGuestCwd",
@@ -327,6 +329,7 @@ const RequestError = error{
     InvalidLiveMountTag,
     InvalidExistingStatsFile,
     InvalidStatsFilePath,
+    InvalidStatsFileTempDir,
     InvalidConfigCmd,
     InvalidConfigEnv,
     InvalidConfigEnvValue,
@@ -531,9 +534,10 @@ fn makePlanParts(
         }),
         .nested_env = boot_plan.planNestedEnv(parsed.nested_requested),
         .virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved),
-        .stats_file = boot_plan.planStatsFile(.{
+        .stats_file = try boot_plan.planStatsFile(arena, .{
             .existing_path = parsed.existing_stats_file,
             .planned_path = parsed.stats_file_path,
+            .planned_temp_dir = parsed.stats_file_temp_dir,
         }),
         .planned_live_mounts = runtime.planned_live_mounts,
         .config_cmd = runtime.config_cmd,
@@ -1994,6 +1998,11 @@ fn parseRuntimeMountStatsFields(
         object,
         "statsFilePath",
         error.InvalidStatsFilePath,
+    );
+    request.stats_file_temp_dir = try optionalStringDefaultNull(
+        object,
+        "statsFileTempDir",
+        error.InvalidStatsFileTempDir,
     );
 }
 
