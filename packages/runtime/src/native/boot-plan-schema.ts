@@ -1,4 +1,5 @@
 type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
+export type BootScratchMode = "false" | "path" | "auto";
 export type BootRootDiskMode = "unset" | "false" | "path" | "true";
 type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
 type MountDiskRuntimeAction = "none" | "restore" | "fresh";
@@ -175,6 +176,7 @@ export interface NativeBootPlanResult {
   provisionRepack: ProvisionRepackPlan;
   provisionImageConfig: ProvisionImageConfigPlan;
   provisionRuntime: ProvisionRuntimePlan;
+  plannedScratchMode: BootScratchMode;
   scratchDisk: ScratchDiskPlan;
   rootDiskRuntime: RootDiskRuntimePlan;
   mountDiskRuntime: MountDiskRuntimePlan;
@@ -235,6 +237,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isProvisionRepackPlan(data.provisionRepack),
     isProvisionImageConfigPlan(data.provisionImageConfig),
     isProvisionRuntimePlan(data.provisionRuntime),
+    isBootScratchMode(data.plannedScratchMode),
     isScratchDiskPlan(data.scratchDisk),
     isRootDiskRuntimePlan(data.rootDiskRuntime),
     isMountDiskRuntimePlan(data.mountDiskRuntime),
@@ -657,6 +660,10 @@ function isStringArray(value: unknown): value is string[] {
 
 function nullableString(value: unknown): boolean {
   return value === null || typeof value === "string";
+}
+
+function isBootScratchMode(value: unknown): value is BootScratchMode {
+  return value === "false" || value === "path" || value === "auto";
 }
 
 function isBootRootDiskMode(value: unknown): value is BootRootDiskMode {

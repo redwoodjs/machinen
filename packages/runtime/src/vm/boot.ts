@@ -72,6 +72,7 @@ import {
 import { reflinkCopy } from "../reflink.ts";
 import { planGuestHostnameSetNative } from "../native/guest-hostname.ts";
 import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
+import { planBootScratchModeNative } from "../native/scratch-mode.ts";
 import { planGvproxyNative } from "../native/gvproxy-plan.ts";
 import { validatePortForwardNetSocketNative } from "../native/port-forward.ts";
 import { planBootRegistryProcessNative } from "../native/registry-process.ts";
@@ -1259,7 +1260,7 @@ function prepareScratchDisk(
 ): { diskAbs: string | undefined; perBootSnapDisk: string | undefined } {
   const snapshotPath = resolveSnapshotDiskPath(opts);
   const scratchPlan = planBootScratchDiskNative({
-    mode: scratchMode(opts.snapshot),
+    mode: planBootScratchModeNative(opts.snapshot),
     hasCmd: opts.cmd !== undefined,
     hasImage: opts.image !== undefined,
     snapshotPath,
@@ -1282,13 +1283,6 @@ function resolveSnapshotDiskPath(opts: BootOptions): string | undefined {
     throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `snapshot image not found: ${bundleDisk}`);
   }
   return bundleDisk;
-}
-
-function scratchMode(snapshot: BootOptions["snapshot"]): "false" | "path" | "auto" {
-  if (snapshot === false) {
-    return "false";
-  }
-  return typeof snapshot === "string" ? "path" : "auto";
 }
 
 function scratchRestoreClonePath(): string {

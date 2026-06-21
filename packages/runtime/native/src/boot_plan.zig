@@ -363,6 +363,11 @@ pub const ScratchDiskMode = enum {
     auto,
 };
 
+pub const ScratchOptionInput = struct {
+    false_value: bool = false,
+    path: ?[]const u8 = null,
+};
+
 pub const ScratchDiskInput = struct {
     mode: ScratchDiskMode = .unset,
     has_cmd: bool = false,
@@ -1089,6 +1094,12 @@ fn indexOfEnvKey(pairs: []const EnvPair, key: []const u8) ?usize {
     return null;
 }
 
+pub fn planScratchMode(input: ScratchOptionInput) ScratchDiskMode {
+    if (input.false_value) return .false_value;
+    if (input.path != null) return .path;
+    return .auto;
+}
+
 pub fn planRootDiskRuntime(input: RootDiskRuntimeInput) PlanError!RootDiskRuntimePlan {
     return switch (input.mode) {
         .none => .{
@@ -1597,6 +1608,12 @@ test "planRootDiskMode preserves false and restore precedence" {
     try std.testing.expectEqual(RootDiskMode.path, planRootDiskMode(.{ .path = "/root.img" }));
     try std.testing.expectEqual(RootDiskMode.path, planRootDiskMode(.{ .restore_path = "/restore.img" }));
     try std.testing.expectEqual(RootDiskMode.false_value, planRootDiskMode(.{ .false_value = true, .restore_path = "/restore.img" }));
+}
+
+test "planScratchMode preserves false and path before auto" {
+    try std.testing.expectEqual(ScratchDiskMode.auto, planScratchMode(.{}));
+    try std.testing.expectEqual(ScratchDiskMode.path, planScratchMode(.{ .path = "/snapshot.img" }));
+    try std.testing.expectEqual(ScratchDiskMode.false_value, planScratchMode(.{ .false_value = true, .path = "/snapshot.img" }));
 }
 
 test "planBootTimeout defaults, preserves explicit values, and supports forever" {
