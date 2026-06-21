@@ -1161,6 +1161,51 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans restore live-mount overrides", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      restoreLiveMountsRecorded: [
+        { host: "/host/work", guest: "/mnt/work", mode: "rw" },
+        { host: "/host/cache", guest: "/mnt/cache", mode: "ro" },
+      ],
+      restoreLiveMountsOverrides: [{ host: "/new/cache", guest: "/mnt/cache" }],
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.restoreLiveMounts).toEqual([
+      { host: "/host/work", guest: "/mnt/work", mode: "rw" },
+      { host: "/new/cache", guest: "/mnt/cache", mode: "ro" },
+    ]);
+
+    const rejected = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...requestData,
+          restoreLiveMountsOverrides: [{ host: "/new/extra", guest: "/mnt/extra" }],
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(rejected.status).toBe(1);
+    const error = JSON.parse(rejected.stdout).error;
+    expect(error.code).toBe("BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN");
+    expect(error.message).toContain("guest=/mnt/extra");
+    expect(error.message).toContain("/mnt/work");
+  });
+
   it("validates batch live-mount sync vsock requirements", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

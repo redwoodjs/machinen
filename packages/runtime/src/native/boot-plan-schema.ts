@@ -2,6 +2,7 @@ type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
 type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
 type MountDiskRuntimeAction = "none" | "restore" | "fresh";
 export type ProvisionGuestCpu = "arm64" | "amd64";
+export type RestoreLiveMount = { host: string; guest: string; mode?: "ro" | "rw" };
 type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
 type RegistryCpuPlan = {
   maxVcpus: number;
@@ -135,6 +136,7 @@ export interface NativeBootPlanResult {
   vmmNested: string | null;
   virtiofsEnv: Record<string, string>;
   batchLiveMountSyncRequired: boolean;
+  restoreLiveMounts: RestoreLiveMount[];
   plannedLiveMounts: PlannedLiveMount[];
   statsFilePath: string | null;
   vmmStatsFile: string | null;
@@ -188,6 +190,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmNested),
     isStringRecord(data.virtiofsEnv),
     typeof data.batchLiveMountSyncRequired === "boolean",
+    Array.isArray(data.restoreLiveMounts) && data.restoreLiveMounts.every(isRestoreLiveMount),
     Array.isArray(data.plannedLiveMounts) && data.plannedLiveMounts.every(isPlannedLiveMount),
     nullableString(data.statsFilePath),
     nullableString(data.vmmStatsFile),
@@ -485,6 +488,15 @@ function isRegistryLiveMount(value: unknown): value is RegistryLiveMountPlan {
     typeof mount.host === "string",
     isOneOf(mount.mode, liveMountModes),
   ].every(Boolean);
+}
+
+function isRestoreLiveMount(value: unknown): value is RestoreLiveMount {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const mount = value as Partial<RestoreLiveMount>;
+  return [typeof mount.host === "string", typeof mount.guest === "string"].every(Boolean) &&
+    (mount.mode === undefined || oneOfString(mount.mode, liveMountModes));
 }
 
 function isPlannedLiveMount(value: unknown): value is PlannedLiveMount {
