@@ -46,6 +46,11 @@ export type ProvisionAssetsPlan = {
   dtbAsset: string | null;
   rootfsAsset: string;
 };
+export type ProvisionDtbPlan = {
+  required: boolean;
+  asset: string | null;
+  cliCacheName: string | null;
+};
 export type ProvisionBootPlan = {
   imagePath: string | null;
   kernelPath: string | null;
@@ -164,6 +169,7 @@ export interface NativeBootPlanResult {
   bundleConfigPaths: BundleConfigPathsPlan;
   bundlePack: BundlePackPlan;
   provisionAssets: ProvisionAssetsPlan;
+  provisionDtb: ProvisionDtbPlan;
   provisionBoot: ProvisionBootPlan;
   provisionWorkload: ProvisionWorkloadPlan;
   provisionRepack: ProvisionRepackPlan;
@@ -224,6 +230,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isBundleConfigPathsPlan(data.bundleConfigPaths),
     isBundlePackPlan(data.bundlePack),
     isProvisionAssetsPlan(data.provisionAssets),
+    isProvisionDtbPlan(data.provisionDtb),
     isProvisionBootPlan(data.provisionBoot),
     isProvisionWorkloadPlan(data.provisionWorkload),
     isProvisionRepackPlan(data.provisionRepack),
@@ -291,6 +298,30 @@ function isProvisionAssetsPlan(value: unknown): value is ProvisionAssetsPlan {
     nullableString(plan.dtbAsset),
     typeof plan.rootfsAsset === "string",
   ].every(Boolean);
+}
+
+function isProvisionDtbPlan(value: unknown): value is ProvisionDtbPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<ProvisionDtbPlan>;
+  return (
+    typeof plan.required === "boolean" &&
+    nullableString(plan.asset) &&
+    nullableString(plan.cliCacheName)
+  );
+}
+
+function isProvisionDtbPlan(value: unknown): value is ProvisionDtbPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<ProvisionDtbPlan>;
+  return (
+    typeof plan.required === "boolean" &&
+    nullableString(plan.asset) &&
+    nullableString(plan.cliCacheName)
+  );
 }
 
 function isProvisionBootPlan(value: unknown): value is ProvisionBootPlan {

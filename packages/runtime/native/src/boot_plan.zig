@@ -204,6 +204,19 @@ pub const ProvisionAssetsPlan = struct {
     rootfs_asset: []const u8,
 };
 
+pub const ProvisionDtbInput = struct {
+    explicit: bool = false,
+    guest_cpu: ?ProvisionGuestCpu = null,
+    arch_override: ?[]const u8 = null,
+    host_arch: ?[]const u8 = null,
+};
+
+pub const ProvisionDtbPlan = struct {
+    required: bool,
+    asset: ?[]const u8,
+    cli_cache_name: ?[]const u8,
+};
+
 pub const ProvisionBootInput = struct {
     base_path: ?[]const u8 = null,
     kernel_path: ?[]const u8 = null,
@@ -1170,6 +1183,23 @@ fn provisionRepackInputEmpty(input: ProvisionRepackInput) bool {
     assert(@sizeOf(ProvisionRepackInput) > 0);
 
     return input.disk_path == null and input.out_path == null and input.extract_dir == null;
+}
+
+pub fn planProvisionDtb(input: ProvisionDtbInput) ProvisionDtbPlan {
+    assert(@sizeOf(ProvisionDtbInput) > 0);
+
+    if (input.explicit) return .{ .required = false, .asset = null, .cli_cache_name = null };
+    const assets = planProvisionAssets(.{
+        .guest_cpu = input.guest_cpu,
+        .arch_override = input.arch_override,
+        .host_arch = input.host_arch,
+    });
+    const asset = assets.dtb_asset orelse return .{
+        .required = false,
+        .asset = null,
+        .cli_cache_name = null,
+    };
+    return .{ .required = true, .asset = asset, .cli_cache_name = "virt.dtb" };
 }
 
 pub fn planProvisionBoot(
@@ -2468,6 +2498,21 @@ test "planScratchMode applies option precedence" {
         .false_value = true,
         .path = "/tmp/scratch.img",
     }));
+}
+
+test "planProvisionDtb plans omitted dtb requirement by guest cpu" {
+    const arm64 = planProvisionDtb(.{ .arch_override = "arm64", .host_arch = "x64" });
+    try std.testing.expect(arm64.required);
+    try std.testing.expectEqualStrings("virt-arm64.dtb", arm64.asset.?);
+    try std.testing.expectEqualStrings("virt.dtb", arm64.cli_cache_name.?);
+
+    const amd64 = planProvisionDtb(.{ .arch_override = "amd64", .host_arch = "arm64" });
+    try std.testing.expect(!amd64.required);
+    try std.testing.expect(amd64.asset == null);
+    try std.testing.expect(amd64.cli_cache_name == null);
+
+    const explicit = planProvisionDtb(.{ .explicit = true, .arch_override = "arm64" });
+    try std.testing.expect(!explicit.required);
 }
 
 test "planProvisionAssets selects asset names by guest CPU" {

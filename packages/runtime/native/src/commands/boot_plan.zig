@@ -90,6 +90,7 @@ const ParsedRequest = struct {
     provision_guest_cpu: ?boot_plan.ProvisionGuestCpu = null,
     provision_guest_arch_override: ?[]const u8 = null,
     provision_host_arch: ?[]const u8 = null,
+    provision_dtb_explicit: bool = false,
     provision_base_path: ?[]const u8 = null,
     provision_kernel_path: ?[]const u8 = null,
     provision_dtb_path: ?[]const u8 = null,
@@ -264,6 +265,7 @@ const boot_plan_fields = [_][]const u8{
     "provisionGuestCpu",
     "provisionGuestArchOverride",
     "provisionHostArch",
+    "provisionDtbExplicit",
     "provisionBasePath",
     "provisionKernelPath",
     "provisionDtbPath",
@@ -449,6 +451,7 @@ const RequestError = error{
     InvalidProvisionGuestCpu,
     InvalidProvisionGuestArchOverride,
     InvalidProvisionHostArch,
+    InvalidProvisionDtbExplicit,
     InvalidProvisionBasePath,
     InvalidProvisionKernelPath,
     InvalidProvisionDtbPath,
@@ -587,6 +590,7 @@ const PlanParts = struct {
     bundle_config_paths: boot_plan.BundleConfigPathsPlan,
     bundle_pack: boot_plan.BundlePackPlan,
     provision_assets: boot_plan.ProvisionAssetsPlan,
+    provision_dtb: boot_plan.ProvisionDtbPlan,
     provision_boot: boot_plan.ProvisionBootPlan,
     provision_workload: boot_plan.ProvisionWorkloadPlan,
     provision_repack: boot_plan.ProvisionRepackPlan,
@@ -695,6 +699,12 @@ fn makePlanParts(
             .restore_mount_guest = parsed.bundle_pack_restore_mount_guest,
         }),
         .provision_assets = boot_plan.planProvisionAssets(.{
+            .guest_cpu = parsed.provision_guest_cpu,
+            .arch_override = parsed.provision_guest_arch_override,
+            .host_arch = parsed.provision_host_arch,
+        }),
+        .provision_dtb = boot_plan.planProvisionDtb(.{
+            .explicit = parsed.provision_dtb_explicit,
             .guest_cpu = parsed.provision_guest_cpu,
             .arch_override = parsed.provision_guest_arch_override,
             .host_arch = parsed.provision_host_arch,
@@ -1212,6 +1222,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeBundleConfigPathsField(io, "bundleConfigPaths", parts.bundle_config_paths, true);
     try writeBundlePackField(io, "bundlePack", parts.bundle_pack, true);
     try writeProvisionAssetsField(io, "provisionAssets", parts.provision_assets, true);
+    try writeProvisionDtbField(io, "provisionDtb", parts.provision_dtb, true);
     try writeProvisionBootField(io, "provisionBoot", parts.provision_boot, true);
     try writeProvisionWorkloadField(io, "provisionWorkload", parts.provision_workload, true);
     try writeProvisionRepackField(io, "provisionRepack", parts.provision_repack, true);
@@ -1577,6 +1588,22 @@ fn writeProvisionAssetsField(
     try writeNullableStringField(io, "dtbAsset", assets.dtb_asset, true);
     try protocol.stdout(io, ",\"rootfsAsset\":");
     try protocol.writeJsonString(io, assets.rootfs_asset);
+    try protocol.stdout(io, "}");
+}
+
+fn writeProvisionDtbField(
+    io: std.Io,
+    comptime field: []const u8,
+    plan: boot_plan.ProvisionDtbPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeBoolField(io, "required", plan.required, false);
+    try writeNullableStringField(io, "asset", plan.asset, true);
+    try writeNullableStringField(io, "cliCacheName", plan.cli_cache_name, true);
     try protocol.stdout(io, "}");
 }
 
@@ -2767,6 +2794,11 @@ fn parseProvisionFields(
         object,
         "provisionHostArch",
         error.InvalidProvisionHostArch,
+    );
+    request.provision_dtb_explicit = try optionalBoolDefaultFalse(
+        object,
+        "provisionDtbExplicit",
+        error.InvalidProvisionDtbExplicit,
     );
     try parseProvisionBootFields(object, request);
     try parseProvisionRepackFields(object, request);
@@ -4022,6 +4054,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
     if (try writeGuestHostnameRequestError(io, err)) return;
     if (try writeRootDiskRequestError(io, err)) return;
     if (try writeScratchRequestError(io, err)) return;
+    if (try writeProvisionDtbRequestError(io, err)) return;
 
     switch (err) {
         error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
@@ -4041,6 +4074,20 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
+}
+
+fn writeProvisionDtbRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidProvisionDtbExplicit => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan provision dtb explicit flag must be a boolean",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writeScratchRequestError(io: std.Io, err: RequestError) !bool {

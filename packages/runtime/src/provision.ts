@@ -45,6 +45,7 @@ import {
   planProvisionRuntimeNative,
   planProvisionWorkloadNative,
 } from "./native/boot-plan.ts";
+import { planProvisionDtbNative } from "./native/provision-dtb.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { allocateSparseFile } from "./vm/helpers.ts";
 import { reflinkCopy } from "./reflink.ts";
@@ -229,19 +230,36 @@ export function resolveBaseKernel(explicit?: string, cwd: string = process.cwd()
  *   PROVISION_ASSETS_DIR_INVALID
  */
 export function resolveBaseDtb(explicit?: string, cwd: string = process.cwd()): string | undefined {
-  const spec = baseAssetSpec();
-  if (!explicit && spec.cpu === "amd64") {
+  if (explicit) {
+    return resolveBaseAsset(
+      {
+        kind: "device tree blob",
+        param: "dtb",
+        assetsDirName: "virt-arm64.dtb",
+        cliCacheName: "virt.dtb",
+        missingCode: "PROVISION_DTB_NOT_FOUND",
+      },
+      explicit,
+      cwd,
+    );
+  }
+
+  const plan = planProvisionDtbNative({
+    guestArchOverride: process.env.MACHINEN_GUEST_ARCH,
+    hostArch: osArch(),
+  });
+  if (!plan.required) {
     return undefined;
   }
   return resolveBaseAsset(
     {
       kind: "device tree blob",
       param: "dtb",
-      assetsDirName: spec.dtbAsset ?? "virt-arm64.dtb",
-      cliCacheName: "virt.dtb",
+      assetsDirName: plan.asset ?? "virt-arm64.dtb",
+      cliCacheName: plan.cliCacheName ?? "virt.dtb",
       missingCode: "PROVISION_DTB_NOT_FOUND",
     },
-    explicit,
+    undefined,
     cwd,
   );
 }
