@@ -28,6 +28,9 @@ const ParsedRequest = struct {
     auto_vsock_temp_dir: ?[]const u8 = null,
     port_forward: []const boot_plan.PortForwardMapping = &.{},
     port_forward_net_socket: ?[]const u8 = null,
+    gvproxy_planning_required: bool = false,
+    gvproxy_net_socket: ?[]const u8 = null,
+    gvproxy_path: ?[]const u8 = null,
     vmm_binary: ?[]const u8 = null,
     vmm_args: []const []const u8 = &.{},
     guest_hostname_pid_text: ?[]const u8 = null,
@@ -171,6 +174,9 @@ const boot_plan_fields = [_][]const u8{
     "autoVsockTempDir",
     "portForward",
     "portForwardNetSocket",
+    "gvproxyPlanningRequired",
+    "gvproxyNetSocket",
+    "gvproxyPath",
     "vmmBinary",
     "vmmArgs",
     "guestHostnamePid",
@@ -320,6 +326,9 @@ const RequestError = error{
     InvalidHostPort,
     InvalidGuestPort,
     InvalidPortForwardNetSocket,
+    InvalidGvproxyPlanningRequired,
+    InvalidGvproxyNetSocket,
+    InvalidGvproxyPath,
     InvalidVmmBinary,
     InvalidVmmArgs,
     InvalidGuestHostnamePid,
@@ -468,6 +477,7 @@ const PlanParts = struct {
     cpu_policy: ?boot_plan.CpuPolicyPlan,
     guest_env: []const boot_plan.EnvPair,
     vsock_plan: boot_plan.VsockPlan,
+    gvproxy_plan: boot_plan.GvproxyPlan,
     guest_hostname: boot_plan.GuestHostnameInput,
     vmm_argv: boot_plan.VmmArgvPlan,
     use_pdeathsig: bool,
@@ -516,6 +526,7 @@ fn makeCorePlan(
 
 const BootEnvParts = struct {
     vsock_plan: boot_plan.VsockPlan,
+    gvproxy_plan: boot_plan.GvproxyPlan,
     vmm_argv: boot_plan.VmmArgvPlan,
     use_pdeathsig: bool,
     kernel_dtb: boot_plan.KernelDtbPlan,
@@ -559,6 +570,7 @@ fn makePlanParts(
         .guest_env = try makeGuestEnv(arena, parsed),
         .guest_hostname = try makeGuestHostname(parsed),
         .vsock_plan = boot_env.vsock_plan,
+        .gvproxy_plan = boot_env.gvproxy_plan,
         .vmm_argv = boot_env.vmm_argv,
         .use_pdeathsig = boot_env.use_pdeathsig,
         .planned_port_forwards = parsed.port_forward,
@@ -610,6 +622,12 @@ fn makeBootEnvParts(arena: std.mem.Allocator, parsed: ParsedRequest) !BootEnvPar
             .existing_spec = parsed.existing_vsock_spec,
             .auto_uds_path = parsed.auto_vsock_uds_path,
             .auto_temp_dir = parsed.auto_vsock_temp_dir,
+        }),
+        .gvproxy_plan = try boot_plan.planGvproxy(.{
+            .planning_required = parsed.gvproxy_planning_required,
+            .existing_net_socket = parsed.gvproxy_net_socket,
+            .gvproxy_path = parsed.gvproxy_path,
+            .port_forwards = parsed.port_forward,
         }),
         .vmm_argv = try boot_plan.planVmmArgv(arena, .{
             .binary = parsed.vmm_binary,
@@ -1000,6 +1018,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try protocol.stdout(io, "\"command\":\"boot-plan\",\"data\":{");
     try writeCoreFields(io, parts.plan, parts.cpu_policy);
     try writeVsockKernelFields(io, parts.vsock_plan, parts.kernel_dtb);
+    try writeGvproxyPlanField(io, "gvproxyPlan", parts.gvproxy_plan, true);
     try writeNullableStringField(io, "vmmInitrd", parts.initrd_env.vmm_initrd, true);
     try writeGuestHostnameField(io, "guestHostname", parts.guest_hostname, true);
     try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file);
@@ -1121,6 +1140,21 @@ fn writeVsockKernelFields(
     try writeNullableStringField(io, "vmmVsock", vsock_plan.vmm_vsock, true);
     try writeNullableStringField(io, "vmmKernel", kernel_dtb.vmm_kernel, true);
     try writeNullableStringField(io, "vmmDtb", kernel_dtb.vmm_dtb, true);
+}
+
+fn writeGvproxyPlanField(
+    io: std.Io,
+    comptime field: []const u8,
+    plan: boot_plan.GvproxyPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "action", plan.action, false);
+    try writeNullableStringField(io, "gvproxyPath", plan.gvproxy_path, true);
+    try protocol.stdout(io, "}");
 }
 
 fn writeGuestHostnameField(
@@ -2057,6 +2091,21 @@ fn parseVmmLaunchFields(
         object,
         "portForwardNetSocket",
         error.InvalidPortForwardNetSocket,
+    );
+    request.gvproxy_planning_required = try optionalBoolDefaultFalse(
+        object,
+        "gvproxyPlanningRequired",
+        error.InvalidGvproxyPlanningRequired,
+    );
+    request.gvproxy_net_socket = try optionalStringDefaultNull(
+        object,
+        "gvproxyNetSocket",
+        error.InvalidGvproxyNetSocket,
+    );
+    request.gvproxy_path = try optionalStringDefaultNull(
+        object,
+        "gvproxyPath",
+        error.InvalidGvproxyPath,
     );
     request.vmm_binary = try optionalStringDefaultNull(object, "vmmBinary", error.InvalidVmmBinary);
     request.vmm_args = try optionalStringArrayDefaultEmpty(
@@ -3381,6 +3430,11 @@ fn writeEnvPlanError(io: std.Io, err: anyerror) !bool {
             "BOOT_MOUNT_INVALID",
             "liveMounts: writable mounts require the exec vsock bridge for batched sync",
         ),
+        error.MissingGvproxy => try writeBootError(
+            io,
+            "BOOT_PORT_FORWARD_NO_GVPROXY",
+            "portForward requires gvproxy, but no gvproxy binary was found",
+        ),
         error.InvalidGuestEnvValue => try writeBootError(
             io,
             "INVALID_REQUEST",
@@ -3470,6 +3524,16 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
             io,
             "BOOT_PORT_FORWARD_INVALID",
             "boot-plan portForward net socket field must be a string",
+        ),
+        error.InvalidGvproxyPlanningRequired => try protocol.writeError(
+            io,
+            "BOOT_PORT_FORWARD_NO_GVPROXY",
+            "boot-plan gvproxy planning flag must be a boolean",
+        ),
+        error.InvalidGvproxyNetSocket, error.InvalidGvproxyPath => try protocol.writeError(
+            io,
+            "BOOT_PORT_FORWARD_NO_GVPROXY",
+            "boot-plan gvproxy fields must be strings",
         ),
         error.InvalidLiveMounts,
         error.InvalidLiveMountGuest,

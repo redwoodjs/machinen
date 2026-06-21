@@ -1,8 +1,10 @@
 type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
 type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
 type MountDiskRuntimeAction = "none" | "restore" | "fresh";
+type GvproxyAction = "skip-existing" | "spawn" | "missing-ok";
 export type ProvisionGuestCpu = "arm64" | "amd64";
 export type RestoreLiveMount = { host: string; guest: string; mode?: "ro" | "rw" };
+export type GvproxyPlan = { action: GvproxyAction; gvproxyPath: string | null };
 type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
 type RegistryCpuPlan = {
   maxVcpus: number;
@@ -108,6 +110,7 @@ const provisionGuestCpuValues = ["arm64", "amd64"] as const;
 const scratchDiskActions = ["none", "existing", "clone", "allocate"] as const;
 const rootDiskRuntimeActions = ["none", "existing", "clone-restore", "clone-cached"] as const;
 const mountDiskRuntimeActions = ["none", "restore", "fresh"] as const;
+const gvproxyActions = ["skip-existing", "spawn", "missing-ok"] as const;
 const registryRootDiskModes = ["block", "none"] as const;
 const liveMountModes = ["ro", "rw"] as const;
 
@@ -124,6 +127,7 @@ export interface NativeBootPlanResult {
   mergedGuestEnv: Record<string, string>;
   vsockUdsPath: string | null;
   vmmVsock: string | null;
+  gvproxyPlan: GvproxyPlan;
   vmmCommand: string | null;
   vmmArgs: string[];
   usePdeathsig: boolean;
@@ -178,6 +182,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isStringRecord(data.mergedGuestEnv),
     nullableString(data.vsockUdsPath),
     nullableString(data.vmmVsock),
+    isGvproxyPlan(data.gvproxyPlan),
     nullableString(data.vmmCommand),
     isStringArray(data.vmmArgs),
     typeof data.usePdeathsig === "boolean",
@@ -488,6 +493,14 @@ function isRegistryLiveMount(value: unknown): value is RegistryLiveMountPlan {
     typeof mount.host === "string",
     isOneOf(mount.mode, liveMountModes),
   ].every(Boolean);
+}
+
+function isGvproxyPlan(value: unknown): value is GvproxyPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<GvproxyPlan>;
+  return oneOfString(plan.action, gvproxyActions) && nullableString(plan.gvproxyPath);
 }
 
 function isRestoreLiveMount(value: unknown): value is RestoreLiveMount {
