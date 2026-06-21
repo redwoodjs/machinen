@@ -49,6 +49,10 @@ export type BundleConfigPathsPlan = {
   rootfsDir: string | null;
   configPath: string | null;
 };
+export type BundlePackPlan = {
+  kind: "fat" | "tiny";
+  tinyMountGuest: string | null;
+};
 export type ProvisionAssetsPlan = {
   cpu: ProvisionGuestCpu;
   kernelAsset: string;
@@ -161,6 +165,7 @@ export interface NativeBootPlanResult {
   bundleEnv: Record<string, string>;
   bundleWorkspace: BundleWorkspacePlan;
   bundleConfigPaths: BundleConfigPathsPlan;
+  bundlePack: BundlePackPlan;
   provisionAssets: ProvisionAssetsPlan;
   provisionBoot: ProvisionBootPlan;
   provisionWorkload: ProvisionWorkloadPlan;
@@ -218,6 +223,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isStringRecord(data.bundleEnv),
     isBundleWorkspacePlan(data.bundleWorkspace),
     isBundleConfigPathsPlan(data.bundleConfigPaths),
+    isBundlePackPlan(data.bundlePack),
     isProvisionAssetsPlan(data.provisionAssets),
     isProvisionBootPlan(data.provisionBoot),
     isProvisionWorkloadPlan(data.provisionWorkload),
@@ -260,6 +266,14 @@ function isBundleConfigPathsPlan(value: unknown): value is BundleConfigPathsPlan
   }
   const plan = value as Partial<BundleConfigPathsPlan>;
   return nullableString(plan.rootfsDir) && nullableString(plan.configPath);
+}
+
+function isBundlePackPlan(value: unknown): value is BundlePackPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<BundlePackPlan>;
+  return (plan.kind === "fat" || plan.kind === "tiny") && nullableString(plan.tinyMountGuest);
 }
 
 function isProvisionAssetsPlan(value: unknown): value is ProvisionAssetsPlan {

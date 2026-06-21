@@ -140,6 +140,17 @@ pub const BundleConfigPathsPlan = struct {
     config_path: ?[]const u8,
 };
 
+pub const BundlePackInput = struct {
+    use_tiny: bool = false,
+    mount_guest: ?[]const u8 = null,
+    restore_mount_guest: ?[]const u8 = null,
+};
+
+pub const BundlePackPlan = struct {
+    kind: []const u8,
+    tiny_mount_guest: ?[]const u8,
+};
+
 pub const ProvisionGuestCpu = enum {
     arm64,
     amd64,
@@ -1021,6 +1032,11 @@ pub fn planBundleConfigPaths(allocator: std.mem.Allocator, input: BundleConfigPa
         .rootfs_dir = rootfs_dir,
         .config_path = try std.fs.path.join(allocator, &.{ synth_bundle_dir, "machinen-config.json" }),
     };
+}
+
+pub fn planBundlePack(input: BundlePackInput) BundlePackPlan {
+    if (!input.use_tiny) return .{ .kind = "fat", .tiny_mount_guest = null };
+    return .{ .kind = "tiny", .tiny_mount_guest = input.mount_guest orelse input.restore_mount_guest };
 }
 
 pub fn planBundleEnv(allocator: std.mem.Allocator, input: BundleEnvInput) ![]EnvPair {
@@ -2018,6 +2034,20 @@ test "planBundleConfigPaths derives bundle config staging paths" {
     const none = try planBundleConfigPaths(std.testing.allocator, .{});
     try std.testing.expect(none.rootfs_dir == null);
     try std.testing.expect(none.config_path == null);
+}
+
+test "planBundlePack selects fat or tiny initramfs inputs" {
+    const fat = planBundlePack(.{});
+    try std.testing.expectEqualStrings("fat", fat.kind);
+    try std.testing.expect(fat.tiny_mount_guest == null);
+
+    const tiny_fresh = planBundlePack(.{ .use_tiny = true, .mount_guest = "/mnt/data", .restore_mount_guest = "/mnt/restore" });
+    try std.testing.expectEqualStrings("tiny", tiny_fresh.kind);
+    try std.testing.expectEqualStrings("/mnt/data", tiny_fresh.tiny_mount_guest.?);
+
+    const tiny_restore = planBundlePack(.{ .use_tiny = true, .restore_mount_guest = "/mnt/restore" });
+    try std.testing.expectEqualStrings("tiny", tiny_restore.kind);
+    try std.testing.expectEqualStrings("/mnt/restore", tiny_restore.tiny_mount_guest.?);
 }
 
 test "planBundleEnv overlays guest env on image env" {
