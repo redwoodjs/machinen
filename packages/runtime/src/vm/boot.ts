@@ -7,20 +7,12 @@
 import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import {
-  closeSync,
-  existsSync,
-  mkdtempSync,
-  openSync,
-  rmSync,
-  unlinkSync,
-  writeSync,
-} from "node:fs";
+import { closeSync, existsSync, mkdtempSync, openSync, rmSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
 
-import { readBalloonStats, STATS_FILE_SIZE } from "../balloon-stats.ts";
+import { readBalloonStats } from "../balloon-stats.ts";
 import {
   bootReadinessFailureMessage,
   bootStderrTail,
@@ -63,7 +55,6 @@ import {
   planBootRegistryShapeNative,
   planBootRegistryVmstateNative,
   planBootScratchDiskNative,
-  planBootStatsFileNative,
   planBootVirtiofsEnvNative,
   planBootVmstateEnvNative,
   planBootVmstateRuntimeNative,
@@ -82,7 +73,6 @@ import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
 import { planBootScratchModeNative } from "../native/scratch-mode.ts";
 import { planBootSnapshotBackingNative as planSnapshotBacking } from "../native/snapshot-backing.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
-import { planBootStatsFileModeNative } from "../native/stats-file-mode.ts";
 import { planBootVmmEnvNative } from "../native/vmm-env.ts";
 import { planBootVsockModeNative } from "../native/vsock-mode.ts";
 import { planBootVmstateTempModeNative as planVmstateTempMode } from "../native/vmstate-temp-mode.ts";
@@ -108,6 +98,7 @@ import {
 } from "./helpers.ts";
 import { performSnapshot, type SnapshotContext } from "./snapshot.ts";
 import { resolveSnapshotEngine } from "./snapshot-engine.ts";
+import { setupStatsFile } from "./stats-file.ts";
 
 const debug = debugLib("machinen:boot");
 const vmmDebug = debugLib("machinen:vmm");
@@ -1385,40 +1376,6 @@ function setupVsockBridge(env: Record<string, string>): {
   );
   return { vsockUdsPath: plan.vsockUdsPath ?? undefined, vsockTempDir };
 }
-// #274: shared stats file the balloon backend writes counters to.
-// Pre-allocated zero-filled here so the VMM's mmap'd writer and our
-// host-side reader see a coherent layout even before the first
-// reporting chain. Co-located under `vsockTempDir` when we own one
-// (so cleanup rides along on its rmSync); otherwise allocated in
-// tmpdir() with its own cleanup entry. Skipped when the caller
-// already pre-set `MACHINEN_STATS_FILE` (debug knob).
-function setupStatsFile(
-  env: Record<string, string>,
-  vsockTempDir: string | undefined,
-): { statsFilePath: string | undefined; statsTempDir: string | undefined } {
-  const mode = planBootStatsFileModeNative(env.MACHINEN_STATS_FILE);
-  if (mode.action === "existing") {
-    return { statsFilePath: mode.existingPath ?? undefined, statsTempDir: undefined };
-  }
-  let statsTempDir: string | undefined;
-  const statsFileTempDir =
-    vsockTempDir ?? (statsTempDir = mkdtempSync(join(tmpdir(), "machinen-stats-")));
-  const plan = planBootStatsFileNative({ tempDir: statsFileTempDir });
-  if (!plan.statsFilePath) {
-    return { statsFilePath: undefined, statsTempDir };
-  }
-  const fd = openSync(plan.statsFilePath, "w");
-  try {
-    writeSync(fd, Buffer.alloc(STATS_FILE_SIZE), 0, STATS_FILE_SIZE, 0);
-  } finally {
-    closeSync(fd);
-  }
-  if (plan.vmmStatsFile) {
-    env.MACHINEN_STATS_FILE = plan.vmmStatsFile;
-  }
-  return { statsFilePath: plan.statsFilePath, statsTempDir };
-}
-
 interface GvproxyResult {
   gvStop: (() => void) | undefined;
   gvPid: number | undefined;
