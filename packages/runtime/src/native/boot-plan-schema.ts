@@ -171,6 +171,7 @@ export interface NativeBootPlanResult {
   vmmSnapshotPath: string | null;
   vmmRestorePath: string | null;
   vmmVmstateTiming: string | null;
+  vmstateTempMode: VmstateTempModePlan;
   vmmNested: string | null;
   virtiofsEnv: Record<string, string>;
   batchLiveMountSyncRequired: boolean;
@@ -240,6 +241,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmSnapshotPath),
     nullableString(data.vmmRestorePath),
     nullableString(data.vmmVmstateTiming),
+    isVmstateTempModePlan(data.vmstateTempMode),
     nullableString(data.vmmNested),
     isStringRecord(data.virtiofsEnv),
     typeof data.batchLiveMountSyncRequired === "boolean",

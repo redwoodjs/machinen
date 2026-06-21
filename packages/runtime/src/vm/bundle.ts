@@ -33,6 +33,7 @@ import {
 } from "../native/boot-plan.ts";
 import { planBootBundleMountDiskModeNative } from "../native/bundle-mount-disk-mode.ts";
 import { planBootBundlePackNative } from "../native/bundle-pack.ts";
+import { validateLiveMountRemovedOptionsNative } from "../native/live-mount-options.ts";
 import type { BundlePackPlan } from "../native/boot-plan-schema.ts";
 import { planRestoreLiveMountsNative } from "../native/restore-live-mounts.ts";
 import type { BootOptions } from "./boot.ts";
@@ -84,18 +85,7 @@ export function resolveLiveMounts(
 }
 
 function rejectRemovedLiveMountOptions(mount: object, index: number): void {
-  if ("cache" in mount) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `liveMounts[${index}] cache is no longer supported; metadata caching uses the fast policy`,
-    );
-  }
-  if ("sync" in mount) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `liveMounts[${index}] sync is no longer supported; rw live mounts sync in batches`,
-    );
-  }
+  validateLiveMountRemovedOptionsNative(mount, index);
 }
 
 /**

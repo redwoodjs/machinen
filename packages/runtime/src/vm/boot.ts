@@ -1112,7 +1112,6 @@ function setupVmstateBoot(
   applyVmstateEnvPlan(opts, env, vmstate.statePath);
   return { vmstate, vsockTempDir };
 }
-
 function applyVmstateEnvPlan(
   opts: BootOptions,
   env: Record<string, string>,
@@ -1386,7 +1385,6 @@ function setupVsockBridge(env: Record<string, string>): {
   );
   return { vsockUdsPath: plan.vsockUdsPath ?? undefined, vsockTempDir };
 }
-
 // #274: shared stats file the balloon backend writes counters to.
 // Pre-allocated zero-filled here so the VMM's mmap'd writer and our
 // host-side reader see a coherent layout even before the first
@@ -1986,7 +1984,6 @@ function ensureSnapshotBacking(
     throw noSnapshotBackingError(action);
   }
 }
-
 function noSnapshotBackingError(action: "snapshot" | "fork"): SnapshotError {
   return new SnapshotError("SNAPSHOT_NO_DISK", NO_SNAPSHOT_BACKING_MESSAGES[action]);
 }

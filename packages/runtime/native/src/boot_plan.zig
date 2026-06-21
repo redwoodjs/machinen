@@ -398,6 +398,18 @@ pub const LiveMountInput = struct {
     mode: ?[]const u8 = null,
 };
 
+pub const LiveMountRemovedOptionsInput = struct {
+    index: u64,
+    has_cache: bool = false,
+    has_sync: bool = false,
+};
+
+pub const LiveMountRemovedOptionsValidation = union(enum) {
+    ok,
+    cache: u64,
+    sync: u64,
+};
+
 pub const LiveMount = struct {
     host: []const u8,
     guest: []const u8,
@@ -1073,6 +1085,16 @@ pub fn planLiveMounts(allocator: std.mem.Allocator, mounts: []const LiveMountInp
     return out.toOwnedSlice(allocator);
 }
 
+pub fn validateLiveMountRemovedOptions(
+    input: LiveMountRemovedOptionsInput,
+) LiveMountRemovedOptionsValidation {
+    assert(@sizeOf(LiveMountRemovedOptionsInput) > 0);
+
+    if (input.has_cache) return .{ .cache = input.index };
+    if (input.has_sync) return .{ .sync = input.index };
+    return .ok;
+}
+
 pub fn planVirtiofsEnv(allocator: std.mem.Allocator, mounts: []const LiveMount) ![]EnvPair {
     assert(@sizeOf(LiveMount) > 0);
 
@@ -1509,6 +1531,8 @@ pub fn planBundlePack(input: BundlePackInput) BundlePackPlan {
 }
 
 pub fn planBundleMountDiskMode(input: BundlePackInput) BundleMountDiskModePlan {
+    assert(@sizeOf(BundlePackInput) > 0);
+
     if (!input.use_tiny) return .{ .action = "none" };
     if (input.restore_mount_guest != null) return .{ .action = "restore" };
     if (input.mount_guest != null) return .{ .action = "fresh" };
@@ -2446,19 +2470,28 @@ test "planRegistryProcess projects platform-specific executable metadata" {
 }
 
 test "planSnapshotBacking requires the active engine backing path" {
-    try std.testing.expect(!planSnapshotBacking(.{ .engine = "criu", .action = "snapshot" }).allowed);
+    try std.testing.expect(!planSnapshotBacking(.{
+        .engine = "criu",
+        .action = "snapshot",
+    }).allowed);
     try std.testing.expect(planSnapshotBacking(.{
         .engine = "criu",
         .action = "snapshot",
         .disk_path = "/tmp/scratch.img",
     }).allowed);
-    try std.testing.expect(!planSnapshotBacking(.{ .engine = "vmstate", .action = "fork" }).allowed);
+    try std.testing.expect(!planSnapshotBacking(.{
+        .engine = "vmstate",
+        .action = "fork",
+    }).allowed);
     try std.testing.expect(planSnapshotBacking(.{
         .engine = "vmstate",
         .action = "fork",
         .vmstate_path = "/tmp/state.vmstate",
     }).allowed);
-    try std.testing.expect(planSnapshotBacking(.{ .engine = "none", .action = "snapshot" }).allowed);
+    try std.testing.expect(planSnapshotBacking(.{
+        .engine = "none",
+        .action = "snapshot",
+    }).allowed);
 }
 
 test "planSnapshotContext projects mount live mount and vmstate chain fields" {
@@ -2942,7 +2975,11 @@ test "planBundleMountDiskMode selects mount disk materialization action" {
     const fresh = planBundleMountDiskMode(.{ .use_tiny = true, .mount_guest = "/mnt/data" });
     try std.testing.expectEqualStrings("fresh", fresh.action);
 
-    const restore = planBundleMountDiskMode(.{ .use_tiny = true, .mount_guest = "/mnt/data", .restore_mount_guest = "/mnt/restore" });
+    const restore = planBundleMountDiskMode(.{
+        .use_tiny = true,
+        .mount_guest = "/mnt/data",
+        .restore_mount_guest = "/mnt/restore",
+    });
     try std.testing.expectEqualStrings("restore", restore.action);
 }
 
@@ -3150,6 +3187,26 @@ test "planLiveMounts validates count guest paths modes and tags" {
     try std.testing.expectError(
         error.InvalidLiveMountMode,
         planLiveMounts(std.testing.allocator, &bad_mode),
+    );
+}
+
+test "validateLiveMountRemovedOptions preserves deprecated option precedence" {
+    try std.testing.expectEqual(.ok, validateLiveMountRemovedOptions(.{ .index = 1 }));
+    try std.testing.expectEqual(
+        @as(u64, 2),
+        validateLiveMountRemovedOptions(.{ .index = 2, .has_cache = true }).cache,
+    );
+    try std.testing.expectEqual(
+        @as(u64, 3),
+        validateLiveMountRemovedOptions(.{ .index = 3, .has_sync = true }).sync,
+    );
+    try std.testing.expectEqual(
+        @as(u64, 4),
+        validateLiveMountRemovedOptions(.{
+            .index = 4,
+            .has_cache = true,
+            .has_sync = true,
+        }).cache,
     );
 }
 
