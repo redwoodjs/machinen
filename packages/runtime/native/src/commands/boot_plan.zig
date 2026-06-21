@@ -133,6 +133,7 @@ const ParsedRequest = struct {
     root_disk_runtime_mode: boot_plan.RootDiskRuntimeMode = .none,
     root_disk_source_path: ?[]const u8 = null,
     root_disk_clone_path: ?[]const u8 = null,
+    mount_disk_upper_size_option_text: ?[]const u8 = null,
     mount_disk_runtime_mode: boot_plan.MountDiskRuntimeMode = .none,
     mount_disk_lower_path: ?[]const u8 = null,
     mount_disk_upper_path: ?[]const u8 = null,
@@ -331,6 +332,7 @@ const boot_plan_fields = [_][]const u8{
     "rootDiskRuntimeMode",
     "rootDiskSourcePath",
     "rootDiskClonePath",
+    "mountDiskUpperSizeOption",
     "mountDiskRuntimeMode",
     "mountDiskLowerPath",
     "mountDiskUpperPath",
@@ -544,6 +546,7 @@ const RequestError = error{
     InvalidRootDiskRuntimeMode,
     InvalidRootDiskSourcePath,
     InvalidRootDiskClonePath,
+    InvalidMountDiskUpperSizeOption,
     InvalidMountDiskRuntimeMode,
     InvalidMountDiskLowerPath,
     InvalidMountDiskUpperPath,
@@ -618,6 +621,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         parsed.port_forward_net_socket,
     )) return .fail;
     if (try writeLiveMountRemovedOptionFailure(io, parsed)) return .fail;
+    if (try writeMountDiskUpperSizeFailure(io, parsed)) return .fail;
 
     const parts = makePlanParts(arena, parsed, plan) catch |err| {
         if (err == error.RestoreLiveMountOverrideUnknown) {
@@ -679,6 +683,7 @@ const PlanParts = struct {
     planned_scratch_mode: boot_plan.ScratchDiskMode,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
+    planned_mount_disk_upper_size: u64,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
     mount_disk_fd_env: []const boot_plan.EnvPair,
     snapshot_context: boot_plan.SnapshotContextPlan,
@@ -793,6 +798,7 @@ fn makePlanParts(
         .planned_scratch_mode = runtime.planned_scratch_mode,
         .scratch_disk = runtime.scratch_disk,
         .root_disk_runtime = runtime.root_disk_runtime,
+        .planned_mount_disk_upper_size = try makeMountDiskUpperSize(parsed),
         .mount_disk_runtime = runtime.mount_disk_runtime,
         .mount_disk_fd_env = runtime.mount_disk_fd_env,
         .snapshot_context = runtime.snapshot_context,
@@ -1025,6 +1031,23 @@ fn makeDiskParts(parsed: ParsedRequest) !DiskParts {
         }),
         .mount = try makeMountDiskRuntime(parsed),
     };
+}
+
+fn makeMountDiskUpperSize(parsed: ParsedRequest) !u64 {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    const option = try parseMountDiskUpperSizeOption(parsed);
+    return switch (boot_plan.planMountDiskUpperSize(.{ .size_bytes = option })) {
+        .ok => |size| size,
+        .invalid => return error.InvalidMountDiskUpperSizeOption,
+    };
+}
+
+fn parseMountDiskUpperSizeOption(parsed: ParsedRequest) !?u64 {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    const text = parsed.mount_disk_upper_size_option_text orelse return null;
+    return parseUnsigned(text) catch error.InvalidMountDiskUpperSizeOption;
 }
 
 fn makeMountDiskRuntime(parsed: ParsedRequest) !boot_plan.MountDiskRuntimePlan {
@@ -1360,6 +1383,36 @@ fn makeRegistryShape(
     });
 }
 
+fn writeMountDiskUpperSizeFailure(io: std.Io, parsed: ParsedRequest) !bool {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    const option = parseMountDiskUpperSizeOption(parsed) catch {
+        try writeRequestError(io, error.InvalidMountDiskUpperSizeOption);
+        return true;
+    };
+    const plan = boot_plan.planMountDiskUpperSize(.{ .size_bytes = option });
+    switch (plan) {
+        .ok => return false,
+        .invalid => |size| try writeMountDiskUpperSizeError(io, size),
+    }
+    return true;
+}
+
+fn writeMountDiskUpperSizeError(io: std.Io, size: u64) !void {
+    assert(size <= std.math.maxInt(u64));
+
+    var buf: [256]u8 = undefined;
+    try protocol.writeError(
+        io,
+        "BOOT_MOUNT_INVALID",
+        try std.fmt.bufPrint(
+            &buf,
+            "mountDiskUpperSizeBytes must be a positive multiple of 4096 (got {d})",
+            .{size},
+        ),
+    );
+}
+
 fn writeLiveMountRemovedOptionFailure(io: std.Io, parsed: ParsedRequest) !bool {
     assert(@sizeOf(ParsedRequest) > 0);
 
@@ -1505,6 +1558,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeScratchModeField(io, "plannedScratchMode", parts.planned_scratch_mode, true);
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
+    try writeU64Field(io, "mountDiskUpperSizeBytes", parts.planned_mount_disk_upper_size, true);
     try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
     try writeEnvObjectField(io, "mountDiskFdEnv", parts.mount_disk_fd_env, true);
     try writeSnapshotContextField(io, "snapshotContext", parts.snapshot_context, true);
@@ -4660,6 +4714,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
     if (try writeRegistryLifecycleRequestError(io, err)) return;
     if (try writeVmmEnvRequestError(io, err)) return;
     if (try writeProvisionBootRequestError(io, err)) return;
+    if (try writeMountDiskUpperSizeRequestError(io, err)) return;
 
     switch (err) {
         error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
@@ -4679,6 +4734,20 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
+}
+
+fn writeMountDiskUpperSizeRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidMountDiskUpperSizeOption => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan mountDisk upper size option must be a decimal integer",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writeProvisionBootRequestError(io: std.Io, err: RequestError) !bool {

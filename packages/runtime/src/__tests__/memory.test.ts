@@ -1278,6 +1278,50 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans mountdisk upper size defaults and validation", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const defaulted = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(defaulted.status).toBe(0);
+    expect(JSON.parse(defaulted.stdout).data.mountDiskUpperSizeBytes).toBe(4 * 1024 ** 3);
+
+    const explicit = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, mountDiskUpperSizeOption: "8192" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(explicit.status).toBe(0);
+    expect(JSON.parse(explicit.stdout).data.mountDiskUpperSizeBytes).toBe(8192);
+
+    const invalid = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, mountDiskUpperSizeOption: "4097" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(invalid.status).toBe(1);
+    expect(JSON.parse(invalid.stdout).error).toMatchObject({
+      code: "BOOT_MOUNT_INVALID",
+      message: "mountDiskUpperSizeBytes must be a positive multiple of 4096 (got 4097)",
+    });
+  });
+
   it("plans mountdisk inherited fd env", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

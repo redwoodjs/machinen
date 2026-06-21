@@ -15,6 +15,7 @@ const memory_default_ceiling_mib: u64 = 4096;
 const default_cpu_max_vcpus: u64 = 1;
 const default_cpu_weight: u64 = 100;
 const default_boot_timeout_ms: u64 = 60_000;
+const default_mount_disk_upper_size_bytes: u64 = 4 * 1024 * 1024 * 1024;
 const min_cpu_weight: u64 = 1;
 const max_cpu_weight: u64 = 10_000;
 const max_live_mounts = 5;
@@ -522,6 +523,15 @@ pub const MountDiskRuntimeMode = enum {
     none,
     restore,
     fresh,
+};
+
+pub const MountDiskUpperSizeInput = struct {
+    size_bytes: ?u64 = null,
+};
+
+pub const MountDiskUpperSizeValidation = union(enum) {
+    ok: u64,
+    invalid: u64,
 };
 
 pub const MountDiskRuntimeInput = struct {
@@ -1615,6 +1625,14 @@ pub fn planRootDiskRuntime(input: RootDiskRuntimeInput) PlanError!RootDiskRuntim
     };
 }
 
+pub fn planMountDiskUpperSize(input: MountDiskUpperSizeInput) MountDiskUpperSizeValidation {
+    assert(@sizeOf(MountDiskUpperSizeInput) > 0);
+
+    const size_bytes = input.size_bytes orelse default_mount_disk_upper_size_bytes;
+    if (size_bytes == 0 or size_bytes % 4096 != 0) return .{ .invalid = size_bytes };
+    return .{ .ok = size_bytes };
+}
+
 pub fn planMountDiskRuntime(input: MountDiskRuntimeInput) PlanError!MountDiskRuntimePlan {
     assert(@sizeOf(MountDiskRuntimeInput) > 0);
 
@@ -2662,6 +2680,19 @@ test "planMountDiskFdEnv formats inherited fd env entries" {
     try std.testing.expectError(
         error.MissingMountDiskFdField,
         planMountDiskFdEnv(allocator, .{ .lower_fd = 3 }),
+    );
+}
+
+test "planMountDiskUpperSize defaults and validates alignment" {
+    try std.testing.expectEqual(@as(u64, 4 * 1024 * 1024 * 1024), planMountDiskUpperSize(.{}).ok);
+    try std.testing.expectEqual(
+        @as(u64, 8192),
+        planMountDiskUpperSize(.{ .size_bytes = 8192 }).ok,
+    );
+    try std.testing.expectEqual(@as(u64, 0), planMountDiskUpperSize(.{ .size_bytes = 0 }).invalid);
+    try std.testing.expectEqual(
+        @as(u64, 4097),
+        planMountDiskUpperSize(.{ .size_bytes = 4097 }).invalid,
     );
 }
 
