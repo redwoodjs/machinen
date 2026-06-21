@@ -446,6 +446,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
             .upper_path = parsed.registry_mount_upper_path,
         },
         .live_mounts = parsed.live_mounts_resolved,
+        .port_forwards = parsed.port_forward,
         .cpu_policy = registry_cpu_policy,
         .cpu_control_status = parsed.registry_cpu_control_status,
         .cpu_control_reason = parsed.registry_cpu_control_reason,
@@ -790,7 +791,26 @@ fn writePlan(
         try protocol.writeJsonString(io, mount.mode);
         try protocol.stdout(io, "}");
     }
-    try protocol.stdout(io, "],\"cpu\":");
+    try protocol.stdout(io, "],\"portForward\":");
+    if (registry_shape.port_forwards.len == 0) {
+        try protocol.stdout(io, "null");
+    } else {
+        try protocol.stdout(io, "[");
+        for (registry_shape.port_forwards, 0..) |mapping, i| {
+            if (i != 0) try protocol.stdout(io, ",");
+            try protocol.stdout(io, "{\"hostPort\":");
+            try writeI64(io, mapping.host_port);
+            try protocol.stdout(io, ",\"guestPort\":");
+            try writeI64(io, mapping.guest_port);
+            if (mapping.host_addr) |host_addr| {
+                try protocol.stdout(io, ",\"hostAddr\":");
+                try protocol.writeJsonString(io, host_addr);
+            }
+            try protocol.stdout(io, "}");
+        }
+        try protocol.stdout(io, "]");
+    }
+    try protocol.stdout(io, ",\"cpu\":");
     if (registry_shape.cpu) |cpu| {
         try protocol.stdout(io, "{\"maxVcpus\":");
         try writeU64(io, cpu.max_vcpus);
@@ -898,6 +918,11 @@ fn writeNullableJsonString(io: std.Io, value: ?[]const u8) !void {
 }
 
 fn writeU64(io: std.Io, number: u64) !void {
+    var buf: [32]u8 = undefined;
+    try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{number}));
+}
+
+fn writeI64(io: std.Io, number: i64) !void {
     var buf: [32]u8 = undefined;
     try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{number}));
 }
@@ -1357,7 +1382,11 @@ fn optionalPortForward(allocator: std.mem.Allocator, object: std.json.ObjectMap)
         const guest_port = try requiredPort(item.object, "guestPort", error.InvalidGuestPort);
         const host_addr = item.object.get("hostAddr") orelse .null;
         if (host_addr != .null and host_addr != .string) return error.InvalidPortForward;
-        try mappings.append(allocator, .{ .host_port = host_port, .guest_port = guest_port });
+        try mappings.append(allocator, .{
+            .host_port = host_port,
+            .guest_port = guest_port,
+            .host_addr = if (host_addr == .string) host_addr.string else null,
+        });
     }
     return mappings.toOwnedSlice(allocator);
 }

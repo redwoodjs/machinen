@@ -6,6 +6,7 @@ export type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw";
 type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
 type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
+type RegistryPortForwardPlan = { hostPort: number; guestPort: number; hostAddr?: string };
 type RegistryCpuPlan = {
   maxVcpus: number;
   quotaCpus?: number;
@@ -51,6 +52,7 @@ export type RegistryShapePlan = {
   cleanupPaths: string[];
   mountDisk: RegistryMountDiskPlan | null;
   liveMounts: RegistryLiveMountPlan[];
+  portForward: RegistryPortForwardPlan[] | null;
   cpu: RegistryCpuPlan | null;
   vmstate: RegistryVmstatePlan;
   nested: boolean;
@@ -313,6 +315,7 @@ function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
     isStringArray(plan.cleanupPaths),
     nullableObject(plan.mountDisk, isRegistryMountDisk),
     Array.isArray(plan.liveMounts) && plan.liveMounts.every(isRegistryLiveMount),
+    nullableObject(plan.portForward, isRegistryPortForwardArray),
     nullableObject(plan.cpu, isRegistryCpuPlan),
     isRegistryVmstatePlan(plan.vmstate),
     typeof plan.nested === "boolean",
@@ -377,6 +380,22 @@ function isRegistryLiveMount(value: unknown): value is RegistryLiveMountPlan {
     typeof mount.guest === "string" &&
     typeof mount.host === "string" &&
     (mount.mode === "ro" || mount.mode === "rw")
+  );
+}
+
+function isRegistryPortForwardArray(value: unknown): value is RegistryPortForwardPlan[] {
+  return Array.isArray(value) && value.every(isRegistryPortForward);
+}
+
+function isRegistryPortForward(value: unknown): value is RegistryPortForwardPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const mapping = value as Partial<RegistryPortForwardPlan>;
+  return (
+    nonNegativeNumber(mapping.hostPort) &&
+    nonNegativeNumber(mapping.guestPort) &&
+    (mapping.hostAddr === undefined || typeof mapping.hostAddr === "string")
   );
 }
 

@@ -63,6 +63,7 @@ pub const VsockPlan = struct {
 pub const PortForwardMapping = struct {
     host_port: i64,
     guest_port: i64,
+    host_addr: ?[]const u8 = null,
 };
 
 pub const PortForwardValidation = union(enum) {
@@ -325,6 +326,12 @@ pub const RegistryLiveMountPlan = struct {
     mode: []const u8,
 };
 
+pub const RegistryPortForwardPlan = struct {
+    host_port: i64,
+    guest_port: i64,
+    host_addr: ?[]const u8,
+};
+
 pub const RegistryCpuPlan = struct {
     max_vcpus: u64,
     quota_cpus: ?f64,
@@ -354,6 +361,7 @@ pub const RegistryShapeInput = struct {
     cleanup: RegistryCleanupInput = .{},
     mount_disk: RegistryMountDiskInput = .{},
     live_mounts: []const LiveMount = &.{},
+    port_forwards: []const PortForwardMapping = &.{},
     cpu_policy: ?CpuPolicyPlan = null,
     cpu_control_status: ?[]const u8 = null,
     cpu_control_reason: ?[]const u8 = null,
@@ -368,6 +376,7 @@ pub const RegistryShapePlan = struct {
     cleanup_paths: []const []const u8,
     mount_disk: ?RegistryMountDiskPlan,
     live_mounts: []const RegistryLiveMountPlan,
+    port_forwards: []const RegistryPortForwardPlan,
     cpu: ?RegistryCpuPlan,
     vmstate: RegistryVmstatePlan,
     nested: bool,
@@ -847,6 +856,16 @@ pub fn planRegistryShape(allocator: std.mem.Allocator, input: RegistryShapeInput
         });
     }
 
+    var port_forwards: std.ArrayList(RegistryPortForwardPlan) = .empty;
+    errdefer port_forwards.deinit(allocator);
+    for (input.port_forwards) |mapping| {
+        try port_forwards.append(allocator, .{
+            .host_port = mapping.host_port,
+            .guest_port = mapping.guest_port,
+            .host_addr = mapping.host_addr,
+        });
+    }
+
     const mount_disk = if (input.mount_disk.guest == null and input.mount_disk.lower_path == null and input.mount_disk.upper_path == null)
         null
     else
@@ -864,6 +883,7 @@ pub fn planRegistryShape(allocator: std.mem.Allocator, input: RegistryShapeInput
         .cleanup_paths = try cleanup_paths.toOwnedSlice(allocator),
         .mount_disk = mount_disk,
         .live_mounts = try live_mounts.toOwnedSlice(allocator),
+        .port_forwards = try port_forwards.toOwnedSlice(allocator),
         .cpu = try planRegistryCpu(input),
         .vmstate = try planRegistryVmstate(input.vmstate),
         .nested = input.nested,
@@ -1202,6 +1222,10 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
         .{ .host = "/host/work", .guest = "/mnt/work", .mode = "rw", .tag = "machinen-lm0" },
         .{ .host = "/host/cache", .guest = "/mnt/cache", .mode = "ro", .tag = "machinen-lm1" },
     };
+    const forwards = [_]PortForwardMapping{
+        .{ .host_port = 8080, .guest_port = 80, .host_addr = "127.0.0.1" },
+        .{ .host_port = 8443, .guest_port = 443 },
+    };
     const plan = try planRegistryShape(allocator, .{
         .source_image_path = "/images/rootfs.tar.gz",
         .per_boot_root_disk = "/tmp/per-boot-root.img",
@@ -1222,6 +1246,7 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
             .upper_path = "/tmp/upper.img",
         },
         .live_mounts = &live,
+        .port_forwards = &forwards,
         .cpu_policy = .{ .max_vcpus = 1, .quota_cpus = 0.5, .weight = 200 },
         .cpu_control_status = "linux-cgroup-v2",
         .cpu_control_reason = "limited",
@@ -1235,6 +1260,7 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     });
     defer allocator.free(plan.cleanup_paths);
     defer allocator.free(plan.live_mounts);
+    defer allocator.free(plan.port_forwards);
 
     try std.testing.expectEqualStrings("/images/rootfs.tar.gz", plan.source_image_path.?);
     try std.testing.expectEqualStrings("/tmp/per-boot-root.img", plan.root_disk_path.?);
@@ -1253,6 +1279,13 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectEqualStrings("/mnt/work", plan.live_mounts[0].guest);
     try std.testing.expectEqualStrings("/host/work", plan.live_mounts[0].host);
     try std.testing.expectEqualStrings("rw", plan.live_mounts[0].mode);
+    try std.testing.expectEqual(@as(usize, 2), plan.port_forwards.len);
+    try std.testing.expectEqual(@as(i64, 8080), plan.port_forwards[0].host_port);
+    try std.testing.expectEqual(@as(i64, 80), plan.port_forwards[0].guest_port);
+    try std.testing.expectEqualStrings("127.0.0.1", plan.port_forwards[0].host_addr.?);
+    try std.testing.expectEqual(@as(i64, 8443), plan.port_forwards[1].host_port);
+    try std.testing.expectEqual(@as(i64, 443), plan.port_forwards[1].guest_port);
+    try std.testing.expect(plan.port_forwards[1].host_addr == null);
     try std.testing.expectEqual(@as(u64, 1), plan.cpu.?.max_vcpus);
     try std.testing.expectEqual(@as(f64, 0.5), plan.cpu.?.quota_cpus.?);
     try std.testing.expectEqual(@as(u64, 200), plan.cpu.?.weight);
@@ -1269,6 +1302,7 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     });
     defer allocator.free(no_vmstate.cleanup_paths);
     defer allocator.free(no_vmstate.live_mounts);
+    defer allocator.free(no_vmstate.port_forwards);
     try std.testing.expect(no_vmstate.vmstate.state_path == null);
     try std.testing.expect(!no_vmstate.nested);
 

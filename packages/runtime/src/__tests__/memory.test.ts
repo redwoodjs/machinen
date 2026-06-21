@@ -739,6 +739,10 @@ describe("boot-plan helper schema", () => {
           registryMountGuest: "/mnt/data",
           registryMountLowerPath: "/cache/lower.sqfs",
           registryMountUpperPath: "/tmp/upper.img",
+          portForward: [
+            { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
+            { hostPort: 8443, guestPort: 443 },
+          ],
           liveMountsResolved: [
             { host: "/host/work", guest: "/mnt/work", mode: "rw", tag: "machinen-lm0" },
             { host: "/host/cache", guest: "/mnt/cache", mode: "ro", tag: "machinen-lm1" },
@@ -768,6 +772,10 @@ describe("boot-plan helper schema", () => {
       liveMounts: [
         { guest: "/mnt/work", host: "/host/work", mode: "rw" },
         { guest: "/mnt/cache", host: "/host/cache", mode: "ro" },
+      ],
+      portForward: [
+        { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
+        { hostPort: 8443, guestPort: 443 },
       ],
       cpu: {
         maxVcpus: 1,

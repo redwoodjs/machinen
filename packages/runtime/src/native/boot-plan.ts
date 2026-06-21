@@ -482,6 +482,7 @@ export function planBootRegistryShapeNative(input: {
   nested?: boolean;
   mountDisk?: { guest: string; lowerPath: string; upperPath: string };
   liveMounts?: PlannedLiveMount[];
+  portForward?: PortForwardPlanMapping[];
 }): RegistryShapePlan {
   return planBootCoreNative({
     registrySourceImagePath: input.sourceImagePath,
@@ -506,6 +507,7 @@ export function planBootRegistryShapeNative(input: {
     registryMountLowerPath: input.mountDisk?.lowerPath,
     registryMountUpperPath: input.mountDisk?.upperPath,
     liveMountsResolved: input.liveMounts,
+    portForward: input.portForward,
     vmmMemoryPreset: true,
     hasImage: false,
     hasCmd: false,
@@ -531,6 +533,12 @@ export function planBootRegistryVmstateNative(input: {
 
 export function planBootRegistryNestedNative(nested: boolean | undefined): boolean | undefined {
   return planBootRegistryShapeNative({ nested }).nested || undefined;
+}
+
+export function planBootRegistryPortForwardNative(
+  portForward: PortForwardPlanMapping[],
+): RegistryShapePlan["portForward"] | undefined {
+  return planBootRegistryShapeNative({ portForward }).portForward ?? undefined;
 }
 
 export function planBootBundleEnvNative(input: {
