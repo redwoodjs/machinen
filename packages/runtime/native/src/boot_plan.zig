@@ -69,6 +69,11 @@ pub const PortForwardMapping = struct {
     host_addr: ?[]const u8 = null,
 };
 
+pub const PortForwardNetSocketInput = struct {
+    port_forwards: []const PortForwardMapping = &.{},
+    net_socket: ?[]const u8 = null,
+};
+
 pub const PortForwardValidation = union(enum) {
     ok,
     invalid_host_port: i64,
@@ -540,6 +545,7 @@ pub const PlanError = error{
     MissingMountDiskRuntimeField,
     MissingMountDiskFdField,
     MissingBatchLiveMountVsock,
+    PortForwardNetSocketPreset,
     IncompleteRegistryMountDisk,
     MissingRegistryCpuStatus,
     MissingRegistryVmstateField,
@@ -1284,6 +1290,10 @@ pub fn validatePortForward(mappings: []const PortForwardMapping) PortForwardVali
         seen.set(host_port);
     }
     return .ok;
+}
+
+pub fn validatePortForwardNetSocket(input: PortForwardNetSocketInput) PlanError!void {
+    if (input.port_forwards.len > 0 and input.net_socket != null) return error.PortForwardNetSocketPreset;
 }
 
 fn validateTcpPort(port: i64) ?usize {
@@ -2095,6 +2105,16 @@ test "planVmmArgv wraps VMM argv with pdeathsig when present" {
     try std.testing.expectEqual(@as(usize, 2), wrapped.args.len);
     try std.testing.expectEqualStrings("/bin/vmm", wrapped.args[0]);
     try std.testing.expectEqualStrings("--dev", wrapped.args[1]);
+}
+
+test "validatePortForwardNetSocket rejects caller-owned net socket with forwards" {
+    const forwards = [_]PortForwardMapping{.{ .host_port = 8080, .guest_port = 3000 }};
+    try std.testing.expectError(error.PortForwardNetSocketPreset, validatePortForwardNetSocket(.{
+        .port_forwards = &forwards,
+        .net_socket = "/tmp/net.sock",
+    }));
+    try validatePortForwardNetSocket(.{ .port_forwards = &forwards });
+    try validatePortForwardNetSocket(.{ .net_socket = "/tmp/net.sock" });
 }
 
 test "validatePortForward rejects invalid and duplicate ports" {

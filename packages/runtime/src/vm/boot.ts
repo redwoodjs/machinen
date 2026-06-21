@@ -71,6 +71,7 @@ import {
   rootDiskPlanMode,
 } from "../native/boot-plan.ts";
 import { reflinkCopy } from "../reflink.ts";
+import { validatePortForwardNetSocketNative } from "../native/port-forward.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
 import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
@@ -1153,23 +1154,20 @@ async function planPortForwardOpts(
   if ((opts.portForward ?? []).length === 0) {
     return planBootPortForwardNative(opts.portForward);
   }
-  rejectPresetNetSocket(opts);
   const portForward = planBootPortForwardNative(opts.portForward);
+  validatePresetNetSocket(opts, portForward);
   await validatePortForwardAvailability(portForward);
   return portForward;
 }
 
-function rejectPresetNetSocket(opts: BootOptions): void {
-  const preSetNetSock =
-    (opts.vmmEnv && opts.vmmEnv.MACHINEN_NET_SOCKET) || process.env.MACHINEN_NET_SOCKET;
-  if (preSetNetSock) {
-    throw new BootError(
-      "BOOT_PORT_FORWARD_INVALID",
-      "portForward requires the runtime to own gvproxy, but MACHINEN_NET_SOCKET " +
-        "is already set. Either drop the env var or install the forwards yourself " +
-        "against your gvproxy's control API.",
-    );
-  }
+function validatePresetNetSocket(
+  opts: BootOptions,
+  portForward: NonNullable<BootOptions["portForward"]>,
+): void {
+  validatePortForwardNetSocketNative(
+    portForward,
+    (opts.vmmEnv && opts.vmmEnv.MACHINEN_NET_SOCKET) || process.env.MACHINEN_NET_SOCKET,
+  );
 }
 
 async function validatePortForwardAvailability(
