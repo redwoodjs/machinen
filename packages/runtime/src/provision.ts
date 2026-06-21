@@ -41,7 +41,7 @@ import { ProvisionError } from "./errors.ts";
 import { VsockExec } from "./exec.ts";
 import type { OnLog } from "./log.ts";
 import {
-  planProvisionAssetsNative,
+  planProvisionAssetsForHostNative,
   planProvisionBootNative,
   planProvisionImageConfigNative,
   planProvisionRepackNative,
@@ -231,10 +231,10 @@ export function resolveBaseKernel(explicit?: string, cwd: string = process.cwd()
  *   PROVISION_ASSETS_DIR_INVALID
  */
 export function resolveBaseDtb(explicit?: string, cwd: string = process.cwd()): string | undefined {
-  if (!explicit && guestCpu() === "amd64") {
+  const spec = baseAssetSpec();
+  if (!explicit && spec.cpu === "amd64") {
     return undefined;
   }
-  const spec = baseAssetSpec();
   return resolveBaseAsset(
     {
       kind: "device tree blob",
@@ -250,21 +250,16 @@ export function resolveBaseDtb(explicit?: string, cwd: string = process.cwd()): 
 
 type GuestCpu = "arm64" | "amd64";
 
-function guestCpu(): GuestCpu {
-  const override = process.env.MACHINEN_GUEST_ARCH;
-  if (override === "arm64" || override === "amd64") {
-    return override;
-  }
-  return osArch() === "x64" ? "amd64" : "arm64";
-}
-
 function baseAssetSpec(): {
   cpu: GuestCpu;
   kernelAsset: string;
   dtbAsset?: string;
   rootfsAsset: string;
 } {
-  const plan = planProvisionAssetsNative(guestCpu());
+  const plan = planProvisionAssetsForHostNative({
+    guestArchOverride: process.env.MACHINEN_GUEST_ARCH,
+    hostArch: osArch(),
+  });
   return {
     cpu: plan.cpu,
     kernelAsset: plan.kernelAsset,
