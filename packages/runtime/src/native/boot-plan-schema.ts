@@ -15,6 +15,14 @@ type RegistryVmstatePlan = {
   checkpointParent: string | null;
   checkpointSequence: number | null;
 };
+export type PlannedPortForward = { hostPort: number; guestPort: number; hostAddr?: string };
+type RegistryPortForwardPlan = PlannedPortForward;
+export type BootVmstateRuntimePlan = {
+  statePath: string | null;
+  chainId: string | null;
+  checkpointParent: string | null;
+  checkpointSequence: number | null;
+};
 export type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
 type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
@@ -51,12 +59,15 @@ export type RegistryShapePlan = {
   memoryCeilingMib: number | null;
   statsPath: string | null;
   rootDiskPath: string | null;
+  bootLogPath: string | null;
   rootDiskMode: "block" | "none";
   cleanupPaths: string[];
   mountDisk: RegistryMountDiskPlan | null;
   liveMounts: RegistryLiveMountPlan[];
+  portForward: RegistryPortForwardPlan[] | null;
   cpu: RegistryCpuPlan | null;
   vmstate: RegistryVmstatePlan;
+  nested: boolean;
 };
 export type ScratchDiskPlan = {
   action: ScratchDiskAction;
@@ -100,6 +111,7 @@ export interface NativeBootPlanResult {
   wantsRootDisk: boolean;
   needsInitramfs: boolean;
   timeoutMs: number | null;
+  detachedReadinessTimeoutMs: number;
   normalizedMountGuest: string | null;
   guestHostname: string | null;
   mergedGuestEnv: Record<string, string>;
@@ -147,6 +159,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     typeof data.wantsRootDisk === "boolean",
     typeof data.needsInitramfs === "boolean",
     nullableNonNegativeNumber(data.timeoutMs),
+    nonNegativeNumber(data.detachedReadinessTimeoutMs),
     nullableString(data.normalizedMountGuest),
     nullableString(data.guestHostname),
     isStringRecord(data.mergedGuestEnv),
@@ -330,13 +343,16 @@ function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
     nullableNonNegativeNumber(plan.memoryCeilingMib),
     nullableString(plan.statsPath),
     nullableString(plan.rootDiskPath),
+    nullableString(plan.bootLogPath),
     isOneOf(plan.rootDiskMode, registryRootDiskModes),
     isStringArray(plan.cleanupPaths),
     nullableRegistryMountDisk(plan.mountDisk),
     Array.isArray(plan.liveMounts),
     plan.liveMounts?.every(isRegistryLiveMount) === true,
+    nullableObject(plan.portForward, isRegistryPortForwardArray),
     nullableRegistryCpu(plan.cpu),
     isRegistryVmstatePlan(plan.vmstate),
+    typeof plan.nested === "boolean",
   ].every(Boolean);
 }
 
@@ -488,6 +504,14 @@ function isOneOf<T extends string>(value: unknown, values: readonly T[]): value 
 
 function nullableString(value: unknown): boolean {
   return value === null || typeof value === "string";
+}
+
+function optionalString(value: unknown): boolean {
+  return value === undefined || typeof value === "string";
+}
+
+function nullableObject<T>(value: unknown, check: (candidate: unknown) => candidate is T): boolean {
+  return value === null || check(value);
 }
 
 function isStringRecord(value: unknown): value is Record<string, string> {

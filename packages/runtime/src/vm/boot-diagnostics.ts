@@ -1,4 +1,5 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import { once } from "node:events";
 
 import { ExecError } from "../errors.ts";
 import type { VmHandle } from "../vm-handle.ts";
@@ -17,17 +18,27 @@ export async function runVsockWithBootDiagnostics<T>(
   try {
     return await run();
   } catch (err) {
-    if (err instanceof ExecError && (child.exitCode !== null || child.signalCode !== null)) {
-      const stderrTail = (await errorCollector).slice(-CONSOLE_TAIL_BYTES);
-      if (stderrTail) {
-        throw new ExecError(err.code, `${err.message}\n${bootStderrDiagnostic(stderrTail)}`, {
-          cause: err,
-          retryable: err.retryable,
-        });
+    if (err instanceof ExecError) {
+      await waitBrieflyForExit(child);
+      if (child.exitCode !== null || child.signalCode !== null) {
+        const stderrTail = (await errorCollector).slice(-CONSOLE_TAIL_BYTES);
+        if (stderrTail) {
+          throw new ExecError(err.code, `${err.message}\n${bootStderrDiagnostic(stderrTail)}`, {
+            cause: err,
+            retryable: err.retryable,
+          });
+        }
       }
     }
     throw err;
   }
+}
+
+async function waitBrieflyForExit(child: ChildProcessWithoutNullStreams): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+  await Promise.race([once(child, "exit"), delay(25)]);
 }
 
 export async function waitForDetachedExecAgent(

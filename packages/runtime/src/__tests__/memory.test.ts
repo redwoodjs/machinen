@@ -1143,21 +1143,30 @@ describe("boot-plan helper schema", () => {
       encoding: "utf8",
     });
     expect(defaulted.status).toBe(0);
-    expect(JSON.parse(defaulted.stdout).data.timeoutMs).toBe(60_000);
+    expect(JSON.parse(defaulted.stdout).data).toMatchObject({
+      timeoutMs: 60_000,
+      detachedReadinessTimeoutMs: 60_000,
+    });
 
     const explicit = spawnSync(helper, ["boot-plan"], {
       input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, bootTimeoutMs: "2500" } })}\n`,
       encoding: "utf8",
     });
     expect(explicit.status).toBe(0);
-    expect(JSON.parse(explicit.stdout).data.timeoutMs).toBe(2_500);
+    expect(JSON.parse(explicit.stdout).data).toMatchObject({
+      timeoutMs: 2_500,
+      detachedReadinessTimeoutMs: 2_500,
+    });
 
     const forever = spawnSync(helper, ["boot-plan"], {
       input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, bootTimeoutForever: true } })}\n`,
       encoding: "utf8",
     });
     expect(forever.status).toBe(0);
-    expect(JSON.parse(forever.stdout).data.timeoutMs).toBeNull();
+    expect(JSON.parse(forever.stdout).data).toMatchObject({
+      timeoutMs: null,
+      detachedReadinessTimeoutMs: 60_000,
+    });
   });
 
   it("rejects invalid portForward shape", () => {

@@ -18,6 +18,7 @@ const default_boot_timeout_ms: u64 = 60_000;
 const min_cpu_weight: u64 = 1;
 const max_cpu_weight: u64 = 10_000;
 const max_live_mounts = 5;
+const max_registry_boot_log_path = std.fs.max_path_bytes;
 const restore_command = [_][]const u8{"/sbin/machinen-restore"};
 const poweroff_command = [_][]const u8{"/sbin/machinen-poweroff"};
 
@@ -111,6 +112,7 @@ pub const BundleCommandInput = struct {
     cpu_control_status: ?[]const u8 = null,
     cpu_control_reason: ?[]const u8 = null,
     vmstate: RegistryVmstateInput = .{},
+    nested: bool = false,
 };
 
 pub const BundleEnvInput = struct {
@@ -403,13 +405,26 @@ pub const RegistryShapeInput = struct {
     cpu_control_status: ?[]const u8 = null,
     cpu_control_reason: ?[]const u8 = null,
     vmstate: RegistryVmstateInput = .{},
+    nested: bool = false,
+};
+
+pub const RegistryBootLogPath = struct {
+    bytes: [max_registry_boot_log_path]u8 = undefined,
+    len: u16 = 0,
+
+    pub fn value(self: *const RegistryBootLogPath) ?[]const u8 {
+        assert(self.len <= max_registry_boot_log_path);
+
+        if (self.len == 0) return null;
+        return self.bytes[0..self.len];
+    }
 };
 
 pub const RegistryShapePlan = struct {
     source_image_path: ?[]const u8,
     root_disk_path: ?[]const u8,
     root_disk_mode: []const u8,
-    boot_log_path: ?[]const u8,
+    boot_log_path: RegistryBootLogPath,
     disk_path: ?[]const u8,
     forked_from: ?[]const u8,
     memory_ceiling_mib: ?u64,
@@ -420,6 +435,7 @@ pub const RegistryShapePlan = struct {
     port_forwards: []const RegistryPortForwardPlan,
     cpu: ?RegistryCpuPlan,
     vmstate: RegistryVmstatePlan,
+    nested: bool,
 };
 
 pub const MachinenConfigInput = struct {
@@ -447,6 +463,7 @@ pub const Plan = struct {
     memory_ceiling_mib: ?u64,
     vmm_memory_mib: ?u64,
     timeout_ms: ?u64,
+    detached_readiness_timeout_ms: u64,
     wants_root_disk: bool,
     needs_initramfs: bool,
     normalized_mount_guest: ?[]const u8,
@@ -482,7 +499,15 @@ pub const PlanError = error{
     MissingVmstateRuntimeChainId,
 };
 
+pub fn planDetachedReadinessTimeout(timeout_ms: ?u64) u64 {
+    assert(default_boot_timeout_ms > 0);
+
+    return timeout_ms orelse default_boot_timeout_ms;
+}
+
 pub fn planBootTimeout(timeout_ms: ?u64, forever: bool) ?u64 {
+    assert(default_boot_timeout_ms > 0);
+
     if (forever) return null;
     return timeout_ms orelse default_boot_timeout_ms;
 }
@@ -494,43 +519,61 @@ pub fn planPdeathsig(input: PdeathsigInput) bool {
     return input.pdeathsig orelse true;
 }
 
-pub fn planGuestHostname(allocator: std.mem.Allocator, input: GuestHostnameInput) !?[]const u8 {
-    assert(@sizeOf(GuestHostnameInput) > 0);
+pub fn formatGuestHostname(buffer: []u8, input: GuestHostnameInput) !?[]const u8 {
+    assert(buffer.len > 0);
 
     const pid = input.pid orelse return null;
-    const safe_name = try sanitizeHostnameName(allocator, input.name orelse "");
-    defer allocator.free(safe_name);
-    if (safe_name.len == 0) {
-        const hostname = try std.fmt.allocPrint(allocator, "vm-{d}", .{pid});
-        return hostname;
+    var len: u16 = 0;
+    try appendSanitizedHostnameName(buffer, &len, input.name orelse "");
+    if (len == 0) {
+        try appendHostnameText(buffer, &len, "vm");
     }
-    const hostname = try std.fmt.allocPrint(allocator, "vm-{d}-{s}", .{ pid, safe_name });
-    return hostname;
+    try appendHostnameText(buffer, &len, "-pid-");
+    const pid_text = try std.fmt.bufPrint(buffer[len..], "{d}", .{pid});
+    len += @intCast(pid_text.len);
+    return buffer[0..len];
 }
 
-fn sanitizeHostnameName(allocator: std.mem.Allocator, name: []const u8) ![]const u8 {
-    assert(@sizeOf(std.mem.Allocator) > 0);
+fn appendSanitizedHostnameName(buffer: []u8, len: *u16, name: []const u8) !void {
+    assert(name.len <= buffer.len or buffer.len > 0);
 
-    var output = try std.ArrayList(u8).initCapacity(allocator, name.len);
-    errdefer output.deinit(allocator);
     for (name) |c| {
         if (isHostnameAlnum(c)) {
-            output.appendAssumeCapacity(std.ascii.toLower(c));
-        } else if (output.items.len > 0 and output.items[output.items.len - 1] != '-') {
-            output.appendAssumeCapacity('-');
+            try appendHostnameByte(buffer, len, c);
+        } else {
+            if (len.* > 0 and buffer[len.* - 1] != '-') {
+                try appendHostnameByte(buffer, len, '-');
+            }
         }
     }
-    while (output.items.len > 0 and output.items[output.items.len - 1] == '-') {
-        _ = output.pop();
+    while (len.* > 0 and buffer[len.* - 1] == '-') {
+        len.* -= 1;
     }
-    return output.toOwnedSlice(allocator);
+}
+
+fn appendHostnameText(buffer: []u8, len: *u16, text: []const u8) !void {
+    assert(text.len > 0);
+
+    for (text) |c| try appendHostnameByte(buffer, len, c);
+}
+
+fn appendHostnameByte(buffer: []u8, len: *u16, byte: u8) !void {
+    assert(buffer.len > 0);
+
+    if (len.* >= buffer.len) return error.NoSpaceLeft;
+    buffer[len.*] = byte;
+    len.* += 1;
 }
 
 fn isHostnameAlnum(c: u8) bool {
+    assert(@sizeOf(u8) == 1);
+
     return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9');
 }
 
 pub fn planVmstateRuntime(input: VmstateRuntimeInput) PlanError!VmstateRuntimePlan {
+    assert(@sizeOf(VmstateRuntimeInput) > 0);
+
     if (input.state_path == null and
         input.chain_id == null and
         input.restore_path == null and
@@ -559,6 +602,8 @@ pub fn planNestedEnv(nested: bool) ?[]const u8 {
 }
 
 pub fn planCpuResources(input: ?CpuResourcesInput) PlanError!?CpuPolicyPlan {
+    assert(@sizeOf(CpuResourcesInput) > 0);
+
     const cpu = input orelse return null;
     const max_vcpus = cpu.max_vcpus orelse default_cpu_max_vcpus;
     if (max_vcpus < 1) return error.InvalidCpuMaxVcpus;
@@ -991,8 +1036,7 @@ pub fn planRegistryShape(
     assert(@sizeOf(RegistryShapeInput) > 0);
 
     const root_disk_path = input.per_boot_root_disk orelse input.caller_root_disk_path;
-    const boot_log_path = try planRegistryBootLogPath(allocator, input);
-    errdefer if (boot_log_path) |path| allocator.free(path);
+    const boot_log_path = try planRegistryBootLogPath(input);
     return .{
         .source_image_path = input.source_image_path,
         .root_disk_path = root_disk_path,
@@ -1008,6 +1052,7 @@ pub fn planRegistryShape(
         .port_forwards = try planRegistryPortForwards(allocator, input.port_forwards),
         .cpu = try planRegistryCpu(input),
         .vmstate = try planRegistryVmstate(input.vmstate),
+        .nested = input.nested,
     };
 }
 
@@ -1029,14 +1074,18 @@ fn planRegistryPortForwards(
     return forwards.toOwnedSlice(allocator);
 }
 
-fn planRegistryBootLogPath(allocator: std.mem.Allocator, input: RegistryShapeInput) !?[]const u8 {
-    if (!input.detached) return null;
-    const pid = input.child_pid orelse return null;
-    if (pid <= 0) return null;
-    const root = input.boot_log_root orelse return null;
-    const file = try std.fmt.allocPrint(allocator, "{d}.boot.log", .{pid});
-    defer allocator.free(file);
-    return try std.fs.path.join(allocator, &.{ root, file });
+fn planRegistryBootLogPath(input: RegistryShapeInput) !RegistryBootLogPath {
+    assert(@sizeOf(RegistryShapeInput) > 0);
+
+    var path: RegistryBootLogPath = .{};
+    if (!input.detached) return path;
+    const pid = input.child_pid orelse return path;
+    if (pid <= 0) return path;
+    const root = input.boot_log_root orelse return path;
+    const text = std.fmt.bufPrint(&path.bytes, "{s}/{d}.boot.log", .{ root, pid }) catch
+        return error.OutOfMemory;
+    path.len = @intCast(text.len);
+    return path;
 }
 
 fn planRegistryVmstate(input: RegistryVmstateInput) PlanError!RegistryVmstatePlan {
@@ -1330,6 +1379,7 @@ pub fn planCore(input: Input) PlanError!Plan {
             .memory_ceiling_mib = null,
             .vmm_memory_mib = null,
             .timeout_ms = timeout_ms,
+            .detached_readiness_timeout_ms = planDetachedReadinessTimeout(timeout_ms),
             .wants_root_disk = wants_root_disk,
             .needs_initramfs = needs_initramfs,
             .normalized_mount_guest = normalized_mount_guest,
@@ -1346,6 +1396,7 @@ pub fn planCore(input: Input) PlanError!Plan {
         .memory_ceiling_mib = ceiling,
         .vmm_memory_mib = ceiling,
         .timeout_ms = timeout_ms,
+        .detached_readiness_timeout_ms = planDetachedReadinessTimeout(timeout_ms),
         .wants_root_disk = wants_root_disk,
         .needs_initramfs = needs_initramfs,
         .normalized_mount_guest = normalized_mount_guest,
@@ -1428,6 +1479,7 @@ test "planCore resolves explicit memory aliases" {
 }
 
 test "planBootTimeout defaults, preserves explicit values, and supports forever" {
+    try std.testing.expectEqual(@as(u64, 60_000), planDetachedReadinessTimeout(null));
     try std.testing.expectEqual(@as(?u64, 60_000), planBootTimeout(null, false));
     try std.testing.expectEqual(@as(?u64, 2_500), planBootTimeout(2_500, false));
     try std.testing.expect(planBootTimeout(2_500, true) == null);
@@ -1442,23 +1494,27 @@ test "planBootTimeout defaults, preserves explicit values, and supports forever"
 }
 
 test "planGuestHostname sanitizes names and includes pid" {
-    const named = (try planGuestHostname(std.testing.allocator, .{ .pid = 1234, .name = "worker" })).?;
-    defer std.testing.allocator.free(named);
-    try std.testing.expectEqualStrings("vm-1234-worker", named);
+    var named_buffer: [128]u8 = undefined;
+    const named = (try formatGuestHostname(&named_buffer, .{ .pid = 1234, .name = "worker" })).?;
+    try std.testing.expectEqualStrings("worker-pid-1234", named);
 
-    const nameless = (try planGuestHostname(std.testing.allocator, .{ .pid = 1234 })).?;
-    defer std.testing.allocator.free(nameless);
-    try std.testing.expectEqualStrings("vm-1234", nameless);
+    var nameless_buffer: [128]u8 = undefined;
+    const nameless = (try formatGuestHostname(&nameless_buffer, .{ .pid = 1234 })).?;
+    try std.testing.expectEqualStrings("vm-pid-1234", nameless);
 
-    const sanitized = (try planGuestHostname(std.testing.allocator, .{ .pid = 99, .name = "src/name~fork" })).?;
-    defer std.testing.allocator.free(sanitized);
-    try std.testing.expectEqualStrings("vm-99-src-name-fork", sanitized);
+    var sanitized_buffer: [128]u8 = undefined;
+    const sanitized = (try formatGuestHostname(
+        &sanitized_buffer,
+        .{ .pid = 99, .name = "src/name~fork" },
+    )).?;
+    try std.testing.expectEqualStrings("src-name-fork-pid-99", sanitized);
 
-    const empty = (try planGuestHostname(std.testing.allocator, .{ .pid = 99, .name = "///" })).?;
-    defer std.testing.allocator.free(empty);
-    try std.testing.expectEqualStrings("vm-99", empty);
+    var empty_buffer: [128]u8 = undefined;
+    const empty = (try formatGuestHostname(&empty_buffer, .{ .pid = 99, .name = "///" })).?;
+    try std.testing.expectEqualStrings("vm-pid-99", empty);
 
-    try std.testing.expect((try planGuestHostname(std.testing.allocator, .{})) == null);
+    var missing_buffer: [128]u8 = undefined;
+    try std.testing.expect((try formatGuestHostname(&missing_buffer, .{})) == null);
 }
 
 test "planPdeathsig defaults on and lets detach or explicit false disable it" {
@@ -1520,9 +1576,15 @@ test "planCpuResources applies defaults and validates cpu policy" {
     try std.testing.expectEqual(@as(u64, 200), constrained.weight);
 
     try std.testing.expectError(error.InvalidCpuMaxVcpus, planCpuResources(.{ .max_vcpus = 0 }));
-    try std.testing.expectError(error.UnsupportedCpuMaxVcpus, planCpuResources(.{ .max_vcpus = 2 }));
+    try std.testing.expectError(
+        error.UnsupportedCpuMaxVcpus,
+        planCpuResources(.{ .max_vcpus = 2 }),
+    );
     try std.testing.expectError(error.InvalidCpuQuotaCpus, planCpuResources(.{ .quota_cpus = 0 }));
-    try std.testing.expectError(error.CpuQuotaExceedsMaxVcpus, planCpuResources(.{ .quota_cpus = 1.5 }));
+    try std.testing.expectError(
+        error.CpuQuotaExceedsMaxVcpus,
+        planCpuResources(.{ .quota_cpus = 1.5 }),
+    );
     try std.testing.expectError(error.InvalidCpuWeight, planCpuResources(.{ .weight = 0 }));
     try std.testing.expectError(error.InvalidCpuWeight, planCpuResources(.{ .weight = 10_001 }));
 }
@@ -1609,7 +1671,6 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
             .{ .host_port = 8443, .guest_port = 443 },
         },
     });
-    defer allocator.free(plan.boot_log_path.?);
     defer allocator.free(plan.cleanup_paths);
     defer allocator.free(plan.live_mounts);
     defer allocator.free(plan.port_forwards);
@@ -1617,7 +1678,10 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectEqualStrings("/images/rootfs.tar.gz", plan.source_image_path.?);
     try std.testing.expectEqualStrings("/tmp/per-boot-root.img", plan.root_disk_path.?);
     try std.testing.expectEqualStrings("block", plan.root_disk_mode);
-    try std.testing.expectEqualStrings("/tmp/machinen-logs/1234.boot.log", plan.boot_log_path.?);
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-logs/1234.boot.log",
+        plan.boot_log_path.value().?,
+    );
     try std.testing.expectEqualStrings("/disk.img", plan.disk_path.?);
     try std.testing.expectEqualStrings("/snap/source", plan.forked_from.?);
     try std.testing.expectEqual(@as(u64, 2048), plan.memory_ceiling_mib.?);
@@ -1641,6 +1705,7 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectEqualStrings("chain-1", plan.vmstate.chain_id.?);
     try std.testing.expectEqualStrings("/snap/parent", plan.vmstate.checkpoint_parent.?);
     try std.testing.expectEqual(@as(u64, 3), plan.vmstate.checkpoint_sequence.?);
+    try std.testing.expect(!plan.nested);
     try std.testing.expectEqual(@as(@TypeOf(plan.live_mounts.len), 2), plan.live_mounts.len);
     try std.testing.expectEqualStrings("/mnt/work", plan.live_mounts[0].guest);
     try std.testing.expectEqualStrings("/host/work", plan.live_mounts[0].host);
@@ -2125,7 +2190,11 @@ test "planCore plans whether initramfs packing is needed" {
     const image = try planCore(.{ .vmm_memory_preset = true, .has_image = true });
     try std.testing.expect(image.needs_initramfs);
 
-    const command = try planCore(.{ .vmm_memory_preset = true, .has_image = true, .has_cmd = true });
+    const command = try planCore(.{
+        .vmm_memory_preset = true,
+        .has_image = true,
+        .has_cmd = true,
+    });
     try std.testing.expect(command.needs_initramfs);
 
     const snapshot = try planCore(.{ .vmm_memory_preset = true, .has_snapshot = true });

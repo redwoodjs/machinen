@@ -4820,7 +4820,7 @@ Size in bytes the file was allocated at.
 
 ###### sourceArch?
 
-> `optional` **sourceArch?**: `"amd64"` \| `"arm64"`
+> `optional` **sourceArch?**: `"arm64"` \| `"amd64"`
 
 ###### resources
 
@@ -6152,7 +6152,7 @@ by default when `output` is a TTY.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetRoot?
 
@@ -6201,7 +6201,7 @@ by default when `output` is a TTY.
 
 ##### arch?
 
-> `optional` **arch?**: `"amd64"` \| `"arm64"`
+> `optional` **arch?**: `"arm64"` \| `"amd64"`
 
 ##### kind
 
@@ -6837,7 +6837,7 @@ by default when `output` is a TTY.
 
 ###### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ###### pid?
 
@@ -6857,7 +6857,7 @@ by default when `output` is a TTY.
 
 ###### arch
 
-> **arch**: `"amd64"` \| `"arm64"`
+> **arch**: `"arm64"` \| `"amd64"`
 
 ###### abi
 
@@ -7437,11 +7437,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### codeLocations
 
@@ -7569,7 +7569,7 @@ by default when `output` is a TTY.
 
 ##### arch?
 
-> `optional` **arch?**: `"amd64"` \| `"arm64"`
+> `optional` **arch?**: `"arm64"` \| `"amd64"`
 
 ###### Inherited from
 
@@ -7677,7 +7677,7 @@ by default when `output` is a TTY.
 
 ##### arch?
 
-> `optional` **arch?**: `"amd64"` \| `"arm64"`
+> `optional` **arch?**: `"arm64"` \| `"amd64"`
 
 ###### Inherited from
 
@@ -7923,7 +7923,7 @@ by default when `output` is a TTY.
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### targetModules
 
@@ -8087,11 +8087,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### threads
 
@@ -8139,11 +8139,11 @@ by default when `output` is a TTY.
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### threads
 
@@ -11558,11 +11558,11 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### sourceArch
 
-> **sourceArch**: `"amd64"` \| `"arm64"`
+> **sourceArch**: `"arm64"` \| `"amd64"`
 
 ##### targetArch
 
-> **targetArch**: `"amd64"` \| `"arm64"`
+> **targetArch**: `"arm64"` \| `"amd64"`
 
 ##### sourceThreadPointer?
 
@@ -11600,7 +11600,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### targetArch?
 
-> `optional` **targetArch?**: `"amd64"` \| `"arm64"`
+> `optional` **targetArch?**: `"arm64"` \| `"amd64"`
 
 ##### targetFsBase?
 
@@ -14395,7 +14395,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### guestArch
 
-> **guestArch**: `"amd64"` \| `"arm64"`
+> **guestArch**: `"arm64"` \| `"amd64"`
 
 ###### vmstate
 
@@ -14427,7 +14427,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### guestArch
 
-> **guestArch**: `"amd64"` \| `"arm64"`
+> **guestArch**: `"arm64"` \| `"amd64"`
 
 ###### mode
 
@@ -15287,7 +15287,7 @@ whole-VM state captures RAM/device/vCPU state, not disk blocks.
 
 ##### rootDiskMode?
 
-> `optional` **rootDiskMode?**: `"none"` \| `"block"`
+> `optional` **rootDiskMode?**: `"block"` \| `"none"`
 
 Whether the VM intentionally booted without a root block device.
 
@@ -15450,7 +15450,7 @@ CPU resource policy and host enforcement state resolved at boot.
 
 ###### enforcement.status
 
-> **status**: `"unsupported"` \| `"linux-cgroup-v2"` \| `"none"`
+> **status**: `"unsupported"` \| `"none"` \| `"linux-cgroup-v2"`
 
 ###### enforcement.reason?
 
@@ -17239,7 +17239,7 @@ VMM backend that wrote `state.vmstate`.
 
 ##### guestArch?
 
-> `optional` **guestArch?**: `"amd64"` \| `"arm64"` \| `"unknown"`
+> `optional` **guestArch?**: `"arm64"` \| `"amd64"` \| `"unknown"`
 
 Guest CPU architecture captured in `state.vmstate`; restore must match.
 

@@ -540,12 +540,14 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // (`(none)` on Linux). Subsequent shells (e.g. via
   // `machinen attach`) read the post-call value. Suppressed when
   // we have no vsock UDS (boot-without-exec-agent paths).
-  setPlannedGuestHostnameIfEnabled(handle, vsockUdsPath, env);
+  if (vsockUdsPath && env.MACHINEN_SKIP_GUEST_HOSTNAME !== "1") {
+    void setGuestHostname(handle, buildGuestHostname(handle.pid, handle.name));
+  }
 
   if (opts.detached && bootLogPath) {
     await gateOnDetachedReadiness({
       child,
-      timeoutMs,
+      timeoutMs: plan.detachedReadinessTimeoutMs,
       bootLogPath,
       detachedBootChunks,
       handle,
@@ -560,26 +562,6 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
 // Helpers
 // =============================================================
 
-function setPlannedGuestHostnameIfEnabled(
-  handle: VmHandle,
-  vsockUdsPath: string | undefined,
-  env: Record<string, string>,
-): void {
-  if (!vsockUdsPath || env.MACHINEN_SKIP_GUEST_HOSTNAME === "1") {
-    return;
-  }
-  try {
-    void setGuestHostname(handle, buildGuestHostname(handle.pid, handle.name));
-  } catch (err) {
-    debug(
-      "setGuestHostname: planner failed pid=%d name=%s err=%s",
-      handle.pid,
-      handle.name ?? "",
-      err instanceof Error ? err.message : String(err),
-    );
-  }
-}
-
 interface BootPlan {
   portForward: NonNullable<BootOptions["portForward"]>;
   binary: string;
@@ -587,6 +569,7 @@ interface BootPlan {
   memoryCeilingMib: number | undefined;
   cpuPolicy: ResolvedCpuResourcePolicy | undefined;
   timeoutMs: number | null;
+  detachedReadinessTimeoutMs: number;
   diskAbs: string | undefined;
   perBootSnapDisk: string | undefined;
   wantsRootDisk: boolean;
@@ -1010,6 +993,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
     memoryCeilingMib,
     cpuPolicy,
     timeoutMs: corePlan.timeoutMs,
+    detachedReadinessTimeoutMs: corePlan.detachedReadinessTimeoutMs,
     ...scratch,
     wantsRootDisk,
     needsInitramfs: corePlan.needsInitramfs,
@@ -2085,13 +2069,12 @@ function updateVmstateChainState(
 // the first console byte, so early guest panics become BootErrors.
 async function gateOnDetachedReadiness(args: {
   child: ChildProcessWithoutNullStreams;
-  timeoutMs: number | null;
+  timeoutMs: number;
   bootLogPath: string;
   detachedBootChunks: Buffer[];
   handle: VmHandle;
 }): Promise<void> {
-  const readinessTimeoutMs = args.timeoutMs ?? 60_000;
-  const outcome = await waitForDetachedExecAgent(args, readinessTimeoutMs);
+  const outcome = await waitForDetachedExecAgent(args, args.timeoutMs);
   const stderrTail = bootStderrTail(args.detachedBootChunks);
   writeBootSnapshot(args.bootLogPath, stderrTail);
   if (outcome.kind === "exit") {
@@ -2112,7 +2095,7 @@ async function gateOnDetachedReadiness(args: {
     throw new BootError(
       "BOOT_DETACHED_READINESS_FAILED",
       bootReadinessFailureMessage(
-        `boot --detached: exec-agent did not become reachable within ${readinessTimeoutMs}ms.`,
+        `boot --detached: exec-agent did not become reachable within ${args.timeoutMs}ms.`,
         args.bootLogPath,
         stderrTail,
       ),
