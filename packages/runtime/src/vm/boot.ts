@@ -545,7 +545,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   if (opts.detached && bootLogPath) {
     await gateOnDetachedReadiness({
       child,
-      timeoutMs,
+      timeoutMs: plan.detachedReadinessTimeoutMs,
       bootLogPath,
       detachedBootChunks,
       handle,
@@ -587,6 +587,7 @@ interface BootPlan {
   memoryCeilingMib: number | undefined;
   cpuPolicy: ResolvedCpuResourcePolicy | undefined;
   timeoutMs: number | null;
+  detachedReadinessTimeoutMs: number;
   diskAbs: string | undefined;
   perBootSnapDisk: string | undefined;
   wantsRootDisk: boolean;
@@ -1010,6 +1011,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
     memoryCeilingMib,
     cpuPolicy,
     timeoutMs: corePlan.timeoutMs,
+    detachedReadinessTimeoutMs: corePlan.detachedReadinessTimeoutMs,
     ...scratch,
     wantsRootDisk,
     needsInitramfs: corePlan.needsInitramfs,
@@ -2086,13 +2088,12 @@ function updateVmstateChainState(
 // the first console byte, so early guest panics become BootErrors.
 async function gateOnDetachedReadiness(args: {
   child: ChildProcessWithoutNullStreams;
-  timeoutMs: number | null;
+  timeoutMs: number;
   bootLogPath: string;
   detachedBootChunks: Buffer[];
   handle: VmHandle;
 }): Promise<void> {
-  const readinessTimeoutMs = args.timeoutMs ?? 60_000;
-  const outcome = await waitForDetachedExecAgent(args, readinessTimeoutMs);
+  const outcome = await waitForDetachedExecAgent(args, args.timeoutMs);
   const stderrTail = bootStderrTail(args.detachedBootChunks);
   writeBootSnapshot(args.bootLogPath, stderrTail);
   if (outcome.kind === "exit") {
@@ -2113,7 +2114,7 @@ async function gateOnDetachedReadiness(args: {
     throw new BootError(
       "BOOT_DETACHED_READINESS_FAILED",
       bootReadinessFailureMessage(
-        `boot --detached: exec-agent did not become reachable within ${readinessTimeoutMs}ms.`,
+        `boot --detached: exec-agent did not become reachable within ${args.timeoutMs}ms.`,
         args.bootLogPath,
         stderrTail,
       ),

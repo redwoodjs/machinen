@@ -437,6 +437,7 @@ pub const Plan = struct {
     needs_initramfs: bool,
     normalized_mount_guest: ?[]const u8,
     timeout_ms: ?u64,
+    detached_readiness_timeout_ms: u64,
 };
 
 pub const PlanError = error{
@@ -497,6 +498,10 @@ pub fn planPdeathsig(input: PdeathsigInput) bool {
 
 pub fn planBootTimeout(timeout_ms: ?u64, forever: bool) ?u64 {
     if (forever) return null;
+    return timeout_ms orelse default_boot_timeout_ms;
+}
+
+pub fn planDetachedReadinessTimeout(timeout_ms: ?u64) u64 {
     return timeout_ms orelse default_boot_timeout_ms;
 }
 
@@ -1112,6 +1117,7 @@ pub fn planCore(input: Input) PlanError!Plan {
             .needs_initramfs = needs_initramfs,
             .normalized_mount_guest = normalized_mount_guest,
             .timeout_ms = timeout_ms,
+            .detached_readiness_timeout_ms = planDetachedReadinessTimeout(timeout_ms),
         };
     }
 
@@ -1126,6 +1132,7 @@ pub fn planCore(input: Input) PlanError!Plan {
         .needs_initramfs = needs_initramfs,
         .normalized_mount_guest = normalized_mount_guest,
         .timeout_ms = timeout_ms,
+        .detached_readiness_timeout_ms = planDetachedReadinessTimeout(timeout_ms),
     };
 }
 
@@ -1204,14 +1211,13 @@ test "planBootTimeout defaults, preserves explicit values, and supports forever"
     try std.testing.expectEqual(@as(?u64, 60_000), planBootTimeout(null, false));
     try std.testing.expectEqual(@as(?u64, 2_500), planBootTimeout(2_500, false));
     try std.testing.expect(planBootTimeout(2_500, true) == null);
-    try std.testing.expect((try planCore(.{
-        .vmm_memory_preset = true,
-        .boot_timeout_ms = 1_234,
-    })).timeout_ms.? == 1_234);
-    try std.testing.expect((try planCore(.{
-        .vmm_memory_preset = true,
-        .boot_timeout_forever = true,
-    })).timeout_ms == null);
+    try std.testing.expectEqual(@as(u64, 60_000), planDetachedReadinessTimeout(null));
+    const explicit = try planCore(.{ .vmm_memory_preset = true, .boot_timeout_ms = 1_234 });
+    try std.testing.expect(explicit.timeout_ms.? == 1_234);
+    try std.testing.expectEqual(@as(u64, 1_234), explicit.detached_readiness_timeout_ms);
+    const forever = try planCore(.{ .vmm_memory_preset = true, .boot_timeout_forever = true });
+    try std.testing.expect(forever.timeout_ms == null);
+    try std.testing.expectEqual(@as(u64, 60_000), forever.detached_readiness_timeout_ms);
 }
 
 test "planGuestHostname sanitizes names and includes pid" {

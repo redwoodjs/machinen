@@ -591,6 +591,8 @@ fn writePlan(
     try protocol.stdout(io, if (plan.needs_initramfs) "true" else "false");
     try protocol.stdout(io, ",\"timeoutMs\":");
     try writeNullableU64(io, plan.timeout_ms);
+    try protocol.stdout(io, ",\"detachedReadinessTimeoutMs\":");
+    try writeU64(io, plan.detached_readiness_timeout_ms);
     try protocol.stdout(io, ",\"normalizedMountGuest\":");
     if (plan.normalized_mount_guest) |guest| {
         try protocol.writeJsonString(io, guest);
