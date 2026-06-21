@@ -121,6 +121,7 @@ const rootDiskRuntimeActions = ["none", "existing", "clone-restore", "clone-cach
 const mountDiskRuntimeActions = ["none", "restore", "fresh"] as const;
 const gvproxyActions = ["skip-existing", "spawn", "missing-ok"] as const;
 const registryRootDiskModes = ["block", "none"] as const;
+const bootScratchModes = ["unset", "false", "path", "auto"] as const;
 const liveMountModes = ["ro", "rw"] as const;
 
 export interface NativeBootPlanResult {
@@ -168,6 +169,7 @@ export interface NativeBootPlanResult {
   provisionRepack: ProvisionRepackPlan;
   provisionImageConfig: ProvisionImageConfigPlan;
   provisionRuntime: ProvisionRuntimePlan;
+  plannedScratchMode: BootScratchMode;
   scratchDisk: ScratchDiskPlan;
   rootDiskRuntime: RootDiskRuntimePlan;
   mountDiskRuntime: MountDiskRuntimePlan;
@@ -227,6 +229,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isProvisionRepackPlan(data.provisionRepack),
     isProvisionImageConfigPlan(data.provisionImageConfig),
     isProvisionRuntimePlan(data.provisionRuntime),
+    isOneOf(data.plannedScratchMode, bootScratchModes),
     isScratchDiskPlan(data.scratchDisk),
     isRootDiskRuntimePlan(data.rootDiskRuntime),
     isMountDiskRuntimePlan(data.mountDiskRuntime),

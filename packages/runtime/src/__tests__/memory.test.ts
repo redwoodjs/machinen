@@ -139,6 +139,47 @@ describe("boot-plan helper schema", () => {
     expect(JSON.parse(falseWins.stdout).data.rootDiskMode).toBe("false");
   });
 
+  it("plans scratch option mode with false and path precedence", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const auto = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(auto.status).toBe(0);
+    expect(JSON.parse(auto.stdout).data.plannedScratchMode).toBe("auto");
+
+    const path = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, scratchOptionPath: "/snapshot.img" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(path.status).toBe(0);
+    expect(JSON.parse(path.stdout).data.plannedScratchMode).toBe("path");
+
+    const falseWins = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, scratchOptionFalse: true, scratchOptionPath: "/snapshot.img" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(falseWins.status).toBe(0);
+    expect(JSON.parse(falseWins.stdout).data.plannedScratchMode).toBe("false");
+  });
+
   it("plans CPU resource policy defaults and fractional quota", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

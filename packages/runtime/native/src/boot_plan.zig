@@ -379,6 +379,11 @@ pub const ScratchDiskMode = enum {
     auto,
 };
 
+pub const ScratchOptionInput = struct {
+    false_value: bool = false,
+    path: ?[]const u8 = null,
+};
+
 pub const ScratchDiskInput = struct {
     mode: ScratchDiskMode = .unset,
     has_cmd: bool = false,
@@ -1217,6 +1222,14 @@ pub fn planProvisionGuestCpu(input: ProvisionGuestCpuInput) ProvisionGuestCpu {
         if (std.mem.eql(u8, host_arch, "x64")) return .amd64;
     }
     return .arm64;
+}
+
+pub fn planScratchMode(input: ScratchOptionInput) ScratchDiskMode {
+    assert(@sizeOf(ScratchOptionInput) > 0);
+
+    if (input.false_value) return .false_value;
+    if (input.path != null) return .path;
+    return .auto;
 }
 
 pub fn planProvisionAssets(input: ProvisionAssetsInput) ProvisionAssetsPlan {
@@ -2445,6 +2458,15 @@ test "planProvisionGuestCpu uses override, host arch, and arm64 fallback" {
     try std.testing.expectEqual(.amd64, planProvisionGuestCpu(.{
         .arch_override = "bogus",
         .host_arch = "x64",
+    }));
+}
+
+test "planScratchMode applies option precedence" {
+    try std.testing.expectEqual(ScratchDiskMode.auto, planScratchMode(.{}));
+    try std.testing.expectEqual(ScratchDiskMode.path, planScratchMode(.{ .path = "/tmp/scratch.img" }));
+    try std.testing.expectEqual(ScratchDiskMode.false_value, planScratchMode(.{
+        .false_value = true,
+        .path = "/tmp/scratch.img",
     }));
 }
 

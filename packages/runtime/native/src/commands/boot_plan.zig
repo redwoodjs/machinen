@@ -106,6 +106,8 @@ const ParsedRequest = struct {
     provision_work_dir: ?[]const u8 = null,
     provision_scratch_size_bytes_text: ?[]const u8 = null,
     provision_timeout_ms_text: ?[]const u8 = null,
+    scratch_option_false: bool = false,
+    scratch_option_path: ?[]const u8 = null,
     scratch_mode: boot_plan.ScratchDiskMode = .unset,
     scratch_snapshot_path: ?[]const u8 = null,
     scratch_restore_clone_path: ?[]const u8 = null,
@@ -278,6 +280,8 @@ const boot_plan_fields = [_][]const u8{
     "provisionWorkDir",
     "provisionScratchSizeBytes",
     "provisionTimeoutMs",
+    "scratchOptionFalse",
+    "scratchOptionPath",
     "scratchMode",
     "scratchSnapshotPath",
     "scratchRestoreClonePath",
@@ -463,6 +467,8 @@ const RequestError = error{
     InvalidProvisionScratchSizeBytes,
     InvalidProvisionTimeoutMs,
     InvalidBundleEnvValue,
+    InvalidScratchOptionFalse,
+    InvalidScratchOptionPath,
     InvalidScratchMode,
     InvalidScratchSnapshotPath,
     InvalidScratchRestoreClonePath,
@@ -586,6 +592,7 @@ const PlanParts = struct {
     provision_repack: boot_plan.ProvisionRepackPlan,
     provision_image_config: boot_plan.ProvisionImageConfigPlan,
     provision_runtime: boot_plan.ProvisionRuntimePlan,
+    planned_scratch_mode: boot_plan.ScratchDiskMode,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
@@ -630,6 +637,7 @@ const RuntimeParts = struct {
     config_live_mounts: []const boot_plan.LiveMount,
     bundle_command: []const []const u8,
     bundle_env: []const boot_plan.EnvPair,
+    planned_scratch_mode: boot_plan.ScratchDiskMode,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
@@ -696,6 +704,7 @@ fn makePlanParts(
         .provision_repack = try makeProvisionRepack(arena, parsed),
         .provision_image_config = try makeProvisionImageConfig(arena, parsed),
         .provision_runtime = try makeProvisionRuntime(arena, parsed),
+        .planned_scratch_mode = runtime.planned_scratch_mode,
         .scratch_disk = runtime.scratch_disk,
         .root_disk_runtime = runtime.root_disk_runtime,
         .mount_disk_runtime = runtime.mount_disk_runtime,
@@ -796,6 +805,7 @@ fn makeRuntimeParts(arena: std.mem.Allocator, parsed: ParsedRequest) !RuntimePar
         .config_live_mounts = parsed.config_live_mounts,
         .bundle_command = bundle.command,
         .bundle_env = bundle.env,
+        .planned_scratch_mode = disks.planned_scratch_mode,
         .scratch_disk = disks.scratch,
         .root_disk_runtime = disks.root,
         .mount_disk_runtime = disks.mount,
@@ -831,6 +841,7 @@ fn makeBundleParts(arena: std.mem.Allocator, parsed: ParsedRequest) !BundleParts
 }
 
 const DiskParts = struct {
+    planned_scratch_mode: boot_plan.ScratchDiskMode,
     scratch: boot_plan.ScratchDiskPlan,
     root: boot_plan.RootDiskRuntimePlan,
     mount: boot_plan.MountDiskRuntimePlan,
@@ -839,7 +850,12 @@ const DiskParts = struct {
 fn makeDiskParts(parsed: ParsedRequest) !DiskParts {
     assert(@sizeOf(DiskParts) > 0);
 
+    const planned_scratch_mode = boot_plan.planScratchMode(.{
+        .false_value = parsed.scratch_option_false,
+        .path = parsed.scratch_option_path,
+    });
     return .{
+        .planned_scratch_mode = planned_scratch_mode,
         .scratch = try boot_plan.planScratchDisk(.{
             .mode = parsed.scratch_mode,
             .has_cmd = parsed.has_cmd,
@@ -1206,6 +1222,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
         true,
     );
     try writeProvisionRuntimeField(io, "provisionRuntime", parts.provision_runtime, true);
+    try writeScratchModeField(io, "plannedScratchMode", parts.planned_scratch_mode, true);
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
     try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
@@ -1658,6 +1675,29 @@ fn writeProvisionRuntimeField(
     try writeNullableStringField(io, "rootDiskPath", runtime.root_disk_path, true);
     try writeNullableStringField(io, "udsPath", runtime.uds_path, true);
     try protocol.stdout(io, "}");
+}
+
+fn writeScratchModeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mode: boot_plan.ScratchDiskMode,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.writeJsonString(io, scratchDiskModeName(mode));
+}
+
+fn scratchDiskModeName(mode: boot_plan.ScratchDiskMode) []const u8 {
+    assert(@sizeOf(boot_plan.ScratchDiskMode) > 0);
+
+    return switch (mode) {
+        .unset => "unset",
+        .false_value => "false",
+        .path => "path",
+        .auto => "auto",
+    };
 }
 
 fn writeScratchDiskField(
@@ -2854,6 +2894,16 @@ fn parseDiskRuntimeFields(
 fn parseScratchFields(object: std.json.ObjectMap, request: *ParsedRequest) RequestError!void {
     assert(@sizeOf(ParsedRequest) > 0);
 
+    request.scratch_option_false = try optionalBoolDefaultFalse(
+        object,
+        "scratchOptionFalse",
+        error.InvalidScratchOptionFalse,
+    );
+    request.scratch_option_path = try optionalStringDefaultNull(
+        object,
+        "scratchOptionPath",
+        error.InvalidScratchOptionPath,
+    );
     request.scratch_mode = try optionalScratchMode(object);
     request.scratch_snapshot_path = try optionalStringDefaultNull(
         object,
@@ -3971,6 +4021,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
     if (try writeBundleRequestError(io, err)) return;
     if (try writeGuestHostnameRequestError(io, err)) return;
     if (try writeRootDiskRequestError(io, err)) return;
+    if (try writeScratchRequestError(io, err)) return;
 
     switch (err) {
         error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
@@ -3990,6 +4041,25 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
+}
+
+fn writeScratchRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidScratchOptionFalse => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan scratch option false flag must be a boolean",
+        ),
+        error.InvalidScratchOptionPath => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan scratch option path must be a string",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writeRootDiskRequestError(io: std.Io, err: RequestError) !bool {
