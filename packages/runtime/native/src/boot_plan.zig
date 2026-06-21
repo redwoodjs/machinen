@@ -65,6 +65,7 @@ pub const GuestHostnameInput = struct {
 pub const VsockPlanInput = struct {
     existing_spec: ?[]const u8 = null,
     auto_uds_path: ?[]const u8 = null,
+    auto_temp_dir: ?[]const u8 = null,
 };
 
 pub const VsockPlan = struct {
@@ -667,6 +668,14 @@ pub fn planVsock(allocator: std.mem.Allocator, input: VsockPlanInput) !VsockPlan
         return .{
             .uds_path = uds,
             .vmm_vsock = try std.mem.concat(allocator, u8, &.{ "in:1978:", uds }),
+        };
+    }
+    if (input.auto_temp_dir) |dir| {
+        const uds = try std.fs.path.join(allocator, &.{ dir, "exec.sock" });
+        errdefer allocator.free(uds);
+        return .{
+            .uds_path = uds,
+            .vmm_vsock = try std.fmt.allocPrint(allocator, "in:1978:{s}", .{uds}),
         };
     }
     return .{ .uds_path = null, .vmm_vsock = null };
@@ -2221,6 +2230,12 @@ test "planVsock parses existing specs and formats auto specs" {
     defer std.testing.allocator.free(auto.vmm_vsock.?);
     try std.testing.expectEqualStrings("/tmp/auto.sock", auto.uds_path.?);
     try std.testing.expectEqualStrings("in:1978:/tmp/auto.sock", auto.vmm_vsock.?);
+
+    const auto_dir = try planVsock(std.testing.allocator, .{ .auto_temp_dir = "/tmp/machinen-vsock-abc" });
+    defer std.testing.allocator.free(auto_dir.uds_path.?);
+    defer std.testing.allocator.free(auto_dir.vmm_vsock.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-vsock-abc/exec.sock", auto_dir.uds_path.?);
+    try std.testing.expectEqualStrings("in:1978:/tmp/machinen-vsock-abc/exec.sock", auto_dir.vmm_vsock.?);
 }
 
 test "planGuestEnv applies name and hostname wait defaults without overriding caller env" {

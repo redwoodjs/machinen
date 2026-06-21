@@ -55,6 +55,7 @@ interface NativeBootPlanInput {
   guestHostnameName?: string;
   existingVsockSpec?: string;
   autoVsockUdsPath?: string;
+  autoVsockTempDir?: string;
   portForward?: PortForwardPlanMapping[];
   vmmBinary?: string;
   vmmArgs?: string[];
@@ -182,6 +183,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     guestHostnameName: nullDefault(input.guestHostnameName),
     existingVsockSpec: nullDefault(input.existingVsockSpec),
     autoVsockUdsPath: nullDefault(input.autoVsockUdsPath),
+    autoVsockTempDir: nullDefault(input.autoVsockTempDir),
     portForward: input.portForward ?? [],
     vmmBinary: nullDefault(input.vmmBinary),
     vmmArgs: input.vmmArgs ?? [],

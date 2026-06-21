@@ -1343,10 +1343,9 @@ function setupVsockBridge(env: Record<string, string>): {
 } {
   const existingSpec = env.MACHINEN_VSOCK;
   const vsockTempDir = existingSpec ? undefined : mkdtempSync(join(tmpdir(), "machinen-vsock-"));
-  const autoVsockUdsPath = vsockTempDir ? join(vsockTempDir, "exec.sock") : undefined;
   const plan = planBootCoreNative({
     existingVsockSpec: existingSpec,
-    autoVsockUdsPath,
+    autoVsockTempDir: vsockTempDir,
     vmmMemoryPreset: true,
     hasImage: false,
     hasCmd: false,

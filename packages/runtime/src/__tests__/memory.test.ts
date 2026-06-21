@@ -167,7 +167,7 @@ describe("boot-plan helper schema", () => {
     ]);
   });
 
-  it("plans vsock specs from caller env or auto UDS paths", () => {
+  it("plans vsock specs from caller env auto UDS paths or auto temp dirs", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
     const baseData = {
@@ -204,6 +204,19 @@ describe("boot-plan helper schema", () => {
     expect(JSON.parse(auto.stdout).data).toMatchObject({
       vsockUdsPath: "/tmp/exec.sock",
       vmmVsock: "in:1978:/tmp/exec.sock",
+    });
+
+    const autoTempDir = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, autoVsockTempDir: "/tmp/machinen-vsock-test" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(autoTempDir.status).toBe(0);
+    expect(JSON.parse(autoTempDir.stdout).data).toMatchObject({
+      vsockUdsPath: "/tmp/machinen-vsock-test/exec.sock",
+      vmmVsock: "in:1978:/tmp/machinen-vsock-test/exec.sock",
     });
   });
 

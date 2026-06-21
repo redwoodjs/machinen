@@ -25,6 +25,7 @@ const ParsedRequest = struct {
     vsock_uds_path: ?[]const u8 = null,
     existing_vsock_spec: ?[]const u8 = null,
     auto_vsock_uds_path: ?[]const u8 = null,
+    auto_vsock_temp_dir: ?[]const u8 = null,
     port_forward: []const boot_plan.PortForwardMapping = &.{},
     vmm_binary: ?[]const u8 = null,
     vmm_args: []const []const u8 = &.{},
@@ -157,6 +158,7 @@ const boot_plan_fields = [_][]const u8{
     "vsockUdsPath",
     "existingVsockSpec",
     "autoVsockUdsPath",
+    "autoVsockTempDir",
     "portForward",
     "vmmBinary",
     "vmmArgs",
@@ -293,6 +295,7 @@ const RequestError = error{
     InvalidVsockUdsPath,
     InvalidExistingVsockSpec,
     InvalidAutoVsockUdsPath,
+    InvalidAutoVsockTempDir,
     InvalidPortForward,
     InvalidHostPort,
     InvalidGuestPort,
@@ -498,6 +501,7 @@ fn makePlanParts(
         .vsock_plan = try boot_plan.planVsock(arena, .{
             .existing_spec = parsed.existing_vsock_spec,
             .auto_uds_path = parsed.auto_vsock_uds_path,
+            .auto_temp_dir = parsed.auto_vsock_temp_dir,
         }),
         .vmm_argv = try boot_plan.planVmmArgv(arena, .{
             .binary = parsed.vmm_binary,
@@ -1848,6 +1852,11 @@ fn parseVsockFields(object: std.json.ObjectMap, request: *ParsedRequest) Request
         object,
         "autoVsockUdsPath",
         error.InvalidAutoVsockUdsPath,
+    );
+    request.auto_vsock_temp_dir = try optionalStringDefaultNull(
+        object,
+        "autoVsockTempDir",
+        error.InvalidAutoVsockTempDir,
     );
 }
 
