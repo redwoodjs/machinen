@@ -145,6 +145,10 @@ const ParsedRequest = struct {
     snapshot_vmstate_chain_id: ?[]const u8 = null,
     snapshot_vmstate_checkpoint_parent: ?[]const u8 = null,
     snapshot_vmstate_checkpoint_sequence_text: ?[]const u8 = null,
+    snapshot_backing_engine: ?[]const u8 = null,
+    snapshot_backing_action: ?[]const u8 = null,
+    snapshot_backing_disk_path: ?[]const u8 = null,
+    snapshot_backing_vmstate_path: ?[]const u8 = null,
     registry_source_image_path: ?[]const u8 = null,
     registry_per_boot_root_disk: ?[]const u8 = null,
     registry_caller_root_disk_path: ?[]const u8 = null,
@@ -335,6 +339,10 @@ const boot_plan_fields = [_][]const u8{
     "snapshotVmstateChainId",
     "snapshotVmstateCheckpointParent",
     "snapshotVmstateCheckpointSequence",
+    "snapshotBackingEngine",
+    "snapshotBackingAction",
+    "snapshotBackingDiskPath",
+    "snapshotBackingVmstatePath",
     "registrySourceImagePath",
     "registryPerBootRootDisk",
     "registryCallerRootDiskPath",
@@ -539,6 +547,10 @@ const RequestError = error{
     InvalidSnapshotVmstateChainId,
     InvalidSnapshotVmstateCheckpointParent,
     InvalidSnapshotVmstateCheckpointSequence,
+    InvalidSnapshotBackingEngine,
+    InvalidSnapshotBackingAction,
+    InvalidSnapshotBackingDiskPath,
+    InvalidSnapshotBackingVmstatePath,
     InvalidRegistrySourceImagePath,
     InvalidRegistryRootDiskPath,
     InvalidRegistryBootLogRoot,
@@ -656,6 +668,7 @@ const PlanParts = struct {
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
     mount_disk_fd_env: []const boot_plan.EnvPair,
     snapshot_context: boot_plan.SnapshotContextPlan,
+    snapshot_backing: boot_plan.SnapshotBackingPlan,
     registry_shape: boot_plan.RegistryShapePlan,
     registry_lifecycle: boot_plan.RegistryLifecyclePlan,
     registry_process: boot_plan.RegistryProcessPlan,
@@ -777,6 +790,12 @@ fn makePlanParts(
         .mount_disk_runtime = runtime.mount_disk_runtime,
         .mount_disk_fd_env = runtime.mount_disk_fd_env,
         .snapshot_context = runtime.snapshot_context,
+        .snapshot_backing = boot_plan.planSnapshotBacking(.{
+            .engine = parsed.snapshot_backing_engine,
+            .action = parsed.snapshot_backing_action,
+            .disk_path = parsed.snapshot_backing_disk_path,
+            .vmstate_path = parsed.snapshot_backing_vmstate_path,
+        }),
         .registry_shape = runtime.registry_shape,
         .registry_lifecycle = runtime.registry_lifecycle,
         .registry_process = runtime.registry_process,
@@ -2200,6 +2219,20 @@ fn writeRegistryProcessField(
     try protocol.stdout(io, "{");
     try writeNullableStringField(io, "vmmExe", process.vmm_exe, false);
     try writeNullableStringField(io, "gvproxyExe", process.gvproxy_exe, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeSnapshotBackingField(
+    io: std.Io,
+    comptime field: []const u8,
+    plan: boot_plan.SnapshotBackingPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"allowed\":");
+    try protocol.stdout(io, if (plan.allowed) "true" else "false");
     try protocol.stdout(io, "}");
 }
 
@@ -4702,6 +4735,10 @@ fn writeSnapshotRequestError(io: std.Io, err: RequestError) !bool {
         error.InvalidSnapshotVmstatePath,
         error.InvalidSnapshotVmstateChainId,
         error.InvalidSnapshotVmstateCheckpointParent,
+        error.InvalidSnapshotBackingEngine,
+        error.InvalidSnapshotBackingAction,
+        error.InvalidSnapshotBackingDiskPath,
+        error.InvalidSnapshotBackingVmstatePath,
         => try protocol.writeError(
             io,
             "INVALID_REQUEST",

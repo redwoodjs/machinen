@@ -575,6 +575,17 @@ pub const SnapshotContextPlan = struct {
     vmstate_chain: ?SnapshotVmstateChainPlan,
 };
 
+pub const SnapshotBackingInput = struct {
+    engine: ?[]const u8 = null,
+    action: ?[]const u8 = null,
+    disk_path: ?[]const u8 = null,
+    vmstate_path: ?[]const u8 = null,
+};
+
+pub const SnapshotBackingPlan = struct {
+    allowed: bool,
+};
+
 pub const RegistryCleanupInput = struct {
     per_boot_root_disk: ?[]const u8 = null,
     per_boot_snap_disk: ?[]const u8 = null,
@@ -1630,6 +1641,19 @@ pub fn planSnapshotContext(
     };
 }
 
+pub fn planSnapshotBacking(input: SnapshotBackingInput) SnapshotBackingPlan {
+    assert(@sizeOf(SnapshotBackingInput) > 0);
+
+    const engine = input.engine orelse return .{ .allowed = true };
+    const action = input.action orelse return .{ .allowed = true };
+    if (!std.mem.eql(u8, action, "snapshot") and !std.mem.eql(u8, action, "fork")) {
+        return .{ .allowed = true };
+    }
+    if (std.mem.eql(u8, engine, "criu")) return .{ .allowed = input.disk_path != null };
+    if (std.mem.eql(u8, engine, "vmstate")) return .{ .allowed = input.vmstate_path != null };
+    return .{ .allowed = true };
+}
+
 fn planSnapshotMountDisk(input: SnapshotMountDiskInput) PlanError!?SnapshotMountDiskPlan {
     assert(@sizeOf(SnapshotMountDiskInput) > 0);
 
@@ -2409,6 +2433,22 @@ test "planRegistryProcess projects platform-specific executable metadata" {
     });
     try std.testing.expectEqualStrings("/pkg/machinen-vm", fallback.vmm_exe.?);
     try std.testing.expectEqualStrings("/pkg/gvproxy", fallback.gvproxy_exe.?);
+}
+
+test "planSnapshotBacking requires the active engine backing path" {
+    try std.testing.expect(!planSnapshotBacking(.{ .engine = "criu", .action = "snapshot" }).allowed);
+    try std.testing.expect(planSnapshotBacking(.{
+        .engine = "criu",
+        .action = "snapshot",
+        .disk_path = "/tmp/scratch.img",
+    }).allowed);
+    try std.testing.expect(!planSnapshotBacking(.{ .engine = "vmstate", .action = "fork" }).allowed);
+    try std.testing.expect(planSnapshotBacking(.{
+        .engine = "vmstate",
+        .action = "fork",
+        .vmstate_path = "/tmp/state.vmstate",
+    }).allowed);
+    try std.testing.expect(planSnapshotBacking(.{ .engine = "none", .action = "snapshot" }).allowed);
 }
 
 test "planSnapshotContext projects mount live mount and vmstate chain fields" {

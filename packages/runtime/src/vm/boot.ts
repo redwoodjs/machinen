@@ -80,6 +80,7 @@ import { planBootRegistryLifecycleNative } from "../native/registry-lifecycle.ts
 import { planBootRegistryProcessNative } from "../native/registry-process.ts";
 import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
 import { planBootScratchModeNative } from "../native/scratch-mode.ts";
+import { planBootSnapshotBackingNative as planSnapshotBacking } from "../native/snapshot-backing.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
 import { planBootStatsFileModeNative } from "../native/stats-file-mode.ts";
 import { planBootVmmEnvNative } from "../native/vmm-env.ts";
@@ -1980,11 +1981,8 @@ function ensureSnapshotBacking(
   vmstateStatePath: string | undefined,
   action: "snapshot" | "fork",
 ): void {
-  const engine = resolveSnapshotEngine();
-  if (engine === "criu" && !diskAbs) {
-    throw noSnapshotBackingError(action);
-  }
-  if (engine === "vmstate" && !vmstateStatePath) {
+  const plan = planSnapshotBacking(resolveSnapshotEngine(), action, diskAbs, vmstateStatePath);
+  if (!plan.allowed) {
     throw noSnapshotBackingError(action);
   }
 }
