@@ -100,6 +100,7 @@ export interface NativeBootPlanResult {
   vmmVsock: string | null;
   vmmCommand: string | null;
   vmmArgs: string[];
+  usePdeathsig: boolean;
   vmmKernel: string | null;
   vmmDtb: string | null;
   vmmSnapshotPath: string | null;
@@ -141,6 +142,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmVsock),
     nullableString(data.vmmCommand),
     isStringArray(data.vmmArgs),
+    typeof data.usePdeathsig === "boolean",
     nullableString(data.vmmKernel),
     nullableString(data.vmmDtb),
     nullableString(data.vmmSnapshotPath),

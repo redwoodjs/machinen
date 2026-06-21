@@ -965,6 +965,41 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans pdeathsig default detach and explicit opt-out", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const enabled = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(enabled.status).toBe(0);
+    expect(JSON.parse(enabled.stdout).data.usePdeathsig).toBe(true);
+
+    const detached = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, detached: true } })}\n`,
+      encoding: "utf8",
+    });
+    expect(detached.status).toBe(0);
+    expect(JSON.parse(detached.stdout).data.usePdeathsig).toBe(false);
+
+    const disabled = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, pdeathsig: false } })}\n`,
+      encoding: "utf8",
+    });
+    expect(disabled.status).toBe(0);
+    expect(JSON.parse(disabled.stdout).data.usePdeathsig).toBe(false);
+  });
+
   it("rejects invalid portForward shape", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

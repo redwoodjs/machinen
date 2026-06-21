@@ -49,6 +49,8 @@ interface NativeBootPlanInput {
   vmmBinary?: string;
   vmmArgs?: string[];
   pdeathsigPath?: string;
+  pdeathsig?: boolean;
+  detached?: boolean;
   kernelPath?: string;
   dtbPath?: string;
   vmstatePath?: string;
@@ -156,6 +158,8 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     vmmBinary: nullDefault(input.vmmBinary),
     vmmArgs: input.vmmArgs ?? [],
     pdeathsigPath: nullDefault(input.pdeathsigPath),
+    pdeathsig: input.pdeathsig ?? null,
+    detached: input.detached === true,
     kernelPath: nullDefault(input.kernelPath),
     dtbPath: nullDefault(input.dtbPath),
     vmstatePath: nullDefault(input.vmstatePath),

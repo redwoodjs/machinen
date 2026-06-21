@@ -28,6 +28,8 @@ const ParsedRequest = struct {
     vmm_binary: ?[]const u8 = null,
     vmm_args: []const []const u8 = &.{},
     pdeathsig_path: ?[]const u8 = null,
+    pdeathsig_requested: ?bool = null,
+    detached: bool = false,
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
     vmstate_path: ?[]const u8 = null,
@@ -138,6 +140,8 @@ const boot_plan_fields = [_][]const u8{
     "vmmBinary",
     "vmmArgs",
     "pdeathsigPath",
+    "pdeathsig",
+    "detached",
     "kernelPath",
     "dtbPath",
     "vmstatePath",
@@ -254,6 +258,8 @@ const RequestError = error{
     InvalidVmmBinary,
     InvalidVmmArgs,
     InvalidPdeathsigPath,
+    InvalidPdeathsig,
+    InvalidDetached,
     InvalidKernelPath,
     InvalidDtbPath,
     InvalidVmstatePath,
@@ -362,6 +368,7 @@ const PlanParts = struct {
     guest_env: []const boot_plan.EnvPair,
     vsock_plan: boot_plan.VsockPlan,
     vmm_argv: boot_plan.VmmArgvPlan,
+    use_pdeathsig: bool,
     kernel_dtb: boot_plan.KernelDtbPlan,
     vmstate_env: boot_plan.VmstateEnvPlan,
     nested_env: ?[]const u8,
@@ -431,6 +438,10 @@ fn makePlanParts(
             .binary = parsed.vmm_binary,
             .args = parsed.vmm_args,
             .pdeathsig_path = parsed.pdeathsig_path,
+        }),
+        .use_pdeathsig = boot_plan.planPdeathsig(.{
+            .detached = parsed.detached,
+            .pdeathsig = parsed.pdeathsig_requested,
         }),
         .kernel_dtb = boot_plan.planKernelDtb(.{
             .kernel_path = parsed.kernel_path,
@@ -755,6 +766,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeEnvObjectField(io, "virtiofsEnv", parts.virtiofs_env, true);
     try writeNullableStringField(io, "vmmCommand", parts.vmm_argv.command, true);
     try writeStringArrayField(io, "vmmArgs", parts.vmm_argv.args, true);
+    try writeBoolField(io, "usePdeathsig", parts.use_pdeathsig, true);
     try writeEnvObjectField(io, "mergedGuestEnv", parts.guest_env, true);
     try writeMachinenConfigField(io, "machinenConfig", parts, true);
     try writeStringArrayField(io, "bundleCommand", parts.bundle_command, true);
@@ -1591,6 +1603,12 @@ fn parseTransportFields(
         "pdeathsigPath",
         error.InvalidPdeathsigPath,
     );
+    request.pdeathsig_requested = try optionalBoolDefaultNull(
+        object,
+        "pdeathsig",
+        error.InvalidPdeathsig,
+    );
+    request.detached = try optionalBoolDefaultFalse(object, "detached", error.InvalidDetached);
 }
 
 fn parseKernelVmstateFields(
@@ -2256,6 +2274,21 @@ fn optionalLiveMountsResolved(
         });
     }
     return mounts.toOwnedSlice(allocator);
+}
+
+fn optionalBoolDefaultNull(
+    object: std.json.ObjectMap,
+    field: []const u8,
+    invalid: RequestError,
+) RequestError!?bool {
+    assert(field.len > 0);
+
+    const value = object.get(field) orelse return null;
+    return switch (value) {
+        .null => null,
+        .bool => |b| b,
+        else => invalid,
+    };
 }
 
 fn optionalBoolDefaultFalse(

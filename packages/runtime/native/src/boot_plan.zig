@@ -77,6 +77,11 @@ pub const PortForwardValidation = union(enum) {
     duplicate_host_port: u16,
 };
 
+pub const PdeathsigInput = struct {
+    detached: bool = false,
+    pdeathsig: ?bool = null,
+};
+
 pub const VmmArgvInput = struct {
     binary: ?[]const u8 = null,
     args: []const []const u8 = &.{},
@@ -428,6 +433,13 @@ pub const PlanError = error{
     MissingRegistryCpuStatus,
     MissingRegistryVmstateField,
 };
+
+pub fn planPdeathsig(input: PdeathsigInput) bool {
+    assert(@sizeOf(PdeathsigInput) > 0);
+
+    if (input.detached) return false;
+    return input.pdeathsig orelse true;
+}
 
 pub fn planNestedEnv(nested: bool) ?[]const u8 {
     assert(@sizeOf(bool) > 0);
@@ -1260,6 +1272,13 @@ test "planCore resolves explicit memory aliases" {
         .resources_memory = .{ .max_mib = 2048, .reclaim = "manual" },
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     }));
+}
+
+test "planPdeathsig defaults on and lets detach or explicit false disable it" {
+    try std.testing.expect(planPdeathsig(.{}));
+    try std.testing.expect(planPdeathsig(.{ .pdeathsig = true }));
+    try std.testing.expect(!planPdeathsig(.{ .pdeathsig = false }));
+    try std.testing.expect(!planPdeathsig(.{ .detached = true, .pdeathsig = true }));
 }
 
 test "planNestedEnv sets nested only when requested" {
