@@ -125,8 +125,15 @@ pub const ProvisionGuestCpu = enum {
     amd64,
 };
 
+pub const ProvisionGuestCpuInput = struct {
+    arch_override: ?[]const u8 = null,
+    host_arch: ?[]const u8 = null,
+};
+
 pub const ProvisionAssetsInput = struct {
-    guest_cpu: ProvisionGuestCpu = .arm64,
+    guest_cpu: ?ProvisionGuestCpu = null,
+    arch_override: ?[]const u8 = null,
+    host_arch: ?[]const u8 = null,
 };
 
 pub const ProvisionAssetsPlan = struct {
@@ -897,10 +904,27 @@ fn planProvisionVsock(
     return null;
 }
 
+pub fn planProvisionGuestCpu(input: ProvisionGuestCpuInput) ProvisionGuestCpu {
+    assert(@sizeOf(ProvisionGuestCpuInput) > 0);
+
+    if (input.arch_override) |override| {
+        if (std.mem.eql(u8, override, "arm64")) return .arm64;
+        if (std.mem.eql(u8, override, "amd64")) return .amd64;
+    }
+    if (input.host_arch) |host_arch| {
+        if (std.mem.eql(u8, host_arch, "x64")) return .amd64;
+    }
+    return .arm64;
+}
+
 pub fn planProvisionAssets(input: ProvisionAssetsInput) ProvisionAssetsPlan {
     assert(@sizeOf(ProvisionAssetsInput) > 0);
 
-    return switch (input.guest_cpu) {
+    const cpu = input.guest_cpu orelse planProvisionGuestCpu(.{
+        .arch_override = input.arch_override,
+        .host_arch = input.host_arch,
+    });
+    return switch (cpu) {
         .amd64 => .{
             .cpu = "amd64",
             .kernel_asset = "bzImage-x86_64",
@@ -1843,6 +1867,22 @@ test "planProvisionBoot builds provision boot inputs" {
     try std.testing.expectEqualStrings("/usr/local/bin:/usr/bin:/bin:/sbin", plan.env[0].value);
     try std.testing.expectEqualStrings("/tmp/scratch.img", plan.snapshot_path.?);
     try std.testing.expectEqualStrings("/tmp/rootfs.img", plan.root_disk_path.?);
+}
+
+test "planProvisionGuestCpu uses override, host arch, and arm64 fallback" {
+    try std.testing.expectEqual(.arm64, planProvisionGuestCpu(.{}));
+    try std.testing.expectEqual(.amd64, planProvisionGuestCpu(.{
+        .arch_override = "amd64",
+        .host_arch = "arm64",
+    }));
+    try std.testing.expectEqual(.arm64, planProvisionGuestCpu(.{
+        .arch_override = "arm64",
+        .host_arch = "x64",
+    }));
+    try std.testing.expectEqual(.amd64, planProvisionGuestCpu(.{
+        .arch_override = "bogus",
+        .host_arch = "x64",
+    }));
 }
 
 test "planProvisionAssets selects asset names by guest CPU" {

@@ -63,7 +63,9 @@ const ParsedRequest = struct {
     bundle_command_required: bool = false,
     bundle_image_env: std.json.ObjectMap = .{},
     bundle_guest_env: std.json.ObjectMap = .{},
-    provision_guest_cpu: boot_plan.ProvisionGuestCpu = .arm64,
+    provision_guest_cpu: ?boot_plan.ProvisionGuestCpu = null,
+    provision_guest_arch_override: ?[]const u8 = null,
+    provision_host_arch: ?[]const u8 = null,
     provision_base_path: ?[]const u8 = null,
     provision_kernel_path: ?[]const u8 = null,
     provision_dtb_path: ?[]const u8 = null,
@@ -193,6 +195,8 @@ const boot_plan_fields = [_][]const u8{
     "bundleImageEnv",
     "bundleGuestEnv",
     "provisionGuestCpu",
+    "provisionGuestArchOverride",
+    "provisionHostArch",
     "provisionBasePath",
     "provisionKernelPath",
     "provisionDtbPath",
@@ -333,6 +337,8 @@ const RequestError = error{
     InvalidBundleImageEnv,
     InvalidBundleGuestEnv,
     InvalidProvisionGuestCpu,
+    InvalidProvisionGuestArchOverride,
+    InvalidProvisionHostArch,
     InvalidProvisionBasePath,
     InvalidProvisionKernelPath,
     InvalidProvisionDtbPath,
@@ -530,6 +536,8 @@ fn makePlanParts(
         .bundle_env = runtime.bundle_env,
         .provision_assets = boot_plan.planProvisionAssets(.{
             .guest_cpu = parsed.provision_guest_cpu,
+            .arch_override = parsed.provision_guest_arch_override,
+            .host_arch = parsed.provision_host_arch,
         }),
         .provision_boot = try makeProvisionBoot(arena, parsed),
         .provision_workload = boot_plan.planProvisionWorkload(),
@@ -2053,6 +2061,16 @@ fn parseProvisionFields(
     assert(@sizeOf(ParsedRequest) > 0);
 
     request.provision_guest_cpu = try optionalProvisionGuestCpu(object);
+    request.provision_guest_arch_override = try optionalStringDefaultNull(
+        object,
+        "provisionGuestArchOverride",
+        error.InvalidProvisionGuestArchOverride,
+    );
+    request.provision_host_arch = try optionalStringDefaultNull(
+        object,
+        "provisionHostArch",
+        error.InvalidProvisionHostArch,
+    );
     try parseProvisionBootFields(object, request);
     try parseProvisionRepackFields(object, request);
     try parseProvisionImageConfigFields(allocator, object, request);
@@ -2487,11 +2505,11 @@ fn optionalRegistryCpuControlStatus(object: std.json.ObjectMap) RequestError!?[]
 
 fn optionalProvisionGuestCpu(
     object: std.json.ObjectMap,
-) RequestError!boot_plan.ProvisionGuestCpu {
+) RequestError!?boot_plan.ProvisionGuestCpu {
     assert(@sizeOf(boot_plan.ProvisionGuestCpu) > 0);
 
-    const value = object.get("provisionGuestCpu") orelse return .arm64;
-    if (value == .null) return .arm64;
+    const value = object.get("provisionGuestCpu") orelse return null;
+    if (value == .null) return null;
     if (value != .string) return error.InvalidProvisionGuestCpu;
     if (std.mem.eql(u8, value.string, "amd64")) return .amd64;
     if (std.mem.eql(u8, value.string, "arm64")) return .arm64;

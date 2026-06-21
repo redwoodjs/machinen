@@ -86,6 +86,8 @@ interface NativeBootPlanInput {
   bundleImageEnv?: Record<string, string>;
   bundleGuestEnv?: Record<string, string>;
   provisionGuestCpu?: ProvisionGuestCpu;
+  provisionGuestArchOverride?: string;
+  provisionHostArch?: string;
   provisionBasePath?: string;
   provisionKernelPath?: string;
   provisionDtbPath?: string;
@@ -233,6 +235,8 @@ function bundleCommandData(input: NativeBootPlanInput): Record<string, unknown> 
 function provisionData(input: NativeBootPlanInput): Record<string, unknown> {
   return {
     provisionGuestCpu: input.provisionGuestCpu ?? null,
+    provisionGuestArchOverride: nullDefault(input.provisionGuestArchOverride),
+    provisionHostArch: nullDefault(input.provisionHostArch),
     provisionBasePath: nullDefault(input.provisionBasePath),
     provisionKernelPath: nullDefault(input.provisionKernelPath),
     provisionDtbPath: nullDefault(input.provisionDtbPath),
@@ -454,9 +458,13 @@ export function planProvisionBootNative(input: {
   }).provisionBoot;
 }
 
-export function planProvisionAssetsNative(cpu: ProvisionGuestCpu): ProvisionAssetsPlan {
+export function planProvisionAssetsForHostNative(input: {
+  guestArchOverride?: string;
+  hostArch: string;
+}): ProvisionAssetsPlan {
   return planBootCoreNative({
-    provisionGuestCpu: cpu,
+    provisionGuestArchOverride: input.guestArchOverride,
+    provisionHostArch: input.hostArch,
     vmmMemoryPreset: true,
     hasImage: false,
     hasCmd: false,

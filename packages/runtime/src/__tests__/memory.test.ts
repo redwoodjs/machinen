@@ -625,6 +625,40 @@ describe("boot-plan helper schema", () => {
       dtbAsset: "virt-arm64.dtb",
       rootfsAsset: "rootfs-debian-arm64.tar.gz",
     });
+
+    const override = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionGuestArchOverride: "amd64",
+          provisionHostArch: "arm64",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(override.status).toBe(0);
+    expect(JSON.parse(override.stdout).data.provisionAssets).toMatchObject({
+      cpu: "amd64",
+      kernelAsset: "bzImage-x86_64",
+    });
+
+    const hostFallback = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionGuestArchOverride: "unknown",
+          provisionHostArch: "x64",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(hostFallback.status).toBe(0);
+    expect(JSON.parse(hostFallback.stdout).data.provisionAssets).toMatchObject({
+      cpu: "amd64",
+      kernelAsset: "bzImage-x86_64",
+    });
   });
 
   it("plans bundle env overlays", () => {
