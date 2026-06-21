@@ -10,6 +10,8 @@ export type RestoreLiveMount = { host: string; guest: string; mode?: "ro" | "rw"
 export type PlannedPortForward = { hostPort: number; guestPort: number; hostAddr?: string };
 export type PortForwardProbePlan = { hostPort: number; probeHost: string };
 export type GvproxyPlan = { action: GvproxyAction; gvproxyPath: string | null };
+export type VsockModePlan = { action: "existing" | "allocate"; existingSpec: string | null };
+export type StatsFileModePlan = { action: "existing" | "allocate"; existingPath: string | null };
 type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
 type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
@@ -161,6 +163,7 @@ export interface NativeBootPlanResult {
   portForwardProbe: PortForwardProbePlan[];
   gvproxyPlan: GvproxyPlan;
   mergedGuestEnv: Record<string, string>;
+  vsockMode: VsockModePlan;
   vsockUdsPath: string | null;
   vmmVsock: string | null;
   vmmCommand: string | null;
@@ -179,6 +182,7 @@ export interface NativeBootPlanResult {
   batchLiveMountSyncRequired: boolean;
   restoreLiveMounts: RestoreLiveMount[];
   plannedLiveMounts: PlannedLiveMount[];
+  statsFileMode: StatsFileModePlan;
   statsFilePath: string | null;
   vmmStatsFile: string | null;
   machinenConfig: MachinenConfigPlan;
@@ -228,6 +232,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     Array.isArray(data.portForwardProbe) && data.portForwardProbe.every(isPortForwardProbePlan),
     isGvproxyPlan(data.gvproxyPlan),
     isStringRecord(data.mergedGuestEnv),
+    isVsockModePlan(data.vsockMode),
     nullableString(data.vsockUdsPath),
     nullableString(data.vmmVsock),
     nullableString(data.vmmCommand),
@@ -246,6 +251,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     typeof data.batchLiveMountSyncRequired === "boolean",
     Array.isArray(data.restoreLiveMounts) && data.restoreLiveMounts.every(isRestoreLiveMount),
     Array.isArray(data.plannedLiveMounts) && data.plannedLiveMounts.every(isPlannedLiveMount),
+    isStatsFileModePlan(data.statsFileMode),
     nullableString(data.statsFilePath),
     nullableString(data.vmmStatsFile),
     isMachinenConfigPlan(data.machinenConfig),
@@ -686,6 +692,26 @@ function isPlannedLiveMount(value: unknown): value is PlannedLiveMount {
     typeof mount.guest === "string" &&
     (mount.mode === "ro" || mount.mode === "rw") &&
     typeof mount.tag === "string"
+  );
+}
+
+function isVsockModePlan(value: unknown): value is VsockModePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<VsockModePlan>;
+  return (
+    (plan.action === "existing" || plan.action === "allocate") && nullableString(plan.existingSpec)
+  );
+}
+
+function isStatsFileModePlan(value: unknown): value is StatsFileModePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<StatsFileModePlan>;
+  return (
+    (plan.action === "existing" || plan.action === "allocate") && nullableString(plan.existingPath)
   );
 }
 

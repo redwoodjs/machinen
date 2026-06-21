@@ -73,6 +73,8 @@ import { reflinkCopy } from "../reflink.ts";
 import { planGuestHostnameSetNative } from "../native/guest-hostname.ts";
 import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
 import { planBootScratchModeNative } from "../native/scratch-mode.ts";
+import { planBootStatsFileModeNative } from "../native/stats-file-mode.ts";
+import { planBootVsockModeNative } from "../native/vsock-mode.ts";
 import { planGvproxyNative } from "../native/gvproxy-plan.ts";
 import {
   planPortForwardProbeNative,
@@ -1370,8 +1372,10 @@ function setupVsockBridge(env: Record<string, string>): {
   vsockUdsPath: string | undefined;
   vsockTempDir: string | undefined;
 } {
-  const existingSpec = env.MACHINEN_VSOCK;
-  const vsockTempDir = existingSpec ? undefined : mkdtempSync(join(tmpdir(), "machinen-vsock-"));
+  const mode = planBootVsockModeNative(env.MACHINEN_VSOCK);
+  const existingSpec = mode.existingSpec ?? undefined;
+  const vsockTempDir =
+    mode.action === "existing" ? undefined : mkdtempSync(join(tmpdir(), "machinen-vsock-"));
   const plan = planBootCoreNative({
     existingVsockSpec: existingSpec,
     autoVsockTempDir: vsockTempDir,
@@ -1403,9 +1407,9 @@ function setupStatsFile(
   env: Record<string, string>,
   vsockTempDir: string | undefined,
 ): { statsFilePath: string | undefined; statsTempDir: string | undefined } {
-  if (env.MACHINEN_STATS_FILE !== undefined) {
-    const plan = planBootStatsFileNative({ existingPath: env.MACHINEN_STATS_FILE });
-    return { statsFilePath: plan.statsFilePath, statsTempDir: undefined };
+  const mode = planBootStatsFileModeNative(env.MACHINEN_STATS_FILE);
+  if (mode.action === "existing") {
+    return { statsFilePath: mode.existingPath ?? undefined, statsTempDir: undefined };
   }
   let statsTempDir: string | undefined;
   const statsFileTempDir =

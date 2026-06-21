@@ -452,6 +452,9 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
+    const vsock_mode = boot_plan.planVsockMode(.{
+        .existing_spec = parsed.existing_vsock_spec,
+    });
     const vsock_plan = try boot_plan.planVsock(arena, .{
         .existing_spec = parsed.existing_vsock_spec,
         .auto_uds_path = parsed.auto_vsock_uds_path,
@@ -525,6 +528,9 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writeRestoreLiveMountOverrideError(arena, io, guest, parsed.restore_live_mounts_recorded);
         return .fail;
     }
+    const stats_file_mode = boot_plan.planStatsFileMode(.{
+        .existing_path = parsed.existing_stats_file,
+    });
     const stats_file = try boot_plan.planStatsFile(arena, .{
         .existing_path = parsed.existing_stats_file,
         .planned_path = parsed.stats_file_path,
@@ -804,7 +810,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .gv_observed_exe_base = parsed.registry_gv_observed_exe_base,
     });
 
-    try writePlan(io, plan, root_disk_mode, cpu_plan, guest_env, vmm_env, guest_hostname, guest_hostname_set, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file, planned_live_mounts, parsed.port_forward, port_forward_probe, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, provision_assets, provision_dtb, provision_cli_cache, provision_asset_lookup, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, planned_scratch_mode, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, snapshot_context, registry_shape, registry_lifecycle, registry_process);
+    try writePlan(io, plan, root_disk_mode, cpu_plan, guest_env, vmm_env, guest_hostname, guest_hostname_set, vsock_mode, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file_mode, stats_file, planned_live_mounts, parsed.port_forward, port_forward_probe, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, provision_assets, provision_dtb, provision_cli_cache, provision_asset_lookup, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, planned_scratch_mode, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, snapshot_context, registry_shape, registry_lifecycle, registry_process);
     return .ok;
 }
 
@@ -817,6 +823,7 @@ fn writePlan(
     vmm_env: []const boot_plan.EnvPair,
     guest_hostname: ?[]const u8,
     guest_hostname_set: ?[]const u8,
+    vsock_mode: boot_plan.VsockModePlan,
     vsock_plan: boot_plan.VsockPlan,
     gvproxy_plan: boot_plan.GvproxyPlan,
     vmm_argv: boot_plan.VmmArgvPlan,
@@ -829,6 +836,7 @@ fn writePlan(
     virtiofs_env: []const boot_plan.EnvPair,
     batch_live_mount_sync: boot_plan.BatchLiveMountPlan,
     restore_live_mounts: []const boot_plan.RestoreLiveMountInput,
+    stats_file_mode: boot_plan.StatsFileModePlan,
     stats_file: boot_plan.StatsFilePlan,
     planned_live_mounts: []const boot_plan.LiveMount,
     planned_port_forwards: []const boot_plan.PortForwardMapping,
@@ -906,6 +914,12 @@ fn writePlan(
     } else {
         try protocol.stdout(io, "null");
     }
+    try protocol.stdout(io, ",\"vsockMode\":{");
+    try protocol.stdout(io, "\"action\":");
+    try protocol.writeJsonString(io, vsock_mode.action);
+    try protocol.stdout(io, ",\"existingSpec\":");
+    try writeNullableJsonString(io, vsock_mode.existing_spec);
+    try protocol.stdout(io, "}");
     try protocol.stdout(io, ",\"vsockUdsPath\":");
     if (vsock_plan.uds_path) |path| {
         try protocol.writeJsonString(io, path);
@@ -970,6 +984,12 @@ fn writePlan(
     } else {
         try protocol.stdout(io, "null");
     }
+    try protocol.stdout(io, ",\"statsFileMode\":{");
+    try protocol.stdout(io, "\"action\":");
+    try protocol.writeJsonString(io, stats_file_mode.action);
+    try protocol.stdout(io, ",\"existingPath\":");
+    try writeNullableJsonString(io, stats_file_mode.existing_path);
+    try protocol.stdout(io, "}");
     try protocol.stdout(io, ",\"statsFilePath\":");
     if (stats_file.stats_file_path) |path| {
         try protocol.writeJsonString(io, path);
