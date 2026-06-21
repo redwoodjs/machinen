@@ -179,6 +179,46 @@ describe("boot-plan helper schema", () => {
     });
     expect(presetNetSocket.status).toBe(1);
     expect(JSON.parse(presetNetSocket.stdout).error.code).toBe("BOOT_PORT_FORWARD_INVALID");
+
+    const existingGvproxy = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, gvproxyNetSocket: "/tmp/net.sock" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(existingGvproxy.status).toBe(0);
+    expect(JSON.parse(existingGvproxy.stdout).data.gvproxyPlan).toEqual({
+      action: "skip-existing",
+      gvproxyPath: null,
+    });
+
+    const spawnGvproxy = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, gvproxyPath: "/bin/gvproxy" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(spawnGvproxy.status).toBe(0);
+    expect(JSON.parse(spawnGvproxy.stdout).data.gvproxyPlan).toEqual({
+      action: "spawn",
+      gvproxyPath: "/bin/gvproxy",
+    });
+
+    const missingGvproxy = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          portForward: [{ hostPort: 8080, guestPort: 80 }],
+          gvproxyPlanningRequired: true,
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(missingGvproxy.status).toBe(1);
+    expect(JSON.parse(missingGvproxy.stdout).error.code).toBe("BOOT_PORT_FORWARD_NO_GVPROXY");
   });
 
   it("plans vsock specs from caller env auto UDS paths or auto temp dirs", () => {

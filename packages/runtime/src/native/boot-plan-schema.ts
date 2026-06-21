@@ -1,10 +1,12 @@
 type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
 type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
 type MountDiskRuntimeAction = "none" | "restore" | "fresh";
+type GvproxyAction = "skip-existing" | "spawn" | "missing-ok";
 export type ProvisionGuestCpu = "arm64" | "amd64";
 export type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
 export type RestoreLiveMount = { host: string; guest: string; mode?: "ro" | "rw" };
 export type PlannedPortForward = { hostPort: number; guestPort: number; hostAddr?: string };
+export type GvproxyPlan = { action: GvproxyAction; gvproxyPath: string | null };
 type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
 type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
@@ -121,6 +123,7 @@ export interface NativeBootPlanResult {
   normalizedMountGuest: string | null;
   guestHostname: string | null;
   plannedPortForward: PlannedPortForward[];
+  gvproxyPlan: GvproxyPlan;
   mergedGuestEnv: Record<string, string>;
   vsockUdsPath: string | null;
   vmmVsock: string | null;
@@ -175,6 +178,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.normalizedMountGuest),
     nullableString(data.guestHostname),
     Array.isArray(data.plannedPortForward) && data.plannedPortForward.every(isPlannedPortForward),
+    isGvproxyPlan(data.gvproxyPlan),
     isStringRecord(data.mergedGuestEnv),
     nullableString(data.vsockUdsPath),
     nullableString(data.vmmVsock),
@@ -467,6 +471,17 @@ function isRegistryLiveMount(value: unknown): value is RegistryLiveMountPlan {
 
 function isRegistryPortForwardArray(value: unknown): value is RegistryPortForwardPlan[] {
   return Array.isArray(value) && value.every(isPlannedPortForward);
+}
+
+function isGvproxyPlan(value: unknown): value is GvproxyPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<GvproxyPlan>;
+  return (
+    (plan.action === "skip-existing" || plan.action === "spawn" || plan.action === "missing-ok") &&
+    nullableString(plan.gvproxyPath)
+  );
 }
 
 function isPlannedPortForward(value: unknown): value is PlannedPortForward {

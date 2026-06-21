@@ -71,6 +71,7 @@ import {
   rootDiskPlanMode,
 } from "../native/boot-plan.ts";
 import { reflinkCopy } from "../reflink.ts";
+import { planGvproxyNative } from "../native/gvproxy-plan.ts";
 import { validatePortForwardNetSocketNative } from "../native/port-forward.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
@@ -1427,7 +1428,11 @@ async function bringUpGvproxy(
   env: Record<string, string>,
   portForward: NonNullable<BootOptions["portForward"]>,
 ): Promise<GvproxyResult> {
-  if (env.MACHINEN_NET_SOCKET) {
+  const existingPlan = planGvproxyNative({
+    portForward,
+    existingNetSocket: env.MACHINEN_NET_SOCKET,
+  });
+  if (existingPlan.action === "skip-existing") {
     debug("MACHINEN_NET_SOCKET already set — skipping gvproxy spawn");
     return { gvStop: undefined, gvPid: undefined, gvExe: undefined, gvSocketDir: undefined };
   }
@@ -1435,22 +1440,21 @@ async function bringUpGvproxy(
   // visible stderr line; cached under ~/.machinen so subsequent
   // boots are silent. See #83 follow-up.
   const gvBin = await ensureGvproxy(binary);
-  if (!gvBin) {
-    if (portForward.length > 0) {
-      throw new BootError(
-        "BOOT_PORT_FORWARD_NO_GVPROXY",
-        "portForward requires gvproxy, but no gvproxy binary was found. " +
-          "Install gvproxy or point MACHINEN_GVPROXY at one.",
-      );
-    }
+  const gvproxyPlan = planGvproxyNative({
+    portForward,
+    gvproxyPath: gvBin ?? undefined,
+    planningRequired: true,
+  });
+  if (gvproxyPlan.action === "missing-ok") {
     debug("gvproxy not found — booting without networking");
     warnGvproxyMissing();
     return { gvStop: undefined, gvPid: undefined, gvExe: undefined, gvSocketDir: undefined };
   }
-  debug("starting gvproxy bin=%s", gvBin);
+  const gvproxyPath = gvproxyPlan.gvproxyPath!;
+  debug("starting gvproxy bin=%s", gvproxyPath);
   // Detach gvproxy alongside the VMM so the parent can exit
   // without stranding the guest's networking (#150 phase 2 PR3).
-  const gv = await spawnGvproxy(gvBin, { detached: opts.detached });
+  const gv = await spawnGvproxy(gvproxyPath, { detached: opts.detached });
   env.MACHINEN_NET_SOCKET = gv.socketPath;
   for (const m of portForward) {
     await exposePort(gv.controlSocketPath, m);
@@ -1458,7 +1462,7 @@ async function bringUpGvproxy(
   return {
     gvStop: gv.stop,
     gvPid: gv.child.pid,
-    gvExe: gvBin,
+    gvExe: gvproxyPath,
     gvSocketDir: gv.socketDir,
   };
 }

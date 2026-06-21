@@ -74,6 +74,18 @@ pub const PortForwardNetSocketInput = struct {
     net_socket: ?[]const u8 = null,
 };
 
+pub const GvproxyPlanInput = struct {
+    planning_required: bool = false,
+    existing_net_socket: ?[]const u8 = null,
+    gvproxy_path: ?[]const u8 = null,
+    port_forwards: []const PortForwardMapping = &.{},
+};
+
+pub const GvproxyPlan = struct {
+    action: []const u8,
+    gvproxy_path: ?[]const u8,
+};
+
 pub const PortForwardValidation = union(enum) {
     ok,
     invalid_host_port: i64,
@@ -546,6 +558,7 @@ pub const PlanError = error{
     MissingMountDiskFdField,
     MissingBatchLiveMountVsock,
     PortForwardNetSocketPreset,
+    MissingGvproxy,
     IncompleteRegistryMountDisk,
     MissingRegistryCpuStatus,
     MissingRegistryVmstateField,
@@ -1294,6 +1307,13 @@ pub fn validatePortForward(mappings: []const PortForwardMapping) PortForwardVali
 
 pub fn validatePortForwardNetSocket(input: PortForwardNetSocketInput) PlanError!void {
     if (input.port_forwards.len > 0 and input.net_socket != null) return error.PortForwardNetSocketPreset;
+}
+
+pub fn planGvproxy(input: GvproxyPlanInput) PlanError!GvproxyPlan {
+    if (input.existing_net_socket != null) return .{ .action = "skip-existing", .gvproxy_path = null };
+    if (input.gvproxy_path) |path| return .{ .action = "spawn", .gvproxy_path = path };
+    if (input.planning_required and input.port_forwards.len > 0) return error.MissingGvproxy;
+    return .{ .action = "missing-ok", .gvproxy_path = null };
 }
 
 fn validateTcpPort(port: i64) ?usize {
@@ -2115,6 +2135,21 @@ test "validatePortForwardNetSocket rejects caller-owned net socket with forwards
     }));
     try validatePortForwardNetSocket(.{ .port_forwards = &forwards });
     try validatePortForwardNetSocket(.{ .net_socket = "/tmp/net.sock" });
+}
+
+test "planGvproxy selects skip spawn missing-ok and missing-gvproxy actions" {
+    const forwards = [_]PortForwardMapping{.{ .host_port = 8080, .guest_port = 3000 }};
+    const existing = try planGvproxy(.{ .existing_net_socket = "/tmp/net.sock", .port_forwards = &forwards });
+    try std.testing.expectEqualStrings("skip-existing", existing.action);
+    try std.testing.expect(existing.gvproxy_path == null);
+
+    const spawn = try planGvproxy(.{ .gvproxy_path = "/bin/gvproxy", .port_forwards = &forwards });
+    try std.testing.expectEqualStrings("spawn", spawn.action);
+    try std.testing.expectEqualStrings("/bin/gvproxy", spawn.gvproxy_path.?);
+
+    const missing_ok = try planGvproxy(.{ .planning_required = true });
+    try std.testing.expectEqualStrings("missing-ok", missing_ok.action);
+    try std.testing.expectError(error.MissingGvproxy, planGvproxy(.{ .planning_required = true, .port_forwards = &forwards }));
 }
 
 test "validatePortForward rejects invalid and duplicate ports" {
