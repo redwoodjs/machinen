@@ -37,6 +37,7 @@ interface NativeBootPlanInput {
   vmmMemoryPreset: boolean;
   hasImage: boolean;
   hasCmd: boolean;
+  hasSnapshot?: boolean;
   rootDisk: RootDiskPlanMode;
   guestCwd?: string;
   mountGuest?: string;
@@ -146,6 +147,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     vmmMemoryPreset: input.vmmMemoryPreset,
     hasImage: input.hasImage,
     hasCmd: input.hasCmd,
+    hasSnapshot: input.hasSnapshot === true,
     rootDisk: input.rootDisk,
     guestCwd: nullDefault(input.guestCwd),
     mountGuest: nullDefault(input.mountGuest),
