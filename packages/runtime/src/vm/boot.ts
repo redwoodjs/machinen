@@ -537,9 +537,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // (`(none)` on Linux). Subsequent shells (e.g. via
   // `machinen attach`) read the post-call value. Suppressed when
   // we have no vsock UDS (boot-without-exec-agent paths).
-  if (vsockUdsPath && env.MACHINEN_SKIP_GUEST_HOSTNAME !== "1") {
-    void setGuestHostname(handle, buildGuestHostname(handle.pid, handle.name));
-  }
+  setPlannedGuestHostnameIfEnabled(handle, vsockUdsPath, env);
 
   if (opts.detached && bootLogPath) {
     await gateOnDetachedReadiness({
@@ -558,6 +556,26 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
 // =============================================================
 // Helpers
 // =============================================================
+
+function setPlannedGuestHostnameIfEnabled(
+  handle: VmHandle,
+  vsockUdsPath: string | undefined,
+  env: Record<string, string>,
+): void {
+  if (!vsockUdsPath || env.MACHINEN_SKIP_GUEST_HOSTNAME === "1") {
+    return;
+  }
+  try {
+    void setGuestHostname(handle, buildGuestHostname(handle.pid, handle.name));
+  } catch (err) {
+    debug(
+      "setGuestHostname: planner failed pid=%d name=%s err=%s",
+      handle.pid,
+      handle.name ?? "",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
 
 interface BootPlan {
   portForward: NonNullable<BootOptions["portForward"]>;

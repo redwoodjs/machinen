@@ -90,6 +90,7 @@ export interface NativeBootPlanResult {
   wantsRootDisk: boolean;
   needsInitramfs: boolean;
   normalizedMountGuest: string | null;
+  guestHostname: string | null;
   mergedGuestEnv: Record<string, string>;
   vsockUdsPath: string | null;
   vmmVsock: string | null;
@@ -133,6 +134,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     typeof data.wantsRootDisk === "boolean",
     typeof data.needsInitramfs === "boolean",
     nullableString(data.normalizedMountGuest),
+    nullableString(data.guestHostname),
     isStringRecord(data.mergedGuestEnv),
     nullableString(data.vsockUdsPath),
     nullableString(data.vmmVsock),

@@ -44,6 +44,8 @@ interface NativeBootPlanInput {
   guestEnv?: Record<string, string>;
   name?: string;
   vsockUdsPath?: string;
+  guestHostnamePid?: number;
+  guestHostnameName?: string;
   existingVsockSpec?: string;
   autoVsockUdsPath?: string;
   portForward?: PortForwardPlanMapping[];
@@ -154,6 +156,8 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     guestEnv: input.guestEnv ?? {},
     name: nullDefault(input.name),
     vsockUdsPath: nullDefault(input.vsockUdsPath),
+    guestHostnamePid: numberText(input.guestHostnamePid),
+    guestHostnameName: nullDefault(input.guestHostnameName),
     existingVsockSpec: nullDefault(input.existingVsockSpec),
     autoVsockUdsPath: nullDefault(input.autoVsockUdsPath),
     portForward: input.portForward ?? [],
@@ -323,6 +327,21 @@ export function planBootCpuResourcesNative(
       rootDisk: "false",
     }).cpuPolicy ?? undefined
   );
+}
+
+export function planBootGuestHostnameNative(pid: number, name?: string): string {
+  const plan = planBootCoreNative({
+    guestHostnamePid: pid,
+    guestHostnameName: name,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  if (plan.guestHostname === null) {
+    throw new BootError("BOOT_VMM_MISSING", "boot: native planner returned no guest hostname");
+  }
+  return plan.guestHostname;
 }
 
 export function planProvisionWorkloadNative(): ProvisionWorkloadPlan {
