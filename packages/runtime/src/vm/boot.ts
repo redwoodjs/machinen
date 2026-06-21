@@ -572,6 +572,7 @@ interface BootPlan {
   vsockTempDir: string | undefined;
   statsFilePath: string | undefined;
   statsTempDir: string | undefined;
+  usePdeathsig: boolean;
   vmstate: BootVmstateRuntime;
   liveMountsResolved: ResolvedLiveMount[];
   mergedGuestEnv: Record<string, string>;
@@ -694,7 +695,7 @@ interface SpawnedBootVmm {
 
 async function spawnBootVmm(args: SpawnBootArgs): Promise<SpawnedBootVmm> {
   args.phases.start("vmm-spawn");
-  const vmmPdeathsig = await resolveVmmPdeathsig(args.opts);
+  const vmmPdeathsig = await resolveVmmPdeathsig(args.plan.usePdeathsig);
   const vmmArgv = planBootVmmArgvNative({
     binary: args.plan.binary,
     args: args.opts.args ?? [],
@@ -734,11 +735,8 @@ function applySpawnedCpuControls(
   }
 }
 
-async function resolveVmmPdeathsig(opts: BootOptions): Promise<string | null> {
-  if (opts.detached || opts.pdeathsig === false) {
-    return null;
-  }
-  return ensurePdeathsig();
+async function resolveVmmPdeathsig(usePdeathsig: boolean): Promise<string | null> {
+  return usePdeathsig ? ensurePdeathsig() : null;
 }
 
 function maybeOpenMountDiskFds(
@@ -959,6 +957,8 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
     vmmMemoryPreset: env.MACHINEN_MEMORY !== undefined,
     hasImage: opts.image !== undefined,
     hasCmd: opts.cmd !== undefined,
+    detached: opts.detached,
+    pdeathsig: opts.pdeathsig,
     rootDisk:
       opts.rootDisk === false
         ? "false"
@@ -989,6 +989,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
     vsockUdsPath: vsock.vsockUdsPath,
     vsockTempDir: vmstateSetup.vsockTempDir,
     ...stats,
+    usePdeathsig: corePlan.usePdeathsig,
     vmstate: vmstateSetup.vmstate,
     liveMountsResolved,
     mergedGuestEnv: buildMergedGuestEnv(opts, vsock.vsockUdsPath),

@@ -78,6 +78,11 @@ pub const VmmArgvPlan = struct {
     args: []const []const u8,
 };
 
+pub const PdeathsigInput = struct {
+    detached: bool = false,
+    pdeathsig: ?bool = null,
+};
+
 pub const BundleCommandInput = struct {
     explicit_cmd: ?[]const []const u8 = null,
     image_cmd: ?[]const []const u8 = null,
@@ -436,6 +441,11 @@ pub fn planCpuResources(input: ?CpuResourcesInput) PlanError!?CpuPolicyPlan {
 
 pub fn planNestedEnv(nested: bool) ?[]const u8 {
     return if (nested) "1" else null;
+}
+
+pub fn planPdeathsig(input: PdeathsigInput) bool {
+    if (input.detached) return false;
+    return input.pdeathsig orelse true;
 }
 
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
@@ -1040,6 +1050,13 @@ test "planCpuResources applies defaults and validates cpu policy" {
 test "planNestedEnv sets nested only when requested" {
     try std.testing.expectEqualStrings("1", planNestedEnv(true).?);
     try std.testing.expect(planNestedEnv(false) == null);
+}
+
+test "planPdeathsig defaults on and lets detach or explicit false disable it" {
+    try std.testing.expect(planPdeathsig(.{}));
+    try std.testing.expect(planPdeathsig(.{ .pdeathsig = true }));
+    try std.testing.expect(!planPdeathsig(.{ .pdeathsig = false }));
+    try std.testing.expect(!planPdeathsig(.{ .detached = true, .pdeathsig = true }));
 }
 
 test "autoSizeMemoryMib applies floor, half-host, and default ceiling" {

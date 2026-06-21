@@ -26,6 +26,8 @@ const ParsedRequest = struct {
     vmm_binary: ?[]const u8,
     vmm_args: []const []const u8,
     pdeathsig_path: ?[]const u8,
+    pdeathsig_requested: ?bool,
+    detached_requested: bool,
     kernel_path: ?[]const u8,
     dtb_path: ?[]const u8,
     vmstate_path: ?[]const u8,
@@ -154,6 +156,8 @@ const RequestError = error{
     InvalidVmmBinary,
     InvalidVmmArgs,
     InvalidPdeathsigPath,
+    InvalidPdeathsig,
+    InvalidDetached,
     InvalidKernelPath,
     InvalidDtbPath,
     InvalidVmstatePath,
@@ -285,6 +289,10 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .binary = parsed.vmm_binary,
         .args = parsed.vmm_args,
         .pdeathsig_path = parsed.pdeathsig_path,
+    });
+    const use_pdeathsig = boot_plan.planPdeathsig(.{
+        .detached = parsed.detached_requested,
+        .pdeathsig = parsed.pdeathsig_requested,
     });
     const kernel_dtb = boot_plan.planKernelDtb(.{
         .kernel_path = parsed.kernel_path,
@@ -443,7 +451,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         return .fail;
     };
 
-    try writePlan(io, plan, cpu_plan, guest_env, vsock_plan, vmm_argv, kernel_dtb, vmstate_env, nested_env, virtiofs_env, stats_file, planned_live_mounts, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, scratch_disk, root_disk_runtime, mount_disk_runtime, registry_shape);
+    try writePlan(io, plan, cpu_plan, guest_env, vsock_plan, vmm_argv, use_pdeathsig, kernel_dtb, vmstate_env, nested_env, virtiofs_env, stats_file, planned_live_mounts, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, scratch_disk, root_disk_runtime, mount_disk_runtime, registry_shape);
     return .ok;
 }
 
@@ -454,6 +462,7 @@ fn writePlan(
     guest_env: []const boot_plan.EnvPair,
     vsock_plan: boot_plan.VsockPlan,
     vmm_argv: boot_plan.VmmArgvPlan,
+    use_pdeathsig: bool,
     kernel_dtb: boot_plan.KernelDtbPlan,
     vmstate_env: boot_plan.VmstateEnvPlan,
     nested_env: ?[]const u8,
@@ -853,6 +862,8 @@ fn writePlan(
         try protocol.writeJsonString(io, arg);
     }
     try protocol.stdout(io, "]");
+    try protocol.stdout(io, ",\"usePdeathsig\":");
+    try protocol.stdout(io, if (use_pdeathsig) "true" else "false");
     try protocol.stdout(io, ",\"mergedGuestEnv\":{");
     for (guest_env, 0..) |pair, i| {
         if (i != 0) try protocol.stdout(io, ",");
@@ -1026,7 +1037,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "nested", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "existingVsockSpec", "autoVsockUdsPath", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "kernelPath", "dtbPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "nested", "liveMounts", "liveMountsResolved", "existingStatsFile", "statsFilePath", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "provisionGuestCpu", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "registrySourceImagePath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -1048,6 +1059,8 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .vmm_binary = try optionalStringDefaultNull(object, "vmmBinary", error.InvalidVmmBinary),
         .vmm_args = try optionalStringArrayDefaultEmpty(allocator, object, "vmmArgs", error.InvalidVmmArgs),
         .pdeathsig_path = try optionalStringDefaultNull(object, "pdeathsigPath", error.InvalidPdeathsigPath),
+        .pdeathsig_requested = try optionalBoolDefaultNull(object, "pdeathsig", error.InvalidPdeathsig),
+        .detached_requested = try optionalBoolDefaultFalse(object, "detached", error.InvalidDetached),
         .kernel_path = try optionalStringDefaultNull(object, "kernelPath", error.InvalidKernelPath),
         .dtb_path = try optionalStringDefaultNull(object, "dtbPath", error.InvalidDtbPath),
         .vmstate_path = try optionalStringDefaultNull(object, "vmstatePath", error.InvalidVmstatePath),
@@ -1242,6 +1255,15 @@ fn optionalLiveMountsResolvedField(
 
 fn optionalBoolDefaultFalse(object: std.json.ObjectMap, field: []const u8, invalid: RequestError) RequestError!bool {
     const value = object.get(field) orelse return false;
+    return switch (value) {
+        .bool => |b| b,
+        else => invalid,
+    };
+}
+
+fn optionalBoolDefaultNull(object: std.json.ObjectMap, field: []const u8, invalid: RequestError) RequestError!?bool {
+    const value = object.get(field) orelse return null;
+    if (value == .null) return null;
     return switch (value) {
         .bool => |b| b,
         else => invalid,
