@@ -151,6 +151,7 @@ export interface NativeBootPlanResult {
   guestHostname: string | null;
   guestHostnameSet: string | null;
   mergedGuestEnv: Record<string, string>;
+  vmmEnv: Record<string, string>;
   vsockUdsPath: string | null;
   vmmVsock: string | null;
   gvproxyPlan: GvproxyPlan;
@@ -216,6 +217,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.guestHostname),
     nullableString(data.guestHostnameSet),
     isStringRecord(data.mergedGuestEnv),
+    isStringRecord(data.vmmEnv),
     nullableString(data.vsockUdsPath),
     nullableString(data.vmmVsock),
     isGvproxyPlan(data.gvproxyPlan),

@@ -101,6 +101,33 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans VMM env overrides", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      vmmEnvBase: { PATH: "/usr/bin", MACHINEN_MEMORY: "512" },
+      vmmEnvOverrides: { MACHINEN_MEMORY: "1024", MACHINEN_TRACE: "1" },
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.vmmEnv).toEqual({
+      PATH: "/usr/bin",
+      MACHINEN_MEMORY: "1024",
+      MACHINEN_TRACE: "1",
+    });
+  });
+
   it("plans rootDisk option mode with restore precedence", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

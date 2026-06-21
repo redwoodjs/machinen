@@ -64,6 +64,11 @@ pub const GuestEnvInput = struct {
     vsock_uds_path: ?[]const u8 = null,
 };
 
+pub const VmmEnvInput = struct {
+    base: []const EnvPair = &.{},
+    overrides: []const EnvPair = &.{},
+};
+
 pub const GuestHostnameInput = struct {
     pid: ?i64 = null,
     name: ?[]const u8 = null,
@@ -902,6 +907,12 @@ pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPa
     return out.toOwnedSlice(allocator);
 }
 
+pub fn planVmmEnv(allocator: std.mem.Allocator, input: VmmEnvInput) ![]EnvPair {
+    assert(@sizeOf(VmmEnvInput) > 0);
+
+    return mergeEnvPairs(allocator, input.base, input.overrides);
+}
+
 pub fn planVsock(allocator: std.mem.Allocator, input: VsockPlanInput) !VsockPlan {
     assert(@sizeOf(VsockPlanInput) > 0);
 
@@ -1416,10 +1427,20 @@ pub fn planBundlePack(input: BundlePackInput) BundlePackPlan {
 pub fn planBundleEnv(allocator: std.mem.Allocator, input: BundleEnvInput) ![]EnvPair {
     assert(@sizeOf(BundleEnvInput) > 0);
 
+    return mergeEnvPairs(allocator, input.image_env, input.guest_env);
+}
+
+fn mergeEnvPairs(
+    allocator: std.mem.Allocator,
+    base: []const EnvPair,
+    overrides: []const EnvPair,
+) ![]EnvPair {
+    assert(@sizeOf(EnvPair) > 0);
+
     var out: std.array_list.Aligned(EnvPair, null) = .empty;
     errdefer out.deinit(allocator);
-    try out.appendSlice(allocator, input.image_env);
-    for (input.guest_env) |pair| {
+    try out.appendSlice(allocator, base);
+    for (overrides) |pair| {
         var replaced = false;
         for (out.items) |*existing| {
             if (std.mem.eql(u8, existing.key, pair.key)) {
@@ -2774,6 +2795,24 @@ test "planBundlePack selects fat or tiny initramfs inputs" {
     });
     try std.testing.expectEqualStrings("tiny", tiny_restore.kind);
     try std.testing.expectEqualStrings("/mnt/restore", tiny_restore.tiny_mount_guest.?);
+}
+
+test "planVmmEnv overlays caller env on host env" {
+    const host = [_]EnvPair{
+        .{ .key = "PATH", .value = "/usr/bin" },
+        .{ .key = "MACHINEN_MEMORY", .value = "512" },
+    };
+    const caller = [_]EnvPair{
+        .{ .key = "MACHINEN_MEMORY", .value = "1024" },
+        .{ .key = "MACHINEN_TRACE", .value = "1" },
+    };
+    const planned = try planVmmEnv(std.testing.allocator, .{ .base = &host, .overrides = &caller });
+    defer std.testing.allocator.free(planned);
+    try std.testing.expectEqualStrings("PATH", planned[0].key);
+    try std.testing.expectEqualStrings("/usr/bin", planned[0].value);
+    try std.testing.expectEqualStrings("MACHINEN_MEMORY", planned[1].key);
+    try std.testing.expectEqualStrings("1024", planned[1].value);
+    try std.testing.expectEqualStrings("MACHINEN_TRACE", planned[2].key);
 }
 
 test "planBundleEnv overlays guest env on image env" {

@@ -78,6 +78,7 @@ import { planBootRegistryProcessNative } from "../native/registry-process.ts";
 import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
 import { planBootScratchModeNative } from "../native/scratch-mode.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
+import { planBootVmmEnvNative } from "../native/vmm-env.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
 import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
@@ -1054,10 +1055,10 @@ function resolveBootBinary(opts: BootOptions): string {
 }
 
 function buildVmmEnv(opts: BootOptions): Record<string, string> {
-  return {
-    ...(process.env as Record<string, string>),
-    ...opts.vmmEnv,
-  };
+  return planBootVmmEnvNative({
+    hostEnv: process.env,
+    overrides: opts.vmmEnv,
+  });
 }
 
 function prepareBootScratchDisk(

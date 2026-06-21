@@ -25,6 +25,8 @@ const ParsedRequest = struct {
     guest_cwd: ?[]const u8 = null,
     mount_guest: ?[]const u8 = null,
     guest_env: std.json.ObjectMap = .{},
+    vmm_env_base: std.json.ObjectMap = .{},
+    vmm_env_overrides: std.json.ObjectMap = .{},
     name: ?[]const u8 = null,
     vsock_uds_path: ?[]const u8 = null,
     existing_vsock_spec: ?[]const u8 = null,
@@ -210,6 +212,8 @@ const boot_plan_fields = [_][]const u8{
     "guestCwd",
     "mountGuest",
     "guestEnv",
+    "vmmEnvBase",
+    "vmmEnvOverrides",
     "name",
     "vsockUdsPath",
     "existingVsockSpec",
@@ -399,6 +403,9 @@ const RequestError = error{
     InvalidMountGuest,
     InvalidGuestEnv,
     InvalidGuestEnvValue,
+    InvalidVmmEnvBase,
+    InvalidVmmEnvOverrides,
+    InvalidVmmEnvValue,
     InvalidName,
     InvalidVsockUdsPath,
     InvalidExistingVsockSpec,
@@ -594,6 +601,7 @@ const PlanParts = struct {
     cpu_policy: ?boot_plan.CpuPolicyPlan,
     root_disk_mode: boot_plan.RootDiskMode,
     guest_env: []const boot_plan.EnvPair,
+    vmm_env: []const boot_plan.EnvPair,
     vsock_plan: boot_plan.VsockPlan,
     gvproxy_plan: boot_plan.GvproxyPlan,
     guest_hostname: boot_plan.GuestHostnameInput,
@@ -701,6 +709,7 @@ fn makePlanParts(
         .cpu_policy = try makeCpuResources(parsed),
         .root_disk_mode = parsed.root_disk,
         .guest_env = try makeGuestEnv(arena, parsed),
+        .vmm_env = try makeVmmEnv(arena, parsed),
         .guest_hostname = try makeGuestHostname(parsed),
         .guest_hostname_set = try makeGuestHostnameSet(parsed),
         .vsock_plan = boot_env.vsock_plan,
@@ -1290,6 +1299,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try protocol.stdout(io, "\"command\":\"boot-plan\",\"data\":{");
     try writeCoreFields(io, parts.plan, parts.cpu_policy, parts.root_disk_mode);
     try writeVsockKernelFields(io, parts.vsock_plan, parts.kernel_dtb);
+    try writeEnvObjectField(io, "vmmEnv", parts.vmm_env, true);
     try writeGvproxyPlanField(io, "gvproxyPlan", parts.gvproxy_plan, true);
     try writeNullableStringField(io, "vmmInitrd", parts.initrd_env.vmm_initrd, true);
     try writeGuestHostnameField(io, "guestHostname", parts.guest_hostname, true);
@@ -2282,6 +2292,15 @@ fn writeStringArrayField(
     try protocol.stdout(io, "]");
 }
 
+fn makeVmmEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.EnvPair {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return boot_plan.planVmmEnv(allocator, .{
+        .base = try objectStringPairs(allocator, parsed.vmm_env_base, error.InvalidVmmEnvValue),
+        .overrides = try objectStringPairs(allocator, parsed.vmm_env_overrides, error.InvalidVmmEnvValue),
+    });
+}
+
 fn makeGuestHostname(parsed: ParsedRequest) RequestError!boot_plan.GuestHostnameInput {
     assert(@sizeOf(ParsedRequest) > 0);
 
@@ -2583,6 +2602,16 @@ fn parseBootShapeFields(
         error.InvalidMountGuest,
     );
     request.guest_env = try optionalObjectDefaultEmpty(object, "guestEnv", error.InvalidGuestEnv);
+    request.vmm_env_base = try optionalObjectDefaultEmpty(
+        object,
+        "vmmEnvBase",
+        error.InvalidVmmEnvBase,
+    );
+    request.vmm_env_overrides = try optionalObjectDefaultEmpty(
+        object,
+        "vmmEnvOverrides",
+        error.InvalidVmmEnvOverrides,
+    );
     request.name = try optionalStringDefaultNull(object, "name", error.InvalidName);
 }
 
@@ -4290,6 +4319,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
     if (try writeProvisionCliCacheRequestError(io, err)) return;
     if (try writeProvisionAssetLookupRequestError(io, err)) return;
     if (try writeRegistryLifecycleRequestError(io, err)) return;
+    if (try writeVmmEnvRequestError(io, err)) return;
 
     switch (err) {
         error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
@@ -4309,6 +4339,27 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
+}
+
+fn writeVmmEnvRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidVmmEnvBase,
+        error.InvalidVmmEnvOverrides,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan vmm env fields must be objects",
+        ),
+        error.InvalidVmmEnvValue => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan vmm env values must be strings",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writeRegistryLifecycleRequestError(io: std.Io, err: RequestError) !bool {
