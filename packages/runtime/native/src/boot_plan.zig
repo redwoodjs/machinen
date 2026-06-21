@@ -188,6 +188,19 @@ pub const ProvisionAssetsPlan = struct {
     rootfs_asset: []const u8,
 };
 
+pub const ProvisionDtbInput = struct {
+    explicit: bool = false,
+    guest_cpu: ?ProvisionGuestCpu = null,
+    arch_override: ?[]const u8 = null,
+    host_arch: ?[]const u8 = null,
+};
+
+pub const ProvisionDtbPlan = struct {
+    required: bool,
+    asset: ?[]const u8,
+    cli_cache_name: ?[]const u8,
+};
+
 pub const ProvisionBootInput = struct {
     base_path: ?[]const u8 = null,
     kernel_path: ?[]const u8 = null,
@@ -1046,6 +1059,17 @@ pub fn planProvisionAssets(input: ProvisionAssetsInput) ProvisionAssetsPlan {
     };
 }
 
+pub fn planProvisionDtb(input: ProvisionDtbInput) ProvisionDtbPlan {
+    if (input.explicit) return .{ .required = true, .asset = null, .cli_cache_name = null };
+    const assets = planProvisionAssets(.{
+        .guest_cpu = input.guest_cpu,
+        .arch_override = input.arch_override,
+        .host_arch = input.host_arch,
+    });
+    const asset = assets.dtb_asset orelse return .{ .required = false, .asset = null, .cli_cache_name = null };
+    return .{ .required = true, .asset = asset, .cli_cache_name = "virt.dtb" };
+}
+
 pub fn planBundleWorkspace(allocator: std.mem.Allocator, input: BundleWorkspaceInput) !BundleWorkspacePlan {
     const temp_dir = input.temp_dir orelse return .{ .cpio_path = null, .synth_bundle_dir = null };
     const cpio_path = try std.fs.path.join(allocator, &.{ temp_dir, "initramfs.cpio" });
@@ -1600,6 +1624,23 @@ test "planPdeathsig defaults on and lets detach or explicit false disable it" {
     try std.testing.expect(planPdeathsig(.{ .pdeathsig = true }));
     try std.testing.expect(!planPdeathsig(.{ .pdeathsig = false }));
     try std.testing.expect(!planPdeathsig(.{ .detached = true, .pdeathsig = true }));
+}
+
+test "planProvisionDtb plans omitted dtb requirement by guest cpu" {
+    const arm64 = planProvisionDtb(.{ .arch_override = "arm64", .host_arch = "x64" });
+    try std.testing.expect(arm64.required);
+    try std.testing.expectEqualStrings("virt-arm64.dtb", arm64.asset.?);
+    try std.testing.expectEqualStrings("virt.dtb", arm64.cli_cache_name.?);
+
+    const amd64 = planProvisionDtb(.{ .arch_override = "amd64", .host_arch = "arm64" });
+    try std.testing.expect(!amd64.required);
+    try std.testing.expect(amd64.asset == null);
+    try std.testing.expect(amd64.cli_cache_name == null);
+
+    const explicit = planProvisionDtb(.{ .explicit = true, .arch_override = "amd64" });
+    try std.testing.expect(explicit.required);
+    try std.testing.expect(explicit.asset == null);
+    try std.testing.expect(explicit.cli_cache_name == null);
 }
 
 test "planRootDiskMode preserves false and restore precedence" {

@@ -830,6 +830,48 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans provision dtb resolution requirement", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const arm64 = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, provisionGuestArchOverride: "arm64", provisionHostArch: "x64" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(arm64.status).toBe(0);
+    expect(JSON.parse(arm64.stdout).data.provisionDtb).toEqual({
+      required: true,
+      asset: "virt-arm64.dtb",
+      cliCacheName: "virt.dtb",
+    });
+
+    const amd64 = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, provisionGuestArchOverride: "amd64", provisionHostArch: "arm64" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(amd64.status).toBe(0);
+    expect(JSON.parse(amd64.stdout).data.provisionDtb).toEqual({
+      required: false,
+      asset: null,
+      cliCacheName: null,
+    });
+  });
+
   it("plans bundle workspace paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
