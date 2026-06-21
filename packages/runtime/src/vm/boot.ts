@@ -460,7 +460,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     bootLogPath,
   } = registry;
 
-  const timeoutMs = opts.timeoutMs === undefined ? 60_000 : opts.timeoutMs;
+  const timeoutMs = plan.timeoutMs;
 
   // Start collecting stdout/stderr eagerly. Doing it lazily on the
   // first call to `.output()` / `.errorOutput()` loses data: the
@@ -584,6 +584,7 @@ interface BootPlan {
   env: Record<string, string>;
   memoryCeilingMib: number | undefined;
   cpuPolicy: ResolvedCpuResourcePolicy | undefined;
+  timeoutMs: number | null;
   diskAbs: string | undefined;
   perBootSnapDisk: string | undefined;
   wantsRootDisk: boolean;
@@ -976,6 +977,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
     hasSnapshot: Boolean(opts.snapshot),
     detached: opts.detached,
     pdeathsig: opts.pdeathsig,
+    bootTimeoutMs: opts.timeoutMs,
     rootDisk:
       opts.rootDisk === false
         ? "false"
@@ -1001,6 +1003,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
     env,
     memoryCeilingMib,
     cpuPolicy,
+    timeoutMs: corePlan.timeoutMs,
     ...scratch,
     wantsRootDisk,
     needsInitramfs: corePlan.needsInitramfs,

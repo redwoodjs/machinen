@@ -92,6 +92,7 @@ export interface NativeBootPlanResult {
   cpuPolicy: CpuPolicyPlan | null;
   wantsRootDisk: boolean;
   needsInitramfs: boolean;
+  timeoutMs: number | null;
   normalizedMountGuest: string | null;
   guestHostname: string | null;
   plannedPortForward: PlannedPortForward[];
@@ -137,6 +138,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     data.cpuPolicy === null || isCpuPolicyPlan(data.cpuPolicy),
     typeof data.wantsRootDisk === "boolean",
     typeof data.needsInitramfs === "boolean",
+    nullableNonNegativeNumber(data.timeoutMs),
     nullableString(data.normalizedMountGuest),
     nullableString(data.guestHostname),
     Array.isArray(data.plannedPortForward) && data.plannedPortForward.every(isPlannedPortForward),

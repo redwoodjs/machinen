@@ -1083,6 +1083,41 @@ describe("boot-plan helper schema", () => {
     expect(JSON.parse(disabled.stdout).data.usePdeathsig).toBe(false);
   });
 
+  it("plans boot timeout default explicit and forever values", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const defaulted = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(defaulted.status).toBe(0);
+    expect(JSON.parse(defaulted.stdout).data.timeoutMs).toBe(60_000);
+
+    const explicit = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, bootTimeoutMs: "2500" } })}\n`,
+      encoding: "utf8",
+    });
+    expect(explicit.status).toBe(0);
+    expect(JSON.parse(explicit.stdout).data.timeoutMs).toBe(2_500);
+
+    const forever = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, bootTimeoutForever: true } })}\n`,
+      encoding: "utf8",
+    });
+    expect(forever.status).toBe(0);
+    expect(JSON.parse(forever.stdout).data.timeoutMs).toBeNull();
+  });
+
   it("rejects invalid portForward shape", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

@@ -7,6 +7,7 @@ const default_cpu_weight: u64 = 100;
 const min_cpu_weight: u64 = 1;
 const max_cpu_weight: u64 = 10_000;
 const max_live_mounts: usize = 5;
+const default_boot_timeout_ms: u64 = 60_000;
 const restore_command = [_][]const u8{"/sbin/machinen-restore"};
 const poweroff_command = [_][]const u8{"/sbin/machinen-poweroff"};
 
@@ -399,6 +400,8 @@ pub const Input = struct {
     root_disk: RootDiskMode = .unset,
     guest_cwd: ?[]const u8 = null,
     mount_guest: ?[]const u8 = null,
+    boot_timeout_ms: ?u64 = null,
+    boot_timeout_forever: bool = false,
 };
 
 pub const Plan = struct {
@@ -407,6 +410,7 @@ pub const Plan = struct {
     wants_root_disk: bool,
     needs_initramfs: bool,
     normalized_mount_guest: ?[]const u8,
+    timeout_ms: ?u64,
 };
 
 pub const PlanError = error{
@@ -462,6 +466,11 @@ pub fn planNestedEnv(nested: bool) ?[]const u8 {
 pub fn planPdeathsig(input: PdeathsigInput) bool {
     if (input.detached) return false;
     return input.pdeathsig orelse true;
+}
+
+pub fn planBootTimeout(timeout_ms: ?u64, forever: bool) ?u64 {
+    if (forever) return null;
+    return timeout_ms orelse default_boot_timeout_ms;
 }
 
 pub fn planGuestHostname(allocator: std.mem.Allocator, input: GuestHostnameInput) !?[]const u8 {
@@ -1025,6 +1034,7 @@ pub fn planCore(input: Input) PlanError!Plan {
     const wants_root_disk = input.root_disk != .false_value and
         (input.root_disk == .path or input.root_disk == .true_value or input.has_image);
     const needs_initramfs = input.has_image or input.has_cmd or input.has_snapshot;
+    const timeout_ms = planBootTimeout(input.boot_timeout_ms, input.boot_timeout_forever);
     if (wants_root_disk and input.root_disk != .path and !input.has_image) {
         return error.RootDiskWithoutImage;
     }
@@ -1039,6 +1049,7 @@ pub fn planCore(input: Input) PlanError!Plan {
             .wants_root_disk = wants_root_disk,
             .needs_initramfs = needs_initramfs,
             .normalized_mount_guest = normalized_mount_guest,
+            .timeout_ms = timeout_ms,
         };
     }
 
@@ -1052,6 +1063,7 @@ pub fn planCore(input: Input) PlanError!Plan {
         .wants_root_disk = wants_root_disk,
         .needs_initramfs = needs_initramfs,
         .normalized_mount_guest = normalized_mount_guest,
+        .timeout_ms = timeout_ms,
     };
 }
 
@@ -1124,6 +1136,20 @@ test "planPdeathsig defaults on and lets detach or explicit false disable it" {
     try std.testing.expect(planPdeathsig(.{ .pdeathsig = true }));
     try std.testing.expect(!planPdeathsig(.{ .pdeathsig = false }));
     try std.testing.expect(!planPdeathsig(.{ .detached = true, .pdeathsig = true }));
+}
+
+test "planBootTimeout defaults, preserves explicit values, and supports forever" {
+    try std.testing.expectEqual(@as(?u64, 60_000), planBootTimeout(null, false));
+    try std.testing.expectEqual(@as(?u64, 2_500), planBootTimeout(2_500, false));
+    try std.testing.expect(planBootTimeout(2_500, true) == null);
+    try std.testing.expect((try planCore(.{
+        .vmm_memory_preset = true,
+        .boot_timeout_ms = 1_234,
+    })).timeout_ms.? == 1_234);
+    try std.testing.expect((try planCore(.{
+        .vmm_memory_preset = true,
+        .boot_timeout_forever = true,
+    })).timeout_ms == null);
 }
 
 test "planGuestHostname sanitizes names and includes pid" {
