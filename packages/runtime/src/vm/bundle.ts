@@ -25,6 +25,7 @@ import { reflinkCopy } from "../reflink.ts";
 import {
   planBootBundleCommandNative,
   planBootBundleEnvNative,
+  planBootBundleWorkspaceNative,
   planBootLiveMountsNative,
   planBootMountDiskRuntimeNative,
   planBootMachinenConfigNative,
@@ -258,10 +259,11 @@ export function synthesizeAndPackBundle(
 
 function createBundleWorkspace(): BundleWorkspace {
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
+  const plan = planBootBundleWorkspaceNative(tempDir);
   return {
     tempDir,
-    cpioPath: join(tempDir, "initramfs.cpio"),
-    synthBundleDir: join(tempDir, "bundle"),
+    cpioPath: plan.cpioPath,
+    synthBundleDir: plan.synthBundleDir,
     cleanup: () => {
       try {
         rmSync(tempDir, { recursive: true, force: true });

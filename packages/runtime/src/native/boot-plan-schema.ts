@@ -16,6 +16,7 @@ type RegistryVmstatePlan = {
   checkpointSequence: number | null;
 };
 export type PlannedPortForward = { hostPort: number; guestPort: number; hostAddr?: string };
+export type BundleWorkspacePlan = { cpioPath: string | null; synthBundleDir: string | null };
 type RegistryPortForwardPlan = PlannedPortForward;
 export type BootVmstateRuntimePlan = {
   statePath: string | null;
@@ -135,6 +136,7 @@ export interface NativeBootPlanResult {
   machinenConfig: MachinenConfigPlan;
   bundleCommand: string[];
   bundleEnv: Record<string, string>;
+  bundleWorkspace: BundleWorkspacePlan;
   provisionAssets: ProvisionAssetsPlan;
   provisionBoot: ProvisionBootPlan;
   provisionWorkload: ProvisionWorkloadPlan;
@@ -183,6 +185,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isMachinenConfigPlan(data.machinenConfig),
     isStringArray(data.bundleCommand),
     isStringRecord(data.bundleEnv),
+    isBundleWorkspacePlan(data.bundleWorkspace),
     isProvisionAssetsPlan(data.provisionAssets),
     isProvisionBootPlan(data.provisionBoot),
     isProvisionWorkloadPlan(data.provisionWorkload),
@@ -194,6 +197,14 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isMountDiskRuntimePlan(data.mountDiskRuntime),
     isRegistryShapePlan(data.registryShape),
   ].every(Boolean);
+}
+
+function isBundleWorkspacePlan(value: unknown): value is BundleWorkspacePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<BundleWorkspacePlan>;
+  return [nullableString(plan.cpioPath), nullableString(plan.synthBundleDir)].every(Boolean);
 }
 
 function nullableCpuPolicy(value: unknown): value is CpuPolicyPlan | null {
