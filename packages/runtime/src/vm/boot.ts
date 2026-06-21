@@ -91,7 +91,7 @@ import {
   teeOnLog,
 } from "./helpers.ts";
 import { performSnapshot, type SnapshotContext } from "./snapshot.ts";
-import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
+import { resolveSnapshotEngine } from "./snapshot-engine.ts";
 
 const debug = debugLib("machinen:boot");
 const vmmDebug = debugLib("machinen:vmm");
@@ -1069,14 +1069,13 @@ function setupVmstateBoot(
   inputVsockTempDir: string | undefined,
 ): { vmstate: BootVmstateRuntime; vsockTempDir: string | undefined } {
   let vsockTempDir = inputVsockTempDir;
-  let statePath: string | undefined;
+  let stateTempDir: string | undefined;
   const chainId = randomBytes(16).toString("hex");
   if (resolveSnapshotEngine() === "vmstate" && opts.snapshot !== false) {
-    vsockTempDir = ensureVsockTempDir(vsockTempDir);
-    statePath = join(vsockTempDir, VMSTATE_FILE);
+    stateTempDir = vsockTempDir = ensureVsockTempDir(vsockTempDir);
   }
   const runtime = planBootVmstateRuntimeNative({
-    statePath,
+    stateTempDir,
     chainId,
     restorePath: opts._vmstateRestorePath,
     forkedFrom: opts.forkedFrom,

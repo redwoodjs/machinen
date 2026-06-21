@@ -8,6 +8,7 @@ const min_cpu_weight: u64 = 1;
 const max_cpu_weight: u64 = 10_000;
 const max_live_mounts: usize = 5;
 const default_boot_timeout_ms: u64 = 60_000;
+const vmstate_file = "state.vmstate";
 const restore_command = [_][]const u8{"/sbin/machinen-restore"};
 const poweroff_command = [_][]const u8{"/sbin/machinen-poweroff"};
 
@@ -226,6 +227,7 @@ pub const VmstateEnvPlan = struct {
 
 pub const VmstateRuntimeInput = struct {
     state_path: ?[]const u8 = null,
+    state_temp_dir: ?[]const u8 = null,
     chain_id: ?[]const u8 = null,
     restore_path: ?[]const u8 = null,
     forked_from: ?[]const u8 = null,
@@ -630,8 +632,8 @@ pub fn planVmstateEnv(input: VmstateEnvInput) VmstateEnvPlan {
     };
 }
 
-pub fn planVmstateRuntime(input: VmstateRuntimeInput) PlanError!VmstateRuntimePlan {
-    if (input.state_path == null and input.chain_id == null and input.restore_path == null and input.forked_from == null) {
+pub fn planVmstateRuntime(allocator: std.mem.Allocator, input: VmstateRuntimeInput) !VmstateRuntimePlan {
+    if (input.state_path == null and input.state_temp_dir == null and input.chain_id == null and input.restore_path == null and input.forked_from == null) {
         return .{
             .state_path = null,
             .chain_id = null,
@@ -640,8 +642,15 @@ pub fn planVmstateRuntime(input: VmstateRuntimeInput) PlanError!VmstateRuntimePl
         };
     }
     const chain_id = input.chain_id orelse return error.MissingVmstateRuntimeChainId;
+    var allocated_state_path = false;
+    const state_path = input.state_path orelse blk: {
+        const dir = input.state_temp_dir orelse break :blk null;
+        allocated_state_path = true;
+        break :blk try std.fs.path.join(allocator, &.{ dir, vmstate_file });
+    };
+    errdefer if (allocated_state_path) allocator.free(state_path.?);
     return .{
-        .state_path = input.state_path,
+        .state_path = state_path,
         .chain_id = chain_id,
         .checkpoint_parent = if (input.restore_path != null) input.forked_from else null,
         .checkpoint_sequence = 0,
@@ -1793,7 +1802,7 @@ test "planVmstateEnv forwards snapshot restore and timing env" {
 }
 
 test "planVmstateRuntime projects chain defaults and restore parent" {
-    const fresh = try planVmstateRuntime(.{
+    const fresh = try planVmstateRuntime(std.testing.allocator, .{
         .state_path = "/tmp/state.vmstate",
         .chain_id = "chain-1",
     });
@@ -1802,7 +1811,15 @@ test "planVmstateRuntime projects chain defaults and restore parent" {
     try std.testing.expect(fresh.checkpoint_parent == null);
     try std.testing.expectEqual(@as(u64, 0), fresh.checkpoint_sequence.?);
 
-    const restore = try planVmstateRuntime(.{
+    const temp = try planVmstateRuntime(std.testing.allocator, .{
+        .state_temp_dir = "/tmp/machinen-vsock-abc",
+        .chain_id = "chain-temp",
+    });
+    defer std.testing.allocator.free(temp.state_path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-vsock-abc/state.vmstate", temp.state_path.?);
+    try std.testing.expectEqualStrings("chain-temp", temp.chain_id.?);
+
+    const restore = try planVmstateRuntime(std.testing.allocator, .{
         .state_path = "/tmp/state.vmstate",
         .chain_id = "chain-2",
         .restore_path = "/tmp/restore.vmstate",
@@ -1811,12 +1828,12 @@ test "planVmstateRuntime projects chain defaults and restore parent" {
     try std.testing.expectEqualStrings("/snap/parent", restore.checkpoint_parent.?);
     try std.testing.expectEqual(@as(u64, 0), restore.checkpoint_sequence.?);
 
-    const empty = try planVmstateRuntime(.{});
+    const empty = try planVmstateRuntime(std.testing.allocator, .{});
     try std.testing.expect(empty.state_path == null);
     try std.testing.expect(empty.chain_id == null);
     try std.testing.expect(empty.checkpoint_sequence == null);
 
-    try std.testing.expectError(error.MissingVmstateRuntimeChainId, planVmstateRuntime(.{
+    try std.testing.expectError(error.MissingVmstateRuntimeChainId, planVmstateRuntime(std.testing.allocator, .{
         .state_path = "/tmp/state.vmstate",
     }));
 }

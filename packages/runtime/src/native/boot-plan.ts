@@ -70,6 +70,7 @@ interface NativeBootPlanInput {
   enableVmstateTiming?: boolean;
   existingVmstateTiming?: string;
   bootVmstateStatePath?: string;
+  bootVmstateTempDir?: string;
   bootVmstateChainId?: string;
   bootVmstateRestorePath?: string;
   bootVmstateForkedFrom?: string;
@@ -199,6 +200,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     enableVmstateTiming: input.enableVmstateTiming === true,
     existingVmstateTiming: nullDefault(input.existingVmstateTiming),
     bootVmstateStatePath: nullDefault(input.bootVmstateStatePath),
+    bootVmstateTempDir: nullDefault(input.bootVmstateTempDir),
     bootVmstateChainId: nullDefault(input.bootVmstateChainId),
     bootVmstateRestorePath: nullDefault(input.bootVmstateRestorePath),
     bootVmstateForkedFrom: nullDefault(input.bootVmstateForkedFrom),
@@ -860,12 +862,14 @@ export function planBootVmstateEnvNative(input: {
 
 export function planBootVmstateRuntimeNative(input: {
   statePath?: string;
+  stateTempDir?: string;
   chainId: string;
   restorePath?: string;
   forkedFrom?: string;
 }): BootVmstateRuntimePlan {
   return planBootCoreNative({
     bootVmstateStatePath: input.statePath,
+    bootVmstateTempDir: input.stateTempDir,
     bootVmstateChainId: input.chainId,
     bootVmstateRestorePath: input.restorePath,
     bootVmstateForkedFrom: input.forkedFrom,

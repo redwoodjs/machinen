@@ -276,6 +276,28 @@ describe("boot-plan helper schema", () => {
       checkpointParent: "/snap/parent",
       checkpointSequence: 0,
     });
+
+    const tempDir = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...requestData,
+          bootVmstateStatePath: null,
+          bootVmstateTempDir: "/tmp/machinen-vsock-test",
+          bootVmstateChainId: "chain-temp",
+          bootVmstateRestorePath: null,
+          bootVmstateForkedFrom: null,
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(tempDir.status).toBe(0);
+    expect(JSON.parse(tempDir.stdout).data.vmstateRuntime).toEqual({
+      statePath: "/tmp/machinen-vsock-test/state.vmstate",
+      chainId: "chain-temp",
+      checkpointParent: null,
+      checkpointSequence: 0,
+    });
   });
 
   it("plans nested virtualization VMM env", () => {
