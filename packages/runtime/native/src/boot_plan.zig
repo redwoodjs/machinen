@@ -342,6 +342,11 @@ pub const MountDiskRuntimePlan = struct {
     upper_size_bytes: ?u64,
 };
 
+pub const MountDiskFdEnvInput = struct {
+    lower_fd: ?u64 = null,
+    upper_fd: ?u64 = null,
+};
+
 pub const RegistryCleanupInput = struct {
     per_boot_root_disk: ?[]const u8 = null,
     per_boot_snap_disk: ?[]const u8 = null,
@@ -493,6 +498,7 @@ pub const PlanError = error{
     MissingScratchPath,
     MissingRootDiskRuntimePath,
     MissingMountDiskRuntimeField,
+    MissingMountDiskFdField,
     IncompleteRegistryMountDisk,
     MissingRegistryCpuStatus,
     MissingRegistryVmstateField,
@@ -950,6 +956,21 @@ pub fn planMountDiskRuntime(input: MountDiskRuntimeInput) PlanError!MountDiskRun
             };
         },
     };
+}
+
+pub fn planMountDiskFdEnv(allocator: std.mem.Allocator, input: MountDiskFdEnvInput) ![]EnvPair {
+    if (input.lower_fd == null and input.upper_fd == null) return &.{};
+    const lower_fd = input.lower_fd orelse return error.MissingMountDiskFdField;
+    const upper_fd = input.upper_fd orelse return error.MissingMountDiskFdField;
+    const lower_value = try std.fmt.allocPrint(allocator, "{d}", .{lower_fd});
+    errdefer allocator.free(lower_value);
+    const upper_value = try std.fmt.allocPrint(allocator, "{d}", .{upper_fd});
+    errdefer allocator.free(upper_value);
+    const env = try allocator.alloc(EnvPair, 2);
+    errdefer allocator.free(env);
+    env[0] = .{ .key = "MACHINEN_MOUNTDISK_LOWER_FD", .value = lower_value };
+    env[1] = .{ .key = "MACHINEN_MOUNTDISK_UPPER_FD", .value = upper_value };
+    return env;
 }
 
 fn planRegistryCpu(input: RegistryShapeInput) PlanError!?RegistryCpuPlan {
@@ -1508,6 +1529,23 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectError(error.MissingRegistryVmstateField, planRegistryShape(allocator, .{
         .vmstate = .{ .state_path = "/tmp/state.vmstate", .checkpoint_sequence = 1 },
     }));
+}
+
+test "planMountDiskFdEnv formats inherited fd env entries" {
+    const allocator = std.testing.allocator;
+    const env = try planMountDiskFdEnv(allocator, .{ .lower_fd = 3, .upper_fd = 4 });
+    defer allocator.free(env[0].value);
+    defer allocator.free(env[1].value);
+    defer allocator.free(env);
+    try std.testing.expectEqual(@as(usize, 2), env.len);
+    try std.testing.expectEqualStrings("MACHINEN_MOUNTDISK_LOWER_FD", env[0].key);
+    try std.testing.expectEqualStrings("3", env[0].value);
+    try std.testing.expectEqualStrings("MACHINEN_MOUNTDISK_UPPER_FD", env[1].key);
+    try std.testing.expectEqualStrings("4", env[1].value);
+
+    const none = try planMountDiskFdEnv(allocator, .{});
+    try std.testing.expectEqual(@as(usize, 0), none.len);
+    try std.testing.expectError(error.MissingMountDiskFdField, planMountDiskFdEnv(allocator, .{ .lower_fd = 3 }));
 }
 
 test "planMountDiskRuntime selects restore and fresh actions" {

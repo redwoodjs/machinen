@@ -888,6 +888,32 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans mountdisk inherited fd env", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      mountDiskLowerFd: "3",
+      mountDiskUpperFd: "4",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.mountDiskFdEnv).toEqual({
+      MACHINEN_MOUNTDISK_LOWER_FD: "3",
+      MACHINEN_MOUNTDISK_UPPER_FD: "4",
+    });
+  });
+
   it("plans registry cleanup paths, mount shapes, and CPU shape", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
