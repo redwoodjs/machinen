@@ -393,6 +393,7 @@ pub const Input = struct {
     vmm_memory_preset: bool = false,
     has_image: bool = false,
     has_cmd: bool = false,
+    has_snapshot: bool = false,
     root_disk: RootDiskMode = .unset,
     guest_cwd: ?[]const u8 = null,
     mount_guest: ?[]const u8 = null,
@@ -402,6 +403,7 @@ pub const Plan = struct {
     memory_ceiling_mib: ?u64,
     vmm_memory_mib: ?u64,
     wants_root_disk: bool,
+    needs_initramfs: bool,
     normalized_mount_guest: ?[]const u8,
 };
 
@@ -1166,6 +1168,7 @@ pub fn planCore(input: Input) PlanError!Plan {
 
     const wants_root_disk = input.root_disk != .false_value and
         (input.root_disk == .path or input.root_disk == .true_value or input.has_image);
+    const needs_initramfs = input.has_image or input.has_cmd or input.has_snapshot;
     if (wants_root_disk and input.root_disk != .path and !input.has_image) {
         return error.RootDiskWithoutImage;
     }
@@ -1181,6 +1184,7 @@ pub fn planCore(input: Input) PlanError!Plan {
             .memory_ceiling_mib = null,
             .vmm_memory_mib = null,
             .wants_root_disk = wants_root_disk,
+            .needs_initramfs = needs_initramfs,
             .normalized_mount_guest = normalized_mount_guest,
         };
     }
@@ -1195,6 +1199,7 @@ pub fn planCore(input: Input) PlanError!Plan {
         .memory_ceiling_mib = ceiling,
         .vmm_memory_mib = ceiling,
         .wants_root_disk = wants_root_disk,
+        .needs_initramfs = needs_initramfs,
         .normalized_mount_guest = normalized_mount_guest,
     };
 }
@@ -1882,6 +1887,20 @@ test "planGuestEnv applies name and hostname wait defaults without overriding ca
     try std.testing.expectEqual(@as(@TypeOf(preserved.len), 2), preserved.len);
     try std.testing.expectEqualStrings("caller", preserved[0].value);
     try std.testing.expectEqualStrings("0", preserved[1].value);
+}
+
+test "planCore plans whether initramfs packing is needed" {
+    const none = try planCore(.{ .vmm_memory_preset = true });
+    try std.testing.expect(!none.needs_initramfs);
+
+    const image = try planCore(.{ .vmm_memory_preset = true, .has_image = true });
+    try std.testing.expect(image.needs_initramfs);
+
+    const command = try planCore(.{ .vmm_memory_preset = true, .has_image = true, .has_cmd = true });
+    try std.testing.expect(command.needs_initramfs);
+
+    const snapshot = try planCore(.{ .vmm_memory_preset = true, .has_snapshot = true });
+    try std.testing.expect(snapshot.needs_initramfs);
 }
 
 test "planCore honors preset VMM memory after validating public input" {

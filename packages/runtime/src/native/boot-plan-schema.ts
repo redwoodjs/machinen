@@ -94,6 +94,7 @@ export interface NativeBootPlanResult {
   vmmMemory: string | null;
   cpuPolicy: CpuPolicyPlan | null;
   wantsRootDisk: boolean;
+  needsInitramfs: boolean;
   normalizedMountGuest: string | null;
   mergedGuestEnv: Record<string, string>;
   vsockUdsPath: string | null;
@@ -136,6 +137,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmMemory),
     nullableCpuPolicy(data.cpuPolicy),
     typeof data.wantsRootDisk === "boolean",
+    typeof data.needsInitramfs === "boolean",
     nullableString(data.normalizedMountGuest),
     isStringRecord(data.mergedGuestEnv),
     nullableString(data.vsockUdsPath),

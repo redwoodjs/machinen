@@ -568,6 +568,7 @@ interface BootPlan {
   diskAbs: string | undefined;
   perBootSnapDisk: string | undefined;
   wantsRootDisk: boolean;
+  needsInitramfs: boolean;
   vsockUdsPath: string | undefined;
   vsockTempDir: string | undefined;
   statsFilePath: string | undefined;
@@ -645,7 +646,7 @@ function packBootInitramfsIfNeeded(
   plan: BootPlan,
   phases: PhaseTimer,
 ): Pick<BootResources, "bundleTempDir" | "mountDiskPaths"> {
-  if (!bootNeedsInitramfs(opts)) {
+  if (!plan.needsInitramfs) {
     return { bundleTempDir: undefined, mountDiskPaths: undefined };
   }
   phases.start("initramfs-pack");
@@ -659,10 +660,6 @@ function packBootInitramfsIfNeeded(
   const packMs = phases.end("initramfs-pack");
   debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, packMs ?? -1);
   return { bundleTempDir: packed.tempDir, mountDiskPaths: packed.mountDisk };
-}
-
-function bootNeedsInitramfs(opts: BootOptions): boolean {
-  return Boolean(opts.image || opts.cmd || opts.snapshot);
 }
 
 function materializeRootdiskIfNeeded(
@@ -957,6 +954,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
     vmmMemoryPreset: env.MACHINEN_MEMORY !== undefined,
     hasImage: opts.image !== undefined,
     hasCmd: opts.cmd !== undefined,
+    hasSnapshot: Boolean(opts.snapshot),
     detached: opts.detached,
     pdeathsig: opts.pdeathsig,
     rootDisk:
@@ -986,6 +984,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
     cpuPolicy,
     ...scratch,
     wantsRootDisk,
+    needsInitramfs: corePlan.needsInitramfs,
     vsockUdsPath: vsock.vsockUdsPath,
     vsockTempDir: vmstateSetup.vsockTempDir,
     ...stats,

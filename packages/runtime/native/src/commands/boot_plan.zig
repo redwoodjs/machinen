@@ -798,6 +798,7 @@ fn writeCoreFields(
 
     try writeNullableU64Field(io, "memoryCeilingMib", plan.memory_ceiling_mib, false);
     try writeNullableU64StringField(io, "vmmMemory", plan.vmm_memory_mib, true);
+    try writeBoolField(io, "needsInitramfs", plan.needs_initramfs, true);
     try writeCpuPolicyField(io, "cpuPolicy", cpu_policy, true);
     try writeBoolField(io, "wantsRootDisk", plan.wants_root_disk, true);
     try writeNullableStringField(

@@ -965,6 +965,41 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans whether initramfs packing is needed", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const none = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(none.status).toBe(0);
+    expect(JSON.parse(none.stdout).data.needsInitramfs).toBe(false);
+
+    const image = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, hasImage: true } })}\n`,
+      encoding: "utf8",
+    });
+    expect(image.status).toBe(0);
+    expect(JSON.parse(image.stdout).data.needsInitramfs).toBe(true);
+
+    const snapshot = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, hasSnapshot: true } })}\n`,
+      encoding: "utf8",
+    });
+    expect(snapshot.status).toBe(0);
+    expect(JSON.parse(snapshot.stdout).data.needsInitramfs).toBe(true);
+  });
+
   it("plans pdeathsig default detach and explicit opt-out", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
