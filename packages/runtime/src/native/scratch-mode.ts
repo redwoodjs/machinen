@@ -1,8 +1,10 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
 import { callRuntimeHelper } from "../native-helper.ts";
-import { isNativeBootPlanResult, type BootScratchMode } from "./boot-plan-schema.ts";
+import { isNativeBootPlanResult } from "./boot-plan-schema.ts";
 
-export function planBootScratchModeNative(snapshot: string | false | undefined): BootScratchMode {
+type ScratchModePlan = "false" | "path" | "auto";
+
+export function planBootScratchModeNative(snapshot: string | false | undefined): ScratchModePlan {
   const plan = callRuntimeHelper({
     command: "boot-plan",
     data: {
@@ -13,7 +15,6 @@ export function planBootScratchModeNative(snapshot: string | false | undefined):
       vmmMemoryPreset: true,
       hasImage: false,
       hasCmd: false,
-      rootDisk: "false",
       scratchOptionFalse: snapshot === false,
       scratchOptionPath: typeof snapshot === "string" ? snapshot : null,
     },
@@ -21,7 +22,7 @@ export function planBootScratchModeNative(snapshot: string | false | undefined):
     makeError: scratchModePlanError,
     isData: isNativeBootPlanResult,
   });
-  return plan.plannedScratchMode;
+  return plan.plannedScratchMode === "unset" ? "auto" : plan.plannedScratchMode;
 }
 
 const scratchModePlanError = (

@@ -229,6 +229,20 @@ pub const ProvisionCliCachePlan = struct {
     base_dir: ?[]const u8,
 };
 
+pub const ProvisionAssetLookupInput = struct {
+    explicit_path: ?[]const u8 = null,
+    explicit_exists: ?bool = null,
+    assets_dir_path: ?[]const u8 = null,
+    assets_dir_exists: ?bool = null,
+    cache_path: ?[]const u8 = null,
+    cache_exists: ?bool = null,
+};
+
+pub const ProvisionAssetLookupPlan = struct {
+    path: ?[]const u8,
+    error_kind: ?[]const u8,
+};
+
 pub const ProvisionBootInput = struct {
     base_path: ?[]const u8 = null,
     kernel_path: ?[]const u8 = null,
@@ -1227,16 +1241,33 @@ pub fn planProvisionCliCacheBaseDir(
         .arch_override = input.arch_override,
         .host_arch = input.host_arch,
     });
-    const release_dir = try std.fmt.allocPrint(allocator, "runtime-v{s}", .{version});
-    defer allocator.free(release_dir);
-    const cpu_dir = try std.fmt.allocPrint(allocator, "debian-{s}", .{assets.cpu});
-    defer allocator.free(cpu_dir);
+    var release_buf: [128]u8 = undefined;
+    const release_dir = try std.fmt.bufPrint(&release_buf, "runtime-v{s}", .{version});
+    var cpu_buf: [32]u8 = undefined;
+    const cpu_dir = try std.fmt.bufPrint(&cpu_buf, "debian-{s}", .{assets.cpu});
     return .{
         .base_dir = try std.fs.path.join(
             allocator,
             &.{ home_dir, ".machinen", release_dir, "bases", cpu_dir },
         ),
     };
+}
+
+pub fn planProvisionAssetLookup(input: ProvisionAssetLookupInput) ProvisionAssetLookupPlan {
+    assert(@sizeOf(ProvisionAssetLookupInput) > 0);
+
+    if (input.explicit_path) |path| {
+        if (input.explicit_exists == true) return .{ .path = path, .error_kind = null };
+        return .{ .path = null, .error_kind = "missing" };
+    }
+    if (input.assets_dir_path) |path| {
+        if (input.assets_dir_exists == true) return .{ .path = path, .error_kind = null };
+        return .{ .path = null, .error_kind = "assets-dir-invalid" };
+    }
+    if (input.cache_path) |path| {
+        if (input.cache_exists == true) return .{ .path = path, .error_kind = null };
+    }
+    return .{ .path = null, .error_kind = "missing" };
 }
 
 pub fn planProvisionBoot(
@@ -1362,8 +1393,13 @@ pub fn planBundleConfigPaths(
 }
 
 pub fn planBundlePack(input: BundlePackInput) BundlePackPlan {
+    assert(@sizeOf(BundlePackInput) > 0);
+
     if (!input.use_tiny) return .{ .kind = "fat", .tiny_mount_guest = null };
-    return .{ .kind = "tiny", .tiny_mount_guest = input.mount_guest orelse input.restore_mount_guest };
+    return .{
+        .kind = "tiny",
+        .tiny_mount_guest = input.mount_guest orelse input.restore_mount_guest,
+    };
 }
 
 pub fn planBundleEnv(allocator: std.mem.Allocator, input: BundleEnvInput) ![]EnvPair {
@@ -2141,7 +2177,10 @@ test "planRootDiskMode applies option precedence" {
     try std.testing.expectEqual(RootDiskMode.unset, planRootDiskMode(.{}));
     try std.testing.expectEqual(RootDiskMode.true_value, planRootDiskMode(.{ .true_value = true }));
     try std.testing.expectEqual(RootDiskMode.path, planRootDiskMode(.{ .path = "/tmp/root.img" }));
-    try std.testing.expectEqual(RootDiskMode.path, planRootDiskMode(.{ .restore_path = "/restore/root.img" }));
+    try std.testing.expectEqual(
+        RootDiskMode.path,
+        planRootDiskMode(.{ .restore_path = "/restore/root.img" }),
+    );
     try std.testing.expectEqual(RootDiskMode.false_value, planRootDiskMode(.{
         .false_value = true,
         .restore_path = "/restore/root.img",
@@ -2530,11 +2569,49 @@ test "planProvisionGuestCpu uses override, host arch, and arm64 fallback" {
 
 test "planScratchMode applies option precedence" {
     try std.testing.expectEqual(ScratchDiskMode.auto, planScratchMode(.{}));
-    try std.testing.expectEqual(ScratchDiskMode.path, planScratchMode(.{ .path = "/tmp/scratch.img" }));
+    try std.testing.expectEqual(
+        ScratchDiskMode.path,
+        planScratchMode(.{ .path = "/tmp/scratch.img" }),
+    );
     try std.testing.expectEqual(ScratchDiskMode.false_value, planScratchMode(.{
         .false_value = true,
         .path = "/tmp/scratch.img",
     }));
+}
+
+test "planProvisionAssetLookup preserves explicit assets-dir cache order" {
+    const explicit_hit = planProvisionAssetLookup(.{
+        .explicit_path = "/explicit/rootfs.tar.gz",
+        .explicit_exists = true,
+        .assets_dir_path = "/assets/rootfs.tar.gz",
+        .assets_dir_exists = true,
+    });
+    try std.testing.expectEqualStrings("/explicit/rootfs.tar.gz", explicit_hit.path.?);
+    try std.testing.expect(explicit_hit.error_kind == null);
+
+    const explicit_missing = planProvisionAssetLookup(.{
+        .explicit_path = "/explicit/rootfs.tar.gz",
+        .explicit_exists = false,
+        .assets_dir_path = "/assets/rootfs.tar.gz",
+        .assets_dir_exists = true,
+    });
+    try std.testing.expect(explicit_missing.path == null);
+    try std.testing.expectEqualStrings("missing", explicit_missing.error_kind.?);
+
+    const assets_missing = planProvisionAssetLookup(.{
+        .assets_dir_path = "/assets/rootfs.tar.gz",
+        .assets_dir_exists = false,
+        .cache_path = "/cache/rootfs.tar.gz",
+        .cache_exists = true,
+    });
+    try std.testing.expect(assets_missing.path == null);
+    try std.testing.expectEqualStrings("assets-dir-invalid", assets_missing.error_kind.?);
+
+    const cache_hit = planProvisionAssetLookup(.{
+        .cache_path = "/cache/rootfs.tar.gz",
+        .cache_exists = true,
+    });
+    try std.testing.expectEqualStrings("/cache/rootfs.tar.gz", cache_hit.path.?);
 }
 
 test "planProvisionCliCacheBaseDir derives release cache by guest cpu" {
@@ -2544,7 +2621,10 @@ test "planProvisionCliCacheBaseDir derives release cache by guest cpu" {
         .arch_override = "amd64",
     })).base_dir.?;
     defer std.testing.allocator.free(amd64);
-    try std.testing.expectEqualStrings("/home/friend/.machinen/runtime-v0.6.1/bases/debian-amd64", amd64);
+    try std.testing.expectEqualStrings(
+        "/home/friend/.machinen/runtime-v0.6.1/bases/debian-amd64",
+        amd64,
+    );
 
     const arm64 = (try planProvisionCliCacheBaseDir(std.testing.allocator, .{
         .home_dir = "/home/friend",
@@ -2552,7 +2632,10 @@ test "planProvisionCliCacheBaseDir derives release cache by guest cpu" {
         .arch_override = "arm64",
     })).base_dir.?;
     defer std.testing.allocator.free(arm64);
-    try std.testing.expectEqualStrings("/home/friend/.machinen/runtime-v0.6.1/bases/debian-arm64", arm64);
+    try std.testing.expectEqualStrings(
+        "/home/friend/.machinen/runtime-v0.6.1/bases/debian-arm64",
+        arm64,
+    );
 
     try std.testing.expect((try planProvisionCliCacheBaseDir(std.testing.allocator, .{
         .version = "0.6.1",
@@ -2633,11 +2716,18 @@ test "planBundlePack selects fat or tiny initramfs inputs" {
     try std.testing.expectEqualStrings("fat", fat.kind);
     try std.testing.expect(fat.tiny_mount_guest == null);
 
-    const tiny_fresh = planBundlePack(.{ .use_tiny = true, .mount_guest = "/mnt/data", .restore_mount_guest = "/mnt/restore" });
+    const tiny_fresh = planBundlePack(.{
+        .use_tiny = true,
+        .mount_guest = "/mnt/data",
+        .restore_mount_guest = "/mnt/restore",
+    });
     try std.testing.expectEqualStrings("tiny", tiny_fresh.kind);
     try std.testing.expectEqualStrings("/mnt/data", tiny_fresh.tiny_mount_guest.?);
 
-    const tiny_restore = planBundlePack(.{ .use_tiny = true, .restore_mount_guest = "/mnt/restore" });
+    const tiny_restore = planBundlePack(.{
+        .use_tiny = true,
+        .restore_mount_guest = "/mnt/restore",
+    });
     try std.testing.expectEqualStrings("tiny", tiny_restore.kind);
     try std.testing.expectEqualStrings("/mnt/restore", tiny_restore.tiny_mount_guest.?);
 }

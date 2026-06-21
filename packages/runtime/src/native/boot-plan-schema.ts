@@ -10,6 +10,8 @@ type SnapshotContextPlan = {
 export type ProvisionGuestCpu = "arm64" | "amd64";
 export type RestoreLiveMount = { host: string; guest: string; mode?: "ro" | "rw" };
 export type GvproxyPlan = { action: GvproxyAction; gvproxyPath: string | null };
+export type BootRootDiskMode = "unset" | "false" | "path" | "true";
+type BootScratchMode = "unset" | "false" | "path" | "auto";
 export type RegistryProcessPlan = {
   vmmExe: string | null;
   gvproxyExe: string | null;
@@ -30,6 +32,7 @@ type RegistryVmstatePlan = {
 export type PlannedPortForward = { hostPort: number; guestPort: number; hostAddr?: string };
 export type BundleWorkspacePlan = { cpioPath: string | null; synthBundleDir: string | null };
 export type BundleConfigPathsPlan = { rootfsDir: string | null; configPath: string | null };
+export type BundlePackPlan = { kind: "fat" | "tiny"; tinyMountGuest: string | null };
 type RegistryPortForwardPlan = PlannedPortForward;
 export type BootVmstateRuntimePlan = {
   statePath: string | null;
@@ -52,6 +55,10 @@ export type ProvisionDtbPlan = {
   cliCacheName: string | null;
 };
 export type ProvisionCliCachePlan = { baseDir: string | null };
+export type ProvisionAssetLookupPlan = {
+  path: string | null;
+  error: "missing" | "assets-dir-invalid" | null;
+};
 export type ProvisionBootPlan = {
   imagePath: string | null;
   kernelPath: string | null;
@@ -135,6 +142,7 @@ export interface NativeBootPlanResult {
   vmmMemory: string | null;
   cpuPolicy: CpuPolicyPlan | null;
   wantsRootDisk: boolean;
+  rootDiskMode: BootRootDiskMode;
   needsInitramfs: boolean;
   timeoutMs: number | null;
   detachedReadinessTimeoutMs: number;
@@ -172,6 +180,7 @@ export interface NativeBootPlanResult {
   provisionAssets: ProvisionAssetsPlan;
   provisionDtb: ProvisionDtbPlan;
   provisionCliCache: ProvisionCliCachePlan;
+  provisionAssetLookup: ProvisionAssetLookupPlan;
   provisionBoot: ProvisionBootPlan;
   provisionWorkload: ProvisionWorkloadPlan;
   provisionRepack: ProvisionRepackPlan;
@@ -197,6 +206,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmMemory),
     nullableCpuPolicy(data.cpuPolicy),
     typeof data.wantsRootDisk === "boolean",
+    isOneOf(data.rootDiskMode, ["unset", "false", "path", "true"] as const),
     typeof data.needsInitramfs === "boolean",
     nullableNonNegativeNumber(data.timeoutMs),
     nonNegativeNumber(data.detachedReadinessTimeoutMs),
@@ -234,6 +244,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isProvisionAssetsPlan(data.provisionAssets),
     isProvisionDtbPlan(data.provisionDtb),
     isProvisionCliCachePlan(data.provisionCliCache),
+    isProvisionAssetLookupPlan(data.provisionAssetLookup),
     isProvisionBootPlan(data.provisionBoot),
     isProvisionWorkloadPlan(data.provisionWorkload),
     isProvisionRepackPlan(data.provisionRepack),
@@ -303,34 +314,6 @@ function isProvisionAssetsPlan(value: unknown): value is ProvisionAssetsPlan {
   ].every(Boolean);
 }
 
-function isProvisionCliCachePlan(value: unknown): value is ProvisionCliCachePlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<ProvisionCliCachePlan>;
-  return nullableString(plan.baseDir);
-}
-
-function isProvisionDtbPlan(value: unknown): value is ProvisionDtbPlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<ProvisionDtbPlan>;
-  return (
-    typeof plan.required === "boolean" &&
-    nullableString(plan.asset) &&
-    nullableString(plan.cliCacheName)
-  );
-}
-
-function isProvisionCliCachePlan(value: unknown): value is ProvisionCliCachePlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<ProvisionCliCachePlan>;
-  return nullableString(plan.baseDir);
-}
-
 function isProvisionDtbPlan(value: unknown): value is ProvisionDtbPlan {
   if (!value || typeof value !== "object") {
     return false;
@@ -348,6 +331,17 @@ function isProvisionCliCachePlan(value: unknown): value is ProvisionCliCachePlan
     return false;
   }
   return nullableString((value as Partial<ProvisionCliCachePlan>).baseDir);
+}
+
+function isProvisionAssetLookupPlan(value: unknown): value is ProvisionAssetLookupPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<ProvisionAssetLookupPlan>;
+  return (
+    nullableString(plan.path) &&
+    (plan.error === null || plan.error === "missing" || plan.error === "assets-dir-invalid")
+  );
 }
 
 function isProvisionBootPlan(value: unknown): value is ProvisionBootPlan {

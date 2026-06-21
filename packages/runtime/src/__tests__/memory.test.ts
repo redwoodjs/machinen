@@ -858,6 +858,41 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans provision asset lookup order", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionAssetExplicitPath: "/explicit/rootfs.tar.gz",
+          provisionAssetExplicitExists: false,
+          provisionAssetAssetsDirPath: "/assets/rootfs.tar.gz",
+          provisionAssetAssetsDirExists: true,
+          provisionAssetCachePath: "/cache/rootfs.tar.gz",
+          provisionAssetCacheExists: true,
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.provisionAssetLookup).toEqual({
+      path: null,
+      error: "missing",
+    });
+  });
+
   it("plans provision dtb resolution requirement", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
