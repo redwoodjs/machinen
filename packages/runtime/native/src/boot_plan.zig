@@ -488,6 +488,23 @@ pub const ScratchDiskMode = enum {
     auto,
 };
 
+pub const ScratchTempPathKind = enum {
+    none,
+    restore,
+    auto,
+};
+
+pub const ScratchTempPathInput = struct {
+    kind: ScratchTempPathKind = .none,
+    tmp_dir: ?[]const u8 = null,
+    pid: ?u64 = null,
+    nonce: ?[]const u8 = null,
+};
+
+pub const ScratchTempPathPlan = struct {
+    path: ?[]const u8,
+};
+
 pub const ScratchOptionInput = struct {
     false_value: bool = false,
     path: ?[]const u8 = null,
@@ -1603,6 +1620,20 @@ fn mergeEnvPairs(
         if (!replaced) try out.append(allocator, pair);
     }
     return out.toOwnedSlice(allocator);
+}
+
+pub fn planScratchTempPath(allocator: std.mem.Allocator, input: ScratchTempPathInput) !ScratchTempPathPlan {
+    if (input.kind == .none) return .{ .path = null };
+    const tmp_dir = input.tmp_dir orelse return .{ .path = null };
+    const pid = input.pid orelse return .{ .path = null };
+    const nonce = input.nonce orelse return .{ .path = null };
+    const file_name = switch (input.kind) {
+        .none => unreachable,
+        .restore => try std.fmt.allocPrint(allocator, "machinen-snap-restore-{d}-{s}.img", .{ pid, nonce }),
+        .auto => try std.fmt.allocPrint(allocator, "machinen-snap-{d}-{s}.img", .{ pid, nonce }),
+    };
+    defer allocator.free(file_name);
+    return .{ .path = try std.fs.path.join(allocator, &.{ tmp_dir, file_name }) };
 }
 
 pub fn planRootDiskMaterializeMode(input: RootDiskMaterializeModeInput) RootDiskMaterializeModePlan {
@@ -3143,6 +3174,29 @@ test "planRootDiskRuntime selects existing restore and cached clone actions" {
     try std.testing.expectEqualStrings("clone-cached", cached.action);
     try std.testing.expectEqualStrings("/cache.img", cached.source_path.?);
     try std.testing.expectEqualStrings("/boot.img", cached.vmm_root_disk.?);
+}
+
+test "planScratchTempPath formats restore and auto scratch paths" {
+    const restore = try planScratchTempPath(std.testing.allocator, .{
+        .kind = .restore,
+        .tmp_dir = "/tmp",
+        .pid = 1234,
+        .nonce = "abcdef",
+    });
+    defer std.testing.allocator.free(restore.path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-snap-restore-1234-abcdef.img", restore.path.?);
+
+    const auto = try planScratchTempPath(std.testing.allocator, .{
+        .kind = .auto,
+        .tmp_dir = "/tmp",
+        .pid = 1234,
+        .nonce = "abcdef",
+    });
+    defer std.testing.allocator.free(auto.path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-snap-1234-abcdef.img", auto.path.?);
+
+    const missing = try planScratchTempPath(std.testing.allocator, .{});
+    try std.testing.expect(missing.path == null);
 }
 
 test "planScratchDisk selects restore clone auto allocation and no-disk cases" {

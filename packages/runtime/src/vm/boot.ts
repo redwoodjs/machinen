@@ -71,6 +71,7 @@ import { planBootRegistryLifecycleNative } from "../native/registry-lifecycle.ts
 import { planBootRegistryProcessNative } from "../native/registry-process.ts";
 import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
 import { planBootScratchModeNative } from "../native/scratch-mode.ts";
+import { planBootScratchTempPathNative } from "../native/scratch-temp-path.ts";
 import { planBootSnapshotBackingNative as planSnapshotBacking } from "../native/snapshot-backing.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
 import { planBootVmmEnvNative } from "../native/vmm-env.ts";
@@ -1281,14 +1282,21 @@ function resolveSnapshotDiskPath(opts: BootOptions): string | undefined {
 }
 
 function scratchRestoreClonePath(): string {
-  return join(
-    tmpdir(),
-    `machinen-snap-restore-${process.pid}-${randomBytes(6).toString("hex")}.img`,
-  );
+  return planBootScratchTempPathNative({
+    kind: "restore",
+    tmpDir: tmpdir(),
+    pid: process.pid,
+    nonce: randomBytes(6).toString("hex"),
+  });
 }
 
 function autoScratchPath(): string {
-  return join(tmpdir(), `machinen-snap-${process.pid}-${randomBytes(6).toString("hex")}.img`);
+  return planBootScratchTempPathNative({
+    kind: "auto",
+    tmpDir: tmpdir(),
+    pid: process.pid,
+    nonce: randomBytes(6).toString("hex"),
+  });
 }
 
 function applyScratchDiskPlan(

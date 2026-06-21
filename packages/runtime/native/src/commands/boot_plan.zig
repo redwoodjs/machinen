@@ -127,6 +127,10 @@ const ParsedRequest = struct {
     provision_timeout_ms_text: ?[]const u8 = null,
     scratch_option_false: bool = false,
     scratch_option_path: ?[]const u8 = null,
+    scratch_temp_kind: boot_plan.ScratchTempPathKind = .none,
+    scratch_temp_dir: ?[]const u8 = null,
+    scratch_temp_pid_text: ?[]const u8 = null,
+    scratch_temp_nonce: ?[]const u8 = null,
     scratch_mode: boot_plan.ScratchDiskMode = .unset,
     scratch_snapshot_path: ?[]const u8 = null,
     scratch_restore_clone_path: ?[]const u8 = null,
@@ -329,6 +333,10 @@ const boot_plan_fields = [_][]const u8{
     "provisionTimeoutMs",
     "scratchOptionFalse",
     "scratchOptionPath",
+    "scratchTempKind",
+    "scratchTempDir",
+    "scratchTempPid",
+    "scratchTempNonce",
     "scratchMode",
     "scratchSnapshotPath",
     "scratchRestoreClonePath",
@@ -546,6 +554,10 @@ const RequestError = error{
     InvalidBundleEnvValue,
     InvalidScratchOptionFalse,
     InvalidScratchOptionPath,
+    InvalidScratchTempKind,
+    InvalidScratchTempDir,
+    InvalidScratchTempPid,
+    InvalidScratchTempNonce,
     InvalidScratchMode,
     InvalidScratchSnapshotPath,
     InvalidScratchRestoreClonePath,
@@ -633,9 +645,16 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
     if (try writeMountDiskUpperSizeFailure(io, parsed)) return .fail;
 
     const parts = makePlanParts(arena, parsed, plan) catch |err| {
-        if (err == error.RestoreLiveMountOverrideUnknown) {
-            try writeRestoreLiveMountOverrideError(arena, io, parsed);
-            return .fail;
+        switch (err) {
+            error.RestoreLiveMountOverrideUnknown => {
+                try writeRestoreLiveMountOverrideError(arena, io, parsed);
+                return .fail;
+            },
+            error.InvalidScratchTempPid => {
+                try writeRequestError(io, error.InvalidScratchTempPid);
+                return .fail;
+            },
+            else => {},
         }
         try writePlanError(io, err);
         return .fail;
@@ -691,6 +710,7 @@ const PlanParts = struct {
     provision_image_config: boot_plan.ProvisionImageConfigPlan,
     provision_runtime: boot_plan.ProvisionRuntimePlan,
     planned_scratch_mode: boot_plan.ScratchDiskMode,
+    scratch_temp_path: boot_plan.ScratchTempPathPlan,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     root_disk_materialize_mode: boot_plan.RootDiskMaterializeModePlan,
@@ -808,6 +828,7 @@ fn makePlanParts(
         .provision_image_config = provision.image_config,
         .provision_runtime = provision.runtime,
         .planned_scratch_mode = runtime.planned_scratch_mode,
+        .scratch_temp_path = try makeScratchTempPath(arena, parsed),
         .scratch_disk = runtime.scratch_disk,
         .root_disk_runtime = runtime.root_disk_runtime,
         .root_disk_materialize_mode = makeRootDiskMaterializeMode(parsed),
@@ -968,6 +989,24 @@ fn makeRestoreLiveMounts(
     });
     if (plan.unknown_guest != null) return error.RestoreLiveMountOverrideUnknown;
     return plan.mounts;
+}
+
+fn makeScratchTempPath(
+    allocator: std.mem.Allocator,
+    parsed: ParsedRequest,
+) !boot_plan.ScratchTempPathPlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    const pid = if (parsed.scratch_temp_pid_text) |text|
+        parseUnsigned(text) catch return error.InvalidScratchTempPid
+    else
+        null;
+    return boot_plan.planScratchTempPath(allocator, .{
+        .kind = parsed.scratch_temp_kind,
+        .tmp_dir = parsed.scratch_temp_dir,
+        .pid = pid,
+        .nonce = parsed.scratch_temp_nonce,
+    });
 }
 
 fn makeRuntimeParts(arena: std.mem.Allocator, parsed: ParsedRequest) !RuntimeParts {
@@ -1593,6 +1632,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     );
     try writeProvisionFields(io, parts);
     try writeScratchModeField(io, "plannedScratchMode", parts.planned_scratch_mode, true);
+    try writeNullableStringField(io, "scratchTempPath", parts.scratch_temp_path.path, true);
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
     try writeRootDiskMaterializeModeField(
@@ -3635,6 +3675,22 @@ fn parseScratchFields(object: std.json.ObjectMap, request: *ParsedRequest) Reque
         "scratchOptionPath",
         error.InvalidScratchOptionPath,
     );
+    request.scratch_temp_kind = try optionalScratchTempKind(object);
+    request.scratch_temp_dir = try optionalStringDefaultNull(
+        object,
+        "scratchTempDir",
+        error.InvalidScratchTempDir,
+    );
+    request.scratch_temp_pid_text = try optionalStringDefaultNull(
+        object,
+        "scratchTempPid",
+        error.InvalidScratchTempPid,
+    );
+    request.scratch_temp_nonce = try optionalStringDefaultNull(
+        object,
+        "scratchTempNonce",
+        error.InvalidScratchTempNonce,
+    );
     request.scratch_mode = try optionalScratchMode(object);
     request.scratch_snapshot_path = try optionalStringDefaultNull(
         object,
@@ -4080,6 +4136,15 @@ fn optionalProvisionGuestCpu(
     if (std.mem.eql(u8, value.string, "amd64")) return .amd64;
     if (std.mem.eql(u8, value.string, "arm64")) return .arm64;
     return error.InvalidProvisionGuestCpu;
+}
+
+fn optionalScratchTempKind(object: std.json.ObjectMap) RequestError!boot_plan.ScratchTempPathKind {
+    const value = object.get("scratchTempKind") orelse return .none;
+    if (value == .null) return .none;
+    if (value != .string) return error.InvalidScratchTempKind;
+    if (std.mem.eql(u8, value.string, "restore")) return .restore;
+    if (std.mem.eql(u8, value.string, "auto")) return .auto;
+    return error.InvalidScratchTempKind;
 }
 
 fn optionalScratchMode(object: std.json.ObjectMap) RequestError!boot_plan.ScratchDiskMode {
@@ -4949,6 +5014,23 @@ fn writeScratchRequestError(io: std.Io, err: RequestError) !bool {
             io,
             "INVALID_REQUEST",
             "boot-plan scratch option path must be a string",
+        ),
+        error.InvalidScratchTempKind => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan scratch temp kind must be restore or auto",
+        ),
+        error.InvalidScratchTempDir,
+        error.InvalidScratchTempNonce,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan scratch temp fields must be strings",
+        ),
+        error.InvalidScratchTempPid => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan scratch temp pid must be a decimal integer",
         ),
         else => return false,
     }
