@@ -515,6 +515,23 @@ pub const RootDiskMaterializeModeInput = struct {
     caller_path: ?[]const u8 = null,
 };
 
+pub const RootDiskTempPathKind = enum {
+    none,
+    restore,
+    cached,
+};
+
+pub const RootDiskTempPathInput = struct {
+    kind: RootDiskTempPathKind = .none,
+    tmp_dir: ?[]const u8 = null,
+    pid: ?u64 = null,
+    nonce: ?[]const u8 = null,
+};
+
+pub const RootDiskTempPathPlan = struct {
+    path: ?[]const u8,
+};
+
 pub const RootDiskMaterializeModePlan = struct {
     action: []const u8,
 };
@@ -1365,6 +1382,20 @@ pub fn planScratchTempPath(allocator: std.mem.Allocator, input: ScratchTempPathI
         .none => unreachable,
         .restore => try std.fmt.allocPrint(allocator, "machinen-snap-restore-{d}-{s}.img", .{ pid, nonce }),
         .auto => try std.fmt.allocPrint(allocator, "machinen-snap-{d}-{s}.img", .{ pid, nonce }),
+    };
+    defer allocator.free(file_name);
+    return .{ .path = try std.fs.path.join(allocator, &.{ tmp_dir, file_name }) };
+}
+
+pub fn planRootDiskTempPath(allocator: std.mem.Allocator, input: RootDiskTempPathInput) !RootDiskTempPathPlan {
+    if (input.kind == .none) return .{ .path = null };
+    const tmp_dir = input.tmp_dir orelse return .{ .path = null };
+    const pid = input.pid orelse return .{ .path = null };
+    const nonce = input.nonce orelse return .{ .path = null };
+    const file_name = switch (input.kind) {
+        .none => unreachable,
+        .restore => try std.fmt.allocPrint(allocator, "machinen-rootdisk-restore-{d}-{s}.img", .{ pid, nonce }),
+        .cached => try std.fmt.allocPrint(allocator, "machinen-rootdisk-{d}-{s}.img", .{ pid, nonce }),
     };
     defer allocator.free(file_name);
     return .{ .path = try std.fs.path.join(allocator, &.{ tmp_dir, file_name }) };
@@ -2606,6 +2637,29 @@ test "planVmmEnv overlays caller env on host env" {
     try std.testing.expectEqualStrings("1024", planned[1].value);
     try std.testing.expectEqualStrings("MACHINEN_TRACE", planned[2].key);
     try std.testing.expectEqualStrings("1", planned[2].value);
+}
+
+test "planRootDiskTempPath formats restore and cached rootdisk paths" {
+    const restore = try planRootDiskTempPath(std.testing.allocator, .{
+        .kind = .restore,
+        .tmp_dir = "/tmp",
+        .pid = 1234,
+        .nonce = "abcdef",
+    });
+    defer std.testing.allocator.free(restore.path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-rootdisk-restore-1234-abcdef.img", restore.path.?);
+
+    const cached = try planRootDiskTempPath(std.testing.allocator, .{
+        .kind = .cached,
+        .tmp_dir = "/tmp",
+        .pid = 1234,
+        .nonce = "abcdef",
+    });
+    defer std.testing.allocator.free(cached.path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-rootdisk-1234-abcdef.img", cached.path.?);
+
+    const missing = try planRootDiskTempPath(std.testing.allocator, .{});
+    try std.testing.expect(missing.path == null);
 }
 
 test "planRootDiskMaterializeMode selects restore caller and cached precedence" {
