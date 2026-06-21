@@ -257,6 +257,7 @@ pub const ProvisionBootInput = struct {
     uds_path: ?[]const u8 = null,
     scratch_disk_path: ?[]const u8 = null,
     root_disk_path: ?[]const u8 = null,
+    vmm_env: []const EnvPair = &.{},
 };
 
 pub const ProvisionBootPlan = struct {
@@ -264,6 +265,7 @@ pub const ProvisionBootPlan = struct {
     kernel_path: ?[]const u8,
     dtb_path: ?[]const u8,
     vmm_vsock: ?[]const u8,
+    vmm_env: []const EnvPair,
     cmd: []const []const u8,
     env: []const EnvPair,
     snapshot_path: ?[]const u8,
@@ -1141,11 +1143,17 @@ pub fn planProvisionBoot(allocator: std.mem.Allocator, input: ProvisionBootInput
     else
         null;
     errdefer if (vmm_vsock) |spec| allocator.free(spec);
+    const vmm_env = if (vmm_vsock) |spec| blk: {
+        const overrides = [_]EnvPair{.{ .key = "MACHINEN_VSOCK", .value = spec }};
+        break :blk try planVmmEnv(allocator, .{ .base = input.vmm_env, .overrides = &overrides });
+    } else try planVmmEnv(allocator, .{ .base = input.vmm_env });
+    errdefer allocator.free(vmm_env);
     return .{
         .image_path = input.base_path,
         .kernel_path = input.kernel_path,
         .dtb_path = input.dtb_path,
         .vmm_vsock = vmm_vsock,
+        .vmm_env = vmm_env,
         .cmd = cmd,
         .env = env,
         .snapshot_path = input.scratch_disk_path,
@@ -2342,8 +2350,12 @@ test "planProvisionWorkload and planProvisionRepack build commands" {
     try std.testing.expect(none.image_config_path == null);
 }
 
-test "planProvisionBoot builds provision boot inputs" {
+test "planProvisionBoot builds provision boot inputs and vmm env" {
     const allocator = std.testing.allocator;
+    const caller_env = [_]EnvPair{
+        .{ .key = "MACHINEN_BOOT_TEST", .value = "1" },
+        .{ .key = "MACHINEN_VSOCK", .value = "caller-owned" },
+    };
     const plan = try planProvisionBoot(allocator, .{
         .base_path = "/base.tar.gz",
         .kernel_path = "/Image",
@@ -2351,15 +2363,22 @@ test "planProvisionBoot builds provision boot inputs" {
         .uds_path = "/tmp/exec.sock",
         .scratch_disk_path = "/tmp/scratch.img",
         .root_disk_path = "/tmp/rootfs.img",
+        .vmm_env = &caller_env,
     });
     defer allocator.free(plan.cmd);
     defer allocator.free(plan.env);
+    defer allocator.free(plan.vmm_env);
     defer if (plan.vmm_vsock) |spec| allocator.free(spec);
 
     try std.testing.expectEqualStrings("/base.tar.gz", plan.image_path.?);
     try std.testing.expectEqualStrings("/Image", plan.kernel_path.?);
     try std.testing.expectEqualStrings("/virt.dtb", plan.dtb_path.?);
     try std.testing.expectEqualStrings("in:1978:/tmp/exec.sock", plan.vmm_vsock.?);
+    try std.testing.expectEqual(@as(usize, 2), plan.vmm_env.len);
+    try std.testing.expectEqualStrings("MACHINEN_BOOT_TEST", plan.vmm_env[0].key);
+    try std.testing.expectEqualStrings("1", plan.vmm_env[0].value);
+    try std.testing.expectEqualStrings("MACHINEN_VSOCK", plan.vmm_env[1].key);
+    try std.testing.expectEqualStrings("in:1978:/tmp/exec.sock", plan.vmm_env[1].value);
     try std.testing.expectEqual(@as(usize, 1), plan.cmd.len);
     try std.testing.expectEqualStrings("/exec-agent", plan.cmd[0]);
     try std.testing.expectEqual(@as(usize, 1), plan.env.len);

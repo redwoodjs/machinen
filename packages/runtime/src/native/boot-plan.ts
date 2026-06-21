@@ -12,7 +12,6 @@ import type {
   PlannedPortForward,
   BootVmstateRuntimePlan,
   ProvisionAssetsPlan,
-  ProvisionBootPlan,
   ProvisionGuestCpu,
   ProvisionImageConfigPlan,
   ProvisionRepackPlan,
@@ -462,28 +461,6 @@ export function planProvisionImageConfigNative(input: {
     hasCmd: false,
     rootDisk: "false",
   }).provisionImageConfig;
-}
-
-export function planProvisionBootNative(input: {
-  basePath: string;
-  kernelPath: string;
-  dtbPath?: string;
-  udsPath: string;
-  scratchDiskPath: string;
-  rootDiskPath: string;
-}): ProvisionBootPlan {
-  return planBootCoreNative({
-    provisionBasePath: input.basePath,
-    provisionKernelPath: input.kernelPath,
-    provisionDtbPath: input.dtbPath,
-    provisionUdsPath: input.udsPath,
-    provisionScratchDiskPath: input.scratchDiskPath,
-    provisionRootDiskPath: input.rootDiskPath,
-    vmmMemoryPreset: true,
-    hasImage: false,
-    hasCmd: false,
-    rootDisk: "false",
-  }).provisionBoot;
 }
 
 export function planProvisionAssetsForHostNative(input: {

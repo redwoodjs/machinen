@@ -108,6 +108,7 @@ const ParsedRequest = struct {
     provision_uds_path: ?[]const u8,
     provision_scratch_disk_path: ?[]const u8,
     provision_root_disk_path: ?[]const u8,
+    provision_boot_vmm_env: std.json.ObjectMap,
     provision_repack_disk_path: ?[]const u8,
     provision_repack_out_path: ?[]const u8,
     provision_repack_extract_dir: ?[]const u8,
@@ -325,6 +326,8 @@ const RequestError = error{
     InvalidProvisionUdsPath,
     InvalidProvisionScratchDiskPath,
     InvalidProvisionRootDiskPath,
+    InvalidProvisionBootVmmEnv,
+    InvalidProvisionBootVmmEnvValue,
     InvalidProvisionRepackDiskPath,
     InvalidProvisionRepackOutPath,
     InvalidProvisionRepackExtractDir,
@@ -628,14 +631,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .cache_path = parsed.provision_asset_cache_path,
         .cache_exists = parsed.provision_asset_cache_exists,
     });
-    const provision_boot = boot_plan.planProvisionBoot(arena, .{
-        .base_path = parsed.provision_base_path,
-        .kernel_path = parsed.provision_kernel_path,
-        .dtb_path = parsed.provision_dtb_path,
-        .uds_path = parsed.provision_uds_path,
-        .scratch_disk_path = parsed.provision_scratch_disk_path,
-        .root_disk_path = parsed.provision_root_disk_path,
-    }) catch |err| {
+    const provision_boot = makeProvisionBoot(arena, parsed) catch |err| {
         try writePlanError(io, err);
         return .fail;
     };
@@ -1125,7 +1121,14 @@ fn writePlan(
     try writeNullableJsonString(io, provision_boot.dtb_path);
     try protocol.stdout(io, ",\"vmmVsock\":");
     try writeNullableJsonString(io, provision_boot.vmm_vsock);
-    try protocol.stdout(io, ",\"cmd\":[");
+    try protocol.stdout(io, ",\"vmmEnv\":{");
+    for (provision_boot.vmm_env, 0..) |pair, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.writeJsonString(io, pair.key);
+        try protocol.stdout(io, ":");
+        try protocol.writeJsonString(io, pair.value);
+    }
+    try protocol.stdout(io, "},\"cmd\":[");
     for (provision_boot.cmd, 0..) |arg, i| {
         if (i != 0) try protocol.stdout(io, ",");
         try protocol.writeJsonString(io, arg);
@@ -1634,6 +1637,18 @@ fn makeBundleEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_pl
     });
 }
 
+fn makeProvisionBoot(allocator: std.mem.Allocator, parsed: ParsedRequest) !boot_plan.ProvisionBootPlan {
+    return boot_plan.planProvisionBoot(allocator, .{
+        .base_path = parsed.provision_base_path,
+        .kernel_path = parsed.provision_kernel_path,
+        .dtb_path = parsed.provision_dtb_path,
+        .uds_path = parsed.provision_uds_path,
+        .scratch_disk_path = parsed.provision_scratch_disk_path,
+        .root_disk_path = parsed.provision_root_disk_path,
+        .vmm_env = try objectStringPairs(allocator, parsed.provision_boot_vmm_env, error.InvalidProvisionBootVmmEnvValue),
+    });
+}
+
 fn makeProvisionRuntime(allocator: std.mem.Allocator, parsed: ParsedRequest) !boot_plan.ProvisionRuntimePlan {
     return boot_plan.planProvisionRuntime(allocator, .{
         .work_dir = parsed.provision_work_dir,
@@ -1745,7 +1760,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "rootDiskOptionFalse", "rootDiskOptionTrue", "rootDiskOptionPath", "rootDiskRestorePath", "guestCwd", "mountGuest", "guestEnv", "vmmEnvBase", "vmmEnvOverrides", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "guestHostnameSetPid", "guestHostnameSetName", "guestHostnameSetVsockUdsPath", "guestHostnameSetSkip", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "portForwardNetSocket", "gvproxyPlanningRequired", "gvproxyNetSocket", "gvproxyPath", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateEngine", "bootVmstateSnapshotDisabled", "bootVmstateExistingTempDir", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountsResolved", "batchLiveMountValidationRequired", "restoreLiveMountsRecorded", "restoreLiveMountsOverrides", "existingStatsFile", "statsFilePath", "statsFileTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "bundlePackUseTiny", "bundlePackMountGuest", "bundlePackRestoreMountGuest", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionDtbExplicit", "provisionCliCacheHome", "provisionCliCacheVersion", "provisionAssetExplicitPath", "provisionAssetExplicitExists", "provisionAssetAssetsDirPath", "provisionAssetAssetsDirExists", "provisionAssetCachePath", "provisionAssetCacheExists", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchOptionFalse", "scratchOptionPath", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "snapshotMountGuest", "snapshotMountLowerPath", "snapshotMountUpperPath", "snapshotLiveMounts", "snapshotVmstatePath", "snapshotVmstateChainId", "snapshotVmstateCheckpointParent", "snapshotVmstateCheckpointSequence", "snapshotBackingEngine", "snapshotBackingAction", "snapshotBackingDiskPath", "snapshotBackingVmstatePath", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryLifecycleName", "registryLifecycleVsockUdsPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath", "registryHostPlatform", "registryVmmBinary", "registryVmmPdeathsig", "registryVmmObservedExeBase", "registryGvPid", "registryGvExe", "registryGvObservedExeBase" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "rootDiskOptionFalse", "rootDiskOptionTrue", "rootDiskOptionPath", "rootDiskRestorePath", "guestCwd", "mountGuest", "guestEnv", "vmmEnvBase", "vmmEnvOverrides", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "guestHostnameSetPid", "guestHostnameSetName", "guestHostnameSetVsockUdsPath", "guestHostnameSetSkip", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "portForwardNetSocket", "gvproxyPlanningRequired", "gvproxyNetSocket", "gvproxyPath", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateEngine", "bootVmstateSnapshotDisabled", "bootVmstateExistingTempDir", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountsResolved", "batchLiveMountValidationRequired", "restoreLiveMountsRecorded", "restoreLiveMountsOverrides", "existingStatsFile", "statsFilePath", "statsFileTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "bundlePackUseTiny", "bundlePackMountGuest", "bundlePackRestoreMountGuest", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionDtbExplicit", "provisionCliCacheHome", "provisionCliCacheVersion", "provisionAssetExplicitPath", "provisionAssetExplicitExists", "provisionAssetAssetsDirPath", "provisionAssetAssetsDirExists", "provisionAssetCachePath", "provisionAssetCacheExists", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionBootVmmEnv", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchOptionFalse", "scratchOptionPath", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "snapshotMountGuest", "snapshotMountLowerPath", "snapshotMountUpperPath", "snapshotLiveMounts", "snapshotVmstatePath", "snapshotVmstateChainId", "snapshotVmstateCheckpointParent", "snapshotVmstateCheckpointSequence", "snapshotBackingEngine", "snapshotBackingAction", "snapshotBackingDiskPath", "snapshotBackingVmstatePath", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryLifecycleName", "registryLifecycleVsockUdsPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath", "registryHostPlatform", "registryVmmBinary", "registryVmmPdeathsig", "registryVmmObservedExeBase", "registryGvPid", "registryGvExe", "registryGvObservedExeBase" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -1849,6 +1864,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .provision_uds_path = try optionalStringDefaultNull(object, "provisionUdsPath", error.InvalidProvisionUdsPath),
         .provision_scratch_disk_path = try optionalStringDefaultNull(object, "provisionScratchDiskPath", error.InvalidProvisionScratchDiskPath),
         .provision_root_disk_path = try optionalStringDefaultNull(object, "provisionRootDiskPath", error.InvalidProvisionRootDiskPath),
+        .provision_boot_vmm_env = try optionalObjectDefaultEmpty(object, "provisionBootVmmEnv", error.InvalidProvisionBootVmmEnv),
         .provision_repack_disk_path = try optionalStringDefaultNull(object, "provisionRepackDiskPath", error.InvalidProvisionRepackDiskPath),
         .provision_repack_out_path = try optionalStringDefaultNull(object, "provisionRepackOutPath", error.InvalidProvisionRepackOutPath),
         .provision_repack_extract_dir = try optionalStringDefaultNull(object, "provisionRepackExtractDir", error.InvalidProvisionRepackExtractDir),
@@ -2339,6 +2355,7 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
         error.InvalidVmmEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan vmm env values must be strings"),
         error.InvalidBundleEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan bundle env values must be strings"),
         error.InvalidProvisionImageConfigEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision image config env values must be strings"),
+        error.InvalidProvisionBootVmmEnvValue => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision boot vmm env values must be strings"),
         error.InvalidProvisionDtbExplicit => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision dtb explicit flag must be a boolean"),
         error.InvalidProvisionCliCacheHome, error.InvalidProvisionCliCacheVersion => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision cli cache fields must be strings"),
         error.InvalidProvisionAssetExplicitPath, error.InvalidProvisionAssetAssetsDirPath, error.InvalidProvisionAssetCachePath => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision asset lookup paths must be strings"),
@@ -2372,6 +2389,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         error.InvalidProvisionAssetExplicitPath, error.InvalidProvisionAssetAssetsDirPath, error.InvalidProvisionAssetCachePath => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision asset lookup paths must be strings"),
         error.InvalidProvisionAssetExplicitExists, error.InvalidProvisionAssetAssetsDirExists, error.InvalidProvisionAssetCacheExists => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision asset lookup exists flags must be booleans"),
         error.InvalidVmmEnvBase, error.InvalidVmmEnvOverrides => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan vmm env fields must be objects"),
+        error.InvalidProvisionBootVmmEnv => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan provision boot vmm env field must be an object"),
         error.InvalidPortForward, error.InvalidHostPort, error.InvalidGuestPort => try protocol.writeError(io, "BOOT_PORT_FORWARD_INVALID", "portForward: hostPort and guestPort must be integers in 1..65535"),
         error.InvalidPortForwardNetSocket => try protocol.writeError(io, "BOOT_PORT_FORWARD_INVALID", "boot-plan portForward net socket field must be a string"),
         error.InvalidGvproxyPlanningRequired => try protocol.writeError(io, "BOOT_PORT_FORWARD_NO_GVPROXY", "boot-plan gvproxy planning flag must be a boolean"),
