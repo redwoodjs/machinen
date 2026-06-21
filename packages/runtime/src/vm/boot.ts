@@ -63,6 +63,7 @@ import {
   planBootStatsFileNative,
   planBootVirtiofsEnvNative,
   planBootVmstateEnvNative,
+  planBootVmstateRuntimeNative,
   planBootVmmArgvNative,
   rootDiskPlanMode,
 } from "../native/boot-plan.ts";
@@ -1065,16 +1066,24 @@ function setupVmstateBoot(
   inputVsockTempDir: string | undefined,
 ): { vmstate: BootVmstateRuntime; vsockTempDir: string | undefined } {
   let vsockTempDir = inputVsockTempDir;
-  const vmstate: BootVmstateRuntime = {
-    statePath: undefined,
-    chainId: randomBytes(16).toString("hex"),
-    checkpointParent: opts._vmstateRestorePath ? opts.forkedFrom : undefined,
-    checkpointSequence: 0,
-  };
+  let statePath: string | undefined;
+  const chainId = randomBytes(16).toString("hex");
   if (resolveSnapshotEngine() === "vmstate" && opts.snapshot !== false) {
     vsockTempDir = ensureVsockTempDir(vsockTempDir);
-    vmstate.statePath = join(vsockTempDir, VMSTATE_FILE);
+    statePath = join(vsockTempDir, VMSTATE_FILE);
   }
+  const runtime = planBootVmstateRuntimeNative({
+    statePath,
+    chainId,
+    restorePath: opts._vmstateRestorePath,
+    forkedFrom: opts.forkedFrom,
+  });
+  const vmstate: BootVmstateRuntime = {
+    statePath: runtime.statePath ?? undefined,
+    chainId: runtime.chainId ?? chainId,
+    checkpointParent: runtime.checkpointParent ?? undefined,
+    checkpointSequence: runtime.checkpointSequence ?? 0,
+  };
   applyVmstateEnvPlan(opts, env, vmstate.statePath);
   return { vmstate, vsockTempDir };
 }

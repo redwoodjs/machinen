@@ -235,6 +235,36 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans vmstate runtime chain metadata", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      bootVmstateStatePath: "/tmp/state.vmstate",
+      bootVmstateChainId: "chain-1",
+      bootVmstateRestorePath: "/tmp/restore.vmstate",
+      bootVmstateForkedFrom: "/snap/parent",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.vmstateRuntime).toEqual({
+      statePath: "/tmp/state.vmstate",
+      chainId: "chain-1",
+      checkpointParent: "/snap/parent",
+      checkpointSequence: 0,
+    });
+  });
+
   it("plans nested virtualization VMM env", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

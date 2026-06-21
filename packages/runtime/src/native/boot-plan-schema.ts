@@ -20,6 +20,12 @@ type RegistryVmstatePlan = {
   checkpointParent: string | null;
   checkpointSequence: number | null;
 };
+export type BootVmstateRuntimePlan = {
+  statePath: string | null;
+  chainId: string | null;
+  checkpointParent: string | null;
+  checkpointSequence: number | null;
+};
 export type ProvisionAssetsPlan = {
   cpu: ProvisionGuestCpu;
   kernelAsset: string;
@@ -108,6 +114,7 @@ export interface NativeBootPlanResult {
   vmmSnapshotPath: string | null;
   vmmRestorePath: string | null;
   vmmVmstateTiming: string | null;
+  vmstateRuntime: BootVmstateRuntimePlan;
   vmmNested: string | null;
   virtiofsEnv: Record<string, string>;
   plannedLiveMounts: PlannedLiveMount[];
@@ -154,6 +161,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmSnapshotPath),
     nullableString(data.vmmRestorePath),
     nullableString(data.vmmVmstateTiming),
+    isBootVmstateRuntimePlan(data.vmstateRuntime),
     nullableString(data.vmmNested),
     isStringRecord(data.virtiofsEnv),
     Array.isArray(data.plannedLiveMounts) && data.plannedLiveMounts.every(isPlannedLiveMount),
@@ -334,6 +342,18 @@ function isRegistryVmstatePlan(value: unknown): value is RegistryVmstatePlan {
     return false;
   }
   const plan = value as Partial<RegistryVmstatePlan>;
+  return isVmstatePlanShape(plan);
+}
+
+function isBootVmstateRuntimePlan(value: unknown): value is BootVmstateRuntimePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<BootVmstateRuntimePlan>;
+  return isVmstatePlanShape(plan);
+}
+
+function isVmstatePlanShape(plan: Partial<BootVmstateRuntimePlan>): boolean {
   return (
     nullableString(plan.statePath) &&
     nullableString(plan.chainId) &&
