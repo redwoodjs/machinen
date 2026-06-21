@@ -588,6 +588,17 @@ pub const RegistryProcessPlan = struct {
     gvproxy_exe: ?[]const u8,
 };
 
+pub const RegistryLifecycleInput = struct {
+    name: ?[]const u8 = null,
+    child_pid: ?i64 = null,
+    vsock_uds_path: ?[]const u8 = null,
+};
+
+pub const RegistryLifecyclePlan = struct {
+    claim_name: ?[]const u8,
+    should_write: bool,
+};
+
 pub const RegistryShapeInput = struct {
     source_image_path: ?[]const u8 = null,
     disk_path: ?[]const u8 = null,
@@ -1321,6 +1332,16 @@ pub fn planRegistryProcess(input: RegistryProcessInput) RegistryProcessPlan {
     return .{ .vmm_exe = vmm_exe, .gvproxy_exe = gvproxy_exe };
 }
 
+pub fn planRegistryLifecycle(input: RegistryLifecycleInput) RegistryLifecyclePlan {
+    const live_pid = (input.child_pid orelse -1) > 0;
+    const has_vsock = if (input.vsock_uds_path) |path| path.len > 0 else false;
+    const claim_name = if (live_pid)
+        if (input.name) |name| if (name.len > 0) name else null else null
+    else
+        null;
+    return .{ .claim_name = claim_name, .should_write = live_pid and has_vsock };
+}
+
 fn planRegistryBootLogPath(allocator: std.mem.Allocator, input: RegistryShapeInput) !?[]const u8 {
     if (!input.detached) return null;
     const pid = input.child_pid orelse return null;
@@ -1757,6 +1778,24 @@ test "planProvisionAssetLookup preserves explicit assets-dir cache order" {
     });
     try std.testing.expectEqualStrings("/cache/rootfs.tar.gz", cache_hit.path.?);
     try std.testing.expect(cache_hit.error_kind == null);
+}
+
+test "planRegistryLifecycle gates name claim and registry writes" {
+    const ready = planRegistryLifecycle(.{ .name = "worker", .child_pid = 42, .vsock_uds_path = "/tmp/exec.sock" });
+    try std.testing.expectEqualStrings("worker", ready.claim_name.?);
+    try std.testing.expect(ready.should_write);
+
+    const no_name = planRegistryLifecycle(.{ .child_pid = 42, .vsock_uds_path = "/tmp/exec.sock" });
+    try std.testing.expect(no_name.claim_name == null);
+    try std.testing.expect(no_name.should_write);
+
+    const dead_pid = planRegistryLifecycle(.{ .name = "worker", .child_pid = 0, .vsock_uds_path = "/tmp/exec.sock" });
+    try std.testing.expect(dead_pid.claim_name == null);
+    try std.testing.expect(!dead_pid.should_write);
+
+    const no_vsock = planRegistryLifecycle(.{ .name = "worker", .child_pid = 42 });
+    try std.testing.expectEqualStrings("worker", no_vsock.claim_name.?);
+    try std.testing.expect(!no_vsock.should_write);
 }
 
 test "planRootDiskMode preserves false and restore precedence" {

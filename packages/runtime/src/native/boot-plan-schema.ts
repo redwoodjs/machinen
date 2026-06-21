@@ -25,6 +25,10 @@ export type RegistryProcessPlan = {
   vmmExe: string | null;
   gvproxyExe: string | null;
 };
+export type RegistryLifecyclePlan = {
+  claimName: string | null;
+  shouldWrite: boolean;
+};
 type RegistryCpuPlan = {
   maxVcpus: number;
   quotaCpus?: number;
@@ -196,6 +200,7 @@ export interface NativeBootPlanResult {
   mountDiskFdEnv: Record<string, string>;
   snapshotContext: SnapshotContextPlan;
   registryShape: RegistryShapePlan;
+  registryLifecycle: RegistryLifecyclePlan;
   registryProcess: RegistryProcessPlan;
 }
 
@@ -260,6 +265,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isStringRecord(data.mountDiskFdEnv),
     isSnapshotContextPlan(data.snapshotContext),
     isRegistryShapePlan(data.registryShape),
+    isRegistryLifecyclePlan(data.registryLifecycle),
     isRegistryProcessPlan(data.registryProcess),
   ].every(Boolean);
 }
@@ -503,6 +509,14 @@ function isSnapshotVmstateChainPlan(value: unknown): value is SnapshotVmstateCha
     nullableString(plan.parentDir) &&
     nonNegativeNumber(plan.sequence)
   );
+}
+
+function isRegistryLifecyclePlan(value: unknown): value is RegistryLifecyclePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<RegistryLifecyclePlan>;
+  return nullableString(plan.claimName) && typeof plan.shouldWrite === "boolean";
 }
 
 function isRegistryProcessPlan(value: unknown): value is RegistryProcessPlan {

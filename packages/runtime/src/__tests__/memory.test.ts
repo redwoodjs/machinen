@@ -1256,6 +1256,8 @@ describe("boot-plan helper schema", () => {
           registryBootLogRoot: "/tmp/machinen-logs",
           registryChildPid: "1234",
           registryDetached: true,
+          registryLifecycleName: "worker",
+          registryLifecycleVsockUdsPath: "/tmp/exec.sock",
           registryPerBootSnapDisk: null,
           registryPerBootMountUpper: "/tmp/upper.img",
           registryBundleTempDir: "/tmp/bundle",
@@ -1340,6 +1342,10 @@ describe("boot-plan helper schema", () => {
         checkpointSequence: 3,
       },
       nested: true,
+    });
+    expect(parsed.registryLifecycle).toEqual({
+      claimName: "worker",
+      shouldWrite: true,
     });
     expect(parsed.registryProcess).toEqual({
       vmmExe: "machinen-pdeathsig",
