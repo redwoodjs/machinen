@@ -12,7 +12,7 @@ import type { Readable } from "node:stream";
 import debugLib from "debug";
 
 import { BootError } from "../errors.ts";
-import { planBootCoreNative } from "../native/boot-plan.ts";
+import { planBootCoreNative, planBootGuestHostnameNative } from "../native/boot-plan.ts";
 import type { VsockExecOptions } from "../exec.ts";
 import type { OnLog } from "../log.ts";
 import type { VmHandle, WriteFileOptions } from "../vm-handle.ts";
@@ -342,17 +342,7 @@ export function collect(stream: Readable, capBytes: number = CONSOLE_TAIL_BYTES)
  * `<src>/<pid>` becomes a valid hostname instead of being rejected.
  */
 export function buildGuestHostname(pid: number, name?: string): string {
-  const tag = `pid-${pid}`;
-  if (!name) {
-    return `vm-${tag}`;
-  }
-  // RFC 952/1123: letters, digits, hyphen. Map everything else to `-`,
-  // collapse runs of `-`, and trim leading/trailing `-`.
-  const safe = name
-    .replace(/[^A-Za-z0-9-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return safe.length > 0 ? `${safe}-${tag}` : `vm-${tag}`;
+  return planBootGuestHostnameNative(pid, name);
 }
 
 /**

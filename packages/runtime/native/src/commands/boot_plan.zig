@@ -27,6 +27,8 @@ const ParsedRequest = struct {
     port_forward: []const boot_plan.PortForwardMapping = &.{},
     vmm_binary: ?[]const u8 = null,
     vmm_args: []const []const u8 = &.{},
+    guest_hostname_pid_text: ?[]const u8 = null,
+    guest_hostname_name: ?[]const u8 = null,
     pdeathsig_path: ?[]const u8 = null,
     pdeathsig_requested: ?bool = null,
     detached: bool = false,
@@ -139,6 +141,8 @@ const boot_plan_fields = [_][]const u8{
     "portForward",
     "vmmBinary",
     "vmmArgs",
+    "guestHostnamePid",
+    "guestHostnameName",
     "pdeathsigPath",
     "pdeathsig",
     "detached",
@@ -257,6 +261,8 @@ const RequestError = error{
     InvalidGuestPort,
     InvalidVmmBinary,
     InvalidVmmArgs,
+    InvalidGuestHostnamePid,
+    InvalidGuestHostnameName,
     InvalidPdeathsigPath,
     InvalidPdeathsig,
     InvalidDetached,
@@ -367,6 +373,7 @@ const PlanParts = struct {
     cpu_policy: ?boot_plan.CpuPolicyPlan,
     guest_env: []const boot_plan.EnvPair,
     vsock_plan: boot_plan.VsockPlan,
+    guest_hostname: ?[]const u8,
     vmm_argv: boot_plan.VmmArgvPlan,
     use_pdeathsig: bool,
     kernel_dtb: boot_plan.KernelDtbPlan,
@@ -430,6 +437,7 @@ fn makePlanParts(
         .plan = plan,
         .cpu_policy = try makeCpuResources(parsed),
         .guest_env = try makeGuestEnv(arena, parsed),
+        .guest_hostname = try makeGuestHostname(arena, parsed),
         .vsock_plan = try boot_plan.planVsock(arena, .{
             .existing_spec = parsed.existing_vsock_spec,
             .auto_uds_path = parsed.auto_vsock_uds_path,
@@ -1337,6 +1345,13 @@ fn writeStringArrayField(
     try protocol.stdout(io, "]");
 }
 
+fn makeGuestHostname(allocator: std.mem.Allocator, parsed: ParsedRequest) RequestError!?[]const u8 {
+    return boot_plan.planGuestHostname(allocator, .{
+        .pid = if (parsed.guest_hostname_pid_text) |text| parseSigned(text) catch return error.InvalidGuestHostnamePid else null,
+        .name = parsed.guest_hostname_name,
+    }) catch return error.InvalidGuestHostnameName;
+}
+
 fn makeGuestEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.EnvPair {
     assert(@sizeOf(ParsedRequest) > 0);
 
@@ -1464,6 +1479,13 @@ fn parseUnsigned(text: []const u8) !u64 {
     return std.fmt.parseUnsigned(u64, text, 10);
 }
 
+fn parseSigned(text: []const u8) !i64 {
+    assert(@sizeOf(i64) > 0);
+
+    if (text.len == 0) return error.Invalid;
+    return std.fmt.parseInt(i64, text, 10);
+}
+
 fn parseFloat(text: []const u8) !f64 {
     assert(@sizeOf(f64) > 0);
 
@@ -1581,6 +1603,16 @@ fn parseTransportFields(
         "vsockUdsPath",
         error.InvalidVsockUdsPath,
     );
+    request.guest_hostname_pid_text = try optionalStringDefaultNull(
+        object,
+        "guestHostnamePid",
+        error.InvalidGuestHostnamePid,
+    );
+    request.guest_hostname_name = try optionalStringDefaultNull(
+        object,
+        "guestHostnameName",
+        error.InvalidGuestHostnameName,
+    );
     request.existing_vsock_spec = try optionalStringDefaultNull(
         object,
         "existingVsockSpec",
@@ -1598,6 +1630,16 @@ fn parseTransportFields(
         object,
         "vmmArgs",
         error.InvalidVmmArgs,
+    );
+    request.guest_hostname_pid_text = try optionalStringDefaultNull(
+        object,
+        "guestHostnamePid",
+        error.InvalidGuestHostnamePid,
+    );
+    request.guest_hostname_name = try optionalStringDefaultNull(
+        object,
+        "guestHostnameName",
+        error.InvalidGuestHostnameName,
     );
     request.pdeathsig_path = try optionalStringDefaultNull(
         object,

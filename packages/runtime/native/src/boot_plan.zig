@@ -55,6 +55,11 @@ pub const GuestEnvInput = struct {
     vsock_uds_path: ?[]const u8 = null,
 };
 
+pub const GuestHostnameInput = struct {
+    pid: ?i64 = null,
+    name: ?[]const u8 = null,
+};
+
 pub const VsockPlanInput = struct {
     existing_spec: ?[]const u8 = null,
     auto_uds_path: ?[]const u8 = null,
@@ -441,6 +446,42 @@ pub fn planPdeathsig(input: PdeathsigInput) bool {
 
     if (input.detached) return false;
     return input.pdeathsig orelse true;
+}
+
+pub fn planGuestHostname(allocator: std.mem.Allocator, input: GuestHostnameInput) !?[]const u8 {
+    assert(@sizeOf(GuestHostnameInput) > 0);
+
+    const pid = input.pid orelse return null;
+    const safe_name = try sanitizeHostnameName(allocator, input.name orelse "");
+    defer allocator.free(safe_name);
+    if (safe_name.len == 0) {
+        const hostname = try std.fmt.allocPrint(allocator, "vm-{d}", .{pid});
+        return hostname;
+    }
+    const hostname = try std.fmt.allocPrint(allocator, "vm-{d}-{s}", .{ pid, safe_name });
+    return hostname;
+}
+
+fn sanitizeHostnameName(allocator: std.mem.Allocator, name: []const u8) ![]const u8 {
+    assert(@sizeOf(std.mem.Allocator) > 0);
+
+    var output = try std.ArrayList(u8).initCapacity(allocator, name.len);
+    errdefer output.deinit(allocator);
+    for (name) |c| {
+        if (isHostnameAlnum(c)) {
+            output.appendAssumeCapacity(std.ascii.toLower(c));
+        } else if (output.items.len > 0 and output.items[output.items.len - 1] != '-') {
+            output.appendAssumeCapacity('-');
+        }
+    }
+    while (output.items.len > 0 and output.items[output.items.len - 1] == '-') {
+        _ = output.pop();
+    }
+    return output.toOwnedSlice(allocator);
+}
+
+fn isHostnameAlnum(c: u8) bool {
+    return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9');
 }
 
 pub fn planNestedEnv(nested: bool) ?[]const u8 {
@@ -1277,6 +1318,26 @@ test "planCore resolves explicit memory aliases" {
         .resources_memory = .{ .max_mib = 2048, .reclaim = "manual" },
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     }));
+}
+
+test "planGuestHostname sanitizes names and includes pid" {
+    const named = (try planGuestHostname(std.testing.allocator, .{ .pid = 1234, .name = "worker" })).?;
+    defer std.testing.allocator.free(named);
+    try std.testing.expectEqualStrings("vm-1234-worker", named);
+
+    const nameless = (try planGuestHostname(std.testing.allocator, .{ .pid = 1234 })).?;
+    defer std.testing.allocator.free(nameless);
+    try std.testing.expectEqualStrings("vm-1234", nameless);
+
+    const sanitized = (try planGuestHostname(std.testing.allocator, .{ .pid = 99, .name = "src/name~fork" })).?;
+    defer std.testing.allocator.free(sanitized);
+    try std.testing.expectEqualStrings("vm-99-src-name-fork", sanitized);
+
+    const empty = (try planGuestHostname(std.testing.allocator, .{ .pid = 99, .name = "///" })).?;
+    defer std.testing.allocator.free(empty);
+    try std.testing.expectEqualStrings("vm-99", empty);
+
+    try std.testing.expect((try planGuestHostname(std.testing.allocator, .{})) == null);
 }
 
 test "planPdeathsig defaults on and lets detach or explicit false disable it" {
