@@ -110,6 +110,7 @@ const ParsedRequest = struct {
     provision_uds_path: ?[]const u8 = null,
     provision_scratch_disk_path: ?[]const u8 = null,
     provision_root_disk_path: ?[]const u8 = null,
+    provision_boot_vmm_env: std.json.ObjectMap = .empty,
     provision_repack_disk_path: ?[]const u8 = null,
     provision_repack_out_path: ?[]const u8 = null,
     provision_repack_extract_dir: ?[]const u8 = null,
@@ -304,6 +305,7 @@ const boot_plan_fields = [_][]const u8{
     "provisionUdsPath",
     "provisionScratchDiskPath",
     "provisionRootDiskPath",
+    "provisionBootVmmEnv",
     "provisionRepackDiskPath",
     "provisionRepackOutPath",
     "provisionRepackExtractDir",
@@ -510,6 +512,8 @@ const RequestError = error{
     InvalidProvisionUdsPath,
     InvalidProvisionScratchDiskPath,
     InvalidProvisionRootDiskPath,
+    InvalidProvisionBootVmmEnv,
+    InvalidProvisionBootVmmEnvValue,
     InvalidProvisionRepackDiskPath,
     InvalidProvisionRepackOutPath,
     InvalidProvisionRepackExtractDir,
@@ -1051,6 +1055,11 @@ fn makeProvisionBoot(
         .uds_path = parsed.provision_uds_path,
         .scratch_disk_path = parsed.provision_scratch_disk_path,
         .root_disk_path = parsed.provision_root_disk_path,
+        .vmm_env = try objectStringPairs(
+            arena,
+            parsed.provision_boot_vmm_env,
+            error.InvalidProvisionBootVmmEnvValue,
+        ),
     });
 }
 
@@ -1906,6 +1915,7 @@ fn writeProvisionBootField(
     try writeNullableStringField(io, "kernelPath", boot.kernel_path, true);
     try writeNullableStringField(io, "dtbPath", boot.dtb_path, true);
     try writeNullableStringField(io, "vmmVsock", boot.vmm_vsock, true);
+    try writeEnvObjectField(io, "vmmEnv", boot.vmm_env, true);
     try writeStringArrayField(io, "cmd", boot.cmd, true);
     try writeEnvObjectField(io, "env", boot.env, true);
     try writeNullableStringField(io, "snapshotPath", boot.snapshot_path, true);
@@ -4488,6 +4498,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
     if (try writeProvisionAssetLookupRequestError(io, err)) return;
     if (try writeRegistryLifecycleRequestError(io, err)) return;
     if (try writeVmmEnvRequestError(io, err)) return;
+    if (try writeProvisionBootRequestError(io, err)) return;
 
     switch (err) {
         error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
@@ -4507,6 +4518,25 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
+}
+
+fn writeProvisionBootRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidProvisionBootVmmEnv => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan provision boot vmm env field must be an object",
+        ),
+        error.InvalidProvisionBootVmmEnvValue => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan provision boot vmm env values must be strings",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writeVmmEnvRequestError(io: std.Io, err: RequestError) !bool {

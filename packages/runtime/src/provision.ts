@@ -39,13 +39,13 @@ import { VsockExec } from "./exec.ts";
 import type { OnLog } from "./log.ts";
 import {
   planProvisionAssetsForHostNative,
-  planProvisionBootNative,
   planProvisionImageConfigNative,
   planProvisionRepackNative,
   planProvisionRuntimeNative,
   planProvisionWorkloadNative,
 } from "./native/boot-plan.ts";
 import { planProvisionAssetLookupNative } from "./native/provision-asset-lookup.ts";
+import { planProvisionBootNative } from "./native/provision-boot.ts";
 import { planProvisionCliCacheNative } from "./native/provision-cli-cache.ts";
 import { planProvisionDtbNative } from "./native/provision-dtb.ts";
 import { PhaseTimer } from "./phase-timer.ts";
@@ -501,14 +501,12 @@ async function bootProvisionVm(opts: ProvisionOptions, ctx: ProvisionContext): P
     udsPath: ctx.udsPath,
     scratchDiskPath: ctx.diskPath,
     rootDiskPath: ctx.rootDiskPath,
+    vmmEnv: opts.vmmEnv,
   });
   const vm = await boot({
     binary: opts.binary,
     cwd: opts.cwd,
-    vmmEnv: {
-      ...opts.vmmEnv,
-      ...(plan.vmmVsock ? { MACHINEN_VSOCK: plan.vmmVsock } : {}),
-    },
+    vmmEnv: plan.vmmEnv,
     kernel: requireProvisionPlanString(plan.kernelPath, "kernelPath"),
     ...(plan.dtbPath ? { dtb: plan.dtbPath } : {}),
     image: requireProvisionPlanString(plan.imagePath, "imagePath"),
