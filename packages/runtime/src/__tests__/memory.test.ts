@@ -165,6 +165,20 @@ describe("boot-plan helper schema", () => {
       { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
       { hostPort: 8443, guestPort: 443 },
     ]);
+
+    const presetNetSocket = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          portForward: [{ hostPort: 8080, guestPort: 80 }],
+          portForwardNetSocket: "/tmp/net.sock",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(presetNetSocket.status).toBe(1);
+    expect(JSON.parse(presetNetSocket.stdout).error.code).toBe("BOOT_PORT_FORWARD_INVALID");
   });
 
   it("plans vsock specs from caller env auto UDS paths or auto temp dirs", () => {

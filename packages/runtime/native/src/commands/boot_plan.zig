@@ -27,6 +27,7 @@ const ParsedRequest = struct {
     auto_vsock_uds_path: ?[]const u8 = null,
     auto_vsock_temp_dir: ?[]const u8 = null,
     port_forward: []const boot_plan.PortForwardMapping = &.{},
+    port_forward_net_socket: ?[]const u8 = null,
     vmm_binary: ?[]const u8 = null,
     vmm_args: []const []const u8 = &.{},
     guest_hostname_pid_text: ?[]const u8 = null,
@@ -169,6 +170,7 @@ const boot_plan_fields = [_][]const u8{
     "autoVsockUdsPath",
     "autoVsockTempDir",
     "portForward",
+    "portForwardNetSocket",
     "vmmBinary",
     "vmmArgs",
     "guestHostnamePid",
@@ -317,6 +319,7 @@ const RequestError = error{
     InvalidPortForward,
     InvalidHostPort,
     InvalidGuestPort,
+    InvalidPortForwardNetSocket,
     InvalidVmmBinary,
     InvalidVmmArgs,
     InvalidGuestHostnamePid,
@@ -442,7 +445,11 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
-    if (try writePortForwardFailure(io, parsed.port_forward)) return .fail;
+    if (try writePortForwardFailure(
+        io,
+        parsed.port_forward,
+        parsed.port_forward_net_socket,
+    )) return .fail;
 
     const parts = makePlanParts(arena, parsed, plan) catch |err| {
         if (err == error.RestoreLiveMountOverrideUnknown) {
@@ -962,16 +969,28 @@ fn makeRegistryShape(
 fn writePortForwardFailure(
     io: std.Io,
     mappings: []const boot_plan.PortForwardMapping,
+    net_socket: ?[]const u8,
 ) !bool {
     assert(@sizeOf(boot_plan.PortForwardMapping) > 0);
 
     switch (boot_plan.validatePortForward(mappings)) {
-        .ok => return false,
+        .ok => {},
         .invalid_host_port => |port| try writePortForwardInvalid(io, "hostPort", port),
         .invalid_guest_port => |port| try writePortForwardInvalid(io, "guestPort", port),
         .duplicate_host_port => |port| try writeDuplicateHostPort(io, port),
     }
-    return true;
+    boot_plan.validatePortForwardNetSocket(.{
+        .port_forwards = mappings,
+        .net_socket = net_socket,
+    }) catch |err| switch (err) {
+        error.PortForwardNetSocketPreset => try writeBootError(
+            io,
+            "BOOT_PORT_FORWARD_INVALID",
+            "portForward requires the runtime to own gvproxy, but MACHINEN_NET_SOCKET is already set",
+        ),
+        else => return err,
+    };
+    return false;
 }
 
 fn writePlan(io: std.Io, parts: PlanParts) !void {
@@ -2034,6 +2053,11 @@ fn parseVmmLaunchFields(
     assert(@sizeOf(ParsedRequest) > 0);
 
     request.port_forward = try optionalPortForward(allocator, object);
+    request.port_forward_net_socket = try optionalStringDefaultNull(
+        object,
+        "portForwardNetSocket",
+        error.InvalidPortForwardNetSocket,
+    );
     request.vmm_binary = try optionalStringDefaultNull(object, "vmmBinary", error.InvalidVmmBinary);
     request.vmm_args = try optionalStringArrayDefaultEmpty(
         allocator,
@@ -3441,6 +3465,11 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
             io,
             "BOOT_PORT_FORWARD_INVALID",
             "portForward: hostPort and guestPort must be integers in 1..65535",
+        ),
+        error.InvalidPortForwardNetSocket => try protocol.writeError(
+            io,
+            "BOOT_PORT_FORWARD_INVALID",
+            "boot-plan portForward net socket field must be a string",
         ),
         error.InvalidLiveMounts,
         error.InvalidLiveMountGuest,
