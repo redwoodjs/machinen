@@ -222,6 +222,20 @@ pub const VmstateEnvPlan = struct {
     vmstate_timing: ?[]const u8,
 };
 
+pub const VmstateRuntimeInput = struct {
+    state_path: ?[]const u8 = null,
+    chain_id: ?[]const u8 = null,
+    restore_path: ?[]const u8 = null,
+    forked_from: ?[]const u8 = null,
+};
+
+pub const VmstateRuntimePlan = struct {
+    state_path: ?[]const u8,
+    chain_id: ?[]const u8,
+    checkpoint_parent: ?[]const u8,
+    checkpoint_sequence: ?u64,
+};
+
 pub const LiveMountInput = struct {
     host: []const u8,
     guest: []const u8,
@@ -457,6 +471,7 @@ pub const PlanError = error{
     MissingProvisionRepackField,
     MissingRegistryCpuStatus,
     MissingRegistryVmstateField,
+    MissingVmstateRuntimeChainId,
 };
 
 pub fn planBootTimeout(timeout_ms: ?u64, forever: bool) ?u64 {
@@ -505,6 +520,28 @@ fn sanitizeHostnameName(allocator: std.mem.Allocator, name: []const u8) ![]const
 
 fn isHostnameAlnum(c: u8) bool {
     return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9');
+}
+
+pub fn planVmstateRuntime(input: VmstateRuntimeInput) PlanError!VmstateRuntimePlan {
+    if (input.state_path == null and
+        input.chain_id == null and
+        input.restore_path == null and
+        input.forked_from == null)
+    {
+        return .{
+            .state_path = null,
+            .chain_id = null,
+            .checkpoint_parent = null,
+            .checkpoint_sequence = null,
+        };
+    }
+    const chain_id = input.chain_id orelse return error.MissingVmstateRuntimeChainId;
+    return .{
+        .state_path = input.state_path,
+        .chain_id = chain_id,
+        .checkpoint_parent = if (input.restore_path != null) input.forked_from else null,
+        .checkpoint_sequence = 0,
+    };
 }
 
 pub fn planNestedEnv(nested: bool) ?[]const u8 {
@@ -1417,6 +1454,35 @@ test "planPdeathsig defaults on and lets detach or explicit false disable it" {
     try std.testing.expect(planPdeathsig(.{ .pdeathsig = true }));
     try std.testing.expect(!planPdeathsig(.{ .pdeathsig = false }));
     try std.testing.expect(!planPdeathsig(.{ .detached = true, .pdeathsig = true }));
+}
+
+test "planVmstateRuntime projects chain defaults and restore parent" {
+    const fresh = try planVmstateRuntime(.{
+        .state_path = "/tmp/state.vmstate",
+        .chain_id = "chain-1",
+    });
+    try std.testing.expectEqualStrings("/tmp/state.vmstate", fresh.state_path.?);
+    try std.testing.expectEqualStrings("chain-1", fresh.chain_id.?);
+    try std.testing.expect(fresh.checkpoint_parent == null);
+    try std.testing.expectEqual(@as(u64, 0), fresh.checkpoint_sequence.?);
+
+    const restore = try planVmstateRuntime(.{
+        .state_path = "/tmp/state.vmstate",
+        .chain_id = "chain-2",
+        .restore_path = "/tmp/restore.vmstate",
+        .forked_from = "/snap/parent",
+    });
+    try std.testing.expectEqualStrings("/snap/parent", restore.checkpoint_parent.?);
+    try std.testing.expectEqual(@as(u64, 0), restore.checkpoint_sequence.?);
+
+    const empty = try planVmstateRuntime(.{});
+    try std.testing.expect(empty.state_path == null);
+    try std.testing.expect(empty.chain_id == null);
+    try std.testing.expect(empty.checkpoint_sequence == null);
+
+    try std.testing.expectError(error.MissingVmstateRuntimeChainId, planVmstateRuntime(.{
+        .state_path = "/tmp/state.vmstate",
+    }));
 }
 
 test "planNestedEnv sets nested only when requested" {

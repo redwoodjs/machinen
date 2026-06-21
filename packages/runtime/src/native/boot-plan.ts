@@ -8,6 +8,7 @@ import type {
   MountDiskRuntimePlan,
   PlannedLiveMount,
   PlannedPortForward,
+  BootVmstateRuntimePlan,
   ProvisionAssetsPlan,
   ProvisionBootPlan,
   ProvisionGuestCpu,
@@ -62,6 +63,10 @@ interface NativeBootPlanInput {
   restorePath?: string;
   enableVmstateTiming?: boolean;
   existingVmstateTiming?: string;
+  bootVmstateStatePath?: string;
+  bootVmstateChainId?: string;
+  bootVmstateRestorePath?: string;
+  bootVmstateForkedFrom?: string;
   nested?: boolean;
   liveMounts?: LiveMountPlanInput[];
   liveMountsResolved?: PlannedLiveMount[];
@@ -178,6 +183,10 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     restorePath: nullDefault(input.restorePath),
     enableVmstateTiming: input.enableVmstateTiming === true,
     existingVmstateTiming: nullDefault(input.existingVmstateTiming),
+    bootVmstateStatePath: nullDefault(input.bootVmstateStatePath),
+    bootVmstateChainId: nullDefault(input.bootVmstateChainId),
+    bootVmstateRestorePath: nullDefault(input.bootVmstateRestorePath),
+    bootVmstateForkedFrom: nullDefault(input.bootVmstateForkedFrom),
     nested: input.nested === true,
     liveMounts: liveMountsData(input.liveMounts),
     liveMountsResolved: input.liveMountsResolved ?? [],
@@ -775,6 +784,24 @@ export function planBootVmstateEnvNative(input: {
     restorePath: plan.vmmRestorePath ?? undefined,
     vmstateTiming: plan.vmmVmstateTiming ?? undefined,
   };
+}
+
+export function planBootVmstateRuntimeNative(input: {
+  statePath?: string;
+  chainId: string;
+  restorePath?: string;
+  forkedFrom?: string;
+}): BootVmstateRuntimePlan {
+  return planBootCoreNative({
+    bootVmstateStatePath: input.statePath,
+    bootVmstateChainId: input.chainId,
+    bootVmstateRestorePath: input.restorePath,
+    bootVmstateForkedFrom: input.forkedFrom,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).vmstateRuntime;
 }
 
 export function planBootKernelDtbNative(input: { kernelPath?: string; dtbPath?: string }): {

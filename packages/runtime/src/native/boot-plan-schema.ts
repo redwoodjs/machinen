@@ -114,6 +114,7 @@ export interface NativeBootPlanResult {
   plannedLiveMounts: PlannedLiveMount[];
   statsFilePath: string | null;
   vmmStatsFile: string | null;
+  vmstateRuntime: BootVmstateRuntimePlan;
   plannedPortForward: PlannedPortForward[];
   machinenConfig: MachinenConfigPlan;
   bundleCommand: string[];
@@ -160,6 +161,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     Array.isArray(data.plannedLiveMounts) && data.plannedLiveMounts.every(isPlannedLiveMount),
     nullableString(data.statsFilePath),
     nullableString(data.vmmStatsFile),
+    isBootVmstateRuntimePlan(data.vmstateRuntime),
     Array.isArray(data.plannedPortForward) && data.plannedPortForward.every(isPlannedPortForward),
     isMachinenConfigPlan(data.machinenConfig),
     isStringArray(data.bundleCommand),
@@ -330,6 +332,22 @@ function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
   ].every(Boolean);
 }
 
+function isBootVmstateRuntimePlan(value: unknown): value is BootVmstateRuntimePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  return isVmstatePlanShape(value as Partial<BootVmstateRuntimePlan>);
+}
+
+function isVmstatePlanShape(plan: Partial<BootVmstateRuntimePlan>): boolean {
+  return (
+    nullableString(plan.statePath) &&
+    nullableString(plan.chainId) &&
+    nullableString(plan.checkpointParent) &&
+    nullableNonNegativeNumber(plan.checkpointSequence)
+  );
+}
+
 function isRegistryPortForwardArray(value: unknown): value is RegistryPortForwardPlan[] {
   return Array.isArray(value) && value.every(isPlannedPortForward);
 }
@@ -350,13 +368,7 @@ function isRegistryVmstatePlan(value: unknown): value is RegistryVmstatePlan {
   if (!value || typeof value !== "object") {
     return false;
   }
-  const plan = value as Partial<RegistryVmstatePlan>;
-  return [
-    nullableString(plan.statePath),
-    nullableString(plan.chainId),
-    nullableString(plan.checkpointParent),
-    nullableNonNegativeNumber(plan.checkpointSequence),
-  ].every(Boolean);
+  return isVmstatePlanShape(value as Partial<RegistryVmstatePlan>);
 }
 
 function nullableRegistryCpu(value: unknown): value is RegistryCpuPlan | null {

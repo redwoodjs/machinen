@@ -41,6 +41,10 @@ const ParsedRequest = struct {
     restore_path: ?[]const u8 = null,
     enable_vmstate_timing: bool = false,
     existing_vmstate_timing: ?[]const u8 = null,
+    boot_vmstate_state_path: ?[]const u8 = null,
+    boot_vmstate_chain_id: ?[]const u8 = null,
+    boot_vmstate_restore_path: ?[]const u8 = null,
+    boot_vmstate_forked_from: ?[]const u8 = null,
     nested_requested: bool = false,
     live_mounts: []const boot_plan.LiveMountInput = &.{},
     live_mounts_resolved: []const boot_plan.LiveMount = &.{},
@@ -160,6 +164,10 @@ const boot_plan_fields = [_][]const u8{
     "restorePath",
     "enableVmstateTiming",
     "existingVmstateTiming",
+    "bootVmstateStatePath",
+    "bootVmstateChainId",
+    "bootVmstateRestorePath",
+    "bootVmstateForkedFrom",
     "nested",
     "liveMounts",
     "liveMountsResolved",
@@ -286,6 +294,10 @@ const RequestError = error{
     InvalidRestorePath,
     InvalidEnableVmstateTiming,
     InvalidExistingVmstateTiming,
+    InvalidBootVmstateStatePath,
+    InvalidBootVmstateChainId,
+    InvalidBootVmstateRestorePath,
+    InvalidBootVmstateForkedFrom,
     InvalidNested,
     InvalidLiveMounts,
     InvalidLiveMountGuest,
@@ -396,6 +408,7 @@ const PlanParts = struct {
     planned_port_forwards: []const boot_plan.PortForwardMapping,
     kernel_dtb: boot_plan.KernelDtbPlan,
     vmstate_env: boot_plan.VmstateEnvPlan,
+    vmstate_runtime: boot_plan.VmstateRuntimePlan,
     nested_env: ?[]const u8,
     virtiofs_env: []const boot_plan.EnvPair,
     stats_file: boot_plan.StatsFilePlan,
@@ -479,6 +492,12 @@ fn makePlanParts(
             .restore_path = parsed.restore_path,
             .enable_timing = parsed.enable_vmstate_timing,
             .existing_timing = parsed.existing_vmstate_timing,
+        }),
+        .vmstate_runtime = try boot_plan.planVmstateRuntime(.{
+            .state_path = parsed.boot_vmstate_state_path,
+            .chain_id = parsed.boot_vmstate_chain_id,
+            .restore_path = parsed.boot_vmstate_restore_path,
+            .forked_from = parsed.boot_vmstate_forked_from,
         }),
         .nested_env = boot_plan.planNestedEnv(parsed.nested_requested),
         .virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved),
@@ -1788,6 +1807,26 @@ fn parseVmstateFields(object: std.json.ObjectMap, request: *ParsedRequest) Reque
         object,
         "existingVmstateTiming",
         error.InvalidExistingVmstateTiming,
+    );
+    request.boot_vmstate_state_path = try optionalStringDefaultNull(
+        object,
+        "bootVmstateStatePath",
+        error.InvalidBootVmstateStatePath,
+    );
+    request.boot_vmstate_chain_id = try optionalStringDefaultNull(
+        object,
+        "bootVmstateChainId",
+        error.InvalidBootVmstateChainId,
+    );
+    request.boot_vmstate_restore_path = try optionalStringDefaultNull(
+        object,
+        "bootVmstateRestorePath",
+        error.InvalidBootVmstateRestorePath,
+    );
+    request.boot_vmstate_forked_from = try optionalStringDefaultNull(
+        object,
+        "bootVmstateForkedFrom",
+        error.InvalidBootVmstateForkedFrom,
     );
     request.nested_requested = try optionalBoolDefaultFalse(object, "nested", error.InvalidNested);
 }
