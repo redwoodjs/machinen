@@ -46,6 +46,10 @@ export type ProvisionRuntimePlan = {
 };
 export type RegistryShapePlan = {
   sourceImagePath: string | null;
+  diskPath: string | null;
+  forkedFrom: string | null;
+  memoryCeilingMib: number | null;
+  statsPath: string | null;
   rootDiskPath: string | null;
   rootDiskMode: "block" | "none";
   cleanupPaths: string[];
@@ -321,6 +325,10 @@ function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
   const plan = value as Partial<RegistryShapePlan>;
   return [
     nullableString(plan.sourceImagePath),
+    nullableString(plan.diskPath),
+    nullableString(plan.forkedFrom),
+    nullableNonNegativeNumber(plan.memoryCeilingMib),
+    nullableString(plan.statsPath),
     nullableString(plan.rootDiskPath),
     isOneOf(plan.rootDiskMode, registryRootDiskModes),
     isStringArray(plan.cleanupPaths),

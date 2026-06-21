@@ -96,6 +96,10 @@ const ParsedRequest = struct {
     registry_source_image_path: ?[]const u8 = null,
     registry_per_boot_root_disk: ?[]const u8 = null,
     registry_caller_root_disk_path: ?[]const u8 = null,
+    registry_disk_path: ?[]const u8 = null,
+    registry_forked_from: ?[]const u8 = null,
+    registry_memory_ceiling_mib_text: ?[]const u8 = null,
+    registry_stats_path: ?[]const u8 = null,
     registry_boot_log_root: ?[]const u8 = null,
     registry_child_pid_text: ?[]const u8 = null,
     registry_detached: bool = false,
@@ -219,6 +223,10 @@ const boot_plan_fields = [_][]const u8{
     "registrySourceImagePath",
     "registryPerBootRootDisk",
     "registryCallerRootDiskPath",
+    "registryDiskPath",
+    "registryForkedFrom",
+    "registryMemoryCeilingMib",
+    "registryStatsPath",
     "registryBootLogRoot",
     "registryChildPid",
     "registryDetached",
@@ -358,6 +366,10 @@ const RequestError = error{
     InvalidRegistryBootLogRoot,
     InvalidRegistryChildPid,
     InvalidRegistryDetached,
+    InvalidRegistryDiskPath,
+    InvalidRegistryForkedFrom,
+    InvalidRegistryMemoryCeilingMib,
+    InvalidRegistryStatsPath,
     InvalidRegistryCleanupPath,
     InvalidRegistryCpuPolicy,
     InvalidRegistryCpuControlStatus,
@@ -756,6 +768,10 @@ fn makeRegistryShape(
         parseSigned(text) catch return error.InvalidRegistryChildPid
     else
         null;
+    const registry_memory_ceiling_mib = try optionalUnsignedText(
+        parsed.registry_memory_ceiling_mib_text,
+        error.InvalidRegistryMemoryCeilingMib,
+    );
     return boot_plan.planRegistryShape(arena, .{
         .source_image_path = parsed.registry_source_image_path,
         .per_boot_root_disk = parsed.registry_per_boot_root_disk,
@@ -763,6 +779,10 @@ fn makeRegistryShape(
         .boot_log_root = parsed.registry_boot_log_root,
         .child_pid = registry_child_pid,
         .detached = parsed.registry_detached,
+        .disk_path = parsed.registry_disk_path,
+        .forked_from = parsed.registry_forked_from,
+        .memory_ceiling_mib = registry_memory_ceiling_mib,
+        .stats_path = parsed.registry_stats_path,
         .cleanup = .{
             .per_boot_root_disk = parsed.registry_per_boot_root_disk,
             .per_boot_snap_disk = parsed.registry_per_boot_snap_disk,
@@ -2181,6 +2201,26 @@ fn parseRegistryRootDiskFields(
         object,
         "registryCallerRootDiskPath",
         error.InvalidRegistryRootDiskPath,
+    );
+    request.registry_disk_path = try optionalStringDefaultNull(
+        object,
+        "registryDiskPath",
+        error.InvalidRegistryDiskPath,
+    );
+    request.registry_forked_from = try optionalStringDefaultNull(
+        object,
+        "registryForkedFrom",
+        error.InvalidRegistryForkedFrom,
+    );
+    request.registry_memory_ceiling_mib_text = try optionalStringDefaultNull(
+        object,
+        "registryMemoryCeilingMib",
+        error.InvalidRegistryMemoryCeilingMib,
+    );
+    request.registry_stats_path = try optionalStringDefaultNull(
+        object,
+        "registryStatsPath",
+        error.InvalidRegistryStatsPath,
     );
     request.registry_boot_log_root = try optionalStringDefaultNull(
         object,

@@ -391,6 +391,10 @@ pub const RegistryShapeInput = struct {
     child_pid: ?i64 = null,
     detached: bool = false,
     caller_root_disk_path: ?[]const u8 = null,
+    disk_path: ?[]const u8 = null,
+    forked_from: ?[]const u8 = null,
+    memory_ceiling_mib: ?u64 = null,
+    stats_path: ?[]const u8 = null,
     cleanup: RegistryCleanupInput = .{},
     mount_disk: RegistryMountDiskInput = .{},
     live_mounts: []const LiveMount = &.{},
@@ -406,6 +410,10 @@ pub const RegistryShapePlan = struct {
     root_disk_path: ?[]const u8,
     root_disk_mode: []const u8,
     boot_log_path: ?[]const u8,
+    disk_path: ?[]const u8,
+    forked_from: ?[]const u8,
+    memory_ceiling_mib: ?u64,
+    stats_path: ?[]const u8,
     cleanup_paths: []const []const u8,
     mount_disk: ?RegistryMountDiskPlan,
     live_mounts: []const RegistryLiveMountPlan,
@@ -990,6 +998,10 @@ pub fn planRegistryShape(
         .root_disk_path = root_disk_path,
         .root_disk_mode = if (root_disk_path != null) "block" else "none",
         .boot_log_path = boot_log_path,
+        .disk_path = input.disk_path,
+        .forked_from = input.forked_from,
+        .memory_ceiling_mib = input.memory_ceiling_mib,
+        .stats_path = input.stats_path,
         .cleanup_paths = try planRegistryCleanupPaths(allocator, input.cleanup),
         .mount_disk = try planRegistryMountDisk(input.mount_disk),
         .live_mounts = try planRegistryLiveMounts(allocator, input.live_mounts),
@@ -1588,6 +1600,10 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
         .boot_log_root = "/tmp/machinen-logs",
         .child_pid = 1234,
         .detached = true,
+        .disk_path = "/disk.img",
+        .forked_from = "/snap/source",
+        .memory_ceiling_mib = 2048,
+        .stats_path = "/stats.json",
         .port_forwards = &[_]PortForwardMapping{
             .{ .host_port = 8080, .guest_port = 80, .host_addr = "127.0.0.1" },
             .{ .host_port = 8443, .guest_port = 443 },
@@ -1602,6 +1618,10 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectEqualStrings("/tmp/per-boot-root.img", plan.root_disk_path.?);
     try std.testing.expectEqualStrings("block", plan.root_disk_mode);
     try std.testing.expectEqualStrings("/tmp/machinen-logs/1234.boot.log", plan.boot_log_path.?);
+    try std.testing.expectEqualStrings("/disk.img", plan.disk_path.?);
+    try std.testing.expectEqualStrings("/snap/source", plan.forked_from.?);
+    try std.testing.expectEqual(@as(u64, 2048), plan.memory_ceiling_mib.?);
+    try std.testing.expectEqualStrings("/stats.json", plan.stats_path.?);
     try std.testing.expectEqual(@as(@TypeOf(plan.cleanup_paths.len), 6), plan.cleanup_paths.len);
     try std.testing.expectEqualStrings("/tmp/root.img", plan.cleanup_paths[0]);
     try std.testing.expectEqualStrings("/tmp/upper.img", plan.cleanup_paths[1]);

@@ -57,6 +57,7 @@ import {
   planBootPortForwardNative,
   planBootRegistryNestedNative,
   planBootRegistryPortForwardNative,
+  planBootRegistryScalarsNative,
   planBootRegistryShapeNative,
   planBootRegistryVmstateNative,
   planBootScratchDiskNative,
@@ -891,7 +892,7 @@ function buildRegisterArgs(
     sourceImageAbs: state.sourceImageAbs,
     rootDiskPath: state.rootDiskPath,
     rootDiskMode: state.rootDiskMode,
-    diskAbs: args.plan.diskAbs,
+    diskPath: args.plan.diskAbs,
     forkedFrom: args.opts.forkedFrom,
     bootLogPath: state.bootLogPath,
     cleanupPaths: cleanupPathsForBoot(args.plan, args.resources, args.spawned),
@@ -903,7 +904,7 @@ function buildRegisterArgs(
     memoryCeilingMib: args.plan.memoryCeilingMib,
     cpuPolicy: args.plan.cpuPolicy,
     cpuControl: args.spawned.cpuControl,
-    statsFilePath: args.plan.statsFilePath,
+    statsPath: args.plan.statsFilePath,
     mountDiskPaths: args.resources.mountDiskPaths,
     liveMountsResolved: args.plan.liveMountsResolved,
     vmstateStatePath: vmstate.statePath ?? undefined,
@@ -1574,7 +1575,7 @@ interface RegisterArgs {
   sourceImageAbs: string | undefined;
   rootDiskPath: string | undefined;
   rootDiskMode: "block" | "none";
-  diskAbs: string | undefined;
+  diskPath: string | undefined;
   forkedFrom: string | undefined;
   bootLogPath: string | undefined;
   cleanupPaths: string[];
@@ -1586,7 +1587,7 @@ interface RegisterArgs {
   memoryCeilingMib: number | undefined;
   cpuPolicy: ResolvedCpuResourcePolicy | undefined;
   cpuControl: CpuControlResult;
-  statsFilePath: string | undefined;
+  statsPath: string | undefined;
   mountDiskPaths: MountDiskPaths | undefined;
   liveMountsResolved: ResolvedLiveMount[];
   vmstateStatePath: string | undefined;
@@ -1614,6 +1615,7 @@ function registerInRegistry(args: RegisterArgs): boolean {
 }
 
 function buildRegistryEntry(args: RegisterArgs) {
+  const scalars = planBootRegistryScalarsNative(args);
   return {
     pid: args.childPid,
     name: args.vmName,
@@ -1621,17 +1623,17 @@ function buildRegistryEntry(args: RegisterArgs) {
     imagePath: args.sourceImageAbs,
     rootDiskPath: args.rootDiskPath,
     rootDiskMode: args.rootDiskMode,
-    diskPath: args.diskAbs,
-    forkedFrom: args.forkedFrom,
+    diskPath: scalars.diskPath ?? undefined,
+    forkedFrom: scalars.forkedFrom ?? undefined,
     bootLogPath: args.bootLogPath,
     cleanupPaths: nonEmptyList(args.cleanupPaths),
     vmmExe: registryVmmExe(args),
     gvproxyPid: args.gvPid,
     gvproxyExe: registryGvproxyExe(args),
     portForward: registryPortForward(args.portForward),
-    memoryCeilingMib: args.memoryCeilingMib,
+    memoryCeilingMib: scalars.memoryCeilingMib ?? undefined,
     cpu: registryCpu(args.cpuPolicy, args.cpuControl),
-    statsPath: args.statsFilePath,
+    statsPath: scalars.statsPath ?? undefined,
     vmstatePath: args.vmstateStatePath,
     vmstateChainId: args.vmstateChainId,
     vmstateCheckpointParent: args.vmstateCheckpointParent,
