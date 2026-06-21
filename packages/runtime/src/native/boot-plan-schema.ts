@@ -31,6 +31,7 @@ type RegistryVmstatePlan = {
   checkpointSequence: number | null;
 };
 export type PlannedPortForward = { hostPort: number; guestPort: number; hostAddr?: string };
+export type PortForwardProbePlan = { hostPort: number; probeHost: string };
 export type BundleWorkspacePlan = { cpioPath: string | null; synthBundleDir: string | null };
 export type BundleConfigPathsPlan = { rootfsDir: string | null; configPath: string | null };
 export type BundlePackPlan = { kind: "fat" | "tiny"; tinyMountGuest: string | null };
@@ -173,6 +174,7 @@ export interface NativeBootPlanResult {
   vmmStatsFile: string | null;
   vmstateRuntime: BootVmstateRuntimePlan;
   plannedPortForward: PlannedPortForward[];
+  portForwardProbe: PortForwardProbePlan[];
   machinenConfig: MachinenConfigPlan;
   bundleCommand: string[];
   bundleEnv: Record<string, string>;
@@ -239,6 +241,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmStatsFile),
     isBootVmstateRuntimePlan(data.vmstateRuntime),
     Array.isArray(data.plannedPortForward) && data.plannedPortForward.every(isPlannedPortForward),
+    Array.isArray(data.portForwardProbe) && data.portForwardProbe.every(isPortForwardProbePlan),
     isMachinenConfigPlan(data.machinenConfig),
     isStringArray(data.bundleCommand),
     isStringRecord(data.bundleEnv),
@@ -518,6 +521,14 @@ function isVmstatePlanShape(plan: Partial<BootVmstateRuntimePlan>): boolean {
 
 function isRegistryPortForwardArray(value: unknown): value is RegistryPortForwardPlan[] {
   return Array.isArray(value) && value.every(isPlannedPortForward);
+}
+
+function isPortForwardProbePlan(value: unknown): value is PortForwardProbePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<PortForwardProbePlan>;
+  return nonNegativeNumber(plan.hostPort) && typeof plan.probeHost === "string";
 }
 
 function isPlannedPortForward(value: unknown): value is PlannedPortForward {

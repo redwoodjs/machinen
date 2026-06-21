@@ -71,7 +71,10 @@ import {
 } from "../native/boot-plan.ts";
 import { reflinkCopy } from "../reflink.ts";
 import { planGvproxyNative } from "../native/gvproxy-plan.ts";
-import { validatePortForwardNetSocketNative } from "../native/port-forward.ts";
+import {
+  planPortForwardProbeNative,
+  validatePortForwardNetSocketNative,
+} from "../native/port-forward.ts";
 import { planGuestHostnameSetNative } from "../native/guest-hostname.ts";
 import { planBootRegistryLifecycleNative } from "../native/registry-lifecycle.ts";
 import { planBootRegistryProcessNative } from "../native/registry-process.ts";
@@ -1179,22 +1182,19 @@ function validatePresetNetSocket(
 async function validatePortForwardAvailability(
   portForward: NonNullable<BootOptions["portForward"]>,
 ): Promise<void> {
-  for (const mapping of portForward) {
-    await validateHostPortFree(mapping);
+  for (const probe of planPortForwardProbeNative(portForward)) {
+    await validateHostPortFree(probe);
   }
 }
 
-async function validateHostPortFree(
-  mapping: NonNullable<BootOptions["portForward"]>[number],
-): Promise<void> {
-  const host = mapping.hostAddr ?? "127.0.0.1";
-  const errno = await probeHostPortFree(host, mapping.hostPort);
+async function validateHostPortFree(probe: { hostPort: number; probeHost: string }): Promise<void> {
+  const errno = await probeHostPortFree(probe.probeHost, probe.hostPort);
   if (!errno) {
     return;
   }
   throw new BootError(
     "BOOT_PORT_FORWARD_IN_USE",
-    `portForward: host port ${host}:${mapping.hostPort} is already in use (${errno}). ${await portHolderDetail(mapping.hostPort)}`,
+    `portForward: host port ${probe.probeHost}:${probe.hostPort} is already in use (${errno}). ${await portHolderDetail(probe.hostPort)}`,
   );
 }
 

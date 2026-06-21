@@ -252,6 +252,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(omitted.status).toBe(0);
     expect(JSON.parse(omitted.stdout).data.plannedPortForward).toEqual([]);
+    expect(JSON.parse(omitted.stdout).data.portForwardProbe).toEqual([]);
 
     const planned = spawnSync(helper, ["boot-plan"], {
       input: `${JSON.stringify({
@@ -259,7 +260,7 @@ describe("boot-plan helper schema", () => {
         data: {
           ...baseData,
           portForward: [
-            { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
+            { hostPort: 8080, guestPort: 80, hostAddr: "0.0.0.0" },
             { hostPort: 8443, guestPort: 443 },
           ],
         },
@@ -267,9 +268,14 @@ describe("boot-plan helper schema", () => {
       encoding: "utf8",
     });
     expect(planned.status).toBe(0);
-    expect(JSON.parse(planned.stdout).data.plannedPortForward).toEqual([
-      { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
+    const plannedData = JSON.parse(planned.stdout).data;
+    expect(plannedData.plannedPortForward).toEqual([
+      { hostPort: 8080, guestPort: 80, hostAddr: "0.0.0.0" },
       { hostPort: 8443, guestPort: 443 },
+    ]);
+    expect(plannedData.portForwardProbe).toEqual([
+      { hostPort: 8080, probeHost: "0.0.0.0" },
+      { hostPort: 8443, probeHost: "127.0.0.1" },
     ]);
 
     const presetNetSocket = spawnSync(helper, ["boot-plan"], {

@@ -98,6 +98,11 @@ pub const PortForwardMapping = struct {
     host_addr: ?[]const u8 = null,
 };
 
+pub const PortForwardProbePlan = struct {
+    host_port: i64,
+    probe_host: []const u8,
+};
+
 pub const PortForwardNetSocketInput = struct {
     port_forwards: []const PortForwardMapping = &.{},
     net_socket: ?[]const u8 = null,
@@ -1934,6 +1939,15 @@ pub fn planVmmArgv(allocator: std.mem.Allocator, input: VmmArgvInput) !VmmArgvPl
         return .{ .command = pdeathsig, .args = try args.toOwnedSlice(allocator) };
     }
     return .{ .command = binary, .args = input.args };
+}
+
+pub fn planPortForwardProbe(mapping: PortForwardMapping) PortForwardProbePlan {
+    assert(@sizeOf(PortForwardMapping) > 0);
+
+    return .{
+        .host_port = mapping.host_port,
+        .probe_host = mapping.host_addr orelse "127.0.0.1",
+    };
 }
 
 pub fn validatePortForward(mappings: []const PortForwardMapping) PortForwardValidation {

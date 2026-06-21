@@ -1316,6 +1316,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeNullableStringField(io, "vmmNested", parts.nested_env, true);
     try writeLiveMountsArrayField(io, "plannedLiveMounts", parts.planned_live_mounts, true);
     try writePortForwardField(io, "plannedPortForward", parts.planned_port_forwards, false, true);
+    try writePortForwardProbeField(io, "portForwardProbe", parts.planned_port_forwards, true);
     try writeEnvObjectField(io, "virtiofsEnv", parts.virtiofs_env, true);
     try writeNullableStringField(io, "vmmCommand", parts.vmm_argv.command, true);
     try writeStringArrayField(io, "vmmArgs", parts.vmm_argv.args, true);
@@ -2204,6 +2205,28 @@ fn writePortForwardField(
             try protocol.stdout(io, ",\"hostAddr\":");
             try protocol.writeJsonString(io, host_addr);
         }
+        try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]");
+}
+
+fn writePortForwardProbeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mappings: []const boot_plan.PortForwardMapping,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "[");
+    for (mappings, 0..) |mapping, i| {
+        const probe = boot_plan.planPortForwardProbe(mapping);
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.stdout(io, "{\"hostPort\":");
+        try writeI64Bare(io, probe.host_port);
+        try protocol.stdout(io, ",\"probeHost\":");
+        try protocol.writeJsonString(io, probe.probe_host);
         try protocol.stdout(io, "}");
     }
     try protocol.stdout(io, "]");
