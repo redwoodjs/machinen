@@ -1340,6 +1340,56 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans snapshot backing availability", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+
+    const missingDisk = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, snapshotBackingEngine: "criu", snapshotBackingAction: "snapshot" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(missingDisk.status).toBe(0);
+    expect(JSON.parse(missingDisk.stdout).data.snapshotBacking).toEqual({ allowed: false });
+
+    const disk = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          snapshotBackingEngine: "criu",
+          snapshotBackingAction: "snapshot",
+          snapshotBackingDiskPath: "/tmp/scratch.img",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(disk.status).toBe(0);
+    expect(JSON.parse(disk.stdout).data.snapshotBacking).toEqual({ allowed: true });
+
+    const missingVmstate = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, snapshotBackingEngine: "vmstate", snapshotBackingAction: "fork" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(missingVmstate.status).toBe(0);
+    expect(JSON.parse(missingVmstate.stdout).data.snapshotBacking).toEqual({ allowed: false });
+  });
+
   it("plans registry cleanup paths, mount shapes, and CPU shape", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

@@ -143,6 +143,10 @@ const ParsedRequest = struct {
     snapshot_vmstate_chain_id: ?[]const u8,
     snapshot_vmstate_checkpoint_parent: ?[]const u8,
     snapshot_vmstate_checkpoint_sequence_text: ?[]const u8,
+    snapshot_backing_engine: ?[]const u8,
+    snapshot_backing_action: ?[]const u8,
+    snapshot_backing_disk_path: ?[]const u8,
+    snapshot_backing_vmstate_path: ?[]const u8,
     registry_source_image_path: ?[]const u8,
     registry_disk_path: ?[]const u8,
     registry_forked_from: ?[]const u8,
@@ -358,6 +362,10 @@ const RequestError = error{
     InvalidSnapshotVmstateChainId,
     InvalidSnapshotVmstateCheckpointParent,
     InvalidSnapshotVmstateCheckpointSequence,
+    InvalidSnapshotBackingEngine,
+    InvalidSnapshotBackingAction,
+    InvalidSnapshotBackingDiskPath,
+    InvalidSnapshotBackingVmstatePath,
     InvalidRegistrySourceImagePath,
     InvalidRegistryDiskPath,
     InvalidRegistryForkedFrom,
@@ -734,6 +742,12 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
+    const snapshot_backing = boot_plan.planSnapshotBacking(.{
+        .engine = parsed.snapshot_backing_engine,
+        .action = parsed.snapshot_backing_action,
+        .disk_path = parsed.snapshot_backing_disk_path,
+        .vmstate_path = parsed.snapshot_backing_vmstate_path,
+    });
     const registry_cpu_policy = makeRegistryCpuPolicy(parsed) catch |err| {
         try writeRequestError(io, err);
         return .fail;
@@ -823,7 +837,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         .gv_observed_exe_base = parsed.registry_gv_observed_exe_base,
     });
 
-    try writePlan(io, plan, root_disk_mode, cpu_plan, guest_env, vmm_env, guest_hostname, guest_hostname_set, vsock_mode, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_temp_mode, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file_mode, stats_file, planned_live_mounts, parsed.port_forward, port_forward_probe, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, bundle_mount_disk_mode, provision_assets, provision_dtb, provision_cli_cache, provision_asset_lookup, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, planned_scratch_mode, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, snapshot_context, registry_shape, registry_lifecycle, registry_process);
+    try writePlan(io, plan, root_disk_mode, cpu_plan, guest_env, vmm_env, guest_hostname, guest_hostname_set, vsock_mode, vsock_plan, gvproxy_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_temp_mode, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file_mode, stats_file, planned_live_mounts, parsed.port_forward, port_forward_probe, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, bundle_pack, bundle_mount_disk_mode, provision_assets, provision_dtb, provision_cli_cache, provision_asset_lookup, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, planned_scratch_mode, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, snapshot_context, snapshot_backing, registry_shape, registry_lifecycle, registry_process);
     return .ok;
 }
 
@@ -880,6 +894,7 @@ fn writePlan(
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
     mount_disk_fd_env: []const boot_plan.EnvPair,
     snapshot_context: boot_plan.SnapshotContextPlan,
+    snapshot_backing: boot_plan.SnapshotBackingPlan,
     registry_shape: boot_plan.RegistryShapePlan,
     registry_lifecycle: boot_plan.RegistryLifecyclePlan,
     registry_process: boot_plan.RegistryProcessPlan,
@@ -1234,6 +1249,10 @@ fn writePlan(
     }
     try protocol.stdout(io, "}");
     try writeSnapshotContext(io, snapshot_context);
+    try protocol.stdout(io, ",\"snapshotBacking\":{");
+    try protocol.stdout(io, "\"allowed\":");
+    try protocol.stdout(io, if (snapshot_backing.allowed) "true" else "false");
+    try protocol.stdout(io, "}");
     try protocol.stdout(io, ",\"registryShape\":{");
     try protocol.stdout(io, "\"sourceImagePath\":");
     try writeNullableJsonString(io, registry_shape.source_image_path);
@@ -1726,7 +1745,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "rootDiskOptionFalse", "rootDiskOptionTrue", "rootDiskOptionPath", "rootDiskRestorePath", "guestCwd", "mountGuest", "guestEnv", "vmmEnvBase", "vmmEnvOverrides", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "guestHostnameSetPid", "guestHostnameSetName", "guestHostnameSetVsockUdsPath", "guestHostnameSetSkip", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "portForwardNetSocket", "gvproxyPlanningRequired", "gvproxyNetSocket", "gvproxyPath", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateEngine", "bootVmstateSnapshotDisabled", "bootVmstateExistingTempDir", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountsResolved", "batchLiveMountValidationRequired", "restoreLiveMountsRecorded", "restoreLiveMountsOverrides", "existingStatsFile", "statsFilePath", "statsFileTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "bundlePackUseTiny", "bundlePackMountGuest", "bundlePackRestoreMountGuest", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionDtbExplicit", "provisionCliCacheHome", "provisionCliCacheVersion", "provisionAssetExplicitPath", "provisionAssetExplicitExists", "provisionAssetAssetsDirPath", "provisionAssetAssetsDirExists", "provisionAssetCachePath", "provisionAssetCacheExists", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchOptionFalse", "scratchOptionPath", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "snapshotMountGuest", "snapshotMountLowerPath", "snapshotMountUpperPath", "snapshotLiveMounts", "snapshotVmstatePath", "snapshotVmstateChainId", "snapshotVmstateCheckpointParent", "snapshotVmstateCheckpointSequence", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryLifecycleName", "registryLifecycleVsockUdsPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath", "registryHostPlatform", "registryVmmBinary", "registryVmmPdeathsig", "registryVmmObservedExeBase", "registryGvPid", "registryGvExe", "registryGvObservedExeBase" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "rootDiskOptionFalse", "rootDiskOptionTrue", "rootDiskOptionPath", "rootDiskRestorePath", "guestCwd", "mountGuest", "guestEnv", "vmmEnvBase", "vmmEnvOverrides", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "guestHostnameSetPid", "guestHostnameSetName", "guestHostnameSetVsockUdsPath", "guestHostnameSetSkip", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "portForwardNetSocket", "gvproxyPlanningRequired", "gvproxyNetSocket", "gvproxyPath", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateEngine", "bootVmstateSnapshotDisabled", "bootVmstateExistingTempDir", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountsResolved", "batchLiveMountValidationRequired", "restoreLiveMountsRecorded", "restoreLiveMountsOverrides", "existingStatsFile", "statsFilePath", "statsFileTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "bundlePackUseTiny", "bundlePackMountGuest", "bundlePackRestoreMountGuest", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionDtbExplicit", "provisionCliCacheHome", "provisionCliCacheVersion", "provisionAssetExplicitPath", "provisionAssetExplicitExists", "provisionAssetAssetsDirPath", "provisionAssetAssetsDirExists", "provisionAssetCachePath", "provisionAssetCacheExists", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchOptionFalse", "scratchOptionPath", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "snapshotMountGuest", "snapshotMountLowerPath", "snapshotMountUpperPath", "snapshotLiveMounts", "snapshotVmstatePath", "snapshotVmstateChainId", "snapshotVmstateCheckpointParent", "snapshotVmstateCheckpointSequence", "snapshotBackingEngine", "snapshotBackingAction", "snapshotBackingDiskPath", "snapshotBackingVmstatePath", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryLifecycleName", "registryLifecycleVsockUdsPath", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath", "registryHostPlatform", "registryVmmBinary", "registryVmmPdeathsig", "registryVmmObservedExeBase", "registryGvPid", "registryGvExe", "registryGvObservedExeBase" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -1865,6 +1884,10 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .snapshot_vmstate_chain_id = try optionalStringDefaultNull(object, "snapshotVmstateChainId", error.InvalidSnapshotVmstateChainId),
         .snapshot_vmstate_checkpoint_parent = try optionalStringDefaultNull(object, "snapshotVmstateCheckpointParent", error.InvalidSnapshotVmstateCheckpointParent),
         .snapshot_vmstate_checkpoint_sequence_text = try optionalStringDefaultNull(object, "snapshotVmstateCheckpointSequence", error.InvalidSnapshotVmstateCheckpointSequence),
+        .snapshot_backing_engine = try optionalStringDefaultNull(object, "snapshotBackingEngine", error.InvalidSnapshotBackingEngine),
+        .snapshot_backing_action = try optionalStringDefaultNull(object, "snapshotBackingAction", error.InvalidSnapshotBackingAction),
+        .snapshot_backing_disk_path = try optionalStringDefaultNull(object, "snapshotBackingDiskPath", error.InvalidSnapshotBackingDiskPath),
+        .snapshot_backing_vmstate_path = try optionalStringDefaultNull(object, "snapshotBackingVmstatePath", error.InvalidSnapshotBackingVmstatePath),
         .registry_source_image_path = try optionalStringDefaultNull(object, "registrySourceImagePath", error.InvalidRegistrySourceImagePath),
         .registry_disk_path = try optionalStringDefaultNull(object, "registryDiskPath", error.InvalidRegistryDiskPath),
         .registry_forked_from = try optionalStringDefaultNull(object, "registryForkedFrom", error.InvalidRegistryForkedFrom),
@@ -2360,6 +2383,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         error.InvalidSnapshotLiveMounts => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan snapshot liveMounts entries are invalid"),
         error.InvalidSnapshotVmstatePath, error.InvalidSnapshotVmstateChainId, error.InvalidSnapshotVmstateCheckpointParent => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan snapshot vmstate path fields must be strings"),
         error.InvalidSnapshotVmstateCheckpointSequence => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan snapshot vmstate checkpoint sequence must be a decimal integer"),
+        error.InvalidSnapshotBackingEngine, error.InvalidSnapshotBackingAction, error.InvalidSnapshotBackingDiskPath, error.InvalidSnapshotBackingVmstatePath => try protocol.writeError(io, "INVALID_REQUEST", "boot-plan snapshot backing fields must be strings"),
         error.InvalidLiveMounts, error.InvalidLiveMountGuest => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: entries must include host and guest paths"),
         error.InvalidLiveMountsResolved, error.InvalidLiveMountHost, error.InvalidLiveMountMode, error.InvalidLiveMountTag => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: resolved live mount entries must include host, guest, tag, and mode ro/rw"),
         error.InvalidBatchLiveMountValidationRequired => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan batch live mount validation flag must be a boolean"),

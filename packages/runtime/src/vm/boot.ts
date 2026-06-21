@@ -83,6 +83,7 @@ import {
 } from "../native/port-forward.ts";
 import { planBootRegistryProcessNative } from "../native/registry-process.ts";
 import { planBootRegistryLifecycleNative } from "../native/registry-lifecycle.ts";
+import { planBootSnapshotBackingNative as planSnapshotBacking } from "../native/snapshot-backing.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
 import { planBootVmmEnvNative } from "../native/vmm-env.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
@@ -1990,11 +1991,8 @@ function ensureSnapshotBacking(
   vmstateStatePath: string | undefined,
   action: "snapshot" | "fork",
 ): void {
-  const engine = resolveSnapshotEngine();
-  if (engine === "criu" && !diskAbs) {
-    throw noSnapshotBackingError(action);
-  }
-  if (engine === "vmstate" && !vmstateStatePath) {
+  const plan = planSnapshotBacking(resolveSnapshotEngine(), action, diskAbs, vmstateStatePath);
+  if (!plan.allowed) {
     throw noSnapshotBackingError(action);
   }
 }
