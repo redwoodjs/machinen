@@ -404,6 +404,49 @@ pub const MountDiskFdEnvInput = struct {
     upper_fd: ?u64 = null,
 };
 
+pub const SnapshotMountDiskInput = struct {
+    guest: ?[]const u8 = null,
+    lower_path: ?[]const u8 = null,
+    upper_path: ?[]const u8 = null,
+};
+
+pub const SnapshotMountDiskPlan = struct {
+    guest: []const u8,
+    lower_path: []const u8,
+    upper_path: []const u8,
+};
+
+pub const SnapshotLiveMountPlan = struct {
+    host: []const u8,
+    guest: []const u8,
+    mode: []const u8,
+};
+
+pub const SnapshotVmstateInput = struct {
+    state_path: ?[]const u8 = null,
+    chain_id: ?[]const u8 = null,
+    checkpoint_parent: ?[]const u8 = null,
+    checkpoint_sequence: ?u64 = null,
+};
+
+pub const SnapshotVmstateChainPlan = struct {
+    chain_id: []const u8,
+    parent_dir: ?[]const u8,
+    sequence: u64,
+};
+
+pub const SnapshotContextInput = struct {
+    mount_disk: SnapshotMountDiskInput = .{},
+    live_mounts: []const LiveMount = &.{},
+    vmstate: SnapshotVmstateInput = .{},
+};
+
+pub const SnapshotContextPlan = struct {
+    mount_disk: ?SnapshotMountDiskPlan,
+    live_mounts: []const SnapshotLiveMountPlan,
+    vmstate_chain: ?SnapshotVmstateChainPlan,
+};
+
 pub const RegistryCleanupInput = struct {
     per_boot_root_disk: ?[]const u8 = null,
     per_boot_snap_disk: ?[]const u8 = null,
@@ -559,6 +602,8 @@ pub const PlanError = error{
     MissingBatchLiveMountVsock,
     PortForwardNetSocketPreset,
     MissingGvproxy,
+    MissingSnapshotMountDiskField,
+    MissingSnapshotVmstateField,
     IncompleteRegistryMountDisk,
     MissingRegistryCpuStatus,
     MissingRegistryVmstateField,
@@ -1124,6 +1169,37 @@ fn planRegistryBootLogPath(allocator: std.mem.Allocator, input: RegistryShapeInp
     return try std.fs.path.join(allocator, &.{ root, file });
 }
 
+pub fn planSnapshotContext(allocator: std.mem.Allocator, input: SnapshotContextInput) PlanError!SnapshotContextPlan {
+    var live_mounts: std.ArrayList(SnapshotLiveMountPlan) = .empty;
+    errdefer live_mounts.deinit(allocator);
+    for (input.live_mounts) |mount| {
+        try live_mounts.append(allocator, .{ .host = mount.host, .guest = mount.guest, .mode = mount.mode });
+    }
+    return .{
+        .mount_disk = try planSnapshotMountDisk(input.mount_disk),
+        .live_mounts = try live_mounts.toOwnedSlice(allocator),
+        .vmstate_chain = try planSnapshotVmstateChain(input.vmstate),
+    };
+}
+
+fn planSnapshotMountDisk(input: SnapshotMountDiskInput) PlanError!?SnapshotMountDiskPlan {
+    if (input.guest == null and input.lower_path == null and input.upper_path == null) return null;
+    return SnapshotMountDiskPlan{
+        .guest = input.guest orelse return error.MissingSnapshotMountDiskField,
+        .lower_path = input.lower_path orelse return error.MissingSnapshotMountDiskField,
+        .upper_path = input.upper_path orelse return error.MissingSnapshotMountDiskField,
+    };
+}
+
+fn planSnapshotVmstateChain(input: SnapshotVmstateInput) PlanError!?SnapshotVmstateChainPlan {
+    if (input.state_path == null) return null;
+    return SnapshotVmstateChainPlan{
+        .chain_id = input.chain_id orelse return error.MissingSnapshotVmstateField,
+        .parent_dir = input.checkpoint_parent,
+        .sequence = input.checkpoint_sequence orelse return error.MissingSnapshotVmstateField,
+    };
+}
+
 pub fn planRegistryShape(allocator: std.mem.Allocator, input: RegistryShapeInput) PlanError!RegistryShapePlan {
     var cleanup_paths: std.ArrayList([]const u8) = .empty;
     errdefer cleanup_paths.deinit(allocator);
@@ -1545,6 +1621,47 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planSnapshotContext projects mount live mount and vmstate chain fields" {
+    const allocator = std.testing.allocator;
+    const live = [_]LiveMount{
+        .{ .host = "/host/live", .guest = "/mnt/live", .mode = "rw", .tag = "machinen-lm0" },
+    };
+    const plan = try planSnapshotContext(allocator, .{
+        .mount_disk = .{ .guest = "/mnt/m", .lower_path = "/lower.sqfs", .upper_path = "/upper.img" },
+        .live_mounts = &live,
+        .vmstate = .{
+            .state_path = "/state.vmstate",
+            .chain_id = "chain-a",
+            .checkpoint_parent = "/snap/parent",
+            .checkpoint_sequence = 3,
+        },
+    });
+    defer allocator.free(plan.live_mounts);
+    try std.testing.expectEqualStrings("/mnt/m", plan.mount_disk.?.guest);
+    try std.testing.expectEqualStrings("/lower.sqfs", plan.mount_disk.?.lower_path);
+    try std.testing.expectEqualStrings("/upper.img", plan.mount_disk.?.upper_path);
+    try std.testing.expectEqual(@as(usize, 1), plan.live_mounts.len);
+    try std.testing.expectEqualStrings("/host/live", plan.live_mounts[0].host);
+    try std.testing.expectEqualStrings("/mnt/live", plan.live_mounts[0].guest);
+    try std.testing.expectEqualStrings("rw", plan.live_mounts[0].mode);
+    try std.testing.expectEqualStrings("chain-a", plan.vmstate_chain.?.chain_id);
+    try std.testing.expectEqualStrings("/snap/parent", plan.vmstate_chain.?.parent_dir.?);
+    try std.testing.expectEqual(@as(u64, 3), plan.vmstate_chain.?.sequence);
+
+    const empty = try planSnapshotContext(allocator, .{});
+    defer allocator.free(empty.live_mounts);
+    try std.testing.expect(empty.mount_disk == null);
+    try std.testing.expectEqual(@as(usize, 0), empty.live_mounts.len);
+    try std.testing.expect(empty.vmstate_chain == null);
+
+    try std.testing.expectError(error.MissingSnapshotMountDiskField, planSnapshotContext(allocator, .{
+        .mount_disk = .{ .guest = "/mnt/m" },
+    }));
+    try std.testing.expectError(error.MissingSnapshotVmstateField, planSnapshotContext(allocator, .{
+        .vmstate = .{ .state_path = "/state.vmstate" },
+    }));
 }
 
 test "planRegistryShape collects cleanup paths and strips registry-only mount fields" {

@@ -73,6 +73,7 @@ import {
 import { reflinkCopy } from "../reflink.ts";
 import { planGvproxyNative } from "../native/gvproxy-plan.ts";
 import { validatePortForwardNetSocketNative } from "../native/port-forward.ts";
+import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
 import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
@@ -1997,6 +1998,11 @@ function buildBootSnapshotContext(
   const syncVmstateForSnapshot = handle.syncVmstateSnapshot?.bind(handle);
   const waitForSnapshot = handle.wait.bind(handle);
   const killForSnapshot = handle.kill.bind(handle);
+  const snapshotPlan = planBootSnapshotContextNative({
+    mountDisk: args.mountDiskPaths,
+    liveMounts: args.liveMountsResolved,
+    vmstate: args.vmstate,
+  });
   return {
     pid: args.childPid,
     sourceName: args.vmName,
@@ -2007,10 +2013,10 @@ function buildBootSnapshotContext(
     kernelPath: args.env.MACHINEN_KERNEL,
     dtbPath: args.env.MACHINEN_DTB,
     diskPath: args.diskAbs!,
-    mountDisk: snapshotMountDisk(args.mountDiskPaths),
-    liveMounts: snapshotLiveMounts(args.liveMountsResolved),
+    mountDisk: snapshotPlan.mountDisk,
+    liveMounts: snapshotPlan.liveMounts,
     vmstatePath: args.vmstate.statePath,
-    vmstateChain: snapshotVmstateChain(args.vmstate),
+    vmstateChain: snapshotPlan.vmstateChain,
     updateVmstateChain: snapshotVmstateUpdater(args.vmstate, args.childPid),
     nested: args.nested,
     execRaw: execRawForSnapshot,
@@ -2021,38 +2027,6 @@ function buildBootSnapshotContext(
       args.child.stderr.on("data", onChunk);
     },
     errorOutput: () => handle.errorOutput(),
-  };
-}
-
-function snapshotMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
-  if (!mountDiskPaths) {
-    return undefined;
-  }
-  return {
-    guest: mountDiskPaths.guest,
-    lowerPath: mountDiskPaths.lowerPath,
-    upperPath: mountDiskPaths.upperPath,
-  };
-}
-
-function snapshotLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
-  return nonEmptyList(
-    liveMountsResolved.map((lm) => ({
-      host: lm.host,
-      guest: lm.guest,
-      mode: lm.mode,
-    })),
-  );
-}
-
-function snapshotVmstateChain(vmstate: BootVmstateRuntime): SnapshotContext["vmstateChain"] {
-  if (!vmstate.statePath) {
-    return undefined;
-  }
-  return {
-    chainId: vmstate.chainId,
-    parentDir: vmstate.checkpointParent,
-    sequence: vmstate.checkpointSequence,
   };
 }
 

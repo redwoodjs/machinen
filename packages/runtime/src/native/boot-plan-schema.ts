@@ -11,6 +11,14 @@ type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
 type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
 type RegistryPortForwardPlan = PlannedPortForward;
+type SnapshotMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
+type SnapshotLiveMountPlan = { host: string; guest: string; mode: "ro" | "rw" };
+type SnapshotVmstateChainPlan = { chainId: string; parentDir: string | null; sequence: number };
+type SnapshotContextPlan = {
+  mountDisk: SnapshotMountDiskPlan | null;
+  liveMounts: SnapshotLiveMountPlan[];
+  vmstateChain: SnapshotVmstateChainPlan | null;
+};
 type RegistryCpuPlan = {
   maxVcpus: number;
   quotaCpus?: number;
@@ -159,6 +167,7 @@ export interface NativeBootPlanResult {
   rootDiskRuntime: RootDiskRuntimePlan;
   mountDiskRuntime: MountDiskRuntimePlan;
   mountDiskFdEnv: Record<string, string>;
+  snapshotContext: SnapshotContextPlan;
   registryShape: RegistryShapePlan;
 }
 
@@ -214,6 +223,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isRootDiskRuntimePlan(data.rootDiskRuntime),
     isMountDiskRuntimePlan(data.mountDiskRuntime),
     isStringRecord(data.mountDiskFdEnv),
+    isSnapshotContextPlan(data.snapshotContext),
     isRegistryShapePlan(data.registryShape),
   ].every(Boolean);
 }
@@ -370,6 +380,55 @@ function isMountDiskRuntimePlan(value: unknown): value is MountDiskRuntimePlan {
     nullableString(plan.guest),
     nullableNonNegativeNumber(plan.upperSizeBytes),
   ].every(Boolean);
+}
+
+function isSnapshotContextPlan(value: unknown): value is SnapshotContextPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<SnapshotContextPlan>;
+  return (
+    nullableObject(plan.mountDisk, isSnapshotMountDiskPlan) &&
+    Array.isArray(plan.liveMounts) &&
+    plan.liveMounts.every(isSnapshotLiveMountPlan) &&
+    nullableObject(plan.vmstateChain, isSnapshotVmstateChainPlan)
+  );
+}
+
+function isSnapshotMountDiskPlan(value: unknown): value is SnapshotMountDiskPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<SnapshotMountDiskPlan>;
+  return (
+    typeof plan.guest === "string" &&
+    typeof plan.lowerPath === "string" &&
+    typeof plan.upperPath === "string"
+  );
+}
+
+function isSnapshotLiveMountPlan(value: unknown): value is SnapshotLiveMountPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<SnapshotLiveMountPlan>;
+  return (
+    typeof plan.host === "string" &&
+    typeof plan.guest === "string" &&
+    (plan.mode === "ro" || plan.mode === "rw")
+  );
+}
+
+function isSnapshotVmstateChainPlan(value: unknown): value is SnapshotVmstateChainPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<SnapshotVmstateChainPlan>;
+  return (
+    typeof plan.chainId === "string" &&
+    nullableString(plan.parentDir) &&
+    nonNegativeNumber(plan.sequence)
+  );
 }
 
 function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
