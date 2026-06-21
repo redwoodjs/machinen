@@ -207,6 +207,45 @@ describe("boot-plan helper schema", () => {
     expect(JSON.parse(falseWins.stdout).data.plannedScratchMode).toBe("false");
   });
 
+  it("plans scratch temp paths from host-generated entropy", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      scratchTempDir: "/tmp",
+      scratchTempPid: "1234",
+      scratchTempNonce: "abcdef",
+    };
+    const restore = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, scratchTempKind: "restore" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(restore.status).toBe(0);
+    expect(JSON.parse(restore.stdout).data.scratchTempPath).toBe(
+      "/tmp/machinen-snap-restore-1234-abcdef.img",
+    );
+
+    const auto = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, scratchTempKind: "auto" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(auto.status).toBe(0);
+    expect(JSON.parse(auto.stdout).data.scratchTempPath).toBe("/tmp/machinen-snap-1234-abcdef.img");
+  });
+
   it("plans CPU resource policy defaults and fractional quota", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");

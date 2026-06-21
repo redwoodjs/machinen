@@ -64,6 +64,7 @@ import { reflinkCopy } from "../reflink.ts";
 import { planGuestHostnameSetNative } from "../native/guest-hostname.ts";
 import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
 import { planBootScratchModeNative } from "../native/scratch-mode.ts";
+import { planBootScratchTempPathNative } from "../native/scratch-temp-path.ts";
 import { planBootVsockModeNative } from "../native/vsock-mode.ts";
 import { planBootVmstateTempModeNative as planVmstateTempMode } from "../native/vmstate-temp-mode.ts";
 import { planGvproxyNative } from "../native/gvproxy-plan.ts";
@@ -1291,14 +1292,21 @@ function resolveSnapshotDiskPath(opts: BootOptions): string | undefined {
 }
 
 function scratchRestoreClonePath(): string {
-  return join(
-    tmpdir(),
-    `machinen-snap-restore-${process.pid}-${randomBytes(6).toString("hex")}.img`,
-  );
+  return planBootScratchTempPathNative({
+    kind: "restore",
+    tmpDir: tmpdir(),
+    pid: process.pid,
+    nonce: randomBytes(6).toString("hex"),
+  });
 }
 
 function autoScratchPath(): string {
-  return join(tmpdir(), `machinen-snap-${process.pid}-${randomBytes(6).toString("hex")}.img`);
+  return planBootScratchTempPathNative({
+    kind: "auto",
+    tmpDir: tmpdir(),
+    pid: process.pid,
+    nonce: randomBytes(6).toString("hex"),
+  });
 }
 
 function applyScratchDiskPlan(
