@@ -1121,6 +1121,8 @@ fn writePlan(
     try writeNullableJsonString(io, provision_boot.dtb_path);
     try protocol.stdout(io, ",\"vmmVsock\":");
     try writeNullableJsonString(io, provision_boot.vmm_vsock);
+    try protocol.stdout(io, ",\"timeoutMs\":");
+    try writeNullableU64(io, provision_boot.timeout_ms);
     try protocol.stdout(io, ",\"vmmEnv\":{");
     for (provision_boot.vmm_env, 0..) |pair, i| {
         if (i != 0) try protocol.stdout(io, ",");

@@ -266,6 +266,7 @@ pub const ProvisionBootPlan = struct {
     dtb_path: ?[]const u8,
     vmm_vsock: ?[]const u8,
     vmm_env: []const EnvPair,
+    timeout_ms: ?u64,
     cmd: []const []const u8,
     env: []const EnvPair,
     snapshot_path: ?[]const u8,
@@ -1154,6 +1155,7 @@ pub fn planProvisionBoot(allocator: std.mem.Allocator, input: ProvisionBootInput
         .dtb_path = input.dtb_path,
         .vmm_vsock = vmm_vsock,
         .vmm_env = vmm_env,
+        .timeout_ms = null,
         .cmd = cmd,
         .env = env,
         .snapshot_path = input.scratch_disk_path,
@@ -2379,6 +2381,7 @@ test "planProvisionBoot builds provision boot inputs and vmm env" {
     try std.testing.expectEqualStrings("1", plan.vmm_env[0].value);
     try std.testing.expectEqualStrings("MACHINEN_VSOCK", plan.vmm_env[1].key);
     try std.testing.expectEqualStrings("in:1978:/tmp/exec.sock", plan.vmm_env[1].value);
+    try std.testing.expect(plan.timeout_ms == null);
     try std.testing.expectEqual(@as(usize, 1), plan.cmd.len);
     try std.testing.expectEqualStrings("/exec-agent", plan.cmd[0]);
     try std.testing.expectEqual(@as(usize, 1), plan.env.len);
