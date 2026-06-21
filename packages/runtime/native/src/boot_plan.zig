@@ -271,6 +271,28 @@ pub const LiveMount = struct {
     tag: []const u8,
 };
 
+pub const RestoreLiveMountInput = struct {
+    host: []const u8,
+    guest: []const u8,
+    mode: ?[]const u8 = null,
+};
+
+pub const RestoreRecordedLiveMount = struct {
+    host: []const u8,
+    guest: []const u8,
+    mode: []const u8,
+};
+
+pub const RestoreLiveMountPlanInput = struct {
+    recorded: []const RestoreRecordedLiveMount = &.{},
+    overrides: []const RestoreLiveMountInput = &.{},
+};
+
+pub const RestoreLiveMountPlan = struct {
+    mounts: []const RestoreLiveMountInput,
+    unknown_guest: ?[]const u8 = null,
+};
+
 pub const BatchLiveMountInput = struct {
     live_mounts: []const LiveMount = &.{},
     vsock_uds_path: ?[]const u8 = null,
@@ -729,6 +751,46 @@ pub fn planBatchLiveMountSync(input: BatchLiveMountInput) PlanError!BatchLiveMou
         }
     }
     return .{ .sync_required = false };
+}
+
+pub fn planRestoreLiveMounts(allocator: std.mem.Allocator, input: RestoreLiveMountPlanInput) !RestoreLiveMountPlan {
+    if (input.recorded.len == 0) {
+        return .{ .mounts = try allocator.dupe(RestoreLiveMountInput, input.overrides) };
+    }
+    for (input.overrides) |override| {
+        if (findRecordedLiveMount(input.recorded, override.guest) == null) {
+            return .{ .mounts = &.{}, .unknown_guest = override.guest };
+        }
+    }
+    var out: std.ArrayList(RestoreLiveMountInput) = .empty;
+    errdefer out.deinit(allocator);
+    for (input.recorded) |recorded| {
+        if (findRestoreLiveMountOverride(input.overrides, recorded.guest)) |override| {
+            try out.append(allocator, .{
+                .host = override.host,
+                .guest = recorded.guest,
+                .mode = override.mode orelse recorded.mode,
+            });
+        } else {
+            try out.append(allocator, .{ .host = recorded.host, .guest = recorded.guest, .mode = recorded.mode });
+        }
+    }
+    return .{ .mounts = try out.toOwnedSlice(allocator) };
+}
+
+fn findRecordedLiveMount(recorded: []const RestoreRecordedLiveMount, guest: []const u8) ?RestoreRecordedLiveMount {
+    for (recorded) |mount| {
+        if (std.mem.eql(u8, mount.guest, guest)) return mount;
+    }
+    return null;
+}
+
+fn findRestoreLiveMountOverride(overrides: []const RestoreLiveMountInput, guest: []const u8) ?RestoreLiveMountInput {
+    var found: ?RestoreLiveMountInput = null;
+    for (overrides) |mount| {
+        if (std.mem.eql(u8, mount.guest, guest)) found = mount;
+    }
+    return found;
 }
 
 pub fn planStatsFile(allocator: std.mem.Allocator, input: StatsFileInput) !StatsFilePlan {
@@ -1878,6 +1940,34 @@ test "planBatchLiveMountSync requires vsock for rw mounts when validation is req
     try std.testing.expect(planned.sync_required);
     const none = try planBatchLiveMountSync(.{});
     try std.testing.expect(!none.sync_required);
+}
+
+test "planRestoreLiveMounts merges recorded mounts with overrides" {
+    const recorded = [_]RestoreRecordedLiveMount{
+        .{ .host = "/host/work", .guest = "/mnt/work", .mode = "rw" },
+        .{ .host = "/host/cache", .guest = "/mnt/cache", .mode = "ro" },
+    };
+    const overrides = [_]RestoreLiveMountInput{
+        .{ .host = "/new/cache", .guest = "/mnt/cache" },
+    };
+    const planned = try planRestoreLiveMounts(std.testing.allocator, .{ .recorded = &recorded, .overrides = &overrides });
+    defer std.testing.allocator.free(planned.mounts);
+    try std.testing.expect(planned.unknown_guest == null);
+    try std.testing.expectEqual(@as(usize, 2), planned.mounts.len);
+    try std.testing.expectEqualStrings("/host/work", planned.mounts[0].host);
+    try std.testing.expectEqualStrings("rw", planned.mounts[0].mode.?);
+    try std.testing.expectEqualStrings("/new/cache", planned.mounts[1].host);
+    try std.testing.expectEqualStrings("ro", planned.mounts[1].mode.?);
+
+    const legacy = try planRestoreLiveMounts(std.testing.allocator, .{ .overrides = &overrides });
+    defer std.testing.allocator.free(legacy.mounts);
+    try std.testing.expectEqual(@as(usize, 1), legacy.mounts.len);
+    try std.testing.expectEqualStrings("/new/cache", legacy.mounts[0].host);
+    try std.testing.expect(legacy.mounts[0].mode == null);
+
+    const bad = [_]RestoreLiveMountInput{.{ .host = "/new/extra", .guest = "/mnt/extra", .mode = "rw" }};
+    const rejected = try planRestoreLiveMounts(std.testing.allocator, .{ .recorded = &recorded, .overrides = &bad });
+    try std.testing.expectEqualStrings("/mnt/extra", rejected.unknown_guest.?);
 }
 
 test "planStatsFile preserves caller path or returns runtime-owned env value" {

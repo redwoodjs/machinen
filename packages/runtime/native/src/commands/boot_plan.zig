@@ -50,6 +50,8 @@ const ParsedRequest = struct {
     live_mounts: []const boot_plan.LiveMountInput,
     live_mounts_resolved: []const boot_plan.LiveMount,
     batch_live_mount_validation_required: bool,
+    restore_live_mounts_recorded: []const boot_plan.RestoreRecordedLiveMount,
+    restore_live_mounts_overrides: []const boot_plan.RestoreLiveMountInput,
     existing_stats_file: ?[]const u8,
     stats_file_path: ?[]const u8,
     stats_file_temp_dir: ?[]const u8,
@@ -211,6 +213,8 @@ const RequestError = error{
     InvalidLiveMountMode,
     InvalidLiveMountTag,
     InvalidBatchLiveMountValidationRequired,
+    InvalidRestoreLiveMountsRecorded,
+    InvalidRestoreLiveMountsOverrides,
     InvalidExistingStatsFile,
     InvalidStatsFilePath,
     InvalidStatsFileTempDir,
@@ -388,6 +392,14 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         try writePlanError(io, err);
         return .fail;
     };
+    const restore_live_mounts = try boot_plan.planRestoreLiveMounts(arena, .{
+        .recorded = parsed.restore_live_mounts_recorded,
+        .overrides = parsed.restore_live_mounts_overrides,
+    });
+    if (restore_live_mounts.unknown_guest) |guest| {
+        try writeRestoreLiveMountOverrideError(arena, io, guest, parsed.restore_live_mounts_recorded);
+        return .fail;
+    }
     const stats_file = try boot_plan.planStatsFile(arena, .{
         .existing_path = parsed.existing_stats_file,
         .planned_path = parsed.stats_file_path,
@@ -589,7 +601,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         return .fail;
     };
 
-    try writePlan(io, plan, cpu_plan, guest_env, guest_hostname, vsock_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, stats_file, planned_live_mounts, parsed.port_forward, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, registry_shape);
+    try writePlan(io, plan, cpu_plan, guest_env, guest_hostname, vsock_plan, vmm_argv, use_pdeathsig, kernel_dtb, initrd_env, vmstate_env, vmstate_runtime, nested_env, virtiofs_env, batch_live_mount_sync, restore_live_mounts.mounts, stats_file, planned_live_mounts, parsed.port_forward, parsed.config_cmd, config_env, config_cwd, parsed.config_live_mounts, bundle_command, bundle_env, bundle_workspace, bundle_config_paths, provision_assets, provision_boot, provision_workload, provision_repack, provision_image_config, provision_runtime, scratch_disk, root_disk_runtime, mount_disk_runtime, mount_disk_fd_env, registry_shape);
     return .ok;
 }
 
@@ -609,6 +621,7 @@ fn writePlan(
     nested_env: ?[]const u8,
     virtiofs_env: []const boot_plan.EnvPair,
     batch_live_mount_sync: boot_plan.BatchLiveMountPlan,
+    restore_live_mounts: []const boot_plan.RestoreLiveMountInput,
     stats_file: boot_plan.StatsFilePlan,
     planned_live_mounts: []const boot_plan.LiveMount,
     planned_port_forwards: []const boot_plan.PortForwardMapping,
@@ -1054,6 +1067,20 @@ fn writePlan(
     try protocol.stdout(io, "}");
     try protocol.stdout(io, ",\"batchLiveMountSyncRequired\":");
     try protocol.stdout(io, if (batch_live_mount_sync.sync_required) "true" else "false");
+    try protocol.stdout(io, ",\"restoreLiveMounts\":[");
+    for (restore_live_mounts, 0..) |mount, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.stdout(io, "{\"host\":");
+        try protocol.writeJsonString(io, mount.host);
+        try protocol.stdout(io, ",\"guest\":");
+        try protocol.writeJsonString(io, mount.guest);
+        if (mount.mode) |mode| {
+            try protocol.stdout(io, ",\"mode\":");
+            try protocol.writeJsonString(io, mode);
+        }
+        try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]");
     try protocol.stdout(io, ",\"vmmCommand\":");
     if (vmm_argv.command) |command| {
         try protocol.writeJsonString(io, command);
@@ -1298,7 +1325,7 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
     const data_value = envelope.get("data") orelse return error.MissingData;
     if (data_value != .object) return error.InvalidData;
     const object = data_value.object;
-    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountsResolved", "batchLiveMountValidationRequired", "existingStatsFile", "statsFilePath", "statsFileTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
+    try protocol.rejectUnknownFields(object, &.{ "memoryMib", "resourcesMemory", "resourcesCpu", "autoMemoryMib", "hostTotalBytes", "vmmMemoryPreset", "hasImage", "hasCmd", "hasSnapshot", "rootDisk", "guestCwd", "mountGuest", "guestEnv", "name", "vsockUdsPath", "guestHostnamePid", "guestHostnameName", "existingVsockSpec", "autoVsockUdsPath", "autoVsockTempDir", "portForward", "vmmBinary", "vmmArgs", "pdeathsigPath", "pdeathsig", "detached", "bootTimeoutMs", "bootTimeoutForever", "kernelPath", "dtbPath", "initrdPath", "vmstatePath", "restorePath", "enableVmstateTiming", "existingVmstateTiming", "bootVmstateStatePath", "bootVmstateTempDir", "bootVmstateChainId", "bootVmstateRestorePath", "bootVmstateForkedFrom", "nested", "liveMounts", "liveMountsResolved", "batchLiveMountValidationRequired", "restoreLiveMountsRecorded", "restoreLiveMountsOverrides", "existingStatsFile", "statsFilePath", "statsFileTempDir", "configCmd", "configEnv", "configGuestCwd", "configImageCwd", "configLiveMounts", "bundleExplicitCmd", "bundleImageCmd", "bundleSnapshotRestore", "bundleVmstateRestore", "bundleLiveMounts", "bundleCommandRequired", "bundleImageEnv", "bundleGuestEnv", "bundleWorkspaceTempDir", "bundleConfigSynthDir", "provisionGuestCpu", "provisionGuestArchOverride", "provisionHostArch", "provisionBasePath", "provisionKernelPath", "provisionDtbPath", "provisionUdsPath", "provisionScratchDiskPath", "provisionRootDiskPath", "provisionRepackDiskPath", "provisionRepackOutPath", "provisionRepackExtractDir", "provisionImageConfigHasCmd", "provisionImageConfigCmd", "provisionImageConfigHasEnv", "provisionImageConfigEnv", "provisionWorkDir", "provisionScratchSizeBytes", "provisionTimeoutMs", "scratchMode", "scratchSnapshotPath", "scratchRestoreClonePath", "scratchAutoPath", "rootDiskRuntimeMode", "rootDiskSourcePath", "rootDiskClonePath", "mountDiskRuntimeMode", "mountDiskLowerPath", "mountDiskUpperPath", "mountDiskSourceUpperPath", "mountDiskGuest", "mountDiskUpperSize", "mountDiskLowerFd", "mountDiskUpperFd", "registrySourceImagePath", "registryDiskPath", "registryForkedFrom", "registryMemoryCeilingMib", "registryStatsPath", "registryPerBootRootDisk", "registryCallerRootDiskPath", "registryBootLogRoot", "registryChildPid", "registryDetached", "registryPerBootSnapDisk", "registryPerBootMountUpper", "registryBundleTempDir", "registryVsockTempDir", "registryStatsTempDir", "registryGvSocketDir", "registryCpuCgroupPath", "registryCpuPolicyMaxVcpus", "registryCpuPolicyQuotaCpus", "registryCpuPolicyWeight", "registryCpuControlStatus", "registryCpuControlReason", "registryVmstatePath", "registryVmstateChainId", "registryVmstateCheckpointParent", "registryVmstateCheckpointSequence", "registryNested", "registryMountGuest", "registryMountLowerPath", "registryMountUpperPath" });
     return .{
         .memory_mib_text = try optionalString(object, "memoryMib", error.MissingMemoryMib, error.InvalidMemoryMib),
         .resources_memory = try optionalResourcesMemory(object),
@@ -1344,6 +1371,8 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedReq
         .live_mounts = try optionalLiveMounts(allocator, object),
         .live_mounts_resolved = try optionalLiveMountsResolved(allocator, object),
         .batch_live_mount_validation_required = try optionalBoolDefaultFalse(object, "batchLiveMountValidationRequired", error.InvalidBatchLiveMountValidationRequired),
+        .restore_live_mounts_recorded = try optionalRestoreLiveMountsRecorded(allocator, object),
+        .restore_live_mounts_overrides = try optionalRestoreLiveMountsOverrides(allocator, object),
         .existing_stats_file = try optionalStringDefaultNull(object, "existingStatsFile", error.InvalidExistingStatsFile),
         .stats_file_path = try optionalStringDefaultNull(object, "statsFilePath", error.InvalidStatsFilePath),
         .stats_file_temp_dir = try optionalStringDefaultNull(object, "statsFileTempDir", error.InvalidStatsFileTempDir),
@@ -1541,6 +1570,51 @@ fn optionalLiveMountsResolvedField(
     return mounts.toOwnedSlice(allocator);
 }
 
+fn optionalRestoreLiveMountsRecorded(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+) RequestError![]const boot_plan.RestoreRecordedLiveMount {
+    const value = object.get("restoreLiveMountsRecorded") orelse return &.{};
+    if (value == .null) return &.{};
+    if (value != .array) return error.InvalidRestoreLiveMountsRecorded;
+    var mounts: std.ArrayList(boot_plan.RestoreRecordedLiveMount) = .empty;
+    errdefer mounts.deinit(allocator);
+    for (value.array.items) |item| {
+        if (item != .object) return error.InvalidRestoreLiveMountsRecorded;
+        const host = item.object.get("host") orelse return error.InvalidRestoreLiveMountsRecorded;
+        const guest = item.object.get("guest") orelse return error.InvalidRestoreLiveMountsRecorded;
+        const mode = item.object.get("mode") orelse return error.InvalidRestoreLiveMountsRecorded;
+        if (host != .string or guest != .string or mode != .string or !isLiveMountMode(mode.string)) return error.InvalidRestoreLiveMountsRecorded;
+        try mounts.append(allocator, .{ .host = host.string, .guest = guest.string, .mode = mode.string });
+    }
+    return mounts.toOwnedSlice(allocator);
+}
+
+fn optionalRestoreLiveMountsOverrides(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+) RequestError![]const boot_plan.RestoreLiveMountInput {
+    const value = object.get("restoreLiveMountsOverrides") orelse return &.{};
+    if (value == .null) return &.{};
+    if (value != .array) return error.InvalidRestoreLiveMountsOverrides;
+    var mounts: std.ArrayList(boot_plan.RestoreLiveMountInput) = .empty;
+    errdefer mounts.deinit(allocator);
+    for (value.array.items) |item| {
+        if (item != .object) return error.InvalidRestoreLiveMountsOverrides;
+        const host = item.object.get("host") orelse return error.InvalidRestoreLiveMountsOverrides;
+        const guest = item.object.get("guest") orelse return error.InvalidRestoreLiveMountsOverrides;
+        const mode = item.object.get("mode") orelse .null;
+        if (host != .string or guest != .string) return error.InvalidRestoreLiveMountsOverrides;
+        if (mode != .null and (mode != .string or !isLiveMountMode(mode.string))) return error.InvalidRestoreLiveMountsOverrides;
+        try mounts.append(allocator, .{ .host = host.string, .guest = guest.string, .mode = if (mode == .string) mode.string else null });
+    }
+    return mounts.toOwnedSlice(allocator);
+}
+
+fn isLiveMountMode(mode: []const u8) bool {
+    return std.mem.eql(u8, mode, "ro") or std.mem.eql(u8, mode, "rw");
+}
+
 fn optionalBoolDefaultFalse(object: std.json.ObjectMap, field: []const u8, invalid: RequestError) RequestError!bool {
     const value = object.get(field) orelse return false;
     return switch (value) {
@@ -1729,6 +1803,31 @@ fn writeDuplicateHostPort(io: std.Io, port: u16) !void {
     );
 }
 
+fn writeRestoreLiveMountOverrideError(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    guest: []const u8,
+    recorded: []const boot_plan.RestoreRecordedLiveMount,
+) !void {
+    var known: std.ArrayList(u8) = .empty;
+    defer known.deinit(allocator);
+    for (recorded, 0..) |mount, i| {
+        if (i != 0) try known.appendSlice(allocator, ", ");
+        try known.appendSlice(allocator, mount.guest);
+    }
+    const msg = try std.fmt.allocPrint(
+        allocator,
+        "restore: liveMounts override for guest={s} doesn't match any\n" ++
+            "  liveMount recorded in the bundle. The bundle's recorded guest paths are:\n" ++
+            "    {s}\n" ++
+            "  restore() reproduces the snapshot's mount topology — opts.liveMounts is\n" ++
+            "  an override map, not an additive list. To override, set 'guest' to one\n" ++
+            "  of the recorded paths above and supply a new 'host' / 'mode'.",
+        .{ guest, known.items },
+    );
+    try protocol.writeError(io, "BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN", msg);
+}
+
 fn writePlanError(io: std.Io, err: anyerror) !void {
     switch (err) {
         error.InvalidMemory => try protocol.writeError(io, "BOOT_MEMORY_INVALID", "boot: memory must be a positive integer at least 512 MiB"),
@@ -1783,6 +1882,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         error.InvalidLiveMounts, error.InvalidLiveMountGuest => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: entries must include host and guest paths"),
         error.InvalidLiveMountsResolved, error.InvalidLiveMountHost, error.InvalidLiveMountMode, error.InvalidLiveMountTag => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "liveMounts: resolved live mount entries must include host, guest, tag, and mode ro/rw"),
         error.InvalidBatchLiveMountValidationRequired => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "boot-plan batch live mount validation flag must be a boolean"),
+        error.InvalidRestoreLiveMountsRecorded, error.InvalidRestoreLiveMountsOverrides => try protocol.writeError(io, "BOOT_MOUNT_INVALID", "restore liveMount entries must include host, guest, and valid mode fields"),
         error.InvalidRegistryCpuPolicy => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu policy fields are invalid"),
         error.InvalidRegistryCpuControlStatus => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu control status must be none, linux-cgroup-v2, or unsupported"),
         error.InvalidRegistryCpuControlReason => try protocol.writeError(io, "BOOT_CPU_INVALID", "boot-plan registry cpu control reason must be a string"),

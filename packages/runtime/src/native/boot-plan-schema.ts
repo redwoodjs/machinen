@@ -3,6 +3,7 @@ type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cach
 type MountDiskRuntimeAction = "none" | "restore" | "fresh";
 export type ProvisionGuestCpu = "arm64" | "amd64";
 export type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
+export type RestoreLiveMount = { host: string; guest: string; mode?: "ro" | "rw" };
 export type PlannedPortForward = { hostPort: number; guestPort: number; hostAddr?: string };
 type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
@@ -136,6 +137,7 @@ export interface NativeBootPlanResult {
   vmmNested: string | null;
   virtiofsEnv: Record<string, string>;
   batchLiveMountSyncRequired: boolean;
+  restoreLiveMounts: RestoreLiveMount[];
   plannedLiveMounts: PlannedLiveMount[];
   statsFilePath: string | null;
   vmmStatsFile: string | null;
@@ -189,6 +191,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmNested),
     isStringRecord(data.virtiofsEnv),
     typeof data.batchLiveMountSyncRequired === "boolean",
+    Array.isArray(data.restoreLiveMounts) && data.restoreLiveMounts.every(isRestoreLiveMount),
     Array.isArray(data.plannedLiveMounts) && data.plannedLiveMounts.every(isPlannedLiveMount),
     nullableString(data.statsFilePath),
     nullableString(data.vmmStatsFile),
@@ -475,6 +478,18 @@ function isPlannedPortForward(value: unknown): value is PlannedPortForward {
     nonNegativeNumber(mapping.hostPort) &&
     nonNegativeNumber(mapping.guestPort) &&
     (mapping.hostAddr === undefined || typeof mapping.hostAddr === "string")
+  );
+}
+
+function isRestoreLiveMount(value: unknown): value is RestoreLiveMount {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const mount = value as Partial<RestoreLiveMount>;
+  return (
+    typeof mount.host === "string" &&
+    typeof mount.guest === "string" &&
+    (mount.mode === undefined || mount.mode === "ro" || mount.mode === "rw")
   );
 }
 

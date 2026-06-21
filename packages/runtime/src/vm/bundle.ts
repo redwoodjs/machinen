@@ -31,6 +31,7 @@ import {
   planBootMountDiskRuntimeNative,
   planBootMachinenConfigNative,
 } from "../native/boot-plan.ts";
+import { planRestoreLiveMountsNative } from "../native/restore-live-mounts.ts";
 import type { BootOptions } from "./boot.ts";
 import type { SnapshotMeta } from "../vm-handle.ts";
 import { normalizeMountGuest, validateGuestCwd, validateMountGuest } from "./helpers.ts";
@@ -138,46 +139,10 @@ export function resolveRestoreLiveMounts(
   recorded: SnapshotMeta["liveMounts"] | undefined,
   overrides: BootOptions["liveMounts"] | undefined,
 ): BootOptions["liveMounts"] {
-  const recordedList = recorded ?? [];
   const overrideList = overrides ?? [];
   overrideList.forEach((ov, i) => rejectRemovedLiveMountOptions(ov, i));
-  if (recordedList.length === 0) {
-    return overrideList.length > 0 ? overrideList : undefined;
-  }
-  const recordedByGuest = new Map(recordedList.map((m) => [m.guest, m]));
-  const overridesByGuest = new Map<
-    string,
-    {
-      host: string;
-      guest: string;
-      mode?: "ro" | "rw";
-    }
-  >();
-  for (const ov of overrideList) {
-    if (!recordedByGuest.has(ov.guest)) {
-      const known = recordedList.map((m) => m.guest).join(", ");
-      throw new BootError(
-        "BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN",
-        `restore: liveMounts override for guest=${ov.guest} doesn't match any\n` +
-          `  liveMount recorded in the bundle. The bundle's recorded guest paths are:\n` +
-          `    ${known}\n` +
-          `  restore() reproduces the snapshot's mount topology — opts.liveMounts is\n` +
-          `  an override map, not an additive list. To override, set 'guest' to one\n` +
-          `  of the recorded paths above and supply a new 'host' / 'mode'.`,
-      );
-    }
-    overridesByGuest.set(ov.guest, ov);
-  }
-  return recordedList.map((rec) => {
-    const ov = overridesByGuest.get(rec.guest);
-    return ov
-      ? {
-          guest: rec.guest,
-          host: ov.host,
-          mode: ov.mode ?? rec.mode,
-        }
-      : { guest: rec.guest, host: rec.host, mode: rec.mode };
-  });
+  const planned = planRestoreLiveMountsNative(recorded, overrideList);
+  return planned.length > 0 ? planned : undefined;
 }
 
 type BundleMountDisk = {
