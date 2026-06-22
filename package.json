@@ -9,7 +9,7 @@
     "typecheck": "tsgo --noEmit",
     "pretest": "pnpm build",
     "test": "vitest run",
-    "lint": "oxlint --deny-warnings && node scripts/fallow-health-guard.mjs",
+    "lint": "oxlint --deny-warnings && node scripts/fallow-health-guard.mjs && node scripts/runtime-native-boundary-check.mjs",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:fix": "oxfmt",
@@ -100,7 +100,8 @@
     "archive-node-ecosystem-restore": "node scripts/archived-smoke.mjs scripts/smoke/node-ecosystem-restore.sh",
     "archive-non-node-cross-arch": "node scripts/archived-smoke.mjs scripts/smoke/non-node-cross-arch.sh",
     "archive-go-quiescent-runtime": "node scripts/archived-smoke.mjs scripts/smoke/go-quiescent-runtime.sh",
-    "fallow:health": "node scripts/fallow-health-guard.mjs"
+    "fallow:health": "node scripts/fallow-health-guard.mjs",
+    "runtime-native-boundary-check": "node scripts/runtime-native-boundary-check.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
