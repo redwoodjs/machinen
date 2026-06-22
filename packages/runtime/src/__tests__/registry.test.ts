@@ -356,6 +356,29 @@ describe("boot + attach end-to-end", () => {
     await expect(attach({ pid: 999_999_999 })).rejects.toThrow(RegistryError);
   });
 
+  it("attach().kill() signals the VM through the native lifecycle helper", async () => {
+    const udsPath = join(tmpdir(), `machinen-attach-native-kill-${process.pid}.sock`);
+    const agent = startFakeAgent({ socketPath: udsPath, exitCode: 0 });
+    try {
+      const vm = await boot({
+        binary: "/usr/bin/yes",
+        vmmEnv: { MACHINEN_VSOCK: `in:1978:${udsPath}` },
+        name: "native-killme",
+        timeoutMs: 5_000,
+      });
+      expect(list().some((e) => e.name === "native-killme")).toBe(true);
+      const attached = await attach({ name: "native-killme" });
+      await attached.kill();
+      expect(list().some((e) => e.name === "native-killme")).toBe(false);
+      await vm.wait();
+    } finally {
+      await agent.stop();
+      try {
+        rmSync(udsPath);
+      } catch {}
+    }
+  });
+
   it("vm.kill() removes the registry entry via child exit", async () => {
     const udsPath = join(tmpdir(), `machinen-attach-kill-${process.pid}.sock`);
     const agent = startFakeAgent({ socketPath: udsPath, exitCode: 0 });

@@ -251,6 +251,18 @@ pub const ProvisionAssetLookupPlan = struct {
     error_kind: ?[]const u8,
 };
 
+pub const RestoreImageInput = struct {
+    explicit_path: ?[]const u8 = null,
+    explicit_exists: ?bool = null,
+    meta_source_path: ?[]const u8 = null,
+    meta_source_exists: ?bool = null,
+};
+
+pub const RestoreImagePlan = struct {
+    path: ?[]const u8,
+    error_kind: ?[]const u8,
+};
+
 pub const ProvisionBootInput = struct {
     base_path: ?[]const u8 = null,
     kernel_path: ?[]const u8 = null,
@@ -1366,6 +1378,18 @@ pub fn planProvisionAssetLookup(input: ProvisionAssetLookupInput) ProvisionAsset
     return .{ .path = null, .error_kind = "missing" };
 }
 
+pub fn planRestoreImage(input: RestoreImageInput) RestoreImagePlan {
+    if (input.explicit_path) |path| {
+        if (input.explicit_exists == true) return .{ .path = path, .error_kind = null };
+        return .{ .path = null, .error_kind = "explicit-missing" };
+    }
+    if (input.meta_source_path) |path| {
+        if (input.meta_source_exists == true) return .{ .path = path, .error_kind = null };
+        return .{ .path = null, .error_kind = "meta-missing" };
+    }
+    return .{ .path = null, .error_kind = "missing" };
+}
+
 pub fn planBundleWorkspace(allocator: std.mem.Allocator, input: BundleWorkspaceInput) !BundleWorkspacePlan {
     const temp_dir = input.temp_dir orelse return .{ .cpio_path = null, .synth_bundle_dir = null };
     const cpio_path = try std.fs.path.join(allocator, &.{ temp_dir, "initramfs.cpio" });
@@ -2083,6 +2107,44 @@ test "planProvisionAssetLookup preserves explicit assets-dir cache order" {
     });
     try std.testing.expectEqualStrings("/cache/rootfs.tar.gz", cache_hit.path.?);
     try std.testing.expect(cache_hit.error_kind == null);
+}
+
+test "planRestoreImage selects explicit, metadata, and missing image outcomes" {
+    const explicit_hit = planRestoreImage(.{
+        .explicit_path = "/override/rootfs.tar.gz",
+        .explicit_exists = true,
+        .meta_source_path = "/meta/rootfs.tar.gz",
+        .meta_source_exists = true,
+    });
+    try std.testing.expectEqualStrings("/override/rootfs.tar.gz", explicit_hit.path.?);
+    try std.testing.expect(explicit_hit.error_kind == null);
+
+    const explicit_missing = planRestoreImage(.{
+        .explicit_path = "/override/missing.tar.gz",
+        .explicit_exists = false,
+        .meta_source_path = "/meta/rootfs.tar.gz",
+        .meta_source_exists = true,
+    });
+    try std.testing.expect(explicit_missing.path == null);
+    try std.testing.expectEqualStrings("explicit-missing", explicit_missing.error_kind.?);
+
+    const meta_hit = planRestoreImage(.{
+        .meta_source_path = "/meta/rootfs.tar.gz",
+        .meta_source_exists = true,
+    });
+    try std.testing.expectEqualStrings("/meta/rootfs.tar.gz", meta_hit.path.?);
+    try std.testing.expect(meta_hit.error_kind == null);
+
+    const meta_missing = planRestoreImage(.{
+        .meta_source_path = "/meta/missing.tar.gz",
+        .meta_source_exists = false,
+    });
+    try std.testing.expect(meta_missing.path == null);
+    try std.testing.expectEqualStrings("meta-missing", meta_missing.error_kind.?);
+
+    const missing = planRestoreImage(.{});
+    try std.testing.expect(missing.path == null);
+    try std.testing.expectEqualStrings("missing", missing.error_kind.?);
 }
 
 test "planRegistryLifecycle gates name claim and registry writes" {

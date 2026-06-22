@@ -2,7 +2,7 @@ import { ProvisionError, type ErrorCode, type MachinenErrorOptions } from "../er
 import { callRuntimeHelper } from "../native-helper.ts";
 import { isNativeBootPlanResult, type NativeBootPlanResult } from "./boot-plan-schema.ts";
 
-export type ProvisionResultPlan = {
+type ProvisionResultPlan = {
   imagePath: string;
   sizeBytes: number;
   elapsedMs: number;

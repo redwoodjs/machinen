@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
+import { readVmstateFactsNative } from "../native/vmstate-facts.ts";
 import type { SnapshotFileIdentity as FileIdentity, VmstateBackend } from "../vm-handle.ts";
 
 type VmstateGuestArch = "arm64" | "amd64" | "unknown";
@@ -66,8 +67,34 @@ export function currentVmstateGuestArch(): VmstateGuestArch {
 }
 
 export function readVmstateFacts(path: string): VmstateFacts {
-  const raw = readFileSync(path);
+  // Product vmstate files are raw VMSTATE streams. Keep the old in-process
+  // gzip fallback for compatibility with hand-compressed fixtures/bundles,
+  // but let the native helper own the normal parser so large RAM sections are
+  // skipped positionally instead of read into the Node heap.
+  if (fileLooksGzip(path)) {
+    return readVmstateFactsFromBuffer(readFileSync(path));
+  }
+  return readVmstateFactsNative(path);
+}
+
+function readVmstateFactsFromBuffer(raw: Buffer): VmstateFacts {
   const bytes = maybeGunzip(raw);
+  const header = parseVmstateHeader(bytes);
+  const sctlr = readVmstateSctlrEl1(bytes, header.sectionCount);
+  return {
+    ...header,
+    ...(sctlr === undefined
+      ? {}
+      : {
+          sctlrEl1: `0x${sctlr.toString(16)}`,
+          guestPauthActive: (sctlr & SCTLR_PAUTH_MASK) !== 0n,
+        }),
+  };
+}
+
+function parseVmstateHeader(
+  bytes: Buffer,
+): Pick<VmstateFacts, "arch" | "topologyHash" | "sectionCount"> {
   if (bytes.length < VMSTATE_HEADER_SIZE) {
     throw new Error(`vmstate: truncated header (${bytes.length} bytes)`);
   }
@@ -83,36 +110,61 @@ export function readVmstateFacts(path: string): VmstateFacts {
   if (arch === "unknown") {
     throw new Error(`vmstate: unsupported arch ${archId}`);
   }
+  return {
+    arch,
+    sectionCount: bytes.readUInt32LE(16),
+    topologyHash: bytes.subarray(24, 56).toString("hex"),
+  };
+}
 
-  const sectionCount = bytes.readUInt32LE(16);
-  const topologyHash = bytes.subarray(24, 56).toString("hex");
+function readVmstateSctlrEl1(bytes: Buffer, sectionCount: number): bigint | undefined {
   let off = VMSTATE_HEADER_SIZE;
-  let sctlrEl1: string | undefined;
-  let guestPauthActive: boolean | undefined;
-
   for (let i = 0; i < sectionCount; i++) {
-    if (off + 16 > bytes.length) {
-      throw new Error("vmstate: truncated section header");
-    }
-    const tag = bytes.readUInt32LE(off);
-    const len = Number(bytes.readBigUInt64LE(off + 8));
-    off += 16;
-    if (!Number.isSafeInteger(len) || len < 0 || off + len > bytes.length) {
-      throw new Error("vmstate: section overflows file");
-    }
-    const payload = bytes.subarray(off, off + len);
-    off += len;
-
-    if (tag === SECTION_TAG_VCPU) {
-      const sctlr = readVcpuU64(payload, "SCTLR_EL1");
+    const section = readVmstateSection(bytes, off);
+    if (section.tag === SECTION_TAG_VCPU) {
+      const sctlr = readVcpuU64(section.payload, "SCTLR_EL1");
       if (sctlr !== undefined) {
-        sctlrEl1 = `0x${sctlr.toString(16)}`;
-        guestPauthActive = (sctlr & SCTLR_PAUTH_MASK) !== 0n;
+        return sctlr;
       }
     }
+    off = section.nextOffset;
   }
+  return undefined;
+}
 
-  return { arch, topologyHash, sectionCount, guestPauthActive, sctlrEl1 };
+function readVmstateSection(
+  bytes: Buffer,
+  headerOffset: number,
+): { tag: number; payload: Buffer; nextOffset: number } {
+  if (headerOffset + 16 > bytes.length) {
+    throw new Error("vmstate: truncated section header");
+  }
+  const tag = bytes.readUInt32LE(headerOffset);
+  const len = Number(bytes.readBigUInt64LE(headerOffset + 8));
+  const payloadOffset = headerOffset + 16;
+  if (!Number.isSafeInteger(len) || len < 0 || payloadOffset + len > bytes.length) {
+    throw new Error("vmstate: section overflows file");
+  }
+  return {
+    tag,
+    payload: bytes.subarray(payloadOffset, payloadOffset + len),
+    nextOffset: payloadOffset + len,
+  };
+}
+
+function fileLooksGzip(path: string): boolean {
+  let fd: number;
+  try {
+    fd = openSync(path, "r");
+  } catch {
+    return false;
+  }
+  try {
+    const magic = Buffer.allocUnsafe(2);
+    return readSync(fd, magic, 0, magic.length, 0) === 2 && magic[0] === 0x1f && magic[1] === 0x8b;
+  } finally {
+    closeSync(fd);
+  }
 }
 
 interface FileIdentityStamp {

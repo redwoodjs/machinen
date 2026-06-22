@@ -10,15 +10,18 @@ const host_rss = @import("commands/host_rss.zig");
 const mkinitramfs = @import("commands/mkinitramfs.zig");
 const mountdisk_image = @import("commands/mountdisk_image.zig");
 const mountdisk_upper = @import("commands/mountdisk_upper.zig");
+const native_code_map = @import("commands/native_code_map.zig");
 const nested_virt_probe = @import("commands/nested_virt_probe.zig");
 const pid_validate = @import("commands/pid_validate.zig");
 const process_identity = @import("commands/process_identity.zig");
+const process_signal = @import("commands/process_signal.zig");
 const reflink_copy = @import("commands/reflink_copy.zig");
 const rootfs_cache_key = @import("commands/rootfs_cache_key.zig");
 const rootfs_materialize = @import("commands/rootfs_materialize.zig");
 const rootfs_prebake_decompress = @import("commands/rootfs_prebake_decompress.zig");
 const rootfs_prebake_tree = @import("commands/rootfs_prebake_tree.zig");
 const tree_manifest_hash = @import("commands/tree_manifest_hash.zig");
+const vmstate_facts = @import("commands/vmstate_facts.zig");
 
 var g_io: std.Io = undefined;
 
@@ -112,6 +115,14 @@ pub fn main(init: std.process.Init) !u8 {
         return @intFromEnum(try mountdisk_upper.run(init.gpa, g_io));
     }
 
+    if (std.mem.eql(u8, command, native_code_map.name)) {
+        if (it.next() != null) {
+            try protocol.writeError(g_io, "USAGE", "native-code-map reads its JSON request from stdin and accepts no positional arguments");
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try native_code_map.run(init.gpa, g_io));
+    }
+
     if (std.mem.eql(u8, command, nested_virt_probe.name)) {
         if (it.next() != null) {
             try protocol.writeError(g_io, "USAGE", "nested-virt-probe reads its JSON request from stdin and accepts no positional arguments");
@@ -134,6 +145,14 @@ pub fn main(init: std.process.Init) !u8 {
             return @intFromEnum(protocol.Exit.usage);
         }
         return @intFromEnum(try process_identity.run(init.gpa, g_io));
+    }
+
+    if (std.mem.eql(u8, command, process_signal.name)) {
+        if (it.next() != null) {
+            try protocol.writeError(g_io, "USAGE", "process-signal reads its JSON request from stdin and accepts no positional arguments");
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try process_signal.run(init.gpa, g_io));
     }
 
     if (std.mem.eql(u8, command, reflink_copy.name)) {
@@ -176,6 +195,14 @@ pub fn main(init: std.process.Init) !u8 {
         return @intFromEnum(try rootfs_prebake_tree.run(init.gpa, g_io));
     }
 
+    if (std.mem.eql(u8, command, vmstate_facts.name)) {
+        if (it.next() != null) {
+            try protocol.writeError(g_io, "USAGE", "vmstate-facts reads its JSON request from stdin and accepts no positional arguments");
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try vmstate_facts.run(init.gpa, g_io));
+    }
+
     if (std.mem.eql(u8, command, tree_manifest_hash.name)) {
         if (it.next() != null) {
             try protocol.writeError(g_io, "USAGE", "tree-manifest-hash reads its JSON request from stdin and accepts no positional arguments");
@@ -185,7 +212,7 @@ pub fn main(init: std.process.Init) !u8 {
     }
 
     if (std.mem.eql(u8, command, "--help") or std.mem.eql(u8, command, "-h") or std.mem.eql(u8, command, "help")) {
-        try protocol.stdout(g_io, "{\"ok\":true,\"protocolVersion\":1,\"commands\":[\"balloon-stats\",\"boot-plan\",\"cleanup-path\",\"cpu-cgroup-apply\",\"cpu-cgroup-remove\",\"host-memory\",\"host-rss\",\"mkinitramfs\",\"mountdisk-image\",\"mountdisk-upper\",\"nested-virt-probe\",\"pid-validate\",\"process-identity\",\"reflink-copy\",\"rootfs-cache-key\",\"rootfs-materialize\",\"rootfs-prebake-decompress\",\"rootfs-prebake-tree\",\"tree-manifest-hash\"]}\n");
+        try protocol.stdout(g_io, "{\"ok\":true,\"protocolVersion\":1,\"commands\":[\"balloon-stats\",\"boot-plan\",\"cleanup-path\",\"cpu-cgroup-apply\",\"cpu-cgroup-remove\",\"host-memory\",\"host-rss\",\"mkinitramfs\",\"mountdisk-image\",\"mountdisk-upper\",\"native-code-map\",\"nested-virt-probe\",\"pid-validate\",\"process-identity\",\"process-signal\",\"reflink-copy\",\"rootfs-cache-key\",\"rootfs-materialize\",\"rootfs-prebake-decompress\",\"rootfs-prebake-tree\",\"tree-manifest-hash\",\"vmstate-facts\"]}\n");
         return @intFromEnum(protocol.Exit.ok);
     }
 
