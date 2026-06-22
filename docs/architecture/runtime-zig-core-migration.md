@@ -30,7 +30,10 @@ The helper uses strict JSON stdin/stdout envelopes with `protocolVersion: 1`.
 
 - a non-wrapper product module references `callRuntimeHelper`
 - a wrapper re-exports `callRuntimeHelper`
+- any non-test `packages/runtime/src/**/*.ts` module lacks an explicit shell role
 - an `@machinen/native-*` package stops advertising the required host binaries
+
+The TypeScript role audit covers every non-test runtime module and allows only these roles: native command wrapper, helper protocol boundary, public API shell, VM orchestration glue, host integration glue, CLI supervisor glue, and proof/policy boundary. New runtime TypeScript files must choose one of those roles instead of silently becoming a new systems implementation home.
 
 Run it directly with:
 
