@@ -74,6 +74,10 @@ const ParsedRequest = struct {
     batch_live_mount_validation_required: bool = false,
     restore_live_mounts_recorded: []const boot_plan.RestoreRecordedLiveMount = &.{},
     restore_live_mounts_overrides: []const boot_plan.RestoreLiveMountInput = &.{},
+    restore_image_explicit_path: ?[]const u8 = null,
+    restore_image_explicit_exists: ?bool = null,
+    restore_image_meta_source_path: ?[]const u8 = null,
+    restore_image_meta_source_exists: ?bool = null,
     existing_stats_file: ?[]const u8 = null,
     stats_file_path: ?[]const u8 = null,
     stats_file_temp_dir: ?[]const u8 = null,
@@ -291,6 +295,10 @@ const boot_plan_fields = [_][]const u8{
     "batchLiveMountValidationRequired",
     "restoreLiveMountsRecorded",
     "restoreLiveMountsOverrides",
+    "restoreImageExplicitPath",
+    "restoreImageExplicitExists",
+    "restoreImageMetaSourcePath",
+    "restoreImageMetaSourceExists",
     "existingStatsFile",
     "statsFilePath",
     "statsFileTempDir",
@@ -519,6 +527,10 @@ const RequestError = error{
     InvalidBatchLiveMountValidationRequired,
     InvalidRestoreLiveMountsRecorded,
     InvalidRestoreLiveMountsOverrides,
+    InvalidRestoreImageExplicitPath,
+    InvalidRestoreImageExplicitExists,
+    InvalidRestoreImageMetaSourcePath,
+    InvalidRestoreImageMetaSourceExists,
     InvalidExistingStatsFile,
     InvalidStatsFilePath,
     InvalidStatsFileTempDir,
@@ -735,6 +747,7 @@ const PlanParts = struct {
     virtiofs_env: []const boot_plan.EnvPair,
     batch_live_mount_sync: boot_plan.BatchLiveMountPlan,
     restore_live_mounts: []const boot_plan.RestoreLiveMountInput,
+    restore_image: boot_plan.RestoreImagePlan,
     stats_file_mode: boot_plan.StatsFileModePlan,
     stats_file_temp_mode: boot_plan.StatsFileTempModePlan,
     stats_file: boot_plan.StatsFilePlan,
@@ -851,6 +864,7 @@ fn makePlanParts(arena: std.mem.Allocator, parsed: ParsedRequest, plan: boot_pla
         .virtiofs_env = boot_env.virtiofs_env,
         .batch_live_mount_sync = boot_env.batch_live_mount_sync,
         .restore_live_mounts = boot_env.restore_live_mounts,
+        .restore_image = makeRestoreImage(parsed),
         .stats_file_mode = makeStatsFileMode(parsed),
         .stats_file_temp_mode = makeStatsFileTempMode(parsed),
         .stats_file = boot_env.stats_file,
@@ -929,6 +943,17 @@ fn makeVmstateTempMode(parsed: ParsedRequest) boot_plan.VmstateTempModePlan {
         .engine = parsed.boot_vmstate_engine,
         .snapshot_disabled = parsed.boot_vmstate_snapshot_disabled,
         .existing_temp_dir = parsed.boot_vmstate_existing_temp_dir,
+    });
+}
+
+fn makeRestoreImage(parsed: ParsedRequest) boot_plan.RestoreImagePlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return boot_plan.planRestoreImage(.{
+        .explicit_path = parsed.restore_image_explicit_path,
+        .explicit_exists = parsed.restore_image_explicit_exists,
+        .meta_source_path = parsed.restore_image_meta_source_path,
+        .meta_source_exists = parsed.restore_image_meta_source_exists,
     });
 }
 
@@ -1733,6 +1758,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
         true,
     );
     try writeRestoreLiveMountsField(io, "restoreLiveMounts", parts.restore_live_mounts, true);
+    try writeRestoreImageField(io, "restoreImage", parts.restore_image, true);
     try writeNullableStringField(io, "vmmNested", parts.nested_env, true);
     try writeLiveMountsArrayField(io, "plannedLiveMounts", parts.planned_live_mounts, true);
     try writePortForwardField(io, "plannedPortForward", parts.planned_port_forwards, false, true);
@@ -2013,6 +2039,21 @@ fn writeGuestHostnameSetField(
     const hostname = boot_plan.formatGuestHostnameSet(&buffer, input) catch
         return error.InvalidGuestHostnameSetName;
     try writeNullableStringField(io, field, hostname, comma);
+}
+
+fn writeRestoreImageField(
+    io: std.Io,
+    comptime field: []const u8,
+    image: boot_plan.RestoreImagePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "path", image.path, false);
+    try writeNullableStringField(io, "error", image.error_kind, true);
+    try protocol.stdout(io, "}");
 }
 
 fn writeRestoreLiveMountsField(
@@ -3524,6 +3565,26 @@ fn parseRuntimeMountStatsFields(
     request.restore_live_mounts_overrides = try optionalRestoreLiveMountsOverrides(
         allocator,
         object,
+    );
+    request.restore_image_explicit_path = try optionalStringDefaultNull(
+        object,
+        "restoreImageExplicitPath",
+        error.InvalidRestoreImageExplicitPath,
+    );
+    request.restore_image_explicit_exists = try optionalBoolDefaultNull(
+        object,
+        "restoreImageExplicitExists",
+        error.InvalidRestoreImageExplicitExists,
+    );
+    request.restore_image_meta_source_path = try optionalStringDefaultNull(
+        object,
+        "restoreImageMetaSourcePath",
+        error.InvalidRestoreImageMetaSourcePath,
+    );
+    request.restore_image_meta_source_exists = try optionalBoolDefaultNull(
+        object,
+        "restoreImageMetaSourceExists",
+        error.InvalidRestoreImageMetaSourceExists,
     );
     request.existing_stats_file = try optionalStringDefaultNull(
         object,
