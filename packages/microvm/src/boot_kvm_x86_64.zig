@@ -48,7 +48,7 @@ const virtio_mmio_hole_base: u64 = virtio_net_base;
 const virtio_mmio_hole_size: u64 = 0x1_0000;
 const virtio_mmio_hole_end: u64 = virtio_mmio_hole_base + virtio_mmio_hole_size;
 
-const MAX_VCPUS = 64;
+pub const MAX_VCPUS = 64;
 const MAX_VIRTIOFS_SLOTS: usize = 5;
 const virtio_virtiofs_bases: [MAX_VIRTIOFS_SLOTS]u64 = .{
     0x0A00_0E00,
@@ -66,10 +66,19 @@ const boot_stack_addr: u64 = 0x0009_0000;
 const cmdline_addr: u64 = 0x0002_0000;
 const kernel_load_addr: u64 = 0x0100_0000;
 const acpi_base: u64 = 0x000F_0000;
+const acpi_rsdp_addr: u64 = acpi_base;
+const acpi_rsdt_addr: u64 = acpi_base + 0x0100;
+const acpi_xsdt_addr: u64 = acpi_base + 0x0180;
+const acpi_madt_addr: u64 = acpi_base + 0x0200;
+const acpi_fadt_addr: u64 = acpi_base + 0x0500;
+const acpi_dsdt_addr: u64 = acpi_base + 0x0700;
 const ioapic_base: u64 = 0xFEC0_0000;
 const ioapic_size: u64 = 0x1000;
 const lapic_base: u64 = 0xFEE0_0000;
 const lapic_size: u64 = 0x1000;
+const identity_map_addr: u64 = 0xFFE0_0000;
+const identity_map_size: u64 = 0x1000;
+const identity_map_end: u64 = identity_map_addr + identity_map_size;
 const pm1a_evt_port: u16 = 0x0600;
 const pm1a_cnt_port: u16 = 0x0604;
 const reset_port: u16 = 0x0CF9;
@@ -161,7 +170,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     defer vm.destroy();
 
     try vm.set_tss_addr(0xFFFBD000);
-    try vm.set_identity_map_addr(0xFFE0_0000);
+    try vm.set_identity_map_addr(identity_map_addr);
     try vm.create_irqchip();
     try vm.create_pit2();
     try map_guest_ram(&vm, &cfg, ram);
@@ -412,7 +421,8 @@ fn map_guest_ram(vm: *kvm.Vm, cfg: *const Config, ram: []u8) !void {
         ioapic_base + ioapic_size,
         @min(lapic_base, cfg.ram_size),
     );
-    try map_ram_range(vm, ram, &slot, lapic_base + lapic_size, cfg.ram_size);
+    try map_ram_range(vm, ram, &slot, lapic_base + lapic_size, @min(identity_map_addr, cfg.ram_size));
+    try map_ram_range(vm, ram, &slot, identity_map_end, cfg.ram_size);
 }
 
 fn map_ram_range(vm: *kvm.Vm, ram: []u8, slot: *u32, start: u64, end: u64) !void {
@@ -428,9 +438,8 @@ fn write_int(buf: []u8, off: usize, comptime T: type, value: T) void {
     std.mem.writeInt(T, buf[off..][0..@sizeOf(T)], value, .little);
 }
 
-fn populate_boot_params(bp: []u8, cfg: *const Config, img: BzImage) void {
+fn populate_boot_params(bp: []u8, cfg: *const Config, _: BzImage) void {
     assert(bp.len >= 4096);
-    _ = img;
     bp[0x210] = 0xFF; // type_of_loader: unknown bootloader
     bp[0x211] |= 0x81; // LOADED_HIGH | CAN_USE_HEAP
     write_int(bp, 0x214, u32, @intCast(kernel_load_addr));
@@ -465,7 +474,12 @@ fn populate_boot_params(bp: []u8, cfg: *const Config, img: BzImage) void {
     if (cfg.ram_size > lapic_base) {
         const lapic_end = @min(lapic_base + lapic_size, cfg.ram_size);
         append_e820(bp, &e820_entries, lapic_base, lapic_end - lapic_base, 2);
-        append_e820(bp, &e820_entries, lapic_end, cfg.ram_size - lapic_end, 1);
+        append_e820(bp, &e820_entries, lapic_end, @min(identity_map_addr, cfg.ram_size) - lapic_end, 1);
+        if (cfg.ram_size > identity_map_addr) {
+            const identity_end = @min(identity_map_end, cfg.ram_size);
+            append_e820(bp, &e820_entries, identity_map_addr, identity_end - identity_map_addr, 2);
+            append_e820(bp, &e820_entries, identity_end, cfg.ram_size - identity_end, 1);
+        }
     }
     write_int(bp, 0x1E8, u8, e820_entries); // e820_entries
 }
@@ -628,21 +642,20 @@ fn flat_segment(index: u16, code: bool) kvm.X86Segment {
 }
 
 fn write_acpi_tables(ram: []u8, max_vcpus: u32) void {
-    const rsdp_addr = acpi_base;
-    const rsdt_addr = acpi_base + 0x0100;
-    const xsdt_addr = acpi_base + 0x0180;
-    const madt_addr = acpi_base + 0x0200;
-    const fadt_addr = acpi_base + 0x0300;
-    const dsdt_addr = acpi_base + 0x0500;
     assert(max_vcpus >= 1);
-    const madt_len = 44 + @as(@TypeOf(ram.len), @intCast(max_vcpus)) * 8 + 12 + 10;
+    const madt_len: usize = @intCast(madt_table_len(max_vcpus));
 
-    write_madt(guest_slice(ram, madt_addr, madt_len), max_vcpus);
-    write_dsdt(guest_slice(ram, dsdt_addr, 128));
-    write_fadt(guest_slice(ram, fadt_addr, 244), dsdt_addr);
-    write_rsdt(guest_slice(ram, rsdt_addr, 44), madt_addr, fadt_addr);
-    write_xsdt(guest_slice(ram, xsdt_addr, 52), madt_addr, fadt_addr);
-    write_rsdp(guest_slice(ram, rsdp_addr, 36), rsdt_addr, xsdt_addr);
+    write_madt(guest_slice(ram, acpi_madt_addr, madt_len), max_vcpus);
+    write_dsdt(guest_slice(ram, acpi_dsdt_addr, 128));
+    write_fadt(guest_slice(ram, acpi_fadt_addr, 244), acpi_dsdt_addr);
+    write_rsdt(guest_slice(ram, acpi_rsdt_addr, 44), acpi_madt_addr, acpi_fadt_addr);
+    write_xsdt(guest_slice(ram, acpi_xsdt_addr, 52), acpi_madt_addr, acpi_fadt_addr);
+    write_rsdp(guest_slice(ram, acpi_rsdp_addr, 36), acpi_rsdt_addr, acpi_xsdt_addr);
+}
+
+fn madt_table_len(max_vcpus: u32) u64 {
+    assert(max_vcpus >= 1);
+    return 44 + @as(u64, max_vcpus) * 8 + 12 + 10;
 }
 
 fn write_acpi_header(table: []u8, sig: *const [4]u8, revision: u8, table_id: *const [8]u8) void {
@@ -802,30 +815,13 @@ fn run_loop(
     var shared = RunShared{};
     var ap_args_storage: [MAX_VCPUS - 1]ApRunArgs = undefined;
     var thread_storage: [MAX_VCPUS - 1]std.Thread = undefined;
-    var ap_args = ap_args_storage[0 .. vcpus.len - 1];
+    const ap_args = ap_args_storage[0 .. vcpus.len - 1];
     var threads = thread_storage[0 .. vcpus.len - 1];
-    var started = @as(@TypeOf(vcpus.len), 0);
+    const started = try start_ap_threads(cfg, vm, vcpus, devs, irqs, &shared, ap_args, threads);
     defer {
         shared.stop.store(true, .seq_cst);
         kick_ap_threads(vcpus[1..], threads[0..started]);
         for (threads[0..started]) |thread| thread.join();
-    }
-
-    for (vcpus[1..], 0..) |*ap_vcpu, idx| {
-        ap_args[idx] = .{
-            .cfg = cfg,
-            .vm = vm,
-            .vcpu = ap_vcpu,
-            .devs = devs,
-            .irqs = irqs,
-            .shared = &shared,
-        };
-        threads[idx] = try std.Thread.spawn(
-            .{ .stack_size = std.Thread.SpawnConfig.default_stack_size },
-            ap_run_loop,
-            .{&ap_args[idx]},
-        );
-        started += 1;
     }
 
     var snapshotted = false;
@@ -833,58 +829,18 @@ fn run_loop(
     defer snapshot_writer_state.wait();
     while (!shared.stop.load(.seq_cst) and shared.exits.load(.seq_cst) < cfg.max_exits) {
         const reason = try vcpus[0].run();
-        _ = shared.exits.fetchAdd(1, .seq_cst);
-        switch (reason) {
-            .mmio => {
-                const ev = vcpus[0].mmio_exit();
-                shared.mutex.lock();
-                defer shared.mutex.unlock();
-                try route_mmio(vm, &vcpus[0], devs, irqs, ev);
-            },
-            .io => {
-                const ev = vcpus[0].io_exit();
-                shared.mutex.lock();
-                defer shared.mutex.unlock();
-                if (route_io(&vcpus[0], devs, ev)) {
-                    shared.saw_off.store(true, .seq_cst);
-                    shared.stop.store(true, .seq_cst);
-                    kick_ap_threads(vcpus[1..], threads[0..started]);
-                    break;
-                }
-            },
-            .shutdown, .system_event => {
-                shared.saw_off.store(true, .seq_cst);
-                shared.stop.store(true, .seq_cst);
-                kick_ap_threads(vcpus[1..], threads[0..started]);
-                break;
-            },
-            .hlt, .intr, .debug => {},
-            else => {
-                std.debug.print("kvm-x86_64: unhandled BSP exit reason {d}\n", .{@intFromEnum(reason)});
-                shared.crashed.store(true, .seq_cst);
-                shared.stop.store(true, .seq_cst);
-                kick_ap_threads(vcpus[1..], threads[0..started]);
-                return error.GuestCrashed;
-            },
+        increment_exit_count(&shared, cfg.max_exits);
+        switch (try handle_bsp_exit(vm, &vcpus[0], devs, irqs, reason, &shared)) {
+            .continue_ => {},
+            .stop => break,
+            .crashed => return error.GuestCrashed,
         }
         if (!cfg.unbounded_serial and devs.uart.captured_len >= cfg.capture_bytes) {
             shared.stop.store(true, .seq_cst);
             break;
         }
-        if (snapshot_requested.load(.seq_cst)) {
-            if (cfg.max_vcpus > 1) {
-                std.debug.print("kvm-x86_64: refusing vmstate snapshot for multi-vCPU guest\n", .{});
-                snapshot_requested.store(false, .seq_cst);
-            } else {
-                if (cfg.snapshot_path) |path| {
-                    shared.mutex.lock();
-                    defer shared.mutex.unlock();
-                    if (queue_snapshot_write(&snapshot_writer_state, gpa, path, vm, &vcpus[0], ram, cfg, devs)) {
-                        snapshotted = true;
-                    }
-                    snapshot_requested.store(false, .seq_cst);
-                }
-            }
+        if (handle_snapshot_request(&snapshot_writer_state, gpa, cfg, vm, &vcpus[0], ram, devs, &shared)) {
+            snapshotted = true;
         }
     }
 
@@ -909,10 +865,123 @@ fn run_loop(
     };
 }
 
+fn start_ap_threads(
+    cfg: *const Config,
+    vm: *kvm.Vm,
+    vcpus: []kvm.Vcpu,
+    devs: *const Devices,
+    irqs: IrqMap,
+    shared: *RunShared,
+    ap_args: []ApRunArgs,
+    threads: []std.Thread,
+) !usize {
+    assert(ap_args.len == vcpus.len - 1);
+    assert(threads.len == vcpus.len - 1);
+    var started = @as(usize, 0);
+    for (vcpus[1..], 0..) |*ap_vcpu, idx| {
+        ap_args[idx] = .{
+            .cfg = cfg,
+            .vm = vm,
+            .vcpu = ap_vcpu,
+            .devs = devs,
+            .irqs = irqs,
+            .shared = shared,
+        };
+        threads[idx] = try std.Thread.spawn(
+            .{ .stack_size = std.Thread.SpawnConfig.default_stack_size },
+            ap_run_loop,
+            .{&ap_args[idx]},
+        );
+        started += 1;
+    }
+    return started;
+}
+
+const BspStep = enum { continue_, stop, crashed };
+
+fn handle_bsp_exit(
+    vm: *kvm.Vm,
+    vcpu: *kvm.Vcpu,
+    devs: *const Devices,
+    irqs: IrqMap,
+    reason: kvm.ExitReason,
+    shared: *RunShared,
+) !BspStep {
+    assert(shared.exits.load(.seq_cst) <= std.math.maxInt(u64));
+    switch (reason) {
+        .mmio => {
+            shared.mutex.lock();
+            defer shared.mutex.unlock();
+            try route_mmio(vm, vcpu, devs, irqs, vcpu.mmio_exit());
+            return .continue_;
+        },
+        .io => {
+            shared.mutex.lock();
+            defer shared.mutex.unlock();
+            if (route_io(vcpu, devs, vcpu.io_exit())) {
+                shared.saw_off.store(true, .seq_cst);
+                shared.stop.store(true, .seq_cst);
+                return .stop;
+            }
+            return .continue_;
+        },
+        .shutdown, .system_event => {
+            shared.saw_off.store(true, .seq_cst);
+            shared.stop.store(true, .seq_cst);
+            return .stop;
+        },
+        .hlt, .intr, .debug => return .continue_,
+        else => {
+            std.debug.print("kvm-x86_64: unhandled BSP exit reason {d}\n", .{@intFromEnum(reason)});
+            shared.crashed.store(true, .seq_cst);
+            shared.stop.store(true, .seq_cst);
+            return .crashed;
+        },
+    }
+}
+
+fn handle_snapshot_request(
+    writer: *vmstate_writer.Writer,
+    gpa: std.mem.Allocator,
+    cfg: *const Config,
+    vm: *kvm.Vm,
+    vcpu: *kvm.Vcpu,
+    ram: []u8,
+    devs: *const Devices,
+    shared: *RunShared,
+) bool {
+    assert(cfg.max_vcpus >= 1);
+    if (!snapshot_requested.load(.seq_cst)) return false;
+    defer snapshot_requested.store(false, .seq_cst);
+    if (cfg.max_vcpus > 1) {
+        std.debug.print("kvm-x86_64: refusing vmstate snapshot for multi-vCPU guest\n", .{});
+        return false;
+    }
+    const path = cfg.snapshot_path orelse return false;
+    shared.mutex.lock();
+    defer shared.mutex.unlock();
+    return queue_snapshot_write(writer, gpa, path, vm, vcpu, ram, cfg, devs);
+}
+
 fn kick_ap_threads(vcpus: []kvm.Vcpu, threads: []std.Thread) void {
     assert(vcpus.len >= threads.len);
     for (vcpus) |*vcpu| vcpu.request_immediate_exit();
-    for (threads) |thread| _ = std.c.pthread_kill(thread.getHandle(), .USR2);
+    for (threads) |thread| signal_thread_usr2(thread);
+}
+
+fn signal_thread_usr2(thread: std.Thread) void {
+    const rc = std.c.pthread_kill(thread.getHandle(), .USR2);
+    assert(rc == 0);
+}
+
+fn yield_until_ap_runnable() void {
+    const rc = std.os.linux.sched_yield();
+    assert(rc == 0);
+}
+
+fn increment_exit_count(shared: *RunShared, max_exits: u64) void {
+    const previous = shared.exits.fetchAdd(1, .seq_cst);
+    assert(previous < max_exits);
 }
 
 fn ap_run_loop(args: *ApRunArgs) void {
@@ -920,7 +989,7 @@ fn ap_run_loop(args: *ApRunArgs) void {
     while (!args.shared.stop.load(.seq_cst)) {
         const state = args.vcpu.get_mp_state() catch kvm.KVM_MP_STATE_RUNNABLE;
         if (state != kvm.KVM_MP_STATE_UNINITIALIZED) break;
-        _ = std.os.linux.sched_yield();
+        yield_until_ap_runnable();
     }
 
     while (!args.shared.stop.load(.seq_cst) and
@@ -932,7 +1001,7 @@ fn ap_run_loop(args: *ApRunArgs) void {
             args.shared.stop.store(true, .seq_cst);
             return;
         };
-        _ = args.shared.exits.fetchAdd(1, .seq_cst);
+        increment_exit_count(args.shared, args.cfg.max_exits);
         switch (reason) {
             .mmio => {
                 const ev = args.vcpu.mmio_exit();
@@ -1939,6 +2008,50 @@ test "x86 multi-vCPU cmdline keeps legacy IRQ routing" {
     try std.testing.expect(std.mem.indexOf(u8, cmd, "virtio_mmio.device=512@0x0a001600:3") != null);
 }
 
+test "x86 ACPI tables do not overlap at supported vCPU counts" {
+    const counts = [_]u32{ 1, 2, 4, 24, MAX_VCPUS };
+    var ram: [acpi_base + 0x1_0000]u8 = undefined;
+
+    for (counts) |count| {
+        @memset(&ram, 0xA5);
+        write_acpi_tables(&ram, count);
+        try expect_guest_signature(&ram, acpi_rsdp_addr, "RSD PTR ");
+        try expect_guest_signature(&ram, acpi_rsdt_addr, "RSDT");
+        try expect_guest_signature(&ram, acpi_xsdt_addr, "XSDT");
+        try expect_guest_signature(&ram, acpi_madt_addr, "APIC");
+        try expect_guest_signature(&ram, acpi_fadt_addr, "FACP");
+        try expect_guest_signature(&ram, acpi_dsdt_addr, "DSDT");
+        try expect_acpi_checksum(guest_slice(&ram, acpi_madt_addr, @intCast(madt_table_len(count))));
+        try std.testing.expect(acpi_madt_addr + madt_table_len(count) <= acpi_fadt_addr);
+        try std.testing.expect(acpi_fadt_addr + 244 <= acpi_dsdt_addr);
+    }
+}
+
+test "x86 e820 reserves KVM identity map page" {
+    var bp: [4096]u8 = undefined;
+    @memset(&bp, 0);
+    const cfg = Config{
+        .kernel_path = "kernel",
+        .initrd_path = "initrd",
+    };
+
+    populate_boot_params(&bp, &cfg, .{
+        .setup_size = 0,
+        .protected = &.{},
+        .version = 0x020F,
+    });
+
+    const entries = bp[0x1E8];
+    try std.testing.expect(entries > 0);
+    for (0..entries) |i| {
+        const entry = read_e820_entry(&bp, i);
+        if (entry.typ != 1) continue;
+        try std.testing.expect(
+            entry.addr + entry.size <= identity_map_addr or entry.addr >= identity_map_end,
+        );
+    }
+}
+
 test "x86 fifth virtio-fs slot uses legacy IRQ routing" {
     const single = IrqMap.init(1);
     try std.testing.expectEqual(@as(u32, 3), single.virtiofs[4]);
@@ -1948,4 +2061,33 @@ test "x86 fifth virtio-fs slot uses legacy IRQ routing" {
 
     const multi = IrqMap.init(4);
     try std.testing.expectEqual(@as(u32, 3), multi.virtiofs[4]);
+}
+
+const E820Entry = struct {
+    addr: u64,
+    size: u64,
+    typ: u32,
+};
+
+fn read_e820_entry(bp: []const u8, idx: usize) E820Entry {
+    assert(bp.len >= 4096);
+    const off = 0x2D0 + idx * 20;
+    return .{
+        .addr = std.mem.readInt(u64, bp[off + 0 ..][0..8], .little),
+        .size = std.mem.readInt(u64, bp[off + 8 ..][0..8], .little),
+        .typ = std.mem.readInt(u32, bp[off + 16 ..][0..4], .little),
+    };
+}
+
+fn expect_guest_signature(ram: []const u8, phys: u64, sig: []const u8) !void {
+    const off: usize = @intCast(phys);
+    try std.testing.expectEqualSlices(u8, sig, ram[off..][0..sig.len]);
+}
+
+fn expect_acpi_checksum(table: []const u8) !void {
+    var sum: u8 = 0;
+    for (table) |b| {
+        sum +%= b;
+    }
+    try std.testing.expectEqual(@as(u8, 0), sum);
 }

@@ -77,7 +77,7 @@ const virtio_virtiofs_size: u64 = 0x200;
 // consumed internally by a lazy restore). Slots 7..11, contiguous
 // after blk4. The runtime caps `liveMounts` to this many.
 const MAX_VIRTIOFS_SLOTS: usize = 5;
-const MAX_VCPUS: u32 = 64;
+pub const MAX_VCPUS: u32 = 64;
 const virtio_virtiofs_bases: [MAX_VIRTIOFS_SLOTS]u64 = .{
     0x0A00_0E00,
     0x0A00_1000,

@@ -527,6 +527,46 @@ describe("measureFirstByte", () => {
 });
 
 describe("multi-vCPU boot", () => {
+  it("does not let VMM env bypass resources.cpu.maxVcpus", async () => {
+    const vm = await boot({
+      binary: "/bin/sh",
+      args: ["-c", "printf 'VCPUS=%s\\n' \"$MACHINEN_MAX_VCPUS\""],
+      vmmEnv: { MACHINEN_MAX_VCPUS: "4" },
+      timeoutMs: 2_000,
+    });
+    await vm.wait();
+    expect((await vm.output()).trim()).toBe("VCPUS=1");
+  });
+
+  it("does not auto-wire vmstate snapshots for multi-vCPU boots", async () => {
+    if (
+      !(
+        (process.platform === "linux" && process.arch === "x64") ||
+        (process.platform === "darwin" && process.arch === "arm64")
+      )
+    ) {
+      return;
+    }
+    const previous = process.env.MACHINEN_SNAPSHOT_PATH;
+    delete process.env.MACHINEN_SNAPSHOT_PATH;
+    try {
+      const vm = await boot({
+        binary: "/bin/sh",
+        args: ["-c", "printf 'SNAPSHOT=%s\\n' \"${MACHINEN_SNAPSHOT_PATH-unset}\""],
+        resources: { cpu: { maxVcpus: 2 } },
+        timeoutMs: 2_000,
+      });
+      await vm.wait();
+      expect((await vm.output()).trim()).toBe("SNAPSHOT=unset");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.MACHINEN_SNAPSHOT_PATH;
+      } else {
+        process.env.MACHINEN_SNAPSHOT_PATH = previous;
+      }
+    }
+  });
+
   it("boots a linux/x64 KVM guest that reports the requested vCPU count", async () => {
     if (process.platform !== "linux" || process.arch !== "x64") {
       return;

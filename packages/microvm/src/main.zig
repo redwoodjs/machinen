@@ -54,6 +54,7 @@ pub fn main(init: std.process.Init) !void {
     // the guest. The runtime sets this from boot({ nested: true }).
     const nested = env_bool("MACHINEN_NESTED");
     const max_vcpus = env_positive_u32("MACHINEN_MAX_VCPUS") orelse 1;
+    validate_max_vcpus(max_vcpus);
 
     // Guest console is live-echoed to stderr from inside the boot loop
     // (boot_hvf.zig's PL011 DR-write handler). The result.serial buffer is
@@ -204,6 +205,22 @@ fn env_bool(comptime name: [:0]const u8) bool {
         .{ name, s },
     );
     std.process.exit(2);
+}
+
+fn validate_max_vcpus(value: u32) void {
+    const limit = max_vcpus_limit();
+    if (value <= limit) return;
+    std.debug.print(
+        "machinen-microvm: MACHINEN_MAX_VCPUS={d} is invalid: maximum is {d} on this host.\n",
+        .{ value, limit },
+    );
+    std.process.exit(2);
+}
+
+fn max_vcpus_limit() u32 {
+    if (builtin.os.tag == .macos) return microvm.boot_hvf.MAX_VCPUS;
+    if (builtin.cpu.arch == .x86_64) return microvm.boot_kvm_x86_64.MAX_VCPUS;
+    return 1;
 }
 
 /// Read an integer from the env. Returns null when the var is unset
