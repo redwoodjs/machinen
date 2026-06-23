@@ -1,6 +1,6 @@
 import { ProvisionError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
 import { isNativeBootPlanResult, type NativeBootPlanResult } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
 type ProvisionResultPlan = {
   imagePath: string;
@@ -12,33 +12,21 @@ type ProvisionResultNativeData = NativeBootPlanResult & {
   provisionResult: ProvisionResultPlan;
 };
 
-export function planProvisionResultNative(input: ProvisionResultPlan): ProvisionResultPlan {
-  const plan = callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      provisionResultImagePath: input.imagePath,
-      provisionResultSizeBytes: String(input.sizeBytes),
-      provisionResultElapsedMs: String(input.elapsedMs),
-    },
-    errorCode: "PROVISION_BASE_NOT_FOUND",
-    makeError: provisionResultPlanError,
-    isData: isProvisionResultData,
-  }).provisionResult;
-
-  return {
-    imagePath: plan.imagePath,
-    sizeBytes: plan.sizeBytes,
-    elapsedMs: plan.elapsedMs,
-  };
-}
+export const planProvisionResultNative = defineBootPlanProjection<
+  ProvisionResultPlan,
+  ProvisionResultPlan,
+  ProvisionResultNativeData
+>({
+  errorCode: "PROVISION_BASE_NOT_FOUND",
+  makeError: provisionResultPlanError,
+  data: (input) => ({
+    provisionResultImagePath: input.imagePath,
+    provisionResultSizeBytes: String(input.sizeBytes),
+    provisionResultElapsedMs: String(input.elapsedMs),
+  }),
+  output: (plan) => plan.provisionResult,
+  isData: isProvisionResultData,
+});
 
 function isProvisionResultData(value: unknown): value is ProvisionResultNativeData {
   if (!isNativeBootPlanResult(value)) {
@@ -56,8 +44,10 @@ function isProvisionResultData(value: unknown): value is ProvisionResultNativeDa
   );
 }
 
-const provisionResultPlanError = (
+function provisionResultPlanError(
   code: ErrorCode,
   message: string,
   opts?: MachinenErrorOptions,
-): Error => new ProvisionError(code, message, opts);
+): Error {
+  return new ProvisionError(code, message, opts);
+}

@@ -1,8 +1,8 @@
 import { ProvisionError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
-import { isNativeBootPlanResult, type ProvisionBootPlan } from "./boot-plan-schema.ts";
+import { type ProvisionBootPlan } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
-export function planProvisionBootNative(input: {
+type ProvisionBootInput = {
   basePath: string;
   kernelPath: string;
   dtbPath?: string;
@@ -10,34 +10,30 @@ export function planProvisionBootNative(input: {
   scratchDiskPath: string;
   rootDiskPath: string;
   vmmEnv?: Record<string, string>;
-}): ProvisionBootPlan {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      provisionBasePath: input.basePath,
-      provisionKernelPath: input.kernelPath,
-      provisionDtbPath: input.dtbPath ?? null,
-      provisionUdsPath: input.udsPath,
-      provisionScratchDiskPath: input.scratchDiskPath,
-      provisionRootDiskPath: input.rootDiskPath,
-      provisionBootVmmEnv: input.vmmEnv ?? {},
-    },
-    errorCode: "PROVISION_BASE_NOT_FOUND",
-    makeError: provisionBootPlanError,
-    isData: isNativeBootPlanResult,
-  }).provisionBoot;
-}
+};
 
-const provisionBootPlanError = (
+export const planProvisionBootNative = defineBootPlanProjection<
+  ProvisionBootInput,
+  ProvisionBootPlan
+>({
+  errorCode: "PROVISION_BASE_NOT_FOUND",
+  makeError: provisionBootPlanError,
+  data: (input) => ({
+    provisionBasePath: input.basePath,
+    provisionKernelPath: input.kernelPath,
+    provisionDtbPath: input.dtbPath ?? null,
+    provisionUdsPath: input.udsPath,
+    provisionScratchDiskPath: input.scratchDiskPath,
+    provisionRootDiskPath: input.rootDiskPath,
+    provisionBootVmmEnv: input.vmmEnv ?? {},
+  }),
+  output: (plan) => plan.provisionBoot,
+});
+
+function provisionBootPlanError(
   code: ErrorCode,
   message: string,
   opts?: MachinenErrorOptions,
-): Error => new ProvisionError(code, message, opts);
+): Error {
+  return new ProvisionError(code, message, opts);
+}

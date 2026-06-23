@@ -1,5 +1,5 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
+import { defineRuntimeCommandWithArgs } from "./runtime-command.ts";
 
 export interface NativeReflinkCopyResult {
   mode: "cow" | "copy";
@@ -7,15 +7,16 @@ export interface NativeReflinkCopyResult {
   fallbackReason?: string;
 }
 
-export function reflinkCopyNative(src: string, dst: string): NativeReflinkCopyResult {
-  return callRuntimeHelper({
-    command: "reflink-copy",
-    data: { src, dst },
-    errorCode: "BOOT_PACK_FAILED",
-    makeError: reflinkError,
-    isData: isNativeReflinkCopyResult,
-  });
-}
+export const reflinkCopyNative = defineRuntimeCommandWithArgs<
+  [src: string, dst: string],
+  NativeReflinkCopyResult
+>({
+  command: "reflink-copy",
+  errorCode: "BOOT_PACK_FAILED",
+  data: (src, dst) => ({ src, dst }),
+  makeError: reflinkError,
+  isData: isNativeReflinkCopyResult,
+});
 
 function reflinkError(code: ErrorCode, message: string, opts?: MachinenErrorOptions): Error {
   return new BootError(code, message, opts);

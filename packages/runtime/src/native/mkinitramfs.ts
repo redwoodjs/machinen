@@ -1,5 +1,5 @@
 import { MkinitramfsError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
+import { defineRuntimeCommand } from "./runtime-command.ts";
 
 interface NativeMkinitramfsRequest {
   mode: "tiny" | "rootfs" | "workspace" | "minimal";
@@ -24,15 +24,15 @@ interface NativeMkinitramfsData {
   workspaceBytes: number;
 }
 
-export function packMkinitramfsNative(request: NativeMkinitramfsRequest): NativeMkinitramfsData {
-  return callRuntimeHelper({
-    command: "mkinitramfs",
-    data: request,
-    errorCode: "MKINITRAMFS_BASE_EXTRACT_FAILED",
-    makeError: mkinitramfsError,
-    isData: isNativeMkinitramfsData,
-  });
-}
+export const packMkinitramfsNative = defineRuntimeCommand<
+  NativeMkinitramfsRequest,
+  NativeMkinitramfsData
+>({
+  command: "mkinitramfs",
+  errorCode: "MKINITRAMFS_BASE_EXTRACT_FAILED",
+  makeError: mkinitramfsError,
+  isData: isNativeMkinitramfsData,
+});
 
 function mkinitramfsError(
   code: ErrorCode,

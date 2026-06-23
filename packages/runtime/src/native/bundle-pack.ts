@@ -1,35 +1,24 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
-import { isNativeBootPlanResult, type BundlePackPlan } from "./boot-plan-schema.ts";
+import { type BundlePackPlan } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
-export function planBootBundlePackNative(input: {
+type BundlePackInput = {
   useTiny: boolean;
   mountGuest?: string;
   restoreMountGuest?: string;
-}): BundlePackPlan {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      bundlePackUseTiny: input.useTiny,
-      bundlePackMountGuest: input.mountGuest ?? null,
-      bundlePackRestoreMountGuest: input.restoreMountGuest ?? null,
-    },
-    errorCode: "BOOT_PACK_FAILED",
-    makeError: bundlePackPlanError,
-    isData: isNativeBootPlanResult,
-  }).bundlePack;
-}
+};
 
-const bundlePackPlanError = (
-  code: ErrorCode,
-  message: string,
-  opts?: MachinenErrorOptions,
-): Error => new BootError(code, message, opts);
+export const planBootBundlePackNative = defineBootPlanProjection<BundlePackInput, BundlePackPlan>({
+  errorCode: "BOOT_PACK_FAILED",
+  makeError: bundlePackPlanError,
+  data: (input) => ({
+    bundlePackUseTiny: input.useTiny,
+    bundlePackMountGuest: input.mountGuest ?? null,
+    bundlePackRestoreMountGuest: input.restoreMountGuest ?? null,
+  }),
+  output: (plan) => plan.bundlePack,
+});
+
+function bundlePackPlanError(code: ErrorCode, message: string, opts?: MachinenErrorOptions): Error {
+  return new BootError(code, message, opts);
+}

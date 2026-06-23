@@ -1,33 +1,28 @@
 import { ProvisionError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
-import { isNativeBootPlanResult, type ProvisionDtbPlan } from "./boot-plan-schema.ts";
+import { type ProvisionDtbPlan } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
-export function planProvisionDtbNative(input: {
+type ProvisionDtbInput = {
   guestArchOverride?: string;
   hostArch?: string;
-}): ProvisionDtbPlan {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      provisionGuestArchOverride: input.guestArchOverride ?? null,
-      provisionHostArch: input.hostArch ?? null,
-    },
+};
+
+export const planProvisionDtbNative = defineBootPlanProjection<ProvisionDtbInput, ProvisionDtbPlan>(
+  {
     errorCode: "PROVISION_DTB_NOT_FOUND",
     makeError: provisionDtbPlanError,
-    isData: isNativeBootPlanResult,
-  }).provisionDtb;
-}
+    data: (input) => ({
+      provisionGuestArchOverride: input.guestArchOverride ?? null,
+      provisionHostArch: input.hostArch ?? null,
+    }),
+    output: (plan) => plan.provisionDtb,
+  },
+);
 
-const provisionDtbPlanError = (
+function provisionDtbPlanError(
   code: ErrorCode,
   message: string,
   opts?: MachinenErrorOptions,
-): Error => new ProvisionError(code, message, opts);
+): Error {
+  return new ProvisionError(code, message, opts);
+}

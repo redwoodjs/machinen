@@ -1,26 +1,14 @@
-import { callRuntimeHelper } from "../native-helper.ts";
-import { isNativeBootPlanResult, type VmstateTempModePlan } from "./boot-plan-schema.ts";
+import { type VmstateTempModePlan } from "./boot-plan-schema.ts";
+import { defineBootPlanProjectionWithArgs } from "./boot-plan-command.ts";
 
-export function planBootVmstateTempModeNative(
-  engine: string,
-  snapshotDisabled: boolean,
-  existingTempDir?: string,
-): VmstateTempModePlan {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      bootVmstateEngine: engine,
-      bootVmstateSnapshotDisabled: snapshotDisabled,
-      bootVmstateExistingTempDir: existingTempDir ?? null,
-    },
-    isData: isNativeBootPlanResult,
-  }).vmstateTempMode;
-}
+export const planBootVmstateTempModeNative = defineBootPlanProjectionWithArgs<
+  [engine: string, snapshotDisabled: boolean, existingTempDir?: string],
+  VmstateTempModePlan
+>({
+  data: (engine, snapshotDisabled, existingTempDir) => ({
+    bootVmstateEngine: engine,
+    bootVmstateSnapshotDisabled: snapshotDisabled,
+    bootVmstateExistingTempDir: existingTempDir ?? null,
+  }),
+  output: (plan) => plan.vmstateTempMode,
+});

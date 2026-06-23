@@ -1,34 +1,30 @@
-import { callRuntimeHelper } from "../native-helper.ts";
 import { isNativeBootPlanResult, type NativeBootPlanResult } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
 type BundleMountDiskModePlan = { action: "none" | "restore" | "fresh" };
 type BundleMountDiskModeResult = NativeBootPlanResult & {
   bundleMountDiskMode: BundleMountDiskModePlan;
 };
 
-export function planBootBundleMountDiskModeNative(input: {
+type BundleMountDiskModeInput = {
   useTiny: boolean;
   mountGuest?: string;
   restoreMountGuest?: string;
-}): BundleMountDiskModePlan {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      bundlePackUseTiny: input.useTiny,
-      bundlePackMountGuest: input.mountGuest ?? null,
-      bundlePackRestoreMountGuest: input.restoreMountGuest ?? null,
-    },
-    isData: isBundleMountDiskModeResult,
-  }).bundleMountDiskMode;
-}
+};
+
+export const planBootBundleMountDiskModeNative = defineBootPlanProjection<
+  BundleMountDiskModeInput,
+  BundleMountDiskModePlan,
+  BundleMountDiskModeResult
+>({
+  data: (input) => ({
+    bundlePackUseTiny: input.useTiny,
+    bundlePackMountGuest: input.mountGuest ?? null,
+    bundlePackRestoreMountGuest: input.restoreMountGuest ?? null,
+  }),
+  output: (plan) => plan.bundleMountDiskMode,
+  isData: isBundleMountDiskModeResult,
+});
 
 function isBundleMountDiskModeResult(value: unknown): value is BundleMountDiskModeResult {
   return (
