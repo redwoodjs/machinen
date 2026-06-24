@@ -1,3 +1,4 @@
+import type { ErrorCode } from "../errors.ts";
 import { callRuntimeHelper } from "../native-helper.ts";
 
 interface TreeManifestHashData {
@@ -10,7 +11,22 @@ export function treeManifestHashNative(root: string): string {
     data: { root },
     errorCode: "BOOT_MOUNTDISK_TOOL_MISSING",
     isData: isTreeManifestHashData,
+    mapFailure: mapTreeManifestHashFailure,
   }).hash;
+}
+
+function mapTreeManifestHashFailure(error: {
+  code: string;
+  message: string;
+}): { errorCode: ErrorCode } | undefined {
+  switch (error.code) {
+    case "PATH_NOT_FOUND":
+      return { errorCode: "BOOT_MOUNT_HOST_NOT_FOUND" };
+    case "PATH_NOT_DIRECTORY":
+      return { errorCode: "BOOT_MOUNT_INVALID" };
+    default:
+      return undefined;
+  }
 }
 
 function isTreeManifestHashData(value: unknown): value is TreeManifestHashData {

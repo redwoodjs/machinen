@@ -1,6 +1,9 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) void {
+    std.debug.assert(builtin.zig_version.major > 0 or builtin.zig_version.minor >= 16);
+
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 

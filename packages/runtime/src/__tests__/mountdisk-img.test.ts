@@ -100,6 +100,16 @@ describe("treeManifestHash", () => {
     expect(k1).not.toBe(k2);
   });
 
+  it("accepts a symlink root that points at a directory", () => {
+    const dir = join(tmp, "real-root");
+    const link = join(tmp, "link-root");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "x.txt"), "hello");
+    utimesSync(join(dir, "x.txt"), 1000, 1000);
+    symlinkSync(dir, link);
+    expect(treeManifestHash(link)).toBe(treeManifestHash(dir));
+  });
+
   it("includes nested directory contents", () => {
     const a = join(tmp, "a");
     const b = join(tmp, "b");
@@ -173,6 +183,26 @@ describe("treeManifestHash", () => {
       } else {
         process.env.MACHINEN_RUNTIME_HELPER = realHelper;
       }
+    }
+  });
+
+  it("maps native missing-root failures to BOOT_MOUNT_HOST_NOT_FOUND", () => {
+    try {
+      treeManifestHash(join(tmp, "missing"));
+      throw new Error("expected treeManifestHash to throw");
+    } catch (err) {
+      expect(err).toMatchObject({ code: "BOOT_MOUNT_HOST_NOT_FOUND" });
+    }
+  });
+
+  it("maps native non-directory failures to BOOT_MOUNT_INVALID", () => {
+    const file = join(tmp, "not-a-directory");
+    writeFileSync(file, "x");
+    try {
+      treeManifestHash(file);
+      throw new Error("expected treeManifestHash to throw");
+    } catch (err) {
+      expect(err).toMatchObject({ code: "BOOT_MOUNT_INVALID" });
     }
   });
 

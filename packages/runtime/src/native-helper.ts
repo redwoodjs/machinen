@@ -1,3 +1,12 @@
+// TypeScript bridge to `machinen-runtime-helper`.
+//
+// Runtime code calls native helper commands through this module instead of
+// shelling out directly. It resolves the helper binary, sends a versioned JSON
+// request on stdin, parses the JSON response from stdout, validates the response
+// shape, and maps native error codes into Machinen's public error classes.
+//
+// The Zig side of the protocol lives in `packages/runtime/native/src/protocol.zig`.
+
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -13,6 +22,7 @@ interface RuntimeHelperCallOptions<TData> {
   data: unknown;
   isData: (value: unknown) => value is TData;
   errorCode?: ErrorCode;
+  mapFailure?: (error: RuntimeHelperErrorDetail) => RuntimeHelperMappedFailure | undefined;
 }
 
 interface RuntimeHelperSuccess<TData> {
@@ -31,6 +41,11 @@ interface RuntimeHelperFailure {
 interface RuntimeHelperErrorDetail {
   code: string;
   message: string;
+}
+
+interface RuntimeHelperMappedFailure {
+  errorCode?: ErrorCode;
+  message?: string;
 }
 
 export function callRuntimeHelper<TData>(opts: RuntimeHelperCallOptions<TData>): TData {
@@ -54,9 +69,11 @@ export function callRuntimeHelper<TData>(opts: RuntimeHelperCallOptions<TData>):
 
   const response = parseRuntimeHelperResponse<TData>(result.stdout, opts, helper, errorCode);
   if (response.ok === false) {
+    const mapped = opts.mapFailure?.(response.error);
     throw new BootError(
-      errorCode,
-      `${HELPER_NAME} ${opts.command} failed (${response.error.code}): ${response.error.message}`,
+      mapped?.errorCode ?? errorCode,
+      mapped?.message ??
+        `${HELPER_NAME} ${opts.command} failed (${response.error.code}): ${response.error.message}`,
     );
   }
   if (result.status !== 0) {

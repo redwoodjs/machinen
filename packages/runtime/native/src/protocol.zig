@@ -1,4 +1,26 @@
+// JSON protocol shared by TypeScript and the native runtime helper.
+//
+// The TS side starts `machinen-runtime-helper <command>`, writes one JSON
+// request to stdin, and reads one JSON response from stdout.
+//
+// Request shape:
+//
+//   { "protocolVersion": 1, "data": { ... } }
+//
+// Success response shape:
+//
+//   { "ok": true, "protocolVersion": 1, "command": "...", "data": { ... } }
+//
+// Error response shape:
+//
+//   { "ok": false, "protocolVersion": 1, "error": { "code": "...", "message": "..." } }
+//
+// Keep command implementations small: parse/validate the request, call the
+// native implementation, and use `writeJson` / `writeError` for responses.
+
 const std = @import("std");
+
+const assert = std.debug.assert;
 
 pub const version = 1;
 pub const max_request_bytes = 1024 * 1024;
@@ -15,24 +37,38 @@ pub const RequestError = error{
     InvalidData,
 } || std.mem.Allocator.Error || std.Io.File.ReadStreamingError;
 
-pub fn readStdinAll(allocator: std.mem.Allocator, io: std.Io, max_bytes: usize) RequestError![]u8 {
-    var out: std.ArrayList(u8) = .empty;
+pub fn readStdinAll(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    max_bytes: u64,
+) RequestError![]u8 {
+    assert(max_bytes > 0);
+
+    var out: std.array_list.Aligned(u8, null) = .empty;
     errdefer out.deinit(allocator);
 
     var buf: [4096]u8 = undefined;
+    // EOF-bounded: stdin readStreaming reports EndOfStream when input is done.
     while (true) {
         const n = std.Io.File.stdin().readStreaming(io, &.{buf[0..]}) catch |err| switch (err) {
             error.EndOfStream => break,
             else => |e| return e,
         };
         if (n == 0) break;
-        if (out.items.len + n > max_bytes) return error.RequestTooLarge;
+        const next_len = out.items.len + n;
+        if (@as(u64, @intCast(next_len)) > max_bytes) return error.RequestTooLarge;
         try out.appendSlice(allocator, buf[0..n]);
+        assert(@as(u64, @intCast(out.items.len)) <= max_bytes);
     }
     return out.toOwnedSlice(allocator);
 }
 
-pub fn rejectUnknownFields(object: std.json.ObjectMap, allowed: []const []const u8) RequestError!void {
+pub fn rejectUnknownFields(
+    object: std.json.ObjectMap,
+    allowed: []const []const u8,
+) RequestError!void {
+    assert(allowed.len > 0);
+
     var it = object.iterator();
     while (it.next()) |entry| {
         for (allowed) |field| {
@@ -44,15 +80,29 @@ pub fn rejectUnknownFields(object: std.json.ObjectMap, allowed: []const []const 
 }
 
 pub fn writeError(io: std.Io, code: []const u8, message: []const u8) !void {
+    assert(code.len > 0);
+    assert(message.len > 0);
+
     var buf: [1024]u8 = undefined;
     const payload = try std.fmt.bufPrint(
         &buf,
-        "{{\"ok\":false,\"protocolVersion\":1,\"error\":{{\"code\":\"{s}\",\"message\":\"{s}\"}}}}\n",
+        "{{\"ok\":false,\"protocolVersion\":1," ++
+            "\"error\":{{\"code\":\"{s}\",\"message\":\"{s}\"}}}}\n",
         .{ code, message },
     );
     try stdout(io, payload);
 }
 
+pub fn writeJson(allocator: std.mem.Allocator, io: std.Io, value: anytype) !void {
+    assert(version == 1);
+
+    const payload = try std.json.Stringify.valueAlloc(allocator, value, .{});
+    defer allocator.free(payload);
+    try stdout(io, payload);
+    try stdout(io, "\n");
+}
+
 pub fn stdout(io: std.Io, s: []const u8) !void {
+    assert(s.len > 0);
     try std.Io.File.stdout().writeStreamingAll(io, s);
 }

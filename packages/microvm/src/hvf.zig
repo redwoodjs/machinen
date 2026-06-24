@@ -30,6 +30,7 @@ pub const c = struct {
     pub const hv_return_t = c_int;
     pub const hv_vm_config_t = ?*opaque {};
     pub const hv_memory_flags_t = u64;
+    pub const hv_memory_size_t = usize;
 
     pub const HV_SUCCESS: hv_return_t = 0;
     pub const HV_ERROR: hv_return_t = hv_error_code(0x01);
@@ -52,9 +53,18 @@ fn hv_error_code(comptime code: u32) c.hv_return_t {
 
 extern "c" fn hv_vm_create(config: c.hv_vm_config_t) c.hv_return_t;
 extern "c" fn hv_vm_destroy() c.hv_return_t;
-extern "c" fn hv_vm_map(addr: *anyopaque, ipa: u64, size: usize, flags: c.hv_memory_flags_t) c.hv_return_t;
-extern "c" fn hv_vm_unmap(ipa: u64, size: usize) c.hv_return_t;
-extern "c" fn hv_vm_protect(ipa: u64, size: usize, flags: c.hv_memory_flags_t) c.hv_return_t;
+extern "c" fn hv_vm_map(
+    addr: *anyopaque,
+    ipa: u64,
+    size: c.hv_memory_size_t,
+    flags: c.hv_memory_flags_t,
+) c.hv_return_t;
+extern "c" fn hv_vm_unmap(ipa: u64, size: c.hv_memory_size_t) c.hv_return_t;
+extern "c" fn hv_vm_protect(
+    ipa: u64,
+    size: c.hv_memory_size_t,
+    flags: c.hv_memory_flags_t,
+) c.hv_return_t;
 
 pub const Error = error{
     Denied, // missing com.apple.security.hypervisor entitlement
