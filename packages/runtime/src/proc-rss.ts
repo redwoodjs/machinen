@@ -1,18 +1,12 @@
-// Read the resident-set size of a host pid, in bytes (#274).
+// Host RSS probes for running VMM processes.
 //
-// Linux  → machinen-runtime-helper reads /proc/<pid>/status:VmRSS.
-// Darwin → machinen-runtime-helper prefers the VMM stats file's
-//          phys_footprint sample, then falls back to `ps -o rss=`.
-// other  → null / absent map entries (unsupported by the native helper).
+// Used by `machinen ls` and `vm.memoryStats()` to report how much host memory a
+// VMM process is currently holding. This module calls the native runtime helper
+// and returns best-effort readings: unreadable/dead pids become `null` or absent
+// map entries instead of hard failures.
 //
-// Synchronous because callers — `machinen ls` and `vm.memoryStats()` —
-// fetch the number once, at the moment they need it. There's no
-// daemon, no caching: a stale RSS would be worse than a fresh one a
-// few ms later.
-//
-// Returns `null` (not 0) when the read fails so the caller can tell
-// "VMM is gone / unreadable" apart from "VMM is alive but using zero
-// pages" (which never happens in practice but is the natural floor).
+// On Darwin, Machinen prefers the VMM stats file's `phys_footprint` because it
+// reflects reclaimed balloon pages better than plain `ps` RSS.
 
 import { hostRssNative } from "./native/host-rss.ts";
 

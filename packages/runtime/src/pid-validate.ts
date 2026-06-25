@@ -1,10 +1,12 @@
-// Anti-recycling check for `machinen gc` / `machinen stop`.
+// PID liveness and recycling checks for registry operations.
 //
-// `kill(pid, 0)` only tells us "some process with this pid exists" —
-// the kernel happily recycles pids, so a long-dead VMM's pid can land
-// on an unrelated process. The native runtime helper verifies the pid
-// against OS process identity instead: exe basename plus start time
-// when the platform can report it.
+// A pid being alive does not prove it is still our VMM: operating systems reuse
+// pids. This module asks the native runtime helper for process identity and
+// validates the registry's recorded exe/start-time against the current process.
+//
+// Used by `machinen gc`, `stop`, `attach`, and registry listing so stale entries
+// are cleaned up without accidentally treating an unrelated recycled pid as a
+// Machinen VM.
 
 import { readProcessIdentityNative, validatePidNative } from "./native/pid.ts";
 

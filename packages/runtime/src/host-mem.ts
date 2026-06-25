@@ -1,15 +1,13 @@
-// Host-memory observation for `vm.fork()` backpressure (#274).
+// Host memory probes for VM fork backpressure and memory auto-sizing.
 //
-// A runaway script that calls `vm.fork()` faster than memory frees
-// will eventually push the host past its OOM threshold and the
-// kernel picks an arbitrary VMM (or any other host process) to
-// kill. Throwing a clear backpressure error before that happens —
-// the same retry/error idiom #267's port-conflict gate uses — lets
-// the caller back off or surface the pressure to its own user.
+// Machinen needs a fresh view of host memory before starting/forking VMs so a
+// runaway workload does not push the host into OOM. This module asks the native
+// runtime helper for available and total physical memory, then applies the
+// runtime's backpressure policy.
 //
-// The native runtime helper reads `/proc/meminfo` on Linux and
-// `vm_stat`/`sysctl` on Darwin. It is zero-state — no daemon, no probe
-// socket, no caching. The check fires once per `vm.fork()`.
+// The native helper owns platform details: Linux reads `/proc/meminfo`; Darwin
+// reads `vm_stat`/`sysctl`. Callers should treat these as point-in-time probes,
+// not cached capacity guarantees.
 
 import { BootError } from "./errors.ts";
 import { readHostMemoryNative } from "./native/host-memory.ts";

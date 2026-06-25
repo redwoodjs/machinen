@@ -1,3 +1,14 @@
+// Linux CPU controls for Machinen VMM processes.
+//
+// `resources.cpu` is enforced by placing the VMM process into a cgroup v2
+// CPU group. This module is the TypeScript policy layer: it decides whether a
+// CPU policy needs native cgroup setup, calls the runtime helper to create/apply
+// the group, and removes that group when the VM stops.
+//
+// `quotaCpus` becomes a hard scheduling cap via `cpu.max`; `weight` becomes a
+// relative share via `cpu.weight`. These controls affect host scheduling of the
+// VMM process, not guest-visible vCPU count. Non-Linux hosts report unsupported.
+
 import { DEFAULT_CPU_WEIGHT, type ResolvedCpuResourcePolicy } from "./vm/cpu-resources.ts";
 import { applyCpuCgroupNative, removeCpuCgroupNative } from "./native/cpu-cgroup.ts";
 
