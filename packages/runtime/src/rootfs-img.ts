@@ -784,8 +784,13 @@ export function prebakeRootfsImageFromTree(args: {
 
     const result = rootfsPrebakeTreeNative({ tarPath, treeDir, cacheDir, mke2fs });
     onPhase?.("prebake.sha256", result.phases.sha256);
-    if (!result.ok || !result.sha || !result.imgPath) {
+    if (!result.ok) {
+      onPhase?.("prebake.mke2fs", result.phases.mke2fs);
       debug("prebake skip: native helper did not emit image");
+      return;
+    }
+    if (!result.sha || !result.imgPath) {
+      debug("prebake skip: native helper returned incomplete image data");
       return;
     }
     if (result.skipped) {

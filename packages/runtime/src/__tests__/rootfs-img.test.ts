@@ -16,6 +16,7 @@ import {
   mkdtempSync,
   openSync,
   readFileSync,
+  readdirSync,
   rmSync,
   statSync,
   unlinkSync,
@@ -351,6 +352,47 @@ describe("ensureRootfsImage", () => {
       }
     }
   });
+
+  it("materializes through the native helper when the cache path needs JSON escaping", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-materialize-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), 'machinen-rootfs-materialize-"cache-'));
+    const tarPath = join(tmpDir, "rootfs.tar.gz");
+    const fakeMke2fs = join(tmpDir, "mke2fs");
+    writeFileSync(join(tmpDir, "stub"), `materialize-${process.pid}-${Date.now()}`);
+    writeFileSync(
+      fakeMke2fs,
+      '#!/bin/sh\nimg="$9"\n: > "$img"\ndd if=/dev/zero of="$img" bs=1 count=0 seek=2048 2>/dev/null\nprintf "\\123\\357" | dd of="$img" bs=1 seek=1080 conv=notrunc 2>/dev/null\nexit 0\n',
+    );
+    chmodSync(fakeMke2fs, 0o755);
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} stub`);
+    const saved = process.env.MACHINEN_MKE2FS;
+    process.env.MACHINEN_MKE2FS = fakeMke2fs;
+    try {
+      const result = ensureRootfsImage(tarPath, { cacheDir });
+      const sha = execSync(`shasum -a 256 ${tarPath}`, { encoding: "utf8" })
+        .trim()
+        .split(/\s+/, 1)[0]!;
+      const imgPath = join(cacheDir, `${sha}.img`);
+      expect(result).toBe(imgPath);
+      expect(existsSync(imgPath)).toBe(true);
+      expect(existsSync(_internal.okMarkerPath(imgPath))).toBe(true);
+      expect(
+        _internal.readVerifiedTemplateMetadata({
+          sha,
+          imgPath,
+          metaPath: _internal.templateMetaPath(imgPath),
+        })?.source,
+      ).toBe("materialize");
+    } finally {
+      if (saved === undefined) {
+        delete process.env.MACHINEN_MKE2FS;
+      } else {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  }, 20_000);
 
   it("returns the cached path when the tarball's sha256 already has an .img", () => {
     // Build a real (tiny) tarball so sha256ing has something to chew
@@ -851,7 +893,7 @@ describe("ensureRootfsImage", () => {
   it("prebakeRootfsImageFromTree emits a clean prebake-tree cache image", () => {
     const tarPath = `/tmp/machinen-rootfs-prebake-tree-${process.pid}.tar.gz`;
     const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-tree-tar-"));
-    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-tree-cache-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), 'machinen-rootfs-prebake-tree-"cache-'));
     const fakeMke2fs = join(tmpDir, "mke2fs");
     writeFileSync(join(tmpDir, "stub"), `prebake-tree-${process.pid}-${Date.now()}`);
     writeFileSync(
@@ -884,6 +926,48 @@ describe("ensureRootfsImage", () => {
           metaPath: _internal.templateMetaPath(imgPath),
         })?.source,
       ).toBe("prebake-tree");
+      expect(phases).toContain("prebake.sha256");
+      expect(phases).toContain("prebake.mke2fs");
+    } finally {
+      if (saved === undefined) {
+        delete process.env.MACHINEN_MKE2FS;
+      } else {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  });
+
+  it("prebakeRootfsImageFromTree cleans staging when mke2fs fails", () => {
+    const tarPath = `/tmp/machinen-rootfs-prebake-fail-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-fail-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-fail-cache-"));
+    const fakeMke2fs = join(tmpDir, "mke2fs");
+    writeFileSync(join(tmpDir, "stub"), `prebake-fail-${process.pid}-${Date.now()}`);
+    writeFileSync(fakeMke2fs, "#!/bin/sh\nexit 1\n");
+    chmodSync(fakeMke2fs, 0o755);
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} stub`);
+    const saved = process.env.MACHINEN_MKE2FS;
+    process.env.MACHINEN_MKE2FS = fakeMke2fs;
+    try {
+      const phases: string[] = [];
+      expect(() =>
+        prebakeRootfsImageFromTree({
+          tarPath,
+          treeDir: tmpDir,
+          cacheDir,
+          onPhase: (name) => phases.push(name),
+        }),
+      ).not.toThrow();
+      const sha = execSync(`shasum -a 256 ${tarPath}`, { encoding: "utf8" })
+        .trim()
+        .split(/\s+/, 1)[0]!;
+      expect(existsSync(join(cacheDir, `${sha}.img`))).toBe(false);
+      expect(readdirSync(cacheDir).filter((name) => name.includes("prebake-tree"))).toEqual([]);
       expect(phases).toContain("prebake.sha256");
       expect(phases).toContain("prebake.mke2fs");
     } finally {
