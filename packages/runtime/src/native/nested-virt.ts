@@ -12,7 +12,7 @@ export interface NestedVirtProbeObservation {
   darwinCpuBrand?: string | null;
 }
 
-export interface NestedVirtNativeProbeResult {
+interface NestedVirtNativeProbeResult {
   supported: boolean;
   reason?: string;
 }

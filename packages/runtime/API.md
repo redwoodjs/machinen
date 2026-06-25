@@ -6249,7 +6249,7 @@ by default when `output` is a TTY.
 
 ##### metadata
 
-> **metadata**: `"symbol"` \| `"dwarf"` \| `"sidecar"`
+> **metadata**: `"symbol"` \| `"sidecar"` \| `"dwarf"`
 
 ##### moduleId?
 
@@ -6753,7 +6753,7 @@ by default when `output` is a TTY.
 
 ##### proof
 
-> **proof**: `"symbol"` \| `"none"` \| `"dwarf"` \| `"sidecar"` \| `"policy"`
+> **proof**: `"symbol"` \| `"none"` \| `"sidecar"` \| `"dwarf"` \| `"policy"`
 
 ***
 
@@ -8617,7 +8617,7 @@ by default when `output` is a TTY.
 
 ##### metadata
 
-> **metadata**: `"unknown"` \| `"dwarf"` \| `"sidecar"`
+> **metadata**: `"unknown"` \| `"sidecar"` \| `"dwarf"`
 
 ##### locals
 
@@ -14702,9 +14702,9 @@ A pid plus the absolute path to its stats file (when available).
 > `optional` **statsPath?**: `string`
 
 MACHINEN_STATS_FILE path for this VMM (registry entry's
-`statsPath`). On Darwin we read `phys_footprint` from this file
-in preference to `ps -o rss=`. Optional / undefined for arbitrary
-pids that aren't machinen-managed; those fall back to ps.
+`statsPath`). On Darwin the native helper reads `phys_footprint`
+from this file in preference to `ps -o rss=`. Optional / undefined
+for arbitrary pids that aren't machinen-managed; those fall back to ps.
 
 ***
 
@@ -15452,7 +15452,7 @@ CPU resource policy and host enforcement state resolved at boot.
 
 ###### enforcement.status
 
-> **status**: `"unsupported"` \| `"none"` \| `"linux-cgroup-v2"`
+> **status**: `"unsupported"` \| `"linux-cgroup-v2"` \| `"none"`
 
 ###### enforcement.reason?
 
@@ -17241,7 +17241,7 @@ VMM backend that wrote `state.vmstate`.
 
 ##### guestArch?
 
-> `optional` **guestArch?**: `"amd64"` \| `"unknown"` \| `"arm64"`
+> `optional` **guestArch?**: `"amd64"` \| `"arm64"` \| `"unknown"`
 
 Guest CPU architecture captured in `state.vmstate`; restore must match.
 
@@ -17557,9 +17557,9 @@ you need to experiment with that combination.
 > `optional` **freeMemoryThreshold?**: `number`
 
 Backpressure gate (#274). Fraction of host total memory that must
-be free before `vm.fork()` is allowed to proceed; if `MemAvailable`
-(Linux) / `vm_stat free+speculative+purgeable` (Darwin) drops below
-`totalmem() * threshold`, the fork is refused with
+be free before `vm.fork()` is allowed to proceed; if native host
+available memory drops below total physical memory * threshold,
+the fork is refused with
 `FORK_MEMORY_BACKPRESSURE`. Mirrors the throw-immediately shape of
 #267's port-conflict gate — caller decides whether to retry.
 
@@ -26547,8 +26547,7 @@ is the loose union the kernel exposes:
   - Darwin → vm_stat free + speculative + purgeable. Inactive is
              excluded because it's dirty and needs a pageout, which
              wouldn't help a fork that needs RAM right now.
-  - other  → totalmem(). Soft-fail rather than block fork on a
-             platform we can't measure.
+  - other  → explicit helper error on platforms we do not support.
 
 #### Returns
 
@@ -26560,9 +26559,7 @@ is the loose union the kernel exposes:
 
 > **readHostTotalBytes**(): `number`
 
-Total physical memory in bytes. Thin wrapper over `os.totalmem()`
-exported alongside the free reader so tests and the backpressure
-check pull both numbers from the same module.
+Total physical memory in bytes, read by the native runtime helper.
 
 #### Returns
 
@@ -28115,7 +28112,7 @@ available.
 
 ##### host?
 
-[`NestedVirtProbeHost`](#nestedvirtprobehost) = `...`
+[`NestedVirtProbeHost`](#nestedvirtprobehost)
 
 #### Returns
 
@@ -29486,15 +29483,12 @@ available.
 Return whether the running process at `pid` is still our VMM.
 
 - `alive`     — pid is alive AND the exe + start-time match.
-- `dead`      — kill(pid, 0) failed (gone or permission-denied,
-                either way unreachable).
-- `recycled`  — pid is alive but the process isn't ours (different
-                exe, or start time outside skew).
+- `dead`      — pid is gone or unreachable.
+- `recycled`  — pid is alive but the process is not ours.
 
 Falls back to `alive` when the recorded entry lacks `vmmExe` /
 `startedAt` (older entries from before PR2). Conservative on
-purpose: the gc decision then leans on `kill(pid, 0)` alone, same
-behaviour we had before.
+purpose: the gc decision then leans on process liveness alone.
 
 #### Parameters
 
@@ -29732,10 +29726,9 @@ RSS bytes for one pid, or null if not readable.
 
 > **readHostRssBytesMulti**(`targets`): `Map`\<`number`, `number`\>
 
-Bulk variant for `machinen ls`: one syscall (Linux) or one
-subprocess (Darwin) for every live VM, instead of N. Pids that
-can't be read are simply absent from the result map — caller
-decides whether to render "?" or skip the row.
+Bulk variant for `machinen ls`. Pids that can't be read are simply
+absent from the result map — caller decides whether to render "?" or
+skip the row.
 
 #### Parameters
 

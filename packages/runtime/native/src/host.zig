@@ -1,7 +1,8 @@
 // Host-side probes and controls used by the TypeScript runtime.
 //
 // This file keeps OS-specific, synchronous host operations in the native
-// helper: memory/RSS reads, pid identity checks, and Linux cgroup CPU setup.
+// helper: memory/RSS reads, pid identity checks, nested-virt probes, and Linux
+// cgroup CPU setup.
 // The command files translate JSON protocol requests into these functions;
 // this module owns the actual platform behavior so the TS layer stays small.
 
@@ -64,6 +65,7 @@ pub const NestedVirtResult = struct {
     reason: ?[]u8 = null,
 
     pub fn deinit(self: NestedVirtResult, allocator: std.mem.Allocator) void {
+        assert(@sizeOf(NestedVirtResult) > 0);
         if (self.reason) |reason| allocator.free(reason);
     }
 };
@@ -89,7 +91,9 @@ pub const CpuCgroupResult = struct {
 
 const CPU_PERIOD_US = 100_000;
 const DEFAULT_CGROUP_PARENT = "/sys/fs/cgroup";
-const NESTED_UNSUPPORTED_MESSAGE = "nested virtualization needs Linux/arm64 KVM with EL2 support, or macOS 15+ on M3/M4-class Apple Silicon";
+const NESTED_UNSUPPORTED_MESSAGE =
+    "nested virtualization needs Linux/arm64 KVM with EL2 support, or " ++
+    "macOS 15+ on M3/M4-class Apple Silicon";
 const STARTTIME_SKEW_MS = 5_000;
 
 pub fn readProcessIdentity(
@@ -159,6 +163,9 @@ fn observeNestedVirtualizationHost(
     allocator: std.mem.Allocator,
     io: std.Io,
 ) Error!NestedVirtObservation {
+    assert(actualPlatform().len > 0);
+    assert(actualArch().len > 0);
+
     var observation: NestedVirtObservation = .{
         .platform = actualPlatform(),
         .arch = actualArch(),
@@ -175,7 +182,8 @@ fn observeNestedVirtualizationHost(
             io,
             "/sys/module/kvm_arm/parameters/nested",
         );
-    } else if (builtin.os.tag == .macos) {
+    }
+    if (builtin.os.tag == .macos) {
         observation.darwin_hv_support = try runTextCommand(
             allocator,
             io,
@@ -199,6 +207,9 @@ fn deinitObservedNestedVirtualizationHost(
     allocator: std.mem.Allocator,
     observation: NestedVirtObservation,
 ) void {
+    assert(observation.platform.len > 0);
+    assert(observation.arch.len > 0);
+
     if (observation.linux_kvm_nested) |value| allocator.free(value);
     if (observation.linux_kvm_arm_nested) |value| allocator.free(value);
     if (observation.darwin_hv_support) |value| allocator.free(value);
@@ -214,7 +225,11 @@ fn evaluateNestedVirtualization(
     assert(observation.arch.len > 0);
 
     if (!std.mem.eql(u8, observation.arch, "arm64")) {
-        return nestedUnsupported(allocator, "this host is not arm64", .{});
+        return nestedUnsupported(
+            allocator,
+            "this host is {s}, not arm64",
+            .{observation.arch},
+        );
     }
     if (std.mem.eql(u8, observation.platform, "linux")) {
         return evaluateLinuxNestedVirtualization(allocator, observation);
@@ -222,7 +237,11 @@ fn evaluateNestedVirtualization(
     if (std.mem.eql(u8, observation.platform, "darwin")) {
         return evaluateDarwinNestedVirtualization(allocator, observation);
     }
-    return nestedUnsupported(allocator, "this host platform is not supported", .{});
+    return nestedUnsupported(
+        allocator,
+        "{s} hosts are not supported",
+        .{observation.platform},
+    );
 }
 
 fn evaluateLinuxNestedVirtualization(
@@ -299,6 +318,8 @@ fn evaluateDarwinNestedVirtualization(
 }
 
 fn darwinMajor(version: ?[]const u8) ?u32 {
+    assert(@sizeOf(u32) == 4);
+
     const raw = std.mem.trim(u8, version orelse return null, " \t\r\n");
     var it = std.mem.splitScalar(u8, raw, '.');
     const first = it.next() orelse return null;
@@ -308,6 +329,8 @@ fn darwinMajor(version: ?[]const u8) ?u32 {
 }
 
 fn appleSiliconGeneration(brand: ?[]const u8) ?u32 {
+    assert(@sizeOf(u32) == 4);
+
     const raw = brand orelse return null;
     const apple = std.mem.indexOf(u8, raw, "Apple M") orelse return null;
     const start = apple + "Apple M".len;
@@ -324,19 +347,21 @@ fn nestedUnsupported(
 ) Error!NestedVirtResult {
     assert(fmt.len > 0);
 
-    const detail = try std.fmt.allocPrint(allocator, fmt, args);
-    defer allocator.free(detail);
+    var detail_buf: [256]u8 = undefined;
+    const detail = try std.fmt.bufPrint(&detail_buf, fmt, args);
     return .{
         .supported = false,
-        .reason = try std.fmt.allocPrint(
+        .reason = try std.mem.concat(
             allocator,
-            "{s}; {s}",
-            .{ NESTED_UNSUPPORTED_MESSAGE, detail },
+            u8,
+            &.{ NESTED_UNSUPPORTED_MESSAGE, "; ", detail },
         ),
     };
 }
 
 fn actualPlatform() []const u8 {
+    assert(@tagName(builtin.os.tag).len > 0);
+
     return switch (builtin.os.tag) {
         .linux => "linux",
         .macos => "darwin",
@@ -345,6 +370,8 @@ fn actualPlatform() []const u8 {
 }
 
 fn actualArch() []const u8 {
+    assert(@tagName(builtin.cpu.arch).len > 0);
+
     return switch (builtin.cpu.arch) {
         .aarch64 => "arm64",
         .x86_64 => "x64",
@@ -775,14 +802,22 @@ fn looksLikeCgroupV2(io: std.Io, parent_dir: []const u8) bool {
 fn existsPath(io: std.Io, path: []const u8) bool {
     assert(path.len > 0);
 
-    const st = std.Io.Dir.cwd().statFile(io, path, .{ .follow_symlinks = false }) catch return false;
+    const st = std.Io.Dir.cwd().statFile(
+        io,
+        path,
+        .{ .follow_symlinks = false },
+    ) catch return false;
     return st.kind != .unknown;
 }
 
 fn existsFile(io: std.Io, path: []const u8) bool {
     assert(path.len > 0);
 
-    const st = std.Io.Dir.cwd().statFile(io, path, .{ .follow_symlinks = false }) catch return false;
+    const st = std.Io.Dir.cwd().statFile(
+        io,
+        path,
+        .{ .follow_symlinks = false },
+    ) catch return false;
     return st.kind == .file;
 }
 
@@ -836,7 +871,11 @@ fn writeCgroupFile(
     try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = path, .data = data });
 }
 
-fn joinCgroupFile(allocator: std.mem.Allocator, cgroup_path: []const u8, name: []const u8) Error![]u8 {
+fn joinCgroupFile(
+    allocator: std.mem.Allocator,
+    cgroup_path: []const u8,
+    name: []const u8,
+) Error![]u8 {
     assert(cgroup_path.len > 0);
     assert(name.len > 0);
 
@@ -935,7 +974,9 @@ test "evaluateNestedVirtualization rejects disabled Linux nested toggles" {
     defer result.deinit(std.testing.allocator);
     try std.testing.expect(!result.supported);
     try std.testing.expect(result.reason != null);
-    try std.testing.expect(std.mem.indexOf(u8, result.reason.?, "/sys/module/kvm/parameters/nested") != null);
+    try std.testing.expect(
+        std.mem.indexOf(u8, result.reason.?, "/sys/module/kvm/parameters/nested") != null,
+    );
 }
 
 test "evaluateNestedVirtualization rejects macOS M1 and M2" {
@@ -1011,7 +1052,12 @@ test "applyCpuCgroupLinux writes cgroup v2 files" {
 
     const cpu_max_path = try joinCgroupFile(allocator, result.cgroup_path.?, "cpu.max");
     defer allocator.free(cpu_max_path);
-    const cpu_max = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, allocator, cpu_max_path, 1024);
+    const cpu_max = try std.Io.Dir.cwd().readFileAlloc(
+        std.testing.io,
+        allocator,
+        cpu_max_path,
+        1024,
+    );
     defer allocator.free(cpu_max);
     try std.testing.expectEqualStrings("50000 100000\n", cpu_max);
 
