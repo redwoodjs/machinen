@@ -1,4 +1,14 @@
+// Pure boot-planning rules shared by the native `boot-plan` command.
+//
+// TypeScript still owns effects such as mkdir, fd opening, gvproxy startup,
+// and VMM spawn. This module owns the deterministic decisions that turn boot
+// options into memory ceilings, guest env defaults, vsock/env strings, VMM
+// argv, and validation errors. Keeping these rules native lets later PRs move
+// more boot setup without scattering policy across TS and Zig.
+
 const std = @import("std");
+
+const assert = std.debug.assert;
 
 const memory_floor_mib: u64 = 512;
 const memory_default_ceiling_mib: u64 = 4096;
@@ -132,7 +142,9 @@ pub const PlanError = error{
 };
 
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
-    var out: std.ArrayList(EnvPair) = .empty;
+    assert(@sizeOf(GuestEnvInput) > 0);
+
+    var out: std.array_list.Aligned(EnvPair, null) = .empty;
     errdefer out.deinit(allocator);
     var has_name = false;
     var has_hostname_wait = false;
@@ -151,19 +163,23 @@ pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPa
 }
 
 pub fn planVsock(allocator: std.mem.Allocator, input: VsockPlanInput) !VsockPlan {
+    assert(@sizeOf(VsockPlanInput) > 0);
+
     if (input.existing_spec) |spec| {
         return .{ .uds_path = parseVsockUdsPath(spec), .vmm_vsock = null };
     }
     if (input.auto_uds_path) |uds| {
         return .{
             .uds_path = uds,
-            .vmm_vsock = try std.fmt.allocPrint(allocator, "in:1978:{s}", .{uds}),
+            .vmm_vsock = try std.mem.concat(allocator, u8, &.{ "in:1978:", uds }),
         };
     }
     return .{ .uds_path = null, .vmm_vsock = null };
 }
 
 pub fn parseVsockUdsPath(spec: []const u8) ?[]const u8 {
+    assert(@sizeOf([]const u8) > 0);
+
     var entries = std.mem.splitScalar(u8, spec, ',');
     while (entries.next()) |entry| {
         const first_colon = std.mem.indexOfScalar(u8, entry, ':') orelse continue;
@@ -179,10 +195,14 @@ pub fn parseVsockUdsPath(spec: []const u8) ?[]const u8 {
 }
 
 pub fn planKernelDtb(input: KernelDtbInput) KernelDtbPlan {
+    assert(@sizeOf(KernelDtbInput) > 0);
+
     return .{ .vmm_kernel = input.kernel_path, .vmm_dtb = input.dtb_path };
 }
 
 pub fn planVmstateEnv(input: VmstateEnvInput) VmstateEnvPlan {
+    assert(@sizeOf(VmstateEnvInput) > 0);
+
     const should_set_timing = input.restore_path != null and
         input.enable_timing and
         (input.existing_timing == null or input.existing_timing.?.len == 0);
@@ -194,17 +214,27 @@ pub fn planVmstateEnv(input: VmstateEnvInput) VmstateEnvPlan {
 }
 
 pub fn planVirtiofsEnv(allocator: std.mem.Allocator, mounts: []const LiveMount) ![]EnvPair {
-    var out: std.ArrayList(EnvPair) = .empty;
+    assert(@sizeOf(LiveMount) > 0);
+
+    var out: std.array_list.Aligned(EnvPair, null) = .empty;
     errdefer out.deinit(allocator);
     for (mounts, 0..) |mount, i| {
-        const key = try std.fmt.allocPrint(allocator, "MACHINEN_VIRTIOFS_{d}", .{i});
-        const value = try std.fmt.allocPrint(allocator, "{s}:{s}:{s}", .{ mount.tag, mount.mode, mount.host });
+        var key_buf: [64]u8 = undefined;
+        const key_text = try std.fmt.bufPrint(&key_buf, "MACHINEN_VIRTIOFS_{d}", .{i});
+        const key = try std.mem.concat(allocator, u8, &.{key_text});
+        const value = try std.mem.concat(
+            allocator,
+            u8,
+            &.{ mount.tag, ":", mount.mode, ":", mount.host },
+        );
         try out.append(allocator, .{ .key = key, .value = value });
     }
     return out.toOwnedSlice(allocator);
 }
 
 pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
+    assert(@sizeOf(StatsFileInput) > 0);
+
     if (input.existing_path) |path| {
         return .{ .stats_file_path = path, .vmm_stats_file = null };
     }
@@ -212,44 +242,60 @@ pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
 }
 
 pub fn planVmmArgv(allocator: std.mem.Allocator, input: VmmArgvInput) !VmmArgvPlan {
+    assert(@sizeOf(VmmArgvInput) > 0);
+
     const binary = input.binary orelse return .{ .command = null, .args = &.{} };
     if (input.pdeathsig_path) |pdeathsig| {
-        var args = try allocator.alloc([]const u8, input.args.len + 1);
-        args[0] = binary;
-        @memcpy(args[1..], input.args);
-        return .{ .command = pdeathsig, .args = args };
+        var args: std.array_list.Aligned([]const u8, null) = .empty;
+        errdefer args.deinit(allocator);
+        try args.append(allocator, binary);
+        try args.appendSlice(allocator, input.args);
+        return .{ .command = pdeathsig, .args = try args.toOwnedSlice(allocator) };
     }
     return .{ .command = binary, .args = input.args };
 }
 
 pub fn validatePortForward(mappings: []const PortForwardMapping) PortForwardValidation {
+    assert(@sizeOf(PortForwardMapping) > 0);
+
     var seen = std.StaticBitSet(65536).initEmpty();
     for (mappings) |mapping| {
-        const host_port = validateTcpPort(mapping.host_port) orelse return .{ .invalid_host_port = mapping.host_port };
-        _ = validateTcpPort(mapping.guest_port) orelse return .{ .invalid_guest_port = mapping.guest_port };
-        if (seen.isSet(host_port)) return .{ .duplicate_host_port = @intCast(host_port) };
-        seen.set(host_port);
+        const host_port = validateTcpPort(mapping.host_port) orelse
+            return .{ .invalid_host_port = mapping.host_port };
+        if (validateTcpPort(mapping.guest_port) == null) {
+            return .{ .invalid_guest_port = mapping.guest_port };
+        }
+        if (seen.isSet(@intCast(host_port))) return .{ .duplicate_host_port = host_port };
+        seen.set(@intCast(host_port));
     }
     return .ok;
 }
 
-fn validateTcpPort(port: i64) ?usize {
+fn validateTcpPort(port: i64) ?u16 {
+    assert(@sizeOf(i64) == 8);
+
     if (port < 1 or port > 65535) return null;
     return @intCast(port);
 }
 
 pub fn autoSizeMemoryMib(host_total_bytes: u64) u64 {
-    const host_mib = host_total_bytes / (1024 * 1024);
-    const host_aware_ceiling = host_mib / 2;
+    assert(memory_floor_mib > 0);
+
+    const host_mib = @divFloor(host_total_bytes, 1024 * 1024);
+    const host_aware_ceiling = @divFloor(host_mib, 2);
     return @max(memory_floor_mib, @min(host_aware_ceiling, memory_default_ceiling_mib));
 }
 
 pub fn validateMemoryMib(mib: u64) PlanError!u64 {
+    assert(memory_floor_mib > 0);
+
     if (mib < memory_floor_mib) return error.InvalidMemory;
     return mib;
 }
 
 pub fn planCore(input: Input) PlanError!Plan {
+    assert(@sizeOf(Input) > 0);
+
     if (input.has_cmd and !input.has_image) return error.CmdWithoutImage;
 
     const wants_root_disk = input.root_disk != .false_value and
@@ -258,7 +304,10 @@ pub fn planCore(input: Input) PlanError!Plan {
         return error.RootDiskWithoutImage;
     }
     if (input.guest_cwd) |cwd| try validateGuestCwd(cwd);
-    const normalized_mount_guest = if (input.mount_guest) |guest| try normalizeMountGuest(guest) else null;
+    const normalized_mount_guest = if (input.mount_guest) |guest|
+        try normalizeMountGuest(guest)
+    else
+        null;
 
     const explicit = try resolveExplicitMemory(input);
     if (input.vmm_memory_preset) {
@@ -270,9 +319,11 @@ pub fn planCore(input: Input) PlanError!Plan {
         };
     }
 
-    const ceiling = explicit orelse input.auto_memory_mib orelse if (input.host_total_bytes) |bytes|
+    const host_ceiling = if (input.host_total_bytes) |bytes|
         autoSizeMemoryMib(bytes)
     else
+        null;
+    const ceiling = explicit orelse input.auto_memory_mib orelse host_ceiling orelse
         return error.MissingAutoMemory;
     return .{
         .memory_ceiling_mib = ceiling,
@@ -283,11 +334,15 @@ pub fn planCore(input: Input) PlanError!Plan {
 }
 
 pub fn validateGuestCwd(cwd: []const u8) PlanError!void {
+    assert(@sizeOf([]const u8) > 0);
+
     if (cwd.len == 0 or cwd[0] != '/') return error.InvalidGuestCwdAbsolute;
     if (std.mem.indexOfScalar(u8, cwd, 0) != null) return error.InvalidGuestCwdNul;
 }
 
 pub fn normalizeMountGuest(guest: []const u8) PlanError![]const u8 {
+    assert(@sizeOf([]const u8) > 0);
+
     if (guest.len == 0 or guest[0] != '/') return error.InvalidMountGuestAbsolute;
     var end = guest.len;
     while (end > 0 and guest[end - 1] == '/') : (end -= 1) {}
@@ -299,6 +354,8 @@ pub fn normalizeMountGuest(guest: []const u8) PlanError![]const u8 {
 }
 
 fn isDecimal(text: []const u8) bool {
+    assert(@sizeOf([]const u8) > 0);
+
     if (text.len == 0) return false;
     for (text) |c| {
         if (c < '0' or c > '9') return false;
@@ -307,6 +364,8 @@ fn isDecimal(text: []const u8) bool {
 }
 
 fn resolveExplicitMemory(input: Input) PlanError!?u64 {
+    assert(@sizeOf(ResourcesMemory) > 0);
+
     const alias_ceiling = if (input.memory_mib) |mib| try validateMemoryMib(mib) else null;
     const resource_ceiling = if (input.resources_memory) |memory| blk: {
         if (memory.reclaim) |reclaim| {
@@ -314,7 +373,10 @@ fn resolveExplicitMemory(input: Input) PlanError!?u64 {
         }
         break :blk try validateMemoryMib(memory.max_mib);
     } else null;
-    if (alias_ceiling != null and resource_ceiling != null and alias_ceiling.? != resource_ceiling.?) {
+    if (alias_ceiling != null and
+        resource_ceiling != null and
+        alias_ceiling.? != resource_ceiling.?)
+    {
         return error.ConflictingMemory;
     }
     return resource_ceiling orelse alias_ceiling;
@@ -413,7 +475,7 @@ test "planVirtiofsEnv formats indexed virtiofs env entries" {
         }
         std.testing.allocator.free(env);
     }
-    try std.testing.expectEqual(@as(usize, 2), env.len);
+    try std.testing.expectEqual(@as(@TypeOf(env.len), 2), env.len);
     try std.testing.expectEqualStrings("MACHINEN_VIRTIOFS_0", env[0].key);
     try std.testing.expectEqualStrings("machinen-lm0:rw:/host/a", env[0].value);
     try std.testing.expectEqualStrings("MACHINEN_VIRTIOFS_1", env[1].key);
@@ -453,7 +515,7 @@ test "planVmmArgv wraps VMM argv with pdeathsig when present" {
         .args = &.{ "--dev", "1" },
     });
     try std.testing.expectEqualStrings("/bin/vmm", direct.command.?);
-    try std.testing.expectEqual(@as(usize, 2), direct.args.len);
+    try std.testing.expectEqual(@as(@TypeOf(direct.args.len), 2), direct.args.len);
     try std.testing.expectEqualStrings("--dev", direct.args[0]);
 
     const wrapped = try planVmmArgv(std.testing.allocator, .{
@@ -463,7 +525,7 @@ test "planVmmArgv wraps VMM argv with pdeathsig when present" {
     });
     defer std.testing.allocator.free(wrapped.args);
     try std.testing.expectEqualStrings("/bin/pdeathsig", wrapped.command.?);
-    try std.testing.expectEqual(@as(usize, 2), wrapped.args.len);
+    try std.testing.expectEqual(@as(@TypeOf(wrapped.args.len), 2), wrapped.args.len);
     try std.testing.expectEqualStrings("/bin/vmm", wrapped.args[0]);
     try std.testing.expectEqualStrings("--dev", wrapped.args[1]);
 }
@@ -499,9 +561,14 @@ test "planVsock parses existing specs and formats auto specs" {
         "/tmp/first.sock",
         parseVsockUdsPath("out:1970:/tmp/first.sock,in:1978:/tmp/second.sock").?,
     );
-    try std.testing.expectEqual(@as(?[]const u8, null), parseVsockUdsPath("in:not-a-port:/tmp/nope"));
+    try std.testing.expectEqual(
+        @as(?[]const u8, null),
+        parseVsockUdsPath("in:not-a-port:/tmp/nope"),
+    );
 
-    const existing = try planVsock(std.testing.allocator, .{ .existing_spec = "in:1978:/tmp/caller.sock" });
+    const existing = try planVsock(std.testing.allocator, .{
+        .existing_spec = "in:1978:/tmp/caller.sock",
+    });
     try std.testing.expectEqualStrings("/tmp/caller.sock", existing.uds_path.?);
     try std.testing.expectEqual(@as(?[]const u8, null), existing.vmm_vsock);
 
@@ -519,7 +586,7 @@ test "planGuestEnv applies name and hostname wait defaults without overriding ca
         .vsock_uds_path = "/tmp/exec.sock",
     });
     defer std.testing.allocator.free(planned);
-    try std.testing.expectEqual(@as(usize, 3), planned.len);
+    try std.testing.expectEqual(@as(@TypeOf(planned.len), 3), planned.len);
     try std.testing.expectEqualStrings("FOO", planned[0].key);
     try std.testing.expectEqualStrings("MACHINEN_VM_NAME", planned[1].key);
     try std.testing.expectEqualStrings("worker", planned[1].value);
@@ -536,7 +603,7 @@ test "planGuestEnv applies name and hostname wait defaults without overriding ca
         .vsock_uds_path = "/tmp/exec.sock",
     });
     defer std.testing.allocator.free(preserved);
-    try std.testing.expectEqual(@as(usize, 2), preserved.len);
+    try std.testing.expectEqual(@as(@TypeOf(preserved.len), 2), preserved.len);
     try std.testing.expectEqualStrings("caller", preserved[0].value);
     try std.testing.expectEqualStrings("0", preserved[1].value);
 }

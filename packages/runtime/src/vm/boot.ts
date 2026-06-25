@@ -20,7 +20,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
 
-import { readBalloonStats } from "../balloon-stats.ts";
+import { readBalloonStats, STATS_FILE_SIZE } from "../balloon-stats.ts";
 import {
   bootReadinessFailureMessage,
   bootStderrTail,
@@ -1319,7 +1319,6 @@ function setupVsockBridge(env: Record<string, string>): {
 }
 
 // #274: shared stats file the balloon backend writes counters to.
-// 16 bytes (two u64 LE atomics, see balloon-stats.ts + stats.zig).
 // Pre-allocated zero-filled here so the VMM's mmap'd writer and our
 // host-side reader see a coherent layout even before the first
 // reporting chain. Co-located under `vsockTempDir` when we own one
@@ -1348,7 +1347,7 @@ function setupStatsFile(
   }
   const fd = openSync(plan.statsFilePath, "w");
   try {
-    writeSync(fd, Buffer.alloc(16), 0, 16, 0);
+    writeSync(fd, Buffer.alloc(STATS_FILE_SIZE), 0, STATS_FILE_SIZE, 0);
   } finally {
     closeSync(fd);
   }
