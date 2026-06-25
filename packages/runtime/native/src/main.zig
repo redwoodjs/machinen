@@ -61,6 +61,18 @@ fn runKnownCommand(
 ) !?u8 {
     assert(command.len > 0);
 
+    if (try runHostCommand(allocator, it, command)) |exit| return exit;
+    if (try runFilesystemCommand(allocator, it, command)) |exit| return exit;
+    return null;
+}
+
+fn runHostCommand(
+    allocator: std.mem.Allocator,
+    it: anytype,
+    command: []const u8,
+) !?u8 {
+    assert(command.len > 0);
+
     if (std.mem.eql(u8, command, cpu_cgroup_apply.name)) {
         if (try rejectExtraArgs(it, cpu_cgroup_apply.name)) {
             return @intFromEnum(protocol.Exit.usage);
@@ -80,11 +92,37 @@ fn runKnownCommand(
         return @intFromEnum(try host_memory.run(allocator, g_io));
     }
     if (std.mem.eql(u8, command, host_rss.name)) {
-        if (try rejectExtraArgs(it, host_rss.name)) return @intFromEnum(protocol.Exit.usage);
+        if (try rejectExtraArgs(it, host_rss.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
         return @intFromEnum(try host_rss.run(allocator, g_io));
     }
+    if (std.mem.eql(u8, command, pid_validate.name)) {
+        if (try rejectExtraArgs(it, pid_validate.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try pid_validate.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, process_identity.name)) {
+        if (try rejectExtraArgs(it, process_identity.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try process_identity.run(allocator, g_io));
+    }
+    return null;
+}
+
+fn runFilesystemCommand(
+    allocator: std.mem.Allocator,
+    it: anytype,
+    command: []const u8,
+) !?u8 {
+    assert(command.len > 0);
+
     if (std.mem.eql(u8, command, mkinitramfs.name)) {
-        if (try rejectExtraArgs(it, mkinitramfs.name)) return @intFromEnum(protocol.Exit.usage);
+        if (try rejectExtraArgs(it, mkinitramfs.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
         return @intFromEnum(try mkinitramfs.run(allocator, g_io));
     }
     if (std.mem.eql(u8, command, mountdisk_image.name)) {
@@ -98,18 +136,6 @@ fn runKnownCommand(
             return @intFromEnum(protocol.Exit.usage);
         }
         return @intFromEnum(try mountdisk_upper.run(allocator, g_io));
-    }
-    if (std.mem.eql(u8, command, pid_validate.name)) {
-        if (try rejectExtraArgs(it, pid_validate.name)) {
-            return @intFromEnum(protocol.Exit.usage);
-        }
-        return @intFromEnum(try pid_validate.run(allocator, g_io));
-    }
-    if (std.mem.eql(u8, command, process_identity.name)) {
-        if (try rejectExtraArgs(it, process_identity.name)) {
-            return @intFromEnum(protocol.Exit.usage);
-        }
-        return @intFromEnum(try process_identity.run(allocator, g_io));
     }
     if (std.mem.eql(u8, command, reflink_copy.name)) {
         if (try rejectExtraArgs(it, reflink_copy.name)) {

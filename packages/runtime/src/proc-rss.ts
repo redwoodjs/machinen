@@ -53,5 +53,16 @@ export function readHostRssBytesMulti(
 }
 
 function normaliseRssTargets(targets: ReadonlyArray<RssTarget | number>): RssTarget[] {
-  return targets.map((target) => (typeof target === "number" ? { pid: target } : target));
+  const out: RssTarget[] = [];
+  for (const target of targets) {
+    const item = typeof target === "number" ? { pid: target } : target;
+    if (isValidPid(item.pid)) {
+      out.push(item);
+    }
+  }
+  return out;
+}
+
+function isValidPid(pid: number): boolean {
+  return Number.isInteger(pid) && pid > 0 && pid <= 0xffff_ffff;
 }

@@ -49,13 +49,20 @@ describe("readHostRssBytes", () => {
     // 0x7fff_ffff — outside the kernel's pid_max on every Unix.
     expect(readHostRssBytes(0x7fff_ffff)).toBeNull();
   });
+
+  it("returns null for invalid pid inputs", () => {
+    expect(readHostRssBytes(0)).toBeNull();
+    expect(readHostRssBytes(-1)).toBeNull();
+  });
 });
 
 describe("readHostRssBytesMulti", () => {
   it("returns a map keyed by pid for the live processes it could read", () => {
-    const map = readHostRssBytesMulti([process.pid, 0x7fff_ffff]);
+    const map = readHostRssBytesMulti([process.pid, 0x7fff_ffff, 0, -1]);
     expect(map.get(process.pid)).toBeGreaterThan(0);
     expect(map.has(0x7fff_ffff)).toBe(false);
+    expect(map.has(0)).toBe(false);
+    expect(map.has(-1)).toBe(false);
   });
 
   it("accepts the {pid, statsPath} target shape too", () => {
