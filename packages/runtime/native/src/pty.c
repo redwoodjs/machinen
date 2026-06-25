@@ -1,11 +1,11 @@
 // Native PTY shim used by bootPty().
 //
-// Node spawns this small host binary instead of loading node-pty native
-// bindings. The shim owns forkpty(), copies host stdin to the PTY master,
-// copies PTY output back to stdout, and listens on fd 3 for control lines:
-// `R <cols> <rows>` resizes the PTY, `K` kills the child. Keeping this as a
-// Zig-built C binary makes the terminal path publish like the rest of the
-// runtime helper tools, without node-gyp or prebuilt Node addon packages.
+// The TypeScript runtime spawns this host helper when Machinen needs a real
+// terminal for a child process. Node's built-in child_process pipes are not
+// PTYs, so the helper owns forkpty(), relays stdin/stdout, and handles fd 3
+// control messages: `R <cols> <rows>` resizes the PTY, `K` kills the child.
+// Keeping this as a Zig-built C binary lets the terminal path publish with the
+// other host helper tools, without node-gyp or prebuilt Node addon packages.
 
 #define _DARWIN_C_SOURCE
 #define _GNU_SOURCE
