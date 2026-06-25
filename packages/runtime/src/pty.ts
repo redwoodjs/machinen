@@ -68,12 +68,15 @@ export function bootPty(opts: PtyBootOptions): PtyVmHandle {
     },
   );
   const control = child.stdio[3] as Writable | undefined;
+  const ignoreStreamError = () => undefined;
+  control?.on("error", ignoreStreamError);
+  child.stdin.on("error", ignoreStreamError);
 
   const exitP = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((done) => {
-    child.on("error", () => {
+    child.once("error", () => {
       done({ code: null, signal: null });
     });
-    child.on("exit", (code, signal) => {
+    child.once("exit", (code, signal) => {
       done({ code, signal });
     });
   });
@@ -84,27 +87,43 @@ export function bootPty(opts: PtyBootOptions): PtyVmHandle {
   // in paused mode until the real consumer attaches.
   const collected: Buffer[] = [];
   const out = new PassThrough();
+  let outputEnded = false;
+  const endOutput = () => {
+    if (outputEnded) {
+      return;
+    }
+    outputEnded = true;
+    out.end();
+  };
+  const outputClosedP = new Promise<void>((done) => {
+    const finish = () => {
+      endOutput();
+      done();
+    };
+    child.stdout.once("close", finish);
+    child.once("error", finish);
+  });
   child.stdout.on("data", (chunk: Buffer) => {
     collected.push(chunk);
-    out.write(chunk);
+    if (!outputEnded) {
+      out.write(chunk);
+    }
   });
-  child.stdout.on("close", () => out.end());
 
   // stdin side: Writable adapter that pipes into the shim. Bytes go
   // through the kernel's tty line discipline on the way to the child
   // — i.e. Ctrl-C generates SIGINT just like in a real terminal.
   const stdin = new PassThrough();
   stdin.on("data", (buf: Buffer) => {
-    child.stdin.write(buf);
+    if (!child.stdin.destroyed) {
+      child.stdin.write(buf);
+    }
   });
   stdin.on("end", () => {
-    child.stdin.end();
+    if (!child.stdin.destroyed) {
+      child.stdin.end();
+    }
   });
-
-  exitP.then(
-    () => out.end(),
-    () => out.end(),
-  );
 
   return {
     pid: child.pid ?? 0,
@@ -112,23 +131,29 @@ export function bootPty(opts: PtyBootOptions): PtyVmHandle {
     stdout: out,
     stderr: out,
     resize(nextCols, nextRows) {
-      control?.write(`R ${nextCols} ${nextRows}\n`);
+      if (control && !control.destroyed) {
+        control.write(`R ${nextCols} ${nextRows}\n`);
+      }
     },
     wait: () => exitP,
     async kill() {
-      control?.write("K\n");
-      child.stdin.end();
+      if (control && !control.destroyed) {
+        control.write("K\n");
+      }
+      if (!child.stdin.destroyed) {
+        child.stdin.end();
+      }
       const force = setTimeout(() => child.kill("SIGKILL"), 500);
       force.unref();
-      await exitP;
+      await Promise.all([exitP, outputClosedP]);
       clearTimeout(force);
     },
     async output() {
-      await exitP;
+      await Promise.all([exitP, outputClosedP]);
       return Buffer.concat(collected).toString("utf8");
     },
     async errorOutput() {
-      await exitP;
+      await Promise.all([exitP, outputClosedP]);
       return Buffer.concat(collected).toString("utf8");
     },
   };

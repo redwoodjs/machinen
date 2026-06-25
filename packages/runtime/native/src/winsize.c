@@ -1,3 +1,11 @@
+// Native terminal-size forwarder used by VsockWinsize.
+//
+// The guest winsize agent is reached through a host Unix socket created by the
+// VMM vsock bridge. This helper retries that socket connect, prints READY once
+// connected, then relays validated `cols rows` lines from stdin to the bridge
+// while dropping duplicates. Keeping the loop native removes per-resize JS
+// socket churn and packages the path with the other host helper binaries.
+
 #define _DARWIN_C_SOURCE
 #define _GNU_SOURCE
 #define _XOPEN_SOURCE 700
@@ -43,6 +51,9 @@ static int write_all(int fd, const char *buf, size_t len) {
       if (errno == EINTR) {
         continue;
       }
+      return -1;
+    }
+    if (n == 0) {
       return -1;
     }
     off += (size_t)n;

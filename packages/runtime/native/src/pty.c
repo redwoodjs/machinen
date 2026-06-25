@@ -1,3 +1,12 @@
+// Native PTY shim used by bootPty().
+//
+// Node spawns this small host binary instead of loading node-pty native
+// bindings. The shim owns forkpty(), copies host stdin to the PTY master,
+// copies PTY output back to stdout, and listens on fd 3 for control lines:
+// `R <cols> <rows>` resizes the PTY, `K` kills the child. Keeping this as a
+// Zig-built C binary makes the terminal path publish like the rest of the
+// runtime helper tools, without node-gyp or prebuilt Node addon packages.
+
 #define _DARWIN_C_SOURCE
 #define _GNU_SOURCE
 #define _XOPEN_SOURCE 600
@@ -37,6 +46,9 @@ static int write_all(int fd, const char *buf, ssize_t len) {
       }
       return -1;
     }
+    if (n == 0) {
+      return -1;
+    }
     off += n;
   }
   return 0;
@@ -46,7 +58,7 @@ static int parse_uint16(const char *text, unsigned short *out) {
   char *end = NULL;
   errno = 0;
   long value = strtol(text, &end, 10);
-  if (errno != 0 || end == text || value <= 0 || value > 65535) {
+  if (errno != 0 || end == text || *end != '\0' || value <= 0 || value > 65535) {
     return -1;
   }
   *out = (unsigned short)value;

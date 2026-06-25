@@ -10,7 +10,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PassThrough } from "node:stream";
+import { PassThrough, type Readable } from "node:stream";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Sandboxes, Supervisor, bootPty } from "../index.ts";
 
@@ -38,6 +38,39 @@ afterAll(() => {
   }
 });
 
+function waitForText(
+  stream: Readable,
+  chunks: Buffer[],
+  expected: RegExp,
+  timeoutMs = 1_000,
+): Promise<string> {
+  const snapshot = () => Buffer.concat(chunks).toString("utf8");
+  const current = snapshot();
+  if (expected.test(current)) {
+    return Promise.resolve(current);
+  }
+
+  return new Promise((done, fail) => {
+    const cleanup = () => {
+      clearTimeout(timer);
+      stream.off("data", onData);
+    };
+    const onData = () => {
+      const text = snapshot();
+      if (expected.test(text)) {
+        cleanup();
+        done(text);
+      }
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      fail(new Error(`timed out waiting for ${expected}; saw ${JSON.stringify(snapshot())}`));
+    }, timeoutMs);
+    stream.on("data", onData);
+    onData();
+  });
+}
+
 describe("bootPty", () => {
   it("the child sees a real TTY on stdin (tty prints /dev/pts/N)", async () => {
     const vm = bootPty({
@@ -47,9 +80,8 @@ describe("bootPty", () => {
     const chunks: Buffer[] = [];
     vm.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
     try {
-      await new Promise((r) => setTimeout(r, 300));
-      const out = Buffer.concat(chunks).toString("utf8");
       // Linux emits `/dev/pts/N`, macOS emits `/dev/ttys0NN` (no trailing slash).
+      const out = await waitForText(vm.stdout, chunks, /\/dev\/(pts\/|ttys)/);
       expect(out).toMatch(/\/dev\/(pts\/|ttys)/);
     } finally {
       await vm.kill();
