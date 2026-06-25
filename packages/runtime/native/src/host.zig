@@ -1,8 +1,8 @@
 // Host-side probes and controls used by the TypeScript runtime.
 //
 // This file keeps OS-specific, synchronous host operations in the native
-// helper: memory/RSS reads, pid identity checks, nested-virt probes, and Linux
-// cgroup CPU setup.
+// helper: memory/RSS reads, pid identity checks, nested-virt probes, balloon
+// stats reads, GC cleanup-path removal, and Linux cgroup CPU setup.
 // The command files translate JSON protocol requests into these functions;
 // this module owns the actual platform behavior so the TS layer stays small.
 
