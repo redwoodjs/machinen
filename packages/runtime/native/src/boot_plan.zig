@@ -12,7 +12,7 @@ const assert = std.debug.assert;
 
 const memory_floor_mib: u64 = 512;
 const memory_default_ceiling_mib: u64 = 4096;
-const max_live_mounts: usize = 5;
+const max_live_mounts = 5;
 const restore_command = [_][]const u8{"/sbin/machinen-restore"};
 const poweroff_command = [_][]const u8{"/sbin/machinen-poweroff"};
 
@@ -316,15 +316,26 @@ pub fn planVmstateEnv(input: VmstateEnvInput) VmstateEnvPlan {
 }
 
 pub fn planLiveMounts(allocator: std.mem.Allocator, mounts: []const LiveMountInput) ![]LiveMount {
+    assert(@sizeOf(LiveMountInput) > 0);
+
     if (mounts.len > max_live_mounts) return error.TooManyLiveMounts;
-    var out: std.ArrayList(LiveMount) = .empty;
+    var out: std.array_list.Aligned(LiveMount, null) = .empty;
     errdefer out.deinit(allocator);
     for (mounts, 0..) |mount, i| {
         const mode = mount.mode orelse "rw";
-        if (!std.mem.eql(u8, mode, "ro") and !std.mem.eql(u8, mode, "rw")) return error.InvalidLiveMountMode;
+        if (!std.mem.eql(u8, mode, "ro") and !std.mem.eql(u8, mode, "rw")) {
+            return error.InvalidLiveMountMode;
+        }
         const guest = try normalizeMountGuest(mount.guest);
-        const tag = try std.fmt.allocPrint(allocator, "machinen-lm{d}", .{i});
-        try out.append(allocator, .{ .host = mount.host, .guest = guest, .mode = mode, .tag = tag });
+        var tag_buf: [64]u8 = undefined;
+        const tag_text = try std.fmt.bufPrint(&tag_buf, "machinen-lm{d}", .{i});
+        const tag = try std.mem.concat(allocator, u8, &.{tag_text});
+        try out.append(allocator, .{
+            .host = mount.host,
+            .guest = guest,
+            .mode = mode,
+            .tag = tag,
+        });
     }
     return out.toOwnedSlice(allocator);
 }
@@ -358,33 +369,34 @@ pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
 }
 
 pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
+    assert(@sizeOf(MachinenConfigInput) > 0);
+
     return input.guest_cwd orelse input.image_cwd;
 }
 
 pub fn planBundleEnv(allocator: std.mem.Allocator, input: BundleEnvInput) ![]EnvPair {
-    var out: std.ArrayList(EnvPair) = .empty;
+    assert(@sizeOf(BundleEnvInput) > 0);
+
+    var out: std.array_list.Aligned(EnvPair, null) = .empty;
     errdefer out.deinit(allocator);
-    for (input.image_env) |pair| {
-        try out.append(allocator, pair);
-    }
+    try out.appendSlice(allocator, input.image_env);
     for (input.guest_env) |pair| {
-        if (indexOfEnvKey(out.items, pair.key)) |index| {
-            out.items[index].value = pair.value;
-        } else {
-            try out.append(allocator, pair);
+        var replaced = false;
+        for (out.items) |*existing| {
+            if (std.mem.eql(u8, existing.key, pair.key)) {
+                existing.value = pair.value;
+                replaced = true;
+                break;
+            }
         }
+        if (!replaced) try out.append(allocator, pair);
     }
     return out.toOwnedSlice(allocator);
 }
 
-fn indexOfEnvKey(pairs: []const EnvPair, key: []const u8) ?usize {
-    for (pairs, 0..) |pair, i| {
-        if (std.mem.eql(u8, pair.key, key)) return i;
-    }
-    return null;
-}
-
 pub fn planRootDiskRuntime(input: RootDiskRuntimeInput) PlanError!RootDiskRuntimePlan {
+    assert(@sizeOf(RootDiskRuntimeInput) > 0);
+
     return switch (input.mode) {
         .none => .{
             .action = "none",
@@ -429,6 +441,8 @@ pub fn planRootDiskRuntime(input: RootDiskRuntimeInput) PlanError!RootDiskRuntim
 }
 
 pub fn planMountDiskRuntime(input: MountDiskRuntimeInput) PlanError!MountDiskRuntimePlan {
+    assert(@sizeOf(MountDiskRuntimeInput) > 0);
+
     return switch (input.mode) {
         .none => .{
             .action = "none",
@@ -441,9 +455,11 @@ pub fn planMountDiskRuntime(input: MountDiskRuntimeInput) PlanError!MountDiskRun
         .restore => blk: {
             const lower = input.lower_path orelse return error.MissingMountDiskRuntimeField;
             const upper = input.upper_path orelse return error.MissingMountDiskRuntimeField;
-            const source_upper = input.source_upper_path orelse return error.MissingMountDiskRuntimeField;
+            const source_upper = input.source_upper_path orelse
+                return error.MissingMountDiskRuntimeField;
             const guest = input.guest orelse return error.MissingMountDiskRuntimeField;
-            const upper_size = input.upper_size_bytes orelse return error.MissingMountDiskRuntimeField;
+            const upper_size = input.upper_size_bytes orelse
+                return error.MissingMountDiskRuntimeField;
             break :blk .{
                 .action = "restore",
                 .lower_path = lower,
@@ -457,7 +473,8 @@ pub fn planMountDiskRuntime(input: MountDiskRuntimeInput) PlanError!MountDiskRun
             const lower = input.lower_path orelse return error.MissingMountDiskRuntimeField;
             const upper = input.upper_path orelse return error.MissingMountDiskRuntimeField;
             const guest = input.guest orelse return error.MissingMountDiskRuntimeField;
-            const upper_size = input.upper_size_bytes orelse return error.MissingMountDiskRuntimeField;
+            const upper_size = input.upper_size_bytes orelse
+                return error.MissingMountDiskRuntimeField;
             break :blk .{
                 .action = "fresh",
                 .lower_path = lower,
@@ -471,6 +488,8 @@ pub fn planMountDiskRuntime(input: MountDiskRuntimeInput) PlanError!MountDiskRun
 }
 
 pub fn planScratchDisk(input: ScratchDiskInput) PlanError!ScratchDiskPlan {
+    assert(@sizeOf(ScratchDiskInput) > 0);
+
     return switch (input.mode) {
         .unset, .false_value => .{
             .action = "none",
@@ -513,52 +532,81 @@ pub fn planScratchDisk(input: ScratchDiskInput) PlanError!ScratchDiskPlan {
     };
 }
 
-pub fn planBundleCommand(allocator: std.mem.Allocator, input: BundleCommandInput) ![]const []const u8 {
-    const base_cmd = input.explicit_cmd orelse if (input.snapshot_restore)
-        restore_command[0..]
-    else if (input.vmstate_restore)
-        poweroff_command[0..]
-    else
-        input.image_cmd orelse return error.MissingBundleCommand;
+pub fn planBundleCommand(
+    allocator: std.mem.Allocator,
+    input: BundleCommandInput,
+) ![]const []const u8 {
+    assert(@sizeOf(BundleCommandInput) > 0);
 
-    if (base_cmd.len > 0 and (std.mem.eql(u8, base_cmd[0], "/exec-agent") or std.mem.eql(u8, base_cmd[0], "/sbin/machinen-restore"))) {
-        return base_cmd;
-    }
+    const base_cmd = input.explicit_cmd orelse
+        fallbackBundleBaseCommand(input) orelse
+        return error.MissingBundleCommand;
+    if (isSupervisorCommand(base_cmd)) return base_cmd;
 
     const workload = if (hasWritableLiveMount(input.live_mounts))
         try wrapBatchWorkloadCommand(allocator, base_cmd)
     else
         base_cmd;
-    const session_count: usize = if (input.snapshot_restore) 1 else 0;
-    const out = try allocator.alloc([]const u8, 1 + session_count + workload.len);
-    out[0] = "/sbin/machinen-supervisor";
-    var index: usize = 1;
-    if (input.snapshot_restore) {
-        out[index] = "--session";
-        index += 1;
-    }
-    @memcpy(out[index..], workload);
-    return out;
+    var out: std.array_list.Aligned([]const u8, null) = .empty;
+    errdefer out.deinit(allocator);
+    try out.append(allocator, "/sbin/machinen-supervisor");
+    if (input.snapshot_restore) try out.append(allocator, "--session");
+    try out.appendSlice(allocator, workload);
+    return out.toOwnedSlice(allocator);
+}
+
+fn fallbackBundleBaseCommand(input: BundleCommandInput) ?[]const []const u8 {
+    assert(@sizeOf(BundleCommandInput) > 0);
+
+    if (input.snapshot_restore) return restore_command[0..];
+    if (input.vmstate_restore) return poweroff_command[0..];
+    return input.image_cmd;
+}
+
+fn isSupervisorCommand(cmd: []const []const u8) bool {
+    assert(@sizeOf([]const []const u8) > 0);
+
+    if (cmd.len == 0) return false;
+    return std.mem.eql(u8, cmd[0], "/exec-agent") or
+        std.mem.eql(u8, cmd[0], "/sbin/machinen-restore");
 }
 
 fn hasWritableLiveMount(mounts: []const LiveMount) bool {
+    assert(@sizeOf(LiveMount) > 0);
+
     for (mounts) |mount| {
         if (std.mem.eql(u8, mount.mode, "rw")) return true;
     }
     return false;
 }
 
-fn wrapBatchWorkloadCommand(allocator: std.mem.Allocator, cmd: []const []const u8) ![]const []const u8 {
+fn wrapBatchWorkloadCommand(
+    allocator: std.mem.Allocator,
+    cmd: []const []const u8,
+) ![]const []const u8 {
+    assert(@sizeOf([]const []const u8) > 0);
+
+    const batch_script = "batch_sync() { " ++
+        "if [ -s /run/machinen-batch-sync.sh ]; then " ++
+        "sh /run/machinen-batch-sync.sh; fi; }; " ++
+        "\"$@\" & child=$!; " ++
+        "trap 'kill -TERM \"$child\" 2>/dev/null' TERM; " ++
+        "trap 'kill -INT \"$child\" 2>/dev/null' INT; " ++
+        "wait \"$child\"; status=$?; " ++
+        "batch_sync || { sync_status=$?; " ++
+        "if [ \"$status\" -eq 0 ]; then status=$sync_status; fi; }; " ++
+        "exit \"$status\"";
     const prefix = [_][]const u8{
         "/bin/sh",
         "-c",
-        "batch_sync() { if [ -s /run/machinen-batch-sync.sh ]; then sh /run/machinen-batch-sync.sh; fi; }; \"$@\" & child=$!; trap 'kill -TERM \"$child\" 2>/dev/null' TERM; trap 'kill -INT \"$child\" 2>/dev/null' INT; wait \"$child\"; status=$?; batch_sync || { sync_status=$?; if [ \"$status\" -eq 0 ]; then status=$sync_status; fi; }; exit \"$status\"",
+        batch_script,
         "machinen-batch-wrapper",
     };
-    const out = try allocator.alloc([]const u8, prefix.len + cmd.len);
-    @memcpy(out[0..prefix.len], &prefix);
-    @memcpy(out[prefix.len..], cmd);
-    return out;
+    var out: std.array_list.Aligned([]const u8, null) = .empty;
+    errdefer out.deinit(allocator);
+    try out.appendSlice(allocator, &prefix);
+    try out.appendSlice(allocator, cmd);
+    return out.toOwnedSlice(allocator);
 }
 
 pub fn planVmmArgv(allocator: std.mem.Allocator, input: VmmArgvInput) !VmmArgvPlan {
@@ -813,9 +861,12 @@ test "planBundleEnv overlays guest env on image env" {
         .{ .key = "FOO", .value = "guest" },
         .{ .key = "BAZ", .value = "guest" },
     };
-    const planned = try planBundleEnv(std.testing.allocator, .{ .image_env = &image, .guest_env = &guest });
+    const planned = try planBundleEnv(std.testing.allocator, .{
+        .image_env = &image,
+        .guest_env = &guest,
+    });
     defer std.testing.allocator.free(planned);
-    try std.testing.expectEqual(@as(usize, 3), planned.len);
+    try std.testing.expectEqual(@as(@TypeOf(planned.len), 3), planned.len);
     try std.testing.expectEqualStrings("FOO", planned[0].key);
     try std.testing.expectEqualStrings("guest", planned[0].value);
     try std.testing.expectEqualStrings("BAR", planned[1].key);
@@ -834,13 +885,21 @@ test "planRootDiskRuntime selects existing restore and cached clone actions" {
     try std.testing.expectEqualStrings("/root.img", existing.vmm_root_disk.?);
     try std.testing.expect(existing.per_boot_root_disk == null);
 
-    const restore = try planRootDiskRuntime(.{ .mode = .restore, .source_path = "/restore.img", .clone_path = "/restore-clone.img" });
+    const restore = try planRootDiskRuntime(.{
+        .mode = .restore,
+        .source_path = "/restore.img",
+        .clone_path = "/restore-clone.img",
+    });
     try std.testing.expectEqualStrings("clone-restore", restore.action);
     try std.testing.expectEqualStrings("/restore.img", restore.source_path.?);
     try std.testing.expectEqualStrings("/restore-clone.img", restore.target_path.?);
     try std.testing.expectEqualStrings("/restore-clone.img", restore.per_boot_root_disk.?);
 
-    const cached = try planRootDiskRuntime(.{ .mode = .cached, .source_path = "/cache.img", .clone_path = "/boot.img" });
+    const cached = try planRootDiskRuntime(.{
+        .mode = .cached,
+        .source_path = "/cache.img",
+        .clone_path = "/boot.img",
+    });
     try std.testing.expectEqualStrings("clone-cached", cached.action);
     try std.testing.expectEqualStrings("/cache.img", cached.source_path.?);
     try std.testing.expectEqualStrings("/boot.img", cached.vmm_root_disk.?);
@@ -851,12 +910,21 @@ test "planScratchDisk selects restore clone auto allocation and no-disk cases" {
     try std.testing.expectEqualStrings("none", disabled.action);
     try std.testing.expect(disabled.vmm_disk == null);
 
-    const existing = try planScratchDisk(.{ .mode = .path, .has_cmd = true, .snapshot_path = "/snap.img", .restore_clone_path = "/clone.img" });
+    const existing = try planScratchDisk(.{
+        .mode = .path,
+        .has_cmd = true,
+        .snapshot_path = "/snap.img",
+        .restore_clone_path = "/clone.img",
+    });
     try std.testing.expectEqualStrings("existing", existing.action);
     try std.testing.expectEqualStrings("/snap.img", existing.vmm_disk.?);
     try std.testing.expect(existing.per_boot_snap_disk == null);
 
-    const clone = try planScratchDisk(.{ .mode = .path, .snapshot_path = "/snap.img", .restore_clone_path = "/clone.img" });
+    const clone = try planScratchDisk(.{
+        .mode = .path,
+        .snapshot_path = "/snap.img",
+        .restore_clone_path = "/clone.img",
+    });
     try std.testing.expectEqualStrings("clone", clone.action);
     try std.testing.expectEqualStrings("/clone.img", clone.disk_path.?);
     try std.testing.expectEqualStrings("/clone.img", clone.per_boot_snap_disk.?);
@@ -864,15 +932,27 @@ test "planScratchDisk selects restore clone auto allocation and no-disk cases" {
     const auto_without_image = try planScratchDisk(.{ .mode = .auto });
     try std.testing.expectEqualStrings("none", auto_without_image.action);
 
-    const auto = try planScratchDisk(.{ .mode = .auto, .has_image = true, .auto_path = "/auto.img" });
+    const auto = try planScratchDisk(.{
+        .mode = .auto,
+        .has_image = true,
+        .auto_path = "/auto.img",
+    });
     try std.testing.expectEqualStrings("allocate", auto.action);
     try std.testing.expectEqualStrings("/auto.img", auto.vmm_disk.?);
 }
 
 test "planBundleCommand resolves image restore supervisor and batch wrappers" {
-    const ro_mounts = [_]LiveMount{.{ .host = "/host", .guest = "/mnt/ro", .mode = "ro", .tag = "machinen-lm0" }};
+    const ro_mounts = [_]LiveMount{.{
+        .host = "/host",
+        .guest = "/mnt/ro",
+        .mode = "ro",
+        .tag = "machinen-lm0",
+    }};
     const image = [_][]const u8{"/bin/true"};
-    const planned = try planBundleCommand(std.testing.allocator, .{ .image_cmd = &image, .live_mounts = &ro_mounts });
+    const planned = try planBundleCommand(std.testing.allocator, .{
+        .image_cmd = &image,
+        .live_mounts = &ro_mounts,
+    });
     defer std.testing.allocator.free(planned);
     try std.testing.expectEqualStrings("/sbin/machinen-supervisor", planned[0]);
     try std.testing.expectEqualStrings("/bin/true", planned[1]);
@@ -880,9 +960,17 @@ test "planBundleCommand resolves image restore supervisor and batch wrappers" {
     const restore = try planBundleCommand(std.testing.allocator, .{ .snapshot_restore = true });
     try std.testing.expectEqualStrings("/sbin/machinen-restore", restore[0]);
 
-    const rw_mounts = [_]LiveMount{.{ .host = "/host", .guest = "/mnt/rw", .mode = "rw", .tag = "machinen-lm0" }};
+    const rw_mounts = [_]LiveMount{.{
+        .host = "/host",
+        .guest = "/mnt/rw",
+        .mode = "rw",
+        .tag = "machinen-lm0",
+    }};
     const explicit = [_][]const u8{ "/bin/echo", "hi" };
-    const batched = try planBundleCommand(std.testing.allocator, .{ .explicit_cmd = &explicit, .live_mounts = &rw_mounts });
+    const batched = try planBundleCommand(std.testing.allocator, .{
+        .explicit_cmd = &explicit,
+        .live_mounts = &rw_mounts,
+    });
     defer std.testing.allocator.free(batched);
     try std.testing.expectEqualStrings("/sbin/machinen-supervisor", batched[0]);
     try std.testing.expectEqualStrings("/bin/sh", batched[1]);
@@ -891,8 +979,14 @@ test "planBundleCommand resolves image restore supervisor and batch wrappers" {
 }
 
 test "planMachinenConfigCwd prefers guest cwd over image cwd" {
-    try std.testing.expectEqualStrings("/mnt/work", planMachinenConfigCwd(.{ .guest_cwd = "/mnt/work", .image_cwd = "/srv/app" }).?);
-    try std.testing.expectEqualStrings("/srv/app", planMachinenConfigCwd(.{ .image_cwd = "/srv/app" }).?);
+    try std.testing.expectEqualStrings(
+        "/mnt/work",
+        planMachinenConfigCwd(.{ .guest_cwd = "/mnt/work", .image_cwd = "/srv/app" }).?,
+    );
+    try std.testing.expectEqualStrings(
+        "/srv/app",
+        planMachinenConfigCwd(.{ .image_cwd = "/srv/app" }).?,
+    );
     try std.testing.expectEqual(@as(?[]const u8, null), planMachinenConfigCwd(.{}));
 }
 
@@ -906,7 +1000,7 @@ test "planLiveMounts validates count guest paths modes and tags" {
         for (planned) |mount| std.testing.allocator.free(mount.tag);
         std.testing.allocator.free(planned);
     }
-    try std.testing.expectEqual(@as(usize, 2), planned.len);
+    try std.testing.expectEqual(@as(@TypeOf(planned.len), 2), planned.len);
     try std.testing.expectEqualStrings("./a", planned[0].host);
     try std.testing.expectEqualStrings("/mnt/a", planned[0].guest);
     try std.testing.expectEqualStrings("rw", planned[0].mode);
@@ -915,8 +1009,15 @@ test "planLiveMounts validates count guest paths modes and tags" {
     try std.testing.expectEqualStrings("ro", planned[1].mode);
     try std.testing.expectEqualStrings("machinen-lm1", planned[1].tag);
 
-    const bad_mode = [_]LiveMountInput{.{ .host = "./a", .guest = "/mnt/a", .mode = "eager" }};
-    try std.testing.expectError(error.InvalidLiveMountMode, planLiveMounts(std.testing.allocator, &bad_mode));
+    const bad_mode = [_]LiveMountInput{.{
+        .host = "./a",
+        .guest = "/mnt/a",
+        .mode = "eager",
+    }};
+    try std.testing.expectError(
+        error.InvalidLiveMountMode,
+        planLiveMounts(std.testing.allocator, &bad_mode),
+    );
 }
 
 test "planStatsFile preserves caller path or returns runtime-owned env value" {
