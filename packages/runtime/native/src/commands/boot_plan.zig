@@ -823,17 +823,11 @@ const RuntimeParts = struct {
     registry_process: boot_plan.RegistryProcessPlan,
 };
 
-fn makePlanParts(
-    arena: std.mem.Allocator,
-    parsed: ParsedRequest,
-    plan: boot_plan.Plan,
-) !PlanParts {
+fn makePlanParts(arena: std.mem.Allocator, parsed: ParsedRequest, plan: boot_plan.Plan) !PlanParts {
     assert(@sizeOf(PlanParts) > 0);
-
     const boot_env = try makeBootEnvParts(arena, parsed);
     const runtime = try makeRuntimeParts(arena, parsed);
     const provision = try makeProvisionParts(arena, parsed);
-    const bundle_pack_input = makeBundlePackInput(parsed);
     return .{
         .plan = plan,
         .cpu_policy = try makeCpuResources(parsed),
@@ -869,8 +863,8 @@ fn makePlanParts(
         .bundle_env = runtime.bundle_env,
         .bundle_workspace = try makeBundleWorkspace(arena, parsed),
         .bundle_config_paths = try makeBundleConfigPaths(arena, parsed),
-        .bundle_pack = boot_plan.planBundlePack(bundle_pack_input),
-        .bundle_mount_disk_mode = boot_plan.planBundleMountDiskMode(bundle_pack_input),
+        .bundle_pack = boot_plan.planBundlePack(makeBundlePackInput(parsed)),
+        .bundle_mount_disk_mode = boot_plan.planBundleMountDiskMode(makeBundlePackInput(parsed)),
         .provision_assets = provision.assets,
         .provision_dtb = provision.dtb,
         .provision_cli_cache = provision.cli_cache,
@@ -1761,6 +1755,14 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
         true,
     );
     try writeProvisionFields(io, parts);
+    try writeDiskRuntimeFields(io, parts);
+    try writeSnapshotRegistryFields(io, parts);
+    try protocol.stdout(io, "}}\n");
+}
+
+fn writeDiskRuntimeFields(io: std.Io, parts: PlanParts) !void {
+    assert(@sizeOf(PlanParts) > 0);
+
     try writeScratchModeField(io, "plannedScratchMode", parts.planned_scratch_mode, true);
     try writeNullableStringField(io, "scratchTempPath", parts.scratch_temp_path.path, true);
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
@@ -1776,6 +1778,11 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeNullableStringField(io, "mountDiskTempPath", parts.mount_disk_temp_path.path, true);
     try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
     try writeEnvObjectField(io, "mountDiskFdEnv", parts.mount_disk_fd_env, true);
+}
+
+fn writeSnapshotRegistryFields(io: std.Io, parts: PlanParts) !void {
+    assert(@sizeOf(PlanParts) > 0);
+
     try writeSnapshotContextField(io, "snapshotContext", parts.snapshot_context, true);
     try writeSnapshotBackingField(io, "snapshotBacking", parts.snapshot_backing, true);
     try writeRegistryShapeField(io, "registryShape", parts.registry_shape, true);
@@ -1787,7 +1794,6 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
         true,
     );
     try writeRegistryProcessField(io, "registryProcess", parts.registry_process, true);
-    try protocol.stdout(io, "}}\n");
 }
 
 fn writeProvisionFields(io: std.Io, parts: PlanParts) !void {
@@ -3534,6 +3540,11 @@ fn parseRuntimeMountStatsFields(
         "statsFileTempDir",
         error.InvalidStatsFileTempDir,
     );
+    request.stats_file_vsock_temp_dir = try optionalStringDefaultNull(
+        object,
+        "statsFileVsockTempDir",
+        error.InvalidStatsFileVsockTempDir,
+    );
 }
 
 fn parseConfigFields(
@@ -3805,6 +3816,21 @@ fn parseProvisionRepackFields(
         "provisionTimeoutMs",
         error.InvalidProvisionTimeoutMs,
     );
+    request.provision_result_image_path = try optionalStringDefaultNull(
+        object,
+        "provisionResultImagePath",
+        error.InvalidProvisionResultImagePath,
+    );
+    request.provision_result_size_bytes_text = try optionalStringDefaultNull(
+        object,
+        "provisionResultSizeBytes",
+        error.InvalidProvisionResultSizeBytes,
+    );
+    request.provision_result_elapsed_ms_text = try optionalStringDefaultNull(
+        object,
+        "provisionResultElapsedMs",
+        error.InvalidProvisionResultElapsedMs,
+    );
 }
 
 fn parseProvisionImageConfigFields(
@@ -3913,6 +3939,32 @@ fn parseRootDiskRuntimeFields(
         "rootDiskClonePath",
         error.InvalidRootDiskClonePath,
     );
+    request.root_disk_temp_kind = try optionalRootDiskTempKind(object);
+    request.root_disk_temp_dir = try optionalStringDefaultNull(
+        object,
+        "rootDiskTempDir",
+        error.InvalidRootDiskTempDir,
+    );
+    request.root_disk_temp_pid_text = try optionalStringDefaultNull(
+        object,
+        "rootDiskTempPid",
+        error.InvalidRootDiskTempPid,
+    );
+    request.root_disk_temp_nonce = try optionalStringDefaultNull(
+        object,
+        "rootDiskTempNonce",
+        error.InvalidRootDiskTempNonce,
+    );
+    request.root_disk_materialize_restore_path = try optionalStringDefaultNull(
+        object,
+        "rootDiskMaterializeRestorePath",
+        error.InvalidRootDiskMaterializeRestorePath,
+    );
+    request.root_disk_materialize_caller_path = try optionalStringDefaultNull(
+        object,
+        "rootDiskMaterializeCallerPath",
+        error.InvalidRootDiskMaterializeCallerPath,
+    );
 }
 
 fn parseMountDiskRuntimeFields(
@@ -3922,6 +3974,27 @@ fn parseMountDiskRuntimeFields(
 ) RequestError!void {
     assert(@sizeOf(ParsedRequest) > 0);
 
+    request.mount_disk_upper_size_option_text = try optionalStringDefaultNull(
+        object,
+        "mountDiskUpperSizeOption",
+        error.InvalidMountDiskUpperSizeOption,
+    );
+    request.mount_disk_temp_kind = try optionalMountDiskTempKind(object);
+    request.mount_disk_temp_dir = try optionalStringDefaultNull(
+        object,
+        "mountDiskTempDir",
+        error.InvalidMountDiskTempDir,
+    );
+    request.mount_disk_temp_pid_text = try optionalStringDefaultNull(
+        object,
+        "mountDiskTempPid",
+        error.InvalidMountDiskTempPid,
+    );
+    request.mount_disk_temp_nonce = try optionalStringDefaultNull(
+        object,
+        "mountDiskTempNonce",
+        error.InvalidMountDiskTempNonce,
+    );
     request.mount_disk_runtime_mode = try optionalMountDiskRuntimeMode(object);
     request.mount_disk_lower_path = try optionalStringDefaultNull(
         object,
@@ -4326,6 +4399,8 @@ fn optionalProvisionGuestCpu(
 }
 
 fn optionalScratchTempKind(object: std.json.ObjectMap) RequestError!boot_plan.ScratchTempPathKind {
+    assert(@sizeOf(std.json.ObjectMap) > 0);
+
     const value = object.get("scratchTempKind") orelse return .none;
     if (value == .null) return .none;
     if (value != .string) return error.InvalidScratchTempKind;
@@ -4346,7 +4421,11 @@ fn optionalScratchMode(object: std.json.ObjectMap) RequestError!boot_plan.Scratc
     return error.InvalidScratchMode;
 }
 
-fn optionalRootDiskTempKind(object: std.json.ObjectMap) RequestError!boot_plan.RootDiskTempPathKind {
+fn optionalRootDiskTempKind(
+    object: std.json.ObjectMap,
+) RequestError!boot_plan.RootDiskTempPathKind {
+    assert(@sizeOf(std.json.ObjectMap) > 0);
+
     const value = object.get("rootDiskTempKind") orelse return .none;
     if (value == .null) return .none;
     if (value != .string) return error.InvalidRootDiskTempKind;
@@ -4370,7 +4449,11 @@ fn optionalRootDiskRuntimeMode(
     return error.InvalidRootDiskRuntimeMode;
 }
 
-fn optionalMountDiskTempKind(object: std.json.ObjectMap) RequestError!boot_plan.MountDiskTempPathKind {
+fn optionalMountDiskTempKind(
+    object: std.json.ObjectMap,
+) RequestError!boot_plan.MountDiskTempPathKind {
+    assert(@sizeOf(std.json.ObjectMap) > 0);
+
     const value = object.get("mountDiskTempKind") orelse return .none;
     if (value == .null) return .none;
     if (value != .string) return error.InvalidMountDiskTempKind;
