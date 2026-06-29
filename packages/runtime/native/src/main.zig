@@ -76,6 +76,7 @@ fn runKnownCommand(
     assert(command.len > 0);
 
     if (try runHostCommand(allocator, it, command)) |exit| return exit;
+    if (try runProofCommand(allocator, it, command)) |exit| return exit;
     if (try runFilesystemCommand(allocator, it, command)) |exit| return exit;
     return null;
 }
@@ -124,13 +125,6 @@ fn runHostCommand(
         return @intFromEnum(try host_rss.run(allocator, g_io));
     }
 
-    if (std.mem.eql(u8, command, native_code_map.name)) {
-        if (try rejectExtraArgs(it, native_code_map.name)) {
-            return @intFromEnum(protocol.Exit.usage);
-        }
-        return @intFromEnum(try native_code_map.run(allocator, g_io));
-    }
-
     if (std.mem.eql(u8, command, nested_virt_probe.name)) {
         if (try rejectExtraArgs(it, nested_virt_probe.name)) {
             return @intFromEnum(protocol.Exit.usage);
@@ -148,6 +142,34 @@ fn runHostCommand(
             return @intFromEnum(protocol.Exit.usage);
         }
         return @intFromEnum(try process_identity.run(allocator, g_io));
+    }
+    return null;
+}
+
+fn runProofCommand(
+    allocator: std.mem.Allocator,
+    it: anytype,
+    command: []const u8,
+) !?u8 {
+    assert(command.len > 0);
+
+    if (std.mem.eql(u8, command, native_code_map.name)) {
+        if (try rejectExtraArgs(it, native_code_map.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try native_code_map.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, process_signal.name)) {
+        if (try rejectExtraArgs(it, process_signal.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try process_signal.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, vmstate_facts.name)) {
+        if (try rejectExtraArgs(it, vmstate_facts.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try vmstate_facts.run(allocator, g_io));
     }
     return null;
 }
@@ -183,14 +205,6 @@ fn runFilesystemCommand(
         }
         return @intFromEnum(try mountdisk_upper.run(allocator, g_io));
     }
-
-    if (std.mem.eql(u8, command, process_signal.name)) {
-        if (try rejectExtraArgs(it, process_signal.name)) {
-            return @intFromEnum(protocol.Exit.usage);
-        }
-        return @intFromEnum(try process_signal.run(allocator, g_io));
-    }
-
     if (std.mem.eql(u8, command, reflink_copy.name)) {
         if (try rejectExtraArgs(it, reflink_copy.name)) {
             return @intFromEnum(protocol.Exit.usage);
@@ -221,14 +235,6 @@ fn runFilesystemCommand(
         }
         return @intFromEnum(try rootfs_prebake_tree.run(allocator, g_io));
     }
-
-    if (std.mem.eql(u8, command, vmstate_facts.name)) {
-        if (try rejectExtraArgs(it, vmstate_facts.name)) {
-            return @intFromEnum(protocol.Exit.usage);
-        }
-        return @intFromEnum(try vmstate_facts.run(allocator, g_io));
-    }
-
     if (std.mem.eql(u8, command, tree_manifest_hash.name)) {
         if (try rejectExtraArgs(it, tree_manifest_hash.name)) {
             return @intFromEnum(protocol.Exit.usage);

@@ -2,6 +2,8 @@ const std = @import("std");
 const runtime_helper = @import("runtime_helper");
 const protocol = @import("../protocol.zig");
 
+const assert = std.debug.assert;
+
 pub const name = "native-code-map";
 
 const Envelope = struct {
@@ -12,6 +14,8 @@ const Envelope = struct {
 const RequestError = protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
+    assert(name.len > 0);
+
     var arena_state = std.heap.ArenaAllocator.init(allocator);
     defer arena_state.deinit();
     const arena = arena_state.allocator();
@@ -29,7 +33,12 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
     return .ok;
 }
 
-fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!runtime_helper.native_code_map.Request {
+fn parseRequest(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+) RequestError!runtime_helper.native_code_map.Request {
+    assert(name.len > 0);
+
     const data = try protocol.readStdinAll(allocator, io, protocol.max_request_bytes);
     const parsed = std.json.parseFromSlice(Envelope, allocator, data, .{
         .duplicate_field_behavior = .@"error",
@@ -43,7 +52,10 @@ fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!runtime_h
 }
 
 fn writeResult(io: std.Io, result: runtime_helper.native_code_map.Result) !void {
-    try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,\"command\":\"native-code-map\",\"data\":{");
+    assert(@sizeOf(runtime_helper.native_code_map.Result) > 0);
+
+    try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,");
+    try protocol.stdout(io, "\"command\":\"native-code-map\",\"data\":{");
     try protocol.stdout(io, "\"codeLocations\":[");
     for (result.codeLocations, 0..) |location, i| {
         if (i > 0) try protocol.stdout(io, ",");
@@ -66,6 +78,8 @@ fn writeResult(io: std.Io, result: runtime_helper.native_code_map.Result) !void 
 }
 
 fn writeLocation(io: std.Io, location: runtime_helper.native_code_map.CodeLocation) !void {
+    assert(location.id.len > 0);
+
     try protocol.stdout(io, "{");
     try protocol.stdout(io, "\"id\":");
     try protocol.writeJsonString(io, location.id);
@@ -90,6 +104,8 @@ fn writeLocation(io: std.Io, location: runtime_helper.native_code_map.CodeLocati
 }
 
 fn writeRefusal(io: std.Io, refusal: runtime_helper.native_code_map.Refusal) !void {
+    assert(refusal.code.len > 0);
+
     try protocol.stdout(io, "{\"code\":");
     try protocol.writeJsonString(io, refusal.code);
     try protocol.stdout(io, ",\"message\":");
@@ -102,6 +118,8 @@ fn writeRefusal(io: std.Io, refusal: runtime_helper.native_code_map.Refusal) !vo
 }
 
 fn writeDetail(io: std.Io, detail: runtime_helper.native_code_map.Detail) !void {
+    assert(@sizeOf(runtime_helper.native_code_map.Detail) > 0);
+
     switch (detail) {
         .target_build => |value| {
             try protocol.stdout(io, "{\"targetBuildId\":");
@@ -125,21 +143,61 @@ fn writeDetail(io: std.Io, detail: runtime_helper.native_code_map.Detail) !void 
 }
 
 fn writeRequestError(io: std.Io, err: RequestError) !void {
+    assert(@sizeOf(RequestError) > 0);
+
     switch (err) {
-        error.RequestTooLarge => try protocol.writeError(io, "REQUEST_TOO_LARGE", "request JSON exceeds the maximum size"),
-        error.UnknownField => try protocol.writeError(io, "UNKNOWN_FIELD", "request contains an unknown field"),
-        error.UnsupportedProtocolVersion => try protocol.writeError(io, "UNSUPPORTED_PROTOCOL_VERSION", "request protocolVersion must be 1"),
-        error.MissingData => try protocol.writeError(io, "INVALID_REQUEST", "request must include a data object"),
-        error.InvalidData => try protocol.writeError(io, "INVALID_REQUEST", "request data field must be an object"),
-        error.InvalidJson => try protocol.writeError(io, "INVALID_JSON", "request body is not valid JSON"),
-        error.InvalidShape => try protocol.writeError(io, "INVALID_REQUEST", "request body must be a JSON object"),
+        error.RequestTooLarge => try protocol.writeError(
+            io,
+            "REQUEST_TOO_LARGE",
+            "request JSON exceeds the maximum size",
+        ),
+        error.UnknownField => try protocol.writeError(
+            io,
+            "UNKNOWN_FIELD",
+            "request contains an unknown field",
+        ),
+        error.UnsupportedProtocolVersion => try protocol.writeError(
+            io,
+            "UNSUPPORTED_PROTOCOL_VERSION",
+            "request protocolVersion must be 1",
+        ),
+        error.MissingData => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "request must include a data object",
+        ),
+        error.InvalidData => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "request data field must be an object",
+        ),
+        error.InvalidJson => try protocol.writeError(
+            io,
+            "INVALID_JSON",
+            "request body is not valid JSON",
+        ),
+        error.InvalidShape => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "request body must be a JSON object",
+        ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
 }
 
 fn writePlanError(io: std.Io, err: runtime_helper.native_code_map.PlanError) !void {
+    assert(@sizeOf(runtime_helper.native_code_map.PlanError) > 0);
+
     switch (err) {
-        error.OutOfMemory => try protocol.writeError(io, "NATIVE_CODE_MAP_FAILED", "out of memory while building native code map"),
-        error.InvalidInteger => try protocol.writeError(io, "INVALID_REQUEST", "native code map address fields must be decimal or 0x-prefixed integers"),
+        error.OutOfMemory => try protocol.writeError(
+            io,
+            "NATIVE_CODE_MAP_FAILED",
+            "out of memory while building native code map",
+        ),
+        error.InvalidInteger => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "native code map address fields must be decimal or 0x-prefixed integers",
+        ),
     }
 }

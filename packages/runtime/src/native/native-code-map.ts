@@ -31,14 +31,22 @@ function isCodeLocation(value: unknown): boolean {
     return false;
   }
   const location = value as Record<string, unknown>;
-  return (
-    typeof location.id === "string" &&
-    typeof location.sourceMapping === "string" &&
-    typeof location.sourceAddress === "string" &&
-    (location.targetAddress === undefined || typeof location.targetAddress === "string") &&
-    (location.state === "mapped" || location.state === "pending" || location.state === "refused") &&
-    (location.refusal === undefined || isRefusal(location.refusal))
-  );
+  return [
+    typeof location.id === "string",
+    typeof location.sourceMapping === "string",
+    typeof location.sourceAddress === "string",
+    isOptionalString(location.targetAddress),
+    isCodeLocationState(location.state),
+    location.refusal === undefined || isRefusal(location.refusal),
+  ].every(Boolean);
+}
+
+function isCodeLocationState(value: unknown): boolean {
+  return value === "mapped" || value === "pending" || value === "refused";
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === "string";
 }
 
 function isRefusal(value: unknown): value is NativeProcessImageRefusal {
