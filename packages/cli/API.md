@@ -9,6 +9,7 @@ recipes, see the [guides](../../docs/).
 ```
 machinen boot     [<image>] [opts] -- <cmd>     Boot a microVM
 machinen restore  <snap-dir> [--name <name>]    Restore a VM from a snapshot bundle
+machinen move     <scan|save|load> [opts]       Experimental, fail-closed process move descriptors
 machinen list     (alias: ls, ps)               List running VMs
 machinen exec     [<target>] [--tty] -- <cmd>   Run a command in a running VM
 machinen snapshot [<target>] <out-dir> [--keep-alive] [--dry-run]
@@ -38,7 +39,7 @@ Machinen uses the default VM name: `default`.
 
 Every data-returning command supports `--json` for machine-readable
 output to stdout: `list`, `gc`, `install`, `snapshot`, `stop`,
-`feedback`, `agent-context`, plus `boot --detach` and `fork --detach`
+`move`, `feedback`, `agent-context`, plus `boot --detach` and `fork --detach`
 (where the CLI returns identity instead of taking over stdio).
 Mutating commands (`gc`, `stop`, `snapshot`, `session-kill`) accept
 `--dry-run` to preview without side effects.
@@ -87,6 +88,19 @@ Restores a VM from a snapshot bundle. Vmstate bundles hold `state.vmstate`,
 `rootdisk.img`, and `meta.json`; legacy CRIU bundles hold `img/` plus
 `meta.json`. Anonymous restores auto-name as `<source-name>/<pid>` so lineage
 shows up in `machinen ls`. Resolves base assets the same way `boot` does.
+
+## `machinen move`
+
+```
+machinen move scan <vm> [--json]
+machinen move save <vm> <guest-pid> <bundle-dir> [--issue] [--issue-repo <owner/repo>] [--json]
+machinen move load <vm> <bundle-dir> [--json]
+```
+
+`move` is experimental and narrow. It does not move arbitrary live workloads.
+`move save` writes a bundle directory containing `move.json`; `move load` only
+accepts that bundle directory shape. Unsupported files, sockets, threads, or
+process contexts are refused before target execution.
 
 ## `machinen ls` / `ps`
 

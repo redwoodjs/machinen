@@ -1,4 +1,4 @@
-# Snapshot and restore
+# Snapshot, restore, and move
 
 This page describes the current product surfaces only.
 
@@ -17,14 +17,26 @@ Use these commands to save and restore a Machinen VM snapshot. See:
 Whole-VM vmstate restore is same-guest-ISA only. A vmstate bundle contains CPU,
 RAM, device, and rootdisk state for one guest architecture.
 
-## Cross-ISA boundary
+## Cross-ISA movement
 
-Machinen does not expose a public cross-ISA process-move command. Raw vmstate
-bundles replay source kernel, vCPU, device, and rootdisk state, so they are not a
-cross-ISA bridge. A cross-ISA restore attempt fails closed instead of replaying
-state on an incompatible guest architecture.
+`machinen move` is the experimental cross-ISA process descriptor entrypoint. It
+is not a general live workload migration command. Give it a running VM name or
+VMM pid, then a guest PID when saving a descriptor.
+
+```sh
+machinen move scan <vm>
+machinen move save <vm> <guest-pid> <bundle-dir>
+machinen move save <vm> <guest-pid> <bundle-dir> --issue [--issue-repo <owner/repo>]
+machinen move load <vm> <bundle-dir>
+```
+
+`move save` writes a bundle directory containing `move.json`. `move load` accepts
+that same bundle directory shape and refuses file paths or partial descriptors.
+Unsupported files, sockets, threads, or process contexts stay fail-closed with
+typed evidence before target execution.
 
 ## Product boundary
 
-Snapshot and restore are whole-VM operations. Runtime-specific and experimental
-descriptor routes are not part of the public snapshot/restore workflow.
+Snapshot and restore are whole-VM operations. `move` is separate from vmstate: it
+must reconstruct explicitly modeled process/resource state on the target instead
+of replaying source kernel, vCPU, or device state.

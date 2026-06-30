@@ -122,6 +122,41 @@ export const COMMANDS: CommandSpec[] = [
     jsonEnvelope: '{"schema_version": 1, "pid": <int>, "name": <string|null>, "detached": <bool>}',
   },
   {
+    name: "move",
+    summary: "Experimental cross-ISA descriptor path for narrow, fail-closed process subsets.",
+    jsonOutput: true,
+    mutating: true,
+    positionals: [
+      { name: "subcommand", description: "scan, save, or load." },
+      {
+        name: "target",
+        required: false,
+        description: "The source or target VM name/pid for the move subcommand.",
+      },
+      { name: "pid", required: false, description: "Guest PID for move save." },
+      {
+        name: "bundle-dir",
+        required: false,
+        description: "Output bundle directory for save or input bundle directory for load.",
+      },
+    ],
+    flags: [
+      {
+        name: "--issue",
+        type: "boolean",
+        description: "Include a redacted issue report for refusals.",
+      },
+      {
+        name: "--issue-repo",
+        type: "string",
+        description: "GitHub repository for the issue report.",
+      },
+      { name: "--json", type: "boolean", description: "Emit move graph/descriptors as JSON." },
+    ],
+    jsonEnvelope:
+      '{"schema_version": 1, "accepted": <bool>, "bundlePath": <string>, "descriptorPath": <string>, "descriptor": {...}}',
+  },
+  {
     name: "restore",
     summary: "Restore a VM from a snapshot bundle.",
     jsonOutput: false,
