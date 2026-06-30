@@ -5,6 +5,8 @@ import type { BootCpuResourceOptions, ResolvedCpuResourcePolicy } from "../vm/cp
 import type { BootMemoryResourceOptions } from "../vm/memory-resources.ts";
 import { isNativeBootPlanResult } from "./boot-plan-schema.ts";
 import type {
+  BundleConfigPathsPlan,
+  BundleWorkspacePlan,
   MountDiskRuntimePlan,
   PlannedLiveMount,
   PlannedPortForward,
@@ -26,6 +28,14 @@ type RootDiskPlanMode = "unset" | "false" | "path" | "true";
 type ScratchDiskMode = "false" | "path" | "auto";
 type RootDiskRuntimeMode = "none" | "path" | "restore" | "cached";
 type MountDiskRuntimeMode = "none" | "restore" | "fresh";
+type RequiredBundleWorkspacePlan = {
+  cpioPath: NonNullable<BundleWorkspacePlan["cpioPath"]>;
+  synthBundleDir: NonNullable<BundleWorkspacePlan["synthBundleDir"]>;
+};
+type RequiredBundleConfigPathsPlan = {
+  rootfsDir: NonNullable<BundleConfigPathsPlan["rootfsDir"]>;
+  configPath: NonNullable<BundleConfigPathsPlan["configPath"]>;
+};
 
 type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
 type LiveMountPlanInput = { host: string; guest: string; mode?: string };
@@ -50,6 +60,7 @@ interface NativeBootPlanInput {
   guestHostnameName?: string;
   existingVsockSpec?: string;
   autoVsockUdsPath?: string;
+  autoVsockTempDir?: string;
   portForward?: PortForwardPlanMapping[];
   vmmBinary?: string;
   vmmArgs?: string[];
@@ -59,11 +70,13 @@ interface NativeBootPlanInput {
   bootTimeoutMs?: number | null;
   kernelPath?: string;
   dtbPath?: string;
+  initrdPath?: string;
   vmstatePath?: string;
   restorePath?: string;
   enableVmstateTiming?: boolean;
   existingVmstateTiming?: string;
   bootVmstateStatePath?: string;
+  bootVmstateTempDir?: string;
   bootVmstateChainId?: string;
   bootVmstateRestorePath?: string;
   bootVmstateForkedFrom?: string;
@@ -72,6 +85,7 @@ interface NativeBootPlanInput {
   liveMountsResolved?: PlannedLiveMount[];
   existingStatsFile?: string;
   statsFilePath?: string;
+  statsFileTempDir?: string;
   configCmd?: string[];
   configEnv?: Record<string, string>;
   configGuestCwd?: string;
@@ -85,7 +99,11 @@ interface NativeBootPlanInput {
   bundleCommandRequired?: boolean;
   bundleImageEnv?: Record<string, string>;
   bundleGuestEnv?: Record<string, string>;
+  bundleWorkspaceTempDir?: string;
+  bundleConfigSynthDir?: string;
   provisionGuestCpu?: ProvisionGuestCpu;
+  provisionGuestArchOverride?: string;
+  provisionHostArch?: string;
   provisionBasePath?: string;
   provisionKernelPath?: string;
   provisionDtbPath?: string;
@@ -113,6 +131,8 @@ interface NativeBootPlanInput {
   mountDiskSourceUpperPath?: string;
   mountDiskGuest?: string;
   mountDiskUpperSize?: number;
+  mountDiskLowerFd?: number;
+  mountDiskUpperFd?: number;
   registrySourceImagePath?: string;
   registryDiskPath?: string;
   registryForkedFrom?: string;
@@ -174,6 +194,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     guestHostnameName: nullDefault(input.guestHostnameName),
     existingVsockSpec: nullDefault(input.existingVsockSpec),
     autoVsockUdsPath: nullDefault(input.autoVsockUdsPath),
+    autoVsockTempDir: nullDefault(input.autoVsockTempDir),
     portForward: input.portForward ?? [],
     vmmBinary: nullDefault(input.vmmBinary),
     vmmArgs: input.vmmArgs ?? [],
@@ -183,11 +204,13 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     ...bootTimeoutData(input),
     kernelPath: nullDefault(input.kernelPath),
     dtbPath: nullDefault(input.dtbPath),
+    initrdPath: nullDefault(input.initrdPath),
     vmstatePath: nullDefault(input.vmstatePath),
     restorePath: nullDefault(input.restorePath),
     enableVmstateTiming: input.enableVmstateTiming === true,
     existingVmstateTiming: nullDefault(input.existingVmstateTiming),
     bootVmstateStatePath: nullDefault(input.bootVmstateStatePath),
+    bootVmstateTempDir: nullDefault(input.bootVmstateTempDir),
     bootVmstateChainId: nullDefault(input.bootVmstateChainId),
     bootVmstateRestorePath: nullDefault(input.bootVmstateRestorePath),
     bootVmstateForkedFrom: nullDefault(input.bootVmstateForkedFrom),
@@ -196,6 +219,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     liveMountsResolved: input.liveMountsResolved ?? [],
     existingStatsFile: nullDefault(input.existingStatsFile),
     statsFilePath: nullDefault(input.statsFilePath),
+    statsFileTempDir: nullDefault(input.statsFileTempDir),
     configCmd: input.configCmd ?? [],
     configEnv: input.configEnv ?? {},
     configGuestCwd: nullDefault(input.configGuestCwd),
@@ -227,12 +251,16 @@ function bundleCommandData(input: NativeBootPlanInput): Record<string, unknown> 
     bundleCommandRequired: input.bundleCommandRequired === true,
     bundleImageEnv: input.bundleImageEnv ?? {},
     bundleGuestEnv: input.bundleGuestEnv ?? {},
+    bundleWorkspaceTempDir: nullDefault(input.bundleWorkspaceTempDir),
+    bundleConfigSynthDir: nullDefault(input.bundleConfigSynthDir),
   };
 }
 
 function provisionData(input: NativeBootPlanInput): Record<string, unknown> {
   return {
     provisionGuestCpu: input.provisionGuestCpu ?? null,
+    provisionGuestArchOverride: nullDefault(input.provisionGuestArchOverride),
+    provisionHostArch: nullDefault(input.provisionHostArch),
     provisionBasePath: nullDefault(input.provisionBasePath),
     provisionKernelPath: nullDefault(input.provisionKernelPath),
     provisionDtbPath: nullDefault(input.provisionDtbPath),
@@ -277,6 +305,8 @@ function mountDiskRuntimeData(input: NativeBootPlanInput): Record<string, unknow
     mountDiskSourceUpperPath: nullDefault(input.mountDiskSourceUpperPath),
     mountDiskGuest: nullDefault(input.mountDiskGuest),
     mountDiskUpperSize: numberText(input.mountDiskUpperSize),
+    mountDiskLowerFd: numberText(input.mountDiskLowerFd),
+    mountDiskUpperFd: numberText(input.mountDiskUpperFd),
   };
 }
 
@@ -454,9 +484,13 @@ export function planProvisionBootNative(input: {
   }).provisionBoot;
 }
 
-export function planProvisionAssetsNative(cpu: ProvisionGuestCpu): ProvisionAssetsPlan {
+export function planProvisionAssetsForHostNative(input: {
+  guestArchOverride?: string;
+  hostArch: string;
+}): ProvisionAssetsPlan {
   return planBootCoreNative({
-    provisionGuestCpu: cpu,
+    provisionGuestArchOverride: input.guestArchOverride,
+    provisionHostArch: input.hostArch,
     vmmMemoryPreset: true,
     hasImage: false,
     hasCmd: false,
@@ -484,6 +518,20 @@ export function planBootMountDiskRuntimeNative(input: {
     hasCmd: false,
     rootDisk: "false",
   }).mountDiskRuntime;
+}
+
+export function planBootMountDiskFdEnvNative(input: {
+  lowerFd: number;
+  upperFd: number;
+}): Record<string, string> {
+  return planBootCoreNative({
+    mountDiskLowerFd: input.lowerFd,
+    mountDiskUpperFd: input.upperFd,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).mountDiskFdEnv;
 }
 
 interface BootRegistryShapeNativeInput {
@@ -653,6 +701,42 @@ export function planBootPortForwardNative(
   }).plannedPortForward;
 }
 
+export function planBootBundleWorkspaceNative(tempDir: string): RequiredBundleWorkspacePlan {
+  const plan = planBootCoreNative({
+    bundleWorkspaceTempDir: tempDir,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).bundleWorkspace;
+  if (plan.cpioPath === null || plan.synthBundleDir === null) {
+    throw new BootError(
+      "BOOT_PACK_FAILED",
+      "boot: native planner returned incomplete bundle workspace",
+    );
+  }
+  return { cpioPath: plan.cpioPath, synthBundleDir: plan.synthBundleDir };
+}
+
+export function planBootBundleConfigPathsNative(
+  synthBundleDir: string,
+): RequiredBundleConfigPathsPlan {
+  const plan = planBootCoreNative({
+    bundleConfigSynthDir: synthBundleDir,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).bundleConfigPaths;
+  if (plan.rootfsDir === null || plan.configPath === null) {
+    throw new BootError(
+      "BOOT_PACK_FAILED",
+      "boot: native planner returned incomplete bundle config paths",
+    );
+  }
+  return { rootfsDir: plan.rootfsDir, configPath: plan.configPath };
+}
+
 export function planBootBundleEnvNative(input: {
   imageEnv?: Record<string, string>;
   guestEnv: Record<string, string>;
@@ -744,13 +828,18 @@ export function planBootMachinenConfigNative(input: {
   }).machinenConfig;
 }
 
-export function planBootStatsFileNative(input: { existingPath?: string; plannedPath?: string }): {
+export function planBootStatsFileNative(input: {
+  existingPath?: string;
+  plannedPath?: string;
+  tempDir?: string;
+}): {
   statsFilePath?: string;
   vmmStatsFile?: string;
 } {
   const plan = planBootCoreNative({
     existingStatsFile: input.existingPath,
     statsFilePath: input.plannedPath,
+    statsFileTempDir: input.tempDir,
     vmmMemoryPreset: true,
     hasImage: false,
     hasCmd: false,
@@ -819,12 +908,14 @@ export function planBootVmstateEnvNative(input: {
 
 export function planBootVmstateRuntimeNative(input: {
   statePath?: string;
+  stateTempDir?: string;
   chainId: string;
   restorePath?: string;
   forkedFrom?: string;
 }): BootVmstateRuntimePlan {
   return planBootCoreNative({
     bootVmstateStatePath: input.statePath,
+    bootVmstateTempDir: input.stateTempDir,
     bootVmstateChainId: input.chainId,
     bootVmstateRestorePath: input.restorePath,
     bootVmstateForkedFrom: input.forkedFrom,
@@ -853,6 +944,20 @@ export function planBootKernelDtbNative(input: { kernelPath?: string; dtbPath?: 
   };
 }
 
+export function planBootInitrdEnvNative(initrdPath: string): string {
+  const plan = planBootCoreNative({
+    initrdPath,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  if (plan.vmmInitrd === null) {
+    throw new BootError("BOOT_PACK_FAILED", "boot: native planner returned no initrd path");
+  }
+  return plan.vmmInitrd;
+}
+
 export function planBootVmmArgvNative(input: {
   binary: string;
   args: string[];
@@ -874,16 +979,13 @@ export function planBootVmmArgvNative(input: {
 }
 
 export function rootDiskPlanMode(rootDisk: boolean | string | undefined): RootDiskPlanMode {
-  if (rootDisk === false) {
-    return "false";
-  }
-  if (rootDisk === true) {
-    return "true";
-  }
-  if (typeof rootDisk === "string") {
-    return "path";
-  }
-  return "unset";
+  return rootDisk === false
+    ? "false"
+    : rootDisk === true
+      ? "true"
+      : typeof rootDisk === "string"
+        ? "path"
+        : "unset";
 }
 
 function bootPlanError(code: ErrorCode, message: string, opts?: MachinenErrorOptions): Error {
@@ -894,6 +996,4 @@ function numberText(value: number | undefined): string | null {
   return value === undefined ? null : String(value);
 }
 
-function numberTextRequired(value: number): string {
-  return String(value);
-}
+const numberTextRequired = (value: number): string => String(value);

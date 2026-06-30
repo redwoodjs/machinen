@@ -16,6 +16,8 @@ type RegistryVmstatePlan = {
   checkpointSequence: number | null;
 };
 export type PlannedPortForward = { hostPort: number; guestPort: number; hostAddr?: string };
+export type BundleWorkspacePlan = { cpioPath: string | null; synthBundleDir: string | null };
+export type BundleConfigPathsPlan = { rootfsDir: string | null; configPath: string | null };
 type RegistryPortForwardPlan = PlannedPortForward;
 export type BootVmstateRuntimePlan = {
   statePath: string | null;
@@ -43,7 +45,11 @@ export type ProvisionBootPlan = {
   rootDiskPath: string | null;
 };
 export type ProvisionWorkloadPlan = { tarToDiskCommand: string; poweroffCommand: string };
-export type ProvisionRepackPlan = { extractArgs: string[]; targzArgs: string[] };
+export type ProvisionRepackPlan = {
+  extractArgs: string[];
+  targzArgs: string[];
+  imageConfigPath: string | null;
+};
 export type ProvisionImageConfigPlan = { cmd?: string[]; env?: Record<string, string> } | null;
 export type ProvisionRuntimePlan = {
   scratchSizeBytes: number;
@@ -122,6 +128,7 @@ export interface NativeBootPlanResult {
   usePdeathsig: boolean;
   vmmKernel: string | null;
   vmmDtb: string | null;
+  vmmInitrd: string | null;
   vmmSnapshotPath: string | null;
   vmmRestorePath: string | null;
   vmmVmstateTiming: string | null;
@@ -135,6 +142,8 @@ export interface NativeBootPlanResult {
   machinenConfig: MachinenConfigPlan;
   bundleCommand: string[];
   bundleEnv: Record<string, string>;
+  bundleWorkspace: BundleWorkspacePlan;
+  bundleConfigPaths: BundleConfigPathsPlan;
   provisionAssets: ProvisionAssetsPlan;
   provisionBoot: ProvisionBootPlan;
   provisionWorkload: ProvisionWorkloadPlan;
@@ -144,6 +153,7 @@ export interface NativeBootPlanResult {
   scratchDisk: ScratchDiskPlan;
   rootDiskRuntime: RootDiskRuntimePlan;
   mountDiskRuntime: MountDiskRuntimePlan;
+  mountDiskFdEnv: Record<string, string>;
   registryShape: RegistryShapePlan;
 }
 
@@ -170,6 +180,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     typeof data.usePdeathsig === "boolean",
     nullableString(data.vmmKernel),
     nullableString(data.vmmDtb),
+    nullableString(data.vmmInitrd),
     nullableString(data.vmmSnapshotPath),
     nullableString(data.vmmRestorePath),
     nullableString(data.vmmVmstateTiming),
@@ -183,6 +194,8 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isMachinenConfigPlan(data.machinenConfig),
     isStringArray(data.bundleCommand),
     isStringRecord(data.bundleEnv),
+    isBundleWorkspacePlan(data.bundleWorkspace),
+    isBundleConfigPathsPlan(data.bundleConfigPaths),
     isProvisionAssetsPlan(data.provisionAssets),
     isProvisionBootPlan(data.provisionBoot),
     isProvisionWorkloadPlan(data.provisionWorkload),
@@ -192,8 +205,25 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isScratchDiskPlan(data.scratchDisk),
     isRootDiskRuntimePlan(data.rootDiskRuntime),
     isMountDiskRuntimePlan(data.mountDiskRuntime),
+    isStringRecord(data.mountDiskFdEnv),
     isRegistryShapePlan(data.registryShape),
   ].every(Boolean);
+}
+
+function isBundleWorkspacePlan(value: unknown): value is BundleWorkspacePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<BundleWorkspacePlan>;
+  return [nullableString(plan.cpioPath), nullableString(plan.synthBundleDir)].every(Boolean);
+}
+
+function isBundleConfigPathsPlan(value: unknown): value is BundleConfigPathsPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<BundleConfigPathsPlan>;
+  return [nullableString(plan.rootfsDir), nullableString(plan.configPath)].every(Boolean);
 }
 
 function nullableCpuPolicy(value: unknown): value is CpuPolicyPlan | null {
@@ -255,7 +285,11 @@ function isProvisionRepackPlan(value: unknown): value is ProvisionRepackPlan {
     return false;
   }
   const plan = value as Partial<ProvisionRepackPlan>;
-  return isStringArray(plan.extractArgs) && isStringArray(plan.targzArgs);
+  return (
+    isStringArray(plan.extractArgs) &&
+    isStringArray(plan.targzArgs) &&
+    nullableString(plan.imageConfigPath)
+  );
 }
 
 function isProvisionImageConfigPlan(value: unknown): value is ProvisionImageConfigPlan {

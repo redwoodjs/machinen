@@ -65,6 +65,7 @@ pub const GuestHostnameInput = struct {
 pub const VsockPlanInput = struct {
     existing_spec: ?[]const u8 = null,
     auto_uds_path: ?[]const u8 = null,
+    auto_temp_dir: ?[]const u8 = null,
 };
 
 pub const VsockPlan = struct {
@@ -120,13 +121,38 @@ pub const BundleEnvInput = struct {
     guest_env: []const EnvPair = &.{},
 };
 
+pub const BundleWorkspaceInput = struct {
+    temp_dir: ?[]const u8 = null,
+};
+
+pub const BundleWorkspacePlan = struct {
+    cpio_path: ?[]const u8,
+    synth_bundle_dir: ?[]const u8,
+};
+
+pub const BundleConfigPathsInput = struct {
+    synth_bundle_dir: ?[]const u8 = null,
+};
+
+pub const BundleConfigPathsPlan = struct {
+    rootfs_dir: ?[]const u8,
+    config_path: ?[]const u8,
+};
+
 pub const ProvisionGuestCpu = enum {
     arm64,
     amd64,
 };
 
+pub const ProvisionGuestCpuInput = struct {
+    arch_override: ?[]const u8 = null,
+    host_arch: ?[]const u8 = null,
+};
+
 pub const ProvisionAssetsInput = struct {
-    guest_cpu: ProvisionGuestCpu = .arm64,
+    guest_cpu: ?ProvisionGuestCpu = null,
+    arch_override: ?[]const u8 = null,
+    host_arch: ?[]const u8 = null,
 };
 
 pub const ProvisionAssetsPlan = struct {
@@ -170,6 +196,7 @@ pub const ProvisionRepackInput = struct {
 pub const ProvisionRepackPlan = struct {
     extract_args: []const []const u8,
     targz_args: []const []const u8,
+    image_config_path: ?[]const u8,
 };
 
 pub const ProvisionImageConfigInput = struct {
@@ -211,6 +238,14 @@ pub const KernelDtbPlan = struct {
     vmm_dtb: ?[]const u8,
 };
 
+pub const InitrdInput = struct {
+    initrd_path: ?[]const u8 = null,
+};
+
+pub const InitrdPlan = struct {
+    vmm_initrd: ?[]const u8,
+};
+
 pub const VmstateEnvInput = struct {
     state_path: ?[]const u8 = null,
     restore_path: ?[]const u8 = null,
@@ -226,6 +261,7 @@ pub const VmstateEnvPlan = struct {
 
 pub const VmstateRuntimeInput = struct {
     state_path: ?[]const u8 = null,
+    state_temp_dir: ?[]const u8 = null,
     chain_id: ?[]const u8 = null,
     restore_path: ?[]const u8 = null,
     forked_from: ?[]const u8 = null,
@@ -254,6 +290,7 @@ pub const LiveMount = struct {
 pub const StatsFileInput = struct {
     existing_path: ?[]const u8 = null,
     planned_path: ?[]const u8 = null,
+    planned_temp_dir: ?[]const u8 = null,
 };
 
 pub const StatsFilePlan = struct {
@@ -327,6 +364,11 @@ pub const MountDiskRuntimePlan = struct {
     source_upper_path: ?[]const u8,
     guest: ?[]const u8,
     upper_size_bytes: ?u64,
+};
+
+pub const MountDiskFdEnvInput = struct {
+    lower_fd: ?u64 = null,
+    upper_fd: ?u64 = null,
 };
 
 pub const RegistryCleanupInput = struct {
@@ -492,6 +534,7 @@ pub const PlanError = error{
     MissingScratchPath,
     MissingRootDiskRuntimePath,
     MissingMountDiskRuntimeField,
+    MissingMountDiskFdField,
     IncompleteRegistryMountDisk,
     MissingProvisionRepackField,
     MissingRegistryCpuStatus,
@@ -571,10 +614,14 @@ fn isHostnameAlnum(c: u8) bool {
     return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9');
 }
 
-pub fn planVmstateRuntime(input: VmstateRuntimeInput) PlanError!VmstateRuntimePlan {
+pub fn planVmstateRuntime(
+    allocator: std.mem.Allocator,
+    input: VmstateRuntimeInput,
+) PlanError!VmstateRuntimePlan {
     assert(@sizeOf(VmstateRuntimeInput) > 0);
 
     if (input.state_path == null and
+        input.state_temp_dir == null and
         input.chain_id == null and
         input.restore_path == null and
         input.forked_from == null)
@@ -587,8 +634,12 @@ pub fn planVmstateRuntime(input: VmstateRuntimeInput) PlanError!VmstateRuntimePl
         };
     }
     const chain_id = input.chain_id orelse return error.MissingVmstateRuntimeChainId;
+    const state_path = input.state_path orelse blk: {
+        const dir = input.state_temp_dir orelse break :blk null;
+        break :blk try std.fs.path.join(allocator, &.{ dir, "state.vmstate" });
+    };
     return .{
-        .state_path = input.state_path,
+        .state_path = state_path,
         .chain_id = chain_id,
         .checkpoint_parent = if (input.restore_path != null) input.forked_from else null,
         .checkpoint_sequence = 0,
@@ -653,6 +704,14 @@ pub fn planVsock(allocator: std.mem.Allocator, input: VsockPlanInput) !VsockPlan
             .vmm_vsock = try std.mem.concat(allocator, u8, &.{ "in:1978:", uds }),
         };
     }
+    if (input.auto_temp_dir) |dir| {
+        const uds = try std.fs.path.join(allocator, &.{ dir, "exec.sock" });
+        errdefer allocator.free(uds);
+        return .{
+            .uds_path = uds,
+            .vmm_vsock = try std.mem.concat(allocator, u8, &.{ "in:1978:", uds }),
+        };
+    }
     return .{ .uds_path = null, .vmm_vsock = null };
 }
 
@@ -677,6 +736,12 @@ pub fn planKernelDtb(input: KernelDtbInput) KernelDtbPlan {
     assert(@sizeOf(KernelDtbInput) > 0);
 
     return .{ .vmm_kernel = input.kernel_path, .vmm_dtb = input.dtb_path };
+}
+
+pub fn planInitrdEnv(input: InitrdInput) InitrdPlan {
+    assert(@sizeOf(InitrdInput) > 0);
+
+    return .{ .vmm_initrd = input.initrd_path };
 }
 
 pub fn planVmstateEnv(input: VmstateEnvInput) VmstateEnvPlan {
@@ -736,13 +801,20 @@ pub fn planVirtiofsEnv(allocator: std.mem.Allocator, mounts: []const LiveMount) 
     return out.toOwnedSlice(allocator);
 }
 
-pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
+pub fn planStatsFile(allocator: std.mem.Allocator, input: StatsFileInput) !StatsFilePlan {
     assert(@sizeOf(StatsFileInput) > 0);
 
     if (input.existing_path) |path| {
         return .{ .stats_file_path = path, .vmm_stats_file = null };
     }
-    return .{ .stats_file_path = input.planned_path, .vmm_stats_file = input.planned_path };
+    const planned_path = input.planned_path orelse if (input.planned_temp_dir) |dir|
+        try std.fs.path.join(allocator, &.{ dir, "stats.bin" })
+    else
+        null;
+    if (planned_path) |path| {
+        return .{ .stats_file_path = path, .vmm_stats_file = path };
+    }
+    return .{ .stats_file_path = null, .vmm_stats_file = null };
 }
 
 pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
@@ -832,7 +904,7 @@ pub fn planProvisionRepack(
     assert(@sizeOf(ProvisionRepackInput) > 0);
 
     if (provisionRepackInputEmpty(input)) {
-        return .{ .extract_args = &.{}, .targz_args = &.{} };
+        return .{ .extract_args = &.{}, .targz_args = &.{}, .image_config_path = null };
     }
     const disk_path = input.disk_path orelse return error.MissingProvisionRepackField;
     const out_path = input.out_path orelse return error.MissingProvisionRepackField;
@@ -849,7 +921,16 @@ pub fn planProvisionRepack(
         &.{&[_][]const u8{ "-czf", out_path, "-C", extract_dir, "." }},
     );
     errdefer allocator.free(targz_args);
-    return .{ .extract_args = extract_args, .targz_args = targz_args };
+    const image_config_path = try std.fs.path.join(allocator, &.{
+        extract_dir,
+        "machinen-config.json",
+    });
+    errdefer allocator.free(image_config_path);
+    return .{
+        .extract_args = extract_args,
+        .targz_args = targz_args,
+        .image_config_path = image_config_path,
+    };
 }
 
 fn provisionRepackInputEmpty(input: ProvisionRepackInput) bool {
@@ -897,10 +978,27 @@ fn planProvisionVsock(
     return null;
 }
 
+pub fn planProvisionGuestCpu(input: ProvisionGuestCpuInput) ProvisionGuestCpu {
+    assert(@sizeOf(ProvisionGuestCpuInput) > 0);
+
+    if (input.arch_override) |override| {
+        if (std.mem.eql(u8, override, "arm64")) return .arm64;
+        if (std.mem.eql(u8, override, "amd64")) return .amd64;
+    }
+    if (input.host_arch) |host_arch| {
+        if (std.mem.eql(u8, host_arch, "x64")) return .amd64;
+    }
+    return .arm64;
+}
+
 pub fn planProvisionAssets(input: ProvisionAssetsInput) ProvisionAssetsPlan {
     assert(@sizeOf(ProvisionAssetsInput) > 0);
 
-    return switch (input.guest_cpu) {
+    const cpu = input.guest_cpu orelse planProvisionGuestCpu(.{
+        .arch_override = input.arch_override,
+        .host_arch = input.host_arch,
+    });
+    return switch (cpu) {
         .amd64 => .{
             .cpu = "amd64",
             .kernel_asset = "bzImage-x86_64",
@@ -913,6 +1011,45 @@ pub fn planProvisionAssets(input: ProvisionAssetsInput) ProvisionAssetsPlan {
             .dtb_asset = "virt-arm64.dtb",
             .rootfs_asset = "rootfs-debian-arm64.tar.gz",
         },
+    };
+}
+
+pub fn planBundleWorkspace(
+    allocator: std.mem.Allocator,
+    input: BundleWorkspaceInput,
+) !BundleWorkspacePlan {
+    assert(@sizeOf(BundleWorkspaceInput) > 0);
+
+    const temp_dir = input.temp_dir orelse return .{
+        .cpio_path = null,
+        .synth_bundle_dir = null,
+    };
+    const cpio_path = try std.fs.path.join(allocator, &.{ temp_dir, "initramfs.cpio" });
+    errdefer allocator.free(cpio_path);
+    return .{
+        .cpio_path = cpio_path,
+        .synth_bundle_dir = try std.fs.path.join(allocator, &.{ temp_dir, "bundle" }),
+    };
+}
+
+pub fn planBundleConfigPaths(
+    allocator: std.mem.Allocator,
+    input: BundleConfigPathsInput,
+) !BundleConfigPathsPlan {
+    assert(@sizeOf(BundleConfigPathsInput) > 0);
+
+    const synth_bundle_dir = input.synth_bundle_dir orelse return .{
+        .rootfs_dir = null,
+        .config_path = null,
+    };
+    const rootfs_dir = try std.fs.path.join(allocator, &.{ synth_bundle_dir, "rootfs" });
+    errdefer allocator.free(rootfs_dir);
+    return .{
+        .rootfs_dir = rootfs_dir,
+        .config_path = try std.fs.path.join(allocator, &.{
+            synth_bundle_dir,
+            "machinen-config.json",
+        }),
     };
 }
 
@@ -1106,6 +1243,29 @@ fn planRegistryVmstate(input: RegistryVmstateInput) PlanError!RegistryVmstatePla
         .checkpoint_sequence = input.checkpoint_sequence orelse
             return error.MissingRegistryVmstateField,
     };
+}
+
+pub fn planMountDiskFdEnv(
+    allocator: std.mem.Allocator,
+    input: MountDiskFdEnvInput,
+) ![]EnvPair {
+    assert(@sizeOf(MountDiskFdEnvInput) > 0);
+
+    if (input.lower_fd == null and input.upper_fd == null) return &.{};
+    const lower_fd = input.lower_fd orelse return error.MissingMountDiskFdField;
+    const upper_fd = input.upper_fd orelse return error.MissingMountDiskFdField;
+    var lower_buf: [20]u8 = undefined;
+    var upper_buf: [20]u8 = undefined;
+    const lower_text = try std.fmt.bufPrint(&lower_buf, "{d}", .{lower_fd});
+    const upper_text = try std.fmt.bufPrint(&upper_buf, "{d}", .{upper_fd});
+    const lower_value = try std.mem.concat(allocator, u8, &.{lower_text});
+    errdefer allocator.free(lower_value);
+    const upper_value = try std.mem.concat(allocator, u8, &.{upper_text});
+    errdefer allocator.free(upper_value);
+    return try std.mem.concat(allocator, EnvPair, &.{&[_]EnvPair{
+        .{ .key = "MACHINEN_MOUNTDISK_LOWER_FD", .value = lower_value },
+        .{ .key = "MACHINEN_MOUNTDISK_UPPER_FD", .value = upper_value },
+    }});
 }
 
 fn planRegistryCpu(input: RegistryShapeInput) PlanError!?RegistryCpuPlan {
@@ -1525,7 +1685,7 @@ test "planPdeathsig defaults on and lets detach or explicit false disable it" {
 }
 
 test "planVmstateRuntime projects chain defaults and restore parent" {
-    const fresh = try planVmstateRuntime(.{
+    const fresh = try planVmstateRuntime(std.testing.allocator, .{
         .state_path = "/tmp/state.vmstate",
         .chain_id = "chain-1",
     });
@@ -1534,7 +1694,7 @@ test "planVmstateRuntime projects chain defaults and restore parent" {
     try std.testing.expect(fresh.checkpoint_parent == null);
     try std.testing.expectEqual(@as(u64, 0), fresh.checkpoint_sequence.?);
 
-    const restore = try planVmstateRuntime(.{
+    const restore = try planVmstateRuntime(std.testing.allocator, .{
         .state_path = "/tmp/state.vmstate",
         .chain_id = "chain-2",
         .restore_path = "/tmp/restore.vmstate",
@@ -1543,14 +1703,22 @@ test "planVmstateRuntime projects chain defaults and restore parent" {
     try std.testing.expectEqualStrings("/snap/parent", restore.checkpoint_parent.?);
     try std.testing.expectEqual(@as(u64, 0), restore.checkpoint_sequence.?);
 
-    const empty = try planVmstateRuntime(.{});
+    const empty = try planVmstateRuntime(std.testing.allocator, .{});
     try std.testing.expect(empty.state_path == null);
     try std.testing.expect(empty.chain_id == null);
     try std.testing.expect(empty.checkpoint_sequence == null);
 
-    try std.testing.expectError(error.MissingVmstateRuntimeChainId, planVmstateRuntime(.{
-        .state_path = "/tmp/state.vmstate",
-    }));
+    const temp = try planVmstateRuntime(std.testing.allocator, .{
+        .state_temp_dir = "/tmp/machinen-vsock-abc",
+        .chain_id = "chain-3",
+    });
+    defer std.testing.allocator.free(temp.state_path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-vsock-abc/state.vmstate", temp.state_path.?);
+
+    try std.testing.expectError(error.MissingVmstateRuntimeChainId, planVmstateRuntime(
+        std.testing.allocator,
+        .{ .state_path = "/tmp/state.vmstate" },
+    ));
 }
 
 test "planNestedEnv sets nested only when requested" {
@@ -1712,6 +1880,26 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectEqualStrings("rw", plan.live_mounts[0].mode);
 }
 
+test "planMountDiskFdEnv formats inherited fd env entries" {
+    const allocator = std.testing.allocator;
+    const env = try planMountDiskFdEnv(allocator, .{ .lower_fd = 3, .upper_fd = 4 });
+    defer allocator.free(env[0].value);
+    defer allocator.free(env[1].value);
+    defer allocator.free(env);
+    try std.testing.expect(env.len == 2);
+    try std.testing.expectEqualStrings("MACHINEN_MOUNTDISK_LOWER_FD", env[0].key);
+    try std.testing.expectEqualStrings("3", env[0].value);
+    try std.testing.expectEqualStrings("MACHINEN_MOUNTDISK_UPPER_FD", env[1].key);
+    try std.testing.expectEqualStrings("4", env[1].value);
+
+    const none = try planMountDiskFdEnv(allocator, .{});
+    try std.testing.expect(none.len == 0);
+    try std.testing.expectError(
+        error.MissingMountDiskFdField,
+        planMountDiskFdEnv(allocator, .{ .lower_fd = 3 }),
+    );
+}
+
 test "planMountDiskRuntime selects restore and fresh actions" {
     const none = try planMountDiskRuntime(.{});
     try std.testing.expectEqualStrings("none", none.action);
@@ -1806,6 +1994,7 @@ test "planProvisionWorkload and planProvisionRepack build commands" {
     });
     defer allocator.free(repack.extract_args);
     defer allocator.free(repack.targz_args);
+    defer allocator.free(repack.image_config_path.?);
     try std.testing.expectEqualSlices(
         []const u8,
         &[_][]const u8{ "-xf", "/tmp/scratch.img", "-C", "/tmp/extract" },
@@ -1845,6 +2034,22 @@ test "planProvisionBoot builds provision boot inputs" {
     try std.testing.expectEqualStrings("/tmp/rootfs.img", plan.root_disk_path.?);
 }
 
+test "planProvisionGuestCpu uses override, host arch, and arm64 fallback" {
+    try std.testing.expectEqual(.arm64, planProvisionGuestCpu(.{}));
+    try std.testing.expectEqual(.amd64, planProvisionGuestCpu(.{
+        .arch_override = "amd64",
+        .host_arch = "arm64",
+    }));
+    try std.testing.expectEqual(.arm64, planProvisionGuestCpu(.{
+        .arch_override = "arm64",
+        .host_arch = "x64",
+    }));
+    try std.testing.expectEqual(.amd64, planProvisionGuestCpu(.{
+        .arch_override = "bogus",
+        .host_arch = "x64",
+    }));
+}
+
 test "planProvisionAssets selects asset names by guest CPU" {
     const arm = planProvisionAssets(.{ .guest_cpu = .arm64 });
     try std.testing.expectEqualStrings("arm64", arm.cpu);
@@ -1857,6 +2062,46 @@ test "planProvisionAssets selects asset names by guest CPU" {
     try std.testing.expectEqualStrings("bzImage-x86_64", x64.kernel_asset);
     try std.testing.expect(x64.dtb_asset == null);
     try std.testing.expectEqualStrings("rootfs-debian-amd64.tar.gz", x64.rootfs_asset);
+}
+
+test "planBundleWorkspace derives staging paths from the runtime-owned temp dir" {
+    const planned = try planBundleWorkspace(
+        std.testing.allocator,
+        .{ .temp_dir = "/tmp/machinen-bundle-abc" },
+    );
+    defer std.testing.allocator.free(planned.cpio_path.?);
+    defer std.testing.allocator.free(planned.synth_bundle_dir.?);
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-bundle-abc/initramfs.cpio",
+        planned.cpio_path.?,
+    );
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-bundle-abc/bundle",
+        planned.synth_bundle_dir.?,
+    );
+    const none = try planBundleWorkspace(std.testing.allocator, .{});
+    try std.testing.expect(none.cpio_path == null);
+    try std.testing.expect(none.synth_bundle_dir == null);
+}
+
+test "planBundleConfigPaths derives bundle config staging paths" {
+    const planned = try planBundleConfigPaths(
+        std.testing.allocator,
+        .{ .synth_bundle_dir = "/tmp/machinen-bundle-abc/bundle" },
+    );
+    defer std.testing.allocator.free(planned.rootfs_dir.?);
+    defer std.testing.allocator.free(planned.config_path.?);
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-bundle-abc/bundle/rootfs",
+        planned.rootfs_dir.?,
+    );
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-bundle-abc/bundle/machinen-config.json",
+        planned.config_path.?,
+    );
+    const none = try planBundleConfigPaths(std.testing.allocator, .{});
+    try std.testing.expect(none.rootfs_dir == null);
+    try std.testing.expect(none.config_path == null);
 }
 
 test "planBundleEnv overlays guest env on image env" {
@@ -2028,13 +2273,27 @@ test "planLiveMounts validates count guest paths modes and tags" {
 }
 
 test "planStatsFile preserves caller path or returns runtime-owned env value" {
-    const existing = planStatsFile(.{ .existing_path = "/tmp/caller-stats.bin" });
+    const existing = try planStatsFile(std.testing.allocator, .{
+        .existing_path = "/tmp/caller-stats.bin",
+    });
     try std.testing.expectEqualStrings("/tmp/caller-stats.bin", existing.stats_file_path.?);
     try std.testing.expectEqual(@as(?[]const u8, null), existing.vmm_stats_file);
 
-    const planned = planStatsFile(.{ .planned_path = "/tmp/runtime-stats.bin" });
+    const planned = try planStatsFile(std.testing.allocator, .{
+        .planned_path = "/tmp/runtime-stats.bin",
+    });
     try std.testing.expectEqualStrings("/tmp/runtime-stats.bin", planned.stats_file_path.?);
     try std.testing.expectEqualStrings("/tmp/runtime-stats.bin", planned.vmm_stats_file.?);
+
+    const planned_dir = try planStatsFile(std.testing.allocator, .{
+        .planned_temp_dir = "/tmp/machinen-stats-abc",
+    });
+    defer std.testing.allocator.free(planned_dir.stats_file_path.?);
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-stats-abc/stats.bin",
+        planned_dir.stats_file_path.?,
+    );
+    try std.testing.expectEqualStrings(planned_dir.stats_file_path.?, planned_dir.vmm_stats_file.?);
 }
 
 test "planVirtiofsEnv formats indexed virtiofs env entries" {
@@ -2082,6 +2341,13 @@ test "planKernelDtb forwards resolved kernel and dtb paths" {
     const empty = planKernelDtb(.{});
     try std.testing.expectEqual(@as(?[]const u8, null), empty.vmm_kernel);
     try std.testing.expectEqual(@as(?[]const u8, null), empty.vmm_dtb);
+}
+
+test "planInitrdEnv forwards resolved initrd path" {
+    const plan = planInitrdEnv(.{ .initrd_path = "/tmp/initramfs.cpio" });
+    try std.testing.expectEqualStrings("/tmp/initramfs.cpio", plan.vmm_initrd.?);
+    const empty = planInitrdEnv(.{});
+    try std.testing.expectEqual(@as(?[]const u8, null), empty.vmm_initrd);
 }
 
 test "planVmmArgv wraps VMM argv with pdeathsig when present" {
@@ -2151,6 +2417,18 @@ test "planVsock parses existing specs and formats auto specs" {
     defer std.testing.allocator.free(auto.vmm_vsock.?);
     try std.testing.expectEqualStrings("/tmp/auto.sock", auto.uds_path.?);
     try std.testing.expectEqualStrings("in:1978:/tmp/auto.sock", auto.vmm_vsock.?);
+
+    const auto_dir = try planVsock(
+        std.testing.allocator,
+        .{ .auto_temp_dir = "/tmp/machinen-vsock-abc" },
+    );
+    defer std.testing.allocator.free(auto_dir.uds_path.?);
+    defer std.testing.allocator.free(auto_dir.vmm_vsock.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-vsock-abc/exec.sock", auto_dir.uds_path.?);
+    try std.testing.expectEqualStrings(
+        "in:1978:/tmp/machinen-vsock-abc/exec.sock",
+        auto_dir.vmm_vsock.?,
+    );
 }
 
 test "planGuestEnv applies name and hostname wait defaults without overriding caller env" {

@@ -25,6 +25,7 @@ const ParsedRequest = struct {
     vsock_uds_path: ?[]const u8 = null,
     existing_vsock_spec: ?[]const u8 = null,
     auto_vsock_uds_path: ?[]const u8 = null,
+    auto_vsock_temp_dir: ?[]const u8 = null,
     port_forward: []const boot_plan.PortForwardMapping = &.{},
     vmm_binary: ?[]const u8 = null,
     vmm_args: []const []const u8 = &.{},
@@ -37,11 +38,13 @@ const ParsedRequest = struct {
     boot_timeout_forever: bool = false,
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
+    initrd_path: ?[]const u8 = null,
     vmstate_path: ?[]const u8 = null,
     restore_path: ?[]const u8 = null,
     enable_vmstate_timing: bool = false,
     existing_vmstate_timing: ?[]const u8 = null,
     boot_vmstate_state_path: ?[]const u8 = null,
+    boot_vmstate_temp_dir: ?[]const u8 = null,
     boot_vmstate_chain_id: ?[]const u8 = null,
     boot_vmstate_restore_path: ?[]const u8 = null,
     boot_vmstate_forked_from: ?[]const u8 = null,
@@ -50,6 +53,7 @@ const ParsedRequest = struct {
     live_mounts_resolved: []const boot_plan.LiveMount = &.{},
     existing_stats_file: ?[]const u8 = null,
     stats_file_path: ?[]const u8 = null,
+    stats_file_temp_dir: ?[]const u8 = null,
     config_cmd: []const []const u8 = &.{},
     config_env: std.json.ObjectMap = .{},
     config_guest_cwd: ?[]const u8 = null,
@@ -63,7 +67,11 @@ const ParsedRequest = struct {
     bundle_command_required: bool = false,
     bundle_image_env: std.json.ObjectMap = .{},
     bundle_guest_env: std.json.ObjectMap = .{},
-    provision_guest_cpu: boot_plan.ProvisionGuestCpu = .arm64,
+    bundle_workspace_temp_dir: ?[]const u8 = null,
+    bundle_config_synth_dir: ?[]const u8 = null,
+    provision_guest_cpu: ?boot_plan.ProvisionGuestCpu = null,
+    provision_guest_arch_override: ?[]const u8 = null,
+    provision_host_arch: ?[]const u8 = null,
     provision_base_path: ?[]const u8 = null,
     provision_kernel_path: ?[]const u8 = null,
     provision_dtb_path: ?[]const u8 = null,
@@ -93,6 +101,8 @@ const ParsedRequest = struct {
     mount_disk_source_upper_path: ?[]const u8 = null,
     mount_disk_guest: ?[]const u8 = null,
     mount_disk_upper_size_text: ?[]const u8 = null,
+    mount_disk_lower_fd_text: ?[]const u8 = null,
+    mount_disk_upper_fd_text: ?[]const u8 = null,
     registry_source_image_path: ?[]const u8 = null,
     registry_per_boot_root_disk: ?[]const u8 = null,
     registry_caller_root_disk_path: ?[]const u8 = null,
@@ -154,6 +164,7 @@ const boot_plan_fields = [_][]const u8{
     "vsockUdsPath",
     "existingVsockSpec",
     "autoVsockUdsPath",
+    "autoVsockTempDir",
     "portForward",
     "vmmBinary",
     "vmmArgs",
@@ -166,11 +177,13 @@ const boot_plan_fields = [_][]const u8{
     "bootTimeoutForever",
     "kernelPath",
     "dtbPath",
+    "initrdPath",
     "vmstatePath",
     "restorePath",
     "enableVmstateTiming",
     "existingVmstateTiming",
     "bootVmstateStatePath",
+    "bootVmstateTempDir",
     "bootVmstateChainId",
     "bootVmstateRestorePath",
     "bootVmstateForkedFrom",
@@ -179,6 +192,7 @@ const boot_plan_fields = [_][]const u8{
     "liveMountsResolved",
     "existingStatsFile",
     "statsFilePath",
+    "statsFileTempDir",
     "configCmd",
     "configEnv",
     "configGuestCwd",
@@ -192,7 +206,11 @@ const boot_plan_fields = [_][]const u8{
     "bundleCommandRequired",
     "bundleImageEnv",
     "bundleGuestEnv",
+    "bundleWorkspaceTempDir",
+    "bundleConfigSynthDir",
     "provisionGuestCpu",
+    "provisionGuestArchOverride",
+    "provisionHostArch",
     "provisionBasePath",
     "provisionKernelPath",
     "provisionDtbPath",
@@ -222,6 +240,8 @@ const boot_plan_fields = [_][]const u8{
     "mountDiskSourceUpperPath",
     "mountDiskGuest",
     "mountDiskUpperSize",
+    "mountDiskLowerFd",
+    "mountDiskUpperFd",
     "registrySourceImagePath",
     "registryPerBootRootDisk",
     "registryCallerRootDiskPath",
@@ -287,6 +307,7 @@ const RequestError = error{
     InvalidVsockUdsPath,
     InvalidExistingVsockSpec,
     InvalidAutoVsockUdsPath,
+    InvalidAutoVsockTempDir,
     InvalidPortForward,
     InvalidHostPort,
     InvalidGuestPort,
@@ -301,11 +322,13 @@ const RequestError = error{
     InvalidBootTimeoutForever,
     InvalidKernelPath,
     InvalidDtbPath,
+    InvalidInitrdPath,
     InvalidVmstatePath,
     InvalidRestorePath,
     InvalidEnableVmstateTiming,
     InvalidExistingVmstateTiming,
     InvalidBootVmstateStatePath,
+    InvalidBootVmstateTempDir,
     InvalidBootVmstateChainId,
     InvalidBootVmstateRestorePath,
     InvalidBootVmstateForkedFrom,
@@ -318,6 +341,7 @@ const RequestError = error{
     InvalidLiveMountTag,
     InvalidExistingStatsFile,
     InvalidStatsFilePath,
+    InvalidStatsFileTempDir,
     InvalidConfigCmd,
     InvalidConfigEnv,
     InvalidConfigEnvValue,
@@ -332,7 +356,11 @@ const RequestError = error{
     InvalidBundleCommandRequired,
     InvalidBundleImageEnv,
     InvalidBundleGuestEnv,
+    InvalidBundleWorkspaceTempDir,
+    InvalidBundleConfigSynthDir,
     InvalidProvisionGuestCpu,
+    InvalidProvisionGuestArchOverride,
+    InvalidProvisionHostArch,
     InvalidProvisionBasePath,
     InvalidProvisionKernelPath,
     InvalidProvisionDtbPath,
@@ -364,6 +392,8 @@ const RequestError = error{
     InvalidMountDiskSourceUpperPath,
     InvalidMountDiskGuest,
     InvalidMountDiskUpperSize,
+    InvalidMountDiskLowerFd,
+    InvalidMountDiskUpperFd,
     InvalidRegistrySourceImagePath,
     InvalidRegistryRootDiskPath,
     InvalidRegistryBootLogRoot,
@@ -423,6 +453,7 @@ const PlanParts = struct {
     use_pdeathsig: bool,
     planned_port_forwards: []const boot_plan.PortForwardMapping,
     kernel_dtb: boot_plan.KernelDtbPlan,
+    initrd_env: boot_plan.InitrdPlan,
     vmstate_env: boot_plan.VmstateEnvPlan,
     vmstate_runtime: boot_plan.VmstateRuntimePlan,
     nested_env: ?[]const u8,
@@ -435,6 +466,8 @@ const PlanParts = struct {
     config_live_mounts: []const boot_plan.LiveMount,
     bundle_command: []const []const u8,
     bundle_env: []const boot_plan.EnvPair,
+    bundle_workspace: boot_plan.BundleWorkspacePlan,
+    bundle_config_paths: boot_plan.BundleConfigPathsPlan,
     provision_assets: boot_plan.ProvisionAssetsPlan,
     provision_boot: boot_plan.ProvisionBootPlan,
     provision_workload: boot_plan.ProvisionWorkloadPlan,
@@ -444,6 +477,7 @@ const PlanParts = struct {
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
+    mount_disk_fd_env: []const boot_plan.EnvPair,
     registry_shape: boot_plan.RegistryShapePlan,
 };
 
@@ -458,6 +492,19 @@ fn makeCorePlan(
     return boot_plan.planCore(input);
 }
 
+const BootEnvParts = struct {
+    vsock_plan: boot_plan.VsockPlan,
+    vmm_argv: boot_plan.VmmArgvPlan,
+    use_pdeathsig: bool,
+    kernel_dtb: boot_plan.KernelDtbPlan,
+    initrd_env: boot_plan.InitrdPlan,
+    vmstate_env: boot_plan.VmstateEnvPlan,
+    vmstate_runtime: boot_plan.VmstateRuntimePlan,
+    nested_env: ?[]const u8,
+    virtiofs_env: []const boot_plan.EnvPair,
+    stats_file: boot_plan.StatsFilePlan,
+};
+
 const RuntimeParts = struct {
     planned_live_mounts: []const boot_plan.LiveMount,
     config_cmd: []const []const u8,
@@ -469,6 +516,7 @@ const RuntimeParts = struct {
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
+    mount_disk_fd_env: []const boot_plan.EnvPair,
     registry_shape: boot_plan.RegistryShapePlan,
 };
 
@@ -479,15 +527,63 @@ fn makePlanParts(
 ) !PlanParts {
     assert(@sizeOf(PlanParts) > 0);
 
+    const boot_env = try makeBootEnvParts(arena, parsed);
     const runtime = try makeRuntimeParts(arena, parsed);
     return .{
         .plan = plan,
         .cpu_policy = try makeCpuResources(parsed),
         .guest_env = try makeGuestEnv(arena, parsed),
         .guest_hostname = try makeGuestHostname(parsed),
+        .vsock_plan = boot_env.vsock_plan,
+        .vmm_argv = boot_env.vmm_argv,
+        .use_pdeathsig = boot_env.use_pdeathsig,
+        .planned_port_forwards = parsed.port_forward,
+        .kernel_dtb = boot_env.kernel_dtb,
+        .initrd_env = boot_env.initrd_env,
+        .vmstate_env = boot_env.vmstate_env,
+        .vmstate_runtime = boot_env.vmstate_runtime,
+        .nested_env = boot_env.nested_env,
+        .virtiofs_env = boot_env.virtiofs_env,
+        .stats_file = boot_env.stats_file,
+        .planned_live_mounts = runtime.planned_live_mounts,
+        .config_cmd = runtime.config_cmd,
+        .config_env = runtime.config_env,
+        .config_cwd = runtime.config_cwd,
+        .config_live_mounts = runtime.config_live_mounts,
+        .bundle_command = runtime.bundle_command,
+        .bundle_env = runtime.bundle_env,
+        .bundle_workspace = try boot_plan.planBundleWorkspace(arena, .{
+            .temp_dir = parsed.bundle_workspace_temp_dir,
+        }),
+        .bundle_config_paths = try boot_plan.planBundleConfigPaths(arena, .{
+            .synth_bundle_dir = parsed.bundle_config_synth_dir,
+        }),
+        .provision_assets = boot_plan.planProvisionAssets(.{
+            .guest_cpu = parsed.provision_guest_cpu,
+            .arch_override = parsed.provision_guest_arch_override,
+            .host_arch = parsed.provision_host_arch,
+        }),
+        .provision_boot = try makeProvisionBoot(arena, parsed),
+        .provision_workload = boot_plan.planProvisionWorkload(),
+        .provision_repack = try makeProvisionRepack(arena, parsed),
+        .provision_image_config = try makeProvisionImageConfig(arena, parsed),
+        .provision_runtime = try makeProvisionRuntime(arena, parsed),
+        .scratch_disk = runtime.scratch_disk,
+        .root_disk_runtime = runtime.root_disk_runtime,
+        .mount_disk_runtime = runtime.mount_disk_runtime,
+        .mount_disk_fd_env = runtime.mount_disk_fd_env,
+        .registry_shape = runtime.registry_shape,
+    };
+}
+
+fn makeBootEnvParts(arena: std.mem.Allocator, parsed: ParsedRequest) !BootEnvParts {
+    assert(@sizeOf(BootEnvParts) > 0);
+
+    return .{
         .vsock_plan = try boot_plan.planVsock(arena, .{
             .existing_spec = parsed.existing_vsock_spec,
             .auto_uds_path = parsed.auto_vsock_uds_path,
+            .auto_temp_dir = parsed.auto_vsock_temp_dir,
         }),
         .vmm_argv = try boot_plan.planVmmArgv(arena, .{
             .binary = parsed.vmm_binary,
@@ -498,10 +594,12 @@ fn makePlanParts(
             .detached = parsed.detached,
             .pdeathsig = parsed.pdeathsig_requested,
         }),
-        .planned_port_forwards = parsed.port_forward,
         .kernel_dtb = boot_plan.planKernelDtb(.{
             .kernel_path = parsed.kernel_path,
             .dtb_path = parsed.dtb_path,
+        }),
+        .initrd_env = boot_plan.planInitrdEnv(.{
+            .initrd_path = parsed.initrd_path,
         }),
         .vmstate_env = boot_plan.planVmstateEnv(.{
             .state_path = parsed.vmstate_path,
@@ -509,37 +607,20 @@ fn makePlanParts(
             .enable_timing = parsed.enable_vmstate_timing,
             .existing_timing = parsed.existing_vmstate_timing,
         }),
-        .vmstate_runtime = try boot_plan.planVmstateRuntime(.{
+        .vmstate_runtime = try boot_plan.planVmstateRuntime(arena, .{
             .state_path = parsed.boot_vmstate_state_path,
+            .state_temp_dir = parsed.boot_vmstate_temp_dir,
             .chain_id = parsed.boot_vmstate_chain_id,
             .restore_path = parsed.boot_vmstate_restore_path,
             .forked_from = parsed.boot_vmstate_forked_from,
         }),
         .nested_env = boot_plan.planNestedEnv(parsed.nested_requested),
         .virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved),
-        .stats_file = boot_plan.planStatsFile(.{
+        .stats_file = try boot_plan.planStatsFile(arena, .{
             .existing_path = parsed.existing_stats_file,
             .planned_path = parsed.stats_file_path,
+            .planned_temp_dir = parsed.stats_file_temp_dir,
         }),
-        .planned_live_mounts = runtime.planned_live_mounts,
-        .config_cmd = runtime.config_cmd,
-        .config_env = runtime.config_env,
-        .config_cwd = runtime.config_cwd,
-        .config_live_mounts = runtime.config_live_mounts,
-        .bundle_command = runtime.bundle_command,
-        .bundle_env = runtime.bundle_env,
-        .provision_assets = boot_plan.planProvisionAssets(.{
-            .guest_cpu = parsed.provision_guest_cpu,
-        }),
-        .provision_boot = try makeProvisionBoot(arena, parsed),
-        .provision_workload = boot_plan.planProvisionWorkload(),
-        .provision_repack = try makeProvisionRepack(arena, parsed),
-        .provision_image_config = try makeProvisionImageConfig(arena, parsed),
-        .provision_runtime = try makeProvisionRuntime(arena, parsed),
-        .scratch_disk = runtime.scratch_disk,
-        .root_disk_runtime = runtime.root_disk_runtime,
-        .mount_disk_runtime = runtime.mount_disk_runtime,
-        .registry_shape = runtime.registry_shape,
     };
 }
 
@@ -562,6 +643,7 @@ fn makeRuntimeParts(arena: std.mem.Allocator, parsed: ParsedRequest) !RuntimePar
         .scratch_disk = disks.scratch,
         .root_disk_runtime = disks.root,
         .mount_disk_runtime = disks.mount,
+        .mount_disk_fd_env = try makeMountDiskFdEnv(arena, parsed),
         .registry_shape = try makeRegistryShape(arena, parsed),
     };
 }
@@ -762,6 +844,23 @@ fn makeRegistryCpuPolicy(parsed: ParsedRequest) RequestError!?boot_plan.CpuPolic
     };
 }
 
+fn makeMountDiskFdEnv(
+    allocator: std.mem.Allocator,
+    parsed: ParsedRequest,
+) ![]const boot_plan.EnvPair {
+    assert(@sizeOf(boot_plan.MountDiskFdEnvInput) > 0);
+
+    const lower_fd = if (parsed.mount_disk_lower_fd_text) |text|
+        parseUnsigned(text) catch return error.InvalidMountDiskLowerFd
+    else
+        null;
+    const upper_fd = if (parsed.mount_disk_upper_fd_text) |text|
+        parseUnsigned(text) catch return error.InvalidMountDiskUpperFd
+    else
+        null;
+    return boot_plan.planMountDiskFdEnv(allocator, .{ .lower_fd = lower_fd, .upper_fd = upper_fd });
+}
+
 fn makeRegistryShape(
     arena: std.mem.Allocator,
     parsed: ParsedRequest,
@@ -843,6 +942,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try protocol.stdout(io, "\"command\":\"boot-plan\",\"data\":{");
     try writeCoreFields(io, parts.plan, parts.cpu_policy);
     try writeVsockKernelFields(io, parts.vsock_plan, parts.kernel_dtb);
+    try writeNullableStringField(io, "vmmInitrd", parts.initrd_env.vmm_initrd, true);
     try writeGuestHostnameField(io, "guestHostname", parts.guest_hostname, true);
     try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file);
     try writeVmstateRuntimeField(io, "vmstateRuntime", parts.vmstate_runtime, true);
@@ -857,6 +957,8 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeMachinenConfigField(io, "machinenConfig", parts, true);
     try writeStringArrayField(io, "bundleCommand", parts.bundle_command, true);
     try writeEnvObjectField(io, "bundleEnv", parts.bundle_env, true);
+    try writeBundleWorkspaceField(io, "bundleWorkspace", parts.bundle_workspace, true);
+    try writeBundleConfigPathsField(io, "bundleConfigPaths", parts.bundle_config_paths, true);
     try writeProvisionAssetsField(io, "provisionAssets", parts.provision_assets, true);
     try writeProvisionBootField(io, "provisionBoot", parts.provision_boot, true);
     try writeProvisionWorkloadField(io, "provisionWorkload", parts.provision_workload, true);
@@ -871,6 +973,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
     try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
+    try writeEnvObjectField(io, "mountDiskFdEnv", parts.mount_disk_fd_env, true);
     try writeRegistryShapeField(io, "registryShape", parts.registry_shape, true);
     try protocol.stdout(io, "}}\n");
 }
@@ -1107,6 +1210,36 @@ fn writeLiveMountsArrayField(
     try protocol.stdout(io, "]");
 }
 
+fn writeBundleWorkspaceField(
+    io: std.Io,
+    comptime field: []const u8,
+    workspace: boot_plan.BundleWorkspacePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "cpioPath", workspace.cpio_path, false);
+    try writeNullableStringField(io, "synthBundleDir", workspace.synth_bundle_dir, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeBundleConfigPathsField(
+    io: std.Io,
+    comptime field: []const u8,
+    paths: boot_plan.BundleConfigPathsPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "rootfsDir", paths.rootfs_dir, false);
+    try writeNullableStringField(io, "configPath", paths.config_path, true);
+    try protocol.stdout(io, "}");
+}
+
 fn writeProvisionAssetsField(
     io: std.Io,
     comptime field: []const u8,
@@ -1175,6 +1308,7 @@ fn writeProvisionRepackField(
     try protocol.stdout(io, "{");
     try writeStringArrayField(io, "extractArgs", repack.extract_args, false);
     try writeStringArrayField(io, "targzArgs", repack.targz_args, true);
+    try writeNullableStringField(io, "imageConfigPath", repack.image_config_path, true);
     try protocol.stdout(io, "}");
 }
 
@@ -1818,6 +1952,11 @@ fn parseVsockFields(object: std.json.ObjectMap, request: *ParsedRequest) Request
         "autoVsockUdsPath",
         error.InvalidAutoVsockUdsPath,
     );
+    request.auto_vsock_temp_dir = try optionalStringDefaultNull(
+        object,
+        "autoVsockTempDir",
+        error.InvalidAutoVsockTempDir,
+    );
 }
 
 fn parseVmmLaunchFields(
@@ -1883,6 +2022,11 @@ fn parseKernelFields(object: std.json.ObjectMap, request: *ParsedRequest) Reques
         error.InvalidKernelPath,
     );
     request.dtb_path = try optionalStringDefaultNull(object, "dtbPath", error.InvalidDtbPath);
+    request.initrd_path = try optionalStringDefaultNull(
+        object,
+        "initrdPath",
+        error.InvalidInitrdPath,
+    );
 }
 
 fn parseVmstateFields(object: std.json.ObjectMap, request: *ParsedRequest) RequestError!void {
@@ -1912,6 +2056,11 @@ fn parseVmstateFields(object: std.json.ObjectMap, request: *ParsedRequest) Reque
         object,
         "bootVmstateStatePath",
         error.InvalidBootVmstateStatePath,
+    );
+    request.boot_vmstate_temp_dir = try optionalStringDefaultNull(
+        object,
+        "bootVmstateTempDir",
+        error.InvalidBootVmstateTempDir,
     );
     request.boot_vmstate_chain_id = try optionalStringDefaultNull(
         object,
@@ -1954,6 +2103,11 @@ fn parseRuntimeMountStatsFields(
         object,
         "statsFilePath",
         error.InvalidStatsFilePath,
+    );
+    request.stats_file_temp_dir = try optionalStringDefaultNull(
+        object,
+        "statsFileTempDir",
+        error.InvalidStatsFileTempDir,
     );
 }
 
@@ -2043,6 +2197,16 @@ fn parseBundleFields(
         "bundleGuestEnv",
         error.InvalidBundleGuestEnv,
     );
+    request.bundle_workspace_temp_dir = try optionalStringDefaultNull(
+        object,
+        "bundleWorkspaceTempDir",
+        error.InvalidBundleWorkspaceTempDir,
+    );
+    request.bundle_config_synth_dir = try optionalStringDefaultNull(
+        object,
+        "bundleConfigSynthDir",
+        error.InvalidBundleConfigSynthDir,
+    );
 }
 
 fn parseProvisionFields(
@@ -2053,6 +2217,16 @@ fn parseProvisionFields(
     assert(@sizeOf(ParsedRequest) > 0);
 
     request.provision_guest_cpu = try optionalProvisionGuestCpu(object);
+    request.provision_guest_arch_override = try optionalStringDefaultNull(
+        object,
+        "provisionGuestArchOverride",
+        error.InvalidProvisionGuestArchOverride,
+    );
+    request.provision_host_arch = try optionalStringDefaultNull(
+        object,
+        "provisionHostArch",
+        error.InvalidProvisionHostArch,
+    );
     try parseProvisionBootFields(object, request);
     try parseProvisionRepackFields(object, request);
     try parseProvisionImageConfigFields(allocator, object, request);
@@ -2246,6 +2420,16 @@ fn parseMountDiskRuntimeFields(
         object,
         "mountDiskUpperSize",
         error.InvalidMountDiskUpperSize,
+    );
+    request.mount_disk_lower_fd_text = try optionalStringDefaultNull(
+        object,
+        "mountDiskLowerFd",
+        error.InvalidMountDiskLowerFd,
+    );
+    request.mount_disk_upper_fd_text = try optionalStringDefaultNull(
+        object,
+        "mountDiskUpperFd",
+        error.InvalidMountDiskUpperFd,
     );
     try parseRegistryShapeFields(object, request);
 }
@@ -2487,11 +2671,11 @@ fn optionalRegistryCpuControlStatus(object: std.json.ObjectMap) RequestError!?[]
 
 fn optionalProvisionGuestCpu(
     object: std.json.ObjectMap,
-) RequestError!boot_plan.ProvisionGuestCpu {
+) RequestError!?boot_plan.ProvisionGuestCpu {
     assert(@sizeOf(boot_plan.ProvisionGuestCpu) > 0);
 
-    const value = object.get("provisionGuestCpu") orelse return .arm64;
-    if (value == .null) return .arm64;
+    const value = object.get("provisionGuestCpu") orelse return null;
+    if (value == .null) return null;
     if (value != .string) return error.InvalidProvisionGuestCpu;
     if (std.mem.eql(u8, value.string, "amd64")) return .amd64;
     if (std.mem.eql(u8, value.string, "arm64")) return .arm64;
@@ -3042,6 +3226,11 @@ fn writeDiskPlanError(io: std.Io, err: anyerror) !bool {
             io,
             "BOOT_MOUNT_INVALID",
             "boot-plan mountDisk field missing",
+        ),
+        error.MissingMountDiskFdField => try writeBootError(
+            io,
+            "BOOT_MOUNT_INVALID",
+            "boot-plan mountDisk fd field missing",
         ),
         error.IncompleteRegistryMountDisk => try writeBootError(
             io,

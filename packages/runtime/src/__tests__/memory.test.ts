@@ -167,7 +167,7 @@ describe("boot-plan helper schema", () => {
     ]);
   });
 
-  it("plans vsock specs from caller env or auto UDS paths", () => {
+  it("plans vsock specs from caller env auto UDS paths or auto temp dirs", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
     const baseData = {
@@ -204,6 +204,19 @@ describe("boot-plan helper schema", () => {
     expect(JSON.parse(auto.stdout).data).toMatchObject({
       vsockUdsPath: "/tmp/exec.sock",
       vmmVsock: "in:1978:/tmp/exec.sock",
+    });
+
+    const autoTempDir = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, autoVsockTempDir: "/tmp/machinen-vsock-test" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(autoTempDir.status).toBe(0);
+    expect(JSON.parse(autoTempDir.stdout).data).toMatchObject({
+      vsockUdsPath: "/tmp/machinen-vsock-test/exec.sock",
+      vmmVsock: "in:1978:/tmp/machinen-vsock-test/exec.sock",
     });
   });
 
@@ -261,6 +274,28 @@ describe("boot-plan helper schema", () => {
       statePath: "/tmp/state.vmstate",
       chainId: "chain-1",
       checkpointParent: "/snap/parent",
+      checkpointSequence: 0,
+    });
+
+    const tempDir = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...requestData,
+          bootVmstateStatePath: null,
+          bootVmstateTempDir: "/tmp/machinen-vsock-test",
+          bootVmstateChainId: "chain-temp",
+          bootVmstateRestorePath: null,
+          bootVmstateForkedFrom: null,
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(tempDir.status).toBe(0);
+    expect(JSON.parse(tempDir.stdout).data.vmstateRuntime).toEqual({
+      statePath: "/tmp/machinen-vsock-test/state.vmstate",
+      chainId: "chain-temp",
+      checkpointParent: null,
       checkpointSequence: 0,
     });
   });
@@ -539,6 +574,7 @@ describe("boot-plan helper schema", () => {
     expect(data.provisionRepack).toEqual({
       extractArgs: ["-xf", "/tmp/scratch.img", "-C", "/tmp/extract"],
       targzArgs: ["-czf", "/tmp/out.tar.gz", "-C", "/tmp/extract", "."],
+      imageConfigPath: "/tmp/extract/machinen-config.json",
     });
   });
 
@@ -624,6 +660,90 @@ describe("boot-plan helper schema", () => {
       kernelAsset: "Image-arm64",
       dtbAsset: "virt-arm64.dtb",
       rootfsAsset: "rootfs-debian-arm64.tar.gz",
+    });
+
+    const override = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionGuestArchOverride: "amd64",
+          provisionHostArch: "arm64",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(override.status).toBe(0);
+    expect(JSON.parse(override.stdout).data.provisionAssets).toMatchObject({
+      cpu: "amd64",
+      kernelAsset: "bzImage-x86_64",
+    });
+
+    const hostFallback = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionGuestArchOverride: "unknown",
+          provisionHostArch: "x64",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(hostFallback.status).toBe(0);
+    expect(JSON.parse(hostFallback.stdout).data.provisionAssets).toMatchObject({
+      cpu: "amd64",
+      kernelAsset: "bzImage-x86_64",
+    });
+  });
+
+  it("plans bundle workspace paths", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      bundleWorkspaceTempDir: "/tmp/machinen-bundle-test",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.bundleWorkspace).toEqual({
+      cpioPath: "/tmp/machinen-bundle-test/initramfs.cpio",
+      synthBundleDir: "/tmp/machinen-bundle-test/bundle",
+    });
+  });
+
+  it("plans bundle config staging paths", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      bundleConfigSynthDir: "/tmp/machinen-bundle-test/bundle",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.bundleConfigPaths).toEqual({
+      rootfsDir: "/tmp/machinen-bundle-test/bundle/rootfs",
+      configPath: "/tmp/machinen-bundle-test/bundle/machinen-config.json",
     });
   });
 
@@ -765,6 +885,32 @@ describe("boot-plan helper schema", () => {
       sourceUpperPath: null,
       guest: "/mnt/data",
       upperSizeBytes: 8192,
+    });
+  });
+
+  it("plans mountdisk inherited fd env", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      mountDiskLowerFd: "3",
+      mountDiskUpperFd: "4",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.mountDiskFdEnv).toEqual({
+      MACHINEN_MOUNTDISK_LOWER_FD: "3",
+      MACHINEN_MOUNTDISK_UPPER_FD: "4",
     });
   });
 
@@ -972,6 +1118,19 @@ describe("boot-plan helper schema", () => {
       statsFilePath: "/tmp/runtime-stats.bin",
       vmmStatsFile: "/tmp/runtime-stats.bin",
     });
+
+    const tempDir = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, statsFileTempDir: "/tmp/machinen-stats-test" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(tempDir.status).toBe(0);
+    expect(JSON.parse(tempDir.stdout).data).toMatchObject({
+      statsFilePath: "/tmp/machinen-stats-test/stats.bin",
+      vmmStatsFile: "/tmp/machinen-stats-test/stats.bin",
+    });
   });
 
   it("plans virtiofs env entries for resolved live mounts", () => {
@@ -1002,7 +1161,7 @@ describe("boot-plan helper schema", () => {
     });
   });
 
-  it("plans kernel and dtb env paths", () => {
+  it("plans kernel dtb and initrd env paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
     const requestData = {
@@ -1016,6 +1175,7 @@ describe("boot-plan helper schema", () => {
       rootDisk: "false",
       kernelPath: "/tmp/Image",
       dtbPath: "/tmp/virt.dtb",
+      initrdPath: "/tmp/initramfs.cpio",
     };
     const result = spawnSync(helper, ["boot-plan"], {
       input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
@@ -1025,6 +1185,7 @@ describe("boot-plan helper schema", () => {
     expect(JSON.parse(result.stdout).data).toMatchObject({
       vmmKernel: "/tmp/Image",
       vmmDtb: "/tmp/virt.dtb",
+      vmmInitrd: "/tmp/initramfs.cpio",
     });
   });
 

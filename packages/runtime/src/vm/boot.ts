@@ -53,7 +53,9 @@ import { applyCpuControls, type CpuControlResult } from "../cpu-cgroup.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
+  planBootInitrdEnvNative,
   planBootKernelDtbNative,
+  planBootMountDiskFdEnvNative,
   planBootPortForwardNative,
   planBootRegistryNestedNative,
   planBootRegistryPortForwardNative,
@@ -91,7 +93,7 @@ import {
   teeOnLog,
 } from "./helpers.ts";
 import { performSnapshot, type SnapshotContext } from "./snapshot.ts";
-import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
+import { resolveSnapshotEngine } from "./snapshot-engine.ts";
 
 const debug = debugLib("machinen:boot");
 const vmmDebug = debugLib("machinen:vmm");
@@ -661,7 +663,7 @@ function packBootInitramfsIfNeeded(
     mountDiskUpperSizeBytes: opts.mountDiskUpperSizeBytes,
     onPhase: (name, ms) => phases.mark(`initramfs-pack.${name}`, ms),
   });
-  plan.env.MACHINEN_INITRD = packed.cpioPath;
+  plan.env.MACHINEN_INITRD = planBootInitrdEnvNative(packed.cpioPath);
   const packMs = phases.end("initramfs-pack");
   debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, packMs ?? -1);
   return { bundleTempDir: packed.tempDir, mountDiskPaths: packed.mountDisk };
@@ -1051,14 +1053,13 @@ function setupVmstateBoot(
   inputVsockTempDir: string | undefined,
 ): { vmstate: BootVmstateRuntime; vsockTempDir: string | undefined } {
   let vsockTempDir = inputVsockTempDir;
-  let statePath: string | undefined;
+  let stateTempDir: string | undefined;
   const chainId = randomBytes(16).toString("hex");
   if (resolveSnapshotEngine() === "vmstate" && opts.snapshot !== false) {
-    vsockTempDir = ensureVsockTempDir(vsockTempDir);
-    statePath = join(vsockTempDir, VMSTATE_FILE);
+    stateTempDir = vsockTempDir = ensureVsockTempDir(vsockTempDir);
   }
   const runtime = planBootVmstateRuntimeNative({
-    statePath,
+    stateTempDir,
     chainId,
     restorePath: opts._vmstateRestorePath,
     forkedFrom: opts.forkedFrom,
@@ -1343,10 +1344,9 @@ function setupVsockBridge(env: Record<string, string>): {
 } {
   const existingSpec = env.MACHINEN_VSOCK;
   const vsockTempDir = existingSpec ? undefined : mkdtempSync(join(tmpdir(), "machinen-vsock-"));
-  const autoVsockUdsPath = vsockTempDir ? join(vsockTempDir, "exec.sock") : undefined;
   const plan = planBootCoreNative({
     existingVsockSpec: existingSpec,
-    autoVsockUdsPath,
+    autoVsockTempDir: vsockTempDir,
     vmmMemoryPreset: true,
     hasImage: false,
     hasCmd: false,
@@ -1379,14 +1379,9 @@ function setupStatsFile(
     return { statsFilePath: plan.statsFilePath, statsTempDir: undefined };
   }
   let statsTempDir: string | undefined;
-  let plannedPath: string;
-  if (vsockTempDir) {
-    plannedPath = join(vsockTempDir, "stats.bin");
-  } else {
-    statsTempDir = mkdtempSync(join(tmpdir(), "machinen-stats-"));
-    plannedPath = join(statsTempDir, "stats.bin");
-  }
-  const plan = planBootStatsFileNative({ plannedPath });
+  const statsFileTempDir =
+    vsockTempDir ?? (statsTempDir = mkdtempSync(join(tmpdir(), "machinen-stats-")));
+  const plan = planBootStatsFileNative({ tempDir: statsFileTempDir });
   if (!plan.statsFilePath) {
     return { statsFilePath: undefined, statsTempDir };
   }
@@ -1509,9 +1504,14 @@ function openMountDiskFds(
       { cause: err },
     );
   }
-  stdio.push(lowerFd, upperFd);
-  env.MACHINEN_MOUNTDISK_LOWER_FD = "3";
-  env.MACHINEN_MOUNTDISK_UPPER_FD = "4";
+  const lowerChildFd = stdio.length;
+  stdio.push(lowerFd);
+  const upperChildFd = stdio.length;
+  stdio.push(upperFd);
+  Object.assign(
+    env,
+    planBootMountDiskFdEnvNative({ lowerFd: lowerChildFd, upperFd: upperChildFd }),
+  );
   return { lowerFd, upperFd };
 }
 
