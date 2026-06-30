@@ -18,6 +18,7 @@ Then dive deeper:
 
 Product docs:
 
+- [Runtime Zig core migration boundary](./architecture/runtime-zig-core-migration.md) — native helper boundary, guardrail, and package payload
 - [Snapshot, restore, and move](./snapshot/README.md) — current product surfaces
 - [vmstate specification](./snapshot/vmstate-specification.md) — whole-VM snapshot file format and saved state
 - [vmstate portability policy](./snapshot/vmstate-portability.md) — restore invariants and cross-HVF/KVM policy
