@@ -11,7 +11,12 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { arch, platform } from "node:os";
-import { BootError, type ErrorCode } from "./errors.ts";
+import {
+  BootError,
+  ErrorCode as ErrorCodes,
+  type ErrorCode,
+  type MachinenErrorOptions,
+} from "./errors.ts";
 
 const PROTOCOL_VERSION = 1;
 const HELPER_NAME = "machinen-runtime-helper";
@@ -22,6 +27,7 @@ interface RuntimeHelperCallOptions<TData> {
   data: unknown;
   isData: (value: unknown) => value is TData;
   errorCode?: ErrorCode;
+  makeError?: (code: ErrorCode, message: string, opts?: MachinenErrorOptions) => Error;
   mapFailure?: (error: RuntimeHelperErrorDetail) => RuntimeHelperMappedFailure | undefined;
 }
 
@@ -70,14 +76,16 @@ export function callRuntimeHelper<TData>(opts: RuntimeHelperCallOptions<TData>):
   const response = parseRuntimeHelperResponse<TData>(result.stdout, opts, helper, errorCode);
   if (response.ok === false) {
     const mapped = opts.mapFailure?.(response.error);
-    throw new BootError(
-      mapped?.errorCode ?? errorCode,
+    throw makeRuntimeHelperError(
+      opts,
+      mapped?.errorCode ?? responseErrorCode(response.error.code, errorCode),
       mapped?.message ??
         `${HELPER_NAME} ${opts.command} failed (${response.error.code}): ${response.error.message}`,
     );
   }
   if (result.status !== 0) {
-    throw new BootError(
+    throw makeRuntimeHelperError(
+      opts,
       errorCode,
       `${HELPER_NAME} ${opts.command} exited ${result.status} after returning ok:true.`,
     );
@@ -95,7 +103,8 @@ function parseRuntimeHelperResponse<TData>(
   try {
     parsed = JSON.parse(stdout);
   } catch (err) {
-    throw new BootError(
+    throw makeRuntimeHelperError(
+      opts,
       errorCode,
       `${HELPER_NAME} at ${helper} returned invalid JSON for ${opts.command}.`,
       {
@@ -107,13 +116,15 @@ function parseRuntimeHelperResponse<TData>(
     return parsed;
   }
   if (!isRuntimeHelperSuccessEnvelope(parsed, opts.command)) {
-    throw new BootError(
+    throw makeRuntimeHelperError(
+      opts,
       errorCode,
       `${HELPER_NAME} at ${helper} returned an invalid ${opts.command} response shape.`,
     );
   }
   if (!opts.isData(parsed.data)) {
-    throw new BootError(
+    throw makeRuntimeHelperError(
+      opts,
       errorCode,
       `${HELPER_NAME} at ${helper} returned invalid ${opts.command} response data.`,
     );
@@ -148,6 +159,23 @@ function isRuntimeHelperFailure(value: unknown): value is RuntimeHelperFailure {
     typeof response.error.code === "string" &&
     typeof response.error.message === "string"
   );
+}
+
+function makeRuntimeHelperError<TData>(
+  opts: RuntimeHelperCallOptions<TData>,
+  code: ErrorCode,
+  message: string,
+  errorOpts: MachinenErrorOptions = {},
+): Error {
+  return opts.makeError?.(code, message, errorOpts) ?? new BootError(code, message, errorOpts);
+}
+
+function responseErrorCode(code: string, fallback: ErrorCode): ErrorCode {
+  return isErrorCode(code) ? code : fallback;
+}
+
+function isErrorCode(code: string): code is ErrorCode {
+  return Object.values(ErrorCodes).includes(code as ErrorCode);
 }
 
 function resolveRuntimeHelper(errorCode: ErrorCode): string {

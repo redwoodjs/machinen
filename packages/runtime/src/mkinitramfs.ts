@@ -1,44 +1,16 @@
 // Build an initramfs cpio archive for the microvm boot path.
 //
-// Newc cpio format, written byte-for-byte so we can include device
-// nodes that macOS's native cpio tooling can't produce.
-//
-// Four modes exposed as functions:
-//
-//   packTinyBundle({ bundle, out, ... }) — pack a minimal cpio for the
-//     rootDisk boot path (#119): /init + /machinen-config.json +
-//     /etc/machinen-boot-epoch + /dev/console. ~500 KB. The on-disk
-//     rootfs is mounted from /dev/vda by /init; the kernel ships with
-//     virtio_*, ext4, and vsock built in, so no /modules/*.ko or
-//     finit_module pass is needed at boot.
-//
-//   packBundle({ bundle, base?, excludes?, out }) — pack a bundle's
-//     rootfs/, optionally overlaying it on a base tarball. Includes the
-//     bundle's machinen-config.json + a /dev/console node + a trailer.
-//     ~50 MB. Used by provision() (which needs a Debian userland in the
-//     cpio to run apt + tar against /dev/vda).
-//
-//   packRootfs({ rootfs, config?, excludes?, out }) — pack a rootfs
-//     directory directly. Adds /dev/console + trailer.
-//
-//   packWorkspace({ workspace, mountpoint?, excludes?, out, maxMb? })
-//     — pack everything under `workspace` rooted at /<mountpoint>.
-//     No trailer — designed to be appended to a base archive via
-//     the kernel's multi-cpio unpacker.
-//
-// This replaces the old test-fixtures/mkinitramfs.py and keeps the
-// same on-wire cpio layout so existing bundles keep booting.
+// The newc cpio encoder and filesystem/archive walking live in the
+// runtime Zig helper. This TypeScript module keeps the public API,
+// input validation, config/env patching, merge staging, and CLI glue.
 
 import { spawnSync } from "node:child_process";
 import {
   cpSync,
   existsSync,
-  lstatSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
-  readlinkSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -49,9 +21,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import debugLib from "debug";
 import { MkinitramfsError } from "./errors.ts";
+import { packMkinitramfsNative } from "./native/mkinitramfs.ts";
 
 const require_ = createRequire(import.meta.url);
-
 const debug = debugLib("machinen:mkinitramfs");
 
 /**
@@ -76,101 +48,6 @@ const DEFAULT_WORKSPACE_EXCLUDES = new Set<string>([
   ".pnpm-store",
 ]);
 
-// --- newc cpio encoder ---------------------------------------------
-
-interface NewcOptions {
-  uid?: number;
-  gid?: number;
-  nlink?: number;
-  mtime?: number;
-  rmajor?: number;
-  rminor?: number;
-  data?: Buffer;
-}
-
-interface NormalizedNewcOptions {
-  uid: number;
-  gid: number;
-  nlink: number;
-  mtime: number;
-  rmajor: number;
-  rminor: number;
-  data: Buffer;
-}
-
-/** Emit one newc cpio entry as a Buffer. */
-function newc(name: string, mode: number, opts: NewcOptions = {}): Buffer {
-  const normalized = normalizeNewcOptions(opts);
-  const nameBytes = newcNameBytes(name);
-  const header = Buffer.from(newcHeader(mode, normalized, nameBytes.length), "ascii");
-  return newcEntryBuffer(header, nameBytes, normalized.data);
-}
-
-function normalizeNewcOptions(opts: NewcOptions): NormalizedNewcOptions {
-  return {
-    uid: opts.uid ?? 0,
-    gid: opts.gid ?? 0,
-    nlink: opts.nlink ?? 1,
-    mtime: opts.mtime ?? 0,
-    rmajor: opts.rmajor ?? 0,
-    rminor: opts.rminor ?? 0,
-    data: opts.data ?? Buffer.alloc(0),
-  };
-}
-
-function newcNameBytes(name: string): Buffer {
-  return Buffer.concat([Buffer.from(name, "utf8"), Buffer.from([0])]);
-}
-
-function newcHeader(mode: number, opts: NormalizedNewcOptions, nameSize: number): string {
-  return "070701" + newcFields(mode, opts, nameSize).map(newcHexField).join("");
-}
-
-function newcFields(mode: number, opts: NormalizedNewcOptions, nameSize: number): number[] {
-  return [
-    0,
-    mode,
-    opts.uid,
-    opts.gid,
-    opts.nlink,
-    opts.mtime,
-    opts.data.length,
-    0, // devmajor
-    0, // devminor
-    opts.rmajor,
-    opts.rminor,
-    nameSize,
-    0, // check
-  ];
-}
-
-function newcHexField(value: number): string {
-  return value.toString(16).padStart(8, "0");
-}
-
-function newcEntryBuffer(header: Buffer, nameBytes: Buffer, data: Buffer): Buffer {
-  return Buffer.concat([
-    padNewcPart(Buffer.concat([header, nameBytes])),
-    data,
-    newcPadding(data.length),
-  ]);
-}
-
-function padNewcPart(buf: Buffer): Buffer {
-  const padding = newcPadding(buf.length);
-  return padding.length === 0 ? buf : Buffer.concat([buf, padding]);
-}
-
-function newcPadding(length: number): Buffer {
-  return Buffer.alloc(newcPaddingLength(length));
-}
-
-function newcPaddingLength(length: number): number {
-  return (4 - (length % 4)) % 4;
-}
-
-// --- excludes ------------------------------------------------------
-
 /** Parse an excludes file (one fnmatch-style pattern per line, `#` comments). */
 function loadExcludes(path: string): string[] {
   const raw = readFileSync(path, "utf8");
@@ -183,294 +60,6 @@ function loadExcludes(path: string): string[] {
   }
   return out;
 }
-
-/** fnmatch-case port — handles `*`, `?`, `[abc]`, `[!abc]`. */
-function fnmatchCase(name: string, pat: string): boolean {
-  return fnmatchRegex(pat).test(name);
-}
-
-interface FnmatchToken {
-  source: string;
-  nextIndex: number;
-}
-
-const SIMPLE_FNMATCH_TOKENS: Record<string, string> = {
-  "*": ".*",
-  "?": ".",
-};
-
-function fnmatchRegex(pat: string): RegExp {
-  let re = "^";
-  for (let i = 0; i < pat.length; i++) {
-    const token = translateFnmatchToken(pat, i);
-    re += token.source;
-    i = token.nextIndex;
-  }
-  return new RegExp(re + "$");
-}
-
-function translateFnmatchToken(pat: string, index: number): FnmatchToken {
-  const c = pat[index]!;
-  const simple = SIMPLE_FNMATCH_TOKENS[c];
-  if (simple !== undefined) {
-    return { source: simple, nextIndex: index };
-  }
-  if (c === "[") {
-    return translateFnmatchClass(pat, index);
-  }
-  return { source: regexLiteral(c), nextIndex: index };
-}
-
-function translateFnmatchClass(pat: string, index: number): FnmatchToken {
-  const end = findFnmatchClassEnd(pat, index);
-  if (end === -1) {
-    return { source: "\\[", nextIndex: index };
-  }
-  return { source: normalizeFnmatchClass(pat.slice(index, end + 1)), nextIndex: end };
-}
-
-function findFnmatchClassEnd(pat: string, index: number): number {
-  let j = fnmatchClassBodyStart(pat, index);
-  while (j < pat.length && pat[j] !== "]") {
-    j++;
-  }
-  return j >= pat.length ? -1 : j;
-}
-
-function fnmatchClassBodyStart(pat: string, index: number): number {
-  let j = index + 1;
-  if (pat[j] === "!") {
-    j++;
-  }
-  if (pat[j] === "]") {
-    j++;
-  }
-  return j;
-}
-
-function normalizeFnmatchClass(cls: string): string {
-  return cls.startsWith("[!") ? "[^" + cls.slice(2) : cls;
-}
-
-function regexLiteral(c: string): string {
-  return REGEX_SPECIAL_CHARS.test(c) ? "\\" + c : c;
-}
-
-const REGEX_SPECIAL_CHARS = /[\\^$.+()|{}]/;
-
-// --- filesystem walk ----------------------------------------------
-
-interface WalkCounts {
-  files: number;
-  bytes: number;
-}
-
-/**
- * Walk `root`, yielding cpio entries for every file/dir/symlink.
- *
- * Symlinks are never followed — whether they target a file or a
- * directory, they're emitted as symlink entries. This preserves the
- * /bin → /usr/bin style aliases on modern Debian.
- *
- * `excludes` are fnmatch patterns matched against each entry's
- * rootfs-relative path. A match prunes the entry and (for directories)
- * its subtree.
- */
-function* entriesFromRootfs(
-  root: string,
-  excludes: string[],
-  counts: WalkCounts,
-): Generator<Buffer> {
-  yield newc(".", 0o40755);
-  yield* walkRootfs(root, "", excludes, counts);
-}
-
-type FsStats = import("node:fs").Stats;
-
-function* walkRootfs(
-  root: string,
-  rel: string,
-  excludes: string[],
-  counts: WalkCounts,
-): Generator<Buffer> {
-  const full = rel ? join(root, rel) : root;
-  const entries = readSortedDir(full);
-  if (!entries) {
-    return;
-  }
-
-  for (const name of entries) {
-    yield* walkRootfsChild(root, rel, full, name, excludes, counts);
-  }
-}
-
-function* walkRootfsChild(
-  root: string,
-  rel: string,
-  parentFull: string,
-  name: string,
-  excludes: string[],
-  counts: WalkCounts,
-): Generator<Buffer> {
-  const childRel = rel ? join(rel, name) : name;
-  const childFull = join(parentFull, name);
-  if (isExcludedRootfsEntry(childRel, childFull, excludes, counts)) {
-    return;
-  }
-  const st = tryLstat(childFull);
-  if (!st) {
-    return;
-  }
-  yield* rootfsEntryFromStats(root, childRel, childFull, st, excludes, counts);
-}
-
-function isExcludedRootfsEntry(
-  childRel: string,
-  childFull: string,
-  excludes: string[],
-  counts: WalkCounts,
-): boolean {
-  if (!excludes.some((pat) => fnmatchCase(childRel, pat))) {
-    return false;
-  }
-  countExcludedRootfsFile(childFull, counts);
-  return true;
-}
-
-function countExcludedRootfsFile(childFull: string, counts: WalkCounts): void {
-  const st = tryLstat(childFull);
-  if (st?.isFile()) {
-    counts.files += 1;
-    counts.bytes += st.size;
-  }
-}
-
-function* rootfsEntryFromStats(
-  root: string,
-  childRel: string,
-  childFull: string,
-  st: FsStats,
-  excludes: string[],
-  counts: WalkCounts,
-): Generator<Buffer> {
-  const mode = st.mode & 0o7777;
-  if (st.isSymbolicLink()) {
-    yield newc(childRel, 0o120000 | mode, { data: Buffer.from(readlinkSync(childFull), "utf8") });
-    return;
-  }
-  if (st.isDirectory()) {
-    yield newc(childRel, 0o40000 | mode);
-    yield* walkRootfs(root, childRel, excludes, counts);
-    return;
-  }
-  if (st.isFile()) {
-    yield newc(childRel, 0o100000 | mode, { data: readFileSync(childFull) });
-  }
-  // Device/fifo/socket nodes are skipped — added by hand below.
-}
-
-function* workspaceEntries(
-  src: string,
-  mountpoint: string,
-  excludes: Set<string>,
-  counts: WalkCounts,
-): Generator<Buffer> {
-  yield newc(mountpoint, 0o40755);
-  yield* walkWorkspace(src, "", mountpoint, excludes, counts);
-}
-
-function* walkWorkspace(
-  root: string,
-  rel: string,
-  mountpoint: string,
-  excludes: Set<string>,
-  counts: WalkCounts,
-): Generator<Buffer> {
-  const full = rel ? join(root, rel) : root;
-  const entries = readSortedDir(full);
-  if (!entries) {
-    return;
-  }
-
-  for (const name of entries) {
-    yield* walkWorkspaceChild(root, rel, full, name, mountpoint, excludes, counts);
-  }
-}
-
-function* walkWorkspaceChild(
-  root: string,
-  rel: string,
-  parentFull: string,
-  name: string,
-  mountpoint: string,
-  excludes: Set<string>,
-  counts: WalkCounts,
-): Generator<Buffer> {
-  if (excludes.has(name)) {
-    return;
-  }
-  const childRel = rel ? join(rel, name) : name;
-  const childFull = join(parentFull, name);
-  const st = tryLstat(childFull);
-  if (!st) {
-    return;
-  }
-  yield* workspaceEntryFromStats(root, childRel, childFull, mountpoint, st, excludes, counts);
-}
-
-function* workspaceEntryFromStats(
-  root: string,
-  childRel: string,
-  childFull: string,
-  mountpoint: string,
-  st: FsStats,
-  excludes: Set<string>,
-  counts: WalkCounts,
-): Generator<Buffer> {
-  const arcName = `${mountpoint}/${childRel}`;
-  const mode = st.mode & 0o7777;
-  if (st.isSymbolicLink()) {
-    yield newc(arcName, 0o120000 | mode, { data: Buffer.from(readlinkSync(childFull), "utf8") });
-    return;
-  }
-  if (st.isDirectory()) {
-    yield newc(arcName, 0o40000 | mode);
-    yield* walkWorkspace(root, childRel, mountpoint, excludes, counts);
-    return;
-  }
-  if (st.isFile()) {
-    yield* workspaceFileEntry(arcName, childFull, mode, counts);
-  }
-}
-
-function* workspaceFileEntry(
-  arcName: string,
-  childFull: string,
-  mode: number,
-  counts: WalkCounts,
-): Generator<Buffer> {
-  const data = readFileSync(childFull);
-  counts.bytes += data.length;
-  yield newc(arcName, 0o100000 | mode, { data });
-}
-
-function readSortedDir(full: string): string[] | undefined {
-  try {
-    return readdirSync(full).sort();
-  } catch {
-    return undefined;
-  }
-}
-
-function tryLstat(path: string): FsStats | undefined {
-  try {
-    return lstatSync(path);
-  } catch {
-    return undefined;
-  }
-}
-
-// --- public API ----------------------------------------------------
 
 export interface PackBundleOptions {
   /** Bundle directory with rootfs/ + machinen-config.json. */
@@ -518,12 +107,35 @@ interface PackBundleSource {
   mergeTmp?: string;
 }
 
+interface ConfigPathSource {
+  path: string;
+  tmpDir?: string;
+}
+
 export function packBundle(opts: PackBundleOptions): void {
   const t0 = Date.now();
   const paths = validatePackBundleInputs(opts);
   const source = preparePackBundleSource(opts, paths.rootfsDir);
   try {
-    writePackedBundle(opts, paths.cfgPath, source.packSrc, t0);
+    const config = prepareConfigPath(paths.cfgPath, opts.env);
+    try {
+      const initPath = opts.initPath ?? defaultInitPath();
+      validateInitReadable(initPath);
+      packMkinitramfsNative({
+        mode: "rootfs",
+        rootfs: source.packSrc,
+        out: opts.out,
+        excludes: opts.excludes ?? [],
+        initPath,
+        configPath: config.path,
+        injectInit: true,
+        allowMissingInit: allowMissingInitFixture(),
+        execAgentPath: opts.execAgentPath ?? defaultExecAgentPath(),
+      });
+      debug("packBundle done elapsed=%dms", Date.now() - t0);
+    } finally {
+      cleanupConfigPath(config);
+    }
   } finally {
     cleanupMergedPackSource(source.mergeTmp);
   }
@@ -543,14 +155,6 @@ function validatePackBundleInputs(opts: PackBundleOptions): PackBundlePaths {
 
 function preparePackBundleSource(opts: PackBundleOptions, rootfsDir: string): PackBundleSource {
   const needsMerge = Boolean(opts.base) || Boolean(opts.mount);
-  debugPackBundleStart(opts, needsMerge);
-  if (!needsMerge) {
-    return { packSrc: rootfsDir };
-  }
-  return prepareMergedPackSource(opts, rootfsDir);
-}
-
-function debugPackBundleStart(opts: PackBundleOptions, needsMerge: boolean): void {
   debug(
     "packBundle bundle=%s out=%s base=%s mount=%s needsMerge=%s",
     opts.bundle,
@@ -559,24 +163,30 @@ function debugPackBundleStart(opts: PackBundleOptions, needsMerge: boolean): voi
     opts.mount ? `${opts.mount.host}->${opts.mount.guest}` : "<none>",
     needsMerge,
   );
+  if (!needsMerge) {
+    return { packSrc: rootfsDir };
+  }
+  return prepareMergedPackSource(opts, rootfsDir);
 }
 
 function prepareMergedPackSource(opts: PackBundleOptions, rootfsDir: string): PackBundleSource {
   const mergeTmp = mkdtempSync(join(tmpdir(), "machinen-mkinitramfs-"));
   try {
-    extractBaseIfPresent(opts, mergeTmp);
-    overlayMountIfPresent(opts, mergeTmp);
-    copyBundleRootfs(rootfsDir, mergeTmp);
+    if (opts.base) {
+      extractBaseRootfs(opts.base, mergeTmp);
+    }
+    if (opts.mount) {
+      overlayMount(mergeTmp, opts.mount.host, opts.mount.guest);
+    }
+    cpSync(rootfsDir, mergeTmp, {
+      recursive: true,
+      force: true,
+      verbatimSymlinks: true,
+    });
     return { packSrc: mergeTmp, mergeTmp };
   } catch (err) {
     cleanupMergedPackSource(mergeTmp);
     throw err;
-  }
-}
-
-function extractBaseIfPresent(opts: PackBundleOptions, mergeTmp: string): void {
-  if (opts.base) {
-    extractBaseRootfs(opts.base, mergeTmp);
   }
 }
 
@@ -592,60 +202,37 @@ function extractBaseRootfs(base: string, mergeTmp: string): void {
   debug("base extracted elapsed=%dms", Date.now() - extractT0);
 }
 
-function overlayMountIfPresent(opts: PackBundleOptions, mergeTmp: string): void {
-  if (opts.mount) {
-    overlayMount(mergeTmp, opts.mount.host, opts.mount.guest);
-  }
-}
-
-function copyBundleRootfs(rootfsDir: string, mergeTmp: string): void {
-  cpSync(rootfsDir, mergeTmp, {
-    recursive: true,
-    force: true,
-    verbatimSymlinks: true,
-  });
-}
-
-function writePackedBundle(
-  opts: PackBundleOptions,
-  cfgPath: string,
-  packSrc: string,
-  t0: number,
-): void {
-  const counts: WalkCounts = { files: 0, bytes: 0 };
-  const parts: Buffer[] = [];
-  for (const e of entriesFromRootfs(packSrc, opts.excludes ?? [], counts)) {
-    parts.push(e);
-  }
-  appendFinalEntries(parts, {
-    initPath: opts.initPath ?? defaultInitPath(),
-    config: patchConfigEnv(readFileSync(cfgPath), opts.env),
-    injectInit: true,
-    execAgentPath: opts.execAgentPath ?? defaultExecAgentPath(),
-  });
-  writeFileSync(opts.out, Buffer.concat(parts));
-  debug(
-    "packBundle done files=%d bytes=%d elapsed=%dms",
-    counts.files,
-    counts.bytes,
-    Date.now() - t0,
-  );
-}
-
 function cleanupMergedPackSource(mergeTmp: string | undefined): void {
   if (mergeTmp) {
     rmSync(mergeTmp, { recursive: true, force: true });
   }
 }
 
+function prepareConfigPath(configPath: string, env?: Record<string, string>): ConfigPathSource {
+  if (!env || Object.keys(env).length === 0) {
+    return { path: configPath };
+  }
+  const patched = patchConfigEnv(readFileSync(configPath), env);
+  const tmpDir = mkdtempSync(join(tmpdir(), "machinen-mkinitramfs-config-"));
+  const path = join(tmpDir, "machinen-config.json");
+  try {
+    writeFileSync(path, patched);
+    return { path, tmpDir };
+  } catch (err) {
+    rmSync(tmpDir, { recursive: true, force: true });
+    throw err;
+  }
+}
+
+function cleanupConfigPath(config: ConfigPathSource): void {
+  if (config.tmpDir) {
+    rmSync(config.tmpDir, { recursive: true, force: true });
+  }
+}
+
 /**
  * Merge runtime-injected env into the bundle's machinen-config.json
- * `env` object. Bundle keys win on collision: the on-disk config is the
- * source of truth, and runtime injection fills in anything it hasn't
- * already declared. Bundles without an `env` field get one created.
- *
- * Returns the original buffer unchanged when there's nothing to inject,
- * so unrelated callers don't pay a parse/stringify round-trip.
+ * `env` object. Bundle keys win on collision.
  */
 export function patchConfigEnv(config: Buffer, env?: Record<string, string>): Buffer {
   if (!env || Object.keys(env).length === 0) {
@@ -660,11 +247,7 @@ export function patchConfigEnv(config: Buffer, env?: Record<string, string>): Bu
   return Buffer.from(JSON.stringify(parsed), "utf8");
 }
 
-/**
- * Copy a host directory into the merged rootfs at `guest`. Creates
- * parent directories as needed. Merges into any existing tree at the
- * destination (later layers overwrite per-file).
- */
+/** Copy a host directory into the merged rootfs at `guest`. */
 function overlayMount(mergeRoot: string, hostAbs: string, guest: string): void {
   const rel = guest.replace(/^\/+/, "");
   const dst = join(mergeRoot, rel);
@@ -721,18 +304,23 @@ export function packTinyBundle(opts: PackTinyBundleOptions): void {
   if (!statSync(cfgPath).isFile()) {
     throw new MkinitramfsError("MKINITRAMFS_BUNDLE_INVALID", `--bundle: missing ${cfgPath}`);
   }
-
-  const parts: Buffer[] = [];
-  parts.push(newc(".", 0o40755));
-
-  appendFinalEntries(parts, {
-    initPath: opts.initPath ?? defaultInitPath(),
-    config: patchConfigEnv(readFileSync(cfgPath), opts.env),
-    injectInit: true,
-    mountGuest: opts.mountGuest,
-  });
-  writeFileSync(opts.out, Buffer.concat(parts));
-  debug("packTinyBundle done elapsed=%dms", Date.now() - t0);
+  const config = prepareConfigPath(cfgPath, opts.env);
+  try {
+    const initPath = opts.initPath ?? defaultInitPath();
+    validateInitReadable(initPath);
+    packMkinitramfsNative({
+      mode: "tiny",
+      out: opts.out,
+      initPath,
+      configPath: config.path,
+      injectInit: true,
+      allowMissingInit: allowMissingInitFixture(),
+      mountGuest: opts.mountGuest,
+    });
+    debug("packTinyBundle done elapsed=%dms", Date.now() - t0);
+  } finally {
+    cleanupConfigPath(config);
+  }
 }
 
 export interface PackRootfsOptions {
@@ -744,17 +332,18 @@ export interface PackRootfsOptions {
 }
 
 export function packRootfs(opts: PackRootfsOptions): void {
-  const counts: WalkCounts = { files: 0, bytes: 0 };
-  const parts: Buffer[] = [];
-  for (const e of entriesFromRootfs(opts.rootfs, opts.excludes ?? [], counts)) {
-    parts.push(e);
-  }
-  appendFinalEntries(parts, {
-    initPath: opts.initPath ?? defaultInitPath(),
-    config: opts.config ? readFileSync(opts.config) : undefined,
+  const initPath = opts.initPath ?? defaultInitPath();
+  validateInitReadable(initPath);
+  packMkinitramfsNative({
+    mode: "rootfs",
+    rootfs: opts.rootfs,
+    out: opts.out,
+    excludes: opts.excludes ?? [],
+    initPath,
+    configPath: opts.config,
     injectInit: true,
+    allowMissingInit: allowMissingInitFixture(),
   });
-  writeFileSync(opts.out, Buffer.concat(parts));
 }
 
 export interface PackMinimalOptions {
@@ -765,17 +354,15 @@ export interface PackMinimalOptions {
 
 export function packMinimal(opts: PackMinimalOptions): void {
   const initPath = opts.initPath ?? defaultInitPath();
-  const parts: Buffer[] = [
-    newc(".", 0o40755),
-    newc("dev", 0o40755),
-    newc("init", 0o100755, { data: readFileSync(initPath) }),
-  ];
-  appendFinalEntries(parts, {
+  validateInitReadable(initPath);
+  packMkinitramfsNative({
+    mode: "minimal",
+    out: opts.out,
     initPath,
-    config: opts.config ? readFileSync(opts.config) : undefined,
+    configPath: opts.config,
     injectInit: true,
+    allowMissingInit: allowMissingInitFixture(),
   });
-  writeFileSync(opts.out, Buffer.concat(parts));
 }
 
 export interface PackWorkspaceOptions {
@@ -790,168 +377,57 @@ export interface PackWorkspaceOptions {
 }
 
 export function packWorkspace(opts: PackWorkspaceOptions): void {
-  const excludes = new Set<string>(opts.excludes ?? DEFAULT_WORKSPACE_EXCLUDES);
-  const mountpoint = opts.mountpoint ?? "workspace";
-  const maxMb = opts.maxMb ?? 500;
-
   if (!statSync(opts.workspace).isDirectory()) {
     throw new MkinitramfsError(
       "MKINITRAMFS_WORKSPACE_INVALID",
       `--workspace: ${opts.workspace} is not a directory`,
     );
   }
-
-  const counts: WalkCounts = { files: 0, bytes: 0 };
-  const parts: Buffer[] = [];
-  for (const e of workspaceEntries(opts.workspace, mountpoint, excludes, counts)) {
-    parts.push(e);
+  try {
+    const result = packMkinitramfsNative({
+      mode: "workspace",
+      workspace: opts.workspace,
+      out: opts.out,
+      mountpoint: opts.mountpoint ?? "workspace",
+      excludes: [...(opts.excludes ?? DEFAULT_WORKSPACE_EXCLUDES)],
+      maxMb: opts.maxMb ?? 500,
+    });
+    process.stderr.write(`  workspace files: ${result.workspaceBytes} bytes\n`);
+  } catch (err) {
+    if (err instanceof MkinitramfsError && err.code === "MKINITRAMFS_WORKSPACE_TOO_LARGE") {
+      throw new MkinitramfsError(
+        "MKINITRAMFS_WORKSPACE_TOO_LARGE",
+        `workspace exceeded cap ${opts.maxMb ?? 500} MB. ` +
+          `Try --exclude <dir> for each big subdir, or --max-mb <N> to raise the cap.`,
+        { cause: err },
+      );
+    }
+    throw err;
   }
-  const total = parts.reduce((n, b) => n + b.length, 0);
-  if (total > maxMb * 1024 * 1024) {
-    throw new MkinitramfsError(
-      "MKINITRAMFS_WORKSPACE_TOO_LARGE",
-      `workspace is ${(total / 1024 / 1024).toFixed(0)} MB (cap ${maxMb} MB). ` +
-        `Try --exclude <dir> for each big subdir, or --max-mb <N> to raise the cap.`,
-    );
-  }
-  parts.push(newc("TRAILER!!!", 0));
-  writeFileSync(opts.out, Buffer.concat(parts));
-  process.stderr.write(`  workspace files: ${counts.bytes} bytes\n`);
 }
 
-interface FinalOptions {
-  initPath: string;
-  config?: Buffer;
-  /**
-   * When true (legacy --rootfs mode), inject the compiled /init on top of
-   * the walked rootfs. When false (--bundle mode), the base rootfs tarball
-   * already carries its own /init and overriding it would shadow build-time
-   * updates.
-   */
-  injectInit: boolean;
-  /**
-   * Optional path to /exec-agent. When set, the binary is appended to
-   * the cpio after the rootfs walk so that any stale /exec-agent
-   * captured in the base tarball gets overwritten by Linux's
-   * initramfs unpacker (last entry wins). Same trick as `injectInit`.
-   * Used by the provision flow where the base is the previous run's
-   * frozen rootfs.
-   */
-  execAgentPath?: string;
-  /**
-   * #272: when set, write the absolute guest mountpoint into the cpio
-   * at `/etc/machinen-mountdisk-guest`. /init reads this file on boot
-   * and uses it as the target for the squashfs+ext4 overlay.
-   */
-  mountGuest?: string;
-}
-
-function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
-  appendInitIfRequested(parts, opts);
-  appendExecAgentIfPresent(parts, opts.execAgentPath);
-  appendConfigIfPresent(parts, opts.config);
-  appendBootEpoch(parts);
-  appendMountGuestIfPresent(parts, opts.mountGuest);
-  appendFixedDeviceEntries(parts);
-  parts.push(newc("TRAILER!!!", 0));
-}
-
-function appendInitIfRequested(parts: Buffer[], opts: FinalOptions): void {
-  if (!opts.injectInit) {
+function validateInitReadable(initPath: string): void {
+  if (allowMissingInitFixture()) {
     return;
   }
-  const initBytes = readInitBytes(opts.initPath);
-  if (initBytes) {
-    parts.push(newc("init", 0o100755, { data: initBytes }));
-  }
-}
-
-function readInitBytes(initPath: string): Buffer | undefined {
   try {
-    return readFileSync(initPath);
+    readFileSync(initPath);
   } catch (err) {
-    if (process.env.MACHINEN_REQUIRE_FIXTURES === "0") {
-      return undefined;
-    }
     throw missingInitError(initPath, err);
   }
 }
 
+function allowMissingInitFixture(): boolean {
+  return process.env.MACHINEN_REQUIRE_FIXTURES === "0";
+}
+
 function missingInitError(initPath: string, err: unknown): MkinitramfsError {
-  // packTinyBundle / packBundle both rely on /init mounting /dev/vda —
-  // without it the kernel falls through to prepare_namespace() with no
-  // `root=` and panics with "Can't open blockdev". A silent skip here
-  // turned a missing fixture into an opaque kernel panic, so fail loudly.
-  //
-  // Tests that don't actually boot a real VMM (binary: "/bin/sh" and
-  // friends) opt out via MACHINEN_REQUIRE_FIXTURES=0 — the same flag the
-  // integration suites use to skip when fixtures are absent. Hosted CI
-  // sets it; local dev with `pretest` doesn't, so this still fires for
-  // anyone whose worktree is missing the build-base-assets.sh artifacts.
   return new MkinitramfsError(
     "MKINITRAMFS_INIT_MISSING",
     `mkinitramfs: /init binary not readable at ${initPath} (${mkinitramfsErrorMessage(err)}). ` +
       `Build it with scripts/build-base-assets.sh, or pass initPath to point at a custom one.`,
     { cause: err },
   );
-}
-
-function appendExecAgentIfPresent(parts: Buffer[], execAgentPath: string | undefined): void {
-  if (!execAgentPath) {
-    return;
-  }
-  try {
-    const bytes = readFileSync(execAgentPath);
-    parts.push(newc("exec-agent", 0o100755, { data: bytes }));
-  } catch {
-    // Optional — if the build hasn't produced one yet (fresh checkout,
-    // first run before build-base-assets.sh), boots that didn't need
-    // exec-agent (no vm.exec, no provision) keep working. The provision
-    // flow itself depends on it and will fail downstream with a clearer
-    // error if it's truly absent.
-  }
-}
-
-function appendConfigIfPresent(parts: Buffer[], config: Buffer | undefined): void {
-  if (config) {
-    parts.push(newc("machinen-config.json", 0o100644, { data: config }));
-  }
-}
-
-function appendBootEpoch(parts: Buffer[]): void {
-  // Bake the host's current epoch so /init can set the guest clock.
-  // Without this the guest boots at 1970-01-01 and TLS + apt Release
-  // date validation break.
-  parts.push(newc("etc", 0o40755));
-  parts.push(
-    newc("etc/machinen-boot-epoch", 0o100644, {
-      data: Buffer.from(String(Math.floor(Date.now() / 1000)), "ascii"),
-    }),
-  );
-}
-
-function appendMountGuestIfPresent(parts: Buffer[], mountGuest: string | undefined): void {
-  if (!mountGuest) {
-    return;
-  }
-  // #272: tell /init which guest path to mount the `--mount` overlay
-  // at. The actual squashfs+ext4 payload rides on virtio-blk slots 5
-  // and 6 — only the target path lives in the cpio.
-  parts.push(
-    newc("etc/machinen-mountdisk-guest", 0o100644, {
-      data: Buffer.from(mountGuest + "\n", "ascii"),
-    }),
-  );
-}
-
-function appendFixedDeviceEntries(parts: Buffer[]): void {
-  parts.push(newc("dev", 0o40755));
-  parts.push(newc("dev/console", 0o20600, { rmajor: 5, rminor: 1 }));
-  // Force /tmp to the canonical sticky-world-writable (1777). The base
-  // tarball ships /tmp that way but darwin tar strips the sticky bit
-  // when extracting as non-root, so apt (which drops privs to _apt for
-  // downloads) fails with "Couldn't create temporary file".
-  parts.push(newc("tmp", 0o41777));
 }
 
 function mkinitramfsErrorMessage(err: unknown): string {
@@ -965,20 +441,6 @@ interface VmmGuestPaths {
 
 let cachedGuestPaths: VmmGuestPaths | null = null;
 
-/**
- * Resolve the guest binaries (init / exec-agent) that ride in the
- * host-arch-gated @machinen/native-<arch>-<os> package alongside the
- * host VMM. These ELFs match the guest CPU for that host package
- * (arm64 guests in native-arm64-*, amd64 guests in native-x64-linux);
- * the host runtime reads them as bytes to pack into the initramfs cpio.
- *
- * Falls back to the in-tree microvm/test-fixtures/ layout when the
- * native package can't be resolved OR its guest/ dir is empty —
- * workspace dev runs the latter shape (the native-* package is
- * symlinked but its vmm/guest/ is empty; build-base-assets.sh
- * populates microvm/test-fixtures/), so this fallback keeps
- * `pnpm test` / local boot() working unchanged.
- */
 function resolveGuestPaths(): VmmGuestPaths {
   if (cachedGuestPaths) {
     return cachedGuestPaths;
@@ -996,8 +458,6 @@ function resolveGuestPaths(): VmmGuestPaths {
   } catch {
     // Fall through to the workspace layout below.
   }
-  // Workspace fallback: packages/runtime/src/ → packages/microvm/test-fixtures/.
-  // Resolves via import.meta.url so it works under both ESM and the tsx-CJS loader.
   const here = dirname(fileURLToPath(import.meta.url));
   const fixtures = join(here, "..", "..", "microvm", "test-fixtures");
   cachedGuestPaths = {
@@ -1011,17 +471,9 @@ function defaultInitPath(): string {
   return resolveGuestPaths().initPath;
 }
 
-/**
- * Default path to the compiled /exec-agent binary. Used by the
- * provision flow's cpio injection to override whatever stale
- * /exec-agent the user's base tarball may have captured from a
- * previous run.
- */
 function defaultExecAgentPath(): string {
   return resolveGuestPaths().execAgentPath;
 }
-
-// --- CLI entrypoint -----------------------------------------------
 
 /**
  * Invoked by the CLI shim at packages/microvm/test-fixtures/assets/mkinitramfs.ts.
@@ -1088,31 +540,25 @@ function parseWorkspaceCliFlags(args: string[]): {
   const extraEx = new Set<string>();
   let maxMb = 500;
   for (let i = 0; i < args.length; ) {
-    const parsed = parseWorkspaceCliFlag(args, i, { out, extraEx, maxMb });
-    out = parsed.out;
-    maxMb = parsed.maxMb;
-    i = parsed.next;
+    const flag = args[i];
+    if (flag === "--out") {
+      out = args[i + 1];
+      i += 2;
+      continue;
+    }
+    if (flag === "--exclude") {
+      extraEx.add(args[i + 1]!);
+      i += 2;
+      continue;
+    }
+    if (flag === "--max-mb") {
+      maxMb = parseInt(args[i + 1]!, 10);
+      i += 2;
+      continue;
+    }
+    die(`unknown flag: ${flag}`);
   }
   return { out, extraEx, maxMb };
-}
-
-function parseWorkspaceCliFlag(
-  args: string[],
-  i: number,
-  state: { out: string | undefined; extraEx: Set<string>; maxMb: number },
-): { out: string | undefined; extraEx: Set<string>; maxMb: number; next: number } {
-  const flag = args[i];
-  if (flag === "--out") {
-    return { ...state, out: args[i + 1], next: i + 2 };
-  }
-  if (flag === "--exclude") {
-    state.extraEx.add(args[i + 1]!);
-    return { ...state, next: i + 2 };
-  }
-  if (flag === "--max-mb") {
-    return { ...state, maxMb: parseInt(args[i + 1]!, 10), next: i + 2 };
-  }
-  die(`unknown flag: ${flag}`);
 }
 
 function parseSharedCliFlags(argv: string[]): SharedCliFlags {
@@ -1174,7 +620,6 @@ function takeFlag(args: string[], flag: string): string | undefined {
 }
 
 function defaultOut(): string {
-  // Matches the Python default: write alongside the old script in test-fixtures/.
   const here = dirname(fileURLToPath(import.meta.url));
   return join(here, "..", "..", "microvm", "test-fixtures", "initramfs.cpio");
 }
