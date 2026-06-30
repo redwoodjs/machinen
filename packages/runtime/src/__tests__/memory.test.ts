@@ -101,6 +101,33 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans VMM env overrides", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      vmmEnvBase: { PATH: "/usr/bin", MACHINEN_MEMORY: "512" },
+      vmmEnvOverrides: { MACHINEN_MEMORY: "1024", MACHINEN_TRACE: "1" },
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.vmmEnv).toEqual({
+      PATH: "/usr/bin",
+      MACHINEN_MEMORY: "1024",
+      MACHINEN_TRACE: "1",
+    });
+  });
+
   it("plans rootDisk option mode with restore precedence", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
@@ -225,6 +252,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(omitted.status).toBe(0);
     expect(JSON.parse(omitted.stdout).data.plannedPortForward).toEqual([]);
+    expect(JSON.parse(omitted.stdout).data.portForwardProbe).toEqual([]);
 
     const planned = spawnSync(helper, ["boot-plan"], {
       input: `${JSON.stringify({
@@ -232,7 +260,7 @@ describe("boot-plan helper schema", () => {
         data: {
           ...baseData,
           portForward: [
-            { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
+            { hostPort: 8080, guestPort: 80, hostAddr: "0.0.0.0" },
             { hostPort: 8443, guestPort: 443 },
           ],
         },
@@ -240,9 +268,14 @@ describe("boot-plan helper schema", () => {
       encoding: "utf8",
     });
     expect(planned.status).toBe(0);
-    expect(JSON.parse(planned.stdout).data.plannedPortForward).toEqual([
-      { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
+    const plannedData = JSON.parse(planned.stdout).data;
+    expect(plannedData.plannedPortForward).toEqual([
+      { hostPort: 8080, guestPort: 80, hostAddr: "0.0.0.0" },
       { hostPort: 8443, guestPort: 443 },
+    ]);
+    expect(plannedData.portForwardProbe).toEqual([
+      { hostPort: 8080, probeHost: "0.0.0.0" },
+      { hostPort: 8443, probeHost: "127.0.0.1" },
     ]);
 
     const presetNetSocket = spawnSync(helper, ["boot-plan"], {
@@ -1256,6 +1289,8 @@ describe("boot-plan helper schema", () => {
           registryBootLogRoot: "/tmp/machinen-logs",
           registryChildPid: "1234",
           registryDetached: true,
+          registryLifecycleName: "worker",
+          registryLifecycleVsockUdsPath: "/tmp/exec.sock",
           registryPerBootSnapDisk: null,
           registryPerBootMountUpper: "/tmp/upper.img",
           registryBundleTempDir: "/tmp/bundle",
@@ -1340,6 +1375,10 @@ describe("boot-plan helper schema", () => {
         checkpointSequence: 3,
       },
       nested: true,
+    });
+    expect(parsed.registryLifecycle).toEqual({
+      claimName: "worker",
+      shouldWrite: true,
     });
     expect(parsed.registryProcess).toEqual({
       vmmExe: "machinen-pdeathsig",

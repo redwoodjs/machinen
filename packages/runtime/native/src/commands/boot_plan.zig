@@ -25,6 +25,8 @@ const ParsedRequest = struct {
     guest_cwd: ?[]const u8 = null,
     mount_guest: ?[]const u8 = null,
     guest_env: std.json.ObjectMap = .{},
+    vmm_env_base: std.json.ObjectMap = .{},
+    vmm_env_overrides: std.json.ObjectMap = .{},
     name: ?[]const u8 = null,
     vsock_uds_path: ?[]const u8 = null,
     existing_vsock_spec: ?[]const u8 = null,
@@ -150,6 +152,8 @@ const ParsedRequest = struct {
     registry_boot_log_root: ?[]const u8 = null,
     registry_child_pid_text: ?[]const u8 = null,
     registry_detached: bool = false,
+    registry_lifecycle_name: ?[]const u8 = null,
+    registry_lifecycle_vsock_uds_path: ?[]const u8 = null,
     registry_per_boot_snap_disk: ?[]const u8 = null,
     registry_per_boot_mount_upper: ?[]const u8 = null,
     registry_bundle_temp_dir: ?[]const u8 = null,
@@ -208,6 +212,8 @@ const boot_plan_fields = [_][]const u8{
     "guestCwd",
     "mountGuest",
     "guestEnv",
+    "vmmEnvBase",
+    "vmmEnvOverrides",
     "name",
     "vsockUdsPath",
     "existingVsockSpec",
@@ -333,6 +339,8 @@ const boot_plan_fields = [_][]const u8{
     "registryBootLogRoot",
     "registryChildPid",
     "registryDetached",
+    "registryLifecycleName",
+    "registryLifecycleVsockUdsPath",
     "registryPerBootSnapDisk",
     "registryPerBootMountUpper",
     "registryBundleTempDir",
@@ -395,6 +403,9 @@ const RequestError = error{
     InvalidMountGuest,
     InvalidGuestEnv,
     InvalidGuestEnvValue,
+    InvalidVmmEnvBase,
+    InvalidVmmEnvOverrides,
+    InvalidVmmEnvValue,
     InvalidName,
     InvalidVsockUdsPath,
     InvalidExistingVsockSpec,
@@ -524,6 +535,8 @@ const RequestError = error{
     InvalidRegistryBootLogRoot,
     InvalidRegistryChildPid,
     InvalidRegistryDetached,
+    InvalidRegistryLifecycleName,
+    InvalidRegistryLifecycleVsockUdsPath,
     InvalidRegistryDiskPath,
     InvalidRegistryForkedFrom,
     InvalidRegistryMemoryCeilingMib,
@@ -588,6 +601,7 @@ const PlanParts = struct {
     cpu_policy: ?boot_plan.CpuPolicyPlan,
     root_disk_mode: boot_plan.RootDiskMode,
     guest_env: []const boot_plan.EnvPair,
+    vmm_env: []const boot_plan.EnvPair,
     vsock_plan: boot_plan.VsockPlan,
     gvproxy_plan: boot_plan.GvproxyPlan,
     guest_hostname: boot_plan.GuestHostnameInput,
@@ -630,6 +644,7 @@ const PlanParts = struct {
     mount_disk_fd_env: []const boot_plan.EnvPair,
     snapshot_context: boot_plan.SnapshotContextPlan,
     registry_shape: boot_plan.RegistryShapePlan,
+    registry_lifecycle: boot_plan.RegistryLifecyclePlan,
     registry_process: boot_plan.RegistryProcessPlan,
 };
 
@@ -675,6 +690,7 @@ const RuntimeParts = struct {
     mount_disk_fd_env: []const boot_plan.EnvPair,
     snapshot_context: boot_plan.SnapshotContextPlan,
     registry_shape: boot_plan.RegistryShapePlan,
+    registry_lifecycle: boot_plan.RegistryLifecyclePlan,
     registry_process: boot_plan.RegistryProcessPlan,
 };
 
@@ -693,6 +709,7 @@ fn makePlanParts(
         .cpu_policy = try makeCpuResources(parsed),
         .root_disk_mode = parsed.root_disk,
         .guest_env = try makeGuestEnv(arena, parsed),
+        .vmm_env = try makeVmmEnv(arena, parsed),
         .guest_hostname = try makeGuestHostname(parsed),
         .guest_hostname_set = try makeGuestHostnameSet(parsed),
         .vsock_plan = boot_env.vsock_plan,
@@ -743,6 +760,7 @@ fn makePlanParts(
         .mount_disk_fd_env = runtime.mount_disk_fd_env,
         .snapshot_context = runtime.snapshot_context,
         .registry_shape = runtime.registry_shape,
+        .registry_lifecycle = runtime.registry_lifecycle,
         .registry_process = runtime.registry_process,
     };
 }
@@ -844,6 +862,7 @@ fn makeRuntimeParts(arena: std.mem.Allocator, parsed: ParsedRequest) !RuntimePar
         .mount_disk_fd_env = try makeMountDiskFdEnv(arena, parsed),
         .snapshot_context = try makeSnapshotContext(arena, parsed),
         .registry_shape = try makeRegistryShape(arena, parsed),
+        .registry_lifecycle = try makeRegistryLifecycle(parsed),
         .registry_process = try makeRegistryProcess(parsed),
     };
 }
@@ -1142,6 +1161,20 @@ fn makeSnapshotContext(
     });
 }
 
+fn makeRegistryLifecycle(parsed: ParsedRequest) RequestError!boot_plan.RegistryLifecyclePlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    const child_pid = if (parsed.registry_child_pid_text) |text|
+        parseSigned(text) catch return error.InvalidRegistryChildPid
+    else
+        null;
+    return boot_plan.planRegistryLifecycle(.{
+        .name = parsed.registry_lifecycle_name,
+        .child_pid = child_pid,
+        .vsock_uds_path = parsed.registry_lifecycle_vsock_uds_path,
+    });
+}
+
 fn makeRegistryProcess(parsed: ParsedRequest) !boot_plan.RegistryProcessPlan {
     assert(@sizeOf(boot_plan.RegistryProcessInput) > 0);
 
@@ -1266,6 +1299,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try protocol.stdout(io, "\"command\":\"boot-plan\",\"data\":{");
     try writeCoreFields(io, parts.plan, parts.cpu_policy, parts.root_disk_mode);
     try writeVsockKernelFields(io, parts.vsock_plan, parts.kernel_dtb);
+    try writeEnvObjectField(io, "vmmEnv", parts.vmm_env, true);
     try writeGvproxyPlanField(io, "gvproxyPlan", parts.gvproxy_plan, true);
     try writeNullableStringField(io, "vmmInitrd", parts.initrd_env.vmm_initrd, true);
     try writeGuestHostnameField(io, "guestHostname", parts.guest_hostname, true);
@@ -1282,6 +1316,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeNullableStringField(io, "vmmNested", parts.nested_env, true);
     try writeLiveMountsArrayField(io, "plannedLiveMounts", parts.planned_live_mounts, true);
     try writePortForwardField(io, "plannedPortForward", parts.planned_port_forwards, false, true);
+    try writePortForwardProbeField(io, "portForwardProbe", parts.planned_port_forwards, true);
     try writeEnvObjectField(io, "virtiofsEnv", parts.virtiofs_env, true);
     try writeNullableStringField(io, "vmmCommand", parts.vmm_argv.command, true);
     try writeStringArrayField(io, "vmmArgs", parts.vmm_argv.args, true);
@@ -1319,6 +1354,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeEnvObjectField(io, "mountDiskFdEnv", parts.mount_disk_fd_env, true);
     try writeSnapshotContextField(io, "snapshotContext", parts.snapshot_context, true);
     try writeRegistryShapeField(io, "registryShape", parts.registry_shape, true);
+    try writeRegistryLifecycleField(io, "registryLifecycle", parts.registry_lifecycle, true);
     try writeRegistryProcessField(io, "registryProcess", parts.registry_process, true);
     try protocol.stdout(io, "}}\n");
 }
@@ -2040,6 +2076,21 @@ fn writeSnapshotVmstateChainField(
     } else try protocol.stdout(io, "null");
 }
 
+fn writeRegistryLifecycleField(
+    io: std.Io,
+    comptime field: []const u8,
+    lifecycle: boot_plan.RegistryLifecyclePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "claimName", lifecycle.claim_name, false);
+    try writeBoolField(io, "shouldWrite", lifecycle.should_write, true);
+    try protocol.stdout(io, "}");
+}
+
 fn writeRegistryProcessField(
     io: std.Io,
     comptime field: []const u8,
@@ -2159,6 +2210,28 @@ fn writePortForwardField(
     try protocol.stdout(io, "]");
 }
 
+fn writePortForwardProbeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mappings: []const boot_plan.PortForwardMapping,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "[");
+    for (mappings, 0..) |mapping, i| {
+        const probe = boot_plan.planPortForwardProbe(mapping);
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.stdout(io, "{\"hostPort\":");
+        try writeI64Bare(io, probe.host_port);
+        try protocol.stdout(io, ",\"probeHost\":");
+        try protocol.writeJsonString(io, probe.probe_host);
+        try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]");
+}
+
 fn writeRegistryVmstateField(
     io: std.Io,
     comptime field: []const u8,
@@ -2240,6 +2313,15 @@ fn writeStringArrayField(
         try protocol.writeJsonString(io, value);
     }
     try protocol.stdout(io, "]");
+}
+
+fn makeVmmEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.EnvPair {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return boot_plan.planVmmEnv(allocator, .{
+        .base = try objectStringPairs(allocator, parsed.vmm_env_base, error.InvalidVmmEnvValue),
+        .overrides = try objectStringPairs(allocator, parsed.vmm_env_overrides, error.InvalidVmmEnvValue),
+    });
 }
 
 fn makeGuestHostname(parsed: ParsedRequest) RequestError!boot_plan.GuestHostnameInput {
@@ -2543,6 +2625,16 @@ fn parseBootShapeFields(
         error.InvalidMountGuest,
     );
     request.guest_env = try optionalObjectDefaultEmpty(object, "guestEnv", error.InvalidGuestEnv);
+    request.vmm_env_base = try optionalObjectDefaultEmpty(
+        object,
+        "vmmEnvBase",
+        error.InvalidVmmEnvBase,
+    );
+    request.vmm_env_overrides = try optionalObjectDefaultEmpty(
+        object,
+        "vmmEnvOverrides",
+        error.InvalidVmmEnvOverrides,
+    );
     request.name = try optionalStringDefaultNull(object, "name", error.InvalidName);
 }
 
@@ -3318,6 +3410,16 @@ fn parseRegistryRootDiskFields(
         object,
         "registryDetached",
         error.InvalidRegistryDetached,
+    );
+    request.registry_lifecycle_name = try optionalStringDefaultNull(
+        object,
+        "registryLifecycleName",
+        error.InvalidRegistryLifecycleName,
+    );
+    request.registry_lifecycle_vsock_uds_path = try optionalStringDefaultNull(
+        object,
+        "registryLifecycleVsockUdsPath",
+        error.InvalidRegistryLifecycleVsockUdsPath,
     );
 }
 
@@ -4239,6 +4341,8 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
     if (try writeProvisionDtbRequestError(io, err)) return;
     if (try writeProvisionCliCacheRequestError(io, err)) return;
     if (try writeProvisionAssetLookupRequestError(io, err)) return;
+    if (try writeRegistryLifecycleRequestError(io, err)) return;
+    if (try writeVmmEnvRequestError(io, err)) return;
 
     switch (err) {
         error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
@@ -4258,6 +4362,43 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
+}
+
+fn writeVmmEnvRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidVmmEnvBase,
+        error.InvalidVmmEnvOverrides,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan vmm env fields must be objects",
+        ),
+        error.InvalidVmmEnvValue => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan vmm env values must be strings",
+        ),
+        else => return false,
+    }
+    return true;
+}
+
+fn writeRegistryLifecycleRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidRegistryLifecycleName,
+        error.InvalidRegistryLifecycleVsockUdsPath,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan registry lifecycle fields must be strings",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writeProvisionAssetLookupRequestError(io: std.Io, err: RequestError) !bool {

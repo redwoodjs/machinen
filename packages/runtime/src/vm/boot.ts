@@ -71,12 +71,17 @@ import {
 } from "../native/boot-plan.ts";
 import { reflinkCopy } from "../reflink.ts";
 import { planGvproxyNative } from "../native/gvproxy-plan.ts";
-import { validatePortForwardNetSocketNative } from "../native/port-forward.ts";
+import {
+  planPortForwardProbeNative,
+  validatePortForwardNetSocketNative,
+} from "../native/port-forward.ts";
 import { planGuestHostnameSetNative } from "../native/guest-hostname.ts";
+import { planBootRegistryLifecycleNative } from "../native/registry-lifecycle.ts";
 import { planBootRegistryProcessNative } from "../native/registry-process.ts";
 import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
 import { planBootScratchModeNative } from "../native/scratch-mode.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
+import { planBootVmmEnvNative } from "../native/vmm-env.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
 import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
@@ -792,6 +797,8 @@ interface BootRegistryState {
   bootLogPath: string | undefined;
 }
 
+type BootRegistryLifecyclePlan = ReturnType<typeof planBootRegistryLifecycleNative>;
+
 function registerSpawnedBoot(args: {
   opts: BootOptions;
   plan: BootPlan;
@@ -800,8 +807,13 @@ function registerSpawnedBoot(args: {
   bootT0: number;
 }): BootRegistryState {
   const state = buildBootRegistryState(args.opts, args.resources, args.spawned);
-  claimBootNameIfNeeded(state, args.spawned.child);
-  const registered = writeBootRegistryIfPossible(args, state);
+  const lifecycle = planBootRegistryLifecycleNative({
+    name: state.vmName,
+    childPid: state.childPid,
+    vsockUdsPath: args.plan.vsockUdsPath,
+  });
+  claimBootNameIfNeeded(state, args.spawned.child, lifecycle);
+  const registered = writeBootRegistryIfPossible(args, state, lifecycle);
   installBootExitCleanup(args, state, registered);
   return state;
 }
@@ -850,9 +862,10 @@ function registryBootLogPath(opts: BootOptions, childPid: number): string | unde
 function claimBootNameIfNeeded(
   state: BootRegistryState,
   child: ChildProcessWithoutNullStreams,
+  lifecycle: BootRegistryLifecyclePlan,
 ): void {
-  if (state.vmName && state.childPid > 0) {
-    claimNameOrThrow(state.vmName, state.childPid, child);
+  if (lifecycle.claimName) {
+    claimNameOrThrow(lifecycle.claimName, state.childPid, child);
   }
 }
 
@@ -864,8 +877,9 @@ function writeBootRegistryIfPossible(
     spawned: SpawnedBootVmm;
   },
   state: BootRegistryState,
+  lifecycle: BootRegistryLifecyclePlan,
 ): boolean {
-  if (state.childPid <= 0 || !args.plan.vsockUdsPath) {
+  if (!lifecycle.shouldWrite) {
     return false;
   }
   return registerInRegistry(buildRegisterArgs(args, state));
@@ -1044,10 +1058,10 @@ function resolveBootBinary(opts: BootOptions): string {
 }
 
 function buildVmmEnv(opts: BootOptions): Record<string, string> {
-  return {
-    ...(process.env as Record<string, string>),
-    ...opts.vmmEnv,
-  };
+  return planBootVmmEnvNative({
+    hostEnv: process.env,
+    overrides: opts.vmmEnv,
+  });
 }
 
 function prepareBootScratchDisk(
@@ -1168,22 +1182,19 @@ function validatePresetNetSocket(
 async function validatePortForwardAvailability(
   portForward: NonNullable<BootOptions["portForward"]>,
 ): Promise<void> {
-  for (const mapping of portForward) {
-    await validateHostPortFree(mapping);
+  for (const probe of planPortForwardProbeNative(portForward)) {
+    await validateHostPortFree(probe);
   }
 }
 
-async function validateHostPortFree(
-  mapping: NonNullable<BootOptions["portForward"]>[number],
-): Promise<void> {
-  const host = mapping.hostAddr ?? "127.0.0.1";
-  const errno = await probeHostPortFree(host, mapping.hostPort);
+async function validateHostPortFree(probe: { hostPort: number; probeHost: string }): Promise<void> {
+  const errno = await probeHostPortFree(probe.probeHost, probe.hostPort);
   if (!errno) {
     return;
   }
   throw new BootError(
     "BOOT_PORT_FORWARD_IN_USE",
-    `portForward: host port ${host}:${mapping.hostPort} is already in use (${errno}). ${await portHolderDetail(mapping.hostPort)}`,
+    `portForward: host port ${probe.probeHost}:${probe.hostPort} is already in use (${errno}). ${await portHolderDetail(probe.hostPort)}`,
   );
 }
 

@@ -64,6 +64,11 @@ pub const GuestEnvInput = struct {
     vsock_uds_path: ?[]const u8 = null,
 };
 
+pub const VmmEnvInput = struct {
+    base: []const EnvPair = &.{},
+    overrides: []const EnvPair = &.{},
+};
+
 pub const GuestHostnameInput = struct {
     pid: ?i64 = null,
     name: ?[]const u8 = null,
@@ -91,6 +96,11 @@ pub const PortForwardMapping = struct {
     host_port: i64,
     guest_port: i64,
     host_addr: ?[]const u8 = null,
+};
+
+pub const PortForwardProbePlan = struct {
+    host_port: i64,
+    probe_host: []const u8,
 };
 
 pub const PortForwardNetSocketInput = struct {
@@ -604,6 +614,17 @@ pub const RegistryProcessPlan = struct {
     gvproxy_exe: ?[]const u8,
 };
 
+pub const RegistryLifecycleInput = struct {
+    name: ?[]const u8 = null,
+    child_pid: ?i64 = null,
+    vsock_uds_path: ?[]const u8 = null,
+};
+
+pub const RegistryLifecyclePlan = struct {
+    claim_name: ?[]const u8,
+    should_write: bool,
+};
+
 pub const RegistryShapeInput = struct {
     source_image_path: ?[]const u8 = null,
     per_boot_root_disk: ?[]const u8 = null,
@@ -889,6 +910,12 @@ pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPa
         try out.append(allocator, .{ .key = "MACHINEN_VM_HOSTNAME_WAIT", .value = "1" });
     }
     return out.toOwnedSlice(allocator);
+}
+
+pub fn planVmmEnv(allocator: std.mem.Allocator, input: VmmEnvInput) ![]EnvPair {
+    assert(@sizeOf(VmmEnvInput) > 0);
+
+    return mergeEnvPairs(allocator, input.base, input.overrides);
 }
 
 pub fn planVsock(allocator: std.mem.Allocator, input: VsockPlanInput) !VsockPlan {
@@ -1405,10 +1432,20 @@ pub fn planBundlePack(input: BundlePackInput) BundlePackPlan {
 pub fn planBundleEnv(allocator: std.mem.Allocator, input: BundleEnvInput) ![]EnvPair {
     assert(@sizeOf(BundleEnvInput) > 0);
 
+    return mergeEnvPairs(allocator, input.image_env, input.guest_env);
+}
+
+fn mergeEnvPairs(
+    allocator: std.mem.Allocator,
+    base: []const EnvPair,
+    overrides: []const EnvPair,
+) ![]EnvPair {
+    assert(@sizeOf(EnvPair) > 0);
+
     var out: std.array_list.Aligned(EnvPair, null) = .empty;
     errdefer out.deinit(allocator);
-    try out.appendSlice(allocator, input.image_env);
-    for (input.guest_env) |pair| {
+    try out.appendSlice(allocator, base);
+    for (overrides) |pair| {
         var replaced = false;
         for (out.items) |*existing| {
             if (std.mem.eql(u8, existing.key, pair.key)) {
@@ -1580,6 +1617,17 @@ pub fn planRegistryProcess(input: RegistryProcessInput) RegistryProcessPlan {
     else
         input.gv_exe;
     return .{ .vmm_exe = vmm_exe, .gvproxy_exe = gvproxy_exe };
+}
+
+pub fn planRegistryLifecycle(input: RegistryLifecycleInput) RegistryLifecyclePlan {
+    assert(@sizeOf(RegistryLifecycleInput) > 0);
+
+    const has_live_pid = (input.child_pid orelse 0) > 0;
+    const claim_name = if (has_live_pid) input.name else null;
+    return .{
+        .claim_name = claim_name,
+        .should_write = has_live_pid and input.vsock_uds_path != null,
+    };
 }
 
 pub fn planRegistryShape(
@@ -1891,6 +1939,15 @@ pub fn planVmmArgv(allocator: std.mem.Allocator, input: VmmArgvInput) !VmmArgvPl
         return .{ .command = pdeathsig, .args = try args.toOwnedSlice(allocator) };
     }
     return .{ .command = binary, .args = input.args };
+}
+
+pub fn planPortForwardProbe(mapping: PortForwardMapping) PortForwardProbePlan {
+    assert(@sizeOf(PortForwardMapping) > 0);
+
+    return .{
+        .host_port = mapping.host_port,
+        .probe_host = mapping.host_addr orelse "127.0.0.1",
+    };
 }
 
 pub fn validatePortForward(mappings: []const PortForwardMapping) PortForwardValidation {
@@ -2318,6 +2375,28 @@ test "planSnapshotContext projects mount live mount and vmstate chain fields" {
     }));
 }
 
+test "planRegistryLifecycle gates name claim and registry writes" {
+    const ready = planRegistryLifecycle(.{
+        .name = "worker",
+        .child_pid = 42,
+        .vsock_uds_path = "/tmp/exec.sock",
+    });
+    try std.testing.expectEqualStrings("worker", ready.claim_name.?);
+    try std.testing.expect(ready.should_write);
+
+    const no_name = planRegistryLifecycle(.{ .child_pid = 42, .vsock_uds_path = "/tmp/exec.sock" });
+    try std.testing.expect(no_name.claim_name == null);
+    try std.testing.expect(no_name.should_write);
+
+    const dead_pid = planRegistryLifecycle(.{ .name = "worker", .child_pid = 0 });
+    try std.testing.expect(dead_pid.claim_name == null);
+    try std.testing.expect(!dead_pid.should_write);
+
+    const no_vsock = planRegistryLifecycle(.{ .name = "worker", .child_pid = 42 });
+    try std.testing.expectEqualStrings("worker", no_vsock.claim_name.?);
+    try std.testing.expect(!no_vsock.should_write);
+}
+
 test "planRegistryShape collects cleanup paths and strips registry-only mount fields" {
     const allocator = std.testing.allocator;
     const live = [_]LiveMount{
@@ -2730,6 +2809,24 @@ test "planBundlePack selects fat or tiny initramfs inputs" {
     });
     try std.testing.expectEqualStrings("tiny", tiny_restore.kind);
     try std.testing.expectEqualStrings("/mnt/restore", tiny_restore.tiny_mount_guest.?);
+}
+
+test "planVmmEnv overlays caller env on host env" {
+    const host = [_]EnvPair{
+        .{ .key = "PATH", .value = "/usr/bin" },
+        .{ .key = "MACHINEN_MEMORY", .value = "512" },
+    };
+    const caller = [_]EnvPair{
+        .{ .key = "MACHINEN_MEMORY", .value = "1024" },
+        .{ .key = "MACHINEN_TRACE", .value = "1" },
+    };
+    const planned = try planVmmEnv(std.testing.allocator, .{ .base = &host, .overrides = &caller });
+    defer std.testing.allocator.free(planned);
+    try std.testing.expectEqualStrings("PATH", planned[0].key);
+    try std.testing.expectEqualStrings("/usr/bin", planned[0].value);
+    try std.testing.expectEqualStrings("MACHINEN_MEMORY", planned[1].key);
+    try std.testing.expectEqualStrings("1024", planned[1].value);
+    try std.testing.expectEqualStrings("MACHINEN_TRACE", planned[2].key);
 }
 
 test "planBundleEnv overlays guest env on image env" {

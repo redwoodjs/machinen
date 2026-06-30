@@ -16,6 +16,7 @@ export type RegistryProcessPlan = {
   vmmExe: string | null;
   gvproxyExe: string | null;
 };
+export type RegistryLifecyclePlan = { claimName: string | null; shouldWrite: boolean };
 type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
 type RegistryCpuPlan = {
   maxVcpus: number;
@@ -30,6 +31,7 @@ type RegistryVmstatePlan = {
   checkpointSequence: number | null;
 };
 export type PlannedPortForward = { hostPort: number; guestPort: number; hostAddr?: string };
+export type PortForwardProbePlan = { hostPort: number; probeHost: string };
 export type BundleWorkspacePlan = { cpioPath: string | null; synthBundleDir: string | null };
 export type BundleConfigPathsPlan = { rootfsDir: string | null; configPath: string | null };
 export type BundlePackPlan = { kind: "fat" | "tiny"; tinyMountGuest: string | null };
@@ -150,6 +152,7 @@ export interface NativeBootPlanResult {
   guestHostname: string | null;
   guestHostnameSet: string | null;
   mergedGuestEnv: Record<string, string>;
+  vmmEnv: Record<string, string>;
   vsockUdsPath: string | null;
   vmmVsock: string | null;
   gvproxyPlan: GvproxyPlan;
@@ -171,6 +174,7 @@ export interface NativeBootPlanResult {
   vmmStatsFile: string | null;
   vmstateRuntime: BootVmstateRuntimePlan;
   plannedPortForward: PlannedPortForward[];
+  portForwardProbe: PortForwardProbePlan[];
   machinenConfig: MachinenConfigPlan;
   bundleCommand: string[];
   bundleEnv: Record<string, string>;
@@ -193,6 +197,7 @@ export interface NativeBootPlanResult {
   mountDiskFdEnv: Record<string, string>;
   snapshotContext: SnapshotContextPlan;
   registryShape: RegistryShapePlan;
+  registryLifecycle: RegistryLifecyclePlan;
   registryProcess: RegistryProcessPlan;
 }
 
@@ -214,6 +219,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.guestHostname),
     nullableString(data.guestHostnameSet),
     isStringRecord(data.mergedGuestEnv),
+    isStringRecord(data.vmmEnv),
     nullableString(data.vsockUdsPath),
     nullableString(data.vmmVsock),
     isGvproxyPlan(data.gvproxyPlan),
@@ -235,6 +241,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmStatsFile),
     isBootVmstateRuntimePlan(data.vmstateRuntime),
     Array.isArray(data.plannedPortForward) && data.plannedPortForward.every(isPlannedPortForward),
+    Array.isArray(data.portForwardProbe) && data.portForwardProbe.every(isPortForwardProbePlan),
     isMachinenConfigPlan(data.machinenConfig),
     isStringArray(data.bundleCommand),
     isStringRecord(data.bundleEnv),
@@ -257,6 +264,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isStringRecord(data.mountDiskFdEnv),
     isSnapshotContextPlan(data.snapshotContext),
     isRegistryShapePlan(data.registryShape),
+    isRegistryLifecyclePlan(data.registryLifecycle),
     isRegistryProcessPlan(data.registryProcess),
   ].every(Boolean);
 }
@@ -454,6 +462,14 @@ function isMountDiskRuntimePlan(value: unknown): value is MountDiskRuntimePlan {
   ].every(Boolean);
 }
 
+function isRegistryLifecyclePlan(value: unknown): value is RegistryLifecyclePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<RegistryLifecyclePlan>;
+  return nullableString(plan.claimName) && typeof plan.shouldWrite === "boolean";
+}
+
 function isRegistryProcessPlan(value: unknown): value is RegistryProcessPlan {
   if (!value || typeof value !== "object") {
     return false;
@@ -505,6 +521,14 @@ function isVmstatePlanShape(plan: Partial<BootVmstateRuntimePlan>): boolean {
 
 function isRegistryPortForwardArray(value: unknown): value is RegistryPortForwardPlan[] {
   return Array.isArray(value) && value.every(isPlannedPortForward);
+}
+
+function isPortForwardProbePlan(value: unknown): value is PortForwardProbePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<PortForwardProbePlan>;
+  return nonNegativeNumber(plan.hostPort) && typeof plan.probeHost === "string";
 }
 
 function isPlannedPortForward(value: unknown): value is PlannedPortForward {
