@@ -4,13 +4,45 @@
 
 <h1 align="center">M A C H I N E N</h1>
 
-Hand off a running Linux VM between hosts. Freeze it on your laptop, thaw it
-on a server, resume it next week. The program picks up exactly where it left
-off — like waking a laptop from sleep, except on a different computer.
+**Your computer is already a cloud. Machinen makes it feel like one.**
 
-A native microVM runtime under the hood: arm64 on Apple Silicon/Linux and
-amd64 on Linux/KVM. Node.js is the first-class target; Python, bash, and
-anything else that boots in a Linux VM works too.
+You already have machines: one on your lap, one on your desk, maybe one
+humming in a closet. Machinen gives you small, named Linux VMs on the
+hardware you control. They run in the background, keep terminal sessions
+alive, and let you reconnect from another shell later.
+
+No tiny rented slice. No hyperscaler-shaped workflow. Just cloud-shaped
+computers that belong to you.
+
+Under the hood, Machinen is a native microVM runtime: arm64 on Apple
+Silicon/Linux and amd64 on Linux/KVM. Node.js is the first-class target;
+Python, bash, and anything else that boots in a Linux VM works too. When
+you need the weird stuff, you can snapshot, fork, and hand off a running
+VM between hosts.
+
+## The loop
+
+Start a little Linux machine, detach from it, and come back later:
+
+```bash
+npx machinen boot --name work --detach -- sleep infinity
+npx machinen attach work
+
+# from another terminal, another SSH session, or after your client drops:
+npx machinen attach work
+```
+
+`attach` opens a real PTY with job control, tab completion, full-screen
+TUIs, and Ctrl-C going to the guest. By default it creates or reconnects
+a persistent session named `default`; if your host terminal or SSH
+connection disappears, the shell keeps running inside the VM.
+
+```bash
+npx machinen attach --session editor work   # another persistent terminal
+npx machinen sessions work                  # list live sessions
+npx machinen session-kill work editor       # reset one session
+npx machinen stop work                      # shut down the VM
+```
 
 ## Install
 
@@ -30,10 +62,10 @@ The right native package is pulled automatically via optional dependencies:
 First run fetches the matching kernel + rootfs from a GitHub release on the
 companion repo over plain HTTPS — no auth required.
 
-## Quickstart
+## Quickstart: a tiny service you own
 
-Bake an image, boot it, accumulate some state, then move the running process
-to another host.
+Bake an image, boot it as a named VM, and let it accumulate state on your
+machine.
 
 ### 1. Bake
 
@@ -77,11 +109,20 @@ curl localhost:3000                        # { count: 1 }
 curl localhost:3000                        # { count: 2 }
 ```
 
-The process is now sitting on host A with `count = 2` in its heap.
+The service is now running in a named VM on your machine. The boot command
+has returned, but the VM, the TCP forward, and the guest exec agent are
+still alive in the background.
 
-### 3. Handoff
+Reach into it whenever you want:
 
-Freeze it, copy the bundle to host B, thaw it:
+```bash
+npx machinen exec counter -- ps aux         # one-off command
+npx machinen attach counter                 # reconnectable shell/TUI
+```
+
+### 3. Hand it off when you want
+
+Freeze the VM, copy the bundle to host B, and thaw it there:
 
 ```bash
 npx machinen snapshot counter ./counter.snap
@@ -91,9 +132,9 @@ curl host-b:3000                           # { count: 3 }  ← same process
 ```
 
 Same guest architecture only (arm64 ↔ arm64, amd64 ↔ amd64). Cross-ISA
-restore is not supported. The default vmstate snapshot bundle includes
-CPU state, memory, device state, and the root block image needed to
-restore the VM.
+restore is not supported. The default vmstate snapshot bundle includes CPU
+state, memory, device state, and the root block image needed to restore the
+VM.
 
 ## Fork
 
@@ -131,8 +172,8 @@ curl localhost:3000                                            # still the sourc
 ```
 
 Pass `-p` multiple times for multiple ports. If you pick a host port the
-source is already forwarding, `fork` errors with
-`BOOT_PORT_FORWARD_IN_USE` and names the VM that's holding it.
+source is already forwarding, `fork` errors with `BOOT_PORT_FORWARD_IN_USE`
+and names the VM that's holding it.
 
 From Node, same shape:
 
@@ -142,7 +183,7 @@ const fork = await vm.fork({ name: "counter-b" });
 
 ## From Node
 
-Same arc, driven from TypeScript:
+Same primitives, driven from TypeScript:
 
 ```ts
 import { readFileSync } from "node:fs";
@@ -157,7 +198,7 @@ await provision({
   out: "./counter.tar.gz",
 });
 
-const vm = await boot({ image: "./counter.tar.gz", name: "counter" });
+const vm = await boot({ image: "./counter.tar.gz", name: "counter", detached: true });
 // ... let it run, serve traffic, accumulate state ...
 
 await vm.snapshot({ outDir: "./counter.snap" });
@@ -168,8 +209,10 @@ const restored = await restore({ snapDir: "./counter.snap" });
 
 ## Documentation
 
-- [Quickstart](./docs/quickstart.md) — the same three-step walkthrough
-  with more colour
+- [Quickstart](./docs/quickstart.md) — a longer bake → boot → handoff
+  walkthrough
+- [Create a VM](./docs/guides/create-a-vm.md) — boot, detach, attach,
+  and manage named VMs
 - [Hand off a running VM](./docs/guides/handoff.md) — snapshot → transfer → restore
 - [Guides](./docs/) — recipes for creating VMs, snapshots and forks,
   mounts, and networking
