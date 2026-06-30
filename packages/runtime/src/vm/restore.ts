@@ -606,7 +606,7 @@ function validateVmstateGuestArch(vmstate: VmstateSnapshotMeta, facts: VmstateFa
         `  restore guest:  ${target}\n` +
         `  refusal: ${refusal.code}\n` +
         "  Whole-VM .vmstate replays source kernel/vCPU/device state and is same-architecture only.\n" +
-        "  Use a portable machine snapshot with target-isa-vm-process-restore instead.",
+        "  Cross-ISA VM/process movement is not exposed as a public command.",
     );
   }
 }

@@ -195,7 +195,7 @@ function performSnapshotPortable(
 ): Promise<SnapshotResult> {
   throw new SnapshotError(
     "SNAPSHOT_PORTABLE_REFUSED",
-    "vm.snapshot: legacy portable Level 0-4 snapshot routes were removed; use machinen move for PID translation, or vmstate snapshot/restore for same-ISA VM snapshots.",
+    "vm.snapshot: legacy portable Level 0-4 snapshot routes were removed; use vmstate snapshot/restore for same-ISA VM snapshots. Cross-ISA VM/process movement is not exposed as a public command.",
   );
 }
 

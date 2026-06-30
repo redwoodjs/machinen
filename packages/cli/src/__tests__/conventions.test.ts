@@ -13,7 +13,6 @@ import { COMMANDS, EXIT_CODES, SCHEMA_VERSION, buildAgentContext } from "../agen
 
 const SRC_DIR = dirname(fileURLToPath(import.meta.url));
 const CLI_SRC = readFileSync(join(SRC_DIR, "..", "cli.ts"), "utf8");
-const MOVE_COMMAND_SRC = readFileSync(join(SRC_DIR, "..", "commands", "move.ts"), "utf8");
 const RESTORE_COMMAND_SRC = readFileSync(join(SRC_DIR, "..", "commands", "restore.ts"), "utf8");
 const SNAPSHOT_COMMAND_SRC = readFileSync(join(SRC_DIR, "..", "commands", "snapshot.ts"), "utf8");
 const PORTABLE_RESTORE_ADAPTER_SRC = readFileSync(
@@ -38,7 +37,6 @@ const ALLOWED_VERBS = new Set([
   // domain
   "boot",
   "restore",
-  "move",
   "exec",
   "snapshot",
   "fork",
@@ -161,7 +159,7 @@ describe("flag conventions", () => {
     // `fork` is a multi-step submit-and-attach where dry-run would
     //   need to short-circuit before the snapshot, which is the same
     //   thing as not running the command. Skipped intentionally.
-    const exceptions = new Set(["feedback", "fork", "move"]);
+    const exceptions = new Set(["feedback", "fork"]);
     for (const cmd of COMMANDS) {
       if (!cmd.mutating) {
         continue;
@@ -208,15 +206,12 @@ describe("flag conventions", () => {
   });
 });
 
-describe("move-only cross-ISA product route convention", () => {
-  it("removes legacy portable restore adapter dispatch and exposes move", () => {
+describe("cross-ISA proof routing stays off the public CLI surface", () => {
+  it("removes legacy portable restore adapter dispatch and does not expose move", () => {
     expect(CLI_SRC).not.toContain("const pingPortableRestoreAdapter");
     expect(CLI_SRC).not.toContain("detectPortableRestoreAdapter(snapDir)");
-    expect(MOVE_COMMAND_SRC).toContain("function cmdMove(");
-    expect(MOVE_COMMAND_SRC).toContain("createMoveDescriptorInVm");
-    expect(MOVE_COMMAND_SRC).toContain("loadMoveDescriptor");
-    expect(MOVE_COMMAND_SRC).toContain("runMoveTargetDirectLoaderInVm");
-    expect(CLI_SRC).toContain('["move", cmdMove]');
+    expect(CLI_SRC).not.toContain('["move",');
+    expect(COMMANDS.some((cmd) => cmd.name === "move")).toBe(false);
     expect(PORTABLE_RESTORE_ADAPTER_SRC).toContain("PortableRestoreAdapter");
   });
 });

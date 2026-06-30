@@ -122,35 +122,6 @@ export const COMMANDS: CommandSpec[] = [
     jsonEnvelope: '{"schema_version": 1, "pid": <int>, "name": <string|null>, "detached": <bool>}',
   },
   {
-    name: "move",
-    summary: "Cross-ISA PID translation entrypoint with fail-closed state-class evidence.",
-    jsonOutput: true,
-    mutating: true,
-    positionals: [
-      { name: "subcommand", description: "scan, save, or load." },
-      { name: "pid", required: false, description: "PID for move save." },
-      {
-        name: "descriptor",
-        required: false,
-        description: "Output descriptor for save or input descriptor for load.",
-      },
-    ],
-    flags: [
-      {
-        name: "--issue",
-        type: "boolean",
-        description: "Include a redacted issue report for refusals.",
-      },
-      {
-        name: "--issue-repo",
-        type: "string",
-        description: "GitHub repository for the issue report.",
-      },
-      { name: "--json", type: "boolean", description: "Emit move graph/descriptors as JSON." },
-    ],
-    jsonEnvelope: '{"schema_version": 1, "accepted": <bool>, "descriptor": {...}}',
-  },
-  {
     name: "restore",
     summary: "Restore a VM from a snapshot bundle.",
     jsonOutput: false,
