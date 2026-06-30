@@ -524,9 +524,9 @@ export interface ForkOptions extends Omit<RestoreOptions, "snapDir"> {
   lazy?: boolean;
   /**
    * Backpressure gate (#274). Fraction of host total memory that must
-   * be free before `vm.fork()` is allowed to proceed; if `MemAvailable`
-   * (Linux) / `vm_stat free+speculative+purgeable` (Darwin) drops below
-   * `totalmem() * threshold`, the fork is refused with
+   * be free before `vm.fork()` is allowed to proceed; if native host
+   * available memory drops below total physical memory * threshold,
+   * the fork is refused with
    * `FORK_MEMORY_BACKPRESSURE`. Mirrors the throw-immediately shape of
    * #267's port-conflict gate — caller decides whether to retry.
    *

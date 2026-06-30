@@ -20,15 +20,51 @@ comptime {
 pub const Pl011 = pl011_mod.Pl011;
 pub const PthreadMutex = pl011_mod.PthreadMutex;
 
-// Cherry-pick headers — the umbrella Hypervisor.h pulls in
-// hv_vcpu_config.h, which has a `uint64_t values[_Nonnull 8]`
-// declaration that Zig's translate-c can't parse. We pull what cImport
-// handles cleanly (VM lifecycle + memory map + error codes) and declare
-// the vCPU surface manually below.
-pub const c = @cImport({
-    @cInclude("Hypervisor/hv_error.h");
-    @cInclude("Hypervisor/hv_vm.h");
-});
+// Do not @cImport Hypervisor or Mach headers here. macOS 26 SDK
+// mach/message.h defines mach_msg_* descriptor structs with bitfields;
+// Zig 0.16 translate-c marks them opaque but still emits @sizeOf
+// assertions, which breaks fresh HVF builds. Keep this to the tiny
+// Hypervisor.framework ABI surface Machinen actually uses and declare
+// the vCPU/GIC surface manually below as before.
+pub const c = struct {
+    pub const hv_return_t = c_int;
+    pub const hv_vm_config_t = ?*opaque {};
+    pub const hv_memory_flags_t = u64;
+    pub const hv_memory_size_t = usize;
+
+    pub const HV_SUCCESS: hv_return_t = 0;
+    pub const HV_ERROR: hv_return_t = hv_error_code(0x01);
+    pub const HV_BUSY: hv_return_t = hv_error_code(0x02);
+    pub const HV_BAD_ARGUMENT: hv_return_t = hv_error_code(0x03);
+    pub const HV_ILLEGAL_GUEST_STATE: hv_return_t = hv_error_code(0x04);
+    pub const HV_NO_RESOURCES: hv_return_t = hv_error_code(0x05);
+    pub const HV_NO_DEVICE: hv_return_t = hv_error_code(0x06);
+    pub const HV_DENIED: hv_return_t = hv_error_code(0x07);
+    pub const HV_UNSUPPORTED: hv_return_t = hv_error_code(0x0f);
+
+    pub const HV_MEMORY_READ: hv_memory_flags_t = 1 << 0;
+    pub const HV_MEMORY_WRITE: hv_memory_flags_t = 1 << 1;
+    pub const HV_MEMORY_EXEC: hv_memory_flags_t = 1 << 2;
+};
+
+fn hv_error_code(comptime code: u32) c.hv_return_t {
+    return @bitCast(@as(u32, 0xfae94000 | code));
+}
+
+extern "c" fn hv_vm_create(config: c.hv_vm_config_t) c.hv_return_t;
+extern "c" fn hv_vm_destroy() c.hv_return_t;
+extern "c" fn hv_vm_map(
+    addr: *anyopaque,
+    ipa: u64,
+    size: c.hv_memory_size_t,
+    flags: c.hv_memory_flags_t,
+) c.hv_return_t;
+extern "c" fn hv_vm_unmap(ipa: u64, size: c.hv_memory_size_t) c.hv_return_t;
+extern "c" fn hv_vm_protect(
+    ipa: u64,
+    size: c.hv_memory_size_t,
+    flags: c.hv_memory_flags_t,
+) c.hv_return_t;
 
 pub const Error = error{
     Denied, // missing com.apple.security.hypervisor entitlement
@@ -94,7 +130,7 @@ pub fn nested_supported() bool {
 /// Process-wide VM context. HVF currently supports one VM per process.
 pub const Vm = struct {
     pub fn create() Error!Vm {
-        try check(c.hv_vm_create(null));
+        try check(hv_vm_create(null));
         return .{};
     }
 
@@ -108,12 +144,12 @@ pub const Vm = struct {
         try check(get_el2(&supported));
         if (!supported) return error.Unsupported;
         try check(set_el2(config, true));
-        try check(c.hv_vm_create(config));
+        try check(hv_vm_create(config));
         return .{};
     }
 
     pub fn destroy(_: Vm) void {
-        _ = c.hv_vm_destroy();
+        _ = hv_vm_destroy();
     }
 
     /// Map host memory into the guest's physical address space.
@@ -127,14 +163,14 @@ pub const Vm = struct {
         // Mapping an unreadable page is a programmer bug — the guest
         // would trap on the first fetch with no useful diagnostic.
         assert(flags.read or flags.write or flags.exec);
-        try check(c.hv_vm_map(host_mem.ptr, guest_phys, host_mem.len, flags.bits()));
+        try check(hv_vm_map(host_mem.ptr, guest_phys, host_mem.len, flags.bits()));
     }
 
     pub fn unmap(_: Vm, guest_phys: u64, size: usize) Error!void {
         assert(size > 0);
         assert(size % page_size == 0);
         assert(guest_phys % page_size == 0);
-        try check(c.hv_vm_unmap(guest_phys, size));
+        try check(hv_vm_unmap(guest_phys, size));
     }
 
     pub fn protect(_: Vm, guest_phys: u64, size: usize, flags: MapFlags) Error!void {
@@ -142,7 +178,7 @@ pub const Vm = struct {
         assert(size % page_size == 0);
         assert(guest_phys % page_size == 0);
         assert(flags.read or flags.write or flags.exec);
-        try check(c.hv_vm_protect(guest_phys, size, flags.bits()));
+        try check(hv_vm_protect(guest_phys, size, flags.bits()));
     }
 };
 

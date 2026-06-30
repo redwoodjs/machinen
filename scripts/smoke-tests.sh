@@ -9,6 +9,7 @@
 # isn't already built, then runs the tests.
 #   - @machinen/runtime + @machinen/cli  (fast)
 #   - packages/microvm/zig-out/bin/machinen-vm  (~30s on first run)
+#   - packages/runtime/native/zig-out/bin/machinen-runtime-helper  (fast)
 #   - release-assets/ (kernel, optional dtb, rootfs tarball)  (~5 min, needs Docker)
 #
 # Tests:
@@ -22,8 +23,8 @@
 #   T5b    --mount-live :rw stages writes and flushes on workload exit.
 #   T9v    filesystem-op battery over a virtio-fs live mount — #332.
 #   T4     --env propagates into the guest process env — #89.
-#   P1-P4  Base-rootfs/proof-fixture contract (criu, mounted portable
-#          proof workload, virtio modules, poweroff) — #77, #379.
+#   P1-P4  Base-rootfs asset contract (criu availability, mounted
+#          host paths, virtio modules, poweroff) — #77, #379.
 #   N1-N5  New #93 CLI surface: ls, exec, attach-unknown, completion,
 #          plus image-carries-cmd default.
 #   B0-B1  virtio-balloon free-page-reporting — #263.
@@ -51,6 +52,7 @@ case "$OS:$HOST_ARCH" in
   *) echo "smoke: unsupported host: $OS/$HOST_ARCH" >&2; exit 1 ;;
 esac
 VMM="$ROOT/packages/$HOST_NATIVE_PKG/vmm/bin/machinen-vm"
+RUNTIME_HELPER="$ROOT/packages/$HOST_NATIVE_PKG/vmm/bin/machinen-runtime-helper"
 
 GUEST_ARCH="${MACHINEN_GUEST_ARCH:-}"
 if [[ -z "$GUEST_ARCH" ]]; then
@@ -133,6 +135,9 @@ fi
 echo "=== building VMM ==="
 bash "$ROOT/scripts/build-vmm.sh"
 
+echo "=== building machinen-runtime-helper ==="
+bash "$ROOT/scripts/build-runtime-helper.sh"
+
 if ! assets_complete; then
   echo "=== building $GUEST_ARCH base assets (~5 min on first run, cached after) ==="
   MACHINEN_GUEST_ARCH="$GUEST_ARCH" "$ROOT/scripts/build-base-assets.sh"
@@ -163,11 +168,13 @@ pnpm -F @machinen/runtime -F @machinen/cli build >/dev/null
 "$ROOT/scripts/install-gvproxy.sh" --dest "$(dirname "$VMM")"
 
 export MACHINEN_VMM="$VMM"
+export MACHINEN_RUNTIME_HELPER="$RUNTIME_HELPER"
 export MACHINEN_ASSETS_DIR="$ASSETS"
 export MACHINEN_GUEST_ARCH="$GUEST_ARCH"
 
 echo
 echo "smoke: VMM=$MACHINEN_VMM"
+echo "smoke: RUNTIME_HELPER=$MACHINEN_RUNTIME_HELPER"
 echo "smoke: ASSETS=$MACHINEN_ASSETS_DIR"
 echo "smoke: GUEST_ARCH=$MACHINEN_GUEST_ARCH"
 echo
@@ -1733,39 +1740,6 @@ if grep -q "Version:" "$P1_LOG"; then
 else
   tail -50 "$P1_LOG" >&2
   fail "P1 — criu --version did not print a Version: line"
-fi
-
-# ---- P4: portable proof workload prints deterministic state markers (#379) ----
-echo "P4: machinen boot -- mounted portable proof checkpoint + restore loader"
-P4_LOG="$FIXTURE/p4-portable-proof.log"
-P4_OUT="$FIXTURE/p4-portable-proof-out"
-mkdir -p "$P4_OUT"
-echo "portable-resource-marker" >"$P4_OUT/resource.txt"
-case "$GUEST_ARCH" in
-  arm64) P4_ZIG_TARGET="aarch64-linux-musl" ;;
-  amd64) P4_ZIG_TARGET="x86_64-linux-musl" ;;
-  *) fail "P4 — unknown guest arch $GUEST_ARCH" ;;
-esac
-zig cc "$ROOT/packages/microvm/test-fixtures/proof-assets/portable-proof-workload.c" \
-  -I "$ROOT/packages/microvm/test-fixtures/proof-assets" \
-  -target "$P4_ZIG_TARGET" \
-  -static \
-  -pthread \
-  -Os \
-  -o "$P4_OUT/machinen-portable-proof"
-cp "$ROOT/packages/microvm/test-fixtures/proof-assets/portable-restore-loader.sh" \
-  "$P4_OUT/machinen-portable-restore-proof"
-chmod +x "$P4_OUT/machinen-portable-proof" "$P4_OUT/machinen-portable-restore-proof"
-run_timeout 60 node "$CLI" boot \
-  --mount-live "$P4_OUT:/mnt/portable-proof" \
-  -- /bin/sh -c '/mnt/portable-proof/machinen-portable-proof --restore-proof --resource-file /mnt/portable-proof/resource.txt --emit-bundle /mnt/portable-proof/bundle && /mnt/portable-proof/machinen-portable-restore-proof /mnt/portable-proof/bundle' \
-  >"$P4_LOG" 2>&1 || true
-if node "$ROOT/scripts/portable-proof-compare.mjs" --expect-arch "$GUEST_ARCH" --require-restore --require-continue --bundle-dir "$P4_OUT/bundle" "$P4_LOG" >/dev/null; then
-  pass "portable proof workload emitted a bundle and the restore loader replayed it"
-else
-  node "$ROOT/scripts/portable-proof-compare.mjs" --expect-arch "$GUEST_ARCH" --require-restore --require-continue --bundle-dir "$P4_OUT/bundle" "$P4_LOG" >&2 || true
-  tail -50 "$P4_LOG" >&2
-  fail "P4 — portable proof markers or bundle did not validate"
 fi
 
 # ---- P2: virtio_blk + vsock (+ arm64 nested KVM config) visible at boot ----

@@ -1,0 +1,41 @@
+# Machinen
+
+> Your computer is already a cloud. Machinen makes it feel like one.
+
+Machinen gives developers small, named Linux VMs on hardware they control: a laptop, desktop, homelab machine, or server. VMs run in the background, keep terminal sessions alive, and can be reattached from another shell or SSH session later.
+
+Core loop:
+
+```bash
+npx machinen boot --name work --detach -- sleep infinity
+npx machinen attach work
+npx machinen attach work
+```
+
+`machinen attach` creates or reconnects a persistent PTY session named `default` by default. The session survives host terminal or SSH disconnects while the VM host keeps running. Use `machinen attach --session <name> <vm>` for additional named sessions, `machinen sessions <vm>` to list them, and `machinen session-kill <vm> [session]` to reset one.
+
+Machinen is a native microVM runtime for arm64 on Apple Silicon/Linux and amd64 on Linux/KVM. It can run Node.js, Python, bash, and other Linux workloads. It supports one-off `exec`, persistent `attach`, port forwards, live mounts, snapshot/restore, fork, and handoff between same-architecture hosts.
+
+Install:
+
+```bash
+npm i @machinen/cli @machinen/runtime
+```
+
+Useful commands:
+
+```bash
+npx machinen boot --name counter -p 3000:3000 --detach ./counter.tar.gz
+npx machinen exec counter -- ps aux
+npx machinen attach counter
+npx machinen snapshot counter ./counter.snap
+npx machinen fork counter --new-name counter-b --detach
+npx machinen stop counter
+```
+
+References:
+
+- Repository and docs: https://github.com/redwoodjs/machinen
+- README: https://github.com/redwoodjs/machinen/blob/main/README.md
+- CLI API: https://github.com/redwoodjs/machinen/blob/main/packages/cli/API.md
+- Runtime API: https://github.com/redwoodjs/machinen/blob/main/packages/runtime/API.md

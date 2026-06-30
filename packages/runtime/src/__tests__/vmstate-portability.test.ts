@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -21,10 +22,19 @@ const SECTION_TAG = { vcpu: 2 };
 const TOPO = Buffer.alloc(32, 0xa5);
 
 let TMP: string;
+let helperTmp: string | undefined;
 let originalGuestArch: string | undefined;
+let previousHelper: string | undefined;
 
 beforeAll(() => {
   TMP = mkdtempSync(join(tmpdir(), "vmstate-portability-"));
+  helperTmp = mkdtempSync(join(tmpdir(), "machinen-runtime-helper-test-"));
+  execFileSync("zig", ["build", "--prefix", helperTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousHelper = process.env.MACHINEN_RUNTIME_HELPER;
+  process.env.MACHINEN_RUNTIME_HELPER = join(helperTmp, "bin", "machinen-runtime-helper");
   originalGuestArch = process.env.MACHINEN_GUEST_ARCH;
   process.env.MACHINEN_GUEST_ARCH = "arm64";
 });
@@ -34,6 +44,14 @@ afterAll(() => {
     delete process.env.MACHINEN_GUEST_ARCH;
   } else {
     process.env.MACHINEN_GUEST_ARCH = originalGuestArch;
+  }
+  if (previousHelper === undefined) {
+    delete process.env.MACHINEN_RUNTIME_HELPER;
+  } else {
+    process.env.MACHINEN_RUNTIME_HELPER = previousHelper;
+  }
+  if (helperTmp) {
+    rmSync(helperTmp, { recursive: true, force: true });
   }
   if (TMP) {
     rmSync(TMP, { recursive: true, force: true });
@@ -110,6 +128,24 @@ describe("vmstate portability metadata", () => {
     );
   });
 
+  it("uses native restore image planning for missing explicit and metadata images", async () => {
+    const { dir } = writeBundle("missing-explicit-image", { engine: "vmstate", snappedAt: 1 }, 0n);
+    const explicit = join(TMP, "missing-explicit.tar.gz");
+    await expect(restore({ snapDir: dir, image: explicit, binary: "/bin/sh" })).rejects.toThrow(
+      `restore: image not found: ${explicit}`,
+    );
+
+    const metaSource = join(TMP, "missing-meta-source.tar.gz");
+    const { dir: metaDir } = writeBundle(
+      "missing-meta-image",
+      { engine: "vmstate", snappedAt: 1, sourceImage: metaSource },
+      0n,
+    );
+    await expect(restore({ snapDir: metaDir, binary: "/bin/sh" })).rejects.toThrow(
+      `restore: source image not found at ${metaSource}`,
+    );
+  });
+
   it("refuses cross-guest-architecture vmstate restore", async () => {
     const original = process.env.MACHINEN_GUEST_ARCH;
     process.env.MACHINEN_GUEST_ARCH = "amd64";
@@ -144,7 +180,7 @@ describe("vmstate portability metadata", () => {
       });
       expect(error).toMatchObject({
         message: expect.stringMatching(
-          /snapshot guest: arm64[\s\S]*restore guest:\s+amd64[\s\S]*target-isa-vm-process-restore/,
+          /snapshot guest: arm64[\s\S]*restore guest:\s+amd64[\s\S]*not exposed as a public command/,
         ),
       });
     } finally {

@@ -17,6 +17,14 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 /** The microVM hypervisor binary the runtime spawns per guest. */
 export const binary = join(here, "vmm", "bin", "machinen-vm");
+/** Host-side Zig helper for runtime-owned native operations. */
+export const runtimeHelper = join(here, "vmm", "bin", "machinen-runtime-helper");
+/** Parent-death wrapper used to keep host sidecars bound to the runtime process. */
+export const pdeathsig = join(here, "vmm", "bin", "machinen-pdeathsig");
+/** Native PTY shim used by bootPty(). */
+export const pty = join(here, "vmm", "bin", "machinen-pty");
+/** Native winsize socket forwarder used by VsockWinsize. */
+export const winsize = join(here, "vmm", "bin", "machinen-winsize");
 /**
  * gvproxy (containers/gvisor-tap-vsock) — the userspace TCP/IP sidecar
  * the runtime auto-spawns for virtio-net. Optional; absent installs

@@ -5,6 +5,7 @@
 // `cpio -id`) keeps the tests hermetic — not every CI runner ships a
 // cpio binary with matching flag semantics.
 
+import { execFileSync } from "node:child_process";
 import {
   closeSync,
   ftruncateSync,
@@ -14,12 +15,37 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { packBundle, packTinyBundle, patchConfigEnv } from "../mkinitramfs.ts";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { packBundle, packTinyBundle, packWorkspace, patchConfigEnv } from "../mkinitramfs.ts";
+
+let helperTmp: string | undefined;
+let previousHelper: string | undefined;
+
+beforeAll(() => {
+  helperTmp = mkdtempSync(join(tmpdir(), "machinen-runtime-helper-test-"));
+  execFileSync("zig", ["build", "--prefix", helperTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousHelper = process.env.MACHINEN_RUNTIME_HELPER;
+  process.env.MACHINEN_RUNTIME_HELPER = join(helperTmp, "bin", "machinen-runtime-helper");
+});
+
+afterAll(() => {
+  if (previousHelper === undefined) {
+    delete process.env.MACHINEN_RUNTIME_HELPER;
+  } else {
+    process.env.MACHINEN_RUNTIME_HELPER = previousHelper;
+  }
+  if (helperTmp) {
+    rmSync(helperTmp, { recursive: true, force: true });
+  }
+});
 
 // Minimal parser for the newc cpio format produced by mkinitramfs.ts.
 // Returns a name → {data, mode} map for all non-TRAILER entries.
@@ -102,6 +128,12 @@ describe("packBundle mount", () => {
     return bundleDir;
   }
 
+  function makeStubInit(): string {
+    const stubInit = join(tmp, `stub-init-${Math.random().toString(36).slice(2)}`);
+    writeFileSync(stubInit, "stub");
+    return stubInit;
+  }
+
   it("copies a host directory recursively to the guest path", () => {
     const bundle = makeEmptyBundle();
     const srcDir = join(tmp, "src");
@@ -113,6 +145,7 @@ describe("packBundle mount", () => {
     packBundle({
       bundle,
       out,
+      initPath: makeStubInit(),
       mount: { host: srcDir, guest: "/mnt/app" },
     });
 
@@ -137,6 +170,7 @@ describe("packBundle mount", () => {
     packBundle({
       bundle: bundleDir,
       out,
+      initPath: makeStubInit(),
       mount: { host: mountSrc, guest: "/mnt/app" },
     });
 
@@ -150,6 +184,7 @@ describe("packBundle mount", () => {
     packBundle({
       bundle,
       out,
+      initPath: makeStubInit(),
       env: { WEBHOOK_URL: "http://192.168.127.1:9000/hook" },
     });
 
@@ -175,6 +210,7 @@ describe("packBundle mount", () => {
     packBundle({
       bundle: bundleDir,
       out,
+      initPath: makeStubInit(),
       env: { FOO: "from-runtime", BAR: "from-runtime" },
     });
 
@@ -186,7 +222,7 @@ describe("packBundle mount", () => {
   it("leaves bundle config untouched when env is absent", () => {
     const bundle = makeEmptyBundle();
     const out = join(tmp, "out.cpio");
-    packBundle({ bundle, out });
+    packBundle({ bundle, out, initPath: makeStubInit() });
 
     const entries = listCpioEntries(out);
     const parsed = JSON.parse(entries.get("machinen-config.json")!.data.toString("utf8"));
@@ -346,6 +382,24 @@ describe("packBundle mount", () => {
     }
   });
 
+  it("packTinyBundle handles configs larger than the helper request cap", () => {
+    const bundle = makeEmptyBundle();
+    const out = join(tmp, "large-config.cpio");
+    const stubInit = join(tmp, "stub-init");
+    writeFileSync(stubInit, "stub");
+    const big = "x".repeat(1024 * 1024 + 1);
+    writeFileSync(
+      join(bundle, "machinen-config.json"),
+      JSON.stringify({ cmd: ["/bin/true"], env: { BIG: big } }),
+    );
+
+    packTinyBundle({ bundle, out, initPath: stubInit });
+
+    const entries = listCpioEntries(out);
+    const parsed = JSON.parse(entries.get("machinen-config.json")!.data.toString("utf8"));
+    expect(parsed.env.BIG).toHaveLength(big.length);
+  });
+
   it("packTinyBundle omits /etc/machinen-mountdisk-guest when no mountGuest", () => {
     const bundle = makeEmptyBundle();
     const out = join(tmp, "tiny.cpio");
@@ -392,6 +446,31 @@ describe("packBundle mount", () => {
     expect(size).toBeLessThan(1024 * 1024);
   });
 
+  it("packWorkspace accepts a symlink workspace root", () => {
+    const real = join(tmp, "real-workspace");
+    const link = join(tmp, "link-workspace");
+    mkdirSync(real);
+    writeFileSync(join(real, "file.txt"), "one");
+    symlinkSync(real, link, "dir");
+    const out = join(tmp, "workspace-symlink.cpio");
+
+    packWorkspace({ workspace: link, out });
+
+    const entries = listCpioEntries(out);
+    expect(entries.get("workspace/file.txt")?.data.toString("utf8")).toBe("one");
+  });
+
+  it("packWorkspace escapes quoted output paths in helper responses", () => {
+    const workspace = join(tmp, "workspace");
+    mkdirSync(workspace);
+    writeFileSync(join(workspace, "file.txt"), "one");
+    const out = join(tmp, 'workspace-"quoted".cpio');
+
+    packWorkspace({ workspace, out });
+
+    expect(statSync(out).size).toBeGreaterThan(0);
+  });
+
   it("leaves non-colliding mount paths alone when the bundle overlays a sibling", () => {
     // Mount populates /mnt/app with a+b; bundle only provides /mnt/app/a.
     // After layering, bundle's a wins, mount's b survives.
@@ -409,6 +488,7 @@ describe("packBundle mount", () => {
     packBundle({
       bundle: bundleDir,
       out,
+      initPath: makeStubInit(),
       mount: { host: mountSrc, guest: "/mnt/app" },
     });
 

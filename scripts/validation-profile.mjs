@@ -400,7 +400,6 @@ function validationCacheHints() {
   return [
     "Mount a persistent Corepack cache into proof containers: -v /tmp/machinen-corepack:/corepack -e COREPACK_HOME=/corepack.",
     "Mount a persistent pnpm store into proof containers: -v /tmp/machinen-pnpm-store:/pnpm-store -e MACHINEN_PNPM_STORE_DIR=/pnpm-store.",
-    "Run bash scripts/proof-container-install.sh inside remote proof containers instead of repeating an uncached pnpm install.",
   ];
 }
 

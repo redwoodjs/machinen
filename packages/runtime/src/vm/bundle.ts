@@ -22,6 +22,21 @@ import {
   markMountDiskImageClean,
 } from "../mountdisk-img.ts";
 import { reflinkCopy } from "../reflink.ts";
+import {
+  planBootBundleCommandNative,
+  planBootBundleConfigPathsNative,
+  planBootBundleEnvNative,
+  planBootBundleWorkspaceNative,
+  planBootLiveMountsNative,
+  planBootMountDiskRuntimeNative,
+  planBootMachinenConfigNative,
+} from "../native/boot-plan.ts";
+import { planBootBundleMountDiskModeNative } from "../native/bundle-mount-disk-mode.ts";
+import { planBootBundlePackNative } from "../native/bundle-pack.ts";
+import { planBootMountDiskTempPathNative } from "../native/mount-disk-temp-path.ts";
+import { validateLiveMountRemovedOptionsNative } from "../native/live-mount-options.ts";
+import type { BundlePackPlan } from "../native/boot-plan-schema.ts";
+import { planRestoreLiveMountsNative } from "../native/restore-live-mounts.ts";
 import type { BootOptions } from "./boot.ts";
 import type { SnapshotMeta } from "../vm-handle.ts";
 import { normalizeMountGuest, validateGuestCwd, validateMountGuest } from "./helpers.ts";
@@ -42,15 +57,6 @@ export interface ResolvedLiveMount {
   tag: string;
 }
 
-/**
- * The VMM wires this many virtio-fs slots (slots 7..11 — see
- * `MAX_VIRTIOFS_SLOTS` in boot_hvf.zig / boot_kvm.zig). One
- * `--mount-live` per slot. Note `restore({ lazy: true })` consumes
- * one slot internally to serve the page image, so a lazy restore can
- * carry at most `MAX_LIVE_MOUNTS - 1` user mounts.
- */
-const MAX_LIVE_MOUNTS = 5;
-
 export function resolveLiveMounts(
   mounts: Array<{
     host: string;
@@ -59,59 +65,28 @@ export function resolveLiveMounts(
   }>,
   cwd: string | undefined,
 ): ResolvedLiveMount[] {
-  // Every live mount is served by an in-VMM virtio-fs device (#332).
-  // The VMM wires MAX_LIVE_MOUNTS slots; a caller asking for more has
-  // nowhere to put the extras, so reject up front. (FUSE-over-vsock,
-  // the old unbounded fallback transport, was removed in #338.)
-  // Note: a `restore({ lazy: true })` appends one internal mount for
-  // the page image, so this cap counts that entry too.
-  if (mounts.length > MAX_LIVE_MOUNTS) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `liveMounts: at most ${MAX_LIVE_MOUNTS} live mounts are supported per VM ` +
-        `(got ${mounts.length}) — the VMM wires ${MAX_LIVE_MOUNTS} virtio-fs slots.`,
-    );
-  }
-  return mounts.map((m, i) => {
-    validateMountGuest(m.guest);
-    const hostAbs = resolve(cwd ?? process.cwd(), m.host);
+  const planned = planBootLiveMountsNative(mounts);
+  return planned.map((mount, i) => {
+    const hostAbs = resolve(cwd ?? process.cwd(), mount.host);
     if (!existsSync(hostAbs)) {
       throw new BootError(
         "BOOT_MOUNT_HOST_NOT_FOUND",
-        `liveMounts[${i}] host path not found: ${m.host}`,
+        `liveMounts[${i}] host path not found: ${mount.host}`,
       );
     }
     if (!statSync(hostAbs).isDirectory()) {
       throw new BootError(
         "BOOT_MOUNT_INVALID",
-        `liveMounts[${i}] host path must be a directory: ${m.host}`,
+        `liveMounts[${i}] host path must be a directory: ${mount.host}`,
       );
     }
-    rejectRemovedLiveMountOptions(m, i);
-    return {
-      host: hostAbs,
-      guest: normalizeMountGuest(m.guest),
-      mode: m.mode ?? "rw",
-      // Tag is the virtio-fs device's config-space identifier and must
-      // be ≤ 36 bytes (FsConfig.tag). `machinen-lm<i>` stays well under.
-      tag: `machinen-lm${i}`,
-    };
+    rejectRemovedLiveMountOptions(mounts[i] ?? {}, i);
+    return { ...mount, host: hostAbs };
   });
 }
 
 function rejectRemovedLiveMountOptions(mount: object, index: number): void {
-  if ("cache" in mount) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `liveMounts[${index}] cache is no longer supported; metadata caching uses the fast policy`,
-    );
-  }
-  if ("sync" in mount) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `liveMounts[${index}] sync is no longer supported; rw live mounts sync in batches`,
-    );
-  }
+  validateLiveMountRemovedOptionsNative(mount, index);
 }
 
 /**
@@ -132,25 +107,7 @@ export function buildMachinenConfig(input: {
   imageCwd?: string;
   liveMounts: ResolvedLiveMount[];
 }): Record<string, unknown> {
-  // cwd: image-baked default overlaid by user's guestCwd (same
-  // precedence as cmd/env). /init reads `cwd` and chdirs before exec.
-  const effectiveCwd = input.guestCwd ?? input.imageCwd;
-
-  const cfg: Record<string, unknown> = { cmd: input.cmd, env: input.env };
-  if (effectiveCwd !== undefined) {
-    cfg.cwd = effectiveCwd;
-  }
-  if (input.liveMounts.length > 0) {
-    // Host paths never cross into the guest's view. /init reads this
-    // and mounts read-only entries directly over virtio-fs (#332);
-    // writable entries get a guest-local overlay upper plus a sync script.
-    cfg.liveMounts = input.liveMounts.map((lm) => ({
-      guest: lm.guest,
-      tag: lm.tag,
-      mode: lm.mode,
-    }));
-  }
-  return cfg;
+  return planBootMachinenConfigNative(input);
 }
 
 /**
@@ -176,46 +133,10 @@ export function resolveRestoreLiveMounts(
   recorded: SnapshotMeta["liveMounts"] | undefined,
   overrides: BootOptions["liveMounts"] | undefined,
 ): BootOptions["liveMounts"] {
-  const recordedList = recorded ?? [];
   const overrideList = overrides ?? [];
   overrideList.forEach((ov, i) => rejectRemovedLiveMountOptions(ov, i));
-  if (recordedList.length === 0) {
-    return overrideList.length > 0 ? overrideList : undefined;
-  }
-  const recordedByGuest = new Map(recordedList.map((m) => [m.guest, m]));
-  const overridesByGuest = new Map<
-    string,
-    {
-      host: string;
-      guest: string;
-      mode?: "ro" | "rw";
-    }
-  >();
-  for (const ov of overrideList) {
-    if (!recordedByGuest.has(ov.guest)) {
-      const known = recordedList.map((m) => m.guest).join(", ");
-      throw new BootError(
-        "BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN",
-        `restore: liveMounts override for guest=${ov.guest} doesn't match any\n` +
-          `  liveMount recorded in the bundle. The bundle's recorded guest paths are:\n` +
-          `    ${known}\n` +
-          `  restore() reproduces the snapshot's mount topology — opts.liveMounts is\n` +
-          `  an override map, not an additive list. To override, set 'guest' to one\n` +
-          `  of the recorded paths above and supply a new 'host' / 'mode'.`,
-      );
-    }
-    overridesByGuest.set(ov.guest, ov);
-  }
-  return recordedList.map((rec) => {
-    const ov = overridesByGuest.get(rec.guest);
-    return ov
-      ? {
-          guest: rec.guest,
-          host: ov.host,
-          mode: ov.mode ?? rec.mode,
-        }
-      : { guest: rec.guest, host: rec.host, mode: rec.mode };
-  });
+  const planned = planRestoreLiveMountsNative(recorded, overrideList);
+  return planned.length > 0 ? planned : undefined;
 }
 
 type BundleMountDisk = {
@@ -271,8 +192,11 @@ export function synthesizeAndPackBundle(
   try {
     validateOptionalGuestCwd(opts);
     const image = resolveBundleImage(opts, packerOpts);
-    const cmd = wrapBundleCommand(resolveBundleCommand(opts, image.imageConfig), opts, liveMounts);
-    const effectiveEnv = { ...image.imageConfig?.env, ...mergedGuestEnv };
+    const cmd = planBundleCommand(opts, image.imageConfig, liveMounts);
+    const effectiveEnv = planBootBundleEnvNative({
+      imageEnv: image.imageConfig?.env,
+      guestEnv: mergedGuestEnv,
+    });
     writeBundleConfig(workspace, {
       cmd,
       env: effectiveEnv,
@@ -281,11 +205,16 @@ export function synthesizeAndPackBundle(
       liveMounts,
     });
     const mount = resolveBundleMount(opts);
-    packSynthesizedInitramfs(workspace, image.baseAbs, mount, opts, effectiveEnv, packerOpts);
+    const packPlan = planBootBundlePackNative({
+      useTiny: packerOpts.useTiny,
+      mountGuest: mount?.guest,
+      restoreMountGuest: opts._restoreMountDisk?.guest,
+    });
+    packSynthesizedInitramfs(workspace, image.baseAbs, mount, packPlan, effectiveEnv, packerOpts);
     return {
       tempDir: workspace.tempDir,
       cpioPath: workspace.cpioPath,
-      mountDisk: materializeBundleMountDisk(opts, mount, packerOpts),
+      mountDisk: materializeBundleMountDisk(opts, mount, packerOpts, packPlan),
     };
   } catch (err) {
     workspace.cleanup();
@@ -295,10 +224,11 @@ export function synthesizeAndPackBundle(
 
 function createBundleWorkspace(): BundleWorkspace {
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
+  const plan = planBootBundleWorkspaceNative(tempDir);
   return {
     tempDir,
-    cpioPath: join(tempDir, "initramfs.cpio"),
-    synthBundleDir: join(tempDir, "bundle"),
+    cpioPath: plan.cpioPath,
+    synthBundleDir: plan.synthBundleDir,
     cleanup: () => {
       try {
         rmSync(tempDir, { recursive: true, force: true });
@@ -327,65 +257,18 @@ function resolveBundleImage(opts: BootOptions, packerOpts: BundlePackerOptions):
   return { baseAbs, imageConfig };
 }
 
-function resolveBundleCommand(
+function planBundleCommand(
   opts: BootOptions,
   imageConfig: BundleImageConfig | undefined,
-): string[] {
-  const cmd = explicitOrSyntheticCommand(opts, imageConfig);
-  if (cmd) {
-    return cmd;
-  }
-  throw new BootError(
-    "BOOT_CMD_MISSING",
-    "boot: no cmd to run — pass `cmd` on boot() or bake one into the " +
-      "image via `provision({ cmd })`.",
-  );
-}
-
-function explicitOrSyntheticCommand(
-  opts: BootOptions,
-  imageConfig: BundleImageConfig | undefined,
-): string[] | undefined {
-  if (opts.cmd) {
-    return opts.cmd;
-  }
-  if (typeof opts.snapshot === "string") {
-    // Only synthesize the restore helper when the caller explicitly
-    // passed a snapshot path. The auto-allocated scratch (default
-    // `snapshot: undefined`) is empty, so synthesizing here would feed
-    // CRIU a bundle-less file and fail.
-    return ["/sbin/machinen-restore"];
-  }
-  if (opts._vmstateRestorePath) {
-    // Vmstate restore: the VMM overwrites guest RAM before /init runs,
-    // but the VMM still needs a valid initramfs path.
-    return ["/sbin/machinen-poweroff"];
-  }
-  return imageConfig?.cmd;
-}
-
-function wrapBundleCommand(
-  cmd: string[],
-  opts: BootOptions,
   liveMounts: ResolvedLiveMount[],
 ): string[] {
-  const cmdHead = cmd[0];
-  if (cmdHead === "/exec-agent" || cmdHead === "/sbin/machinen-restore") {
-    return cmd;
-  }
-  const workload = liveMounts.some((lm) => lm.mode === "rw") ? wrapBatchWorkloadCommand(cmd) : cmd;
-  const supervisorArgs = typeof opts.snapshot === "string" ? ["--session"] : [];
-  return ["/sbin/machinen-supervisor", ...supervisorArgs, ...workload];
-}
-
-function wrapBatchWorkloadCommand(cmd: string[]): string[] {
-  return [
-    "/bin/sh",
-    "-c",
-    'batch_sync() { if [ -s /run/machinen-batch-sync.sh ]; then sh /run/machinen-batch-sync.sh; fi; }; "$@" & child=$!; trap \'kill -TERM "$child" 2>/dev/null\' TERM; trap \'kill -INT "$child" 2>/dev/null\' INT; wait "$child"; status=$?; batch_sync || { sync_status=$?; if [ "$status" -eq 0 ]; then status=$sync_status; fi; }; exit "$status"',
-    "machinen-batch-wrapper",
-    ...cmd,
-  ];
+  return planBootBundleCommandNative({
+    explicitCmd: opts.cmd,
+    imageCmd: imageConfig?.cmd,
+    snapshotRestore: typeof opts.snapshot === "string",
+    vmstateRestore: opts._vmstateRestorePath !== undefined,
+    liveMounts,
+  });
 }
 
 function writeBundleConfig(
@@ -398,9 +281,10 @@ function writeBundleConfig(
     liveMounts: ResolvedLiveMount[];
   },
 ): void {
-  mkdirSync(join(workspace.synthBundleDir, "rootfs"), { recursive: true });
+  const paths = planBootBundleConfigPathsNative(workspace.synthBundleDir);
+  mkdirSync(paths.rootfsDir, { recursive: true });
   const configJson = buildMachinenConfig(input);
-  writeFileSync(join(workspace.synthBundleDir, "machinen-config.json"), JSON.stringify(configJson));
+  writeFileSync(paths.configPath, JSON.stringify(configJson));
 }
 
 function resolveBundleMount(opts: BootOptions): ResolvedMountInput | undefined {
@@ -428,14 +312,14 @@ function packSynthesizedInitramfs(
   workspace: BundleWorkspace,
   baseAbs: string | undefined,
   mount: ResolvedMountInput | undefined,
-  opts: BootOptions,
+  packPlan: BundlePackPlan,
   effectiveEnv: Record<string, string>,
   packerOpts: BundlePackerOptions,
 ): void {
   const packT0 = Date.now();
   try {
-    if (packerOpts.useTiny) {
-      packTinyInitramfs(workspace, mount, opts, effectiveEnv);
+    if (packPlan.kind === "tiny") {
+      packTinyInitramfs(workspace, packPlan.tinyMountGuest, effectiveEnv);
     } else {
       packFatInitramfs(workspace, baseAbs, mount, effectiveEnv);
     }
@@ -448,8 +332,7 @@ function packSynthesizedInitramfs(
 
 function packTinyInitramfs(
   workspace: BundleWorkspace,
-  mount: ResolvedMountInput | undefined,
-  opts: BootOptions,
+  mountGuest: string | null,
   effectiveEnv: Record<string, string>,
 ): void {
   mkinitramfsPackTinyBundle({
@@ -457,7 +340,7 @@ function packTinyInitramfs(
     out: workspace.cpioPath,
     // The cpio just carries the guest mountpoint string for /init to
     // read. The actual payload rides on virtio-blk slots 5+6.
-    mountGuest: mount?.guest ?? opts._restoreMountDisk?.guest,
+    mountGuest: mountGuest ?? undefined,
     env: effectiveEnv,
   });
 }
@@ -481,14 +364,20 @@ function materializeBundleMountDisk(
   opts: BootOptions,
   mount: ResolvedMountInput | undefined,
   packerOpts: BundlePackerOptions,
+  packPlan: BundlePackPlan,
 ): BundleMountDisk | undefined {
-  if (!packerOpts.useTiny) {
-    return undefined;
-  }
-  if (opts._restoreMountDisk) {
+  const mode = planBootBundleMountDiskModeNative({
+    useTiny: packPlan.kind === "tiny",
+    mountGuest: mount?.guest,
+    restoreMountGuest: opts._restoreMountDisk?.guest,
+  });
+  if (mode.action === "restore" && opts._restoreMountDisk) {
     return materializeRestoredMountDisk(opts._restoreMountDisk);
   }
-  return mount ? materializeFreshMountDisk(mount, packerOpts) : undefined;
+  if (mode.action === "fresh" && mount) {
+    return materializeFreshMountDisk(mount, packerOpts);
+  }
+  return undefined;
 }
 
 function materializeRestoredMountDisk(
@@ -506,17 +395,27 @@ function materializeRestoredMountDisk(
       `restore: bundle is missing mount-upper at ${restoreMount.upperPath}`,
     );
   }
-  const perVMUpper = join(
-    tmpdir(),
-    `machinen-mountdisk-upper-${process.pid}-${randomBytes(6).toString("hex")}.img`,
-  );
+  const perVMUpper = mountDiskRestoreUpperPath();
   reflinkCopy(restoreMount.upperPath, perVMUpper);
-  return {
-    lowerPath: restoreMount.lowerPath,
-    upperPath: perVMUpper,
-    guest: restoreMount.guest,
-    upperSizeBytes: statSync(perVMUpper).size,
-  };
+  return requireMountDiskPlan(
+    planBootMountDiskRuntimeNative({
+      mode: "restore",
+      lowerPath: restoreMount.lowerPath,
+      upperPath: perVMUpper,
+      sourceUpperPath: restoreMount.upperPath,
+      guest: restoreMount.guest,
+      upperSizeBytes: statSync(perVMUpper).size,
+    }),
+  );
+}
+
+function mountDiskRestoreUpperPath(): string {
+  return planBootMountDiskTempPathNative({
+    kind: "restore-upper",
+    tmpDir: tmpdir(),
+    pid: process.pid,
+    nonce: randomBytes(6).toString("hex"),
+  });
 }
 
 function materializeFreshMountDisk(
@@ -532,10 +431,35 @@ function materializeFreshMountDisk(
     sizeBytes: packerOpts.mountDiskUpperSizeBytes,
   });
   markMountDiskImageClean(lower.lowerPath);
+  return requireMountDiskPlan(
+    planBootMountDiskRuntimeNative({
+      mode: "fresh",
+      lowerPath: lower.lowerPath,
+      upperPath: upper.upperPath,
+      guest: mount.guest,
+      upperSizeBytes: upper.sizeBytes,
+    }),
+  );
+}
+
+function requireMountDiskPlan(
+  plan: ReturnType<typeof planBootMountDiskRuntimeNative>,
+): BundleMountDisk {
+  if (
+    plan.lowerPath === null ||
+    plan.upperPath === null ||
+    plan.guest === null ||
+    plan.upperSizeBytes === null
+  ) {
+    throw new BootError(
+      "BOOT_MOUNT_INVALID",
+      "boot: native planner returned incomplete mount disk plan",
+    );
+  }
   return {
-    lowerPath: lower.lowerPath,
-    upperPath: upper.upperPath,
-    guest: mount.guest,
-    upperSizeBytes: upper.sizeBytes,
+    lowerPath: plan.lowerPath,
+    upperPath: plan.upperPath,
+    guest: plan.guest,
+    upperSizeBytes: plan.upperSizeBytes,
   };
 }

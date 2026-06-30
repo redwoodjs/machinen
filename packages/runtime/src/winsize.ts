@@ -3,29 +3,13 @@
 // The Supervisor already knows how to reshape the host pty on
 // SIGWINCH. What it can't do is tell the GUEST to reshape its own
 // ttys. The vsock bridge (#44) gives us a byte pipe into the guest;
-// this class wraps that pipe with a tiny "C R\n" protocol that a
-// matching guest agent (`assets/winsize-agent.zig`) translates
-// into `ioctl(fd, TIOCSWINSZ)` on /dev/console + /dev/ttyAMA0 + any
-// tty-owning process's fd 0/1/2.
-//
-// Usage:
-//
-//   // 1. boot the VMM with a vsock port mapped through
-//   const vm = await boot({
-//     binary: VMM,
-//     vmmEnv: { MACHINEN_VSOCK: "in:1974:/tmp/machinen-winsize.sock" },
-//   });
-//
-//   // 2. connect once the guest agent is listening
-//   const ws = await VsockWinsize.connect("/tmp/machinen-winsize.sock");
-//
-//   // 3. wrap the vm's resize (or hook the Supervisor's
-//   //    forwardResize path) so every host resize fans out to both
-//   //    the host pty (if bootPty was used) and the guest agent
-//   ws.send(process.stdout.columns ?? 80, process.stdout.rows ?? 24);
+// this class wraps a native helper that connects to that pipe and
+// forwards a tiny "C R\n" protocol to the guest agent
+// (`assets/winsize-agent.zig`).
 
-import { connect as netConnect, type Socket } from "node:net";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { WinsizeError } from "./errors.ts";
+import { resolveWinsizeShim } from "./native/winsize.ts";
 
 export interface VsockWinsizeOptions {
   /** How long to keep retrying the UDS connect. Default 10s. */
@@ -35,63 +19,47 @@ export interface VsockWinsizeOptions {
 }
 
 export class VsockWinsize {
-  private socket: Socket;
+  private child: ChildProcessWithoutNullStreams;
   private closed = false;
-  private lastSent: { cols: number; rows: number } | null = null;
 
-  private constructor(socket: Socket) {
-    this.socket = socket;
-    socket.on("error", () => {
+  private constructor(child: ChildProcessWithoutNullStreams) {
+    this.child = child;
+    child.on("error", () => {
       this.closed = true;
     });
-    socket.on("close", () => {
+    child.on("close", () => {
       this.closed = true;
     });
   }
 
   /**
    * Open a host Unix socket and keep retrying until the vsock bridge
-   * + guest agent wire themselves up. Resolves once the TCP-like
-   * connect completes — the agent may still be registering the
-   * vsock listener on its side, but any bytes we send will be
-   * buffered by the bridge's connection table.
+   * + guest agent wire themselves up. Resolves once the native helper
+   * connects; any bytes sent afterward are relayed to the bridge.
    */
   static async connect(udsPath: string, opts: VsockWinsizeOptions = {}): Promise<VsockWinsize> {
-    const deadline = Date.now() + (opts.timeoutMs ?? 10_000);
+    const timeoutMs = opts.timeoutMs ?? 10_000;
     const retryMs = opts.retryMs ?? 250;
-    // First successful connect wins; any earlier ENOENT / ECONNREFUSED
-    // just means the bridge hasn't opened the UDS yet.
-    let lastErr: Error | null = null;
-    while (Date.now() < deadline) {
-      try {
-        const s = await connectOnce(udsPath);
-        return new VsockWinsize(s);
-      } catch (err) {
-        lastErr = err as Error;
-        await new Promise((r) => setTimeout(r, retryMs));
-      }
-    }
-    throw new WinsizeError(
-      "WINSIZE_AGENT_UNAVAILABLE",
-      `VsockWinsize.connect(${udsPath}) gave up after ${opts.timeoutMs ?? 10_000}ms: ${lastErr?.message ?? "no error"}`,
-      { retryable: true, cause: lastErr ?? undefined },
+    const child = spawn(
+      resolveWinsizeShim(),
+      ["--timeout-ms", String(timeoutMs), "--retry-ms", String(retryMs), "--", udsPath],
+      { stdio: "pipe" },
     );
+
+    await waitForReady(child, udsPath, timeoutMs);
+    return new VsockWinsize(child);
   }
 
   /**
-   * Send a new size. Idempotent against the most recent send — repeats
-   * are dropped so a chatty SIGWINCH doesn't spam the bridge.
+   * Send a new size. Idempotence against the most recent send is owned
+   * by the native helper so SIGWINCH storms do not spam the bridge.
    */
   // fallow-ignore-next-line unused-class-member
   send(cols: number, rows: number): void {
     if (this.closed) {
       return;
     }
-    if (this.lastSent && this.lastSent.cols === cols && this.lastSent.rows === rows) {
-      return;
-    }
-    this.lastSent = { cols, rows };
-    this.socket.write(`${cols} ${rows}\n`);
+    this.child.stdin.write(`${cols} ${rows}\n`);
   }
 
   // fallow-ignore-next-line unused-class-member
@@ -100,22 +68,77 @@ export class VsockWinsize {
       return;
     }
     this.closed = true;
-    this.socket.end();
+    this.child.stdin.end();
   }
 }
 
-function connectOnce(udsPath: string): Promise<Socket> {
+function waitForReady(
+  child: ChildProcessWithoutNullStreams,
+  udsPath: string,
+  timeoutMs: number,
+): Promise<void> {
   return new Promise((done, fail) => {
-    const s = netConnect(udsPath);
-    const onErr = (e: Error) => {
-      s.removeListener("connect", onConnect);
-      fail(e);
+    let settled = false;
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      finish(
+        new WinsizeError(
+          "WINSIZE_AGENT_UNAVAILABLE",
+          `VsockWinsize.connect(${udsPath}) gave up after ${timeoutMs}ms: native helper did not report readiness`,
+          { retryable: true },
+        ),
+      );
+    }, timeoutMs + 1_000);
+
+    const finish = (err?: Error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      child.stdout.off("data", onStdout);
+      child.stderr.off("data", onStderr);
+      child.off("error", onError);
+      child.off("exit", onExit);
+      if (err) {
+        fail(err);
+      } else {
+        done();
+      }
     };
-    const onConnect = () => {
-      s.removeListener("error", onErr);
-      done(s);
+    const onStdout = (chunk: Buffer) => {
+      stdout += chunk.toString("utf8");
+      if (stdout.includes("READY\n")) {
+        finish();
+      }
     };
-    s.once("error", onErr);
-    s.once("connect", onConnect);
+    const onStderr = (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+    };
+    const onError = (err: Error) => {
+      finish(
+        new WinsizeError(
+          "WINSIZE_AGENT_UNAVAILABLE",
+          `VsockWinsize.connect(${udsPath}) failed to start native helper: ${err.message}`,
+          { retryable: true, cause: err },
+        ),
+      );
+    };
+    const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
+      finish(
+        new WinsizeError(
+          "WINSIZE_AGENT_UNAVAILABLE",
+          `VsockWinsize.connect(${udsPath}) gave up after ${timeoutMs}ms: ${stderr.trim() || `native helper exited ${code ?? signal ?? "without a status"}`}`,
+          { retryable: true },
+        ),
+      );
+    };
+
+    child.stdout.on("data", onStdout);
+    child.stderr.on("data", onStderr);
+    child.once("error", onError);
+    child.once("exit", onExit);
   });
 }

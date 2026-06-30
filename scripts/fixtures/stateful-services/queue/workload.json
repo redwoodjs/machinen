@@ -1,5 +1,0 @@
-{
-  "acknowledged": ["m1"],
-  "published": [{ "id": "m4", "payload": "delta" }],
-  "checkpoint": "fsynced-jsonl-boundary"
-}

@@ -9,6 +9,7 @@
 import { execFileSync } from "node:child_process";
 import {
   existsSync,
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
@@ -18,7 +19,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   _mountdiskImgInternal,
   ensureMountDiskImage,
@@ -27,6 +28,30 @@ import {
   resolveMksquashfs,
   treeManifestHash,
 } from "../mountdisk-img.ts";
+
+let helperTmp: string | undefined;
+let previousHelper: string | undefined;
+
+beforeAll(() => {
+  helperTmp = mkdtempSync(join(tmpdir(), "machinen-runtime-helper-test-"));
+  execFileSync("zig", ["build", "--prefix", helperTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousHelper = process.env.MACHINEN_RUNTIME_HELPER;
+  process.env.MACHINEN_RUNTIME_HELPER = join(helperTmp, "bin", "machinen-runtime-helper");
+});
+
+afterAll(() => {
+  if (previousHelper === undefined) {
+    delete process.env.MACHINEN_RUNTIME_HELPER;
+  } else {
+    process.env.MACHINEN_RUNTIME_HELPER = previousHelper;
+  }
+  if (helperTmp) {
+    rmSync(helperTmp, { recursive: true, force: true });
+  }
+});
 
 describe("treeManifestHash", () => {
   let tmp: string;
@@ -75,6 +100,16 @@ describe("treeManifestHash", () => {
     expect(k1).not.toBe(k2);
   });
 
+  it("accepts a symlink root that points at a directory", () => {
+    const dir = join(tmp, "real-root");
+    const link = join(tmp, "link-root");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "x.txt"), "hello");
+    utimesSync(join(dir, "x.txt"), 1000, 1000);
+    symlinkSync(dir, link);
+    expect(treeManifestHash(link)).toBe(treeManifestHash(dir));
+  });
+
   it("includes nested directory contents", () => {
     const a = join(tmp, "a");
     const b = join(tmp, "b");
@@ -85,6 +120,90 @@ describe("treeManifestHash", () => {
     utimesSync(join(a, "sub", "f.txt"), 1000, 1000);
     utimesSync(join(b, "sub", "f.txt"), 1000, 1000);
     expect(treeManifestHash(a)).not.toBe(treeManifestHash(b));
+  });
+
+  it("matches the exact legacy manifest hash for a deterministic regular-file tree", () => {
+    const root = join(tmp, "root");
+    mkdirSync(join(root, "sub"), { recursive: true });
+    writeFileSync(join(root, "alpha.txt"), "alpha");
+    writeFileSync(join(root, "sub", "beta.sh"), "beta");
+    chmodSync(join(root, "sub", "beta.sh"), 0o755);
+    utimesSync(join(root, "alpha.txt"), 1000, 1000);
+    utimesSync(join(root, "sub", "beta.sh"), 1000, 1000);
+    utimesSync(join(root, "sub"), 1000, 1000);
+
+    expect(treeManifestHash(root)).toBe(
+      "c1f475b2e3e6ad2d70b50312c2e898c26a2a4236ee0f0f0983b62fb848db19cd",
+    );
+  });
+
+  it("changes when a file's executable mode changes", () => {
+    const dir = join(tmp, "d");
+    mkdirSync(dir, { recursive: true });
+    const script = join(dir, "run.sh");
+    writeFileSync(script, "echo hi\n");
+    utimesSync(script, 1000, 1000);
+    chmodSync(script, 0o644);
+    const k1 = treeManifestHash(dir);
+    chmodSync(script, 0o755);
+    utimesSync(script, 1000, 1000);
+    const k2 = treeManifestHash(dir);
+    expect(k1).not.toBe(k2);
+  });
+
+  it("reports a useful error when MACHINEN_RUNTIME_HELPER points at nothing", () => {
+    const dir = join(tmp, "d");
+    mkdirSync(dir, { recursive: true });
+    const realHelper = process.env.MACHINEN_RUNTIME_HELPER;
+    process.env.MACHINEN_RUNTIME_HELPER = join(tmp, "missing-machinen-runtime-helper");
+    try {
+      expect(() => treeManifestHash(dir)).toThrow(/MACHINEN_RUNTIME_HELPER=.*does not exist/);
+    } finally {
+      if (realHelper === undefined) {
+        delete process.env.MACHINEN_RUNTIME_HELPER;
+      } else {
+        process.env.MACHINEN_RUNTIME_HELPER = realHelper;
+      }
+    }
+  });
+
+  it("reports a useful error when machinen-runtime-helper returns invalid JSON", () => {
+    const dir = join(tmp, "d");
+    mkdirSync(dir, { recursive: true });
+    const fake = join(tmp, "fake-machinen-runtime-helper");
+    writeFileSync(fake, "#!/bin/sh\nprintf 'not-json'\n");
+    chmodSync(fake, 0o755);
+    const realHelper = process.env.MACHINEN_RUNTIME_HELPER;
+    process.env.MACHINEN_RUNTIME_HELPER = fake;
+    try {
+      expect(() => treeManifestHash(dir)).toThrow(/invalid JSON/);
+    } finally {
+      if (realHelper === undefined) {
+        delete process.env.MACHINEN_RUNTIME_HELPER;
+      } else {
+        process.env.MACHINEN_RUNTIME_HELPER = realHelper;
+      }
+    }
+  });
+
+  it("maps native missing-root failures to BOOT_MOUNT_HOST_NOT_FOUND", () => {
+    try {
+      treeManifestHash(join(tmp, "missing"));
+      throw new Error("expected treeManifestHash to throw");
+    } catch (err) {
+      expect(err).toMatchObject({ code: "BOOT_MOUNT_HOST_NOT_FOUND" });
+    }
+  });
+
+  it("maps native non-directory failures to BOOT_MOUNT_INVALID", () => {
+    const file = join(tmp, "not-a-directory");
+    writeFileSync(file, "x");
+    try {
+      treeManifestHash(file);
+      throw new Error("expected treeManifestHash to throw");
+    } catch (err) {
+      expect(err).toMatchObject({ code: "BOOT_MOUNT_INVALID" });
+    }
   });
 
   it("is order-insensitive across readdir orderings", () => {
@@ -198,6 +317,25 @@ describe("ensureMountDiskImage", () => {
       expect(() => ensureMountDiskImage(host, { cacheDir })).toThrow(
         /MACHINEN_MKSQUASHFS|mksquashfs/,
       );
+    } finally {
+      if (prev === undefined) {
+        delete process.env.MACHINEN_MKSQUASHFS;
+      } else {
+        process.env.MACHINEN_MKSQUASHFS = prev;
+      }
+    }
+  });
+
+  it("treats an empty MACHINEN_MKSQUASHFS override as unset", () => {
+    const prev = process.env.MACHINEN_MKSQUASHFS;
+    process.env.MACHINEN_MKSQUASHFS = "";
+    try {
+      const call = () => ensureMountDiskImage(host, { cacheDir });
+      if (resolveMksquashfs()) {
+        expect(call).not.toThrow();
+      } else {
+        expect(call).toThrow(/no mksquashfs binary found|mksquashfs/);
+      }
     } finally {
       if (prev === undefined) {
         delete process.env.MACHINEN_MKSQUASHFS;

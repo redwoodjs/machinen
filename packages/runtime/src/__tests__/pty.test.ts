@@ -6,19 +6,68 @@
 //   - `stty size` prints "rows cols" (proving TIOCGWINSZ works).
 //   - After resize(), `stty size` reflects the new shape.
 
-import { PassThrough } from "node:stream";
-import { describe, expect, it } from "vitest";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { PassThrough, type Readable } from "node:stream";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Sandboxes, Supervisor, bootPty } from "../index.ts";
 
-async function read(handle: { stdout: NodeJS.ReadableStream }, ms: number): Promise<Buffer> {
-  return new Promise((done) => {
-    const chunks: Buffer[] = [];
-    const onData = (c: Buffer) => chunks.push(c);
-    handle.stdout.on("data", onData);
-    setTimeout(() => {
-      handle.stdout.off("data", onData);
-      done(Buffer.concat(chunks));
-    }, ms).unref();
+let nativeTmp: string | undefined;
+let previousPty: string | undefined;
+
+beforeAll(() => {
+  nativeTmp = mkdtempSync(join(tmpdir(), "machinen-pty-test-"));
+  execFileSync("zig", ["build", "--prefix", nativeTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousPty = process.env.MACHINEN_PTY;
+  process.env.MACHINEN_PTY = join(nativeTmp, "bin", "machinen-pty");
+});
+
+afterAll(() => {
+  if (previousPty === undefined) {
+    delete process.env.MACHINEN_PTY;
+  } else {
+    process.env.MACHINEN_PTY = previousPty;
+  }
+  if (nativeTmp) {
+    rmSync(nativeTmp, { recursive: true, force: true });
+  }
+});
+
+function waitForText(
+  stream: Readable,
+  chunks: Buffer[],
+  expected: RegExp,
+  timeoutMs = 1_000,
+): Promise<string> {
+  const snapshot = () => Buffer.concat(chunks).toString("utf8");
+  const current = snapshot();
+  if (expected.test(current)) {
+    return Promise.resolve(current);
+  }
+
+  return new Promise((done, fail) => {
+    const cleanup = () => {
+      clearTimeout(timer);
+      stream.off("data", onData);
+    };
+    const onData = () => {
+      const text = snapshot();
+      if (expected.test(text)) {
+        cleanup();
+        done(text);
+      }
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      fail(new Error(`timed out waiting for ${expected}; saw ${JSON.stringify(snapshot())}`));
+    }, timeoutMs);
+    stream.on("data", onData);
+    onData();
   });
 }
 
@@ -26,30 +75,43 @@ describe("bootPty", () => {
   it("the child sees a real TTY on stdin (tty prints /dev/pts/N)", async () => {
     const vm = bootPty({
       binary: "/bin/sh",
-      args: ["-c", "tty; exit"],
+      args: ["-c", "tty; sleep 1"],
     });
-    const out = (await read(vm, 500)).toString();
-    await vm.wait();
-    // Linux emits `/dev/pts/N`, macOS emits `/dev/ttys0NN` (no trailing slash).
-    expect(out).toMatch(/\/dev\/(pts\/|ttys)/);
+    const chunks: Buffer[] = [];
+    vm.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
+    try {
+      // Linux emits `/dev/pts/N`, macOS emits `/dev/ttys0NN` (no trailing slash).
+      const out = await waitForText(vm.stdout, chunks, /\/dev\/(pts\/|ttys)/);
+      expect(out).toMatch(/\/dev\/(pts\/|ttys)/);
+    } finally {
+      await vm.kill();
+    }
   });
 
   it("resize() reshapes the pty — stty size reflects the new rows/cols", async () => {
     const vm = bootPty({
       binary: "/bin/sh",
-      args: ["-c", "stty size; sleep 0.1; stty size; exit"],
+      args: ["-c", "stty size; IFS= read -r _; stty size; exit"],
       cols: 80,
       rows: 24,
     });
-    // Give sh time to print the first size, then resize.
-    await new Promise((r) => setTimeout(r, 50));
-    vm.resize(132, 50);
-    const out = (await read(vm, 400)).toString();
-    await vm.wait();
-    // First line has initial shape, second has the resized shape.
-    const lines = out.split(/\r?\n/).filter((l) => /^\d+\s+\d+/.test(l));
-    expect(lines.length).toBeGreaterThanOrEqual(2);
-    expect(lines[1]).toMatch(/^50\s+132/);
+    const chunks: Buffer[] = [];
+    vm.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
+    try {
+      // Give sh time to print the first size, then resize and release
+      // the read gate so the second stty observes the new size.
+      await new Promise((r) => setTimeout(r, 50));
+      vm.resize(132, 50);
+      vm.stdin.end("\n");
+      await new Promise((r) => setTimeout(r, 300));
+      const out = Buffer.concat(chunks).toString("utf8");
+      // First line has initial shape, second has the resized shape.
+      const lines = out.split(/\r?\n/).filter((l) => /^\d+\s+\d+/.test(l));
+      expect(lines.length).toBeGreaterThanOrEqual(2);
+      expect(lines[1]).toMatch(/^50\s+132/);
+    } finally {
+      await vm.kill();
+    }
   });
 
   it("the handle plugs into Sandboxes.add just like a piped VmHandle", async () => {

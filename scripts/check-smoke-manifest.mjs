@@ -5,6 +5,9 @@ import { join } from "node:path";
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const manifest = JSON.parse(readFileSync("scripts/smoke/manifest.json", "utf8"));
 const errors = [];
+const allowedClassifications = new Set(["product-smoke", "helper"]);
+const forbiddenPackageScriptPath =
+  /scripts\/(?:advanced-linux|architecture-portable|controlled-binary|continuation|dwarf-symbol|go-quiescent|goal40|guest-checkpoint|hard-runtime|known-symbol|native-|nested-virtualization|node-|non-node|opposite-isa|portable-machine|postgres|proof-|raw-process|real-target|runtime-adapter|runtime-confidence|runtime-state|runtime-support|sidecar|stateful-)/u;
 
 function walk(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -36,6 +39,9 @@ for (const file of manifestFiles) {
 
 const entriesByPackageScript = new Map();
 for (const entry of manifest.entries) {
+  if (!allowedClassifications.has(entry.classification)) {
+    errors.push(`unsupported smoke classification ${entry.classification} for ${entry.path}`);
+  }
   for (const packageScript of entry.packageScripts ?? []) {
     if (entriesByPackageScript.has(packageScript)) {
       errors.push(`duplicate packageScripts entry ${packageScript}`);
@@ -45,6 +51,15 @@ for (const entry of manifest.entries) {
 }
 
 for (const [name, command] of Object.entries(pkg.scripts)) {
+  if (name.startsWith("proof-") || name.startsWith("archive-")) {
+    errors.push(`proof/archive package script ${name} is not allowed`);
+  }
+  if (command.includes("scripts/archived-smoke.mjs")) {
+    errors.push(`package script ${name} routes to archived-smoke`);
+  }
+  if (forbiddenPackageScriptPath.test(command)) {
+    errors.push(`package script ${name} routes to a proof/research script`);
+  }
   if (name.startsWith("smoke-") || name === "smoke-tests") {
     const entry = entriesByPackageScript.get(name);
     if (!entry) {
@@ -54,33 +69,6 @@ for (const [name, command] of Object.entries(pkg.scripts)) {
       errors.push(
         `active smoke package script ${name} is ${entry.classification}, not product-smoke`,
       );
-    }
-    if (command.includes("archived-smoke")) {
-      errors.push(`active smoke package script ${name} routes to archived-smoke`);
-    }
-  }
-  if (
-    name.startsWith("proof-") &&
-    (entriesByPackageScript.has(name) || command.includes("scripts/smoke/"))
-  ) {
-    const entry = entriesByPackageScript.get(name);
-    if (!entry) {
-      errors.push(`proof package script ${name} missing from manifest`);
-    }
-    if (entry && entry.classification !== "proof-audit") {
-      errors.push(`proof package script ${name} is ${entry.classification}, not proof-audit`);
-    }
-  }
-  if (name.startsWith("archive-")) {
-    const entry = entriesByPackageScript.get(name);
-    if (!entry) {
-      errors.push(`archive package script ${name} missing from manifest`);
-    }
-    if (entry && entry.classification !== "archived") {
-      errors.push(`archive package script ${name} is ${entry.classification}, not archived`);
-    }
-    if (!command.includes("scripts/archived-smoke.mjs")) {
-      errors.push(`archive package script ${name} must route through scripts/archived-smoke.mjs`);
     }
   }
 }

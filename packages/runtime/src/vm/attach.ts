@@ -6,6 +6,7 @@ import { readBalloonStats } from "../balloon-stats.ts";
 import { ExecError, RegistryError, SnapshotError } from "../errors.ts";
 import { VsockExec } from "../exec.ts";
 import type { OnLog } from "../log.ts";
+import { signalProcessNative } from "../native/process-signal.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
 import { findEntry, isAlive, writeEntry } from "../registry.ts";
 import { performFork } from "./fork.ts";
@@ -96,15 +97,10 @@ export async function attach(opts: AttachOptions = {}): Promise<VmHandle> {
     },
 
     async kill() {
-      if (!isAlive(entry.pid)) {
-        return;
+      const result = signalProcessNative({ pid: entry.pid, signal: "SIGKILL" });
+      if (result.signaled || result.alive) {
+        await waitForExit();
       }
-      try {
-        process.kill(entry.pid, "SIGKILL");
-      } catch {
-        // Already dead.
-      }
-      await waitForExit();
     },
 
     async detach() {

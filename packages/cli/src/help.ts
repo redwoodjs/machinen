@@ -26,12 +26,6 @@ export function printHelp(): void {
       `                                                 when the host supports it.\n` +
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
       `\n` +
-      `  machinen move scan <vm> [--json]             Scan a VM's PID graph state classes.\n` +
-      `  machinen move save <vm> <pid> <out-dir> [--issue]\n` +
-      `                                                 Write a VM move descriptor or refusal evidence.\n` +
-      `  machinen move load <vm> <bundle-dir> [--json]\n` +
-      `                                                 Validate a move descriptor against a VM.\n` +
-      `\n` +
       `  machinen restore <snap-dir> [--image <tar.gz>] [--name <name>] [-p ...]\n` +
       `                              [--mount-live <host>:<guest>[:<mode>]]\n` +
       `                                                 Restore a VM from a snapshot bundle.\n` +
@@ -125,7 +119,7 @@ export function printHelp(): void {
       `  --json                                         Emit machine-readable JSON to stdout.\n` +
       `                                                 Supported on: list, gc, install,\n` +
       `                                                 snapshot, stop, fork --detach,\n` +
-      `                                                 boot --detach, move, feedback,\n` +
+      `                                                 boot --detach, feedback,\n` +
       `                                                 agent-context.\n` +
       `  --dry-run                                      Preview a mutating command without\n` +
       `                                                 side effects. Supported on: gc, stop,\n` +
@@ -144,9 +138,6 @@ export function printHelp(): void {
       `  machinen exec worker --tty -- vim /etc/passwd        # full-screen TUI in a PTY\n` +
       `  machinen snapshot worker ./warm                      # CRIU snapshot bundle\n` +
       `  machinen restore ./warm\n` +
-      `  machinen move scan worker --json\n` +
-      `  machinen move save worker 1234 ./move.json --issue\n` +
-      `  machinen move load worker ./move.json --json\n` +
       `\n` +
       `Environment:\n` +
       `  MACHINEN_VMM                             Override the VMM binary path (dev)\n` +
@@ -155,7 +146,7 @@ export function printHelp(): void {
       `  MACHINEN_GUEST_ARCH                      Guest asset arch: arm64 or amd64\n` +
       `  MACHINEN_SNAPSHOT_ENGINE                Snapshot engine: vmstate (default),\n` +
       `                                           criu, or portable (legacy portable routes\n` +
-      `                                           refuse; use machinen move for cross-ISA)\n` +
+      `                                           refuse; cross-ISA VM restore is unsupported)\n` +
       `  MACHINEN_REGISTRY_DIR                    Override registry location (default\n` +
       `                                           ~/.machinen/vms)\n` +
       `\n` +

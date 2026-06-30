@@ -7,9 +7,10 @@
 #     mke2fs, and mksquashfs, all under per-tool subdirs.
 #
 # What this catches:
-#   1. Host-side binaries (the things node spawns: machinen-vm, gvproxy,
-#      mke2fs, mksquashfs) lacking the +x bit in the tarball — pnpm pack
-#      normalizes file modes to 0644 unless the file is declared in the
+#   1. Host-side binaries (the things node spawns: machinen-vm,
+#      machinen-runtime-helper, gvproxy, mke2fs, mksquashfs) lacking the +x bit
+#      in the tarball — pnpm pack normalizes file modes to 0644 unless
+#      the file is declared in the
 #      `bin` field of package.json. Without +x the runtime exits at
 #      spawn (code=127).
 #   2. Files we expect to ship missing entirely — e.g. the vmm packages'
@@ -99,13 +100,17 @@ check_pkg() {
 
 # --- native-* ------------------------------------------------------------
 # One consolidated package per host arch. Per-tool subdirs:
-#   vmm/bin/{machinen-vm,gvproxy}   host binaries node spawns.
+#   vmm/bin/{machinen-vm,machinen-runtime-helper,machinen-pdeathsig,machinen-pty,machinen-winsize,gvproxy}   host binaries node spawns.
 #   vmm/guest/{init,exec-agent}  guest-arch Linux ELFs the runtime
 #       reads as data to pack into the initramfs cpio (mode irrelevant).
 #   e2fsprogs/bin/mke2fs, squashfs/bin/mksquashfs  host binaries node spawns.
 for pkg in native-arm64-darwin native-arm64-linux native-x64-linux; do
   check_pkg "$pkg" \
     vmm/bin/machinen-vm \
+    vmm/bin/machinen-runtime-helper \
+    vmm/bin/machinen-pdeathsig \
+    vmm/bin/machinen-pty \
+    vmm/bin/machinen-winsize \
     vmm/bin/gvproxy \
     e2fsprogs/bin/mke2fs \
     squashfs/bin/mksquashfs \

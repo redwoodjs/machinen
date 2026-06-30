@@ -26,7 +26,6 @@ import { cmdExec } from "./commands/exec.ts";
 import { cmdFork } from "./commands/fork.ts";
 import { cmdInstall } from "./commands/install.ts";
 import { cmdAgentContext, cmdCompletion, cmdFeedback } from "./commands/misc.ts";
-import { cmdMove } from "./commands/move.ts";
 import { cmdGc, cmdLs } from "./commands/registry.ts";
 import { cmdRestore } from "./commands/restore.ts";
 import { cmdSnapshot } from "./commands/snapshot.ts";
@@ -42,7 +41,6 @@ type CommandHandler = (args: string[]) => number | Promise<number>;
 
 const COMMAND_HANDLERS = new Map<string, CommandHandler>([
   ["boot", cmdBoot],
-  ["move", cmdMove],
   ["restore", cmdRestore],
   ["install", cmdInstall],
   ["list", cmdLs],

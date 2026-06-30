@@ -1,10 +1,34 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { platform, tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { applyCpuControls, cpuPolicyNeedsCgroup, removeCpuCgroup } from "../cpu-cgroup.ts";
 
 const tempDirs: string[] = [];
+let helperTmp: string | undefined;
+let previousHelper: string | undefined;
+
+beforeAll(() => {
+  helperTmp = mkdtempSync(join(tmpdir(), "machinen-runtime-helper-test-"));
+  execFileSync("zig", ["build", "--prefix", helperTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousHelper = process.env.MACHINEN_RUNTIME_HELPER;
+  process.env.MACHINEN_RUNTIME_HELPER = join(helperTmp, "bin", "machinen-runtime-helper");
+});
+
+afterAll(() => {
+  if (previousHelper === undefined) {
+    delete process.env.MACHINEN_RUNTIME_HELPER;
+  } else {
+    process.env.MACHINEN_RUNTIME_HELPER = previousHelper;
+  }
+  if (helperTmp) {
+    rmSync(helperTmp, { recursive: true, force: true });
+  }
+});
 
 function tempCgroupParent(): string {
   const dir = mkdtempSync(join(tmpdir(), "machinen-cpu-cgroup-"));
@@ -27,7 +51,24 @@ describe("cpu cgroup controls", () => {
     expect(cpuPolicyNeedsCgroup({ maxVcpus: 2, weight: 100 })).toBe(false);
   });
 
+  it("reports unsupported for cgroup writes outside Linux", () => {
+    if (platform() === "linux") {
+      return;
+    }
+    const parentDir = tempCgroupParent();
+    const result = applyCpuControls(
+      4321,
+      { maxVcpus: 1, quotaCpus: 0.5, weight: 250 },
+      { parentDir, id: "unit" },
+    );
+    expect(result.status).toBe("unsupported");
+    expect(result.reason).toContain("Linux cgroup v2");
+  });
+
   it("writes cgroup v2 cpu.max, cpu.weight, and cgroup.procs", () => {
+    if (platform() !== "linux") {
+      return;
+    }
     const parentDir = tempCgroupParent();
     const result = applyCpuControls(
       4321,
@@ -46,6 +87,9 @@ describe("cpu cgroup controls", () => {
   });
 
   it("enforces weight without a hard quota when weight differs from the default", () => {
+    if (platform() !== "linux") {
+      return;
+    }
     const parentDir = tempCgroupParent();
     const result = applyCpuControls(4321, { maxVcpus: 2, weight: 50 }, { parentDir, id: "weight" });
 

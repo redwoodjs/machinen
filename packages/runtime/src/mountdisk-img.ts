@@ -45,31 +45,24 @@
 // overlay path. The runtime expects a working bundled package, the
 // caller's PATH, or the env override.
 
-import { execFileSync, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import {
   closeSync,
   existsSync,
   fsyncSync,
   mkdirSync,
-  mkdtempSync,
   openSync,
-  readSync,
-  readdirSync,
-  readlinkSync,
   renameSync,
-  rmSync,
-  statSync,
-  truncateSync,
   unlinkSync,
-  writeSync,
-  lstatSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import { arch, homedir, platform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
-import { BootError, ProvisionError } from "./errors.ts";
+import { BootError } from "./errors.ts";
+import { planMountDiskUpperSizeNative } from "./native/mount-disk-upper-size.ts";
+import { ensureMountDiskImageNative, ensureMountDiskUpperNative } from "./native/mountdisk.ts";
+import { treeManifestHashNative } from "./native/tree-manifest-hash.ts";
 import { resolveMke2fs } from "./rootfs-img.ts";
 
 const debug = debugLib("machinen:mountdisk-img");
@@ -167,109 +160,32 @@ export function ensureMountDiskImage(
   opts: EnsureMountDiskImageOptions = {},
 ): EnsureMountDiskImageResult {
   const hostResolved = resolve(hostAbs);
-  if (!existsSync(hostResolved)) {
-    throw new BootError(
-      "BOOT_MOUNT_HOST_NOT_FOUND",
-      `ensureMountDiskImage: host directory not found at ${hostResolved}`,
-    );
-  }
-  if (!statSync(hostResolved).isDirectory()) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `ensureMountDiskImage: host path must be a directory: ${hostResolved}`,
-    );
-  }
-
   const cacheDir = opts.cacheDir ?? mountdiskImgCacheDir();
   mkdirSync(cacheDir, { recursive: true });
 
-  const hashT0 = Date.now();
-  const key = treeManifestHash(hostResolved);
-  opts.onPhase?.("manifest-hash", Date.now() - hashT0);
-  const imgPath = join(cacheDir, `${key}.sqfs`);
-  const okPath = okMarkerPath(imgPath);
+  const result = ensureMountDiskImageNative({
+    host: hostResolved,
+    cacheDir,
+    force: opts.force ?? false,
+    mksquashfsEnvOverride: process.env.MACHINEN_MKSQUASHFS || undefined,
+    mksquashfsCandidates: mksquashfsCandidates(),
+  });
 
-  if (!opts.force && existsSync(imgPath)) {
-    debug("cache hit key=%s img=%s", key.slice(0, 12), imgPath);
-    if (!existsSync(okPath)) {
-      // No clean-shutdown marker → the previous owner died mid-build
-      // (or the file was hand-placed). Treat as poisoned and rebuild.
-      debug("cache hit but no clean marker — rematerialising img=%s", imgPath);
-    } else {
-      try {
-        unlinkSync(okPath);
-      } catch {}
-      return { lowerPath: imgPath, key };
-    }
+  opts.onPhase?.("manifest-hash", result.phases.manifestHash);
+  if (result.phases.mksquashfs > 0) {
+    opts.onPhase?.("mksquashfs", result.phases.mksquashfs);
+  }
+  if (result.phases.stagingRename > 0) {
+    opts.onPhase?.("staging-rename", result.phases.stagingRename);
   }
 
-  // Resolve mksquashfs. Same precedence as `resolveMksquashfs()` below.
-  const mksquashfs = resolveMksquashfs();
-  if (!mksquashfs) {
-    throw new BootError(
-      "BOOT_MOUNTDISK_TOOL_MISSING",
-      "ensureMountDiskImage: no mksquashfs binary found (no bundled " +
-        "package for this platform; looked for mksquashfs on PATH and " +
-        "in Homebrew's prefix). Install it:\n" +
-        "  • macOS:  brew install squashfs\n" +
-        "  • Linux:  apt-get install -y squashfs-tools (or your distro's package)\n" +
-        "  • or set MACHINEN_MKSQUASHFS=/abs/path/to/mksquashfs to point at a vendored copy.",
-    );
-  }
-
-  // Materialize into a staging file so a host crash mid-write doesn't
-  // leave a torn `.sqfs` in the cache.
-  const stagingDir = mkdtempSync(join(cacheDir, `${key.slice(0, 12)}-staging-`));
-  const stagingImg = join(stagingDir, "lower.sqfs");
-  try {
-    debug("materialize key=%s host=%s", key.slice(0, 12), hostResolved);
-    const mkT0 = Date.now();
-    const args = [
-      hostResolved,
-      stagingImg,
-      // Determinism: zero out the filesystem-level timestamp and the
-      // per-file timestamps so the same input produces the same bytes.
-      "-mkfs-time",
-      "0",
-      "-all-time",
-      "0",
-      // Quiet output and disable on-write recovery file (we own the
-      // staging dir; if it dies we delete it).
-      "-no-progress",
-      "-no-recovery",
-      // Compression: zstd matches the kernel's CONFIG_SQUASHFS_ZSTD.
-      "-comp",
-      "zstd",
-      // Don't capture xattrs — we don't need them for the per-mount
-      // payload, and skipping makes the manifest hash and the
-      // mksquashfs output align (no xattr bytes vary across host fs).
-      "-no-xattrs",
-    ];
-    const mk = spawnSync(mksquashfs, args, {
-      stdio: ["ignore", "ignore", "pipe"],
-    });
-    opts.onPhase?.("mksquashfs", Date.now() - mkT0);
-    if (mk.status !== 0) {
-      throw new ProvisionError(
-        "PROVISION_INSTALL_HOOK_FAILED",
-        `ensureMountDiskImage: ${mksquashfs} failed (code ${mk.status}): ${mk.stderr?.toString() ?? ""}`,
-      );
-    }
-
-    // squashfs-tools writes a length that's a multiple of 4 KiB but
-    // not always of 512. Round up to the next 512-byte sector if
-    // needed — the VMM's blk.Backend asserts on the alignment.
-    const renameT0 = Date.now();
-    padTo512Boundary(stagingImg);
-    renameSync(stagingImg, imgPath);
-    opts.onPhase?.("staging-rename", Date.now() - renameT0);
-    debug("materialize done key=%s img=%s", key.slice(0, 12), imgPath);
-    return { lowerPath: imgPath, key };
-  } finally {
-    try {
-      rmSync(stagingDir, { recursive: true, force: true });
-    } catch {}
-  }
+  debug(
+    "%s key=%s img=%s",
+    result.cacheHit ? "cache hit" : "materialize done",
+    result.key.slice(0, 12),
+    result.lowerPath,
+  );
+  return { lowerPath: result.lowerPath, key: result.key };
 }
 
 export interface EnsureMountDiskUpperOptions {
@@ -308,14 +224,7 @@ export interface EnsureMountDiskUpperResult {
 export function ensureMountDiskUpper(
   opts: EnsureMountDiskUpperOptions = {},
 ): EnsureMountDiskUpperResult {
-  const sizeBytes = opts.sizeBytes ?? 4 * 1024 * 1024 * 1024; // 4 GiB
-  if (sizeBytes <= 0 || sizeBytes % 4096 !== 0) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `mountDiskUpperSizeBytes must be a positive multiple of 4096 (got ${sizeBytes})`,
-    );
-  }
-  // mke2fs lookup is shared with rootfs-img.ts.
+  const sizeBytes = planMountDiskUpperSizeNative(opts.sizeBytes);
   const mke2fs = resolveMke2fs();
   if (!mke2fs) {
     throw new BootError(
@@ -328,22 +237,11 @@ export function ensureMountDiskUpper(
     );
   }
 
-  const upperPath = join(tmpdir(), `machinen-mountdisk-upper-${process.pid}-${randomSuffix()}.img`);
-  allocateSparseFile(upperPath, sizeBytes);
-  const blocks = Math.floor(sizeBytes / 4096);
-  const r = spawnSync(mke2fs, ["-t", "ext4", "-F", "-q", "-b", "4096", upperPath, String(blocks)], {
-    stdio: ["ignore", "ignore", "pipe"],
+  return ensureMountDiskUpperNative({
+    tmpDir: tmpdir(),
+    sizeBytes,
+    mke2fs,
   });
-  if (r.status !== 0) {
-    try {
-      unlinkSync(upperPath);
-    } catch {}
-    throw new ProvisionError(
-      "PROVISION_INSTALL_HOOK_FAILED",
-      `ensureMountDiskUpper: ${mke2fs} failed (code ${r.status}): ${r.stderr?.toString() ?? ""}`,
-    );
-  }
-  return { upperPath, sizeBytes };
 }
 
 /**
@@ -358,6 +256,12 @@ export function resolveMksquashfs(): string | undefined {
     findBundledMksquashfs() ??
     whichFirst(["mksquashfs"]) ??
     findKegOnlyMksquashfs()
+  );
+}
+
+function mksquashfsCandidates(): string[] {
+  return [findBundledMksquashfs(), whichFirst(["mksquashfs"]), findKegOnlyMksquashfs()].filter(
+    (candidate): candidate is string => Boolean(candidate),
   );
 }
 
@@ -430,179 +334,13 @@ function whichFirst(names: string[]): string | undefined {
 }
 
 /**
- * Compute a sha256 over a sorted manifest of every entry under
- * `root`. Each line is `<relpath>\0<mode>\0<size>\0<mtime_ns>\0<extra>\n`,
- * where `<extra>` is the symlink target for symlinks or the file
- * sha256 for regular files.
- *
- * Trade-off: file-content sha makes the cache key bulletproof
- * (mtime alone could be wrong-but-same after a rebuild) but reads
- * every byte. Acceptable because the materialise path needs the
- * bytes anyway, and on cache *hits* the manifest still pays for one
- * walk + read of every file. If profiling demands, we can drop to
- * `(relpath, mode, size, mtime_ns)` later.
+ * Compute the mountdisk cache-key manifest hash in Zig. The manifest
+ * contract is intentionally still documented and tested here, but the
+ * filesystem walk, metadata normalization, and file hashing live in
+ * `machinen-runtime-helper tree-manifest-hash`.
  */
 export function treeManifestHash(root: string): string {
-  const lines: string[] = [];
-  walkForManifest(root, "", lines);
-  lines.sort();
-  const h = createHash("sha256");
-  for (const line of lines) {
-    h.update(line);
-    h.update("\n");
-  }
-  return h.digest("hex");
-}
-
-type ManifestStats = import("node:fs").Stats & { mtimeNs?: bigint };
-
-function walkForManifest(root: string, rel: string, out: string[]): void {
-  const here = rel ? join(root, rel) : root;
-  const entries = readManifestDir(here);
-  if (!entries) {
-    return;
-  }
-  for (const name of entries) {
-    appendManifestChild(root, rel, here, name, out);
-  }
-}
-
-function appendManifestChild(
-  root: string,
-  rel: string,
-  parentAbs: string,
-  name: string,
-  out: string[],
-): void {
-  const childRel = rel ? `${rel}/${name}` : name;
-  const childAbs = join(parentAbs, name);
-  const st = tryManifestLstat(childAbs);
-  if (!st) {
-    return;
-  }
-  out.push(manifestLineForStats(childRel, childAbs, st));
-  walkManifestDirectoryIfNeeded(root, childRel, st, out);
-}
-
-function manifestLineForStats(childRel: string, childAbs: string, st: ManifestStats): string {
-  const mode = (st.mode & 0o7777).toString(8);
-  const mtimeNs = manifestMtimeNs(st);
-  if (st.isSymbolicLink()) {
-    return symlinkManifestLine(childRel, childAbs, mode, mtimeNs);
-  }
-  if (st.isDirectory()) {
-    return `${childRel}\0D\0${mode}\0\0${mtimeNs}\0`;
-  }
-  if (st.isFile()) {
-    return `${childRel}\0F\0${mode}\0${st.size}\0${mtimeNs}\0${sha256OfFile(childAbs)}`;
-  }
-  // sockets, pipes, device nodes — squashfs would refuse those on a
-  // regular host fs anyway. Hash a placeholder so the key changes when
-  // they appear/disappear.
-  return `${childRel}\0?\0${mode}\0\0${mtimeNs}\0`;
-}
-
-function symlinkManifestLine(
-  childRel: string,
-  childAbs: string,
-  mode: string,
-  mtimeNs: string,
-): string {
-  const target = tryReadlink(childAbs);
-  return `${childRel}\0L\0${mode}\0${target.length}\0${mtimeNs}\0${target}`;
-}
-
-function manifestMtimeNs(st: ManifestStats): string {
-  // mtimeMs is a non-integer float on some platforms; mtimeNs is a
-  // bigint when bigint=true and unset otherwise. Either way, we need a
-  // stable string. Floor to ms when nanoseconds aren't available — same
-  // precision Node 18+ exposes anyway.
-  return String(st.mtimeNs ?? BigInt(Math.floor(st.mtimeMs)) * BigInt(1_000_000));
-}
-
-function walkManifestDirectoryIfNeeded(
-  root: string,
-  childRel: string,
-  st: ManifestStats,
-  out: string[],
-): void {
-  if (st.isDirectory()) {
-    walkForManifest(root, childRel, out);
-  }
-}
-
-function readManifestDir(here: string): string[] | undefined {
-  try {
-    return readdirSync(here).sort();
-  } catch {
-    return undefined;
-  }
-}
-
-function tryManifestLstat(childAbs: string): ManifestStats | undefined {
-  try {
-    return lstatSync(childAbs);
-  } catch {
-    return undefined;
-  }
-}
-
-function tryReadlink(childAbs: string): string {
-  try {
-    return readlinkSync(childAbs);
-  } catch {
-    return "";
-  }
-}
-
-function sha256OfFile(path: string): string {
-  const h = createHash("sha256");
-  const fd = openSync(path, "r");
-  try {
-    const buf = Buffer.alloc(64 * 1024);
-    while (true) {
-      const nread = readSync(fd, buf, 0, buf.length, null);
-      if (nread <= 0) {
-        break;
-      }
-      h.update(buf.subarray(0, nread));
-    }
-  } finally {
-    closeSync(fd);
-  }
-  return h.digest("hex");
-}
-
-function allocateSparseFile(path: string, sizeBytes: number): void {
-  const fd = openSync(path, "w");
-  try {
-    const buf = Buffer.alloc(1);
-    writeSync(fd, buf, 0, 1, sizeBytes - 1);
-  } finally {
-    closeSync(fd);
-  }
-}
-
-/**
- * Pad a file's length up to the next multiple of 512 bytes. Squashfs
- * writes 4-KiB-aligned images, but mksquashfs sometimes emits a tail
- * that's not 512-aligned (xattr table, padding) — and the VMM's
- * blk.Backend.initFromFd asserts on `size % 512 == 0`. We grow with
- * truncate-up (sparse, free) rather than rewriting the file.
- */
-function padTo512Boundary(path: string): void {
-  const sz = statSync(path).size;
-  const remainder = sz % 512;
-  if (remainder === 0) {
-    return;
-  }
-  const padded = sz + (512 - remainder);
-  truncateSync(path, padded);
-}
-
-function randomSuffix(): string {
-  // 12 hex chars is overkill for collision avoidance inside one process.
-  return Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-6);
+  return treeManifestHashNative(root);
 }
 
 /**
@@ -615,5 +353,4 @@ export const _mountdiskImgInternal = {
   findBundledMksquashfs,
   findKegOnlyMksquashfs,
   treeManifestHash,
-  padTo512Boundary,
 };

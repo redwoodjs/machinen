@@ -19,13 +19,8 @@ import {
   probeVmmNestedVirtualization,
 } from "../nested-virt.ts";
 import { reflinkCopy } from "../reflink.ts";
-import {
-  allocateSparseFile,
-  autoSizeMemoryMib,
-  parseVsockUdsPath,
-  SNAP_SCRATCH_BYTES,
-} from "./helpers.ts";
-import { resolveExplicitMemoryCeilingMib } from "./memory-resources.ts";
+import { allocateSparseFile, SNAP_SCRATCH_BYTES } from "./helpers.ts";
+import { resolveMemoryCeilingMib } from "./memory-resources.ts";
 import type { BootOptions } from "./boot.ts";
 
 const debug = debugLib("machinen:boot");
@@ -153,11 +148,10 @@ export function setMemoryCeiling(
   env: Record<string, string>,
 ): number | undefined {
   // Validate public API input even when lower-level vmmEnv wins.
-  const explicitCeiling = resolveExplicitMemoryCeilingMib(opts);
+  const ceiling = resolveMemoryCeilingMib(opts);
   if (env.MACHINEN_MEMORY !== undefined) {
     return undefined;
   }
-  const ceiling = explicitCeiling ?? autoSizeMemoryMib();
   env.MACHINEN_MEMORY = String(ceiling);
   return ceiling;
 }
@@ -269,6 +263,10 @@ export function setupVsockBridge(env: Record<string, string>): {
   env.MACHINEN_VSOCK = `in:1978:${vsockUdsPath}`;
   debug("vsock auto uds=%s", vsockUdsPath);
   return { vsockUdsPath, vsockTempDir };
+}
+
+function parseVsockUdsPath(spec: string): string | undefined {
+  return spec.match(/^in:\d+:(.+)$/)?.[1];
 }
 
 // #274: shared stats file the balloon backend writes counters to.

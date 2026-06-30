@@ -8,14 +8,39 @@
 // storms — losing it would re-introduce the smear-on-resize bug this
 // issue exists to fix.
 
+import { execFileSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { WinsizeError } from "../errors.ts";
 import { VsockWinsize } from "../winsize.ts";
+
+let nativeTmp: string | undefined;
+let previousWinsize: string | undefined;
+
+beforeAll(() => {
+  nativeTmp = mkdtempSync(join(tmpdir(), "machinen-winsize-test-"));
+  execFileSync("zig", ["build", "--prefix", nativeTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousWinsize = process.env.MACHINEN_WINSIZE;
+  process.env.MACHINEN_WINSIZE = join(nativeTmp, "bin", "machinen-winsize");
+});
+
+afterAll(() => {
+  if (previousWinsize === undefined) {
+    delete process.env.MACHINEN_WINSIZE;
+  } else {
+    process.env.MACHINEN_WINSIZE = previousWinsize;
+  }
+  if (nativeTmp) {
+    rmSync(nativeTmp, { recursive: true, force: true });
+  }
+});
 
 interface FakeAgent {
   server: Server;

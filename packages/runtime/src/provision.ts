@@ -23,16 +23,13 @@
 
 import { execFileSync } from "node:child_process";
 import {
-  closeSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
-  openSync,
   readFileSync,
   rmSync,
   statSync,
   writeFileSync,
-  writeSync,
 } from "node:fs";
 import { arch as osArch, homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -40,7 +37,20 @@ import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
 import { VsockExec } from "./exec.ts";
 import type { OnLog } from "./log.ts";
+import {
+  planProvisionAssetsForHostNative,
+  planProvisionImageConfigNative,
+  planProvisionRepackNative,
+  planProvisionRuntimeNative,
+  planProvisionWorkloadNative,
+} from "./native/boot-plan.ts";
+import { planProvisionAssetLookupNative } from "./native/provision-asset-lookup.ts";
+import { planProvisionBootNative } from "./native/provision-boot.ts";
+import { planProvisionCliCacheNative } from "./native/provision-cli-cache.ts";
+import { planProvisionResultNative } from "./native/provision-result.ts";
+import { planProvisionDtbNative } from "./native/provision-dtb.ts";
 import { PhaseTimer } from "./phase-timer.ts";
+import { allocateSparseFile } from "./vm/helpers.ts";
 import { reflinkCopy } from "./reflink.ts";
 import { boot, warmImageConfigCache } from "./vm/index.ts";
 import type { VmHandle } from "./vm-handle.ts";
@@ -157,34 +167,6 @@ export interface ProvisionResult {
 }
 
 /**
- * The guest-side command we run after `install` completes to capture
- * the rootfs state onto the scratch disk. Excludes volatile + special
- * filesystems; everything else goes into the tar stream we write raw
- * to `/dev/vdb`. The scratch disk is the second virtio-blk slot (vda
- * holds the live ext4 rootfs the guest is running from); at pack-time
- * vdb has no filesystem so we append tar directly to the block device.
- * The host reads it back the same way (the trailing two zero blocks
- * mark the end).
- */
-const TAR_TO_DISK_CMD = [
-  "tar",
-  "-C /",
-  "--exclude=./proc",
-  "--exclude=./sys",
-  "--exclude=./dev",
-  "--exclude=./tmp",
-  "--exclude=./run",
-  "--exclude=./machinen-config.json",
-  "--exclude=./etc/machinen-boot-epoch",
-  "--sort=name",
-  "--numeric-owner",
-  "--owner=0",
-  "--group=0",
-  "-cf /dev/vdb",
-  ".",
-].join(" ");
-
-/**
  * Resolve the path to the base rootfs tarball, in the same order
  * `provision()` itself does:
  *
@@ -251,32 +233,41 @@ export function resolveBaseKernel(explicit?: string, cwd: string = process.cwd()
  *   PROVISION_ASSETS_DIR_INVALID
  */
 export function resolveBaseDtb(explicit?: string, cwd: string = process.cwd()): string | undefined {
-  if (!explicit && guestCpu() === "amd64") {
+  if (explicit) {
+    return resolveBaseAsset(
+      {
+        kind: "device tree blob",
+        param: "dtb",
+        assetsDirName: "virt-arm64.dtb",
+        cliCacheName: "virt.dtb",
+        missingCode: "PROVISION_DTB_NOT_FOUND",
+      },
+      explicit,
+      cwd,
+    );
+  }
+
+  const plan = planProvisionDtbNative({
+    guestArchOverride: process.env.MACHINEN_GUEST_ARCH,
+    hostArch: osArch(),
+  });
+  if (!plan.required) {
     return undefined;
   }
-  const spec = baseAssetSpec();
   return resolveBaseAsset(
     {
       kind: "device tree blob",
       param: "dtb",
-      assetsDirName: spec.dtbAsset ?? "virt-arm64.dtb",
-      cliCacheName: "virt.dtb",
+      assetsDirName: plan.asset ?? "virt-arm64.dtb",
+      cliCacheName: plan.cliCacheName ?? "virt.dtb",
       missingCode: "PROVISION_DTB_NOT_FOUND",
     },
-    explicit,
+    undefined,
     cwd,
   );
 }
 
 type GuestCpu = "arm64" | "amd64";
-
-function guestCpu(): GuestCpu {
-  const override = process.env.MACHINEN_GUEST_ARCH;
-  if (override === "arm64" || override === "amd64") {
-    return override;
-  }
-  return osArch() === "x64" ? "amd64" : "arm64";
-}
 
 function baseAssetSpec(): {
   cpu: GuestCpu;
@@ -284,18 +275,16 @@ function baseAssetSpec(): {
   dtbAsset?: string;
   rootfsAsset: string;
 } {
-  return guestCpu() === "amd64"
-    ? {
-        cpu: "amd64",
-        kernelAsset: "bzImage-x86_64",
-        rootfsAsset: "rootfs-debian-amd64.tar.gz",
-      }
-    : {
-        cpu: "arm64",
-        kernelAsset: "Image-arm64",
-        dtbAsset: "virt-arm64.dtb",
-        rootfsAsset: "rootfs-debian-arm64.tar.gz",
-      };
+  const plan = planProvisionAssetsForHostNative({
+    guestArchOverride: process.env.MACHINEN_GUEST_ARCH,
+    hostArch: osArch(),
+  });
+  return {
+    cpu: plan.cpu,
+    kernelAsset: plan.kernelAsset,
+    ...(plan.dtbAsset ? { dtbAsset: plan.dtbAsset } : {}),
+    rootfsAsset: plan.rootfsAsset,
+  };
 }
 
 interface BaseAssetSpec {
@@ -310,37 +299,74 @@ interface BaseAssetSpec {
 }
 
 function resolveBaseAsset(spec: BaseAssetSpec, explicit: string | undefined, cwd: string): string {
-  if (explicit) {
-    const abs = resolve(cwd, explicit);
-    if (!existsSync(abs)) {
-      throw new ProvisionError(spec.missingCode, `${spec.kind} not found: ${abs}`);
-    }
-    return abs;
-  }
+  const lookup = provisionAssetLookupRequest(spec, explicit, cwd);
+  const plan = planProvisionAssetLookupNative(lookup);
+  return resolvedProvisionAssetPath(spec, lookup, plan);
+}
 
+interface ProvisionAssetLookupRequest {
+  explicitPath?: string;
+  explicitExists?: boolean;
+  assetsDir?: string;
+  assetsDirPath?: string;
+  assetsDirExists?: boolean;
+  cachePath?: string;
+  cacheExists?: boolean;
+}
+
+function provisionAssetLookupRequest(
+  spec: BaseAssetSpec,
+  explicit: string | undefined,
+  cwd: string,
+): ProvisionAssetLookupRequest {
+  const explicitPath = explicit ? resolve(cwd, explicit) : undefined;
   const assetsDir = process.env.MACHINEN_ASSETS_DIR;
-  if (assetsDir) {
-    const p = resolve(assetsDir, spec.assetsDirName);
-    if (!existsSync(p)) {
-      throw new ProvisionError(
-        "PROVISION_ASSETS_DIR_INVALID",
-        `MACHINEN_ASSETS_DIR=${assetsDir} does not contain ${spec.assetsDirName}`,
-      );
-    }
-    return p;
-  }
+  const assetsDirPath =
+    !explicitPath && assetsDir ? resolve(assetsDir, spec.assetsDirName) : undefined;
+  const cachePath =
+    !explicitPath && !assetsDirPath ? join(cliCachedBaseDir(), spec.cliCacheName) : undefined;
+  return {
+    explicitPath,
+    explicitExists: explicitPath ? existsSync(explicitPath) : undefined,
+    assetsDir,
+    assetsDirPath,
+    assetsDirExists: assetsDirPath ? existsSync(assetsDirPath) : undefined,
+    cachePath,
+    cacheExists: cachePath ? existsSync(cachePath) : undefined,
+  };
+}
 
-  const cached = join(cliCachedBaseDir(), spec.cliCacheName);
-  if (existsSync(cached)) {
-    return cached;
+function resolvedProvisionAssetPath(
+  spec: BaseAssetSpec,
+  lookup: ProvisionAssetLookupRequest,
+  plan: ReturnType<typeof planProvisionAssetLookupNative>,
+): string {
+  if (plan.path) {
+    return plan.path;
   }
+  if (plan.error === "assets-dir-invalid") {
+    throw new ProvisionError(
+      "PROVISION_ASSETS_DIR_INVALID",
+      `MACHINEN_ASSETS_DIR=${lookup.assetsDir} does not contain ${spec.assetsDirName}`,
+    );
+  }
+  throw missingProvisionAssetError(spec, lookup);
+}
 
-  throw new ProvisionError(
+function missingProvisionAssetError(
+  spec: BaseAssetSpec,
+  lookup: ProvisionAssetLookupRequest,
+): ProvisionError {
+  if (lookup.explicitPath) {
+    return new ProvisionError(spec.missingCode, `${spec.kind} not found: ${lookup.explicitPath}`);
+  }
+  const missingPath = lookup.cachePath ?? join(cliCachedBaseDir(), spec.cliCacheName);
+  return new ProvisionError(
     spec.missingCode,
     `${spec.kind} not found. Either:\n` +
       `  - pass \`${spec.param}\` explicitly, or\n` +
       `  - set MACHINEN_ASSETS_DIR to a directory containing ${spec.assetsDirName}, or\n` +
-      `  - install @machinen/cli and run it once to populate ${cached}`,
+      `  - install @machinen/cli and run it once to populate ${missingPath}`,
   );
 }
 
@@ -351,8 +377,19 @@ function cliCachedBaseDir(): string {
   // packages/cli/src/cli.ts).
   const pkgPath = resolve(import.meta.dirname, "..", "package.json");
   const version = (JSON.parse(readFileSync(pkgPath, "utf8")) as { version: string }).version;
-  const spec = baseAssetSpec();
-  return join(homedir(), ".machinen", `runtime-v${version}`, "bases", `debian-${spec.cpu}`);
+  const plan = planProvisionCliCacheNative({
+    homeDir: homedir(),
+    version,
+    guestArchOverride: process.env.MACHINEN_GUEST_ARCH,
+    hostArch: osArch(),
+  });
+  if (!plan.baseDir) {
+    throw new ProvisionError(
+      "PROVISION_BASE_NOT_FOUND",
+      "provision native planner returned missing cli cache base dir",
+    );
+  }
+  return plan.baseDir;
 }
 
 interface ProvisionContext {
@@ -366,6 +403,8 @@ interface ProvisionContext {
   diskPath: string;
   rootDiskPath: string;
   udsPath: string;
+  scratchDiskSizeBytes: number;
+  deadlineMs: number;
   phases: PhaseTimer;
 }
 
@@ -388,7 +427,7 @@ const PROVISION_STDERR_TAIL_MAX = 128 * 1024;
 export async function provision(opts: ProvisionOptions): Promise<ProvisionResult> {
   const ctx = createProvisionContext(opts);
   try {
-    prepareProvisionDisks(opts, ctx);
+    prepareProvisionDisks(ctx);
     const vm = await bootProvisionVm(opts, ctx);
     await runProvisionVmWorkload(opts, ctx, vm);
     repackProvisionOutput(opts, ctx);
@@ -407,6 +446,11 @@ function createProvisionContext(opts: ProvisionOptions): ProvisionContext {
   mkdirSync(dirname(outAbs), { recursive: true });
 
   const workDir = mkdtempSync(join(tmpdir(), "machinen-provision-"));
+  const runtimePlan = planProvisionRuntimeNative({
+    workDir,
+    scratchDiskSizeBytes: opts.scratchDiskSizeBytes,
+    timeoutMs: opts.timeoutMs,
+  });
   const ctx = {
     cwd,
     baseAbs,
@@ -415,24 +459,25 @@ function createProvisionContext(opts: ProvisionOptions): ProvisionContext {
     outAbs,
     t0: Date.now(),
     workDir,
-    diskPath: join(workDir, "scratch.img"),
-    rootDiskPath: join(workDir, "rootfs.img"),
-    udsPath: join(workDir, "exec.sock"),
+    diskPath: requireProvisionPlanString(runtimePlan.diskPath, "diskPath"),
+    rootDiskPath: requireProvisionPlanString(runtimePlan.rootDiskPath, "rootDiskPath"),
+    udsPath: requireProvisionPlanString(runtimePlan.udsPath, "udsPath"),
+    scratchDiskSizeBytes: runtimePlan.scratchSizeBytes,
+    deadlineMs: runtimePlan.deadlineMs,
     phases: new PhaseTimer(),
   };
   debug("provision start base=%s out=%s workDir=%s", baseAbs, outAbs, workDir);
   return ctx;
 }
 
-function prepareProvisionDisks(opts: ProvisionOptions, ctx: ProvisionContext): void {
-  allocateProvisionScratch(opts, ctx);
+function prepareProvisionDisks(ctx: ProvisionContext): void {
+  allocateProvisionScratch(ctx);
   cloneProvisionRootDisk(ctx);
 }
 
-function allocateProvisionScratch(opts: ProvisionOptions, ctx: ProvisionContext): void {
-  const scratchBytes = opts.scratchDiskSizeBytes ?? 1024 * 1024 * 1024;
-  allocateSparseFile(ctx.diskPath, scratchBytes);
-  debug("scratch disk allocated path=%s sizeBytes=%d", ctx.diskPath, scratchBytes);
+function allocateProvisionScratch(ctx: ProvisionContext): void {
+  allocateSparseFile(ctx.diskPath, ctx.scratchDiskSizeBytes);
+  debug("scratch disk allocated path=%s sizeBytes=%d", ctx.diskPath, ctx.scratchDiskSizeBytes);
 }
 
 function cloneProvisionRootDisk(ctx: ProvisionContext): void {
@@ -450,25 +495,41 @@ function cloneProvisionRootDisk(ctx: ProvisionContext): void {
 
 async function bootProvisionVm(opts: ProvisionOptions, ctx: ProvisionContext): Promise<VmHandle> {
   ctx.phases.start("boot");
+  const plan = planProvisionBootNative({
+    basePath: ctx.baseAbs,
+    kernelPath: ctx.kernelAbs,
+    dtbPath: ctx.dtbAbs,
+    udsPath: ctx.udsPath,
+    scratchDiskPath: ctx.diskPath,
+    rootDiskPath: ctx.rootDiskPath,
+    vmmEnv: opts.vmmEnv,
+  });
   const vm = await boot({
     binary: opts.binary,
     cwd: opts.cwd,
-    vmmEnv: {
-      ...opts.vmmEnv,
-      MACHINEN_VSOCK: `in:1978:${ctx.udsPath}`,
-    },
-    kernel: ctx.kernelAbs,
-    ...(ctx.dtbAbs ? { dtb: ctx.dtbAbs } : {}),
-    image: ctx.baseAbs,
-    cmd: ["/exec-agent"],
-    env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },
-    snapshot: ctx.diskPath,
-    rootDisk: ctx.rootDiskPath,
-    timeoutMs: null,
+    vmmEnv: plan.vmmEnv,
+    kernel: requireProvisionPlanString(plan.kernelPath, "kernelPath"),
+    ...(plan.dtbPath ? { dtb: plan.dtbPath } : {}),
+    image: requireProvisionPlanString(plan.imagePath, "imagePath"),
+    cmd: plan.cmd,
+    env: plan.env,
+    snapshot: requireProvisionPlanString(plan.snapshotPath, "snapshotPath"),
+    rootDisk: requireProvisionPlanString(plan.rootDiskPath, "rootDiskPath"),
+    timeoutMs: plan.timeoutMs,
     onLog: opts.onLog,
   });
   ctx.phases.end("boot");
   return vm;
+}
+
+function requireProvisionPlanString(value: string | null, field: string): string {
+  if (value === null) {
+    throw new ProvisionError(
+      "PROVISION_BASE_NOT_FOUND",
+      `provision native planner returned missing ${field}`,
+    );
+  }
+  return value;
 }
 
 async function runProvisionVmWorkload(
@@ -476,13 +537,12 @@ async function runProvisionVmWorkload(
   ctx: ProvisionContext,
   vm: VmHandle,
 ): Promise<void> {
-  const deadlineMs = opts.timeoutMs ?? 10 * 60 * 1000;
-  const killTimer = setTimeout(() => void vm.kill(), deadlineMs);
+  const killTimer = setTimeout(() => void vm.kill(), ctx.deadlineMs);
   killTimer.unref();
   const stderrTail = captureProvisionStderrTail(vm);
   try {
     await runInstallHook(opts, ctx, vm, stderrTail);
-    await tarProvisionRootfsToDisk(opts, ctx, deadlineMs);
+    await tarProvisionRootfsToDisk(opts, ctx, ctx.deadlineMs);
     await poweroffProvisionGuest(opts, ctx, vm);
   } finally {
     clearTimeout(killTimer);
@@ -545,9 +605,10 @@ async function tarProvisionRootfsToDisk(
   debug("tar / -> /dev/vdb starting");
   const tarT0 = Date.now();
   ctx.phases.start("tar-to-disk");
-  const tar = await VsockExec.run(ctx.udsPath, TAR_TO_DISK_CMD, {
+  const workload = planProvisionWorkloadNative();
+  const tar = await VsockExec.run(ctx.udsPath, workload.tarToDiskCommand, {
     execTimeoutMs: deadlineMs,
-    ...tapExecForLog(TAR_TO_DISK_CMD, opts.onLog),
+    ...tapExecForLog(workload.tarToDiskCommand, opts.onLog),
   });
   ctx.phases.end("tar-to-disk");
   debug("tar / -> /dev/vdb done exit=%d elapsed=%dms", tar.exitCode, Date.now() - tarT0);
@@ -567,9 +628,10 @@ async function poweroffProvisionGuest(
 ): Promise<void> {
   debug("requesting guest poweroff");
   ctx.phases.start("poweroff-wait");
-  await VsockExec.run(ctx.udsPath, "/sbin/machinen-poweroff", {
+  const workload = planProvisionWorkloadNative();
+  await VsockExec.run(ctx.udsPath, workload.poweroffCommand, {
     connectTimeoutMs: 2_000,
-    ...tapExecForLog("/sbin/machinen-poweroff", opts.onLog),
+    ...tapExecForLog(workload.poweroffCommand, opts.onLog),
   }).catch(() => {});
   console.error("provision: waiting for guest exit…");
   await vm.wait();
@@ -600,22 +662,17 @@ function finishProvision(opts: ProvisionOptions, ctx: ProvisionContext): Provisi
   const sizeBytes = statSync(ctx.outAbs).size;
   warmImageConfigCache(ctx.outAbs, provisionImageConfig(opts));
   const elapsedMs = Date.now() - ctx.t0;
-  debug("provision complete sizeBytes=%d totalElapsed=%dms", sizeBytes, elapsedMs);
-  ctx.phases.flush(debug, "provision", elapsedMs);
-  opts.onLog?.(ctx.phases.toEvent("provision", elapsedMs));
-  return { imagePath: ctx.outAbs, sizeBytes, elapsedMs };
+  const result = planProvisionResultNative({ imagePath: ctx.outAbs, sizeBytes, elapsedMs });
+  debug("provision complete sizeBytes=%d totalElapsed=%dms", result.sizeBytes, result.elapsedMs);
+  ctx.phases.flush(debug, "provision", result.elapsedMs);
+  opts.onLog?.(ctx.phases.toEvent("provision", result.elapsedMs));
+  return result;
 }
 
 function provisionImageConfig(
   opts: ProvisionOptions,
 ): { cmd?: string[]; env?: Record<string, string> } | null {
-  if (!opts.cmd && !opts.env) {
-    return null;
-  }
-  return {
-    ...(opts.cmd ? { cmd: opts.cmd } : {}),
-    ...(opts.env ? { env: opts.env } : {}),
-  };
+  return planProvisionImageConfigNative({ cmd: opts.cmd, env: opts.env });
 }
 
 function cleanupProvisionWorkDir(workDir: string): void {
@@ -641,16 +698,6 @@ function tapExecForLog(
     onStdout: (chunk) => onLog({ source: "exec-stdout", cmd, chunk }),
     onStderr: (chunk) => onLog({ source: "exec-stderr", cmd, chunk }),
   };
-}
-
-function allocateSparseFile(path: string, sizeBytes: number): void {
-  const fd = openSync(path, "w");
-  try {
-    const buf = Buffer.alloc(1);
-    writeSync(fd, buf, 0, 1, sizeBytes - 1);
-  } finally {
-    closeSync(fd);
-  }
 }
 
 /**
@@ -691,23 +738,22 @@ function repackDiskTarToGz(
     // Visible progress so the silent multi-GB tar pass doesn't look
     // like a hang. See #162.
     console.error("provision: packaging rootfs…");
+    const repackPlan = planProvisionRepackNative({ diskPath, outPath: outAbs, extractDir });
     const extractT0 = Date.now();
-    execFileSync("tar", ["-xf", diskPath, "-C", extractDir]);
+    execFileSync("tar", repackPlan.extractArgs);
     opts.onPhase?.("disk-tar-extract", Date.now() - extractT0);
     // Bake the image's default cmd/env into /machinen-config.json so
     // `boot({ image })` can run without every caller re-passing the
     // same cmd. User-supplied cmd/env on boot() still override.
-    if (opts.cmd || opts.env) {
+    const imageConfig = planProvisionImageConfigNative({ cmd: opts.cmd, env: opts.env });
+    if (imageConfig) {
       writeFileSync(
-        join(extractDir, "machinen-config.json"),
-        JSON.stringify({
-          ...(opts.cmd ? { cmd: opts.cmd } : {}),
-          ...(opts.env ? { env: opts.env } : {}),
-        }),
+        requireProvisionPlanString(repackPlan.imageConfigPath, "provisionRepack.imageConfigPath"),
+        JSON.stringify(imageConfig),
       );
     }
     const tarT0 = Date.now();
-    execFileSync("tar", ["-czf", outAbs, "-C", extractDir, "."], {
+    execFileSync("tar", repackPlan.targzArgs, {
       stdio: ["ignore", "ignore", "inherit"],
     });
     opts.onPhase?.("targz", Date.now() - tarT0);
