@@ -1,21 +1,16 @@
-// Host-memory observation for `vm.fork()` backpressure (#274).
+// Host memory probes for VM fork backpressure and memory auto-sizing.
 //
-// A runaway script that calls `vm.fork()` faster than memory frees
-// will eventually push the host past its OOM threshold and the
-// kernel picks an arbitrary VMM (or any other host process) to
-// kill. Throwing a clear backpressure error before that happens —
-// the same retry/error idiom #267's port-conflict gate uses — lets
-// the caller back off or surface the pressure to its own user.
+// Machinen needs a fresh view of host memory before starting/forking VMs so a
+// runaway workload does not push the host into OOM. This module asks the native
+// runtime helper for available and total physical memory, then applies the
+// runtime's backpressure policy.
 //
-// The reader is pure-stdlib: `/proc/meminfo` on Linux, `vm_stat` on
-// Darwin. Both are zero-state — no daemon, no probe socket, no
-// caching. The check fires once per `vm.fork()`; the cost is one
-// syscall (Linux) or one short-lived subprocess (Darwin).
+// The native helper owns platform details: Linux reads `/proc/meminfo`; Darwin
+// reads `vm_stat`/`sysctl`. Callers should treat these as point-in-time probes,
+// not cached capacity guarantees.
 
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { platform as osPlatform, totalmem } from "node:os";
 import { BootError } from "./errors.ts";
+import { readHostMemoryNative } from "./native/host-memory.ts";
 
 /**
  * Bytes of memory the OS reports as available right now. "Available"
@@ -28,59 +23,15 @@ import { BootError } from "./errors.ts";
  *   - Darwin → vm_stat free + speculative + purgeable. Inactive is
  *              excluded because it's dirty and needs a pageout, which
  *              wouldn't help a fork that needs RAM right now.
- *   - other  → totalmem(). Soft-fail rather than block fork on a
- *              platform we can't measure.
+ *   - other  → explicit helper error on platforms we do not support.
  */
 export async function readHostFreeBytes(): Promise<number> {
-  if (osPlatform() === "linux") {
-    return readMemAvailableLinux();
-  }
-  if (osPlatform() === "darwin") {
-    return readVmStatFreeDarwin();
-  }
-  return totalmem();
+  return readHostMemoryNative().freeBytes;
 }
 
-/**
- * Total physical memory in bytes. Thin wrapper over `os.totalmem()`
- * exported alongside the free reader so tests and the backpressure
- * check pull both numbers from the same module.
- */
+/** Total physical memory in bytes, read by the native runtime helper. */
 export function readHostTotalBytes(): number {
-  return totalmem();
-}
-
-function readMemAvailableLinux(): number {
-  const text = readFileSync("/proc/meminfo", "utf8");
-  const avail = /^MemAvailable:\s+(\d+)\s+kB$/m.exec(text);
-  if (avail) {
-    return Number(avail[1]) * 1024;
-  }
-  // Fallback for ancient kernels (pre-3.14, 2014). MemFree alone
-  // undercounts by the page-cache size, which is conservative — the
-  // gate trips earlier than ideal but never lets a fork through that
-  // a real check would have caught.
-  const free = /^MemFree:\s+(\d+)\s+kB$/m.exec(text);
-  if (free) {
-    return Number(free[1]) * 1024;
-  }
-  throw new Error("host-mem: /proc/meminfo missing MemAvailable + MemFree");
-}
-
-function readVmStatFreeDarwin(): number {
-  const stdout = execFileSync("/usr/bin/vm_stat", { encoding: "utf8", timeout: 1_000 });
-  const pageSizeMatch = /page size of (\d+) bytes/.exec(stdout);
-  const pageSize = pageSizeMatch ? Number(pageSizeMatch[1]) : 4096;
-  const free = parseVmStatPages(stdout, "Pages free");
-  const speculative = parseVmStatPages(stdout, "Pages speculative");
-  const purgeable = parseVmStatPages(stdout, "Pages purgeable");
-  return (free + speculative + purgeable) * pageSize;
-}
-
-function parseVmStatPages(text: string, label: string): number {
-  const re = new RegExp(`^${label.replace(/ /g, "\\s+")}:\\s+(\\d+)\\.?$`, "m");
-  const m = re.exec(text);
-  return m ? Number(m[1]) : 0;
+  return readHostMemoryNative().totalBytes;
 }
 
 /**

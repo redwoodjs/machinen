@@ -6,12 +6,13 @@
 import { randomBytes } from "node:crypto";
 import { closeSync, existsSync, openSync, writeSync } from "node:fs";
 import { createRequire } from "node:module";
-import { arch as osArch, platform as osPlatform, totalmem } from "node:os";
+import { arch as osArch, platform as osPlatform } from "node:os";
 import { resolve } from "node:path";
 import type { Readable } from "node:stream";
 import debugLib from "debug";
 
 import { BootError } from "../errors.ts";
+import { readHostTotalBytes } from "../host-mem.ts";
 import type { VsockExecOptions } from "../exec.ts";
 import type { OnLog } from "../log.ts";
 import type { VmHandle, WriteFileOptions } from "../vm-handle.ts";
@@ -50,7 +51,7 @@ export function allocateSparseFile(path: string, sizeBytes: number): void {
 const MEMORY_FLOOR_MIB = 512;
 const MEMORY_DEFAULT_CEILING_MIB = 4096;
 
-export function autoSizeMemoryMib(hostBytes: number = totalmem()): number {
+export function autoSizeMemoryMib(hostBytes: number = readHostTotalBytes()): number {
   const hostMib = Math.floor(hostBytes / (1024 * 1024));
   const hostAwareCeiling = Math.floor(hostMib / 2);
   return Math.max(MEMORY_FLOOR_MIB, Math.min(hostAwareCeiling, MEMORY_DEFAULT_CEILING_MIB));

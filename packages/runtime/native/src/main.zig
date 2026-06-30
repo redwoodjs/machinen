@@ -1,8 +1,14 @@
 const std = @import("std");
 const protocol = @import("protocol.zig");
+const cpu_cgroup_apply = @import("commands/cpu_cgroup_apply.zig");
+const cpu_cgroup_remove = @import("commands/cpu_cgroup_remove.zig");
+const host_memory = @import("commands/host_memory.zig");
+const host_rss = @import("commands/host_rss.zig");
 const mkinitramfs = @import("commands/mkinitramfs.zig");
 const mountdisk_image = @import("commands/mountdisk_image.zig");
 const mountdisk_upper = @import("commands/mountdisk_upper.zig");
+const pid_validate = @import("commands/pid_validate.zig");
+const process_identity = @import("commands/process_identity.zig");
 const reflink_copy = @import("commands/reflink_copy.zig");
 const rootfs_cache_key = @import("commands/rootfs_cache_key.zig");
 const rootfs_materialize = @import("commands/rootfs_materialize.zig");
@@ -15,9 +21,15 @@ const assert = std.debug.assert;
 var g_io: std.Io = undefined;
 
 pub fn main(init: std.process.Init) !u8 {
+    assert(cpu_cgroup_apply.name.len > 0);
+    assert(cpu_cgroup_remove.name.len > 0);
+    assert(host_memory.name.len > 0);
+    assert(host_rss.name.len > 0);
     assert(mkinitramfs.name.len > 0);
     assert(mountdisk_image.name.len > 0);
     assert(mountdisk_upper.name.len > 0);
+    assert(pid_validate.name.len > 0);
+    assert(process_identity.name.len > 0);
     assert(reflink_copy.name.len > 0);
     assert(rootfs_cache_key.name.len > 0);
     assert(rootfs_materialize.name.len > 0);
@@ -49,8 +61,68 @@ fn runKnownCommand(
 ) !?u8 {
     assert(command.len > 0);
 
+    if (try runHostCommand(allocator, it, command)) |exit| return exit;
+    if (try runFilesystemCommand(allocator, it, command)) |exit| return exit;
+    return null;
+}
+
+fn runHostCommand(
+    allocator: std.mem.Allocator,
+    it: anytype,
+    command: []const u8,
+) !?u8 {
+    assert(command.len > 0);
+
+    if (std.mem.eql(u8, command, cpu_cgroup_apply.name)) {
+        if (try rejectExtraArgs(it, cpu_cgroup_apply.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try cpu_cgroup_apply.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, cpu_cgroup_remove.name)) {
+        if (try rejectExtraArgs(it, cpu_cgroup_remove.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try cpu_cgroup_remove.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, host_memory.name)) {
+        if (try rejectExtraArgs(it, host_memory.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try host_memory.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, host_rss.name)) {
+        if (try rejectExtraArgs(it, host_rss.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try host_rss.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, pid_validate.name)) {
+        if (try rejectExtraArgs(it, pid_validate.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try pid_validate.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, process_identity.name)) {
+        if (try rejectExtraArgs(it, process_identity.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try process_identity.run(allocator, g_io));
+    }
+    return null;
+}
+
+fn runFilesystemCommand(
+    allocator: std.mem.Allocator,
+    it: anytype,
+    command: []const u8,
+) !?u8 {
+    assert(command.len > 0);
+
     if (std.mem.eql(u8, command, mkinitramfs.name)) {
-        if (try rejectExtraArgs(it, mkinitramfs.name)) return @intFromEnum(protocol.Exit.usage);
+        if (try rejectExtraArgs(it, mkinitramfs.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
         return @intFromEnum(try mkinitramfs.run(allocator, g_io));
     }
     if (std.mem.eql(u8, command, mountdisk_image.name)) {
@@ -127,9 +199,15 @@ fn isHelp(command: []const u8) bool {
 }
 
 fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
+    assert(cpu_cgroup_apply.name.len > 0);
+    assert(cpu_cgroup_remove.name.len > 0);
+    assert(host_memory.name.len > 0);
+    assert(host_rss.name.len > 0);
     assert(mkinitramfs.name.len > 0);
     assert(mountdisk_image.name.len > 0);
     assert(mountdisk_upper.name.len > 0);
+    assert(pid_validate.name.len > 0);
+    assert(process_identity.name.len > 0);
     assert(reflink_copy.name.len > 0);
     assert(rootfs_cache_key.name.len > 0);
     assert(rootfs_materialize.name.len > 0);
@@ -141,9 +219,15 @@ fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
         .ok = true,
         .protocolVersion = @as(u8, protocol.version),
         .commands = .{
+            cpu_cgroup_apply.name,
+            cpu_cgroup_remove.name,
+            host_memory.name,
+            host_rss.name,
             mkinitramfs.name,
             mountdisk_image.name,
             mountdisk_upper.name,
+            pid_validate.name,
+            process_identity.name,
             reflink_copy.name,
             rootfs_cache_key.name,
             rootfs_materialize.name,

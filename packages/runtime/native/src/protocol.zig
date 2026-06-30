@@ -67,7 +67,7 @@ pub fn rejectUnknownFields(
     object: std.json.ObjectMap,
     allowed: []const []const u8,
 ) RequestError!void {
-    assert(allowed.len > 0);
+    assert(version == 1);
 
     var it = object.iterator();
     while (it.next()) |entry| {
@@ -77,6 +77,59 @@ pub fn rejectUnknownFields(
             return error.UnknownField;
         }
     }
+}
+
+pub fn requireProtocolVersion(envelope: std.json.ObjectMap) RequestError!void {
+    assert(version == 1);
+
+    const protocol_version = envelope.get("protocolVersion") orelse
+        return error.UnsupportedProtocolVersion;
+    if (protocol_version != .integer) return error.UnsupportedProtocolVersion;
+    if (protocol_version.integer != version) return error.UnsupportedProtocolVersion;
+}
+
+pub fn writeCommonRequestError(io: std.Io, err: anyerror) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.RequestTooLarge => try writeError(
+            io,
+            "REQUEST_TOO_LARGE",
+            "request JSON exceeds the maximum size",
+        ),
+        error.UnknownField => try writeError(
+            io,
+            "UNKNOWN_FIELD",
+            "request contains an unknown field",
+        ),
+        error.UnsupportedProtocolVersion => try writeError(
+            io,
+            "UNSUPPORTED_PROTOCOL_VERSION",
+            "request protocolVersion must be 1",
+        ),
+        error.MissingData => try writeError(
+            io,
+            "INVALID_REQUEST",
+            "request must include a data object",
+        ),
+        error.InvalidData => try writeError(
+            io,
+            "INVALID_REQUEST",
+            "request data field must be an object",
+        ),
+        error.InvalidJson => try writeError(
+            io,
+            "INVALID_JSON",
+            "request body is not valid JSON",
+        ),
+        error.InvalidShape => try writeError(
+            io,
+            "INVALID_REQUEST",
+            "request body must be a JSON object",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 pub fn writeError(io: std.Io, code: []const u8, message: []const u8) !void {

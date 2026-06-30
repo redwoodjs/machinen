@@ -6,12 +6,37 @@
 // positive number. The statsPath-aware tests pretend to be the VMM
 // sampler thread by writing the same wire format into a tmpfile.
 
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { STATS_FILE_SIZE } from "../balloon-stats.ts";
 import { readHostRssBytes, readHostRssBytesMulti } from "../proc-rss.ts";
+
+let helperTmp: string | undefined;
+let previousHelper: string | undefined;
+
+beforeAll(() => {
+  helperTmp = mkdtempSync(join(tmpdir(), "machinen-runtime-helper-test-"));
+  execFileSync("zig", ["build", "--prefix", helperTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousHelper = process.env.MACHINEN_RUNTIME_HELPER;
+  process.env.MACHINEN_RUNTIME_HELPER = join(helperTmp, "bin", "machinen-runtime-helper");
+});
+
+afterAll(() => {
+  if (previousHelper === undefined) {
+    delete process.env.MACHINEN_RUNTIME_HELPER;
+  } else {
+    process.env.MACHINEN_RUNTIME_HELPER = previousHelper;
+  }
+  if (helperTmp) {
+    rmSync(helperTmp, { recursive: true, force: true });
+  }
+});
 
 describe("readHostRssBytes", () => {
   it("returns a positive number for the running process", () => {
@@ -24,13 +49,20 @@ describe("readHostRssBytes", () => {
     // 0x7fff_ffff — outside the kernel's pid_max on every Unix.
     expect(readHostRssBytes(0x7fff_ffff)).toBeNull();
   });
+
+  it("returns null for invalid pid inputs", () => {
+    expect(readHostRssBytes(0)).toBeNull();
+    expect(readHostRssBytes(-1)).toBeNull();
+  });
 });
 
 describe("readHostRssBytesMulti", () => {
   it("returns a map keyed by pid for the live processes it could read", () => {
-    const map = readHostRssBytesMulti([process.pid, 0x7fff_ffff]);
+    const map = readHostRssBytesMulti([process.pid, 0x7fff_ffff, 0, -1]);
     expect(map.get(process.pid)).toBeGreaterThan(0);
     expect(map.has(0x7fff_ffff)).toBe(false);
+    expect(map.has(0)).toBe(false);
+    expect(map.has(-1)).toBe(false);
   });
 
   it("accepts the {pid, statsPath} target shape too", () => {
