@@ -33,9 +33,36 @@ const ParsedRequest = struct {
     restore_path: ?[]const u8 = null,
     enable_vmstate_timing: bool = false,
     existing_vmstate_timing: ?[]const u8 = null,
+    live_mounts: []const boot_plan.LiveMountInput = &.{},
     live_mounts_resolved: []const boot_plan.LiveMount = &.{},
     existing_stats_file: ?[]const u8 = null,
     stats_file_path: ?[]const u8 = null,
+    config_cmd: []const []const u8 = &.{},
+    config_env: std.json.ObjectMap = .{},
+    config_guest_cwd: ?[]const u8 = null,
+    config_image_cwd: ?[]const u8 = null,
+    config_live_mounts: []const boot_plan.LiveMount = &.{},
+    bundle_explicit_cmd: ?[]const []const u8 = null,
+    bundle_image_cmd: ?[]const []const u8 = null,
+    bundle_snapshot_restore: bool = false,
+    bundle_vmstate_restore: bool = false,
+    bundle_live_mounts: []const boot_plan.LiveMount = &.{},
+    bundle_command_required: bool = false,
+    bundle_image_env: std.json.ObjectMap = .{},
+    bundle_guest_env: std.json.ObjectMap = .{},
+    scratch_mode: boot_plan.ScratchDiskMode = .unset,
+    scratch_snapshot_path: ?[]const u8 = null,
+    scratch_restore_clone_path: ?[]const u8 = null,
+    scratch_auto_path: ?[]const u8 = null,
+    root_disk_runtime_mode: boot_plan.RootDiskRuntimeMode = .none,
+    root_disk_source_path: ?[]const u8 = null,
+    root_disk_clone_path: ?[]const u8 = null,
+    mount_disk_runtime_mode: boot_plan.MountDiskRuntimeMode = .none,
+    mount_disk_lower_path: ?[]const u8 = null,
+    mount_disk_upper_path: ?[]const u8 = null,
+    mount_disk_source_upper_path: ?[]const u8 = null,
+    mount_disk_guest: ?[]const u8 = null,
+    mount_disk_upper_size_text: ?[]const u8 = null,
 };
 
 const ParsedResourcesMemory = struct {
@@ -69,9 +96,36 @@ const boot_plan_fields = [_][]const u8{
     "restorePath",
     "enableVmstateTiming",
     "existingVmstateTiming",
+    "liveMounts",
     "liveMountsResolved",
     "existingStatsFile",
     "statsFilePath",
+    "configCmd",
+    "configEnv",
+    "configGuestCwd",
+    "configImageCwd",
+    "configLiveMounts",
+    "bundleExplicitCmd",
+    "bundleImageCmd",
+    "bundleSnapshotRestore",
+    "bundleVmstateRestore",
+    "bundleLiveMounts",
+    "bundleCommandRequired",
+    "bundleImageEnv",
+    "bundleGuestEnv",
+    "scratchMode",
+    "scratchSnapshotPath",
+    "scratchRestoreClonePath",
+    "scratchAutoPath",
+    "rootDiskRuntimeMode",
+    "rootDiskSourcePath",
+    "rootDiskClonePath",
+    "mountDiskRuntimeMode",
+    "mountDiskLowerPath",
+    "mountDiskUpperPath",
+    "mountDiskSourceUpperPath",
+    "mountDiskGuest",
+    "mountDiskUpperSize",
 };
 
 const RequestError = error{
@@ -114,12 +168,42 @@ const RequestError = error{
     InvalidRestorePath,
     InvalidEnableVmstateTiming,
     InvalidExistingVmstateTiming,
+    InvalidLiveMounts,
+    InvalidLiveMountGuest,
     InvalidLiveMountsResolved,
     InvalidLiveMountHost,
     InvalidLiveMountMode,
     InvalidLiveMountTag,
     InvalidExistingStatsFile,
     InvalidStatsFilePath,
+    InvalidConfigCmd,
+    InvalidConfigEnv,
+    InvalidConfigEnvValue,
+    InvalidConfigGuestCwd,
+    InvalidConfigImageCwd,
+    InvalidConfigLiveMounts,
+    InvalidBundleExplicitCmd,
+    InvalidBundleImageCmd,
+    InvalidBundleSnapshotRestore,
+    InvalidBundleVmstateRestore,
+    InvalidBundleLiveMounts,
+    InvalidBundleCommandRequired,
+    InvalidBundleImageEnv,
+    InvalidBundleGuestEnv,
+    InvalidBundleEnvValue,
+    InvalidScratchMode,
+    InvalidScratchSnapshotPath,
+    InvalidScratchRestoreClonePath,
+    InvalidScratchAutoPath,
+    InvalidRootDiskRuntimeMode,
+    InvalidRootDiskSourcePath,
+    InvalidRootDiskClonePath,
+    InvalidMountDiskRuntimeMode,
+    InvalidMountDiskLowerPath,
+    InvalidMountDiskUpperPath,
+    InvalidMountDiskSourceUpperPath,
+    InvalidMountDiskGuest,
+    InvalidMountDiskUpperSize,
 } || protocol.RequestError;
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
@@ -157,6 +241,16 @@ const PlanParts = struct {
     vmstate_env: boot_plan.VmstateEnvPlan,
     virtiofs_env: []const boot_plan.EnvPair,
     stats_file: boot_plan.StatsFilePlan,
+    planned_live_mounts: []const boot_plan.LiveMount,
+    config_cmd: []const []const u8,
+    config_env: []const boot_plan.EnvPair,
+    config_cwd: ?[]const u8,
+    config_live_mounts: []const boot_plan.LiveMount,
+    bundle_command: []const []const u8,
+    bundle_env: []const boot_plan.EnvPair,
+    scratch_disk: boot_plan.ScratchDiskPlan,
+    root_disk_runtime: boot_plan.RootDiskRuntimePlan,
+    mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
 };
 
 fn makeCorePlan(
@@ -170,6 +264,19 @@ fn makeCorePlan(
     return boot_plan.planCore(input);
 }
 
+const RuntimeParts = struct {
+    planned_live_mounts: []const boot_plan.LiveMount,
+    config_cmd: []const []const u8,
+    config_env: []const boot_plan.EnvPair,
+    config_cwd: ?[]const u8,
+    config_live_mounts: []const boot_plan.LiveMount,
+    bundle_command: []const []const u8,
+    bundle_env: []const boot_plan.EnvPair,
+    scratch_disk: boot_plan.ScratchDiskPlan,
+    root_disk_runtime: boot_plan.RootDiskRuntimePlan,
+    mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
+};
+
 fn makePlanParts(
     arena: std.mem.Allocator,
     parsed: ParsedRequest,
@@ -177,41 +284,135 @@ fn makePlanParts(
 ) !PlanParts {
     assert(@sizeOf(PlanParts) > 0);
 
-    const vsock_plan = try boot_plan.planVsock(arena, .{
-        .existing_spec = parsed.existing_vsock_spec,
-        .auto_uds_path = parsed.auto_vsock_uds_path,
-    });
-    const guest_env = try makeGuestEnv(arena, parsed);
-    const vmm_argv = try boot_plan.planVmmArgv(arena, .{
-        .binary = parsed.vmm_binary,
-        .args = parsed.vmm_args,
-        .pdeathsig_path = parsed.pdeathsig_path,
-    });
-    const kernel_dtb = boot_plan.planKernelDtb(.{
-        .kernel_path = parsed.kernel_path,
-        .dtb_path = parsed.dtb_path,
-    });
-    const vmstate_env = boot_plan.planVmstateEnv(.{
-        .state_path = parsed.vmstate_path,
-        .restore_path = parsed.restore_path,
-        .enable_timing = parsed.enable_vmstate_timing,
-        .existing_timing = parsed.existing_vmstate_timing,
-    });
-    const virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved);
-    const stats_file = boot_plan.planStatsFile(.{
-        .existing_path = parsed.existing_stats_file,
-        .planned_path = parsed.stats_file_path,
-    });
+    const runtime = try makeRuntimeParts(arena, parsed);
     return .{
         .plan = plan,
-        .guest_env = guest_env,
-        .vsock_plan = vsock_plan,
-        .vmm_argv = vmm_argv,
-        .kernel_dtb = kernel_dtb,
-        .vmstate_env = vmstate_env,
-        .virtiofs_env = virtiofs_env,
-        .stats_file = stats_file,
+        .guest_env = try makeGuestEnv(arena, parsed),
+        .vsock_plan = try boot_plan.planVsock(arena, .{
+            .existing_spec = parsed.existing_vsock_spec,
+            .auto_uds_path = parsed.auto_vsock_uds_path,
+        }),
+        .vmm_argv = try boot_plan.planVmmArgv(arena, .{
+            .binary = parsed.vmm_binary,
+            .args = parsed.vmm_args,
+            .pdeathsig_path = parsed.pdeathsig_path,
+        }),
+        .kernel_dtb = boot_plan.planKernelDtb(.{
+            .kernel_path = parsed.kernel_path,
+            .dtb_path = parsed.dtb_path,
+        }),
+        .vmstate_env = boot_plan.planVmstateEnv(.{
+            .state_path = parsed.vmstate_path,
+            .restore_path = parsed.restore_path,
+            .enable_timing = parsed.enable_vmstate_timing,
+            .existing_timing = parsed.existing_vmstate_timing,
+        }),
+        .virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved),
+        .stats_file = boot_plan.planStatsFile(.{
+            .existing_path = parsed.existing_stats_file,
+            .planned_path = parsed.stats_file_path,
+        }),
+        .planned_live_mounts = runtime.planned_live_mounts,
+        .config_cmd = runtime.config_cmd,
+        .config_env = runtime.config_env,
+        .config_cwd = runtime.config_cwd,
+        .config_live_mounts = runtime.config_live_mounts,
+        .bundle_command = runtime.bundle_command,
+        .bundle_env = runtime.bundle_env,
+        .scratch_disk = runtime.scratch_disk,
+        .root_disk_runtime = runtime.root_disk_runtime,
+        .mount_disk_runtime = runtime.mount_disk_runtime,
     };
+}
+
+fn makeRuntimeParts(arena: std.mem.Allocator, parsed: ParsedRequest) !RuntimeParts {
+    assert(@sizeOf(RuntimeParts) > 0);
+
+    const bundle = try makeBundleParts(arena, parsed);
+    const disks = try makeDiskParts(parsed);
+    return .{
+        .planned_live_mounts = try boot_plan.planLiveMounts(arena, parsed.live_mounts),
+        .config_cmd = parsed.config_cmd,
+        .config_env = try makeConfigEnv(arena, parsed),
+        .config_cwd = boot_plan.planMachinenConfigCwd(.{
+            .guest_cwd = parsed.config_guest_cwd,
+            .image_cwd = parsed.config_image_cwd,
+        }),
+        .config_live_mounts = parsed.config_live_mounts,
+        .bundle_command = bundle.command,
+        .bundle_env = bundle.env,
+        .scratch_disk = disks.scratch,
+        .root_disk_runtime = disks.root,
+        .mount_disk_runtime = disks.mount,
+    };
+}
+
+const BundleParts = struct {
+    command: []const []const u8,
+    env: []const boot_plan.EnvPair,
+};
+
+fn makeBundleParts(arena: std.mem.Allocator, parsed: ParsedRequest) !BundleParts {
+    assert(@sizeOf(BundleParts) > 0);
+
+    const command = if (parsed.bundle_command_required)
+        try boot_plan.planBundleCommand(arena, .{
+            .explicit_cmd = parsed.bundle_explicit_cmd,
+            .image_cmd = parsed.bundle_image_cmd,
+            .snapshot_restore = parsed.bundle_snapshot_restore,
+            .vmstate_restore = parsed.bundle_vmstate_restore,
+            .live_mounts = parsed.bundle_live_mounts,
+        })
+    else
+        &.{};
+    return .{
+        .command = command,
+        .env = try makeBundleEnv(arena, parsed),
+    };
+}
+
+const DiskParts = struct {
+    scratch: boot_plan.ScratchDiskPlan,
+    root: boot_plan.RootDiskRuntimePlan,
+    mount: boot_plan.MountDiskRuntimePlan,
+};
+
+fn makeDiskParts(parsed: ParsedRequest) !DiskParts {
+    assert(@sizeOf(DiskParts) > 0);
+
+    return .{
+        .scratch = try boot_plan.planScratchDisk(.{
+            .mode = parsed.scratch_mode,
+            .has_cmd = parsed.has_cmd,
+            .has_image = parsed.has_image,
+            .snapshot_path = parsed.scratch_snapshot_path,
+            .restore_clone_path = parsed.scratch_restore_clone_path,
+            .auto_path = parsed.scratch_auto_path,
+        }),
+        .root = try boot_plan.planRootDiskRuntime(.{
+            .mode = parsed.root_disk_runtime_mode,
+            .source_path = parsed.root_disk_source_path,
+            .clone_path = parsed.root_disk_clone_path,
+        }),
+        .mount = try makeMountDiskRuntime(parsed),
+    };
+}
+
+fn makeMountDiskRuntime(parsed: ParsedRequest) !boot_plan.MountDiskRuntimePlan {
+    assert(@sizeOf(boot_plan.MountDiskRuntimePlan) > 0);
+
+    const upper_size = if (parsed.mount_disk_upper_size_text) |text|
+        parseUnsigned(text) catch return error.InvalidMountDiskUpperSize
+    else
+        null;
+    return boot_plan.planMountDiskRuntime(.{
+        .mode = parsed.mount_disk_runtime_mode,
+        .lower_path = parsed.mount_disk_lower_path,
+        .upper_path = parsed.mount_disk_upper_path,
+        .source_upper_path = parsed.mount_disk_source_upper_path,
+        .guest = parsed.mount_disk_guest,
+        .upper_size_bytes = upper_size,
+    });
 }
 
 fn writePortForwardFailure(
@@ -237,10 +438,17 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeCoreFields(io, parts.plan);
     try writeVsockKernelFields(io, parts.vsock_plan, parts.kernel_dtb);
     try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file);
+    try writeLiveMountsArrayField(io, "plannedLiveMounts", parts.planned_live_mounts, true);
     try writeEnvObjectField(io, "virtiofsEnv", parts.virtiofs_env, true);
     try writeNullableStringField(io, "vmmCommand", parts.vmm_argv.command, true);
     try writeStringArrayField(io, "vmmArgs", parts.vmm_argv.args, true);
     try writeEnvObjectField(io, "mergedGuestEnv", parts.guest_env, true);
+    try writeMachinenConfigField(io, "machinenConfig", parts, true);
+    try writeStringArrayField(io, "bundleCommand", parts.bundle_command, true);
+    try writeEnvObjectField(io, "bundleEnv", parts.bundle_env, true);
+    try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
+    try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
+    try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
     try protocol.stdout(io, "}}\n");
 }
 
@@ -355,6 +563,138 @@ fn writeBoolField(
     try protocol.stdout(io, if (value) "true" else "false");
 }
 
+fn writeLiveMountsArrayField(
+    io: std.Io,
+    comptime field: []const u8,
+    mounts: []const boot_plan.LiveMount,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "[");
+    for (mounts, 0..) |mount, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.stdout(io, "{\"host\":");
+        try protocol.writeJsonString(io, mount.host);
+        try protocol.stdout(io, ",\"guest\":");
+        try protocol.writeJsonString(io, mount.guest);
+        try protocol.stdout(io, ",\"mode\":");
+        try protocol.writeJsonString(io, mount.mode);
+        try protocol.stdout(io, ",\"tag\":");
+        try protocol.writeJsonString(io, mount.tag);
+        try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]");
+}
+
+fn writeScratchDiskField(
+    io: std.Io,
+    comptime field: []const u8,
+    scratch: boot_plan.ScratchDiskPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, scratch.action);
+    try writeNullableStringField(io, "diskPath", scratch.disk_path, true);
+    try writeNullableStringField(io, "perBootSnapDisk", scratch.per_boot_snap_disk, true);
+    try writeNullableStringField(io, "vmmDisk", scratch.vmm_disk, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeRootDiskRuntimeField(
+    io: std.Io,
+    comptime field: []const u8,
+    root_disk: boot_plan.RootDiskRuntimePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, root_disk.action);
+    try writeNullableStringField(io, "sourcePath", root_disk.source_path, true);
+    try writeNullableStringField(io, "targetPath", root_disk.target_path, true);
+    try writeNullableStringField(
+        io,
+        "perBootRootDisk",
+        root_disk.per_boot_root_disk,
+        true,
+    );
+    try writeNullableStringField(io, "vmmRootDisk", root_disk.vmm_root_disk, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeMountDiskRuntimeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mount_disk: boot_plan.MountDiskRuntimePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, mount_disk.action);
+    try writeNullableStringField(io, "lowerPath", mount_disk.lower_path, true);
+    try writeNullableStringField(io, "upperPath", mount_disk.upper_path, true);
+    try writeNullableStringField(
+        io,
+        "sourceUpperPath",
+        mount_disk.source_upper_path,
+        true,
+    );
+    try writeNullableStringField(io, "guest", mount_disk.guest, true);
+    try writeNullableU64Field(io, "upperSizeBytes", mount_disk.upper_size_bytes, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeMachinenConfigField(
+    io: std.Io,
+    comptime field: []const u8,
+    parts: PlanParts,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeStringArrayField(io, "cmd", parts.config_cmd, false);
+    try writeEnvObjectField(io, "env", parts.config_env, true);
+    if (parts.config_cwd) |cwd| {
+        try writeFieldName(io, "cwd", true);
+        try protocol.writeJsonString(io, cwd);
+    }
+    try writeConfigLiveMountsField(io, "liveMounts", parts.config_live_mounts, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeConfigLiveMountsField(
+    io: std.Io,
+    comptime field: []const u8,
+    mounts: []const boot_plan.LiveMount,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "[");
+    for (mounts, 0..) |mount, i| {
+        if (i != 0) try protocol.stdout(io, ",");
+        try protocol.stdout(io, "{\"guest\":");
+        try protocol.writeJsonString(io, mount.guest);
+        try protocol.stdout(io, ",\"tag\":");
+        try protocol.writeJsonString(io, mount.tag);
+        try protocol.stdout(io, ",\"mode\":");
+        try protocol.writeJsonString(io, mount.mode);
+        try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]");
+}
+
 fn writeEnvObjectField(
     io: std.Io,
     comptime field: []const u8,
@@ -407,6 +747,59 @@ fn makeGuestEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_pla
         .name = parsed.name,
         .vsock_uds_path = parsed.vsock_uds_path,
     });
+}
+
+fn makeConfigEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.EnvPair {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    var pairs: std.array_list.Aligned(boot_plan.EnvPair, null) = .empty;
+    errdefer pairs.deinit(allocator);
+    var it = parsed.config_env.iterator();
+    while (it.next()) |entry| {
+        if (entry.value_ptr.* != .string) return error.InvalidConfigEnvValue;
+        try pairs.append(allocator, .{
+            .key = entry.key_ptr.*,
+            .value = entry.value_ptr.string,
+        });
+    }
+    return pairs.toOwnedSlice(allocator);
+}
+
+fn makeBundleEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.EnvPair {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return boot_plan.planBundleEnv(allocator, .{
+        .image_env = try objectStringPairs(
+            allocator,
+            parsed.bundle_image_env,
+            error.InvalidBundleEnvValue,
+        ),
+        .guest_env = try objectStringPairs(
+            allocator,
+            parsed.bundle_guest_env,
+            error.InvalidBundleEnvValue,
+        ),
+    });
+}
+
+fn objectStringPairs(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+    invalid: anyerror,
+) ![]boot_plan.EnvPair {
+    assert(@sizeOf(boot_plan.EnvPair) > 0);
+
+    var pairs: std.array_list.Aligned(boot_plan.EnvPair, null) = .empty;
+    errdefer pairs.deinit(allocator);
+    var it = object.iterator();
+    while (it.next()) |entry| {
+        if (entry.value_ptr.* != .string) return invalid;
+        try pairs.append(allocator, .{
+            .key = entry.key_ptr.*,
+            .value = entry.value_ptr.string,
+        });
+    }
+    return pairs.toOwnedSlice(allocator);
 }
 
 fn makePlanInput(
@@ -606,12 +999,28 @@ fn parseKernelVmstateFields(
 ) RequestError!void {
     assert(@sizeOf(ParsedRequest) > 0);
 
+    try parseKernelFields(object, request);
+    try parseVmstateFields(object, request);
+    try parseRuntimeMountStatsFields(allocator, object, request);
+    try parseConfigFields(allocator, object, request);
+    try parseBundleFields(allocator, object, request);
+    try parseDiskRuntimeFields(object, request);
+}
+
+fn parseKernelFields(object: std.json.ObjectMap, request: *ParsedRequest) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
     request.kernel_path = try optionalStringDefaultNull(
         object,
         "kernelPath",
         error.InvalidKernelPath,
     );
     request.dtb_path = try optionalStringDefaultNull(object, "dtbPath", error.InvalidDtbPath);
+}
+
+fn parseVmstateFields(object: std.json.ObjectMap, request: *ParsedRequest) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
     request.vmstate_path = try optionalStringDefaultNull(
         object,
         "vmstatePath",
@@ -632,7 +1041,22 @@ fn parseKernelVmstateFields(
         "existingVmstateTiming",
         error.InvalidExistingVmstateTiming,
     );
-    request.live_mounts_resolved = try optionalLiveMountsResolved(allocator, object);
+}
+
+fn parseRuntimeMountStatsFields(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    request.live_mounts = try optionalLiveMounts(allocator, object);
+    request.live_mounts_resolved = try optionalLiveMountsResolved(
+        allocator,
+        object,
+        "liveMountsResolved",
+        error.InvalidLiveMountsResolved,
+    );
     request.existing_stats_file = try optionalStringDefaultNull(
         object,
         "existingStatsFile",
@@ -645,24 +1069,289 @@ fn parseKernelVmstateFields(
     );
 }
 
+fn parseConfigFields(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    request.config_cmd = try optionalStringArrayDefaultEmpty(
+        allocator,
+        object,
+        "configCmd",
+        error.InvalidConfigCmd,
+    );
+    request.config_env = try optionalObjectDefaultEmpty(
+        object,
+        "configEnv",
+        error.InvalidConfigEnv,
+    );
+    request.config_guest_cwd = try optionalStringDefaultNull(
+        object,
+        "configGuestCwd",
+        error.InvalidConfigGuestCwd,
+    );
+    request.config_image_cwd = try optionalStringDefaultNull(
+        object,
+        "configImageCwd",
+        error.InvalidConfigImageCwd,
+    );
+    request.config_live_mounts = try optionalLiveMountsResolved(
+        allocator,
+        object,
+        "configLiveMounts",
+        error.InvalidConfigLiveMounts,
+    );
+}
+
+fn parseBundleFields(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    request.bundle_explicit_cmd = try optionalStringArrayOrNull(
+        allocator,
+        object,
+        "bundleExplicitCmd",
+        error.InvalidBundleExplicitCmd,
+    );
+    request.bundle_image_cmd = try optionalStringArrayOrNull(
+        allocator,
+        object,
+        "bundleImageCmd",
+        error.InvalidBundleImageCmd,
+    );
+    request.bundle_snapshot_restore = try optionalBoolDefaultFalse(
+        object,
+        "bundleSnapshotRestore",
+        error.InvalidBundleSnapshotRestore,
+    );
+    request.bundle_vmstate_restore = try optionalBoolDefaultFalse(
+        object,
+        "bundleVmstateRestore",
+        error.InvalidBundleVmstateRestore,
+    );
+    request.bundle_live_mounts = try optionalLiveMountsResolved(
+        allocator,
+        object,
+        "bundleLiveMounts",
+        error.InvalidBundleLiveMounts,
+    );
+    request.bundle_command_required = (try optionalBoolDefaultFalse(
+        object,
+        "bundleCommandRequired",
+        error.InvalidBundleCommandRequired,
+    )) or hasBundleCommandField(object);
+    request.bundle_image_env = try optionalObjectDefaultEmpty(
+        object,
+        "bundleImageEnv",
+        error.InvalidBundleImageEnv,
+    );
+    request.bundle_guest_env = try optionalObjectDefaultEmpty(
+        object,
+        "bundleGuestEnv",
+        error.InvalidBundleGuestEnv,
+    );
+}
+
+fn parseDiskRuntimeFields(
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    try parseScratchFields(object, request);
+    try parseRootDiskRuntimeFields(object, request);
+    try parseMountDiskRuntimeFields(object, request);
+}
+
+fn parseScratchFields(object: std.json.ObjectMap, request: *ParsedRequest) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    request.scratch_mode = try optionalScratchMode(object);
+    request.scratch_snapshot_path = try optionalStringDefaultNull(
+        object,
+        "scratchSnapshotPath",
+        error.InvalidScratchSnapshotPath,
+    );
+    request.scratch_restore_clone_path = try optionalStringDefaultNull(
+        object,
+        "scratchRestoreClonePath",
+        error.InvalidScratchRestoreClonePath,
+    );
+    request.scratch_auto_path = try optionalStringDefaultNull(
+        object,
+        "scratchAutoPath",
+        error.InvalidScratchAutoPath,
+    );
+}
+
+fn parseRootDiskRuntimeFields(
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    request.root_disk_runtime_mode = try optionalRootDiskRuntimeMode(object);
+    request.root_disk_source_path = try optionalStringDefaultNull(
+        object,
+        "rootDiskSourcePath",
+        error.InvalidRootDiskSourcePath,
+    );
+    request.root_disk_clone_path = try optionalStringDefaultNull(
+        object,
+        "rootDiskClonePath",
+        error.InvalidRootDiskClonePath,
+    );
+}
+
+fn parseMountDiskRuntimeFields(
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    request.mount_disk_runtime_mode = try optionalMountDiskRuntimeMode(object);
+    request.mount_disk_lower_path = try optionalStringDefaultNull(
+        object,
+        "mountDiskLowerPath",
+        error.InvalidMountDiskLowerPath,
+    );
+    request.mount_disk_upper_path = try optionalStringDefaultNull(
+        object,
+        "mountDiskUpperPath",
+        error.InvalidMountDiskUpperPath,
+    );
+    request.mount_disk_source_upper_path = try optionalStringDefaultNull(
+        object,
+        "mountDiskSourceUpperPath",
+        error.InvalidMountDiskSourceUpperPath,
+    );
+    request.mount_disk_guest = try optionalStringDefaultNull(
+        object,
+        "mountDiskGuest",
+        error.InvalidMountDiskGuest,
+    );
+    request.mount_disk_upper_size_text = try optionalStringDefaultNull(
+        object,
+        "mountDiskUpperSize",
+        error.InvalidMountDiskUpperSize,
+    );
+}
+
+fn hasBundleCommandField(object: std.json.ObjectMap) bool {
+    assert(@sizeOf(std.json.ObjectMap) > 0);
+
+    if (object.get("bundleExplicitCmd")) |value| {
+        if (value != .null) return true;
+    }
+    if (object.get("bundleImageCmd")) |value| {
+        if (value != .null) return true;
+    }
+    if (object.get("bundleSnapshotRestore")) |value| {
+        if (value == .bool and value.bool) return true;
+    }
+    if (object.get("bundleVmstateRestore")) |value| {
+        if (value == .bool and value.bool) return true;
+    }
+    return false;
+}
+
+fn optionalScratchMode(object: std.json.ObjectMap) RequestError!boot_plan.ScratchDiskMode {
+    assert(@sizeOf(boot_plan.ScratchDiskMode) > 0);
+
+    const value = object.get("scratchMode") orelse return .unset;
+    if (value == .null) return .unset;
+    if (value != .string) return error.InvalidScratchMode;
+    if (std.mem.eql(u8, value.string, "false")) return .false_value;
+    if (std.mem.eql(u8, value.string, "path")) return .path;
+    if (std.mem.eql(u8, value.string, "auto")) return .auto;
+    return error.InvalidScratchMode;
+}
+
+fn optionalRootDiskRuntimeMode(
+    object: std.json.ObjectMap,
+) RequestError!boot_plan.RootDiskRuntimeMode {
+    assert(@sizeOf(boot_plan.RootDiskRuntimeMode) > 0);
+
+    const value = object.get("rootDiskRuntimeMode") orelse return .none;
+    if (value == .null) return .none;
+    if (value != .string) return error.InvalidRootDiskRuntimeMode;
+    if (std.mem.eql(u8, value.string, "none")) return .none;
+    if (std.mem.eql(u8, value.string, "path")) return .path;
+    if (std.mem.eql(u8, value.string, "restore")) return .restore;
+    if (std.mem.eql(u8, value.string, "cached")) return .cached;
+    return error.InvalidRootDiskRuntimeMode;
+}
+
+fn optionalMountDiskRuntimeMode(
+    object: std.json.ObjectMap,
+) RequestError!boot_plan.MountDiskRuntimeMode {
+    assert(@sizeOf(boot_plan.MountDiskRuntimeMode) > 0);
+
+    const value = object.get("mountDiskRuntimeMode") orelse return .none;
+    if (value == .null) return .none;
+    if (value != .string) return error.InvalidMountDiskRuntimeMode;
+    if (std.mem.eql(u8, value.string, "none")) return .none;
+    if (std.mem.eql(u8, value.string, "restore")) return .restore;
+    if (std.mem.eql(u8, value.string, "fresh")) return .fresh;
+    return error.InvalidMountDiskRuntimeMode;
+}
+
+fn optionalLiveMounts(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+) RequestError![]const boot_plan.LiveMountInput {
+    assert(@sizeOf(boot_plan.LiveMountInput) > 0);
+
+    const value = object.get("liveMounts") orelse return &.{};
+    if (value == .null) return &.{};
+    if (value != .array) return error.InvalidLiveMounts;
+    var mounts: std.array_list.Aligned(boot_plan.LiveMountInput, null) = .empty;
+    errdefer mounts.deinit(allocator);
+    for (value.array.items) |item| {
+        if (item != .object) return error.InvalidLiveMounts;
+        try protocol.rejectUnknownFields(item.object, &.{ "host", "guest", "mode" });
+        const host = item.object.get("host") orelse return error.InvalidLiveMountHost;
+        const guest = item.object.get("guest") orelse return error.InvalidLiveMountGuest;
+        const mode = item.object.get("mode") orelse .null;
+        if (host != .string) return error.InvalidLiveMountHost;
+        if (guest != .string) return error.InvalidLiveMountGuest;
+        if (mode != .null and mode != .string) return error.InvalidLiveMountMode;
+        try mounts.append(allocator, .{
+            .host = host.string,
+            .guest = guest.string,
+            .mode = if (mode == .string) mode.string else null,
+        });
+    }
+    return mounts.toOwnedSlice(allocator);
+}
+
 fn optionalLiveMountsResolved(
     allocator: std.mem.Allocator,
     object: std.json.ObjectMap,
+    comptime field: []const u8,
+    invalid: RequestError,
 ) RequestError![]const boot_plan.LiveMount {
     assert(@sizeOf(boot_plan.LiveMount) > 0);
 
-    const value = object.get("liveMountsResolved") orelse return &.{};
+    const value = object.get(field) orelse return &.{};
     if (value == .null) return &.{};
-    if (value != .array) return error.InvalidLiveMountsResolved;
+    if (value != .array) return invalid;
     var mounts: std.array_list.Aligned(boot_plan.LiveMount, null) = .empty;
     errdefer mounts.deinit(allocator);
     for (value.array.items) |item| {
-        if (item != .object) return error.InvalidLiveMountsResolved;
-        try protocol.rejectUnknownFields(item.object, &.{ "host", "mode", "tag" });
+        if (item != .object) return invalid;
+        try protocol.rejectUnknownFields(item.object, &.{ "host", "guest", "mode", "tag" });
         const host = item.object.get("host") orelse return error.InvalidLiveMountHost;
+        const guest = item.object.get("guest") orelse return error.InvalidLiveMountGuest;
         const mode = item.object.get("mode") orelse return error.InvalidLiveMountMode;
         const tag = item.object.get("tag") orelse return error.InvalidLiveMountTag;
         if (host != .string) return error.InvalidLiveMountHost;
+        if (guest != .string) return error.InvalidLiveMountGuest;
         if (mode != .string) return error.InvalidLiveMountMode;
         if (!std.mem.eql(u8, mode.string, "ro") and
             !std.mem.eql(u8, mode.string, "rw"))
@@ -672,6 +1361,7 @@ fn optionalLiveMountsResolved(
         if (tag != .string) return error.InvalidLiveMountTag;
         try mounts.append(allocator, .{
             .host = host.string,
+            .guest = guest.string,
             .mode = mode.string,
             .tag = tag.string,
         });
@@ -711,6 +1401,27 @@ fn optionalStringArrayDefaultEmpty(
         try out.append(allocator, item.string);
     }
     return out.toOwnedSlice(allocator);
+}
+
+fn optionalStringArrayOrNull(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+    field: []const u8,
+    invalid: RequestError,
+) RequestError!?[]const []const u8 {
+    assert(field.len > 0);
+
+    const value = object.get(field) orelse return null;
+    if (value == .null) return null;
+    if (value != .array) return invalid;
+    var out: std.array_list.Aligned([]const u8, null) = .empty;
+    errdefer out.deinit(allocator);
+    for (value.array.items) |item| {
+        if (item != .string) return invalid;
+        try out.append(allocator, item.string);
+    }
+    const owned: []const []const u8 = try out.toOwnedSlice(allocator);
+    return owned;
 }
 
 fn optionalPortForward(
@@ -868,6 +1579,16 @@ fn writeDuplicateHostPort(io: std.Io, port: u16) !void {
 fn writePlanError(io: std.Io, err: anyerror) !void {
     assert(@errorName(err).len > 0);
 
+    if (try writeMemoryPlanError(io, err)) return;
+    if (try writePathPlanError(io, err)) return;
+    if (try writeEnvPlanError(io, err)) return;
+    if (try writeDiskPlanError(io, err)) return;
+    try writeBootError(io, "BOOT_MEMORY_INVALID", @errorName(err));
+}
+
+fn writeMemoryPlanError(io: std.Io, err: anyerror) !bool {
+    assert(@errorName(err).len > 0);
+
     switch (err) {
         error.InvalidMemory => try writeBootError(
             io,
@@ -884,6 +1605,25 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
             "BOOT_MEMORY_INVALID",
             "boot: resources.memory.reclaim must be \"auto\" when set.",
         ),
+        error.MissingAutoMemory => try writeBootError(
+            io,
+            "BOOT_MEMORY_INVALID",
+            "boot: memory auto-size input is missing",
+        ),
+        error.UnsupportedHostMemory => try writeBootError(
+            io,
+            "BOOT_MEMORY_INVALID",
+            "boot: host memory probing is unsupported on this platform",
+        ),
+        else => return false,
+    }
+    return true;
+}
+
+fn writePathPlanError(io: std.Io, err: anyerror) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
         error.CmdWithoutImage => try writeBootError(
             io,
             "BOOT_CMD_WITHOUT_IMAGE",
@@ -893,11 +1633,6 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
             io,
             "BOOT_CMD_WITHOUT_IMAGE",
             "boot: rootDisk: true requires an `image` (the .tar.gz to materialize).",
-        ),
-        error.MissingAutoMemory => try writeBootError(
-            io,
-            "BOOT_MEMORY_INVALID",
-            "boot: memory auto-size input is missing",
         ),
         error.InvalidGuestCwdAbsolute => try writeBootError(
             io,
@@ -919,18 +1654,78 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
             "BOOT_MOUNT_INVALID",
             "mount guest path must live under /mnt/",
         ),
-        error.UnsupportedHostMemory => try writeBootError(
+        else => return false,
+    }
+    return true;
+}
+
+fn writeEnvPlanError(io: std.Io, err: anyerror) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.TooManyLiveMounts => try writeBootError(
             io,
-            "BOOT_MEMORY_INVALID",
-            "boot: host memory probing is unsupported on this platform",
+            "BOOT_MOUNT_INVALID",
+            "liveMounts: at most 5 live mounts are supported per VM",
+        ),
+        error.InvalidLiveMountMode => try writeBootError(
+            io,
+            "BOOT_MOUNT_INVALID",
+            "liveMounts: mode must be ro or rw",
         ),
         error.InvalidGuestEnvValue => try writeBootError(
             io,
             "INVALID_REQUEST",
             "boot-plan guestEnv values must be strings",
         ),
-        else => try writeBootError(io, "BOOT_MEMORY_INVALID", @errorName(err)),
+        error.InvalidConfigEnvValue => try writeBootError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan configEnv values must be strings",
+        ),
+        error.InvalidBundleEnvValue => try writeBootError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan bundle env values must be strings",
+        ),
+        else => return false,
     }
+    return true;
+}
+
+fn writeDiskPlanError(io: std.Io, err: anyerror) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.MissingBundleCommand => try writeBootError(
+            io,
+            "BOOT_CMD_MISSING",
+            "boot: no cmd to run — pass `cmd` on boot() or bake one into the " ++
+                "image via `provision({ cmd })`.",
+        ),
+        error.MissingScratchPath => try writeBootError(
+            io,
+            "BOOT_SNAPSHOT_NOT_FOUND",
+            "boot-plan scratch disk path missing",
+        ),
+        error.MissingRootDiskRuntimePath => try writeBootError(
+            io,
+            "BOOT_IMAGE_NOT_FOUND",
+            "boot-plan rootDisk path missing",
+        ),
+        error.MissingMountDiskRuntimeField => try writeBootError(
+            io,
+            "BOOT_MOUNT_INVALID",
+            "boot-plan mountDisk field missing",
+        ),
+        error.InvalidMountDiskUpperSize => try writeBootError(
+            io,
+            "BOOT_MOUNT_INVALID",
+            "boot-plan mountDisk upper size must be an integer",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writeBootError(io: std.Io, code: []const u8, message: []const u8) !void {
@@ -953,14 +1748,23 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
             "BOOT_PORT_FORWARD_INVALID",
             "portForward: hostPort and guestPort must be integers in 1..65535",
         ),
+        error.InvalidLiveMounts,
+        error.InvalidLiveMountGuest,
+        => try protocol.writeError(
+            io,
+            "BOOT_MOUNT_INVALID",
+            "liveMounts: entries must include host and guest paths",
+        ),
         error.InvalidLiveMountsResolved,
+        error.InvalidConfigLiveMounts,
+        error.InvalidBundleLiveMounts,
         error.InvalidLiveMountHost,
         error.InvalidLiveMountMode,
         error.InvalidLiveMountTag,
         => try protocol.writeError(
             io,
             "BOOT_MOUNT_INVALID",
-            "liveMounts: resolved entries must include host, tag, and mode ro/rw",
+            "liveMounts: resolved entries must include host, guest, tag, and mode ro/rw",
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }

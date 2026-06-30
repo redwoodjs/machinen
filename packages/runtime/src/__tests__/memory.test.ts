@@ -169,6 +169,331 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans bundle commands from explicit image restore and live-mount inputs", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const image = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, bundleImageCmd: ["/bin/true"] } })}\n`,
+      encoding: "utf8",
+    });
+    expect(image.status).toBe(0);
+    expect(JSON.parse(image.stdout).data.bundleCommand).toEqual([
+      "/sbin/machinen-supervisor",
+      "/bin/true",
+    ]);
+
+    const restore = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, bundleSnapshotRestore: true } })}\n`,
+      encoding: "utf8",
+    });
+    expect(restore.status).toBe(0);
+    expect(JSON.parse(restore.stdout).data.bundleCommand).toEqual(["/sbin/machinen-restore"]);
+
+    const live = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          bundleExplicitCmd: ["/bin/echo", "hi"],
+          bundleLiveMounts: [
+            { host: "/host", guest: "/mnt/live", mode: "rw", tag: "machinen-lm0" },
+          ],
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(live.status).toBe(0);
+    const liveCommand = JSON.parse(live.stdout).data.bundleCommand;
+    expect(liveCommand.slice(0, 5)).toEqual([
+      "/sbin/machinen-supervisor",
+      "/bin/sh",
+      "-c",
+      expect.stringContaining("batch_sync"),
+      "machinen-batch-wrapper",
+    ]);
+    expect(liveCommand.slice(5)).toEqual(["/bin/echo", "hi"]);
+  });
+
+  it("plans scratch disk modes", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: true,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const restore = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          scratchMode: "path",
+          scratchSnapshotPath: "/tmp/source.img",
+          scratchRestoreClonePath: "/tmp/clone.img",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(restore.status).toBe(0);
+    expect(JSON.parse(restore.stdout).data.scratchDisk).toEqual({
+      action: "clone",
+      diskPath: "/tmp/clone.img",
+      perBootSnapDisk: "/tmp/clone.img",
+      vmmDisk: "/tmp/clone.img",
+    });
+
+    const existing = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          hasCmd: true,
+          scratchMode: "path",
+          scratchSnapshotPath: "/tmp/source.img",
+          scratchRestoreClonePath: "/tmp/clone.img",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(existing.status).toBe(0);
+    expect(JSON.parse(existing.stdout).data.scratchDisk).toEqual({
+      action: "existing",
+      diskPath: "/tmp/source.img",
+      perBootSnapDisk: null,
+      vmmDisk: "/tmp/source.img",
+    });
+
+    const auto = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, scratchMode: "auto", scratchAutoPath: "/tmp/auto.img" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(auto.status).toBe(0);
+    expect(JSON.parse(auto.stdout).data.scratchDisk).toEqual({
+      action: "allocate",
+      diskPath: "/tmp/auto.img",
+      perBootSnapDisk: "/tmp/auto.img",
+      vmmDisk: "/tmp/auto.img",
+    });
+  });
+
+  it("plans bundle env overlays", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      bundleImageEnv: { FOO: "image", BAR: "image" },
+      bundleGuestEnv: { FOO: "guest", BAZ: "guest" },
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.bundleEnv).toEqual({
+      FOO: "guest",
+      BAR: "image",
+      BAZ: "guest",
+    });
+  });
+
+  it("plans rootdisk runtime actions", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const existing = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, rootDiskRuntimeMode: "path", rootDiskSourcePath: "/tmp/root.img" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(existing.status).toBe(0);
+    expect(JSON.parse(existing.stdout).data.rootDiskRuntime).toEqual({
+      action: "existing",
+      sourcePath: "/tmp/root.img",
+      targetPath: null,
+      perBootRootDisk: null,
+      vmmRootDisk: "/tmp/root.img",
+    });
+
+    const cached = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          rootDiskRuntimeMode: "cached",
+          rootDiskSourcePath: "/tmp/cache.img",
+          rootDiskClonePath: "/tmp/boot.img",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(cached.status).toBe(0);
+    expect(JSON.parse(cached.stdout).data.rootDiskRuntime).toEqual({
+      action: "clone-cached",
+      sourcePath: "/tmp/cache.img",
+      targetPath: "/tmp/boot.img",
+      perBootRootDisk: "/tmp/boot.img",
+      vmmRootDisk: "/tmp/boot.img",
+    });
+  });
+
+  it("plans mountdisk runtime actions", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const restore = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          mountDiskRuntimeMode: "restore",
+          mountDiskLowerPath: "/tmp/lower.sqfs",
+          mountDiskUpperPath: "/tmp/upper-copy.img",
+          mountDiskSourceUpperPath: "/tmp/upper.img",
+          mountDiskGuest: "/mnt/data",
+          mountDiskUpperSize: "4096",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(restore.status).toBe(0);
+    expect(JSON.parse(restore.stdout).data.mountDiskRuntime).toEqual({
+      action: "restore",
+      lowerPath: "/tmp/lower.sqfs",
+      upperPath: "/tmp/upper-copy.img",
+      sourceUpperPath: "/tmp/upper.img",
+      guest: "/mnt/data",
+      upperSizeBytes: 4096,
+    });
+
+    const fresh = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          mountDiskRuntimeMode: "fresh",
+          mountDiskLowerPath: "/tmp/lower.sqfs",
+          mountDiskUpperPath: "/tmp/upper.img",
+          mountDiskGuest: "/mnt/data",
+          mountDiskUpperSize: "8192",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(fresh.status).toBe(0);
+    expect(JSON.parse(fresh.stdout).data.mountDiskRuntime).toEqual({
+      action: "fresh",
+      lowerPath: "/tmp/lower.sqfs",
+      upperPath: "/tmp/upper.img",
+      sourceUpperPath: null,
+      guest: "/mnt/data",
+      upperSizeBytes: 8192,
+    });
+  });
+
+  it("plans machinen-config guest payloads", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      configCmd: ["/bin/sh", "-c", "echo hi"],
+      configEnv: { FOO: "bar" },
+      configGuestCwd: "/mnt/work",
+      configImageCwd: "/srv/app",
+      configLiveMounts: [{ host: "/host", guest: "/mnt/live", mode: "ro", tag: "machinen-lm0" }],
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.machinenConfig).toEqual({
+      cmd: ["/bin/sh", "-c", "echo hi"],
+      env: { FOO: "bar" },
+      cwd: "/mnt/work",
+      liveMounts: [{ guest: "/mnt/live", tag: "machinen-lm0", mode: "ro" }],
+    });
+  });
+
+  it("plans live-mount guest paths modes and tags", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      liveMounts: [
+        { host: "./a", guest: "/mnt/a/" },
+        { host: "./b", guest: "/mnt/b", mode: "ro" },
+      ],
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.plannedLiveMounts).toEqual([
+      { host: "./a", guest: "/mnt/a", mode: "rw", tag: "machinen-lm0" },
+      { host: "./b", guest: "/mnt/b", mode: "ro", tag: "machinen-lm1" },
+    ]);
+  });
+
   it("plans stats-file env from caller or runtime-owned paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
@@ -222,8 +547,8 @@ describe("boot-plan helper schema", () => {
       hasCmd: false,
       rootDisk: "false",
       liveMountsResolved: [
-        { host: "/host/a", mode: "rw", tag: "machinen-lm0" },
-        { host: "/host/b", mode: "ro", tag: "machinen-lm1" },
+        { host: "/host/a", guest: "/mnt/a", mode: "rw", tag: "machinen-lm0" },
+        { host: "/host/b", guest: "/mnt/b", mode: "ro", tag: "machinen-lm1" },
       ],
     };
     const result = spawnSync(helper, ["boot-plan"], {

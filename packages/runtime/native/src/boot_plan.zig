@@ -12,6 +12,9 @@ const assert = std.debug.assert;
 
 const memory_floor_mib: u64 = 512;
 const memory_default_ceiling_mib: u64 = 4096;
+const max_live_mounts = 5;
+const restore_command = [_][]const u8{"/sbin/machinen-restore"};
+const poweroff_command = [_][]const u8{"/sbin/machinen-poweroff"};
 
 pub const RootDiskMode = enum {
     unset,
@@ -69,6 +72,19 @@ pub const VmmArgvPlan = struct {
     args: []const []const u8,
 };
 
+pub const BundleCommandInput = struct {
+    explicit_cmd: ?[]const []const u8 = null,
+    image_cmd: ?[]const []const u8 = null,
+    snapshot_restore: bool = false,
+    vmstate_restore: bool = false,
+    live_mounts: []const LiveMount = &.{},
+};
+
+pub const BundleEnvInput = struct {
+    image_env: []const EnvPair = &.{},
+    guest_env: []const EnvPair = &.{},
+};
+
 pub const KernelDtbInput = struct {
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
@@ -92,8 +108,15 @@ pub const VmstateEnvPlan = struct {
     vmstate_timing: ?[]const u8,
 };
 
+pub const LiveMountInput = struct {
+    host: []const u8,
+    guest: []const u8,
+    mode: ?[]const u8 = null,
+};
+
 pub const LiveMount = struct {
     host: []const u8,
+    guest: []const u8,
     mode: []const u8,
     tag: []const u8,
 };
@@ -106,6 +129,79 @@ pub const StatsFileInput = struct {
 pub const StatsFilePlan = struct {
     stats_file_path: ?[]const u8,
     vmm_stats_file: ?[]const u8,
+};
+
+pub const ScratchDiskMode = enum {
+    unset,
+    false_value,
+    path,
+    auto,
+};
+
+pub const ScratchDiskInput = struct {
+    mode: ScratchDiskMode = .unset,
+    has_cmd: bool = false,
+    has_image: bool = false,
+    snapshot_path: ?[]const u8 = null,
+    restore_clone_path: ?[]const u8 = null,
+    auto_path: ?[]const u8 = null,
+};
+
+pub const ScratchDiskPlan = struct {
+    action: []const u8,
+    disk_path: ?[]const u8,
+    per_boot_snap_disk: ?[]const u8,
+    vmm_disk: ?[]const u8,
+};
+
+pub const RootDiskRuntimeMode = enum {
+    none,
+    path,
+    restore,
+    cached,
+};
+
+pub const RootDiskRuntimeInput = struct {
+    mode: RootDiskRuntimeMode = .none,
+    source_path: ?[]const u8 = null,
+    clone_path: ?[]const u8 = null,
+};
+
+pub const RootDiskRuntimePlan = struct {
+    action: []const u8,
+    source_path: ?[]const u8,
+    target_path: ?[]const u8,
+    per_boot_root_disk: ?[]const u8,
+    vmm_root_disk: ?[]const u8,
+};
+
+pub const MountDiskRuntimeMode = enum {
+    none,
+    restore,
+    fresh,
+};
+
+pub const MountDiskRuntimeInput = struct {
+    mode: MountDiskRuntimeMode = .none,
+    lower_path: ?[]const u8 = null,
+    upper_path: ?[]const u8 = null,
+    source_upper_path: ?[]const u8 = null,
+    guest: ?[]const u8 = null,
+    upper_size_bytes: ?u64 = null,
+};
+
+pub const MountDiskRuntimePlan = struct {
+    action: []const u8,
+    lower_path: ?[]const u8,
+    upper_path: ?[]const u8,
+    source_upper_path: ?[]const u8,
+    guest: ?[]const u8,
+    upper_size_bytes: ?u64,
+};
+
+pub const MachinenConfigInput = struct {
+    guest_cwd: ?[]const u8 = null,
+    image_cwd: ?[]const u8 = null,
 };
 
 pub const Input = struct {
@@ -139,6 +235,12 @@ pub const PlanError = error{
     InvalidGuestCwdNul,
     InvalidMountGuestAbsolute,
     InvalidMountGuestRoot,
+    TooManyLiveMounts,
+    InvalidLiveMountMode,
+    MissingBundleCommand,
+    MissingScratchPath,
+    MissingRootDiskRuntimePath,
+    MissingMountDiskRuntimeField,
 };
 
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
@@ -213,6 +315,31 @@ pub fn planVmstateEnv(input: VmstateEnvInput) VmstateEnvPlan {
     };
 }
 
+pub fn planLiveMounts(allocator: std.mem.Allocator, mounts: []const LiveMountInput) ![]LiveMount {
+    assert(@sizeOf(LiveMountInput) > 0);
+
+    if (mounts.len > max_live_mounts) return error.TooManyLiveMounts;
+    var out: std.array_list.Aligned(LiveMount, null) = .empty;
+    errdefer out.deinit(allocator);
+    for (mounts, 0..) |mount, i| {
+        const mode = mount.mode orelse "rw";
+        if (!std.mem.eql(u8, mode, "ro") and !std.mem.eql(u8, mode, "rw")) {
+            return error.InvalidLiveMountMode;
+        }
+        const guest = try normalizeMountGuest(mount.guest);
+        var tag_buf: [64]u8 = undefined;
+        const tag_text = try std.fmt.bufPrint(&tag_buf, "machinen-lm{d}", .{i});
+        const tag = try std.mem.concat(allocator, u8, &.{tag_text});
+        try out.append(allocator, .{
+            .host = mount.host,
+            .guest = guest,
+            .mode = mode,
+            .tag = tag,
+        });
+    }
+    return out.toOwnedSlice(allocator);
+}
+
 pub fn planVirtiofsEnv(allocator: std.mem.Allocator, mounts: []const LiveMount) ![]EnvPair {
     assert(@sizeOf(LiveMount) > 0);
 
@@ -239,6 +366,247 @@ pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
         return .{ .stats_file_path = path, .vmm_stats_file = null };
     }
     return .{ .stats_file_path = input.planned_path, .vmm_stats_file = input.planned_path };
+}
+
+pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
+    assert(@sizeOf(MachinenConfigInput) > 0);
+
+    return input.guest_cwd orelse input.image_cwd;
+}
+
+pub fn planBundleEnv(allocator: std.mem.Allocator, input: BundleEnvInput) ![]EnvPair {
+    assert(@sizeOf(BundleEnvInput) > 0);
+
+    var out: std.array_list.Aligned(EnvPair, null) = .empty;
+    errdefer out.deinit(allocator);
+    try out.appendSlice(allocator, input.image_env);
+    for (input.guest_env) |pair| {
+        var replaced = false;
+        for (out.items) |*existing| {
+            if (std.mem.eql(u8, existing.key, pair.key)) {
+                existing.value = pair.value;
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) try out.append(allocator, pair);
+    }
+    return out.toOwnedSlice(allocator);
+}
+
+pub fn planRootDiskRuntime(input: RootDiskRuntimeInput) PlanError!RootDiskRuntimePlan {
+    assert(@sizeOf(RootDiskRuntimeInput) > 0);
+
+    return switch (input.mode) {
+        .none => .{
+            .action = "none",
+            .source_path = null,
+            .target_path = null,
+            .per_boot_root_disk = null,
+            .vmm_root_disk = null,
+        },
+        .path => blk: {
+            const source = input.source_path orelse return error.MissingRootDiskRuntimePath;
+            break :blk .{
+                .action = "existing",
+                .source_path = source,
+                .target_path = null,
+                .per_boot_root_disk = null,
+                .vmm_root_disk = source,
+            };
+        },
+        .restore => blk: {
+            const source = input.source_path orelse return error.MissingRootDiskRuntimePath;
+            const target = input.clone_path orelse return error.MissingRootDiskRuntimePath;
+            break :blk .{
+                .action = "clone-restore",
+                .source_path = source,
+                .target_path = target,
+                .per_boot_root_disk = target,
+                .vmm_root_disk = target,
+            };
+        },
+        .cached => blk: {
+            const source = input.source_path orelse return error.MissingRootDiskRuntimePath;
+            const target = input.clone_path orelse return error.MissingRootDiskRuntimePath;
+            break :blk .{
+                .action = "clone-cached",
+                .source_path = source,
+                .target_path = target,
+                .per_boot_root_disk = target,
+                .vmm_root_disk = target,
+            };
+        },
+    };
+}
+
+pub fn planMountDiskRuntime(input: MountDiskRuntimeInput) PlanError!MountDiskRuntimePlan {
+    assert(@sizeOf(MountDiskRuntimeInput) > 0);
+
+    return switch (input.mode) {
+        .none => .{
+            .action = "none",
+            .lower_path = null,
+            .upper_path = null,
+            .source_upper_path = null,
+            .guest = null,
+            .upper_size_bytes = null,
+        },
+        .restore => blk: {
+            const lower = input.lower_path orelse return error.MissingMountDiskRuntimeField;
+            const upper = input.upper_path orelse return error.MissingMountDiskRuntimeField;
+            const source_upper = input.source_upper_path orelse
+                return error.MissingMountDiskRuntimeField;
+            const guest = input.guest orelse return error.MissingMountDiskRuntimeField;
+            const upper_size = input.upper_size_bytes orelse
+                return error.MissingMountDiskRuntimeField;
+            break :blk .{
+                .action = "restore",
+                .lower_path = lower,
+                .upper_path = upper,
+                .source_upper_path = source_upper,
+                .guest = guest,
+                .upper_size_bytes = upper_size,
+            };
+        },
+        .fresh => blk: {
+            const lower = input.lower_path orelse return error.MissingMountDiskRuntimeField;
+            const upper = input.upper_path orelse return error.MissingMountDiskRuntimeField;
+            const guest = input.guest orelse return error.MissingMountDiskRuntimeField;
+            const upper_size = input.upper_size_bytes orelse
+                return error.MissingMountDiskRuntimeField;
+            break :blk .{
+                .action = "fresh",
+                .lower_path = lower,
+                .upper_path = upper,
+                .source_upper_path = null,
+                .guest = guest,
+                .upper_size_bytes = upper_size,
+            };
+        },
+    };
+}
+
+pub fn planScratchDisk(input: ScratchDiskInput) PlanError!ScratchDiskPlan {
+    assert(@sizeOf(ScratchDiskInput) > 0);
+
+    return switch (input.mode) {
+        .unset, .false_value => .{
+            .action = "none",
+            .disk_path = null,
+            .per_boot_snap_disk = null,
+            .vmm_disk = null,
+        },
+        .path => blk: {
+            const snapshot_path = input.snapshot_path orelse return error.MissingScratchPath;
+            if (input.has_cmd) {
+                break :blk .{
+                    .action = "existing",
+                    .disk_path = snapshot_path,
+                    .per_boot_snap_disk = null,
+                    .vmm_disk = snapshot_path,
+                };
+            }
+            const clone_path = input.restore_clone_path orelse return error.MissingScratchPath;
+            break :blk .{
+                .action = "clone",
+                .disk_path = clone_path,
+                .per_boot_snap_disk = clone_path,
+                .vmm_disk = clone_path,
+            };
+        },
+        .auto => if (!input.has_image) .{
+            .action = "none",
+            .disk_path = null,
+            .per_boot_snap_disk = null,
+            .vmm_disk = null,
+        } else blk: {
+            const auto_path = input.auto_path orelse return error.MissingScratchPath;
+            break :blk .{
+                .action = "allocate",
+                .disk_path = auto_path,
+                .per_boot_snap_disk = auto_path,
+                .vmm_disk = auto_path,
+            };
+        },
+    };
+}
+
+pub fn planBundleCommand(
+    allocator: std.mem.Allocator,
+    input: BundleCommandInput,
+) ![]const []const u8 {
+    assert(@sizeOf(BundleCommandInput) > 0);
+
+    const base_cmd = input.explicit_cmd orelse
+        fallbackBundleBaseCommand(input) orelse
+        return error.MissingBundleCommand;
+    if (isSupervisorCommand(base_cmd)) return base_cmd;
+
+    const workload = if (hasWritableLiveMount(input.live_mounts))
+        try wrapBatchWorkloadCommand(allocator, base_cmd)
+    else
+        base_cmd;
+    var out: std.array_list.Aligned([]const u8, null) = .empty;
+    errdefer out.deinit(allocator);
+    try out.append(allocator, "/sbin/machinen-supervisor");
+    if (input.snapshot_restore) try out.append(allocator, "--session");
+    try out.appendSlice(allocator, workload);
+    return out.toOwnedSlice(allocator);
+}
+
+fn fallbackBundleBaseCommand(input: BundleCommandInput) ?[]const []const u8 {
+    assert(@sizeOf(BundleCommandInput) > 0);
+
+    if (input.snapshot_restore) return restore_command[0..];
+    if (input.vmstate_restore) return poweroff_command[0..];
+    return input.image_cmd;
+}
+
+fn isSupervisorCommand(cmd: []const []const u8) bool {
+    assert(@sizeOf([]const []const u8) > 0);
+
+    if (cmd.len == 0) return false;
+    return std.mem.eql(u8, cmd[0], "/exec-agent") or
+        std.mem.eql(u8, cmd[0], "/sbin/machinen-restore");
+}
+
+fn hasWritableLiveMount(mounts: []const LiveMount) bool {
+    assert(@sizeOf(LiveMount) > 0);
+
+    for (mounts) |mount| {
+        if (std.mem.eql(u8, mount.mode, "rw")) return true;
+    }
+    return false;
+}
+
+fn wrapBatchWorkloadCommand(
+    allocator: std.mem.Allocator,
+    cmd: []const []const u8,
+) ![]const []const u8 {
+    assert(@sizeOf([]const []const u8) > 0);
+
+    const batch_script = "batch_sync() { " ++
+        "if [ -s /run/machinen-batch-sync.sh ]; then " ++
+        "sh /run/machinen-batch-sync.sh; fi; }; " ++
+        "\"$@\" & child=$!; " ++
+        "trap 'kill -TERM \"$child\" 2>/dev/null' TERM; " ++
+        "trap 'kill -INT \"$child\" 2>/dev/null' INT; " ++
+        "wait \"$child\"; status=$?; " ++
+        "batch_sync || { sync_status=$?; " ++
+        "if [ \"$status\" -eq 0 ]; then status=$sync_status; fi; }; " ++
+        "exit \"$status\"";
+    const prefix = [_][]const u8{
+        "/bin/sh",
+        "-c",
+        batch_script,
+        "machinen-batch-wrapper",
+    };
+    var out: std.array_list.Aligned([]const u8, null) = .empty;
+    errdefer out.deinit(allocator);
+    try out.appendSlice(allocator, &prefix);
+    try out.appendSlice(allocator, cmd);
+    return out.toOwnedSlice(allocator);
 }
 
 pub fn planVmmArgv(allocator: std.mem.Allocator, input: VmmArgvInput) !VmmArgvPlan {
@@ -452,6 +820,206 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
 }
 
+test "planMountDiskRuntime selects restore and fresh actions" {
+    const none = try planMountDiskRuntime(.{});
+    try std.testing.expectEqualStrings("none", none.action);
+    try std.testing.expect(none.lower_path == null);
+
+    const restore = try planMountDiskRuntime(.{
+        .mode = .restore,
+        .lower_path = "/lower.sqfs",
+        .upper_path = "/upper-copy.img",
+        .source_upper_path = "/upper.img",
+        .guest = "/mnt/data",
+        .upper_size_bytes = 4096,
+    });
+    try std.testing.expectEqualStrings("restore", restore.action);
+    try std.testing.expectEqualStrings("/lower.sqfs", restore.lower_path.?);
+    try std.testing.expectEqualStrings("/upper-copy.img", restore.upper_path.?);
+    try std.testing.expectEqualStrings("/upper.img", restore.source_upper_path.?);
+    try std.testing.expectEqualStrings("/mnt/data", restore.guest.?);
+    try std.testing.expectEqual(@as(u64, 4096), restore.upper_size_bytes.?);
+
+    const fresh = try planMountDiskRuntime(.{
+        .mode = .fresh,
+        .lower_path = "/lower.sqfs",
+        .upper_path = "/upper.img",
+        .guest = "/mnt/data",
+        .upper_size_bytes = 8192,
+    });
+    try std.testing.expectEqualStrings("fresh", fresh.action);
+    try std.testing.expect(fresh.source_upper_path == null);
+    try std.testing.expectEqual(@as(u64, 8192), fresh.upper_size_bytes.?);
+}
+
+test "planBundleEnv overlays guest env on image env" {
+    const image = [_]EnvPair{
+        .{ .key = "FOO", .value = "image" },
+        .{ .key = "BAR", .value = "image" },
+    };
+    const guest = [_]EnvPair{
+        .{ .key = "FOO", .value = "guest" },
+        .{ .key = "BAZ", .value = "guest" },
+    };
+    const planned = try planBundleEnv(std.testing.allocator, .{
+        .image_env = &image,
+        .guest_env = &guest,
+    });
+    defer std.testing.allocator.free(planned);
+    try std.testing.expectEqual(@as(@TypeOf(planned.len), 3), planned.len);
+    try std.testing.expectEqualStrings("FOO", planned[0].key);
+    try std.testing.expectEqualStrings("guest", planned[0].value);
+    try std.testing.expectEqualStrings("BAR", planned[1].key);
+    try std.testing.expectEqualStrings("image", planned[1].value);
+    try std.testing.expectEqualStrings("BAZ", planned[2].key);
+    try std.testing.expectEqualStrings("guest", planned[2].value);
+}
+
+test "planRootDiskRuntime selects existing restore and cached clone actions" {
+    const none = try planRootDiskRuntime(.{});
+    try std.testing.expectEqualStrings("none", none.action);
+    try std.testing.expect(none.vmm_root_disk == null);
+
+    const existing = try planRootDiskRuntime(.{ .mode = .path, .source_path = "/root.img" });
+    try std.testing.expectEqualStrings("existing", existing.action);
+    try std.testing.expectEqualStrings("/root.img", existing.vmm_root_disk.?);
+    try std.testing.expect(existing.per_boot_root_disk == null);
+
+    const restore = try planRootDiskRuntime(.{
+        .mode = .restore,
+        .source_path = "/restore.img",
+        .clone_path = "/restore-clone.img",
+    });
+    try std.testing.expectEqualStrings("clone-restore", restore.action);
+    try std.testing.expectEqualStrings("/restore.img", restore.source_path.?);
+    try std.testing.expectEqualStrings("/restore-clone.img", restore.target_path.?);
+    try std.testing.expectEqualStrings("/restore-clone.img", restore.per_boot_root_disk.?);
+
+    const cached = try planRootDiskRuntime(.{
+        .mode = .cached,
+        .source_path = "/cache.img",
+        .clone_path = "/boot.img",
+    });
+    try std.testing.expectEqualStrings("clone-cached", cached.action);
+    try std.testing.expectEqualStrings("/cache.img", cached.source_path.?);
+    try std.testing.expectEqualStrings("/boot.img", cached.vmm_root_disk.?);
+}
+
+test "planScratchDisk selects restore clone auto allocation and no-disk cases" {
+    const disabled = try planScratchDisk(.{ .mode = .false_value, .has_image = true });
+    try std.testing.expectEqualStrings("none", disabled.action);
+    try std.testing.expect(disabled.vmm_disk == null);
+
+    const existing = try planScratchDisk(.{
+        .mode = .path,
+        .has_cmd = true,
+        .snapshot_path = "/snap.img",
+        .restore_clone_path = "/clone.img",
+    });
+    try std.testing.expectEqualStrings("existing", existing.action);
+    try std.testing.expectEqualStrings("/snap.img", existing.vmm_disk.?);
+    try std.testing.expect(existing.per_boot_snap_disk == null);
+
+    const clone = try planScratchDisk(.{
+        .mode = .path,
+        .snapshot_path = "/snap.img",
+        .restore_clone_path = "/clone.img",
+    });
+    try std.testing.expectEqualStrings("clone", clone.action);
+    try std.testing.expectEqualStrings("/clone.img", clone.disk_path.?);
+    try std.testing.expectEqualStrings("/clone.img", clone.per_boot_snap_disk.?);
+
+    const auto_without_image = try planScratchDisk(.{ .mode = .auto });
+    try std.testing.expectEqualStrings("none", auto_without_image.action);
+
+    const auto = try planScratchDisk(.{
+        .mode = .auto,
+        .has_image = true,
+        .auto_path = "/auto.img",
+    });
+    try std.testing.expectEqualStrings("allocate", auto.action);
+    try std.testing.expectEqualStrings("/auto.img", auto.vmm_disk.?);
+}
+
+test "planBundleCommand resolves image restore supervisor and batch wrappers" {
+    const ro_mounts = [_]LiveMount{.{
+        .host = "/host",
+        .guest = "/mnt/ro",
+        .mode = "ro",
+        .tag = "machinen-lm0",
+    }};
+    const image = [_][]const u8{"/bin/true"};
+    const planned = try planBundleCommand(std.testing.allocator, .{
+        .image_cmd = &image,
+        .live_mounts = &ro_mounts,
+    });
+    defer std.testing.allocator.free(planned);
+    try std.testing.expectEqualStrings("/sbin/machinen-supervisor", planned[0]);
+    try std.testing.expectEqualStrings("/bin/true", planned[1]);
+
+    const restore = try planBundleCommand(std.testing.allocator, .{ .snapshot_restore = true });
+    try std.testing.expectEqualStrings("/sbin/machinen-restore", restore[0]);
+
+    const rw_mounts = [_]LiveMount{.{
+        .host = "/host",
+        .guest = "/mnt/rw",
+        .mode = "rw",
+        .tag = "machinen-lm0",
+    }};
+    const explicit = [_][]const u8{ "/bin/echo", "hi" };
+    const batched = try planBundleCommand(std.testing.allocator, .{
+        .explicit_cmd = &explicit,
+        .live_mounts = &rw_mounts,
+    });
+    defer std.testing.allocator.free(batched);
+    try std.testing.expectEqualStrings("/sbin/machinen-supervisor", batched[0]);
+    try std.testing.expectEqualStrings("/bin/sh", batched[1]);
+    try std.testing.expectEqualStrings("machinen-batch-wrapper", batched[4]);
+    try std.testing.expectEqualStrings("/bin/echo", batched[5]);
+}
+
+test "planMachinenConfigCwd prefers guest cwd over image cwd" {
+    try std.testing.expectEqualStrings(
+        "/mnt/work",
+        planMachinenConfigCwd(.{ .guest_cwd = "/mnt/work", .image_cwd = "/srv/app" }).?,
+    );
+    try std.testing.expectEqualStrings(
+        "/srv/app",
+        planMachinenConfigCwd(.{ .image_cwd = "/srv/app" }).?,
+    );
+    try std.testing.expectEqual(@as(?[]const u8, null), planMachinenConfigCwd(.{}));
+}
+
+test "planLiveMounts validates count guest paths modes and tags" {
+    const mounts = [_]LiveMountInput{
+        .{ .host = "./a", .guest = "/mnt/a", .mode = null },
+        .{ .host = "./b", .guest = "/mnt/b/", .mode = "ro" },
+    };
+    const planned = try planLiveMounts(std.testing.allocator, &mounts);
+    defer {
+        for (planned) |mount| std.testing.allocator.free(mount.tag);
+        std.testing.allocator.free(planned);
+    }
+    try std.testing.expectEqual(@as(@TypeOf(planned.len), 2), planned.len);
+    try std.testing.expectEqualStrings("./a", planned[0].host);
+    try std.testing.expectEqualStrings("/mnt/a", planned[0].guest);
+    try std.testing.expectEqualStrings("rw", planned[0].mode);
+    try std.testing.expectEqualStrings("machinen-lm0", planned[0].tag);
+    try std.testing.expectEqualStrings("/mnt/b", planned[1].guest);
+    try std.testing.expectEqualStrings("ro", planned[1].mode);
+    try std.testing.expectEqualStrings("machinen-lm1", planned[1].tag);
+
+    const bad_mode = [_]LiveMountInput{.{
+        .host = "./a",
+        .guest = "/mnt/a",
+        .mode = "eager",
+    }};
+    try std.testing.expectError(
+        error.InvalidLiveMountMode,
+        planLiveMounts(std.testing.allocator, &bad_mode),
+    );
+}
+
 test "planStatsFile preserves caller path or returns runtime-owned env value" {
     const existing = planStatsFile(.{ .existing_path = "/tmp/caller-stats.bin" });
     try std.testing.expectEqualStrings("/tmp/caller-stats.bin", existing.stats_file_path.?);
@@ -464,8 +1032,8 @@ test "planStatsFile preserves caller path or returns runtime-owned env value" {
 
 test "planVirtiofsEnv formats indexed virtiofs env entries" {
     const mounts = [_]LiveMount{
-        .{ .host = "/host/a", .mode = "rw", .tag = "machinen-lm0" },
-        .{ .host = "/host/b", .mode = "ro", .tag = "machinen-lm1" },
+        .{ .host = "/host/a", .guest = "/mnt/a", .mode = "rw", .tag = "machinen-lm0" },
+        .{ .host = "/host/b", .guest = "/mnt/b", .mode = "ro", .tag = "machinen-lm1" },
     };
     const env = try planVirtiofsEnv(std.testing.allocator, &mounts);
     defer {
