@@ -79,6 +79,23 @@ pub const PortForwardMapping = struct {
     host_addr: ?[]const u8 = null,
 };
 
+pub const PortForwardNetSocketInput = struct {
+    port_forwards: []const PortForwardMapping = &.{},
+    net_socket: ?[]const u8 = null,
+};
+
+pub const GvproxyPlanInput = struct {
+    planning_required: bool = false,
+    existing_net_socket: ?[]const u8 = null,
+    gvproxy_path: ?[]const u8 = null,
+    port_forwards: []const PortForwardMapping = &.{},
+};
+
+pub const GvproxyPlan = struct {
+    action: []const u8,
+    gvproxy_path: ?[]const u8,
+};
+
 pub const PortForwardValidation = union(enum) {
     ok,
     invalid_host_port: i64,
@@ -287,6 +304,38 @@ pub const LiveMount = struct {
     tag: []const u8,
 };
 
+pub const RestoreLiveMountInput = struct {
+    host: []const u8,
+    guest: []const u8,
+    mode: ?[]const u8 = null,
+};
+
+pub const RestoreRecordedLiveMount = struct {
+    host: []const u8,
+    guest: []const u8,
+    mode: []const u8,
+};
+
+pub const RestoreLiveMountPlanInput = struct {
+    recorded: []const RestoreRecordedLiveMount = &.{},
+    overrides: []const RestoreLiveMountInput = &.{},
+};
+
+pub const RestoreLiveMountPlan = struct {
+    mounts: []const RestoreLiveMountInput,
+    unknown_guest: ?[]const u8 = null,
+};
+
+pub const BatchLiveMountInput = struct {
+    live_mounts: []const LiveMount = &.{},
+    vsock_uds_path: ?[]const u8 = null,
+    validation_required: bool = false,
+};
+
+pub const BatchLiveMountPlan = struct {
+    sync_required: bool,
+};
+
 pub const StatsFileInput = struct {
     existing_path: ?[]const u8 = null,
     planned_path: ?[]const u8 = null,
@@ -371,6 +420,49 @@ pub const MountDiskFdEnvInput = struct {
     upper_fd: ?u64 = null,
 };
 
+pub const SnapshotMountDiskInput = struct {
+    guest: ?[]const u8 = null,
+    lower_path: ?[]const u8 = null,
+    upper_path: ?[]const u8 = null,
+};
+
+pub const SnapshotMountDiskPlan = struct {
+    guest: []const u8,
+    lower_path: []const u8,
+    upper_path: []const u8,
+};
+
+pub const SnapshotLiveMountPlan = struct {
+    host: []const u8,
+    guest: []const u8,
+    mode: []const u8,
+};
+
+pub const SnapshotVmstateInput = struct {
+    state_path: ?[]const u8 = null,
+    chain_id: ?[]const u8 = null,
+    checkpoint_parent: ?[]const u8 = null,
+    checkpoint_sequence: ?u64 = null,
+};
+
+pub const SnapshotVmstateChainPlan = struct {
+    chain_id: []const u8,
+    parent_dir: ?[]const u8,
+    sequence: u64,
+};
+
+pub const SnapshotContextInput = struct {
+    mount_disk: SnapshotMountDiskInput = .{},
+    live_mounts: []const LiveMount = &.{},
+    vmstate: SnapshotVmstateInput = .{},
+};
+
+pub const SnapshotContextPlan = struct {
+    mount_disk: ?SnapshotMountDiskPlan,
+    live_mounts: []const SnapshotLiveMountPlan,
+    vmstate_chain: ?SnapshotVmstateChainPlan,
+};
+
 pub const RegistryCleanupInput = struct {
     per_boot_root_disk: ?[]const u8 = null,
     per_boot_snap_disk: ?[]const u8 = null,
@@ -426,6 +518,21 @@ pub const RegistryVmstatePlan = struct {
     chain_id: ?[]const u8,
     checkpoint_parent: ?[]const u8,
     checkpoint_sequence: ?u64,
+};
+
+pub const RegistryProcessInput = struct {
+    host_platform: ?[]const u8 = null,
+    vmm_binary: ?[]const u8 = null,
+    vmm_pdeathsig: bool = false,
+    vmm_observed_exe_base: ?[]const u8 = null,
+    gv_pid: ?i64 = null,
+    gv_exe: ?[]const u8 = null,
+    gv_observed_exe_base: ?[]const u8 = null,
+};
+
+pub const RegistryProcessPlan = struct {
+    vmm_exe: ?[]const u8,
+    gvproxy_exe: ?[]const u8,
 };
 
 pub const RegistryShapeInput = struct {
@@ -535,6 +642,11 @@ pub const PlanError = error{
     MissingRootDiskRuntimePath,
     MissingMountDiskRuntimeField,
     MissingMountDiskFdField,
+    MissingBatchLiveMountVsock,
+    PortForwardNetSocketPreset,
+    MissingGvproxy,
+    MissingSnapshotMountDiskField,
+    MissingSnapshotVmstateField,
     IncompleteRegistryMountDisk,
     MissingProvisionRepackField,
     MissingRegistryCpuStatus,
@@ -799,6 +911,79 @@ pub fn planVirtiofsEnv(allocator: std.mem.Allocator, mounts: []const LiveMount) 
         try out.append(allocator, .{ .key = key, .value = value });
     }
     return out.toOwnedSlice(allocator);
+}
+
+pub fn planBatchLiveMountSync(input: BatchLiveMountInput) PlanError!BatchLiveMountPlan {
+    assert(@sizeOf(BatchLiveMountInput) > 0);
+
+    for (input.live_mounts) |mount| {
+        if (std.mem.eql(u8, mount.mode, "rw")) {
+            if (input.validation_required and input.vsock_uds_path == null) {
+                return error.MissingBatchLiveMountVsock;
+            }
+            return .{ .sync_required = true };
+        }
+    }
+    return .{ .sync_required = false };
+}
+
+pub fn planRestoreLiveMounts(
+    allocator: std.mem.Allocator,
+    input: RestoreLiveMountPlanInput,
+) !RestoreLiveMountPlan {
+    assert(@sizeOf(RestoreLiveMountPlanInput) > 0);
+
+    if (input.recorded.len == 0) {
+        return .{ .mounts = input.overrides };
+    }
+    for (input.overrides) |override| {
+        if (findRecordedLiveMount(input.recorded, override.guest) == null) {
+            return .{ .mounts = &.{}, .unknown_guest = override.guest };
+        }
+    }
+    var out: std.array_list.Aligned(RestoreLiveMountInput, null) = .empty;
+    errdefer out.deinit(allocator);
+    for (input.recorded) |recorded| {
+        if (findRestoreLiveMountOverride(input.overrides, recorded.guest)) |override| {
+            try out.append(allocator, .{
+                .host = override.host,
+                .guest = recorded.guest,
+                .mode = override.mode orelse recorded.mode,
+            });
+        } else {
+            try out.append(allocator, .{
+                .host = recorded.host,
+                .guest = recorded.guest,
+                .mode = recorded.mode,
+            });
+        }
+    }
+    return .{ .mounts = try out.toOwnedSlice(allocator) };
+}
+
+fn findRecordedLiveMount(
+    recorded: []const RestoreRecordedLiveMount,
+    guest: []const u8,
+) ?RestoreRecordedLiveMount {
+    assert(@sizeOf(RestoreRecordedLiveMount) > 0);
+
+    for (recorded) |mount| {
+        if (std.mem.eql(u8, mount.guest, guest)) return mount;
+    }
+    return null;
+}
+
+fn findRestoreLiveMountOverride(
+    overrides: []const RestoreLiveMountInput,
+    guest: []const u8,
+) ?RestoreLiveMountInput {
+    assert(@sizeOf(RestoreLiveMountInput) > 0);
+
+    var found: ?RestoreLiveMountInput = null;
+    for (overrides) |mount| {
+        if (std.mem.eql(u8, mount.guest, guest)) found = mount;
+    }
+    return found;
 }
 
 pub fn planStatsFile(allocator: std.mem.Allocator, input: StatsFileInput) !StatsFilePlan {
@@ -1164,6 +1349,73 @@ pub fn planMountDiskRuntime(input: MountDiskRuntimeInput) PlanError!MountDiskRun
             };
         },
     };
+}
+
+pub fn planSnapshotContext(
+    allocator: std.mem.Allocator,
+    input: SnapshotContextInput,
+) PlanError!SnapshotContextPlan {
+    assert(@sizeOf(SnapshotContextInput) > 0);
+
+    return .{
+        .mount_disk = try planSnapshotMountDisk(input.mount_disk),
+        .live_mounts = try planSnapshotLiveMounts(allocator, input.live_mounts),
+        .vmstate_chain = try planSnapshotVmstateChain(input.vmstate),
+    };
+}
+
+fn planSnapshotMountDisk(input: SnapshotMountDiskInput) PlanError!?SnapshotMountDiskPlan {
+    assert(@sizeOf(SnapshotMountDiskInput) > 0);
+
+    if (input.guest == null and input.lower_path == null and input.upper_path == null) return null;
+    return .{
+        .guest = input.guest orelse return error.MissingSnapshotMountDiskField,
+        .lower_path = input.lower_path orelse return error.MissingSnapshotMountDiskField,
+        .upper_path = input.upper_path orelse return error.MissingSnapshotMountDiskField,
+    };
+}
+
+fn planSnapshotLiveMounts(
+    allocator: std.mem.Allocator,
+    input: []const LiveMount,
+) PlanError![]const SnapshotLiveMountPlan {
+    assert(@sizeOf(LiveMount) > 0);
+
+    if (input.len > max_live_mounts) return error.TooManyLiveMounts;
+    var mounts: [max_live_mounts]SnapshotLiveMountPlan = undefined;
+    for (input, 0..) |mount, i| {
+        mounts[i] = .{ .host = mount.host, .guest = mount.guest, .mode = mount.mode };
+    }
+    return std.mem.concat(allocator, SnapshotLiveMountPlan, &.{mounts[0..input.len]});
+}
+
+fn planSnapshotVmstateChain(input: SnapshotVmstateInput) PlanError!?SnapshotVmstateChainPlan {
+    assert(@sizeOf(SnapshotVmstateInput) > 0);
+
+    if (input.state_path == null) return null;
+    return .{
+        .chain_id = input.chain_id orelse return error.MissingSnapshotVmstateField,
+        .parent_dir = input.checkpoint_parent,
+        .sequence = input.checkpoint_sequence orelse return error.MissingSnapshotVmstateField,
+    };
+}
+
+pub fn planRegistryProcess(input: RegistryProcessInput) RegistryProcessPlan {
+    assert(@sizeOf(RegistryProcessInput) > 0);
+
+    const is_darwin = if (input.host_platform) |platform|
+        std.mem.eql(u8, platform, "darwin")
+    else
+        false;
+    const vmm_exe = if (input.vmm_binary) |binary|
+        if (is_darwin and input.vmm_pdeathsig) input.vmm_observed_exe_base orelse binary else binary
+    else
+        null;
+    const gvproxy_exe = if (is_darwin and (input.gv_pid orelse 0) > 0)
+        input.gv_observed_exe_base orelse input.gv_exe
+    else
+        input.gv_exe;
+    return .{ .vmm_exe = vmm_exe, .gvproxy_exe = gvproxy_exe };
 }
 
 pub fn planRegistryShape(
@@ -1801,6 +2053,93 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
 }
 
+test "planRegistryProcess projects platform-specific executable metadata" {
+    const darwin = planRegistryProcess(.{
+        .host_platform = "darwin",
+        .vmm_binary = "/pkg/machinen-vm",
+        .vmm_pdeathsig = true,
+        .vmm_observed_exe_base = "machinen-pdeathsig",
+        .gv_pid = 42,
+        .gv_exe = "/pkg/gvproxy",
+        .gv_observed_exe_base = "gvproxy",
+    });
+    try std.testing.expectEqualStrings("machinen-pdeathsig", darwin.vmm_exe.?);
+    try std.testing.expectEqualStrings("gvproxy", darwin.gvproxy_exe.?);
+
+    const linux = planRegistryProcess(.{
+        .host_platform = "linux",
+        .vmm_binary = "/pkg/machinen-vm",
+        .vmm_pdeathsig = true,
+        .vmm_observed_exe_base = "machinen-pdeathsig",
+        .gv_pid = 42,
+        .gv_exe = "/pkg/gvproxy",
+        .gv_observed_exe_base = "gvproxy-observed",
+    });
+    try std.testing.expectEqualStrings("/pkg/machinen-vm", linux.vmm_exe.?);
+    try std.testing.expectEqualStrings("/pkg/gvproxy", linux.gvproxy_exe.?);
+
+    const fallback = planRegistryProcess(.{
+        .host_platform = "darwin",
+        .vmm_binary = "/pkg/machinen-vm",
+        .vmm_pdeathsig = true,
+        .gv_pid = -1,
+        .gv_exe = "/pkg/gvproxy",
+        .gv_observed_exe_base = "ignored",
+    });
+    try std.testing.expectEqualStrings("/pkg/machinen-vm", fallback.vmm_exe.?);
+    try std.testing.expectEqualStrings("/pkg/gvproxy", fallback.gvproxy_exe.?);
+}
+
+test "planSnapshotContext projects mount live mount and vmstate chain fields" {
+    const allocator = std.testing.allocator;
+    const live = [_]LiveMount{.{
+        .host = "/host/work",
+        .guest = "/mnt/work",
+        .mode = "rw",
+        .tag = "machinen-lm0",
+    }};
+    const plan = try planSnapshotContext(allocator, .{
+        .mount_disk = .{
+            .guest = "/mnt/data",
+            .lower_path = "/cache/lower.sqfs",
+            .upper_path = "/tmp/upper.img",
+        },
+        .live_mounts = &live,
+        .vmstate = .{
+            .state_path = "/tmp/state.vmstate",
+            .chain_id = "chain-1",
+            .checkpoint_parent = "/snap/parent",
+            .checkpoint_sequence = 3,
+        },
+    });
+    defer allocator.free(plan.live_mounts);
+    try std.testing.expectEqualStrings("/mnt/data", plan.mount_disk.?.guest);
+    try std.testing.expectEqualStrings("/cache/lower.sqfs", plan.mount_disk.?.lower_path);
+    try std.testing.expectEqualStrings("/tmp/upper.img", plan.mount_disk.?.upper_path);
+    try std.testing.expect(plan.live_mounts.len == 1);
+    try std.testing.expectEqualStrings("/host/work", plan.live_mounts[0].host);
+    try std.testing.expectEqualStrings("/mnt/work", plan.live_mounts[0].guest);
+    try std.testing.expectEqualStrings("rw", plan.live_mounts[0].mode);
+    try std.testing.expectEqualStrings("chain-1", plan.vmstate_chain.?.chain_id);
+    try std.testing.expectEqualStrings("/snap/parent", plan.vmstate_chain.?.parent_dir.?);
+    try std.testing.expectEqual(@as(u64, 3), plan.vmstate_chain.?.sequence);
+
+    const empty = try planSnapshotContext(allocator, .{});
+    defer allocator.free(empty.live_mounts);
+    try std.testing.expect(empty.mount_disk == null);
+    try std.testing.expect(empty.vmstate_chain == null);
+
+    try std.testing.expectError(
+        error.MissingSnapshotMountDiskField,
+        planSnapshotContext(allocator, .{
+            .mount_disk = .{ .guest = "/mnt/data" },
+        }),
+    );
+    try std.testing.expectError(error.MissingSnapshotVmstateField, planSnapshotContext(allocator, .{
+        .vmstate = .{ .state_path = "/tmp/state.vmstate" },
+    }));
+}
+
 test "planRegistryShape collects cleanup paths and strips registry-only mount fields" {
     const allocator = std.testing.allocator;
     const live = [_]LiveMount{
@@ -2272,6 +2611,63 @@ test "planLiveMounts validates count guest paths modes and tags" {
     );
 }
 
+test "planBatchLiveMountSync requires vsock for rw mounts when validation is requested" {
+    const mounts = [_]LiveMount{
+        .{ .host = "/host/a", .guest = "/mnt/a", .mode = "ro", .tag = "machinen-lm0" },
+        .{ .host = "/host/b", .guest = "/mnt/b", .mode = "rw", .tag = "machinen-lm1" },
+    };
+    try std.testing.expectError(error.MissingBatchLiveMountVsock, planBatchLiveMountSync(.{
+        .live_mounts = &mounts,
+        .validation_required = true,
+    }));
+    const planned = try planBatchLiveMountSync(.{
+        .live_mounts = &mounts,
+        .vsock_uds_path = "/tmp/exec.sock",
+        .validation_required = true,
+    });
+    try std.testing.expect(planned.sync_required);
+    const none = try planBatchLiveMountSync(.{});
+    try std.testing.expect(!none.sync_required);
+}
+
+test "planRestoreLiveMounts merges recorded mounts with overrides" {
+    const recorded = [_]RestoreRecordedLiveMount{
+        .{ .host = "/host/work", .guest = "/mnt/work", .mode = "rw" },
+        .{ .host = "/host/cache", .guest = "/mnt/cache", .mode = "ro" },
+    };
+    const overrides = [_]RestoreLiveMountInput{
+        .{ .host = "/new/cache", .guest = "/mnt/cache" },
+    };
+    const planned = try planRestoreLiveMounts(
+        std.testing.allocator,
+        .{ .recorded = &recorded, .overrides = &overrides },
+    );
+    defer std.testing.allocator.free(planned.mounts);
+    try std.testing.expect(planned.unknown_guest == null);
+    try std.testing.expect(planned.mounts.len == 2);
+    try std.testing.expectEqualStrings("/host/work", planned.mounts[0].host);
+    try std.testing.expectEqualStrings("rw", planned.mounts[0].mode.?);
+    try std.testing.expectEqualStrings("/new/cache", planned.mounts[1].host);
+    try std.testing.expectEqualStrings("ro", planned.mounts[1].mode.?);
+
+    const legacy = try planRestoreLiveMounts(std.testing.allocator, .{ .overrides = &overrides });
+    defer std.testing.allocator.free(legacy.mounts);
+    try std.testing.expect(legacy.mounts.len == 1);
+    try std.testing.expectEqualStrings("/new/cache", legacy.mounts[0].host);
+    try std.testing.expect(legacy.mounts[0].mode == null);
+
+    const bad = [_]RestoreLiveMountInput{.{
+        .host = "/new/extra",
+        .guest = "/mnt/extra",
+        .mode = "rw",
+    }};
+    const rejected = try planRestoreLiveMounts(
+        std.testing.allocator,
+        .{ .recorded = &recorded, .overrides = &bad },
+    );
+    try std.testing.expectEqualStrings("/mnt/extra", rejected.unknown_guest.?);
+}
+
 test "planStatsFile preserves caller path or returns runtime-owned env value" {
     const existing = try planStatsFile(std.testing.allocator, .{
         .existing_path = "/tmp/caller-stats.bin",
@@ -2369,6 +2765,56 @@ test "planVmmArgv wraps VMM argv with pdeathsig when present" {
     try std.testing.expectEqual(@as(@TypeOf(wrapped.args.len), 2), wrapped.args.len);
     try std.testing.expectEqualStrings("/bin/vmm", wrapped.args[0]);
     try std.testing.expectEqualStrings("--dev", wrapped.args[1]);
+}
+
+pub fn validatePortForwardNetSocket(input: PortForwardNetSocketInput) PlanError!void {
+    assert(@sizeOf(PortForwardNetSocketInput) > 0);
+
+    if (input.port_forwards.len > 0 and input.net_socket != null) {
+        return error.PortForwardNetSocketPreset;
+    }
+}
+
+pub fn planGvproxy(input: GvproxyPlanInput) PlanError!GvproxyPlan {
+    assert(@sizeOf(GvproxyPlanInput) > 0);
+
+    if (input.existing_net_socket != null) {
+        return .{ .action = "skip-existing", .gvproxy_path = null };
+    }
+    if (input.gvproxy_path) |path| return .{ .action = "spawn", .gvproxy_path = path };
+    if (input.planning_required and input.port_forwards.len > 0) return error.MissingGvproxy;
+    return .{ .action = "missing-ok", .gvproxy_path = null };
+}
+
+test "planGvproxy selects skip spawn missing-ok and missing-gvproxy actions" {
+    const forwards = [_]PortForwardMapping{.{ .host_port = 8080, .guest_port = 3000 }};
+    const existing = try planGvproxy(.{
+        .existing_net_socket = "/tmp/net.sock",
+        .port_forwards = &forwards,
+    });
+    try std.testing.expectEqualStrings("skip-existing", existing.action);
+    try std.testing.expect(existing.gvproxy_path == null);
+
+    const spawn = try planGvproxy(.{ .gvproxy_path = "/bin/gvproxy", .port_forwards = &forwards });
+    try std.testing.expectEqualStrings("spawn", spawn.action);
+    try std.testing.expectEqualStrings("/bin/gvproxy", spawn.gvproxy_path.?);
+
+    const missing_ok = try planGvproxy(.{ .planning_required = true });
+    try std.testing.expectEqualStrings("missing-ok", missing_ok.action);
+    try std.testing.expectError(error.MissingGvproxy, planGvproxy(.{
+        .planning_required = true,
+        .port_forwards = &forwards,
+    }));
+}
+
+test "validatePortForwardNetSocket rejects caller-owned net socket with forwards" {
+    const forwards = [_]PortForwardMapping{.{ .host_port = 8080, .guest_port = 3000 }};
+    try std.testing.expectError(error.PortForwardNetSocketPreset, validatePortForwardNetSocket(.{
+        .port_forwards = &forwards,
+        .net_socket = "/tmp/net.sock",
+    }));
+    try validatePortForwardNetSocket(.{ .port_forwards = &forwards });
+    try validatePortForwardNetSocket(.{ .net_socket = "/tmp/net.sock" });
 }
 
 test "validatePortForward rejects invalid and duplicate ports" {

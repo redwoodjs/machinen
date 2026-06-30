@@ -165,6 +165,60 @@ describe("boot-plan helper schema", () => {
       { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
       { hostPort: 8443, guestPort: 443 },
     ]);
+
+    const presetNetSocket = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          portForward: [{ hostPort: 8080, guestPort: 80 }],
+          portForwardNetSocket: "/tmp/net.sock",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(presetNetSocket.status).toBe(1);
+    expect(JSON.parse(presetNetSocket.stdout).error.code).toBe("BOOT_PORT_FORWARD_INVALID");
+
+    const existingGvproxy = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, gvproxyNetSocket: "/tmp/net.sock" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(existingGvproxy.status).toBe(0);
+    expect(JSON.parse(existingGvproxy.stdout).data.gvproxyPlan).toEqual({
+      action: "skip-existing",
+      gvproxyPath: null,
+    });
+
+    const spawnGvproxy = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, gvproxyPath: "/bin/gvproxy" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(spawnGvproxy.status).toBe(0);
+    expect(JSON.parse(spawnGvproxy.stdout).data.gvproxyPlan).toEqual({
+      action: "spawn",
+      gvproxyPath: "/bin/gvproxy",
+    });
+
+    const missingGvproxy = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          portForward: [{ hostPort: 8080, guestPort: 80 }],
+          gvproxyPlanningRequired: true,
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(missingGvproxy.status).toBe(1);
+    expect(JSON.parse(missingGvproxy.stdout).error.code).toBe("BOOT_PORT_FORWARD_NO_GVPROXY");
   });
 
   it("plans vsock specs from caller env auto UDS paths or auto temp dirs", () => {
@@ -914,6 +968,45 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans snapshot context mount live-mount and vmstate shapes", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      snapshotMountGuest: "/mnt/data",
+      snapshotMountLowerPath: "/cache/lower.sqfs",
+      snapshotMountUpperPath: "/tmp/upper.img",
+      snapshotLiveMounts: [
+        { host: "/host/work", guest: "/mnt/work", mode: "rw", tag: "machinen-lm0" },
+      ],
+      snapshotVmstatePath: "/tmp/state.vmstate",
+      snapshotVmstateChainId: "chain-1",
+      snapshotVmstateCheckpointParent: "/snap/parent",
+      snapshotVmstateCheckpointSequence: "3",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.snapshotContext).toEqual({
+      mountDisk: {
+        guest: "/mnt/data",
+        lowerPath: "/cache/lower.sqfs",
+        upperPath: "/tmp/upper.img",
+      },
+      liveMounts: [{ host: "/host/work", guest: "/mnt/work", mode: "rw" }],
+      vmstateChain: { chainId: "chain-1", parentDir: "/snap/parent", sequence: 3 },
+    });
+  });
+
   it("plans registry cleanup paths, mount shapes, and CPU shape", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
@@ -962,6 +1055,13 @@ describe("boot-plan helper schema", () => {
           registryMountGuest: "/mnt/data",
           registryMountLowerPath: "/cache/lower.sqfs",
           registryMountUpperPath: "/tmp/upper.img",
+          registryHostPlatform: "darwin",
+          registryVmmBinary: "/pkg/machinen-vm",
+          registryVmmPdeathsig: true,
+          registryVmmObservedExeBase: "machinen-pdeathsig",
+          registryGvPid: "4321",
+          registryGvExe: "/pkg/gvproxy",
+          registryGvObservedExeBase: "gvproxy",
           portForward: [
             { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
             { hostPort: 8443, guestPort: 443 },
@@ -975,7 +1075,8 @@ describe("boot-plan helper schema", () => {
       encoding: "utf8",
     });
     expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout).data.registryShape).toEqual({
+    const parsed = JSON.parse(result.stdout).data;
+    expect(parsed.registryShape).toEqual({
       sourceImagePath: "/images/rootfs.tar.gz",
       diskPath: "/tmp/scratch.img",
       forkedFrom: "/snap/source",
@@ -1018,6 +1119,10 @@ describe("boot-plan helper schema", () => {
         checkpointSequence: 3,
       },
       nested: true,
+    });
+    expect(parsed.registryProcess).toEqual({
+      vmmExe: "machinen-pdeathsig",
+      gvproxyExe: "gvproxy",
     });
   });
 
@@ -1159,6 +1264,85 @@ describe("boot-plan helper schema", () => {
       MACHINEN_VIRTIOFS_0: "machinen-lm0:rw:/host/a",
       MACHINEN_VIRTIOFS_1: "machinen-lm1:ro:/host/b",
     });
+  });
+
+  it("plans restore live-mount overrides", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      restoreLiveMountsRecorded: [
+        { host: "/host/work", guest: "/mnt/work", mode: "rw" },
+        { host: "/host/cache", guest: "/mnt/cache", mode: "ro" },
+      ],
+      restoreLiveMountsOverrides: [{ host: "/new/cache", guest: "/mnt/cache" }],
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.restoreLiveMounts).toEqual([
+      { host: "/host/work", guest: "/mnt/work", mode: "rw" },
+      { host: "/new/cache", guest: "/mnt/cache", mode: "ro" },
+    ]);
+
+    const rejected = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...requestData,
+          restoreLiveMountsOverrides: [{ host: "/new/extra", guest: "/mnt/extra" }],
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(rejected.status).toBe(1);
+    const error = JSON.parse(rejected.stdout).error;
+    expect(error.code).toBe("BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN");
+    expect(error.message).toContain("guest=/mnt/extra");
+    expect(error.message).toContain("/mnt/work");
+  });
+
+  it("validates batch live-mount sync vsock requirements", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      liveMountsResolved: [{ host: "/host/a", guest: "/mnt/a", mode: "rw", tag: "machinen-lm0" }],
+      vsockUdsPath: "/tmp/exec.sock",
+      batchLiveMountValidationRequired: true,
+    };
+    const ok = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(ok.status).toBe(0);
+    expect(JSON.parse(ok.stdout).data.batchLiveMountSyncRequired).toBe(true);
+
+    const missingVsock = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...requestData, vsockUdsPath: null },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(missingVsock.status).toBe(1);
+    expect(JSON.parse(missingVsock.stdout).error.code).toBe("BOOT_MOUNT_INVALID");
   });
 
   it("plans kernel dtb and initrd env paths", () => {

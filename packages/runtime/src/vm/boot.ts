@@ -71,6 +71,10 @@ import {
   rootDiskPlanMode,
 } from "../native/boot-plan.ts";
 import { reflinkCopy } from "../reflink.ts";
+import { planGvproxyNative } from "../native/gvproxy-plan.ts";
+import { validatePortForwardNetSocketNative } from "../native/port-forward.ts";
+import { planBootRegistryProcessNative } from "../native/registry-process.ts";
+import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
 import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
@@ -1135,23 +1139,20 @@ async function planPortForwardOpts(
   if ((opts.portForward ?? []).length === 0) {
     return planBootPortForwardNative(opts.portForward);
   }
-  rejectPresetNetSocket(opts);
   const portForward = planBootPortForwardNative(opts.portForward);
+  validatePresetNetSocket(opts, portForward);
   await validatePortForwardAvailability(portForward);
   return portForward;
 }
 
-function rejectPresetNetSocket(opts: BootOptions): void {
-  const preSetNetSock =
-    (opts.vmmEnv && opts.vmmEnv.MACHINEN_NET_SOCKET) || process.env.MACHINEN_NET_SOCKET;
-  if (preSetNetSock) {
-    throw new BootError(
-      "BOOT_PORT_FORWARD_INVALID",
-      "portForward requires the runtime to own gvproxy, but MACHINEN_NET_SOCKET " +
-        "is already set. Either drop the env var or install the forwards yourself " +
-        "against your gvproxy's control API.",
-    );
-  }
+function validatePresetNetSocket(
+  opts: BootOptions,
+  portForward: NonNullable<BootOptions["portForward"]>,
+): void {
+  validatePortForwardNetSocketNative(
+    portForward,
+    (opts.vmmEnv && opts.vmmEnv.MACHINEN_NET_SOCKET) || process.env.MACHINEN_NET_SOCKET,
+  );
 }
 
 async function validatePortForwardAvailability(
@@ -1410,7 +1411,11 @@ async function bringUpGvproxy(
   env: Record<string, string>,
   portForward: NonNullable<BootOptions["portForward"]>,
 ): Promise<GvproxyResult> {
-  if (env.MACHINEN_NET_SOCKET) {
+  const existingPlan = planGvproxyNative({
+    portForward,
+    existingNetSocket: env.MACHINEN_NET_SOCKET,
+  });
+  if (existingPlan.action === "skip-existing") {
     debug("MACHINEN_NET_SOCKET already set — skipping gvproxy spawn");
     return { gvStop: undefined, gvPid: undefined, gvExe: undefined, gvSocketDir: undefined };
   }
@@ -1418,22 +1423,21 @@ async function bringUpGvproxy(
   // visible stderr line; cached under ~/.machinen so subsequent
   // boots are silent. See #83 follow-up.
   const gvBin = await ensureGvproxy(binary);
-  if (!gvBin) {
-    if (portForward.length > 0) {
-      throw new BootError(
-        "BOOT_PORT_FORWARD_NO_GVPROXY",
-        "portForward requires gvproxy, but no gvproxy binary was found. " +
-          "Install gvproxy or point MACHINEN_GVPROXY at one.",
-      );
-    }
+  const gvproxyPlan = planGvproxyNative({
+    portForward,
+    gvproxyPath: gvBin ?? undefined,
+    planningRequired: true,
+  });
+  if (gvproxyPlan.action === "missing-ok") {
     debug("gvproxy not found — booting without networking");
     warnGvproxyMissing();
     return { gvStop: undefined, gvPid: undefined, gvExe: undefined, gvSocketDir: undefined };
   }
-  debug("starting gvproxy bin=%s", gvBin);
+  const gvproxyPath = gvproxyPlan.gvproxyPath!;
+  debug("starting gvproxy bin=%s", gvproxyPath);
   // Detach gvproxy alongside the VMM so the parent can exit
   // without stranding the guest's networking (#150 phase 2 PR3).
-  const gv = await spawnGvproxy(gvBin, { detached: opts.detached });
+  const gv = await spawnGvproxy(gvproxyPath, { detached: opts.detached });
   env.MACHINEN_NET_SOCKET = gv.socketPath;
   for (const m of portForward) {
     await exposePort(gv.controlSocketPath, m);
@@ -1441,7 +1445,7 @@ async function bringUpGvproxy(
   return {
     gvStop: gv.stop,
     gvPid: gv.child.pid,
-    gvExe: gvBin,
+    gvExe: gvproxyPath,
     gvSocketDir: gv.socketDir,
   };
 }
@@ -1600,6 +1604,15 @@ function registerInRegistry(args: RegisterArgs): boolean {
 
 function buildRegistryEntry(args: RegisterArgs) {
   const scalars = planBootRegistryScalarsNative(args);
+  const processPlan = planBootRegistryProcessNative({
+    hostPlatform: process.platform,
+    vmmBinary: args.binary,
+    vmmPdeathsig: args.vmmPdeathsig !== null,
+    vmmObservedExeBase: observedDarwinVmmExe(args),
+    gvPid: args.gvPid,
+    gvExe: args.gvExe,
+    gvObservedExeBase: observedDarwinGvproxyExe(args),
+  });
   return {
     pid: args.childPid,
     name: args.vmName,
@@ -1611,9 +1624,9 @@ function buildRegistryEntry(args: RegisterArgs) {
     forkedFrom: scalars.forkedFrom ?? undefined,
     bootLogPath: args.bootLogPath,
     cleanupPaths: nonEmptyList(args.cleanupPaths),
-    vmmExe: registryVmmExe(args),
+    vmmExe: processPlan.vmmExe,
     gvproxyPid: args.gvPid,
-    gvproxyExe: registryGvproxyExe(args),
+    gvproxyExe: processPlan.gvproxyExe,
     portForward: registryPortForward(args.portForward),
     memoryCeilingMib: scalars.memoryCeilingMib ?? undefined,
     cpu: registryCpu(args.cpuPolicy, args.cpuControl),
@@ -1633,21 +1646,21 @@ function nonEmptyList<T>(items: T[]): T[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
-function registryVmmExe(args: RegisterArgs): string {
+function observedDarwinVmmExe(args: RegisterArgs): string | undefined {
   // The pdeathsig shim works differently per platform. On macOS child.pid
   // is the watcher, so snapshot its identity now; on Linux the shim execs in
   // place, so deferring avoids recording the shim during the exec race.
-  if (process.platform === "darwin" && args.vmmPdeathsig) {
-    return readProcessIdentity(args.childPid)?.exeBase ?? args.binary;
+  if (process.platform !== "darwin" || !args.vmmPdeathsig) {
+    return undefined;
   }
-  return args.binary;
+  return readProcessIdentity(args.childPid)?.exeBase;
 }
 
-function registryGvproxyExe(args: RegisterArgs): string | undefined {
-  if (process.platform === "darwin" && args.gvPid !== undefined && args.gvPid > 0) {
-    return readProcessIdentity(args.gvPid)?.exeBase ?? args.gvExe;
+function observedDarwinGvproxyExe(args: RegisterArgs): string | undefined {
+  if (process.platform !== "darwin" || args.gvPid === undefined || args.gvPid <= 0) {
+    return undefined;
   }
-  return args.gvExe;
+  return readProcessIdentity(args.gvPid)?.exeBase;
 }
 
 function registryMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
@@ -1976,6 +1989,11 @@ function buildBootSnapshotContext(
   const syncVmstateForSnapshot = handle.syncVmstateSnapshot?.bind(handle);
   const waitForSnapshot = handle.wait.bind(handle);
   const killForSnapshot = handle.kill.bind(handle);
+  const snapshotPlan = planBootSnapshotContextNative({
+    mountDisk: args.mountDiskPaths,
+    liveMounts: args.liveMountsResolved,
+    vmstate: args.vmstate,
+  });
   return {
     pid: args.childPid,
     sourceName: args.vmName,
@@ -1986,10 +2004,10 @@ function buildBootSnapshotContext(
     kernelPath: args.env.MACHINEN_KERNEL,
     dtbPath: args.env.MACHINEN_DTB,
     diskPath: args.diskAbs!,
-    mountDisk: snapshotMountDisk(args.mountDiskPaths),
-    liveMounts: snapshotLiveMounts(args.liveMountsResolved),
+    mountDisk: snapshotPlan.mountDisk,
+    liveMounts: snapshotPlan.liveMounts,
     vmstatePath: args.vmstate.statePath,
-    vmstateChain: snapshotVmstateChain(args.vmstate),
+    vmstateChain: snapshotPlan.vmstateChain,
     updateVmstateChain: snapshotVmstateUpdater(args.vmstate, args.childPid),
     nested: args.nested,
     execRaw: execRawForSnapshot,
@@ -2000,38 +2018,6 @@ function buildBootSnapshotContext(
       args.child.stderr.on("data", onChunk);
     },
     errorOutput: () => handle.errorOutput(),
-  };
-}
-
-function snapshotMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
-  if (!mountDiskPaths) {
-    return undefined;
-  }
-  return {
-    guest: mountDiskPaths.guest,
-    lowerPath: mountDiskPaths.lowerPath,
-    upperPath: mountDiskPaths.upperPath,
-  };
-}
-
-function snapshotLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
-  return nonEmptyList(
-    liveMountsResolved.map((lm) => ({
-      host: lm.host,
-      guest: lm.guest,
-      mode: lm.mode,
-    })),
-  );
-}
-
-function snapshotVmstateChain(vmstate: BootVmstateRuntime): SnapshotContext["vmstateChain"] {
-  if (!vmstate.statePath) {
-    return undefined;
-  }
-  return {
-    chainId: vmstate.chainId,
-    parentDir: vmstate.checkpointParent,
-    sequence: vmstate.checkpointSequence,
   };
 }
 
