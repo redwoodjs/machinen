@@ -1006,15 +1006,57 @@ fn readPsRssDarwin(allocator: std.mem.Allocator, io: std.Io, pid: u32) Error!?u6
     return if (rss_kib == 0) null else rss_kib * 1024;
 }
 
+const LINUX_PSEUDO_FILE_READ_LIMIT = 16 * 1024 * 1024;
+
 fn readFileAlloc(allocator: std.mem.Allocator, io: std.Io, path: []const u8) Error![]u8 {
     assert(path.len > 0);
 
+    if (builtin.os.tag == .linux and isLinuxPseudoFile(path)) {
+        return readLinuxPseudoFileAlloc(allocator, path);
+    }
     return std.Io.Dir.cwd().readFileAlloc(
         io,
         path,
         allocator,
-        .limited(16 * 1024 * 1024),
+        .limited(LINUX_PSEUDO_FILE_READ_LIMIT),
     );
+}
+
+fn isLinuxPseudoFile(path: []const u8) bool {
+    assert(path.len > 0);
+
+    return std.mem.startsWith(u8, path, "/proc/") or
+        std.mem.startsWith(u8, path, "/sys/");
+}
+
+fn readLinuxPseudoFileAlloc(allocator: std.mem.Allocator, path: []const u8) Error![]u8 {
+    assert(builtin.os.tag == .linux);
+    assert(isLinuxPseudoFile(path));
+
+    const fd = try std.posix.openat(std.posix.AT.FDCWD, path, .{
+        .ACCMODE = .RDONLY,
+        .CLOEXEC = true,
+    }, 0);
+    defer closeLinuxFd(fd);
+
+    var data: std.array_list.Aligned(u8, null) = .empty;
+    errdefer data.deinit(allocator);
+    var scratch: [8192]u8 = undefined;
+    var read_len = try std.posix.read(fd, &scratch);
+    while (read_len != 0) : (read_len = try std.posix.read(fd, &scratch)) {
+        if (read_len > LINUX_PSEUDO_FILE_READ_LIMIT - data.items.len) {
+            return error.StreamTooLong;
+        }
+        try data.appendSlice(allocator, scratch[0..read_len]);
+    }
+    return data.toOwnedSlice(allocator);
+}
+
+fn closeLinuxFd(fd: std.posix.fd_t) void {
+    assert(builtin.os.tag == .linux);
+
+    const rc = std.os.linux.close(fd);
+    assert(rc == 0);
 }
 
 test "evaluateNestedVirtualization accepts Linux arm64 KVM when toggles are enabled" {
