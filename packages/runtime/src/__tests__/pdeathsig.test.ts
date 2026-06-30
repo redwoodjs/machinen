@@ -3,10 +3,36 @@
 // pdeathsig-wrapped child with it. This is the bug PR #169 only
 // diagnosed; the shim is what actually fixes it.
 
-import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { execFileSync, spawn } from "node:child_process";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ensurePdeathsig, wrapWithPdeathsig } from "../pdeathsig.ts";
+
+let nativeTmp: string | undefined;
+let previousPdeathsig: string | undefined;
+
+beforeAll(() => {
+  nativeTmp = mkdtempSync(join(tmpdir(), "machinen-pdeathsig-test-"));
+  execFileSync("zig", ["build", "--prefix", nativeTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousPdeathsig = process.env.MACHINEN_PDEATHSIG;
+  process.env.MACHINEN_PDEATHSIG = join(nativeTmp, "bin", "machinen-pdeathsig");
+});
+
+afterAll(() => {
+  if (previousPdeathsig === undefined) {
+    delete process.env.MACHINEN_PDEATHSIG;
+  } else {
+    process.env.MACHINEN_PDEATHSIG = previousPdeathsig;
+  }
+  if (nativeTmp) {
+    rmSync(nativeTmp, { recursive: true, force: true });
+  }
+});
 
 // Wait until `predicate()` returns true or we hit the deadline. Used
 // for "did this PID disappear?" polls — kill -9 + reap takes a few ms.
@@ -35,7 +61,7 @@ function pidAlive(pid: number): boolean {
 }
 
 describe("ensurePdeathsig", () => {
-  it("compiles or resolves an executable shim on a supported platform", async () => {
+  it("resolves an executable native shim on a supported platform", async () => {
     if (process.platform !== "linux" && process.platform !== "darwin") {
       // Other platforms intentionally return null — nothing to assert.
       expect(await ensurePdeathsig()).toBeNull();
@@ -110,8 +136,6 @@ describe("pdeathsig kill -9 survival", () => {
     }
     const shim = await ensurePdeathsig();
     if (!shim) {
-      // No C toolchain on this machine. Skip rather than fail — the
-      // graceful-fallback path is exercised by the unit tests above.
       console.warn("pdeathsig shim unavailable; skipping kill -9 survival test");
       return;
     }

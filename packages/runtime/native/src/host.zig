@@ -1,7 +1,8 @@
 // Host-side probes and controls used by the TypeScript runtime.
 //
 // This file keeps OS-specific, synchronous host operations in the native
-// helper: memory/RSS reads, pid identity checks, and Linux cgroup CPU setup.
+// helper: memory/RSS reads, pid identity checks, nested-virt probes, and Linux
+// cgroup CPU setup.
 // The command files translate JSON protocol requests into these functions;
 // this module owns the actual platform behavior so the TS layer stays small.
 
@@ -48,6 +49,27 @@ pub const HostMemory = struct {
     total_bytes: u64,
 };
 
+pub const NestedVirtObservation = struct {
+    platform: []const u8,
+    arch: []const u8,
+    linux_dev_kvm: ?bool = null,
+    linux_kvm_nested: ?[]const u8 = null,
+    linux_kvm_arm_nested: ?[]const u8 = null,
+    darwin_hv_support: ?[]const u8 = null,
+    darwin_product_version: ?[]const u8 = null,
+    darwin_cpu_brand: ?[]const u8 = null,
+};
+
+pub const NestedVirtResult = struct {
+    supported: bool,
+    reason: ?[]u8 = null,
+
+    pub fn deinit(self: NestedVirtResult, allocator: std.mem.Allocator) void {
+        assert(@sizeOf(NestedVirtResult) > 0);
+        if (self.reason) |reason| allocator.free(reason);
+    }
+};
+
 pub const CpuCgroupOptions = struct {
     pid: u32,
     weight: u32,
@@ -69,6 +91,9 @@ pub const CpuCgroupResult = struct {
 
 const CPU_PERIOD_US = 100_000;
 const DEFAULT_CGROUP_PARENT = "/sys/fs/cgroup";
+const NESTED_UNSUPPORTED_MESSAGE =
+    "nested virtualization needs Linux/arm64 KVM with EL2 support, or " ++
+    "macOS 15+ on M3/M4-class Apple Silicon";
 const STARTTIME_SKEW_MS = 5_000;
 
 pub fn readProcessIdentity(
@@ -120,6 +145,277 @@ pub fn readHostMemory(allocator: std.mem.Allocator, io: std.Io) Error!HostMemory
         .macos => readHostMemoryDarwin(allocator, io),
         else => error.UnsupportedHostMemory,
     };
+}
+
+pub fn probeNestedVirtualization(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    observed: ?NestedVirtObservation,
+) Error!NestedVirtResult {
+    assert(@sizeOf(NestedVirtObservation) > 0);
+
+    const observation = observed orelse try observeNestedVirtualizationHost(allocator, io);
+    defer if (observed == null) deinitObservedNestedVirtualizationHost(allocator, observation);
+    return evaluateNestedVirtualization(allocator, observation);
+}
+
+fn observeNestedVirtualizationHost(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+) Error!NestedVirtObservation {
+    assert(actualPlatform().len > 0);
+    assert(actualArch().len > 0);
+
+    var observation: NestedVirtObservation = .{
+        .platform = actualPlatform(),
+        .arch = actualArch(),
+    };
+    if (builtin.os.tag == .linux) {
+        observation.linux_dev_kvm = existsPath(io, "/dev/kvm");
+        observation.linux_kvm_nested = try readOptionalTextFile(
+            allocator,
+            io,
+            "/sys/module/kvm/parameters/nested",
+        );
+        observation.linux_kvm_arm_nested = try readOptionalTextFile(
+            allocator,
+            io,
+            "/sys/module/kvm_arm/parameters/nested",
+        );
+    }
+    if (builtin.os.tag == .macos) {
+        observation.darwin_hv_support = try runTextCommand(
+            allocator,
+            io,
+            &.{ "/usr/sbin/sysctl", "-n", "kern.hv_support" },
+        );
+        observation.darwin_product_version = try runTextCommand(
+            allocator,
+            io,
+            &.{ "/usr/bin/sw_vers", "-productVersion" },
+        );
+        observation.darwin_cpu_brand = try runTextCommand(
+            allocator,
+            io,
+            &.{ "/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string" },
+        );
+    }
+    return observation;
+}
+
+fn deinitObservedNestedVirtualizationHost(
+    allocator: std.mem.Allocator,
+    observation: NestedVirtObservation,
+) void {
+    assert(observation.platform.len > 0);
+    assert(observation.arch.len > 0);
+
+    if (observation.linux_kvm_nested) |value| allocator.free(value);
+    if (observation.linux_kvm_arm_nested) |value| allocator.free(value);
+    if (observation.darwin_hv_support) |value| allocator.free(value);
+    if (observation.darwin_product_version) |value| allocator.free(value);
+    if (observation.darwin_cpu_brand) |value| allocator.free(value);
+}
+
+fn evaluateNestedVirtualization(
+    allocator: std.mem.Allocator,
+    observation: NestedVirtObservation,
+) Error!NestedVirtResult {
+    assert(observation.platform.len > 0);
+    assert(observation.arch.len > 0);
+
+    if (!std.mem.eql(u8, observation.arch, "arm64")) {
+        return nestedUnsupported(
+            allocator,
+            "this host is {s}, not arm64",
+            .{observation.arch},
+        );
+    }
+    if (std.mem.eql(u8, observation.platform, "linux")) {
+        return evaluateLinuxNestedVirtualization(allocator, observation);
+    }
+    if (std.mem.eql(u8, observation.platform, "darwin")) {
+        return evaluateDarwinNestedVirtualization(allocator, observation);
+    }
+    return nestedUnsupported(
+        allocator,
+        "{s} hosts are not supported",
+        .{observation.platform},
+    );
+}
+
+fn evaluateLinuxNestedVirtualization(
+    allocator: std.mem.Allocator,
+    observation: NestedVirtObservation,
+) Error!NestedVirtResult {
+    assert(std.mem.eql(u8, observation.platform, "linux"));
+
+    if (observation.linux_dev_kvm != true) {
+        return nestedUnsupported(allocator, "/dev/kvm is not present", .{});
+    }
+    if (firstDisabledLinuxNestedToggle(observation)) |toggle_path| {
+        return nestedUnsupported(allocator, "{s} is disabled", .{toggle_path});
+    }
+    return .{ .supported = true };
+}
+
+fn firstDisabledLinuxNestedToggle(observation: NestedVirtObservation) ?[]const u8 {
+    assert(std.mem.eql(u8, observation.platform, "linux"));
+
+    if (observation.linux_kvm_nested) |value| {
+        if (isDisabledKernelToggle(value)) return "/sys/module/kvm/parameters/nested";
+    }
+    if (observation.linux_kvm_arm_nested) |value| {
+        if (isDisabledKernelToggle(value)) return "/sys/module/kvm_arm/parameters/nested";
+    }
+    return null;
+}
+
+fn isDisabledKernelToggle(value: []const u8) bool {
+    assert(value.len > 0);
+
+    const trimmed = std.mem.trim(u8, value, " \t\r\n");
+    return std.ascii.eqlIgnoreCase(trimmed, "0") or
+        std.ascii.eqlIgnoreCase(trimmed, "n") or
+        std.ascii.eqlIgnoreCase(trimmed, "no") or
+        std.ascii.eqlIgnoreCase(trimmed, "false") or
+        std.ascii.eqlIgnoreCase(trimmed, "off");
+}
+
+fn evaluateDarwinNestedVirtualization(
+    allocator: std.mem.Allocator,
+    observation: NestedVirtObservation,
+) Error!NestedVirtResult {
+    assert(std.mem.eql(u8, observation.platform, "darwin"));
+
+    const hv = std.mem.trim(u8, observation.darwin_hv_support orelse "", " \t\r\n");
+    if (!std.mem.eql(u8, hv, "1")) {
+        return nestedUnsupported(
+            allocator,
+            "Hypervisor.framework support is not available",
+            .{},
+        );
+    }
+    if (darwinMajor(observation.darwin_product_version)) |major| {
+        if (major < 15) {
+            return nestedUnsupported(
+                allocator,
+                "macOS {d} is older than macOS 15",
+                .{major},
+            );
+        }
+    }
+    if (appleSiliconGeneration(observation.darwin_cpu_brand)) |generation| {
+        if (generation < 3) {
+            return nestedUnsupported(
+                allocator,
+                "Apple M{d} does not expose nested EL2",
+                .{generation},
+            );
+        }
+    }
+    return .{ .supported = true };
+}
+
+fn darwinMajor(version: ?[]const u8) ?u32 {
+    assert(@sizeOf(u32) == 4);
+
+    const raw = std.mem.trim(u8, version orelse return null, " \t\r\n");
+    var it = std.mem.splitScalar(u8, raw, '.');
+    const first = it.next() orelse return null;
+    if (first.len == 0) return null;
+    for (first) |c| if (!std.ascii.isDigit(c)) return null;
+    return std.fmt.parseUnsigned(u32, first, 10) catch null;
+}
+
+fn appleSiliconGeneration(brand: ?[]const u8) ?u32 {
+    assert(@sizeOf(u32) == 4);
+
+    const raw = brand orelse return null;
+    const apple = std.mem.indexOf(u8, raw, "Apple M") orelse return null;
+    const start = apple + "Apple M".len;
+    if (start >= raw.len or !std.ascii.isDigit(raw[start])) return null;
+    var end_index = start;
+    while (end_index < raw.len and std.ascii.isDigit(raw[end_index])) : (end_index += 1) {}
+    return std.fmt.parseUnsigned(u32, raw[start..end_index], 10) catch null;
+}
+
+fn nestedUnsupported(
+    allocator: std.mem.Allocator,
+    comptime fmt: []const u8,
+    args: anytype,
+) Error!NestedVirtResult {
+    assert(fmt.len > 0);
+
+    var detail_buf: [256]u8 = undefined;
+    const detail = try std.fmt.bufPrint(&detail_buf, fmt, args);
+    return .{
+        .supported = false,
+        .reason = try std.mem.concat(
+            allocator,
+            u8,
+            &.{ NESTED_UNSUPPORTED_MESSAGE, "; ", detail },
+        ),
+    };
+}
+
+fn actualPlatform() []const u8 {
+    assert(@tagName(builtin.os.tag).len > 0);
+
+    return switch (builtin.os.tag) {
+        .linux => "linux",
+        .macos => "darwin",
+        else => @tagName(builtin.os.tag),
+    };
+}
+
+fn actualArch() []const u8 {
+    assert(@tagName(builtin.cpu.arch).len > 0);
+
+    return switch (builtin.cpu.arch) {
+        .aarch64 => "arm64",
+        .x86_64 => "x64",
+        else => @tagName(builtin.cpu.arch),
+    };
+}
+
+fn readOptionalTextFile(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    path: []const u8,
+) Error!?[]u8 {
+    assert(path.len > 0);
+
+    return readFileAlloc(allocator, io, path) catch |err| switch (err) {
+        error.FileNotFound => null,
+        else => null,
+    };
+}
+
+fn runTextCommand(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    argv: []const []const u8,
+) Error!?[]u8 {
+    assert(argv.len > 0);
+
+    const result = std.process.run(allocator, io, .{
+        .argv = argv,
+        .stdout_limit = .limited(16 * 1024),
+        .stderr_limit = .limited(16 * 1024),
+    }) catch return null;
+    defer allocator.free(result.stderr);
+    switch (result.term) {
+        .exited => |code| if (code != 0) {
+            allocator.free(result.stdout);
+            return null;
+        },
+        else => {
+            allocator.free(result.stdout);
+            return null;
+        },
+    }
+    return result.stdout;
 }
 
 pub fn applyCpuCgroup(
@@ -506,14 +802,22 @@ fn looksLikeCgroupV2(io: std.Io, parent_dir: []const u8) bool {
 fn existsPath(io: std.Io, path: []const u8) bool {
     assert(path.len > 0);
 
-    const st = std.Io.Dir.cwd().statFile(io, path, .{ .follow_symlinks = false }) catch return false;
+    const st = std.Io.Dir.cwd().statFile(
+        io,
+        path,
+        .{ .follow_symlinks = false },
+    ) catch return false;
     return st.kind != .unknown;
 }
 
 fn existsFile(io: std.Io, path: []const u8) bool {
     assert(path.len > 0);
 
-    const st = std.Io.Dir.cwd().statFile(io, path, .{ .follow_symlinks = false }) catch return false;
+    const st = std.Io.Dir.cwd().statFile(
+        io,
+        path,
+        .{ .follow_symlinks = false },
+    ) catch return false;
     return st.kind == .file;
 }
 
@@ -567,7 +871,11 @@ fn writeCgroupFile(
     try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = path, .data = data });
 }
 
-fn joinCgroupFile(allocator: std.mem.Allocator, cgroup_path: []const u8, name: []const u8) Error![]u8 {
+fn joinCgroupFile(
+    allocator: std.mem.Allocator,
+    cgroup_path: []const u8,
+    name: []const u8,
+) Error![]u8 {
     assert(cgroup_path.len > 0);
     assert(name.len > 0);
 
@@ -644,6 +952,59 @@ fn readFileAlloc(allocator: std.mem.Allocator, io: std.Io, path: []const u8) Err
     return std.Io.Dir.cwd().readFileAlloc(io, allocator, path, 16 * 1024 * 1024);
 }
 
+test "evaluateNestedVirtualization accepts Linux arm64 KVM when toggles are enabled" {
+    const result = try evaluateNestedVirtualization(std.testing.allocator, .{
+        .platform = "linux",
+        .arch = "arm64",
+        .linux_dev_kvm = true,
+        .linux_kvm_nested = "Y\n",
+    });
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expect(result.supported);
+    try std.testing.expect(result.reason == null);
+}
+
+test "evaluateNestedVirtualization rejects disabled Linux nested toggles" {
+    const result = try evaluateNestedVirtualization(std.testing.allocator, .{
+        .platform = "linux",
+        .arch = "arm64",
+        .linux_dev_kvm = true,
+        .linux_kvm_nested = "N\n",
+    });
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expect(!result.supported);
+    try std.testing.expect(result.reason != null);
+    try std.testing.expect(
+        std.mem.indexOf(u8, result.reason.?, "/sys/module/kvm/parameters/nested") != null,
+    );
+}
+
+test "evaluateNestedVirtualization rejects macOS M1 and M2" {
+    const result = try evaluateNestedVirtualization(std.testing.allocator, .{
+        .platform = "darwin",
+        .arch = "arm64",
+        .darwin_hv_support = "1\n",
+        .darwin_product_version = "15.0\n",
+        .darwin_cpu_brand = "Apple M2 Max\n",
+    });
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expect(!result.supported);
+    try std.testing.expect(result.reason != null);
+    try std.testing.expect(std.mem.indexOf(u8, result.reason.?, "Apple M2") != null);
+}
+
+test "evaluateNestedVirtualization rejects non-arm64 hosts explicitly" {
+    const result = try evaluateNestedVirtualization(std.testing.allocator, .{
+        .platform = "linux",
+        .arch = "x64",
+        .linux_dev_kvm = true,
+    });
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expect(!result.supported);
+    try std.testing.expect(result.reason != null);
+    try std.testing.expect(std.mem.indexOf(u8, result.reason.?, "not arm64") != null);
+}
+
 fn tmpRootAbs(allocator: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u8 {
     assert(tmp.sub_path.len > 0);
 
@@ -691,7 +1052,12 @@ test "applyCpuCgroupLinux writes cgroup v2 files" {
 
     const cpu_max_path = try joinCgroupFile(allocator, result.cgroup_path.?, "cpu.max");
     defer allocator.free(cpu_max_path);
-    const cpu_max = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, allocator, cpu_max_path, 1024);
+    const cpu_max = try std.Io.Dir.cwd().readFileAlloc(
+        std.testing.io,
+        allocator,
+        cpu_max_path,
+        1024,
+    );
     defer allocator.free(cpu_max);
     try std.testing.expectEqualStrings("50000 100000\n", cpu_max);
 
