@@ -294,6 +294,215 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans provision runtime defaults paths and explicit limits", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const explicit = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionWorkDir: "/tmp/machinen-provision-test",
+          provisionScratchSizeBytes: "4096",
+          provisionTimeoutMs: "12345",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(explicit.status).toBe(0);
+    expect(JSON.parse(explicit.stdout).data.provisionRuntime).toEqual({
+      scratchSizeBytes: 4096,
+      deadlineMs: 12345,
+      diskPath: "/tmp/machinen-provision-test/scratch.img",
+      rootDiskPath: "/tmp/machinen-provision-test/rootfs.img",
+      udsPath: "/tmp/machinen-provision-test/exec.sock",
+    });
+
+    const defaults = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(defaults.status).toBe(0);
+    expect(JSON.parse(defaults.stdout).data.provisionRuntime).toEqual({
+      scratchSizeBytes: 1024 * 1024 * 1024,
+      deadlineMs: 10 * 60 * 1000,
+      diskPath: null,
+      rootDiskPath: null,
+      udsPath: null,
+    });
+  });
+
+  it("plans provision image config payloads", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const withConfig = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionImageConfigHasCmd: true,
+          provisionImageConfigCmd: ["/bin/echo", "hi"],
+          provisionImageConfigHasEnv: true,
+          provisionImageConfigEnv: { FOO: "bar" },
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(withConfig.status).toBe(0);
+    expect(JSON.parse(withConfig.stdout).data.provisionImageConfig).toEqual({
+      cmd: ["/bin/echo", "hi"],
+      env: { FOO: "bar" },
+    });
+
+    const empty = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(empty.status).toBe(0);
+    expect(JSON.parse(empty.stdout).data.provisionImageConfig).toBeNull();
+  });
+
+  it("plans provision workload and repack commands", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionRepackDiskPath: "/tmp/scratch.img",
+          provisionRepackOutPath: "/tmp/out.tar.gz",
+          provisionRepackExtractDir: "/tmp/extract",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    const data = JSON.parse(result.stdout).data;
+    expect(data.provisionWorkload.tarToDiskCommand).toContain("--exclude=./proc");
+    expect(data.provisionWorkload.tarToDiskCommand).toContain("-cf /dev/vdb .");
+    expect(data.provisionWorkload.poweroffCommand).toBe("/sbin/machinen-poweroff");
+    expect(data.provisionRepack).toEqual({
+      extractArgs: ["-xf", "/tmp/scratch.img", "-C", "/tmp/extract"],
+      targzArgs: ["-czf", "/tmp/out.tar.gz", "-C", "/tmp/extract", "."],
+    });
+  });
+
+  it("plans provision boot inputs", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionBasePath: "/base.tar.gz",
+          provisionKernelPath: "/Image",
+          provisionDtbPath: "/virt.dtb",
+          provisionUdsPath: "/tmp/exec.sock",
+          provisionScratchDiskPath: "/tmp/scratch.img",
+          provisionRootDiskPath: "/tmp/rootfs.img",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.provisionBoot).toEqual({
+      imagePath: "/base.tar.gz",
+      kernelPath: "/Image",
+      dtbPath: "/virt.dtb",
+      vmmVsock: "in:1978:/tmp/exec.sock",
+      cmd: ["/exec-agent"],
+      env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },
+      snapshotPath: "/tmp/scratch.img",
+      rootDiskPath: "/tmp/rootfs.img",
+    });
+  });
+
+  it("plans provision asset names", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const amd64 = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, provisionGuestCpu: "amd64" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(amd64.status).toBe(0);
+    expect(JSON.parse(amd64.stdout).data.provisionAssets).toEqual({
+      cpu: "amd64",
+      kernelAsset: "bzImage-x86_64",
+      dtbAsset: null,
+      rootfsAsset: "rootfs-debian-amd64.tar.gz",
+    });
+
+    const arm64 = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, provisionGuestCpu: "arm64" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(arm64.status).toBe(0);
+    expect(JSON.parse(arm64.stdout).data.provisionAssets).toEqual({
+      cpu: "arm64",
+      kernelAsset: "Image-arm64",
+      dtbAsset: "virt-arm64.dtb",
+      rootfsAsset: "rootfs-debian-arm64.tar.gz",
+    });
+  });
+
   it("plans bundle env overlays", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
@@ -432,6 +641,70 @@ describe("boot-plan helper schema", () => {
       sourceUpperPath: null,
       guest: "/mnt/data",
       upperSizeBytes: 8192,
+    });
+  });
+
+  it("plans registry cleanup paths and mount shapes", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          registrySourceImagePath: "/images/rootfs.tar.gz",
+          registryPerBootRootDisk: "/tmp/root.img",
+          registryCallerRootDiskPath: "/caller/root.img",
+          registryPerBootSnapDisk: null,
+          registryPerBootMountUpper: "/tmp/upper.img",
+          registryBundleTempDir: "/tmp/bundle",
+          registryVsockTempDir: "/tmp/vsock",
+          registryStatsTempDir: null,
+          registryGvSocketDir: "/tmp/gv",
+          registryCpuCgroupPath: "/sys/fs/cgroup/machinen",
+          registryMountGuest: "/mnt/data",
+          registryMountLowerPath: "/cache/lower.sqfs",
+          registryMountUpperPath: "/tmp/upper.img",
+          liveMountsResolved: [
+            { host: "/host/work", guest: "/mnt/work", mode: "rw", tag: "machinen-lm0" },
+            { host: "/host/cache", guest: "/mnt/cache", mode: "ro", tag: "machinen-lm1" },
+          ],
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.registryShape).toEqual({
+      sourceImagePath: "/images/rootfs.tar.gz",
+      rootDiskPath: "/tmp/root.img",
+      rootDiskMode: "block",
+      cleanupPaths: [
+        "/tmp/root.img",
+        "/tmp/upper.img",
+        "/tmp/bundle",
+        "/tmp/vsock",
+        "/tmp/gv",
+        "/sys/fs/cgroup/machinen",
+      ],
+      mountDisk: {
+        guest: "/mnt/data",
+        lowerPath: "/cache/lower.sqfs",
+        upperPath: "/tmp/upper.img",
+      },
+      liveMounts: [
+        { guest: "/mnt/work", host: "/host/work", mode: "rw" },
+        { guest: "/mnt/cache", host: "/host/cache", mode: "ro" },
+      ],
     });
   });
 

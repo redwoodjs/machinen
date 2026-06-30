@@ -8,11 +8,11 @@
 //              off the network path — this test is about filesystem
 //              round-trip, not download reliability.
 
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   boot,
   provision,
@@ -24,6 +24,30 @@ import {
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
 const releaseAssets = resolve(microvmRoot, "../../release-assets");
+
+let helperTmp: string | undefined;
+let previousHelper: string | undefined;
+
+beforeAll(() => {
+  helperTmp = mkdtempSync(join(tmpdir(), "machinen-provision-helper-test-"));
+  execFileSync("zig", ["build", "--prefix", helperTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousHelper = process.env.MACHINEN_RUNTIME_HELPER;
+  process.env.MACHINEN_RUNTIME_HELPER = join(helperTmp, "bin", "machinen-runtime-helper");
+});
+
+afterAll(() => {
+  if (previousHelper === undefined) {
+    delete process.env.MACHINEN_RUNTIME_HELPER;
+  } else {
+    process.env.MACHINEN_RUNTIME_HELPER = previousHelper;
+  }
+  if (helperTmp) {
+    rmSync(helperTmp, { recursive: true, force: true });
+  }
+});
 
 function findBootTestBinary(): string | undefined {
   const cacheDir = resolve(microvmRoot, ".zig-cache/o");
@@ -119,6 +143,19 @@ describe("provision", () => {
       }
     });
 
+    it("uses native-planned amd64 rootfs asset names", () => {
+      const dir = mkdtempSync(join(tmpdir(), "machinen-base-amd64-envdir-"));
+      const p = join(dir, "rootfs-debian-amd64.tar.gz");
+      try {
+        writeFileSync(p, "");
+        process.env.MACHINEN_GUEST_ARCH = "amd64";
+        process.env.MACHINEN_ASSETS_DIR = dir;
+        expect(resolveBaseRootfs()).toBe(p);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
     it("throws if MACHINEN_ASSETS_DIR is set but missing the tarball", () => {
       const dir = mkdtempSync(join(tmpdir(), "machinen-base-envdir-empty-"));
       try {
@@ -167,6 +204,19 @@ describe("provision", () => {
       }
     });
 
+    it("uses native-planned amd64 kernel asset names", () => {
+      const dir = mkdtempSync(join(tmpdir(), "machinen-kernel-amd64-envdir-"));
+      const p = join(dir, "bzImage-x86_64");
+      try {
+        writeFileSync(p, "");
+        process.env.MACHINEN_GUEST_ARCH = "amd64";
+        process.env.MACHINEN_ASSETS_DIR = dir;
+        expect(resolveBaseKernel()).toBe(p);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
     it("throws if MACHINEN_ASSETS_DIR is set but missing the kernel", () => {
       const dir = mkdtempSync(join(tmpdir(), "machinen-kernel-envdir-empty-"));
       try {
@@ -201,6 +251,17 @@ describe("provision", () => {
 
     it("throws if the explicit path is missing", () => {
       expect(() => resolveBaseDtb("/nope/does/not/exist/virt.dtb")).toThrow(ProvisionError);
+    });
+
+    it("omits DTB for native-planned amd64 assets when dtb is omitted", () => {
+      const dir = mkdtempSync(join(tmpdir(), "machinen-dtb-amd64-envdir-"));
+      try {
+        process.env.MACHINEN_GUEST_ARCH = "amd64";
+        process.env.MACHINEN_ASSETS_DIR = dir;
+        expect(resolveBaseDtb()).toBeUndefined();
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     });
 
     it("falls back to MACHINEN_ASSETS_DIR/virt-arm64.dtb when dtb is omitted", () => {

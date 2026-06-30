@@ -85,6 +85,87 @@ pub const BundleEnvInput = struct {
     guest_env: []const EnvPair = &.{},
 };
 
+pub const ProvisionGuestCpu = enum {
+    arm64,
+    amd64,
+};
+
+pub const ProvisionAssetsInput = struct {
+    guest_cpu: ProvisionGuestCpu = .arm64,
+};
+
+pub const ProvisionAssetsPlan = struct {
+    cpu: []const u8,
+    kernel_asset: []const u8,
+    dtb_asset: ?[]const u8,
+    rootfs_asset: []const u8,
+};
+
+pub const ProvisionBootInput = struct {
+    base_path: ?[]const u8 = null,
+    kernel_path: ?[]const u8 = null,
+    dtb_path: ?[]const u8 = null,
+    uds_path: ?[]const u8 = null,
+    scratch_disk_path: ?[]const u8 = null,
+    root_disk_path: ?[]const u8 = null,
+};
+
+pub const ProvisionBootPlan = struct {
+    image_path: ?[]const u8,
+    kernel_path: ?[]const u8,
+    dtb_path: ?[]const u8,
+    vmm_vsock: ?[]const u8,
+    cmd: []const []const u8,
+    env: []const EnvPair,
+    snapshot_path: ?[]const u8,
+    root_disk_path: ?[]const u8,
+};
+
+pub const ProvisionWorkloadPlan = struct {
+    tar_to_disk_command: []const u8,
+    poweroff_command: []const u8,
+};
+
+pub const ProvisionRepackInput = struct {
+    disk_path: ?[]const u8 = null,
+    out_path: ?[]const u8 = null,
+    extract_dir: ?[]const u8 = null,
+};
+
+pub const ProvisionRepackPlan = struct {
+    extract_args: []const []const u8,
+    targz_args: []const []const u8,
+};
+
+pub const ProvisionImageConfigInput = struct {
+    has_cmd: bool = false,
+    cmd: []const []const u8 = &.{},
+    has_env: bool = false,
+    env: []const EnvPair = &.{},
+};
+
+pub const ProvisionImageConfigPlan = struct {
+    has_config: bool,
+    has_cmd: bool,
+    cmd: []const []const u8,
+    has_env: bool,
+    env: []const EnvPair,
+};
+
+pub const ProvisionRuntimeInput = struct {
+    work_dir: ?[]const u8 = null,
+    scratch_size_bytes: ?u64 = null,
+    timeout_ms: ?u64 = null,
+};
+
+pub const ProvisionRuntimePlan = struct {
+    scratch_size_bytes: u64,
+    deadline_ms: u64,
+    disk_path: ?[]const u8,
+    root_disk_path: ?[]const u8,
+    uds_path: ?[]const u8,
+};
+
 pub const KernelDtbInput = struct {
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
@@ -199,6 +280,53 @@ pub const MountDiskRuntimePlan = struct {
     upper_size_bytes: ?u64,
 };
 
+pub const RegistryCleanupInput = struct {
+    per_boot_root_disk: ?[]const u8 = null,
+    per_boot_snap_disk: ?[]const u8 = null,
+    per_boot_mount_upper: ?[]const u8 = null,
+    bundle_temp_dir: ?[]const u8 = null,
+    vsock_temp_dir: ?[]const u8 = null,
+    stats_temp_dir: ?[]const u8 = null,
+    gv_socket_dir: ?[]const u8 = null,
+    cpu_cgroup_path: ?[]const u8 = null,
+};
+
+pub const RegistryMountDiskInput = struct {
+    guest: ?[]const u8 = null,
+    lower_path: ?[]const u8 = null,
+    upper_path: ?[]const u8 = null,
+};
+
+pub const RegistryMountDiskPlan = struct {
+    guest: []const u8,
+    lower_path: []const u8,
+    upper_path: []const u8,
+};
+
+pub const RegistryLiveMountPlan = struct {
+    guest: []const u8,
+    host: []const u8,
+    mode: []const u8,
+};
+
+pub const RegistryShapeInput = struct {
+    source_image_path: ?[]const u8 = null,
+    per_boot_root_disk: ?[]const u8 = null,
+    caller_root_disk_path: ?[]const u8 = null,
+    cleanup: RegistryCleanupInput = .{},
+    mount_disk: RegistryMountDiskInput = .{},
+    live_mounts: []const LiveMount = &.{},
+};
+
+pub const RegistryShapePlan = struct {
+    source_image_path: ?[]const u8,
+    root_disk_path: ?[]const u8,
+    root_disk_mode: []const u8,
+    cleanup_paths: []const []const u8,
+    mount_disk: ?RegistryMountDiskPlan,
+    live_mounts: []const RegistryLiveMountPlan,
+};
+
 pub const MachinenConfigInput = struct {
     guest_cwd: ?[]const u8 = null,
     image_cwd: ?[]const u8 = null,
@@ -225,6 +353,7 @@ pub const Plan = struct {
 };
 
 pub const PlanError = error{
+    OutOfMemory,
     InvalidMemory,
     ConflictingMemory,
     InvalidReclaim,
@@ -241,6 +370,8 @@ pub const PlanError = error{
     MissingScratchPath,
     MissingRootDiskRuntimePath,
     MissingMountDiskRuntimeField,
+    IncompleteRegistryMountDisk,
+    MissingProvisionRepackField,
 };
 
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
@@ -374,6 +505,171 @@ pub fn planMachinenConfigCwd(input: MachinenConfigInput) ?[]const u8 {
     return input.guest_cwd orelse input.image_cwd;
 }
 
+pub fn planProvisionRuntime(
+    allocator: std.mem.Allocator,
+    input: ProvisionRuntimeInput,
+) !ProvisionRuntimePlan {
+    assert(@sizeOf(ProvisionRuntimeInput) > 0);
+
+    var paths = ProvisionRuntimePaths{};
+    if (input.work_dir) |work_dir| paths = try planProvisionRuntimePaths(allocator, work_dir);
+    return .{
+        .scratch_size_bytes = input.scratch_size_bytes orelse 1024 * 1024 * 1024,
+        .deadline_ms = input.timeout_ms orelse 10 * 60 * 1000,
+        .disk_path = paths.disk_path,
+        .root_disk_path = paths.root_disk_path,
+        .uds_path = paths.uds_path,
+    };
+}
+
+const ProvisionRuntimePaths = struct {
+    disk_path: ?[]const u8 = null,
+    root_disk_path: ?[]const u8 = null,
+    uds_path: ?[]const u8 = null,
+};
+
+fn planProvisionRuntimePaths(
+    allocator: std.mem.Allocator,
+    work_dir: []const u8,
+) !ProvisionRuntimePaths {
+    assert(work_dir.len > 0);
+
+    const disk_path = try std.fs.path.join(allocator, &.{ work_dir, "scratch.img" });
+    errdefer allocator.free(disk_path);
+    const root_disk_path = try std.fs.path.join(allocator, &.{ work_dir, "rootfs.img" });
+    errdefer allocator.free(root_disk_path);
+    const uds_path = try std.fs.path.join(allocator, &.{ work_dir, "exec.sock" });
+    return .{
+        .disk_path = disk_path,
+        .root_disk_path = root_disk_path,
+        .uds_path = uds_path,
+    };
+}
+
+pub fn planProvisionImageConfig(input: ProvisionImageConfigInput) ProvisionImageConfigPlan {
+    assert(@sizeOf(ProvisionImageConfigInput) > 0);
+
+    return .{
+        .has_config = input.has_cmd or input.has_env,
+        .has_cmd = input.has_cmd,
+        .cmd = input.cmd,
+        .has_env = input.has_env,
+        .env = input.env,
+    };
+}
+
+pub fn planProvisionWorkload() ProvisionWorkloadPlan {
+    assert(poweroff_command.len == 1);
+
+    return .{
+        .tar_to_disk_command = provision_tar_to_disk_command,
+        .poweroff_command = poweroff_command[0],
+    };
+}
+
+const provision_tar_to_disk_command =
+    "tar -C / " ++
+    "--exclude=./proc " ++
+    "--exclude=./sys " ++
+    "--exclude=./dev " ++
+    "--exclude=./tmp " ++
+    "--exclude=./run " ++
+    "--exclude=./machinen-config.json " ++
+    "--exclude=./etc/machinen-boot-epoch " ++
+    "--sort=name --numeric-owner --owner=0 --group=0 " ++
+    "-cf /dev/vdb .";
+
+pub fn planProvisionRepack(
+    allocator: std.mem.Allocator,
+    input: ProvisionRepackInput,
+) !ProvisionRepackPlan {
+    assert(@sizeOf(ProvisionRepackInput) > 0);
+
+    if (provisionRepackInputEmpty(input)) {
+        return .{ .extract_args = &.{}, .targz_args = &.{} };
+    }
+    const disk_path = input.disk_path orelse return error.MissingProvisionRepackField;
+    const out_path = input.out_path orelse return error.MissingProvisionRepackField;
+    const extract_dir = input.extract_dir orelse return error.MissingProvisionRepackField;
+    const extract_args = try std.mem.concat(
+        allocator,
+        []const u8,
+        &.{&[_][]const u8{ "-xf", disk_path, "-C", extract_dir }},
+    );
+    errdefer allocator.free(extract_args);
+    const targz_args = try std.mem.concat(
+        allocator,
+        []const u8,
+        &.{&[_][]const u8{ "-czf", out_path, "-C", extract_dir, "." }},
+    );
+    errdefer allocator.free(targz_args);
+    return .{ .extract_args = extract_args, .targz_args = targz_args };
+}
+
+fn provisionRepackInputEmpty(input: ProvisionRepackInput) bool {
+    assert(@sizeOf(ProvisionRepackInput) > 0);
+
+    return input.disk_path == null and input.out_path == null and input.extract_dir == null;
+}
+
+pub fn planProvisionBoot(
+    allocator: std.mem.Allocator,
+    input: ProvisionBootInput,
+) !ProvisionBootPlan {
+    assert(@sizeOf(ProvisionBootInput) > 0);
+
+    const cmd = try std.mem.concat(allocator, []const u8, &.{&[_][]const u8{"/exec-agent"}});
+    errdefer allocator.free(cmd);
+    const env = try std.mem.concat(allocator, EnvPair, &.{&provision_boot_env});
+    errdefer allocator.free(env);
+    const vmm_vsock = try planProvisionVsock(allocator, input.uds_path);
+    errdefer if (vmm_vsock) |spec| allocator.free(spec);
+    return .{
+        .image_path = input.base_path,
+        .kernel_path = input.kernel_path,
+        .dtb_path = input.dtb_path,
+        .vmm_vsock = vmm_vsock,
+        .cmd = cmd,
+        .env = env,
+        .snapshot_path = input.scratch_disk_path,
+        .root_disk_path = input.root_disk_path,
+    };
+}
+
+const provision_boot_env = [_]EnvPair{.{
+    .key = "PATH",
+    .value = "/usr/local/bin:/usr/bin:/bin:/sbin",
+}};
+
+fn planProvisionVsock(
+    allocator: std.mem.Allocator,
+    uds_path: ?[]const u8,
+) !?[]const u8 {
+    assert(@sizeOf(@TypeOf(uds_path)) > 0);
+
+    if (uds_path) |path| return try std.mem.concat(allocator, u8, &.{ "in:1978:", path });
+    return null;
+}
+
+pub fn planProvisionAssets(input: ProvisionAssetsInput) ProvisionAssetsPlan {
+    assert(@sizeOf(ProvisionAssetsInput) > 0);
+
+    return switch (input.guest_cpu) {
+        .amd64 => .{
+            .cpu = "amd64",
+            .kernel_asset = "bzImage-x86_64",
+            .dtb_asset = null,
+            .rootfs_asset = "rootfs-debian-amd64.tar.gz",
+        },
+        .arm64 => .{
+            .cpu = "arm64",
+            .kernel_asset = "Image-arm64",
+            .dtb_asset = "virt-arm64.dtb",
+            .rootfs_asset = "rootfs-debian-arm64.tar.gz",
+        },
+    };
+}
+
 pub fn planBundleEnv(allocator: std.mem.Allocator, input: BundleEnvInput) ![]EnvPair {
     assert(@sizeOf(BundleEnvInput) > 0);
 
@@ -485,6 +781,82 @@ pub fn planMountDiskRuntime(input: MountDiskRuntimeInput) PlanError!MountDiskRun
             };
         },
     };
+}
+
+pub fn planRegistryShape(
+    allocator: std.mem.Allocator,
+    input: RegistryShapeInput,
+) PlanError!RegistryShapePlan {
+    assert(@sizeOf(RegistryShapeInput) > 0);
+
+    const root_disk_path = input.per_boot_root_disk orelse input.caller_root_disk_path;
+    return .{
+        .source_image_path = input.source_image_path,
+        .root_disk_path = root_disk_path,
+        .root_disk_mode = if (root_disk_path != null) "block" else "none",
+        .cleanup_paths = try planRegistryCleanupPaths(allocator, input.cleanup),
+        .mount_disk = try planRegistryMountDisk(input.mount_disk),
+        .live_mounts = try planRegistryLiveMounts(allocator, input.live_mounts),
+    };
+}
+
+fn planRegistryCleanupPaths(
+    allocator: std.mem.Allocator,
+    cleanup: RegistryCleanupInput,
+) ![]const []const u8 {
+    assert(@sizeOf(RegistryCleanupInput) > 0);
+
+    var paths: [8][]const u8 = undefined;
+    var count: u8 = 0;
+    for ([_]?[]const u8{
+        cleanup.per_boot_root_disk,
+        cleanup.per_boot_snap_disk,
+        cleanup.per_boot_mount_upper,
+        cleanup.bundle_temp_dir,
+        cleanup.vsock_temp_dir,
+        cleanup.stats_temp_dir,
+        cleanup.gv_socket_dir,
+        cleanup.cpu_cgroup_path,
+    }) |path| {
+        if (path) |value| {
+            paths[count] = value;
+            count += 1;
+        }
+    }
+    return std.mem.concat(allocator, []const u8, &.{paths[0..count]});
+}
+
+fn planRegistryMountDisk(
+    input: RegistryMountDiskInput,
+) PlanError!?RegistryMountDiskPlan {
+    assert(@sizeOf(RegistryMountDiskInput) > 0);
+
+    if (registryMountDiskEmpty(input)) return null;
+    return .{
+        .guest = input.guest orelse return error.IncompleteRegistryMountDisk,
+        .lower_path = input.lower_path orelse return error.IncompleteRegistryMountDisk,
+        .upper_path = input.upper_path orelse return error.IncompleteRegistryMountDisk,
+    };
+}
+
+fn registryMountDiskEmpty(input: RegistryMountDiskInput) bool {
+    assert(@sizeOf(RegistryMountDiskInput) > 0);
+
+    return input.guest == null and input.lower_path == null and input.upper_path == null;
+}
+
+fn planRegistryLiveMounts(
+    allocator: std.mem.Allocator,
+    input: []const LiveMount,
+) PlanError![]const RegistryLiveMountPlan {
+    assert(@sizeOf(LiveMount) > 0);
+
+    if (input.len > max_live_mounts) return error.TooManyLiveMounts;
+    var mounts: [max_live_mounts]RegistryLiveMountPlan = undefined;
+    for (input, 0..) |mount, i| {
+        mounts[i] = .{ .guest = mount.guest, .host = mount.host, .mode = mount.mode };
+    }
+    return std.mem.concat(allocator, RegistryLiveMountPlan, &.{mounts[0..input.len]});
 }
 
 pub fn planScratchDisk(input: ScratchDiskInput) PlanError!ScratchDiskPlan {
@@ -820,6 +1192,55 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
 }
 
+test "planRegistryShape collects cleanup paths and strips registry-only mount fields" {
+    const allocator = std.testing.allocator;
+    const live = [_]LiveMount{
+        .{ .host = "/host/work", .guest = "/mnt/work", .mode = "rw", .tag = "machinen-lm0" },
+        .{ .host = "/host/cache", .guest = "/mnt/cache", .mode = "ro", .tag = "machinen-lm1" },
+    };
+    const plan = try planRegistryShape(allocator, .{
+        .source_image_path = "/images/rootfs.tar.gz",
+        .per_boot_root_disk = "/tmp/per-boot-root.img",
+        .caller_root_disk_path = "/caller/root.img",
+        .cleanup = .{
+            .per_boot_root_disk = "/tmp/root.img",
+            .per_boot_snap_disk = null,
+            .per_boot_mount_upper = "/tmp/upper.img",
+            .bundle_temp_dir = "/tmp/bundle",
+            .vsock_temp_dir = "/tmp/vsock",
+            .stats_temp_dir = null,
+            .gv_socket_dir = "/tmp/gv",
+            .cpu_cgroup_path = "/sys/fs/cgroup/machinen",
+        },
+        .mount_disk = .{
+            .guest = "/mnt/data",
+            .lower_path = "/cache/lower.sqfs",
+            .upper_path = "/tmp/upper.img",
+        },
+        .live_mounts = &live,
+    });
+    defer allocator.free(plan.cleanup_paths);
+    defer allocator.free(plan.live_mounts);
+
+    try std.testing.expectEqualStrings("/images/rootfs.tar.gz", plan.source_image_path.?);
+    try std.testing.expectEqualStrings("/tmp/per-boot-root.img", plan.root_disk_path.?);
+    try std.testing.expectEqualStrings("block", plan.root_disk_mode);
+    try std.testing.expectEqual(@as(@TypeOf(plan.cleanup_paths.len), 6), plan.cleanup_paths.len);
+    try std.testing.expectEqualStrings("/tmp/root.img", plan.cleanup_paths[0]);
+    try std.testing.expectEqualStrings("/tmp/upper.img", plan.cleanup_paths[1]);
+    try std.testing.expectEqualStrings("/tmp/bundle", plan.cleanup_paths[2]);
+    try std.testing.expectEqualStrings("/tmp/vsock", plan.cleanup_paths[3]);
+    try std.testing.expectEqualStrings("/tmp/gv", plan.cleanup_paths[4]);
+    try std.testing.expectEqualStrings("/sys/fs/cgroup/machinen", plan.cleanup_paths[5]);
+    try std.testing.expectEqualStrings("/mnt/data", plan.mount_disk.?.guest);
+    try std.testing.expectEqualStrings("/cache/lower.sqfs", plan.mount_disk.?.lower_path);
+    try std.testing.expectEqualStrings("/tmp/upper.img", plan.mount_disk.?.upper_path);
+    try std.testing.expectEqual(@as(@TypeOf(plan.live_mounts.len), 2), plan.live_mounts.len);
+    try std.testing.expectEqualStrings("/mnt/work", plan.live_mounts[0].guest);
+    try std.testing.expectEqualStrings("/host/work", plan.live_mounts[0].host);
+    try std.testing.expectEqualStrings("rw", plan.live_mounts[0].mode);
+}
+
 test "planMountDiskRuntime selects restore and fresh actions" {
     const none = try planMountDiskRuntime(.{});
     try std.testing.expectEqualStrings("none", none.action);
@@ -850,6 +1271,121 @@ test "planMountDiskRuntime selects restore and fresh actions" {
     try std.testing.expectEqualStrings("fresh", fresh.action);
     try std.testing.expect(fresh.source_upper_path == null);
     try std.testing.expectEqual(@as(u64, 8192), fresh.upper_size_bytes.?);
+}
+
+test "planProvisionRuntime defaults and derives workdir paths" {
+    const allocator = std.testing.allocator;
+    const plan = try planProvisionRuntime(allocator, .{
+        .work_dir = "/tmp/machinen-provision-a",
+        .scratch_size_bytes = 42,
+        .timeout_ms = 99,
+    });
+    defer allocator.free(plan.disk_path.?);
+    defer allocator.free(plan.root_disk_path.?);
+    defer allocator.free(plan.uds_path.?);
+    try std.testing.expectEqual(@as(u64, 42), plan.scratch_size_bytes);
+    try std.testing.expectEqual(@as(u64, 99), plan.deadline_ms);
+    try std.testing.expectEqualStrings("/tmp/machinen-provision-a/scratch.img", plan.disk_path.?);
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-provision-a/rootfs.img",
+        plan.root_disk_path.?,
+    );
+    try std.testing.expectEqualStrings("/tmp/machinen-provision-a/exec.sock", plan.uds_path.?);
+
+    const defaults = try planProvisionRuntime(allocator, .{});
+    try std.testing.expectEqual(@as(u64, 1024 * 1024 * 1024), defaults.scratch_size_bytes);
+    try std.testing.expectEqual(@as(u64, 10 * 60 * 1000), defaults.deadline_ms);
+    try std.testing.expect(defaults.disk_path == null);
+}
+
+test "planProvisionImageConfig preserves optional cmd and env" {
+    const env = [_]EnvPair{.{ .key = "FOO", .value = "bar" }};
+    const cmd = [_][]const u8{ "/bin/echo", "hi" };
+    const both = planProvisionImageConfig(.{
+        .has_cmd = true,
+        .cmd = &cmd,
+        .has_env = true,
+        .env = &env,
+    });
+    try std.testing.expect(both.has_config);
+    try std.testing.expect(both.has_cmd);
+    try std.testing.expect(both.has_env);
+    try std.testing.expectEqualSlices([]const u8, &cmd, both.cmd);
+    try std.testing.expectEqual(@as(@TypeOf(both.env.len), 1), both.env.len);
+    try std.testing.expectEqualStrings("FOO", both.env[0].key);
+    try std.testing.expectEqualStrings("bar", both.env[0].value);
+
+    const none = planProvisionImageConfig(.{});
+    try std.testing.expect(!none.has_config);
+    try std.testing.expect(!none.has_cmd);
+    try std.testing.expect(!none.has_env);
+}
+
+test "planProvisionWorkload and planProvisionRepack build commands" {
+    const workload = planProvisionWorkload();
+    try std.testing.expect(std.mem.startsWith(u8, workload.tar_to_disk_command, "tar -C /"));
+    try std.testing.expect(std.mem.endsWith(u8, workload.tar_to_disk_command, "-cf /dev/vdb ."));
+    try std.testing.expectEqualStrings("/sbin/machinen-poweroff", workload.poweroff_command);
+
+    const allocator = std.testing.allocator;
+    const repack = try planProvisionRepack(allocator, .{
+        .disk_path = "/tmp/scratch.img",
+        .out_path = "/tmp/out.tar.gz",
+        .extract_dir = "/tmp/extract",
+    });
+    defer allocator.free(repack.extract_args);
+    defer allocator.free(repack.targz_args);
+    try std.testing.expectEqualSlices(
+        []const u8,
+        &[_][]const u8{ "-xf", "/tmp/scratch.img", "-C", "/tmp/extract" },
+        repack.extract_args,
+    );
+    try std.testing.expectEqualSlices(
+        []const u8,
+        &[_][]const u8{ "-czf", "/tmp/out.tar.gz", "-C", "/tmp/extract", "." },
+        repack.targz_args,
+    );
+}
+
+test "planProvisionBoot builds provision boot inputs" {
+    const allocator = std.testing.allocator;
+    const plan = try planProvisionBoot(allocator, .{
+        .base_path = "/base.tar.gz",
+        .kernel_path = "/Image",
+        .dtb_path = "/virt.dtb",
+        .uds_path = "/tmp/exec.sock",
+        .scratch_disk_path = "/tmp/scratch.img",
+        .root_disk_path = "/tmp/rootfs.img",
+    });
+    defer allocator.free(plan.cmd);
+    defer allocator.free(plan.env);
+    defer if (plan.vmm_vsock) |spec| allocator.free(spec);
+
+    try std.testing.expectEqualStrings("/base.tar.gz", plan.image_path.?);
+    try std.testing.expectEqualStrings("/Image", plan.kernel_path.?);
+    try std.testing.expectEqualStrings("/virt.dtb", plan.dtb_path.?);
+    try std.testing.expectEqualStrings("in:1978:/tmp/exec.sock", plan.vmm_vsock.?);
+    try std.testing.expectEqual(@as(@TypeOf(plan.cmd.len), 1), plan.cmd.len);
+    try std.testing.expectEqualStrings("/exec-agent", plan.cmd[0]);
+    try std.testing.expectEqual(@as(@TypeOf(plan.env.len), 1), plan.env.len);
+    try std.testing.expectEqualStrings("PATH", plan.env[0].key);
+    try std.testing.expectEqualStrings("/usr/local/bin:/usr/bin:/bin:/sbin", plan.env[0].value);
+    try std.testing.expectEqualStrings("/tmp/scratch.img", plan.snapshot_path.?);
+    try std.testing.expectEqualStrings("/tmp/rootfs.img", plan.root_disk_path.?);
+}
+
+test "planProvisionAssets selects asset names by guest CPU" {
+    const arm = planProvisionAssets(.{ .guest_cpu = .arm64 });
+    try std.testing.expectEqualStrings("arm64", arm.cpu);
+    try std.testing.expectEqualStrings("Image-arm64", arm.kernel_asset);
+    try std.testing.expectEqualStrings("virt-arm64.dtb", arm.dtb_asset.?);
+    try std.testing.expectEqualStrings("rootfs-debian-arm64.tar.gz", arm.rootfs_asset);
+
+    const x64 = planProvisionAssets(.{ .guest_cpu = .amd64 });
+    try std.testing.expectEqualStrings("amd64", x64.cpu);
+    try std.testing.expectEqualStrings("bzImage-x86_64", x64.kernel_asset);
+    try std.testing.expect(x64.dtb_asset == null);
+    try std.testing.expectEqualStrings("rootfs-debian-amd64.tar.gz", x64.rootfs_asset);
 }
 
 test "planBundleEnv overlays guest env on image env" {

@@ -1,18 +1,30 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
 import { callRuntimeHelper } from "../native-helper.ts";
 import type { BootMemoryResourceOptions } from "../vm/memory-resources.ts";
+import { isNativeBootPlanResult } from "./boot-plan-schema.ts";
+import type {
+  MountDiskRuntimePlan,
+  PlannedLiveMount,
+  ProvisionAssetsPlan,
+  ProvisionBootPlan,
+  ProvisionGuestCpu,
+  ProvisionImageConfigPlan,
+  ProvisionRepackPlan,
+  ProvisionRuntimePlan,
+  ProvisionWorkloadPlan,
+  RegistryShapePlan,
+  RootDiskRuntimePlan,
+  ScratchDiskPlan,
+  NativeBootPlanResult,
+} from "./boot-plan-schema.ts";
 
 type RootDiskPlanMode = "unset" | "false" | "path" | "true";
 type ScratchDiskMode = "false" | "path" | "auto";
-type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
 type RootDiskRuntimeMode = "none" | "path" | "restore" | "cached";
-type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
 type MountDiskRuntimeMode = "none" | "restore" | "fresh";
-type MountDiskRuntimeAction = "none" | "restore" | "fresh";
 
 type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
 type LiveMountPlanInput = { host: string; guest: string; mode?: string };
-type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
 
 interface NativeBootPlanInput {
   memoryMib?: number;
@@ -57,6 +69,21 @@ interface NativeBootPlanInput {
   bundleCommandRequired?: boolean;
   bundleImageEnv?: Record<string, string>;
   bundleGuestEnv?: Record<string, string>;
+  provisionGuestCpu?: ProvisionGuestCpu;
+  provisionBasePath?: string;
+  provisionKernelPath?: string;
+  provisionDtbPath?: string;
+  provisionUdsPath?: string;
+  provisionScratchDiskPath?: string;
+  provisionRootDiskPath?: string;
+  provisionRepackDiskPath?: string;
+  provisionRepackOutPath?: string;
+  provisionRepackExtractDir?: string;
+  provisionImageConfigCmd?: string[];
+  provisionImageConfigEnv?: Record<string, string>;
+  provisionWorkDir?: string;
+  provisionScratchSizeBytes?: number;
+  provisionTimeoutMs?: number;
   scratchMode?: ScratchDiskMode;
   scratchSnapshotPath?: string;
   scratchRestoreClonePath?: string;
@@ -70,65 +97,20 @@ interface NativeBootPlanInput {
   mountDiskSourceUpperPath?: string;
   mountDiskGuest?: string;
   mountDiskUpperSize?: number;
+  registrySourceImagePath?: string;
+  registryPerBootRootDisk?: string;
+  registryCallerRootDiskPath?: string;
+  registryPerBootSnapDisk?: string;
+  registryPerBootMountUpper?: string;
+  registryBundleTempDir?: string;
+  registryVsockTempDir?: string;
+  registryStatsTempDir?: string;
+  registryGvSocketDir?: string;
+  registryCpuCgroupPath?: string;
+  registryMountGuest?: string;
+  registryMountLowerPath?: string;
+  registryMountUpperPath?: string;
 }
-
-interface NativeBootPlanResult {
-  memoryCeilingMib: number | null;
-  vmmMemory: string | null;
-  wantsRootDisk: boolean;
-  normalizedMountGuest: string | null;
-  mergedGuestEnv: Record<string, string>;
-  vsockUdsPath: string | null;
-  vmmVsock: string | null;
-  vmmCommand: string | null;
-  vmmArgs: string[];
-  vmmKernel: string | null;
-  vmmDtb: string | null;
-  vmmSnapshotPath: string | null;
-  vmmRestorePath: string | null;
-  vmmVmstateTiming: string | null;
-  virtiofsEnv: Record<string, string>;
-  plannedLiveMounts: PlannedLiveMount[];
-  statsFilePath: string | null;
-  vmmStatsFile: string | null;
-  machinenConfig: MachinenConfigPlan;
-  bundleCommand: string[];
-  bundleEnv: Record<string, string>;
-  scratchDisk: ScratchDiskPlan;
-  rootDiskRuntime: RootDiskRuntimePlan;
-  mountDiskRuntime: MountDiskRuntimePlan;
-}
-
-type ScratchDiskPlan = {
-  action: ScratchDiskAction;
-  diskPath: string | null;
-  perBootSnapDisk: string | null;
-  vmmDisk: string | null;
-};
-
-type RootDiskRuntimePlan = {
-  action: RootDiskRuntimeAction;
-  sourcePath: string | null;
-  targetPath: string | null;
-  perBootRootDisk: string | null;
-  vmmRootDisk: string | null;
-};
-
-type MountDiskRuntimePlan = {
-  action: MountDiskRuntimeAction;
-  lowerPath: string | null;
-  upperPath: string | null;
-  sourceUpperPath: string | null;
-  guest: string | null;
-  upperSizeBytes: number | null;
-};
-
-type MachinenConfigPlan = Record<string, unknown> & {
-  cmd: string[];
-  env: Record<string, string>;
-  cwd?: string;
-  liveMounts?: Array<{ guest: string; tag: string; mode: "ro" | "rw" }>;
-};
 
 export function planBootCoreNative(input: NativeBootPlanInput): NativeBootPlanResult {
   return callRuntimeHelper({
@@ -177,9 +159,11 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     configImageCwd: nullDefault(input.configImageCwd),
     configLiveMounts: input.configLiveMounts ?? [],
     ...bundleCommandData(input),
+    ...provisionData(input),
     ...scratchDiskData(input),
     ...rootDiskRuntimeData(input),
     ...mountDiskRuntimeData(input),
+    ...registryShapeData(input),
   };
 }
 
@@ -193,6 +177,28 @@ function bundleCommandData(input: NativeBootPlanInput): Record<string, unknown> 
     bundleCommandRequired: input.bundleCommandRequired === true,
     bundleImageEnv: input.bundleImageEnv ?? {},
     bundleGuestEnv: input.bundleGuestEnv ?? {},
+  };
+}
+
+function provisionData(input: NativeBootPlanInput): Record<string, unknown> {
+  return {
+    provisionGuestCpu: input.provisionGuestCpu ?? null,
+    provisionBasePath: nullDefault(input.provisionBasePath),
+    provisionKernelPath: nullDefault(input.provisionKernelPath),
+    provisionDtbPath: nullDefault(input.provisionDtbPath),
+    provisionUdsPath: nullDefault(input.provisionUdsPath),
+    provisionScratchDiskPath: nullDefault(input.provisionScratchDiskPath),
+    provisionRootDiskPath: nullDefault(input.provisionRootDiskPath),
+    provisionRepackDiskPath: nullDefault(input.provisionRepackDiskPath),
+    provisionRepackOutPath: nullDefault(input.provisionRepackOutPath),
+    provisionRepackExtractDir: nullDefault(input.provisionRepackExtractDir),
+    provisionImageConfigHasCmd: input.provisionImageConfigCmd !== undefined,
+    provisionImageConfigCmd: input.provisionImageConfigCmd ?? [],
+    provisionImageConfigHasEnv: input.provisionImageConfigEnv !== undefined,
+    provisionImageConfigEnv: input.provisionImageConfigEnv ?? {},
+    provisionWorkDir: nullDefault(input.provisionWorkDir),
+    provisionScratchSizeBytes: numberText(input.provisionScratchSizeBytes),
+    provisionTimeoutMs: numberText(input.provisionTimeoutMs),
   };
 }
 
@@ -224,6 +230,24 @@ function mountDiskRuntimeData(input: NativeBootPlanInput): Record<string, unknow
   };
 }
 
+function registryShapeData(input: NativeBootPlanInput): Record<string, unknown> {
+  return {
+    registrySourceImagePath: nullDefault(input.registrySourceImagePath),
+    registryPerBootRootDisk: nullDefault(input.registryPerBootRootDisk),
+    registryCallerRootDiskPath: nullDefault(input.registryCallerRootDiskPath),
+    registryPerBootSnapDisk: nullDefault(input.registryPerBootSnapDisk),
+    registryPerBootMountUpper: nullDefault(input.registryPerBootMountUpper),
+    registryBundleTempDir: nullDefault(input.registryBundleTempDir),
+    registryVsockTempDir: nullDefault(input.registryVsockTempDir),
+    registryStatsTempDir: nullDefault(input.registryStatsTempDir),
+    registryGvSocketDir: nullDefault(input.registryGvSocketDir),
+    registryCpuCgroupPath: nullDefault(input.registryCpuCgroupPath),
+    registryMountGuest: nullDefault(input.registryMountGuest),
+    registryMountLowerPath: nullDefault(input.registryMountLowerPath),
+    registryMountUpperPath: nullDefault(input.registryMountUpperPath),
+  };
+}
+
 function resourcesMemoryData(memory: BootMemoryResourceOptions | undefined): unknown {
   if (!memory) {
     return null;
@@ -246,6 +270,93 @@ function nullDefault<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
 }
 
+export function planProvisionWorkloadNative(): ProvisionWorkloadPlan {
+  return planBootCoreNative({
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).provisionWorkload;
+}
+
+export function planProvisionRepackNative(input: {
+  diskPath: string;
+  outPath: string;
+  extractDir: string;
+}): ProvisionRepackPlan {
+  return planBootCoreNative({
+    provisionRepackDiskPath: input.diskPath,
+    provisionRepackOutPath: input.outPath,
+    provisionRepackExtractDir: input.extractDir,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).provisionRepack;
+}
+
+export function planProvisionRuntimeNative(input: {
+  workDir: string;
+  scratchDiskSizeBytes?: number;
+  timeoutMs?: number;
+}): ProvisionRuntimePlan {
+  return planBootCoreNative({
+    provisionWorkDir: input.workDir,
+    provisionScratchSizeBytes: input.scratchDiskSizeBytes,
+    provisionTimeoutMs: input.timeoutMs,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).provisionRuntime;
+}
+
+export function planProvisionImageConfigNative(input: {
+  cmd?: string[];
+  env?: Record<string, string>;
+}): ProvisionImageConfigPlan {
+  return planBootCoreNative({
+    provisionImageConfigCmd: input.cmd,
+    provisionImageConfigEnv: input.env,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).provisionImageConfig;
+}
+
+export function planProvisionBootNative(input: {
+  basePath: string;
+  kernelPath: string;
+  dtbPath?: string;
+  udsPath: string;
+  scratchDiskPath: string;
+  rootDiskPath: string;
+}): ProvisionBootPlan {
+  return planBootCoreNative({
+    provisionBasePath: input.basePath,
+    provisionKernelPath: input.kernelPath,
+    provisionDtbPath: input.dtbPath,
+    provisionUdsPath: input.udsPath,
+    provisionScratchDiskPath: input.scratchDiskPath,
+    provisionRootDiskPath: input.rootDiskPath,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).provisionBoot;
+}
+
+export function planProvisionAssetsNative(cpu: ProvisionGuestCpu): ProvisionAssetsPlan {
+  return planBootCoreNative({
+    provisionGuestCpu: cpu,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).provisionAssets;
+}
+
 export function planBootMountDiskRuntimeNative(input: {
   mode: MountDiskRuntimeMode;
   lowerPath?: string;
@@ -266,6 +377,47 @@ export function planBootMountDiskRuntimeNative(input: {
     hasCmd: false,
     rootDisk: "false",
   }).mountDiskRuntime;
+}
+
+export function planBootRegistryShapeNative(input: {
+  sourceImagePath?: string;
+  rootDisk?: {
+    perBootRootDisk?: string;
+    callerRootDiskPath?: string;
+  };
+  cleanup?: {
+    perBootRootDisk?: string;
+    perBootSnapDisk?: string;
+    perBootMountUpper?: string;
+    bundleTempDir?: string;
+    vsockTempDir?: string;
+    statsTempDir?: string;
+    gvSocketDir?: string;
+    cpuCgroupPath?: string;
+  };
+  mountDisk?: { guest: string; lowerPath: string; upperPath: string };
+  liveMounts?: PlannedLiveMount[];
+}): RegistryShapePlan {
+  return planBootCoreNative({
+    registrySourceImagePath: input.sourceImagePath,
+    registryPerBootRootDisk: input.rootDisk?.perBootRootDisk ?? input.cleanup?.perBootRootDisk,
+    registryCallerRootDiskPath: input.rootDisk?.callerRootDiskPath,
+    registryPerBootSnapDisk: input.cleanup?.perBootSnapDisk,
+    registryPerBootMountUpper: input.cleanup?.perBootMountUpper,
+    registryBundleTempDir: input.cleanup?.bundleTempDir,
+    registryVsockTempDir: input.cleanup?.vsockTempDir,
+    registryStatsTempDir: input.cleanup?.statsTempDir,
+    registryGvSocketDir: input.cleanup?.gvSocketDir,
+    registryCpuCgroupPath: input.cleanup?.cpuCgroupPath,
+    registryMountGuest: input.mountDisk?.guest,
+    registryMountLowerPath: input.mountDisk?.lowerPath,
+    registryMountUpperPath: input.mountDisk?.upperPath,
+    liveMountsResolved: input.liveMounts,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).registryShape;
 }
 
 export function planBootBundleEnvNative(input: {
@@ -491,169 +643,4 @@ function numberText(value: number | undefined): string | null {
 
 function numberTextRequired(value: number): string {
   return String(value);
-}
-
-function isNativeBootPlanResult(value: unknown): value is NativeBootPlanResult {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const data = value as Partial<NativeBootPlanResult>;
-  return [
-    nullableNonNegativeNumber(data.memoryCeilingMib),
-    nullableString(data.vmmMemory),
-    typeof data.wantsRootDisk === "boolean",
-    nullableString(data.normalizedMountGuest),
-    isStringRecord(data.mergedGuestEnv),
-    nullableString(data.vsockUdsPath),
-    nullableString(data.vmmVsock),
-    nullableString(data.vmmCommand),
-    isStringArray(data.vmmArgs),
-    nullableString(data.vmmKernel),
-    nullableString(data.vmmDtb),
-    nullableString(data.vmmSnapshotPath),
-    nullableString(data.vmmRestorePath),
-    nullableString(data.vmmVmstateTiming),
-    isStringRecord(data.virtiofsEnv),
-    isPlannedLiveMountArray(data.plannedLiveMounts),
-    nullableString(data.statsFilePath),
-    nullableString(data.vmmStatsFile),
-    isMachinenConfigPlan(data.machinenConfig),
-    isStringArray(data.bundleCommand),
-    isStringRecord(data.bundleEnv),
-    isScratchDiskPlan(data.scratchDisk),
-    isRootDiskRuntimePlan(data.rootDiskRuntime),
-    isMountDiskRuntimePlan(data.mountDiskRuntime),
-  ].every(Boolean);
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
-}
-
-function isPlannedLiveMountArray(value: unknown): value is PlannedLiveMount[] {
-  return Array.isArray(value) && value.every(isPlannedLiveMount);
-}
-
-function isScratchDiskPlan(value: unknown): value is ScratchDiskPlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<ScratchDiskPlan>;
-  return (
-    isScratchDiskAction(plan.action) &&
-    nullableString(plan.diskPath) &&
-    nullableString(plan.perBootSnapDisk) &&
-    nullableString(plan.vmmDisk)
-  );
-}
-
-function isScratchDiskAction(value: unknown): value is ScratchDiskAction {
-  return value === "none" || value === "existing" || value === "clone" || value === "allocate";
-}
-
-function isRootDiskRuntimePlan(value: unknown): value is RootDiskRuntimePlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<RootDiskRuntimePlan>;
-  return (
-    isRootDiskRuntimeAction(plan.action) &&
-    nullableString(plan.sourcePath) &&
-    nullableString(plan.targetPath) &&
-    nullableString(plan.perBootRootDisk) &&
-    nullableString(plan.vmmRootDisk)
-  );
-}
-
-function isRootDiskRuntimeAction(value: unknown): value is RootDiskRuntimeAction {
-  return (
-    value === "none" ||
-    value === "existing" ||
-    value === "clone-restore" ||
-    value === "clone-cached"
-  );
-}
-
-function isMountDiskRuntimePlan(value: unknown): value is MountDiskRuntimePlan {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const plan = value as Partial<MountDiskRuntimePlan>;
-  return (
-    isMountDiskRuntimeAction(plan.action) &&
-    nullableString(plan.lowerPath) &&
-    nullableString(plan.upperPath) &&
-    nullableString(plan.sourceUpperPath) &&
-    nullableString(plan.guest) &&
-    nullableNonNegativeNumber(plan.upperSizeBytes)
-  );
-}
-
-function isMountDiskRuntimeAction(value: unknown): value is MountDiskRuntimeAction {
-  return value === "none" || value === "restore" || value === "fresh";
-}
-
-function isPlannedLiveMount(value: unknown): value is PlannedLiveMount {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const mount = value as Partial<PlannedLiveMount>;
-  return (
-    typeof mount.host === "string" &&
-    typeof mount.guest === "string" &&
-    (mount.mode === "ro" || mount.mode === "rw") &&
-    typeof mount.tag === "string"
-  );
-}
-
-function isMachinenConfigPlan(value: unknown): value is MachinenConfigPlan {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const config = value as Partial<MachinenConfigPlan>;
-  return (
-    isStringArray(config.cmd) &&
-    isStringRecord(config.env) &&
-    optionalString(config.cwd) &&
-    optionalConfigLiveMounts(config.liveMounts)
-  );
-}
-
-function optionalConfigLiveMounts(value: unknown): boolean {
-  if (value === undefined) {
-    return true;
-  }
-  return (
-    Array.isArray(value) &&
-    value.every((mount) => {
-      if (!mount || typeof mount !== "object") {
-        return false;
-      }
-      const entry = mount as { guest?: unknown; tag?: unknown; mode?: unknown };
-      return (
-        typeof entry.guest === "string" &&
-        typeof entry.tag === "string" &&
-        (entry.mode === "ro" || entry.mode === "rw")
-      );
-    })
-  );
-}
-
-function optionalString(value: unknown): boolean {
-  return value === undefined || typeof value === "string";
-}
-
-function nullableString(value: unknown): boolean {
-  return value === null || typeof value === "string";
-}
-
-function isStringRecord(value: unknown): value is Record<string, string> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  return Object.values(value).every((entry) => typeof entry === "string");
-}
-
-function nullableNonNegativeNumber(value: unknown): boolean {
-  return value === null || (typeof value === "number" && Number.isFinite(value) && value >= 0);
 }
