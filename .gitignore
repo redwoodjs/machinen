@@ -2,9 +2,6 @@
 .pi/
 node_modules/
 .pnpm-store/
-.wrangler/
-.dev.vars
-*.tsbuildinfo
 .devcontainer/kindling/
 .machinen/
 .machinen-vm/

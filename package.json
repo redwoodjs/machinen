@@ -6,7 +6,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "pretypecheck": "pnpm build",
-    "typecheck": "tsgo --noEmit && pnpm run site:typecheck",
+    "typecheck": "tsgo --noEmit",
     "pretest": "pnpm build && cd packages/runtime/native && zig build",
     "test": "MACHINEN_RUNTIME_HELPER=$PWD/packages/runtime/native/zig-out/bin/machinen-runtime-helper MACHINEN_PDEATHSIG=$PWD/packages/runtime/native/zig-out/bin/machinen-pdeathsig MACHINEN_PTY=$PWD/packages/runtime/native/zig-out/bin/machinen-pty MACHINEN_WINSIZE=$PWD/packages/runtime/native/zig-out/bin/machinen-winsize vitest run --no-file-parallelism",
     "lint": "oxlint --deny-warnings && node scripts/fallow-health-guard.mjs && node scripts/runtime-native-boundary-check.mjs",
@@ -42,11 +42,7 @@
     "bench": "tsx scripts/bench.ts",
     "validation:profile": "node scripts/validation-profile.mjs",
     "fallow:health": "node scripts/fallow-health-guard.mjs",
-    "runtime-native-boundary-check": "node scripts/runtime-native-boundary-check.mjs",
-    "site:build": "pnpm -F @machinen/marketing-website build",
-    "site:typecheck": "pnpm -F @machinen/marketing-website types",
-    "site:dev": "pnpm -F @machinen/marketing-website dev",
-    "site:release": "pnpm -F @machinen/marketing-website release"
+    "runtime-native-boundary-check": "node scripts/runtime-native-boundary-check.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

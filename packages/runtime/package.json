@@ -32,8 +32,7 @@
   "devDependencies": {
     "@types/debug": "^4.1.12",
     "@types/node": "^22",
-    "tsup": "^8.3.5",
-    "typescript": "^5.9.3"
+    "tsup": "^8.3.5"
   },
   "optionalDependencies": {
     "@machinen/native-arm64-darwin": "workspace:*",
