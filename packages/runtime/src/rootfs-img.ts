@@ -70,14 +70,18 @@ import {
   statSync,
   truncateSync,
   unlinkSync,
-  writeSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import { arch, homedir, platform } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
-import { SPARSE_GUNZIP_WORKER, SPARSE_ZSTD_WORKER } from "./rootfs-sparse-workers.ts";
+import {
+  rootfsCacheKeyNative,
+  rootfsMaterializeNative,
+  rootfsPrebakeDecompressNative,
+  rootfsPrebakeTreeNative,
+} from "./native/rootfs.ts";
 import {
   okMarkerPath,
   readSha256Sidecar,
@@ -191,12 +195,6 @@ interface RootfsCachePaths {
   metaPath: string;
 }
 
-interface RootfsStagingPaths {
-  stagingDir: string;
-  stagingTree: string;
-  stagingImg: string;
-}
-
 /**
  * Resolve `tarPath` to a cached ext4 `.img`, materializing it on first
  * call. Returns the absolute path to the cached image.
@@ -258,16 +256,10 @@ function resolveRootfsCachePaths(
 }
 
 function resolveTarballSha(tarAbs: string, opts: EnsureRootfsImageOptions): string {
-  const sidecarT0 = Date.now();
-  const sidecarSha = readSha256Sidecar(tarAbs);
-  if (sidecarSha) {
-    opts.onPhase?.("sha256.sidecar", Date.now() - sidecarT0);
-    return sidecarSha;
-  }
-  const shaT0 = Date.now();
-  const sha = sha256OfFile(tarAbs);
-  opts.onPhase?.("sha256", Date.now() - shaT0);
-  return sha;
+  const keyT0 = Date.now();
+  const result = rootfsCacheKeyNative(tarAbs);
+  opts.onPhase?.(result.source === "sidecar" ? "sha256.sidecar" : "sha256", Date.now() - keyT0);
+  return result.sha;
 }
 
 function tryReusableCachedRootfs(
@@ -415,93 +407,48 @@ function materializeRootfsFromTar(
   opts: EnsureRootfsImageOptions,
   mke2fs: string,
 ): string {
-  const stagingT0 = Date.now();
-  const staging = createRootfsStaging(paths);
-  opts.onPhase?.("staging-create", Date.now() - stagingT0);
-  try {
-    debug("materialize sha=%s tar=%s", paths.sha.slice(0, 12), paths.tarAbs);
-    extractRootfsTarball(paths.tarAbs, staging.stagingTree, opts);
-    const sizeBytes = sizeRootfsImage(staging.stagingTree, opts);
-    const allocT0 = Date.now();
-    allocateSparseFile(staging.stagingImg, sizeBytes);
-    opts.onPhase?.("sparse-allocate", Date.now() - allocT0);
-    runMke2fs(mke2fs, staging.stagingTree, staging.stagingImg, sizeBytes, opts);
-    const renameT0 = Date.now();
-    renameSync(staging.stagingImg, paths.imgPath);
-    opts.onPhase?.("rename", Date.now() - renameT0);
-    markRootfsImageClean(paths.imgPath);
-    writeTemplateMetadata(paths, "materialize");
-    debug(
-      "materialize done sha=%s img=%s sizeBytes=%d",
-      paths.sha.slice(0, 12),
-      paths.imgPath,
-      sizeBytes,
-    );
-    return paths.imgPath;
-  } finally {
-    const cleanupT0 = Date.now();
-    try {
-      rmSync(staging.stagingDir, { recursive: true, force: true });
-    } catch {}
-    opts.onPhase?.("staging-cleanup", Date.now() - cleanupT0);
-  }
-}
-
-function createRootfsStaging(paths: RootfsCachePaths): RootfsStagingPaths {
-  const stagingDir = mkdtempSync(join(paths.cacheDir, `${paths.sha.slice(0, 12)}-staging-`));
-  const stagingTree = join(stagingDir, "tree");
-  mkdirSync(stagingTree, { recursive: true });
-  return { stagingDir, stagingTree, stagingImg: join(stagingDir, "rootfs.img") };
-}
-
-function extractRootfsTarball(
-  tarAbs: string,
-  stagingTree: string,
-  opts: EnsureRootfsImageOptions,
-): void {
-  const extractT0 = Date.now();
-  extractTarball(tarAbs, stagingTree);
-  opts.onPhase?.("tar-extract", Date.now() - extractT0);
-}
-
-function sizeRootfsImage(stagingTree: string, opts: EnsureRootfsImageOptions): number {
-  const sizeT0 = Date.now();
-  const treeBytes = duBytes(stagingTree);
-  const multiplier = opts.sizeMultiplier ?? 2.5;
-  const minBytes = opts.minSizeBytes ?? 2 * 1024 * 1024 * 1024;
-  const sizeBytes = opts.sizeBytes ?? Math.max(minBytes, Math.ceil(treeBytes * multiplier));
+  debug("materialize sha=%s tar=%s", paths.sha.slice(0, 12), paths.tarAbs);
+  const result = rootfsMaterializeNative(rootfsMaterializeRequest(paths, opts, mke2fs));
+  emitRootfsMaterializePhases(opts, result.phases);
+  markRootfsImageClean(paths.imgPath);
+  writeTemplateMetadata(paths, "materialize");
   debug(
-    "size tree=%d size=%d multiplier=%s explicit=%s",
-    treeBytes,
-    sizeBytes,
-    multiplier,
-    opts.sizeBytes !== undefined,
+    "materialize done sha=%s img=%s sizeBytes=%d",
+    paths.sha.slice(0, 12),
+    result.imgPath,
+    result.sizeBytes,
   );
-  opts.onPhase?.("size", Date.now() - sizeT0);
-  return sizeBytes;
+  return result.imgPath;
 }
 
-function runMke2fs(
-  mke2fs: string,
-  stagingTree: string,
-  stagingImg: string,
-  sizeBytes: number,
+function rootfsMaterializeRequest(
+  paths: RootfsCachePaths,
   opts: EnsureRootfsImageOptions,
-): void {
-  const blocks = Math.floor(sizeBytes / 4096);
-  const mkT0 = Date.now();
-  const mk = spawnSync(
+  mke2fs: string,
+): Parameters<typeof rootfsMaterializeNative>[0] {
+  return {
+    tarAbs: paths.tarAbs,
+    cacheDir: paths.cacheDir,
+    sha: paths.sha,
+    imgPath: paths.imgPath,
     mke2fs,
-    ["-d", stagingTree, "-t", "ext4", "-F", "-q", "-b", "4096", stagingImg, String(blocks)],
-    { stdio: ["ignore", "ignore", "pipe"] },
-  );
-  opts.onPhase?.("mke2fs", Date.now() - mkT0);
-  if (mk.status !== 0) {
-    throw new ProvisionError(
-      "PROVISION_INSTALL_HOOK_FAILED",
-      `ensureRootfsImage: ${mke2fs} failed (code ${mk.status}): ${mk.stderr?.toString() ?? ""}`,
-    );
-  }
+    sizeMultiplier: opts.sizeMultiplier ?? 2.5,
+    minSizeBytes: opts.minSizeBytes ?? 2 * 1024 * 1024 * 1024,
+    sizeBytes: opts.sizeBytes,
+  };
+}
+
+function emitRootfsMaterializePhases(
+  opts: EnsureRootfsImageOptions,
+  phases: ReturnType<typeof rootfsMaterializeNative>["phases"],
+): void {
+  opts.onPhase?.("staging-create", phases.stagingCreate);
+  opts.onPhase?.("tar-extract", phases.tarExtract);
+  opts.onPhase?.("size", phases.size);
+  opts.onPhase?.("sparse-allocate", phases.sparseAllocate);
+  opts.onPhase?.("mke2fs", phases.mke2fs);
+  opts.onPhase?.("rename", phases.rename);
+  opts.onPhase?.("staging-cleanup", phases.stagingCleanup);
 }
 
 // Decide whether a cache-hit `.img` is safe to hand back to virtio-blk.
@@ -656,20 +603,6 @@ function findBundledMke2fs(): string | undefined {
   return undefined;
 }
 
-function duBytes(path: string): number {
-  // `du -sk` returns size-on-disk in 1-KiB blocks. Faster than walking
-  // ourselves and works on both GNU and BSD du.
-  try {
-    const out = execFileSync("du", ["-sk", path], { encoding: "utf8" }).trim();
-    const kib = parseInt(out.split(/\s+/, 1)[0]!, 10);
-    if (Number.isFinite(kib) && kib > 0) {
-      return kib * 1024;
-    }
-  } catch {}
-  // Fallback: stat the directory itself (won't be accurate for trees).
-  return statSync(path).size || 0;
-}
-
 interface PrebakeSibling {
   path: string;
   format: "zst" | "gz";
@@ -763,29 +696,11 @@ function zstdPrebakeToFile(sibling: string, dst: string): boolean {
 }
 
 function zstdPrebakeToFileWithSha(sibling: string, dst: string): PrebakeDecompressResult {
-  const zstd = whichFirst(["zstd"]);
-  if (!zstd) {
-    debug("prebake zstd missing; falling back sibling=%s", sibling);
-    return { ok: false };
+  const result = rootfsPrebakeDecompressNative({ path: sibling, dst, format: "zst" });
+  if (!result.ok) {
+    debug("prebake sparse zstd failed sibling=%s", sibling);
   }
-  const r = spawnSync(
-    process.execPath,
-    ["--input-type=module", "-e", SPARSE_ZSTD_WORKER, zstd, sibling, dst],
-    {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-  if (r.status === 0) {
-    return { ok: true, sha256: parseWorkerSha256(r.stdout) };
-  }
-  debug(
-    "prebake sparse zstd failed sibling=%s status=%s stderr=%s",
-    sibling,
-    r.status,
-    r.stderr?.toString().slice(0, 200) ?? "",
-  );
-  return { ok: false };
+  return result;
 }
 
 function gunzipPrebakeToFile(sibling: string, dst: string): boolean {
@@ -793,59 +708,11 @@ function gunzipPrebakeToFile(sibling: string, dst: string): boolean {
 }
 
 function gunzipPrebakeToFileWithSha(sibling: string, dst: string): PrebakeDecompressResult {
-  const sparse = sparseGunzipPrebakeToFileWithSha(sibling, dst);
-  if (sparse.ok) {
-    return sparse;
+  const result = rootfsPrebakeDecompressNative({ path: sibling, dst, format: "gz" });
+  if (!result.ok) {
+    debug("prebake sparse gunzip failed sibling=%s", sibling);
   }
-  debug("prebake sparse gunzip failed; falling back to full gunzip sibling=%s", sibling);
-  return fullGunzipPrebakeToFileWithSha(sibling, dst);
-}
-
-function fullGunzipPrebakeToFileWithSha(sibling: string, dst: string): PrebakeDecompressResult {
-  const dstFd = openSync(dst, "w");
-  try {
-    const r = spawnSync("gunzip", ["-c", sibling], {
-      stdio: ["ignore", dstFd, "pipe"],
-    });
-    if (r.status === 0) {
-      return { ok: true, sha256: sha256OfFile(dst) };
-    }
-    debug(
-      "prebake gunzip failed sibling=%s status=%s stderr=%s",
-      sibling,
-      r.status,
-      r.stderr?.toString().slice(0, 200) ?? "",
-    );
-    return { ok: false };
-  } finally {
-    closeSync(dstFd);
-  }
-}
-
-function sparseGunzipPrebakeToFileWithSha(sibling: string, dst: string): PrebakeDecompressResult {
-  const r = spawnSync(
-    process.execPath,
-    ["--input-type=module", "-e", SPARSE_GUNZIP_WORKER, sibling, dst],
-    {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-  if (r.status === 0) {
-    return { ok: true, sha256: parseWorkerSha256(r.stdout) };
-  }
-  debug(
-    "prebake sparse gunzip failed sibling=%s status=%s stderr=%s",
-    sibling,
-    r.status,
-    r.stderr?.toString().slice(0, 200) ?? "",
-  );
-  return { ok: false };
-}
-
-function parseWorkerSha256(stdout: string | Buffer | null | undefined): string | undefined {
-  const first = stdout?.toString().trim().split(/\s+/, 1)[0]?.toLowerCase();
-  return first && /^[0-9a-f]{64}$/.test(first) ? first : undefined;
+  return result;
 }
 
 // Extract with mode-bit fidelity. BSD tar otherwise applies umask for
@@ -860,16 +727,6 @@ function extractTarball(tarPath: string, dest: string): void {
       "PROVISION_INSTALL_HOOK_FAILED",
       `ensureRootfsImage: tar -xpf failed (code ${r.status}): ${r.stderr?.toString() ?? ""}`,
     );
-  }
-}
-
-function allocateSparseFile(path: string, sizeBytes: number): void {
-  const fd = openSync(path, "w");
-  try {
-    const buf = Buffer.alloc(1);
-    writeSync(fd, buf, 0, 1, sizeBytes - 1);
-  } finally {
-    closeSync(fd);
   }
 }
 
@@ -925,53 +782,29 @@ export function prebakeRootfsImageFromTree(args: {
       return;
     }
 
-    mkdirSync(cacheDir, { recursive: true });
-    const shaT0 = Date.now();
-    const sha = sha256OfFile(tarPath);
-    onPhase?.("prebake.sha256", Date.now() - shaT0);
-    const imgPath = join(cacheDir, `${sha}.img`);
-    if (existsSync(imgPath)) {
-      // Skip when the cache is already populated — a concurrent boot()
-      // may have the file open via virtio-blk, and renaming over it
-      // would leave that boot writing to a dead inode while the next
-      // boot reads our fresh bytes.
-      debug("prebake skip: cache already populated sha=%s", sha.slice(0, 12));
+    const result = rootfsPrebakeTreeNative({ tarPath, treeDir, cacheDir, mke2fs });
+    onPhase?.("prebake.sha256", result.phases.sha256);
+    if (!result.ok) {
+      onPhase?.("prebake.mke2fs", result.phases.mke2fs);
+      debug("prebake skip: native helper did not emit image");
+      return;
+    }
+    if (!result.sha || !result.imgPath) {
+      debug("prebake skip: native helper returned incomplete image data");
+      return;
+    }
+    if (result.skipped) {
+      debug("prebake skip: cache already populated sha=%s", result.sha.slice(0, 12));
       return;
     }
 
-    const stagingDir = mkdtempSync(join(cacheDir, `${sha.slice(0, 12)}-prebake-tree-`));
-    const stagingImg = join(stagingDir, "rootfs.img");
-    try {
-      const treeBytes = duBytes(treeDir);
-      const sizeBytes = Math.max(2 * 1024 * 1024 * 1024, Math.ceil(treeBytes * 2.5));
-      allocateSparseFile(stagingImg, sizeBytes);
-
-      const blocks = Math.floor(sizeBytes / 4096);
-      const mkT0 = Date.now();
-      const mk = spawnSync(
-        mke2fs,
-        ["-d", treeDir, "-t", "ext4", "-F", "-q", "-b", "4096", stagingImg, String(blocks)],
-        { stdio: ["ignore", "ignore", "pipe"] },
-      );
-      onPhase?.("prebake.mke2fs", Date.now() - mkT0);
-      if (mk.status !== 0) {
-        debug(
-          "prebake mke2fs failed status=%s stderr=%s",
-          mk.status,
-          mk.stderr?.toString().slice(0, 200) ?? "",
-        );
-        return;
-      }
-
-      renameSync(stagingImg, imgPath);
-      markRootfsImageClean(imgPath);
-      writeTemplateMetadata({ sha, imgPath, metaPath: templateMetaPath(imgPath) }, "prebake-tree");
-      debug("prebake emitted cache=%s sizeBytes=%d", imgPath, sizeBytes);
-    } finally {
-      try {
-        rmSync(stagingDir, { recursive: true, force: true });
-      } catch {}
-    }
+    onPhase?.("prebake.mke2fs", result.phases.mke2fs);
+    markRootfsImageClean(result.imgPath);
+    writeTemplateMetadata(
+      { sha: result.sha, imgPath: result.imgPath, metaPath: templateMetaPath(result.imgPath) },
+      "prebake-tree",
+    );
+    debug("prebake emitted cache=%s sizeBytes=%d", result.imgPath, result.sizeBytes ?? 0);
   } catch (err) {
     debug("prebake error err=%s", (err as Error).message);
   }
