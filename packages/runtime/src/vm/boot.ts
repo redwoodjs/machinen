@@ -68,12 +68,14 @@ import {
   planBootVmstateEnvNative,
   planBootVmstateRuntimeNative,
   planBootVmmArgvNative,
-  rootDiskPlanMode,
 } from "../native/boot-plan.ts";
 import { reflinkCopy } from "../reflink.ts";
 import { planGvproxyNative } from "../native/gvproxy-plan.ts";
 import { validatePortForwardNetSocketNative } from "../native/port-forward.ts";
+import { planGuestHostnameSetNative } from "../native/guest-hostname.ts";
 import { planBootRegistryProcessNative } from "../native/registry-process.ts";
+import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
+import { planBootScratchModeNative } from "../native/scratch-mode.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
@@ -87,7 +89,6 @@ import { registryCpu } from "./registry-cpu.ts";
 import type { VmHandle } from "../vm-handle.ts";
 import {
   allocateSparseFile,
-  buildGuestHostname,
   buildWriteFileCmds,
   collect,
   CONSOLE_TAIL_BYTES,
@@ -546,8 +547,14 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // (`(none)` on Linux). Subsequent shells (e.g. via
   // `machinen attach`) read the post-call value. Suppressed when
   // we have no vsock UDS (boot-without-exec-agent paths).
-  if (vsockUdsPath && env.MACHINEN_SKIP_GUEST_HOSTNAME !== "1") {
-    void setGuestHostname(handle, buildGuestHostname(handle.pid, handle.name));
+  const plannedHostname = planGuestHostnameSetNative({
+    pid: handle.pid,
+    name: handle.name,
+    vsockUdsPath,
+    skip: env.MACHINEN_SKIP_GUEST_HOSTNAME === "1",
+  });
+  if (plannedHostname) {
+    void setGuestHostname(handle, plannedHostname);
   }
 
   if (opts.detached && bootLogPath) {
@@ -978,7 +985,10 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
         ? "false"
         : opts._rootDiskRestorePath !== undefined
           ? "path"
-          : rootDiskPlanMode(opts.rootDisk),
+          : planBootRootDiskModeNative({
+              rootDisk: opts.rootDisk,
+              restorePath: opts._rootDiskRestorePath,
+            }),
   });
   if (corePlan.vmmMemory !== null) {
     env.MACHINEN_MEMORY = corePlan.vmmMemory;
@@ -1237,7 +1247,7 @@ function prepareScratchDisk(
 ): { diskAbs: string | undefined; perBootSnapDisk: string | undefined } {
   const snapshotPath = resolveSnapshotDiskPath(opts);
   const scratchPlan = planBootScratchDiskNative({
-    mode: scratchMode(opts.snapshot),
+    mode: planBootScratchModeNative(opts.snapshot),
     hasCmd: opts.cmd !== undefined,
     hasImage: opts.image !== undefined,
     snapshotPath,
@@ -1260,13 +1270,6 @@ function resolveSnapshotDiskPath(opts: BootOptions): string | undefined {
     throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `snapshot image not found: ${bundleDisk}`);
   }
   return bundleDisk;
-}
-
-function scratchMode(snapshot: BootOptions["snapshot"]): "false" | "path" | "auto" {
-  if (snapshot === false) {
-    return "false";
-  }
-  return typeof snapshot === "string" ? "path" : "auto";
 }
 
 function scratchRestoreClonePath(): string {

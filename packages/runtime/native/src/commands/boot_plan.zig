@@ -18,6 +18,10 @@ const ParsedRequest = struct {
     has_cmd: bool = false,
     has_snapshot: bool = false,
     root_disk: boot_plan.RootDiskMode = .unset,
+    root_disk_option_false: bool = false,
+    root_disk_option_true: bool = false,
+    root_disk_option_path: ?[]const u8 = null,
+    root_disk_restore_path: ?[]const u8 = null,
     guest_cwd: ?[]const u8 = null,
     mount_guest: ?[]const u8 = null,
     guest_env: std.json.ObjectMap = .{},
@@ -35,6 +39,10 @@ const ParsedRequest = struct {
     vmm_args: []const []const u8 = &.{},
     guest_hostname_pid_text: ?[]const u8 = null,
     guest_hostname_name: ?[]const u8 = null,
+    guest_hostname_set_pid_text: ?[]const u8 = null,
+    guest_hostname_set_name: ?[]const u8 = null,
+    guest_hostname_set_vsock_uds_path: ?[]const u8 = null,
+    guest_hostname_set_skip: bool = false,
     pdeathsig_path: ?[]const u8 = null,
     pdeathsig_requested: ?bool = null,
     detached: bool = false,
@@ -76,9 +84,21 @@ const ParsedRequest = struct {
     bundle_guest_env: std.json.ObjectMap = .{},
     bundle_workspace_temp_dir: ?[]const u8 = null,
     bundle_config_synth_dir: ?[]const u8 = null,
+    bundle_pack_use_tiny: bool = false,
+    bundle_pack_mount_guest: ?[]const u8 = null,
+    bundle_pack_restore_mount_guest: ?[]const u8 = null,
     provision_guest_cpu: ?boot_plan.ProvisionGuestCpu = null,
     provision_guest_arch_override: ?[]const u8 = null,
     provision_host_arch: ?[]const u8 = null,
+    provision_dtb_explicit: bool = false,
+    provision_cli_cache_home: ?[]const u8 = null,
+    provision_cli_cache_version: ?[]const u8 = null,
+    provision_asset_explicit_path: ?[]const u8 = null,
+    provision_asset_explicit_exists: ?bool = null,
+    provision_asset_assets_dir_path: ?[]const u8 = null,
+    provision_asset_assets_dir_exists: ?bool = null,
+    provision_asset_cache_path: ?[]const u8 = null,
+    provision_asset_cache_exists: ?bool = null,
     provision_base_path: ?[]const u8 = null,
     provision_kernel_path: ?[]const u8 = null,
     provision_dtb_path: ?[]const u8 = null,
@@ -95,6 +115,8 @@ const ParsedRequest = struct {
     provision_work_dir: ?[]const u8 = null,
     provision_scratch_size_bytes_text: ?[]const u8 = null,
     provision_timeout_ms_text: ?[]const u8 = null,
+    scratch_option_false: bool = false,
+    scratch_option_path: ?[]const u8 = null,
     scratch_mode: boot_plan.ScratchDiskMode = .unset,
     scratch_snapshot_path: ?[]const u8 = null,
     scratch_restore_clone_path: ?[]const u8 = null,
@@ -179,6 +201,10 @@ const boot_plan_fields = [_][]const u8{
     "hasCmd",
     "hasSnapshot",
     "rootDisk",
+    "rootDiskOptionFalse",
+    "rootDiskOptionTrue",
+    "rootDiskOptionPath",
+    "rootDiskRestorePath",
     "guestCwd",
     "mountGuest",
     "guestEnv",
@@ -196,6 +222,10 @@ const boot_plan_fields = [_][]const u8{
     "vmmArgs",
     "guestHostnamePid",
     "guestHostnameName",
+    "guestHostnameSetPid",
+    "guestHostnameSetName",
+    "guestHostnameSetVsockUdsPath",
+    "guestHostnameSetSkip",
     "pdeathsigPath",
     "pdeathsig",
     "detached",
@@ -237,9 +267,21 @@ const boot_plan_fields = [_][]const u8{
     "bundleGuestEnv",
     "bundleWorkspaceTempDir",
     "bundleConfigSynthDir",
+    "bundlePackUseTiny",
+    "bundlePackMountGuest",
+    "bundlePackRestoreMountGuest",
     "provisionGuestCpu",
     "provisionGuestArchOverride",
     "provisionHostArch",
+    "provisionDtbExplicit",
+    "provisionCliCacheHome",
+    "provisionCliCacheVersion",
+    "provisionAssetExplicitPath",
+    "provisionAssetExplicitExists",
+    "provisionAssetAssetsDirPath",
+    "provisionAssetAssetsDirExists",
+    "provisionAssetCachePath",
+    "provisionAssetCacheExists",
     "provisionBasePath",
     "provisionKernelPath",
     "provisionDtbPath",
@@ -256,6 +298,8 @@ const boot_plan_fields = [_][]const u8{
     "provisionWorkDir",
     "provisionScratchSizeBytes",
     "provisionTimeoutMs",
+    "scratchOptionFalse",
+    "scratchOptionPath",
     "scratchMode",
     "scratchSnapshotPath",
     "scratchRestoreClonePath",
@@ -343,6 +387,10 @@ const RequestError = error{
     InvalidHasSnapshot,
     MissingRootDisk,
     InvalidRootDisk,
+    InvalidRootDiskOptionFalse,
+    InvalidRootDiskOptionTrue,
+    InvalidRootDiskOptionPath,
+    InvalidRootDiskRestorePath,
     InvalidGuestCwd,
     InvalidMountGuest,
     InvalidGuestEnv,
@@ -363,6 +411,10 @@ const RequestError = error{
     InvalidVmmArgs,
     InvalidGuestHostnamePid,
     InvalidGuestHostnameName,
+    InvalidGuestHostnameSetPid,
+    InvalidGuestHostnameSetName,
+    InvalidGuestHostnameSetVsockUdsPath,
+    InvalidGuestHostnameSetSkip,
     InvalidPdeathsigPath,
     InvalidPdeathsig,
     InvalidDetached,
@@ -409,9 +461,21 @@ const RequestError = error{
     InvalidBundleGuestEnv,
     InvalidBundleWorkspaceTempDir,
     InvalidBundleConfigSynthDir,
+    InvalidBundlePackUseTiny,
+    InvalidBundlePackMountGuest,
+    InvalidBundlePackRestoreMountGuest,
     InvalidProvisionGuestCpu,
     InvalidProvisionGuestArchOverride,
     InvalidProvisionHostArch,
+    InvalidProvisionDtbExplicit,
+    InvalidProvisionCliCacheHome,
+    InvalidProvisionCliCacheVersion,
+    InvalidProvisionAssetExplicitPath,
+    InvalidProvisionAssetExplicitExists,
+    InvalidProvisionAssetAssetsDirPath,
+    InvalidProvisionAssetAssetsDirExists,
+    InvalidProvisionAssetCachePath,
+    InvalidProvisionAssetCacheExists,
     InvalidProvisionBasePath,
     InvalidProvisionKernelPath,
     InvalidProvisionDtbPath,
@@ -430,6 +494,8 @@ const RequestError = error{
     InvalidProvisionScratchSizeBytes,
     InvalidProvisionTimeoutMs,
     InvalidBundleEnvValue,
+    InvalidScratchOptionFalse,
+    InvalidScratchOptionPath,
     InvalidScratchMode,
     InvalidScratchSnapshotPath,
     InvalidScratchRestoreClonePath,
@@ -520,10 +586,12 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
 const PlanParts = struct {
     plan: boot_plan.Plan,
     cpu_policy: ?boot_plan.CpuPolicyPlan,
+    root_disk_mode: boot_plan.RootDiskMode,
     guest_env: []const boot_plan.EnvPair,
     vsock_plan: boot_plan.VsockPlan,
     gvproxy_plan: boot_plan.GvproxyPlan,
     guest_hostname: boot_plan.GuestHostnameInput,
+    guest_hostname_set: boot_plan.GuestHostnameSetInput,
     vmm_argv: boot_plan.VmmArgvPlan,
     use_pdeathsig: bool,
     planned_port_forwards: []const boot_plan.PortForwardMapping,
@@ -545,12 +613,17 @@ const PlanParts = struct {
     bundle_env: []const boot_plan.EnvPair,
     bundle_workspace: boot_plan.BundleWorkspacePlan,
     bundle_config_paths: boot_plan.BundleConfigPathsPlan,
+    bundle_pack: boot_plan.BundlePackPlan,
     provision_assets: boot_plan.ProvisionAssetsPlan,
+    provision_dtb: boot_plan.ProvisionDtbPlan,
+    provision_cli_cache: boot_plan.ProvisionCliCachePlan,
+    provision_asset_lookup: boot_plan.ProvisionAssetLookupPlan,
     provision_boot: boot_plan.ProvisionBootPlan,
     provision_workload: boot_plan.ProvisionWorkloadPlan,
     provision_repack: boot_plan.ProvisionRepackPlan,
     provision_image_config: boot_plan.ProvisionImageConfigPlan,
     provision_runtime: boot_plan.ProvisionRuntimePlan,
+    planned_scratch_mode: boot_plan.ScratchDiskMode,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
@@ -595,6 +668,7 @@ const RuntimeParts = struct {
     config_live_mounts: []const boot_plan.LiveMount,
     bundle_command: []const []const u8,
     bundle_env: []const boot_plan.EnvPair,
+    planned_scratch_mode: boot_plan.ScratchDiskMode,
     scratch_disk: boot_plan.ScratchDiskPlan,
     root_disk_runtime: boot_plan.RootDiskRuntimePlan,
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
@@ -613,11 +687,14 @@ fn makePlanParts(
 
     const boot_env = try makeBootEnvParts(arena, parsed);
     const runtime = try makeRuntimeParts(arena, parsed);
+    const provision = try makeProvisionParts(arena, parsed);
     return .{
         .plan = plan,
         .cpu_policy = try makeCpuResources(parsed),
+        .root_disk_mode = parsed.root_disk,
         .guest_env = try makeGuestEnv(arena, parsed),
         .guest_hostname = try makeGuestHostname(parsed),
+        .guest_hostname_set = try makeGuestHostnameSet(parsed),
         .vsock_plan = boot_env.vsock_plan,
         .gvproxy_plan = boot_env.gvproxy_plan,
         .vmm_argv = boot_env.vmm_argv,
@@ -645,16 +722,21 @@ fn makePlanParts(
         .bundle_config_paths = try boot_plan.planBundleConfigPaths(arena, .{
             .synth_bundle_dir = parsed.bundle_config_synth_dir,
         }),
-        .provision_assets = boot_plan.planProvisionAssets(.{
-            .guest_cpu = parsed.provision_guest_cpu,
-            .arch_override = parsed.provision_guest_arch_override,
-            .host_arch = parsed.provision_host_arch,
+        .bundle_pack = boot_plan.planBundlePack(.{
+            .use_tiny = parsed.bundle_pack_use_tiny,
+            .mount_guest = parsed.bundle_pack_mount_guest,
+            .restore_mount_guest = parsed.bundle_pack_restore_mount_guest,
         }),
-        .provision_boot = try makeProvisionBoot(arena, parsed),
-        .provision_workload = boot_plan.planProvisionWorkload(),
-        .provision_repack = try makeProvisionRepack(arena, parsed),
-        .provision_image_config = try makeProvisionImageConfig(arena, parsed),
-        .provision_runtime = try makeProvisionRuntime(arena, parsed),
+        .provision_assets = provision.assets,
+        .provision_dtb = provision.dtb,
+        .provision_cli_cache = provision.cli_cache,
+        .provision_asset_lookup = provision.asset_lookup,
+        .provision_boot = provision.boot,
+        .provision_workload = provision.workload,
+        .provision_repack = provision.repack,
+        .provision_image_config = provision.image_config,
+        .provision_runtime = provision.runtime,
+        .planned_scratch_mode = runtime.planned_scratch_mode,
         .scratch_disk = runtime.scratch_disk,
         .root_disk_runtime = runtime.root_disk_runtime,
         .mount_disk_runtime = runtime.mount_disk_runtime,
@@ -755,6 +837,7 @@ fn makeRuntimeParts(arena: std.mem.Allocator, parsed: ParsedRequest) !RuntimePar
         .config_live_mounts = parsed.config_live_mounts,
         .bundle_command = bundle.command,
         .bundle_env = bundle.env,
+        .planned_scratch_mode = disks.planned_scratch_mode,
         .scratch_disk = disks.scratch,
         .root_disk_runtime = disks.root,
         .mount_disk_runtime = disks.mount,
@@ -790,6 +873,7 @@ fn makeBundleParts(arena: std.mem.Allocator, parsed: ParsedRequest) !BundleParts
 }
 
 const DiskParts = struct {
+    planned_scratch_mode: boot_plan.ScratchDiskMode,
     scratch: boot_plan.ScratchDiskPlan,
     root: boot_plan.RootDiskRuntimePlan,
     mount: boot_plan.MountDiskRuntimePlan,
@@ -798,7 +882,12 @@ const DiskParts = struct {
 fn makeDiskParts(parsed: ParsedRequest) !DiskParts {
     assert(@sizeOf(DiskParts) > 0);
 
+    const planned_scratch_mode = boot_plan.planScratchMode(.{
+        .false_value = parsed.scratch_option_false,
+        .path = parsed.scratch_option_path,
+    });
     return .{
+        .planned_scratch_mode = planned_scratch_mode,
         .scratch = try boot_plan.planScratchDisk(.{
             .mode = parsed.scratch_mode,
             .has_cmd = parsed.has_cmd,
@@ -831,6 +920,56 @@ fn makeMountDiskRuntime(parsed: ParsedRequest) !boot_plan.MountDiskRuntimePlan {
         .guest = parsed.mount_disk_guest,
         .upper_size_bytes = upper_size,
     });
+}
+
+const ProvisionParts = struct {
+    assets: boot_plan.ProvisionAssetsPlan,
+    dtb: boot_plan.ProvisionDtbPlan,
+    cli_cache: boot_plan.ProvisionCliCachePlan,
+    asset_lookup: boot_plan.ProvisionAssetLookupPlan,
+    boot: boot_plan.ProvisionBootPlan,
+    workload: boot_plan.ProvisionWorkloadPlan,
+    repack: boot_plan.ProvisionRepackPlan,
+    image_config: boot_plan.ProvisionImageConfigPlan,
+    runtime: boot_plan.ProvisionRuntimePlan,
+};
+
+fn makeProvisionParts(arena: std.mem.Allocator, parsed: ParsedRequest) !ProvisionParts {
+    assert(@sizeOf(ProvisionParts) > 0);
+
+    return .{
+        .assets = boot_plan.planProvisionAssets(.{
+            .guest_cpu = parsed.provision_guest_cpu,
+            .arch_override = parsed.provision_guest_arch_override,
+            .host_arch = parsed.provision_host_arch,
+        }),
+        .dtb = boot_plan.planProvisionDtb(.{
+            .explicit = parsed.provision_dtb_explicit,
+            .guest_cpu = parsed.provision_guest_cpu,
+            .arch_override = parsed.provision_guest_arch_override,
+            .host_arch = parsed.provision_host_arch,
+        }),
+        .cli_cache = try boot_plan.planProvisionCliCacheBaseDir(arena, .{
+            .home_dir = parsed.provision_cli_cache_home,
+            .version = parsed.provision_cli_cache_version,
+            .guest_cpu = parsed.provision_guest_cpu,
+            .arch_override = parsed.provision_guest_arch_override,
+            .host_arch = parsed.provision_host_arch,
+        }),
+        .asset_lookup = boot_plan.planProvisionAssetLookup(.{
+            .explicit_path = parsed.provision_asset_explicit_path,
+            .explicit_exists = parsed.provision_asset_explicit_exists,
+            .assets_dir_path = parsed.provision_asset_assets_dir_path,
+            .assets_dir_exists = parsed.provision_asset_assets_dir_exists,
+            .cache_path = parsed.provision_asset_cache_path,
+            .cache_exists = parsed.provision_asset_cache_exists,
+        }),
+        .boot = try makeProvisionBoot(arena, parsed),
+        .workload = boot_plan.planProvisionWorkload(),
+        .repack = try makeProvisionRepack(arena, parsed),
+        .image_config = try makeProvisionImageConfig(arena, parsed),
+        .runtime = try makeProvisionRuntime(arena, parsed),
+    };
 }
 
 fn makeProvisionBoot(
@@ -1125,11 +1264,12 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
 
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,");
     try protocol.stdout(io, "\"command\":\"boot-plan\",\"data\":{");
-    try writeCoreFields(io, parts.plan, parts.cpu_policy);
+    try writeCoreFields(io, parts.plan, parts.cpu_policy, parts.root_disk_mode);
     try writeVsockKernelFields(io, parts.vsock_plan, parts.kernel_dtb);
     try writeGvproxyPlanField(io, "gvproxyPlan", parts.gvproxy_plan, true);
     try writeNullableStringField(io, "vmmInitrd", parts.initrd_env.vmm_initrd, true);
     try writeGuestHostnameField(io, "guestHostname", parts.guest_hostname, true);
+    try writeGuestHostnameSetField(io, "guestHostnameSet", parts.guest_hostname_set, true);
     try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file);
     try writeVmstateRuntimeField(io, "vmstateRuntime", parts.vmstate_runtime, true);
     try writeBoolField(
@@ -1152,7 +1292,16 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeEnvObjectField(io, "bundleEnv", parts.bundle_env, true);
     try writeBundleWorkspaceField(io, "bundleWorkspace", parts.bundle_workspace, true);
     try writeBundleConfigPathsField(io, "bundleConfigPaths", parts.bundle_config_paths, true);
+    try writeBundlePackField(io, "bundlePack", parts.bundle_pack, true);
     try writeProvisionAssetsField(io, "provisionAssets", parts.provision_assets, true);
+    try writeProvisionDtbField(io, "provisionDtb", parts.provision_dtb, true);
+    try writeProvisionCliCacheField(io, "provisionCliCache", parts.provision_cli_cache, true);
+    try writeProvisionAssetLookupField(
+        io,
+        "provisionAssetLookup",
+        parts.provision_asset_lookup,
+        true,
+    );
     try writeProvisionBootField(io, "provisionBoot", parts.provision_boot, true);
     try writeProvisionWorkloadField(io, "provisionWorkload", parts.provision_workload, true);
     try writeProvisionRepackField(io, "provisionRepack", parts.provision_repack, true);
@@ -1163,6 +1312,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
         true,
     );
     try writeProvisionRuntimeField(io, "provisionRuntime", parts.provision_runtime, true);
+    try writeScratchModeField(io, "plannedScratchMode", parts.planned_scratch_mode, true);
     try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
     try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
     try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
@@ -1177,6 +1327,7 @@ fn writeCoreFields(
     io: std.Io,
     plan: boot_plan.Plan,
     cpu_policy: ?boot_plan.CpuPolicyPlan,
+    root_disk_mode: boot_plan.RootDiskMode,
 ) !void {
     assert(@sizeOf(boot_plan.Plan) > 0);
 
@@ -1187,12 +1338,36 @@ fn writeCoreFields(
     try writeBoolField(io, "needsInitramfs", plan.needs_initramfs, true);
     try writeCpuPolicyField(io, "cpuPolicy", cpu_policy, true);
     try writeBoolField(io, "wantsRootDisk", plan.wants_root_disk, true);
+    try writeRootDiskModeField(io, "rootDiskMode", root_disk_mode, true);
     try writeNullableStringField(
         io,
         "normalizedMountGuest",
         plan.normalized_mount_guest,
         true,
     );
+}
+
+fn writeRootDiskModeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mode: boot_plan.RootDiskMode,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.writeJsonString(io, rootDiskModeName(mode));
+}
+
+fn rootDiskModeName(mode: boot_plan.RootDiskMode) []const u8 {
+    assert(@sizeOf(boot_plan.RootDiskMode) > 0);
+
+    return switch (mode) {
+        .unset => "unset",
+        .false_value => "false",
+        .path => "path",
+        .true_value => "true",
+    };
 }
 
 fn writeCpuPolicyField(
@@ -1279,6 +1454,20 @@ fn writeGuestHostnameField(
     var buffer: [256]u8 = undefined;
     const hostname = boot_plan.formatGuestHostname(&buffer, input) catch
         return error.InvalidGuestHostnameName;
+    try writeNullableStringField(io, field, hostname, comma);
+}
+
+fn writeGuestHostnameSetField(
+    io: std.Io,
+    comptime field: []const u8,
+    input: boot_plan.GuestHostnameSetInput,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    var buffer: [256]u8 = undefined;
+    const hostname = boot_plan.formatGuestHostnameSet(&buffer, input) catch
+        return error.InvalidGuestHostnameSetName;
     try writeNullableStringField(io, field, hostname, comma);
 }
 
@@ -1471,6 +1660,22 @@ fn writeBundleConfigPathsField(
     try protocol.stdout(io, "}");
 }
 
+fn writeBundlePackField(
+    io: std.Io,
+    comptime field: []const u8,
+    plan: boot_plan.BundlePackPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeFieldName(io, "kind", false);
+    try protocol.writeJsonString(io, plan.kind);
+    try writeNullableStringField(io, "tinyMountGuest", plan.tiny_mount_guest, true);
+    try protocol.stdout(io, "}");
+}
+
 fn writeProvisionAssetsField(
     io: std.Io,
     comptime field: []const u8,
@@ -1487,6 +1692,51 @@ fn writeProvisionAssetsField(
     try writeNullableStringField(io, "dtbAsset", assets.dtb_asset, true);
     try protocol.stdout(io, ",\"rootfsAsset\":");
     try protocol.writeJsonString(io, assets.rootfs_asset);
+    try protocol.stdout(io, "}");
+}
+
+fn writeProvisionDtbField(
+    io: std.Io,
+    comptime field: []const u8,
+    plan: boot_plan.ProvisionDtbPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeBoolField(io, "required", plan.required, false);
+    try writeNullableStringField(io, "asset", plan.asset, true);
+    try writeNullableStringField(io, "cliCacheName", plan.cli_cache_name, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeProvisionCliCacheField(
+    io: std.Io,
+    comptime field: []const u8,
+    plan: boot_plan.ProvisionCliCachePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "baseDir", plan.base_dir, false);
+    try protocol.stdout(io, "}");
+}
+
+fn writeProvisionAssetLookupField(
+    io: std.Io,
+    comptime field: []const u8,
+    plan: boot_plan.ProvisionAssetLookupPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "path", plan.path, false);
+    try writeNullableStringField(io, "error", plan.error_kind, true);
     try protocol.stdout(io, "}");
 }
 
@@ -1585,6 +1835,29 @@ fn writeProvisionRuntimeField(
     try writeNullableStringField(io, "rootDiskPath", runtime.root_disk_path, true);
     try writeNullableStringField(io, "udsPath", runtime.uds_path, true);
     try protocol.stdout(io, "}");
+}
+
+fn writeScratchModeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mode: boot_plan.ScratchDiskMode,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.writeJsonString(io, scratchDiskModeName(mode));
+}
+
+fn scratchDiskModeName(mode: boot_plan.ScratchDiskMode) []const u8 {
+    assert(@sizeOf(boot_plan.ScratchDiskMode) > 0);
+
+    return switch (mode) {
+        .unset => "unset",
+        .false_value => "false",
+        .path => "path",
+        .auto => "auto",
+    };
 }
 
 fn writeScratchDiskField(
@@ -1981,6 +2254,20 @@ fn makeGuestHostname(parsed: ParsedRequest) RequestError!boot_plan.GuestHostname
     };
 }
 
+fn makeGuestHostnameSet(parsed: ParsedRequest) RequestError!boot_plan.GuestHostnameSetInput {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return .{
+        .pid = if (parsed.guest_hostname_set_pid_text) |text|
+            parseSigned(text) catch return error.InvalidGuestHostnameSetPid
+        else
+            null,
+        .name = parsed.guest_hostname_set_name,
+        .vsock_uds_path = parsed.guest_hostname_set_vsock_uds_path,
+        .skip = parsed.guest_hostname_set_skip,
+    };
+}
+
 fn makeGuestEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.EnvPair {
     assert(@sizeOf(ParsedRequest) > 0);
 
@@ -2217,7 +2504,34 @@ fn parseBootShapeFields(
         "hasSnapshot",
         error.InvalidHasSnapshot,
     );
-    request.root_disk = try requiredRootDisk(object);
+    request.root_disk_option_false = try optionalBoolDefaultFalse(
+        object,
+        "rootDiskOptionFalse",
+        error.InvalidRootDiskOptionFalse,
+    );
+    request.root_disk_option_true = try optionalBoolDefaultFalse(
+        object,
+        "rootDiskOptionTrue",
+        error.InvalidRootDiskOptionTrue,
+    );
+    request.root_disk_option_path = try optionalStringDefaultNull(
+        object,
+        "rootDiskOptionPath",
+        error.InvalidRootDiskOptionPath,
+    );
+    request.root_disk_restore_path = try optionalStringDefaultNull(
+        object,
+        "rootDiskRestorePath",
+        error.InvalidRootDiskRestorePath,
+    );
+    const legacy_root_disk = try optionalRootDisk(object);
+    const option_root_disk = boot_plan.planRootDiskMode(.{
+        .false_value = request.root_disk_option_false,
+        .true_value = request.root_disk_option_true,
+        .path = request.root_disk_option_path,
+        .restore_path = request.root_disk_restore_path,
+    });
+    request.root_disk = if (option_root_disk != .unset) option_root_disk else legacy_root_disk;
     request.guest_cwd = try optionalStringDefaultNull(
         object,
         "guestCwd",
@@ -2260,6 +2574,26 @@ fn parseVsockFields(object: std.json.ObjectMap, request: *ParsedRequest) Request
         object,
         "guestHostnameName",
         error.InvalidGuestHostnameName,
+    );
+    request.guest_hostname_set_pid_text = try optionalStringDefaultNull(
+        object,
+        "guestHostnameSetPid",
+        error.InvalidGuestHostnameSetPid,
+    );
+    request.guest_hostname_set_name = try optionalStringDefaultNull(
+        object,
+        "guestHostnameSetName",
+        error.InvalidGuestHostnameSetName,
+    );
+    request.guest_hostname_set_vsock_uds_path = try optionalStringDefaultNull(
+        object,
+        "guestHostnameSetVsockUdsPath",
+        error.InvalidGuestHostnameSetVsockUdsPath,
+    );
+    request.guest_hostname_set_skip = try optionalBoolDefaultFalse(
+        object,
+        "guestHostnameSetSkip",
+        error.InvalidGuestHostnameSetSkip,
     );
     request.existing_vsock_spec = try optionalStringDefaultNull(
         object,
@@ -2559,6 +2893,30 @@ fn parseBundleFields(
         "bundleConfigSynthDir",
         error.InvalidBundleConfigSynthDir,
     );
+    try parseBundlePackFields(object, request);
+}
+
+fn parseBundlePackFields(
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    request.bundle_pack_use_tiny = try optionalBoolDefaultFalse(
+        object,
+        "bundlePackUseTiny",
+        error.InvalidBundlePackUseTiny,
+    );
+    request.bundle_pack_mount_guest = try optionalStringDefaultNull(
+        object,
+        "bundlePackMountGuest",
+        error.InvalidBundlePackMountGuest,
+    );
+    request.bundle_pack_restore_mount_guest = try optionalStringDefaultNull(
+        object,
+        "bundlePackRestoreMountGuest",
+        error.InvalidBundlePackRestoreMountGuest,
+    );
 }
 
 fn parseProvisionFields(
@@ -2578,6 +2936,51 @@ fn parseProvisionFields(
         object,
         "provisionHostArch",
         error.InvalidProvisionHostArch,
+    );
+    request.provision_dtb_explicit = try optionalBoolDefaultFalse(
+        object,
+        "provisionDtbExplicit",
+        error.InvalidProvisionDtbExplicit,
+    );
+    request.provision_cli_cache_home = try optionalStringDefaultNull(
+        object,
+        "provisionCliCacheHome",
+        error.InvalidProvisionCliCacheHome,
+    );
+    request.provision_cli_cache_version = try optionalStringDefaultNull(
+        object,
+        "provisionCliCacheVersion",
+        error.InvalidProvisionCliCacheVersion,
+    );
+    request.provision_asset_explicit_path = try optionalStringDefaultNull(
+        object,
+        "provisionAssetExplicitPath",
+        error.InvalidProvisionAssetExplicitPath,
+    );
+    request.provision_asset_explicit_exists = try optionalBoolDefaultNull(
+        object,
+        "provisionAssetExplicitExists",
+        error.InvalidProvisionAssetExplicitExists,
+    );
+    request.provision_asset_assets_dir_path = try optionalStringDefaultNull(
+        object,
+        "provisionAssetAssetsDirPath",
+        error.InvalidProvisionAssetAssetsDirPath,
+    );
+    request.provision_asset_assets_dir_exists = try optionalBoolDefaultNull(
+        object,
+        "provisionAssetAssetsDirExists",
+        error.InvalidProvisionAssetAssetsDirExists,
+    );
+    request.provision_asset_cache_path = try optionalStringDefaultNull(
+        object,
+        "provisionAssetCachePath",
+        error.InvalidProvisionAssetCachePath,
+    );
+    request.provision_asset_cache_exists = try optionalBoolDefaultNull(
+        object,
+        "provisionAssetCacheExists",
+        error.InvalidProvisionAssetCacheExists,
     );
     try parseProvisionBootFields(object, request);
     try parseProvisionRepackFields(object, request);
@@ -2705,6 +3108,16 @@ fn parseDiskRuntimeFields(
 fn parseScratchFields(object: std.json.ObjectMap, request: *ParsedRequest) RequestError!void {
     assert(@sizeOf(ParsedRequest) > 0);
 
+    request.scratch_option_false = try optionalBoolDefaultFalse(
+        object,
+        "scratchOptionFalse",
+        error.InvalidScratchOptionFalse,
+    );
+    request.scratch_option_path = try optionalStringDefaultNull(
+        object,
+        "scratchOptionPath",
+        error.InvalidScratchOptionPath,
+    );
     request.scratch_mode = try optionalScratchMode(object);
     request.scratch_snapshot_path = try optionalStringDefaultNull(
         object,
@@ -3516,10 +3929,10 @@ fn optionalResourcesMemory(object: std.json.ObjectMap) RequestError!?ParsedResou
     };
 }
 
-fn requiredRootDisk(object: std.json.ObjectMap) RequestError!boot_plan.RootDiskMode {
+fn optionalRootDisk(object: std.json.ObjectMap) RequestError!boot_plan.RootDiskMode {
     assert(@sizeOf(boot_plan.RootDiskMode) > 0);
 
-    const value = object.get("rootDisk") orelse return error.MissingRootDisk;
+    const value = object.get("rootDisk") orelse return .unset;
     if (value != .string) return error.InvalidRootDisk;
     if (std.mem.eql(u8, value.string, "unset")) return .unset;
     if (std.mem.eql(u8, value.string, "false")) return .false_value;
@@ -3819,6 +4232,13 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
     if (try writePortForwardRequestError(io, err)) return;
     if (try writeSnapshotRequestError(io, err)) return;
     if (try writeLiveMountRequestError(io, err)) return;
+    if (try writeBundleRequestError(io, err)) return;
+    if (try writeGuestHostnameRequestError(io, err)) return;
+    if (try writeRootDiskRequestError(io, err)) return;
+    if (try writeScratchRequestError(io, err)) return;
+    if (try writeProvisionDtbRequestError(io, err)) return;
+    if (try writeProvisionCliCacheRequestError(io, err)) return;
+    if (try writeProvisionAssetLookupRequestError(io, err)) return;
 
     switch (err) {
         error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
@@ -3838,6 +4258,150 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
+}
+
+fn writeProvisionAssetLookupRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidProvisionAssetExplicitPath,
+        error.InvalidProvisionAssetAssetsDirPath,
+        error.InvalidProvisionAssetCachePath,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan provision asset lookup paths must be strings",
+        ),
+        error.InvalidProvisionAssetExplicitExists,
+        error.InvalidProvisionAssetAssetsDirExists,
+        error.InvalidProvisionAssetCacheExists,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan provision asset lookup exists flags must be booleans",
+        ),
+        else => return false,
+    }
+    return true;
+}
+
+fn writeProvisionCliCacheRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidProvisionCliCacheHome,
+        error.InvalidProvisionCliCacheVersion,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan provision cli cache fields must be strings",
+        ),
+        else => return false,
+    }
+    return true;
+}
+
+fn writeProvisionDtbRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidProvisionDtbExplicit => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan provision dtb explicit flag must be a boolean",
+        ),
+        else => return false,
+    }
+    return true;
+}
+
+fn writeScratchRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidScratchOptionFalse => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan scratch option false flag must be a boolean",
+        ),
+        error.InvalidScratchOptionPath => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan scratch option path must be a string",
+        ),
+        else => return false,
+    }
+    return true;
+}
+
+fn writeRootDiskRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidRootDiskOptionFalse,
+        error.InvalidRootDiskOptionTrue,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan rootDisk option flags must be booleans",
+        ),
+        error.InvalidRootDiskOptionPath,
+        error.InvalidRootDiskRestorePath,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan rootDisk option paths must be strings",
+        ),
+        else => return false,
+    }
+    return true;
+}
+
+fn writeGuestHostnameRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidGuestHostnameSetPid => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan guest hostname set pid must be a decimal integer",
+        ),
+        error.InvalidGuestHostnameSetSkip => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan guest hostname set skip flag must be a boolean",
+        ),
+        error.InvalidGuestHostnameSetName,
+        error.InvalidGuestHostnameSetVsockUdsPath,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan guest hostname set fields must be strings",
+        ),
+        else => return false,
+    }
+    return true;
+}
+
+fn writeBundleRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidBundlePackUseTiny => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan bundle pack tiny flag must be a boolean",
+        ),
+        error.InvalidBundlePackMountGuest,
+        error.InvalidBundlePackRestoreMountGuest,
+        => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan bundle pack mount guests must be strings",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writePortForwardRequestError(io: std.Io, err: RequestError) !bool {

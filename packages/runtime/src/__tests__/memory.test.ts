@@ -101,6 +101,85 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans rootDisk option mode with restore precedence", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const restored = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, rootDiskRestorePath: "/restore/root.img" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(restored.status).toBe(0);
+    expect(JSON.parse(restored.stdout).data.rootDiskMode).toBe("path");
+
+    const falseWins = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          rootDiskOptionFalse: true,
+          rootDiskRestorePath: "/restore/root.img",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(falseWins.status).toBe(0);
+    expect(JSON.parse(falseWins.stdout).data.rootDiskMode).toBe("false");
+  });
+
+  it("plans scratch option mode with false and path precedence", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const auto = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(auto.status).toBe(0);
+    expect(JSON.parse(auto.stdout).data.plannedScratchMode).toBe("auto");
+
+    const path = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, scratchOptionPath: "/snapshot.img" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(path.status).toBe(0);
+    expect(JSON.parse(path.stdout).data.plannedScratchMode).toBe("path");
+
+    const falseWins = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, scratchOptionFalse: true, scratchOptionPath: "/snapshot.img" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(falseWins.status).toBe(0);
+    expect(JSON.parse(falseWins.stdout).data.plannedScratchMode).toBe("false");
+  });
+
   it("plans CPU resource policy defaults and fractional quota", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
@@ -751,6 +830,111 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans provision CLI cache base directory", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      provisionCliCacheHome: "/home/friend",
+      provisionCliCacheVersion: "0.6.1",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, provisionGuestArchOverride: "amd64" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.provisionCliCache).toEqual({
+      baseDir: "/home/friend/.machinen/runtime-v0.6.1/bases/debian-amd64",
+    });
+  });
+
+  it("plans provision asset lookup order", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          provisionAssetExplicitPath: "/explicit/rootfs.tar.gz",
+          provisionAssetExplicitExists: false,
+          provisionAssetAssetsDirPath: "/assets/rootfs.tar.gz",
+          provisionAssetAssetsDirExists: true,
+          provisionAssetCachePath: "/cache/rootfs.tar.gz",
+          provisionAssetCacheExists: true,
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.provisionAssetLookup).toEqual({
+      path: null,
+      error: "missing",
+    });
+  });
+
+  it("plans provision dtb resolution requirement", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const arm64 = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, provisionGuestArchOverride: "arm64", provisionHostArch: "x64" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(arm64.status).toBe(0);
+    expect(JSON.parse(arm64.stdout).data.provisionDtb).toEqual({
+      required: true,
+      asset: "virt-arm64.dtb",
+      cliCacheName: "virt.dtb",
+    });
+
+    const amd64 = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, provisionGuestArchOverride: "amd64", provisionHostArch: "arm64" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(amd64.status).toBe(0);
+    expect(JSON.parse(amd64.stdout).data.provisionDtb).toEqual({
+      required: false,
+      asset: null,
+      cliCacheName: null,
+    });
+  });
+
   it("plans bundle workspace paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
@@ -798,6 +982,43 @@ describe("boot-plan helper schema", () => {
     expect(JSON.parse(result.stdout).data.bundleConfigPaths).toEqual({
       rootfsDir: "/tmp/machinen-bundle-test/bundle/rootfs",
       configPath: "/tmp/machinen-bundle-test/bundle/machinen-config.json",
+    });
+  });
+
+  it("plans bundle initramfs pack mode and tiny mount guest", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const tiny = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, bundlePackUseTiny: true, bundlePackMountGuest: "/mnt/data" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(tiny.status).toBe(0);
+    expect(JSON.parse(tiny.stdout).data.bundlePack).toEqual({
+      kind: "tiny",
+      tinyMountGuest: "/mnt/data",
+    });
+
+    const fat = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(fat.status).toBe(0);
+    expect(JSON.parse(fat.stdout).data.bundlePack).toEqual({
+      kind: "fat",
+      tinyMountGuest: null,
     });
   });
 
@@ -1468,6 +1689,46 @@ describe("boot-plan helper schema", () => {
     });
     expect(disabled.status).toBe(0);
     expect(JSON.parse(disabled.stdout).data.usePdeathsig).toBe(false);
+  });
+
+  it("plans guest hostname side-effect gating", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      guestHostnameSetPid: "1234",
+      guestHostnameSetName: "worker",
+    };
+    const planned = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, guestHostnameSetVsockUdsPath: "/tmp/exec.sock" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(planned.status).toBe(0);
+    expect(JSON.parse(planned.stdout).data.guestHostnameSet).toBe("worker-pid-1234");
+
+    const skipped = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          guestHostnameSetVsockUdsPath: "/tmp/exec.sock",
+          guestHostnameSetSkip: true,
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(skipped.status).toBe(0);
+    expect(JSON.parse(skipped.stdout).data.guestHostnameSet).toBeNull();
   });
 
   it("plans boot timeout default explicit and forever values", () => {

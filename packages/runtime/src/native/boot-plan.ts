@@ -980,16 +980,6 @@ export function planBootVmmArgvNative(input: {
   return { command: plan.vmmCommand, args: plan.vmmArgs };
 }
 
-export function rootDiskPlanMode(rootDisk: boolean | string | undefined): RootDiskPlanMode {
-  return rootDisk === false
-    ? "false"
-    : rootDisk === true
-      ? "true"
-      : typeof rootDisk === "string"
-        ? "path"
-        : "unset";
-}
-
 const bootPlanError = (code: ErrorCode, message: string, opts?: MachinenErrorOptions): Error =>
   new BootError(code, message, opts);
 

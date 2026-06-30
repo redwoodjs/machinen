@@ -29,6 +29,13 @@ pub const RootDiskMode = enum {
     true_value,
 };
 
+pub const RootDiskOptionInput = struct {
+    false_value: bool = false,
+    true_value: bool = false,
+    path: ?[]const u8 = null,
+    restore_path: ?[]const u8 = null,
+};
+
 pub const ResourcesMemory = struct {
     max_mib: u64,
     reclaim: ?[]const u8,
@@ -60,6 +67,13 @@ pub const GuestEnvInput = struct {
 pub const GuestHostnameInput = struct {
     pid: ?i64 = null,
     name: ?[]const u8 = null,
+};
+
+pub const GuestHostnameSetInput = struct {
+    pid: ?i64 = null,
+    name: ?[]const u8 = null,
+    vsock_uds_path: ?[]const u8 = null,
+    skip: bool = false,
 };
 
 pub const VsockPlanInput = struct {
@@ -156,6 +170,17 @@ pub const BundleConfigPathsPlan = struct {
     config_path: ?[]const u8,
 };
 
+pub const BundlePackInput = struct {
+    use_tiny: bool = false,
+    mount_guest: ?[]const u8 = null,
+    restore_mount_guest: ?[]const u8 = null,
+};
+
+pub const BundlePackPlan = struct {
+    kind: []const u8,
+    tiny_mount_guest: ?[]const u8,
+};
+
 pub const ProvisionGuestCpu = enum {
     arm64,
     amd64,
@@ -177,6 +202,45 @@ pub const ProvisionAssetsPlan = struct {
     kernel_asset: []const u8,
     dtb_asset: ?[]const u8,
     rootfs_asset: []const u8,
+};
+
+pub const ProvisionDtbInput = struct {
+    explicit: bool = false,
+    guest_cpu: ?ProvisionGuestCpu = null,
+    arch_override: ?[]const u8 = null,
+    host_arch: ?[]const u8 = null,
+};
+
+pub const ProvisionDtbPlan = struct {
+    required: bool,
+    asset: ?[]const u8,
+    cli_cache_name: ?[]const u8,
+};
+
+pub const ProvisionCliCacheInput = struct {
+    home_dir: ?[]const u8 = null,
+    version: ?[]const u8 = null,
+    guest_cpu: ?ProvisionGuestCpu = null,
+    arch_override: ?[]const u8 = null,
+    host_arch: ?[]const u8 = null,
+};
+
+pub const ProvisionCliCachePlan = struct {
+    base_dir: ?[]const u8,
+};
+
+pub const ProvisionAssetLookupInput = struct {
+    explicit_path: ?[]const u8 = null,
+    explicit_exists: ?bool = null,
+    assets_dir_path: ?[]const u8 = null,
+    assets_dir_exists: ?bool = null,
+    cache_path: ?[]const u8 = null,
+    cache_exists: ?bool = null,
+};
+
+pub const ProvisionAssetLookupPlan = struct {
+    path: ?[]const u8,
+    error_kind: ?[]const u8,
 };
 
 pub const ProvisionBootInput = struct {
@@ -352,6 +416,11 @@ pub const ScratchDiskMode = enum {
     false_value,
     path,
     auto,
+};
+
+pub const ScratchOptionInput = struct {
+    false_value: bool = false,
+    path: ?[]const u8 = null,
 };
 
 pub const ScratchDiskInput = struct {
@@ -689,6 +758,14 @@ pub fn formatGuestHostname(buffer: []u8, input: GuestHostnameInput) !?[]const u8
     return buffer[0..len];
 }
 
+pub fn formatGuestHostnameSet(buffer: []u8, input: GuestHostnameSetInput) !?[]const u8 {
+    assert(buffer.len > 0);
+
+    if (input.skip) return null;
+    if (input.vsock_uds_path == null) return null;
+    return formatGuestHostname(buffer, .{ .pid = input.pid, .name = input.name });
+}
+
 fn appendSanitizedHostnameName(buffer: []u8, len: *u16, name: []const u8) !void {
     assert(name.len <= buffer.len or buffer.len > 0);
 
@@ -762,6 +839,16 @@ pub fn planNestedEnv(nested: bool) ?[]const u8 {
     assert(@sizeOf(bool) > 0);
 
     return if (nested) "1" else null;
+}
+
+pub fn planRootDiskMode(input: RootDiskOptionInput) RootDiskMode {
+    assert(@sizeOf(RootDiskOptionInput) > 0);
+
+    if (input.false_value) return .false_value;
+    if (input.restore_path != null) return .path;
+    if (input.path != null) return .path;
+    if (input.true_value) return .true_value;
+    return .unset;
 }
 
 pub fn planCpuResources(input: ?CpuResourcesInput) PlanError!?CpuPolicyPlan {
@@ -1124,6 +1211,65 @@ fn provisionRepackInputEmpty(input: ProvisionRepackInput) bool {
     return input.disk_path == null and input.out_path == null and input.extract_dir == null;
 }
 
+pub fn planProvisionDtb(input: ProvisionDtbInput) ProvisionDtbPlan {
+    assert(@sizeOf(ProvisionDtbInput) > 0);
+
+    if (input.explicit) return .{ .required = false, .asset = null, .cli_cache_name = null };
+    const assets = planProvisionAssets(.{
+        .guest_cpu = input.guest_cpu,
+        .arch_override = input.arch_override,
+        .host_arch = input.host_arch,
+    });
+    const asset = assets.dtb_asset orelse return .{
+        .required = false,
+        .asset = null,
+        .cli_cache_name = null,
+    };
+    return .{ .required = true, .asset = asset, .cli_cache_name = "virt.dtb" };
+}
+
+pub fn planProvisionCliCacheBaseDir(
+    allocator: std.mem.Allocator,
+    input: ProvisionCliCacheInput,
+) !ProvisionCliCachePlan {
+    assert(@sizeOf(ProvisionCliCacheInput) > 0);
+
+    const home_dir = input.home_dir orelse return .{ .base_dir = null };
+    const version = input.version orelse return .{ .base_dir = null };
+    const assets = planProvisionAssets(.{
+        .guest_cpu = input.guest_cpu,
+        .arch_override = input.arch_override,
+        .host_arch = input.host_arch,
+    });
+    var release_buf: [128]u8 = undefined;
+    const release_dir = try std.fmt.bufPrint(&release_buf, "runtime-v{s}", .{version});
+    var cpu_buf: [32]u8 = undefined;
+    const cpu_dir = try std.fmt.bufPrint(&cpu_buf, "debian-{s}", .{assets.cpu});
+    return .{
+        .base_dir = try std.fs.path.join(
+            allocator,
+            &.{ home_dir, ".machinen", release_dir, "bases", cpu_dir },
+        ),
+    };
+}
+
+pub fn planProvisionAssetLookup(input: ProvisionAssetLookupInput) ProvisionAssetLookupPlan {
+    assert(@sizeOf(ProvisionAssetLookupInput) > 0);
+
+    if (input.explicit_path) |path| {
+        if (input.explicit_exists == true) return .{ .path = path, .error_kind = null };
+        return .{ .path = null, .error_kind = "missing" };
+    }
+    if (input.assets_dir_path) |path| {
+        if (input.assets_dir_exists == true) return .{ .path = path, .error_kind = null };
+        return .{ .path = null, .error_kind = "assets-dir-invalid" };
+    }
+    if (input.cache_path) |path| {
+        if (input.cache_exists == true) return .{ .path = path, .error_kind = null };
+    }
+    return .{ .path = null, .error_kind = "missing" };
+}
+
 pub fn planProvisionBoot(
     allocator: std.mem.Allocator,
     input: ProvisionBootInput,
@@ -1174,6 +1320,14 @@ pub fn planProvisionGuestCpu(input: ProvisionGuestCpuInput) ProvisionGuestCpu {
         if (std.mem.eql(u8, host_arch, "x64")) return .amd64;
     }
     return .arm64;
+}
+
+pub fn planScratchMode(input: ScratchOptionInput) ScratchDiskMode {
+    assert(@sizeOf(ScratchOptionInput) > 0);
+
+    if (input.false_value) return .false_value;
+    if (input.path != null) return .path;
+    return .auto;
 }
 
 pub fn planProvisionAssets(input: ProvisionAssetsInput) ProvisionAssetsPlan {
@@ -1235,6 +1389,16 @@ pub fn planBundleConfigPaths(
             synth_bundle_dir,
             "machinen-config.json",
         }),
+    };
+}
+
+pub fn planBundlePack(input: BundlePackInput) BundlePackPlan {
+    assert(@sizeOf(BundlePackInput) > 0);
+
+    if (!input.use_tiny) return .{ .kind = "fat", .tiny_mount_guest = null };
+    return .{
+        .kind = "tiny",
+        .tiny_mount_guest = input.mount_guest orelse input.restore_mount_guest,
     };
 }
 
@@ -2009,6 +2173,20 @@ test "planCpuResources applies defaults and validates cpu policy" {
     try std.testing.expectError(error.InvalidCpuWeight, planCpuResources(.{ .weight = 10_001 }));
 }
 
+test "planRootDiskMode applies option precedence" {
+    try std.testing.expectEqual(RootDiskMode.unset, planRootDiskMode(.{}));
+    try std.testing.expectEqual(RootDiskMode.true_value, planRootDiskMode(.{ .true_value = true }));
+    try std.testing.expectEqual(RootDiskMode.path, planRootDiskMode(.{ .path = "/tmp/root.img" }));
+    try std.testing.expectEqual(
+        RootDiskMode.path,
+        planRootDiskMode(.{ .restore_path = "/restore/root.img" }),
+    );
+    try std.testing.expectEqual(RootDiskMode.false_value, planRootDiskMode(.{
+        .false_value = true,
+        .restore_path = "/restore/root.img",
+    }));
+}
+
 test "planCore validates command and rootdisk image requirements" {
     try std.testing.expectError(error.CmdWithoutImage, planCore(.{
         .has_cmd = true,
@@ -2389,6 +2567,96 @@ test "planProvisionGuestCpu uses override, host arch, and arm64 fallback" {
     }));
 }
 
+test "planScratchMode applies option precedence" {
+    try std.testing.expectEqual(ScratchDiskMode.auto, planScratchMode(.{}));
+    try std.testing.expectEqual(
+        ScratchDiskMode.path,
+        planScratchMode(.{ .path = "/tmp/scratch.img" }),
+    );
+    try std.testing.expectEqual(ScratchDiskMode.false_value, planScratchMode(.{
+        .false_value = true,
+        .path = "/tmp/scratch.img",
+    }));
+}
+
+test "planProvisionAssetLookup preserves explicit assets-dir cache order" {
+    const explicit_hit = planProvisionAssetLookup(.{
+        .explicit_path = "/explicit/rootfs.tar.gz",
+        .explicit_exists = true,
+        .assets_dir_path = "/assets/rootfs.tar.gz",
+        .assets_dir_exists = true,
+    });
+    try std.testing.expectEqualStrings("/explicit/rootfs.tar.gz", explicit_hit.path.?);
+    try std.testing.expect(explicit_hit.error_kind == null);
+
+    const explicit_missing = planProvisionAssetLookup(.{
+        .explicit_path = "/explicit/rootfs.tar.gz",
+        .explicit_exists = false,
+        .assets_dir_path = "/assets/rootfs.tar.gz",
+        .assets_dir_exists = true,
+    });
+    try std.testing.expect(explicit_missing.path == null);
+    try std.testing.expectEqualStrings("missing", explicit_missing.error_kind.?);
+
+    const assets_missing = planProvisionAssetLookup(.{
+        .assets_dir_path = "/assets/rootfs.tar.gz",
+        .assets_dir_exists = false,
+        .cache_path = "/cache/rootfs.tar.gz",
+        .cache_exists = true,
+    });
+    try std.testing.expect(assets_missing.path == null);
+    try std.testing.expectEqualStrings("assets-dir-invalid", assets_missing.error_kind.?);
+
+    const cache_hit = planProvisionAssetLookup(.{
+        .cache_path = "/cache/rootfs.tar.gz",
+        .cache_exists = true,
+    });
+    try std.testing.expectEqualStrings("/cache/rootfs.tar.gz", cache_hit.path.?);
+}
+
+test "planProvisionCliCacheBaseDir derives release cache by guest cpu" {
+    const amd64 = (try planProvisionCliCacheBaseDir(std.testing.allocator, .{
+        .home_dir = "/home/friend",
+        .version = "0.6.1",
+        .arch_override = "amd64",
+    })).base_dir.?;
+    defer std.testing.allocator.free(amd64);
+    try std.testing.expectEqualStrings(
+        "/home/friend/.machinen/runtime-v0.6.1/bases/debian-amd64",
+        amd64,
+    );
+
+    const arm64 = (try planProvisionCliCacheBaseDir(std.testing.allocator, .{
+        .home_dir = "/home/friend",
+        .version = "0.6.1",
+        .arch_override = "arm64",
+    })).base_dir.?;
+    defer std.testing.allocator.free(arm64);
+    try std.testing.expectEqualStrings(
+        "/home/friend/.machinen/runtime-v0.6.1/bases/debian-arm64",
+        arm64,
+    );
+
+    try std.testing.expect((try planProvisionCliCacheBaseDir(std.testing.allocator, .{
+        .version = "0.6.1",
+    })).base_dir == null);
+}
+
+test "planProvisionDtb plans omitted dtb requirement by guest cpu" {
+    const arm64 = planProvisionDtb(.{ .arch_override = "arm64", .host_arch = "x64" });
+    try std.testing.expect(arm64.required);
+    try std.testing.expectEqualStrings("virt-arm64.dtb", arm64.asset.?);
+    try std.testing.expectEqualStrings("virt.dtb", arm64.cli_cache_name.?);
+
+    const amd64 = planProvisionDtb(.{ .arch_override = "amd64", .host_arch = "arm64" });
+    try std.testing.expect(!amd64.required);
+    try std.testing.expect(amd64.asset == null);
+    try std.testing.expect(amd64.cli_cache_name == null);
+
+    const explicit = planProvisionDtb(.{ .explicit = true, .arch_override = "arm64" });
+    try std.testing.expect(!explicit.required);
+}
+
 test "planProvisionAssets selects asset names by guest CPU" {
     const arm = planProvisionAssets(.{ .guest_cpu = .arm64 });
     try std.testing.expectEqualStrings("arm64", arm.cpu);
@@ -2441,6 +2709,27 @@ test "planBundleConfigPaths derives bundle config staging paths" {
     const none = try planBundleConfigPaths(std.testing.allocator, .{});
     try std.testing.expect(none.rootfs_dir == null);
     try std.testing.expect(none.config_path == null);
+}
+
+test "planBundlePack selects fat or tiny initramfs inputs" {
+    const fat = planBundlePack(.{});
+    try std.testing.expectEqualStrings("fat", fat.kind);
+    try std.testing.expect(fat.tiny_mount_guest == null);
+
+    const tiny_fresh = planBundlePack(.{
+        .use_tiny = true,
+        .mount_guest = "/mnt/data",
+        .restore_mount_guest = "/mnt/restore",
+    });
+    try std.testing.expectEqualStrings("tiny", tiny_fresh.kind);
+    try std.testing.expectEqualStrings("/mnt/data", tiny_fresh.tiny_mount_guest.?);
+
+    const tiny_restore = planBundlePack(.{
+        .use_tiny = true,
+        .restore_mount_guest = "/mnt/restore",
+    });
+    try std.testing.expectEqualStrings("tiny", tiny_restore.kind);
+    try std.testing.expectEqualStrings("/mnt/restore", tiny_restore.tiny_mount_guest.?);
 }
 
 test "planBundleEnv overlays guest env on image env" {
@@ -2875,6 +3164,29 @@ test "planVsock parses existing specs and formats auto specs" {
         "in:1978:/tmp/machinen-vsock-abc/exec.sock",
         auto_dir.vmm_vsock.?,
     );
+}
+
+test "formatGuestHostnameSet gates hostname side effect on vsock and skip flag" {
+    var planned_buffer: [256]u8 = undefined;
+    const planned = (try formatGuestHostnameSet(&planned_buffer, .{
+        .pid = 1234,
+        .name = "worker",
+        .vsock_uds_path = "/tmp/exec.sock",
+    })).?;
+    try std.testing.expectEqualStrings("worker-pid-1234", planned);
+
+    var missing_vsock_buffer: [256]u8 = undefined;
+    try std.testing.expect((try formatGuestHostnameSet(&missing_vsock_buffer, .{
+        .pid = 1234,
+        .name = "worker",
+    })) == null);
+    var skip_buffer: [256]u8 = undefined;
+    try std.testing.expect((try formatGuestHostnameSet(&skip_buffer, .{
+        .pid = 1234,
+        .name = "worker",
+        .vsock_uds_path = "/tmp/exec.sock",
+        .skip = true,
+    })) == null);
 }
 
 test "planGuestEnv applies name and hostname wait defaults without overriding caller env" {

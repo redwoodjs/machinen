@@ -12492,7 +12492,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### evidenceStatus
 
-> **evidenceStatus**: `"proof"` \| `"checked"` \| `"missing"`
+> **evidenceStatus**: `"proof"` \| `"missing"` \| `"checked"`
 
 ##### checkedSummary?
 
@@ -12536,7 +12536,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### status
 
-> **status**: `"failed"` \| `"passed"` \| `"not-run"` \| `"missing"`
+> **status**: `"failed"` \| `"missing"` \| `"passed"` \| `"not-run"`
 
 ##### kind?
 
@@ -12628,7 +12628,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### status
 
-> **status**: `"failed"` \| `"passed"` \| `"missing"`
+> **status**: `"failed"` \| `"missing"` \| `"passed"`
 
 ##### message
 

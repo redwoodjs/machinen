@@ -45,6 +45,9 @@ import {
   planProvisionRuntimeNative,
   planProvisionWorkloadNative,
 } from "./native/boot-plan.ts";
+import { planProvisionAssetLookupNative } from "./native/provision-asset-lookup.ts";
+import { planProvisionCliCacheNative } from "./native/provision-cli-cache.ts";
+import { planProvisionDtbNative } from "./native/provision-dtb.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { allocateSparseFile } from "./vm/helpers.ts";
 import { reflinkCopy } from "./reflink.ts";
@@ -229,19 +232,36 @@ export function resolveBaseKernel(explicit?: string, cwd: string = process.cwd()
  *   PROVISION_ASSETS_DIR_INVALID
  */
 export function resolveBaseDtb(explicit?: string, cwd: string = process.cwd()): string | undefined {
-  const spec = baseAssetSpec();
-  if (!explicit && spec.cpu === "amd64") {
+  if (explicit) {
+    return resolveBaseAsset(
+      {
+        kind: "device tree blob",
+        param: "dtb",
+        assetsDirName: "virt-arm64.dtb",
+        cliCacheName: "virt.dtb",
+        missingCode: "PROVISION_DTB_NOT_FOUND",
+      },
+      explicit,
+      cwd,
+    );
+  }
+
+  const plan = planProvisionDtbNative({
+    guestArchOverride: process.env.MACHINEN_GUEST_ARCH,
+    hostArch: osArch(),
+  });
+  if (!plan.required) {
     return undefined;
   }
   return resolveBaseAsset(
     {
       kind: "device tree blob",
       param: "dtb",
-      assetsDirName: spec.dtbAsset ?? "virt-arm64.dtb",
-      cliCacheName: "virt.dtb",
+      assetsDirName: plan.asset ?? "virt-arm64.dtb",
+      cliCacheName: plan.cliCacheName ?? "virt.dtb",
       missingCode: "PROVISION_DTB_NOT_FOUND",
     },
-    explicit,
+    undefined,
     cwd,
   );
 }
@@ -278,37 +298,74 @@ interface BaseAssetSpec {
 }
 
 function resolveBaseAsset(spec: BaseAssetSpec, explicit: string | undefined, cwd: string): string {
-  if (explicit) {
-    const abs = resolve(cwd, explicit);
-    if (!existsSync(abs)) {
-      throw new ProvisionError(spec.missingCode, `${spec.kind} not found: ${abs}`);
-    }
-    return abs;
-  }
+  const lookup = provisionAssetLookupRequest(spec, explicit, cwd);
+  const plan = planProvisionAssetLookupNative(lookup);
+  return resolvedProvisionAssetPath(spec, lookup, plan);
+}
 
+interface ProvisionAssetLookupRequest {
+  explicitPath?: string;
+  explicitExists?: boolean;
+  assetsDir?: string;
+  assetsDirPath?: string;
+  assetsDirExists?: boolean;
+  cachePath?: string;
+  cacheExists?: boolean;
+}
+
+function provisionAssetLookupRequest(
+  spec: BaseAssetSpec,
+  explicit: string | undefined,
+  cwd: string,
+): ProvisionAssetLookupRequest {
+  const explicitPath = explicit ? resolve(cwd, explicit) : undefined;
   const assetsDir = process.env.MACHINEN_ASSETS_DIR;
-  if (assetsDir) {
-    const p = resolve(assetsDir, spec.assetsDirName);
-    if (!existsSync(p)) {
-      throw new ProvisionError(
-        "PROVISION_ASSETS_DIR_INVALID",
-        `MACHINEN_ASSETS_DIR=${assetsDir} does not contain ${spec.assetsDirName}`,
-      );
-    }
-    return p;
-  }
+  const assetsDirPath =
+    !explicitPath && assetsDir ? resolve(assetsDir, spec.assetsDirName) : undefined;
+  const cachePath =
+    !explicitPath && !assetsDirPath ? join(cliCachedBaseDir(), spec.cliCacheName) : undefined;
+  return {
+    explicitPath,
+    explicitExists: explicitPath ? existsSync(explicitPath) : undefined,
+    assetsDir,
+    assetsDirPath,
+    assetsDirExists: assetsDirPath ? existsSync(assetsDirPath) : undefined,
+    cachePath,
+    cacheExists: cachePath ? existsSync(cachePath) : undefined,
+  };
+}
 
-  const cached = join(cliCachedBaseDir(), spec.cliCacheName);
-  if (existsSync(cached)) {
-    return cached;
+function resolvedProvisionAssetPath(
+  spec: BaseAssetSpec,
+  lookup: ProvisionAssetLookupRequest,
+  plan: ReturnType<typeof planProvisionAssetLookupNative>,
+): string {
+  if (plan.path) {
+    return plan.path;
   }
+  if (plan.error === "assets-dir-invalid") {
+    throw new ProvisionError(
+      "PROVISION_ASSETS_DIR_INVALID",
+      `MACHINEN_ASSETS_DIR=${lookup.assetsDir} does not contain ${spec.assetsDirName}`,
+    );
+  }
+  throw missingProvisionAssetError(spec, lookup);
+}
 
-  throw new ProvisionError(
+function missingProvisionAssetError(
+  spec: BaseAssetSpec,
+  lookup: ProvisionAssetLookupRequest,
+): ProvisionError {
+  if (lookup.explicitPath) {
+    return new ProvisionError(spec.missingCode, `${spec.kind} not found: ${lookup.explicitPath}`);
+  }
+  const missingPath = lookup.cachePath ?? join(cliCachedBaseDir(), spec.cliCacheName);
+  return new ProvisionError(
     spec.missingCode,
     `${spec.kind} not found. Either:\n` +
       `  - pass \`${spec.param}\` explicitly, or\n` +
       `  - set MACHINEN_ASSETS_DIR to a directory containing ${spec.assetsDirName}, or\n` +
-      `  - install @machinen/cli and run it once to populate ${cached}`,
+      `  - install @machinen/cli and run it once to populate ${missingPath}`,
   );
 }
 
@@ -319,8 +376,19 @@ function cliCachedBaseDir(): string {
   // packages/cli/src/cli.ts).
   const pkgPath = resolve(import.meta.dirname, "..", "package.json");
   const version = (JSON.parse(readFileSync(pkgPath, "utf8")) as { version: string }).version;
-  const spec = baseAssetSpec();
-  return join(homedir(), ".machinen", `runtime-v${version}`, "bases", `debian-${spec.cpu}`);
+  const plan = planProvisionCliCacheNative({
+    homeDir: homedir(),
+    version,
+    guestArchOverride: process.env.MACHINEN_GUEST_ARCH,
+    hostArch: osArch(),
+  });
+  if (!plan.baseDir) {
+    throw new ProvisionError(
+      "PROVISION_BASE_NOT_FOUND",
+      "provision native planner returned missing cli cache base dir",
+    );
+  }
+  return plan.baseDir;
 }
 
 interface ProvisionContext {
