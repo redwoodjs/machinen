@@ -12,7 +12,7 @@ import type { Readable } from "node:stream";
 import debugLib from "debug";
 
 import { BootError } from "../errors.ts";
-import { readHostTotalBytes } from "../host-mem.ts";
+import { planBootCoreNative } from "../native/boot-plan.ts";
 import type { VsockExecOptions } from "../exec.ts";
 import type { OnLog } from "../log.ts";
 import type { VmHandle, WriteFileOptions } from "../vm-handle.ts";
@@ -48,30 +48,32 @@ export function allocateSparseFile(path: string, sizeBytes: number): void {
 // `packages/microvm/docs/memory.md`), but raising it still increases
 // guest metadata and the possible high-water mark, so the default
 // should not scale with large developer machines.
-const MEMORY_FLOOR_MIB = 512;
-const MEMORY_DEFAULT_CEILING_MIB = 4096;
-
-export function autoSizeMemoryMib(hostBytes: number = readHostTotalBytes()): number {
-  const hostMib = Math.floor(hostBytes / (1024 * 1024));
-  const hostAwareCeiling = Math.floor(hostMib / 2);
-  return Math.max(MEMORY_FLOOR_MIB, Math.min(hostAwareCeiling, MEMORY_DEFAULT_CEILING_MIB));
+export function autoSizeMemoryMib(hostBytes?: number): number {
+  const plan = planBootCoreNative({
+    hostTotalBytes: hostBytes,
+    vmmMemoryPreset: false,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  if (plan.memoryCeilingMib === null) {
+    throw new BootError("BOOT_MEMORY_INVALID", "boot: native memory planner returned no ceiling");
+  }
+  return plan.memoryCeilingMib;
 }
 
 export function validateMemoryMib(mib: number): number {
-  if (!Number.isInteger(mib) || mib <= 0) {
-    throw new BootError(
-      "BOOT_MEMORY_INVALID",
-      `boot: memory must be a positive integer (MiB, no unit suffix), got ${mib}`,
-    );
+  const plan = planBootCoreNative({
+    memoryMib: mib,
+    vmmMemoryPreset: false,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  if (plan.memoryCeilingMib === null) {
+    throw new BootError("BOOT_MEMORY_INVALID", "boot: native memory planner returned no ceiling");
   }
-  if (mib < MEMORY_FLOOR_MIB) {
-    throw new BootError(
-      "BOOT_MEMORY_INVALID",
-      `boot: memory must be at least ${MEMORY_FLOOR_MIB} MiB (got ${mib}); the kernel + ` +
-        `initramfs need headroom to boot.`,
-    );
-  }
-  return mib;
+  return plan.memoryCeilingMib;
 }
 
 /**
@@ -124,54 +126,34 @@ export function resolveVmmBinary(): string {
   }
 }
 
-/**
- * Parse the UDS path out of a `MACHINEN_VSOCK` spec. The spec may be a
- * single `<direction>:<port>:<uds-path>` entry or a comma-joined list
- * of them (`in:1978:/a,in:1974:/b,out:1970:/c`). For attach/exec we want
- * the FIRST `in:` entry's path — that's the exec-agent UDS the runtime
- * just allocated (or, when the caller set MACHINEN_VSOCK explicitly,
- * the entry they put first). Returns undefined on unrecognized shapes
- * so the handle can throw a clear error if `.exec()` ends up called on it.
- */
-export function parseVsockUdsPath(spec: string): string | undefined {
-  for (const entry of spec.split(",")) {
-    const match = entry.match(/^[^:]+:\d+:(.+)$/);
-    if (match) {
-      return match[1];
-    }
-  }
-  return undefined;
-}
-
-// The user-facing mount root. Guest paths must live under this prefix
-// so mounts can never shadow the base rootfs or kernel filesystems.
-const MOUNT_ROOT = "/mnt/";
-
+// Guest path validation lives in the native boot planner so mount
+// planning rules stay aligned across boot, restore, and live mounts.
 export function normalizeMountGuest(guest: string): string {
-  return guest.replace(/\/+$/, "");
+  const plan = planBootCoreNative({
+    mountGuest: guest,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  if (plan.normalizedMountGuest === null) {
+    throw new BootError("BOOT_MOUNT_INVALID", "boot: native planner returned no mount guest");
+  }
+  return plan.normalizedMountGuest;
 }
 
 export function validateGuestCwd(cwd: string): void {
-  if (!cwd || !cwd.startsWith("/")) {
-    throw new BootError("BOOT_CWD_INVALID", `guestCwd must be an absolute path (got '${cwd}')`);
-  }
-  if (cwd.includes("\0")) {
-    throw new BootError("BOOT_CWD_INVALID", "guestCwd must not contain NUL bytes");
-  }
+  planBootCoreNative({
+    guestCwd: cwd,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
 }
 
 export function validateMountGuest(guest: string): void {
-  if (!guest || !guest.startsWith("/")) {
-    throw new BootError("BOOT_MOUNT_INVALID", `mount guest path must be absolute: ${guest}`);
-  }
-  const trimmed = normalizeMountGuest(guest);
-  if (!trimmed.startsWith(MOUNT_ROOT) || trimmed === MOUNT_ROOT.replace(/\/$/, "")) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `mount guest path must live under ${MOUNT_ROOT} (got ${guest}) — ` +
-        `pick a sub-path like ${MOUNT_ROOT}app`,
-    );
-  }
+  normalizeMountGuest(guest);
 }
 
 /**

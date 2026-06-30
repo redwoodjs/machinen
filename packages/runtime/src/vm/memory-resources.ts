@@ -1,6 +1,6 @@
-import { BootError } from "../errors.ts";
 import type { BootCpuResourceOptions } from "./cpu-resources.ts";
-import { autoSizeMemoryMib, validateMemoryMib } from "./helpers.ts";
+import { planBootCoreNative } from "../native/boot-plan.ts";
+import { autoSizeMemoryMib } from "./helpers.ts";
 
 export interface BootResourcesOptions {
   /**
@@ -26,50 +26,22 @@ export interface BootMemoryResourceOptions {
   reclaim?: "auto";
 }
 
-type MemoryCeilingInput = {
-  memory?: number;
-  resources?: BootResourcesOptions;
-};
-
 export function resolveMemoryCeilingMib(
   opts: { memory?: number; resources?: BootResourcesOptions },
   autoSize: () => number = autoSizeMemoryMib,
 ): number {
-  return resolveExplicitMemoryCeilingMib(opts) ?? autoSize();
-}
-
-export function resolveExplicitMemoryCeilingMib(opts: MemoryCeilingInput): number | undefined {
-  const aliasCeiling = opts.memory !== undefined ? validateMemoryMib(opts.memory) : undefined;
-  const resourceCeiling = resolveResourceMemoryCeiling(opts.resources?.memory);
-  if (
-    aliasCeiling !== undefined &&
-    resourceCeiling !== undefined &&
-    aliasCeiling !== resourceCeiling
-  ) {
-    throw new BootError(
-      "BOOT_MEMORY_INVALID",
-      `boot: memory (${aliasCeiling} MiB) conflicts with resources.memory.maxMib (${resourceCeiling} MiB). Use one value.`,
-    );
+  const hasExplicit = opts.memory !== undefined || opts.resources?.memory !== undefined;
+  const plan = planBootCoreNative({
+    memoryMib: opts.memory,
+    resourcesMemory: opts.resources?.memory,
+    autoMemoryMib: !hasExplicit && autoSize !== autoSizeMemoryMib ? autoSize() : undefined,
+    vmmMemoryPreset: false,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  if (plan.memoryCeilingMib === null) {
+    throw new Error("boot: native memory planner returned no ceiling");
   }
-  return resourceCeiling ?? aliasCeiling;
-}
-
-function resolveResourceMemoryCeiling(
-  memory: BootMemoryResourceOptions | undefined,
-): number | undefined {
-  if (memory === undefined) {
-    return undefined;
-  }
-  validateMemoryReclaim(memory.reclaim);
-  return validateMemoryMib(memory.maxMib);
-}
-
-function validateMemoryReclaim(reclaim: BootMemoryResourceOptions["reclaim"] | undefined): void {
-  if (reclaim === undefined || reclaim === "auto") {
-    return;
-  }
-  throw new BootError(
-    "BOOT_MEMORY_INVALID",
-    `boot: resources.memory.reclaim must be "auto" when set (got ${JSON.stringify(reclaim)}).`,
-  );
+  return plan.memoryCeilingMib;
 }

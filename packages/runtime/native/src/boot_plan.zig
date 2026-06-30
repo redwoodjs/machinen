@@ -1,0 +1,622 @@
+// Pure boot-planning rules shared by the native `boot-plan` command.
+//
+// TypeScript still owns effects such as mkdir, fd opening, gvproxy startup,
+// and VMM spawn. This module owns the deterministic decisions that turn boot
+// options into memory ceilings, guest env defaults, vsock/env strings, VMM
+// argv, and validation errors. Keeping these rules native lets later PRs move
+// more boot setup without scattering policy across TS and Zig.
+
+const std = @import("std");
+
+const assert = std.debug.assert;
+
+const memory_floor_mib: u64 = 512;
+const memory_default_ceiling_mib: u64 = 4096;
+
+pub const RootDiskMode = enum {
+    unset,
+    false_value,
+    path,
+    true_value,
+};
+
+pub const ResourcesMemory = struct {
+    max_mib: u64,
+    reclaim: ?[]const u8,
+};
+
+pub const EnvPair = struct {
+    key: []const u8,
+    value: []const u8,
+};
+
+pub const GuestEnvInput = struct {
+    env: []const EnvPair,
+    name: ?[]const u8 = null,
+    vsock_uds_path: ?[]const u8 = null,
+};
+
+pub const VsockPlanInput = struct {
+    existing_spec: ?[]const u8 = null,
+    auto_uds_path: ?[]const u8 = null,
+};
+
+pub const VsockPlan = struct {
+    uds_path: ?[]const u8,
+    vmm_vsock: ?[]const u8,
+};
+
+pub const PortForwardMapping = struct {
+    host_port: i64,
+    guest_port: i64,
+};
+
+pub const PortForwardValidation = union(enum) {
+    ok,
+    invalid_host_port: i64,
+    invalid_guest_port: i64,
+    duplicate_host_port: u16,
+};
+
+pub const VmmArgvInput = struct {
+    binary: ?[]const u8 = null,
+    args: []const []const u8 = &.{},
+    pdeathsig_path: ?[]const u8 = null,
+};
+
+pub const VmmArgvPlan = struct {
+    command: ?[]const u8,
+    args: []const []const u8,
+};
+
+pub const KernelDtbInput = struct {
+    kernel_path: ?[]const u8 = null,
+    dtb_path: ?[]const u8 = null,
+};
+
+pub const KernelDtbPlan = struct {
+    vmm_kernel: ?[]const u8,
+    vmm_dtb: ?[]const u8,
+};
+
+pub const VmstateEnvInput = struct {
+    state_path: ?[]const u8 = null,
+    restore_path: ?[]const u8 = null,
+    enable_timing: bool = false,
+    existing_timing: ?[]const u8 = null,
+};
+
+pub const VmstateEnvPlan = struct {
+    snapshot_path: ?[]const u8,
+    restore_path: ?[]const u8,
+    vmstate_timing: ?[]const u8,
+};
+
+pub const LiveMount = struct {
+    host: []const u8,
+    mode: []const u8,
+    tag: []const u8,
+};
+
+pub const StatsFileInput = struct {
+    existing_path: ?[]const u8 = null,
+    planned_path: ?[]const u8 = null,
+};
+
+pub const StatsFilePlan = struct {
+    stats_file_path: ?[]const u8,
+    vmm_stats_file: ?[]const u8,
+};
+
+pub const Input = struct {
+    memory_mib: ?u64 = null,
+    resources_memory: ?ResourcesMemory = null,
+    auto_memory_mib: ?u64 = null,
+    host_total_bytes: ?u64 = null,
+    vmm_memory_preset: bool = false,
+    has_image: bool = false,
+    has_cmd: bool = false,
+    root_disk: RootDiskMode = .unset,
+    guest_cwd: ?[]const u8 = null,
+    mount_guest: ?[]const u8 = null,
+};
+
+pub const Plan = struct {
+    memory_ceiling_mib: ?u64,
+    vmm_memory_mib: ?u64,
+    wants_root_disk: bool,
+    normalized_mount_guest: ?[]const u8,
+};
+
+pub const PlanError = error{
+    InvalidMemory,
+    ConflictingMemory,
+    InvalidReclaim,
+    CmdWithoutImage,
+    RootDiskWithoutImage,
+    MissingAutoMemory,
+    InvalidGuestCwdAbsolute,
+    InvalidGuestCwdNul,
+    InvalidMountGuestAbsolute,
+    InvalidMountGuestRoot,
+};
+
+pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
+    assert(@sizeOf(GuestEnvInput) > 0);
+
+    var out: std.array_list.Aligned(EnvPair, null) = .empty;
+    errdefer out.deinit(allocator);
+    var has_name = false;
+    var has_hostname_wait = false;
+    for (input.env) |pair| {
+        try out.append(allocator, pair);
+        if (std.mem.eql(u8, pair.key, "MACHINEN_VM_NAME")) has_name = true;
+        if (std.mem.eql(u8, pair.key, "MACHINEN_VM_HOSTNAME_WAIT")) has_hostname_wait = true;
+    }
+    if (input.name) |name| {
+        if (!has_name) try out.append(allocator, .{ .key = "MACHINEN_VM_NAME", .value = name });
+    }
+    if (input.vsock_uds_path != null and !has_hostname_wait) {
+        try out.append(allocator, .{ .key = "MACHINEN_VM_HOSTNAME_WAIT", .value = "1" });
+    }
+    return out.toOwnedSlice(allocator);
+}
+
+pub fn planVsock(allocator: std.mem.Allocator, input: VsockPlanInput) !VsockPlan {
+    assert(@sizeOf(VsockPlanInput) > 0);
+
+    if (input.existing_spec) |spec| {
+        return .{ .uds_path = parseVsockUdsPath(spec), .vmm_vsock = null };
+    }
+    if (input.auto_uds_path) |uds| {
+        return .{
+            .uds_path = uds,
+            .vmm_vsock = try std.mem.concat(allocator, u8, &.{ "in:1978:", uds }),
+        };
+    }
+    return .{ .uds_path = null, .vmm_vsock = null };
+}
+
+pub fn parseVsockUdsPath(spec: []const u8) ?[]const u8 {
+    assert(@sizeOf([]const u8) > 0);
+
+    var entries = std.mem.splitScalar(u8, spec, ',');
+    while (entries.next()) |entry| {
+        const first_colon = std.mem.indexOfScalar(u8, entry, ':') orelse continue;
+        const rest = entry[first_colon + 1 ..];
+        const second_rel = std.mem.indexOfScalar(u8, rest, ':') orelse continue;
+        const port = rest[0..second_rel];
+        if (port.len == 0) continue;
+        if (!isDecimal(port)) continue;
+        const path = rest[second_rel + 1 ..];
+        if (path.len > 0) return path;
+    }
+    return null;
+}
+
+pub fn planKernelDtb(input: KernelDtbInput) KernelDtbPlan {
+    assert(@sizeOf(KernelDtbInput) > 0);
+
+    return .{ .vmm_kernel = input.kernel_path, .vmm_dtb = input.dtb_path };
+}
+
+pub fn planVmstateEnv(input: VmstateEnvInput) VmstateEnvPlan {
+    assert(@sizeOf(VmstateEnvInput) > 0);
+
+    const should_set_timing = input.restore_path != null and
+        input.enable_timing and
+        (input.existing_timing == null or input.existing_timing.?.len == 0);
+    return .{
+        .snapshot_path = input.state_path,
+        .restore_path = input.restore_path,
+        .vmstate_timing = if (should_set_timing) "1" else null,
+    };
+}
+
+pub fn planVirtiofsEnv(allocator: std.mem.Allocator, mounts: []const LiveMount) ![]EnvPair {
+    assert(@sizeOf(LiveMount) > 0);
+
+    var out: std.array_list.Aligned(EnvPair, null) = .empty;
+    errdefer out.deinit(allocator);
+    for (mounts, 0..) |mount, i| {
+        var key_buf: [64]u8 = undefined;
+        const key_text = try std.fmt.bufPrint(&key_buf, "MACHINEN_VIRTIOFS_{d}", .{i});
+        const key = try std.mem.concat(allocator, u8, &.{key_text});
+        const value = try std.mem.concat(
+            allocator,
+            u8,
+            &.{ mount.tag, ":", mount.mode, ":", mount.host },
+        );
+        try out.append(allocator, .{ .key = key, .value = value });
+    }
+    return out.toOwnedSlice(allocator);
+}
+
+pub fn planStatsFile(input: StatsFileInput) StatsFilePlan {
+    assert(@sizeOf(StatsFileInput) > 0);
+
+    if (input.existing_path) |path| {
+        return .{ .stats_file_path = path, .vmm_stats_file = null };
+    }
+    return .{ .stats_file_path = input.planned_path, .vmm_stats_file = input.planned_path };
+}
+
+pub fn planVmmArgv(allocator: std.mem.Allocator, input: VmmArgvInput) !VmmArgvPlan {
+    assert(@sizeOf(VmmArgvInput) > 0);
+
+    const binary = input.binary orelse return .{ .command = null, .args = &.{} };
+    if (input.pdeathsig_path) |pdeathsig| {
+        var args: std.array_list.Aligned([]const u8, null) = .empty;
+        errdefer args.deinit(allocator);
+        try args.append(allocator, binary);
+        try args.appendSlice(allocator, input.args);
+        return .{ .command = pdeathsig, .args = try args.toOwnedSlice(allocator) };
+    }
+    return .{ .command = binary, .args = input.args };
+}
+
+pub fn validatePortForward(mappings: []const PortForwardMapping) PortForwardValidation {
+    assert(@sizeOf(PortForwardMapping) > 0);
+
+    var seen = std.StaticBitSet(65536).initEmpty();
+    for (mappings) |mapping| {
+        const host_port = validateTcpPort(mapping.host_port) orelse
+            return .{ .invalid_host_port = mapping.host_port };
+        if (validateTcpPort(mapping.guest_port) == null) {
+            return .{ .invalid_guest_port = mapping.guest_port };
+        }
+        if (seen.isSet(@intCast(host_port))) return .{ .duplicate_host_port = host_port };
+        seen.set(@intCast(host_port));
+    }
+    return .ok;
+}
+
+fn validateTcpPort(port: i64) ?u16 {
+    assert(@sizeOf(i64) == 8);
+
+    if (port < 1 or port > 65535) return null;
+    return @intCast(port);
+}
+
+pub fn autoSizeMemoryMib(host_total_bytes: u64) u64 {
+    assert(memory_floor_mib > 0);
+
+    const host_mib = @divFloor(host_total_bytes, 1024 * 1024);
+    const host_aware_ceiling = @divFloor(host_mib, 2);
+    return @max(memory_floor_mib, @min(host_aware_ceiling, memory_default_ceiling_mib));
+}
+
+pub fn validateMemoryMib(mib: u64) PlanError!u64 {
+    assert(memory_floor_mib > 0);
+
+    if (mib < memory_floor_mib) return error.InvalidMemory;
+    return mib;
+}
+
+pub fn planCore(input: Input) PlanError!Plan {
+    assert(@sizeOf(Input) > 0);
+
+    if (input.has_cmd and !input.has_image) return error.CmdWithoutImage;
+
+    const wants_root_disk = input.root_disk != .false_value and
+        (input.root_disk == .path or input.root_disk == .true_value or input.has_image);
+    if (wants_root_disk and input.root_disk != .path and !input.has_image) {
+        return error.RootDiskWithoutImage;
+    }
+    if (input.guest_cwd) |cwd| try validateGuestCwd(cwd);
+    const normalized_mount_guest = if (input.mount_guest) |guest|
+        try normalizeMountGuest(guest)
+    else
+        null;
+
+    const explicit = try resolveExplicitMemory(input);
+    if (input.vmm_memory_preset) {
+        return .{
+            .memory_ceiling_mib = null,
+            .vmm_memory_mib = null,
+            .wants_root_disk = wants_root_disk,
+            .normalized_mount_guest = normalized_mount_guest,
+        };
+    }
+
+    const host_ceiling = if (input.host_total_bytes) |bytes|
+        autoSizeMemoryMib(bytes)
+    else
+        null;
+    const ceiling = explicit orelse input.auto_memory_mib orelse host_ceiling orelse
+        return error.MissingAutoMemory;
+    return .{
+        .memory_ceiling_mib = ceiling,
+        .vmm_memory_mib = ceiling,
+        .wants_root_disk = wants_root_disk,
+        .normalized_mount_guest = normalized_mount_guest,
+    };
+}
+
+pub fn validateGuestCwd(cwd: []const u8) PlanError!void {
+    assert(@sizeOf([]const u8) > 0);
+
+    if (cwd.len == 0 or cwd[0] != '/') return error.InvalidGuestCwdAbsolute;
+    if (std.mem.indexOfScalar(u8, cwd, 0) != null) return error.InvalidGuestCwdNul;
+}
+
+pub fn normalizeMountGuest(guest: []const u8) PlanError![]const u8 {
+    assert(@sizeOf([]const u8) > 0);
+
+    if (guest.len == 0 or guest[0] != '/') return error.InvalidMountGuestAbsolute;
+    var end = guest.len;
+    while (end > 0 and guest[end - 1] == '/') : (end -= 1) {}
+    const trimmed = guest[0..end];
+    if (!std.mem.startsWith(u8, trimmed, "/mnt/") or std.mem.eql(u8, trimmed, "/mnt")) {
+        return error.InvalidMountGuestRoot;
+    }
+    return trimmed;
+}
+
+fn isDecimal(text: []const u8) bool {
+    assert(@sizeOf([]const u8) > 0);
+
+    if (text.len == 0) return false;
+    for (text) |c| {
+        if (c < '0' or c > '9') return false;
+    }
+    return true;
+}
+
+fn resolveExplicitMemory(input: Input) PlanError!?u64 {
+    assert(@sizeOf(ResourcesMemory) > 0);
+
+    const alias_ceiling = if (input.memory_mib) |mib| try validateMemoryMib(mib) else null;
+    const resource_ceiling = if (input.resources_memory) |memory| blk: {
+        if (memory.reclaim) |reclaim| {
+            if (!std.mem.eql(u8, reclaim, "auto")) return error.InvalidReclaim;
+        }
+        break :blk try validateMemoryMib(memory.max_mib);
+    } else null;
+    if (alias_ceiling != null and
+        resource_ceiling != null and
+        alias_ceiling.? != resource_ceiling.?)
+    {
+        return error.ConflictingMemory;
+    }
+    return resource_ceiling orelse alias_ceiling;
+}
+
+test "autoSizeMemoryMib applies floor, half-host, and default ceiling" {
+    try std.testing.expectEqual(@as(u64, 4096), autoSizeMemoryMib(32 * 1024 * 1024 * 1024));
+    try std.testing.expectEqual(@as(u64, 3072), autoSizeMemoryMib(6 * 1024 * 1024 * 1024));
+    try std.testing.expectEqual(@as(u64, 512), autoSizeMemoryMib(256 * 1024 * 1024));
+}
+
+test "planCore resolves explicit memory aliases" {
+    try std.testing.expectEqual(@as(?u64, 2048), (try planCore(.{
+        .memory_mib = 2048,
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    })).memory_ceiling_mib);
+    try std.testing.expectEqual(@as(?u64, 4096), (try planCore(.{
+        .resources_memory = .{ .max_mib = 4096, .reclaim = "auto" },
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    })).memory_ceiling_mib);
+    try std.testing.expectError(error.ConflictingMemory, planCore(.{
+        .memory_mib = 1024,
+        .resources_memory = .{ .max_mib = 2048, .reclaim = "auto" },
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    try std.testing.expectError(error.InvalidReclaim, planCore(.{
+        .resources_memory = .{ .max_mib = 2048, .reclaim = "manual" },
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+}
+
+test "planCore validates command and rootdisk image requirements" {
+    try std.testing.expectError(error.CmdWithoutImage, planCore(.{
+        .has_cmd = true,
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    try std.testing.expectError(error.RootDiskWithoutImage, planCore(.{
+        .root_disk = .true_value,
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    try std.testing.expect((try planCore(.{
+        .has_image = true,
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    })).wants_root_disk);
+    try std.testing.expect(!(try planCore(.{
+        .has_image = true,
+        .root_disk = .false_value,
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    })).wants_root_disk);
+}
+
+test "planCore validates guest cwd and normalizes mount guest paths" {
+    try std.testing.expectError(error.InvalidGuestCwdAbsolute, planCore(.{
+        .guest_cwd = "relative/dir",
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    try std.testing.expectError(error.InvalidGuestCwdNul, planCore(.{
+        .guest_cwd = "/mnt/work\x00space",
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    try std.testing.expectError(error.InvalidMountGuestAbsolute, planCore(.{
+        .mount_guest = "mnt/app",
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    try std.testing.expectError(error.InvalidMountGuestRoot, planCore(.{
+        .mount_guest = "/srv/app",
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    }));
+    const plan = try planCore(.{
+        .mount_guest = "/mnt/app///",
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    });
+    try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+}
+
+test "planStatsFile preserves caller path or returns runtime-owned env value" {
+    const existing = planStatsFile(.{ .existing_path = "/tmp/caller-stats.bin" });
+    try std.testing.expectEqualStrings("/tmp/caller-stats.bin", existing.stats_file_path.?);
+    try std.testing.expectEqual(@as(?[]const u8, null), existing.vmm_stats_file);
+
+    const planned = planStatsFile(.{ .planned_path = "/tmp/runtime-stats.bin" });
+    try std.testing.expectEqualStrings("/tmp/runtime-stats.bin", planned.stats_file_path.?);
+    try std.testing.expectEqualStrings("/tmp/runtime-stats.bin", planned.vmm_stats_file.?);
+}
+
+test "planVirtiofsEnv formats indexed virtiofs env entries" {
+    const mounts = [_]LiveMount{
+        .{ .host = "/host/a", .mode = "rw", .tag = "machinen-lm0" },
+        .{ .host = "/host/b", .mode = "ro", .tag = "machinen-lm1" },
+    };
+    const env = try planVirtiofsEnv(std.testing.allocator, &mounts);
+    defer {
+        for (env) |pair| {
+            std.testing.allocator.free(pair.key);
+            std.testing.allocator.free(pair.value);
+        }
+        std.testing.allocator.free(env);
+    }
+    try std.testing.expectEqual(@as(@TypeOf(env.len), 2), env.len);
+    try std.testing.expectEqualStrings("MACHINEN_VIRTIOFS_0", env[0].key);
+    try std.testing.expectEqualStrings("machinen-lm0:rw:/host/a", env[0].value);
+    try std.testing.expectEqualStrings("MACHINEN_VIRTIOFS_1", env[1].key);
+    try std.testing.expectEqualStrings("machinen-lm1:ro:/host/b", env[1].value);
+}
+
+test "planVmstateEnv forwards snapshot restore and timing env" {
+    const plan = planVmstateEnv(.{
+        .state_path = "/tmp/state.vmstate",
+        .restore_path = "/tmp/restore.vmstate",
+        .enable_timing = true,
+    });
+    try std.testing.expectEqualStrings("/tmp/state.vmstate", plan.snapshot_path.?);
+    try std.testing.expectEqualStrings("/tmp/restore.vmstate", plan.restore_path.?);
+    try std.testing.expectEqualStrings("1", plan.vmstate_timing.?);
+
+    const preset = planVmstateEnv(.{
+        .restore_path = "/tmp/restore.vmstate",
+        .enable_timing = true,
+        .existing_timing = "0",
+    });
+    try std.testing.expectEqual(@as(?[]const u8, null), preset.vmstate_timing);
+}
+
+test "planKernelDtb forwards resolved kernel and dtb paths" {
+    const plan = planKernelDtb(.{ .kernel_path = "/tmp/Image", .dtb_path = "/tmp/virt.dtb" });
+    try std.testing.expectEqualStrings("/tmp/Image", plan.vmm_kernel.?);
+    try std.testing.expectEqualStrings("/tmp/virt.dtb", plan.vmm_dtb.?);
+    const empty = planKernelDtb(.{});
+    try std.testing.expectEqual(@as(?[]const u8, null), empty.vmm_kernel);
+    try std.testing.expectEqual(@as(?[]const u8, null), empty.vmm_dtb);
+}
+
+test "planVmmArgv wraps VMM argv with pdeathsig when present" {
+    const direct = try planVmmArgv(std.testing.allocator, .{
+        .binary = "/bin/vmm",
+        .args = &.{ "--dev", "1" },
+    });
+    try std.testing.expectEqualStrings("/bin/vmm", direct.command.?);
+    try std.testing.expectEqual(@as(@TypeOf(direct.args.len), 2), direct.args.len);
+    try std.testing.expectEqualStrings("--dev", direct.args[0]);
+
+    const wrapped = try planVmmArgv(std.testing.allocator, .{
+        .binary = "/bin/vmm",
+        .args = &.{"--dev"},
+        .pdeathsig_path = "/bin/pdeathsig",
+    });
+    defer std.testing.allocator.free(wrapped.args);
+    try std.testing.expectEqualStrings("/bin/pdeathsig", wrapped.command.?);
+    try std.testing.expectEqual(@as(@TypeOf(wrapped.args.len), 2), wrapped.args.len);
+    try std.testing.expectEqualStrings("/bin/vmm", wrapped.args[0]);
+    try std.testing.expectEqualStrings("--dev", wrapped.args[1]);
+}
+
+test "validatePortForward rejects invalid and duplicate ports" {
+    try std.testing.expectEqual(PortForwardValidation.ok, validatePortForward(&.{
+        .{ .host_port = 8080, .guest_port = 3000 },
+        .{ .host_port = 8081, .guest_port = 3001 },
+    }));
+    try std.testing.expectEqual(
+        PortForwardValidation{ .invalid_host_port = 0 },
+        validatePortForward(&.{.{ .host_port = 0, .guest_port = 3000 }}),
+    );
+    try std.testing.expectEqual(
+        PortForwardValidation{ .invalid_guest_port = 70000 },
+        validatePortForward(&.{.{ .host_port = 8080, .guest_port = 70000 }}),
+    );
+    try std.testing.expectEqual(
+        PortForwardValidation{ .duplicate_host_port = 8080 },
+        validatePortForward(&.{
+            .{ .host_port = 8080, .guest_port = 3000 },
+            .{ .host_port = 8080, .guest_port = 3001 },
+        }),
+    );
+}
+
+test "planVsock parses existing specs and formats auto specs" {
+    try std.testing.expectEqualStrings(
+        "/tmp/exec.sock",
+        parseVsockUdsPath("in:1978:/tmp/exec.sock").?,
+    );
+    try std.testing.expectEqualStrings(
+        "/tmp/first.sock",
+        parseVsockUdsPath("out:1970:/tmp/first.sock,in:1978:/tmp/second.sock").?,
+    );
+    try std.testing.expectEqual(
+        @as(?[]const u8, null),
+        parseVsockUdsPath("in:not-a-port:/tmp/nope"),
+    );
+
+    const existing = try planVsock(std.testing.allocator, .{
+        .existing_spec = "in:1978:/tmp/caller.sock",
+    });
+    try std.testing.expectEqualStrings("/tmp/caller.sock", existing.uds_path.?);
+    try std.testing.expectEqual(@as(?[]const u8, null), existing.vmm_vsock);
+
+    const auto = try planVsock(std.testing.allocator, .{ .auto_uds_path = "/tmp/auto.sock" });
+    defer std.testing.allocator.free(auto.vmm_vsock.?);
+    try std.testing.expectEqualStrings("/tmp/auto.sock", auto.uds_path.?);
+    try std.testing.expectEqualStrings("in:1978:/tmp/auto.sock", auto.vmm_vsock.?);
+}
+
+test "planGuestEnv applies name and hostname wait defaults without overriding caller env" {
+    const env = [_]EnvPair{.{ .key = "FOO", .value = "bar" }};
+    const planned = try planGuestEnv(std.testing.allocator, .{
+        .env = &env,
+        .name = "worker",
+        .vsock_uds_path = "/tmp/exec.sock",
+    });
+    defer std.testing.allocator.free(planned);
+    try std.testing.expectEqual(@as(@TypeOf(planned.len), 3), planned.len);
+    try std.testing.expectEqualStrings("FOO", planned[0].key);
+    try std.testing.expectEqualStrings("MACHINEN_VM_NAME", planned[1].key);
+    try std.testing.expectEqualStrings("worker", planned[1].value);
+    try std.testing.expectEqualStrings("MACHINEN_VM_HOSTNAME_WAIT", planned[2].key);
+    try std.testing.expectEqualStrings("1", planned[2].value);
+
+    const caller_env = [_]EnvPair{
+        .{ .key = "MACHINEN_VM_NAME", .value = "caller" },
+        .{ .key = "MACHINEN_VM_HOSTNAME_WAIT", .value = "0" },
+    };
+    const preserved = try planGuestEnv(std.testing.allocator, .{
+        .env = &caller_env,
+        .name = "worker",
+        .vsock_uds_path = "/tmp/exec.sock",
+    });
+    defer std.testing.allocator.free(preserved);
+    try std.testing.expectEqual(@as(@TypeOf(preserved.len), 2), preserved.len);
+    try std.testing.expectEqualStrings("caller", preserved[0].value);
+    try std.testing.expectEqualStrings("0", preserved[1].value);
+}
+
+test "planCore honors preset VMM memory after validating public input" {
+    const plan = try planCore(.{
+        .memory_mib = 1024,
+        .vmm_memory_preset = true,
+    });
+    try std.testing.expectEqual(@as(?u64, null), plan.memory_ceiling_mib);
+    try std.testing.expectEqual(@as(?u64, null), plan.vmm_memory_mib);
+    try std.testing.expectError(error.InvalidMemory, planCore(.{
+        .memory_mib = 64,
+        .vmm_memory_preset = true,
+    }));
+}

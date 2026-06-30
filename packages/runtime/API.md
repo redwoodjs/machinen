@@ -30623,7 +30623,7 @@ much the snapshot path is (or isn't) buying us.
 
 ##### hostBytes?
 
-`number` = `...`
+`number`
 
 #### Returns
 

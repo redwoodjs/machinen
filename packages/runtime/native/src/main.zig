@@ -1,6 +1,7 @@
 const std = @import("std");
 const protocol = @import("protocol.zig");
 const balloon_stats = @import("commands/balloon_stats.zig");
+const boot_plan = @import("commands/boot_plan.zig");
 const cleanup_path = @import("commands/cleanup_path.zig");
 const cpu_cgroup_apply = @import("commands/cpu_cgroup_apply.zig");
 const cpu_cgroup_remove = @import("commands/cpu_cgroup_remove.zig");
@@ -25,6 +26,7 @@ var g_io: std.Io = undefined;
 
 pub fn main(init: std.process.Init) !u8 {
     assert(balloon_stats.name.len > 0);
+    assert(boot_plan.name.len > 0);
     assert(cleanup_path.name.len > 0);
     assert(cpu_cgroup_apply.name.len > 0);
     assert(cpu_cgroup_remove.name.len > 0);
@@ -84,6 +86,12 @@ fn runHostCommand(
             return @intFromEnum(protocol.Exit.usage);
         }
         return @intFromEnum(try balloon_stats.run(allocator, g_io));
+    }
+    if (std.mem.eql(u8, command, boot_plan.name)) {
+        if (try rejectExtraArgs(it, boot_plan.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try boot_plan.run(allocator, g_io));
     }
     if (std.mem.eql(u8, command, cpu_cgroup_apply.name)) {
         if (try rejectExtraArgs(it, cpu_cgroup_apply.name)) {
@@ -224,6 +232,7 @@ fn isHelp(command: []const u8) bool {
 
 fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
     assert(balloon_stats.name.len > 0);
+    assert(boot_plan.name.len > 0);
     assert(cleanup_path.name.len > 0);
     assert(cpu_cgroup_apply.name.len > 0);
     assert(cpu_cgroup_remove.name.len > 0);
@@ -247,6 +256,7 @@ fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
         .protocolVersion = @as(u8, protocol.version),
         .commands = .{
             balloon_stats.name,
+            boot_plan.name,
             cleanup_path.name,
             cpu_cgroup_apply.name,
             cpu_cgroup_remove.name,
