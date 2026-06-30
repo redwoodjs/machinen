@@ -17,5 +17,6 @@
     "lib": ["ES2022"],
     "noEmit": true,
     "allowImportingTsExtensions": true
-  }
+  },
+  "exclude": ["apps/machinen.dev"]
 }

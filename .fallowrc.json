@@ -1,6 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
   "entry": [
+    "apps/machinen.dev/src/worker.tsx",
+    "apps/machinen.dev/src/client.tsx",
     "scripts/*.ts",
     "scripts/*.mjs",
     "proof/*/smoke.ts",
@@ -42,6 +44,7 @@
     "@homebridge/node-pty-prebuilt-multiarch",
     "@nkzw/oxlint-config",
     "@redwoodjs/agent-ci",
+    "react-server-dom-webpack",
     "typedoc-plugin-markdown",
     "audited-conditional-exports",
     "audited-dual-package",
