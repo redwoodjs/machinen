@@ -180,7 +180,7 @@ describe("vmstate portability metadata", () => {
       });
       expect(error).toMatchObject({
         message: expect.stringMatching(
-          /snapshot guest: arm64[\s\S]*restore guest:\s+amd64[\s\S]*not exposed as a public command/,
+          /snapshot guest: arm64[\s\S]*restore guest:\s+amd64[\s\S]*explicitly supported target-native process subsets/,
         ),
       });
     } finally {

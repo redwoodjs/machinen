@@ -158,7 +158,7 @@ const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bash
 _machinen_completion() {
   local cur prev words cword
   _init_completion || return
-  local cmds="boot restore install list ls ps exec snapshot fork attach sessions session-kill repl gc stop feedback agent-context completion --version --help -h -v"
+  local cmds="boot move restore install list ls ps exec snapshot fork attach sessions session-kill repl gc stop feedback agent-context completion --version --help -h -v"
   if [[ \${cword} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
@@ -186,7 +186,7 @@ const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc,
 #   eval "$(machinen completion zsh)"
 _machinen() {
   local -a cmds
-  cmds=(boot restore install list ls ps exec snapshot fork attach sessions session-kill repl gc stop feedback agent-context completion)
+  cmds=(boot move restore install list ls ps exec snapshot fork attach sessions session-kill repl gc stop feedback agent-context completion)
   if (( CURRENT == 2 )); then
     _describe 'command' cmds
     return
@@ -212,7 +212,7 @@ compdef _machinen machinen mn
 
 const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
 #   machinen completion fish | source
-set -l cmds boot restore install list ls ps exec snapshot fork attach sessions session-kill repl gc stop feedback agent-context completion
+set -l cmds boot move restore install list ls ps exec snapshot fork attach sessions session-kill repl gc stop feedback agent-context completion
 for bin in machinen mn
   complete -c $bin -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
   for sub in exec snapshot fork attach sessions session-kill repl stop

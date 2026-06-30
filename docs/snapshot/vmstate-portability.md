@@ -31,10 +31,10 @@ Current policy:
   state.
 - Raw `.vmstate` restore is same-guest-ISA only. A cross-ISA attempt is refused
   as `BOOT_VMSTATE_CROSS_ISA_UNSUPPORTED` with code
-  `cross-isa-vmstate-restore-unsupported`; Machinen does not currently expose a
-  public cross-ISA process-move command. Cross-ISA process movement would need
+  `cross-isa-vmstate-restore-unsupported`; cross-ISA process movement must use
   target-native reconstruction of modeled process/resource state instead of
-  replaying source kernel/vCPU/device state.
+  replaying source kernel/vCPU/device state. The public `machinen move` surface
+  is experimental and refuses anything outside its explicitly modeled subsets.
 
 CRIU remains a Linux process-tree restore mechanism. It does not solve
 HVF↔KVM CPU feature mismatches and is not a replacement for the vmstate
