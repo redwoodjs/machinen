@@ -448,7 +448,7 @@ fn applyCpuCgroupLinux(
     try std.Io.Dir.cwd().createDirPath(io, opts.parent_dir);
     const safe_id = try sanitizeCgroupId(allocator, opts.id);
     defer allocator.free(safe_id);
-    const suffix = randomHexSuffix();
+    const suffix = randomHexSuffix(io);
     const leaf = try std.mem.concat(allocator, u8, &.{
         "machinen-vm-",
         safe_id,
@@ -834,11 +834,11 @@ fn sanitizeCgroupId(allocator: std.mem.Allocator, id: []const u8) Error![]u8 {
     return out;
 }
 
-fn randomHexSuffix() [8]u8 {
+fn randomHexSuffix(io: std.Io) [8]u8 {
     assert(@sizeOf([8]u8) == 8);
 
     var bytes: [4]u8 = undefined;
-    std.crypto.random.bytes(&bytes);
+    io.random(&bytes);
     const digits = "0123456789abcdef";
     var out: [8]u8 = undefined;
     for (bytes, 0..) |byte, i| {
@@ -949,7 +949,12 @@ fn readPsRssDarwin(allocator: std.mem.Allocator, io: std.Io, pid: u32) Error!?u6
 fn readFileAlloc(allocator: std.mem.Allocator, io: std.Io, path: []const u8) Error![]u8 {
     assert(path.len > 0);
 
-    return std.Io.Dir.cwd().readFileAlloc(io, allocator, path, 16 * 1024 * 1024);
+    return std.Io.Dir.cwd().readFileAlloc(
+        io,
+        path,
+        allocator,
+        .limited(16 * 1024 * 1024),
+    );
 }
 
 test "evaluateNestedVirtualization accepts Linux arm64 KVM when toggles are enabled" {
@@ -1054,22 +1059,32 @@ test "applyCpuCgroupLinux writes cgroup v2 files" {
     defer allocator.free(cpu_max_path);
     const cpu_max = try std.Io.Dir.cwd().readFileAlloc(
         std.testing.io,
-        allocator,
         cpu_max_path,
-        1024,
+        allocator,
+        .limited(1024),
     );
     defer allocator.free(cpu_max);
     try std.testing.expectEqualStrings("50000 100000\n", cpu_max);
 
     const weight_path = try joinCgroupFile(allocator, result.cgroup_path.?, "cpu.weight");
     defer allocator.free(weight_path);
-    const weight = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, allocator, weight_path, 1024);
+    const weight = try std.Io.Dir.cwd().readFileAlloc(
+        std.testing.io,
+        weight_path,
+        allocator,
+        .limited(1024),
+    );
     defer allocator.free(weight);
     try std.testing.expectEqualStrings("250\n", weight);
 
     const procs_path = try joinCgroupFile(allocator, result.cgroup_path.?, "cgroup.procs");
     defer allocator.free(procs_path);
-    const procs = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, allocator, procs_path, 1024);
+    const procs = try std.Io.Dir.cwd().readFileAlloc(
+        std.testing.io,
+        procs_path,
+        allocator,
+        .limited(1024),
+    );
     defer allocator.free(procs);
     try std.testing.expectEqualStrings("4321\n", procs);
 

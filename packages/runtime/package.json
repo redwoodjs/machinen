@@ -27,7 +27,6 @@
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
-    "@homebridge/node-pty-prebuilt-multiarch": "^0.12.0",
     "debug": "^4.4.1"
   },
   "devDependencies": {

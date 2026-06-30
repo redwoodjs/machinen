@@ -2359,10 +2359,8 @@ Attach to `id`. Throws if id doesn't exist.
 > `static` **connect**(`udsPath`, `opts?`): `Promise`\<[`VsockWinsize`](#vsockwinsize)\>
 
 Open a host Unix socket and keep retrying until the vsock bridge
-+ guest agent wire themselves up. Resolves once the TCP-like
-connect completes — the agent may still be registering the
-vsock listener on its side, but any bytes we send will be
-buffered by the bridge's connection table.
++ guest agent wire themselves up. Resolves once the native helper
+connects; any bytes sent afterward are relayed to the bridge.
 
 ###### Parameters
 
@@ -2382,8 +2380,8 @@ buffered by the bridge's connection table.
 
 > **send**(`cols`, `rows`): `void`
 
-Send a new size. Idempotent against the most recent send — repeats
-are dropped so a chatty SIGWINCH doesn't spam the bridge.
+Send a new size. Idempotence against the most recent send is owned
+by the native helper so SIGWINCH storms do not spam the bridge.
 
 ###### Parameters
 

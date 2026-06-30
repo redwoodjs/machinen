@@ -1,6 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const assert = std.debug.assert;
+
 pub fn build(b: *std.Build) void {
     std.debug.assert(builtin.zig_version.major > 0 or builtin.zig_version.minor >= 16);
 
@@ -26,20 +28,9 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(exe);
 
-    const pdeathsig_mod = b.createModule(.{
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
-    });
-    pdeathsig_mod.addCSourceFile(.{
-        .file = b.path("src/pdeathsig.c"),
-        .flags = &.{ "-O2", "-Wall", "-Wextra" },
-    });
-    const pdeathsig = b.addExecutable(.{
-        .name = "machinen-pdeathsig",
-        .root_module = pdeathsig_mod,
-    });
-    b.installArtifact(pdeathsig);
+    installCShim(b, target, optimize, "machinen-pdeathsig", "src/pdeathsig.c");
+    installCShim(b, target, optimize, "machinen-pty", "src/pty.c");
+    installCShim(b, target, optimize, "machinen-winsize", "src/winsize.c");
 
     const run_step = b.step("run", "Run machinen-runtime-helper");
     const run_cmd = b.addRunArtifact(exe);
@@ -64,4 +55,30 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
+}
+
+fn installCShim(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    name: []const u8,
+    source: []const u8,
+) void {
+    assert(name.len > 0);
+    assert(source.len > 0);
+
+    const mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    mod.addCSourceFile(.{
+        .file = b.path(source),
+        .flags = &.{ "-O2", "-Wall", "-Wextra" },
+    });
+    const exe = b.addExecutable(.{
+        .name = name,
+        .root_module = mod,
+    });
+    b.installArtifact(exe);
 }
