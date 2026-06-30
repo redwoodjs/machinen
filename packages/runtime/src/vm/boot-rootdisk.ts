@@ -1,10 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 
 import { BootError } from "../errors.ts";
 import { planBootRootDiskRuntimeNative } from "../native/boot-plan.ts";
+import { planBootRootDiskMaterializeModeNative } from "../native/root-disk-materialize-mode.ts";
+import { planBootRootDiskTempPathNative } from "../native/root-disk-temp-path.ts";
 import type { PhaseTimer } from "../phase-timer.ts";
 import { reflinkCopy } from "../reflink.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "../rootfs-img.ts";
@@ -22,10 +24,14 @@ export function materializeRootdisk(
   env: Record<string, string>,
   phases: PhaseTimer,
 ): string | undefined {
-  if (opts._rootDiskRestorePath) {
+  const mode = planBootRootDiskMaterializeModeNative({
+    restorePath: opts._rootDiskRestorePath,
+    callerPath: typeof opts.rootDisk === "string" ? opts.rootDisk : undefined,
+  });
+  if (mode.action === "restore") {
     return materializeRestoredRootdisk(opts, env, phases);
   }
-  if (typeof opts.rootDisk === "string") {
+  if (mode.action === "caller") {
     return useCallerRootdisk(opts, env);
   }
   return materializeCachedRootdisk(opts, env, phases);
@@ -53,10 +59,7 @@ function materializeRestoredRootdisk(
       `restore: vmstate rootdisk image not found: ${rootDiskAbs}`,
     );
   }
-  const perBoot = join(
-    tmpdir(),
-    `machinen-rootdisk-restore-${process.pid}-${randomBytes(6).toString("hex")}.img`,
-  );
+  const perBoot = rootDiskTempPath("restore");
   const plan = planBootRootDiskRuntimeNative({
     mode: "restore",
     sourcePath: rootDiskAbs,
@@ -82,10 +85,7 @@ function materializeCachedRootdisk(
     sizeBytes: opts.rootDiskSizeBytes,
     onPhase: (name, ms) => phases.mark(`rootdisk-materialize.${name}`, ms),
   });
-  const perBoot = join(
-    tmpdir(),
-    `machinen-rootdisk-${process.pid}-${randomBytes(6).toString("hex")}.img`,
-  );
+  const perBoot = rootDiskTempPath("cached");
   const plan = planBootRootDiskRuntimeNative({
     mode: "cached",
     sourcePath: cachedImg,
@@ -104,6 +104,15 @@ function materializeCachedRootdisk(
   // and rematerializing (#170).
   markRootfsImageClean(cachedImg);
   return plan.perBootRootDisk!;
+}
+
+function rootDiskTempPath(kind: "restore" | "cached"): string {
+  return planBootRootDiskTempPathNative({
+    kind,
+    tmpDir: tmpdir(),
+    pid: process.pid,
+    nonce: randomBytes(6).toString("hex"),
+  });
 }
 
 function applyRootDiskRuntimePlan(

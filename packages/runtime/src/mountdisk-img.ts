@@ -60,6 +60,7 @@ import { arch, homedir, platform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
 import { BootError } from "./errors.ts";
+import { planMountDiskUpperSizeNative } from "./native/mount-disk-upper-size.ts";
 import { ensureMountDiskImageNative, ensureMountDiskUpperNative } from "./native/mountdisk.ts";
 import { treeManifestHashNative } from "./native/tree-manifest-hash.ts";
 import { resolveMke2fs } from "./rootfs-img.ts";
@@ -223,13 +224,7 @@ export interface EnsureMountDiskUpperResult {
 export function ensureMountDiskUpper(
   opts: EnsureMountDiskUpperOptions = {},
 ): EnsureMountDiskUpperResult {
-  const sizeBytes = opts.sizeBytes ?? 4 * 1024 * 1024 * 1024; // 4 GiB
-  if (sizeBytes <= 0 || sizeBytes % 4096 !== 0) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `mountDiskUpperSizeBytes must be a positive multiple of 4096 (got ${sizeBytes})`,
-    );
-  }
+  const sizeBytes = planMountDiskUpperSizeNative(opts.sizeBytes);
   const mke2fs = resolveMke2fs();
   if (!mke2fs) {
     throw new BootError(

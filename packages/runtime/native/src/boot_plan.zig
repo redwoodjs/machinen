@@ -15,6 +15,7 @@ const memory_default_ceiling_mib: u64 = 4096;
 const default_cpu_max_vcpus: u64 = 1;
 const default_cpu_weight: u64 = 100;
 const default_boot_timeout_ms: u64 = 60_000;
+const default_mount_disk_upper_size_bytes: u64 = 4 * 1024 * 1024 * 1024;
 const min_cpu_weight: u64 = 1;
 const max_cpu_weight: u64 = 10_000;
 const max_live_mounts = 5;
@@ -335,6 +336,18 @@ pub const ProvisionRuntimePlan = struct {
     uds_path: ?[]const u8,
 };
 
+pub const ProvisionResultInput = struct {
+    image_path: ?[]const u8 = null,
+    size_bytes: ?u64 = null,
+    elapsed_ms: ?u64 = null,
+};
+
+pub const ProvisionResultPlan = struct {
+    image_path: ?[]const u8,
+    size_bytes: ?u64,
+    elapsed_ms: ?u64,
+};
+
 pub const KernelDtbInput = struct {
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
@@ -464,6 +477,17 @@ pub const StatsFileModePlan = struct {
     existing_path: ?[]const u8,
 };
 
+pub const StatsFileTempModeInput = struct {
+    existing_path: ?[]const u8 = null,
+    vsock_temp_dir: ?[]const u8 = null,
+};
+
+pub const StatsFileTempModePlan = struct {
+    action: []const u8,
+    existing_path: ?[]const u8,
+    temp_dir: ?[]const u8,
+};
+
 pub const StatsFilePlan = struct {
     stats_file_path: ?[]const u8,
     vmm_stats_file: ?[]const u8,
@@ -474,6 +498,23 @@ pub const ScratchDiskMode = enum {
     false_value,
     path,
     auto,
+};
+
+pub const ScratchTempPathKind = enum {
+    none,
+    restore,
+    auto,
+};
+
+pub const ScratchTempPathInput = struct {
+    kind: ScratchTempPathKind = .none,
+    tmp_dir: ?[]const u8 = null,
+    pid: ?u64 = null,
+    nonce: ?[]const u8 = null,
+};
+
+pub const ScratchTempPathPlan = struct {
+    path: ?[]const u8,
 };
 
 pub const ScratchOptionInput = struct {
@@ -495,6 +536,32 @@ pub const ScratchDiskPlan = struct {
     disk_path: ?[]const u8,
     per_boot_snap_disk: ?[]const u8,
     vmm_disk: ?[]const u8,
+};
+
+pub const RootDiskMaterializeModeInput = struct {
+    restore_path: ?[]const u8 = null,
+    caller_path: ?[]const u8 = null,
+};
+
+pub const RootDiskTempPathKind = enum {
+    none,
+    restore,
+    cached,
+};
+
+pub const RootDiskTempPathInput = struct {
+    kind: RootDiskTempPathKind = .none,
+    tmp_dir: ?[]const u8 = null,
+    pid: ?u64 = null,
+    nonce: ?[]const u8 = null,
+};
+
+pub const RootDiskTempPathPlan = struct {
+    path: ?[]const u8,
+};
+
+pub const RootDiskMaterializeModePlan = struct {
+    action: []const u8,
 };
 
 pub const RootDiskRuntimeMode = enum {
@@ -522,6 +589,31 @@ pub const MountDiskRuntimeMode = enum {
     none,
     restore,
     fresh,
+};
+
+pub const MountDiskUpperSizeInput = struct {
+    size_bytes: ?u64 = null,
+};
+
+pub const MountDiskTempPathKind = enum {
+    none,
+    restore_upper,
+};
+
+pub const MountDiskTempPathInput = struct {
+    kind: MountDiskTempPathKind = .none,
+    tmp_dir: ?[]const u8 = null,
+    pid: ?u64 = null,
+    nonce: ?[]const u8 = null,
+};
+
+pub const MountDiskTempPathPlan = struct {
+    path: ?[]const u8,
+};
+
+pub const MountDiskUpperSizeValidation = union(enum) {
+    ok: u64,
+    invalid: u64,
 };
 
 pub const MountDiskRuntimeInput = struct {
@@ -660,12 +752,18 @@ pub const RegistryVmstatePlan = struct {
 
 pub const RegistryProcessInput = struct {
     host_platform: ?[]const u8 = null,
+    child_pid: ?i64 = null,
     vmm_binary: ?[]const u8 = null,
     vmm_pdeathsig: bool = false,
     vmm_observed_exe_base: ?[]const u8 = null,
     gv_pid: ?i64 = null,
     gv_exe: ?[]const u8 = null,
     gv_observed_exe_base: ?[]const u8 = null,
+};
+
+pub const RegistryProcessIdentityPlan = struct {
+    vmm_pid: ?i64,
+    gv_pid: ?i64,
 };
 
 pub const RegistryProcessPlan = struct {
@@ -1194,6 +1292,18 @@ pub fn planStatsFileMode(input: StatsFileModeInput) StatsFileModePlan {
     return .{ .action = "allocate", .existing_path = null };
 }
 
+pub fn planStatsFileTempMode(input: StatsFileTempModeInput) StatsFileTempModePlan {
+    assert(@sizeOf(StatsFileTempModeInput) > 0);
+
+    if (input.existing_path) |path| {
+        return .{ .action = "existing", .existing_path = path, .temp_dir = null };
+    }
+    if (input.vsock_temp_dir) |dir| {
+        return .{ .action = "reuse", .existing_path = null, .temp_dir = dir };
+    }
+    return .{ .action = "allocate", .existing_path = null, .temp_dir = null };
+}
+
 pub fn planStatsFile(allocator: std.mem.Allocator, input: StatsFileInput) !StatsFilePlan {
     assert(@sizeOf(StatsFileInput) > 0);
 
@@ -1266,6 +1376,16 @@ pub fn planProvisionImageConfig(input: ProvisionImageConfigInput) ProvisionImage
         .cmd = input.cmd,
         .has_env = input.has_env,
         .env = input.env,
+    };
+}
+
+pub fn planProvisionResult(input: ProvisionResultInput) ProvisionResultPlan {
+    assert(@sizeOf(ProvisionResultInput) > 0);
+
+    return .{
+        .image_path = input.image_path,
+        .size_bytes = input.size_bytes,
+        .elapsed_ms = input.elapsed_ms,
     };
 }
 
@@ -1569,6 +1689,70 @@ fn mergeEnvPairs(
     return out.toOwnedSlice(allocator);
 }
 
+pub fn planScratchTempPath(
+    allocator: std.mem.Allocator,
+    input: ScratchTempPathInput,
+) !ScratchTempPathPlan {
+    assert(@sizeOf(ScratchTempPathInput) > 0);
+
+    if (input.kind == .none) return .{ .path = null };
+    const tmp_dir = input.tmp_dir orelse return .{ .path = null };
+    const pid = input.pid orelse return .{ .path = null };
+    const nonce = input.nonce orelse return .{ .path = null };
+    var name_buf: [128]u8 = undefined;
+    const file_name = switch (input.kind) {
+        .none => unreachable,
+        .restore => try std.fmt.bufPrint(
+            &name_buf,
+            "machinen-snap-restore-{d}-{s}.img",
+            .{ pid, nonce },
+        ),
+        .auto => try std.fmt.bufPrint(
+            &name_buf,
+            "machinen-snap-{d}-{s}.img",
+            .{ pid, nonce },
+        ),
+    };
+    return .{ .path = try std.fs.path.join(allocator, &.{ tmp_dir, file_name }) };
+}
+
+pub fn planRootDiskTempPath(
+    allocator: std.mem.Allocator,
+    input: RootDiskTempPathInput,
+) !RootDiskTempPathPlan {
+    assert(@sizeOf(RootDiskTempPathInput) > 0);
+
+    if (input.kind == .none) return .{ .path = null };
+    const tmp_dir = input.tmp_dir orelse return .{ .path = null };
+    const pid = input.pid orelse return .{ .path = null };
+    const nonce = input.nonce orelse return .{ .path = null };
+    var name_buf: [128]u8 = undefined;
+    const file_name = switch (input.kind) {
+        .none => unreachable,
+        .restore => try std.fmt.bufPrint(
+            &name_buf,
+            "machinen-rootdisk-restore-{d}-{s}.img",
+            .{ pid, nonce },
+        ),
+        .cached => try std.fmt.bufPrint(
+            &name_buf,
+            "machinen-rootdisk-{d}-{s}.img",
+            .{ pid, nonce },
+        ),
+    };
+    return .{ .path = try std.fs.path.join(allocator, &.{ tmp_dir, file_name }) };
+}
+
+pub fn planRootDiskMaterializeMode(
+    input: RootDiskMaterializeModeInput,
+) RootDiskMaterializeModePlan {
+    assert(@sizeOf(RootDiskMaterializeModeInput) > 0);
+
+    if (input.restore_path != null) return .{ .action = "restore" };
+    if (input.caller_path != null) return .{ .action = "caller" };
+    return .{ .action = "cached" };
+}
+
 pub fn planRootDiskRuntime(input: RootDiskRuntimeInput) PlanError!RootDiskRuntimePlan {
     assert(@sizeOf(RootDiskRuntimeInput) > 0);
 
@@ -1613,6 +1797,36 @@ pub fn planRootDiskRuntime(input: RootDiskRuntimeInput) PlanError!RootDiskRuntim
             };
         },
     };
+}
+
+pub fn planMountDiskTempPath(
+    allocator: std.mem.Allocator,
+    input: MountDiskTempPathInput,
+) !MountDiskTempPathPlan {
+    assert(@sizeOf(MountDiskTempPathInput) > 0);
+
+    if (input.kind == .none) return .{ .path = null };
+    const tmp_dir = input.tmp_dir orelse return .{ .path = null };
+    const pid = input.pid orelse return .{ .path = null };
+    const nonce = input.nonce orelse return .{ .path = null };
+    var name_buf: [128]u8 = undefined;
+    const file_name = switch (input.kind) {
+        .none => unreachable,
+        .restore_upper => try std.fmt.bufPrint(
+            &name_buf,
+            "machinen-mountdisk-upper-{d}-{s}.img",
+            .{ pid, nonce },
+        ),
+    };
+    return .{ .path = try std.fs.path.join(allocator, &.{ tmp_dir, file_name }) };
+}
+
+pub fn planMountDiskUpperSize(input: MountDiskUpperSizeInput) MountDiskUpperSizeValidation {
+    assert(@sizeOf(MountDiskUpperSizeInput) > 0);
+
+    const size_bytes = input.size_bytes orelse default_mount_disk_upper_size_bytes;
+    if (size_bytes == 0 or size_bytes % 4096 != 0) return .{ .invalid = size_bytes };
+    return .{ .ok = size_bytes };
 }
 
 pub fn planMountDiskRuntime(input: MountDiskRuntimeInput) PlanError!MountDiskRuntimePlan {
@@ -1721,6 +1935,22 @@ fn planSnapshotVmstateChain(input: SnapshotVmstateInput) PlanError!?SnapshotVmst
         .chain_id = input.chain_id orelse return error.MissingSnapshotVmstateField,
         .parent_dir = input.checkpoint_parent,
         .sequence = input.checkpoint_sequence orelse return error.MissingSnapshotVmstateField,
+    };
+}
+
+pub fn planRegistryProcessIdentityReads(input: RegistryProcessInput) RegistryProcessIdentityPlan {
+    assert(@sizeOf(RegistryProcessInput) > 0);
+
+    const is_darwin = if (input.host_platform) |platform|
+        std.mem.eql(u8, platform, "darwin")
+    else
+        false;
+    if (!is_darwin) return .{ .vmm_pid = null, .gv_pid = null };
+    const child_pid = input.child_pid orelse -1;
+    const gv_pid = input.gv_pid orelse -1;
+    return .{
+        .vmm_pid = if (input.vmm_pdeathsig and child_pid > 0) child_pid else null,
+        .gv_pid = if (gv_pid > 0) gv_pid else null,
     };
 }
 
@@ -2432,6 +2662,35 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
     try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
 }
 
+test "planRegistryProcessIdentityReads plans darwin process identity reads" {
+    const darwin = planRegistryProcessIdentityReads(.{
+        .host_platform = "darwin",
+        .child_pid = 1234,
+        .vmm_pdeathsig = true,
+        .gv_pid = 4321,
+    });
+    try std.testing.expectEqual(@as(?i64, 1234), darwin.vmm_pid);
+    try std.testing.expectEqual(@as(?i64, 4321), darwin.gv_pid);
+
+    const linux = planRegistryProcessIdentityReads(.{
+        .host_platform = "linux",
+        .child_pid = 1234,
+        .vmm_pdeathsig = true,
+        .gv_pid = 4321,
+    });
+    try std.testing.expect(linux.vmm_pid == null);
+    try std.testing.expect(linux.gv_pid == null);
+
+    const darwin_no_watch = planRegistryProcessIdentityReads(.{
+        .host_platform = "darwin",
+        .child_pid = 1234,
+        .vmm_pdeathsig = false,
+        .gv_pid = -1,
+    });
+    try std.testing.expect(darwin_no_watch.vmm_pid == null);
+    try std.testing.expect(darwin_no_watch.gv_pid == null);
+}
+
 test "planRegistryProcess projects platform-specific executable metadata" {
     const darwin = planRegistryProcess(.{
         .host_platform = "darwin",
@@ -2665,6 +2924,19 @@ test "planMountDiskFdEnv formats inherited fd env entries" {
     );
 }
 
+test "planMountDiskUpperSize defaults and validates alignment" {
+    try std.testing.expectEqual(@as(u64, 4 * 1024 * 1024 * 1024), planMountDiskUpperSize(.{}).ok);
+    try std.testing.expectEqual(
+        @as(u64, 8192),
+        planMountDiskUpperSize(.{ .size_bytes = 8192 }).ok,
+    );
+    try std.testing.expectEqual(@as(u64, 0), planMountDiskUpperSize(.{ .size_bytes = 0 }).invalid);
+    try std.testing.expectEqual(
+        @as(u64, 4097),
+        planMountDiskUpperSize(.{ .size_bytes = 4097 }).invalid,
+    );
+}
+
 test "planMountDiskRuntime selects restore and fresh actions" {
     const none = try planMountDiskRuntime(.{});
     try std.testing.expectEqualStrings("none", none.action);
@@ -2720,6 +2992,22 @@ test "planProvisionRuntime defaults and derives workdir paths" {
     try std.testing.expectEqual(@as(u64, 1024 * 1024 * 1024), defaults.scratch_size_bytes);
     try std.testing.expectEqual(@as(u64, 10 * 60 * 1000), defaults.deadline_ms);
     try std.testing.expect(defaults.disk_path == null);
+}
+
+test "planProvisionResult projects provision result fields" {
+    const plan = planProvisionResult(.{
+        .image_path = "/tmp/warm.tar.gz",
+        .size_bytes = 1234,
+        .elapsed_ms = 56,
+    });
+    try std.testing.expectEqualStrings("/tmp/warm.tar.gz", plan.image_path.?);
+    try std.testing.expectEqual(@as(?u64, 1234), plan.size_bytes);
+    try std.testing.expectEqual(@as(?u64, 56), plan.elapsed_ms);
+
+    const empty = planProvisionResult(.{});
+    try std.testing.expect(empty.image_path == null);
+    try std.testing.expect(empty.size_bytes == null);
+    try std.testing.expect(empty.elapsed_ms == null);
 }
 
 test "planProvisionImageConfig preserves optional cmd and env" {
@@ -3045,6 +3333,68 @@ test "planBundleEnv overlays guest env on image env" {
     try std.testing.expectEqualStrings("guest", planned[2].value);
 }
 
+test "planRootDiskTempPath formats restore and cached rootdisk paths" {
+    const restore = try planRootDiskTempPath(std.testing.allocator, .{
+        .kind = .restore,
+        .tmp_dir = "/tmp",
+        .pid = 1234,
+        .nonce = "abcdef",
+    });
+    defer std.testing.allocator.free(restore.path.?);
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-rootdisk-restore-1234-abcdef.img",
+        restore.path.?,
+    );
+
+    const cached = try planRootDiskTempPath(std.testing.allocator, .{
+        .kind = .cached,
+        .tmp_dir = "/tmp",
+        .pid = 1234,
+        .nonce = "abcdef",
+    });
+    defer std.testing.allocator.free(cached.path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-rootdisk-1234-abcdef.img", cached.path.?);
+
+    const missing = try planRootDiskTempPath(std.testing.allocator, .{});
+    try std.testing.expect(missing.path == null);
+}
+
+test "planMountDiskTempPath formats restored upper paths" {
+    const restore_upper = try planMountDiskTempPath(std.testing.allocator, .{
+        .kind = .restore_upper,
+        .tmp_dir = "/tmp",
+        .pid = 1234,
+        .nonce = "abcdef",
+    });
+    defer std.testing.allocator.free(restore_upper.path.?);
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-mountdisk-upper-1234-abcdef.img",
+        restore_upper.path.?,
+    );
+
+    const missing = try planMountDiskTempPath(std.testing.allocator, .{});
+    try std.testing.expect(missing.path == null);
+}
+
+test "planRootDiskMaterializeMode selects restore caller and cached precedence" {
+    try std.testing.expectEqualStrings("cached", planRootDiskMaterializeMode(.{}).action);
+    try std.testing.expectEqualStrings(
+        "caller",
+        planRootDiskMaterializeMode(.{ .caller_path = "/caller.img" }).action,
+    );
+    try std.testing.expectEqualStrings(
+        "restore",
+        planRootDiskMaterializeMode(.{ .restore_path = "/restore.img" }).action,
+    );
+    try std.testing.expectEqualStrings(
+        "restore",
+        planRootDiskMaterializeMode(.{
+            .restore_path = "/restore.img",
+            .caller_path = "/caller.img",
+        }).action,
+    );
+}
+
 test "planRootDiskRuntime selects existing restore and cached clone actions" {
     const none = try planRootDiskRuntime(.{});
     try std.testing.expectEqualStrings("none", none.action);
@@ -3073,6 +3423,32 @@ test "planRootDiskRuntime selects existing restore and cached clone actions" {
     try std.testing.expectEqualStrings("clone-cached", cached.action);
     try std.testing.expectEqualStrings("/cache.img", cached.source_path.?);
     try std.testing.expectEqualStrings("/boot.img", cached.vmm_root_disk.?);
+}
+
+test "planScratchTempPath formats restore and auto scratch paths" {
+    const restore = try planScratchTempPath(std.testing.allocator, .{
+        .kind = .restore,
+        .tmp_dir = "/tmp",
+        .pid = 1234,
+        .nonce = "abcdef",
+    });
+    defer std.testing.allocator.free(restore.path.?);
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-snap-restore-1234-abcdef.img",
+        restore.path.?,
+    );
+
+    const auto = try planScratchTempPath(std.testing.allocator, .{
+        .kind = .auto,
+        .tmp_dir = "/tmp",
+        .pid = 1234,
+        .nonce = "abcdef",
+    });
+    defer std.testing.allocator.free(auto.path.?);
+    try std.testing.expectEqualStrings("/tmp/machinen-snap-1234-abcdef.img", auto.path.?);
+
+    const missing = try planScratchTempPath(std.testing.allocator, .{});
+    try std.testing.expect(missing.path == null);
 }
 
 test "planScratchDisk selects restore clone auto allocation and no-disk cases" {
@@ -3275,6 +3651,26 @@ test "planStatsFileMode selects existing or allocate" {
     const allocate = planStatsFileMode(.{});
     try std.testing.expectEqualStrings("allocate", allocate.action);
     try std.testing.expect(allocate.existing_path == null);
+}
+
+test "planStatsFileTempMode selects existing reuse or allocate" {
+    const existing = planStatsFileTempMode(.{
+        .existing_path = "/tmp/caller-stats.bin",
+        .vsock_temp_dir = "/tmp/vsock",
+    });
+    try std.testing.expectEqualStrings("existing", existing.action);
+    try std.testing.expectEqualStrings("/tmp/caller-stats.bin", existing.existing_path.?);
+    try std.testing.expect(existing.temp_dir == null);
+
+    const reuse = planStatsFileTempMode(.{ .vsock_temp_dir = "/tmp/vsock" });
+    try std.testing.expectEqualStrings("reuse", reuse.action);
+    try std.testing.expect(reuse.existing_path == null);
+    try std.testing.expectEqualStrings("/tmp/vsock", reuse.temp_dir.?);
+
+    const allocate = planStatsFileTempMode(.{});
+    try std.testing.expectEqualStrings("allocate", allocate.action);
+    try std.testing.expect(allocate.existing_path == null);
+    try std.testing.expect(allocate.temp_dir == null);
 }
 
 test "planStatsFile preserves caller path or returns runtime-owned env value" {

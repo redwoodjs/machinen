@@ -7,20 +7,12 @@
 import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import {
-  closeSync,
-  existsSync,
-  mkdtempSync,
-  openSync,
-  rmSync,
-  unlinkSync,
-  writeSync,
-} from "node:fs";
+import { closeSync, existsSync, mkdtempSync, openSync, rmSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
 
-import { readBalloonStats, STATS_FILE_SIZE } from "../balloon-stats.ts";
+import { readBalloonStats } from "../balloon-stats.ts";
 import {
   bootReadinessFailureMessage,
   bootStderrTail,
@@ -63,7 +55,6 @@ import {
   planBootRegistryShapeNative,
   planBootRegistryVmstateNative,
   planBootScratchDiskNative,
-  planBootStatsFileNative,
   planBootVirtiofsEnvNative,
   planBootVmstateEnvNative,
   planBootVmstateRuntimeNative,
@@ -77,12 +68,15 @@ import {
 } from "../native/port-forward.ts";
 import { planGuestHostnameSetNative } from "../native/guest-hostname.ts";
 import { planBootRegistryLifecycleNative } from "../native/registry-lifecycle.ts";
-import { planBootRegistryProcessNative } from "../native/registry-process.ts";
+import {
+  planBootRegistryProcessIdentityNative,
+  planBootRegistryProcessNative,
+} from "../native/registry-process.ts";
 import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
 import { planBootScratchModeNative } from "../native/scratch-mode.ts";
+import { planBootScratchTempPathNative } from "../native/scratch-temp-path.ts";
 import { planBootSnapshotBackingNative as planSnapshotBacking } from "../native/snapshot-backing.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
-import { planBootStatsFileModeNative } from "../native/stats-file-mode.ts";
 import { planBootVmmEnvNative } from "../native/vmm-env.ts";
 import { planBootVsockModeNative } from "../native/vsock-mode.ts";
 import { planBootVmstateTempModeNative as planVmstateTempMode } from "../native/vmstate-temp-mode.ts";
@@ -108,6 +102,7 @@ import {
 } from "./helpers.ts";
 import { performSnapshot, type SnapshotContext } from "./snapshot.ts";
 import { resolveSnapshotEngine } from "./snapshot-engine.ts";
+import { setupStatsFile } from "./stats-file.ts";
 
 const debug = debugLib("machinen:boot");
 const vmmDebug = debugLib("machinen:vmm");
@@ -1290,14 +1285,21 @@ function resolveSnapshotDiskPath(opts: BootOptions): string | undefined {
 }
 
 function scratchRestoreClonePath(): string {
-  return join(
-    tmpdir(),
-    `machinen-snap-restore-${process.pid}-${randomBytes(6).toString("hex")}.img`,
-  );
+  return planBootScratchTempPathNative({
+    kind: "restore",
+    tmpDir: tmpdir(),
+    pid: process.pid,
+    nonce: randomBytes(6).toString("hex"),
+  });
 }
 
 function autoScratchPath(): string {
-  return join(tmpdir(), `machinen-snap-${process.pid}-${randomBytes(6).toString("hex")}.img`);
+  return planBootScratchTempPathNative({
+    kind: "auto",
+    tmpDir: tmpdir(),
+    pid: process.pid,
+    nonce: randomBytes(6).toString("hex"),
+  });
 }
 
 function applyScratchDiskPlan(
@@ -1385,40 +1387,6 @@ function setupVsockBridge(env: Record<string, string>): {
   );
   return { vsockUdsPath: plan.vsockUdsPath ?? undefined, vsockTempDir };
 }
-// #274: shared stats file the balloon backend writes counters to.
-// Pre-allocated zero-filled here so the VMM's mmap'd writer and our
-// host-side reader see a coherent layout even before the first
-// reporting chain. Co-located under `vsockTempDir` when we own one
-// (so cleanup rides along on its rmSync); otherwise allocated in
-// tmpdir() with its own cleanup entry. Skipped when the caller
-// already pre-set `MACHINEN_STATS_FILE` (debug knob).
-function setupStatsFile(
-  env: Record<string, string>,
-  vsockTempDir: string | undefined,
-): { statsFilePath: string | undefined; statsTempDir: string | undefined } {
-  const mode = planBootStatsFileModeNative(env.MACHINEN_STATS_FILE);
-  if (mode.action === "existing") {
-    return { statsFilePath: mode.existingPath ?? undefined, statsTempDir: undefined };
-  }
-  let statsTempDir: string | undefined;
-  const statsFileTempDir =
-    vsockTempDir ?? (statsTempDir = mkdtempSync(join(tmpdir(), "machinen-stats-")));
-  const plan = planBootStatsFileNative({ tempDir: statsFileTempDir });
-  if (!plan.statsFilePath) {
-    return { statsFilePath: undefined, statsTempDir };
-  }
-  const fd = openSync(plan.statsFilePath, "w");
-  try {
-    writeSync(fd, Buffer.alloc(STATS_FILE_SIZE), 0, STATS_FILE_SIZE, 0);
-  } finally {
-    closeSync(fd);
-  }
-  if (plan.vmmStatsFile) {
-    env.MACHINEN_STATS_FILE = plan.vmmStatsFile;
-  }
-  return { statsFilePath: plan.statsFilePath, statsTempDir };
-}
-
 interface GvproxyResult {
   gvStop: (() => void) | undefined;
   gvPid: number | undefined;
@@ -1625,14 +1593,20 @@ function registerInRegistry(args: RegisterArgs): boolean {
 
 function buildRegistryEntry(args: RegisterArgs) {
   const scalars = planBootRegistryScalarsNative(args);
+  const identityReads = planBootRegistryProcessIdentityNative({
+    hostPlatform: process.platform,
+    childPid: args.childPid,
+    vmmPdeathsig: args.vmmPdeathsig !== null,
+    gvPid: args.gvPid,
+  });
   const processPlan = planBootRegistryProcessNative({
     hostPlatform: process.platform,
     vmmBinary: args.binary,
     vmmPdeathsig: args.vmmPdeathsig !== null,
-    vmmObservedExeBase: observedDarwinVmmExe(args),
+    vmmObservedExeBase: observedProcessExeBase(identityReads.vmmPid),
     gvPid: args.gvPid,
     gvExe: args.gvExe,
-    gvObservedExeBase: observedDarwinGvproxyExe(args),
+    gvObservedExeBase: observedProcessExeBase(identityReads.gvPid),
   });
   return {
     pid: args.childPid,
@@ -1667,21 +1641,8 @@ function nonEmptyList<T>(items: T[]): T[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
-function observedDarwinVmmExe(args: RegisterArgs): string | undefined {
-  // The pdeathsig shim works differently per platform. On macOS child.pid
-  // is the watcher, so snapshot its identity now; on Linux the shim execs in
-  // place, so deferring avoids recording the shim during the exec race.
-  if (process.platform !== "darwin" || !args.vmmPdeathsig) {
-    return undefined;
-  }
-  return readProcessIdentity(args.childPid)?.exeBase;
-}
-
-function observedDarwinGvproxyExe(args: RegisterArgs): string | undefined {
-  if (process.platform !== "darwin" || args.gvPid === undefined || args.gvPid <= 0) {
-    return undefined;
-  }
-  return readProcessIdentity(args.gvPid)?.exeBase;
+function observedProcessExeBase(pid: number | undefined): string | undefined {
+  return pid === undefined ? undefined : readProcessIdentity(pid)?.exeBase;
 }
 
 function registryMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
