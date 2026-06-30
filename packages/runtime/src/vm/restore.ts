@@ -416,7 +416,21 @@ function persistLazyPagesTotal(vm: VmHandle, lazyPagesTotal: number | undefined)
 
 function probeRestoredGuestHostname(vm: VmHandle, phases: PhaseTimer): void {
   phases.start("criu-restore-probe");
-  void setGuestHostname(vm, buildGuestHostname(vm.pid, vm.name)).finally(() => {
+  let hostname: string;
+  try {
+    hostname = buildGuestHostname(vm.pid, vm.name);
+  } catch (err) {
+    debugRestore(
+      "setGuestHostname: planner failed pid=%d name=%s err=%s",
+      vm.pid,
+      vm.name ?? "",
+      err instanceof Error ? err.message : String(err),
+    );
+    phases.end("criu-restore-probe");
+    phases.flush(debugRestore, "restore");
+    return;
+  }
+  void setGuestHostname(vm, hostname).finally(() => {
     phases.end("criu-restore-probe");
     phases.flush(debugRestore, "restore");
   });
@@ -955,5 +969,14 @@ function cleanupMaterializedVmstate(materializedTempDir: string | undefined): vo
 }
 
 function restampRestoredHostname(vm: VmHandle): void {
-  void setGuestHostname(vm, buildGuestHostname(vm.pid, vm.name)).catch(() => {});
+  try {
+    void setGuestHostname(vm, buildGuestHostname(vm.pid, vm.name)).catch(() => {});
+  } catch (err) {
+    debugRestore(
+      "setGuestHostname: planner failed pid=%d name=%s err=%s",
+      vm.pid,
+      vm.name ?? "",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
 }

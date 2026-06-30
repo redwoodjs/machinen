@@ -10,11 +10,13 @@ pub const name = "boot-plan";
 const ParsedRequest = struct {
     memory_mib_text: ?[]const u8 = null,
     resources_memory: ?ParsedResourcesMemory = null,
+    resources_cpu: ?ParsedResourcesCpu = null,
     auto_memory_mib_text: ?[]const u8 = null,
     host_total_bytes_text: ?[]const u8 = null,
     vmm_memory_preset: bool = false,
     has_image: bool = false,
     has_cmd: bool = false,
+    has_snapshot: bool = false,
     root_disk: boot_plan.RootDiskMode = .unset,
     guest_cwd: ?[]const u8 = null,
     mount_guest: ?[]const u8 = null,
@@ -26,13 +28,24 @@ const ParsedRequest = struct {
     port_forward: []const boot_plan.PortForwardMapping = &.{},
     vmm_binary: ?[]const u8 = null,
     vmm_args: []const []const u8 = &.{},
+    guest_hostname_pid_text: ?[]const u8 = null,
+    guest_hostname_name: ?[]const u8 = null,
     pdeathsig_path: ?[]const u8 = null,
+    pdeathsig_requested: ?bool = null,
+    detached: bool = false,
+    boot_timeout_ms_text: ?[]const u8 = null,
+    boot_timeout_forever: bool = false,
     kernel_path: ?[]const u8 = null,
     dtb_path: ?[]const u8 = null,
     vmstate_path: ?[]const u8 = null,
     restore_path: ?[]const u8 = null,
     enable_vmstate_timing: bool = false,
     existing_vmstate_timing: ?[]const u8 = null,
+    boot_vmstate_state_path: ?[]const u8 = null,
+    boot_vmstate_chain_id: ?[]const u8 = null,
+    boot_vmstate_restore_path: ?[]const u8 = null,
+    boot_vmstate_forked_from: ?[]const u8 = null,
+    nested_requested: bool = false,
     live_mounts: []const boot_plan.LiveMountInput = &.{},
     live_mounts_resolved: []const boot_plan.LiveMount = &.{},
     existing_stats_file: ?[]const u8 = null,
@@ -83,6 +96,13 @@ const ParsedRequest = struct {
     registry_source_image_path: ?[]const u8 = null,
     registry_per_boot_root_disk: ?[]const u8 = null,
     registry_caller_root_disk_path: ?[]const u8 = null,
+    registry_disk_path: ?[]const u8 = null,
+    registry_forked_from: ?[]const u8 = null,
+    registry_memory_ceiling_mib_text: ?[]const u8 = null,
+    registry_stats_path: ?[]const u8 = null,
+    registry_boot_log_root: ?[]const u8 = null,
+    registry_child_pid_text: ?[]const u8 = null,
+    registry_detached: bool = false,
     registry_per_boot_snap_disk: ?[]const u8 = null,
     registry_per_boot_mount_upper: ?[]const u8 = null,
     registry_bundle_temp_dir: ?[]const u8 = null,
@@ -90,6 +110,16 @@ const ParsedRequest = struct {
     registry_stats_temp_dir: ?[]const u8 = null,
     registry_gv_socket_dir: ?[]const u8 = null,
     registry_cpu_cgroup_path: ?[]const u8 = null,
+    registry_cpu_policy_max_vcpus_text: ?[]const u8 = null,
+    registry_cpu_policy_quota_cpus_text: ?[]const u8 = null,
+    registry_cpu_policy_weight_text: ?[]const u8 = null,
+    registry_cpu_control_status: ?[]const u8 = null,
+    registry_cpu_control_reason: ?[]const u8 = null,
+    registry_vmstate_path: ?[]const u8 = null,
+    registry_vmstate_chain_id: ?[]const u8 = null,
+    registry_vmstate_checkpoint_parent: ?[]const u8 = null,
+    registry_vmstate_checkpoint_sequence_text: ?[]const u8 = null,
+    registry_nested: bool = false,
     registry_mount_guest: ?[]const u8 = null,
     registry_mount_lower_path: ?[]const u8 = null,
     registry_mount_upper_path: ?[]const u8 = null,
@@ -100,14 +130,22 @@ const ParsedResourcesMemory = struct {
     reclaim: ?[]const u8,
 };
 
+const ParsedResourcesCpu = struct {
+    max_vcpus_text: ?[]const u8,
+    quota_cpus_text: ?[]const u8,
+    weight_text: ?[]const u8,
+};
+
 const boot_plan_fields = [_][]const u8{
     "memoryMib",
     "resourcesMemory",
+    "resourcesCpu",
     "autoMemoryMib",
     "hostTotalBytes",
     "vmmMemoryPreset",
     "hasImage",
     "hasCmd",
+    "hasSnapshot",
     "rootDisk",
     "guestCwd",
     "mountGuest",
@@ -119,13 +157,24 @@ const boot_plan_fields = [_][]const u8{
     "portForward",
     "vmmBinary",
     "vmmArgs",
+    "guestHostnamePid",
+    "guestHostnameName",
     "pdeathsigPath",
+    "pdeathsig",
+    "detached",
+    "bootTimeoutMs",
+    "bootTimeoutForever",
     "kernelPath",
     "dtbPath",
     "vmstatePath",
     "restorePath",
     "enableVmstateTiming",
     "existingVmstateTiming",
+    "bootVmstateStatePath",
+    "bootVmstateChainId",
+    "bootVmstateRestorePath",
+    "bootVmstateForkedFrom",
+    "nested",
     "liveMounts",
     "liveMountsResolved",
     "existingStatsFile",
@@ -176,6 +225,13 @@ const boot_plan_fields = [_][]const u8{
     "registrySourceImagePath",
     "registryPerBootRootDisk",
     "registryCallerRootDiskPath",
+    "registryDiskPath",
+    "registryForkedFrom",
+    "registryMemoryCeilingMib",
+    "registryStatsPath",
+    "registryBootLogRoot",
+    "registryChildPid",
+    "registryDetached",
     "registryPerBootSnapDisk",
     "registryPerBootMountUpper",
     "registryBundleTempDir",
@@ -183,6 +239,16 @@ const boot_plan_fields = [_][]const u8{
     "registryStatsTempDir",
     "registryGvSocketDir",
     "registryCpuCgroupPath",
+    "registryCpuPolicyMaxVcpus",
+    "registryCpuPolicyQuotaCpus",
+    "registryCpuPolicyWeight",
+    "registryCpuControlStatus",
+    "registryCpuControlReason",
+    "registryVmstatePath",
+    "registryVmstateChainId",
+    "registryVmstateCheckpointParent",
+    "registryVmstateCheckpointSequence",
+    "registryNested",
     "registryMountGuest",
     "registryMountLowerPath",
     "registryMountUpperPath",
@@ -196,6 +262,10 @@ const RequestError = error{
     MissingResourcesMaxMib,
     InvalidResourcesMaxMib,
     InvalidResourcesReclaim,
+    InvalidResourcesCpu,
+    InvalidResourcesCpuMaxVcpus,
+    InvalidResourcesCpuQuotaCpus,
+    InvalidResourcesCpuWeight,
     MissingAutoMemoryMib,
     InvalidAutoMemoryMib,
     MissingHostTotalBytes,
@@ -206,6 +276,7 @@ const RequestError = error{
     InvalidHasImage,
     MissingHasCmd,
     InvalidHasCmd,
+    InvalidHasSnapshot,
     MissingRootDisk,
     InvalidRootDisk,
     InvalidGuestCwd,
@@ -221,13 +292,24 @@ const RequestError = error{
     InvalidGuestPort,
     InvalidVmmBinary,
     InvalidVmmArgs,
+    InvalidGuestHostnamePid,
+    InvalidGuestHostnameName,
     InvalidPdeathsigPath,
+    InvalidPdeathsig,
+    InvalidDetached,
+    InvalidBootTimeoutMs,
+    InvalidBootTimeoutForever,
     InvalidKernelPath,
     InvalidDtbPath,
     InvalidVmstatePath,
     InvalidRestorePath,
     InvalidEnableVmstateTiming,
     InvalidExistingVmstateTiming,
+    InvalidBootVmstateStatePath,
+    InvalidBootVmstateChainId,
+    InvalidBootVmstateRestorePath,
+    InvalidBootVmstateForkedFrom,
+    InvalidNested,
     InvalidLiveMounts,
     InvalidLiveMountGuest,
     InvalidLiveMountsResolved,
@@ -284,7 +366,22 @@ const RequestError = error{
     InvalidMountDiskUpperSize,
     InvalidRegistrySourceImagePath,
     InvalidRegistryRootDiskPath,
+    InvalidRegistryBootLogRoot,
+    InvalidRegistryChildPid,
+    InvalidRegistryDetached,
+    InvalidRegistryDiskPath,
+    InvalidRegistryForkedFrom,
+    InvalidRegistryMemoryCeilingMib,
+    InvalidRegistryStatsPath,
     InvalidRegistryCleanupPath,
+    InvalidRegistryCpuPolicy,
+    InvalidRegistryCpuControlStatus,
+    InvalidRegistryCpuControlReason,
+    InvalidRegistryVmstatePath,
+    InvalidRegistryVmstateChainId,
+    InvalidRegistryVmstateCheckpointParent,
+    InvalidRegistryVmstateCheckpointSequence,
+    InvalidRegistryNested,
     InvalidRegistryMountGuest,
     InvalidRegistryMountLowerPath,
     InvalidRegistryMountUpperPath,
@@ -318,11 +415,17 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
 
 const PlanParts = struct {
     plan: boot_plan.Plan,
+    cpu_policy: ?boot_plan.CpuPolicyPlan,
     guest_env: []const boot_plan.EnvPair,
     vsock_plan: boot_plan.VsockPlan,
+    guest_hostname: boot_plan.GuestHostnameInput,
     vmm_argv: boot_plan.VmmArgvPlan,
+    use_pdeathsig: bool,
+    planned_port_forwards: []const boot_plan.PortForwardMapping,
     kernel_dtb: boot_plan.KernelDtbPlan,
     vmstate_env: boot_plan.VmstateEnvPlan,
+    vmstate_runtime: boot_plan.VmstateRuntimePlan,
+    nested_env: ?[]const u8,
     virtiofs_env: []const boot_plan.EnvPair,
     stats_file: boot_plan.StatsFilePlan,
     planned_live_mounts: []const boot_plan.LiveMount,
@@ -379,7 +482,9 @@ fn makePlanParts(
     const runtime = try makeRuntimeParts(arena, parsed);
     return .{
         .plan = plan,
+        .cpu_policy = try makeCpuResources(parsed),
         .guest_env = try makeGuestEnv(arena, parsed),
+        .guest_hostname = try makeGuestHostname(parsed),
         .vsock_plan = try boot_plan.planVsock(arena, .{
             .existing_spec = parsed.existing_vsock_spec,
             .auto_uds_path = parsed.auto_vsock_uds_path,
@@ -389,6 +494,11 @@ fn makePlanParts(
             .args = parsed.vmm_args,
             .pdeathsig_path = parsed.pdeathsig_path,
         }),
+        .use_pdeathsig = boot_plan.planPdeathsig(.{
+            .detached = parsed.detached,
+            .pdeathsig = parsed.pdeathsig_requested,
+        }),
+        .planned_port_forwards = parsed.port_forward,
         .kernel_dtb = boot_plan.planKernelDtb(.{
             .kernel_path = parsed.kernel_path,
             .dtb_path = parsed.dtb_path,
@@ -399,6 +509,13 @@ fn makePlanParts(
             .enable_timing = parsed.enable_vmstate_timing,
             .existing_timing = parsed.existing_vmstate_timing,
         }),
+        .vmstate_runtime = try boot_plan.planVmstateRuntime(.{
+            .state_path = parsed.boot_vmstate_state_path,
+            .chain_id = parsed.boot_vmstate_chain_id,
+            .restore_path = parsed.boot_vmstate_restore_path,
+            .forked_from = parsed.boot_vmstate_forked_from,
+        }),
+        .nested_env = boot_plan.planNestedEnv(parsed.nested_requested),
         .virtiofs_env = try boot_plan.planVirtiofsEnv(arena, parsed.live_mounts_resolved),
         .stats_file = boot_plan.planStatsFile(.{
             .existing_path = parsed.existing_stats_file,
@@ -533,6 +650,32 @@ fn makeProvisionBoot(
     });
 }
 
+fn makeCpuResources(parsed: ParsedRequest) !?boot_plan.CpuPolicyPlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    const cpu = parsed.resources_cpu orelse return null;
+    return boot_plan.planCpuResources(.{
+        .max_vcpus = try optionalUnsignedText(
+            cpu.max_vcpus_text,
+            error.InvalidResourcesCpuMaxVcpus,
+        ),
+        .quota_cpus = try optionalFloatText(
+            cpu.quota_cpus_text,
+            error.InvalidResourcesCpuQuotaCpus,
+        ),
+        .weight = try optionalUnsignedText(cpu.weight_text, error.InvalidResourcesCpuWeight),
+    });
+}
+
+fn optionalFloatText(text: ?[]const u8, err: RequestError) RequestError!?f64 {
+    assert(@errorName(err).len > 0);
+
+    if (text) |value| {
+        return parseFloat(value) catch err;
+    }
+    return null;
+}
+
 fn makeProvisionRuntime(
     arena: std.mem.Allocator,
     parsed: ParsedRequest,
@@ -595,16 +738,59 @@ fn makeProvisionRepack(
     });
 }
 
+fn makeRegistryCpuPolicy(parsed: ParsedRequest) RequestError!?boot_plan.CpuPolicyPlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    if (parsed.registry_cpu_policy_max_vcpus_text == null and
+        parsed.registry_cpu_policy_quota_cpus_text == null and
+        parsed.registry_cpu_policy_weight_text == null)
+    {
+        return null;
+    }
+
+    const max_vcpus_text = parsed.registry_cpu_policy_max_vcpus_text orelse
+        return error.InvalidRegistryCpuPolicy;
+    const weight_text = parsed.registry_cpu_policy_weight_text orelse
+        return error.InvalidRegistryCpuPolicy;
+    return .{
+        .max_vcpus = parseUnsigned(max_vcpus_text) catch return error.InvalidRegistryCpuPolicy,
+        .quota_cpus = try optionalFloatText(
+            parsed.registry_cpu_policy_quota_cpus_text,
+            error.InvalidRegistryCpuPolicy,
+        ),
+        .weight = parseUnsigned(weight_text) catch return error.InvalidRegistryCpuPolicy,
+    };
+}
+
 fn makeRegistryShape(
     arena: std.mem.Allocator,
     parsed: ParsedRequest,
 ) !boot_plan.RegistryShapePlan {
     assert(@sizeOf(boot_plan.RegistryShapePlan) > 0);
 
+    const registry_vmstate_checkpoint_sequence = try optionalUnsignedText(
+        parsed.registry_vmstate_checkpoint_sequence_text,
+        error.InvalidRegistryVmstateCheckpointSequence,
+    );
+    const registry_child_pid = if (parsed.registry_child_pid_text) |text|
+        parseSigned(text) catch return error.InvalidRegistryChildPid
+    else
+        null;
+    const registry_memory_ceiling_mib = try optionalUnsignedText(
+        parsed.registry_memory_ceiling_mib_text,
+        error.InvalidRegistryMemoryCeilingMib,
+    );
     return boot_plan.planRegistryShape(arena, .{
         .source_image_path = parsed.registry_source_image_path,
         .per_boot_root_disk = parsed.registry_per_boot_root_disk,
         .caller_root_disk_path = parsed.registry_caller_root_disk_path,
+        .boot_log_root = parsed.registry_boot_log_root,
+        .child_pid = registry_child_pid,
+        .detached = parsed.registry_detached,
+        .disk_path = parsed.registry_disk_path,
+        .forked_from = parsed.registry_forked_from,
+        .memory_ceiling_mib = registry_memory_ceiling_mib,
+        .stats_path = parsed.registry_stats_path,
         .cleanup = .{
             .per_boot_root_disk = parsed.registry_per_boot_root_disk,
             .per_boot_snap_disk = parsed.registry_per_boot_snap_disk,
@@ -621,6 +807,17 @@ fn makeRegistryShape(
             .upper_path = parsed.registry_mount_upper_path,
         },
         .live_mounts = parsed.live_mounts_resolved,
+        .port_forwards = parsed.port_forward,
+        .cpu_policy = try makeRegistryCpuPolicy(parsed),
+        .cpu_control_status = parsed.registry_cpu_control_status,
+        .cpu_control_reason = parsed.registry_cpu_control_reason,
+        .vmstate = .{
+            .state_path = parsed.registry_vmstate_path,
+            .chain_id = parsed.registry_vmstate_chain_id,
+            .checkpoint_parent = parsed.registry_vmstate_checkpoint_parent,
+            .checkpoint_sequence = registry_vmstate_checkpoint_sequence,
+        },
+        .nested = parsed.registry_nested,
     });
 }
 
@@ -644,13 +841,18 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
 
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,");
     try protocol.stdout(io, "\"command\":\"boot-plan\",\"data\":{");
-    try writeCoreFields(io, parts.plan);
+    try writeCoreFields(io, parts.plan, parts.cpu_policy);
     try writeVsockKernelFields(io, parts.vsock_plan, parts.kernel_dtb);
+    try writeGuestHostnameField(io, "guestHostname", parts.guest_hostname, true);
     try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file);
+    try writeVmstateRuntimeField(io, "vmstateRuntime", parts.vmstate_runtime, true);
+    try writeNullableStringField(io, "vmmNested", parts.nested_env, true);
     try writeLiveMountsArrayField(io, "plannedLiveMounts", parts.planned_live_mounts, true);
+    try writePortForwardField(io, "plannedPortForward", parts.planned_port_forwards, false, true);
     try writeEnvObjectField(io, "virtiofsEnv", parts.virtiofs_env, true);
     try writeNullableStringField(io, "vmmCommand", parts.vmm_argv.command, true);
     try writeStringArrayField(io, "vmmArgs", parts.vmm_argv.args, true);
+    try writeBoolField(io, "usePdeathsig", parts.use_pdeathsig, true);
     try writeEnvObjectField(io, "mergedGuestEnv", parts.guest_env, true);
     try writeMachinenConfigField(io, "machinenConfig", parts, true);
     try writeStringArrayField(io, "bundleCommand", parts.bundle_command, true);
@@ -673,11 +875,19 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try protocol.stdout(io, "}}\n");
 }
 
-fn writeCoreFields(io: std.Io, plan: boot_plan.Plan) !void {
+fn writeCoreFields(
+    io: std.Io,
+    plan: boot_plan.Plan,
+    cpu_policy: ?boot_plan.CpuPolicyPlan,
+) !void {
     assert(@sizeOf(boot_plan.Plan) > 0);
 
     try writeNullableU64Field(io, "memoryCeilingMib", plan.memory_ceiling_mib, false);
     try writeNullableU64StringField(io, "vmmMemory", plan.vmm_memory_mib, true);
+    try writeNullableU64Field(io, "timeoutMs", plan.timeout_ms, true);
+    try writeU64Field(io, "detachedReadinessTimeoutMs", plan.detached_readiness_timeout_ms, true);
+    try writeBoolField(io, "needsInitramfs", plan.needs_initramfs, true);
+    try writeCpuPolicyField(io, "cpuPolicy", cpu_policy, true);
     try writeBoolField(io, "wantsRootDisk", plan.wants_root_disk, true);
     try writeNullableStringField(
         io,
@@ -685,6 +895,51 @@ fn writeCoreFields(io: std.Io, plan: boot_plan.Plan) !void {
         plan.normalized_mount_guest,
         true,
     );
+}
+
+fn writeCpuPolicyField(
+    io: std.Io,
+    comptime field: []const u8,
+    cpu_policy: ?boot_plan.CpuPolicyPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    if (cpu_policy) |cpu| {
+        try protocol.stdout(io, "{\"maxVcpus\":");
+        try writeU64Bare(io, cpu.max_vcpus);
+        if (cpu.quota_cpus) |quota| {
+            try protocol.stdout(io, ",\"quotaCpus\":");
+            try writeF64Bare(io, quota);
+        }
+        try protocol.stdout(io, ",\"weight\":");
+        try writeU64Bare(io, cpu.weight);
+        try protocol.stdout(io, "}");
+    } else {
+        try protocol.stdout(io, "null");
+    }
+}
+
+fn writeU64Bare(io: std.Io, value: u64) !void {
+    assert(@sizeOf(u64) > 0);
+
+    var buf: [32]u8 = undefined;
+    try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{value}));
+}
+
+fn writeI64Bare(io: std.Io, value: i64) !void {
+    assert(@sizeOf(i64) > 0);
+
+    var buf: [32]u8 = undefined;
+    try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{value}));
+}
+
+fn writeF64Bare(io: std.Io, value: f64) !void {
+    assert(@sizeOf(f64) > 0);
+
+    var buf: [64]u8 = undefined;
+    try protocol.stdout(io, try std.fmt.bufPrint(&buf, "{d}", .{value}));
 }
 
 fn writeVsockKernelFields(
@@ -698,6 +953,37 @@ fn writeVsockKernelFields(
     try writeNullableStringField(io, "vmmVsock", vsock_plan.vmm_vsock, true);
     try writeNullableStringField(io, "vmmKernel", kernel_dtb.vmm_kernel, true);
     try writeNullableStringField(io, "vmmDtb", kernel_dtb.vmm_dtb, true);
+}
+
+fn writeGuestHostnameField(
+    io: std.Io,
+    comptime field: []const u8,
+    input: boot_plan.GuestHostnameInput,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    var buffer: [256]u8 = undefined;
+    const hostname = boot_plan.formatGuestHostname(&buffer, input) catch
+        return error.InvalidGuestHostnameName;
+    try writeNullableStringField(io, field, hostname, comma);
+}
+
+fn writeVmstateRuntimeField(
+    io: std.Io,
+    comptime field: []const u8,
+    runtime: boot_plan.VmstateRuntimePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "statePath", runtime.state_path, false);
+    try writeNullableStringField(io, "chainId", runtime.chain_id, true);
+    try writeNullableStringField(io, "checkpointParent", runtime.checkpoint_parent, true);
+    try writeNullableU64Field(io, "checkpointSequence", runtime.checkpoint_sequence, true);
+    try protocol.stdout(io, "}");
 }
 
 fn writeVmstateStatsFields(
@@ -720,6 +1006,18 @@ fn writeFieldName(io: std.Io, comptime field: []const u8, comma: bool) !void {
     if (comma) try protocol.stdout(io, ",");
     try protocol.writeJsonString(io, field);
     try protocol.stdout(io, ":");
+}
+
+fn writeU64Field(
+    io: std.Io,
+    comptime field: []const u8,
+    value: u64,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try writeU64Bare(io, value);
 }
 
 fn writeNullableU64Field(
@@ -1042,12 +1340,21 @@ fn writeRegistryShapeField(
     try writeFieldName(io, field, comma);
     try protocol.stdout(io, "{");
     try writeNullableStringField(io, "sourceImagePath", registry.source_image_path, false);
+    try writeNullableStringField(io, "diskPath", registry.disk_path, true);
+    try writeNullableStringField(io, "forkedFrom", registry.forked_from, true);
+    try writeNullableU64Field(io, "memoryCeilingMib", registry.memory_ceiling_mib, true);
+    try writeNullableStringField(io, "statsPath", registry.stats_path, true);
     try writeNullableStringField(io, "rootDiskPath", registry.root_disk_path, true);
+    try writeNullableStringField(io, "bootLogPath", registry.boot_log_path.value(), true);
     try writeFieldName(io, "rootDiskMode", true);
     try protocol.writeJsonString(io, registry.root_disk_mode);
     try writeStringArrayField(io, "cleanupPaths", registry.cleanup_paths, true);
     try writeRegistryMountDiskField(io, "mountDisk", registry.mount_disk, true);
     try writeRegistryLiveMountsField(io, "liveMounts", registry.live_mounts, true);
+    try writePortForwardField(io, "portForward", registry.port_forwards, true, true);
+    try writeRegistryCpuField(io, "cpu", registry.cpu, true);
+    try writeRegistryVmstateField(io, "vmstate", registry.vmstate, true);
+    try writeBoolField(io, "nested", registry.nested, true);
     try protocol.stdout(io, "}");
 }
 
@@ -1096,6 +1403,83 @@ fn writeRegistryLiveMountsField(
     try protocol.stdout(io, "]");
 }
 
+fn writePortForwardField(
+    io: std.Io,
+    comptime field: []const u8,
+    mappings: anytype,
+    null_when_empty: bool,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    if (mappings.len == 0 and null_when_empty) {
+        try protocol.stdout(io, "null");
+        return;
+    }
+    try protocol.stdout(io, "[");
+    for (mappings, 0..) |mapping, i| {
+        if (i > 0) try protocol.stdout(io, ",");
+        try protocol.stdout(io, "{\"hostPort\":");
+        try writeI64Bare(io, mapping.host_port);
+        try protocol.stdout(io, ",\"guestPort\":");
+        try writeI64Bare(io, mapping.guest_port);
+        if (mapping.host_addr) |host_addr| {
+            try protocol.stdout(io, ",\"hostAddr\":");
+            try protocol.writeJsonString(io, host_addr);
+        }
+        try protocol.stdout(io, "}");
+    }
+    try protocol.stdout(io, "]");
+}
+
+fn writeRegistryVmstateField(
+    io: std.Io,
+    comptime field: []const u8,
+    vmstate: boot_plan.RegistryVmstatePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "statePath", vmstate.state_path, false);
+    try writeNullableStringField(io, "chainId", vmstate.chain_id, true);
+    try writeNullableStringField(io, "checkpointParent", vmstate.checkpoint_parent, true);
+    try writeNullableU64Field(io, "checkpointSequence", vmstate.checkpoint_sequence, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeRegistryCpuField(
+    io: std.Io,
+    comptime field: []const u8,
+    cpu: ?boot_plan.RegistryCpuPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    if (cpu) |plan| {
+        try protocol.stdout(io, "{\"maxVcpus\":");
+        try writeU64Bare(io, plan.max_vcpus);
+        if (plan.quota_cpus) |quota| {
+            try protocol.stdout(io, ",\"quotaCpus\":");
+            try writeF64Bare(io, quota);
+        }
+        try protocol.stdout(io, ",\"weight\":");
+        try writeU64Bare(io, plan.weight);
+        try protocol.stdout(io, ",\"enforcement\":{\"status\":");
+        try protocol.writeJsonString(io, plan.enforcement_status);
+        if (plan.enforcement_reason) |reason| {
+            try protocol.stdout(io, ",\"reason\":");
+            try protocol.writeJsonString(io, reason);
+        }
+        try protocol.stdout(io, "}}");
+    } else {
+        try protocol.stdout(io, "null");
+    }
+}
+
 fn writeEnvObjectField(
     io: std.Io,
     comptime field: []const u8,
@@ -1130,6 +1514,18 @@ fn writeStringArrayField(
         try protocol.writeJsonString(io, value);
     }
     try protocol.stdout(io, "]");
+}
+
+fn makeGuestHostname(parsed: ParsedRequest) RequestError!boot_plan.GuestHostnameInput {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return .{
+        .pid = if (parsed.guest_hostname_pid_text) |text|
+            parseSigned(text) catch return error.InvalidGuestHostnamePid
+        else
+            null,
+        .name = parsed.guest_hostname_name,
+    };
 }
 
 fn makeGuestEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.EnvPair {
@@ -1228,14 +1624,21 @@ fn makePlanInput(
         parseUnsigned(text) catch return error.InvalidMemory
     else
         probed_host_bytes;
+    const boot_timeout_ms = try optionalUnsignedText(
+        parsed.boot_timeout_ms_text,
+        error.InvalidBootTimeoutMs,
+    );
     return .{
         .memory_mib = explicit_memory,
         .resources_memory = resources_memory,
         .auto_memory_mib = auto_memory,
         .host_total_bytes = host_total_bytes,
         .vmm_memory_preset = parsed.vmm_memory_preset,
+        .boot_timeout_ms = boot_timeout_ms,
+        .boot_timeout_forever = parsed.boot_timeout_forever,
         .has_image = parsed.has_image,
         .has_cmd = parsed.has_cmd,
+        .has_snapshot = parsed.has_snapshot,
         .root_disk = parsed.root_disk,
         .guest_cwd = parsed.guest_cwd,
         .mount_guest = parsed.mount_guest,
@@ -1257,6 +1660,20 @@ fn parseUnsigned(text: []const u8) !u64 {
         if (c < '0' or c > '9') return error.Invalid;
     }
     return std.fmt.parseUnsigned(u64, text, 10);
+}
+
+fn parseSigned(text: []const u8) !i64 {
+    assert(@sizeOf(i64) > 0);
+
+    if (text.len == 0) return error.Invalid;
+    return std.fmt.parseInt(i64, text, 10);
+}
+
+fn parseFloat(text: []const u8) !f64 {
+    assert(@sizeOf(f64) > 0);
+
+    if (text.len == 0) return error.Invalid;
+    return std.fmt.parseFloat(f64, text);
 }
 
 fn parseRequest(allocator: std.mem.Allocator, io: std.Io) RequestError!ParsedRequest {
@@ -1308,6 +1725,7 @@ fn parseMemoryFields(
         error.InvalidMemoryMib,
     );
     request.resources_memory = try optionalResourcesMemory(object);
+    request.resources_cpu = try optionalResourcesCpu(object);
     request.auto_memory_mib_text = try optionalString(
         object,
         "autoMemoryMib",
@@ -1341,6 +1759,11 @@ fn parseBootShapeFields(
         error.InvalidHasImage,
     );
     request.has_cmd = try requiredBool(object, "hasCmd", error.MissingHasCmd, error.InvalidHasCmd);
+    request.has_snapshot = try optionalBoolDefaultFalse(
+        object,
+        "hasSnapshot",
+        error.InvalidHasSnapshot,
+    );
     request.root_disk = try requiredRootDisk(object);
     request.guest_cwd = try optionalStringDefaultNull(
         object,
@@ -1363,10 +1786,27 @@ fn parseTransportFields(
 ) RequestError!void {
     assert(@sizeOf(ParsedRequest) > 0);
 
+    try parseVsockFields(object, request);
+    try parseVmmLaunchFields(allocator, object, request);
+}
+
+fn parseVsockFields(object: std.json.ObjectMap, request: *ParsedRequest) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
     request.vsock_uds_path = try optionalStringDefaultNull(
         object,
         "vsockUdsPath",
         error.InvalidVsockUdsPath,
+    );
+    request.guest_hostname_pid_text = try optionalStringDefaultNull(
+        object,
+        "guestHostnamePid",
+        error.InvalidGuestHostnamePid,
+    );
+    request.guest_hostname_name = try optionalStringDefaultNull(
+        object,
+        "guestHostnameName",
+        error.InvalidGuestHostnameName,
     );
     request.existing_vsock_spec = try optionalStringDefaultNull(
         object,
@@ -1378,6 +1818,15 @@ fn parseTransportFields(
         "autoVsockUdsPath",
         error.InvalidAutoVsockUdsPath,
     );
+}
+
+fn parseVmmLaunchFields(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
     request.port_forward = try optionalPortForward(allocator, object);
     request.vmm_binary = try optionalStringDefaultNull(object, "vmmBinary", error.InvalidVmmBinary);
     request.vmm_args = try optionalStringArrayDefaultEmpty(
@@ -1390,6 +1839,22 @@ fn parseTransportFields(
         object,
         "pdeathsigPath",
         error.InvalidPdeathsigPath,
+    );
+    request.pdeathsig_requested = try optionalBoolDefaultNull(
+        object,
+        "pdeathsig",
+        error.InvalidPdeathsig,
+    );
+    request.detached = try optionalBoolDefaultFalse(object, "detached", error.InvalidDetached);
+    request.boot_timeout_ms_text = try optionalStringDefaultNull(
+        object,
+        "bootTimeoutMs",
+        error.InvalidBootTimeoutMs,
+    );
+    request.boot_timeout_forever = try optionalBoolDefaultFalse(
+        object,
+        "bootTimeoutForever",
+        error.InvalidBootTimeoutForever,
     );
 }
 
@@ -1443,6 +1908,27 @@ fn parseVmstateFields(object: std.json.ObjectMap, request: *ParsedRequest) Reque
         "existingVmstateTiming",
         error.InvalidExistingVmstateTiming,
     );
+    request.boot_vmstate_state_path = try optionalStringDefaultNull(
+        object,
+        "bootVmstateStatePath",
+        error.InvalidBootVmstateStatePath,
+    );
+    request.boot_vmstate_chain_id = try optionalStringDefaultNull(
+        object,
+        "bootVmstateChainId",
+        error.InvalidBootVmstateChainId,
+    );
+    request.boot_vmstate_restore_path = try optionalStringDefaultNull(
+        object,
+        "bootVmstateRestorePath",
+        error.InvalidBootVmstateRestorePath,
+    );
+    request.boot_vmstate_forked_from = try optionalStringDefaultNull(
+        object,
+        "bootVmstateForkedFrom",
+        error.InvalidBootVmstateForkedFrom,
+    );
+    request.nested_requested = try optionalBoolDefaultFalse(object, "nested", error.InvalidNested);
 }
 
 fn parseRuntimeMountStatsFields(
@@ -1796,9 +2282,55 @@ fn parseRegistryRootDiskFields(
         "registryCallerRootDiskPath",
         error.InvalidRegistryRootDiskPath,
     );
+    request.registry_disk_path = try optionalStringDefaultNull(
+        object,
+        "registryDiskPath",
+        error.InvalidRegistryDiskPath,
+    );
+    request.registry_forked_from = try optionalStringDefaultNull(
+        object,
+        "registryForkedFrom",
+        error.InvalidRegistryForkedFrom,
+    );
+    request.registry_memory_ceiling_mib_text = try optionalStringDefaultNull(
+        object,
+        "registryMemoryCeilingMib",
+        error.InvalidRegistryMemoryCeilingMib,
+    );
+    request.registry_stats_path = try optionalStringDefaultNull(
+        object,
+        "registryStatsPath",
+        error.InvalidRegistryStatsPath,
+    );
+    request.registry_boot_log_root = try optionalStringDefaultNull(
+        object,
+        "registryBootLogRoot",
+        error.InvalidRegistryBootLogRoot,
+    );
+    request.registry_child_pid_text = try optionalStringDefaultNull(
+        object,
+        "registryChildPid",
+        error.InvalidRegistryChildPid,
+    );
+    request.registry_detached = try optionalBoolDefaultFalse(
+        object,
+        "registryDetached",
+        error.InvalidRegistryDetached,
+    );
 }
 
 fn parseRegistryCleanupFields(
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    try parseRegistryCleanupPathFields(object, request);
+    try parseRegistryCpuFields(object, request);
+    try parseRegistryVmstateFields(object, request);
+}
+
+fn parseRegistryCleanupPathFields(
     object: std.json.ObjectMap,
     request: *ParsedRequest,
 ) RequestError!void {
@@ -1841,6 +2373,65 @@ fn parseRegistryCleanupFields(
     );
 }
 
+fn parseRegistryCpuFields(object: std.json.ObjectMap, request: *ParsedRequest) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    request.registry_cpu_policy_max_vcpus_text = try optionalStringDefaultNull(
+        object,
+        "registryCpuPolicyMaxVcpus",
+        error.InvalidRegistryCpuPolicy,
+    );
+    request.registry_cpu_policy_quota_cpus_text = try optionalStringDefaultNull(
+        object,
+        "registryCpuPolicyQuotaCpus",
+        error.InvalidRegistryCpuPolicy,
+    );
+    request.registry_cpu_policy_weight_text = try optionalStringDefaultNull(
+        object,
+        "registryCpuPolicyWeight",
+        error.InvalidRegistryCpuPolicy,
+    );
+    request.registry_cpu_control_status = try optionalRegistryCpuControlStatus(object);
+    request.registry_cpu_control_reason = try optionalStringDefaultNull(
+        object,
+        "registryCpuControlReason",
+        error.InvalidRegistryCpuControlReason,
+    );
+}
+
+fn parseRegistryVmstateFields(
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    request.registry_vmstate_path = try optionalStringDefaultNull(
+        object,
+        "registryVmstatePath",
+        error.InvalidRegistryVmstatePath,
+    );
+    request.registry_vmstate_chain_id = try optionalStringDefaultNull(
+        object,
+        "registryVmstateChainId",
+        error.InvalidRegistryVmstateChainId,
+    );
+    request.registry_vmstate_checkpoint_parent = try optionalStringDefaultNull(
+        object,
+        "registryVmstateCheckpointParent",
+        error.InvalidRegistryVmstateCheckpointParent,
+    );
+    request.registry_vmstate_checkpoint_sequence_text = try optionalStringDefaultNull(
+        object,
+        "registryVmstateCheckpointSequence",
+        error.InvalidRegistryVmstateCheckpointSequence,
+    );
+    request.registry_nested = try optionalBoolDefaultFalse(
+        object,
+        "registryNested",
+        error.InvalidRegistryNested,
+    );
+}
+
 fn parseRegistryMountDiskFields(
     object: std.json.ObjectMap,
     request: *ParsedRequest,
@@ -1880,6 +2471,18 @@ fn hasBundleCommandField(object: std.json.ObjectMap) bool {
         if (value == .bool and value.bool) return true;
     }
     return false;
+}
+
+fn optionalRegistryCpuControlStatus(object: std.json.ObjectMap) RequestError!?[]const u8 {
+    assert(@sizeOf(std.json.ObjectMap) > 0);
+
+    const value = object.get("registryCpuControlStatus") orelse return null;
+    if (value == .null) return null;
+    if (value != .string) return error.InvalidRegistryCpuControlStatus;
+    if (std.mem.eql(u8, value.string, "none")) return value.string;
+    if (std.mem.eql(u8, value.string, "linux-cgroup-v2")) return value.string;
+    if (std.mem.eql(u8, value.string, "unsupported")) return value.string;
+    return error.InvalidRegistryCpuControlStatus;
 }
 
 fn optionalProvisionGuestCpu(
@@ -2004,6 +2607,21 @@ fn optionalLiveMountsResolved(
     return mounts.toOwnedSlice(allocator);
 }
 
+fn optionalBoolDefaultNull(
+    object: std.json.ObjectMap,
+    field: []const u8,
+    invalid: RequestError,
+) RequestError!?bool {
+    assert(field.len > 0);
+
+    const value = object.get(field) orelse return null;
+    return switch (value) {
+        .null => null,
+        .bool => |b| b,
+        else => invalid,
+    };
+}
+
 fn optionalBoolDefaultFalse(
     object: std.json.ObjectMap,
     field: []const u8,
@@ -2077,7 +2695,11 @@ fn optionalPortForward(
         const guest_port = try requiredPort(item.object, "guestPort", error.InvalidGuestPort);
         const host_addr = item.object.get("hostAddr") orelse .null;
         if (host_addr != .null and host_addr != .string) return error.InvalidPortForward;
-        try mappings.append(allocator, .{ .host_port = host_port, .guest_port = guest_port });
+        try mappings.append(allocator, .{
+            .host_port = host_port,
+            .guest_port = guest_port,
+            .host_addr = if (host_addr == .string) host_addr.string else null,
+        });
     }
     return mappings.toOwnedSlice(allocator);
 }
@@ -2156,6 +2778,32 @@ fn requiredBool(
     };
 }
 
+fn optionalResourcesCpu(object: std.json.ObjectMap) RequestError!?ParsedResourcesCpu {
+    assert(@sizeOf(ParsedResourcesCpu) > 0);
+
+    const value = object.get("resourcesCpu") orelse return null;
+    if (value == .null) return null;
+    if (value != .object) return error.InvalidResourcesCpu;
+    try protocol.rejectUnknownFields(value.object, &.{ "maxVcpus", "quotaCpus", "weight" });
+    return .{
+        .max_vcpus_text = try optionalStringDefaultNull(
+            value.object,
+            "maxVcpus",
+            error.InvalidResourcesCpuMaxVcpus,
+        ),
+        .quota_cpus_text = try optionalStringDefaultNull(
+            value.object,
+            "quotaCpus",
+            error.InvalidResourcesCpuQuotaCpus,
+        ),
+        .weight_text = try optionalStringDefaultNull(
+            value.object,
+            "weight",
+            error.InvalidResourcesCpuWeight,
+        ),
+    };
+}
+
 fn optionalResourcesMemory(object: std.json.ObjectMap) RequestError!?ParsedResourcesMemory {
     assert(@sizeOf(ParsedResourcesMemory) > 0);
 
@@ -2215,6 +2863,7 @@ fn writePlanError(io: std.Io, err: anyerror) !void {
     assert(@errorName(err).len > 0);
 
     if (try writeMemoryPlanError(io, err)) return;
+    if (try writeCpuPlanError(io, err)) return;
     if (try writePathPlanError(io, err)) return;
     if (try writeEnvPlanError(io, err)) return;
     if (try writeDiskPlanError(io, err)) return;
@@ -2249,6 +2898,47 @@ fn writeMemoryPlanError(io: std.Io, err: anyerror) !bool {
             io,
             "BOOT_MEMORY_INVALID",
             "boot: host memory probing is unsupported on this platform",
+        ),
+        else => return false,
+    }
+    return true;
+}
+
+fn writeCpuPlanError(io: std.Io, err: anyerror) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidCpuMaxVcpus,
+        error.InvalidResourcesCpuMaxVcpus,
+        => try writeBootError(
+            io,
+            "BOOT_CPU_INVALID",
+            "boot: resources.cpu.maxVcpus must be a positive integer",
+        ),
+        error.UnsupportedCpuMaxVcpus => try writeBootError(
+            io,
+            "BOOT_CPU_INVALID",
+            "boot: resources.cpu.maxVcpus greater than 1 is not supported yet. " ++
+                "CPU quota is scheduling budget, not extra guest-visible CPUs.",
+        ),
+        error.InvalidCpuQuotaCpus,
+        error.InvalidResourcesCpuQuotaCpus,
+        => try writeBootError(
+            io,
+            "BOOT_CPU_INVALID",
+            "boot: resources.cpu.quotaCpus must be > 0 when set",
+        ),
+        error.CpuQuotaExceedsMaxVcpus => try writeBootError(
+            io,
+            "BOOT_CPU_INVALID",
+            "boot: resources.cpu.quotaCpus cannot exceed resources.cpu.maxVcpus",
+        ),
+        error.InvalidCpuWeight,
+        error.InvalidResourcesCpuWeight,
+        => try writeBootError(
+            io,
+            "BOOT_CPU_INVALID",
+            "boot: resources.cpu.weight must be an integer in 1..10000",
         ),
         else => return false,
     }
@@ -2394,6 +3084,21 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
             io,
             "BOOT_MOUNT_INVALID",
             "liveMounts: entries must include host and guest paths",
+        ),
+        error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
+            io,
+            "BOOT_CPU_INVALID",
+            "boot: resources.cpu.maxVcpus must be a positive integer",
+        ),
+        error.InvalidResourcesCpuQuotaCpus => try protocol.writeError(
+            io,
+            "BOOT_CPU_INVALID",
+            "boot: resources.cpu.quotaCpus must be > 0 when set",
+        ),
+        error.InvalidResourcesCpuWeight => try protocol.writeError(
+            io,
+            "BOOT_CPU_INVALID",
+            "boot: resources.cpu.weight must be an integer in 1..10000",
         ),
         error.InvalidLiveMountsResolved,
         error.InvalidConfigLiveMounts,

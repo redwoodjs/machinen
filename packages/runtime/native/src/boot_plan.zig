@@ -12,7 +12,13 @@ const assert = std.debug.assert;
 
 const memory_floor_mib: u64 = 512;
 const memory_default_ceiling_mib: u64 = 4096;
+const default_cpu_max_vcpus: u64 = 1;
+const default_cpu_weight: u64 = 100;
+const default_boot_timeout_ms: u64 = 60_000;
+const min_cpu_weight: u64 = 1;
+const max_cpu_weight: u64 = 10_000;
 const max_live_mounts = 5;
+const max_registry_boot_log_path = std.fs.max_path_bytes;
 const restore_command = [_][]const u8{"/sbin/machinen-restore"};
 const poweroff_command = [_][]const u8{"/sbin/machinen-poweroff"};
 
@@ -28,6 +34,18 @@ pub const ResourcesMemory = struct {
     reclaim: ?[]const u8,
 };
 
+pub const CpuResourcesInput = struct {
+    max_vcpus: ?u64 = null,
+    quota_cpus: ?f64 = null,
+    weight: ?u64 = null,
+};
+
+pub const CpuPolicyPlan = struct {
+    max_vcpus: u64,
+    quota_cpus: ?f64,
+    weight: u64,
+};
+
 pub const EnvPair = struct {
     key: []const u8,
     value: []const u8,
@@ -37,6 +55,11 @@ pub const GuestEnvInput = struct {
     env: []const EnvPair,
     name: ?[]const u8 = null,
     vsock_uds_path: ?[]const u8 = null,
+};
+
+pub const GuestHostnameInput = struct {
+    pid: ?i64 = null,
+    name: ?[]const u8 = null,
 };
 
 pub const VsockPlanInput = struct {
@@ -52,6 +75,7 @@ pub const VsockPlan = struct {
 pub const PortForwardMapping = struct {
     host_port: i64,
     guest_port: i64,
+    host_addr: ?[]const u8 = null,
 };
 
 pub const PortForwardValidation = union(enum) {
@@ -59,6 +83,11 @@ pub const PortForwardValidation = union(enum) {
     invalid_host_port: i64,
     invalid_guest_port: i64,
     duplicate_host_port: u16,
+};
+
+pub const PdeathsigInput = struct {
+    detached: bool = false,
+    pdeathsig: ?bool = null,
 };
 
 pub const VmmArgvInput = struct {
@@ -78,6 +107,12 @@ pub const BundleCommandInput = struct {
     snapshot_restore: bool = false,
     vmstate_restore: bool = false,
     live_mounts: []const LiveMount = &.{},
+    port_forwards: []const PortForwardMapping = &.{},
+    cpu_policy: ?CpuPolicyPlan = null,
+    cpu_control_status: ?[]const u8 = null,
+    cpu_control_reason: ?[]const u8 = null,
+    vmstate: RegistryVmstateInput = .{},
+    nested: bool = false,
 };
 
 pub const BundleEnvInput = struct {
@@ -187,6 +222,20 @@ pub const VmstateEnvPlan = struct {
     snapshot_path: ?[]const u8,
     restore_path: ?[]const u8,
     vmstate_timing: ?[]const u8,
+};
+
+pub const VmstateRuntimeInput = struct {
+    state_path: ?[]const u8 = null,
+    chain_id: ?[]const u8 = null,
+    restore_path: ?[]const u8 = null,
+    forked_from: ?[]const u8 = null,
+};
+
+pub const VmstateRuntimePlan = struct {
+    state_path: ?[]const u8,
+    chain_id: ?[]const u8,
+    checkpoint_parent: ?[]const u8,
+    checkpoint_sequence: ?u64,
 };
 
 pub const LiveMountInput = struct {
@@ -309,22 +358,84 @@ pub const RegistryLiveMountPlan = struct {
     mode: []const u8,
 };
 
+pub const RegistryPortForwardPlan = struct {
+    host_port: i64,
+    guest_port: i64,
+    host_addr: ?[]const u8,
+};
+
+pub const RegistryCpuPlan = struct {
+    max_vcpus: u64,
+    quota_cpus: ?f64,
+    weight: u64,
+    enforcement_status: []const u8,
+    enforcement_reason: ?[]const u8,
+};
+
+pub const RegistryVmstateInput = struct {
+    state_path: ?[]const u8 = null,
+    chain_id: ?[]const u8 = null,
+    checkpoint_parent: ?[]const u8 = null,
+    checkpoint_sequence: ?u64 = null,
+};
+
+pub const RegistryVmstatePlan = struct {
+    state_path: ?[]const u8,
+    chain_id: ?[]const u8,
+    checkpoint_parent: ?[]const u8,
+    checkpoint_sequence: ?u64,
+};
+
 pub const RegistryShapeInput = struct {
     source_image_path: ?[]const u8 = null,
     per_boot_root_disk: ?[]const u8 = null,
+    boot_log_root: ?[]const u8 = null,
+    child_pid: ?i64 = null,
+    detached: bool = false,
     caller_root_disk_path: ?[]const u8 = null,
+    disk_path: ?[]const u8 = null,
+    forked_from: ?[]const u8 = null,
+    memory_ceiling_mib: ?u64 = null,
+    stats_path: ?[]const u8 = null,
     cleanup: RegistryCleanupInput = .{},
     mount_disk: RegistryMountDiskInput = .{},
     live_mounts: []const LiveMount = &.{},
+    port_forwards: []const PortForwardMapping = &.{},
+    cpu_policy: ?CpuPolicyPlan = null,
+    cpu_control_status: ?[]const u8 = null,
+    cpu_control_reason: ?[]const u8 = null,
+    vmstate: RegistryVmstateInput = .{},
+    nested: bool = false,
+};
+
+pub const RegistryBootLogPath = struct {
+    bytes: [max_registry_boot_log_path]u8 = undefined,
+    len: u16 = 0,
+
+    pub fn value(self: *const RegistryBootLogPath) ?[]const u8 {
+        assert(self.len <= max_registry_boot_log_path);
+
+        if (self.len == 0) return null;
+        return self.bytes[0..self.len];
+    }
 };
 
 pub const RegistryShapePlan = struct {
     source_image_path: ?[]const u8,
     root_disk_path: ?[]const u8,
     root_disk_mode: []const u8,
+    boot_log_path: RegistryBootLogPath,
+    disk_path: ?[]const u8,
+    forked_from: ?[]const u8,
+    memory_ceiling_mib: ?u64,
+    stats_path: ?[]const u8,
     cleanup_paths: []const []const u8,
     mount_disk: ?RegistryMountDiskPlan,
     live_mounts: []const RegistryLiveMountPlan,
+    port_forwards: []const RegistryPortForwardPlan,
+    cpu: ?RegistryCpuPlan,
+    vmstate: RegistryVmstatePlan,
+    nested: bool,
 };
 
 pub const MachinenConfigInput = struct {
@@ -338,8 +449,11 @@ pub const Input = struct {
     auto_memory_mib: ?u64 = null,
     host_total_bytes: ?u64 = null,
     vmm_memory_preset: bool = false,
+    boot_timeout_ms: ?u64 = null,
+    boot_timeout_forever: bool = false,
     has_image: bool = false,
     has_cmd: bool = false,
+    has_snapshot: bool = false,
     root_disk: RootDiskMode = .unset,
     guest_cwd: ?[]const u8 = null,
     mount_guest: ?[]const u8 = null,
@@ -348,7 +462,10 @@ pub const Input = struct {
 pub const Plan = struct {
     memory_ceiling_mib: ?u64,
     vmm_memory_mib: ?u64,
+    timeout_ms: ?u64,
+    detached_readiness_timeout_ms: u64,
     wants_root_disk: bool,
+    needs_initramfs: bool,
     normalized_mount_guest: ?[]const u8,
 };
 
@@ -357,6 +474,11 @@ pub const PlanError = error{
     InvalidMemory,
     ConflictingMemory,
     InvalidReclaim,
+    InvalidCpuMaxVcpus,
+    UnsupportedCpuMaxVcpus,
+    InvalidCpuQuotaCpus,
+    CpuQuotaExceedsMaxVcpus,
+    InvalidCpuWeight,
     CmdWithoutImage,
     RootDiskWithoutImage,
     MissingAutoMemory,
@@ -372,7 +494,131 @@ pub const PlanError = error{
     MissingMountDiskRuntimeField,
     IncompleteRegistryMountDisk,
     MissingProvisionRepackField,
+    MissingRegistryCpuStatus,
+    MissingRegistryVmstateField,
+    MissingVmstateRuntimeChainId,
 };
+
+pub fn planDetachedReadinessTimeout(timeout_ms: ?u64) u64 {
+    assert(default_boot_timeout_ms > 0);
+
+    return timeout_ms orelse default_boot_timeout_ms;
+}
+
+pub fn planBootTimeout(timeout_ms: ?u64, forever: bool) ?u64 {
+    assert(default_boot_timeout_ms > 0);
+
+    if (forever) return null;
+    return timeout_ms orelse default_boot_timeout_ms;
+}
+
+pub fn planPdeathsig(input: PdeathsigInput) bool {
+    assert(@sizeOf(PdeathsigInput) > 0);
+
+    if (input.detached) return false;
+    return input.pdeathsig orelse true;
+}
+
+pub fn formatGuestHostname(buffer: []u8, input: GuestHostnameInput) !?[]const u8 {
+    assert(buffer.len > 0);
+
+    const pid = input.pid orelse return null;
+    var len: u16 = 0;
+    try appendSanitizedHostnameName(buffer, &len, input.name orelse "");
+    if (len == 0) {
+        try appendHostnameText(buffer, &len, "vm");
+    }
+    try appendHostnameText(buffer, &len, "-pid-");
+    const pid_text = try std.fmt.bufPrint(buffer[len..], "{d}", .{pid});
+    len += @intCast(pid_text.len);
+    return buffer[0..len];
+}
+
+fn appendSanitizedHostnameName(buffer: []u8, len: *u16, name: []const u8) !void {
+    assert(name.len <= buffer.len or buffer.len > 0);
+
+    for (name) |c| {
+        if (isHostnameAlnum(c)) {
+            try appendHostnameByte(buffer, len, c);
+        } else {
+            if (len.* > 0 and buffer[len.* - 1] != '-') {
+                try appendHostnameByte(buffer, len, '-');
+            }
+        }
+    }
+    while (len.* > 0 and buffer[len.* - 1] == '-') {
+        len.* -= 1;
+    }
+}
+
+fn appendHostnameText(buffer: []u8, len: *u16, text: []const u8) !void {
+    assert(text.len > 0);
+
+    for (text) |c| try appendHostnameByte(buffer, len, c);
+}
+
+fn appendHostnameByte(buffer: []u8, len: *u16, byte: u8) !void {
+    assert(buffer.len > 0);
+
+    if (len.* >= buffer.len) return error.NoSpaceLeft;
+    buffer[len.*] = byte;
+    len.* += 1;
+}
+
+fn isHostnameAlnum(c: u8) bool {
+    assert(@sizeOf(u8) == 1);
+
+    return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9');
+}
+
+pub fn planVmstateRuntime(input: VmstateRuntimeInput) PlanError!VmstateRuntimePlan {
+    assert(@sizeOf(VmstateRuntimeInput) > 0);
+
+    if (input.state_path == null and
+        input.chain_id == null and
+        input.restore_path == null and
+        input.forked_from == null)
+    {
+        return .{
+            .state_path = null,
+            .chain_id = null,
+            .checkpoint_parent = null,
+            .checkpoint_sequence = null,
+        };
+    }
+    const chain_id = input.chain_id orelse return error.MissingVmstateRuntimeChainId;
+    return .{
+        .state_path = input.state_path,
+        .chain_id = chain_id,
+        .checkpoint_parent = if (input.restore_path != null) input.forked_from else null,
+        .checkpoint_sequence = 0,
+    };
+}
+
+pub fn planNestedEnv(nested: bool) ?[]const u8 {
+    assert(@sizeOf(bool) > 0);
+
+    return if (nested) "1" else null;
+}
+
+pub fn planCpuResources(input: ?CpuResourcesInput) PlanError!?CpuPolicyPlan {
+    assert(@sizeOf(CpuResourcesInput) > 0);
+
+    const cpu = input orelse return null;
+    const max_vcpus = cpu.max_vcpus orelse default_cpu_max_vcpus;
+    if (max_vcpus < 1) return error.InvalidCpuMaxVcpus;
+    if (max_vcpus != default_cpu_max_vcpus) return error.UnsupportedCpuMaxVcpus;
+
+    const quota_cpus = if (cpu.quota_cpus) |quota| blk: {
+        if (!std.math.isFinite(quota) or quota <= 0) return error.InvalidCpuQuotaCpus;
+        if (quota > @as(f64, @floatFromInt(max_vcpus))) return error.CpuQuotaExceedsMaxVcpus;
+        break :blk quota;
+    } else null;
+
+    const weight = cpu.weight orelse default_cpu_weight;
+    if (weight < min_cpu_weight or weight > max_cpu_weight) return error.InvalidCpuWeight;
+    return .{ .max_vcpus = max_vcpus, .quota_cpus = quota_cpus, .weight = weight };
+}
 
 pub fn planGuestEnv(allocator: std.mem.Allocator, input: GuestEnvInput) ![]EnvPair {
     assert(@sizeOf(GuestEnvInput) > 0);
@@ -790,13 +1036,89 @@ pub fn planRegistryShape(
     assert(@sizeOf(RegistryShapeInput) > 0);
 
     const root_disk_path = input.per_boot_root_disk orelse input.caller_root_disk_path;
+    const boot_log_path = try planRegistryBootLogPath(input);
     return .{
         .source_image_path = input.source_image_path,
         .root_disk_path = root_disk_path,
         .root_disk_mode = if (root_disk_path != null) "block" else "none",
+        .boot_log_path = boot_log_path,
+        .disk_path = input.disk_path,
+        .forked_from = input.forked_from,
+        .memory_ceiling_mib = input.memory_ceiling_mib,
+        .stats_path = input.stats_path,
         .cleanup_paths = try planRegistryCleanupPaths(allocator, input.cleanup),
         .mount_disk = try planRegistryMountDisk(input.mount_disk),
         .live_mounts = try planRegistryLiveMounts(allocator, input.live_mounts),
+        .port_forwards = try planRegistryPortForwards(allocator, input.port_forwards),
+        .cpu = try planRegistryCpu(input),
+        .vmstate = try planRegistryVmstate(input.vmstate),
+        .nested = input.nested,
+    };
+}
+
+fn planRegistryPortForwards(
+    allocator: std.mem.Allocator,
+    input: []const PortForwardMapping,
+) ![]const RegistryPortForwardPlan {
+    assert(@sizeOf(PortForwardMapping) > 0);
+
+    var forwards: std.array_list.Aligned(RegistryPortForwardPlan, null) = .empty;
+    errdefer forwards.deinit(allocator);
+    for (input) |mapping| {
+        try forwards.append(allocator, .{
+            .host_port = mapping.host_port,
+            .guest_port = mapping.guest_port,
+            .host_addr = mapping.host_addr,
+        });
+    }
+    return forwards.toOwnedSlice(allocator);
+}
+
+fn planRegistryBootLogPath(input: RegistryShapeInput) !RegistryBootLogPath {
+    assert(@sizeOf(RegistryShapeInput) > 0);
+
+    var path: RegistryBootLogPath = .{};
+    if (!input.detached) return path;
+    const pid = input.child_pid orelse return path;
+    if (pid <= 0) return path;
+    const root = input.boot_log_root orelse return path;
+    const text = std.fmt.bufPrint(&path.bytes, "{s}/{d}.boot.log", .{ root, pid }) catch
+        return error.OutOfMemory;
+    path.len = @intCast(text.len);
+    return path;
+}
+
+fn planRegistryVmstate(input: RegistryVmstateInput) PlanError!RegistryVmstatePlan {
+    assert(@sizeOf(RegistryVmstateInput) > 0);
+
+    if (input.state_path == null) {
+        return .{
+            .state_path = null,
+            .chain_id = null,
+            .checkpoint_parent = null,
+            .checkpoint_sequence = null,
+        };
+    }
+    return .{
+        .state_path = input.state_path,
+        .chain_id = input.chain_id orelse return error.MissingRegistryVmstateField,
+        .checkpoint_parent = input.checkpoint_parent,
+        .checkpoint_sequence = input.checkpoint_sequence orelse
+            return error.MissingRegistryVmstateField,
+    };
+}
+
+fn planRegistryCpu(input: RegistryShapeInput) PlanError!?RegistryCpuPlan {
+    assert(@sizeOf(RegistryShapeInput) > 0);
+
+    const policy = input.cpu_policy orelse return null;
+    const status = input.cpu_control_status orelse return error.MissingRegistryCpuStatus;
+    return .{
+        .max_vcpus = policy.max_vcpus,
+        .quota_cpus = policy.quota_cpus,
+        .weight = policy.weight,
+        .enforcement_status = status,
+        .enforcement_reason = input.cpu_control_reason,
     };
 }
 
@@ -1040,6 +1362,8 @@ pub fn planCore(input: Input) PlanError!Plan {
 
     const wants_root_disk = input.root_disk != .false_value and
         (input.root_disk == .path or input.root_disk == .true_value or input.has_image);
+    const needs_initramfs = input.has_image or input.has_cmd or input.has_snapshot;
+    const timeout_ms = planBootTimeout(input.boot_timeout_ms, input.boot_timeout_forever);
     if (wants_root_disk and input.root_disk != .path and !input.has_image) {
         return error.RootDiskWithoutImage;
     }
@@ -1054,7 +1378,10 @@ pub fn planCore(input: Input) PlanError!Plan {
         return .{
             .memory_ceiling_mib = null,
             .vmm_memory_mib = null,
+            .timeout_ms = timeout_ms,
+            .detached_readiness_timeout_ms = planDetachedReadinessTimeout(timeout_ms),
             .wants_root_disk = wants_root_disk,
+            .needs_initramfs = needs_initramfs,
             .normalized_mount_guest = normalized_mount_guest,
         };
     }
@@ -1068,7 +1395,10 @@ pub fn planCore(input: Input) PlanError!Plan {
     return .{
         .memory_ceiling_mib = ceiling,
         .vmm_memory_mib = ceiling,
+        .timeout_ms = timeout_ms,
+        .detached_readiness_timeout_ms = planDetachedReadinessTimeout(timeout_ms),
         .wants_root_disk = wants_root_disk,
+        .needs_initramfs = needs_initramfs,
         .normalized_mount_guest = normalized_mount_guest,
     };
 }
@@ -1148,6 +1478,117 @@ test "planCore resolves explicit memory aliases" {
     }));
 }
 
+test "planBootTimeout defaults, preserves explicit values, and supports forever" {
+    try std.testing.expectEqual(@as(u64, 60_000), planDetachedReadinessTimeout(null));
+    try std.testing.expectEqual(@as(?u64, 60_000), planBootTimeout(null, false));
+    try std.testing.expectEqual(@as(?u64, 2_500), planBootTimeout(2_500, false));
+    try std.testing.expect(planBootTimeout(2_500, true) == null);
+    try std.testing.expect((try planCore(std.testing.allocator, .{
+        .memory_mib = 256,
+        .boot_timeout_ms = 1_234,
+    })).timeout_ms.? == 1_234);
+    try std.testing.expect((try planCore(std.testing.allocator, .{
+        .memory_mib = 256,
+        .boot_timeout_forever = true,
+    })).timeout_ms == null);
+}
+
+test "planGuestHostname sanitizes names and includes pid" {
+    var named_buffer: [128]u8 = undefined;
+    const named = (try formatGuestHostname(&named_buffer, .{ .pid = 1234, .name = "worker" })).?;
+    try std.testing.expectEqualStrings("worker-pid-1234", named);
+
+    var nameless_buffer: [128]u8 = undefined;
+    const nameless = (try formatGuestHostname(&nameless_buffer, .{ .pid = 1234 })).?;
+    try std.testing.expectEqualStrings("vm-pid-1234", nameless);
+
+    var sanitized_buffer: [128]u8 = undefined;
+    const sanitized = (try formatGuestHostname(
+        &sanitized_buffer,
+        .{ .pid = 99, .name = "src/name~fork" },
+    )).?;
+    try std.testing.expectEqualStrings("src-name-fork-pid-99", sanitized);
+
+    var empty_buffer: [128]u8 = undefined;
+    const empty = (try formatGuestHostname(&empty_buffer, .{ .pid = 99, .name = "///" })).?;
+    try std.testing.expectEqualStrings("vm-pid-99", empty);
+
+    var missing_buffer: [128]u8 = undefined;
+    try std.testing.expect((try formatGuestHostname(&missing_buffer, .{})) == null);
+}
+
+test "planPdeathsig defaults on and lets detach or explicit false disable it" {
+    try std.testing.expect(planPdeathsig(.{}));
+    try std.testing.expect(planPdeathsig(.{ .pdeathsig = true }));
+    try std.testing.expect(!planPdeathsig(.{ .pdeathsig = false }));
+    try std.testing.expect(!planPdeathsig(.{ .detached = true, .pdeathsig = true }));
+}
+
+test "planVmstateRuntime projects chain defaults and restore parent" {
+    const fresh = try planVmstateRuntime(.{
+        .state_path = "/tmp/state.vmstate",
+        .chain_id = "chain-1",
+    });
+    try std.testing.expectEqualStrings("/tmp/state.vmstate", fresh.state_path.?);
+    try std.testing.expectEqualStrings("chain-1", fresh.chain_id.?);
+    try std.testing.expect(fresh.checkpoint_parent == null);
+    try std.testing.expectEqual(@as(u64, 0), fresh.checkpoint_sequence.?);
+
+    const restore = try planVmstateRuntime(.{
+        .state_path = "/tmp/state.vmstate",
+        .chain_id = "chain-2",
+        .restore_path = "/tmp/restore.vmstate",
+        .forked_from = "/snap/parent",
+    });
+    try std.testing.expectEqualStrings("/snap/parent", restore.checkpoint_parent.?);
+    try std.testing.expectEqual(@as(u64, 0), restore.checkpoint_sequence.?);
+
+    const empty = try planVmstateRuntime(.{});
+    try std.testing.expect(empty.state_path == null);
+    try std.testing.expect(empty.chain_id == null);
+    try std.testing.expect(empty.checkpoint_sequence == null);
+
+    try std.testing.expectError(error.MissingVmstateRuntimeChainId, planVmstateRuntime(.{
+        .state_path = "/tmp/state.vmstate",
+    }));
+}
+
+test "planNestedEnv sets nested only when requested" {
+    try std.testing.expectEqualStrings("1", planNestedEnv(true).?);
+    try std.testing.expect(planNestedEnv(false) == null);
+}
+
+test "planCpuResources applies defaults and validates cpu policy" {
+    try std.testing.expect((try planCpuResources(null)) == null);
+
+    const defaults = (try planCpuResources(.{})).?;
+    try std.testing.expectEqual(@as(u64, 1), defaults.max_vcpus);
+    try std.testing.expect(defaults.quota_cpus == null);
+    try std.testing.expectEqual(@as(u64, 100), defaults.weight);
+
+    const constrained = (try planCpuResources(.{
+        .max_vcpus = 1,
+        .quota_cpus = 0.5,
+        .weight = 200,
+    })).?;
+    try std.testing.expectEqual(@as(u64, 1), constrained.max_vcpus);
+    try std.testing.expectEqual(@as(f64, 0.5), constrained.quota_cpus.?);
+    try std.testing.expectEqual(@as(u64, 200), constrained.weight);
+
+    try std.testing.expectError(error.InvalidCpuMaxVcpus, planCpuResources(.{ .max_vcpus = 0 }));
+    try std.testing.expectError(
+        error.UnsupportedCpuMaxVcpus,
+        planCpuResources(.{ .max_vcpus = 2 }),
+    );
+    try std.testing.expectError(error.InvalidCpuQuotaCpus, planCpuResources(.{ .quota_cpus = 0 }));
+    try std.testing.expectError(
+        error.CpuQuotaExceedsMaxVcpus,
+        planCpuResources(.{ .quota_cpus = 1.5 }),
+    );
+    try std.testing.expectError(error.InvalidCpuWeight, planCpuResources(.{ .weight = 0 }));
+    try std.testing.expectError(error.InvalidCpuWeight, planCpuResources(.{ .weight = 10_001 }));
+}
+
 test "planCore validates command and rootdisk image requirements" {
     try std.testing.expectError(error.CmdWithoutImage, planCore(.{
         .has_cmd = true,
@@ -1218,13 +1659,33 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
             .upper_path = "/tmp/upper.img",
         },
         .live_mounts = &live,
+        .boot_log_root = "/tmp/machinen-logs",
+        .child_pid = 1234,
+        .detached = true,
+        .disk_path = "/disk.img",
+        .forked_from = "/snap/source",
+        .memory_ceiling_mib = 2048,
+        .stats_path = "/stats.json",
+        .port_forwards = &[_]PortForwardMapping{
+            .{ .host_port = 8080, .guest_port = 80, .host_addr = "127.0.0.1" },
+            .{ .host_port = 8443, .guest_port = 443 },
+        },
     });
     defer allocator.free(plan.cleanup_paths);
     defer allocator.free(plan.live_mounts);
+    defer allocator.free(plan.port_forwards);
 
     try std.testing.expectEqualStrings("/images/rootfs.tar.gz", plan.source_image_path.?);
     try std.testing.expectEqualStrings("/tmp/per-boot-root.img", plan.root_disk_path.?);
     try std.testing.expectEqualStrings("block", plan.root_disk_mode);
+    try std.testing.expectEqualStrings(
+        "/tmp/machinen-logs/1234.boot.log",
+        plan.boot_log_path.value().?,
+    );
+    try std.testing.expectEqualStrings("/disk.img", plan.disk_path.?);
+    try std.testing.expectEqualStrings("/snap/source", plan.forked_from.?);
+    try std.testing.expectEqual(@as(u64, 2048), plan.memory_ceiling_mib.?);
+    try std.testing.expectEqualStrings("/stats.json", plan.stats_path.?);
     try std.testing.expectEqual(@as(@TypeOf(plan.cleanup_paths.len), 6), plan.cleanup_paths.len);
     try std.testing.expectEqualStrings("/tmp/root.img", plan.cleanup_paths[0]);
     try std.testing.expectEqualStrings("/tmp/upper.img", plan.cleanup_paths[1]);
@@ -1235,6 +1696,16 @@ test "planRegistryShape collects cleanup paths and strips registry-only mount fi
     try std.testing.expectEqualStrings("/mnt/data", plan.mount_disk.?.guest);
     try std.testing.expectEqualStrings("/cache/lower.sqfs", plan.mount_disk.?.lower_path);
     try std.testing.expectEqualStrings("/tmp/upper.img", plan.mount_disk.?.upper_path);
+    try std.testing.expectEqual(@as(u64, 1), plan.cpu.?.max_vcpus);
+    try std.testing.expectEqual(@as(f64, 0.5), plan.cpu.?.quota_cpus.?);
+    try std.testing.expectEqual(@as(u64, 200), plan.cpu.?.weight);
+    try std.testing.expectEqualStrings("linux-cgroup-v2", plan.cpu.?.enforcement_status);
+    try std.testing.expectEqualStrings("limited", plan.cpu.?.enforcement_reason.?);
+    try std.testing.expectEqualStrings("/tmp/state.vmstate", plan.vmstate.state_path.?);
+    try std.testing.expectEqualStrings("chain-1", plan.vmstate.chain_id.?);
+    try std.testing.expectEqualStrings("/snap/parent", plan.vmstate.checkpoint_parent.?);
+    try std.testing.expectEqual(@as(u64, 3), plan.vmstate.checkpoint_sequence.?);
+    try std.testing.expect(!plan.nested);
     try std.testing.expectEqual(@as(@TypeOf(plan.live_mounts.len), 2), plan.live_mounts.len);
     try std.testing.expectEqualStrings("/mnt/work", plan.live_mounts[0].guest);
     try std.testing.expectEqualStrings("/host/work", plan.live_mounts[0].host);
@@ -1710,6 +2181,24 @@ test "planGuestEnv applies name and hostname wait defaults without overriding ca
     try std.testing.expectEqual(@as(@TypeOf(preserved.len), 2), preserved.len);
     try std.testing.expectEqualStrings("caller", preserved[0].value);
     try std.testing.expectEqualStrings("0", preserved[1].value);
+}
+
+test "planCore plans whether initramfs packing is needed" {
+    const none = try planCore(.{ .vmm_memory_preset = true });
+    try std.testing.expect(!none.needs_initramfs);
+
+    const image = try planCore(.{ .vmm_memory_preset = true, .has_image = true });
+    try std.testing.expect(image.needs_initramfs);
+
+    const command = try planCore(.{
+        .vmm_memory_preset = true,
+        .has_image = true,
+        .has_cmd = true,
+    });
+    try std.testing.expect(command.needs_initramfs);
+
+    const snapshot = try planCore(.{ .vmm_memory_preset = true, .has_snapshot = true });
+    try std.testing.expect(snapshot.needs_initramfs);
 }
 
 test "planCore honors preset VMM memory after validating public input" {

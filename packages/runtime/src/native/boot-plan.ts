@@ -1,10 +1,14 @@
+import type { CpuControlResult } from "../cpu-cgroup.ts";
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
 import { callRuntimeHelper } from "../native-helper.ts";
+import type { BootCpuResourceOptions, ResolvedCpuResourcePolicy } from "../vm/cpu-resources.ts";
 import type { BootMemoryResourceOptions } from "../vm/memory-resources.ts";
 import { isNativeBootPlanResult } from "./boot-plan-schema.ts";
 import type {
   MountDiskRuntimePlan,
   PlannedLiveMount,
+  PlannedPortForward,
+  BootVmstateRuntimePlan,
   ProvisionAssetsPlan,
   ProvisionBootPlan,
   ProvisionGuestCpu,
@@ -29,29 +33,41 @@ type LiveMountPlanInput = { host: string; guest: string; mode?: string };
 interface NativeBootPlanInput {
   memoryMib?: number;
   resourcesMemory?: BootMemoryResourceOptions;
+  resourcesCpu?: BootCpuResourceOptions;
   autoMemoryMib?: number;
   hostTotalBytes?: number;
   vmmMemoryPreset: boolean;
   hasImage: boolean;
   hasCmd: boolean;
+  hasSnapshot?: boolean;
   rootDisk: RootDiskPlanMode;
   guestCwd?: string;
   mountGuest?: string;
   guestEnv?: Record<string, string>;
   name?: string;
   vsockUdsPath?: string;
+  guestHostnamePid?: number;
+  guestHostnameName?: string;
   existingVsockSpec?: string;
   autoVsockUdsPath?: string;
   portForward?: PortForwardPlanMapping[];
   vmmBinary?: string;
   vmmArgs?: string[];
   pdeathsigPath?: string;
+  pdeathsig?: boolean;
+  detached?: boolean;
+  bootTimeoutMs?: number | null;
   kernelPath?: string;
   dtbPath?: string;
   vmstatePath?: string;
   restorePath?: string;
   enableVmstateTiming?: boolean;
   existingVmstateTiming?: string;
+  bootVmstateStatePath?: string;
+  bootVmstateChainId?: string;
+  bootVmstateRestorePath?: string;
+  bootVmstateForkedFrom?: string;
+  nested?: boolean;
   liveMounts?: LiveMountPlanInput[];
   liveMountsResolved?: PlannedLiveMount[];
   existingStatsFile?: string;
@@ -98,8 +114,15 @@ interface NativeBootPlanInput {
   mountDiskGuest?: string;
   mountDiskUpperSize?: number;
   registrySourceImagePath?: string;
+  registryDiskPath?: string;
+  registryForkedFrom?: string;
+  registryMemoryCeilingMib?: number;
+  registryStatsPath?: string;
   registryPerBootRootDisk?: string;
   registryCallerRootDiskPath?: string;
+  registryBootLogRoot?: string;
+  registryChildPid?: number;
+  registryDetached?: boolean;
   registryPerBootSnapDisk?: string;
   registryPerBootMountUpper?: string;
   registryBundleTempDir?: string;
@@ -107,6 +130,14 @@ interface NativeBootPlanInput {
   registryStatsTempDir?: string;
   registryGvSocketDir?: string;
   registryCpuCgroupPath?: string;
+  registryCpuPolicy?: ResolvedCpuResourcePolicy;
+  registryCpuControlStatus?: CpuControlResult["status"];
+  registryCpuControlReason?: string;
+  registryVmstatePath?: string;
+  registryVmstateChainId?: string;
+  registryVmstateCheckpointParent?: string;
+  registryVmstateCheckpointSequence?: number;
+  registryNested?: boolean;
   registryMountGuest?: string;
   registryMountLowerPath?: string;
   registryMountUpperPath?: string;
@@ -126,29 +157,41 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
   return {
     memoryMib: numberText(input.memoryMib),
     resourcesMemory: resourcesMemoryData(input.resourcesMemory),
+    resourcesCpu: resourcesCpuData(input.resourcesCpu),
     autoMemoryMib: numberText(input.autoMemoryMib),
     hostTotalBytes: numberText(input.hostTotalBytes),
     vmmMemoryPreset: input.vmmMemoryPreset,
     hasImage: input.hasImage,
     hasCmd: input.hasCmd,
+    hasSnapshot: input.hasSnapshot === true,
     rootDisk: input.rootDisk,
     guestCwd: nullDefault(input.guestCwd),
     mountGuest: nullDefault(input.mountGuest),
     guestEnv: input.guestEnv ?? {},
     name: nullDefault(input.name),
     vsockUdsPath: nullDefault(input.vsockUdsPath),
+    guestHostnamePid: numberText(input.guestHostnamePid),
+    guestHostnameName: nullDefault(input.guestHostnameName),
     existingVsockSpec: nullDefault(input.existingVsockSpec),
     autoVsockUdsPath: nullDefault(input.autoVsockUdsPath),
     portForward: input.portForward ?? [],
     vmmBinary: nullDefault(input.vmmBinary),
     vmmArgs: input.vmmArgs ?? [],
     pdeathsigPath: nullDefault(input.pdeathsigPath),
+    pdeathsig: input.pdeathsig ?? null,
+    detached: input.detached === true,
+    ...bootTimeoutData(input),
     kernelPath: nullDefault(input.kernelPath),
     dtbPath: nullDefault(input.dtbPath),
     vmstatePath: nullDefault(input.vmstatePath),
     restorePath: nullDefault(input.restorePath),
     enableVmstateTiming: input.enableVmstateTiming === true,
     existingVmstateTiming: nullDefault(input.existingVmstateTiming),
+    bootVmstateStatePath: nullDefault(input.bootVmstateStatePath),
+    bootVmstateChainId: nullDefault(input.bootVmstateChainId),
+    bootVmstateRestorePath: nullDefault(input.bootVmstateRestorePath),
+    bootVmstateForkedFrom: nullDefault(input.bootVmstateForkedFrom),
+    nested: input.nested === true,
     liveMounts: liveMountsData(input.liveMounts),
     liveMountsResolved: input.liveMountsResolved ?? [],
     existingStatsFile: nullDefault(input.existingStatsFile),
@@ -164,6 +207,13 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     ...rootDiskRuntimeData(input),
     ...mountDiskRuntimeData(input),
     ...registryShapeData(input),
+  };
+}
+
+function bootTimeoutData(input: NativeBootPlanInput): Record<string, unknown> {
+  return {
+    bootTimeoutMs: input.bootTimeoutMs === null ? null : numberText(input.bootTimeoutMs),
+    bootTimeoutForever: input.bootTimeoutMs === null,
   };
 }
 
@@ -233,8 +283,15 @@ function mountDiskRuntimeData(input: NativeBootPlanInput): Record<string, unknow
 function registryShapeData(input: NativeBootPlanInput): Record<string, unknown> {
   return {
     registrySourceImagePath: nullDefault(input.registrySourceImagePath),
+    registryDiskPath: nullDefault(input.registryDiskPath),
+    registryForkedFrom: nullDefault(input.registryForkedFrom),
+    registryMemoryCeilingMib: numberText(input.registryMemoryCeilingMib),
+    registryStatsPath: nullDefault(input.registryStatsPath),
     registryPerBootRootDisk: nullDefault(input.registryPerBootRootDisk),
     registryCallerRootDiskPath: nullDefault(input.registryCallerRootDiskPath),
+    registryBootLogRoot: nullDefault(input.registryBootLogRoot),
+    registryChildPid: numberText(input.registryChildPid),
+    registryDetached: input.registryDetached === true,
     registryPerBootSnapDisk: nullDefault(input.registryPerBootSnapDisk),
     registryPerBootMountUpper: nullDefault(input.registryPerBootMountUpper),
     registryBundleTempDir: nullDefault(input.registryBundleTempDir),
@@ -242,6 +299,16 @@ function registryShapeData(input: NativeBootPlanInput): Record<string, unknown> 
     registryStatsTempDir: nullDefault(input.registryStatsTempDir),
     registryGvSocketDir: nullDefault(input.registryGvSocketDir),
     registryCpuCgroupPath: nullDefault(input.registryCpuCgroupPath),
+    registryCpuPolicyMaxVcpus: numberText(input.registryCpuPolicy?.maxVcpus),
+    registryCpuPolicyQuotaCpus: numberText(input.registryCpuPolicy?.quotaCpus),
+    registryCpuPolicyWeight: numberText(input.registryCpuPolicy?.weight),
+    registryCpuControlStatus: nullDefault(input.registryCpuControlStatus),
+    registryCpuControlReason: nullDefault(input.registryCpuControlReason),
+    registryVmstatePath: nullDefault(input.registryVmstatePath),
+    registryVmstateChainId: nullDefault(input.registryVmstateChainId),
+    registryVmstateCheckpointParent: nullDefault(input.registryVmstateCheckpointParent),
+    registryVmstateCheckpointSequence: numberText(input.registryVmstateCheckpointSequence),
+    registryNested: input.registryNested === true,
     registryMountGuest: nullDefault(input.registryMountGuest),
     registryMountLowerPath: nullDefault(input.registryMountLowerPath),
     registryMountUpperPath: nullDefault(input.registryMountUpperPath),
@@ -258,6 +325,17 @@ function resourcesMemoryData(memory: BootMemoryResourceOptions | undefined): unk
   };
 }
 
+function resourcesCpuData(cpu: BootCpuResourceOptions | undefined): unknown {
+  if (!cpu) {
+    return null;
+  }
+  return {
+    maxVcpus: numberText(cpu.maxVcpus),
+    quotaCpus: numberText(cpu.quotaCpus),
+    weight: numberText(cpu.weight),
+  };
+}
+
 function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[] {
   return (liveMounts ?? []).map((mount) => ({
     host: mount.host,
@@ -268,6 +346,35 @@ function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[]
 
 function nullDefault<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
+}
+
+export function planBootCpuResourcesNative(
+  cpu: BootCpuResourceOptions | undefined,
+): ResolvedCpuResourcePolicy | undefined {
+  return (
+    planBootCoreNative({
+      resourcesCpu: cpu,
+      vmmMemoryPreset: true,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    }).cpuPolicy ?? undefined
+  );
+}
+
+export function planBootGuestHostnameNative(pid: number, name?: string): string {
+  const plan = planBootCoreNative({
+    guestHostnamePid: pid,
+    guestHostnameName: name,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  });
+  if (plan.guestHostname === null) {
+    throw new BootError("BOOT_VMM_MISSING", "boot: native planner returned no guest hostname");
+  }
+  return plan.guestHostname;
 }
 
 export function planProvisionWorkloadNative(): ProvisionWorkloadPlan {
@@ -379,12 +486,17 @@ export function planBootMountDiskRuntimeNative(input: {
   }).mountDiskRuntime;
 }
 
-export function planBootRegistryShapeNative(input: {
+interface BootRegistryShapeNativeInput {
   sourceImagePath?: string;
+  diskPath?: string;
+  forkedFrom?: string;
+  memoryCeilingMib?: number;
+  statsPath?: string;
   rootDisk?: {
     perBootRootDisk?: string;
     callerRootDiskPath?: string;
   };
+  bootLog?: { root: string; childPid: number; detached?: boolean };
   cleanup?: {
     perBootRootDisk?: string;
     perBootSnapDisk?: string;
@@ -395,13 +507,64 @@ export function planBootRegistryShapeNative(input: {
     gvSocketDir?: string;
     cpuCgroupPath?: string;
   };
+  cpu?: {
+    policy: ResolvedCpuResourcePolicy | undefined;
+    control: CpuControlResult;
+  };
+  vmstate?: {
+    statePath?: string;
+    chainId?: string;
+    checkpointParent?: string;
+    checkpointSequence?: number;
+  };
+  nested?: boolean;
   mountDisk?: { guest: string; lowerPath: string; upperPath: string };
   liveMounts?: PlannedLiveMount[];
-}): RegistryShapePlan {
+  portForward?: PortForwardPlanMapping[];
+}
+
+export function planBootRegistryShapeNative(
+  input: BootRegistryShapeNativeInput,
+): RegistryShapePlan {
   return planBootCoreNative({
     registrySourceImagePath: input.sourceImagePath,
+    registryDiskPath: input.diskPath,
+    registryForkedFrom: input.forkedFrom,
+    registryMemoryCeilingMib: input.memoryCeilingMib,
+    registryStatsPath: input.statsPath,
+    ...registryRootDiskData(input),
+    ...registryBootLogData(input),
+    ...registryCleanupData(input),
+    ...registryCpuData(input),
+    ...registryVmstateData(input),
+    registryNested: input.nested,
+    ...registryMountDiskData(input),
+    liveMountsResolved: input.liveMounts,
+    portForward: input.portForward,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).registryShape;
+}
+
+function registryRootDiskData(input: BootRegistryShapeNativeInput): Partial<NativeBootPlanInput> {
+  return {
     registryPerBootRootDisk: input.rootDisk?.perBootRootDisk ?? input.cleanup?.perBootRootDisk,
     registryCallerRootDiskPath: input.rootDisk?.callerRootDiskPath,
+  };
+}
+
+function registryBootLogData(input: BootRegistryShapeNativeInput): Partial<NativeBootPlanInput> {
+  return {
+    registryBootLogRoot: input.bootLog?.root,
+    registryChildPid: input.bootLog?.childPid,
+    registryDetached: input.bootLog?.detached,
+  };
+}
+
+function registryCleanupData(input: BootRegistryShapeNativeInput): Partial<NativeBootPlanInput> {
+  return {
     registryPerBootSnapDisk: input.cleanup?.perBootSnapDisk,
     registryPerBootMountUpper: input.cleanup?.perBootMountUpper,
     registryBundleTempDir: input.cleanup?.bundleTempDir,
@@ -409,15 +572,85 @@ export function planBootRegistryShapeNative(input: {
     registryStatsTempDir: input.cleanup?.statsTempDir,
     registryGvSocketDir: input.cleanup?.gvSocketDir,
     registryCpuCgroupPath: input.cleanup?.cpuCgroupPath,
+  };
+}
+
+function registryCpuData(input: BootRegistryShapeNativeInput): Partial<NativeBootPlanInput> {
+  return {
+    registryCpuPolicy: input.cpu?.policy,
+    registryCpuControlStatus: input.cpu?.control.status,
+    registryCpuControlReason: input.cpu?.control.reason,
+  };
+}
+
+function registryVmstateData(input: BootRegistryShapeNativeInput): Partial<NativeBootPlanInput> {
+  return {
+    registryVmstatePath: input.vmstate?.statePath,
+    registryVmstateChainId: input.vmstate?.chainId,
+    registryVmstateCheckpointParent: input.vmstate?.checkpointParent,
+    registryVmstateCheckpointSequence: input.vmstate?.checkpointSequence,
+  };
+}
+
+function registryMountDiskData(input: BootRegistryShapeNativeInput): Partial<NativeBootPlanInput> {
+  return {
     registryMountGuest: input.mountDisk?.guest,
     registryMountLowerPath: input.mountDisk?.lowerPath,
     registryMountUpperPath: input.mountDisk?.upperPath,
-    liveMountsResolved: input.liveMounts,
+  };
+}
+
+export function planBootRegistryCpuNative(input: {
+  policy: ResolvedCpuResourcePolicy | undefined;
+  control: CpuControlResult;
+}): RegistryShapePlan["cpu"] | undefined {
+  return planBootRegistryShapeNative({ cpu: input }).cpu ?? undefined;
+}
+
+export function planBootRegistryVmstateNative(input: {
+  statePath?: string;
+  chainId?: string;
+  checkpointParent?: string;
+  checkpointSequence?: number;
+}): RegistryShapePlan["vmstate"] {
+  return planBootRegistryShapeNative({ vmstate: input }).vmstate;
+}
+
+export function planBootRegistryNestedNative(nested: boolean | undefined): boolean | undefined {
+  return planBootRegistryShapeNative({ nested }).nested || undefined;
+}
+
+export function planBootRegistryPortForwardNative(
+  portForward: PortForwardPlanMapping[],
+): RegistryShapePlan["portForward"] | undefined {
+  return planBootRegistryShapeNative({ portForward }).portForward ?? undefined;
+}
+
+export function planBootRegistryScalarsNative(input: {
+  diskPath?: string;
+  forkedFrom?: string;
+  memoryCeilingMib?: number;
+  statsPath?: string;
+}): Pick<RegistryShapePlan, "diskPath" | "forkedFrom" | "memoryCeilingMib" | "statsPath"> {
+  const plan = planBootRegistryShapeNative(input);
+  return {
+    diskPath: plan.diskPath,
+    forkedFrom: plan.forkedFrom,
+    memoryCeilingMib: plan.memoryCeilingMib,
+    statsPath: plan.statsPath,
+  };
+}
+
+export function planBootPortForwardNative(
+  portForward: PortForwardPlanMapping[] | undefined,
+): PlannedPortForward[] {
+  return planBootCoreNative({
+    portForward,
     vmmMemoryPreset: true,
     hasImage: false,
     hasCmd: false,
     rootDisk: "false",
-  }).registryShape;
+  }).plannedPortForward;
 }
 
 export function planBootBundleEnvNative(input: {
@@ -549,6 +782,18 @@ export function planBootVirtiofsEnvNative(liveMounts: PlannedLiveMount[]): Recor
   }).virtiofsEnv;
 }
 
+export function planBootNestedEnvNative(nested: boolean | undefined): string | undefined {
+  return (
+    planBootCoreNative({
+      nested,
+      vmmMemoryPreset: true,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    }).vmmNested ?? undefined
+  );
+}
+
 export function planBootVmstateEnvNative(input: {
   vmstatePath?: string;
   restorePath?: string;
@@ -570,6 +815,24 @@ export function planBootVmstateEnvNative(input: {
     restorePath: plan.vmmRestorePath ?? undefined,
     vmstateTiming: plan.vmmVmstateTiming ?? undefined,
   };
+}
+
+export function planBootVmstateRuntimeNative(input: {
+  statePath?: string;
+  chainId: string;
+  restorePath?: string;
+  forkedFrom?: string;
+}): BootVmstateRuntimePlan {
+  return planBootCoreNative({
+    bootVmstateStatePath: input.statePath,
+    bootVmstateChainId: input.chainId,
+    bootVmstateRestorePath: input.restorePath,
+    bootVmstateForkedFrom: input.forkedFrom,
+    vmmMemoryPreset: true,
+    hasImage: false,
+    hasCmd: false,
+    rootDisk: "false",
+  }).vmstateRuntime;
 }
 
 export function planBootKernelDtbNative(input: { kernelPath?: string; dtbPath?: string }): {
@@ -608,16 +871,6 @@ export function planBootVmmArgvNative(input: {
     throw new BootError("BOOT_VMM_MISSING", "boot: native planner returned no VMM command");
   }
   return { command: plan.vmmCommand, args: plan.vmmArgs };
-}
-
-export function validateBootPortForwardNative(portForward: PortForwardPlanMapping[]): void {
-  planBootCoreNative({
-    portForward,
-    vmmMemoryPreset: true,
-    hasImage: false,
-    hasCmd: false,
-    rootDisk: "false",
-  });
 }
 
 export function rootDiskPlanMode(rootDisk: boolean | string | undefined): RootDiskPlanMode {

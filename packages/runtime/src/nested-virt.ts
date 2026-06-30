@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { BootError } from "./errors.ts";
+import { planBootNestedEnvNative } from "./native/boot-plan.ts";
 import {
   probeNestedVirtualizationNative,
   type NestedVirtProbeObservation,
@@ -121,7 +122,8 @@ export function applyNestedVirtualizationEnv(
   nested: boolean | undefined,
   env: Record<string, string>,
 ): void {
-  if (nested) {
-    env.MACHINEN_NESTED = "1";
+  const planned = planBootNestedEnvNative(nested);
+  if (planned) {
+    env.MACHINEN_NESTED = planned;
   }
 }

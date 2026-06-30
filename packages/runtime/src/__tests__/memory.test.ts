@@ -101,6 +101,72 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans CPU resource policy defaults and fractional quota", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      resourcesCpu: { maxVcpus: "1", quotaCpus: "0.5", weight: "200" },
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.cpuPolicy).toEqual({
+      maxVcpus: 1,
+      quotaCpus: 0.5,
+      weight: 200,
+    });
+  });
+
+  it("plans portForward defaults and preserves hostAddr", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const omitted = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(omitted.status).toBe(0);
+    expect(JSON.parse(omitted.stdout).data.plannedPortForward).toEqual([]);
+
+    const planned = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          portForward: [
+            { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
+            { hostPort: 8443, guestPort: 443 },
+          ],
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(planned.status).toBe(0);
+    expect(JSON.parse(planned.stdout).data.plannedPortForward).toEqual([
+      { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
+      { hostPort: 8443, guestPort: 443 },
+    ]);
+  });
+
   it("plans vsock specs from caller env or auto UDS paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
@@ -167,6 +233,64 @@ describe("boot-plan helper schema", () => {
       vmmRestorePath: "/tmp/restore.vmstate",
       vmmVmstateTiming: "1",
     });
+  });
+
+  it("plans vmstate runtime chain metadata", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      bootVmstateStatePath: "/tmp/state.vmstate",
+      bootVmstateChainId: "chain-1",
+      bootVmstateRestorePath: "/tmp/restore.vmstate",
+      bootVmstateForkedFrom: "/snap/parent",
+    };
+    const result = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).data.vmstateRuntime).toEqual({
+      statePath: "/tmp/state.vmstate",
+      chainId: "chain-1",
+      checkpointParent: "/snap/parent",
+      checkpointSequence: 0,
+    });
+  });
+
+  it("plans nested virtualization VMM env", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const requested = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, nested: true } })}\n`,
+      encoding: "utf8",
+    });
+    expect(requested.status).toBe(0);
+    expect(JSON.parse(requested.stdout).data.vmmNested).toBe("1");
+
+    const omitted = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(omitted.status).toBe(0);
+    expect(JSON.parse(omitted.stdout).data.vmmNested).toBeNull();
   });
 
   it("plans bundle commands from explicit image restore and live-mount inputs", () => {
@@ -644,7 +768,7 @@ describe("boot-plan helper schema", () => {
     });
   });
 
-  it("plans registry cleanup paths and mount shapes", () => {
+  it("plans registry cleanup paths, mount shapes, and CPU shape", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
     const baseData = {
@@ -663,8 +787,15 @@ describe("boot-plan helper schema", () => {
         data: {
           ...baseData,
           registrySourceImagePath: "/images/rootfs.tar.gz",
+          registryDiskPath: "/tmp/scratch.img",
+          registryForkedFrom: "/snap/source",
+          registryMemoryCeilingMib: "2048",
+          registryStatsPath: "/tmp/stats.bin",
           registryPerBootRootDisk: "/tmp/root.img",
           registryCallerRootDiskPath: "/caller/root.img",
+          registryBootLogRoot: "/tmp/machinen-logs",
+          registryChildPid: "1234",
+          registryDetached: true,
           registryPerBootSnapDisk: null,
           registryPerBootMountUpper: "/tmp/upper.img",
           registryBundleTempDir: "/tmp/bundle",
@@ -672,9 +803,23 @@ describe("boot-plan helper schema", () => {
           registryStatsTempDir: null,
           registryGvSocketDir: "/tmp/gv",
           registryCpuCgroupPath: "/sys/fs/cgroup/machinen",
+          registryCpuPolicyMaxVcpus: "1",
+          registryCpuPolicyQuotaCpus: "0.5",
+          registryCpuPolicyWeight: "200",
+          registryCpuControlStatus: "linux-cgroup-v2",
+          registryCpuControlReason: "limited",
+          registryVmstatePath: "/tmp/state.vmstate",
+          registryVmstateChainId: "chain-1",
+          registryVmstateCheckpointParent: "/snap/parent",
+          registryVmstateCheckpointSequence: "3",
+          registryNested: true,
           registryMountGuest: "/mnt/data",
           registryMountLowerPath: "/cache/lower.sqfs",
           registryMountUpperPath: "/tmp/upper.img",
+          portForward: [
+            { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
+            { hostPort: 8443, guestPort: 443 },
+          ],
           liveMountsResolved: [
             { host: "/host/work", guest: "/mnt/work", mode: "rw", tag: "machinen-lm0" },
             { host: "/host/cache", guest: "/mnt/cache", mode: "ro", tag: "machinen-lm1" },
@@ -686,8 +831,13 @@ describe("boot-plan helper schema", () => {
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout).data.registryShape).toEqual({
       sourceImagePath: "/images/rootfs.tar.gz",
+      diskPath: "/tmp/scratch.img",
+      forkedFrom: "/snap/source",
+      memoryCeilingMib: 2048,
+      statsPath: "/tmp/stats.bin",
       rootDiskPath: "/tmp/root.img",
       rootDiskMode: "block",
+      bootLogPath: "/tmp/machinen-logs/1234.boot.log",
       cleanupPaths: [
         "/tmp/root.img",
         "/tmp/upper.img",
@@ -705,6 +855,23 @@ describe("boot-plan helper schema", () => {
         { guest: "/mnt/work", host: "/host/work", mode: "rw" },
         { guest: "/mnt/cache", host: "/host/cache", mode: "ro" },
       ],
+      portForward: [
+        { hostPort: 8080, guestPort: 80, hostAddr: "127.0.0.1" },
+        { hostPort: 8443, guestPort: 443 },
+      ],
+      cpu: {
+        maxVcpus: 1,
+        quotaCpus: 0.5,
+        weight: 200,
+        enforcement: { status: "linux-cgroup-v2", reason: "limited" },
+      },
+      vmstate: {
+        statePath: "/tmp/state.vmstate",
+        chainId: "chain-1",
+        checkpointParent: "/snap/parent",
+        checkpointSequence: 3,
+      },
+      nested: true,
     });
   });
 
@@ -885,6 +1052,120 @@ describe("boot-plan helper schema", () => {
     expect(JSON.parse(result.stdout).data).toMatchObject({
       vmmCommand: "/bin/pdeathsig",
       vmmArgs: ["/bin/vmm", "--dev", "1"],
+    });
+  });
+
+  it("plans whether initramfs packing is needed", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const none = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(none.status).toBe(0);
+    expect(JSON.parse(none.stdout).data.needsInitramfs).toBe(false);
+
+    const image = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, hasImage: true } })}\n`,
+      encoding: "utf8",
+    });
+    expect(image.status).toBe(0);
+    expect(JSON.parse(image.stdout).data.needsInitramfs).toBe(true);
+
+    const snapshot = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, hasSnapshot: true } })}\n`,
+      encoding: "utf8",
+    });
+    expect(snapshot.status).toBe(0);
+    expect(JSON.parse(snapshot.stdout).data.needsInitramfs).toBe(true);
+  });
+
+  it("plans pdeathsig default detach and explicit opt-out", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const enabled = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(enabled.status).toBe(0);
+    expect(JSON.parse(enabled.stdout).data.usePdeathsig).toBe(true);
+
+    const detached = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, detached: true } })}\n`,
+      encoding: "utf8",
+    });
+    expect(detached.status).toBe(0);
+    expect(JSON.parse(detached.stdout).data.usePdeathsig).toBe(false);
+
+    const disabled = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, pdeathsig: false } })}\n`,
+      encoding: "utf8",
+    });
+    expect(disabled.status).toBe(0);
+    expect(JSON.parse(disabled.stdout).data.usePdeathsig).toBe(false);
+  });
+
+  it("plans boot timeout default explicit and forever values", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+    const defaulted = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: baseData })}\n`,
+      encoding: "utf8",
+    });
+    expect(defaulted.status).toBe(0);
+    expect(JSON.parse(defaulted.stdout).data).toMatchObject({
+      timeoutMs: 60_000,
+      detachedReadinessTimeoutMs: 60_000,
+    });
+
+    const explicit = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, bootTimeoutMs: "2500" } })}\n`,
+      encoding: "utf8",
+    });
+    expect(explicit.status).toBe(0);
+    expect(JSON.parse(explicit.stdout).data).toMatchObject({
+      timeoutMs: 2_500,
+      detachedReadinessTimeoutMs: 2_500,
+    });
+
+    const forever = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: { ...baseData, bootTimeoutForever: true } })}\n`,
+      encoding: "utf8",
+    });
+    expect(forever.status).toBe(0);
+    expect(JSON.parse(forever.stdout).data).toMatchObject({
+      timeoutMs: null,
+      detachedReadinessTimeoutMs: 60_000,
     });
   });
 

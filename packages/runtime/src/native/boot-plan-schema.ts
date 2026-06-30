@@ -2,6 +2,27 @@ type ScratchDiskAction = "none" | "existing" | "clone" | "allocate";
 type RootDiskRuntimeAction = "none" | "existing" | "clone-restore" | "clone-cached";
 type MountDiskRuntimeAction = "none" | "restore" | "fresh";
 export type ProvisionGuestCpu = "arm64" | "amd64";
+type CpuPolicyPlan = { maxVcpus: number; quotaCpus?: number; weight: number };
+type RegistryCpuPlan = {
+  maxVcpus: number;
+  quotaCpus?: number;
+  weight: number;
+  enforcement: { status: "none" | "linux-cgroup-v2" | "unsupported"; reason?: string };
+};
+type RegistryVmstatePlan = {
+  statePath: string | null;
+  chainId: string | null;
+  checkpointParent: string | null;
+  checkpointSequence: number | null;
+};
+export type PlannedPortForward = { hostPort: number; guestPort: number; hostAddr?: string };
+type RegistryPortForwardPlan = PlannedPortForward;
+export type BootVmstateRuntimePlan = {
+  statePath: string | null;
+  chainId: string | null;
+  checkpointParent: string | null;
+  checkpointSequence: number | null;
+};
 export type PlannedLiveMount = { host: string; guest: string; mode: "ro" | "rw"; tag: string };
 type RegistryMountDiskPlan = { guest: string; lowerPath: string; upperPath: string };
 type RegistryLiveMountPlan = { guest: string; host: string; mode: "ro" | "rw" };
@@ -33,11 +54,20 @@ export type ProvisionRuntimePlan = {
 };
 export type RegistryShapePlan = {
   sourceImagePath: string | null;
+  diskPath: string | null;
+  forkedFrom: string | null;
+  memoryCeilingMib: number | null;
+  statsPath: string | null;
   rootDiskPath: string | null;
+  bootLogPath: string | null;
   rootDiskMode: "block" | "none";
   cleanupPaths: string[];
   mountDisk: RegistryMountDiskPlan | null;
   liveMounts: RegistryLiveMountPlan[];
+  portForward: RegistryPortForwardPlan[] | null;
+  cpu: RegistryCpuPlan | null;
+  vmstate: RegistryVmstatePlan;
+  nested: boolean;
 };
 export type ScratchDiskPlan = {
   action: ScratchDiskAction;
@@ -77,22 +107,31 @@ const liveMountModes = ["ro", "rw"] as const;
 export interface NativeBootPlanResult {
   memoryCeilingMib: number | null;
   vmmMemory: string | null;
+  cpuPolicy: CpuPolicyPlan | null;
   wantsRootDisk: boolean;
+  needsInitramfs: boolean;
+  timeoutMs: number | null;
+  detachedReadinessTimeoutMs: number;
   normalizedMountGuest: string | null;
+  guestHostname: string | null;
   mergedGuestEnv: Record<string, string>;
   vsockUdsPath: string | null;
   vmmVsock: string | null;
   vmmCommand: string | null;
   vmmArgs: string[];
+  usePdeathsig: boolean;
   vmmKernel: string | null;
   vmmDtb: string | null;
   vmmSnapshotPath: string | null;
   vmmRestorePath: string | null;
   vmmVmstateTiming: string | null;
+  vmmNested: string | null;
   virtiofsEnv: Record<string, string>;
   plannedLiveMounts: PlannedLiveMount[];
   statsFilePath: string | null;
   vmmStatsFile: string | null;
+  vmstateRuntime: BootVmstateRuntimePlan;
+  plannedPortForward: PlannedPortForward[];
   machinenConfig: MachinenConfigPlan;
   bundleCommand: string[];
   bundleEnv: Record<string, string>;
@@ -116,22 +155,31 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
   return [
     nullableNonNegativeNumber(data.memoryCeilingMib),
     nullableString(data.vmmMemory),
+    nullableCpuPolicy(data.cpuPolicy),
     typeof data.wantsRootDisk === "boolean",
+    typeof data.needsInitramfs === "boolean",
+    nullableNonNegativeNumber(data.timeoutMs),
+    nonNegativeNumber(data.detachedReadinessTimeoutMs),
     nullableString(data.normalizedMountGuest),
+    nullableString(data.guestHostname),
     isStringRecord(data.mergedGuestEnv),
     nullableString(data.vsockUdsPath),
     nullableString(data.vmmVsock),
     nullableString(data.vmmCommand),
     isStringArray(data.vmmArgs),
+    typeof data.usePdeathsig === "boolean",
     nullableString(data.vmmKernel),
     nullableString(data.vmmDtb),
     nullableString(data.vmmSnapshotPath),
     nullableString(data.vmmRestorePath),
     nullableString(data.vmmVmstateTiming),
+    nullableString(data.vmmNested),
     isStringRecord(data.virtiofsEnv),
     Array.isArray(data.plannedLiveMounts) && data.plannedLiveMounts.every(isPlannedLiveMount),
     nullableString(data.statsFilePath),
     nullableString(data.vmmStatsFile),
+    isBootVmstateRuntimePlan(data.vmstateRuntime),
+    Array.isArray(data.plannedPortForward) && data.plannedPortForward.every(isPlannedPortForward),
     isMachinenConfigPlan(data.machinenConfig),
     isStringArray(data.bundleCommand),
     isStringRecord(data.bundleEnv),
@@ -145,6 +193,22 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     isRootDiskRuntimePlan(data.rootDiskRuntime),
     isMountDiskRuntimePlan(data.mountDiskRuntime),
     isRegistryShapePlan(data.registryShape),
+  ].every(Boolean);
+}
+
+function nullableCpuPolicy(value: unknown): value is CpuPolicyPlan | null {
+  return value === null || isCpuPolicyPlan(value);
+}
+
+function isCpuPolicyPlan(value: unknown): value is CpuPolicyPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<CpuPolicyPlan>;
+  return [
+    nonNegativeNumber(plan.maxVcpus),
+    plan.quotaCpus === undefined || nonNegativeNumber(plan.quotaCpus),
+    nonNegativeNumber(plan.weight),
   ].every(Boolean);
 }
 
@@ -274,12 +338,88 @@ function isRegistryShapePlan(value: unknown): value is RegistryShapePlan {
   const plan = value as Partial<RegistryShapePlan>;
   return [
     nullableString(plan.sourceImagePath),
+    nullableString(plan.diskPath),
+    nullableString(plan.forkedFrom),
+    nullableNonNegativeNumber(plan.memoryCeilingMib),
+    nullableString(plan.statsPath),
     nullableString(plan.rootDiskPath),
+    nullableString(plan.bootLogPath),
     isOneOf(plan.rootDiskMode, registryRootDiskModes),
     isStringArray(plan.cleanupPaths),
     nullableRegistryMountDisk(plan.mountDisk),
     Array.isArray(plan.liveMounts),
     plan.liveMounts?.every(isRegistryLiveMount) === true,
+    nullableObject(plan.portForward, isRegistryPortForwardArray),
+    nullableRegistryCpu(plan.cpu),
+    isRegistryVmstatePlan(plan.vmstate),
+    typeof plan.nested === "boolean",
+  ].every(Boolean);
+}
+
+function isBootVmstateRuntimePlan(value: unknown): value is BootVmstateRuntimePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  return isVmstatePlanShape(value as Partial<BootVmstateRuntimePlan>);
+}
+
+function isVmstatePlanShape(plan: Partial<BootVmstateRuntimePlan>): boolean {
+  return (
+    nullableString(plan.statePath) &&
+    nullableString(plan.chainId) &&
+    nullableString(plan.checkpointParent) &&
+    nullableNonNegativeNumber(plan.checkpointSequence)
+  );
+}
+
+function isRegistryPortForwardArray(value: unknown): value is RegistryPortForwardPlan[] {
+  return Array.isArray(value) && value.every(isPlannedPortForward);
+}
+
+function isPlannedPortForward(value: unknown): value is PlannedPortForward {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const mapping = value as Partial<PlannedPortForward>;
+  return [
+    nonNegativeNumber(mapping.hostPort),
+    nonNegativeNumber(mapping.guestPort),
+    optionalString(mapping.hostAddr),
+  ].every(Boolean);
+}
+
+function isRegistryVmstatePlan(value: unknown): value is RegistryVmstatePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  return isVmstatePlanShape(value as Partial<RegistryVmstatePlan>);
+}
+
+function nullableRegistryCpu(value: unknown): value is RegistryCpuPlan | null {
+  return value === null || isRegistryCpuPlan(value);
+}
+
+function isRegistryCpuPlan(value: unknown): value is RegistryCpuPlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<RegistryCpuPlan>;
+  return [
+    nonNegativeNumber(plan.maxVcpus),
+    plan.quotaCpus === undefined || nonNegativeNumber(plan.quotaCpus),
+    nonNegativeNumber(plan.weight),
+    isRegistryCpuEnforcement(plan.enforcement),
+  ].every(Boolean);
+}
+
+function isRegistryCpuEnforcement(value: unknown): value is RegistryCpuPlan["enforcement"] {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const enforcement = value as Partial<RegistryCpuPlan["enforcement"]>;
+  return [
+    isOneOf(enforcement.status, ["none", "linux-cgroup-v2", "unsupported"] as const),
+    enforcement.reason === undefined || typeof enforcement.reason === "string",
   ].every(Boolean);
 }
 
@@ -364,6 +504,14 @@ function isOneOf<T extends string>(value: unknown, values: readonly T[]): value 
 
 function nullableString(value: unknown): boolean {
   return value === null || typeof value === "string";
+}
+
+function optionalString(value: unknown): boolean {
+  return value === undefined || typeof value === "string";
+}
+
+function nullableObject<T>(value: unknown, check: (candidate: unknown) => candidate is T): boolean {
+  return value === null || check(value);
 }
 
 function isStringRecord(value: unknown): value is Record<string, string> {

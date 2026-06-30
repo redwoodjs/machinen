@@ -1,4 +1,5 @@
 import type { CpuControlResult } from "../cpu-cgroup.ts";
+import { planBootRegistryCpuNative } from "../native/boot-plan.ts";
 import type { RegistryEntry } from "../registry.ts";
 import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
 
@@ -8,16 +9,5 @@ export function registryCpu(
   policy: ResolvedCpuResourcePolicy | undefined,
   control: CpuControlResult,
 ): CpuRegistryEntry | undefined {
-  if (!policy) {
-    return undefined;
-  }
-  return {
-    maxVcpus: policy.maxVcpus,
-    quotaCpus: policy.quotaCpus,
-    weight: policy.weight,
-    enforcement: {
-      status: control.status,
-      reason: control.reason,
-    },
-  };
+  return planBootRegistryCpuNative({ policy, control });
 }

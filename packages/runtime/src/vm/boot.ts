@@ -28,7 +28,7 @@ import {
   waitForDetachedExecAgent,
 } from "./boot-diagnostics.ts";
 import { makeReseedVmstateEntropy, makeSyncVmstateSnapshot } from "./vsock-handle-ops.ts";
-import { bootSnapshotPath, writeBootSnapshot } from "../detached-log.ts";
+import { detachedLogRoot, writeBootSnapshot } from "../detached-log.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "../errors.ts";
 import { VsockExec } from "../exec.ts";
 import { runGc } from "../gc.ts";
@@ -54,19 +54,24 @@ import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
   planBootKernelDtbNative,
+  planBootPortForwardNative,
+  planBootRegistryNestedNative,
+  planBootRegistryPortForwardNative,
+  planBootRegistryScalarsNative,
   planBootRegistryShapeNative,
+  planBootRegistryVmstateNative,
   planBootScratchDiskNative,
   planBootStatsFileNative,
   planBootVirtiofsEnvNative,
   planBootVmstateEnvNative,
+  planBootVmstateRuntimeNative,
   planBootVmmArgvNative,
   rootDiskPlanMode,
-  validateBootPortForwardNative,
 } from "../native/boot-plan.ts";
 import { reflinkCopy } from "../reflink.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
-import { resolveCpuResourcePolicy, type ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
+import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
 import { resolveLiveMounts, synthesizeAndPackBundle, type ResolvedLiveMount } from "./bundle.ts";
 import { installVmExitCleanup } from "./exit-cleanup.ts";
 import { performForkWithRestore } from "./fork-core.ts";
@@ -457,7 +462,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     bootLogPath,
   } = registry;
 
-  const timeoutMs = opts.timeoutMs === undefined ? 60_000 : opts.timeoutMs;
+  const timeoutMs = plan.timeoutMs;
 
   // Start collecting stdout/stderr eagerly. Doing it lazily on the
   // first call to `.output()` / `.errorOutput()` loses data: the
@@ -542,7 +547,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   if (opts.detached && bootLogPath) {
     await gateOnDetachedReadiness({
       child,
-      timeoutMs,
+      timeoutMs: plan.detachedReadinessTimeoutMs,
       bootLogPath,
       detachedBootChunks,
       handle,
@@ -563,13 +568,17 @@ interface BootPlan {
   env: Record<string, string>;
   memoryCeilingMib: number | undefined;
   cpuPolicy: ResolvedCpuResourcePolicy | undefined;
+  timeoutMs: number | null;
+  detachedReadinessTimeoutMs: number;
   diskAbs: string | undefined;
   perBootSnapDisk: string | undefined;
   wantsRootDisk: boolean;
+  needsInitramfs: boolean;
   vsockUdsPath: string | undefined;
   vsockTempDir: string | undefined;
   statsFilePath: string | undefined;
   statsTempDir: string | undefined;
+  usePdeathsig: boolean;
   vmstate: BootVmstateRuntime;
   liveMountsResolved: ResolvedLiveMount[];
   mergedGuestEnv: Record<string, string>;
@@ -642,7 +651,7 @@ function packBootInitramfsIfNeeded(
   plan: BootPlan,
   phases: PhaseTimer,
 ): Pick<BootResources, "bundleTempDir" | "mountDiskPaths"> {
-  if (!bootNeedsInitramfs(opts)) {
+  if (!plan.needsInitramfs) {
     return { bundleTempDir: undefined, mountDiskPaths: undefined };
   }
   phases.start("initramfs-pack");
@@ -656,10 +665,6 @@ function packBootInitramfsIfNeeded(
   const packMs = phases.end("initramfs-pack");
   debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, packMs ?? -1);
   return { bundleTempDir: packed.tempDir, mountDiskPaths: packed.mountDisk };
-}
-
-function bootNeedsInitramfs(opts: BootOptions): boolean {
-  return Boolean(opts.image || opts.cmd || opts.snapshot);
 }
 
 function materializeRootdiskIfNeeded(
@@ -692,7 +697,7 @@ interface SpawnedBootVmm {
 
 async function spawnBootVmm(args: SpawnBootArgs): Promise<SpawnedBootVmm> {
   args.phases.start("vmm-spawn");
-  const vmmPdeathsig = await resolveVmmPdeathsig(args.opts);
+  const vmmPdeathsig = await resolveVmmPdeathsig(args.plan.usePdeathsig);
   const vmmArgv = planBootVmmArgvNative({
     binary: args.plan.binary,
     args: args.opts.args ?? [],
@@ -732,11 +737,8 @@ function applySpawnedCpuControls(
   }
 }
 
-async function resolveVmmPdeathsig(opts: BootOptions): Promise<string | null> {
-  if (opts.detached || opts.pdeathsig === false) {
-    return null;
-  }
-  return ensurePdeathsig();
+async function resolveVmmPdeathsig(usePdeathsig: boolean): Promise<string | null> {
+  return usePdeathsig ? ensurePdeathsig() : null;
 }
 
 function maybeOpenMountDiskFds(
@@ -825,7 +827,11 @@ function registryCallerRootDiskPath(opts: BootOptions): string | undefined {
 }
 
 function registryBootLogPath(opts: BootOptions, childPid: number): string | undefined {
-  return opts.detached && childPid > 0 ? bootSnapshotPath(childPid) : undefined;
+  return (
+    planBootRegistryShapeNative({
+      bootLog: { root: detachedLogRoot(), childPid, detached: opts.detached },
+    }).bootLogPath ?? undefined
+  );
 }
 
 function claimBootNameIfNeeded(
@@ -861,6 +867,7 @@ function buildRegisterArgs(
   },
   state: BootRegistryState,
 ): RegisterArgs {
+  const vmstate = registryVmstate(args.plan.vmstate);
   return {
     childPid: state.childPid,
     vmName: state.vmName,
@@ -868,7 +875,7 @@ function buildRegisterArgs(
     sourceImageAbs: state.sourceImageAbs,
     rootDiskPath: state.rootDiskPath,
     rootDiskMode: state.rootDiskMode,
-    diskAbs: args.plan.diskAbs,
+    diskPath: args.plan.diskAbs,
     forkedFrom: args.opts.forkedFrom,
     bootLogPath: state.bootLogPath,
     cleanupPaths: cleanupPathsForBoot(args.plan, args.resources, args.spawned),
@@ -880,22 +887,24 @@ function buildRegisterArgs(
     memoryCeilingMib: args.plan.memoryCeilingMib,
     cpuPolicy: args.plan.cpuPolicy,
     cpuControl: args.spawned.cpuControl,
-    statsFilePath: args.plan.statsFilePath,
+    statsPath: args.plan.statsFilePath,
     mountDiskPaths: args.resources.mountDiskPaths,
     liveMountsResolved: args.plan.liveMountsResolved,
-    vmstateStatePath: args.plan.vmstate.statePath,
-    vmstateChainId: vmstateValue(args.plan.vmstate, args.plan.vmstate.chainId),
-    vmstateCheckpointParent: vmstateValue(args.plan.vmstate, args.plan.vmstate.checkpointParent),
-    vmstateCheckpointSequence: vmstateValue(
-      args.plan.vmstate,
-      args.plan.vmstate.checkpointSequence,
-    ),
-    nested: args.opts.nested,
+    vmstateStatePath: vmstate.statePath ?? undefined,
+    vmstateChainId: vmstate.chainId ?? undefined,
+    vmstateCheckpointParent: vmstate.checkpointParent ?? undefined,
+    vmstateCheckpointSequence: vmstate.checkpointSequence ?? undefined,
+    nested: planBootRegistryNestedNative(args.opts.nested),
   };
 }
 
-function vmstateValue<T>(vmstate: BootVmstateRuntime, value: T): T | undefined {
-  return vmstate.statePath ? value : undefined;
+function registryVmstate(vmstate: BootVmstateRuntime) {
+  return planBootRegistryVmstateNative({
+    statePath: vmstate.statePath,
+    chainId: vmstate.chainId,
+    checkpointParent: vmstate.checkpointParent,
+    checkpointSequence: vmstate.checkpointSequence,
+  });
 }
 
 function cleanupPathsForBoot(
@@ -950,9 +959,14 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
   const corePlan = planBootCoreNative({
     memoryMib: opts.memory,
     resourcesMemory: opts.resources?.memory,
+    resourcesCpu: opts.resources?.cpu,
     vmmMemoryPreset: env.MACHINEN_MEMORY !== undefined,
     hasImage: opts.image !== undefined,
     hasCmd: opts.cmd !== undefined,
+    hasSnapshot: Boolean(opts.snapshot),
+    detached: opts.detached,
+    pdeathsig: opts.pdeathsig,
+    bootTimeoutMs: opts.timeoutMs,
     rootDisk:
       opts.rootDisk === false
         ? "false"
@@ -964,7 +978,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
     env.MACHINEN_MEMORY = corePlan.vmmMemory;
   }
   const memoryCeilingMib = corePlan.memoryCeilingMib ?? undefined;
-  const cpuPolicy = resolveCpuResourcePolicy(opts.resources?.cpu);
+  const cpuPolicy = corePlan.cpuPolicy ?? undefined;
   const scratch = prepareBootScratchDisk(opts, env, phases);
   const wantsRootDisk = corePlan.wantsRootDisk;
   setupKernelDtbEnv(opts, env);
@@ -978,11 +992,15 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
     env,
     memoryCeilingMib,
     cpuPolicy,
+    timeoutMs: corePlan.timeoutMs,
+    detachedReadinessTimeoutMs: corePlan.detachedReadinessTimeoutMs,
     ...scratch,
     wantsRootDisk,
+    needsInitramfs: corePlan.needsInitramfs,
     vsockUdsPath: vsock.vsockUdsPath,
     vsockTempDir: vmstateSetup.vsockTempDir,
     ...stats,
+    usePdeathsig: corePlan.usePdeathsig,
     vmstate: vmstateSetup.vmstate,
     liveMountsResolved,
     mergedGuestEnv: buildMergedGuestEnv(opts, vsock.vsockUdsPath),
@@ -994,8 +1012,7 @@ async function resolveBootAssets(
   phases: PhaseTimer,
 ): Promise<Pick<BootPlan, "portForward" | "binary">> {
   phases.start("asset-resolve");
-  const portForward = opts.portForward ?? [];
-  await validatePortForwardOpts(opts, portForward);
+  const portForward = await planPortForwardOpts(opts);
   const binary = resolveBootBinary(opts);
   phases.end("asset-resolve");
   return { portForward, binary };
@@ -1034,16 +1051,24 @@ function setupVmstateBoot(
   inputVsockTempDir: string | undefined,
 ): { vmstate: BootVmstateRuntime; vsockTempDir: string | undefined } {
   let vsockTempDir = inputVsockTempDir;
-  const vmstate: BootVmstateRuntime = {
-    statePath: undefined,
-    chainId: randomBytes(16).toString("hex"),
-    checkpointParent: opts._vmstateRestorePath ? opts.forkedFrom : undefined,
-    checkpointSequence: 0,
-  };
+  let statePath: string | undefined;
+  const chainId = randomBytes(16).toString("hex");
   if (resolveSnapshotEngine() === "vmstate" && opts.snapshot !== false) {
     vsockTempDir = ensureVsockTempDir(vsockTempDir);
-    vmstate.statePath = join(vsockTempDir, VMSTATE_FILE);
+    statePath = join(vsockTempDir, VMSTATE_FILE);
   }
+  const runtime = planBootVmstateRuntimeNative({
+    statePath,
+    chainId,
+    restorePath: opts._vmstateRestorePath,
+    forkedFrom: opts.forkedFrom,
+  });
+  const vmstate: BootVmstateRuntime = {
+    statePath: runtime.statePath ?? undefined,
+    chainId: runtime.chainId ?? chainId,
+    checkpointParent: runtime.checkpointParent ?? undefined,
+    checkpointSequence: runtime.checkpointSequence ?? 0,
+  };
   applyVmstateEnvPlan(opts, env, vmstate.statePath);
   return { vmstate, vsockTempDir };
 }
@@ -1103,16 +1128,16 @@ function buildMergedGuestEnv(
 // touching the filesystem — so caller-input errors surface with a
 // clear message. The env-dependent "pre-set MACHINEN_NET_SOCKET"
 // check happens alongside since it only reads env.
-async function validatePortForwardOpts(
+async function planPortForwardOpts(
   opts: BootOptions,
-  portForward: NonNullable<BootOptions["portForward"]>,
-): Promise<void> {
-  if (portForward.length === 0) {
-    return;
+): Promise<NonNullable<BootOptions["portForward"]>> {
+  if ((opts.portForward ?? []).length === 0) {
+    return planBootPortForwardNative(opts.portForward);
   }
   rejectPresetNetSocket(opts);
-  validateBootPortForwardNative(portForward);
+  const portForward = planBootPortForwardNative(opts.portForward);
   await validatePortForwardAvailability(portForward);
+  return portForward;
 }
 
 function rejectPresetNetSocket(opts: BootOptions): void {
@@ -1534,7 +1559,7 @@ interface RegisterArgs {
   sourceImageAbs: string | undefined;
   rootDiskPath: string | undefined;
   rootDiskMode: "block" | "none";
-  diskAbs: string | undefined;
+  diskPath: string | undefined;
   forkedFrom: string | undefined;
   bootLogPath: string | undefined;
   cleanupPaths: string[];
@@ -1546,7 +1571,7 @@ interface RegisterArgs {
   memoryCeilingMib: number | undefined;
   cpuPolicy: ResolvedCpuResourcePolicy | undefined;
   cpuControl: CpuControlResult;
-  statsFilePath: string | undefined;
+  statsPath: string | undefined;
   mountDiskPaths: MountDiskPaths | undefined;
   liveMountsResolved: ResolvedLiveMount[];
   vmstateStatePath: string | undefined;
@@ -1574,6 +1599,7 @@ function registerInRegistry(args: RegisterArgs): boolean {
 }
 
 function buildRegistryEntry(args: RegisterArgs) {
+  const scalars = planBootRegistryScalarsNative(args);
   return {
     pid: args.childPid,
     name: args.vmName,
@@ -1581,17 +1607,17 @@ function buildRegistryEntry(args: RegisterArgs) {
     imagePath: args.sourceImageAbs,
     rootDiskPath: args.rootDiskPath,
     rootDiskMode: args.rootDiskMode,
-    diskPath: args.diskAbs,
-    forkedFrom: args.forkedFrom,
+    diskPath: scalars.diskPath ?? undefined,
+    forkedFrom: scalars.forkedFrom ?? undefined,
     bootLogPath: args.bootLogPath,
     cleanupPaths: nonEmptyList(args.cleanupPaths),
     vmmExe: registryVmmExe(args),
     gvproxyPid: args.gvPid,
     gvproxyExe: registryGvproxyExe(args),
-    portForward: nonEmptyList(args.portForward),
-    memoryCeilingMib: args.memoryCeilingMib,
+    portForward: registryPortForward(args.portForward),
+    memoryCeilingMib: scalars.memoryCeilingMib ?? undefined,
     cpu: registryCpu(args.cpuPolicy, args.cpuControl),
-    statsPath: args.statsFilePath,
+    statsPath: scalars.statsPath ?? undefined,
     vmstatePath: args.vmstateStatePath,
     vmstateChainId: args.vmstateChainId,
     vmstateCheckpointParent: args.vmstateCheckpointParent,
@@ -1641,6 +1667,10 @@ function registryMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
 
 function registryLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
   return nonEmptyList(planBootRegistryShapeNative({ liveMounts: liveMountsResolved }).liveMounts);
+}
+
+function registryPortForward(portForward: NonNullable<BootOptions["portForward"]>) {
+  return planBootRegistryPortForwardNative(portForward);
 }
 
 // #221/#233: stamp first-guest-byte and emit the boot timeline. Either
@@ -2039,13 +2069,12 @@ function updateVmstateChainState(
 // the first console byte, so early guest panics become BootErrors.
 async function gateOnDetachedReadiness(args: {
   child: ChildProcessWithoutNullStreams;
-  timeoutMs: number | null;
+  timeoutMs: number;
   bootLogPath: string;
   detachedBootChunks: Buffer[];
   handle: VmHandle;
 }): Promise<void> {
-  const readinessTimeoutMs = args.timeoutMs ?? 60_000;
-  const outcome = await waitForDetachedExecAgent(args, readinessTimeoutMs);
+  const outcome = await waitForDetachedExecAgent(args, args.timeoutMs);
   const stderrTail = bootStderrTail(args.detachedBootChunks);
   writeBootSnapshot(args.bootLogPath, stderrTail);
   if (outcome.kind === "exit") {
@@ -2066,7 +2095,7 @@ async function gateOnDetachedReadiness(args: {
     throw new BootError(
       "BOOT_DETACHED_READINESS_FAILED",
       bootReadinessFailureMessage(
-        `boot --detached: exec-agent did not become reachable within ${readinessTimeoutMs}ms.`,
+        `boot --detached: exec-agent did not become reachable within ${args.timeoutMs}ms.`,
         args.bootLogPath,
         stderrTail,
       ),
