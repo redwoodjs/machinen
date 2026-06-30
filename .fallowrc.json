@@ -42,6 +42,7 @@
     "@homebridge/node-pty-prebuilt-multiarch",
     "@nkzw/oxlint-config",
     "@redwoodjs/agent-ci",
+    "react-server-dom-webpack",
     "typedoc-plugin-markdown",
     "audited-conditional-exports",
     "audited-dual-package",
