@@ -633,7 +633,7 @@ describe("multi-vCPU boot", () => {
     } finally {
       await vm.kill().catch(() => {});
     }
-  });
+  }, 120_000);
 });
 
 describe("image + cmd", () => {

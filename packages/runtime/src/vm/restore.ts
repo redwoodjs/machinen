@@ -1,9 +1,3 @@
-// Restore a microVM from a snapshot bundle produced by `vm.snapshot()`.
-// Handles bundle validation, image resolution, lazy-pagemap rewriting,
-// checkpoint image delivery (eager tar on /dev/vdb vs. lazy virtio-fs mount),
-// mount-overlay re-attach, and the post-boot auto-name + hostname
-// patch-up.
-
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
@@ -35,6 +29,7 @@ import {
 } from "./portable-snapshot.ts";
 import { validateIdentity } from "./restore-identity.ts";
 import { reseedVmstateGuestEntropy } from "./restore-reseed.ts";
+import { refuseMultiVcpuRestore } from "./restore-vcpu.ts";
 import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
 import { materializeVmstateChain } from "./vmstate-chain.ts";
 import type { SnapshotMeta, VmHandle, VmstateSnapshotMeta } from "../vm-handle.ts";
@@ -232,17 +227,6 @@ function readSnapshotMeta(metaPath: string): SnapshotMeta {
     // anonymous source name. The fork still boots.
     return { snappedAt: 0 };
   }
-}
-
-function refuseMultiVcpuRestore(meta: SnapshotMeta): void {
-  if ((meta.cpu?.maxVcpus ?? 1) <= 1) {
-    return;
-  }
-  throw new BootError(
-    "BOOT_VMSTATE_UNSUPPORTED",
-    "restore: multi-vCPU snapshot bundles are not supported yet.\n" +
-      "  Machinen does not yet restore every vCPU, timer, and interrupt-controller state safely.",
-  );
 }
 
 function prepareLazyPages(

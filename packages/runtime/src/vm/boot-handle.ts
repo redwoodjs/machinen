@@ -286,10 +286,10 @@ function buildBootSnapshotContext(
     updateVmstateChain: snapshotVmstateUpdater(args.vmstate, args.childPid),
     maxVcpus: args.cpuPolicy?.maxVcpus,
     nested: args.nested,
-    execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
-    syncVmstateSnapshot: (execOpts) => handle.syncVmstateSnapshot?.(execOpts),
-    wait: () => handle.wait(),
-    kill: () => handle.kill(),
+    execRaw: handle.execRaw,
+    syncVmstateSnapshot: handle.syncVmstateSnapshot,
+    wait: handle.wait,
+    kill: handle.kill,
     teeGuestConsole: (onChunk) => {
       args.child.stderr.on("data", onChunk);
     },
