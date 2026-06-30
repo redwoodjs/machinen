@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - examples/*
+  - apps/*
 
 onlyBuiltDependencies:
   - "@homebridge/node-pty-prebuilt-multiarch"
@@ -9,4 +10,6 @@ onlyBuiltDependencies:
   - fallow
   - node-pty
   - protobufjs
+  - sharp
   - ssh2
+  - workerd
