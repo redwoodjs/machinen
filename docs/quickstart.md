@@ -1,103 +1,161 @@
 # Quickstart
 
-You're going to build a tiny HTTP server, boot it inside a VM, hit it a few
-times so it accumulates state in memory, then move that running process to
-another machine and watch it pick up exactly where it left off.
+Your computer is already a cloud. In this quickstart, you will turn the
+current project directory into a long-lived Linux VM that can run an agent
+terminal in the background, keep its session alive, and let you reconnect
+later.
 
-This is the trick machinen exists for: the program's entire state — what
-it's holding in memory, the connections it has open, the files it's
-reading — travels with it. Three steps.
+Pick an agent recipe:
 
-## 1. Bake an image
+- `claude` — installs Claude Code.
+- `pi` — installs the Pi coding agent.
 
-Start with a Node.js server that counts requests in memory — nothing
-persistent, no database. The whole point is that "in memory" survives the
-move.
+## 1. Bake an agent image
 
-```js
-// counter.mjs
-import { createServer } from "node:http";
-let count = 0;
-createServer((_, res) => {
-  res.end(JSON.stringify({ count: ++count }) + "\n");
-}).listen(3000);
-```
-
-To run it inside a VM you need a rootfs tarball: a Linux filesystem with
-Node installed, your script copied in, and a default command that launches
-it. `provision()` builds that for you. Under the hood it boots a Debian
-base, runs the install steps you give it, then archives the result.
-
-```ts
-// bake.ts
-import { readFileSync } from "node:fs";
-import { provision } from "@machinen/runtime";
-
-await provision({
-  install: async (vm) => {
-    await vm.exec("apt-get update && apt-get install -y nodejs");
-    await vm.writeFile("/opt/counter.mjs", readFileSync("./counter.mjs"));
-  },
-  cmd: ["/usr/bin/node", "/opt/counter.mjs"],
-  out: "./counter.tar.gz",
-});
-```
+Bake a reusable rootfs image. This boots a Debian base VM, installs Node 22,
+common developer tools, and the selected agent CLI, then writes a tarball to
+`~/.machinen/recipes/`.
 
 ```bash
-node bake.ts
+npx machinen bake claude
+# or:
+npx machinen bake pi
 ```
 
-You now have `counter.tar.gz` — a self-contained image you can boot
-anywhere machinen runs.
-
-## 2. Boot it and give it some state
+Want a different location?
 
 ```bash
-npx machinen boot --name counter -p 3000:3000 --detach ./counter.tar.gz
-curl localhost:3000                        # { count: 1 }
-curl localhost:3000                        # { count: 2 }
+npx machinen bake claude --out ./claude-agent.tar.gz
 ```
 
-A few things are happening here. `--name counter` registers the VM under
-a name so you can reach it from another shell. `-p 3000:3000` forwards the
-host port to the guest. `--detach` lets the boot command return as soon
-as the guest is ready, instead of holding your terminal.
+If the output image already exists, `bake` reuses it. Pass `--force` to rebuild.
 
-After the two `curl`s, the Node process inside the VM has `count = 2` in
-its heap. That's the state we're about to move.
+## 2. Boot it on your project
 
-## 3. Hand it off to another machine
-
-`machinen snapshot` freezes the running VM into a directory on disk. With the
-default vmstate engine, the directory is the whole snapshot: `state.vmstate`
-holds CPU, RAM, and device state; `rootdisk.img` holds the exact root block
-image bytes; `meta.json` is a small manifest.
+From the project you want the agent to work on:
 
 ```bash
-npx machinen snapshot counter ./counter.snap
-scp -r ./counter.snap host-b:
-ssh host-b npx machinen restore ./counter.snap -p 3000:3000 &
-curl host-b:3000                           # { count: 3 }
+npx machinen boot \
+  --name agent \
+  --detach \
+  --mount-live "$PWD:/mnt/workspace:rw" \
+  ~/.machinen/recipes/claude.tar.gz
 ```
 
-The third `curl` returns `{ count: 3 }` because it's the same process —
-it just resumed on a different host. Same heap, same TCP listener, same
-counter. The Node runtime never noticed the move.
+For Pi, swap the image path:
 
-A constraint to know about: the default vmstate engine needs matching guest
-architectures. arm64 to arm64 works, and amd64 to amd64 works on amd64
-Linux/KVM. General arm64 to amd64 vmstate restore is not supported because
-vmstate restores actual machine-code register state, and that doesn't
-translate.
+```bash
+npx machinen boot \
+  --name agent \
+  --detach \
+  --mount-live "$PWD:/mnt/workspace:rw" \
+  ~/.machinen/recipes/pi.tar.gz
+```
+
+What those flags mean:
+
+- `--name agent` registers the VM so you can reach it later.
+- `--detach` lets the boot command return while the VM keeps running.
+- `--mount-live "$PWD:/mnt/workspace:rw"` gives the VM live read/write access
+  to your current project at `/mnt/workspace`.
+
+The baked image defaults to `sleep infinity`, so the VM stays up until you stop
+it.
+
+## 3. Attach, log in, and work
+
+Open a reconnectable terminal in the VM:
+
+```bash
+npx machinen attach agent
+```
+
+The shell starts in `/mnt/workspace` when that mount exists.
+
+For Claude Code:
+
+```bash
+claude
+```
+
+For Pi:
+
+```bash
+pi -p "inspect this repository and suggest a first task"
+```
+
+The first run may ask you to log in inside the VM. That is intentional: the VM
+is the owned machine that runs the agent. Auth and shell state live in the
+running VM; snapshot it if you want that warm state to survive stopping the VM.
+
+If you already have Pi auth on the host and want to reuse it, mount it through a
+valid `/mnt/...` guest path:
+
+```bash
+npx machinen boot \
+  --name pi-agent \
+  --detach \
+  --mount-live "$PWD:/mnt/workspace:rw" \
+  --mount-live "$HOME/.pi/agent:/mnt/pi-agent:rw" \
+  ~/.machinen/recipes/pi.tar.gz
+```
+
+The Pi recipe links `/mnt/pi-agent` to `/root/.pi/agent` when that mount is
+present.
+
+## Reconnect later
+
+If your host terminal, SSH connection, or editor pane goes away, the VM and the
+agent session keep running. Reconnect with the same command:
+
+```bash
+npx machinen attach agent
+```
+
+Use named sessions when you want more than one persistent terminal inside the
+same VM:
+
+```bash
+npx machinen attach --session claude agent
+npx machinen attach --session shell agent
+npx machinen sessions agent
+```
+
+To stop the VM:
+
+```bash
+npx machinen stop agent
+```
+
+## Save or branch it
+
+Once the VM is warm — tools installed, auth complete, caches loaded — you can
+snapshot or fork it.
+
+```bash
+npx machinen snapshot agent ./agent.snap
+npx machinen restore ./agent.snap --name agent-restored \
+  --mount-live "$PWD:/mnt/workspace:rw"
+```
+
+Or branch a second copy locally:
+
+```bash
+npx machinen fork agent --new-name agent-b --detach \
+  --mount-live "$PWD:/mnt/workspace:rw"
+```
+
+Snapshot/restore is whole-VM state. It works between matching guest
+architectures, for example arm64 to arm64 or amd64 to amd64. Cross-ISA vmstate
+restore is not supported.
 
 ## Where to go next
 
-- [Create a VM](./guides/create-a-vm.md) once you want more control over
-  what's inside.
-- [Hand off a running VM](./guides/handoff.md) for snapshot → transfer → restore.
-- [Snapshot, restore, and fork](./guides/snapshot-restore-fork.md) covers
-  the cloning trick — running two copies of the same process at once.
-- [Mount files into a VM](./guides/mount-files.md) for sharing data
-  between the host and guest.
-- [Networking](./guides/networking.md) for how the guest reaches the
-  internet and how to expose more ports.
+- [Agent VM recipes](./guides/agent-vms.md) shows how to customize the baked
+  image.
+- [Create a VM](./guides/create-a-vm.md) covers the lower-level boot patterns.
+- [Snapshot, restore, and fork](./guides/snapshot-restore-fork.md) covers the
+  cloning and handoff primitives.
+- [Mount files into a VM](./guides/mount-files.md) explains `--mount-live` and
+  read-only mounts.
+- [Networking](./guides/networking.md) covers port forwards and outbound access.

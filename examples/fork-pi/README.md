@@ -14,8 +14,9 @@ pi
 /login
 ```
 
-`bake.ts` mounts `~/.pi/agent/` into the source VM at boot, so each
-fork inherits the same session.
+`run.ts` mounts `~/.pi/agent/` into the source VM at `/mnt/pi-agent`; the
+baked image links that to `/root/.pi/agent`, so each fork inherits the same
+session.
 
 ## Run
 

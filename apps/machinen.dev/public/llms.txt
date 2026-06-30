@@ -7,14 +7,17 @@ Machinen gives developers small, named Linux VMs on hardware they control: a lap
 Core loop:
 
 ```bash
-npx machinen boot --name work --detach -- sleep infinity
-npx machinen attach work
-npx machinen attach work
+npx machinen bake claude
+npx machinen boot --name agent --detach \
+  --mount-live "$PWD:/mnt/workspace:rw" \
+  ~/.machinen/recipes/claude.tar.gz
+npx machinen attach agent
+npx machinen attach agent
 ```
 
 `machinen attach` creates or reconnects a persistent PTY session named `default` by default. The session survives host terminal or SSH disconnects while the VM host keeps running. Use `machinen attach --session <name> <vm>` for additional named sessions, `machinen sessions <vm>` to list them, and `machinen session-kill <vm> [session]` to reset one.
 
-Machinen is a native microVM runtime for arm64 on Apple Silicon/Linux and amd64 on Linux/KVM. It can run Node.js, Python, bash, and other Linux workloads. It supports one-off `exec`, persistent `attach`, port forwards, live mounts, snapshot/restore, fork, and handoff between same-architecture hosts.
+Machinen is a native microVM runtime for arm64 on Apple Silicon/Linux and amd64 on Linux/KVM. It can run Node.js, Python, bash, agent CLIs, and other Linux workloads. It supports `machinen bake claude`, `machinen bake pi`, one-off `exec`, persistent `attach`, port forwards, live mounts, snapshot/restore, fork, and handoff between same-architecture hosts.
 
 Install:
 
@@ -25,12 +28,14 @@ npm i @machinen/cli @machinen/runtime
 Useful commands:
 
 ```bash
-npx machinen boot --name counter -p 3000:3000 --detach ./counter.tar.gz
-npx machinen exec counter -- ps aux
-npx machinen attach counter
-npx machinen snapshot counter ./counter.snap
-npx machinen fork counter --new-name counter-b --detach
-npx machinen stop counter
+npx machinen bake claude
+npx machinen bake pi
+npx machinen boot --name agent --detach --mount-live "$PWD:/mnt/workspace:rw" ~/.machinen/recipes/claude.tar.gz
+npx machinen exec agent -- ps aux
+npx machinen attach agent
+npx machinen snapshot agent ./agent.snap
+npx machinen fork agent --new-name agent-b --detach --mount-live "$PWD:/mnt/workspace:rw"
+npx machinen stop agent
 ```
 
 References:

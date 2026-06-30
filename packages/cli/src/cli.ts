@@ -4,6 +4,7 @@
 //
 // Surface:
 //   machinen boot [opts] -- <cmd>
+//   machinen bake <pi|claude> [--out <tar.gz>]
 //   machinen restore <snap-dir> [--name <name>] [-p <hostPort>:<guestPort>]
 //   machinen ls (alias: ps)
 //   machinen exec <name|pid> -- <cmd>
@@ -21,6 +22,7 @@ import { VERSION } from "./base-assets.ts";
 import { printHelp } from "./help.ts";
 import { die } from "./errors.ts";
 import { cmdAttach, cmdRepl, cmdSessionKill, cmdSessions } from "./commands/attach.ts";
+import { cmdBake } from "./commands/bake.ts";
 import { cmdBoot } from "./commands/boot.ts";
 import { cmdExec } from "./commands/exec.ts";
 import { cmdFork } from "./commands/fork.ts";
@@ -41,6 +43,7 @@ type CommandHandler = (args: string[]) => number | Promise<number>;
 
 const COMMAND_HANDLERS = new Map<string, CommandHandler>([
   ["boot", cmdBoot],
+  ["bake", cmdBake],
   ["restore", cmdRestore],
   ["install", cmdInstall],
   ["list", cmdLs],

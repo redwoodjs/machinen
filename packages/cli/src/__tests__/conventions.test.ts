@@ -36,6 +36,7 @@ const ALLOWED_VERBS = new Set([
   "completion",
   // domain
   "boot",
+  "bake",
   "restore",
   "exec",
   "snapshot",

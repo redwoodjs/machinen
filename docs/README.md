@@ -2,10 +2,11 @@
 
 Start here:
 
-- [Quickstart](./quickstart.md) — bake → boot → handoff in three steps
+- [Quickstart](./quickstart.md) — bake an agent VM and reconnect to it later
 
 Then dive deeper:
 
+- [Agent VM recipes](./guides/agent-vms.md) — Claude/Pi images and custom agent recipes
 - [Create a VM](./guides/create-a-vm.md) — the three ways to get a workload running
 - [Hand off a running VM](./guides/handoff.md) — snapshot → transfer → restore
 - [Snapshot, restore, and fork](./guides/snapshot-restore-fork.md) — clone a running process, including vmstate timer, entropy, and socket contracts

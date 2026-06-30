@@ -13,6 +13,7 @@ await provision({
     await vm.exec("ln -sf /opt/fnm/aliases/default/bin/* /usr/local/bin/");
     await vm.exec("npm install -g @earendil-works/pi-coding-agent");
     await vm.exec("ln -sf /opt/fnm/aliases/default/bin/* /usr/local/bin/");
+    await vm.exec("mkdir -p /root/.pi && ln -sfn /mnt/pi-agent /root/.pi/agent");
   },
   cmd: ["/bin/sleep", "infinity"],
   out: "./artifacts/rootfs.tar.gz",

@@ -15,7 +15,7 @@ rmSync("./artifacts/snapshot", { recursive: true, force: true });
 
 const source = await boot({
   image: "./artifacts/rootfs.tar.gz",
-  mount: { host: piAgentHost, guest: "/root/.pi/agent" },
+  mount: { host: piAgentHost, guest: "/mnt/pi-agent" },
 });
 
 await source.snapshot({ outDir: "./artifacts/snapshot" });

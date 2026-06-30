@@ -9,20 +9,23 @@ No tiny rented slice. No hyperscaler-shaped workflow. Just cloud-shaped computer
 ## The loop
 
 ```bash
-npx machinen boot --name work --detach -- sleep infinity
-npx machinen attach work
+npx machinen bake claude
+npx machinen boot --name agent --detach \
+  --mount-live "$PWD:/mnt/workspace:rw" \
+  ~/.machinen/recipes/claude.tar.gz
+npx machinen attach agent
 
 # from another terminal, another SSH session, or after your client drops:
-npx machinen attach work
+npx machinen attach agent
 ```
 
 `attach` opens a real PTY with job control, tab completion, full-screen TUIs, and Ctrl-C going to the guest. By default it creates or reconnects a persistent session named `default`; if your host terminal or SSH connection disappears, the shell keeps running inside the VM.
 
 ```bash
-npx machinen attach --session editor work
-npx machinen sessions work
-npx machinen session-kill work editor
-npx machinen stop work
+npx machinen attach --session editor agent
+npx machinen sessions agent
+npx machinen session-kill agent editor
+npx machinen stop agent
 ```
 
 ## Install
@@ -35,7 +38,7 @@ Then run `npx machinen ...` or `npx mn ...`.
 
 ## What it is
 
-Machinen is a native microVM runtime: arm64 on Apple Silicon/Linux and amd64 on Linux/KVM. Node.js is the first-class target; Python, bash, and anything else that boots in a Linux VM works too.
+Machinen is a native microVM runtime: arm64 on Apple Silicon/Linux and amd64 on Linux/KVM. Node.js is the first-class target; Python, bash, agent CLIs, and anything else that boots in a Linux VM works too.
 
 When you need the power tools, you can snapshot, fork, and hand off a running VM between hosts.
 

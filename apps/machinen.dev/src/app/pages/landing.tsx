@@ -2,29 +2,34 @@ import type { ReactNode } from "react";
 
 import { CopyPromptButton } from "./CopyPromptButton";
 
-const LOOP_CLI = `npx machinen boot --name work --detach -- sleep infinity
-npx machinen attach work
+const LOOP_CLI = `npx machinen bake claude
+npx machinen boot --name agent --detach \\
+  --mount-live "$PWD:/mnt/workspace:rw" \\
+  ~/.machinen/recipes/claude.tar.gz
+npx machinen attach agent
 
 # from another terminal, another SSH session, or after your client drops:
-npx machinen attach work`;
+npx machinen attach agent`;
 
-const SESSION_CLI = `npx machinen attach --session editor work   # another persistent terminal
-npx machinen sessions work                  # list live sessions
-npx machinen session-kill work editor       # reset one session
-npx machinen stop work                      # shut down the VM`;
+const SESSION_CLI = `npx machinen attach --session editor agent   # another persistent terminal
+npx machinen sessions agent                  # list live sessions
+npx machinen session-kill agent editor       # reset one session
+npx machinen stop agent                      # shut down the VM`;
 
-const SERVICE_CLI = `npx machinen boot --name counter -p 3000:3000 --detach ./counter.tar.gz
-curl localhost:3000                        # { count: 1 }
-curl localhost:3000                        # { count: 2 }
+const AGENT_CLI = `npx machinen bake pi
+npx machinen boot --name pi-agent --detach \\
+  --mount-live "$PWD:/mnt/workspace:rw" \\
+  ~/.machinen/recipes/pi.tar.gz
 
-npx machinen exec counter -- ps aux         # one-off command
-npx machinen attach counter                 # reconnectable shell/TUI`;
+npx machinen attach pi-agent
+pi -p "inspect this repository"`;
 
-const POWER_CLI = `npx machinen snapshot counter ./counter.snap
-scp -r ./counter.snap host-b:
-ssh host-b npx machinen restore ./counter.snap -p 3000:3000 &
+const POWER_CLI = `npx machinen snapshot agent ./agent.snap
+npx machinen restore ./agent.snap --name agent-restored \\
+  --mount-live "$PWD:/mnt/workspace:rw"
 
-npx machinen fork counter --new-name counter-b --detach`;
+npx machinen fork agent --new-name agent-b --detach \\
+  --mount-live "$PWD:/mnt/workspace:rw"`;
 
 const INSTALL_CLI = `npm i @machinen/cli @machinen/runtime
 npx machinen --help`;
@@ -158,12 +163,13 @@ export const Landing = () => (
         </section>
 
         <section className="mb-16">
-          <SectionTitle>A TINY SERVICE YOU OWN</SectionTitle>
+          <SectionTitle>AN AGENT VM YOU OWN</SectionTitle>
           <p className="mb-6 max-w-[72ch] text-[#aaa]">
-            Boot a service as a named VM, forward a port, and reach into it whenever you want. The
-            VM, port forward, and guest exec agent stay alive after the boot command returns.
+            Bake a Claude or Pi image, mount the current project at <code>/mnt/workspace</code>, and
+            run the agent in a reconnectable terminal. The VM and guest exec agent stay alive after
+            the boot command returns.
           </p>
-          <CodeBlock title="counter.sh" code={SERVICE_CLI} />
+          <CodeBlock title="agent.sh" code={AGENT_CLI} />
         </section>
 
         <section className="mb-16">
@@ -187,6 +193,7 @@ export const Landing = () => (
           <div className="mb-8 space-y-2 text-[#888] select-none">
             <Capability>Small, named Linux VMs on hardware you control</Capability>
             <Capability>Persistent terminal sessions, no tmux required</Capability>
+            <Capability>Baked Claude/Pi agent VM recipes</Capability>
             <Capability>One-off exec for scripts and agent tools</Capability>
             <Capability>Port forwards and live host-directory mounts</Capability>
             <Capability>Snapshot, restore, fork, and handoff</Capability>
@@ -194,8 +201,12 @@ export const Landing = () => (
           </div>
           <div className="border border-[#333] bg-[#0a0a0a] p-4 text-[#888]">
             <PromptLine>npm i @machinen/cli @machinen/runtime</PromptLine>
-            <PromptLine>npx machinen boot --name work --detach -- sleep infinity</PromptLine>
-            <PromptLine>npx machinen attach work</PromptLine>
+            <PromptLine>npx machinen bake claude</PromptLine>
+            <PromptLine>
+              npx machinen boot --name agent --detach --mount-live "$PWD:/mnt/workspace:rw"
+              ~/.machinen/recipes/claude.tar.gz
+            </PromptLine>
+            <PromptLine>npx machinen attach agent</PromptLine>
           </div>
         </section>
 

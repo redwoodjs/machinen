@@ -26,6 +26,14 @@ export function printHelp(): void {
       `                                                 when the host supports it.\n` +
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
       `\n` +
+      `  machinen bake <pi|claude> [--out <tar.gz>]    Bake an agent VM image recipe\n` +
+      `    --out <tar.gz>                              Output image path (default:\n` +
+      `                                                 ~/.machinen/recipes/<recipe>.tar.gz)\n` +
+      `    --force                                     Rebuild if the output already exists\n` +
+      `    --timeout-ms <ms>                           Override the provisioning timeout\n` +
+      `    --dry-run                                   Print the plan without provisioning\n` +
+      `    --json                                      Emit a structured result\n` +
+      `\n` +
       `  machinen restore <snap-dir> [--image <tar.gz>] [--name <name>] [-p ...]\n` +
       `                              [--mount-live <host>:<guest>[:<mode>]]\n` +
       `                                                 Restore a VM from a snapshot bundle.\n` +
@@ -126,6 +134,9 @@ export function printHelp(): void {
       `                                                 snapshot.\n` +
       `\n` +
       `Examples:\n` +
+      `  machinen bake claude\n` +
+      `  machinen boot --name agent --detach --mount-live "$PWD:/mnt/workspace:rw" ~/.machinen/recipes/claude.tar.gz\n` +
+      `  machinen attach agent\n` +
       `  machinen boot --name worker -- node server.js\n` +
       `  machinen ls\n` +
       `  machinen exec worker -- ps aux                       # one-off command\n` +

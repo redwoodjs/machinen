@@ -8,6 +8,7 @@ recipes, see the [guides](../../docs/).
 
 ```
 machinen boot     [<image>] [opts] -- <cmd>     Boot a microVM
+machinen bake     <pi|claude> [opts]            Bake an agent VM image recipe
 machinen restore  <snap-dir> [--name <name>]    Restore a VM from a snapshot bundle
 machinen list     (alias: ls, ps)               List running VMs
 machinen exec     [<target>] [--tty] -- <cmd>   Run a command in a running VM
@@ -38,9 +39,9 @@ Machinen uses the default VM name: `default`.
 
 Every data-returning command supports `--json` for machine-readable
 output to stdout: `list`, `gc`, `install`, `snapshot`, `stop`,
-`feedback`, `agent-context`, plus `boot --detach` and `fork --detach`
+`bake`, `feedback`, `agent-context`, plus `boot --detach` and `fork --detach`
 (where the CLI returns identity instead of taking over stdio).
-Mutating commands (`gc`, `stop`, `snapshot`, `session-kill`) accept
+Mutating commands (`gc`, `stop`, `snapshot`, `session-kill`, `bake`) accept
 `--dry-run` to preview without side effects.
 
 `machinen agent-context` emits a versioned JSON description of every
@@ -76,6 +77,36 @@ cache (populated by `machinen install`, or auto-fetched on first use).
 | `--detach`                                      | Detach the VMM from the CLI on first-guest-byte readiness; reattach with `attach`. Composes with `--mount`, `--mount-live`, and `-p`; gvproxy is kept alive with the VM, and live mounts are served inside the VMM. |
 | `--memory <mib>`                                | Guest RAM ceiling, decimal MiB. Debug knob — defaults to `min(host_ram_mib/2, 4096)`, floor 512. See #263                                                                                                           |
 | `--snapshot <path>`                             | Attach `<path>` as `/dev/vda` — scratch disk for a future `vm.snapshot()`                                                                                                                                           |
+
+## `machinen bake`
+
+```
+machinen bake <pi|claude> [--out <tar.gz>] [--force] [--timeout-ms <ms>] [--dry-run] [--json]
+```
+
+Bakes an agent VM image: a Debian rootfs with Node 22, common developer
+shell tools, and either the Pi or Claude Code CLI installed globally. The
+image's default command is `sleep infinity`, so it is meant to run as a
+named, detached VM and be reached with `machinen attach`.
+
+By default the output lands at `~/.machinen/recipes/<recipe>.tar.gz`. If
+that file already exists, `bake` reuses it and exits successfully; pass
+`--force` to rebuild.
+
+```bash
+machinen bake claude
+machinen boot --name agent --detach --mount-live "$PWD:/mnt/workspace:rw" \
+  ~/.machinen/recipes/claude.tar.gz
+machinen attach agent
+```
+
+| Flag                | What it does                                                        |
+| ------------------- | ------------------------------------------------------------------- |
+| `--out <tar.gz>`    | Output image path                                                   |
+| `--force`           | Rebuild even if the image already exists                            |
+| `--timeout-ms <ms>` | Provisioning timeout in milliseconds (default: 20 minutes)          |
+| `--dry-run`         | Print the bake plan without provisioning                            |
+| `--json`            | Emit `{ schema_version, recipe, image, dry_run, reused, ... }` JSON |
 
 ## `machinen restore`
 

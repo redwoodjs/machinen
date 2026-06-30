@@ -6,6 +6,8 @@ or a script — without writing any TypeScript.
 
 ## What you can do with it
 
+- **Bake an agent VM image.** `bake pi` and `bake claude` produce a
+  small Linux image with the agent CLI and common developer tools installed.
 - **Boot a Linux workload in a microVM.** Run a one-shot command, or
   start a long-running service and detach so your shell can exit.
 - **Hand a running process off to another machine.** Snapshot it on
@@ -24,7 +26,7 @@ or a script — without writing any TypeScript.
   running, `stop` to shut one down cleanly, `gc` to clean up after
   detached boots that crashed.
 - **Drive it from an agent.** `--json` on every data-returning
-  command (`list`, `gc`, `install`, `snapshot`, `stop`,
+  command (`list`, `gc`, `install`, `snapshot`, `stop`, `bake`,
   `boot --detach`, `fork --detach`, `feedback`). `mn agent-context`
   emits a versioned JSON description of the whole CLI surface for
   introspection. `mn feedback "<text>"` records friction notes
@@ -55,6 +57,7 @@ companion GitHub release over HTTPS; no GitHub authentication is needed.
 ## At a glance
 
 ```bash
+npx machinen bake claude                         # ~/.machinen/recipes/claude.tar.gz
 npx machinen boot ./image.tar.gz                 # boot a provisioned image
 npx machinen boot --name worker --detach ./image.tar.gz
                                                   # ... and reach it from another shell:

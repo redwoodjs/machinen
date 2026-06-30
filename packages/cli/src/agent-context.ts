@@ -122,6 +122,43 @@ export const COMMANDS: CommandSpec[] = [
     jsonEnvelope: '{"schema_version": 1, "pid": <int>, "name": <string|null>, "detached": <bool>}',
   },
   {
+    name: "bake",
+    summary: "Bake an agent VM image recipe.",
+    jsonOutput: true,
+    mutating: true,
+    positionals: [
+      {
+        name: "recipe",
+        description: "Agent image recipe to bake: pi or claude.",
+      },
+    ],
+    flags: [
+      {
+        name: "--out",
+        type: "string",
+        description: "Output image path (default: ~/.machinen/recipes/<recipe>.tar.gz).",
+      },
+      {
+        name: "--force",
+        type: "boolean",
+        description: "Rebuild even when the output image already exists.",
+      },
+      {
+        name: "--timeout-ms",
+        type: "integer",
+        description: "Wall-clock provisioning timeout in milliseconds.",
+      },
+      {
+        name: "--dry-run",
+        type: "boolean",
+        description: "Print the bake plan without provisioning.",
+      },
+      { name: "--json", type: "boolean", description: "Emit the bake result as JSON." },
+    ],
+    jsonEnvelope:
+      '{"schema_version": 1, "recipe": "pi"|"claude", "image": <abs-path>, "dry_run": <bool>, "reused": <bool>, "exists": <bool>, "size_bytes": <int|null>, "elapsed_ms": <int|null>}',
+  },
+  {
     name: "restore",
     summary: "Restore a VM from a snapshot bundle.",
     jsonOutput: false,
