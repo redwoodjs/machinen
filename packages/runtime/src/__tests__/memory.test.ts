@@ -355,6 +355,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(existing.status).toBe(0);
     expect(JSON.parse(existing.stdout).data).toMatchObject({
+      vsockMode: { action: "existing", existingSpec: "out:1970:/tmp/a.sock,in:1978:/tmp/b.sock" },
       vsockUdsPath: "/tmp/a.sock",
       vmmVsock: null,
     });
@@ -368,6 +369,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(auto.status).toBe(0);
     expect(JSON.parse(auto.stdout).data).toMatchObject({
+      vsockMode: { action: "allocate", existingSpec: null },
       vsockUdsPath: "/tmp/exec.sock",
       vmmVsock: "in:1978:/tmp/exec.sock",
     });
@@ -381,6 +383,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(autoTempDir.status).toBe(0);
     expect(JSON.parse(autoTempDir.stdout).data).toMatchObject({
+      vsockMode: { action: "allocate", existingSpec: null },
       vsockUdsPath: "/tmp/machinen-vsock-test/exec.sock",
       vmmVsock: "in:1978:/tmp/machinen-vsock-test/exec.sock",
     });
@@ -464,6 +467,61 @@ describe("boot-plan helper schema", () => {
       checkpointParent: null,
       checkpointSequence: 0,
     });
+  });
+
+  it("plans vmstate temp allocation mode", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+
+    const reuse = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          bootVmstateEngine: "vmstate",
+          bootVmstateExistingTempDir: "/tmp/machinen-vsock-test",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(reuse.status).toBe(0);
+    expect(JSON.parse(reuse.stdout).data.vmstateTempMode).toEqual({
+      action: "reuse",
+      tempDir: "/tmp/machinen-vsock-test",
+    });
+
+    const allocate = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, bootVmstateEngine: "vmstate" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(allocate.status).toBe(0);
+    expect(JSON.parse(allocate.stdout).data.vmstateTempMode).toEqual({
+      action: "allocate",
+      tempDir: null,
+    });
+
+    const skip = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, bootVmstateEngine: "vmstate", bootVmstateSnapshotDisabled: true },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(skip.status).toBe(0);
+    expect(JSON.parse(skip.stdout).data.vmstateTempMode).toEqual({ action: "skip", tempDir: null });
   });
 
   it("plans nested virtualization VMM env", () => {
@@ -768,6 +826,7 @@ describe("boot-plan helper schema", () => {
           provisionUdsPath: "/tmp/exec.sock",
           provisionScratchDiskPath: "/tmp/scratch.img",
           provisionRootDiskPath: "/tmp/rootfs.img",
+          provisionBootVmmEnv: { MACHINEN_BOOT_TEST: "1", MACHINEN_VSOCK: "caller" },
         },
       })}\n`,
       encoding: "utf8",
@@ -778,6 +837,8 @@ describe("boot-plan helper schema", () => {
       kernelPath: "/Image",
       dtbPath: "/virt.dtb",
       vmmVsock: "in:1978:/tmp/exec.sock",
+      timeoutMs: null,
+      vmmEnv: { MACHINEN_BOOT_TEST: "1", MACHINEN_VSOCK: "in:1978:/tmp/exec.sock" },
       cmd: ["/exec-agent"],
       env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },
       snapshotPath: "/tmp/scratch.img",
@@ -1039,9 +1100,12 @@ describe("boot-plan helper schema", () => {
       encoding: "utf8",
     });
     expect(tiny.status).toBe(0);
-    expect(JSON.parse(tiny.stdout).data.bundlePack).toEqual({
-      kind: "tiny",
-      tinyMountGuest: "/mnt/data",
+    expect(JSON.parse(tiny.stdout).data).toMatchObject({
+      bundlePack: {
+        kind: "tiny",
+        tinyMountGuest: "/mnt/data",
+      },
+      bundleMountDiskMode: { action: "fresh" },
     });
 
     const fat = spawnSync(helper, ["boot-plan"], {
@@ -1049,10 +1113,28 @@ describe("boot-plan helper schema", () => {
       encoding: "utf8",
     });
     expect(fat.status).toBe(0);
-    expect(JSON.parse(fat.stdout).data.bundlePack).toEqual({
-      kind: "fat",
-      tinyMountGuest: null,
+    expect(JSON.parse(fat.stdout).data).toMatchObject({
+      bundlePack: {
+        kind: "fat",
+        tinyMountGuest: null,
+      },
+      bundleMountDiskMode: { action: "none" },
     });
+
+    const restore = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          bundlePackUseTiny: true,
+          bundlePackMountGuest: "/mnt/data",
+          bundlePackRestoreMountGuest: "/mnt/restore",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(restore.status).toBe(0);
+    expect(JSON.parse(restore.stdout).data.bundleMountDiskMode).toEqual({ action: "restore" });
   });
 
   it("plans bundle env overlays", () => {
@@ -1261,6 +1343,56 @@ describe("boot-plan helper schema", () => {
     });
   });
 
+  it("plans snapshot backing availability", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+    };
+
+    const missingDisk = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, snapshotBackingEngine: "criu", snapshotBackingAction: "snapshot" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(missingDisk.status).toBe(0);
+    expect(JSON.parse(missingDisk.stdout).data.snapshotBacking).toEqual({ allowed: false });
+
+    const disk = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...baseData,
+          snapshotBackingEngine: "criu",
+          snapshotBackingAction: "snapshot",
+          snapshotBackingDiskPath: "/tmp/scratch.img",
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(disk.status).toBe(0);
+    expect(JSON.parse(disk.stdout).data.snapshotBacking).toEqual({ allowed: true });
+
+    const missingVmstate = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, snapshotBackingEngine: "vmstate", snapshotBackingAction: "fork" },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(missingVmstate.status).toBe(0);
+    expect(JSON.parse(missingVmstate.stdout).data.snapshotBacking).toEqual({ allowed: false });
+  });
+
   it("plans registry cleanup paths, mount shapes, and CPU shape", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
@@ -1445,6 +1577,47 @@ describe("boot-plan helper schema", () => {
     ]);
   });
 
+  it("rejects removed live-mount options in the native planner", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const baseData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      liveMountRemovedOptionIndex: "2",
+    };
+    const cache = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, liveMountRemovedOptionHasCache: true },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(cache.status).toBe(1);
+    expect(JSON.parse(cache.stdout).error).toMatchObject({
+      code: "BOOT_MOUNT_INVALID",
+      message: "liveMounts[2] cache is no longer supported; metadata caching uses the fast policy",
+    });
+
+    const sync = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...baseData, liveMountRemovedOptionHasSync: true },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(sync.status).toBe(1);
+    expect(JSON.parse(sync.stdout).error).toMatchObject({
+      code: "BOOT_MOUNT_INVALID",
+      message: "liveMounts[2] sync is no longer supported; rw live mounts sync in batches",
+    });
+  });
+
   it("plans stats-file env from caller or runtime-owned paths", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
@@ -1467,6 +1640,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(existing.status).toBe(0);
     expect(JSON.parse(existing.stdout).data).toMatchObject({
+      statsFileMode: { action: "existing", existingPath: "/tmp/caller-stats.bin" },
       statsFilePath: "/tmp/caller-stats.bin",
       vmmStatsFile: null,
     });
@@ -1480,6 +1654,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(planned.status).toBe(0);
     expect(JSON.parse(planned.stdout).data).toMatchObject({
+      statsFileMode: { action: "allocate", existingPath: null },
       statsFilePath: "/tmp/runtime-stats.bin",
       vmmStatsFile: "/tmp/runtime-stats.bin",
     });
@@ -1493,6 +1668,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(tempDir.status).toBe(0);
     expect(JSON.parse(tempDir.stdout).data).toMatchObject({
+      statsFileMode: { action: "allocate", existingPath: null },
       statsFilePath: "/tmp/machinen-stats-test/stats.bin",
       vmmStatsFile: "/tmp/machinen-stats-test/stats.bin",
     });

@@ -31,7 +31,9 @@ import {
   planBootMountDiskRuntimeNative,
   planBootMachinenConfigNative,
 } from "../native/boot-plan.ts";
+import { planBootBundleMountDiskModeNative } from "../native/bundle-mount-disk-mode.ts";
 import { planBootBundlePackNative } from "../native/bundle-pack.ts";
+import { validateLiveMountRemovedOptionsNative } from "../native/live-mount-options.ts";
 import type { BundlePackPlan } from "../native/boot-plan-schema.ts";
 import { planRestoreLiveMountsNative } from "../native/restore-live-mounts.ts";
 import type { BootOptions } from "./boot.ts";
@@ -83,18 +85,7 @@ export function resolveLiveMounts(
 }
 
 function rejectRemovedLiveMountOptions(mount: object, index: number): void {
-  if ("cache" in mount) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `liveMounts[${index}] cache is no longer supported; metadata caching uses the fast policy`,
-    );
-  }
-  if ("sync" in mount) {
-    throw new BootError(
-      "BOOT_MOUNT_INVALID",
-      `liveMounts[${index}] sync is no longer supported; rw live mounts sync in batches`,
-    );
-  }
+  validateLiveMountRemovedOptionsNative(mount, index);
 }
 
 /**
@@ -374,13 +365,18 @@ function materializeBundleMountDisk(
   packerOpts: BundlePackerOptions,
   packPlan: BundlePackPlan,
 ): BundleMountDisk | undefined {
-  if (packPlan.kind !== "tiny") {
-    return undefined;
-  }
-  if (opts._restoreMountDisk) {
+  const mode = planBootBundleMountDiskModeNative({
+    useTiny: packPlan.kind === "tiny",
+    mountGuest: mount?.guest,
+    restoreMountGuest: opts._restoreMountDisk?.guest,
+  });
+  if (mode.action === "restore" && opts._restoreMountDisk) {
     return materializeRestoredMountDisk(opts._restoreMountDisk);
   }
-  return mount ? materializeFreshMountDisk(mount, packerOpts) : undefined;
+  if (mode.action === "fresh" && mount) {
+    return materializeFreshMountDisk(mount, packerOpts);
+  }
+  return undefined;
 }
 
 function materializeRestoredMountDisk(

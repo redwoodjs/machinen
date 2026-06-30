@@ -10,6 +10,9 @@ type SnapshotContextPlan = {
 export type ProvisionGuestCpu = "arm64" | "amd64";
 export type RestoreLiveMount = { host: string; guest: string; mode?: "ro" | "rw" };
 export type GvproxyPlan = { action: GvproxyAction; gvproxyPath: string | null };
+export type VsockModePlan = { action: "existing" | "allocate"; existingSpec: string | null };
+export type VmstateTempModePlan = { action: "skip" | "reuse" | "allocate"; tempDir: string | null };
+export type StatsFileModePlan = { action: "existing" | "allocate"; existingPath: string | null };
 export type BootRootDiskMode = "unset" | "false" | "path" | "true";
 type BootScratchMode = "unset" | "false" | "path" | "auto";
 export type RegistryProcessPlan = {
@@ -66,6 +69,8 @@ export type ProvisionBootPlan = {
   kernelPath: string | null;
   dtbPath: string | null;
   vmmVsock: string | null;
+  timeoutMs: number | null;
+  vmmEnv: Record<string, string>;
   cmd: string[];
   env: Record<string, string>;
   snapshotPath: string | null;
@@ -153,6 +158,7 @@ export interface NativeBootPlanResult {
   guestHostnameSet: string | null;
   mergedGuestEnv: Record<string, string>;
   vmmEnv: Record<string, string>;
+  vsockMode: VsockModePlan;
   vsockUdsPath: string | null;
   vmmVsock: string | null;
   gvproxyPlan: GvproxyPlan;
@@ -165,11 +171,13 @@ export interface NativeBootPlanResult {
   vmmSnapshotPath: string | null;
   vmmRestorePath: string | null;
   vmmVmstateTiming: string | null;
+  vmstateTempMode: VmstateTempModePlan;
   vmmNested: string | null;
   virtiofsEnv: Record<string, string>;
   batchLiveMountSyncRequired: boolean;
   restoreLiveMounts: RestoreLiveMount[];
   plannedLiveMounts: PlannedLiveMount[];
+  statsFileMode: StatsFileModePlan;
   statsFilePath: string | null;
   vmmStatsFile: string | null;
   vmstateRuntime: BootVmstateRuntimePlan;
@@ -220,6 +228,7 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.guestHostnameSet),
     isStringRecord(data.mergedGuestEnv),
     isStringRecord(data.vmmEnv),
+    isVsockModePlan(data.vsockMode),
     nullableString(data.vsockUdsPath),
     nullableString(data.vmmVsock),
     isGvproxyPlan(data.gvproxyPlan),
@@ -232,11 +241,13 @@ export function isNativeBootPlanResult(value: unknown): value is NativeBootPlanR
     nullableString(data.vmmSnapshotPath),
     nullableString(data.vmmRestorePath),
     nullableString(data.vmmVmstateTiming),
+    isVmstateTempModePlan(data.vmstateTempMode),
     nullableString(data.vmmNested),
     isStringRecord(data.virtiofsEnv),
     typeof data.batchLiveMountSyncRequired === "boolean",
     Array.isArray(data.restoreLiveMounts) && data.restoreLiveMounts.every(isRestoreLiveMount),
     Array.isArray(data.plannedLiveMounts) && data.plannedLiveMounts.every(isPlannedLiveMount),
+    isStatsFileModePlan(data.statsFileMode),
     nullableString(data.statsFilePath),
     nullableString(data.vmmStatsFile),
     isBootVmstateRuntimePlan(data.vmstateRuntime),
@@ -362,6 +373,8 @@ function isProvisionBootPlan(value: unknown): value is ProvisionBootPlan {
     nullableString(plan.kernelPath),
     nullableString(plan.dtbPath),
     nullableString(plan.vmmVsock),
+    nullableNonNegativeNumber(plan.timeoutMs),
+    isStringRecord(plan.vmmEnv),
     isStringArray(plan.cmd),
     isStringRecord(plan.env),
     nullableString(plan.snapshotPath),
@@ -688,6 +701,37 @@ function isPlannedLiveMount(value: unknown): value is PlannedLiveMount {
     isOneOf(mount.mode, liveMountModes),
     typeof mount.tag === "string",
   ].every(Boolean);
+}
+
+function isVsockModePlan(value: unknown): value is VsockModePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<VsockModePlan>;
+  return (
+    (plan.action === "existing" || plan.action === "allocate") && nullableString(plan.existingSpec)
+  );
+}
+
+function isVmstateTempModePlan(value: unknown): value is VmstateTempModePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<VmstateTempModePlan>;
+  return (
+    (plan.action === "skip" || plan.action === "reuse" || plan.action === "allocate") &&
+    nullableString(plan.tempDir)
+  );
+}
+
+function isStatsFileModePlan(value: unknown): value is StatsFileModePlan {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const plan = value as Partial<StatsFileModePlan>;
+  return (
+    (plan.action === "existing" || plan.action === "allocate") && nullableString(plan.existingPath)
+  );
 }
 
 function isMachinenConfigPlan(value: unknown): value is MachinenConfigPlan {

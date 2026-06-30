@@ -57,6 +57,9 @@ const ParsedRequest = struct {
     restore_path: ?[]const u8 = null,
     enable_vmstate_timing: bool = false,
     existing_vmstate_timing: ?[]const u8 = null,
+    boot_vmstate_engine: ?[]const u8 = null,
+    boot_vmstate_snapshot_disabled: bool = false,
+    boot_vmstate_existing_temp_dir: ?[]const u8 = null,
     boot_vmstate_state_path: ?[]const u8 = null,
     boot_vmstate_temp_dir: ?[]const u8 = null,
     boot_vmstate_chain_id: ?[]const u8 = null,
@@ -64,6 +67,9 @@ const ParsedRequest = struct {
     boot_vmstate_forked_from: ?[]const u8 = null,
     nested_requested: bool = false,
     live_mounts: []const boot_plan.LiveMountInput = &.{},
+    live_mount_removed_option_index_text: ?[]const u8 = null,
+    live_mount_removed_option_has_cache: bool = false,
+    live_mount_removed_option_has_sync: bool = false,
     live_mounts_resolved: []const boot_plan.LiveMount = &.{},
     batch_live_mount_validation_required: bool = false,
     restore_live_mounts_recorded: []const boot_plan.RestoreRecordedLiveMount = &.{},
@@ -107,6 +113,7 @@ const ParsedRequest = struct {
     provision_uds_path: ?[]const u8 = null,
     provision_scratch_disk_path: ?[]const u8 = null,
     provision_root_disk_path: ?[]const u8 = null,
+    provision_boot_vmm_env: std.json.ObjectMap = .empty,
     provision_repack_disk_path: ?[]const u8 = null,
     provision_repack_out_path: ?[]const u8 = null,
     provision_repack_extract_dir: ?[]const u8 = null,
@@ -142,6 +149,10 @@ const ParsedRequest = struct {
     snapshot_vmstate_chain_id: ?[]const u8 = null,
     snapshot_vmstate_checkpoint_parent: ?[]const u8 = null,
     snapshot_vmstate_checkpoint_sequence_text: ?[]const u8 = null,
+    snapshot_backing_engine: ?[]const u8 = null,
+    snapshot_backing_action: ?[]const u8 = null,
+    snapshot_backing_disk_path: ?[]const u8 = null,
+    snapshot_backing_vmstate_path: ?[]const u8 = null,
     registry_source_image_path: ?[]const u8 = null,
     registry_per_boot_root_disk: ?[]const u8 = null,
     registry_caller_root_disk_path: ?[]const u8 = null,
@@ -244,6 +255,9 @@ const boot_plan_fields = [_][]const u8{
     "restorePath",
     "enableVmstateTiming",
     "existingVmstateTiming",
+    "bootVmstateEngine",
+    "bootVmstateSnapshotDisabled",
+    "bootVmstateExistingTempDir",
     "bootVmstateStatePath",
     "bootVmstateTempDir",
     "bootVmstateChainId",
@@ -251,6 +265,9 @@ const boot_plan_fields = [_][]const u8{
     "bootVmstateForkedFrom",
     "nested",
     "liveMounts",
+    "liveMountRemovedOptionIndex",
+    "liveMountRemovedOptionHasCache",
+    "liveMountRemovedOptionHasSync",
     "liveMountsResolved",
     "batchLiveMountValidationRequired",
     "restoreLiveMountsRecorded",
@@ -294,6 +311,7 @@ const boot_plan_fields = [_][]const u8{
     "provisionUdsPath",
     "provisionScratchDiskPath",
     "provisionRootDiskPath",
+    "provisionBootVmmEnv",
     "provisionRepackDiskPath",
     "provisionRepackOutPath",
     "provisionRepackExtractDir",
@@ -329,6 +347,10 @@ const boot_plan_fields = [_][]const u8{
     "snapshotVmstateChainId",
     "snapshotVmstateCheckpointParent",
     "snapshotVmstateCheckpointSequence",
+    "snapshotBackingEngine",
+    "snapshotBackingAction",
+    "snapshotBackingDiskPath",
+    "snapshotBackingVmstatePath",
     "registrySourceImagePath",
     "registryPerBootRootDisk",
     "registryCallerRootDiskPath",
@@ -438,6 +460,9 @@ const RequestError = error{
     InvalidRestorePath,
     InvalidEnableVmstateTiming,
     InvalidExistingVmstateTiming,
+    InvalidBootVmstateEngine,
+    InvalidBootVmstateSnapshotDisabled,
+    InvalidBootVmstateExistingTempDir,
     InvalidBootVmstateStatePath,
     InvalidBootVmstateTempDir,
     InvalidBootVmstateChainId,
@@ -446,6 +471,9 @@ const RequestError = error{
     InvalidNested,
     InvalidLiveMounts,
     InvalidLiveMountGuest,
+    InvalidLiveMountRemovedOptionIndex,
+    InvalidLiveMountRemovedOptionHasCache,
+    InvalidLiveMountRemovedOptionHasSync,
     InvalidLiveMountsResolved,
     InvalidLiveMountHost,
     InvalidLiveMountMode,
@@ -493,6 +521,8 @@ const RequestError = error{
     InvalidProvisionUdsPath,
     InvalidProvisionScratchDiskPath,
     InvalidProvisionRootDiskPath,
+    InvalidProvisionBootVmmEnv,
+    InvalidProvisionBootVmmEnvValue,
     InvalidProvisionRepackDiskPath,
     InvalidProvisionRepackOutPath,
     InvalidProvisionRepackExtractDir,
@@ -530,6 +560,10 @@ const RequestError = error{
     InvalidSnapshotVmstateChainId,
     InvalidSnapshotVmstateCheckpointParent,
     InvalidSnapshotVmstateCheckpointSequence,
+    InvalidSnapshotBackingEngine,
+    InvalidSnapshotBackingAction,
+    InvalidSnapshotBackingDiskPath,
+    InvalidSnapshotBackingVmstatePath,
     InvalidRegistrySourceImagePath,
     InvalidRegistryRootDiskPath,
     InvalidRegistryBootLogRoot,
@@ -583,6 +617,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io) !protocol.Exit {
         parsed.port_forward,
         parsed.port_forward_net_socket,
     )) return .fail;
+    if (try writeLiveMountRemovedOptionFailure(io, parsed)) return .fail;
 
     const parts = makePlanParts(arena, parsed, plan) catch |err| {
         if (err == error.RestoreLiveMountOverrideUnknown) {
@@ -602,6 +637,7 @@ const PlanParts = struct {
     root_disk_mode: boot_plan.RootDiskMode,
     guest_env: []const boot_plan.EnvPair,
     vmm_env: []const boot_plan.EnvPair,
+    vsock_mode: boot_plan.VsockModePlan,
     vsock_plan: boot_plan.VsockPlan,
     gvproxy_plan: boot_plan.GvproxyPlan,
     guest_hostname: boot_plan.GuestHostnameInput,
@@ -612,11 +648,13 @@ const PlanParts = struct {
     kernel_dtb: boot_plan.KernelDtbPlan,
     initrd_env: boot_plan.InitrdPlan,
     vmstate_env: boot_plan.VmstateEnvPlan,
+    vmstate_temp_mode: boot_plan.VmstateTempModePlan,
     vmstate_runtime: boot_plan.VmstateRuntimePlan,
     nested_env: ?[]const u8,
     virtiofs_env: []const boot_plan.EnvPair,
     batch_live_mount_sync: boot_plan.BatchLiveMountPlan,
     restore_live_mounts: []const boot_plan.RestoreLiveMountInput,
+    stats_file_mode: boot_plan.StatsFileModePlan,
     stats_file: boot_plan.StatsFilePlan,
     planned_live_mounts: []const boot_plan.LiveMount,
     config_cmd: []const []const u8,
@@ -628,6 +666,7 @@ const PlanParts = struct {
     bundle_workspace: boot_plan.BundleWorkspacePlan,
     bundle_config_paths: boot_plan.BundleConfigPathsPlan,
     bundle_pack: boot_plan.BundlePackPlan,
+    bundle_mount_disk_mode: boot_plan.BundleMountDiskModePlan,
     provision_assets: boot_plan.ProvisionAssetsPlan,
     provision_dtb: boot_plan.ProvisionDtbPlan,
     provision_cli_cache: boot_plan.ProvisionCliCachePlan,
@@ -643,6 +682,7 @@ const PlanParts = struct {
     mount_disk_runtime: boot_plan.MountDiskRuntimePlan,
     mount_disk_fd_env: []const boot_plan.EnvPair,
     snapshot_context: boot_plan.SnapshotContextPlan,
+    snapshot_backing: boot_plan.SnapshotBackingPlan,
     registry_shape: boot_plan.RegistryShapePlan,
     registry_lifecycle: boot_plan.RegistryLifecyclePlan,
     registry_process: boot_plan.RegistryProcessPlan,
@@ -704,6 +744,7 @@ fn makePlanParts(
     const boot_env = try makeBootEnvParts(arena, parsed);
     const runtime = try makeRuntimeParts(arena, parsed);
     const provision = try makeProvisionParts(arena, parsed);
+    const bundle_pack_input = makeBundlePackInput(parsed);
     return .{
         .plan = plan,
         .cpu_policy = try makeCpuResources(parsed),
@@ -712,6 +753,7 @@ fn makePlanParts(
         .vmm_env = try makeVmmEnv(arena, parsed),
         .guest_hostname = try makeGuestHostname(parsed),
         .guest_hostname_set = try makeGuestHostnameSet(parsed),
+        .vsock_mode = makeVsockMode(parsed),
         .vsock_plan = boot_env.vsock_plan,
         .gvproxy_plan = boot_env.gvproxy_plan,
         .vmm_argv = boot_env.vmm_argv,
@@ -720,11 +762,13 @@ fn makePlanParts(
         .kernel_dtb = boot_env.kernel_dtb,
         .initrd_env = boot_env.initrd_env,
         .vmstate_env = boot_env.vmstate_env,
+        .vmstate_temp_mode = makeVmstateTempMode(parsed),
         .vmstate_runtime = boot_env.vmstate_runtime,
         .nested_env = boot_env.nested_env,
         .virtiofs_env = boot_env.virtiofs_env,
         .batch_live_mount_sync = boot_env.batch_live_mount_sync,
         .restore_live_mounts = boot_env.restore_live_mounts,
+        .stats_file_mode = makeStatsFileMode(parsed),
         .stats_file = boot_env.stats_file,
         .planned_live_mounts = runtime.planned_live_mounts,
         .config_cmd = runtime.config_cmd,
@@ -733,17 +777,10 @@ fn makePlanParts(
         .config_live_mounts = runtime.config_live_mounts,
         .bundle_command = runtime.bundle_command,
         .bundle_env = runtime.bundle_env,
-        .bundle_workspace = try boot_plan.planBundleWorkspace(arena, .{
-            .temp_dir = parsed.bundle_workspace_temp_dir,
-        }),
-        .bundle_config_paths = try boot_plan.planBundleConfigPaths(arena, .{
-            .synth_bundle_dir = parsed.bundle_config_synth_dir,
-        }),
-        .bundle_pack = boot_plan.planBundlePack(.{
-            .use_tiny = parsed.bundle_pack_use_tiny,
-            .mount_guest = parsed.bundle_pack_mount_guest,
-            .restore_mount_guest = parsed.bundle_pack_restore_mount_guest,
-        }),
+        .bundle_workspace = try makeBundleWorkspace(arena, parsed),
+        .bundle_config_paths = try makeBundleConfigPaths(arena, parsed),
+        .bundle_pack = boot_plan.planBundlePack(bundle_pack_input),
+        .bundle_mount_disk_mode = boot_plan.planBundleMountDiskMode(bundle_pack_input),
         .provision_assets = provision.assets,
         .provision_dtb = provision.dtb,
         .provision_cli_cache = provision.cli_cache,
@@ -759,9 +796,75 @@ fn makePlanParts(
         .mount_disk_runtime = runtime.mount_disk_runtime,
         .mount_disk_fd_env = runtime.mount_disk_fd_env,
         .snapshot_context = runtime.snapshot_context,
+        .snapshot_backing = makeSnapshotBacking(parsed),
         .registry_shape = runtime.registry_shape,
         .registry_lifecycle = runtime.registry_lifecycle,
         .registry_process = runtime.registry_process,
+    };
+}
+
+fn makeBundleWorkspace(
+    allocator: std.mem.Allocator,
+    parsed: ParsedRequest,
+) !boot_plan.BundleWorkspacePlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return boot_plan.planBundleWorkspace(allocator, .{
+        .temp_dir = parsed.bundle_workspace_temp_dir,
+    });
+}
+
+fn makeBundleConfigPaths(
+    allocator: std.mem.Allocator,
+    parsed: ParsedRequest,
+) !boot_plan.BundleConfigPathsPlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return boot_plan.planBundleConfigPaths(allocator, .{
+        .synth_bundle_dir = parsed.bundle_config_synth_dir,
+    });
+}
+
+fn makeVsockMode(parsed: ParsedRequest) boot_plan.VsockModePlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return boot_plan.planVsockMode(.{ .existing_spec = parsed.existing_vsock_spec });
+}
+
+fn makeVmstateTempMode(parsed: ParsedRequest) boot_plan.VmstateTempModePlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return boot_plan.planVmstateTempMode(.{
+        .engine = parsed.boot_vmstate_engine,
+        .snapshot_disabled = parsed.boot_vmstate_snapshot_disabled,
+        .existing_temp_dir = parsed.boot_vmstate_existing_temp_dir,
+    });
+}
+
+fn makeStatsFileMode(parsed: ParsedRequest) boot_plan.StatsFileModePlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return boot_plan.planStatsFileMode(.{ .existing_path = parsed.existing_stats_file });
+}
+
+fn makeSnapshotBacking(parsed: ParsedRequest) boot_plan.SnapshotBackingPlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return boot_plan.planSnapshotBacking(.{
+        .engine = parsed.snapshot_backing_engine,
+        .action = parsed.snapshot_backing_action,
+        .disk_path = parsed.snapshot_backing_disk_path,
+        .vmstate_path = parsed.snapshot_backing_vmstate_path,
+    });
+}
+
+fn makeBundlePackInput(parsed: ParsedRequest) boot_plan.BundlePackInput {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return .{
+        .use_tiny = parsed.bundle_pack_use_tiny,
+        .mount_guest = parsed.bundle_pack_mount_guest,
+        .restore_mount_guest = parsed.bundle_pack_restore_mount_guest,
     };
 }
 
@@ -1004,6 +1107,11 @@ fn makeProvisionBoot(
         .uds_path = parsed.provision_uds_path,
         .scratch_disk_path = parsed.provision_scratch_disk_path,
         .root_disk_path = parsed.provision_root_disk_path,
+        .vmm_env = try objectStringPairs(
+            arena,
+            parsed.provision_boot_vmm_env,
+            error.InvalidProvisionBootVmmEnvValue,
+        ),
     });
 }
 
@@ -1252,6 +1360,63 @@ fn makeRegistryShape(
     });
 }
 
+fn writeLiveMountRemovedOptionFailure(io: std.Io, parsed: ParsedRequest) !bool {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    const has_removed_option = parsed.live_mount_removed_option_has_cache or
+        parsed.live_mount_removed_option_has_sync;
+    if (!has_removed_option) return false;
+    const index_text = parsed.live_mount_removed_option_index_text orelse {
+        try writeRequestError(io, error.InvalidLiveMountRemovedOptionIndex);
+        return true;
+    };
+    const index = parseUnsigned(index_text) catch {
+        try writeRequestError(io, error.InvalidLiveMountRemovedOptionIndex);
+        return true;
+    };
+    const removed_options = boot_plan.validateLiveMountRemovedOptions(.{
+        .index = index,
+        .has_cache = parsed.live_mount_removed_option_has_cache,
+        .has_sync = parsed.live_mount_removed_option_has_sync,
+    });
+    switch (removed_options) {
+        .ok => return false,
+        .cache => |i| try writeRemovedLiveMountCacheError(io, i),
+        .sync => |i| try writeRemovedLiveMountSyncError(io, i),
+    }
+    return true;
+}
+
+fn writeRemovedLiveMountCacheError(io: std.Io, index: u64) !void {
+    assert(index <= std.math.maxInt(u64));
+
+    var buf: [256]u8 = undefined;
+    try protocol.writeError(
+        io,
+        "BOOT_MOUNT_INVALID",
+        try std.fmt.bufPrint(
+            &buf,
+            "liveMounts[{d}] cache is no longer supported; metadata caching uses the fast policy",
+            .{index},
+        ),
+    );
+}
+
+fn writeRemovedLiveMountSyncError(io: std.Io, index: u64) !void {
+    assert(index <= std.math.maxInt(u64));
+
+    var buf: [256]u8 = undefined;
+    try protocol.writeError(
+        io,
+        "BOOT_MOUNT_INVALID",
+        try std.fmt.bufPrint(
+            &buf,
+            "liveMounts[{d}] sync is no longer supported; rw live mounts sync in batches",
+            .{index},
+        ),
+    );
+}
+
 fn writePortForwardFailure(
     io: std.Io,
     mappings: []const boot_plan.PortForwardMapping,
@@ -1298,13 +1463,15 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try protocol.stdout(io, "{\"ok\":true,\"protocolVersion\":1,");
     try protocol.stdout(io, "\"command\":\"boot-plan\",\"data\":{");
     try writeCoreFields(io, parts.plan, parts.cpu_policy, parts.root_disk_mode);
+    try writeVsockModeField(io, "vsockMode", parts.vsock_mode, true);
     try writeVsockKernelFields(io, parts.vsock_plan, parts.kernel_dtb);
     try writeEnvObjectField(io, "vmmEnv", parts.vmm_env, true);
     try writeGvproxyPlanField(io, "gvproxyPlan", parts.gvproxy_plan, true);
     try writeNullableStringField(io, "vmmInitrd", parts.initrd_env.vmm_initrd, true);
     try writeGuestHostnameField(io, "guestHostname", parts.guest_hostname, true);
     try writeGuestHostnameSetField(io, "guestHostnameSet", parts.guest_hostname_set, true);
-    try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file);
+    try writeVmstateStatsFields(io, parts.vmstate_env, parts.stats_file_mode, parts.stats_file);
+    try writeVmstateTempModeField(io, "vmstateTempMode", parts.vmstate_temp_mode, true);
     try writeVmstateRuntimeField(io, "vmstateRuntime", parts.vmstate_runtime, true);
     try writeBoolField(
         io,
@@ -1328,6 +1495,29 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
     try writeBundleWorkspaceField(io, "bundleWorkspace", parts.bundle_workspace, true);
     try writeBundleConfigPathsField(io, "bundleConfigPaths", parts.bundle_config_paths, true);
     try writeBundlePackField(io, "bundlePack", parts.bundle_pack, true);
+    try writeBundleMountDiskModeField(
+        io,
+        "bundleMountDiskMode",
+        parts.bundle_mount_disk_mode,
+        true,
+    );
+    try writeProvisionFields(io, parts);
+    try writeScratchModeField(io, "plannedScratchMode", parts.planned_scratch_mode, true);
+    try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
+    try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
+    try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
+    try writeEnvObjectField(io, "mountDiskFdEnv", parts.mount_disk_fd_env, true);
+    try writeSnapshotContextField(io, "snapshotContext", parts.snapshot_context, true);
+    try writeSnapshotBackingField(io, "snapshotBacking", parts.snapshot_backing, true);
+    try writeRegistryShapeField(io, "registryShape", parts.registry_shape, true);
+    try writeRegistryLifecycleField(io, "registryLifecycle", parts.registry_lifecycle, true);
+    try writeRegistryProcessField(io, "registryProcess", parts.registry_process, true);
+    try protocol.stdout(io, "}}\n");
+}
+
+fn writeProvisionFields(io: std.Io, parts: PlanParts) !void {
+    assert(@sizeOf(PlanParts) > 0);
+
     try writeProvisionAssetsField(io, "provisionAssets", parts.provision_assets, true);
     try writeProvisionDtbField(io, "provisionDtb", parts.provision_dtb, true);
     try writeProvisionCliCacheField(io, "provisionCliCache", parts.provision_cli_cache, true);
@@ -1347,16 +1537,6 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
         true,
     );
     try writeProvisionRuntimeField(io, "provisionRuntime", parts.provision_runtime, true);
-    try writeScratchModeField(io, "plannedScratchMode", parts.planned_scratch_mode, true);
-    try writeScratchDiskField(io, "scratchDisk", parts.scratch_disk, true);
-    try writeRootDiskRuntimeField(io, "rootDiskRuntime", parts.root_disk_runtime, true);
-    try writeMountDiskRuntimeField(io, "mountDiskRuntime", parts.mount_disk_runtime, true);
-    try writeEnvObjectField(io, "mountDiskFdEnv", parts.mount_disk_fd_env, true);
-    try writeSnapshotContextField(io, "snapshotContext", parts.snapshot_context, true);
-    try writeRegistryShapeField(io, "registryShape", parts.registry_shape, true);
-    try writeRegistryLifecycleField(io, "registryLifecycle", parts.registry_lifecycle, true);
-    try writeRegistryProcessField(io, "registryProcess", parts.registry_process, true);
-    try protocol.stdout(io, "}}\n");
 }
 
 fn writeCoreFields(
@@ -1464,6 +1644,36 @@ fn writeVsockKernelFields(
     try writeNullableStringField(io, "vmmDtb", kernel_dtb.vmm_dtb, true);
 }
 
+fn writeVsockModeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mode: boot_plan.VsockModePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, mode.action);
+    try writeNullableStringField(io, "existingSpec", mode.existing_spec, true);
+    try protocol.stdout(io, "}");
+}
+
+fn writeStatsFileModeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mode: boot_plan.StatsFileModePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, mode.action);
+    try writeNullableStringField(io, "existingPath", mode.existing_path, true);
+    try protocol.stdout(io, "}");
+}
+
 fn writeGvproxyPlanField(
     io: std.Io,
     comptime field: []const u8,
@@ -1528,6 +1738,21 @@ fn writeRestoreLiveMountsField(
     try protocol.stdout(io, "]");
 }
 
+fn writeVmstateTempModeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mode: boot_plan.VmstateTempModePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, mode.action);
+    try writeNullableStringField(io, "tempDir", mode.temp_dir, true);
+    try protocol.stdout(io, "}");
+}
+
 fn writeVmstateRuntimeField(
     io: std.Io,
     comptime field: []const u8,
@@ -1548,6 +1773,7 @@ fn writeVmstateRuntimeField(
 fn writeVmstateStatsFields(
     io: std.Io,
     vmstate_env: boot_plan.VmstateEnvPlan,
+    stats_file_mode: boot_plan.StatsFileModePlan,
     stats_file: boot_plan.StatsFilePlan,
 ) !void {
     assert(@sizeOf(boot_plan.VmstateEnvPlan) > 0);
@@ -1555,6 +1781,7 @@ fn writeVmstateStatsFields(
     try writeNullableStringField(io, "vmmSnapshotPath", vmstate_env.snapshot_path, true);
     try writeNullableStringField(io, "vmmRestorePath", vmstate_env.restore_path, true);
     try writeNullableStringField(io, "vmmVmstateTiming", vmstate_env.vmstate_timing, true);
+    try writeStatsFileModeField(io, "statsFileMode", stats_file_mode, true);
     try writeNullableStringField(io, "statsFilePath", stats_file.stats_file_path, true);
     try writeNullableStringField(io, "vmmStatsFile", stats_file.vmm_stats_file, true);
 }
@@ -1712,6 +1939,20 @@ fn writeBundlePackField(
     try protocol.stdout(io, "}");
 }
 
+fn writeBundleMountDiskModeField(
+    io: std.Io,
+    comptime field: []const u8,
+    mode: boot_plan.BundleMountDiskModePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"action\":");
+    try protocol.writeJsonString(io, mode.action);
+    try protocol.stdout(io, "}");
+}
+
 fn writeProvisionAssetsField(
     io: std.Io,
     comptime field: []const u8,
@@ -1790,6 +2031,8 @@ fn writeProvisionBootField(
     try writeNullableStringField(io, "kernelPath", boot.kernel_path, true);
     try writeNullableStringField(io, "dtbPath", boot.dtb_path, true);
     try writeNullableStringField(io, "vmmVsock", boot.vmm_vsock, true);
+    try writeNullableU64Field(io, "timeoutMs", boot.timeout_ms, true);
+    try writeEnvObjectField(io, "vmmEnv", boot.vmm_env, true);
     try writeStringArrayField(io, "cmd", boot.cmd, true);
     try writeEnvObjectField(io, "env", boot.env, true);
     try writeNullableStringField(io, "snapshotPath", boot.snapshot_path, true);
@@ -2106,6 +2349,20 @@ fn writeRegistryProcessField(
     try protocol.stdout(io, "}");
 }
 
+fn writeSnapshotBackingField(
+    io: std.Io,
+    comptime field: []const u8,
+    plan: boot_plan.SnapshotBackingPlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{\"allowed\":");
+    try protocol.stdout(io, if (plan.allowed) "true" else "false");
+    try protocol.stdout(io, "}");
+}
+
 fn writeRegistryShapeField(
     io: std.Io,
     comptime field: []const u8,
@@ -2320,7 +2577,11 @@ fn makeVmmEnv(allocator: std.mem.Allocator, parsed: ParsedRequest) ![]boot_plan.
 
     return boot_plan.planVmmEnv(allocator, .{
         .base = try objectStringPairs(allocator, parsed.vmm_env_base, error.InvalidVmmEnvValue),
-        .overrides = try objectStringPairs(allocator, parsed.vmm_env_overrides, error.InvalidVmmEnvValue),
+        .overrides = try objectStringPairs(
+            allocator,
+            parsed.vmm_env_overrides,
+            error.InvalidVmmEnvValue,
+        ),
     });
 }
 
@@ -2817,6 +3078,21 @@ fn parseVmstateFields(object: std.json.ObjectMap, request: *ParsedRequest) Reque
         "existingVmstateTiming",
         error.InvalidExistingVmstateTiming,
     );
+    request.boot_vmstate_engine = try optionalStringDefaultNull(
+        object,
+        "bootVmstateEngine",
+        error.InvalidBootVmstateEngine,
+    );
+    request.boot_vmstate_snapshot_disabled = try optionalBoolDefaultFalse(
+        object,
+        "bootVmstateSnapshotDisabled",
+        error.InvalidBootVmstateSnapshotDisabled,
+    );
+    request.boot_vmstate_existing_temp_dir = try optionalStringDefaultNull(
+        object,
+        "bootVmstateExistingTempDir",
+        error.InvalidBootVmstateExistingTempDir,
+    );
     request.boot_vmstate_state_path = try optionalStringDefaultNull(
         object,
         "bootVmstateStatePath",
@@ -2853,6 +3129,21 @@ fn parseRuntimeMountStatsFields(
     assert(@sizeOf(ParsedRequest) > 0);
 
     request.live_mounts = try optionalLiveMounts(allocator, object);
+    request.live_mount_removed_option_index_text = try optionalStringDefaultNull(
+        object,
+        "liveMountRemovedOptionIndex",
+        error.InvalidLiveMountRemovedOptionIndex,
+    );
+    request.live_mount_removed_option_has_cache = try optionalBoolDefaultFalse(
+        object,
+        "liveMountRemovedOptionHasCache",
+        error.InvalidLiveMountRemovedOptionHasCache,
+    );
+    request.live_mount_removed_option_has_sync = try optionalBoolDefaultFalse(
+        object,
+        "liveMountRemovedOptionHasSync",
+        error.InvalidLiveMountRemovedOptionHasSync,
+    );
     request.live_mounts_resolved = try optionalLiveMountsResolved(
         allocator,
         object,
@@ -3115,6 +3406,11 @@ fn parseProvisionBootFields(
         "provisionRootDiskPath",
         error.InvalidProvisionRootDiskPath,
     );
+    request.provision_boot_vmm_env = try optionalObjectDefaultEmpty(
+        object,
+        "provisionBootVmmEnv",
+        error.InvalidProvisionBootVmmEnv,
+    );
 }
 
 fn parseProvisionRepackFields(
@@ -3341,6 +3637,26 @@ fn parseSnapshotContextFields(
         object,
         "snapshotVmstateCheckpointSequence",
         error.InvalidSnapshotVmstateCheckpointSequence,
+    );
+    request.snapshot_backing_engine = try optionalStringDefaultNull(
+        object,
+        "snapshotBackingEngine",
+        error.InvalidSnapshotBackingEngine,
+    );
+    request.snapshot_backing_action = try optionalStringDefaultNull(
+        object,
+        "snapshotBackingAction",
+        error.InvalidSnapshotBackingAction,
+    );
+    request.snapshot_backing_disk_path = try optionalStringDefaultNull(
+        object,
+        "snapshotBackingDiskPath",
+        error.InvalidSnapshotBackingDiskPath,
+    );
+    request.snapshot_backing_vmstate_path = try optionalStringDefaultNull(
+        object,
+        "snapshotBackingVmstatePath",
+        error.InvalidSnapshotBackingVmstatePath,
     );
 }
 
@@ -4343,6 +4659,7 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
     if (try writeProvisionAssetLookupRequestError(io, err)) return;
     if (try writeRegistryLifecycleRequestError(io, err)) return;
     if (try writeVmmEnvRequestError(io, err)) return;
+    if (try writeProvisionBootRequestError(io, err)) return;
 
     switch (err) {
         error.InvalidResourcesCpuMaxVcpus => try protocol.writeError(
@@ -4362,6 +4679,25 @@ fn writeRequestError(io: std.Io, err: RequestError) !void {
         ),
         else => try protocol.writeError(io, "INVALID_REQUEST", @errorName(err)),
     }
+}
+
+fn writeProvisionBootRequestError(io: std.Io, err: RequestError) !bool {
+    assert(@errorName(err).len > 0);
+
+    switch (err) {
+        error.InvalidProvisionBootVmmEnv => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan provision boot vmm env field must be an object",
+        ),
+        error.InvalidProvisionBootVmmEnvValue => try protocol.writeError(
+            io,
+            "INVALID_REQUEST",
+            "boot-plan provision boot vmm env values must be strings",
+        ),
+        else => return false,
+    }
+    return true;
 }
 
 fn writeVmmEnvRequestError(io: std.Io, err: RequestError) !bool {
@@ -4590,6 +4926,10 @@ fn writeSnapshotRequestError(io: std.Io, err: RequestError) !bool {
         error.InvalidSnapshotVmstatePath,
         error.InvalidSnapshotVmstateChainId,
         error.InvalidSnapshotVmstateCheckpointParent,
+        error.InvalidSnapshotBackingEngine,
+        error.InvalidSnapshotBackingAction,
+        error.InvalidSnapshotBackingDiskPath,
+        error.InvalidSnapshotBackingVmstatePath,
         => try protocol.writeError(
             io,
             "INVALID_REQUEST",

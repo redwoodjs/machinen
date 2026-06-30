@@ -80,8 +80,12 @@ import { planBootRegistryLifecycleNative } from "../native/registry-lifecycle.ts
 import { planBootRegistryProcessNative } from "../native/registry-process.ts";
 import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
 import { planBootScratchModeNative } from "../native/scratch-mode.ts";
+import { planBootSnapshotBackingNative as planSnapshotBacking } from "../native/snapshot-backing.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
+import { planBootStatsFileModeNative } from "../native/stats-file-mode.ts";
 import { planBootVmmEnvNative } from "../native/vmm-env.ts";
+import { planBootVsockModeNative } from "../native/vsock-mode.ts";
+import { planBootVmstateTempModeNative as planVmstateTempMode } from "../native/vmstate-temp-mode.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
 import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
@@ -1083,8 +1087,15 @@ function setupVmstateBoot(
   let vsockTempDir = inputVsockTempDir;
   let stateTempDir: string | undefined;
   const chainId = randomBytes(16).toString("hex");
-  if (resolveSnapshotEngine() === "vmstate" && opts.snapshot !== false) {
-    stateTempDir = vsockTempDir = ensureVsockTempDir(vsockTempDir);
+  const tempMode = planVmstateTempMode(
+    resolveSnapshotEngine(),
+    opts.snapshot === false,
+    vsockTempDir,
+  );
+  if (tempMode.action === "allocate") {
+    stateTempDir = vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
+  } else if (tempMode.tempDir) {
+    stateTempDir = vsockTempDir = tempMode.tempDir;
   }
   const runtime = planBootVmstateRuntimeNative({
     stateTempDir,
@@ -1101,11 +1112,6 @@ function setupVmstateBoot(
   applyVmstateEnvPlan(opts, env, vmstate.statePath);
   return { vmstate, vsockTempDir };
 }
-
-function ensureVsockTempDir(vsockTempDir: string | undefined): string {
-  return vsockTempDir ?? mkdtempSync(join(tmpdir(), "machinen-vsock-"));
-}
-
 function applyVmstateEnvPlan(
   opts: BootOptions,
   env: Record<string, string>,
@@ -1357,8 +1363,10 @@ function setupVsockBridge(env: Record<string, string>): {
   vsockUdsPath: string | undefined;
   vsockTempDir: string | undefined;
 } {
-  const existingSpec = env.MACHINEN_VSOCK;
-  const vsockTempDir = existingSpec ? undefined : mkdtempSync(join(tmpdir(), "machinen-vsock-"));
+  const mode = planBootVsockModeNative(env.MACHINEN_VSOCK);
+  const existingSpec = mode.existingSpec ?? undefined;
+  const vsockTempDir =
+    mode.action === "existing" ? undefined : mkdtempSync(join(tmpdir(), "machinen-vsock-"));
   const plan = planBootCoreNative({
     existingVsockSpec: existingSpec,
     autoVsockTempDir: vsockTempDir,
@@ -1377,7 +1385,6 @@ function setupVsockBridge(env: Record<string, string>): {
   );
   return { vsockUdsPath: plan.vsockUdsPath ?? undefined, vsockTempDir };
 }
-
 // #274: shared stats file the balloon backend writes counters to.
 // Pre-allocated zero-filled here so the VMM's mmap'd writer and our
 // host-side reader see a coherent layout even before the first
@@ -1389,9 +1396,9 @@ function setupStatsFile(
   env: Record<string, string>,
   vsockTempDir: string | undefined,
 ): { statsFilePath: string | undefined; statsTempDir: string | undefined } {
-  if (env.MACHINEN_STATS_FILE !== undefined) {
-    const plan = planBootStatsFileNative({ existingPath: env.MACHINEN_STATS_FILE });
-    return { statsFilePath: plan.statsFilePath, statsTempDir: undefined };
+  const mode = planBootStatsFileModeNative(env.MACHINEN_STATS_FILE);
+  if (mode.action === "existing") {
+    return { statsFilePath: mode.existingPath ?? undefined, statsTempDir: undefined };
   }
   let statsTempDir: string | undefined;
   const statsFileTempDir =
@@ -1972,15 +1979,11 @@ function ensureSnapshotBacking(
   vmstateStatePath: string | undefined,
   action: "snapshot" | "fork",
 ): void {
-  const engine = resolveSnapshotEngine();
-  if (engine === "criu" && !diskAbs) {
-    throw noSnapshotBackingError(action);
-  }
-  if (engine === "vmstate" && !vmstateStatePath) {
+  const plan = planSnapshotBacking(resolveSnapshotEngine(), action, diskAbs, vmstateStatePath);
+  if (!plan.allowed) {
     throw noSnapshotBackingError(action);
   }
 }
-
 function noSnapshotBackingError(action: "snapshot" | "fork"): SnapshotError {
   return new SnapshotError("SNAPSHOT_NO_DISK", NO_SNAPSHOT_BACKING_MESSAGES[action]);
 }

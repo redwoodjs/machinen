@@ -87,6 +87,15 @@ pub const VsockPlanInput = struct {
     auto_temp_dir: ?[]const u8 = null,
 };
 
+pub const VsockModeInput = struct {
+    existing_spec: ?[]const u8 = null,
+};
+
+pub const VsockModePlan = struct {
+    action: []const u8,
+    existing_spec: ?[]const u8,
+};
+
 pub const VsockPlan = struct {
     uds_path: ?[]const u8,
     vmm_vsock: ?[]const u8,
@@ -191,6 +200,10 @@ pub const BundlePackPlan = struct {
     tiny_mount_guest: ?[]const u8,
 };
 
+pub const BundleMountDiskModePlan = struct {
+    action: []const u8,
+};
+
 pub const ProvisionGuestCpu = enum {
     arm64,
     amd64,
@@ -260,6 +273,7 @@ pub const ProvisionBootInput = struct {
     uds_path: ?[]const u8 = null,
     scratch_disk_path: ?[]const u8 = null,
     root_disk_path: ?[]const u8 = null,
+    vmm_env: []const EnvPair = &.{},
 };
 
 pub const ProvisionBootPlan = struct {
@@ -267,6 +281,8 @@ pub const ProvisionBootPlan = struct {
     kernel_path: ?[]const u8,
     dtb_path: ?[]const u8,
     vmm_vsock: ?[]const u8,
+    vmm_env: []const EnvPair,
+    timeout_ms: ?u64,
     cmd: []const []const u8,
     env: []const EnvPair,
     snapshot_path: ?[]const u8,
@@ -350,6 +366,17 @@ pub const VmstateEnvPlan = struct {
     vmstate_timing: ?[]const u8,
 };
 
+pub const VmstateTempModeInput = struct {
+    engine: ?[]const u8 = null,
+    snapshot_disabled: bool = false,
+    existing_temp_dir: ?[]const u8 = null,
+};
+
+pub const VmstateTempModePlan = struct {
+    action: []const u8,
+    temp_dir: ?[]const u8,
+};
+
 pub const VmstateRuntimeInput = struct {
     state_path: ?[]const u8 = null,
     state_temp_dir: ?[]const u8 = null,
@@ -369,6 +396,18 @@ pub const LiveMountInput = struct {
     host: []const u8,
     guest: []const u8,
     mode: ?[]const u8 = null,
+};
+
+pub const LiveMountRemovedOptionsInput = struct {
+    index: u64,
+    has_cache: bool = false,
+    has_sync: bool = false,
+};
+
+pub const LiveMountRemovedOptionsValidation = union(enum) {
+    ok,
+    cache: u64,
+    sync: u64,
 };
 
 pub const LiveMount = struct {
@@ -414,6 +453,15 @@ pub const StatsFileInput = struct {
     existing_path: ?[]const u8 = null,
     planned_path: ?[]const u8 = null,
     planned_temp_dir: ?[]const u8 = null,
+};
+
+pub const StatsFileModeInput = struct {
+    existing_path: ?[]const u8 = null,
+};
+
+pub const StatsFileModePlan = struct {
+    action: []const u8,
+    existing_path: ?[]const u8,
 };
 
 pub const StatsFilePlan = struct {
@@ -540,6 +588,17 @@ pub const SnapshotContextPlan = struct {
     mount_disk: ?SnapshotMountDiskPlan,
     live_mounts: []const SnapshotLiveMountPlan,
     vmstate_chain: ?SnapshotVmstateChainPlan,
+};
+
+pub const SnapshotBackingInput = struct {
+    engine: ?[]const u8 = null,
+    action: ?[]const u8 = null,
+    disk_path: ?[]const u8 = null,
+    vmstate_path: ?[]const u8 = null,
+};
+
+pub const SnapshotBackingPlan = struct {
+    allowed: bool,
 };
 
 pub const RegistryCleanupInput = struct {
@@ -824,6 +883,17 @@ fn isHostnameAlnum(c: u8) bool {
     return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9');
 }
 
+pub fn planVmstateTempMode(input: VmstateTempModeInput) VmstateTempModePlan {
+    assert(@sizeOf(VmstateTempModeInput) > 0);
+
+    const engine = input.engine orelse return .{ .action = "skip", .temp_dir = null };
+    if (!std.mem.eql(u8, engine, "vmstate") or input.snapshot_disabled) {
+        return .{ .action = "skip", .temp_dir = null };
+    }
+    if (input.existing_temp_dir) |temp_dir| return .{ .action = "reuse", .temp_dir = temp_dir };
+    return .{ .action = "allocate", .temp_dir = null };
+}
+
 pub fn planVmstateRuntime(
     allocator: std.mem.Allocator,
     input: VmstateRuntimeInput,
@@ -918,6 +988,13 @@ pub fn planVmmEnv(allocator: std.mem.Allocator, input: VmmEnvInput) ![]EnvPair {
     return mergeEnvPairs(allocator, input.base, input.overrides);
 }
 
+pub fn planVsockMode(input: VsockModeInput) VsockModePlan {
+    assert(@sizeOf(VsockModeInput) > 0);
+
+    if (input.existing_spec) |spec| return .{ .action = "existing", .existing_spec = spec };
+    return .{ .action = "allocate", .existing_spec = null };
+}
+
 pub fn planVsock(allocator: std.mem.Allocator, input: VsockPlanInput) !VsockPlan {
     assert(@sizeOf(VsockPlanInput) > 0);
 
@@ -1006,6 +1083,16 @@ pub fn planLiveMounts(allocator: std.mem.Allocator, mounts: []const LiveMountInp
         });
     }
     return out.toOwnedSlice(allocator);
+}
+
+pub fn validateLiveMountRemovedOptions(
+    input: LiveMountRemovedOptionsInput,
+) LiveMountRemovedOptionsValidation {
+    assert(@sizeOf(LiveMountRemovedOptionsInput) > 0);
+
+    if (input.has_cache) return .{ .cache = input.index };
+    if (input.has_sync) return .{ .sync = input.index };
+    return .ok;
 }
 
 pub fn planVirtiofsEnv(allocator: std.mem.Allocator, mounts: []const LiveMount) ![]EnvPair {
@@ -1098,6 +1185,13 @@ fn findRestoreLiveMountOverride(
         if (std.mem.eql(u8, mount.guest, guest)) found = mount;
     }
     return found;
+}
+
+pub fn planStatsFileMode(input: StatsFileModeInput) StatsFileModePlan {
+    assert(@sizeOf(StatsFileModeInput) > 0);
+
+    if (input.existing_path) |path| return .{ .action = "existing", .existing_path = path };
+    return .{ .action = "allocate", .existing_path = null };
 }
 
 pub fn planStatsFile(allocator: std.mem.Allocator, input: StatsFileInput) !StatsFilePlan {
@@ -1309,11 +1403,18 @@ pub fn planProvisionBoot(
     errdefer allocator.free(env);
     const vmm_vsock = try planProvisionVsock(allocator, input.uds_path);
     errdefer if (vmm_vsock) |spec| allocator.free(spec);
+    const vmm_env = if (vmm_vsock) |spec| blk: {
+        const overrides = [_]EnvPair{.{ .key = "MACHINEN_VSOCK", .value = spec }};
+        break :blk try planVmmEnv(allocator, .{ .base = input.vmm_env, .overrides = &overrides });
+    } else try planVmmEnv(allocator, .{ .base = input.vmm_env });
+    errdefer allocator.free(vmm_env);
     return .{
         .image_path = input.base_path,
         .kernel_path = input.kernel_path,
         .dtb_path = input.dtb_path,
         .vmm_vsock = vmm_vsock,
+        .vmm_env = vmm_env,
+        .timeout_ms = null,
         .cmd = cmd,
         .env = env,
         .snapshot_path = input.scratch_disk_path,
@@ -1427,6 +1528,15 @@ pub fn planBundlePack(input: BundlePackInput) BundlePackPlan {
         .kind = "tiny",
         .tiny_mount_guest = input.mount_guest orelse input.restore_mount_guest,
     };
+}
+
+pub fn planBundleMountDiskMode(input: BundlePackInput) BundleMountDiskModePlan {
+    assert(@sizeOf(BundlePackInput) > 0);
+
+    if (!input.use_tiny) return .{ .action = "none" };
+    if (input.restore_mount_guest != null) return .{ .action = "restore" };
+    if (input.mount_guest != null) return .{ .action = "fresh" };
+    return .{ .action = "none" };
 }
 
 pub fn planBundleEnv(allocator: std.mem.Allocator, input: BundleEnvInput) ![]EnvPair {
@@ -1563,6 +1673,19 @@ pub fn planSnapshotContext(
         .live_mounts = try planSnapshotLiveMounts(allocator, input.live_mounts),
         .vmstate_chain = try planSnapshotVmstateChain(input.vmstate),
     };
+}
+
+pub fn planSnapshotBacking(input: SnapshotBackingInput) SnapshotBackingPlan {
+    assert(@sizeOf(SnapshotBackingInput) > 0);
+
+    const engine = input.engine orelse return .{ .allowed = true };
+    const action = input.action orelse return .{ .allowed = true };
+    if (!std.mem.eql(u8, action, "snapshot") and !std.mem.eql(u8, action, "fork")) {
+        return .{ .allowed = true };
+    }
+    if (std.mem.eql(u8, engine, "criu")) return .{ .allowed = input.disk_path != null };
+    if (std.mem.eql(u8, engine, "vmstate")) return .{ .allowed = input.vmstate_path != null };
+    return .{ .allowed = true };
 }
 
 fn planSnapshotMountDisk(input: SnapshotMountDiskInput) PlanError!?SnapshotMountDiskPlan {
@@ -2157,6 +2280,27 @@ test "planPdeathsig defaults on and lets detach or explicit false disable it" {
     try std.testing.expect(!planPdeathsig(.{ .detached = true, .pdeathsig = true }));
 }
 
+test "planVmstateTempMode selects skip reuse or allocate" {
+    const skip_engine = planVmstateTempMode(.{ .engine = "none" });
+    try std.testing.expectEqualStrings("skip", skip_engine.action);
+    try std.testing.expect(skip_engine.temp_dir == null);
+
+    const skip_snapshot = planVmstateTempMode(.{ .engine = "vmstate", .snapshot_disabled = true });
+    try std.testing.expectEqualStrings("skip", skip_snapshot.action);
+    try std.testing.expect(skip_snapshot.temp_dir == null);
+
+    const reuse = planVmstateTempMode(.{
+        .engine = "vmstate",
+        .existing_temp_dir = "/tmp/machinen-vsock-abc",
+    });
+    try std.testing.expectEqualStrings("reuse", reuse.action);
+    try std.testing.expectEqualStrings("/tmp/machinen-vsock-abc", reuse.temp_dir.?);
+
+    const allocate = planVmstateTempMode(.{ .engine = "vmstate" });
+    try std.testing.expectEqualStrings("allocate", allocate.action);
+    try std.testing.expect(allocate.temp_dir == null);
+}
+
 test "planVmstateRuntime projects chain defaults and restore parent" {
     const fresh = try planVmstateRuntime(std.testing.allocator, .{
         .state_path = "/tmp/state.vmstate",
@@ -2323,6 +2467,31 @@ test "planRegistryProcess projects platform-specific executable metadata" {
     });
     try std.testing.expectEqualStrings("/pkg/machinen-vm", fallback.vmm_exe.?);
     try std.testing.expectEqualStrings("/pkg/gvproxy", fallback.gvproxy_exe.?);
+}
+
+test "planSnapshotBacking requires the active engine backing path" {
+    try std.testing.expect(!planSnapshotBacking(.{
+        .engine = "criu",
+        .action = "snapshot",
+    }).allowed);
+    try std.testing.expect(planSnapshotBacking(.{
+        .engine = "criu",
+        .action = "snapshot",
+        .disk_path = "/tmp/scratch.img",
+    }).allowed);
+    try std.testing.expect(!planSnapshotBacking(.{
+        .engine = "vmstate",
+        .action = "fork",
+    }).allowed);
+    try std.testing.expect(planSnapshotBacking(.{
+        .engine = "vmstate",
+        .action = "fork",
+        .vmstate_path = "/tmp/state.vmstate",
+    }).allowed);
+    try std.testing.expect(planSnapshotBacking(.{
+        .engine = "none",
+        .action = "snapshot",
+    }).allowed);
 }
 
 test "planSnapshotContext projects mount live mount and vmstate chain fields" {
@@ -2603,8 +2772,12 @@ test "planProvisionWorkload and planProvisionRepack build commands" {
     );
 }
 
-test "planProvisionBoot builds provision boot inputs" {
+test "planProvisionBoot builds provision boot inputs and vmm env" {
     const allocator = std.testing.allocator;
+    const caller_env = [_]EnvPair{
+        .{ .key = "MACHINEN_BOOT_TEST", .value = "1" },
+        .{ .key = "MACHINEN_VSOCK", .value = "caller-owned" },
+    };
     const plan = try planProvisionBoot(allocator, .{
         .base_path = "/base.tar.gz",
         .kernel_path = "/Image",
@@ -2612,9 +2785,11 @@ test "planProvisionBoot builds provision boot inputs" {
         .uds_path = "/tmp/exec.sock",
         .scratch_disk_path = "/tmp/scratch.img",
         .root_disk_path = "/tmp/rootfs.img",
+        .vmm_env = &caller_env,
     });
     defer allocator.free(plan.cmd);
     defer allocator.free(plan.env);
+    defer allocator.free(plan.vmm_env);
     defer if (plan.vmm_vsock) |spec| allocator.free(spec);
 
     try std.testing.expectEqualStrings("/base.tar.gz", plan.image_path.?);
@@ -2788,6 +2963,24 @@ test "planBundleConfigPaths derives bundle config staging paths" {
     const none = try planBundleConfigPaths(std.testing.allocator, .{});
     try std.testing.expect(none.rootfs_dir == null);
     try std.testing.expect(none.config_path == null);
+}
+
+test "planBundleMountDiskMode selects mount disk materialization action" {
+    const fat = planBundleMountDiskMode(.{});
+    try std.testing.expectEqualStrings("none", fat.action);
+
+    const tiny_none = planBundleMountDiskMode(.{ .use_tiny = true });
+    try std.testing.expectEqualStrings("none", tiny_none.action);
+
+    const fresh = planBundleMountDiskMode(.{ .use_tiny = true, .mount_guest = "/mnt/data" });
+    try std.testing.expectEqualStrings("fresh", fresh.action);
+
+    const restore = planBundleMountDiskMode(.{
+        .use_tiny = true,
+        .mount_guest = "/mnt/data",
+        .restore_mount_guest = "/mnt/restore",
+    });
+    try std.testing.expectEqualStrings("restore", restore.action);
 }
 
 test "planBundlePack selects fat or tiny initramfs inputs" {
@@ -2997,6 +3190,26 @@ test "planLiveMounts validates count guest paths modes and tags" {
     );
 }
 
+test "validateLiveMountRemovedOptions preserves deprecated option precedence" {
+    try std.testing.expectEqual(.ok, validateLiveMountRemovedOptions(.{ .index = 1 }));
+    try std.testing.expectEqual(
+        @as(u64, 2),
+        validateLiveMountRemovedOptions(.{ .index = 2, .has_cache = true }).cache,
+    );
+    try std.testing.expectEqual(
+        @as(u64, 3),
+        validateLiveMountRemovedOptions(.{ .index = 3, .has_sync = true }).sync,
+    );
+    try std.testing.expectEqual(
+        @as(u64, 4),
+        validateLiveMountRemovedOptions(.{
+            .index = 4,
+            .has_cache = true,
+            .has_sync = true,
+        }).cache,
+    );
+}
+
 test "planBatchLiveMountSync requires vsock for rw mounts when validation is requested" {
     const mounts = [_]LiveMount{
         .{ .host = "/host/a", .guest = "/mnt/a", .mode = "ro", .tag = "machinen-lm0" },
@@ -3052,6 +3265,16 @@ test "planRestoreLiveMounts merges recorded mounts with overrides" {
         .{ .recorded = &recorded, .overrides = &bad },
     );
     try std.testing.expectEqualStrings("/mnt/extra", rejected.unknown_guest.?);
+}
+
+test "planStatsFileMode selects existing or allocate" {
+    const existing = planStatsFileMode(.{ .existing_path = "/tmp/caller-stats.bin" });
+    try std.testing.expectEqualStrings("existing", existing.action);
+    try std.testing.expectEqualStrings("/tmp/caller-stats.bin", existing.existing_path.?);
+
+    const allocate = planStatsFileMode(.{});
+    try std.testing.expectEqualStrings("allocate", allocate.action);
+    try std.testing.expect(allocate.existing_path == null);
 }
 
 test "planStatsFile preserves caller path or returns runtime-owned env value" {
@@ -3223,6 +3446,16 @@ test "validatePortForward rejects invalid and duplicate ports" {
             .{ .host_port = 8080, .guest_port = 3001 },
         }),
     );
+}
+
+test "planVsockMode selects existing or allocate" {
+    const existing = planVsockMode(.{ .existing_spec = "in:1978:/tmp/caller.sock" });
+    try std.testing.expectEqualStrings("existing", existing.action);
+    try std.testing.expectEqualStrings("in:1978:/tmp/caller.sock", existing.existing_spec.?);
+
+    const allocate = planVsockMode(.{});
+    try std.testing.expectEqualStrings("allocate", allocate.action);
+    try std.testing.expect(allocate.existing_spec == null);
 }
 
 test "planVsock parses existing specs and formats auto specs" {
