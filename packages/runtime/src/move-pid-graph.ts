@@ -1,13 +1,34 @@
 import { existsSync, readFileSync, readdirSync, readlinkSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
-import type {
-  NativeProcessImageArchitecture,
-  NativeProcessImageRefusal,
-  NativeProcessResource,
-} from "./native-process-image.ts";
-import type { NativeTargetFdTableEntry } from "./native-resource-translation.ts";
-import type { TargetGuestRestoreResourceRecipe } from "./target-guest-restore-loader.ts";
+export type MoveProcessArchitecture = string;
+
+export interface MoveProcessRefusal {
+  code: string;
+  message?: string;
+  detail?: Record<string, unknown>;
+}
+
+export interface MoveProcessResource {
+  kind: string;
+  fd?: number;
+  state?: string;
+  flags?: string[];
+  recipe?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface MoveTargetFdTableEntry {
+  fd: number;
+  kind?: string;
+  recipe?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface MoveTargetGuestResourceRecipe {
+  kind: string;
+  [key: string]: unknown;
+}
 
 export const MOVE_DESCRIPTOR_FORMAT_VERSION = 1 as const;
 export const MOVE_REFUSAL_CODE = "move-unproven-state-class" as const;
@@ -60,11 +81,11 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
   resourcePlan?: {
     kind: "machinen.move.resource-plan";
     source: "guest-procfs" | "host-procfs";
-    sourceArch?: NativeProcessImageArchitecture;
-    resources: NativeProcessResource[];
-    fdTableEntries: NativeTargetFdTableEntry[];
-    targetGuestResources: TargetGuestRestoreResourceRecipe[];
-    refusals: NativeProcessImageRefusal[];
+    sourceArch?: MoveProcessArchitecture;
+    resources: MoveProcessResource[];
+    fdTableEntries: MoveTargetFdTableEntry[];
+    targetGuestResources: MoveTargetGuestResourceRecipe[];
+    refusals: MoveProcessRefusal[];
     acceptedSubsets: string[];
     capture?: {
       sourceVm?: { pid: number; name?: string };
@@ -89,13 +110,6 @@ export interface MoveDescriptor extends Omit<MovePidGraph, "kind"> {
       maps?: string[];
       registers?: Record<string, unknown>;
     };
-  };
-  nativeContinuation?: {
-    kind: "machinen.move.native-continuation";
-    bundlePath: ".";
-    activeSyscallPlan: "active-syscall-plan.json";
-    state: "planned" | "refused";
-    refusals: NativeProcessImageRefusal[];
   };
 }
 

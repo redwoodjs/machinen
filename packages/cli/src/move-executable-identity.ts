@@ -1,4 +1,4 @@
-import type { MoveDescriptor, NativeProcessImageRefusal, VmHandle } from "@machinen/runtime";
+import type { MoveDescriptor, MoveProcessRefusal, VmHandle } from "@machinen/runtime";
 
 type MoveExecutablePackageIdentity = NonNullable<
   NonNullable<MoveDescriptor["resourcePlan"]>["capture"]
@@ -10,7 +10,7 @@ export interface MoveLoadTargetValidation {
   state: "ready" | "refused";
   source?: MoveExecutablePackageIdentity;
   target?: MoveExecutablePackageIdentity;
-  refusals: NativeProcessImageRefusal[];
+  refusals: MoveProcessRefusal[];
 }
 
 export async function readMoveExecutableIdentityInVm(
@@ -34,7 +34,7 @@ export async function validateMoveLoadTargetInVm(
   const refusals = [
     sameVmRefusal(vm, descriptor),
     ...moveExecutableIdentityRefusals(source, target),
-  ].filter((refusal): refusal is NativeProcessImageRefusal => refusal !== undefined);
+  ].filter((refusal): refusal is MoveProcessRefusal => refusal !== undefined);
   return { state: refusals.length === 0 ? "ready" : "refused", source, target, refusals };
 }
 
@@ -74,10 +74,7 @@ function parseMoveExecutableIdentity(
   return identity;
 }
 
-function sameVmRefusal(
-  vm: VmHandle,
-  descriptor: MoveDescriptor,
-): NativeProcessImageRefusal | undefined {
+function sameVmRefusal(vm: VmHandle, descriptor: MoveDescriptor): MoveProcessRefusal | undefined {
   if (descriptor.resourcePlan?.capture?.sourceVm?.pid !== vm.pid) {
     return undefined;
   }
@@ -91,7 +88,7 @@ function sameVmRefusal(
 function moveExecutableIdentityRefusals(
   source: MoveExecutablePackageIdentity | undefined,
   target: MoveExecutablePackageIdentity,
-): NativeProcessImageRefusal[] {
+): MoveProcessRefusal[] {
   if (!source?.packageName || !source.version) {
     return [
       {

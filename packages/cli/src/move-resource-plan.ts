@@ -1,12 +1,50 @@
-import {
-  planNativeTargetFdTable,
-  type MoveDescriptor,
-  type MovePidGraphNode,
-  type NativeProcessImageArchitecture,
-  type NativeProcessImageRefusal,
-  type NativeProcessResource,
-} from "@machinen/runtime";
 import { basename } from "node:path";
+import type {
+  MoveDescriptor,
+  MovePidGraphNode,
+  MoveProcessArchitecture,
+  MoveProcessRefusal,
+  MoveProcessResource,
+  MoveTargetFdTableEntry,
+  MoveTargetGuestResourceRecipe,
+} from "@machinen/runtime";
+
+function planMoveTargetFdTable(input: {
+  resources: MoveProcessResource[];
+  expectedFds: number[];
+  inheritedStdio: { mode: string };
+}): {
+  resources: MoveProcessResource[];
+  entries: MoveTargetFdTableEntry[];
+  targetGuestResources: MoveTargetGuestResourceRecipe[];
+  refusals: MoveProcessRefusal[];
+} {
+  void input.inheritedStdio;
+  const entries: MoveTargetFdTableEntry[] = input.resources
+    .filter(
+      (resource) => typeof resource.fd === "number" && input.expectedFds.includes(resource.fd),
+    )
+    .map((resource) => ({ fd: resource.fd!, kind: resource.kind, recipe: resource.recipe }));
+  const refusals = input.resources.flatMap((resource) => moveFdResourceRefusals(resource));
+  return { resources: input.resources, entries, targetGuestResources: [], refusals };
+}
+
+function moveFdResourceRefusals(resource: MoveProcessResource): MoveProcessRefusal[] {
+  if (resource.kind !== "socket" && resource.kind !== "raw-socket") {
+    return [];
+  }
+  const model = resource.recipe?.pingSocketModel ?? resource.recipe?.rawIcmpModel;
+  return [
+    {
+      code:
+        model === "loopback-echo-v1" || model === "loopback-raw-icmp-v1"
+          ? "target-socket-syscall-state-unsupported"
+          : "non-stdio-kernel-state-unsupported",
+      message: "move socket state remains refused until target-native sequence state is translated",
+      detail: { kind: resource.kind, fd: resource.fd, requiredModel: model ?? "socket-model" },
+    },
+  ];
+}
 
 type MoveResourcePlan = NonNullable<MoveDescriptor["resourcePlan"]>;
 
@@ -28,7 +66,7 @@ type GuestMoveNetSocket = {
 type GuestMoveResourceScan = {
   uid?: number;
   gid?: number;
-  sourceArch?: NativeProcessImageArchitecture;
+  sourceArch?: MoveProcessArchitecture;
   pingGroupRangeStart?: number;
   pingGroupRangeEnd?: number;
   safeBoundary?: { state: "sleep-timer" | "pre-send-icmp" | "refused"; detail: string };
@@ -250,7 +288,7 @@ export function buildMoveResourcePlan(
   scan: GuestMoveResourceScan,
 ): MoveResourcePlan {
   const resources = buildMoveResources(node, scan);
-  const plan = planNativeTargetFdTable({
+  const plan = planMoveTargetFdTable({
     resources,
     expectedFds: scan.fds.map((fd) => fd.fd),
     inheritedStdio: { mode: "inherit-output" },
@@ -268,8 +306,8 @@ export function buildMoveResourcePlan(
   };
 }
 
-function nativeCaptureRefusals(scan: GuestMoveResourceScan): NativeProcessImageRefusal[] {
-  const refusals: NativeProcessImageRefusal[] = [];
+function nativeCaptureRefusals(scan: GuestMoveResourceScan): MoveProcessRefusal[] {
+  const refusals: MoveProcessRefusal[] = [];
   if (scan.safeBoundary?.state !== "sleep-timer") {
     refusals.push({
       code: "active-syscall",
@@ -302,7 +340,7 @@ function moveNativeCapture(scan: GuestMoveResourceScan): MoveResourcePlan["captu
 function buildMoveResources(
   node: MovePidGraphNode,
   scan: GuestMoveResourceScan,
-): NativeProcessResource[] {
+): MoveProcessResource[] {
   return [
     { id: `pid:${node.pid}:argv`, kind: "argv", state: "captured", recipe: { argv: node.argv } },
     ...(node.cwd
@@ -324,7 +362,7 @@ function moveResourceFromGuestFd(
   node: MovePidGraphNode,
   scan: GuestMoveResourceScan,
   fd: GuestMoveFd,
-): NativeProcessResource {
+): MoveProcessResource {
   const socketInode = socketInodeFromFdTarget(fd.target);
   if (socketInode) {
     return socketMoveResource(node, scan, fd, socketInode);
@@ -332,7 +370,7 @@ function moveResourceFromGuestFd(
   return nonSocketMoveResource(node.pid, fd);
 }
 
-function nonSocketMoveResource(pid: number, fd: GuestMoveFd): NativeProcessResource {
+function nonSocketMoveResource(pid: number, fd: GuestMoveFd): MoveProcessResource {
   const base = nativeResourceBase(pid, fd);
   if (fd.target.startsWith("pipe:[")) {
     return { ...base, kind: "pipe", path: fd.target };
@@ -351,7 +389,7 @@ function socketMoveResource(
   scan: GuestMoveResourceScan,
   fd: GuestMoveFd,
   inode: string,
-): NativeProcessResource {
+): MoveProcessResource {
   const icmpSocket = scan.icmpSockets.find((socket) => socket.inode === inode);
   if (icmpSocket) {
     return {
@@ -381,7 +419,7 @@ function nativeResourceBase(
   pid: number,
   fd: GuestMoveFd,
   idSuffix = `fd:${fd.fd}`,
-): Pick<NativeProcessResource, "id" | "state" | "fd" | "flags"> {
+): Pick<MoveProcessResource, "id" | "state" | "fd" | "flags"> {
   return { id: `pid:${pid}:${idSuffix}`, state: "captured", fd: fd.fd, flags: fd.flags };
 }
 
@@ -390,31 +428,41 @@ function pingSocketRecipe(
   scan: GuestMoveResourceScan,
   socket: GuestMoveNetSocket,
 ): Record<string, unknown> | undefined {
-  const identifier = parseProcNetPort(socket.localAddress);
-  const destination = moveIcmpDestination(node, socket);
-  if (!destination || !socketQueuesEmpty(socket) || identifier === undefined) {
+  const base = icmpSocketRecipeBase(node, socket);
+  if (!base) {
     return undefined;
   }
   return {
-    pingSocketModel: destination === "127.0.0.1" ? "loopback-echo-v1" : "external-target-egress-v1",
-    family: "inet4",
+    pingSocketModel:
+      base.destination === "127.0.0.1" ? "loopback-echo-v1" : "external-target-egress-v1",
+    ...base,
     socketType: "dgram",
-    protocol: "icmp",
-    destination,
     credentialPolicy: "target-ping-group-range",
     uid: scan.uid,
     gid: scan.gid,
     pingGroupRangeStart: scan.pingGroupRangeStart,
     pingGroupRangeEnd: scan.pingGroupRangeEnd,
-    networkNamespace: destination === "127.0.0.1" ? "target-loopback" : "target-network",
-    route: destination === "127.0.0.1" ? "loopback" : "target-egress",
-    identifier,
-    inFlightPackets: "none",
-    receiveQueue: "empty",
   };
 }
 
 function rawIcmpRecipe(
+  node: MovePidGraphNode,
+  socket: GuestMoveNetSocket,
+): Record<string, unknown> | undefined {
+  const base = icmpSocketRecipeBase(node, socket);
+  if (!base) {
+    return undefined;
+  }
+  return {
+    rawIcmpModel:
+      base.destination === "127.0.0.1" ? "loopback-echo-v1" : "external-target-egress-v1",
+    ...base,
+    socketType: "raw",
+    capability: "cap-net-raw",
+  };
+}
+
+function icmpSocketRecipeBase(
   node: MovePidGraphNode,
   socket: GuestMoveNetSocket,
 ): Record<string, unknown> | undefined {
@@ -424,12 +472,9 @@ function rawIcmpRecipe(
     return undefined;
   }
   return {
-    rawIcmpModel: destination === "127.0.0.1" ? "loopback-echo-v1" : "external-target-egress-v1",
     family: "inet4",
-    socketType: "raw",
     protocol: "icmp",
     destination,
-    capability: "cap-net-raw",
     networkNamespace: destination === "127.0.0.1" ? "target-loopback" : "target-network",
     route: destination === "127.0.0.1" ? "loopback" : "target-egress",
     identifier,
@@ -486,7 +531,7 @@ function procNetAddressHost(value: string | undefined): string | undefined {
 }
 
 function acceptedMoveResourceSubsets(
-  entries: ReturnType<typeof planNativeTargetFdTable>["entries"],
+  entries: ReturnType<typeof planMoveTargetFdTable>["entries"],
 ): string[] {
   return entries.flatMap((entry) => {
     if (entry.kind === "synthetic-ping-socket") {
@@ -507,7 +552,7 @@ function acceptedMoveResourceSubsets(
   });
 }
 
-function nativeArchFromUname(value: string): NativeProcessImageArchitecture | undefined {
+function nativeArchFromUname(value: string): MoveProcessArchitecture | undefined {
   if (value === "aarch64" || value === "arm64") {
     return "arm64";
   }

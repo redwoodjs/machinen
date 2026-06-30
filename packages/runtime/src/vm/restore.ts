@@ -23,7 +23,6 @@ import debugLib from "debug";
 
 import { BootError, ErrorCode } from "../errors.ts";
 import { markPagemapsLazy } from "../lazy-pagemap.ts";
-import { crossIsaVmstateRestoreRefusal } from "../portable-machine-snapshot.ts";
 import { PhaseTimer } from "../phase-timer.ts";
 import { planRestoreImageNative } from "../native/restore-image.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
@@ -581,6 +580,10 @@ function validateVmstateTopology(vmstate: VmstateSnapshotMeta, facts: VmstateFac
         `  state: ${facts.topologyHash}`,
     );
   }
+}
+
+function crossIsaVmstateRestoreRefusal(_sourceArch: string, _targetArch: string): { code: string } {
+  return { code: "cross-isa-vmstate-restore-unsupported" };
 }
 
 function validateVmstateGuestArch(vmstate: VmstateSnapshotMeta, facts: VmstateFacts): void {

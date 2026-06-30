@@ -1,4 +1,4 @@
-import type { MoveDescriptor, NativeProcessImageRefusal, VmHandle } from "@machinen/runtime";
+import type { MoveDescriptor, MoveProcessRefusal, VmHandle } from "@machinen/runtime";
 
 import { parseGuestMoveResourceScan } from "./move-resource-plan.ts";
 
@@ -11,15 +11,13 @@ export interface MoveLoadDirectLoader {
   logPath?: string;
   capture?: unknown;
   patch?: { state: "ready" | "refused"; stdout: string; stderr: string; exitCode: number };
-  refusals: NativeProcessImageRefusal[];
+  refusals: MoveProcessRefusal[];
 }
-
-export type MoveLoadRendezvous = MoveLoadDirectLoader;
 
 export async function runMoveTargetDirectLoaderInVm(
   vm: VmHandle,
   descriptor: MoveDescriptor,
-): Promise<MoveLoadRendezvous> {
+): Promise<MoveLoadDirectLoader> {
   const executable = moveRendezvousExecutable(descriptor);
   const argv = moveRendezvousArgv(descriptor, executable);
   const command = moveRendezvousCommand(executable, argv.slice(1), descriptor);
@@ -112,7 +110,7 @@ function moveRendezvousPatchFromOutput(result: {
   stdout: string;
   stderr: string;
   exitCode: number;
-}): MoveLoadRendezvous["patch"] {
+}): MoveLoadDirectLoader["patch"] {
   const state =
     result.exitCode === 0 &&
     result.stdout.includes("PATCH\tping-rts") &&
@@ -127,9 +125,7 @@ function moveRendezvousPatchFromOutput(result: {
   };
 }
 
-function movePatchRefusals(
-  patch: MoveLoadRendezvous["patch"] | undefined,
-): NativeProcessImageRefusal[] {
+function movePatchRefusals(patch: MoveLoadDirectLoader["patch"] | undefined): MoveProcessRefusal[] {
   if (patch?.state === "ready") {
     return [];
   }
@@ -144,8 +140,8 @@ function moveRendezvousRefusals(capture: {
   safeBoundary?: { state: "sleep-timer" | "pre-send-icmp" | "refused"; detail: string };
   freeze?: { state: "ptrace-attached" | "refused"; detail: string };
   registers?: Record<string, unknown>;
-}): NativeProcessImageRefusal[] {
-  const refusals: NativeProcessImageRefusal[] = [];
+}): MoveProcessRefusal[] {
+  const refusals: MoveProcessRefusal[] = [];
   pushBoundaryRefusal(refusals, capture.safeBoundary);
   pushFreezeRefusal(refusals, capture.freeze);
   pushRegisterRefusal(refusals, capture.registers);
@@ -153,7 +149,7 @@ function moveRendezvousRefusals(capture: {
 }
 
 function pushBoundaryRefusal(
-  refusals: NativeProcessImageRefusal[],
+  refusals: MoveProcessRefusal[],
   safeBoundary: { state: "sleep-timer" | "pre-send-icmp" | "refused"; detail: string } | undefined,
 ): void {
   if (safeBoundary?.state === "sleep-timer" || safeBoundary?.state === "pre-send-icmp") {
@@ -171,7 +167,7 @@ function pushBoundaryRefusal(
 }
 
 function pushFreezeRefusal(
-  refusals: NativeProcessImageRefusal[],
+  refusals: MoveProcessRefusal[],
   freeze: { state: "ptrace-attached" | "refused"; detail: string } | undefined,
 ): void {
   if (freeze?.state === "ptrace-attached") {
@@ -185,7 +181,7 @@ function pushFreezeRefusal(
 }
 
 function pushRegisterRefusal(
-  refusals: NativeProcessImageRefusal[],
+  refusals: MoveProcessRefusal[],
   registers: Record<string, unknown> | undefined,
 ): void {
   if (registers) {
@@ -204,8 +200,8 @@ function loaderRefused(
   executable: string,
   argv: string[],
   parsed: { pid?: number; logPath?: string; captureRows: string[] },
-  refusal: NativeProcessImageRefusal,
-): MoveLoadRendezvous {
+  refusal: MoveProcessRefusal,
+): MoveLoadDirectLoader {
   return {
     state: "refused",
     strategy: "target-original-ping-direct-loader",
@@ -218,14 +214,12 @@ function loaderRefused(
 }
 
 function loaderRefusal(
-  code: NativeProcessImageRefusal["code"],
+  code: MoveProcessRefusal["code"],
   message: string,
   detail: Record<string, unknown>,
-): NativeProcessImageRefusal {
+): MoveProcessRefusal {
   return { code, message, detail: { ...detail, boundary: "target-original-ping-direct-loader" } };
 }
-
-export const runMoveTargetRendezvousInVm = runMoveTargetDirectLoaderInVm;
 
 function parsePositiveInteger(value: string): number | undefined {
   const parsed = Number(value);

@@ -69,24 +69,7 @@ const HOST_OR_INTEGRATION_GLUE_MODULES = new Set([
   "winsize.ts",
 ]);
 
-const PROOF_OR_POLICY_MODULE_PATTERNS = [
-  /^architecture-portable-snapshot-gauntlet\.ts$/,
-  /^guest-checkpoint-substrate\.ts$/,
-  /^lazy-pagemap\.ts$/,
-  /^level5-runtime-adapter\.ts$/,
-  /^move-pid-graph\.ts$/,
-  /^native-[^/]+\.ts$/,
-  /^nested-virtualization-stretch-proof\.ts$/,
-  /^node-level5-[^/]+\.ts$/,
-  /^node-proper-level5-[^/]+\.ts$/,
-  /^opposite-isa-vm-execution\.ts$/,
-  /^portable-machine-[^/]+\.ts$/,
-  /^portable-snapshot-guest-checkpoint-composition\.ts$/,
-  /^product-claim-registry\.ts$/,
-  /^runtime-confidence-profile\.ts$/,
-  /^stateful-database-restore\.ts$/,
-  /^target-guest-[^/]+\.ts$/,
-];
+const PROOF_OR_POLICY_MODULE_PATTERNS = [/^lazy-pagemap\.ts$/, /^move-pid-graph\.ts$/];
 
 const RUNTIME_TS_ROLE_RULES = [
   ["native-command-wrapper", (rel) => rel.startsWith("native/")],
