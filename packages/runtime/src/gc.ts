@@ -11,8 +11,8 @@
 //
 // Pid recycling is handled by `validatePid` (see pid-validate.ts).
 
-import { existsSync, rmdirSync, rmSync, statSync, unlinkSync } from "node:fs";
 import debugLib from "debug";
+import { cleanupPathNative } from "./native/gc.ts";
 import { validatePid, type PidStatus } from "./pid-validate.ts";
 import { listAll, removeEntry, type RegistryEntry } from "./registry.ts";
 
@@ -107,22 +107,11 @@ function reapPath(
   removedPaths: string[],
   failedPaths: string[],
 ): void {
-  if (!existsSync(path)) {
-    // Treat already-gone as success — the goal is that the path
-    // doesn't exist after gc runs.
-    return;
-  }
-  if (dryRun) {
+  const result = cleanupPathNative(path, dryRun);
+  if (result.removed) {
     removedPaths.push(path);
-    return;
   }
-  recordRmPath(path, removedPaths, failedPaths);
-}
-
-function recordRmPath(path: string, removedPaths: string[], failedPaths: string[]): void {
-  if (rmPath(path)) {
-    removedPaths.push(path);
-  } else {
+  if (result.failed) {
     failedPaths.push(path);
   }
 }
@@ -130,23 +119,5 @@ function recordRmPath(path: string, removedPaths: string[], failedPaths: string[
 function removeRegistryEntry(entry: RegistryEntry, dryRun: boolean): void {
   if (!dryRun) {
     removeEntry(entry.pid);
-  }
-}
-
-function rmPath(p: string): boolean {
-  try {
-    const st = statSync(p);
-    if (st.isDirectory()) {
-      if (p.startsWith("/sys/fs/cgroup/")) {
-        rmdirSync(p);
-      } else {
-        rmSync(p, { recursive: true, force: true });
-      }
-    } else {
-      unlinkSync(p);
-    }
-    return true;
-  } catch {
-    return false;
   }
 }

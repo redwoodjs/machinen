@@ -3,9 +3,8 @@
 // `MACHINEN_STATS_FILE`, mmaps it MAP_SHARED, and atomically updates
 // three u64 LE counters: two from the balloon handler (reported /
 // inflated bytes) and one from a Darwin-only sampler thread that
-// polls this VMM's `phys_footprint`. The host reads those bytes via
-// plain `readFileSync` — the OS's page cache already gives us a
-// coherent view of the mmap'd region.
+// polls this VMM's `phys_footprint`. The native runtime helper reads
+// the same layout so the host-side wire parsing stays in native code.
 //
 // Wire layout (must match `packages/microvm/src/stats.zig`):
 //   offset  0:  u64 LE  bytesReported           (free-page-reporting reclaim)
@@ -16,7 +15,7 @@
 // across compiler revisions; bumping it requires updating both files
 // together.
 
-import { readFileSync } from "node:fs";
+import { readBalloonStatsNative } from "./native/balloon-stats.ts";
 
 export const STATS_FILE_SIZE = 24;
 
@@ -52,18 +51,5 @@ export interface BalloonCounters {
  *   - it's unreadable (permissions, gone between stat and read).
  */
 export function readBalloonStats(path: string): BalloonCounters | null {
-  let buf: Buffer;
-  try {
-    buf = readFileSync(path);
-  } catch {
-    return null;
-  }
-  if (buf.length < STATS_FILE_SIZE) {
-    return null;
-  }
-  return {
-    bytesReported: Number(buf.readBigUInt64LE(0)),
-    bytesInflated: Number(buf.readBigUInt64LE(8)),
-    hostPhysFootprintBytes: Number(buf.readBigUInt64LE(16)),
-  };
+  return readBalloonStatsNative(path);
 }

@@ -1,8 +1,8 @@
 // Host-side probes and controls used by the TypeScript runtime.
 //
 // This file keeps OS-specific, synchronous host operations in the native
-// helper: memory/RSS reads, pid identity checks, nested-virt probes, and Linux
-// cgroup CPU setup.
+// helper: memory/RSS reads, pid identity checks, nested-virt probes, balloon
+// stats reads, GC cleanup-path removal, and Linux cgroup CPU setup.
 // The command files translate JSON protocol requests into these functions;
 // this module owns the actual platform behavior so the TS layer stays small.
 
@@ -68,6 +68,17 @@ pub const NestedVirtResult = struct {
         assert(@sizeOf(NestedVirtResult) > 0);
         if (self.reason) |reason| allocator.free(reason);
     }
+};
+
+pub const BalloonStats = struct {
+    bytes_reported: u64,
+    bytes_inflated: u64,
+    host_phys_footprint_bytes: u64,
+};
+
+pub const CleanupPathResult = struct {
+    removed: bool,
+    failed: bool,
 };
 
 pub const CpuCgroupOptions = struct {
@@ -157,6 +168,55 @@ pub fn probeNestedVirtualization(
     const observation = observed orelse try observeNestedVirtualizationHost(allocator, io);
     defer if (observed == null) deinitObservedNestedVirtualizationHost(allocator, observation);
     return evaluateNestedVirtualization(allocator, observation);
+}
+
+pub fn readBalloonStats(io: std.Io, path: []const u8) ?BalloonStats {
+    assert(path.len > 0);
+
+    var file = std.Io.Dir.cwd().openFile(
+        io,
+        path,
+        .{ .allow_directory = false },
+    ) catch return null;
+    defer file.close(io);
+    var buf: [24]u8 = undefined;
+    const n = file.readStreaming(io, &.{buf[0..]}) catch return null;
+    if (n < buf.len) return null;
+    return .{
+        .bytes_reported = std.mem.readInt(u64, buf[0..8], .little),
+        .bytes_inflated = std.mem.readInt(u64, buf[8..16], .little),
+        .host_phys_footprint_bytes = std.mem.readInt(u64, buf[16..24], .little),
+    };
+}
+
+pub fn cleanupPath(io: std.Io, path: []const u8, dry_run: bool) CleanupPathResult {
+    assert(path.len > 0);
+
+    const st = std.Io.Dir.cwd().statFile(
+        io,
+        path,
+        .{ .follow_symlinks = false },
+    ) catch return .{ .removed = false, .failed = false };
+    if (dry_run) return .{ .removed = true, .failed = false };
+    if (st.kind == .directory) {
+        if (std.mem.startsWith(u8, path, DEFAULT_CGROUP_PARENT ++ "/")) {
+            std.Io.Dir.cwd().deleteDir(io, path) catch return .{
+                .removed = false,
+                .failed = true,
+            };
+        } else {
+            std.Io.Dir.cwd().deleteTree(io, path) catch return .{
+                .removed = false,
+                .failed = true,
+            };
+        }
+    } else {
+        std.Io.Dir.cwd().deleteFile(io, path) catch return .{
+            .removed = false,
+            .failed = true,
+        };
+    }
+    return .{ .removed = true, .failed = false };
 }
 
 fn observeNestedVirtualizationHost(
@@ -1016,6 +1076,75 @@ fn tmpRootAbs(allocator: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u
     const cwd = try std.process.currentPathAlloc(std.testing.io, allocator);
     defer allocator.free(cwd);
     return std.fs.path.join(allocator, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path });
+}
+
+test "readBalloonStats decodes 24-byte little-endian counters" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var buf: [24]u8 = undefined;
+    std.mem.writeInt(u64, buf[0..8], 0x1122_3344_5566_7788, .little);
+    std.mem.writeInt(u64, buf[8..16], 0x99aa_bbcc_ddee_ff00, .little);
+    std.mem.writeInt(u64, buf[16..24], 0x0011_2233_4455_6677, .little);
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "stats.bin", .data = &buf });
+    const root = try tmpRootAbs(std.testing.allocator, &tmp);
+    defer std.testing.allocator.free(root);
+    const path = try std.fs.path.join(std.testing.allocator, &.{ root, "stats.bin" });
+    defer std.testing.allocator.free(path);
+
+    const stats = readBalloonStats(std.testing.io, path).?;
+    try std.testing.expectEqual(@as(u64, 0x1122_3344_5566_7788), stats.bytes_reported);
+    try std.testing.expectEqual(@as(u64, 0x99aa_bbcc_ddee_ff00), stats.bytes_inflated);
+    try std.testing.expectEqual(@as(u64, 0x0011_2233_4455_6677), stats.host_phys_footprint_bytes);
+}
+
+test "readBalloonStats returns null for missing or short files" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "short.bin", .data = "too short" });
+    const root = try tmpRootAbs(std.testing.allocator, &tmp);
+    defer std.testing.allocator.free(root);
+    const short_path = try std.fs.path.join(std.testing.allocator, &.{ root, "short.bin" });
+    defer std.testing.allocator.free(short_path);
+    const missing_path = try std.fs.path.join(std.testing.allocator, &.{ root, "missing.bin" });
+    defer std.testing.allocator.free(missing_path);
+
+    try std.testing.expect(readBalloonStats(std.testing.io, short_path) == null);
+    try std.testing.expect(readBalloonStats(std.testing.io, missing_path) == null);
+}
+
+test "cleanupPath removes files and directories" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "file.txt", .data = "x" });
+    try tmp.dir.createDir(std.testing.io, "dir", .default_dir);
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "dir/nested.txt", .data = "y" });
+    const root = try tmpRootAbs(std.testing.allocator, &tmp);
+    defer std.testing.allocator.free(root);
+    const file_path = try std.fs.path.join(std.testing.allocator, &.{ root, "file.txt" });
+    defer std.testing.allocator.free(file_path);
+    const dir_path = try std.fs.path.join(std.testing.allocator, &.{ root, "dir" });
+    defer std.testing.allocator.free(dir_path);
+
+    try std.testing.expectEqual(CleanupPathResult{ .removed = true, .failed = false }, cleanupPath(std.testing.io, file_path, false));
+    try std.testing.expectEqual(CleanupPathResult{ .removed = true, .failed = false }, cleanupPath(std.testing.io, dir_path, false));
+    try std.testing.expect(!existsPath(std.testing.io, file_path));
+    try std.testing.expect(!existsPath(std.testing.io, dir_path));
+}
+
+test "cleanupPath dry-run and missing paths do not touch disk" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "file.txt", .data = "x" });
+    const root = try tmpRootAbs(std.testing.allocator, &tmp);
+    defer std.testing.allocator.free(root);
+    const file_path = try std.fs.path.join(std.testing.allocator, &.{ root, "file.txt" });
+    defer std.testing.allocator.free(file_path);
+    const missing_path = try std.fs.path.join(std.testing.allocator, &.{ root, "missing.txt" });
+    defer std.testing.allocator.free(missing_path);
+
+    try std.testing.expectEqual(CleanupPathResult{ .removed = true, .failed = false }, cleanupPath(std.testing.io, file_path, true));
+    try std.testing.expect(existsPath(std.testing.io, file_path));
+    try std.testing.expectEqual(CleanupPathResult{ .removed = false, .failed = false }, cleanupPath(std.testing.io, missing_path, false));
 }
 
 test "applyCpuCgroup returns explicit unsupported outside Linux" {

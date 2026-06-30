@@ -3,11 +3,36 @@
 // LE counters into a 24-byte file; the host reader walks the same
 // bytes. This test pretends to be the Zig writer.
 
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { readBalloonStats, STATS_FILE_SIZE } from "../balloon-stats.ts";
+
+let helperTmp: string | undefined;
+let previousHelper: string | undefined;
+
+beforeAll(() => {
+  helperTmp = mkdtempSync(join(tmpdir(), "machinen-balloon-stats-test-"));
+  execFileSync("zig", ["build", "--prefix", helperTmp], {
+    cwd: join(process.cwd(), "packages", "runtime/native"),
+    stdio: "pipe",
+  });
+  previousHelper = process.env.MACHINEN_RUNTIME_HELPER;
+  process.env.MACHINEN_RUNTIME_HELPER = join(helperTmp, "bin", "machinen-runtime-helper");
+});
+
+afterAll(() => {
+  if (previousHelper === undefined) {
+    delete process.env.MACHINEN_RUNTIME_HELPER;
+  } else {
+    process.env.MACHINEN_RUNTIME_HELPER = previousHelper;
+  }
+  if (helperTmp) {
+    rmSync(helperTmp, { recursive: true, force: true });
+  }
+});
 
 describe("readBalloonStats", () => {
   let dir: string;

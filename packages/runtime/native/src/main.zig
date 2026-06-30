@@ -1,5 +1,7 @@
 const std = @import("std");
 const protocol = @import("protocol.zig");
+const balloon_stats = @import("commands/balloon_stats.zig");
+const cleanup_path = @import("commands/cleanup_path.zig");
 const cpu_cgroup_apply = @import("commands/cpu_cgroup_apply.zig");
 const cpu_cgroup_remove = @import("commands/cpu_cgroup_remove.zig");
 const host_memory = @import("commands/host_memory.zig");
@@ -22,6 +24,8 @@ const assert = std.debug.assert;
 var g_io: std.Io = undefined;
 
 pub fn main(init: std.process.Init) !u8 {
+    assert(balloon_stats.name.len > 0);
+    assert(cleanup_path.name.len > 0);
     assert(cpu_cgroup_apply.name.len > 0);
     assert(cpu_cgroup_remove.name.len > 0);
     assert(host_memory.name.len > 0);
@@ -75,6 +79,12 @@ fn runHostCommand(
 ) !?u8 {
     assert(command.len > 0);
 
+    if (std.mem.eql(u8, command, balloon_stats.name)) {
+        if (try rejectExtraArgs(it, balloon_stats.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try balloon_stats.run(allocator, g_io));
+    }
     if (std.mem.eql(u8, command, cpu_cgroup_apply.name)) {
         if (try rejectExtraArgs(it, cpu_cgroup_apply.name)) {
             return @intFromEnum(protocol.Exit.usage);
@@ -127,6 +137,12 @@ fn runFilesystemCommand(
 ) !?u8 {
     assert(command.len > 0);
 
+    if (std.mem.eql(u8, command, cleanup_path.name)) {
+        if (try rejectExtraArgs(it, cleanup_path.name)) {
+            return @intFromEnum(protocol.Exit.usage);
+        }
+        return @intFromEnum(try cleanup_path.run(allocator, g_io));
+    }
     if (std.mem.eql(u8, command, mkinitramfs.name)) {
         if (try rejectExtraArgs(it, mkinitramfs.name)) {
             return @intFromEnum(protocol.Exit.usage);
@@ -207,6 +223,8 @@ fn isHelp(command: []const u8) bool {
 }
 
 fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
+    assert(balloon_stats.name.len > 0);
+    assert(cleanup_path.name.len > 0);
     assert(cpu_cgroup_apply.name.len > 0);
     assert(cpu_cgroup_remove.name.len > 0);
     assert(host_memory.name.len > 0);
@@ -228,6 +246,8 @@ fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
         .ok = true,
         .protocolVersion = @as(u8, protocol.version),
         .commands = .{
+            balloon_stats.name,
+            cleanup_path.name,
             cpu_cgroup_apply.name,
             cpu_cgroup_remove.name,
             host_memory.name,
