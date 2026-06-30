@@ -1,27 +1,17 @@
-import { callRuntimeHelper } from "../native-helper.ts";
-import { isNativeBootPlanResult } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
-export function planBootVmmEnvNative(input: {
+type VmmEnvInput = {
   hostEnv: Record<string, string | undefined>;
   overrides?: Record<string, string>;
-}): Record<string, string> {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      vmmEnvBase: definedStringRecord(input.hostEnv),
-      vmmEnvOverrides: input.overrides ?? {},
-    },
-    isData: isNativeBootPlanResult,
-  }).vmmEnv;
-}
+};
+
+export const planBootVmmEnvNative = defineBootPlanProjection<VmmEnvInput, Record<string, string>>({
+  data: (input) => ({
+    vmmEnvBase: definedStringRecord(input.hostEnv),
+    vmmEnvOverrides: input.overrides ?? {},
+  }),
+  output: (plan) => plan.vmmEnv,
+});
 
 function definedStringRecord(input: Record<string, string | undefined>): Record<string, string> {
   const out: Record<string, string> = {};

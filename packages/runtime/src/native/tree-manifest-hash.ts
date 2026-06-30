@@ -1,19 +1,18 @@
 import type { ErrorCode } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
+import { defineRuntimeCommand } from "./runtime-command.ts";
 
 interface TreeManifestHashData {
   hash: string;
 }
 
-export function treeManifestHashNative(root: string): string {
-  return callRuntimeHelper({
-    command: "tree-manifest-hash",
-    data: { root },
-    errorCode: "BOOT_MOUNTDISK_TOOL_MISSING",
-    isData: isTreeManifestHashData,
-    mapFailure: mapTreeManifestHashFailure,
-  }).hash;
-}
+export const treeManifestHashNative = defineRuntimeCommand<string, TreeManifestHashData, string>({
+  command: "tree-manifest-hash",
+  errorCode: "BOOT_MOUNTDISK_TOOL_MISSING",
+  data: (root) => ({ root }),
+  output: (response) => response.hash,
+  mapFailure: mapTreeManifestHashFailure,
+  isData: isTreeManifestHashData,
+});
 
 function mapTreeManifestHashFailure(error: {
   code: string;

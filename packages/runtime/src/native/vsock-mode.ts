@@ -1,20 +1,7 @@
-import { callRuntimeHelper } from "../native-helper.ts";
-import { isNativeBootPlanResult, type VsockModePlan } from "./boot-plan-schema.ts";
+import { type VsockModePlan } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
-export function planBootVsockModeNative(existingSpec: string | undefined): VsockModePlan {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      existingVsockSpec: existingSpec ?? null,
-    },
-    isData: isNativeBootPlanResult,
-  }).vsockMode;
-}
+export const planBootVsockModeNative = defineBootPlanProjection<string | undefined, VsockModePlan>({
+  data: (existingSpec) => ({ existingVsockSpec: existingSpec ?? null }),
+  output: (plan) => plan.vsockMode,
+});

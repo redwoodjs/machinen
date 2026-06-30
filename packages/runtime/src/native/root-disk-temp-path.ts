@@ -1,33 +1,29 @@
-import { callRuntimeHelper } from "../native-helper.ts";
 import { isNativeBootPlanResult, type NativeBootPlanResult } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
 type RootDiskTempPathResult = NativeBootPlanResult & { rootDiskTempPath: string };
 
-export function planBootRootDiskTempPathNative(input: {
+type RootDiskTempPathInput = {
   kind: "restore" | "cached";
   tmpDir: string;
   pid: number;
   nonce: string;
-}): string {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      rootDiskTempKind: input.kind,
-      rootDiskTempDir: input.tmpDir,
-      rootDiskTempPid: String(input.pid),
-      rootDiskTempNonce: input.nonce,
-    },
-    isData: isRootDiskTempPathResult,
-  }).rootDiskTempPath;
-}
+};
+
+export const planBootRootDiskTempPathNative = defineBootPlanProjection<
+  RootDiskTempPathInput,
+  string,
+  RootDiskTempPathResult
+>({
+  data: (input) => ({
+    rootDiskTempKind: input.kind,
+    rootDiskTempDir: input.tmpDir,
+    rootDiskTempPid: String(input.pid),
+    rootDiskTempNonce: input.nonce,
+  }),
+  output: (plan) => plan.rootDiskTempPath,
+  isData: isRootDiskTempPathResult,
+});
 
 function isRootDiskTempPathResult(value: unknown): value is RootDiskTempPathResult {
   if (!isNativeBootPlanResult(value)) {

@@ -1,5 +1,5 @@
-import { callRuntimeHelper } from "../native-helper.ts";
 import { isNativeBootPlanResult, type NativeBootPlanResult } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
 type StatsFileTempModePlan = {
   action: "existing" | "reuse" | "allocate";
@@ -11,33 +11,23 @@ type StatsFileTempModeResult = NativeBootPlanResult & {
   statsFileTempMode: StatsFileTempModePlan;
 };
 
-export function planBootStatsFileTempModeNative(input: {
+type StatsFileTempModeInput = {
   existingPath?: string;
   vsockTempDir?: string;
-}): StatsFileTempModePlan {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      ...baseStatsFileModeData(input),
-      statsFileVsockTempDir: input.vsockTempDir ?? null,
-    },
-    isData: isStatsFileTempModeResult,
-  }).statsFileTempMode;
-}
+};
 
-function baseStatsFileModeData(input: { existingPath?: string }) {
-  return {
-    memoryMib: null,
-    resourcesMemory: null,
-    autoMemoryMib: null,
-    hostTotalBytes: null,
-    vmmMemoryPreset: true,
-    hasImage: false,
-    hasCmd: false,
-    rootDisk: "false",
+export const planBootStatsFileTempModeNative = defineBootPlanProjection<
+  StatsFileTempModeInput,
+  StatsFileTempModePlan,
+  StatsFileTempModeResult
+>({
+  data: (input) => ({
     existingStatsFile: input.existingPath ?? null,
-  };
-}
+    statsFileVsockTempDir: input.vsockTempDir ?? null,
+  }),
+  output: (plan) => plan.statsFileTempMode,
+  isData: isStatsFileTempModeResult,
+});
 
 function isStatsFileTempModeResult(value: unknown): value is StatsFileTempModeResult {
   if (!isNativeBootPlanResult(value)) {

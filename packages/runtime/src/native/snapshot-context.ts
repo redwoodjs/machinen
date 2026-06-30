@@ -1,6 +1,6 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
-import { isNativeBootPlanResult, type PlannedLiveMount } from "./boot-plan-schema.ts";
+import { type PlannedLiveMount } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
 type SnapshotMountDiskInput = { guest: string; lowerPath: string; upperPath: string };
 type SnapshotVmstateInput = {
@@ -10,54 +10,56 @@ type SnapshotVmstateInput = {
   checkpointSequence: number;
 };
 
-export function planBootSnapshotContextNative(input: {
+type SnapshotContextInput = {
   mountDisk?: SnapshotMountDiskInput;
   liveMounts: ReadonlyArray<PlannedLiveMount>;
   vmstate: SnapshotVmstateInput;
-}): {
+};
+
+type SnapshotContextPlan = {
   mountDisk?: SnapshotMountDiskInput;
   liveMounts?: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
   vmstateChain?: { chainId: string; parentDir?: string; sequence: number };
-} {
-  const plan = callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      snapshotMountGuest: input.mountDisk?.guest ?? null,
-      snapshotMountLowerPath: input.mountDisk?.lowerPath ?? null,
-      snapshotMountUpperPath: input.mountDisk?.upperPath ?? null,
-      snapshotLiveMounts: [...input.liveMounts],
-      snapshotVmstatePath: input.vmstate.statePath ?? null,
-      snapshotVmstateChainId: input.vmstate.chainId,
-      snapshotVmstateCheckpointParent: input.vmstate.checkpointParent ?? null,
-      snapshotVmstateCheckpointSequence: String(input.vmstate.checkpointSequence),
-    },
-    errorCode: "BOOT_SNAPSHOT_NOT_FOUND",
-    makeError: snapshotContextPlanError,
-    isData: isNativeBootPlanResult,
-  }).snapshotContext;
-  return {
-    mountDisk: plan.mountDisk ?? undefined,
-    liveMounts: plan.liveMounts.length > 0 ? plan.liveMounts : undefined,
-    vmstateChain: plan.vmstateChain
+};
+
+export const planBootSnapshotContextNative = defineBootPlanProjection<
+  SnapshotContextInput,
+  SnapshotContextPlan
+>({
+  errorCode: "BOOT_SNAPSHOT_NOT_FOUND",
+  makeError: snapshotContextPlanError,
+  data: snapshotContextData,
+  output: (plan) => ({
+    mountDisk: plan.snapshotContext.mountDisk ?? undefined,
+    liveMounts:
+      plan.snapshotContext.liveMounts.length > 0 ? plan.snapshotContext.liveMounts : undefined,
+    vmstateChain: plan.snapshotContext.vmstateChain
       ? {
-          chainId: plan.vmstateChain.chainId,
-          parentDir: plan.vmstateChain.parentDir ?? undefined,
-          sequence: plan.vmstateChain.sequence,
+          chainId: plan.snapshotContext.vmstateChain.chainId,
+          parentDir: plan.snapshotContext.vmstateChain.parentDir ?? undefined,
+          sequence: plan.snapshotContext.vmstateChain.sequence,
         }
       : undefined,
+  }),
+});
+
+function snapshotContextData(input: SnapshotContextInput): Record<string, unknown> {
+  return {
+    snapshotMountGuest: input.mountDisk?.guest ?? null,
+    snapshotMountLowerPath: input.mountDisk?.lowerPath ?? null,
+    snapshotMountUpperPath: input.mountDisk?.upperPath ?? null,
+    snapshotLiveMounts: [...input.liveMounts],
+    snapshotVmstatePath: input.vmstate.statePath ?? null,
+    snapshotVmstateChainId: input.vmstate.chainId,
+    snapshotVmstateCheckpointParent: input.vmstate.checkpointParent ?? null,
+    snapshotVmstateCheckpointSequence: String(input.vmstate.checkpointSequence),
   };
 }
 
-const snapshotContextPlanError = (
+function snapshotContextPlanError(
   code: ErrorCode,
   message: string,
   opts?: MachinenErrorOptions,
-): Error => new BootError(code, message, opts);
+): Error {
+  return new BootError(code, message, opts);
+}

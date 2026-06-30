@@ -1,16 +1,14 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
+import { defineRuntimeCommand } from "./runtime-command.ts";
 import type { VmstateFacts } from "../vm/vmstate-metadata.ts";
 
-export function readVmstateFactsNative(path: string): VmstateFacts {
-  return callRuntimeHelper({
-    command: "vmstate-facts",
-    data: { path },
-    errorCode: "BOOT_SNAPSHOT_NOT_FOUND",
-    makeError: vmstateFactsError,
-    isData: isVmstateFacts,
-  });
-}
+export const readVmstateFactsNative = defineRuntimeCommand<string, VmstateFacts>({
+  command: "vmstate-facts",
+  errorCode: "BOOT_SNAPSHOT_NOT_FOUND",
+  data: (path) => ({ path }),
+  makeError: vmstateFactsError,
+  isData: isVmstateFacts,
+});
 
 function isVmstateFacts(value: unknown): value is VmstateFacts {
   if (!value || typeof value !== "object") {
@@ -42,5 +40,6 @@ function isOptionalString(value: unknown): value is string | undefined {
   return value === undefined || typeof value === "string";
 }
 
-const vmstateFactsError = (code: ErrorCode, message: string, opts?: MachinenErrorOptions): Error =>
-  new BootError(code, message, opts);
+function vmstateFactsError(code: ErrorCode, message: string, opts?: MachinenErrorOptions): Error {
+  return new BootError(code, message, opts);
+}

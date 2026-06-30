@@ -1,35 +1,33 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
-import { isNativeBootPlanResult, type BootRootDiskMode } from "./boot-plan-schema.ts";
+import { type BootRootDiskMode } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
-export function planBootRootDiskModeNative(input: {
+type RootDiskModeInput = {
   rootDisk?: boolean | string;
   restorePath?: string;
-}): BootRootDiskMode {
-  const plan = callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: input.rootDisk === true,
-      hasCmd: false,
-      rootDiskOptionFalse: input.rootDisk === false,
-      rootDiskOptionTrue: input.rootDisk === true,
-      rootDiskOptionPath: typeof input.rootDisk === "string" ? input.rootDisk : null,
-      rootDiskRestorePath: input.restorePath ?? null,
-    },
-    errorCode: "BOOT_VMM_MISSING",
-    makeError: rootDiskModePlanError,
-    isData: isNativeBootPlanResult,
-  });
-  return plan.rootDiskMode;
-}
+};
 
-const rootDiskModePlanError = (
+export const planBootRootDiskModeNative = defineBootPlanProjection<
+  RootDiskModeInput,
+  BootRootDiskMode
+>({
+  errorCode: "BOOT_VMM_MISSING",
+  makeError: rootDiskModePlanError,
+  data: (input) => ({
+    rootDisk: "unset",
+    hasImage: input.rootDisk === true,
+    rootDiskOptionFalse: input.rootDisk === false,
+    rootDiskOptionTrue: input.rootDisk === true,
+    rootDiskOptionPath: typeof input.rootDisk === "string" ? input.rootDisk : null,
+    rootDiskRestorePath: input.restorePath ?? null,
+  }),
+  output: (plan) => plan.rootDiskMode,
+});
+
+function rootDiskModePlanError(
   code: ErrorCode,
   message: string,
   opts?: MachinenErrorOptions,
-): Error => new BootError(code, message, opts);
+): Error {
+  return new BootError(code, message, opts);
+}

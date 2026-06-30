@@ -1,5 +1,5 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
+import { defineRuntimeCommand } from "./runtime-command.ts";
 
 interface HostRssTarget {
   pid: number;
@@ -15,15 +15,18 @@ interface HostRssData {
   readings: HostRssReading[];
 }
 
-export function hostRssNative(targets: readonly HostRssTarget[]): HostRssReading[] {
-  return callRuntimeHelper({
-    command: "host-rss",
-    data: { targets },
-    errorCode: "BOOT_PACK_FAILED",
-    makeError: hostRssError,
-    isData: isHostRssData,
-  }).readings;
-}
+export const hostRssNative = defineRuntimeCommand<
+  readonly HostRssTarget[],
+  HostRssData,
+  HostRssReading[]
+>({
+  command: "host-rss",
+  errorCode: "BOOT_PACK_FAILED",
+  data: (targets) => ({ targets }),
+  output: (response) => response.readings,
+  makeError: hostRssError,
+  isData: isHostRssData,
+});
 
 function hostRssError(code: ErrorCode, message: string, opts?: MachinenErrorOptions): Error {
   return new BootError(code, message, opts);

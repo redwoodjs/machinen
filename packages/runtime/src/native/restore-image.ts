@@ -1,6 +1,6 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
 import { isNativeBootPlanResult, type NativeBootPlanResult } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
 type RestoreImagePlan = {
   path: string | null;
@@ -11,32 +11,32 @@ type RestoreImageNativeData = NativeBootPlanResult & {
   restoreImage: RestoreImagePlan;
 };
 
-export function planRestoreImageNative(input: {
+type RestoreImageInput = {
   explicitPath?: string;
   explicitExists?: boolean;
   metaSourcePath?: string;
   metaSourceExists?: boolean;
-}): RestoreImagePlan {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      restoreImageExplicitPath: input.explicitPath ?? null,
-      restoreImageExplicitExists: input.explicitExists ?? null,
-      restoreImageMetaSourcePath: input.metaSourcePath ?? null,
-      restoreImageMetaSourceExists: input.metaSourceExists ?? null,
-    },
-    errorCode: "BOOT_IMAGE_NOT_FOUND",
-    makeError: restoreImagePlanError,
-    isData: isRestoreImageData,
-  }).restoreImage;
+};
+
+export const planRestoreImageNative = defineBootPlanProjection<
+  RestoreImageInput,
+  RestoreImagePlan,
+  RestoreImageNativeData
+>({
+  errorCode: "BOOT_IMAGE_NOT_FOUND",
+  data: restoreImageRequestData,
+  output: (response) => response.restoreImage,
+  isData: isRestoreImageData,
+  makeError: restoreImagePlanError,
+});
+
+function restoreImageRequestData(input: RestoreImageInput): Record<string, unknown> {
+  return {
+    restoreImageExplicitPath: input.explicitPath ?? null,
+    restoreImageExplicitExists: input.explicitExists ?? null,
+    restoreImageMetaSourcePath: input.metaSourcePath ?? null,
+    restoreImageMetaSourceExists: input.metaSourceExists ?? null,
+  };
 }
 
 function isRestoreImageData(value: unknown): value is RestoreImageNativeData {
@@ -64,8 +64,10 @@ function isRestoreImageError(value: unknown): value is RestoreImagePlan["error"]
   );
 }
 
-const restoreImagePlanError = (
+function restoreImagePlanError(
   code: ErrorCode,
   message: string,
   opts?: MachinenErrorOptions,
-): Error => new BootError(code, message, opts);
+): Error {
+  return new BootError(code, message, opts);
+}

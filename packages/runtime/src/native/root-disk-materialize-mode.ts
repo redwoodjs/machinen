@@ -1,32 +1,28 @@
-import { callRuntimeHelper } from "../native-helper.ts";
 import { isNativeBootPlanResult, type NativeBootPlanResult } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
 type RootDiskMaterializeModePlan = { action: "restore" | "caller" | "cached" };
 type RootDiskMaterializeModeResult = NativeBootPlanResult & {
   rootDiskMaterializeMode: RootDiskMaterializeModePlan;
 };
 
-export function planBootRootDiskMaterializeModeNative(input: {
+type RootDiskMaterializeModeInput = {
   restorePath?: string;
   callerPath?: string;
-}): RootDiskMaterializeModePlan {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      rootDiskMaterializeRestorePath: input.restorePath ?? null,
-      rootDiskMaterializeCallerPath: input.callerPath ?? null,
-    },
-    isData: isRootDiskMaterializeModeResult,
-  }).rootDiskMaterializeMode;
-}
+};
+
+export const planBootRootDiskMaterializeModeNative = defineBootPlanProjection<
+  RootDiskMaterializeModeInput,
+  RootDiskMaterializeModePlan,
+  RootDiskMaterializeModeResult
+>({
+  data: (input) => ({
+    rootDiskMaterializeRestorePath: input.restorePath ?? null,
+    rootDiskMaterializeCallerPath: input.callerPath ?? null,
+  }),
+  output: (plan) => plan.rootDiskMaterializeMode,
+  isData: isRootDiskMaterializeModeResult,
+});
 
 function isRootDiskMaterializeModeResult(value: unknown): value is RootDiskMaterializeModeResult {
   if (!isNativeBootPlanResult(value)) {

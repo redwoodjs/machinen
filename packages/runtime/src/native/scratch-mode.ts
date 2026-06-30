@@ -1,32 +1,25 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
-import { isNativeBootPlanResult } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
 type ScratchModePlan = "false" | "path" | "auto";
 
-export function planBootScratchModeNative(snapshot: string | false | undefined): ScratchModePlan {
-  const plan = callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      scratchOptionFalse: snapshot === false,
-      scratchOptionPath: typeof snapshot === "string" ? snapshot : null,
-    },
-    errorCode: "BOOT_VMM_MISSING",
-    makeError: scratchModePlanError,
-    isData: isNativeBootPlanResult,
-  });
-  return plan.plannedScratchMode === "unset" ? "auto" : plan.plannedScratchMode;
-}
+export const planBootScratchModeNative = defineBootPlanProjection<
+  string | false | undefined,
+  ScratchModePlan
+>({
+  errorCode: "BOOT_VMM_MISSING",
+  makeError: scratchModePlanError,
+  data: (snapshot) => ({
+    scratchOptionFalse: snapshot === false,
+    scratchOptionPath: typeof snapshot === "string" ? snapshot : null,
+  }),
+  output: (plan) => (plan.plannedScratchMode === "unset" ? "auto" : plan.plannedScratchMode),
+});
 
-const scratchModePlanError = (
+function scratchModePlanError(
   code: ErrorCode,
   message: string,
   opts?: MachinenErrorOptions,
-): Error => new BootError(code, message, opts);
+): Error {
+  return new BootError(code, message, opts);
+}

@@ -1,41 +1,37 @@
 import { ProvisionError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
-import { isNativeBootPlanResult, type ProvisionAssetLookupPlan } from "./boot-plan-schema.ts";
+import { type ProvisionAssetLookupPlan } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
-export function planProvisionAssetLookupNative(input: {
+type ProvisionAssetLookupInput = {
   explicitPath?: string;
   explicitExists?: boolean;
   assetsDirPath?: string;
   assetsDirExists?: boolean;
   cachePath?: string;
   cacheExists?: boolean;
-}): ProvisionAssetLookupPlan {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      provisionAssetExplicitPath: input.explicitPath ?? null,
-      provisionAssetExplicitExists: input.explicitExists ?? null,
-      provisionAssetAssetsDirPath: input.assetsDirPath ?? null,
-      provisionAssetAssetsDirExists: input.assetsDirExists ?? null,
-      provisionAssetCachePath: input.cachePath ?? null,
-      provisionAssetCacheExists: input.cacheExists ?? null,
-    },
-    errorCode: "PROVISION_BASE_NOT_FOUND",
-    makeError: provisionAssetLookupPlanError,
-    isData: isNativeBootPlanResult,
-  }).provisionAssetLookup;
-}
+};
 
-const provisionAssetLookupPlanError = (
+export const planProvisionAssetLookupNative = defineBootPlanProjection<
+  ProvisionAssetLookupInput,
+  ProvisionAssetLookupPlan
+>({
+  errorCode: "PROVISION_BASE_NOT_FOUND",
+  makeError: provisionAssetLookupPlanError,
+  data: (input) => ({
+    provisionAssetExplicitPath: input.explicitPath ?? null,
+    provisionAssetExplicitExists: input.explicitExists ?? null,
+    provisionAssetAssetsDirPath: input.assetsDirPath ?? null,
+    provisionAssetAssetsDirExists: input.assetsDirExists ?? null,
+    provisionAssetCachePath: input.cachePath ?? null,
+    provisionAssetCacheExists: input.cacheExists ?? null,
+  }),
+  output: (plan) => plan.provisionAssetLookup,
+});
+
+function provisionAssetLookupPlanError(
   code: ErrorCode,
   message: string,
   opts?: MachinenErrorOptions,
-): Error => new ProvisionError(code, message, opts);
+): Error {
+  return new ProvisionError(code, message, opts);
+}

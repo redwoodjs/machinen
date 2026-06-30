@@ -1,37 +1,33 @@
 import { ProvisionError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
-import { isNativeBootPlanResult, type ProvisionCliCachePlan } from "./boot-plan-schema.ts";
+import { type ProvisionCliCachePlan } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
-export function planProvisionCliCacheNative(input: {
+type ProvisionCliCacheInput = {
   homeDir: string;
   version: string;
   guestArchOverride?: string;
   hostArch?: string;
-}): ProvisionCliCachePlan {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      provisionCliCacheHome: input.homeDir,
-      provisionCliCacheVersion: input.version,
-      provisionGuestArchOverride: input.guestArchOverride ?? null,
-      provisionHostArch: input.hostArch ?? null,
-    },
-    errorCode: "PROVISION_BASE_NOT_FOUND",
-    makeError: provisionCliCachePlanError,
-    isData: isNativeBootPlanResult,
-  }).provisionCliCache;
-}
+};
 
-const provisionCliCachePlanError = (
+export const planProvisionCliCacheNative = defineBootPlanProjection<
+  ProvisionCliCacheInput,
+  ProvisionCliCachePlan
+>({
+  errorCode: "PROVISION_BASE_NOT_FOUND",
+  makeError: provisionCliCachePlanError,
+  data: (input) => ({
+    provisionCliCacheHome: input.homeDir,
+    provisionCliCacheVersion: input.version,
+    provisionGuestArchOverride: input.guestArchOverride ?? null,
+    provisionHostArch: input.hostArch ?? null,
+  }),
+  output: (plan) => plan.provisionCliCache,
+});
+
+function provisionCliCachePlanError(
   code: ErrorCode,
   message: string,
   opts?: MachinenErrorOptions,
-): Error => new ProvisionError(code, message, opts);
+): Error {
+  return new ProvisionError(code, message, opts);
+}

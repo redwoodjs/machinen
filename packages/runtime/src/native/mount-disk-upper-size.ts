@@ -1,28 +1,22 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
 import { isNativeBootPlanResult, type NativeBootPlanResult } from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
 type MountDiskUpperSizeResult = NativeBootPlanResult & { mountDiskUpperSizeBytes: number };
 
-export function planMountDiskUpperSizeNative(sizeBytes: number | undefined): number {
-  return callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      mountDiskUpperSizeOption: sizeBytes === undefined ? null : String(sizeBytes),
-    },
-    errorCode: "BOOT_MOUNT_INVALID",
-    makeError: bootPlanError,
-    isData: isMountDiskUpperSizeResult,
-  }).mountDiskUpperSizeBytes;
-}
+export const planMountDiskUpperSizeNative = defineBootPlanProjection<
+  number | undefined,
+  number,
+  MountDiskUpperSizeResult
+>({
+  errorCode: "BOOT_MOUNT_INVALID",
+  makeError: bootPlanError,
+  data: (sizeBytes) => ({
+    mountDiskUpperSizeOption: sizeBytes === undefined ? null : String(sizeBytes),
+  }),
+  output: (plan) => plan.mountDiskUpperSizeBytes,
+  isData: isMountDiskUpperSizeResult,
+});
 
 function isMountDiskUpperSizeResult(value: unknown): value is MountDiskUpperSizeResult {
   if (!isNativeBootPlanResult(value)) {
@@ -35,5 +29,6 @@ function isMountDiskUpperSizeResult(value: unknown): value is MountDiskUpperSize
   );
 }
 
-const bootPlanError = (code: ErrorCode, message: string, opts?: MachinenErrorOptions): Error =>
-  new BootError(code, message, opts);
+function bootPlanError(code: ErrorCode, message: string, opts?: MachinenErrorOptions): Error {
+  return new BootError(code, message, opts);
+}

@@ -1,40 +1,24 @@
 import { BootError, type ErrorCode, type MachinenErrorOptions } from "../errors.ts";
-import { callRuntimeHelper } from "../native-helper.ts";
-import { isNativeBootPlanResult, type RegistryProcessPlan } from "./boot-plan-schema.ts";
+import {
+  isNativeBootPlanResult,
+  type NativeBootPlanResult,
+  type RegistryProcessPlan,
+} from "./boot-plan-schema.ts";
+import { defineBootPlanProjection } from "./boot-plan-command.ts";
 
 type RegistryProcessIdentityPlan = { vmmPid: number | null; gvPid: number | null };
-type RegistryProcessIdentityResult = { registryProcessIdentity: RegistryProcessIdentityPlan };
+type RegistryProcessIdentityResult = NativeBootPlanResult & {
+  registryProcessIdentity: RegistryProcessIdentityPlan;
+};
 
-export function planBootRegistryProcessIdentityNative(input: {
+type RegistryProcessIdentityInput = {
   hostPlatform: string;
   childPid: number;
   vmmPdeathsig: boolean;
   gvPid?: number;
-}): { vmmPid?: number; gvPid?: number } {
-  const plan = callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      registryHostPlatform: input.hostPlatform,
-      registryChildPid: String(input.childPid),
-      registryVmmPdeathsig: input.vmmPdeathsig,
-      registryGvPid: input.gvPid === undefined ? null : String(input.gvPid),
-    },
-    errorCode: "BOOT_VMM_MISSING",
-    makeError: registryProcessPlanError,
-    isData: isRegistryProcessIdentityResult,
-  }).registryProcessIdentity;
-  return { vmmPid: plan.vmmPid ?? undefined, gvPid: plan.gvPid ?? undefined };
-}
+};
 
-export function planBootRegistryProcessNative(input: {
+type RegistryProcessInput = {
   hostPlatform: string;
   vmmBinary: string;
   vmmPdeathsig: boolean;
@@ -42,30 +26,55 @@ export function planBootRegistryProcessNative(input: {
   gvPid?: number;
   gvExe?: string;
   gvObservedExeBase?: string;
-}): { vmmExe: string; gvproxyExe?: string } {
-  const plan: RegistryProcessPlan = callRuntimeHelper({
-    command: "boot-plan",
-    data: {
-      memoryMib: null,
-      resourcesMemory: null,
-      autoMemoryMib: null,
-      hostTotalBytes: null,
-      vmmMemoryPreset: true,
-      hasImage: false,
-      hasCmd: false,
-      rootDisk: "false",
-      registryHostPlatform: input.hostPlatform,
-      registryVmmBinary: input.vmmBinary,
-      registryVmmPdeathsig: input.vmmPdeathsig,
-      registryVmmObservedExeBase: input.vmmObservedExeBase ?? null,
-      registryGvPid: input.gvPid === undefined ? null : String(input.gvPid),
-      registryGvExe: input.gvExe ?? null,
-      registryGvObservedExeBase: input.gvObservedExeBase ?? null,
-    },
-    errorCode: "BOOT_VMM_MISSING",
-    makeError: registryProcessPlanError,
-    isData: isNativeBootPlanResult,
-  }).registryProcess;
+};
+
+export const planBootRegistryProcessIdentityNative = defineBootPlanProjection<
+  RegistryProcessIdentityInput,
+  { vmmPid?: number; gvPid?: number },
+  RegistryProcessIdentityResult
+>({
+  errorCode: "BOOT_VMM_MISSING",
+  makeError: registryProcessPlanError,
+  data: registryProcessIdentityData,
+  output: (plan) => ({
+    vmmPid: plan.registryProcessIdentity.vmmPid ?? undefined,
+    gvPid: plan.registryProcessIdentity.gvPid ?? undefined,
+  }),
+  isData: isRegistryProcessIdentityResult,
+});
+
+export const planBootRegistryProcessNative = defineBootPlanProjection<
+  RegistryProcessInput,
+  { vmmExe: string; gvproxyExe?: string }
+>({
+  errorCode: "BOOT_VMM_MISSING",
+  makeError: registryProcessPlanError,
+  data: registryProcessData,
+  output: (plan) => registryProcessOutput(plan.registryProcess),
+});
+
+function registryProcessIdentityData(input: RegistryProcessIdentityInput): Record<string, unknown> {
+  return {
+    registryHostPlatform: input.hostPlatform,
+    registryChildPid: String(input.childPid),
+    registryVmmPdeathsig: input.vmmPdeathsig,
+    registryGvPid: input.gvPid === undefined ? null : String(input.gvPid),
+  };
+}
+
+function registryProcessData(input: RegistryProcessInput): Record<string, unknown> {
+  return {
+    registryHostPlatform: input.hostPlatform,
+    registryVmmBinary: input.vmmBinary,
+    registryVmmPdeathsig: input.vmmPdeathsig,
+    registryVmmObservedExeBase: input.vmmObservedExeBase ?? null,
+    registryGvPid: input.gvPid === undefined ? null : String(input.gvPid),
+    registryGvExe: input.gvExe ?? null,
+    registryGvObservedExeBase: input.gvObservedExeBase ?? null,
+  };
+}
+
+function registryProcessOutput(plan: RegistryProcessPlan): { vmmExe: string; gvproxyExe?: string } {
   if (!plan.vmmExe) {
     throw new BootError(
       "BOOT_VMM_MISSING",
@@ -91,8 +100,10 @@ function isNullableFiniteNumber(value: unknown): value is number | null {
   return value === null || (typeof value === "number" && Number.isFinite(value));
 }
 
-const registryProcessPlanError = (
+function registryProcessPlanError(
   code: ErrorCode,
   message: string,
   opts?: MachinenErrorOptions,
-): Error => new BootError(code, message, opts);
+): Error {
+  return new BootError(code, message, opts);
+}
