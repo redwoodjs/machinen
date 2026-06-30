@@ -25,6 +25,7 @@ import { BootError, ErrorCode } from "../errors.ts";
 import { markPagemapsLazy } from "../lazy-pagemap.ts";
 import { crossIsaVmstateRestoreRefusal } from "../portable-machine-snapshot.ts";
 import { PhaseTimer } from "../phase-timer.ts";
+import { planRestoreImageNative } from "../native/restore-image.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { boot, type BootOptions } from "./boot.ts";
 import { resolveRestoreLiveMounts } from "./bundle.ts";
@@ -442,31 +443,44 @@ function probeRestoredGuestHostname(vm: VmHandle, phases: PhaseTimer): void {
 // it; the vmstate engine materializes the restored guest's /dev/vda
 // from it. Shared by the criu and vmstate restore paths.
 function resolveRestoreImage(opts: RestoreOptions, meta: SnapshotMeta): string {
-  if (opts.image) {
-    const resolved = resolve(opts.cwd ?? process.cwd(), opts.image);
-    if (!existsSync(resolved)) {
-      throw new BootError("BOOT_IMAGE_NOT_FOUND", `restore: image not found: ${resolved}`);
+  const explicitPath = opts.image ? resolve(opts.cwd ?? process.cwd(), opts.image) : undefined;
+  const plan = planRestoreImageNative({
+    explicitPath,
+    explicitExists: explicitPath ? existsSync(explicitPath) : undefined,
+    metaSourcePath: meta.sourceImage,
+    metaSourceExists: meta.sourceImage ? existsSync(meta.sourceImage) : undefined,
+  });
+  if (plan.path) {
+    if (!explicitPath) {
+      debugRestore("using meta.sourceImage path=%s", plan.path);
     }
-    return resolved;
+    return plan.path;
   }
-  if (meta.sourceImage && existsSync(meta.sourceImage)) {
-    debugRestore("using meta.sourceImage path=%s", meta.sourceImage);
-    return meta.sourceImage;
+  if (plan.error === "explicit-missing") {
+    throw new BootError("BOOT_IMAGE_NOT_FOUND", `restore: image not found: ${explicitPath}`);
   }
-  if (meta.sourceImage) {
-    // The bundle remembers a path, but it's gone on this host (e.g.
-    // restored on a different machine, or the tarball was deleted).
-    throw new BootError(
-      "BOOT_IMAGE_NOT_FOUND",
-      `restore: source image not found at ${meta.sourceImage}\n` +
-        `  The snapshot was taken with this rootfs tarball, and the restore\n` +
-        `  needs it as the guest's base rootfs.\n` +
-        `  • copy the tarball to that path on this host, OR\n` +
-        `  • pass an explicit override via the runtime's restore({ image })\n` +
-        `    or the CLI's \`machinen restore --image <tarball>\`.`,
-    );
+  if (plan.error === "meta-missing") {
+    throw missingRestoreMetaImageError(meta.sourceImage!);
   }
-  throw new BootError(
+  throw missingRestoreImageError();
+}
+
+function missingRestoreMetaImageError(sourceImage: string): BootError {
+  // The bundle remembers a path, but it's gone on this host (e.g.
+  // restored on a different machine, or the tarball was deleted).
+  return new BootError(
+    "BOOT_IMAGE_NOT_FOUND",
+    `restore: source image not found at ${sourceImage}\n` +
+      `  The snapshot was taken with this rootfs tarball, and the restore\n` +
+      `  needs it as the guest's base rootfs.\n` +
+      `  • copy the tarball to that path on this host, OR\n` +
+      `  • pass an explicit override via the runtime's restore({ image })\n` +
+      `    or the CLI's \`machinen restore --image <tarball>\`.`,
+  );
+}
+
+function missingRestoreImageError(): BootError {
+  return new BootError(
     "BOOT_IMAGE_NOT_FOUND",
     `restore: no rootfs image available for this bundle.\n` +
       `  The snapshot's meta.json doesn't record a source image (likely\n` +

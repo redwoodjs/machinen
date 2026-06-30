@@ -74,6 +74,10 @@ const ParsedRequest = struct {
     batch_live_mount_validation_required: bool = false,
     restore_live_mounts_recorded: []const boot_plan.RestoreRecordedLiveMount = &.{},
     restore_live_mounts_overrides: []const boot_plan.RestoreLiveMountInput = &.{},
+    restore_image_explicit_path: ?[]const u8 = null,
+    restore_image_explicit_exists: ?bool = null,
+    restore_image_meta_source_path: ?[]const u8 = null,
+    restore_image_meta_source_exists: ?bool = null,
     existing_stats_file: ?[]const u8 = null,
     stats_file_path: ?[]const u8 = null,
     stats_file_temp_dir: ?[]const u8 = null,
@@ -291,6 +295,10 @@ const boot_plan_fields = [_][]const u8{
     "batchLiveMountValidationRequired",
     "restoreLiveMountsRecorded",
     "restoreLiveMountsOverrides",
+    "restoreImageExplicitPath",
+    "restoreImageExplicitExists",
+    "restoreImageMetaSourcePath",
+    "restoreImageMetaSourceExists",
     "existingStatsFile",
     "statsFilePath",
     "statsFileTempDir",
@@ -519,6 +527,10 @@ const RequestError = error{
     InvalidBatchLiveMountValidationRequired,
     InvalidRestoreLiveMountsRecorded,
     InvalidRestoreLiveMountsOverrides,
+    InvalidRestoreImageExplicitPath,
+    InvalidRestoreImageExplicitExists,
+    InvalidRestoreImageMetaSourcePath,
+    InvalidRestoreImageMetaSourceExists,
     InvalidExistingStatsFile,
     InvalidStatsFilePath,
     InvalidStatsFileTempDir,
@@ -735,6 +747,7 @@ const PlanParts = struct {
     virtiofs_env: []const boot_plan.EnvPair,
     batch_live_mount_sync: boot_plan.BatchLiveMountPlan,
     restore_live_mounts: []const boot_plan.RestoreLiveMountInput,
+    restore_image: boot_plan.RestoreImagePlan,
     stats_file_mode: boot_plan.StatsFileModePlan,
     stats_file_temp_mode: boot_plan.StatsFileTempModePlan,
     stats_file: boot_plan.StatsFilePlan,
@@ -823,74 +836,96 @@ const RuntimeParts = struct {
     registry_process: boot_plan.RegistryProcessPlan,
 };
 
+const PlanPartInputs = struct {
+    arena: std.mem.Allocator,
+    parsed: ParsedRequest,
+    plan: boot_plan.Plan,
+    boot_env: BootEnvParts,
+    runtime: RuntimeParts,
+    provision: ProvisionParts,
+};
+
 fn makePlanParts(arena: std.mem.Allocator, parsed: ParsedRequest, plan: boot_plan.Plan) !PlanParts {
     assert(@sizeOf(PlanParts) > 0);
-    const boot_env = try makeBootEnvParts(arena, parsed);
-    const runtime = try makeRuntimeParts(arena, parsed);
-    const provision = try makeProvisionParts(arena, parsed);
-    return .{
+
+    return finishPlanParts(.{
+        .arena = arena,
+        .parsed = parsed,
         .plan = plan,
-        .cpu_policy = try makeCpuResources(parsed),
-        .root_disk_mode = parsed.root_disk,
-        .guest_env = try makeGuestEnv(arena, parsed),
-        .vmm_env = try makeVmmEnv(arena, parsed),
-        .guest_hostname = try makeGuestHostname(parsed),
-        .guest_hostname_set = try makeGuestHostnameSet(parsed),
-        .vsock_mode = makeVsockMode(parsed),
-        .vsock_plan = boot_env.vsock_plan,
-        .gvproxy_plan = boot_env.gvproxy_plan,
-        .vmm_argv = boot_env.vmm_argv,
-        .use_pdeathsig = boot_env.use_pdeathsig,
-        .planned_port_forwards = parsed.port_forward,
-        .kernel_dtb = boot_env.kernel_dtb,
-        .initrd_env = boot_env.initrd_env,
-        .vmstate_env = boot_env.vmstate_env,
-        .vmstate_temp_mode = makeVmstateTempMode(parsed),
-        .vmstate_runtime = boot_env.vmstate_runtime,
-        .nested_env = boot_env.nested_env,
-        .virtiofs_env = boot_env.virtiofs_env,
-        .batch_live_mount_sync = boot_env.batch_live_mount_sync,
-        .restore_live_mounts = boot_env.restore_live_mounts,
-        .stats_file_mode = makeStatsFileMode(parsed),
-        .stats_file_temp_mode = makeStatsFileTempMode(parsed),
-        .stats_file = boot_env.stats_file,
-        .planned_live_mounts = runtime.planned_live_mounts,
-        .config_cmd = runtime.config_cmd,
-        .config_env = runtime.config_env,
-        .config_cwd = runtime.config_cwd,
-        .config_live_mounts = runtime.config_live_mounts,
-        .bundle_command = runtime.bundle_command,
-        .bundle_env = runtime.bundle_env,
-        .bundle_workspace = try makeBundleWorkspace(arena, parsed),
-        .bundle_config_paths = try makeBundleConfigPaths(arena, parsed),
-        .bundle_pack = boot_plan.planBundlePack(makeBundlePackInput(parsed)),
-        .bundle_mount_disk_mode = boot_plan.planBundleMountDiskMode(makeBundlePackInput(parsed)),
-        .provision_assets = provision.assets,
-        .provision_dtb = provision.dtb,
-        .provision_cli_cache = provision.cli_cache,
-        .provision_asset_lookup = provision.asset_lookup,
-        .provision_boot = provision.boot,
-        .provision_workload = provision.workload,
-        .provision_repack = provision.repack,
-        .provision_image_config = provision.image_config,
-        .provision_runtime = provision.runtime,
-        .provision_result = try makeProvisionResult(parsed),
-        .planned_scratch_mode = runtime.planned_scratch_mode,
-        .scratch_temp_path = try makeScratchTempPath(arena, parsed),
-        .scratch_disk = runtime.scratch_disk,
-        .root_disk_runtime = runtime.root_disk_runtime,
-        .root_disk_temp_path = try makeRootDiskTempPath(arena, parsed),
-        .root_disk_materialize_mode = makeRootDiskMaterializeMode(parsed),
-        .planned_mount_disk_upper_size = try makeMountDiskUpperSize(parsed),
-        .mount_disk_temp_path = try makeMountDiskTempPath(arena, parsed),
-        .mount_disk_runtime = runtime.mount_disk_runtime,
-        .mount_disk_fd_env = runtime.mount_disk_fd_env,
-        .snapshot_context = runtime.snapshot_context,
-        .snapshot_backing = makeSnapshotBacking(parsed),
-        .registry_shape = runtime.registry_shape,
-        .registry_lifecycle = runtime.registry_lifecycle,
-        .registry_process_identity = try makeRegistryProcessIdentity(parsed),
-        .registry_process = runtime.registry_process,
+        .boot_env = try makeBootEnvParts(arena, parsed),
+        .runtime = try makeRuntimeParts(arena, parsed),
+        .provision = try makeProvisionParts(arena, parsed),
+    });
+}
+
+fn finishPlanParts(ctx: PlanPartInputs) !PlanParts {
+    assert(@sizeOf(PlanPartInputs) > 0);
+    return .{
+        .plan = ctx.plan,
+        .cpu_policy = try makeCpuResources(ctx.parsed),
+        .root_disk_mode = ctx.parsed.root_disk,
+        .guest_env = try makeGuestEnv(ctx.arena, ctx.parsed),
+        .vmm_env = try makeVmmEnv(ctx.arena, ctx.parsed),
+        .guest_hostname = try makeGuestHostname(ctx.parsed),
+        .guest_hostname_set = try makeGuestHostnameSet(ctx.parsed),
+        .vsock_mode = makeVsockMode(ctx.parsed),
+        .vsock_plan = ctx.boot_env.vsock_plan,
+        .gvproxy_plan = ctx.boot_env.gvproxy_plan,
+        .vmm_argv = ctx.boot_env.vmm_argv,
+        .use_pdeathsig = ctx.boot_env.use_pdeathsig,
+        .planned_port_forwards = ctx.parsed.port_forward,
+        .kernel_dtb = ctx.boot_env.kernel_dtb,
+        .initrd_env = ctx.boot_env.initrd_env,
+        .vmstate_env = ctx.boot_env.vmstate_env,
+        .vmstate_temp_mode = makeVmstateTempMode(ctx.parsed),
+        .vmstate_runtime = ctx.boot_env.vmstate_runtime,
+        .nested_env = ctx.boot_env.nested_env,
+        .virtiofs_env = ctx.boot_env.virtiofs_env,
+        .batch_live_mount_sync = ctx.boot_env.batch_live_mount_sync,
+        .restore_live_mounts = ctx.boot_env.restore_live_mounts,
+        .restore_image = makeRestoreImage(ctx.parsed),
+        .stats_file_mode = makeStatsFileMode(ctx.parsed),
+        .stats_file_temp_mode = makeStatsFileTempMode(ctx.parsed),
+        .stats_file = ctx.boot_env.stats_file,
+        .planned_live_mounts = ctx.runtime.planned_live_mounts,
+        .config_cmd = ctx.runtime.config_cmd,
+        .config_env = ctx.runtime.config_env,
+        .config_cwd = ctx.runtime.config_cwd,
+        .config_live_mounts = ctx.runtime.config_live_mounts,
+        .bundle_command = ctx.runtime.bundle_command,
+        .bundle_env = ctx.runtime.bundle_env,
+        .bundle_workspace = try makeBundleWorkspace(ctx.arena, ctx.parsed),
+        .bundle_config_paths = try makeBundleConfigPaths(ctx.arena, ctx.parsed),
+        .bundle_pack = boot_plan.planBundlePack(makeBundlePackInput(ctx.parsed)),
+        .bundle_mount_disk_mode = boot_plan.planBundleMountDiskMode(
+            makeBundlePackInput(ctx.parsed),
+        ),
+        .provision_assets = ctx.provision.assets,
+        .provision_dtb = ctx.provision.dtb,
+        .provision_cli_cache = ctx.provision.cli_cache,
+        .provision_asset_lookup = ctx.provision.asset_lookup,
+        .provision_boot = ctx.provision.boot,
+        .provision_workload = ctx.provision.workload,
+        .provision_repack = ctx.provision.repack,
+        .provision_image_config = ctx.provision.image_config,
+        .provision_runtime = ctx.provision.runtime,
+        .provision_result = try makeProvisionResult(ctx.parsed),
+        .planned_scratch_mode = ctx.runtime.planned_scratch_mode,
+        .scratch_temp_path = try makeScratchTempPath(ctx.arena, ctx.parsed),
+        .scratch_disk = ctx.runtime.scratch_disk,
+        .root_disk_runtime = ctx.runtime.root_disk_runtime,
+        .root_disk_temp_path = try makeRootDiskTempPath(ctx.arena, ctx.parsed),
+        .root_disk_materialize_mode = makeRootDiskMaterializeMode(ctx.parsed),
+        .planned_mount_disk_upper_size = try makeMountDiskUpperSize(ctx.parsed),
+        .mount_disk_temp_path = try makeMountDiskTempPath(ctx.arena, ctx.parsed),
+        .mount_disk_runtime = ctx.runtime.mount_disk_runtime,
+        .mount_disk_fd_env = ctx.runtime.mount_disk_fd_env,
+        .snapshot_context = ctx.runtime.snapshot_context,
+        .snapshot_backing = makeSnapshotBacking(ctx.parsed),
+        .registry_shape = ctx.runtime.registry_shape,
+        .registry_lifecycle = ctx.runtime.registry_lifecycle,
+        .registry_process_identity = try makeRegistryProcessIdentity(ctx.parsed),
+        .registry_process = ctx.runtime.registry_process,
     };
 }
 
@@ -929,6 +964,17 @@ fn makeVmstateTempMode(parsed: ParsedRequest) boot_plan.VmstateTempModePlan {
         .engine = parsed.boot_vmstate_engine,
         .snapshot_disabled = parsed.boot_vmstate_snapshot_disabled,
         .existing_temp_dir = parsed.boot_vmstate_existing_temp_dir,
+    });
+}
+
+fn makeRestoreImage(parsed: ParsedRequest) boot_plan.RestoreImagePlan {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    return boot_plan.planRestoreImage(.{
+        .explicit_path = parsed.restore_image_explicit_path,
+        .explicit_exists = parsed.restore_image_explicit_exists,
+        .meta_source_path = parsed.restore_image_meta_source_path,
+        .meta_source_exists = parsed.restore_image_meta_source_exists,
     });
 }
 
@@ -1733,6 +1779,7 @@ fn writePlan(io: std.Io, parts: PlanParts) !void {
         true,
     );
     try writeRestoreLiveMountsField(io, "restoreLiveMounts", parts.restore_live_mounts, true);
+    try writeRestoreImageField(io, "restoreImage", parts.restore_image, true);
     try writeNullableStringField(io, "vmmNested", parts.nested_env, true);
     try writeLiveMountsArrayField(io, "plannedLiveMounts", parts.planned_live_mounts, true);
     try writePortForwardField(io, "plannedPortForward", parts.planned_port_forwards, false, true);
@@ -2013,6 +2060,21 @@ fn writeGuestHostnameSetField(
     const hostname = boot_plan.formatGuestHostnameSet(&buffer, input) catch
         return error.InvalidGuestHostnameSetName;
     try writeNullableStringField(io, field, hostname, comma);
+}
+
+fn writeRestoreImageField(
+    io: std.Io,
+    comptime field: []const u8,
+    image: boot_plan.RestoreImagePlan,
+    comma: bool,
+) !void {
+    assert(field.len > 0);
+
+    try writeFieldName(io, field, comma);
+    try protocol.stdout(io, "{");
+    try writeNullableStringField(io, "path", image.path, false);
+    try writeNullableStringField(io, "error", image.error_kind, true);
+    try protocol.stdout(io, "}");
 }
 
 fn writeRestoreLiveMountsField(
@@ -3490,6 +3552,18 @@ fn parseRuntimeMountStatsFields(
 ) RequestError!void {
     assert(@sizeOf(ParsedRequest) > 0);
 
+    try parseLiveMountRequestFields(allocator, object, request);
+    try parseRestoreImageFields(object, request);
+    try parseStatsFileFields(object, request);
+}
+
+fn parseLiveMountRequestFields(
+    allocator: std.mem.Allocator,
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
     request.live_mounts = try optionalLiveMounts(allocator, object);
     request.live_mount_removed_option_index_text = try optionalStringDefaultNull(
         object,
@@ -3525,6 +3599,39 @@ fn parseRuntimeMountStatsFields(
         allocator,
         object,
     );
+}
+
+fn parseRestoreImageFields(
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
+    request.restore_image_explicit_path = try optionalStringDefaultNull(
+        object,
+        "restoreImageExplicitPath",
+        error.InvalidRestoreImageExplicitPath,
+    );
+    request.restore_image_explicit_exists = try optionalBoolDefaultNull(
+        object,
+        "restoreImageExplicitExists",
+        error.InvalidRestoreImageExplicitExists,
+    );
+    request.restore_image_meta_source_path = try optionalStringDefaultNull(
+        object,
+        "restoreImageMetaSourcePath",
+        error.InvalidRestoreImageMetaSourcePath,
+    );
+    request.restore_image_meta_source_exists = try optionalBoolDefaultNull(
+        object,
+        "restoreImageMetaSourceExists",
+        error.InvalidRestoreImageMetaSourceExists,
+    );
+}
+
+fn parseStatsFileFields(object: std.json.ObjectMap, request: *ParsedRequest) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
     request.existing_stats_file = try optionalStringDefaultNull(
         object,
         "existingStatsFile",

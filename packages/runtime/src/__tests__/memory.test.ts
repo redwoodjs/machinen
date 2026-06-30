@@ -1998,6 +1998,62 @@ describe("boot-plan helper schema", () => {
     expect(error.message).toContain("/mnt/work");
   });
 
+  it("plans restore image selection from explicit override and metadata fallback", () => {
+    expect(helperTmp).toBeDefined();
+    const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
+    const requestData = {
+      memoryMib: null,
+      resourcesMemory: null,
+      autoMemoryMib: "1024",
+      hostTotalBytes: null,
+      vmmMemoryPreset: false,
+      hasImage: false,
+      hasCmd: false,
+      rootDisk: "false",
+      restoreImageMetaSourcePath: "/meta/rootfs.tar.gz",
+      restoreImageMetaSourceExists: true,
+    };
+    const explicit = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: {
+          ...requestData,
+          restoreImageExplicitPath: "/override/rootfs.tar.gz",
+          restoreImageExplicitExists: true,
+        },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(explicit.status).toBe(0);
+    expect(JSON.parse(explicit.stdout).data.restoreImage).toEqual({
+      path: "/override/rootfs.tar.gz",
+      error: null,
+    });
+
+    const meta = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({ protocolVersion: 1, data: requestData })}\n`,
+      encoding: "utf8",
+    });
+    expect(meta.status).toBe(0);
+    expect(JSON.parse(meta.stdout).data.restoreImage).toEqual({
+      path: "/meta/rootfs.tar.gz",
+      error: null,
+    });
+
+    const missing = spawnSync(helper, ["boot-plan"], {
+      input: `${JSON.stringify({
+        protocolVersion: 1,
+        data: { ...requestData, restoreImageMetaSourceExists: false },
+      })}\n`,
+      encoding: "utf8",
+    });
+    expect(missing.status).toBe(0);
+    expect(JSON.parse(missing.stdout).data.restoreImage).toEqual({
+      path: null,
+      error: "meta-missing",
+    });
+  });
+
   it("validates batch live-mount sync vsock requirements", () => {
     expect(helperTmp).toBeDefined();
     const helper = join(helperTmp!, "bin", "machinen-runtime-helper");
