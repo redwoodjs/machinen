@@ -3,12 +3,10 @@ import {
   loadMoveDescriptor,
   MOVE_DESCRIPTOR_FORMAT_VERSION,
   MOVE_REFUSAL_CODE,
-  validateNativeProcessImageBundle,
   type MoveDescriptor,
   type MovePidGraph,
   type MovePidGraphNode,
   type MoveRefusalEvidence,
-  type NativeProcessImageRefusal,
   type VmHandle,
 } from "@machinen/runtime";
 import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
@@ -20,11 +18,6 @@ import {
   validateMoveLoadTargetInVm,
   type MoveLoadTargetValidation,
 } from "../move-executable-identity.ts";
-import {
-  attachNativeContinuation,
-  moveActiveSyscallPlan,
-  writeNativeProcessImageScaffold,
-} from "../move-native-bundle.ts";
 import { buildMoveResourcePlan, parseGuestMoveResourceScan } from "../move-resource-plan.ts";
 import { runMoveTargetDirectLoaderInVm, type MoveLoadDirectLoader } from "../move-rendezvous.ts";
 import { die, handleError } from "../errors.ts";
@@ -33,6 +26,7 @@ import { parseTargetFlags, resolveTarget } from "./target.ts";
 
 type MoveHandler = (args: string[], json: boolean) => Promise<number> | number;
 type MoveResourcePlan = NonNullable<MoveDescriptor["resourcePlan"]>;
+type MoveResourceRefusal = MoveResourcePlan["refusals"][number];
 
 const MOVE_HANDLERS = new Map<string, MoveHandler>([
   ["scan", cmdMoveScan],
@@ -157,21 +151,13 @@ function writeMoveDescriptorResult(
   options: MoveSaveOptions,
 ): MoveSaveResult {
   const bundlePath = prepareMoveBundleDir(options.outPath);
-  const bundleDescriptor = attachNativeContinuation(descriptor);
-  writeNativeProcessImageScaffold(bundlePath, bundleDescriptor);
   const descriptorPath = join(bundlePath, "move.json");
-  writeFileSync(descriptorPath, `${JSON.stringify(bundleDescriptor, null, 2)}\n`);
-  writeFileSync(
-    join(bundlePath, "active-syscall-plan.json"),
-    `${JSON.stringify(moveActiveSyscallPlan(bundleDescriptor), null, 2)}\n`,
-  );
-  const accepted =
-    descriptor.refusedStateClasses.length === 0 &&
-    bundleDescriptor.nativeContinuation?.state !== "refused";
+  writeFileSync(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`);
+  const accepted = descriptor.refusedStateClasses.length === 0;
   return {
     accepted,
     descriptorPath: bundlePath,
-    descriptor: bundleDescriptor,
+    descriptor,
     refusalCode: moveRefusalCode(accepted),
     issueReport: moveIssueReport(descriptor, options),
   };
@@ -296,18 +282,11 @@ function moveBundleValid(bundlePath: string): boolean {
   if (!statSync(bundlePath).isDirectory()) {
     return false;
   }
-  validateNativeProcessImageBundle(bundlePath);
-  return true;
+  return existsSync(join(bundlePath, "move.json"));
 }
 
 function moveDescriptorContinuationPlanned(descriptor: MoveDescriptor): boolean {
-  if (descriptor.refusedStateClasses.every((refusal) => refusal.stateClass === "sockets")) {
-    return true;
-  }
-  if (descriptor.refusedStateClasses.length !== 0) {
-    return false;
-  }
-  return descriptor.nativeContinuation?.state !== "refused";
+  return descriptor.refusedStateClasses.length === 0;
 }
 
 function reportMoveLoadResult(
@@ -428,20 +407,23 @@ function buildMovePidGraph(
   nodes: MovePidGraphNode[],
   resourcePlan?: MoveResourcePlan,
 ): MovePidGraph {
-  const pidSet = new Set(nodes.map((node) => node.pid));
-  const edges = nodes
-    .filter((node) => node.ppid !== undefined && pidSet.has(node.ppid))
-    .map((node) => ({ fromPid: node.ppid!, toPid: node.pid, kind: "parent-child" as const }));
   return {
     formatVersion: MOVE_DESCRIPTOR_FORMAT_VERSION,
     kind: "machinen.move.pid-graph",
     rootPid,
     scannedAt: new Date().toISOString(),
     nodes,
-    edges,
+    edges: movePidGraphEdges(nodes),
     translatedStateClasses: translatedStateClasses(resourcePlan),
     refusedStateClasses: buildRefusals(rootPid, nodes, resourcePlan),
   };
+}
+
+function movePidGraphEdges(nodes: MovePidGraphNode[]): MovePidGraph["edges"] {
+  const pidSet = new Set(nodes.map((node) => node.pid));
+  return nodes
+    .filter((node) => node.ppid !== undefined && pidSet.has(node.ppid))
+    .map((node) => ({ fromPid: node.ppid!, toPid: node.pid, kind: "parent-child" as const }));
 }
 
 async function readMoveProcNodesInVm(vm: VmHandle, rootPid?: number): Promise<MovePidGraphNode[]> {
@@ -604,7 +586,8 @@ function genericMoveRefusals(
       reason: "open file descriptor identity is not translated by this descriptor yet",
       evidence:
         rootPid === undefined ? "scan-only-no-root-pid" : `pid:${rootPid}:fd-audit-required`,
-      nextAction: "add a move-owned fd detector and target-native file/socket reconstruction proof",
+      nextAction:
+        "add a move-owned fd detector and target-native file/socket reconstruction implementation",
     },
     {
       stateClass: "sockets",
@@ -670,16 +653,16 @@ function threadResourceRefusal(resourcePlan: MoveResourcePlan): MoveRefusalEvide
   };
 }
 
-function isOpenFileMoveRefusal(refusal: NativeProcessImageRefusal): boolean {
+function isOpenFileMoveRefusal(refusal: MoveResourceRefusal): boolean {
   return !isSocketMoveRefusal(refusal) && !isThreadMoveRefusal(refusal);
 }
 
-function isSocketMoveRefusal(refusal: NativeProcessImageRefusal): boolean {
+function isSocketMoveRefusal(refusal: MoveResourceRefusal): boolean {
   const kind = refusal.detail?.kind;
   return kind === "socket" || kind === "raw-socket";
 }
 
-function isThreadMoveRefusal(refusal: NativeProcessImageRefusal): boolean {
+function isThreadMoveRefusal(refusal: MoveResourceRefusal): boolean {
   return refusal.detail?.kind === "thread";
 }
 

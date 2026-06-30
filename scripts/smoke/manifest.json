@@ -3,7 +3,8 @@
   "formatVersion": 1,
   "policy": {
     "productSmoke": "Active smoke package scripts cover product/release behavior only.",
-    "noProofPackageScripts": "Proof and research harnesses are not package scripts."
+    "noProofPackageScripts": "Proof and research harnesses are not package scripts.",
+    "proofArtifacts": "Proof-only harnesses are removed from the smoke surface and must not be cited as product support."
   },
   "entries": [
     {

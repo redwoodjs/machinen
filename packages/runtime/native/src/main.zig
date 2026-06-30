@@ -10,7 +10,6 @@ const host_rss = @import("commands/host_rss.zig");
 const mkinitramfs = @import("commands/mkinitramfs.zig");
 const mountdisk_image = @import("commands/mountdisk_image.zig");
 const mountdisk_upper = @import("commands/mountdisk_upper.zig");
-const native_code_map = @import("commands/native_code_map.zig");
 const nested_virt_probe = @import("commands/nested_virt_probe.zig");
 const pid_validate = @import("commands/pid_validate.zig");
 const process_identity = @import("commands/process_identity.zig");
@@ -38,7 +37,6 @@ pub fn main(init: std.process.Init) !u8 {
     assert(mkinitramfs.name.len > 0);
     assert(mountdisk_image.name.len > 0);
     assert(mountdisk_upper.name.len > 0);
-    assert(native_code_map.name.len > 0);
     assert(nested_virt_probe.name.len > 0);
     assert(pid_validate.name.len > 0);
     assert(process_identity.name.len > 0);
@@ -153,12 +151,6 @@ fn runProofCommand(
 ) !?u8 {
     assert(command.len > 0);
 
-    if (std.mem.eql(u8, command, native_code_map.name)) {
-        if (try rejectExtraArgs(it, native_code_map.name)) {
-            return @intFromEnum(protocol.Exit.usage);
-        }
-        return @intFromEnum(try native_code_map.run(allocator, g_io));
-    }
     if (std.mem.eql(u8, command, process_signal.name)) {
         if (try rejectExtraArgs(it, process_signal.name)) {
             return @intFromEnum(protocol.Exit.usage);
@@ -277,7 +269,6 @@ fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
     assert(mkinitramfs.name.len > 0);
     assert(mountdisk_image.name.len > 0);
     assert(mountdisk_upper.name.len > 0);
-    assert(native_code_map.name.len > 0);
     assert(nested_virt_probe.name.len > 0);
     assert(pid_validate.name.len > 0);
     assert(process_identity.name.len > 0);
@@ -304,7 +295,6 @@ fn writeHelp(allocator: std.mem.Allocator, io: std.Io) !u8 {
             mkinitramfs.name,
             mountdisk_image.name,
             mountdisk_upper.name,
-            native_code_map.name,
             nested_virt_probe.name,
             pid_validate.name,
             process_identity.name,
