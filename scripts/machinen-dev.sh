@@ -6,6 +6,7 @@
 #
 # Producers (called automatically when missing or stale):
 #   - VMM:    bash scripts/build-vmm.sh
+#   - runtime helper: bash scripts/build-runtime-helper.sh
 #   - assets: bash scripts/build-base-assets.sh
 #
 # Usage:
@@ -34,6 +35,12 @@ if [[ ! -x "$VMM" ]] \
   bash "$ROOT/scripts/build-vmm.sh"
 fi
 
+RUNTIME_HELPER="$ROOT/packages/native-arm64-darwin/vmm/bin/machinen-runtime-helper"
+if [[ ! -x "$RUNTIME_HELPER" ]]; then
+  step "machinen-runtime-helper missing — rebuilding"
+  bash "$ROOT/scripts/build-runtime-helper.sh"
+fi
+
 # Stale-source check covers rootfs, kernel, and VMM. Dispatch on
 # `--what-stale` so balloon.zig edits don't trigger the slow rootfs
 # rebuild and vice versa.
@@ -52,5 +59,6 @@ if (( $# > 0 )); then
   step "running: machinen $*"
   cd "$USER_CWD"
   exec env MACHINEN_ASSETS_DIR="$ROOT/release-assets" \
+    MACHINEN_RUNTIME_HELPER="$RUNTIME_HELPER" \
     node "$ROOT/packages/cli/dist/cli.js" "$@"
 fi

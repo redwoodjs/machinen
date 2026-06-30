@@ -9,6 +9,7 @@
 # isn't already built, then runs the tests.
 #   - @machinen/runtime + @machinen/cli  (fast)
 #   - packages/microvm/zig-out/bin/machinen-vm  (~30s on first run)
+#   - packages/runtime/native/zig-out/bin/machinen-runtime-helper  (fast)
 #   - release-assets/ (kernel, optional dtb, rootfs tarball)  (~5 min, needs Docker)
 #
 # Tests:
@@ -51,6 +52,7 @@ case "$OS:$HOST_ARCH" in
   *) echo "smoke: unsupported host: $OS/$HOST_ARCH" >&2; exit 1 ;;
 esac
 VMM="$ROOT/packages/$HOST_NATIVE_PKG/vmm/bin/machinen-vm"
+RUNTIME_HELPER="$ROOT/packages/$HOST_NATIVE_PKG/vmm/bin/machinen-runtime-helper"
 
 GUEST_ARCH="${MACHINEN_GUEST_ARCH:-}"
 if [[ -z "$GUEST_ARCH" ]]; then
@@ -133,6 +135,9 @@ fi
 echo "=== building VMM ==="
 bash "$ROOT/scripts/build-vmm.sh"
 
+echo "=== building machinen-runtime-helper ==="
+bash "$ROOT/scripts/build-runtime-helper.sh"
+
 if ! assets_complete; then
   echo "=== building $GUEST_ARCH base assets (~5 min on first run, cached after) ==="
   MACHINEN_GUEST_ARCH="$GUEST_ARCH" "$ROOT/scripts/build-base-assets.sh"
@@ -163,11 +168,13 @@ pnpm -F @machinen/runtime -F @machinen/cli build >/dev/null
 "$ROOT/scripts/install-gvproxy.sh" --dest "$(dirname "$VMM")"
 
 export MACHINEN_VMM="$VMM"
+export MACHINEN_RUNTIME_HELPER="$RUNTIME_HELPER"
 export MACHINEN_ASSETS_DIR="$ASSETS"
 export MACHINEN_GUEST_ARCH="$GUEST_ARCH"
 
 echo
 echo "smoke: VMM=$MACHINEN_VMM"
+echo "smoke: RUNTIME_HELPER=$MACHINEN_RUNTIME_HELPER"
 echo "smoke: ASSETS=$MACHINEN_ASSETS_DIR"
 echo "smoke: GUEST_ARCH=$MACHINEN_GUEST_ARCH"
 echo

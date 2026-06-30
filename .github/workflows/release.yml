@@ -201,7 +201,7 @@ jobs:
           version: 0.16.0
       - run: pnpm install --frozen-lockfile
 
-      # Stage VMM binaries into the consolidated native packages so
+      # Stage host binaries into the consolidated native packages so
       # `changeset publish` picks them up. Each package's `files`
       # field includes `vmm/`.
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -216,10 +216,31 @@ jobs:
         with:
           name: vmm-x64-linux
           path: packages/native-x64-linux/vmm/bin/
-      # chmod machinen-vm so the working copy stays usable locally; the
+      - name: Build and stage machinen-runtime-helper
+        run: |
+          set -euo pipefail
+          rm -rf "${RUNNER_TEMP}/machinen-runtime-helper"
+          mkdir -p "${RUNNER_TEMP}/machinen-runtime-helper"
+          cd packages/runtime/native
+          zig build -Doptimize=ReleaseSafe -Dtarget=aarch64-macos --prefix "${RUNNER_TEMP}/machinen-runtime-helper/arm64-darwin"
+          zig build -Doptimize=ReleaseSafe -Dtarget=aarch64-linux --prefix "${RUNNER_TEMP}/machinen-runtime-helper/arm64-linux"
+          zig build -Doptimize=ReleaseSafe -Dtarget=x86_64-linux --prefix "${RUNNER_TEMP}/machinen-runtime-helper/x64-linux"
+          cd ../../..
+          cp "${RUNNER_TEMP}/machinen-runtime-helper/arm64-darwin/bin/machinen-runtime-helper" packages/native-arm64-darwin/vmm/bin/machinen-runtime-helper
+          cp "${RUNNER_TEMP}/machinen-runtime-helper/arm64-linux/bin/machinen-runtime-helper" packages/native-arm64-linux/vmm/bin/machinen-runtime-helper
+          cp "${RUNNER_TEMP}/machinen-runtime-helper/x64-linux/bin/machinen-runtime-helper" packages/native-x64-linux/vmm/bin/machinen-runtime-helper
+
+      # chmod host tools so the working copy stays usable locally; the
       # `bin` field in each package's package.json is what makes pnpm
       # pack preserve the +x bit in the published tarball (issue #309).
-      - run: chmod +x packages/native-{arm64-darwin,arm64-linux,x64-linux}/vmm/bin/machinen-vm
+      - run: |
+          chmod +x \
+            packages/native-arm64-darwin/vmm/bin/machinen-vm \
+            packages/native-arm64-darwin/vmm/bin/machinen-runtime-helper \
+            packages/native-arm64-linux/vmm/bin/machinen-vm \
+            packages/native-arm64-linux/vmm/bin/machinen-runtime-helper \
+            packages/native-x64-linux/vmm/bin/machinen-vm \
+            packages/native-x64-linux/vmm/bin/machinen-runtime-helper
 
       # gvproxy (containers/gvisor-tap-vsock) — bundled next to the VMM
       # so `@machinen/runtime` can auto-spawn it for virtio-net without

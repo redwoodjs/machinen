@@ -12,6 +12,7 @@
     "machinen-gvproxy": "./vmm/bin/gvproxy",
     "machinen-mke2fs": "./e2fsprogs/bin/mke2fs",
     "machinen-mksquashfs": "./squashfs/bin/mksquashfs",
+    "machinen-runtime-helper": "./vmm/bin/machinen-runtime-helper",
     "machinen-vm": "./vmm/bin/machinen-vm"
   },
   "files": [
