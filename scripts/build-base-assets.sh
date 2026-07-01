@@ -39,7 +39,9 @@
 #   fnm @ /usr/local/bin/fnm  ← Node version manager. Hits the public
 #                                node-dist mirror by default; callers
 #                                can redirect via FNM_NODE_DIST_MIRROR
-#                                in `boot({ env })`.
+#                                in `boot({ env })`. The base rootfs
+#                                also sets FNM_DIR=/opt/fnm and puts the
+#                                default Node alias on shell PATH.
 #
 # Requirements:
 #   - docker (with arm64 emulation; GH runners have this by default via
@@ -577,6 +579,27 @@ install -m 0755 -D /stage/net-bench-probe   /work/rootfs/sbin/machinen-net-bench
 install -m 0755 -D /stage/memdirty          /work/rootfs/sbin/machinen-memdirty
 install -m 0755 -D /stage/winsize-agent     /work/rootfs/sbin/machinen-winsize-agent
 install -m 0755 -D /stage/fnm               /work/rootfs/usr/local/bin/fnm
+
+# fnm is baked into the base rootfs so Node-based recipes can install
+# a target Node version without downloading a version manager first.
+# Keep the install root outside /root so baked images can share the same
+# convention across provisioning hooks, login shells, and attach shells.
+install -m 0755 -d /work/rootfs/opt/fnm /work/rootfs/etc/profile.d
+cat > /work/rootfs/etc/profile.d/machinen-fnm.sh <<'EOF'
+export FNM_DIR="${FNM_DIR:-/opt/fnm}"
+case ":$PATH:" in
+  *":$FNM_DIR/aliases/default/bin:"*) ;;
+  *) export PATH="$FNM_DIR/aliases/default/bin:$PATH" ;;
+esac
+EOF
+chmod 0644 /work/rootfs/etc/profile.d/machinen-fnm.sh
+cat >> /work/rootfs/etc/bash.bashrc <<'EOF'
+
+# Machinen: make fnm's default Node install usable in interactive attach shells.
+if [ -r /etc/profile.d/machinen-fnm.sh ]; then
+  . /etc/profile.d/machinen-fnm.sh
+fi
+EOF
 # Shell-script helpers that drive the snapshot/restore contract. Staged
 # in by the host-side build step alongside the zig binaries.
 install -m 0755 -D /stage/machinen-supervisor.sh     /work/rootfs/sbin/machinen-supervisor
