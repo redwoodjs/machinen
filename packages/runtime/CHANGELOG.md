@@ -1,5 +1,13 @@
 # @machinen/runtime
 
+## 0.7.1
+
+### Patch Changes
+
+- 56ca711: Resolve release base assets automatically for `boot({ image })` and add `stdio: "inherit"` for foreground interactive VM workloads.
+- 8f06495: Make `fnm` available by default in base guest shells, exec calls, PTY sessions, and foreground workloads so Node-based VM recipes can install and run Node without PATH/FNM boilerplate.
+- dce77cb: Allow safe absolute guest mount paths for mounts and live mounts, with reserved-path protection and an explicit `unsafeGuestPath` escape hatch for advanced use.
+
 ## 0.7.0
 
 ### Minor Changes
