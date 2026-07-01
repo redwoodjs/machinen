@@ -44,6 +44,7 @@ const ROOT_SHELL_MODULES = new Set([
 const HOST_OR_INTEGRATION_GLUE_MODULES = new Set([
   "advanced-linux-facility-probe.ts",
   "balloon-stats.ts",
+  "base-assets.ts",
   "cpu-cgroup.ts",
   "detached-log.ts",
   "exec.ts",

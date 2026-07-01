@@ -100,6 +100,10 @@ const EXT4_IOC_RESIZE_FS: c_ulong = 0x40086610;
 
 const CONFIG_PATH = "/machinen-config.json";
 const BATCH_SYNC_SCRIPT = "/run/machinen-batch-sync.sh";
+const DEFAULT_PATH_ENV = "PATH=/opt/fnm/aliases/default/bin:/usr/local/bin:/usr/bin:/bin:/sbin";
+const DEFAULT_FNM_DIR_ENV = "FNM_DIR=/opt/fnm";
+const DEFAULT_HOME_ENV = "HOME=/root";
+const DEFAULT_TERM_ENV = "TERM=linux";
 
 // Where the rootdisk gets mounted before the chroot. Anything not
 // already in use under / works; we pick a name unlikely to collide with
@@ -390,13 +394,16 @@ fn load_config(arena: std.mem.Allocator) !Config {
 
     // env — optional object of string→string.
     var env_count: usize = 0;
+    var saw_path = false;
+    var saw_fnm_dir = false;
+    var saw_home = false;
     var saw_term = false;
     if (obj.get("env")) |env_val| {
         if (env_val != .object) return error.EnvNotObject;
         env_count = env_val.object.count();
     }
 
-    const envp_buf = try arena.alloc(?[*:0]const u8, env_count + 2); // +TERM +null sentinel slack
+    const envp_buf = try arena.alloc(?[*:0]const u8, env_count + 5); // +PATH/FNM_DIR/HOME/TERM +null
     var env_idx: usize = 0;
     if (obj.get("env")) |env_val| {
         var it = env_val.object.iterator();
@@ -405,11 +412,26 @@ fn load_config(arena: std.mem.Allocator) !Config {
             const kv = try std.fmt.allocPrint(arena, "{s}={s}", .{ e.key_ptr.*, e.value_ptr.string });
             envp_buf[env_idx] = try dup_z(arena, kv);
             env_idx += 1;
+            if (std.mem.eql(u8, e.key_ptr.*, "PATH")) saw_path = true;
+            if (std.mem.eql(u8, e.key_ptr.*, "FNM_DIR")) saw_fnm_dir = true;
+            if (std.mem.eql(u8, e.key_ptr.*, "HOME")) saw_home = true;
             if (std.mem.eql(u8, e.key_ptr.*, "TERM")) saw_term = true;
         }
     }
+    if (!saw_path) {
+        envp_buf[env_idx] = try dup_z(arena, DEFAULT_PATH_ENV);
+        env_idx += 1;
+    }
+    if (!saw_fnm_dir) {
+        envp_buf[env_idx] = try dup_z(arena, DEFAULT_FNM_DIR_ENV);
+        env_idx += 1;
+    }
+    if (!saw_home) {
+        envp_buf[env_idx] = try dup_z(arena, DEFAULT_HOME_ENV);
+        env_idx += 1;
+    }
     if (!saw_term) {
-        envp_buf[env_idx] = try dup_z(arena, "TERM=linux");
+        envp_buf[env_idx] = try dup_z(arena, DEFAULT_TERM_ENV);
         env_idx += 1;
     }
     envp_buf[env_idx] = null;
@@ -558,22 +580,6 @@ fn init_batch_sync_script(mounts: []LiveMount) void {
     write_str(fd,
         \\#!/bin/sh
         \\set -u
-        \\sync_live_mount() {
-        \\  guest="$1"
-        \\  lower="$2"
-        \\  [ -d "$guest" ] && [ -d "$lower" ] || return 0
-        \\  tmp="/run/machinen-batch-sync-$$.tar"
-        \\  rm -f "$tmp"
-        \\  (cd "$guest" && tar -cf "$tmp" .) || { rm -f "$tmp"; return 1; }
-        \\  for p in "$lower"/..?* "$lower"/.[!.]* "$lower"/*; do
-        \\    [ -e "$p" ] || [ -L "$p" ] || continue
-        \\    rm -rf "$p"
-        \\  done
-        \\  (cd "$lower" && tar -xf "$tmp")
-        \\  status=$?
-        \\  rm -f "$tmp"
-        \\  return "$status"
-        \\}
         \\
     );
 }
@@ -592,11 +598,28 @@ fn append_batch_sync_entry(guest: []const u8, lower: []const u8) void {
     const fd = open(BATCH_SYNC_SCRIPT, O_WRONLY | O_CREAT | O_APPEND, @as(c_uint, 0o755));
     if (fd < 0) return;
     defer _ = close(fd);
-    write_str(fd, "sync_live_mount ");
+    write_str(fd, "guest=");
     write_shell_single_quoted(fd, guest);
-    write_str(fd, " ");
+    write_str(fd, "\n");
+    write_str(fd, "lower=");
     write_shell_single_quoted(fd, lower);
     write_str(fd, "\n");
+    write_str(fd,
+        \\if [ -d "$guest" ] && [ -d "$lower" ]; then
+        \\  tmp="/run/machinen-batch-sync-$$.tar"
+        \\  rm -f "$tmp"
+        \\  (cd "$guest" && tar -cf "$tmp" .) || { rm -f "$tmp"; exit 1; }
+        \\  for p in "$lower"/..?* "$lower"/.[!.]* "$lower"/*; do
+        \\    [ -e "$p" ] || [ -L "$p" ] || continue
+        \\    rm -rf "$p"
+        \\  done
+        \\  (cd "$lower" && tar -xf "$tmp")
+        \\  status=$?
+        \\  rm -f "$tmp"
+        \\  [ "$status" -eq 0 ] || exit "$status"
+        \\fi
+        \\
+    );
 }
 
 fn batch_mount_path(buf: []u8, index: u8, name: []const u8) ![]const u8 {

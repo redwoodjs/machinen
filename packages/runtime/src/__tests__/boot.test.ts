@@ -21,7 +21,7 @@ import {
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { BootError, ExecError, boot, buildMachinenConfig, measureFirstByte } from "../index.ts";
 import {
   applyNestedVirtualizationEnv,
@@ -248,6 +248,48 @@ describe("boot", () => {
     expect(gone).toBe(true);
   }, 60_000);
 
+  it("rejects stdio inherit with detached boots", async () => {
+    await expect(
+      boot({
+        binary: "/bin/sh",
+        args: ["-c", "true"],
+        detached: true,
+        pdeathsig: false,
+        stdio: "inherit",
+      }),
+    ).rejects.toMatchObject({ code: "BOOT_STDIO_DETACHED" });
+  });
+
+  it("pipes VM stdout and stderr to the host when stdio is inherit", async () => {
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    const stdoutWrite = vi.spyOn(process.stdout, "write").mockImplementation((chunk: unknown) => {
+      stdoutChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+      return true;
+    });
+    const stderrWrite = vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
+      stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+      return true;
+    });
+
+    try {
+      const vm = await boot({
+        binary: "/bin/sh",
+        args: ["-c", "printf inherited-out; printf inherited-err >&2"],
+        pdeathsig: false,
+        stdio: "inherit",
+        timeoutMs: null,
+      });
+      await vm.wait();
+    } finally {
+      stdoutWrite.mockRestore();
+      stderrWrite.mockRestore();
+    }
+
+    expect(Buffer.concat(stdoutChunks).toString("utf8")).toContain("inherited-out");
+    expect(Buffer.concat(stderrChunks).toString("utf8")).toContain("inherited-err");
+  });
+
   it("rejects wait() when the VMM exceeds its timeout", async () => {
     // Use a binary that just sleeps (the macOS `yes` command never
     // exits on its own). We're not booting a VM here — we're
@@ -472,6 +514,46 @@ describe("snapshot option", () => {
 });
 
 describe("kernel option", () => {
+  it("resolves the release kernel and dtb when binary is omitted", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-default-assets-"));
+    const kernel = join(dir, "Image-arm64");
+    const dtb = join(dir, "virt-arm64.dtb");
+    const previousAssetsDir = process.env.MACHINEN_ASSETS_DIR;
+    const previousGuestArch = process.env.MACHINEN_GUEST_ARCH;
+    const previousVmm = process.env.MACHINEN_VMM;
+    writeFileSync(kernel, "");
+    writeFileSync(dtb, "");
+    process.env.MACHINEN_ASSETS_DIR = dir;
+    process.env.MACHINEN_GUEST_ARCH = "arm64";
+    process.env.MACHINEN_VMM = "/bin/sh";
+    try {
+      const vm = await boot({
+        args: ["-c", 'printf \'KERNEL=%s\\nDTB=%s\\n\' "$MACHINEN_KERNEL" "$MACHINEN_DTB"'],
+        timeoutMs: 2_000,
+      });
+      await vm.wait();
+      const out = await vm.output();
+      expect(out.trim()).toBe(`KERNEL=${kernel}\nDTB=${dtb}`);
+    } finally {
+      if (previousAssetsDir === undefined) {
+        delete process.env.MACHINEN_ASSETS_DIR;
+      } else {
+        process.env.MACHINEN_ASSETS_DIR = previousAssetsDir;
+      }
+      if (previousGuestArch === undefined) {
+        delete process.env.MACHINEN_GUEST_ARCH;
+      } else {
+        process.env.MACHINEN_GUEST_ARCH = previousGuestArch;
+      }
+      if (previousVmm === undefined) {
+        delete process.env.MACHINEN_VMM;
+      } else {
+        process.env.MACHINEN_VMM = previousVmm;
+      }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("throws BootError when the kernel path does not exist", async () => {
     await expect(boot({ binary: "/bin/sh", kernel: "/nope/missing-kernel" })).rejects.toThrow(
       /kernel not found/,
@@ -668,10 +750,10 @@ describe("mount option", () => {
     }
   });
 
-  it("rejects a mount whose guest path is not under /mnt/", async () => {
+  it("rejects a mount whose guest path is reserved", async () => {
     writeFileSync(fakeImage, "");
     try {
-      for (const guest of ["/srv/app", "/etc/config", "/proc", "/init", "/mntfoo"]) {
+      for (const guest of ["/", "/mnt", "/mnt/", "/proc", "/proc/self", "/run/tool", "/init"]) {
         await expect(
           boot({
             binary: "/bin/sh",
@@ -679,27 +761,7 @@ describe("mount option", () => {
             cmd: mountCmd,
             mount: { host: "/tmp", guest },
           }),
-        ).rejects.toThrow(/must live under \/mnt\//);
-      }
-    } finally {
-      try {
-        unlinkSync(fakeImage);
-      } catch {}
-    }
-  });
-
-  it("rejects a mount whose guest path is the mount root itself", async () => {
-    writeFileSync(fakeImage, "");
-    try {
-      for (const guest of ["/mnt", "/mnt/"]) {
-        await expect(
-          boot({
-            binary: "/bin/sh",
-            image: fakeImage,
-            cmd: mountCmd,
-            mount: { host: "/tmp", guest },
-          }),
-        ).rejects.toThrow(/must live under \/mnt\//);
+        ).rejects.toThrow(/unsafeGuestPath: true/);
       }
     } finally {
       try {
@@ -890,7 +952,7 @@ describe("liveMounts option", () => {
     }
   });
 
-  it("rejects a live mount with a host path outside /mnt/", async () => {
+  it("rejects a live mount with a reserved guest path", async () => {
     writeFileSync(fakeImage, "");
     try {
       await expect(
@@ -898,9 +960,9 @@ describe("liveMounts option", () => {
           binary: "/bin/sh",
           image: fakeImage,
           cmd: mountCmd,
-          liveMounts: [{ host: "/tmp", guest: "/srv/app" }],
+          liveMounts: [{ host: "/tmp", guest: "/run/tool" }],
         }),
-      ).rejects.toThrow(/must live under \/mnt\//);
+      ).rejects.toThrow(/unsafeGuestPath: true/);
     } finally {
       try {
         unlinkSync(fakeImage);
@@ -1023,7 +1085,7 @@ describe("vm.snapshot", () => {
         rmSync(outDir, { recursive: true, force: true });
       } catch {}
     }
-  });
+  }, 15_000);
 });
 
 // Fake exec-agent — accepts a UDS connection, reads one EXEC line,

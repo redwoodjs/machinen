@@ -1768,7 +1768,7 @@ Optional arch-specific base rootfs tarball
 A single host directory copied into the guest between the base
 tarball and the bundle's rootfs. Bundle files win on path
 collisions. The caller is responsible for validating host exists
-and is a directory, and that guest lives under `/mnt/`. See #64.
+and is a directory, and that guest is a safe absolute path. See #64.
 
 ###### host
 
@@ -1839,7 +1839,7 @@ Guest mountpoint for the `--mount` overlay (#272). When set, the
 cpio carries `/etc/machinen-mountdisk-guest` with this path so
 /init knows where to layer the squashfs+ext4 overlay after the
 rootdisk pivot. The actual payload rides on virtio-blk slots 5+6,
-not in the cpio. Must be an absolute path under `/mnt/`.
+not in the cpio. Must be a safe absolute path.
 
 ##### initPath?
 
@@ -2951,6 +2951,18 @@ Host-side vsock UDS the exec-agent is reachable on.
 
 Path to the image the VM was booted from (diagnostic only).
 
+##### kernelPath?
+
+> `optional` **kernelPath?**: `string`
+
+Guest kernel image the VM was booted with, when known.
+
+##### dtbPath?
+
+> `optional` **dtbPath?**: `string`
+
+Guest DTB the VM was booted with, when applicable and known.
+
 ##### rootDiskPath?
 
 > `optional` **rootDiskPath?**: `string`
@@ -2961,7 +2973,7 @@ whole-VM state captures RAM/device/vCPU state, not disk blocks.
 
 ##### rootDiskMode?
 
-> `optional` **rootDiskMode?**: `"block"` \| `"none"`
+> `optional` **rootDiskMode?**: `"none"` \| `"block"`
 
 Whether the VM intentionally booted without a root block device.
 
@@ -3124,7 +3136,7 @@ CPU resource policy and host enforcement state resolved at boot.
 
 ###### enforcement.status
 
-> **status**: `"none"` \| `"linux-cgroup-v2"` \| `"unsupported"`
+> **status**: `"linux-cgroup-v2"` \| `"unsupported"` \| `"none"`
 
 ###### enforcement.reason?
 
@@ -3959,6 +3971,38 @@ Pointer-auth state inferred from SCTLR_EL1 at snapshot time.
 
 Exact root block image needed by the resumed guest, a parent-relative delta, or explicit absence.
 
+##### bootAssets?
+
+> `optional` **bootAssets?**: `object`
+
+Exact boot assets required to restore this frozen VM state. The id is
+digest-based, so regions can advertise compatibility without sharing
+deployment-local paths.
+
+###### id
+
+> **id**: `string`
+
+Path-independent digest over rootfs/kernel/DTB identities.
+
+###### rootfs
+
+> **rootfs**: [`SnapshotFileIdentity`](#snapshotfileidentity)
+
+Rootfs tarball identity used to build the restore initramfs.
+
+###### kernel
+
+> **kernel**: [`SnapshotFileIdentity`](#snapshotfileidentity)
+
+Guest kernel image identity.
+
+###### dtb?
+
+> `optional` **dtb?**: [`SnapshotFileIdentity`](#snapshotfileidentity)
+
+Guest DTB identity; absent for guests that boot without a DTB.
+
 ##### kernel?
 
 > `optional` **kernel?**: [`SnapshotFileIdentity`](#snapshotfileidentity)
@@ -4349,30 +4393,10 @@ forked from. Set by `restore({ snapDir })`; visible in
 
 > `optional` **mount?**: `object`
 
-A single host directory exposed to the guest as a writable
-filesystem rooted under `/mnt/<guest>/`. Guest writes survive
-snapshot/restore but never leak to the host source dir.
-
-Implementation (#272): the runtime builds a content-addressed
-read-only squashfs lower from `host` (cached in
-`~/.cache/machinen/mountdisk/`) and a per-VM ext4 sparse upper
-(4 GiB by default; bump via `mountDiskUpperSizeBytes`). Both
-files are fd-passed to the VMM, surfacing inside the guest as
-`/dev/vdc` (RO) and `/dev/vdd` (RW); /init layers them as a
-single overlayfs at `<guest>/`. The squashfs lower stays
-sealed for the VM's lifetime; writes go to the upper, which
-is reflinked into snapshot bundles so forks see prior writes
-without touching the source dir.
-
-Trade-off vs. `liveMount`: `mount` is copy-into-disk-image (no
-runtime channel back to the host source dir, snapshots cleanly,
-but writes don't propagate to the host); `liveMount` is an in-VMM
-virtio-fs pass-through (writes land on the host and restore/fork
-re-establish the same guest mount topology). Pick `mount` for inputs the
-guest may modify but the host shouldn't see; `liveMount` for shared scratch.
-
-See #64 (original `mount`), #78 (`liveMount`), #114 (rootdisk
-relocation; same shape), #272 (this overlay relocation).
+Copy one host directory into a writable guest overlay at a safe absolute
+path. Guest writes survive snapshot/restore but do not touch the host.
+Use `liveMounts` when writes should sync back. Pass `unsafeGuestPath: true`
+only when intentionally mounting over a reserved runtime path.
 
 ###### host
 
@@ -4381,6 +4405,10 @@ relocation; same shape), #272 (this overlay relocation).
 ###### guest
 
 > **guest**: `string`
+
+###### unsafeGuestPath?
+
+> `optional` **unsafeGuestPath?**: `boolean`
 
 ###### Inherited from
 
@@ -4406,25 +4434,10 @@ Must be a positive multiple of 4096. Default 4 GiB.
 
 > `optional` **liveMounts?**: `object`[]
 
-Host directories exposed to the guest as live-share mounts (#78,
-#332). Unlike `mount` (copy-once), these stay connected to the
-host: guest reads stream on demand and `"rw"` writes sync back to
-the host. Set `"ro"` for a one-way share.
-
-Each guest path must live under `/mnt/`. Up to 5 entries are served
-by in-VMM virtio-fs devices; no guest agent or vsock transport is
-involved. Metadata uses the fast policy. `ro` mounts are read-only;
-`rw` mounts sync writes back to the host in batches after guest
-workload exit and host lifecycle calls.
-
-Snapshot / restore / fork record host path, guest path, and mode,
-but not bytes. Restoring on another host fails if the recorded host
-path is missing; pass `restore({ liveMounts })` with matching
-`guest` paths to remap host/mode.
-
-Security note: a live-share mount is a persistent guest-to-host
-filesystem channel bounded to the configured host root. Prefer
-`mount` for untrusted inputs that do not need write-through.
+Host directories exposed as live virtio-fs shares. `ro` is read-only;
+`rw` writes sync back to the host in batches. Guest paths must be safe
+absolute paths unless `unsafeGuestPath: true` is set intentionally.
+Snapshot / restore / fork record path topology, not file bytes.
 
 ###### host
 
@@ -4437,6 +4450,10 @@ filesystem channel bounded to the configured host root. Prefer
 ###### mode?
 
 > `optional` **mode?**: `"ro"` \| `"rw"`
+
+###### unsafeGuestPath?
+
+> `optional` **unsafeGuestPath?**: `boolean`
 
 ###### Inherited from
 
@@ -4478,6 +4495,8 @@ Extra argv for the VMM.
 > `optional` **kernel?**: `string`
 
 Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base kernel from `MACHINEN_ASSETS_DIR` or the CLI cache.
 
 ###### Inherited from
 
@@ -4488,6 +4507,8 @@ Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 > `optional` **dtb?**: `string`
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base DTB on guest architectures that need one.
 
 ###### Inherited from
 
@@ -4561,6 +4582,23 @@ guest workload). Mostly for dev/test flags like `MACHINEN_BOOT_TEST`.
 ###### Inherited from
 
 [`BootOptions`](#bootoptions).[`vmmEnv`](#vmmenv-2)
+
+##### stdio?
+
+> `optional` **stdio?**: `"pipe"` \| `"inherit"`
+
+Host stdio behavior for foreground boots. The default, `"pipe"`, preserves
+the existing runtime behavior: callers read/write `vm.stdin`, `vm.stdout`,
+and `vm.stderr` themselves. `"inherit"` connects those streams to the
+current process and puts TTY stdin in raw mode until the VM exits, matching
+the ergonomics of Node's `child_process.spawn({ stdio: "inherit" })`.
+
+`stdio: "inherit"` is for foreground workloads and cannot be combined with
+`detached: true`.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`stdio`](#stdio-1)
 
 ##### detached?
 
@@ -4770,30 +4808,10 @@ forked from. Set by `restore({ snapDir })`; visible in
 
 > `optional` **mount?**: `object`
 
-A single host directory exposed to the guest as a writable
-filesystem rooted under `/mnt/<guest>/`. Guest writes survive
-snapshot/restore but never leak to the host source dir.
-
-Implementation (#272): the runtime builds a content-addressed
-read-only squashfs lower from `host` (cached in
-`~/.cache/machinen/mountdisk/`) and a per-VM ext4 sparse upper
-(4 GiB by default; bump via `mountDiskUpperSizeBytes`). Both
-files are fd-passed to the VMM, surfacing inside the guest as
-`/dev/vdc` (RO) and `/dev/vdd` (RW); /init layers them as a
-single overlayfs at `<guest>/`. The squashfs lower stays
-sealed for the VM's lifetime; writes go to the upper, which
-is reflinked into snapshot bundles so forks see prior writes
-without touching the source dir.
-
-Trade-off vs. `liveMount`: `mount` is copy-into-disk-image (no
-runtime channel back to the host source dir, snapshots cleanly,
-but writes don't propagate to the host); `liveMount` is an in-VMM
-virtio-fs pass-through (writes land on the host and restore/fork
-re-establish the same guest mount topology). Pick `mount` for inputs the
-guest may modify but the host shouldn't see; `liveMount` for shared scratch.
-
-See #64 (original `mount`), #78 (`liveMount`), #114 (rootdisk
-relocation; same shape), #272 (this overlay relocation).
+Copy one host directory into a writable guest overlay at a safe absolute
+path. Guest writes survive snapshot/restore but do not touch the host.
+Use `liveMounts` when writes should sync back. Pass `unsafeGuestPath: true`
+only when intentionally mounting over a reserved runtime path.
 
 ###### host
 
@@ -4802,6 +4820,10 @@ relocation; same shape), #272 (this overlay relocation).
 ###### guest
 
 > **guest**: `string`
+
+###### unsafeGuestPath?
+
+> `optional` **unsafeGuestPath?**: `boolean`
 
 ##### mountDiskUpperSizeBytes?
 
@@ -4819,25 +4841,10 @@ Must be a positive multiple of 4096. Default 4 GiB.
 
 > `optional` **liveMounts?**: `object`[]
 
-Host directories exposed to the guest as live-share mounts (#78,
-#332). Unlike `mount` (copy-once), these stay connected to the
-host: guest reads stream on demand and `"rw"` writes sync back to
-the host. Set `"ro"` for a one-way share.
-
-Each guest path must live under `/mnt/`. Up to 5 entries are served
-by in-VMM virtio-fs devices; no guest agent or vsock transport is
-involved. Metadata uses the fast policy. `ro` mounts are read-only;
-`rw` mounts sync writes back to the host in batches after guest
-workload exit and host lifecycle calls.
-
-Snapshot / restore / fork record host path, guest path, and mode,
-but not bytes. Restoring on another host fails if the recorded host
-path is missing; pass `restore({ liveMounts })` with matching
-`guest` paths to remap host/mode.
-
-Security note: a live-share mount is a persistent guest-to-host
-filesystem channel bounded to the configured host root. Prefer
-`mount` for untrusted inputs that do not need write-through.
+Host directories exposed as live virtio-fs shares. `ro` is read-only;
+`rw` writes sync back to the host in batches. Guest paths must be safe
+absolute paths unless `unsafeGuestPath: true` is set intentionally.
+Snapshot / restore / fork record path topology, not file bytes.
 
 ###### host
 
@@ -4850,6 +4857,10 @@ filesystem channel bounded to the configured host root. Prefer
 ###### mode?
 
 > `optional` **mode?**: `"ro"` \| `"rw"`
+
+###### unsafeGuestPath?
+
+> `optional` **unsafeGuestPath?**: `boolean`
 
 ##### portForward?
 
@@ -4895,12 +4906,16 @@ Extra argv for the VMM.
 > `optional` **kernel?**: `string`
 
 Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base kernel from `MACHINEN_ASSETS_DIR` or the CLI cache.
 
 ##### dtb?
 
 > `optional` **dtb?**: `string`
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base DTB on guest architectures that need one.
 
 ##### nested?
 
@@ -4967,6 +4982,19 @@ kernel console (VMM stderr) and every exec invocation made through
 the returned handle. See `LogEvent.source` to tell them apart. See
 #83. For per-call output-only tees on a single exec, use
 `vm.exec({ onStdout, onStderr })` instead.
+
+##### stdio?
+
+> `optional` **stdio?**: `"pipe"` \| `"inherit"`
+
+Host stdio behavior for foreground boots. The default, `"pipe"`, preserves
+the existing runtime behavior: callers read/write `vm.stdin`, `vm.stdout`,
+and `vm.stderr` themselves. `"inherit"` connects those streams to the
+current process and puts TTY stdin in raw mode until the VM exits, matching
+the ergonomics of Node's `child_process.spawn({ stdio: "inherit" })`.
+
+`stdio: "inherit"` is for foreground workloads and cannot be combined with
+`detached: true`.
 
 ##### detached?
 
@@ -5183,30 +5211,10 @@ forked from. Set by `restore({ snapDir })`; visible in
 
 > `optional` **mount?**: `object`
 
-A single host directory exposed to the guest as a writable
-filesystem rooted under `/mnt/<guest>/`. Guest writes survive
-snapshot/restore but never leak to the host source dir.
-
-Implementation (#272): the runtime builds a content-addressed
-read-only squashfs lower from `host` (cached in
-`~/.cache/machinen/mountdisk/`) and a per-VM ext4 sparse upper
-(4 GiB by default; bump via `mountDiskUpperSizeBytes`). Both
-files are fd-passed to the VMM, surfacing inside the guest as
-`/dev/vdc` (RO) and `/dev/vdd` (RW); /init layers them as a
-single overlayfs at `<guest>/`. The squashfs lower stays
-sealed for the VM's lifetime; writes go to the upper, which
-is reflinked into snapshot bundles so forks see prior writes
-without touching the source dir.
-
-Trade-off vs. `liveMount`: `mount` is copy-into-disk-image (no
-runtime channel back to the host source dir, snapshots cleanly,
-but writes don't propagate to the host); `liveMount` is an in-VMM
-virtio-fs pass-through (writes land on the host and restore/fork
-re-establish the same guest mount topology). Pick `mount` for inputs the
-guest may modify but the host shouldn't see; `liveMount` for shared scratch.
-
-See #64 (original `mount`), #78 (`liveMount`), #114 (rootdisk
-relocation; same shape), #272 (this overlay relocation).
+Copy one host directory into a writable guest overlay at a safe absolute
+path. Guest writes survive snapshot/restore but do not touch the host.
+Use `liveMounts` when writes should sync back. Pass `unsafeGuestPath: true`
+only when intentionally mounting over a reserved runtime path.
 
 ###### host
 
@@ -5215,6 +5223,10 @@ relocation; same shape), #272 (this overlay relocation).
 ###### guest
 
 > **guest**: `string`
+
+###### unsafeGuestPath?
+
+> `optional` **unsafeGuestPath?**: `boolean`
 
 ###### Inherited from
 
@@ -5240,25 +5252,10 @@ Must be a positive multiple of 4096. Default 4 GiB.
 
 > `optional` **liveMounts?**: `object`[]
 
-Host directories exposed to the guest as live-share mounts (#78,
-#332). Unlike `mount` (copy-once), these stay connected to the
-host: guest reads stream on demand and `"rw"` writes sync back to
-the host. Set `"ro"` for a one-way share.
-
-Each guest path must live under `/mnt/`. Up to 5 entries are served
-by in-VMM virtio-fs devices; no guest agent or vsock transport is
-involved. Metadata uses the fast policy. `ro` mounts are read-only;
-`rw` mounts sync writes back to the host in batches after guest
-workload exit and host lifecycle calls.
-
-Snapshot / restore / fork record host path, guest path, and mode,
-but not bytes. Restoring on another host fails if the recorded host
-path is missing; pass `restore({ liveMounts })` with matching
-`guest` paths to remap host/mode.
-
-Security note: a live-share mount is a persistent guest-to-host
-filesystem channel bounded to the configured host root. Prefer
-`mount` for untrusted inputs that do not need write-through.
+Host directories exposed as live virtio-fs shares. `ro` is read-only;
+`rw` writes sync back to the host in batches. Guest paths must be safe
+absolute paths unless `unsafeGuestPath: true` is set intentionally.
+Snapshot / restore / fork record path topology, not file bytes.
 
 ###### host
 
@@ -5271,6 +5268,10 @@ filesystem channel bounded to the configured host root. Prefer
 ###### mode?
 
 > `optional` **mode?**: `"ro"` \| `"rw"`
+
+###### unsafeGuestPath?
+
+> `optional` **unsafeGuestPath?**: `boolean`
 
 ###### Inherited from
 
@@ -5336,6 +5337,8 @@ Extra argv for the VMM.
 > `optional` **kernel?**: `string`
 
 Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base kernel from `MACHINEN_ASSETS_DIR` or the CLI cache.
 
 ###### Inherited from
 
@@ -5346,6 +5349,8 @@ Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 > `optional` **dtb?**: `string`
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base DTB on guest architectures that need one.
 
 ###### Inherited from
 
@@ -5444,6 +5449,23 @@ the returned handle. See `LogEvent.source` to tell them apart. See
 ###### Inherited from
 
 [`BootOptions`](#bootoptions).[`onLog`](#onlog-5)
+
+##### stdio?
+
+> `optional` **stdio?**: `"pipe"` \| `"inherit"`
+
+Host stdio behavior for foreground boots. The default, `"pipe"`, preserves
+the existing runtime behavior: callers read/write `vm.stdin`, `vm.stdout`,
+and `vm.stderr` themselves. `"inherit"` connects those streams to the
+current process and puts TTY stdin in raw mode until the VM exits, matching
+the ergonomics of Node's `child_process.spawn({ stdio: "inherit" })`.
+
+`stdio: "inherit"` is for foreground workloads and cannot be combined with
+`detached: true`.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`stdio`](#stdio-1)
 
 ##### detached?
 
@@ -5709,6 +5731,14 @@ tarball-producing tool can pre-populate the lookup cache.
 ##### BOOT\_TIMEOUT
 
 > `readonly` **BOOT\_TIMEOUT**: `"BOOT_TIMEOUT"` = `"BOOT_TIMEOUT"`
+
+##### BOOT\_STDIO\_INVALID
+
+> `readonly` **BOOT\_STDIO\_INVALID**: `"BOOT_STDIO_INVALID"` = `"BOOT_STDIO_INVALID"`
+
+##### BOOT\_STDIO\_DETACHED
+
+> `readonly` **BOOT\_STDIO\_DETACHED**: `"BOOT_STDIO_DETACHED"` = `"BOOT_STDIO_DETACHED"`
 
 ##### BOOT\_DETACHED\_READINESS\_FAILED
 
@@ -6334,6 +6364,94 @@ Read the balloon-stats file at `path`. Returns `null` when:
 
 ***
 
+### resolveBaseRootfs()
+
+> **resolveBaseRootfs**(`explicit?`, `cwd?`): `string`
+
+Resolve the path to the base rootfs tarball. Fallback chain:
+explicit → `MACHINEN_ASSETS_DIR/<arch rootfs>` → `@machinen/cli`
+cache at `<base>/rootfs.tar.gz`.
+
+#### Parameters
+
+##### explicit?
+
+`string`
+
+##### cwd?
+
+`string` = `...`
+
+#### Returns
+
+`string`
+
+#### Throws
+
+PROVISION_BASE_NOT_FOUND |
+  PROVISION_ASSETS_DIR_INVALID
+
+***
+
+### resolveBaseKernel()
+
+> **resolveBaseKernel**(`explicit?`, `cwd?`): `string`
+
+Resolve the path to the guest kernel image. Same fallback chain as
+`resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/<arch kernel>` →
+`@machinen/cli` cache at `<base>/Image`.
+
+#### Parameters
+
+##### explicit?
+
+`string`
+
+##### cwd?
+
+`string` = `...`
+
+#### Returns
+
+`string`
+
+#### Throws
+
+PROVISION_KERNEL_NOT_FOUND |
+  PROVISION_ASSETS_DIR_INVALID
+
+***
+
+### resolveBaseDtb()
+
+> **resolveBaseDtb**(`explicit?`, `cwd?`): `string`
+
+Resolve the path to the guest DTB. amd64 guests do not use a DTB unless
+the caller passes one explicitly. arm64 follows the same fallback chain as
+`resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/virt-arm64.dtb` →
+`@machinen/cli` cache at `<base>/virt.dtb`.
+
+#### Parameters
+
+##### explicit?
+
+`string`
+
+##### cwd?
+
+`string` = `...`
+
+#### Returns
+
+`string`
+
+#### Throws
+
+PROVISION_DTB_NOT_FOUND |
+  PROVISION_ASSETS_DIR_INVALID
+
+***
+
 ### detachedLogRoot()
 
 > **detachedLogRoot**(): `string`
@@ -6947,105 +7065,6 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 #### Returns
 
 `Map`\<`number`, `number`\>
-
-***
-
-### resolveBaseRootfs()
-
-> **resolveBaseRootfs**(`explicit?`, `cwd?`): `string`
-
-Resolve the path to the base rootfs tarball, in the same order
-`provision()` itself does:
-
-  1. `explicit` — the caller-supplied path (resolved against `cwd`).
-  2. `MACHINEN_ASSETS_DIR` env var — points at a directory laid out like
-     `scripts/build-base-assets.sh`'s output (contains the selected
-     arch's rootfs tarball). Same convention `@machinen/cli` honors for
-     local/dev builds.
-  3. `@machinen/cli`'s on-disk cache at
-     `~/.machinen/@machinen/runtime@<version>/bases/debian-<arch>/rootfs.tar.gz`.
-     Populated by running `machinen` once against the installed runtime.
-
-Throws `ProvisionError` with guidance if none of those turn up a file.
-Exported so callers can pre-check or build their own tooling on it.
-
-#### Parameters
-
-##### explicit?
-
-`string`
-
-##### cwd?
-
-`string` = `...`
-
-#### Returns
-
-`string`
-
-#### Throws
-
-PROVISION_BASE_NOT_FOUND | PROVISION_ASSETS_DIR_INVALID
-
-***
-
-### resolveBaseKernel()
-
-> **resolveBaseKernel**(`explicit?`, `cwd?`): `string`
-
-Resolve the path to the guest kernel image. Same fallback chain as
-`resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/<arch kernel>` →
-`@machinen/cli` cache at `<base>/Image`. Exported for callers that
-want to pre-check or wire the path into `boot()`.
-
-#### Parameters
-
-##### explicit?
-
-`string`
-
-##### cwd?
-
-`string` = `...`
-
-#### Returns
-
-`string`
-
-#### Throws
-
-PROVISION_KERNEL_NOT_FOUND |
-  PROVISION_ASSETS_DIR_INVALID
-
-***
-
-### resolveBaseDtb()
-
-> **resolveBaseDtb**(`explicit?`, `cwd?`): `string`
-
-Resolve the path to the guest DTB. amd64 guests do not use a DTB unless
-the caller passes one explicitly. arm64 follows the same fallback chain as
-`resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/virt-arm64.dtb` →
-`@machinen/cli` cache at `<base>/virt.dtb`.
-
-#### Parameters
-
-##### explicit?
-
-`string`
-
-##### cwd?
-
-`string` = `...`
-
-#### Returns
-
-`string`
-
-#### Throws
-
-PROVISION_DTB_NOT_FOUND |
-  PROVISION_ASSETS_DIR_INVALID
 
 ***
 

@@ -293,9 +293,9 @@ expect_cli_error \
   boot --mount "$HOST_FILE:/mnt/f" -- true
 
 expect_cli_error \
-  "V3: --mount with guest path outside /mnt/" \
-  "must live under /mnt/" \
-  boot --mount "$EMPTY_DIR:/etc/passwd" -- true
+  "V3: --mount with reserved guest path" \
+  "unsafeGuestPath: true" \
+  boot --mount "$EMPTY_DIR:/proc/machinen-test" -- true
 
 expect_cli_error \
   "V4: second --mount rejected" \
@@ -315,9 +315,9 @@ expect_cli_error \
   boot --mount-live "$HOST_FILE:/mnt/f" -- true
 
 expect_cli_error \
-  "V7: --mount-live with guest path outside /mnt/" \
-  "must live under /mnt/" \
-  boot --mount-live "$EMPTY_DIR:/etc/passwd" -- true
+  "V7: --mount-live with reserved guest path" \
+  "unsafeGuestPath: true" \
+  boot --mount-live "$EMPTY_DIR:/run/machinen-test" -- true
 
 expect_cli_error \
   "V8: --mount-live rejects an unknown trailing modifier" \

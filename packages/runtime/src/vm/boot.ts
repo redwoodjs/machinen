@@ -6,7 +6,6 @@
 
 import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { once } from "node:events";
 import { closeSync, existsSync, mkdtempSync, openSync, rmSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -46,7 +45,6 @@ import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
   planBootInitrdEnvNative,
-  planBootKernelDtbNative,
   planBootMountDiskFdEnvNative,
   planBootPortForwardNative,
   planBootRegistryNestedNative,
@@ -81,6 +79,7 @@ import { planBootVmmEnvNative } from "../native/vmm-env.ts";
 import { planBootVsockModeNative } from "../native/vsock-mode.ts";
 import { planBootVmstateTempModeNative as planVmstateTempMode } from "../native/vmstate-temp-mode.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
+import { setupKernelDtbEnv } from "./boot-assets.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
 import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
 import { resolveLiveMounts, synthesizeAndPackBundle, type ResolvedLiveMount } from "./bundle.ts";
@@ -103,6 +102,13 @@ import {
 import { performSnapshot, type SnapshotContext } from "./snapshot.ts";
 import { resolveSnapshotEngine } from "./snapshot-engine.ts";
 import { setupStatsFile } from "./stats-file.ts";
+import {
+  installInheritedStdio,
+  makeKill,
+  makeWait,
+  validateBootStdio,
+  withInheritedStdioCleanup,
+} from "./handle-lifecycle.ts";
 
 const debug = debugLib("machinen:boot");
 const vmmDebug = debugLib("machinen:vmm");
@@ -218,32 +224,12 @@ export interface BootOptions {
    */
   forkedFrom?: string;
   /**
-   * A single host directory exposed to the guest as a writable
-   * filesystem rooted under `/mnt/<guest>/`. Guest writes survive
-   * snapshot/restore but never leak to the host source dir.
-   *
-   * Implementation (#272): the runtime builds a content-addressed
-   * read-only squashfs lower from `host` (cached in
-   * `~/.cache/machinen/mountdisk/`) and a per-VM ext4 sparse upper
-   * (4 GiB by default; bump via `mountDiskUpperSizeBytes`). Both
-   * files are fd-passed to the VMM, surfacing inside the guest as
-   * `/dev/vdc` (RO) and `/dev/vdd` (RW); /init layers them as a
-   * single overlayfs at `<guest>/`. The squashfs lower stays
-   * sealed for the VM's lifetime; writes go to the upper, which
-   * is reflinked into snapshot bundles so forks see prior writes
-   * without touching the source dir.
-   *
-   * Trade-off vs. `liveMount`: `mount` is copy-into-disk-image (no
-   * runtime channel back to the host source dir, snapshots cleanly,
-   * but writes don't propagate to the host); `liveMount` is an in-VMM
-   * virtio-fs pass-through (writes land on the host and restore/fork
-   * re-establish the same guest mount topology). Pick `mount` for inputs the
-   * guest may modify but the host shouldn't see; `liveMount` for shared scratch.
-   *
-   * See #64 (original `mount`), #78 (`liveMount`), #114 (rootdisk
-   * relocation; same shape), #272 (this overlay relocation).
+   * Copy one host directory into a writable guest overlay at a safe absolute
+   * path. Guest writes survive snapshot/restore but do not touch the host.
+   * Use `liveMounts` when writes should sync back. Pass `unsafeGuestPath: true`
+   * only when intentionally mounting over a reserved runtime path.
    */
-  mount?: { host: string; guest: string };
+  mount?: { host: string; guest: string; unsafeGuestPath?: boolean };
   /**
    * Absolute target size (bytes) for the per-VM ext4 RW upper of
    * the `--mount` overlay (#272). Sparse, so unused capacity costs
@@ -290,30 +276,16 @@ export interface BootOptions {
    */
   _rootDiskRestorePath?: string;
   /**
-   * Host directories exposed to the guest as live-share mounts (#78,
-   * #332). Unlike `mount` (copy-once), these stay connected to the
-   * host: guest reads stream on demand and `"rw"` writes sync back to
-   * the host. Set `"ro"` for a one-way share.
-   *
-   * Each guest path must live under `/mnt/`. Up to 5 entries are served
-   * by in-VMM virtio-fs devices; no guest agent or vsock transport is
-   * involved. Metadata uses the fast policy. `ro` mounts are read-only;
-   * `rw` mounts sync writes back to the host in batches after guest
-   * workload exit and host lifecycle calls.
-   *
-   * Snapshot / restore / fork record host path, guest path, and mode,
-   * but not bytes. Restoring on another host fails if the recorded host
-   * path is missing; pass `restore({ liveMounts })` with matching
-   * `guest` paths to remap host/mode.
-   *
-   * Security note: a live-share mount is a persistent guest-to-host
-   * filesystem channel bounded to the configured host root. Prefer
-   * `mount` for untrusted inputs that do not need write-through.
+   * Host directories exposed as live virtio-fs shares. `ro` is read-only;
+   * `rw` writes sync back to the host in batches. Guest paths must be safe
+   * absolute paths unless `unsafeGuestPath: true` is set intentionally.
+   * Snapshot / restore / fork record path topology, not file bytes.
    */
   liveMounts?: Array<{
     host: string;
     guest: string;
     mode?: "ro" | "rw";
+    unsafeGuestPath?: boolean;
   }>;
   /**
    * Host -> guest TCP port forwards installed via gvproxy's control
@@ -333,9 +305,17 @@ export interface BootOptions {
   cwd?: string;
   /** Extra argv for the VMM. */
   args?: string[];
-  /** Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`. */
+  /**
+   * Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
+   * Optional for normal boots; when `binary` is omitted, `boot()` resolves
+   * the release base kernel from `MACHINEN_ASSETS_DIR` or the CLI cache.
+   */
   kernel?: string;
-  /** Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`. */
+  /**
+   * Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
+   * Optional for normal boots; when `binary` is omitted, `boot()` resolves
+   * the release base DTB on guest architectures that need one.
+   */
   dtb?: string;
   /**
    * Opt in to exposing arm64 EL2 / `/dev/kvm` to the guest so the
@@ -388,6 +368,17 @@ export interface BootOptions {
    */
   onLog?: OnLog;
   /**
+   * Host stdio behavior for foreground boots. The default, `"pipe"`, preserves
+   * the existing runtime behavior: callers read/write `vm.stdin`, `vm.stdout`,
+   * and `vm.stderr` themselves. `"inherit"` connects those streams to the
+   * current process and puts TTY stdin in raw mode until the VM exits, matching
+   * the ergonomics of Node's `child_process.spawn({ stdio: "inherit" })`.
+   *
+   * `stdio: "inherit"` is for foreground workloads and cannot be combined with
+   * `detached: true`.
+   */
+  stdio?: "pipe" | "inherit";
+  /**
    * Detach the VMM from the runtime parent so the parent can exit
    * while the VM keeps running (issue #150 phase 2). When set, `boot()`
    * blocks only until the guest produces its first console byte
@@ -433,6 +424,7 @@ type MountDiskPaths = {
  *   BOOT_PACK_FAILED
  */
 export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
+  validateBootStdio(opts);
   const bootT0 = Date.now();
   // #221: per-phase wall-clock timeline emitted as one line under
   // DEBUG=machinen:boot once the VMM produces its first console byte.
@@ -500,6 +492,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       process.stderr.write(chunk);
     });
   }
+  const inheritedStdio = opts.stdio === "inherit" ? installInheritedStdio(child) : undefined;
   installVmstateTimingRelay(child);
   installFlushPhases(child, phases, onLog);
 
@@ -572,6 +565,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   }
 
   handle = withBatchLiveMountSync(handle, liveMountsResolved);
+  if (inheritedStdio) {
+    handle = withInheritedStdioCleanup(handle, inheritedStdio);
+  }
   return handle;
 }
 
@@ -899,6 +895,8 @@ function buildRegisterArgs(
     vmName: state.vmName,
     vsockUdsPath: args.plan.vsockUdsPath!,
     sourceImageAbs: state.sourceImageAbs,
+    kernelPath: args.plan.env.MACHINEN_KERNEL,
+    dtbPath: args.plan.env.MACHINEN_DTB,
     rootDiskPath: state.rootDiskPath,
     rootDiskMode: state.rootDiskMode,
     diskPath: args.plan.diskAbs,
@@ -1325,39 +1323,6 @@ function applyScratchDiskPlan(
   }
 }
 
-function setupKernelDtbEnv(opts: BootOptions, env: Record<string, string>): void {
-  const kernelPath = resolveOptionalBootPath(
-    opts.kernel,
-    opts.cwd,
-    "BOOT_KERNEL_NOT_FOUND",
-    "kernel",
-  );
-  const dtbPath = resolveOptionalBootPath(opts.dtb, opts.cwd, "BOOT_DTB_NOT_FOUND", "dtb");
-  const plan = planBootKernelDtbNative({ kernelPath, dtbPath });
-  if (plan.kernelPath) {
-    env.MACHINEN_KERNEL = plan.kernelPath;
-  }
-  if (plan.dtbPath) {
-    env.MACHINEN_DTB = plan.dtbPath;
-  }
-}
-
-function resolveOptionalBootPath(
-  input: string | undefined,
-  cwd: string | undefined,
-  code: "BOOT_KERNEL_NOT_FOUND" | "BOOT_DTB_NOT_FOUND",
-  label: "kernel" | "dtb",
-): string | undefined {
-  if (!input) {
-    return undefined;
-  }
-  const abs = resolve(cwd ?? process.cwd(), input);
-  if (!existsSync(abs)) {
-    throw new BootError(code, `${label} not found: ${abs}`);
-  }
-  return abs;
-}
-
 // #94: always wire up a vsock UDS bridge so `vm.exec()` works out of
 // the box. Callers who set their own `MACHINEN_VSOCK` (e.g. the build
 // flow) win — we parse their spec to extract the UDS path for exec.
@@ -1516,13 +1481,8 @@ function closeFds(...fds: number[]): void {
   }
 }
 
-// Backstop for the recycled-pid case: `claimName` already drops pins
-// whose holder fails the recycling/orphan check, but a pre-#268 entry
-// without `vmmExe`/`startedAt` falls back to `kill(pid,0)` and can
-// stay pinned by an unrelated process now sitting on the recycled
-// pid. `runGc` walks the whole registry (also cleaning cleanupPaths)
-// and we retry the claim once. If a still-live VMM genuinely holds
-// the name, the retry fails and we throw.
+// Backstop for stale/recycled-pid name pins: run GC, retry once,
+// then fail if a live VMM still owns the name.
 function claimNameOrThrow(
   vmName: string,
   childPid: number,
@@ -1550,6 +1510,8 @@ interface RegisterArgs {
   vmName: string | undefined;
   vsockUdsPath: string;
   sourceImageAbs: string | undefined;
+  kernelPath: string | undefined;
+  dtbPath: string | undefined;
   rootDiskPath: string | undefined;
   rootDiskMode: "block" | "none";
   diskPath: string | undefined;
@@ -1574,9 +1536,6 @@ interface RegisterArgs {
   nested: boolean | undefined;
 }
 
-// Write the registry entry. Returns true on success; registry-write
-// failures are best-effort (attach won't find this VM but local
-// boot-and-use still works fine).
 function registerInRegistry(args: RegisterArgs): boolean {
   try {
     writeEntry(buildRegistryEntry(args));
@@ -1613,6 +1572,8 @@ function buildRegistryEntry(args: RegisterArgs) {
     name: args.vmName,
     socketPath: args.vsockUdsPath,
     imagePath: args.sourceImageAbs,
+    kernelPath: args.kernelPath,
+    dtbPath: args.dtbPath,
     rootDiskPath: args.rootDiskPath,
     rootDiskMode: args.rootDiskMode,
     diskPath: scalars.diskPath ?? undefined,
@@ -2070,67 +2031,4 @@ async function gateOnDetachedReadiness(args: {
   // disk, and post-detach bytes are the SIGPIPE-ignored bit-bucket.
   args.detachedBootChunks.length = 0;
   await args.handle.detach();
-}
-
-function makeWait(
-  child: ChildProcessWithoutNullStreams,
-  timeoutMs: number | null,
-): VmHandle["wait"] {
-  return async () => {
-    // If the child already exited before we got here, `once("exit")`
-    // never fires — the event has already been emitted. Check first.
-    if (child.exitCode !== null || child.signalCode !== null) {
-      return { code: child.exitCode, signal: child.signalCode };
-    }
-    const settled = once(child, "exit") as Promise<[number | null, NodeJS.Signals | null]>;
-    const race =
-      timeoutMs === null
-        ? settled
-        : Promise.race([
-            settled,
-            new Promise<never>((_, reject) => {
-              setTimeout(
-                () =>
-                  reject(new BootError("BOOT_TIMEOUT", `VMM did not exit within ${timeoutMs}ms`)),
-                timeoutMs,
-              ).unref();
-            }),
-          ]);
-    const [code, signal] = await race;
-    return { code, signal };
-  };
-}
-
-function makeKill(child: ChildProcessWithoutNullStreams): VmHandle["kill"] {
-  return async () => {
-    if (child.exitCode !== null || child.signalCode !== null) {
-      return;
-    }
-    // Send SIGTERM, not SIGKILL: on darwin the spawn target is the
-    // pdeathsig shim, which can't catch SIGKILL — that orphans its
-    // inner VMM (#200), keeping the stderr pipe open so any caller
-    // awaiting `errorOutput()` (collected via stream "close") never
-    // wakes up. The shim does catch SIGTERM and forwards it to the
-    // VMM, which exits cleanly. Linux has the same shape via
-    // PR_SET_PDEATHSIG, so the same path applies.
-    child.kill("SIGTERM");
-    if (child.exitCode !== null || child.signalCode !== null) {
-      return;
-    }
-    // Escalate to SIGKILL if the shim+inner don't exit within 2s —
-    // covers a wedged inner that ignores SIGTERM. SIGKILL'ing the
-    // shim still orphans the inner, but at that point the inner is
-    // already unresponsive and we've done what we can from here.
-    const escalate = setTimeout(() => {
-      try {
-        child.kill("SIGKILL");
-      } catch {}
-    }, 2_000);
-    escalate.unref();
-    try {
-      await once(child, "exit");
-    } finally {
-      clearTimeout(escalate);
-    }
-  };
 }

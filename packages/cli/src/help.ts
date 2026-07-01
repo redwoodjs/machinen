@@ -12,7 +12,7 @@ export function printHelp(): void {
       `    --snapshot <path>                            Attach <path> as /dev/vda — scratch\n` +
       `                                                 disk for a future vm.snapshot().\n` +
       `    --mount <host-dir>:<guest-path>              Expose one host dir inside the guest\n` +
-      `                                                 (path under /mnt/; copy-once).\n` +
+      `                                                 (safe absolute path; copy-once).\n` +
       `    --mount-live <host-dir>:<guest-path>[:<mode>]\n` +
       `                                                 Live-share a host dir over FUSE.\n` +
       `                                                 Guest reads stream in on demand; no\n` +

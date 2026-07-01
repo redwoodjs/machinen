@@ -62,6 +62,7 @@ export function resolveLiveMounts(
     host: string;
     guest: string;
     mode?: "ro" | "rw";
+    unsafeGuestPath?: boolean;
   }>,
   cwd: string | undefined,
 ): ResolvedLiveMount[] {
@@ -291,7 +292,7 @@ function resolveBundleMount(opts: BootOptions): ResolvedMountInput | undefined {
   if (!opts.mount) {
     return undefined;
   }
-  validateMountGuest(opts.mount.guest);
+  validateMountGuest(opts.mount.guest, opts.mount.unsafeGuestPath === true);
   const hostAbs = resolve(opts.cwd ?? process.cwd(), opts.mount.host);
   if (!existsSync(hostAbs)) {
     throw new BootError(
@@ -305,7 +306,10 @@ function resolveBundleMount(opts: BootOptions): ResolvedMountInput | undefined {
       `mount host path must be a directory (got a file): ${opts.mount.host}`,
     );
   }
-  return { host: hostAbs, guest: normalizeMountGuest(opts.mount.guest) };
+  return {
+    host: hostAbs,
+    guest: normalizeMountGuest(opts.mount.guest, opts.mount.unsafeGuestPath === true),
+  };
 }
 
 function packSynthesizedInitramfs(
