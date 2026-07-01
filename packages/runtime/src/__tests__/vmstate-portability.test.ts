@@ -14,6 +14,8 @@ import {
   rememberTrustedFileIdentity,
   trustedFileIdentity,
 } from "../vm/vmstate-metadata.ts";
+import { vmstateBootAssetsId } from "../vm/vmstate-boot-assets.ts";
+import type { SnapshotFileIdentity, VmstateSnapshotMeta } from "../vm-handle.ts";
 
 const MAGIC = Buffer.from("VMSTATE\0");
 const VERSION = 1;
@@ -25,6 +27,8 @@ let TMP: string;
 let helperTmp: string | undefined;
 let originalGuestArch: string | undefined;
 let previousHelper: string | undefined;
+let originalAssetsDir: string | undefined;
+let ASSETS: string;
 
 beforeAll(() => {
   TMP = mkdtempSync(join(tmpdir(), "vmstate-portability-"));
@@ -35,8 +39,14 @@ beforeAll(() => {
   });
   previousHelper = process.env.MACHINEN_RUNTIME_HELPER;
   process.env.MACHINEN_RUNTIME_HELPER = join(helperTmp, "bin", "machinen-runtime-helper");
+  ASSETS = join(TMP, "assets");
+  mkdirSync(ASSETS, { recursive: true });
+  writeFileSync(join(ASSETS, "Image-arm64"), "kernel-v1");
+  writeFileSync(join(ASSETS, "virt-arm64.dtb"), "dtb-v1");
   originalGuestArch = process.env.MACHINEN_GUEST_ARCH;
+  originalAssetsDir = process.env.MACHINEN_ASSETS_DIR;
   process.env.MACHINEN_GUEST_ARCH = "arm64";
+  process.env.MACHINEN_ASSETS_DIR = ASSETS;
 });
 
 afterAll(() => {
@@ -52,6 +62,11 @@ afterAll(() => {
   }
   if (helperTmp) {
     rmSync(helperTmp, { recursive: true, force: true });
+  }
+  if (originalAssetsDir === undefined) {
+    delete process.env.MACHINEN_ASSETS_DIR;
+  } else {
+    process.env.MACHINEN_ASSETS_DIR = originalAssetsDir;
   }
   if (TMP) {
     rmSync(TMP, { recursive: true, force: true });
@@ -95,15 +110,45 @@ function sha256(body: string): string {
   return createHash("sha256").update(body).digest("hex");
 }
 
-function writeBundle(name: string, meta: unknown, sctlr: bigint): { dir: string; image: string } {
+function writeBundle(
+  name: string,
+  meta: unknown | ((image: string) => unknown),
+  sctlr: bigint,
+): { dir: string; image: string } {
   const dir = join(TMP, name);
   rmSync(dir, { recursive: true, force: true });
   writeFileSync(join(TMP, `${name}.tar.gz`), "not a real tarball");
   const image = join(TMP, `${name}.tar.gz`);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "state.vmstate"), encodeVmstate(sctlr));
-  writeFileSync(join(dir, "meta.json"), JSON.stringify(meta));
+  writeFileSync(
+    join(dir, "meta.json"),
+    JSON.stringify(typeof meta === "function" ? meta(image) : meta),
+  );
   return { dir, image };
+}
+
+function bootAssetsFor(image: string): NonNullable<VmstateSnapshotMeta["bootAssets"]> {
+  const rootfs = fileIdentity(image);
+  const kernel = fileIdentity(join(ASSETS, "Image-arm64"));
+  const dtb = fileIdentity(join(ASSETS, "virt-arm64.dtb"));
+  const bootAssets = { rootfs, kernel, dtb };
+  return { ...bootAssets, id: vmstateBootAssetsId(bootAssets) };
+}
+
+function vmstateMeta(
+  image: string,
+  overrides: Partial<VmstateSnapshotMeta> = {},
+): VmstateSnapshotMeta {
+  return {
+    sourceBackend: currentVmstateBackend(),
+    guestArch: "arm64",
+    topologyHash: TOPO.toString("hex"),
+    guestPauth: { active: false, sctlrEl1: "0x0" },
+    rootDisk: { mode: "none" },
+    bootAssets: bootAssetsFor(image),
+    ...overrides,
+  };
 }
 
 describe("vmstate portability metadata", () => {
@@ -153,17 +198,14 @@ describe("vmstate portability metadata", () => {
       const target = currentVmstateBackend();
       const { dir, image } = writeBundle(
         "bad-guest-arch",
-        {
+        (image) => ({
           engine: "vmstate",
           snappedAt: 1,
-          vmstate: {
+          vmstate: vmstateMeta(image, {
             sourceBackend: target,
             guestArch: "arm64",
-            topologyHash: TOPO.toString("hex"),
-            guestPauth: { active: false, sctlrEl1: "0x0" },
-            rootDisk: { mode: "none" },
-          },
-        },
+          }),
+        }),
         0n,
       );
 
@@ -200,16 +242,14 @@ describe("vmstate portability metadata", () => {
     const source = target === "hvf" ? "kvm" : "hvf";
     const { dir, image } = writeBundle(
       "pauth-cross",
-      {
+      (image) => ({
         engine: "vmstate",
         snappedAt: 1,
-        vmstate: {
+        vmstate: vmstateMeta(image, {
           sourceBackend: source,
-          topologyHash: TOPO.toString("hex"),
           guestPauth: { active: true, sctlrEl1: "0x80000000" },
-          rootDisk: { mode: "none" },
-        },
-      },
+        }),
+      }),
       1n << 31n,
     );
 
@@ -222,16 +262,14 @@ describe("vmstate portability metadata", () => {
     const target = currentVmstateBackend();
     const { dir, image } = writeBundle(
       "bad-topology",
-      {
+      (image) => ({
         engine: "vmstate",
         snappedAt: 1,
-        vmstate: {
+        vmstate: vmstateMeta(image, {
           sourceBackend: target,
           topologyHash: Buffer.alloc(32, 0x5a).toString("hex"),
-          guestPauth: { active: false, sctlrEl1: "0x0" },
-          rootDisk: { mode: "none" },
-        },
-      },
+        }),
+      }),
       0n,
     );
 
@@ -244,17 +282,14 @@ describe("vmstate portability metadata", () => {
     const target = currentVmstateBackend();
     const { dir, image } = writeBundle(
       "bad-memory",
-      {
+      (image) => ({
         engine: "vmstate",
         snappedAt: 1,
-        vmstate: {
+        vmstate: vmstateMeta(image, {
           sourceBackend: target,
-          topologyHash: TOPO.toString("hex"),
           memoryCeilingMib: 2048,
-          guestPauth: { active: false, sctlrEl1: "0x0" },
-          rootDisk: { mode: "none" },
-        },
-      },
+        }),
+      }),
       0n,
     );
 
@@ -267,21 +302,19 @@ describe("vmstate portability metadata", () => {
     const target = currentVmstateBackend();
     const { dir, image } = writeBundle(
       "missing-rootdisk",
-      {
+      (image) => ({
         engine: "vmstate",
         snappedAt: 1,
-        vmstate: {
+        vmstate: vmstateMeta(image, {
           sourceBackend: target,
-          topologyHash: TOPO.toString("hex"),
-          guestPauth: { active: false, sctlrEl1: "0x0" },
           rootDisk: {
             mode: "block",
             file: "rootdisk.img",
             sizeBytes: 0,
             sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           },
-        },
-      },
+        }),
+      }),
       0n,
     );
 
@@ -307,21 +340,19 @@ describe("vmstate portability metadata", () => {
     const target = currentVmstateBackend();
     const { dir, image } = writeBundle(
       "bad-explicit-rootdisk",
-      {
+      (image) => ({
         engine: "vmstate",
         snappedAt: 1,
-        vmstate: {
+        vmstate: vmstateMeta(image, {
           sourceBackend: target,
-          topologyHash: TOPO.toString("hex"),
-          guestPauth: { active: false, sctlrEl1: "0x0" },
           rootDisk: {
             mode: "block",
             file: "rootdisk.img",
             sizeBytes: 4,
             sha256: sha256("good"),
           },
-        },
-      },
+        }),
+      }),
       0n,
     );
     const explicitRootDisk = join(TMP, "explicit-rootdisk.img");
@@ -348,10 +379,8 @@ describe("vmstate portability metadata", () => {
       JSON.stringify({
         engine: "vmstate",
         snappedAt: 1,
-        vmstate: {
+        vmstate: vmstateMeta(image, {
           sourceBackend: target,
-          topologyHash: TOPO.toString("hex"),
-          guestPauth: { active: false, sctlrEl1: "0x0" },
           rootDisk: {
             mode: "block",
             file: "rootdisk.img",
@@ -362,7 +391,7 @@ describe("vmstate portability metadata", () => {
               sha256: sampleSha256,
             },
           },
-        },
+        }),
       }),
     );
     const explicitRootDisk = join(TMP, "sample-explicit-rootdisk.img");
@@ -387,10 +416,8 @@ describe("vmstate portability metadata", () => {
       JSON.stringify({
         engine: "vmstate",
         snappedAt: 1,
-        vmstate: {
+        vmstate: vmstateMeta(image, {
           sourceBackend: target,
-          topologyHash: TOPO.toString("hex"),
-          guestPauth: { active: false, sctlrEl1: "0x0" },
           rootDisk: {
             mode: "block",
             file: "rootdisk.img",
@@ -401,7 +428,7 @@ describe("vmstate portability metadata", () => {
               sha256: expectedSample,
             },
           },
-        },
+        }),
       }),
     );
 
@@ -414,27 +441,102 @@ describe("vmstate portability metadata", () => {
     const target = currentVmstateBackend();
     const { dir, image } = writeBundle(
       "bad-rootdisk",
-      {
+      (image) => ({
         engine: "vmstate",
         snappedAt: 1,
-        vmstate: {
+        vmstate: vmstateMeta(image, {
           sourceBackend: target,
-          topologyHash: TOPO.toString("hex"),
-          guestPauth: { active: false, sctlrEl1: "0x0" },
           rootDisk: {
             mode: "block",
             file: "rootdisk.img",
             sizeBytes: 0,
             sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           },
-        },
-      },
+        }),
+      }),
       0n,
     );
     writeFileSync(join(dir, "rootdisk.img"), "changed");
 
     await expect(restore({ snapDir: dir, image, binary: "/bin/sh" })).rejects.toThrow(
       /rootdisk identity mismatch/,
+    );
+  });
+
+  it("refuses a vmstate bundle that lacks boot asset metadata", async () => {
+    const { dir, image } = writeBundle(
+      "missing-boot-assets",
+      {
+        engine: "vmstate",
+        snappedAt: 1,
+        vmstate: {
+          sourceBackend: currentVmstateBackend(),
+          guestArch: "arm64",
+          topologyHash: TOPO.toString("hex"),
+          guestPauth: { active: false, sctlrEl1: "0x0" },
+          rootDisk: { mode: "none" },
+        },
+      },
+      0n,
+    );
+
+    await expect(restore({ snapDir: dir, image, binary: "/bin/sh" })).rejects.toThrow(
+      /boot asset metadata/,
+    );
+  });
+
+  it("refuses a vmstate restore when the local rootfs boot assets differ", async () => {
+    const { dir } = writeBundle(
+      "bad-boot-assets-rootfs",
+      (image) => ({
+        engine: "vmstate",
+        snappedAt: 1,
+        vmstate: vmstateMeta(image, {
+          rootDisk: {
+            mode: "block",
+            file: "rootdisk.img",
+            sizeBytes: 4,
+            sha256: sha256("good"),
+          },
+        }),
+      }),
+      0n,
+    );
+    writeFileSync(join(dir, "rootdisk.img"), "good");
+    const otherImage = join(TMP, "bad-boot-assets-rootfs-other.tar.gz");
+    writeFileSync(otherImage, "different rootfs");
+
+    await expect(restore({ snapDir: dir, image: otherImage, binary: "/bin/sh" })).rejects.toThrow(
+      /rootfs identity mismatch/,
+    );
+  });
+
+  it("uses path-independent boot asset ids for matching rootfs, kernel, and dtb digests", () => {
+    const rootfs: SnapshotFileIdentity = {
+      path: "/region-a/rootfs.tar.gz",
+      sizeBytes: 10,
+      sha256: "a".repeat(64),
+    };
+    const kernel: SnapshotFileIdentity = {
+      path: "/region-a/Image",
+      sizeBytes: 20,
+      sha256: "b".repeat(64),
+    };
+    const dtb: SnapshotFileIdentity = {
+      path: "/region-a/virt.dtb",
+      sizeBytes: 30,
+      sha256: "c".repeat(64),
+    };
+
+    expect(vmstateBootAssetsId({ rootfs, kernel, dtb })).toBe(
+      vmstateBootAssetsId({
+        rootfs: { ...rootfs, path: "/region-b/rootfs.tar.gz" },
+        kernel: { ...kernel, path: "/region-b/Image" },
+        dtb: { ...dtb, path: "/region-b/virt.dtb" },
+      }),
+    );
+    expect(vmstateBootAssetsId({ rootfs, kernel })).not.toBe(
+      vmstateBootAssetsId({ rootfs, kernel, dtb }),
     );
   });
 });

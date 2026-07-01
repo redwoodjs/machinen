@@ -365,6 +365,21 @@ export interface VmstateSnapshotMeta {
     | ({ mode: "block"; file: string } & SnapshotFileIdentity)
     | { mode: "delta" }
     | { mode: "none" };
+  /**
+   * Exact boot assets required to restore this frozen VM state. The id is
+   * digest-based, so regions can advertise compatibility without sharing
+   * deployment-local paths.
+   */
+  bootAssets?: {
+    /** Path-independent digest over rootfs/kernel/DTB identities. */
+    id: string;
+    /** Rootfs tarball identity used to build the restore initramfs. */
+    rootfs: SnapshotFileIdentity;
+    /** Guest kernel image identity. */
+    kernel: SnapshotFileIdentity;
+    /** Guest DTB identity; absent for guests that boot without a DTB. */
+    dtb?: SnapshotFileIdentity;
+  };
   /** Kernel image identity when the source boot used an explicit kernel. */
   kernel?: SnapshotFileIdentity;
   /** DTB identity when the source boot used an explicit DTB. */
