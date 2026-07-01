@@ -14,7 +14,10 @@ import {
   rememberTrustedFileIdentity,
   trustedFileIdentity,
 } from "../vm/vmstate-metadata.ts";
-import { vmstateBootAssetsId } from "../vm/vmstate-boot-assets.ts";
+import {
+  snapshotVmstateBootAssetsIdentity,
+  vmstateBootAssetsId,
+} from "../vm/vmstate-boot-assets.ts";
 import type { SnapshotFileIdentity, VmstateSnapshotMeta } from "../vm-handle.ts";
 
 const MAGIC = Buffer.from("VMSTATE\0");
@@ -461,6 +464,17 @@ describe("vmstate portability metadata", () => {
     await expect(restore({ snapDir: dir, image, binary: "/bin/sh" })).rejects.toThrow(
       /rootdisk identity mismatch/,
     );
+  });
+
+  it("resolves base boot assets when an attach-owned vmstate snapshot lacks recorded paths", () => {
+    const image = join(TMP, "attach-owned-rootfs.tar.gz");
+    writeFileSync(image, "attach rootfs");
+
+    expect(snapshotVmstateBootAssetsIdentity({ sourceImage: image })).toMatchObject({
+      rootfs: fileIdentity(image),
+      kernel: fileIdentity(join(ASSETS, "Image-arm64")),
+      dtb: fileIdentity(join(ASSETS, "virt-arm64.dtb")),
+    });
   });
 
   it("refuses a vmstate bundle that lacks boot asset metadata", async () => {
