@@ -1,5 +1,18 @@
 # @machinen/runtime
 
+## 0.7.0
+
+### Minor Changes
+
+- 90f20ca: `boot()` now resolves the release kernel and DTB for normal boots, so callers using the standard Machinen image no longer have to pass those paths by hand. Explicit `kernel` and `dtb` options still win, and test/custom VMM boots that pass `binary` keep their previous behavior.
+- 2ad5f5c: Vmstate snapshots now record the exact rootfs, kernel, and optional DTB bytes they were created with. Restore checks the target machine's files before booting the frozen VM state: the files may live at different paths, but their bytes must match.
+
+  This makes cross-machine vmstate restore safer, but also stricter. Keep or version baked images that existing snapshots depend on instead of overwriting them in place. If source and target machines use different Machinen releases, configure the target with the matching release assets before restoring.
+
+### Patch Changes
+
+- 90f20ca: Move more boot, provision, restore, live-mount, and vmstate planning into the Zig runtime helper/VMM boundary. This keeps TypeScript focused on orchestration, improves live-mount batching and metadata handling, and fixes the first KVM vmstate checkpoint dirty-bitmap path.
+
 ## 0.6.1
 
 ### Patch Changes
