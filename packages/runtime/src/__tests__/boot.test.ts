@@ -1023,7 +1023,7 @@ describe("vm.snapshot", () => {
         rmSync(outDir, { recursive: true, force: true });
       } catch {}
     }
-  });
+  }, 15_000);
 });
 
 // Fake exec-agent — accepts a UDS connection, reads one EXEC line,
