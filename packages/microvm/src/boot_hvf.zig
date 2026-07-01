@@ -148,7 +148,8 @@ pub const Config = struct {
     /// back to the host.
     mountdisk_upper_fd: ?c_int = null,
     ram_base: u64 = 0x4000_0000,
-    ram_size: usize = 4 * 1024 * 1024 * 1024, // 4 GB — room for Debian+Node+CRIU+Claude Code in the initramfs tmpfs
+    // 4 GB: room for Debian+Node+CRIU+Claude Code in initramfs tmpfs.
+    ram_size: usize = 4 * 1024 * 1024 * 1024,
     /// Guest-visible vCPU count. The DTB CPU topology is trimmed to this
     /// count before boot so Linux only sees CPUs Machinen really created.
     max_vcpus: u32 = 1,
@@ -293,7 +294,10 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
 
     const vm = if (cfg.nested) nested_vm: {
         break :nested_vm hvf.Vm.create_nested() catch |err| {
-            std.debug.print("hvf boot: nested virtualization requested but EL2 is unavailable: {s}\n", .{@errorName(err)});
+            std.debug.print(
+                "hvf boot: nested virtualization requested but EL2 is unavailable: {s}\n",
+                .{@errorName(err)},
+            );
             return error.NestedVirtUnsupported;
         };
     } else try hvf.Vm.create();

@@ -209,6 +209,7 @@ fn env_bool(comptime name: [:0]const u8) bool {
 
 fn validate_max_vcpus(value: u32) void {
     const limit = max_vcpus_limit();
+    std.debug.assert(limit >= 1);
     if (value <= limit) return;
     std.debug.print(
         "machinen-microvm: MACHINEN_MAX_VCPUS={d} is invalid: maximum is {d} on this host.\n",
@@ -218,8 +219,14 @@ fn validate_max_vcpus(value: u32) void {
 }
 
 fn max_vcpus_limit() u32 {
-    if (builtin.os.tag == .macos) return microvm.boot_hvf.MAX_VCPUS;
-    if (builtin.cpu.arch == .x86_64) return microvm.boot_kvm_x86_64.MAX_VCPUS;
+    if (builtin.os.tag == .macos) {
+        std.debug.assert(microvm.boot_hvf.MAX_VCPUS >= 1);
+        return microvm.boot_hvf.MAX_VCPUS;
+    }
+    if (builtin.cpu.arch == .x86_64) {
+        std.debug.assert(microvm.boot_kvm_x86_64.MAX_VCPUS >= 1);
+        return microvm.boot_kvm_x86_64.MAX_VCPUS;
+    }
     return 1;
 }
 

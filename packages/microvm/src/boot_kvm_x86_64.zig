@@ -1587,7 +1587,10 @@ fn start_vsock_bridge(
             .inbound => "in",
             .outbound => "out",
         };
-        std.debug.print("vsock: {s} {d} <-> {s}\n", .{ tag, pm.guest_port, pm.uds_path });
+        std.debug.print(
+            "vsock: {s} {d} <-> {s}\n",
+            .{ tag, pm.guest_port, pm.uds_path },
+        );
     }
     return bridge;
 }
@@ -1598,8 +1601,7 @@ fn start_vsock_bridge(
 /// one boot loop reading this.
 var snapshot_requested: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 
-fn sigusr1_handler(sig: c_int) callconv(.c) void {
-    _ = sig;
+fn sigusr1_handler(_: c_int) callconv(.c) void {
     snapshot_requested.store(true, .seq_cst);
 }
 
@@ -1611,9 +1613,7 @@ fn install_snapshot_signal() void {
     _ = c.signal(SIGUSR1, @intFromPtr(&sigusr1_handler));
 }
 
-fn ap_kick_handler(sig: c_int) callconv(.c) void {
-    _ = sig;
-}
+fn ap_kick_handler(_: c_int) callconv(.c) void {}
 
 fn install_ap_kick_signal() void {
     const c = struct {
