@@ -472,6 +472,46 @@ describe("snapshot option", () => {
 });
 
 describe("kernel option", () => {
+  it("resolves the release kernel and dtb when binary is omitted", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-default-assets-"));
+    const kernel = join(dir, "Image-arm64");
+    const dtb = join(dir, "virt-arm64.dtb");
+    const previousAssetsDir = process.env.MACHINEN_ASSETS_DIR;
+    const previousGuestArch = process.env.MACHINEN_GUEST_ARCH;
+    const previousVmm = process.env.MACHINEN_VMM;
+    writeFileSync(kernel, "");
+    writeFileSync(dtb, "");
+    process.env.MACHINEN_ASSETS_DIR = dir;
+    process.env.MACHINEN_GUEST_ARCH = "arm64";
+    process.env.MACHINEN_VMM = "/bin/sh";
+    try {
+      const vm = await boot({
+        args: ["-c", 'printf \'KERNEL=%s\\nDTB=%s\\n\' "$MACHINEN_KERNEL" "$MACHINEN_DTB"'],
+        timeoutMs: 2_000,
+      });
+      await vm.wait();
+      const out = await vm.output();
+      expect(out.trim()).toBe(`KERNEL=${kernel}\nDTB=${dtb}`);
+    } finally {
+      if (previousAssetsDir === undefined) {
+        delete process.env.MACHINEN_ASSETS_DIR;
+      } else {
+        process.env.MACHINEN_ASSETS_DIR = previousAssetsDir;
+      }
+      if (previousGuestArch === undefined) {
+        delete process.env.MACHINEN_GUEST_ARCH;
+      } else {
+        process.env.MACHINEN_GUEST_ARCH = previousGuestArch;
+      }
+      if (previousVmm === undefined) {
+        delete process.env.MACHINEN_VMM;
+      } else {
+        process.env.MACHINEN_VMM = previousVmm;
+      }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("throws BootError when the kernel path does not exist", async () => {
     await expect(boot({ binary: "/bin/sh", kernel: "/nope/missing-kernel" })).rejects.toThrow(
       /kernel not found/,
