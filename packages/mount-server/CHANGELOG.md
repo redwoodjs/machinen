@@ -1,5 +1,11 @@
 # @machinen/mount-server
 
+## 0.7.0
+
+### Patch Changes
+
+- 90f20ca: Move more boot, provision, restore, live-mount, and vmstate planning into the Zig runtime helper/VMM boundary. This keeps TypeScript focused on orchestration, improves live-mount batching and metadata handling, and fixes the first KVM vmstate checkpoint dirty-bitmap path.
+
 ## 0.6.1
 
 ## 0.6.0
