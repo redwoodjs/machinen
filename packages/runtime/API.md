@@ -1768,7 +1768,7 @@ Optional arch-specific base rootfs tarball
 A single host directory copied into the guest between the base
 tarball and the bundle's rootfs. Bundle files win on path
 collisions. The caller is responsible for validating host exists
-and is a directory, and that guest lives under `/mnt/`. See #64.
+and is a directory, and that guest is a safe absolute path. See #64.
 
 ###### host
 
@@ -1839,7 +1839,7 @@ Guest mountpoint for the `--mount` overlay (#272). When set, the
 cpio carries `/etc/machinen-mountdisk-guest` with this path so
 /init knows where to layer the squashfs+ext4 overlay after the
 rootdisk pivot. The actual payload rides on virtio-blk slots 5+6,
-not in the cpio. Must be an absolute path under `/mnt/`.
+not in the cpio. Must be a safe absolute path.
 
 ##### initPath?
 
@@ -4393,30 +4393,10 @@ forked from. Set by `restore({ snapDir })`; visible in
 
 > `optional` **mount?**: `object`
 
-A single host directory exposed to the guest as a writable
-filesystem rooted under `/mnt/<guest>/`. Guest writes survive
-snapshot/restore but never leak to the host source dir.
-
-Implementation (#272): the runtime builds a content-addressed
-read-only squashfs lower from `host` (cached in
-`~/.cache/machinen/mountdisk/`) and a per-VM ext4 sparse upper
-(4 GiB by default; bump via `mountDiskUpperSizeBytes`). Both
-files are fd-passed to the VMM, surfacing inside the guest as
-`/dev/vdc` (RO) and `/dev/vdd` (RW); /init layers them as a
-single overlayfs at `<guest>/`. The squashfs lower stays
-sealed for the VM's lifetime; writes go to the upper, which
-is reflinked into snapshot bundles so forks see prior writes
-without touching the source dir.
-
-Trade-off vs. `liveMount`: `mount` is copy-into-disk-image (no
-runtime channel back to the host source dir, snapshots cleanly,
-but writes don't propagate to the host); `liveMount` is an in-VMM
-virtio-fs pass-through (writes land on the host and restore/fork
-re-establish the same guest mount topology). Pick `mount` for inputs the
-guest may modify but the host shouldn't see; `liveMount` for shared scratch.
-
-See #64 (original `mount`), #78 (`liveMount`), #114 (rootdisk
-relocation; same shape), #272 (this overlay relocation).
+Copy one host directory into a writable guest overlay at a safe absolute
+path. Guest writes survive snapshot/restore but do not touch the host.
+Use `liveMounts` when writes should sync back. Pass `unsafeGuestPath: true`
+only when intentionally mounting over a reserved runtime path.
 
 ###### host
 
@@ -4425,6 +4405,10 @@ relocation; same shape), #272 (this overlay relocation).
 ###### guest
 
 > **guest**: `string`
+
+###### unsafeGuestPath?
+
+> `optional` **unsafeGuestPath?**: `boolean`
 
 ###### Inherited from
 
@@ -4450,25 +4434,10 @@ Must be a positive multiple of 4096. Default 4 GiB.
 
 > `optional` **liveMounts?**: `object`[]
 
-Host directories exposed to the guest as live-share mounts (#78,
-#332). Unlike `mount` (copy-once), these stay connected to the
-host: guest reads stream on demand and `"rw"` writes sync back to
-the host. Set `"ro"` for a one-way share.
-
-Each guest path must live under `/mnt/`. Up to 5 entries are served
-by in-VMM virtio-fs devices; no guest agent or vsock transport is
-involved. Metadata uses the fast policy. `ro` mounts are read-only;
-`rw` mounts sync writes back to the host in batches after guest
-workload exit and host lifecycle calls.
-
-Snapshot / restore / fork record host path, guest path, and mode,
-but not bytes. Restoring on another host fails if the recorded host
-path is missing; pass `restore({ liveMounts })` with matching
-`guest` paths to remap host/mode.
-
-Security note: a live-share mount is a persistent guest-to-host
-filesystem channel bounded to the configured host root. Prefer
-`mount` for untrusted inputs that do not need write-through.
+Host directories exposed as live virtio-fs shares. `ro` is read-only;
+`rw` writes sync back to the host in batches. Guest paths must be safe
+absolute paths unless `unsafeGuestPath: true` is set intentionally.
+Snapshot / restore / fork record path topology, not file bytes.
 
 ###### host
 
@@ -4481,6 +4450,10 @@ filesystem channel bounded to the configured host root. Prefer
 ###### mode?
 
 > `optional` **mode?**: `"ro"` \| `"rw"`
+
+###### unsafeGuestPath?
+
+> `optional` **unsafeGuestPath?**: `boolean`
 
 ###### Inherited from
 
@@ -4835,30 +4808,10 @@ forked from. Set by `restore({ snapDir })`; visible in
 
 > `optional` **mount?**: `object`
 
-A single host directory exposed to the guest as a writable
-filesystem rooted under `/mnt/<guest>/`. Guest writes survive
-snapshot/restore but never leak to the host source dir.
-
-Implementation (#272): the runtime builds a content-addressed
-read-only squashfs lower from `host` (cached in
-`~/.cache/machinen/mountdisk/`) and a per-VM ext4 sparse upper
-(4 GiB by default; bump via `mountDiskUpperSizeBytes`). Both
-files are fd-passed to the VMM, surfacing inside the guest as
-`/dev/vdc` (RO) and `/dev/vdd` (RW); /init layers them as a
-single overlayfs at `<guest>/`. The squashfs lower stays
-sealed for the VM's lifetime; writes go to the upper, which
-is reflinked into snapshot bundles so forks see prior writes
-without touching the source dir.
-
-Trade-off vs. `liveMount`: `mount` is copy-into-disk-image (no
-runtime channel back to the host source dir, snapshots cleanly,
-but writes don't propagate to the host); `liveMount` is an in-VMM
-virtio-fs pass-through (writes land on the host and restore/fork
-re-establish the same guest mount topology). Pick `mount` for inputs the
-guest may modify but the host shouldn't see; `liveMount` for shared scratch.
-
-See #64 (original `mount`), #78 (`liveMount`), #114 (rootdisk
-relocation; same shape), #272 (this overlay relocation).
+Copy one host directory into a writable guest overlay at a safe absolute
+path. Guest writes survive snapshot/restore but do not touch the host.
+Use `liveMounts` when writes should sync back. Pass `unsafeGuestPath: true`
+only when intentionally mounting over a reserved runtime path.
 
 ###### host
 
@@ -4867,6 +4820,10 @@ relocation; same shape), #272 (this overlay relocation).
 ###### guest
 
 > **guest**: `string`
+
+###### unsafeGuestPath?
+
+> `optional` **unsafeGuestPath?**: `boolean`
 
 ##### mountDiskUpperSizeBytes?
 
@@ -4884,25 +4841,10 @@ Must be a positive multiple of 4096. Default 4 GiB.
 
 > `optional` **liveMounts?**: `object`[]
 
-Host directories exposed to the guest as live-share mounts (#78,
-#332). Unlike `mount` (copy-once), these stay connected to the
-host: guest reads stream on demand and `"rw"` writes sync back to
-the host. Set `"ro"` for a one-way share.
-
-Each guest path must live under `/mnt/`. Up to 5 entries are served
-by in-VMM virtio-fs devices; no guest agent or vsock transport is
-involved. Metadata uses the fast policy. `ro` mounts are read-only;
-`rw` mounts sync writes back to the host in batches after guest
-workload exit and host lifecycle calls.
-
-Snapshot / restore / fork record host path, guest path, and mode,
-but not bytes. Restoring on another host fails if the recorded host
-path is missing; pass `restore({ liveMounts })` with matching
-`guest` paths to remap host/mode.
-
-Security note: a live-share mount is a persistent guest-to-host
-filesystem channel bounded to the configured host root. Prefer
-`mount` for untrusted inputs that do not need write-through.
+Host directories exposed as live virtio-fs shares. `ro` is read-only;
+`rw` writes sync back to the host in batches. Guest paths must be safe
+absolute paths unless `unsafeGuestPath: true` is set intentionally.
+Snapshot / restore / fork record path topology, not file bytes.
 
 ###### host
 
@@ -4915,6 +4857,10 @@ filesystem channel bounded to the configured host root. Prefer
 ###### mode?
 
 > `optional` **mode?**: `"ro"` \| `"rw"`
+
+###### unsafeGuestPath?
+
+> `optional` **unsafeGuestPath?**: `boolean`
 
 ##### portForward?
 
@@ -5265,30 +5211,10 @@ forked from. Set by `restore({ snapDir })`; visible in
 
 > `optional` **mount?**: `object`
 
-A single host directory exposed to the guest as a writable
-filesystem rooted under `/mnt/<guest>/`. Guest writes survive
-snapshot/restore but never leak to the host source dir.
-
-Implementation (#272): the runtime builds a content-addressed
-read-only squashfs lower from `host` (cached in
-`~/.cache/machinen/mountdisk/`) and a per-VM ext4 sparse upper
-(4 GiB by default; bump via `mountDiskUpperSizeBytes`). Both
-files are fd-passed to the VMM, surfacing inside the guest as
-`/dev/vdc` (RO) and `/dev/vdd` (RW); /init layers them as a
-single overlayfs at `<guest>/`. The squashfs lower stays
-sealed for the VM's lifetime; writes go to the upper, which
-is reflinked into snapshot bundles so forks see prior writes
-without touching the source dir.
-
-Trade-off vs. `liveMount`: `mount` is copy-into-disk-image (no
-runtime channel back to the host source dir, snapshots cleanly,
-but writes don't propagate to the host); `liveMount` is an in-VMM
-virtio-fs pass-through (writes land on the host and restore/fork
-re-establish the same guest mount topology). Pick `mount` for inputs the
-guest may modify but the host shouldn't see; `liveMount` for shared scratch.
-
-See #64 (original `mount`), #78 (`liveMount`), #114 (rootdisk
-relocation; same shape), #272 (this overlay relocation).
+Copy one host directory into a writable guest overlay at a safe absolute
+path. Guest writes survive snapshot/restore but do not touch the host.
+Use `liveMounts` when writes should sync back. Pass `unsafeGuestPath: true`
+only when intentionally mounting over a reserved runtime path.
 
 ###### host
 
@@ -5297,6 +5223,10 @@ relocation; same shape), #272 (this overlay relocation).
 ###### guest
 
 > **guest**: `string`
+
+###### unsafeGuestPath?
+
+> `optional` **unsafeGuestPath?**: `boolean`
 
 ###### Inherited from
 
@@ -5322,25 +5252,10 @@ Must be a positive multiple of 4096. Default 4 GiB.
 
 > `optional` **liveMounts?**: `object`[]
 
-Host directories exposed to the guest as live-share mounts (#78,
-#332). Unlike `mount` (copy-once), these stay connected to the
-host: guest reads stream on demand and `"rw"` writes sync back to
-the host. Set `"ro"` for a one-way share.
-
-Each guest path must live under `/mnt/`. Up to 5 entries are served
-by in-VMM virtio-fs devices; no guest agent or vsock transport is
-involved. Metadata uses the fast policy. `ro` mounts are read-only;
-`rw` mounts sync writes back to the host in batches after guest
-workload exit and host lifecycle calls.
-
-Snapshot / restore / fork record host path, guest path, and mode,
-but not bytes. Restoring on another host fails if the recorded host
-path is missing; pass `restore({ liveMounts })` with matching
-`guest` paths to remap host/mode.
-
-Security note: a live-share mount is a persistent guest-to-host
-filesystem channel bounded to the configured host root. Prefer
-`mount` for untrusted inputs that do not need write-through.
+Host directories exposed as live virtio-fs shares. `ro` is read-only;
+`rw` writes sync back to the host in batches. Guest paths must be safe
+absolute paths unless `unsafeGuestPath: true` is set intentionally.
+Snapshot / restore / fork record path topology, not file bytes.
 
 ###### host
 
@@ -5353,6 +5268,10 @@ filesystem channel bounded to the configured host root. Prefer
 ###### mode?
 
 > `optional` **mode?**: `"ro"` \| `"rw"`
+
+###### unsafeGuestPath?
+
+> `optional` **unsafeGuestPath?**: `boolean`
 
 ###### Inherited from
 

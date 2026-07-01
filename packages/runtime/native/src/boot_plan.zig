@@ -421,6 +421,7 @@ pub const LiveMountInput = struct {
     host: []const u8,
     guest: []const u8,
     mode: ?[]const u8 = null,
+    unsafe_guest_path: bool = false,
 };
 
 pub const LiveMountRemovedOptionsInput = struct {
@@ -865,6 +866,7 @@ pub const Input = struct {
     root_disk: RootDiskMode = .unset,
     guest_cwd: ?[]const u8 = null,
     mount_guest: ?[]const u8 = null,
+    mount_unsafe_guest_path: bool = false,
 };
 
 pub const Plan = struct {
@@ -893,7 +895,8 @@ pub const PlanError = error{
     InvalidGuestCwdAbsolute,
     InvalidGuestCwdNul,
     InvalidMountGuestAbsolute,
-    InvalidMountGuestRoot,
+    InvalidMountGuestNul,
+    InvalidMountGuestReserved,
     TooManyLiveMounts,
     InvalidLiveMountMode,
     MissingBundleCommand,
@@ -1181,7 +1184,7 @@ pub fn planLiveMounts(allocator: std.mem.Allocator, mounts: []const LiveMountInp
         if (!std.mem.eql(u8, mode, "ro") and !std.mem.eql(u8, mode, "rw")) {
             return error.InvalidLiveMountMode;
         }
-        const guest = try normalizeMountGuest(mount.guest);
+        const guest = try normalizeMountGuest(mount.guest, mount.unsafe_guest_path);
         var tag_buf: [64]u8 = undefined;
         const tag_text = try std.fmt.bufPrint(&tag_buf, "machinen-lm{d}", .{i});
         const tag = try std.mem.concat(allocator, u8, &.{tag_text});
@@ -2340,7 +2343,7 @@ pub fn planCore(input: Input) PlanError!Plan {
     }
     if (input.guest_cwd) |cwd| try validateGuestCwd(cwd);
     const normalized_mount_guest = if (input.mount_guest) |guest|
-        try normalizeMountGuest(guest)
+        try normalizeMountGuest(guest, input.mount_unsafe_guest_path)
     else
         null;
 
@@ -2381,17 +2384,43 @@ pub fn validateGuestCwd(cwd: []const u8) PlanError!void {
     if (std.mem.indexOfScalar(u8, cwd, 0) != null) return error.InvalidGuestCwdNul;
 }
 
-pub fn normalizeMountGuest(guest: []const u8) PlanError![]const u8 {
+pub fn normalizeMountGuest(guest: []const u8, unsafe_guest_path: bool) PlanError![]const u8 {
     assert(@sizeOf([]const u8) > 0);
 
     if (guest.len == 0 or guest[0] != '/') return error.InvalidMountGuestAbsolute;
+    if (std.mem.indexOfScalar(u8, guest, 0) != null) return error.InvalidMountGuestNul;
     var end = guest.len;
-    while (end > 0 and guest[end - 1] == '/') : (end -= 1) {}
+    while (end > 1 and guest[end - 1] == '/') : (end -= 1) {}
     const trimmed = guest[0..end];
-    if (!std.mem.startsWith(u8, trimmed, "/mnt/") or std.mem.eql(u8, trimmed, "/mnt")) {
-        return error.InvalidMountGuestRoot;
+    if (!unsafe_guest_path and isReservedMountGuest(trimmed)) {
+        return error.InvalidMountGuestReserved;
     }
     return trimmed;
+}
+
+fn isReservedMountGuest(guest: []const u8) bool {
+    assert(guest.len > 0);
+
+    if (std.mem.eql(u8, guest, "/")) return true;
+    if (std.mem.eql(u8, guest, "/mnt")) return true;
+    if (hasPathPrefix(guest, "/dev")) return true;
+    if (hasPathPrefix(guest, "/proc")) return true;
+    if (hasPathPrefix(guest, "/sys")) return true;
+    if (hasPathPrefix(guest, "/run")) return true;
+    if (std.mem.eql(u8, guest, "/init")) return true;
+    if (std.mem.eql(u8, guest, "/exec-agent")) return true;
+    if (std.mem.eql(u8, guest, "/sbin/machinen") or
+        std.mem.startsWith(u8, guest, "/sbin/machinen-")) return true;
+    return false;
+}
+
+fn hasPathPrefix(path: []const u8, prefix: []const u8) bool {
+    assert(prefix.len > 0);
+
+    return std.mem.eql(u8, path, prefix) or
+        (path.len > prefix.len and
+            path[prefix.len] == '/' and
+            std.mem.startsWith(u8, path, prefix));
 }
 
 fn isDecimal(text: []const u8) bool {
@@ -2636,15 +2665,39 @@ test "planCore validates guest cwd and normalizes mount guest paths" {
         .mount_guest = "mnt/app",
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     }));
-    try std.testing.expectError(error.InvalidMountGuestRoot, planCore(.{
-        .mount_guest = "/srv/app",
+    try std.testing.expectError(error.InvalidMountGuestNul, planCore(.{
+        .mount_guest = "/mnt/app\x00bad",
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     }));
+    const reserved_guests = [_][]const u8{
+        "/",
+        "/mnt",
+        "/dev",
+        "/dev/null",
+        "/proc",
+        "/sys/fs",
+        "/run/machinen",
+        "/init",
+        "/exec-agent",
+        "/sbin/machinen-poweroff",
+    };
+    for (reserved_guests) |guest| {
+        try std.testing.expectError(error.InvalidMountGuestReserved, planCore(.{
+            .mount_guest = guest,
+            .host_total_bytes = 8 * 1024 * 1024 * 1024,
+        }));
+    }
     const plan = try planCore(.{
-        .mount_guest = "/mnt/app///",
+        .mount_guest = "/root/.commandcode///",
         .host_total_bytes = 8 * 1024 * 1024 * 1024,
     });
-    try std.testing.expectEqualStrings("/mnt/app", plan.normalized_mount_guest.?);
+    try std.testing.expectEqualStrings("/root/.commandcode", plan.normalized_mount_guest.?);
+    const unsafe = try planCore(.{
+        .mount_guest = "/run/tool-state",
+        .mount_unsafe_guest_path = true,
+        .host_total_bytes = 8 * 1024 * 1024 * 1024,
+    });
+    try std.testing.expectEqualStrings("/run/tool-state", unsafe.normalized_mount_guest.?);
 }
 
 test "planRegistryProcessIdentityReads plans darwin process identity reads" {
@@ -3576,6 +3629,31 @@ test "planLiveMounts validates count guest paths modes and tags" {
     try std.testing.expectEqualStrings("/mnt/b", planned[1].guest);
     try std.testing.expectEqualStrings("ro", planned[1].mode);
     try std.testing.expectEqualStrings("machinen-lm1", planned[1].tag);
+
+    const root_state = [_]LiveMountInput{.{ .host = "./state", .guest = "/root/.commandcode" }};
+    const root_state_planned = try planLiveMounts(std.testing.allocator, &root_state);
+    defer {
+        for (root_state_planned) |mount| std.testing.allocator.free(mount.tag);
+        std.testing.allocator.free(root_state_planned);
+    }
+    try std.testing.expectEqualStrings("/root/.commandcode", root_state_planned[0].guest);
+
+    const reserved = [_]LiveMountInput{.{ .host = "./run", .guest = "/run/tool" }};
+    try std.testing.expectError(
+        error.InvalidMountGuestReserved,
+        planLiveMounts(std.testing.allocator, &reserved),
+    );
+    const unsafe = [_]LiveMountInput{.{
+        .host = "./run",
+        .guest = "/run/tool",
+        .unsafe_guest_path = true,
+    }};
+    const unsafe_planned = try planLiveMounts(std.testing.allocator, &unsafe);
+    defer {
+        for (unsafe_planned) |mount| std.testing.allocator.free(mount.tag);
+        std.testing.allocator.free(unsafe_planned);
+    }
+    try std.testing.expectEqualStrings("/run/tool", unsafe_planned[0].guest);
 
     const bad_mode = [_]LiveMountInput{.{
         .host = "./a",
