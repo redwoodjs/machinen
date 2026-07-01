@@ -46,7 +46,6 @@ import { readHostRssBytes } from "../proc-rss.ts";
 import {
   planBootCoreNative,
   planBootInitrdEnvNative,
-  planBootKernelDtbNative,
   planBootMountDiskFdEnvNative,
   planBootPortForwardNative,
   planBootRegistryNestedNative,
@@ -81,6 +80,7 @@ import { planBootVmmEnvNative } from "../native/vmm-env.ts";
 import { planBootVsockModeNative } from "../native/vsock-mode.ts";
 import { planBootVmstateTempModeNative as planVmstateTempMode } from "../native/vmstate-temp-mode.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
+import { setupKernelDtbEnv } from "./boot-assets.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
 import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
 import { resolveLiveMounts, synthesizeAndPackBundle, type ResolvedLiveMount } from "./bundle.ts";
@@ -333,9 +333,17 @@ export interface BootOptions {
   cwd?: string;
   /** Extra argv for the VMM. */
   args?: string[];
-  /** Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`. */
+  /**
+   * Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
+   * Optional for normal boots; when `binary` is omitted, `boot()` resolves
+   * the release base kernel from `MACHINEN_ASSETS_DIR` or the CLI cache.
+   */
   kernel?: string;
-  /** Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`. */
+  /**
+   * Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
+   * Optional for normal boots; when `binary` is omitted, `boot()` resolves
+   * the release base DTB on guest architectures that need one.
+   */
   dtb?: string;
   /**
    * Opt in to exposing arm64 EL2 / `/dev/kvm` to the guest so the
@@ -1325,39 +1333,6 @@ function applyScratchDiskPlan(
     allocateSparseFile(plan.diskPath!, SNAP_SCRATCH_BYTES);
     debug("snap-scratch auto path=%s sizeBytes=%d", plan.diskPath, SNAP_SCRATCH_BYTES);
   }
-}
-
-function setupKernelDtbEnv(opts: BootOptions, env: Record<string, string>): void {
-  const kernelPath = resolveOptionalBootPath(
-    opts.kernel,
-    opts.cwd,
-    "BOOT_KERNEL_NOT_FOUND",
-    "kernel",
-  );
-  const dtbPath = resolveOptionalBootPath(opts.dtb, opts.cwd, "BOOT_DTB_NOT_FOUND", "dtb");
-  const plan = planBootKernelDtbNative({ kernelPath, dtbPath });
-  if (plan.kernelPath) {
-    env.MACHINEN_KERNEL = plan.kernelPath;
-  }
-  if (plan.dtbPath) {
-    env.MACHINEN_DTB = plan.dtbPath;
-  }
-}
-
-function resolveOptionalBootPath(
-  input: string | undefined,
-  cwd: string | undefined,
-  code: "BOOT_KERNEL_NOT_FOUND" | "BOOT_DTB_NOT_FOUND",
-  label: "kernel" | "dtb",
-): string | undefined {
-  if (!input) {
-    return undefined;
-  }
-  const abs = resolve(cwd ?? process.cwd(), input);
-  if (!existsSync(abs)) {
-    throw new BootError(code, `${label} not found: ${abs}`);
-  }
-  return abs;
 }
 
 // #94: always wire up a vsock UDS bridge so `vm.exec()` works out of

@@ -4522,6 +4522,8 @@ Extra argv for the VMM.
 > `optional` **kernel?**: `string`
 
 Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base kernel from `MACHINEN_ASSETS_DIR` or the CLI cache.
 
 ###### Inherited from
 
@@ -4532,6 +4534,8 @@ Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 > `optional` **dtb?**: `string`
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base DTB on guest architectures that need one.
 
 ###### Inherited from
 
@@ -4939,12 +4943,16 @@ Extra argv for the VMM.
 > `optional` **kernel?**: `string`
 
 Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base kernel from `MACHINEN_ASSETS_DIR` or the CLI cache.
 
 ##### dtb?
 
 > `optional` **dtb?**: `string`
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base DTB on guest architectures that need one.
 
 ##### nested?
 
@@ -5380,6 +5388,8 @@ Extra argv for the VMM.
 > `optional` **kernel?**: `string`
 
 Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base kernel from `MACHINEN_ASSETS_DIR` or the CLI cache.
 
 ###### Inherited from
 
@@ -5390,6 +5400,8 @@ Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 > `optional` **dtb?**: `string`
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base DTB on guest architectures that need one.
 
 ###### Inherited from
 
