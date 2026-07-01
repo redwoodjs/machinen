@@ -345,8 +345,8 @@ requires it for safety. New bundles record:
 - guest RAM ceiling/layout in MiB
 - arm64 PAuth status inferred from `SCTLR_EL1`
 - rootdisk mode and identity/hash
-- restore shell identity: rootfs, kernel, optional DTB, and a stable
-  path-independent shell id
+- restore boot asset identity: rootfs, kernel, optional DTB, and a stable
+  path-independent boot asset id
 - kernel and DTB identity/hash when explicit files were used (legacy
   compatibility fields)
 - checkpoint chain id, sequence, parent pointer, and delta/full markers

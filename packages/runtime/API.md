@@ -3959,11 +3959,11 @@ Pointer-auth state inferred from SCTLR_EL1 at snapshot time.
 
 Exact root block image needed by the resumed guest, a parent-relative delta, or explicit absence.
 
-##### shell?
+##### bootAssets?
 
-> `optional` **shell?**: `object`
+> `optional` **bootAssets?**: `object`
 
-Exact boot shell required to restore this frozen VM state. The id is
+Exact boot assets required to restore this frozen VM state. The id is
 digest-based, so regions can advertise compatibility without sharing
 deployment-local paths.
 
@@ -3977,7 +3977,7 @@ Path-independent digest over rootfs/kernel/DTB identities.
 
 > **rootfs**: [`SnapshotFileIdentity`](#snapshotfileidentity)
 
-Rootfs tarball identity used to build the restore initramfs shell.
+Rootfs tarball identity used to build the restore initramfs.
 
 ###### kernel
 

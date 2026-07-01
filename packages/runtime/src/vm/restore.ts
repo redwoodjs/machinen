@@ -37,7 +37,7 @@ import { validateIdentity } from "./restore-identity.ts";
 import { reseedVmstateGuestEntropy } from "./restore-reseed.ts";
 import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
 import { materializeVmstateChain } from "./vmstate-chain.ts";
-import { validateVmstateShell } from "./vmstate-shell.ts";
+import { validateVmstateBootAssets } from "./vmstate-boot-assets.ts";
 import type { SnapshotMeta, VmHandle, VmstateSnapshotMeta } from "../vm-handle.ts";
 import {
   currentVmstateBackend,
@@ -544,9 +544,9 @@ function planVmstateRestore(
   validateVmstateGuestArch(vmstate, facts);
   validateVmstateBackendAndPauth(vmstate, facts);
   phases?.end("plan.validate-invariants");
-  phases?.start("plan.validate-shell");
-  validateVmstateShell({ opts, vmstate, resolvedImage, phases });
-  phases?.end("plan.validate-shell");
+  phases?.start("plan.validate-boot-assets");
+  validateVmstateBootAssets({ opts, vmstate, resolvedImage, phases });
+  phases?.end("plan.validate-boot-assets");
   phases?.start("plan.resolve-memory");
   const memoryCeiling = resolveVmstateMemoryCeiling(opts, vmstate);
   phases?.end("plan.resolve-memory");

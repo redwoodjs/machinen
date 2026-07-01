@@ -14,10 +14,10 @@ Current policy:
   source backend (`hvf`/`kvm`), topology hash, guest RAM ceiling
   (the memory layout, not current host usage), guest PAuth state, and
   the exact root block image identity.
-- New vmstate bundles also record restore shell identity: rootfs
+- New vmstate bundles also record restore boot asset identity: rootfs
   tarball, kernel image, and optional DTB byte identities plus a
-  path-independent shell id. Restore validates the local shell before
-  booting, so regions can advertise compatible shell digests without
+  path-independent boot asset id. Restore validates the local boot assets before
+  booting, so regions can advertise compatible boot asset digests without
   sharing deployment-local filesystem paths.
 - The first vmstate checkpoint in a VM chain carries a full sparse RAM
   section and copies the exact root block image into the bundle as

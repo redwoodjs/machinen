@@ -14,7 +14,7 @@ import {
   rememberTrustedFileIdentity,
   trustedFileIdentity,
 } from "../vm/vmstate-metadata.ts";
-import { vmstateShellId } from "../vm/vmstate-shell.ts";
+import { vmstateBootAssetsId } from "../vm/vmstate-boot-assets.ts";
 import type { SnapshotFileIdentity, VmstateSnapshotMeta } from "../vm-handle.ts";
 
 const MAGIC = Buffer.from("VMSTATE\0");
@@ -128,12 +128,12 @@ function writeBundle(
   return { dir, image };
 }
 
-function shellFor(image: string): NonNullable<VmstateSnapshotMeta["shell"]> {
+function bootAssetsFor(image: string): NonNullable<VmstateSnapshotMeta["bootAssets"]> {
   const rootfs = fileIdentity(image);
   const kernel = fileIdentity(join(ASSETS, "Image-arm64"));
   const dtb = fileIdentity(join(ASSETS, "virt-arm64.dtb"));
-  const shell = { rootfs, kernel, dtb };
-  return { ...shell, id: vmstateShellId(shell) };
+  const bootAssets = { rootfs, kernel, dtb };
+  return { ...bootAssets, id: vmstateBootAssetsId(bootAssets) };
 }
 
 function vmstateMeta(
@@ -146,7 +146,7 @@ function vmstateMeta(
     topologyHash: TOPO.toString("hex"),
     guestPauth: { active: false, sctlrEl1: "0x0" },
     rootDisk: { mode: "none" },
-    shell: shellFor(image),
+    bootAssets: bootAssetsFor(image),
     ...overrides,
   };
 }
@@ -463,9 +463,9 @@ describe("vmstate portability metadata", () => {
     );
   });
 
-  it("refuses a vmstate bundle that lacks shell identity metadata", async () => {
+  it("refuses a vmstate bundle that lacks boot asset metadata", async () => {
     const { dir, image } = writeBundle(
-      "missing-shell",
+      "missing-boot-assets",
       {
         engine: "vmstate",
         snappedAt: 1,
@@ -481,13 +481,13 @@ describe("vmstate portability metadata", () => {
     );
 
     await expect(restore({ snapDir: dir, image, binary: "/bin/sh" })).rejects.toThrow(
-      /shell identity metadata/,
+      /boot asset metadata/,
     );
   });
 
-  it("refuses a vmstate restore when the local rootfs shell differs", async () => {
+  it("refuses a vmstate restore when the local rootfs boot assets differ", async () => {
     const { dir } = writeBundle(
-      "bad-shell-rootfs",
+      "bad-boot-assets-rootfs",
       (image) => ({
         engine: "vmstate",
         snappedAt: 1,
@@ -503,7 +503,7 @@ describe("vmstate portability metadata", () => {
       0n,
     );
     writeFileSync(join(dir, "rootdisk.img"), "good");
-    const otherImage = join(TMP, "bad-shell-rootfs-other.tar.gz");
+    const otherImage = join(TMP, "bad-boot-assets-rootfs-other.tar.gz");
     writeFileSync(otherImage, "different rootfs");
 
     await expect(restore({ snapDir: dir, image: otherImage, binary: "/bin/sh" })).rejects.toThrow(
@@ -511,7 +511,7 @@ describe("vmstate portability metadata", () => {
     );
   });
 
-  it("uses path-independent shell ids for matching rootfs, kernel, and dtb digests", () => {
+  it("uses path-independent boot asset ids for matching rootfs, kernel, and dtb digests", () => {
     const rootfs: SnapshotFileIdentity = {
       path: "/region-a/rootfs.tar.gz",
       sizeBytes: 10,
@@ -528,13 +528,15 @@ describe("vmstate portability metadata", () => {
       sha256: "c".repeat(64),
     };
 
-    expect(vmstateShellId({ rootfs, kernel, dtb })).toBe(
-      vmstateShellId({
+    expect(vmstateBootAssetsId({ rootfs, kernel, dtb })).toBe(
+      vmstateBootAssetsId({
         rootfs: { ...rootfs, path: "/region-b/rootfs.tar.gz" },
         kernel: { ...kernel, path: "/region-b/Image" },
         dtb: { ...dtb, path: "/region-b/virt.dtb" },
       }),
     );
-    expect(vmstateShellId({ rootfs, kernel })).not.toBe(vmstateShellId({ rootfs, kernel, dtb }));
+    expect(vmstateBootAssetsId({ rootfs, kernel })).not.toBe(
+      vmstateBootAssetsId({ rootfs, kernel, dtb }),
+    );
   });
 });
