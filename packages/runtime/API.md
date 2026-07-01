@@ -2951,6 +2951,18 @@ Host-side vsock UDS the exec-agent is reachable on.
 
 Path to the image the VM was booted from (diagnostic only).
 
+##### kernelPath?
+
+> `optional` **kernelPath?**: `string`
+
+Guest kernel image the VM was booted with, when known.
+
+##### dtbPath?
+
+> `optional` **dtbPath?**: `string`
+
+Guest DTB the VM was booted with, when applicable and known.
+
 ##### rootDiskPath?
 
 > `optional` **rootDiskPath?**: `string`
@@ -2961,7 +2973,7 @@ whole-VM state captures RAM/device/vCPU state, not disk blocks.
 
 ##### rootDiskMode?
 
-> `optional` **rootDiskMode?**: `"block"` \| `"none"`
+> `optional` **rootDiskMode?**: `"none"` \| `"block"`
 
 Whether the VM intentionally booted without a root block device.
 
@@ -3124,7 +3136,7 @@ CPU resource policy and host enforcement state resolved at boot.
 
 ###### enforcement.status
 
-> **status**: `"none"` \| `"linux-cgroup-v2"` \| `"unsupported"`
+> **status**: `"linux-cgroup-v2"` \| `"unsupported"` \| `"none"`
 
 ###### enforcement.reason?
 
@@ -3959,6 +3971,38 @@ Pointer-auth state inferred from SCTLR_EL1 at snapshot time.
 
 Exact root block image needed by the resumed guest, a parent-relative delta, or explicit absence.
 
+##### bootAssets?
+
+> `optional` **bootAssets?**: `object`
+
+Exact boot assets required to restore this frozen VM state. The id is
+digest-based, so regions can advertise compatibility without sharing
+deployment-local paths.
+
+###### id
+
+> **id**: `string`
+
+Path-independent digest over rootfs/kernel/DTB identities.
+
+###### rootfs
+
+> **rootfs**: [`SnapshotFileIdentity`](#snapshotfileidentity)
+
+Rootfs tarball identity used to build the restore initramfs.
+
+###### kernel
+
+> **kernel**: [`SnapshotFileIdentity`](#snapshotfileidentity)
+
+Guest kernel image identity.
+
+###### dtb?
+
+> `optional` **dtb?**: [`SnapshotFileIdentity`](#snapshotfileidentity)
+
+Guest DTB identity; absent for guests that boot without a DTB.
+
 ##### kernel?
 
 > `optional` **kernel?**: [`SnapshotFileIdentity`](#snapshotfileidentity)
@@ -4478,6 +4522,8 @@ Extra argv for the VMM.
 > `optional` **kernel?**: `string`
 
 Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base kernel from `MACHINEN_ASSETS_DIR` or the CLI cache.
 
 ###### Inherited from
 
@@ -4488,6 +4534,8 @@ Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 > `optional` **dtb?**: `string`
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base DTB on guest architectures that need one.
 
 ###### Inherited from
 
@@ -4895,12 +4943,16 @@ Extra argv for the VMM.
 > `optional` **kernel?**: `string`
 
 Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base kernel from `MACHINEN_ASSETS_DIR` or the CLI cache.
 
 ##### dtb?
 
 > `optional` **dtb?**: `string`
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base DTB on guest architectures that need one.
 
 ##### nested?
 
@@ -5336,6 +5388,8 @@ Extra argv for the VMM.
 > `optional` **kernel?**: `string`
 
 Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base kernel from `MACHINEN_ASSETS_DIR` or the CLI cache.
 
 ###### Inherited from
 
@@ -5346,6 +5400,8 @@ Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 > `optional` **dtb?**: `string`
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
+Optional for normal boots; when `binary` is omitted, `boot()` resolves
+the release base DTB on guest architectures that need one.
 
 ###### Inherited from
 
@@ -6334,6 +6390,94 @@ Read the balloon-stats file at `path`. Returns `null` when:
 
 ***
 
+### resolveBaseRootfs()
+
+> **resolveBaseRootfs**(`explicit?`, `cwd?`): `string`
+
+Resolve the path to the base rootfs tarball. Fallback chain:
+explicit → `MACHINEN_ASSETS_DIR/<arch rootfs>` → `@machinen/cli`
+cache at `<base>/rootfs.tar.gz`.
+
+#### Parameters
+
+##### explicit?
+
+`string`
+
+##### cwd?
+
+`string` = `...`
+
+#### Returns
+
+`string`
+
+#### Throws
+
+PROVISION_BASE_NOT_FOUND |
+  PROVISION_ASSETS_DIR_INVALID
+
+***
+
+### resolveBaseKernel()
+
+> **resolveBaseKernel**(`explicit?`, `cwd?`): `string`
+
+Resolve the path to the guest kernel image. Same fallback chain as
+`resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/<arch kernel>` →
+`@machinen/cli` cache at `<base>/Image`.
+
+#### Parameters
+
+##### explicit?
+
+`string`
+
+##### cwd?
+
+`string` = `...`
+
+#### Returns
+
+`string`
+
+#### Throws
+
+PROVISION_KERNEL_NOT_FOUND |
+  PROVISION_ASSETS_DIR_INVALID
+
+***
+
+### resolveBaseDtb()
+
+> **resolveBaseDtb**(`explicit?`, `cwd?`): `string`
+
+Resolve the path to the guest DTB. amd64 guests do not use a DTB unless
+the caller passes one explicitly. arm64 follows the same fallback chain as
+`resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/virt-arm64.dtb` →
+`@machinen/cli` cache at `<base>/virt.dtb`.
+
+#### Parameters
+
+##### explicit?
+
+`string`
+
+##### cwd?
+
+`string` = `...`
+
+#### Returns
+
+`string`
+
+#### Throws
+
+PROVISION_DTB_NOT_FOUND |
+  PROVISION_ASSETS_DIR_INVALID
+
+***
+
 ### detachedLogRoot()
 
 > **detachedLogRoot**(): `string`
@@ -6947,105 +7091,6 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 #### Returns
 
 `Map`\<`number`, `number`\>
-
-***
-
-### resolveBaseRootfs()
-
-> **resolveBaseRootfs**(`explicit?`, `cwd?`): `string`
-
-Resolve the path to the base rootfs tarball, in the same order
-`provision()` itself does:
-
-  1. `explicit` — the caller-supplied path (resolved against `cwd`).
-  2. `MACHINEN_ASSETS_DIR` env var — points at a directory laid out like
-     `scripts/build-base-assets.sh`'s output (contains the selected
-     arch's rootfs tarball). Same convention `@machinen/cli` honors for
-     local/dev builds.
-  3. `@machinen/cli`'s on-disk cache at
-     `~/.machinen/@machinen/runtime@<version>/bases/debian-<arch>/rootfs.tar.gz`.
-     Populated by running `machinen` once against the installed runtime.
-
-Throws `ProvisionError` with guidance if none of those turn up a file.
-Exported so callers can pre-check or build their own tooling on it.
-
-#### Parameters
-
-##### explicit?
-
-`string`
-
-##### cwd?
-
-`string` = `...`
-
-#### Returns
-
-`string`
-
-#### Throws
-
-PROVISION_BASE_NOT_FOUND | PROVISION_ASSETS_DIR_INVALID
-
-***
-
-### resolveBaseKernel()
-
-> **resolveBaseKernel**(`explicit?`, `cwd?`): `string`
-
-Resolve the path to the guest kernel image. Same fallback chain as
-`resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/<arch kernel>` →
-`@machinen/cli` cache at `<base>/Image`. Exported for callers that
-want to pre-check or wire the path into `boot()`.
-
-#### Parameters
-
-##### explicit?
-
-`string`
-
-##### cwd?
-
-`string` = `...`
-
-#### Returns
-
-`string`
-
-#### Throws
-
-PROVISION_KERNEL_NOT_FOUND |
-  PROVISION_ASSETS_DIR_INVALID
-
-***
-
-### resolveBaseDtb()
-
-> **resolveBaseDtb**(`explicit?`, `cwd?`): `string`
-
-Resolve the path to the guest DTB. amd64 guests do not use a DTB unless
-the caller passes one explicitly. arm64 follows the same fallback chain as
-`resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/virt-arm64.dtb` →
-`@machinen/cli` cache at `<base>/virt.dtb`.
-
-#### Parameters
-
-##### explicit?
-
-`string`
-
-##### cwd?
-
-`string` = `...`
-
-#### Returns
-
-`string`
-
-#### Throws
-
-PROVISION_DTB_NOT_FOUND |
-  PROVISION_ASSETS_DIR_INVALID
 
 ***
 

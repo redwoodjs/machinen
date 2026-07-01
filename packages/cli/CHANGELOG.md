@@ -1,5 +1,16 @@
 # @machinen/cli
 
+## 0.7.0
+
+### Patch Changes
+
+- 90f20ca: Move more boot, provision, restore, live-mount, and vmstate planning into the Zig runtime helper/VMM boundary. This keeps TypeScript focused on orchestration, improves live-mount batching and metadata handling, and fixes the first KVM vmstate checkpoint dirty-bitmap path.
+- 90f20ca: Remove the experimental public `move` command and its proof-only harnesses from the shipped CLI/runtime surface while keeping the snapshot/restore product path focused on vmstate.
+- Updated dependencies [90f20ca]
+- Updated dependencies [90f20ca]
+- Updated dependencies [2ad5f5c]
+  - @machinen/runtime@0.7.0
+
 ## 0.6.1
 
 ### Patch Changes
