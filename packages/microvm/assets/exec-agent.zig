@@ -229,6 +229,11 @@ const SessionEntry = struct {
 
 var sessions: [MAX_SESSIONS]SessionEntry = [_]SessionEntry{.{}} ** MAX_SESSIONS;
 
+const DEFAULT_PATH_ENV = "PATH=/opt/fnm/aliases/default/bin:/usr/local/bin:/usr/bin:/bin:/sbin";
+const DEFAULT_FNM_DIR_ENV = "FNM_DIR=/opt/fnm";
+const DEFAULT_HOME_ENV = "HOME=/root";
+const DEFAULT_TERM_ENV = "TERM=xterm-256color";
+
 fn run_vmstate_reseed(client_fd: c_int, seed_hex: []const u8) void {
     std.debug.assert(client_fd >= 0);
     if (seed_hex.len == 0 or seed_hex.len > MAX_RESEED_HEX) {
@@ -247,7 +252,8 @@ fn run_vmstate_reseed(client_fd: c_int, seed_hex: []const u8) void {
             null,
         };
         const envp = &[_:null]?[*:0]const u8{
-            "PATH=/usr/local/bin:/usr/bin:/bin:/sbin",
+            DEFAULT_PATH_ENV,
+            DEFAULT_FNM_DIR_ENV,
             null,
         };
         _ = execve(VMSTATE_RESEED_HELPER, argv, envp);
@@ -286,10 +292,11 @@ fn run_command(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !voi
         // expand `~` against it. Default to /root since the agent
         // runs as PID 1's child and there's no real login session
         // here. Callers who want a different home can override via
-        // the cmd itself (`HOME=/foo bash -c ...`).
+        // the cmd itself (`HOME=/foo sh -c ...`).
         const envp = &[_:null]?[*:0]const u8{
-            "PATH=/usr/local/bin:/usr/bin:/bin:/sbin",
-            "HOME=/root",
+            DEFAULT_PATH_ENV,
+            DEFAULT_FNM_DIR_ENV,
+            DEFAULT_HOME_ENV,
             null,
         };
         ignore_int(execve("/bin/sh", argv, envp));
@@ -359,14 +366,15 @@ fn run_pty_command(
         // exec — no signals to clear, no fds to close.
         const argv = &[_:null]?[*:0]const u8{ "sh", "-c", cmd_z.ptr, null };
         const envp = &[_:null]?[*:0]const u8{
-            "PATH=/usr/local/bin:/usr/bin:/bin:/sbin",
+            DEFAULT_PATH_ENV,
+            DEFAULT_FNM_DIR_ENV,
             // See the matching comment in runCommand — same rationale
             // for HOME (git/npm/ssh-keygen/shells need it).
-            "HOME=/root",
+            DEFAULT_HOME_ENV,
             // Default to a sane TERM so curses-based TUIs work
             // out of the box. The host can override via env in cmd
-            // (e.g. `TERM=xterm-kitty bash -i`) if it knows better.
-            "TERM=xterm-256color",
+            // (e.g. `TERM=xterm-kitty sh -c ...`) if it knows better.
+            DEFAULT_TERM_ENV,
             null,
         };
         ignore_int(execve("/bin/sh", argv, envp));
@@ -726,9 +734,10 @@ fn spawn_session_child(cmd: []const u8, cols: u16, rows: u16, master_fd: *c_int)
     if (child_pid == 0) {
         const argv = &[_:null]?[*:0]const u8{ "sh", "-c", cmd_z, null };
         const envp = &[_:null]?[*:0]const u8{
-            "PATH=/usr/local/bin:/usr/bin:/bin:/sbin",
-            "HOME=/root",
-            "TERM=xterm-256color",
+            DEFAULT_PATH_ENV,
+            DEFAULT_FNM_DIR_ENV,
+            DEFAULT_HOME_ENV,
+            DEFAULT_TERM_ENV,
             null,
         };
         ignore_int(execve("/bin/sh", argv, envp));

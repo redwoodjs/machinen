@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const SCRIPT = join(ROOT, "scripts/release-base-assets.mjs");
+const BUILD_BASE_ASSETS = join(ROOT, "scripts/build-base-assets.sh");
 const ROOTFS = "rootfs-debian-arm64.tar.gz";
 
 const tmpDirs: string[] = [];
@@ -51,6 +52,19 @@ function runVerify(remoteDir: string, assets = [ROOTFS], env: Record<string, str
     },
   );
 }
+
+describe("scripts/build-base-assets.sh", () => {
+  it("makes fnm default Node installs available to login and attach shells", () => {
+    const script = readFileSync(BUILD_BASE_ASSETS, "utf8");
+
+    expect(script).toContain("install -m 0755 -d /work/rootfs/opt/fnm /work/rootfs/etc/profile.d");
+    expect(script).toContain('export FNM_DIR="${FNM_DIR:-/opt/fnm}"');
+    expect(script).toContain('export PATH="$FNM_DIR/aliases/default/bin:$PATH"');
+    expect(script).toContain("/work/rootfs/etc/profile.d/machinen-fnm.sh");
+    expect(script).toContain("/work/rootfs/etc/bash.bashrc");
+    expect(script).toContain(". /etc/profile.d/machinen-fnm.sh");
+  });
+});
 
 describe("scripts/release-base-assets.mjs verify", () => {
   it("passes when a published asset matches its sidecar", () => {
