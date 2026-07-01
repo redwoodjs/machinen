@@ -4,5 +4,8 @@ export default defineConfig({
   test: {
     include: ["packages/*/src/__tests__/**/*.test.ts"],
     setupFiles: ["./vitest.setup.ts"],
+    // Several runtime suites build the Zig helper in beforeAll(). GitHub
+    // release runners can spend >10s there when tests start in parallel.
+    hookTimeout: 60_000,
   },
 });
