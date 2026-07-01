@@ -9,28 +9,18 @@ import { planProvisionCliCacheNative } from "./native/provision-cli-cache.ts";
 import { planProvisionDtbNative } from "./native/provision-dtb.ts";
 
 /**
- * Resolve the path to the base rootfs tarball, in the same order
- * `provision()` itself does:
+ * Resolve the path to the base rootfs tarball. Fallback chain:
+ * explicit → `MACHINEN_ASSETS_DIR/<arch rootfs>` → `@machinen/cli`
+ * cache at `<base>/rootfs.tar.gz`.
  *
- *   1. `explicit` — the caller-supplied path (resolved against `cwd`).
- *   2. `MACHINEN_ASSETS_DIR` env var — points at a directory laid out like
- *      `scripts/build-base-assets.sh`'s output (contains the selected
- *      arch's rootfs tarball). Same convention `@machinen/cli` honors for
- *      local/dev builds.
- *   3. `@machinen/cli`'s on-disk cache at
- *      `~/.machinen/@machinen/runtime@<version>/bases/debian-<arch>/rootfs.tar.gz`.
- *      Populated by running `machinen` once against the installed runtime.
- *
- * Throws `ProvisionError` with guidance if none of those turn up a file.
- * Exported so callers can pre-check or build their own tooling on it.
- *
- * @throws {ProvisionError} PROVISION_BASE_NOT_FOUND | PROVISION_ASSETS_DIR_INVALID
+ * @throws {ProvisionError} PROVISION_BASE_NOT_FOUND |
+ *   PROVISION_ASSETS_DIR_INVALID
  */
 export function resolveBaseRootfs(explicit?: string, cwd: string = process.cwd()): string {
   const spec = baseAssetSpec();
   return resolveBaseAsset(
     {
-      kind: "base rootfs tarball",
+      kind: "base rootfs",
       param: "base",
       assetsDirName: spec.rootfsAsset,
       cliCacheName: "rootfs.tar.gz",
@@ -44,8 +34,7 @@ export function resolveBaseRootfs(explicit?: string, cwd: string = process.cwd()
 /**
  * Resolve the path to the guest kernel image. Same fallback chain as
  * `resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/<arch kernel>` →
- * `@machinen/cli` cache at `<base>/Image`. Exported for callers that
- * want to pre-check or build their own tooling on it.
+ * `@machinen/cli` cache at `<base>/Image`.
  *
  * @throws {ProvisionError} PROVISION_KERNEL_NOT_FOUND |
  *   PROVISION_ASSETS_DIR_INVALID
@@ -214,9 +203,7 @@ function missingProvisionAssetError(
 
 function cliCachedBaseDir(): string {
   // Mirrors `@machinen/cli`'s `baseDirFor(RELEASE_TAG)` where
-  // RELEASE_TAG = `runtime-v${VERSION}` (slash-free so the GitHub
-  // release URL pattern works — see the comment on RELEASE_TAG in
-  // packages/cli/src/cli.ts).
+  // RELEASE_TAG = `runtime-v${VERSION}`.
   const pkgPath = resolve(import.meta.dirname, "..", "package.json");
   const version = (JSON.parse(readFileSync(pkgPath, "utf8")) as { version: string }).version;
   const plan = planProvisionCliCacheNative({

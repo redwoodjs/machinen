@@ -25,6 +25,7 @@ import type {
 import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
 import { relativeCheckpointParent, VMSTATE_SECTION, vmstateSectionTags } from "./vmstate-chain.ts";
 import { copyVmstateRootDisk, finalizeVmstateRootDisk } from "./snapshot-rootdisk.ts";
+import { snapshotVmstateBootAssetsIdentity } from "./vmstate-boot-assets.ts";
 import { waitForVmstateFile } from "./vmstate-wait.ts";
 import {
   currentVmstateBackend,
@@ -914,13 +915,15 @@ function buildVmstateMeta(
   rootDisk: VmstateSnapshotMeta["rootDisk"],
 ): VmstateSnapshotMeta {
   const facts = readVmstateFacts(statePath);
+  const guestArch = vmstateGuestArch(facts);
   return {
     sourceBackend: currentVmstateBackend(),
-    guestArch: vmstateGuestArch(facts),
+    guestArch,
     topologyHash: facts.topologyHash,
     memoryCeilingMib: ctx.memoryCeilingMib,
     guestPauth: vmstateGuestPauth(facts),
     rootDisk,
+    bootAssets: snapshotVmstateBootAssetsIdentity(ctx, { guestArch }),
     kernel: optionalFileIdentity(ctx.kernelPath),
     dtb: optionalFileIdentity(ctx.dtbPath),
     checkpoint: buildVmstateCheckpoint(ctx, snapDir, parentDir, sequence, flags),

@@ -907,6 +907,8 @@ function buildRegisterArgs(
     vmName: state.vmName,
     vsockUdsPath: args.plan.vsockUdsPath!,
     sourceImageAbs: state.sourceImageAbs,
+    kernelPath: args.plan.env.MACHINEN_KERNEL,
+    dtbPath: args.plan.env.MACHINEN_DTB,
     rootDiskPath: state.rootDiskPath,
     rootDiskMode: state.rootDiskMode,
     diskPath: args.plan.diskAbs,
@@ -1491,13 +1493,8 @@ function closeFds(...fds: number[]): void {
   }
 }
 
-// Backstop for the recycled-pid case: `claimName` already drops pins
-// whose holder fails the recycling/orphan check, but a pre-#268 entry
-// without `vmmExe`/`startedAt` falls back to `kill(pid,0)` and can
-// stay pinned by an unrelated process now sitting on the recycled
-// pid. `runGc` walks the whole registry (also cleaning cleanupPaths)
-// and we retry the claim once. If a still-live VMM genuinely holds
-// the name, the retry fails and we throw.
+// Backstop for stale/recycled-pid name pins: run GC, retry once,
+// then fail if a live VMM still owns the name.
 function claimNameOrThrow(
   vmName: string,
   childPid: number,
@@ -1525,6 +1522,8 @@ interface RegisterArgs {
   vmName: string | undefined;
   vsockUdsPath: string;
   sourceImageAbs: string | undefined;
+  kernelPath: string | undefined;
+  dtbPath: string | undefined;
   rootDiskPath: string | undefined;
   rootDiskMode: "block" | "none";
   diskPath: string | undefined;
@@ -1549,9 +1548,6 @@ interface RegisterArgs {
   nested: boolean | undefined;
 }
 
-// Write the registry entry. Returns true on success; registry-write
-// failures are best-effort (attach won't find this VM but local
-// boot-and-use still works fine).
 function registerInRegistry(args: RegisterArgs): boolean {
   try {
     writeEntry(buildRegistryEntry(args));
@@ -1588,6 +1584,8 @@ function buildRegistryEntry(args: RegisterArgs) {
     name: args.vmName,
     socketPath: args.vsockUdsPath,
     imagePath: args.sourceImageAbs,
+    kernelPath: args.kernelPath,
+    dtbPath: args.dtbPath,
     rootDiskPath: args.rootDiskPath,
     rootDiskMode: args.rootDiskMode,
     diskPath: scalars.diskPath ?? undefined,

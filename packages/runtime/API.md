@@ -2951,6 +2951,18 @@ Host-side vsock UDS the exec-agent is reachable on.
 
 Path to the image the VM was booted from (diagnostic only).
 
+##### kernelPath?
+
+> `optional` **kernelPath?**: `string`
+
+Guest kernel image the VM was booted with, when known.
+
+##### dtbPath?
+
+> `optional` **dtbPath?**: `string`
+
+Guest DTB the VM was booted with, when applicable and known.
+
 ##### rootDiskPath?
 
 > `optional` **rootDiskPath?**: `string`
@@ -3958,6 +3970,38 @@ Pointer-auth state inferred from SCTLR_EL1 at snapshot time.
 > `optional` **rootDisk?**: `object` & [`SnapshotFileIdentity`](#snapshotfileidentity) \| \{ `mode`: `"delta"`; \} \| \{ `mode`: `"none"`; \}
 
 Exact root block image needed by the resumed guest, a parent-relative delta, or explicit absence.
+
+##### bootAssets?
+
+> `optional` **bootAssets?**: `object`
+
+Exact boot assets required to restore this frozen VM state. The id is
+digest-based, so regions can advertise compatibility without sharing
+deployment-local paths.
+
+###### id
+
+> **id**: `string`
+
+Path-independent digest over rootfs/kernel/DTB identities.
+
+###### rootfs
+
+> **rootfs**: [`SnapshotFileIdentity`](#snapshotfileidentity)
+
+Rootfs tarball identity used to build the restore initramfs.
+
+###### kernel
+
+> **kernel**: [`SnapshotFileIdentity`](#snapshotfileidentity)
+
+Guest kernel image identity.
+
+###### dtb?
+
+> `optional` **dtb?**: [`SnapshotFileIdentity`](#snapshotfileidentity)
+
+Guest DTB identity; absent for guests that boot without a DTB.
 
 ##### kernel?
 
@@ -6350,20 +6394,9 @@ Read the balloon-stats file at `path`. Returns `null` when:
 
 > **resolveBaseRootfs**(`explicit?`, `cwd?`): `string`
 
-Resolve the path to the base rootfs tarball, in the same order
-`provision()` itself does:
-
-  1. `explicit` — the caller-supplied path (resolved against `cwd`).
-  2. `MACHINEN_ASSETS_DIR` env var — points at a directory laid out like
-     `scripts/build-base-assets.sh`'s output (contains the selected
-     arch's rootfs tarball). Same convention `@machinen/cli` honors for
-     local/dev builds.
-  3. `@machinen/cli`'s on-disk cache at
-     `~/.machinen/@machinen/runtime@<version>/bases/debian-<arch>/rootfs.tar.gz`.
-     Populated by running `machinen` once against the installed runtime.
-
-Throws `ProvisionError` with guidance if none of those turn up a file.
-Exported so callers can pre-check or build their own tooling on it.
+Resolve the path to the base rootfs tarball. Fallback chain:
+explicit → `MACHINEN_ASSETS_DIR/<arch rootfs>` → `@machinen/cli`
+cache at `<base>/rootfs.tar.gz`.
 
 #### Parameters
 
@@ -6381,7 +6414,8 @@ Exported so callers can pre-check or build their own tooling on it.
 
 #### Throws
 
-PROVISION_BASE_NOT_FOUND | PROVISION_ASSETS_DIR_INVALID
+PROVISION_BASE_NOT_FOUND |
+  PROVISION_ASSETS_DIR_INVALID
 
 ***
 
@@ -6391,8 +6425,7 @@ PROVISION_BASE_NOT_FOUND | PROVISION_ASSETS_DIR_INVALID
 
 Resolve the path to the guest kernel image. Same fallback chain as
 `resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/<arch kernel>` →
-`@machinen/cli` cache at `<base>/Image`. Exported for callers that
-want to pre-check or build their own tooling on it.
+`@machinen/cli` cache at `<base>/Image`.
 
 #### Parameters
 
