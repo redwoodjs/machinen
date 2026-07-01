@@ -21,7 +21,7 @@ import {
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { BootError, ExecError, boot, buildMachinenConfig, measureFirstByte } from "../index.ts";
 import {
   applyNestedVirtualizationEnv,
@@ -247,6 +247,48 @@ describe("boot", () => {
     }
     expect(gone).toBe(true);
   }, 60_000);
+
+  it("rejects stdio inherit with detached boots", async () => {
+    await expect(
+      boot({
+        binary: "/bin/sh",
+        args: ["-c", "true"],
+        detached: true,
+        pdeathsig: false,
+        stdio: "inherit",
+      }),
+    ).rejects.toMatchObject({ code: "BOOT_STDIO_DETACHED" });
+  });
+
+  it("pipes VM stdout and stderr to the host when stdio is inherit", async () => {
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    const stdoutWrite = vi.spyOn(process.stdout, "write").mockImplementation((chunk: unknown) => {
+      stdoutChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+      return true;
+    });
+    const stderrWrite = vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
+      stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+      return true;
+    });
+
+    try {
+      const vm = await boot({
+        binary: "/bin/sh",
+        args: ["-c", "printf inherited-out; printf inherited-err >&2"],
+        pdeathsig: false,
+        stdio: "inherit",
+        timeoutMs: null,
+      });
+      await vm.wait();
+    } finally {
+      stdoutWrite.mockRestore();
+      stderrWrite.mockRestore();
+    }
+
+    expect(Buffer.concat(stdoutChunks).toString("utf8")).toContain("inherited-out");
+    expect(Buffer.concat(stderrChunks).toString("utf8")).toContain("inherited-err");
+  });
 
   it("rejects wait() when the VMM exceeds its timeout", async () => {
     // Use a binary that just sleeps (the macOS `yes` command never

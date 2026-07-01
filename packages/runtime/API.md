@@ -4583,6 +4583,23 @@ guest workload). Mostly for dev/test flags like `MACHINEN_BOOT_TEST`.
 
 [`BootOptions`](#bootoptions).[`vmmEnv`](#vmmenv-2)
 
+##### stdio?
+
+> `optional` **stdio?**: `"pipe"` \| `"inherit"`
+
+Host stdio behavior for foreground boots. The default, `"pipe"`, preserves
+the existing runtime behavior: callers read/write `vm.stdin`, `vm.stdout`,
+and `vm.stderr` themselves. `"inherit"` connects those streams to the
+current process and puts TTY stdin in raw mode until the VM exits, matching
+the ergonomics of Node's `child_process.spawn({ stdio: "inherit" })`.
+
+`stdio: "inherit"` is for foreground workloads and cannot be combined with
+`detached: true`.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`stdio`](#stdio-1)
+
 ##### detached?
 
 > `optional` **detached?**: `boolean`
@@ -4965,6 +4982,19 @@ kernel console (VMM stderr) and every exec invocation made through
 the returned handle. See `LogEvent.source` to tell them apart. See
 #83. For per-call output-only tees on a single exec, use
 `vm.exec({ onStdout, onStderr })` instead.
+
+##### stdio?
+
+> `optional` **stdio?**: `"pipe"` \| `"inherit"`
+
+Host stdio behavior for foreground boots. The default, `"pipe"`, preserves
+the existing runtime behavior: callers read/write `vm.stdin`, `vm.stdout`,
+and `vm.stderr` themselves. `"inherit"` connects those streams to the
+current process and puts TTY stdin in raw mode until the VM exits, matching
+the ergonomics of Node's `child_process.spawn({ stdio: "inherit" })`.
+
+`stdio: "inherit"` is for foreground workloads and cannot be combined with
+`detached: true`.
 
 ##### detached?
 
@@ -5420,6 +5450,23 @@ the returned handle. See `LogEvent.source` to tell them apart. See
 
 [`BootOptions`](#bootoptions).[`onLog`](#onlog-5)
 
+##### stdio?
+
+> `optional` **stdio?**: `"pipe"` \| `"inherit"`
+
+Host stdio behavior for foreground boots. The default, `"pipe"`, preserves
+the existing runtime behavior: callers read/write `vm.stdin`, `vm.stdout`,
+and `vm.stderr` themselves. `"inherit"` connects those streams to the
+current process and puts TTY stdin in raw mode until the VM exits, matching
+the ergonomics of Node's `child_process.spawn({ stdio: "inherit" })`.
+
+`stdio: "inherit"` is for foreground workloads and cannot be combined with
+`detached: true`.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`stdio`](#stdio-1)
+
 ##### detached?
 
 > `optional` **detached?**: `boolean`
@@ -5684,6 +5731,14 @@ tarball-producing tool can pre-populate the lookup cache.
 ##### BOOT\_TIMEOUT
 
 > `readonly` **BOOT\_TIMEOUT**: `"BOOT_TIMEOUT"` = `"BOOT_TIMEOUT"`
+
+##### BOOT\_STDIO\_INVALID
+
+> `readonly` **BOOT\_STDIO\_INVALID**: `"BOOT_STDIO_INVALID"` = `"BOOT_STDIO_INVALID"`
+
+##### BOOT\_STDIO\_DETACHED
+
+> `readonly` **BOOT\_STDIO\_DETACHED**: `"BOOT_STDIO_DETACHED"` = `"BOOT_STDIO_DETACHED"`
 
 ##### BOOT\_DETACHED\_READINESS\_FAILED
 
