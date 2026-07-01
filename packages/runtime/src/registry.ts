@@ -48,6 +48,10 @@ export interface RegistryEntry {
   socketPath: string;
   /** Path to the image the VM was booted from (diagnostic only). */
   imagePath?: string;
+  /** Guest kernel image the VM was booted with, when known. */
+  kernelPath?: string;
+  /** Guest DTB the VM was booted with, when applicable and known. */
+  dtbPath?: string;
   /**
    * Host-side path of the root block device currently attached as
    * `/dev/vda`. Vmstate snapshots need the exact bytes because the
