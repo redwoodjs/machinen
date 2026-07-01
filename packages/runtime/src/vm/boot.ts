@@ -6,7 +6,6 @@
 
 import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { once } from "node:events";
 import { closeSync, existsSync, mkdtempSync, openSync, rmSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -103,6 +102,13 @@ import {
 import { performSnapshot, type SnapshotContext } from "./snapshot.ts";
 import { resolveSnapshotEngine } from "./snapshot-engine.ts";
 import { setupStatsFile } from "./stats-file.ts";
+import {
+  installInheritedStdio,
+  makeKill,
+  makeWait,
+  validateBootStdio,
+  withInheritedStdioCleanup,
+} from "./handle-lifecycle.ts";
 
 const debug = debugLib("machinen:boot");
 const vmmDebug = debugLib("machinen:vmm");
@@ -396,6 +402,17 @@ export interface BootOptions {
    */
   onLog?: OnLog;
   /**
+   * Host stdio behavior for foreground boots. The default, `"pipe"`, preserves
+   * the existing runtime behavior: callers read/write `vm.stdin`, `vm.stdout`,
+   * and `vm.stderr` themselves. `"inherit"` connects those streams to the
+   * current process and puts TTY stdin in raw mode until the VM exits, matching
+   * the ergonomics of Node's `child_process.spawn({ stdio: "inherit" })`.
+   *
+   * `stdio: "inherit"` is for foreground workloads and cannot be combined with
+   * `detached: true`.
+   */
+  stdio?: "pipe" | "inherit";
+  /**
    * Detach the VMM from the runtime parent so the parent can exit
    * while the VM keeps running (issue #150 phase 2). When set, `boot()`
    * blocks only until the guest produces its first console byte
@@ -441,6 +458,7 @@ type MountDiskPaths = {
  *   BOOT_PACK_FAILED
  */
 export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
+  validateBootStdio(opts);
   const bootT0 = Date.now();
   // #221: per-phase wall-clock timeline emitted as one line under
   // DEBUG=machinen:boot once the VMM produces its first console byte.
@@ -508,6 +526,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       process.stderr.write(chunk);
     });
   }
+  const inheritedStdio = opts.stdio === "inherit" ? installInheritedStdio(child) : undefined;
   installVmstateTimingRelay(child);
   installFlushPhases(child, phases, onLog);
 
@@ -580,6 +599,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   }
 
   handle = withBatchLiveMountSync(handle, liveMountsResolved);
+  if (inheritedStdio) {
+    handle = withInheritedStdioCleanup(handle, inheritedStdio);
+  }
   return handle;
 }
 
@@ -2043,67 +2065,4 @@ async function gateOnDetachedReadiness(args: {
   // disk, and post-detach bytes are the SIGPIPE-ignored bit-bucket.
   args.detachedBootChunks.length = 0;
   await args.handle.detach();
-}
-
-function makeWait(
-  child: ChildProcessWithoutNullStreams,
-  timeoutMs: number | null,
-): VmHandle["wait"] {
-  return async () => {
-    // If the child already exited before we got here, `once("exit")`
-    // never fires — the event has already been emitted. Check first.
-    if (child.exitCode !== null || child.signalCode !== null) {
-      return { code: child.exitCode, signal: child.signalCode };
-    }
-    const settled = once(child, "exit") as Promise<[number | null, NodeJS.Signals | null]>;
-    const race =
-      timeoutMs === null
-        ? settled
-        : Promise.race([
-            settled,
-            new Promise<never>((_, reject) => {
-              setTimeout(
-                () =>
-                  reject(new BootError("BOOT_TIMEOUT", `VMM did not exit within ${timeoutMs}ms`)),
-                timeoutMs,
-              ).unref();
-            }),
-          ]);
-    const [code, signal] = await race;
-    return { code, signal };
-  };
-}
-
-function makeKill(child: ChildProcessWithoutNullStreams): VmHandle["kill"] {
-  return async () => {
-    if (child.exitCode !== null || child.signalCode !== null) {
-      return;
-    }
-    // Send SIGTERM, not SIGKILL: on darwin the spawn target is the
-    // pdeathsig shim, which can't catch SIGKILL — that orphans its
-    // inner VMM (#200), keeping the stderr pipe open so any caller
-    // awaiting `errorOutput()` (collected via stream "close") never
-    // wakes up. The shim does catch SIGTERM and forwards it to the
-    // VMM, which exits cleanly. Linux has the same shape via
-    // PR_SET_PDEATHSIG, so the same path applies.
-    child.kill("SIGTERM");
-    if (child.exitCode !== null || child.signalCode !== null) {
-      return;
-    }
-    // Escalate to SIGKILL if the shim+inner don't exit within 2s —
-    // covers a wedged inner that ignores SIGTERM. SIGKILL'ing the
-    // shim still orphans the inner, but at that point the inner is
-    // already unresponsive and we've done what we can from here.
-    const escalate = setTimeout(() => {
-      try {
-        child.kill("SIGKILL");
-      } catch {}
-    }, 2_000);
-    escalate.unref();
-    try {
-      await once(child, "exit");
-    } finally {
-      clearTimeout(escalate);
-    }
-  };
 }

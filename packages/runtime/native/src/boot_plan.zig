@@ -2240,10 +2240,7 @@ pub fn planBundleCommand(
         return error.MissingBundleCommand;
     if (isSupervisorCommand(base_cmd)) return base_cmd;
 
-    const workload = if (hasWritableLiveMount(input.live_mounts))
-        try wrapBatchWorkloadCommand(allocator, base_cmd)
-    else
-        base_cmd;
+    const workload = base_cmd;
     var out: std.array_list.Aligned([]const u8, null) = .empty;
     errdefer out.deinit(allocator);
     try out.append(allocator, "/sbin/machinen-supervisor");
@@ -2266,44 +2263,6 @@ fn isSupervisorCommand(cmd: []const []const u8) bool {
     if (cmd.len == 0) return false;
     return std.mem.eql(u8, cmd[0], "/exec-agent") or
         std.mem.eql(u8, cmd[0], "/sbin/machinen-restore");
-}
-
-fn hasWritableLiveMount(mounts: []const LiveMount) bool {
-    assert(@sizeOf(LiveMount) > 0);
-
-    for (mounts) |mount| {
-        if (std.mem.eql(u8, mount.mode, "rw")) return true;
-    }
-    return false;
-}
-
-fn wrapBatchWorkloadCommand(
-    allocator: std.mem.Allocator,
-    cmd: []const []const u8,
-) ![]const []const u8 {
-    assert(@sizeOf([]const []const u8) > 0);
-
-    const batch_script = "batch_sync() { " ++
-        "if [ -s /run/machinen-batch-sync.sh ]; then " ++
-        "sh /run/machinen-batch-sync.sh; fi; }; " ++
-        "\"$@\" & child=$!; " ++
-        "trap 'kill -TERM \"$child\" 2>/dev/null' TERM; " ++
-        "trap 'kill -INT \"$child\" 2>/dev/null' INT; " ++
-        "wait \"$child\"; status=$?; " ++
-        "batch_sync || { sync_status=$?; " ++
-        "if [ \"$status\" -eq 0 ]; then status=$sync_status; fi; }; " ++
-        "exit \"$status\"";
-    const prefix = [_][]const u8{
-        "/bin/sh",
-        "-c",
-        batch_script,
-        "machinen-batch-wrapper",
-    };
-    var out: std.array_list.Aligned([]const u8, null) = .empty;
-    errdefer out.deinit(allocator);
-    try out.appendSlice(allocator, &prefix);
-    try out.appendSlice(allocator, cmd);
-    return out.toOwnedSlice(allocator);
 }
 
 pub fn planVmmArgv(allocator: std.mem.Allocator, input: VmmArgvInput) !VmmArgvPlan {
@@ -3583,9 +3542,8 @@ test "planBundleCommand resolves image restore supervisor and batch wrappers" {
     });
     defer std.testing.allocator.free(batched);
     try std.testing.expectEqualStrings("/sbin/machinen-supervisor", batched[0]);
-    try std.testing.expectEqualStrings("/bin/sh", batched[1]);
-    try std.testing.expectEqualStrings("machinen-batch-wrapper", batched[4]);
-    try std.testing.expectEqualStrings("/bin/echo", batched[5]);
+    try std.testing.expectEqualStrings("/bin/echo", batched[1]);
+    try std.testing.expectEqualStrings("hi", batched[2]);
 }
 
 test "planMachinenConfigCwd prefers guest cwd over image cwd" {

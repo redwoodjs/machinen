@@ -558,22 +558,6 @@ fn init_batch_sync_script(mounts: []LiveMount) void {
     write_str(fd,
         \\#!/bin/sh
         \\set -u
-        \\sync_live_mount() {
-        \\  guest="$1"
-        \\  lower="$2"
-        \\  [ -d "$guest" ] && [ -d "$lower" ] || return 0
-        \\  tmp="/run/machinen-batch-sync-$$.tar"
-        \\  rm -f "$tmp"
-        \\  (cd "$guest" && tar -cf "$tmp" .) || { rm -f "$tmp"; return 1; }
-        \\  for p in "$lower"/..?* "$lower"/.[!.]* "$lower"/*; do
-        \\    [ -e "$p" ] || [ -L "$p" ] || continue
-        \\    rm -rf "$p"
-        \\  done
-        \\  (cd "$lower" && tar -xf "$tmp")
-        \\  status=$?
-        \\  rm -f "$tmp"
-        \\  return "$status"
-        \\}
         \\
     );
 }
@@ -592,11 +576,28 @@ fn append_batch_sync_entry(guest: []const u8, lower: []const u8) void {
     const fd = open(BATCH_SYNC_SCRIPT, O_WRONLY | O_CREAT | O_APPEND, @as(c_uint, 0o755));
     if (fd < 0) return;
     defer _ = close(fd);
-    write_str(fd, "sync_live_mount ");
+    write_str(fd, "guest=");
     write_shell_single_quoted(fd, guest);
-    write_str(fd, " ");
+    write_str(fd, "\n");
+    write_str(fd, "lower=");
     write_shell_single_quoted(fd, lower);
     write_str(fd, "\n");
+    write_str(fd,
+        \\if [ -d "$guest" ] && [ -d "$lower" ]; then
+        \\  tmp="/run/machinen-batch-sync-$$.tar"
+        \\  rm -f "$tmp"
+        \\  (cd "$guest" && tar -cf "$tmp" .) || { rm -f "$tmp"; exit 1; }
+        \\  for p in "$lower"/..?* "$lower"/.[!.]* "$lower"/*; do
+        \\    [ -e "$p" ] || [ -L "$p" ] || continue
+        \\    rm -rf "$p"
+        \\  done
+        \\  (cd "$lower" && tar -xf "$tmp")
+        \\  status=$?
+        \\  rm -f "$tmp"
+        \\  [ "$status" -eq 0 ] || exit "$status"
+        \\fi
+        \\
+    );
 }
 
 fn batch_mount_path(buf: []u8, index: u8, name: []const u8) ![]const u8 {
