@@ -203,6 +203,8 @@ export async function attach(opts: AttachOptions = {}): Promise<VmHandle> {
       pid: entry.pid,
       sourceName: entry.name,
       sourceImage: entry.imagePath,
+      kernelPath: entry.kernelPath,
+      dtbPath: entry.dtbPath,
       rootDiskPath: entry.rootDiskPath,
       rootDiskMode: entry.rootDiskMode,
       memoryCeilingMib: entry.memoryCeilingMib,

@@ -915,14 +915,15 @@ function buildVmstateMeta(
   rootDisk: VmstateSnapshotMeta["rootDisk"],
 ): VmstateSnapshotMeta {
   const facts = readVmstateFacts(statePath);
+  const guestArch = vmstateGuestArch(facts);
   return {
     sourceBackend: currentVmstateBackend(),
-    guestArch: vmstateGuestArch(facts),
+    guestArch,
     topologyHash: facts.topologyHash,
     memoryCeilingMib: ctx.memoryCeilingMib,
     guestPauth: vmstateGuestPauth(facts),
     rootDisk,
-    bootAssets: snapshotVmstateBootAssetsIdentity(ctx),
+    bootAssets: snapshotVmstateBootAssetsIdentity(ctx, { guestArch }),
     kernel: optionalFileIdentity(ctx.kernelPath),
     dtb: optionalFileIdentity(ctx.dtbPath),
     checkpoint: buildVmstateCheckpoint(ctx, snapDir, parentDir, sequence, flags),

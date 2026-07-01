@@ -2951,6 +2951,18 @@ Host-side vsock UDS the exec-agent is reachable on.
 
 Path to the image the VM was booted from (diagnostic only).
 
+##### kernelPath?
+
+> `optional` **kernelPath?**: `string`
+
+Guest kernel image the VM was booted with, when known.
+
+##### dtbPath?
+
+> `optional` **dtbPath?**: `string`
+
+Guest DTB the VM was booted with, when applicable and known.
+
 ##### rootDiskPath?
 
 > `optional` **rootDiskPath?**: `string`
