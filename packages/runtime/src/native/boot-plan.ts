@@ -37,7 +37,12 @@ type RequiredBundleConfigPathsPlan = {
 };
 
 type PortForwardPlanMapping = { hostPort: number; guestPort: number; hostAddr?: string };
-type LiveMountPlanInput = { host: string; guest: string; mode?: string };
+type LiveMountPlanInput = {
+  host: string;
+  guest: string;
+  mode?: string;
+  unsafeGuestPath?: boolean;
+};
 
 interface NativeBootPlanInput {
   memoryMib?: number;
@@ -52,6 +57,7 @@ interface NativeBootPlanInput {
   rootDisk: RootDiskPlanMode;
   guestCwd?: string;
   mountGuest?: string;
+  mountUnsafeGuestPath?: boolean;
   guestEnv?: Record<string, string>;
   name?: string;
   vsockUdsPath?: string;
@@ -187,6 +193,7 @@ function buildBootPlanRequestData(input: NativeBootPlanInput): Record<string, un
     rootDisk: input.rootDisk,
     guestCwd: nullDefault(input.guestCwd),
     mountGuest: nullDefault(input.mountGuest),
+    mountUnsafeGuestPath: input.mountUnsafeGuestPath === true,
     guestEnv: input.guestEnv ?? {},
     name: nullDefault(input.name),
     vsockUdsPath: nullDefault(input.vsockUdsPath),
@@ -372,6 +379,7 @@ function liveMountsData(liveMounts: LiveMountPlanInput[] | undefined): unknown[]
     host: mount.host,
     guest: mount.guest,
     mode: mount.mode ?? null,
+    unsafeGuestPath: mount.unsafeGuestPath === true,
   }));
 }
 

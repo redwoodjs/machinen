@@ -668,10 +668,10 @@ describe("mount option", () => {
     }
   });
 
-  it("rejects a mount whose guest path is not under /mnt/", async () => {
+  it("rejects a mount whose guest path is reserved", async () => {
     writeFileSync(fakeImage, "");
     try {
-      for (const guest of ["/srv/app", "/etc/config", "/proc", "/init", "/mntfoo"]) {
+      for (const guest of ["/", "/mnt", "/mnt/", "/proc", "/proc/self", "/run/tool", "/init"]) {
         await expect(
           boot({
             binary: "/bin/sh",
@@ -679,27 +679,7 @@ describe("mount option", () => {
             cmd: mountCmd,
             mount: { host: "/tmp", guest },
           }),
-        ).rejects.toThrow(/must live under \/mnt\//);
-      }
-    } finally {
-      try {
-        unlinkSync(fakeImage);
-      } catch {}
-    }
-  });
-
-  it("rejects a mount whose guest path is the mount root itself", async () => {
-    writeFileSync(fakeImage, "");
-    try {
-      for (const guest of ["/mnt", "/mnt/"]) {
-        await expect(
-          boot({
-            binary: "/bin/sh",
-            image: fakeImage,
-            cmd: mountCmd,
-            mount: { host: "/tmp", guest },
-          }),
-        ).rejects.toThrow(/must live under \/mnt\//);
+        ).rejects.toThrow(/unsafeGuestPath: true/);
       }
     } finally {
       try {
@@ -890,7 +870,7 @@ describe("liveMounts option", () => {
     }
   });
 
-  it("rejects a live mount with a host path outside /mnt/", async () => {
+  it("rejects a live mount with a reserved guest path", async () => {
     writeFileSync(fakeImage, "");
     try {
       await expect(
@@ -898,9 +878,9 @@ describe("liveMounts option", () => {
           binary: "/bin/sh",
           image: fakeImage,
           cmd: mountCmd,
-          liveMounts: [{ host: "/tmp", guest: "/srv/app" }],
+          liveMounts: [{ host: "/tmp", guest: "/run/tool" }],
         }),
-      ).rejects.toThrow(/must live under \/mnt\//);
+      ).rejects.toThrow(/unsafeGuestPath: true/);
     } finally {
       try {
         unlinkSync(fakeImage);
