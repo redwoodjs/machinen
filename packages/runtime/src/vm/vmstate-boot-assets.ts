@@ -62,6 +62,7 @@ function updateBootAssetsIdentityPart(
 
 export function snapshotVmstateBootAssetsIdentity(
   ctx: BootAssetsSnapshotSource,
+  opts: { guestArch?: VmstateSnapshotMeta["guestArch"] } = {},
 ): VmstateSnapshotMeta["bootAssets"] {
   if (!ctx.sourceImage) {
     throw new SnapshotError(
@@ -70,39 +71,25 @@ export function snapshotVmstateBootAssetsIdentity(
         "  Reboot with a current runtime/CLI so the registry records the rootfs tarball.",
     );
   }
-  const kernelPath = ctx.kernelPath ?? resolveSnapshotBaseKernel();
-  const dtbPath = ctx.dtbPath ?? resolveSnapshotBaseDtb();
-  return buildVmstateBootAssetsIdentity({
-    rootfsPath: ctx.sourceImage,
-    kernelPath,
-    dtbPath,
-  });
-}
-
-function resolveSnapshotBaseKernel(): string {
-  try {
-    return resolveBaseKernel();
-  } catch (err) {
+  if (!ctx.kernelPath) {
     throw new SnapshotError(
       "SNAPSHOT_DUMP_FAILED",
       "vm.snapshot: cannot record vmstate boot asset identity because the source kernel image is unknown.\n" +
-        "  Boot with an explicit kernel path or make the matching Machinen base assets available.",
-      { cause: err },
+        "  Reboot with a current runtime/CLI so the registry records the kernel path.",
     );
   }
-}
-
-function resolveSnapshotBaseDtb(): string | undefined {
-  try {
-    return resolveBaseDtb();
-  } catch (err) {
+  if (opts.guestArch === "arm64" && !ctx.dtbPath) {
     throw new SnapshotError(
       "SNAPSHOT_DUMP_FAILED",
       "vm.snapshot: cannot record vmstate boot asset identity because the source DTB is unknown.\n" +
-        "  Boot with an explicit DTB path or make the matching Machinen base assets available.",
-      { cause: err },
+        "  Reboot with a current runtime/CLI so the registry records the DTB path.",
     );
   }
+  return buildVmstateBootAssetsIdentity({
+    rootfsPath: ctx.sourceImage,
+    kernelPath: ctx.kernelPath,
+    dtbPath: ctx.dtbPath,
+  });
 }
 
 export function validateVmstateBootAssets(args: {

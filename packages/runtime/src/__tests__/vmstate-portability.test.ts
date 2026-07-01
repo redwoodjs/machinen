@@ -466,15 +466,34 @@ describe("vmstate portability metadata", () => {
     );
   });
 
-  it("resolves base boot assets when an attach-owned vmstate snapshot lacks recorded paths", () => {
+  it("records boot assets from the paths carried by boot and attach handles", () => {
     const image = join(TMP, "attach-owned-rootfs.tar.gz");
+    const kernelPath = join(ASSETS, "Image-arm64");
+    const dtbPath = join(ASSETS, "virt-arm64.dtb");
     writeFileSync(image, "attach rootfs");
 
-    expect(snapshotVmstateBootAssetsIdentity({ sourceImage: image })).toMatchObject({
+    expect(
+      snapshotVmstateBootAssetsIdentity(
+        { sourceImage: image, kernelPath, dtbPath },
+        { guestArch: "arm64" },
+      ),
+    ).toMatchObject({
       rootfs: fileIdentity(image),
-      kernel: fileIdentity(join(ASSETS, "Image-arm64")),
-      dtb: fileIdentity(join(ASSETS, "virt-arm64.dtb")),
+      kernel: fileIdentity(kernelPath),
+      dtb: fileIdentity(dtbPath),
     });
+  });
+
+  it("refuses an arm64 vmstate snapshot when the boot DTB path was not recorded", () => {
+    const image = join(TMP, "missing-dtb-rootfs.tar.gz");
+    writeFileSync(image, "attach rootfs");
+
+    expect(() =>
+      snapshotVmstateBootAssetsIdentity(
+        { sourceImage: image, kernelPath: join(ASSETS, "Image-arm64") },
+        { guestArch: "arm64" },
+      ),
+    ).toThrow(/source DTB is unknown/);
   });
 
   it("refuses a vmstate bundle that lacks boot asset metadata", async () => {
