@@ -211,6 +211,8 @@ const restored = await restore({ snapDir: "./counter.snap" });
 
 - [Quickstart](./docs/quickstart.md) — a longer bake → boot → handoff
   walkthrough
+- [Try Command Code in an isolated VM](./docs/guides/command-code-vm.md) —
+  Node 24, npm, a live workspace mount, and host-mounted agent state
 - [Create a VM](./docs/guides/create-a-vm.md) — boot, detach, attach,
   and manage named VMs
 - [Hand off a running VM](./docs/guides/handoff.md) — snapshot → transfer → restore
