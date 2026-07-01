@@ -24,6 +24,7 @@ const ParsedRequest = struct {
     root_disk_restore_path: ?[]const u8 = null,
     guest_cwd: ?[]const u8 = null,
     mount_guest: ?[]const u8 = null,
+    mount_unsafe_guest_path: bool = false,
     guest_env: std.json.ObjectMap = .{},
     vmm_env_base: std.json.ObjectMap = .{},
     vmm_env_overrides: std.json.ObjectMap = .{},
@@ -245,6 +246,7 @@ const boot_plan_fields = [_][]const u8{
     "rootDiskRestorePath",
     "guestCwd",
     "mountGuest",
+    "mountUnsafeGuestPath",
     "guestEnv",
     "vmmEnvBase",
     "vmmEnvOverrides",
@@ -3149,6 +3151,7 @@ fn makePlanInput(
         .root_disk = parsed.root_disk,
         .guest_cwd = parsed.guest_cwd,
         .mount_guest = parsed.mount_guest,
+        .mount_unsafe_guest_path = parsed.mount_unsafe_guest_path,
     };
 }
 
@@ -3299,6 +3302,15 @@ fn parseBootShapeFields(
         .restore_path = request.root_disk_restore_path,
     });
     request.root_disk = if (option_root_disk != .unset) option_root_disk else legacy_root_disk;
+    try parseGuestPathEnvFields(object, request);
+}
+
+fn parseGuestPathEnvFields(
+    object: std.json.ObjectMap,
+    request: *ParsedRequest,
+) RequestError!void {
+    assert(@sizeOf(ParsedRequest) > 0);
+
     request.guest_cwd = try optionalStringDefaultNull(
         object,
         "guestCwd",
@@ -3307,6 +3319,11 @@ fn parseBootShapeFields(
     request.mount_guest = try optionalStringDefaultNull(
         object,
         "mountGuest",
+        error.InvalidMountGuest,
+    );
+    request.mount_unsafe_guest_path = try optionalBoolDefaultFalse(
+        object,
+        "mountUnsafeGuestPath",
         error.InvalidMountGuest,
     );
     request.guest_env = try optionalObjectDefaultEmpty(object, "guestEnv", error.InvalidGuestEnv);
@@ -4595,17 +4612,23 @@ fn optionalLiveMounts(
     errdefer mounts.deinit(allocator);
     for (value.array.items) |item| {
         if (item != .object) return error.InvalidLiveMounts;
-        try protocol.rejectUnknownFields(item.object, &.{ "host", "guest", "mode" });
+        try protocol.rejectUnknownFields(
+            item.object,
+            &.{ "host", "guest", "mode", "unsafeGuestPath" },
+        );
         const host = item.object.get("host") orelse return error.InvalidLiveMountHost;
         const guest = item.object.get("guest") orelse return error.InvalidLiveMountGuest;
         const mode = item.object.get("mode") orelse .null;
+        const unsafe = item.object.get("unsafeGuestPath") orelse .null;
         if (host != .string) return error.InvalidLiveMountHost;
         if (guest != .string) return error.InvalidLiveMountGuest;
         if (mode != .null and mode != .string) return error.InvalidLiveMountMode;
+        if (unsafe != .null and unsafe != .bool) return error.InvalidLiveMountGuest;
         try mounts.append(allocator, .{
             .host = host.string,
             .guest = guest.string,
             .mode = if (mode == .string) mode.string else null,
+            .unsafe_guest_path = if (unsafe == .bool) unsafe.bool else false,
         });
     }
     return mounts.toOwnedSlice(allocator);
@@ -4696,7 +4719,10 @@ fn optionalRestoreLiveMountsOverrides(
     errdefer mounts.deinit(allocator);
     for (value.array.items) |item| {
         if (item != .object) return error.InvalidRestoreLiveMountsOverrides;
-        try protocol.rejectUnknownFields(item.object, &.{ "host", "guest", "mode" });
+        try protocol.rejectUnknownFields(
+            item.object,
+            &.{ "host", "guest", "mode", "unsafeGuestPath" },
+        );
         const host = item.object.get("host") orelse return error.InvalidRestoreLiveMountsOverrides;
         const guest = item.object.get("guest") orelse {
             return error.InvalidRestoreLiveMountsOverrides;
@@ -5116,10 +5142,16 @@ fn writePathPlanError(io: std.Io, err: anyerror) !bool {
             "BOOT_MOUNT_INVALID",
             "mount guest path must be absolute",
         ),
-        error.InvalidMountGuestRoot => try writeBootError(
+        error.InvalidMountGuestNul => try writeBootError(
             io,
             "BOOT_MOUNT_INVALID",
-            "mount guest path must live under /mnt/",
+            "mount guest path must not contain NUL bytes",
+        ),
+        error.InvalidMountGuestReserved => try writeBootError(
+            io,
+            "BOOT_MOUNT_INVALID",
+            "mount guest path is reserved; pass unsafeGuestPath: true " ++
+                "if you really intend to mount there",
         ),
         else => return false,
     }

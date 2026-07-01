@@ -128,9 +128,10 @@ export function resolveVmmBinary(): string {
 
 // Guest path validation lives in the native boot planner so mount
 // planning rules stay aligned across boot, restore, and live mounts.
-export function normalizeMountGuest(guest: string): string {
+export function normalizeMountGuest(guest: string, unsafeGuestPath: boolean = false): string {
   const plan = planBootCoreNative({
     mountGuest: guest,
+    mountUnsafeGuestPath: unsafeGuestPath,
     vmmMemoryPreset: true,
     hasImage: false,
     hasCmd: false,
@@ -152,8 +153,8 @@ export function validateGuestCwd(cwd: string): void {
   });
 }
 
-export function validateMountGuest(guest: string): void {
-  normalizeMountGuest(guest);
+export function validateMountGuest(guest: string, unsafeGuestPath: boolean = false): void {
+  normalizeMountGuest(guest, unsafeGuestPath);
 }
 
 /**
