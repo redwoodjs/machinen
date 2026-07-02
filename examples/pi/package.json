@@ -1,0 +1,13 @@
+{
+  "name": "@machinen/example-pi",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bake": "node --conditions=source --import tsx bake.ts",
+    "start": "node --conditions=source --import tsx run.ts"
+  },
+  "dependencies": {
+    "@machinen/runtime": "workspace:*"
+  }
+}
