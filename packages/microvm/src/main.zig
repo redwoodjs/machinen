@@ -53,6 +53,8 @@ pub fn main(init: std.process.Init) !void {
     // #271: explicit opt-in to expose EL2 / nested virtualization to
     // the guest. The runtime sets this from boot({ nested: true }).
     const nested = env_bool("MACHINEN_NESTED");
+    const max_vcpus = env_positive_u32("MACHINEN_MAX_VCPUS") orelse 1;
+    validate_max_vcpus(max_vcpus);
 
     // Guest console is live-echoed to stderr from inside the boot loop
     // (boot_hvf.zig's PL011 DR-write handler). The result.serial buffer is
@@ -94,6 +96,7 @@ pub fn main(init: std.process.Init) !void {
             .restore_path = restore_path,
             .snapshot_path = snapshot_path,
             .nested = nested,
+            .max_vcpus = max_vcpus,
         };
         if (ram_size_override) |bytes| cfg.ram_size = bytes;
         const result = try microvm.boot_hvf.boot(gpa, cfg);
@@ -120,12 +123,20 @@ pub fn main(init: std.process.Init) !void {
                 .max_exits = std.math.maxInt(usize),
                 .restore_path = restore_path,
                 .snapshot_path = snapshot_path,
+                .max_vcpus = max_vcpus,
             };
             if (ram_size_override) |bytes| cfg.ram_size = bytes;
             const result = try microvm.boot_kvm_x86_64.boot(gpa, cfg);
             gpa.free(result.serial);
             std.process.exit(if (result.saw_psci_shutdown or result.snapshotted) 0 else 1);
         } else {
+            if (max_vcpus != 1) {
+                std.debug.print(
+                    "machinen-microvm: MACHINEN_MAX_VCPUS={d} unsupported on KVM arm64\n",
+                    .{max_vcpus},
+                );
+                std.process.exit(2);
+            }
             const arm_dtb_path = dtb_path orelse env_required("MACHINEN_DTB");
             var cfg: microvm.boot_kvm.Config = .{
                 .kernel_path = kernel_path,
@@ -196,6 +207,29 @@ fn env_bool(comptime name: [:0]const u8) bool {
     std.process.exit(2);
 }
 
+fn validate_max_vcpus(value: u32) void {
+    const limit = max_vcpus_limit();
+    std.debug.assert(limit >= 1);
+    if (value <= limit) return;
+    std.debug.print(
+        "machinen-microvm: MACHINEN_MAX_VCPUS={d} is invalid: maximum is {d} on this host.\n",
+        .{ value, limit },
+    );
+    std.process.exit(2);
+}
+
+fn max_vcpus_limit() u32 {
+    if (builtin.os.tag == .macos) {
+        std.debug.assert(microvm.boot_hvf.MAX_VCPUS >= 1);
+        return microvm.boot_hvf.MAX_VCPUS;
+    }
+    if (builtin.cpu.arch == .x86_64) {
+        std.debug.assert(microvm.boot_kvm_x86_64.MAX_VCPUS >= 1);
+        return microvm.boot_kvm_x86_64.MAX_VCPUS;
+    }
+    return 1;
+}
+
 /// Read an integer from the env. Returns null when the var is unset
 /// or empty; rejects non-numeric values with a die() rather than
 /// silently treating them as 0 (a fd of 0 is stdin and would mask a
@@ -227,6 +261,28 @@ fn env_int(comptime name: [:0]const u8) ?c_int {
 /// value in bytes, or null if the var is unset / empty. Refuses
 /// anything we can't safely turn into a `usize` byte count: bad
 /// digits, zero, or values that would overflow.
+fn env_positive_u32(comptime name: [:0]const u8) ?u32 {
+    comptime assert(name.len > 0);
+    const raw = getenv(name.ptr) orelse return null;
+    const s = std.mem.span(raw);
+    if (s.len == 0) return null;
+    const parsed = std.fmt.parseInt(u32, s, 10) catch {
+        std.debug.print(
+            "machinen-microvm: {s}={s} is invalid: must be a positive integer.\n",
+            .{ name, s },
+        );
+        std.process.exit(2);
+    };
+    if (parsed == 0) {
+        std.debug.print(
+            "machinen-microvm: {s}=0 is invalid: must be a positive integer.\n",
+            .{name},
+        );
+        std.process.exit(2);
+    }
+    return parsed;
+}
+
 fn env_memory_mib() ?usize {
     const raw = getenv("MACHINEN_MEMORY") orelse return null;
     const s = std.mem.span(raw);

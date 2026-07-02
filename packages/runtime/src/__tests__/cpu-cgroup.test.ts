@@ -46,7 +46,9 @@ describe("cpu cgroup controls", () => {
   it("does nothing when no policy or only no-op defaults are requested", () => {
     expect(applyCpuControls(123, undefined)).toEqual({ status: "none" });
     expect(applyCpuControls(123, { maxVcpus: 1, weight: 100 })).toEqual({ status: "none" });
+    expect(applyCpuControls(123, { maxVcpus: 2, weight: 100 })).toEqual({ status: "none" });
     expect(cpuPolicyNeedsCgroup({ maxVcpus: 1, weight: 100 })).toBe(false);
+    expect(cpuPolicyNeedsCgroup({ maxVcpus: 2, weight: 100 })).toBe(false);
   });
 
   it("reports unsupported for cgroup writes outside Linux", () => {
@@ -70,7 +72,7 @@ describe("cpu cgroup controls", () => {
     const parentDir = tempCgroupParent();
     const result = applyCpuControls(
       4321,
-      { maxVcpus: 1, quotaCpus: 0.5, weight: 250 },
+      { maxVcpus: 4, quotaCpus: 0.5, weight: 250 },
       { parentDir, id: "unit" },
     );
 
@@ -89,7 +91,7 @@ describe("cpu cgroup controls", () => {
       return;
     }
     const parentDir = tempCgroupParent();
-    const result = applyCpuControls(4321, { maxVcpus: 1, weight: 50 }, { parentDir, id: "weight" });
+    const result = applyCpuControls(4321, { maxVcpus: 2, weight: 50 }, { parentDir, id: "weight" });
 
     expect(readFileSync(join(result.cgroupPath!, "cpu.weight"), "utf8")).toBe("50\n");
     expect(existsSync(join(result.cgroupPath!, "cpu.max"))).toBe(false);

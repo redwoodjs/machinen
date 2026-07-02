@@ -52,8 +52,6 @@ import {
 const debug = debugLib("machinen:provision");
 const vmmDebug = debugLib("machinen:vmm");
 
-export { resolveBaseDtb, resolveBaseKernel, resolveBaseRootfs } from "./base-assets.ts";
-
 export interface ProvisionOptions {
   /**
    * Path to the base rootfs tarball to start from. Typically the

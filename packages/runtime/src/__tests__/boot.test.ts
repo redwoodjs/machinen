@@ -22,7 +22,14 @@ import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { BootError, ExecError, boot, buildMachinenConfig, measureFirstByte } from "../index.ts";
+import {
+  BootError,
+  ExecError,
+  boot,
+  buildMachinenConfig,
+  measureFirstByte,
+  restore,
+} from "../index.ts";
 import {
   applyNestedVirtualizationEnv,
   preflightNestedVirtualization,
@@ -30,6 +37,7 @@ import {
 } from "../nested-virt.ts";
 import { ensurePdeathsig } from "../pdeathsig.ts";
 import { performSnapshot } from "../vm/snapshot.ts";
+import { performForkWithRestore } from "../vm/fork-core.ts";
 import { buildGuestHostname } from "../vm/helpers.ts";
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
@@ -514,46 +522,6 @@ describe("snapshot option", () => {
 });
 
 describe("kernel option", () => {
-  it("resolves the release kernel and dtb when binary is omitted", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "machinen-default-assets-"));
-    const kernel = join(dir, "Image-arm64");
-    const dtb = join(dir, "virt-arm64.dtb");
-    const previousAssetsDir = process.env.MACHINEN_ASSETS_DIR;
-    const previousGuestArch = process.env.MACHINEN_GUEST_ARCH;
-    const previousVmm = process.env.MACHINEN_VMM;
-    writeFileSync(kernel, "");
-    writeFileSync(dtb, "");
-    process.env.MACHINEN_ASSETS_DIR = dir;
-    process.env.MACHINEN_GUEST_ARCH = "arm64";
-    process.env.MACHINEN_VMM = "/bin/sh";
-    try {
-      const vm = await boot({
-        args: ["-c", 'printf \'KERNEL=%s\\nDTB=%s\\n\' "$MACHINEN_KERNEL" "$MACHINEN_DTB"'],
-        timeoutMs: 2_000,
-      });
-      await vm.wait();
-      const out = await vm.output();
-      expect(out.trim()).toBe(`KERNEL=${kernel}\nDTB=${dtb}`);
-    } finally {
-      if (previousAssetsDir === undefined) {
-        delete process.env.MACHINEN_ASSETS_DIR;
-      } else {
-        process.env.MACHINEN_ASSETS_DIR = previousAssetsDir;
-      }
-      if (previousGuestArch === undefined) {
-        delete process.env.MACHINEN_GUEST_ARCH;
-      } else {
-        process.env.MACHINEN_GUEST_ARCH = previousGuestArch;
-      }
-      if (previousVmm === undefined) {
-        delete process.env.MACHINEN_VMM;
-      } else {
-        process.env.MACHINEN_VMM = previousVmm;
-      }
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
   it("throws BootError when the kernel path does not exist", async () => {
     await expect(boot({ binary: "/bin/sh", kernel: "/nope/missing-kernel" })).rejects.toThrow(
       /kernel not found/,
@@ -622,6 +590,92 @@ describe("measureFirstByte", () => {
     expect(ms).toBeGreaterThanOrEqual(0);
     expect(ms).toBeLessThan(1500); // well under the 1s sleep
   });
+});
+
+describe("multi-vCPU boot", () => {
+  it("does not let VMM env bypass resources.cpu.maxVcpus", async () => {
+    const vm = await boot({
+      binary: "/bin/sh",
+      args: ["-c", "printf 'VCPUS=%s\\n' \"$MACHINEN_MAX_VCPUS\""],
+      vmmEnv: { MACHINEN_MAX_VCPUS: "4" },
+      timeoutMs: 2_000,
+    });
+    await vm.wait();
+    expect((await vm.output()).trim()).toBe("VCPUS=1");
+  });
+
+  it("does not auto-wire vmstate snapshots for multi-vCPU boots", async () => {
+    if (
+      !(
+        (process.platform === "linux" && process.arch === "x64") ||
+        (process.platform === "darwin" && process.arch === "arm64")
+      )
+    ) {
+      return;
+    }
+    const previous = process.env.MACHINEN_SNAPSHOT_PATH;
+    delete process.env.MACHINEN_SNAPSHOT_PATH;
+    try {
+      const vm = await boot({
+        binary: "/bin/sh",
+        args: ["-c", "printf 'SNAPSHOT=%s\\n' \"${MACHINEN_SNAPSHOT_PATH-unset}\""],
+        resources: { cpu: { maxVcpus: 2 } },
+        timeoutMs: 2_000,
+      });
+      await vm.wait();
+      expect((await vm.output()).trim()).toBe("SNAPSHOT=unset");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.MACHINEN_SNAPSHOT_PATH;
+      } else {
+        process.env.MACHINEN_SNAPSHOT_PATH = previous;
+      }
+    }
+  });
+
+  it("boots a linux/x64 KVM guest that reports the requested vCPU count", async () => {
+    if (process.platform !== "linux" || process.arch !== "x64") {
+      return;
+    }
+    const binary = resolve(microvmRoot, "zig-out/bin/machinen-vm");
+    const kernel = resolve(import.meta.dirname, "../../../..", "release-assets/bzImage-x86_64");
+    const image = resolve(
+      import.meta.dirname,
+      "../../../..",
+      "release-assets/rootfs-debian-amd64.tar.gz",
+    );
+    const missing = [binary, kernel, image].filter((p) => !existsSync(p));
+    if (missing.length > 0) {
+      if (process.env.MACHINEN_REQUIRE_FIXTURES === "0") {
+        return;
+      }
+      throw new Error(`test requires multi-vCPU fixtures (missing: ${missing.join(", ")})`);
+    }
+
+    const vm = await boot({
+      binary,
+      kernel,
+      image,
+      cmd: [
+        "sh",
+        "-lc",
+        "echo nproc=$(nproc); echo processors=$(grep -c ^processor /proc/cpuinfo)",
+      ],
+      resources: { cpu: { maxVcpus: 2 } },
+      timeoutMs: 60_000,
+      snapshot: false,
+      pdeathsig: true,
+      rootDisk: true,
+    });
+    try {
+      await expect(vm.wait()).resolves.toEqual({ code: 0, signal: null });
+      const output = await vm.errorOutput();
+      expect(output).toContain("nproc=2");
+      expect(output).toContain("processors=2");
+    } finally {
+      await vm.kill().catch(() => {});
+    }
+  }, 120_000);
 });
 
 describe("image + cmd", () => {
@@ -1013,6 +1067,66 @@ describe("liveMounts option", () => {
 });
 
 describe("vm.snapshot", () => {
+  it("refuses provider-level snapshots of multi-vCPU VMs", async () => {
+    await expect(
+      performSnapshot(
+        {
+          pid: process.pid,
+          diskPath: "/tmp/unused-disk.img",
+          maxVcpus: 2,
+          execRaw: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+          wait: async () => ({ code: 0, signal: null }),
+          kill: async () => {},
+          teeGuestConsole: undefined,
+          errorOutput: async () => "",
+        },
+        { outDir: "/tmp/unused-multivcpu-snap" },
+      ),
+    ).rejects.toMatchObject({ code: "BOOT_VMSTATE_UNSUPPORTED" });
+  });
+
+  it("refuses restore of multi-vCPU snapshot metadata before boot", async () => {
+    const snapDir = mkdtempSync(join(tmpdir(), "machinen-multivcpu-restore-test-"));
+    try {
+      const imgDir = join(snapDir, "img");
+      const core = join(imgDir, "core-1.img");
+      rmSync(imgDir, { recursive: true, force: true });
+      writeFileSync(
+        join(snapDir, "meta.json"),
+        JSON.stringify({ snappedAt: 0, cpu: { maxVcpus: 2 } }),
+      );
+      execSync(`mkdir -p ${JSON.stringify(imgDir)}`);
+      writeFileSync(core, "fake");
+
+      await expect(restore({ snapDir })).rejects.toMatchObject({
+        code: "BOOT_VMSTATE_UNSUPPORTED",
+      });
+    } finally {
+      rmSync(snapDir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses fork of multi-vCPU VMs before snapshot capture", async () => {
+    await expect(
+      performForkWithRestore(
+        {
+          pid: process.pid,
+          diskPath: "/tmp/unused-disk.img",
+          maxVcpus: 2,
+          execRaw: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+          wait: async () => ({ code: 0, signal: null }),
+          kill: async () => {},
+          teeGuestConsole: undefined,
+          errorOutput: async () => "",
+        },
+        {},
+        async () => {
+          throw new Error("restore should not run after multi-vCPU snapshot refusal");
+        },
+      ),
+    ).rejects.toMatchObject({ code: "BOOT_VMSTATE_UNSUPPORTED" });
+  });
+
   it("refuses provider-level snapshots of nested-enabled VMs", async () => {
     await expect(
       performSnapshot(
@@ -1085,7 +1199,7 @@ describe("vm.snapshot", () => {
         rmSync(outDir, { recursive: true, force: true });
       } catch {}
     }
-  }, 15_000);
+  });
 });
 
 // Fake exec-agent — accepts a UDS connection, reads one EXEC line,

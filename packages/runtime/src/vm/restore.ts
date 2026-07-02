@@ -1,9 +1,3 @@
-// Restore a microVM from a snapshot bundle produced by `vm.snapshot()`.
-// Handles bundle validation, image resolution, lazy-pagemap rewriting,
-// checkpoint image delivery (eager tar on /dev/vdb vs. lazy virtio-fs mount),
-// mount-overlay re-attach, and the post-boot auto-name + hostname
-// patch-up.
-
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
@@ -35,6 +29,7 @@ import {
 } from "./portable-snapshot.ts";
 import { validateIdentity } from "./restore-identity.ts";
 import { reseedVmstateGuestEntropy } from "./restore-reseed.ts";
+import { refuseMultiVcpuRestore } from "./restore-vcpu.ts";
 import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
 import { materializeVmstateChain } from "./vmstate-chain.ts";
 import { validateVmstateBootAssets } from "./vmstate-boot-assets.ts";
@@ -180,6 +175,7 @@ async function restoreCriu(opts: RestoreOptions, snapDir: string): Promise<VmHan
   const phases = new PhaseTimer();
   const imgDir = validateCriuSnapshotBundle(snapDir);
   const meta = readSnapshotMetaWithPhase(join(snapDir, "meta.json"), phases);
+  refuseMultiVcpuRestore(meta);
   const resolvedImage = resolveRestoreImage(opts, meta);
   const lazy = prepareLazyPages(opts, imgDir, phases);
   const effectiveLiveMounts = resolveRestoreLiveMounts(meta.liveMounts, opts.liveMounts);
@@ -908,11 +904,13 @@ interface PreparedVmstateRestoreBundle {
 }
 
 function initialVmstateRestoreBundle(snapDir: string): PreparedVmstateRestoreBundle {
+  const meta = readSnapshotMeta(join(snapDir, "meta.json"));
+  refuseMultiVcpuRestore(meta);
   return {
     statePath: join(snapDir, VMSTATE_FILE),
     effectiveSnapDir: snapDir,
     materializedTempDir: undefined,
-    meta: readSnapshotMeta(join(snapDir, "meta.json")),
+    meta,
   };
 }
 

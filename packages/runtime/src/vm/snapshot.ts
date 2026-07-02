@@ -67,28 +67,13 @@ export interface SnapshotContext {
   kernelPath?: string;
   /** Explicit DTB path used by the source boot, when known. */
   dtbPath?: string;
-  /**
-   * #272: when the source VM was booted with `mount: { host, guest }`,
-   * the runtime materialized a squashfs lower + ext4 upper. We need
-   * to reflink both files into the snapshot bundle so a restore
-   * elsewhere can mount the same overlay without consulting the host
-   * source dir. Undefined when no mount was configured.
-   */
+  /** Overlay mount disk files to reflink into the snapshot bundle. */
   mountDisk?: {
     guest: string;
     lowerPath: string;
     upperPath: string;
   };
-  /**
-   * #273: live-share mounts the source VM has active. Threaded into
-   * the bundle's `meta.json` so `restore()` can re-establish the same
-   * window (or apply per-guest overrides on a different host). Both
-   * boot- and attach-handle ctxes populate this — boot from
-   * `liveMountsResolved`, attach from the registry. Undefined / empty
-   * for VMs booted without `liveMounts`. Since #332 each is served by
-   * an in-VMM virtio-fs device that the VMM carries across the CRIU
-   * dump, so there's nothing host-side to stop or respawn.
-   */
+  /** Live-share mounts to record for restore-time reattachment. */
   liveMounts?: ReadonlyArray<{
     host: string;
     guest: string;
@@ -112,6 +97,8 @@ export interface SnapshotContext {
   };
   /** Persist the next parent pointer after a successful vmstate checkpoint. */
   updateVmstateChain?: (next: { parentDir: string; sequence: number }) => void;
+  /** Guest-visible vCPU count for this source VM. */
+  maxVcpus?: number;
   /**
    * True when the source VM exposed EL2 to its guest. Provider-level
    * snapshots of this L1 are refused until nested KVM/HVF state capture
@@ -175,6 +162,14 @@ export async function performSnapshot(
   const engine = resolveSnapshotEngine();
   if (engine === "portable") {
     return performSnapshotPortable(ctx, opts);
+  }
+  if ((ctx.maxVcpus ?? 1) > 1) {
+    throw new SnapshotError(
+      "BOOT_VMSTATE_UNSUPPORTED",
+      "vm.snapshot: provider-level snapshots of multi-vCPU VMs are not supported yet.\n" +
+        "  Machinen does not yet capture and restore every vCPU, timer, and interrupt-controller state safely.\n" +
+        "  Re-boot with resources.cpu.maxVcpus: 1 before snapshot or fork.",
+    );
   }
   if (ctx.nested) {
     throw new SnapshotError(
@@ -630,13 +625,10 @@ function writeSnapshotMeta(
     engine,
     sourceName: ctx.sourceName,
     sourceImage: ctx.sourceImage,
+    cpu: ctx.maxVcpus === undefined ? undefined : { maxVcpus: ctx.maxVcpus },
     snappedAt: Date.now(),
     vmstate: vmstateMeta,
     mountDisk: mountDiskMeta,
-    // #273: bytes are NOT in the bundle — `host` is a path on the
-    // snapshotting host that the restoring host has to resolve (or
-    // remap via `restore({ liveMounts })`). Recorded only when ctx
-    // carried a resolved list (boot-handle path).
     liveMounts:
       ctx.liveMounts && ctx.liveMounts.length > 0
         ? ctx.liveMounts.map(({ guest, host, mode }) => ({
