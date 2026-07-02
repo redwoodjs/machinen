@@ -5,10 +5,7 @@
   "type": "module",
   "scripts": {
     "bake": "node --conditions=source --import tsx bake.ts",
-    "start": "node --conditions=source --import tsx start.ts",
-    "ask": "node --conditions=source --import tsx ask.ts",
-    "attach": "npx machinen attach ${MACHINEN_PI_NAME:-pi}",
-    "stop": "npx machinen stop ${MACHINEN_PI_NAME:-pi}"
+    "start": "node --conditions=source --import tsx run.ts"
   },
   "dependencies": {
     "@machinen/runtime": "workspace:*"

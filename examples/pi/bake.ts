@@ -1,25 +1,15 @@
+import { mkdirSync } from "node:fs";
 import { provision } from "@machinen/runtime";
-import { ensureArtifactDir, imagePath } from "./common.ts";
 
-ensureArtifactDir();
+mkdirSync("artifacts", { recursive: true });
 
 await provision({
   install: async (vm) => {
-    await vm.exec("apt-get update");
-    await vm.exec(
-      "apt-get install -y --no-install-recommends ca-certificates curl git ripgrep unzip xz-utils",
-    );
-    await vm.exec(
-      "curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir /opt/fnm --skip-shell",
-    );
-    await vm.exec("FNM_DIR=/opt/fnm /opt/fnm/fnm install 24");
-    await vm.exec("FNM_DIR=/opt/fnm /opt/fnm/fnm default 24");
-    await vm.exec("ln -sf /opt/fnm/aliases/default/bin/* /usr/local/bin/");
-    await vm.exec("npm install -g --ignore-scripts @earendil-works/pi-coding-agent");
-    await vm.exec("ln -sf /opt/fnm/aliases/default/bin/* /usr/local/bin/");
+    await vm.exec(`
+      fnm install 24
+      fnm default 24
+      npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+    `);
   },
-  cmd: ["/bin/sleep", "infinity"],
-  out: imagePath,
+  out: "./artifacts/rootfs.tar.gz",
 });
-
-console.log(`Wrote ${imagePath}`);

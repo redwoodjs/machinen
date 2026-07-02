@@ -7,7 +7,7 @@ Start here:
 Then dive deeper:
 
 - [Try Command Code in an isolated VM](./guides/command-code-vm.md) — Node 24, npm, live workspace, and host-mounted Command Code state
-- [Run pi in a VM](./guides/pi.md) — attach to a terminal coding agent and fork warm prompt runs
+- [Run pi in a VM](./guides/pi.md) — run a terminal coding agent in an isolated workspace
 - [Create a VM](./guides/create-a-vm.md) — the three ways to get a workload running
 - [Hand off a running VM](./guides/handoff.md) — snapshot → transfer → restore
 - [Snapshot, restore, and fork](./guides/snapshot-restore-fork.md) — clone a running process, including vmstate timer, entropy, and socket contracts

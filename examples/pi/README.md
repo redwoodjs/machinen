@@ -1,17 +1,15 @@
 # pi
 
-Boot a Machinen VM with the [`pi`](https://pi.dev) coding agent installed.
+Run the [`pi`](https://pi.dev) coding agent inside a Machinen VM.
+
 The VM gets a live mount of:
 
-- the current directory at `/mnt/workspace`
+- this directory at `/mnt/workspace`
 - your host `~/.pi/agent` state at `/root/.pi/agent`
-
-That lets you test `pi` in an isolated Linux VM while keeping your normal host
-login/config.
 
 ## Prereq
 
-Authenticate `pi` on the host once:
+Log in to pi on the host once:
 
 ```sh
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent
@@ -19,52 +17,39 @@ pi
 /login
 ```
 
-## Bake
+## Run
 
 ```sh
 pnpm install
 pnpm bake
-```
-
-This writes `./artifacts/rootfs.tar.gz` with Node 24, git, ripgrep, and `pi`
-installed.
-
-## Interactive test
-
-```sh
 pnpm start
-pnpm attach
 ```
 
-Inside the attached shell:
+`pnpm start` opens pi in the VM with this directory as its workspace. Quit pi to
+stop the VM.
 
-```sh
-cd /mnt/workspace
-HOME=/root pi
+To test against another project, run from that project instead and point at this
+example's image:
+
+```js
+// boot-pi.mjs
+import { homedir } from "node:os";
+import { resolve } from "node:path";
+import { boot } from "@machinen/runtime";
+
+const vm = await boot({
+  image: "/path/to/machinen/examples/pi/artifacts/rootfs.tar.gz",
+  liveMounts: [
+    { host: process.cwd(), guest: "/mnt/workspace", mode: "rw" },
+    { host: resolve(homedir(), ".pi/agent"), guest: "/root/.pi/agent", mode: "rw" },
+  ],
+  guestCwd: "/mnt/workspace",
+  cmd: ["/usr/bin/env", "pi"],
+  env: { HOME: "/root" },
+  stdio: "inherit",
+  timeoutMs: null,
+});
+
+const { code } = await vm.wait();
+process.exitCode = code ?? 0;
 ```
-
-The VM keeps running if you close the host terminal. Reattach with
-`pnpm attach`. Stop it with:
-
-```sh
-pnpm stop
-```
-
-## One-shot prompt test
-
-```sh
-pnpm ask -- "Write fizzbuzz in TypeScript. Code only."
-```
-
-The script boots a throwaway VM, runs `pi -p`, prints the answer, then kills the
-VM.
-
-## Optional knobs
-
-```sh
-MACHINEN_PI_NAME=pi-test pnpm start
-MACHINEN_PI_WORKSPACE=/path/to/project pnpm start
-MACHINEN_PI_WORKSPACE=/path/to/project pnpm ask -- "Inspect this repo."
-```
-
-`MACHINEN_PI_WORKSPACE` defaults to this example directory.
