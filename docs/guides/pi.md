@@ -34,9 +34,7 @@ import { provision } from "@machinen/runtime";
 await provision({
   install: async (vm) => {
     await vm.exec("apt-get update");
-    await vm.exec(
-      "apt-get install -y --no-install-recommends curl ca-certificates unzip xz-utils",
-    );
+    await vm.exec("apt-get install -y --no-install-recommends curl ca-certificates unzip xz-utils");
     await vm.exec(
       "curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir /opt/fnm --skip-shell",
     );
@@ -150,7 +148,10 @@ for (const result of results) {
 }
 ```
 
-There is a complete runnable version in [`examples/fork-pi`](../../examples/fork-pi/README.md).
+There are complete runnable examples in [`examples/pi`](../../examples/pi/README.md)
+for interactive and one-shot `pi` testing, and
+[`examples/fork-pi`](../../examples/fork-pi/README.md) for the parallel fork
+demo.
 
 ## What this validates
 
