@@ -19,14 +19,24 @@ pi
 
 ## Run
 
+If you're running from a source checkout, build the local VM bits once from the
+repo root:
+
 ```sh
 pnpm install
+bash scripts/machinen-dev.sh
+```
+
+Then run the example:
+
+```sh
+cd examples/pi
 pnpm bake
 pnpm start
 ```
 
-`pnpm start` opens pi in the VM with this directory as its workspace. Quit pi to
-stop the VM.
+`pnpm bake` uses `../../release-assets` by default. `pnpm start` opens pi in the
+VM with this directory as its workspace. Quit pi to stop the VM.
 
 To test against another project, run from that project instead and point at this
 example's image:

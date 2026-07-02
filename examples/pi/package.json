@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "bake": "node --conditions=source --import tsx bake.ts",
-    "start": "node --conditions=source --import tsx run.ts"
+    "bake": "MACHINEN_ASSETS_DIR=${MACHINEN_ASSETS_DIR:-../../release-assets} node --conditions=source --import tsx bake.ts",
+    "start": "MACHINEN_ASSETS_DIR=${MACHINEN_ASSETS_DIR:-../../release-assets} node --conditions=source --import tsx run.ts"
   },
   "dependencies": {
     "@machinen/runtime": "workspace:*"
