@@ -116,10 +116,21 @@ to modify code and run it in the same VM instead. Make the app or website the
 foreground command, give the VM a name, and forward the dev-server port back to
 localhost:
 
-```js
-name: "command-code-vm",
-cmd: ["/usr/bin/env", "npm", "run", "dev", "--", "--host", "0.0.0.0"],
-portForward: [{ hostPort: 3000, guestPort: 3000 }],
+```diff
+ const vm = await boot({
++  name: "command-code-vm",
+   image: "./command-code-vm.tar.gz",
+   liveMounts: [
+     { host: process.cwd(), guest: "/mnt/workspace", mode: "rw" },
+     { host: resolve(homedir(), ".commandcode"), guest: "/root/.commandcode", mode: "rw" },
+   ],
+   guestCwd: "/mnt/workspace",
+-  cmd: ["/usr/bin/env", "cmd"],
++  cmd: ["/usr/bin/env", "npm", "run", "dev", "--", "--host", "0.0.0.0"],
++  portForward: [{ hostPort: 3000, guestPort: 3000 }],
+   stdio: "inherit",
+   timeoutMs: null,
+ });
 ```
 
 Open `http://localhost:3000` on the host. In another terminal, attach to the
