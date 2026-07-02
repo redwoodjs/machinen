@@ -130,10 +130,22 @@ await boot({
 });
 ```
 
-A naming rule for both `--mount` and `--mount-live`: the guest path
-must be under `/mnt/`. This is a deliberate constraint — keeping all
-host-shared paths in one place makes it obvious to anyone reading code
-in the guest where data is coming from.
+Guest paths for both `--mount` and `--mount-live` must be safe absolute
+paths. Paths such as `/root/.config/tool`, `/workspace`, `/var/cache/tool`,
+and `/mnt/workspace` are allowed. Machinen rejects paths that hide runtime or
+kernel-managed locations such as `/`, `/dev`, `/proc`, `/sys`, `/run`, `/init`,
+`/exec-agent`, and Machinen's own `/sbin/machinen-*` helpers.
+
+From the Node API, you can bypass that guard for a mount only when you really
+mean it:
+
+```ts
+await boot({
+  image,
+  cmd,
+  mount: { host: "./state", guest: "/run/my-tool", unsafeGuestPath: true },
+});
+```
 
 ## A single file — `vm.writeFile()`
 

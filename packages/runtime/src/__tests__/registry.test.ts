@@ -314,11 +314,17 @@ describe("boot + attach end-to-end", () => {
 
   it("boot() writes a registry entry that list() + attach() can find", async () => {
     const udsPath = join(tmpdir(), `machinen-attach-${process.pid}.sock`);
+    const kernelPath = join(scratchDir, "Image");
+    const dtbPath = join(scratchDir, "virt.dtb");
+    writeFileSync(kernelPath, "kernel");
+    writeFileSync(dtbPath, "dtb");
     const agent = startFakeAgent({ socketPath: udsPath, stdout: "from-attach\n", exitCode: 0 });
     try {
       const vm = await boot({
         binary: "/usr/bin/yes",
         vmmEnv: { MACHINEN_VSOCK: `in:1978:${udsPath}` },
+        kernel: kernelPath,
+        dtb: dtbPath,
         name: "my-worker",
         timeoutMs: 5_000,
       });
@@ -326,9 +332,10 @@ describe("boot + attach end-to-end", () => {
         expect(vm.pid).toBeGreaterThan(0);
         expect(vm.name).toBe("my-worker");
 
-        // list() should include it, pid alive.
+        // list() should include it, pid alive, with boot asset paths for attached snapshots.
         const entries = list();
         expect(entries.some((e) => e.pid === vm.pid && e.name === "my-worker")).toBe(true);
+        expect(entries.find((e) => e.pid === vm.pid)).toMatchObject({ kernelPath, dtbPath });
 
         // attach({ name }) should connect and exec through the same UDS.
         const attached = await attach({ name: "my-worker" });

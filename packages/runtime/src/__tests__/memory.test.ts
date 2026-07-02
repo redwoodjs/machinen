@@ -636,14 +636,7 @@ describe("boot-plan helper schema", () => {
     });
     expect(live.status).toBe(0);
     const liveCommand = JSON.parse(live.stdout).data.bundleCommand;
-    expect(liveCommand.slice(0, 5)).toEqual([
-      "/sbin/machinen-supervisor",
-      "/bin/sh",
-      "-c",
-      expect.stringContaining("batch_sync"),
-      "machinen-batch-wrapper",
-    ]);
-    expect(liveCommand.slice(5)).toEqual(["/bin/echo", "hi"]);
+    expect(liveCommand).toEqual(["/sbin/machinen-supervisor", "/bin/echo", "hi"]);
   });
 
   it("plans scratch disk modes", () => {

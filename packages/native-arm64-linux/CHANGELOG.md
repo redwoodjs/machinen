@@ -1,5 +1,13 @@
 # @machinen/native-arm64-linux
 
+## 0.7.1
+
+## 0.7.0
+
+### Patch Changes
+
+- 90f20ca: Ship the runtime's native host tools with the platform packages: `machinen-runtime-helper`, `machinen-pdeathsig`, `machinen-pty`, and `machinen-winsize`. The release build now stages Darwin tools from macOS and Linux tools from Linux so published packages contain the right binaries for each host.
+
 ## 0.6.1
 
 ## 0.6.0

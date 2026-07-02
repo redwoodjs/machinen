@@ -20,7 +20,6 @@ import {
 } from "../nested-virt.ts";
 import { reflinkCopy } from "../reflink.ts";
 import { allocateSparseFile, SNAP_SCRATCH_BYTES } from "./helpers.ts";
-import { resolveMemoryCeilingMib } from "./memory-resources.ts";
 import type { BootOptions } from "./boot.ts";
 
 const debug = debugLib("machinen:boot");
@@ -143,19 +142,6 @@ export function configureNestedVirtualization(
   applyNestedVirtualizationEnv(opts.nested, env);
 }
 
-export function setMemoryCeiling(
-  opts: BootOptions,
-  env: Record<string, string>,
-): number | undefined {
-  // Validate public API input even when lower-level vmmEnv wins.
-  const ceiling = resolveMemoryCeilingMib(opts);
-  if (env.MACHINEN_MEMORY !== undefined) {
-    return undefined;
-  }
-  env.MACHINEN_MEMORY = String(ceiling);
-  return ceiling;
-}
-
 // The scratch virtio-blk device serves two unrelated workloads:
 //   - caller-supplied path (string): a CRIU snapshot bundle to
 //     restore from at boot — the runtime synthesizes
@@ -223,23 +209,6 @@ export function prepareScratchDisk(
   env.MACHINEN_DISK = scratchPath;
   debug("snap-scratch auto path=%s sizeBytes=%d", scratchPath, SNAP_SCRATCH_BYTES);
   return { diskAbs: scratchPath, perBootSnapDisk: scratchPath };
-}
-
-export function validateKernelDtb(opts: BootOptions, env: Record<string, string>): void {
-  if (opts.kernel) {
-    const abs = resolve(opts.cwd ?? process.cwd(), opts.kernel);
-    if (!existsSync(abs)) {
-      throw new BootError("BOOT_KERNEL_NOT_FOUND", `kernel not found: ${abs}`);
-    }
-    env.MACHINEN_KERNEL = abs;
-  }
-  if (opts.dtb) {
-    const abs = resolve(opts.cwd ?? process.cwd(), opts.dtb);
-    if (!existsSync(abs)) {
-      throw new BootError("BOOT_DTB_NOT_FOUND", `dtb not found: ${abs}`);
-    }
-    env.MACHINEN_DTB = abs;
-  }
 }
 
 // #94: always wire up a vsock UDS bridge so `vm.exec()` works out of

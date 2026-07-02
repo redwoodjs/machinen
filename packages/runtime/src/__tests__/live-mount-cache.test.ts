@@ -52,6 +52,29 @@ describe("resolveLiveMounts live-mount options", () => {
     ]);
   });
 
+  it("allows safe absolute guest paths outside /mnt", () => {
+    expect(resolveLiveMounts([{ host: hostDir, guest: "/root/.commandcode" }], undefined)).toEqual([
+      {
+        host: hostDir,
+        guest: "/root/.commandcode",
+        mode: "rw",
+        tag: "machinen-lm0",
+      },
+    ]);
+  });
+
+  it("allows reserved guest paths only with unsafeGuestPath", () => {
+    expect(() => resolveLiveMounts([{ host: hostDir, guest: "/run/tool" }], undefined)).toThrow(
+      /unsafeGuestPath: true/,
+    );
+    expect(
+      resolveLiveMounts(
+        [{ host: hostDir, guest: "/run/tool", unsafeGuestPath: true }],
+        undefined,
+      ).map(({ guest, mode, tag }) => ({ guest, mode, tag })),
+    ).toEqual([{ guest: "/run/tool", mode: "rw", tag: "machinen-lm0" }]);
+  });
+
   it("preserves ro mode", () => {
     expect(
       resolveLiveMounts([{ host: hostDir, guest: "/mnt/fixtures", mode: "ro" }], undefined).map(

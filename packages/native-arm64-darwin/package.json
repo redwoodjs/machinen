@@ -1,6 +1,6 @@
 {
   "name": "@machinen/native-arm64-darwin",
-  "version": "0.6.1",
+  "version": "0.7.1",
   "description": "Machinen host-side native binaries for arm64 darwin — VMM (HVF) + gvproxy + guest ELFs, mke2fs, and mksquashfs. Consolidates what used to be several per-tool packages.",
   "license": "FSL-1.1-MIT",
   "repository": {

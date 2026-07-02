@@ -1,6 +1,6 @@
 {
   "name": "@machinen/example-fork-pi",
-  "version": "0.0.15",
+  "version": "0.0.17",
   "private": true,
   "type": "module",
   "scripts": {

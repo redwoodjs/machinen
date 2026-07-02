@@ -171,7 +171,7 @@ describe("treeManifestHash", () => {
     const dir = join(tmp, "d");
     mkdirSync(dir, { recursive: true });
     const fake = join(tmp, "fake-machinen-runtime-helper");
-    writeFileSync(fake, "#!/bin/sh\nprintf 'not-json'\n");
+    writeFileSync(fake, "#!/bin/sh\ncat >/dev/null\nprintf 'not-json'\n");
     chmodSync(fake, 0o755);
     const realHelper = process.env.MACHINEN_RUNTIME_HELPER;
     process.env.MACHINEN_RUNTIME_HELPER = fake;

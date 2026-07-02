@@ -75,7 +75,7 @@ export interface PackBundleOptions {
    * A single host directory copied into the guest between the base
    * tarball and the bundle's rootfs. Bundle files win on path
    * collisions. The caller is responsible for validating host exists
-   * and is a directory, and that guest lives under `/mnt/`. See #64.
+   * and is a directory, and that guest is a safe absolute path. See #64.
    */
   mount?: { host: string; guest: string };
   /**
@@ -271,7 +271,7 @@ export interface PackTinyBundleOptions {
    * cpio carries `/etc/machinen-mountdisk-guest` with this path so
    * /init knows where to layer the squashfs+ext4 overlay after the
    * rootdisk pivot. The actual payload rides on virtio-blk slots 5+6,
-   * not in the cpio. Must be an absolute path under `/mnt/`.
+   * not in the cpio. Must be a safe absolute path.
    */
   mountGuest?: string;
   /** Optional override for the compiled /init. Default: ../microvm/test-fixtures/init relative to this file. */

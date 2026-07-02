@@ -32,6 +32,7 @@ import { reseedVmstateGuestEntropy } from "./restore-reseed.ts";
 import { refuseMultiVcpuRestore } from "./restore-vcpu.ts";
 import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
 import { materializeVmstateChain } from "./vmstate-chain.ts";
+import { validateVmstateBootAssets } from "./vmstate-boot-assets.ts";
 import type { SnapshotMeta, VmHandle, VmstateSnapshotMeta } from "../vm-handle.ts";
 import {
   currentVmstateBackend,
@@ -518,6 +519,7 @@ function planVmstateRestore(
   meta: SnapshotMeta,
   snapDir: string,
   statePath: string,
+  resolvedImage: string,
   phases?: PhaseTimer,
 ): VmstateRestorePlan {
   phases?.start("plan.read-vmstate-facts");
@@ -538,9 +540,9 @@ function planVmstateRestore(
   validateVmstateGuestArch(vmstate, facts);
   validateVmstateBackendAndPauth(vmstate, facts);
   phases?.end("plan.validate-invariants");
-  phases?.start("plan.validate-artifacts");
-  validateVmstateArtifacts(opts, vmstate);
-  phases?.end("plan.validate-artifacts");
+  phases?.start("plan.validate-boot-assets");
+  validateVmstateBootAssets({ opts, vmstate, resolvedImage, phases });
+  phases?.end("plan.validate-boot-assets");
   phases?.start("plan.resolve-memory");
   const memoryCeiling = resolveVmstateMemoryCeiling(opts, vmstate);
   phases?.end("plan.resolve-memory");
@@ -674,27 +676,6 @@ function pauthSctlrLabel(vmstate: VmstateSnapshotMeta, facts: VmstateFacts): str
     return vmstate.guestPauth.sctlrEl1;
   }
   return "unknown";
-}
-
-function validateVmstateArtifacts(opts: RestoreOptions, vmstate: VmstateSnapshotMeta): void {
-  if (opts.kernel && vmstate.kernel) {
-    validateIdentity(
-      "kernel",
-      resolve(opts.cwd ?? process.cwd(), opts.kernel),
-      vmstate.kernel,
-      undefined,
-      "external",
-    );
-  }
-  if (opts.dtb && vmstate.dtb) {
-    validateIdentity(
-      "dtb",
-      resolve(opts.cwd ?? process.cwd(), opts.dtb),
-      vmstate.dtb,
-      undefined,
-      "external",
-    );
-  }
 }
 
 function resolveVmstateMemoryCeiling(
@@ -888,6 +869,7 @@ async function restoreVmstate(opts: RestoreOptions, snapDir: string): Promise<Vm
       prepared.meta,
       prepared.effectiveSnapDir,
       prepared.statePath,
+      resolvedImage,
       phases,
     );
     phases.end("plan");

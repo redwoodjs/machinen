@@ -80,7 +80,6 @@ jobs:
             packages/microvm/zig-out/bin/machinen-vm
           key: vmm-darwin-arm64-${{ hashFiles('packages/microvm/src/**', 'packages/microvm/assets/**/*.zig', 'packages/microvm/build.zig', 'packages/microvm/build.zig.zon', 'packages/microvm/entitlements.plist') }}
       - name: Setup Zig
-        if: steps.cache.outputs.cache-hit != 'true'
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
           version: 0.16.0
@@ -106,6 +105,19 @@ jobs:
           name: vmm-arm64-darwin
           path: |
             packages/microvm/zig-out/bin/machinen-vm
+          if-no-files-found: error
+          retention-days: 7
+      - name: Build runtime helper host tools
+        working-directory: packages/runtime/native
+        run: zig build -Doptimize=ReleaseSafe
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: runtime-helper-arm64-darwin
+          path: |
+            packages/runtime/native/zig-out/bin/machinen-runtime-helper
+            packages/runtime/native/zig-out/bin/machinen-pdeathsig
+            packages/runtime/native/zig-out/bin/machinen-pty
+            packages/runtime/native/zig-out/bin/machinen-winsize
           if-no-files-found: error
           retention-days: 7
 
@@ -216,31 +228,36 @@ jobs:
         with:
           name: vmm-x64-linux
           path: packages/native-x64-linux/vmm/bin/
-      - name: Build and stage machinen-runtime-helper
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: runtime-helper-arm64-darwin
+          path: packages/native-arm64-darwin/vmm/bin/
+      - name: Build and stage Linux runtime helper host tools
         run: |
           set -euo pipefail
-          rm -rf "${RUNNER_TEMP}/machinen-runtime-helper"
-          mkdir -p "${RUNNER_TEMP}/machinen-runtime-helper"
+          rm -rf "${RUNNER_TEMP}/runtime-helper-host-tools"
+          mkdir -p "${RUNNER_TEMP}/runtime-helper-host-tools"
           cd packages/runtime/native
-          zig build -Doptimize=ReleaseSafe -Dtarget=aarch64-macos --prefix "${RUNNER_TEMP}/machinen-runtime-helper/arm64-darwin"
-          zig build -Doptimize=ReleaseSafe -Dtarget=aarch64-linux --prefix "${RUNNER_TEMP}/machinen-runtime-helper/arm64-linux"
-          zig build -Doptimize=ReleaseSafe -Dtarget=x86_64-linux --prefix "${RUNNER_TEMP}/machinen-runtime-helper/x64-linux"
+          zig build -Doptimize=ReleaseSafe -Dtarget=aarch64-linux --prefix "${RUNNER_TEMP}/runtime-helper-host-tools/arm64-linux"
+          zig build -Doptimize=ReleaseSafe -Dtarget=x86_64-linux --prefix "${RUNNER_TEMP}/runtime-helper-host-tools/x64-linux"
           cd ../../..
-          cp "${RUNNER_TEMP}/machinen-runtime-helper/arm64-darwin/bin/machinen-runtime-helper" packages/native-arm64-darwin/vmm/bin/machinen-runtime-helper
-          cp "${RUNNER_TEMP}/machinen-runtime-helper/arm64-linux/bin/machinen-runtime-helper" packages/native-arm64-linux/vmm/bin/machinen-runtime-helper
-          cp "${RUNNER_TEMP}/machinen-runtime-helper/x64-linux/bin/machinen-runtime-helper" packages/native-x64-linux/vmm/bin/machinen-runtime-helper
+          for tool in machinen-runtime-helper machinen-pdeathsig machinen-pty machinen-winsize; do
+            cp "${RUNNER_TEMP}/runtime-helper-host-tools/arm64-linux/bin/${tool}" "packages/native-arm64-linux/vmm/bin/${tool}"
+            cp "${RUNNER_TEMP}/runtime-helper-host-tools/x64-linux/bin/${tool}" "packages/native-x64-linux/vmm/bin/${tool}"
+          done
 
       # chmod host tools so the working copy stays usable locally; the
       # `bin` field in each package's package.json is what makes pnpm
       # pack preserve the +x bit in the published tarball (issue #309).
       - run: |
-          chmod +x \
-            packages/native-arm64-darwin/vmm/bin/machinen-vm \
-            packages/native-arm64-darwin/vmm/bin/machinen-runtime-helper \
-            packages/native-arm64-linux/vmm/bin/machinen-vm \
-            packages/native-arm64-linux/vmm/bin/machinen-runtime-helper \
-            packages/native-x64-linux/vmm/bin/machinen-vm \
-            packages/native-x64-linux/vmm/bin/machinen-runtime-helper
+          for pkg in packages/native-arm64-darwin packages/native-arm64-linux packages/native-x64-linux; do
+            chmod +x \
+              "$pkg/vmm/bin/machinen-vm" \
+              "$pkg/vmm/bin/machinen-runtime-helper" \
+              "$pkg/vmm/bin/machinen-pdeathsig" \
+              "$pkg/vmm/bin/machinen-pty" \
+              "$pkg/vmm/bin/machinen-winsize"
+          done
 
       # gvproxy (containers/gvisor-tap-vsock) — bundled next to the VMM
       # so `@machinen/runtime` can auto-spawn it for virtio-net without
