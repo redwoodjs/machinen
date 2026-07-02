@@ -19,17 +19,13 @@ pi
 
 ## Run
 
-If you're running from a source checkout, install the dev prerequisites and build
-the local VM bits once from the repo root:
+If you're running from a source checkout, build the local VM bits once from the
+repo root:
 
 ```sh
-brew install zig dtc
 pnpm install
 bash scripts/machinen-dev.sh
 ```
-
-`machinen-dev.sh` also builds `release-assets/`. That step needs Docker or
-OrbStack running.
 
 Then run the example:
 
