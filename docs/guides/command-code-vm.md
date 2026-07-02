@@ -100,9 +100,21 @@ Run it:
 node boot.mjs
 ```
 
-This recipe uses Command Code as the VM's foreground command. If you want the VM
-to run the website or app instead, give the VM a name, change `cmd` to your
-dev-server command, and forward the port back to localhost, for example:
+`guestCwd: "/mnt/workspace"` sets the guest working directory before Command
+Code starts. This script is not detached: quitting Command Code stops the VM and
+lets `vm.wait()` return.
+
+Your project stays on the host. Command Code auth/config/state stays in
+`$HOME/.commandcode`. Everything else belongs to the VM image or the running VM.
+
+That's it!
+
+## Run the code in the same VM
+
+The recipe above uses Command Code as the VM's foreground command. Say you want
+to modify code and run it in the same VM instead. Make the app or website the
+foreground command, give the VM a name, and forward the dev-server port back to
+localhost:
 
 ```js
 name: "command-code-vm",
@@ -111,7 +123,7 @@ portForward: [{ hostPort: 3000, guestPort: 3000 }],
 ```
 
 Open `http://localhost:3000` on the host. In another terminal, attach to the
-same VM and run Command Code there:
+same VM and run Command Code from the mounted workspace:
 
 ```bash
 npx machinen attach command-code-vm
@@ -120,10 +132,3 @@ npx machinen attach command-code-vm
 `attach` opens a separate persistent PTY session in the VM; it does not take over
 the dev-server process. For many projects, it is simpler to keep running the app
 on the host and use the VM only for isolated agent edits.
-
-`guestCwd: "/mnt/workspace"` sets the guest working directory before Command
-Code starts. This script is not detached: quitting Command Code stops the VM and
-lets `vm.wait()` return.
-
-Your project stays on the host. Command Code auth/config/state stays in
-`$HOME/.commandcode`. Everything else belongs to the VM image or the running VM.
