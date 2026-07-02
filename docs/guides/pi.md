@@ -73,7 +73,7 @@ const vm = await boot({
     { host: resolve(homedir(), ".pi/agent"), guest: "/root/.pi/agent", mode: "rw" },
   ],
   guestCwd: "/mnt/workspace",
-  cmd: ["/usr/bin/env", "pi"],
+  cmd: ["/bin/bash", "-lc", "exec pi"],
   env: { HOME: "/root" },
   stdio: "inherit",
   timeoutMs: null, // pi is interactive; wait until the user quits.
@@ -128,7 +128,7 @@ Inside the attached shell:
 
 ```bash
 cd /mnt/workspace
-HOME=/root pi
+pi
 ```
 
 There is a complete runnable example in

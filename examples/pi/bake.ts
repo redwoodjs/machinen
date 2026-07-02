@@ -9,6 +9,7 @@ await provision({
       fnm install 24
       fnm default 24
       npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+      pi --version
     `);
   },
   out: "./artifacts/rootfs.tar.gz",

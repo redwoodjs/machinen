@@ -9,7 +9,7 @@ const vm = await boot({
     { host: resolve(homedir(), ".pi/agent"), guest: "/root/.pi/agent", mode: "rw" },
   ],
   guestCwd: "/mnt/workspace",
-  cmd: ["/usr/bin/env", "pi"],
+  cmd: ["/bin/bash", "-lc", "exec pi"],
   env: { HOME: "/root" },
   stdio: "inherit",
   timeoutMs: null,

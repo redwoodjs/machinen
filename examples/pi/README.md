@@ -35,8 +35,10 @@ pnpm bake
 pnpm start
 ```
 
-`pnpm bake` uses `../../release-assets` by default. `pnpm start` opens pi in the
-VM with this directory as its workspace. Quit pi to stop the VM.
+`pnpm bake` uses the downloaded Machinen base assets by default. To force local
+assets from a source checkout, set `MACHINEN_ASSETS_DIR=../../release-assets`.
+`pnpm start` opens pi in the VM with this directory as its workspace. Quit pi to
+stop the VM.
 
 To test against another project, run from that project instead and point at this
 example's image:
@@ -54,7 +56,7 @@ const vm = await boot({
     { host: resolve(homedir(), ".pi/agent"), guest: "/root/.pi/agent", mode: "rw" },
   ],
   guestCwd: "/mnt/workspace",
-  cmd: ["/usr/bin/env", "pi"],
+  cmd: ["/bin/bash", "-lc", "exec pi"],
   env: { HOME: "/root" },
   stdio: "inherit",
   timeoutMs: null,
