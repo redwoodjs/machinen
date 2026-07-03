@@ -3,8 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { STATS_FILE_SIZE } from "../balloon-stats.ts";
-import { planBootStatsFileNative } from "../native/boot-plan.ts";
-import { planBootStatsFileTempModeNative } from "../native/stats-file-mode.ts";
 
 // #274: shared stats file the balloon backend writes counters to.
 // Pre-allocated zero-filled here so the VMM's mmap'd writer and our
@@ -13,28 +11,19 @@ export function setupStatsFile(
   env: Record<string, string>,
   vsockTempDir: string | undefined,
 ): { statsFilePath: string | undefined; statsTempDir: string | undefined } {
-  const mode = planBootStatsFileTempModeNative({
-    existingPath: env.MACHINEN_STATS_FILE,
-    vsockTempDir,
-  });
-  if (mode.action === "existing") {
-    return { statsFilePath: mode.existingPath ?? undefined, statsTempDir: undefined };
+  if (env.MACHINEN_STATS_FILE !== undefined) {
+    return { statsFilePath: env.MACHINEN_STATS_FILE, statsTempDir: undefined };
   }
   let statsTempDir: string | undefined;
   const statsFileTempDir =
-    mode.tempDir ?? (statsTempDir = mkdtempSync(join(tmpdir(), "machinen-stats-")));
-  const plan = planBootStatsFileNative({ tempDir: statsFileTempDir });
-  if (!plan.statsFilePath) {
-    return { statsFilePath: undefined, statsTempDir };
-  }
-  const fd = openSync(plan.statsFilePath, "w");
+    vsockTempDir ?? (statsTempDir = mkdtempSync(join(tmpdir(), "machinen-stats-")));
+  const statsFilePath = join(statsFileTempDir, "stats.bin");
+  const fd = openSync(statsFilePath, "w");
   try {
     writeSync(fd, Buffer.alloc(STATS_FILE_SIZE), 0, STATS_FILE_SIZE, 0);
   } finally {
     closeSync(fd);
   }
-  if (plan.vmmStatsFile) {
-    env.MACHINEN_STATS_FILE = plan.vmmStatsFile;
-  }
-  return { statsFilePath: plan.statsFilePath, statsTempDir };
+  env.MACHINEN_STATS_FILE = statsFilePath;
+  return { statsFilePath, statsTempDir };
 }

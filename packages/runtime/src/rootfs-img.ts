@@ -220,10 +220,18 @@ interface RootfsCachePaths {
  */
 export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOptions = {}): string {
   const paths = resolveRootfsCachePaths(tarPath, opts);
+  const cached = tryReusableCachedRootfs(paths, opts);
+  if (cached) {
+    return cached;
+  }
+
+  const preferredMke2fs = preferMaterializeOverPrebake(opts) ? resolveMke2fs() : undefined;
+  if (preferredMke2fs) {
+    return materializeRootfsFromTar(paths, opts, preferredMke2fs);
+  }
+
   return (
-    tryReusableCachedRootfs(paths, opts) ??
-    tryPrebakedRootfs(paths, opts) ??
-    materializeRootfsFromTar(paths, opts, resolveMke2fsOrThrow())
+    tryPrebakedRootfs(paths, opts) ?? materializeRootfsFromTar(paths, opts, resolveMke2fsOrThrow())
   );
 }
 
@@ -260,6 +268,26 @@ function resolveTarballSha(tarAbs: string, opts: EnsureRootfsImageOptions): stri
   const result = rootfsCacheKeyNative(tarAbs);
   opts.onPhase?.(result.source === "sidecar" ? "sha256.sidecar" : "sha256", Date.now() - keyT0);
   return result.sha;
+}
+
+function preferMaterializeOverPrebake(opts: EnsureRootfsImageOptions): boolean {
+  if (opts.force) {
+    return true;
+  }
+  if (platform() !== "darwin") {
+    return false;
+  }
+  if (process.env.MACHINEN_ROOTFS_PREBAKE === "1") {
+    return false;
+  }
+  const envOverride = process.env.MACHINEN_MKE2FS;
+  if (envOverride && !existsSync(envOverride)) {
+    // Preserve the prebake fast path for callers that deliberately run
+    // without a usable mke2fs. If prebake also fails, the normal
+    // materialize fallback will surface the invalid override.
+    return false;
+  }
+  return true;
 }
 
 function tryReusableCachedRootfs(

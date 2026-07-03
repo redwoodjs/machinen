@@ -13,6 +13,7 @@ type DetachedReadinessOutcome =
 export async function runVsockWithBootDiagnostics<T>(
   child: ChildProcessWithoutNullStreams,
   errorCollector: Promise<string>,
+  liveStderrTail: () => string,
   run: () => Promise<T>,
 ): Promise<T> {
   try {
@@ -20,14 +21,12 @@ export async function runVsockWithBootDiagnostics<T>(
   } catch (err) {
     if (err instanceof ExecError) {
       await waitBrieflyForExit(child);
-      if (child.exitCode !== null || child.signalCode !== null) {
-        const stderrTail = (await errorCollector).slice(-CONSOLE_TAIL_BYTES);
-        if (stderrTail) {
-          throw new ExecError(err.code, `${err.message}\n${bootStderrDiagnostic(stderrTail)}`, {
-            cause: err,
-            retryable: err.retryable,
-          });
-        }
+      const stderrTail = await diagnosticStderrTail(child, errorCollector, liveStderrTail);
+      if (stderrTail) {
+        throw new ExecError(err.code, `${err.message}\n${bootStderrDiagnostic(stderrTail)}`, {
+          cause: err,
+          retryable: err.retryable,
+        });
       }
     }
     throw err;
@@ -39,6 +38,22 @@ async function waitBrieflyForExit(child: ChildProcessWithoutNullStreams): Promis
     return;
   }
   await Promise.race([once(child, "exit"), delay(25)]);
+}
+
+async function diagnosticStderrTail(
+  child: ChildProcessWithoutNullStreams,
+  errorCollector: Promise<string>,
+  liveStderrTail: () => string,
+): Promise<string> {
+  const liveTail = liveStderrTail().slice(-CONSOLE_TAIL_BYTES);
+  if (liveTail) {
+    return liveTail;
+  }
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return (await errorCollector).slice(-CONSOLE_TAIL_BYTES);
+  }
+  const collected = await Promise.race([errorCollector, delay(0).then(() => "")]);
+  return collected.slice(-CONSOLE_TAIL_BYTES);
 }
 
 export async function waitForDetachedExecAgent(

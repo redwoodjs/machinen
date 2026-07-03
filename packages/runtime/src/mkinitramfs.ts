@@ -48,6 +48,85 @@ const DEFAULT_WORKSPACE_EXCLUDES = new Set<string>([
   ".pnpm-store",
 ]);
 
+interface NewcOptions {
+  uid?: number;
+  gid?: number;
+  nlink?: number;
+  mtime?: number;
+  rmajor?: number;
+  rminor?: number;
+  data?: Buffer;
+}
+
+interface NormalizedNewcOptions {
+  uid: number;
+  gid: number;
+  nlink: number;
+  mtime: number;
+  rmajor: number;
+  rminor: number;
+  data: Buffer;
+}
+
+/** Emit one newc cpio entry as a Buffer. Kept in-process for the hot tiny initramfs path. */
+function newc(name: string, mode: number, opts: NewcOptions = {}): Buffer {
+  const normalized = normalizeNewcOptions(opts);
+  const nameBytes = Buffer.concat([Buffer.from(name, "utf8"), Buffer.from([0])]);
+  const header = Buffer.from(newcHeader(mode, normalized, nameBytes.length), "ascii");
+  return Buffer.concat([
+    padNewcPart(Buffer.concat([header, nameBytes])),
+    normalized.data,
+    newcPadding(normalized.data.length),
+  ]);
+}
+
+function normalizeNewcOptions(opts: NewcOptions): NormalizedNewcOptions {
+  return {
+    uid: opts.uid ?? 0,
+    gid: opts.gid ?? 0,
+    nlink: opts.nlink ?? 1,
+    mtime: opts.mtime ?? 0,
+    rmajor: opts.rmajor ?? 0,
+    rminor: opts.rminor ?? 0,
+    data: opts.data ?? Buffer.alloc(0),
+  };
+}
+
+function newcHeader(mode: number, opts: NormalizedNewcOptions, nameSize: number): string {
+  return "070701" + newcFields(mode, opts, nameSize).map(newcHexField).join("");
+}
+
+function newcFields(mode: number, opts: NormalizedNewcOptions, nameSize: number): number[] {
+  return [
+    0,
+    mode,
+    opts.uid,
+    opts.gid,
+    opts.nlink,
+    opts.mtime,
+    opts.data.length,
+    0,
+    0,
+    opts.rmajor,
+    opts.rminor,
+    nameSize,
+    0,
+  ];
+}
+
+function newcHexField(value: number): string {
+  return value.toString(16).padStart(8, "0");
+}
+
+function padNewcPart(buf: Buffer): Buffer {
+  const padding = newcPadding(buf.length);
+  return padding.length === 0 ? buf : Buffer.concat([buf, padding]);
+}
+
+function newcPadding(length: number): Buffer {
+  return Buffer.alloc((4 - (length % 4)) % 4);
+}
+
 /** Parse an excludes file (one fnmatch-style pattern per line, `#` comments). */
 function loadExcludes(path: string): string[] {
   const raw = readFileSync(path, "utf8");
@@ -306,20 +385,64 @@ export function packTinyBundle(opts: PackTinyBundleOptions): void {
   }
   const config = prepareConfigPath(cfgPath, opts.env);
   try {
-    const initPath = opts.initPath ?? defaultInitPath();
-    validateInitReadable(initPath);
-    packMkinitramfsNative({
-      mode: "tiny",
-      out: opts.out,
-      initPath,
-      configPath: config.path,
-      injectInit: true,
-      allowMissingInit: allowMissingInitFixture(),
+    const parts = tinyBundleEntries({
+      initPath: opts.initPath ?? defaultInitPath(),
+      config: readFileSync(config.path),
       mountGuest: opts.mountGuest,
     });
+    writeFileSync(opts.out, Buffer.concat(parts));
     debug("packTinyBundle done elapsed=%dms", Date.now() - t0);
   } finally {
     cleanupConfigPath(config);
+  }
+}
+
+function tinyBundleEntries(opts: {
+  initPath: string;
+  config: Buffer;
+  mountGuest?: string;
+}): Buffer[] {
+  const parts: Buffer[] = [newc(".", 0o40755)];
+  const initBytes = readInitBytes(opts.initPath);
+  if (initBytes) {
+    parts.push(newc("init", 0o100755, { data: initBytes }));
+  }
+  parts.push(newc("machinen-config.json", 0o100644, { data: opts.config }));
+  parts.push(newc("etc", 0o40755));
+  parts.push(
+    newc("etc/machinen-boot-epoch", 0o100644, {
+      data: Buffer.from(String(Math.floor(Date.now() / 1000)), "ascii"),
+    }),
+  );
+  if (opts.mountGuest) {
+    parts.push(
+      newc("etc/machinen-mountdisk-guest", 0o100644, {
+        data: Buffer.from(`${opts.mountGuest}\n`, "ascii"),
+      }),
+    );
+  }
+  parts.push(newc("dev", 0o40755));
+  parts.push(newc("dev/console", 0o20600, { rmajor: 5, rminor: 1 }));
+  parts.push(newc("tmp", 0o41777));
+  parts.push(newc("TRAILER!!!", 0));
+  return parts;
+}
+
+const initBytesCache = new Map<string, Buffer | undefined>();
+
+function readInitBytes(initPath: string): Buffer | undefined {
+  if (initBytesCache.has(initPath)) {
+    return initBytesCache.get(initPath);
+  }
+  try {
+    const bytes = readFileSync(initPath);
+    initBytesCache.set(initPath, bytes);
+    return bytes;
+  } catch (err) {
+    if (allowMissingInitFixture()) {
+      return undefined;
+    }
+    throw missingInitError(initPath, err);
   }
 }
 

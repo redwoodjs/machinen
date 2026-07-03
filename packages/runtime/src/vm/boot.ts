@@ -5,9 +5,7 @@
 // `--detached` readiness gate.
 
 import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
-import { closeSync, existsSync, mkdtempSync, openSync, rmSync, unlinkSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { closeSync, existsSync, openSync, rmSync, unlinkSync } from "node:fs";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
 
@@ -23,14 +21,7 @@ import { detachedLogRoot, writeBootSnapshot } from "../detached-log.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "../errors.ts";
 import { VsockExec } from "../exec.ts";
 import { runGc } from "../gc.ts";
-import {
-  describePortHolder,
-  ensureGvproxy,
-  exposePort,
-  probeHostPortFree,
-  spawnGvproxy,
-  warnGvproxyMissing,
-} from "../gvproxy.ts";
+import { ensureGvproxy, exposePort, spawnGvproxy, warnGvproxyMissing } from "../gvproxy.ts";
 import type { OnLog } from "../log.ts";
 import {
   applyNestedVirtualizationEnv,
@@ -39,50 +30,23 @@ import {
 } from "../nested-virt.ts";
 import { ensurePdeathsig } from "../pdeathsig.ts";
 import { PhaseTimer } from "../phase-timer.ts";
-import { readProcessIdentity } from "../pid-validate.ts";
 import { applyCpuControls, type CpuControlResult } from "../cpu-cgroup.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
-import {
-  planBootCoreNative,
-  planBootInitrdEnvNative,
-  planBootMountDiskFdEnvNative,
-  planBootPortForwardNative,
-  planBootRegistryNestedNative,
-  planBootRegistryPortForwardNative,
-  planBootRegistryScalarsNative,
-  planBootRegistryShapeNative,
-  planBootRegistryVmstateNative,
-  planBootScratchDiskNative,
-  planBootVirtiofsEnvNative,
-  planBootVmstateEnvNative,
-  planBootVmstateRuntimeNative,
-  planBootVmmArgvNative,
-} from "../native/boot-plan.ts";
-import { reflinkCopy } from "../reflink.ts";
-import { planGvproxyNative } from "../native/gvproxy-plan.ts";
-import {
-  planPortForwardProbeNative,
-  validatePortForwardNetSocketNative,
-} from "../native/port-forward.ts";
+import { planBootMountDiskFdEnvNative } from "../native/boot-plan.ts";
 import { planGuestHostnameSetNative } from "../native/guest-hostname.ts";
-import { planBootRegistryLifecycleNative } from "../native/registry-lifecycle.ts";
-import {
-  planBootRegistryProcessIdentityNative,
-  planBootRegistryProcessNative,
-} from "../native/registry-process.ts";
-import { planBootRootDiskModeNative } from "../native/root-disk-mode.ts";
-import { planBootScratchModeNative } from "../native/scratch-mode.ts";
-import { planBootScratchTempPathNative } from "../native/scratch-temp-path.ts";
 import { planBootSnapshotBackingNative as planSnapshotBacking } from "../native/snapshot-backing.ts";
 import { planBootSnapshotContextNative } from "../native/snapshot-context.ts";
-import { planBootVmmEnvNative } from "../native/vmm-env.ts";
-import { planBootVsockModeNative } from "../native/vsock-mode.ts";
-import { planBootVmstateTempModeNative as planVmstateTempMode } from "../native/vmstate-temp-mode.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { setupKernelDtbEnv } from "./boot-assets.ts";
+import { planBootCore } from "./boot-core-plan.ts";
+import { buildMergedGuestEnv, setupLiveMountEnv } from "./boot-guest-env.ts";
+import { planPortForwardOpts } from "./boot-port-forward.ts";
 import { materializeRootdisk } from "./boot-rootdisk.ts";
+import { prepareScratchDisk } from "./boot-scratch.ts";
+import { setupVmstateBoot, type BootVmstateRuntime } from "./boot-vmstate.ts";
+import { setupVsockBridge } from "./boot-vsock.ts";
 import type { ResolvedCpuResourcePolicy } from "./cpu-resources.ts";
-import { resolveLiveMounts, synthesizeAndPackBundle, type ResolvedLiveMount } from "./bundle.ts";
+import { synthesizeAndPackBundle, type ResolvedLiveMount } from "./bundle.ts";
 import { installVmExitCleanup } from "./exit-cleanup.ts";
 import { performForkWithRestore } from "./fork-core.ts";
 import { validateBatchLiveMounts, withBatchLiveMountSync } from "./live-mount-batch.ts";
@@ -90,13 +54,11 @@ import type { BootResourcesOptions } from "./memory-resources.ts";
 import { registryCpu } from "./registry-cpu.ts";
 import type { VmHandle } from "../vm-handle.ts";
 import {
-  allocateSparseFile,
   buildWriteFileCmds,
   collect,
   CONSOLE_TAIL_BYTES,
   resolveVmmBinary,
   setGuestHostname,
-  SNAP_SCRATCH_BYTES,
   teeOnLog,
 } from "./helpers.ts";
 import { performSnapshot, type SnapshotContext } from "./snapshot.ts";
@@ -467,6 +429,14 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
 
   const timeoutMs = plan.timeoutMs;
 
+  // In-flight ring buffer of stderr for early boot diagnostics. Attach
+  // before the generic collector so very fast VMM exits do not lose their
+  // panic line to the first `data` listener. Detached boots dump this to
+  // `bootLogPath`; attached boots use it when exec-agent calls fail before
+  // the stderr stream has closed.
+  const bootDiagnosticChunks: Buffer[] = [];
+  installBootStderrCapture(child, bootDiagnosticChunks);
+
   // Start collecting stdout/stderr eagerly. Doing it lazily on the
   // first call to `.output()` / `.errorOutput()` loses data: the
   // streams can flush + close before the listener attaches, and more
@@ -496,17 +466,6 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   installVmstateTimingRelay(child);
   installFlushPhases(child, phases, onLog);
 
-  // #150 phase 2: in-flight ring buffer of stderr captured *only* for
-  // detached boots, dumped to `bootLogPath` once readiness fires. The
-  // existing `errorCollector` resolves on stream close — too late for
-  // the detach handoff. Capped at the same `CONSOLE_TAIL_BYTES` Phase 1
-  // uses, so a slow boot can't balloon the supervisor heap before
-  // detach completes.
-  const detachedBootChunks: Buffer[] = [];
-  if (opts.detached) {
-    installDetachedBootCapture(child, detachedBootChunks);
-  }
-
   let handle = createBootVmHandle({
     child,
     childPid,
@@ -514,6 +473,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     timeoutMs,
     outputCollector,
     errorCollector,
+    stderrTail: () => bootStderrTail(bootDiagnosticChunks),
     vsockUdsPath,
     onLog,
     statsFilePath,
@@ -559,7 +519,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       child,
       timeoutMs: plan.detachedReadinessTimeoutMs,
       bootLogPath,
-      detachedBootChunks,
+      detachedBootChunks: bootDiagnosticChunks,
       handle,
     });
   }
@@ -674,7 +634,7 @@ function packBootInitramfsIfNeeded(
     mountDiskUpperSizeBytes: opts.mountDiskUpperSizeBytes,
     onPhase: (name, ms) => phases.mark(`initramfs-pack.${name}`, ms),
   });
-  plan.env.MACHINEN_INITRD = planBootInitrdEnvNative(packed.cpioPath);
+  plan.env.MACHINEN_INITRD = packed.cpioPath;
   const packMs = phases.end("initramfs-pack");
   debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, packMs ?? -1);
   return { bundleTempDir: packed.tempDir, mountDiskPaths: packed.mountDisk };
@@ -711,11 +671,7 @@ interface SpawnedBootVmm {
 async function spawnBootVmm(args: SpawnBootArgs): Promise<SpawnedBootVmm> {
   args.phases.start("vmm-spawn");
   const vmmPdeathsig = await resolveVmmPdeathsig(args.plan.usePdeathsig);
-  const vmmArgv = planBootVmmArgvNative({
-    binary: args.plan.binary,
-    args: args.opts.args ?? [],
-    pdeathsigPath: vmmPdeathsig,
-  });
+  const vmmArgv = planBootVmmArgv(args.plan.binary, args.opts.args ?? [], vmmPdeathsig);
   const stdio: Array<"pipe" | number> = ["pipe", "pipe", "pipe"];
   const mountDiskFds = maybeOpenMountDiskFds(args.resources.mountDiskPaths, args.plan.env, stdio);
   const child = nodeSpawn(vmmArgv.command, vmmArgv.args, {
@@ -752,6 +708,16 @@ function applySpawnedCpuControls(
 
 async function resolveVmmPdeathsig(usePdeathsig: boolean): Promise<string | null> {
   return usePdeathsig ? ensurePdeathsig() : null;
+}
+
+function planBootVmmArgv(
+  binary: string,
+  args: string[],
+  pdeathsigPath: string | null,
+): { command: string; args: string[] } {
+  return pdeathsigPath
+    ? { command: pdeathsigPath, args: [binary, ...args] }
+    : { command: binary, args };
 }
 
 function maybeOpenMountDiskFds(
@@ -792,7 +758,10 @@ interface BootRegistryState {
   bootLogPath: string | undefined;
 }
 
-type BootRegistryLifecyclePlan = ReturnType<typeof planBootRegistryLifecycleNative>;
+interface BootRegistryLifecyclePlan {
+  claimName: string | null;
+  shouldWrite: boolean;
+}
 
 function registerSpawnedBoot(args: {
   opts: BootOptions;
@@ -802,7 +771,7 @@ function registerSpawnedBoot(args: {
   bootT0: number;
 }): BootRegistryState {
   const state = buildBootRegistryState(args.opts, args.resources, args.spawned);
-  const lifecycle = planBootRegistryLifecycleNative({
+  const lifecycle = planBootRegistryLifecycle({
     name: state.vmName,
     childPid: state.childPid,
     vsockUdsPath: args.plan.vsockUdsPath,
@@ -819,19 +788,13 @@ function buildBootRegistryState(
   spawned: SpawnedBootVmm,
 ): BootRegistryState {
   const childPid = spawned.child.pid ?? -1;
-  const registryShape = planBootRegistryShapeNative({
-    sourceImagePath: registrySourceImage(opts),
-    rootDisk: {
-      perBootRootDisk: resources.perBootRootDisk,
-      callerRootDiskPath: registryCallerRootDiskPath(opts),
-    },
-  });
+  const rootDiskPath = resources.perBootRootDisk ?? registryCallerRootDiskPath(opts);
   return {
     childPid,
     vmName: opts.name,
-    sourceImageAbs: registryShape.sourceImagePath ?? undefined,
-    rootDiskPath: registryShape.rootDiskPath ?? undefined,
-    rootDiskMode: registryShape.rootDiskMode,
+    sourceImageAbs: registrySourceImage(opts),
+    rootDiskPath,
+    rootDiskMode: rootDiskPath ? "block" : "none",
     bootLogPath: registryBootLogPath(opts, childPid),
   };
 }
@@ -847,11 +810,22 @@ function registryCallerRootDiskPath(opts: BootOptions): string | undefined {
 }
 
 function registryBootLogPath(opts: BootOptions, childPid: number): string | undefined {
-  return (
-    planBootRegistryShapeNative({
-      bootLog: { root: detachedLogRoot(), childPid, detached: opts.detached },
-    }).bootLogPath ?? undefined
-  );
+  if (!opts.detached || childPid <= 0) {
+    return undefined;
+  }
+  return join(detachedLogRoot(), `${childPid}.boot.log`);
+}
+
+function planBootRegistryLifecycle(input: {
+  name?: string;
+  childPid: number;
+  vsockUdsPath?: string;
+}): BootRegistryLifecyclePlan {
+  const hasLivePid = input.childPid > 0;
+  return {
+    claimName: hasLivePid ? (input.name ?? null) : null,
+    shouldWrite: hasLivePid && input.vsockUdsPath !== undefined,
+  };
 }
 
 function claimBootNameIfNeeded(
@@ -918,17 +892,25 @@ function buildRegisterArgs(
     vmstateChainId: vmstate.chainId ?? undefined,
     vmstateCheckpointParent: vmstate.checkpointParent ?? undefined,
     vmstateCheckpointSequence: vmstate.checkpointSequence ?? undefined,
-    nested: planBootRegistryNestedNative(args.opts.nested),
+    nested: args.opts.nested || undefined,
   };
 }
 
-function registryVmstate(vmstate: BootVmstateRuntime) {
-  return planBootRegistryVmstateNative({
+function registryVmstate(vmstate: BootVmstateRuntime): {
+  statePath?: string;
+  chainId?: string;
+  checkpointParent?: string;
+  checkpointSequence?: number;
+} {
+  if (!vmstate.statePath) {
+    return {};
+  }
+  return {
     statePath: vmstate.statePath,
     chainId: vmstate.chainId,
     checkpointParent: vmstate.checkpointParent,
     checkpointSequence: vmstate.checkpointSequence,
-  });
+  };
 }
 
 function cleanupPathsForBoot(
@@ -936,18 +918,16 @@ function cleanupPathsForBoot(
   resources: BootResources,
   spawned: SpawnedBootVmm,
 ): string[] {
-  return planBootRegistryShapeNative({
-    cleanup: {
-      perBootRootDisk: resources.perBootRootDisk,
-      perBootSnapDisk: plan.perBootSnapDisk,
-      perBootMountUpper: spawned.perBootMountUpper,
-      bundleTempDir: resources.bundleTempDir,
-      vsockTempDir: plan.vsockTempDir,
-      statsTempDir: plan.statsTempDir,
-      gvSocketDir: resources.gvSocketDir,
-      cpuCgroupPath: spawned.cpuControl.cgroupPath,
-    },
-  }).cleanupPaths;
+  return [
+    resources.perBootRootDisk,
+    plan.perBootSnapDisk,
+    spawned.perBootMountUpper,
+    resources.bundleTempDir,
+    plan.vsockTempDir,
+    plan.statsTempDir,
+    resources.gvSocketDir,
+    spawned.cpuControl.cgroupPath,
+  ].filter((path): path is string => path !== undefined);
 }
 
 function installBootExitCleanup(
@@ -980,27 +960,7 @@ async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<B
   const assets = await resolveBootAssets(opts, phases);
   const env = buildVmmEnv(opts);
   configureNestedVirtualization(opts, assets.binary, env);
-  const corePlan = planBootCoreNative({
-    memoryMib: opts.memory,
-    resourcesMemory: opts.resources?.memory,
-    resourcesCpu: opts.resources?.cpu,
-    vmmMemoryPreset: env.MACHINEN_MEMORY !== undefined,
-    hasImage: opts.image !== undefined,
-    hasCmd: opts.cmd !== undefined,
-    hasSnapshot: Boolean(opts.snapshot),
-    detached: opts.detached,
-    pdeathsig: opts.pdeathsig,
-    bootTimeoutMs: opts.timeoutMs,
-    rootDisk:
-      opts.rootDisk === false
-        ? "false"
-        : opts._rootDiskRestorePath !== undefined
-          ? "path"
-          : planBootRootDiskModeNative({
-              rootDisk: opts.rootDisk,
-              restorePath: opts._rootDiskRestorePath,
-            }),
-  });
+  const corePlan = planBootCore(opts, env);
   if (corePlan.vmmMemory !== null) {
     env.MACHINEN_MEMORY = corePlan.vmmMemory;
   }
@@ -1055,10 +1015,13 @@ function resolveBootBinary(opts: BootOptions): string {
 }
 
 function buildVmmEnv(opts: BootOptions): Record<string, string> {
-  return planBootVmmEnvNative({
-    hostEnv: process.env,
-    overrides: opts.vmmEnv,
-  });
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) {
+      env[key] = value;
+    }
+  }
+  return { ...env, ...opts.vmmEnv };
 }
 
 function prepareBootScratchDisk(
@@ -1070,139 +1033,6 @@ function prepareBootScratchDisk(
   const scratch = prepareScratchDisk(opts, env);
   phases.end("disk-prep");
   return scratch;
-}
-
-function setupVmstateBoot(
-  opts: BootOptions,
-  env: Record<string, string>,
-  inputVsockTempDir: string | undefined,
-): { vmstate: BootVmstateRuntime; vsockTempDir: string | undefined } {
-  let vsockTempDir = inputVsockTempDir;
-  let stateTempDir: string | undefined;
-  const chainId = randomBytes(16).toString("hex");
-  const tempMode = planVmstateTempMode(
-    resolveSnapshotEngine(),
-    opts.snapshot === false,
-    vsockTempDir,
-  );
-  if (tempMode.action === "allocate") {
-    stateTempDir = vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
-  } else if (tempMode.tempDir) {
-    stateTempDir = vsockTempDir = tempMode.tempDir;
-  }
-  const runtime = planBootVmstateRuntimeNative({
-    stateTempDir,
-    chainId,
-    restorePath: opts._vmstateRestorePath,
-    forkedFrom: opts.forkedFrom,
-  });
-  const vmstate: BootVmstateRuntime = {
-    statePath: runtime.statePath ?? undefined,
-    chainId: runtime.chainId ?? chainId,
-    checkpointParent: runtime.checkpointParent ?? undefined,
-    checkpointSequence: runtime.checkpointSequence ?? 0,
-  };
-  applyVmstateEnvPlan(opts, env, vmstate.statePath);
-  return { vmstate, vsockTempDir };
-}
-function applyVmstateEnvPlan(
-  opts: BootOptions,
-  env: Record<string, string>,
-  vmstatePath: string | undefined,
-): void {
-  const plan = planBootVmstateEnvNative({
-    vmstatePath,
-    restorePath: opts._vmstateRestorePath,
-    enableTiming: vmstateDebug.enabled || restoreDebug.enabled,
-    existingTiming: env.MACHINEN_VMSTATE_TIMING,
-  });
-  if (plan.snapshotPath) {
-    env.MACHINEN_SNAPSHOT_PATH = plan.snapshotPath;
-  }
-  if (plan.restorePath) {
-    env.MACHINEN_RESTORE_PATH = plan.restorePath;
-  }
-  if (plan.vmstateTiming) {
-    env.MACHINEN_VMSTATE_TIMING = plan.vmstateTiming;
-  }
-}
-
-function setupLiveMountEnv(opts: BootOptions, env: Record<string, string>): ResolvedLiveMount[] {
-  const liveMounts = opts.liveMounts ?? [];
-  if (liveMounts.length === 0) {
-    return [];
-  }
-  const resolved = resolveLiveMounts(liveMounts, opts.cwd);
-  Object.assign(env, planBootVirtiofsEnvNative(resolved));
-  return resolved;
-}
-
-function buildMergedGuestEnv(
-  opts: BootOptions,
-  vsockUdsPath: string | undefined,
-): Record<string, string> {
-  return planBootCoreNative({
-    guestEnv: opts.env,
-    name: opts.name,
-    vsockUdsPath,
-    vmmMemoryPreset: true,
-    hasImage: false,
-    hasCmd: false,
-    rootDisk: "false",
-  }).mergedGuestEnv;
-}
-
-// Validate portForward up front — before resolving the binary or
-// touching the filesystem — so caller-input errors surface with a
-// clear message. The env-dependent "pre-set MACHINEN_NET_SOCKET"
-// check happens alongside since it only reads env.
-async function planPortForwardOpts(
-  opts: BootOptions,
-): Promise<NonNullable<BootOptions["portForward"]>> {
-  if ((opts.portForward ?? []).length === 0) {
-    return planBootPortForwardNative(opts.portForward);
-  }
-  const portForward = planBootPortForwardNative(opts.portForward);
-  validatePresetNetSocket(opts, portForward);
-  await validatePortForwardAvailability(portForward);
-  return portForward;
-}
-
-function validatePresetNetSocket(
-  opts: BootOptions,
-  portForward: NonNullable<BootOptions["portForward"]>,
-): void {
-  validatePortForwardNetSocketNative(
-    portForward,
-    (opts.vmmEnv && opts.vmmEnv.MACHINEN_NET_SOCKET) || process.env.MACHINEN_NET_SOCKET,
-  );
-}
-
-async function validatePortForwardAvailability(
-  portForward: NonNullable<BootOptions["portForward"]>,
-): Promise<void> {
-  for (const probe of planPortForwardProbeNative(portForward)) {
-    await validateHostPortFree(probe);
-  }
-}
-
-async function validateHostPortFree(probe: { hostPort: number; probeHost: string }): Promise<void> {
-  const errno = await probeHostPortFree(probe.probeHost, probe.hostPort);
-  if (!errno) {
-    return;
-  }
-  throw new BootError(
-    "BOOT_PORT_FORWARD_IN_USE",
-    `portForward: host port ${probe.probeHost}:${probe.hostPort} is already in use (${errno}). ${await portHolderDetail(probe.hostPort)}`,
-  );
-}
-
-async function portHolderDetail(hostPort: number): Promise<string> {
-  const holder = await describePortHolder(hostPort).catch(() => null);
-  return holder
-    ? `${holder}.`
-    : "Common cause: an orphaned gvproxy from a prior `kill -9` of the VMM. " +
-        "Try `pkill -f gvproxy` to clear it, or pick a different host port.";
 }
 
 // #263 phase A: forward the guest RAM ceiling so the VMM doesn't
@@ -1238,120 +1068,6 @@ function runtimeEntryImportPath(): string {
   return "./index.js";
 }
 
-// The scratch virtio-blk device serves two unrelated workloads:
-//   - caller-supplied path (string): a CRIU snapshot bundle to
-//     restore from at boot — the runtime synthesizes
-//     /sbin/machinen-restore when no cmd is given. The bundle is
-//     reflink-cloned into a per-boot path so a future `vm.snapshot()`
-//     against the restored VM doesn't corrupt the source bundle
-//     when machinen-dump.sh re-formats the disk (#207).
-//   - default (undefined): per-boot sparse scratch so any VM is
-//     CRIU-dumpable later via vm.snapshot(). 8 GiB sparse means zero
-//     real disk until the guest writes; cleaned up alongside the
-//     rootdisk reflink on VM exit. Don't synthesize restore for this
-//     case (the file is empty).
-//   - `false`: opt out, no /dev/vdb. Test-fast paths use this.
-function prepareScratchDisk(
-  opts: BootOptions,
-  env: Record<string, string>,
-): { diskAbs: string | undefined; perBootSnapDisk: string | undefined } {
-  const snapshotPath = resolveSnapshotDiskPath(opts);
-  const scratchPlan = planBootScratchDiskNative({
-    mode: planBootScratchModeNative(opts.snapshot),
-    hasCmd: opts.cmd !== undefined,
-    hasImage: opts.image !== undefined,
-    snapshotPath,
-    restoreClonePath: snapshotPath ? scratchRestoreClonePath() : undefined,
-    autoPath: opts.snapshot === undefined ? autoScratchPath() : undefined,
-  });
-  applyScratchDiskPlan(scratchPlan, snapshotPath, env);
-  return {
-    diskAbs: scratchPlan.diskPath ?? undefined,
-    perBootSnapDisk: scratchPlan.perBootSnapDisk ?? undefined,
-  };
-}
-
-function resolveSnapshotDiskPath(opts: BootOptions): string | undefined {
-  if (typeof opts.snapshot !== "string") {
-    return undefined;
-  }
-  const bundleDisk = resolve(opts.cwd ?? process.cwd(), opts.snapshot);
-  if (!existsSync(bundleDisk)) {
-    throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `snapshot image not found: ${bundleDisk}`);
-  }
-  return bundleDisk;
-}
-
-function scratchRestoreClonePath(): string {
-  return planBootScratchTempPathNative({
-    kind: "restore",
-    tmpDir: tmpdir(),
-    pid: process.pid,
-    nonce: randomBytes(6).toString("hex"),
-  });
-}
-
-function autoScratchPath(): string {
-  return planBootScratchTempPathNative({
-    kind: "auto",
-    tmpDir: tmpdir(),
-    pid: process.pid,
-    nonce: randomBytes(6).toString("hex"),
-  });
-}
-
-function applyScratchDiskPlan(
-  plan: ReturnType<typeof planBootScratchDiskNative>,
-  snapshotPath: string | undefined,
-  env: Record<string, string>,
-): void {
-  if (plan.vmmDisk) {
-    env.MACHINEN_DISK = plan.vmmDisk;
-  }
-  if (plan.action === "existing") {
-    debug("snap-restore in-place (explicit cmd) path=%s", plan.diskPath);
-    return;
-  }
-  if (plan.action === "clone") {
-    reflinkCopy(snapshotPath!, plan.diskPath!);
-    debug("snap-restore reflink-clone src=%s dst=%s", snapshotPath, plan.diskPath);
-    return;
-  }
-  if (plan.action === "allocate") {
-    allocateSparseFile(plan.diskPath!, SNAP_SCRATCH_BYTES);
-    debug("snap-scratch auto path=%s sizeBytes=%d", plan.diskPath, SNAP_SCRATCH_BYTES);
-  }
-}
-
-// #94: always wire up a vsock UDS bridge so `vm.exec()` works out of
-// the box. Callers who set their own `MACHINEN_VSOCK` (e.g. the build
-// flow) win — we parse their spec to extract the UDS path for exec.
-function setupVsockBridge(env: Record<string, string>): {
-  vsockUdsPath: string | undefined;
-  vsockTempDir: string | undefined;
-} {
-  const mode = planBootVsockModeNative(env.MACHINEN_VSOCK);
-  const existingSpec = mode.existingSpec ?? undefined;
-  const vsockTempDir =
-    mode.action === "existing" ? undefined : mkdtempSync(join(tmpdir(), "machinen-vsock-"));
-  const plan = planBootCoreNative({
-    existingVsockSpec: existingSpec,
-    autoVsockTempDir: vsockTempDir,
-    vmmMemoryPreset: true,
-    hasImage: false,
-    hasCmd: false,
-    rootDisk: "false",
-  });
-  if (plan.vmmVsock !== null) {
-    env.MACHINEN_VSOCK = plan.vmmVsock;
-  }
-  debug(
-    existingSpec ? "vsock spec from caller env: %s (uds=%s)" : "vsock auto spec=%s uds=%s",
-    existingSpec ?? plan.vmmVsock ?? "<unset>",
-    plan.vsockUdsPath ?? "<unparsed>",
-  );
-  return { vsockUdsPath: plan.vsockUdsPath ?? undefined, vsockTempDir };
-}
 interface GvproxyResult {
   gvStop: (() => void) | undefined;
   gvPid: number | undefined;
@@ -1365,11 +1081,7 @@ async function bringUpGvproxy(
   env: Record<string, string>,
   portForward: NonNullable<BootOptions["portForward"]>,
 ): Promise<GvproxyResult> {
-  const existingPlan = planGvproxyNative({
-    portForward,
-    existingNetSocket: env.MACHINEN_NET_SOCKET,
-  });
-  if (existingPlan.action === "skip-existing") {
+  if (env.MACHINEN_NET_SOCKET !== undefined) {
     debug("MACHINEN_NET_SOCKET already set — skipping gvproxy spawn");
     return { gvStop: undefined, gvPid: undefined, gvExe: undefined, gvSocketDir: undefined };
   }
@@ -1377,17 +1089,18 @@ async function bringUpGvproxy(
   // visible stderr line; cached under ~/.machinen so subsequent
   // boots are silent. See #83 follow-up.
   const gvBin = await ensureGvproxy(binary);
-  const gvproxyPlan = planGvproxyNative({
-    portForward,
-    gvproxyPath: gvBin ?? undefined,
-    planningRequired: true,
-  });
-  if (gvproxyPlan.action === "missing-ok") {
+  if (!gvBin) {
+    if (portForward.length > 0) {
+      throw new BootError(
+        "BOOT_PORT_FORWARD_NO_GVPROXY",
+        "portForward requires gvproxy, but no gvproxy binary was found.",
+      );
+    }
     debug("gvproxy not found — booting without networking");
     warnGvproxyMissing();
     return { gvStop: undefined, gvPid: undefined, gvExe: undefined, gvSocketDir: undefined };
   }
-  const gvproxyPath = gvproxyPlan.gvproxyPath!;
+  const gvproxyPath = gvBin;
   debug("starting gvproxy bin=%s", gvproxyPath);
   // Detach gvproxy alongside the VMM so the parent can exit
   // without stranding the guest's networking (#150 phase 2 PR3).
@@ -1551,22 +1264,7 @@ function registerInRegistry(args: RegisterArgs): boolean {
 }
 
 function buildRegistryEntry(args: RegisterArgs) {
-  const scalars = planBootRegistryScalarsNative(args);
-  const identityReads = planBootRegistryProcessIdentityNative({
-    hostPlatform: process.platform,
-    childPid: args.childPid,
-    vmmPdeathsig: args.vmmPdeathsig !== null,
-    gvPid: args.gvPid,
-  });
-  const processPlan = planBootRegistryProcessNative({
-    hostPlatform: process.platform,
-    vmmBinary: args.binary,
-    vmmPdeathsig: args.vmmPdeathsig !== null,
-    vmmObservedExeBase: observedProcessExeBase(identityReads.vmmPid),
-    gvPid: args.gvPid,
-    gvExe: args.gvExe,
-    gvObservedExeBase: observedProcessExeBase(identityReads.gvPid),
-  });
+  const processPlan = registryProcessPlan(args);
   return {
     pid: args.childPid,
     name: args.vmName,
@@ -1576,17 +1274,17 @@ function buildRegistryEntry(args: RegisterArgs) {
     dtbPath: args.dtbPath,
     rootDiskPath: args.rootDiskPath,
     rootDiskMode: args.rootDiskMode,
-    diskPath: scalars.diskPath ?? undefined,
-    forkedFrom: scalars.forkedFrom ?? undefined,
+    diskPath: args.diskPath,
+    forkedFrom: args.forkedFrom,
     bootLogPath: args.bootLogPath,
     cleanupPaths: nonEmptyList(args.cleanupPaths),
     vmmExe: processPlan.vmmExe,
     gvproxyPid: args.gvPid,
     gvproxyExe: processPlan.gvproxyExe,
     portForward: registryPortForward(args.portForward),
-    memoryCeilingMib: scalars.memoryCeilingMib ?? undefined,
+    memoryCeilingMib: args.memoryCeilingMib,
     cpu: registryCpu(args.cpuPolicy, args.cpuControl),
-    statsPath: scalars.statsPath ?? undefined,
+    statsPath: args.statsPath,
     vmstatePath: args.vmstateStatePath,
     vmstateChainId: args.vmstateChainId,
     vmstateCheckpointParent: args.vmstateCheckpointParent,
@@ -1602,31 +1300,30 @@ function nonEmptyList<T>(items: T[]): T[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
-function observedProcessExeBase(pid: number | undefined): string | undefined {
-  return pid === undefined ? undefined : readProcessIdentity(pid)?.exeBase;
+function registryProcessPlan(args: RegisterArgs): { vmmExe: string; gvproxyExe?: string } {
+  return {
+    vmmExe: process.platform === "darwin" && args.vmmPdeathsig ? args.vmmPdeathsig : args.binary,
+    gvproxyExe: args.gvExe,
+  };
 }
 
 function registryMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
   if (!mountDiskPaths) {
     return undefined;
   }
-  return (
-    planBootRegistryShapeNative({
-      mountDisk: {
-        guest: mountDiskPaths.guest,
-        lowerPath: mountDiskPaths.lowerPath,
-        upperPath: mountDiskPaths.upperPath,
-      },
-    }).mountDisk ?? undefined
-  );
+  return {
+    guest: mountDiskPaths.guest,
+    lowerPath: mountDiskPaths.lowerPath,
+    upperPath: mountDiskPaths.upperPath,
+  };
 }
 
 function registryLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
-  return nonEmptyList(planBootRegistryShapeNative({ liveMounts: liveMountsResolved }).liveMounts);
+  return nonEmptyList(liveMountsResolved.map(({ guest, host, mode }) => ({ guest, host, mode })));
 }
 
 function registryPortForward(portForward: NonNullable<BootOptions["portForward"]>) {
-  return planBootRegistryPortForwardNative(portForward);
+  return nonEmptyList(portForward);
 }
 
 // #221/#233: stamp first-guest-byte and emit the boot timeline. Either
@@ -1680,7 +1377,7 @@ function installFlushPhases(
   child.once("exit", flush);
 }
 
-function installDetachedBootCapture(child: ChildProcessWithoutNullStreams, sink: Buffer[]): void {
+function installBootStderrCapture(child: ChildProcessWithoutNullStreams, sink: Buffer[]): void {
   let bytes = 0;
   child.stderr.on("data", (chunk: Buffer) => {
     sink.push(chunk);
@@ -1698,6 +1395,7 @@ interface BootHandleArgs {
   timeoutMs: number | null;
   outputCollector: Promise<string>;
   errorCollector: Promise<string>;
+  stderrTail: () => string;
   vsockUdsPath: string | undefined;
   onLog: OnLog | undefined;
   statsFilePath: string | undefined;
@@ -1723,13 +1421,6 @@ interface BootSnapshotContextArgs {
   vmstate: BootVmstateRuntime;
 }
 
-interface BootVmstateRuntime {
-  statePath: string | undefined;
-  chainId: string;
-  checkpointParent: string | undefined;
-  checkpointSequence: number;
-}
-
 function createBootVmHandle(args: BootHandleArgs): VmHandle {
   let handle: VmHandle;
   handle = {
@@ -1743,17 +1434,25 @@ function createBootVmHandle(args: BootHandleArgs): VmHandle {
     detach: makeDetach(args.child),
     output: () => args.outputCollector,
     errorOutput: () => args.errorCollector,
-    exec: makeExec(args.vsockUdsPath, args.onLog, args.child, args.errorCollector),
-    execRaw: makeExecRaw(args.vsockUdsPath, args.onLog, args.child, args.errorCollector),
+    exec: makeExec(args.vsockUdsPath, args.onLog, args.child, args.errorCollector, args.stderrTail),
+    execRaw: makeExecRaw(
+      args.vsockUdsPath,
+      args.onLog,
+      args.child,
+      args.errorCollector,
+      args.stderrTail,
+    ),
     reseedVmstateEntropy: makeReseedVmstateEntropy(
       args.vsockUdsPath,
       args.child,
       args.errorCollector,
+      args.stderrTail,
     ),
     syncVmstateSnapshot: makeSyncVmstateSnapshot(
       args.vsockUdsPath,
       args.child,
       args.errorCollector,
+      args.stderrTail,
     ),
     execPty: makeExecPty(args.vsockUdsPath),
     writeFile: makeWriteFile(() => handle),
@@ -1776,10 +1475,11 @@ function makeExec(
   onLog: OnLog | undefined,
   child: ChildProcessWithoutNullStreams,
   errorCollector: Promise<string>,
+  stderrTail: () => string,
 ): VmHandle["exec"] {
   return async (cmd, execOpts) => {
     const udsPath = requireVsockPath(vsockUdsPath, "exec");
-    const res = await runVsockWithBootDiagnostics(child, errorCollector, () =>
+    const res = await runVsockWithBootDiagnostics(child, errorCollector, stderrTail, () =>
       VsockExec.run(udsPath, cmd, teeOnLog(cmd, execOpts, onLog)),
     );
     if (res.exitCode !== 0) {
@@ -1797,12 +1497,13 @@ function makeExecRaw(
   onLog: OnLog | undefined,
   child: ChildProcessWithoutNullStreams,
   errorCollector: Promise<string>,
+  stderrTail: () => string,
 ): VmHandle["execRaw"] {
   return (cmd, execOpts) => {
     if (!vsockUdsPath) {
       return Promise.reject(missingVsockError("execRaw"));
     }
-    return runVsockWithBootDiagnostics(child, errorCollector, () =>
+    return runVsockWithBootDiagnostics(child, errorCollector, stderrTail, () =>
       VsockExec.run(vsockUdsPath, cmd, teeOnLog(cmd, execOpts, onLog)),
     );
   };
