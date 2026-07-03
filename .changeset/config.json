@@ -17,5 +17,10 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "ignore": [
+    "@machinen/example-fork-pi",
+    "@machinen/example-live-mount",
+    "@machinen/example-pi",
+    "@machinen/example-quickstart"
+  ]
 }
