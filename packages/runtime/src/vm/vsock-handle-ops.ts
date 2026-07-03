@@ -9,12 +9,13 @@ export function makeReseedVmstateEntropy(
   vsockUdsPath: string | undefined,
   child: ChildProcessWithoutNullStreams,
   errorCollector: Promise<string>,
+  stderrTail: () => string,
 ): NonNullable<VmHandle["reseedVmstateEntropy"]> {
   return (seedHex, execOpts) => {
     if (!vsockUdsPath) {
       return Promise.reject(missingVsockError("reseedVmstateEntropy"));
     }
-    return runVsockWithBootDiagnostics(child, errorCollector, () =>
+    return runVsockWithBootDiagnostics(child, errorCollector, stderrTail, () =>
       VsockExec.reseedVmstate(vsockUdsPath, seedHex, execOpts),
     );
   };
@@ -24,12 +25,13 @@ export function makeSyncVmstateSnapshot(
   vsockUdsPath: string | undefined,
   child: ChildProcessWithoutNullStreams,
   errorCollector: Promise<string>,
+  stderrTail: () => string,
 ): NonNullable<VmHandle["syncVmstateSnapshot"]> {
   return (execOpts) => {
     if (!vsockUdsPath) {
       return Promise.reject(missingVsockError("syncVmstateSnapshot"));
     }
-    return runVsockWithBootDiagnostics(child, errorCollector, () =>
+    return runVsockWithBootDiagnostics(child, errorCollector, stderrTail, () =>
       VsockExec.syncVmstate(vsockUdsPath, execOpts),
     );
   };

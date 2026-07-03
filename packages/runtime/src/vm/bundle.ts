@@ -22,17 +22,8 @@ import {
   markMountDiskImageClean,
 } from "../mountdisk-img.ts";
 import { reflinkCopy } from "../reflink.ts";
-import {
-  planBootBundleCommandNative,
-  planBootBundleConfigPathsNative,
-  planBootBundleEnvNative,
-  planBootBundleWorkspaceNative,
-  planBootLiveMountsNative,
-  planBootMountDiskRuntimeNative,
-  planBootMachinenConfigNative,
-} from "../native/boot-plan.ts";
+import { planBootLiveMountsNative, planBootMountDiskRuntimeNative } from "../native/boot-plan.ts";
 import { planBootBundleMountDiskModeNative } from "../native/bundle-mount-disk-mode.ts";
-import { planBootBundlePackNative } from "../native/bundle-pack.ts";
 import { planBootMountDiskTempPathNative } from "../native/mount-disk-temp-path.ts";
 import { validateLiveMountRemovedOptionsNative } from "../native/live-mount-options.ts";
 import type { BundlePackPlan } from "../native/boot-plan-schema.ts";
@@ -108,7 +99,16 @@ export function buildMachinenConfig(input: {
   imageCwd?: string;
   liveMounts: ResolvedLiveMount[];
 }): Record<string, unknown> {
-  return planBootMachinenConfigNative(input);
+  const config: Record<string, unknown> = {
+    cmd: input.cmd,
+    env: input.env,
+  };
+  const cwd = input.guestCwd ?? input.imageCwd;
+  if (cwd !== undefined) {
+    config.cwd = cwd;
+  }
+  config.liveMounts = input.liveMounts.map(({ guest, tag, mode }) => ({ guest, tag, mode }));
+  return config;
 }
 
 /**
@@ -194,10 +194,7 @@ export function synthesizeAndPackBundle(
     validateOptionalGuestCwd(opts);
     const image = resolveBundleImage(opts, packerOpts);
     const cmd = planBundleCommand(opts, image.imageConfig, liveMounts);
-    const effectiveEnv = planBootBundleEnvNative({
-      imageEnv: image.imageConfig?.env,
-      guestEnv: mergedGuestEnv,
-    });
+    const effectiveEnv = mergeBundleEnv(image.imageConfig?.env, mergedGuestEnv);
     writeBundleConfig(workspace, {
       cmd,
       env: effectiveEnv,
@@ -206,12 +203,12 @@ export function synthesizeAndPackBundle(
       liveMounts,
     });
     const mount = resolveBundleMount(opts);
-    const packPlan = planBootBundlePackNative({
+    const packPlan = planBundlePack({
       useTiny: packerOpts.useTiny,
       mountGuest: mount?.guest,
       restoreMountGuest: opts._restoreMountDisk?.guest,
     });
-    packSynthesizedInitramfs(workspace, image.baseAbs, mount, packPlan, effectiveEnv, packerOpts);
+    packSynthesizedInitramfs(workspace, image.baseAbs, mount, packPlan, packerOpts);
     return {
       tempDir: workspace.tempDir,
       cpioPath: workspace.cpioPath,
@@ -225,11 +222,10 @@ export function synthesizeAndPackBundle(
 
 function createBundleWorkspace(): BundleWorkspace {
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
-  const plan = planBootBundleWorkspaceNative(tempDir);
   return {
     tempDir,
-    cpioPath: plan.cpioPath,
-    synthBundleDir: plan.synthBundleDir,
+    cpioPath: join(tempDir, "initramfs.cpio"),
+    synthBundleDir: join(tempDir, "bundle"),
     cleanup: () => {
       try {
         rmSync(tempDir, { recursive: true, force: true });
@@ -263,13 +259,76 @@ function planBundleCommand(
   imageConfig: BundleImageConfig | undefined,
   liveMounts: ResolvedLiveMount[],
 ): string[] {
-  return planBootBundleCommandNative({
-    explicitCmd: opts.cmd,
-    imageCmd: imageConfig?.cmd,
-    snapshotRestore: typeof opts.snapshot === "string",
-    vmstateRestore: opts._vmstateRestorePath !== undefined,
-    liveMounts,
-  });
+  const cmd = opts.cmd ?? fallbackBundleCommand(opts, imageConfig);
+  if (!cmd) {
+    throw new BootError(
+      "BOOT_CMD_MISSING",
+      "boot: no cmd to run — pass `cmd` on boot() or bake one into the image via `provision({ cmd })`.",
+    );
+  }
+  if (isSupervisorCommand(cmd)) {
+    return cmd;
+  }
+  const workload = hasWritableLiveMount(liveMounts) ? wrapBatchWorkloadCommand(cmd) : cmd;
+  return [
+    "/sbin/machinen-supervisor",
+    ...(typeof opts.snapshot === "string" ? ["--session"] : []),
+    ...workload,
+  ];
+}
+
+function fallbackBundleCommand(
+  opts: BootOptions,
+  imageConfig: BundleImageConfig | undefined,
+): string[] | undefined {
+  if (typeof opts.snapshot === "string") {
+    return ["/sbin/machinen-restore"];
+  }
+  if (opts._vmstateRestorePath !== undefined) {
+    return ["/sbin/machinen-poweroff"];
+  }
+  return imageConfig?.cmd;
+}
+
+function isSupervisorCommand(cmd: string[]): boolean {
+  return cmd[0] === "/exec-agent" || cmd[0] === "/sbin/machinen-restore";
+}
+
+function hasWritableLiveMount(liveMounts: ResolvedLiveMount[]): boolean {
+  return liveMounts.some((mount) => mount.mode === "rw");
+}
+
+function wrapBatchWorkloadCommand(cmd: string[]): string[] {
+  const batchScript =
+    "batch_sync() { " +
+    "if [ -s /run/machinen-batch-sync.sh ]; then " +
+    "sh /run/machinen-batch-sync.sh; fi; }; " +
+    '"$@" & child=$!; ' +
+    "trap 'kill -TERM \"$child\" 2>/dev/null' TERM; " +
+    "trap 'kill -INT \"$child\" 2>/dev/null' INT; " +
+    'wait "$child"; status=$?; ' +
+    "batch_sync || { sync_status=$?; " +
+    'if [ "$status" -eq 0 ]; then status=$sync_status; fi; }; ' +
+    'exit "$status"';
+  return ["/bin/sh", "-c", batchScript, "machinen-batch-wrapper", ...cmd];
+}
+
+function mergeBundleEnv(
+  imageEnv: Record<string, string> | undefined,
+  guestEnv: Record<string, string>,
+): Record<string, string> {
+  return { ...imageEnv, ...guestEnv };
+}
+
+function planBundlePack(input: {
+  useTiny: boolean;
+  mountGuest?: string;
+  restoreMountGuest?: string;
+}): BundlePackPlan {
+  if (!input.useTiny) {
+    return { kind: "fat", tinyMountGuest: null };
+  }
+  return { kind: "tiny", tinyMountGuest: input.mountGuest ?? input.restoreMountGuest ?? null };
 }
 
 function writeBundleConfig(
@@ -282,10 +341,10 @@ function writeBundleConfig(
     liveMounts: ResolvedLiveMount[];
   },
 ): void {
-  const paths = planBootBundleConfigPathsNative(workspace.synthBundleDir);
-  mkdirSync(paths.rootfsDir, { recursive: true });
+  const rootfsDir = join(workspace.synthBundleDir, "rootfs");
+  mkdirSync(rootfsDir, { recursive: true });
   const configJson = buildMachinenConfig(input);
-  writeFileSync(paths.configPath, JSON.stringify(configJson));
+  writeFileSync(join(workspace.synthBundleDir, "machinen-config.json"), JSON.stringify(configJson));
 }
 
 function resolveBundleMount(opts: BootOptions): ResolvedMountInput | undefined {
@@ -317,15 +376,14 @@ function packSynthesizedInitramfs(
   baseAbs: string | undefined,
   mount: ResolvedMountInput | undefined,
   packPlan: BundlePackPlan,
-  effectiveEnv: Record<string, string>,
   packerOpts: BundlePackerOptions,
 ): void {
   const packT0 = Date.now();
   try {
     if (packPlan.kind === "tiny") {
-      packTinyInitramfs(workspace, packPlan.tinyMountGuest, effectiveEnv);
+      packTinyInitramfs(workspace, packPlan.tinyMountGuest);
     } else {
-      packFatInitramfs(workspace, baseAbs, mount, effectiveEnv);
+      packFatInitramfs(workspace, baseAbs, mount);
     }
     packerOpts.onPhase?.("cpio-write", Date.now() - packT0);
   } catch (err) {
@@ -334,18 +392,13 @@ function packSynthesizedInitramfs(
   }
 }
 
-function packTinyInitramfs(
-  workspace: BundleWorkspace,
-  mountGuest: string | null,
-  effectiveEnv: Record<string, string>,
-): void {
+function packTinyInitramfs(workspace: BundleWorkspace, mountGuest: string | null): void {
   mkinitramfsPackTinyBundle({
     bundle: workspace.synthBundleDir,
     out: workspace.cpioPath,
     // The cpio just carries the guest mountpoint string for /init to
     // read. The actual payload rides on virtio-blk slots 5+6.
     mountGuest: mountGuest ?? undefined,
-    env: effectiveEnv,
   });
 }
 
@@ -353,14 +406,12 @@ function packFatInitramfs(
   workspace: BundleWorkspace,
   baseAbs: string | undefined,
   mount: ResolvedMountInput | undefined,
-  effectiveEnv: Record<string, string>,
 ): void {
   mkinitramfsPackBundle({
     bundle: workspace.synthBundleDir,
     out: workspace.cpioPath,
     base: baseAbs,
     mount,
-    env: effectiveEnv,
   });
 }
 

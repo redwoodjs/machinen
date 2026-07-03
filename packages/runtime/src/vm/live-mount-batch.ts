@@ -18,7 +18,9 @@ export function validateBatchLiveMounts(
   liveMounts: ReadonlyArray<BatchLiveMount & { tag: string; mode: "ro" | "rw" }>,
   vsockUdsPath: string | undefined,
 ): void {
-  validateBatchLiveMountsNative(liveMounts, vsockUdsPath);
+  if (liveMounts.length > 0) {
+    validateBatchLiveMountsNative(liveMounts, vsockUdsPath);
+  }
 }
 
 export function withBatchLiveMountSync(
