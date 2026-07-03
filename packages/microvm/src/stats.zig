@@ -206,11 +206,9 @@ const RUSAGE_INFO_V4: c_int = 4;
 const RUSAGE_INFO_V4_SIZE: usize = 296;
 const RUSAGE_PHYS_FOOTPRINT_OFFSET: usize = 72;
 
-/// Spawn a detached background thread that polls this process's
-/// `phys_footprint` every ~500 ms and atomically stores it into
-/// `counters.host_phys_footprint`. macOS-only — Linux callers read
-/// `/proc/<pid>/status:VmRSS`, which is exact, cheap, and reflects
-/// `MADV_DONTNEED` reclaim immediately.
+/// Joinable background sampler for this process's `phys_footprint`.
+/// macOS-only — Linux callers read `/proc/<pid>/status:VmRSS`, which
+/// is exact, cheap, and reflects `MADV_DONTNEED` reclaim immediately.
 ///
 /// Why this exists: after the balloon's `MADV_FREE_REUSABLE` reclaim
 /// on Darwin, `task_basic_info.resident_size` (what `ps -o rss=`
@@ -221,38 +219,56 @@ const RUSAGE_PHYS_FOOTPRINT_OFFSET: usize = 72;
 /// phys_footprint lets the host runtime show a number that tracks
 /// reclaim regardless of host memory pressure.
 ///
-/// Thread runs for the process's lifetime and is intentionally not
-/// joinable — the VMM exits via `std.process.exit` once boot
-/// returns, so there's no cleanup window where the sampler could
-/// race with `Stats.deinit()`.
-pub fn start_phys_footprint_sampler(counters: *Counters) void {
-    if (builtin.os.tag != .macos) return;
-    const handle = std.Thread.spawn(
-        .{},
-        sampler_loop,
-        .{counters},
-    ) catch |err| {
-        if (debug_enabled()) {
-            std.debug.print("stats: sampler spawn failed: {s}\n", .{@errorName(err)});
-        }
-        return;
-    };
-    handle.detach();
-}
+/// The sampler must stop before `Stats.deinit()` unmaps the counters
+/// file. Ctrl-C can make the VMM return through normal defers instead
+/// of exiting immediately; a detached sampler would then keep writing
+/// to unmapped memory and crash during shutdown.
+pub const PhysFootprintSampler = struct {
+    counters: *Counters,
+    stop: std.atomic.Value(bool) = .init(false),
+    thread: ?std.Thread = null,
 
-fn sampler_loop(counters: *Counters) void {
-    const half_second = libc.timespec{ .tv_sec = 0, .tv_nsec = 500 * 1_000_000 };
-    // Intentional daemon loop for the VMM lifetime. Each iteration is
-    // bounded by one synchronous sample plus the sleep below.
-    while (true) {
-        if (sample_phys_footprint()) |bytes| {
-            @atomicStore(u64, &counters.host_phys_footprint, bytes, .monotonic);
+    pub fn init(counters: *Counters) PhysFootprintSampler {
+        return .{ .counters = counters };
+    }
+
+    pub fn start(self: *PhysFootprintSampler) void {
+        assert(self.thread == null);
+        if (builtin.os.tag != .macos) return;
+        self.thread = std.Thread.spawn(
+            .{},
+            sampler_loop,
+            .{self},
+        ) catch |err| {
+            if (debug_enabled()) {
+                std.debug.print("stats: sampler spawn failed: {s}\n", .{@errorName(err)});
+            }
+            return;
+        };
+    }
+
+    pub fn deinit(self: *PhysFootprintSampler) void {
+        self.stop.store(true, .release);
+        if (self.thread) |t| {
+            t.join();
+            self.thread = null;
         }
-        // libc nanosleep — std.Thread.sleep was removed in Zig 0.16
-        // and the new std.Io.sleep needs an Io capability we don't
-        // wire through here. Plain nanosleep is fine: signals don't
-        // interrupt the loop in any way we'd need to react to.
-        _ = libc.nanosleep(&half_second, null);
+        assert(self.thread == null);
+    }
+};
+
+fn sampler_loop(sampler: *PhysFootprintSampler) void {
+    const sleep_slice = libc.timespec{ .tv_sec = 0, .tv_nsec = 50 * 1_000_000 };
+    while (!sampler.stop.load(.acquire)) {
+        if (sample_phys_footprint()) |bytes| {
+            @atomicStore(u64, &sampler.counters.host_phys_footprint, bytes, .monotonic);
+        }
+        // Sleep in 50 ms slices for an aggregate ~500 ms poll interval
+        // while still letting shutdown join the thread promptly.
+        var slept_slices: u8 = 0;
+        while (slept_slices < 10 and !sampler.stop.load(.acquire)) : (slept_slices += 1) {
+            if (libc.nanosleep(&sleep_slice, null) != 0) continue;
+        }
     }
 }
 
@@ -298,6 +314,17 @@ test "samplePhysFootprint returns a positive value on Darwin" {
     if (builtin.os.tag != .macos) return error.SkipZigTest;
     const v = sample_phys_footprint() orelse return error.UnexpectedNull;
     try std.testing.expect(v > 0);
+}
+
+test "physFootprintSampler stops before counters teardown" {
+    if (builtin.os.tag != .macos) return error.SkipZigTest;
+    var local: Counters = .{};
+    var sampler = PhysFootprintSampler.init(&local);
+    sampler.start();
+    defer sampler.deinit();
+
+    sampler.deinit();
+    try std.testing.expect(sampler.thread == null);
 }
 
 test "stubCounters returns the same address every call" {

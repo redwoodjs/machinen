@@ -724,6 +724,41 @@ describe("image + cmd", () => {
     expect(stderr).toContain("Linux version");
     expect(stderr).toContain("BUNDLE_MARKER=spawned-via-ts");
   }, 40_000);
+
+  it("powers off after an image cmd without a VMM teardown crash", async () => {
+    if (process.platform !== "darwin" || process.arch !== "arm64") {
+      return;
+    }
+    const binary = resolve(microvmRoot, "../native-arm64-darwin/vmm/bin/machinen-vm");
+    const kernel = resolve(microvmRoot, "../../release-assets/Image-arm64");
+    const dtb = resolve(microvmRoot, "../../release-assets/virt-arm64.dtb");
+    const debianRootfs = resolve(microvmRoot, "../../release-assets/rootfs-debian-arm64.tar.gz");
+    const missing = [binary, kernel, dtb, debianRootfs].filter((p) => !existsSync(p));
+    if (missing.length > 0) {
+      if (process.env.MACHINEN_REQUIRE_FIXTURES === "0") {
+        return;
+      }
+      throw new Error(
+        `test requires arm64 HVF assets (missing: ${missing.join(", ")}); ` +
+          `run scripts/build-vmm.sh + scripts/build-base-assets.sh`,
+      );
+    }
+
+    const vm = await boot({
+      binary,
+      kernel,
+      dtb,
+      image: debianRootfs,
+      cmd: ["/bin/sh", "-lc", "echo TEARDOWN_MARKER; sleep 1"],
+      timeoutMs: 30_000,
+    });
+    const result = await vm.wait();
+    const stderr = await vm.errorOutput();
+
+    expect(result).toEqual({ code: 0, signal: null });
+    expect(stderr).toContain("TEARDOWN_MARKER");
+    expect(stderr).not.toMatch(/Segmentation fault|sampler_loop/);
+  }, 40_000);
 });
 
 describe("mount option", () => {

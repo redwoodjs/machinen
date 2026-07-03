@@ -367,7 +367,9 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // `vm.memoryStats().hostRssBytes` reflects balloon reclaim
     // (`MADV_FREE_REUSABLE` doesn't drop `task_basic_info.resident_size`).
     // No-op on Linux. See `stats.zig` for details.
-    stats_mod.start_phys_footprint_sampler(stats_inst.counters);
+    var stats_sampler = stats_mod.PhysFootprintSampler.init(stats_inst.counters);
+    stats_sampler.start();
+    defer stats_sampler.deinit();
     var balloon_backend = balloon_mod.Backend.init_with_counters(stats_inst.counters);
     var balloon_dev = make_balloon_device(ram, &cfg, &balloon_backend);
     const balloon_dev_ptr: ?*virtio.Device = &balloon_dev;
@@ -489,7 +491,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     );
     defer {
         stdin_ctx.stop.store(true, .release);
-        stdin_thread.detach();
+        stdin_thread.join();
     }
 
     var nested_poweroff_detector: nested_poweroff.Detector = .{};
@@ -2239,6 +2241,12 @@ fn stdin_thread_main(ctx: *StdinThread) void {
     assert(ctx.irq >= 32);
     var buf: [256]u8 = undefined;
     while (!ctx.stop.load(.acquire)) {
+        var fds = [_]PollFd{.{ .fd = 0, .events = POLLIN, .revents = 0 }};
+        const ready = poll(&fds, 1, 50);
+        if (ready < 0) return;
+        if (ready == 0) continue;
+        if ((fds[0].revents & POLLIN) == 0) return;
+
         const n = read(0, &buf, buf.len);
         if (n <= 0) {
             // EOF or error — stop polling. The guest can keep running;
@@ -2252,6 +2260,14 @@ fn stdin_thread_main(ctx: *StdinThread) void {
     }
 }
 
+const PollFd = extern struct {
+    fd: c_int,
+    events: c_short,
+    revents: c_short,
+};
+
+const POLLIN: c_short = 0x0001;
+
 // libc bindings — std.posix is heavily reshaped in Zig 0.16 and most
 // file-I/O surface moved behind an Io context. Going straight to libc
 // keeps this file independent of that churn.
@@ -2263,6 +2279,7 @@ extern "c" fn open(path: [*:0]const u8, flags: c_int, ...) c_int;
 extern "c" fn close(fd: c_int) c_int;
 extern "c" fn read(fd: c_int, buf: [*]u8, count: usize) isize;
 extern "c" fn write(fd: c_int, buf: [*]const u8, count: usize) isize;
+extern "c" fn poll(fds: [*]PollFd, nfds: c_ulong, timeout_ms: c_int) c_int;
 extern "c" fn lseek(fd: c_int, offset: i64, whence: c_int) i64;
 extern "c" fn access(path: [*:0]const u8, mode: c_int) c_int;
 extern "c" fn usleep(useconds: c_uint) c_int;
