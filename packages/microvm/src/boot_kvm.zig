@@ -364,7 +364,9 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // No-op on Linux — runtime reads `/proc/<pid>/status:VmRSS`,
     // which is exact and reflects `MADV_DONTNEED` reclaim. See
     // `stats.zig` for the Darwin rationale.
-    stats_mod.start_phys_footprint_sampler(stats_inst.counters);
+    var stats_sampler = stats_mod.PhysFootprintSampler.init(stats_inst.counters);
+    stats_sampler.start();
+    defer stats_sampler.deinit();
     var balloon_backend = balloon_mod.Backend.init_with_counters(stats_inst.counters);
     var balloon_dev = make_balloon_device(ram, &cfg, &balloon_backend);
     const balloon_dev_ptr: ?*virtio.Device = &balloon_dev;
