@@ -1,5 +1,7 @@
 # @machinen/native-x64-linux
 
+## 0.7.2
+
 ## 0.7.1
 
 ## 0.7.0
