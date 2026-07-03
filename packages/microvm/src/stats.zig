@@ -233,6 +233,7 @@ pub const PhysFootprintSampler = struct {
     }
 
     pub fn start(self: *PhysFootprintSampler) void {
+        assert(self.thread == null);
         if (builtin.os.tag != .macos) return;
         self.thread = std.Thread.spawn(
             .{},
@@ -252,6 +253,7 @@ pub const PhysFootprintSampler = struct {
             t.join();
             self.thread = null;
         }
+        assert(self.thread == null);
     }
 };
 
@@ -265,7 +267,7 @@ fn sampler_loop(sampler: *PhysFootprintSampler) void {
         // while still letting shutdown join the thread promptly.
         var slept_slices: u8 = 0;
         while (slept_slices < 10 and !sampler.stop.load(.acquire)) : (slept_slices += 1) {
-            _ = libc.nanosleep(&sleep_slice, null);
+            if (libc.nanosleep(&sleep_slice, null) != 0) continue;
         }
     }
 }
@@ -321,8 +323,6 @@ test "physFootprintSampler stops before counters teardown" {
     sampler.start();
     defer sampler.deinit();
 
-    const sleep_slice = libc.timespec{ .tv_sec = 0, .tv_nsec = 100 * 1_000_000 };
-    _ = libc.nanosleep(&sleep_slice, null);
     sampler.deinit();
     try std.testing.expect(sampler.thread == null);
 }
