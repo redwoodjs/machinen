@@ -1,5 +1,11 @@
 # @machinen/microvm
 
+## 0.7.2
+
+### Patch Changes
+
+- 6e7d737: Stop the Darwin VMM stats sampler before teardown so VM shutdown no longer crashes after image commands or Ctrl-C.
+
 ## 0.7.1
 
 ## 0.7.0

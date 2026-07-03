@@ -1,5 +1,12 @@
 # @machinen/runtime
 
+## 0.7.2
+
+### Patch Changes
+
+- ad0d34b: Restore fast Darwin/HVF boots by preferring cached or tar + `mke2fs` rootfs materialization, packing tiny initramfs bundles in process, and keeping common boot planning on the TypeScript fast path.
+- 6e7d737: Stop the Darwin VMM stats sampler before teardown so VM shutdown no longer crashes after image commands or Ctrl-C.
+
 ## 0.7.1
 
 ### Patch Changes
