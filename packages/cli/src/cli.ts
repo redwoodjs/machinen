@@ -11,6 +11,7 @@
 //   machinen attach <name|pid> [--shell <cmd>]   # PTY shell
 //   machinen attach [--session <session>] [name|pid] # persistent PTY shell
 //   machinen repl   <name|pid>                   # per-line exec
+//   machinen run <target>                        # run a known CLI in a VM
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
 
@@ -28,6 +29,7 @@ import { cmdInstall } from "./commands/install.ts";
 import { cmdAgentContext, cmdCompletion, cmdFeedback } from "./commands/misc.ts";
 import { cmdGc, cmdLs } from "./commands/registry.ts";
 import { cmdRestore } from "./commands/restore.ts";
+import { cmdRun } from "./commands/run.ts";
 import { cmdSnapshot } from "./commands/snapshot.ts";
 import { cmdStop } from "./commands/stop.ts";
 
@@ -53,6 +55,7 @@ const COMMAND_HANDLERS = new Map<string, CommandHandler>([
   ["sessions", cmdSessions],
   ["session-kill", cmdSessionKill],
   ["repl", cmdRepl],
+  ["run", cmdRun],
   ["completion", cmdCompletion],
   ["gc", cmdGc],
   ["stop", cmdStop],

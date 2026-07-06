@@ -370,6 +370,35 @@ export const COMMANDS: CommandSpec[] = [
       '{"schema_version": 1, "dry_run": <bool>, "results": [{"pid": <int>, "name": <string|null>, "status": <string>, "removed_paths": [...], "failed_paths": [...]}]}',
   },
   {
+    name: "run",
+    summary: "Run a known CLI tool inside a VM.",
+    jsonOutput: false,
+    positionals: [
+      {
+        name: "target",
+        description:
+          "Run target. Built-ins: pi, command-code, claude, codex. Use 'list' to print them.",
+      },
+    ],
+    flags: [
+      {
+        name: "--rebuild",
+        type: "boolean",
+        description: "Delete the cached image for this target and bake it again before running.",
+      },
+      {
+        name: "--session",
+        type: "string",
+        description: "Run or reconnect the tool in a persistent PTY session.",
+      },
+      {
+        name: "--name",
+        type: "string",
+        description: "VM name for --session mode (default: run/<target>/<workspace-hash>).",
+      },
+    ],
+  },
+  {
     name: "install",
     summary: "Pre-fetch the kernel + base rootfs for a release tag.",
     jsonOutput: true,

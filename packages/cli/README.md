@@ -23,6 +23,11 @@ or a script — without writing any TypeScript.
 - **Manage VM lifecycles.** `list` (alias `ls`) to see what's
   running, `stop` to shut one down cleanly, `gc` to clean up after
   detached boots that crashed.
+- **Run known CLIs in a VM.** `mn run pi`, `mn run command-code`,
+  `mn run claude`, and `mn run codex` bake a cached image on first
+  use, mount the current directory as `/mnt/workspace`, mount the
+  tool's host state, and run the CLI in the foreground. Add
+  `--session <name>` to reconnect later.
 - **Drive it from an agent.** `--json` on every data-returning
   command (`list`, `gc`, `install`, `snapshot`, `stop`,
   `boot --detach`, `fork --detach`, `feedback`). `mn agent-context`
@@ -67,6 +72,10 @@ npx machinen snapshot worker ./warm
 npx machinen restore ./warm
 npx machinen fork worker --new-name worker-b --detach
 npx machinen stop worker
+npx machinen run pi
+npx machinen run command-code
+npx machinen run claude --session work
+npx machinen run codex --session work
 ```
 
 After the subcommand, the first positional is the target VM. Pass a

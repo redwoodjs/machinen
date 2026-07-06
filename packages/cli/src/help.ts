@@ -102,6 +102,12 @@ export function printHelp(): void {
       `                                                 one-liners; for an interactive shell\n` +
       `                                                 use \`machinen attach\` instead.\n` +
       `\n` +
+      `  machinen run <target> [--rebuild] [-- <args>] Run a known CLI tool in a VM.\n` +
+      `    --session <name>                            Run/reconnect in a persistent PTY session.\n` +
+      `    --name <vm-name>                            VM name for --session (default: per workspace).\n` +
+      `                                                 Targets: pi, command-code, claude, codex.\n` +
+      `  machinen run list                              List run targets.\n` +
+      `\n` +
       `  machinen install                               Pre-fetch the current-tag base assets\n` +
       `    --version <tag>                              Pin to a specific release tag\n` +
       `  machinen agent-context                         Versioned JSON describing every command,\n` +
@@ -138,6 +144,10 @@ export function printHelp(): void {
       `  machinen exec worker --tty -- vim /etc/passwd        # full-screen TUI in a PTY\n` +
       `  machinen snapshot worker ./warm                      # CRIU snapshot bundle\n` +
       `  machinen restore ./warm\n` +
+      `  machinen run pi\n` +
+      `  machinen run command-code -- --help\n` +
+      `  machinen run claude --session work\n` +
+      `  machinen run codex --session work\n` +
       `\n` +
       `Environment:\n` +
       `  MACHINEN_VMM                             Override the VMM binary path (dev)\n` +
