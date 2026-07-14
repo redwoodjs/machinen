@@ -371,20 +371,36 @@ export const COMMANDS: CommandSpec[] = [
   },
   {
     name: "run",
-    summary: "Run a known CLI tool inside a VM.",
+    summary: "Run a signed machinen.dev recipe inside a VM.",
     jsonOutput: false,
     positionals: [
       {
-        name: "target",
+        name: "recipe",
         description:
-          "Run target. Built-ins: pi, command-code, claude, codex. Use 'list' to print them.",
+          "Recipe name or machinen.dev/run/<name>. Use 'list' to fetch the signed registry index.",
       },
     ],
     flags: [
       {
+        name: "--inspect",
+        type: "boolean",
+        description:
+          "Verify and print the signed recipe and requested capabilities without running it.",
+      },
+      {
+        name: "--trust",
+        type: "boolean",
+        description: "Approve this exact signed recipe digest without an interactive prompt.",
+      },
+      {
+        name: "--digest",
+        type: "string",
+        description: "Require an exact SHA-256 recipe digest.",
+      },
+      {
         name: "--rebuild",
         type: "boolean",
-        description: "Delete the cached image for this target and bake it again before running.",
+        description: "Delete this digest's cached image and bake it again before running.",
       },
       {
         name: "--session",
@@ -394,7 +410,8 @@ export const COMMANDS: CommandSpec[] = [
       {
         name: "--name",
         type: "string",
-        description: "VM name for --session mode (default: run/<target>/<workspace-hash>).",
+        description:
+          "VM name for --session mode (default includes recipe, workspace, and digest hashes).",
       },
     ],
   },

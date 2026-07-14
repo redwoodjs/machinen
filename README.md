@@ -225,9 +225,9 @@ const restored = await restore({ snapDir: "./counter.snap" });
 ## Other ways to boot
 
 ```bash
-npx machinen run pi                             # run a known CLI in a VM
-npx machinen run command-code                   # same, for Command Code
-npx machinen run claude --session work          # reconnectable agent session
+npx machinen run list                           # signed recipes from machinen.dev
+npx machinen run machinen.dev/run/claude-code   # inspect capabilities, approve, run
+npx machinen run command-code                   # official-name shorthand
 npx machinen run codex --session work           # reconnectable agent session
 npx machinen boot -- /bin/sh                    # ad-hoc: boot base + run a cmd
 npx machinen boot ./my-image.tar.gz             # boot a provisioned rootfs tarball

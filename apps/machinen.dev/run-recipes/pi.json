@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "publisher": "machinen.dev",
+  "name": "pi",
+  "summary": "Run the pi coding agent inside a VM.",
+  "install": "fnm install 24.16.0\nfnm default 24.16.0\nnpm install -g --ignore-scripts @earendil-works/pi-coding-agent@0.80.7\npi --version",
+  "command": ["pi"],
+  "permissions": {
+    "network": true,
+    "workspace": "rw",
+    "state": [
+      {
+        "name": "agent",
+        "guest": "/root/.pi/agent",
+        "mode": "rw"
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "envelopeVersion": 1,
+  "algorithm": "Ed25519",
+  "keyId": "machinen.dev-2026-01",
+  "payload": "eyJjb21tYW5kIjpbImNtZCJdLCJpbnN0YWxsIjoiZm5tIGluc3RhbGwgMjQuMTYuMFxuZm5tIGRlZmF1bHQgMjQuMTYuMFxubnBtIGluc3RhbGwgLWcgY29tbWFuZC1jb2RlQDAuNDQuMVxuY21kIC0tdmVyc2lvbiIsIm5hbWUiOiJjb21tYW5kLWNvZGUiLCJwZXJtaXNzaW9ucyI6eyJuZXR3b3JrIjp0cnVlLCJzdGF0ZSI6W3siZ3Vlc3QiOiIvcm9vdC8uY29tbWFuZGNvZGUiLCJtb2RlIjoicnciLCJuYW1lIjoiY29uZmlnIn1dLCJ3b3Jrc3BhY2UiOiJydyJ9LCJwdWJsaXNoZXIiOiJtYWNoaW5lbi5kZXYiLCJzY2hlbWFWZXJzaW9uIjoxLCJzdW1tYXJ5IjoiUnVuIENvbW1hbmQgQ29kZSBpbnNpZGUgYSBWTS4ifQ==",
+  "signature": "3tVpwxd9O0zK8szHOq+hCld3TMpJVk+quIcKuAbZ32GxQalOT4ppBJFN3+2vpYzvbCT3POFv4zuG6VheSWo2AQ=="
+}
