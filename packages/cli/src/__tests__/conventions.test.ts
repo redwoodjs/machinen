@@ -44,6 +44,7 @@ const ALLOWED_VERBS = new Set([
   "sessions",
   "session-kill",
   "repl",
+  "run",
   "gc",
   // agent-facing meta
   "agent-context",

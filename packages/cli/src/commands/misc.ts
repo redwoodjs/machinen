@@ -158,7 +158,7 @@ const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bash
 _machinen_completion() {
   local cur prev words cword
   _init_completion || return
-  local cmds="boot restore install list ls ps exec snapshot fork attach sessions session-kill repl gc stop feedback agent-context completion --version --help -h -v"
+  local cmds="boot restore install list ls ps exec snapshot fork attach sessions session-kill repl run gc stop feedback agent-context completion --version --help -h -v"
   if [[ \${cword} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
@@ -173,6 +173,10 @@ _machinen_completion() {
         return
       fi
       ;;
+    run)
+      COMPREPLY=( $(compgen -W "pi command-code claude codex list --rebuild --session --name" -- "\${cur}") )
+      return
+      ;;
     gc)
       COMPREPLY=( $(compgen -W "--dry-run" -- "\${cur}") )
       return
@@ -186,7 +190,7 @@ const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc,
 #   eval "$(machinen completion zsh)"
 _machinen() {
   local -a cmds
-  cmds=(boot restore install list ls ps exec snapshot fork attach sessions session-kill repl gc stop feedback agent-context completion)
+  cmds=(boot restore install list ls ps exec snapshot fork attach sessions session-kill repl run gc stop feedback agent-context completion)
   if (( CURRENT == 2 )); then
     _describe 'command' cmds
     return
@@ -201,6 +205,10 @@ _machinen() {
         return
       fi
       ;;
+    run)
+      _describe 'target' '(pi command-code claude codex list --rebuild --session --name)'
+      return
+      ;;
     gc)
       _describe 'flag' '(--dry-run)'
       return
@@ -212,7 +220,7 @@ compdef _machinen machinen mn
 
 const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
 #   machinen completion fish | source
-set -l cmds boot restore install list ls ps exec snapshot fork attach sessions session-kill repl gc stop feedback agent-context completion
+set -l cmds boot restore install list ls ps exec snapshot fork attach sessions session-kill repl run gc stop feedback agent-context completion
 for bin in machinen mn
   complete -c $bin -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
   for sub in exec snapshot fork attach sessions session-kill repl stop
@@ -220,6 +228,7 @@ for bin in machinen mn
     complete -c $bin -f -n "__fish_seen_subcommand_from $sub" \\
       -a '(machinen ls 2>/dev/null | awk 'NR>1{print $1; if ($2!="-") print $2}')'
   end
+  complete -c $bin -f -n "__fish_seen_subcommand_from run" -a "pi command-code claude codex list --rebuild --session --name"
   complete -c $bin -f -n "__fish_seen_subcommand_from gc" -l dry-run
 end
 `;
