@@ -25,6 +25,15 @@ npx machinen session-kill work editor
 npx machinen stop work
 ```
 
+## Run a coding agent
+
+No global install is needed. `npx` can download the CLI and run a signed recipe directly:
+
+```bash
+npx @machinen/cli run claude-code
+npx @machinen/cli run codex --session work
+```
+
 ## Install
 
 ```bash

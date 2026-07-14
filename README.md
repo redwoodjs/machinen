@@ -222,13 +222,20 @@ const restored = await restore({ snapDir: "./counter.snap" });
 - [`@machinen/runtime` reference](./packages/runtime/API.md) — every
   exported function, type, and error class (typedoc-generated)
 
+## Run a recipe without installing
+
+`npx` can download the CLI package and run a signed recipe directly:
+
+```bash
+npx @machinen/cli run claude-code                         # official-name shorthand
+npx @machinen/cli run machinen.dev/run/claude-code        # full recipe URL
+npx @machinen/cli run codex --session work                # reconnectable session
+npx @machinen/cli run list                                 # signed recipe registry
+```
+
 ## Other ways to boot
 
 ```bash
-npx machinen run list                           # signed recipes from machinen.dev
-npx machinen run machinen.dev/run/claude-code   # inspect capabilities, approve, run
-npx machinen run command-code                   # official-name shorthand
-npx machinen run codex --session work           # reconnectable agent session
 npx machinen boot -- /bin/sh                    # ad-hoc: boot base + run a cmd
 npx machinen boot ./my-image.tar.gz             # boot a provisioned rootfs tarball
 npx machinen install                            # pre-fetch base assets (CI / airgap)

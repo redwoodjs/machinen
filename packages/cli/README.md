@@ -48,7 +48,13 @@ npm i @machinen/cli           # then run via `npx machinen …` or `npx mn …`
 npm i -g @machinen/cli        # or globally if you prefer it on PATH
 ```
 
-Both `machinen` and the shorter alias `mn` are installed.
+Both `machinen` and the shorter alias `mn` are installed. To run a signed
+recipe without adding the package to a project first:
+
+```bash
+npx @machinen/cli run claude-code
+npx @machinen/cli run machinen.dev/run/claude-code
+```
 
 The matching native package (`@machinen/native-arm64-darwin`,
 `@machinen/native-arm64-linux`, or `@machinen/native-x64-linux`) is pulled in
@@ -73,11 +79,11 @@ npx machinen snapshot worker ./warm
 npx machinen restore ./warm
 npx machinen fork worker --new-name worker-b --detach
 npx machinen stop worker
-npx machinen run list
-npx machinen run machinen.dev/run/claude-code --inspect
-npx machinen run command-code
-npx machinen run claude-code --session work
-npx machinen run codex --session work
+npx @machinen/cli run list
+npx @machinen/cli run machinen.dev/run/claude-code --inspect
+npx @machinen/cli run command-code
+npx @machinen/cli run claude-code --session work
+npx @machinen/cli run codex --session work
 ```
 
 After the subcommand, the first positional is the target VM. Pass a
