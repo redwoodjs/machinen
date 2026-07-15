@@ -1,5 +1,7 @@
 # @machinen/native-arm64-linux
 
+## 0.8.2
+
 ## 0.8.1
 
 ## 0.8.0

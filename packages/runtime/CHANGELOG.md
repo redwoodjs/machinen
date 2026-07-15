@@ -1,5 +1,11 @@
 # @machinen/runtime
 
+## 0.8.2
+
+### Patch Changes
+
+- b610418: Fix writable live mounts dropping nested files during shutdown sync by assigning recreated paths fresh FUSE node IDs and avoiding a duplicate flush through stale overlay dentries.
+
 ## 0.8.1
 
 ## 0.8.0
