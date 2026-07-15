@@ -23,11 +23,13 @@ or a script — without writing any TypeScript.
 - **Manage VM lifecycles.** `list` (alias `ls`) to see what's
   running, `stop` to shut one down cleanly, `gc` to clean up after
   detached boots that crashed.
-- **Run known CLIs in a VM.** `mn run pi`, `mn run command-code`,
-  `mn run claude`, and `mn run codex` bake a cached image on first
-  use, mount the current directory as `/mnt/workspace`, mount the
-  tool's host state, and run the CLI in the foreground. Add
-  `--session <name>` to reconnect later.
+- **Run signed remote recipes in a VM.** Run
+  `mn run machinen.dev/run/claude-code` to verify the recipe's Ed25519
+  signature and show its requested capabilities before first use.
+  Images are cached by recipe digest, state is isolated under
+  `~/.machinen/run/state`,
+  and recipes cannot choose arbitrary host paths. Use
+  `--session <name>` to reconnect later or `--digest` to pin exact content.
 - **Drive it from an agent.** `--json` on every data-returning
   command (`list`, `gc`, `install`, `snapshot`, `stop`,
   `boot --detach`, `fork --detach`, `feedback`). `mn agent-context`
@@ -47,7 +49,12 @@ npm i @machinen/cli           # then run via `npx machinen …` or `npx mn …`
 npm i -g @machinen/cli        # or globally if you prefer it on PATH
 ```
 
-Both `machinen` and the shorter alias `mn` are installed.
+Both `machinen` and the shorter alias `mn` are installed. To run a signed
+recipe without adding the package to a project first:
+
+```bash
+npx @machinen/cli run machinen.dev/run/claude-code
+```
 
 The matching native package (`@machinen/native-arm64-darwin`,
 `@machinen/native-arm64-linux`, or `@machinen/native-x64-linux`) is pulled in
@@ -72,15 +79,15 @@ npx machinen snapshot worker ./warm
 npx machinen restore ./warm
 npx machinen fork worker --new-name worker-b --detach
 npx machinen stop worker
-npx machinen run pi
-npx machinen run command-code
-npx machinen run claude --session work
-npx machinen run codex --session work
+npx @machinen/cli run list
+npx @machinen/cli run machinen.dev/run/claude-code --inspect
+npx @machinen/cli run machinen.dev/run/command-code
+npx @machinen/cli run machinen.dev/run/claude-code --session work
+npx @machinen/cli run machinen.dev/run/codex --session work
 ```
 
-After the subcommand, the first positional is the target VM. Pass a
-name for a registered VM, or a host pid (digits-only) to identify it
-by process.
+For commands that act on a running VM, the first positional is the
+target. Pass a registered VM name or a host pid (digits-only).
 
 ## Reference
 

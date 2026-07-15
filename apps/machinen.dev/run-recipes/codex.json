@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "publisher": "machinen.dev",
+  "name": "codex",
+  "summary": "Run Codex inside a VM.",
+  "install": [
+    "set -e",
+    "apt-get update",
+    "apt-get install -y --no-install-recommends git ca-certificates openssh-client",
+    "rm -rf /var/lib/apt/lists/*",
+    "fnm install 24.16.0",
+    "fnm default 24.16.0",
+    "npm install -g @openai/codex@0.144.4",
+    "git --version",
+    "codex --version"
+  ],
+  "command": ["codex"],
+  "env": {
+    "CODEX_HOME": "/root/.codex"
+  },
+  "permissions": {
+    "network": true,
+    "workspace": "rw",
+    "state": [
+      {
+        "name": "config",
+        "guest": "/root/.codex",
+        "mode": "rw"
+      }
+    ]
+  }
+}

@@ -102,11 +102,15 @@ export function printHelp(): void {
       `                                                 one-liners; for an interactive shell\n` +
       `                                                 use \`machinen attach\` instead.\n` +
       `\n` +
-      `  machinen run <target> [--rebuild] [-- <args>] Run a known CLI tool in a VM.\n` +
-      `    --session <name>                            Run/reconnect in a persistent PTY session.\n` +
-      `    --name <vm-name>                            VM name for --session (default: per workspace).\n` +
-      `                                                 Targets: pi, command-code, claude, codex.\n` +
-      `  machinen run list                              List run targets.\n` +
+      `  machinen run <machinen.dev/run/recipe> [options] [-- <args>]\n` +
+      `                                                 Run a signed remote recipe in a VM.\n` +
+      `    --inspect                                    Verify and print capabilities only.\n` +
+      `    --trust                                      Approve this exact signed digest.\n` +
+      `    --digest <sha256>                            Require an exact recipe digest.\n` +
+      `    --rebuild                                    Rebuild this digest's cached image.\n` +
+      `    --session <name>                             Run/reconnect in a persistent PTY session.\n` +
+      `    --name <vm-name>                             Override the persistent VM name.\n` +
+      `  machinen run list                              Fetch the signed recipe registry.\n` +
       `\n` +
       `  machinen install                               Pre-fetch the current-tag base assets\n` +
       `    --version <tag>                              Pin to a specific release tag\n` +
@@ -144,10 +148,10 @@ export function printHelp(): void {
       `  machinen exec worker --tty -- vim /etc/passwd        # full-screen TUI in a PTY\n` +
       `  machinen snapshot worker ./warm                      # CRIU snapshot bundle\n` +
       `  machinen restore ./warm\n` +
-      `  machinen run pi\n` +
-      `  machinen run command-code -- --help\n` +
-      `  machinen run claude --session work\n` +
-      `  machinen run codex --session work\n` +
+      `  machinen run machinen.dev/run/claude-code\n` +
+      `  machinen run machinen.dev/run/command-code -- --help\n` +
+      `  machinen run https://machinen.dev/run/claude-code --inspect\n` +
+      `  machinen run machinen.dev/run/codex --session work\n` +
       `\n` +
       `Environment:\n` +
       `  MACHINEN_VMM                             Override the VMM binary path (dev)\n` +

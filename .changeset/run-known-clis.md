@@ -2,4 +2,4 @@
 "@machinen/cli": minor
 ---
 
-Add `machinen run` targets for pi, Command Code, Claude Code, and Codex, with optional persistent PTY sessions.
+Add signed remote recipes to `machinen run`, with capability approval, isolated persistent state, digest-pinned image caches, and optional persistent PTY sessions.

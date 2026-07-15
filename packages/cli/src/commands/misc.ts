@@ -174,7 +174,9 @@ _machinen_completion() {
       fi
       ;;
     run)
-      COMPREPLY=( $(compgen -W "pi command-code claude codex list --rebuild --session --name" -- "\${cur}") )
+      local recipes
+      recipes=$(machinen run list 2>/dev/null | cut -f1)
+      COMPREPLY=( $(compgen -W "\${recipes} list --inspect --trust --digest --rebuild --session --name" -- "\${cur}") )
       return
       ;;
     gc)
@@ -206,7 +208,10 @@ _machinen() {
       fi
       ;;
     run)
-      _describe 'target' '(pi command-code claude codex list --rebuild --session --name)'
+      local -a recipes
+      recipes=(\${(f)"$(machinen run list 2>/dev/null | cut -f1)"})
+      recipes+=(list --inspect --trust --digest --rebuild --session --name)
+      _describe 'recipe' recipes
       return
       ;;
     gc)
@@ -228,7 +233,8 @@ for bin in machinen mn
     complete -c $bin -f -n "__fish_seen_subcommand_from $sub" \\
       -a '(machinen ls 2>/dev/null | awk 'NR>1{print $1; if ($2!="-") print $2}')'
   end
-  complete -c $bin -f -n "__fish_seen_subcommand_from run" -a "pi command-code claude codex list --rebuild --session --name"
+  complete -c $bin -f -n "__fish_seen_subcommand_from run" -a '(machinen run list 2>/dev/null | cut -f1)'
+  complete -c $bin -f -n "__fish_seen_subcommand_from run" -a "list --inspect --trust --digest --rebuild --session --name"
   complete -c $bin -f -n "__fish_seen_subcommand_from gc" -l dry-run
 end
 `;

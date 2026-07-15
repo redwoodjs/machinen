@@ -1,0 +1,4 @@
+/run/*
+  Content-Type: application/json; charset=utf-8
+  Cache-Control: public, max-age=60, stale-if-error=86400
+  X-Content-Type-Options: nosniff

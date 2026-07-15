@@ -4,6 +4,7 @@ node_modules/
 .pnpm-store/
 .wrangler/
 .dev.vars
+apps/machinen.dev/run-recipes/*-private.pem
 *.tsbuildinfo
 .devcontainer/kindling/
 .machinen/
