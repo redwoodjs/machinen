@@ -23,10 +23,11 @@ or a script — without writing any TypeScript.
 - **Manage VM lifecycles.** `list` (alias `ls`) to see what's
   running, `stop` to shut one down cleanly, `gc` to clean up after
   detached boots that crashed.
-- **Run signed remote recipes in a VM.** `mn run claude-code` resolves
-  `machinen.dev/run/claude-code`, verifies its Ed25519 signature, and
-  shows the requested capabilities before first use. Images are cached
-  by recipe digest, state is isolated under `~/.machinen/run/state`,
+- **Run signed remote recipes in a VM.** Run
+  `mn run machinen.dev/run/claude-code` to verify the recipe's Ed25519
+  signature and show its requested capabilities before first use.
+  Images are cached by recipe digest, state is isolated under
+  `~/.machinen/run/state`,
   and recipes cannot choose arbitrary host paths. Use
   `--session <name>` to reconnect later or `--digest` to pin exact content.
 - **Drive it from an agent.** `--json` on every data-returning
@@ -52,7 +53,6 @@ Both `machinen` and the shorter alias `mn` are installed. To run a signed
 recipe without adding the package to a project first:
 
 ```bash
-npx @machinen/cli run claude-code
 npx @machinen/cli run machinen.dev/run/claude-code
 ```
 
@@ -81,14 +81,13 @@ npx machinen fork worker --new-name worker-b --detach
 npx machinen stop worker
 npx @machinen/cli run list
 npx @machinen/cli run machinen.dev/run/claude-code --inspect
-npx @machinen/cli run command-code
-npx @machinen/cli run claude-code --session work
-npx @machinen/cli run codex --session work
+npx @machinen/cli run machinen.dev/run/command-code
+npx @machinen/cli run machinen.dev/run/claude-code --session work
+npx @machinen/cli run machinen.dev/run/codex --session work
 ```
 
-After the subcommand, the first positional is the target VM. Pass a
-name for a registered VM, or a host pid (digits-only) to identify it
-by process.
+For commands that act on a running VM, the first positional is the
+target. Pass a registered VM name or a host pid (digits-only).
 
 ## Reference
 

@@ -114,16 +114,13 @@ export function normalizeRunRecipeReference(reference: string): string {
   if (trimmed.length === 0) {
     throw new Error("run recipe reference cannot be empty");
   }
-  if (/^[a-z0-9][a-z0-9-]{0,63}$/.test(trimmed)) {
-    return `${REGISTRY_ORIGIN}/run/${trimmed}`;
-  }
   const withProtocol = trimmed.startsWith("machinen.dev/") ? `https://${trimmed}` : trimmed;
   let url: URL;
   try {
     url = new URL(withProtocol);
   } catch {
     throw new Error(
-      `invalid run recipe reference: ${reference}\nExpected a recipe name or machinen.dev/run/<name>.`,
+      `invalid run recipe URL: ${reference}\nExpected machinen.dev/run/<name> or https://machinen.dev/run/<name>.`,
     );
   }
   validateOfficialRecipeUrl(url);

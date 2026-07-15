@@ -456,14 +456,14 @@ async function printRunList(): Promise<void> {
   const registry = await loadRunRegistry();
   for (const recipe of registry.recipes) {
     const aliases = recipe.aliases?.length ? recipe.aliases.join(",") : "-";
-    process.stdout.write(`${recipe.name}\t${recipe.summary}\t${recipe.source}\t${aliases}\n`);
+    process.stdout.write(`${recipe.source}\t${recipe.summary}\t${aliases}\n`);
   }
 }
 
 function printRunHelp(): void {
   process.stdout.write(
     `Usage:\n` +
-      `  machinen run <recipe|machinen.dev/run/recipe> [options] [-- <args...>]\n` +
+      `  machinen run <machinen.dev/run/recipe> [options] [-- <args...>]\n` +
       `  machinen run list\n` +
       `\n` +
       `Options:\n` +
@@ -480,8 +480,8 @@ function printRunHelp(): void {
       `\n` +
       `Examples:\n` +
       `  machinen run machinen.dev/run/claude-code\n` +
-      `  machinen run claude-code --inspect\n` +
-      `  machinen run pi --trust\n` +
-      `  machinen run codex --session work\n`,
+      `  machinen run https://machinen.dev/run/claude-code --inspect\n` +
+      `  machinen run machinen.dev/run/pi --trust\n` +
+      `  machinen run machinen.dev/run/codex --session work\n`,
   );
 }

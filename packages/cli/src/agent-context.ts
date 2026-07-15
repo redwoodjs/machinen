@@ -375,9 +375,9 @@ export const COMMANDS: CommandSpec[] = [
     jsonOutput: false,
     positionals: [
       {
-        name: "recipe",
+        name: "recipe-url",
         description:
-          "Recipe name or machinen.dev/run/<name>. Use 'list' to fetch the signed registry index.",
+          "A machinen.dev/run/<name> URL. Use 'list' to fetch runnable URLs from the signed registry index.",
       },
     ],
     flags: [

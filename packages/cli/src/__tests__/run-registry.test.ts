@@ -47,14 +47,17 @@ function signedEnvelope(payload: unknown) {
 }
 
 describe("run recipe references", () => {
-  it("resolves recipe names and schemeless machinen.dev URLs", () => {
-    expect(normalizeRunRecipeReference("claude-code")).toBe("https://machinen.dev/run/claude-code");
+  it("accepts full and schemeless machinen.dev URLs", () => {
     expect(normalizeRunRecipeReference("machinen.dev/run/claude-code")).toBe(
+      "https://machinen.dev/run/claude-code",
+    );
+    expect(normalizeRunRecipeReference("https://machinen.dev/run/claude-code")).toBe(
       "https://machinen.dev/run/claude-code",
     );
   });
 
-  it("rejects third-party origins, HTTP, and URL parameters", () => {
+  it("rejects shorthand names, third-party origins, HTTP, and URL parameters", () => {
+    expect(() => normalizeRunRecipeReference("claude-code")).toThrow(/invalid run recipe URL/);
     expect(() => normalizeRunRecipeReference("https://example.com/run/tool")).toThrow(
       /untrusted run recipe origin/,
     );
@@ -154,7 +157,7 @@ describe("run recipe fetching", () => {
     const envelope = signedEnvelope(recipe);
     const fetchImpl = vi.fn(async () => new Response(envelope.raw)) as unknown as typeof fetch;
 
-    const verified = await loadRunRecipe("test-tool", {
+    const verified = await loadRunRecipe("machinen.dev/run/test-tool", {
       fetchImpl,
       cacheDir: dir,
       trustedKeys: envelope.keys,
@@ -168,7 +171,7 @@ describe("run recipe fetching", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-run-registry-test-"));
     const envelope = signedEnvelope(recipe);
     const available = vi.fn(async () => new Response(envelope.raw)) as unknown as typeof fetch;
-    await loadRunRecipe("test-tool", {
+    await loadRunRecipe("machinen.dev/run/test-tool", {
       fetchImpl: available,
       cacheDir: dir,
       trustedKeys: envelope.keys,
@@ -178,7 +181,7 @@ describe("run recipe fetching", () => {
     const unavailable = vi.fn(async () => {
       throw new Error("offline");
     }) as unknown as typeof fetch;
-    const cached = await loadRunRecipe("test-tool", {
+    const cached = await loadRunRecipe("machinen.dev/run/test-tool", {
       fetchImpl: unavailable,
       cacheDir: dir,
       trustedKeys: envelope.keys,
@@ -198,9 +201,9 @@ describe("run recipe fetching", () => {
         }),
     ) as unknown as typeof fetch;
 
-    await expect(loadRunRecipe("test-tool", { fetchImpl: redirected })).rejects.toThrow(
-      /untrusted run recipe origin/,
-    );
+    await expect(
+      loadRunRecipe("machinen.dev/run/test-tool", { fetchImpl: redirected }),
+    ).rejects.toThrow(/untrusted run recipe origin/);
   });
 });
 
