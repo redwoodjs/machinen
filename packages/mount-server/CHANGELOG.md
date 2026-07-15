@@ -1,5 +1,7 @@
 # @machinen/mount-server
 
+## 0.8.0
+
 ## 0.7.2
 
 ## 0.7.1

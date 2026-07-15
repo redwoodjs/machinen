@@ -1,5 +1,15 @@
 # @machinen/cli
 
+## 0.8.0
+
+### Minor Changes
+
+- 04ee573: Add signed remote recipes to `machinen run`, with capability approval, isolated persistent state, digest-pinned image caches, and optional persistent PTY sessions.
+
+### Patch Changes
+
+- @machinen/runtime@0.8.0
+
 ## 0.7.2
 
 ### Patch Changes
