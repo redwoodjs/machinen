@@ -299,10 +299,13 @@ function hasWritableLiveMount(liveMounts: ResolvedLiveMount[]): boolean {
 }
 
 function wrapBatchWorkloadCommand(cmd: string[]): string[] {
+  // Remove the sync script only after a successful flush. The supervisor treats its presence
+  // as a fallback signal; leaving it behind would mirror the just-replaced lower a second time
+  // through an overlay whose cached lower dentries are now stale.
   const batchScript =
     "batch_sync() { " +
     "if [ -s /run/machinen-batch-sync.sh ]; then " +
-    "sh /run/machinen-batch-sync.sh; fi; }; " +
+    "sh /run/machinen-batch-sync.sh && rm -f /run/machinen-batch-sync.sh; fi; }; " +
     '"$@" & child=$!; ' +
     "trap 'kill -TERM \"$child\" 2>/dev/null' TERM; " +
     "trap 'kill -INT \"$child\" 2>/dev/null' INT; " +
