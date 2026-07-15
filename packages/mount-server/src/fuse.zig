@@ -765,8 +765,12 @@ fn decref_inode(state: *State, ino: u64, n: u64) void {
     if (e.nlookup == NLOOKUP_PINNED) return; // root pinned
     if (n >= e.nlookup) {
         // Drop the entry; free its owned path before remove() invalidates the value pointer.
+        // An unlinked path may already have been recreated under a newer nodeid. FORGET for
+        // the old nodeid must not remove that replacement from the path index.
         const path_to_free = e.rel_path;
-        _ = state.path_index.remove(path_to_free);
+        if (state.path_index.get(path_to_free)) |indexed_ino| {
+            if (indexed_ino == ino) _ = state.path_index.remove(path_to_free);
+        }
         _ = state.inodes.remove(ino);
         state.gpa.free(path_to_free);
     } else {
@@ -1312,6 +1316,10 @@ fn unlink_or_rmdir(
     if (rc != 0) {
         return try build_error_reply(state, hdr.unique, map_fs_error(errno_to_zig_error(errno())));
     }
+    // A FUSE nodeid cannot identify a different inode until the kernel sends FORGET. Stop
+    // reusing the deleted path's nodeid now so an immediate recreate gets a fresh identity.
+    // Keep the old inode entry alive for any outstanding kernel references and open handles.
+    _ = state.path_index.remove(child_rel);
     return try build_error_reply(state, hdr.unique, 0);
 }
 
@@ -2419,6 +2427,42 @@ fn test_lookup(state: *State, name: []const u8) !u64 {
     return std.mem.readInt(u64, r[FUSE_OUT_HEADER_SIZE..][0..8], .little);
 }
 
+fn test_mkdir(state: *State, name: []const u8) !u64 {
+    assert(name.len > 0);
+    var body: [8 + 128]u8 = @splat(0);
+    std.mem.writeInt(u32, body[0..4], 0o755, .little);
+    @memcpy(body[8..][0..name.len], name);
+    const frame = try test_build_frame(
+        state.gpa,
+        @intFromEnum(Op.MKDIR),
+        1,
+        1,
+        body[0 .. 8 + name.len + 1],
+    );
+    defer state.gpa.free(frame);
+    const r = (try dispatch(state, frame)) orelse return error.ExpectedReply;
+    defer state.gpa.free(r);
+    if (std.mem.readInt(i32, r[4..8], .little) != 0) return error.MkdirFailed;
+    return std.mem.readInt(u64, r[FUSE_OUT_HEADER_SIZE..][0..8], .little);
+}
+
+fn test_rmdir(state: *State, name: []const u8) !void {
+    assert(name.len > 0);
+    var body: [128]u8 = @splat(0);
+    @memcpy(body[0..name.len], name);
+    const frame = try test_build_frame(
+        state.gpa,
+        @intFromEnum(Op.RMDIR),
+        1,
+        1,
+        body[0 .. name.len + 1],
+    );
+    defer state.gpa.free(frame);
+    const r = (try dispatch(state, frame)) orelse return error.ExpectedReply;
+    defer state.gpa.free(r);
+    if (std.mem.readInt(i32, r[4..8], .little) != 0) return error.RmdirFailed;
+}
+
 fn test_open(state: *State, nodeid: u64, flags: u32) !u64 {
     var body: [8]u8 = @splat(0);
     std.mem.writeInt(u32, body[0..4], flags, .little);
@@ -2428,6 +2472,34 @@ fn test_open(state: *State, nodeid: u64, flags: u32) !u64 {
     defer state.gpa.free(r);
     if (std.mem.readInt(i32, r[4..8], .little) != 0) return error.OpenFailed;
     return std.mem.readInt(u64, r[FUSE_OUT_HEADER_SIZE..][0..8], .little);
+}
+
+test "dispatch: recreated directory receives a fresh nodeid until the old one is forgotten" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    var state = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
+    defer state.deinit();
+
+    const old_nodeid = try test_mkdir(&state, "recreated");
+    try test_rmdir(&state, "recreated");
+    const new_nodeid = try test_mkdir(&state, "recreated");
+    try testing.expect(old_nodeid != new_nodeid);
+    try testing.expectEqual(new_nodeid, state.path_index.get("recreated").?);
+
+    var forget_body: [8]u8 = undefined;
+    std.mem.writeInt(u64, &forget_body, 1, .little);
+    const forget = try test_build_frame(
+        gpa,
+        @intFromEnum(Op.FORGET),
+        1,
+        old_nodeid,
+        &forget_body,
+    );
+    defer gpa.free(forget);
+    try testing.expect((try dispatch(&state, forget)) == null);
+    try testing.expectEqual(new_nodeid, state.path_index.get("recreated").?);
 }
 
 test "dispatch: OPEN O_WRONLY handles writeback-cache read fill then WRITE existing file" {

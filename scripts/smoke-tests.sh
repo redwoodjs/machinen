@@ -428,14 +428,18 @@ echo "T5b: machinen boot --mount-live :rw — guest writes flush at workload exi
 T5B_MARKER="virtiofs-batch-marker-$$"
 T5B_SRC="$FIXTURE/virtiofs-batch-src"
 T5B_LOG="$FIXTURE/t5b.log"
-mkdir -p "$T5B_SRC"
+mkdir -p "$T5B_SRC/preserved/nested"
 echo "delete-me" >"$T5B_SRC/delete-me.txt"
+echo "keep-me" >"$T5B_SRC/preserved/nested/keep.txt"
 run_timeout 60 node "$CLI" boot \
   --mount-live "$T5B_SRC:/mnt/live:rw" \
   -- /bin/sh -c "echo $T5B_MARKER >/mnt/live/from-guest.txt && rm /mnt/live/delete-me.txt" \
   >"$T5B_LOG" 2>&1 || true
-if [[ -f "$T5B_SRC/from-guest.txt" ]] && grep -q "$T5B_MARKER" "$T5B_SRC/from-guest.txt" && [[ ! -e "$T5B_SRC/delete-me.txt" ]]; then
-  pass "guest write/delete through :rw live-mount flushed on workload exit"
+if [[ -f "$T5B_SRC/from-guest.txt" ]] && grep -q "$T5B_MARKER" "$T5B_SRC/from-guest.txt" &&
+  [[ ! -e "$T5B_SRC/delete-me.txt" ]] &&
+  [[ "$(cat "$T5B_SRC/preserved/nested/keep.txt" 2>/dev/null)" == "keep-me" ]] &&
+  ! grep -q "Stale file handle" "$T5B_LOG"; then
+  pass "guest write/delete through :rw live-mount flushed without dropping nested host files"
 else
   tail -80 "$T5B_LOG" >&2
   echo "  host file: $(ls -la "$T5B_SRC" 2>&1)" >&2
