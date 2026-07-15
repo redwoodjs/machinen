@@ -5,6 +5,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { attach, boot, list, provision, type LogEvent, type VmHandle } from "@machinen/runtime";
 
+import { resolveCliBaseAssets, type CliBaseAssetPaths } from "../base-assets.ts";
 import { DEFAULT_PTY_SESSION_NAME } from "../defaults.ts";
 import { die } from "../errors.ts";
 import { approveRunRecipe, hasRunRecipeApproval } from "../run-approval.ts";
@@ -31,6 +32,7 @@ interface RunOptions extends ParsedRunArgs {
   verified: VerifiedRunRecipe;
   imagePath: string;
   vmName: string;
+  baseAssets: CliBaseAssetPaths;
 }
 
 // fallow-ignore-next-line complexity
@@ -52,7 +54,8 @@ export async function cmdRun(args: string[]): Promise<number> {
     return 0;
   }
   await ensureRecipeApproved(verified, parsed.trust);
-  const opts = buildRunOptions(parsed, verified);
+  const baseAssets = await resolveCliBaseAssets();
+  const opts = buildRunOptions(parsed, verified, baseAssets);
   await ensureRecipeImage(opts);
   return await runRecipe(opts);
 }
@@ -123,12 +126,17 @@ function parseRunCommandArgs(args: string[]): ParsedRunArgs {
   };
 }
 
-function buildRunOptions(parsed: ParsedRunArgs, verified: VerifiedRunRecipe): RunOptions {
+function buildRunOptions(
+  parsed: ParsedRunArgs,
+  verified: VerifiedRunRecipe,
+  baseAssets: CliBaseAssetPaths,
+): RunOptions {
   return {
     ...parsed,
     verified,
     imagePath: recipeImagePath(verified),
     vmName: parsed.vmName ?? defaultSessionVmName(verified),
+    baseAssets,
   };
 }
 
@@ -327,6 +335,9 @@ async function ensureRecipeImage(opts: RunOptions): Promise<void> {
   mkdirSync(dirname(opts.imagePath), { recursive: true });
   process.stderr.write(`machinen: baking ${opts.verified.recipe.name} image...\n`);
   await provision({
+    base: opts.baseAssets.defaultImagePath,
+    kernel: opts.baseAssets.kernelPath,
+    dtb: opts.baseAssets.dtbPath,
     install: async (vm) => {
       await vm.exec(opts.verified.recipe.install.join("\n"));
     },
@@ -353,6 +364,8 @@ async function runRecipeForeground(opts: RunOptions): Promise<number> {
   ensureStateDirs(opts.verified.recipe);
   const vm = await boot({
     image: opts.imagePath,
+    kernel: opts.baseAssets.kernelPath,
+    dtb: opts.baseAssets.dtbPath,
     liveMounts: liveMountsForRecipe(opts.verified.recipe),
     guestCwd: guestCwdForRecipe(opts.verified.recipe),
     cmd: recipeCommand(opts),
@@ -390,6 +403,8 @@ async function attachOrBootSessionVm(opts: RunOptions): Promise<VmHandle> {
   await boot({
     name: opts.vmName,
     image: opts.imagePath,
+    kernel: opts.baseAssets.kernelPath,
+    dtb: opts.baseAssets.dtbPath,
     liveMounts: liveMountsForRecipe(opts.verified.recipe),
     guestCwd: guestCwdForRecipe(opts.verified.recipe),
     cmd: ["/bin/bash", "-lc", "sleep infinity"],
