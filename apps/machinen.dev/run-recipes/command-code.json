@@ -3,7 +3,17 @@
   "publisher": "machinen.dev",
   "name": "command-code",
   "summary": "Run Command Code inside a VM.",
-  "install": "fnm install 24.16.0\nfnm default 24.16.0\nnpm install -g command-code@0.44.1\ncmd --version",
+  "install": [
+    "set -e",
+    "apt-get update",
+    "apt-get install -y --no-install-recommends git ca-certificates openssh-client",
+    "rm -rf /var/lib/apt/lists/*",
+    "fnm install 24.16.0",
+    "fnm default 24.16.0",
+    "npm install -g command-code@0.44.1",
+    "git --version",
+    "cmd --version"
+  ],
   "command": ["cmd"],
   "permissions": {
     "network": true,

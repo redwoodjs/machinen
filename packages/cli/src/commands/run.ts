@@ -328,7 +328,7 @@ async function ensureRecipeImage(opts: RunOptions): Promise<void> {
   process.stderr.write(`machinen: baking ${opts.verified.recipe.name} image...\n`);
   await provision({
     install: async (vm) => {
-      await vm.exec(opts.verified.recipe.install);
+      await vm.exec(opts.verified.recipe.install.join("\n"));
     },
     out: opts.imagePath,
     onLog: writeProvisionLog,

@@ -3,10 +3,13 @@
 Files in this directory are the reviewed source for `machinen.dev/run/*`.
 They are declarative: install commands run inside a provisioning microVM, and
 recipes can request only outbound networking, the current workspace, and named
-state directories managed below `~/.machinen/run/state`.
+state directories managed below `~/.machinen/run/state`. The `install` field is
+an array where each item becomes one line in the provisioning shell script.
 
 A recipe cannot select arbitrary host paths, inherit host environment variables,
-or execute JavaScript on the host.
+or execute JavaScript on the host. First-party coding-agent recipes bake in Git,
+CA certificates, and the OpenSSH client so they can work with repositories without
+changing the minimal base rootfs.
 
 ## Publishing a recipe
 

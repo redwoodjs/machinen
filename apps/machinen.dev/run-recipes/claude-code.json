@@ -4,7 +4,17 @@
   "name": "claude-code",
   "aliases": ["claude"],
   "summary": "Run Claude Code inside a VM.",
-  "install": "fnm install 24.16.0\nfnm default 24.16.0\nnpm install -g @anthropic-ai/claude-code@2.1.209\nclaude --version",
+  "install": [
+    "set -e",
+    "apt-get update",
+    "apt-get install -y --no-install-recommends git ca-certificates openssh-client",
+    "rm -rf /var/lib/apt/lists/*",
+    "fnm install 24.16.0",
+    "fnm default 24.16.0",
+    "npm install -g @anthropic-ai/claude-code@2.1.209",
+    "git --version",
+    "claude --version"
+  ],
   "command": ["claude"],
   "env": {
     "CLAUDE_CONFIG_DIR": "/root/.claude"

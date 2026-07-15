@@ -25,7 +25,7 @@ export interface RunRecipe {
   name: string;
   aliases?: string[];
   summary: string;
-  install: string;
+  install: string[];
   command: string[];
   env?: Record<string, string>;
   permissions: {
@@ -327,10 +327,7 @@ function parseRunRecipe(value: unknown): RunRecipe {
   const aliases =
     recipe.aliases === undefined ? undefined : expectSlugArray(recipe.aliases, "recipe.aliases");
   const summary = expectString(recipe.summary, "recipe.summary", 240);
-  const install = expectString(recipe.install, "recipe.install", 32 * 1024);
-  if (install.trim().length === 0) {
-    throw new Error("recipe.install cannot be empty");
-  }
+  const install = parseInstall(recipe.install);
   return {
     schemaVersion: 1,
     publisher: "machinen.dev",
@@ -342,6 +339,25 @@ function parseRunRecipe(value: unknown): RunRecipe {
     ...(recipe.env === undefined ? {} : { env: parseEnv(recipe.env) }),
     permissions: parsePermissions(recipe.permissions),
   };
+}
+
+function parseInstall(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 256) {
+    throw new Error("recipe.install must contain 1-256 shell lines");
+  }
+  const lines = value.map(parseInstallLine);
+  if (lines.join("\n").length > 32 * 1024) {
+    throw new Error("recipe.install cannot exceed 32768 characters");
+  }
+  return lines;
+}
+
+function parseInstallLine(value: unknown, index: number): string {
+  const line = expectString(value, `recipe.install[${index}]`, 8192);
+  if (line.includes("\0") || line.includes("\n") || line.includes("\r")) {
+    throw new Error(`recipe.install[${index}] must be exactly one shell line`);
+  }
+  return line;
 }
 
 function parseCommand(value: unknown): string[] {

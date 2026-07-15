@@ -19,7 +19,7 @@ const recipe: RunRecipe = {
   publisher: "machinen.dev",
   name: "test-tool",
   summary: "A test recipe.",
-  install: "echo install",
+  install: ["set -e", "echo install"],
   command: ["test-tool"],
   permissions: {
     network: true,
@@ -99,6 +99,14 @@ describe("signed run recipes", () => {
     ).toThrow(/signature verification failed/);
   });
 
+  it("rejects embedded newlines in install entries", () => {
+    const envelope = signedEnvelope({ ...recipe, install: ["echo one\necho two"] });
+
+    expect(() =>
+      verifyRunRecipeEnvelope(envelope.raw, "https://machinen.dev/run/test-tool", envelope.keys),
+    ).toThrow(/must be exactly one shell line/);
+  });
+
   it("rejects recipe-selected host paths even when the payload is signed", () => {
     const unsafe = structuredClone(recipe) as unknown as Record<string, unknown>;
     const permissions = unsafe.permissions as { state: Array<Record<string, unknown>> };
@@ -128,6 +136,10 @@ describe("published machinen.dev recipes", () => {
         `https://machinen.dev/run/${endpoint}`,
       );
       expect(verified.recipe.name).toBe(recipeName);
+      expect(verified.recipe.install).toContain(
+        "apt-get install -y --no-install-recommends git ca-certificates openssh-client",
+      );
+      expect(verified.recipe.install).toContain("git --version");
     }
   });
 

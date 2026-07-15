@@ -63,7 +63,7 @@ function validateRecipe(recipe, filename) {
   validateRecipeIdentity(recipe, filename);
   validateRecipeAliases(recipe.aliases, filename);
   assertString(recipe.summary, `${filename}: summary`);
-  assertString(recipe.install, `${filename}: install`);
+  validateRecipeInstall(recipe.install, filename);
   validateRecipeCommand(recipe.command, filename);
   validateEnv(recipe.env, filename);
   validatePermissions(recipe.permissions, filename);
@@ -79,6 +79,22 @@ function validateRecipeIdentity(recipe, filename) {
 function validateRecipeAliases(aliases, filename) {
   if (aliases !== undefined) {
     assertSlugArray(aliases, `${filename}: aliases`);
+  }
+}
+
+function validateRecipeInstall(install, filename) {
+  if (!Array.isArray(install) || install.length === 0) {
+    throw new Error(`${filename}: install must be a non-empty array of shell lines`);
+  }
+  for (const line of install) {
+    assertInstallLine(line, filename);
+  }
+}
+
+function assertInstallLine(line, filename) {
+  assertString(line, `${filename}: install line`);
+  if (line.includes("\n") || line.includes("\r")) {
+    throw new Error(`${filename}: each install entry must be exactly one shell line`);
   }
 }
 
