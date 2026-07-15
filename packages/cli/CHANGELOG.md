@@ -1,5 +1,12 @@
 # @machinen/cli
 
+## 0.8.1
+
+### Patch Changes
+
+- 8a25cae: Download missing base assets automatically before baking or starting signed run recipes.
+  - @machinen/runtime@0.8.1
+
 ## 0.8.0
 
 ### Minor Changes

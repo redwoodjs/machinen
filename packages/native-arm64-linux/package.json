@@ -1,6 +1,6 @@
 {
   "name": "@machinen/native-arm64-linux",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Machinen host-side native binaries for arm64 linux — VMM (KVM) + gvproxy + guest ELFs, mke2fs, and mksquashfs. Consolidates what used to be several per-tool packages.",
   "license": "FSL-1.1-MIT",
   "repository": {
