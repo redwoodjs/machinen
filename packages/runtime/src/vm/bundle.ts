@@ -298,15 +298,20 @@ function hasWritableLiveMount(liveMounts: ResolvedLiveMount[]): boolean {
   return liveMounts.some((mount) => mount.mode === "rw");
 }
 
-function wrapBatchWorkloadCommand(cmd: string[]): string[] {
+export function wrapBatchWorkloadCommand(cmd: string[]): string[] {
   // Remove the sync script only after a successful flush. The supervisor treats its presence
   // as a fallback signal; leaving it behind would mirror the just-replaced lower a second time
   // through an overlay whose cached lower dentries are now stale.
+  //
+  // Preserve stdin on another descriptor before starting the asynchronous command. POSIX shells
+  // connect an async command's fd 0 to /dev/null before applying its redirections, so `<&0` alone
+  // would still copy /dev/null. Restore the saved descriptor in the child, then close both copies
+  // that are no longer needed. Without this, interactive workloads see immediate EOF and exit.
   const batchScript =
     "batch_sync() { " +
     "if [ -s /run/machinen-batch-sync.sh ]; then " +
     "sh /run/machinen-batch-sync.sh && rm -f /run/machinen-batch-sync.sh; fi; }; " +
-    '"$@" & child=$!; ' +
+    'exec 3<&0; "$@" <&3 3<&- & child=$!; exec 3<&-; ' +
     "trap 'kill -TERM \"$child\" 2>/dev/null' TERM; " +
     "trap 'kill -INT \"$child\" 2>/dev/null' INT; " +
     'wait "$child"; status=$?; ' +
