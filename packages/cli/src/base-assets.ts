@@ -11,9 +11,11 @@ import {
 } from "node:fs";
 import { arch as osArch, homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 import pkg from "../package.json" with { type: "json" };
+import { DownloadProgress } from "./download-progress.ts";
 import { die } from "./errors.ts";
 import { isQuiet } from "./quiet.ts";
 
@@ -108,7 +110,10 @@ function validateAssetsDir(dir: string): void {
   }
 }
 
-export async function ensureBaseAssets(tag: string): Promise<string> {
+export async function ensureBaseAssets(
+  tag: string,
+  opts: { progress?: boolean } = {},
+): Promise<string> {
   const spec = baseAssetSpec();
   const base = baseDirFor(tag, "debian", spec.cpu);
   if (cachedBaseAssetsReady(base, spec)) {
@@ -116,7 +121,7 @@ export async function ensureBaseAssets(tag: string): Promise<string> {
   }
 
   mkdirSync(base, { recursive: true });
-  await downloadBaseAssets(tag, base, spec);
+  await downloadBaseAssets(tag, base, spec, opts.progress !== false);
   replaceCurrentBaseSymlink(tag);
   return base;
 }
@@ -125,10 +130,25 @@ function cachedBaseAssetsReady(base: string, spec: BaseAssetSpec): boolean {
   return cachedBaseAssetFiles(spec).every((file) => existsSync(join(base, file)));
 }
 
-async function downloadBaseAssets(tag: string, base: string, spec: BaseAssetSpec): Promise<void> {
-  await Promise.all(
-    baseAssetDownloads(base, spec).map((a) => downloadWithChecksum(a.name, a.dest, tag)),
-  );
+async function downloadBaseAssets(
+  tag: string,
+  base: string,
+  spec: BaseAssetSpec,
+  reportProgress: boolean,
+): Promise<void> {
+  const downloads = baseAssetDownloads(base, spec);
+  const progress = reportProgress ? new DownloadProgress(downloads.map(({ name }) => name)) : null;
+  let success = false;
+  try {
+    await Promise.all(
+      downloads.map((download) =>
+        downloadWithChecksum(download.name, download.dest, tag, progress),
+      ),
+    );
+    success = true;
+  } finally {
+    progress?.close(success);
+  }
 }
 
 function baseAssetDownloads(
@@ -169,12 +189,17 @@ function isSymlink(p: string): boolean {
   }
 }
 
-async function downloadWithChecksum(asset: string, dest: string, tag: string): Promise<void> {
+async function downloadWithChecksum(
+  asset: string,
+  dest: string,
+  tag: string,
+  progress: DownloadProgress | null,
+): Promise<void> {
   const tmp = `${dest}.partial`;
   if (!isQuiet()) {
     process.stderr.write(`  fetch ${asset}\n`);
   }
-  await downloadAsset(asset, tmp, tag);
+  await downloadAsset(asset, tmp, tag, progress);
 
   const sha = (await fetchAssetText(`${asset}.sha256`, tag)).trim().split(/\s+/)[0];
   const got = sha256OfFile(tmp);
@@ -189,7 +214,12 @@ function assetUrl(name: string, tag: string): string {
   return `${ASSETS_BASE_URL}/${encodeURIComponent(tag)}/${encodeURIComponent(name)}`;
 }
 
-async function downloadAsset(name: string, dest: string, tag: string): Promise<void> {
+async function downloadAsset(
+  name: string,
+  dest: string,
+  tag: string,
+  progress: DownloadProgress | null,
+): Promise<void> {
   mkdirSync(dirname(dest), { recursive: true });
   const url = assetUrl(name, tag);
   const res = await fetch(url, { redirect: "follow" });
@@ -200,7 +230,24 @@ async function downloadAsset(name: string, dest: string, tag: string): Promise<v
         "  check that the release tag exists on github.com/redwoodjs/machinen.",
     );
   }
-  await pipeline(res.body as unknown as NodeJS.ReadableStream, createWriteStream(dest));
+  progress?.beginAsset(name, responseContentLength(res));
+  const countBytes = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      progress?.addBytes(name, chunk.byteLength);
+      callback(null, chunk);
+    },
+  });
+  await pipeline(res.body as unknown as NodeJS.ReadableStream, countBytes, createWriteStream(dest));
+  progress?.finishAsset(name);
+}
+
+function responseContentLength(response: Response): number | undefined {
+  const value = response.headers.get("content-length");
+  if (value === null || !/^\d+$/.test(value)) {
+    return undefined;
+  }
+  const bytes = Number(value);
+  return Number.isSafeInteger(bytes) ? bytes : undefined;
 }
 
 async function fetchAssetText(name: string, tag: string): Promise<string> {
