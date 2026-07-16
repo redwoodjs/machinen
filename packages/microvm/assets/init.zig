@@ -574,12 +574,44 @@ fn mount_live_batch(lm: LiveMount) void {
 fn init_batch_sync_script(mounts: []LiveMount) void {
     std.debug.assert(mounts.len > 0);
     if (!needs_batch_sync_script(mounts)) return;
+    // Provisioned images exclude /run. Create it before writing the shared header;
+    // mount_live_batch() creates it later, but by then only per-mount entries remain.
+    mkdir_parents("/run");
     const fd = open(BATCH_SYNC_SCRIPT, O_WRONLY | O_CREAT | O_TRUNC, @as(c_uint, 0o755));
     if (fd < 0) return;
     defer _ = close(fd);
     write_str(fd,
         \\#!/bin/sh
         \\set -u
+        \\prune_batch_lower() {
+        \\  guest="$1"
+        \\  lower="$2"
+        \\  keep="$3"
+        \\  find "$lower" -depth -mindepth 1 -exec sh -c '
+        \\    guest="$1"
+        \\    lower="$2"
+        \\    keep="$3"
+        \\    shift 3
+        \\    for p do
+        \\      [ "$p" = "$keep" ] && continue
+        \\      rel=${p#"$lower"/}
+        \\      g="$guest/$rel"
+        \\      if [ ! -e "$g" ] && [ ! -L "$g" ]; then
+        \\        rm -rf -- "$p"
+        \\        continue
+        \\      fi
+        \\      remove=0
+        \\      if [ -L "$p" ]; then
+        \\        [ -L "$g" ] || remove=1
+        \\      elif [ -d "$p" ]; then
+        \\        { [ -d "$g" ] && [ ! -L "$g" ]; } || remove=1
+        \\      elif [ -f "$p" ]; then
+        \\        { [ -f "$g" ] && [ ! -L "$g" ]; } || remove=1
+        \\      fi
+        \\      [ "$remove" -eq 0 ] || rm -rf -- "$p"
+        \\    done
+        \\  ' sh "$guest" "$lower" {} +
+        \\}
         \\
     );
 }
@@ -606,13 +638,12 @@ fn append_batch_sync_entry(guest: []const u8, lower: []const u8) void {
     write_str(fd, "\n");
     write_str(fd,
         \\if [ -d "$guest" ] && [ -d "$lower" ]; then
-        \\  tmp="/run/machinen-batch-sync-$$.tar"
-        \\  rm -f "$tmp"
-        \\  (cd "$guest" && tar -cf "$tmp" .) || { rm -f "$tmp"; exit 1; }
-        \\  for p in "$lower"/..?* "$lower"/.[!.]* "$lower"/*; do
-        \\    [ -e "$p" ] || [ -L "$p" ] || continue
-        \\    rm -rf "$p"
-        \\  done
+        \\  # Store the snapshot on the host-backed lower; /run may be smaller than the share.
+        \\  tmp=$(mktemp "$lower/.machinen-batch-sync-XXXXXX") || exit 1
+        \\  tmp_name=${tmp##*/}
+        \\  (cd "$guest" && tar --exclude="./$tmp_name" -cf "$tmp" .) || { rm -f "$tmp"; exit 1; }
+        \\  # Preserve matching paths and their FUSE identities; prune only deletions/type changes.
+        \\  prune_batch_lower "$guest" "$lower" "$tmp" || { rm -f "$tmp"; exit 1; }
         \\  (cd "$lower" && tar -xf "$tmp")
         \\  status=$?
         \\  rm -f "$tmp"
