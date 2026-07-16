@@ -21,6 +21,7 @@
 #   T3v    --mount-live :ro streams host data and rejects guest writes — #332.
 #   T5v    --mount-live :rw guest writes flush to the host — #332.
 #   T5b    --mount-live :rw stages writes and flushes on workload exit.
+#   T5i    --mount-live :rw keeps interactive workload stdin attached.
 #   T9v    filesystem-op battery over a virtio-fs live mount — #332.
 #   T4     --env propagates into the guest process env — #89.
 #   P1-P4  Base-rootfs asset contract (criu availability, mounted
@@ -455,6 +456,23 @@ else
   tail -80 "$T5B_LOG" >&2
   echo "  host file: $(ls -la "$T5B_SRC" 2>&1)" >&2
   fail "T5b batch flush did not publish expected host tree"
+fi
+
+# ---- T5i: writable live-mount wrapper preserves interactive stdin ----
+echo "T5i: machinen boot --mount-live :rw — workload stdin remains attached"
+T5I_MARKER="virtiofs-stdin-marker-$$"
+T5I_SRC="$FIXTURE/virtiofs-stdin-src"
+T5I_LOG="$FIXTURE/t5i.log"
+mkdir -p "$T5I_SRC"
+(sleep 3; printf '%s\n' "$T5I_MARKER") | node "$CLI" boot \
+  --mount-live "$T5I_SRC:/mnt/live:rw" \
+  -- /bin/sh -c 'tty; IFS= read -r line && printf "stdin-marker:%s\n" "$line"' \
+  >"$T5I_LOG" 2>&1 || true
+if grep -q '/dev/tty' "$T5I_LOG" && grep -q "stdin-marker:$T5I_MARKER" "$T5I_LOG"; then
+  pass "writable live-mount wrapper preserved the workload terminal and stdin"
+else
+  tail -80 "$T5I_LOG" >&2
+  fail "T5i workload stdin was detached from the guest terminal"
 fi
 
 # ---- T9v: filesystem-operations coverage over a virtio-fs live mount ----
