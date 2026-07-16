@@ -231,6 +231,27 @@ describe("packBundle mount", () => {
     expect(parsed.cmd).toEqual(["/bin/true"]);
   });
 
+  it("overrides lifecycle assets from an older custom image", () => {
+    const bundle = makeEmptyBundle();
+    const oldSbin = join(bundle, "rootfs", "sbin");
+    mkdirSync(oldSbin, { recursive: true });
+    writeFileSync(join(oldSbin, "machinen-supervisor"), "old-supervisor");
+    writeFileSync(join(oldSbin, "machinen-restore"), "old-restore");
+
+    const microvm = join(process.cwd(), "packages", "microvm");
+    const current = join(microvm, "assets");
+    const out = join(tmp, "current-lifecycle.cpio");
+    packBundle({ bundle, out, initPath: makeStubInit() });
+
+    const entries = listCpioEntries(out);
+    expect(entries.get("sbin/machinen-supervisor")?.data).toEqual(
+      readFileSync(join(microvm, "zig-out", "bin", "machinen-supervisor")),
+    );
+    expect(entries.get("sbin/machinen-restore")?.data).toEqual(
+      readFileSync(join(current, "machinen-restore.sh")),
+    );
+  });
+
   // #253: a cpio without /init silently produces an opaque kernel
   // panic at boot ("Can't open blockdev"). Both packTinyBundle and
   // packBundle inject /init from a host path; if that path is missing
@@ -339,6 +360,8 @@ describe("packBundle mount", () => {
     expect(entries.has("init")).toBe(true);
     expect(entries.has("machinen-config.json")).toBe(true);
     expect(entries.has("etc/machinen-boot-epoch")).toBe(true);
+    expect(entries.has("sbin/machinen-supervisor")).toBe(true);
+    expect(entries.has("sbin/machinen-restore")).toBe(true);
     expect(entries.has("dev/console")).toBe(true);
     // Must-not-haves: the legacy /modules/*.ko tree is gone now that
     // the kernel ships virtio_*, ext4, vsock, fuse compiled in.

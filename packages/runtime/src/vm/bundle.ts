@@ -254,10 +254,10 @@ function resolveBundleImage(opts: BootOptions, packerOpts: BundlePackerOptions):
   return { baseAbs, imageConfig };
 }
 
-function planBundleCommand(
+export function planBundleCommand(
   opts: BootOptions,
   imageConfig: BundleImageConfig | undefined,
-  liveMounts: ResolvedLiveMount[],
+  _liveMounts: ResolvedLiveMount[],
 ): string[] {
   const cmd = opts.cmd ?? fallbackBundleCommand(opts, imageConfig);
   if (!cmd) {
@@ -269,11 +269,13 @@ function planBundleCommand(
   if (isSupervisorCommand(cmd)) {
     return cmd;
   }
-  const workload = hasWritableLiveMount(liveMounts) ? wrapBatchWorkloadCommand(cmd) : cmd;
+  // The guest supervisor owns final writable live-mount cleanup. Keep the
+  // workload argv untouched so mounts cannot alter stdin, tty, process-group,
+  // signal, or exit behavior.
   return [
     "/sbin/machinen-supervisor",
     ...(typeof opts.snapshot === "string" ? ["--session"] : []),
-    ...workload,
+    ...cmd,
   ];
 }
 
@@ -292,33 +294,6 @@ function fallbackBundleCommand(
 
 function isSupervisorCommand(cmd: string[]): boolean {
   return cmd[0] === "/exec-agent" || cmd[0] === "/sbin/machinen-restore";
-}
-
-function hasWritableLiveMount(liveMounts: ResolvedLiveMount[]): boolean {
-  return liveMounts.some((mount) => mount.mode === "rw");
-}
-
-export function wrapBatchWorkloadCommand(cmd: string[]): string[] {
-  // Remove the sync script only after a successful flush. The supervisor treats its presence
-  // as a fallback signal; leaving it behind would mirror the just-replaced lower a second time
-  // through an overlay whose cached lower dentries are now stale.
-  //
-  // Preserve stdin on another descriptor before starting the asynchronous command. POSIX shells
-  // connect an async command's fd 0 to /dev/null before applying its redirections, so `<&0` alone
-  // would still copy /dev/null. Restore the saved descriptor in the child, then close both copies
-  // that are no longer needed. Without this, interactive workloads see immediate EOF and exit.
-  const batchScript =
-    "batch_sync() { " +
-    "if [ -s /run/machinen-batch-sync.sh ]; then " +
-    "sh /run/machinen-batch-sync.sh && rm -f /run/machinen-batch-sync.sh; fi; }; " +
-    'exec 3<&0; "$@" <&3 3<&- & child=$!; exec 3<&-; ' +
-    "trap 'kill -TERM \"$child\" 2>/dev/null' TERM; " +
-    "trap 'kill -INT \"$child\" 2>/dev/null' INT; " +
-    'wait "$child"; status=$?; ' +
-    "batch_sync || { sync_status=$?; " +
-    'if [ "$status" -eq 0 ]; then status=$sync_status; fi; }; ' +
-    'exit "$status"';
-  return ["/bin/sh", "-c", batchScript, "machinen-batch-wrapper", ...cmd];
 }
 
 function mergeBundleEnv(

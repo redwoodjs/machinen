@@ -21,6 +21,9 @@
 #   T3v    --mount-live :ro streams host data and rejects guest writes — #332.
 #   T5v    --mount-live :rw guest writes flush to the host — #332.
 #   T5b    --mount-live :rw stages writes and flushes on workload exit.
+#   T5n    final sync preserves a non-zero workload exit.
+#   T5s    final sync runs after a signalled workload exit.
+#   T5f    failed final sync is diagnosed and retains its fallback.
 #   T5i    --mount-live :rw keeps interactive workload stdin attached.
 #   T9v    filesystem-op battery over a virtio-fs live mount — #332.
 #   T4     --env propagates into the guest process env — #89.
@@ -433,9 +436,13 @@ T5B_IMG="$FIXTURE/t5b-no-run.tar.gz"
 T5B_STAGE="$FIXTURE/t5b-no-run-stage"
 # provision() excludes /run from its output image. Reproduce that shape so init must
 # create /run before writing the shared batch-sync helper, not just the mount entries.
+# Also replace the image supervisor with a deliberately old, incapable version. The
+# per-boot initramfs must install the current supervisor before this workload starts.
 mkdir -p "$T5B_STAGE"
 tar -xzf "$ROOTFS_TAR" -C "$T5B_STAGE"
 rm -rf "$T5B_STAGE/run"
+printf '#!/bin/sh\nexec "$@"\n' >"$T5B_STAGE/sbin/machinen-supervisor"
+chmod 0755 "$T5B_STAGE/sbin/machinen-supervisor"
 tar -C "$T5B_STAGE" -czf "$T5B_IMG" .
 rm -rf "$T5B_STAGE"
 mkdir -p "$T5B_SRC/preserved/nested"
@@ -458,7 +465,61 @@ else
   fail "T5b batch flush did not publish expected host tree"
 fi
 
-# ---- T5i: writable live-mount wrapper preserves interactive stdin ----
+# ---- T5n: non-zero workload exit still flushes through the supervisor ----
+echo "T5n: machinen boot --mount-live :rw — non-zero workload exit still flushes"
+T5N_MARKER="virtiofs-nonzero-marker-$$"
+T5N_SRC="$FIXTURE/virtiofs-nonzero-src"
+T5N_LOG="$FIXTURE/t5n.log"
+mkdir -p "$T5N_SRC"
+run_timeout 60 node "$CLI" boot \
+  --mount-live "$T5N_SRC:/mnt/live:rw" \
+  -- /bin/sh -c "echo $T5N_MARKER >/mnt/live/nonzero.txt; exit 42" \
+  >"$T5N_LOG" 2>&1 || true
+if [[ -f "$T5N_SRC/nonzero.txt" ]] && grep -q "$T5N_MARKER" "$T5N_SRC/nonzero.txt" &&
+  grep -q "workload exited with status 42" "$T5N_LOG"; then
+  pass "supervisor flushed and diagnosed the non-zero workload status"
+else
+  tail -80 "$T5N_LOG" >&2
+  fail "T5n non-zero workload exit did not retain diagnostics and flush"
+fi
+
+# ---- T5s: signalled workload exit still flushes through the supervisor ----
+echo "T5s: machinen boot --mount-live :rw — SIGTERM exit still flushes"
+T5S_MARKER="virtiofs-signal-marker-$$"
+T5S_SRC="$FIXTURE/virtiofs-signal-src"
+T5S_LOG="$FIXTURE/t5s.log"
+mkdir -p "$T5S_SRC"
+run_timeout 60 node "$CLI" boot \
+  --mount-live "$T5S_SRC:/mnt/live:rw" \
+  -- /bin/sh -c "echo $T5S_MARKER >/mnt/live/signalled.txt; kill -TERM \$\$" \
+  >"$T5S_LOG" 2>&1 || true
+if [[ -f "$T5S_SRC/signalled.txt" ]] && grep -q "$T5S_MARKER" "$T5S_SRC/signalled.txt" &&
+  grep -q "workload exited with status 143" "$T5S_LOG"; then
+  pass "supervisor flushed and diagnosed the SIGTERM workload status"
+else
+  tail -80 "$T5S_LOG" >&2
+  fail "T5s signalled workload exit did not retain diagnostics and flush"
+fi
+
+# ---- T5f: failed sync is visible and leaves staged writes unpublished ----
+echo "T5f: machinen boot --mount-live :rw — sync failure remains diagnosable"
+T5F_MARKER="virtiofs-sync-failure-marker-$$"
+T5F_SRC="$FIXTURE/virtiofs-sync-failure-src"
+T5F_LOG="$FIXTURE/t5f.log"
+mkdir -p "$T5F_SRC"
+run_timeout 60 node "$CLI" boot \
+  --mount-live "$T5F_SRC:/mnt/live:rw" \
+  -- /bin/sh -c "printf '#!/bin/sh\\nexit 23\\n' >/run/machinen-batch-sync.sh; echo $T5F_MARKER >/mnt/live/unsynced.txt" \
+  >"$T5F_LOG" 2>&1 || true
+if [[ ! -e "$T5F_SRC/unsynced.txt" ]] &&
+  grep -q "sync failed (status=23); fallback retained" "$T5F_LOG"; then
+  pass "sync failure stayed visible without publishing staged writes"
+else
+  tail -80 "$T5F_LOG" >&2
+  fail "T5f sync failure was hidden or staged writes leaked"
+fi
+
+# ---- T5i: writable live mount preserves interactive stdin ----
 echo "T5i: machinen boot --mount-live :rw — workload stdin remains attached"
 T5I_MARKER="virtiofs-stdin-marker-$$"
 T5I_SRC="$FIXTURE/virtiofs-stdin-src"
@@ -469,7 +530,7 @@ mkdir -p "$T5I_SRC"
   -- /bin/sh -c 'tty; IFS= read -r line && printf "stdin-marker:%s\n" "$line"' \
   >"$T5I_LOG" 2>&1 || true
 if grep -q '/dev/tty' "$T5I_LOG" && grep -q "stdin-marker:$T5I_MARKER" "$T5I_LOG"; then
-  pass "writable live-mount wrapper preserved the workload terminal and stdin"
+  pass "writable live mount preserved the workload terminal and stdin"
 else
   tail -80 "$T5I_LOG" >&2
   fail "T5i workload stdin was detached from the guest terminal"
@@ -1550,16 +1611,16 @@ fi
 trap 'rm -rf "$FIXTURE"' EXIT
 
 # ---- N2L: machinen boot --detached --mount-live composes; the live
-# mount still serves bytes post-detach, and `machinen stop` reaps the
-# VM cleanly. Issue #150 phase 3 / #338. The live mount is served by an
-# in-VMM virtio-fs device that lives with the VMM, so `--detached`
-# carries it across the supervisor exit with no separate helper process.
-echo "N2L: machinen boot --detached --mount-live composes; exec reads it; stop reaps"
+# mount still serves bytes post-detach, and `machinen stop` asks the guest
+# supervisor to stop the workload and flush its final trap write. A host
+# pre-kill sync would miss that write because it happens only after SIGTERM.
+echo "N2L: detached writable live mount flushes the workload's final stop write"
 N2L_NAME="smoke-detached-live-$$"
 N2L_LOG="$FIXTURE/n2l.log"
 N2L_LOG_DIR="$FIXTURE/n2l-logs"
 N2L_SRC="$FIXTURE/n2l-live"
 N2L_MARKER="n2l-marker-$$"
+N2L_STOP_MARKER="n2l-stop-marker-$$"
 mkdir -p "$N2L_SRC" "$N2L_LOG_DIR"
 # Seed the marker BEFORE boot so the post-detach exec can read it.
 echo "$N2L_MARKER" >"$N2L_SRC/hello.txt"
@@ -1567,8 +1628,8 @@ echo "$N2L_MARKER" >"$N2L_SRC/hello.txt"
 n2l_t0=$SECONDS
 if MACHINEN_DETACHED_LOG_DIR="$N2L_LOG_DIR" cli boot \
     --name "$N2L_NAME" --detached \
-    --mount-live "$N2L_SRC:/mnt/live:ro" \
-    -- /bin/sh -c "/exec-agent & sleep 120" >"$N2L_LOG" 2>&1; then
+    --mount-live "$N2L_SRC:/mnt/live:rw" \
+    -- /bin/sh -c "trap 'echo $N2L_STOP_MARKER >/mnt/live/stop-final.txt; exit 0' TERM; while :; do sleep 1; done" >"$N2L_LOG" 2>&1; then
   pass "boot --detached --mount-live returned 0 in $((SECONDS - n2l_t0))s"
 else
   cat "$N2L_LOG" >&2
@@ -1602,13 +1663,21 @@ else
   fail "N2L — post-detach 'machinen exec ... cat' exited non-zero"
 fi
 
-# `machinen stop` should SIGTERM the VMM cleanly.
+# `machinen stop` should signal guest PID 1, which forwards SIGTERM to
+# the workload and waits for its trap write before running final sync.
 N2L_STOP_LOG="$FIXTURE/n2l-stop.log"
 if cli stop "$N2L_NAME" >"$N2L_STOP_LOG" 2>&1; then
   pass "machinen stop $N2L_NAME exited 0"
 else
   cat "$N2L_STOP_LOG" >&2
   fail "N2L — machinen stop exited non-zero"
+fi
+if [[ "$(cat "$N2L_SRC/stop-final.txt" 2>/dev/null)" == "$N2L_STOP_MARKER" ]]; then
+  pass "machinen stop waited for the workload's final write and guest sync"
+else
+  cat "$N2L_STOP_LOG" >&2
+  ls -la "$N2L_SRC" >&2
+  fail "N2L — guest-requested stop lost the workload's final write"
 fi
 
 trap 'rm -rf "$FIXTURE"' EXIT

@@ -3,11 +3,10 @@
 # attached as the scratch block device, then supervises the restored
 # workload until it exits.
 #
-# Invoked as /init's direct child (via cmd=["/sbin/machinen-restore"]
-# synthesized by the runtime when boot() gets an opts.snapshot but
-# no opts.cmd). Counterpart of /sbin/machinen-supervisor — same
-# "restore vsock + wait + poweroff" shape, just with the workload
-# coming from a CRIU image set instead of a fresh fork+execve.
+# The runtime invokes /sbin/machinen-restore as PID 1. Its first action is to
+# exec the compiled supervisor, which launches this script again with --worker.
+# This file then owns only CRIU setup and restore-specific signal forwarding;
+# the supervisor owns shared lifecycle cleanup and poweroff.
 #
 # Bundle delivery (#266): the host attaches the bundle as a raw tar
 # archive on the scratch block device (no filesystem). We untar into
@@ -16,7 +15,72 @@
 # of CRIU image files; staging through tar avoids any need for the
 # host to mkfs ext4.
 
+if [ "${1:-}" != "--worker" ]; then
+    exec /sbin/machinen-supervisor --restore
+    echo "machinen-restore: failed to exec supervisor" >&2
+    exit 127
+fi
+shift
 set -eu
+
+LAZY_PAGES_PID=""
+UNSHARE_PID=""
+CRIU_HOST_PID=""
+
+restore_exit() {
+    restore_status=$?
+    trap - 0 TERM INT
+    case "$LAZY_PAGES_PID" in
+        ''|*[!0-9]*) ;;
+        *) kill -TERM "$LAZY_PAGES_PID" 2>/dev/null || true ;;
+    esac
+    exit "$restore_status"
+}
+trap restore_exit 0
+
+# wait(1) can return early when this shell handles TERM/INT. Keep waiting
+# while the restore process is alive so the outer supervisor never syncs
+# against a still-running restored workload.
+machinen_wait() {
+    wait_pid=$1
+    while :; do
+        wait "$wait_pid"
+        wait_status=$?
+        if kill -0 "$wait_pid" 2>/dev/null; then
+            continue
+        fi
+        return "$wait_status"
+    done
+}
+
+restore_signal_workload() {
+    restore_signal=$1
+    workload_pid=$(cat /run/machinen-workload.pid 2>/dev/null || true)
+    case "$workload_pid:$CRIU_HOST_PID" in
+        *[!0-9:]*|:*|*:) return 1 ;;
+    esac
+    nsenter --target "$CRIU_HOST_PID" --pid --mount --root --wd=/ -- \
+        /usr/bin/sh -c \
+        'kill "-$1" -- "-$2" 2>/dev/null || kill "-$1" "$2"' \
+        sh "$restore_signal" "$workload_pid"
+}
+
+restore_forward_signal() {
+    restore_signal=$1
+    echo "machinen-restore: forwarding $restore_signal to restored workload" >&2
+    if restore_signal_workload "$restore_signal" ||
+        kill "-$restore_signal" "$UNSHARE_PID" 2>/dev/null; then
+        return
+    fi
+    echo "machinen-restore: failed to signal restored workload through pid namespace" >&2
+    case "$restore_signal" in
+        TERM) exit 143 ;;
+        INT) exit 130 ;;
+    esac
+}
+
+trap 'restore_forward_signal TERM' TERM
+trap 'restore_forward_signal INT' INT
 
 # Debian's dash defaults PATH to /usr/bin:/bin when unset, which
 # leaves criu (in /usr/sbin) and unshare/nsenter unreachable. Export
@@ -37,21 +101,6 @@ export PATH
 # init!"), which is a much more confusing failure than a clean error.
 mkdir -p /tmp /run
 chmod 1777 /tmp 2>/dev/null || true
-
-# Spawn a fresh exec-agent so vm.exec / vm.snapshot work on the
-# restored VM. The original dump tree did NOT include exec-agent —
-# that was a sibling under the supervisor, not a descendant of the
-# workload — so vsock port 1978 is unclaimed after restore.
-/exec-agent </dev/null >/dev/null 2>&1 &
-AGENT_PID=$!
-
-# winsize-agent (vsock 1974, see #177) — sibling of the restored
-# workload, mirrors what the supervisor does on a fresh boot. Optional.
-WINSIZE_PID=""
-if [ -x /sbin/machinen-winsize-agent ]; then
-    /sbin/machinen-winsize-agent </dev/null >/dev/null 2>&1 &
-    WINSIZE_PID=$!
-fi
 
 # Bundle delivery (#266 final): the host exposes its bundle `img/`
 # directory at /mnt/snap-src/img read-only via the VMM's virtio-fs live
@@ -88,7 +137,6 @@ fi
 # which (with MACHINEN_RESTORE_BUNDLE_LIVE=1) is a virtio-fs mount of
 # the host bundle dir — bytes stream from the host on demand.
 LAZY_FLAGS=""
-LAZY_PAGES_PID=""
 if [ "${MACHINEN_RESTORE_LAZY_PAGES:-0}" = "1" ]; then
     echo "machinen-restore: lazy-pages mode — daemon reads bundle locally" >&2
     LAZY_FLAGS="--lazy-pages"
@@ -178,7 +226,6 @@ UNSHARE_PID=$!
 # /proc/<pid>/task/<pid>/children is space-separated; in our case
 # there's exactly one entry — the forked child that exec'd criu.
 # Loop briefly because unshare's fork happens after we capture $!.
-CRIU_HOST_PID=""
 i=0
 while [ $i -lt 50 ]; do
     if [ -r "/proc/$UNSHARE_PID/task/$UNSHARE_PID/children" ]; then
@@ -202,10 +249,10 @@ else
 fi
 
 # Wait for criu to finish (it blocks until the restored tree exits,
-# courtesy of no -d). Using `|| RC=$?` keeps `set -e` from yanking us
-# before we can drain logs and signal the agents.
+# courtesy of no -d). machinen_wait survives a trapped signal interrupt;
+# `|| RC=$?` keeps set -e from skipping diagnostics and final cleanup.
 RC=0
-wait "$UNSHARE_PID" || RC=$?
+machinen_wait "$UNSHARE_PID" || RC=$?
 if [ "$RC" -ne 0 ]; then
     # tail -40 of a v3 log is dominated by per-fd restore noise and
     # rarely captures the actual error. Print Err/Warn lines first so
@@ -217,27 +264,9 @@ if [ "$RC" -ne 0 ]; then
     if [ -n "$LAZY_PAGES_PID" ]; then
         echo "machinen-restore: --- last 200 lines of lazy-pages.log ---" >&2
         tail -200 /tmp/lazy-pages.log >&2 || true
-        kill -TERM "$LAZY_PAGES_PID" 2>/dev/null || true
     fi
-    kill -TERM "$AGENT_PID" 2>/dev/null || true
-    if [ -n "$WINSIZE_PID" ]; then
-        kill -TERM "$WINSIZE_PID" 2>/dev/null || true
-    fi
-    exit 1
 fi
 
-# Restored tree exited cleanly. Stop the lazy-pages daemon (if any) and
-# the agents, then power off. lazy-pages exits on its own when criu
-# restore signals completion and the workload's UFFD fds drain, but
-# SIGTERM-after-exit is harmless and keeps the cleanup uniform.
-if [ -n "$LAZY_PAGES_PID" ]; then
-    kill -TERM "$LAZY_PAGES_PID" 2>/dev/null || true
-    wait "$LAZY_PAGES_PID" 2>/dev/null || true
-fi
-kill -TERM "$AGENT_PID" 2>/dev/null || true
-wait "$AGENT_PID" 2>/dev/null || true
-if [ -n "$WINSIZE_PID" ]; then
-    kill -TERM "$WINSIZE_PID" 2>/dev/null || true
-    wait "$WINSIZE_PID" 2>/dev/null || true
-fi
-exec /sbin/machinen-poweroff
+# The outer compiled supervisor retains RC, performs final sync and sidecar
+# shutdown, then powers off without a PID 1 panic.
+exit "$RC"

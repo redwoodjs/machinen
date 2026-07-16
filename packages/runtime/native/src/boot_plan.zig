@@ -3563,7 +3563,7 @@ test "planScratchDisk selects restore clone auto allocation and no-disk cases" {
     try std.testing.expectEqualStrings("/auto.img", auto.vmm_disk.?);
 }
 
-test "planBundleCommand resolves image restore supervisor and batch wrappers" {
+test "planBundleCommand resolves image restore and direct supervisor commands" {
     const ro_mounts = [_]LiveMount{.{
         .host = "/host",
         .guest = "/mnt/ro",

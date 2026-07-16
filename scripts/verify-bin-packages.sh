@@ -14,7 +14,7 @@
 #      `bin` field of package.json. Without +x the runtime exits at
 #      spawn (code=127).
 #   2. Files we expect to ship missing entirely — e.g. the vmm packages'
-#      guest/{init,exec-agent} ELFs.
+#      guest/{init,machinen-supervisor,exec-agent} ELFs and restore worker.
 #
 # Runs `pnpm pack` against each package (dry-run is not enough — we
 # need the actual tarball to inspect modes), then greps `tar -tvf`
@@ -101,8 +101,8 @@ check_pkg() {
 # --- native-* ------------------------------------------------------------
 # One consolidated package per host arch. Per-tool subdirs:
 #   vmm/bin/{machinen-vm,machinen-runtime-helper,machinen-pdeathsig,machinen-pty,machinen-winsize,gvproxy}   host binaries node spawns.
-#   vmm/guest/{init,exec-agent}  guest-arch Linux ELFs the runtime
-#       reads as data to pack into the initramfs cpio (mode irrelevant).
+#   vmm/guest/{init,exec-agent,machinen-*}  guest binaries and restore worker
+#       the runtime reads as data to pack into the initramfs cpio.
 #   e2fsprogs/bin/mke2fs, squashfs/bin/mksquashfs  host binaries node spawns.
 for pkg in native-arm64-darwin native-arm64-linux native-x64-linux; do
   check_pkg "$pkg" \
@@ -116,7 +116,9 @@ for pkg in native-arm64-darwin native-arm64-linux native-x64-linux; do
     squashfs/bin/mksquashfs \
     --plain \
     vmm/guest/init \
-    vmm/guest/exec-agent
+    vmm/guest/exec-agent \
+    vmm/guest/machinen-supervisor \
+    vmm/guest/machinen-restore
 done
 
 if [ "$failed" -ne 0 ]; then
