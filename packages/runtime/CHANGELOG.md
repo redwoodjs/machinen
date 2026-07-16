@@ -1,5 +1,11 @@
 # @machinen/runtime
 
+## 0.8.3
+
+### Patch Changes
+
+- aafea8a: Preserve existing writable live-mount paths during shutdown sync and initialize the sync helper in provisioned images so metadata updates do not fail and host files are not dropped.
+
 ## 0.8.2
 
 ### Patch Changes
