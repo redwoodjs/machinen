@@ -31,7 +31,7 @@ async function installBaseAssets(opts: InstallOptions): Promise<InstallResult> {
   const t0 = Date.now();
   printInstallStart(opts);
   try {
-    const base = await ensureBaseAssets(opts.tag);
+    const base = await ensureBaseAssets(opts.tag, { progress: !opts.json });
     return { base, wasComplete, elapsedMs: Date.now() - t0 };
   } catch (err) {
     reportInstallFailure(opts, err);
