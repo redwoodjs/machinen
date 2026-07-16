@@ -1,6 +1,3 @@
-const CLIENT_MODULE_PATH = "/src/client.tsx";
-const STYLESHEET_PATH = "/src/styles.css?direct";
-
 export const Document: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <html lang="en">
     <head>
@@ -15,14 +12,11 @@ export const Document: React.FC<{ children: React.ReactNode }> = ({ children }) 
       <link rel="icon" href="/favicon-light.svg" media="(prefers-color-scheme: light)" />
       <link rel="icon" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)" />
       <link rel="alternate" type="text/markdown" href="/index.md" />
-      <link rel="stylesheet" href={STYLESHEET_PATH} />
-      <link rel="modulepreload" href={CLIENT_MODULE_PATH} />
+      <link rel="modulepreload" href="/src/client.tsx" />
     </head>
     <body>
       {children}
-      <script
-        dangerouslySetInnerHTML={{ __html: `import(${JSON.stringify(CLIENT_MODULE_PATH)})` }}
-      />
+      <script>import("/src/client.tsx")</script>
     </body>
   </html>
 );

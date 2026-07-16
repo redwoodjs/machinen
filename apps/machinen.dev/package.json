@@ -10,7 +10,7 @@
   "main": "index.js",
   "scripts": {
     "prebuild": "pnpm recipes:verify",
-    "build": "vite build",
+    "build": "vite build && pnpm verify:build",
     "dev": "vite dev",
     "dev:init": "rw-scripts dev-init",
     "preview": "vite preview",
@@ -20,6 +20,7 @@
     "release": "rw-scripts ensure-deploy-env && pnpm run clean && pnpm run build && wrangler deploy",
     "recipes:sign": "node scripts/run-recipes.mjs",
     "recipes:verify": "node scripts/run-recipes.mjs --verify",
+    "verify:build": "node scripts/verify-production-build.mjs",
     "generate": "rw-scripts ensure-env && wrangler types --include-runtime false",
     "check": "pnpm run generate && pnpm run types",
     "typecheck": "tsc --noEmit",
