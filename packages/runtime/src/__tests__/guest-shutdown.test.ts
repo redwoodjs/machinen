@@ -40,6 +40,21 @@ describe("guest-requested shutdown", () => {
     expect(forceKill).toHaveBeenCalledOnce();
   });
 
+  it("runs the guest incremental sync script after host API operations", async () => {
+    const exec = vi.fn(async () => ({ exitCode: 0, stdout: "ok", stderr: "" }));
+    const execRaw = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
+    const base = { ...fakeHandle({}), exec, execRaw } as VmHandle;
+    const handle = withBatchLiveMountSync(base, [{ host: "/host", guest: "/guest", mode: "rw" }]);
+
+    await handle.exec("true");
+
+    expect(exec).toHaveBeenCalledWith("true", undefined);
+    expect(execRaw).toHaveBeenCalledWith(
+      "/bin/sh /run/machinen-batch-sync.sh",
+      expect.objectContaining({ execTimeoutMs: 300_000 }),
+    );
+  });
+
   it("does not publish a racy sync before the force-kill fallback", async () => {
     const forceKill = vi.fn(async () => {});
     const execRaw = vi.fn(async () => ({ exitCode: 127, stdout: "", stderr: "" }));

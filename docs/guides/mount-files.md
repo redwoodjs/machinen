@@ -36,21 +36,23 @@ are published back to the host at sync points by default. If the guest
 builds a binary into `./workspace/dist/`, you'll see it after the
 workload exits or the next host API sync point.
 
-Default mode is read-write. If you want to share something the guest
-mustn't be able to modify — a directory of test fixtures, say, or a
-read-only data dump — pass `:ro`:
+Default mode is read-write. Guest writes are staged in a VM-local overlay;
+at sync points Machinen publishes only the paths created, changed, or deleted
+in that overlay. Untouched files are not read or rewritten. If you want to
+share something the guest mustn't be able to modify — a directory of test
+fixtures, say, or a read-only data dump — pass `:ro`:
 
 ```bash
 npx machinen boot --mount-live ./fixtures:/mnt/fixtures:ro -- ./run-tests.sh
 ```
 
 Read-only mounts have nothing to write back. For read-write mounts,
-guest writes land in a VM-local overlay, then Machinen publishes the
-final tree in bulk when the workload exits, and after host API calls
-such as `vm.exec()`, `vm.snapshot()`, `vm.fork()`, `vm.kill()`, or
-`machinen stop`. A writable live-mount sync mirrors the guest-visible
-tree over the host directory, so concurrent host edits under that share
-can be overwritten.
+Machinen publishes staged changes when the workload exits, and after host API
+calls such as `vm.exec()`, `vm.snapshot()`, `vm.fork()`, `vm.kill()`, or
+`machinen stop`. A writable live-mount sync applies changed paths and overlay
+deletion markers to the host directory. Concurrent host edits to a path also
+changed by the guest can therefore be overwritten; unrelated host paths are
+left untouched.
 
 You can pass `--mount-live` multiple times for separate shares; each
 one gets its own virtio-fs device slot:

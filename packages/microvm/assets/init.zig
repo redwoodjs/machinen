@@ -572,7 +572,104 @@ fn mount_live_batch(lm: LiveMount) void {
         log_line("init: batch overlay mount failed");
         return;
     }
-    append_batch_sync_entry(lm.guest, lower);
+    append_batch_sync_entry(lm.guest, lower, upper);
+}
+
+fn write_batch_sync_collect_helpers(fd: c_int) void {
+    std.debug.assert(fd >= 0);
+    write_str(fd,
+        \\#!/bin/sh
+        \\set -u
+        \\directory_has_entries() {
+        \\  dir="$1"
+        \\  for entry in "$dir"/.[!.]* "$dir"/..?* "$dir"/*; do
+        \\    if [ -e "$entry" ] || [ -L "$entry" ]; then
+        \\      return 0
+        \\    fi
+        \\  done
+        \\  return 1
+        \\}
+        \\collect_changed_paths() {
+        \\  guest="$1"
+        \\  lower="$2"
+        \\  upper="$3"
+        \\  list="$4"
+        \\  shift 4
+        \\  for upper_path do
+        \\    rel=${upper_path#"$upper"/}
+        \\    guest_path="$guest/$rel"
+        \\    lower_path="$lower/$rel"
+        \\    if [ ! -e "$guest_path" ] && [ ! -L "$guest_path" ]; then
+        \\      rm -rf -- "$lower_path"
+        \\      continue
+        \\    fi
+        \\    remove=0
+        \\    if [ -L "$guest_path" ]; then
+        \\      [ -L "$lower_path" ] || remove=1
+        \\    elif [ -d "$guest_path" ]; then
+        \\      { [ -d "$lower_path" ] && [ ! -L "$lower_path" ]; } || remove=1
+        \\    elif [ -f "$guest_path" ]; then
+        \\      { [ -f "$lower_path" ] && [ ! -L "$lower_path" ]; } || remove=1
+        \\    else
+        \\      remove=1
+        \\    fi
+        \\    [ "$remove" -eq 0 ] || rm -rf -- "$lower_path"
+        \\    printf '%s\000' "./$rel" >>"$list"
+        \\  done
+        \\}
+        \\
+    );
+}
+
+fn write_batch_sync_prune_helpers(fd: c_int) void {
+    std.debug.assert(fd >= 0);
+    write_str(fd,
+        \\prune_changed_directories() {
+        \\  guest="$1"
+        \\  lower="$2"
+        \\  upper="$3"
+        \\  keep_list="$4"
+        \\  keep_archive="$5"
+        \\  shift 5
+        \\  for upper_dir do
+        \\    if [ "$upper_dir" = "$upper" ]; then
+        \\      guest_dir="$guest"
+        \\      lower_dir="$lower"
+        \\    else
+        \\      rel=${upper_dir#"$upper"/}
+        \\      guest_dir="$guest/$rel"
+        \\      lower_dir="$lower/$rel"
+        \\    fi
+        \\    if [ ! -d "$guest_dir" ] || [ -L "$guest_dir" ] ||
+        \\       [ ! -d "$lower_dir" ] || [ -L "$lower_dir" ]; then
+        \\      continue
+        \\    fi
+        \\    for lower_path in "$lower_dir"/.[!.]* "$lower_dir"/..?* "$lower_dir"/*; do
+        \\      { [ -e "$lower_path" ] || [ -L "$lower_path" ]; } || continue
+        \\      [ "$lower_path" = "$keep_list" ] && continue
+        \\      [ "$lower_path" = "$keep_archive" ] && continue
+        \\      name=${lower_path##*/}
+        \\      guest_path="$guest_dir/$name"
+        \\      if [ ! -e "$guest_path" ] && [ ! -L "$guest_path" ]; then
+        \\        rm -rf -- "$lower_path"
+        \\      fi
+        \\    done
+        \\  done
+        \\}
+        \\case "${1-}" in
+        \\  --collect-changed-paths)
+        \\    shift
+        \\    collect_changed_paths "$@"
+        \\    exit $?
+        \\    ;;
+        \\  --prune-changed-directories)
+        \\    shift
+        \\    prune_changed_directories "$@"
+        \\    exit $?
+        \\    ;;
+        \\esac
+        \\
+    );
 }
 
 fn init_batch_sync_script(mounts: []LiveMount) void {
@@ -584,40 +681,8 @@ fn init_batch_sync_script(mounts: []LiveMount) void {
     const fd = open(BATCH_SYNC_SCRIPT, O_WRONLY | O_CREAT | O_TRUNC, @as(c_uint, 0o755));
     if (fd < 0) return;
     defer _ = close(fd);
-    write_str(fd,
-        \\#!/bin/sh
-        \\set -u
-        \\prune_batch_lower() {
-        \\  guest="$1"
-        \\  lower="$2"
-        \\  keep="$3"
-        \\  find "$lower" -depth -mindepth 1 -exec sh -c '
-        \\    guest="$1"
-        \\    lower="$2"
-        \\    keep="$3"
-        \\    shift 3
-        \\    for p do
-        \\      [ "$p" = "$keep" ] && continue
-        \\      rel=${p#"$lower"/}
-        \\      g="$guest/$rel"
-        \\      if [ ! -e "$g" ] && [ ! -L "$g" ]; then
-        \\        rm -rf -- "$p"
-        \\        continue
-        \\      fi
-        \\      remove=0
-        \\      if [ -L "$p" ]; then
-        \\        [ -L "$g" ] || remove=1
-        \\      elif [ -d "$p" ]; then
-        \\        { [ -d "$g" ] && [ ! -L "$g" ]; } || remove=1
-        \\      elif [ -f "$p" ]; then
-        \\        { [ -f "$g" ] && [ ! -L "$g" ]; } || remove=1
-        \\      fi
-        \\      [ "$remove" -eq 0 ] || rm -rf -- "$p"
-        \\    done
-        \\  ' sh "$guest" "$lower" {} +
-        \\}
-        \\
-    );
+    write_batch_sync_collect_helpers(fd);
+    write_batch_sync_prune_helpers(fd);
 }
 
 fn needs_batch_sync_script(mounts: []LiveMount) bool {
@@ -628,9 +693,10 @@ fn needs_batch_sync_script(mounts: []LiveMount) bool {
     return false;
 }
 
-fn append_batch_sync_entry(guest: []const u8, lower: []const u8) void {
+fn append_batch_sync_entry(guest: []const u8, lower: []const u8, upper: []const u8) void {
     std.debug.assert(guest.len > 0);
     std.debug.assert(lower.len > 0);
+    std.debug.assert(upper.len > 0);
     const fd = open(BATCH_SYNC_SCRIPT, O_WRONLY | O_CREAT | O_APPEND, @as(c_uint, 0o755));
     if (fd < 0) return;
     defer _ = close(fd);
@@ -640,18 +706,35 @@ fn append_batch_sync_entry(guest: []const u8, lower: []const u8) void {
     write_str(fd, "lower=");
     write_shell_single_quoted(fd, lower);
     write_str(fd, "\n");
+    write_str(fd, "upper=");
+    write_shell_single_quoted(fd, upper);
+    write_str(fd, "\n");
     write_str(fd,
-        \\if [ -d "$guest" ] && [ -d "$lower" ]; then
-        \\  # Store the snapshot on the host-backed lower; /run may be smaller than the share.
-        \\  tmp=$(mktemp "$lower/.machinen-batch-sync-XXXXXX") || exit 1
-        \\  tmp_name=${tmp##*/}
-        \\  (cd "$guest" && tar --exclude="./$tmp_name" -cf "$tmp" .) || { rm -f "$tmp"; exit 1; }
-        \\  # Preserve matching paths and their FUSE identities; prune only deletions/type changes.
-        \\  prune_batch_lower "$guest" "$lower" "$tmp" || { rm -f "$tmp"; exit 1; }
-        \\  (cd "$lower" && tar -xf "$tmp")
-        \\  status=$?
-        \\  rm -f "$tmp"
-        \\  [ "$status" -eq 0 ] || exit "$status"
+        \\if [ -d "$guest" ] && [ -d "$lower" ] && [ -d "$upper" ] &&
+        \\   directory_has_entries "$upper"; then
+        \\  # The overlay upper contains only guest changes. Keep temporary data on the
+        \\  # host-backed lower because /run can be smaller than a large changed file.
+        \\  list=$(mktemp "$lower/.machinen-batch-list-XXXXXX") || exit 1
+        \\  archive=$(mktemp "$lower/.machinen-batch-sync-XXXXXX") || { rm -f "$list"; exit 1; }
+        \\  find "$upper" -depth -mindepth 1 -exec "$0" --collect-changed-paths \
+        \\    "$guest" "$lower" "$upper" "$list" {} + || { rm -f "$list" "$archive"; exit 1; }
+        \\  "$0" --prune-changed-directories \
+        \\    "$guest" "$lower" "$upper" "$list" "$archive" "$upper" || {
+        \\      rm -f "$list" "$archive"; exit 1;
+        \\    }
+        \\  find "$upper" -mindepth 1 -type d -exec "$0" --prune-changed-directories \
+        \\    "$guest" "$lower" "$upper" "$list" "$archive" {} + || {
+        \\      rm -f "$list" "$archive"; exit 1;
+        \\    }
+        \\  if [ -s "$list" ]; then
+        \\    (cd "$guest" && tar --no-recursion --null -T "$list" -cf "$archive") || {
+        \\      rm -f "$list" "$archive"; exit 1;
+        \\    }
+        \\    (cd "$lower" && tar -xf "$archive") || {
+        \\      rm -f "$list" "$archive"; exit 1;
+        \\    }
+        \\  fi
+        \\  rm -f "$list" "$archive"
         \\fi
         \\
     );
