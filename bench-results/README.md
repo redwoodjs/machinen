@@ -51,6 +51,26 @@ Each release must include:
 - `summary.md`
 - one or more gzipped raw JSON assets
 
+## Release baseline automation
+
+`.github/workflows/release-benchmarks.yml` reconciles published `runtime-v*`
+releases after the Release workflow completes and every six hours. It runs on a
+Darwin arm64 host labeled `machinen-benchmarks`, because GitHub-hosted macOS
+runners cannot use nested Hypervisor.framework guests.
+
+The workflow requires the `MACHINEN_BENCHMARKS_TOKEN` repository secret to
+publish assets to `redwoodjs/machinen-benchmarks`. Each run uses the exact source
+tag, public base assets, and published `@machinen/native-arm64-darwin` package.
+Existing baselines are skipped. A manual workflow dispatch can select versions
+or deliberately replace an existing baseline.
+
+For a local reconciliation:
+
+```bash
+scripts/run-release-benchmarks.sh
+scripts/run-release-benchmarks.sh 0.8.2,0.8.3
+```
+
 `metadata.json` must record the source repo, source commit or release, source branch, dirty state, host OS, host arch, guest arch, accelerator, command, suite, sample count, host details, and artifact names.
 
 For PRs, post a short summary table and link to the per-commit benchmark release. Do not commit raw benchmark JSON to this repository.
