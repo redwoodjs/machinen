@@ -1140,17 +1140,18 @@ function startFakeAgent(opts: {
       if (nl === -1) {
         return;
       }
-      if (opts.stdout) {
+      const isGuestShutdown = buf.includes(Buffer.from("kill -TERM 1"));
+      if (opts.stdout && !isGuestShutdown) {
         const b = Buffer.from(opts.stdout, "utf8");
         socket.write(`O ${b.length}\n`);
         socket.write(b);
       }
-      if (opts.stderr) {
+      if (opts.stderr && !isGuestShutdown) {
         const b = Buffer.from(opts.stderr, "utf8");
         socket.write(`E ${b.length}\n`);
         socket.write(b);
       }
-      socket.write(`X ${opts.exitCode}\n`);
+      socket.write(`X ${isGuestShutdown ? 127 : opts.exitCode}\n`);
       socket.end();
     });
   });

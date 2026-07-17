@@ -10,6 +10,7 @@ rootfs.new/
 rootfs-debian/
 rootfs-debian.tar
 init
+machinen-supervisor
 exec-agent
 file-agent
 fuse-agent

@@ -1221,7 +1221,7 @@ for ENGINE in "${SNAPSHOT_ENGINES[@]}"; do
     S6_PID=$(boot_bg "$S6_NAME" "$S6_BG_LOG" \
       --snapshot "$S6_SCRATCH" \
       --mount-live "$S6_SHARE_A:/mnt/share" \
-      -- /bin/sh -c 'while :; do sleep 1; done')
+      -- /bin/sh -c 'trap "echo restored-term >/mnt/share/restored-term.txt; exit 0" TERM; while [ ! -e /tmp/machinen-s6-exit ]; do sleep 1; done; sleep 2; echo restored-final >/mnt/share/restored-final.txt')
     cleanup_s6() {
       kill -TERM "$S6_PID" 2>/dev/null || true
       wait "$S6_PID" 2>/dev/null || true
@@ -1305,7 +1305,30 @@ for ENGINE in "${SNAPSHOT_ENGINES[@]}"; do
       fail "S6 — restored VM couldn't read /mnt/share/source.txt from share-A"
     fi
 
-    cleanup_s6_restore
+    # Trigger a delayed write followed by natural restored-workload exit.
+    # vm.exec's host-side post-operation sync completes before the delayed
+    # write, so only machinen-restore's final guest cleanup can publish it.
+    rm -f "$S6_SHARE_A/restored-final.txt"
+    if ! cli exec "$S6_RESTORED" -- touch /tmp/machinen-s6-exit; then
+      tail -200 "$S6_RESTORE_LOG" >&2
+      fail "S6 — could not trigger restored workload exit"
+    fi
+    deadline=$((SECONDS + 60))
+    while kill -0 "$S6_RESTORE_PID" 2>/dev/null && (( SECONDS < deadline )); do
+      sleep 1
+    done
+    if kill -0 "$S6_RESTORE_PID" 2>/dev/null; then
+      tail -200 "$S6_RESTORE_LOG" >&2
+      fail "S6 — restored workload did not exit naturally"
+    fi
+    wait "$S6_RESTORE_PID" 2>/dev/null || true
+    if [[ "$(cat "$S6_SHARE_A/restored-final.txt" 2>/dev/null)" == "restored-final" ]]; then
+      pass "restored workload natural exit flushed its final live-mount write"
+    else
+      tail -200 "$S6_RESTORE_LOG" >&2
+      ls -la "$S6_SHARE_A" >&2
+      fail "S6 — restored workload final sync did not publish its delayed write"
+    fi
     trap 'cleanup_s6; rm -rf "$FIXTURE"' EXIT
 
     # Restore-with-override: same bundle, remap host=share-A → share-B.
@@ -1349,7 +1372,19 @@ for ENGINE in "${SNAPSHOT_ENGINES[@]}"; do
       fail "S6 — remapped restore didn't see share-B's marker.txt"
     fi
 
-    cleanup_s6_remap
+    rm -f "$S6_SHARE_B/restored-term.txt"
+    if ! cli stop "$S6_REMAPPED"; then
+      tail -200 "$S6_RESTORE_REMAP_LOG" >&2
+      fail "S6 — could not request clean shutdown of remapped restore"
+    fi
+    wait "$S6_REMAP_PID" 2>/dev/null || true
+    if [[ "$(cat "$S6_SHARE_B/restored-term.txt" 2>/dev/null)" == "restored-term" ]]; then
+      pass "restored workload SIGTERM exit flushed its final live-mount write"
+    else
+      tail -200 "$S6_RESTORE_REMAP_LOG" >&2
+      ls -la "$S6_SHARE_B" >&2
+      fail "S6 — restored workload clean shutdown lost its final write"
+    fi
     trap 'rm -rf "$FIXTURE"' EXIT
   fi  # S6 rootfs-capability gate
 

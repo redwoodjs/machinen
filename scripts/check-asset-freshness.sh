@@ -92,7 +92,7 @@ rootfs_input_files() {
     "${ASSETS}/machinen-netup.c" \
     "${ASSETS}/machinen-restore.sh" \
     "${ASSETS}/move-capture.c" \
-    "${ASSETS}/machinen-supervisor.sh" \
+    "${ASSETS}/machinen-supervisor.zig" \
     "${ASSETS}/memdirty.zig" \
     "${ASSETS}/net-bench-probe.zig" \
     "${ASSETS}/no-iou.zig" \
