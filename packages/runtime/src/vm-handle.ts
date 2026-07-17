@@ -31,7 +31,10 @@ export interface VmHandle {
   /** Resolves when the VM process exits. Rejects on timeout. */
   wait(): Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
 
-  /** Send SIGKILL to the VM. Resolves once it's really gone. */
+  /**
+   * Ask the guest to stop its workload, finish cleanup, and power off.
+   * Falls back to forced VMM termination if the guest cannot finish.
+   */
   kill(): Promise<void>;
 
   /**

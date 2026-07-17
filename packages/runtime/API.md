@@ -3360,7 +3360,8 @@ Resolves when the VM process exits. Rejects on timeout.
 
 > **kill**(): `Promise`\<`void`\>
 
-Send SIGKILL to the VM. Resolves once it's really gone.
+Ask the guest to stop its workload, finish cleanup, and power off.
+Falls back to forced VMM termination if the guest cannot finish.
 
 ###### Returns
 
@@ -6654,6 +6655,8 @@ Build the tiny initramfs used by every user-facing boot() (#119).
 Layout:
   /init                            compiled Zig init
   /machinen-config.json            cmd/env/cwd/liveMounts for /init
+  /sbin/machinen-{supervisor,restore}
+                                   compiled owner + CRIU worker
   /etc/machinen-boot-epoch         wall clock seed for the guest
   /etc/machinen-mountdisk-guest    optional, target dir for the
                                    `--mount` overlay (#272). The

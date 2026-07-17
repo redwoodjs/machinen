@@ -32,10 +32,12 @@ export const winsize = join(here, "vmm", "bin", "machinen-winsize");
  */
 export const gvproxy = join(here, "vmm", "bin", "gvproxy");
 
-// Guest binaries (arm64-linux ELFs) the runtime reads to build the
+// Guest ELFs and restore worker the runtime reads to build the
 // initramfs cpio at boot(). Read as data, never exec()d on the host.
 export const initPath = join(here, "vmm", "guest", "init");
 export const execAgentPath = join(here, "vmm", "guest", "exec-agent");
+export const supervisorPath = join(here, "vmm", "guest", "machinen-supervisor");
+export const restorePath = join(here, "vmm", "guest", "machinen-restore");
 
 // --- e2fsprogs / squashfs-tools ----------------------------------------
 

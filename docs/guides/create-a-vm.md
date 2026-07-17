@@ -107,9 +107,13 @@ When you're done:
 npx machinen stop worker
 ```
 
-`stop` SIGTERMs the VMM and waits for it to exit cleanly; it falls back
-to SIGKILL after 2 seconds if the guest hangs. It also cleans up the
-registry entry and the gvproxy sidecar so host ports don't leak. If a
+`stop` asks the guest supervisor to stop the workload, finish writable
+mount sync, and power off. The supervisor signals the whole workload
+process group and waits for it to exit before running final sync. If the
+guest does not finish within 30 seconds, the runtime force-kills the VMM
+without publishing a racy host-side sync. Pass
+`--force` to skip the guest request. `stop` also cleans up the registry
+entry and the gvproxy sidecar so host ports don't leak. If a
 detached VM crashes without going through `stop`, run `npx machinen gc`
 to clean up the leftover registry entry.
 

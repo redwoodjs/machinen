@@ -7,6 +7,7 @@ import { ExecError } from "../errors.ts";
 import { validateBatchLiveMountsNative } from "../native/live-mount-batch.ts";
 import type { VmHandle } from "../vm-handle.ts";
 import type { BootOptions } from "./boot.ts";
+import { withGuestShutdown } from "./guest-shutdown.ts";
 interface BatchLiveMount {
   host: string;
   guest: string;
@@ -27,13 +28,13 @@ export function withBatchLiveMountSync(
   handle: VmHandle,
   liveMounts: ReadonlyArray<BatchLiveMount>,
 ): VmHandle {
+  const baseExecRaw = handle.execRaw;
   const batchMounts = liveMounts.filter(isWritableBatchLiveMount);
   if (batchMounts.length === 0) {
-    return handle;
+    return withGuestShutdown(handle, baseExecRaw);
   }
-  const baseExecRaw = handle.execRaw;
   const sync = () => syncBatchLiveMounts(baseExecRaw, batchMounts);
-  return {
+  const batchHandle: VmHandle = {
     ...handle,
     execRaw: (cmd, opts) => syncAfterBatchOperation(() => baseExecRaw(cmd, opts), sync),
     exec: (cmd, opts) => syncAfterBatchOperation(() => handle.exec(cmd, opts), sync),
@@ -45,11 +46,8 @@ export function withBatchLiveMountSync(
       await sync();
       return handle.fork(opts);
     },
-    kill: async () => {
-      await sync().catch(() => undefined);
-      return handle.kill();
-    },
   };
+  return withGuestShutdown(batchHandle, baseExecRaw);
 }
 
 function isWritableBatchLiveMount(mount: BatchLiveMount): mount is Required<BatchLiveMount> {

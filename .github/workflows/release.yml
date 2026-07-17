@@ -270,10 +270,9 @@ jobs:
           scripts/install-gvproxy.sh --os linux  --arch arm64 --dest packages/native-arm64-linux/vmm/bin
           scripts/install-gvproxy.sh --os linux  --arch amd64 --dest packages/native-x64-linux/vmm/bin
 
-      # Stage guest ELFs (init, exec-agent) into each native package's
-      # vmm/guest/ dir so they ship in the published tarball. The
-      # binaries are guest-arch specific: native-arm64-* carries arm64
-      # guest ELFs; native-x64-linux carries amd64 guest ELFs.
+      # Stage guest ELFs and the restore worker into each native package's
+      # vmm/guest/ dir so the runtime can ship current guest-owned boot
+      # behavior on every boot. The ELFs are guest-arch specific.
       - name: Download arm64 base assets (for guest binaries)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -292,18 +291,24 @@ jobs:
 
           for pkg in packages/native-arm64-darwin packages/native-arm64-linux; do
             mkdir -p "$pkg/vmm/guest"
-            cp "$arm64_assets/init"        "$pkg/vmm/guest/init"
-            cp "$arm64_assets/exec-agent"  "$pkg/vmm/guest/exec-agent"
+            cp "$arm64_assets/init"                 "$pkg/vmm/guest/init"
+            cp "$arm64_assets/machinen-supervisor"  "$pkg/vmm/guest/machinen-supervisor"
+            cp "$arm64_assets/exec-agent"           "$pkg/vmm/guest/exec-agent"
           done
           mkdir -p packages/native-x64-linux/vmm/guest
-          cp "$amd64_assets/init"        packages/native-x64-linux/vmm/guest/init
-          cp "$amd64_assets/exec-agent"  packages/native-x64-linux/vmm/guest/exec-agent
+          cp "$amd64_assets/init"                 packages/native-x64-linux/vmm/guest/init
+          cp "$amd64_assets/machinen-supervisor"  packages/native-x64-linux/vmm/guest/machinen-supervisor
+          cp "$amd64_assets/exec-agent"           packages/native-x64-linux/vmm/guest/exec-agent
+
+          for pkg in packages/native-arm64-darwin packages/native-arm64-linux packages/native-x64-linux; do
+            cp packages/microvm/assets/machinen-restore.sh "$pkg/vmm/guest/machinen-restore"
+          done
 
           rm -rf release-assets
           mkdir -p release-assets
           for src in "$arm64_assets" "$amd64_assets"; do
             find "$src" -maxdepth 1 -type f \
-              ! -name init ! -name exec-agent \
+              ! -name init ! -name machinen-supervisor ! -name exec-agent \
               -exec cp {} release-assets/ \;
           done
 

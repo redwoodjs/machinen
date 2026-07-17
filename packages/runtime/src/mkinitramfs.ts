@@ -6,6 +6,7 @@
 
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -140,6 +141,11 @@ function loadExcludes(path: string): string[] {
   return out;
 }
 
+interface GuestLifecyclePaths {
+  supervisorPath: string;
+  restorePath: string;
+}
+
 export interface PackBundleOptions {
   /** Bundle directory with rootfs/ + machinen-config.json. */
   bundle: string;
@@ -233,18 +239,15 @@ function validatePackBundleInputs(opts: PackBundleOptions): PackBundlePaths {
 }
 
 function preparePackBundleSource(opts: PackBundleOptions, rootfsDir: string): PackBundleSource {
-  const needsMerge = Boolean(opts.base) || Boolean(opts.mount);
   debug(
-    "packBundle bundle=%s out=%s base=%s mount=%s needsMerge=%s",
+    "packBundle bundle=%s out=%s base=%s mount=%s",
     opts.bundle,
     opts.out,
     opts.base ?? "<none>",
     opts.mount ? `${opts.mount.host}->${opts.mount.guest}` : "<none>",
-    needsMerge,
   );
-  if (!needsMerge) {
-    return { packSrc: rootfsDir };
-  }
+  // Always stage into a temporary tree. The runtime-owned lifecycle assets
+  // must win over stale copies without mutating the caller's bundle directory.
   return prepareMergedPackSource(opts, rootfsDir);
 }
 
@@ -262,6 +265,7 @@ function prepareMergedPackSource(opts: PackBundleOptions, rootfsDir: string): Pa
       force: true,
       verbatimSymlinks: true,
     });
+    injectGuestLifecycleAssets(mergeTmp, defaultGuestLifecyclePaths());
     return { packSrc: mergeTmp, mergeTmp };
   } catch (err) {
     cleanupMergedPackSource(mergeTmp);
@@ -279,6 +283,23 @@ function extractBaseRootfs(base: string, mergeTmp: string): void {
     );
   }
   debug("base extracted elapsed=%dms", Date.now() - extractT0);
+}
+
+function injectGuestLifecycleAssets(rootfs: string, paths: GuestLifecyclePaths): void {
+  const sbin = join(rootfs, "sbin");
+  mkdirSync(sbin, { recursive: true });
+  for (const [name, source] of guestLifecycleEntries(paths)) {
+    const destination = join(sbin, name);
+    cpSync(source, destination, { force: true });
+    chmodSync(destination, 0o755);
+  }
+}
+
+function guestLifecycleEntries(paths: GuestLifecyclePaths): Array<[string, string]> {
+  return [
+    ["machinen-supervisor", paths.supervisorPath],
+    ["machinen-restore", paths.restorePath],
+  ];
 }
 
 function cleanupMergedPackSource(mergeTmp: string | undefined): void {
@@ -363,6 +384,8 @@ export interface PackTinyBundleOptions {
  * Layout:
  *   /init                            compiled Zig init
  *   /machinen-config.json            cmd/env/cwd/liveMounts for /init
+ *   /sbin/machinen-{supervisor,restore}
+ *                                    compiled owner + CRIU worker
  *   /etc/machinen-boot-epoch         wall clock seed for the guest
  *   /etc/machinen-mountdisk-guest    optional, target dir for the
  *                                    `--mount` overlay (#272). The
@@ -389,6 +412,7 @@ export function packTinyBundle(opts: PackTinyBundleOptions): void {
       initPath: opts.initPath ?? defaultInitPath(),
       config: readFileSync(config.path),
       mountGuest: opts.mountGuest,
+      guestLifecyclePaths: defaultGuestLifecyclePaths(),
     });
     writeFileSync(opts.out, Buffer.concat(parts));
     debug("packTinyBundle done elapsed=%dms", Date.now() - t0);
@@ -401,6 +425,7 @@ function tinyBundleEntries(opts: {
   initPath: string;
   config: Buffer;
   mountGuest?: string;
+  guestLifecyclePaths: GuestLifecyclePaths;
 }): Buffer[] {
   const parts: Buffer[] = [newc(".", 0o40755)];
   const initBytes = readInitBytes(opts.initPath);
@@ -420,6 +445,10 @@ function tinyBundleEntries(opts: {
         data: Buffer.from(`${opts.mountGuest}\n`, "ascii"),
       }),
     );
+  }
+  parts.push(newc("sbin", 0o40755));
+  for (const [name, path] of guestLifecycleEntries(opts.guestLifecyclePaths)) {
+    parts.push(newc(`sbin/${name}`, 0o100755, { data: readFileSync(path) }));
   }
   parts.push(newc("dev", 0o40755));
   parts.push(newc("dev/console", 0o20600, { rmajor: 5, rminor: 1 }));
@@ -557,7 +586,7 @@ function mkinitramfsErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-interface VmmGuestPaths {
+interface VmmGuestPaths extends GuestLifecyclePaths {
   initPath: string;
   execAgentPath: string;
 }
@@ -571,21 +600,31 @@ function resolveGuestPaths(): VmmGuestPaths {
   const pkgName = `@machinen/native-${osArch()}-${osPlatform()}`;
   try {
     const mod = require_(pkgName) as Partial<VmmGuestPaths>;
-    if (mod.initPath && mod.execAgentPath && existsSync(mod.initPath)) {
-      cachedGuestPaths = {
-        initPath: mod.initPath,
-        execAgentPath: mod.execAgentPath,
-      };
+    if (
+      mod.initPath &&
+      mod.execAgentPath &&
+      mod.supervisorPath &&
+      mod.restorePath &&
+      [mod.initPath, mod.execAgentPath, mod.supervisorPath, mod.restorePath].every(existsSync)
+    ) {
+      cachedGuestPaths = mod as VmmGuestPaths;
       return cachedGuestPaths;
     }
   } catch {
     // Fall through to the workspace layout below.
   }
   const here = dirname(fileURLToPath(import.meta.url));
-  const fixtures = join(here, "..", "..", "microvm", "test-fixtures");
+  const microvm = join(here, "..", "..", "microvm");
+  const fixtures = join(microvm, "test-fixtures");
+  const assets = join(microvm, "assets");
+  const supervisorFixture = join(fixtures, "machinen-supervisor");
   cachedGuestPaths = {
     initPath: join(fixtures, "init"),
     execAgentPath: join(fixtures, "exec-agent"),
+    supervisorPath: existsSync(supervisorFixture)
+      ? supervisorFixture
+      : join(microvm, "zig-out", "bin", "machinen-supervisor"),
+    restorePath: join(assets, "machinen-restore.sh"),
   };
   return cachedGuestPaths;
 }
@@ -596,6 +635,11 @@ function defaultInitPath(): string {
 
 function defaultExecAgentPath(): string {
   return resolveGuestPaths().execAgentPath;
+}
+
+function defaultGuestLifecyclePaths(): GuestLifecyclePaths {
+  const { supervisorPath, restorePath } = resolveGuestPaths();
+  return { supervisorPath, restorePath };
 }
 
 /**
