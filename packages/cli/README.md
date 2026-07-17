@@ -26,10 +26,11 @@ or a script — without writing any TypeScript.
 - **Run signed remote recipes in a VM.** Run
   `mn run machinen.dev/run/claude-code` to verify the recipe's Ed25519
   signature and show its requested capabilities before first use.
-  Images are cached by recipe digest, state is isolated under
-  `~/.machinen/run/state`,
-  and recipes cannot choose arbitrary host paths. Use
-  `--session <name>` to reconnect later or `--digest` to pin exact content.
+  Images are cached by recipe digest. State requested below guest `/root`
+  automatically uses the matching host-home path, including symlinked roots;
+  other state remains isolated under `~/.machinen/run/state`. The complete
+  effective access is shown before approval. Use `--session <name>` to reconnect
+  later or `--digest` to pin exact content.
 - **Drive it from an agent.** `--json` on every data-returning
   command (`list`, `gc`, `install`, `snapshot`, `stop`,
   `boot --detach`, `fork --detach`, `feedback`). `mn agent-context`

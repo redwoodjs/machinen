@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -44,6 +44,7 @@ vi.mock("../run-registry.ts", () => ({
 }));
 
 import { cmdRun } from "../commands/run.ts";
+import type { VerifiedRunRecipe } from "../run-registry.ts";
 
 const baseAssets = {
   baseDir: "/cache/runtime-v0.8.0/bases/debian-arm64",
@@ -52,7 +53,7 @@ const baseAssets = {
   dtbPath: "/cache/runtime-v0.8.0/bases/debian-arm64/virt.dtb",
 };
 
-const verifiedRecipe = {
+const verifiedRecipe: VerifiedRunRecipe = {
   recipe: {
     schemaVersion: 1,
     publisher: "machinen.dev",
@@ -129,6 +130,35 @@ describe("machinen run recipe images", () => {
       expect.objectContaining({
         kernel: baseAssets.kernelPath,
         dtb: baseAssets.dtbPath,
+      }),
+    );
+  });
+
+  it("boots with host-home state and its external symlink roots", async () => {
+    const agent = join(mocks.home, ".pi", "agent");
+    const config = join(mocks.home, "gh", "peterp", "ade", "config", "pi");
+    mkdirSync(agent, { recursive: true });
+    mkdirSync(config, { recursive: true });
+    writeFileSync(join(config, "settings.json"), "{}\n");
+    symlinkSync(join(config, "settings.json"), join(agent, "settings.json"));
+    const stateRecipe = structuredClone(verifiedRecipe);
+    stateRecipe.recipe.permissions.state = [
+      { name: "agent", guest: "/root/.pi/agent", mode: "rw" },
+    ];
+    mocks.loadRunRecipe.mockResolvedValue(stateRecipe);
+
+    await expect(cmdRun([stateRecipe.source])).resolves.toBe(0);
+
+    expect(mocks.hasRunRecipeApproval).toHaveBeenCalledWith(
+      stateRecipe,
+      expect.stringMatching(/^[a-f0-9]{64}$/),
+    );
+    expect(mocks.boot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        liveMounts: expect.arrayContaining([
+          { host: agent, guest: "/root/.pi/agent", mode: "rw" },
+          { host: config, guest: config, mode: "rw" },
+        ]),
       }),
     );
   });

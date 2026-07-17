@@ -34,6 +34,9 @@ npx @machinen/cli run machinen.dev/run/claude-code
 npx @machinen/cli run machinen.dev/run/codex --session work
 ```
 
+Home configuration requested by a recipe is mounted automatically. The first
+approval lists the exact state and any external roots needed by its symlinks.
+
 ## Install
 
 ```bash

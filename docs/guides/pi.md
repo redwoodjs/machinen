@@ -14,6 +14,17 @@ inside the VM.
 Because the workspace mount is live, edits from the VM appear on the host right
 away. The VM is the isolated place where the agent edits files.
 
+The signed recipe provides the automatic version of this setup:
+
+```bash
+npx @machinen/cli run machinen.dev/run/pi
+```
+
+Its first approval shows the workspace, host `~/.pi/agent`, and any external
+roots needed by symlinks in that state. Later runs reuse the same approval while
+the recipe digest and resolved host access remain unchanged. Continue below when
+you want to bake and boot the image yourself instead.
+
 ## 1. Bake the image
 
 Install Machinen in the project first so TypeScript can resolve the runtime

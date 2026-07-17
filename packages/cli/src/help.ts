@@ -105,7 +105,7 @@ export function printHelp(): void {
       `  machinen run <machinen.dev/run/recipe> [options] [-- <args>]\n` +
       `                                                 Run a signed remote recipe in a VM.\n` +
       `    --inspect                                    Verify and print capabilities only.\n` +
-      `    --trust                                      Approve this exact signed digest.\n` +
+      `    --trust                                      Approve recipe and resolved host access.\n` +
       `    --digest <sha256>                            Require an exact recipe digest.\n` +
       `    --rebuild                                    Rebuild this digest's cached image.\n` +
       `    --session <name>                             Run/reconnect in a persistent PTY session.\n` +
