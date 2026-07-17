@@ -1,5 +1,12 @@
 # @machinen/cli
 
+## 0.8.6
+
+### Patch Changes
+
+- 9711a4d: Restore normal host configuration for signed coding-agent recipes. State below guest `/root` now mirrors the matching host-home path, external symlink roots are mounted automatically, and approvals are tied to both the signed recipe digest and the resolved host access.
+  - @machinen/runtime@0.8.6
+
 ## 0.8.5
 
 ### Patch Changes
