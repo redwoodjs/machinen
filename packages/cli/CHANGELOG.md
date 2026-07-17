@@ -1,5 +1,13 @@
 # @machinen/cli
 
+## 0.8.4
+
+### Patch Changes
+
+- 07e3c0a: Show live byte and percentage progress while `machinen run` downloads missing base assets.
+- Updated dependencies [51089e5]
+  - @machinen/runtime@0.8.4
+
 ## 0.8.3
 
 ### Patch Changes

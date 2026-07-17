@@ -1,6 +1,6 @@
 {
   "name": "@machinen/native-x64-linux",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "Machinen host-side native binaries for amd64 Linux — VMM (KVM) + gvproxy + guest ELFs, mke2fs, and mksquashfs.",
   "license": "FSL-1.1-MIT",
   "repository": {
