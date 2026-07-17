@@ -238,18 +238,20 @@ describe("packBundle mount", () => {
     writeFileSync(join(oldSbin, "machinen-supervisor"), "old-supervisor");
     writeFileSync(join(oldSbin, "machinen-restore"), "old-restore");
 
-    const microvm = join(process.cwd(), "packages", "microvm");
-    const current = join(microvm, "assets");
     const out = join(tmp, "current-lifecycle.cpio");
     packBundle({ bundle, out, initPath: makeStubInit() });
 
     const entries = listCpioEntries(out);
-    expect(entries.get("sbin/machinen-supervisor")?.data).toEqual(
-      readFileSync(join(microvm, "zig-out", "bin", "machinen-supervisor")),
-    );
-    expect(entries.get("sbin/machinen-restore")?.data).toEqual(
-      readFileSync(join(current, "machinen-restore.sh")),
-    );
+    // Normal tests resolve workspace Zig outputs; releases resolve staged
+    // native-package assets. The behavior is the same whichever source won.
+    const supervisor = entries.get("sbin/machinen-supervisor");
+    const restore = entries.get("sbin/machinen-restore");
+    expect(supervisor).toBeDefined();
+    expect(restore).toBeDefined();
+    expect(supervisor!.data).not.toEqual(Buffer.from("old-supervisor"));
+    expect(restore!.data).not.toEqual(Buffer.from("old-restore"));
+    expect(supervisor!.mode & 0o777).toBe(0o755);
+    expect(restore!.mode & 0o777).toBe(0o755);
   });
 
   // #253: a cpio without /init silently produces an opaque kernel
