@@ -232,6 +232,10 @@ npx @machinen/cli run machinen.dev/run/codex --session work
 npx @machinen/cli run list                                 # list runnable URLs
 ```
 
+A recipe state path below guest `/root` automatically uses the corresponding
+host-home path. The first approval shows that state plus any external roots
+needed by its symlinks; the same approved access is automatic on later runs.
+
 ## Other ways to boot
 
 ```bash

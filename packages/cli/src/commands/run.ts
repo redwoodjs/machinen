@@ -8,6 +8,7 @@ import { attach, boot, list, provision, type LogEvent, type VmHandle } from "@ma
 import { resolveCliBaseAssets, type CliBaseAssetPaths } from "../base-assets.ts";
 import { DEFAULT_PTY_SESSION_NAME } from "../defaults.ts";
 import { die } from "../errors.ts";
+import { planRunAccess, type RunAccessPlan } from "../run-access.ts";
 import { approveRunRecipe, hasRunRecipeApproval } from "../run-approval.ts";
 import {
   loadRunRecipe,
@@ -30,6 +31,7 @@ interface ParsedRunArgs {
 
 interface RunOptions extends ParsedRunArgs {
   verified: VerifiedRunRecipe;
+  access: RunAccessPlan;
   imagePath: string;
   vmName: string;
   baseAssets: CliBaseAssetPaths;
@@ -49,13 +51,14 @@ export async function cmdRun(args: string[]): Promise<number> {
   const parsed = parseRunCommandArgs(args);
   const verified = await loadRunRecipe(parsed.reference);
   verifyExpectedDigest(parsed.expectedDigest, verified);
+  const access = planRunAccess(verified.recipe);
   if (parsed.inspect) {
-    printRecipeInspection(verified);
+    printRecipeInspection(verified, access);
     return 0;
   }
-  await ensureRecipeApproved(verified, parsed.trust);
+  await ensureRecipeApproved(verified, access, parsed.trust);
   const baseAssets = await resolveCliBaseAssets();
-  const opts = buildRunOptions(parsed, verified, baseAssets);
+  const opts = buildRunOptions(parsed, verified, access, baseAssets);
   await ensureRecipeImage(opts);
   return await runRecipe(opts);
 }
@@ -129,13 +132,15 @@ function parseRunCommandArgs(args: string[]): ParsedRunArgs {
 function buildRunOptions(
   parsed: ParsedRunArgs,
   verified: VerifiedRunRecipe,
+  access: RunAccessPlan,
   baseAssets: CliBaseAssetPaths,
 ): RunOptions {
   return {
     ...parsed,
     verified,
+    access,
     imagePath: recipeImagePath(verified),
-    vmName: parsed.vmName ?? defaultSessionVmName(verified),
+    vmName: parsed.vmName ?? defaultSessionVmName(verified, access),
     baseAssets,
   };
 }
@@ -152,11 +157,14 @@ function recipeImagePath(verified: VerifiedRunRecipe): string {
   );
 }
 
-function defaultSessionVmName(verified: VerifiedRunRecipe): string {
+function defaultSessionVmName(verified: VerifiedRunRecipe, access: RunAccessPlan): string {
   const cwd = resolve(process.cwd());
   const label = basename(cwd) || "workspace";
   const workspaceHash = createHash("sha256").update(cwd).digest("hex").slice(0, 10);
-  return `run/${verified.recipe.name}/${label}-${workspaceHash}-${verified.digest.slice(0, 8)}`;
+  return (
+    `run/${verified.recipe.name}/${label}-${workspaceHash}-${verified.digest.slice(0, 8)}-` +
+    access.fingerprint.slice(0, 8)
+  );
 }
 
 type RunValueFlag = "--digest" | "--name" | "--session";
@@ -219,32 +227,39 @@ function validateSessionName(value: string): void {
   }
 }
 
-async function ensureRecipeApproved(verified: VerifiedRunRecipe, trust: boolean): Promise<void> {
-  if (hasRunRecipeApproval(verified)) {
+async function ensureRecipeApproved(
+  verified: VerifiedRunRecipe,
+  access: RunAccessPlan,
+  trust: boolean,
+): Promise<void> {
+  if (hasRunRecipeApproval(verified, access.fingerprint)) {
     return;
   }
-  printRecipeCapabilities(verified);
+  printRecipeCapabilities(verified, access);
   if (trust) {
-    trustRecipeWithoutPrompt(verified);
+    trustRecipeWithoutPrompt(verified, access);
     return;
   }
-  await promptToTrustRecipe(verified);
+  await promptToTrustRecipe(verified, access);
 }
 
-function trustRecipeWithoutPrompt(verified: VerifiedRunRecipe): void {
-  approveRunRecipe(verified);
-  process.stderr.write("machinen: trusted this signed recipe digest.\n");
+function trustRecipeWithoutPrompt(verified: VerifiedRunRecipe, access: RunAccessPlan): void {
+  approveRunRecipe(verified, access.fingerprint);
+  process.stderr.write("machinen: trusted this signed recipe and resolved host access.\n");
 }
 
-async function promptToTrustRecipe(verified: VerifiedRunRecipe): Promise<void> {
+async function promptToTrustRecipe(
+  verified: VerifiedRunRecipe,
+  access: RunAccessPlan,
+): Promise<void> {
   requireInteractiveTrust(verified);
   const readline = createInterface({ input: process.stdin, output: process.stderr });
-  const answer = await readline.question("Trust this exact signed recipe digest? [y/N] ");
+  const answer = await readline.question("Trust this signed recipe and host access? [y/N] ");
   readline.close();
   if (!isYes(answer)) {
     die("run recipe was not approved");
   }
-  approveRunRecipe(verified);
+  approveRunRecipe(verified, access.fingerprint);
 }
 
 function requireInteractiveTrust(verified: VerifiedRunRecipe): void {
@@ -252,7 +267,7 @@ function requireInteractiveTrust(verified: VerifiedRunRecipe): void {
     die(
       `run recipe permissions have not been approved.\n` +
         `Inspect with 'machinen run ${verified.source} --inspect'.\n` +
-        `Re-run with --trust to approve this exact signed digest.`,
+        `Re-run with --trust to approve this signed recipe and resolved host access.`,
     );
   }
 }
@@ -261,7 +276,7 @@ function isYes(value: string): boolean {
   return new Set(["y", "yes"]).has(value.trim().toLowerCase());
 }
 
-function printRecipeCapabilities(verified: VerifiedRunRecipe): void {
+function printRecipeCapabilities(verified: VerifiedRunRecipe, access: RunAccessPlan): void {
   const recipe = verified.recipe;
   process.stderr.write(
     `\nRecipe: ${recipe.name}\n` +
@@ -270,7 +285,7 @@ function printRecipeCapabilities(verified: VerifiedRunRecipe): void {
       `Requests:\n` +
       `  outbound network\n` +
       `  ${workspaceDescription(recipe)}\n` +
-      stateDescriptions(recipe) +
+      stateDescriptions(access) +
       `\n`,
   );
 }
@@ -283,20 +298,48 @@ function workspaceDescription(recipe: RunRecipe): string {
   return `${access} workspace ${resolve(process.cwd())} at /mnt/workspace`;
 }
 
-function stateDescriptions(recipe: RunRecipe): string {
-  if (recipe.permissions.state.length === 0) {
+function stateDescriptions(access: RunAccessPlan): string {
+  if (access.states.length === 0) {
     return "  no persistent state\n";
   }
-  return recipe.permissions.state
-    .map(
-      (state) =>
-        `  ${state.mode === "rw" ? "read/write" : "read-only"} isolated state ` +
-        `${recipeStatePath(recipe, state.name)} at ${state.guest}\n`,
-    )
+  return access.states
+    .map((state) => {
+      const mode = state.mode === "rw" ? "read/write" : "read-only";
+      const source = state.source === "home" ? "host state" : "isolated state";
+      const root =
+        `  ${mode} ${source} ${formatHostPath(state.host)} at ${state.guest}` +
+        resolvedHostDescription(state.resolvedHost) +
+        "\n";
+      const linked = state.linked
+        .map(
+          (mount) =>
+            `    including linked host path ${formatHostPath(mount.host)} at ${mount.guest}` +
+            resolvedHostDescription(mount.resolvedHost) +
+            "\n",
+        )
+        .join("");
+      const unresolved = state.unresolvedLinks
+        .map((link) => `    unresolved state link ${link}\n`)
+        .join("");
+      return root + linked + unresolved;
+    })
     .join("");
 }
 
-function printRecipeInspection(verified: VerifiedRunRecipe): void {
+function resolvedHostDescription(path: string | undefined): string {
+  return path === undefined ? "" : ` (resolves to ${formatHostPath(path)})`;
+}
+
+function formatHostPath(path: string): string {
+  const home = homedir();
+  return path === home
+    ? "~"
+    : path.startsWith(`${home}/`)
+      ? `~/${path.slice(home.length + 1)}`
+      : path;
+}
+
+function printRecipeInspection(verified: VerifiedRunRecipe, access: RunAccessPlan): void {
   process.stdout.write(
     `${JSON.stringify(
       {
@@ -305,18 +348,8 @@ function printRecipeInspection(verified: VerifiedRunRecipe): void {
         digest: `sha256:${verified.digest}`,
         signature: { verified: true, key_id: verified.keyId },
         recipe: verified.recipe,
-        workspace:
-          verified.recipe.permissions.workspace === "none"
-            ? null
-            : {
-                host: resolve(process.cwd()),
-                guest: "/mnt/workspace",
-                mode: verified.recipe.permissions.workspace,
-              },
-        state: verified.recipe.permissions.state.map((state) => ({
-          ...state,
-          host: recipeStatePath(verified.recipe, state.name),
-        })),
+        workspace: access.workspace ?? null,
+        state: access.states,
       },
       null,
       2,
@@ -361,12 +394,12 @@ async function runRecipe(opts: RunOptions): Promise<number> {
 }
 
 async function runRecipeForeground(opts: RunOptions): Promise<number> {
-  ensureStateDirs(opts.verified.recipe);
+  ensureStateDirs(opts.access);
   const vm = await boot({
     image: opts.imagePath,
     kernel: opts.baseAssets.kernelPath,
     dtb: opts.baseAssets.dtbPath,
-    liveMounts: liveMountsForRecipe(opts.verified.recipe),
+    liveMounts: opts.access.liveMounts,
     guestCwd: guestCwdForRecipe(opts.verified.recipe),
     cmd: recipeCommand(opts),
     env: envForRecipe(opts.verified.recipe),
@@ -381,7 +414,7 @@ async function runRecipeSession(opts: RunOptions): Promise<number> {
   if (!process.stdin.isTTY) {
     die("machinen run --session: stdin is not a TTY");
   }
-  ensureStateDirs(opts.verified.recipe);
+  ensureStateDirs(opts.access);
   const vm = await attachOrBootSessionVm(opts);
   const cmd = recipeShellCommand(opts);
   process.stderr.write(
@@ -405,7 +438,7 @@ async function attachOrBootSessionVm(opts: RunOptions): Promise<VmHandle> {
     image: opts.imagePath,
     kernel: opts.baseAssets.kernelPath,
     dtb: opts.baseAssets.dtbPath,
-    liveMounts: liveMountsForRecipe(opts.verified.recipe),
+    liveMounts: opts.access.liveMounts,
     guestCwd: guestCwdForRecipe(opts.verified.recipe),
     cmd: ["/bin/bash", "-lc", "sleep infinity"],
     env: envForRecipe(opts.verified.recipe),
@@ -428,27 +461,6 @@ function guestCwdForRecipe(recipe: RunRecipe): string {
   return recipe.permissions.workspace === "none" ? "/root" : "/mnt/workspace";
 }
 
-function liveMountsForRecipe(recipe: RunRecipe) {
-  const workspace =
-    recipe.permissions.workspace === "none"
-      ? []
-      : [
-          {
-            host: resolve(process.cwd()),
-            guest: "/mnt/workspace",
-            mode: recipe.permissions.workspace,
-          },
-        ];
-  return [
-    ...workspace,
-    ...recipe.permissions.state.map((state) => ({
-      host: recipeStatePath(recipe, state.name),
-      guest: state.guest,
-      mode: state.mode,
-    })),
-  ];
-}
-
 function recipeShellCommand(opts: RunOptions): string {
   return [...opts.verified.recipe.command, ...opts.toolArgs].map(shellQuote).join(" ");
 }
@@ -457,14 +469,10 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
-function ensureStateDirs(recipe: RunRecipe): void {
-  for (const state of recipe.permissions.state) {
-    mkdirSync(recipeStatePath(recipe, state.name), { recursive: true, mode: 0o700 });
+function ensureStateDirs(access: RunAccessPlan): void {
+  for (const state of access.states) {
+    mkdirSync(state.host, { recursive: true, mode: 0o700 });
   }
-}
-
-function recipeStatePath(recipe: RunRecipe, name: string): string {
-  return join(homedir(), ".machinen", "run", "state", recipe.publisher, recipe.name, name);
 }
 
 async function printRunList(): Promise<void> {
@@ -483,15 +491,15 @@ function printRunHelp(): void {
       `\n` +
       `Options:\n` +
       `  --inspect            Verify and print the recipe without running it.\n` +
-      `  --trust              Approve this exact signed digest without an interactive prompt.\n` +
+      `  --trust              Approve the signed recipe and host access without a prompt.\n` +
       `  --digest <sha256>    Require an exact signed recipe digest.\n` +
       `  --rebuild            Delete and rebuild this digest's cached image.\n` +
       `  --session <name>     Run or reconnect in a persistent PTY session.\n` +
       `  --name <vm-name>     Override the VM name used by --session.\n` +
       `\n` +
       `Recipes are signed by machinen.dev. They can request network access, the current\n` +
-      `workspace, and isolated state under ~/.machinen/run/state; recipes cannot choose\n` +
-      `arbitrary host paths. New recipe digests require approval before they run.\n` +
+      `workspace, and persistent state. State below /root mirrors the matching host-home\n` +
+      `path, including linked roots; all effective host access is shown for approval.\n` +
       `\n` +
       `Examples:\n` +
       `  machinen run machinen.dev/run/claude-code\n` +

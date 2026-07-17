@@ -390,7 +390,8 @@ export const COMMANDS: CommandSpec[] = [
       {
         name: "--trust",
         type: "boolean",
-        description: "Approve this exact signed recipe digest without an interactive prompt.",
+        description:
+          "Approve the signed recipe and resolved host access without an interactive prompt.",
       },
       {
         name: "--digest",
@@ -411,7 +412,7 @@ export const COMMANDS: CommandSpec[] = [
         name: "--name",
         type: "string",
         description:
-          "VM name for --session mode (default includes recipe, workspace, and digest hashes).",
+          "VM name for --session mode (default includes recipe, workspace, digest, and host-access hashes).",
       },
     ],
   },

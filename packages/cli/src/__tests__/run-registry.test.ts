@@ -1,5 +1,5 @@
 import { generateKeyPairSync, sign } from "node:crypto";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -220,7 +220,9 @@ describe("run recipe fetching", () => {
 });
 
 describe("run recipe approvals", () => {
-  it("approves only the exact signed payload digest", () => {
+  const accessFingerprint = "b".repeat(64);
+
+  it("approves only the exact signed payload and resolved host access", () => {
     const dir = mkdtempSync(join(tmpdir(), "machinen-run-approval-test-"));
     const path = join(dir, "approvals.json");
     const firstEnvelope = signedEnvelope(recipe);
@@ -229,10 +231,11 @@ describe("run recipe approvals", () => {
       "https://machinen.dev/run/test-tool",
       firstEnvelope.keys,
     );
-    expect(hasRunRecipeApproval(first, path)).toBe(false);
+    expect(hasRunRecipeApproval(first, accessFingerprint, path)).toBe(false);
 
-    approveRunRecipe(first, path);
-    expect(hasRunRecipeApproval(first, path)).toBe(true);
+    approveRunRecipe(first, accessFingerprint, path);
+    expect(hasRunRecipeApproval(first, accessFingerprint, path)).toBe(true);
+    expect(hasRunRecipeApproval(first, "c".repeat(64), path)).toBe(false);
     expect(readFileSync(path, "utf8")).toContain(first.digest);
 
     const changedEnvelope = signedEnvelope({ ...recipe, summary: "Changed." });
@@ -241,6 +244,33 @@ describe("run recipe approvals", () => {
       "https://machinen.dev/run/test-tool",
       changedEnvelope.keys,
     );
-    expect(hasRunRecipeApproval(changed, path)).toBe(false);
+    expect(hasRunRecipeApproval(changed, accessFingerprint, path)).toBe(false);
+  });
+
+  it("requires fresh approval for legacy stores that did not fingerprint host access", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-run-approval-test-"));
+    const path = join(dir, "approvals.json");
+    const envelope = signedEnvelope(recipe);
+    const verified = verifyRunRecipeEnvelope(
+      envelope.raw,
+      "https://machinen.dev/run/test-tool",
+      envelope.keys,
+    );
+    writeFileSync(
+      path,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        approvals: {
+          [verified.digest]: {
+            source: verified.source,
+            name: verified.recipe.name,
+            keyId: verified.keyId,
+            approvedAt: new Date().toISOString(),
+          },
+        },
+      })}\n`,
+    );
+
+    expect(hasRunRecipeApproval(verified, accessFingerprint, path)).toBe(false);
   });
 });
