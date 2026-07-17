@@ -36,10 +36,24 @@ backends only differ in how they program the vCPU registers.
 
 ## Shutdown
 
-`/init` (and any in-guest userspace that wants to terminate the VM)
-issues PSCI `SYSTEM_OFF` — function ID `0x84000008` via `HVC #0`. The
-VMM's exit loop matches on this and returns `exit(0)`. Anything else
-(fatal exception, exhausted exit budget) returns non-zero.
+The compiled `/sbin/machinen-supervisor` is PID 1 for both fresh and
+restored workloads. `/sbin/machinen-restore` is only a supervised CRIU worker.
+The supervisor forwards signals, reaps children, retains workload status,
+flushes writable live mounts once, stops sidecars, and invokes
+`/sbin/machinen-poweroff`. Final sync runs only after the workload has exited.
+If it ignores shutdown, the host force-stops the VMM without a racy sync. The
+supervisor removes `/run/machinen-batch-sync.sh` only after successful sync,
+leaving failures available for another attempt and logging cleanup failures
+without replacing an earlier workload failure. The retained status
+is written to `/run/machinen-workload.status`, and non-zero statuses are
+logged before poweroff. `vm.kill()` and `machinen stop` request this guest
+path and wait for poweroff. They force-stop the VMM without a racy host-side
+sync only if the guest request fails or times out.
+
+`/init` and `/sbin/machinen-poweroff` issue PSCI `SYSTEM_OFF` — function
+ID `0x84000008` via `HVC #0`. The VMM's exit loop matches on this and
+returns `exit(0)`. Anything else (fatal exception, exhausted exit budget)
+returns non-zero.
 
 ## Bundle layout
 
@@ -52,6 +66,11 @@ boot, `/init` looks for the following paths:
 - `/init` — PID 1. Mounts `/proc`, `/sys`, `/dev`; opens the console;
   loads the config; optionally pivots; execs the user `cmd`.
 - `/machinen-config.json` — workload spec. Schema below.
+- `/sbin/machinen-supervisor` and `/sbin/machinen-restore` — the current
+  runtime-owned supervisor binary and CRIU restore worker. They override image
+  copies in initramfs boots; before a rootdisk pivot,
+  `/init` installs them into the mounted root. A failed install aborts
+  explicitly instead of silently using an older supervisor.
 
 ### Optional (cpio root)
 
@@ -70,7 +89,8 @@ boot, `/init` looks for the following paths:
 - `/sbin/machinen-supervisor` — pivot marker. Its presence is what
   tells `/init` "this is a real machinen rootfs, not a CRIU scratch
   disk." Without it, `/init` unmounts and falls through to the
-  initramfs-as-rootfs path.
+  initramfs-as-rootfs path. After detection, `/init` replaces this and
+  the restore worker with copies from the current runtime.
 - `/sbin/machinen-netup` — optional. Forked after pivot to bring up
   `eth0` (`192.168.127.2/24`, gateway+DNS `192.168.127.1`) when
   gvproxy is wired up. Missing or non-zero exit logs a warning and

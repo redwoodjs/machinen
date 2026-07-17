@@ -7,10 +7,10 @@ name: Build base assets (reusable)
 # Artifacts:
 #   base-assets-arm64:
 #     Image-arm64, virt-arm64.dtb, rootfs-debian-arm64.tar.gz,
-#     rootfs-debian-arm64.img.gz, *.sha256, guest init/exec-agent
+#     rootfs-debian-arm64.img.gz, *.sha256, guest init/supervisor/exec-agent
 #   base-assets-amd64:
 #     bzImage-x86_64, rootfs-debian-amd64.tar.gz,
-#     rootfs-debian-amd64.img.gz, *.sha256, guest init/exec-agent
+#     rootfs-debian-amd64.img.gz, *.sha256, guest init/supervisor/exec-agent
 #
 # Output is cached on the inputs of build-base-assets.sh + the
 # arch-specific kernel builder + the .zig/.dts/.c sources + KVER pin, so
@@ -90,7 +90,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: release-assets
-          key: base-assets-${{ matrix.guest-arch }}-${{ hashFiles('scripts/build-base-assets.sh', 'scripts/build-kernel-arm64.sh', 'scripts/build-kernel-x86_64.sh', 'packages/microvm/assets/init.zig', 'packages/microvm/assets/exec-agent.zig', 'packages/microvm/assets/machinen-netup.c', 'packages/microvm/assets/machinen-supervisor.sh', 'packages/microvm/assets/virt.dts', 'packages/microvm/patches/kernel/*.patch', 'packages/microvm/patches/criu/*.patch') }}
+          key: base-assets-${{ matrix.guest-arch }}-${{ hashFiles('scripts/build-base-assets.sh', 'scripts/build-kernel-arm64.sh', 'scripts/build-kernel-x86_64.sh', 'packages/microvm/assets/init.zig', 'packages/microvm/assets/exec-agent.zig', 'packages/microvm/assets/machinen-netup.c', 'packages/microvm/assets/machinen-supervisor.zig', 'packages/microvm/assets/machinen-restore.sh', 'packages/microvm/assets/virt.dts', 'packages/microvm/patches/kernel/*.patch', 'packages/microvm/patches/criu/*.patch') }}
 
       - name: Setup Zig
         if: steps.prebuilt.outputs.skip != 'true' && steps.cache.outputs.cache-hit != 'true'

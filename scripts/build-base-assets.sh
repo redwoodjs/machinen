@@ -34,6 +34,7 @@
 #   packages/microvm/assets/lo-up.zig         ← CRIU plumbing (loopback ioctl)
 #   packages/microvm/assets/no-iou.zig        ← CRIU plumbing (block io_uring)
 #   packages/microvm/assets/poweroff.zig      ← clean shutdown → PSCI SYSTEM_OFF
+#   packages/microvm/assets/machinen-supervisor.zig ← guest PID 1 lifecycle owner
 #
 # Also baked into the rootfs (downloaded at build time, not sourced):
 #   fnm @ /usr/local/bin/fnm  ← Node version manager. Hits the public
@@ -182,7 +183,7 @@ fi
 #    (all statically linked against musl)
 # ------------------------------------------------------------
 
-echo "==> Building guest binaries (init, exec-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe, move-capture) for ${ZIG_GUEST_TARGET}"
+echo "==> Building guest binaries (init, supervisor, exec-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe, move-capture) for ${ZIG_GUEST_TARGET}"
 # STAGE has to live inside ROOT, not /tmp, because the mmdebstrap step
 # below runs docker with `-v "$STAGE":/stage:ro`. When build-base-assets
 # itself runs inside a container (agent-ci's local runner, dev shell
@@ -208,7 +209,7 @@ trap 'rm -rf "$STAGE"' EXIT
 # lazy-pages smoke test: mmaps N MiB anon, dirties every page, parks.
 # (`--mount-live` needs no guest binary since #338 — the in-VMM
 # virtio-fs device serves it; /init just `mount -t virtiofs`s it.)
-for name in init exec-agent winsize-agent lo-up no-iou poweroff net-bench-probe memdirty; do
+for name in init machinen-supervisor exec-agent winsize-agent lo-up no-iou poweroff net-bench-probe memdirty; do
   zig build-exe "${ASSETS}/${name}.zig" \
     -target "${ZIG_GUEST_TARGET}" \
     -O ReleaseSmall \
@@ -243,17 +244,16 @@ zig cc "${ASSETS}/vmstate-reseed.c" \
 # rootDisk: true boots silently regress. See issue #129.
 TEST_FIXTURES="${ROOT}/packages/microvm/test-fixtures"
 mkdir -p "${TEST_FIXTURES}"
-install -m 0755 "${STAGE}/init"        "${TEST_FIXTURES}/init"
-install -m 0755 "${STAGE}/exec-agent"  "${TEST_FIXTURES}/exec-agent"
+install -m 0755 "${STAGE}/init"                 "${TEST_FIXTURES}/init"
+install -m 0755 "${STAGE}/machinen-supervisor"  "${TEST_FIXTURES}/machinen-supervisor"
+install -m 0755 "${STAGE}/exec-agent"           "${TEST_FIXTURES}/exec-agent"
 
-# Also stage them into release-assets/ so the CI artifact carries them
-# across runner boundaries. release.yml's release job copies these back
-# into packages/microvm/test-fixtures/ before `changeset publish`, so
-# the @machinen/microvm tarball ships them. Without this hop the build
-# step writes the binaries on the build runner only; the release runner
-# never sees them and publishes an empty test-fixtures/. (issue #309)
-install -m 0755 "${STAGE}/init"        "${OUT}/init"
-install -m 0755 "${STAGE}/exec-agent"  "${OUT}/exec-agent"
+# Also stage them into release-assets/ so the CI artifact carries them across
+# runner boundaries. release.yml copies the arch-specific binaries into the
+# matching native packages before `changeset publish`. (issue #309)
+install -m 0755 "${STAGE}/init"                 "${OUT}/init"
+install -m 0755 "${STAGE}/machinen-supervisor"  "${OUT}/machinen-supervisor"
+install -m 0755 "${STAGE}/exec-agent"           "${OUT}/exec-agent"
 
 # ------------------------------------------------------------
 # 3a. fnm — Node version manager
@@ -273,15 +273,13 @@ echo "${FNM_SHA256}  ${STAGE}/fnm.zip" | shasum -a 256 -c -
 unzip -q -o "${STAGE}/fnm.zip" -d "${STAGE}"
 chmod +x "${STAGE}/fnm"
 
-# Stage the shell-script helpers that implement the snapshot contract
-# (supervisor, dump, restore). They end up under /sbin/machinen-* inside
-# the guest — see the `install -m 0755` block further down.
-cp "${ASSETS}/machinen-supervisor.sh"      "${STAGE}/machinen-supervisor.sh"
+# Stage the shell helpers that remain command-oriented. Process supervision
+# and shared cleanup live in the static machinen-supervisor binary above.
 cp "${ASSETS}/machinen-dump.sh"            "${STAGE}/machinen-dump.sh"
 cp "${ASSETS}/machinen-dump-preflight.sh"  "${STAGE}/machinen-dump-preflight.sh"
 cp "${ASSETS}/machinen-restore.sh"         "${STAGE}/machinen-restore.sh"
-chmod +x "${STAGE}/machinen-supervisor.sh" "${STAGE}/machinen-dump.sh" \
-         "${STAGE}/machinen-dump-preflight.sh" "${STAGE}/machinen-restore.sh"
+chmod +x "${STAGE}/machinen-dump.sh" "${STAGE}/machinen-dump-preflight.sh" \
+         "${STAGE}/machinen-restore.sh"
 
 # Stage CRIU patches (applied inside the rootfs container against the
 # upstream tarball before `make`). See packages/microvm/patches/criu/.
@@ -600,9 +598,8 @@ if [ -r /etc/profile.d/machinen-fnm.sh ]; then
   . /etc/profile.d/machinen-fnm.sh
 fi
 EOF
-# Shell-script helpers that drive the snapshot/restore contract. Staged
-# in by the host-side build step alongside the zig binaries.
-install -m 0755 -D /stage/machinen-supervisor.sh     /work/rootfs/sbin/machinen-supervisor
+# Snapshot/restore helpers staged by the host-side build step.
+install -m 0755 -D /stage/machinen-supervisor        /work/rootfs/sbin/machinen-supervisor
 install -m 0755 -D /stage/machinen-dump.sh           /work/rootfs/sbin/machinen-dump
 install -m 0755 -D /stage/machinen-dump-preflight.sh /work/rootfs/sbin/machinen-dump-preflight
 install -m 0755 -D /stage/machinen-restore.sh        /work/rootfs/sbin/machinen-restore

@@ -299,12 +299,13 @@ describe("boot + attach end-to-end", () => {
         if (buf.indexOf(0x0a) === -1) {
           return;
         }
-        if (opts.stdout) {
+        const isGuestShutdown = buf.includes(Buffer.from("kill -TERM 1"));
+        if (opts.stdout && !isGuestShutdown) {
           const b = Buffer.from(opts.stdout, "utf8");
           socket.write(`O ${b.length}\n`);
           socket.write(b);
         }
-        socket.write(`X ${opts.exitCode}\n`);
+        socket.write(`X ${isGuestShutdown ? 127 : opts.exitCode}\n`);
         socket.end();
       });
     });

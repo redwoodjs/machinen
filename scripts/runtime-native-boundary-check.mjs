@@ -27,6 +27,8 @@ const EXPECTED_INDEX_EXPORTS = {
   gvproxy: "gvproxy",
   initPath: "init",
   execAgentPath: "exec-agent",
+  supervisorPath: "machinen-supervisor",
+  restorePath: "machinen-restore",
   mke2fs: "mke2fs",
   mksquashfs: "mksquashfs",
 };

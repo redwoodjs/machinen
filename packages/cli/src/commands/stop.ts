@@ -3,10 +3,10 @@ import { attach, runGc, validatePid, type RegistryEntry } from "@machinen/runtim
 import type { Target } from "../parse-target.ts";
 import { describeTarget, lookupEntry, parseTargetFlags } from "./target.ts";
 
-// `machinen stop <name|pid>` — SIGTERM the VMM, escalate to SIGKILL
-// after 2s, then gc its entry. Resolves `--detached` boots' Ctrl-C
-// problem: the CLI no longer holds the VMM, so a separate `stop`
-// command is the only way to ask for a clean shutdown.
+// `machinen stop <name|pid>` — ask guest PID 1 to stop the workload,
+// finish guest-owned cleanup, and power off. If the guest request fails or
+// times out, the runtime force-kills the VMM without a racy host-side sync.
+// `--force` skips the guest request and sends SIGKILL immediately.
 export async function cmdStop(args: string[]): Promise<number> {
   const opts = parseStopOptions(args);
   const entry = lookupEntry(opts.target);
@@ -30,40 +30,31 @@ async function stopExistingEntry(entry: RegistryEntry, opts: StopOptions): Promi
 }
 
 async function stopLiveEntry(entry: RegistryEntry, opts: StopOptions): Promise<number> {
-  await syncBatchLiveMountsBeforeStop(entry, opts);
   const sig = stopSignal(opts.force);
-  if (!signalStopProcess(entry.pid, sig, opts, "STOP_KILL_FAILED")) {
+  if (!(await stopVmProcess(entry, opts))) {
     return 1;
   }
-  await escalateIfNeeded(entry.pid, opts.force);
   await stopGvproxy(entry, sig, opts.force);
   finishStoppedEntry(entry, opts);
   return 0;
 }
 
-async function syncBatchLiveMountsBeforeStop(
-  entry: RegistryEntry,
-  opts: StopOptions,
-): Promise<void> {
-  if (opts.force || !entry.liveMounts?.some((mount) => mount.mode === "rw")) {
-    return;
+async function stopVmProcess(entry: RegistryEntry, opts: StopOptions): Promise<boolean> {
+  if (opts.force) {
+    return signalStopProcess(entry.pid, "SIGKILL", opts, "STOP_KILL_FAILED");
   }
   try {
     const vm = await attach({ pid: entry.pid });
     try {
-      await vm.execRaw("true", { execTimeoutMs: 300_000 });
+      await vm.kill();
     } finally {
       await vm.detach().catch(() => undefined);
     }
+    return true;
   } catch (err) {
-    process.stderr.write(
-      `machinen stop: warning: failed to sync live mounts before stop: ${formatStopSyncError(err)}\n`,
-    );
+    reportStopSignalError(entry.pid, err, opts, "STOP_KILL_FAILED");
+    return false;
   }
-}
-
-function formatStopSyncError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 type StopStatus = "stopped" | "would_stop" | "already_dead" | "recycled";
@@ -173,7 +164,7 @@ function gcStoppedEntry(entry: RegistryEntry, dryRun: boolean): void {
 
 function reportStopDryRun(entry: RegistryEntry, opts: StopOptions): void {
   if (!opts.json) {
-    const sigLabel = opts.force ? "SIGKILL" : "SIGTERM (escalates to SIGKILL after 2s)";
+    const sigLabel = opts.force ? "SIGKILL" : "request guest shutdown";
     process.stdout.write(`would ${sigLabel} ${entryLabel(entry)}\n`);
   }
   emitStop(entry, opts, "would_stop");

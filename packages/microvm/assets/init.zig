@@ -115,6 +115,10 @@ const NEWROOT = "/newroot";
 // is shipped by every machinen base rootfs (scripts/build-base-assets.sh)
 // so its presence is a reliable signal. See #114.
 const ROOTFS_MARKER = "/newroot/sbin/machinen-supervisor";
+const GUEST_SUPERVISOR = "/sbin/machinen-supervisor";
+const GUEST_RESTORE = "/sbin/machinen-restore";
+const NEWROOT_SUPERVISOR = "/newroot/sbin/machinen-supervisor";
+const NEWROOT_RESTORE = "/newroot/sbin/machinen-restore";
 
 // #272: virtio-blk slots 5 and 6 carry the `--mount` overlay's RO
 // lower (squashfs) and RW upper (ext4). DTB probe order maps them to
@@ -849,6 +853,13 @@ fn try_root_disk_pivot() bool {
     // Online-grow the ext4 fs to fill /dev/vda. See growRootdiskFs.
     grow_rootdisk_fs(NEWROOT);
 
+    // The tiny initramfs carries the current supervisor and restore worker.
+    // Install them before chroot so cached/custom root filesystems cannot
+    // silently fall back to a supervisor that lacks final mount sync.
+    if (!install_guest_lifecycle()) {
+        die("init: failed to install current guest lifecycle assets");
+    }
+
     // Hand off /proc, /sys, /dev to the new root via MS_MOVE so the
     // already-mounted filesystems stay live across the chroot. mkdir
     // first in case the on-disk rootfs is too lean to ship them.
@@ -1153,32 +1164,40 @@ fn mkdir_parents(path: []const u8) void {
     }
 }
 
+// Install the runtime-owned supervisor and restore worker atomically from the
+// boot contract's perspective: the caller aborts if either copy fails.
+fn install_guest_lifecycle() bool {
+    std.debug.assert(ROOTFS_MARKER.len > 0);
+    return copy_file_with_mode(GUEST_SUPERVISOR, NEWROOT_SUPERVISOR, 0o755) and
+        copy_file_with_mode(GUEST_RESTORE, NEWROOT_RESTORE, 0o755);
+}
+
 /// Best-effort `cp src dst`. Used to bring the per-boot config + epoch
 /// files across the pivot. Failures are silent — the boot continues
 /// without them and the caller deals with the consequences.
 fn copy_file_best(src: [*:0]const u8, dst: [*:0]const u8) void {
-    copy_file_with_mode(src, dst, 0o644);
+    if (!copy_file_with_mode(src, dst, 0o644)) return;
 }
 
-fn copy_file_with_mode(src: [*:0]const u8, dst: [*:0]const u8, mode: c_uint) void {
+fn copy_file_with_mode(src: [*:0]const u8, dst: [*:0]const u8, mode: c_uint) bool {
     const in_fd = open(src, O_RDONLY);
-    if (in_fd < 0) return;
+    if (in_fd < 0) return false;
     defer _ = close(in_fd);
     // O_WRONLY | O_CREAT | O_TRUNC = 1 | 64 | 512 on Linux/musl.
     const out_fd = open(dst, 0o1 | 0o100 | 0o1000, mode);
-    if (out_fd < 0) return;
+    if (out_fd < 0) return false;
     defer _ = close(out_fd);
     var buf: [8192]u8 = undefined;
-    // EOF-bounded stream copy. `read` decides the bound; errors and
-    // EOF both stop this best-effort helper.
+    // EOF-bounded stream copy. Any read/write error returns false.
     while (true) {
         const n = read(in_fd, &buf, buf.len);
-        if (n <= 0) return;
+        if (n < 0) return false;
+        if (n == 0) return true;
         var off: usize = 0;
         const total: usize = @intCast(n);
         while (off < total) {
             const w = write(out_fd, buf[off..].ptr, total - off);
-            if (w <= 0) return;
+            if (w <= 0) return false;
             off += @intCast(w);
         }
     }

@@ -109,6 +109,32 @@ pub fn build(b: *std.Build) void {
     // by passing `--prefix` or `-p`.
     b.installArtifact(exe);
 
+    // Guest PID 1. Build a static Linux/musl binary for the current host CPU
+    // architecture so workspace runtime builds have the same supervisor that
+    // release assets package for guests.
+    const guest_arch: ?std.Target.Cpu.Arch = switch (target.result.cpu.arch) {
+        .aarch64 => .aarch64,
+        .x86_64 => .x86_64,
+        else => null,
+    };
+    if (guest_arch) |cpu_arch| {
+        const guest_target = b.resolveTargetQuery(.{
+            .cpu_arch = cpu_arch,
+            .os_tag = .linux,
+            .abi = .musl,
+        });
+        const guest_supervisor = b.addExecutable(.{
+            .name = "machinen-supervisor",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("assets/machinen-supervisor.zig"),
+                .target = guest_target,
+                .optimize = .ReleaseSmall,
+                .link_libc = true,
+            }),
+        });
+        b.installArtifact(guest_supervisor);
+    }
+
     // snapshot-test — CLI for the .vmstate snapshot format (task #16).
     // Lives alongside machinen-vm because future subcommands need the
     // same KVM/HVF state-extraction surface.
@@ -191,6 +217,16 @@ pub fn build(b: *std.Build) void {
     const run_exe_tests = b.addRunArtifact(exe_tests);
     run_exe_tests.setCwd(b.path("."));
 
+    const supervisor_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("assets/machinen-supervisor.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
+    });
+    const run_supervisor_tests = b.addRunArtifact(supervisor_tests);
+
     // On macOS, ad-hoc codesign test and exe binaries with the
     // com.apple.security.hypervisor entitlement so hv_vm_create and friends
     // can actually succeed (otherwise HV_DENIED). See
@@ -223,6 +259,7 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
+    test_step.dependOn(&run_supervisor_tests.step);
 
     // Just like flags, top level steps are also listed in the `--help` menu.
     //
