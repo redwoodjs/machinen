@@ -1,5 +1,12 @@
 # @machinen/cli
 
+## 0.8.7
+
+### Patch Changes
+
+- Updated dependencies [d3c17a5]
+  - @machinen/runtime@0.8.7
+
 ## 0.8.6
 
 ### Patch Changes

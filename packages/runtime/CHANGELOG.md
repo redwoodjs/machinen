@@ -1,5 +1,11 @@
 # @machinen/runtime
 
+## 0.8.7
+
+### Patch Changes
+
+- d3c17a5: Publish only changed and deleted writable live-mount paths at sync points. Untouched mounts now skip file copying, so exiting an interactive VM no longer archives and rewrites the full workspace.
+
 ## 0.8.6
 
 ## 0.8.5
