@@ -40,7 +40,9 @@ The compiled `/sbin/machinen-supervisor` is PID 1 for both fresh and
 restored workloads. `/sbin/machinen-restore` is only a supervised CRIU worker.
 The supervisor forwards signals, reaps children, retains workload status,
 flushes writable live mounts once, stops sidecars, and invokes
-`/sbin/machinen-poweroff`. Final sync runs only after the workload has exited.
+`/sbin/machinen-poweroff`. Final sync walks each overlay upper and publishes
+only changed paths and deletions; an untouched mount performs no file copy.
+Final sync runs only after the workload has exited.
 If it ignores shutdown, the host force-stops the VMM without a racy sync. The
 supervisor removes `/run/machinen-batch-sync.sh` only after successful sync,
 leaving failures available for another attempt and logging cleanup failures

@@ -449,6 +449,10 @@ mkdir -p "$T5B_SRC/preserved/nested"
 echo "delete-me" >"$T5B_SRC/delete-me.txt"
 echo "keep-root" >"$T5B_SRC/keep-root.txt"
 echo "keep-nested" >"$T5B_SRC/preserved/nested/keep.txt"
+# An unchanged unreadable file proves final sync does not archive the whole mount.
+# The host user cannot read it, but an incremental publish never needs to.
+echo "do-not-read" >"$T5B_SRC/unchanged-unreadable.txt"
+chmod 000 "$T5B_SRC/unchanged-unreadable.txt"
 run_timeout 60 node "$CLI" boot \
   --mount-live "$T5B_SRC:/mnt/live:rw" "$T5B_IMG" \
   -- /bin/sh -c "echo $T5B_MARKER >/mnt/live/from-guest.txt && rm /mnt/live/delete-me.txt" \
@@ -457,8 +461,9 @@ if [[ -f "$T5B_SRC/from-guest.txt" ]] && grep -q "$T5B_MARKER" "$T5B_SRC/from-gu
   [[ ! -e "$T5B_SRC/delete-me.txt" ]] &&
   [[ "$(cat "$T5B_SRC/keep-root.txt" 2>/dev/null)" == "keep-root" ]] &&
   [[ "$(cat "$T5B_SRC/preserved/nested/keep.txt" 2>/dev/null)" == "keep-nested" ]] &&
+  [[ -f "$T5B_SRC/unchanged-unreadable.txt" ]] &&
   ! grep -q "Stale file handle" "$T5B_LOG"; then
-  pass "guest write/delete through :rw live-mount flushed without dropping nested host files"
+  pass "guest write/delete flushed without reading or rewriting unchanged host files"
 else
   tail -80 "$T5B_LOG" >&2
   echo "  host file: $(ls -la "$T5B_SRC" 2>&1)" >&2
@@ -1620,6 +1625,7 @@ N2L_LOG="$FIXTURE/n2l.log"
 N2L_LOG_DIR="$FIXTURE/n2l-logs"
 N2L_SRC="$FIXTURE/n2l-live"
 N2L_MARKER="n2l-marker-$$"
+N2L_EXEC_MARKER="n2l-exec-marker-$$"
 N2L_STOP_MARKER="n2l-stop-marker-$$"
 mkdir -p "$N2L_SRC" "$N2L_LOG_DIR"
 # Seed the marker BEFORE boot so the post-detach exec can read it.
@@ -1661,6 +1667,17 @@ if cli exec "$N2L_NAME" -- cat /mnt/live/hello.txt >"$N2L_EXEC_LOG" 2>&1; then
 else
   cat "$N2L_EXEC_LOG" >&2
   fail "N2L — post-detach 'machinen exec ... cat' exited non-zero"
+fi
+
+# Host API operations run the same incremental guest sync before returning.
+if cli exec "$N2L_NAME" -- /bin/sh -c "'echo $N2L_EXEC_MARKER >/mnt/live/exec-sync.txt'" \
+    >>"$N2L_EXEC_LOG" 2>&1 &&
+  [[ "$(cat "$N2L_SRC/exec-sync.txt" 2>/dev/null)" == "$N2L_EXEC_MARKER" ]]; then
+  pass "machinen exec published its changed live-mount path before returning"
+else
+  cat "$N2L_EXEC_LOG" >&2
+  ls -la "$N2L_SRC" >&2
+  fail "N2L — host API sync did not publish the exec write"
 fi
 
 # `machinen stop` should signal guest PID 1, which forwards SIGTERM to
