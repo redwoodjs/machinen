@@ -4,9 +4,9 @@ A native macOS prototype for reviewing Machinen's live-session deck one interact
 
 ## Current phase
 
-**Phase 6 — New-terminal flow**
+**Phase 6b — Workspace and session hierarchy**
 
-Press Command-T from the overview or a focused session to start Shell, Claude Code, Codex, Pi, or an arbitrary command in the current workspace. Choose Another Project opens a folder picker. A simulated Starting tile appears and automatically focuses when ready. The prototype intentionally has no real terminals or Machinen integration yet.
+Machinen now opens on a workspace deck. Return enters a workspace, whose live terminal sessions form a second deck; Return focuses a session edge to edge. Escape returns from a session deck to workspaces. In a focused terminal, one Escape is reserved for the terminal and a second rapid Escape returns to the session deck. The Command chord remains an alternative. The prototype intentionally has no real terminals or Machinen integration yet.
 
 ## Run
 

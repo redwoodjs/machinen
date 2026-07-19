@@ -1,5 +1,10 @@
 import AppKit
 
+enum TileKind {
+    case workspace
+    case session
+}
+
 final class TerminalTileView: NSView {
     private enum Metrics {
         static let cornerRadius: CGFloat = 7
@@ -9,6 +14,7 @@ final class TerminalTileView: NSView {
     }
 
     let session: MockSession
+    let kind: TileKind
     private var displayState: MockSession.State
     private var displayTerminalText: String
     var onSelect: (() -> Void)?
@@ -29,6 +35,8 @@ final class TerminalTileView: NSView {
         didSet { needsDisplay = true }
     }
 
+    var currentState: MockSession.State { displayState }
+
     var isFocused = false {
         didSet {
             layer?.cornerRadius = isFocused ? 0 : Metrics.cornerRadius
@@ -38,8 +46,9 @@ final class TerminalTileView: NSView {
 
     override var isFlipped: Bool { true }
 
-    init(session: MockSession) {
+    init(session: MockSession, kind: TileKind = .session) {
         self.session = session
+        self.kind = kind
         displayState = session.state
         displayTerminalText = session.terminalText
         super.init(frame: .zero)
@@ -145,7 +154,7 @@ final class TerminalTileView: NSView {
             verticalCenter: true
         )
 
-        let stateText = displayState.rawValue
+        let stateText = kind == .workspace ? session.name : displayState.rawValue
         let stateWidth = ceil(textSize(stateText, font: Fonts.metadata).width)
         let stateRect = NSRect(
             x: bounds.width - Metrics.horizontalInset - stateWidth,
@@ -177,8 +186,14 @@ final class TerminalTileView: NSView {
             width: max(0, dotRect.minX - titleX - 9),
             height: Metrics.headerHeight
         )
+        let title = switch kind {
+        case .workspace:
+            session.workspace
+        case .session:
+            isFocused ? "\(session.workspace) / \(session.name)" : session.name
+        }
         drawText(
-            "\(session.workspace) / \(session.name)",
+            title,
             in: titleRect,
             font: Fonts.metadata,
             color: NSColor(calibratedWhite: 0.82, alpha: 1),

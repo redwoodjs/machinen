@@ -26,6 +26,9 @@ final class TerminalDeckView: NSView {
     }
 
     private var terminalTiles: [TerminalTileView]
+    private var allSessionTiles: [TerminalTileView]
+    private var workspaceTiles: [TerminalTileView]
+    private var currentWorkspace: String?
     private var selectedIndex = 0
     private var labelBuffer = ""
     private var focusedIndex: Int?
@@ -38,20 +41,26 @@ final class TerminalDeckView: NSView {
     private var gridColumnCount = 1
     private var commandPalette: CommandPaletteView?
     private var paletteKind: PaletteKind?
+    private var lastFocusedEscapeAt: TimeInterval?
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
     init(sessions: [MockSession]) {
-        terminalTiles = sessions.map(TerminalTileView.init)
+        allSessionTiles = sessions.map { TerminalTileView(session: $0) }
+        workspaceTiles = []
+        terminalTiles = []
         super.init(frame: .zero)
         wantsLayer = true
         layer?.backgroundColor = NSColor(calibratedWhite: 0.055, alpha: 1).cgColor
 
-        for tile in terminalTiles {
+        for tile in allSessionTiles {
             installTile(tile)
+            tile.isHidden = true
         }
+        rebuildWorkspaceTiles()
+        terminalTiles = workspaceTiles
         updateSelection()
         simulatedOutputTimer = Timer.scheduledTimer(
             timeInterval: 1.2,
@@ -98,11 +107,64 @@ final class TerminalDeckView: NSView {
         addSubview(tile)
     }
 
+    private func rebuildWorkspaceTiles() {
+        for tile in workspaceTiles {
+            tile.removeFromSuperview()
+        }
+
+        var workspaceNames: [String] = []
+        for tile in allSessionTiles where !workspaceNames.contains(tile.session.workspace) {
+            workspaceNames.append(tile.session.workspace)
+        }
+
+        var usedLabels: Set<String> = []
+        workspaceTiles = workspaceNames.map { workspace in
+            let sessions = allSessionTiles.filter { $0.session.workspace == workspace }
+            let base = String(workspace.lowercased().prefix(2)).padding(
+                toLength: 2,
+                withPad: "w",
+                startingAt: 0
+            )
+            var label = base
+            var suffix = 2
+            while usedLabels.contains(label) {
+                label = String(base.prefix(1)) + String(suffix)
+                suffix += 1
+            }
+            usedLabels.insert(label)
+
+            let summary = sessions.map {
+                "\($0.session.name.padding(toLength: 12, withPad: " ", startingAt: 0)) · \($0.currentState.rawValue)"
+            }.joined(separator: "\n")
+            let count = sessions.count
+            let tile = TerminalTileView(
+                session: MockSession(
+                    label: label,
+                    workspace: workspace,
+                    name: "\(count) \(count == 1 ? "session" : "sessions")",
+                    state: .live,
+                    terminalText: """
+                    LIVE TERMINALS
+
+                    \(summary)
+                    """
+                ),
+                kind: .workspace
+            )
+            installTile(tile)
+            return tile
+        }
+    }
+
     override func keyDown(with event: NSEvent) {
-        guard focusedIndex == nil, !isTransitioning else {
+        let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        if focusedIndex != nil {
+            if modifiers.isEmpty, event.keyCode == 53 {
+                handleFocusedEscape()
+            }
             return
         }
-        let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        guard !isTransitioning else { return }
         if modifiers == [.command] {
             switch event.keyCode {
             case 123:
@@ -143,6 +205,11 @@ final class TerminalDeckView: NSView {
                     beginPeek()
                 }
                 return
+            case 53:
+                if currentWorkspace != nil {
+                    showWorkspaceDeck()
+                }
+                return
             case 51:
                 removeLastLabelCharacter()
                 return
@@ -160,6 +227,18 @@ final class TerminalDeckView: NSView {
             }
         }
         super.keyDown(with: event)
+    }
+
+    private func handleFocusedEscape() {
+        let now = ProcessInfo.processInfo.systemUptime
+        if let previous = lastFocusedEscapeAt, now - previous <= 0.45 {
+            lastFocusedEscapeAt = nil
+            returnToOverview()
+        } else {
+            // The first Escape is conceptually forwarded to the terminal. The
+            // mock surface has no PTY yet, so only the timing state is visible.
+            lastFocusedEscapeAt = now
+        }
     }
 
     override func keyUp(with event: NSEvent) {
@@ -287,6 +366,7 @@ final class TerminalDeckView: NSView {
         let targetIndex = nextRow * columns + nextColumn
         guard terminalTiles.indices.contains(targetIndex) else { return }
         terminalTiles.swapAt(selectedIndex, targetIndex)
+        syncVisibleSessionOrder()
         selectedIndex = targetIndex
         updateSelection()
         animateOverviewLayout()
@@ -404,6 +484,7 @@ final class TerminalDeckView: NSView {
         {
             terminalTiles.remove(at: currentIndex)
             terminalTiles.insert(state.tile, at: targetIndex)
+            syncVisibleSessionOrder()
             selectedIndex = targetIndex
             updateSelection()
             animateOverviewLayout(excluding: state.tile)
@@ -440,6 +521,14 @@ final class TerminalDeckView: NSView {
             for (tile, frame) in zip(terminalTiles, frames) where tile !== excludedTile {
                 tile.animator().frame = frame.integral
             }
+        }
+    }
+
+    private func syncVisibleSessionOrder() {
+        guard let currentWorkspace else { return }
+        var reordered = terminalTiles.makeIterator()
+        allSessionTiles = allSessionTiles.map { tile in
+            tile.session.workspace == currentWorkspace ? (reordered.next() ?? tile) : tile
         }
     }
 
@@ -493,6 +582,128 @@ final class TerminalDeckView: NSView {
 
     @objc private func clearLabelBufferAfterDelay() {
         clearLabelBuffer()
+    }
+
+    private func enterWorkspace(
+        _ workspace: String,
+        completion: (@MainActor () -> Void)? = nil
+    ) {
+        guard focusedIndex == nil, !isTransitioning, currentWorkspace == nil else {
+            completion?()
+            return
+        }
+
+        isTransitioning = true
+        needsDisplay = true
+        let sourceTile = terminalTiles.first { $0.session.workspace == workspace }
+        sourceTile?.layer?.zPosition = 100
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            for tile in terminalTiles {
+                if tile === sourceTile {
+                    tile.animator().frame = bounds.insetBy(dx: 4, dy: 4).integral
+                } else {
+                    tile.animator().alphaValue = 0
+                }
+            }
+        } completionHandler: { [weak self] in
+            Task { @MainActor in
+                self?.finishEnteringWorkspace(workspace, completion: completion)
+            }
+        }
+    }
+
+    private func finishEnteringWorkspace(
+        _ workspace: String,
+        completion: (@MainActor () -> Void)?
+    ) {
+        for tile in workspaceTiles {
+            tile.isHidden = true
+            tile.alphaValue = 1
+            tile.layer?.zPosition = 0
+        }
+
+        currentWorkspace = workspace
+        terminalTiles = allSessionTiles.filter { $0.session.workspace == workspace }
+        selectedIndex = 0
+        focusedIndex = nil
+        let frames = gridFrames(count: terminalTiles.count, in: bounds)
+        for (tile, frame) in zip(terminalTiles, frames) {
+            tile.frame = frame.integral
+            tile.alphaValue = 0
+            tile.isHidden = false
+        }
+        needsDisplay = true
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.12
+            for tile in terminalTiles {
+                tile.animator().alphaValue = 1
+            }
+        } completionHandler: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.isTransitioning = false
+                self.updateSelection()
+                self.window?.makeFirstResponder(self)
+                self.needsDisplay = true
+                completion?()
+            }
+        }
+    }
+
+    private func showWorkspaceDeck(completion: (@MainActor () -> Void)? = nil) {
+        guard currentWorkspace != nil, focusedIndex == nil, !isTransitioning else { return }
+        isTransitioning = true
+        let previousWorkspace = currentWorkspace
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.12
+            for tile in terminalTiles {
+                tile.animator().alphaValue = 0
+            }
+        } completionHandler: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                for tile in self.terminalTiles {
+                    tile.isHidden = true
+                    tile.alphaValue = 1
+                }
+                self.rebuildWorkspaceTiles()
+                self.terminalTiles = self.workspaceTiles
+                self.currentWorkspace = nil
+                self.focusedIndex = nil
+                self.selectedIndex = self.terminalTiles.firstIndex {
+                    $0.session.workspace == previousWorkspace
+                } ?? 0
+
+                let frames = self.gridFrames(count: self.terminalTiles.count, in: self.bounds)
+                for (tile, frame) in zip(self.terminalTiles, frames) {
+                    tile.frame = frame.integral
+                    tile.alphaValue = 0
+                    tile.isHidden = false
+                }
+                self.needsDisplay = true
+
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.12
+                    for tile in self.terminalTiles {
+                        tile.animator().alphaValue = 1
+                    }
+                } completionHandler: { [weak self] in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.isTransitioning = false
+                        self.updateSelection()
+                        self.window?.makeFirstResponder(self)
+                        self.needsDisplay = true
+                        completion?()
+                    }
+                }
+            }
+        }
     }
 
     func toggleCommandPalette() {
@@ -660,6 +871,16 @@ final class TerminalDeckView: NSView {
     }
 
     private func paletteCommands(for session: MockSession) -> [PaletteCommand] {
+        if currentWorkspace == nil {
+            return [
+                PaletteCommand(id: .toggleOverview, title: "View: Open \(session.workspace)", shortcut: "return"),
+                PaletteCommand(id: .newTerminal, title: "Session: New terminal in \(session.workspace)…", shortcut: "⌘T"),
+                PaletteCommand(id: .openPreview, title: "Workspace: Open preview", shortcut: ""),
+                PaletteCommand(id: .reviewChanges, title: "Workspace: Review changes", shortcut: ""),
+                PaletteCommand(id: .inspectWorkspace, title: "Workspace: Inspect machine…", shortcut: ""),
+            ]
+        }
+
         let viewCommand = focusedIndex == nil
             ? "View: Focus selected session"
             : "View: Show session overview"
@@ -690,14 +911,25 @@ final class TerminalDeckView: NSView {
     }
 
     private func createSimulatedSession(workspace: String, name: String, command: String) {
+        if focusedIndex != nil {
+            returnToOverview { [weak self] in
+                self?.createSimulatedSession(workspace: workspace, name: name, command: command)
+            }
+            return
+        }
+
         let addSession: @MainActor () -> Void = { [weak self] in
             guard let self else { return }
             self.addSimulatedSession(workspace: workspace, name: name, command: command)
         }
-        if focusedIndex != nil {
-            returnToOverview(completion: addSession)
-        } else {
+        if currentWorkspace == workspace {
             addSession()
+        } else if currentWorkspace == nil {
+            enterWorkspace(workspace, completion: addSession)
+        } else {
+            showWorkspaceDeck { [weak self] in
+                self?.enterWorkspace(workspace, completion: addSession)
+            }
         }
     }
 
@@ -720,6 +952,7 @@ final class TerminalDeckView: NSView {
             """
         )
         let tile = TerminalTileView(session: session)
+        allSessionTiles.append(tile)
         terminalTiles.append(tile)
         installTile(tile)
         selectedIndex = terminalTiles.count - 1
@@ -757,7 +990,7 @@ final class TerminalDeckView: NSView {
         let workspacePrefix = workspace.lowercased().first.map(String.init) ?? "w"
         let sessionPrefix = session.lowercased().first.map(String.init) ?? "s"
         let preferred = workspacePrefix + sessionPrefix
-        let used = Set(terminalTiles.map { $0.session.label })
+        let used = Set(allSessionTiles.map { $0.session.label })
         if !used.contains(preferred) {
             return preferred
         }
@@ -806,7 +1039,12 @@ final class TerminalDeckView: NSView {
             return
         }
         select(index)
+        if currentWorkspace == nil {
+            enterWorkspace(terminalTiles[index].session.workspace)
+            return
+        }
         clearLabelBuffer()
+        lastFocusedEscapeAt = nil
         isTransitioning = true
         needsDisplay = true
 
@@ -861,6 +1099,7 @@ final class TerminalDeckView: NSView {
                 guard let self else { return }
                 self.terminalTiles[focusedIndex].layer?.zPosition = 0
                 self.focusedIndex = nil
+                self.lastFocusedEscapeAt = nil
                 self.isTransitioning = false
                 self.updateSelection()
                 self.window?.makeFirstResponder(self)
@@ -876,14 +1115,19 @@ final class TerminalDeckView: NSView {
 
     @objc private func advanceSimulatedOutput() {
         simulationTick = simulationTick >= 84 ? 38 : simulationTick + 1
-        for tile in terminalTiles {
+        for tile in allSessionTiles {
             tile.simulationTick = simulationTick
         }
     }
 
     private func drawMetadata() {
+        let title = if let currentWorkspace {
+            "MACHINEN / \(currentWorkspace) · \(terminalTiles.count) LIVE SESSIONS"
+        } else {
+            "MACHINEN · \(terminalTiles.count) WORKSPACES"
+        }
         drawLabel(
-            "MACHINEN · \(terminalTiles.count) LIVE SESSIONS",
+            title,
             x: Metrics.windowControlsInset,
             alignment: .left
         )
@@ -922,8 +1166,10 @@ final class TerminalDeckView: NSView {
         let text: String
         if !labelBuffer.isEmpty {
             text = "TYPE LABEL  \(labelBuffer)_"
+        } else if currentWorkspace == nil {
+            text = "arrows  select     return  open workspace     hold space  peek"
         } else {
-            text = "arrows  select     return  open     hold space  peek     drag or ⌘+arrows  reorder"
+            text = "esc  all workspaces     arrows  select     return  focus     ⌘T  new terminal"
         }
         NSAttributedString(string: text, attributes: attributes).draw(
             in: NSRect(x: Metrics.sideInset, y: bounds.height - 31, width: bounds.width - Metrics.sideInset * 2, height: 16)
