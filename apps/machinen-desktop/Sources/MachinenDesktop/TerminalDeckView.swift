@@ -234,7 +234,7 @@ final class TerminalDeckView: NSView {
         let now = ProcessInfo.processInfo.systemUptime
         if let previous = lastFocusedEscapeAt, now - previous <= 0.45 {
             lastFocusedEscapeAt = nil
-            returnToOverview()
+            leaveFocusedSession()
         } else {
             // The first Escape is conceptually forwarded to the terminal. The
             // mock surface has no PTY yet, so only the timing state is visible.
@@ -587,6 +587,7 @@ final class TerminalDeckView: NSView {
 
     private func enterWorkspace(
         _ workspace: String,
+        focusSingleton: Bool = true,
         completion: (@MainActor () -> Void)? = nil
     ) {
         guard focusedIndex == nil, !isTransitioning, currentWorkspace == nil else {
@@ -612,13 +613,18 @@ final class TerminalDeckView: NSView {
             }
         } completionHandler: { [weak self] in
             Task { @MainActor in
-                self?.finishEnteringWorkspace(workspace, completion: completion)
+                self?.finishEnteringWorkspace(
+                    workspace,
+                    focusSingleton: focusSingleton,
+                    completion: completion
+                )
             }
         }
     }
 
     private func finishEnteringWorkspace(
         _ workspace: String,
+        focusSingleton: Bool,
         completion: (@MainActor () -> Void)?
     ) {
         let sourceTile = workspaceTiles.first { $0.session.workspace == workspace }
@@ -655,7 +661,11 @@ final class TerminalDeckView: NSView {
                 self.updateSelection()
                 self.window?.makeFirstResponder(self)
                 self.needsDisplay = true
-                completion?()
+                if focusSingleton, self.terminalTiles.count == 1 {
+                    self.activate(0)
+                } else {
+                    completion?()
+                }
             }
         }
     }
@@ -901,9 +911,14 @@ final class TerminalDeckView: NSView {
             ]
         }
 
-        let viewCommand = focusedIndex == nil
-            ? "View: Focus selected session"
-            : "View: Show session overview"
+        let viewCommand: String
+        if focusedIndex == nil {
+            viewCommand = "View: Focus selected session"
+        } else if terminalTiles.count == 1 {
+            viewCommand = "View: Show all workspaces"
+        } else {
+            viewCommand = "View: Show session overview"
+        }
         return [
             PaletteCommand(id: .toggleOverview, title: viewCommand, shortcut: "left⌘ + right⌘"),
             PaletteCommand(id: .newTerminal, title: "Session: New terminal in \(session.workspace)…", shortcut: "⌘T"),
@@ -945,10 +960,10 @@ final class TerminalDeckView: NSView {
         if currentWorkspace == workspace {
             addSession()
         } else if currentWorkspace == nil {
-            enterWorkspace(workspace, completion: addSession)
+            enterWorkspace(workspace, focusSingleton: false, completion: addSession)
         } else {
             showWorkspaceDeck { [weak self] in
-                self?.enterWorkspace(workspace, completion: addSession)
+                self?.enterWorkspace(workspace, focusSingleton: false, completion: addSession)
             }
         }
     }
@@ -1040,13 +1055,23 @@ final class TerminalDeckView: NSView {
         if commandPalette != nil {
             dismissCommandPalette()
             if focusedIndex != nil {
-                returnToOverview()
+                leaveFocusedSession()
             }
             return
         }
         guard !isTransitioning, !isPeeking, dragState == nil else { return }
         if focusedIndex == nil {
             activate(selectedIndex)
+        } else {
+            leaveFocusedSession()
+        }
+    }
+
+    private func leaveFocusedSession() {
+        if currentWorkspace != nil, terminalTiles.count == 1 {
+            returnToOverview { [weak self] in
+                self?.showWorkspaceDeck()
+            }
         } else {
             returnToOverview()
         }
