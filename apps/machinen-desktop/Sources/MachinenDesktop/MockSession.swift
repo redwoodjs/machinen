@@ -31,7 +31,7 @@ extension MockSession {
               Edit(src/app/router.ts)
               Added 12 lines, removed 4
 
-            ● Running tests... 38/84
+            ● Running tests... {{tick}}/84
             ▌
             """
         ),
@@ -48,7 +48,7 @@ extension MockSession {
               ➜ Local:   http://localhost:5173/
               ➜ Network: http://10.0.2.15:5173/
 
-            12:41:08 PM [vite] page reload
+            12:41:{{tick}} PM [vite] page reload
             ▌
             """
         ),
@@ -85,7 +85,7 @@ extension MockSession {
               Time (mean ± σ): 124.2 ms
 
             Benchmark 2: ./bench-b
-              Time (mean ± σ): 38.7 ms
+              Time (mean ± σ): {{tick}}.7 ms
             ▌
             """
         ),

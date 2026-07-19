@@ -3,6 +3,7 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
+    private var commandChord: CommandChord?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMainMenu()
@@ -22,6 +23,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.makeFirstResponder(deck)
         window.tabbingMode = .disallowed
         self.window = window
+        commandChord = CommandChord { [weak deck] in
+            deck?.toggleOverview()
+        }
 
         NSApp.activate(ignoringOtherApps: true)
     }

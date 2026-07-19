@@ -20,6 +20,10 @@ final class TerminalTileView: NSView {
         didSet { needsDisplay = true }
     }
 
+    var simulationTick = 38 {
+        didSet { needsDisplay = true }
+    }
+
     override var isFlipped: Bool { true }
 
     init(session: MockSession) {
@@ -193,7 +197,11 @@ final class TerminalTileView: NSView {
             .foregroundColor: NSColor(calibratedWhite: 0.73, alpha: 1),
             .paragraphStyle: paragraph,
         ]
-        NSAttributedString(string: session.terminalText, attributes: attributes)
+        let renderedText = session.terminalText.replacingOccurrences(
+            of: "{{tick}}",
+            with: String(simulationTick)
+        )
+        NSAttributedString(string: renderedText, attributes: attributes)
             .draw(with: terminalRect, options: [.usesLineFragmentOrigin, .usesFontLeading])
 
         NSGraphicsContext.restoreGraphicsState()

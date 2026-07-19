@@ -12,7 +12,10 @@ final class TerminalDeckView: NSView {
     private let terminalTiles: [TerminalTileView]
     private var selectedIndex = 0
     private var labelBuffer = ""
-    private var activationMessage: String?
+    private var focusedIndex: Int?
+    private var isTransitioning = false
+    private var simulationTick = 38
+    private var simulatedOutputTimer: Timer?
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
@@ -34,6 +37,13 @@ final class TerminalDeckView: NSView {
             addSubview(tile)
         }
         updateSelection()
+        simulatedOutputTimer = Timer.scheduledTimer(
+            timeInterval: 1.2,
+            target: self,
+            selector: #selector(advanceSimulatedOutput),
+            userInfo: nil,
+            repeats: true
+        )
         setAccessibilityElement(false)
     }
 
@@ -43,6 +53,9 @@ final class TerminalDeckView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
+        guard focusedIndex == nil, !isTransitioning else {
+            return
+        }
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
         if modifiers.isEmpty {
             switch event.keyCode {
@@ -82,6 +95,11 @@ final class TerminalDeckView: NSView {
 
     override func layout() {
         super.layout()
+        guard !isTransitioning else { return }
+        if let focusedIndex, terminalTiles.indices.contains(focusedIndex) {
+            terminalTiles[focusedIndex].frame = focusedFrame().integral
+            return
+        }
         let frames = gridFrames(count: terminalTiles.count, in: bounds)
         for (tile, frame) in zip(terminalTiles, frames) {
             tile.frame = frame.integral
@@ -92,8 +110,12 @@ final class TerminalDeckView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         NSColor(calibratedWhite: 0.055, alpha: 1).setFill()
         bounds.fill()
-        drawMetadata()
-        drawKeyHints()
+        if focusedIndex != nil || isTransitioning {
+            drawFocusedHint()
+        } else {
+            drawMetadata()
+            drawKeyHints()
+        }
     }
 
     private func gridFrames(count: Int, in bounds: NSRect) -> [NSRect] {
@@ -219,31 +241,90 @@ final class TerminalDeckView: NSView {
         clearLabelBuffer()
     }
 
-    private func activate(_ index: Int) {
-        guard terminalTiles.indices.contains(index) else { return }
-        select(index)
-
-        NSObject.cancelPreviousPerformRequests(
-            withTarget: self,
-            selector: #selector(clearActivationFeedback),
-            object: nil
-        )
-        for tile in terminalTiles {
-            tile.isActivated = false
+    func toggleOverview() {
+        guard !isTransitioning else { return }
+        if focusedIndex == nil {
+            activate(selectedIndex)
+        } else {
+            returnToOverview()
         }
-        let tile = terminalTiles[index]
-        tile.isActivated = true
-        activationMessage = "OPEN  \(tile.session.workspace) / \(tile.session.name)"
-        needsDisplay = true
-        perform(#selector(clearActivationFeedback), with: nil, afterDelay: 0.7)
     }
 
-    @objc private func clearActivationFeedback() {
-        for tile in terminalTiles {
-            tile.isActivated = false
+    private func activate(_ index: Int) {
+        guard terminalTiles.indices.contains(index), focusedIndex == nil, !isTransitioning else {
+            return
         }
-        activationMessage = nil
+        select(index)
+        clearLabelBuffer()
+        isTransitioning = true
         needsDisplay = true
+
+        let selectedTile = terminalTiles[index]
+        selectedTile.layer?.zPosition = 100
+        let targetFrame = focusedFrame().integral
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.22
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            selectedTile.animator().frame = targetFrame
+            for (tileIndex, tile) in terminalTiles.enumerated() where tileIndex != index {
+                tile.animator().alphaValue = 0
+            }
+        } completionHandler: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.focusedIndex = index
+                self.isTransitioning = false
+                for (tileIndex, tile) in self.terminalTiles.enumerated() where tileIndex != index {
+                    tile.isHidden = true
+                }
+                self.needsDisplay = true
+            }
+        }
+    }
+
+    private func returnToOverview() {
+        guard let focusedIndex, terminalTiles.indices.contains(focusedIndex), !isTransitioning else {
+            return
+        }
+        isTransitioning = true
+        needsDisplay = true
+
+        let frames = gridFrames(count: terminalTiles.count, in: bounds)
+        for (index, tile) in terminalTiles.enumerated() where index != focusedIndex {
+            tile.isHidden = false
+            tile.alphaValue = 0
+        }
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.22
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            for (tile, frame) in zip(terminalTiles, frames) {
+                tile.animator().frame = frame.integral
+                tile.animator().alphaValue = 1
+            }
+        } completionHandler: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.terminalTiles[focusedIndex].layer?.zPosition = 0
+                self.focusedIndex = nil
+                self.isTransitioning = false
+                self.updateSelection()
+                self.window?.makeFirstResponder(self)
+                self.needsDisplay = true
+            }
+        }
+    }
+
+    private func focusedFrame() -> NSRect {
+        bounds.insetBy(dx: 20, dy: 20)
+    }
+
+    @objc private func advanceSimulatedOutput() {
+        simulationTick = simulationTick >= 84 ? 38 : simulationTick + 1
+        for tile in terminalTiles {
+            tile.simulationTick = simulationTick
+        }
     }
 
     private func drawMetadata() {
@@ -274,6 +355,22 @@ final class TerminalDeckView: NSView {
         )
     }
 
+    private func drawFocusedHint() {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .regular),
+            .foregroundColor: NSColor(calibratedWhite: 0.48, alpha: 1),
+            .paragraphStyle: paragraph,
+        ]
+        NSAttributedString(
+            string: "left ⌘ + right ⌘   session overview",
+            attributes: attributes
+        ).draw(
+            in: NSRect(x: 200, y: bounds.height - 16, width: max(0, bounds.width - 400), height: 12)
+        )
+    }
+
     private func drawKeyHints() {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
@@ -283,9 +380,7 @@ final class TerminalDeckView: NSView {
             .paragraphStyle: paragraph,
         ]
         let text: String
-        if let activationMessage {
-            text = activationMessage
-        } else if !labelBuffer.isEmpty {
+        if !labelBuffer.isEmpty {
             text = "TYPE LABEL  \(labelBuffer)_"
         } else {
             text = "arrows  select     type label  focus     return  open"
