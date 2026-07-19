@@ -6,7 +6,7 @@ A native macOS prototype for reviewing Machinen's live-session deck one interact
 
 **Phase 6b — Workspace and session hierarchy**
 
-Machinen now opens on a deck of workspace clusters, each containing miniature live terminal tiles. Return spatially zooms into a cluster and reveals its session deck; Return again focuses a session edge to edge. A workspace with only one terminal skips the redundant session deck and goes directly inside. Escape zooms back through the effective hierarchy. In a focused terminal, one Escape is reserved for the terminal and a second rapid Escape navigates out. The Command chord remains an alternative. The prototype intentionally has no real terminals or Machinen integration yet.
+Machinen now renders every workspace and terminal once on one persistent spatial scene. Every workspace occupies a uniform screen, with its full-size terminal surfaces scaled down enough to fit inside. Navigation changes only the camera: Return zooms toward a workspace screen and then a terminal without rebuilding, reflowing, hiding, or crossfading objects. A workspace with one terminal goes directly inside. Escape reverses the camera path through the effective hierarchy; in a focused terminal, the first Escape remains reserved for the terminal and a second rapid Escape navigates out. The Command chord remains an alternative. The prototype intentionally has no real terminals or Machinen integration yet.
 
 ## Run
 

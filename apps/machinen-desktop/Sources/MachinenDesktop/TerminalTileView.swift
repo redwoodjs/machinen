@@ -89,7 +89,6 @@ final class TerminalTileView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         onSelect?()
-        window?.makeFirstResponder(superview)
         if event.clickCount >= 2 {
             onActivate?()
         } else {
