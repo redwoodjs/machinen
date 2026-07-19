@@ -51,10 +51,11 @@ npm i -g @machinen/cli        # or globally if you prefer it on PATH
 ```
 
 Both `machinen` and the shorter alias `mn` are installed. To run a signed
-recipe without adding the package to a project first:
+recipe without adding the package to a project first, use the unscoped
+`machinen` launcher:
 
 ```bash
-npx @machinen/cli run machinen.dev/run/claude-code
+npx machinen run machinen.dev/run/claude-code
 ```
 
 The matching native package (`@machinen/native-arm64-darwin`,
@@ -80,11 +81,11 @@ npx machinen snapshot worker ./warm
 npx machinen restore ./warm
 npx machinen fork worker --new-name worker-b --detach
 npx machinen stop worker
-npx @machinen/cli run list
-npx @machinen/cli run machinen.dev/run/claude-code --inspect
-npx @machinen/cli run machinen.dev/run/command-code
-npx @machinen/cli run machinen.dev/run/claude-code --session work
-npx @machinen/cli run machinen.dev/run/codex --session work
+npx machinen run list
+npx machinen run machinen.dev/run/claude-code --inspect
+npx machinen run machinen.dev/run/command-code
+npx machinen run machinen.dev/run/claude-code --session work
+npx machinen run machinen.dev/run/codex --session work
 ```
 
 For commands that act on a running VM, the first positional is the

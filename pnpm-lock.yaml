@@ -153,6 +153,12 @@ importers:
         specifier: workspace:*
         version: link:../native-x64-linux
 
+  packages/launcher:
+    dependencies:
+      '@machinen/cli':
+        specifier: workspace:*
+        version: link:../cli
+
   packages/microvm: {}
 
   packages/mount-server: {}

@@ -30,8 +30,8 @@ npx machinen stop work
 No global install is needed. `npx` can download the CLI and run a signed recipe directly:
 
 ```bash
-npx @machinen/cli run machinen.dev/run/claude-code
-npx @machinen/cli run machinen.dev/run/codex --session work
+npx machinen run machinen.dev/run/claude-code
+npx machinen run machinen.dev/run/codex --session work
 ```
 
 Home configuration requested by a recipe is mounted automatically. The first

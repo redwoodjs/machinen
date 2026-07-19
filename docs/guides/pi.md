@@ -17,7 +17,7 @@ away. The VM is the isolated place where the agent edits files.
 The signed recipe provides the automatic version of this setup:
 
 ```bash
-npx @machinen/cli run machinen.dev/run/pi
+npx machinen run machinen.dev/run/pi
 ```
 
 Its first approval shows the workspace, host `~/.pi/agent`, and any external

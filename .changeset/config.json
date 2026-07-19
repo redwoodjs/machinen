@@ -4,6 +4,7 @@
   "commit": false,
   "fixed": [
     [
+      "machinen",
       "@machinen/cli",
       "@machinen/runtime",
       "@machinen/microvm",
