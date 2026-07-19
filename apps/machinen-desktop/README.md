@@ -4,13 +4,15 @@ A native macOS prototype for reviewing Machinen's live-session deck one interact
 
 ## Current phase
 
-**Phase 8 — First real terminal**
+**Phases 9 and 10 — Real persistent terminals**
 
-A workspace containing one terminal gives that terminal the entire workspace screen, without a redundant wrapper or inset. The `website / shell` surface is now a real local PTY running the user's login shell. It is the same live AppKit view when seen inside a workspace screen, entered as a session, and focused edge to edge; camera navigation never recreates it. It supports normal terminal input, selection, scrolling, clipboard operations, resizing, and `Esc, Esc` navigation. Other surfaces and lifecycle actions remain simulated during this checkpoint.
+Every tile is a real local PTY. `⌘T` creates either a login shell or an arbitrary command; Claude, Codex, Pi, and other tools are ordinary user commands rather than hardcoded launcher types. Workspaces are uniform visual groups of terminals, and a singleton terminal fills its workspace screen.
 
-Machinen's product boundary is terminals plus automation. Agent launchers are not hardcoded into the desktop application. A future lightweight scripting layer will let users create workspace screens, launch commands, label terminals, and control the camera/UI. The language is intentionally undecided, while `MachinenTerminalView` isolates the terminal engine from that future API.
+Each PTY is a viewer attached through Machinen's bundled dtach helper. dtach owns the command, so detaching a viewer or quitting Machinen leaves it running. Viewers use dtach's `-E` mode, which reserves no escape prefix and passes terminal input through unchanged. Machinen persists terminal IDs, commands, working directories, lifecycle state, workspace grouping, and order in `~/Library/Application Support/Machinen/terminals.json`; relaunching the application rebuilds the same scene and reattaches running viewers. Stop and restart now control real processes, while deleting a workspace removes definitions without deleting working-directory files.
 
-SwiftTerm `v1.15.0` is pinned to commit `dd2fb8ac5b861e7bf617c872895e338f38165648` for this terminal checkpoint because it builds with Command Line Tools. Ghostty's current macOS embedding path requires its private, unstable application API and the full Xcode Metal toolchain; the terminal host boundary keeps a later engine replacement contained.
+Machinen's product boundary is terminals plus automation. A future lightweight scripting layer will create workspace screens, launch commands, label terminals, send input, and control the camera/UI. The language remains intentionally undecided. The JSON state file is private persistence, not the scripting API; `MachinenTerminalView` and `TerminalSessionStore` isolate the terminal and persistence mechanisms from that future command layer.
+
+SwiftTerm `v1.15.0` is pinned to commit `dd2fb8ac5b861e7bf617c872895e338f38165648`. dtach `0.9` is built from vendored source as a signed helper executable. Ghostty's current macOS embedding path requires its private, unstable application API and the full Xcode Metal toolchain; the terminal host boundary keeps a later engine replacement contained.
 
 ## Run
 

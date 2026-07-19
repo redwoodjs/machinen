@@ -1,27 +1,30 @@
 import AppKit
 import SwiftTerm
 
-/// The terminal-engine boundary for Machinen.
+/// A persistent terminal viewer backed by Machinen's bundled dtach helper.
 ///
-/// Workspace layout and camera navigation only depend on this NSView. A future
-/// engine can replace SwiftTerm without changing the spatial UI or scripting
-/// surface.
+/// The local SwiftTerm PTY runs a transparent dtach client. The dtach master
+/// owns the user's command, so closing or relaunching Machinen only detaches a
+/// viewer; it does not terminate the command or intercept terminal input.
 final class MachinenTerminalView: LocalProcessTerminalView {
-    var onDoubleEscape: (() -> Void)?
-    var onProcessExit: ((Int32?) -> Void)?
+    let session: TerminalSession
 
-    private var processStarted = false
+    var onDoubleEscape: (() -> Void)?
+    var onStateChange: ((TerminalSession.State) -> Void)?
+
+    private var clientStarted = false
+    private var requestedStateAfterExit: TerminalSession.State?
     private var previousEscapeTime: TimeInterval?
     nonisolated(unsafe) private var keyEventMonitor: Any?
 
-    override init(frame: NSRect) {
-        super.init(frame: frame)
+    init(session: TerminalSession) {
+        self.session = session
+        super.init(frame: .zero)
         wantsLayer = true
         layer?.backgroundColor = NSColor(calibratedWhite: 0.105, alpha: 1).cgColor
 
-        // CoreText keeps the transferable SwiftPM build independent of Xcode's
-        // offline Metal compiler. The terminal-engine boundary allows a later
-        // renderer swap without changing the workspace model.
+        // CoreText keeps transferable builds independent of Xcode's offline
+        // Metal compiler. The host boundary allows a renderer swap later.
         try? setUseMetal(false)
         nativeForegroundColor = NSColor(calibratedWhite: 0.82, alpha: 1)
         nativeBackgroundColor = NSColor(calibratedWhite: 0.105, alpha: 1)
@@ -37,27 +40,86 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        guard window != nil, !processStarted else { return }
-        processStarted = true
-
-        let environment = ProcessInfo.processInfo.environment
-        let shell = environment["SHELL"].flatMap { FileManager.default.isExecutableFile(atPath: $0) ? $0 : nil }
-            ?? "/bin/zsh"
-        let shellName = URL(fileURLWithPath: shell).lastPathComponent
-        startProcess(
-            executable: shell,
-            environment: nil,
-            execName: "-\(shellName)",
-            currentDirectory: FileManager.default.homeDirectoryForCurrentUser.path
-        )
-    }
-
     deinit {
         if let keyEventMonitor {
             NSEvent.removeMonitor(keyEventMonitor)
         }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil else { return }
+        if session.state == .running || session.state == .starting || session.state == .disconnected {
+            attach()
+        }
+    }
+
+    func attach() {
+        guard !process.running, !clientStarted else { return }
+        clientStarted = true
+        requestedStateAfterExit = nil
+        session.state = .starting
+        onStateChange?(.starting)
+
+        let shell = loginShell()
+        var arguments = ["-A", session.socketPath, "-E", "-z", "-r", "winch"]
+        if let command = session.command, !command.isEmpty {
+            arguments.append(contentsOf: [shell, "-lc", command])
+        } else {
+            arguments.append(contentsOf: [shell, "-l"])
+        }
+        startProcess(
+            executable: dtachExecutablePath(),
+            args: arguments,
+            environment: nil,
+            execName: "machinen-dtach",
+            currentDirectory: session.workingDirectory
+        )
+        session.state = .running
+        onStateChange?(.running)
+    }
+
+    func detachForApplicationExit() {
+        guard process.running else { return }
+        requestedStateAfterExit = .running
+        terminate()
+    }
+
+    func detachViewer() {
+        guard process.running else {
+            session.state = .detached
+            onStateChange?(.detached)
+            return
+        }
+        requestedStateAfterExit = .detached
+        terminate()
+    }
+
+    func stopPersistentSession() {
+        requestedStateAfterExit = .stopped
+        stopDtachSession()
+        session.state = .stopped
+        onStateChange?(.stopped)
+    }
+
+    func restartPersistentSession() {
+        requestedStateAfterExit = .stopped
+        stopDtachSession()
+        clientStarted = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+            guard let self else { return }
+            self.requestedStateAfterExit = nil
+            self.attach()
+        }
+    }
+
+    override func processTerminated(_ source: LocalProcess, exitCode: Int32?) {
+        super.processTerminated(source, exitCode: exitCode)
+        clientStarted = false
+        let nextState = requestedStateAfterExit ?? .stopped
+        requestedStateAfterExit = nil
+        session.state = nextState
+        onStateChange?(nextState)
     }
 
     private func filterKeyDown(_ event: NSEvent) -> NSEvent? {
@@ -76,8 +138,31 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         return event
     }
 
-    override func processTerminated(_ source: LocalProcess, exitCode: Int32?) {
-        super.processTerminated(source, exitCode: exitCode)
-        onProcessExit?(exitCode)
+    private func loginShell() -> String {
+        ProcessInfo.processInfo.environment["SHELL"].flatMap {
+            FileManager.default.isExecutableFile(atPath: $0) ? $0 : nil
+        } ?? "/bin/zsh"
+    }
+
+    private func dtachExecutablePath() -> String {
+        let bundled = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Helpers/machinen-dtach").path
+        if FileManager.default.isExecutableFile(atPath: bundled) {
+            return bundled
+        }
+        let adjacent = URL(fileURLWithPath: CommandLine.arguments[0])
+            .deletingLastPathComponent()
+            .appendingPathComponent("machinen-dtach").path
+        return adjacent
+    }
+
+    private func stopDtachSession() {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        task.arguments = ["-f", session.socketPath]
+        try? task.run()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [socketPath = session.socketPath] in
+            try? FileManager.default.removeItem(atPath: socketPath)
+        }
     }
 }

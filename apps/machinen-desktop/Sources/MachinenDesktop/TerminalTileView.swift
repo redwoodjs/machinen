@@ -13,12 +13,12 @@ final class TerminalTileView: NSView {
         static let badgeHeight: CGFloat = 18
     }
 
-    let session: MockSession
+    let session: TerminalSession
     let kind: TileKind
     private let clusterSessions: [TerminalTileView]
-    private var displayState: MockSession.State
+    private var displayState: TerminalSession.State
     private var displayTerminalText: String
-    private var embeddedTerminalView: NSView?
+    private var embeddedTerminalView: MachinenTerminalView?
     var onSelect: (() -> Void)?
     var onActivate: (() -> Void)?
     var onDragBegan: ((NSEvent) -> Void)?
@@ -41,7 +41,7 @@ final class TerminalTileView: NSView {
         didSet { needsDisplay = true }
     }
 
-    var currentState: MockSession.State { displayState }
+    var currentState: TerminalSession.State { displayState }
     var currentTerminalText: String { displayTerminalText }
 
     var isFocused = false {
@@ -54,7 +54,7 @@ final class TerminalTileView: NSView {
     override var isFlipped: Bool { true }
 
     init(
-        session: MockSession,
+        session: TerminalSession,
         kind: TileKind = .session,
         clusterSessions: [TerminalTileView] = []
     ) {
@@ -77,19 +77,40 @@ final class TerminalTileView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func transition(to state: MockSession.State, terminalText: String) {
+    func transition(to state: TerminalSession.State, terminalText: String) {
+        session.state = state
         displayState = state
         displayTerminalText = terminalText
         updateAccessibilityLabel()
         needsDisplay = true
     }
 
-    func installTerminalView(_ terminalView: NSView) {
+    func installTerminalView(_ terminalView: MachinenTerminalView) {
         embeddedTerminalView?.removeFromSuperview()
         embeddedTerminalView = terminalView
         addSubview(terminalView)
         needsLayout = true
         needsDisplay = true
+    }
+
+    func attachTerminal() {
+        embeddedTerminalView?.attach()
+    }
+
+    func detachTerminalForApplicationExit() {
+        embeddedTerminalView?.detachForApplicationExit()
+    }
+
+    func detachTerminalViewer() {
+        embeddedTerminalView?.detachViewer()
+    }
+
+    func stopTerminal() {
+        embeddedTerminalView?.stopPersistentSession()
+    }
+
+    func restartTerminal() {
+        embeddedTerminalView?.restartPersistentSession()
     }
 
     @discardableResult
@@ -247,16 +268,10 @@ final class TerminalTileView: NSView {
         path.lineWidth = 1
 
         switch displayState {
-        case .working:
+        case .running:
             NSColor(calibratedWhite: 0.82, alpha: 1).setFill()
             path.fill()
             path.stroke()
-        case .waiting:
-            path.lineWidth = 2
-            path.stroke()
-        case .idle:
-            NSColor(calibratedWhite: 0.48, alpha: 1).setFill()
-            path.fill()
         case .starting:
             let context = NSGraphicsContext.current?.cgContext
             context?.saveGState()

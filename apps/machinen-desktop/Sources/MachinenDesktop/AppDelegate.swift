@@ -9,7 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMainMenu()
 
-        let deck = TerminalDeckView(sessions: MockSession.phaseOne)
+        let sessionStore = TerminalSessionStore()
+        let deck = TerminalDeckView(sessions: sessionStore.load(), sessionStore: sessionStore)
         self.deck = deck
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1200, height: 760),
@@ -37,6 +38,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        deck?.prepareForTermination()
     }
 
     private func installMainMenu() {

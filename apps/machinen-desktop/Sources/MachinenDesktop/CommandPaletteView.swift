@@ -4,9 +4,6 @@ struct PaletteCommand {
     enum ID {
         case toggleOverview
         case newTerminal
-        case focusSession
-        case openPreview
-        case reviewChanges
         case attachSession
         case reconnectSession
         case detachSession
@@ -15,12 +12,7 @@ struct PaletteCommand {
         case stopWorkspace
         case deleteWorkspace
         case showDiagnostics
-        case simulateRelaunch
-        case inspectWorkspace
         case createShell
-        case createClaude
-        case createCodex
-        case createPi
         case runCommand
         case chooseProject
     }
