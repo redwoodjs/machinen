@@ -11,6 +11,9 @@ final class TerminalTileView: NSView {
     let session: MockSession
     var onSelect: (() -> Void)?
     var onActivate: (() -> Void)?
+    var onDragBegan: ((NSEvent) -> Void)?
+    var onDragChanged: ((NSEvent) -> Void)?
+    var onDragEnded: ((NSEvent) -> Void)?
 
     var isSelected: Bool = false {
         didSet { needsDisplay = true }
@@ -63,7 +66,17 @@ final class TerminalTileView: NSView {
         window?.makeFirstResponder(superview)
         if event.clickCount >= 2 {
             onActivate?()
+        } else {
+            onDragBegan?(event)
         }
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        onDragChanged?(event)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        onDragEnded?(event)
     }
 
     private func drawBackground() {

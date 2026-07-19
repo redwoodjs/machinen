@@ -1,6 +1,13 @@
 import AppKit
 
 final class TerminalDeckView: NSView {
+    private struct DragState {
+        let tile: TerminalTileView
+        let startPoint: NSPoint
+        let offset: NSPoint
+        var hasMoved = false
+    }
+
     private enum Metrics {
         static let topInset: CGFloat = 58
         static let bottomInset: CGFloat = 54
@@ -10,13 +17,16 @@ final class TerminalDeckView: NSView {
         static let tileAspectRatio: CGFloat = 1.58
     }
 
-    private let terminalTiles: [TerminalTileView]
+    private var terminalTiles: [TerminalTileView]
     private var selectedIndex = 0
     private var labelBuffer = ""
     private var focusedIndex: Int?
     private var isTransitioning = false
     private var simulationTick = 38
     private var simulatedOutputTimer: Timer?
+    private var isPeeking = false
+    private var peekFrames: [NSRect] = []
+    private var dragState: DragState?
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
@@ -28,12 +38,32 @@ final class TerminalDeckView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor(calibratedWhite: 0.055, alpha: 1).cgColor
 
-        for (index, tile) in terminalTiles.enumerated() {
-            tile.onSelect = { [weak self] in
-                self?.select(index)
+        for tile in terminalTiles {
+            tile.onSelect = { [weak self, weak tile] in
+                guard let self, let tile,
+                      let index = self.terminalTiles.firstIndex(where: { $0 === tile })
+                else {
+                    return
+                }
+                self.select(index)
             }
-            tile.onActivate = { [weak self] in
-                self?.activate(index)
+            tile.onActivate = { [weak self, weak tile] in
+                guard let self, let tile,
+                      let index = self.terminalTiles.firstIndex(where: { $0 === tile })
+                else {
+                    return
+                }
+                self.activate(index)
+            }
+            tile.onDragBegan = { [weak self, weak tile] event in
+                guard let tile else { return }
+                self?.beginDrag(tile: tile, event: event)
+            }
+            tile.onDragChanged = { [weak self] event in
+                self?.continueDrag(event: event)
+            }
+            tile.onDragEnded = { [weak self] event in
+                self?.endDrag(event: event)
             }
             addSubview(tile)
         }
@@ -58,6 +88,24 @@ final class TerminalDeckView: NSView {
             return
         }
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        if modifiers == [.command] {
+            switch event.keyCode {
+            case 123:
+                reorderSelection(horizontal: -1, vertical: 0)
+                return
+            case 124:
+                reorderSelection(horizontal: 1, vertical: 0)
+                return
+            case 125:
+                reorderSelection(horizontal: 0, vertical: 1)
+                return
+            case 126:
+                reorderSelection(horizontal: 0, vertical: -1)
+                return
+            default:
+                break
+            }
+        }
         if modifiers.isEmpty {
             switch event.keyCode {
             case 123:
@@ -74,6 +122,11 @@ final class TerminalDeckView: NSView {
                 return
             case 36, 76:
                 activate(selectedIndex)
+                return
+            case 49:
+                if !event.isARepeat {
+                    beginPeek()
+                }
                 return
             case 51:
                 removeLastLabelCharacter()
@@ -94,9 +147,17 @@ final class TerminalDeckView: NSView {
         super.keyDown(with: event)
     }
 
+    override func keyUp(with event: NSEvent) {
+        if event.keyCode == 49, isPeeking {
+            endPeek()
+            return
+        }
+        super.keyUp(with: event)
+    }
+
     override func layout() {
         super.layout()
-        guard !isTransitioning else { return }
+        guard !isTransitioning, !isPeeking, dragState == nil else { return }
         if let focusedIndex, terminalTiles.indices.contains(focusedIndex) {
             terminalTiles[focusedIndex].frame = focusedFrame().integral
             return
@@ -188,6 +249,176 @@ final class TerminalDeckView: NSView {
         select(nextIndex)
     }
 
+    private func reorderSelection(horizontal: Int, vertical: Int) {
+        guard focusedIndex == nil, !isTransitioning, !isPeeking, dragState == nil else {
+            return
+        }
+        let columns = Int(ceil(sqrt(Double(terminalTiles.count))))
+        let currentRow = selectedIndex / columns
+        let currentColumn = selectedIndex % columns
+        let nextRow = currentRow + vertical
+        let nextColumn = currentColumn + horizontal
+        guard nextRow >= 0, nextColumn >= 0, nextColumn < columns else { return }
+
+        let targetIndex = nextRow * columns + nextColumn
+        guard terminalTiles.indices.contains(targetIndex) else { return }
+        terminalTiles.swapAt(selectedIndex, targetIndex)
+        selectedIndex = targetIndex
+        updateSelection()
+        animateOverviewLayout()
+    }
+
+    private func beginPeek() {
+        guard focusedIndex == nil, !isTransitioning, !isPeeking, dragState == nil,
+              terminalTiles.indices.contains(selectedIndex)
+        else {
+            return
+        }
+
+        clearLabelBuffer()
+        peekFrames = gridFrames(count: terminalTiles.count, in: bounds)
+        isPeeking = true
+        needsDisplay = true
+
+        let selectedTile = terminalTiles[selectedIndex]
+        selectedTile.isFocused = true
+        selectedTile.layer?.zPosition = 100
+        let available = bounds.insetBy(dx: 4, dy: 4)
+        let aspectRatio = selectedTile.frame.width / max(1, selectedTile.frame.height)
+        let targetFrame: NSRect
+        if available.width / available.height > aspectRatio {
+            let width = available.height * aspectRatio
+            targetFrame = NSRect(
+                x: available.midX - width / 2,
+                y: available.minY,
+                width: width,
+                height: available.height
+            )
+        } else {
+            let height = available.width / aspectRatio
+            targetFrame = NSRect(
+                x: available.minX,
+                y: available.midY - height / 2,
+                width: available.width,
+                height: height
+            )
+        }
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.14
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            selectedTile.animator().frame = targetFrame.integral
+            for (index, tile) in terminalTiles.enumerated() where index != selectedIndex {
+                tile.animator().alphaValue = 0
+            }
+        }
+    }
+
+    private func endPeek() {
+        guard isPeeking, terminalTiles.indices.contains(selectedIndex),
+              peekFrames.count == terminalTiles.count
+        else {
+            return
+        }
+
+        let selectedTile = terminalTiles[selectedIndex]
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.14
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            for (tile, frame) in zip(terminalTiles, peekFrames) {
+                tile.animator().frame = frame.integral
+                tile.animator().alphaValue = 1
+            }
+        } completionHandler: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                selectedTile.isFocused = false
+                selectedTile.layer?.zPosition = 0
+                self.peekFrames = []
+                self.isPeeking = false
+                self.updateSelection()
+                self.needsDisplay = true
+            }
+        }
+    }
+
+    private func beginDrag(tile: TerminalTileView, event: NSEvent) {
+        guard focusedIndex == nil, !isTransitioning, !isPeeking, dragState == nil else {
+            return
+        }
+        let point = convert(event.locationInWindow, from: nil)
+        dragState = DragState(
+            tile: tile,
+            startPoint: point,
+            offset: NSPoint(x: point.x - tile.frame.minX, y: point.y - tile.frame.minY)
+        )
+    }
+
+    private func continueDrag(event: NSEvent) {
+        guard var state = dragState,
+              let currentIndex = terminalTiles.firstIndex(where: { $0 === state.tile })
+        else {
+            return
+        }
+
+        let point = convert(event.locationInWindow, from: nil)
+        if !state.hasMoved {
+            let distance = hypot(point.x - state.startPoint.x, point.y - state.startPoint.y)
+            guard distance >= 4 else { return }
+            state.hasMoved = true
+            state.tile.layer?.zPosition = 200
+        }
+
+        state.tile.frame.origin = NSPoint(
+            x: point.x - state.offset.x,
+            y: point.y - state.offset.y
+        )
+
+        let targetFrames = gridFrames(count: terminalTiles.count, in: bounds)
+        if let targetIndex = targetFrames.firstIndex(where: { $0.contains(point) }),
+           targetIndex != currentIndex
+        {
+            terminalTiles.remove(at: currentIndex)
+            terminalTiles.insert(state.tile, at: targetIndex)
+            selectedIndex = targetIndex
+            updateSelection()
+            animateOverviewLayout(excluding: state.tile)
+        }
+        dragState = state
+    }
+
+    private func endDrag(event _: NSEvent) {
+        guard let state = dragState else { return }
+        dragState = nil
+        guard state.hasMoved,
+              let finalIndex = terminalTiles.firstIndex(where: { $0 === state.tile })
+        else {
+            return
+        }
+
+        let frames = gridFrames(count: terminalTiles.count, in: bounds)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.14
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            state.tile.animator().frame = frames[finalIndex].integral
+        } completionHandler: {
+            Task { @MainActor in
+                state.tile.layer?.zPosition = 0
+            }
+        }
+    }
+
+    private func animateOverviewLayout(excluding excludedTile: TerminalTileView? = nil) {
+        let frames = gridFrames(count: terminalTiles.count, in: bounds)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.14
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            for (tile, frame) in zip(terminalTiles, frames) where tile !== excludedTile {
+                tile.animator().frame = frame.integral
+            }
+        }
+    }
+
     private func appendLabelCharacter(_ character: String) {
         NSObject.cancelPreviousPerformRequests(
             withTarget: self,
@@ -241,7 +472,7 @@ final class TerminalDeckView: NSView {
     }
 
     func toggleOverview() {
-        guard !isTransitioning else { return }
+        guard !isTransitioning, !isPeeking, dragState == nil else { return }
         if focusedIndex == nil {
             activate(selectedIndex)
         } else {
@@ -368,7 +599,7 @@ final class TerminalDeckView: NSView {
         if !labelBuffer.isEmpty {
             text = "TYPE LABEL  \(labelBuffer)_"
         } else {
-            text = "arrows  select     type label  focus     return  open"
+            text = "arrows  select     return  open     hold space  peek     drag or ⌘+arrows  reorder"
         }
         NSAttributedString(string: text, attributes: attributes).draw(
             in: NSRect(x: Metrics.sideInset, y: bounds.height - 31, width: bounds.width - Metrics.sideInset * 2, height: 16)
