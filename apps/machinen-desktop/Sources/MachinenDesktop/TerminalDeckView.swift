@@ -429,8 +429,12 @@ final class TerminalDeckView: NSView {
             cluster.isSelected = currentWorkspace == nil && index == selectedIndex
         }
         let sessions = activeSessionTiles
+        let focusedTile = focusedIndex.flatMap { index in
+            sessions.indices.contains(index) ? sessions[index] : nil
+        }
         for tile in allSessionTiles {
             tile.isSelected = false
+            tile.isFocused = tile === focusedTile
         }
         if currentWorkspace != nil, sessions.indices.contains(selectedIndex) {
             sessions[selectedIndex].isSelected = true
