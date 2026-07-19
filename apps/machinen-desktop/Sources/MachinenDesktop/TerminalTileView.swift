@@ -24,6 +24,13 @@ final class TerminalTileView: NSView {
         didSet { needsDisplay = true }
     }
 
+    var isFocused = false {
+        didSet {
+            layer?.cornerRadius = isFocused ? 0 : Metrics.cornerRadius
+            needsDisplay = true
+        }
+    }
+
     override var isFlipped: Bool { true }
 
     init(session: MockSession) {
@@ -63,8 +70,8 @@ final class TerminalTileView: NSView {
         NSColor(calibratedWhite: 0.105, alpha: 1).setFill()
         NSBezierPath(
             roundedRect: bounds,
-            xRadius: Metrics.cornerRadius,
-            yRadius: Metrics.cornerRadius
+            xRadius: cornerRadius,
+            yRadius: cornerRadius
         ).fill()
     }
 
@@ -73,16 +80,16 @@ final class TerminalTileView: NSView {
         NSColor(calibratedWhite: 0.135, alpha: 1).setFill()
         NSBezierPath(
             roundedRect: header,
-            xRadius: Metrics.cornerRadius,
-            yRadius: Metrics.cornerRadius
+            xRadius: cornerRadius,
+            yRadius: cornerRadius
         ).fill()
 
         // Square the lower header corners while retaining the top radius.
         NSRect(
             x: 0,
-            y: Metrics.cornerRadius,
+            y: cornerRadius,
             width: bounds.width,
-            height: Metrics.headerHeight - Metrics.cornerRadius
+            height: Metrics.headerHeight - cornerRadius
         ).fill()
 
         NSColor(calibratedWhite: 0.25, alpha: 1).setStroke()
@@ -94,7 +101,7 @@ final class TerminalTileView: NSView {
 
         let badgeWidth = max(24, ceil(textSize(session.label, font: Fonts.badge).width) + 10)
         let badgeRect = NSRect(
-            x: Metrics.horizontalInset,
+            x: isFocused ? 82 : Metrics.horizontalInset,
             y: (Metrics.headerHeight - Metrics.badgeHeight) / 2,
             width: badgeWidth,
             height: Metrics.badgeHeight
@@ -208,16 +215,21 @@ final class TerminalTileView: NSView {
     }
 
     private func drawBorder() {
+        guard !isFocused else { return }
         let inset: CGFloat = isSelected ? 1 : 0.5
         let path = NSBezierPath(
             roundedRect: bounds.insetBy(dx: inset, dy: inset),
-            xRadius: Metrics.cornerRadius,
-            yRadius: Metrics.cornerRadius
+            xRadius: cornerRadius,
+            yRadius: cornerRadius
         )
         path.lineWidth = isActivated ? 4 : (isSelected ? 2 : 1)
         let white = isActivated ? 1 : (isSelected ? 0.92 : 0.31)
         NSColor(calibratedWhite: white, alpha: 1).setStroke()
         path.stroke()
+    }
+
+    private var cornerRadius: CGFloat {
+        isFocused ? 0 : Metrics.cornerRadius
     }
 
     private func drawText(

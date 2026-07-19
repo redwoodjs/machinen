@@ -5,6 +5,7 @@ final class TerminalDeckView: NSView {
         static let topInset: CGFloat = 58
         static let bottomInset: CGFloat = 54
         static let sideInset: CGFloat = 28
+        static let windowControlsInset: CGFloat = 92
         static let gap: CGFloat = 22
         static let tileAspectRatio: CGFloat = 1.58
     }
@@ -110,9 +111,7 @@ final class TerminalDeckView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         NSColor(calibratedWhite: 0.055, alpha: 1).setFill()
         bounds.fill()
-        if focusedIndex != nil || isTransitioning {
-            drawFocusedHint()
-        } else {
+        if focusedIndex == nil, !isTransitioning {
             drawMetadata()
             drawKeyHints()
         }
@@ -260,6 +259,7 @@ final class TerminalDeckView: NSView {
         needsDisplay = true
 
         let selectedTile = terminalTiles[index]
+        selectedTile.isFocused = true
         selectedTile.layer?.zPosition = 100
         let targetFrame = focusedFrame().integral
 
@@ -291,6 +291,7 @@ final class TerminalDeckView: NSView {
         needsDisplay = true
 
         let frames = gridFrames(count: terminalTiles.count, in: bounds)
+        terminalTiles[focusedIndex].isFocused = false
         for (index, tile) in terminalTiles.enumerated() where index != focusedIndex {
             tile.isHidden = false
             tile.alphaValue = 0
@@ -317,7 +318,7 @@ final class TerminalDeckView: NSView {
     }
 
     private func focusedFrame() -> NSRect {
-        bounds.insetBy(dx: 20, dy: 20)
+        bounds
     }
 
     @objc private func advanceSimulatedOutput() {
@@ -330,7 +331,7 @@ final class TerminalDeckView: NSView {
     private func drawMetadata() {
         drawLabel(
             "MACHINEN · \(terminalTiles.count) LIVE SESSIONS",
-            x: Metrics.sideInset,
+            x: Metrics.windowControlsInset,
             alignment: .left
         )
         drawLabel(
@@ -352,22 +353,6 @@ final class TerminalDeckView: NSView {
         ]
         NSAttributedString(string: text, attributes: attributes).draw(
             in: NSRect(x: rectX, y: 20, width: width, height: 18)
-        )
-    }
-
-    private func drawFocusedHint() {
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .center
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .regular),
-            .foregroundColor: NSColor(calibratedWhite: 0.48, alpha: 1),
-            .paragraphStyle: paragraph,
-        ]
-        NSAttributedString(
-            string: "left ⌘ + right ⌘   session overview",
-            attributes: attributes
-        ).draw(
-            in: NSRect(x: 200, y: bounds.height - 16, width: max(0, bounds.width - 400), height: 12)
         )
     }
 

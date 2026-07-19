@@ -11,11 +11,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let deck = TerminalDeckView(sessions: MockSession.phaseOne)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1200, height: 760),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "Machinen"
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = NSColor(calibratedWhite: 0.055, alpha: 1)
         window.minSize = NSSize(width: 860, height: 560)
         window.contentView = deck
         window.center()
