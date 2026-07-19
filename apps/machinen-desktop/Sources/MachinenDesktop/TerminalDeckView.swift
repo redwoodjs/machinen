@@ -53,6 +53,7 @@ final class TerminalDeckView: NSView {
             installPersistentTerminal(in: tile)
         }
         rebuildWorkspaceClusters()
+        enterSoleTerminalIfNeeded()
         updateSelection()
         setAccessibilityElement(false)
     }
@@ -105,6 +106,13 @@ final class TerminalDeckView: NSView {
 
     private func selectedSession() -> TerminalSession? {
         selectedSessionTile()?.session
+    }
+
+    private func enterSoleTerminalIfNeeded() {
+        guard allSessionTiles.count == 1, let tile = allSessionTiles.first else { return }
+        currentWorkspace = tile.session.workspace
+        selectedIndex = 0
+        focusedIndex = 0
     }
 
     private func installTile(_ tile: TerminalTileView) {
@@ -813,6 +821,10 @@ final class TerminalDeckView: NSView {
         restoreInputFocus()
     }
 
+    func focusCurrentContent() {
+        restoreInputFocus()
+    }
+
     private func restoreInputFocus() {
         let sessions = activeSessionTiles
         if let focusedIndex,
@@ -1021,6 +1033,7 @@ final class TerminalDeckView: NSView {
         currentWorkspace = nil
         focusedIndex = nil
         selectedIndex = min(selectedIndex, max(0, workspaceClusters.count - 1))
+        enterSoleTerminalIfNeeded()
         updateWorldGeometry()
         updateSelection()
         setCameraImmediately()

@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.center()
         window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(deck)
+        deck.focusCurrentContent()
         window.tabbingMode = .disallowed
         self.window = window
         commandChord = CommandChord { [weak deck] in
