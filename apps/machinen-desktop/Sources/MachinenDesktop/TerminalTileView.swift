@@ -9,7 +9,14 @@ final class TerminalTileView: NSView {
     }
 
     let session: MockSession
+    var onSelect: (() -> Void)?
+    var onActivate: (() -> Void)?
+
     var isSelected: Bool = false {
+        didSet { needsDisplay = true }
+    }
+
+    var isActivated: Bool = false {
         didSet { needsDisplay = true }
     }
 
@@ -38,6 +45,14 @@ final class TerminalTileView: NSView {
         drawHeader()
         drawTerminal()
         drawBorder()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        onSelect?()
+        window?.makeFirstResponder(superview)
+        if event.clickCount >= 2 {
+            onActivate?()
+        }
     }
 
     private func drawBackground() {
@@ -191,8 +206,8 @@ final class TerminalTileView: NSView {
             xRadius: Metrics.cornerRadius,
             yRadius: Metrics.cornerRadius
         )
-        path.lineWidth = isSelected ? 2 : 1
-        let white = isSelected ? 0.92 : 0.31
+        path.lineWidth = isActivated ? 4 : (isSelected ? 2 : 1)
+        let white = isActivated ? 1 : (isSelected ? 0.92 : 0.31)
         NSColor(calibratedWhite: white, alpha: 1).setStroke()
         path.stroke()
     }

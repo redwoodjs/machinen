@@ -4,9 +4,9 @@ A native macOS prototype for reviewing Machinen's live-session deck one interact
 
 ## Current phase
 
-**Phase 1 — Static live-session deck**
+**Phase 2 — Overview selection**
 
-The application currently contains only static mock terminal tiles. It intentionally has no keyboard navigation, animations, command palettes, real terminals, or Machinen integration.
+The deck supports mouse selection, arrow-key navigation, short typeable tile labels, and Return/double-click activation feedback. It intentionally has no focus animation, command palettes, real terminals, or Machinen integration yet.
 
 ## Run
 

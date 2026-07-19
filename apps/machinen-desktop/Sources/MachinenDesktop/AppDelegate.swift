@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentView = deck
         window.center()
         window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(deck)
         window.tabbingMode = .disallowed
         self.window = window
 
