@@ -3,12 +3,14 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
+    private weak var deck: TerminalDeckView?
     private var commandChord: CommandChord?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMainMenu()
 
         let deck = TerminalDeckView(sessions: MockSession.phaseOne)
+        self.deck = deck
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1200, height: 760),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
@@ -47,6 +49,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: ""
         )
         appMenu.addItem(.separator())
+        let commandsItem = NSMenuItem(
+            title: "Commands…",
+            action: #selector(toggleCommands),
+            keyEquivalent: "k"
+        )
+        commandsItem.keyEquivalentModifierMask = [.command]
+        commandsItem.target = self
+        appMenu.addItem(commandsItem)
+        appMenu.addItem(.separator())
         appMenu.addItem(
             withTitle: "Quit Machinen",
             action: #selector(NSApplication.terminate(_:)),
@@ -55,5 +66,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appItem.submenu = appMenu
         mainMenu.addItem(appItem)
         NSApp.mainMenu = mainMenu
+    }
+
+    @objc private func toggleCommands() {
+        deck?.toggleCommandPalette()
     }
 }

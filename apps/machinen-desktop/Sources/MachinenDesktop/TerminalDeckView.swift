@@ -30,6 +30,7 @@ final class TerminalDeckView: NSView {
     private var peekFrames: [NSRect] = []
     private var dragState: DragState?
     private var gridColumnCount = 1
+    private var commandPalette: CommandPaletteView?
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
@@ -483,7 +484,76 @@ final class TerminalDeckView: NSView {
         clearLabelBuffer()
     }
 
+    func toggleCommandPalette() {
+        if commandPalette != nil {
+            dismissCommandPalette()
+            return
+        }
+        guard !isTransitioning, !isPeeking, dragState == nil,
+              terminalTiles.indices.contains(focusedIndex ?? selectedIndex)
+        else {
+            return
+        }
+
+        let contextIndex = focusedIndex ?? selectedIndex
+        let session = terminalTiles[contextIndex].session
+        let palette = CommandPaletteView(
+            frame: bounds,
+            context: "\(session.workspace) / \(session.name)",
+            commands: paletteCommands(for: session)
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in
+            self?.dismissCommandPalette()
+        }
+        palette.onRun = { [weak self, weak palette] command in
+            self?.runPaletteCommand(command, from: palette)
+        }
+        commandPalette = palette
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
+    private func dismissCommandPalette() {
+        commandPalette?.removeFromSuperview()
+        commandPalette = nil
+        window?.makeFirstResponder(self)
+    }
+
+    private func paletteCommands(for session: MockSession) -> [PaletteCommand] {
+        let viewCommand = focusedIndex == nil
+            ? "View: Focus selected session"
+            : "View: Show session overview"
+        return [
+            PaletteCommand(id: .toggleOverview, title: viewCommand, shortcut: "left⌘ + right⌘"),
+            PaletteCommand(id: .newTerminal, title: "Session: New terminal in \(session.workspace)…", shortcut: "⌘T"),
+            PaletteCommand(id: .focusSession, title: "Session: Focus another session…", shortcut: "⌘P"),
+            PaletteCommand(id: .openPreview, title: "Workspace: Open preview", shortcut: ""),
+            PaletteCommand(id: .reviewChanges, title: "Workspace: Review changes", shortcut: ""),
+            PaletteCommand(id: .detachSession, title: "Session: Detach viewer", shortcut: ""),
+            PaletteCommand(id: .restartSession, title: "Session: Restart \(session.name)", shortcut: ""),
+            PaletteCommand(id: .stopSession, title: "Session: Stop \(session.name)", shortcut: ""),
+            PaletteCommand(id: .inspectWorkspace, title: "Workspace: Inspect machine…", shortcut: ""),
+        ]
+    }
+
+    private func runPaletteCommand(_ command: PaletteCommand, from palette: CommandPaletteView?) {
+        if command.id == .toggleOverview {
+            dismissCommandPalette()
+            toggleOverview()
+            return
+        }
+        palette?.showStatus("Prototype only · \(command.title)")
+    }
+
     func toggleOverview() {
+        if commandPalette != nil {
+            dismissCommandPalette()
+            if focusedIndex != nil {
+                returnToOverview()
+            }
+            return
+        }
         guard !isTransitioning, !isPeeking, dragState == nil else { return }
         if focusedIndex == nil {
             activate(selectedIndex)

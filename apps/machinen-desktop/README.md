@@ -4,9 +4,9 @@ A native macOS prototype for reviewing Machinen's live-session deck one interact
 
 ## Current phase
 
-**Phase 4 — Peek and ordering**
+**Phase 5 — Command palette**
 
-Hold Space to peek at the selected terminal, drag tiles to reorder them, or use Command plus an arrow key to swap the selected tile with its neighbour. The window is freely resizable and the deck wraps between three and two columns as space changes. Focus and return remain edge-to-edge. The prototype intentionally has no command palettes, real terminals, or Machinen integration yet.
+Press Command-K from the overview or a focused session to open a searchable developer-style command palette. Arrow keys select, Return runs, and Escape dismisses. Commands are simulated except for the overview/focus command. The prototype intentionally has no new-terminal flow, real terminals, or Machinen integration yet.
 
 ## Run
 
