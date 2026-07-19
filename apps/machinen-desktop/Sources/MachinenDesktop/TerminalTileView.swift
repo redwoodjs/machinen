@@ -37,6 +37,7 @@ final class TerminalTileView: NSView {
     }
 
     var currentState: MockSession.State { displayState }
+    var currentTerminalText: String { displayTerminalText }
 
     var isFocused = false {
         didSet {
@@ -213,18 +214,40 @@ final class TerminalTileView: NSView {
         path.lineWidth = 1
 
         switch displayState {
-        case .working, .live:
-            NSColor(calibratedWhite: 0.78, alpha: 1).setFill()
+        case .working:
+            NSColor(calibratedWhite: 0.82, alpha: 1).setFill()
             path.fill()
             path.stroke()
         case .waiting:
+            path.lineWidth = 2
             path.stroke()
+        case .idle:
+            NSColor(calibratedWhite: 0.48, alpha: 1).setFill()
+            path.fill()
         case .starting:
             let context = NSGraphicsContext.current?.cgContext
             context?.saveGState()
             context?.setLineDash(phase: 0, lengths: [2, 2])
             path.stroke()
             context?.restoreGState()
+        case .stopped:
+            path.stroke()
+            let line = NSBezierPath()
+            line.move(to: NSPoint(x: rect.minX + 1.5, y: rect.midY))
+            line.line(to: NSPoint(x: rect.maxX - 1.5, y: rect.midY))
+            line.stroke()
+        case .disconnected:
+            path.stroke()
+            let cross = NSBezierPath()
+            cross.move(to: NSPoint(x: rect.minX + 1.5, y: rect.minY + 1.5))
+            cross.line(to: NSPoint(x: rect.maxX - 1.5, y: rect.maxY - 1.5))
+            cross.move(to: NSPoint(x: rect.maxX - 1.5, y: rect.minY + 1.5))
+            cross.line(to: NSPoint(x: rect.minX + 1.5, y: rect.maxY - 1.5))
+            cross.stroke()
+        case .detached:
+            NSColor(calibratedWhite: 0.32, alpha: 1).setFill()
+            path.fill()
+            path.stroke()
         }
     }
 

@@ -66,6 +66,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         commandsItem.keyEquivalentModifierMask = [.command]
         commandsItem.target = self
         appMenu.addItem(commandsItem)
+
+        let closeItem = NSMenuItem(
+            title: "Detach Viewer or Close Window",
+            action: #selector(contextualClose),
+            keyEquivalent: "w"
+        )
+        closeItem.keyEquivalentModifierMask = [.command]
+        closeItem.target = self
+        appMenu.addItem(closeItem)
         appMenu.addItem(.separator())
         appMenu.addItem(
             withTitle: "Quit Machinen",
@@ -83,5 +92,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleNewTerminal() {
         deck?.toggleNewTerminalPalette()
+    }
+
+    @objc private func contextualClose() {
+        if deck?.handleCloseCommand() != true {
+            window?.performClose(nil)
+        }
     }
 }

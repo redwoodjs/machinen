@@ -2,10 +2,13 @@ import Foundation
 
 struct MockSession {
     enum State: String {
-        case working
-        case live
-        case waiting
         case starting
+        case working
+        case waiting
+        case idle
+        case stopped
+        case disconnected
+        case detached
     }
 
     let label: String
@@ -39,7 +42,7 @@ extension MockSession {
             label: "ws",
             workspace: "website",
             name: "shell",
-            state: .live,
+            state: .idle,
             terminalText: """
             ~/workspace $ pnpm dev
 
@@ -74,19 +77,35 @@ extension MockSession {
             label: "ep",
             workspace: "experiment",
             name: "pi",
-            state: .working,
+            state: .disconnected,
             terminalText: """
-            pi
+            Connection to the terminal was lost.
 
-            I'll compare all three approaches.
+            workspace: experiment
+            session:   pi
+            node:      studio.p4p8.local
 
-            $ hyperfine './bench-a' './bench-b'
-            Benchmark 1: ./bench-a
-              Time (mean ± σ): 124.2 ms
+            Last heartbeat: 12:41:38 PM
+            Error: transport closed without a close frame
 
-            Benchmark 2: ./bench-b
-              Time (mean ± σ): {{tick}}.7 ms
-            ▌
+            The process may still be running.
+            Use Session: Reconnect or inspect diagnostics.
+            """
+        ),
+        MockSession(
+            label: "as",
+            workspace: "api",
+            name: "shell",
+            state: .stopped,
+            terminalText: """
+            Session stopped.
+
+            command:   pnpm test --watch
+            exit code: 130
+            stopped:   12:37:04 PM
+
+            The workspace is still running.
+            Use Session: Restart to start this command again.
             """
         ),
         MockSession(

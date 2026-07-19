@@ -31,6 +31,7 @@ final class TerminalDeckView: NSView {
     private var simulatedOutputTimer: Timer?
     private var commandPalette: CommandPaletteView?
     private var paletteKind: PaletteKind?
+    private var presentedOverlay: NSView?
     private var lastFocusedEscapeAt: TimeInterval?
     private var lastViewportSize = NSSize.zero
 
@@ -96,16 +97,20 @@ final class TerminalDeckView: NSView {
         return workspaceClusters[selectedIndex].workspace
     }
 
-    private func selectedSession() -> MockSession? {
+    private func selectedSessionTile() -> TerminalTileView? {
         let sessions = activeSessionTiles
         let index = focusedIndex ?? selectedIndex
         if sessions.indices.contains(index) {
-            return sessions[index].session
+            return sessions[index]
         }
         if let workspace = selectedWorkspace() {
-            return allSessionTiles.first { $0.session.workspace == workspace }?.session
+            return allSessionTiles.first { $0.session.workspace == workspace }
         }
         return nil
+    }
+
+    private func selectedSession() -> MockSession? {
+        selectedSessionTile()?.session
     }
 
     private func installTile(_ tile: TerminalTileView) {
@@ -625,6 +630,7 @@ final class TerminalDeckView: NSView {
     }
 
     func toggleCommandPalette() {
+        guard presentedOverlay == nil else { return }
         if commandPalette != nil {
             let wasCommands = paletteKind == .commands
             dismissCommandPalette()
@@ -659,6 +665,7 @@ final class TerminalDeckView: NSView {
     }
 
     func toggleNewTerminalPalette() {
+        guard presentedOverlay == nil else { return }
         if commandPalette != nil {
             let wasNewTerminal = paletteKind == .newTerminal
             dismissCommandPalette()
@@ -780,7 +787,10 @@ final class TerminalDeckView: NSView {
                 PaletteCommand(id: .newTerminal, title: "Session: New terminal in \(session.workspace)…", shortcut: "⌘T"),
                 PaletteCommand(id: .openPreview, title: "Workspace: Open preview", shortcut: ""),
                 PaletteCommand(id: .reviewChanges, title: "Workspace: Review changes", shortcut: ""),
-                PaletteCommand(id: .inspectWorkspace, title: "Workspace: Inspect machine…", shortcut: ""),
+                PaletteCommand(id: .showDiagnostics, title: "Workspace: Show diagnostics…", shortcut: ""),
+                PaletteCommand(id: .stopWorkspace, title: "Workspace: Stop \(session.workspace)…", shortcut: ""),
+                PaletteCommand(id: .deleteWorkspace, title: "Workspace: Delete \(session.workspace)…", shortcut: ""),
+                PaletteCommand(id: .simulateRelaunch, title: "Application: Simulate relaunch", shortcut: ""),
             ]
         }
 
@@ -792,17 +802,28 @@ final class TerminalDeckView: NSView {
         } else {
             viewCommand = "View: Show session overview"
         }
-        return [
+        var commands = [
             PaletteCommand(id: .toggleOverview, title: viewCommand, shortcut: "left⌘ + right⌘"),
             PaletteCommand(id: .newTerminal, title: "Session: New terminal in \(session.workspace)…", shortcut: "⌘T"),
-            PaletteCommand(id: .focusSession, title: "Session: Focus another session…", shortcut: "⌘P"),
-            PaletteCommand(id: .openPreview, title: "Workspace: Open preview", shortcut: ""),
-            PaletteCommand(id: .reviewChanges, title: "Workspace: Review changes", shortcut: ""),
-            PaletteCommand(id: .detachSession, title: "Session: Detach viewer", shortcut: ""),
-            PaletteCommand(id: .restartSession, title: "Session: Restart \(session.name)", shortcut: ""),
-            PaletteCommand(id: .stopSession, title: "Session: Stop \(session.name)", shortcut: ""),
-            PaletteCommand(id: .inspectWorkspace, title: "Workspace: Inspect machine…", shortcut: ""),
         ]
+        switch selectedSessionTile()?.currentState {
+        case .detached:
+            commands.append(PaletteCommand(id: .attachSession, title: "Session: Attach viewer", shortcut: ""))
+        case .disconnected:
+            commands.append(PaletteCommand(id: .reconnectSession, title: "Session: Reconnect", shortcut: ""))
+        case .stopped:
+            commands.append(PaletteCommand(id: .restartSession, title: "Session: Restart \(session.name)", shortcut: ""))
+        default:
+            commands.append(PaletteCommand(id: .detachSession, title: "Session: Detach viewer", shortcut: "⌘W"))
+            commands.append(PaletteCommand(id: .stopSession, title: "Session: Stop \(session.name)…", shortcut: ""))
+        }
+        commands.append(contentsOf: [
+            PaletteCommand(id: .showDiagnostics, title: "Session: Show diagnostics…", shortcut: ""),
+            PaletteCommand(id: .stopWorkspace, title: "Workspace: Stop \(session.workspace)…", shortcut: ""),
+            PaletteCommand(id: .deleteWorkspace, title: "Workspace: Delete \(session.workspace)…", shortcut: ""),
+            PaletteCommand(id: .simulateRelaunch, title: "Application: Simulate relaunch", shortcut: ""),
+        ])
+        return commands
     }
 
     private func runPaletteCommand(_ command: PaletteCommand, from palette: CommandPaletteView?) {
@@ -813,9 +834,343 @@ final class TerminalDeckView: NSView {
         case .newTerminal:
             dismissCommandPalette()
             toggleNewTerminalPalette()
+        case .attachSession, .reconnectSession:
+            dismissCommandPalette()
+            reconnectSelectedSession()
+        case .detachSession:
+            dismissCommandPalette()
+            detachSelectedSession()
+        case .restartSession:
+            dismissCommandPalette()
+            restartSelectedSession()
+        case .stopSession:
+            dismissCommandPalette()
+            confirmStopSelectedSession()
+        case .stopWorkspace:
+            dismissCommandPalette()
+            confirmStopSelectedWorkspace()
+        case .deleteWorkspace:
+            dismissCommandPalette()
+            confirmDeleteSelectedWorkspace()
+        case .showDiagnostics, .inspectWorkspace:
+            dismissCommandPalette()
+            showDiagnostics()
+        case .simulateRelaunch:
+            dismissCommandPalette()
+            simulateRelaunch()
         default:
             palette?.showStatus("Prototype only · \(command.title)")
         }
+    }
+
+    private func presentConfirmation(
+        heading: String,
+        message: String,
+        consequence: String,
+        confirmTitle: String,
+        action: @escaping @MainActor () -> Void
+    ) {
+        let confirmation = ActionConfirmationView(
+            frame: bounds,
+            heading: heading,
+            message: message,
+            consequence: consequence,
+            confirmTitle: confirmTitle
+        )
+        confirmation.layer?.zPosition = 2_000
+        confirmation.onCancel = { [weak self] in
+            self?.dismissPresentedOverlay()
+        }
+        confirmation.onConfirm = { [weak self] in
+            self?.dismissPresentedOverlay()
+            action()
+        }
+        presentedOverlay = confirmation
+        addSubview(confirmation, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(confirmation)
+    }
+
+    private func dismissPresentedOverlay() {
+        presentedOverlay?.removeFromSuperview()
+        presentedOverlay = nil
+        window?.makeFirstResponder(self)
+    }
+
+    private func confirmStopSelectedSession() {
+        guard let tile = selectedSessionTile() else { return }
+        presentConfirmation(
+            heading: "Stop session \(tile.session.name)?",
+            message: "This terminates the process in this terminal. The workspace and its other sessions keep running.",
+            consequence: "Unsaved input in the process may be lost. The stopped session remains visible and can be restarted.",
+            confirmTitle: "Stop session"
+        ) { [weak self, weak tile] in
+            guard let self, let tile else { return }
+            self.stopSession(tile)
+        }
+    }
+
+    private func confirmStopSelectedWorkspace() {
+        guard let workspace = selectedWorkspace() else { return }
+        let count = allSessionTiles.count { $0.session.workspace == workspace }
+        presentConfirmation(
+            heading: "Stop workspace \(workspace)?",
+            message: "This stops its machine and all \(count) terminal \(count == 1 ? "session" : "sessions").",
+            consequence: "The workspace and private project copy remain. It can be started again later.",
+            confirmTitle: "Stop workspace"
+        ) { [weak self] in
+            self?.stopWorkspace(workspace)
+        }
+    }
+
+    private func confirmDeleteSelectedWorkspace() {
+        guard let workspace = selectedWorkspace() else { return }
+        presentConfirmation(
+            heading: "Delete workspace \(workspace)?",
+            message: "This removes the workspace, its sessions, and Machinen's private project copy.",
+            consequence: "This is the data-destroying action. Changes not reviewed or exported cannot be recovered.",
+            confirmTitle: "Delete workspace"
+        ) { [weak self] in
+            self?.deleteWorkspace(workspace)
+        }
+    }
+
+    private func detachSelectedSession() {
+        guard let tile = selectedSessionTile() else { return }
+        tile.transition(
+            to: .detached,
+            terminalText: """
+            Viewer detached.
+
+            workspace: \(tile.session.workspace)
+            session:   \(tile.session.name)
+
+            The process continues running in the workspace.
+            No terminal output is being streamed to this viewer.
+
+            Use Session: Attach viewer to reconnect.
+            """
+        )
+        if focusedIndex != nil {
+            leaveFocusedSession()
+        }
+    }
+
+    private func reconnectSelectedSession() {
+        guard let tile = selectedSessionTile() else { return }
+        tile.transition(
+            to: .starting,
+            terminalText: """
+            Reconnecting terminal…
+
+            workspace: \(tile.session.workspace)
+            session:   \(tile.session.name)
+
+            · Locating workspace
+            · Attaching to persistent PTY
+            ▌
+            """
+        )
+        Task { @MainActor [weak tile] in
+            try? await Task.sleep(for: .seconds(1.0))
+            guard let tile else { return }
+            tile.transition(
+                to: .idle,
+                terminalText: """
+                Attached to persistent session.
+
+                workspace: \(tile.session.workspace)
+                session:   \(tile.session.name)
+
+                ~/workspace $ ▌
+                """
+            )
+        }
+    }
+
+    private func restartSelectedSession() {
+        guard let tile = selectedSessionTile() else { return }
+        tile.transition(
+            to: .starting,
+            terminalText: """
+            Restarting session…
+
+            command: \(tile.session.name)
+            · Starting process
+            · Attaching terminal
+            ▌
+            """
+        )
+        Task { @MainActor [weak tile] in
+            try? await Task.sleep(for: .seconds(1.0))
+            tile?.transition(to: .idle, terminalText: "~/workspace $ \(tile?.session.name ?? "")\n\nReady.\n\n> ▌")
+        }
+    }
+
+    private func stopSession(_ tile: TerminalTileView) {
+        tile.transition(
+            to: .stopped,
+            terminalText: """
+            Session stopped.
+
+            workspace: \(tile.session.workspace)
+            session:   \(tile.session.name)
+            exit code: 143
+            reason:    stopped by user
+
+            The workspace is still running.
+            Use Session: Restart to run this session again.
+            """
+        )
+    }
+
+    private func stopWorkspace(_ workspace: String) {
+        for tile in allSessionTiles where tile.session.workspace == workspace {
+            tile.transition(
+                to: .stopped,
+                terminalText: """
+                Workspace stopped.
+
+                workspace: \(workspace)
+                session:   \(tile.session.name)
+
+                The machine is stopped. The private project copy remains.
+                Start or restart a session to resume this workspace.
+                """
+            )
+        }
+    }
+
+    private func deleteWorkspace(_ workspace: String) {
+        for tile in allSessionTiles where tile.session.workspace == workspace {
+            tile.removeFromSuperview()
+        }
+        allSessionTiles.removeAll { $0.session.workspace == workspace }
+        workspaceCluster(named: workspace)?.removeFromSuperview()
+        workspaceClusters.removeAll { $0.workspace == workspace }
+        rebuildWorkspaceClusters()
+        currentWorkspace = nil
+        focusedIndex = nil
+        selectedIndex = min(selectedIndex, max(0, workspaceClusters.count - 1))
+        updateWorldGeometry()
+        updateSelection()
+        setCameraImmediately()
+    }
+
+    private func showDiagnostics() {
+        guard let workspace = selectedWorkspace() else { return }
+        let text: String
+        let heading: String
+        if currentWorkspace == nil {
+            let sessions = allSessionTiles.filter { $0.session.workspace == workspace }
+            heading = "WORKSPACE DIAGNOSTICS · \(workspace)"
+            let sessionLines = sessions.map {
+                "  \($0.session.label)  \($0.session.name.padding(toLength: 12, withPad: " ", startingAt: 0)) \($0.currentState.rawValue)"
+            }.joined(separator: "\n")
+            text = """
+            workspace       \(workspace)
+            workspace id    ws_\(workspace.lowercased())_01
+            placement       local · Apple Virtualization.framework
+            machine state   \(sessions.allSatisfy { $0.currentState == .stopped } ? "stopped" : "running")
+            private copy    ~/.machinen/workspaces/\(workspace)/project
+            sessions        \(sessions.count)
+
+            SESSION STATE
+            \(sessionLines)
+
+            CLI EQUIVALENTS
+            machinen workspace inspect \(workspace)
+            machinen workspace stop \(workspace)
+            machinen logs --workspace \(workspace)
+
+            Prototype diagnostics are simulated. Values are formatted as they
+            should appear when backed by the real Machinen runtime.
+            """
+        } else if let tile = selectedSessionTile() {
+            heading = "SESSION DIAGNOSTICS · \(workspace) / \(tile.session.name)"
+            let lastError = tile.currentState == .disconnected
+                ? "transport closed without a close frame"
+                : "none"
+            text = """
+            workspace       \(workspace)
+            session         \(tile.session.name)
+            session id      ses_\(workspace.lowercased())_\(tile.session.name.lowercased())_01
+            state            \(tile.currentState.rawValue)
+            viewer           \(tile.currentState == .detached ? "detached" : "attached")
+            placement       \(tile.currentState == .disconnected ? "studio.p4p8.local" : "local")
+            pty              /dev/pts/2
+            last error       \(lastError)
+
+            ATTACH
+            machinen session attach ses_\(workspace.lowercased())_\(tile.session.name.lowercased())_01
+
+            LOGS
+            machinen logs --session ses_\(workspace.lowercased())_\(tile.session.name.lowercased())_01
+
+            LAST TERMINAL OUTPUT
+            ----------------------------------------------------------------
+            \(tile.currentTerminalText)
+            """
+        } else {
+            return
+        }
+
+        let diagnostics = DiagnosticsView(frame: bounds, heading: heading, text: text)
+        diagnostics.layer?.zPosition = 2_000
+        diagnostics.onDismiss = { [weak self] in self?.dismissPresentedOverlay() }
+        presentedOverlay = diagnostics
+        addSubview(diagnostics, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(diagnostics)
+    }
+
+    private func simulateRelaunch() {
+        let snapshots = allSessionTiles.map { ($0, $0.currentState, $0.currentTerminalText) }
+        let restorableCount = snapshots.count { $0.1 != .stopped && $0.1 != .detached }
+        let restoration = RestorationView(
+            frame: bounds,
+            detail: "Loading saved workspace order…\nFound \(snapshots.count) sessions; reconnecting \(restorableCount)."
+        )
+        restoration.layer?.zPosition = 2_000
+        presentedOverlay = restoration
+        addSubview(restoration, positioned: .above, relativeTo: nil)
+
+        currentWorkspace = nil
+        focusedIndex = nil
+        selectedIndex = min(selectedIndex, max(0, workspaceClusters.count - 1))
+        for (tile, state, _) in snapshots where state != .stopped && state != .detached {
+            tile.transition(
+                to: .starting,
+                terminalText: "Restoring saved session…\n\n· Finding workspace\n· Reattaching viewer\n▌"
+            )
+        }
+        updateSelection()
+        moveCamera()
+
+        Task { @MainActor [weak self, weak restoration] in
+            try? await Task.sleep(for: .seconds(0.65))
+            restoration?.update(detail: "Workspace order restored.\nReattaching persistent terminal viewers…")
+            try? await Task.sleep(for: .seconds(0.85))
+            guard let self else { return }
+            for (tile, state, terminalText) in snapshots {
+                tile.transition(to: state, terminalText: terminalText)
+            }
+            self.dismissPresentedOverlay()
+        }
+    }
+
+    func handleCloseCommand() -> Bool {
+        if presentedOverlay != nil {
+            dismissPresentedOverlay()
+            return true
+        }
+        if commandPalette != nil {
+            dismissCommandPalette()
+            return true
+        }
+        if focusedIndex != nil {
+            detachSelectedSession()
+            return true
+        }
+        return false
     }
 
     private func createSimulatedSession(workspace: String, name: String, command: String) {
@@ -856,7 +1211,7 @@ final class TerminalDeckView: NSView {
             guard let self, let tile,
                   let index = self.activeSessionTiles.firstIndex(where: { $0 === tile })
             else { return }
-            tile.transition(to: .live, terminalText: self.readyTerminalText(name: name, command: command))
+            tile.transition(to: .idle, terminalText: self.readyTerminalText(name: name, command: command))
             self.selectedIndex = index
             self.focusedIndex = index
             self.updateSelection()

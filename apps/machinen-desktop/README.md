@@ -4,9 +4,9 @@ A native macOS prototype for reviewing Machinen's live-session deck one interact
 
 ## Current phase
 
-**Phase 6b — Workspace and session hierarchy**
+**Phase 7 — States and lifecycle language**
 
-Machinen now renders every workspace and terminal once on one persistent spatial scene. Every workspace occupies a uniform screen, with its full-size terminal surfaces scaled down enough to fit inside. Navigation changes only the camera: Return zooms toward a workspace screen and then a terminal without rebuilding, reflowing, hiding, or crossfading objects. A workspace with one terminal goes directly inside. An entered workspace and a focused terminal each fill 100% of the viewport, become square and borderless, and leave parent-level chrome outside the camera. Escape reverses the camera path through the effective hierarchy; in a focused terminal, the first Escape remains reserved for the terminal and a second rapid Escape navigates out. The Command chord remains an alternative. The prototype intentionally has no real terminals or Machinen integration yet.
+Machinen renders every workspace and terminal once on one persistent spatial scene; navigation changes only the camera. The prototype now demonstrates starting, working, waiting, idle, stopped, disconnected, and intentionally detached sessions. `⌘K` exposes distinct attach, reconnect, detach, restart, stop-session, stop-workspace, delete-workspace, diagnostics, and simulated-relaunch actions. Destructive actions explain their scope before confirmation, diagnostics are selectable and copyable, and `⌘W` detaches a focused viewer while leaving its session running. All lifecycle behaviour remains simulated; there are still no real terminals or Machinen integration.
 
 ## Run
 

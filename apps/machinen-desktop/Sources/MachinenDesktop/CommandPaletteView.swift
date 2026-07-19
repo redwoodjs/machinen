@@ -7,9 +7,15 @@ struct PaletteCommand {
         case focusSession
         case openPreview
         case reviewChanges
+        case attachSession
+        case reconnectSession
         case detachSession
         case restartSession
         case stopSession
+        case stopWorkspace
+        case deleteWorkspace
+        case showDiagnostics
+        case simulateRelaunch
         case inspectWorkspace
         case createShell
         case createClaude
