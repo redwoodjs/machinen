@@ -50,6 +50,21 @@ final class TerminalDeckView: NSView {
         for tile in allSessionTiles {
             installTile(tile)
         }
+        if let shellTile = allSessionTiles.first(where: {
+            $0.session.workspace == "website" && $0.session.name == "shell"
+        }) {
+            let terminalView = MachinenTerminalView(frame: .zero)
+            terminalView.onDoubleEscape = { [weak self] in
+                self?.leaveFocusedSession()
+            }
+            terminalView.onProcessExit = { [weak shellTile] exitCode in
+                shellTile?.transition(
+                    to: .stopped,
+                    terminalText: "Local shell exited with status \(exitCode.map(String.init) ?? "unknown")."
+                )
+            }
+            shellTile.installTerminalView(terminalView)
+        }
         rebuildWorkspaceClusters()
         updateSelection()
 
@@ -323,7 +338,7 @@ final class TerminalDeckView: NSView {
                 guard let self else { return }
                 self.sceneView.restoreWorldBounds()
                 self.isTransitioning = false
-                self.window?.makeFirstResponder(self)
+                self.restoreInputFocus()
                 self.needsDisplay = true
                 completion?()
             }
@@ -335,6 +350,8 @@ final class TerminalDeckView: NSView {
         if focusedIndex != nil {
             if modifiers.isEmpty, event.keyCode == 53 {
                 handleFocusedEscape()
+            } else {
+                lastFocusedEscapeAt = nil
             }
             return
         }
@@ -777,6 +794,17 @@ final class TerminalDeckView: NSView {
         commandPalette?.removeFromSuperview()
         commandPalette = nil
         paletteKind = nil
+        restoreInputFocus()
+    }
+
+    private func restoreInputFocus() {
+        let sessions = activeSessionTiles
+        if let focusedIndex,
+           sessions.indices.contains(focusedIndex),
+           sessions[focusedIndex].focusTerminal()
+        {
+            return
+        }
         window?.makeFirstResponder(self)
     }
 
@@ -893,7 +921,7 @@ final class TerminalDeckView: NSView {
     private func dismissPresentedOverlay() {
         presentedOverlay?.removeFromSuperview()
         presentedOverlay = nil
-        window?.makeFirstResponder(self)
+        restoreInputFocus()
     }
 
     private func confirmStopSelectedSession() {

@@ -4,9 +4,13 @@ A native macOS prototype for reviewing Machinen's live-session deck one interact
 
 ## Current phase
 
-**Phase 7 — States and lifecycle language**
+**Phase 8 — First real terminal**
 
-Machinen renders every workspace and terminal once on one persistent spatial scene; navigation changes only the camera. The prototype now demonstrates starting, working, waiting, idle, stopped, disconnected, and intentionally detached sessions. `⌘K` exposes distinct attach, reconnect, detach, restart, stop-session, stop-workspace, delete-workspace, diagnostics, and simulated-relaunch actions. Destructive actions explain their scope before confirmation, diagnostics are selectable and copyable, and `⌘W` never closes Machinen: it detaches a focused viewer while leaving its session running and otherwise does nothing. All lifecycle behaviour remains simulated; there are still no real terminals or Machinen integration.
+The `website / shell` surface is now a real local PTY running the user's login shell. It is the same live AppKit view when seen inside a workspace screen, entered as a session, and focused edge to edge; camera navigation never recreates it. It supports normal terminal input, selection, scrolling, clipboard operations, resizing, and `Esc, Esc` navigation. Other surfaces and lifecycle actions remain simulated during this checkpoint.
+
+Machinen's product boundary is terminals plus automation. Agent launchers are not hardcoded into the desktop application. A future lightweight scripting layer will let users create workspace screens, launch commands, label terminals, and control the camera/UI. The language is intentionally undecided, while `MachinenTerminalView` isolates the terminal engine from that future API.
+
+SwiftTerm `v1.15.0` is pinned to commit `dd2fb8ac5b861e7bf617c872895e338f38165648` for this terminal checkpoint because it builds with Command Line Tools. Ghostty's current macOS embedding path requires its private, unstable application API and the full Xcode Metal toolchain; the terminal host boundary keeps a later engine replacement contained.
 
 ## Run
 

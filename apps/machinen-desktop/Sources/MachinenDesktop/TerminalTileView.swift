@@ -18,6 +18,7 @@ final class TerminalTileView: NSView {
     private let clusterSessions: [TerminalTileView]
     private var displayState: MockSession.State
     private var displayTerminalText: String
+    private var embeddedTerminalView: NSView?
     var onSelect: (() -> Void)?
     var onActivate: (() -> Void)?
     var onDragBegan: ((NSEvent) -> Void)?
@@ -77,6 +78,32 @@ final class TerminalTileView: NSView {
         displayTerminalText = terminalText
         updateAccessibilityLabel()
         needsDisplay = true
+    }
+
+    func installTerminalView(_ terminalView: NSView) {
+        embeddedTerminalView?.removeFromSuperview()
+        embeddedTerminalView = terminalView
+        addSubview(terminalView)
+        needsLayout = true
+        needsDisplay = true
+    }
+
+    @discardableResult
+    func focusTerminal() -> Bool {
+        guard let embeddedTerminalView else { return false }
+        return window?.makeFirstResponder(embeddedTerminalView) ?? false
+    }
+
+    override func layout() {
+        super.layout()
+        embeddedTerminalView?.frame = terminalContentRect().integral
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        if embeddedTerminalView != nil, !isFocused {
+            return bounds.contains(point) ? self : nil
+        }
+        return super.hitTest(point)
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -256,6 +283,7 @@ final class TerminalTileView: NSView {
     }
 
     private func drawTerminal() {
+        guard embeddedTerminalView == nil else { return }
         let terminalRect = terminalContentRect()
         guard terminalRect.width > 0, terminalRect.height > 0 else { return }
         if kind == .workspace {
