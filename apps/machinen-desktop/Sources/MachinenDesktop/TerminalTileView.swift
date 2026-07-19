@@ -15,6 +15,7 @@ final class TerminalTileView: NSView {
 
     let session: MockSession
     let kind: TileKind
+    private let clusterSessions: [TerminalTileView]
     private var displayState: MockSession.State
     private var displayTerminalText: String
     var onSelect: (() -> Void)?
@@ -46,9 +47,14 @@ final class TerminalTileView: NSView {
 
     override var isFlipped: Bool { true }
 
-    init(session: MockSession, kind: TileKind = .session) {
+    init(
+        session: MockSession,
+        kind: TileKind = .session,
+        clusterSessions: [TerminalTileView] = []
+    ) {
         self.session = session
         self.kind = kind
+        self.clusterSessions = clusterSessions
         displayState = session.state
         displayTerminalText = session.terminalText
         super.init(frame: .zero)
@@ -223,14 +229,17 @@ final class TerminalTileView: NSView {
         }
     }
 
+    func clusterFrames(in view: NSView) -> [NSRect] {
+        clusterPreviewFrames().map { convert($0, to: view) }
+    }
+
     private func drawTerminal() {
-        let terminalRect = NSRect(
-            x: 12,
-            y: Metrics.headerHeight + 10,
-            width: max(0, bounds.width - 24),
-            height: max(0, bounds.height - Metrics.headerHeight - 18)
-        )
+        let terminalRect = terminalContentRect()
         guard terminalRect.width > 0, terminalRect.height > 0 else { return }
+        if kind == .workspace {
+            drawCluster()
+            return
+        }
 
         NSGraphicsContext.saveGraphicsState()
         NSBezierPath(rect: terminalRect).addClip()
@@ -251,6 +260,94 @@ final class TerminalTileView: NSView {
             .draw(with: terminalRect, options: [.usesLineFragmentOrigin, .usesFontLeading])
 
         NSGraphicsContext.restoreGraphicsState()
+    }
+
+    private func terminalContentRect() -> NSRect {
+        NSRect(
+            x: 12,
+            y: Metrics.headerHeight + 10,
+            width: max(0, bounds.width - 24),
+            height: max(0, bounds.height - Metrics.headerHeight - 18)
+        )
+    }
+
+    private func clusterPreviewFrames() -> [NSRect] {
+        let count = min(4, clusterSessions.count)
+        guard count > 0 else { return [] }
+        let content = terminalContentRect()
+        let columns = count == 1 ? 1 : 2
+        let rows = Int(ceil(Double(count) / Double(columns)))
+        let gap: CGFloat = max(4, min(10, content.width * 0.02))
+        let width = (content.width - gap * CGFloat(columns - 1)) / CGFloat(columns)
+        let height = (content.height - gap * CGFloat(rows - 1)) / CGFloat(rows)
+
+        return (0..<count).map { index in
+            let column = index % columns
+            let row = index / columns
+            return NSRect(
+                x: content.minX + CGFloat(column) * (width + gap),
+                y: content.minY + CGFloat(row) * (height + gap),
+                width: width,
+                height: height
+            )
+        }
+    }
+
+    private func drawCluster() {
+        for (index, frame) in clusterPreviewFrames().enumerated() {
+            let sessionTile = clusterSessions[index]
+            NSColor(calibratedWhite: 0.065, alpha: 1).setFill()
+            NSColor(calibratedWhite: 0.34, alpha: 1).setStroke()
+            let tilePath = NSBezierPath(roundedRect: frame, xRadius: 4, yRadius: 4)
+            tilePath.fill()
+            tilePath.lineWidth = 1
+            tilePath.stroke()
+
+            let headerHeight = max(13, min(21, frame.height * 0.22))
+            let header = NSRect(x: frame.minX, y: frame.minY, width: frame.width, height: headerHeight)
+            NSColor(calibratedWhite: 0.14, alpha: 1).setFill()
+            NSBezierPath(roundedRect: header, xRadius: 4, yRadius: 4).fill()
+            NSRect(
+                x: header.minX,
+                y: header.minY + 4,
+                width: header.width,
+                height: max(0, header.height - 4)
+            ).fill()
+
+            let headerFontSize = max(6, min(10, frame.width / 28))
+            drawText(
+                sessionTile.session.name,
+                in: NSRect(x: header.minX + 6, y: header.minY, width: header.width - 12, height: header.height),
+                font: .monospacedSystemFont(ofSize: headerFontSize, weight: .medium),
+                color: NSColor(calibratedWhite: 0.83, alpha: 1),
+                alignment: .left,
+                verticalCenter: true
+            )
+
+            let body = NSRect(
+                x: frame.minX + 6,
+                y: header.maxY + 5,
+                width: max(0, frame.width - 12),
+                height: max(0, frame.maxY - header.maxY - 10)
+            )
+            NSGraphicsContext.saveGraphicsState()
+            NSBezierPath(rect: body).addClip()
+            let text = sessionTile.displayTerminalText.replacingOccurrences(
+                of: "{{tick}}",
+                with: String(sessionTile.simulationTick)
+            )
+            NSAttributedString(
+                string: text,
+                attributes: [
+                    .font: NSFont.monospacedSystemFont(
+                        ofSize: max(5, min(8, frame.width / 40)),
+                        weight: .regular
+                    ),
+                    .foregroundColor: NSColor(calibratedWhite: 0.61, alpha: 1),
+                ]
+            ).draw(with: body, options: [.usesLineFragmentOrigin, .usesFontLeading])
+            NSGraphicsContext.restoreGraphicsState()
+        }
     }
 
     private func drawBorder() {

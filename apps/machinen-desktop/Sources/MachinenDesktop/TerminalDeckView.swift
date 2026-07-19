@@ -149,7 +149,8 @@ final class TerminalDeckView: NSView {
                     \(summary)
                     """
                 ),
-                kind: .workspace
+                kind: .workspace,
+                clusterSessions: sessions
             )
             installTile(tile)
             return tile
@@ -596,6 +597,7 @@ final class TerminalDeckView: NSView {
         isTransitioning = true
         needsDisplay = true
         let sourceTile = terminalTiles.first { $0.session.workspace == workspace }
+        sourceTile?.isFocused = true
         sourceTile?.layer?.zPosition = 100
 
         NSAnimationContext.runAnimationGroup { context in
@@ -619,27 +621,31 @@ final class TerminalDeckView: NSView {
         _ workspace: String,
         completion: (@MainActor () -> Void)?
     ) {
-        for tile in workspaceTiles {
-            tile.isHidden = true
-            tile.alphaValue = 1
-            tile.layer?.zPosition = 0
-        }
+        let sourceTile = workspaceTiles.first { $0.session.workspace == workspace }
+        let clusterFrames = sourceTile?.clusterFrames(in: self) ?? []
 
         currentWorkspace = workspace
         terminalTiles = allSessionTiles.filter { $0.session.workspace == workspace }
         selectedIndex = 0
         focusedIndex = nil
-        let frames = gridFrames(count: terminalTiles.count, in: bounds)
-        for (tile, frame) in zip(terminalTiles, frames) {
-            tile.frame = frame.integral
-            tile.alphaValue = 0
+        let targetFrames = gridFrames(count: terminalTiles.count, in: bounds)
+        for (index, tile) in terminalTiles.enumerated() {
+            tile.frame = (clusterFrames.indices.contains(index) ? clusterFrames[index] : targetFrames[index]).integral
+            tile.alphaValue = clusterFrames.indices.contains(index) ? 1 : 0
             tile.isHidden = false
+        }
+        for tile in workspaceTiles {
+            tile.isHidden = true
+            tile.alphaValue = 1
+            tile.layer?.zPosition = 0
         }
         needsDisplay = true
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.12
-            for tile in terminalTiles {
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            for (tile, frame) in zip(terminalTiles, targetFrames) {
+                tile.animator().frame = frame.integral
                 tile.animator().alphaValue = 1
             }
         } completionHandler: { [weak self] in
@@ -655,23 +661,45 @@ final class TerminalDeckView: NSView {
     }
 
     private func showWorkspaceDeck(completion: (@MainActor () -> Void)? = nil) {
-        guard currentWorkspace != nil, focusedIndex == nil, !isTransitioning else { return }
+        guard let previousWorkspace = currentWorkspace, focusedIndex == nil, !isTransitioning else {
+            return
+        }
         isTransitioning = true
-        let previousWorkspace = currentWorkspace
+        let sessionTiles = terminalTiles
+        rebuildWorkspaceTiles()
+
+        let workspaceFrames = gridFrames(count: workspaceTiles.count, in: bounds)
+        for (tile, frame) in zip(workspaceTiles, workspaceFrames) {
+            tile.frame = frame.integral
+            tile.alphaValue = tile.session.workspace == previousWorkspace ? 1 : 0
+            tile.isHidden = false
+            tile.layer?.zPosition = 0
+        }
+        let targetCluster = workspaceTiles.first { $0.session.workspace == previousWorkspace }
+        let clusterFrames = targetCluster?.clusterFrames(in: self) ?? []
+        for tile in sessionTiles {
+            tile.layer?.zPosition = 100
+        }
+        needsDisplay = true
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.12
-            for tile in terminalTiles {
-                tile.animator().alphaValue = 0
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            for (index, tile) in sessionTiles.enumerated() {
+                if clusterFrames.indices.contains(index) {
+                    tile.animator().frame = clusterFrames[index].integral
+                } else {
+                    tile.animator().alphaValue = 0
+                }
             }
         } completionHandler: { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
-                for tile in self.terminalTiles {
+                for tile in sessionTiles {
                     tile.isHidden = true
                     tile.alphaValue = 1
+                    tile.layer?.zPosition = 0
                 }
-                self.rebuildWorkspaceTiles()
                 self.terminalTiles = self.workspaceTiles
                 self.currentWorkspace = nil
                 self.focusedIndex = nil
@@ -679,17 +707,9 @@ final class TerminalDeckView: NSView {
                     $0.session.workspace == previousWorkspace
                 } ?? 0
 
-                let frames = self.gridFrames(count: self.terminalTiles.count, in: self.bounds)
-                for (tile, frame) in zip(self.terminalTiles, frames) {
-                    tile.frame = frame.integral
-                    tile.alphaValue = 0
-                    tile.isHidden = false
-                }
-                self.needsDisplay = true
-
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = 0.12
-                    for tile in self.terminalTiles {
+                    for tile in self.workspaceTiles {
                         tile.animator().alphaValue = 1
                     }
                 } completionHandler: { [weak self] in
@@ -1117,6 +1137,9 @@ final class TerminalDeckView: NSView {
         simulationTick = simulationTick >= 84 ? 38 : simulationTick + 1
         for tile in allSessionTiles {
             tile.simulationTick = simulationTick
+        }
+        for tile in workspaceTiles {
+            tile.needsDisplay = true
         }
     }
 
