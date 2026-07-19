@@ -8,7 +8,13 @@ final class WorkspaceClusterView: NSView {
         static let cornerRadius: CGFloat = 18
     }
 
-    let workspace: String
+    let workspaceID: String
+    var workspace: String {
+        didSet {
+            setAccessibilityLabel("Workspace \(workspace)")
+            needsDisplay = true
+        }
+    }
     let label: String
     private(set) var sessions: [TerminalTileView] = []
     private(set) var sessionColumns = 1
@@ -28,7 +34,8 @@ final class WorkspaceClusterView: NSView {
     override var isOpaque: Bool { false }
     override var acceptsFirstResponder: Bool { false }
 
-    init(workspace: String, label: String) {
+    init(workspaceID: String, workspace: String, label: String) {
+        self.workspaceID = workspaceID
         self.workspace = workspace
         self.label = label
         super.init(frame: .zero)

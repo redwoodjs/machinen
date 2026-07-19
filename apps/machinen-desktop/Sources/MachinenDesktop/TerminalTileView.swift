@@ -114,6 +114,15 @@ final class TerminalTileView: NSView {
     }
 
     @discardableResult
+    func sendTerminalInput(_ data: Data) -> Bool {
+        embeddedTerminalView?.sendPersistentInput(data) ?? false
+    }
+
+    func signalTerminal(_ signal: String) {
+        embeddedTerminalView?.signalPersistentSession(signal)
+    }
+
+    @discardableResult
     func focusTerminal() -> Bool {
         guard let embeddedTerminalView else { return false }
         return window?.makeFirstResponder(embeddedTerminalView) ?? false
@@ -278,7 +287,7 @@ final class TerminalTileView: NSView {
             context?.setLineDash(phase: 0, lengths: [2, 2])
             path.stroke()
             context?.restoreGState()
-        case .stopped:
+        case .stopped, .exited:
             path.stroke()
             let line = NSBezierPath()
             line.move(to: NSPoint(x: rect.minX + 1.5, y: rect.midY))

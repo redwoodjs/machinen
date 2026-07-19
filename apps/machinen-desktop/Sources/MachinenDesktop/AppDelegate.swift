@@ -4,14 +4,28 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
     private weak var deck: TerminalDeckView?
+    private var controller: MachinenController?
+    private var apiServer: MachinenAPIServer?
     private var commandChord: CommandChord?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMainMenu()
 
         let sessionStore = TerminalSessionStore()
-        let deck = TerminalDeckView(sessions: sessionStore.load(), sessionStore: sessionStore)
+        let deck = TerminalDeckView(state: sessionStore.load(), sessionStore: sessionStore)
         self.deck = deck
+        let controller = MachinenController(deck: deck)
+        let apiServer = MachinenAPIServer(controller: controller)
+        self.controller = controller
+        self.apiServer = apiServer
+        deck.onAPIEvent = { [weak apiServer] event, data in
+            apiServer?.publish(event: event, data: data)
+        }
+        do {
+            try apiServer.start()
+        } catch {
+            NSLog("Machinen API could not start: %@", String(describing: error))
+        }
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1200, height: 760),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
@@ -42,6 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        apiServer?.stop()
         deck?.prepareForTermination()
     }
 

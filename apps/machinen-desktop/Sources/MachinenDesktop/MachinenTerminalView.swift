@@ -11,6 +11,7 @@ final class MachinenTerminalView: LocalProcessTerminalView {
 
     var onDoubleEscape: (() -> Void)?
     var onStateChange: ((TerminalSession.State) -> Void)?
+    var onOutput: ((Data) -> Void)?
 
     private var clientStarted = false
     private var requestedStateAfterExit: TerminalSession.State?
@@ -61,17 +62,32 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         session.state = .starting
         onStateChange?(.starting)
 
-        let shell = loginShell()
         var arguments = ["-A", session.socketPath, "-E", "-z", "-r", "winch"]
-        if let command = session.command, !command.isEmpty {
-            arguments.append(contentsOf: [shell, "-lc", command])
-        } else {
-            arguments.append(contentsOf: [shell, "-l"])
+        var environment: [String]?
+        switch session.launch.kind {
+        case .loginShell:
+            arguments.append(contentsOf: [loginShell(), "-l"])
+        case .shellCommand:
+            arguments.append(contentsOf: [loginShell(), "-lc", session.launch.command ?? ""])
+        case .exec:
+            guard let executable = session.launch.executable, !executable.isEmpty else {
+                clientStarted = false
+                session.state = .stopped
+                onStateChange?(.stopped)
+                return
+            }
+            arguments.append(executable)
+            arguments.append(contentsOf: session.launch.arguments ?? [])
+            if let additions = session.launch.environment {
+                var merged = ProcessInfo.processInfo.environment
+                merged.merge(additions) { _, new in new }
+                environment = merged.map { "\($0.key)=\($0.value)" }
+            }
         }
         startProcess(
             executable: dtachExecutablePath(),
             args: arguments,
-            environment: nil,
+            environment: environment,
             execName: "machinen-dtach",
             currentDirectory: session.workingDirectory
         )
@@ -95,6 +111,37 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         terminate()
     }
 
+    @discardableResult
+    func sendPersistentInput(_ data: Data) -> Bool {
+        guard !data.isEmpty,
+              session.state == .running || session.state == .starting || session.state == .detached
+        else { return false }
+        let task = Process()
+        let input = Pipe()
+        task.executableURL = URL(fileURLWithPath: dtachExecutablePath())
+        task.arguments = ["-p", session.socketPath]
+        task.standardInput = input
+        do {
+            try task.run()
+            input.fileHandleForWriting.write(data)
+            try input.fileHandleForWriting.close()
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    func signalPersistentSession(_ signal: String) {
+        if signal == "interrupt" {
+            _ = sendPersistentInput(Data([0x03]))
+            return
+        }
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        task.arguments = ["-\(signal)", "-f", session.socketPath]
+        try? task.run()
+    }
+
     func stopPersistentSession() {
         requestedStateAfterExit = .stopped
         stopDtachSession()
@@ -113,10 +160,15 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         }
     }
 
+    override func dataReceived(slice: ArraySlice<UInt8>) {
+        super.dataReceived(slice: slice)
+        onOutput?(Data(slice))
+    }
+
     override func processTerminated(_ source: LocalProcess, exitCode: Int32?) {
         super.processTerminated(source, exitCode: exitCode)
         clientStarted = false
-        let nextState = requestedStateAfterExit ?? .stopped
+        let nextState = requestedStateAfterExit ?? .exited
         requestedStateAfterExit = nil
         session.state = nextState
         onStateChange?(nextState)
