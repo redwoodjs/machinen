@@ -19,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.backgroundColor = NSColor(calibratedWhite: 0.055, alpha: 1)
-        window.minSize = NSSize(width: 860, height: 560)
+        window.minSize = NSSize(width: 620, height: 500)
         window.contentView = deck
         window.center()
         window.makeKeyAndOrderFront(nil)

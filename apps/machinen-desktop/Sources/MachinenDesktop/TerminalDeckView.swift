@@ -15,6 +15,8 @@ final class TerminalDeckView: NSView {
         static let windowControlsInset: CGFloat = 92
         static let gap: CGFloat = 22
         static let tileAspectRatio: CGFloat = 1.58
+        static let minimumTileWidth: CGFloat = 250
+        static let maximumColumns = 3
     }
 
     private var terminalTiles: [TerminalTileView]
@@ -27,6 +29,7 @@ final class TerminalDeckView: NSView {
     private var isPeeking = false
     private var peekFrames: [NSRect] = []
     private var dragState: DragState?
+    private var gridColumnCount = 1
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
@@ -181,7 +184,8 @@ final class TerminalDeckView: NSView {
     private func gridFrames(count: Int, in bounds: NSRect) -> [NSRect] {
         guard count > 0 else { return [] }
 
-        let columns = Int(ceil(sqrt(Double(count))))
+        let columns = columnsForGrid(count: count, in: bounds)
+        gridColumnCount = columns
         let rows = Int(ceil(Double(count) / Double(columns)))
         let content = NSRect(
             x: Metrics.sideInset,
@@ -220,6 +224,14 @@ final class TerminalDeckView: NSView {
         }
     }
 
+    private func columnsForGrid(count: Int, in bounds: NSRect) -> Int {
+        let contentWidth = max(0, bounds.width - Metrics.sideInset * 2)
+        let fittingColumns = Int(
+            floor((contentWidth + Metrics.gap) / (Metrics.minimumTileWidth + Metrics.gap))
+        )
+        return max(1, min(count, Metrics.maximumColumns, fittingColumns))
+    }
+
     private func select(_ index: Int) {
         guard terminalTiles.indices.contains(index) else { return }
         selectedIndex = index
@@ -237,7 +249,7 @@ final class TerminalDeckView: NSView {
         guard !terminalTiles.isEmpty else { return }
         clearLabelBuffer()
 
-        let columns = Int(ceil(sqrt(Double(terminalTiles.count))))
+        let columns = gridColumnCount
         let currentRow = selectedIndex / columns
         let currentColumn = selectedIndex % columns
         let nextRow = currentRow + vertical
@@ -253,7 +265,7 @@ final class TerminalDeckView: NSView {
         guard focusedIndex == nil, !isTransitioning, !isPeeking, dragState == nil else {
             return
         }
-        let columns = Int(ceil(sqrt(Double(terminalTiles.count))))
+        let columns = gridColumnCount
         let currentRow = selectedIndex / columns
         let currentColumn = selectedIndex % columns
         let nextRow = currentRow + vertical
@@ -565,11 +577,13 @@ final class TerminalDeckView: NSView {
             x: Metrics.windowControlsInset,
             alignment: .left
         )
-        drawLabel(
-            "⌘K  commands     ⌘T  new terminal",
-            x: bounds.width - Metrics.sideInset,
-            alignment: .right
-        )
+        if bounds.width >= 820 {
+            drawLabel(
+                "⌘K  commands     ⌘T  new terminal",
+                x: bounds.width - Metrics.sideInset,
+                alignment: .right
+            )
+        }
     }
 
     private func drawLabel(_ text: String, x: CGFloat, alignment: NSTextAlignment) {

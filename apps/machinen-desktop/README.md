@@ -6,7 +6,7 @@ A native macOS prototype for reviewing Machinen's live-session deck one interact
 
 **Phase 4 — Peek and ordering**
 
-Hold Space to peek at the selected terminal, drag tiles to reorder them, or use Command plus an arrow key to swap the selected tile with its neighbour. Focus and return remain edge-to-edge. The prototype intentionally has no command palettes, real terminals, or Machinen integration yet.
+Hold Space to peek at the selected terminal, drag tiles to reorder them, or use Command plus an arrow key to swap the selected tile with its neighbour. The window is freely resizable and the deck wraps between three and two columns as space changes. Focus and return remain edge-to-edge. The prototype intentionally has no command palettes, real terminals, or Machinen integration yet.
 
 ## Run
 
