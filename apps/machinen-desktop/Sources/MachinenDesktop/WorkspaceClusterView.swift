@@ -20,6 +20,10 @@ final class WorkspaceClusterView: NSView {
         didSet { needsDisplay = true }
     }
 
+    var isEntered = false {
+        didSet { needsDisplay = true }
+    }
+
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
     override var acceptsFirstResponder: Bool { false }
@@ -124,21 +128,23 @@ final class WorkspaceClusterView: NSView {
         super.draw(dirtyRect)
 
         NSColor(calibratedWhite: 0.075, alpha: 0.96).setFill()
-        let background = NSBezierPath(
+        let cornerRadius = isEntered ? 0 : Metrics.cornerRadius
+        NSBezierPath(
             roundedRect: bounds,
-            xRadius: Metrics.cornerRadius,
-            yRadius: Metrics.cornerRadius
-        )
-        background.fill()
+            xRadius: cornerRadius,
+            yRadius: cornerRadius
+        ).fill()
 
-        let border = NSBezierPath(
-            roundedRect: bounds.insetBy(dx: 2, dy: 2),
-            xRadius: Metrics.cornerRadius - 2,
-            yRadius: Metrics.cornerRadius - 2
-        )
-        border.lineWidth = isSelected ? 6 : 2
-        NSColor(calibratedWhite: isSelected ? 0.94 : 0.28, alpha: 1).setStroke()
-        border.stroke()
+        if !isEntered {
+            let border = NSBezierPath(
+                roundedRect: bounds.insetBy(dx: 2, dy: 2),
+                xRadius: Metrics.cornerRadius - 2,
+                yRadius: Metrics.cornerRadius - 2
+            )
+            border.lineWidth = isSelected ? 6 : 2
+            NSColor(calibratedWhite: isSelected ? 0.94 : 0.28, alpha: 1).setStroke()
+            border.stroke()
+        }
 
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byTruncatingTail
@@ -147,8 +153,9 @@ final class WorkspaceClusterView: NSView {
             .foregroundColor: NSColor(calibratedWhite: 0.88, alpha: 1),
             .paragraphStyle: paragraph,
         ]
+        let titleX = isEntered ? 92 : Metrics.padding
         NSAttributedString(string: workspace, attributes: titleAttributes).draw(
-            in: NSRect(x: Metrics.padding, y: 17, width: bounds.width * 0.58, height: 30)
+            in: NSRect(x: titleX, y: 17, width: bounds.width * 0.58, height: 30)
         )
 
         paragraph.alignment = .right

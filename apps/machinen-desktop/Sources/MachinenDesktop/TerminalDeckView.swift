@@ -287,10 +287,7 @@ final class TerminalDeckView: NSView {
             }
         }
         if let cluster = workspaceCluster(named: currentWorkspace) {
-            return cameraFrame(
-                for: cluster.frame.insetBy(dx: -12, dy: -12),
-                viewport: overviewViewport()
-            )
+            return cameraFrame(for: cluster.frame, viewport: bounds)
         }
         return cameraFrame(
             for: workspaceUnion.insetBy(dx: -Metrics.worldMargin / 2, dy: -Metrics.worldMargin / 2),
@@ -427,6 +424,7 @@ final class TerminalDeckView: NSView {
     private func updateSelection() {
         for (index, cluster) in workspaceClusters.enumerated() {
             cluster.isSelected = currentWorkspace == nil && index == selectedIndex
+            cluster.isEntered = cluster.workspace == currentWorkspace
         }
         let sessions = activeSessionTiles
         let focusedTile = focusedIndex.flatMap { index in
@@ -900,7 +898,7 @@ final class TerminalDeckView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         NSColor(calibratedWhite: 0.055, alpha: 1).setFill()
         bounds.fill()
-        if focusedIndex == nil {
+        if focusedIndex == nil, currentWorkspace == nil {
             drawMetadata()
             drawKeyHints()
         }
