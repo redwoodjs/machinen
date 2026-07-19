@@ -2,11 +2,11 @@
 
 Machinen uses [Changesets](https://github.com/changesets/changesets) for
 versioning and publishing. The public packages are in a `fixed` group
-and bump together, so `@machinen/cli`, `@machinen/runtime`, `@machinen/microvm`,
-`@machinen/mount-server`, `@machinen/native-arm64-darwin`,
-`@machinen/native-arm64-linux`, and `@machinen/native-x64-linux` always
-share a version. That keeps the VMM protocol and the base rootfs from
-ever drifting.
+and bump together, so the unscoped `machinen` launcher, `@machinen/cli`,
+`@machinen/runtime`, `@machinen/microvm`, `@machinen/mount-server`,
+`@machinen/native-arm64-darwin`, `@machinen/native-arm64-linux`, and
+`@machinen/native-x64-linux` always share a version. That keeps the launcher,
+VMM protocol, and base rootfs from ever drifting.
 
 ## Making a Release
 
@@ -52,8 +52,15 @@ The CLI embeds its own version as `RELEASE_TAG` at build time, so
 
 ## Setup
 
-The repo needs an `NPM_TOKEN` secret with publish access to the
-`@machinen` npm org.
+The release workflow uses npm Trusted Publishing through GitHub Actions OIDC;
+it does not store an `NPM_TOKEN`. Configure the workflow as a trusted publisher
+for every public package on npm.
+
+The first publication of the unscoped `machinen` package must be bootstrapped
+from an npm user account with 2FA before npm can configure its trusted
+publisher. After that, add both project maintainers as package owners and
+configure `.github/workflows/release.yml` as its trusted publisher. The
+launcher is then released with the scoped packages by Changesets.
 
 ## Local Commands
 

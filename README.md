@@ -227,9 +227,9 @@ const restored = await restore({ snapDir: "./counter.snap" });
 `npx` can download the CLI package and run a signed recipe directly:
 
 ```bash
-npx @machinen/cli run machinen.dev/run/claude-code        # run by recipe URL
-npx @machinen/cli run machinen.dev/run/codex --session work
-npx @machinen/cli run list                                 # list runnable URLs
+npx machinen run machinen.dev/run/claude-code        # run by recipe URL
+npx machinen run machinen.dev/run/codex --session work
+npx machinen run list                                 # list runnable URLs
 ```
 
 A recipe state path below guest `/root` automatically uses the corresponding

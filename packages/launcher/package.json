@@ -1,0 +1,26 @@
+{
+  "name": "machinen",
+  "version": "0.8.7",
+  "description": "The unscoped npm launcher for @machinen/cli.",
+  "homepage": "https://machinen.dev",
+  "bugs": "https://github.com/redwoodjs/machinen/issues",
+  "license": "FSL-1.1-MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/redwoodjs/machinen.git",
+    "directory": "packages/launcher"
+  },
+  "bin": {
+    "machinen": "./bin/machinen.js"
+  },
+  "files": [
+    "bin/"
+  ],
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@machinen/cli": "workspace:*"
+  }
+}
