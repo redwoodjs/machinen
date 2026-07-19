@@ -1,6 +1,12 @@
 import AppKit
 
 final class TerminalDeckView: NSView {
+    private enum PaletteKind {
+        case commands
+        case newTerminal
+        case runCommand
+    }
+
     private struct DragState {
         let tile: TerminalTileView
         let startPoint: NSPoint
@@ -31,6 +37,7 @@ final class TerminalDeckView: NSView {
     private var dragState: DragState?
     private var gridColumnCount = 1
     private var commandPalette: CommandPaletteView?
+    private var paletteKind: PaletteKind?
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
@@ -43,33 +50,7 @@ final class TerminalDeckView: NSView {
         layer?.backgroundColor = NSColor(calibratedWhite: 0.055, alpha: 1).cgColor
 
         for tile in terminalTiles {
-            tile.onSelect = { [weak self, weak tile] in
-                guard let self, let tile,
-                      let index = self.terminalTiles.firstIndex(where: { $0 === tile })
-                else {
-                    return
-                }
-                self.select(index)
-            }
-            tile.onActivate = { [weak self, weak tile] in
-                guard let self, let tile,
-                      let index = self.terminalTiles.firstIndex(where: { $0 === tile })
-                else {
-                    return
-                }
-                self.activate(index)
-            }
-            tile.onDragBegan = { [weak self, weak tile] event in
-                guard let tile else { return }
-                self?.beginDrag(tile: tile, event: event)
-            }
-            tile.onDragChanged = { [weak self] event in
-                self?.continueDrag(event: event)
-            }
-            tile.onDragEnded = { [weak self] event in
-                self?.endDrag(event: event)
-            }
-            addSubview(tile)
+            installTile(tile)
         }
         updateSelection()
         simulatedOutputTimer = Timer.scheduledTimer(
@@ -85,6 +66,36 @@ final class TerminalDeckView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    private func installTile(_ tile: TerminalTileView) {
+        tile.onSelect = { [weak self, weak tile] in
+            guard let self, let tile,
+                  let index = self.terminalTiles.firstIndex(where: { $0 === tile })
+            else {
+                return
+            }
+            self.select(index)
+        }
+        tile.onActivate = { [weak self, weak tile] in
+            guard let self, let tile,
+                  let index = self.terminalTiles.firstIndex(where: { $0 === tile })
+            else {
+                return
+            }
+            self.activate(index)
+        }
+        tile.onDragBegan = { [weak self, weak tile] event in
+            guard let tile else { return }
+            self?.beginDrag(tile: tile, event: event)
+        }
+        tile.onDragChanged = { [weak self] event in
+            self?.continueDrag(event: event)
+        }
+        tile.onDragEnded = { [weak self] event in
+            self?.endDrag(event: event)
+        }
+        addSubview(tile)
     }
 
     override func keyDown(with event: NSEvent) {
@@ -486,8 +497,9 @@ final class TerminalDeckView: NSView {
 
     func toggleCommandPalette() {
         if commandPalette != nil {
+            let wasCommands = paletteKind == .commands
             dismissCommandPalette()
-            return
+            if wasCommands { return }
         }
         guard !isTransitioning, !isPeeking, dragState == nil,
               terminalTiles.indices.contains(focusedIndex ?? selectedIndex)
@@ -510,13 +522,140 @@ final class TerminalDeckView: NSView {
             self?.runPaletteCommand(command, from: palette)
         }
         commandPalette = palette
+        paletteKind = .commands
         addSubview(palette, positioned: .above, relativeTo: nil)
         window?.makeFirstResponder(palette)
+    }
+
+    func toggleNewTerminalPalette() {
+        if commandPalette != nil {
+            let wasNewTerminal = paletteKind == .newTerminal
+            dismissCommandPalette()
+            if wasNewTerminal { return }
+        }
+        guard !isTransitioning, !isPeeking, dragState == nil,
+              terminalTiles.indices.contains(focusedIndex ?? selectedIndex)
+        else {
+            return
+        }
+
+        let contextIndex = focusedIndex ?? selectedIndex
+        showNewTerminalPalette(workspace: terminalTiles[contextIndex].session.workspace)
+    }
+
+    private func showNewTerminalPalette(workspace: String) {
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "NEW TERMINAL",
+            context: "workspace: \(workspace)",
+            placeholder: "What should this terminal run?",
+            defaultFooter: "New sessions use the selected workspace by default",
+            commands: [
+                PaletteCommand(id: .createShell, title: "Shell", shortcut: "/bin/bash"),
+                PaletteCommand(id: .createClaude, title: "Claude Code", shortcut: "claude"),
+                PaletteCommand(id: .createCodex, title: "Codex", shortcut: "codex"),
+                PaletteCommand(id: .createPi, title: "Pi", shortcut: "pi"),
+                PaletteCommand(id: .runCommand, title: "Run command…", shortcut: ">"),
+                PaletteCommand(id: .chooseProject, title: "Workspace: Choose another project…", shortcut: "⇧⌘O"),
+            ]
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in
+            self?.dismissCommandPalette()
+        }
+        palette.onRun = { [weak self, weak palette] command in
+            self?.runNewTerminalCommand(command, workspace: workspace, from: palette)
+        }
+        commandPalette = palette
+        paletteKind = .newTerminal
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
+    private func runNewTerminalCommand(
+        _ command: PaletteCommand,
+        workspace: String,
+        from palette: CommandPaletteView?
+    ) {
+        switch command.id {
+        case .createShell:
+            dismissCommandPalette()
+            createSimulatedSession(workspace: workspace, name: "shell", command: "/bin/bash")
+        case .createClaude:
+            dismissCommandPalette()
+            createSimulatedSession(workspace: workspace, name: "claude", command: "claude")
+        case .createCodex:
+            dismissCommandPalette()
+            createSimulatedSession(workspace: workspace, name: "codex", command: "codex")
+        case .createPi:
+            dismissCommandPalette()
+            createSimulatedSession(workspace: workspace, name: "pi", command: "pi")
+        case .runCommand:
+            showRunCommandPalette(workspace: workspace)
+        case .chooseProject:
+            chooseAnotherProject()
+        default:
+            palette?.showStatus("That command is not available in this palette")
+        }
+    }
+
+    private func showRunCommandPalette(workspace: String) {
+        dismissCommandPalette()
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "RUN COMMAND",
+            context: "workspace: \(workspace)",
+            placeholder: "Enter a command…",
+            defaultFooter: "return start    esc dismiss",
+            commands: [],
+            acceptsFreeform: true
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in
+            self?.dismissCommandPalette()
+        }
+        palette.onSubmit = { [weak self] command in
+            guard let self else { return }
+            self.dismissCommandPalette()
+            let executable = command.split(separator: " ").first.map(String.init) ?? "command"
+            self.createSimulatedSession(
+                workspace: workspace,
+                name: executable,
+                command: command
+            )
+        }
+        commandPalette = palette
+        paletteKind = .runCommand
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
+    private func chooseAnotherProject() {
+        dismissCommandPalette()
+        guard let window else { return }
+
+        let panel = NSOpenPanel()
+        panel.title = "Choose a project"
+        panel.prompt = "Choose Project"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.beginSheetModal(for: window) { [weak self] response in
+            Task { @MainActor in
+                guard response == .OK, let workspace = panel.url?.lastPathComponent,
+                      !workspace.isEmpty
+                else {
+                    return
+                }
+                self?.showNewTerminalPalette(workspace: workspace)
+            }
+        }
     }
 
     private func dismissCommandPalette() {
         commandPalette?.removeFromSuperview()
         commandPalette = nil
+        paletteKind = nil
         window?.makeFirstResponder(self)
     }
 
@@ -538,12 +677,110 @@ final class TerminalDeckView: NSView {
     }
 
     private func runPaletteCommand(_ command: PaletteCommand, from palette: CommandPaletteView?) {
-        if command.id == .toggleOverview {
+        switch command.id {
+        case .toggleOverview:
             dismissCommandPalette()
             toggleOverview()
-            return
+        case .newTerminal:
+            dismissCommandPalette()
+            toggleNewTerminalPalette()
+        default:
+            palette?.showStatus("Prototype only · \(command.title)")
         }
-        palette?.showStatus("Prototype only · \(command.title)")
+    }
+
+    private func createSimulatedSession(workspace: String, name: String, command: String) {
+        let addSession: @MainActor () -> Void = { [weak self] in
+            guard let self else { return }
+            self.addSimulatedSession(workspace: workspace, name: name, command: command)
+        }
+        if focusedIndex != nil {
+            returnToOverview(completion: addSession)
+        } else {
+            addSession()
+        }
+    }
+
+    private func addSimulatedSession(workspace: String, name: String, command: String) {
+        let label = nextAvailableLabel(workspace: workspace, session: name)
+        let session = MockSession(
+            label: label,
+            workspace: workspace,
+            name: name,
+            state: .starting,
+            terminalText: """
+            Starting terminal…
+
+            workspace: \(workspace)
+            command:   \(command)
+
+            · Preparing session
+            · Connecting terminal
+            ▌
+            """
+        )
+        let tile = TerminalTileView(session: session)
+        terminalTiles.append(tile)
+        installTile(tile)
+        selectedIndex = terminalTiles.count - 1
+        updateSelection()
+
+        let frames = gridFrames(count: terminalTiles.count, in: bounds)
+        tile.frame = frames[selectedIndex].integral
+        tile.alphaValue = 0
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            for (existingTile, frame) in zip(terminalTiles, frames) {
+                existingTile.animator().frame = frame.integral
+            }
+            tile.animator().alphaValue = 1
+        }
+
+        Task { @MainActor [weak self, weak tile] in
+            try? await Task.sleep(for: .seconds(1.15))
+            guard let self, let tile,
+                  let index = self.terminalTiles.firstIndex(where: { $0 === tile })
+            else {
+                return
+            }
+            tile.transition(
+                to: .live,
+                terminalText: self.readyTerminalText(name: name, command: command)
+            )
+            self.select(index)
+            self.activate(index)
+        }
+    }
+
+    private func nextAvailableLabel(workspace: String, session: String) -> String {
+        let workspacePrefix = workspace.lowercased().first.map(String.init) ?? "w"
+        let sessionPrefix = session.lowercased().first.map(String.init) ?? "s"
+        let preferred = workspacePrefix + sessionPrefix
+        let used = Set(terminalTiles.map { $0.session.label })
+        if !used.contains(preferred) {
+            return preferred
+        }
+        for suffix in 2...9 {
+            let candidate = workspacePrefix + String(suffix)
+            if !used.contains(candidate) {
+                return candidate
+            }
+        }
+        return workspacePrefix + "x"
+    }
+
+    private func readyTerminalText(name: String, command: String) -> String {
+        if name == "shell" {
+            return "~/workspace $ ▌"
+        }
+        return """
+        $ \(command)
+
+        \(name) is ready in this workspace.
+
+        > ▌
+        """
     }
 
     func toggleOverview() {
@@ -563,7 +800,9 @@ final class TerminalDeckView: NSView {
     }
 
     private func activate(_ index: Int) {
-        guard terminalTiles.indices.contains(index), focusedIndex == nil, !isTransitioning else {
+        guard terminalTiles.indices.contains(index), focusedIndex == nil,
+              commandPalette == nil, !isTransitioning
+        else {
             return
         }
         select(index)
@@ -596,7 +835,7 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func returnToOverview() {
+    private func returnToOverview(completion: (@MainActor () -> Void)? = nil) {
         guard let focusedIndex, terminalTiles.indices.contains(focusedIndex), !isTransitioning else {
             return
         }
@@ -626,6 +865,7 @@ final class TerminalDeckView: NSView {
                 self.updateSelection()
                 self.window?.makeFirstResponder(self)
                 self.needsDisplay = true
+                completion?()
             }
         }
     }

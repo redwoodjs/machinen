@@ -11,6 +11,12 @@ struct PaletteCommand {
         case restartSession
         case stopSession
         case inspectWorkspace
+        case createShell
+        case createClaude
+        case createCodex
+        case createPi
+        case runCommand
+        case chooseProject
     }
 
     let id: ID
@@ -29,7 +35,11 @@ final class CommandPaletteView: NSView {
         static let panelRadius: CGFloat = 8
     }
 
+    private let heading: String
     private let context: String
+    private let placeholder: String
+    private let defaultFooter: String
+    private let acceptsFreeform: Bool
     private let commands: [PaletteCommand]
     private var query = ""
     private var selectedIndex = 0
@@ -37,13 +47,26 @@ final class CommandPaletteView: NSView {
 
     var onDismiss: (() -> Void)?
     var onRun: ((PaletteCommand) -> Void)?
+    var onSubmit: ((String) -> Void)?
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
-    init(frame: NSRect, context: String, commands: [PaletteCommand]) {
+    init(
+        frame: NSRect,
+        heading: String = "MACHINEN COMMANDS",
+        context: String,
+        placeholder: String = "Type a command…",
+        defaultFooter: String = "↑↓ select    return run    esc dismiss",
+        commands: [PaletteCommand],
+        acceptsFreeform: Bool = false
+    ) {
+        self.heading = heading
         self.context = context
+        self.placeholder = placeholder
+        self.defaultFooter = defaultFooter
         self.commands = commands
+        self.acceptsFreeform = acceptsFreeform
         super.init(frame: frame)
         autoresizingMask = [.width, .height]
         wantsLayer = true
@@ -155,7 +178,7 @@ final class CommandPaletteView: NSView {
 
     private func drawHeader(in panel: NSRect) {
         drawText(
-            "MACHINEN COMMANDS  ·  \(context)",
+            "\(heading)  ·  \(context)",
             in: NSRect(
                 x: panel.minX + 13,
                 y: panel.minY + 9,
@@ -181,7 +204,7 @@ final class CommandPaletteView: NSView {
         divider.lineWidth = 1
         divider.stroke()
 
-        let text = query.isEmpty ? "Type a command…" : query
+        let text = query.isEmpty ? placeholder : query
         let color = query.isEmpty
             ? NSColor(calibratedWhite: 0.42, alpha: 1)
             : NSColor(calibratedWhite: 0.93, alpha: 1)
@@ -198,7 +221,7 @@ final class CommandPaletteView: NSView {
         let rowsTop = panel.minY + Metrics.headerHeight + Metrics.searchHeight
         if commands.isEmpty {
             drawText(
-                "No matching commands",
+                acceptsFreeform ? "The command will run in a new persistent terminal session." : "No matching commands",
                 in: NSRect(x: panel.minX + 14, y: rowsTop + 16, width: panel.width - 28, height: 18),
                 font: .monospacedSystemFont(ofSize: 12, weight: .regular),
                 color: NSColor(calibratedWhite: 0.48, alpha: 1)
@@ -250,7 +273,7 @@ final class CommandPaletteView: NSView {
         divider.stroke()
 
         drawText(
-            statusMessage ?? "↑↓ select    return run    esc dismiss",
+            statusMessage ?? defaultFooter,
             in: NSRect(x: footer.minX + 13, y: footer.minY + 8, width: footer.width - 26, height: 14),
             font: .monospacedSystemFont(ofSize: 9, weight: .regular),
             color: NSColor(calibratedWhite: statusMessage == nil ? 0.43 : 0.72, alpha: 1)
@@ -266,6 +289,16 @@ final class CommandPaletteView: NSView {
     }
 
     private func runSelectedCommand() {
+        if acceptsFreeform {
+            let value = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty else {
+                showStatus("Enter a command first")
+                return
+            }
+            onSubmit?(value)
+            return
+        }
+
         let commands = filteredCommands
         guard commands.indices.contains(selectedIndex) else { return }
         onRun?(commands[selectedIndex])

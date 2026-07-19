@@ -49,6 +49,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: ""
         )
         appMenu.addItem(.separator())
+        let newTerminalItem = NSMenuItem(
+            title: "New Terminal…",
+            action: #selector(toggleNewTerminal),
+            keyEquivalent: "t"
+        )
+        newTerminalItem.keyEquivalentModifierMask = [.command]
+        newTerminalItem.target = self
+        appMenu.addItem(newTerminalItem)
+
         let commandsItem = NSMenuItem(
             title: "Commands…",
             action: #selector(toggleCommands),
@@ -70,5 +79,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleCommands() {
         deck?.toggleCommandPalette()
+    }
+
+    @objc private func toggleNewTerminal() {
+        deck?.toggleNewTerminalPalette()
     }
 }

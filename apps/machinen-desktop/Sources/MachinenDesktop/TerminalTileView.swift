@@ -9,6 +9,8 @@ final class TerminalTileView: NSView {
     }
 
     let session: MockSession
+    private var displayState: MockSession.State
+    private var displayTerminalText: String
     var onSelect: (() -> Void)?
     var onActivate: (() -> Void)?
     var onDragBegan: ((NSEvent) -> Void)?
@@ -38,18 +40,27 @@ final class TerminalTileView: NSView {
 
     init(session: MockSession) {
         self.session = session
+        displayState = session.state
+        displayTerminalText = session.terminalText
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = Metrics.cornerRadius
         layer?.masksToBounds = false
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
-        setAccessibilityLabel("\(session.workspace), \(session.name), \(session.state.rawValue)")
+        updateAccessibilityLabel()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    func transition(to state: MockSession.State, terminalText: String) {
+        displayState = state
+        displayTerminalText = terminalText
+        updateAccessibilityLabel()
+        needsDisplay = true
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -134,7 +145,7 @@ final class TerminalTileView: NSView {
             verticalCenter: true
         )
 
-        let stateText = session.state.rawValue
+        let stateText = displayState.rawValue
         let stateWidth = ceil(textSize(stateText, font: Fonts.metadata).width)
         let stateRect = NSRect(
             x: bounds.width - Metrics.horizontalInset - stateWidth,
@@ -181,7 +192,7 @@ final class TerminalTileView: NSView {
         NSColor(calibratedWhite: 0.67, alpha: 1).setStroke()
         path.lineWidth = 1
 
-        switch session.state {
+        switch displayState {
         case .working, .live:
             NSColor(calibratedWhite: 0.78, alpha: 1).setFill()
             path.fill()
@@ -217,7 +228,7 @@ final class TerminalTileView: NSView {
             .foregroundColor: NSColor(calibratedWhite: 0.73, alpha: 1),
             .paragraphStyle: paragraph,
         ]
-        let renderedText = session.terminalText.replacingOccurrences(
+        let renderedText = displayTerminalText.replacingOccurrences(
             of: "{{tick}}",
             with: String(simulationTick)
         )
@@ -239,6 +250,10 @@ final class TerminalTileView: NSView {
         let white = isActivated ? 1 : (isSelected ? 0.92 : 0.31)
         NSColor(calibratedWhite: white, alpha: 1).setStroke()
         path.stroke()
+    }
+
+    private func updateAccessibilityLabel() {
+        setAccessibilityLabel("\(session.workspace), \(session.name), \(displayState.rawValue)")
     }
 
     private var cornerRadius: CGFloat {
