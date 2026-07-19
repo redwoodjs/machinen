@@ -33,6 +33,10 @@ final class TerminalTileView: NSView {
         didSet { needsDisplay = true }
     }
 
+    var showsWorkspaceContext = false {
+        didSet { needsDisplay = true }
+    }
+
     var simulationTick = 38 {
         didSet { needsDisplay = true }
     }
@@ -223,7 +227,9 @@ final class TerminalTileView: NSView {
         case .workspace:
             session.workspace
         case .session:
-            isFocused ? "\(session.workspace) / \(session.name)" : session.name
+            isFocused || showsWorkspaceContext
+                ? "\(session.workspace) / \(session.name)"
+                : session.name
         }
         drawText(
             title,

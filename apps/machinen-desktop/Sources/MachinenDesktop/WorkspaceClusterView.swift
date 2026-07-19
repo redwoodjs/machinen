@@ -71,10 +71,23 @@ final class WorkspaceClusterView: NSView {
         for subview in subviews where !sessions.contains(where: { $0 === subview }) {
             subview.removeFromSuperview()
         }
+        if sessions.count == 1, let tile = sessions.first {
+            if tile.superview !== self {
+                addSubview(tile)
+            }
+            tile.showsWorkspaceContext = true
+            tile.frame = NSRect(origin: .zero, size: terminalSize)
+            tile.bounds = NSRect(origin: .zero, size: terminalSize)
+            tile.isHidden = false
+            tile.alphaValue = 1
+            return terminalSize
+        }
+
         for (index, tile) in sessions.enumerated() {
             if tile.superview !== self {
                 addSubview(tile)
             }
+            tile.showsWorkspaceContext = false
             let column = index % sessionColumns
             let row = index / sessionColumns
             let cell = NSRect(

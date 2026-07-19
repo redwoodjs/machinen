@@ -6,7 +6,7 @@ A native macOS prototype for reviewing Machinen's live-session deck one interact
 
 **Phase 8 — First real terminal**
 
-The `website / shell` surface is now a real local PTY running the user's login shell. It is the same live AppKit view when seen inside a workspace screen, entered as a session, and focused edge to edge; camera navigation never recreates it. It supports normal terminal input, selection, scrolling, clipboard operations, resizing, and `Esc, Esc` navigation. Other surfaces and lifecycle actions remain simulated during this checkpoint.
+A workspace containing one terminal gives that terminal the entire workspace screen, without a redundant wrapper or inset. The `website / shell` surface is now a real local PTY running the user's login shell. It is the same live AppKit view when seen inside a workspace screen, entered as a session, and focused edge to edge; camera navigation never recreates it. It supports normal terminal input, selection, scrolling, clipboard operations, resizing, and `Esc, Esc` navigation. Other surfaces and lifecycle actions remain simulated during this checkpoint.
 
 Machinen's product boundary is terminals plus automation. Agent launchers are not hardcoded into the desktop application. A future lightweight scripting layer will let users create workspace screens, launch commands, label terminals, and control the camera/UI. The language is intentionally undecided, while `MachinenTerminalView` isolates the terminal engine from that future API.
 
