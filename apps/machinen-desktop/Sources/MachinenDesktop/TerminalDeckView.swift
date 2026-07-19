@@ -1157,20 +1157,18 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    func handleCloseCommand() -> Bool {
+    func handleCommandW() {
         if presentedOverlay != nil {
             dismissPresentedOverlay()
-            return true
+            return
         }
         if commandPalette != nil {
             dismissCommandPalette()
-            return true
+            return
         }
         if focusedIndex != nil {
             detachSelectedSession()
-            return true
         }
-        return false
     }
 
     private func createSimulatedSession(workspace: String, name: String, command: String) {

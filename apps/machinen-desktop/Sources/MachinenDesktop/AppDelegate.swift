@@ -68,8 +68,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(commandsItem)
 
         let closeItem = NSMenuItem(
-            title: "Detach Viewer or Close Window",
-            action: #selector(contextualClose),
+            title: "Detach Focused Viewer",
+            action: #selector(handleCommandW),
             keyEquivalent: "w"
         )
         closeItem.keyEquivalentModifierMask = [.command]
@@ -94,9 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         deck?.toggleNewTerminalPalette()
     }
 
-    @objc private func contextualClose() {
-        if deck?.handleCloseCommand() != true {
-            window?.performClose(nil)
-        }
+    @objc private func handleCommandW() {
+        deck?.handleCommandW()
     }
 }
