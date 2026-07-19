@@ -1,0 +1,13 @@
+// swift-tools-version: 6.0
+import PackageDescription
+
+let package = Package(
+    name: "MachinenDesktop",
+    platforms: [.macOS(.v14)],
+    targets: [
+        .executableTarget(
+            name: "MachinenDesktop",
+            path: "Sources/MachinenDesktop"
+        ),
+    ]
+)
