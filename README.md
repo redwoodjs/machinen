@@ -219,6 +219,8 @@ const restored = await restore({ snapDir: "./counter.snap" });
 - [Guides](./docs/) — recipes for creating VMs, snapshots and forks,
   mounts, and networking
 - [`@machinen/cli` reference](./packages/cli/API.md) — command and flag reference
+- [`@machinen/mcp`](./packages/mcp/README.md) — let MCP-compatible AI clients
+  control Machinen Desktop through its local Unix-socket API
 - [`@machinen/runtime` reference](./packages/runtime/API.md) — every
   exported function, type, and error class (typedoc-generated)
 

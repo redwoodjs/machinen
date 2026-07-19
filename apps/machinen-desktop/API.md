@@ -24,25 +24,38 @@ between responses.
 Request:
 
 ```json
-{"v":1,"type":"request","id":"1","op":"system.ping","params":{}}
+{ "v": 1, "type": "request", "id": "1", "op": "system.ping", "params": {} }
 ```
 
 Success:
 
 ```json
-{"v":1,"type":"response","id":"1","ok":true,"result":{"pong":true}}
+{ "v": 1, "type": "response", "id": "1", "ok": true, "result": { "pong": true } }
 ```
 
 Failure:
 
 ```json
-{"v":1,"type":"response","id":"1","ok":false,"error":{"code":"invalid_params","message":"name is required","details":{}}}
+{
+  "v": 1,
+  "type": "response",
+  "id": "1",
+  "ok": false,
+  "error": { "code": "invalid_params", "message": "name is required", "details": {} }
+}
 ```
 
 Event:
 
 ```json
-{"v":1,"type":"event","seq":42,"event":"ui.changed","at":"2026-07-19T23:00:00Z","data":{}}
+{
+  "v": 1,
+  "type": "event",
+  "seq": 42,
+  "event": "ui.changed",
+  "at": "2026-07-19T23:00:00Z",
+  "data": {}
+}
 ```
 
 Mutations may include an `idempotencyKey`. Reusing a key during the same app
@@ -64,19 +77,36 @@ terminal owns launch information, process state, and PTY input/output.
 ### Workspace
 
 ```json
-{"id":"ws_123","name":"website","position":0,"tileIds":["tile_123"]}
+{ "id": "ws_123", "name": "website", "position": 0, "tileIds": ["tile_123"] }
 ```
 
 ### Tile
 
 ```json
-{"id":"tile_123","workspaceId":"ws_123","kind":"terminal","name":"dev","label":"wd","position":0,"terminalId":"term_123","viewerState":"attached"}
+{
+  "id": "tile_123",
+  "workspaceId": "ws_123",
+  "kind": "terminal",
+  "name": "dev",
+  "label": "wd",
+  "position": 0,
+  "terminalId": "term_123",
+  "viewerState": "attached"
+}
 ```
 
 ### Terminal
 
 ```json
-{"id":"term_123","tileId":"tile_123","workingDirectory":"/project","launch":{"kind":"shellCommand","command":"pnpm dev"},"processState":"running","activityState":"working","viewerState":"attached"}
+{
+  "id": "term_123",
+  "tileId": "tile_123",
+  "workingDirectory": "/project",
+  "launch": { "kind": "shellCommand", "command": "pnpm dev" },
+  "processState": "running",
+  "activityState": "working",
+  "viewerState": "attached"
+}
 ```
 
 Process states are `starting`, `running`, `stopped`, `exited`, and
@@ -88,7 +118,13 @@ Viewer states are `attached` and `detached`.
 ### `system.hello`
 
 ```json
-{"v":1,"type":"request","id":"1","op":"system.hello","params":{"client":{"name":"setup","version":"1"},"protocol":{"min":1,"max":1}}}
+{
+  "v": 1,
+  "type": "request",
+  "id": "1",
+  "op": "system.hello",
+  "params": { "client": { "name": "setup", "version": "1" }, "protocol": { "min": 1, "max": 1 } }
+}
 ```
 
 Returns the selected protocol, application version, socket path, and
@@ -147,7 +183,7 @@ Creating a terminal tile and its PTY is one atomic operation:
     "position": 0,
     "terminal": {
       "workingDirectory": "/project",
-      "launch": {"kind":"shellCommand","command":"pnpm dev"}
+      "launch": { "kind": "shellCommand", "command": "pnpm dev" }
     },
     "focus": true
   }
@@ -198,7 +234,12 @@ the tile. Focusing a detached tile requires `attach: true`.
 UI state has this shape:
 
 ```json
-{"level":"terminal","selectedWorkspaceId":"ws_123","selectedTileId":"tile_123","focusedTileId":"tile_123"}
+{
+  "level": "terminal",
+  "selectedWorkspaceId": "ws_123",
+  "selectedTileId": "tile_123",
+  "focusedTileId": "tile_123"
+}
 ```
 
 ## Events
@@ -249,7 +290,15 @@ PTY output is a combined byte stream and is emitted only to subscriptions with
 output produced while the viewer is detached is not buffered or replayed:
 
 ```json
-{"event":"terminal.output","data":{"workspaceId":"ws_123","tileId":"tile_123","terminalId":"term_123","dataBase64":"SGVsbG8NCg=="}}
+{
+  "event": "terminal.output",
+  "data": {
+    "workspaceId": "ws_123",
+    "tileId": "tile_123",
+    "terminalId": "term_123",
+    "dataBase64": "SGVsbG8NCg=="
+  }
+}
 ```
 
 ## Errors
