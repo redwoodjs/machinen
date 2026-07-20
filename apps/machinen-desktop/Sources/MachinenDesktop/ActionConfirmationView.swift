@@ -69,6 +69,13 @@ final class ActionConfirmationView: NSView {
 
         drawButton(cancelButtonRect(), title: "Cancel", emphasized: false)
         drawButton(confirmButtonRect(), title: confirmTitle, emphasized: true)
+        drawText(
+            "esc cancel    return confirm",
+            in: NSRect(x: panel.minX + 24, y: panel.maxY - 18, width: panel.width - 48, height: 14),
+            font: .monospacedSystemFont(ofSize: 10, weight: .regular),
+            color: NSColor(calibratedWhite: 0.46, alpha: 1),
+            alignment: .right
+        )
     }
 
     override func keyDown(with event: NSEvent) {

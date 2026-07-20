@@ -70,6 +70,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: ""
         )
         appMenu.addItem(.separator())
+        let newWorkspaceItem = NSMenuItem(
+            title: "New Workspace",
+            action: #selector(createNewWorkspace),
+            keyEquivalent: "n"
+        )
+        newWorkspaceItem.keyEquivalentModifierMask = [.command]
+        newWorkspaceItem.target = self
+        appMenu.addItem(newWorkspaceItem)
+
         let newTerminalItem = NSMenuItem(
             title: "New Terminal…",
             action: #selector(toggleNewTerminal),
@@ -89,7 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(commandsItem)
 
         let closeItem = NSMenuItem(
-            title: "Detach Focused Viewer",
+            title: "Close Terminal or Workspace…",
             action: #selector(handleCommandW),
             keyEquivalent: "w"
         )
@@ -105,6 +114,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appItem.submenu = appMenu
         mainMenu.addItem(appItem)
         NSApp.mainMenu = mainMenu
+    }
+
+    @objc private func createNewWorkspace() {
+        deck?.createNewWorkspace()
     }
 
     @objc private func toggleCommands() {

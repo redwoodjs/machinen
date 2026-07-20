@@ -10,7 +10,8 @@ struct PaletteCommand {
         case restartSession
         case stopSession
         case stopWorkspace
-        case deleteWorkspace
+        case closeSession
+        case closeWorkspace
         case showDiagnostics
         case createShell
         case runCommand

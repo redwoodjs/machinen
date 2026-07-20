@@ -988,7 +988,7 @@ final class TerminalDeckView: NSView {
                 PaletteCommand(id: .newTerminal, title: "Terminal: New in \(session.workspace)…", shortcut: "⌘T"),
                 PaletteCommand(id: .showDiagnostics, title: "Workspace: Show diagnostics…", shortcut: ""),
                 PaletteCommand(id: .stopWorkspace, title: "Workspace: Stop \(session.workspace)…", shortcut: ""),
-                PaletteCommand(id: .deleteWorkspace, title: "Workspace: Delete \(session.workspace)…", shortcut: ""),
+                PaletteCommand(id: .closeWorkspace, title: "Workspace: Close \(session.workspace)…", shortcut: "⌘W"),
             ]
         }
 
@@ -1004,6 +1004,19 @@ final class TerminalDeckView: NSView {
             PaletteCommand(id: .toggleOverview, title: viewCommand, shortcut: "left⌘ + right⌘"),
             PaletteCommand(id: .newTerminal, title: "Terminal: New in \(session.workspace)…", shortcut: "⌘T"),
         ]
+        if activeSessionTiles.count == 1 {
+            commands.append(PaletteCommand(
+                id: .closeWorkspace,
+                title: "Workspace: Close \(session.workspace)…",
+                shortcut: "⌘W"
+            ))
+        } else {
+            commands.append(PaletteCommand(
+                id: .closeSession,
+                title: "Session: Close \(session.name)…",
+                shortcut: "⌘W"
+            ))
+        }
         switch selectedSessionTile()?.currentState {
         case .detached:
             commands.append(PaletteCommand(id: .attachSession, title: "Session: Attach viewer", shortcut: ""))
@@ -1012,13 +1025,12 @@ final class TerminalDeckView: NSView {
         case .stopped:
             commands.append(PaletteCommand(id: .restartSession, title: "Session: Restart \(session.name)", shortcut: ""))
         default:
-            commands.append(PaletteCommand(id: .detachSession, title: "Session: Detach viewer", shortcut: "⌘W"))
+            commands.append(PaletteCommand(id: .detachSession, title: "Session: Detach viewer", shortcut: ""))
             commands.append(PaletteCommand(id: .stopSession, title: "Session: Stop \(session.name)…", shortcut: ""))
         }
         commands.append(contentsOf: [
             PaletteCommand(id: .showDiagnostics, title: "Session: Show diagnostics…", shortcut: ""),
             PaletteCommand(id: .stopWorkspace, title: "Workspace: Stop \(session.workspace)…", shortcut: ""),
-            PaletteCommand(id: .deleteWorkspace, title: "Workspace: Delete \(session.workspace)…", shortcut: ""),
         ])
         return commands
     }
@@ -1046,9 +1058,12 @@ final class TerminalDeckView: NSView {
         case .stopWorkspace:
             dismissCommandPalette()
             confirmStopSelectedWorkspace()
-        case .deleteWorkspace:
+        case .closeSession:
             dismissCommandPalette()
-            confirmDeleteSelectedWorkspace()
+            confirmCloseSelectedSession()
+        case .closeWorkspace:
+            dismissCommandPalette()
+            confirmCloseSelectedWorkspace()
         case .showDiagnostics:
             dismissCommandPalette()
             showDiagnostics()
@@ -1116,15 +1131,29 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func confirmDeleteSelectedWorkspace() {
-        guard let workspace = selectedWorkspace() else { return }
+    private func confirmCloseSelectedSession() {
+        guard let tile = selectedSessionTile() else { return }
         presentConfirmation(
-            heading: "Delete workspace \(workspace)?",
-            message: "This stops its terminal processes and removes their saved definitions from Machinen.",
+            heading: "Close terminal \(tile.session.name)?",
+            message: "This terminates its process and removes the terminal from \(tile.session.workspace).",
+            consequence: "Files in its working directory are not deleted.",
+            confirmTitle: "Close terminal"
+        ) { [weak self, weak tile] in
+            guard let self, let tile else { return }
+            self.closeSession(tile)
+        }
+    }
+
+    private func confirmCloseSelectedWorkspace() {
+        guard let workspace = selectedWorkspace() else { return }
+        let count = allSessionTiles.count { $0.session.workspace == workspace }
+        presentConfirmation(
+            heading: "Close workspace \(workspace)?",
+            message: "This terminates \(count) terminal \(count == 1 ? "process" : "processes") and removes the workspace from Machinen.",
             consequence: "Files in the terminals' working directories are not deleted.",
-            confirmTitle: "Delete workspace"
+            confirmTitle: "Close workspace"
         ) { [weak self] in
-            self?.deleteWorkspace(workspace)
+            self?.closeWorkspace(workspace)
         }
     }
 
@@ -1168,7 +1197,24 @@ final class TerminalDeckView: NSView {
         saveSessions()
     }
 
-    private func deleteWorkspace(_ workspace: String) {
+    private func closeSession(_ tile: TerminalTileView) {
+        let workspaceID = tile.session.workspaceID
+        tile.stopTerminal()
+        tile.removeFromSuperview()
+        allSessionTiles.removeAll { $0 === tile }
+        emitAPIEvent("tile.deleted", data: tileJSON(tile))
+        rebuildWorkspaceClusters()
+        if currentWorkspace == workspaceID {
+            selectedIndex = min(selectedIndex, max(0, activeSessionTiles.count - 1))
+            focusedIndex = activeSessionTiles.count == 1 ? 0 : nil
+        }
+        updateWorldGeometry()
+        updateSelection()
+        setCameraImmediately()
+        saveSessions()
+    }
+
+    private func closeWorkspace(_ workspace: String) {
         let workspaceRecord = workspaces.first { $0.name == workspace }
         let removedTiles = allSessionTiles.filter { $0.session.workspace == workspace }
         for tile in removedTiles {
@@ -1261,18 +1307,46 @@ final class TerminalDeckView: NSView {
         saveSessions()
     }
 
-    func handleCommandW() {
-        if presentedOverlay != nil {
-            dismissPresentedOverlay()
-            return
+    func createNewWorkspace() {
+        guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
+        if commandPalette != nil {
+            dismissCommandPalette()
         }
+        let workspace = nextAvailableWorkspaceName()
+        createPersistentSession(
+            workspace: workspace,
+            name: "shell",
+            command: nil,
+            workingDirectory: FileManager.default.homeDirectoryForCurrentUser.path
+        )
+    }
+
+    func handleCommandW() {
+        if presentedOverlay != nil { return }
         if commandPalette != nil {
             dismissCommandPalette()
             return
         }
-        if focusedIndex != nil {
-            detachSelectedSession()
+        guard !isTransitioning, !isPeeking else { return }
+        let workspaceCount = selectedWorkspace().map { workspace in
+            allSessionTiles.count { $0.session.workspace == workspace }
+        } ?? 0
+        if currentWorkspace == nil || workspaceCount <= 1 {
+            confirmCloseSelectedWorkspace()
+        } else {
+            confirmCloseSelectedSession()
         }
+    }
+
+    private func nextAvailableWorkspaceName() -> String {
+        let base = "workspace"
+        let names = Set(workspaces.map(\.name))
+        if !names.contains(base) { return base }
+        var suffix = 2
+        while names.contains("\(base) \(suffix)") {
+            suffix += 1
+        }
+        return "\(base) \(suffix)"
     }
 
     private func createPersistentSession(
@@ -1282,11 +1356,14 @@ final class TerminalDeckView: NSView {
         workingDirectory: String
     ) {
         let workspaceRecord: WorkspaceRecord
+        let createdWorkspace: Bool
         if let existing = workspaces.first(where: { $0.name == workspace }) {
             workspaceRecord = existing
+            createdWorkspace = false
         } else {
             workspaceRecord = WorkspaceRecord(name: workspace)
             workspaces.append(workspaceRecord)
+            createdWorkspace = true
         }
         let session = TerminalSession(
             label: nextAvailableLabel(workspace: workspace, session: name),
@@ -1309,6 +1386,9 @@ final class TerminalDeckView: NSView {
         focusedIndex = selectedIndex
         updateSelection()
         moveCamera()
+        if createdWorkspace {
+            emitAPIEvent("workspace.created", data: workspaceJSON(workspaceRecord))
+        }
         emitAPIEvent("tile.created", data: tileJSON(tile))
     }
 
@@ -2011,7 +2091,7 @@ final class TerminalDeckView: NSView {
         drawLabel(title, x: Metrics.windowControlsInset, alignment: .left)
         if bounds.width >= 820 {
             drawLabel(
-                "⌘K  commands     ⌘T  new terminal",
+                "⌘N  new workspace     ⌘W  close     ⌘K  commands",
                 x: bounds.width - Metrics.sideInset,
                 alignment: .right
             )
