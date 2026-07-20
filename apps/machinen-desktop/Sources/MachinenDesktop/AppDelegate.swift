@@ -97,6 +97,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         commandsItem.target = self
         appMenu.addItem(commandsItem)
 
+        let zoomInItem = NSMenuItem(
+            title: "Zoom In",
+            action: #selector(zoomIn),
+            keyEquivalent: String(Character(UnicodeScalar(NSDownArrowFunctionKey)!))
+        )
+        zoomInItem.keyEquivalentModifierMask = [.command]
+        zoomInItem.target = self
+        appMenu.addItem(zoomInItem)
+
         let zoomOutItem = NSMenuItem(
             title: "Zoom Out",
             action: #selector(zoomOut),
@@ -135,6 +144,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleNewTerminal() {
         deck?.toggleNewTerminalPalette()
+    }
+
+    @objc private func zoomIn() {
+        deck?.zoomInOneLevel()
     }
 
     @objc private func zoomOut() {

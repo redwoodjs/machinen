@@ -960,7 +960,7 @@ final class TerminalDeckView: NSView {
     private func paletteCommands(for session: TerminalSession) -> [PaletteCommand] {
         if currentWorkspace == nil {
             return [
-                PaletteCommand(id: .toggleOverview, title: "View: Open \(session.workspace)", shortcut: "return"),
+                PaletteCommand(id: .toggleOverview, title: "View: Open \(session.workspace)", shortcut: "return / ⌘↓"),
                 PaletteCommand(id: .newTerminal, title: "Terminal: New in \(session.workspace)…", shortcut: "⌘T"),
                 PaletteCommand(id: .showDiagnostics, title: "Workspace: Show diagnostics…", shortcut: ""),
                 PaletteCommand(id: .stopWorkspace, title: "Workspace: Stop \(session.workspace)…", shortcut: ""),
@@ -976,8 +976,9 @@ final class TerminalDeckView: NSView {
         } else {
             viewCommand = "View: Show session overview"
         }
+        let viewShortcut = focusedIndex == nil ? "⌘↓" : "⌘↑"
         var commands = [
-            PaletteCommand(id: .toggleOverview, title: viewCommand, shortcut: "⌘↑"),
+            PaletteCommand(id: .toggleOverview, title: viewCommand, shortcut: viewShortcut),
             PaletteCommand(id: .newTerminal, title: "Terminal: New in \(session.workspace)…", shortcut: "⌘T"),
         ]
         if activeSessionTiles.count == 1 {
@@ -1281,6 +1282,13 @@ final class TerminalDeckView: NSView {
             tile.session.state = .running
         }
         saveSessions()
+    }
+
+    func zoomInOneLevel() {
+        guard presentedOverlay == nil, commandPalette == nil,
+              focusedIndex == nil, !isTransitioning, !isPeeking
+        else { return }
+        activate(selectedIndex)
     }
 
     func zoomOutOneLevel() {
@@ -2124,9 +2132,9 @@ final class TerminalDeckView: NSView {
         if !labelBuffer.isEmpty {
             text = "TYPE LABEL  \(labelBuffer)_"
         } else if currentWorkspace == nil {
-            text = "arrows  select     return  zoom in     hold space  peek"
+            text = "arrows  select     return / ⌘↓  zoom in     hold space  peek"
         } else {
-            text = "⌘↑  zoom out     arrows  select     return  zoom in     ⌘T  new terminal"
+            text = "⌘↑  zoom out     arrows  select     return / ⌘↓  zoom in     ⌘T  new terminal"
         }
         NSAttributedString(string: text, attributes: attributes).draw(
             in: NSRect(
