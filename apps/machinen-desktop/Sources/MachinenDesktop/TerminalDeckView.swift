@@ -140,12 +140,20 @@ final class TerminalDeckView: NSView {
                 guard let index = self.workspaceClusters.firstIndex(where: {
                     $0.workspaceID == tile.session.workspaceID
                 }) else { return }
-                self.select(index)
+                if self.workspaceClusters[index].sessions.count == 1 {
+                    self.activate(index)
+                } else {
+                    self.select(index)
+                }
             } else {
                 guard let index = self.activeSessionTiles.firstIndex(where: { $0 === tile }) else {
                     return
                 }
-                self.select(index)
+                if self.activeSessionTiles.count == 1 {
+                    self.activate(index)
+                } else {
+                    self.select(index)
+                }
             }
         }
         tile.onActivate = { [weak self, weak tile] in
@@ -226,7 +234,11 @@ final class TerminalDeckView: NSView {
                     else { return }
                     self.window?.makeFirstResponder(self)
                     if self.currentWorkspace == nil {
-                        self.select(index)
+                        if cluster.sessions.count == 1 {
+                            self.activate(index)
+                        } else {
+                            self.select(index)
+                        }
                     }
                 }
                 cluster.onActivate = { [weak self, weak cluster] in
