@@ -10,7 +10,11 @@ final class TerminalSessionStore {
 
     let manifestURL: URL
 
-    init() {
+    init(manifestURL: URL? = nil) {
+        if let manifestURL {
+            self.manifestURL = manifestURL
+            return
+        }
         let environment = ProcessInfo.processInfo.environment
         let root: URL
         if let override = environment["MACHINEN_STATE_DIR"], !override.isEmpty {
@@ -21,7 +25,7 @@ final class TerminalSessionStore {
                 in: .userDomainMask
             )[0].appendingPathComponent("Machinen", isDirectory: true)
         }
-        manifestURL = root.appendingPathComponent("terminals.json")
+        self.manifestURL = root.appendingPathComponent("terminals.json")
     }
 
     func load() -> MachinenStoredState {
