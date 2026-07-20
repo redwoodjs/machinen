@@ -338,7 +338,7 @@ final class MachinenAPIServer {
                 "socketPath": socketPath,
                 "capabilities": [
                     "workspaces", "tiles", "terminals", "terminalInput",
-                    "terminalOutput", "uiControl", "events",
+                    "terminalOutput", "uiControl", "statusWidgets", "events",
                 ],
             ], id: requestID, to: connection)
             return

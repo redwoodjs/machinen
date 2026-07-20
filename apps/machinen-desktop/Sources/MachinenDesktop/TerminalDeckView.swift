@@ -35,6 +35,7 @@ final class TerminalDeckView: NSView {
     }
 
     private let sceneView = CameraSceneView()
+    private let statusBarView = MachinenStatusBarView()
     private let sessionStore: TerminalSessionStore
     private var workspaces: [WorkspaceRecord]
     private var allSessionTiles: [TerminalTileView]
@@ -54,6 +55,7 @@ final class TerminalDeckView: NSView {
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
     private var cameraAnimationTimer: Timer?
+    private var statusWidgets: [String: MachinenStatusWidget] = [:]
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
@@ -76,6 +78,7 @@ final class TerminalDeckView: NSView {
             installPersistentTerminal(in: tile)
         }
         rebuildWorkspaceClusters()
+        addSubview(statusBarView, positioned: .above, relativeTo: sceneView)
         enterSoleTerminalIfNeeded()
         updateSelection()
         setAccessibilityElement(false)
@@ -187,7 +190,15 @@ final class TerminalDeckView: NSView {
             guard let self, let tile, !self.isShuttingDown else { return }
             tile.transition(to: state, terminalText: tile.session.terminalText)
             self.saveSessions()
+            self.refreshStatusBar()
             self.emitAPIEvent("terminal.stateChanged", data: self.terminalJSON(tile))
+        }
+        terminalView.onActivityChange = { [weak self, weak tile] state in
+            guard let self, let tile, !self.isShuttingDown else { return }
+            tile.updateActivity(to: state)
+            self.workspaceCluster(named: tile.session.workspaceID)?.needsDisplay = true
+            self.refreshStatusBar()
+            self.emitAPIEvent("terminal.activityChanged", data: self.terminalJSON(tile))
         }
         terminalView.onOutput = { [weak self, weak tile] data in
             guard let self, let tile else { return }
@@ -268,6 +279,12 @@ final class TerminalDeckView: NSView {
     override func layout() {
         super.layout()
         commandPalette?.frame = bounds
+        statusBarView.frame = NSRect(
+            x: 0,
+            y: 0,
+            width: bounds.width,
+            height: MachinenStatusBarView.preferredHeight
+        )
         guard bounds.width > 0, bounds.height > 0 else { return }
         if lastViewportSize != bounds.size {
             lastViewportSize = bounds.size
@@ -582,6 +599,7 @@ final class TerminalDeckView: NSView {
             workspaceClusters[selectedIndex].sessions[0].isSelected = true
         }
         needsDisplay = true
+        refreshStatusBar()
         emitAPIEvent("ui.changed", data: uiJSON())
     }
 
@@ -1505,6 +1523,16 @@ final class TerminalDeckView: NSView {
             return apiStopTerminal(try requireTerminal(params))
         case "terminal.restart":
             return apiRestartTerminal(try requireTerminal(params), focus: params["focus"] as? Bool ?? false)
+        case "status.list":
+            refreshStatusBar()
+            return [
+                "widgets": statusWidgets.values.map { $0.json() },
+                "effectiveWidgets": statusBarView.widgets.map { $0.json() },
+            ]
+        case "status.set":
+            return try apiSetStatusWidget(params)
+        case "status.remove":
+            return try apiRemoveStatusWidget(params)
         case "ui.get":
             return uiJSON()
         case "ui.select":
@@ -1858,6 +1886,131 @@ final class TerminalDeckView: NSView {
         return terminalJSON(tile)
     }
 
+    private func apiSetStatusWidget(_ params: JSONObject) throws -> Any {
+        let id = try requiredString("id", in: params)
+        guard id.count <= 128 else {
+            throw MachinenAPIError("invalid_params", "status widget id must be at most 128 characters")
+        }
+        let (scopeKind, scopeID) = try parseStatusScope(params["scope"] as? JSONObject)
+        let placementName = params["placement"] as? String ?? "right"
+        let kindName = params["kind"] as? String ?? "text"
+        let toneName = params["tone"] as? String ?? "neutral"
+        guard let placement = MachinenStatusWidget.Placement(rawValue: placementName) else {
+            throw MachinenAPIError("invalid_params", "Unknown status placement: \(placementName)")
+        }
+        guard let kind = MachinenStatusWidget.Kind(rawValue: kindName) else {
+            throw MachinenAPIError("invalid_params", "Unknown status widget kind: \(kindName)")
+        }
+        guard let tone = MachinenStatusWidget.Tone(rawValue: toneName) else {
+            throw MachinenAPIError("invalid_params", "Unknown status widget tone: \(toneName)")
+        }
+        let value: String
+        if let string = params["value"] as? String {
+            value = string
+        } else if let number = params["value"] as? NSNumber {
+            value = number.stringValue
+        } else if kind == .separator {
+            value = ""
+        } else {
+            throw MachinenAPIError("invalid_params", "status widget value must be a string or number")
+        }
+        let progress = (params["progress"] as? NSNumber)?.doubleValue
+        if let progress, !(0...1).contains(progress) {
+            throw MachinenAPIError("invalid_params", "status widget progress must be between 0 and 1")
+        }
+        let ttl = (params["ttlMilliseconds"] as? NSNumber)?.doubleValue
+        if let ttl, ttl <= 0 {
+            throw MachinenAPIError("invalid_params", "ttlMilliseconds must be positive")
+        }
+        let widget = MachinenStatusWidget(
+            id: id,
+            scopeKind: scopeKind,
+            scopeID: scopeID,
+            placement: placement,
+            kind: kind,
+            label: params["label"] as? String,
+            value: value,
+            progress: progress,
+            tone: tone,
+            tooltip: params["tooltip"] as? String,
+            priority: (params["priority"] as? NSNumber)?.intValue ?? 50,
+            expiresAt: ttl.map { Date().timeIntervalSince1970 + $0 / 1000 }
+        )
+        statusWidgets[widget.storageKey] = widget
+        refreshStatusBar()
+        if let ttl, let expiresAt = widget.expiresAt {
+            DispatchQueue.main.asyncAfter(deadline: .now() + ttl / 1000) { [weak self] in
+                self?.expireStatusWidget(widget.storageKey, expiresAt: expiresAt)
+            }
+        }
+        let result = widget.json()
+        emitAPIEvent("status.changed", data: statusEventData(action: "set", widget: widget))
+        return result
+    }
+
+    private func expireStatusWidget(_ storageKey: String, expiresAt: TimeInterval) {
+        guard let widget = statusWidgets[storageKey], widget.expiresAt == expiresAt,
+              expiresAt <= Date().timeIntervalSince1970
+        else { return }
+        statusWidgets.removeValue(forKey: storageKey)
+        refreshStatusBar()
+        emitAPIEvent("status.changed", data: statusEventData(action: "expire", widget: widget))
+    }
+
+    private func apiRemoveStatusWidget(_ params: JSONObject) throws -> Any {
+        let id = try requiredString("id", in: params)
+        let (scopeKind, scopeID) = try parseStatusScope(params["scope"] as? JSONObject)
+        let key = "\(scopeKind.rawValue):\(scopeID ?? ""):\(id)"
+        guard let removed = statusWidgets.removeValue(forKey: key) else {
+            throw MachinenAPIError("status_widget_not_found", "Status widget \(id) does not exist in that scope")
+        }
+        refreshStatusBar()
+        let result = removed.json()
+        emitAPIEvent("status.changed", data: statusEventData(action: "remove", widget: removed))
+        return result
+    }
+
+    private func statusEventData(
+        action: String,
+        widget: MachinenStatusWidget
+    ) -> JSONObject {
+        var data: JSONObject = ["action": action, "widget": widget.json()]
+        if widget.scopeKind == .workspace, let workspaceID = widget.scopeID {
+            data["workspaceId"] = workspaceID
+        } else if widget.scopeKind == .terminal, let terminalID = widget.scopeID {
+            data["terminalId"] = terminalID
+            if let tile = allSessionTiles.first(where: { $0.session.id == terminalID }) {
+                data["workspaceId"] = tile.session.workspaceID
+                data["tileId"] = tile.session.tileID
+            }
+        }
+        return data
+    }
+
+    private func parseStatusScope(
+        _ object: JSONObject?
+    ) throws -> (MachinenStatusWidget.ScopeKind, String?) {
+        let kindName = object?["kind"] as? String ?? "global"
+        guard let kind = MachinenStatusWidget.ScopeKind(rawValue: kindName) else {
+            throw MachinenAPIError("invalid_params", "Unknown status scope: \(kindName)")
+        }
+        if kind == .global { return (kind, nil) }
+        guard let id = object?["id"] as? String, !id.isEmpty else {
+            throw MachinenAPIError("invalid_params", "A \(kindName) status scope requires id")
+        }
+        if kind == .workspace,
+           !workspaces.contains(where: { $0.id == id })
+        {
+            throw MachinenAPIError("workspace_not_found", "Workspace \(id) does not exist")
+        }
+        if kind == .terminal,
+           !allSessionTiles.contains(where: { $0.session.id == id })
+        {
+            throw MachinenAPIError("terminal_not_found", "Terminal \(id) does not exist")
+        }
+        return (kind, id)
+    }
+
     private func apiSelect(_ params: JSONObject) throws -> Any {
         if let tileID = params["tileId"] as? String {
             guard let tile = allSessionTiles.first(where: { $0.session.tileID == tileID }) else {
@@ -2115,40 +2268,108 @@ final class TerminalDeckView: NSView {
         NSColor(calibratedWhite: 0.055, alpha: 1).setFill()
         bounds.fill()
         if focusedIndex == nil, currentWorkspace == nil {
-            drawMetadata()
             drawKeyHints()
         }
     }
 
-    private func drawMetadata() {
-        let title: String
-        if let currentWorkspace {
-            let workspaceName = workspaces.first { $0.id == currentWorkspace }?.name ?? "workspace"
-            title = "MACHINEN / \(workspaceName) · \(activeSessionTiles.count) LIVE SESSIONS"
+    private func refreshStatusBar() {
+        let now = Date().timeIntervalSince1970
+        statusWidgets = statusWidgets.filter { $0.value.expiresAt.map { $0 > now } ?? true }
+
+        let workspaceID = selectedWorkspaceID()
+        let focusedTerminalID = focusedIndex == nil ? nil : selectedSession()?.id
+        let workspaceName = workspaceID.flatMap { id in workspaces.first { $0.id == id }?.name }
+        if let terminal = focusedTerminalID.flatMap({ id in allSessionTiles.first { $0.session.id == id } }) {
+            statusBarView.breadcrumb = "MACHINEN / \(terminal.session.workspace) / \(terminal.session.name)"
+        } else if let workspaceName, currentWorkspace != nil {
+            statusBarView.breadcrumb = "MACHINEN / \(workspaceName)"
         } else {
-            title = "MACHINEN · \(workspaceClusters.count) WORKSPACES"
+            statusBarView.breadcrumb = "MACHINEN · \(workspaceClusters.count) WORKSPACES"
         }
-        drawLabel(title, x: Metrics.windowControlsInset, alignment: .left)
-        if bounds.width >= 820 {
-            drawLabel(
-                "⌘N  new workspace     ⌘W  close     ⌘K  commands",
-                x: bounds.width - Metrics.sideInset,
-                alignment: .right
-            )
+
+        var resolved = Dictionary(uniqueKeysWithValues: builtInStatusWidgets().map { ($0.id, $0) })
+        let orderedScopes: [(MachinenStatusWidget.ScopeKind, String?)] = [
+            (.global, nil),
+            (.workspace, workspaceID),
+            (.terminal, focusedTerminalID),
+        ]
+        for (kind, scopeID) in orderedScopes {
+            guard kind == .global || scopeID != nil else { continue }
+            for widget in statusWidgets.values
+                where widget.scopeKind == kind && widget.scopeID == scopeID
+            {
+                resolved[widget.id] = widget
+            }
         }
+        statusBarView.widgets = Array(resolved.values)
     }
 
-    private func drawLabel(_ text: String, x: CGFloat, alignment: NSTextAlignment) {
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = alignment
-        let width = min(420, max(0, bounds.width - Metrics.sideInset * 2))
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular),
-            .foregroundColor: NSColor(calibratedWhite: 0.56, alpha: 1),
-            .paragraphStyle: paragraph,
-        ]
-        NSAttributedString(string: text, attributes: attributes).draw(
-            in: NSRect(x: alignment == .left ? x : x - width, y: 20, width: width, height: 18)
+    private func builtInStatusWidgets() -> [MachinenStatusWidget] {
+        let tiles = currentWorkspace == nil ? allSessionTiles : activeSessionTiles
+        let waiting = tiles.count { $0.session.activityState == .waiting }
+        let active = tiles.count { $0.session.activityState == .working }
+        let idle = tiles.count { $0.session.activityState == .idle }
+        let failed = tiles.count { $0.currentState == .exited || $0.currentState == .disconnected }
+        var widgets: [MachinenStatusWidget] = []
+        if waiting > 0 {
+            widgets.append(statusCountWidget(
+                id: "machinen.waiting",
+                label: "waiting",
+                value: waiting,
+                tone: .attention,
+                priority: 100
+            ))
+        }
+        if failed > 0 {
+            widgets.append(statusCountWidget(
+                id: "machinen.failed",
+                label: "failed",
+                value: failed,
+                tone: .error,
+                priority: 95
+            ))
+        }
+        if active > 0 {
+            widgets.append(statusCountWidget(
+                id: "machinen.active",
+                label: "active",
+                value: active,
+                tone: .busy,
+                priority: 80
+            ))
+        }
+        if idle > 0 {
+            widgets.append(statusCountWidget(
+                id: "machinen.idle",
+                label: "idle",
+                value: idle,
+                tone: .neutral,
+                priority: 20
+            ))
+        }
+        return widgets
+    }
+
+    private func statusCountWidget(
+        id: String,
+        label: String,
+        value: Int,
+        tone: MachinenStatusWidget.Tone,
+        priority: Int
+    ) -> MachinenStatusWidget {
+        MachinenStatusWidget(
+            id: id,
+            scopeKind: .global,
+            scopeID: nil,
+            placement: .right,
+            kind: .state,
+            label: label,
+            value: String(value),
+            progress: nil,
+            tone: tone,
+            tooltip: nil,
+            priority: priority,
+            expiresAt: nil
         )
     }
 

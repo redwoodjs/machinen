@@ -66,6 +66,33 @@ When no workspace exists, only **New workspace…** is shown.
   prompt.
 - Names are visual labels, not directory paths.
 
+## Activity and input-required detection
+
+Machinen separates PTY lifecycle from activity. Running terminals are reported
+as `working`, `waiting`, `idle`, or `unknown`:
+
+- recent PTY input/output is working;
+- a login shell at its own foreground process group is idle;
+- after a foreground command becomes quiet, Machinen samples its wait state;
+- terminal reads and raw interactive event loops become waiting after two
+  matching observations;
+- timers, child-process waits, and network waits remain working;
+- stopped, exited, or unreadable sessions are unknown.
+
+The bundled dtach master writes only counters and process/terminal metadata to a
+private `0600` sidecar. It never buffers output content. Detection therefore
+continues while the viewer is detached. Waiting terminals use the attention
+color and workspace headers aggregate `waiting > active > unknown > idle`.
+
+## Programmable status bar
+
+The breadcrumb is fixed. Programs can publish scoped text, count, state,
+progress, timer, sparkline, and separator widgets through `status.set`,
+`status.list`, and `status.remove`. Workspace widgets override global widgets;
+terminal widgets override workspace widgets with the same ID. TTLs remove stale
+live data. Built-in waiting, active, idle, and failed counts use the same visual
+primitives.
+
 ## Closing
 
 `⌘W` never closes Machinen's macOS window:

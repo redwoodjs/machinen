@@ -85,6 +85,12 @@ final class TerminalTileView: NSView {
         needsDisplay = true
     }
 
+    func updateActivity(to state: TerminalSession.ActivityState) {
+        session.activityState = state
+        updateAccessibilityLabel()
+        needsDisplay = true
+    }
+
     func installTerminalView(_ terminalView: MachinenTerminalView) {
         embeddedTerminalView?.removeFromSuperview()
         embeddedTerminalView = terminalView
@@ -278,9 +284,24 @@ final class TerminalTileView: NSView {
 
         switch displayState {
         case .running:
-            NSColor(calibratedWhite: 0.82, alpha: 1).setFill()
-            path.fill()
-            path.stroke()
+            switch session.activityState {
+            case .working:
+                NSColor(calibratedWhite: 0.82, alpha: 1).setFill()
+                path.fill()
+                path.stroke()
+            case .waiting:
+                NSColor.systemOrange.setFill()
+                path.fill()
+                path.stroke()
+            case .idle:
+                path.stroke()
+            case .unknown:
+                let context = NSGraphicsContext.current?.cgContext
+                context?.saveGState()
+                context?.setLineDash(phase: 0, lengths: [2, 2])
+                path.stroke()
+                context?.restoreGState()
+            }
         case .starting:
             let context = NSGraphicsContext.current?.cgContext
             context?.saveGState()
@@ -445,7 +466,9 @@ final class TerminalTileView: NSView {
     }
 
     private func updateAccessibilityLabel() {
-        setAccessibilityLabel("\(session.workspace), \(session.name), \(displayState.rawValue)")
+        setAccessibilityLabel(
+            "\(session.workspace), \(session.name), \(displayState.rawValue), \(session.activityState.rawValue)"
+        )
     }
 
     private var cornerRadius: CGFloat {

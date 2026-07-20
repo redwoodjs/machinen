@@ -17,6 +17,8 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 #include "dtach.h"
+#include <inttypes.h>
+#include <limits.h>
 
 /* The pty struct - The pty information is stored here. */
 struct pty
@@ -53,17 +55,97 @@ struct client
 static struct client *clients;
 /* The pseudo-terminal created for the child process. */
 static struct pty the_pty;
+/* Machinen observes counters and foreground PTY state through a private
+** sidecar. Output itself remains unbuffered and is never written here. */
+static uint64_t input_bytes;
+static uint64_t output_bytes;
+static double last_input_at;
+static double last_output_at;
 
 #ifndef HAVE_FORKPTY
 pid_t forkpty(int *amaster, char *name, struct termios *termp,
 	struct winsize *winp);
 #endif
 
-/* Unlink the socket */
+static void
+status_path(char *path, size_t size)
+{
+	snprintf(path, size, "%s.status", sockname);
+}
+
+static double
+wall_time(void)
+{
+	struct timeval tv;
+
+	gettimeofday(&tv, NULL);
+	return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
+}
+
+static void
+write_status(void)
+{
+	static int has_previous;
+	static pid_t previous_foreground;
+	static tcflag_t previous_lflag;
+	static uint64_t previous_input_bytes;
+	static uint64_t previous_output_bytes;
+	char path[PATH_MAX], temporary[PATH_MAX];
+	struct termios term;
+	pid_t foreground = -1;
+	int fd;
+	FILE *file;
+
+	status_path(path, sizeof(path));
+	snprintf(temporary, sizeof(temporary), "%s.tmp", path);
+	if (tcgetattr(the_pty.fd, &term) < 0)
+		term = the_pty.term;
+#ifdef TIOCGPGRP
+	ioctl(the_pty.fd, TIOCGPGRP, &foreground);
+#endif
+	if (has_previous && foreground == previous_foreground &&
+		term.c_lflag == previous_lflag && input_bytes == previous_input_bytes &&
+		output_bytes == previous_output_bytes)
+		return;
+	fd = open(temporary, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (fd < 0)
+		return;
+	file = fdopen(fd, "w");
+	if (!file)
+	{
+		close(fd);
+		return;
+	}
+	fprintf(file,
+		"{\"version\":1,\"masterPid\":%d,\"childPid\":%d,"
+		"\"foregroundPgrp\":%d,\"canonical\":%s,\"echo\":%s,"
+		"\"inputBytes\":%" PRIu64 ",\"outputBytes\":%" PRIu64 ","
+		"\"lastInputAt\":%.6f,\"lastOutputAt\":%.6f}\n",
+		(int)getpid(), (int)the_pty.pid, (int)foreground,
+		(term.c_lflag & ICANON) ? "true" : "false",
+		(term.c_lflag & ECHO) ? "true" : "false",
+		input_bytes, output_bytes, last_input_at, last_output_at);
+	if (fclose(file) == 0 && rename(temporary, path) == 0)
+	{
+		has_previous = 1;
+		previous_foreground = foreground;
+		previous_lflag = term.c_lflag;
+		previous_input_bytes = input_bytes;
+		previous_output_bytes = output_bytes;
+	}
+	else
+		unlink(temporary);
+}
+
+/* Unlink the socket and Machinen status sidecar. */
 static void
 unlink_socket(void)
 {
+	char path[PATH_MAX];
+
 	unlink(sockname);
+	status_path(path, sizeof(path));
+	unlink(path);
 }
 
 /* Signal */
@@ -256,6 +338,8 @@ pty_activity(int s)
 	/* Error -> die */
 	if (len <= 0)
 		exit(1);
+	output_bytes += (uint64_t)len;
+	last_output_at = wall_time();
 
 #ifdef BROKEN_MASTER
 	/* Get the current terminal settings. */
@@ -378,7 +462,11 @@ client_activity(struct client *p)
 	if (pkt.type == MSG_PUSH)
 	{
 		if (pkt.len <= sizeof(pkt.u.buf))
+		{
 			write(the_pty.fd, pkt.u.buf, pkt.len);
+			input_bytes += pkt.len;
+			last_input_at = wall_time();
+		}
 	}
 
 	/* Attach or detach from the program. */
@@ -484,10 +572,13 @@ master_process(int s, char **argv, int waitattach, int statusfd)
 	if (nullfd > 2)
 		close(nullfd);
 
+	write_status();
+
 	/* Loop forever. */
 	while (1)
 	{
 		int new_has_attached_client = 0;
+		struct timeval timeout;
 
 		/* Re-initialize the file descriptor set for select. */
 		FD_ZERO(&readfds);
@@ -527,8 +618,11 @@ master_process(int s, char **argv, int waitattach, int statusfd)
 			has_attached_client = new_has_attached_client;
 		}
 
-		/* Wait for something to happen. */
-		if (select(highest_fd + 1, &readfds, NULL, NULL, NULL) < 0)
+		/* Wake periodically so foreground process and terminal mode changes
+		** are visible even when no bytes are moving. */
+		timeout.tv_sec = 0;
+		timeout.tv_usec = 250000;
+		if (select(highest_fd + 1, &readfds, NULL, NULL, &timeout) < 0)
 		{
 			if (errno == EINTR || errno == EAGAIN)
 				continue;
@@ -548,6 +642,7 @@ master_process(int s, char **argv, int waitattach, int statusfd)
 		/* pty activity? */
 		if (FD_ISSET(the_pty.fd, &readfds))
 			pty_activity(s);
+		write_status();
 	}
 }
 

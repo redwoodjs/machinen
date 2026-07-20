@@ -9,7 +9,9 @@ enum InteractionTestRunner {
             try commandNCreatesInTheCurrentSpatialContext()
             try commandArrowsMoveThroughTheHierarchy()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
-            print("Machinen interaction tests passed (3 scenarios)")
+            try processSamplesDistinguishInputFromOtherWaits()
+            try statusWidgetsInheritBySpatialScope()
+            print("Machinen interaction tests passed (5 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -59,6 +61,58 @@ enum InteractionTestRunner {
         try expect(try harness.uiLevel(of: deck) == "workspace", "⌘↑ did not leave the terminal")
         deck.zoomOutOneLevel()
         try expect(try harness.uiLevel(of: deck) == "overview", "⌘↑ did not leave the workspace")
+    }
+
+    private static func processSamplesDistinguishInputFromOtherWaits() throws {
+        let readSample = "Call graph:\n  read  (in libsystem_kernel.dylib) + 8"
+        let sleepSample = "Call graph:\n  nanosleep  (in libsystem_c.dylib) + 220"
+        let rawEventLoop = "Call graph:\n  kevent  (in libsystem_kernel.dylib) + 8"
+        try expect(
+            TerminalActivityDetector.classifySample(readSample, canonical: true, echo: true) == .waiting,
+            "a process blocked in read was not classified as waiting for input"
+        )
+        try expect(
+            TerminalActivityDetector.classifySample(sleepSample, canonical: true, echo: true) == .working,
+            "sleep was incorrectly classified as waiting for input"
+        )
+        try expect(
+            TerminalActivityDetector.classifySample(rawEventLoop, canonical: false, echo: false) == .waiting,
+            "a raw interactive event loop was not classified as waiting"
+        )
+    }
+
+    private static func statusWidgetsInheritBySpatialScope() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
+        _ = try deck.performAPIOperation("status.set", params: [
+            "id": "git.modified",
+            "kind": "count",
+            "label": "modified",
+            "value": 1,
+        ])
+        _ = try deck.performAPIOperation("status.set", params: [
+            "id": "git.modified",
+            "scope": ["kind": "workspace", "id": "ws_alpha"],
+            "kind": "count",
+            "label": "modified",
+            "value": 3,
+            "tone": "attention",
+        ])
+        var effective = try harness.effectiveStatusWidgets(of: deck)
+        try expect(
+            effective.first(where: { $0.id == "git.modified" })?.value == "3",
+            "the workspace widget did not override the global widget"
+        )
+        _ = try deck.performAPIOperation("status.remove", params: [
+            "id": "git.modified",
+            "scope": ["kind": "workspace", "id": "ws_alpha"],
+        ])
+        effective = try harness.effectiveStatusWidgets(of: deck)
+        try expect(
+            effective.first(where: { $0.id == "git.modified" })?.value == "1",
+            "removing the workspace widget did not restore the global widget"
+        )
     }
 
     private static func workspacePaletteCreatesRenamesAndClosesWithKeyboard() throws {
@@ -161,6 +215,12 @@ private final class Harness {
         return try JSONDecoder().decode(InteractionSnapshot.self, from: data)
     }
 
+    func effectiveStatusWidgets(of deck: TerminalDeckView) throws -> [StatusWidgetSnapshot] {
+        let result = try deck.performAPIOperation("status.list", params: [:])
+        let data = try JSONSerialization.data(withJSONObject: result)
+        return try JSONDecoder().decode(StatusListSnapshot.self, from: data).effectiveWidgets
+    }
+
     func uiLevel(of deck: TerminalDeckView) throws -> String {
         let result = try deck.performAPIOperation("ui.get", params: [:])
         guard let object = result as? [String: Any], let level = object["level"] as? String else {
@@ -214,6 +274,15 @@ private final class Harness {
         }
         return event
     }
+}
+
+private struct StatusListSnapshot: Decodable {
+    let effectiveWidgets: [StatusWidgetSnapshot]
+}
+
+private struct StatusWidgetSnapshot: Decodable {
+    let id: String
+    let value: String
 }
 
 private struct InteractionSnapshot: Decodable {

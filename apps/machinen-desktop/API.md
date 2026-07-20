@@ -111,7 +111,11 @@ terminal owns launch information, process state, and PTY input/output.
 
 Process states are `starting`, `running`, `stopped`, `exited`, and
 `disconnected`. Activity states are `working`, `waiting`, `idle`, and `unknown`.
-Viewer states are `attached` and `detached`.
+Machinen derives activity from the persistent PTY's byte counters, foreground
+process group, terminal mode, and a throttled process wait-state sample. A
+login shell at its prompt is idle; a foreground process blocked on terminal
+input is waiting. Detection continues while its viewer is detached. Viewer
+states are `attached` and `detached`.
 
 ## System
 
@@ -216,6 +220,38 @@ persistent PTY even when its tile viewer is detached.
 There is intentionally no `terminal.close`. Callers must explicitly choose to
 detach a tile, stop a terminal, or delete a stopped tile.
 
+## Status bar
+
+- `status.list {}`
+- `status.set { ...widget }`
+- `status.remove { id, scope? }`
+
+The breadcrumb remains fixed. Programs can publish declarative widgets beside
+it without injecting arbitrary AppKit views:
+
+```json
+{
+  "id": "git.modified",
+  "scope": { "kind": "workspace", "id": "ws_123" },
+  "placement": "right",
+  "kind": "count",
+  "label": "modified",
+  "value": 3,
+  "tone": "attention",
+  "tooltip": "3 files have uncommitted changes",
+  "ttlMilliseconds": 5000,
+  "priority": 70
+}
+```
+
+Scopes are `global`, `workspace`, and `terminal`. A non-global scope requires a
+stable workspace or terminal ID. More specific widgets replace less specific
+widgets with the same `id`. Kinds are `text`, `count`, `state`, `progress`,
+`timer`, `sparkline`, and `separator`; tones are `neutral`, `good`, `busy`,
+`attention`, and `error`. Progress is a number from 0 to 1. A TTL removes stale
+live data automatically. `status.list` returns both published widgets and the
+currently effective widgets after inheritance and built-in activity indicators.
+
 ## UI
 
 - `ui.get {}`
@@ -281,7 +317,9 @@ tile.moved
 tile.viewerChanged
 tile.deleted
 terminal.stateChanged
+terminal.activityChanged
 terminal.output
+status.changed
 ui.changed
 ```
 

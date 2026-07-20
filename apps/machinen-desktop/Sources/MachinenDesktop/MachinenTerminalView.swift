@@ -10,9 +10,11 @@ final class MachinenTerminalView: LocalProcessTerminalView {
     let session: TerminalSession
 
     var onStateChange: ((TerminalSession.State) -> Void)?
+    var onActivityChange: ((TerminalSession.ActivityState) -> Void)?
     var onOutput: ((Data) -> Void)?
 
     private var clientStarted = false
+    private var activityDetector: TerminalActivityDetector?
     private var requestedStateAfterExit: TerminalSession.State?
 
     init(session: TerminalSession) {
@@ -28,6 +30,11 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         nativeBackgroundColor = NSColor(calibratedWhite: 0.105, alpha: 1)
         caretColor = NSColor(calibratedWhite: 0.92, alpha: 1)
         getTerminal().setCursorStyle(.steadyBlock)
+        let detector = TerminalActivityDetector(session: session)
+        detector.onActivityChange = { [weak self] state in
+            self?.onActivityChange?(state)
+        }
+        activityDetector = detector
     }
 
     @available(*, unavailable)
@@ -37,7 +44,11 @@ final class MachinenTerminalView: LocalProcessTerminalView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        guard window != nil else { return }
+        guard window != nil else {
+            activityDetector?.stop()
+            return
+        }
+        activityDetector?.start()
         if session.state == .running || session.state == .starting || session.state == .disconnected {
             attach()
         }

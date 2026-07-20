@@ -90,6 +90,10 @@ Terminals:
 - `terminal_stop`, `terminal_restart`
 - `terminal_output`, `terminal_wait`
 
+Status bar:
+
+- `status_list`, `status_set`, `status_remove`
+
 UI:
 
 - `ui_get`, `ui_select`, `ui_focus`, `ui_enter`

@@ -74,11 +74,12 @@ describe("Machinen MCP tools", () => {
     const tools = await mcpClient.listTools();
     const names = tools.tools.map((tool) => tool.name);
 
-    expect(names).toHaveLength(31);
+    expect(names).toHaveLength(34);
     expect(names).toContain("machinen_get_state");
     expect(names).toContain("workspace_create");
     expect(names).toContain("tile_create");
     expect(names).toContain("terminal_wait");
+    expect(names).toContain("status_set");
     expect(names).toContain("ui_focus");
   });
 

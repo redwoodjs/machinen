@@ -180,7 +180,7 @@ final class WorkspaceClusterView: NSView {
 
         paragraph.alignment = .right
         let count = sessions.count
-        let detail = "\(label)  ·  \(count) \(count == 1 ? "terminal" : "terminals")"
+        let detail = "\(label)  ·  \(count) \(count == 1 ? "terminal" : "terminals")  ·  \(aggregateActivity)"
         let detailAttributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: 15, weight: .regular),
             .foregroundColor: NSColor(calibratedWhite: 0.55, alpha: 1),
@@ -189,6 +189,14 @@ final class WorkspaceClusterView: NSView {
         NSAttributedString(string: detail, attributes: detailAttributes).draw(
             in: NSRect(x: bounds.width * 0.5, y: 21, width: bounds.width * 0.5 - Metrics.padding, height: 24)
         )
+    }
+
+    private var aggregateActivity: String {
+        let states = sessions.map(\.session.activityState)
+        if states.contains(.waiting) { return "waiting" }
+        if states.contains(.working) { return "active" }
+        if !states.isEmpty, states.allSatisfy({ $0 == .idle }) { return "idle" }
+        return "unknown"
     }
 
     override func mouseDown(with event: NSEvent) {

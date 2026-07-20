@@ -7,6 +7,13 @@ const tileId = z.string().min(1).describe("Opaque tile ID from Machinen");
 const terminalId = z.string().min(1).describe("Opaque terminal ID from Machinen");
 const position = z.number().int().min(0).optional().describe("Zero-based visual position");
 const idempotencyKey = z.string().min(1).optional().describe("Optional retry key for this app run");
+const statusScope = z
+  .object({
+    kind: z.enum(["global", "workspace", "terminal"]),
+    id: z.string().min(1).optional(),
+  })
+  .optional()
+  .describe("Global by default; workspace and terminal scopes require the corresponding stable ID");
 
 const launch = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("loginShell") }),
@@ -344,6 +351,53 @@ export function registerMachinenTools(server: McpServer, client: MachinenClient)
         return failedResult(error);
       }
     },
+  );
+
+  server.registerTool(
+    "status_list",
+    {
+      description: "List published and currently effective programmable status-bar widgets.",
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
+    },
+    async () => invoke(client, "status.list"),
+  );
+
+  server.registerTool(
+    "status_set",
+    {
+      description:
+        "Create or update a declarative status-bar widget at global, workspace, or terminal scope.",
+      inputSchema: {
+        id: z.string().min(1).max(128),
+        scope: statusScope,
+        placement: z.enum(["left", "right"]).optional(),
+        kind: z
+          .enum(["text", "count", "state", "progress", "timer", "sparkline", "separator"])
+          .optional(),
+        label: z.string().optional(),
+        value: z.union([z.string(), z.number()]).optional(),
+        progress: z.number().min(0).max(1).optional(),
+        tone: z.enum(["neutral", "good", "busy", "attention", "error"]).optional(),
+        tooltip: z.string().optional(),
+        ttlMilliseconds: z.number().positive().optional(),
+        priority: z.number().int().optional(),
+      },
+    },
+    async (params) => invoke(client, "status.set", params),
+  );
+
+  server.registerTool(
+    "status_remove",
+    {
+      description: "Remove a programmable status-bar widget from one scope.",
+      inputSchema: {
+        id: z.string().min(1).max(128),
+        scope: statusScope,
+      },
+      annotations: { destructiveHint: true },
+    },
+    async (params) => invoke(client, "status.remove", params),
   );
 
   server.registerTool(
