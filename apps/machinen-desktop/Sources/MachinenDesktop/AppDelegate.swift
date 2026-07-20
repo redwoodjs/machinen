@@ -71,8 +71,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         appMenu.addItem(.separator())
         let newWorkspaceItem = NSMenuItem(
-            title: "New Workspace",
-            action: #selector(createNewWorkspace),
+            title: "New Workspace or Terminal",
+            action: #selector(createNewWorkspaceOrTerminal),
             keyEquivalent: "n"
         )
         newWorkspaceItem.keyEquivalentModifierMask = [.command]
@@ -116,8 +116,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = mainMenu
     }
 
-    @objc private func createNewWorkspace() {
-        deck?.createNewWorkspace()
+    @objc private func createNewWorkspaceOrTerminal() {
+        deck?.createNewWorkspaceOrTerminal()
     }
 
     @objc private func toggleCommands() {

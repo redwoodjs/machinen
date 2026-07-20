@@ -1307,18 +1307,31 @@ final class TerminalDeckView: NSView {
         saveSessions()
     }
 
-    func createNewWorkspace() {
+    func createNewWorkspaceOrTerminal() {
         guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
         if commandPalette != nil {
             dismissCommandPalette()
         }
-        let workspace = nextAvailableWorkspaceName()
-        createPersistentSession(
-            workspace: workspace,
-            name: "shell",
-            command: nil,
-            workingDirectory: FileManager.default.homeDirectoryForCurrentUser.path
-        )
+
+        if let currentWorkspace,
+           let workspace = workspaces.first(where: { $0.id == currentWorkspace })
+        {
+            createPersistentSession(
+                workspace: workspace.name,
+                name: nextAvailableSessionName(base: "shell", workspace: workspace.name),
+                command: nil,
+                workingDirectory: selectedSessionTile()?.session.workingDirectory
+                    ?? FileManager.default.homeDirectoryForCurrentUser.path
+            )
+        } else {
+            let workspace = nextAvailableWorkspaceName()
+            createPersistentSession(
+                workspace: workspace,
+                name: "shell",
+                command: nil,
+                workingDirectory: FileManager.default.homeDirectoryForCurrentUser.path
+            )
+        }
     }
 
     func handleCommandW() {
