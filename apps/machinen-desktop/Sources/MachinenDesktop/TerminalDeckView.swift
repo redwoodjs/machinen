@@ -15,6 +15,14 @@ final class TerminalDeckView: NSView {
         case runCommand
     }
 
+    private enum Motion {
+        // Match cmdcmd's quick, symmetric window motion.
+        static let cameraDuration: TimeInterval = 0.20
+        static let peekDuration: TimeInterval = 0.12
+        static let firstControlX: CGFloat = 0.42
+        static let secondControlX: CGFloat = 0.58
+    }
+
     private enum Metrics {
         static let topInset: CGFloat = 58
         static let bottomInset: CGFloat = 54
@@ -373,7 +381,7 @@ final class TerminalDeckView: NSView {
 
     private func moveCamera(
         to destination: NSRect? = nil,
-        duration: TimeInterval = 0.38,
+        duration: TimeInterval = Motion.cameraDuration,
         completion: (@MainActor () -> Void)? = nil
     ) {
         cameraAnimationTimer?.invalidate()
@@ -417,7 +425,7 @@ final class TerminalDeckView: NSView {
         }
         let elapsed = ProcessInfo.processInfo.systemUptime - animation.startedAt
         let linearProgress = min(1, max(0, elapsed / animation.duration))
-        let progress = CGFloat(linearProgress * linearProgress * (3 - 2 * linearProgress))
+        let progress = cameraAnimationProgress(CGFloat(linearProgress))
 
         let widthRatio = animation.target.width / animation.start.width
         let heightRatio = animation.target.height / animation.start.height
@@ -441,6 +449,37 @@ final class TerminalDeckView: NSView {
         restoreInputFocus()
         needsDisplay = true
         animation.completion?()
+    }
+
+    private func cameraAnimationProgress(_ linearProgress: CGFloat) -> CGFloat {
+        var lower: CGFloat = 0
+        var upper: CGFloat = 1
+        for _ in 0..<10 {
+            let parameter = (lower + upper) / 2
+            let x = cubicBezierCoordinate(
+                parameter,
+                firstControl: Motion.firstControlX,
+                secondControl: Motion.secondControlX
+            )
+            if x < linearProgress {
+                lower = parameter
+            } else {
+                upper = parameter
+            }
+        }
+        let parameter = (lower + upper) / 2
+        return cubicBezierCoordinate(parameter, firstControl: 0, secondControl: 1)
+    }
+
+    private func cubicBezierCoordinate(
+        _ parameter: CGFloat,
+        firstControl: CGFloat,
+        secondControl: CGFloat
+    ) -> CGFloat {
+        let inverse = 1 - parameter
+        return 3 * inverse * inverse * parameter * firstControl
+            + 3 * inverse * parameter * parameter * secondControl
+            + parameter * parameter * parameter
     }
 
     override func keyDown(with event: NSEvent) {
@@ -639,14 +678,14 @@ final class TerminalDeckView: NSView {
         clearLabelBuffer()
         isPeeking = true
         peekCameraBounds = sceneView.bounds
-        moveCamera(to: cameraBounds(for: target, viewport: bounds), duration: 0.16)
+        moveCamera(to: cameraBounds(for: target, viewport: bounds), duration: Motion.peekDuration)
     }
 
     private func endPeek() {
         guard isPeeking, let cameraBounds = peekCameraBounds else { return }
         isPeeking = false
         peekCameraBounds = nil
-        moveCamera(to: cameraBounds, duration: 0.16)
+        moveCamera(to: cameraBounds, duration: Motion.peekDuration)
     }
 
     private func activate(_ index: Int) {
