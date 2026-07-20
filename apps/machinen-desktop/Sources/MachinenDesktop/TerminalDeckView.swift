@@ -1,6 +1,14 @@
 import AppKit
 
 final class TerminalDeckView: NSView {
+    private struct CameraAnimation {
+        let start: NSRect
+        let target: NSRect
+        let startedAt: TimeInterval
+        let duration: TimeInterval
+        let completion: (@MainActor () -> Void)?
+    }
+
     private enum PaletteKind {
         case commands
         case newTerminal
@@ -27,7 +35,7 @@ final class TerminalDeckView: NSView {
     private var focusedIndex: Int?
     private var isTransitioning = false
     private var isPeeking = false
-    private var peekCameraFrame: NSRect?
+    private var peekCameraBounds: NSRect?
     private var labelBuffer = ""
     private var isShuttingDown = false
     private var commandPalette: CommandPaletteView?
@@ -35,6 +43,8 @@ final class TerminalDeckView: NSView {
     private var presentedOverlay: NSView?
     private var lastFocusedEscapeAt: TimeInterval?
     private var lastViewportSize = NSSize.zero
+    private var cameraAnimation: CameraAnimation?
+    private var cameraAnimationTimer: Timer?
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
@@ -258,7 +268,6 @@ final class TerminalDeckView: NSView {
         }
         guard !workspaceClusters.isEmpty else {
             workspaceUnion = .zero
-            sceneView.setWorldSize(NSSize(width: bounds.width, height: bounds.height))
             return
         }
 
@@ -293,22 +302,19 @@ final class TerminalDeckView: NSView {
             ).integral
             workspaceUnion = workspaceUnion.union(cluster.frame)
         }
-
-        let worldWidth = (xOffsets.last ?? 0) + (columnWidths.last ?? 0) + Metrics.worldMargin
-        let worldHeight = (yOffsets.last ?? 0) + (rowHeights.last ?? 0) + Metrics.worldMargin
-        sceneView.setWorldSize(NSSize(width: worldWidth, height: worldHeight))
     }
 
-    private func cameraFrame(for target: NSRect, viewport: NSRect) -> NSRect {
-        guard target.width > 0, target.height > 0,
-              sceneView.bounds.width > 0, sceneView.bounds.height > 0
-        else { return bounds }
+    private func cameraBounds(for target: NSRect, viewport: NSRect) -> NSRect {
+        guard !target.isNull, target.width > 0, target.height > 0,
+              viewport.width > 0, viewport.height > 0,
+              bounds.width > 0, bounds.height > 0
+        else { return NSRect(origin: .zero, size: bounds.size) }
         let scale = min(viewport.width / target.width, viewport.height / target.height)
         return NSRect(
-            x: viewport.midX - target.midX * scale,
-            y: viewport.midY - target.midY * scale,
-            width: sceneView.bounds.width * scale,
-            height: sceneView.bounds.height * scale
+            x: target.midX - viewport.midX / scale,
+            y: target.midY - viewport.midY / scale,
+            width: bounds.width / scale,
+            height: bounds.height / scale
         )
     }
 
@@ -321,53 +327,108 @@ final class TerminalDeckView: NSView {
         )
     }
 
-    private func currentCameraFrame() -> NSRect {
+    private func currentCameraBounds() -> NSRect {
         if let focusedIndex {
             let sessions = activeSessionTiles
             if sessions.indices.contains(focusedIndex),
                let cluster = workspaceCluster(named: currentWorkspace),
                let terminalFrame = cluster.frameForSession(sessions[focusedIndex], in: sceneView)
             {
-                return cameraFrame(for: terminalFrame, viewport: bounds)
+                return cameraBounds(for: terminalFrame, viewport: bounds)
             }
         }
         if let cluster = workspaceCluster(named: currentWorkspace) {
-            return cameraFrame(for: cluster.frame, viewport: bounds)
+            return cameraBounds(for: cluster.frame, viewport: bounds)
         }
-        return cameraFrame(
+        return cameraBounds(
             for: workspaceUnion.insetBy(dx: -Metrics.worldMargin / 2, dy: -Metrics.worldMargin / 2),
             viewport: overviewViewport()
         )
     }
 
     private func setCameraImmediately() {
-        sceneView.frame = currentCameraFrame().integral
-        sceneView.restoreWorldBounds()
+        cameraAnimationTimer?.invalidate()
+        cameraAnimationTimer = nil
+        cameraAnimation = nil
+        isTransitioning = false
+
+        // The scene stays viewport-sized. Changing its world-space bounds moves
+        // a camera over stable terminal surfaces instead of resizing the scene.
+        sceneView.frame = bounds
+        sceneView.bounds = currentCameraBounds()
         needsDisplay = true
     }
 
     private func moveCamera(
         to destination: NSRect? = nil,
-        duration: TimeInterval = 0.34,
+        duration: TimeInterval = 0.38,
         completion: (@MainActor () -> Void)? = nil
     ) {
+        cameraAnimationTimer?.invalidate()
+        let target = destination ?? currentCameraBounds()
+        let start = sceneView.bounds
+        guard duration > 0, start.width > 0, start.height > 0,
+              target.width > 0, target.height > 0
+        else {
+            sceneView.bounds = target
+            isTransitioning = false
+            restoreInputFocus()
+            completion?()
+            return
+        }
+
         isTransitioning = true
         needsDisplay = true
-        let target = (destination ?? currentCameraFrame()).integral
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = duration
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            sceneView.animator().frame = target
-        } completionHandler: { [weak self] in
-            Task { @MainActor in
-                guard let self else { return }
-                self.sceneView.restoreWorldBounds()
-                self.isTransitioning = false
-                self.restoreInputFocus()
-                self.needsDisplay = true
-                completion?()
-            }
+        sceneView.frame = bounds
+        cameraAnimation = CameraAnimation(
+            start: start,
+            target: target,
+            startedAt: ProcessInfo.processInfo.systemUptime,
+            duration: duration,
+            completion: completion
+        )
+        let timer = Timer(
+            timeInterval: 1 / 120,
+            target: self,
+            selector: #selector(stepCameraAnimation(_:)),
+            userInfo: nil,
+            repeats: true
+        )
+        cameraAnimationTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    @objc private func stepCameraAnimation(_ timer: Timer) {
+        guard let animation = cameraAnimation else {
+            timer.invalidate()
+            return
         }
+        let elapsed = ProcessInfo.processInfo.systemUptime - animation.startedAt
+        let linearProgress = min(1, max(0, elapsed / animation.duration))
+        let progress = CGFloat(linearProgress * linearProgress * (3 - 2 * linearProgress))
+
+        let widthRatio = animation.target.width / animation.start.width
+        let heightRatio = animation.target.height / animation.start.height
+        let width = animation.start.width * pow(widthRatio, progress)
+        let height = animation.start.height * pow(heightRatio, progress)
+        let centerX = animation.start.midX + (animation.target.midX - animation.start.midX) * progress
+        let centerY = animation.start.midY + (animation.target.midY - animation.start.midY) * progress
+        sceneView.bounds = NSRect(
+            x: centerX - width / 2,
+            y: centerY - height / 2,
+            width: width,
+            height: height
+        )
+
+        guard linearProgress >= 1 else { return }
+        timer.invalidate()
+        cameraAnimationTimer = nil
+        cameraAnimation = nil
+        sceneView.bounds = animation.target
+        isTransitioning = false
+        restoreInputFocus()
+        needsDisplay = true
+        animation.completion?()
     }
 
     override func keyDown(with event: NSEvent) {
@@ -565,15 +626,15 @@ final class TerminalDeckView: NSView {
         guard let target else { return }
         clearLabelBuffer()
         isPeeking = true
-        peekCameraFrame = sceneView.frame
-        moveCamera(to: cameraFrame(for: target, viewport: bounds), duration: 0.16)
+        peekCameraBounds = sceneView.bounds
+        moveCamera(to: cameraBounds(for: target, viewport: bounds), duration: 0.16)
     }
 
     private func endPeek() {
-        guard isPeeking, let frame = peekCameraFrame else { return }
+        guard isPeeking, let cameraBounds = peekCameraBounds else { return }
         isPeeking = false
-        peekCameraFrame = nil
-        moveCamera(to: frame, duration: 0.16)
+        peekCameraBounds = nil
+        moveCamera(to: cameraBounds, duration: 0.16)
     }
 
     private func activate(_ index: Int) {
@@ -1948,25 +2009,6 @@ final class TerminalDeckView: NSView {
 }
 
 private final class CameraSceneView: NSView {
-    private var worldSize = NSSize.zero
-
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
-
-    func setWorldSize(_ size: NSSize) {
-        worldSize = size
-        super.setBoundsSize(size)
-    }
-
-    func restoreWorldBounds() {
-        super.setBoundsOrigin(.zero)
-        super.setBoundsSize(worldSize)
-    }
-
-    override func setFrameSize(_ newSize: NSSize) {
-        super.setFrameSize(newSize)
-        if worldSize.width > 0, worldSize.height > 0 {
-            super.setBoundsSize(worldSize)
-        }
-    }
 }
