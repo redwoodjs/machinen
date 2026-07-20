@@ -97,6 +97,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         commandsItem.target = self
         appMenu.addItem(commandsItem)
 
+        let zoomOutItem = NSMenuItem(
+            title: "Zoom Out",
+            action: #selector(zoomOut),
+            keyEquivalent: String(Character(UnicodeScalar(NSUpArrowFunctionKey)!))
+        )
+        zoomOutItem.keyEquivalentModifierMask = [.command]
+        zoomOutItem.target = self
+        appMenu.addItem(zoomOutItem)
+
         let closeItem = NSMenuItem(
             title: "Close Terminal or Workspace…",
             action: #selector(handleCommandW),
@@ -126,6 +135,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleNewTerminal() {
         deck?.toggleNewTerminalPalette()
+    }
+
+    @objc private func zoomOut() {
+        deck?.zoomOutOneLevel()
     }
 
     @objc private func handleCommandW() {

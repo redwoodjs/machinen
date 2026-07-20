@@ -9,14 +9,11 @@ import SwiftTerm
 final class MachinenTerminalView: LocalProcessTerminalView {
     let session: TerminalSession
 
-    var onDoubleEscape: (() -> Void)?
     var onStateChange: ((TerminalSession.State) -> Void)?
     var onOutput: ((Data) -> Void)?
 
     private var clientStarted = false
     private var requestedStateAfterExit: TerminalSession.State?
-    private var previousEscapeTime: TimeInterval?
-    nonisolated(unsafe) private var keyEventMonitor: Any?
 
     init(session: TerminalSession) {
         self.session = session
@@ -31,20 +28,11 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         nativeBackgroundColor = NSColor(calibratedWhite: 0.105, alpha: 1)
         caretColor = NSColor(calibratedWhite: 0.92, alpha: 1)
         getTerminal().setCursorStyle(.steadyBlock)
-        keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.filterKeyDown(event) ?? event
-        }
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    deinit {
-        if let keyEventMonitor {
-            NSEvent.removeMonitor(keyEventMonitor)
-        }
     }
 
     override func viewDidMoveToWindow() {
@@ -172,22 +160,6 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         requestedStateAfterExit = nil
         session.state = nextState
         onStateChange?(nextState)
-    }
-
-    private func filterKeyDown(_ event: NSEvent) -> NSEvent? {
-        guard event.window === window, window?.firstResponder === self else { return event }
-        if event.keyCode == 53 {
-            let now = ProcessInfo.processInfo.systemUptime
-            if let previousEscapeTime, now - previousEscapeTime <= 0.45 {
-                self.previousEscapeTime = nil
-                onDoubleEscape?()
-                return nil
-            }
-            previousEscapeTime = now
-        } else {
-            previousEscapeTime = nil
-        }
-        return event
     }
 
     private func loginShell() -> String {

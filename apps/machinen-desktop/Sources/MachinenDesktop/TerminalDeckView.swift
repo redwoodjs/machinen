@@ -49,7 +49,6 @@ final class TerminalDeckView: NSView {
     private var commandPalette: CommandPaletteView?
     private var paletteKind: PaletteKind?
     private var presentedOverlay: NSView?
-    private var lastFocusedEscapeAt: TimeInterval?
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
     private var cameraAnimationTimer: Timer?
@@ -182,9 +181,6 @@ final class TerminalDeckView: NSView {
 
     private func installPersistentTerminal(in tile: TerminalTileView) {
         let terminalView = MachinenTerminalView(session: tile.session)
-        terminalView.onDoubleEscape = { [weak self] in
-            self?.leaveFocusedSession()
-        }
         terminalView.onStateChange = { [weak self, weak tile] state in
             guard let self, let tile, !self.isShuttingDown else { return }
             tile.transition(to: state, terminalText: tile.session.terminalText)
@@ -484,14 +480,7 @@ final class TerminalDeckView: NSView {
 
     override func keyDown(with event: NSEvent) {
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
-        if focusedIndex != nil {
-            if modifiers.isEmpty, event.keyCode == 53 {
-                handleFocusedEscape()
-            } else {
-                lastFocusedEscapeAt = nil
-            }
-            return
-        }
+        if focusedIndex != nil { return }
         guard !isTransitioning else { return }
 
         if modifiers == [.command] {
@@ -561,17 +550,6 @@ final class TerminalDeckView: NSView {
             return
         }
         super.keyUp(with: event)
-    }
-
-    private func handleFocusedEscape() {
-        let now = ProcessInfo.processInfo.systemUptime
-        if let previous = lastFocusedEscapeAt, now - previous <= 0.45 {
-            lastFocusedEscapeAt = nil
-            leaveFocusedSession()
-        } else {
-            // A real terminal receives this first Escape immediately.
-            lastFocusedEscapeAt = now
-        }
     }
 
     private func select(_ index: Int) {
@@ -694,7 +672,6 @@ final class TerminalDeckView: NSView {
         else { return }
         select(index)
         clearLabelBuffer()
-        lastFocusedEscapeAt = nil
 
         if currentWorkspace == nil {
             let cluster = workspaceClusters[index]
@@ -724,7 +701,6 @@ final class TerminalDeckView: NSView {
         guard focusedIndex != nil, !isTransitioning else { return }
         let wasSingleton = activeSessionTiles.count == 1
         focusedIndex = nil
-        lastFocusedEscapeAt = nil
         if wasSingleton, let workspace = currentWorkspace {
             selectedIndex = workspaceClusters.firstIndex { $0.workspaceID == workspace } ?? 0
             currentWorkspace = nil
@@ -1001,7 +977,7 @@ final class TerminalDeckView: NSView {
             viewCommand = "View: Show session overview"
         }
         var commands = [
-            PaletteCommand(id: .toggleOverview, title: viewCommand, shortcut: "left⌘ + right⌘"),
+            PaletteCommand(id: .toggleOverview, title: viewCommand, shortcut: "⌘↑"),
             PaletteCommand(id: .newTerminal, title: "Terminal: New in \(session.workspace)…", shortcut: "⌘T"),
         ]
         if activeSessionTiles.count == 1 {
@@ -1305,6 +1281,17 @@ final class TerminalDeckView: NSView {
             tile.session.state = .running
         }
         saveSessions()
+    }
+
+    func zoomOutOneLevel() {
+        guard presentedOverlay == nil, commandPalette == nil,
+              !isTransitioning, !isPeeking
+        else { return }
+        if focusedIndex != nil {
+            leaveFocusedSession()
+        } else if currentWorkspace != nil {
+            showWorkspaceDeck()
+        }
     }
 
     func createNewWorkspaceOrTerminal() {
@@ -2139,7 +2126,7 @@ final class TerminalDeckView: NSView {
         } else if currentWorkspace == nil {
             text = "arrows  select     return  zoom in     hold space  peek"
         } else {
-            text = "esc  zoom out     arrows  select     return  zoom in     ⌘T  new terminal"
+            text = "⌘↑  zoom out     arrows  select     return  zoom in     ⌘T  new terminal"
         }
         NSAttributedString(string: text, attributes: attributes).draw(
             in: NSRect(
