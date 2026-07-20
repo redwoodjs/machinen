@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controller: MachinenController?
     private var apiServer: MachinenAPIServer?
     private var commandChord: CommandChord?
+    private var terminalCycleShortcut: TerminalCycleShortcut?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMainMenu()
@@ -47,6 +48,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         commandChord = CommandChord { [weak deck] in
             deck?.toggleOverview()
         }
+        terminalCycleShortcut = TerminalCycleShortcut { [weak deck] offset in
+            deck?.cycleFocusedTerminal(by: offset) == true
+        }
 
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -56,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        terminalCycleShortcut?.stop()
         apiServer?.stop()
         deck?.prepareForTermination()
     }

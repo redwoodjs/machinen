@@ -8,10 +8,11 @@ enum InteractionTestRunner {
         do {
             try commandNCreatesInTheCurrentSpatialContext()
             try commandArrowsMoveThroughTheHierarchy()
+            try commandLeftAndRightCycleFocusedTerminals()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
             try processSamplesDistinguishInputFromOtherWaits()
             try statusWidgetsInheritBySpatialScope()
-            print("Machinen interaction tests passed (5 scenarios)")
+            print("Machinen interaction tests passed (6 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -61,6 +62,55 @@ enum InteractionTestRunner {
         try expect(try harness.uiLevel(of: deck) == "workspace", "⌘↑ did not leave the terminal")
         deck.zoomOutOneLevel()
         try expect(try harness.uiLevel(of: deck) == "overview", "⌘↑ did not leave the workspace")
+    }
+
+    private static func commandLeftAndRightCycleFocusedTerminals() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 3)])
+        let shortcut = TerminalCycleShortcut { [weak deck] offset in
+            deck?.cycleFocusedTerminal(by: offset) == true
+        }
+        defer { shortcut.stop() }
+
+        deck.zoomInOneLevel()
+        deck.zoomInOneLevel()
+        try expect(
+            try harness.focusedTileID(of: deck) == "tile_alpha_0",
+            "the first terminal was not initially focused"
+        )
+        try expect(
+            try shortcut.process(harness.commandArrow(keyCode: 124)) == nil,
+            "⌘→ was not handled at terminal level"
+        )
+        try expect(
+            try harness.focusedTileID(of: deck) == "tile_alpha_1",
+            "⌘→ did not focus the next terminal"
+        )
+        try expect(
+            try shortcut.process(harness.commandArrow(keyCode: 123)) == nil,
+            "⌘← was not handled at terminal level"
+        )
+        try expect(
+            try harness.focusedTileID(of: deck) == "tile_alpha_0",
+            "⌘← did not focus the previous terminal"
+        )
+        try expect(
+            try shortcut.process(harness.commandArrow(keyCode: 123)) == nil,
+            "wrapping ⌘← was not handled"
+        )
+        try expect(
+            try harness.focusedTileID(of: deck) == "tile_alpha_2",
+            "⌘← did not wrap to the last terminal"
+        )
+        try expect(
+            try shortcut.process(harness.commandArrow(keyCode: 124)) == nil,
+            "wrapping ⌘→ was not handled"
+        )
+        try expect(
+            try harness.focusedTileID(of: deck) == "tile_alpha_0",
+            "⌘→ did not wrap to the first terminal"
+        )
     }
 
     private static func processSamplesDistinguishInputFromOtherWaits() throws {
@@ -229,6 +279,14 @@ private final class Harness {
         return level
     }
 
+    func focusedTileID(of deck: TerminalDeckView) throws -> String? {
+        let result = try deck.performAPIOperation("ui.get", params: [:])
+        guard let object = result as? [String: Any] else {
+            throw InteractionTestFailure("ui.get returned an invalid response")
+        }
+        return object["focusedTileId"] as? String
+    }
+
     func commandPalette(in deck: TerminalDeckView) throws -> CommandPaletteView {
         guard let palette = deck.subviews.compactMap({ $0 as? CommandPaletteView }).last else {
             throw InteractionTestFailure("the command palette did not open")
@@ -257,11 +315,19 @@ private final class Harness {
         view.keyDown(with: try keyEvent(characters: "\r", keyCode: 36))
     }
 
-    private func keyEvent(characters: String, keyCode: UInt16) throws -> NSEvent {
+    func commandArrow(keyCode: UInt16) throws -> NSEvent {
+        try keyEvent(characters: "", keyCode: keyCode, modifierFlags: [.command])
+    }
+
+    private func keyEvent(
+        characters: String,
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags = []
+    ) throws -> NSEvent {
         guard let event = NSEvent.keyEvent(
             with: .keyDown,
             location: .zero,
-            modifierFlags: [],
+            modifierFlags: modifierFlags,
             timestamp: ProcessInfo.processInfo.systemUptime,
             windowNumber: 0,
             context: nil,

@@ -42,6 +42,40 @@ private struct CommandChordState {
     }
 }
 
+@MainActor
+final class TerminalCycleShortcut {
+    private var monitor: Any?
+    private let handler: (Int) -> Bool
+
+    init(handler: @escaping (Int) -> Bool) {
+        self.handler = handler
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            self?.process(event) ?? event
+        }
+    }
+
+    func process(_ event: NSEvent) -> NSEvent? {
+        let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        guard modifiers == [.command] else { return event }
+        let offset: Int
+        switch event.keyCode {
+        case 123:
+            offset = -1
+        case 124:
+            offset = 1
+        default:
+            return event
+        }
+        return handler(offset) ? nil : event
+    }
+
+    func stop() {
+        guard let monitor else { return }
+        NSEvent.removeMonitor(monitor)
+        self.monitor = nil
+    }
+}
+
 /// Recognises cmdcmd's simultaneous left-and-right Command gesture while the
 /// Machinen application is active. A local monitor is enough for the prototype;
 /// a future global overview would require an explicit accessibility interaction.

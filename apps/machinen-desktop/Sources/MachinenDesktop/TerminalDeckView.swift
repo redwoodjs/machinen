@@ -20,6 +20,7 @@ final class TerminalDeckView: NSView {
     private enum Motion {
         // Match cmdcmd's quick, symmetric window motion.
         static let cameraDuration: TimeInterval = 0.20
+        static let terminalSwitchDuration: TimeInterval = 0.12
         static let peekDuration: TimeInterval = 0.12
         static let firstControlX: CGFloat = 0.42
         static let secondControlX: CGFloat = 0.58
@@ -1352,6 +1353,23 @@ final class TerminalDeckView: NSView {
         }
     }
 
+    @discardableResult
+    func cycleFocusedTerminal(by offset: Int) -> Bool {
+        let sessions = activeSessionTiles
+        guard presentedOverlay == nil, commandPalette == nil, !isPeeking,
+              let focusedIndex, sessions.count > 1, offset != 0
+        else { return false }
+
+        let target = (focusedIndex + offset % sessions.count + sessions.count) % sessions.count
+        guard target != focusedIndex else { return false }
+        selectedIndex = target
+        self.focusedIndex = target
+        updateSelection()
+        restoreInputFocus()
+        moveCamera(duration: Motion.terminalSwitchDuration)
+        return true
+    }
+
     func createNewWorkspaceOrTerminal() {
         guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
         if commandPalette != nil {
@@ -2386,6 +2404,8 @@ final class TerminalDeckView: NSView {
             text = "TYPE LABEL  \(labelBuffer)_"
         } else if currentWorkspace == nil {
             text = "arrows  select     return / ⌘↓  zoom in     hold space  peek"
+        } else if focusedIndex != nil, activeSessionTiles.count > 1 {
+            text = "⌘← / ⌘→  switch terminal     ⌘↑  zoom out     ⌘T  new terminal"
         } else {
             text = "⌘↑  zoom out     arrows  select     return / ⌘↓  zoom in     ⌘T  new terminal"
         }

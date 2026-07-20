@@ -17,14 +17,19 @@ The terminal fills the viewport and receives keyboard focus.
 
 ## Navigation
 
-| Input            | Behavior                                          |
-| ---------------- | ------------------------------------------------- |
-| `⌘↓` or `Return` | Move one level in.                                |
-| `⌘↑`             | Move one level out.                               |
-| Arrow keys       | Move the selection at the current overview level. |
-| Single click     | Select; a singleton workspace enters immediately. |
-| Double click     | Enter the selected workspace or terminal.         |
-| Hold Space       | Momentarily peek into the selection.              |
+| Input            | Behavior                                             |
+| ---------------- | ---------------------------------------------------- |
+| `⌘↓` or `Return` | Move one level in.                                   |
+| `⌘↑`             | Move one level out.                                  |
+| `⌘←` / `⌘→`      | From a focused terminal, cycle within its workspace. |
+| Arrow keys       | Move the selection at the current overview level.    |
+| Single click     | Select; a singleton workspace enters immediately.    |
+| Double click     | Enter the selected workspace or terminal.            |
+| Hold Space       | Momentarily peek into the selection.                 |
+
+Focused-terminal cycling wraps at both ends and moves the camera directly to
+the previous or next live terminal in 120 ms. It does not zoom out through the
+workspace deck, reorder tiles, or restart terminal surfaces.
 
 Machinen never interprets an unmodified Escape while a terminal is focused. The
 byte goes directly to the PTY, so terminal programs retain their normal Escape
@@ -113,5 +118,6 @@ by MCP:
 swift run MachinenDesktop --interaction-tests
 ```
 
-It covers contextual `⌘N`, `⌘↓`/`⌘↑` hierarchy navigation, and keyboard-driven
-workspace creation, rename, and close.
+It covers contextual `⌘N`, `⌘↓`/`⌘↑` hierarchy navigation, wrapping
+`⌘←`/`⌘→` focused-terminal cycling, and keyboard-driven workspace creation,
+rename, and close.
