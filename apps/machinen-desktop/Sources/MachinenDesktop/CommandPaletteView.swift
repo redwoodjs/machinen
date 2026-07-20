@@ -2,6 +2,8 @@ import AppKit
 
 struct PaletteCommand {
     enum ID {
+        case newWorkspace
+        case renameWorkspace
         case toggleOverview
         case newTerminal
         case attachSession
@@ -220,7 +222,7 @@ final class CommandPaletteView: NSView {
         let rowsTop = panel.minY + Metrics.headerHeight + Metrics.searchHeight
         if commands.isEmpty {
             drawText(
-                acceptsFreeform ? "The command will run in a new persistent terminal session." : "No matching commands",
+                acceptsFreeform ? "Type a value above, then press Return." : "No matching commands",
                 in: NSRect(x: panel.minX + 14, y: rowsTop + 16, width: panel.width - 28, height: 18),
                 font: .monospacedSystemFont(ofSize: 12, weight: .regular),
                 color: NSColor(calibratedWhite: 0.48, alpha: 1)

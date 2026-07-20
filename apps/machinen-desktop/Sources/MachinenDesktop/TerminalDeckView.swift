@@ -13,6 +13,8 @@ final class TerminalDeckView: NSView {
         case commands
         case newTerminal
         case runCommand
+        case newWorkspace
+        case renameWorkspace
     }
 
     private enum Motion {
@@ -788,22 +790,13 @@ final class TerminalDeckView: NSView {
             dismissCommandPalette()
             if wasCommands { return }
         }
-        guard !isTransitioning, !isPeeking, let session = selectedSession(),
-              let workspace = selectedWorkspace()
-        else { return }
+        guard !isTransitioning, !isPeeking else { return }
 
-        let context: String
-        if currentWorkspace == nil,
-           let cluster = workspaceCluster(named: selectedWorkspaceID())
-        {
-            context = "\(workspace) · \(cluster.sessions.count) \(cluster.sessions.count == 1 ? "terminal" : "terminals")"
-        } else {
-            context = "\(workspace) / \(session.name)"
-        }
+        let context = selectedWorkspace().map { "workspace: \($0)" } ?? "workspaces"
         let palette = CommandPaletteView(
             frame: bounds,
             context: context,
-            commands: paletteCommands(for: session)
+            commands: workspacePaletteCommands()
         )
         palette.layer?.zPosition = 1_000
         palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
@@ -957,63 +950,25 @@ final class TerminalDeckView: NSView {
         window?.makeFirstResponder(self)
     }
 
-    private func paletteCommands(for session: TerminalSession) -> [PaletteCommand] {
-        if currentWorkspace == nil {
-            return [
-                PaletteCommand(id: .toggleOverview, title: "View: Open \(session.workspace)", shortcut: "return / ⌘↓"),
-                PaletteCommand(id: .newTerminal, title: "Terminal: New in \(session.workspace)…", shortcut: "⌘T"),
-                PaletteCommand(id: .showDiagnostics, title: "Workspace: Show diagnostics…", shortcut: ""),
-                PaletteCommand(id: .stopWorkspace, title: "Workspace: Stop \(session.workspace)…", shortcut: ""),
-                PaletteCommand(id: .closeWorkspace, title: "Workspace: Close \(session.workspace)…", shortcut: "⌘W"),
-            ]
-        }
-
-        let viewCommand: String
-        if focusedIndex == nil {
-            viewCommand = "View: Focus selected session"
-        } else if activeSessionTiles.count == 1 {
-            viewCommand = "View: Show all workspaces"
-        } else {
-            viewCommand = "View: Show session overview"
-        }
-        let viewShortcut = focusedIndex == nil ? "⌘↓" : "⌘↑"
+    private func workspacePaletteCommands() -> [PaletteCommand] {
         var commands = [
-            PaletteCommand(id: .toggleOverview, title: viewCommand, shortcut: viewShortcut),
-            PaletteCommand(id: .newTerminal, title: "Terminal: New in \(session.workspace)…", shortcut: "⌘T"),
+            PaletteCommand(id: .newWorkspace, title: "New workspace…", shortcut: ""),
         ]
-        if activeSessionTiles.count == 1 {
-            commands.append(PaletteCommand(
-                id: .closeWorkspace,
-                title: "Workspace: Close \(session.workspace)…",
-                shortcut: "⌘W"
-            ))
-        } else {
-            commands.append(PaletteCommand(
-                id: .closeSession,
-                title: "Session: Close \(session.name)…",
-                shortcut: "⌘W"
-            ))
+        if selectedWorkspace() != nil {
+            commands.append(contentsOf: [
+                PaletteCommand(id: .renameWorkspace, title: "Rename workspace…", shortcut: ""),
+                PaletteCommand(id: .closeWorkspace, title: "Close workspace…", shortcut: ""),
+            ])
         }
-        switch selectedSessionTile()?.currentState {
-        case .detached:
-            commands.append(PaletteCommand(id: .attachSession, title: "Session: Attach viewer", shortcut: ""))
-        case .disconnected:
-            commands.append(PaletteCommand(id: .reconnectSession, title: "Session: Reconnect", shortcut: ""))
-        case .stopped:
-            commands.append(PaletteCommand(id: .restartSession, title: "Session: Restart \(session.name)", shortcut: ""))
-        default:
-            commands.append(PaletteCommand(id: .detachSession, title: "Session: Detach viewer", shortcut: ""))
-            commands.append(PaletteCommand(id: .stopSession, title: "Session: Stop \(session.name)…", shortcut: ""))
-        }
-        commands.append(contentsOf: [
-            PaletteCommand(id: .showDiagnostics, title: "Session: Show diagnostics…", shortcut: ""),
-            PaletteCommand(id: .stopWorkspace, title: "Workspace: Stop \(session.workspace)…", shortcut: ""),
-        ])
         return commands
     }
 
     private func runPaletteCommand(_ command: PaletteCommand, from palette: CommandPaletteView?) {
         switch command.id {
+        case .newWorkspace:
+            showNewWorkspaceNamePalette()
+        case .renameWorkspace:
+            showRenameWorkspacePalette()
         case .toggleOverview:
             dismissCommandPalette()
             toggleOverview()
@@ -1047,6 +1002,83 @@ final class TerminalDeckView: NSView {
         default:
             palette?.showStatus("Prototype only · \(command.title)")
         }
+    }
+
+    private func showNewWorkspaceNamePalette() {
+        dismissCommandPalette()
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "NEW WORKSPACE",
+            context: "workspace name",
+            placeholder: "Enter a name…",
+            defaultFooter: "Names must be non-empty and unique    esc dismiss",
+            commands: [],
+            acceptsFreeform: true
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
+        palette.onSubmit = { [weak self, weak palette] name in
+            guard let self else { return }
+            guard !self.workspaceNameExists(name) else {
+                palette?.showStatus("A workspace named \(name) already exists")
+                return
+            }
+            self.dismissCommandPalette()
+            self.createPersistentSession(
+                workspace: name,
+                name: "shell",
+                command: nil,
+                workingDirectory: FileManager.default.homeDirectoryForCurrentUser.path
+            )
+        }
+        commandPalette = palette
+        paletteKind = .newWorkspace
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
+    private func showRenameWorkspacePalette() {
+        guard let workspaceID = selectedWorkspaceID(),
+              let workspace = workspaces.first(where: { $0.id == workspaceID })
+        else { return }
+        dismissCommandPalette()
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "RENAME WORKSPACE",
+            context: workspace.name,
+            placeholder: "Enter a new name…",
+            defaultFooter: "Names must be non-empty and unique    esc dismiss",
+            commands: [],
+            acceptsFreeform: true
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
+        palette.onSubmit = { [weak self, weak palette] name in
+            guard let self,
+                  let workspace = self.workspaces.first(where: { $0.id == workspaceID })
+            else { return }
+            guard !self.workspaceNameExists(name, excluding: workspaceID) else {
+                palette?.showStatus("A workspace named \(name) already exists")
+                return
+            }
+            workspace.name = name
+            for tile in self.allSessionTiles where tile.session.workspaceID == workspaceID {
+                tile.session.workspace = name
+            }
+            self.dismissCommandPalette()
+            self.rebuildWorkspaceClusters()
+            self.updateSelection()
+            self.saveSessions()
+            self.emitAPIEvent("workspace.updated", data: self.workspaceJSON(workspace))
+        }
+        commandPalette = palette
+        paletteKind = .renameWorkspace
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
+    private func workspaceNameExists(_ name: String, excluding workspaceID: String? = nil) -> Bool {
+        workspaces.contains { $0.id != workspaceID && $0.name == name }
     }
 
     private func presentConfirmation(
