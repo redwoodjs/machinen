@@ -136,6 +136,7 @@ enum InteractionTestRunner {
         let readSample = "Call graph:\n  read  (in libsystem_kernel.dylib) + 8"
         let sleepSample = "Call graph:\n  nanosleep  (in libsystem_c.dylib) + 220"
         let rawEventLoop = "Call graph:\n  kevent  (in libsystem_kernel.dylib) + 8"
+        let rawSSHWait = "Call graph:\n  pselect  (in libsystem_kernel.dylib) + 112"
         try expect(
             TerminalActivityDetector.classifySample(readSample, canonical: true, echo: true) == .waiting,
             "a process blocked in read was not classified as waiting for input"
@@ -148,6 +149,41 @@ enum InteractionTestRunner {
             TerminalActivityDetector.classifySample(rawEventLoop, canonical: false, echo: false) == .waiting,
             "a raw interactive event loop was not classified as waiting"
         )
+        try expect(
+            TerminalActivityDetector.classifySample(rawSSHWait, canonical: false, echo: false) == .waiting,
+            "a quiet raw SSH session was not classified as waiting"
+        )
+
+        let legacyProcesses = """
+         13959 13948 13959 13959 ?? machinen-dtach -A /tmp/legacy.sock
+          4458     1  4458     0 ?? machinen-dtach -A /tmp/legacy.sock
+          4459  4458  4459  7022 ?? /bin/zsh -l
+          7022  4459  7022  7022 ?? ssh -t example pi
+        """
+        let legacy = TerminalActivityDetector.parseLegacyStatus(
+            legacyProcesses,
+            socketPath: "/tmp/legacy.sock"
+        )
+        try expect(legacy?.masterPid == 4458, "the legacy dtach master was not discovered")
+        try expect(legacy?.childPid == 4459, "the legacy login shell was not discovered")
+        try expect(legacy?.foregroundPgrp == 7022, "the legacy foreground process group was not discovered")
+
+        let legacySession = TerminalSession(
+            id: "term_legacy_output",
+            tileID: "tile_legacy_output",
+            label: "lo",
+            workspaceID: "ws_legacy",
+            workspace: "legacy",
+            name: "shell",
+            launch: .loginShell,
+            workingDirectory: FileManager.default.temporaryDirectory.path,
+            state: .running
+        )
+        let detector = TerminalActivityDetector(session: legacySession)
+        var observedActivity: TerminalSession.ActivityState?
+        detector.onActivityChange = { observedActivity = $0 }
+        detector.recordOutput()
+        try expect(observedActivity == .working, "live viewer output did not mark a legacy terminal as working")
     }
 
     private static func statusWidgetsInheritBySpatialScope() throws {

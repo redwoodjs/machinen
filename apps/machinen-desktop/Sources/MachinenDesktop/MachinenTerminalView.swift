@@ -161,6 +161,7 @@ final class MachinenTerminalView: LocalProcessTerminalView {
 
     override func dataReceived(slice: ArraySlice<UInt8>) {
         super.dataReceived(slice: slice)
+        activityDetector?.recordOutput()
         onOutput?(Data(slice))
     }
 

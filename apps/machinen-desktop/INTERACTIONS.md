@@ -88,8 +88,12 @@ as `working`, `waiting`, `idle`, or `unknown`:
 
 The bundled dtach master writes only counters and process/terminal metadata to a
 private `0600` sidecar. It never buffers output content. Detection therefore
-continues while the viewer is detached. Waiting terminals use the attention
-color and workspace headers aggregate `waiting > active > unknown > idle`.
+continues while the viewer is detached. For sessions created by an older dtach
+helper, Machinen discovers the existing master, foreground process group, and
+terminal mode from the local process table and observes live viewer output. This
+compatibility path upgrades activity reporting without restarting the command.
+Waiting terminals use the attention color and workspace headers aggregate
+`waiting > active > unknown > idle`.
 
 ## Programmable status bar
 
