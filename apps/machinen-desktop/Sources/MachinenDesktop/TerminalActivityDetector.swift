@@ -38,8 +38,10 @@ final class TerminalActivityDetector {
     private var observedForegroundPgrp: Int32?
     private var settledQuietState: TerminalSession.ActivityState?
     private var lastReportedState: TerminalSession.ActivityState = .unknown
+    private var lastReportedCommand: String?
 
     var onActivityChange: ((TerminalSession.ActivityState) -> Void)?
+    var onCommandChange: ((String) -> Void)?
 
     init(session: TerminalSession) {
         self.session = session
@@ -106,6 +108,7 @@ final class TerminalActivityDetector {
             waitingEvidence = 0
             settledQuietState = nil
         }
+        reportForegroundCommand(status)
 
         let lastActivity = max(status.lastInputAt, status.lastOutputAt, lastObservedActivityAt)
         if now - lastActivity <= Metrics.recentActivityWindow {
@@ -355,6 +358,20 @@ final class TerminalActivityDetector {
             waitingEvidence = 0
             report(.unknown)
         }
+    }
+
+    private func reportForegroundCommand(_ status: DtachActivityStatus) {
+        let pid = status.foregroundPgrp > 0 ? status.foregroundPgrp : status.childPid
+        guard pid > 0 else { return }
+        var buffer = [CChar](repeating: 0, count: 256)
+        let length = proc_name(pid, &buffer, UInt32(buffer.count))
+        guard length > 0 else { return }
+        let bytes = buffer.prefix(Int(length)).map { UInt8(bitPattern: $0) }
+        let command = String(decoding: bytes, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !command.isEmpty, command != lastReportedCommand else { return }
+        lastReportedCommand = command
+        onCommandChange?(command)
     }
 
     enum SampleVerdict: Equatable {

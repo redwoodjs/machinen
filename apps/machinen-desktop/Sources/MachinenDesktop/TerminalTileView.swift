@@ -8,7 +8,7 @@ enum TileKind {
 final class TerminalTileView: NSView {
     private enum Metrics {
         static let cornerRadius: CGFloat = 7
-        static let headerHeight: CGFloat = 32
+        static let headerHeight: CGFloat = 26
         static let horizontalInset: CGFloat = 10
         static let badgeHeight: CGFloat = 18
     }
@@ -47,6 +47,7 @@ final class TerminalTileView: NSView {
     var isFocused = false {
         didSet {
             layer?.cornerRadius = isFocused ? 0 : Metrics.cornerRadius
+            needsLayout = true
             needsDisplay = true
         }
     }
@@ -87,6 +88,12 @@ final class TerminalTileView: NSView {
 
     func updateActivity(to state: TerminalSession.ActivityState) {
         session.activityState = state
+        updateAccessibilityLabel()
+        needsDisplay = true
+    }
+
+    func updateObservedCommand(_ command: String) {
+        session.observedCommand = command
         updateAccessibilityLabel()
         needsDisplay = true
     }
@@ -182,151 +189,38 @@ final class TerminalTileView: NSView {
     }
 
     private func drawHeader() {
-        let header = NSRect(x: 0, y: 0, width: bounds.width, height: Metrics.headerHeight)
-        NSColor(calibratedWhite: 0.135, alpha: 1).setFill()
-        NSBezierPath(
-            roundedRect: header,
-            xRadius: cornerRadius,
-            yRadius: cornerRadius
-        ).fill()
-
-        // Square the lower header corners while retaining the top radius.
-        NSRect(
-            x: 0,
-            y: cornerRadius,
-            width: bounds.width,
-            height: Metrics.headerHeight - cornerRadius
-        ).fill()
-
-        NSColor(calibratedWhite: 0.25, alpha: 1).setStroke()
-        let divider = NSBezierPath()
-        divider.move(to: NSPoint(x: 0, y: Metrics.headerHeight - 0.5))
-        divider.line(to: NSPoint(x: bounds.width, y: Metrics.headerHeight - 0.5))
-        divider.lineWidth = 1
-        divider.stroke()
-
-        let badgeWidth = max(24, ceil(textSize(session.label, font: Fonts.badge).width) + 10)
+        guard !isFocused else { return }
+        let badgeWidth = max(22, ceil(textSize(session.label, font: Fonts.badge).width) + 9)
         let badgeRect = NSRect(
-            x: isFocused ? 82 : Metrics.horizontalInset,
-            y: (Metrics.headerHeight - Metrics.badgeHeight) / 2,
+            x: Metrics.horizontalInset,
+            y: 4,
             width: badgeWidth,
             height: Metrics.badgeHeight
         )
-        NSColor(calibratedWhite: 0.16, alpha: 1).setFill()
-        NSColor(calibratedWhite: 0.58, alpha: 1).setStroke()
+        NSColor(calibratedWhite: 0.16, alpha: 0.9).setFill()
         let badge = NSBezierPath(roundedRect: badgeRect, xRadius: 3, yRadius: 3)
         badge.fill()
-        badge.lineWidth = 1
-        badge.stroke()
         drawText(
             session.label,
             in: badgeRect,
             font: Fonts.badge,
-            color: .white,
+            color: NSColor(calibratedWhite: 0.72, alpha: 1),
             alignment: .center,
             verticalCenter: true
         )
-
-        let stateText = kind == .workspace ? session.name : displayState.rawValue
-        let stateWidth = ceil(textSize(stateText, font: Fonts.metadata).width)
-        let stateRect = NSRect(
-            x: bounds.width - Metrics.horizontalInset - stateWidth,
-            y: 0,
-            width: stateWidth,
-            height: Metrics.headerHeight
-        )
         drawText(
-            stateText,
-            in: stateRect,
+            showsWorkspaceContext ? session.workspace : session.commandTitle,
+            in: NSRect(
+                x: badgeRect.maxX + 8,
+                y: 0,
+                width: max(0, bounds.width - badgeRect.maxX - Metrics.horizontalInset - 8),
+                height: Metrics.headerHeight
+            ),
             font: Fonts.metadata,
-            color: NSColor(calibratedWhite: 0.60, alpha: 1),
-            alignment: .right,
-            verticalCenter: true
-        )
-
-        let dotRect = NSRect(
-            x: stateRect.minX - 13,
-            y: (Metrics.headerHeight - 7) / 2,
-            width: 7,
-            height: 7
-        )
-        drawStateDot(in: dotRect)
-
-        let titleX = badgeRect.maxX + 8
-        let titleRect = NSRect(
-            x: titleX,
-            y: 0,
-            width: max(0, dotRect.minX - titleX - 9),
-            height: Metrics.headerHeight
-        )
-        let title = switch kind {
-        case .workspace:
-            session.workspace
-        case .session:
-            isFocused || showsWorkspaceContext
-                ? "\(session.workspace) / \(session.name)"
-                : session.name
-        }
-        drawText(
-            title,
-            in: titleRect,
-            font: Fonts.metadata,
-            color: NSColor(calibratedWhite: 0.82, alpha: 1),
+            color: NSColor(calibratedWhite: 0.72, alpha: 1),
             alignment: .left,
             verticalCenter: true
         )
-    }
-
-    private func drawStateDot(in rect: NSRect) {
-        let path = NSBezierPath(ovalIn: rect)
-        NSColor(calibratedWhite: 0.67, alpha: 1).setStroke()
-        path.lineWidth = 1
-
-        switch displayState {
-        case .running:
-            switch session.activityState {
-            case .working:
-                NSColor(calibratedWhite: 0.82, alpha: 1).setFill()
-                path.fill()
-                path.stroke()
-            case .waiting:
-                NSColor.systemOrange.setFill()
-                path.fill()
-                path.stroke()
-            case .idle:
-                path.stroke()
-            case .unknown:
-                let context = NSGraphicsContext.current?.cgContext
-                context?.saveGState()
-                context?.setLineDash(phase: 0, lengths: [2, 2])
-                path.stroke()
-                context?.restoreGState()
-            }
-        case .starting:
-            let context = NSGraphicsContext.current?.cgContext
-            context?.saveGState()
-            context?.setLineDash(phase: 0, lengths: [2, 2])
-            path.stroke()
-            context?.restoreGState()
-        case .stopped, .exited:
-            path.stroke()
-            let line = NSBezierPath()
-            line.move(to: NSPoint(x: rect.minX + 1.5, y: rect.midY))
-            line.line(to: NSPoint(x: rect.maxX - 1.5, y: rect.midY))
-            line.stroke()
-        case .disconnected:
-            path.stroke()
-            let cross = NSBezierPath()
-            cross.move(to: NSPoint(x: rect.minX + 1.5, y: rect.minY + 1.5))
-            cross.line(to: NSPoint(x: rect.maxX - 1.5, y: rect.maxY - 1.5))
-            cross.move(to: NSPoint(x: rect.maxX - 1.5, y: rect.minY + 1.5))
-            cross.line(to: NSPoint(x: rect.minX + 1.5, y: rect.maxY - 1.5))
-            cross.stroke()
-        case .detached:
-            NSColor(calibratedWhite: 0.32, alpha: 1).setFill()
-            path.fill()
-            path.stroke()
-        }
     }
 
     func clusterFrames(in view: NSView) -> [NSRect] {
@@ -364,11 +258,12 @@ final class TerminalTileView: NSView {
     }
 
     private func terminalContentRect() -> NSRect {
-        NSRect(
-            x: 12,
-            y: Metrics.headerHeight + 10,
-            width: max(0, bounds.width - 24),
-            height: max(0, bounds.height - Metrics.headerHeight - 18)
+        if isFocused { return bounds }
+        return NSRect(
+            x: 8,
+            y: Metrics.headerHeight + 4,
+            width: max(0, bounds.width - 16),
+            height: max(0, bounds.height - Metrics.headerHeight - 12)
         )
     }
 
@@ -417,7 +312,7 @@ final class TerminalTileView: NSView {
 
             let headerFontSize = max(6, min(10, frame.width / 28))
             drawText(
-                sessionTile.session.name,
+                sessionTile.session.commandTitle,
                 in: NSRect(x: header.minX + 6, y: header.minY, width: header.width - 12, height: header.height),
                 font: .monospacedSystemFont(ofSize: headerFontSize, weight: .medium),
                 color: NSColor(calibratedWhite: 0.83, alpha: 1),
@@ -467,7 +362,7 @@ final class TerminalTileView: NSView {
 
     private func updateAccessibilityLabel() {
         setAccessibilityLabel(
-            "\(session.workspace), \(session.name), \(displayState.rawValue), \(session.activityState.rawValue)"
+            "\(session.workspace), \(session.commandTitle), \(displayState.rawValue), \(session.activityState.rawValue)"
         )
     }
 

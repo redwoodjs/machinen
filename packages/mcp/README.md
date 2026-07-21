@@ -86,7 +86,7 @@ Tiles:
 
 Terminals:
 
-- `terminal_get`, `terminal_send`, `terminal_signal`
+- `terminal_get`, `terminal_update`, `terminal_send`, `terminal_signal`
 - `terminal_stop`, `terminal_restart`
 - `terminal_output`, `terminal_wait`
 

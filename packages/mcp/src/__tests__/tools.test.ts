@@ -74,11 +74,12 @@ describe("Machinen MCP tools", () => {
     const tools = await mcpClient.listTools();
     const names = tools.tools.map((tool) => tool.name);
 
-    expect(names).toHaveLength(34);
+    expect(names).toHaveLength(35);
     expect(names).toContain("machinen_get_state");
     expect(names).toContain("workspace_create");
     expect(names).toContain("tile_create");
     expect(names).toContain("terminal_wait");
+    expect(names).toContain("terminal_update");
     expect(names).toContain("status_set");
     expect(names).toContain("ui_focus");
   });
@@ -98,6 +99,16 @@ describe("Machinen MCP tools", () => {
       operation: "workspace.create",
       params: { name: "website", workingDirectory: "/tmp/website" },
       idempotencyKey: "workspace-website",
+    });
+
+    const updated = await mcpClient.callTool({
+      name: "terminal_update",
+      arguments: { terminalId: "term_test", title: "reviewing changes" },
+    });
+    expect(updated.isError).not.toBe(true);
+    expect(machinen.requests.at(-1)).toEqual({
+      operation: "terminal.update",
+      params: { terminalId: "term_test", title: "reviewing changes" },
     });
 
     const sent = await mcpClient.callTool({

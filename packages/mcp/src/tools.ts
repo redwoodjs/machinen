@@ -268,6 +268,16 @@ export function registerMachinenTools(server: McpServer, client: MachinenClient)
   );
 
   server.registerTool(
+    "terminal_update",
+    {
+      description:
+        "Set the terminal command title shown by Machinen, or clear it to resume automatic foreground-command detection.",
+      inputSchema: { terminalId, title: z.string().min(1).max(128).nullable() },
+    },
+    async (params) => invoke(client, "terminal.update", params),
+  );
+
+  server.registerTool(
     "terminal_send",
     {
       description:

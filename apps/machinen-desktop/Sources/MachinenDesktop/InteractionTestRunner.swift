@@ -56,10 +56,13 @@ enum InteractionTestRunner {
         ])
 
         try expect(try harness.uiLevel(of: deck) == "overview", "the deck did not start in overview")
+        try expect(try harness.statusTitle(of: deck) == "alpha", "the overview did not title the selected workspace")
         deck.zoomInOneLevel()
         try expect(try harness.uiLevel(of: deck) == "workspace", "⌘↓ did not enter the workspace")
+        try expect(try harness.statusTitle(of: deck) == "alpha", "the workspace did not retain the single bar title")
         deck.zoomInOneLevel()
         try expect(try harness.uiLevel(of: deck) == "terminal", "⌘↓ did not focus the terminal")
+        try expect(try harness.statusTitle(of: deck) == "shell", "the terminal did not title the observed command")
         deck.zoomOutOneLevel()
         try expect(try harness.uiLevel(of: deck) == "workspace", "⌘↑ did not leave the terminal")
         deck.zoomOutOneLevel()
@@ -305,6 +308,26 @@ enum InteractionTestRunner {
             snapshot.terminals.allSatisfy { $0.workingDirectory == projectDirectory.path },
             "a terminal did not inherit the workspace working directory"
         )
+
+        guard let focusedTerminalID = snapshot.terminals.last?.id else {
+            throw InteractionTestFailure("the workspace did not contain a terminal")
+        }
+        _ = try deck.performAPIOperation("terminal.update", params: [
+            "terminalId": focusedTerminalID,
+            "title": "reviewing changes",
+        ])
+        try expect(
+            try harness.statusTitle(of: deck) == "reviewing changes",
+            "an agent-supplied terminal title did not reach the single status bar"
+        )
+        _ = try deck.performAPIOperation("terminal.update", params: [
+            "terminalId": focusedTerminalID,
+            "title": NSNull(),
+        ])
+        try expect(
+            try harness.statusTitle(of: deck) == "shell",
+            "clearing the terminal title did not restore automatic command naming"
+        )
     }
 
     private static func workspacePaletteCreatesRenamesAndClosesWithKeyboard() throws {
@@ -439,6 +462,14 @@ private final class Harness {
         return object["focusedTileId"] as? String
     }
 
+    func statusTitle(of deck: TerminalDeckView) throws -> String? {
+        let result = try deck.performAPIOperation("ui.get", params: [:])
+        guard let object = result as? [String: Any] else {
+            throw InteractionTestFailure("ui.get returned an invalid response")
+        }
+        return object["statusTitle"] as? String
+    }
+
     func commandPalette(in deck: TerminalDeckView) throws -> CommandPaletteView {
         guard let palette = deck.subviews.compactMap({ $0 as? CommandPaletteView }).last else {
             throw InteractionTestFailure("the command palette did not open")
@@ -516,6 +547,7 @@ private struct InteractionSnapshot: Decodable {
     }
 
     struct Terminal: Decodable {
+        let id: String
         let workingDirectory: String
     }
 

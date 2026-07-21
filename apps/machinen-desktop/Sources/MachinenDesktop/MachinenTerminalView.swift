@@ -11,6 +11,7 @@ final class MachinenTerminalView: LocalProcessTerminalView {
 
     var onStateChange: ((TerminalSession.State) -> Void)?
     var onActivityChange: ((TerminalSession.ActivityState) -> Void)?
+    var onCommandChange: ((String) -> Void)?
     var onOutput: ((Data) -> Void)?
 
     private var clientStarted = false
@@ -33,6 +34,9 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         let detector = TerminalActivityDetector(session: session)
         detector.onActivityChange = { [weak self] state in
             self?.onActivityChange?(state)
+        }
+        detector.onCommandChange = { [weak self] command in
+            self?.onCommandChange?(command)
         }
         activityDetector = detector
     }

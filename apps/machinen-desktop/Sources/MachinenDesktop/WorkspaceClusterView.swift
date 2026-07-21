@@ -3,7 +3,7 @@ import AppKit
 final class WorkspaceClusterView: NSView {
     private enum Metrics {
         static let padding: CGFloat = 24
-        static let headerHeight: CGFloat = 62
+        static let headerHeight: CGFloat = 40
         static let gap: CGFloat = 30
         static let cornerRadius: CGFloat = 18
     }
@@ -166,37 +166,35 @@ final class WorkspaceClusterView: NSView {
             border.stroke()
         }
 
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineBreakMode = .byTruncatingTail
-        let titleAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 22, weight: .semibold),
-            .foregroundColor: NSColor(calibratedWhite: 0.88, alpha: 1),
-            .paragraphStyle: paragraph,
-        ]
-        let titleX = isEntered ? 92 : Metrics.padding
-        NSAttributedString(string: workspace, attributes: titleAttributes).draw(
-            in: NSRect(x: titleX, y: 17, width: bounds.width * 0.58, height: 30)
-        )
+        if !isEntered {
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.lineBreakMode = .byTruncatingTail
+            let titleAttributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedSystemFont(ofSize: 18, weight: .semibold),
+                .foregroundColor: NSColor(calibratedWhite: 0.82, alpha: 1),
+                .paragraphStyle: paragraph,
+            ]
+            NSAttributedString(string: workspace, attributes: titleAttributes).draw(
+                in: NSRect(x: Metrics.padding, y: 8, width: bounds.width * 0.58, height: 24)
+            )
 
-        paragraph.alignment = .right
-        let count = sessions.count
-        let detail = "\(label)  ·  \(count) \(count == 1 ? "terminal" : "terminals")  ·  \(aggregateActivity)"
-        let detailAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 15, weight: .regular),
-            .foregroundColor: NSColor(calibratedWhite: 0.55, alpha: 1),
-            .paragraphStyle: paragraph,
-        ]
-        NSAttributedString(string: detail, attributes: detailAttributes).draw(
-            in: NSRect(x: bounds.width * 0.5, y: 21, width: bounds.width * 0.5 - Metrics.padding, height: 24)
-        )
-    }
-
-    private var aggregateActivity: String {
-        let states = sessions.map(\.session.activityState)
-        if states.contains(.waiting) { return "waiting" }
-        if states.contains(.working) { return "active" }
-        if !states.isEmpty, states.allSatisfy({ $0 == .idle }) { return "idle" }
-        return "unknown"
+            paragraph.alignment = .right
+            let count = sessions.count
+            let detail = "\(label) · \(count)"
+            let detailAttributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular),
+                .foregroundColor: NSColor(calibratedWhite: 0.48, alpha: 1),
+                .paragraphStyle: paragraph,
+            ]
+            NSAttributedString(string: detail, attributes: detailAttributes).draw(
+                in: NSRect(
+                    x: bounds.width * 0.5,
+                    y: 10,
+                    width: bounds.width * 0.5 - Metrics.padding,
+                    height: 20
+                )
+            )
+        }
     }
 
     override func mouseDown(with event: NSEvent) {

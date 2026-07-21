@@ -222,6 +222,12 @@ final class TerminalDeckView: NSView {
             self.refreshStatusBar()
             self.emitAPIEvent("terminal.activityChanged", data: self.terminalJSON(tile))
         }
+        terminalView.onCommandChange = { [weak self, weak tile] command in
+            guard let self, let tile, !self.isShuttingDown else { return }
+            tile.updateObservedCommand(command)
+            self.refreshStatusBar()
+            self.emitAPIEvent("terminal.commandChanged", data: self.terminalJSON(tile))
+        }
         terminalView.onOutput = { [weak self, weak tile] data in
             guard let self, let tile else { return }
             self.emitAPIEvent("terminal.output", data: [
@@ -1569,6 +1575,8 @@ final class TerminalDeckView: NSView {
             return try apiDeleteTile(try requireTile(params))
         case "terminal.get":
             return terminalJSON(try requireTerminal(params))
+        case "terminal.update":
+            return try apiUpdateTerminal(params)
         case "terminal.send":
             return try apiSendTerminal(params)
         case "terminal.signal":
@@ -1880,6 +1888,30 @@ final class TerminalDeckView: NSView {
         setCameraImmediately()
         saveSessions()
         emitAPIEvent("tile.deleted", data: result)
+        return result
+    }
+
+    private func apiUpdateTerminal(_ params: JSONObject) throws -> Any {
+        let tile = try requireTerminal(params)
+        guard let requested = params["title"] else {
+            throw MachinenAPIError("invalid_params", "title is required")
+        }
+        if requested is NSNull {
+            tile.session.titleOverride = nil
+        } else if let title = requested as? String {
+            let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, trimmed.count <= 128 else {
+                throw MachinenAPIError("invalid_params", "title must contain 1 to 128 characters")
+            }
+            tile.session.titleOverride = trimmed
+        } else {
+            throw MachinenAPIError("invalid_params", "title must be a string or null")
+        }
+        tile.needsDisplay = true
+        saveSessions()
+        refreshStatusBar()
+        let result = terminalJSON(tile)
+        emitAPIEvent("terminal.updated", data: result)
         return result
     }
 
@@ -2230,6 +2262,9 @@ final class TerminalDeckView: NSView {
             "tileId": session.tileID,
             "workingDirectory": session.workingDirectory,
             "launch": launchJSON(session.launch),
+            "title": session.commandTitle,
+            "titleOverride": session.titleOverride ?? NSNull(),
+            "observedCommand": session.observedCommand ?? NSNull(),
             "processState": processState(session.state),
             "activityState": session.activityState.rawValue,
             "viewerState": session.state == .detached ? "detached" : "attached",
@@ -2244,6 +2279,7 @@ final class TerminalDeckView: NSView {
             "selectedWorkspaceId": selectedWorkspaceID() ?? NSNull(),
             "selectedTileId": selectedTile?.session.tileID ?? NSNull(),
             "focusedTileId": focusedIndex == nil ? NSNull() : (selectedTile?.session.tileID ?? NSNull()),
+            "statusTitle": statusBarView.title,
         ]
     }
 
@@ -2379,13 +2415,18 @@ final class TerminalDeckView: NSView {
 
         let workspaceID = selectedWorkspaceID()
         let focusedTerminalID = focusedIndex == nil ? nil : selectedSession()?.id
-        let workspaceName = workspaceID.flatMap { id in workspaces.first { $0.id == id }?.name }
+        let workspace = selectedWorkspaceRecord()
         if let terminal = focusedTerminalID.flatMap({ id in allSessionTiles.first { $0.session.id == id } }) {
-            statusBarView.breadcrumb = "MACHINEN / \(terminal.session.workspace) / \(terminal.session.name)"
-        } else if let workspaceName, currentWorkspace != nil {
-            statusBarView.breadcrumb = "MACHINEN / \(workspaceName)"
+            statusBarView.title = terminal.session.commandTitle
+            statusBarView.titleTooltip = workspace.map {
+                "\($0.name) · \($0.workingDirectory)"
+            }
+        } else if let workspace {
+            statusBarView.title = workspace.name
+            statusBarView.titleTooltip = workspace.workingDirectory
         } else {
-            statusBarView.breadcrumb = "MACHINEN · \(workspaceClusters.count) WORKSPACES"
+            statusBarView.title = "MACHINEN"
+            statusBarView.titleTooltip = nil
         }
 
         statusMetricsMonitor.setContext(

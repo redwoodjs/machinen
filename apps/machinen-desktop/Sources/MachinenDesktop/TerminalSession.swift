@@ -97,6 +97,21 @@ final class TerminalSession: Codable {
     var workingDirectory: String
     var state: State
     var activityState: ActivityState
+    var titleOverride: String?
+    var observedCommand: String?
+
+    var commandTitle: String {
+        if let titleOverride, !titleOverride.isEmpty { return titleOverride }
+        if let observedCommand, !observedCommand.isEmpty { return observedCommand }
+        switch launch.kind {
+        case .loginShell:
+            return "shell"
+        case .shellCommand:
+            return launch.command ?? "command"
+        case .exec:
+            return launch.executable.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "command"
+        }
+    }
 
     init(
         id: String = "term_" + UUID().uuidString.lowercased(),
@@ -108,7 +123,8 @@ final class TerminalSession: Codable {
         launch: TerminalLaunch,
         workingDirectory: String,
         state: State = .starting,
-        activityState: ActivityState = .unknown
+        activityState: ActivityState = .unknown,
+        titleOverride: String? = nil
     ) {
         self.id = id
         self.tileID = tileID
@@ -120,6 +136,8 @@ final class TerminalSession: Codable {
         self.workingDirectory = workingDirectory
         self.state = state
         self.activityState = activityState
+        self.titleOverride = titleOverride
+        observedCommand = nil
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -134,6 +152,7 @@ final class TerminalSession: Codable {
         case workingDirectory
         case state
         case activityState
+        case titleOverride
     }
 
     required init(from decoder: Decoder) throws {
@@ -155,6 +174,8 @@ final class TerminalSession: Codable {
         workingDirectory = try container.decode(String.self, forKey: .workingDirectory)
         state = try container.decode(State.self, forKey: .state)
         activityState = try container.decodeIfPresent(ActivityState.self, forKey: .activityState) ?? .unknown
+        titleOverride = try container.decodeIfPresent(String.self, forKey: .titleOverride)
+        observedCommand = nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -169,6 +190,7 @@ final class TerminalSession: Codable {
         try container.encode(workingDirectory, forKey: .workingDirectory)
         try container.encode(state, forKey: .state)
         try container.encode(activityState, forKey: .activityState)
+        try container.encodeIfPresent(titleOverride, forKey: .titleOverride)
     }
 
     var socketPath: String {

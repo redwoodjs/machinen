@@ -94,16 +94,21 @@ continues while the viewer is detached. For sessions created by an older dtach
 helper, Machinen discovers the existing master, foreground process group, and
 terminal mode from the local process table and observes live viewer output. This
 compatibility path upgrades activity reporting without restarting the command.
-Waiting terminals use the attention color and workspace headers aggregate
-`waiting > active > unknown > idle`.
+The single status bar renders terminals as spatially ordered activity pips;
+waiting and failed terminals receive attention and error tones.
 
 ## Programmable status bar
 
-The breadcrumb is fixed. The top-right strip is graphical at rest: terminal
-activity uses spatially ordered pips, Git changes use paired diff bars, system
-CPU uses an area graph, host network transfer uses mirrored lines, progress uses a ring, and
-listening project services use health rings. Hover reveals labels and exact
-values.
+Machinen has one persistent status bar. At workspace level its title is the
+workspace name and hovering it reveals the bound path. At terminal level the
+title becomes the automatically observed foreground command. An MCP client can
+set a persistent title override with `terminal_update`, or clear it to return to
+automatic detection.
+
+The top-right strip is graphical at rest: terminal activity uses spatially
+ordered pips, Git changes use paired diff bars, system CPU uses an area graph,
+host network transfer uses mirrored lines, progress uses a ring, and listening
+project services use health rings. Hover reveals labels and exact values.
 
 Programs can publish scoped text, count, state, progress, timer, sparkline, and
 separator widgets through `status.set`, `status.list`, and `status.remove`.

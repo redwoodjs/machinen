@@ -214,11 +214,18 @@ The result contains both `tile` and `terminal`.
 ## Terminals
 
 - `terminal.get { terminalId }`
+- `terminal.update { terminalId, title }`
+- `terminal.update { terminalId, title: null }`
 - `terminal.send { terminalId, text, appendNewline? }`
 - `terminal.send { terminalId, dataBase64 }`
 - `terminal.signal { terminalId, signal }`
 - `terminal.stop { terminalId }`
 - `terminal.restart { terminalId, focus? }`
+
+Machinen automatically derives the status-bar terminal title from the foreground
+process. `terminal.update` sets a persistent title override for agentic systems;
+setting `title` to `null` resumes automatic detection. It changes presentation,
+not the running process or saved launch definition.
 
 Supported signals are `interrupt`, `terminate`, `kill`, and `hangup`. Exactly one
 of `text` and `dataBase64` is required by `terminal.send`. Input goes to the
@@ -233,8 +240,10 @@ detach a tile, stop a terminal, or delete a stopped tile.
 - `status.set { ...widget }`
 - `status.remove { id, scope? }`
 
-The breadcrumb remains fixed. Programs can publish declarative widgets beside
-it without injecting arbitrary AppKit views:
+There is one persistent status bar. Its title is the selected workspace at the
+workspace level and the foreground command at the terminal level; hovering a
+workspace title reveals its bound path. Programs can publish declarative widgets
+beside the title without injecting arbitrary AppKit views:
 
 ```json
 {
@@ -332,6 +341,8 @@ tile.viewerChanged
 tile.deleted
 terminal.stateChanged
 terminal.activityChanged
+terminal.commandChanged
+terminal.updated
 terminal.output
 status.changed
 ui.changed

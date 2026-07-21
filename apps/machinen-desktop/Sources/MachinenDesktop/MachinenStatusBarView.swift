@@ -138,7 +138,11 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
         let rect: NSRect
     }
 
-    var breadcrumb = "MACHINEN" {
+    var title = "MACHINEN" {
+        didSet { needsDisplay = true }
+    }
+
+    var titleTooltip: String? {
         didSet { needsDisplay = true }
     }
 
@@ -147,6 +151,7 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
     }
 
     private var widgetFrames: [WidgetFrame] = []
+    private var titleFrame = NSRect.zero
     private var tooltipRegions: [String: (tag: NSView.ToolTipTag, rect: NSRect)] = [:]
     private var tooltipWidgetIDs: [NSView.ToolTipTag: String] = [:]
     private var tooltipTextByID: [String: String] = [:]
@@ -157,7 +162,8 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
     override var isOpaque: Bool { false }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
-        widgetFrames.contains(where: { $0.rect.contains(point) }) ? self : nil
+        if titleTooltip != nil, titleFrame.contains(point) { return self }
+        return widgetFrames.contains(where: { $0.rect.contains(point) }) ? self : nil
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -176,13 +182,14 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
             width: max(0, bounds.width - Metrics.leftInset - Metrics.rightInset),
             height: 16
         )
-        let breadcrumbWidth = drawText(
-            breadcrumb,
+        let titleWidth = drawText(
+            title,
             at: baseline.origin,
             color: NSColor(calibratedWhite: 0.72, alpha: 1),
             weight: .semibold
         )
-        var leftX = baseline.minX + breadcrumbWidth + Metrics.sectionGap
+        titleFrame = NSRect(x: baseline.minX, y: 8, width: titleWidth, height: 24)
+        var leftX = baseline.minX + titleWidth + Metrics.sectionGap
         var rightX = bounds.width - Metrics.rightInset
         var frames: [WidgetFrame] = []
 
@@ -547,7 +554,9 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
     }
 
     private func updateTooltips() {
-        let activeIDs = Set(widgetFrames.map(\.widget.id))
+        let titleID = "machinen.status.title"
+        var activeIDs = Set(widgetFrames.map(\.widget.id))
+        if titleTooltip != nil { activeIDs.insert(titleID) }
         for id in Array(tooltipRegions.keys) where !activeIDs.contains(id) {
             guard let region = tooltipRegions.removeValue(forKey: id) else { continue }
             removeToolTip(region.tag)
@@ -562,19 +571,23 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
                 .compactMap { $0 }
                 .joined(separator: " ")
             guard !tooltip.isEmpty else { continue }
-            tooltipTextByID[frame.widget.id] = tooltip
-
-            if let existing = tooltipRegions[frame.widget.id], existing.rect == frame.rect {
-                continue
-            }
-            if let existing = tooltipRegions.removeValue(forKey: frame.widget.id) {
-                removeToolTip(existing.tag)
-                tooltipWidgetIDs.removeValue(forKey: existing.tag)
-            }
-            let tag = addToolTip(frame.rect, owner: self, userData: nil)
-            tooltipRegions[frame.widget.id] = (tag, frame.rect)
-            tooltipWidgetIDs[tag] = frame.widget.id
+            setTooltip(id: frame.widget.id, rect: frame.rect, text: tooltip)
         }
+        if let titleTooltip {
+            setTooltip(id: titleID, rect: titleFrame, text: titleTooltip)
+        }
+    }
+
+    private func setTooltip(id: String, rect: NSRect, text: String) {
+        tooltipTextByID[id] = text
+        if let existing = tooltipRegions[id], existing.rect == rect { return }
+        if let existing = tooltipRegions.removeValue(forKey: id) {
+            removeToolTip(existing.tag)
+            tooltipWidgetIDs.removeValue(forKey: existing.tag)
+        }
+        let tag = addToolTip(rect, owner: self, userData: nil)
+        tooltipRegions[id] = (tag, rect)
+        tooltipWidgetIDs[tag] = id
     }
 
     func view(
