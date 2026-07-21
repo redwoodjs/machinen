@@ -93,6 +93,7 @@ Terminals:
 Status bar:
 
 - `status_list`, `status_set`, `status_remove`
+- Graphical widgets accept primary/secondary samples, line/area/bar/mirrored styles, progress rings, and semantic state pips.
 
 UI:
 

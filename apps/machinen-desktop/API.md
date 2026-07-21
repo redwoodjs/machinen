@@ -234,11 +234,13 @@ it without injecting arbitrary AppKit views:
   "id": "git.modified",
   "scope": { "kind": "workspace", "id": "ws_123" },
   "placement": "right",
-  "kind": "count",
+  "kind": "sparkline",
   "label": "modified",
-  "value": 3,
+  "graphStyle": "bars",
+  "samples": [2, 8, 3, 1],
+  "secondarySamples": [0, 2, 5, 1],
   "tone": "attention",
-  "tooltip": "3 files have uncommitted changes",
+  "tooltip": "4 files have uncommitted changes",
   "ttlMilliseconds": 5000,
   "priority": 70
 }
@@ -248,9 +250,14 @@ Scopes are `global`, `workspace`, and `terminal`. A non-global scope requires a
 stable workspace or terminal ID. More specific widgets replace less specific
 widgets with the same `id`. Kinds are `text`, `count`, `state`, `progress`,
 `timer`, `sparkline`, and `separator`; tones are `neutral`, `good`, `busy`,
-`attention`, and `error`. Progress is a number from 0 to 1. A TTL removes stale
-live data automatically. `status.list` returns both published widgets and the
-currently effective widgets after inheritance and built-in activity indicators.
+`attention`, and `error`. Progress is a number from 0 to 1. Graph styles are
+`line`, `area`, `bars`, and `mirrored`; `samples` and `secondarySamples` accept
+up to 60 finite numbers. A state widget can render up to 32 graphical pips from
+`working`, `waiting`, `idle`, `unknown`, `good`, `busy`, `attention`, and
+`error`. Labels and values remain available to API clients and hover tooltips,
+but graphical widgets do not render them at rest. A TTL removes stale live data
+automatically. `status.list` returns both published widgets and the currently
+effective widgets after inheritance and built-in activity indicators.
 
 ## UI
 

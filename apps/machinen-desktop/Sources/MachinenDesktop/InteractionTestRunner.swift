@@ -12,7 +12,8 @@ enum InteractionTestRunner {
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
             try processSamplesDistinguishInputFromOtherWaits()
             try statusWidgetsInheritBySpatialScope()
-            print("Machinen interaction tests passed (6 scenarios)")
+            try graphicalStatusWidgetsRender()
+            print("Machinen interaction tests passed (7 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -209,6 +210,19 @@ enum InteractionTestRunner {
             effective.first(where: { $0.id == "git.modified" })?.value == "3",
             "the workspace widget did not override the global widget"
         )
+        _ = try deck.performAPIOperation("status.set", params: [
+            "id": "network.graph",
+            "kind": "sparkline",
+            "graphStyle": "mirrored",
+            "samples": [1, 4, 2],
+            "secondarySamples": [2, 1, 3],
+            "tooltip": "network transfer",
+        ])
+        effective = try harness.effectiveStatusWidgets(of: deck)
+        let graph = effective.first(where: { $0.id == "network.graph" })
+        try expect(graph?.graphStyle == "mirrored", "the graphical widget style was not retained")
+        try expect(graph?.samples == [1, 4, 2], "the graphical widget samples were not retained")
+
         _ = try deck.performAPIOperation("status.remove", params: [
             "id": "git.modified",
             "scope": ["kind": "workspace", "id": "ws_alpha"],
@@ -218,6 +232,56 @@ enum InteractionTestRunner {
             effective.first(where: { $0.id == "git.modified" })?.value == "1",
             "removing the workspace widget did not restore the global widget"
         )
+    }
+
+    private static func graphicalStatusWidgetsRender() throws {
+        let view = MachinenStatusBarView(frame: NSRect(x: 0, y: 0, width: 900, height: 40))
+        func widget(
+            _ id: String,
+            _ kind: MachinenStatusWidget.Kind,
+            _ tone: MachinenStatusWidget.Tone,
+            _ progress: Double?,
+            _ style: MachinenStatusWidget.GraphStyle?,
+            _ samples: [Double],
+            _ secondary: [Double],
+            _ states: [String]
+        ) -> MachinenStatusWidget {
+            MachinenStatusWidget(
+                id: id,
+                scopeKind: .global,
+                scopeID: nil,
+                placement: .right,
+                kind: kind,
+                label: id,
+                value: "",
+                progress: progress,
+                tone: tone,
+                tooltip: id,
+                priority: 50,
+                expiresAt: nil,
+                graphStyle: style,
+                samples: samples,
+                secondarySamples: secondary,
+                states: states
+            )
+        }
+        view.widgets = [
+            widget("activity", .state, .busy, nil, nil, [], [], ["working", "waiting", "idle", "unknown"]),
+            widget("progress", .progress, .good, 0.62, nil, [], [], []),
+            widget("cpu", .sparkline, .busy, nil, .area, [0.1, 0.6, 0.3], [], []),
+            widget("git", .sparkline, .attention, nil, .bars, [2, 8, 3], [1, 0, 4], []),
+            widget("network", .sparkline, .busy, nil, .mirrored, [1, 4, 2], [3, 1, 5], []),
+            widget("services", .state, .good, nil, nil, [], [], ["good", "good"]),
+        ]
+        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+            throw InteractionTestFailure("could not allocate a graphical status-bar bitmap")
+        }
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        let png = bitmap.representation(using: .png, properties: [:])
+        try expect((png?.count ?? 0) > 1_000, "the graphical status bar rendered an empty image")
+        if let path = ProcessInfo.processInfo.environment["MACHINEN_STATUS_PREVIEW_PATH"], let png {
+            try png.write(to: URL(fileURLWithPath: path))
+        }
     }
 
     private static func workspacePaletteCreatesRenamesAndClosesWithKeyboard() throws {
@@ -404,6 +468,8 @@ private struct StatusListSnapshot: Decodable {
 private struct StatusWidgetSnapshot: Decodable {
     let id: String
     let value: String
+    let graphStyle: String?
+    let samples: [Double]?
 }
 
 private struct InteractionSnapshot: Decodable {

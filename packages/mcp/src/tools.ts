@@ -378,6 +378,15 @@ export function registerMachinenTools(server: McpServer, client: MachinenClient)
         label: z.string().optional(),
         value: z.union([z.string(), z.number()]).optional(),
         progress: z.number().min(0).max(1).optional(),
+        graphStyle: z.enum(["line", "area", "bars", "mirrored"]).optional(),
+        samples: z.array(z.number().finite()).max(60).optional(),
+        secondarySamples: z.array(z.number().finite()).max(60).optional(),
+        states: z
+          .array(
+            z.enum(["working", "waiting", "idle", "unknown", "good", "busy", "attention", "error"]),
+          )
+          .max(32)
+          .optional(),
         tone: z.enum(["neutral", "good", "busy", "attention", "error"]).optional(),
         tooltip: z.string().optional(),
         ttlMilliseconds: z.number().positive().optional(),

@@ -106,5 +106,27 @@ describe("Machinen MCP tools", () => {
       bytesWritten: 6,
       outputCursor: 12,
     });
+
+    const graph = await mcpClient.callTool({
+      name: "status_set",
+      arguments: {
+        id: "network",
+        kind: "sparkline",
+        graphStyle: "mirrored",
+        samples: [1, 4, 2],
+        secondarySamples: [2, 1, 3],
+      },
+    });
+    expect(graph.isError).not.toBe(true);
+    expect(machinen.requests.at(-1)).toEqual({
+      operation: "status.set",
+      params: {
+        id: "network",
+        kind: "sparkline",
+        graphStyle: "mirrored",
+        samples: [1, 4, 2],
+        secondarySamples: [2, 1, 3],
+      },
+    });
   });
 });

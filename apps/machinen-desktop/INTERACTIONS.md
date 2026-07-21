@@ -97,12 +97,18 @@ Waiting terminals use the attention color and workspace headers aggregate
 
 ## Programmable status bar
 
-The breadcrumb is fixed. Programs can publish scoped text, count, state,
-progress, timer, sparkline, and separator widgets through `status.set`,
-`status.list`, and `status.remove`. Workspace widgets override global widgets;
-terminal widgets override workspace widgets with the same ID. TTLs remove stale
-live data. Built-in waiting, active, idle, and failed counts use the same visual
-primitives.
+The breadcrumb is fixed. The top-right strip is graphical at rest: terminal
+activity uses spatially ordered pips, Git changes use paired diff bars, system
+CPU uses an area graph, host network transfer uses mirrored lines, progress uses a ring, and
+listening project services use health rings. Hover reveals labels and exact
+values.
+
+Programs can publish scoped text, count, state, progress, timer, sparkline, and
+separator widgets through `status.set`, `status.list`, and `status.remove`.
+Sparklines accept line, area, bars, and mirrored styles with primary and
+secondary sample arrays. State widgets accept arrays of semantic pip states.
+Workspace widgets override global widgets; terminal widgets override workspace
+widgets with the same ID. TTLs remove stale live data.
 
 ## Closing
 
@@ -123,6 +129,9 @@ by MCP:
 ```sh
 swift run MachinenDesktop --interaction-tests
 ```
+
+Set `MACHINEN_STATUS_PREVIEW_PATH=/tmp/machinen-status.png` to also save the
+offscreen graphical status-bar fixture for visual review.
 
 It covers contextual `⌘N`, `⌘↓`/`⌘↑` hierarchy navigation, wrapping
 `⌘←`/`⌘→` focused-terminal cycling, and keyboard-driven workspace creation,
