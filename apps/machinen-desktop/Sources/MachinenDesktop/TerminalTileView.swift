@@ -8,7 +8,7 @@ enum TileKind {
 final class TerminalTileView: NSView {
     private enum Metrics {
         static let cornerRadius: CGFloat = 7
-        static let headerHeight: CGFloat = 26
+        static let captionHeight: CGFloat = 40
         static let horizontalInset: CGFloat = 10
         static let badgeHeight: CGFloat = 18
     }
@@ -33,21 +33,17 @@ final class TerminalTileView: NSView {
         didSet { needsDisplay = true }
     }
 
-    var showsWorkspaceContext = false {
-        didSet { needsDisplay = true }
-    }
-
     var simulationTick = 38 {
         didSet { needsDisplay = true }
     }
 
     var currentState: TerminalSession.State { displayState }
     var currentTerminalText: String { displayTerminalText }
+    var terminalViewportRect: NSRect { terminalContentRect() }
 
     var isFocused = false {
         didSet {
             layer?.cornerRadius = isFocused ? 0 : Metrics.cornerRadius
-            needsLayout = true
             needsDisplay = true
         }
     }
@@ -157,7 +153,7 @@ final class TerminalTileView: NSView {
         super.draw(dirtyRect)
 
         drawBackground()
-        drawHeader()
+        drawCaption()
         drawTerminal()
         drawBorder()
     }
@@ -188,36 +184,35 @@ final class TerminalTileView: NSView {
         ).fill()
     }
 
-    private func drawHeader() {
+    private func drawCaption() {
         guard !isFocused else { return }
-        let badgeWidth = max(22, ceil(textSize(session.label, font: Fonts.badge).width) + 9)
+        let badgeWidth = max(22, CGFloat(session.label.count * 7 + 9))
         let badgeRect = NSRect(
             x: Metrics.horizontalInset,
-            y: 4,
+            y: (Metrics.captionHeight - Metrics.badgeHeight) / 2,
             width: badgeWidth,
             height: Metrics.badgeHeight
         )
         NSColor(calibratedWhite: 0.16, alpha: 0.9).setFill()
-        let badge = NSBezierPath(roundedRect: badgeRect, xRadius: 3, yRadius: 3)
-        badge.fill()
+        NSBezierPath(roundedRect: badgeRect, xRadius: 3, yRadius: 3).fill()
         drawText(
             session.label,
             in: badgeRect,
-            font: Fonts.badge,
-            color: NSColor(calibratedWhite: 0.72, alpha: 1),
+            font: .monospacedSystemFont(ofSize: 10, weight: .bold),
+            color: NSColor(calibratedWhite: 0.7, alpha: 1),
             alignment: .center,
             verticalCenter: true
         )
         drawText(
-            showsWorkspaceContext ? session.workspace : session.commandTitle,
+            session.commandTitle,
             in: NSRect(
                 x: badgeRect.maxX + 8,
                 y: 0,
                 width: max(0, bounds.width - badgeRect.maxX - Metrics.horizontalInset - 8),
-                height: Metrics.headerHeight
+                height: Metrics.captionHeight
             ),
-            font: Fonts.metadata,
-            color: NSColor(calibratedWhite: 0.72, alpha: 1),
+            font: .monospacedSystemFont(ofSize: 11, weight: .regular),
+            color: NSColor(calibratedWhite: 0.7, alpha: 1),
             alignment: .left,
             verticalCenter: true
         )
@@ -258,12 +253,11 @@ final class TerminalTileView: NSView {
     }
 
     private func terminalContentRect() -> NSRect {
-        if isFocused { return bounds }
-        return NSRect(
-            x: 8,
-            y: Metrics.headerHeight + 4,
-            width: max(0, bounds.width - 16),
-            height: max(0, bounds.height - Metrics.headerHeight - 12)
+        NSRect(
+            x: 0,
+            y: Metrics.captionHeight,
+            width: bounds.width,
+            height: max(0, bounds.height - Metrics.captionHeight)
         )
     }
 
@@ -394,14 +388,9 @@ final class TerminalTileView: NSView {
         string.draw(with: target, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
     }
 
-    private func textSize(_ text: String, font: NSFont) -> NSSize {
-        (text as NSString).size(withAttributes: [.font: font])
-    }
 }
 
 @MainActor
 private enum Fonts {
-    static let badge = NSFont.monospacedSystemFont(ofSize: 10, weight: .bold)
-    static let metadata = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
     static let terminal = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
 }

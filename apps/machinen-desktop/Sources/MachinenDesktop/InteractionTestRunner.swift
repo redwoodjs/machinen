@@ -14,7 +14,8 @@ enum InteractionTestRunner {
             try statusWidgetsInheritBySpatialScope()
             try graphicalStatusWidgetsRender()
             try workspaceWorkingDirectoryBindsTerminals()
-            print("Machinen interaction tests passed (8 scenarios)")
+            try terminalViewportRemainsStableAcrossFocus()
+            print("Machinen interaction tests passed (9 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -327,6 +328,33 @@ enum InteractionTestRunner {
         try expect(
             try harness.statusTitle(of: deck) == "shell",
             "clearing the terminal title did not restore automatic command naming"
+        )
+    }
+
+    private static func terminalViewportRemainsStableAcrossFocus() throws {
+        let session = TerminalSession(
+            id: "term_stable_viewport",
+            tileID: "tile_stable_viewport",
+            label: "sv",
+            workspaceID: "ws_stable",
+            workspace: "stable",
+            name: "shell",
+            launch: .loginShell,
+            workingDirectory: FileManager.default.temporaryDirectory.path,
+            state: .running
+        )
+        let tile = TerminalTileView(session: session)
+        tile.frame = NSRect(x: 0, y: 0, width: 1_200, height: 760)
+        tile.bounds = NSRect(x: 0, y: 0, width: 1_200, height: 760)
+        let unfocused = tile.terminalViewportRect
+        tile.isFocused = true
+        let focused = tile.terminalViewportRect
+        tile.isFocused = false
+        try expect(focused == unfocused, "focusing resized the terminal viewport")
+        try expect(tile.terminalViewportRect == unfocused, "⌘↑ changed the terminal viewport")
+        try expect(
+            unfocused.width == tile.bounds.width && unfocused.maxY == tile.bounds.maxY,
+            "the persistent terminal viewport did not retain its full content surface: \(unfocused), \(tile.bounds)"
         )
     }
 

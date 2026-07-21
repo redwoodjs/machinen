@@ -35,6 +35,10 @@ terminal ring and moves the camera directly to the destination in 120 ms. It
 does not zoom out through a workspace deck, reorder tiles, or restart terminal
 surfaces.
 
+`⌘↑` moves only the camera hierarchy; it does not change terminal scrollback.
+The terminal viewport keeps the same intrinsic bounds while the camera moves, so
+leaving a focused terminal cannot resize, reflow, or shift its scroll position.
+
 Machinen never interprets an unmodified Escape while a terminal is focused. The
 byte goes directly to the PTY, so terminal programs retain their normal Escape
 behavior.
