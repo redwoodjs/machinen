@@ -67,7 +67,10 @@ enum InteractionTestRunner {
     private static func commandLeftAndRightCycleFocusedTerminals() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
-        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 3)])
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 2),
+            harness.workspace("beta", terminalCount: 2),
+        ])
         let shortcut = TerminalCycleShortcut { [weak deck] offset in
             deck?.cycleFocusedTerminal(by: offset) == true
         }
@@ -88,8 +91,24 @@ enum InteractionTestRunner {
             "⌘→ did not focus the next terminal"
         )
         try expect(
+            try shortcut.process(harness.commandArrow(keyCode: 124)) == nil,
+            "cross-workspace ⌘→ was not handled"
+        )
+        try expect(
+            try harness.focusedTileID(of: deck) == "tile_beta_0",
+            "⌘→ did not cross to the next workspace"
+        )
+        try expect(
             try shortcut.process(harness.commandArrow(keyCode: 123)) == nil,
-            "⌘← was not handled at terminal level"
+            "cross-workspace ⌘← was not handled"
+        )
+        try expect(
+            try harness.focusedTileID(of: deck) == "tile_alpha_1",
+            "⌘← did not cross to the previous workspace"
+        )
+        try expect(
+            try shortcut.process(harness.commandArrow(keyCode: 123)) == nil,
+            "⌘← was not handled within the workspace"
         )
         try expect(
             try harness.focusedTileID(of: deck) == "tile_alpha_0",
@@ -100,8 +119,8 @@ enum InteractionTestRunner {
             "wrapping ⌘← was not handled"
         )
         try expect(
-            try harness.focusedTileID(of: deck) == "tile_alpha_2",
-            "⌘← did not wrap to the last terminal"
+            try harness.focusedTileID(of: deck) == "tile_beta_1",
+            "⌘← did not wrap to the final terminal"
         )
         try expect(
             try shortcut.process(harness.commandArrow(keyCode: 124)) == nil,

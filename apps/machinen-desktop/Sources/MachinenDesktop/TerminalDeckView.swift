@@ -95,6 +95,12 @@ final class TerminalDeckView: NSView {
         return allSessionTiles.filter { $0.session.workspaceID == currentWorkspace }
     }
 
+    private var workspaceOrderedSessionTiles: [TerminalTileView] {
+        workspaces.flatMap { workspace in
+            allSessionTiles.filter { $0.session.workspaceID == workspace.id }
+        }
+    }
+
     private var activeCount: Int {
         currentWorkspace == nil ? workspaceClusters.count : activeSessionTiles.count
     }
@@ -1355,15 +1361,26 @@ final class TerminalDeckView: NSView {
 
     @discardableResult
     func cycleFocusedTerminal(by offset: Int) -> Bool {
-        let sessions = activeSessionTiles
+        let workspaceSessions = activeSessionTiles
+        let terminalRing = workspaceOrderedSessionTiles
         guard presentedOverlay == nil, commandPalette == nil, !isPeeking,
-              let focusedIndex, sessions.count > 1, offset != 0
+              let focusedIndex, workspaceSessions.indices.contains(focusedIndex),
+              terminalRing.count > 1, offset != 0,
+              let currentIndex = terminalRing.firstIndex(where: { $0 === workspaceSessions[focusedIndex] })
         else { return false }
 
-        let target = (focusedIndex + offset % sessions.count + sessions.count) % sessions.count
-        guard target != focusedIndex else { return false }
-        selectedIndex = target
-        self.focusedIndex = target
+        let targetIndex = (currentIndex + offset % terminalRing.count + terminalRing.count)
+            % terminalRing.count
+        let targetTile = terminalRing[targetIndex]
+        let targetWorkspaceSessions = allSessionTiles.filter {
+            $0.session.workspaceID == targetTile.session.workspaceID
+        }
+        guard let targetWorkspaceIndex = targetWorkspaceSessions.firstIndex(where: { $0 === targetTile })
+        else { return false }
+
+        currentWorkspace = targetTile.session.workspaceID
+        selectedIndex = targetWorkspaceIndex
+        self.focusedIndex = targetWorkspaceIndex
         updateSelection()
         restoreInputFocus()
         moveCamera(duration: Motion.terminalSwitchDuration)
@@ -2404,7 +2421,7 @@ final class TerminalDeckView: NSView {
             text = "TYPE LABEL  \(labelBuffer)_"
         } else if currentWorkspace == nil {
             text = "arrows  select     return / ⌘↓  zoom in     hold space  peek"
-        } else if focusedIndex != nil, activeSessionTiles.count > 1 {
+        } else if focusedIndex != nil, workspaceOrderedSessionTiles.count > 1 {
             text = "⌘← / ⌘→  switch terminal     ⌘↑  zoom out     ⌘T  new terminal"
         } else {
             text = "⌘↑  zoom out     arrows  select     return / ⌘↓  zoom in     ⌘T  new terminal"
