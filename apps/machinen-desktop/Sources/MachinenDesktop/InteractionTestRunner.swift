@@ -13,7 +13,8 @@ enum InteractionTestRunner {
             try processSamplesDistinguishInputFromOtherWaits()
             try statusWidgetsInheritBySpatialScope()
             try graphicalStatusWidgetsRender()
-            print("Machinen interaction tests passed (7 scenarios)")
+            try workspaceWorkingDirectoryBindsTerminals()
+            print("Machinen interaction tests passed (8 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -284,6 +285,28 @@ enum InteractionTestRunner {
         }
     }
 
+    private static func workspaceWorkingDirectoryBindsTerminals() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
+        let projectDirectory = try harness.makeDirectory(named: "project")
+
+        _ = try deck.performAPIOperation("workspace.update", params: [
+            "workspaceId": "ws_alpha",
+            "workingDirectory": projectDirectory.path,
+        ])
+        deck.createNewWorkspaceOrTerminal()
+        let snapshot = try harness.snapshot(of: deck)
+        try expect(
+            snapshot.workspaces.first?.workingDirectory == projectDirectory.path,
+            "the workspace did not retain its bound working directory"
+        )
+        try expect(
+            snapshot.terminals.allSatisfy { $0.workingDirectory == projectDirectory.path },
+            "a terminal did not inherit the workspace working directory"
+        )
+    }
+
     private static func workspacePaletteCreatesRenamesAndClosesWithKeyboard() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
@@ -343,6 +366,12 @@ private final class Harness {
         try? FileManager.default.removeItem(at: temporaryDirectory)
     }
 
+    func makeDirectory(named name: String) throws -> URL {
+        let directory = temporaryDirectory.appendingPathComponent(name, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
     func makeDeck(
         workspaces definitions: [(WorkspaceRecord, [TerminalSession])]
     ) -> TerminalDeckView {
@@ -361,7 +390,11 @@ private final class Harness {
         terminalCount: Int
     ) -> (WorkspaceRecord, [TerminalSession]) {
         let id = "ws_\(name)"
-        let workspace = WorkspaceRecord(id: id, name: name)
+        let workspace = WorkspaceRecord(
+            id: id,
+            name: name,
+            workingDirectory: temporaryDirectory.path
+        )
         let terminals = (0..<terminalCount).map { index in
             TerminalSession(
                 id: "term_\(name)_\(index)",
@@ -475,14 +508,20 @@ private struct StatusWidgetSnapshot: Decodable {
 private struct InteractionSnapshot: Decodable {
     struct Workspace: Decodable {
         let name: String
+        let workingDirectory: String
     }
 
     struct Tile: Decodable {
         let workspaceId: String
     }
 
+    struct Terminal: Decodable {
+        let workingDirectory: String
+    }
+
     let workspaces: [Workspace]
     let tiles: [Tile]
+    let terminals: [Terminal]
 }
 
 private struct InteractionTestFailure: Error, CustomStringConvertible {

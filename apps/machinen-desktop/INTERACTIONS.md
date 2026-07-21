@@ -13,7 +13,9 @@ workspace overview
 ```
 
 A workspace with one terminal skips the redundant workspace level when entered.
-The terminal fills the viewport and receives keyboard focus.
+The terminal fills the viewport and receives keyboard focus. Each workspace is
+bound to one persisted working directory; terminal launchers, Git instruments,
+and local service discovery use that directory as their project boundary.
 
 ## Navigation
 
@@ -44,7 +46,7 @@ behavior.
 - In the workspace overview, it creates a uniquely generated workspace with one
   login-shell terminal and enters it.
 - Inside a workspace or focused terminal, it creates another login-shell
-  terminal in that workspace. The new terminal inherits the selected terminal's
+  terminal in that workspace. The new terminal inherits the workspace's bound
   working directory.
 
 `⌘T` opens the terminal launcher. It can create a login shell, run an arbitrary

@@ -146,12 +146,19 @@ Atomically returns `workspaces`, `tiles`, `terminals`, and `ui`.
 
 - `workspace.list {}`
 - `workspace.get { workspaceId }`
-- `workspace.create { name, position? }`
-- `workspace.update { workspaceId, name? }`
+- `workspace.create { name, workingDirectory?, position? }`
+- `workspace.update { workspaceId, name?, workingDirectory? }`
 - `workspace.move { workspaceId, position }`
 - `workspace.stop { workspaceId }`
 - `workspace.restart { workspaceId }`
 - `workspace.delete { workspaceId }`
+
+Every workspace is bound to one validated working directory, which defaults to
+the user's home directory. New terminals inherit that directory unless an API
+caller explicitly supplies a terminal launch subdirectory. Updating the
+workspace directory updates the saved launch directory for its terminals but
+does not move files or change the current directory of an already-running
+process.
 
 `workspace.delete` fails with `workspace_running` until all of its terminals are
 stopped or exited. It then removes the workspace and its stopped tiles without

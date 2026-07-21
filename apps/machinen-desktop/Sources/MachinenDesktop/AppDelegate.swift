@@ -44,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.makeFirstResponder(deck)
         deck.focusCurrentContent()
         window.tabbingMode = .disallowed
+        window.acceptsMouseMovedEvents = true
         self.window = window
         commandChord = CommandChord { [weak deck] in
             deck?.toggleOverview()

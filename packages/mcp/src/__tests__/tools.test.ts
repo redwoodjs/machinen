@@ -86,13 +86,17 @@ describe("Machinen MCP tools", () => {
   it("forwards operations and adds an output cursor to terminal_send", async () => {
     const workspace = await mcpClient.callTool({
       name: "workspace_create",
-      arguments: { name: "website", idempotencyKey: "workspace-website" },
+      arguments: {
+        name: "website",
+        workingDirectory: "/tmp/website",
+        idempotencyKey: "workspace-website",
+      },
     });
     expect(workspace.isError).not.toBe(true);
     expect(workspace.structuredContent).toEqual({ id: "ws_test", name: "website" });
     expect(machinen.requests.at(-1)).toEqual({
       operation: "workspace.create",
-      params: { name: "website" },
+      params: { name: "website", workingDirectory: "/tmp/website" },
       idempotencyKey: "workspace-website",
     });
 

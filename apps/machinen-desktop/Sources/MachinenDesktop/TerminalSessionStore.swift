@@ -37,7 +37,7 @@ final class TerminalSessionStore {
         do {
             let manifest = try JSONDecoder().decode(Manifest.self, from: data)
             let state = migrate(workspaces: manifest.workspaces, sessions: manifest.sessions)
-            if manifest.version < 2 || manifest.workspaces == nil {
+            if manifest.version < 3 || manifest.workspaces == nil {
                 save(state)
             }
             return state
@@ -59,7 +59,7 @@ final class TerminalSessionStore {
             )
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let manifest = Manifest(version: 2, workspaces: state.workspaces, sessions: state.sessions)
+            let manifest = Manifest(version: 3, workspaces: state.workspaces, sessions: state.sessions)
             let data = try encoder.encode(manifest)
             try data.write(to: manifestURL, options: .atomic)
         } catch {
@@ -74,6 +74,11 @@ final class TerminalSessionStore {
         var workspaces = existingWorkspaces ?? []
         var workspaceByName: [String: WorkspaceRecord] = [:]
         for workspace in workspaces where workspaceByName[workspace.name] == nil {
+            if workspace.workingDirectory.isEmpty {
+                workspace.workingDirectory = sessions.first(where: {
+                    $0.workspaceID == workspace.id || $0.workspace == workspace.name
+                })?.workingDirectory ?? FileManager.default.homeDirectoryForCurrentUser.path
+            }
             workspaceByName[workspace.name] = workspace
         }
 
@@ -86,7 +91,10 @@ final class TerminalSessionStore {
             } else if let existing = workspaceByName[session.workspace] {
                 workspace = existing
             } else {
-                workspace = WorkspaceRecord(name: session.workspace)
+                workspace = WorkspaceRecord(
+                    name: session.workspace,
+                    workingDirectory: session.workingDirectory
+                )
                 workspaces.append(workspace)
                 workspaceByName[workspace.name] = workspace
             }

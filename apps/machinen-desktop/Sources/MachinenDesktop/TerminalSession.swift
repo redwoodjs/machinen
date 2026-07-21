@@ -4,10 +4,36 @@ import Foundation
 final class WorkspaceRecord: Codable {
     let id: String
     var name: String
+    var workingDirectory: String
 
-    init(id: String = "ws_" + UUID().uuidString.lowercased(), name: String) {
+    init(
+        id: String = "ws_" + UUID().uuidString.lowercased(),
+        name: String,
+        workingDirectory: String = FileManager.default.homeDirectoryForCurrentUser.path
+    ) {
         self.id = id
         self.name = name
+        self.workingDirectory = workingDirectory
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case workingDirectory
+    }
+
+    required init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        workingDirectory = try container.decodeIfPresent(String.self, forKey: .workingDirectory) ?? ""
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(workingDirectory, forKey: .workingDirectory)
     }
 }
 

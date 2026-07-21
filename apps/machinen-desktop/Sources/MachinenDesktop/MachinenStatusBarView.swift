@@ -147,7 +147,9 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
     }
 
     private var widgetFrames: [WidgetFrame] = []
-    private var tooltipTags: [NSView.ToolTipTag: String] = [:]
+    private var tooltipRegions: [String: (tag: NSView.ToolTipTag, rect: NSRect)] = [:]
+    private var tooltipWidgetIDs: [NSView.ToolTipTag: String] = [:]
+    private var tooltipTextByID: [String: String] = [:]
 
     static var preferredHeight: CGFloat { Metrics.height }
 
@@ -210,7 +212,7 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
         }
 
         widgetFrames = frames
-        rebuildTooltips()
+        updateTooltips()
     }
 
     private func draw(_ widget: MachinenStatusWidget, in rect: NSRect) {
@@ -544,9 +546,15 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
         return ceil(size.width)
     }
 
-    private func rebuildTooltips() {
-        for tag in tooltipTags.keys { removeToolTip(tag) }
-        tooltipTags.removeAll()
+    private func updateTooltips() {
+        let activeIDs = Set(widgetFrames.map(\.widget.id))
+        for id in Array(tooltipRegions.keys) where !activeIDs.contains(id) {
+            guard let region = tooltipRegions.removeValue(forKey: id) else { continue }
+            removeToolTip(region.tag)
+            tooltipWidgetIDs.removeValue(forKey: region.tag)
+            tooltipTextByID.removeValue(forKey: id)
+        }
+
         for frame in widgetFrames {
             let progress = frame.widget.progress.map { "\(Int(($0 * 100).rounded()))%" }
             let tooltip = frame.widget.tooltip
@@ -554,8 +562,18 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
                 .compactMap { $0 }
                 .joined(separator: " ")
             guard !tooltip.isEmpty else { continue }
+            tooltipTextByID[frame.widget.id] = tooltip
+
+            if let existing = tooltipRegions[frame.widget.id], existing.rect == frame.rect {
+                continue
+            }
+            if let existing = tooltipRegions.removeValue(forKey: frame.widget.id) {
+                removeToolTip(existing.tag)
+                tooltipWidgetIDs.removeValue(forKey: existing.tag)
+            }
             let tag = addToolTip(frame.rect, owner: self, userData: nil)
-            tooltipTags[tag] = tooltip
+            tooltipRegions[frame.widget.id] = (tag, frame.rect)
+            tooltipWidgetIDs[tag] = frame.widget.id
         }
     }
 
@@ -565,7 +583,7 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
         point: NSPoint,
         userData: UnsafeMutableRawPointer?
     ) -> String {
-        tooltipTags[tag] ?? ""
+        tooltipWidgetIDs[tag].flatMap { tooltipTextByID[$0] } ?? ""
     }
 
     private func color(for tone: MachinenStatusWidget.Tone) -> NSColor {

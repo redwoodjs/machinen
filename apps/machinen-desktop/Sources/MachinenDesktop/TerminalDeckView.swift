@@ -134,9 +134,13 @@ final class TerminalDeckView: NSView {
         return workspaceClusters[selectedIndex].workspaceID
     }
 
-    private func selectedWorkspace() -> String? {
+    private func selectedWorkspaceRecord() -> WorkspaceRecord? {
         guard let workspaceID = selectedWorkspaceID() else { return nil }
-        return workspaces.first { $0.id == workspaceID }?.name
+        return workspaces.first { $0.id == workspaceID }
+    }
+
+    private func selectedWorkspace() -> String? {
+        selectedWorkspaceRecord()?.name
     }
 
     private func selectedSessionTile() -> TerminalTileView? {
@@ -853,8 +857,9 @@ final class TerminalDeckView: NSView {
             if wasNewTerminal { return }
         }
         guard !isTransitioning, !isPeeking else { return }
-        let workspace = selectedWorkspace() ?? "workspace"
-        let workingDirectory = selectedSessionTile()?.session.workingDirectory
+        let workspaceRecord = selectedWorkspaceRecord()
+        let workspace = workspaceRecord?.name ?? "workspace"
+        let workingDirectory = workspaceRecord?.workingDirectory
             ?? FileManager.default.homeDirectoryForCurrentUser.path
         showNewTerminalPalette(workspace: workspace, workingDirectory: workingDirectory)
     }
@@ -1412,8 +1417,7 @@ final class TerminalDeckView: NSView {
                 workspace: workspace.name,
                 name: nextAvailableSessionName(base: "shell", workspace: workspace.name),
                 command: nil,
-                workingDirectory: selectedSessionTile()?.session.workingDirectory
-                    ?? FileManager.default.homeDirectoryForCurrentUser.path
+                workingDirectory: workspace.workingDirectory
             )
         } else {
             let workspace = nextAvailableWorkspaceName()
@@ -1466,7 +1470,10 @@ final class TerminalDeckView: NSView {
             workspaceRecord = existing
             createdWorkspace = false
         } else {
-            workspaceRecord = WorkspaceRecord(name: workspace)
+            workspaceRecord = WorkspaceRecord(
+                name: workspace,
+                workingDirectory: workingDirectory
+            )
             workspaces.append(workspaceRecord)
             createdWorkspace = true
         }
@@ -1476,7 +1483,7 @@ final class TerminalDeckView: NSView {
             workspace: workspace,
             name: name,
             launch: command.map(TerminalLaunch.shellCommand) ?? .loginShell,
-            workingDirectory: workingDirectory,
+            workingDirectory: createdWorkspace ? workingDirectory : workspaceRecord.workingDirectory,
             state: .starting
         )
         let tile = TerminalTileView(session: session)
@@ -1608,7 +1615,11 @@ final class TerminalDeckView: NSView {
         guard !workspaces.contains(where: { $0.name == name }) else {
             throw MachinenAPIError("workspace_name_conflict", "A workspace named \(name) already exists")
         }
-        let workspace = WorkspaceRecord(name: name)
+        let workingDirectory = try validatedWorkingDirectory(
+            params["workingDirectory"] as? String
+                ?? FileManager.default.homeDirectoryForCurrentUser.path
+        )
+        let workspace = WorkspaceRecord(name: name, workingDirectory: workingDirectory)
         let position = clampedPosition(params["position"] as? Int, count: workspaces.count)
         workspaces.insert(workspace, at: position)
         rebuildWorkspaceClusters()
@@ -1631,6 +1642,12 @@ final class TerminalDeckView: NSView {
             workspace.name = name
             for tile in allSessionTiles where tile.session.workspaceID == workspace.id {
                 tile.session.workspace = name
+            }
+        }
+        if let directory = params["workingDirectory"] as? String {
+            workspace.workingDirectory = try validatedWorkingDirectory(directory)
+            for tile in allSessionTiles where tile.session.workspaceID == workspace.id {
+                tile.session.workingDirectory = workspace.workingDirectory
             }
         }
         rebuildWorkspaceClusters()
@@ -1715,14 +1732,9 @@ final class TerminalDeckView: NSView {
             throw MachinenAPIError("invalid_params", "Only terminal tiles are supported in API v1")
         }
         let terminalParams = params["terminal"] as? JSONObject ?? [:]
-        let workingDirectory = terminalParams["workingDirectory"] as? String
-            ?? FileManager.default.homeDirectoryForCurrentUser.path
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: workingDirectory, isDirectory: &isDirectory),
-              isDirectory.boolValue
-        else {
-            throw MachinenAPIError("invalid_params", "workingDirectory is not a directory")
-        }
+        let workingDirectory = try validatedWorkingDirectory(
+            terminalParams["workingDirectory"] as? String ?? workspace.workingDirectory
+        )
         let launch = try parseLaunch(terminalParams["launch"] as? JSONObject)
         let name = params["name"] as? String ?? defaultName(for: launch)
         let label = params["label"] as? String
@@ -2164,6 +2176,17 @@ final class TerminalDeckView: NSView {
         return uiJSON()
     }
 
+    private func validatedWorkingDirectory(_ path: String) throws -> String {
+        let standardized = URL(fileURLWithPath: path).standardizedFileURL.path
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: standardized, isDirectory: &isDirectory),
+              isDirectory.boolValue
+        else {
+            throw MachinenAPIError("invalid_params", "workingDirectory is not a directory")
+        }
+        return standardized
+    }
+
     private func snapshotJSON() -> JSONObject {
         [
             "workspaces": workspaces.map(workspaceJSON),
@@ -2177,6 +2200,7 @@ final class TerminalDeckView: NSView {
         [
             "id": workspace.id,
             "name": workspace.name,
+            "workingDirectory": workspace.workingDirectory,
             "position": workspaces.firstIndex(where: { $0 === workspace }) ?? 0,
             "tileIds": allSessionTiles
                 .filter { $0.session.workspaceID == workspace.id }
@@ -2365,7 +2389,7 @@ final class TerminalDeckView: NSView {
         }
 
         statusMetricsMonitor.setContext(
-            workingDirectory: selectedSessionTile()?.session.workingDirectory
+            workingDirectory: selectedWorkspaceRecord()?.workingDirectory
         )
         let builtIns = builtInStatusWidgets() + statusMetricsMonitor.widgets
         var resolved = Dictionary(uniqueKeysWithValues: builtIns.map { ($0.id, $0) })

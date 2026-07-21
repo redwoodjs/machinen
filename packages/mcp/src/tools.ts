@@ -94,9 +94,11 @@ export function registerMachinenTools(server: McpServer, client: MachinenClient)
   server.registerTool(
     "workspace_create",
     {
-      description: "Create an empty visual workspace. This does not create a terminal tile.",
+      description:
+        "Create an empty visual workspace bound to a working directory. This does not create a terminal tile.",
       inputSchema: {
         name: z.string().min(1),
+        workingDirectory: z.string().min(1).optional(),
         position,
         idempotencyKey,
       },
@@ -108,8 +110,13 @@ export function registerMachinenTools(server: McpServer, client: MachinenClient)
   server.registerTool(
     "workspace_update",
     {
-      description: "Rename a workspace while preserving its stable ID and tiles.",
-      inputSchema: { workspaceId, name: z.string().min(1) },
+      description:
+        "Update a workspace name or bound working directory while preserving its stable ID and tiles.",
+      inputSchema: {
+        workspaceId,
+        name: z.string().min(1).optional(),
+        workingDirectory: z.string().min(1).optional(),
+      },
     },
     async (params) => invoke(client, "workspace.update", params),
   );
