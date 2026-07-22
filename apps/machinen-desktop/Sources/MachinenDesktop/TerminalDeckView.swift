@@ -9,6 +9,17 @@ final class TerminalDeckView: NSView {
         let completion: (@MainActor () -> Void)?
     }
 
+    private enum SpatialDragItem {
+        case workspace(String)
+        case terminal(String)
+    }
+
+    private struct SpatialDrag {
+        let item: SpatialDragItem
+        let startWindowPoint: NSPoint
+        var didMove = false
+    }
+
     private enum PaletteKind {
         case commands
         case newTerminal
@@ -37,7 +48,10 @@ final class TerminalDeckView: NSView {
 
     private let sceneView = CameraSceneView()
     private let statusBarView = MachinenStatusBarView()
+    private let statusPopoverView = MachinenStatusPopoverView()
     private let statusMetricsMonitor = MachinenStatusMetricsMonitor()
+    private let workspaceProcessMetricsMonitor = TerminalProcessMetricsMonitor()
+    private let terminalProcessMetricsMonitor = TerminalProcessMetricsMonitor()
     private let sessionStore: TerminalSessionStore
     private var workspaces: [WorkspaceRecord]
     private var allSessionTiles: [TerminalTileView]
@@ -58,12 +72,17 @@ final class TerminalDeckView: NSView {
     private var cameraAnimation: CameraAnimation?
     private var cameraAnimationTimer: Timer?
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
+    private var spatialDrag: SpatialDrag?
+    private var dragGhost: NSImageView?
+    private weak var dragTargetTile: TerminalTileView?
+    private weak var dragTargetWorkspace: WorkspaceClusterView?
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
     var onAPIEvent: ((String, [String: Any]) -> Void)?
+    var shouldPublishTerminalOutput: ((JSONObject) -> Bool)?
 
     init(state: MachinenStoredState, sessionStore: TerminalSessionStore) {
         self.sessionStore = sessionStore
@@ -81,7 +100,19 @@ final class TerminalDeckView: NSView {
         }
         rebuildWorkspaceClusters()
         addSubview(statusBarView, positioned: .above, relativeTo: sceneView)
+        addSubview(statusPopoverView, positioned: .above, relativeTo: statusBarView)
+        statusBarView.onHoverChange = { [weak self] widget, anchor, detail in
+            self?.updateStatusPopover(widget: widget, anchor: anchor, detail: detail)
+        }
+        statusBarView.onWidgetClick = { [weak self] widget in
+            self?.copyPIDIfNeeded(from: widget) ?? false
+        }
+        statusBarView.onMouseDown = { [weak self] in
+            self?.restoreInputFocus()
+        }
         statusMetricsMonitor.onChange = { [weak self] in self?.refreshStatusBar() }
+        workspaceProcessMetricsMonitor.onChange = { [weak self] in self?.refreshStatusBar() }
+        terminalProcessMetricsMonitor.onChange = { [weak self] in self?.refreshStatusBar() }
         enterSoleTerminalIfNeeded()
         updateSelection()
         setAccessibilityElement(false)
@@ -96,8 +127,12 @@ final class TerminalDeckView: NSView {
         super.viewDidMoveToWindow()
         if window == nil {
             statusMetricsMonitor.stop()
+            workspaceProcessMetricsMonitor.stop()
+            terminalProcessMetricsMonitor.stop()
         } else {
             statusMetricsMonitor.start()
+            workspaceProcessMetricsMonitor.start()
+            terminalProcessMetricsMonitor.start()
         }
     }
 
@@ -167,43 +202,50 @@ final class TerminalDeckView: NSView {
     }
 
     private func installTile(_ tile: TerminalTileView) {
-        tile.onSelect = { [weak self, weak tile] in
+        tile.onSelect = { [weak self, weak tile] event in
             guard let self, let tile else { return }
             self.window?.makeFirstResponder(self)
-            if self.currentWorkspace == nil {
-                guard let index = self.workspaceClusters.firstIndex(where: {
-                    $0.workspaceID == tile.session.workspaceID
-                }) else { return }
-                if self.workspaceClusters[index].sessions.count == 1 {
-                    self.activate(index)
-                } else {
-                    self.select(index)
-                }
-            } else {
-                guard let index = self.activeSessionTiles.firstIndex(where: { $0 === tile }) else {
-                    return
-                }
-                if self.activeSessionTiles.count == 1 {
-                    self.activate(index)
-                } else {
-                    self.select(index)
-                }
-            }
+            self.focusClickedTile(at: event.locationInWindow, fallback: tile)
         }
-        tile.onActivate = { [weak self, weak tile] in
+        tile.onActivate = { [weak self, weak tile] event in
             guard let self, let tile else { return }
-            if self.currentWorkspace == nil {
-                guard let index = self.workspaceClusters.firstIndex(where: {
-                    $0.workspaceID == tile.session.workspaceID
-                }) else { return }
-                self.activate(index)
-            } else if let index = self.activeSessionTiles.firstIndex(where: { $0 === tile }) {
-                self.activate(index)
-            }
+            self.focusClickedTile(at: event.locationInWindow, fallback: tile)
         }
-        tile.onDragBegan = nil
-        tile.onDragChanged = nil
-        tile.onDragEnded = nil
+        tile.terminalInputTarget = { [weak self, weak tile] event in
+            // Unfocused previews are spatial drag sources. Only the focused
+            // terminal's viewport owns terminal input.
+            guard let self, self.currentWorkspace != nil, self.focusedIndex != nil, let fallback = tile,
+                  let target = self.terminalTile(at: event.locationInWindow),
+                  let terminal = target.terminalResponder
+            else {
+                InputRoutingLog.log("deck cannot resolve terminal input target")
+                return nil
+            }
+            let localPoint = target.convert(event.locationInWindow, from: nil)
+            guard target.terminalViewportRect.contains(localPoint) else {
+                InputRoutingLog.log("deck pointer is outside terminal viewport target=\(target.session.tileID)")
+                return nil
+            }
+            InputRoutingLog.log("deck routes terminal interaction receiver=\(fallback.session.tileID) target=\(target.session.tileID)")
+            // Do not move the camera underneath an in-progress selection drag.
+            self.focusClickedTile(at: event.locationInWindow, fallback: target, animate: false)
+            return terminal
+        }
+        tile.onTerminalInteractionEnded = { [weak self, weak tile] in
+            InputRoutingLog.log("deck ends terminal interaction receiver=\(tile?.session.tileID ?? "none")")
+            self?.moveCamera()
+        }
+        tile.onDragBegan = { [weak self, weak tile] event in
+            guard let self, let tile else { return }
+            let source = self.terminalTile(at: event.locationInWindow) ?? tile
+            self.beginSpatialDrag(for: source, event: event)
+        }
+        tile.onDragChanged = { [weak self] event in
+            self?.updateSpatialDrag(with: event)
+        }
+        tile.onDragEnded = { [weak self] event in
+            self?.endSpatialDrag(with: event) ?? false
+        }
     }
 
     private func installPersistentTerminal(in tile: TerminalTileView) {
@@ -228,14 +270,35 @@ final class TerminalDeckView: NSView {
             self.refreshStatusBar()
             self.emitAPIEvent("terminal.commandChanged", data: self.terminalJSON(tile))
         }
+        terminalView.onShellNameChange = { [weak self, weak tile] shellName in
+            guard let self, let tile, !self.isShuttingDown else { return }
+            tile.updateInferredShellName(shellName)
+            self.refreshStatusBar()
+            self.emitAPIEvent("terminal.shellNameChanged", data: self.terminalJSON(tile))
+        }
+        terminalView.onProcessInfoChange = { [weak self, weak tile] info in
+            guard let self, let tile, !self.isShuttingDown else { return }
+            tile.updateProcessInfo(info)
+            self.refreshStatusBar()
+            self.emitAPIEvent("terminal.processChanged", data: self.terminalJSON(tile))
+        }
+        terminalView.onRuntimeLabelChange = { [weak self, weak tile] label in
+            guard let self, let tile, !self.isShuttingDown else { return }
+            tile.updateRuntimeLabel(label)
+            self.refreshStatusBar()
+            self.saveSessions()
+            self.emitAPIEvent("terminal.labelChanged", data: self.terminalJSON(tile))
+        }
         terminalView.onOutput = { [weak self, weak tile] data in
             guard let self, let tile else { return }
-            self.emitAPIEvent("terminal.output", data: [
+            var eventData: JSONObject = [
                 "terminalId": tile.session.id,
                 "tileId": tile.session.tileID,
                 "workspaceId": tile.session.workspaceID,
-                "dataBase64": data.base64EncodedString(),
-            ])
+            ]
+            guard self.shouldPublishTerminalOutput?(eventData) ?? false else { return }
+            eventData["dataBase64"] = data.base64EncodedString()
+            self.emitAPIEvent("terminal.output", data: eventData)
         }
         tile.installTerminalView(terminalView)
     }
@@ -279,11 +342,7 @@ final class TerminalDeckView: NSView {
                     else { return }
                     self.window?.makeFirstResponder(self)
                     if self.currentWorkspace == nil {
-                        if cluster.sessions.count == 1 {
-                            self.activate(index)
-                        } else {
-                            self.select(index)
-                        }
+                        self.activate(index)
                     }
                 }
                 cluster.onActivate = { [weak self, weak cluster] in
@@ -292,6 +351,16 @@ final class TerminalDeckView: NSView {
                           self.currentWorkspace == nil
                     else { return }
                     self.activate(index)
+                }
+                cluster.onDragBegan = { [weak self, weak cluster] event in
+                    guard let self, let cluster else { return }
+                    self.beginSpatialDrag(for: cluster, event: event)
+                }
+                cluster.onDragChanged = { [weak self] event in
+                    self?.updateSpatialDrag(with: event)
+                }
+                cluster.onDragEnded = { [weak self] event in
+                    self?.endSpatialDrag(with: event) ?? false
                 }
                 sceneView.addSubview(cluster)
             }
@@ -427,6 +496,7 @@ final class TerminalDeckView: NSView {
         duration: TimeInterval = Motion.cameraDuration,
         completion: (@MainActor () -> Void)? = nil
     ) {
+        statusPopoverView.dismiss()
         cameraAnimationTimer?.invalidate()
         let target = destination ?? currentCameraBounds()
         let start = sceneView.bounds
@@ -599,10 +669,326 @@ final class TerminalDeckView: NSView {
         super.keyUp(with: event)
     }
 
+    private func copyPIDIfNeeded(from widget: MachinenStatusWidget) -> Bool {
+        guard widget.id == "machinen.pid" else { return false }
+        let pid = widget.value.replacingOccurrences(of: "PID ", with: "")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(pid, forType: .string)
+        InputRoutingLog.log("copied terminal PID \(pid) from status bar")
+        return true
+    }
+
+    private func updateStatusPopover(
+        widget: MachinenStatusWidget?,
+        anchor: NSRect,
+        detail: String?
+    ) {
+        guard let detail, !detail.isEmpty else {
+            statusPopoverView.dismiss()
+            return
+        }
+        let title: String
+        let tone: MachinenStatusWidget.Tone
+        if let widget {
+            title = widget.label ?? widget.id
+            tone = widget.tone
+        } else {
+            title = statusBarView.title
+            tone = .neutral
+        }
+        statusPopoverView.present(
+            title: title,
+            detail: detail,
+            tone: tone,
+            at: statusBarView.convert(anchor, to: self),
+            within: bounds
+        )
+    }
+
     private func select(_ index: Int) {
         guard (0..<activeCount).contains(index) else { return }
         selectedIndex = index
         updateSelection()
+    }
+
+    private func beginSpatialDrag(for tile: TerminalTileView, event: NSEvent) {
+        guard focusedIndex == nil,
+              !isTransitioning,
+              !isPeeking,
+              presentedOverlay == nil,
+              commandPalette == nil
+        else { return }
+        // Terminal previews are draggable between workspace clusters in the
+        // overview. Workspace cards themselves retain workspace reordering.
+        spatialDrag = SpatialDrag(
+            item: .terminal(tile.session.id),
+            startWindowPoint: event.locationInWindow
+        )
+    }
+
+    private func beginSpatialDrag(for cluster: WorkspaceClusterView, event: NSEvent) {
+        guard currentWorkspace == nil,
+              focusedIndex == nil,
+              !isTransitioning,
+              !isPeeking,
+              presentedOverlay == nil,
+              commandPalette == nil
+        else { return }
+        spatialDrag = SpatialDrag(
+            item: .workspace(cluster.workspaceID),
+            startWindowPoint: event.locationInWindow
+        )
+    }
+
+    private func updateSpatialDrag(with event: NSEvent) {
+        guard var spatialDrag else { return }
+        let deltaX = event.locationInWindow.x - spatialDrag.startWindowPoint.x
+        let deltaY = event.locationInWindow.y - spatialDrag.startWindowPoint.y
+        guard spatialDrag.didMove || hypot(deltaX, deltaY) >= 5 else { return }
+        let scenePoint = pointInScene(for: event)
+        if !spatialDrag.didMove {
+            spatialDrag.didMove = true
+            self.spatialDrag = spatialDrag
+            beginDragGhost(for: spatialDrag.item)
+            setDraggedItemAlpha(spatialDrag.item, alpha: 0.26)
+        }
+        moveDragGhost(to: scenePoint)
+        updateDragTarget(at: scenePoint, for: spatialDrag.item)
+    }
+
+    @discardableResult
+    private func endSpatialDrag(with event: NSEvent) -> Bool {
+        guard let spatialDrag else { return false }
+        self.spatialDrag = nil
+        defer {
+            setDraggedItemAlpha(spatialDrag.item, alpha: 1)
+            clearDragTarget()
+            discardDragGhost()
+        }
+        guard spatialDrag.didMove else { return false }
+        let point = pointInScene(for: event)
+        switch spatialDrag.item {
+        case let .workspace(workspaceID):
+            guard currentWorkspace == nil,
+                  let source = workspaceClusters.firstIndex(where: { $0.workspaceID == workspaceID }),
+                  let target = nearestWorkspaceIndex(to: point)
+            else { return true }
+            reorderWorkspace(from: source, to: target)
+        case let .terminal(terminalID):
+            guard let tile = allSessionTiles.first(where: { $0.session.id == terminalID }) else {
+                return true
+            }
+            if currentWorkspace == nil {
+                guard let target = nearestWorkspaceIndex(to: point),
+                      workspaces.indices.contains(target)
+                else { return true }
+                moveTerminalTile(tile, to: workspaces[target])
+            } else {
+                guard let workspaceID = currentWorkspace,
+                      let source = activeSessionTiles.firstIndex(where: { $0 === tile }),
+                      let target = nearestTerminalIndex(to: point, in: workspaceID)
+                else { return true }
+                reorderTerminal(in: workspaceID, from: source, to: target)
+            }
+        }
+        return true
+    }
+
+    private func pointInScene(for event: NSEvent) -> NSPoint {
+        let deckPoint = convert(event.locationInWindow, from: nil)
+        return sceneView.convert(deckPoint, from: self)
+    }
+
+    private func updateDragTarget(at point: NSPoint, for item: SpatialDragItem) {
+        switch item {
+        case .workspace:
+            let target = nearestWorkspaceIndex(to: point).flatMap { workspaceClusters[$0] }
+            setDragTarget(workspace: target)
+        case .terminal:
+            if currentWorkspace == nil {
+                setDragTarget(tile: nil)
+                let target = nearestWorkspaceIndex(to: point).flatMap { workspaceClusters[$0] }
+                setDragTarget(workspace: target)
+            } else {
+                setDragTarget(workspace: nil)
+                let target = currentWorkspace.flatMap { workspaceID in
+                    nearestTerminalIndex(to: point, in: workspaceID).map { activeSessionTiles[$0] }
+                }
+                setDragTarget(tile: target)
+            }
+        }
+    }
+
+    private func nearestWorkspaceIndex(to point: NSPoint) -> Int? {
+        workspaceClusters.indices.min { lhs, rhs in
+            squaredDistance(point, from: center(of: workspaceClusters[lhs].frame))
+                < squaredDistance(point, from: center(of: workspaceClusters[rhs].frame))
+        }
+    }
+
+    private func nearestTerminalIndex(to point: NSPoint, in workspaceID: String) -> Int? {
+        guard let cluster = workspaceCluster(named: workspaceID) else { return nil }
+        let sessions = activeSessionTiles
+        return sessions.indices.min { lhs, rhs in
+            let left = cluster.frameForSession(sessions[lhs], in: sceneView).map(center(of:)) ?? .zero
+            let right = cluster.frameForSession(sessions[rhs], in: sceneView).map(center(of:)) ?? .zero
+            return squaredDistance(point, from: left) < squaredDistance(point, from: right)
+        }
+    }
+
+    private func center(of rect: NSRect) -> NSPoint {
+        NSPoint(x: rect.midX, y: rect.midY)
+    }
+
+    private func squaredDistance(_ point: NSPoint, from center: NSPoint) -> CGFloat {
+        let deltaX = point.x - center.x
+        let deltaY = point.y - center.y
+        return deltaX * deltaX + deltaY * deltaY
+    }
+
+    private func beginDragGhost(for item: SpatialDragItem) {
+        guard case let .terminal(terminalID) = item,
+              let tile = allSessionTiles.first(where: { $0.session.id == terminalID }),
+              let image = terminalSnapshot(of: tile)
+        else { return }
+
+        let ghost = NSImageView(frame: tile.convert(tile.bounds, to: sceneView))
+        ghost.image = image
+        ghost.imageScaling = .scaleAxesIndependently
+        ghost.alphaValue = 0.94
+        ghost.wantsLayer = true
+        ghost.layer?.cornerRadius = 7
+        ghost.layer?.masksToBounds = true
+        sceneView.addSubview(ghost, positioned: .above, relativeTo: nil)
+        dragGhost = ghost
+    }
+
+    private func moveDragGhost(to point: NSPoint) {
+        guard let dragGhost else { return }
+        var frame = dragGhost.frame
+        frame.origin = NSPoint(x: point.x - frame.width / 2, y: point.y - frame.height / 2)
+        dragGhost.frame = frame.integral
+    }
+
+    private func finishDragGhost(at destination: NSRect) {
+        guard let dragGhost else { return }
+        self.dragGhost = nil
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            dragGhost.animator().frame = destination
+            dragGhost.animator().alphaValue = 0
+        } completionHandler: {
+            Task { @MainActor in
+                dragGhost.removeFromSuperview()
+            }
+        }
+    }
+
+    private func discardDragGhost() {
+        dragGhost?.removeFromSuperview()
+        dragGhost = nil
+    }
+
+    private func setDraggedItemAlpha(_ item: SpatialDragItem, alpha: CGFloat) {
+        switch item {
+        case let .workspace(workspaceID):
+            workspaceCluster(named: workspaceID)?.alphaValue = alpha
+        case let .terminal(terminalID):
+            allSessionTiles.first(where: { $0.session.id == terminalID })?.alphaValue = alpha
+        }
+    }
+
+    private func setDragTarget(tile: TerminalTileView?) {
+        guard dragTargetTile !== tile else { return }
+        dragTargetTile?.isActivated = false
+        dragTargetTile = tile
+        dragTargetTile?.isActivated = true
+    }
+
+    private func setDragTarget(workspace: WorkspaceClusterView?) {
+        guard dragTargetWorkspace !== workspace else { return }
+        dragTargetWorkspace?.isDragTarget = false
+        dragTargetWorkspace = workspace
+        dragTargetWorkspace?.isDragTarget = true
+    }
+
+    private func clearDragTarget() {
+        dragTargetTile?.isActivated = false
+        dragTargetTile = nil
+        dragTargetWorkspace?.isDragTarget = false
+        dragTargetWorkspace = nil
+    }
+
+    private func reorderWorkspace(from source: Int, to target: Int) {
+        guard source != target,
+              workspaceClusters.indices.contains(source),
+              workspaces.indices.contains(source)
+        else { return }
+        let workspace = workspaces.remove(at: source)
+        workspaces.insert(workspace, at: target)
+        rebuildWorkspaceClusters()
+        selectedIndex = target
+        updateWorldGeometry()
+        setCameraImmediately()
+        updateSelection()
+        saveSessions()
+        emitAPIEvent("workspace.moved", data: workspaceJSON(workspace))
+    }
+
+    private func moveTerminalTile(_ tile: TerminalTileView, to workspace: WorkspaceRecord) {
+        guard tile.session.workspaceID != workspace.id else { return }
+        InputRoutingLog.log("deck moves tile=\(tile.session.tileID) workspace=\(tile.session.workspaceID)→\(workspace.id)")
+
+        tile.session.workspaceID = workspace.id
+        tile.session.workspace = workspace.name
+        allSessionTiles.removeAll { $0 === tile }
+        let destinationCount = allSessionTiles.count { $0.session.workspaceID == workspace.id }
+        insertTile(tile, in: workspace.id, at: destinationCount)
+
+        currentWorkspace = nil
+        focusedIndex = nil
+        selectedIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) ?? selectedIndex
+        rebuildWorkspaceClusters()
+        updateWorldGeometry()
+        setCameraImmediately()
+        if let destinationFrame = workspaceCluster(named: workspace.id)?.frameForSession(tile, in: sceneView) {
+            finishDragGhost(at: destinationFrame)
+        }
+        updateSelection()
+        saveSessions()
+        emitAPIEvent("tile.moved", data: tileJSON(tile))
+    }
+
+    private func terminalSnapshot(of tile: TerminalTileView) -> NSImage? {
+        guard let bitmap = tile.bitmapImageRepForCachingDisplay(in: tile.bounds) else { return nil }
+        tile.cacheDisplay(in: tile.bounds, to: bitmap)
+        let image = NSImage(size: bitmap.size)
+        image.addRepresentation(bitmap)
+        return image
+    }
+
+    private func reorderTerminal(in workspaceID: String, from source: Int, to target: Int) {
+        var sessions = activeSessionTiles
+        guard source != target, sessions.indices.contains(source), sessions.indices.contains(target) else {
+            return
+        }
+        let moved = sessions.remove(at: source)
+        sessions.insert(moved, at: target)
+        let unaffected = allSessionTiles
+        allSessionTiles = workspaces.flatMap { workspace in
+            workspace.id == workspaceID
+                ? sessions
+                : unaffected.filter { $0.session.workspaceID == workspace.id }
+        }
+        selectedIndex = target
+        updateWorldGeometry()
+        setCameraImmediately()
+        if let destinationFrame = workspaceCluster(named: workspaceID)?.frameForSession(moved, in: sceneView) {
+            finishDragGhost(at: destinationFrame)
+        }
+        updateSelection()
+        saveSessions()
+        emitAPIEvent("tile.moved", data: tileJSON(moved))
     }
 
     private func updateSelection() {
@@ -628,6 +1014,9 @@ final class TerminalDeckView: NSView {
         }
         needsDisplay = true
         refreshStatusBar()
+        // Camera motion is cosmetic. Keep AppKit's responder chain in lockstep
+        // with the logical focused tile before, during, and after a zoom.
+        restoreInputFocus()
         emitAPIEvent("ui.changed", data: uiJSON())
     }
 
@@ -712,6 +1101,45 @@ final class TerminalDeckView: NSView {
         isPeeking = false
         peekCameraBounds = nil
         moveCamera(to: cameraBounds, duration: Motion.peekDuration)
+    }
+
+    /// A terminal card is an identity-bearing live surface even in an overview
+    /// preview. Resolve it from the rendered pointer location instead of only
+    /// trusting the child hit target, which can be stale while a transformed
+    /// scene is settling after a camera move.
+    private func focusClickedTile(
+        at windowPoint: NSPoint,
+        fallback: TerminalTileView,
+        animate: Bool = true
+    ) {
+        guard focusedIndex == nil,
+              commandPalette == nil,
+              !isPeeking
+        else {
+            InputRoutingLog.log("deck ignores tile focus focusedIndex=\(String(describing: focusedIndex)) palette=\(commandPalette != nil) peeking=\(isPeeking)")
+            return
+        }
+        let tile = terminalTile(at: windowPoint) ?? fallback
+        currentWorkspace = tile.session.workspaceID
+        let sessions = activeSessionTiles
+        guard let index = sessions.firstIndex(where: { $0 === tile }) else {
+            InputRoutingLog.log("deck cannot find clicked tile=\(tile.session.tileID) in active workspace")
+            return
+        }
+        InputRoutingLog.log("deck focuses tile=\(tile.session.tileID) index=\(index) animate=\(animate)")
+        selectedIndex = index
+        focusedIndex = index
+        clearLabelBuffer()
+        updateSelection()
+        if animate { moveCamera() }
+    }
+
+    private func terminalTile(at windowPoint: NSPoint) -> TerminalTileView? {
+        let deckPoint = convert(windowPoint, from: nil)
+        let candidates = currentWorkspace == nil ? allSessionTiles : activeSessionTiles
+        return candidates.first { tile in
+            tile.convert(tile.bounds, to: self).contains(deckPoint)
+        }
     }
 
     private func activate(_ index: Int) {
@@ -992,8 +1420,10 @@ final class TerminalDeckView: NSView {
            sessions.indices.contains(focusedIndex),
            sessions[focusedIndex].focusTerminal()
         {
+            InputRoutingLog.log("deck restores terminal focus tile=\(sessions[focusedIndex].session.tileID)")
             return
         }
+        InputRoutingLog.log("deck restores deck focus focusedIndex=\(String(describing: focusedIndex))")
         window?.makeFirstResponder(self)
     }
 
@@ -1301,6 +1731,11 @@ final class TerminalDeckView: NSView {
         }
     }
 
+    func showDebugInformation() {
+        guard presentedOverlay == nil else { return }
+        showDiagnostics()
+    }
+
     private func showDiagnostics() {
         guard let workspace = selectedWorkspace() else { return }
         let text: String
@@ -1357,6 +1792,8 @@ final class TerminalDeckView: NSView {
     func prepareForTermination() {
         isShuttingDown = true
         statusMetricsMonitor.stop()
+        workspaceProcessMetricsMonitor.stop()
+        terminalProcessMetricsMonitor.stop()
         for tile in allSessionTiles where tile.session.state == .running || tile.session.state == .starting {
             tile.detachTerminalForApplicationExit()
             tile.session.state = .running
@@ -1380,6 +1817,27 @@ final class TerminalDeckView: NSView {
         } else if currentWorkspace != nil {
             showWorkspaceDeck()
         }
+    }
+
+    /// Briefly restores full-rate rendering after a real keypress; passive
+    /// streaming remains capped so a noisy terminal cannot monopolize a core.
+    func noteFocusedTerminalInput() {
+        guard focusedIndex != nil,
+              presentedOverlay == nil,
+              commandPalette == nil
+        else { return }
+        selectedSessionTile()?.boostRenderingForLocalInput()
+    }
+
+    /// Handles the SwiftTerm legacy-keyboard gap for ⌃↩. Returning false lets
+    /// a Kitty-keyboard application receive its own modified Enter sequence.
+    @discardableResult
+    func sendControlReturnToFocusedTerminal() -> Bool {
+        guard presentedOverlay == nil, commandPalette == nil,
+              focusedIndex != nil,
+              let tile = selectedSessionTile()
+        else { return false }
+        return tile.sendLegacyControlReturn()
     }
 
     @discardableResult
@@ -2249,6 +2707,8 @@ final class TerminalDeckView: NSView {
             "kind": "terminal",
             "name": session.name,
             "label": session.label,
+            "pid": session.associatedPID ?? NSNull(),
+            "shellPid": session.shellPID ?? NSNull(),
             "position": siblings.firstIndex(where: { $0 === tile }) ?? 0,
             "terminalId": session.id,
             "viewerState": session.state == .detached ? "detached" : "attached",
@@ -2263,6 +2723,10 @@ final class TerminalDeckView: NSView {
             "workingDirectory": session.workingDirectory,
             "launch": launchJSON(session.launch),
             "title": session.commandTitle,
+            "runtimeLabel": session.runtimeLabel ?? NSNull(),
+            "shellName": session.inferredShellName ?? NSNull(),
+            "pid": session.associatedPID ?? NSNull(),
+            "shellPid": session.shellPID ?? NSNull(),
             "titleOverride": session.titleOverride ?? NSNull(),
             "observedCommand": session.observedCommand ?? NSNull(),
             "processState": processState(session.state),
@@ -2417,9 +2881,10 @@ final class TerminalDeckView: NSView {
         let focusedTerminalID = focusedIndex == nil ? nil : selectedSession()?.id
         let workspace = selectedWorkspaceRecord()
         if let terminal = focusedTerminalID.flatMap({ id in allSessionTiles.first { $0.session.id == id } }) {
-            statusBarView.title = terminal.session.commandTitle
+            let workspaceName = workspace?.name ?? terminal.session.workspace
+            statusBarView.title = "\(workspaceName) > \(terminal.session.displayName)"
             statusBarView.titleTooltip = workspace.map {
-                "\($0.name) · \($0.workingDirectory)"
+                "\($0.workingDirectory) · \(terminal.session.commandTitle)"
             }
         } else if let workspace {
             statusBarView.title = workspace.name
@@ -2430,9 +2895,27 @@ final class TerminalDeckView: NSView {
         }
 
         statusMetricsMonitor.setContext(
-            workingDirectory: selectedWorkspaceRecord()?.workingDirectory
+            workingDirectory: selectedWorkspaceRecord()?.workingDirectory,
+            workspaceID: workspaceID
         )
-        let builtIns = builtInStatusWidgets() + statusMetricsMonitor.widgets
+        let workspaceMetricsID = focusedIndex == nil && currentWorkspace != nil ? workspaceID : nil
+        workspaceProcessMetricsMonitor.setWorkspaceContext(
+            pids: workspaceMetricsID == nil ? [] : activeSessionTiles.compactMap { $0.session.associatedPID },
+            workspaceID: workspaceMetricsID
+        )
+        terminalProcessMetricsMonitor.setContext(
+            pid: focusedTerminalID == nil ? nil : selectedSession()?.associatedPID,
+            terminalID: focusedTerminalID
+        )
+        // Host CPU and network are useful in the overview. Inside a workspace,
+        // replace them with summaries of that workspace's tile processes.
+        let hostAndWorkspaceWidgets = statusMetricsMonitor.widgets.filter {
+            currentWorkspace == nil || ($0.id != "machinen.cpu" && $0.id != "machinen.network")
+        }
+        let builtIns = builtInStatusWidgets()
+            + hostAndWorkspaceWidgets
+            + workspaceProcessMetricsMonitor.widgets
+            + terminalProcessMetricsMonitor.widgets
         var resolved = Dictionary(uniqueKeysWithValues: builtIns.map { ($0.id, $0) })
         let orderedScopes: [(MachinenStatusWidget.ScopeKind, String?)] = [
             (.global, nil),
@@ -2451,8 +2934,21 @@ final class TerminalDeckView: NSView {
     }
 
     private func builtInStatusWidgets() -> [MachinenStatusWidget] {
-        let tiles = currentWorkspace == nil ? allSessionTiles : activeSessionTiles
+        let tiles: [TerminalTileView]
+        let scope: (kind: MachinenStatusWidget.ScopeKind, id: String?)
+        let isFocused = focusedIndex != nil
+        if let focusedTile = isFocused ? selectedSessionTile() : nil {
+            tiles = [focusedTile]
+            scope = (.terminal, focusedTile.session.id)
+        } else if let workspaceID = currentWorkspace {
+            tiles = activeSessionTiles
+            scope = (.workspace, workspaceID)
+        } else {
+            tiles = allSessionTiles
+            scope = (.global, nil)
+        }
         guard !tiles.isEmpty else { return [] }
+
         let states = tiles.map { tile in
             if tile.currentState == .exited || tile.currentState == .disconnected {
                 return "error"
@@ -2462,18 +2958,19 @@ final class TerminalDeckView: NSView {
         let summaryOrder = ["waiting", "working", "idle", "error", "unknown"]
         let summary = summaryOrder.compactMap { state -> String? in
             let count = states.count { $0 == state }
-            return count > 0 ? "\(count) \(state)" : nil
+            let displayState = state == "working" ? "active" : state
+            return count > 0 ? "\(count) \(displayState)" : nil
         }.joined(separator: " · ")
         let tone: MachinenStatusWidget.Tone = states.contains("error")
             ? .error
             : (states.contains("waiting") ? .attention : .busy)
         return [MachinenStatusWidget(
             id: "machinen.activity",
-            scopeKind: .global,
-            scopeID: nil,
+            scopeKind: scope.kind,
+            scopeID: scope.id,
             placement: .right,
             kind: .state,
-            label: "terminal activity",
+            label: nil,
             value: "",
             progress: nil,
             tone: tone,

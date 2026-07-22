@@ -7,9 +7,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controller: MachinenController?
     private var apiServer: MachinenAPIServer?
     private var commandChord: CommandChord?
-    private var terminalCycleShortcut: TerminalCycleShortcut?
+    private var terminalControlReturnShortcut: TerminalControlReturnShortcut?
+    private var terminalInputRenderBoost: TerminalInputRenderBoost?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        InputRoutingLog.start()
+        InputRoutingLog.log("application did finish launching")
         installMainMenu()
 
         let sessionStore = TerminalSessionStore()
@@ -21,6 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.apiServer = apiServer
         deck.onAPIEvent = { [weak apiServer] event, data in
             apiServer?.publish(event: event, data: data)
+        }
+        deck.shouldPublishTerminalOutput = { [weak apiServer] data in
+            apiServer?.hasSubscribers(for: "terminal.output", data: data) ?? false
         }
         do {
             try apiServer.start()
@@ -46,11 +52,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.tabbingMode = .disallowed
         window.acceptsMouseMovedEvents = true
         self.window = window
-        commandChord = CommandChord { [weak deck] in
+        commandChord = CommandChord { [weak self, weak deck] in
+            // A focused terminal owns its modifier gestures just like any
+            // other input. The overview chord remains available outside tiles.
+            guard !(self?.window?.firstResponder is MachinenTerminalView) else { return }
             deck?.toggleOverview()
         }
-        terminalCycleShortcut = TerminalCycleShortcut { [weak deck] offset in
-            deck?.cycleFocusedTerminal(by: offset) == true
+        terminalControlReturnShortcut = TerminalControlReturnShortcut { [weak deck] in
+            deck?.sendControlReturnToFocusedTerminal() == true
+        }
+        terminalInputRenderBoost = TerminalInputRenderBoost { [weak deck] in
+            deck?.noteFocusedTerminalInput()
         }
 
         NSApp.activate(ignoringOtherApps: true)
@@ -61,7 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        terminalCycleShortcut?.stop()
+        terminalControlReturnShortcut?.stop()
+        terminalInputRenderBoost?.stop()
         apiServer?.stop()
         deck?.prepareForTermination()
     }
@@ -137,7 +150,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         appItem.submenu = appMenu
         mainMenu.addItem(appItem)
+
+        let viewItem = NSMenuItem(title: "View", action: nil, keyEquivalent: "")
+        let viewMenu = NSMenu(title: "View")
+        let debugItem = NSMenuItem(
+            title: "Show Debug Information",
+            action: #selector(showDebugInformation),
+            keyEquivalent: ""
+        )
+        debugItem.target = self
+        viewMenu.addItem(debugItem)
+        viewItem.submenu = viewMenu
+        mainMenu.addItem(viewItem)
+
+        // Leave these targetless so AppKit resolves them through the first
+        // responder. A focused SwiftTerm surface implements copy:, paste:, and
+        // selectAll:, while non-terminal views simply do not claim them.
+        let editItem = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
+        let editMenu = NSMenu(title: "Edit")
+        addEditItem("Copy", action: #selector(MachinenTerminalView.copy(_:)), key: "c", to: editMenu)
+        addEditItem("Paste", action: #selector(MachinenTerminalView.paste(_:)), key: "v", to: editMenu)
+        editMenu.addItem(.separator())
+        addEditItem("Select All", action: #selector(MachinenTerminalView.selectAll(_:)), key: "a", to: editMenu)
+        editItem.submenu = editMenu
+        mainMenu.addItem(editItem)
+
         NSApp.mainMenu = mainMenu
+    }
+
+    private func addEditItem(_ title: String, action: Selector, key: String, to menu: NSMenu) {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        item.keyEquivalentModifierMask = [.command]
+        // `nil` asks AppKit to use the responder chain, rather than handling
+        // terminal text in the application delegate.
+        item.target = nil
+        menu.addItem(item)
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        // Do not let application menu equivalents steal terminal commands. The
+        // targetless Edit items above still resolve to the terminal responder.
+        guard window?.firstResponder is MachinenTerminalView else { return true }
+        switch menuItem.action {
+        case #selector(createNewWorkspaceOrTerminal),
+             #selector(toggleNewTerminal),
+             #selector(toggleCommands),
+             #selector(zoomIn),
+             #selector(zoomOut),
+             #selector(handleCommandW):
+            return false
+        default:
+            return true
+        }
     }
 
     @objc private func createNewWorkspaceOrTerminal() {
@@ -162,5 +226,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func handleCommandW() {
         deck?.handleCommandW()
+    }
+
+    @objc private func showDebugInformation() {
+        deck?.showDebugInformation()
     }
 }

@@ -15,7 +15,12 @@ enum InteractionTestRunner {
             try graphicalStatusWidgetsRender()
             try workspaceWorkingDirectoryBindsTerminals()
             try terminalViewportRemainsStableAcrossFocus()
-            print("Machinen interaction tests passed (9 scenarios)")
+            try controlReturnReachesLegacyTerminals()
+            try pointerTilesSeparateClickFocusAndDrag()
+            try singletonWorkspaceTileFillsSurface()
+            try clickedTileFocusesItsOwnTerminal()
+            try draggingPreviewMovesTileToAnotherWorkspace()
+            print("Machinen interaction tests passed (14 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -63,7 +68,7 @@ enum InteractionTestRunner {
         try expect(try harness.statusTitle(of: deck) == "alpha", "the workspace did not retain the single bar title")
         deck.zoomInOneLevel()
         try expect(try harness.uiLevel(of: deck) == "terminal", "⌘↓ did not focus the terminal")
-        try expect(try harness.statusTitle(of: deck) == "shell", "the terminal did not title the observed command")
+        try expect(try harness.statusTitle(of: deck) == "alpha > shell 1", "the terminal status title did not include workspace and terminal names")
         deck.zoomOutOneLevel()
         try expect(try harness.uiLevel(of: deck) == "workspace", "⌘↑ did not leave the terminal")
         deck.zoomOutOneLevel()
@@ -174,6 +179,19 @@ enum InteractionTestRunner {
         try expect(legacy?.childPid == 4459, "the legacy login shell was not discovered")
         try expect(legacy?.foregroundPgrp == 7022, "the legacy foreground process group was not discovered")
 
+        guard let agentLabel = MachinenTerminalView.runtimeLabel(fromTerminalTitle: "machinen:agent") else {
+            throw InteractionTestFailure("the Machinen OSC title was not recognized")
+        }
+        try expect(agentLabel == "agent", "the Machinen OSC title did not retain its label")
+        guard let clearedLabel = MachinenTerminalView.runtimeLabel(fromTerminalTitle: "machinen:") else {
+            throw InteractionTestFailure("the Machinen OSC title clear was not recognized")
+        }
+        try expect(clearedLabel == nil, "the Machinen OSC title did not clear its label")
+        try expect(
+            MachinenTerminalView.runtimeLabel(fromTerminalTitle: "ordinary terminal title") == nil,
+            "an ordinary terminal title was treated as a Machinen label"
+        )
+
         let legacySession = TerminalSession(
             id: "term_legacy_output",
             tileID: "tile_legacy_output",
@@ -185,6 +203,24 @@ enum InteractionTestRunner {
             workingDirectory: FileManager.default.temporaryDirectory.path,
             state: .running
         )
+        let titledTerminal = MachinenTerminalView(session: legacySession)
+        var receivedLabel: String?
+        var receivedLabelChange = false
+        titledTerminal.onRuntimeLabelChange = { label in
+            receivedLabelChange = true
+            receivedLabel = label
+        }
+        titledTerminal.setTerminalTitle(source: titledTerminal, title: "machinen:agent")
+        try expect(
+            receivedLabelChange && receivedLabel == "agent",
+            "the terminal did not deliver a Machinen OSC label to its host"
+        )
+        titledTerminal.setTerminalTitle(source: titledTerminal, title: "machinen:")
+        try expect(
+            receivedLabelChange && receivedLabel == nil,
+            "the terminal did not deliver a Machinen OSC label clear to its host"
+        )
+
         let detector = TerminalActivityDetector(session: legacySession)
         var observedActivity: TerminalSession.ActivityState?
         detector.onActivityChange = { observedActivity = $0 }
@@ -241,6 +277,8 @@ enum InteractionTestRunner {
 
     private static func graphicalStatusWidgetsRender() throws {
         let view = MachinenStatusBarView(frame: NSRect(x: 0, y: 0, width: 900, height: 40))
+        view.title = "workspace"
+        view.titleTooltip = "/projects/workspace"
         func widget(
             _ id: String,
             _ kind: MachinenStatusWidget.Kind,
@@ -251,14 +289,22 @@ enum InteractionTestRunner {
             _ secondary: [Double],
             _ states: [String]
         ) -> MachinenStatusWidget {
-            MachinenStatusWidget(
+            let value: String
+            switch id {
+            case "git": value = "+12 −5"
+            case "cpu": value = "42%"
+            case "network": value = "↓1M ↑512K"
+            case "services": value = "2"
+            default: value = ""
+            }
+            return MachinenStatusWidget(
                 id: id,
                 scopeKind: .global,
                 scopeID: nil,
                 placement: .right,
                 kind: kind,
                 label: id,
-                value: "",
+                value: value,
                 progress: progress,
                 tone: tone,
                 tooltip: id,
@@ -284,6 +330,40 @@ enum InteractionTestRunner {
         view.cacheDisplay(in: view.bounds, to: bitmap)
         let png = bitmap.representation(using: .png, properties: [:])
         try expect((png?.count ?? 0) > 1_000, "the graphical status bar rendered an empty image")
+        var popoverTitle: String?
+        var popoverDetail: String?
+        view.onHoverChange = { widget, _, detail in
+            popoverTitle = widget?.label
+            popoverDetail = detail
+        }
+        try expect(
+            view.hoverText(at: NSPoint(x: 875, y: 20)) == "services",
+            "hovering a graphical instrument did not reveal its text"
+        )
+        try expect(
+            popoverTitle == "services" && popoverDetail == "services",
+            "hovering a graphical instrument did not provide popover text"
+        )
+        try expect(
+            view.hoverText(at: NSPoint(x: 100, y: 20)) == "/projects/workspace",
+            "hovering the workspace title did not reveal its path"
+        )
+        let popover = MachinenStatusPopoverView()
+        popover.present(
+            title: "System CPU",
+            detail: "System CPU 42%",
+            tone: .busy,
+            at: NSRect(x: 720, y: 7, width: 62, height: 26),
+            within: NSRect(x: 0, y: 0, width: 900, height: 640)
+        )
+        try expect(
+            popover.displayedText?.title == "System CPU" && popover.displayedText?.detail == "System CPU 42%",
+            "the graph popover did not render its label and exact value"
+        )
+        try expect(
+            !view.acceptsFirstResponder && !popover.acceptsFirstResponder,
+            "status chrome could steal keyboard focus from a terminal"
+        )
         if let path = ProcessInfo.processInfo.environment["MACHINEN_STATUS_PREVIEW_PATH"], let png {
             try png.write(to: URL(fileURLWithPath: path))
         }
@@ -313,21 +393,22 @@ enum InteractionTestRunner {
         guard let focusedTerminalID = snapshot.terminals.last?.id else {
             throw InteractionTestFailure("the workspace did not contain a terminal")
         }
+        let identityTitle = try harness.statusTitle(of: deck)
         _ = try deck.performAPIOperation("terminal.update", params: [
             "terminalId": focusedTerminalID,
             "title": "reviewing changes",
         ])
         try expect(
-            try harness.statusTitle(of: deck) == "reviewing changes",
-            "an agent-supplied terminal title did not reach the single status bar"
+            try harness.statusTitle(of: deck) == identityTitle,
+            "a terminal title override changed the workspace > terminal identity title"
         )
         _ = try deck.performAPIOperation("terminal.update", params: [
             "terminalId": focusedTerminalID,
             "title": NSNull(),
         ])
         try expect(
-            try harness.statusTitle(of: deck) == "shell",
-            "clearing the terminal title did not restore automatic command naming"
+            try harness.statusTitle(of: deck) == identityTitle,
+            "clearing a terminal title override changed the workspace > terminal identity title"
         )
     }
 
@@ -347,14 +428,299 @@ enum InteractionTestRunner {
         tile.frame = NSRect(x: 0, y: 0, width: 1_200, height: 760)
         tile.bounds = NSRect(x: 0, y: 0, width: 1_200, height: 760)
         let unfocused = tile.terminalViewportRect
+        tile.isSelected = true
+        try expect(tile.layer?.borderWidth == 3, "the selected terminal did not receive an accent border")
         tile.isFocused = true
         let focused = tile.terminalViewportRect
+        try expect(tile.layer?.borderWidth == 0, "the focused terminal retained a duplicate border")
         tile.isFocused = false
+        try expect(tile.layer?.borderWidth == 3, "the terminal border did not return after leaving focus")
         try expect(focused == unfocused, "focusing resized the terminal viewport")
         try expect(tile.terminalViewportRect == unfocused, "⌘↑ changed the terminal viewport")
         try expect(
             unfocused.width == tile.bounds.width && unfocused.maxY == tile.bounds.maxY,
             "the persistent terminal viewport did not retain its full content surface: \(unfocused), \(tile.bounds)"
+        )
+    }
+
+    private static func controlReturnReachesLegacyTerminals() throws {
+        try expect(
+            MachinenTerminalView.legacyControlReturnBytes(
+                keyCode: 36,
+                modifiers: [.control],
+                kittyKeyboardEnabled: false
+            ) == [0x0D],
+            "⌃↩ did not produce a carriage return for a legacy terminal"
+        )
+        try expect(
+            MachinenTerminalView.legacyControlReturnBytes(
+                keyCode: 76,
+                modifiers: [.control],
+                kittyKeyboardEnabled: false
+            ) == [0x0D],
+            "⌃ keypad Enter did not produce a carriage return for a legacy terminal"
+        )
+        try expect(
+            MachinenTerminalView.legacyControlReturnBytes(
+                keyCode: 36,
+                modifiers: [.control],
+                kittyKeyboardEnabled: true
+            ) == nil,
+            "⌃↩ bypassed Kitty keyboard reporting"
+        )
+        let shortcut = TerminalControlReturnShortcut { true }
+        defer { shortcut.stop() }
+        guard let controlReturn = NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [.control],
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: 0,
+            context: nil,
+            characters: "\r",
+            charactersIgnoringModifiers: "\r",
+            isARepeat: false,
+            keyCode: 36
+        ) else {
+            throw InteractionTestFailure("could not create a ⌃↩ event")
+        }
+        try expect(shortcut.process(controlReturn) == nil, "⌃↩ was not intercepted before SwiftTerm")
+    }
+
+    private static func pointerTilesSeparateClickFocusAndDrag() throws {
+        let session = TerminalSession(
+            id: "term_pointer",
+            tileID: "tile_pointer",
+            label: "pt",
+            workspaceID: "ws_pointer",
+            workspace: "pointer",
+            name: "shell",
+            launch: .loginShell,
+            workingDirectory: FileManager.default.temporaryDirectory.path,
+            state: .stopped
+        )
+        let tile = TerminalTileView(session: session)
+        var selected = 0
+        var activated = 0
+        var moved = false
+        tile.onSelect = { _ in selected += 1 }
+        tile.onActivate = { _ in activated += 1 }
+        tile.onDragChanged = { _ in moved = true }
+        tile.onDragEnded = { _ in moved }
+
+        func event(_ type: NSEvent.EventType, point: NSPoint, clicks: Int = 1) throws -> NSEvent {
+            guard let event = NSEvent.mouseEvent(
+                with: type,
+                location: point,
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: 0,
+                context: nil,
+                eventNumber: 0,
+                clickCount: clicks,
+                pressure: 1
+            ) else {
+                throw InteractionTestFailure("could not create a pointer event")
+            }
+            return event
+        }
+
+        tile.mouseDown(with: try event(.leftMouseDown, point: .zero))
+        tile.mouseUp(with: try event(.leftMouseUp, point: .zero))
+        try expect(selected == 1 && activated == 0, "a pointer click did not select a terminal tile")
+
+        tile.mouseDown(with: try event(.leftMouseDown, point: .zero, clicks: 2))
+        try expect(activated == 1, "a double click did not focus a terminal tile")
+
+        moved = false
+        tile.mouseDown(with: try event(.leftMouseDown, point: .zero))
+        tile.mouseDragged(with: try event(.leftMouseDragged, point: NSPoint(x: 10, y: 0)))
+        tile.mouseUp(with: try event(.leftMouseUp, point: NSPoint(x: 10, y: 0)))
+        try expect(selected == 1 && moved, "a pointer drag selected instead of moving a terminal tile")
+    }
+
+    private static func singletonWorkspaceTileFillsSurface() throws {
+        let session = TerminalSession(
+            id: "term_singleton",
+            tileID: "tile_singleton",
+            label: "sg",
+            workspaceID: "ws_singleton",
+            workspace: "singleton",
+            name: "shell",
+            launch: .loginShell,
+            workingDirectory: FileManager.default.temporaryDirectory.path,
+            state: .stopped
+        )
+        let tile = TerminalTileView(session: session)
+        let cluster = WorkspaceClusterView(
+            workspaceID: "ws_singleton",
+            workspace: "singleton",
+            label: "sg"
+        )
+        let size = NSSize(width: 1_200, height: 760)
+        _ = cluster.arrange(sessions: [tile], terminalSize: size)
+        try expect(
+            tile.frame == NSRect(origin: .zero, size: size),
+            "a singleton tile did not fill its workspace surface"
+        )
+        try expect(
+            tile.bounds == NSRect(origin: .zero, size: size),
+            "a singleton tile did not retain its full terminal viewport"
+        )
+        tile.updateProcessInfo(TerminalProcessInfo(shellPID: 4201, processPID: 4242))
+        try expect(
+            session.associatedPID == 4242 && session.shellPID == 4201,
+            "a tile did not retain its live process metadata"
+        )
+        let metrics = TerminalProcessMetricsMonitor()
+        metrics.setContext(pid: 4242, terminalID: session.id)
+        try expect(
+            metrics.widgets.first(where: { $0.id == "machinen.pid" })?.value == "PID 4242",
+            "the per-PID status widget was not created"
+        )
+    }
+
+    private static func clickedTileFocusesItsOwnTerminal() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 2)])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        window.makeFirstResponder(deck)
+        deck.layoutSubtreeIfNeeded()
+        try expect(try harness.uiLevel(of: deck) == "overview", "the test did not start in overview")
+
+        func tiles(in view: NSView) -> [TerminalTileView] {
+            view.subviews.flatMap { subview in
+                (subview as? TerminalTileView).map { [$0] } ?? tiles(in: subview)
+            }
+        }
+        let sessionTiles = tiles(in: deck).sorted { $0.session.id < $1.session.id }
+        guard sessionTiles.count == 2 else {
+            throw InteractionTestFailure("the overview did not render both terminal previews")
+        }
+        let target = sessionTiles[1]
+        let targetFrame = target.convert(target.bounds, to: deck)
+        let clickPoint = NSPoint(x: targetFrame.midX, y: targetFrame.midY)
+        guard deck.hitTest(clickPoint) === target,
+              let down = NSEvent.mouseEvent(
+                  with: .leftMouseDown,
+                  location: clickPoint,
+                  modifierFlags: [],
+                  timestamp: ProcessInfo.processInfo.systemUptime,
+                  windowNumber: 0,
+                  context: nil,
+                  eventNumber: 0,
+                  clickCount: 1,
+                  pressure: 1
+              ),
+              let up = NSEvent.mouseEvent(
+                  with: .leftMouseUp,
+                  location: clickPoint,
+                  modifierFlags: [],
+                  timestamp: ProcessInfo.processInfo.systemUptime,
+                  windowNumber: 0,
+                  context: nil,
+                  eventNumber: 0,
+                  clickCount: 1,
+                  pressure: 1
+              )
+        else {
+            throw InteractionTestFailure("the visual terminal did not hit-test to its own tile")
+        }
+        // Deliver through the sibling to simulate a stale child hit target;
+        // the deck must still focus the card visibly under the pointer.
+        sessionTiles[0].mouseDown(with: down)
+        sessionTiles[0].mouseUp(with: up)
+        try expect(
+            try harness.focusedTileID(of: deck) == target.session.tileID,
+            "clicking a terminal did not focus its PTY before camera motion"
+        )
+        try expect(
+            (window.firstResponder as? MachinenTerminalView)?.session.id == target.session.id,
+            "camera motion delayed AppKit input focus for the clicked terminal"
+        )
+        let viewportPoint = target.convert(
+            NSPoint(x: target.terminalViewportRect.midX, y: target.terminalViewportRect.midY),
+            to: deck
+        )
+        try expect(
+            deck.hitTest(viewportPoint) is MachinenTerminalView,
+            "a focused terminal viewport did not own pointer input"
+        )
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        try expect(
+            try harness.focusedTileID(of: deck) == target.session.tileID,
+            "clicking a terminal focused a different terminal"
+        )
+    }
+
+    private static func draggingPreviewMovesTileToAnotherWorkspace() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 1),
+            harness.workspace("beta", terminalCount: 1),
+        ])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        deck.layoutSubtreeIfNeeded()
+
+        func descendants<T: NSView>(of view: NSView, as type: T.Type) -> [T] {
+            view.subviews.flatMap { subview in
+                (subview as? T).map { [$0] } ?? descendants(of: subview, as: type)
+            }
+        }
+        guard let source = descendants(of: deck, as: TerminalTileView.self)
+            .first(where: { $0.session.workspaceID == "ws_alpha" }),
+              let destination = descendants(of: deck, as: WorkspaceClusterView.self)
+            .first(where: { $0.workspaceID == "ws_beta" })
+        else {
+            throw InteractionTestFailure("the overview did not contain drag source and destination")
+        }
+
+        let sourcePoint = source.convert(NSPoint(x: source.bounds.midX, y: source.bounds.midY), to: deck)
+        let destinationPoint = destination.convert(
+            NSPoint(x: destination.bounds.midX, y: destination.bounds.midY),
+            to: deck
+        )
+        func event(_ type: NSEvent.EventType, point: NSPoint) throws -> NSEvent {
+            guard let event = NSEvent.mouseEvent(
+                with: type,
+                location: point,
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: 1
+            ) else {
+                throw InteractionTestFailure("could not create a drag event")
+            }
+            return event
+        }
+
+        source.mouseDown(with: try event(.leftMouseDown, point: sourcePoint))
+        source.mouseDragged(with: try event(.leftMouseDragged, point: destinationPoint))
+        source.mouseUp(with: try event(.leftMouseUp, point: destinationPoint))
+
+        let snapshot = try harness.snapshot(of: deck)
+        try expect(
+            snapshot.tiles.first(where: { $0.id == source.session.tileID })?.workspaceId == "ws_beta",
+            "dragging a terminal preview did not move it to the destination workspace"
         )
     }
 
@@ -571,6 +937,7 @@ private struct InteractionSnapshot: Decodable {
     }
 
     struct Tile: Decodable {
+        let id: String
         let workspaceId: String
     }
 

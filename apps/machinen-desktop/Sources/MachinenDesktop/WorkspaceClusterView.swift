@@ -21,12 +21,20 @@ final class WorkspaceClusterView: NSView {
 
     var onSelect: (() -> Void)?
     var onActivate: (() -> Void)?
+    var onDragBegan: ((NSEvent) -> Void)?
+    var onDragChanged: ((NSEvent) -> Void)?
+    var onDragEnded: ((NSEvent) -> Bool)?
+    private var isTrackingPointer = false
 
     var isSelected = false {
         didSet { needsDisplay = true }
     }
 
     var isEntered = false {
+        didSet { needsDisplay = true }
+    }
+
+    var isDragTarget = false {
         didSet { needsDisplay = true }
     }
 
@@ -53,6 +61,23 @@ final class WorkspaceClusterView: NSView {
     @discardableResult
     func arrange(sessions: [TerminalTileView], terminalSize: NSSize) -> NSSize {
         self.sessions = sessions
+        if sessions.count == 1, let tile = sessions.first {
+            // A singleton is already the workspace's complete live surface.
+            // Do not shrink it into a card with decorative workspace padding.
+            for subview in subviews where subview !== tile {
+                subview.removeFromSuperview()
+            }
+            if tile.superview !== self {
+                addSubview(tile)
+            }
+            sessionColumns = 1
+            tile.frame = NSRect(origin: .zero, size: terminalSize).integral
+            tile.bounds = NSRect(origin: .zero, size: terminalSize)
+            tile.isHidden = false
+            tile.alphaValue = 1
+            return terminalSize
+        }
+
         let content = NSRect(
             x: Metrics.padding,
             y: Metrics.headerHeight,
@@ -148,8 +173,8 @@ final class WorkspaceClusterView: NSView {
                 xRadius: Metrics.cornerRadius - 2,
                 yRadius: Metrics.cornerRadius - 2
             )
-            border.lineWidth = isSelected ? 6 : 2
-            NSColor(calibratedWhite: isSelected ? 0.94 : 0.28, alpha: 1).setStroke()
+            border.lineWidth = isSelected || isDragTarget ? 6 : 2
+            (isDragTarget ? NSColor.controlAccentColor : NSColor(calibratedWhite: isSelected ? 0.94 : 0.28, alpha: 1)).setStroke()
             border.stroke()
         }
 
@@ -185,9 +210,26 @@ final class WorkspaceClusterView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        onSelect?()
-        if event.clickCount >= 2 {
+        guard event.clickCount < 2 else {
+            isTrackingPointer = false
             onActivate?()
+            return
+        }
+        isTrackingPointer = true
+        onDragBegan?(event)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard isTrackingPointer else { return }
+        onDragChanged?(event)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard isTrackingPointer else { return }
+        isTrackingPointer = false
+        let consumedByDrag = onDragEnded?(event) ?? false
+        if !consumedByDrag {
+            onSelect?()
         }
     }
 }

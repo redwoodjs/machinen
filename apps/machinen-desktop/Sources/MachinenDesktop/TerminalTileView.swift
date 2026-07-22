@@ -19,18 +19,32 @@ final class TerminalTileView: NSView {
     private var displayState: TerminalSession.State
     private var displayTerminalText: String
     private var embeddedTerminalView: MachinenTerminalView?
-    var onSelect: (() -> Void)?
-    var onActivate: (() -> Void)?
+    var onSelect: ((NSEvent) -> Void)?
+    var onActivate: ((NSEvent) -> Void)?
+    /// Resolves the terminal under the window-space pointer. The event can be
+    /// delivered to a stale preview tile while the camera is settling, so the
+    /// receiver is not necessarily the terminal that should receive it.
+    var terminalInputTarget: ((NSEvent) -> MachinenTerminalView?)?
+    var onTerminalInteractionEnded: (() -> Void)?
     var onDragBegan: ((NSEvent) -> Void)?
     var onDragChanged: ((NSEvent) -> Void)?
-    var onDragEnded: ((NSEvent) -> Void)?
+    var onDragEnded: ((NSEvent) -> Bool)?
+    private var isTrackingPointer = false
+    private var forwardsInitialTerminalGesture = false
+    private weak var forwardedTerminalView: MachinenTerminalView?
 
     var isSelected: Bool = false {
-        didSet { needsDisplay = true }
+        didSet {
+            updateBorderAppearance()
+            needsDisplay = true
+        }
     }
 
     var isActivated: Bool = false {
-        didSet { needsDisplay = true }
+        didSet {
+            updateBorderAppearance()
+            needsDisplay = true
+        }
     }
 
     var simulationTick = 38 {
@@ -44,6 +58,8 @@ final class TerminalTileView: NSView {
     var isFocused = false {
         didSet {
             layer?.cornerRadius = isFocused ? 0 : Metrics.cornerRadius
+            embeddedTerminalView?.setFocusedRendering(isFocused)
+            updateBorderAppearance()
             needsDisplay = true
         }
     }
@@ -64,6 +80,7 @@ final class TerminalTileView: NSView {
         wantsLayer = true
         layer?.cornerRadius = Metrics.cornerRadius
         layer?.masksToBounds = false
+        updateBorderAppearance()
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
         updateAccessibilityLabel()
@@ -94,9 +111,29 @@ final class TerminalTileView: NSView {
         needsDisplay = true
     }
 
+    func updateInferredShellName(_ shellName: String) {
+        session.inferredShellName = shellName
+        updateAccessibilityLabel()
+        needsDisplay = true
+    }
+
+    func updateRuntimeLabel(_ label: String?) {
+        session.runtimeLabel = label
+        updateAccessibilityLabel()
+        needsDisplay = true
+    }
+
+    func updateProcessInfo(_ info: TerminalProcessInfo?) {
+        session.shellPID = info?.shellPID
+        session.processPID = info?.processPID
+        updateAccessibilityLabel()
+        needsDisplay = true
+    }
+
     func installTerminalView(_ terminalView: MachinenTerminalView) {
         embeddedTerminalView?.removeFromSuperview()
         embeddedTerminalView = terminalView
+        terminalView.setFocusedRendering(isFocused)
         addSubview(terminalView)
         needsLayout = true
         needsDisplay = true
@@ -127,15 +164,31 @@ final class TerminalTileView: NSView {
         embeddedTerminalView?.sendPersistentInput(data) ?? false
     }
 
+    @discardableResult
+    func sendLegacyControlReturn() -> Bool {
+        embeddedTerminalView?.sendLegacyControlReturn() ?? false
+    }
+
+    func boostRenderingForLocalInput() {
+        embeddedTerminalView?.boostRenderingForLocalInput()
+    }
+
     func signalTerminal(_ signal: String) {
         embeddedTerminalView?.signalPersistentSession(signal)
     }
 
     @discardableResult
     func focusTerminal() -> Bool {
-        guard let embeddedTerminalView else { return false }
-        return window?.makeFirstResponder(embeddedTerminalView) ?? false
+        guard let embeddedTerminalView else {
+            InputRoutingLog.log("tile[\(session.tileID)] cannot focus: terminal is absent")
+            return false
+        }
+        let accepted = window?.makeFirstResponder(embeddedTerminalView) ?? false
+        InputRoutingLog.log("tile[\(session.tileID)] makeFirstResponder accepted=\(accepted)")
+        return accepted
     }
+
+    var terminalResponder: MachinenTerminalView? { embeddedTerminalView }
 
     override func layout() {
         super.layout()
@@ -155,24 +208,58 @@ final class TerminalTileView: NSView {
         drawBackground()
         drawCaption()
         drawTerminal()
-        drawBorder()
     }
 
     override func mouseDown(with event: NSEvent) {
-        onSelect?()
-        if event.clickCount >= 2 {
-            onActivate?()
-        } else {
-            onDragBegan?(event)
+        InputRoutingLog.log("tile[\(session.tileID)] mouseDown focused=\(isFocused) \(InputRoutingLog.event(event))")
+        // The terminal viewport owns pointer input, even before this tile has
+        // focus. Resolve against the deck because camera animation can make
+        // AppKit deliver this event through a stale sibling tile.
+        if let terminal = terminalInputTarget?(event) {
+            isTrackingPointer = false
+            forwardsInitialTerminalGesture = true
+            forwardedTerminalView = terminal
+            InputRoutingLog.log("tile[\(session.tileID)] forwards initial terminal gesture to tile=\(terminal.session.tileID)")
+            terminal.mouseDown(with: event)
+            return
         }
+
+        guard event.clickCount < 2 else {
+            isTrackingPointer = false
+            onActivate?(event)
+            return
+        }
+        isTrackingPointer = true
+        InputRoutingLog.log("tile[\(session.tileID)] begins card gesture")
+        onDragBegan?(event)
     }
 
     override func mouseDragged(with event: NSEvent) {
+        if forwardsInitialTerminalGesture {
+            InputRoutingLog.log("tile[\(session.tileID)] forwards drag \(InputRoutingLog.event(event))")
+            forwardedTerminalView?.mouseDragged(with: event)
+            return
+        }
+        guard isTrackingPointer else { return }
+        InputRoutingLog.log("tile[\(session.tileID)] handles card drag \(InputRoutingLog.event(event))")
         onDragChanged?(event)
     }
 
     override func mouseUp(with event: NSEvent) {
-        onDragEnded?(event)
+        if forwardsInitialTerminalGesture {
+            InputRoutingLog.log("tile[\(session.tileID)] forwards mouseUp \(InputRoutingLog.event(event))")
+            forwardedTerminalView?.mouseUp(with: event)
+            forwardedTerminalView = nil
+            forwardsInitialTerminalGesture = false
+            onTerminalInteractionEnded?()
+            return
+        }
+        guard isTrackingPointer else { return }
+        isTrackingPointer = false
+        let consumedByDrag = onDragEnded?(event) ?? false
+        if !consumedByDrag {
+            onSelect?(event)
+        }
     }
 
     private func drawBackground() {
@@ -340,18 +427,21 @@ final class TerminalTileView: NSView {
         }
     }
 
-    private func drawBorder() {
-        guard !isFocused else { return }
-        let inset: CGFloat = isSelected ? 1 : 0.5
-        let path = NSBezierPath(
-            roundedRect: bounds.insetBy(dx: inset, dy: inset),
-            xRadius: cornerRadius,
-            yRadius: cornerRadius
-        )
-        path.lineWidth = isActivated ? 4 : (isSelected ? 2 : 1)
-        let white = isActivated ? 1 : (isSelected ? 0.92 : 0.31)
-        NSColor(calibratedWhite: white, alpha: 1).setStroke()
-        path.stroke()
+    private func updateBorderAppearance() {
+        guard !isFocused else {
+            layer?.borderWidth = 0
+            return
+        }
+        if isActivated {
+            layer?.borderWidth = 4
+            layer?.borderColor = NSColor.white.cgColor
+        } else if isSelected {
+            layer?.borderWidth = 3
+            layer?.borderColor = NSColor.controlAccentColor.cgColor
+        } else {
+            layer?.borderWidth = 1
+            layer?.borderColor = NSColor(calibratedWhite: 0.31, alpha: 1).cgColor
+        }
     }
 
     private func updateAccessibilityLabel() {

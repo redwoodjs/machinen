@@ -6,34 +6,43 @@ live terminal surfaces; it does not rebuild, hide, crossfade, or reflow them.
 ## Hierarchy
 
 ```text
-workspace overview
-└── workspace
+workspace
+└── tile
     └── terminal
         └── persistent PTY process
 ```
 
-A workspace with one terminal skips the redundant workspace level when entered.
-The terminal fills the viewport and receives keyboard focus. Each workspace is
-bound to one persisted working directory; terminal launchers, Git instruments,
-and local service discovery use that directory as their project boundary.
+A **workspace** owns its persisted working directory and workspace-scoped status
+items. A **tile** is the spatial object that is moved between workspaces; it
+links the terminal to its current foreground process PID. A **terminal** owns
+the launch configuration, emulator, and persistent PTY. A workspace with one
+tile skips the redundant workspace level when entered; its tile fills the entire
+workspace surface. Terminal launchers, Git instruments, and local service
+discovery use the workspace directory as their project boundary.
 
 ## Navigation
 
-| Input            | Behavior                                              |
-| ---------------- | ----------------------------------------------------- |
-| `⌘↓` or `Return` | Move one level in.                                    |
-| `⌘↑`             | Move one level out.                                   |
-| `⌘←` / `⌘→`      | From a focused terminal, cycle across live terminals. |
-| Arrow keys       | Move the selection at the current overview level.     |
-| Single click     | Select; a singleton workspace enters immediately.     |
-| Double click     | Enter the selected workspace or terminal.             |
-| Hold Space       | Momentarily peek into the selection.                  |
+| Input            | Behavior                                                           |
+| ---------------- | ------------------------------------------------------------------ |
+| `⌘↓` or `Return` | Move one level in.                                                 |
+| `⌘↑`             | Move one level out.                                                |
+| Keyboard input  | A focused terminal receives all keys and modifier combinations.    |
+| Arrow keys       | Move the selection only at the current overview level.             |
+| Click            | A terminal preview focuses its terminal.                           |
+| Drag preview     | Move a terminal tile to the workspace under the drop point.        |
+| Drag terminal    | Forward the drag for terminal selection/input.                     |
+| Hold Space       | Momentarily peek into the selection.                               |
 
-Focused-terminal cycling follows tile order within each workspace, then crosses
-to the next or previous workspace in spatial order. It wraps across the entire
-terminal ring and moves the camera directly to the destination in 120 ms. It
-does not zoom out through a workspace deck, reorder tiles, or restart terminal
-surfaces.
+## Input modes
+
+- **Workspace overview:** no terminal is focused. Terminal previews can be
+  click-dragged to another workspace; workspace cards can be dragged to reorder
+  workspaces.
+- **Workspace deck:** no terminal is focused. Terminal previews can be dragged
+  to reorder them inside that workspace.
+- **Focused terminal:** the viewport owns every pointer and keyboard event.
+  Spatial dragging, overview navigation, and application command equivalents do
+  not intercept terminal input.
 
 `⌘↑` moves only the camera hierarchy; it does not change terminal scrollback.
 The terminal viewport keeps the same intrinsic bounds while the camera moves, so
@@ -41,7 +50,16 @@ leaving a focused terminal cannot resize, reflow, or shift its scroll position.
 
 Machinen never interprets an unmodified Escape while a terminal is focused. The
 byte goes directly to the PTY, so terminal programs retain their normal Escape
-behavior.
+behavior. `⌘C` copies the current terminal selection, `⌘V` pastes plain text
+into the focused terminal, and `⌘A` selects its terminal buffer.
+
+In the workspace overview, drag a terminal preview onto another workspace to
+move the tile there; the destination workspace highlights while it is a drop
+target. The persistent PTY is not restarted. Once inside a workspace, the
+terminal viewport is an input surface: clicks, drags, and keyboard shortcuts go
+to its terminal. Workspace cards retain spatial dragging in overview; a short
+click never becomes a drag, and the source fades only after a five-point
+movement threshold.
 
 ## Creating terminals and workspaces
 
@@ -105,14 +123,28 @@ waiting and failed terminals receive attention and error tones.
 
 Machinen has one persistent status bar. At workspace level its title is the
 workspace name and hovering it reveals the bound path. At terminal level the
-title becomes the automatically observed foreground command. An MCP client can
-set a persistent title override with `terminal_update`, or clear it to return to
-automatic detection.
+title is `workspace name > terminal name`; its hover detail shows the bound path
+and observed foreground command. For login shells, Machinen infers the terminal
+name from dtach's persistent child process (for example, `zsh` or `bash`). An
+MCP client can set a persistent title override with `terminal_update`, or clear
+it to return to automatic detection. A terminal program can set a temporary
+runtime label with OSC 2 `machinen:<label>` (and clear it with `machinen:`);
+that label takes precedence in the status title, survives a viewer relaunch, and
+works through SSH.
 
-The top-right strip is graphical at rest: terminal activity uses spatially
-ordered pips, Git changes use paired diff bars, system CPU uses an area graph,
-host network transfer uses mirrored lines, progress uses a ring, and listening
-project services use health rings. Hover reveals labels and exact values.
+The macOS **View** menu contains **Show Debug Information**, which presents the
+current workspace or terminal's diagnostics without interrupting its PTY.
+
+The top-right strip is graphical at rest. In a **workspace**, it summarizes
+that workspace's tiles: aggregate tile CPU, aggregate tile network transfer,
+Git changes, and visible active/idle/waiting tile counts. In a **focused tile**,
+it shows that tile's foreground PID (shown as `PID ####` and copyable with a
+click), CPU for that PID and its local child processes, network transfer for
+that PID and its local child
+processes, workspace Git changes, and the tile's active/idle/waiting state. Git
+and service items are scoped to the selected workspace. CPU is sampled through
+`proc_pid_rusage`; network bytes come from macOS `nettop`. Tile activity is a
+label-free graphical indicator; hover reveals its exact state summary.
 
 Programs can publish scoped text, count, state, progress, timer, sparkline, and
 separator widgets through `status.set`, `status.list`, and `status.remove`.
@@ -144,6 +176,5 @@ swift run MachinenDesktop --interaction-tests
 Set `MACHINEN_STATUS_PREVIEW_PATH=/tmp/machinen-status.png` to also save the
 offscreen graphical status-bar fixture for visual review.
 
-It covers contextual `⌘N`, `⌘↓`/`⌘↑` hierarchy navigation, wrapping
-`⌘←`/`⌘→` focused-terminal cycling, and keyboard-driven workspace creation,
-rename, and close.
+It covers contextual `⌘N`, `⌘↓`/`⌘↑` hierarchy navigation and keyboard-driven
+workspace creation, rename, and close.

@@ -71,8 +71,9 @@ Workspace
         └── persistent PTY process
 ```
 
-A workspace is a visual group. A tile owns spatial metadata and viewer state. A
-terminal owns launch information, process state, and PTY input/output.
+A workspace owns its project directory and workspace-scoped status items. A tile
+owns spatial metadata, viewer state, and its live foreground PID. A terminal
+owns launch information, process state, and PTY input/output.
 
 ### Workspace
 
@@ -89,6 +90,8 @@ terminal owns launch information, process state, and PTY input/output.
   "kind": "terminal",
   "name": "dev",
   "label": "wd",
+  "pid": 4242,
+  "shellPid": 4201,
   "position": 0,
   "terminalId": "term_123",
   "viewerState": "attached"
@@ -101,6 +104,8 @@ terminal owns launch information, process state, and PTY input/output.
 {
   "id": "term_123",
   "tileId": "tile_123",
+  "pid": 4242,
+  "shellPid": 4201,
   "workingDirectory": "/project",
   "launch": { "kind": "shellCommand", "command": "pnpm dev" },
   "processState": "running",
@@ -108,6 +113,11 @@ terminal owns launch information, process state, and PTY input/output.
   "viewerState": "attached"
 }
 ```
+
+`pid` is the foreground process-group leader used for a tile's live CPU and
+network metrics (including its local child-process tree); `shellPid` is the
+persistent shell child of dtach. Both are best-effort live values and may be
+`null` while a terminal is starting or stopped.
 
 Process states are `starting`, `running`, `stopped`, `exited`, and
 `disconnected`. Activity states are `working`, `waiting`, `idle`, and `unknown`.
@@ -222,10 +232,11 @@ The result contains both `tile` and `terminal`.
 - `terminal.stop { terminalId }`
 - `terminal.restart { terminalId, focus? }`
 
-Machinen automatically derives the status-bar terminal title from the foreground
-process. `terminal.update` sets a persistent title override for agentic systems;
-setting `title` to `null` resumes automatic detection. It changes presentation,
-not the running process or saved launch definition.
+Machinen displays a focused terminal as `workspace > terminal name`. The
+foreground process remains available as telemetry and hover detail. `terminal.update`
+sets a persistent title override for agentic systems; setting `title` to `null`
+resumes automatic detection. It changes presentation, not the running process or
+saved launch definition.
 
 Supported signals are `interrupt`, `terminate`, `kill`, and `hangup`. Exactly one
 of `text` and `dataBase64` is required by `terminal.send`. Input goes to the
@@ -240,9 +251,14 @@ detach a tile, stop a terminal, or delete a stopped tile.
 - `status.set { ...widget }`
 - `status.remove { id, scope? }`
 
-There is one persistent status bar. Its title is the selected workspace at the
-workspace level and the foreground command at the terminal level; hovering a
-workspace title reveals its bound path. Programs can publish declarative widgets
+There is one persistent status bar. At the workspace level it summarizes that
+workspace's tiles with aggregate tile CPU/network, Git changes, and active/idle
+counts. At the focused-tile level it shows the copyable tile PID, per-PID
+CPU/network (including local child processes), workspace Git changes, and that
+tile's activity state. Workspace-scoped items
+belong to the selected workspace. Its title is the selected workspace at the
+workspace level and `workspace > terminal name` at the terminal level; hovering
+a workspace title reveals its bound path. Programs can publish declarative widgets
 beside the title without injecting arbitrary AppKit views:
 
 ```json

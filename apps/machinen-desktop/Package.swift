@@ -9,10 +9,7 @@ let package = Package(
         .executable(name: "machinen-dtach", targets: ["MachinenDtach"]),
     ],
     dependencies: [
-        .package(
-            url: "https://github.com/migueldeicaza/SwiftTerm.git",
-            revision: "dd2fb8ac5b861e7bf617c872895e338f38165648"
-        ),
+        .package(path: "Vendor/SwiftTerm"),
     ],
     targets: [
         .executableTarget(

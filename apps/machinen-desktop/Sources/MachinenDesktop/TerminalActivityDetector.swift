@@ -15,6 +15,11 @@ struct DtachActivityStatus: Decodable {
     let tty: String?
 }
 
+struct TerminalProcessInfo: Equatable {
+    let shellPID: Int32
+    let processPID: Int32
+}
+
 @MainActor
 final class TerminalActivityDetector {
     private enum Metrics {
@@ -39,9 +44,13 @@ final class TerminalActivityDetector {
     private var settledQuietState: TerminalSession.ActivityState?
     private var lastReportedState: TerminalSession.ActivityState = .unknown
     private var lastReportedCommand: String?
+    private var lastReportedShellName: String?
+    private var lastReportedProcessInfo: TerminalProcessInfo?
 
     var onActivityChange: ((TerminalSession.ActivityState) -> Void)?
     var onCommandChange: ((String) -> Void)?
+    var onShellNameChange: ((String) -> Void)?
+    var onProcessInfoChange: ((TerminalProcessInfo?) -> Void)?
 
     init(session: TerminalSession) {
         self.session = session
@@ -84,6 +93,7 @@ final class TerminalActivityDetector {
 
     private func poll() {
         guard session.state == .running || session.state == .starting || session.state == .detached else {
+            reportProcessInfo(nil)
             waitingEvidence = 0
             observedForegroundPgrp = nil
             settledQuietState = nil
@@ -97,6 +107,7 @@ final class TerminalActivityDetector {
             inspectLegacySession(now: now)
         }
         guard let status = sidecarStatus ?? legacyStatus, status.version == 1 else {
+            reportProcessInfo(nil)
             observedForegroundPgrp = nil
             settledQuietState = nil
             report(.unknown)
@@ -109,6 +120,8 @@ final class TerminalActivityDetector {
             settledQuietState = nil
         }
         reportForegroundCommand(status)
+        reportShellName(status)
+        reportProcessInfo(status)
 
         let lastActivity = max(status.lastInputAt, status.lastOutputAt, lastObservedActivityAt)
         if now - lastActivity <= Metrics.recentActivityWindow {
@@ -360,18 +373,46 @@ final class TerminalActivityDetector {
         }
     }
 
+    private func reportProcessInfo(_ status: DtachActivityStatus?) {
+        let info = status.map { status in
+            TerminalProcessInfo(
+                shellPID: status.childPid,
+                processPID: status.foregroundPgrp > 0 ? status.foregroundPgrp : status.childPid
+            )
+        }
+        guard info != lastReportedProcessInfo else { return }
+        lastReportedProcessInfo = info
+        onProcessInfoChange?(info)
+    }
+
     private func reportForegroundCommand(_ status: DtachActivityStatus) {
         let pid = status.foregroundPgrp > 0 ? status.foregroundPgrp : status.childPid
-        guard pid > 0 else { return }
-        var buffer = [CChar](repeating: 0, count: 256)
-        let length = proc_name(pid, &buffer, UInt32(buffer.count))
-        guard length > 0 else { return }
-        let bytes = buffer.prefix(Int(length)).map { UInt8(bitPattern: $0) }
-        let command = String(decoding: bytes, as: UTF8.self)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !command.isEmpty, command != lastReportedCommand else { return }
+        guard let command = Self.processName(pid), command != lastReportedCommand else { return }
         lastReportedCommand = command
         onCommandChange?(command)
+    }
+
+    /// The dtach child is the login shell even while another process group owns
+    /// the foreground terminal. This gives each terminal a useful stable name
+    /// such as `zsh`, instead of naming it after a transient command.
+    private func reportShellName(_ status: DtachActivityStatus) {
+        guard session.launch.kind == .loginShell || session.launch.kind == .shellCommand,
+              let shellName = Self.processName(status.childPid),
+              shellName != lastReportedShellName
+        else { return }
+        lastReportedShellName = shellName
+        onShellNameChange?(shellName)
+    }
+
+    private static func processName(_ pid: Int32) -> String? {
+        guard pid > 0 else { return nil }
+        var buffer = [CChar](repeating: 0, count: 256)
+        let length = proc_name(pid, &buffer, UInt32(buffer.count))
+        guard length > 0 else { return nil }
+        let bytes = buffer.prefix(Int(length)).map { UInt8(bitPattern: $0) }
+        let name = String(decoding: bytes, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
     }
 
     enum SampleVerdict: Equatable {

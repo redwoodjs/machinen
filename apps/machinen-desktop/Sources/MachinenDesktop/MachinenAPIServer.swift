@@ -112,6 +112,7 @@ final class MachinenAPIServer {
     private var lockFD: Int32 = -1
     private var listenerSource: DispatchSourceRead?
     private var connections: [ObjectIdentifier: Connection] = [:]
+    private let eventDateFormatter = ISO8601DateFormatter()
     private var nextSequence: UInt64 = 1
     private var idempotentResults: [String: (fingerprint: Data, result: Any)] = [:]
     private var idempotencyOrder: [String] = []
@@ -218,7 +219,23 @@ final class MachinenAPIServer {
         lockFD = -1
     }
 
+    func hasSubscribers(for event: String, data: JSONObject) -> Bool {
+        connections.values.contains { connection in
+            connection.subscriptions.values.contains {
+                subscription($0, accepts: event, data: data)
+            }
+        }
+    }
+
     func publish(event: String, data: JSONObject) {
+        let recipients = connections.values.filter { connection in
+            connection.subscriptions.values.contains {
+                subscription($0, accepts: event, data: data)
+            }
+        }
+        // Output-heavy terminals must not allocate JSON, Base64 payloads, or a
+        // date formatter when no client asked to observe the event.
+        guard !recipients.isEmpty else { return }
         let sequence = nextSequence
         nextSequence += 1
         let message: JSONObject = [
@@ -226,14 +243,11 @@ final class MachinenAPIServer {
             "type": "event",
             "seq": sequence,
             "event": event,
-            "at": ISO8601DateFormatter().string(from: Date()),
+            "at": eventDateFormatter.string(from: Date()),
             "data": data,
         ]
         guard let encoded = encode(message) else { return }
-        for connection in connections.values {
-            guard connection.subscriptions.values.contains(where: {
-                subscription($0, accepts: event, data: data)
-            }) else { continue }
+        for connection in recipients {
             connection.send(encoded)
         }
     }

@@ -150,20 +150,88 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
         didSet { needsDisplay = true }
     }
 
+    /// Called immediately as the pointer enters or leaves a status item. The
+    /// deck presents this outside the compact status bar as readable text.
+    var onHoverChange: ((MachinenStatusWidget?, NSRect, String?) -> Void)?
+    /// Return true when a widget consumed the click.
+    var onWidgetClick: ((MachinenStatusWidget) -> Bool)?
+    var onMouseDown: (() -> Void)?
+
     private var widgetFrames: [WidgetFrame] = []
     private var titleFrame = NSRect.zero
     private var tooltipRegions: [String: (tag: NSView.ToolTipTag, rect: NSRect)] = [:]
     private var tooltipWidgetIDs: [NSView.ToolTipTag: String] = [:]
     private var tooltipTextByID: [String: String] = [:]
+    private var hoverTrackingArea: NSTrackingArea?
+    private var hoveredItemID: String?
 
     static var preferredHeight: CGFloat { Metrics.height }
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
+    override var acceptsFirstResponder: Bool { false }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         if titleTooltip != nil, titleFrame.contains(point) { return self }
         return widgetFrames.contains(where: { $0.rect.contains(point) }) ? self : nil
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTrackingArea { removeTrackingArea(hoverTrackingArea) }
+        let tracking = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(tracking)
+        hoverTrackingArea = tracking
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        _ = hoverText(at: convert(event.locationInWindow, from: nil))
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if let widget = widgetFrames.first(where: { $0.rect.contains(point) })?.widget,
+           onWidgetClick?(widget) == true
+        {
+            return
+        }
+        // Status instruments are informational only. A click must never pull
+        // keyboard focus away from the live terminal underneath the camera.
+        onMouseDown?()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        guard hoveredItemID != nil else { return }
+        hoveredItemID = nil
+        onHoverChange?(nil, .zero, nil)
+    }
+
+    @discardableResult
+    func hoverText(at point: NSPoint) -> String? {
+        let titleID = "machinen.status.title"
+        let matchedFrame = widgetFrames.first(where: { $0.rect.contains(point) })
+        let itemID: String?
+        let detail: String?
+        let anchor: NSRect
+        if titleTooltip != nil, titleFrame.contains(point) {
+            itemID = titleID
+            detail = titleTooltip
+            anchor = titleFrame
+        } else {
+            itemID = matchedFrame?.widget.id
+            detail = matchedFrame.map { detailText(for: $0.widget) }
+            anchor = matchedFrame?.rect ?? .zero
+        }
+        if itemID != hoveredItemID {
+            hoveredItemID = itemID
+            onHoverChange?(matchedFrame?.widget, anchor, detail)
+        }
+        return detail
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -238,15 +306,53 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
         let content = rect.insetBy(dx: 5, dy: 4)
         switch widget.kind {
         case .state:
+            let valueWidth = widget.value.isEmpty ? 0 : stateValueWidth(widget.value)
+            let stateRect = NSRect(
+                x: content.minX,
+                y: content.minY,
+                width: max(6, content.width - valueWidth - (valueWidth > 0 ? 2 : 0)),
+                height: content.height
+            )
             if widget.states.isEmpty {
-                drawStateRing(widget.tone, in: content)
+                drawStateRing(widget.tone, in: stateRect)
             } else {
-                drawStatePips(widget.states, in: content)
+                drawStatePips(widget.states, in: stateRect)
+            }
+            if valueWidth > 0 {
+                drawStateValue(
+                    widget.value,
+                    tone: widget.tone,
+                    in: NSRect(
+                        x: stateRect.maxX + 2,
+                        y: content.minY,
+                        width: valueWidth,
+                        height: content.height
+                    )
+                )
             }
         case .progress:
             drawProgressRing(widget.progress ?? 0, tone: widget.tone, in: content)
         case .sparkline:
-            drawGraph(widget, in: content)
+            let valueWidth = sparklineValueWidth(widget)
+            let gap: CGFloat = valueWidth > 0 ? 4 : 0
+            let graphRect = NSRect(
+                x: content.minX,
+                y: content.minY,
+                width: max(18, content.width - valueWidth - gap),
+                height: content.height
+            )
+            drawGraph(widget, in: graphRect)
+            if valueWidth > 0 {
+                drawSparklineValue(
+                    widget,
+                    in: NSRect(
+                        x: graphRect.maxX + gap,
+                        y: content.minY,
+                        width: valueWidth,
+                        height: content.height
+                    )
+                )
+            }
         case .count:
             drawCenteredText(widget.value, in: content, color: color(for: widget.tone), weight: .medium)
         case .timer:
@@ -503,9 +609,14 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
         case .separator:
             return 1
         case .state:
-            if widget.states.isEmpty { return 26 }
-            let columns = min(8, widget.states.count)
-            return max(26, min(72, CGFloat(columns) * 9 + 10))
+            let base: CGFloat
+            if widget.states.isEmpty {
+                base = 26
+            } else {
+                let columns = min(8, widget.states.count)
+                base = max(26, min(72, CGFloat(columns) * 9 + 10))
+            }
+            return base + (widget.value.isEmpty ? 0 : stateValueWidth(widget.value) + 4)
         case .progress, .timer:
             return 28
         case .sparkline:
@@ -517,6 +628,73 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
             let font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
             return ceil((displayText(widget) as NSString).size(withAttributes: [.font: font]).width) + 12
         }
+    }
+
+    private func stateValueWidth(_ value: String) -> CGFloat {
+        let font = NSFont.monospacedSystemFont(ofSize: 8, weight: .medium)
+        return min(16, max(8, ceil((value as NSString).size(withAttributes: [.font: font]).width)))
+    }
+
+    private func drawStateValue(_ value: String, tone: MachinenStatusWidget.Tone, in rect: NSRect) {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .right
+        NSAttributedString(
+            string: value,
+            attributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 8, weight: .medium),
+                .foregroundColor: color(for: tone),
+                .paragraphStyle: paragraph,
+            ]
+        ).draw(with: rect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+    }
+
+    private func sparklineValueWidth(_ widget: MachinenStatusWidget) -> CGFloat {
+        guard !widget.value.isEmpty else { return 0 }
+        let font = NSFont.monospacedSystemFont(ofSize: 8, weight: .medium)
+        let widest = compactValueParts(widget).map {
+            ($0 as NSString).size(withAttributes: [.font: font]).width
+        }.max() ?? 0
+        return min(30, max(18, ceil(widest)))
+    }
+
+    private func drawSparklineValue(_ widget: MachinenStatusWidget, in rect: NSRect) {
+        let parts = compactValueParts(widget)
+        guard !parts.isEmpty else { return }
+        let rows = min(2, parts.count)
+        let rowHeight = rows == 1 ? min(10, rect.height) : rect.height / CGFloat(rows)
+        for (index, value) in parts.prefix(rows).enumerated() {
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.alignment = .right
+            paragraph.lineBreakMode = .byTruncatingTail
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedSystemFont(ofSize: 8, weight: .medium),
+                .foregroundColor: sparklineValueColor(value, fallback: widget.tone),
+                .paragraphStyle: paragraph,
+            ]
+            NSAttributedString(string: value, attributes: attributes).draw(
+                with: NSRect(
+                    x: rect.minX,
+                    y: rows == 1
+                        ? rect.midY - rowHeight / 2
+                        : rect.minY + CGFloat(index) * rowHeight,
+                    width: rect.width,
+                    height: rowHeight
+                ),
+                options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine]
+            )
+        }
+    }
+
+    private func compactValueParts(_ widget: MachinenStatusWidget) -> [String] {
+        widget.value.split(separator: " ", maxSplits: 1).map(String.init)
+    }
+
+    private func sparklineValueColor(_ value: String, fallback: MachinenStatusWidget.Tone) -> NSColor {
+        if value.hasPrefix("+") { return .systemGreen }
+        if value.hasPrefix("−") || value.hasPrefix("-") { return .systemRed }
+        if value.hasPrefix("↓") { return .systemBlue }
+        if value.hasPrefix("↑") { return .systemTeal }
+        return color(for: fallback)
     }
 
     private func drawCenteredText(
@@ -565,17 +743,21 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
         }
 
         for frame in widgetFrames {
-            let progress = frame.widget.progress.map { "\(Int(($0 * 100).rounded()))%" }
-            let tooltip = frame.widget.tooltip
-                ?? [frame.widget.label, frame.widget.value.isEmpty ? nil : frame.widget.value, progress]
-                .compactMap { $0 }
-                .joined(separator: " ")
+            let tooltip = detailText(for: frame.widget)
             guard !tooltip.isEmpty else { continue }
             setTooltip(id: frame.widget.id, rect: frame.rect, text: tooltip)
         }
         if let titleTooltip {
             setTooltip(id: titleID, rect: titleFrame, text: titleTooltip)
         }
+    }
+
+    private func detailText(for widget: MachinenStatusWidget) -> String {
+        let progress = widget.progress.map { "\(Int(($0 * 100).rounded()))%" }
+        return widget.tooltip
+            ?? [widget.label, widget.value.isEmpty ? nil : widget.value, progress]
+            .compactMap { $0 }
+            .joined(separator: " ")
     }
 
     private func setTooltip(id: String, rect: NSRect, text: String) {

@@ -43,6 +43,56 @@ private struct CommandChordState {
 }
 
 @MainActor
+final class TerminalInputRenderBoost {
+    private var monitor: Any?
+    private let handler: () -> Void
+
+    init(handler: @escaping () -> Void) {
+        self.handler = handler
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if let terminal = NSApp.keyWindow?.firstResponder as? MachinenTerminalView {
+                InputRoutingLog.log("terminal[\(terminal.session.tileID)] receives key event \(InputRoutingLog.event(event))")
+            } else {
+                InputRoutingLog.log("key event has non-terminal first responder \(InputRoutingLog.event(event))")
+            }
+            self?.handler()
+            return event
+        }
+    }
+
+    func stop() {
+        guard let monitor else { return }
+        NSEvent.removeMonitor(monitor)
+        self.monitor = nil
+    }
+}
+
+@MainActor
+final class TerminalControlReturnShortcut {
+    private var monitor: Any?
+    private let handler: () -> Bool
+
+    init(handler: @escaping () -> Bool) {
+        self.handler = handler
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            self?.process(event) ?? event
+        }
+    }
+
+    func process(_ event: NSEvent) -> NSEvent? {
+        let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        guard modifiers == [.control], event.keyCode == 36 || event.keyCode == 76 else { return event }
+        return handler() ? nil : event
+    }
+
+    func stop() {
+        guard let monitor else { return }
+        NSEvent.removeMonitor(monitor)
+        self.monitor = nil
+    }
+}
+
+@MainActor
 final class TerminalCycleShortcut {
     private var monitor: Any?
     private let handler: (Int) -> Bool

@@ -99,6 +99,24 @@ final class TerminalSession: Codable {
     var activityState: ActivityState
     var titleOverride: String?
     var observedCommand: String?
+    /// Runtime-only name of the login shell, inferred from dtach's child PID.
+    /// It is deliberately not persisted or allowed to replace a user-given name.
+    var inferredShellName: String?
+    /// A runtime label intentionally sent by the program inside the terminal.
+    /// It takes precedence over the inferred shell name until cleared.
+    var runtimeLabel: String?
+    /// Live process identifiers from the dtach sidecar. They are never
+    /// persisted because a restarted process gets new PIDs.
+    var shellPID: Int32?
+    var processPID: Int32?
+
+    var associatedPID: Int32? {
+        processPID ?? shellPID
+    }
+
+    var displayName: String {
+        runtimeLabel ?? inferredShellName ?? name
+    }
 
     var commandTitle: String {
         if let titleOverride, !titleOverride.isEmpty { return titleOverride }
@@ -138,6 +156,10 @@ final class TerminalSession: Codable {
         self.activityState = activityState
         self.titleOverride = titleOverride
         observedCommand = nil
+        inferredShellName = nil
+        runtimeLabel = nil
+        shellPID = nil
+        processPID = nil
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -153,6 +175,7 @@ final class TerminalSession: Codable {
         case state
         case activityState
         case titleOverride
+        case runtimeLabel
     }
 
     required init(from decoder: Decoder) throws {
@@ -176,6 +199,10 @@ final class TerminalSession: Codable {
         activityState = try container.decodeIfPresent(ActivityState.self, forKey: .activityState) ?? .unknown
         titleOverride = try container.decodeIfPresent(String.self, forKey: .titleOverride)
         observedCommand = nil
+        inferredShellName = nil
+        runtimeLabel = try container.decodeIfPresent(String.self, forKey: .runtimeLabel)
+        shellPID = nil
+        processPID = nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -191,6 +218,7 @@ final class TerminalSession: Codable {
         try container.encode(state, forKey: .state)
         try container.encode(activityState, forKey: .activityState)
         try container.encodeIfPresent(titleOverride, forKey: .titleOverride)
+        try container.encodeIfPresent(runtimeLabel, forKey: .runtimeLabel)
     }
 
     var socketPath: String {

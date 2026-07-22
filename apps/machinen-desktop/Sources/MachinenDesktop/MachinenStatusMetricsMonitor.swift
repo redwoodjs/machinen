@@ -20,6 +20,7 @@ final class MachinenStatusMetricsMonitor {
     private var timer: Timer?
     private var tickCount = 0
     private var workingDirectory: String?
+    private var workspaceID: String?
     private var generation = 0
     private var gitProcess: Process?
     private var portsProcess: Process?
@@ -35,6 +36,8 @@ final class MachinenStatusMetricsMonitor {
 
     var widgets: [MachinenStatusWidget] {
         var result: [MachinenStatusWidget] = []
+        let projectScope: (kind: MachinenStatusWidget.ScopeKind, id: String?) = workspaceID
+            .map { (.workspace, $0) } ?? (.global, nil)
         if let gitSnapshot {
             let tooltip = [
                 gitSnapshot.branch,
@@ -44,12 +47,12 @@ final class MachinenStatusMetricsMonitor {
             ].joined(separator: " · ")
             result.append(MachinenStatusWidget(
                 id: "machinen.git",
-                scopeKind: .global,
-                scopeID: nil,
+                scopeKind: projectScope.kind,
+                scopeID: projectScope.id,
                 placement: .right,
                 kind: .sparkline,
                 label: "Git changes",
-                value: "",
+                value: "+\(gitSnapshot.additions) −\(gitSnapshot.deletions)",
                 progress: nil,
                 tone: gitSnapshot.modified == 0 ? .good : .attention,
                 tooltip: tooltip,
@@ -63,12 +66,12 @@ final class MachinenStatusMetricsMonitor {
         if !listeningPorts.isEmpty {
             result.append(MachinenStatusWidget(
                 id: "machinen.services",
-                scopeKind: .global,
-                scopeID: nil,
+                scopeKind: projectScope.kind,
+                scopeID: projectScope.id,
                 placement: .right,
                 kind: .state,
                 label: "Listening services",
-                value: "",
+                value: String(listeningPorts.count),
                 progress: nil,
                 tone: .good,
                 tooltip: "Listening: " + listeningPorts.map(String.init).joined(separator: " · "),
@@ -89,7 +92,7 @@ final class MachinenStatusMetricsMonitor {
                 placement: .right,
                 kind: .sparkline,
                 label: "System CPU",
-                value: "",
+                value: "\(Int((latest * 100).rounded()))%",
                 progress: nil,
                 tone: tone,
                 tooltip: "System CPU \(Int((latest * 100).rounded()))%",
@@ -107,7 +110,7 @@ final class MachinenStatusMetricsMonitor {
                 placement: .right,
                 kind: .sparkline,
                 label: "Network transfer",
-                value: "",
+                value: "↓\(formatCompactRate(incomingHistory.last ?? 0)) ↑\(formatCompactRate(outgoingHistory.last ?? 0))",
                 progress: nil,
                 tone: .busy,
                 tooltip: "Network ↓\(formatRate(incomingHistory.last ?? 0)) · ↑\(formatRate(outgoingHistory.last ?? 0))",
@@ -146,12 +149,13 @@ final class MachinenStatusMetricsMonitor {
         portsProcess = nil
     }
 
-    func setContext(workingDirectory: String?) {
+    func setContext(workingDirectory: String?, workspaceID: String?) {
         let standardized = workingDirectory.map {
             URL(fileURLWithPath: $0).standardizedFileURL.path
         }
-        guard standardized != self.workingDirectory else { return }
+        guard standardized != self.workingDirectory || workspaceID != self.workspaceID else { return }
         self.workingDirectory = standardized
+        self.workspaceID = workspaceID
         generation += 1
         gitProcess?.terminate()
         portsProcess?.terminate()
@@ -437,5 +441,15 @@ final class MachinenStatusMetricsMonitor {
             return String(format: "%.0f KB/s", bytesPerSecond / 1_000)
         }
         return "\(Int(bytesPerSecond)) B/s"
+    }
+
+    private func formatCompactRate(_ bytesPerSecond: Double) -> String {
+        if bytesPerSecond >= 1_000_000 {
+            return String(format: "%.1fM", bytesPerSecond / 1_000_000)
+        }
+        if bytesPerSecond >= 1_000 {
+            return String(format: "%.0fK", bytesPerSecond / 1_000)
+        }
+        return "\(Int(bytesPerSecond))B"
     }
 }
