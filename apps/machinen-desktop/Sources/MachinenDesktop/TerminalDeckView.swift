@@ -138,7 +138,11 @@ final class TerminalDeckView: NSView {
 
     private var activeSessionTiles: [TerminalTileView] {
         guard let currentWorkspace else { return [] }
-        return allSessionTiles.filter { $0.session.workspaceID == currentWorkspace }
+        return activeSessionTiles(for: currentWorkspace)
+    }
+
+    private func activeSessionTiles(for workspaceID: String) -> [TerminalTileView] {
+        allSessionTiles.filter { $0.session.workspaceID == workspaceID }
     }
 
     private var workspaceOrderedSessionTiles: [TerminalTileView] {
@@ -1840,32 +1844,76 @@ final class TerminalDeckView: NSView {
         return tile.sendLegacyControlReturn()
     }
 
+    /// `⌘←` and `⌘→` are the one focused-terminal exception to the usual
+    /// "the terminal owns its keys" rule. They travel through the scene's
+    /// hierarchy instead of jumping directly between terminal surfaces:
+    /// terminal → source workspace → workspace overview → destination
+    /// workspace → destination tile.
     @discardableResult
-    func cycleFocusedTerminal(by offset: Int) -> Bool {
-        let workspaceSessions = activeSessionTiles
-        let terminalRing = workspaceOrderedSessionTiles
-        guard presentedOverlay == nil, commandPalette == nil, !isPeeking,
-              let focusedIndex, workspaceSessions.indices.contains(focusedIndex),
-              terminalRing.count > 1, offset != 0,
-              let currentIndex = terminalRing.firstIndex(where: { $0 === workspaceSessions[focusedIndex] })
+    func cycleFocusedWorkspace(by offset: Int) -> Bool {
+        let sourceSessions = activeSessionTiles
+        guard presentedOverlay == nil, commandPalette == nil,
+              !isTransitioning, !isPeeking,
+              let focusedIndex, sourceSessions.indices.contains(focusedIndex),
+              offset != 0,
+              let sourceWorkspaceID = currentWorkspace
         else { return false }
 
-        let targetIndex = (currentIndex + offset % terminalRing.count + terminalRing.count)
-            % terminalRing.count
-        let targetTile = terminalRing[targetIndex]
-        let targetWorkspaceSessions = allSessionTiles.filter {
-            $0.session.workspaceID == targetTile.session.workspaceID
+        // Workspaces without tiles remain visible in the overview but cannot
+        // be a destination for a shortcut that promises to end in a terminal.
+        let destinations = workspaces.filter { workspace in
+            allSessionTiles.contains { $0.session.workspaceID == workspace.id }
         }
-        guard let targetWorkspaceIndex = targetWorkspaceSessions.firstIndex(where: { $0 === targetTile })
+        guard destinations.count > 1,
+              let sourceIndex = destinations.firstIndex(where: { $0.id == sourceWorkspaceID })
         else { return false }
 
-        currentWorkspace = targetTile.session.workspaceID
-        selectedIndex = targetWorkspaceIndex
-        self.focusedIndex = targetWorkspaceIndex
+        let targetIndex = (sourceIndex + offset % destinations.count + destinations.count)
+            % destinations.count
+        let targetWorkspace = destinations[targetIndex]
+        guard !activeSessionTiles(for: targetWorkspace.id).isEmpty else { return false }
+
+        InputRoutingLog.log(
+            "cycles focused tile workspace=\(sourceWorkspaceID)→\(targetWorkspace.id)"
+        )
+        self.focusedIndex = nil
         updateSelection()
-        restoreInputFocus()
-        moveCamera(duration: Motion.terminalSwitchDuration)
+        moveCamera { [weak self] in
+            self?.selectCycledWorkspace(targetWorkspace.id)
+        }
         return true
+    }
+
+    private func selectCycledWorkspace(_ workspaceID: String) {
+        guard let workspaceIndex = workspaceClusters.firstIndex(where: { $0.workspaceID == workspaceID }) else {
+            return
+        }
+        currentWorkspace = nil
+        selectedIndex = workspaceIndex
+        focusedIndex = nil
+        updateSelection()
+        moveCamera { [weak self] in
+            self?.enterCycledWorkspace(workspaceID)
+        }
+    }
+
+    private func enterCycledWorkspace(_ workspaceID: String) {
+        guard !activeSessionTiles(for: workspaceID).isEmpty else { return }
+        currentWorkspace = workspaceID
+        selectedIndex = 0
+        focusedIndex = nil
+        updateSelection()
+        moveCamera { [weak self] in
+            self?.focusCycledWorkspaceTile(workspaceID)
+        }
+    }
+
+    private func focusCycledWorkspaceTile(_ workspaceID: String) {
+        guard currentWorkspace == workspaceID, !activeSessionTiles.isEmpty else { return }
+        selectedIndex = 0
+        focusedIndex = 0
+        updateSelection()
+        moveCamera()
     }
 
     func createNewWorkspaceOrTerminal() {

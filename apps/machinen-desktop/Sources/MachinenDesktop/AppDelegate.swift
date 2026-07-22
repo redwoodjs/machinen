@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var apiServer: MachinenAPIServer?
     private var commandChord: CommandChord?
     private var terminalControlReturnShortcut: TerminalControlReturnShortcut?
+    private var terminalCycleShortcut: TerminalCycleShortcut?
     private var terminalInputRenderBoost: TerminalInputRenderBoost?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -61,6 +62,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         terminalControlReturnShortcut = TerminalControlReturnShortcut { [weak deck] in
             deck?.sendControlReturnToFocusedTerminal() == true
         }
+        terminalCycleShortcut = TerminalCycleShortcut { [weak deck] offset in
+            deck?.cycleFocusedWorkspace(by: offset) == true
+        }
         terminalInputRenderBoost = TerminalInputRenderBoost { [weak deck] in
             deck?.noteFocusedTerminalInput()
         }
@@ -74,6 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         terminalControlReturnShortcut?.stop()
+        terminalCycleShortcut?.stop()
         terminalInputRenderBoost?.stop()
         apiServer?.stop()
         deck?.prepareForTermination()

@@ -8,7 +8,7 @@ enum InteractionTestRunner {
         do {
             try commandNCreatesInTheCurrentSpatialContext()
             try commandArrowsMoveThroughTheHierarchy()
-            try commandLeftAndRightCycleFocusedTerminals()
+            try commandLeftAndRightCycleFocusedWorkspaces()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
             try processSamplesDistinguishInputFromOtherWaits()
             try statusWidgetsInheritBySpatialScope()
@@ -75,7 +75,7 @@ enum InteractionTestRunner {
         try expect(try harness.uiLevel(of: deck) == "overview", "⌘↑ did not leave the workspace")
     }
 
-    private static func commandLeftAndRightCycleFocusedTerminals() throws {
+    private static func commandLeftAndRightCycleFocusedWorkspaces() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [
@@ -83,7 +83,7 @@ enum InteractionTestRunner {
             harness.workspace("beta", terminalCount: 2),
         ])
         let shortcut = TerminalCycleShortcut { [weak deck] offset in
-            deck?.cycleFocusedTerminal(by: offset) == true
+            deck?.cycleFocusedWorkspace(by: offset) == true
         }
         defer { shortcut.stop() }
 
@@ -98,40 +98,12 @@ enum InteractionTestRunner {
             "⌘→ was not handled at terminal level"
         )
         try expect(
-            try harness.focusedTileID(of: deck) == "tile_alpha_1",
-            "⌘→ did not focus the next terminal"
-        )
-        try expect(
-            try shortcut.process(harness.commandArrow(keyCode: 124)) == nil,
-            "cross-workspace ⌘→ was not handled"
-        )
-        try expect(
             try harness.focusedTileID(of: deck) == "tile_beta_0",
-            "⌘→ did not cross to the next workspace"
+            "⌘→ did not travel through the hierarchy to the next workspace's first tile"
         )
         try expect(
-            try shortcut.process(harness.commandArrow(keyCode: 123)) == nil,
-            "cross-workspace ⌘← was not handled"
-        )
-        try expect(
-            try harness.focusedTileID(of: deck) == "tile_alpha_1",
-            "⌘← did not cross to the previous workspace"
-        )
-        try expect(
-            try shortcut.process(harness.commandArrow(keyCode: 123)) == nil,
-            "⌘← was not handled within the workspace"
-        )
-        try expect(
-            try harness.focusedTileID(of: deck) == "tile_alpha_0",
-            "⌘← did not focus the previous terminal"
-        )
-        try expect(
-            try shortcut.process(harness.commandArrow(keyCode: 123)) == nil,
-            "wrapping ⌘← was not handled"
-        )
-        try expect(
-            try harness.focusedTileID(of: deck) == "tile_beta_1",
-            "⌘← did not wrap to the final terminal"
+            try harness.uiLevel(of: deck) == "terminal",
+            "⌘→ did not finish focused on the destination tile"
         )
         try expect(
             try shortcut.process(harness.commandArrow(keyCode: 124)) == nil,
@@ -139,7 +111,15 @@ enum InteractionTestRunner {
         )
         try expect(
             try harness.focusedTileID(of: deck) == "tile_alpha_0",
-            "⌘→ did not wrap to the first terminal"
+            "⌘→ did not wrap to the first workspace's first tile"
+        )
+        try expect(
+            try shortcut.process(harness.commandArrow(keyCode: 123)) == nil,
+            "wrapping ⌘← was not handled"
+        )
+        try expect(
+            try harness.focusedTileID(of: deck) == "tile_beta_0",
+            "⌘← did not wrap to the final workspace's first tile"
         )
     }
 

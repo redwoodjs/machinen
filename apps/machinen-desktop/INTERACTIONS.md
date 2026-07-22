@@ -26,7 +26,8 @@ discovery use the workspace directory as their project boundary.
 | ---------------- | ------------------------------------------------------------------ |
 | `⌘↓` or `Return` | Move one level in.                                                 |
 | `⌘↑`             | Move one level out.                                                |
-| Keyboard input  | A focused terminal receives all keys and modifier combinations.    |
+| `⌘←` / `⌘→`     | From a focused terminal, select the previous/next workspace and focus its first tile through the camera hierarchy. |
+| Keyboard input  | A focused terminal receives all keys and modifier combinations except `⌘←` / `⌘→`. |
 | Arrow keys       | Move the selection only at the current overview level.             |
 | Click            | A terminal preview focuses its terminal.                           |
 | Drag preview     | Move a terminal tile to the workspace under the drop point.        |
@@ -42,7 +43,10 @@ discovery use the workspace directory as their project boundary.
   to reorder them inside that workspace.
 - **Focused terminal:** the viewport owns every pointer and keyboard event.
   Spatial dragging, overview navigation, and application command equivalents do
-  not intercept terminal input.
+  not intercept terminal input, except `⌘←` / `⌘→`. Those shortcuts animate a
+  distinct path: zoom out to the source workspace, zoom out to the workspace
+  overview and select the adjacent workspace, then zoom into that workspace and
+  its first tile.
 
 `⌘↑` moves only the camera hierarchy; it does not change terminal scrollback.
 The terminal viewport keeps the same intrinsic bounds while the camera moves, so
