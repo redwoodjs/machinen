@@ -14,6 +14,7 @@ const EXPECTED_HOST_BINS = {
   "machinen-pdeathsig": "./vmm/bin/machinen-pdeathsig",
   "machinen-pty": "./vmm/bin/machinen-pty",
   "machinen-runtime-helper": "./vmm/bin/machinen-runtime-helper",
+  "machinen-session": "./vmm/bin/machinen-session",
   "machinen-vm": "./vmm/bin/machinen-vm",
   "machinen-winsize": "./vmm/bin/machinen-winsize",
 };
@@ -21,6 +22,7 @@ const EXPECTED_HOST_BINS = {
 const EXPECTED_INDEX_EXPORTS = {
   binary: "machinen-vm",
   runtimeHelper: "machinen-runtime-helper",
+  session: "machinen-session",
   pdeathsig: "machinen-pdeathsig",
   pty: "machinen-pty",
   winsize: "machinen-winsize",

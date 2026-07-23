@@ -43,6 +43,7 @@ const ALLOWED_VERBS = new Set([
   "attach",
   "sessions",
   "session-kill",
+  "terminal",
   "repl",
   "run",
   "gc",

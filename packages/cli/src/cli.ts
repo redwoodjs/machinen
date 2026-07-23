@@ -12,6 +12,7 @@
 //   machinen attach [--session <session>] [name|pid] # persistent PTY shell
 //   machinen repl   <name|pid>                   # per-line exec
 //   machinen run <target>                        # run a known CLI in a VM
+//   machinen terminal <new|list|attach|send|signal|stop|delete|reconcile|gc>
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
 
@@ -32,6 +33,7 @@ import { cmdRestore } from "./commands/restore.ts";
 import { cmdRun } from "./commands/run.ts";
 import { cmdSnapshot } from "./commands/snapshot.ts";
 import { cmdStop } from "./commands/stop.ts";
+import { cmdTerminal } from "./commands/terminal.ts";
 
 const debug = debugLib("machinen:cli");
 
@@ -59,6 +61,7 @@ const COMMAND_HANDLERS = new Map<string, CommandHandler>([
   ["completion", cmdCompletion],
   ["gc", cmdGc],
   ["stop", cmdStop],
+  ["terminal", cmdTerminal],
   ["feedback", cmdFeedback],
   ["agent-context", cmdAgentContext],
 ]);

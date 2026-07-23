@@ -1,4 +1,4 @@
-# Machinen Session protocol v1
+# Machinen Session protocol v2
 
 A session worker listens on a same-user Unix stream socket:
 
@@ -7,7 +7,9 @@ A session worker listens on a same-user Unix stream socket:
 ```
 
 The directory has mode `0700` and each socket has mode `0600`. Session IDs are
-limited to 64 ASCII letters, digits, dots, underscores, and hyphens.
+limited to 64 ASCII letters, digits, dots, underscores, and hyphens. The SQLite
+session record stores the worker protocol version, allowing a new client binary
+to keep attaching to a live v1 worker after an upgrade.
 
 ## Framing
 
@@ -21,42 +23,105 @@ bytes 5…    payload
 
 Payloads are limited to 32 KiB. Terminal data is opaque bytes, not text.
 
+## Attach handshake
+
+A v2 connection starts with an `A` frame from the client:
+
+```text
+bytes 0–3    protocol version (`2`), big-endian u32
+byte 4       requested flags: writer=1, resize=2, control=4
+bytes 5–7    reserved, zero
+bytes 8–15   last sequence already applied by the client, big-endian u64
+bytes 16–23  client identifier, big-endian u64
+```
+
+Interactive clients normally request writer and resize leases. Read-only
+clients request neither. Same-user one-shot commands such as `send` and `signal`
+use the control flag and do not take an interactive lease.
+
+The worker protocol version in SQLite is `1` for sessions migrated from the
+original implementation. The current attach client omits the handshake for
+those workers and continues understanding their unsequenced `O` history frames.
+A running PTY is therefore not replaced merely to upgrade its helper binary.
+
 ## Client to worker
 
-| Kind | Name   | Payload                                      |
-| ---- | ------ | -------------------------------------------- |
-| `I`  | Input  | Bytes to write to the PTY                    |
-| `R`  | Resize | Big-endian `u16 columns`, `u16 rows`         |
-| `S`  | Signal | Big-endian signed 32-bit POSIX signal number |
+| Kind | Name           | Payload                                      |
+| ---- | -------------- | -------------------------------------------- |
+| `A`  | Attach request | Version, flags, resume sequence, client ID   |
+| `I`  | Input          | Bytes to write to the PTY                    |
+| `R`  | Resize         | Big-endian `u16 columns`, `u16 rows`         |
+| `S`  | Signal         | Big-endian signed 32-bit POSIX signal number |
+| `P`  | Heartbeat      | Empty; renews held leases                    |
 
 ## Worker to client
 
-| Kind | Name             | Payload                              |
-| ---- | ---------------- | ------------------------------------ |
-| `O`  | Output           | Bytes read from the PTY              |
-| `H`  | History complete | Empty; subsequent output is live     |
-| `X`  | Exit             | Big-endian signed 32-bit exit status |
-| `E`  | Failure          | UTF-8 diagnostic for display         |
+| Kind | Name             | Payload                                             |
+| ---- | ---------------- | --------------------------------------------------- |
+| `Q`  | Sequenced output | Big-endian `u64 sequence`, followed by PTY bytes    |
+| `C`  | VT checkpoint    | Sequence, format, chunk flags, reconstruction bytes |
+| `H`  | History complete | Big-endian `u64` current sequence                   |
+| `L`  | Lease status     | Granted flags, requested flags                      |
+| `X`  | Exit             | Big-endian signed 32-bit exit status                |
+| `E`  | Failure          | UTF-8 diagnostic for display                        |
+| `O`  | Legacy output    | Unsequenced bytes from a v1 worker                  |
 
-Immediately after accepting a client, the worker sends retained `O` frames in
-SQLite event-sequence order, followed by `H`. PTY output produced afterward is
-journaled before being broadcast as live `O` frames.
+A `Q` event can use multiple frames when its original SQLite payload plus the
+sequence header would exceed 32 KiB. Each chunk repeats the event sequence.
 
-A disconnect has no session-side meaning. It closes only that attachment; the
-worker continues draining and journaling the PTY. Focus and visual scroll
-position are client-owned and never appear in this protocol.
+## Resume and checkpoints
 
-## Resizing
+Output and resize events share one monotonically increasing sequence. An attach
+request names the last sequence whose effects the client has already applied.
 
-Every valid `R` frame updates the canonical PTY size with `TIOCSWINSZ` and
-atomically appends a resize event to SQLite. The current implementation is
-last-writer-wins. A later protocol version can add explicit writer and resize
-leases without changing session identity or recovery storage.
+- If that sequence is still inside retained history, the worker sends only
+  newer `Q` output.
+- If compaction has passed it, the worker first sends the latest `C` checkpoint,
+  then output after the checkpoint.
+- A fresh client requests sequence zero.
+- `H` marks the transition from recovery to the live stream and reports the
+  worker's current sequence.
 
-## Recovery
+Checkpoint format version 1 is a renderer-neutral VT reconstruction stream. It
+contains a terminal reset, cursor-addressed visible UTF-8 cells, and final cursor
+position. `C` payload bytes are:
 
-Output and resize events share one monotonically increasing sequence. The
-current worker replays retained output from sequence zero for a fresh client.
-The SQLite API also supports renderer-neutral checkpoints and replay after a
-checkpoint sequence; checkpoint generation and negotiation are reserved for a
-later protocol version.
+```text
+bytes 0–7    checkpoint sequence, big-endian u64
+bytes 8–11   checkpoint format version, big-endian u32
+byte 12      chunk flags: first=1, last=2
+bytes 13…    VT reconstruction bytes
+```
+
+The v1 checkpoint intentionally captures visible text and cursor state, not
+renderer-owned selection, viewport, title, or styling. Those can be added by a
+new checkpoint format without changing session identity or event sequencing.
+
+The worker generates a checkpoint after 256 KiB of PTY output by default
+(configurable with `--checkpoint-bytes`, 32 KiB–16 MiB). Saving the replacement
+checkpoint and deleting covered events is one SQLite transaction. Only the
+latest checkpoint and output after it remain, so recovery storage is bounded by
+the checkpoint screen plus the configured journal window.
+
+## Writer and resize leases
+
+Writer and resize ownership are independent. The first eligible interactive
+client receives each requested lease. A lease lasts 30 seconds and attach
+clients send a heartbeat every 10 seconds. Input or resize activity also renews
+ownership. Disconnecting releases ownership immediately; an attached waiter is
+then granted the lease.
+
+A client without the relevant lease remains a watcher and receives an `E`
+diagnostic if it attempts the operation. Same-user control connections are an
+explicit administrative path used by `send`, `signal`, and `stop`.
+
+## Disconnect and recovery boundary
+
+A disconnect closes only that attachment. The worker continues draining and
+journaling the PTY. Focus, smooth scrolling, selection, and visual viewport are
+client-owned and never appear in this protocol.
+
+After reboot or worker loss, `reconcile` marks a formerly live record as
+`orphaned` when its private socket is no longer reachable. Checkpoint and output
+history remain attachable, but Machinen does not claim to recreate the lost PTY
+or process. Restart is an explicit new-process action.

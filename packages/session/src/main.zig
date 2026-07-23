@@ -3,7 +3,7 @@ const session = @import("session");
 const worker = @import("worker");
 
 const Exit = enum(u8) { ok = 0, failed = 1, usage = 2 };
-const version = "0.2.0";
+const version = "0.3.0";
 
 pub fn main(init: std.process.Init) !u8 {
     var args = init.minimal.args.iterate();
@@ -23,6 +23,8 @@ pub fn main(init: std.process.Init) !u8 {
     if (std.mem.eql(u8, command, "signal")) return runSignal(init, &args);
     if (std.mem.eql(u8, command, "stop")) return runStop(init, &args);
     if (std.mem.eql(u8, command, "delete")) return runDelete(init, &args);
+    if (std.mem.eql(u8, command, "reconcile")) return runReconcile(init, &args);
+    if (std.mem.eql(u8, command, "gc")) return runGc(init, &args);
     return writeUsage(init.io);
 }
 
@@ -55,6 +57,7 @@ fn runNew(init: std.process.Init, args: anytype) !u8 {
     var working_directory: ?[]const u8 = null;
     var rows: u16 = 24;
     var columns: u16 = 80;
+    var checkpoint_bytes: u32 = 256 * 1024;
     var command: std.ArrayList([]const u8) = .empty;
     defer command.deinit(init.gpa);
 
@@ -72,9 +75,17 @@ fn runNew(init: std.process.Init, args: anytype) !u8 {
         } else if (std.mem.eql(u8, argument, "--cwd")) {
             working_directory = args.next() orelse return writeUsage(init.io);
         } else if (std.mem.eql(u8, argument, "--rows")) {
-            rows = parseDimension(args.next() orelse return writeUsage(init.io)) catch return writeUsage(init.io);
+            rows = parseDimension(
+                args.next() orelse return writeUsage(init.io),
+            ) catch return writeUsage(init.io);
         } else if (std.mem.eql(u8, argument, "--columns")) {
-            columns = parseDimension(args.next() orelse return writeUsage(init.io)) catch return writeUsage(init.io);
+            columns = parseDimension(
+                args.next() orelse return writeUsage(init.io),
+            ) catch return writeUsage(init.io);
+        } else if (std.mem.eql(u8, argument, "--checkpoint-bytes")) {
+            checkpoint_bytes = parseCheckpointBytes(
+                args.next() orelse return writeUsage(init.io),
+            ) catch return writeUsage(init.io);
         } else {
             return writeUsage(init.io);
         }
@@ -94,6 +105,7 @@ fn runNew(init: std.process.Init, args: anytype) !u8 {
         .command = command.items,
         .rows = rows,
         .columns = columns,
+        .checkpoint_bytes = checkpoint_bytes,
     }) catch |err| return fail(init, err);
     try writeJson(init.gpa, init.io, .{
         .ok = true,
@@ -114,12 +126,16 @@ const SessionView = struct {
     lastSequence: u64,
     workerPid: ?i64,
     exitCode: ?i32,
+    protocolVersion: u32,
+    createdAtMs: i64,
+    updatedAtMs: i64,
 };
 
 fn runList(init: std.process.Init, args: anytype) !u8 {
     const database = requiredDatabase(args) catch return writeUsage(init.io);
     var store = session.Store.open(init.gpa, database) catch |err| return fail(init, err);
     defer store.close();
+    _ = reconcileStore(init.gpa, &store) catch |err| return fail(init, err);
     const records = store.listSessions(init.gpa) catch |err| return fail(init, err);
     defer freeSessions(init.gpa, records);
     var views: std.ArrayList(SessionView) = .empty;
@@ -134,6 +150,9 @@ fn runList(init: std.process.Init, args: anytype) !u8 {
         .lastSequence = record.last_sequence,
         .workerPid = record.worker_pid,
         .exitCode = record.exit_code,
+        .protocolVersion = record.protocol_version,
+        .createdAtMs = record.created_at_ms,
+        .updatedAtMs = record.updated_at_ms,
     });
     try writeJson(init.gpa, init.io, .{ .ok = true, .sessions = views.items });
     return @intFromEnum(Exit.ok);
@@ -142,9 +161,19 @@ fn runList(init: std.process.Init, args: anytype) !u8 {
 fn runAttach(init: std.process.Init, args: anytype) !u8 {
     var database: ?[]const u8 = null;
     var reference: ?[]const u8 = null;
+    var after_sequence: u64 = 0;
+    var read_only = false;
     while (args.next()) |argument| {
         if (std.mem.eql(u8, argument, "--database")) {
             database = args.next() orelse return writeUsage(init.io);
+        } else if (std.mem.eql(u8, argument, "--after")) {
+            after_sequence = std.fmt.parseInt(
+                u64,
+                args.next() orelse return writeUsage(init.io),
+                10,
+            ) catch return writeUsage(init.io);
+        } else if (std.mem.eql(u8, argument, "--read-only")) {
+            read_only = true;
         } else if (reference == null) {
             reference = argument;
         } else return writeUsage(init.io);
@@ -155,18 +184,54 @@ fn runAttach(init: std.process.Init, args: anytype) !u8 {
     defer store.close();
     var record = (store.resolveSession(reference.?) catch |err| return fail(init, err)) orelse
         return fail(init, error.SessionNotFound);
-    defer record.deinit(init.gpa);
-    if (record.state == .exited) {
-        const events = store.eventsAfter(init.gpa, record.id, 0) catch |err| return fail(init, err);
-        defer freeEvents(init.gpa, events);
-        for (events) |event| {
-            if (event.kind == .output) try std.Io.File.stdout().writeStreamingAll(init.io, event.payload);
-        }
-        const code = record.exit_code orelse 0;
-        if (code < 0) return @intFromEnum(Exit.failed);
-        return @intCast(@min(code, 255));
+    if ((record.state == .running or record.state == .created) and
+        !worker.workerReachable(init.gpa, record.id))
+    {
+        store.markOrphaned(record.id) catch |err| {
+            record.deinit(init.gpa);
+            return fail(init, err);
+        };
+        record.state = .orphaned;
     }
-    return worker.attach(init.gpa, record.id) catch |err| return fail(init, err);
+    defer record.deinit(init.gpa);
+    if (record.state != .running and record.state != .created) {
+        replayStored(init, &store, record.id, after_sequence) catch |err| return fail(init, err);
+        if (record.state == .exited) {
+            const code = record.exit_code orelse 0;
+            if (code < 0) return @intFromEnum(Exit.failed);
+            return @intCast(@min(code, 255));
+        }
+        return fail(init, error.SessionNotLive);
+    }
+    return worker.attach(init.gpa, record.id, .{
+        .protocol = record.protocol_version,
+        .after_sequence = after_sequence,
+        .read_only = read_only,
+    }) catch |err| return fail(init, err);
+}
+
+fn replayStored(
+    init: std.process.Init,
+    store: *session.Store,
+    session_id: []const u8,
+    requested_after: u64,
+) !void {
+    var after_sequence = requested_after;
+    if (try store.latestCheckpoint(init.gpa, session_id)) |checkpoint_value| {
+        var checkpoint = checkpoint_value;
+        defer checkpoint.deinit(init.gpa);
+        if (after_sequence < checkpoint.sequence) {
+            try std.Io.File.stdout().writeStreamingAll(init.io, checkpoint.payload);
+            after_sequence = checkpoint.sequence;
+        }
+    }
+    const events = try store.eventsAfter(init.gpa, session_id, after_sequence);
+    defer freeEvents(init.gpa, events);
+    for (events) |event| {
+        if (event.kind == .output) {
+            try std.Io.File.stdout().writeStreamingAll(init.io, event.payload);
+        }
+    }
 }
 
 fn runSend(init: std.process.Init, args: anytype) !u8 {
@@ -178,13 +243,28 @@ fn runSend(init: std.process.Init, args: anytype) !u8 {
     var record = (store.resolveSession(target.reference) catch |err| return fail(init, err)) orelse
         return fail(init, error.SessionNotFound);
     defer record.deinit(init.gpa);
-    worker.sendInput(init.gpa, record.id, input) catch |err| return fail(init, err);
+    worker.sendInput(
+        init.gpa,
+        record.id,
+        record.protocol_version,
+        record.last_sequence,
+        input,
+    ) catch |err| return fail(init, err);
     return @intFromEnum(Exit.ok);
 }
 
 fn runSignal(init: std.process.Init, args: anytype) !u8 {
     const target = parseTargetWithValue(args) catch return writeUsage(init.io);
-    const signal: i32 = if (std.mem.eql(u8, target.value, "interrupt")) 2 else if (std.mem.eql(u8, target.value, "hangup")) 1 else if (std.mem.eql(u8, target.value, "terminate")) 15 else if (std.mem.eql(u8, target.value, "kill")) 9 else return writeUsage(init.io);
+    const signal: i32 = if (std.mem.eql(u8, target.value, "interrupt"))
+        2
+    else if (std.mem.eql(u8, target.value, "hangup"))
+        1
+    else if (std.mem.eql(u8, target.value, "terminate"))
+        15
+    else if (std.mem.eql(u8, target.value, "kill"))
+        9
+    else
+        return writeUsage(init.io);
     return sendSignal(init, target.database, target.reference, signal);
 }
 
@@ -196,13 +276,24 @@ fn runStop(init: std.process.Init, args: anytype) !u8 {
     return sendSignal(init, target.database, target.reference, 1);
 }
 
-fn sendSignal(init: std.process.Init, database: []const u8, reference: []const u8, signal: i32) !u8 {
+fn sendSignal(
+    init: std.process.Init,
+    database: []const u8,
+    reference: []const u8,
+    signal: i32,
+) !u8 {
     var store = session.Store.open(init.gpa, database) catch |err| return fail(init, err);
     defer store.close();
     var record = (store.resolveSession(reference) catch |err| return fail(init, err)) orelse
         return fail(init, error.SessionNotFound);
     defer record.deinit(init.gpa);
-    worker.sendSignal(init.gpa, record.id, signal) catch |err| return fail(init, err);
+    worker.sendSignal(
+        init.gpa,
+        record.id,
+        record.protocol_version,
+        record.last_sequence,
+        signal,
+    ) catch |err| return fail(init, err);
     return @intFromEnum(Exit.ok);
 }
 
@@ -213,9 +304,92 @@ fn runDelete(init: std.process.Init, args: anytype) !u8 {
     var record = (store.resolveSession(target.reference) catch |err| return fail(init, err)) orelse
         return fail(init, error.SessionNotFound);
     defer record.deinit(init.gpa);
-    if (record.state == .running or record.state == .created) return fail(init, error.SessionStillRunning);
+    if (record.state == .running or record.state == .created) {
+        return fail(init, error.SessionStillRunning);
+    }
     store.deleteSession(record.id) catch |err| return fail(init, err);
     return @intFromEnum(Exit.ok);
+}
+
+fn runReconcile(init: std.process.Init, args: anytype) !u8 {
+    const database = requiredDatabase(args) catch return writeUsage(init.io);
+    var store = session.Store.open(init.gpa, database) catch |err| return fail(init, err);
+    defer store.close();
+    const orphaned = reconcileStore(init.gpa, &store) catch |err| return fail(init, err);
+    try writeJson(init.gpa, init.io, .{ .ok = true, .orphaned = orphaned });
+    return @intFromEnum(Exit.ok);
+}
+
+fn reconcileStore(allocator: std.mem.Allocator, store: *session.Store) !u64 {
+    const records = try store.listSessions(allocator);
+    defer freeSessions(allocator, records);
+    var orphaned: u64 = 0;
+    for (records) |record| {
+        if ((record.state == .running or record.state == .created) and
+            !worker.workerReachable(allocator, record.id))
+        {
+            try store.markOrphaned(record.id);
+            worker.removeStaleSocket(allocator, record.id);
+            orphaned += 1;
+        }
+    }
+    return orphaned;
+}
+
+fn runGc(init: std.process.Init, args: anytype) !u8 {
+    var database: ?[]const u8 = null;
+    var older_than_seconds: u64 = 7 * 24 * 60 * 60;
+    var dry_run = false;
+    while (args.next()) |argument| {
+        if (std.mem.eql(u8, argument, "--database")) {
+            database = args.next() orelse return writeUsage(init.io);
+        } else if (std.mem.eql(u8, argument, "--older-than")) {
+            older_than_seconds = std.fmt.parseInt(
+                u64,
+                args.next() orelse return writeUsage(init.io),
+                10,
+            ) catch return writeUsage(init.io);
+            if (older_than_seconds > 10 * 365 * 24 * 60 * 60) return writeUsage(init.io);
+        } else if (std.mem.eql(u8, argument, "--dry-run")) {
+            dry_run = true;
+        } else return writeUsage(init.io);
+    }
+    if (database == null) return writeUsage(init.io);
+    var store = session.Store.open(init.gpa, database.?) catch |err| return fail(init, err);
+    defer store.close();
+    const orphaned = if (dry_run)
+        0
+    else
+        reconcileStore(init.gpa, &store) catch |err| return fail(init, err);
+    const records = store.listSessions(init.gpa) catch |err| return fail(init, err);
+    defer freeSessions(init.gpa, records);
+    const age_ms = older_than_seconds * 1_000;
+    const now_ms = realMilliseconds(init.io);
+    const cutoff: i64 = if (age_ms > @as(u64, @intCast(@max(now_ms, 0))))
+        0
+    else
+        now_ms - @as(i64, @intCast(age_ms));
+    var removed: std.ArrayList([]const u8) = .empty;
+    defer removed.deinit(init.gpa);
+    for (records) |record| {
+        if ((record.state == .exited or record.state == .stopped or record.state == .orphaned) and
+            record.updated_at_ms <= cutoff)
+        {
+            try removed.append(init.gpa, record.id);
+            if (!dry_run) store.deleteSession(record.id) catch |err| return fail(init, err);
+        }
+    }
+    try writeJson(init.gpa, init.io, .{
+        .ok = true,
+        .dryRun = dry_run,
+        .orphaned = orphaned,
+        .removed = removed.items,
+    });
+    return @intFromEnum(Exit.ok);
+}
+
+fn realMilliseconds(io: std.Io) i64 {
+    return @intCast(@divFloor(std.Io.Clock.real.now(io).nanoseconds, std.time.ns_per_ms));
 }
 
 const Target = struct { database: []const u8, reference: []const u8 };
@@ -249,8 +423,12 @@ fn readStdinAll(allocator: std.mem.Allocator, io: std.Io, max_bytes: usize) ![]u
     var output: std.ArrayList(u8) = .empty;
     errdefer output.deinit(allocator);
     var buffer: [4096]u8 = undefined;
+    // EOF-bounded stdin stream.
     while (true) {
-        const count = std.Io.File.stdin().readStreaming(io, &.{buffer[0..]}) catch |err| switch (err) {
+        const count = std.Io.File.stdin().readStreaming(
+            io,
+            &.{buffer[0..]},
+        ) catch |err| switch (err) {
             error.EndOfStream => break,
             else => |other| return other,
         };
@@ -272,7 +450,13 @@ fn requiredDatabase(args: anytype) ![]const u8 {
 
 fn parseDimension(value: []const u8) !u16 {
     const parsed = try std.fmt.parseInt(u16, value, 10);
-    if (parsed == 0) return error.InvalidDimension;
+    if (parsed == 0 or parsed > 1_000) return error.InvalidDimension;
+    return parsed;
+}
+
+fn parseCheckpointBytes(value: []const u8) !u32 {
+    const parsed = try std.fmt.parseInt(u32, value, 10);
+    if (parsed < 32 * 1024 or parsed > 16 * 1024 * 1024) return error.InvalidCheckpointInterval;
     return parsed;
 }
 
@@ -308,7 +492,8 @@ fn freeEvents(allocator: std.mem.Allocator, events: []session.Event) void {
 fn writeUsage(io: std.Io) !u8 {
     try std.Io.File.stderr().writeStreamingAll(
         io,
-        "usage: machinen-session <new|list|attach|send|signal|stop|delete|database|help> ...\n",
+        "usage: machinen-session " ++
+            "<new|list|attach|send|signal|stop|delete|reconcile|gc|database|help> ...\n",
     );
     return @intFromEnum(Exit.usage);
 }
@@ -321,17 +506,21 @@ fn writeHelp(io: std.Io) !u8 {
         \\  machinen-session database init <path>
         \\  machinen-session database status <path>
         \\  machinen-session new --database <path> --id <id> [--name <name>]
-        \\      --cwd <path> [--rows <n>] [--columns <n>] -- <command> [args...]
+        \\      --cwd <path> [--rows <n>] [--columns <n>] [--checkpoint-bytes <n>]
+        \\      -- <command> [args...]
         \\  machinen-session list --database <path>
-        \\  machinen-session attach --database <path> <id-or-name>
+        \\  machinen-session attach --database <path> [--after <sequence>] [--read-only]
+        \\      <id-or-name>
         \\  machinen-session send --database <path> <id-or-name> < input
         \\  machinen-session signal --database <path> <id-or-name> <interrupt|hangup|terminate|kill>
         \\  machinen-session stop --database <path> <id-or-name>
         \\  machinen-session delete --database <path> <id-or-name>
+        \\  machinen-session reconcile --database <path>
+        \\  machinen-session gc --database <path> [--older-than <seconds>] [--dry-run]
         \\
-        \\A detached worker owns each PTY. Closing an attach client does not stop
-        \\the command. A new client receives SQLite-backed output history before
-        \\joining the live stream.
+        \\A detached worker owns each PTY. Reattach by the stable ID or unique name
+        \\shown by `list`. Attach clients can resume after a known event sequence;
+        \\fresh clients receive a portable VT checkpoint plus retained output.
         \\
     );
     return @intFromEnum(Exit.ok);
@@ -349,4 +538,5 @@ test "help aliases and dimensions remain stable" {
     try std.testing.expect(!isHelp("database"));
     try std.testing.expectEqual(@as(u16, 120), try parseDimension("120"));
     try std.testing.expectError(error.InvalidDimension, parseDimension("0"));
+    try std.testing.expectEqual(@as(u32, 262_144), try parseCheckpointBytes("262144"));
 }

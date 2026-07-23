@@ -1,6 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const session = @import("session");
+const vt = @import("vt");
 
 const c = @cImport({
     @cInclude("errno.h");
@@ -15,6 +16,7 @@ const c = @cImport({
     @cInclude("sys/un.h");
     @cInclude("sys/wait.h");
     @cInclude("termios.h");
+    @cInclude("time.h");
     @cInclude("unistd.h");
     if (builtin.os.tag == .macos) {
         @cInclude("util.h");
@@ -26,15 +28,31 @@ const c = @cImport({
 const max_clients = 8;
 const max_frame_payload = 32 * 1024;
 const socket_directory_prefix = "/tmp/machinen-session-";
+const protocol_version: u32 = 2;
+const attach_payload_length = 24;
+const sequence_header_length = 8;
+const checkpoint_header_length = 13;
+const lease_duration_ms: i64 = 30_000;
+const heartbeat_interval_ms: i64 = 10_000;
+const LeaseFlag = struct {
+    const writer: u8 = 1 << 0;
+    const resize: u8 = 1 << 1;
+    const control: u8 = 1 << 2;
+};
 
 const FrameType = enum(u8) {
+    attach_request = 'A',
+    checkpoint = 'C',
     output = 'O',
+    sequenced_output = 'Q',
     input = 'I',
     resize = 'R',
     history_complete = 'H',
     exit = 'X',
     failure = 'E',
     signal = 'S',
+    lease = 'L',
+    heartbeat = 'P',
 };
 
 pub const Config = struct {
@@ -46,6 +64,7 @@ pub const Config = struct {
     command: []const []const u8,
     rows: u16,
     columns: u16,
+    checkpoint_bytes: u32 = vt.default_checkpoint_bytes,
 };
 
 pub const Spawned = struct {
@@ -54,6 +73,25 @@ pub const Spawned = struct {
 
 const Client = struct {
     fd: c_int = -1,
+    ready: bool = false,
+    requested_leases: u8 = 0,
+    granted_leases: u8 = 0,
+    control: bool = false,
+    client_id: u64 = 0,
+    last_heartbeat_ms: i64 = 0,
+};
+
+const Leases = struct {
+    writer_fd: c_int = -1,
+    writer_expires_ms: i64 = 0,
+    resize_fd: c_int = -1,
+    resize_expires_ms: i64 = 0,
+};
+
+pub const AttachOptions = struct {
+    protocol: u32,
+    after_sequence: u64 = 0,
+    read_only: bool = false,
 };
 
 var resize_pending: c.sig_atomic_t = 0;
@@ -61,7 +99,9 @@ var resize_pending: c.sig_atomic_t = 0;
 pub fn validSessionId(id: []const u8) bool {
     if (id.len == 0 or id.len > 64) return false;
     for (id) |character| {
-        if (!std.ascii.isAlphanumeric(character) and character != '-' and character != '_' and character != '.') {
+        if (!std.ascii.isAlphanumeric(character) and
+            character != '-' and character != '_' and character != '.')
+        {
             return false;
         }
     }
@@ -104,9 +144,15 @@ pub fn spawnDetached(config: Config) !Spawned {
     }
 }
 
-pub fn sendInput(allocator: std.mem.Allocator, id: []const u8, input: []const u8) !void {
+pub fn sendInput(
+    allocator: std.mem.Allocator,
+    id: []const u8,
+    protocol: u32,
+    last_sequence: u64,
+    input: []const u8,
+) !void {
     if (input.len == 0) return error.EmptyInput;
-    const fd = try connectForControl(allocator, id);
+    const fd = try connectForControl(allocator, id, protocol, last_sequence);
     defer _ = c.close(fd);
     var offset: usize = 0;
     while (offset < input.len) {
@@ -116,20 +162,30 @@ pub fn sendInput(allocator: std.mem.Allocator, id: []const u8, input: []const u8
     }
 }
 
-pub fn sendSignal(allocator: std.mem.Allocator, id: []const u8, signal: i32) !void {
+pub fn sendSignal(
+    allocator: std.mem.Allocator,
+    id: []const u8,
+    protocol: u32,
+    last_sequence: u64,
+    signal: i32,
+) !void {
     if (signal <= 0) return error.InvalidSignal;
-    const fd = try connectForControl(allocator, id);
+    const fd = try connectForControl(allocator, id, protocol, last_sequence);
     defer _ = c.close(fd);
     var payload: [4]u8 = undefined;
     std.mem.writeInt(i32, &payload, signal, .big);
     try writeFrame(fd, .signal, &payload);
 }
 
-pub fn attach(allocator: std.mem.Allocator, id: []const u8) !u8 {
+pub fn attach(allocator: std.mem.Allocator, id: []const u8, options: AttachOptions) !u8 {
     const path = try socketPath(allocator, id);
     defer allocator.free(path);
     const fd = try connectSocket(allocator, path);
     defer _ = c.close(fd);
+    if (options.protocol >= protocol_version) {
+        const flags: u8 = if (options.read_only) 0 else LeaseFlag.writer | LeaseFlag.resize;
+        try sendAttachRequest(fd, flags, options.after_sequence);
+    }
 
     var original_termios: c.struct_termios = undefined;
     const interactive = c.isatty(c.STDIN_FILENO) == 1;
@@ -143,16 +199,25 @@ pub fn attach(allocator: std.mem.Allocator, id: []const u8) !u8 {
         if (raw_enabled) _ = c.tcsetattr(c.STDIN_FILENO, c.TCSADRAIN, &original_termios);
     }
 
-    if (interactive) {
+    if (interactive and !options.read_only) {
         _ = c.signal(c.SIGWINCH, &handleResizeSignal);
         resize_pending = 1;
     }
 
-    var stdin_open = true;
+    var stdin_open = !options.read_only;
+    var last_heartbeat = monotonicMilliseconds();
+    // Intentional client loop, bounded by socket close or worker exit.
     while (true) {
         if (resize_pending != 0) {
             resize_pending = 0;
             try sendCurrentSize(fd);
+        }
+        const now = monotonicMilliseconds();
+        if (options.protocol >= protocol_version and
+            now - last_heartbeat >= heartbeat_interval_ms)
+        {
+            try writeFrame(fd, .heartbeat, "");
+            last_heartbeat = now;
         }
         var poll_fds = [_]c.struct_pollfd{
             .{ .fd = fd, .events = c.POLLIN, .revents = 0 },
@@ -166,7 +231,17 @@ pub fn attach(allocator: std.mem.Allocator, id: []const u8) !u8 {
             const frame = readFrame(fd, &payload) catch return 0;
             switch (frame.kind) {
                 .output => try writeAll(c.STDOUT_FILENO, frame.payload),
-                .history_complete => {},
+                .sequenced_output => {
+                    if (frame.payload.len < sequence_header_length) return error.InvalidServerFrame;
+                    try writeAll(c.STDOUT_FILENO, frame.payload[sequence_header_length..]);
+                },
+                .checkpoint => {
+                    if (frame.payload.len < checkpoint_header_length) {
+                        return error.InvalidServerFrame;
+                    }
+                    try writeAll(c.STDOUT_FILENO, frame.payload[checkpoint_header_length..]);
+                },
+                .history_complete, .lease => {},
                 .exit => return decodeExit(frame.payload),
                 .failure => {
                     try writeAll(c.STDERR_FILENO, frame.payload);
@@ -175,7 +250,11 @@ pub fn attach(allocator: std.mem.Allocator, id: []const u8) !u8 {
                 else => return error.InvalidServerFrame,
             }
         }
-        if (!received_server_frame and (poll_fds[0].revents & (c.POLLERR | c.POLLHUP | c.POLLNVAL)) != 0) return 0;
+        if (!received_server_frame and
+            (poll_fds[0].revents & (c.POLLERR | c.POLLHUP | c.POLLNVAL)) != 0)
+        {
+            return 0;
+        }
         if (stdin_open and (poll_fds[1].revents & c.POLLIN) != 0) {
             var input: [max_frame_payload]u8 = undefined;
             const count = readRetry(c.STDIN_FILENO, &input);
@@ -196,7 +275,14 @@ fn validateConfig(config: Config) !void {
     if (config.database_path.len == 0) return error.EmptyDatabasePath;
     if (config.working_directory.len == 0) return error.EmptyWorkingDirectory;
     if (config.argv_json.len == 0 or config.command.len == 0) return error.EmptyCommand;
-    if (config.rows == 0 or config.columns == 0) return error.InvalidTerminalSize;
+    if (config.rows == 0 or config.columns == 0 or
+        config.rows > vt.max_dimension or config.columns > vt.max_dimension)
+    {
+        return error.InvalidTerminalSize;
+    }
+    if (config.checkpoint_bytes == 0 or config.checkpoint_bytes > 16 * 1024 * 1024) {
+        return error.InvalidCheckpointInterval;
+    }
     for (config.command) |argument| if (argument.len == 0) return error.EmptyCommandArgument;
 }
 
@@ -232,8 +318,11 @@ fn runWorker(allocator: std.mem.Allocator, config: Config, ready_fd: c_int) !voi
         .argv_json = config.argv_json,
         .rows = config.rows,
         .columns = config.columns,
+        .protocol_version = protocol_version,
     });
-    errdefer store.deleteSession(config.id) catch {};
+    errdefer store.deleteSession(config.id) catch |err| switch (err) {
+        else => {},
+    };
 
     const path = try socketPath(allocator, config.id);
     defer allocator.free(path);
@@ -255,12 +344,29 @@ fn runWorker(allocator: std.mem.Allocator, config: Config, ready_fd: c_int) !voi
     _ = c.close(ready_fd);
 
     var clients = [_]Client{.{}} ** max_clients;
-    defer for (&clients) |*client| closeClient(client);
-    const exit_code = runEventLoop(allocator, &store, config.id, master_fd, listen_fd, child_pid, &clients);
-    store.setExited(config.id, exit_code) catch {};
+    var leases: Leases = .{};
+    defer for (&clients) |*client| closeClient(client, &leases);
+    var checkpoint_builder = try vt.Builder.init(allocator, config.rows, config.columns);
+    defer checkpoint_builder.deinit();
+    const exit_code = runEventLoop(
+        allocator,
+        &store,
+        config.id,
+        master_fd,
+        listen_fd,
+        child_pid,
+        &clients,
+        &leases,
+        &checkpoint_builder,
+        config.checkpoint_bytes,
+    );
+    saveCheckpoint(&store, config.id, &checkpoint_builder);
+    store.setExited(config.id, exit_code) catch |err| switch (err) {
+        else => {},
+    };
     var exit_payload: [4]u8 = undefined;
     std.mem.writeInt(i32, &exit_payload, exit_code, .big);
-    broadcast(&clients, .exit, &exit_payload);
+    broadcast(&clients, &leases, .exit, &exit_payload);
 }
 
 fn spawnPtyChild(allocator: std.mem.Allocator, config: Config, master_fd: *c_int) !c.pid_t {
@@ -294,93 +400,139 @@ fn runEventLoop(
     listen_fd: c_int,
     child_pid: c.pid_t,
     clients: *[max_clients]Client,
+    leases: *Leases,
+    checkpoint_builder: *vt.Builder,
+    checkpoint_bytes: u32,
 ) i32 {
+    // Intentional worker loop, bounded by PTY exit.
     while (true) {
         var poll_fds: [2 + max_clients]c.struct_pollfd = undefined;
         poll_fds[0] = .{ .fd = master_fd, .events = c.POLLIN, .revents = 0 };
         poll_fds[1] = .{ .fd = listen_fd, .events = c.POLLIN, .revents = 0 };
         for (clients, 0..) |client, index| {
-            poll_fds[index + 2] = .{ .fd = client.fd, .events = if (client.fd >= 0) c.POLLIN else 0, .revents = 0 };
+            poll_fds[index + 2] = .{
+                .fd = client.fd,
+                .events = if (client.fd >= 0) c.POLLIN else 0,
+                .revents = 0,
+            };
         }
-        if (c.poll(&poll_fds, poll_fds.len, -1) < 0) continue;
+        if (c.poll(&poll_fds, poll_fds.len, 1_000) < 0) continue;
+        refreshLeases(clients, leases);
 
-        if ((poll_fds[1].revents & c.POLLIN) != 0) acceptClient(allocator, store, session_id, listen_fd, clients);
+        if ((poll_fds[1].revents & c.POLLIN) != 0) acceptClient(listen_fd, clients);
         if ((poll_fds[0].revents & c.POLLIN) != 0) {
             var output: [max_frame_payload]u8 = undefined;
             const count = readRetry(master_fd, &output);
             if (count <= 0) return waitExitCode(child_pid);
             const bytes = output[0..@intCast(count)];
-            _ = store.appendOutput(session_id, bytes) catch 0;
-            broadcast(clients, .output, bytes);
+            checkpoint_builder.feed(bytes);
+            const sequence = store.appendOutput(session_id, bytes) catch 0;
+            broadcastOutput(clients, leases, sequence, bytes);
+            if (checkpoint_builder.shouldCheckpoint(checkpoint_bytes)) {
+                saveCheckpoint(store, session_id, checkpoint_builder);
+            }
         }
         if ((poll_fds[0].revents & (c.POLLERR | c.POLLHUP | c.POLLNVAL)) != 0) {
-            drainPty(store, session_id, master_fd, clients);
+            drainPty(store, session_id, master_fd, clients, leases, checkpoint_builder);
             return waitExitCode(child_pid);
         }
         for (clients, 0..) |*client, index| {
             if (client.fd < 0) continue;
             const events = poll_fds[index + 2].revents;
-            if ((events & c.POLLIN) != 0) serviceClient(store, session_id, master_fd, child_pid, client);
-            if ((events & (c.POLLERR | c.POLLHUP | c.POLLNVAL)) != 0) closeClient(client);
+            if ((events & c.POLLIN) != 0) serviceClient(
+                allocator,
+                store,
+                session_id,
+                master_fd,
+                child_pid,
+                client,
+                clients,
+                leases,
+                checkpoint_builder,
+            );
+            if ((events & (c.POLLERR | c.POLLHUP | c.POLLNVAL)) != 0) closeClient(client, leases);
         }
     }
 }
 
-fn acceptClient(
-    allocator: std.mem.Allocator,
-    store: *session.Store,
-    session_id: []const u8,
-    listen_fd: c_int,
-    clients: *[max_clients]Client,
-) void {
+fn acceptClient(listen_fd: c_int, clients: *[max_clients]Client) void {
     const fd = c.accept(listen_fd, null, null);
     if (fd < 0) return;
     const slot = for (clients) |*client| {
         if (client.fd < 0) break client;
     } else {
-        writeFrame(fd, .failure, "too many attached clients") catch {};
-        _ = c.close(fd);
-        return;
-    };
-
-    const history = store.eventsAfter(allocator, session_id, 0) catch {
-        writeFrame(fd, .failure, "could not load session history") catch {};
-        _ = c.close(fd);
-        return;
-    };
-    defer freeEvents(allocator, history);
-    for (history) |event| {
-        if (event.kind == .output) writeFrame(fd, .output, event.payload) catch {
-            _ = c.close(fd);
-            return;
+        writeFrame(fd, .failure, "too many attached clients") catch |err| switch (err) {
+            else => {},
         };
-    }
-    writeFrame(fd, .history_complete, "") catch {
         _ = c.close(fd);
         return;
     };
-    slot.fd = fd;
+    slot.* = .{ .fd = fd, .last_heartbeat_ms = monotonicMilliseconds() };
 }
 
 fn serviceClient(
+    allocator: std.mem.Allocator,
     store: *session.Store,
     session_id: []const u8,
     master_fd: c_int,
     child_pid: c.pid_t,
     client: *Client,
+    clients: *[max_clients]Client,
+    leases: *Leases,
+    checkpoint_builder: *vt.Builder,
 ) void {
     var payload: [max_frame_payload]u8 = undefined;
     const frame = readFrame(client.fd, &payload) catch {
-        closeClient(client);
+        closeClient(client, leases);
         return;
     };
+    if (!client.ready) {
+        if (frame.kind != .attach_request or
+            beginClient(
+                allocator,
+                store,
+                session_id,
+                client,
+                clients,
+                leases,
+                frame.payload,
+            ) catch false == false)
+        {
+            closeClient(client, leases);
+        }
+        return;
+    }
     switch (frame.kind) {
-        .input => writeAll(master_fd, frame.payload) catch closeClient(client),
+        .heartbeat => {
+            client.last_heartbeat_ms = monotonicMilliseconds();
+            refreshLeases(clients, leases);
+        },
+        .input => {
+            client.last_heartbeat_ms = monotonicMilliseconds();
+            refreshLeases(clients, leases);
+            if (!client.control and client.granted_leases & LeaseFlag.writer == 0) {
+                writeFrame(client.fd, .failure, "writer lease held by another client") catch
+                    closeClient(client, leases);
+                return;
+            }
+            writeAll(master_fd, frame.payload) catch closeClient(client, leases);
+        },
         .resize => {
-            if (frame.payload.len != 4) return closeClient(client);
+            client.last_heartbeat_ms = monotonicMilliseconds();
+            refreshLeases(clients, leases);
+            if (!client.control and client.granted_leases & LeaseFlag.resize == 0) {
+                writeFrame(client.fd, .failure, "resize lease held by another client") catch
+                    closeClient(client, leases);
+                return;
+            }
+            if (frame.payload.len != 4) return closeClient(client, leases);
             const columns = std.mem.readInt(u16, frame.payload[0..2], .big);
             const rows = std.mem.readInt(u16, frame.payload[2..4], .big);
-            if (columns == 0 or rows == 0) return closeClient(client);
+            if (columns == 0 or rows == 0 or
+                columns > vt.max_dimension or rows > vt.max_dimension)
+            {
+                return closeClient(client, leases);
+            }
             const window = c.struct_winsize{
                 .ws_row = rows,
                 .ws_col = columns,
@@ -388,44 +540,207 @@ fn serviceClient(
                 .ws_ypixel = 0,
             };
             _ = c.ioctl(master_fd, c.TIOCSWINSZ, &window);
+            checkpoint_builder.resize(rows, columns) catch return closeClient(client, leases);
             _ = store.recordResize(session_id, columns, rows) catch 0;
         },
         .signal => {
-            if (frame.payload.len != 4) return closeClient(client);
+            if (!client.control and client.granted_leases & LeaseFlag.writer == 0) {
+                return writeFrame(client.fd, .failure, "writer lease required for signals") catch
+                    closeClient(client, leases);
+            }
+            if (frame.payload.len != 4) return closeClient(client, leases);
             const signal = std.mem.readInt(i32, frame.payload[0..4], .big);
-            if (signal <= 0 or c.kill(-child_pid, signal) != 0) return closeClient(client);
+            if (signal <= 0 or c.kill(-child_pid, signal) != 0) return closeClient(client, leases);
         },
-        else => closeClient(client),
+        else => closeClient(client, leases),
     }
 }
 
-fn drainPty(store: *session.Store, session_id: []const u8, master_fd: c_int, clients: *[max_clients]Client) void {
+fn beginClient(
+    allocator: std.mem.Allocator,
+    store: *session.Store,
+    session_id: []const u8,
+    client: *Client,
+    clients: *[max_clients]Client,
+    leases: *Leases,
+    payload: []const u8,
+) !bool {
+    if (payload.len != attach_payload_length) return false;
+    if (std.mem.readInt(u32, payload[0..4], .big) != protocol_version) return false;
+    const flags = payload[4];
+    if (flags & ~(LeaseFlag.writer | LeaseFlag.resize | LeaseFlag.control) != 0) return false;
+    const after_sequence = std.mem.readInt(u64, payload[8..16], .big);
+    client.client_id = std.mem.readInt(u64, payload[16..24], .big);
+    client.control = flags & LeaseFlag.control != 0;
+    client.requested_leases = flags & (LeaseFlag.writer | LeaseFlag.resize);
+    client.ready = true;
+    client.last_heartbeat_ms = monotonicMilliseconds();
+    refreshLeases(clients, leases);
+    try replayClient(allocator, store, session_id, client.fd, after_sequence);
+    return true;
+}
+
+fn replayClient(
+    allocator: std.mem.Allocator,
+    store: *session.Store,
+    session_id: []const u8,
+    fd: c_int,
+    requested_after: u64,
+) !void {
+    var after_sequence = requested_after;
+    if (try store.latestCheckpoint(allocator, session_id)) |checkpoint_value| {
+        var checkpoint = checkpoint_value;
+        defer checkpoint.deinit(allocator);
+        if (after_sequence < checkpoint.sequence) {
+            try sendCheckpoint(fd, checkpoint);
+            after_sequence = checkpoint.sequence;
+        }
+    }
+    const history = try store.eventsAfter(allocator, session_id, after_sequence);
+    defer freeEvents(allocator, history);
+    for (history) |event| {
+        if (event.kind == .output) try sendSequencedOutput(fd, event.sequence, event.payload);
+    }
+    var record = (try store.getSession(session_id)) orelse return error.SessionNotFound;
+    defer record.deinit(allocator);
+    var complete: [8]u8 = undefined;
+    std.mem.writeInt(u64, &complete, record.last_sequence, .big);
+    try writeFrame(fd, .history_complete, &complete);
+}
+
+fn sendCheckpoint(fd: c_int, checkpoint: session.Checkpoint) !void {
+    const chunk_size = max_frame_payload - checkpoint_header_length;
+    var offset: usize = 0;
+    while (offset < checkpoint.payload.len) {
+        const end = @min(offset + chunk_size, checkpoint.payload.len);
+        var payload: [max_frame_payload]u8 = undefined;
+        std.mem.writeInt(u64, payload[0..8], checkpoint.sequence, .big);
+        std.mem.writeInt(u32, payload[8..12], checkpoint.format_version, .big);
+        payload[12] = (if (offset == 0) @as(u8, 1) else 0) |
+            (if (end == checkpoint.payload.len) @as(u8, 2) else 0);
+        @memcpy(
+            payload[checkpoint_header_length .. checkpoint_header_length + end - offset],
+            checkpoint.payload[offset..end],
+        );
+        try writeFrame(fd, .checkpoint, payload[0 .. checkpoint_header_length + end - offset]);
+        offset = end;
+    }
+}
+
+fn sendSequencedOutput(fd: c_int, sequence: u64, output: []const u8) !void {
+    const chunk_size = max_frame_payload - sequence_header_length;
+    var offset: usize = 0;
+    while (offset < output.len) {
+        const end = @min(offset + chunk_size, output.len);
+        var payload: [max_frame_payload]u8 = undefined;
+        std.mem.writeInt(u64, payload[0..8], sequence, .big);
+        @memcpy(
+            payload[sequence_header_length .. sequence_header_length + end - offset],
+            output[offset..end],
+        );
+        try writeFrame(fd, .sequenced_output, payload[0 .. sequence_header_length + end - offset]);
+        offset = end;
+    }
+}
+
+fn drainPty(
+    store: *session.Store,
+    session_id: []const u8,
+    master_fd: c_int,
+    clients: *[max_clients]Client,
+    leases: *Leases,
+    checkpoint_builder: *vt.Builder,
+) void {
+    // EOF-bounded PTY drain.
     while (true) {
         var output: [max_frame_payload]u8 = undefined;
         const count = readRetry(master_fd, &output);
         if (count <= 0) return;
         const bytes = output[0..@intCast(count)];
-        _ = store.appendOutput(session_id, bytes) catch 0;
-        broadcast(clients, .output, bytes);
+        checkpoint_builder.feed(bytes);
+        const sequence = store.appendOutput(session_id, bytes) catch 0;
+        broadcastOutput(clients, leases, sequence, bytes);
     }
 }
 
-fn broadcast(clients: *[max_clients]Client, kind: FrameType, payload: []const u8) void {
+fn saveCheckpoint(store: *session.Store, session_id: []const u8, builder: *vt.Builder) void {
+    const payload = builder.checkpoint() catch return;
+    defer builder.allocator.free(payload);
+    _ = store.checkpointAndCompact(session_id, vt.format_version, payload) catch return;
+    builder.didCheckpoint();
+}
+
+fn broadcastOutput(
+    clients: *[max_clients]Client,
+    leases: *Leases,
+    sequence: u64,
+    payload: []const u8,
+) void {
     for (clients) |*client| {
-        if (client.fd >= 0) writeFrame(client.fd, kind, payload) catch closeClient(client);
+        if (client.fd >= 0 and client.ready) {
+            sendSequencedOutput(client.fd, sequence, payload) catch closeClient(client, leases);
+        }
     }
 }
 
-fn closeClient(client: *Client) void {
+fn broadcast(
+    clients: *[max_clients]Client,
+    leases: *Leases,
+    kind: FrameType,
+    payload: []const u8,
+) void {
+    for (clients) |*client| {
+        if (client.fd >= 0 and client.ready) writeFrame(client.fd, kind, payload) catch
+            closeClient(client, leases);
+    }
+}
+
+fn refreshLeases(clients: *[max_clients]Client, leases: *Leases) void {
+    const now = monotonicMilliseconds();
+    if (leases.writer_fd >= 0 and now >= leases.writer_expires_ms) leases.writer_fd = -1;
+    if (leases.resize_fd >= 0 and now >= leases.resize_expires_ms) leases.resize_fd = -1;
+    for (clients) |*client| {
+        const previous = client.granted_leases;
+        client.granted_leases = 0;
+        if (client.fd >= 0 and client.ready and !client.control and
+            now - client.last_heartbeat_ms < lease_duration_ms)
+        {
+            if (client.requested_leases & LeaseFlag.writer != 0 and
+                (leases.writer_fd < 0 or leases.writer_fd == client.fd))
+            {
+                leases.writer_fd = client.fd;
+                leases.writer_expires_ms = client.last_heartbeat_ms + lease_duration_ms;
+                client.granted_leases |= LeaseFlag.writer;
+            }
+            if (client.requested_leases & LeaseFlag.resize != 0 and
+                (leases.resize_fd < 0 or leases.resize_fd == client.fd))
+            {
+                leases.resize_fd = client.fd;
+                leases.resize_expires_ms = client.last_heartbeat_ms + lease_duration_ms;
+                client.granted_leases |= LeaseFlag.resize;
+            }
+        }
+        if (client.fd >= 0 and client.ready and previous != client.granted_leases) {
+            const status = [_]u8{ client.granted_leases, client.requested_leases };
+            writeFrame(client.fd, .lease, &status) catch closeClient(client, leases);
+        }
+    }
+}
+
+fn closeClient(client: *Client, leases: *Leases) void {
+    if (leases.writer_fd == client.fd) leases.writer_fd = -1;
+    if (leases.resize_fd == client.fd) leases.resize_fd = -1;
     if (client.fd >= 0) _ = c.close(client.fd);
-    client.fd = -1;
+    client.* = .{};
 }
 
 fn openListener(allocator: std.mem.Allocator, path: []const u8) !c_int {
     const directory = std.fs.path.dirname(path) orelse return error.InvalidSocketPath;
     const directory_z = try allocator.dupeZ(u8, directory);
     defer allocator.free(directory_z);
-    if (c.mkdir(directory_z.ptr, 0o700) != 0 and errnoValue() != c.EEXIST) return error.CreateRuntimeDirectoryFailed;
+    if (c.mkdir(directory_z.ptr, 0o700) != 0 and errnoValue() != c.EEXIST) {
+        return error.CreateRuntimeDirectoryFailed;
+    }
     if (c.chmod(directory_z.ptr, 0o700) != 0) return error.RuntimeDirectoryPermissionsFailed;
 
     const path_z = try allocator.dupeZ(u8, path);
@@ -445,22 +760,56 @@ fn openListener(allocator: std.mem.Allocator, path: []const u8) !c_int {
     return fd;
 }
 
-fn connectForControl(allocator: std.mem.Allocator, id: []const u8) !c_int {
+fn connectForControl(
+    allocator: std.mem.Allocator,
+    id: []const u8,
+    protocol: u32,
+    last_sequence: u64,
+) !c_int {
     const path = try socketPath(allocator, id);
     defer allocator.free(path);
     const fd = try connectSocket(allocator, path);
     errdefer _ = c.close(fd);
+    if (protocol >= protocol_version) try sendAttachRequest(fd, LeaseFlag.control, last_sequence);
     var payload: [max_frame_payload]u8 = undefined;
+    // Intentional handshake loop, bounded by history completion or socket close.
     while (true) {
         const frame = try readFrame(fd, &payload);
         switch (frame.kind) {
-            .output => {},
+            .output, .sequenced_output, .checkpoint, .lease => {},
             .history_complete => return fd,
             .exit => return error.SessionExited,
             .failure => return error.SessionFailure,
             else => return error.InvalidServerFrame,
         }
     }
+}
+
+fn sendAttachRequest(fd: c_int, flags: u8, after_sequence: u64) !void {
+    var payload: [attach_payload_length]u8 = @splat(0);
+    std.mem.writeInt(u32, payload[0..4], protocol_version, .big);
+    payload[4] = flags;
+    std.mem.writeInt(u64, payload[8..16], after_sequence, .big);
+    const client_id = (@as(u64, @intCast(c.getpid())) << 32) ^
+        @as(u64, @bitCast(monotonicMilliseconds()));
+    std.mem.writeInt(u64, payload[16..24], client_id, .big);
+    try writeFrame(fd, .attach_request, &payload);
+}
+
+pub fn workerReachable(allocator: std.mem.Allocator, id: []const u8) bool {
+    const path = socketPath(allocator, id) catch return false;
+    defer allocator.free(path);
+    const fd = connectSocket(allocator, path) catch return false;
+    _ = c.close(fd);
+    return true;
+}
+
+pub fn removeStaleSocket(allocator: std.mem.Allocator, id: []const u8) void {
+    const path = socketPath(allocator, id) catch return;
+    defer allocator.free(path);
+    const path_z = allocator.dupeZ(u8, path) catch return;
+    defer allocator.free(path_z);
+    _ = c.unlink(path_z.ptr);
 }
 
 fn connectSocket(allocator: std.mem.Allocator, path: []const u8) !c_int {
@@ -472,7 +821,9 @@ fn connectSocket(allocator: std.mem.Allocator, path: []const u8) !c_int {
     if (path.len >= address.sun_path.len) return error.SocketPathTooLong;
     address.sun_family = c.AF_UNIX;
     @memcpy(address.sun_path[0..path.len], path);
-    if (c.connect(fd, @ptrCast(&address), @sizeOf(c.struct_sockaddr_un)) != 0) return error.ConnectFailed;
+    if (c.connect(fd, @ptrCast(&address), @sizeOf(c.struct_sockaddr_un)) != 0) {
+        return error.ConnectFailed;
+    }
     return fd;
 }
 
@@ -510,6 +861,7 @@ fn readExact(fd: c_int, output: []u8) !void {
 }
 
 fn readRetry(fd: c_int, output: []u8) isize {
+    // Intentional retry loop, bounded by a non-EINTR read result.
     while (true) {
         const count = c.read(fd, output.ptr, output.len);
         if (count < 0 and errnoValue() == c.EINTR) continue;
@@ -527,6 +879,7 @@ fn writeAll(fd: c_int, input: []const u8) !void {
 }
 
 fn writeRetry(fd: c_int, input: []const u8) isize {
+    // Intentional retry loop, bounded by a non-EINTR write result.
     while (true) {
         const count = c.write(fd, input.ptr, input.len);
         if (count < 0 and errnoValue() == c.EINTR) continue;
@@ -572,6 +925,13 @@ fn setCloseOnExec(fd: c_int) void {
     if (flags >= 0) _ = c.fcntl(fd, c.F_SETFD, flags | c.FD_CLOEXEC);
 }
 
+fn monotonicMilliseconds() i64 {
+    var value: std.c.timespec = undefined;
+    if (std.c.clock_gettime(.MONOTONIC, &value) != 0) return 0;
+    return @as(i64, @intCast(value.sec)) * 1_000 +
+        @divFloor(@as(i64, @intCast(value.nsec)), std.time.ns_per_ms);
+}
+
 fn errnoValue() c_int {
     return if (builtin.os.tag == .macos) c.__error().* else c.__errno_location().*;
 }
@@ -600,10 +960,50 @@ test "framing preserves terminal bytes" {
     try std.testing.expectEqualSlices(u8, "one\x00two", frame.payload);
 }
 
+test "writer and resize leases transfer when the owning client disconnects" {
+    var first_pair: [2]c_int = undefined;
+    var second_pair: [2]c_int = undefined;
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        c.socketpair(c.AF_UNIX, c.SOCK_STREAM, 0, &first_pair),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        c.socketpair(c.AF_UNIX, c.SOCK_STREAM, 0, &second_pair),
+    );
+    defer _ = c.close(first_pair[1]);
+    defer _ = c.close(second_pair[1]);
+    const now = monotonicMilliseconds();
+    var clients = [_]Client{.{}} ** max_clients;
+    clients[0] = .{
+        .fd = first_pair[0],
+        .ready = true,
+        .requested_leases = LeaseFlag.writer | LeaseFlag.resize,
+        .last_heartbeat_ms = now,
+    };
+    clients[1] = .{
+        .fd = second_pair[0],
+        .ready = true,
+        .requested_leases = LeaseFlag.writer | LeaseFlag.resize,
+        .last_heartbeat_ms = now,
+    };
+    var leases: Leases = .{};
+    refreshLeases(&clients, &leases);
+    try std.testing.expectEqual(LeaseFlag.writer | LeaseFlag.resize, clients[0].granted_leases);
+    try std.testing.expectEqual(@as(u8, 0), clients[1].granted_leases);
+    closeClient(&clients[0], &leases);
+    refreshLeases(&clients, &leases);
+    try std.testing.expectEqual(LeaseFlag.writer | LeaseFlag.resize, clients[1].granted_leases);
+    closeClient(&clients[1], &leases);
+}
+
 fn workerTestDatabasePath(allocator: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u8 {
     const cwd = try std.process.currentPathAlloc(std.testing.io, allocator);
     defer allocator.free(cwd);
-    return std.fs.path.join(allocator, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path, "worker.sqlite3" });
+    return std.fs.path.join(
+        allocator,
+        &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path, "worker.sqlite3" },
+    );
 }
 
 test "detached worker runs independently and replays journaled PTY output" {
@@ -633,6 +1033,7 @@ test "detached worker runs independently and replays journaled PTY output" {
     defer allocator.free(path);
     const fd = try connectSocket(allocator, path);
     defer _ = c.close(fd);
+    try sendAttachRequest(fd, LeaseFlag.writer | LeaseFlag.resize, 0);
     var output: std.ArrayList(u8) = .empty;
     defer output.deinit(allocator);
     var payload: [max_frame_payload]u8 = undefined;
@@ -641,7 +1042,15 @@ test "detached worker runs independently and replays journaled PTY output" {
         const frame = try readFrame(fd, &payload);
         switch (frame.kind) {
             .output => try output.appendSlice(allocator, frame.payload),
-            .history_complete => {},
+            .sequenced_output => try output.appendSlice(
+                allocator,
+                frame.payload[sequence_header_length..],
+            ),
+            .checkpoint => try output.appendSlice(
+                allocator,
+                frame.payload[checkpoint_header_length..],
+            ),
+            .history_complete, .lease => {},
             .exit => exit_code = decodeExit(frame.payload),
             else => return error.UnexpectedWorkerFrame,
         }
@@ -650,7 +1059,10 @@ test "detached worker runs independently and replays journaled PTY output" {
     try std.testing.expectEqualStrings("first\r\nsecond\r\n", output.items);
 
     var worker_status: c_int = 0;
-    try std.testing.expectEqual(spawned.worker_pid, c.waitpid(spawned.worker_pid, &worker_status, 0));
+    try std.testing.expectEqual(
+        spawned.worker_pid,
+        c.waitpid(spawned.worker_pid, &worker_status, 0),
+    );
     var store = try session.Store.open(allocator, database_path);
     defer store.close();
     var record = (try store.getSession(id)).?;
@@ -661,22 +1073,37 @@ test "detached worker runs independently and replays journaled PTY output" {
     try std.testing.expect(record.last_sequence >= 1);
 }
 
-fn readClientOutput(allocator: std.mem.Allocator, fd: c_int) !struct { bytes: []u8, exit_code: u8 } {
+fn readClientOutput(
+    allocator: std.mem.Allocator,
+    fd: c_int,
+) !struct { bytes: []u8, exit_code: u8 } {
     var output: std.ArrayList(u8) = .empty;
     errdefer output.deinit(allocator);
     var payload: [max_frame_payload]u8 = undefined;
+    // Intentional test loop, bounded by the worker exit frame.
     while (true) {
         const frame = try readFrame(fd, &payload);
         switch (frame.kind) {
             .output => try output.appendSlice(allocator, frame.payload),
-            .history_complete => {},
-            .exit => return .{ .bytes = try output.toOwnedSlice(allocator), .exit_code = decodeExit(frame.payload) },
+            .sequenced_output => try output.appendSlice(
+                allocator,
+                frame.payload[sequence_header_length..],
+            ),
+            .checkpoint => try output.appendSlice(
+                allocator,
+                frame.payload[checkpoint_header_length..],
+            ),
+            .history_complete, .lease => {},
+            .exit => return .{
+                .bytes = try output.toOwnedSlice(allocator),
+                .exit_code = decodeExit(frame.payload),
+            },
             else => return error.UnexpectedWorkerFrame,
         }
     }
 }
 
-test "multiple clients share input output and canonical resize" {
+test "leased writer and read-only watcher share output and canonical resize" {
     const allocator = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
@@ -703,16 +1130,18 @@ test "multiple clients share input output and canonical resize" {
     defer allocator.free(path);
     const first_fd = try connectSocket(allocator, path);
     defer _ = c.close(first_fd);
+    try sendAttachRequest(first_fd, LeaseFlag.writer | LeaseFlag.resize, 0);
     var payload: [max_frame_payload]u8 = undefined;
     while ((try readFrame(first_fd, &payload)).kind != .history_complete) {}
     const second_fd = try connectSocket(allocator, path);
     defer _ = c.close(second_fd);
+    try sendAttachRequest(second_fd, 0, 0);
     while ((try readFrame(second_fd, &payload)).kind != .history_complete) {}
 
     var resize_payload: [4]u8 = undefined;
     std.mem.writeInt(u16, resize_payload[0..2], 101, .big);
     std.mem.writeInt(u16, resize_payload[2..4], 42, .big);
-    try writeFrame(second_fd, .resize, &resize_payload);
+    try writeFrame(first_fd, .resize, &resize_payload);
     try writeFrame(first_fd, .input, "hello\n");
 
     const first = try readClientOutput(allocator, first_fd);
@@ -725,7 +1154,10 @@ test "multiple clients share input output and canonical resize" {
     try std.testing.expect(std.mem.indexOf(u8, second.bytes, "broadcast:hello") != null);
 
     var worker_status: c_int = 0;
-    try std.testing.expectEqual(spawned.worker_pid, c.waitpid(spawned.worker_pid, &worker_status, 0));
+    try std.testing.expectEqual(
+        spawned.worker_pid,
+        c.waitpid(spawned.worker_pid, &worker_status, 0),
+    );
     var store = try session.Store.open(allocator, database_path);
     defer store.close();
     var record = (try store.getSession(id)).?;

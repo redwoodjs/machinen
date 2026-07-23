@@ -5,6 +5,7 @@
 vmm/bin/machinen-vm
 vmm/bin/machinen-vm.inputs-sha256
 vmm/bin/machinen-runtime-helper
+vmm/bin/machinen-session
 vmm/bin/machinen-pdeathsig
 vmm/bin/machinen-pty
 vmm/bin/machinen-winsize

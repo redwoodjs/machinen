@@ -112,6 +112,15 @@ export function printHelp(): void {
       `    --name <vm-name>                             Override the persistent VM name.\n` +
       `  machinen run list                              Fetch the signed recipe registry.\n` +
       `\n` +
+      `  machinen terminal <operation>                  Manage host terminal sessions.\n` +
+      `    new [--id <id>] [--name <name>] -- <cmd>     Create a detached PTY session.\n` +
+      `    list                                         List IDs, names, state, and sequence.\n` +
+      `    attach [--after <seq>] <id-or-name>           Reattach by stable ID or unique name.\n` +
+      `    send <id-or-name> [--newline] [text]          Send input while detached.\n` +
+      `    signal|stop|delete <id-or-name> ...           Control or remove a session.\n` +
+      `    reconcile                                    Mark workers lost across reboot.\n` +
+      `    gc [--older-than <seconds>] [--dry-run]       Remove old finished sessions.\n` +
+      `    --database <path>                            Override the platform state database.\n` +
       `  machinen install                               Pre-fetch the current-tag base assets\n` +
       `    --version <tag>                              Pin to a specific release tag\n` +
       `  machinen agent-context                         Versioned JSON describing every command,\n` +
@@ -163,6 +172,8 @@ export function printHelp(): void {
       `                                           refuse; cross-ISA VM restore is unsupported)\n` +
       `  MACHINEN_REGISTRY_DIR                    Override registry location (default\n` +
       `                                           ~/.machinen/vms)\n` +
+      `  MACHINEN_SESSION_HELPER                  Override machinen-session binary path\n` +
+      `  MACHINEN_SESSION_DATABASE                Override terminal session database\n` +
       `\n` +
       `Cache:\n` +
       `  ~/.machinen/<tag>/bases/debian-arm64/ or debian-amd64/\n`,

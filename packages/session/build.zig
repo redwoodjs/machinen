@@ -24,12 +24,21 @@ pub fn build(b: *std.Build) void {
         },
     });
 
+    const vt = b.createModule(.{
+        .root_source_file = b.path("src/vt.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     const worker = b.createModule(.{
         .root_source_file = b.path("src/worker.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
-        .imports = &.{.{ .name = "session", .module = session }},
+        .imports = &.{
+            .{ .name = "session", .module = session },
+            .{ .name = "vt", .module = vt },
+        },
     });
 
     const exe = b.addExecutable(.{
@@ -50,6 +59,10 @@ pub fn build(b: *std.Build) void {
     const run_module_tests = b.addRunArtifact(module_tests);
     run_module_tests.setCwd(b.path("."));
 
+    const vt_tests = b.addTest(.{ .root_module = vt });
+    const run_vt_tests = b.addRunArtifact(vt_tests);
+    run_vt_tests.setCwd(b.path("."));
+
     const worker_tests = b.addTest(.{ .root_module = worker });
     const run_worker_tests = b.addRunArtifact(worker_tests);
     run_worker_tests.setCwd(b.path("."));
@@ -60,6 +73,7 @@ pub fn build(b: *std.Build) void {
 
     const test_step = b.step("test", "Run session persistence and worker tests");
     test_step.dependOn(&run_module_tests.step);
+    test_step.dependOn(&run_vt_tests.step);
     test_step.dependOn(&run_worker_tests.step);
     test_step.dependOn(&run_cli_tests.step);
 }

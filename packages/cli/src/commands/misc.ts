@@ -131,6 +131,7 @@ function completionForShell(shell: string): string | undefined {
   ]).get(shell);
 }
 
+// fallow-ignore-next-line code-duplication
 function consumeJsonFlag(args: string[]): { json: boolean; rest: string[] } {
   const rest: string[] = [];
   let json = false;
@@ -144,10 +145,12 @@ function consumeJsonFlag(args: string[]): { json: boolean; rest: string[] } {
   return { json, rest };
 }
 
+// fallow-ignore-next-line code-duplication
 function emitJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
+// fallow-ignore-next-line code-duplication
 function die(msg: string): never {
   process.stderr.write(`machinen: ${msg}\n`);
   process.exit(1);
@@ -158,7 +161,7 @@ const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bash
 _machinen_completion() {
   local cur prev words cword
   _init_completion || return
-  local cmds="boot restore install list ls ps exec snapshot fork attach sessions session-kill repl run gc stop feedback agent-context completion --version --help -h -v"
+  local cmds="boot restore install list ls ps exec snapshot fork attach sessions session-kill terminal repl run gc stop feedback agent-context completion --version --help -h -v"
   if [[ \${cword} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
@@ -179,6 +182,10 @@ _machinen_completion() {
       COMPREPLY=( $(compgen -W "\${recipes} list --inspect --trust --digest --rebuild --session --name" -- "\${cur}") )
       return
       ;;
+    terminal)
+      COMPREPLY=( $(compgen -W "new list attach send signal stop delete reconcile gc --database" -- "\${cur}") )
+      return
+      ;;
     gc)
       COMPREPLY=( $(compgen -W "--dry-run" -- "\${cur}") )
       return
@@ -192,7 +199,7 @@ const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc,
 #   eval "$(machinen completion zsh)"
 _machinen() {
   local -a cmds
-  cmds=(boot restore install list ls ps exec snapshot fork attach sessions session-kill repl run gc stop feedback agent-context completion)
+  cmds=(boot restore install list ls ps exec snapshot fork attach sessions session-kill terminal repl run gc stop feedback agent-context completion)
   if (( CURRENT == 2 )); then
     _describe 'command' cmds
     return
@@ -214,6 +221,10 @@ _machinen() {
       _describe 'recipe' recipes
       return
       ;;
+    terminal)
+      _describe 'operation' '(new list attach send signal stop delete reconcile gc --database)'
+      return
+      ;;
     gc)
       _describe 'flag' '(--dry-run)'
       return
@@ -225,7 +236,7 @@ compdef _machinen machinen mn
 
 const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
 #   machinen completion fish | source
-set -l cmds boot restore install list ls ps exec snapshot fork attach sessions session-kill repl run gc stop feedback agent-context completion
+set -l cmds boot restore install list ls ps exec snapshot fork attach sessions session-kill terminal repl run gc stop feedback agent-context completion
 for bin in machinen mn
   complete -c $bin -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
   for sub in exec snapshot fork attach sessions session-kill repl stop
@@ -233,6 +244,7 @@ for bin in machinen mn
     complete -c $bin -f -n "__fish_seen_subcommand_from $sub" \\
       -a '(machinen ls 2>/dev/null | awk 'NR>1{print $1; if ($2!="-") print $2}')'
   end
+  complete -c $bin -f -n "__fish_seen_subcommand_from terminal" -a "new list attach send signal stop delete reconcile gc --database"
   complete -c $bin -f -n "__fish_seen_subcommand_from run" -a '(machinen run list 2>/dev/null | cut -f1)'
   complete -c $bin -f -n "__fish_seen_subcommand_from run" -a "list --inspect --trust --digest --rebuild --session --name"
   complete -c $bin -f -n "__fish_seen_subcommand_from gc" -l dry-run

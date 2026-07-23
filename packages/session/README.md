@@ -1,103 +1,146 @@
 # `@machinen/session`
 
-Portable terminal session multiplexer and SQLite recovery core.
+Portable terminal session multiplexer and bounded SQLite recovery core.
 
 The installed `machinen-session` binary statically includes SQLite. It does not
-depend on Node, SwiftTerm, Ghostty, AppKit, or a system SQLite installation.
-It builds as an approximately 1 MB static Linux executable and a similarly sized
+depend on Node, SwiftTerm, Ghostty, AppKit, or a system SQLite installation. It
+builds as an approximately 1 MB static Linux executable and a similarly sized
 native macOS executable.
 
-## Session ownership
+## Session identity and ownership
 
 The worker and database live on the host that owns the PTY. A session running on
-an SSH host writes its recovery information on that host, not on the machine
-displaying Machinen Desktop.
+an SSH host writes recovery information on that host, not on the machine showing
+Machinen Desktop.
 
-Each `new` command forks a detached worker. The worker owns one PTY, journals its
-output, and listens on a user-private Unix socket. Closing every attach client
-does not stop the worker or its child command. Up to eight clients can watch and
-write to the same session concurrently.
+Each `new` command creates a stable ID and can optionally assign a unique name.
+Every later operation resolves either value:
+
+```sh
+machinen-session list --database "$DB"
+machinen-session attach --database "$DB" term_01234567
+machinen-session attach --database "$DB" api       # unique name
+```
+
+Desktop persists the terminal ID in `terminals.json`; reopening the scene uses
+that ID to attach to the same worker. IDs do not depend on a PID, socket inode,
+window, SSH connection, or Desktop process.
+
+Each detached worker owns one PTY, journals output, and listens on a user-private
+Unix socket. Closing every client does not stop its command. Up to eight clients
+can watch a session concurrently.
 
 ```text
 command ⇄ PTY ⇄ detached worker ⇄ Unix socket ⇄ attach client
                        │
-                       └── SQLite output and resize journal
+                       └── SQLite checkpoint + ordered journal
 ```
 
-## CLI
+## Main Machinen CLI
 
-The database's parent directory must already exist.
+The main Node CLI supplies the platform database location, creates its secure
+state directory, finds the helper bundled in the matching native npm package,
+and delegates the PTY data plane to the native binary:
+
+```sh
+machinen terminal new --name api --cwd "$HOME/project" -- pnpm dev
+machinen terminal list
+machinen terminal attach api
+machinen terminal send api --newline r
+machinen terminal signal api interrupt
+machinen terminal stop api
+machinen terminal delete api
+machinen terminal reconcile
+machinen terminal gc --older-than 604800
+```
+
+`MACHINEN_SESSION_DATABASE` and `--database` override the default database.
+`MACHINEN_SESSION_HELPER` overrides native-helper discovery.
+
+## Native CLI
+
+The lower-level binary remains independently usable:
 
 ```sh
 DB="$HOME/Library/Application Support/Machinen/sessions.sqlite3"
+mkdir -p "$(dirname "$DB")"
 
 machinen-session database init "$DB"
-
 machinen-session new \
   --database "$DB" \
-  --id api \
+  --id api-1 \
   --name api \
   --cwd "$HOME/project" \
   -- pnpm dev
 
 machinen-session list --database "$DB"
 machinen-session attach --database "$DB" api
+machinen-session attach --database "$DB" --after 420 api
 printf 'r' | machinen-session send --database "$DB" api
-machinen-session signal --database "$DB" api interrupt
 machinen-session stop --database "$DB" api
 ```
-
-`attach` puts an interactive terminal into raw mode, forwards its initial size
-and `SIGWINCH` changes, and restores the original terminal mode on normal exit.
-A newly attached client receives all retained output before joining the live
-stream. Session lookup accepts either an ID or a unique name.
 
 Suggested database locations:
 
 - macOS: `~/Library/Application Support/Machinen/sessions.sqlite3`
 - Linux: `${XDG_STATE_HOME:-~/.local/state}/machinen/sessions.sqlite3`
 
-## Durable data
+## Resume and bounded recovery
 
-The store contains:
+Protocol-v2 output carries its SQLite sequence. A reconnecting client sends its
+last applied sequence. The worker sends only newer output when retained history
+still covers that point. Otherwise it sends the latest portable VT checkpoint
+before the remaining output.
 
-- Session identity, command, working directory, state, and canonical PTY size.
-- Byte-exact output chunks and resize events in one monotonically ordered stream.
-- Versioned, renderer-neutral terminal checkpoints.
+Checkpoint format v1 is an ordinary VT reconstruction stream containing reset,
+visible UTF-8 cells, and cursor position. It is renderer-neutral: SwiftTerm or
+another terminal can consume it as output. Selection, visual viewport, title,
+and styling remain outside the v1 checkpoint.
 
-A connected renderer keeps its own smooth viewport. After a brief disconnect it
-can request events after its last sequence. A fresh attach currently replays the
-retained output journal. The storage API supports checkpoints and atomic
-compaction; generation of portable VT checkpoints is a later renderer-neutral
-slice.
+A worker checkpoints every 256 KiB of output by default. Use
+`--checkpoint-bytes` to select 32 KiB–16 MiB. Replacing the checkpoint and
+deleting covered events is atomic. Recovery storage is bounded to one visible
+screen checkpoint plus output produced since the latest checkpoint.
+
+## Multiple clients
+
+Writer and resize leases prevent two interactive clients from fighting over one
+PTY. The first client receives each requested lease, renews it with 10-second
+heartbeats, and releases it on disconnect. Other attachments continue as
+watchers and automatically acquire a released lease. `attach --read-only`
+requests neither lease.
+
+Same-user `send`, `signal`, and `stop` operations use explicit control
+connections. They do not steal the interactive writer lease.
+
+## Reboot-aware reconciliation and cleanup
+
+`reconcile` checks records marked `created` or `running` against their same-user
+worker socket. An unreachable record becomes `orphaned`, its stale socket is
+removed, and its durable checkpoint remains available.
+
+`gc` first reconciles, then removes exited, stopped, or orphaned records older
+than seven days. `--older-than <seconds>` changes that age and `--dry-run`
+previews existing cleanup candidates.
+
+This is deliberately not PTY resurrection. A checkpoint can reconstruct what a
+client saw; it cannot recreate the lost process, kernel PTY state, file
+descriptors, or network connections. Restarting after worker loss starts a new
+process explicitly.
 
 ## Storage invariants
 
-- SQLite runs in WAL mode with foreign keys enabled and a five-second busy timeout.
-- The database and session sockets are forced to mode `0600`; the runtime socket
+- SQLite uses WAL mode, foreign keys, and a five-second busy timeout.
+- Database and session sockets are forced to mode `0600`; the runtime socket
   directory is forced to `0700`.
-- Each session has an independently increasing event sequence.
+- Output and resize events share an independently increasing session sequence.
 - Resize metadata and its event are committed atomically.
-- Checkpoint compaction is allowed only for a checkpoint that exists in the same
-  session.
-- Schema migrations are tracked with `PRAGMA user_version`; the database is
-  tagged with a Machinen-specific `application_id`.
-- Database payloads are BLOBs so PTY output is never treated as UTF-8 text.
-
-## Current boundary
-
-This implementation survives Desktop exits, attach-client exits, and SSH
-transport disconnections. It does not yet promise survival across a session
-worker crash or host reboot: SQLite preserves recovery data, but a live PTY file
-descriptor cannot be recreated after its owner dies.
-
-Still to add:
-
-- Default platform database discovery and automatic state-directory creation.
-- Garbage collection and stale-worker recovery.
-- Bounded output retention, compression, and portable VT checkpoint generation.
-- Writer/resize leases instead of last-writer-wins multi-client input.
-- Desktop's `TerminalSessionBackend` adapter and automatic remote installation.
+- Checkpoint replacement and event compaction are committed atomically.
+- SQLite records worker protocol versions so upgraded clients can attach to
+  still-live v1 workers without replacing them.
+- Schema migrations are tracked with `PRAGMA user_version`; the database carries
+  a Machinen-specific `application_id`.
+- PTY output and checkpoint payloads are BLOBs and are never assumed to be UTF-8.
 
 ## Development
 
@@ -105,6 +148,8 @@ Still to add:
 pnpm -F @machinen/session test
 pnpm -F @machinen/session build
 ```
+
+See [`PROTOCOL.md`](./PROTOCOL.md) for frame-level details.
 
 ## Vendored SQLite
 

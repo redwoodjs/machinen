@@ -100,7 +100,7 @@ check_pkg() {
 
 # --- native-* ------------------------------------------------------------
 # One consolidated package per host arch. Per-tool subdirs:
-#   vmm/bin/{machinen-vm,machinen-runtime-helper,machinen-pdeathsig,machinen-pty,machinen-winsize,gvproxy}   host binaries node spawns.
+#   vmm/bin/{machinen-vm,machinen-runtime-helper,machinen-session,machinen-pdeathsig,machinen-pty,machinen-winsize,gvproxy}   host binaries node spawns.
 #   vmm/guest/{init,exec-agent,machinen-*}  guest binaries and restore worker
 #       the runtime reads as data to pack into the initramfs cpio.
 #   e2fsprogs/bin/mke2fs, squashfs/bin/mksquashfs  host binaries node spawns.
@@ -108,6 +108,7 @@ for pkg in native-arm64-darwin native-arm64-linux native-x64-linux; do
   check_pkg "$pkg" \
     vmm/bin/machinen-vm \
     vmm/bin/machinen-runtime-helper \
+    vmm/bin/machinen-session \
     vmm/bin/machinen-pdeathsig \
     vmm/bin/machinen-pty \
     vmm/bin/machinen-winsize \

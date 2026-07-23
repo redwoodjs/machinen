@@ -23,6 +23,10 @@ or a script — without writing any TypeScript.
 - **Manage VM lifecycles.** `list` (alias `ls`) to see what's
   running, `stop` to shut one down cleanly, `gc` to clean up after
   detached boots that crashed.
+- **Run host terminal sessions without tmux.** `terminal new` creates a
+  detached PTY, `terminal list` prints its stable ID and optional name, and
+  `terminal attach <id-or-name>` reconnects with bounded SQLite recovery.
+  Writer/resize leases keep multiple attached clients from fighting.
 - **Run signed remote recipes in a VM.** Run
   `mn run machinen.dev/run/claude-code` to verify the recipe's Ed25519
   signature and show its requested capabilities before first use.
@@ -61,7 +65,8 @@ npx machinen run machinen.dev/run/claude-code
 The matching native package (`@machinen/native-arm64-darwin`,
 `@machinen/native-arm64-linux`, or `@machinen/native-x64-linux`) is pulled in
 via optional dependencies. It ships the VMM plus sibling host tools such as
-`gvproxy`, `mke2fs`, and `mksquashfs`, so no system packages are required.
+`machinen-session`, `gvproxy`, `mke2fs`, and `mksquashfs`, so no system packages
+are required.
 
 First boot fetches the matching kernel + base rootfs from the public
 companion GitHub release over HTTPS; no GitHub authentication is needed.
@@ -81,6 +86,9 @@ npx machinen snapshot worker ./warm
 npx machinen restore ./warm
 npx machinen fork worker --new-name worker-b --detach
 npx machinen stop worker
+npx machinen terminal new --name editor -- vim README.md
+npx machinen terminal list
+npx machinen terminal attach editor
 npx machinen run list
 npx machinen run machinen.dev/run/claude-code --inspect
 npx machinen run machinen.dev/run/command-code

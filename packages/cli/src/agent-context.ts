@@ -417,6 +417,30 @@ export const COMMANDS: CommandSpec[] = [
     ],
   },
   {
+    name: "terminal",
+    summary:
+      "Create, list, reattach, control, reconcile, and garbage-collect host terminal sessions.",
+    jsonOutput: false,
+    positionals: [
+      {
+        name: "operation",
+        description: "One of new, list, attach, send, signal, stop, delete, reconcile, or gc.",
+      },
+      {
+        name: "operation-args",
+        required: false,
+        description: "Arguments accepted by the selected terminal operation.",
+      },
+    ],
+    flags: [
+      {
+        name: "--database",
+        type: "string",
+        description: "Override the platform-default host terminal session database.",
+      },
+    ],
+  },
+  {
     name: "install",
     summary: "Pre-fetch the kernel + base rootfs for a release tag.",
     jsonOutput: true,

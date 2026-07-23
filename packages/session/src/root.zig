@@ -4,7 +4,7 @@ const sqlite = @cImport({
     @cInclude("sys/stat.h");
 });
 
-const schema_version: c_int = 2;
+const schema_version: c_int = 3;
 const application_id: c_int = 1_297_302_867; // "MSES"
 
 pub const SessionState = enum(c_int) {
@@ -28,6 +28,7 @@ pub const CreateSession = struct {
     argv_json: []const u8,
     rows: u32,
     columns: u32,
+    protocol_version: u32 = 2,
 };
 
 pub const Session = struct {
@@ -41,6 +42,9 @@ pub const Session = struct {
     last_sequence: u64,
     worker_pid: ?i64,
     exit_code: ?i32,
+    protocol_version: u32,
+    created_at_ms: i64,
+    updated_at_ms: i64,
 
     pub fn deinit(self: *Session, allocator: std.mem.Allocator) void {
         allocator.free(self.id);
@@ -98,7 +102,9 @@ pub const Store = struct {
         defer allocator.free(path_z);
 
         var raw: ?*sqlite.sqlite3 = null;
-        const flags = sqlite.SQLITE_OPEN_READWRITE | sqlite.SQLITE_OPEN_CREATE | sqlite.SQLITE_OPEN_FULLMUTEX;
+        const flags = sqlite.SQLITE_OPEN_READWRITE |
+            sqlite.SQLITE_OPEN_CREATE |
+            sqlite.SQLITE_OPEN_FULLMUTEX;
         if (sqlite.sqlite3_open_v2(path_z.ptr, &raw, flags, null) != sqlite.SQLITE_OK) {
             if (raw) |db| _ = sqlite.sqlite3_close_v2(db);
             return error.OpenDatabaseFailed;
@@ -137,8 +143,8 @@ pub const Store = struct {
 
         const statement = try self.prepare(
             \\INSERT INTO sessions (
-            \\  id, name, working_directory, argv_json, state, rows, columns
-            \\) VALUES (?, ?, ?, ?, ?, ?, ?);
+            \\  id, name, working_directory, argv_json, state, rows, columns, protocol_version
+            \\) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         );
         defer _ = sqlite.sqlite3_finalize(statement);
         try bindText(statement, 1, input.id);
@@ -151,6 +157,10 @@ pub const Store = struct {
         try bindInt(statement, 5, @intFromEnum(SessionState.created));
         try bindInt64(statement, 6, input.rows);
         try bindInt64(statement, 7, input.columns);
+        if (input.protocol_version == 0 or input.protocol_version > 2) {
+            return error.InvalidProtocolVersion;
+        }
+        try bindInt64(statement, 8, input.protocol_version);
         try self.stepDone(statement);
     }
 
@@ -203,7 +213,8 @@ pub const Store = struct {
     pub fn getSession(self: *Store, session_id: []const u8) !?Session {
         const statement = try self.prepare(
             \\SELECT id, name, working_directory, argv_json, state, rows, columns, last_sequence,
-            \\worker_pid, exit_code FROM sessions WHERE id=?;
+            \\worker_pid, exit_code, protocol_version, created_at_ms, updated_at_ms
+            \\FROM sessions WHERE id=?;
         );
         defer _ = sqlite.sqlite3_finalize(statement);
         try bindText(statement, 1, session_id);
@@ -216,7 +227,8 @@ pub const Store = struct {
     pub fn resolveSession(self: *Store, reference: []const u8) !?Session {
         const statement = try self.prepare(
             \\SELECT id, name, working_directory, argv_json, state, rows, columns, last_sequence,
-            \\worker_pid, exit_code FROM sessions WHERE id=? OR name=?
+            \\worker_pid, exit_code, protocol_version, created_at_ms, updated_at_ms
+            \\FROM sessions WHERE id=? OR name=?
             \\ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END LIMIT 1;
         );
         defer _ = sqlite.sqlite3_finalize(statement);
@@ -232,7 +244,8 @@ pub const Store = struct {
     pub fn listSessions(self: *Store, allocator: std.mem.Allocator) ![]Session {
         const statement = try self.prepare(
             \\SELECT id, name, working_directory, argv_json, state, rows, columns, last_sequence,
-            \\worker_pid, exit_code FROM sessions ORDER BY created_at_ms, id;
+            \\worker_pid, exit_code, protocol_version, created_at_ms, updated_at_ms
+            \\FROM sessions ORDER BY created_at_ms, id;
         );
         defer _ = sqlite.sqlite3_finalize(statement);
 
@@ -241,6 +254,7 @@ pub const Store = struct {
             for (sessions.items) |*item| item.deinit(allocator);
             sessions.deinit(allocator);
         }
+        // EOF-bounded SQLite result stream.
         while (true) switch (try self.step(statement)) {
             .done => return sessions.toOwnedSlice(allocator),
             .row => try sessions.append(allocator, try readSession(allocator, statement)),
@@ -269,7 +283,8 @@ pub const Store = struct {
         try self.insertEvent(session_id, sequence, .resize, &payload);
 
         const statement = try self.prepare(
-            "UPDATE sessions SET columns=?, rows=?, updated_at_ms=unixepoch('subsec')*1000 WHERE id=?;",
+            \\UPDATE sessions SET columns=?, rows=?,
+            \\updated_at_ms=unixepoch('subsec')*1000 WHERE id=?;
         );
         defer _ = sqlite.sqlite3_finalize(statement);
         try bindInt64(statement, 1, columns);
@@ -299,11 +314,13 @@ pub const Store = struct {
             for (events.items) |*event| event.deinit(allocator);
             events.deinit(allocator);
         }
+        // EOF-bounded SQLite result stream.
         while (true) switch (try self.step(statement)) {
             .done => return events.toOwnedSlice(allocator),
             .row => {
                 const raw_kind = sqlite.sqlite3_column_int(statement, 1);
-                const kind = std.enums.fromInt(EventKind, raw_kind) orelse return error.InvalidEventKind;
+                const kind = std.enums.fromInt(EventKind, raw_kind) orelse
+                    return error.InvalidEventKind;
                 try events.append(allocator, .{
                     .sequence = @intCast(sqlite.sqlite3_column_int64(statement, 0)),
                     .kind = kind,
@@ -311,6 +328,19 @@ pub const Store = struct {
                 });
             },
         };
+    }
+
+    pub fn markOrphaned(self: *Store, session_id: []const u8) !void {
+        const statement = try self.prepare(
+            \\UPDATE sessions SET state=?, worker_pid=NULL,
+            \\updated_at_ms=unixepoch('subsec')*1000 WHERE id=? AND state IN (?, ?);
+        );
+        defer _ = sqlite.sqlite3_finalize(statement);
+        try bindInt(statement, 1, @intFromEnum(SessionState.orphaned));
+        try bindText(statement, 2, session_id);
+        try bindInt(statement, 3, @intFromEnum(SessionState.created));
+        try bindInt(statement, 4, @intFromEnum(SessionState.running));
+        try self.stepDone(statement);
     }
 
     pub fn saveCheckpoint(
@@ -339,8 +369,48 @@ pub const Store = struct {
         try bindInt64(statement, 3, format_version);
         try bindBlob(statement, 4, payload);
         try self.stepDone(statement);
+        try self.deleteOlderCheckpoints(session_id, sequence);
         try self.commit();
         return sequence;
+    }
+
+    /// Atomically replaces the portable checkpoint and drops events it covers.
+    /// The checkpoint is therefore always a valid reconstruction boundary for
+    /// the first retained event after a crash.
+    pub fn checkpointAndCompact(
+        self: *Store,
+        session_id: []const u8,
+        format_version: u32,
+        payload: []const u8,
+    ) !struct { sequence: u64, removed_events: u64 } {
+        if (format_version == 0) return error.InvalidCheckpointVersion;
+        if (payload.len == 0) return error.EmptyCheckpoint;
+        try self.begin();
+        errdefer self.rollback();
+        const sequence = try self.currentSequence(session_id);
+        const checkpoint = try self.prepare(
+            \\INSERT INTO checkpoints (session_id, sequence, format_version, payload)
+            \\VALUES (?, ?, ?, ?)
+            \\ON CONFLICT(session_id, sequence) DO UPDATE SET
+            \\format_version=excluded.format_version, payload=excluded.payload,
+            \\created_at_ms=unixepoch('subsec')*1000;
+        );
+        defer _ = sqlite.sqlite3_finalize(checkpoint);
+        try bindText(checkpoint, 1, session_id);
+        try bindInt64(checkpoint, 2, sequence);
+        try bindInt64(checkpoint, 3, format_version);
+        try bindBlob(checkpoint, 4, payload);
+        try self.stepDone(checkpoint);
+        try self.deleteOlderCheckpoints(session_id, sequence);
+
+        const events = try self.prepare("DELETE FROM events WHERE session_id=? AND sequence<=?;");
+        defer _ = sqlite.sqlite3_finalize(events);
+        try bindText(events, 1, session_id);
+        try bindInt64(events, 2, sequence);
+        try self.stepDone(events);
+        const removed_events: u64 = @intCast(sqlite.sqlite3_changes(self.db));
+        try self.commit();
+        return .{ .sequence = sequence, .removed_events = removed_events };
     }
 
     pub fn latestCheckpoint(
@@ -386,6 +456,16 @@ pub const Store = struct {
         const removed: u64 = @intCast(sqlite.sqlite3_changes(self.db));
         try self.commit();
         return removed;
+    }
+
+    fn deleteOlderCheckpoints(self: *Store, session_id: []const u8, sequence: u64) !void {
+        const statement = try self.prepare(
+            "DELETE FROM checkpoints WHERE session_id=? AND sequence<?;",
+        );
+        defer _ = sqlite.sqlite3_finalize(statement);
+        try bindText(statement, 1, session_id);
+        try bindInt64(statement, 2, sequence);
+        try self.stepDone(statement);
     }
 
     fn appendEvent(
@@ -459,7 +539,21 @@ pub const Store = struct {
             errdefer self.rollback();
             try self.exec("ALTER TABLE sessions ADD COLUMN worker_pid INTEGER;");
             try self.exec("ALTER TABLE sessions ADD COLUMN exit_code INTEGER;");
-            try self.exec("PRAGMA user_version=2;");
+            try self.exec(
+                "ALTER TABLE sessions ADD COLUMN protocol_version INTEGER NOT NULL DEFAULT 1;",
+            );
+            try self.exec("PRAGMA user_version=3;");
+            try self.commit();
+            return;
+        }
+        if (found_version == 2) {
+            if (found_application_id != application_id) return error.NotMachinenSessionDatabase;
+            try self.begin();
+            errdefer self.rollback();
+            try self.exec(
+                "ALTER TABLE sessions ADD COLUMN protocol_version INTEGER NOT NULL DEFAULT 1;",
+            );
+            try self.exec("PRAGMA user_version=3;");
             try self.commit();
             return;
         }
@@ -479,6 +573,8 @@ pub const Store = struct {
             \\  last_sequence INTEGER NOT NULL DEFAULT 0 CHECK (last_sequence >= 0),
             \\  worker_pid INTEGER,
             \\  exit_code INTEGER,
+            \\  protocol_version INTEGER NOT NULL DEFAULT 2
+            \\    CHECK (protocol_version BETWEEN 1 AND 2),
             \\  created_at_ms INTEGER NOT NULL DEFAULT (unixepoch('subsec')*1000),
             \\  updated_at_ms INTEGER NOT NULL DEFAULT (unixepoch('subsec')*1000)
             \\);
@@ -505,7 +601,7 @@ pub const Store = struct {
             \\ON checkpoints(session_id, sequence DESC);
         );
         try self.exec("PRAGMA application_id=1297302867;");
-        try self.exec("PRAGMA user_version=2;");
+        try self.exec("PRAGMA user_version=3;");
         try self.commit();
     }
 
@@ -518,7 +614,9 @@ pub const Store = struct {
     }
 
     fn rollback(self: *Store) void {
-        self.exec("ROLLBACK;") catch {};
+        self.exec("ROLLBACK;") catch |err| switch (err) {
+            else => {},
+        };
     }
 
     fn exec(self: *Store, sql: [:0]const u8) !void {
@@ -628,6 +726,9 @@ fn readSession(allocator: std.mem.Allocator, statement: *sqlite.sqlite3_stmt) !S
             null
         else
             @intCast(sqlite.sqlite3_column_int64(statement, 9)),
+        .protocol_version = @intCast(sqlite.sqlite3_column_int64(statement, 10)),
+        .created_at_ms = sqlite.sqlite3_column_int64(statement, 11),
+        .updated_at_ms = sqlite.sqlite3_column_int64(statement, 12),
     };
 }
 
@@ -669,7 +770,10 @@ fn freeEvents(allocator: std.mem.Allocator, events: []Event) void {
 fn testDatabasePath(allocator: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u8 {
     const cwd = try std.process.currentPathAlloc(std.testing.io, allocator);
     defer allocator.free(cwd);
-    return std.fs.path.join(allocator, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path, "sessions.sqlite3" });
+    return std.fs.path.join(
+        allocator,
+        &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path, "sessions.sqlite3" },
+    );
 }
 
 test "store migrates a new database and persists session metadata" {
@@ -692,7 +796,7 @@ test "store migrates a new database and persists session metadata" {
         });
         try store.setRunning("term_api", 4_242);
         const info = try store.info();
-        try std.testing.expectEqual(@as(u32, 2), info.schema_version);
+        try std.testing.expectEqual(@as(u32, 3), info.schema_version);
         try std.testing.expectEqual(@as(u64, 1), info.session_count);
     }
 
@@ -785,7 +889,10 @@ test "checkpoint compaction is atomic and preserves replay after its sequence" {
     var checkpoint = (try store.latestCheckpoint(allocator, "term_long")).?;
     defer checkpoint.deinit(allocator);
     try std.testing.expectEqualStrings("portable-vt-checkpoint", checkpoint.payload);
-    try std.testing.expectEqual(@as(u64, 1), try store.compactThroughCheckpoint("term_long", checkpoint.sequence));
+    try std.testing.expectEqual(
+        @as(u64, 1),
+        try store.compactThroughCheckpoint("term_long", checkpoint.sequence),
+    );
 
     const remaining = try store.eventsAfter(allocator, "term_long", checkpoint.sequence);
     defer freeEvents(allocator, remaining);
@@ -812,7 +919,10 @@ test "version one databases migrate worker recovery fields in place" {
     defer allocator.free(path_z);
 
     var raw: ?*sqlite.sqlite3 = null;
-    try std.testing.expectEqual(@as(c_int, sqlite.SQLITE_OK), sqlite.sqlite3_open(path_z.ptr, &raw));
+    try std.testing.expectEqual(
+        @as(c_int, sqlite.SQLITE_OK),
+        sqlite.sqlite3_open(path_z.ptr, &raw),
+    );
     const legacy_sql =
         \\CREATE TABLE sessions (
         \\ id TEXT PRIMARY KEY, name TEXT UNIQUE, working_directory TEXT NOT NULL,
@@ -843,12 +953,69 @@ test "version one databases migrate worker recovery fields in place" {
     var store = try Store.open(allocator, path);
     defer store.close();
     const info = try store.info();
-    try std.testing.expectEqual(@as(u32, 2), info.schema_version);
+    try std.testing.expectEqual(@as(u32, 3), info.schema_version);
     var legacy = (try store.getSession("legacy")).?;
     defer legacy.deinit(allocator);
     try std.testing.expectEqual(@as(?i64, null), legacy.worker_pid);
     try std.testing.expectEqual(@as(?i32, null), legacy.exit_code);
+    try std.testing.expectEqual(@as(u32, 1), legacy.protocol_version);
     try store.setExited("legacy", 9);
+}
+
+test "checkpoint replacement atomically bounds retained event history" {
+    const allocator = std.testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const path = try testDatabasePath(allocator, &tmp);
+    defer allocator.free(path);
+    var store = try Store.open(allocator, path);
+    defer store.close();
+    try store.createSession(.{
+        .id = "term_bounded",
+        .working_directory = "/tmp",
+        .argv_json = "[\"sh\"]",
+        .rows = 24,
+        .columns = 80,
+    });
+    _ = try store.appendOutput("term_bounded", "first");
+    _ = try store.appendOutput("term_bounded", "second");
+    const compacted = try store.checkpointAndCompact("term_bounded", 1, "\x1bc\x1b[Hscreen");
+    try std.testing.expectEqual(@as(u64, 2), compacted.sequence);
+    try std.testing.expectEqual(@as(u64, 2), compacted.removed_events);
+    _ = try store.appendOutput("term_bounded", "third");
+
+    var checkpoint = (try store.latestCheckpoint(allocator, "term_bounded")).?;
+    defer checkpoint.deinit(allocator);
+    try std.testing.expectEqual(@as(u64, 2), checkpoint.sequence);
+    const retained = try store.eventsAfter(allocator, "term_bounded", checkpoint.sequence);
+    defer freeEvents(allocator, retained);
+    try std.testing.expectEqual(@as(usize, 1), retained.len);
+    try std.testing.expectEqualStrings("third", retained[0].payload);
+}
+
+test "running sessions can be reconciled as orphaned without losing history" {
+    const allocator = std.testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const path = try testDatabasePath(allocator, &tmp);
+    defer allocator.free(path);
+    var store = try Store.open(allocator, path);
+    defer store.close();
+    try store.createSession(.{
+        .id = "term_orphan",
+        .working_directory = "/tmp",
+        .argv_json = "[\"sh\"]",
+        .rows = 24,
+        .columns = 80,
+    });
+    try store.setRunning("term_orphan", 42);
+    _ = try store.appendOutput("term_orphan", "recoverable");
+    try store.markOrphaned("term_orphan");
+    var record = (try store.getSession("term_orphan")).?;
+    defer record.deinit(allocator);
+    try std.testing.expectEqual(SessionState.orphaned, record.state);
+    try std.testing.expectEqual(@as(?i64, null), record.worker_pid);
+    try std.testing.expectEqual(@as(u64, 1), record.last_sequence);
 }
 
 test "constraints reject duplicate names and missing sessions without advancing sequences" {

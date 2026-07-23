@@ -27,6 +27,8 @@ final class MachinenTerminalView: LocalProcessTerminalView {
     private var clientStarted = false
     private var activityDetector: TerminalActivityDetector?
     private var requestedStateAfterExit: TerminalSession.State?
+    private var attachAfterClientExit = false
+    private var attachRetryScheduled = false
     private var pendingRenderBytes: [UInt8] = []
     private var pendingRenderTimer: Timer?
     private var inputBoostTimer: Timer?
@@ -152,7 +154,30 @@ final class MachinenTerminalView: LocalProcessTerminalView {
     }
 
     func attach() {
-        guard !process.running, !clientStarted else { return }
+        if process.running {
+            // Detach and immediate reattach can overlap while the old attach
+            // process is still restoring terminal mode. End that viewer and
+            // retry instead of leaving the tile permanently in `starting`.
+            if session.state == .starting {
+                attachAfterClientExit = true
+                terminate()
+                clientStarted = false
+                scheduleAttachRetry()
+            }
+            return
+        }
+        if clientStarted {
+            // startProcess has been requested but LocalProcess has not yet
+            // published `running`. Wait for that launch rather than starting
+            // a second attach process against the same SwiftTerm view.
+            if session.state == .starting {
+                attachAfterClientExit = true
+                scheduleAttachRetry()
+            }
+            return
+        }
+        attachAfterClientExit = false
+        attachRetryScheduled = false
         clientStarted = true
         requestedStateAfterExit = nil
         session.state = .starting
@@ -182,13 +207,25 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         }
     }
 
+    private func scheduleAttachRetry() {
+        guard !attachRetryScheduled else { return }
+        attachRetryScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let self else { return }
+            self.attachRetryScheduled = false
+            if self.session.state == .starting { self.attach() }
+        }
+    }
+
     func detachForApplicationExit() {
         guard process.running else { return }
+        attachAfterClientExit = false
         requestedStateAfterExit = .running
         terminate()
     }
 
     func detachViewer() {
+        attachAfterClientExit = false
         guard process.running else {
             session.state = .detached
             onStateChange?(.detached)
@@ -196,6 +233,9 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         }
         requestedStateAfterExit = .detached
         terminate()
+        // SwiftTerm's explicit terminate path cancels its process monitor and
+        // does not call processTerminated, so release our launch guard here.
+        clientStarted = false
     }
 
     @discardableResult
@@ -211,6 +251,7 @@ final class MachinenTerminalView: LocalProcessTerminalView {
     }
 
     func stopPersistentSession() {
+        attachAfterClientExit = false
         requestedStateAfterExit = .stopped
         terminalBackend.stop(session)
         session.state = .stopped
@@ -272,10 +313,17 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         flushPendingRender()
         super.processTerminated(source, exitCode: exitCode)
         clientStarted = false
-        let nextState = requestedStateAfterExit ?? .exited
+        let shouldReattach = attachAfterClientExit
+        attachAfterClientExit = false
+        let nextState: TerminalSession.State = shouldReattach
+            ? .starting
+            : requestedStateAfterExit ?? .exited
         requestedStateAfterExit = nil
         session.state = nextState
         onStateChange?(nextState)
+        if shouldReattach {
+            DispatchQueue.main.async { [weak self] in self?.attach() }
+        }
     }
 
     private func setRenderInterval(_ interval: TimeInterval, flush: Bool) {
