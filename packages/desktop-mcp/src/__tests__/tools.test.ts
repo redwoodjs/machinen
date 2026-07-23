@@ -1,37 +1,38 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  MachinenClient,
+  MachinenDesktopClient,
   type JsonObject,
   type TerminalOutput,
   type TerminalWaitOptions,
-} from "../machinen-client.js";
-import { createMachinenMcpServer } from "../server.js";
+} from "@machinen/desktop-sdk";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-class FakeMachinenClient extends MachinenClient {
+import { createMachinenDesktopMcpServer } from "../server.js";
+
+class FakeMachinenDesktopClient extends MachinenDesktopClient {
   requests: { operation: string; params: JsonObject; idempotencyKey?: string }[] = [];
 
   constructor() {
     super("/tmp/not-used.sock");
   }
 
-  override async request(
+  override async request<T = unknown>(
     operation: string,
     params: JsonObject = {},
     idempotencyKey?: string,
-  ): Promise<unknown> {
+  ): Promise<T> {
     this.requests.push({ operation, params, idempotencyKey });
     if (operation === "system.snapshot") {
-      return { workspaces: [], tiles: [], terminals: [], ui: { level: "overview" } };
+      return { workspaces: [], tiles: [], terminals: [], ui: { level: "overview" } } as T;
     }
     if (operation === "workspace.create") {
-      return { id: "ws_test", name: params.name };
+      return { id: "ws_test", name: params.name } as T;
     }
     if (operation === "terminal.send") {
-      return { terminalId: params.terminalId, bytesWritten: 6 };
+      return { terminalId: params.terminalId, bytesWritten: 6 } as T;
     }
-    return {};
+    return {} as T;
   }
 
   override readTerminalOutput(terminalId: string): TerminalOutput {
@@ -53,12 +54,12 @@ class FakeMachinenClient extends MachinenClient {
 let transportClient: InMemoryTransport;
 let transportServer: InMemoryTransport;
 let mcpClient: Client;
-let mcpServer: ReturnType<typeof createMachinenMcpServer>;
-let machinen: FakeMachinenClient;
+let mcpServer: ReturnType<typeof createMachinenDesktopMcpServer>;
+let machinen: FakeMachinenDesktopClient;
 
 beforeEach(async () => {
-  machinen = new FakeMachinenClient();
-  mcpServer = createMachinenMcpServer(machinen);
+  machinen = new FakeMachinenDesktopClient();
+  mcpServer = createMachinenDesktopMcpServer(machinen);
   [transportClient, transportServer] = InMemoryTransport.createLinkedPair();
   mcpClient = new Client({ name: "test", version: "1" });
   await Promise.all([mcpServer.connect(transportServer), mcpClient.connect(transportClient)]);

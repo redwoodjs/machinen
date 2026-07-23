@@ -1,6 +1,6 @@
+import { MachinenDesktopClient, type JsonObject } from "@machinen/desktop-sdk";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
-import { MachinenClient, type JsonObject } from "./machinen-client.js";
 
 const workspaceId = z.string().min(1).describe("Opaque workspace ID from Machinen");
 const tileId = z.string().min(1).describe("Opaque tile ID from Machinen");
@@ -58,7 +58,7 @@ function failedResult(error: unknown) {
 }
 
 async function invoke(
-  client: MachinenClient,
+  client: MachinenDesktopClient,
   operation: string,
   params: JsonObject = {},
   retryKey?: string,
@@ -70,7 +70,7 @@ async function invoke(
   }
 }
 
-export function registerMachinenTools(server: McpServer, client: MachinenClient): void {
+export function registerMachinenTools(server: McpServer, client: MachinenDesktopClient): void {
   server.registerTool(
     "machinen_get_state",
     {

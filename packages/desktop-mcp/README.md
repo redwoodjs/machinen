@@ -1,4 +1,4 @@
-# `@machinen/mcp`
+# `@machinen/desktop-mcp`
 
 A local [Model Context Protocol](https://modelcontextprotocol.io/) server that
 lets AI clients control Machinen Desktop.
@@ -6,12 +6,13 @@ lets AI clients control Machinen Desktop.
 ```text
 AI client
   ↕ MCP over stdio
-machinen-mcp
+machinen-desktop-mcp
   ↕ same-user Unix socket
 Machinen Desktop
 ```
 
-The MCP server is an adapter over Machinen's versioned local API. It does not
+The MCP server is an adapter over Machinen's versioned local API and uses
+[`@machinen/desktop-sdk`](../desktop-sdk/README.md) for transport. It does not
 open a network port and does not implement a custom URL scheme.
 
 ## Configure
@@ -24,7 +25,7 @@ client:
   "mcpServers": {
     "machinen": {
       "command": "npx",
-      "args": ["-y", "@machinen/mcp"]
+      "args": ["-y", "@machinen/desktop-mcp"]
     }
   }
 }
@@ -34,7 +35,7 @@ From a repository checkout, build it and point the client at the generated
 entrypoint:
 
 ```sh
-pnpm -F @machinen/mcp build
+pnpm -F @machinen/desktop-mcp build
 ```
 
 ```json
@@ -42,7 +43,7 @@ pnpm -F @machinen/mcp build
   "mcpServers": {
     "machinen": {
       "command": "node",
-      "args": ["/absolute/path/to/machinen/packages/mcp/dist/index.js"]
+      "args": ["/absolute/path/to/machinen/packages/desktop-mcp/dist/index.js"]
     }
   }
 }

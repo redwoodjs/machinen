@@ -17,7 +17,9 @@ ID. Messages are UTF-8, newline-delimited JSON. A request may be at most 1 MiB.
 
 A client must keep the connection open, send `system.hello` first, and match
 responses by `id`. Subscribed events share that connection and may arrive
-between responses.
+between responses. TypeScript programs can use
+[`@machinen/desktop-sdk`](../../packages/desktop-sdk/README.md); the wire
+protocol remains language-neutral JSON.
 
 ## Envelopes
 

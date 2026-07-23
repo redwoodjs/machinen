@@ -1,15 +1,15 @@
 {
-  "name": "@machinen/mcp",
+  "name": "@machinen/desktop-mcp",
   "version": "0.1.0",
   "description": "MCP server for controlling Machinen Desktop.",
   "license": "FSL-1.1-MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/redwoodjs/machinen.git",
-    "directory": "packages/mcp"
+    "directory": "packages/desktop-mcp"
   },
   "bin": {
-    "machinen-mcp": "./dist/index.js"
+    "machinen-desktop-mcp": "./dist/index.js"
   },
   "files": [
     "dist/",
@@ -22,10 +22,11 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsgo --noEmit",
-    "test": "vitest run --root ../.. packages/mcp/src/__tests__",
+    "test": "vitest run --root ../.. packages/desktop-mcp/src/__tests__",
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
+    "@machinen/desktop-sdk": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.4.3"
   },

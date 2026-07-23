@@ -1,0 +1,134 @@
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
+
+import type { DesktopSnapshot, StatusWidget, WorkspaceLocation } from "@machinen/desktop-sdk";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import {
+  GitStatusService,
+  parseGitOutput,
+  probeGit,
+  remoteGitProbeCommand,
+  remoteShellPath,
+  type GitMetrics,
+} from "./git-status.js";
+
+const execute = promisify(execFile);
+const services: GitStatusService[] = [];
+
+afterEach(() => {
+  for (const service of services) {
+    service.stop();
+  }
+  services.length = 0;
+});
+
+describe("Git status service", () => {
+  it("parses branch, numstat, and untracked files into status bars", () => {
+    const metrics = parseGitOutput(
+      `## main...origin/main\n M src/a.ts\n?? src/new.ts\n\n---MACHINEN-NUMSTAT---\n3\t1\tsrc/a.ts\n`,
+    );
+
+    expect(metrics).toEqual({
+      branch: "main",
+      modified: 2,
+      additions: 4,
+      deletions: 1,
+      additionBars: [3, 1],
+      deletionBars: [1, 0],
+    });
+  });
+
+  it("handles a clean unborn branch", () => {
+    const metrics = parseGitOutput("## No commits yet on main\n\n---MACHINEN-NUMSTAT---\n");
+
+    expect(metrics).toEqual({
+      branch: "main",
+      modified: 0,
+      additions: 0,
+      deletions: 0,
+      additionBars: [0],
+      deletionBars: [0],
+    });
+  });
+
+  it("probes a local repository whose path contains spaces", async () => {
+    const root = await mkdtemp(join(tmpdir(), "machinen-git-status-test-"));
+    const repository = join(root, "repo with spaces");
+    try {
+      await mkdir(repository);
+      await execute("/usr/bin/git", ["init", "-b", "main", repository]);
+      await writeFile(join(repository, "new file.txt"), "hello\n");
+
+      const metrics = await probeGit({ kind: "local", path: repository });
+
+      expect(metrics).toMatchObject({ branch: "main", modified: 1, additions: 1, deletions: 0 });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("quotes absolute and home-relative remote paths", () => {
+    expect(remoteShellPath("~/gh/peter's repo")).toBe(`"$HOME"/'gh/peter'\\''s repo'`);
+    expect(remoteShellPath("/Users/p4p8/project")).toBe("'/Users/p4p8/project'");
+    expect(remoteGitProbeCommand("~/project")).toContain(
+      "/usr/bin/git -C \"$HOME\"/'project' status --porcelain=v1 --branch",
+    );
+  });
+
+  it("publishes machinen.git for the selected workspace", async () => {
+    const set = vi.fn(async (_widget: StatusWidget) => ({}));
+    const metrics: GitMetrics = {
+      branch: "feature",
+      modified: 1,
+      additions: 7,
+      deletions: 2,
+      additionBars: [7],
+      deletionBars: [2],
+    };
+    const probe = vi.fn(async (_location: WorkspaceLocation, _signal?: AbortSignal) => metrics);
+    const service = new GitStatusService(
+      { status: { set } },
+      { pollIntervalMilliseconds: 60_000, probe },
+    );
+    services.push(service);
+    const snapshot: DesktopSnapshot = {
+      workspaces: [
+        {
+          id: "ws_test",
+          name: "test",
+          location: { kind: "ssh", host: "mini", path: "~/project" },
+          workingDirectory: "~/project",
+          position: 0,
+          tileIds: [],
+        },
+      ],
+      tiles: [],
+      terminals: [],
+      ui: {
+        level: "workspace",
+        selectedWorkspaceId: "ws_test",
+        selectedTileId: null,
+        focusedTileId: null,
+      },
+    };
+
+    service.start(snapshot);
+
+    await vi.waitFor(() => expect(set).toHaveBeenCalledOnce());
+    expect(probe).toHaveBeenCalledWith(snapshot.workspaces[0].location, expect.any(AbortSignal));
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "machinen.git",
+        scope: { kind: "workspace", id: "ws_test" },
+        kind: "sparkline",
+        graphStyle: "bars",
+        value: "+7 −2",
+        ttlMilliseconds: 10_000,
+      }),
+    );
+  });
+});

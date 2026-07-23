@@ -219,8 +219,12 @@ const restored = await restore({ snapDir: "./counter.snap" });
 - [Guides](./docs/) — recipes for creating VMs, snapshots and forks,
   mounts, and networking
 - [`@machinen/cli` reference](./packages/cli/API.md) — command and flag reference
-- [`@machinen/mcp`](./packages/mcp/README.md) — let MCP-compatible AI clients
-  control Machinen Desktop through its local Unix-socket API
+- [`@machinen/desktop-sdk`](./packages/desktop-sdk/README.md) — drive Machinen
+  Desktop from TypeScript through its local Unix-socket API
+- [`@machinen/desktop-mcp`](./packages/desktop-mcp/README.md) — let MCP-compatible
+  AI clients control Machinen Desktop through the same API
+- [Machinen Desktop services](./apps/machinen-desktop-services/README.md) — trusted
+  TypeScript services, starting with the local/SSH Git status widget
 - [`@machinen/runtime` reference](./packages/runtime/API.md) — every
   exported function, type, and error class (typedoc-generated)
 

@@ -1,10 +1,18 @@
+import { MachinenDesktopClient } from "@machinen/desktop-sdk";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { MachinenClient } from "./machinen-client.js";
-import { createMachinenMcpServer } from "./server.js";
+
+import { createMachinenDesktopMcpServer } from "./server.js";
 
 async function main(): Promise<void> {
-  const client = new MachinenClient();
-  const server = createMachinenMcpServer(client);
+  const client = new MachinenDesktopClient({
+    client: { name: "machinen-desktop-mcp", version: "0.1.0" },
+    initialSubscription: {
+      events: ["workspace.*", "tile.*", "terminal.*", "ui.changed"],
+      includeOutput: true,
+      includeSnapshot: true,
+    },
+  });
+  const server = createMachinenDesktopMcpServer(client);
   const transport = new StdioServerTransport();
 
   const shutdown = async () => {

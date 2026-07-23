@@ -51,6 +51,28 @@ importers:
         specifier: ^4.1.0
         version: 4.1.4(@types/node@22.19.17)(vite@8.0.8(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.7.0)(terser@5.48.0)(tsx@4.21.0)(yaml@2.8.3))
 
+  apps/machinen-desktop-services:
+    dependencies:
+      '@machinen/desktop-sdk':
+        specifier: workspace:*
+        version: link:../../packages/desktop-sdk
+    devDependencies:
+      '@types/node':
+        specifier: ^22
+        version: 22.19.17
+      tsup:
+        specifier: ^8.3.5
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.9)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
+      tsx:
+        specifier: ^4
+        version: 4.21.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.4(@types/node@22.19.17)(vite@8.0.8(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.7.0)(terser@5.48.0)(tsx@4.21.0)(yaml@2.8.3))
+
   apps/machinen.dev:
     dependencies:
       react:
@@ -153,14 +175,11 @@ importers:
         specifier: workspace:*
         version: link:../native-x64-linux
 
-  packages/launcher:
+  packages/desktop-mcp:
     dependencies:
-      '@machinen/cli':
+      '@machinen/desktop-sdk':
         specifier: workspace:*
-        version: link:../cli
-
-  packages/mcp:
-    dependencies:
+        version: link:../desktop-sdk
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
@@ -180,6 +199,27 @@ importers:
       vitest:
         specifier: ^4.1.0
         version: 4.1.4(@types/node@22.19.17)(vite@8.0.8(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.7.0)(terser@5.48.0)(tsx@4.21.0)(yaml@2.8.3))
+
+  packages/desktop-sdk:
+    devDependencies:
+      '@types/node':
+        specifier: ^22
+        version: 22.19.17
+      tsup:
+        specifier: ^8.3.5
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.9)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.4(@types/node@22.19.17)(vite@8.0.8(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.7.0)(terser@5.48.0)(tsx@4.21.0)(yaml@2.8.3))
+
+  packages/launcher:
+    dependencies:
+      '@machinen/cli':
+        specifier: workspace:*
+        version: link:../cli
 
   packages/microvm: {}
 

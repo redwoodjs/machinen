@@ -1,9 +1,10 @@
-import { createServer, type Server, type Socket } from "node:net";
 import { rm } from "node:fs/promises";
+import { createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { MachinenClient } from "../machinen-client.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { MachinenDesktopClient } from "../client.js";
 
 interface RequestMessage {
   id: string;
@@ -11,7 +12,7 @@ interface RequestMessage {
   params: Record<string, unknown>;
 }
 
-const socketPath = join(tmpdir(), `machinen-mcp-test-${process.pid}.sock`);
+const socketPath = join(tmpdir(), `machinen-desktop-sdk-test-${process.pid}.sock`);
 
 let server: Server;
 let sockets: Socket[];
@@ -34,12 +35,7 @@ function handleRequest(socket: Socket, request: RequestMessage): void {
       snapshot: {
         workspaces: [],
         tiles: [],
-        terminals: [
-          {
-            id: "term_test",
-            processState: "running",
-          },
-        ],
+        terminals: [{ id: "term_test", processState: "running" }],
         ui: { level: "overview" },
       },
     };
@@ -71,8 +67,20 @@ function handleRequest(socket: Socket, request: RequestMessage): void {
   });
 }
 
+function createClient(): MachinenDesktopClient {
+  return new MachinenDesktopClient({
+    socketPath,
+    launchApplication: false,
+    client: { name: "desktop-sdk-test", version: "1" },
+    initialSubscription: {
+      events: ["workspace.*", "terminal.*"],
+      includeOutput: true,
+      includeSnapshot: true,
+    },
+  });
+}
+
 beforeEach(async () => {
-  process.env.MACHINEN_MCP_NO_LAUNCH = "1";
   await rm(socketPath, { force: true });
   sockets = [];
   operations = [];
@@ -100,7 +108,6 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  delete process.env.MACHINEN_MCP_NO_LAUNCH;
   for (const socket of sockets) {
     socket.destroy();
   }
@@ -108,9 +115,9 @@ afterEach(async () => {
   await rm(socketPath, { force: true });
 });
 
-describe("MachinenClient", () => {
+describe("MachinenDesktopClient", () => {
   it("negotiates, subscribes, and forwards API requests", async () => {
-    const client = new MachinenClient(socketPath);
+    const client = createClient();
     const workspace = await client.request(
       "workspace.create",
       { name: "website" },
@@ -123,8 +130,11 @@ describe("MachinenClient", () => {
     client.close();
   });
 
-  it("buffers PTY output and waits for literal text", async () => {
-    const client = new MachinenClient(socketPath);
+  it("delivers subscribed events and buffers PTY output", async () => {
+    const client = createClient();
+    const listener = vi.fn();
+    client.onEvent(listener);
+
     await client.request("terminal.send", {
       terminalId: "term_test",
       text: "start",
@@ -138,6 +148,9 @@ describe("MachinenClient", () => {
 
     expect(result.matched).toBe(true);
     expect((result.output as { text: string }).text).toContain("ready");
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "terminal.output", seq: 1 }),
+    );
     const output = client.readTerminalOutput("term_test");
     expect(output.endCursor).toBe(6);
     expect(output.text).toBe("ready\n");

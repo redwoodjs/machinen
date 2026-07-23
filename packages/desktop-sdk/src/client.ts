@@ -1,7 +1,16 @@
 import { spawn } from "node:child_process";
 import { connect as connectSocket, type Socket } from "node:net";
 
-export type JsonObject = Record<string, unknown>;
+import type {
+  DesktopClientIdentity,
+  DesktopConnection,
+  DesktopEvent,
+  EventSubscriptionParams,
+  EventSubscriptionResult,
+  JsonObject,
+  StatusScope,
+  StatusWidget,
+} from "./protocol.js";
 
 interface PendingRequest {
   resolve(value: unknown): void;
@@ -18,13 +27,6 @@ interface MachinenResponse {
     message?: string;
     details?: JsonObject;
   };
-}
-
-interface MachinenEvent {
-  type: "event";
-  seq: number;
-  event: string;
-  data: JsonObject;
 }
 
 interface OutputBuffer {
@@ -50,20 +52,39 @@ export interface TerminalWaitOptions {
   afterCursor?: number;
 }
 
+export interface MachinenDesktopClientOptions {
+  socketPath?: string;
+  client?: DesktopClientIdentity;
+  launchApplication?: boolean;
+  initialSubscription?: EventSubscriptionParams;
+}
+
 const protocolVersion = 1;
 const maximumBufferedOutputBytes = 256 * 1024;
 
-function defaultSocketPath(): string {
+export function defaultMachinenSocketPath(): string {
   const uid = typeof process.getuid === "function" ? process.getuid() : 0;
   return process.env.MACHINEN_API_SOCKET ?? `/tmp/machinen-${uid}/api-v1.sock`;
 }
 
-export class MachinenClient {
+export class MachinenDesktopClient {
   readonly socketPath: string;
+  readonly status = {
+    list: () => this.request<JsonObject>("status.list"),
+    set: (widget: StatusWidget) =>
+      this.request<JsonObject>("status.set", { ...widget } as JsonObject),
+    remove: (id: string, scope?: StatusScope) =>
+      this.request<JsonObject>("status.remove", { id, ...(scope ? { scope } : {}) }),
+  };
 
+  private readonly identity: DesktopClientIdentity;
+  private readonly launchApplication: boolean;
+  private readonly initialSubscription?: EventSubscriptionParams;
   private socket?: Socket;
-  private connectPromise?: Promise<void>;
+  private connectPromise?: Promise<DesktopConnection>;
+  private connection?: DesktopConnection;
   private ready = false;
+  private explicitlyClosed = false;
   private inputBuffer = "";
   private requestCounter = 0;
   private pending = new Map<string, PendingRequest>();
@@ -71,18 +92,53 @@ export class MachinenClient {
   private terminalStates = new Map<string, string>();
   private eventRevision = 0;
   private eventWaiters = new Set<() => void>();
+  private eventListeners = new Set<(event: DesktopEvent) => void>();
+  private connectionListeners = new Set<(connection: DesktopConnection) => void>();
+  private disconnectionListeners = new Set<(error: Error) => void>();
 
-  constructor(socketPath = defaultSocketPath()) {
-    this.socketPath = socketPath;
+  constructor(options: MachinenDesktopClientOptions | string = {}) {
+    const normalized = typeof options === "string" ? { socketPath: options } : options;
+    this.socketPath = normalized.socketPath ?? defaultMachinenSocketPath();
+    this.identity = normalized.client ?? { name: "machinen-desktop-sdk", version: "0.1.0" };
+    this.launchApplication = normalized.launchApplication ?? true;
+    this.initialSubscription = normalized.initialSubscription;
   }
 
-  async request(
+  async connect(): Promise<DesktopConnection> {
+    return this.ensureConnected();
+  }
+
+  async request<T = unknown>(
     operation: string,
     params: JsonObject = {},
     idempotencyKey?: string,
-  ): Promise<unknown> {
+  ): Promise<T> {
     await this.ensureConnected();
-    return this.sendRequest(operation, params, idempotencyKey);
+    return this.sendRequest(operation, params, idempotencyKey) as Promise<T>;
+  }
+
+  async subscribeEvents(params: EventSubscriptionParams): Promise<EventSubscriptionResult> {
+    const result = await this.request<EventSubscriptionResult>("events.subscribe", params);
+    this.recordSnapshot(result.snapshot);
+    return result;
+  }
+
+  onEvent(listener: (event: DesktopEvent) => void): () => void {
+    this.eventListeners.add(listener);
+    return () => this.eventListeners.delete(listener);
+  }
+
+  onConnect(listener: (connection: DesktopConnection) => void): () => void {
+    this.connectionListeners.add(listener);
+    if (this.connection) {
+      listener(this.connection);
+    }
+    return () => this.connectionListeners.delete(listener);
+  }
+
+  onDisconnect(listener: (error: Error) => void): () => void {
+    this.disconnectionListeners.add(listener);
+    return () => this.disconnectionListeners.delete(listener);
   }
 
   readTerminalOutput(terminalId: string, afterCursor?: number): TerminalOutput {
@@ -129,6 +185,16 @@ export class MachinenClient {
     }
   }
 
+  close(): void {
+    this.explicitlyClosed = true;
+    this.socket?.destroy();
+    this.socket = undefined;
+    this.connectPromise = undefined;
+    this.connection = undefined;
+    this.ready = false;
+    this.rejectPending(new Error("Machinen connection closed"));
+  }
+
   private validateWaitOptions(options: TerminalWaitOptions): void {
     if (!options.contains && !options.processState) {
       throw new Error("terminal_wait requires contains or processState");
@@ -136,7 +202,7 @@ export class MachinenClient {
   }
 
   private async refreshTerminalState(terminalId: string): Promise<void> {
-    const terminal = (await this.request("terminal.get", { terminalId })) as JsonObject;
+    const terminal = await this.request<JsonObject>("terminal.get", { terminalId });
     if (typeof terminal.processState === "string") {
       this.terminalStates.set(terminalId, terminal.processState);
     }
@@ -164,27 +230,20 @@ export class MachinenClient {
     return new Error(`Timed out waiting for terminal ${options.terminalId}${output}${state}`);
   }
 
-  close(): void {
-    this.socket?.destroy();
-    this.socket = undefined;
-    this.connectPromise = undefined;
-    this.ready = false;
-    this.rejectPending(new Error("Machinen connection closed"));
-  }
-
-  private async ensureConnected(): Promise<void> {
-    if (this.ready && this.socket && !this.socket.destroyed) {
-      return;
+  private async ensureConnected(): Promise<DesktopConnection> {
+    if (this.ready && this.socket && !this.socket.destroyed && this.connection) {
+      return this.connection;
     }
+    this.explicitlyClosed = false;
     if (!this.connectPromise) {
       this.connectPromise = this.establishConnection().finally(() => {
         this.connectPromise = undefined;
       });
     }
-    await this.connectPromise;
+    return this.connectPromise;
   }
 
-  private async establishConnection(): Promise<void> {
+  private async establishConnection(): Promise<DesktopConnection> {
     let socket: Socket;
     try {
       socket = await this.connectOnce();
@@ -195,19 +254,28 @@ export class MachinenClient {
       this.launchMachinen();
       socket = await this.waitForSocket();
     }
+
     this.attachSocket(socket);
     try {
-      await this.sendRequest("system.hello", {
-        client: { name: "machinen-mcp", version: "0.1.0" },
+      const hello = (await this.sendRequest("system.hello", {
+        client: this.identity,
         protocol: { min: protocolVersion, max: protocolVersion },
-      });
-      const subscription = (await this.sendRequest("events.subscribe", {
-        events: ["workspace.*", "tile.*", "terminal.*", "ui.changed"],
-        includeOutput: true,
-        includeSnapshot: true,
       })) as JsonObject;
-      this.recordSnapshot(subscription.snapshot);
+      let subscription: EventSubscriptionResult | undefined;
+      if (this.initialSubscription) {
+        subscription = (await this.sendRequest(
+          "events.subscribe",
+          this.initialSubscription,
+        )) as EventSubscriptionResult;
+        this.recordSnapshot(subscription.snapshot);
+      }
+      const connection = { hello, subscription };
+      this.connection = connection;
       this.ready = true;
+      for (const listener of this.connectionListeners) {
+        listener(connection);
+      }
+      return connection;
     } catch (error) {
       if (this.socket === socket) {
         this.socket = undefined;
@@ -247,7 +315,11 @@ export class MachinenClient {
   }
 
   private shouldTryLaunching(error: unknown): boolean {
-    if (process.env.MACHINEN_MCP_NO_LAUNCH === "1" || process.platform !== "darwin") {
+    if (
+      !this.launchApplication ||
+      process.env.MACHINEN_DESKTOP_NO_LAUNCH === "1" ||
+      process.platform !== "darwin"
+    ) {
       return false;
     }
     const code = (error as NodeJS.ErrnoException)?.code;
@@ -262,10 +334,7 @@ export class MachinenClient {
     const args = appPath
       ? [...inheritedEnvironment, appPath]
       : [...inheritedEnvironment, "-a", "Machinen"];
-    const child = spawn("/usr/bin/open", args, {
-      detached: true,
-      stdio: "ignore",
-    });
+    const child = spawn("/usr/bin/open", args, { detached: true, stdio: "ignore" });
     child.unref();
   }
 
@@ -340,7 +409,7 @@ export class MachinenClient {
       if (!message || typeof message !== "object") {
         continue;
       }
-      const envelope = message as MachinenResponse | MachinenEvent;
+      const envelope = message as MachinenResponse | DesktopEvent;
       if (envelope.type === "response") {
         this.receiveResponse(envelope);
       }
@@ -364,7 +433,7 @@ export class MachinenClient {
     pending.reject(new Error(`${code}${response.error?.message ?? "Machinen request failed"}`));
   }
 
-  private receiveEvent(event: MachinenEvent): void {
+  private receiveEvent(event: DesktopEvent): void {
     if (event.event === "terminal.output") {
       const terminalId = event.data.terminalId;
       const encoded = event.data.dataBase64;
@@ -378,6 +447,9 @@ export class MachinenClient {
       if (typeof terminalId === "string" && typeof processState === "string") {
         this.terminalStates.set(terminalId, processState);
       }
+    }
+    for (const listener of this.eventListeners) {
+      listener(event);
     }
     this.notifyEventWaiters();
   }
@@ -444,10 +516,16 @@ export class MachinenClient {
       return;
     }
     this.socket = undefined;
+    this.connection = undefined;
     this.ready = false;
     socket?.destroy();
     this.rejectPending(error);
     this.notifyEventWaiters();
+    if (!this.explicitlyClosed) {
+      for (const listener of this.disconnectionListeners) {
+        listener(error);
+      }
+    }
   }
 
   private rejectPending(error: Error): void {
