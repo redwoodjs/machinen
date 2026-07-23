@@ -69,6 +69,8 @@ export function defaultMachinenSocketPath(): string {
 
 export class MachinenDesktopClient {
   readonly socketPath: string;
+  // Public SDK surface is consumed outside this repository.
+  // fallow-ignore-next-line unused-class-member
   readonly status = {
     list: () => this.request<JsonObject>("status.list"),
     set: (widget: StatusWidget) =>
@@ -104,6 +106,7 @@ export class MachinenDesktopClient {
     this.initialSubscription = normalized.initialSubscription;
   }
 
+  // fallow-ignore-next-line unused-class-member
   async connect(): Promise<DesktopConnection> {
     return this.ensureConnected();
   }
@@ -117,17 +120,20 @@ export class MachinenDesktopClient {
     return this.sendRequest(operation, params, idempotencyKey) as Promise<T>;
   }
 
+  // fallow-ignore-next-line unused-class-member
   async subscribeEvents(params: EventSubscriptionParams): Promise<EventSubscriptionResult> {
     const result = await this.request<EventSubscriptionResult>("events.subscribe", params);
     this.recordSnapshot(result.snapshot);
     return result;
   }
 
+  // fallow-ignore-next-line unused-class-member
   onEvent(listener: (event: DesktopEvent) => void): () => void {
     this.eventListeners.add(listener);
     return () => this.eventListeners.delete(listener);
   }
 
+  // fallow-ignore-next-line unused-class-member
   onConnect(listener: (connection: DesktopConnection) => void): () => void {
     this.connectionListeners.add(listener);
     if (this.connection) {
@@ -136,6 +142,7 @@ export class MachinenDesktopClient {
     return () => this.connectionListeners.delete(listener);
   }
 
+  // fallow-ignore-next-line unused-class-member
   onDisconnect(listener: (error: Error) => void): () => void {
     this.disconnectionListeners.add(listener);
     return () => this.disconnectionListeners.delete(listener);
@@ -161,6 +168,7 @@ export class MachinenDesktopClient {
     };
   }
 
+  // fallow-ignore-next-line unused-class-member
   async waitForTerminal(options: TerminalWaitOptions): Promise<JsonObject> {
     this.validateWaitOptions(options);
     const timeout = Math.min(Math.max(options.timeoutMilliseconds ?? 30_000, 1), 300_000);
@@ -185,6 +193,7 @@ export class MachinenDesktopClient {
     }
   }
 
+  // fallow-ignore-next-line unused-class-member
   close(): void {
     this.explicitlyClosed = true;
     this.socket?.destroy();

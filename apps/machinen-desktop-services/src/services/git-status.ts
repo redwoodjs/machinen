@@ -21,7 +21,7 @@ export interface GitMetrics {
   deletionBars: number[];
 }
 
-export interface StatusPublisher {
+interface StatusPublisher {
   status: {
     set(widget: StatusWidget): Promise<unknown>;
   };
@@ -32,7 +32,7 @@ interface GitStatusServiceOptions {
   probe?: (location: WorkspaceLocation, signal?: AbortSignal) => Promise<GitMetrics>;
 }
 
-export function shellQuote(value: string): string {
+function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
@@ -252,58 +252,86 @@ export class GitStatusService {
   }
 
   private async refresh(): Promise<void> {
-    const workspace = this.selectedWorkspaceId
-      ? this.workspaces.get(this.selectedWorkspaceId)
-      : undefined;
+    const workspace = this.selectedWorkspace();
     if (!workspace) {
       return;
     }
 
-    this.running = true;
-    this.refreshQueued = false;
     const version = this.contextVersion;
-    const controller = new AbortController();
-    this.abortController = controller;
+    const controller = this.beginRefresh();
 
     try {
       const git = await this.probe(workspace.location, controller.signal);
-      if (version !== this.contextVersion || controller.signal.aborted) {
+      if (this.refreshIsStale(version, controller)) {
         return;
       }
-      await this.desktop.status.set({
-        id: "machinen.git",
-        scope: { kind: "workspace", id: workspace.id },
-        placement: "right",
-        kind: "sparkline",
-        label: "Git changes",
-        value: `+${git.additions} −${git.deletions}`,
-        tone: git.modified === 0 ? "good" : "attention",
-        tooltip: `${git.branch} · ${git.modified} modified · +${git.additions} · −${git.deletions}`,
-        priority: 90,
-        ttlMilliseconds: widgetTTLMilliseconds,
-        graphStyle: "bars",
-        samples: git.additionBars,
-        secondarySamples: git.deletionBars,
-      });
+      await this.desktop.status.set(gitStatusWidget(workspace, git));
       this.lastError = undefined;
     } catch (error) {
-      if (!controller.signal.aborted) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (message !== this.lastError) {
-          console.error(`Git status service: ${message}`);
-          this.lastError = message;
-        }
-      }
+      this.reportRefreshError(error, controller.signal);
     } finally {
-      if (this.abortController === controller) {
-        this.abortController = undefined;
-      }
-      this.running = false;
-      if (this.refreshQueued) {
-        this.queueRefresh();
-      }
+      this.finishRefresh(controller);
     }
   }
+
+  private selectedWorkspace(): Workspace | undefined {
+    if (!this.selectedWorkspaceId) {
+      return undefined;
+    }
+    return this.workspaces.get(this.selectedWorkspaceId);
+  }
+
+  private beginRefresh(): AbortController {
+    this.running = true;
+    this.refreshQueued = false;
+    const controller = new AbortController();
+    this.abortController = controller;
+    return controller;
+  }
+
+  private refreshIsStale(version: number, controller: AbortController): boolean {
+    return version !== this.contextVersion || controller.signal.aborted;
+  }
+
+  private reportRefreshError(error: unknown, signal: AbortSignal): void {
+    if (signal.aborted) {
+      return;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    if (message === this.lastError) {
+      return;
+    }
+    console.error(`Git status service: ${message}`);
+    this.lastError = message;
+  }
+
+  private finishRefresh(controller: AbortController): void {
+    if (this.abortController === controller) {
+      this.abortController = undefined;
+    }
+    this.running = false;
+    if (this.refreshQueued) {
+      this.queueRefresh();
+    }
+  }
+}
+
+function gitStatusWidget(workspace: Workspace, git: GitMetrics): StatusWidget {
+  return {
+    id: "machinen.git",
+    scope: { kind: "workspace", id: workspace.id },
+    placement: "right",
+    kind: "sparkline",
+    label: "Git changes",
+    value: `+${git.additions} −${git.deletions}`,
+    tone: git.modified === 0 ? "good" : "attention",
+    tooltip: `${git.branch} · ${git.modified} modified · +${git.additions} · −${git.deletions}`,
+    priority: 90,
+    ttlMilliseconds: widgetTTLMilliseconds,
+    graphStyle: "bars",
+    samples: git.additionBars,
+    secondarySamples: git.deletionBars,
+  };
 }
 
 function isWorkspace(value: Workspace): boolean {
