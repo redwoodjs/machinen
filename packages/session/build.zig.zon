@@ -8,6 +8,7 @@
         "build.zig",
         "build.zig.zon",
         "README.md",
+        "PROTOCOL.md",
         "src",
         "vendor/sqlite/README.md",
         "vendor/sqlite/sqlite3.c",

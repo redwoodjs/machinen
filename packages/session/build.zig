@@ -24,13 +24,24 @@ pub fn build(b: *std.Build) void {
         },
     });
 
+    const worker = b.createModule(.{
+        .root_source_file = b.path("src/worker.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .imports = &.{.{ .name = "session", .module = session }},
+    });
+
     const exe = b.addExecutable(.{
         .name = "machinen-session",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
-            .imports = &.{.{ .name = "session", .module = session }},
+            .imports = &.{
+                .{ .name = "session", .module = session },
+                .{ .name = "worker", .module = worker },
+            },
         }),
     });
     b.installArtifact(exe);
@@ -39,11 +50,16 @@ pub fn build(b: *std.Build) void {
     const run_module_tests = b.addRunArtifact(module_tests);
     run_module_tests.setCwd(b.path("."));
 
+    const worker_tests = b.addTest(.{ .root_module = worker });
+    const run_worker_tests = b.addRunArtifact(worker_tests);
+    run_worker_tests.setCwd(b.path("."));
+
     const cli_tests = b.addTest(.{ .root_module = exe.root_module });
     const run_cli_tests = b.addRunArtifact(cli_tests);
     run_cli_tests.setCwd(b.path("."));
 
-    const test_step = b.step("test", "Run session persistence tests");
+    const test_step = b.step("test", "Run session persistence and worker tests");
     test_step.dependOn(&run_module_tests.step);
+    test_step.dependOn(&run_worker_tests.step);
     test_step.dependOn(&run_cli_tests.step);
 }

@@ -4,7 +4,7 @@ const sqlite = @cImport({
     @cInclude("sys/stat.h");
 });
 
-const schema_version: c_int = 1;
+const schema_version: c_int = 2;
 const application_id: c_int = 1_297_302_867; // "MSES"
 
 pub const SessionState = enum(c_int) {
@@ -39,6 +39,8 @@ pub const Session = struct {
     rows: u32,
     columns: u32,
     last_sequence: u64,
+    worker_pid: ?i64,
+    exit_code: ?i32,
 
     pub fn deinit(self: *Session, allocator: std.mem.Allocator) void {
         allocator.free(self.id);
@@ -160,6 +162,33 @@ pub const Store = struct {
         if (sqlite.sqlite3_changes(self.db) == 0) return error.SessionNotFound;
     }
 
+    pub fn setRunning(self: *Store, session_id: []const u8, worker_pid: i64) !void {
+        if (worker_pid <= 0) return error.InvalidWorkerPid;
+        const statement = try self.prepare(
+            \\UPDATE sessions SET state=?, worker_pid=?, exit_code=NULL,
+            \\updated_at_ms=unixepoch('subsec')*1000 WHERE id=?;
+        );
+        defer _ = sqlite.sqlite3_finalize(statement);
+        try bindInt(statement, 1, @intFromEnum(SessionState.running));
+        try bindInt64(statement, 2, worker_pid);
+        try bindText(statement, 3, session_id);
+        try self.stepDone(statement);
+        if (sqlite.sqlite3_changes(self.db) == 0) return error.SessionNotFound;
+    }
+
+    pub fn setExited(self: *Store, session_id: []const u8, exit_code: i32) !void {
+        const statement = try self.prepare(
+            \\UPDATE sessions SET state=?, worker_pid=NULL, exit_code=?,
+            \\updated_at_ms=unixepoch('subsec')*1000 WHERE id=?;
+        );
+        defer _ = sqlite.sqlite3_finalize(statement);
+        try bindInt(statement, 1, @intFromEnum(SessionState.exited));
+        try bindInt64(statement, 2, exit_code);
+        try bindText(statement, 3, session_id);
+        try self.stepDone(statement);
+        if (sqlite.sqlite3_changes(self.db) == 0) return error.SessionNotFound;
+    }
+
     pub fn setState(self: *Store, session_id: []const u8, state: SessionState) !void {
         const statement = try self.prepare(
             "UPDATE sessions SET state=?, updated_at_ms=unixepoch('subsec')*1000 WHERE id=?;",
@@ -173,8 +202,8 @@ pub const Store = struct {
 
     pub fn getSession(self: *Store, session_id: []const u8) !?Session {
         const statement = try self.prepare(
-            \\SELECT id, name, working_directory, argv_json, state, rows, columns, last_sequence
-            \\FROM sessions WHERE id=?;
+            \\SELECT id, name, working_directory, argv_json, state, rows, columns, last_sequence,
+            \\worker_pid, exit_code FROM sessions WHERE id=?;
         );
         defer _ = sqlite.sqlite3_finalize(statement);
         try bindText(statement, 1, session_id);
@@ -184,10 +213,26 @@ pub const Store = struct {
         };
     }
 
+    pub fn resolveSession(self: *Store, reference: []const u8) !?Session {
+        const statement = try self.prepare(
+            \\SELECT id, name, working_directory, argv_json, state, rows, columns, last_sequence,
+            \\worker_pid, exit_code FROM sessions WHERE id=? OR name=?
+            \\ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END LIMIT 1;
+        );
+        defer _ = sqlite.sqlite3_finalize(statement);
+        try bindText(statement, 1, reference);
+        try bindText(statement, 2, reference);
+        try bindText(statement, 3, reference);
+        return switch (try self.step(statement)) {
+            .done => null,
+            .row => try readSession(self.allocator, statement),
+        };
+    }
+
     pub fn listSessions(self: *Store, allocator: std.mem.Allocator) ![]Session {
         const statement = try self.prepare(
-            \\SELECT id, name, working_directory, argv_json, state, rows, columns, last_sequence
-            \\FROM sessions ORDER BY created_at_ms, id;
+            \\SELECT id, name, working_directory, argv_json, state, rows, columns, last_sequence,
+            \\worker_pid, exit_code FROM sessions ORDER BY created_at_ms, id;
         );
         defer _ = sqlite.sqlite3_finalize(statement);
 
@@ -408,6 +453,16 @@ pub const Store = struct {
             if (found_application_id == 0) return error.NotMachinenSessionDatabase;
             return;
         }
+        if (found_version == 1) {
+            if (found_application_id != application_id) return error.NotMachinenSessionDatabase;
+            try self.begin();
+            errdefer self.rollback();
+            try self.exec("ALTER TABLE sessions ADD COLUMN worker_pid INTEGER;");
+            try self.exec("ALTER TABLE sessions ADD COLUMN exit_code INTEGER;");
+            try self.exec("PRAGMA user_version=2;");
+            try self.commit();
+            return;
+        }
         if (found_version != 0) return error.UnsupportedSchemaVersion;
 
         try self.begin();
@@ -422,6 +477,8 @@ pub const Store = struct {
             \\  rows INTEGER NOT NULL CHECK (rows > 0),
             \\  columns INTEGER NOT NULL CHECK (columns > 0),
             \\  last_sequence INTEGER NOT NULL DEFAULT 0 CHECK (last_sequence >= 0),
+            \\  worker_pid INTEGER,
+            \\  exit_code INTEGER,
             \\  created_at_ms INTEGER NOT NULL DEFAULT (unixepoch('subsec')*1000),
             \\  updated_at_ms INTEGER NOT NULL DEFAULT (unixepoch('subsec')*1000)
             \\);
@@ -448,7 +505,7 @@ pub const Store = struct {
             \\ON checkpoints(session_id, sequence DESC);
         );
         try self.exec("PRAGMA application_id=1297302867;");
-        try self.exec("PRAGMA user_version=1;");
+        try self.exec("PRAGMA user_version=2;");
         try self.commit();
     }
 
@@ -563,6 +620,14 @@ fn readSession(allocator: std.mem.Allocator, statement: *sqlite.sqlite3_stmt) !S
         .rows = @intCast(sqlite.sqlite3_column_int64(statement, 5)),
         .columns = @intCast(sqlite.sqlite3_column_int64(statement, 6)),
         .last_sequence = @intCast(sqlite.sqlite3_column_int64(statement, 7)),
+        .worker_pid = if (sqlite.sqlite3_column_type(statement, 8) == sqlite.SQLITE_NULL)
+            null
+        else
+            sqlite.sqlite3_column_int64(statement, 8),
+        .exit_code = if (sqlite.sqlite3_column_type(statement, 9) == sqlite.SQLITE_NULL)
+            null
+        else
+            @intCast(sqlite.sqlite3_column_int64(statement, 9)),
     };
 }
 
@@ -625,9 +690,9 @@ test "store migrates a new database and persists session metadata" {
             .rows = 40,
             .columns = 120,
         });
-        try store.setState("term_api", .running);
+        try store.setRunning("term_api", 4_242);
         const info = try store.info();
-        try std.testing.expectEqual(@as(u32, 1), info.schema_version);
+        try std.testing.expectEqual(@as(u32, 2), info.schema_version);
         try std.testing.expectEqual(@as(u64, 1), info.session_count);
     }
 
@@ -645,8 +710,14 @@ test "store migrates a new database and persists session metadata" {
     try std.testing.expectEqualStrings("/srv/api", session.working_directory);
     try std.testing.expectEqualStrings("[\"pnpm\",\"dev\"]", session.argv_json);
     try std.testing.expectEqual(SessionState.running, session.state);
+    try std.testing.expectEqual(@as(i64, 4_242), session.worker_pid.?);
+    try std.testing.expectEqual(@as(?i32, null), session.exit_code);
     try std.testing.expectEqual(@as(u32, 120), session.columns);
     try std.testing.expectEqual(@as(u32, 40), session.rows);
+
+    var resolved = (try reopened.resolveSession("api")).?;
+    defer resolved.deinit(allocator);
+    try std.testing.expectEqualStrings("term_api", resolved.id);
 }
 
 test "events retain byte-exact output and ordered resize information" {
@@ -729,6 +800,55 @@ test "checkpoint compaction is atomic and preserves replay after its sequence" {
     try std.testing.expectEqual(@as(u64, 0), after_delete.session_count);
     try std.testing.expectEqual(@as(u64, 0), after_delete.event_count);
     try std.testing.expectEqual(@as(u64, 0), after_delete.checkpoint_count);
+}
+
+test "version one databases migrate worker recovery fields in place" {
+    const allocator = std.testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const path = try testDatabasePath(allocator, &tmp);
+    defer allocator.free(path);
+    const path_z = try allocator.dupeZ(u8, path);
+    defer allocator.free(path_z);
+
+    var raw: ?*sqlite.sqlite3 = null;
+    try std.testing.expectEqual(@as(c_int, sqlite.SQLITE_OK), sqlite.sqlite3_open(path_z.ptr, &raw));
+    const legacy_sql =
+        \\CREATE TABLE sessions (
+        \\ id TEXT PRIMARY KEY, name TEXT UNIQUE, working_directory TEXT NOT NULL,
+        \\ argv_json BLOB NOT NULL, state INTEGER NOT NULL, rows INTEGER NOT NULL,
+        \\ columns INTEGER NOT NULL, last_sequence INTEGER NOT NULL DEFAULT 0,
+        \\ created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+        \\);
+        \\CREATE TABLE events (
+        \\ session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+        \\ sequence INTEGER NOT NULL, kind INTEGER NOT NULL, payload BLOB NOT NULL,
+        \\ created_at_ms INTEGER NOT NULL, PRIMARY KEY(session_id, sequence)
+        \\) WITHOUT ROWID;
+        \\CREATE TABLE checkpoints (
+        \\ session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+        \\ sequence INTEGER NOT NULL, format_version INTEGER NOT NULL, payload BLOB NOT NULL,
+        \\ created_at_ms INTEGER NOT NULL, PRIMARY KEY(session_id, sequence)
+        \\) WITHOUT ROWID;
+        \\INSERT INTO sessions VALUES ('legacy', 'old', '/tmp', '["sh"]', 1, 24, 80, 0, 1, 1);
+        \\PRAGMA application_id=1297302867;
+        \\PRAGMA user_version=1;
+    ;
+    try std.testing.expectEqual(
+        @as(c_int, sqlite.SQLITE_OK),
+        sqlite.sqlite3_exec(raw, legacy_sql, null, null, null),
+    );
+    try std.testing.expectEqual(@as(c_int, sqlite.SQLITE_OK), sqlite.sqlite3_close(raw));
+
+    var store = try Store.open(allocator, path);
+    defer store.close();
+    const info = try store.info();
+    try std.testing.expectEqual(@as(u32, 2), info.schema_version);
+    var legacy = (try store.getSession("legacy")).?;
+    defer legacy.deinit(allocator);
+    try std.testing.expectEqual(@as(?i64, null), legacy.worker_pid);
+    try std.testing.expectEqual(@as(?i32, null), legacy.exit_code);
+    try store.setExited("legacy", 9);
 }
 
 test "constraints reject duplicate names and missing sessions without advancing sequences" {
