@@ -260,6 +260,8 @@ importers:
         specifier: workspace:*
         version: link:../native-x64-linux
 
+  packages/session: {}
+
 packages:
 
   '@actions/expressions@0.3.51':

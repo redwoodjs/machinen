@@ -3,3 +3,5 @@ packages/runtime/API.md
 
 # Vendored upstream source is preserved except for documented local patches.
 apps/machinen-desktop/Vendor/dtach/README
+packages/session/vendor/sqlite/sqlite3.c
+packages/session/vendor/sqlite/sqlite3.h
