@@ -157,32 +157,48 @@ final class MachinenTerminalView: LocalProcessTerminalView {
 
         var arguments = ["-A", session.socketPath, "-E", "-z", "-r", "winch"]
         var environment: [String]?
-        switch session.launch.kind {
-        case .loginShell:
-            arguments.append(contentsOf: [loginShell(), "-l"])
-        case .shellCommand:
-            arguments.append(contentsOf: [loginShell(), "-lc", session.launch.command ?? ""])
-        case .exec:
-            guard let executable = session.launch.executable, !executable.isEmpty else {
+        let localWorkingDirectory: String
+        if let host = session.location.sshHost {
+            guard let command = Self.remoteCommand(
+                for: session.launch,
+                workingDirectory: session.workingDirectory
+            ) else {
                 clientStarted = false
                 session.state = .stopped
                 onStateChange?(.stopped)
                 return
             }
-            arguments.append(executable)
-            arguments.append(contentsOf: session.launch.arguments ?? [])
-            if let additions = session.launch.environment {
-                var merged = ProcessInfo.processInfo.environment
-                merged.merge(additions) { _, new in new }
-                environment = merged.map { "\($0.key)=\($0.value)" }
+            arguments.append(contentsOf: ["/usr/bin/ssh", "-t", host, command])
+            localWorkingDirectory = FileManager.default.homeDirectoryForCurrentUser.path
+        } else {
+            switch session.launch.kind {
+            case .loginShell:
+                arguments.append(contentsOf: [loginShell(), "-l"])
+            case .shellCommand:
+                arguments.append(contentsOf: [loginShell(), "-lc", session.launch.command ?? ""])
+            case .exec:
+                guard let executable = session.launch.executable, !executable.isEmpty else {
+                    clientStarted = false
+                    session.state = .stopped
+                    onStateChange?(.stopped)
+                    return
+                }
+                arguments.append(executable)
+                arguments.append(contentsOf: session.launch.arguments ?? [])
+                if let additions = session.launch.environment {
+                    var merged = ProcessInfo.processInfo.environment
+                    merged.merge(additions) { _, new in new }
+                    environment = merged.map { "\($0.key)=\($0.value)" }
+                }
             }
+            localWorkingDirectory = session.workingDirectory
         }
         startProcess(
             executable: dtachExecutablePath(),
             args: arguments,
             environment: environment,
             execName: "machinen-dtach",
-            currentDirectory: session.workingDirectory
+            currentDirectory: localWorkingDirectory
         )
         session.state = .running
         onStateChange?(.running)
@@ -321,6 +337,33 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         let bytes = pendingRenderBytes
         pendingRenderBytes.removeAll(keepingCapacity: true)
         super.dataReceived(slice: bytes[...])
+    }
+
+    static func remoteCommand(
+        for launch: TerminalLaunch,
+        workingDirectory: String
+    ) -> String? {
+        let location = WorkspaceLocation.ssh(host: "remote", path: workingDirectory)
+        let prefix = "cd -- \(location.remoteShellPath) && exec "
+        switch launch.kind {
+        case .loginShell:
+            return prefix + "\"${SHELL:-/bin/sh}\" -l"
+        case .shellCommand:
+            return prefix + "\"${SHELL:-/bin/sh}\" -lc "
+                + WorkspaceLocation.shellQuote(launch.command ?? "")
+        case .exec:
+            guard let executable = launch.executable, !executable.isEmpty else { return nil }
+            var command: [String] = []
+            if let environment = launch.environment, !environment.isEmpty {
+                command.append("/usr/bin/env")
+                command.append(contentsOf: environment.sorted(by: { $0.key < $1.key }).map {
+                    WorkspaceLocation.shellQuote("\($0.key)=\($0.value)")
+                })
+            }
+            command.append(WorkspaceLocation.shellQuote(executable))
+            command.append(contentsOf: (launch.arguments ?? []).map(WorkspaceLocation.shellQuote))
+            return prefix + command.joined(separator: " ")
+        }
     }
 
     private func loginShell() -> String {

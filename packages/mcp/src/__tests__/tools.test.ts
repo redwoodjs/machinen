@@ -101,6 +101,22 @@ describe("Machinen MCP tools", () => {
       idempotencyKey: "workspace-website",
     });
 
+    const remoteWorkspace = await mcpClient.callTool({
+      name: "workspace_update",
+      arguments: {
+        workspaceId: "ws_test",
+        location: { kind: "ssh", host: "mini", path: "/project" },
+      },
+    });
+    expect(remoteWorkspace.isError).not.toBe(true);
+    expect(machinen.requests.at(-1)).toEqual({
+      operation: "workspace.update",
+      params: {
+        workspaceId: "ws_test",
+        location: { kind: "ssh", host: "mini", path: "/project" },
+      },
+    });
+
     const updated = await mcpClient.callTool({
       name: "terminal_update",
       arguments: { terminalId: "term_test", title: "reviewing changes" },

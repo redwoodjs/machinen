@@ -78,7 +78,14 @@ owns launch information, process state, and PTY input/output.
 ### Workspace
 
 ```json
-{ "id": "ws_123", "name": "website", "position": 0, "tileIds": ["tile_123"] }
+{
+  "id": "ws_123",
+  "name": "website",
+  "location": { "kind": "ssh", "host": "mini", "path": "/project" },
+  "workingDirectory": "/project",
+  "position": 0,
+  "tileIds": ["tile_123"]
+}
 ```
 
 ### Tile
@@ -107,6 +114,7 @@ owns launch information, process state, and PTY input/output.
   "pid": 4242,
   "shellPid": 4201,
   "workingDirectory": "/project",
+  "location": { "kind": "ssh", "host": "mini", "path": "/project" },
   "launch": { "kind": "shellCommand", "command": "pnpm dev" },
   "processState": "running",
   "activityState": "working",
@@ -156,19 +164,25 @@ Atomically returns `workspaces`, `tiles`, `terminals`, and `ui`.
 
 - `workspace.list {}`
 - `workspace.get { workspaceId }`
-- `workspace.create { name, workingDirectory?, position? }`
-- `workspace.update { workspaceId, name?, workingDirectory? }`
+- `workspace.create { name, location?, workingDirectory?, position? }`
+- `workspace.update { workspaceId, name?, location?, workingDirectory? }`
 - `workspace.move { workspaceId, position }`
 - `workspace.stop { workspaceId }`
 - `workspace.restart { workspaceId }`
 - `workspace.delete { workspaceId }`
 
-Every workspace is bound to one validated working directory, which defaults to
-the user's home directory. New terminals inherit that directory unless an API
-caller explicitly supplies a terminal launch subdirectory. Updating the
-workspace directory updates the saved launch directory for its terminals but
-does not move files or change the current directory of an already-running
-process.
+Every workspace is bound to one location, which defaults to the user's local
+home directory. A local location is `{ "kind": "local", "path": "/project" }`.
+A remote location is `{ "kind": "ssh", "host": "mini", "path": "/project" }`;
+`host` uses the user's OpenSSH configuration and may include a username. The
+legacy `workingDirectory` field remains the location path for compatibility.
+
+New terminals inherit the workspace location unless an API caller explicitly
+supplies a launch subdirectory. Remote terminals keep their persistent dtach
+viewer local and execute their launch command through SSH in the remote folder.
+Git and service probes use that same SSH connection model. Updating a location
+updates saved launch definitions but does not move files or change the current
+directory of an already-running process.
 
 `workspace.delete` fails with `workspace_running` until all of its terminals are
 stopped or exited. It then removes the workspace and its stopped tiles without

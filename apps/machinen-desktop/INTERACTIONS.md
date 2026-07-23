@@ -12,8 +12,8 @@ workspace
         └── persistent PTY process
 ```
 
-A **workspace** owns its persisted working directory and workspace-scoped status
-items. A **tile** is the spatial object that is moved between workspaces; it
+A **workspace** owns a persisted location—either a local folder or an SSH host
+plus remote folder—and workspace-scoped status items. A **tile** is the spatial object that is moved between workspaces; it
 links the terminal to its current foreground process PID. A **terminal** owns
 the launch configuration, emulator, and persistent PTY. A workspace with one
 tile skips the redundant workspace level when entered; its tile fills the entire
@@ -22,17 +22,18 @@ discovery use the workspace directory as their project boundary.
 
 ## Navigation
 
-| Input            | Behavior                                                           |
-| ---------------- | ------------------------------------------------------------------ |
-| `⌘↓` or `Return` | Move one level in.                                                 |
-| `⌘↑`             | Move one level out.                                                |
-| `⌘←` / `⌘→`     | From a focused terminal, select the previous/next workspace and focus its first tile through the camera hierarchy. |
-| Keyboard input  | A focused terminal receives all keys and modifier combinations except `⌘←` / `⌘→`. |
-| Arrow keys       | Move the selection only at the current overview level.             |
-| Click            | A terminal preview focuses its terminal.                           |
-| Drag preview     | Move a terminal tile to the workspace under the drop point.        |
-| Drag terminal    | Forward the drag for terminal selection/input.                     |
-| Hold Space       | Momentarily peek into the selection.                               |
+| Input            | Behavior                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `⌘↓` or `Return` | Move one level in.                                                                                                 |
+| `⌘↑`             | Move one level out.                                                                                                |
+| `⌘←` / `⌘→`      | From a focused terminal, select the previous/next workspace and focus its first tile through the camera hierarchy. |
+| `⌘K`             | Open workspace commands, including local or SSH location editing.                                                  |
+| Keyboard input   | A focused terminal receives all other keys and modifier combinations.                                              |
+| Arrow keys       | Move the selection only at the current overview level.                                                             |
+| Click            | A terminal preview focuses its terminal.                                                                           |
+| Drag preview     | Move a terminal tile to the workspace under the drop point.                                                        |
+| Drag terminal    | Forward the drag for terminal selection/input.                                                                     |
+| Hold Space       | Momentarily peek into the selection.                                                                               |
 
 ## Input modes
 
@@ -43,10 +44,11 @@ discovery use the workspace directory as their project boundary.
   to reorder them inside that workspace.
 - **Focused terminal:** the viewport owns every pointer and keyboard event.
   Spatial dragging, overview navigation, and application command equivalents do
-  not intercept terminal input, except `⌘←` / `⌘→`. Those shortcuts animate a
-  distinct path: zoom out to the source workspace, zoom out to the workspace
-  overview and select the adjacent workspace, then zoom into that workspace and
-  its first tile.
+  not intercept terminal input, except `⌘←` / `⌘→` and `⌘K`. The arrow
+  shortcuts animate a distinct path: zoom out to the source workspace, zoom out
+  to the workspace overview and select the adjacent workspace, then zoom into
+  that workspace and its first tile. `⌘K` opens workspace metadata commands
+  without changing camera level.
 
 `⌘↑` moves only the camera hierarchy; it does not change terminal scrollback.
 The terminal viewport keeps the same intrinsic bounds while the camera moves, so
@@ -80,14 +82,23 @@ command, or choose a folder for another workspace.
 
 ## Workspace commands
 
-`⌘K` contains exactly three workspace actions:
+`⌘K` contains exactly four workspace actions:
 
 1. **New workspace…** asks for a name, creates an initial login-shell terminal,
    and enters it.
 2. **Rename workspace…** changes the visible name while preserving the stable
    workspace ID and all terminals.
-3. **Close workspace…** asks for confirmation, terminates its PTY processes,
+3. **Change workspace location…** chooses either a local folder or a remote
+   `host:/absolute/path` reachable through the user's SSH configuration, then
+   rebinds the workspace and its saved terminal launch definitions.
+4. **Close workspace…** asks for confirmation, terminates its PTY processes,
    and removes its saved workspace and terminal definitions.
+
+Changing a workspace location does not move files or alter the current directory
+of an already-running process. New terminals and restarted terminals use the new
+location. For an SSH location, Machinen keeps dtach and its viewer local while
+launching the terminal command on the remote host in the selected folder. Git
+instruments and local-service discovery also probe that folder through SSH.
 
 When no workspace exists, only **New workspace…** is shown.
 

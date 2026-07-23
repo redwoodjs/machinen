@@ -4,6 +4,9 @@ struct PaletteCommand {
     enum ID {
         case newWorkspace
         case renameWorkspace
+        case changeWorkspaceLocation
+        case chooseLocalWorkspaceLocation
+        case chooseRemoteWorkspaceLocation
         case toggleOverview
         case newTerminal
         case attachSession

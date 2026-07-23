@@ -26,6 +26,8 @@ final class TerminalDeckView: NSView {
         case runCommand
         case newWorkspace
         case renameWorkspace
+        case workspaceLocation
+        case remoteWorkspaceLocation
     }
 
     private enum Motion {
@@ -67,6 +69,7 @@ final class TerminalDeckView: NSView {
     private var isShuttingDown = false
     private var commandPalette: CommandPaletteView?
     private var paletteKind: PaletteKind?
+    private var locationValidationProcess: Process?
     private var presentedOverlay: NSView?
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
@@ -1408,6 +1411,8 @@ final class TerminalDeckView: NSView {
     }
 
     private func dismissCommandPalette() {
+        locationValidationProcess?.terminate()
+        locationValidationProcess = nil
         commandPalette?.removeFromSuperview()
         commandPalette = nil
         paletteKind = nil
@@ -1438,6 +1443,11 @@ final class TerminalDeckView: NSView {
         if selectedWorkspace() != nil {
             commands.append(contentsOf: [
                 PaletteCommand(id: .renameWorkspace, title: "Rename workspace…", shortcut: ""),
+                PaletteCommand(
+                    id: .changeWorkspaceLocation,
+                    title: "Change workspace location…",
+                    shortcut: ""
+                ),
                 PaletteCommand(id: .closeWorkspace, title: "Close workspace…", shortcut: ""),
             ])
         }
@@ -1450,6 +1460,8 @@ final class TerminalDeckView: NSView {
             showNewWorkspaceNamePalette()
         case .renameWorkspace:
             showRenameWorkspacePalette()
+        case .changeWorkspaceLocation:
+            chooseWorkspaceLocation()
         case .toggleOverview:
             dismissCommandPalette()
             toggleOverview()
@@ -1556,6 +1568,194 @@ final class TerminalDeckView: NSView {
         paletteKind = .renameWorkspace
         addSubview(palette, positioned: .above, relativeTo: nil)
         window?.makeFirstResponder(palette)
+    }
+
+    private func chooseWorkspaceLocation() {
+        guard let workspaceID = selectedWorkspaceID(),
+              let workspace = workspaces.first(where: { $0.id == workspaceID })
+        else { return }
+        dismissCommandPalette()
+
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "WORKSPACE LOCATION",
+            context: workspace.location.displayName,
+            placeholder: "Choose where this workspace runs…",
+            defaultFooter: "Local folders run here · remote folders run through SSH",
+            commands: [
+                PaletteCommand(
+                    id: .chooseLocalWorkspaceLocation,
+                    title: "Local folder…",
+                    shortcut: workspace.location.kind == .local ? "current" : ""
+                ),
+                PaletteCommand(
+                    id: .chooseRemoteWorkspaceLocation,
+                    title: "Remote folder over SSH…",
+                    shortcut: workspace.location.sshHost ?? "host:path"
+                ),
+            ]
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
+        palette.onRun = { [weak self, weak palette] command in
+            guard let self else { return }
+            switch command.id {
+            case .chooseLocalWorkspaceLocation:
+                self.chooseLocalWorkspaceLocation(workspaceID: workspaceID)
+            case .chooseRemoteWorkspaceLocation:
+                self.showRemoteWorkspaceLocationPalette(workspaceID: workspaceID)
+            default:
+                palette?.showStatus("That location type is not available")
+            }
+        }
+        commandPalette = palette
+        paletteKind = .workspaceLocation
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
+    private func chooseLocalWorkspaceLocation(workspaceID: String) {
+        let previousLocation = workspaces.first(where: { $0.id == workspaceID })?.location
+        dismissCommandPalette()
+        guard let window else { return }
+
+        let panel = NSOpenPanel()
+        panel.title = "Choose Local Workspace Folder"
+        panel.message = "New and restarted terminals will use this folder. Running processes are not moved."
+        panel.prompt = "Use Folder"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        if previousLocation?.kind == .local, let path = previousLocation?.path {
+            panel.directoryURL = URL(fileURLWithPath: path, isDirectory: true)
+        }
+        panel.beginSheetModal(for: window) { [weak self] response in
+            Task { @MainActor in
+                guard let self, response == .OK, let path = panel.url?.path else { return }
+                do {
+                    try self.applyWorkspaceLocation(
+                        workspaceID: workspaceID,
+                        location: .local(path)
+                    )
+                } catch {
+                    self.presentWorkspaceLocationError(error)
+                }
+            }
+        }
+    }
+
+    private func showRemoteWorkspaceLocationPalette(workspaceID: String) {
+        guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return }
+        dismissCommandPalette()
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "REMOTE WORKSPACE",
+            context: workspace.name,
+            placeholder: "mini:/Users/name/project",
+            defaultFooter: "Enter an SSH host or alias and an absolute remote folder",
+            commands: [],
+            acceptsFreeform: true
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
+        palette.onSubmit = { [weak self, weak palette] value in
+            guard let self, let palette,
+                  let location = WorkspaceLocation.parseSSHReference(value),
+                  let host = location.sshHost
+            else {
+                palette?.showStatus("Use host:/absolute/path or ssh://host/absolute/path")
+                return
+            }
+            palette.showStatus("Checking \(location.displayName)…")
+            self.validateRemoteWorkspaceLocation(location) { [weak self, weak palette] result in
+                guard let self, let palette, self.commandPalette === palette else { return }
+                switch result {
+                case let .success(canonicalPath):
+                    do {
+                        try self.applyWorkspaceLocation(
+                            workspaceID: workspaceID,
+                            location: .ssh(host: host, path: canonicalPath)
+                        )
+                        self.dismissCommandPalette()
+                    } catch {
+                        palette.showStatus((error as? MachinenAPIError)?.message ?? error.localizedDescription)
+                    }
+                case let .failure(error):
+                    palette.showStatus(error.message)
+                }
+            }
+        }
+        commandPalette = palette
+        paletteKind = .remoteWorkspaceLocation
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
+    private func validateRemoteWorkspaceLocation(
+        _ location: WorkspaceLocation,
+        completion: @escaping @MainActor (Result<String, MachinenAPIError>) -> Void
+    ) {
+        guard let host = location.sshHost else {
+            completion(.failure(MachinenAPIError("invalid_params", "An SSH host is required")))
+            return
+        }
+        locationValidationProcess?.terminate()
+        let output = Pipe()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
+        process.arguments = [
+            "-o", "BatchMode=yes",
+            "-o", "ConnectTimeout=8",
+            host,
+            "cd -- \(location.remoteShellPath) && /bin/pwd -P",
+        ]
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = output
+        process.standardError = output
+        process.terminationHandler = { process in
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            let text = String(decoding: data, as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            Task { @MainActor in
+                if process.terminationStatus == 0, let path = text.split(separator: "\n").last {
+                    completion(.success(String(path)))
+                } else {
+                    completion(.failure(MachinenAPIError(
+                        "ssh_unavailable",
+                        text.isEmpty ? "SSH could not access that folder" : text
+                    )))
+                }
+            }
+        }
+        do {
+            try process.run()
+            locationValidationProcess = process
+        } catch {
+            completion(.failure(MachinenAPIError("ssh_unavailable", error.localizedDescription)))
+        }
+    }
+
+    private func applyWorkspaceLocation(
+        workspaceID: String,
+        location: WorkspaceLocation
+    ) throws {
+        guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else {
+            throw MachinenAPIError("workspace_not_found", "Workspace does not exist")
+        }
+        try updateWorkspaceLocation(workspace, to: location)
+        updateSelection()
+        saveSessions()
+        emitAPIEvent("workspace.updated", data: workspaceJSON(workspace))
+    }
+
+    private func presentWorkspaceLocationError(_ error: Error) {
+        guard let window else { return }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Could Not Change Workspace Location"
+        alert.informativeText = (error as? MachinenAPIError)?.message ?? error.localizedDescription
+        alert.beginSheetModal(for: window)
     }
 
     private func workspaceNameExists(_ name: String, excluding workspaceID: String? = nil) -> Bool {
@@ -1753,6 +1953,7 @@ final class TerminalDeckView: NSView {
             text = """
             workspace       \(workspace)
             kind            visual terminal group
+            location        \(selectedWorkspaceRecord()?.location.displayName ?? "unknown")
             sessions        \(sessions.count)
             state file      \(sessionStore.manifestURL.path)
 
@@ -1773,7 +1974,7 @@ final class TerminalDeckView: NSView {
             state            \(tile.currentState.rawValue)
             viewer           \(tile.currentState == .detached ? "detached" : "attached")
             command          \(launchDescription(tile.session.launch))
-            working dir      \(tile.session.workingDirectory)
+            location         \(tile.session.location.displayName)
             dtach socket     \(tile.session.socketPath)
             state file       \(sessionStore.manifestURL.path)
 
@@ -1996,6 +2197,7 @@ final class TerminalDeckView: NSView {
             name: name,
             launch: command.map(TerminalLaunch.shellCommand) ?? .loginShell,
             workingDirectory: createdWorkspace ? workingDirectory : workspaceRecord.workingDirectory,
+            sshHost: createdWorkspace ? nil : workspaceRecord.location.sshHost,
             state: .starting
         )
         let tile = TerminalTileView(session: session)
@@ -2129,11 +2331,20 @@ final class TerminalDeckView: NSView {
         guard !workspaces.contains(where: { $0.name == name }) else {
             throw MachinenAPIError("workspace_name_conflict", "A workspace named \(name) already exists")
         }
-        let workingDirectory = try validatedWorkingDirectory(
-            params["workingDirectory"] as? String
-                ?? FileManager.default.homeDirectoryForCurrentUser.path
+        let location: WorkspaceLocation
+        if let requested = params["location"] as? JSONObject {
+            location = try validatedWorkspaceLocation(locationFromJSON(requested))
+        } else {
+            location = .local(try validatedWorkingDirectory(
+                params["workingDirectory"] as? String
+                    ?? FileManager.default.homeDirectoryForCurrentUser.path
+            ))
+        }
+        let workspace = WorkspaceRecord(
+            name: name,
+            workingDirectory: location.path,
+            sshHost: location.sshHost
         )
-        let workspace = WorkspaceRecord(name: name, workingDirectory: workingDirectory)
         let position = clampedPosition(params["position"] as? Int, count: workspaces.count)
         workspaces.insert(workspace, at: position)
         rebuildWorkspaceClusters()
@@ -2144,6 +2355,17 @@ final class TerminalDeckView: NSView {
         let result = workspaceJSON(workspace)
         emitAPIEvent("workspace.created", data: result)
         return result
+    }
+
+    private func updateWorkspaceLocation(
+        _ workspace: WorkspaceRecord,
+        to location: WorkspaceLocation
+    ) throws {
+        let validated = try validatedWorkspaceLocation(location)
+        workspace.location = validated
+        for tile in allSessionTiles where tile.session.workspaceID == workspace.id {
+            tile.session.location = validated
+        }
     }
 
     private func apiUpdateWorkspace(_ params: JSONObject) throws -> Any {
@@ -2158,11 +2380,13 @@ final class TerminalDeckView: NSView {
                 tile.session.workspace = name
             }
         }
-        if let directory = params["workingDirectory"] as? String {
-            workspace.workingDirectory = try validatedWorkingDirectory(directory)
-            for tile in allSessionTiles where tile.session.workspaceID == workspace.id {
-                tile.session.workingDirectory = workspace.workingDirectory
-            }
+        if let requested = params["location"] as? JSONObject {
+            try updateWorkspaceLocation(workspace, to: locationFromJSON(requested))
+        } else if let directory = params["workingDirectory"] as? String {
+            let location = workspace.location.sshHost.map {
+                WorkspaceLocation.ssh(host: $0, path: directory)
+            } ?? .local(directory)
+            try updateWorkspaceLocation(workspace, to: location)
         }
         rebuildWorkspaceClusters()
         updateWorldGeometry()
@@ -2246,9 +2470,16 @@ final class TerminalDeckView: NSView {
             throw MachinenAPIError("invalid_params", "Only terminal tiles are supported in API v1")
         }
         let terminalParams = params["terminal"] as? JSONObject ?? [:]
-        let workingDirectory = try validatedWorkingDirectory(
-            terminalParams["workingDirectory"] as? String ?? workspace.workingDirectory
-        )
+        let location: WorkspaceLocation
+        if let directory = terminalParams["workingDirectory"] as? String {
+            location = try validatedWorkspaceLocation(
+                workspace.location.sshHost.map {
+                    WorkspaceLocation.ssh(host: $0, path: directory)
+                } ?? .local(directory)
+            )
+        } else {
+            location = workspace.location
+        }
         let launch = try parseLaunch(terminalParams["launch"] as? JSONObject)
         let name = params["name"] as? String ?? defaultName(for: launch)
         let label = params["label"] as? String
@@ -2260,7 +2491,8 @@ final class TerminalDeckView: NSView {
             workspace: workspace.name,
             name: name,
             launch: launch,
-            workingDirectory: workingDirectory,
+            workingDirectory: location.path,
+            sshHost: location.sshHost,
             state: .starting
         )
         let tile = TerminalTileView(session: session)
@@ -2714,6 +2946,38 @@ final class TerminalDeckView: NSView {
         return uiJSON()
     }
 
+    private func locationFromJSON(_ value: JSONObject) throws -> WorkspaceLocation {
+        let kind = try requiredString("kind", in: value)
+        let path = try requiredString("path", in: value)
+        switch kind {
+        case WorkspaceLocation.Kind.local.rawValue:
+            return .local(path)
+        case WorkspaceLocation.Kind.ssh.rawValue:
+            return .ssh(host: try requiredString("host", in: value), path: path)
+        default:
+            throw MachinenAPIError("invalid_params", "Unknown workspace location kind: \(kind)")
+        }
+    }
+
+    private func validatedWorkspaceLocation(
+        _ location: WorkspaceLocation
+    ) throws -> WorkspaceLocation {
+        switch location.kind {
+        case .local:
+            return .local(try validatedWorkingDirectory(location.path))
+        case .ssh:
+            guard let host = location.sshHost,
+                  let parsed = WorkspaceLocation.parseSSHReference("\(host):\(location.path)")
+            else {
+                throw MachinenAPIError(
+                    "invalid_params",
+                    "Remote locations require an SSH host and an absolute path"
+                )
+            }
+            return parsed
+        }
+    }
+
     private func validatedWorkingDirectory(_ path: String) throws -> String {
         let standardized = URL(fileURLWithPath: path).standardizedFileURL.path
         var isDirectory: ObjCBool = false
@@ -2739,6 +3003,7 @@ final class TerminalDeckView: NSView {
             "id": workspace.id,
             "name": workspace.name,
             "workingDirectory": workspace.workingDirectory,
+            "location": workspace.location.json,
             "position": workspaces.firstIndex(where: { $0 === workspace }) ?? 0,
             "tileIds": allSessionTiles
                 .filter { $0.session.workspaceID == workspace.id }
@@ -2769,6 +3034,7 @@ final class TerminalDeckView: NSView {
             "id": session.id,
             "tileId": session.tileID,
             "workingDirectory": session.workingDirectory,
+            "location": session.location.json,
             "launch": launchJSON(session.launch),
             "title": session.commandTitle,
             "runtimeLabel": session.runtimeLabel ?? NSNull(),
@@ -2932,18 +3198,18 @@ final class TerminalDeckView: NSView {
             let workspaceName = workspace?.name ?? terminal.session.workspace
             statusBarView.title = "\(workspaceName) > \(terminal.session.displayName)"
             statusBarView.titleTooltip = workspace.map {
-                "\($0.workingDirectory) · \(terminal.session.commandTitle)"
+                "\($0.location.displayName) · \(terminal.session.commandTitle)"
             }
         } else if let workspace {
             statusBarView.title = workspace.name
-            statusBarView.titleTooltip = workspace.workingDirectory
+            statusBarView.titleTooltip = workspace.location.displayName
         } else {
             statusBarView.title = "MACHINEN"
             statusBarView.titleTooltip = nil
         }
 
         statusMetricsMonitor.setContext(
-            workingDirectory: selectedWorkspaceRecord()?.workingDirectory,
+            location: selectedWorkspaceRecord()?.location,
             workspaceID: workspaceID
         )
         let workspaceMetricsID = focusedIndex == nil && currentWorkspace != nil ? workspaceID : nil
@@ -3043,7 +3309,7 @@ final class TerminalDeckView: NSView {
         } else if currentWorkspace == nil {
             text = "arrows  select     return / ⌘↓  zoom in     hold space  peek"
         } else if focusedIndex != nil, workspaceOrderedSessionTiles.count > 1 {
-            text = "⌘← / ⌘→  switch terminal     ⌘↑  zoom out     ⌘T  new terminal"
+            text = "⌘← / ⌘→  switch workspace     ⌘K  workspace     ⌘↑  zoom out"
         } else {
             text = "⌘↑  zoom out     arrows  select     return / ⌘↓  zoom in     ⌘T  new terminal"
         }

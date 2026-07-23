@@ -194,12 +194,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         // Do not let application menu equivalents steal terminal commands. The
-        // targetless Edit items above still resolve to the terminal responder.
+        // workspace command palette remains available so a focused local or SSH
+        // terminal can change its workspace metadata without zooming out first.
+        // Targetless Edit items still resolve through the terminal responder.
         guard window?.firstResponder is MachinenTerminalView else { return true }
         switch menuItem.action {
         case #selector(createNewWorkspaceOrTerminal),
              #selector(toggleNewTerminal),
-             #selector(toggleCommands),
              #selector(zoomIn),
              #selector(zoomOut),
              #selector(handleCommandW):

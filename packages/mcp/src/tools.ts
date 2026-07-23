@@ -7,6 +7,17 @@ const tileId = z.string().min(1).describe("Opaque tile ID from Machinen");
 const terminalId = z.string().min(1).describe("Opaque terminal ID from Machinen");
 const position = z.number().int().min(0).optional().describe("Zero-based visual position");
 const idempotencyKey = z.string().min(1).optional().describe("Optional retry key for this app run");
+const workspaceLocation = z
+  .discriminatedUnion("kind", [
+    z.object({ kind: z.literal("local"), path: z.string().min(1) }),
+    z.object({
+      kind: z.literal("ssh"),
+      host: z.string().min(1).describe("OpenSSH host, alias, or user@host"),
+      path: z.string().min(1).describe("Absolute path on the remote host"),
+    }),
+  ])
+  .optional()
+  .describe("Local folder or SSH-accessible remote folder");
 const statusScope = z
   .object({
     kind: z.enum(["global", "workspace", "terminal"]),
@@ -95,9 +106,10 @@ export function registerMachinenTools(server: McpServer, client: MachinenClient)
     "workspace_create",
     {
       description:
-        "Create an empty visual workspace bound to a working directory. This does not create a terminal tile.",
+        "Create an empty visual workspace at a local or SSH-accessible location. This does not create a terminal tile.",
       inputSchema: {
         name: z.string().min(1),
+        location: workspaceLocation,
         workingDirectory: z.string().min(1).optional(),
         position,
         idempotencyKey,
@@ -111,10 +123,11 @@ export function registerMachinenTools(server: McpServer, client: MachinenClient)
     "workspace_update",
     {
       description:
-        "Update a workspace name or bound working directory while preserving its stable ID and tiles.",
+        "Update a workspace name or local/SSH location while preserving its stable ID and tiles.",
       inputSchema: {
         workspaceId,
         name: z.string().min(1).optional(),
+        location: workspaceLocation,
         workingDirectory: z.string().min(1).optional(),
       },
     },

@@ -78,6 +78,8 @@ Workspaces:
 
 - `workspace_list`, `workspace_get`, `workspace_create`, `workspace_update`
 - `workspace_move`, `workspace_stop`, `workspace_restart`, `workspace_delete`
+- Workspace locations may be local folders or `{ kind: "ssh", host, path }`
+  remote folders resolved through the user's OpenSSH configuration.
 
 Tiles:
 

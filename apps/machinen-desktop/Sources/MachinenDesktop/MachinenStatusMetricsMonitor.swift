@@ -19,7 +19,7 @@ final class MachinenStatusMetricsMonitor {
 
     private var timer: Timer?
     private var tickCount = 0
-    private var workingDirectory: String?
+    private var location: WorkspaceLocation?
     private var workspaceID: String?
     private var generation = 0
     private var gitProcess: Process?
@@ -149,12 +149,13 @@ final class MachinenStatusMetricsMonitor {
         portsProcess = nil
     }
 
-    func setContext(workingDirectory: String?, workspaceID: String?) {
-        let standardized = workingDirectory.map {
-            URL(fileURLWithPath: $0).standardizedFileURL.path
+    func setContext(location: WorkspaceLocation?, workspaceID: String?) {
+        var normalized = location
+        if normalized?.kind == .local, let path = normalized?.path {
+            normalized?.path = URL(fileURLWithPath: path).standardizedFileURL.path
         }
-        guard standardized != self.workingDirectory || workspaceID != self.workspaceID else { return }
-        self.workingDirectory = standardized
+        guard normalized != self.location || workspaceID != self.workspaceID else { return }
+        self.location = normalized
         self.workspaceID = workspaceID
         generation += 1
         gitProcess?.terminate()
@@ -253,24 +254,41 @@ final class MachinenStatusMetricsMonitor {
     }
 
     private func probeProjectMetrics() {
-        guard let workingDirectory else { return }
-        probeGit(in: workingDirectory)
-        probePorts(in: workingDirectory)
+        guard let location else { return }
+        probeGit(at: location)
+        probePorts(at: location)
     }
 
-    private func probeGit(in directory: String) {
+    private func probeGit(at location: WorkspaceLocation) {
         guard gitProcess == nil else { return }
         let currentGeneration = generation
-        let script = """
-        /usr/bin/git -C "$MACHINEN_STATUS_DIRECTORY" status --porcelain=v1 --branch || exit 1
-        printf '\n---MACHINEN-NUMSTAT---\n'
-        /usr/bin/git -C "$MACHINEN_STATUS_DIRECTORY" diff --numstat HEAD 2>/dev/null || true
-        """
-        var environment = ProcessInfo.processInfo.environment
-        environment["MACHINEN_STATUS_DIRECTORY"] = directory
+        let script: String
+        let executable: String
+        let arguments: [String]
+        var environment: [String: String]?
+        if let host = location.sshHost {
+            let path = location.remoteShellPath
+            script = """
+            /usr/bin/git -C \(path) status --porcelain=v1 --branch || exit 1
+            printf '\n---MACHINEN-NUMSTAT---\n'
+            /usr/bin/git -C \(path) diff --numstat HEAD 2>/dev/null || true
+            """
+            executable = "/usr/bin/ssh"
+            arguments = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=5", host, script]
+        } else {
+            script = """
+            /usr/bin/git -C "$MACHINEN_STATUS_DIRECTORY" status --porcelain=v1 --branch || exit 1
+            printf '\n---MACHINEN-NUMSTAT---\n'
+            /usr/bin/git -C "$MACHINEN_STATUS_DIRECTORY" diff --numstat HEAD 2>/dev/null || true
+            """
+            environment = ProcessInfo.processInfo.environment
+            environment?["MACHINEN_STATUS_DIRECTORY"] = location.path
+            executable = "/bin/sh"
+            arguments = ["-c", script]
+        }
         gitProcess = launchCommand(
-            executable: "/bin/sh",
-            arguments: ["-c", script],
+            executable: executable,
+            arguments: arguments,
             environment: environment
         ) { [weak self] output in
             guard let self, self.generation == currentGeneration else { return }
@@ -280,18 +298,32 @@ final class MachinenStatusMetricsMonitor {
         }
     }
 
-    private func probePorts(in directory: String) {
+    private func probePorts(at location: WorkspaceLocation) {
         guard portsProcess == nil else { return }
         let currentGeneration = generation
+        let executable: String
+        let arguments: [String]
+        if let host = location.sshHost {
+            executable = "/usr/bin/ssh"
+            arguments = [
+                "-o", "BatchMode=yes",
+                "-o", "ConnectTimeout=5",
+                host,
+                "/usr/sbin/lsof -nP -iTCP -sTCP:LISTEN -d cwd -Fpcfn",
+            ]
+        } else {
+            executable = "/usr/sbin/lsof"
+            arguments = ["-nP", "-iTCP", "-sTCP:LISTEN", "-d", "cwd", "-Fpcfn"]
+        }
         portsProcess = launchCommand(
-            executable: "/usr/sbin/lsof",
-            arguments: ["-nP", "-iTCP", "-sTCP:LISTEN", "-d", "cwd", "-Fpcfn"],
+            executable: executable,
+            arguments: arguments,
             environment: nil
         ) { [weak self] output in
             guard let self, self.generation == currentGeneration else { return }
             self.portsProcess = nil
             self.listeningPorts = output.map {
-                Self.parseListeningPorts($0, workingDirectory: directory)
+                Self.parseListeningPorts($0, workingDirectory: location.path)
             } ?? []
             self.onChange?()
         }

@@ -4,29 +4,43 @@ import Foundation
 final class WorkspaceRecord: Codable {
     let id: String
     var name: String
-    var workingDirectory: String
+    var location: WorkspaceLocation
+
+    var workingDirectory: String {
+        get { location.path }
+        set { location.path = newValue }
+    }
 
     init(
         id: String = "ws_" + UUID().uuidString.lowercased(),
         name: String,
-        workingDirectory: String = FileManager.default.homeDirectoryForCurrentUser.path
+        workingDirectory: String = FileManager.default.homeDirectoryForCurrentUser.path,
+        sshHost: String? = nil
     ) {
         self.id = id
         self.name = name
-        self.workingDirectory = workingDirectory
+        location = sshHost.map { .ssh(host: $0, path: workingDirectory) }
+            ?? .local(workingDirectory)
     }
 
     private enum CodingKeys: String, CodingKey {
         case id
         case name
         case workingDirectory
+        case location
     }
 
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
-        workingDirectory = try container.decodeIfPresent(String.self, forKey: .workingDirectory) ?? ""
+        if let decoded = try container.decodeIfPresent(WorkspaceLocation.self, forKey: .location) {
+            location = decoded
+        } else {
+            location = .local(
+                try container.decodeIfPresent(String.self, forKey: .workingDirectory) ?? ""
+            )
+        }
     }
 
     func encode(to encoder: Encoder) throws {
@@ -34,6 +48,7 @@ final class WorkspaceRecord: Codable {
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encode(workingDirectory, forKey: .workingDirectory)
+        try container.encode(location, forKey: .location)
     }
 }
 
@@ -94,7 +109,11 @@ final class TerminalSession: Codable {
     var workspace: String
     var name: String
     var launch: TerminalLaunch
-    var workingDirectory: String
+    var location: WorkspaceLocation
+    var workingDirectory: String {
+        get { location.path }
+        set { location.path = newValue }
+    }
     var state: State
     var activityState: ActivityState
     var titleOverride: String?
@@ -140,6 +159,7 @@ final class TerminalSession: Codable {
         name: String,
         launch: TerminalLaunch,
         workingDirectory: String,
+        sshHost: String? = nil,
         state: State = .starting,
         activityState: ActivityState = .unknown,
         titleOverride: String? = nil
@@ -151,7 +171,8 @@ final class TerminalSession: Codable {
         self.workspace = workspace
         self.name = name
         self.launch = launch
-        self.workingDirectory = workingDirectory
+        location = sshHost.map { .ssh(host: $0, path: workingDirectory) }
+            ?? .local(workingDirectory)
         self.state = state
         self.activityState = activityState
         self.titleOverride = titleOverride
@@ -172,6 +193,7 @@ final class TerminalSession: Codable {
         case launch
         case command
         case workingDirectory
+        case location
         case state
         case activityState
         case titleOverride
@@ -194,7 +216,11 @@ final class TerminalSession: Codable {
         } else {
             launch = .loginShell
         }
-        workingDirectory = try container.decode(String.self, forKey: .workingDirectory)
+        if let decoded = try container.decodeIfPresent(WorkspaceLocation.self, forKey: .location) {
+            location = decoded
+        } else {
+            location = .local(try container.decode(String.self, forKey: .workingDirectory))
+        }
         state = try container.decode(State.self, forKey: .state)
         activityState = try container.decodeIfPresent(ActivityState.self, forKey: .activityState) ?? .unknown
         titleOverride = try container.decodeIfPresent(String.self, forKey: .titleOverride)
@@ -215,6 +241,7 @@ final class TerminalSession: Codable {
         try container.encode(name, forKey: .name)
         try container.encode(launch, forKey: .launch)
         try container.encode(workingDirectory, forKey: .workingDirectory)
+        try container.encode(location, forKey: .location)
         try container.encode(state, forKey: .state)
         try container.encode(activityState, forKey: .activityState)
         try container.encodeIfPresent(titleOverride, forKey: .titleOverride)

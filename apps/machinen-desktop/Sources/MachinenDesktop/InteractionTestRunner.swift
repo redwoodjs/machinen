@@ -360,7 +360,7 @@ enum InteractionTestRunner {
             "workingDirectory": projectDirectory.path,
         ])
         deck.createNewWorkspaceOrTerminal()
-        let snapshot = try harness.snapshot(of: deck)
+        var snapshot = try harness.snapshot(of: deck)
         try expect(
             snapshot.workspaces.first?.workingDirectory == projectDirectory.path,
             "the workspace did not retain its bound working directory"
@@ -368,6 +368,42 @@ enum InteractionTestRunner {
         try expect(
             snapshot.terminals.allSatisfy { $0.workingDirectory == projectDirectory.path },
             "a terminal did not inherit the workspace working directory"
+        )
+
+        _ = try deck.performAPIOperation("workspace.update", params: [
+            "workspaceId": "ws_alpha",
+            "location": [
+                "kind": "ssh",
+                "host": "mini",
+                "path": "/Users/p4p8/gh/redwoodjs/machinen",
+            ],
+        ])
+        snapshot = try harness.snapshot(of: deck)
+        try expect(
+            snapshot.workspaces.first?.location.kind == "ssh"
+                && snapshot.workspaces.first?.location.host == "mini",
+            "the workspace did not retain its SSH location"
+        )
+        try expect(
+            snapshot.terminals.allSatisfy {
+                $0.location.kind == "ssh" && $0.location.host == "mini"
+                    && $0.location.path == "/Users/p4p8/gh/redwoodjs/machinen"
+            },
+            "a terminal did not inherit the remote workspace location"
+        )
+        let remoteCommand = MachinenTerminalView.remoteCommand(
+            for: .shellCommand("printf '%s' ready"),
+            workingDirectory: "/Users/p4p8/project's files"
+        )
+        try expect(
+            remoteCommand?.contains("cd -- '/Users/p4p8/project'\\''s files'") == true
+                && remoteCommand?.contains("printf '\\''%s'\\'' ready") == true,
+            "the remote terminal command did not safely quote its path and command"
+        )
+        try expect(
+            WorkspaceLocation.parseSSHReference("mini:~/gh/peterp/notes")
+                == .ssh(host: "mini", path: "~/gh/peterp/notes"),
+            "the remote workspace reference was not parsed"
         )
 
         guard let focusedTerminalID = snapshot.terminals.last?.id else {
@@ -729,6 +765,21 @@ enum InteractionTestRunner {
         )
 
         deck.toggleCommandPalette()
+        let locationPalette = try harness.commandPalette(in: deck)
+        try harness.type("location", into: locationPalette)
+        try harness.pressReturn(on: locationPalette)
+        let locationTypePalette = try harness.commandPalette(in: deck)
+        try harness.type("remote", into: locationTypePalette)
+        try harness.pressReturn(on: locationTypePalette)
+        let remoteLocationPalette = try harness.commandPalette(in: deck)
+        try expect(
+            remoteLocationPalette !== locationTypePalette,
+            "Change workspace location did not offer an SSH remote folder"
+        )
+        try harness.pressEscape(on: remoteLocationPalette)
+
+        deck.toggleCommandPalette()
+        try harness.pressDown(on: harness.commandPalette(in: deck))
         try harness.pressDown(on: harness.commandPalette(in: deck))
         try harness.pressDown(on: harness.commandPalette(in: deck))
         try harness.pressReturn(on: harness.commandPalette(in: deck))
@@ -872,6 +923,10 @@ private final class Harness {
         view.keyDown(with: try keyEvent(characters: "\r", keyCode: 36))
     }
 
+    func pressEscape(on view: NSView) throws {
+        view.keyDown(with: try keyEvent(characters: "\u{1b}", keyCode: 53))
+    }
+
     func commandArrow(keyCode: UInt16) throws -> NSEvent {
         try keyEvent(characters: "", keyCode: keyCode, modifierFlags: [.command])
     }
@@ -911,9 +966,16 @@ private struct StatusWidgetSnapshot: Decodable {
 }
 
 private struct InteractionSnapshot: Decodable {
+    struct Location: Decodable {
+        let kind: String
+        let path: String
+        let host: String?
+    }
+
     struct Workspace: Decodable {
         let name: String
         let workingDirectory: String
+        let location: Location
     }
 
     struct Tile: Decodable {
@@ -924,6 +986,7 @@ private struct InteractionSnapshot: Decodable {
     struct Terminal: Decodable {
         let id: String
         let workingDirectory: String
+        let location: Location
     }
 
     let workspaces: [Workspace]
