@@ -210,6 +210,19 @@ final class TerminalTileView: NSView {
         drawTerminal()
     }
 
+    override func scrollWheel(with event: NSEvent) {
+        // Camera transforms can leave an unfocused preview above the visually
+        // focused terminal in AppKit's hit-test order. Route scrolling through
+        // the same window-space resolver used for click and drag gestures so
+        // the focused SwiftTerm viewport receives the event.
+        if let terminal = terminalInputTarget?(event) {
+            InputRoutingLog.log("tile[\(session.tileID)] forwards scroll to tile=\(terminal.session.tileID) \(InputRoutingLog.event(event))")
+            terminal.scrollWheel(with: event)
+            return
+        }
+        super.scrollWheel(with: event)
+    }
+
     override func mouseDown(with event: NSEvent) {
         InputRoutingLog.log("tile[\(session.tileID)] mouseDown focused=\(isFocused) \(InputRoutingLog.event(event))")
         // The terminal viewport owns pointer input, even before this tile has

@@ -16,11 +16,12 @@ enum InteractionTestRunner {
             try workspaceWorkingDirectoryBindsTerminals()
             try terminalViewportRemainsStableAcrossFocus()
             try controlReturnReachesLegacyTerminals()
+            try scrollWheelReachesFocusedTerminalThroughPreview()
             try pointerTilesSeparateClickFocusAndDrag()
             try singletonWorkspaceTileFillsSurface()
             try clickedTileFocusesItsOwnTerminal()
             try draggingPreviewMovesTileToAnotherWorkspace()
-            print("Machinen interaction tests passed (14 scenarios)")
+            print("Machinen interaction tests passed (15 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -501,6 +502,41 @@ enum InteractionTestRunner {
             throw InteractionTestFailure("could not create a ⌃↩ event")
         }
         try expect(shortcut.process(controlReturn) == nil, "⌃↩ was not intercepted before SwiftTerm")
+    }
+
+    private static func scrollWheelReachesFocusedTerminalThroughPreview() throws {
+        let session = TerminalSession(
+            id: "term_scroll",
+            tileID: "tile_scroll",
+            label: "sc",
+            workspaceID: "ws_scroll",
+            workspace: "scroll",
+            name: "shell",
+            launch: .loginShell,
+            workingDirectory: FileManager.default.temporaryDirectory.path,
+            state: .stopped
+        )
+        let preview = TerminalTileView(session: session)
+        let terminal = MachinenTerminalView(session: session)
+        var resolutions = 0
+        preview.terminalInputTarget = { _ in
+            resolutions += 1
+            return terminal
+        }
+        guard let event = CGEvent(
+            scrollWheelEvent2Source: nil,
+            units: .line,
+            wheelCount: 1,
+            wheel1: 1,
+            wheel2: 0,
+            wheel3: 0
+        ).flatMap(NSEvent.init(cgEvent:)) else {
+            throw InteractionTestFailure("could not create a scroll-wheel event")
+        }
+
+        preview.scrollWheel(with: event)
+
+        try expect(resolutions == 1, "an overlapping preview swallowed terminal scrolling")
     }
 
     private static func pointerTilesSeparateClickFocusAndDrag() throws {
