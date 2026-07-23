@@ -1,11 +1,11 @@
 import AppKit
 import SwiftTerm
 
-/// A persistent terminal viewer backed by Machinen's bundled dtach helper.
+/// A SwiftTerm viewer attached to a persistent terminal-session backend.
 ///
-/// The local SwiftTerm PTY runs a transparent dtach client. The dtach master
-/// owns the user's command, so closing or relaunching Machinen only detaches a
-/// viewer; it does not terminate the command or intercept terminal input.
+/// New and restarted terminals use Machinen's native session worker. Sessions
+/// decoded from older manifests keep using the bundled dtach compatibility
+/// backend until restart, so deploying an update never interrupts live work.
 final class MachinenTerminalView: LocalProcessTerminalView {
     let session: TerminalSession
 
@@ -32,6 +32,9 @@ final class MachinenTerminalView: LocalProcessTerminalView {
     private var inputBoostTimer: Timer?
     private var isFocusedRendering = false
     private var renderInterval = RenderCadence.thumbnail
+    private var terminalBackend: any TerminalSessionBackend {
+        TerminalSessionBackendFactory.backend(for: session.backend)
+    }
 
     init(session: TerminalSession) {
         self.session = session
@@ -155,53 +158,28 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         session.state = .starting
         onStateChange?(.starting)
 
-        var arguments = ["-A", session.socketPath, "-E", "-z", "-r", "winch"]
-        var environment: [String]?
-        let localWorkingDirectory: String
-        if let host = session.location.sshHost {
-            guard let command = Self.remoteCommand(
-                for: session.launch,
-                workingDirectory: session.workingDirectory
-            ) else {
-                clientStarted = false
-                session.state = .stopped
-                onStateChange?(.stopped)
-                return
-            }
-            arguments.append(contentsOf: ["/usr/bin/ssh", "-t", host, command])
-            localWorkingDirectory = FileManager.default.homeDirectoryForCurrentUser.path
-        } else {
-            switch session.launch.kind {
-            case .loginShell:
-                arguments.append(contentsOf: [loginShell(), "-l"])
-            case .shellCommand:
-                arguments.append(contentsOf: [loginShell(), "-lc", session.launch.command ?? ""])
-            case .exec:
-                guard let executable = session.launch.executable, !executable.isEmpty else {
-                    clientStarted = false
-                    session.state = .stopped
-                    onStateChange?(.stopped)
-                    return
-                }
-                arguments.append(executable)
-                arguments.append(contentsOf: session.launch.arguments ?? [])
-                if let additions = session.launch.environment {
-                    var merged = ProcessInfo.processInfo.environment
-                    merged.merge(additions) { _, new in new }
-                    environment = merged.map { "\($0.key)=\($0.value)" }
-                }
-            }
-            localWorkingDirectory = session.workingDirectory
+        do {
+            let launch = try terminalBackend.prepareViewer(
+                for: session,
+                loginShell: loginShell()
+            )
+            startProcess(
+                executable: launch.executable,
+                args: launch.arguments,
+                environment: launch.environment,
+                execName: launch.executableName,
+                currentDirectory: launch.workingDirectory
+            )
+            session.state = .running
+            onStateChange?(.running)
+        } catch {
+            InputRoutingLog.log(
+                "terminal[\(session.tileID)] backend=\(session.backend.rawValue) failed: \(error.localizedDescription)"
+            )
+            clientStarted = false
+            session.state = .stopped
+            onStateChange?(.stopped)
         }
-        startProcess(
-            executable: dtachExecutablePath(),
-            args: arguments,
-            environment: environment,
-            execName: "machinen-dtach",
-            currentDirectory: localWorkingDirectory
-        )
-        session.state = .running
-        onStateChange?(.running)
     }
 
     func detachForApplicationExit() {
@@ -225,42 +203,31 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         guard !data.isEmpty,
               session.state == .running || session.state == .starting || session.state == .detached
         else { return false }
-        let task = Process()
-        let input = Pipe()
-        task.executableURL = URL(fileURLWithPath: dtachExecutablePath())
-        task.arguments = ["-p", session.socketPath]
-        task.standardInput = input
-        do {
-            try task.run()
-            input.fileHandleForWriting.write(data)
-            try input.fileHandleForWriting.close()
-            return true
-        } catch {
-            return false
-        }
+        return terminalBackend.send(data, to: session)
     }
 
     func signalPersistentSession(_ signal: String) {
-        if signal == "interrupt" {
-            _ = sendPersistentInput(Data([0x03]))
-            return
-        }
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-        task.arguments = ["-\(signal)", "-f", session.socketPath]
-        try? task.run()
+        terminalBackend.signal(signal, session: session)
     }
 
     func stopPersistentSession() {
         requestedStateAfterExit = .stopped
-        stopDtachSession()
+        terminalBackend.stop(session)
         session.state = .stopped
         onStateChange?(.stopped)
     }
 
+    func removePersistentSession() {
+        requestedStateAfterExit = .stopped
+        terminalBackend.remove(session)
+    }
+
     func restartPersistentSession() {
         requestedStateAfterExit = .stopped
-        stopDtachSession()
+        terminalBackend.reset(session)
+        // Legacy persisted terminals keep their dtach process until an explicit
+        // restart, at which point this session moves to the native backend.
+        session.backend = .machinenSession
         clientStarted = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
             guard let self else { return }
@@ -372,25 +339,4 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         } ?? "/bin/zsh"
     }
 
-    private func dtachExecutablePath() -> String {
-        let bundled = Bundle.main.bundleURL
-            .appendingPathComponent("Contents/Helpers/machinen-dtach").path
-        if FileManager.default.isExecutableFile(atPath: bundled) {
-            return bundled
-        }
-        let adjacent = URL(fileURLWithPath: CommandLine.arguments[0])
-            .deletingLastPathComponent()
-            .appendingPathComponent("machinen-dtach").path
-        return adjacent
-    }
-
-    private func stopDtachSession() {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-        task.arguments = ["-f", session.socketPath]
-        try? task.run()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [socketPath = session.socketPath] in
-            try? FileManager.default.removeItem(atPath: socketPath)
-        }
-    }
 }

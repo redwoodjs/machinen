@@ -118,6 +118,7 @@ owns launch information, process state, and PTY input/output.
   "workingDirectory": "/project",
   "location": { "kind": "ssh", "host": "mini", "path": "/project" },
   "launch": { "kind": "shellCommand", "command": "pnpm dev" },
+  "backend": "machinenSession",
   "processState": "running",
   "activityState": "working",
   "viewerState": "attached"
@@ -126,8 +127,10 @@ owns launch information, process state, and PTY input/output.
 
 `pid` is the foreground process-group leader used for a tile's live CPU and
 network metrics (including its local child-process tree); `shellPid` is the
-persistent shell child of dtach. Both are best-effort live values and may be
-`null` while a terminal is starting or stopped.
+persistent shell child when the active backend exposes it. Both are best-effort
+live values and may be `null` while a terminal is starting or stopped. `backend`
+is `machinenSession` for new and restarted terminals, or `dtach` for a live
+session preserved from an older Desktop manifest.
 
 Process states are `starting`, `running`, `stopped`, `exited`, and
 `disconnected`. Activity states are `working`, `waiting`, `idle`, and `unknown`.
@@ -180,8 +183,8 @@ A remote location is `{ "kind": "ssh", "host": "mini", "path": "/project" }`;
 legacy `workingDirectory` field remains the location path for compatibility.
 
 New terminals inherit the workspace location unless an API caller explicitly
-supplies a launch subdirectory. Remote terminals keep their persistent dtach
-viewer local and execute their launch command through SSH in the remote folder.
+supplies a launch subdirectory. Remote terminals install and run the native
+session worker on the SSH host; Desktop's SwiftTerm viewer attaches through SSH.
 Git and service probes use that same SSH connection model. Updating a location
 updates saved launch definitions but does not move files or change the current
 directory of an already-running process.

@@ -159,6 +159,10 @@ final class TerminalTileView: NSView {
         embeddedTerminalView?.restartPersistentSession()
     }
 
+    func removeTerminal() {
+        embeddedTerminalView?.removePersistentSession()
+    }
+
     @discardableResult
     func sendTerminalInput(_ data: Data) -> Bool {
         embeddedTerminalView?.sendPersistentInput(data) ?? false

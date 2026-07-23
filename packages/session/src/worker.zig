@@ -34,6 +34,7 @@ const FrameType = enum(u8) {
     history_complete = 'H',
     exit = 'X',
     failure = 'E',
+    signal = 'S',
 };
 
 pub const Config = struct {
@@ -101,6 +102,27 @@ pub fn spawnDetached(config: Config) !Spawned {
         }
         return .{ .worker_pid = pid };
     }
+}
+
+pub fn sendInput(allocator: std.mem.Allocator, id: []const u8, input: []const u8) !void {
+    if (input.len == 0) return error.EmptyInput;
+    const fd = try connectForControl(allocator, id);
+    defer _ = c.close(fd);
+    var offset: usize = 0;
+    while (offset < input.len) {
+        const end = @min(offset + max_frame_payload, input.len);
+        try writeFrame(fd, .input, input[offset..end]);
+        offset = end;
+    }
+}
+
+pub fn sendSignal(allocator: std.mem.Allocator, id: []const u8, signal: i32) !void {
+    if (signal <= 0) return error.InvalidSignal;
+    const fd = try connectForControl(allocator, id);
+    defer _ = c.close(fd);
+    var payload: [4]u8 = undefined;
+    std.mem.writeInt(i32, &payload, signal, .big);
+    try writeFrame(fd, .signal, &payload);
 }
 
 pub fn attach(allocator: std.mem.Allocator, id: []const u8) !u8 {
@@ -298,7 +320,7 @@ fn runEventLoop(
         for (clients, 0..) |*client, index| {
             if (client.fd < 0) continue;
             const events = poll_fds[index + 2].revents;
-            if ((events & c.POLLIN) != 0) serviceClient(store, session_id, master_fd, client);
+            if ((events & c.POLLIN) != 0) serviceClient(store, session_id, master_fd, child_pid, client);
             if ((events & (c.POLLERR | c.POLLHUP | c.POLLNVAL)) != 0) closeClient(client);
         }
     }
@@ -340,7 +362,13 @@ fn acceptClient(
     slot.fd = fd;
 }
 
-fn serviceClient(store: *session.Store, session_id: []const u8, master_fd: c_int, client: *Client) void {
+fn serviceClient(
+    store: *session.Store,
+    session_id: []const u8,
+    master_fd: c_int,
+    child_pid: c.pid_t,
+    client: *Client,
+) void {
     var payload: [max_frame_payload]u8 = undefined;
     const frame = readFrame(client.fd, &payload) catch {
         closeClient(client);
@@ -361,6 +389,11 @@ fn serviceClient(store: *session.Store, session_id: []const u8, master_fd: c_int
             };
             _ = c.ioctl(master_fd, c.TIOCSWINSZ, &window);
             _ = store.recordResize(session_id, columns, rows) catch 0;
+        },
+        .signal => {
+            if (frame.payload.len != 4) return closeClient(client);
+            const signal = std.mem.readInt(i32, frame.payload[0..4], .big);
+            if (signal <= 0 or c.kill(-child_pid, signal) != 0) return closeClient(client);
         },
         else => closeClient(client),
     }
@@ -410,6 +443,24 @@ fn openListener(allocator: std.mem.Allocator, path: []const u8) !c_int {
     if (c.chmod(path_z.ptr, 0o600) != 0) return error.SocketPermissionsFailed;
     if (c.listen(fd, max_clients) != 0) return error.ListenFailed;
     return fd;
+}
+
+fn connectForControl(allocator: std.mem.Allocator, id: []const u8) !c_int {
+    const path = try socketPath(allocator, id);
+    defer allocator.free(path);
+    const fd = try connectSocket(allocator, path);
+    errdefer _ = c.close(fd);
+    var payload: [max_frame_payload]u8 = undefined;
+    while (true) {
+        const frame = try readFrame(fd, &payload);
+        switch (frame.kind) {
+            .output => {},
+            .history_complete => return fd,
+            .exit => return error.SessionExited,
+            .failure => return error.SessionFailure,
+            else => return error.InvalidServerFrame,
+        }
+    }
 }
 
 fn connectSocket(allocator: std.mem.Allocator, path: []const u8) !c_int {

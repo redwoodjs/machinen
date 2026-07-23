@@ -3,17 +3,26 @@ const session = @import("session");
 const worker = @import("worker");
 
 const Exit = enum(u8) { ok = 0, failed = 1, usage = 2 };
+const version = "0.2.0";
 
 pub fn main(init: std.process.Init) !u8 {
     var args = init.minimal.args.iterate();
     _ = args.next();
     const command = args.next() orelse return writeUsage(init.io);
     if (isHelp(command)) return writeHelp(init.io);
+    if (std.mem.eql(u8, command, "--version") or std.mem.eql(u8, command, "version")) {
+        try std.Io.File.stdout().writeStreamingAll(init.io, version ++ "\n");
+        return @intFromEnum(Exit.ok);
+    }
 
     if (std.mem.eql(u8, command, "database")) return runDatabase(init, &args);
     if (std.mem.eql(u8, command, "new")) return runNew(init, &args);
     if (std.mem.eql(u8, command, "list")) return runList(init, &args);
     if (std.mem.eql(u8, command, "attach")) return runAttach(init, &args);
+    if (std.mem.eql(u8, command, "send")) return runSend(init, &args);
+    if (std.mem.eql(u8, command, "signal")) return runSignal(init, &args);
+    if (std.mem.eql(u8, command, "stop")) return runStop(init, &args);
+    if (std.mem.eql(u8, command, "delete")) return runDelete(init, &args);
     return writeUsage(init.io);
 }
 
@@ -160,6 +169,99 @@ fn runAttach(init: std.process.Init, args: anytype) !u8 {
     return worker.attach(init.gpa, record.id) catch |err| return fail(init, err);
 }
 
+fn runSend(init: std.process.Init, args: anytype) !u8 {
+    const target = parseTarget(args) catch return writeUsage(init.io);
+    const input = readStdinAll(init.gpa, init.io, 1024 * 1024) catch |err| return fail(init, err);
+    defer init.gpa.free(input);
+    var store = session.Store.open(init.gpa, target.database) catch |err| return fail(init, err);
+    defer store.close();
+    var record = (store.resolveSession(target.reference) catch |err| return fail(init, err)) orelse
+        return fail(init, error.SessionNotFound);
+    defer record.deinit(init.gpa);
+    worker.sendInput(init.gpa, record.id, input) catch |err| return fail(init, err);
+    return @intFromEnum(Exit.ok);
+}
+
+fn runSignal(init: std.process.Init, args: anytype) !u8 {
+    const target = parseTargetWithValue(args) catch return writeUsage(init.io);
+    const signal: i32 = if (std.mem.eql(u8, target.value, "interrupt")) 2 else if (std.mem.eql(u8, target.value, "hangup")) 1 else if (std.mem.eql(u8, target.value, "terminate")) 15 else if (std.mem.eql(u8, target.value, "kill")) 9 else return writeUsage(init.io);
+    return sendSignal(init, target.database, target.reference, signal);
+}
+
+fn runStop(init: std.process.Init, args: anytype) !u8 {
+    const target = parseTarget(args) catch return writeUsage(init.io);
+    // Interactive shells commonly ignore SIGTERM. A terminal stop is a
+    // controlling-terminal hangup, matching what happens when a PTY master is
+    // intentionally closed.
+    return sendSignal(init, target.database, target.reference, 1);
+}
+
+fn sendSignal(init: std.process.Init, database: []const u8, reference: []const u8, signal: i32) !u8 {
+    var store = session.Store.open(init.gpa, database) catch |err| return fail(init, err);
+    defer store.close();
+    var record = (store.resolveSession(reference) catch |err| return fail(init, err)) orelse
+        return fail(init, error.SessionNotFound);
+    defer record.deinit(init.gpa);
+    worker.sendSignal(init.gpa, record.id, signal) catch |err| return fail(init, err);
+    return @intFromEnum(Exit.ok);
+}
+
+fn runDelete(init: std.process.Init, args: anytype) !u8 {
+    const target = parseTarget(args) catch return writeUsage(init.io);
+    var store = session.Store.open(init.gpa, target.database) catch |err| return fail(init, err);
+    defer store.close();
+    var record = (store.resolveSession(target.reference) catch |err| return fail(init, err)) orelse
+        return fail(init, error.SessionNotFound);
+    defer record.deinit(init.gpa);
+    if (record.state == .running or record.state == .created) return fail(init, error.SessionStillRunning);
+    store.deleteSession(record.id) catch |err| return fail(init, err);
+    return @intFromEnum(Exit.ok);
+}
+
+const Target = struct { database: []const u8, reference: []const u8 };
+const TargetWithValue = struct { database: []const u8, reference: []const u8, value: []const u8 };
+
+fn parseTarget(args: anytype) !Target {
+    const flag = args.next() orelse return error.MissingDatabase;
+    if (!std.mem.eql(u8, flag, "--database")) return error.MissingDatabase;
+    const database = args.next() orelse return error.MissingDatabase;
+    const reference = args.next() orelse return error.MissingTarget;
+    if (args.next() != null) return error.UnexpectedArgument;
+    return .{ .database = database, .reference = reference };
+}
+
+fn parseTargetWithValue(args: anytype) !TargetWithValue {
+    const target = try parseTargetPrefix(args);
+    const value = args.next() orelse return error.MissingValue;
+    if (args.next() != null) return error.UnexpectedArgument;
+    return .{ .database = target.database, .reference = target.reference, .value = value };
+}
+
+fn parseTargetPrefix(args: anytype) !Target {
+    const flag = args.next() orelse return error.MissingDatabase;
+    if (!std.mem.eql(u8, flag, "--database")) return error.MissingDatabase;
+    const database = args.next() orelse return error.MissingDatabase;
+    const reference = args.next() orelse return error.MissingTarget;
+    return .{ .database = database, .reference = reference };
+}
+
+fn readStdinAll(allocator: std.mem.Allocator, io: std.Io, max_bytes: usize) ![]u8 {
+    var output: std.ArrayList(u8) = .empty;
+    errdefer output.deinit(allocator);
+    var buffer: [4096]u8 = undefined;
+    while (true) {
+        const count = std.Io.File.stdin().readStreaming(io, &.{buffer[0..]}) catch |err| switch (err) {
+            error.EndOfStream => break,
+            else => |other| return other,
+        };
+        if (count == 0) break;
+        if (output.items.len + count > max_bytes) return error.InputTooLarge;
+        try output.appendSlice(allocator, buffer[0..count]);
+    }
+    if (output.items.len == 0) return error.EmptyInput;
+    return output.toOwnedSlice(allocator);
+}
+
 fn requiredDatabase(args: anytype) ![]const u8 {
     const flag = args.next() orelse return error.MissingDatabase;
     if (!std.mem.eql(u8, flag, "--database")) return error.MissingDatabase;
@@ -206,7 +308,7 @@ fn freeEvents(allocator: std.mem.Allocator, events: []session.Event) void {
 fn writeUsage(io: std.Io) !u8 {
     try std.Io.File.stderr().writeStreamingAll(
         io,
-        "usage: machinen-session <new|list|attach|database|help> ...\n",
+        "usage: machinen-session <new|list|attach|send|signal|stop|delete|database|help> ...\n",
     );
     return @intFromEnum(Exit.usage);
 }
@@ -222,6 +324,10 @@ fn writeHelp(io: std.Io) !u8 {
         \\      --cwd <path> [--rows <n>] [--columns <n>] -- <command> [args...]
         \\  machinen-session list --database <path>
         \\  machinen-session attach --database <path> <id-or-name>
+        \\  machinen-session send --database <path> <id-or-name> < input
+        \\  machinen-session signal --database <path> <id-or-name> <interrupt|hangup|terminate|kill>
+        \\  machinen-session stop --database <path> <id-or-name>
+        \\  machinen-session delete --database <path> <id-or-name>
         \\
         \\A detached worker owns each PTY. Closing an attach client does not stop
         \\the command. A new client receives SQLite-backed output history before

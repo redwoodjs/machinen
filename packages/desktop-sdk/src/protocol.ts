@@ -33,6 +33,7 @@ export interface Terminal {
   shellPid: number | null;
   workingDirectory: string;
   location: WorkspaceLocation;
+  backend: "dtach" | "machinenSession";
   processState: "starting" | "running" | "stopped" | "exited" | "disconnected";
   activityState: "working" | "waiting" | "idle" | "unknown";
   viewerState: "attached" | "detached";

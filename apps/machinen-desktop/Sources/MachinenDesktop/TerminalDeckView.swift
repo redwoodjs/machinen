@@ -1889,7 +1889,7 @@ final class TerminalDeckView: NSView {
 
     private func closeSession(_ tile: TerminalTileView) {
         let workspaceID = tile.session.workspaceID
-        tile.stopTerminal()
+        tile.removeTerminal()
         tile.removeFromSuperview()
         allSessionTiles.removeAll { $0 === tile }
         emitAPIEvent("tile.deleted", data: tileJSON(tile))
@@ -1908,7 +1908,7 @@ final class TerminalDeckView: NSView {
         let workspaceRecord = workspaces.first { $0.name == workspace }
         let removedTiles = allSessionTiles.filter { $0.session.workspace == workspace }
         for tile in removedTiles {
-            tile.stopTerminal()
+            tile.removeTerminal()
             tile.removeFromSuperview()
             emitAPIEvent("tile.deleted", data: tileJSON(tile))
         }
@@ -1961,26 +1961,28 @@ final class TerminalDeckView: NSView {
             \(sessionLines)
 
             PERSISTENCE
-            Terminal commands are owned by the bundled dtach helper and survive
-            viewer or application exit. Machinen restores and reattaches each
-            running viewer from the state file above.
+            Native session workers own new terminal commands and journal output
+            in SQLite. Legacy dtach sessions remain attached without restart.
+            Machinen restores the scene from the state file above.
             """
         } else if let tile = selectedSessionTile() {
             heading = "SESSION DIAGNOSTICS · \(workspace) / \(tile.session.name)"
+            let backendDetail = tile.session.backend == .dtach
+                ? "Legacy dtach preserves this command behind \(tile.session.socketPath)."
+                : "The native worker owns this PTY and journals recovery data on \(tile.session.location.sshHost ?? "this Mac")."
             text = """
             workspace       \(workspace)
             session         \(tile.session.name)
             session id      \(tile.session.id)
+            backend         \(tile.session.backend.rawValue)
             state            \(tile.currentState.rawValue)
             viewer           \(tile.currentState == .detached ? "detached" : "attached")
             command          \(launchDescription(tile.session.launch))
             location         \(tile.session.location.displayName)
-            dtach socket     \(tile.session.socketPath)
             state file       \(sessionStore.manifestURL.path)
 
             PERSISTENCE
-            The bundled machinen-dtach helper owns this command. Its viewer
-            uses -E, so dtach does not reserve or interpret any input bytes.
+            \(backendDetail)
             """
         } else {
             return
@@ -2443,6 +2445,7 @@ final class TerminalDeckView: NSView {
             throw MachinenAPIError("workspace_running", "Stop the workspace's terminals before deleting it")
         }
         for tile in tiles {
+            tile.removeTerminal()
             tile.removeFromSuperview()
             emitAPIEvent("tile.deleted", data: tileJSON(tile))
         }
@@ -2614,6 +2617,7 @@ final class TerminalDeckView: NSView {
         }
         let result = tileJSON(tile)
         let workspaceID = tile.session.workspaceID
+        tile.removeTerminal()
         tile.removeFromSuperview()
         allSessionTiles.removeAll { $0 === tile }
         rebuildWorkspaceClusters()
@@ -3036,6 +3040,7 @@ final class TerminalDeckView: NSView {
             "workingDirectory": session.workingDirectory,
             "location": session.location.json,
             "launch": launchJSON(session.launch),
+            "backend": session.backend.rawValue,
             "title": session.commandTitle,
             "runtimeLabel": session.runtimeLabel ?? NSNull(),
             "shellName": session.inferredShellName ?? NSNull(),

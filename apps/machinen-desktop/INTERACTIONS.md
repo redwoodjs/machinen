@@ -96,9 +96,11 @@ command, or choose a folder for another workspace.
 
 Changing a workspace location does not move files or alter the current directory
 of an already-running process. New terminals and restarted terminals use the new
-location. For an SSH location, Machinen keeps dtach and its viewer local while
-launching the terminal command on the remote host in the selected folder. Git
-instruments and local-service discovery also probe that folder through SSH.
+location. For an SSH location, Machinen installs its small native session helper
+on the SSH host and the remote worker owns the PTY in the selected folder. The
+local SwiftTerm view attaches through SSH, so closing Desktop or losing the SSH
+connection does not stop remote work. Git instruments and local-service
+discovery also probe that folder through SSH.
 
 When no workspace exists, only **New workspace…** is shown.
 
@@ -125,12 +127,13 @@ as `working`, `waiting`, `idle`, or `unknown`:
 - timers, child-process waits, and network waits remain working;
 - stopped, exited, or unreadable sessions are unknown.
 
-The bundled dtach master writes only counters and process/terminal metadata to a
-private `0600` sidecar. It never buffers output content. Detection therefore
-continues while the viewer is detached. For sessions created by an older dtach
-helper, Machinen discovers the existing master, foreground process group, and
-terminal mode from the local process table and observes live viewer output. This
-compatibility path upgrades activity reporting without restarting the command.
+The native session worker journals byte-exact output and ordered resize events
+to a private SQLite database, allowing a new renderer to recover history after
+a disconnect. Sessions created by an older Desktop manifest continue through
+the bundled dtach compatibility backend until explicitly restarted; Machinen
+discovers their existing master and foreground process group without disrupting
+the command. Detailed detached-process activity metadata for the native backend
+will move behind the session protocol rather than depending on dtach sidecars.
 The single status bar renders terminals as spatially ordered activity pips;
 waiting and failed terminals receive attention and error tones.
 

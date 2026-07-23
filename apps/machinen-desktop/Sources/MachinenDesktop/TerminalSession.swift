@@ -86,6 +86,11 @@ struct TerminalLaunch: Codable {
 }
 
 final class TerminalSession: Codable {
+    enum Backend: String, Codable {
+        case dtach
+        case machinenSession
+    }
+
     enum State: String, Codable {
         case starting
         case running
@@ -109,6 +114,7 @@ final class TerminalSession: Codable {
     var workspace: String
     var name: String
     var launch: TerminalLaunch
+    var backend: Backend
     var location: WorkspaceLocation
     var workingDirectory: String {
         get { location.path }
@@ -158,6 +164,7 @@ final class TerminalSession: Codable {
         workspace: String,
         name: String,
         launch: TerminalLaunch,
+        backend: Backend = .machinenSession,
         workingDirectory: String,
         sshHost: String? = nil,
         state: State = .starting,
@@ -171,6 +178,7 @@ final class TerminalSession: Codable {
         self.workspace = workspace
         self.name = name
         self.launch = launch
+        self.backend = backend
         location = sshHost.map { .ssh(host: $0, path: workingDirectory) }
             ?? .local(workingDirectory)
         self.state = state
@@ -191,6 +199,7 @@ final class TerminalSession: Codable {
         case workspace
         case name
         case launch
+        case backend
         case command
         case workingDirectory
         case location
@@ -216,6 +225,10 @@ final class TerminalSession: Codable {
         } else {
             launch = .loginShell
         }
+        // Manifests written before the session backend existed refer to live
+        // dtach sockets. Preserve those processes until the user explicitly
+        // restarts them; new TerminalSession values use machinen-session.
+        backend = try container.decodeIfPresent(Backend.self, forKey: .backend) ?? .dtach
         if let decoded = try container.decodeIfPresent(WorkspaceLocation.self, forKey: .location) {
             location = decoded
         } else {
@@ -240,6 +253,7 @@ final class TerminalSession: Codable {
         try container.encode(workspace, forKey: .workspace)
         try container.encode(name, forKey: .name)
         try container.encode(launch, forKey: .launch)
+        try container.encode(backend, forKey: .backend)
         try container.encode(workingDirectory, forKey: .workingDirectory)
         try container.encode(location, forKey: .location)
         try container.encode(state, forKey: .state)
@@ -274,7 +288,11 @@ final class TerminalSession: Codable {
         case .disconnected:
             "Terminal viewer disconnected.\n\nUse Terminal: Reconnect."
         case .detached:
-            "Viewer detached.\n\nThe process continues behind dtach socket:\n\(socketPath)"
+            if backend == .dtach {
+                "Viewer detached.\n\nThe process continues behind dtach socket:\n\(socketPath)"
+            } else {
+                "Viewer detached.\n\nThe process continues in Machinen session \(id)\(location.sshHost.map { " on \($0)" } ?? "")."
+            }
         }
     }
 

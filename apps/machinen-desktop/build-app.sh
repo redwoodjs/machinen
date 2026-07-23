@@ -14,12 +14,24 @@ esac
 
 swift build -c "$configuration"
 bin_dir="$(swift build -c "$configuration" --show-bin-path)"
+session_package="$(cd ../.. && pwd)/packages/session"
+(
+    cd "$session_package"
+    zig build -Doptimize=ReleaseSmall
+    zig build -Dtarget=aarch64-linux-musl -Doptimize=ReleaseSmall --prefix zig-out-bundle-aarch64-linux
+    zig build -Dtarget=x86_64-linux-musl -Doptimize=ReleaseSmall --prefix zig-out-bundle-x86_64-linux
+)
 
 app="Machinen.app"
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Helpers" "$app/Contents/Resources"
 cp "$bin_dir/MachinenDesktop" "$app/Contents/MacOS/Machinen"
 cp "$bin_dir/machinen-dtach" "$app/Contents/Helpers/machinen-dtach"
+cp "$session_package/zig-out/bin/machinen-session" "$app/Contents/Helpers/machinen-session"
+cp "$session_package/zig-out-bundle-aarch64-linux/bin/machinen-session" \
+    "$app/Contents/Helpers/machinen-session-aarch64-linux"
+cp "$session_package/zig-out-bundle-x86_64-linux/bin/machinen-session" \
+    "$app/Contents/Helpers/machinen-session-x86_64-linux"
 mkdir -p "$app/Contents/Resources/ThirdParty/dtach-0.9"
 cp Vendor/dtach/{attach.c,master.c,main.c,dtach.h,config.h,COPYING,README,README.machinen.md} \
     "$app/Contents/Resources/ThirdParty/dtach-0.9/"

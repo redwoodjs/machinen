@@ -42,6 +42,9 @@ machinen-session new \
 
 machinen-session list --database "$DB"
 machinen-session attach --database "$DB" api
+printf 'r' | machinen-session send --database "$DB" api
+machinen-session signal --database "$DB" api interrupt
+machinen-session stop --database "$DB" api
 ```
 
 `attach` puts an interactive terminal into raw mode, forwards its initial size
@@ -91,7 +94,7 @@ descriptor cannot be recreated after its owner dies.
 Still to add:
 
 - Default platform database discovery and automatic state-directory creation.
-- Stop, signal, send, and garbage-collection commands.
+- Garbage collection and stale-worker recovery.
 - Bounded output retention, compression, and portable VT checkpoint generation.
 - Writer/resize leases instead of last-writer-wins multi-client input.
 - Desktop's `TerminalSessionBackend` adapter and automatic remote installation.

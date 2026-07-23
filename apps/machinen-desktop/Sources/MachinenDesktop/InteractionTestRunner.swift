@@ -14,6 +14,7 @@ enum InteractionTestRunner {
             try statusWidgetsInheritBySpatialScope()
             try graphicalStatusWidgetsRender()
             try workspaceWorkingDirectoryBindsTerminals()
+            try sessionBackendsMigrateWithoutInterruptingLegacyProcesses()
             try terminalViewportRemainsStableAcrossFocus()
             try controlReturnReachesLegacyTerminals()
             try scrollWheelReachesFocusedTerminalThroughPreview()
@@ -21,7 +22,7 @@ enum InteractionTestRunner {
             try singletonWorkspaceTileFillsSurface()
             try clickedTileFocusesItsOwnTerminal()
             try draggingPreviewMovesTileToAnotherWorkspace()
-            print("Machinen interaction tests passed (15 scenarios)")
+            print("Machinen interaction tests passed (16 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -426,6 +427,34 @@ enum InteractionTestRunner {
         try expect(
             try harness.statusTitle(of: deck) == identityTitle,
             "clearing a terminal title override changed the workspace > terminal identity title"
+        )
+    }
+
+    private static func sessionBackendsMigrateWithoutInterruptingLegacyProcesses() throws {
+        let session = TerminalSession(
+            id: "term_backend",
+            tileID: "tile_backend",
+            label: "be",
+            workspaceID: "ws_backend",
+            workspace: "backend",
+            name: "shell",
+            launch: .loginShell,
+            workingDirectory: FileManager.default.temporaryDirectory.path,
+            state: .stopped
+        )
+        try expect(
+            session.backend == .machinenSession,
+            "a new terminal did not choose the native session backend"
+        )
+
+        let encoded = try JSONEncoder().encode(session)
+        var legacyObject = try JSONSerialization.jsonObject(with: encoded) as? [String: Any] ?? [:]
+        legacyObject.removeValue(forKey: "backend")
+        let legacyData = try JSONSerialization.data(withJSONObject: legacyObject)
+        let legacy = try JSONDecoder().decode(TerminalSession.self, from: legacyData)
+        try expect(
+            legacy.backend == .dtach,
+            "a pre-session manifest abandoned its live dtach backend"
         )
     }
 

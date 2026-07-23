@@ -23,10 +23,11 @@ Payloads are limited to 32 KiB. Terminal data is opaque bytes, not text.
 
 ## Client to worker
 
-| Kind | Name   | Payload                              |
-| ---- | ------ | ------------------------------------ |
-| `I`  | Input  | Bytes to write to the PTY            |
-| `R`  | Resize | Big-endian `u16 columns`, `u16 rows` |
+| Kind | Name   | Payload                                      |
+| ---- | ------ | -------------------------------------------- |
+| `I`  | Input  | Bytes to write to the PTY                    |
+| `R`  | Resize | Big-endian `u16 columns`, `u16 rows`         |
+| `S`  | Signal | Big-endian signed 32-bit POSIX signal number |
 
 ## Worker to client
 
