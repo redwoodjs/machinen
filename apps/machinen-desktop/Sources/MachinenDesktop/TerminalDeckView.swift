@@ -1961,20 +1961,17 @@ final class TerminalDeckView: NSView {
             \(sessionLines)
 
             PERSISTENCE
-            Native session workers own new terminal commands and journal output
-            in SQLite. Legacy dtach sessions remain attached without restart.
-            Machinen restores the scene from the state file above.
+            Native session workers own terminal commands and journal output in
+            SQLite. Machinen restores the scene from the state file above.
             """
         } else if let tile = selectedSessionTile() {
             heading = "SESSION DIAGNOSTICS · \(workspace) / \(tile.session.name)"
-            let backendDetail = tile.session.backend == .dtach
-                ? "Legacy dtach preserves this command behind \(tile.session.socketPath)."
-                : "The native worker owns this PTY and journals recovery data on \(tile.session.location.sshHost ?? "this Mac")."
+            let backendDetail = "The native worker owns this PTY and journals recovery data on \(tile.session.location.sshHost ?? "this Mac")."
             text = """
             workspace       \(workspace)
             session         \(tile.session.name)
             session id      \(tile.session.id)
-            backend         \(tile.session.backend.rawValue)
+            backend         \(TerminalSession.backendName)
             state            \(tile.currentState.rawValue)
             viewer           \(tile.currentState == .detached ? "detached" : "attached")
             command          \(launchDescription(tile.session.launch))
@@ -3040,7 +3037,7 @@ final class TerminalDeckView: NSView {
             "workingDirectory": session.workingDirectory,
             "location": session.location.json,
             "launch": launchJSON(session.launch),
-            "backend": session.backend.rawValue,
+            "backend": TerminalSession.backendName,
             "title": session.commandTitle,
             "runtimeLabel": session.runtimeLabel ?? NSNull(),
             "shellName": session.inferredShellName ?? NSNull(),

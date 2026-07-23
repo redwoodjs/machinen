@@ -20,16 +20,10 @@ protocol TerminalSessionBackend: AnyObject {
 
 @MainActor
 enum TerminalSessionBackendFactory {
-    private static let dtach = DtachTerminalSessionBackend()
     private static let machinenSession = MachinenNativeSessionBackend()
 
-    static func backend(for kind: TerminalSession.Backend) -> any TerminalSessionBackend {
-        switch kind {
-        case .dtach:
-            dtach
-        case .machinenSession:
-            machinenSession
-        }
+    static var backend: any TerminalSessionBackend {
+        machinenSession
     }
 }
 
@@ -55,102 +49,8 @@ private enum TerminalSessionBackendError: LocalizedError {
     }
 }
 
-@MainActor
-private final class DtachTerminalSessionBackend: TerminalSessionBackend {
-    func prepareViewer(for session: TerminalSession, loginShell: String) throws -> TerminalViewerLaunch {
-        var arguments = ["-A", session.socketPath, "-E", "-z", "-r", "winch"]
-        var environment: [String]?
-        let localWorkingDirectory: String
-        if let host = session.location.sshHost {
-            guard let command = MachinenTerminalView.remoteCommand(
-                for: session.launch,
-                workingDirectory: session.workingDirectory
-            ) else { throw TerminalSessionBackendError.invalidLaunch }
-            arguments.append(contentsOf: ["/usr/bin/ssh", "-t", host, command])
-            localWorkingDirectory = FileManager.default.homeDirectoryForCurrentUser.path
-        } else {
-            switch session.launch.kind {
-            case .loginShell:
-                arguments.append(contentsOf: [loginShell, "-l"])
-            case .shellCommand:
-                arguments.append(contentsOf: [loginShell, "-lc", session.launch.command ?? ""])
-            case .exec:
-                guard let executable = session.launch.executable, !executable.isEmpty else {
-                    throw TerminalSessionBackendError.invalidLaunch
-                }
-                arguments.append(executable)
-                arguments.append(contentsOf: session.launch.arguments ?? [])
-                environment = Self.mergedEnvironment(session.launch.environment)
-            }
-            localWorkingDirectory = session.workingDirectory
-        }
-        return TerminalViewerLaunch(
-            executable: Self.dtachExecutablePath(),
-            arguments: arguments,
-            environment: environment,
-            executableName: "machinen-dtach",
-            workingDirectory: localWorkingDirectory
-        )
-    }
-
-    func send(_ data: Data, to session: TerminalSession) -> Bool {
-        guard !data.isEmpty else { return false }
-        let result = try? Self.run(
-            executable: Self.dtachExecutablePath(),
-            arguments: ["-p", session.socketPath],
-            input: data
-        )
-        return result?.status == 0
-    }
-
-    func signal(_ signal: String, session: TerminalSession) {
-        if signal == "interrupt" {
-            _ = send(Data([0x03]), to: session)
-            return
-        }
-        _ = try? Self.run(
-            executable: "/usr/bin/pkill",
-            arguments: ["-\(signal)", "-f", session.socketPath]
-        )
-    }
-
-    func stop(_ session: TerminalSession) {
-        _ = try? Self.run(
-            executable: "/usr/bin/pkill",
-            arguments: ["-TERM", "-f", session.socketPath]
-        )
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-            try? FileManager.default.removeItem(atPath: session.socketPath)
-        }
-    }
-
-    func reset(_ session: TerminalSession) {
-        stop(session)
-    }
-
-    func remove(_ session: TerminalSession) {
-        stop(session)
-    }
-
-    private static func dtachExecutablePath() -> String {
-        let bundled = Bundle.main.bundleURL
-            .appendingPathComponent("Contents/Helpers/machinen-dtach").path
-        if FileManager.default.isExecutableFile(atPath: bundled) {
-            return bundled
-        }
-        return URL(fileURLWithPath: CommandLine.arguments[0])
-            .deletingLastPathComponent()
-            .appendingPathComponent("machinen-dtach").path
-    }
-
-    fileprivate static func mergedEnvironment(_ additions: [String: String]?) -> [String]? {
-        guard let additions, !additions.isEmpty else { return nil }
-        var merged = ProcessInfo.processInfo.environment
-        merged.merge(additions) { _, new in new }
-        return merged.map { "\($0.key)=\($0.value)" }
-    }
-
-    fileprivate static func run(
+private enum TerminalSessionCommand {
+    static func run(
         executable: String,
         arguments: [String],
         input: Data? = nil,
@@ -181,7 +81,7 @@ private final class DtachTerminalSessionBackend: TerminalSessionBackend {
 }
 
 @MainActor
-private final class MachinenNativeSessionBackend: TerminalSessionBackend {
+final class MachinenNativeSessionBackend: TerminalSessionBackend {
     private struct NativeSessionList: Decodable {
         struct Session: Decodable {
             let id: String
@@ -224,7 +124,7 @@ private final class MachinenNativeSessionBackend: TerminalSessionBackend {
         let database = try Self.localDatabasePath()
         let command = try Self.localLaunchCommand(for: session.launch, loginShell: loginShell)
         let environment = Self.localProcessEnvironment(session.launch.environment)
-        let result = try DtachTerminalSessionBackend.run(
+        let result = try TerminalSessionCommand.run(
             executable: helper,
             arguments: Self.newArguments(
                 database: database,
@@ -258,7 +158,7 @@ private final class MachinenNativeSessionBackend: TerminalSessionBackend {
                     input: data
                 ).status == 0
             }
-            let result = try DtachTerminalSessionBackend.run(
+            let result = try TerminalSessionCommand.run(
                 executable: Self.sessionExecutablePath(),
                 arguments: ["send", "--database", Self.localDatabasePath(), session.id],
                 input: data
@@ -281,7 +181,7 @@ private final class MachinenNativeSessionBackend: TerminalSessionBackend {
                 )
             )
         } else if let database = try? Self.localDatabasePath() {
-            _ = try? DtachTerminalSessionBackend.run(
+            _ = try? TerminalSessionCommand.run(
                 executable: Self.sessionExecutablePath(),
                 arguments: ["signal", "--database", database, session.id, signal]
             )
@@ -316,14 +216,14 @@ private final class MachinenNativeSessionBackend: TerminalSessionBackend {
             ).status) == 0
         }
         guard let database = try? Self.localDatabasePath() else { return false }
-        return (try? DtachTerminalSessionBackend.run(
+        return (try? TerminalSessionCommand.run(
             executable: Self.sessionExecutablePath(),
             arguments: [operation, "--database", database, session.id]
         ).status) == 0
     }
 
     private func localSessionExists(_ id: String, helper: String, database: String) throws -> Bool {
-        let result = try DtachTerminalSessionBackend.run(
+        let result = try TerminalSessionCommand.run(
             executable: helper,
             arguments: ["list", "--database", database]
         )
@@ -478,7 +378,7 @@ private final class MachinenNativeSessionBackend: TerminalSessionBackend {
         }
     }
 
-    fileprivate static func remoteNewCommand(for session: TerminalSession) throws -> String {
+    static func remoteNewCommand(for session: TerminalSession) throws -> String {
         let command = try remoteLaunchCommand(for: session.launch)
         let arguments = [
             "new", "--database", "$HOME/.local/state/machinen/sessions.sqlite3",
@@ -530,7 +430,7 @@ private final class MachinenNativeSessionBackend: TerminalSessionBackend {
         command: String,
         input: Data? = nil
     ) throws -> BackendProcessResult {
-        try DtachTerminalSessionBackend.run(
+        try TerminalSessionCommand.run(
             executable: "/usr/bin/ssh",
             arguments: [
                 "-o", "BatchMode=yes",

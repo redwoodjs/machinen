@@ -10,11 +10,11 @@ enum InteractionTestRunner {
             try commandArrowsMoveThroughTheHierarchy()
             try commandLeftAndRightCycleFocusedWorkspaces()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
-            try processSamplesDistinguishInputFromOtherWaits()
+            try terminalOutputAndRuntimeLabelsReportActivity()
             try statusWidgetsInheritBySpatialScope()
             try graphicalStatusWidgetsRender()
             try workspaceWorkingDirectoryBindsTerminals()
-            try sessionBackendsMigrateWithoutInterruptingLegacyProcesses()
+            try oldManifestsRequireNativeRestart()
             try terminalViewportRemainsStableAcrossFocus()
             try controlReturnReachesLegacyTerminals()
             try scrollWheelReachesFocusedTerminalThroughPreview()
@@ -125,42 +125,7 @@ enum InteractionTestRunner {
         )
     }
 
-    private static func processSamplesDistinguishInputFromOtherWaits() throws {
-        let readSample = "Call graph:\n  read  (in libsystem_kernel.dylib) + 8"
-        let sleepSample = "Call graph:\n  nanosleep  (in libsystem_c.dylib) + 220"
-        let rawEventLoop = "Call graph:\n  kevent  (in libsystem_kernel.dylib) + 8"
-        let rawSSHWait = "Call graph:\n  pselect  (in libsystem_kernel.dylib) + 112"
-        try expect(
-            TerminalActivityDetector.classifySample(readSample, canonical: true, echo: true) == .waiting,
-            "a process blocked in read was not classified as waiting for input"
-        )
-        try expect(
-            TerminalActivityDetector.classifySample(sleepSample, canonical: true, echo: true) == .working,
-            "sleep was incorrectly classified as waiting for input"
-        )
-        try expect(
-            TerminalActivityDetector.classifySample(rawEventLoop, canonical: false, echo: false) == .waiting,
-            "a raw interactive event loop was not classified as waiting"
-        )
-        try expect(
-            TerminalActivityDetector.classifySample(rawSSHWait, canonical: false, echo: false) == .waiting,
-            "a quiet raw SSH session was not classified as waiting"
-        )
-
-        let legacyProcesses = """
-         13959 13948 13959 13959 ?? machinen-dtach -A /tmp/legacy.sock
-          4458     1  4458     0 ?? machinen-dtach -A /tmp/legacy.sock
-          4459  4458  4459  7022 ?? /bin/zsh -l
-          7022  4459  7022  7022 ?? ssh -t example pi
-        """
-        let legacy = TerminalActivityDetector.parseLegacyStatus(
-            legacyProcesses,
-            socketPath: "/tmp/legacy.sock"
-        )
-        try expect(legacy?.masterPid == 4458, "the legacy dtach master was not discovered")
-        try expect(legacy?.childPid == 4459, "the legacy login shell was not discovered")
-        try expect(legacy?.foregroundPgrp == 7022, "the legacy foreground process group was not discovered")
-
+    private static func terminalOutputAndRuntimeLabelsReportActivity() throws {
         guard let agentLabel = MachinenTerminalView.runtimeLabel(fromTerminalTitle: "machinen:agent") else {
             throw InteractionTestFailure("the Machinen OSC title was not recognized")
         }
@@ -174,18 +139,18 @@ enum InteractionTestRunner {
             "an ordinary terminal title was treated as a Machinen label"
         )
 
-        let legacySession = TerminalSession(
-            id: "term_legacy_output",
-            tileID: "tile_legacy_output",
+        let session = TerminalSession(
+            id: "term_output",
+            tileID: "tile_output",
             label: "lo",
-            workspaceID: "ws_legacy",
-            workspace: "legacy",
+            workspaceID: "ws_output",
+            workspace: "output",
             name: "shell",
             launch: .loginShell,
             workingDirectory: FileManager.default.temporaryDirectory.path,
             state: .running
         )
-        let titledTerminal = MachinenTerminalView(session: legacySession)
+        let titledTerminal = MachinenTerminalView(session: session)
         var receivedLabel: String?
         var receivedLabelChange = false
         titledTerminal.onRuntimeLabelChange = { label in
@@ -203,11 +168,11 @@ enum InteractionTestRunner {
             "the terminal did not deliver a Machinen OSC label clear to its host"
         )
 
-        let detector = TerminalActivityDetector(session: legacySession)
+        let detector = TerminalActivityDetector(session: session)
         var observedActivity: TerminalSession.ActivityState?
         detector.onActivityChange = { observedActivity = $0 }
         detector.recordOutput()
-        try expect(observedActivity == .working, "live viewer output did not mark a legacy terminal as working")
+        try expect(observedActivity == .working, "live viewer output did not mark the terminal as working")
     }
 
     private static func statusWidgetsInheritBySpatialScope() throws {
@@ -393,14 +358,23 @@ enum InteractionTestRunner {
             },
             "a terminal did not inherit the remote workspace location"
         )
-        let remoteCommand = MachinenTerminalView.remoteCommand(
-            for: .shellCommand("printf '%s' ready"),
-            workingDirectory: "/Users/p4p8/project's files"
+        let remoteSession = TerminalSession(
+            id: "term_remote_quote",
+            tileID: "tile_remote_quote",
+            label: "rq",
+            workspaceID: "ws_remote_quote",
+            workspace: "remote quote",
+            name: "shell",
+            launch: .shellCommand("printf '%s' ready"),
+            workingDirectory: "/Users/p4p8/project's files",
+            sshHost: "mini",
+            state: .stopped
         )
+        let remoteCommand = try MachinenNativeSessionBackend.remoteNewCommand(for: remoteSession)
         try expect(
-            remoteCommand?.contains("cd -- '/Users/p4p8/project'\\''s files'") == true
-                && remoteCommand?.contains("printf '\\''%s'\\'' ready") == true,
-            "the remote terminal command did not safely quote its path and command"
+            remoteCommand.contains("'--cwd' '/Users/p4p8/project'\\''s files'")
+                && remoteCommand.contains("printf") && remoteCommand.contains("ready"),
+            "the remote terminal command did not safely quote its path and command: \(remoteCommand)"
         )
         try expect(
             WorkspaceLocation.parseSSHReference("mini:~/gh/peterp/notes")
@@ -430,7 +404,7 @@ enum InteractionTestRunner {
         )
     }
 
-    private static func sessionBackendsMigrateWithoutInterruptingLegacyProcesses() throws {
+    private static func oldManifestsRequireNativeRestart() throws {
         let session = TerminalSession(
             id: "term_backend",
             tileID: "tile_backend",
@@ -440,21 +414,27 @@ enum InteractionTestRunner {
             name: "shell",
             launch: .loginShell,
             workingDirectory: FileManager.default.temporaryDirectory.path,
-            state: .stopped
+            state: .running
         )
+        let encoded = try JSONEncoder().encode(session)
+        let currentObject = try JSONSerialization.jsonObject(with: encoded) as? [String: Any] ?? [:]
         try expect(
-            session.backend == .machinenSession,
-            "a new terminal did not choose the native session backend"
+            currentObject["backend"] as? String == TerminalSession.backendName,
+            "a terminal manifest did not identify the native session backend"
         )
 
-        let encoded = try JSONEncoder().encode(session)
-        var legacyObject = try JSONSerialization.jsonObject(with: encoded) as? [String: Any] ?? [:]
-        legacyObject.removeValue(forKey: "backend")
-        let legacyData = try JSONSerialization.data(withJSONObject: legacyObject)
-        let legacy = try JSONDecoder().decode(TerminalSession.self, from: legacyData)
+        var oldObject = currentObject
+        oldObject.removeValue(forKey: "backend")
+        oldObject["activityState"] = "working"
+        let oldData = try JSONSerialization.data(withJSONObject: oldObject)
+        let migrated = try JSONDecoder().decode(TerminalSession.self, from: oldData)
         try expect(
-            legacy.backend == .dtach,
-            "a pre-session manifest abandoned its live dtach backend"
+            migrated.state == .stopped,
+            "a pre-native manifest launched a replacement process without an explicit restart"
+        )
+        try expect(
+            migrated.activityState == .unknown,
+            "a stopped pre-native manifest retained stale activity"
         )
     }
 

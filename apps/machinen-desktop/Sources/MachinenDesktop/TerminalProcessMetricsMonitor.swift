@@ -11,7 +11,7 @@ private func machinenProcPIDRusage(
 /// Samples the active process belonging to the focused terminal. CPU comes
 /// directly from libproc; network byte totals come from macOS `nettop` for the
 /// same PID. Both are best-effort because a foreground process may exit between
-/// the dtach status sample and this probe.
+/// live session metadata and this probe.
 @MainActor
 final class TerminalProcessMetricsMonitor {
     private enum Metrics {

@@ -1,4 +1,3 @@
-import Darwin
 import Foundation
 
 final class WorkspaceRecord: Codable {
@@ -86,10 +85,7 @@ struct TerminalLaunch: Codable {
 }
 
 final class TerminalSession: Codable {
-    enum Backend: String, Codable {
-        case dtach
-        case machinenSession
-    }
+    static let backendName = "machinenSession"
 
     enum State: String, Codable {
         case starting
@@ -114,7 +110,6 @@ final class TerminalSession: Codable {
     var workspace: String
     var name: String
     var launch: TerminalLaunch
-    var backend: Backend
     var location: WorkspaceLocation
     var workingDirectory: String {
         get { location.path }
@@ -124,14 +119,14 @@ final class TerminalSession: Codable {
     var activityState: ActivityState
     var titleOverride: String?
     var observedCommand: String?
-    /// Runtime-only name of the login shell, inferred from dtach's child PID.
+    /// Runtime-only name of the login shell, inferred from live process metadata.
     /// It is deliberately not persisted or allowed to replace a user-given name.
     var inferredShellName: String?
     /// A runtime label intentionally sent by the program inside the terminal.
     /// It takes precedence over the inferred shell name until cleared.
     var runtimeLabel: String?
-    /// Live process identifiers from the dtach sidecar. They are never
-    /// persisted because a restarted process gets new PIDs.
+    /// Best-effort live process identifiers. They are never persisted because
+    /// a restarted process gets new PIDs.
     var shellPID: Int32?
     var processPID: Int32?
 
@@ -164,7 +159,6 @@ final class TerminalSession: Codable {
         workspace: String,
         name: String,
         launch: TerminalLaunch,
-        backend: Backend = .machinenSession,
         workingDirectory: String,
         sshHost: String? = nil,
         state: State = .starting,
@@ -178,7 +172,6 @@ final class TerminalSession: Codable {
         self.workspace = workspace
         self.name = name
         self.launch = launch
-        self.backend = backend
         location = sshHost.map { .ssh(host: $0, path: workingDirectory) }
             ?? .local(workingDirectory)
         self.state = state
@@ -225,17 +218,21 @@ final class TerminalSession: Codable {
         } else {
             launch = .loginShell
         }
-        // Manifests written before the session backend existed refer to live
-        // dtach sockets. Preserve those processes until the user explicitly
-        // restarts them; new TerminalSession values use machinen-session.
-        backend = try container.decodeIfPresent(Backend.self, forKey: .backend) ?? .dtach
+        let persistedBackend = try container.decodeIfPresent(String.self, forKey: .backend)
         if let decoded = try container.decodeIfPresent(WorkspaceLocation.self, forKey: .location) {
             location = decoded
         } else {
             location = .local(try container.decode(String.self, forKey: .workingDirectory))
         }
-        state = try container.decode(State.self, forKey: .state)
-        activityState = try container.decodeIfPresent(ActivityState.self, forKey: .activityState) ?? .unknown
+        let persistedState = try container.decode(State.self, forKey: .state)
+        // A pre-native prototype manifest cannot identify a Machinen session
+        // worker. Keep its launch definition, but require an explicit restart.
+        state = persistedBackend == Self.backendName ? persistedState : .stopped
+        let persistedActivity = try container.decodeIfPresent(
+            ActivityState.self,
+            forKey: .activityState
+        ) ?? .unknown
+        activityState = persistedBackend == Self.backendName ? persistedActivity : .unknown
         titleOverride = try container.decodeIfPresent(String.self, forKey: .titleOverride)
         observedCommand = nil
         inferredShellName = nil
@@ -253,26 +250,13 @@ final class TerminalSession: Codable {
         try container.encode(workspace, forKey: .workspace)
         try container.encode(name, forKey: .name)
         try container.encode(launch, forKey: .launch)
-        try container.encode(backend, forKey: .backend)
+        try container.encode(Self.backendName, forKey: .backend)
         try container.encode(workingDirectory, forKey: .workingDirectory)
         try container.encode(location, forKey: .location)
         try container.encode(state, forKey: .state)
         try container.encode(activityState, forKey: .activityState)
         try container.encodeIfPresent(titleOverride, forKey: .titleOverride)
         try container.encodeIfPresent(runtimeLabel, forKey: .runtimeLabel)
-    }
-
-    var socketPath: String {
-        let directory = "/tmp/machinen-\(getuid())"
-        try? FileManager.default.createDirectory(
-            atPath: directory,
-            withIntermediateDirectories: true,
-            attributes: [.posixPermissions: 0o700]
-        )
-        let safeID = id.lowercased().map { character in
-            character.isLetter || character.isNumber ? character : "-"
-        }
-        return directory + "/" + String(safeID.prefix(36)) + ".sock"
     }
 
     var terminalText: String {
@@ -288,11 +272,7 @@ final class TerminalSession: Codable {
         case .disconnected:
             "Terminal viewer disconnected.\n\nUse Terminal: Reconnect."
         case .detached:
-            if backend == .dtach {
-                "Viewer detached.\n\nThe process continues behind dtach socket:\n\(socketPath)"
-            } else {
-                "Viewer detached.\n\nThe process continues in Machinen session \(id)\(location.sshHost.map { " on \($0)" } ?? "")."
-            }
+            "Viewer detached.\n\nThe process continues in Machinen session \(id)\(location.sshHost.map { " on \($0)" } ?? "")."
         }
     }
 

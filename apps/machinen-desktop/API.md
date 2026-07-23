@@ -125,19 +125,15 @@ owns launch information, process state, and PTY input/output.
 }
 ```
 
-`pid` is the foreground process-group leader used for a tile's live CPU and
-network metrics (including its local child-process tree); `shellPid` is the
-persistent shell child when the active backend exposes it. Both are best-effort
-live values and may be `null` while a terminal is starting or stopped. `backend`
-is `machinenSession` for new and restarted terminals, or `dtach` for a live
-session preserved from an older Desktop manifest.
+`pid` and `shellPid` are reserved for best-effort foreground process metadata
+and may be `null`. The native session protocol does not yet publish those
+values. `backend` is always `machinenSession`.
 
 Process states are `starting`, `running`, `stopped`, `exited`, and
 `disconnected`. Activity states are `working`, `waiting`, `idle`, and `unknown`.
-Machinen derives activity from the persistent PTY's byte counters, foreground
-process group, terminal mode, and a throttled process wait-state sample. A
-login shell at its prompt is idle; a foreground process blocked on terminal
-input is waiting. Detection continues while its viewer is detached. Viewer
+Recent output observed by Desktop is `working`; quiet or detached sessions are
+`unknown` until the native protocol publishes foreground process activity.
+Callers may provide a stronger activity state through `tile.update`. Viewer
 states are `attached` and `detached`.
 
 ## System

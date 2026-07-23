@@ -116,24 +116,15 @@ When no workspace exists, only **New workspace…** is shown.
 
 ## Activity and input-required detection
 
-Machinen separates PTY lifecycle from activity. Running terminals are reported
-as `working`, `waiting`, `idle`, or `unknown`:
-
-- recent PTY input/output is working;
-- a login shell at its own foreground process group is idle;
-- after a foreground command becomes quiet, Machinen samples its wait state;
-- terminal reads and raw interactive event loops become waiting after two
-  matching observations;
-- timers, child-process waits, and network waits remain working;
-- stopped, exited, or unreadable sessions are unknown.
+Machinen separates PTY lifecycle from activity. Recent output observed by the
+Desktop viewer is `working`. Stopped, exited, quiet, detached, or unreadable
+sessions are `unknown` unless a trusted API client supplies a stronger
+`working`, `waiting`, or `idle` state through `tile.update`.
 
 The native session worker journals byte-exact output and ordered resize events
 to a private SQLite database, allowing a new renderer to recover history after
-a disconnect. Sessions created by an older Desktop manifest continue through
-the bundled dtach compatibility backend until explicitly restarted; Machinen
-discovers their existing master and foreground process group without disrupting
-the command. Detailed detached-process activity metadata for the native backend
-will move behind the session protocol rather than depending on dtach sidecars.
+a disconnect. Detailed foreground-process and detached-session activity belong
+in that native protocol; Desktop does not guess them from host process lists.
 The single status bar renders terminals as spatially ordered activity pips;
 waiting and failed terminals receive attention and error tones.
 
@@ -142,10 +133,9 @@ waiting and failed terminals receive attention and error tones.
 Machinen has one persistent status bar. At workspace level its title is the
 workspace name and hovering it reveals the bound path. At terminal level the
 title is `workspace name > terminal name`; its hover detail shows the bound path
-and observed foreground command. For login shells, Machinen infers the terminal
-name from dtach's persistent child process (for example, `zsh` or `bash`). An
-MCP client can set a persistent title override with `terminal_update`, or clear
-it to return to automatic detection. A terminal program can set a temporary
+and any observed foreground command. An MCP client can set a persistent title
+override with `terminal_update`, or clear it to return to the saved terminal
+name. A terminal program can set a temporary
 runtime label with OSC 2 `machinen:<label>` (and clear it with `machinen:`);
 that label takes precedence in the status title, survives a viewer relaunch, and
 works through SSH.

@@ -37,7 +37,7 @@ final class TerminalSessionStore {
         do {
             let manifest = try JSONDecoder().decode(Manifest.self, from: data)
             let state = migrate(workspaces: manifest.workspaces, sessions: manifest.sessions)
-            if manifest.version < 5 || manifest.workspaces == nil {
+            if manifest.version < 6 || manifest.workspaces == nil {
                 save(state)
             }
             return state
@@ -59,7 +59,7 @@ final class TerminalSessionStore {
             )
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let manifest = Manifest(version: 5, workspaces: state.workspaces, sessions: state.sessions)
+            let manifest = Manifest(version: 6, workspaces: state.workspaces, sessions: state.sessions)
             let data = try encoder.encode(manifest)
             try data.write(to: manifestURL, options: .atomic)
         } catch {

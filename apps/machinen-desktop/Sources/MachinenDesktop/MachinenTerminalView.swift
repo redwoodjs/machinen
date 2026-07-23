@@ -1,11 +1,7 @@
 import AppKit
 import SwiftTerm
 
-/// A SwiftTerm viewer attached to a persistent terminal-session backend.
-///
-/// New and restarted terminals use Machinen's native session worker. Sessions
-/// decoded from older manifests keep using the bundled dtach compatibility
-/// backend until restart, so deploying an update never interrupts live work.
+/// A SwiftTerm viewer attached to a persistent Machinen session worker.
 final class MachinenTerminalView: LocalProcessTerminalView {
     let session: TerminalSession
 
@@ -35,7 +31,7 @@ final class MachinenTerminalView: LocalProcessTerminalView {
     private var isFocusedRendering = false
     private var renderInterval = RenderCadence.thumbnail
     private var terminalBackend: any TerminalSessionBackend {
-        TerminalSessionBackendFactory.backend(for: session.backend)
+        TerminalSessionBackendFactory.backend
     }
 
     init(session: TerminalSession) {
@@ -199,7 +195,7 @@ final class MachinenTerminalView: LocalProcessTerminalView {
             onStateChange?(.running)
         } catch {
             InputRoutingLog.log(
-                "terminal[\(session.tileID)] backend=\(session.backend.rawValue) failed: \(error.localizedDescription)"
+                "terminal[\(session.tileID)] session backend failed: \(error.localizedDescription)"
             )
             clientStarted = false
             session.state = .stopped
@@ -266,9 +262,6 @@ final class MachinenTerminalView: LocalProcessTerminalView {
     func restartPersistentSession() {
         requestedStateAfterExit = .stopped
         terminalBackend.reset(session)
-        // Legacy persisted terminals keep their dtach process until an explicit
-        // restart, at which point this session moves to the native backend.
-        session.backend = .machinenSession
         clientStarted = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
             guard let self else { return }
@@ -352,33 +345,6 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         let bytes = pendingRenderBytes
         pendingRenderBytes.removeAll(keepingCapacity: true)
         super.dataReceived(slice: bytes[...])
-    }
-
-    static func remoteCommand(
-        for launch: TerminalLaunch,
-        workingDirectory: String
-    ) -> String? {
-        let location = WorkspaceLocation.ssh(host: "remote", path: workingDirectory)
-        let prefix = "cd -- \(location.remoteShellPath) && exec "
-        switch launch.kind {
-        case .loginShell:
-            return prefix + "\"${SHELL:-/bin/sh}\" -l"
-        case .shellCommand:
-            return prefix + "\"${SHELL:-/bin/sh}\" -lc "
-                + WorkspaceLocation.shellQuote(launch.command ?? "")
-        case .exec:
-            guard let executable = launch.executable, !executable.isEmpty else { return nil }
-            var command: [String] = []
-            if let environment = launch.environment, !environment.isEmpty {
-                command.append("/usr/bin/env")
-                command.append(contentsOf: environment.sorted(by: { $0.key < $1.key }).map {
-                    WorkspaceLocation.shellQuote("\($0.key)=\($0.value)")
-                })
-            }
-            command.append(WorkspaceLocation.shellQuote(executable))
-            command.append(contentsOf: (launch.arguments ?? []).map(WorkspaceLocation.shellQuote))
-            return prefix + command.joined(separator: " ")
-        }
     }
 
     private func loginShell() -> String {
