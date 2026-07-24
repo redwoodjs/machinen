@@ -1,3 +1,0 @@
-# Preserve byte-identical third-party amalgamations.
-packages/session/vendor/sqlite/sqlite3.c whitespace=-trailing-space
-packages/session/vendor/sqlite/sqlite3.h whitespace=-trailing-space

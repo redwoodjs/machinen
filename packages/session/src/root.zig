@@ -776,6 +776,11 @@ fn testDatabasePath(allocator: std.mem.Allocator, tmp: *const std.testing.TmpDir
     );
 }
 
+test "linked SQLite version is pinned" {
+    const version: [*:0]const u8 = @ptrCast(sqlite.sqlite3_libversion());
+    try std.testing.expectEqualStrings("3.51.0", std.mem.span(version));
+}
+
 test "store migrates a new database and persists session metadata" {
     const allocator = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});

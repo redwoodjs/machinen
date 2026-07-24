@@ -151,16 +151,16 @@ pnpm -F @machinen/session build
 
 See [`PROTOCOL.md`](./PROTOCOL.md) for frame-level details.
 
-## Vendored SQLite
+## Pinned SQLite build dependency
 
-SQLite 3.51.0 is vendored from the official amalgamation at
-<https://www.sqlite.org/2025/sqlite-amalgamation-3510000.zip> and compiled into
-the binary with extension loading disabled.
+Zig fetches SQLite 3.51.0 from the official autoconf source archive and caches
+it by content hash. `build.zig` compiles the archive's amalgamated `sqlite3.c`
+directly into `machinen-session` with runtime extension loading disabled. The
+shipped binary therefore has no runtime SQLite or network dependency.
 
-Archive SHA-256:
-
-```text
-1caf7116f2910600d04473ad69d37ec538fa62fa36adccd37b5e0e43647c98be
-```
-
-SQLite is in the public domain: <https://www.sqlite.org/copyright.html>.
+- Source: <https://www.sqlite.org/2025/sqlite-autoconf-3510000.tar.gz>
+- Archive SHA-256: `42e26dfdd96aa2e6b1b1be5c88b0887f9959093f650d693cb02eb9c36d146ca5`
+- `sqlite3.c` SHA-256: `dc58f0b5b74e8416cc29b49163a00d6b8bf08a24dd4127652beaaae307bd1839`
+- `sqlite3.h` SHA-256: `05c48cbf0a0d7bda2b6d0145ac4f2d3a5e9e1cb98b5d4fa9d88ef620e1940046`
+- Zig package hash: `N-V-__8AAEX4vgBcl2OX6nCrfasAkbYDFSlDut77e0uEwXFm`
+- License: SQLite is in the public domain: <https://www.sqlite.org/copyright.html>

@@ -4,15 +4,16 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const sqlite = b.dependency("sqlite", .{});
     const session = b.addModule("session", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
-    session.addIncludePath(b.path("vendor/sqlite"));
+    session.addIncludePath(sqlite.path("."));
     session.addCSourceFile(.{
-        .file = b.path("vendor/sqlite/sqlite3.c"),
+        .file = sqlite.path("sqlite3.c"),
         .flags = &.{
             "-std=c99",
             "-DSQLITE_THREADSAFE=1",
