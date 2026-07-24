@@ -1,8 +1,9 @@
 import AppKit
-import SwiftTerm
+import CoreText
+import GhosttyKit
 
-/// A SwiftTerm viewer attached to a persistent Machinen session worker.
-final class MachinenTerminalView: LocalProcessTerminalView {
+/// An embedded Ghostty surface attached to a persistent Machinen session worker.
+final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     let session: TerminalSession
 
     var onStateChange: ((TerminalSession.State) -> Void)?
@@ -13,65 +14,44 @@ final class MachinenTerminalView: LocalProcessTerminalView {
     var onRuntimeLabelChange: ((String?) -> Void)?
     var onOutput: ((Data) -> Void)?
 
-    private enum RenderCadence {
-        static let focusedPassive: TimeInterval = 1.0 / 20.0
-        static let interactive: TimeInterval = 1.0 / 60.0
-        static let thumbnail: TimeInterval = 1.0 / 12.0
-        static let inputBoostDuration: TimeInterval = 0.15
-    }
+    nonisolated var ghosttySurface: ghostty_surface_t? { surface }
 
-    private var clientStarted = false
+    nonisolated(unsafe) private var surface: ghostty_surface_t?
     private var activityDetector: TerminalActivityDetector?
     private var requestedStateAfterExit: TerminalSession.State?
-    private var attachAfterClientExit = false
     private var attachRetryScheduled = false
-    private var pendingRenderBytes: [UInt8] = []
-    private var pendingRenderTimer: Timer?
-    private var inputBoostTimer: Timer?
-    private var isFocusedRendering = false
-    private var renderInterval = RenderCadence.thumbnail
+    private var destroyingSurface = false
+    private var focusedRendering = false
+    private var markedText = NSMutableAttributedString()
+    private var keyTextAccumulator: [String]?
+    private var cellSize = NSSize(width: 10, height: 20)
+    private var tracking: NSTrackingArea?
+    private var outputTap: GhosttyOutputTap?
     private var terminalBackend: any TerminalSessionBackend {
         TerminalSessionBackendFactory.backend
     }
 
+    override var acceptsFirstResponder: Bool { true }
+
     init(session: TerminalSession) {
         self.session = session
-        super.init(frame: .zero)
-        wantsLayer = true
-        layer?.backgroundColor = NSColor(calibratedWhite: 0.105, alpha: 1).cgColor
-
-        // SwiftTerm's experimental Metal path still shapes each row on CPU and
-        // was slower than CoreText in the spatial multi-viewer profile. Keep
-        // CoreText, then coalesce refreshes below at a deliberate cadence.
-        try? setUseMetal(false)
-        nativeForegroundColor = NSColor(calibratedWhite: 0.82, alpha: 1)
-        nativeBackgroundColor = NSColor(calibratedWhite: 0.105, alpha: 1)
-        caretColor = NSColor(calibratedWhite: 0.92, alpha: 1)
-        getTerminal().setCursorStyle(.steadyBlock)
+        super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
         let detector = TerminalActivityDetector(session: session)
-        detector.onActivityChange = { [weak self] state in
-            self?.onActivityChange?(state)
-        }
-        detector.onCommandChange = { [weak self] command in
-            self?.onCommandChange?(command)
-        }
-        detector.onShellNameChange = { [weak self] shellName in
-            self?.onShellNameChange?(shellName)
-        }
-        detector.onProcessInfoChange = { [weak self] info in
-            self?.onProcessInfoChange?(info)
-        }
+        detector.onActivityChange = { [weak self] state in self?.onActivityChange?(state) }
+        detector.onCommandChange = { [weak self] command in self?.onCommandChange?(command) }
+        detector.onShellNameChange = { [weak self] shellName in self?.onShellNameChange?(shellName) }
+        detector.onProcessInfoChange = { [weak self] info in self?.onProcessInfoChange?(info) }
         activityDetector = detector
     }
 
-    /// Programs inside the terminal can set a Machinen-specific runtime label
-    /// with OSC 2, for example: `ESC ] 2 ; machinen:agent BEL`. OSC survives
-    /// SSH hops, unlike Machinen's local Unix socket.
-    override func setTerminalTitle(source: TerminalView, title: String) {
-        super.setTerminalTitle(source: source, title: title)
-        guard let label = Self.runtimeLabel(fromTerminalTitle: title) else { return }
-        InputRoutingLog.log("terminal[\(session.tileID)] runtime label=\(label ?? "<cleared>")")
-        onRuntimeLabelChange?(label)
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        if let surface { ghostty_surface_free(surface) }
+        outputTap?.close()
     }
 
     static func runtimeLabel(fromTerminalTitle title: String) -> String?? {
@@ -84,59 +64,6 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         return label.isEmpty ? .some(nil) : .some(label)
     }
 
-    override func mouseDown(with event: NSEvent) {
-        InputRoutingLog.log("terminal[\(session.tileID)] mouseDown \(InputRoutingLog.event(event))")
-        super.mouseDown(with: event)
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        InputRoutingLog.log("terminal[\(session.tileID)] mouseDragged \(InputRoutingLog.event(event))")
-        super.mouseDragged(with: event)
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        InputRoutingLog.log("terminal[\(session.tileID)] mouseUp \(InputRoutingLog.event(event))")
-        super.mouseUp(with: event)
-    }
-
-    override func copy(_ sender: Any) {
-        InputRoutingLog.log("terminal[\(session.tileID)] copy")
-        super.copy(sender)
-    }
-
-    override func paste(_ sender: Any) {
-        InputRoutingLog.log("terminal[\(session.tileID)] paste")
-        super.paste(sender)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    /// SwiftTerm's legacy control-key path maps letters and punctuation only,
-    /// which drops `⌃↩` entirely. In a legacy terminal, Control-Return has the
-    /// same byte-level meaning as Control-M: carriage return. Applications that
-    /// enable the Kitty keyboard protocol retain their distinct modified-Enter
-    /// sequence through SwiftTerm's native handling.
-    static func legacyControlReturnBytes(
-        keyCode: UInt16,
-        modifiers: NSEvent.ModifierFlags,
-        kittyKeyboardEnabled: Bool
-    ) -> [UInt8]? {
-        guard !kittyKeyboardEnabled,
-              modifiers.contains(.control),
-              keyCode == 36 || keyCode == 76
-        else { return nil }
-        return [0x0D]
-    }
-
-    @discardableResult
-    func sendLegacyControlReturn() -> Bool {
-        guard getTerminal().keyboardEnhancementFlags.isEmpty else { return false }
-        return sendPersistentInput(Data([0x0D]))
-    }
-
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         guard window != nil else {
@@ -144,69 +71,113 @@ final class MachinenTerminalView: LocalProcessTerminalView {
             return
         }
         activityDetector?.start()
+        updateGhosttyGeometry()
         if session.state == .running || session.state == .starting || session.state == .disconnected {
             attach()
         }
     }
 
-    func attach() {
-        if process.running {
-            // Detach and immediate reattach can overlap while the old attach
-            // process is still restoring terminal mode. End that viewer and
-            // retry instead of leaving the tile permanently in `starting`.
-            if session.state == .starting {
-                attachAfterClientExit = true
-                terminate()
-                clientStarted = false
-                scheduleAttachRetry()
-            }
-            return
-        }
-        if clientStarted {
-            // startProcess has been requested but LocalProcess has not yet
-            // published `running`. Wait for that launch rather than starting
-            // a second attach process against the same SwiftTerm view.
-            if session.state == .starting {
-                attachAfterClientExit = true
-                scheduleAttachRetry()
-            }
-            return
-        }
-        attachAfterClientExit = false
-        attachRetryScheduled = false
-        clientStarted = true
-        requestedStateAfterExit = nil
-        session.state = .starting
-        onStateChange?(.starting)
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        updateGhosttyGeometry()
+    }
 
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        updateGhosttyGeometry()
+    }
+
+    override func updateTrackingAreas() {
+        if let tracking { removeTrackingArea(tracking) }
+        let next = NSTrackingArea(
+            rect: bounds,
+            options: [.activeAlways, .inVisibleRect, .mouseEnteredAndExited, .mouseMoved],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(next)
+        tracking = next
+    }
+
+    func attach() {
+        guard surface == nil, !destroyingSurface else {
+            if session.state == .starting { scheduleAttachRetry() }
+            return
+        }
+        guard let app = GhosttyRuntime.shared.app else {
+            setSessionState(.stopped)
+            return
+        }
+
+        requestedStateAfterExit = nil
+        outputTap?.close()
+        outputTap = nil
+        setSessionState(.starting)
         do {
-            let launch = try terminalBackend.prepareViewer(
-                for: session,
-                loginShell: loginShell()
+            let launch = try terminalBackend.prepareViewer(for: session, loginShell: loginShell())
+            let command = commandWithOutputTap(Self.viewerCommand(launch))
+            var config = ghostty_surface_config_new()
+            config.userdata = Unmanaged.passUnretained(self).toOpaque()
+            config.platform_tag = GHOSTTY_PLATFORM_MACOS
+            config.platform = ghostty_platform_u(
+                macos: ghostty_platform_macos_s(
+                    nsview: Unmanaged.passUnretained(self).toOpaque()
+                )
             )
-            startProcess(
-                executable: launch.executable,
-                args: launch.arguments,
-                environment: launch.environment,
-                execName: launch.executableName,
-                currentDirectory: launch.workingDirectory
+            config.scale_factor = Double(
+                window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
             )
-            session.state = .running
-            onStateChange?(.running)
+            config.context = GHOSTTY_SURFACE_CONTEXT_SPLIT
+
+            let created = launch.workingDirectory.withCString { directory in
+                config.working_directory = directory
+                return command.withCString { commandPointer in
+                    config.command = commandPointer
+                    return ghostty_surface_new(app, &config)
+                }
+            }
+            guard let created else { throw GhosttyViewError.surfaceCreationFailed }
+            surface = created
+            updateGhosttyGeometry()
+            ghostty_surface_set_focus(created, focusedRendering)
+            setSessionState(.running)
+        } catch {
+            outputTap?.close()
+            outputTap = nil
+            InputRoutingLog.log(
+                "terminal[\(session.tileID)] ghostty viewer failed: \(error.localizedDescription)"
+            )
+            setSessionState(.stopped)
+        }
+    }
+
+    private static func viewerCommand(_ launch: TerminalViewerLaunch) -> String {
+        let arguments = [launch.executable] + launch.arguments
+        return arguments.map(WorkspaceLocation.shellQuote).joined(separator: " ")
+    }
+
+    private func commandWithOutputTap(_ command: String) -> String {
+        do {
+            let tap = try GhosttyOutputTap { [weak self] data in
+                DispatchQueue.main.async { [weak self] in
+                    self?.activityDetector?.recordOutput()
+                    self?.onOutput?(data)
+                }
+            }
+            outputTap = tap
+            return "\(command) | /usr/bin/tee \(WorkspaceLocation.shellQuote(tap.path))"
         } catch {
             InputRoutingLog.log(
-                "terminal[\(session.tileID)] session backend failed: \(error.localizedDescription)"
+                "terminal[\(session.tileID)] output tap unavailable: \(error.localizedDescription)"
             )
-            clientStarted = false
-            session.state = .stopped
-            onStateChange?(.stopped)
+            return command
         }
     }
 
     private func scheduleAttachRetry() {
         guard !attachRetryScheduled else { return }
         attachRetryScheduled = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
             guard let self else { return }
             self.attachRetryScheduled = false
             if self.session.state == .starting { self.attach() }
@@ -214,24 +185,14 @@ final class MachinenTerminalView: LocalProcessTerminalView {
     }
 
     func detachForApplicationExit() {
-        guard process.running else { return }
-        attachAfterClientExit = false
         requestedStateAfterExit = .running
-        terminate()
+        destroyViewer()
     }
 
     func detachViewer() {
-        attachAfterClientExit = false
-        guard process.running else {
-            session.state = .detached
-            onStateChange?(.detached)
-            return
-        }
         requestedStateAfterExit = .detached
-        terminate()
-        // SwiftTerm's explicit terminate path cancels its process monitor and
-        // does not call processTerminated, so release our launch guard here.
-        clientStarted = false
+        destroyViewer()
+        setSessionState(.detached)
     }
 
     @discardableResult
@@ -247,22 +208,22 @@ final class MachinenTerminalView: LocalProcessTerminalView {
     }
 
     func stopPersistentSession() {
-        attachAfterClientExit = false
         requestedStateAfterExit = .stopped
         terminalBackend.stop(session)
-        session.state = .stopped
-        onStateChange?(.stopped)
+        destroyViewer()
+        setSessionState(.stopped)
     }
 
     func removePersistentSession() {
         requestedStateAfterExit = .stopped
+        destroyViewer()
         terminalBackend.remove(session)
     }
 
     func restartPersistentSession() {
         requestedStateAfterExit = .stopped
         terminalBackend.reset(session)
-        clientStarted = false
+        destroyViewer()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
             guard let self else { return }
             self.requestedStateAfterExit = nil
@@ -270,81 +231,96 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         }
     }
 
-    /// Full-size terminals stream at 20 Hz until local input arrives, then
-    /// receive a brief 60 Hz burst. Spatial thumbnails remain live at 12 Hz.
-    /// Bytes are still observed and published immediately.
     func setFocusedRendering(_ focused: Bool) {
-        isFocusedRendering = focused
-        inputBoostTimer?.invalidate()
-        inputBoostTimer = nil
-        setRenderInterval(focused ? RenderCadence.focusedPassive : RenderCadence.thumbnail, flush: focused)
+        focusedRendering = focused
+        if let surface { ghostty_surface_set_focus(surface, focused) }
     }
 
-    func boostRenderingForLocalInput() {
-        guard isFocusedRendering else { return }
-        inputBoostTimer?.invalidate()
-        setRenderInterval(RenderCadence.interactive, flush: true)
-        inputBoostTimer = Timer.scheduledTimer(
-            withTimeInterval: RenderCadence.inputBoostDuration,
-            repeats: false
-        ) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, self.isFocusedRendering else { return }
-                self.setRenderInterval(RenderCadence.focusedPassive, flush: false)
-            }
-        }
-    }
-
-    override func dataReceived(slice: ArraySlice<UInt8>) {
-        activityDetector?.recordOutput()
-        onOutput?(Data(slice))
-        pendingRenderBytes.append(contentsOf: slice)
-        schedulePendingRender()
-    }
-
-    override func processTerminated(_ source: LocalProcess, exitCode: Int32?) {
-        flushPendingRender()
-        super.processTerminated(source, exitCode: exitCode)
-        clientStarted = false
-        let shouldReattach = attachAfterClientExit
-        attachAfterClientExit = false
-        let nextState: TerminalSession.State = shouldReattach
-            ? .starting
-            : requestedStateAfterExit ?? .exited
+    func ghosttyViewerClosed(processAlive: Bool) {
+        guard !destroyingSurface else { return }
+        let requested = requestedStateAfterExit
         requestedStateAfterExit = nil
-        session.state = nextState
-        onStateChange?(nextState)
-        if shouldReattach {
-            DispatchQueue.main.async { [weak self] in self?.attach() }
+        destroyViewer()
+        let nextState = requested ?? (processAlive ? .detached : .exited)
+        setSessionState(nextState)
+    }
+
+    func ghosttyCommandFinished() {
+        activityDetector?.recordOutput()
+    }
+
+    func ghosttyChildExited(exitCode: UInt32) {
+        InputRoutingLog.log("terminal[\(session.tileID)] ghostty viewer exited code=\(exitCode)")
+        ghosttyViewerClosed(processAlive: false)
+    }
+
+    func ghosttyTitleChanged(_ title: String) {
+        guard let label = Self.runtimeLabel(fromTerminalTitle: title) else { return }
+        InputRoutingLog.log("terminal[\(session.tileID)] runtime label=\(label ?? "<cleared>")")
+        onRuntimeLabelChange?(label)
+    }
+
+    func setTerminalTitle(source: MachinenTerminalView, title: String) {
+        ghosttyTitleChanged(title)
+    }
+
+    func ghosttyWorkingDirectoryChanged(_ path: String) {
+        guard !path.isEmpty else { return }
+    }
+
+    func ghosttyCellSizeChanged(width: UInt32, height: UInt32) {
+        cellSize = NSSize(width: Int(width), height: Int(height))
+    }
+
+    func ghosttyMouseShapeChanged(_ shape: ghostty_action_mouse_shape_e) {
+        switch shape {
+        case GHOSTTY_MOUSE_SHAPE_POINTER: NSCursor.pointingHand.set()
+        case GHOSTTY_MOUSE_SHAPE_CROSSHAIR: NSCursor.crosshair.set()
+        case GHOSTTY_MOUSE_SHAPE_NOT_ALLOWED: NSCursor.operationNotAllowed.set()
+        case GHOSTTY_MOUSE_SHAPE_W_RESIZE, GHOSTTY_MOUSE_SHAPE_E_RESIZE,
+             GHOSTTY_MOUSE_SHAPE_EW_RESIZE: NSCursor.resizeLeftRight.set()
+        case GHOSTTY_MOUSE_SHAPE_N_RESIZE, GHOSTTY_MOUSE_SHAPE_S_RESIZE,
+             GHOSTTY_MOUSE_SHAPE_NS_RESIZE: NSCursor.resizeUpDown.set()
+        default: NSCursor.iBeam.set()
         }
     }
 
-    private func setRenderInterval(_ interval: TimeInterval, flush: Bool) {
-        guard renderInterval != interval else {
-            if flush { flushPendingRender() }
-            return
-        }
-        renderInterval = interval
-        if flush { flushPendingRender() }
+    func ghosttyMouseVisibilityChanged(_ visible: Bool) {
+        if visible { NSCursor.unhide() } else { NSCursor.hide() }
     }
 
-    private func schedulePendingRender() {
-        guard pendingRenderTimer == nil else { return }
-        let timer = Timer.scheduledTimer(withTimeInterval: renderInterval, repeats: false) { [weak self] _ in
-            Task { @MainActor in
-                self?.flushPendingRender()
-            }
+    private func destroyViewer() {
+        if let active = surface {
+            surface = nil
+            destroyingSurface = true
+            ghostty_surface_free(active)
+            destroyingSurface = false
         }
-        pendingRenderTimer = timer
+        outputTap?.close()
+        outputTap = nil
     }
 
-    private func flushPendingRender() {
-        pendingRenderTimer?.invalidate()
-        pendingRenderTimer = nil
-        guard !pendingRenderBytes.isEmpty else { return }
-        let bytes = pendingRenderBytes
-        pendingRenderBytes.removeAll(keepingCapacity: true)
-        super.dataReceived(slice: bytes[...])
+    private func setSessionState(_ state: TerminalSession.State) {
+        session.state = state
+        onStateChange?(state)
+    }
+
+    private func updateGhosttyGeometry() {
+        guard let surface else { return }
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        ghostty_surface_set_content_scale(surface, scale, scale)
+        let backing = convertToBacking(bounds)
+        ghostty_surface_set_size(
+            surface,
+            UInt32(max(1, backing.width.rounded())),
+            UInt32(max(1, backing.height.rounded()))
+        )
+        if let screen = window?.screen {
+            ghostty_surface_set_display_id(
+                surface,
+                screen.deviceDescription[.init("NSScreenNumber")] as? UInt32 ?? 0
+            )
+        }
     }
 
     private func loginShell() -> String {
@@ -353,4 +329,314 @@ final class MachinenTerminalView: LocalProcessTerminalView {
         } ?? "/bin/zsh"
     }
 
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted, let surface { ghostty_surface_set_focus(surface, true) }
+        return accepted
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let accepted = super.resignFirstResponder()
+        if accepted, let surface { ghostty_surface_set_focus(surface, false) }
+        return accepted
+    }
+
+    override func keyDown(with event: NSEvent) {
+        guard let surface else { return }
+        let translated = NSEvent.ModifierFlags.ghosttyTranslationModifiers(
+            ghostty_surface_key_translation_mods(surface, event.modifierFlags.ghosttyModifiers)
+        )
+        var translationModifiers = event.modifierFlags
+        for flag in [NSEvent.ModifierFlags.shift, .control, .option, .command] {
+            if translated.contains(flag) {
+                translationModifiers.insert(flag)
+            } else {
+                translationModifiers.remove(flag)
+            }
+        }
+        let translationEvent: NSEvent
+        if translationModifiers == event.modifierFlags {
+            translationEvent = event
+        } else {
+            translationEvent = NSEvent.keyEvent(
+                with: event.type,
+                location: event.locationInWindow,
+                modifierFlags: translationModifiers,
+                timestamp: event.timestamp,
+                windowNumber: event.windowNumber,
+                context: nil,
+                characters: event.characters(byApplyingModifiers: translationModifiers) ?? "",
+                charactersIgnoringModifiers: event.charactersIgnoringModifiers ?? "",
+                isARepeat: event.isARepeat,
+                keyCode: event.keyCode
+            ) ?? event
+        }
+
+        let hadMarkedText = hasMarkedText()
+        keyTextAccumulator = []
+        interpretKeyEvents([translationEvent])
+        let accumulated = keyTextAccumulator ?? []
+        keyTextAccumulator = nil
+        syncPreedit(clearIfNeeded: hadMarkedText)
+
+        let action = event.isARepeat ? GHOSTTY_ACTION_REPEAT : GHOSTTY_ACTION_PRESS
+        if accumulated.isEmpty {
+            _ = sendKey(
+                action,
+                event: event,
+                translationModifiers: translationModifiers,
+                text: translationEvent.ghosttyText,
+                composing: hasMarkedText() || hadMarkedText
+            )
+        } else {
+            for text in accumulated {
+                _ = sendKey(
+                    action,
+                    event: event,
+                    translationModifiers: translationModifiers,
+                    text: text
+                )
+            }
+        }
+    }
+
+    override func keyUp(with event: NSEvent) {
+        _ = sendKey(GHOSTTY_ACTION_RELEASE, event: event, text: nil)
+    }
+
+    override func flagsChanged(with event: NSEvent) {
+        let pressed = event.modifierFlags.ghosttyModifiers.rawValue
+        let mask: UInt32
+        switch event.keyCode {
+        case 0x39: mask = GHOSTTY_MODS_CAPS.rawValue
+        case 0x38, 0x3C: mask = GHOSTTY_MODS_SHIFT.rawValue
+        case 0x3B, 0x3E: mask = GHOSTTY_MODS_CTRL.rawValue
+        case 0x3A, 0x3D: mask = GHOSTTY_MODS_ALT.rawValue
+        case 0x37, 0x36: mask = GHOSTTY_MODS_SUPER.rawValue
+        default: return
+        }
+        _ = sendKey(pressed & mask == 0 ? GHOSTTY_ACTION_RELEASE : GHOSTTY_ACTION_PRESS, event: event)
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command) { return false }
+        if event.type == .keyDown,
+           event.modifierFlags.contains(.control),
+           event.charactersIgnoringModifiers == "\r"
+        {
+            keyDown(with: event)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    private func sendKey(
+        _ action: ghostty_input_action_e,
+        event: NSEvent,
+        translationModifiers: NSEvent.ModifierFlags? = nil,
+        text: String? = nil,
+        composing: Bool = false
+    ) -> Bool {
+        guard let surface else { return false }
+        var key = event.ghosttyKeyEvent(action, translationModifiers: translationModifiers)
+        key.composing = composing
+        guard let text, !text.isEmpty, text.utf8.first.map({ $0 >= 0x20 }) == true else {
+            return ghostty_surface_key(surface, key)
+        }
+        return text.withCString {
+            key.text = $0
+            return ghostty_surface_key(surface, key)
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        InputRoutingLog.log("terminal[\(session.tileID)] mouseDown \(InputRoutingLog.event(event))")
+        window?.makeFirstResponder(self)
+        sendMousePosition(event)
+        sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        InputRoutingLog.log("terminal[\(session.tileID)] mouseUp \(InputRoutingLog.event(event))")
+        sendMouseButton(event, state: GHOSTTY_MOUSE_RELEASE)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        InputRoutingLog.log("terminal[\(session.tileID)] mouseDragged \(InputRoutingLog.event(event))")
+        sendMousePosition(event)
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        sendMousePosition(event)
+        sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS)
+    }
+
+    override func rightMouseUp(with event: NSEvent) {
+        sendMouseButton(event, state: GHOSTTY_MOUSE_RELEASE)
+    }
+
+    override func rightMouseDragged(with event: NSEvent) { sendMousePosition(event) }
+    override func otherMouseDown(with event: NSEvent) { sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS) }
+    override func otherMouseUp(with event: NSEvent) { sendMouseButton(event, state: GHOSTTY_MOUSE_RELEASE) }
+    override func otherMouseDragged(with event: NSEvent) { sendMousePosition(event) }
+    override func mouseMoved(with event: NSEvent) { sendMousePosition(event) }
+    override func mouseEntered(with event: NSEvent) { sendMousePosition(event) }
+
+    override func mouseExited(with event: NSEvent) {
+        guard NSEvent.pressedMouseButtons == 0, let surface else { return }
+        ghostty_surface_mouse_pos(surface, -1, -1, event.modifierFlags.ghosttyModifiers)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        guard let surface else { return }
+        var x = event.scrollingDeltaX
+        var y = event.scrollingDeltaY
+        if event.hasPreciseScrollingDeltas {
+            x *= 2
+            y *= 2
+        }
+        ghostty_surface_mouse_scroll(surface, x, y, event.ghosttyScrollModifiers)
+    }
+
+    private func sendMousePosition(_ event: NSEvent) {
+        guard let surface else { return }
+        let position = convert(event.locationInWindow, from: nil)
+        ghostty_surface_mouse_pos(
+            surface,
+            position.x,
+            bounds.height - position.y,
+            event.modifierFlags.ghosttyModifiers
+        )
+    }
+
+    private func sendMouseButton(_ event: NSEvent, state: ghostty_input_mouse_state_e) {
+        guard let surface else { return }
+        _ = ghostty_surface_mouse_button(
+            surface,
+            state,
+            event.ghosttyMouseButton,
+            event.modifierFlags.ghosttyModifiers
+        )
+    }
+
+    @objc func copy(_ sender: Any?) {
+        InputRoutingLog.log("terminal[\(session.tileID)] copy")
+        performGhosttyAction("copy_to_clipboard")
+    }
+
+    @objc func paste(_ sender: Any?) {
+        InputRoutingLog.log("terminal[\(session.tileID)] paste")
+        performGhosttyAction("paste_from_clipboard")
+    }
+
+    override func selectAll(_ sender: Any?) {
+        performGhosttyAction("select_all")
+    }
+
+    private func performGhosttyAction(_ action: String) {
+        guard let surface else { return }
+        action.withCString { _ = ghostty_surface_binding_action(surface, $0, UInt(action.utf8.count)) }
+    }
+
+    func hasMarkedText() -> Bool { markedText.length > 0 }
+
+    func markedRange() -> NSRange {
+        markedText.length > 0 ? NSRange(location: 0, length: markedText.length) : NSRange()
+    }
+
+    func selectedRange() -> NSRange {
+        guard let surface else { return NSRange() }
+        var text = ghostty_text_s()
+        guard ghostty_surface_read_selection(surface, &text) else { return NSRange() }
+        defer { ghostty_surface_free_text(surface, &text) }
+        return NSRange(location: Int(text.offset_start), length: Int(text.offset_len))
+    }
+
+    func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        if let value = string as? NSAttributedString {
+            markedText = NSMutableAttributedString(attributedString: value)
+        } else if let value = string as? String {
+            markedText = NSMutableAttributedString(string: value)
+        }
+        if keyTextAccumulator == nil { syncPreedit() }
+    }
+
+    func unmarkText() {
+        guard markedText.length > 0 else { return }
+        markedText.mutableString.setString("")
+        syncPreedit()
+    }
+
+    func validAttributesForMarkedText() -> [NSAttributedString.Key] { [] }
+
+    func attributedSubstring(
+        forProposedRange range: NSRange,
+        actualRange: NSRangePointer?
+    ) -> NSAttributedString? {
+        guard range.length > 0, let surface else { return nil }
+        var text = ghostty_text_s()
+        guard ghostty_surface_read_selection(surface, &text), let value = text.text else { return nil }
+        defer { ghostty_surface_free_text(surface, &text) }
+        return NSAttributedString(string: String(cString: value))
+    }
+
+    func characterIndex(for point: NSPoint) -> Int { 0 }
+
+    func firstRect(forCharacterRange range: NSRange, actualRange: NSRangePointer?) -> NSRect {
+        guard let surface else { return window?.convertToScreen(convert(bounds, to: nil)) ?? bounds }
+        var x = 0.0
+        var y = 0.0
+        var width = Double(cellSize.width)
+        var height = Double(cellSize.height)
+        ghostty_surface_ime_point(surface, &x, &y, &width, &height)
+        let local = NSRect(
+            x: x,
+            y: bounds.height - y,
+            width: range.length == 0 ? 0 : width,
+            height: max(height, cellSize.height)
+        )
+        let windowRect = convert(local, to: nil)
+        return window?.convertToScreen(windowRect) ?? windowRect
+    }
+
+    func insertText(_ string: Any, replacementRange: NSRange) {
+        let value: String
+        if let attributed = string as? NSAttributedString {
+            value = attributed.string
+        } else if let string = string as? String {
+            value = string
+        } else {
+            return
+        }
+        unmarkText()
+        if keyTextAccumulator != nil {
+            keyTextAccumulator?.append(value)
+        } else if let surface {
+            value.withCString { ghostty_surface_text(surface, $0, UInt(value.utf8.count)) }
+        }
+    }
+
+    override func doCommand(by selector: Selector) {
+        switch selector {
+        case #selector(moveToBeginningOfDocument(_:)): performGhosttyAction("scroll_to_top")
+        case #selector(moveToEndOfDocument(_:)): performGhosttyAction("scroll_to_bottom")
+        default: break
+        }
+    }
+
+    private func syncPreedit(clearIfNeeded: Bool = true) {
+        guard let surface else { return }
+        if markedText.length > 0 {
+            let value = markedText.string
+            value.withCString { ghostty_surface_preedit(surface, $0, UInt(value.utf8.count)) }
+        } else if clearIfNeeded {
+            ghostty_surface_preedit(surface, nil, 0)
+        }
+    }
+}
+
+private enum GhosttyViewError: LocalizedError {
+    case surfaceCreationFailed
+
+    var errorDescription: String? { "Ghostty could not create a terminal surface" }
 }

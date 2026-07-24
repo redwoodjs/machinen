@@ -93,7 +93,7 @@ still covers that point. Otherwise it sends the latest portable VT checkpoint
 before the remaining output.
 
 Checkpoint format v1 is an ordinary VT reconstruction stream containing reset,
-visible UTF-8 cells, and cursor position. It is renderer-neutral: SwiftTerm or
+visible UTF-8 cells, and cursor position. It is renderer-neutral: Ghostty or
 another terminal can consume it as output. Selection, visual viewport, title,
 and styling remain outside the v1 checkpoint.
 

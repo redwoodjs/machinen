@@ -179,24 +179,26 @@ final class WorkspaceClusterView: NSView {
         }
 
         if !isEntered {
-            let paragraph = NSMutableParagraphStyle()
-            paragraph.lineBreakMode = .byTruncatingTail
+            let titleParagraph = NSMutableParagraphStyle()
+            titleParagraph.lineBreakMode = .byTruncatingTail
             let titleAttributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.monospacedSystemFont(ofSize: 18, weight: .semibold),
+                .font: NSFont.systemFont(ofSize: 18, weight: .semibold),
                 .foregroundColor: NSColor(calibratedWhite: 0.82, alpha: 1),
-                .paragraphStyle: paragraph,
+                .paragraphStyle: titleParagraph,
             ]
             NSAttributedString(string: workspace, attributes: titleAttributes).draw(
                 in: NSRect(x: Metrics.padding, y: 8, width: bounds.width * 0.58, height: 24)
             )
 
-            paragraph.alignment = .right
+            let detailParagraph = NSMutableParagraphStyle()
+            detailParagraph.alignment = .right
+            detailParagraph.lineBreakMode = .byTruncatingTail
             let count = sessions.count
             let detail = "\(label) · \(count)"
             let detailAttributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular),
+                .font: NSFont.systemFont(ofSize: 13, weight: .regular),
                 .foregroundColor: NSColor(calibratedWhite: 0.48, alpha: 1),
-                .paragraphStyle: paragraph,
+                .paragraphStyle: detailParagraph,
             ]
             NSAttributedString(string: detail, attributes: detailAttributes).draw(
                 in: NSRect(

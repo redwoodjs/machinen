@@ -12,6 +12,7 @@ case "$configuration" in
         ;;
 esac
 
+./prepare-ghostty.sh
 swift build -c "$configuration"
 bin_dir="$(swift build -c "$configuration" --show-bin-path)"
 session_package="$(cd ../.. && pwd)/packages/session"
@@ -35,6 +36,7 @@ while IFS= read -r -d '' bundle; do
     cp -R "$bundle" "$app/Contents/Resources/"
 done < <(find "$bin_dir" -maxdepth 1 -type d -name '*.bundle' -print0)
 cp Resources/Info.plist "$app/Contents/Info.plist"
+cp Dependencies/GHOSTTY-LICENSE "$app/Contents/Resources/GHOSTTY-LICENSE"
 printf 'APPL????' > "$app/Contents/PkgInfo"
 
 codesign --force --deep --sign - "$app"

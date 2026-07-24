@@ -7,9 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controller: MachinenController?
     private var apiServer: MachinenAPIServer?
     private var commandChord: CommandChord?
-    private var terminalControlReturnShortcut: TerminalControlReturnShortcut?
     private var terminalCycleShortcut: TerminalCycleShortcut?
-    private var terminalInputRenderBoost: TerminalInputRenderBoost?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         InputRoutingLog.start()
@@ -59,14 +57,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard !(self?.window?.firstResponder is MachinenTerminalView) else { return }
             deck?.toggleOverview()
         }
-        terminalControlReturnShortcut = TerminalControlReturnShortcut { [weak deck] in
-            deck?.sendControlReturnToFocusedTerminal() == true
-        }
         terminalCycleShortcut = TerminalCycleShortcut { [weak deck] offset in
             deck?.cycleFocusedWorkspace(by: offset) == true
-        }
-        terminalInputRenderBoost = TerminalInputRenderBoost { [weak deck] in
-            deck?.noteFocusedTerminalInput()
         }
 
         NSApp.activate(ignoringOtherApps: true)
@@ -77,9 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        terminalControlReturnShortcut?.stop()
         terminalCycleShortcut?.stop()
-        terminalInputRenderBoost?.stop()
         apiServer?.stop()
         deck?.prepareForTermination()
     }
@@ -169,7 +159,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(viewItem)
 
         // Leave these targetless so AppKit resolves them through the first
-        // responder. A focused SwiftTerm surface implements copy:, paste:, and
+        // responder. A focused Ghostty surface implements copy:, paste:, and
         // selectAll:, while non-terminal views simply do not claim them.
         let editItem = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
         let editMenu = NSMenu(title: "Edit")

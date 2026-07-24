@@ -98,7 +98,7 @@ Changing a workspace location does not move files or alter the current directory
 of an already-running process. New terminals and restarted terminals use the new
 location. For an SSH location, Machinen installs its small native session helper
 on the SSH host and the remote worker owns the PTY in the selected folder. The
-local SwiftTerm view attaches through SSH, so closing Desktop or losing the SSH
+local Ghostty view attaches through SSH, so closing Desktop or losing the SSH
 connection does not stop remote work. Git instruments and local-service
 discovery also probe that folder through SSH.
 
@@ -178,6 +178,7 @@ palette and confirmation views, and checks state through the same local API used
 by MCP:
 
 ```sh
+./prepare-ghostty.sh
 swift run MachinenDesktop --interaction-tests
 ```
 

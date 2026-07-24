@@ -2023,27 +2023,6 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    /// Briefly restores full-rate rendering after a real keypress; passive
-    /// streaming remains capped so a noisy terminal cannot monopolize a core.
-    func noteFocusedTerminalInput() {
-        guard focusedIndex != nil,
-              presentedOverlay == nil,
-              commandPalette == nil
-        else { return }
-        selectedSessionTile()?.boostRenderingForLocalInput()
-    }
-
-    /// Handles the SwiftTerm legacy-keyboard gap for ⌃↩. Returning false lets
-    /// a Kitty-keyboard application receive its own modified Enter sequence.
-    @discardableResult
-    func sendControlReturnToFocusedTerminal() -> Bool {
-        guard presentedOverlay == nil, commandPalette == nil,
-              focusedIndex != nil,
-              let tile = selectedSessionTile()
-        else { return false }
-        return tile.sendLegacyControlReturn()
-    }
-
     /// `⌘←` and `⌘→` are the one focused-terminal exception to the usual
     /// "the terminal owns its keys" rule. They travel through the scene's
     /// hierarchy instead of jumping directly between terminal surfaces:

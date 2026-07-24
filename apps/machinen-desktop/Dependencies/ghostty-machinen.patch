@@ -1,0 +1,223 @@
+diff --git a/build.zig b/build.zig
+index f9d861b..fab1f48 100644
+--- a/build.zig
++++ b/build.zig
+@@ -100,6 +100,17 @@ pub fn build(b: *std.Build) !void {
+         b,
+         &deps,
+     );
++    const machinen_lib_step = b.step(
++        "machinen-lib",
++        "Build the static libghostty archive for Machinen",
++    );
++    const machinen_lib_install = b.addInstallFileWithDir(
++        libghostty_static.output,
++        .lib,
++        "libghostty.a",
++    );
++    machinen_lib_install.step.dependOn(libghostty_static.step);
++    machinen_lib_step.dependOn(&machinen_lib_install.step);
+
+     // libghostty-vt
+     const libghostty_vt_shared = shared: {
+diff --git a/src/build/GhosttyXCFramework.zig b/src/build/GhosttyXCFramework.zig
+index 3afeb90..863e0bb 100644
+--- a/src/build/GhosttyXCFramework.zig
++++ b/src/build/GhosttyXCFramework.zig
+@@ -24,34 +24,41 @@ pub fn init(
+         Config.genericMacOSTarget(b, null),
+     ));
+
+-    // iOS
+-    const ios = try GhosttyLib.initStatic(b, &try deps.retarget(
++    // iOS. Native-only builds reuse the unused macOS dependency here so
++    // Command Line Tools installations do not need the full iOS SDK.
++    const ios = if (target == .native) macos_native else try GhosttyLib.initStatic(
+         b,
+-        b.resolveTargetQuery(.{
+-            .cpu_arch = .aarch64,
+-            .os_tag = .ios,
+-            .os_version_min = Config.osVersionMin(.ios),
+-            .abi = null,
+-        }),
+-    ));
++        &try deps.retarget(
++            b,
++            b.resolveTargetQuery(.{
++                .cpu_arch = .aarch64,
++                .os_tag = .ios,
++                .os_version_min = Config.osVersionMin(.ios),
++                .abi = null,
++            }),
++        ),
++    );
+
+     // iOS Simulator
+-    const ios_sim = try GhosttyLib.initStatic(b, &try deps.retarget(
++    const ios_sim = if (target == .native) macos_native else try GhosttyLib.initStatic(
+         b,
+-        b.resolveTargetQuery(.{
+-            .cpu_arch = .aarch64,
+-            .os_tag = .ios,
+-            .os_version_min = Config.osVersionMin(.ios),
+-            .abi = .simulator,
++        &try deps.retarget(
++            b,
++            b.resolveTargetQuery(.{
++                .cpu_arch = .aarch64,
++                .os_tag = .ios,
++                .os_version_min = Config.osVersionMin(.ios),
++                .abi = .simulator,
+
+-            // We force the Apple CPU model because the simulator
+-            // doesn't support the generic CPU model as of Zig 0.14 due
+-            // to missing "altnzcv" instructions, which is false. This
+-            // surely can't be right but we can fix this if/when we get
+-            // back to running simulator builds.
+-            .cpu_model = .{ .explicit = &std.Target.aarch64.cpu.apple_a17 },
+-        }),
+-    ));
++                // We force the Apple CPU model because the simulator
++                // doesn't support the generic CPU model as of Zig 0.14 due
++                // to missing "altnzcv" instructions, which is false. This
++                // surely can't be right but we can fix this if/when we get
++                // back to running simulator builds.
++                .cpu_model = .{ .explicit = &std.Target.aarch64.cpu.apple_a17 },
++            }),
++        ),
++    );
+
+     // The xcframework wraps our ghostty library so that we can link
+     // it to the final app built with Swift.
+diff --git a/src/build/LibtoolStep.zig b/src/build/LibtoolStep.zig
+index d2b5149..6541cbd 100644
+--- a/src/build/LibtoolStep.zig
++++ b/src/build/LibtoolStep.zig
+@@ -30,9 +30,24 @@ output: LazyPath,
+ pub fn create(b: *std.Build, opts: Options) *LibtoolStep {
+     const self = b.allocator.create(LibtoolStep) catch @panic("OOM");
+
+-    const run_step = RunStep.create(b, b.fmt("libtool {s}", .{opts.name}));
+-    run_step.addArgs(&.{ "libtool", "-static", "-o" });
++    const run_step = RunStep.create(b, b.fmt("archive {s}", .{opts.name}));
++    run_step.addArgs(&.{
++        "/bin/sh",
++        "-c",
++        \\set -eu
++        \\out="$1"; zig="$2"; shift 2
++        \\mkdir -p "$(dirname "$out")"
++        \\rm -f "$out"
++        \\{
++        \\  printf 'create %s\n' "$out"
++        \\  for source do printf 'addlib %s\n' "$source"; done
++        \\  printf 'save\nend\n'
++        \\} | "$zig" ar -M
++        ,
++        "machinen-archive",
++    });
+     const output = run_step.addOutputFileArg(opts.out_name);
++    run_step.addArg(b.graph.zig_exe);
+     for (opts.sources) |source| run_step.addFileArg(source);
+
+     self.* = .{
+diff --git a/src/build/MetallibStep.zig b/src/build/MetallibStep.zig
+index fcf3055..2afe148 100644
+--- a/src/build/MetallibStep.zig
++++ b/src/build/MetallibStep.zig
+@@ -1,20 +1,13 @@
+-/// A zig build step that compiles a set of ".metal" files into a
+-/// ".metallib" file.
++/// A zig build step that provides Ghostty's pinned precompiled Metal library.
+ const MetallibStep = @This();
+
+ const std = @import("std");
+ const Step = std.Build.Step;
+-const RunStep = std.Build.Step.Run;
+ const LazyPath = std.Build.LazyPath;
+
+ pub const Options = struct {
+-    /// The name of the xcframework to create.
+     name: []const u8,
+-
+-    /// The OS being targeted
+     target: std.Build.ResolvedTarget,
+-
+-    /// The Metal source files.
+     sources: []const LazyPath,
+ };
+
+@@ -22,63 +15,19 @@ step: *Step,
+ output: LazyPath,
+
+ pub fn create(b: *std.Build, opts: Options) ?*MetallibStep {
+-    const sdk = switch (opts.target.result.os.tag) {
+-        .macos => "macosx",
+-        .ios => switch (opts.target.result.abi) {
+-            // The iOS simulator uses the same SDK for Metal as the device,
+-            // but the minimum version tag causes different behaviors.
+-            .simulator => "iphoneos",
+-            else => "iphoneos",
+-        },
+-        else => return null,
+-    };
+-    const platform_version_arg = switch (opts.target.result.os.tag) {
+-        .macos => "-mmacos-version-min",
+-        .ios => switch (opts.target.result.abi) {
+-            .simulator => "-mios-simulator-version-min",
+-            else => "-mios-version-min",
+-        },
+-        else => null,
+-    };
+-
+-    const self = b.allocator.create(MetallibStep) catch @panic("OOM");
+-
+-    const min_version = if (opts.target.query.os_version_min) |v|
+-        b.fmt("{f}", .{v.semver})
+-    else switch (opts.target.result.os.tag) {
+-        .macos => "10.14",
+-        .ios => "11.0",
+-        else => unreachable,
+-    };
+-
+-    const run_ir = RunStep.create(
+-        b,
+-        b.fmt("metal {s}", .{opts.name}),
+-    );
+-    run_ir.addArgs(&.{ "/usr/bin/xcrun", "-sdk", sdk, "metal", "-o" });
+-    const output_ir = run_ir.addOutputFileArg(b.fmt("{s}.ir", .{opts.name}));
+-    run_ir.addArgs(&.{"-c"});
+-    for (opts.sources) |source| run_ir.addFileArg(source);
+-    if (platform_version_arg) |arg| {
+-        run_ir.addArgs(&.{b.fmt(
+-            "{s}={s}",
+-            .{ arg, min_version },
+-        )});
+-    }
+-
+-    const run_lib = RunStep.create(
+-        b,
+-        b.fmt("metallib {s}", .{opts.name}),
++    if (!opts.target.result.os.tag.isDarwin()) return null;
++    _ = opts.name;
++    _ = opts.sources;
++
++    const files = b.addWriteFiles();
++    const output = files.addCopyFile(
++        b.path("src/renderer/shaders/Ghostty.metallib"),
++        "Ghostty.metallib",
+     );
+-    run_lib.addArgs(&.{ "/usr/bin/xcrun", "-sdk", sdk, "metallib", "-o" });
+-    const output_lib = run_lib.addOutputFileArg(b.fmt("{s}.metallib", .{opts.name}));
+-    run_lib.addFileArg(output_ir);
+-    run_lib.step.dependOn(&run_ir.step);
+-
++    const self = b.allocator.create(MetallibStep) catch @panic("OOM");
+     self.* = .{
+-        .step = &run_lib.step,
+-        .output = output_lib,
++        .step = &files.step,
++        .output = output,
+     };
+-
+     return self;
+ }

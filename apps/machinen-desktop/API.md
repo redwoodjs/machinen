@@ -180,7 +180,7 @@ legacy `workingDirectory` field remains the location path for compatibility.
 
 New terminals inherit the workspace location unless an API caller explicitly
 supplies a launch subdirectory. Remote terminals install and run the native
-session worker on the SSH host; Desktop's SwiftTerm viewer attaches through SSH.
+session worker on the SSH host; Desktop's Ghostty viewer attaches through SSH.
 Git and service probes use that same SSH connection model. Updating a location
 updates saved launch definitions but does not move files or change the current
 directory of an already-running process.

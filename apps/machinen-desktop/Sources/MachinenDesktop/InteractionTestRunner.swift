@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import GhosttyKit
 
 @MainActor
 enum InteractionTestRunner {
@@ -16,7 +17,7 @@ enum InteractionTestRunner {
             try workspaceWorkingDirectoryBindsTerminals()
             try oldManifestsRequireNativeRestart()
             try terminalViewportRemainsStableAcrossFocus()
-            try controlReturnReachesLegacyTerminals()
+            try ghosttyPreservesModifiedEnter()
             try scrollWheelReachesFocusedTerminalThroughPreview()
             try pointerTilesSeparateClickFocusAndDrag()
             try singletonWorkspaceTileFillsSurface()
@@ -469,33 +470,7 @@ enum InteractionTestRunner {
         )
     }
 
-    private static func controlReturnReachesLegacyTerminals() throws {
-        try expect(
-            MachinenTerminalView.legacyControlReturnBytes(
-                keyCode: 36,
-                modifiers: [.control],
-                kittyKeyboardEnabled: false
-            ) == [0x0D],
-            "⌃↩ did not produce a carriage return for a legacy terminal"
-        )
-        try expect(
-            MachinenTerminalView.legacyControlReturnBytes(
-                keyCode: 76,
-                modifiers: [.control],
-                kittyKeyboardEnabled: false
-            ) == [0x0D],
-            "⌃ keypad Enter did not produce a carriage return for a legacy terminal"
-        )
-        try expect(
-            MachinenTerminalView.legacyControlReturnBytes(
-                keyCode: 36,
-                modifiers: [.control],
-                kittyKeyboardEnabled: true
-            ) == nil,
-            "⌃↩ bypassed Kitty keyboard reporting"
-        )
-        let shortcut = TerminalControlReturnShortcut { true }
-        defer { shortcut.stop() }
+    private static func ghosttyPreservesModifiedEnter() throws {
         guard let controlReturn = NSEvent.keyEvent(
             with: .keyDown,
             location: .zero,
@@ -510,7 +485,12 @@ enum InteractionTestRunner {
         ) else {
             throw InteractionTestFailure("could not create a ⌃↩ event")
         }
-        try expect(shortcut.process(controlReturn) == nil, "⌃↩ was not intercepted before SwiftTerm")
+        let encoded = controlReturn.ghosttyKeyEvent(GHOSTTY_ACTION_PRESS)
+        try expect(encoded.keycode == 36, "Ghostty lost the physical Return key")
+        try expect(
+            encoded.mods.rawValue & GHOSTTY_MODS_CTRL.rawValue != 0,
+            "Ghostty lost the Control modifier for Return"
+        )
     }
 
     private static func scrollWheelReachesFocusedTerminalThroughPreview() throws {

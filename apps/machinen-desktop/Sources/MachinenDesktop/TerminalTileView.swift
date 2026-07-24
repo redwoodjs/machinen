@@ -168,15 +168,6 @@ final class TerminalTileView: NSView {
         embeddedTerminalView?.sendPersistentInput(data) ?? false
     }
 
-    @discardableResult
-    func sendLegacyControlReturn() -> Bool {
-        embeddedTerminalView?.sendLegacyControlReturn() ?? false
-    }
-
-    func boostRenderingForLocalInput() {
-        embeddedTerminalView?.boostRenderingForLocalInput()
-    }
-
     func signalTerminal(_ signal: String) {
         embeddedTerminalView?.signalPersistentSession(signal)
     }
@@ -218,7 +209,7 @@ final class TerminalTileView: NSView {
         // Camera transforms can leave an unfocused preview above the visually
         // focused terminal in AppKit's hit-test order. Route scrolling through
         // the same window-space resolver used for click and drag gestures so
-        // the focused SwiftTerm viewport receives the event.
+        // the focused Ghostty viewport receives the event.
         if let terminal = terminalInputTarget?(event) {
             InputRoutingLog.log("tile[\(session.tileID)] forwards scroll to tile=\(terminal.session.tileID) \(InputRoutingLog.event(event))")
             terminal.scrollWheel(with: event)
