@@ -193,17 +193,17 @@ works through SSH.
 The macOS **View** menu contains **Show Debug Information**, which presents the
 current workspace or terminal's diagnostics without interrupting its PTY.
 
-The top-right strip is graphical at rest. In a **workspace**, it summarizes
-that workspace's tiles: aggregate tile CPU, aggregate tile network transfer,
-branch-wide Git changes, and visible active/idle/waiting tile counts. The Git
-item shows only the total changed-file count at rest; hovering reveals the
-branch, commits since its default-branch merge base, changed files, and added
-and deleted lines. In a **focused tile**,
-it shows that tile's foreground PID (shown as `PID ####` and copyable with a
-click), CPU for that PID and its local child processes, network transfer for
-that PID and its local child
-processes, workspace branch changes, and the tile's active/idle/waiting state. Git
-and service items are scoped to the selected workspace. Service discovery shows
+The top-right strip is graphical at rest. Its activity monitor always summarizes
+all terminals in the selected workspace, with visible active/idle/waiting tile
+counts even while one terminal is focused. In a **workspace**, the strip also
+shows aggregate tile CPU, aggregate tile network transfer, and branch-wide Git
+changes. The Git item shows only the total changed-file count at rest; hovering
+reveals the branch, commits since its default-branch merge base, changed files,
+and added and deleted lines. In a **focused tile**, it shows that tile's
+foreground PID (shown as `PID ####` and copyable with a click), CPU for that PID
+and its local child processes, network transfer for that PID and its local child
+processes, workspace branch changes, and the workspace activity monitor. Git and
+service items are scoped to the selected workspace. Service discovery shows
 TCP listeners whose process working directory is the workspace or one of its
 descendants; hover identifies the process and bind address. It is suppressed
 for `/` and a local home-directory workspace, where that relationship is too

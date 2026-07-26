@@ -3665,19 +3665,8 @@ final class TerminalDeckView: NSView {
     }
 
     private func builtInStatusWidgets() -> [MachinenStatusWidget] {
-        let tiles: [TerminalTileView]
-        let scope: (kind: MachinenStatusWidget.ScopeKind, id: String?)
-        let isFocused = focusedIndex != nil
-        if let focusedTile = isFocused ? selectedSessionTile() : nil {
-            tiles = [focusedTile]
-            scope = (.terminal, focusedTile.session.id)
-        } else if let workspaceID = currentWorkspace {
-            tiles = activeSessionTiles
-            scope = (.workspace, workspaceID)
-        } else {
-            tiles = allSessionTiles
-            scope = (.global, nil)
-        }
+        guard let workspaceID = selectedWorkspaceID() else { return [] }
+        let tiles = activeSessionTiles(for: workspaceID)
         guard !tiles.isEmpty else { return [] }
 
         let states = tiles.map { tile in
@@ -3703,8 +3692,8 @@ final class TerminalDeckView: NSView {
         }
         return [MachinenStatusWidget(
             id: "machinen.activity",
-            scopeKind: scope.kind,
-            scopeID: scope.id,
+            scopeKind: .workspace,
+            scopeID: workspaceID,
             placement: .right,
             kind: .state,
             label: nil,

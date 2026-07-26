@@ -13,6 +13,7 @@ enum InteractionTestRunner {
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
             try terminalOutputAndRuntimeLabelsReportActivity()
             try statusWidgetsInheritBySpatialScope()
+            try activityMonitorStaysWorkspaceScoped()
             try listeningServicesStayProjectScoped()
             try gitStatusCoversTheWholeBranch()
             try graphicalStatusWidgetsRender()
@@ -27,7 +28,7 @@ enum InteractionTestRunner {
             try clickedTileFocusesItsOwnTerminal()
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try closingTerminalShowsRemovalAnimation()
-            print("Machinen interaction tests passed (20 scenarios)")
+            print("Machinen interaction tests passed (21 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -336,6 +337,40 @@ enum InteractionTestRunner {
             effective.first(where: { $0.id == "git.modified" })?.value == "1",
             "removing the workspace widget did not restore the global widget"
         )
+    }
+
+    private static func activityMonitorStaysWorkspaceScoped() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 2),
+            harness.workspace("beta", terminalCount: 1),
+        ])
+
+        func activityWidget() throws -> StatusWidgetSnapshot {
+            guard let widget = try harness.effectiveStatusWidgets(of: deck)
+                .first(where: { $0.id == "machinen.activity" })
+            else {
+                throw InteractionTestFailure("the workspace activity monitor was missing")
+            }
+            return widget
+        }
+
+        var activity = try activityWidget()
+        try expect(
+            activity.scope == .init(kind: "workspace", id: "ws_alpha"),
+            "overview activity was not scoped to the selected workspace"
+        )
+        try expect(activity.states?.count == 2, "overview activity included another workspace")
+
+        deck.zoomInOneLevel()
+        deck.zoomInOneLevel()
+        activity = try activityWidget()
+        try expect(
+            activity.scope == .init(kind: "workspace", id: "ws_alpha"),
+            "focused-terminal activity changed to terminal scope"
+        )
+        try expect(activity.states?.count == 2, "focused activity omitted workspace siblings")
     }
 
     private static func listeningServicesStayProjectScoped() throws {
@@ -1281,10 +1316,17 @@ private struct StatusListSnapshot: Decodable {
 }
 
 private struct StatusWidgetSnapshot: Decodable {
+    struct Scope: Decodable, Equatable {
+        let kind: String
+        let id: String?
+    }
+
     let id: String
+    let scope: Scope
     let value: String
     let graphStyle: String?
     let samples: [Double]?
+    let states: [String]?
 }
 
 private struct InteractionSnapshot: Decodable {

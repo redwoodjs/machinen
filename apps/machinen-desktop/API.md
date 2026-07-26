@@ -275,16 +275,17 @@ detach a tile, stop a terminal, or delete a stopped tile.
 - `status.set { ...widget }`
 - `status.remove { id, scope? }`
 
-There is one persistent status bar. At the workspace level it summarizes that
-workspace's tiles with aggregate tile CPU/network, branch-wide Git changes, and
-active/idle counts. The Git item graphs per-file additions and deletions with
-compact line totals at rest; its hover detail contains the branch, commits since
-the default-branch merge base, changed files, and exact added/deleted lines. At
-the focused-tile level it
-shows the copyable tile PID, per-PID CPU/network (including local child
-processes), workspace branch changes, and that tile's activity state. Workspace-scoped items
-belong to the selected workspace. Its title is the selected workspace at the
-workspace level and `workspace > terminal name` at the terminal level; hovering
+There is one persistent status bar. Its activity monitor is always scoped to the
+selected workspace and summarizes all of that workspace's tiles, including while
+a terminal is focused. At the workspace level the bar also shows aggregate tile
+CPU/network and branch-wide Git changes. The Git item graphs per-file additions
+and deletions with compact line totals at rest; its hover detail contains the
+branch, commits since the default-branch merge base, changed files, and exact
+added/deleted lines. At the focused-tile level it shows the copyable tile PID,
+per-PID CPU/network (including local child processes), workspace branch changes,
+and the same workspace activity monitor. Workspace-scoped items belong to the
+selected workspace. Its title is the selected workspace at the workspace level
+and `workspace > terminal name` at the terminal level; hovering
 a workspace title reveals its bound path. Programs can publish declarative widgets
 beside the title without injecting arbitrary AppKit views:
 
