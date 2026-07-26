@@ -14,12 +14,17 @@ pnpm -F @machinen/desktop-services dev
 
 The service subscribes to workspace and UI events, probes the selected local or
 SSH workspace every four seconds, and publishes the existing `machinen.git`
-status widget with a ten-second TTL. The external widget overrides the current
+status widget with a ten-second TTL. `pnpm dev` watches the TypeScript source and
+restarts the service after an edit, so widget data and configuration reload live
+without restarting Machinen Desktop. The external widget overrides the current
 Swift implementation. If the service stops, its widget expires and the Swift
 fallback returns automatically.
 
 The service uses `/usr/bin/git`, `/usr/bin/ssh`, and the user's OpenSSH
 configuration. Set `MACHINEN_API_SOCKET` to use a non-default Desktop socket.
 
-This package is intentionally not embedded in `Machinen.app` yet. Runtime
-bundling and supervision follow after the service has been proven manually.
+This package is intentionally not embedded in `Machinen.app` yet. Keep
+`pnpm dev` running during development; runtime bundling and supervision follow
+after the service has been proven manually. Changes to the native status-bar
+renderer still require rebuilding Machinen Desktop, while declarative widget
+changes reload through this service.

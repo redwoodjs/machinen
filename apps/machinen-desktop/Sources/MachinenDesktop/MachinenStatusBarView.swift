@@ -123,7 +123,7 @@ struct MachinenStatusWidget {
     }
 }
 
-final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
+final class MachinenStatusBarView: NSView {
     private enum Metrics {
         static let height: CGFloat = 40
         static let leftInset: CGFloat = 92
@@ -159,9 +159,6 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
 
     private var widgetFrames: [WidgetFrame] = []
     private var titleFrame = NSRect.zero
-    private var tooltipRegions: [String: (tag: NSView.ToolTipTag, rect: NSRect)] = [:]
-    private var tooltipWidgetIDs: [NSView.ToolTipTag: String] = [:]
-    private var tooltipTextByID: [String: String] = [:]
     private var hoverTrackingArea: NSTrackingArea?
     private var hoveredItemID: String?
 
@@ -287,7 +284,6 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
         }
 
         widgetFrames = frames
-        updateTooltips()
     }
 
     private func draw(_ widget: MachinenStatusWidget, in rect: NSRect) {
@@ -731,54 +727,12 @@ final class MachinenStatusBarView: NSView, NSViewToolTipOwner {
         return ceil(size.width)
     }
 
-    private func updateTooltips() {
-        let titleID = "machinen.status.title"
-        var activeIDs = Set(widgetFrames.map(\.widget.id))
-        if titleTooltip != nil { activeIDs.insert(titleID) }
-        for id in Array(tooltipRegions.keys) where !activeIDs.contains(id) {
-            guard let region = tooltipRegions.removeValue(forKey: id) else { continue }
-            removeToolTip(region.tag)
-            tooltipWidgetIDs.removeValue(forKey: region.tag)
-            tooltipTextByID.removeValue(forKey: id)
-        }
-
-        for frame in widgetFrames {
-            let tooltip = detailText(for: frame.widget)
-            guard !tooltip.isEmpty else { continue }
-            setTooltip(id: frame.widget.id, rect: frame.rect, text: tooltip)
-        }
-        if let titleTooltip {
-            setTooltip(id: titleID, rect: titleFrame, text: titleTooltip)
-        }
-    }
-
     private func detailText(for widget: MachinenStatusWidget) -> String {
         let progress = widget.progress.map { "\(Int(($0 * 100).rounded()))%" }
         return widget.tooltip
             ?? [widget.label, widget.value.isEmpty ? nil : widget.value, progress]
             .compactMap { $0 }
             .joined(separator: " ")
-    }
-
-    private func setTooltip(id: String, rect: NSRect, text: String) {
-        tooltipTextByID[id] = text
-        if let existing = tooltipRegions[id], existing.rect == rect { return }
-        if let existing = tooltipRegions.removeValue(forKey: id) {
-            removeToolTip(existing.tag)
-            tooltipWidgetIDs.removeValue(forKey: existing.tag)
-        }
-        let tag = addToolTip(rect, owner: self, userData: nil)
-        tooltipRegions[id] = (tag, rect)
-        tooltipWidgetIDs[tag] = id
-    }
-
-    func view(
-        _ view: NSView,
-        stringForToolTip tag: NSView.ToolTipTag,
-        point: NSPoint,
-        userData: UnsafeMutableRawPointer?
-    ) -> String {
-        tooltipWidgetIDs[tag].flatMap { tooltipTextByID[$0] } ?? ""
     }
 
     private func color(for tone: MachinenStatusWidget.Tone) -> NSColor {

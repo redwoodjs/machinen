@@ -3,13 +3,26 @@ import Foundation
 
 @MainActor
 final class MachinenStatusMetricsMonitor {
-    private struct GitSnapshot {
+    struct GitSnapshot: Equatable {
         let branch: String
-        let modified: Int
+        let commits: Int
+        let filesChanged: Int
         let additions: Int
         let deletions: Int
         let additionBars: [Double]
         let deletionBars: [Double]
+    }
+
+    struct ListeningService: Equatable {
+        let process: String
+        let pid: Int
+        let port: Int
+        let addresses: [String]
+
+        var summary: String {
+            let address = addresses.first ?? ":\(port)"
+            return "\(process) \(address)"
+        }
     }
 
     private enum Metrics {
@@ -25,7 +38,7 @@ final class MachinenStatusMetricsMonitor {
     private var gitProcess: Process?
     private var portsProcess: Process?
     private var gitSnapshot: GitSnapshot?
-    private var listeningPorts: [Int] = []
+    private var listeningServices: [ListeningService] = []
     private var cpuHistory: [Double] = []
     private var incomingHistory: [Double] = []
     private var outgoingHistory: [Double] = []
@@ -39,22 +52,22 @@ final class MachinenStatusMetricsMonitor {
         let projectScope: (kind: MachinenStatusWidget.ScopeKind, id: String?) = workspaceID
             .map { (.workspace, $0) } ?? (.global, nil)
         if let gitSnapshot {
+            let additions = Self.formatCompactCount(gitSnapshot.additions)
+            let deletions = Self.formatCompactCount(gitSnapshot.deletions)
             let tooltip = [
-                gitSnapshot.branch,
-                "\(gitSnapshot.modified) modified",
-                "+\(gitSnapshot.additions)",
-                "−\(gitSnapshot.deletions)",
-            ].joined(separator: " · ")
+                "\(gitSnapshot.commits) commits · \(gitSnapshot.filesChanged) files",
+                "+\(gitSnapshot.additions) additions · −\(gitSnapshot.deletions) deletions",
+            ].joined(separator: "\n")
             result.append(MachinenStatusWidget(
                 id: "machinen.git",
                 scopeKind: projectScope.kind,
                 scopeID: projectScope.id,
                 placement: .right,
                 kind: .sparkline,
-                label: "Git changes",
-                value: "+\(gitSnapshot.additions) −\(gitSnapshot.deletions)",
+                label: gitSnapshot.branch,
+                value: "+\(additions) −\(deletions)",
                 progress: nil,
-                tone: gitSnapshot.modified == 0 ? .good : .attention,
+                tone: gitSnapshot.filesChanged == 0 ? .good : .attention,
                 tooltip: tooltip,
                 priority: 90,
                 expiresAt: nil,
@@ -63,21 +76,21 @@ final class MachinenStatusMetricsMonitor {
                 secondarySamples: gitSnapshot.deletionBars
             ))
         }
-        if !listeningPorts.isEmpty {
+        if !listeningServices.isEmpty {
             result.append(MachinenStatusWidget(
                 id: "machinen.services",
                 scopeKind: projectScope.kind,
                 scopeID: projectScope.id,
                 placement: .right,
                 kind: .state,
-                label: "Listening services",
-                value: String(listeningPorts.count),
+                label: "TCP listeners",
+                value: String(listeningServices.count),
                 progress: nil,
-                tone: .good,
-                tooltip: "Listening: " + listeningPorts.map(String.init).joined(separator: " · "),
+                tone: .neutral,
+                tooltip: listeningServices.map(\.summary).joined(separator: " · "),
                 priority: 80,
                 expiresAt: nil,
-                states: listeningPorts.prefix(16).map { _ in "good" }
+                states: listeningServices.prefix(16).map { _ in "neutral" }
             ))
         }
         if cpuHistory.count > 1 {
@@ -163,7 +176,7 @@ final class MachinenStatusMetricsMonitor {
         gitProcess = nil
         portsProcess = nil
         gitSnapshot = nil
-        listeningPorts = []
+        listeningServices = []
         if timer != nil {
             probeProjectMetrics()
         }
@@ -267,20 +280,11 @@ final class MachinenStatusMetricsMonitor {
         let arguments: [String]
         var environment: [String: String]?
         if let host = location.sshHost {
-            let path = location.remoteShellPath
-            script = """
-            /usr/bin/git -C \(path) status --porcelain=v1 --branch || exit 1
-            printf '\n---MACHINEN-NUMSTAT---\n'
-            /usr/bin/git -C \(path) diff --numstat HEAD 2>/dev/null || true
-            """
+            script = Self.gitProbeScript(directory: location.remoteShellPath)
             executable = "/usr/bin/ssh"
             arguments = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=5", host, script]
         } else {
-            script = """
-            /usr/bin/git -C "$MACHINEN_STATUS_DIRECTORY" status --porcelain=v1 --branch || exit 1
-            printf '\n---MACHINEN-NUMSTAT---\n'
-            /usr/bin/git -C "$MACHINEN_STATUS_DIRECTORY" diff --numstat HEAD 2>/dev/null || true
-            """
+            script = Self.gitProbeScript(directory: "\"$MACHINEN_STATUS_DIRECTORY\"")
             environment = ProcessInfo.processInfo.environment
             environment?["MACHINEN_STATUS_DIRECTORY"] = location.path
             executable = "/bin/sh"
@@ -300,6 +304,12 @@ final class MachinenStatusMetricsMonitor {
 
     private func probePorts(at location: WorkspaceLocation) {
         guard portsProcess == nil else { return }
+        let root = URL(fileURLWithPath: location.path).standardizedFileURL.path
+        let localHome = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+        if root == "/" || (location.kind == .local && root == localHome) {
+            listeningServices = []
+            return
+        }
         let currentGeneration = generation
         let executable: String
         let arguments: [String]
@@ -322,8 +332,8 @@ final class MachinenStatusMetricsMonitor {
         ) { [weak self] output in
             guard let self, self.generation == currentGeneration else { return }
             self.portsProcess = nil
-            self.listeningPorts = output.map {
-                Self.parseListeningPorts($0, workingDirectory: location.path)
+            self.listeningServices = output.map {
+                Self.parseListeningServices($0, workingDirectory: location.path)
             } ?? []
             self.onChange?()
         }
@@ -375,34 +385,57 @@ final class MachinenStatusMetricsMonitor {
         }
     }
 
-    private static func parseGitOutput(_ output: String) -> GitSnapshot? {
-        let sections = output.components(separatedBy: "---MACHINEN-NUMSTAT---")
-        guard let statusSection = sections.first else { return nil }
-        let statusLines = statusSection.split(separator: "\n").map(String.init)
-        guard let header = statusLines.first, header.hasPrefix("## ") else { return nil }
-        let branchDescription = String(header.dropFirst(3))
-        let branch = branchDescription
-            .replacingOccurrences(of: "No commits yet on ", with: "")
-            .components(separatedBy: "...").first ?? branchDescription
-        let modified = max(0, statusLines.count - 1)
+    private static func gitProbeScript(directory: String) -> String {
+        """
+        cd \(directory) || exit 1
+        branch=$(/usr/bin/git branch --show-current 2>/dev/null)
+        if [ -z "$branch" ]; then
+          branch=$(/usr/bin/git rev-parse --short HEAD 2>/dev/null) || exit 1
+        fi
+        base_ref=$(/usr/bin/git symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null || true)
+        if [ -z "$base_ref" ]; then
+          for candidate in origin/main main origin/master master; do
+            if /usr/bin/git rev-parse --verify --quiet "$candidate" >/dev/null; then
+              base_ref=$candidate
+              break
+            fi
+          done
+        fi
+        base=$(/usr/bin/git merge-base HEAD "$base_ref" 2>/dev/null || true)
+        if [ -z "$base" ]; then
+          base=$(/usr/bin/git rev-list --max-parents=0 HEAD 2>/dev/null | /usr/bin/tail -1)
+        fi
+        commits=$(/usr/bin/git rev-list --count "$base"..HEAD 2>/dev/null || printf '0')
+        printf '%s\n---MACHINEN-BRANCH-COMMITS---\n%s\n---MACHINEN-BRANCH-NUMSTAT---\n' "$branch" "$commits"
+        /usr/bin/git diff --numstat "$base" 2>/dev/null || true
+        /usr/bin/git ls-files --others --exclude-standard | while IFS= read -r file; do
+          lines=$(/usr/bin/wc -l < "$file" 2>/dev/null | /usr/bin/tr -d ' ')
+          printf '%s\t0\t%s\n' "${lines:-0}" "$file"
+        done
+        """
+    }
+
+    static func parseGitOutput(_ output: String) -> GitSnapshot? {
+        let commitSections = output.components(separatedBy: "---MACHINEN-BRANCH-COMMITS---")
+        guard commitSections.count == 2 else { return nil }
+        let changeSections = commitSections[1].components(
+            separatedBy: "---MACHINEN-BRANCH-NUMSTAT---"
+        )
+        guard changeSections.count == 2,
+              let commits = Int(changeSections[0].trimmingCharacters(in: .whitespacesAndNewlines))
+        else { return nil }
+        let branch = commitSections[0].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !branch.isEmpty else { return nil }
 
         var additions: [Double] = []
         var deletions: [Double] = []
-        if sections.count > 1 {
-            for line in sections[1].split(separator: "\n") {
-                let fields = line.split(separator: "\t", omittingEmptySubsequences: false)
-                guard fields.count >= 2 else { continue }
-                additions.append(Double(fields[0]) ?? 0)
-                deletions.append(Double(fields[1]) ?? 0)
-            }
+        for line in changeSections[1].split(separator: "\n") {
+            let fields = line.split(separator: "\t", omittingEmptySubsequences: false)
+            guard fields.count >= 3 else { continue }
+            additions.append(Double(fields[0]) ?? 0)
+            deletions.append(Double(fields[1]) ?? 0)
         }
-        let represented = additions.count
-        if modified > represented {
-            for _ in 0..<(modified - represented) {
-                additions.append(1)
-                deletions.append(0)
-            }
-        }
+        let filesChanged = additions.count
         if additions.isEmpty {
             additions = [0]
             deletions = [0]
@@ -410,26 +443,26 @@ final class MachinenStatusMetricsMonitor {
         let ranked = zip(additions, deletions)
             .sorted { ($0.0 + $0.1) > ($1.0 + $1.1) }
             .prefix(14)
-        let additionBars = ranked.map(\.0)
-        let deletionBars = ranked.map(\.1)
         return GitSnapshot(
             branch: branch,
-            modified: modified,
+            commits: commits,
+            filesChanged: filesChanged,
             additions: Int(additions.reduce(0, +)),
             deletions: Int(deletions.reduce(0, +)),
-            additionBars: additionBars,
-            deletionBars: deletionBars
+            additionBars: ranked.map(\.0),
+            deletionBars: ranked.map(\.1)
         )
     }
 
-    private static func parseListeningPorts(
+    static func parseListeningServices(
         _ output: String,
         workingDirectory: String
-    ) -> [Int] {
+    ) -> [ListeningService] {
         var currentPID: Int?
         var expectsWorkingDirectory = false
+        var names: [Int: String] = [:]
         var directories: [Int: String] = [:]
-        var ports: [Int: Set<Int>] = [:]
+        var listeners: [Int: [Int: Set<String>]] = [:]
         for line in output.split(separator: "\n").map(String.init) {
             guard let prefix = line.first else { continue }
             let value = String(line.dropFirst())
@@ -437,6 +470,8 @@ final class MachinenStatusMetricsMonitor {
             case "p":
                 currentPID = Int(value)
                 expectsWorkingDirectory = false
+            case "c":
+                if let currentPID { names[currentPID] = value }
             case "f":
                 expectsWorkingDirectory = value == "cwd"
             case "n":
@@ -447,22 +482,51 @@ final class MachinenStatusMetricsMonitor {
                 } else if let suffix = value.split(separator: ":").last,
                           let port = Int(suffix), port > 0
                 {
-                    ports[currentPID, default: []].insert(port)
+                    listeners[currentPID, default: [:]][port, default: []].insert(value)
                 }
             default:
                 continue
             }
         }
         let root = URL(fileURLWithPath: workingDirectory).standardizedFileURL.path
-        var result = Set<Int>()
-        for (pid, processPorts) in ports {
+        var result: [ListeningService] = []
+        for (pid, processListeners) in listeners {
             guard let directory = directories[pid] else { continue }
             let processRoot = URL(fileURLWithPath: directory).standardizedFileURL.path
-            if processRoot == root || processRoot.hasPrefix(root + "/") || root.hasPrefix(processRoot + "/") {
-                result.formUnion(processPorts)
+            guard processRoot == root || processRoot.hasPrefix(root + "/") else { continue }
+            for (port, addresses) in processListeners {
+                result.append(ListeningService(
+                    process: names[pid] ?? "PID \(pid)",
+                    pid: pid,
+                    port: port,
+                    addresses: addresses.sorted()
+                ))
             }
         }
-        return result.sorted()
+        return result.sorted {
+            $0.port == $1.port ? $0.process < $1.process : $0.port < $1.port
+        }
+    }
+
+    static func formatCompactCount(_ value: Int) -> String {
+        let count = Double(value)
+        let scaled: Double
+        let suffix: String
+        if value >= 999_500_000 {
+            scaled = count / 1_000_000_000
+            suffix = "B"
+        } else if value >= 999_500 {
+            scaled = count / 1_000_000
+            suffix = "M"
+        } else if value >= 1_000 {
+            scaled = count / 1_000
+            suffix = "K"
+        } else {
+            return String(value)
+        }
+        let displayValue = scaled < 10 ? (scaled * 10).rounded() / 10 : scaled.rounded()
+        let format = displayValue == displayValue.rounded() ? "%.0f" : "%.1f"
+        return String(format: format, displayValue) + suffix
     }
 
     private func formatRate(_ bytesPerSecond: Double) -> String {

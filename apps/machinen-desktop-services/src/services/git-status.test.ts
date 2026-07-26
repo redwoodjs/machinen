@@ -8,6 +8,7 @@ import type { DesktopSnapshot, StatusWidget, WorkspaceLocation } from "@machinen
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  formatCompactCount,
   GitStatusService,
   parseGitOutput,
   probeGit,
@@ -27,32 +28,41 @@ afterEach(() => {
 });
 
 describe("Git status service", () => {
-  it("parses branch, numstat, and untracked files into status bars", () => {
+  it("parses branch-wide commits and numstat into status bars", () => {
     const metrics = parseGitOutput(
-      `## main...origin/main\n M src/a.ts\n?? src/new.ts\n\n---MACHINEN-NUMSTAT---\n3\t1\tsrc/a.ts\n`,
+      `main\n---MACHINEN-BRANCH-COMMITS---\n2\n---MACHINEN-BRANCH-NUMSTAT---\n3\t1\tsrc/a.ts\n19\t2\tsrc/new.ts\n`,
     );
 
     expect(metrics).toEqual({
       branch: "main",
-      modified: 2,
-      additions: 4,
-      deletions: 1,
-      additionBars: [3, 1],
-      deletionBars: [1, 0],
+      commits: 2,
+      filesChanged: 2,
+      additions: 22,
+      deletions: 3,
+      additionBars: [19, 3],
+      deletionBars: [2, 1],
     });
   });
 
-  it("handles a clean unborn branch", () => {
-    const metrics = parseGitOutput("## No commits yet on main\n\n---MACHINEN-NUMSTAT---\n");
+  it("handles a clean branch", () => {
+    const metrics = parseGitOutput(
+      "main\n---MACHINEN-BRANCH-COMMITS---\n0\n---MACHINEN-BRANCH-NUMSTAT---\n",
+    );
 
     expect(metrics).toEqual({
       branch: "main",
-      modified: 0,
+      commits: 0,
+      filesChanged: 0,
       additions: 0,
       deletions: 0,
       additionBars: [0],
       deletionBars: [0],
     });
+  });
+
+  it("compacts large line counts", () => {
+    expect(formatCompactCount(19_000)).toBe("19K");
+    expect(formatCompactCount(1_250_000)).toBe("1.3M");
   });
 
   it("probes a local repository whose path contains spaces", async () => {
@@ -65,7 +75,13 @@ describe("Git status service", () => {
 
       const metrics = await probeGit({ kind: "local", path: repository });
 
-      expect(metrics).toMatchObject({ branch: "main", modified: 1, additions: 1, deletions: 0 });
+      expect(metrics).toMatchObject({
+        branch: "main",
+        commits: 0,
+        filesChanged: 1,
+        additions: 1,
+        deletions: 0,
+      });
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -74,20 +90,19 @@ describe("Git status service", () => {
   it("quotes absolute and home-relative remote paths", () => {
     expect(remoteShellPath("~/gh/peter's repo")).toBe(`"$HOME"/'gh/peter'\\''s repo'`);
     expect(remoteShellPath("/Users/p4p8/project")).toBe("'/Users/p4p8/project'");
-    expect(remoteGitProbeCommand("~/project")).toContain(
-      "/usr/bin/git -C \"$HOME\"/'project' status --porcelain=v1 --branch",
-    );
+    expect(remoteGitProbeCommand("~/project")).toContain(`cd "$HOME"/'project' || exit 1`);
   });
 
   it("publishes machinen.git for the selected workspace", async () => {
     const set = vi.fn(async (_widget: StatusWidget) => ({}));
     const metrics: GitMetrics = {
       branch: "feature",
-      modified: 1,
-      additions: 7,
-      deletions: 2,
-      additionBars: [7],
-      deletionBars: [2],
+      commits: 3,
+      filesChanged: 1,
+      additions: 19_000,
+      deletions: 1_250_000,
+      additionBars: [19_000],
+      deletionBars: [1_250_000],
     };
     const probe = vi.fn(async (_location: WorkspaceLocation, _signal?: AbortSignal) => metrics);
     const service = new GitStatusService(
@@ -126,7 +141,9 @@ describe("Git status service", () => {
         scope: { kind: "workspace", id: "ws_test" },
         kind: "sparkline",
         graphStyle: "bars",
-        value: "+7 −2",
+        label: "feature",
+        value: "+19K −1.3M",
+        tooltip: "3 commits · 1 files\n+19000 additions · −1250000 deletions",
         ttlMilliseconds: 10_000,
       }),
     );

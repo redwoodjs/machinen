@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsup",
-    "dev": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "typecheck": "tsgo --noEmit",
     "test": "vitest run --root ../.. apps/machinen-desktop-services/src"
   },
