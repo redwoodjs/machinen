@@ -26,7 +26,8 @@ enum InteractionTestRunner {
             try singletonWorkspaceTileFillsSurface()
             try clickedTileFocusesItsOwnTerminal()
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
-            print("Machinen interaction tests passed (19 scenarios)")
+            try closingTerminalShowsRemovalAnimation()
+            print("Machinen interaction tests passed (20 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -1018,6 +1019,34 @@ enum InteractionTestRunner {
         }
     }
 
+    private static func closingTerminalShowsRemovalAnimation() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 2)])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = deck
+        deck.layoutSubtreeIfNeeded()
+
+        deck.zoomInOneLevel()
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.25))
+        deck.handleCommandW()
+        try harness.pressReturn(on: harness.confirmation(in: deck))
+
+        let snapshot = try harness.snapshot(of: deck)
+        try expect(snapshot.tiles.count == 1, "closing an animated terminal left its tile behind")
+        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            try expect(
+                harness.paneCloseAnimation(in: deck) != nil,
+                "closing a terminal did not leave a visual removal animation"
+            )
+        }
+    }
+
     private static func workspacePaletteCreatesRenamesAndClosesWithKeyboard() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
@@ -1189,6 +1218,12 @@ private final class Harness {
             throw InteractionTestFailure("the close confirmation did not open")
         }
         return confirmation
+    }
+
+    func paneCloseAnimation(in deck: TerminalDeckView) -> NSImageView? {
+        deck.subviews.compactMap { $0 as? NSImageView }.first {
+            $0.identifier?.rawValue == "pane-close-animation"
+        }
     }
 
     func type(_ text: String, into view: NSView) throws {

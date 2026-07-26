@@ -37,6 +37,8 @@ final class TerminalDeckView: NSView {
         static let cameraDuration: TimeInterval = 0.20
         static let terminalSwitchDuration: TimeInterval = 0.12
         static let peekDuration: TimeInterval = 0.12
+        static let paneCloseDuration: TimeInterval = 0.18
+        static let paneCloseScale: CGFloat = 0.92
         static let firstControlX: CGFloat = 0.42
         static let secondControlX: CGFloat = 0.58
     }
@@ -925,11 +927,74 @@ final class TerminalDeckView: NSView {
     }
 
     private func terminalSnapshot(of tile: TerminalTileView) -> NSImage? {
-        guard let bitmap = tile.bitmapImageRepForCachingDisplay(in: tile.bounds) else { return nil }
-        tile.cacheDisplay(in: tile.bounds, to: bitmap)
+        viewSnapshot(of: tile)
+    }
+
+    private func viewSnapshot(of view: NSView) -> NSImage? {
+        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
+        view.cacheDisplay(in: view.bounds, to: bitmap)
         let image = NSImage(size: bitmap.size)
         image.addRepresentation(bitmap)
         return image
+    }
+
+    private func paneRemovalSnapshot(of view: NSView) -> NSImageView? {
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+              !view.bounds.isEmpty,
+              let image = viewSnapshot(of: view)
+        else { return nil }
+
+        let snapshot = NSImageView(frame: view.convert(view.bounds, to: self).integral)
+        snapshot.identifier = NSUserInterfaceItemIdentifier("pane-close-animation")
+        snapshot.image = image
+        snapshot.imageScaling = .scaleAxesIndependently
+        snapshot.wantsLayer = true
+        snapshot.layer?.cornerRadius = 7
+        snapshot.layer?.masksToBounds = true
+        addSubview(snapshot, positioned: .below, relativeTo: statusBarView)
+        return snapshot
+    }
+
+    private func finishPaneRemoval(
+        snapshot: NSImageView?,
+        previousFrames: [(tile: TerminalTileView, frame: NSRect)] = []
+    ) {
+        let cameraTarget = currentCameraBounds()
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        guard !reduceMotion else {
+            snapshot?.removeFromSuperview()
+            moveCamera(to: cameraTarget, duration: 0)
+            return
+        }
+
+        let reflows = previousFrames.compactMap { previous -> (TerminalTileView, NSRect)? in
+            guard previous.tile.superview != nil else { return nil }
+            let destination = previous.tile.frame
+            previous.tile.frame = previous.frame
+            return (previous.tile, destination)
+        }
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.paneCloseDuration
+            context.allowsImplicitAnimation = true
+            if let snapshot {
+                let horizontalInset = snapshot.frame.width * (1 - Motion.paneCloseScale) / 2
+                let verticalInset = snapshot.frame.height * (1 - Motion.paneCloseScale) / 2
+                snapshot.animator().frame = snapshot.frame.insetBy(
+                    dx: horizontalInset,
+                    dy: verticalInset
+                )
+                snapshot.animator().alphaValue = 0
+            }
+            for (tile, destination) in reflows {
+                tile.animator().frame = destination
+            }
+        } completionHandler: {
+            Task { @MainActor in
+                snapshot?.removeFromSuperview()
+            }
+        }
+        moveCamera(to: cameraTarget, duration: Motion.paneCloseDuration)
     }
 
     private func reorderTerminal(in workspaceID: String, from source: Int, to target: Int) {
@@ -2191,6 +2256,12 @@ final class TerminalDeckView: NSView {
 
     private func closeSession(_ tile: TerminalTileView) {
         let workspaceID = tile.session.workspaceID
+        let removalSnapshot = paneRemovalSnapshot(of: tile)
+        let previousFrames = allSessionTiles.compactMap { sibling in
+            sibling !== tile && sibling.session.workspaceID == workspaceID
+                ? (tile: sibling, frame: sibling.frame)
+                : nil
+        }
         tile.removeTerminal()
         tile.removeFromSuperview()
         allSessionTiles.removeAll { $0 === tile }
@@ -2202,13 +2273,19 @@ final class TerminalDeckView: NSView {
         }
         updateWorldGeometry()
         updateSelection()
-        setCameraImmediately()
+        finishPaneRemoval(snapshot: removalSnapshot, previousFrames: previousFrames)
         saveSessions()
     }
 
     private func closeWorkspace(_ workspace: String) {
         let workspaceRecord = workspaces.first { $0.name == workspace }
         let removedTiles = allSessionTiles.filter { $0.session.workspace == workspace }
+        let removalView: NSView? = if currentWorkspace == workspaceRecord?.id {
+            selectedSessionTile() ?? workspaceCluster(named: workspaceRecord?.id)
+        } else {
+            workspaceCluster(named: workspaceRecord?.id)
+        }
+        let removalSnapshot = removalView.flatMap(paneRemovalSnapshot)
         for tile in removedTiles {
             tile.removeTerminal()
             tile.removeFromSuperview()
@@ -2227,7 +2304,7 @@ final class TerminalDeckView: NSView {
         enterSoleTerminalIfNeeded()
         updateWorldGeometry()
         updateSelection()
-        setCameraImmediately()
+        finishPaneRemoval(snapshot: removalSnapshot)
         saveSessions()
         if let workspaceRecord {
             emitAPIEvent("workspace.deleted", data: [
@@ -2756,6 +2833,12 @@ final class TerminalDeckView: NSView {
         guard !tiles.contains(where: { terminalIsRunning($0.session) }) else {
             throw MachinenAPIError("workspace_running", "Stop the workspace's terminals before deleting it")
         }
+        let removalView: NSView? = if currentWorkspace == workspace.id {
+            selectedSessionTile() ?? workspaceCluster(named: workspace.id)
+        } else {
+            workspaceCluster(named: workspace.id)
+        }
+        let removalSnapshot = removalView.flatMap(paneRemovalSnapshot)
         for tile in tiles {
             tile.removeTerminal()
             tile.removeFromSuperview()
@@ -2771,7 +2854,7 @@ final class TerminalDeckView: NSView {
         selectedIndex = min(selectedIndex, max(0, workspaceClusters.count - 1))
         updateWorldGeometry()
         updateSelection()
-        setCameraImmediately()
+        finishPaneRemoval(snapshot: removalSnapshot)
         saveSessions()
         let result = workspaceJSON(workspace)
         emitAPIEvent("workspace.deleted", data: result)
@@ -2935,6 +3018,12 @@ final class TerminalDeckView: NSView {
         }
         let result = tileJSON(tile)
         let workspaceID = tile.session.workspaceID
+        let removalSnapshot = paneRemovalSnapshot(of: tile)
+        let previousFrames = allSessionTiles.compactMap { sibling in
+            sibling !== tile && sibling.session.workspaceID == workspaceID
+                ? (tile: sibling, frame: sibling.frame)
+                : nil
+        }
         tile.removeTerminal()
         tile.removeFromSuperview()
         allSessionTiles.removeAll { $0 === tile }
@@ -2945,7 +3034,7 @@ final class TerminalDeckView: NSView {
         }
         updateWorldGeometry()
         updateSelection()
-        setCameraImmediately()
+        finishPaneRemoval(snapshot: removalSnapshot, previousFrames: previousFrames)
         saveSessions()
         emitAPIEvent("tile.deleted", data: result)
         return result

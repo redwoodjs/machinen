@@ -48,6 +48,51 @@ private struct BackendProcessResult: Sendable {
     let output: String
 }
 
+private struct TerminalControlInvocation: Sendable {
+    let executable: String
+    let arguments: [String]
+}
+
+private enum TerminalSessionControl {
+    private static let cleanupQueue = DispatchQueue(
+        label: "dev.machinen.session-cleanup",
+        qos: .utility,
+        attributes: .concurrent
+    )
+
+    static func run(_ invocation: TerminalControlInvocation) -> Bool {
+        (try? TerminalSessionCommand.run(
+            executable: invocation.executable,
+            arguments: invocation.arguments
+        ).status) == 0
+    }
+
+    static func remove(
+        stop: TerminalControlInvocation,
+        delete: TerminalControlInvocation,
+        kill: TerminalControlInvocation
+    ) {
+        _ = run(stop)
+        Thread.sleep(forTimeInterval: 0.3)
+        guard !run(delete) else { return }
+        // A shell may trap SIGHUP. Explicit removal is stronger than stop,
+        // so force the process group down before one final metadata pass.
+        _ = run(kill)
+        Thread.sleep(forTimeInterval: 0.1)
+        _ = run(delete)
+    }
+
+    static func removeAsync(
+        stop: TerminalControlInvocation,
+        delete: TerminalControlInvocation,
+        kill: TerminalControlInvocation
+    ) {
+        cleanupQueue.async {
+            remove(stop: stop, delete: delete, kill: kill)
+        }
+    }
+}
+
 private enum TerminalSessionBackendError: LocalizedError {
     case helperUnavailable(String)
     case commandFailed(String)
@@ -246,33 +291,72 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
     }
 
     func reset(_ session: TerminalSession) {
-        remove(session)
+        guard let invocations = removalInvocations(for: session) else { return }
+        TerminalSessionControl.remove(
+            stop: invocations.stop,
+            delete: invocations.delete,
+            kill: invocations.kill
+        )
     }
 
     func remove(_ session: TerminalSession) {
-        _ = runControl("stop", session: session)
-        Thread.sleep(forTimeInterval: 0.3)
-        guard !runControl("delete", session: session) else { return }
-        // A shell may trap SIGHUP. Explicit removal is stronger than stop, so
-        // force the process group down before making one final metadata pass.
-        signal("kill", session: session)
-        Thread.sleep(forTimeInterval: 0.1)
-        _ = runControl("delete", session: session)
+        guard let invocations = removalInvocations(for: session) else { return }
+        TerminalSessionControl.removeAsync(
+            stop: invocations.stop,
+            delete: invocations.delete,
+            kill: invocations.kill
+        )
+    }
+
+    private func removalInvocations(
+        for session: TerminalSession
+    ) -> (
+        stop: TerminalControlInvocation,
+        delete: TerminalControlInvocation,
+        kill: TerminalControlInvocation
+    )? {
+        guard let stop = controlInvocation("stop", session: session),
+              let delete = controlInvocation("delete", session: session),
+              let kill = controlInvocation(
+                  "signal",
+                  session: session,
+                  trailingArguments: ["kill"]
+              )
+        else { return nil }
+        return (stop, delete, kill)
     }
 
     @discardableResult
     private func runControl(_ operation: String, session: TerminalSession) -> Bool {
+        guard let invocation = controlInvocation(operation, session: session) else { return false }
+        return TerminalSessionControl.run(invocation)
+    }
+
+    private func controlInvocation(
+        _ operation: String,
+        session: TerminalSession,
+        trailingArguments: [String] = []
+    ) -> TerminalControlInvocation? {
         if let host = session.location.sshHost {
-            return (try? Self.runSSH(
-                host: host,
-                command: Self.remoteControlCommand(operation, sessionID: session.id)
-            ).status) == 0
+            return TerminalControlInvocation(
+                executable: "/usr/bin/ssh",
+                arguments: [
+                    "-o", "BatchMode=yes",
+                    "-o", "ConnectTimeout=8",
+                    host,
+                    Self.remoteControlCommand(
+                        operation,
+                        sessionID: session.id,
+                        trailingArguments: trailingArguments
+                    ),
+                ]
+            )
         }
-        guard let database = try? Self.localDatabasePath() else { return false }
-        return (try? TerminalSessionCommand.run(
+        guard let database = try? Self.localDatabasePath() else { return nil }
+        return TerminalControlInvocation(
             executable: Self.sessionExecutablePath(),
-            arguments: [operation, "--database", database, session.id]
-        ).status) == 0
+            arguments: [operation, "--database", database, session.id] + trailingArguments
+        )
     }
 
     private func localSessionExists(_ id: String, helper: String, database: String) throws -> Bool {
