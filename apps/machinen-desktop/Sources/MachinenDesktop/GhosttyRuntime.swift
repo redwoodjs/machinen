@@ -10,11 +10,7 @@ final class GhosttyRuntime: @unchecked Sendable {
     private var config: ghostty_config_t?
 
     private init() {
-        if let resources = Bundle.module.url(
-            forResource: "ghostty",
-            withExtension: nil,
-            subdirectory: "GhosttyResources"
-        ) {
+        if let resources = Self.resourcesDirectory() {
             setenv("GHOSTTY_RESOURCES_DIR", resources.path, 1)
         } else {
             unsetenv("GHOSTTY_RESOURCES_DIR")
@@ -83,6 +79,20 @@ final class GhosttyRuntime: @unchecked Sendable {
         NotificationCenter.default.removeObserver(self)
         if let app { ghostty_app_free(app) }
         if let config { ghostty_config_free(config) }
+    }
+
+    private static func resourcesDirectory() -> URL? {
+        let resourceBundle = "MachinenDesktop_MachinenDesktop.bundle"
+        let executableDirectory = URL(fileURLWithPath: CommandLine.arguments[0])
+            .deletingLastPathComponent()
+        let roots = [Bundle.main.resourceURL, Bundle.main.bundleURL, executableDirectory]
+            .compactMap { $0 }
+        return roots.lazy
+            .map {
+                $0.appendingPathComponent(resourceBundle, isDirectory: true)
+                    .appendingPathComponent("GhosttyResources/ghostty", isDirectory: true)
+            }
+            .first { FileManager.default.fileExists(atPath: $0.path) }
     }
 
     @objc private func applicationDidBecomeActive() {

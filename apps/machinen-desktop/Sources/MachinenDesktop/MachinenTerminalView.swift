@@ -21,7 +21,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     private var requestedStateAfterExit: TerminalSession.State?
     private var attachRetryScheduled = false
     private var destroyingSurface = false
-    private var focusedRendering = false
+    private var terminalInputFocused = false
     private var markedText = NSMutableAttributedString()
     private var keyTextAccumulator: [String]?
     private var cellSize = NSSize(width: 10, height: 20)
@@ -33,10 +33,24 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
 
     override var acceptsFirstResponder: Bool { true }
 
-    init(session: TerminalSession) {
+    init(
+        session: TerminalSession,
+        telemetryProvider: ((
+            @escaping @MainActor @Sendable (TerminalTelemetry?) -> Void
+        ) -> Void)? = nil
+    ) {
         self.session = session
         super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
-        let detector = TerminalActivityDetector(session: session)
+        let provider: (
+            @escaping @MainActor @Sendable (TerminalTelemetry?) -> Void
+        ) -> Void
+        if let telemetryProvider {
+            provider = telemetryProvider
+        } else {
+            let backend = TerminalSessionBackendFactory.backend
+            provider = { completion in backend.inspect(session, completion: completion) }
+        }
+        let detector = TerminalActivityDetector(session: session, telemetryProvider: provider)
         detector.onActivityChange = { [weak self] state in self?.onActivityChange?(state) }
         detector.onCommandChange = { [weak self] command in self?.onCommandChange?(command) }
         detector.onShellNameChange = { [weak self] shellName in self?.onShellNameChange?(shellName) }
@@ -64,13 +78,17 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         return label.isEmpty ? .some(nil) : .some(label)
     }
 
+    func startActivityDetection() {
+        activityDetector?.start()
+    }
+
+    func stopActivityDetection() {
+        activityDetector?.stop()
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        guard window != nil else {
-            activityDetector?.stop()
-            return
-        }
-        activityDetector?.start()
+        guard window != nil else { return }
         updateGhosttyGeometry()
         if session.state == .running || session.state == .starting || session.state == .disconnected {
             attach()
@@ -139,7 +157,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
             guard let created else { throw GhosttyViewError.surfaceCreationFailed }
             surface = created
             updateGhosttyGeometry()
-            ghostty_surface_set_focus(created, focusedRendering)
+            ghostty_surface_set_focus(created, terminalInputFocused)
             setSessionState(.running)
         } catch {
             outputTap?.close()
@@ -231,8 +249,8 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         }
     }
 
-    func setFocusedRendering(_ focused: Bool) {
-        focusedRendering = focused
+    func setTerminalInputFocused(_ focused: Bool) {
+        terminalInputFocused = focused
         if let surface { ghostty_surface_set_focus(surface, focused) }
     }
 
@@ -305,16 +323,25 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         onStateChange?(state)
     }
 
+    static func intrinsicSurfacePixelSize(
+        for logicalSize: NSSize,
+        backingScale: CGFloat
+    ) -> (width: UInt32, height: UInt32) {
+        (
+            UInt32(max(1, (logicalSize.width * backingScale).rounded())),
+            UInt32(max(1, (logicalSize.height * backingScale).rounded()))
+        )
+    }
+
     private func updateGhosttyGeometry() {
         guard let surface else { return }
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
         ghostty_surface_set_content_scale(surface, scale, scale)
-        let backing = convertToBacking(bounds)
-        ghostty_surface_set_size(
-            surface,
-            UInt32(max(1, backing.width.rounded())),
-            UInt32(max(1, backing.height.rounded()))
-        )
+        // Ancestor frame/bounds transforms are the spatial camera. Ghostty must
+        // keep rendering the tile's intrinsic grid while AppKit scales that
+        // unchanged surface in Navigate mode.
+        let pixels = Self.intrinsicSurfacePixelSize(for: bounds.size, backingScale: scale)
+        ghostty_surface_set_size(surface, pixels.width, pixels.height)
         if let screen = window?.screen {
             ghostty_surface_set_display_id(
                 surface,
@@ -331,7 +358,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
-        if accepted, let surface { ghostty_surface_set_focus(surface, true) }
+        if accepted, let surface { ghostty_surface_set_focus(surface, terminalInputFocused) }
         return accepted
     }
 
@@ -342,6 +369,10 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     }
 
     override func keyDown(with event: NSEvent) {
+        guard terminalInputFocused else {
+            super.keyDown(with: event)
+            return
+        }
         guard let surface else { return }
         let translated = NSEvent.ModifierFlags.ghosttyTranslationModifiers(
             ghostty_surface_key_translation_mods(surface, event.modifierFlags.ghosttyModifiers)
@@ -419,15 +450,13 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.type == .keyDown,
+              terminalInputFocused,
+              window?.firstResponder === self
+        else { return false }
         if event.modifierFlags.contains(.command) { return false }
-        if event.type == .keyDown,
-           event.modifierFlags.contains(.control),
-           event.charactersIgnoringModifiers == "\r"
-        {
-            keyDown(with: event)
-            return true
-        }
-        return super.performKeyEquivalent(with: event)
+        keyDown(with: event)
+        return true
     }
 
     private func sendKey(

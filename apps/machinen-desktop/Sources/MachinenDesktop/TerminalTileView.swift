@@ -58,7 +58,7 @@ final class TerminalTileView: NSView {
     var isFocused = false {
         didSet {
             layer?.cornerRadius = isFocused ? 0 : Metrics.cornerRadius
-            embeddedTerminalView?.setFocusedRendering(isFocused)
+            embeddedTerminalView?.setTerminalInputFocused(isFocused)
             updateBorderAppearance()
             needsDisplay = true
         }
@@ -133,8 +133,9 @@ final class TerminalTileView: NSView {
     func installTerminalView(_ terminalView: MachinenTerminalView) {
         embeddedTerminalView?.removeFromSuperview()
         embeddedTerminalView = terminalView
-        terminalView.setFocusedRendering(isFocused)
+        terminalView.setTerminalInputFocused(isFocused)
         addSubview(terminalView)
+        terminalView.startActivityDetection()
         needsLayout = true
         needsDisplay = true
     }
@@ -144,6 +145,7 @@ final class TerminalTileView: NSView {
     }
 
     func detachTerminalForApplicationExit() {
+        embeddedTerminalView?.stopActivityDetection()
         embeddedTerminalView?.detachForApplicationExit()
     }
 
@@ -160,6 +162,7 @@ final class TerminalTileView: NSView {
     }
 
     func removeTerminal() {
+        embeddedTerminalView?.stopActivityDetection()
         embeddedTerminalView?.removePersistentSession()
     }
 
@@ -293,7 +296,7 @@ final class TerminalTileView: NSView {
         drawText(
             session.label,
             in: badgeRect,
-            font: .monospacedSystemFont(ofSize: 10, weight: .bold),
+            font: .systemFont(ofSize: 10, weight: .bold),
             color: NSColor(calibratedWhite: 0.7, alpha: 1),
             alignment: .center,
             verticalCenter: true
@@ -306,7 +309,7 @@ final class TerminalTileView: NSView {
                 width: max(0, bounds.width - badgeRect.maxX - Metrics.horizontalInset - 8),
                 height: Metrics.captionHeight
             ),
-            font: .monospacedSystemFont(ofSize: 11, weight: .regular),
+            font: .systemFont(ofSize: 11, weight: .regular),
             color: NSColor(calibratedWhite: 0.7, alpha: 1),
             alignment: .left,
             verticalCenter: true
@@ -403,7 +406,7 @@ final class TerminalTileView: NSView {
             drawText(
                 sessionTile.session.commandTitle,
                 in: NSRect(x: header.minX + 6, y: header.minY, width: header.width - 12, height: header.height),
-                font: .monospacedSystemFont(ofSize: headerFontSize, weight: .medium),
+                font: .systemFont(ofSize: headerFontSize, weight: .medium),
                 color: NSColor(calibratedWhite: 0.83, alpha: 1),
                 alignment: .left,
                 verticalCenter: true
@@ -424,7 +427,7 @@ final class TerminalTileView: NSView {
             NSAttributedString(
                 string: text,
                 attributes: [
-                    .font: NSFont.monospacedSystemFont(
+                    .font: NSFont.systemFont(
                         ofSize: max(5, min(8, frame.width / 40)),
                         weight: .regular
                     ),
@@ -490,5 +493,5 @@ final class TerminalTileView: NSView {
 
 @MainActor
 private enum Fonts {
-    static let terminal = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+    static let terminal = NSFont.systemFont(ofSize: 11, weight: .regular)
 }

@@ -1,5 +1,17 @@
 import Foundation
 
+struct TerminalTelemetry: Decodable, Sendable {
+    let activity: TerminalSession.ActivityState
+    let shellPid: Int32?
+    let processPid: Int32?
+    let shellName: String?
+    let command: String?
+}
+
+private struct TerminalTelemetryEnvelope: Decodable, Sendable {
+    let telemetry: TerminalTelemetry
+}
+
 struct TerminalViewerLaunch {
     let executable: String
     let arguments: [String]
@@ -12,6 +24,10 @@ struct TerminalViewerLaunch {
 protocol TerminalSessionBackend: AnyObject {
     func prepareViewer(for session: TerminalSession, loginShell: String) throws -> TerminalViewerLaunch
     func send(_ data: Data, to session: TerminalSession) -> Bool
+    func inspect(
+        _ session: TerminalSession,
+        completion: @escaping @MainActor @Sendable (TerminalTelemetry?) -> Void
+    )
     func signal(_ signal: String, session: TerminalSession)
     func stop(_ session: TerminalSession)
     func reset(_ session: TerminalSession)
@@ -27,7 +43,7 @@ enum TerminalSessionBackendFactory {
     }
 }
 
-private struct BackendProcessResult {
+private struct BackendProcessResult: Sendable {
     let status: Int32
     let output: String
 }
@@ -91,7 +107,7 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
         let sessions: [Session]
     }
 
-    private static let helperVersion = "0.3.0"
+    private static let helperVersion = "0.5.0"
     private var installedSSHHosts: Set<String> = []
 
     func prepareViewer(for session: TerminalSession, loginShell: String) throws -> TerminalViewerLaunch {
@@ -140,7 +156,7 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
         }
         return TerminalViewerLaunch(
             executable: helper,
-            arguments: ["attach", "--database", database, session.id],
+            arguments: ["attach", "--database", database, "--latest-screen", session.id],
             environment: nil,
             executableName: "machinen-session",
             workingDirectory: FileManager.default.homeDirectoryForCurrentUser.path
@@ -166,6 +182,43 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
             return result.status == 0
         } catch {
             return false
+        }
+    }
+
+    func inspect(
+        _ session: TerminalSession,
+        completion: @escaping @MainActor @Sendable (TerminalTelemetry?) -> Void
+    ) {
+        let executable: String
+        let arguments: [String]
+        do {
+            if let host = session.location.sshHost {
+                try ensureRemoteHelper(on: host)
+                executable = "/usr/bin/ssh"
+                arguments = [
+                    "-o", "BatchMode=yes",
+                    "-o", "ConnectTimeout=5",
+                    host,
+                    Self.remoteControlCommand("inspect", sessionID: session.id),
+                ]
+            } else {
+                executable = Self.sessionExecutablePath()
+                arguments = ["inspect", "--database", try Self.localDatabasePath(), session.id]
+            }
+        } catch {
+            completion(nil)
+            return
+        }
+        DispatchQueue.global(qos: .utility).async {
+            let result = try? TerminalSessionCommand.run(
+                executable: executable,
+                arguments: arguments
+            )
+            let telemetry = result.flatMap { result -> TerminalTelemetry? in
+                guard result.status == 0, let data = result.output.data(using: .utf8) else { return nil }
+                return try? JSONDecoder().decode(TerminalTelemetryEnvelope.self, from: data).telemetry
+            }
+            DispatchQueue.main.async { completion(telemetry) }
         }
     }
 
@@ -392,7 +445,11 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
     }
 
     private static func remoteAttachCommand(sessionID: String) -> String {
-        remoteControlCommand("attach", sessionID: sessionID)
+        remoteControlCommand(
+            "attach",
+            sessionID: sessionID,
+            trailingArguments: ["--latest-screen"]
+        )
     }
 
     private static func remoteListCommand() -> String {
