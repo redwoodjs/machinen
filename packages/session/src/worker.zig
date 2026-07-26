@@ -25,6 +25,10 @@ const c = @cImport({
     }
 });
 
+const macos = struct {
+    extern "c" fn proc_name(pid: c_int, buffer: *anyopaque, buffersize: u32) c_int;
+};
+
 const max_clients = 8;
 const max_frame_payload = 32 * 1024;
 const socket_directory_prefix = "/tmp/machinen-session-";
@@ -32,12 +36,19 @@ const protocol_version: u32 = 2;
 const attach_payload_length = 24;
 const sequence_header_length = 8;
 const checkpoint_header_length = 13;
+const telemetry_header_length = 14;
+const telemetry_name_capacity = 127;
 const lease_duration_ms: i64 = 30_000;
 const heartbeat_interval_ms: i64 = 10_000;
 const LeaseFlag = struct {
     const writer: u8 = 1 << 0;
     const resize: u8 = 1 << 1;
     const control: u8 = 1 << 2;
+};
+
+const RecoveryMode = enum(u8) {
+    journal = 0,
+    latest_screen = 1,
 };
 
 const FrameType = enum(u8) {
@@ -53,6 +64,7 @@ const FrameType = enum(u8) {
     signal = 'S',
     lease = 'L',
     heartbeat = 'P',
+    telemetry = 'T',
 };
 
 pub const Config = struct {
@@ -92,6 +104,31 @@ pub const AttachOptions = struct {
     protocol: u32,
     after_sequence: u64 = 0,
     read_only: bool = false,
+    latest_screen: bool = false,
+};
+
+pub const Activity = enum(u8) {
+    unknown = 0,
+    idle = 1,
+    working = 2,
+};
+
+pub const Telemetry = struct {
+    activity: Activity = .unknown,
+    shell_pid: i32 = 0,
+    process_pid: i32 = 0,
+    shell_name: [telemetry_name_capacity]u8 = @splat(0),
+    shell_name_length: u8 = 0,
+    command: [telemetry_name_capacity]u8 = @splat(0),
+    command_length: u8 = 0,
+
+    pub fn shellName(self: *const Telemetry) []const u8 {
+        return self.shell_name[0..self.shell_name_length];
+    }
+
+    pub fn commandName(self: *const Telemetry) []const u8 {
+        return self.command[0..self.command_length];
+    }
 };
 
 var resize_pending: c.sig_atomic_t = 0;
@@ -177,6 +214,28 @@ pub fn sendSignal(
     try writeFrame(fd, .signal, &payload);
 }
 
+pub fn queryTelemetry(
+    allocator: std.mem.Allocator,
+    id: []const u8,
+    protocol: u32,
+    last_sequence: u64,
+) !Telemetry {
+    if (protocol < protocol_version) return error.TelemetryUnsupported;
+    const fd = try connectForControl(allocator, id, protocol, last_sequence);
+    defer _ = c.close(fd);
+    try writeFrame(fd, .telemetry, "");
+    var payload: [max_frame_payload]u8 = undefined;
+    while (true) {
+        const frame = readFrame(fd, &payload) catch return error.TelemetryUnsupported;
+        switch (frame.kind) {
+            .telemetry => return decodeTelemetry(frame.payload),
+            .failure => return error.TelemetryUnavailable,
+            .lease, .history_complete => {},
+            else => return error.InvalidServerFrame,
+        }
+    }
+}
+
 pub fn attach(allocator: std.mem.Allocator, id: []const u8, options: AttachOptions) !u8 {
     const path = try socketPath(allocator, id);
     defer allocator.free(path);
@@ -184,7 +243,12 @@ pub fn attach(allocator: std.mem.Allocator, id: []const u8, options: AttachOptio
     defer _ = c.close(fd);
     if (options.protocol >= protocol_version) {
         const flags: u8 = if (options.read_only) 0 else LeaseFlag.writer | LeaseFlag.resize;
-        try sendAttachRequest(fd, flags, options.after_sequence);
+        try sendAttachRequestWithRecovery(
+            fd,
+            flags,
+            options.after_sequence,
+            if (options.latest_screen) .latest_screen else .journal,
+        );
     }
 
     var original_termios: c.struct_termios = undefined;
@@ -241,7 +305,7 @@ pub fn attach(allocator: std.mem.Allocator, id: []const u8, options: AttachOptio
                     }
                     try writeAll(c.STDOUT_FILENO, frame.payload[checkpoint_header_length..]);
                 },
-                .history_complete, .lease => {},
+                .history_complete, .lease, .telemetry => {},
                 .exit => return decodeExit(frame.payload),
                 .failure => {
                     try writeAll(c.STDERR_FILENO, frame.payload);
@@ -495,6 +559,7 @@ fn serviceClient(
                 client,
                 clients,
                 leases,
+                checkpoint_builder,
                 frame.payload,
             ) catch false == false)
         {
@@ -552,6 +617,10 @@ fn serviceClient(
             const signal = std.mem.readInt(i32, frame.payload[0..4], .big);
             if (signal <= 0 or c.kill(-child_pid, signal) != 0) return closeClient(client, leases);
         },
+        .telemetry => {
+            if (frame.payload.len != 0) return closeClient(client, leases);
+            sendTelemetry(client.fd, master_fd, child_pid) catch closeClient(client, leases);
+        },
         else => closeClient(client, leases),
     }
 }
@@ -563,12 +632,14 @@ fn beginClient(
     client: *Client,
     clients: *[max_clients]Client,
     leases: *Leases,
+    checkpoint_builder: *vt.Builder,
     payload: []const u8,
 ) !bool {
     if (payload.len != attach_payload_length) return false;
     if (std.mem.readInt(u32, payload[0..4], .big) != protocol_version) return false;
     const flags = payload[4];
     if (flags & ~(LeaseFlag.writer | LeaseFlag.resize | LeaseFlag.control) != 0) return false;
+    const recovery = std.enums.fromInt(RecoveryMode, payload[5]) orelse return false;
     const after_sequence = std.mem.readInt(u64, payload[8..16], .big);
     client.client_id = std.mem.readInt(u64, payload[16..24], .big);
     client.control = flags & LeaseFlag.control != 0;
@@ -576,7 +647,15 @@ fn beginClient(
     client.ready = true;
     client.last_heartbeat_ms = monotonicMilliseconds();
     refreshLeases(clients, leases);
-    try replayClient(allocator, store, session_id, client.fd, after_sequence);
+    try replayClient(
+        allocator,
+        store,
+        session_id,
+        client.fd,
+        after_sequence,
+        checkpoint_builder,
+        recovery,
+    );
     return true;
 }
 
@@ -586,7 +665,23 @@ fn replayClient(
     session_id: []const u8,
     fd: c_int,
     requested_after: u64,
+    checkpoint_builder: *vt.Builder,
+    recovery: RecoveryMode,
 ) !void {
+    if (recovery == .latest_screen) {
+        var record = (try store.getSession(session_id)) orelse return error.SessionNotFound;
+        defer record.deinit(allocator);
+        var checkpoint = session.Checkpoint{
+            .sequence = record.last_sequence,
+            .format_version = vt.format_version,
+            .payload = try checkpoint_builder.checkpoint(),
+        };
+        defer checkpoint.deinit(allocator);
+        try sendCheckpoint(fd, checkpoint);
+        try sendHistoryComplete(fd, record.last_sequence);
+        return;
+    }
+
     var after_sequence = requested_after;
     if (try store.latestCheckpoint(allocator, session_id)) |checkpoint_value| {
         var checkpoint = checkpoint_value;
@@ -603,9 +698,13 @@ fn replayClient(
     }
     var record = (try store.getSession(session_id)) orelse return error.SessionNotFound;
     defer record.deinit(allocator);
-    var complete: [8]u8 = undefined;
-    std.mem.writeInt(u64, &complete, record.last_sequence, .big);
-    try writeFrame(fd, .history_complete, &complete);
+    try sendHistoryComplete(fd, record.last_sequence);
+}
+
+fn sendHistoryComplete(fd: c_int, sequence: u64) !void {
+    var payload: [8]u8 = undefined;
+    std.mem.writeInt(u64, &payload, sequence, .big);
+    try writeFrame(fd, .history_complete, &payload);
 }
 
 fn sendCheckpoint(fd: c_int, checkpoint: session.Checkpoint) !void {
@@ -641,6 +740,100 @@ fn sendSequencedOutput(fd: c_int, sequence: u64, output: []const u8) !void {
         try writeFrame(fd, .sequenced_output, payload[0 .. sequence_header_length + end - offset]);
         offset = end;
     }
+}
+
+fn sendTelemetry(fd: c_int, master_fd: c_int, child_pid: c.pid_t) !void {
+    const telemetry = collectTelemetry(master_fd, child_pid);
+    var payload: [telemetry_header_length + telemetry_name_capacity * 2]u8 = undefined;
+    const length = encodeTelemetry(telemetry, &payload);
+    try writeFrame(fd, .telemetry, payload[0..length]);
+}
+
+fn collectTelemetry(master_fd: c_int, child_pid: c.pid_t) Telemetry {
+    var result: Telemetry = .{ .shell_pid = @intCast(child_pid) };
+    result.shell_name_length = copyProcessName(child_pid, &result.shell_name);
+
+    const foreground_pid = c.tcgetpgrp(master_fd);
+    if (foreground_pid <= 0) return result;
+    result.process_pid = @intCast(foreground_pid);
+    result.command_length = copyProcessName(foreground_pid, &result.command);
+    if (result.command_length == 0 and foreground_pid == child_pid) {
+        result.command_length = result.shell_name_length;
+        @memcpy(
+            result.command[0..result.command_length],
+            result.shell_name[0..result.shell_name_length],
+        );
+    }
+    result.activity = if (foreground_pid == child_pid and isShellName(result.shellName()))
+        .idle
+    else
+        .working;
+    return result;
+}
+
+fn copyProcessName(pid: c.pid_t, output: *[telemetry_name_capacity]u8) u8 {
+    const count = if (builtin.os.tag == .macos) macos: {
+        const value = macos.proc_name(pid, output, output.len);
+        break :macos if (value > 0) @as(usize, @intCast(value)) else 0;
+    } else linux: {
+        var path: [64]u8 = undefined;
+        const path_z = std.fmt.bufPrintZ(&path, "/proc/{d}/comm", .{pid}) catch break :linux 0;
+        const fd = c.open(path_z.ptr, c.O_RDONLY);
+        if (fd < 0) break :linux 0;
+        defer _ = c.close(fd);
+        const value = c.read(fd, output, output.len);
+        break :linux if (value > 0) @as(usize, @intCast(value)) else 0;
+    };
+    var length = @min(count, output.len);
+    while (length > 0 and (output[length - 1] == 0 or output[length - 1] == '\n' or
+        output[length - 1] == '\r'))
+    {
+        length -= 1;
+    }
+    return @intCast(length);
+}
+
+fn isShellName(name: []const u8) bool {
+    const shells = [_][]const u8{ "sh", "bash", "zsh", "fish", "dash", "ksh", "tcsh", "csh", "nu" };
+    for (shells) |shell| if (std.mem.eql(u8, name, shell)) return true;
+    return false;
+}
+
+fn encodeTelemetry(
+    telemetry: Telemetry,
+    output: *[telemetry_header_length + telemetry_name_capacity * 2]u8,
+) usize {
+    output[0] = @intFromEnum(telemetry.activity);
+    @memset(output[1..4], 0);
+    std.mem.writeInt(i32, output[4..8], telemetry.shell_pid, .big);
+    std.mem.writeInt(i32, output[8..12], telemetry.process_pid, .big);
+    output[12] = telemetry.shell_name_length;
+    output[13] = telemetry.command_length;
+    const shell_end = telemetry_header_length + telemetry.shell_name_length;
+    const command_end = shell_end + telemetry.command_length;
+    @memcpy(output[telemetry_header_length..shell_end], telemetry.shellName());
+    @memcpy(output[shell_end..command_end], telemetry.commandName());
+    return command_end;
+}
+
+fn decodeTelemetry(payload: []const u8) !Telemetry {
+    if (payload.len < telemetry_header_length) return error.InvalidTelemetry;
+    const activity = std.enums.fromInt(Activity, payload[0]) orelse return error.InvalidTelemetry;
+    const shell_length = payload[12];
+    const command_length = payload[13];
+    const shell_end = telemetry_header_length + @as(usize, shell_length);
+    const command_end = shell_end + @as(usize, command_length);
+    if (command_end != payload.len) return error.InvalidTelemetry;
+    var result: Telemetry = .{
+        .activity = activity,
+        .shell_pid = std.mem.readInt(i32, payload[4..8], .big),
+        .process_pid = std.mem.readInt(i32, payload[8..12], .big),
+        .shell_name_length = shell_length,
+        .command_length = command_length,
+    };
+    @memcpy(result.shell_name[0..shell_length], payload[telemetry_header_length..shell_end]);
+    @memcpy(result.command[0..command_length], payload[shell_end..command_end]);
+    return result;
 }
 
 fn drainPty(
@@ -786,9 +979,19 @@ fn connectForControl(
 }
 
 fn sendAttachRequest(fd: c_int, flags: u8, after_sequence: u64) !void {
+    try sendAttachRequestWithRecovery(fd, flags, after_sequence, .journal);
+}
+
+fn sendAttachRequestWithRecovery(
+    fd: c_int,
+    flags: u8,
+    after_sequence: u64,
+    recovery: RecoveryMode,
+) !void {
     var payload: [attach_payload_length]u8 = @splat(0);
     std.mem.writeInt(u32, payload[0..4], protocol_version, .big);
     payload[4] = flags;
+    payload[5] = @intFromEnum(recovery);
     std.mem.writeInt(u64, payload[8..16], after_sequence, .big);
     const client_id = (@as(u64, @intCast(c.getpid())) << 32) ^
         @as(u64, @bitCast(monotonicMilliseconds()));
@@ -960,6 +1163,44 @@ test "framing preserves terminal bytes" {
     try std.testing.expectEqualSlices(u8, "one\x00two", frame.payload);
 }
 
+test "attach request encodes latest-screen recovery in the reserved-compatible byte" {
+    var sockets: [2]c_int = undefined;
+    try std.testing.expectEqual(@as(c_int, 0), c.socketpair(c.AF_UNIX, c.SOCK_STREAM, 0, &sockets));
+    defer _ = c.close(sockets[0]);
+    defer _ = c.close(sockets[1]);
+    try sendAttachRequestWithRecovery(
+        sockets[0],
+        LeaseFlag.writer | LeaseFlag.resize,
+        0,
+        .latest_screen,
+    );
+    var payload: [max_frame_payload]u8 = undefined;
+    const frame = try readFrame(sockets[1], &payload);
+    try std.testing.expectEqual(FrameType.attach_request, frame.kind);
+    try std.testing.expectEqual(@as(usize, attach_payload_length), frame.payload.len);
+    try std.testing.expectEqual(@intFromEnum(RecoveryMode.latest_screen), frame.payload[5]);
+}
+
+test "telemetry framing preserves activity and process metadata" {
+    var telemetry: Telemetry = .{
+        .activity = .working,
+        .shell_pid = 42,
+        .process_pid = 84,
+        .shell_name_length = 3,
+        .command_length = 4,
+    };
+    @memcpy(telemetry.shell_name[0..3], "zsh");
+    @memcpy(telemetry.command[0..4], "node");
+    var payload: [telemetry_header_length + telemetry_name_capacity * 2]u8 = undefined;
+    const length = encodeTelemetry(telemetry, &payload);
+    const decoded = try decodeTelemetry(payload[0..length]);
+    try std.testing.expectEqual(Activity.working, decoded.activity);
+    try std.testing.expectEqual(@as(i32, 42), decoded.shell_pid);
+    try std.testing.expectEqual(@as(i32, 84), decoded.process_pid);
+    try std.testing.expectEqualStrings("zsh", decoded.shellName());
+    try std.testing.expectEqualStrings("node", decoded.commandName());
+}
+
 test "writer and resize leases transfer when the owning client disconnects" {
     var first_pair: [2]c_int = undefined;
     var second_pair: [2]c_int = undefined;
@@ -1004,6 +1245,79 @@ fn workerTestDatabasePath(allocator: std.mem.Allocator, tmp: *const std.testing.
         allocator,
         &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path, "worker.sqlite3" },
     );
+}
+
+test "latest-screen recovery sends the in-memory head without replaying the journal" {
+    const allocator = std.testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const database_path = try workerTestDatabasePath(allocator, &tmp);
+    defer allocator.free(database_path);
+    const id = "worker_latest_screen_proof";
+    var store = try session.Store.open(allocator, database_path);
+    defer store.close();
+    try store.createSession(.{
+        .id = id,
+        .working_directory = "/tmp",
+        .argv_json = "[\"/bin/sh\"]",
+        .rows = 2,
+        .columns = 12,
+        .protocol_version = protocol_version,
+    });
+
+    var builder = try vt.Builder.init(allocator, 2, 12);
+    defer builder.deinit();
+    const old_output = "old\r\n";
+    const current_output = "new\r\nlatest";
+    builder.feed(old_output);
+    _ = try store.appendOutput(id, old_output);
+    builder.feed(current_output);
+    const current_sequence = try store.appendOutput(id, current_output);
+
+    var pair: [2]c_int = undefined;
+    try std.testing.expectEqual(@as(c_int, 0), c.socketpair(c.AF_UNIX, c.SOCK_STREAM, 0, &pair));
+    defer _ = c.close(pair[0]);
+    defer _ = c.close(pair[1]);
+    try replayClient(
+        allocator,
+        &store,
+        id,
+        pair[0],
+        0,
+        &builder,
+        .latest_screen,
+    );
+
+    var reconstruction: std.ArrayList(u8) = .empty;
+    defer reconstruction.deinit(allocator);
+    var payload: [max_frame_payload]u8 = undefined;
+    var checkpoint_sequence: ?u64 = null;
+    var completed_sequence: ?u64 = null;
+    while (completed_sequence == null) {
+        const frame = try readFrame(pair[1], &payload);
+        switch (frame.kind) {
+            .checkpoint => {
+                try std.testing.expect(frame.payload.len >= checkpoint_header_length);
+                checkpoint_sequence = std.mem.readInt(u64, frame.payload[0..8], .big);
+                try reconstruction.appendSlice(
+                    allocator,
+                    frame.payload[checkpoint_header_length..],
+                );
+            },
+            .history_complete => {
+                try std.testing.expectEqual(@as(usize, 8), frame.payload.len);
+                completed_sequence = std.mem.readInt(u64, frame.payload[0..8], .big);
+            },
+            .sequenced_output => return error.LatestScreenReplayedJournal,
+            else => return error.UnexpectedWorkerFrame,
+        }
+    }
+
+    try std.testing.expectEqual(current_sequence, checkpoint_sequence.?);
+    try std.testing.expectEqual(current_sequence, completed_sequence.?);
+    try std.testing.expect(std.mem.indexOf(u8, reconstruction.items, "new") != null);
+    try std.testing.expect(std.mem.indexOf(u8, reconstruction.items, "latest") != null);
+    try std.testing.expect(std.mem.indexOf(u8, reconstruction.items, "old") == null);
 }
 
 test "detached worker runs independently and replays journaled PTY output" {
@@ -1101,6 +1415,46 @@ fn readClientOutput(
             else => return error.UnexpectedWorkerFrame,
         }
     }
+}
+
+test "worker reports idle shell and foreground command telemetry" {
+    const allocator = std.testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const database_path = try workerTestDatabasePath(allocator, &tmp);
+    defer allocator.free(database_path);
+    const id = "worker_telemetry_proof";
+    const command = [_][]const u8{"/bin/sh"};
+    const spawned = try spawnDetached(.{
+        .database_path = database_path,
+        .id = id,
+        .name = null,
+        .working_directory = "/tmp",
+        .argv_json = "[\"/bin/sh\"]",
+        .command = &command,
+        .rows = 24,
+        .columns = 80,
+    });
+    errdefer _ = c.kill(spawned.worker_pid, c.SIGKILL);
+
+    const idle = try queryTelemetry(allocator, id, protocol_version, 0);
+    try std.testing.expectEqual(Activity.idle, idle.activity);
+    try std.testing.expectEqual(idle.shell_pid, idle.process_pid);
+    try std.testing.expectEqualStrings("sh", idle.shellName());
+
+    try sendInput(allocator, id, protocol_version, 0, "sleep 2\n");
+    _ = c.usleep(200_000);
+    const working = try queryTelemetry(allocator, id, protocol_version, 0);
+    try std.testing.expectEqual(Activity.working, working.activity);
+    try std.testing.expect(working.process_pid != working.shell_pid);
+    try std.testing.expectEqualStrings("sleep", working.commandName());
+
+    try sendSignal(allocator, id, protocol_version, 0, c.SIGHUP);
+    var worker_status: c_int = 0;
+    try std.testing.expectEqual(
+        spawned.worker_pid,
+        c.waitpid(spawned.worker_pid, &worker_status, 0),
+    );
 }
 
 test "leased writer and read-only watcher share output and canonical resize" {

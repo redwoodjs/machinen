@@ -115,7 +115,8 @@ export function printHelp(): void {
       `  machinen terminal <operation>                  Manage host terminal sessions.\n` +
       `    new [--id <id>] [--name <name>] -- <cmd>     Create a detached PTY session.\n` +
       `    list                                         List IDs, names, state, and sequence.\n` +
-      `    attach [--after <seq>] <id-or-name>           Reattach by stable ID or unique name.\n` +
+      `    attach [--after <seq>] [--latest-screen] <id-or-name>\n` +
+      `                                                 Reattach by stable ID or unique name.\n` +
       `    send <id-or-name> [--newline] [text]          Send input while detached.\n` +
       `    signal|stop|delete <id-or-name> ...           Control or remove a session.\n` +
       `    reconcile                                    Mark workers lost across reboot.\n` +

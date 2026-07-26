@@ -3,7 +3,7 @@ const session = @import("session");
 const worker = @import("worker");
 
 const Exit = enum(u8) { ok = 0, failed = 1, usage = 2 };
-const version = "0.3.0";
+const version = "0.5.0";
 
 pub fn main(init: std.process.Init) !u8 {
     var args = init.minimal.args.iterate();
@@ -18,6 +18,7 @@ pub fn main(init: std.process.Init) !u8 {
     if (std.mem.eql(u8, command, "database")) return runDatabase(init, &args);
     if (std.mem.eql(u8, command, "new")) return runNew(init, &args);
     if (std.mem.eql(u8, command, "list")) return runList(init, &args);
+    if (std.mem.eql(u8, command, "inspect")) return runInspect(init, &args);
     if (std.mem.eql(u8, command, "attach")) return runAttach(init, &args);
     if (std.mem.eql(u8, command, "send")) return runSend(init, &args);
     if (std.mem.eql(u8, command, "signal")) return runSignal(init, &args);
@@ -158,11 +159,53 @@ fn runList(init: std.process.Init, args: anytype) !u8 {
     return @intFromEnum(Exit.ok);
 }
 
+const TelemetryView = struct {
+    activity: []const u8,
+    shellPid: ?i32,
+    processPid: ?i32,
+    shellName: ?[]const u8,
+    command: ?[]const u8,
+};
+
+fn runInspect(init: std.process.Init, args: anytype) !u8 {
+    const target = parseTarget(args) catch return writeUsage(init.io);
+    var store = session.Store.open(init.gpa, target.database) catch |err| return fail(init, err);
+    defer store.close();
+    var record = (store.resolveSession(target.reference) catch |err| return fail(init, err)) orelse
+        return fail(init, error.SessionNotFound);
+    defer record.deinit(init.gpa);
+    const telemetry = if (record.state == .running or record.state == .created)
+        worker.queryTelemetry(
+            init.gpa,
+            record.id,
+            record.protocol_version,
+            record.last_sequence,
+        ) catch null
+    else
+        null;
+    const view: TelemetryView = if (telemetry) |value| .{
+        .activity = @tagName(value.activity),
+        .shellPid = if (value.shell_pid > 0) value.shell_pid else null,
+        .processPid = if (value.process_pid > 0) value.process_pid else null,
+        .shellName = if (value.shell_name_length > 0) value.shellName() else null,
+        .command = if (value.command_length > 0) value.commandName() else null,
+    } else .{
+        .activity = "unknown",
+        .shellPid = null,
+        .processPid = null,
+        .shellName = null,
+        .command = null,
+    };
+    try writeJson(init.gpa, init.io, .{ .ok = true, .telemetry = view });
+    return @intFromEnum(Exit.ok);
+}
+
 fn runAttach(init: std.process.Init, args: anytype) !u8 {
     var database: ?[]const u8 = null;
     var reference: ?[]const u8 = null;
     var after_sequence: u64 = 0;
     var read_only = false;
+    var latest_screen = false;
     while (args.next()) |argument| {
         if (std.mem.eql(u8, argument, "--database")) {
             database = args.next() orelse return writeUsage(init.io);
@@ -174,6 +217,8 @@ fn runAttach(init: std.process.Init, args: anytype) !u8 {
             ) catch return writeUsage(init.io);
         } else if (std.mem.eql(u8, argument, "--read-only")) {
             read_only = true;
+        } else if (std.mem.eql(u8, argument, "--latest-screen")) {
+            latest_screen = true;
         } else if (reference == null) {
             reference = argument;
         } else return writeUsage(init.io);
@@ -207,6 +252,7 @@ fn runAttach(init: std.process.Init, args: anytype) !u8 {
         .protocol = record.protocol_version,
         .after_sequence = after_sequence,
         .read_only = read_only,
+        .latest_screen = latest_screen,
     }) catch |err| return fail(init, err);
 }
 
@@ -493,7 +539,7 @@ fn writeUsage(io: std.Io) !u8 {
     try std.Io.File.stderr().writeStreamingAll(
         io,
         "usage: machinen-session " ++
-            "<new|list|attach|send|signal|stop|delete|reconcile|gc|database|help> ...\n",
+            "<new|list|inspect|attach|send|signal|stop|delete|reconcile|gc|database|help> ...\n",
     );
     return @intFromEnum(Exit.usage);
 }
@@ -509,8 +555,9 @@ fn writeHelp(io: std.Io) !u8 {
         \\      --cwd <path> [--rows <n>] [--columns <n>] [--checkpoint-bytes <n>]
         \\      -- <command> [args...]
         \\  machinen-session list --database <path>
+        \\  machinen-session inspect --database <path> <id-or-name>
         \\  machinen-session attach --database <path> [--after <sequence>] [--read-only]
-        \\      <id-or-name>
+        \\      [--latest-screen] <id-or-name>
         \\  machinen-session send --database <path> <id-or-name> < input
         \\  machinen-session signal --database <path> <id-or-name> <interrupt|hangup|terminate|kill>
         \\  machinen-session stop --database <path> <id-or-name>

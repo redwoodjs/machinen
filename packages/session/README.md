@@ -74,7 +74,9 @@ machinen-session new \
   -- pnpm dev
 
 machinen-session list --database "$DB"
+machinen-session inspect --database "$DB" api
 machinen-session attach --database "$DB" api
+machinen-session attach --database "$DB" --latest-screen api
 machinen-session attach --database "$DB" --after 420 api
 printf 'r' | machinen-session send --database "$DB" api
 machinen-session stop --database "$DB" api
@@ -102,6 +104,12 @@ A worker checkpoints every 256 KiB of output by default. Use
 deleting covered events is atomic. Recovery storage is bounded to one visible
 screen checkpoint plus output produced since the latest checkpoint.
 
+`attach --latest-screen` asks a live worker to generate an ephemeral checkpoint
+from its current in-memory VT state. It skips retained journal output, so a new
+renderer can show the current screen and begin consuming live output without
+waiting to reconstruct scrollback. Normal attach and `--after` retain their
+journal-resume behavior.
+
 ## Multiple clients
 
 Writer and resize leases prevent two interactive clients from fighting over one
@@ -112,6 +120,14 @@ requests neither lease.
 
 Same-user `send`, `signal`, and `stop` operations use explicit control
 connections. They do not steal the interactive writer lease.
+
+## Foreground activity
+
+`inspect` asks the worker that owns the PTY for its login-shell PID, foreground
+process-group leader, process names, and `idle`/`working` state. This works on
+local and SSH-owned sessions without inspecting processes from Desktop. A live
+worker from an older protocol reports `unknown` until the user explicitly
+restarts that session; upgrading Desktop never replaces a running PTY.
 
 ## Reboot-aware reconciliation and cleanup
 
