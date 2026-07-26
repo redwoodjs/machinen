@@ -27,6 +27,17 @@ struct WorkspaceLocation: Codable, Equatable {
         return "\(sshHost):\(path)"
     }
 
+    var machineID: String {
+        guard let sshHost else { return "local" }
+        return "ssh:\(sshHost.lowercased())"
+    }
+
+    var browserHost: String {
+        guard let sshHost else { return "localhost" }
+        let host = sshHost.split(separator: "@").last.map(String.init) ?? sshHost
+        return host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+    }
+
     var json: JSONObject {
         var result: JSONObject = [
             "kind": kind.rawValue,

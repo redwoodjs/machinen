@@ -103,12 +103,12 @@ final class MachinenStatusPopoverView: NSView {
         let naturalDetailWidth = (detail as NSString).size(withAttributes: [.font: detailFont]).width
         let width = min(maximumWidth, max(180, max(titleWidth, naturalDetailWidth) + Metrics.horizontalInset * 2))
         let detailSize = NSAttributedString(string: detail, attributes: [.font: detailFont]).boundingRect(
-            with: NSSize(width: width - Metrics.horizontalInset * 2, height: 44),
+            with: NSSize(width: width - Metrics.horizontalInset * 2, height: 240),
             options: [.usesLineFragmentOrigin, .usesFontLeading]
         )
         return NSSize(
             width: width,
-            height: min(78, ceil(detailSize.height) + Metrics.verticalInset * 2 + Metrics.titleHeight + Metrics.lineGap)
+            height: min(280, ceil(detailSize.height) + Metrics.verticalInset * 2 + Metrics.titleHeight + Metrics.lineGap)
         )
     }
 

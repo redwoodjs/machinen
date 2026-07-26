@@ -7,6 +7,7 @@ export type WorkspaceLocation =
 export interface Workspace {
   id: string;
   name: string;
+  machineId: string;
   location: WorkspaceLocation;
   workingDirectory: string;
   position: number;
@@ -56,6 +57,7 @@ export interface DesktopSnapshot {
 
 export type StatusScope =
   | { kind: "global" }
+  | { kind: "machine"; id: string }
   | { kind: "workspace"; id: string }
   | { kind: "terminal"; id: string };
 

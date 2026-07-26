@@ -14,7 +14,7 @@ enum InteractionTestRunner {
             try terminalOutputAndRuntimeLabelsReportActivity()
             try statusWidgetsInheritBySpatialScope()
             try activityMonitorStaysWorkspaceScoped()
-            try listeningServicesStayProjectScoped()
+            try openPortsStayMachineScoped()
             try gitStatusCoversTheWholeBranch()
             try graphicalStatusWidgetsRender()
             try workspaceLocationsRemainUnambiguous()
@@ -373,7 +373,7 @@ enum InteractionTestRunner {
         try expect(activity.states?.count == 2, "focused activity omitted workspace siblings")
     }
 
-    private static func listeningServicesStayProjectScoped() throws {
+    private static func openPortsStayMachineScoped() throws {
         let output = """
         p10
         cnode
@@ -390,14 +390,24 @@ enum InteractionTestRunner {
         f4
         n127.0.0.1:11435
         """
-        let services = MachinenStatusMetricsMonitor.parseListeningServices(
-            output,
-            workingDirectory: "/tmp/project"
+        let services = MachinenStatusMetricsMonitor.parseListeningServices(output)
+        try expect(services.count == 2, "open ports were filtered by project directory")
+        try expect(services[0].process == "node", "open port omitted its process name")
+        try expect(services[0].port == 3000, "open port omitted its port number")
+        try expect(services[0].addresses.count == 2, "open port duplicated IPv4 and IPv6 sockets")
+        try expect(services[1].process == "ssh", "machine listener was omitted")
+
+        let location = WorkspaceLocation.ssh(host: "mini", path: "/tmp/project")
+        let links = MachinenStatusMetricsMonitor.links(for: services, location: location)
+        try expect(location.machineID == "ssh:mini", "SSH machine scope was not stable")
+        try expect(links.map(\.url.absoluteString) == [
+            "http://mini:3000",
+            "http://mini:11435",
+        ], "open ports did not produce default-browser links")
+        try expect(
+            services.map(\.summary).joined(separator: "\n").contains("\n"),
+            "open ports were not formatted on separate lines"
         )
-        try expect(services.count == 1, "TCP listeners included a parent-directory process")
-        try expect(services[0].process == "node", "TCP listener omitted its process name")
-        try expect(services[0].port == 3000, "TCP listener omitted its port")
-        try expect(services[0].addresses.count == 2, "TCP listener duplicated IPv4 and IPv6 sockets")
     }
 
     private static func gitStatusCoversTheWholeBranch() throws {

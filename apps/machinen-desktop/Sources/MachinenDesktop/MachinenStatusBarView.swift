@@ -3,6 +3,7 @@ import AppKit
 struct MachinenStatusWidget {
     enum ScopeKind: String {
         case global
+        case machine
         case workspace
         case terminal
     }
@@ -37,6 +38,11 @@ struct MachinenStatusWidget {
         case mirrored
     }
 
+    struct Link {
+        let title: String
+        let url: URL
+    }
+
     let id: String
     let scopeKind: ScopeKind
     let scopeID: String?
@@ -53,6 +59,7 @@ struct MachinenStatusWidget {
     var samples: [Double]
     var secondarySamples: [Double]
     var states: [String]
+    var links: [Link]
 
     init(
         id: String,
@@ -70,7 +77,8 @@ struct MachinenStatusWidget {
         graphStyle: GraphStyle? = nil,
         samples: [Double] = [],
         secondarySamples: [Double] = [],
-        states: [String] = []
+        states: [String] = [],
+        links: [Link] = []
     ) {
         self.id = id
         self.scopeKind = scopeKind
@@ -88,6 +96,7 @@ struct MachinenStatusWidget {
         self.samples = samples
         self.secondarySamples = secondarySamples
         self.states = states
+        self.links = links
     }
 
     var storageKey: String {
@@ -192,14 +201,41 @@ final class MachinenStatusBarView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        if let widget = widgetFrames.first(where: { $0.rect.contains(point) })?.widget,
-           onWidgetClick?(widget) == true
-        {
-            return
+        if let widget = widgetFrames.first(where: { $0.rect.contains(point) })?.widget {
+            if onWidgetClick?(widget) == true { return }
+            if presentLinks(for: widget, at: point) { return }
         }
         // Status instruments are informational only. A click must never pull
         // keyboard focus away from the live terminal underneath the camera.
         onMouseDown?()
+    }
+
+    private func presentLinks(for widget: MachinenStatusWidget, at point: NSPoint) -> Bool {
+        guard !widget.links.isEmpty else { return false }
+        if widget.links.count == 1, let url = widget.links.first?.url {
+            NSWorkspace.shared.open(url)
+            return true
+        }
+        let menu = NSMenu(title: widget.label ?? widget.id)
+        menu.autoenablesItems = false
+        for link in widget.links {
+            let item = NSMenuItem(
+                title: link.title,
+                action: #selector(openStatusLink(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = link.url
+            item.isEnabled = true
+            menu.addItem(item)
+        }
+        menu.popUp(positioning: nil, at: point, in: self)
+        return true
+    }
+
+    @objc private func openStatusLink(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(url)
     }
 
     override func mouseExited(with event: NSEvent) {

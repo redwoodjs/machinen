@@ -76,21 +76,22 @@ final class MachinenStatusMetricsMonitor {
                 secondarySamples: gitSnapshot.deletionBars
             ))
         }
-        if !listeningServices.isEmpty {
+        if !listeningServices.isEmpty, let location {
             result.append(MachinenStatusWidget(
                 id: "machinen.services",
-                scopeKind: projectScope.kind,
-                scopeID: projectScope.id,
+                scopeKind: .machine,
+                scopeID: location.machineID,
                 placement: .right,
                 kind: .state,
-                label: "TCP listeners",
+                label: "Open ports",
                 value: String(listeningServices.count),
                 progress: nil,
                 tone: .neutral,
-                tooltip: listeningServices.map(\.summary).joined(separator: " · "),
+                tooltip: listeningServices.map(\.summary).joined(separator: "\n"),
                 priority: 80,
                 expiresAt: nil,
-                states: listeningServices.prefix(16).map { _ in "neutral" }
+                states: listeningServices.prefix(16).map { _ in "neutral" },
+                links: Self.links(for: listeningServices, location: location)
             ))
         }
         if cpuHistory.count > 1 {
@@ -304,12 +305,6 @@ final class MachinenStatusMetricsMonitor {
 
     private func probePorts(at location: WorkspaceLocation) {
         guard portsProcess == nil else { return }
-        let root = URL(fileURLWithPath: location.path).standardizedFileURL.path
-        let localHome = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
-        if root == "/" || (location.kind == .local && root == localHome) {
-            listeningServices = []
-            return
-        }
         let currentGeneration = generation
         let executable: String
         let arguments: [String]
@@ -319,11 +314,11 @@ final class MachinenStatusMetricsMonitor {
                 "-o", "BatchMode=yes",
                 "-o", "ConnectTimeout=5",
                 host,
-                "/usr/sbin/lsof -nP -iTCP -sTCP:LISTEN -d cwd -Fpcfn",
+                "/usr/sbin/lsof -nP -iTCP -sTCP:LISTEN -Fpcn",
             ]
         } else {
             executable = "/usr/sbin/lsof"
-            arguments = ["-nP", "-iTCP", "-sTCP:LISTEN", "-d", "cwd", "-Fpcfn"]
+            arguments = ["-nP", "-iTCP", "-sTCP:LISTEN", "-Fpcn"]
         }
         portsProcess = launchCommand(
             executable: executable,
@@ -332,9 +327,7 @@ final class MachinenStatusMetricsMonitor {
         ) { [weak self] output in
             guard let self, self.generation == currentGeneration else { return }
             self.portsProcess = nil
-            self.listeningServices = output.map {
-                Self.parseListeningServices($0, workingDirectory: location.path)
-            } ?? []
+            self.listeningServices = output.map(Self.parseListeningServices) ?? []
             self.onChange?()
         }
     }
@@ -454,14 +447,9 @@ final class MachinenStatusMetricsMonitor {
         )
     }
 
-    static func parseListeningServices(
-        _ output: String,
-        workingDirectory: String
-    ) -> [ListeningService] {
+    static func parseListeningServices(_ output: String) -> [ListeningService] {
         var currentPID: Int?
-        var expectsWorkingDirectory = false
         var names: [Int: String] = [:]
-        var directories: [Int: String] = [:]
         var listeners: [Int: [Int: Set<String>]] = [:]
         for line in output.split(separator: "\n").map(String.init) {
             guard let prefix = line.first else { continue }
@@ -469,31 +457,20 @@ final class MachinenStatusMetricsMonitor {
             switch prefix {
             case "p":
                 currentPID = Int(value)
-                expectsWorkingDirectory = false
             case "c":
                 if let currentPID { names[currentPID] = value }
-            case "f":
-                expectsWorkingDirectory = value == "cwd"
             case "n":
-                guard let currentPID else { continue }
-                if expectsWorkingDirectory {
-                    directories[currentPID] = value
-                    expectsWorkingDirectory = false
-                } else if let suffix = value.split(separator: ":").last,
-                          let port = Int(suffix), port > 0
-                {
-                    listeners[currentPID, default: [:]][port, default: []].insert(value)
-                }
+                guard let currentPID,
+                      let suffix = value.split(separator: ":").last,
+                      let port = Int(suffix), port > 0
+                else { continue }
+                listeners[currentPID, default: [:]][port, default: []].insert(value)
             default:
                 continue
             }
         }
-        let root = URL(fileURLWithPath: workingDirectory).standardizedFileURL.path
         var result: [ListeningService] = []
         for (pid, processListeners) in listeners {
-            guard let directory = directories[pid] else { continue }
-            let processRoot = URL(fileURLWithPath: directory).standardizedFileURL.path
-            guard processRoot == root || processRoot.hasPrefix(root + "/") else { continue }
             for (port, addresses) in processListeners {
                 result.append(ListeningService(
                     process: names[pid] ?? "PID \(pid)",
@@ -505,6 +482,23 @@ final class MachinenStatusMetricsMonitor {
         }
         return result.sorted {
             $0.port == $1.port ? $0.process < $1.process : $0.port < $1.port
+        }
+    }
+
+    static func links(
+        for services: [ListeningService],
+        location: WorkspaceLocation
+    ) -> [MachinenStatusWidget.Link] {
+        services.compactMap { service in
+            var components = URLComponents()
+            components.scheme = "http"
+            components.host = location.browserHost
+            components.port = service.port
+            guard let url = components.url else { return nil }
+            return MachinenStatusWidget.Link(
+                title: "\(service.summary) — \(url.absoluteString)",
+                url: url
+            )
         }
     }
 

@@ -3245,7 +3245,9 @@ final class TerminalDeckView: NSView {
         widget: MachinenStatusWidget
     ) -> JSONObject {
         var data: JSONObject = ["action": action, "widget": widget.json()]
-        if widget.scopeKind == .workspace, let workspaceID = widget.scopeID {
+        if widget.scopeKind == .machine, let machineID = widget.scopeID {
+            data["machineId"] = machineID
+        } else if widget.scopeKind == .workspace, let workspaceID = widget.scopeID {
             data["workspaceId"] = workspaceID
         } else if widget.scopeKind == .terminal, let terminalID = widget.scopeID {
             data["terminalId"] = terminalID
@@ -3267,6 +3269,11 @@ final class TerminalDeckView: NSView {
         if kind == .global { return (kind, nil) }
         guard let id = object?["id"] as? String, !id.isEmpty else {
             throw MachinenAPIError("invalid_params", "A \(kindName) status scope requires id")
+        }
+        if kind == .machine,
+           !workspaces.contains(where: { $0.location.machineID == id })
+        {
+            throw MachinenAPIError("invalid_params", "Machine \(id) does not exist")
         }
         if kind == .workspace,
            !workspaces.contains(where: { $0.id == id })
@@ -3414,6 +3421,7 @@ final class TerminalDeckView: NSView {
             "id": workspace.id,
             "name": workspace.name,
             "workingDirectory": workspace.workingDirectory,
+            "machineId": workspace.location.machineID,
             "location": workspace.location.json,
             "position": workspaces.firstIndex(where: { $0 === workspace }) ?? 0,
             "tileIds": allSessionTiles
@@ -3650,6 +3658,7 @@ final class TerminalDeckView: NSView {
         var resolved = Dictionary(uniqueKeysWithValues: builtIns.map { ($0.id, $0) })
         let orderedScopes: [(MachinenStatusWidget.ScopeKind, String?)] = [
             (.global, nil),
+            (.machine, workspace?.location.machineID),
             (.workspace, workspaceID),
             (.terminal, focusedTerminalID),
         ]

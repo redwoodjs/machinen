@@ -115,6 +115,7 @@ describe("Git status service", () => {
         {
           id: "ws_test",
           name: "test",
+          machineId: "ssh:mini",
           location: { kind: "ssh", host: "mini", path: "~/project" },
           workingDirectory: "~/project",
           position: 0,

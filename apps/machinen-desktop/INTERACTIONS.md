@@ -202,12 +202,13 @@ reveals the branch, commits since its default-branch merge base, changed files,
 and added and deleted lines. In a **focused tile**, it shows that tile's
 foreground PID (shown as `PID ####` and copyable with a click), CPU for that PID
 and its local child processes, network transfer for that PID and its local child
-processes, workspace branch changes, and the workspace activity monitor. Git and
-service items are scoped to the selected workspace. Service discovery shows
-TCP listeners whose process working directory is the workspace or one of its
-descendants; hover identifies the process and bind address. It is suppressed
-for `/` and a local home-directory workspace, where that relationship is too
-broad to be useful. CPU is sampled through `proc_pid_rusage`; network bytes come
+processes, workspace branch changes, and the workspace activity monitor. Git is
+scoped to the selected workspace. Open ports are scoped to its machine: the Mac
+running Desktop for a local workspace, or the SSH host for a remote workspace.
+Hover lists each TCP listener on its own line with the process and bind address;
+clicking the instrument presents those listeners, and choosing one opens its
+HTTP URL through the default macOS handler. CPU is sampled through
+`proc_pid_rusage`; network bytes come
 from macOS `nettop`. Tile activity is a label-free graphical indicator; hover
 reveals its exact state summary.
 
@@ -215,8 +216,9 @@ Programs can publish scoped text, count, state, progress, timer, sparkline, and
 separator widgets through `status.set`, `status.list`, and `status.remove`.
 Sparklines accept line, area, bars, and mirrored styles with primary and
 secondary sample arrays. State widgets accept arrays of semantic pip states.
-Workspace widgets override global widgets; terminal widgets override workspace
-widgets with the same ID. TTLs remove stale live data.
+Machine widgets override global widgets, workspace widgets override machine
+widgets, and terminal widgets override workspace widgets with the same ID. TTLs
+remove stale live data.
 
 ## Closing
 

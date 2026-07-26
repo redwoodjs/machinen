@@ -178,7 +178,9 @@ home directory. A local location is `{ "kind": "local", "path": "/project" }`.
 A remote location is `{ "kind": "ssh", "host": "mini", "path": "/project" }`;
 `host` uses the user's OpenSSH configuration and may include a username. The
 legacy `workingDirectory` field remains the location path for compatibility.
-A canonical location can belong to only one workspace; `workspace.create` and
+Workspace results also expose `machineId`: `local` for the Mac running Desktop,
+or `ssh:<host>` for an SSH location. A canonical location can belong to only one
+workspace; `workspace.create` and
 `workspace.update` fail with `workspace_location_conflict` rather than creating
 ambiguous ownership.
 
@@ -283,8 +285,10 @@ and deletions with compact line totals at rest; its hover detail contains the
 branch, commits since the default-branch merge base, changed files, and exact
 added/deleted lines. At the focused-tile level it shows the copyable tile PID,
 per-PID CPU/network (including local child processes), workspace branch changes,
-and the same workspace activity monitor. Workspace-scoped items belong to the
-selected workspace. Its title is the selected workspace at the workspace level
+and the same workspace activity monitor. Open ports are scoped to the selected
+workspace's machine, list each listener on its own hover line, and open through
+the default macOS URL handler when selected. Workspace-scoped items belong to
+the selected workspace. Its title is the selected workspace at the workspace level
 and `workspace > terminal name` at the terminal level; hovering
 a workspace title reveals its bound path. Programs can publish declarative widgets
 beside the title without injecting arbitrary AppKit views:
@@ -306,9 +310,11 @@ beside the title without injecting arbitrary AppKit views:
 }
 ```
 
-Scopes are `global`, `workspace`, and `terminal`. A non-global scope requires a
-stable workspace or terminal ID. More specific widgets replace less specific
-widgets with the same `id`. Kinds are `text`, `count`, `state`, `progress`,
+Scopes are `global`, `machine`, `workspace`, and `terminal`. A non-global scope
+requires an ID. Stable machine IDs come from workspace results; workspace and
+terminal scopes use their corresponding stable IDs. More specific widgets
+replace less specific widgets with the same `id` in global → machine → workspace
+→ terminal order. Kinds are `text`, `count`, `state`, `progress`,
 `timer`, `sparkline`, and `separator`; tones are `neutral`, `good`, `busy`,
 `attention`, and `error`. Progress is a number from 0 to 1. Graph styles are
 `line`, `area`, `bars`, and `mirrored`; `samples` and `secondarySamples` accept
