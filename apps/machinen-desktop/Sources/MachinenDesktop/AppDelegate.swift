@@ -57,8 +57,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard !(self?.window?.firstResponder is MachinenTerminalView) else { return }
             deck?.toggleOverview()
         }
-        terminalCycleShortcut = TerminalCycleShortcut { [weak deck] offset in
-            deck?.cycleFocusedWorkspace(by: offset) == true
+        terminalCycleShortcut = TerminalCycleShortcut { [weak deck] scope, offset in
+            switch scope {
+            case .terminal:
+                deck?.cycleFocusedTerminal(by: offset) == true
+            case .workspace:
+                deck?.cycleFocusedWorkspace(by: offset) == true
+            }
         }
 
         NSApp.activate(ignoringOtherApps: true)
@@ -85,7 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         appMenu.addItem(.separator())
         let newWorkspaceItem = NSMenuItem(
-            title: "New Workspace or Terminal",
+            title: "New…",
             action: #selector(createNewWorkspaceOrTerminal),
             keyEquivalent: "n"
         )
@@ -184,13 +189,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         // Do not let application menu equivalents steal terminal commands. The
-        // workspace command palette remains available so a focused local or SSH
-        // terminal can change its workspace metadata without zooming out first.
+        // Workspace commands and contextual ⌘N remain available so a focused
+        // local or SSH terminal can manage its workspace without zooming out.
         // Targetless Edit items still resolve through the terminal responder.
         guard window?.firstResponder is MachinenTerminalView else { return true }
         switch menuItem.action {
-        case #selector(createNewWorkspaceOrTerminal),
-             #selector(toggleNewTerminal),
+        case #selector(toggleNewTerminal),
              #selector(zoomIn),
              #selector(zoomOut),
              #selector(handleCommandW):

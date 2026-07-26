@@ -7,23 +7,26 @@ enum InteractionTestRunner {
     static func run() -> Int32 {
         _ = NSApplication.shared
         do {
-            try commandNCreatesInTheCurrentSpatialContext()
+            try commandNAlwaysAsksWhatAndWhere()
             try commandArrowsMoveThroughTheHierarchy()
-            try commandLeftAndRightCycleFocusedWorkspaces()
+            try focusedCycleShortcutsSeparateTerminalsAndWorkspaces()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
             try terminalOutputAndRuntimeLabelsReportActivity()
             try statusWidgetsInheritBySpatialScope()
+            try listeningServicesStayProjectScoped()
+            try gitStatusCoversTheWholeBranch()
             try graphicalStatusWidgetsRender()
-            try workspaceWorkingDirectoryBindsTerminals()
+            try workspaceLocationsRemainUnambiguous()
             try oldManifestsRequireNativeRestart()
             try terminalViewportRemainsStableAcrossFocus()
+            try terminalTileCaptionRendersWithSafeFonts()
             try ghosttyPreservesModifiedEnter()
             try scrollWheelReachesFocusedTerminalThroughPreview()
             try pointerTilesSeparateClickFocusAndDrag()
             try singletonWorkspaceTileFillsSurface()
             try clickedTileFocusesItsOwnTerminal()
-            try draggingPreviewMovesTileToAnotherWorkspace()
-            print("Machinen interaction tests passed (16 scenarios)")
+            try draggingPreviewCannotMoveTileToAnotherWorkspace()
+            print("Machinen interaction tests passed (19 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -31,15 +34,19 @@ enum InteractionTestRunner {
         }
     }
 
-    private static func commandNCreatesInTheCurrentSpatialContext() throws {
+    private static func commandNAlwaysAsksWhatAndWhere() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
 
         deck.createNewWorkspaceOrTerminal()
         var snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.workspaces.count == 1, "⌘N inside a workspace created another workspace")
-        try expect(snapshot.tiles.count == 2, "⌘N inside a workspace did not add a terminal")
+        try expect(snapshot.workspaces.count == 1, "⌘N immediately created a workspace")
+        try expect(snapshot.tiles.count == 1, "⌘N immediately created a terminal")
+        try harness.pressReturn(on: harness.commandPalette(in: deck))
+        snapshot = try harness.snapshot(of: deck)
+        try expect(snapshot.workspaces.count == 1, "choosing an existing workspace created a workspace")
+        try expect(snapshot.tiles.count == 2, "choosing an existing workspace did not add a terminal")
         try expect(
             Set(snapshot.tiles.map(\.workspaceId)) == ["ws_alpha"],
             "the new terminal was added to the wrong workspace"
@@ -47,6 +54,30 @@ enum InteractionTestRunner {
 
         _ = try deck.performAPIOperation("ui.overview", params: [:])
         deck.createNewWorkspaceOrTerminal()
+        var newChooser = try harness.commandPalette(in: deck)
+        try harness.type("new workspace", into: newChooser)
+        try harness.pressReturn(on: newChooser)
+        let knownLocation = try harness.commandPalette(in: deck)
+        try harness.type("alpha", into: knownLocation)
+        try harness.pressReturn(on: knownLocation)
+        snapshot = try harness.snapshot(of: deck)
+        try expect(snapshot.workspaces.count == 1, "a known location created a duplicate workspace")
+        try expect(snapshot.tiles.count == 2, "opening a known workspace changed its terminals")
+
+        _ = try deck.performAPIOperation("ui.overview", params: [:])
+        deck.createNewWorkspaceOrTerminal()
+        snapshot = try harness.snapshot(of: deck)
+        try expect(snapshot.workspaces.count == 1, "⌘N created a workspace before an explicit choice")
+        try expect(snapshot.tiles.count == 2, "⌘N created a terminal before an explicit choice")
+        newChooser = try harness.commandPalette(in: deck)
+        try harness.type("new workspace", into: newChooser)
+        try harness.pressReturn(on: newChooser)
+        let locationPalette = try harness.commandPalette(in: deck)
+        try harness.type("home", into: locationPalette)
+        try harness.pressReturn(on: locationPalette)
+        let namePalette = try harness.commandPalette(in: deck)
+        try harness.type("workspace", into: namePalette)
+        try harness.pressReturn(on: namePalette)
         snapshot = try harness.snapshot(of: deck)
         try expect(snapshot.workspaces.count == 2, "⌘N in the overview did not create a workspace")
         try expect(snapshot.tiles.count == 3, "the new workspace did not contain a terminal")
@@ -78,15 +109,20 @@ enum InteractionTestRunner {
         try expect(try harness.uiLevel(of: deck) == "overview", "⌘↑ did not leave the workspace")
     }
 
-    private static func commandLeftAndRightCycleFocusedWorkspaces() throws {
+    private static func focusedCycleShortcutsSeparateTerminalsAndWorkspaces() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [
             harness.workspace("alpha", terminalCount: 2),
             harness.workspace("beta", terminalCount: 2),
         ])
-        let shortcut = TerminalCycleShortcut { [weak deck] offset in
-            deck?.cycleFocusedWorkspace(by: offset) == true
+        let shortcut = TerminalCycleShortcut { [weak deck] scope, offset in
+            switch scope {
+            case .terminal:
+                deck?.cycleFocusedTerminal(by: offset) == true
+            case .workspace:
+                deck?.cycleFocusedWorkspace(by: offset) == true
+            }
         }
         defer { shortcut.stop() }
 
@@ -101,12 +137,8 @@ enum InteractionTestRunner {
             "⌘→ was not handled at terminal level"
         )
         try expect(
-            try harness.focusedTileID(of: deck) == "tile_beta_0",
-            "⌘→ did not travel through the hierarchy to the next workspace's first tile"
-        )
-        try expect(
-            try harness.uiLevel(of: deck) == "terminal",
-            "⌘→ did not finish focused on the destination tile"
+            try harness.focusedTileID(of: deck) == "tile_alpha_1",
+            "⌘→ did not focus the next terminal in the current workspace"
         )
         try expect(
             try shortcut.process(harness.commandArrow(keyCode: 124)) == nil,
@@ -114,15 +146,39 @@ enum InteractionTestRunner {
         )
         try expect(
             try harness.focusedTileID(of: deck) == "tile_alpha_0",
-            "⌘→ did not wrap to the first workspace's first tile"
+            "⌘→ did not wrap within the current workspace"
         )
         try expect(
             try shortcut.process(harness.commandArrow(keyCode: 123)) == nil,
             "wrapping ⌘← was not handled"
         )
         try expect(
+            try harness.focusedTileID(of: deck) == "tile_alpha_1",
+            "⌘← did not wrap to the current workspace's final terminal"
+        )
+        try expect(
+            try shortcut.process(harness.commandBracket(keyCode: 30)) == nil,
+            "⌘] was not handled at terminal level"
+        )
+        try expect(
             try harness.focusedTileID(of: deck) == "tile_beta_0",
-            "⌘← did not wrap to the final workspace's first tile"
+            "⌘] did not focus the next workspace's first terminal"
+        )
+        try expect(
+            try shortcut.process(harness.commandBracket(keyCode: 30)) == nil,
+            "wrapping ⌘] was not handled"
+        )
+        try expect(
+            try harness.focusedTileID(of: deck) == "tile_alpha_0",
+            "⌘] did not wrap to the first workspace"
+        )
+        try expect(
+            try shortcut.process(harness.commandBracket(keyCode: 33)) == nil,
+            "wrapping ⌘[ was not handled"
+        )
+        try expect(
+            try harness.focusedTileID(of: deck) == "tile_beta_0",
+            "⌘[ did not wrap to the final workspace"
         )
     }
 
@@ -169,11 +225,69 @@ enum InteractionTestRunner {
             "the terminal did not deliver a Machinen OSC label clear to its host"
         )
 
-        let detector = TerminalActivityDetector(session: session)
+        let detector = TerminalActivityDetector(session: session) { completion in
+            completion(TerminalTelemetry(
+                activity: .idle,
+                shellPid: 42,
+                processPid: 42,
+                shellName: "zsh",
+                command: "zsh"
+            ))
+        }
         var observedActivity: TerminalSession.ActivityState?
+        var observedCommand: String?
+        var observedProcess: TerminalProcessInfo?
         detector.onActivityChange = { observedActivity = $0 }
+        detector.onCommandChange = { observedCommand = $0 }
+        detector.onProcessInfoChange = { observedProcess = $0 }
+        detector.start()
+        defer { detector.stop() }
+        try expect(observedActivity == .idle, "native shell telemetry did not mark the terminal idle")
+        try expect(observedCommand == "zsh", "native shell telemetry omitted the foreground command")
+        try expect(
+            observedProcess == TerminalProcessInfo(shellPID: 42, processPID: 42),
+            "native shell telemetry omitted process identifiers"
+        )
         detector.recordOutput()
         try expect(observedActivity == .working, "live viewer output did not mark the terminal as working")
+
+        let legacyDetector = TerminalActivityDetector(session: session) { completion in
+            completion(TerminalTelemetry(
+                activity: .unknown,
+                shellPid: nil,
+                processPid: nil,
+                shellName: nil,
+                command: nil
+            ))
+        }
+        var legacyActivity: TerminalSession.ActivityState?
+        legacyDetector.onActivityChange = { legacyActivity = $0 }
+        legacyDetector.start()
+        defer { legacyDetector.stop() }
+        try expect(legacyActivity == .idle, "a quiet protocol-v1 terminal did not fall back to idle")
+        legacyDetector.recordOutput()
+        try expect(legacyActivity == .working, "protocol-v1 viewer output did not mark the terminal active")
+
+        // Renderer state can lag behind the persistent worker. Native
+        // telemetry remains authoritative even while the viewer says stopped.
+        session.state = .stopped
+        let monitoredTerminal = MachinenTerminalView(session: session) { completion in
+            completion(TerminalTelemetry(
+                activity: .idle,
+                shellPid: 42,
+                processPid: 42,
+                shellName: "zsh",
+                command: "zsh"
+            ))
+        }
+        var installedActivity: TerminalSession.ActivityState?
+        monitoredTerminal.onActivityChange = { installedActivity = $0 }
+        let monitoredTile = TerminalTileView(session: session)
+        monitoredTile.installTerminalView(monitoredTerminal)
+        try expect(
+            installedActivity == .idle,
+            "installing a terminal tile did not start persistent activity monitoring"
+        )
     }
 
     private static func statusWidgetsInheritBySpatialScope() throws {
@@ -220,6 +334,64 @@ enum InteractionTestRunner {
         try expect(
             effective.first(where: { $0.id == "git.modified" })?.value == "1",
             "removing the workspace widget did not restore the global widget"
+        )
+    }
+
+    private static func listeningServicesStayProjectScoped() throws {
+        let output = """
+        p10
+        cnode
+        fcwd
+        n/tmp/project/api
+        f7
+        n127.0.0.1:3000
+        f8
+        n[::1]:3000
+        p11
+        cssh
+        fcwd
+        n/tmp
+        f4
+        n127.0.0.1:11435
+        """
+        let services = MachinenStatusMetricsMonitor.parseListeningServices(
+            output,
+            workingDirectory: "/tmp/project"
+        )
+        try expect(services.count == 1, "TCP listeners included a parent-directory process")
+        try expect(services[0].process == "node", "TCP listener omitted its process name")
+        try expect(services[0].port == 3000, "TCP listener omitted its port")
+        try expect(services[0].addresses.count == 2, "TCP listener duplicated IPv4 and IPv6 sockets")
+    }
+
+    private static func gitStatusCoversTheWholeBranch() throws {
+        let output = """
+        feat/desktop-interaction-prototype
+        ---MACHINEN-BRANCH-COMMITS---
+        53
+        ---MACHINEN-BRANCH-NUMSTAT---
+        120\t4\tSources/Feature.swift
+        8\t2\tSources/Existing.swift
+        -\t-\tAssets/image.png
+        3\t0\tSources/Untracked.swift
+        """
+        let snapshot = MachinenStatusMetricsMonitor.parseGitOutput(output)
+        try expect(
+            snapshot == .init(
+                branch: "feat/desktop-interaction-prototype",
+                commits: 53,
+                filesChanged: 4,
+                additions: 131,
+                deletions: 6,
+                additionBars: [120, 8, 3, 0],
+                deletionBars: [4, 2, 0, 0]
+            ),
+            "the Git status did not summarize and graph the complete branch diff"
+        )
+        try expect(
+            MachinenStatusMetricsMonitor.formatCompactCount(19_000) == "19K"
+                && MachinenStatusMetricsMonitor.formatCompactCount(1_250_000) == "1.3M",
+            "the Git status did not compact large line counts"
         )
     }
 
@@ -317,29 +489,45 @@ enum InteractionTestRunner {
         }
     }
 
-    private static func workspaceWorkingDirectoryBindsTerminals() throws {
+    private static func workspaceLocationsRemainUnambiguous() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
         let projectDirectory = try harness.makeDirectory(named: "project")
 
-        _ = try deck.performAPIOperation("workspace.update", params: [
-            "workspaceId": "ws_alpha",
-            "workingDirectory": projectDirectory.path,
-        ])
-        deck.createNewWorkspaceOrTerminal()
+        do {
+            _ = try deck.performAPIOperation("workspace.update", params: [
+                "workspaceId": "ws_alpha",
+                "workingDirectory": projectDirectory.path,
+            ])
+            throw InteractionTestFailure("a workspace location changed while it had terminals")
+        } catch let error as MachinenAPIError {
+            try expect(error.code == "workspace_not_empty", "location change returned the wrong error")
+        }
         var snapshot = try harness.snapshot(of: deck)
         try expect(
-            snapshot.workspaces.first?.workingDirectory == projectDirectory.path,
-            "the workspace did not retain its bound working directory"
+            snapshot.workspaces.first?.workingDirectory == harness.temporaryDirectoryPath,
+            "a rejected location change modified the workspace"
         )
-        try expect(
-            snapshot.terminals.allSatisfy { $0.workingDirectory == projectDirectory.path },
-            "a terminal did not inherit the workspace working directory"
-        )
+        do {
+            _ = try deck.performAPIOperation("workspace.create", params: [
+                "name": "duplicate",
+                "workingDirectory": harness.temporaryDirectoryPath,
+            ])
+            throw InteractionTestFailure("a duplicate workspace location was created")
+        } catch let error as MachinenAPIError {
+            try expect(error.code == "workspace_location_conflict", "duplicate location returned the wrong error")
+        }
 
+        let emptyWorkspace = try deck.performAPIOperation("workspace.create", params: [
+            "name": "empty",
+            "workingDirectory": projectDirectory.path,
+        ]) as? [String: Any]
+        guard let emptyWorkspaceID = emptyWorkspace?["id"] as? String else {
+            throw InteractionTestFailure("workspace.create did not return an ID")
+        }
         _ = try deck.performAPIOperation("workspace.update", params: [
-            "workspaceId": "ws_alpha",
+            "workspaceId": emptyWorkspaceID,
             "location": [
                 "kind": "ssh",
                 "host": "mini",
@@ -347,17 +535,10 @@ enum InteractionTestRunner {
             ],
         ])
         snapshot = try harness.snapshot(of: deck)
+        let relocated = snapshot.workspaces.first(where: { $0.id == emptyWorkspaceID })
         try expect(
-            snapshot.workspaces.first?.location.kind == "ssh"
-                && snapshot.workspaces.first?.location.host == "mini",
-            "the workspace did not retain its SSH location"
-        )
-        try expect(
-            snapshot.terminals.allSatisfy {
-                $0.location.kind == "ssh" && $0.location.host == "mini"
-                    && $0.location.path == "/Users/p4p8/gh/redwoodjs/machinen"
-            },
-            "a terminal did not inherit the remote workspace location"
+            relocated?.location.kind == "ssh" && relocated?.location.host == "mini",
+            "an empty workspace did not accept its new location"
         )
         let remoteSession = TerminalSession(
             id: "term_remote_quote",
@@ -455,6 +636,10 @@ enum InteractionTestRunner {
         tile.frame = NSRect(x: 0, y: 0, width: 1_200, height: 760)
         tile.bounds = NSRect(x: 0, y: 0, width: 1_200, height: 760)
         let unfocused = tile.terminalViewportRect
+        let unfocusedPixels = MachinenTerminalView.intrinsicSurfacePixelSize(
+            for: unfocused.size,
+            backingScale: 2
+        )
         tile.isSelected = true
         try expect(tile.layer?.borderWidth == 3, "the selected terminal did not receive an accent border")
         tile.isFocused = true
@@ -464,9 +649,42 @@ enum InteractionTestRunner {
         try expect(tile.layer?.borderWidth == 3, "the terminal border did not return after leaving focus")
         try expect(focused == unfocused, "focusing resized the terminal viewport")
         try expect(tile.terminalViewportRect == unfocused, "⌘↑ changed the terminal viewport")
+        let focusedPixels = MachinenTerminalView.intrinsicSurfacePixelSize(
+            for: focused.size,
+            backingScale: 2
+        )
+        try expect(
+            focusedPixels.width == unfocusedPixels.width
+                && focusedPixels.height == unfocusedPixels.height,
+            "camera focus changed the terminal renderer's intrinsic pixel size"
+        )
         try expect(
             unfocused.width == tile.bounds.width && unfocused.maxY == tile.bounds.maxY,
             "the persistent terminal viewport did not retain its full content surface: \(unfocused), \(tile.bounds)"
+        )
+    }
+
+    private static func terminalTileCaptionRendersWithSafeFonts() throws {
+        let session = TerminalSession(
+            id: "term_caption_render",
+            tileID: "tile_caption_render",
+            label: "cr",
+            workspaceID: "ws_caption_render",
+            workspace: "caption render",
+            name: "shell",
+            launch: .loginShell,
+            workingDirectory: FileManager.default.temporaryDirectory.path,
+            state: .stopped
+        )
+        let tile = TerminalTileView(session: session)
+        tile.frame = NSRect(x: 0, y: 0, width: 640, height: 400)
+        guard let bitmap = tile.bitmapImageRepForCachingDisplay(in: tile.bounds) else {
+            throw InteractionTestFailure("could not allocate a terminal-tile bitmap")
+        }
+        tile.cacheDisplay(in: tile.bounds, to: bitmap)
+        try expect(
+            bitmap.representation(using: .png, properties: [:])?.isEmpty == false,
+            "the terminal tile caption did not render"
         )
     }
 
@@ -643,9 +861,17 @@ enum InteractionTestRunner {
             }
         }
         let sessionTiles = tiles(in: deck).sorted { $0.session.id < $1.session.id }
-        guard sessionTiles.count == 2 else {
+        guard sessionTiles.count == 2,
+              let previewTerminal = sessionTiles[0].terminalResponder
+        else {
             throw InteractionTestFailure("the overview did not render both terminal previews")
         }
+        let typingEvent = try harness.keyEvent(characters: "a", keyCode: 0)
+        try expect(window.firstResponder === deck, "select mode did not keep the deck as first responder")
+        try expect(
+            !previewTerminal.performKeyEquivalent(with: typingEvent),
+            "select mode routed typing into a terminal preview"
+        )
         let target = sessionTiles[1]
         let targetFrame = target.convert(target.bounds, to: deck)
         let clickPoint = NSPoint(x: targetFrame.midX, y: targetFrame.midY)
@@ -687,6 +913,13 @@ enum InteractionTestRunner {
             (window.firstResponder as? MachinenTerminalView)?.session.id == target.session.id,
             "camera motion delayed AppKit input focus for the clicked terminal"
         )
+        guard let focusedTerminal = target.terminalResponder else {
+            throw InteractionTestFailure("focus mode did not retain its terminal responder")
+        }
+        try expect(
+            focusedTerminal.performKeyEquivalent(with: typingEvent),
+            "focus mode did not route typing into the terminal"
+        )
         let viewportPoint = target.convert(
             NSPoint(x: target.terminalViewportRect.midX, y: target.terminalViewportRect.midY),
             to: deck
@@ -700,9 +933,17 @@ enum InteractionTestRunner {
             try harness.focusedTileID(of: deck) == target.session.tileID,
             "clicking a terminal focused a different terminal"
         )
+
+        deck.zoomOutOneLevel()
+        try expect(try harness.uiLevel(of: deck) == "workspace", "focus mode did not return to select mode")
+        try expect(window.firstResponder === deck, "select mode did not restore the deck responder")
+        try expect(
+            !focusedTerminal.performKeyEquivalent(with: typingEvent),
+            "a terminal consumed typing after returning to select mode"
+        )
     }
 
-    private static func draggingPreviewMovesTileToAnotherWorkspace() throws {
+    private static func draggingPreviewCannotMoveTileToAnotherWorkspace() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [
@@ -760,9 +1001,21 @@ enum InteractionTestRunner {
 
         let snapshot = try harness.snapshot(of: deck)
         try expect(
-            snapshot.tiles.first(where: { $0.id == source.session.tileID })?.workspaceId == "ws_beta",
-            "dragging a terminal preview did not move it to the destination workspace"
+            snapshot.tiles.first(where: { $0.id == source.session.tileID })?.workspaceId == "ws_alpha",
+            "dragging a terminal preview moved it to a different workspace location"
         )
+        do {
+            _ = try deck.performAPIOperation("tile.move", params: [
+                "tileId": source.session.tileID,
+                "workspaceId": "ws_beta",
+            ])
+            throw InteractionTestFailure("tile.move reassigned a terminal to another workspace")
+        } catch let error as MachinenAPIError {
+            try expect(
+                error.code == "terminal_relocation_unsupported",
+                "cross-workspace tile.move returned the wrong error"
+            )
+        }
     }
 
     private static func workspacePaletteCreatesRenamesAndClosesWithKeyboard() throws {
@@ -772,11 +1025,18 @@ enum InteractionTestRunner {
 
         deck.toggleCommandPalette()
         try harness.pressReturn(on: harness.commandPalette(in: deck))
+        let newWorkspaceLocation = try harness.commandPalette(in: deck)
+        try harness.type("home", into: newWorkspaceLocation)
+        try harness.pressReturn(on: newWorkspaceLocation)
+        try expect(
+            try harness.snapshot(of: deck).workspaces.isEmpty,
+            "New workspace was created before asking for its name"
+        )
         try harness.type("alpha", into: harness.commandPalette(in: deck))
         try harness.pressReturn(on: harness.commandPalette(in: deck))
         try expect(
             try harness.snapshot(of: deck).workspaces.map(\.name) == ["alpha"],
-            "New workspace did not accept a keyboard-entered name"
+            "New workspace did not accept its name and selected location"
         )
 
         deck.toggleCommandPalette()
@@ -790,18 +1050,14 @@ enum InteractionTestRunner {
         )
 
         deck.toggleCommandPalette()
-        let locationPalette = try harness.commandPalette(in: deck)
-        try harness.type("location", into: locationPalette)
-        try harness.pressReturn(on: locationPalette)
-        let locationTypePalette = try harness.commandPalette(in: deck)
-        try harness.type("remote", into: locationTypePalette)
-        try harness.pressReturn(on: locationTypePalette)
-        let remoteLocationPalette = try harness.commandPalette(in: deck)
+        let locationCommandPalette = try harness.commandPalette(in: deck)
+        try harness.type("location", into: locationCommandPalette)
+        try harness.pressReturn(on: locationCommandPalette)
         try expect(
-            remoteLocationPalette !== locationTypePalette,
-            "Change workspace location did not offer an SSH remote folder"
+            try harness.commandPalette(in: deck) === locationCommandPalette,
+            "a workspace with terminals entered the location-changing flow"
         )
-        try harness.pressEscape(on: remoteLocationPalette)
+        try harness.pressEscape(on: locationCommandPalette)
 
         deck.toggleCommandPalette()
         try harness.pressDown(on: harness.commandPalette(in: deck))
@@ -825,6 +1081,7 @@ enum InteractionTestRunner {
 @MainActor
 private final class Harness {
     private let temporaryDirectory: URL
+    var temporaryDirectoryPath: String { temporaryDirectory.path }
 
     init() throws {
         temporaryDirectory = FileManager.default.temporaryDirectory
@@ -956,7 +1213,12 @@ private final class Harness {
         try keyEvent(characters: "", keyCode: keyCode, modifierFlags: [.command])
     }
 
-    private func keyEvent(
+    func commandBracket(keyCode: UInt16) throws -> NSEvent {
+        let characters = keyCode == 33 ? "[" : "]"
+        return try keyEvent(characters: characters, keyCode: keyCode, modifierFlags: [.command])
+    }
+
+    func keyEvent(
         characters: String,
         keyCode: UInt16,
         modifierFlags: NSEvent.ModifierFlags = []
@@ -998,6 +1260,7 @@ private struct InteractionSnapshot: Decodable {
     }
 
     struct Workspace: Decodable {
+        let id: String
         let name: String
         let workingDirectory: String
         let location: Location

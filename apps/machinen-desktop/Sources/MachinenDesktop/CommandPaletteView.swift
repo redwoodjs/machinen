@@ -3,10 +3,14 @@ import AppKit
 struct PaletteCommand {
     enum ID {
         case newWorkspace
+        case openWorkspace
+        case newTerminalInWorkspace
         case renameWorkspace
         case changeWorkspaceLocation
         case chooseLocalWorkspaceLocation
         case chooseRemoteWorkspaceLocation
+        case useWorkspaceLocation
+        case useSSHHost
         case toggleOverview
         case newTerminal
         case attachSession
@@ -26,6 +30,25 @@ struct PaletteCommand {
     let id: ID
     let title: String
     let shortcut: String
+    let location: WorkspaceLocation?
+    let workspaceID: String?
+    let sshHost: String?
+
+    init(
+        id: ID,
+        title: String,
+        shortcut: String,
+        location: WorkspaceLocation? = nil,
+        workspaceID: String? = nil,
+        sshHost: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.shortcut = shortcut
+        self.location = location
+        self.workspaceID = workspaceID
+        self.sshHost = sshHost
+    }
 }
 
 final class CommandPaletteView: NSView {
@@ -45,8 +68,9 @@ final class CommandPaletteView: NSView {
     private let defaultFooter: String
     private let acceptsFreeform: Bool
     private let commands: [PaletteCommand]
-    private var query = ""
-    private var selectedIndex = 0
+    private var query: String
+    private var selectedIndex: Int
+    private var replaceInitialQueryOnType: Bool
     private var statusMessage: String?
 
     var onDismiss: (() -> Void)?
@@ -63,7 +87,9 @@ final class CommandPaletteView: NSView {
         placeholder: String = "Type a command…",
         defaultFooter: String = "↑↓ select    return run    esc dismiss",
         commands: [PaletteCommand],
-        acceptsFreeform: Bool = false
+        acceptsFreeform: Bool = false,
+        initialQuery: String = "",
+        initialSelectedIndex: Int = 0
     ) {
         self.heading = heading
         self.context = context
@@ -71,6 +97,9 @@ final class CommandPaletteView: NSView {
         self.defaultFooter = defaultFooter
         self.commands = commands
         self.acceptsFreeform = acceptsFreeform
+        query = initialQuery
+        selectedIndex = min(max(0, initialSelectedIndex), max(0, commands.count - 1))
+        replaceInitialQueryOnType = !initialQuery.isEmpty
         super.init(frame: frame)
         autoresizingMask = [.width, .height]
         wantsLayer = true
@@ -123,7 +152,10 @@ final class CommandPaletteView: NSView {
         case 36, 76:
             runSelectedCommand()
         case 51:
-            if !query.isEmpty {
+            if replaceInitialQueryOnType {
+                query = ""
+                queryChanged()
+            } else if !query.isEmpty {
                 query.removeLast()
                 queryChanged()
             }
@@ -131,6 +163,7 @@ final class CommandPaletteView: NSView {
             if let characters = event.characters, !characters.isEmpty,
                characters.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
             {
+                if replaceInitialQueryOnType { query = "" }
                 query += characters
                 queryChanged()
             } else {
@@ -150,10 +183,12 @@ final class CommandPaletteView: NSView {
         let rowsTop = panel.minY + Metrics.headerHeight + Metrics.searchHeight
         let row = Int(floor((point.y - rowsTop) / Metrics.rowHeight))
         let filtered = filteredCommands
-        guard row >= 0, filtered.indices.contains(row) else { return }
-        selectedIndex = row
+        let visible = visibleCommandRange(commandCount: filtered.count, panel: panel)
+        let index = visible.lowerBound + row
+        guard row >= 0, visible.contains(index) else { return }
+        selectedIndex = index
         needsDisplay = true
-        onRun?(filtered[row])
+        onRun?(filtered[index])
     }
 
     func showStatus(_ message: String) {
@@ -233,10 +268,12 @@ final class CommandPaletteView: NSView {
             return
         }
 
-        for (index, command) in commands.enumerated() {
+        let visible = visibleCommandRange(commandCount: commands.count, panel: panel)
+        for index in visible {
+            let command = commands[index]
             let row = NSRect(
                 x: panel.minX + 7,
-                y: rowsTop + CGFloat(index) * Metrics.rowHeight,
+                y: rowsTop + CGFloat(index - visible.lowerBound) * Metrics.rowHeight,
                 width: panel.width - 14,
                 height: Metrics.rowHeight
             )
@@ -260,6 +297,18 @@ final class CommandPaletteView: NSView {
                 alignment: .right
             )
         }
+    }
+
+    private func visibleCommandRange(commandCount: Int, panel: NSRect) -> Range<Int> {
+        let availableHeight = panel.height
+            - Metrics.headerHeight - Metrics.searchHeight - Metrics.footerHeight
+        let capacity = max(1, Int(floor(availableHeight / Metrics.rowHeight)))
+        let count = min(capacity, commandCount)
+        let start = min(
+            max(0, selectedIndex - capacity + 1),
+            max(0, commandCount - count)
+        )
+        return start..<(start + count)
     }
 
     private func drawFooter(in panel: NSRect) {
@@ -295,11 +344,16 @@ final class CommandPaletteView: NSView {
     private func runSelectedCommand() {
         if acceptsFreeform {
             let value = query.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !value.isEmpty else {
-                showStatus("Enter a command first")
+            if !value.isEmpty {
+                onSubmit?(value)
                 return
             }
-            onSubmit?(value)
+            let commands = filteredCommands
+            if commands.indices.contains(selectedIndex) {
+                onRun?(commands[selectedIndex])
+                return
+            }
+            showStatus("Enter a value first")
             return
         }
 
@@ -310,6 +364,7 @@ final class CommandPaletteView: NSView {
 
     private func queryChanged() {
         selectedIndex = 0
+        replaceInitialQueryOnType = false
         statusMessage = nil
         needsDisplay = true
     }

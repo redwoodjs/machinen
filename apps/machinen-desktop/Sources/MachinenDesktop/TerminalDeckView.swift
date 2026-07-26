@@ -24,7 +24,9 @@ final class TerminalDeckView: NSView {
         case commands
         case newTerminal
         case runCommand
+        case newItem
         case newWorkspace
+        case newWorkspaceLocation
         case renameWorkspace
         case workspaceLocation
         case remoteWorkspaceLocation
@@ -148,12 +150,6 @@ final class TerminalDeckView: NSView {
         allSessionTiles.filter { $0.session.workspaceID == workspaceID }
     }
 
-    private var workspaceOrderedSessionTiles: [TerminalTileView] {
-        workspaces.flatMap { workspace in
-            allSessionTiles.filter { $0.session.workspaceID == workspace.id }
-        }
-    }
-
     private var activeCount: Int {
         currentWorkspace == nil ? workspaceClusters.count : activeSessionTiles.count
     }
@@ -219,8 +215,8 @@ final class TerminalDeckView: NSView {
             self.focusClickedTile(at: event.locationInWindow, fallback: tile)
         }
         tile.terminalInputTarget = { [weak self, weak tile] event in
-            // Unfocused previews are spatial drag sources. Only the focused
-            // terminal's viewport owns terminal input.
+            // Unfocused previews reorder only inside their workspace. Only
+            // the focused terminal's viewport owns terminal input.
             guard let self, self.currentWorkspace != nil, self.focusedIndex != nil, let fallback = tile,
                   let target = self.terminalTile(at: event.locationInWindow),
                   let terminal = target.terminalResponder
@@ -719,14 +715,15 @@ final class TerminalDeckView: NSView {
     }
 
     private func beginSpatialDrag(for tile: TerminalTileView, event: NSEvent) {
-        guard focusedIndex == nil,
+        guard currentWorkspace != nil,
+              focusedIndex == nil,
               !isTransitioning,
               !isPeeking,
               presentedOverlay == nil,
               commandPalette == nil
         else { return }
-        // Terminal previews are draggable between workspace clusters in the
-        // overview. Workspace cards themselves retain workspace reordering.
+        // A workspace is an execution location, so terminals only reorder
+        // inside their existing workspace. Workspace cards remain reorderable.
         spatialDrag = SpatialDrag(
             item: .terminal(tile.session.id),
             startWindowPoint: event.locationInWindow
@@ -782,21 +779,12 @@ final class TerminalDeckView: NSView {
             else { return true }
             reorderWorkspace(from: source, to: target)
         case let .terminal(terminalID):
-            guard let tile = allSessionTiles.first(where: { $0.session.id == terminalID }) else {
-                return true
-            }
-            if currentWorkspace == nil {
-                guard let target = nearestWorkspaceIndex(to: point),
-                      workspaces.indices.contains(target)
-                else { return true }
-                moveTerminalTile(tile, to: workspaces[target])
-            } else {
-                guard let workspaceID = currentWorkspace,
-                      let source = activeSessionTiles.firstIndex(where: { $0 === tile }),
-                      let target = nearestTerminalIndex(to: point, in: workspaceID)
-                else { return true }
-                reorderTerminal(in: workspaceID, from: source, to: target)
-            }
+            guard let tile = allSessionTiles.first(where: { $0.session.id == terminalID }),
+                  let workspaceID = currentWorkspace,
+                  let source = activeSessionTiles.firstIndex(where: { $0 === tile }),
+                  let target = nearestTerminalIndex(to: point, in: workspaceID)
+            else { return true }
+            reorderTerminal(in: workspaceID, from: source, to: target)
         }
         return true
     }
@@ -812,17 +800,11 @@ final class TerminalDeckView: NSView {
             let target = nearestWorkspaceIndex(to: point).flatMap { workspaceClusters[$0] }
             setDragTarget(workspace: target)
         case .terminal:
-            if currentWorkspace == nil {
-                setDragTarget(tile: nil)
-                let target = nearestWorkspaceIndex(to: point).flatMap { workspaceClusters[$0] }
-                setDragTarget(workspace: target)
-            } else {
-                setDragTarget(workspace: nil)
-                let target = currentWorkspace.flatMap { workspaceID in
-                    nearestTerminalIndex(to: point, in: workspaceID).map { activeSessionTiles[$0] }
-                }
-                setDragTarget(tile: target)
+            setDragTarget(workspace: nil)
+            let target = currentWorkspace.flatMap { workspaceID in
+                nearestTerminalIndex(to: point, in: workspaceID).map { activeSessionTiles[$0] }
             }
+            setDragTarget(tile: target)
         }
     }
 
@@ -940,30 +922,6 @@ final class TerminalDeckView: NSView {
         updateSelection()
         saveSessions()
         emitAPIEvent("workspace.moved", data: workspaceJSON(workspace))
-    }
-
-    private func moveTerminalTile(_ tile: TerminalTileView, to workspace: WorkspaceRecord) {
-        guard tile.session.workspaceID != workspace.id else { return }
-        InputRoutingLog.log("deck moves tile=\(tile.session.tileID) workspace=\(tile.session.workspaceID)→\(workspace.id)")
-
-        tile.session.workspaceID = workspace.id
-        tile.session.workspace = workspace.name
-        allSessionTiles.removeAll { $0 === tile }
-        let destinationCount = allSessionTiles.count { $0.session.workspaceID == workspace.id }
-        insertTile(tile, in: workspace.id, at: destinationCount)
-
-        currentWorkspace = nil
-        focusedIndex = nil
-        selectedIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) ?? selectedIndex
-        rebuildWorkspaceClusters()
-        updateWorldGeometry()
-        setCameraImmediately()
-        if let destinationFrame = workspaceCluster(named: workspace.id)?.frameForSession(tile, in: sceneView) {
-            finishDragGhost(at: destinationFrame)
-        }
-        updateSelection()
-        saveSessions()
-        emitAPIEvent("tile.moved", data: tileJSON(tile))
     }
 
     private func terminalSnapshot(of tile: TerminalTileView) -> NSImage? {
@@ -1290,6 +1248,67 @@ final class TerminalDeckView: NSView {
         window?.makeFirstResponder(palette)
     }
 
+    private func showNewItemPalette() {
+        guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
+        if commandPalette != nil { dismissCommandPalette() }
+
+        let suggestedWorkspaceID = selectedWorkspaceID()
+        var commands = [
+            PaletteCommand(id: .newWorkspace, title: "New workspace…", shortcut: "choose location"),
+        ]
+        commands.append(contentsOf: workspaces.map { workspace in
+            PaletteCommand(
+                id: .newTerminalInWorkspace,
+                title: "New terminal in \(workspace.name)",
+                shortcut: workspace.id == suggestedWorkspaceID
+                    ? "current · \(workspace.location.displayName)"
+                    : workspace.location.displayName,
+                workspaceID: workspace.id
+            )
+        })
+        let suggestedIndex = suggestedWorkspaceID.flatMap { workspaceID in
+            commands.firstIndex(where: { $0.workspaceID == workspaceID })
+        } ?? 0
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "NEW",
+            context: "choose what and where",
+            placeholder: "Create a workspace or choose an existing workspace…",
+            defaultFooter: "Nothing is created until you choose an action",
+            commands: commands,
+            initialSelectedIndex: suggestedIndex
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
+        palette.onRun = { [weak self, weak palette] command in
+            guard let self else { return }
+            switch command.id {
+            case .newWorkspace:
+                self.showNewWorkspaceLocationPalette()
+            case .newTerminalInWorkspace:
+                guard let workspaceID = command.workspaceID,
+                      let workspace = self.workspaces.first(where: { $0.id == workspaceID })
+                else {
+                    palette?.showStatus("That workspace no longer exists")
+                    return
+                }
+                self.dismissCommandPalette()
+                self.createPersistentSession(
+                    workspace: workspace.name,
+                    name: self.nextAvailableSessionName(base: "shell", workspace: workspace.name),
+                    command: nil,
+                    workingDirectory: workspace.workingDirectory
+                )
+            default:
+                palette?.showStatus("That action is not available")
+            }
+        }
+        commandPalette = palette
+        paletteKind = .newItem
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
     func toggleNewTerminalPalette() {
         guard presentedOverlay == nil else { return }
         if commandPalette != nil {
@@ -1457,11 +1476,17 @@ final class TerminalDeckView: NSView {
     private func runPaletteCommand(_ command: PaletteCommand, from palette: CommandPaletteView?) {
         switch command.id {
         case .newWorkspace:
-            showNewWorkspaceNamePalette()
+            showNewWorkspaceLocationPalette()
         case .renameWorkspace:
             showRenameWorkspacePalette()
         case .changeWorkspaceLocation:
-            chooseWorkspaceLocation()
+            if let workspaceID = selectedWorkspaceID(),
+               allSessionTiles.contains(where: { $0.session.workspaceID == workspaceID })
+            {
+                palette?.showStatus("Remove this workspace's terminals before changing its location")
+            } else {
+                chooseWorkspaceLocation()
+            }
         case .toggleOverview:
             dismissCommandPalette()
             toggleOverview()
@@ -1497,16 +1522,268 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func showNewWorkspaceNamePalette() {
+    private func showNewWorkspaceLocationPalette() {
+        dismissCommandPalette()
+        let home = WorkspaceLocation.local(FileManager.default.homeDirectoryForCurrentUser.path)
+        let homeWorkspace = workspace(at: home)
+        var commands = [
+            PaletteCommand(
+                id: homeWorkspace == nil ? .useWorkspaceLocation : .openWorkspace,
+                title: homeWorkspace.map { "Open \($0.name)" } ?? "Home folder",
+                shortcut: home.displayName,
+                location: home,
+                workspaceID: homeWorkspace?.id
+            ),
+            PaletteCommand(
+                id: .chooseLocalWorkspaceLocation,
+                title: "Browse for local folder…",
+                shortcut: "local"
+            ),
+            PaletteCommand(
+                id: .chooseRemoteWorkspaceLocation,
+                title: "SSH host and remote folder…",
+                shortcut: "alias:path"
+            ),
+        ]
+        var seenLocations = Set([canonicalLocationKey(home)])
+        for workspace in workspaces.reversed() {
+            let location = workspace.location
+            guard seenLocations.insert(canonicalLocationKey(location)).inserted else { continue }
+            commands.append(PaletteCommand(
+                id: .openWorkspace,
+                title: "Open \(workspace.name)",
+                shortcut: location.displayName,
+                location: location,
+                workspaceID: workspace.id
+            ))
+        }
+
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "NEW WORKSPACE LOCATION",
+            context: "new workspace",
+            placeholder: "Where should this workspace live?",
+            defaultFooter: "Choose a known location, browse locally, or connect through OpenSSH",
+            commands: commands
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
+        palette.onRun = { [weak self, weak palette] command in
+            guard let self else { return }
+            switch command.id {
+            case .useWorkspaceLocation:
+                guard let location = command.location else { return }
+                self.continueNewWorkspaceFlow(with: location)
+            case .openWorkspace:
+                guard let workspaceID = command.workspaceID else { return }
+                self.openExistingWorkspace(workspaceID)
+            case .chooseLocalWorkspaceLocation:
+                self.chooseLocalLocationForNewWorkspace()
+            case .chooseRemoteWorkspaceLocation:
+                self.showNewRemoteWorkspaceLocationPalette()
+            default:
+                palette?.showStatus("That location is not available")
+            }
+        }
+        commandPalette = palette
+        paletteKind = .newWorkspaceLocation
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
+    private func chooseLocalLocationForNewWorkspace() {
+        dismissCommandPalette()
+        guard let window else { return }
+        let panel = NSOpenPanel()
+        panel.title = "Choose New Workspace Folder"
+        panel.message = "The workspace's terminals, Git status, and services will use this folder."
+        panel.prompt = "Use Folder"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.beginSheetModal(for: window) { [weak self] response in
+            Task { @MainActor in
+                guard let self, response == .OK, let path = panel.url?.path else { return }
+                self.continueNewWorkspaceFlow(with: .local(path))
+            }
+        }
+    }
+
+    private func showNewRemoteWorkspaceLocationPalette() {
+        dismissCommandPalette()
+        let hosts = knownSSHHosts()
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "NEW SSH WORKSPACE",
+            context: "SSH host",
+            placeholder: "Choose an alias or type user@host…",
+            defaultFooter: hosts.isEmpty
+                ? "Type a host understood by OpenSSH"
+                : "Known aliases come from ~/.ssh/config and existing workspaces",
+            commands: hosts.map {
+                PaletteCommand(id: .useSSHHost, title: $0, shortcut: "SSH", sshHost: $0)
+            },
+            acceptsFreeform: true
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
+        palette.onRun = { [weak self] command in
+            guard let host = command.sshHost else { return }
+            self?.showNewRemoteWorkspacePathPalette(host: host)
+        }
+        palette.onSubmit = { [weak self, weak palette] value in
+            guard let self, let host = self.validSSHHost(value) else {
+                palette?.showStatus("Enter an OpenSSH alias, host, or user@host")
+                return
+            }
+            self.showNewRemoteWorkspacePathPalette(host: host)
+        }
+        commandPalette = palette
+        paletteKind = .remoteWorkspaceLocation
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
+    private func showNewRemoteWorkspacePathPalette(host: String) {
         dismissCommandPalette()
         let palette = CommandPaletteView(
             frame: bounds,
-            heading: "NEW WORKSPACE",
-            context: "workspace name",
-            placeholder: "Enter a name…",
-            defaultFooter: "Names must be non-empty and unique    esc dismiss",
+            heading: "NEW SSH WORKSPACE",
+            context: host,
+            placeholder: "~/gh/project or /srv/project",
+            defaultFooter: "Enter an existing remote folder; Machinen will verify it over SSH",
             commands: [],
             acceptsFreeform: true
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
+        palette.onSubmit = { [weak self, weak palette] path in
+            guard let self, let palette,
+                  let location = WorkspaceLocation.parseSSHReference("\(host):\(path)")
+            else {
+                palette?.showStatus("Use ~/path or an absolute /path")
+                return
+            }
+            palette.showStatus("Checking \(location.displayName)…")
+            self.validateRemoteWorkspaceLocation(location) { [weak self, weak palette] result in
+                guard let self, let palette, self.commandPalette === palette else { return }
+                switch result {
+                case let .success(canonicalPath):
+                    self.continueNewWorkspaceFlow(
+                        with: .ssh(host: host, path: canonicalPath)
+                    )
+                case let .failure(error):
+                    palette.showStatus(error.message)
+                }
+            }
+        }
+        commandPalette = palette
+        paletteKind = .remoteWorkspaceLocation
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
+    private func validSSHHost(_ value: String) -> String? {
+        WorkspaceLocation.parseSSHReference(
+            "\(value.trimmingCharacters(in: .whitespacesAndNewlines)):/"
+        )?.sshHost
+    }
+
+    private func knownSSHHosts() -> [String] {
+        var result: [String] = []
+        var seen = Set<String>()
+        func append(_ host: String) {
+            if seen.insert(host).inserted { result.append(host) }
+        }
+        for workspace in workspaces {
+            if let host = workspace.location.sshHost { append(host) }
+        }
+        let configURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".ssh/config")
+        if let config = try? String(contentsOf: configURL, encoding: .utf8) {
+            for rawLine in config.split(whereSeparator: { $0.isNewline }) {
+                let line = rawLine.prefix(while: { $0 != "#" })
+                let fields = line.split(whereSeparator: { $0 == " " || $0 == "\t" })
+                guard fields.first?.lowercased() == "host" else { continue }
+                for field in fields.dropFirst() {
+                    let host = String(field)
+                    if !host.contains(where: { "*?!".contains($0) }) { append(host) }
+                }
+            }
+        }
+        return result
+    }
+
+    private func canonicalLocationKey(_ location: WorkspaceLocation) -> String {
+        switch location.kind {
+        case .local:
+            let path = URL(fileURLWithPath: location.path)
+                .standardizedFileURL
+                .resolvingSymlinksInPath()
+                .path
+            return "local|\(path)"
+        case .ssh:
+            return "ssh|\(location.sshHost?.lowercased() ?? "")|\(location.path)"
+        }
+    }
+
+    private func workspace(
+        at location: WorkspaceLocation,
+        excluding workspaceID: String? = nil
+    ) -> WorkspaceRecord? {
+        let key = canonicalLocationKey(location)
+        return workspaces.first {
+            $0.id != workspaceID && canonicalLocationKey($0.location) == key
+        }
+    }
+
+    private func continueNewWorkspaceFlow(with requestedLocation: WorkspaceLocation) {
+        do {
+            let location = try validatedWorkspaceLocation(requestedLocation)
+            if let existing = workspace(at: location) {
+                openExistingWorkspace(existing.id)
+            } else {
+                showNewWorkspaceNamePalette(location: location)
+            }
+        } catch {
+            presentWorkspaceLocationError(error)
+        }
+    }
+
+    private func openExistingWorkspace(_ workspaceID: String) {
+        guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return }
+        dismissCommandPalette()
+        let sessions = activeSessionTiles(for: workspaceID)
+        if sessions.isEmpty {
+            createPersistentSession(
+                workspace: workspace.name,
+                name: "shell",
+                command: nil,
+                workingDirectory: workspace.workingDirectory
+            )
+            return
+        }
+        currentWorkspace = workspaceID
+        selectedIndex = 0
+        focusedIndex = nil
+        updateWorldGeometry()
+        updateSelection()
+        moveCamera()
+    }
+
+    private func showNewWorkspaceNamePalette(location: WorkspaceLocation) {
+        dismissCommandPalette()
+        let suggestedName = nextAvailableWorkspaceName(base: locationName(location))
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "NAME NEW WORKSPACE",
+            context: location.displayName,
+            placeholder: "Enter a name…",
+            defaultFooter: "The suggested name is selected · type to replace it · esc dismiss",
+            commands: [],
+            acceptsFreeform: true,
+            initialQuery: suggestedName
         )
         palette.layer?.zPosition = 1_000
         palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
@@ -1516,18 +1793,43 @@ final class TerminalDeckView: NSView {
                 palette?.showStatus("A workspace named \(name) already exists")
                 return
             }
-            self.dismissCommandPalette()
-            self.createPersistentSession(
-                workspace: name,
-                name: "shell",
-                command: nil,
-                workingDirectory: FileManager.default.homeDirectoryForCurrentUser.path
-            )
+            do {
+                try self.createNewWorkspace(name: name, location: location)
+            } catch {
+                palette?.showStatus((error as? MachinenAPIError)?.message ?? error.localizedDescription)
+            }
         }
         commandPalette = palette
         paletteKind = .newWorkspace
         addSubview(palette, positioned: .above, relativeTo: nil)
         window?.makeFirstResponder(palette)
+    }
+
+    private func locationName(_ location: WorkspaceLocation) -> String {
+        let name = URL(fileURLWithPath: location.path).lastPathComponent
+        if !name.isEmpty { return name }
+        return location.sshHost ?? "workspace"
+    }
+
+    private func createNewWorkspace(name: String, location: WorkspaceLocation) throws {
+        guard !workspaceNameExists(name) else {
+            throw MachinenAPIError("workspace_name_conflict", "A workspace named \(name) already exists")
+        }
+        let location = try validatedWorkspaceLocation(location)
+        guard workspace(at: location) == nil else {
+            throw MachinenAPIError(
+                "workspace_location_conflict",
+                "That location already belongs to another workspace"
+            )
+        }
+        dismissCommandPalette()
+        createPersistentSession(
+            workspace: name,
+            name: "shell",
+            command: nil,
+            workingDirectory: location.path,
+            location: location
+        )
     }
 
     private func showRenameWorkspacePalette() {
@@ -1652,8 +1954,8 @@ final class TerminalDeckView: NSView {
             frame: bounds,
             heading: "REMOTE WORKSPACE",
             context: workspace.name,
-            placeholder: "mini:/Users/name/project",
-            defaultFooter: "Enter an SSH host or alias and an absolute remote folder",
+            placeholder: "mini:~/project or user@host:/project",
+            defaultFooter: "The host may be an alias from ~/.ssh/config; the folder must already exist",
             commands: [],
             acceptsFreeform: true
         )
@@ -1664,7 +1966,7 @@ final class TerminalDeckView: NSView {
                   let location = WorkspaceLocation.parseSSHReference(value),
                   let host = location.sshHost
             else {
-                palette?.showStatus("Use host:/absolute/path or ssh://host/absolute/path")
+                palette?.showStatus("Use alias:/absolute/path, alias:~/path, or ssh://user@host/path")
                 return
             }
             palette.showStatus("Checking \(location.displayName)…")
@@ -1753,7 +2055,7 @@ final class TerminalDeckView: NSView {
         guard let window else { return }
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Could Not Change Workspace Location"
+        alert.messageText = "Could Not Use Workspace Location"
         alert.informativeText = (error as? MachinenAPIError)?.message ?? error.localizedDescription
         alert.beginSheetModal(for: window)
     }
@@ -2023,11 +2325,44 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    /// `⌘←` and `⌘→` are the one focused-terminal exception to the usual
-    /// "the terminal owns its keys" rule. They travel through the scene's
-    /// hierarchy instead of jumping directly between terminal surfaces:
-    /// terminal → source workspace → workspace overview → destination
-    /// workspace → destination tile.
+    /// `⌘←` and `⌘→` move between terminals in the current workspace while
+    /// preserving the scene hierarchy: terminal → workspace → terminal.
+    @discardableResult
+    func cycleFocusedTerminal(by offset: Int) -> Bool {
+        let sessions = activeSessionTiles
+        guard presentedOverlay == nil, commandPalette == nil,
+              !isTransitioning, !isPeeking,
+              let focusedIndex, sessions.indices.contains(focusedIndex),
+              sessions.count > 1, offset != 0
+        else { return false }
+
+        let targetIndex = (focusedIndex + offset % sessions.count + sessions.count)
+            % sessions.count
+        let targetTileID = sessions[targetIndex].session.tileID
+        InputRoutingLog.log(
+            "cycles focused terminal tile=\(sessions[focusedIndex].session.tileID)→\(targetTileID)"
+        )
+        self.focusedIndex = nil
+        selectedIndex = targetIndex
+        updateSelection()
+        moveCamera(duration: Motion.terminalSwitchDuration) { [weak self] in
+            self?.focusCycledTerminal(targetTileID)
+        }
+        return true
+    }
+
+    private func focusCycledTerminal(_ tileID: String) {
+        guard let targetIndex = activeSessionTiles.firstIndex(where: { $0.session.tileID == tileID })
+        else { return }
+        selectedIndex = targetIndex
+        focusedIndex = targetIndex
+        updateSelection()
+        moveCamera(duration: Motion.terminalSwitchDuration)
+    }
+
+    /// `⌘[` and `⌘]` travel through the complete scene hierarchy to the
+    /// previous or next workspace's first terminal: terminal → source
+    /// workspace → workspace overview → destination workspace → terminal.
     @discardableResult
     func cycleFocusedWorkspace(by offset: Int) -> Bool {
         let sourceSessions = activeSessionTiles
@@ -2096,29 +2431,7 @@ final class TerminalDeckView: NSView {
     }
 
     func createNewWorkspaceOrTerminal() {
-        guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
-        if commandPalette != nil {
-            dismissCommandPalette()
-        }
-
-        if let currentWorkspace,
-           let workspace = workspaces.first(where: { $0.id == currentWorkspace })
-        {
-            createPersistentSession(
-                workspace: workspace.name,
-                name: nextAvailableSessionName(base: "shell", workspace: workspace.name),
-                command: nil,
-                workingDirectory: workspace.workingDirectory
-            )
-        } else {
-            let workspace = nextAvailableWorkspaceName()
-            createPersistentSession(
-                workspace: workspace,
-                name: "shell",
-                command: nil,
-                workingDirectory: FileManager.default.homeDirectoryForCurrentUser.path
-            )
-        }
+        showNewItemPalette()
     }
 
     func handleCommandW() {
@@ -2138,8 +2451,9 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func nextAvailableWorkspaceName() -> String {
-        let base = "workspace"
+    private func nextAvailableWorkspaceName(base requestedBase: String = "workspace") -> String {
+        let trimmedBase = requestedBase.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = trimmedBase.isEmpty ? "workspace" : trimmedBase
         let names = Set(workspaces.map(\.name))
         if !names.contains(base) { return base }
         var suffix = 2
@@ -2153,7 +2467,8 @@ final class TerminalDeckView: NSView {
         workspace: String,
         name: String,
         command: String?,
-        workingDirectory: String
+        workingDirectory: String,
+        location requestedLocation: WorkspaceLocation? = nil
     ) {
         let workspaceRecord: WorkspaceRecord
         let createdWorkspace: Bool
@@ -2161,9 +2476,11 @@ final class TerminalDeckView: NSView {
             workspaceRecord = existing
             createdWorkspace = false
         } else {
+            let location = requestedLocation ?? .local(workingDirectory)
             workspaceRecord = WorkspaceRecord(
                 name: workspace,
-                workingDirectory: workingDirectory
+                workingDirectory: location.path,
+                sshHost: location.sshHost
             )
             workspaces.append(workspaceRecord)
             createdWorkspace = true
@@ -2174,8 +2491,8 @@ final class TerminalDeckView: NSView {
             workspace: workspace,
             name: name,
             launch: command.map(TerminalLaunch.shellCommand) ?? .loginShell,
-            workingDirectory: createdWorkspace ? workingDirectory : workspaceRecord.workingDirectory,
-            sshHost: createdWorkspace ? nil : workspaceRecord.location.sshHost,
+            workingDirectory: workspaceRecord.workingDirectory,
+            sshHost: workspaceRecord.location.sshHost,
             state: .starting
         )
         let tile = TerminalTileView(session: session)
@@ -2318,6 +2635,12 @@ final class TerminalDeckView: NSView {
                     ?? FileManager.default.homeDirectoryForCurrentUser.path
             ))
         }
+        guard workspace(at: location) == nil else {
+            throw MachinenAPIError(
+                "workspace_location_conflict",
+                "That location already belongs to another workspace"
+            )
+        }
         let workspace = WorkspaceRecord(
             name: name,
             workingDirectory: location.path,
@@ -2340,6 +2663,19 @@ final class TerminalDeckView: NSView {
         to location: WorkspaceLocation
     ) throws {
         let validated = try validatedWorkspaceLocation(location)
+        guard canonicalLocationKey(validated) != canonicalLocationKey(workspace.location) else { return }
+        guard self.workspace(at: validated, excluding: workspace.id) == nil else {
+            throw MachinenAPIError(
+                "workspace_location_conflict",
+                "That location already belongs to another workspace"
+            )
+        }
+        guard !allSessionTiles.contains(where: { $0.session.workspaceID == workspace.id }) else {
+            throw MachinenAPIError(
+                "workspace_not_empty",
+                "Remove this workspace's terminals before changing its location"
+            )
+        }
         workspace.location = validated
         for tile in allSessionTiles where tile.session.workspaceID == workspace.id {
             tile.session.location = validated
@@ -2529,6 +2865,12 @@ final class TerminalDeckView: NSView {
     private func apiMoveTile(_ params: JSONObject) throws -> Any {
         let tile = try requireTile(params)
         let workspace = try requireWorkspace(params)
+        guard tile.session.workspaceID == workspace.id else {
+            throw MachinenAPIError(
+                "terminal_relocation_unsupported",
+                "Terminals cannot move between workspace locations"
+            )
+        }
         let movedTileWasSelected = currentWorkspace != nil && selectedSessionTile() === tile
         let movedTileWasFocused = movedTileWasSelected && focusedIndex != nil
         let position = clampedPosition(
@@ -3194,12 +3536,17 @@ final class TerminalDeckView: NSView {
             workspaceID: workspaceID
         )
         let workspaceMetricsID = focusedIndex == nil && currentWorkspace != nil ? workspaceID : nil
+        let localWorkspacePIDs = activeSessionTiles.compactMap { tile in
+            tile.session.location.kind == .local ? tile.session.associatedPID : nil
+        }
         workspaceProcessMetricsMonitor.setWorkspaceContext(
-            pids: workspaceMetricsID == nil ? [] : activeSessionTiles.compactMap { $0.session.associatedPID },
+            pids: workspaceMetricsID == nil ? [] : localWorkspacePIDs,
             workspaceID: workspaceMetricsID
         )
+        let selected = selectedSession()
+        let localFocusedPID = selected?.location.kind == .local ? selected?.associatedPID : nil
         terminalProcessMetricsMonitor.setContext(
-            pid: focusedTerminalID == nil ? nil : selectedSession()?.associatedPID,
+            pid: focusedTerminalID == nil ? nil : localFocusedPID,
             terminalID: focusedTerminalID
         )
         // Host CPU and network are useful in the overview. Inside a workspace,
@@ -3256,9 +3603,15 @@ final class TerminalDeckView: NSView {
             let displayState = state == "working" ? "active" : state
             return count > 0 ? "\(count) \(displayState)" : nil
         }.joined(separator: " · ")
-        let tone: MachinenStatusWidget.Tone = states.contains("error")
-            ? .error
-            : (states.contains("waiting") ? .attention : .busy)
+        let tone: MachinenStatusWidget.Tone = if states.contains("error") {
+            .error
+        } else if states.contains("waiting") {
+            .attention
+        } else if states.contains("working") {
+            .busy
+        } else {
+            .neutral
+        }
         return [MachinenStatusWidget(
             id: "machinen.activity",
             scopeKind: scope.kind,
@@ -3289,8 +3642,8 @@ final class TerminalDeckView: NSView {
             text = "TYPE LABEL  \(labelBuffer)_"
         } else if currentWorkspace == nil {
             text = "arrows  select     return / ⌘↓  zoom in     hold space  peek"
-        } else if focusedIndex != nil, workspaceOrderedSessionTiles.count > 1 {
-            text = "⌘← / ⌘→  switch workspace     ⌘K  workspace     ⌘↑  zoom out"
+        } else if focusedIndex != nil {
+            text = "⌘← / ⌘→  terminal     ⌘[ / ⌘]  workspace     ⌘K  commands     ⌘↑  zoom out"
         } else {
             text = "⌘↑  zoom out     arrows  select     return / ⌘↓  zoom in     ⌘T  new terminal"
         }

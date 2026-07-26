@@ -125,16 +125,17 @@ owns launch information, process state, and PTY input/output.
 }
 ```
 
-`pid` and `shellPid` are reserved for best-effort foreground process metadata
-and may be `null`. The native session protocol does not yet publish those
-values. `backend` is always `machinenSession`.
+`pid` and `shellPid` are best-effort metadata from the native worker that owns
+the PTY and may be `null` for an older live worker. `backend` is always
+`machinenSession`.
 
 Process states are `starting`, `running`, `stopped`, `exited`, and
 `disconnected`. Activity states are `working`, `waiting`, `idle`, and `unknown`.
-Recent output observed by Desktop is `working`; quiet or detached sessions are
-`unknown` until the native protocol publishes foreground process activity.
-Callers may provide a stronger activity state through `tile.update`. Viewer
-states are `attached` and `detached`.
+The foreground login shell is `idle`; another foreground process is `working`.
+Recent output also reports `working`. Workers created before native telemetry
+remain `unknown` until explicitly restarted. Callers may provide a stronger
+activity state through `tile.update`. Viewer states are `attached` and
+`detached`.
 
 ## System
 
@@ -177,13 +178,17 @@ home directory. A local location is `{ "kind": "local", "path": "/project" }`.
 A remote location is `{ "kind": "ssh", "host": "mini", "path": "/project" }`;
 `host` uses the user's OpenSSH configuration and may include a username. The
 legacy `workingDirectory` field remains the location path for compatibility.
+A canonical location can belong to only one workspace; `workspace.create` and
+`workspace.update` fail with `workspace_location_conflict` rather than creating
+ambiguous ownership.
 
 New terminals inherit the workspace location unless an API caller explicitly
 supplies a launch subdirectory. Remote terminals install and run the native
 session worker on the SSH host; Desktop's Ghostty viewer attaches through SSH.
-Git and service probes use that same SSH connection model. Updating a location
-updates saved launch definitions but does not move files or change the current
-directory of an already-running process.
+Git and service probes use that same SSH connection model. A workspace location
+can change only while the workspace has no terminal definitions. Otherwise
+`workspace.update` fails with `workspace_not_empty`; Machinen never silently
+rewrites the location of a running process.
 
 `workspace.delete` fails with `workspace_running` until all of its terminals are
 stopped or exited. It then removes the workspace and its stopped tiles without
@@ -200,8 +205,11 @@ touching working-directory files.
 - `tile.detach { tileId }`
 - `tile.delete { tileId }`
 
-Detaching removes only the viewer; the PTY process continues. Deleting a tile
-fails with `terminal_running` until its terminal is stopped or exited.
+`tile.move` reorders a tile only within its existing workspace. Moving it to a
+different workspace fails with `terminal_relocation_unsupported`, because a
+terminal cannot silently change execution locations. Detaching removes only the
+viewer; the PTY process continues. Deleting a tile fails with `terminal_running`
+until its terminal is stopped or exited.
 
 Creating a terminal tile and its PTY is one atomic operation:
 
@@ -247,8 +255,9 @@ The result contains both `tile` and `terminal`.
 - `terminal.stop { terminalId }`
 - `terminal.restart { terminalId, focus? }`
 
-Machinen displays a focused terminal as `workspace > terminal name`. The
-foreground process remains available as telemetry and hover detail. `terminal.update`
+In Terminal mode, Machinen displays the focused terminal as
+`workspace > terminal name`. The foreground process remains available as
+telemetry and hover detail. `terminal.update`
 sets a persistent title override for agentic systems; setting `title` to `null`
 resumes automatic detection. It changes presentation, not the running process or
 saved launch definition.
@@ -267,10 +276,13 @@ detach a tile, stop a terminal, or delete a stopped tile.
 - `status.remove { id, scope? }`
 
 There is one persistent status bar. At the workspace level it summarizes that
-workspace's tiles with aggregate tile CPU/network, Git changes, and active/idle
-counts. At the focused-tile level it shows the copyable tile PID, per-PID
-CPU/network (including local child processes), workspace Git changes, and that
-tile's activity state. Workspace-scoped items
+workspace's tiles with aggregate tile CPU/network, branch-wide Git changes, and
+active/idle counts. The Git item graphs per-file additions and deletions with
+compact line totals at rest; its hover detail contains the branch, commits since
+the default-branch merge base, changed files, and exact added/deleted lines. At
+the focused-tile level it
+shows the copyable tile PID, per-PID CPU/network (including local child
+processes), workspace branch changes, and that tile's activity state. Workspace-scoped items
 belong to the selected workspace. Its title is the selected workspace at the
 workspace level and `workspace > terminal name` at the terminal level; hovering
 a workspace title reveals its bound path. Programs can publish declarative widgets
@@ -404,12 +416,15 @@ unsupported_protocol
 unknown_operation
 workspace_not_found
 workspace_name_conflict
+workspace_location_conflict
+workspace_not_empty
 workspace_running
 tile_not_found
 terminal_not_found
 terminal_running
 terminal_detached
 terminal_input_failed
+terminal_relocation_unsupported
 invalid_state
 conflict
 internal_error

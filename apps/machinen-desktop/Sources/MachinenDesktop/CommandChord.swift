@@ -42,12 +42,17 @@ private struct CommandChordState {
     }
 }
 
+enum FocusedCycleScope {
+    case terminal
+    case workspace
+}
+
 @MainActor
 final class TerminalCycleShortcut {
     private var monitor: Any?
-    private let handler: (Int) -> Bool
+    private let handler: (FocusedCycleScope, Int) -> Bool
 
-    init(handler: @escaping (Int) -> Bool) {
+    init(handler: @escaping (FocusedCycleScope, Int) -> Bool) {
         self.handler = handler
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.process(event) ?? event
@@ -57,16 +62,20 @@ final class TerminalCycleShortcut {
     func process(_ event: NSEvent) -> NSEvent? {
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
         guard modifiers == [.command] else { return event }
-        let offset: Int
+        let target: (scope: FocusedCycleScope, offset: Int)
         switch event.keyCode {
         case 123:
-            offset = -1
+            target = (.terminal, -1)
         case 124:
-            offset = 1
+            target = (.terminal, 1)
+        case 33: // [
+            target = (.workspace, -1)
+        case 30: // ]
+            target = (.workspace, 1)
         default:
             return event
         }
-        return handler(offset) ? nil : event
+        return handler(target.scope, target.offset) ? nil : event
     }
 
     func stop() {
