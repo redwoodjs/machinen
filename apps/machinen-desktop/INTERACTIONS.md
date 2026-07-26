@@ -183,8 +183,8 @@ tones.
 Machinen has one persistent status bar. At workspace level its title is the
 workspace name and hovering it reveals the bound path. At terminal level the
 title is `workspace name > terminal name`; its hover detail shows the bound path
-and any observed foreground command. An MCP client can set a persistent title
-override with `terminal_update`, or clear it to return to the saved terminal
+and any observed foreground command. An API client can set a persistent title
+override with `terminal.update`, or clear it to return to the saved terminal
 name. A terminal program can set a temporary
 runtime label with OSC 2 `machinen:<label>` (and clear it with `machinen:`);
 that label takes precedence in the status title, survives a viewer relaunch, and
@@ -232,7 +232,7 @@ widgets with the same ID. TTLs remove stale live data.
 
 The in-process interaction runner sends keyboard events through the actual
 palette and confirmation views, and checks state through the same local API used
-by MCP:
+by automation clients:
 
 ```sh
 ./prepare-ghostty.sh
