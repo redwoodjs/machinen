@@ -92,35 +92,32 @@ When no workspace exists, only **New workspace…** is available.
 
 ### New workspace flow
 
-Creating a workspace asks for its identity before choosing its default location:
+Creating a workspace chooses its default location before naming it:
 
-1. **Name the workspace.** Names are trimmed, case-insensitively unique, and
-   remain editable later. The dialog keeps validation errors in place so the
-   user can correct the name without restarting the flow.
-2. **Choose a default location.** First choose **Local** or **SSH**. The next
-   keyboard-first picker lists paths already used by other workspaces. Typing
-   fuzzy-filters that list; arrows and Return choose a result; Tab completes the
-   selected path. Typing a new path offers local or remote filesystem directory
-   completions. A Finder browser remains available as a local fallback. The
-   dialog makes clear that locations may be shared by several workspaces.
+1. **Choose a default location.** Previously selected local and SSH locations
+   appear first and can be reused directly, including locations whose old
+   workspaces were removed. **Browse local…** opens Machinen's directory picker
+   at `$HOME`. **Browse over SSH…** chooses an OpenSSH host and opens the same
+   picker model at that host's `$HOME`; Return opens a child folder, while **Use
+   this folder** selects the current directory.
+2. **Name the workspace.** Machinen suggests the selected directory's basename.
+   Names are trimmed, case-insensitively unique, and remain editable later. The
+   dialog keeps validation errors in place.
 3. Machinen creates the workspace, creates its initial login-shell terminal,
    and enters it.
 
-The location and SSH steps include explicit **Back** choices. Cancelling the
-local folder sheet returns to the location step instead of discarding the name.
-Escape cancels the entire flow.
-
-A local browser can select an existing directory or create a directory. Picking
-a known location creates the newly named workspace there; it does not open,
-move, copy, or delete another workspace.
+Escape always moves back one dialog or remote parent-directory level; it closes
+the dialog only from the top-level New chooser. Picking a known location creates
+a new named workspace there; it
+does not open, move, copy, or delete another workspace.
 
 **SSH is a workspace location, not a special terminal type.** The SSH flow asks
 for an OpenSSH host or alias (for example `mini` or `peter@server`) and then a
 remote folder (for example `~/gh/project` or `/srv/project`). Machinen stores the
 pair as `host + remote root`, validates it through the user's OpenSSH
-configuration, and every terminal created in that workspace inherits it. A
-first version does not need a remote folder browser: entering the remote path is
-the definition of the location.
+configuration, and every terminal created in that workspace inherits it. The
+remote browser lists one directory level at a time over SSH, starting at the
+remote user's `$HOME`.
 
 `⌘T` remains the terminal launcher for the selected workspace. It can create a
 login shell or run an arbitrary command, but it does not replace `⌘N`'s explicit
@@ -130,7 +127,7 @@ workspace chooser.
 
 `⌘K` contains exactly four workspace actions:
 
-1. **New workspace…** opens the same name-then-location flow used by `⌘N`,
+1. **New workspace…** opens the same location-then-name flow used by `⌘N`,
    creates an initial login-shell terminal, and enters it.
 2. **Rename workspace…** changes the visible name while preserving the stable
    workspace ID and all terminals.

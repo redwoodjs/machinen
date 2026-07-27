@@ -1,6 +1,26 @@
 import Foundation
 
 enum WorkspacePathSuggestions {
+    static func localChildDirectories(at path: String) -> [String] {
+        let directory = URL(fileURLWithPath: expandedLocalPath(path), isDirectory: true)
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: []
+        ) else { return [] }
+        return contents.compactMap { url -> String? in
+            guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+            else { return nil }
+            return url.standardizedFileURL.path
+        }
+        .sorted { left, right in
+            let leftHidden = URL(fileURLWithPath: left).lastPathComponent.hasPrefix(".")
+            let rightHidden = URL(fileURLWithPath: right).lastPathComponent.hasPrefix(".")
+            if leftHidden != rightHidden { return !leftHidden }
+            return left.localizedCaseInsensitiveCompare(right) == .orderedAscending
+        }
+    }
+
     static func localDirectories(matching query: String) -> [String] {
         let value = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return [] }

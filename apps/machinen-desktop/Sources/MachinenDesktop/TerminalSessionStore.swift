@@ -6,6 +6,7 @@ final class TerminalSessionStore {
         var version: Int
         var workspaces: [WorkspaceRecord]?
         var sessions: [TerminalSession]
+        var workspaceLocationHistory: [WorkspaceLocation]?
     }
 
     let manifestURL: URL
@@ -36,8 +37,14 @@ final class TerminalSessionStore {
         }
         do {
             let manifest = try JSONDecoder().decode(Manifest.self, from: data)
-            let state = migrate(workspaces: manifest.workspaces, sessions: manifest.sessions)
-            if manifest.version < 7 || manifest.workspaces == nil {
+            let state = migrate(
+                workspaces: manifest.workspaces,
+                sessions: manifest.sessions,
+                workspaceLocationHistory: manifest.workspaceLocationHistory
+            )
+            if manifest.version < 8 || manifest.workspaces == nil
+                || manifest.workspaceLocationHistory == nil
+            {
                 save(state)
             }
             return state
@@ -59,7 +66,12 @@ final class TerminalSessionStore {
             )
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let manifest = Manifest(version: 7, workspaces: state.workspaces, sessions: state.sessions)
+            let manifest = Manifest(
+                version: 8,
+                workspaces: state.workspaces,
+                sessions: state.sessions,
+                workspaceLocationHistory: state.workspaceLocationHistory
+            )
             let data = try encoder.encode(manifest)
             try data.write(to: manifestURL, options: .atomic)
         } catch {
@@ -69,7 +81,8 @@ final class TerminalSessionStore {
 
     private func migrate(
         workspaces existingWorkspaces: [WorkspaceRecord]?,
-        sessions: [TerminalSession]
+        sessions: [TerminalSession],
+        workspaceLocationHistory existingLocationHistory: [WorkspaceLocation]?
     ) -> MachinenStoredState {
         var workspaces = existingWorkspaces ?? []
         var workspaceByLegacyName: [String: WorkspaceRecord] = [:]
@@ -108,6 +121,14 @@ final class TerminalSessionStore {
             session.workspace = workspace.name
         }
 
-        return MachinenStoredState(workspaces: workspaces, sessions: sessions)
+        var locationHistory = existingLocationHistory ?? []
+        for location in workspaces.map(\.location) where !locationHistory.contains(location) {
+            locationHistory.append(location)
+        }
+        return MachinenStoredState(
+            workspaces: workspaces,
+            sessions: sessions,
+            workspaceLocationHistory: locationHistory
+        )
     }
 }

@@ -362,4 +362,15 @@ final class TerminalSession: Codable {
 struct MachinenStoredState {
     var workspaces: [WorkspaceRecord]
     var sessions: [TerminalSession]
+    var workspaceLocationHistory: [WorkspaceLocation]
+
+    init(
+        workspaces: [WorkspaceRecord],
+        sessions: [TerminalSession],
+        workspaceLocationHistory: [WorkspaceLocation]? = nil
+    ) {
+        self.workspaces = workspaces
+        self.sessions = sessions
+        self.workspaceLocationHistory = workspaceLocationHistory ?? workspaces.map(\.location)
+    }
 }

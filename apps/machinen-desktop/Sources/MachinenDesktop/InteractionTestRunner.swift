@@ -62,16 +62,12 @@ enum InteractionTestRunner {
         try expect(snapshot.workspaces.count == 1, "a workspace was created before naming it")
         try expect(snapshot.tiles.count == 2, "a terminal was created before choosing a workspace location")
 
+        let locationPalette = try harness.commandPalette(in: deck)
+        try harness.type("alpha", into: locationPalette)
+        try harness.pressReturn(on: locationPalette)
         let namePalette = try harness.commandPalette(in: deck)
         try harness.type("beta", into: namePalette)
         try harness.pressReturn(on: namePalette)
-        let locationTypePalette = try harness.commandPalette(in: deck)
-        try harness.type("local", into: locationTypePalette)
-        try harness.pressReturn(on: locationTypePalette)
-        let locationPalette = try harness.commandPalette(in: deck)
-        try harness.type("alpha", into: locationPalette)
-        try harness.pressTab(on: locationPalette)
-        try harness.pressReturn(on: locationPalette)
         snapshot = try harness.snapshot(of: deck)
         try expect(snapshot.workspaces.count == 2, "a shared location did not create a distinct workspace")
         try expect(snapshot.tiles.count == 3, "the new workspace did not contain a terminal")
@@ -538,6 +534,18 @@ enum InteractionTestRunner {
         try expect(
             relocated?.location.kind == "ssh" && relocated?.location.host == "mini",
             "an empty workspace did not accept its new location"
+        )
+        _ = try deck.performAPIOperation("workspace.delete", params: [
+            "workspaceId": emptyWorkspaceID,
+        ])
+        let savedLocationHistory = harness.loadStoredState().workspaceLocationHistory
+        try expect(
+            savedLocationHistory.contains(.local(projectDirectory.path))
+                && savedLocationHistory.contains(.ssh(
+                    host: "mini",
+                    path: "/Users/p4p8/gh/redwoodjs/machinen"
+                )),
+            "removing a workspace discarded its previously chosen directories"
         )
 
         let legacyAlpha = WorkspaceRecord(
@@ -1114,6 +1122,15 @@ enum InteractionTestRunner {
         )
 
         let project = try harness.makeDirectory(named: "redwood-project")
+        let gh = try harness.makeDirectory(named: "gh")
+        let hidden = try harness.makeDirectory(named: ".hidden-project")
+        let localChildren = WorkspacePathSuggestions.localChildDirectories(
+            at: harness.temporaryDirectoryPath
+        )
+        try expect(
+            localChildren == [gh.path, project.path, hidden.path],
+            "the local browser omitted or reordered visible folders: \(localChildren)"
+        )
         let localSuggestions = WorkspacePathSuggestions.localDirectories(
             matching: "\(harness.temporaryDirectoryPath)/rwp"
         )
@@ -1131,31 +1148,52 @@ enum InteractionTestRunner {
     private static func workspacePaletteCreatesRenamesAndClosesWithKeyboard() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
-        let deck = harness.makeDeck(workspaces: [])
+        let project = try harness.makeDirectory(named: "redwood-project")
+        let deck = harness.makeDeck(state: MachinenStoredState(
+            workspaces: [],
+            sessions: [],
+            workspaceLocationHistory: [.local(project.path)]
+        ))
 
         deck.toggleCommandPalette()
         try harness.pressReturn(on: harness.commandPalette(in: deck))
-        let newWorkspaceName = try harness.commandPalette(in: deck)
+        let locationChooser = try harness.commandPalette(in: deck)
         try expect(
             try harness.snapshot(of: deck).workspaces.isEmpty,
-            "New workspace was created before asking for its name"
+            "New workspace was created before choosing a location"
         )
-        try harness.type("alpha", into: newWorkspaceName)
-        try harness.pressReturn(on: newWorkspaceName)
-        var newWorkspaceLocation = try harness.commandPalette(in: deck)
-        try harness.type("back", into: newWorkspaceLocation)
-        try harness.pressReturn(on: newWorkspaceLocation)
+        try harness.pressEscape(on: locationChooser)
+        let returnedTopLevel = try harness.commandPalette(in: deck)
+        try expect(
+            returnedTopLevel !== locationChooser,
+            "Escape closed a nested workspace dialog instead of going back"
+        )
+        try harness.pressEscape(on: returnedTopLevel)
+        try expect(!harness.hasCommandPalette(in: deck), "Escape did not close the top-level dialog")
+
+        deck.toggleCommandPalette()
+        try harness.pressReturn(on: harness.commandPalette(in: deck))
+        let previousLocations = try harness.commandPalette(in: deck)
+        try harness.pressReturn(on: previousLocations)
+        let suggestedName = try harness.commandPalette(in: deck)
+        try expect(
+            suggestedName.currentQuery == "redwood-project",
+            "the selected folder did not suggest its basename as the workspace name"
+        )
+        try harness.pressEscape(on: suggestedName)
+        let locationsAfterEscape = try harness.commandPalette(in: deck)
+        try expect(
+            locationsAfterEscape !== suggestedName,
+            "Escape did not return from the name prompt to locations"
+        )
+        try harness.pressReturn(on: locationsAfterEscape)
         let returnedName = try harness.commandPalette(in: deck)
         try harness.type("alpha", into: returnedName)
         try harness.pressReturn(on: returnedName)
-        newWorkspaceLocation = try harness.commandPalette(in: deck)
-        try harness.type("local", into: newWorkspaceLocation)
-        try harness.pressReturn(on: newWorkspaceLocation)
-        let localPathPalette = try harness.commandPalette(in: deck)
-        try harness.type("home", into: localPathPalette)
-        try harness.pressReturn(on: localPathPalette)
+        let created = try harness.snapshot(of: deck)
         try expect(
-            try harness.snapshot(of: deck).workspaces.map(\.name) == ["alpha"],
+            created.workspaces.map(\.name) == ["alpha"]
+                && created.workspaces.first?.workingDirectory == project.path,
             "New workspace did not accept its name and selected location"
         )
 
@@ -1326,6 +1364,10 @@ private final class Harness {
             throw InteractionTestFailure("the command palette did not open")
         }
         return palette
+    }
+
+    func hasCommandPalette(in deck: TerminalDeckView) -> Bool {
+        deck.subviews.contains { $0 is CommandPaletteView }
     }
 
     func confirmation(in deck: TerminalDeckView) throws -> ActionConfirmationView {

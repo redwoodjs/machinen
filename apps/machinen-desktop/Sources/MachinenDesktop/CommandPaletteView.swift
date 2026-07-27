@@ -11,6 +11,7 @@ struct PaletteCommand {
         case browseLocalWorkspaceLocation
         case chooseRemoteWorkspaceLocation
         case useWorkspaceLocation
+        case openWorkspaceLocation
         case useSSHHost
         case toggleOverview
         case newTerminal
@@ -214,7 +215,10 @@ final class CommandPaletteView: NSView {
     }
 
     private var filteredCommands: [PaletteCommand] {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        // A seeded path such as `~/` establishes where browsing starts; it
+        // should not hide recent choices until the user starts typing.
+        let filterQuery = replaceInitialQueryOnType ? "" : query
+        let needle = filterQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !needle.isEmpty else { return commands }
         return commands.enumerated()
             .compactMap { index, command -> (PaletteCommand, Int, Int)? in
