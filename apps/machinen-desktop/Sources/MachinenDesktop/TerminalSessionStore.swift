@@ -37,7 +37,7 @@ final class TerminalSessionStore {
         do {
             let manifest = try JSONDecoder().decode(Manifest.self, from: data)
             let state = migrate(workspaces: manifest.workspaces, sessions: manifest.sessions)
-            if manifest.version < 6 || manifest.workspaces == nil {
+            if manifest.version < 7 || manifest.workspaces == nil {
                 save(state)
             }
             return state
@@ -59,7 +59,7 @@ final class TerminalSessionStore {
             )
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let manifest = Manifest(version: 6, workspaces: state.workspaces, sessions: state.sessions)
+            let manifest = Manifest(version: 7, workspaces: state.workspaces, sessions: state.sessions)
             let data = try encoder.encode(manifest)
             try data.write(to: manifestURL, options: .atomic)
         } catch {
@@ -72,14 +72,19 @@ final class TerminalSessionStore {
         sessions: [TerminalSession]
     ) -> MachinenStoredState {
         var workspaces = existingWorkspaces ?? []
-        var workspaceByName: [String: WorkspaceRecord] = [:]
-        for workspace in workspaces where workspaceByName[workspace.name] == nil {
+        var workspaceByLegacyName: [String: WorkspaceRecord] = [:]
+        var usedNameKeys = Set<String>()
+        for workspace in workspaces {
+            let legacyName = workspace.name
             if workspace.workingDirectory.isEmpty {
                 workspace.workingDirectory = sessions.first(where: {
-                    $0.workspaceID == workspace.id || $0.workspace == workspace.name
+                    $0.workspaceID == workspace.id || $0.workspace == legacyName
                 })?.workingDirectory ?? FileManager.default.homeDirectoryForCurrentUser.path
             }
-            workspaceByName[workspace.name] = workspace
+            if workspaceByLegacyName[legacyName] == nil {
+                workspaceByLegacyName[legacyName] = workspace
+            }
+            workspace.name = WorkspaceName.unique(legacyName, reserving: &usedNameKeys)
         }
 
         for session in sessions {
@@ -88,15 +93,16 @@ final class TerminalSessionStore {
                let existing = workspaces.first(where: { $0.id == session.workspaceID })
             {
                 workspace = existing
-            } else if let existing = workspaceByName[session.workspace] {
+            } else if let existing = workspaceByLegacyName[session.workspace] {
                 workspace = existing
             } else {
+                let name = WorkspaceName.unique(session.workspace, reserving: &usedNameKeys)
                 workspace = WorkspaceRecord(
-                    name: session.workspace,
+                    name: name,
                     workingDirectory: session.workingDirectory
                 )
                 workspaces.append(workspace)
-                workspaceByName[workspace.name] = workspace
+                workspaceByLegacyName[session.workspace] = workspace
             }
             session.workspaceID = workspace.id
             session.workspace = workspace.name

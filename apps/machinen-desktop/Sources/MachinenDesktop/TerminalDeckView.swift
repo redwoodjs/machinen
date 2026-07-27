@@ -1343,7 +1343,7 @@ final class TerminalDeckView: NSView {
 
         let suggestedWorkspaceID = selectedWorkspaceID()
         var commands = [
-            PaletteCommand(id: .newWorkspace, title: "New workspace…", shortcut: "choose location"),
+            PaletteCommand(id: .newWorkspace, title: "New workspace…", shortcut: "name, then location"),
         ]
         commands.append(contentsOf: workspaces.map { workspace in
             PaletteCommand(
@@ -1373,7 +1373,7 @@ final class TerminalDeckView: NSView {
             guard let self else { return }
             switch command.id {
             case .newWorkspace:
-                self.showNewWorkspaceLocationPalette()
+                self.showNewWorkspaceNamePalette()
             case .newTerminalInWorkspace:
                 guard let workspaceID = command.workspaceID,
                       let workspace = self.workspaces.first(where: { $0.id == workspaceID })
@@ -1565,7 +1565,7 @@ final class TerminalDeckView: NSView {
     private func runPaletteCommand(_ command: PaletteCommand, from palette: CommandPaletteView?) {
         switch command.id {
         case .newWorkspace:
-            showNewWorkspaceLocationPalette()
+            showNewWorkspaceNamePalette()
         case .renameWorkspace:
             showRenameWorkspacePalette()
         case .changeWorkspaceLocation:
@@ -1611,17 +1611,48 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func showNewWorkspaceLocationPalette() {
+    private func showNewWorkspaceNamePalette(initialName: String? = nil) {
+        dismissCommandPalette()
+        let suggestedName = initialName ?? nextAvailableWorkspaceName()
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "NEW WORKSPACE · 1 OF 2",
+            context: "unique name",
+            placeholder: "Name this workspace…",
+            defaultFooter: "The name identifies this workspace · return next · esc cancel",
+            commands: [],
+            acceptsFreeform: true,
+            initialQuery: suggestedName
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
+        palette.onSubmit = { [weak self, weak palette] value in
+            guard let self else { return }
+            guard let name = WorkspaceName.validated(value) else {
+                palette?.showStatus("Enter a non-empty workspace name")
+                return
+            }
+            guard !self.workspaceNameExists(name) else {
+                palette?.showStatus("That workspace name is already in use")
+                return
+            }
+            self.showNewWorkspaceLocationPalette(name: name)
+        }
+        commandPalette = palette
+        paletteKind = .newWorkspace
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
+    private func showNewWorkspaceLocationPalette(name: String) {
         dismissCommandPalette()
         let home = WorkspaceLocation.local(FileManager.default.homeDirectoryForCurrentUser.path)
-        let homeWorkspace = workspace(at: home)
         var commands = [
             PaletteCommand(
-                id: homeWorkspace == nil ? .useWorkspaceLocation : .openWorkspace,
-                title: homeWorkspace.map { "Open \($0.name)" } ?? "Home folder",
+                id: .useWorkspaceLocation,
+                title: "Home folder",
                 shortcut: home.displayName,
-                location: home,
-                workspaceID: homeWorkspace?.id
+                location: home
             ),
             PaletteCommand(
                 id: .chooseLocalWorkspaceLocation,
@@ -1639,20 +1670,24 @@ final class TerminalDeckView: NSView {
             let location = workspace.location
             guard seenLocations.insert(canonicalLocationKey(location)).inserted else { continue }
             commands.append(PaletteCommand(
-                id: .openWorkspace,
-                title: "Open \(workspace.name)",
+                id: .useWorkspaceLocation,
+                title: "Same location as \(workspace.name)",
                 shortcut: location.displayName,
-                location: location,
-                workspaceID: workspace.id
+                location: location
             ))
         }
+        commands.append(PaletteCommand(
+            id: .back,
+            title: "Back to workspace name…",
+            shortcut: name
+        ))
 
         let palette = CommandPaletteView(
             frame: bounds,
-            heading: "NEW WORKSPACE LOCATION",
-            context: "new workspace",
-            placeholder: "Where should this workspace live?",
-            defaultFooter: "Choose a known location, browse locally, or connect through OpenSSH",
+            heading: "NEW WORKSPACE · 2 OF 2",
+            context: name,
+            placeholder: "Choose its default location…",
+            defaultFooter: "Locations may be shared · return choose · esc cancel",
             commands: commands
         )
         palette.layer?.zPosition = 1_000
@@ -1662,14 +1697,13 @@ final class TerminalDeckView: NSView {
             switch command.id {
             case .useWorkspaceLocation:
                 guard let location = command.location else { return }
-                self.continueNewWorkspaceFlow(with: location)
-            case .openWorkspace:
-                guard let workspaceID = command.workspaceID else { return }
-                self.openExistingWorkspace(workspaceID)
+                self.continueNewWorkspaceFlow(name: name, with: location, from: palette)
             case .chooseLocalWorkspaceLocation:
-                self.chooseLocalLocationForNewWorkspace()
+                self.chooseLocalLocationForNewWorkspace(name: name)
             case .chooseRemoteWorkspaceLocation:
-                self.showNewRemoteWorkspaceLocationPalette()
+                self.showNewRemoteWorkspaceLocationPalette(name: name)
+            case .back:
+                self.showNewWorkspaceNamePalette(initialName: name)
             default:
                 palette?.showStatus("That location is not available")
             }
@@ -1680,12 +1714,12 @@ final class TerminalDeckView: NSView {
         window?.makeFirstResponder(palette)
     }
 
-    private func chooseLocalLocationForNewWorkspace() {
+    private func chooseLocalLocationForNewWorkspace(name: String) {
         dismissCommandPalette()
         guard let window else { return }
         let panel = NSOpenPanel()
-        panel.title = "Choose New Workspace Folder"
-        panel.message = "The workspace's terminals, Git status, and services will use this folder."
+        panel.title = "Choose a Default Location for \(name)"
+        panel.message = "New terminals and services in \(name) will use this folder. Other workspaces may use it too."
         panel.prompt = "Use Folder"
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -1693,24 +1727,32 @@ final class TerminalDeckView: NSView {
         panel.allowsMultipleSelection = false
         panel.beginSheetModal(for: window) { [weak self] response in
             Task { @MainActor in
-                guard let self, response == .OK, let path = panel.url?.path else { return }
-                self.continueNewWorkspaceFlow(with: .local(path))
+                guard let self else { return }
+                guard response == .OK, let path = panel.url?.path else {
+                    self.showNewWorkspaceLocationPalette(name: name)
+                    return
+                }
+                self.continueNewWorkspaceFlow(name: name, with: .local(path))
             }
         }
     }
 
-    private func showNewRemoteWorkspaceLocationPalette() {
+    private func showNewRemoteWorkspaceLocationPalette(name: String) {
         dismissCommandPalette()
         let hosts = knownSSHHosts()
         let palette = CommandPaletteView(
             frame: bounds,
-            heading: "NEW SSH WORKSPACE",
-            context: "SSH host",
+            heading: "NEW WORKSPACE · SSH HOST",
+            context: name,
             placeholder: "Choose an alias or type user@host…",
             defaultFooter: hosts.isEmpty
                 ? "Type a host understood by OpenSSH"
                 : "Known aliases come from ~/.ssh/config and existing workspaces",
-            commands: hosts.map {
+            commands: [PaletteCommand(
+                id: .back,
+                title: "Back to locations…",
+                shortcut: name
+            )] + hosts.map {
                 PaletteCommand(id: .useSSHHost, title: $0, shortcut: "SSH", sshHost: $0)
             },
             acceptsFreeform: true
@@ -1718,15 +1760,19 @@ final class TerminalDeckView: NSView {
         palette.layer?.zPosition = 1_000
         palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
         palette.onRun = { [weak self] command in
+            if command.id == .back {
+                self?.showNewWorkspaceLocationPalette(name: name)
+                return
+            }
             guard let host = command.sshHost else { return }
-            self?.showNewRemoteWorkspacePathPalette(host: host)
+            self?.showNewRemoteWorkspacePathPalette(name: name, host: host)
         }
         palette.onSubmit = { [weak self, weak palette] value in
             guard let self, let host = self.validSSHHost(value) else {
                 palette?.showStatus("Enter an OpenSSH alias, host, or user@host")
                 return
             }
-            self.showNewRemoteWorkspacePathPalette(host: host)
+            self.showNewRemoteWorkspacePathPalette(name: name, host: host)
         }
         commandPalette = palette
         paletteKind = .remoteWorkspaceLocation
@@ -1734,19 +1780,28 @@ final class TerminalDeckView: NSView {
         window?.makeFirstResponder(palette)
     }
 
-    private func showNewRemoteWorkspacePathPalette(host: String) {
+    private func showNewRemoteWorkspacePathPalette(name: String, host: String) {
         dismissCommandPalette()
         let palette = CommandPaletteView(
             frame: bounds,
-            heading: "NEW SSH WORKSPACE",
-            context: host,
+            heading: "NEW WORKSPACE · SSH FOLDER",
+            context: "\(name) · \(host)",
             placeholder: "~/gh/project or /srv/project",
             defaultFooter: "Enter an existing remote folder; Machinen will verify it over SSH",
-            commands: [],
+            commands: [PaletteCommand(
+                id: .back,
+                title: "Back to SSH host…",
+                shortcut: host
+            )],
             acceptsFreeform: true
         )
         palette.layer?.zPosition = 1_000
         palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
+        palette.onRun = { [weak self] command in
+            if command.id == .back {
+                self?.showNewRemoteWorkspaceLocationPalette(name: name)
+            }
+        }
         palette.onSubmit = { [weak self, weak palette] path in
             guard let self, let palette,
                   let location = WorkspaceLocation.parseSSHReference("\(host):\(path)")
@@ -1760,7 +1815,9 @@ final class TerminalDeckView: NSView {
                 switch result {
                 case let .success(canonicalPath):
                     self.continueNewWorkspaceFlow(
-                        with: .ssh(host: host, path: canonicalPath)
+                        name: name,
+                        with: .ssh(host: host, path: canonicalPath),
+                        from: palette
                     )
                 case let .failure(error):
                     palette.showStatus(error.message)
@@ -1817,100 +1874,30 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func workspace(
-        at location: WorkspaceLocation,
-        excluding workspaceID: String? = nil
-    ) -> WorkspaceRecord? {
-        let key = canonicalLocationKey(location)
-        return workspaces.first {
-            $0.id != workspaceID && canonicalLocationKey($0.location) == key
-        }
-    }
-
-    private func continueNewWorkspaceFlow(with requestedLocation: WorkspaceLocation) {
+    private func continueNewWorkspaceFlow(
+        name: String,
+        with requestedLocation: WorkspaceLocation,
+        from palette: CommandPaletteView? = nil
+    ) {
         do {
-            let location = try validatedWorkspaceLocation(requestedLocation)
-            if let existing = workspace(at: location) {
-                openExistingWorkspace(existing.id)
-            } else {
-                showNewWorkspaceNamePalette(location: location)
-            }
+            try createNewWorkspace(name: name, location: requestedLocation)
         } catch {
-            presentWorkspaceLocationError(error)
-        }
-    }
-
-    private func openExistingWorkspace(_ workspaceID: String) {
-        guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return }
-        dismissCommandPalette()
-        let sessions = activeSessionTiles(for: workspaceID)
-        if sessions.isEmpty {
-            createPersistentSession(
-                workspace: workspace.name,
-                name: "shell",
-                command: nil,
-                workingDirectory: workspace.workingDirectory
-            )
-            return
-        }
-        currentWorkspace = workspaceID
-        selectedIndex = 0
-        focusedIndex = nil
-        updateWorldGeometry()
-        updateSelection()
-        moveCamera()
-    }
-
-    private func showNewWorkspaceNamePalette(location: WorkspaceLocation) {
-        dismissCommandPalette()
-        let suggestedName = nextAvailableWorkspaceName(base: locationName(location))
-        let palette = CommandPaletteView(
-            frame: bounds,
-            heading: "NAME NEW WORKSPACE",
-            context: location.displayName,
-            placeholder: "Enter a name…",
-            defaultFooter: "The suggested name is selected · type to replace it · esc dismiss",
-            commands: [],
-            acceptsFreeform: true,
-            initialQuery: suggestedName
-        )
-        palette.layer?.zPosition = 1_000
-        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
-        palette.onSubmit = { [weak self, weak palette] name in
-            guard let self else { return }
-            guard !self.workspaceNameExists(name) else {
-                palette?.showStatus("A workspace named \(name) already exists")
-                return
-            }
-            do {
-                try self.createNewWorkspace(name: name, location: location)
-            } catch {
-                palette?.showStatus((error as? MachinenAPIError)?.message ?? error.localizedDescription)
+            if let palette {
+                palette.showStatus((error as? MachinenAPIError)?.message ?? error.localizedDescription)
+            } else {
+                presentWorkspaceLocationError(error)
             }
         }
-        commandPalette = palette
-        paletteKind = .newWorkspace
-        addSubview(palette, positioned: .above, relativeTo: nil)
-        window?.makeFirstResponder(palette)
     }
 
-    private func locationName(_ location: WorkspaceLocation) -> String {
-        let name = URL(fileURLWithPath: location.path).lastPathComponent
-        if !name.isEmpty { return name }
-        return location.sshHost ?? "workspace"
-    }
-
-    private func createNewWorkspace(name: String, location: WorkspaceLocation) throws {
+    private func createNewWorkspace(name requestedName: String, location: WorkspaceLocation) throws {
+        guard let name = WorkspaceName.validated(requestedName) else {
+            throw MachinenAPIError("invalid_params", "Workspace name must not be empty")
+        }
         guard !workspaceNameExists(name) else {
-            throw MachinenAPIError("workspace_name_conflict", "A workspace named \(name) already exists")
+            throw MachinenAPIError("workspace_name_conflict", "That workspace name is already in use")
         }
         let location = try validatedWorkspaceLocation(location)
-        guard workspace(at: location) == nil else {
-            throw MachinenAPIError(
-                "workspace_location_conflict",
-                "That location already belongs to another workspace"
-            )
-        }
         dismissCommandPalette()
         createPersistentSession(
             workspace: name,
@@ -1929,20 +1916,25 @@ final class TerminalDeckView: NSView {
         let palette = CommandPaletteView(
             frame: bounds,
             heading: "RENAME WORKSPACE",
-            context: workspace.name,
+            context: "unique name",
             placeholder: "Enter a new name…",
-            defaultFooter: "Names must be non-empty and unique    esc dismiss",
+            defaultFooter: "The current name is selected · type to replace it",
             commands: [],
-            acceptsFreeform: true
+            acceptsFreeform: true,
+            initialQuery: workspace.name
         )
         palette.layer?.zPosition = 1_000
         palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
-        palette.onSubmit = { [weak self, weak palette] name in
+        palette.onSubmit = { [weak self, weak palette] value in
             guard let self,
                   let workspace = self.workspaces.first(where: { $0.id == workspaceID })
             else { return }
+            guard let name = WorkspaceName.validated(value) else {
+                palette?.showStatus("Enter a non-empty workspace name")
+                return
+            }
             guard !self.workspaceNameExists(name, excluding: workspaceID) else {
-                palette?.showStatus("A workspace named \(name) already exists")
+                palette?.showStatus("That workspace name is already in use")
                 return
             }
             workspace.name = name
@@ -1972,7 +1964,7 @@ final class TerminalDeckView: NSView {
             heading: "WORKSPACE LOCATION",
             context: workspace.location.displayName,
             placeholder: "Choose where this workspace runs…",
-            defaultFooter: "Local folders run here · remote folders run through SSH",
+            defaultFooter: "This is a default, not an identity · locations may be shared",
             commands: [
                 PaletteCommand(
                     id: .chooseLocalWorkspaceLocation,
@@ -2012,7 +2004,7 @@ final class TerminalDeckView: NSView {
 
         let panel = NSOpenPanel()
         panel.title = "Choose Local Workspace Folder"
-        panel.message = "New and restarted terminals will use this folder. Running processes are not moved."
+        panel.message = "New and restarted terminals will use this folder. Other workspaces may use it too; running processes are not moved."
         panel.prompt = "Use Folder"
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -2150,7 +2142,10 @@ final class TerminalDeckView: NSView {
     }
 
     private func workspaceNameExists(_ name: String, excluding workspaceID: String? = nil) -> Bool {
-        workspaces.contains { $0.id != workspaceID && $0.name == name }
+        let key = WorkspaceName.key(name)
+        return workspaces.contains {
+            $0.id != workspaceID && WorkspaceName.key($0.name) == key
+        }
     }
 
     private func presentConfirmation(
@@ -2670,15 +2665,8 @@ final class TerminalDeckView: NSView {
     }
 
     private func nextAvailableWorkspaceName(base requestedBase: String = "workspace") -> String {
-        let trimmedBase = requestedBase.trimmingCharacters(in: .whitespacesAndNewlines)
-        let base = trimmedBase.isEmpty ? "workspace" : trimmedBase
-        let names = Set(workspaces.map(\.name))
-        if !names.contains(base) { return base }
-        var suffix = 2
-        while names.contains("\(base) \(suffix)") {
-            suffix += 1
-        }
-        return "\(base) \(suffix)"
+        var keys = Set(workspaces.map { WorkspaceName.key($0.name) })
+        return WorkspaceName.unique(requestedBase, reserving: &keys)
     }
 
     private func createPersistentSession(
@@ -2690,7 +2678,9 @@ final class TerminalDeckView: NSView {
     ) {
         let workspaceRecord: WorkspaceRecord
         let createdWorkspace: Bool
-        if let existing = workspaces.first(where: { $0.name == workspace }) {
+        if let existing = workspaces.first(where: {
+            WorkspaceName.key($0.name) == WorkspaceName.key(workspace)
+        }) {
             workspaceRecord = existing
             createdWorkspace = false
         } else {
@@ -2840,9 +2830,12 @@ final class TerminalDeckView: NSView {
     }
 
     private func apiCreateWorkspace(_ params: JSONObject) throws -> Any {
-        let name = try requiredString("name", in: params)
-        guard !workspaces.contains(where: { $0.name == name }) else {
-            throw MachinenAPIError("workspace_name_conflict", "A workspace named \(name) already exists")
+        let requestedName = try requiredString("name", in: params)
+        guard let name = WorkspaceName.validated(requestedName) else {
+            throw MachinenAPIError("invalid_params", "name must not be empty")
+        }
+        guard !workspaceNameExists(name) else {
+            throw MachinenAPIError("workspace_name_conflict", "That workspace name is already in use")
         }
         let location: WorkspaceLocation
         if let requested = params["location"] as? JSONObject {
@@ -2852,12 +2845,6 @@ final class TerminalDeckView: NSView {
                 params["workingDirectory"] as? String
                     ?? FileManager.default.homeDirectoryForCurrentUser.path
             ))
-        }
-        guard workspace(at: location) == nil else {
-            throw MachinenAPIError(
-                "workspace_location_conflict",
-                "That location already belongs to another workspace"
-            )
         }
         let workspace = WorkspaceRecord(
             name: name,
@@ -2882,12 +2869,6 @@ final class TerminalDeckView: NSView {
     ) throws {
         let validated = try validatedWorkspaceLocation(location)
         guard canonicalLocationKey(validated) != canonicalLocationKey(workspace.location) else { return }
-        guard self.workspace(at: validated, excluding: workspace.id) == nil else {
-            throw MachinenAPIError(
-                "workspace_location_conflict",
-                "That location already belongs to another workspace"
-            )
-        }
         guard !allSessionTiles.contains(where: { $0.session.workspaceID == workspace.id }) else {
             throw MachinenAPIError(
                 "workspace_not_empty",
@@ -2902,10 +2883,12 @@ final class TerminalDeckView: NSView {
 
     private func apiUpdateWorkspace(_ params: JSONObject) throws -> Any {
         let workspace = try requireWorkspace(params)
-        if let name = params["name"] as? String {
-            guard !name.isEmpty else { throw MachinenAPIError("invalid_params", "name cannot be empty") }
-            guard !workspaces.contains(where: { $0 !== workspace && $0.name == name }) else {
-                throw MachinenAPIError("workspace_name_conflict", "A workspace named \(name) already exists")
+        if let requestedName = params["name"] as? String {
+            guard let name = WorkspaceName.validated(requestedName) else {
+                throw MachinenAPIError("invalid_params", "name must not be empty")
+            }
+            guard !workspaceNameExists(name, excluding: workspace.id) else {
+                throw MachinenAPIError("workspace_name_conflict", "That workspace name is already in use")
             }
             workspace.name = name
             for tile in allSessionTiles where tile.session.workspaceID == workspace.id {

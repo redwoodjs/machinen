@@ -3,8 +3,8 @@ import AppKit
 struct PaletteCommand {
     enum ID {
         case newWorkspace
-        case openWorkspace
         case newTerminalInWorkspace
+        case back
         case renameWorkspace
         case changeWorkspaceLocation
         case chooseLocalWorkspaceLocation
