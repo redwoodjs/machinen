@@ -174,6 +174,7 @@ fn runInspect(init: std.process.Init, args: anytype) !u8 {
     var record = (store.resolveSession(target.reference) catch |err| return fail(init, err)) orelse
         return fail(init, error.SessionNotFound);
     defer record.deinit(init.gpa);
+    std.debug.assert(record.id.len > 0);
     const telemetry = if (record.state == .running or record.state == .created)
         worker.queryTelemetry(
             init.gpa,
@@ -207,6 +208,10 @@ fn runAttach(init: std.process.Init, args: anytype) !u8 {
     var read_only = false;
     var latest_screen = false;
     while (args.next()) |argument| {
+        if (std.mem.eql(u8, argument, "--latest-screen")) {
+            latest_screen = true;
+            continue;
+        }
         if (std.mem.eql(u8, argument, "--database")) {
             database = args.next() orelse return writeUsage(init.io);
         } else if (std.mem.eql(u8, argument, "--after")) {
@@ -217,8 +222,6 @@ fn runAttach(init: std.process.Init, args: anytype) !u8 {
             ) catch return writeUsage(init.io);
         } else if (std.mem.eql(u8, argument, "--read-only")) {
             read_only = true;
-        } else if (std.mem.eql(u8, argument, "--latest-screen")) {
-            latest_screen = true;
         } else if (reference == null) {
             reference = argument;
         } else return writeUsage(init.io);

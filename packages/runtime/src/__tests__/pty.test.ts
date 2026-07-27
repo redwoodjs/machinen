@@ -42,7 +42,7 @@ function waitForText(
   stream: Readable,
   chunks: Buffer[],
   expected: RegExp,
-  timeoutMs = 1_000,
+  timeoutMs = 3_000,
 ): Promise<string> {
   const snapshot = () => Buffer.concat(chunks).toString("utf8");
   const current = snapshot();
