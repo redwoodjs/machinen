@@ -219,6 +219,10 @@ const restored = await restore({ snapDir: "./counter.snap" });
 - [Guides](./docs/) — recipes for creating VMs, snapshots and forks,
   mounts, and networking
 - [`@machinen/cli` reference](./packages/cli/API.md) — command and flag reference
+- [`@machinen/desktop-sdk`](./packages/desktop-sdk/README.md) — drive Machinen
+  Desktop from TypeScript or agent code mode through its local Unix-socket API
+- [Machinen Desktop services](./apps/machinen-desktop-services/README.md) — trusted
+  TypeScript services for activity, Git, ports, CPU, network, and process status
 - [`@machinen/runtime` reference](./packages/runtime/API.md) — every
   exported function, type, and error class (typedoc-generated)
 

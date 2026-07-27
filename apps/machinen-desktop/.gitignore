@@ -1,0 +1,5 @@
+.build/
+Dependencies/GhosttyKit.xcframework
+Sources/MachinenDesktop/GhosttyResources
+Machinen.app/
+Machinen-Desktop-*.zip

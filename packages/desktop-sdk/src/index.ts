@@ -1,0 +1,28 @@
+export {
+  MachinenDesktopClient,
+  defaultMachinenSocketPath,
+  type MachinenDesktopClientOptions,
+  type TerminalOutput,
+  type TerminalWaitOptions,
+} from "./client.js";
+export type {
+  DesktopClientIdentity,
+  DesktopConnection,
+  DesktopEvent,
+  DesktopEventName,
+  DesktopSnapshot,
+  DesktopUIState,
+  EventSubscriptionParams,
+  EventSubscriptionResult,
+  JsonObject,
+  StatusGraphStyle,
+  StatusScope,
+  StatusTone,
+  StatusWidget,
+  StatusWidgetKind,
+  StatusWidgetLink,
+  Terminal,
+  Tile,
+  Workspace,
+  WorkspaceLocation,
+} from "./protocol.js";

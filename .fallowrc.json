@@ -26,7 +26,8 @@
       "scripts/*-proof.mjs",
       "scripts/*-smoke.mjs",
       "scripts/hard-runtime-refusal-contract.mjs",
-      "packages/microvm/test-fixtures/proof-assets/*.mjs"
+      "packages/microvm/test-fixtures/proof-assets/*.mjs",
+      "packages/native-*/index.mjs"
     ]
   },
   "health": {

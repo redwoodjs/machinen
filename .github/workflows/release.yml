@@ -110,6 +110,9 @@ jobs:
       - name: Build runtime helper host tools
         working-directory: packages/runtime/native
         run: zig build -Doptimize=ReleaseSafe
+      - name: Build terminal session helper
+        working-directory: packages/session
+        run: zig build -Doptimize=ReleaseSmall
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: runtime-helper-arm64-darwin
@@ -118,6 +121,12 @@ jobs:
             packages/runtime/native/zig-out/bin/machinen-pdeathsig
             packages/runtime/native/zig-out/bin/machinen-pty
             packages/runtime/native/zig-out/bin/machinen-winsize
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: session-arm64-darwin
+          path: packages/session/zig-out/bin/machinen-session
           if-no-files-found: error
           retention-days: 7
 
@@ -232,6 +241,10 @@ jobs:
         with:
           name: runtime-helper-arm64-darwin
           path: packages/native-arm64-darwin/vmm/bin/
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: session-arm64-darwin
+          path: packages/native-arm64-darwin/vmm/bin/
       - name: Build and stage Linux runtime helper host tools
         run: |
           set -euo pipefail
@@ -245,6 +258,12 @@ jobs:
             cp "${RUNNER_TEMP}/runtime-helper-host-tools/arm64-linux/bin/${tool}" "packages/native-arm64-linux/vmm/bin/${tool}"
             cp "${RUNNER_TEMP}/runtime-helper-host-tools/x64-linux/bin/${tool}" "packages/native-x64-linux/vmm/bin/${tool}"
           done
+          cd packages/session
+          zig build -Doptimize=ReleaseSmall -Dtarget=aarch64-linux-musl --prefix "${RUNNER_TEMP}/session-arm64-linux"
+          zig build -Doptimize=ReleaseSmall -Dtarget=x86_64-linux-musl --prefix "${RUNNER_TEMP}/session-x64-linux"
+          cd ../..
+          cp "${RUNNER_TEMP}/session-arm64-linux/bin/machinen-session" packages/native-arm64-linux/vmm/bin/machinen-session
+          cp "${RUNNER_TEMP}/session-x64-linux/bin/machinen-session" packages/native-x64-linux/vmm/bin/machinen-session
 
       # chmod host tools so the working copy stays usable locally; the
       # `bin` field in each package's package.json is what makes pnpm
@@ -254,6 +273,7 @@ jobs:
             chmod +x \
               "$pkg/vmm/bin/machinen-vm" \
               "$pkg/vmm/bin/machinen-runtime-helper" \
+              "$pkg/vmm/bin/machinen-session" \
               "$pkg/vmm/bin/machinen-pdeathsig" \
               "$pkg/vmm/bin/machinen-pty" \
               "$pkg/vmm/bin/machinen-winsize"

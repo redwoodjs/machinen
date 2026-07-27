@@ -1,0 +1,19 @@
+.{
+    .name = .session,
+    .version = "0.0.0",
+    .fingerprint = 0xd044d5d487dbf1ce,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .sqlite = .{
+            .url = "https://www.sqlite.org/2025/sqlite-autoconf-3510000.tar.gz",
+            .hash = "N-V-__8AAEX4vgBcl2OX6nCrfasAkbYDFSlDut77e0uEwXFm",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "README.md",
+        "PROTOCOL.md",
+        "src",
+    },
+}
