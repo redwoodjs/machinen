@@ -5,7 +5,6 @@ import { ActivityStatusService } from "./services/activity-status.js";
 import { GitStatusService } from "./services/git-status.js";
 import { MetricsStatusService } from "./services/metrics-status.js";
 import { OpenPortsService } from "./services/open-ports.js";
-import type { DesktopService } from "./workspace-polling-service.js";
 
 const desktop = new MachinenDesktopClient({
   client: { name: "machinen-desktop-services", version: "0.1.0" },
@@ -16,19 +15,18 @@ const desktop = new MachinenDesktopClient({
   },
 });
 const state = new DesktopState();
-const services: DesktopService[] = [
-  new ActivityStatusService(desktop, state),
-  new GitStatusService(desktop, state),
-  new OpenPortsService(desktop, state),
-  new MetricsStatusService(desktop, state),
-];
+const activityStatus = new ActivityStatusService(desktop, state);
+const gitStatus = new GitStatusService(desktop, state);
+const openPorts = new OpenPortsService(desktop, state);
+const metricsStatus = new MetricsStatusService(desktop, state);
 
 desktop.onConnect(({ subscription }) => {
   if (subscription?.snapshot) {
     state.load(subscription.snapshot);
-    for (const service of services) {
-      service.start(subscription.snapshot);
-    }
+    activityStatus.start(subscription.snapshot);
+    gitStatus.start(subscription.snapshot);
+    openPorts.start(subscription.snapshot);
+    metricsStatus.start(subscription.snapshot);
   }
 });
 desktop.onEvent((event) => {
@@ -37,18 +35,20 @@ desktop.onEvent((event) => {
     return;
   }
   state.handleEvent(event);
-  for (const service of services) {
-    service.handleEvent(event);
-  }
+  activityStatus.handleEvent(event);
+  gitStatus.handleEvent(event);
+  openPorts.handleEvent(event);
+  metricsStatus.handleEvent(event);
 });
 desktop.onDisconnect((error) => {
   console.error(`Machinen Desktop services disconnected: ${error.message}`);
 });
 
 function shutdown(): void {
-  for (const service of services) {
-    service.stop();
-  }
+  activityStatus.stop();
+  gitStatus.stop();
+  openPorts.stop();
+  metricsStatus.stop();
   desktop.close();
 }
 

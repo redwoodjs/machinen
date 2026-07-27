@@ -85,7 +85,7 @@ export function parseNetworkInterfaces(output: string): { incoming: number; outg
   return { incoming, outgoing };
 }
 
-export async function probeHostTotals(signal?: AbortSignal): Promise<HostTotals> {
+async function probeHostTotals(signal?: AbortSignal): Promise<HostTotals> {
   const cores = cpus();
   const cpuUsed = cores.reduce(
     (total, core) => total + core.times.user + core.times.nice + core.times.sys + core.times.irq,
@@ -180,10 +180,7 @@ export function parseNetworkBytes(
   return found ? { incoming, outgoing } : undefined;
 }
 
-export async function probeProcessTotals(
-  roots: number[],
-  signal?: AbortSignal,
-): Promise<ProcessTotals> {
+async function probeProcessTotals(roots: number[], signal?: AbortSignal): Promise<ProcessTotals> {
   const rows = parseProcessElapsedCPU(
     await execute("/bin/ps", ["-axo", "pid=,ppid=,time="], signal),
   );
@@ -285,32 +282,38 @@ export class MetricsStatusService {
     if (!workspace || workspace.location.kind !== "local") {
       return undefined;
     }
-    if (this.state.ui.level === "terminal") {
-      const terminal = this.state.selectedTerminal();
-      const tile = terminal ? this.state.tiles.get(terminal.tileId) : undefined;
-      if (!terminal || !tile?.pid) {
-        return undefined;
-      }
-      return {
-        key: `terminal:${terminal.id}:${tile.pid}`,
-        roots: [tile.pid],
-        scope: { kind: "terminal", id: terminal.id },
-        displayPID: tile.pid,
-      };
-    }
-    const roots = this.state
-      .workspaceTiles(workspace.id)
-      .map((tile) => tile.pid)
-      .filter((pid): pid is number => typeof pid === "number" && pid > 0)
-      .sort((left, right) => left - right);
-    if (roots.length === 0) {
+    return this.state.ui.level === "terminal"
+      ? this.terminalContext()
+      : this.workspaceContext(workspace.id);
+  }
+
+  private terminalContext(): ProcessContext | undefined {
+    const terminal = this.state.selectedTerminal();
+    const tile = terminal ? this.state.tiles.get(terminal.tileId) : undefined;
+    if (!terminal || !tile?.pid) {
       return undefined;
     }
     return {
-      key: `workspace:${workspace.id}:${roots.join(",")}`,
-      roots,
-      scope: { kind: "workspace", id: workspace.id },
+      key: `terminal:${terminal.id}:${tile.pid}`,
+      roots: [tile.pid],
+      scope: { kind: "terminal", id: terminal.id },
+      displayPID: tile.pid,
     };
+  }
+
+  private workspaceContext(workspaceId: string): ProcessContext | undefined {
+    const roots = this.state
+      .workspaceTiles(workspaceId)
+      .map((tile) => tile.pid)
+      .filter((pid): pid is number => typeof pid === "number" && pid > 0)
+      .sort((left, right) => left - right);
+    return roots.length > 0
+      ? {
+          key: `workspace:${workspaceId}:${roots.join(",")}`,
+          roots,
+          scope: { kind: "workspace", id: workspaceId },
+        }
+      : undefined;
   }
 
   private queueRefresh(): void {
@@ -325,40 +328,57 @@ export class MetricsStatusService {
     this.running = true;
     this.refreshQueued = false;
     const key = this.contextKey;
-    const context = this.currentContext();
     const controller = new AbortController();
     this.abortController = controller;
     try {
-      if (this.state.ui.level === "overview") {
-        const totals = await this.hostProbe(controller.signal);
-        if (this.refreshIsStale(key, controller)) {
-          return;
-        }
-        await this.publishHost(totals);
-      } else if (context) {
-        const totals = await this.processProbe(context.roots, controller.signal);
-        if (this.refreshIsStale(key, controller)) {
-          return;
-        }
-        await this.publishProcess(context, totals);
-      }
+      await this.refreshCurrentContext(key, controller);
       this.lastError = undefined;
     } catch (error) {
-      if (!controller.signal.aborted) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (message !== this.lastError) {
-          reportServiceError("Metrics status service", error);
-          this.lastError = message;
-        }
-      }
+      this.reportRefreshError(error, controller.signal);
     } finally {
-      if (this.abortController === controller) {
-        this.abortController = undefined;
+      this.finishRefresh(controller);
+    }
+  }
+
+  private async refreshCurrentContext(
+    key: string | undefined,
+    controller: AbortController,
+  ): Promise<void> {
+    if (this.state.ui.level === "overview") {
+      const totals = await this.hostProbe(controller.signal);
+      if (!this.refreshIsStale(key, controller)) {
+        await this.publishHost(totals);
       }
-      this.running = false;
-      if (this.refreshQueued) {
-        this.queueRefresh();
-      }
+      return;
+    }
+    const context = this.currentContext();
+    if (!context) {
+      return;
+    }
+    const totals = await this.processProbe(context.roots, controller.signal);
+    if (!this.refreshIsStale(key, controller)) {
+      await this.publishProcess(context, totals);
+    }
+  }
+
+  private reportRefreshError(error: unknown, signal: AbortSignal): void {
+    const message = error instanceof Error ? error.message : String(error);
+    if (signal.aborted || message === this.lastError) {
+      return;
+    }
+    reportServiceError("Metrics status service", error);
+    this.lastError = message;
+  }
+
+  private finishRefresh(controller: AbortController): void {
+    const repeat = this.refreshQueued;
+    this.running = false;
+    this.refreshQueued = false;
+    if (this.abortController === controller) {
+      this.abortController = undefined;
+    }
+    if (repeat) {
+      void this.refresh();
     }
   }
 
@@ -469,56 +489,71 @@ function processWidgets(
   incoming: number[],
   outgoing: number[],
 ): StatusWidget[] {
-  const result: StatusWidget[] = [];
-  if (context.displayPID !== undefined) {
-    result.push({
-      id: "machinen.pid",
-      scope: context.scope,
-      placement: "right",
-      kind: "text",
-      value: `PID ${context.displayPID}`,
-      tone: "neutral",
-      tooltip: `Foreground process PID ${context.displayPID} · click to copy`,
-      priority: 110,
-      ttlMilliseconds: processWidgetTTLMilliseconds,
-    });
+  return [
+    processPIDWidget(context),
+    processCPUWidget(context, cpu),
+    processNetworkWidget(context, incoming, outgoing),
+  ].filter((widget): widget is StatusWidget => widget !== undefined);
+}
+
+function processPIDWidget(context: ProcessContext): StatusWidget | undefined {
+  if (context.displayPID === undefined) {
+    return undefined;
   }
+  return {
+    id: "machinen.pid",
+    scope: context.scope,
+    placement: "right",
+    kind: "text",
+    value: `PID ${context.displayPID}`,
+    tone: "neutral",
+    tooltip: `Foreground process PID ${context.displayPID} · click to copy`,
+    priority: 110,
+    ttlMilliseconds: processWidgetTTLMilliseconds,
+  };
+}
+
+function processCPUWidget(context: ProcessContext, cpu: number[]): StatusWidget | undefined {
   const latestCPU = cpu.at(-1);
-  if (latestCPU !== undefined) {
-    const focused = context.displayPID !== undefined;
-    result.push(
-      cpuWidget(
-        "machinen.pid.cpu",
-        context.scope,
-        focused ? "PID CPU" : "Tiles CPU",
-        focused
-          ? `PID ${context.displayPID} + children CPU ${Math.round(latestCPU * 100)}%`
-          : `Workspace tiles CPU ${Math.round(latestCPU * 100)}%`,
-        latestCPU,
-        cpu,
-        70,
-        processWidgetTTLMilliseconds,
-      ),
-    );
+  if (latestCPU === undefined) {
+    return undefined;
   }
-  if (incoming.length > 0 && outgoing.length > 0) {
-    const focused = context.displayPID !== undefined;
-    result.push(
-      networkWidget(
-        "machinen.pid.network",
-        context.scope,
-        focused ? "PID network" : "Tiles network",
-        focused
-          ? `PID ${context.displayPID} + children network ↓${formatRate(incoming.at(-1) ?? 0)} · ↑${formatRate(outgoing.at(-1) ?? 0)}`
-          : `Workspace tiles network ↓${formatRate(incoming.at(-1) ?? 0)} · ↑${formatRate(outgoing.at(-1) ?? 0)}`,
-        incoming,
-        outgoing,
-        60,
-        processWidgetTTLMilliseconds,
-      ),
-    );
+  const focused = context.displayPID !== undefined;
+  return cpuWidget(
+    "machinen.pid.cpu",
+    context.scope,
+    focused ? "PID CPU" : "Tiles CPU",
+    focused
+      ? `PID ${context.displayPID} + children CPU ${Math.round(latestCPU * 100)}%`
+      : `Workspace tiles CPU ${Math.round(latestCPU * 100)}%`,
+    latestCPU,
+    cpu,
+    70,
+    processWidgetTTLMilliseconds,
+  );
+}
+
+function processNetworkWidget(
+  context: ProcessContext,
+  incoming: number[],
+  outgoing: number[],
+): StatusWidget | undefined {
+  if (incoming.length === 0 || outgoing.length === 0) {
+    return undefined;
   }
-  return result;
+  const focused = context.displayPID !== undefined;
+  return networkWidget(
+    "machinen.pid.network",
+    context.scope,
+    focused ? "PID network" : "Tiles network",
+    focused
+      ? `PID ${context.displayPID} + children network ↓${formatRate(incoming.at(-1) ?? 0)} · ↑${formatRate(outgoing.at(-1) ?? 0)}`
+      : `Workspace tiles network ↓${formatRate(incoming.at(-1) ?? 0)} · ↑${formatRate(outgoing.at(-1) ?? 0)}`,
+    incoming,
+    outgoing,
+    60,
+    processWidgetTTLMilliseconds,
+  );
 }
 
 function cpuWidget(
@@ -580,22 +615,25 @@ function networkWidget(
   };
 }
 
-export function formatRate(bytesPerSecond: number): string {
-  if (bytesPerSecond >= 1_000_000) {
-    return `${(bytesPerSecond / 1_000_000).toFixed(1)} MB/s`;
-  }
-  if (bytesPerSecond >= 1_000) {
-    return `${Math.round(bytesPerSecond / 1_000)} KB/s`;
-  }
-  return `${Math.trunc(bytesPerSecond)} B/s`;
+function formatRate(bytesPerSecond: number): string {
+  return formattedRate(bytesPerSecond, " MB/s", " KB/s", " B/s");
 }
 
-export function formatCompactRate(bytesPerSecond: number): string {
+function formatCompactRate(bytesPerSecond: number): string {
+  return formattedRate(bytesPerSecond, "M", "K", "B");
+}
+
+function formattedRate(
+  bytesPerSecond: number,
+  megabytesSuffix: string,
+  kilobytesSuffix: string,
+  bytesSuffix: string,
+): string {
   if (bytesPerSecond >= 1_000_000) {
-    return `${(bytesPerSecond / 1_000_000).toFixed(1)}M`;
+    return `${(bytesPerSecond / 1_000_000).toFixed(1)}${megabytesSuffix}`;
   }
   if (bytesPerSecond >= 1_000) {
-    return `${Math.round(bytesPerSecond / 1_000)}K`;
+    return `${Math.round(bytesPerSecond / 1_000)}${kilobytesSuffix}`;
   }
-  return `${Math.trunc(bytesPerSecond)}B`;
+  return `${Math.trunc(bytesPerSecond)}${bytesSuffix}`;
 }

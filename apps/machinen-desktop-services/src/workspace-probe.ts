@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 
 import type { WorkspaceLocation } from "@machinen/desktop-sdk";
 
-export type WorkspaceProbeScript = (directory: string) => string;
+type WorkspaceProbeScript = (directory: string) => string;
 
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;

@@ -8,7 +8,7 @@ import type {
 import { DesktopState } from "./desktop-state.js";
 import { reportServiceError } from "./status-publisher.js";
 
-export interface DesktopService {
+interface DesktopService {
   start(snapshot: DesktopSnapshot): void;
   stop(): void;
   handleEvent(event: DesktopEvent): void;
@@ -92,28 +92,44 @@ export class WorkspacePollingService<Result> implements DesktopService {
     this.running = true;
     this.refreshQueued = false;
     try {
-      const result = await this.options.probe(workspace.location, controller.signal);
-      if (version !== this.contextVersion || controller.signal.aborted) {
-        return;
-      }
-      await this.options.publish(workspace, result);
+      await this.probeAndPublish(workspace, version, controller);
       this.lastError = undefined;
     } catch (error) {
-      if (!controller.signal.aborted) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (message !== this.lastError) {
-          reportServiceError(this.options.name, error);
-          this.lastError = message;
-        }
-      }
+      this.reportRefreshError(error, controller.signal);
     } finally {
-      if (this.abortController === controller) {
-        this.abortController = undefined;
-      }
-      this.running = false;
-      if (this.refreshQueued) {
-        this.queueRefresh();
-      }
+      this.finishRefresh(controller);
+    }
+  }
+
+  private async probeAndPublish(
+    workspace: Workspace,
+    version: number,
+    controller: AbortController,
+  ): Promise<void> {
+    const result = await this.options.probe(workspace.location, controller.signal);
+    if (version === this.contextVersion && !controller.signal.aborted) {
+      await this.options.publish(workspace, result);
+    }
+  }
+
+  private reportRefreshError(error: unknown, signal: AbortSignal): void {
+    if (signal.aborted) {
+      return;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    if (message !== this.lastError) {
+      reportServiceError(this.options.name, error);
+      this.lastError = message;
+    }
+  }
+
+  private finishRefresh(controller: AbortController): void {
+    if (this.abortController === controller) {
+      this.abortController = undefined;
+    }
+    this.running = false;
+    if (this.refreshQueued) {
+      this.queueRefresh();
     }
   }
 }

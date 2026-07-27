@@ -7,6 +7,8 @@ import type {
   Workspace,
 } from "@machinen/desktop-sdk";
 
+import { applyDesktopEvent } from "./desktop-state-events.js";
+
 export class DesktopState {
   readonly workspaces = new Map<string, Workspace>();
   readonly tiles = new Map<string, Tile>();
@@ -35,51 +37,7 @@ export class DesktopState {
   }
 
   handleEvent(event: DesktopEvent): void {
-    const data = event.data as Record<string, unknown>;
-    if (event.event.startsWith("workspace.")) {
-      const workspace = data as unknown as Workspace;
-      if (event.event === "workspace.deleted") {
-        if (typeof workspace.id === "string") {
-          this.workspaces.delete(workspace.id);
-        }
-      } else if (isWorkspace(workspace)) {
-        this.workspaces.set(workspace.id, workspace);
-      }
-      return;
-    }
-
-    if (event.event.startsWith("tile.")) {
-      const tile = data as unknown as Tile;
-      if (
-        event.event === "tile.deleted" ||
-        event.event === "tile.closed" ||
-        event.event === "tile.closeFinalized"
-      ) {
-        if (typeof tile.id === "string") {
-          this.tiles.delete(tile.id);
-        }
-      } else if (isTile(tile)) {
-        this.tiles.set(tile.id, tile);
-      }
-      return;
-    }
-
-    if (event.event.startsWith("terminal.")) {
-      const terminal = data as unknown as Terminal;
-      if (isTerminal(terminal)) {
-        this.terminals.set(terminal.id, terminal);
-      }
-      return;
-    }
-
-    if (event.event === "ui.changed") {
-      this.ui = {
-        level: isUILevel(data.level) ? data.level : this.ui.level,
-        selectedWorkspaceId: nullableString(data.selectedWorkspaceId),
-        selectedTileId: nullableString(data.selectedTileId),
-        focusedTileId: nullableString(data.focusedTileId),
-      };
-    }
+    applyDesktopEvent(this, event);
   }
 
   selectedWorkspace(): Workspace | undefined {
@@ -106,34 +64,4 @@ export class DesktopState {
   terminalForTile(tile: Tile): Terminal | undefined {
     return this.terminals.get(tile.terminalId);
   }
-}
-
-function isWorkspace(value: Workspace): boolean {
-  return (
-    typeof value?.id === "string" &&
-    typeof value.name === "string" &&
-    typeof value.location === "object" &&
-    value.location !== null &&
-    (value.location.kind === "local" || value.location.kind === "ssh")
-  );
-}
-
-function isTile(value: Tile): boolean {
-  return (
-    typeof value?.id === "string" &&
-    typeof value.workspaceId === "string" &&
-    typeof value.terminalId === "string"
-  );
-}
-
-function isTerminal(value: Terminal): boolean {
-  return typeof value?.id === "string" && typeof value.tileId === "string";
-}
-
-function isUILevel(value: unknown): value is DesktopUIState["level"] {
-  return value === "overview" || value === "workspace" || value === "terminal";
-}
-
-function nullableString(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
 }

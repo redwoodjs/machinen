@@ -36,7 +36,7 @@ export function portsProbeScript(directory: string): string {
   ].join("\n");
 }
 
-export async function probeOpenPorts(
+async function probeOpenPorts(
   location: WorkspaceLocation,
   signal?: AbortSignal,
 ): Promise<ListeningService[]> {
@@ -67,47 +67,70 @@ export function parseOpenPortsOutput(output: string): ListeningService[] {
   });
 }
 
-export function parseListeningServices(output: string): ListeningService[] {
-  let currentPID: number | undefined;
-  const names = new Map<number, string>();
-  const listeners = new Map<number, Map<number, Set<string>>>();
+function parseListeningServices(output: string): ListeningService[] {
+  const parser = new ListeningServiceParser();
   for (const line of output.split("\n")) {
+    parser.accept(line);
+  }
+  return parser.services();
+}
+
+class ListeningServiceParser {
+  private currentPID?: number;
+  private readonly names = new Map<number, string>();
+  private readonly listeners = new Map<number, Map<number, Set<string>>>();
+
+  accept(line: string): void {
     const prefix = line[0];
     const value = line.slice(1);
     if (prefix === "p") {
-      const pid = Number(value);
-      currentPID = Number.isInteger(pid) ? pid : undefined;
-    } else if (prefix === "c" && currentPID !== undefined) {
-      names.set(currentPID, value);
-    } else if (prefix === "n" && currentPID !== undefined) {
-      const port = Number(value.split(":").at(-1));
-      if (!Number.isInteger(port) || port <= 0) {
-        continue;
-      }
-      let processListeners = listeners.get(currentPID);
-      if (!processListeners) {
-        processListeners = new Map();
-        listeners.set(currentPID, processListeners);
-      }
-      let addresses = processListeners.get(port);
-      if (!addresses) {
-        addresses = new Set();
-        processListeners.set(port, addresses);
-      }
-      addresses.add(value);
+      this.selectProcess(value);
+      return;
+    }
+    if (prefix === "c") {
+      this.recordName(value);
+      return;
+    }
+    if (prefix === "n") {
+      this.recordAddress(value);
     }
   }
 
-  return [...listeners.entries()]
-    .flatMap(([pid, processListeners]) =>
-      [...processListeners.entries()].map(([port, addresses]) => ({
-        process: names.get(pid) ?? `PID ${pid}`,
-        pid,
-        port,
-        addresses: [...addresses].sort(),
-      })),
-    )
-    .sort((left, right) => left.port - right.port || left.process.localeCompare(right.process));
+  services(): ListeningService[] {
+    return [...this.listeners.entries()]
+      .flatMap(([pid, processListeners]) =>
+        [...processListeners.entries()].map(([port, addresses]) => ({
+          process: this.names.get(pid) ?? `PID ${pid}`,
+          pid,
+          port,
+          addresses: [...addresses].sort(),
+        })),
+      )
+      .sort((left, right) => left.port - right.port || left.process.localeCompare(right.process));
+  }
+
+  private selectProcess(value: string): void {
+    const pid = Number(value);
+    this.currentPID = Number.isInteger(pid) ? pid : undefined;
+  }
+
+  private recordName(value: string): void {
+    if (this.currentPID !== undefined) {
+      this.names.set(this.currentPID, value);
+    }
+  }
+
+  private recordAddress(value: string): void {
+    const port = Number(value.split(":").at(-1));
+    if (this.currentPID === undefined || !Number.isInteger(port) || port <= 0) {
+      return;
+    }
+    const processListeners = this.listeners.get(this.currentPID) ?? new Map();
+    this.listeners.set(this.currentPID, processListeners);
+    const addresses = processListeners.get(port) ?? new Set();
+    processListeners.set(port, addresses);
+    addresses.add(value);
+  }
 }
 
 function parseWorkingDirectories(output: string): Map<number, string> {
