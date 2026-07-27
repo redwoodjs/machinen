@@ -124,6 +124,7 @@ struct MachinenStatusWidget {
             "samples": samples,
             "secondarySamples": secondarySamples,
             "states": states,
+            "links": links.map { ["title": $0.title, "url": $0.url.absoluteString] },
         ]
         if kind == .separator {
             result["value"] = ""

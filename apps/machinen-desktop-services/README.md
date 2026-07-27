@@ -4,7 +4,7 @@ Trusted TypeScript services that use [`@machinen/desktop-sdk`](../../packages/de
 to add behavior to Machinen Desktop. These are desktop services, not an agent
 runtime; Eve or Flue can consume the same SDK independently.
 
-## Git status proof
+## Status services
 
 Open Machinen Desktop, then run:
 
@@ -12,19 +12,31 @@ Open Machinen Desktop, then run:
 pnpm -F @machinen/desktop-services dev
 ```
 
-The service subscribes to workspace and UI events, probes the selected local or
-SSH workspace every four seconds, and publishes the existing `machinen.git`
-status widget with a ten-second TTL. `pnpm dev` watches the TypeScript source and
-restarts the service after an edit, so widget data and configuration reload live
-without restarting Machinen Desktop. The external widget overrides the current
-Swift implementation. If the service stops, its widget expires and the Swift
-fallback returns automatically.
+The service publishes all of Desktop's live status items through `status.set`:
 
-The service uses `/usr/bin/git`, `/usr/bin/ssh`, and the user's OpenSSH
-configuration. Set `MACHINEN_API_SOCKET` to use a non-default Desktop socket.
+- workspace terminal activity
+- local/SSH Git status
+- open TCP ports whose listener process is running in the selected workspace folder
+- overview host CPU and network transfer
+- workspace tile CPU and network transfer
+- focused-terminal PID, CPU, and network transfer
+
+Local and SSH workspace probes follow the selected workspace and refresh without
+restarting Desktop. Open ports are matched by listener PID and current working
+directory; a listener is included when its working directory is the workspace
+folder or one of its descendants. CPU and network widgets retain the same
+30-sample histories and spatial scopes as their native predecessors.
+
+Every published widget has a short TTL, so stale data disappears if a probe or
+the service stops. `pnpm dev` watches the TypeScript source and restarts after an
+edit, so widget logic reloads without restarting Desktop.
+
+The services use macOS process tools, `/usr/bin/git`, `/usr/bin/ssh`, and the
+user's OpenSSH configuration. Set `MACHINEN_API_SOCKET` to use a non-default
+Desktop socket.
 
 This package is intentionally not embedded in `Machinen.app` yet. Keep
 `pnpm dev` running during development; runtime bundling and supervision follow
-after the service has been proven manually. Changes to the native status-bar
-renderer still require rebuilding Machinen Desktop, while declarative widget
-changes reload through this service.
+after the services have been proven manually. Changes to the native status-bar
+renderer or declarative widget protocol still require rebuilding Machinen
+Desktop.

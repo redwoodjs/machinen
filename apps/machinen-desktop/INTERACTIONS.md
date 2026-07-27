@@ -203,13 +203,15 @@ and added and deleted lines. In a **focused tile**, it shows that tile's
 foreground PID (shown as `PID ####` and copyable with a click), CPU for that PID
 and its local child processes, network transfer for that PID and its local child
 processes, workspace branch changes, and the workspace activity monitor. Git is
-scoped to the selected workspace. Open ports are scoped to its machine: the Mac
-running Desktop for a local workspace, or the SSH host for a remote workspace.
-Hover lists each TCP listener on its own line with the process and bind address;
+scoped to the selected workspace. Open ports include listeners whose process
+working directory is the selected workspace folder or one of its descendants,
+on either the local Mac or the workspace's SSH host. Hover lists each TCP
+listener on its own line with the process and bind address;
 clicking the instrument presents those listeners, and choosing one opens its
-HTTP URL through the default macOS handler. CPU is sampled through
-`proc_pid_rusage`; network bytes come
-from macOS `nettop`. Tile activity is a label-free graphical indicator; hover
+HTTP URL through the default macOS handler. Trusted TypeScript desktop services
+publish activity, Git, ports, CPU, network, and PID widgets through the local
+API. Process network bytes come from macOS `nettop`. Tile activity is a
+label-free graphical indicator; hover
 reveals its exact state summary.
 
 Programs can publish scoped text, count, state, progress, timer, sparkline, and
@@ -220,14 +222,17 @@ Machine widgets override global widgets, workspace widgets override machine
 widgets, and terminal widgets override workspace widgets with the same ID. TTLs
 remove stale live data.
 
-## Closing
+## Closing and undo
 
 `⌘W` never closes Machinen's macOS window:
 
-- In a workspace with multiple terminals, it closes the selected terminal.
-- In Navigate mode's workspace overview or a singleton workspace, it closes the workspace.
-- `Return` confirms and `Esc` cancels.
-- Closing terminates the affected process and removes its saved definition.
+- In a workspace with multiple terminals, it immediately removes the selected terminal from the scene and buffers the close for five minutes.
+- The buffered terminal keeps the same persistent PTY, process tree, Ghostty surface, scrollback, selection, and viewport while Desktop remains open.
+- `⇧⌘T` or the close banner's **Undo** restores that same terminal and its former position.
+- **Terminate now** makes a buffered close irreversible immediately. Otherwise Machinen stops and deletes the native session when the five-minute deadline expires.
+- At most five recently closed terminals retain resources; closing another finalizes the oldest one.
+- In Navigate mode's workspace overview or a singleton workspace, `⌘W` still confirms before closing the workspace and all of its terminals.
+- Pending closes persist across a Desktop restart, although a newly created Ghostty surface can restore only the worker's latest visible screen rather than renderer-owned scrollback or viewport state.
 - Files in working directories are never deleted.
 
 ## Automated interaction check

@@ -73,6 +73,11 @@ export type StatusWidgetKind =
 export type StatusTone = "neutral" | "good" | "busy" | "attention" | "error";
 export type StatusGraphStyle = "line" | "area" | "bars" | "mirrored";
 
+export interface StatusWidgetLink {
+  title: string;
+  url: string;
+}
+
 export interface StatusWidget {
   id: string;
   scope?: StatusScope;
@@ -89,8 +94,9 @@ export interface StatusWidget {
   samples?: number[];
   secondarySamples?: number[];
   states?: Array<
-    "working" | "waiting" | "idle" | "unknown" | "good" | "busy" | "attention" | "error"
+    "working" | "waiting" | "idle" | "unknown" | "neutral" | "good" | "busy" | "attention" | "error"
   >;
+  links?: StatusWidgetLink[];
 }
 
 export type DesktopEventName =

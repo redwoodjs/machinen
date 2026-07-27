@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import type { DesktopSnapshot, StatusWidget, WorkspaceLocation } from "@machinen/desktop-sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { DesktopState } from "../desktop-state.js";
 import {
   formatCompactCount,
   GitStatusService,
@@ -105,10 +106,10 @@ describe("Git status service", () => {
       deletionBars: [1_250_000],
     };
     const probe = vi.fn(async (_location: WorkspaceLocation, _signal?: AbortSignal) => metrics);
-    const service = new GitStatusService(
-      { status: { set } },
-      { pollIntervalMilliseconds: 60_000, probe },
-    );
+    const service = new GitStatusService({ status: { set } }, new DesktopState(), {
+      pollIntervalMilliseconds: 60_000,
+      probe,
+    });
     services.push(service);
     const snapshot: DesktopSnapshot = {
       workspaces: [

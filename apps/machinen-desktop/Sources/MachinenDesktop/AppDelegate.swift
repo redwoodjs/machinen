@@ -135,13 +135,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(zoomOutItem)
 
         let closeItem = NSMenuItem(
-            title: "Close Terminal or Workspace…",
+            title: "Close Terminal or Workspace",
             action: #selector(handleCommandW),
             keyEquivalent: "w"
         )
         closeItem.keyEquivalentModifierMask = [.command]
         closeItem.target = self
         appMenu.addItem(closeItem)
+
+        let reopenItem = NSMenuItem(
+            title: "Reopen Closed Terminal",
+            action: #selector(reopenClosedTerminal),
+            keyEquivalent: "t"
+        )
+        reopenItem.keyEquivalentModifierMask = [.command, .shift]
+        reopenItem.target = self
+        appMenu.addItem(reopenItem)
+
+        let terminateClosedItem = NSMenuItem(
+            title: "Terminate Recently Closed Terminal Now",
+            action: #selector(terminateRecentlyClosedTerminal),
+            keyEquivalent: ""
+        )
+        terminateClosedItem.target = self
+        appMenu.addItem(terminateClosedItem)
         appMenu.addItem(.separator())
         appMenu.addItem(
             withTitle: "Quit Machinen",
@@ -188,6 +205,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(reopenClosedTerminal)
+            || menuItem.action == #selector(terminateRecentlyClosedTerminal)
+        {
+            return deck?.canReopenClosedTerminal == true
+        }
         // Do not let application menu equivalents steal terminal commands. The
         // Workspace commands and contextual ⌘N remain available so a focused
         // local or SSH terminal can manage its workspace without zooming out.
@@ -196,8 +218,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch menuItem.action {
         case #selector(toggleNewTerminal),
              #selector(zoomIn),
-             #selector(zoomOut),
-             #selector(handleCommandW):
+             #selector(zoomOut):
             return false
         default:
             return true
@@ -226,6 +247,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func handleCommandW() {
         deck?.handleCommandW()
+    }
+
+    @objc private func reopenClosedTerminal() {
+        deck?.reopenLastClosedTerminal()
+    }
+
+    @objc private func terminateRecentlyClosedTerminal() {
+        deck?.terminateLastClosedTerminalNow()
     }
 
     @objc private func showDebugInformation() {

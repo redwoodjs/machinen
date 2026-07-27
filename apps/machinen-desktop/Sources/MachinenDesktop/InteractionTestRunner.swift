@@ -13,9 +13,6 @@ enum InteractionTestRunner {
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
             try terminalOutputAndRuntimeLabelsReportActivity()
             try statusWidgetsInheritBySpatialScope()
-            try activityMonitorStaysWorkspaceScoped()
-            try openPortsStayMachineScoped()
-            try gitStatusCoversTheWholeBranch()
             try graphicalStatusWidgetsRender()
             try workspaceLocationsRemainUnambiguous()
             try oldManifestsRequireNativeRestart()
@@ -27,8 +24,8 @@ enum InteractionTestRunner {
             try singletonWorkspaceTileFillsSurface()
             try clickedTileFocusesItsOwnTerminal()
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
-            try closingTerminalShowsRemovalAnimation()
-            print("Machinen interaction tests passed (21 scenarios)")
+            try closingTerminalCanBeUndoneBeforeCleanup()
+            print("Machinen interaction tests passed (18 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -322,11 +319,16 @@ enum InteractionTestRunner {
             "samples": [1, 4, 2],
             "secondarySamples": [2, 1, 3],
             "tooltip": "network transfer",
+            "links": [["title": "Open dashboard", "url": "http://localhost:3000"]],
         ])
         effective = try harness.effectiveStatusWidgets(of: deck)
         let graph = effective.first(where: { $0.id == "network.graph" })
         try expect(graph?.graphStyle == "mirrored", "the graphical widget style was not retained")
         try expect(graph?.samples == [1, 4, 2], "the graphical widget samples were not retained")
+        try expect(
+            graph?.links?.first == .init(title: "Open dashboard", url: "http://localhost:3000"),
+            "the graphical widget link was not retained"
+        )
 
         _ = try deck.performAPIOperation("status.remove", params: [
             "id": "git.modified",
@@ -336,108 +338,6 @@ enum InteractionTestRunner {
         try expect(
             effective.first(where: { $0.id == "git.modified" })?.value == "1",
             "removing the workspace widget did not restore the global widget"
-        )
-    }
-
-    private static func activityMonitorStaysWorkspaceScoped() throws {
-        let harness = try Harness()
-        defer { harness.cleanUp() }
-        let deck = harness.makeDeck(workspaces: [
-            harness.workspace("alpha", terminalCount: 2),
-            harness.workspace("beta", terminalCount: 1),
-        ])
-
-        func activityWidget() throws -> StatusWidgetSnapshot {
-            guard let widget = try harness.effectiveStatusWidgets(of: deck)
-                .first(where: { $0.id == "machinen.activity" })
-            else {
-                throw InteractionTestFailure("the workspace activity monitor was missing")
-            }
-            return widget
-        }
-
-        var activity = try activityWidget()
-        try expect(
-            activity.scope == .init(kind: "workspace", id: "ws_alpha"),
-            "overview activity was not scoped to the selected workspace"
-        )
-        try expect(activity.states?.count == 2, "overview activity included another workspace")
-
-        deck.zoomInOneLevel()
-        deck.zoomInOneLevel()
-        activity = try activityWidget()
-        try expect(
-            activity.scope == .init(kind: "workspace", id: "ws_alpha"),
-            "focused-terminal activity changed to terminal scope"
-        )
-        try expect(activity.states?.count == 2, "focused activity omitted workspace siblings")
-    }
-
-    private static func openPortsStayMachineScoped() throws {
-        let output = """
-        p10
-        cnode
-        fcwd
-        n/tmp/project/api
-        f7
-        n127.0.0.1:3000
-        f8
-        n[::1]:3000
-        p11
-        cssh
-        fcwd
-        n/tmp
-        f4
-        n127.0.0.1:11435
-        """
-        let services = MachinenStatusMetricsMonitor.parseListeningServices(output)
-        try expect(services.count == 2, "open ports were filtered by project directory")
-        try expect(services[0].process == "node", "open port omitted its process name")
-        try expect(services[0].port == 3000, "open port omitted its port number")
-        try expect(services[0].addresses.count == 2, "open port duplicated IPv4 and IPv6 sockets")
-        try expect(services[1].process == "ssh", "machine listener was omitted")
-
-        let location = WorkspaceLocation.ssh(host: "mini", path: "/tmp/project")
-        let links = MachinenStatusMetricsMonitor.links(for: services, location: location)
-        try expect(location.machineID == "ssh:mini", "SSH machine scope was not stable")
-        try expect(links.map(\.url.absoluteString) == [
-            "http://mini:3000",
-            "http://mini:11435",
-        ], "open ports did not produce default-browser links")
-        try expect(
-            services.map(\.summary).joined(separator: "\n").contains("\n"),
-            "open ports were not formatted on separate lines"
-        )
-    }
-
-    private static func gitStatusCoversTheWholeBranch() throws {
-        let output = """
-        feat/desktop-interaction-prototype
-        ---MACHINEN-BRANCH-COMMITS---
-        53
-        ---MACHINEN-BRANCH-NUMSTAT---
-        120\t4\tSources/Feature.swift
-        8\t2\tSources/Existing.swift
-        -\t-\tAssets/image.png
-        3\t0\tSources/Untracked.swift
-        """
-        let snapshot = MachinenStatusMetricsMonitor.parseGitOutput(output)
-        try expect(
-            snapshot == .init(
-                branch: "feat/desktop-interaction-prototype",
-                commits: 53,
-                filesChanged: 4,
-                additions: 131,
-                deletions: 6,
-                additionBars: [120, 8, 3, 0],
-                deletionBars: [4, 2, 0, 0]
-            ),
-            "the Git status did not summarize and graph the complete branch diff"
-        )
-        try expect(
-            MachinenStatusMetricsMonitor.formatCompactCount(19_000) == "19K"
-                && MachinenStatusMetricsMonitor.formatCompactCount(1_250_000) == "1.3M",
-            "the Git status did not compact large line counts"
         )
     }
 
@@ -877,12 +777,6 @@ enum InteractionTestRunner {
             session.associatedPID == 4242 && session.shellPID == 4201,
             "a tile did not retain its live process metadata"
         )
-        let metrics = TerminalProcessMetricsMonitor()
-        metrics.setContext(pid: 4242, terminalID: session.id)
-        try expect(
-            metrics.widgets.first(where: { $0.id == "machinen.pid" })?.value == "PID 4242",
-            "the per-PID status widget was not created"
-        )
     }
 
     private static func clickedTileFocusesItsOwnTerminal() throws {
@@ -1064,7 +958,7 @@ enum InteractionTestRunner {
         }
     }
 
-    private static func closingTerminalShowsRemovalAnimation() throws {
+    private static func closingTerminalCanBeUndoneBeforeCleanup() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 2)])
@@ -1077,19 +971,40 @@ enum InteractionTestRunner {
         window.contentView = deck
         deck.layoutSubtreeIfNeeded()
 
+        let originalIDs = Set(try harness.snapshot(of: deck).tiles.map(\.id))
         deck.zoomInOneLevel()
-        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.25))
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
         deck.handleCommandW()
-        try harness.pressReturn(on: harness.confirmation(in: deck))
 
-        let snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.tiles.count == 1, "closing an animated terminal left its tile behind")
-        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            try expect(
-                harness.paneCloseAnimation(in: deck) != nil,
-                "closing a terminal did not leave a visual removal animation"
-            )
-        }
+        var snapshot = try harness.snapshot(of: deck)
+        try expect(snapshot.tiles.count == 1, "closing a terminal did not remove its tile immediately")
+        try expect(deck.canReopenClosedTerminal, "closing a terminal did not create an undo buffer")
+
+        let restoredDeck = harness.makeDeck(state: harness.loadStoredState())
+        try expect(
+            try harness.snapshot(of: restoredDeck).tiles.count == 1,
+            "relaunch restored a pending terminal to the visible deck"
+        )
+        try expect(
+            restoredDeck.canReopenClosedTerminal,
+            "relaunch discarded the persisted terminal undo buffer"
+        )
+        restoredDeck.reopenLastClosedTerminal()
+        try expect(
+            Set(try harness.snapshot(of: restoredDeck).tiles.map(\.id)) == originalIDs,
+            "relaunch undo did not restore the same terminal tile"
+        )
+
+        deck.reopenLastClosedTerminal()
+        snapshot = try harness.snapshot(of: deck)
+        try expect(Set(snapshot.tiles.map(\.id)) == originalIDs, "undo did not restore the same terminal tile")
+        try expect(!deck.canReopenClosedTerminal, "undo left the terminal pending deletion")
+
+        deck.handleCommandW()
+        try expect(deck.canReopenClosedTerminal, "a second close did not recreate the undo buffer")
+        deck.terminateLastClosedTerminalNow()
+        try expect(!deck.canReopenClosedTerminal, "terminate now left the terminal undoable")
+        try expect(try harness.snapshot(of: deck).tiles.count == 1, "terminate now restored a closed tile")
     }
 
     private static func workspacePaletteCreatesRenamesAndClosesWithKeyboard() throws {
@@ -1179,14 +1094,24 @@ private final class Harness {
     func makeDeck(
         workspaces definitions: [(WorkspaceRecord, [TerminalSession])]
     ) -> TerminalDeckView {
-        let state = MachinenStoredState(
+        makeDeck(state: MachinenStoredState(
             workspaces: definitions.map(\.0),
             sessions: definitions.flatMap(\.1)
-        )
-        let store = TerminalSessionStore(
+        ))
+    }
+
+    func makeDeck(state: MachinenStoredState) -> TerminalDeckView {
+        TerminalDeckView(state: state, sessionStore: sessionStore())
+    }
+
+    func loadStoredState() -> MachinenStoredState {
+        sessionStore().load()
+    }
+
+    private func sessionStore() -> TerminalSessionStore {
+        TerminalSessionStore(
             manifestURL: temporaryDirectory.appendingPathComponent("terminals.json")
         )
-        return TerminalDeckView(state: state, sessionStore: store)
     }
 
     func workspace(
@@ -1331,12 +1256,18 @@ private struct StatusWidgetSnapshot: Decodable {
         let id: String?
     }
 
+    struct Link: Decodable, Equatable {
+        let title: String
+        let url: String
+    }
+
     let id: String
     let scope: Scope
     let value: String
     let graphStyle: String?
     let samples: [Double]?
     let states: [String]?
+    let links: [Link]?
 }
 
 private struct InteractionSnapshot: Decodable {

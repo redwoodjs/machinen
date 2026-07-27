@@ -118,6 +118,10 @@ final class TerminalSession: Codable {
     var state: State
     var activityState: ActivityState
     var titleOverride: String?
+    /// A close remains reversible until this deadline. The persistent PTY and,
+    /// while Desktop stays open, its Ghostty surface remain alive.
+    var pendingCloseDeadline: Date?
+    var pendingClosePosition: Int?
     var observedCommand: String?
     /// Runtime-only name of the login shell, inferred from live process metadata.
     /// It is deliberately not persisted or allowed to replace a user-given name.
@@ -163,7 +167,9 @@ final class TerminalSession: Codable {
         sshHost: String? = nil,
         state: State = .starting,
         activityState: ActivityState = .unknown,
-        titleOverride: String? = nil
+        titleOverride: String? = nil,
+        pendingCloseDeadline: Date? = nil,
+        pendingClosePosition: Int? = nil
     ) {
         self.id = id
         self.tileID = tileID
@@ -177,6 +183,8 @@ final class TerminalSession: Codable {
         self.state = state
         self.activityState = activityState
         self.titleOverride = titleOverride
+        self.pendingCloseDeadline = pendingCloseDeadline
+        self.pendingClosePosition = pendingClosePosition
         observedCommand = nil
         inferredShellName = nil
         runtimeLabel = nil
@@ -199,6 +207,8 @@ final class TerminalSession: Codable {
         case state
         case activityState
         case titleOverride
+        case pendingCloseDeadline
+        case pendingClosePosition
         case runtimeLabel
     }
 
@@ -234,6 +244,8 @@ final class TerminalSession: Codable {
         ) ?? .unknown
         activityState = persistedBackend == Self.backendName ? persistedActivity : .unknown
         titleOverride = try container.decodeIfPresent(String.self, forKey: .titleOverride)
+        pendingCloseDeadline = try container.decodeIfPresent(Date.self, forKey: .pendingCloseDeadline)
+        pendingClosePosition = try container.decodeIfPresent(Int.self, forKey: .pendingClosePosition)
         observedCommand = nil
         inferredShellName = nil
         runtimeLabel = try container.decodeIfPresent(String.self, forKey: .runtimeLabel)
@@ -256,6 +268,8 @@ final class TerminalSession: Codable {
         try container.encode(state, forKey: .state)
         try container.encode(activityState, forKey: .activityState)
         try container.encodeIfPresent(titleOverride, forKey: .titleOverride)
+        try container.encodeIfPresent(pendingCloseDeadline, forKey: .pendingCloseDeadline)
+        try container.encodeIfPresent(pendingClosePosition, forKey: .pendingClosePosition)
         try container.encodeIfPresent(runtimeLabel, forKey: .runtimeLabel)
     }
 

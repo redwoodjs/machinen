@@ -269,7 +269,11 @@ of `text` and `dataBase64` is required by `terminal.send`. Input goes to the
 persistent PTY even when its tile viewer is detached.
 
 There is intentionally no `terminal.close`. Callers must explicitly choose to
-detach a tile, stop a terminal, or delete a stopped tile.
+detach a tile, stop a terminal, or delete a stopped tile. Desktop's `⌘W`
+interaction is a UI-level reversible close: `tile.closed` removes the tile from
+snapshots during its grace period, `tile.reopened` restores the same ID, and
+`tile.closeFinalized` reports that its native session is being removed. API
+`tile.delete` retains its explicit immediate semantics.
 
 ## Status bar
 
@@ -285,9 +289,10 @@ and deletions with compact line totals at rest; its hover detail contains the
 branch, commits since the default-branch merge base, changed files, and exact
 added/deleted lines. At the focused-tile level it shows the copyable tile PID,
 per-PID CPU/network (including local child processes), workspace branch changes,
-and the same workspace activity monitor. Open ports are scoped to the selected
-workspace's machine, list each listener on its own hover line, and open through
-the default macOS URL handler when selected. Workspace-scoped items belong to
+and the same workspace activity monitor. Open ports are workspace-scoped and
+include listeners whose process working directory is the workspace folder or
+one of its descendants. They list each listener on its own hover line and open
+through the default macOS URL handler when selected. Workspace-scoped items belong to
 the selected workspace. Its title is the selected workspace at the workspace level
 and `workspace > terminal name` at the terminal level; hovering
 a workspace title reveals its bound path. Programs can publish declarative widgets
@@ -319,11 +324,13 @@ replace less specific widgets with the same `id` in global → machine → works
 `attention`, and `error`. Progress is a number from 0 to 1. Graph styles are
 `line`, `area`, `bars`, and `mirrored`; `samples` and `secondarySamples` accept
 up to 60 finite numbers. A state widget can render up to 32 graphical pips from
-`working`, `waiting`, `idle`, `unknown`, `good`, `busy`, `attention`, and
-`error`. Labels and values remain available to API clients and hover tooltips,
+`working`, `waiting`, `idle`, `unknown`, `neutral`, `good`, `busy`, `attention`,
+and `error`. A widget can include up to 32 `links`, each with a title and HTTP(S)
+URL; clicking it presents those links through the default macOS handler. Labels
+and values remain available to API clients and hover tooltips,
 but graphical widgets do not render them at rest. A TTL removes stale live data
 automatically. `status.list` returns both published widgets and the currently
-effective widgets after inheritance and built-in activity indicators.
+effective widgets after spatial-scope inheritance.
 
 ## UI
 
@@ -388,6 +395,9 @@ tile.created
 tile.updated
 tile.moved
 tile.viewerChanged
+tile.closed
+tile.reopened
+tile.closeFinalized
 tile.deleted
 terminal.stateChanged
 terminal.activityChanged

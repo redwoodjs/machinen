@@ -29,6 +29,7 @@ await desktop.status.set({
   states: ["good"],
   tooltip: "Example service is connected",
   ttlMilliseconds: 10_000,
+  links: [{ title: "Open dashboard", url: "http://localhost:3000" }],
 });
 ```
 

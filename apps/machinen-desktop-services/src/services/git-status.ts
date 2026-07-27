@@ -1,12 +1,11 @@
-import { execFile } from "node:child_process";
+import type { StatusWidget, Workspace, WorkspaceLocation } from "@machinen/desktop-sdk";
 
-import type {
-  DesktopEvent,
-  DesktopSnapshot,
-  StatusWidget,
-  Workspace,
-  WorkspaceLocation,
-} from "@machinen/desktop-sdk";
+import { DesktopState } from "../desktop-state.js";
+import type { StatusPublisher } from "../status-publisher.js";
+import { remoteShellPath, runWorkspaceProbe } from "../workspace-probe.js";
+import { WorkspacePollingService } from "../workspace-polling-service.js";
+
+export { remoteShellPath } from "../workspace-probe.js";
 
 const commitMarker = "---MACHINEN-BRANCH-COMMITS---";
 const numstatMarker = "---MACHINEN-BRANCH-NUMSTAT---";
@@ -23,29 +22,9 @@ export interface GitMetrics {
   deletionBars: number[];
 }
 
-interface StatusPublisher {
-  status: {
-    set(widget: StatusWidget): Promise<unknown>;
-  };
-}
-
 interface GitStatusServiceOptions {
   pollIntervalMilliseconds?: number;
   probe?: (location: WorkspaceLocation, signal?: AbortSignal) => Promise<GitMetrics>;
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", `'\\''`)}'`;
-}
-
-export function remoteShellPath(path: string): string {
-  if (path === "~") {
-    return '"$HOME"';
-  }
-  if (path.startsWith("~/")) {
-    return `"$HOME"/${shellQuote(path.slice(2))}`;
-  }
-  return shellQuote(path);
 }
 
 function gitProbeScript(directory: string): string {
@@ -82,57 +61,11 @@ export function remoteGitProbeCommand(path: string): string {
   return gitProbeScript(remoteShellPath(path));
 }
 
-function execute(
-  executable: string,
-  args: string[],
-  options: { environment?: NodeJS.ProcessEnv; signal?: AbortSignal },
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      executable,
-      args,
-      {
-        encoding: "utf8",
-        env: options.environment,
-        maxBuffer: 1024 * 1024,
-        signal: options.signal,
-      },
-      (error, stdout) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(stdout);
-        }
-      },
-    );
-  });
-}
-
 export async function probeGit(
   location: WorkspaceLocation,
   signal?: AbortSignal,
 ): Promise<GitMetrics> {
-  let output: string;
-  if (location.kind === "local") {
-    const environment = { ...process.env, MACHINEN_STATUS_DIRECTORY: location.path };
-    output = await execute("/bin/sh", ["-c", gitProbeScript('"$MACHINEN_STATUS_DIRECTORY"')], {
-      environment,
-      signal,
-    });
-  } else {
-    output = await execute(
-      "/usr/bin/ssh",
-      [
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        "ConnectTimeout=5",
-        location.host,
-        remoteGitProbeCommand(location.path),
-      ],
-      { signal },
-    );
-  }
+  const output = await runWorkspaceProbe(location, gitProbeScript, signal);
 
   const metrics = parseGitOutput(output);
   if (!metrics) {
@@ -211,153 +144,18 @@ export function formatCompactCount(value: number): string {
   return `${displayValue}${suffix}`;
 }
 
-export class GitStatusService {
-  private readonly pollIntervalMilliseconds: number;
-  private readonly probe: (
-    location: WorkspaceLocation,
-    signal?: AbortSignal,
-  ) => Promise<GitMetrics>;
-  private workspaces = new Map<string, Workspace>();
-  private selectedWorkspaceId: string | null = null;
-  private timer?: NodeJS.Timeout;
-  private abortController?: AbortController;
-  private running = false;
-  private refreshQueued = false;
-  private contextVersion = 0;
-  private lastError?: string;
-
+export class GitStatusService extends WorkspacePollingService<GitMetrics> {
   constructor(
-    private readonly desktop: StatusPublisher,
+    desktop: StatusPublisher,
+    state: DesktopState,
     options: GitStatusServiceOptions = {},
   ) {
-    this.pollIntervalMilliseconds =
-      options.pollIntervalMilliseconds ?? defaultPollIntervalMilliseconds;
-    this.probe = options.probe ?? probeGit;
-  }
-
-  start(snapshot: DesktopSnapshot): void {
-    this.workspaces = new Map(snapshot.workspaces.map((workspace) => [workspace.id, workspace]));
-    this.selectedWorkspaceId = snapshot.ui.selectedWorkspaceId;
-    this.contextChanged();
-    if (!this.timer) {
-      this.timer = setInterval(() => this.queueRefresh(), this.pollIntervalMilliseconds);
-    }
-  }
-
-  stop(): void {
-    if (this.timer) {
-      clearInterval(this.timer);
-    }
-    this.timer = undefined;
-    this.contextVersion += 1;
-    this.abortController?.abort();
-    this.abortController = undefined;
-    this.running = false;
-    this.refreshQueued = false;
-  }
-
-  handleEvent(event: DesktopEvent): void {
-    if (event.event.startsWith("workspace.")) {
-      const workspace = event.data as unknown as Workspace;
-      if (event.event === "workspace.deleted") {
-        if (typeof workspace.id === "string") {
-          this.workspaces.delete(workspace.id);
-        }
-      } else if (isWorkspace(workspace)) {
-        this.workspaces.set(workspace.id, workspace);
-      }
-      if (workspace.id === this.selectedWorkspaceId) {
-        this.contextChanged();
-      }
-      return;
-    }
-
-    if (event.event === "ui.changed") {
-      const selected = event.data.selectedWorkspaceId;
-      const workspaceId = typeof selected === "string" ? selected : null;
-      if (workspaceId !== this.selectedWorkspaceId) {
-        this.selectedWorkspaceId = workspaceId;
-        this.contextChanged();
-      }
-    }
-  }
-
-  private contextChanged(): void {
-    this.contextVersion += 1;
-    this.abortController?.abort();
-    this.queueRefresh();
-  }
-
-  private queueRefresh(): void {
-    if (this.running) {
-      this.refreshQueued = true;
-      return;
-    }
-    void this.refresh();
-  }
-
-  private async refresh(): Promise<void> {
-    const workspace = this.selectedWorkspace();
-    if (!workspace) {
-      return;
-    }
-
-    const version = this.contextVersion;
-    const controller = this.beginRefresh();
-
-    try {
-      const git = await this.probe(workspace.location, controller.signal);
-      if (this.refreshIsStale(version, controller)) {
-        return;
-      }
-      await this.desktop.status.set(gitStatusWidget(workspace, git));
-      this.lastError = undefined;
-    } catch (error) {
-      this.reportRefreshError(error, controller.signal);
-    } finally {
-      this.finishRefresh(controller);
-    }
-  }
-
-  private selectedWorkspace(): Workspace | undefined {
-    if (!this.selectedWorkspaceId) {
-      return undefined;
-    }
-    return this.workspaces.get(this.selectedWorkspaceId);
-  }
-
-  private beginRefresh(): AbortController {
-    this.running = true;
-    this.refreshQueued = false;
-    const controller = new AbortController();
-    this.abortController = controller;
-    return controller;
-  }
-
-  private refreshIsStale(version: number, controller: AbortController): boolean {
-    return version !== this.contextVersion || controller.signal.aborted;
-  }
-
-  private reportRefreshError(error: unknown, signal: AbortSignal): void {
-    if (signal.aborted) {
-      return;
-    }
-    const message = error instanceof Error ? error.message : String(error);
-    if (message === this.lastError) {
-      return;
-    }
-    console.error(`Git status service: ${message}`);
-    this.lastError = message;
-  }
-
-  private finishRefresh(controller: AbortController): void {
-    if (this.abortController === controller) {
-      this.abortController = undefined;
-    }
-    this.running = false;
-    if (this.refreshQueued) {
-      this.queueRefresh();
-    }
+    super(state, {
+      name: "Git status service",
+      pollIntervalMilliseconds: options.pollIntervalMilliseconds ?? defaultPollIntervalMilliseconds,
+      probe: options.probe ?? probeGit,
+      publish: (workspace, git) => desktop.status.set(gitStatusWidget(workspace, git)),
+    });
   }
 }
 
@@ -380,14 +178,4 @@ function gitStatusWidget(workspace: Workspace, git: GitMetrics): StatusWidget {
     samples: git.additionBars,
     secondarySamples: git.deletionBars,
   };
-}
-
-function isWorkspace(value: Workspace): boolean {
-  return (
-    typeof value?.id === "string" &&
-    typeof value.name === "string" &&
-    typeof value.location === "object" &&
-    value.location !== null &&
-    (value.location.kind === "local" || value.location.kind === "ssh")
-  );
 }

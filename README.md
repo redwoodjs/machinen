@@ -222,7 +222,7 @@ const restored = await restore({ snapDir: "./counter.snap" });
 - [`@machinen/desktop-sdk`](./packages/desktop-sdk/README.md) — drive Machinen
   Desktop from TypeScript or agent code mode through its local Unix-socket API
 - [Machinen Desktop services](./apps/machinen-desktop-services/README.md) — trusted
-  TypeScript services, starting with the local/SSH Git status widget
+  TypeScript services for activity, Git, ports, CPU, network, and process status
 - [`@machinen/runtime` reference](./packages/runtime/API.md) — every
   exported function, type, and error class (typedoc-generated)
 

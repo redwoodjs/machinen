@@ -20,6 +20,7 @@ export type {
   StatusTone,
   StatusWidget,
   StatusWidgetKind,
+  StatusWidgetLink,
   Terminal,
   Tile,
   Workspace,

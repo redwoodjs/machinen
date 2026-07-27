@@ -20,6 +20,12 @@ final class TerminalDeckView: NSView {
         var didMove = false
     }
 
+    private struct RecentlyClosedTerminal {
+        let tile: TerminalTileView
+        let position: Int
+        let deadline: Date
+    }
+
     private enum PaletteKind {
         case commands
         case newTerminal
@@ -55,9 +61,6 @@ final class TerminalDeckView: NSView {
     private let sceneView = CameraSceneView()
     private let statusBarView = MachinenStatusBarView()
     private let statusPopoverView = MachinenStatusPopoverView()
-    private let statusMetricsMonitor = MachinenStatusMetricsMonitor()
-    private let workspaceProcessMetricsMonitor = TerminalProcessMetricsMonitor()
-    private let terminalProcessMetricsMonitor = TerminalProcessMetricsMonitor()
     private let sessionStore: TerminalSessionStore
     private var workspaces: [WorkspaceRecord]
     private var allSessionTiles: [TerminalTileView]
@@ -83,6 +86,11 @@ final class TerminalDeckView: NSView {
     private var dragGhost: NSImageView?
     private weak var dragTargetTile: TerminalTileView?
     private weak var dragTargetWorkspace: WorkspaceClusterView?
+    private var recentlyClosedTerminals: [String: RecentlyClosedTerminal]
+    private var pendingCloseTasks: [String: DispatchWorkItem] = [:]
+    private var undoCloseView: UndoTerminalCloseView?
+    private let closeGracePeriod: TimeInterval = 5 * 60
+    private let recentlyClosedLimit = 5
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
@@ -94,14 +102,27 @@ final class TerminalDeckView: NSView {
     init(state: MachinenStoredState, sessionStore: TerminalSessionStore) {
         self.sessionStore = sessionStore
         workspaces = state.workspaces
-        allSessionTiles = state.sessions.map { TerminalTileView(session: $0) }
+        let initialTiles = state.sessions.map { TerminalTileView(session: $0) }
+        allSessionTiles = initialTiles.filter { $0.session.pendingCloseDeadline == nil }
+        recentlyClosedTerminals = Dictionary(uniqueKeysWithValues: initialTiles.compactMap { tile in
+            guard let deadline = tile.session.pendingCloseDeadline else { return nil }
+            return (
+                tile.session.id,
+                RecentlyClosedTerminal(
+                    tile: tile,
+                    position: tile.session.pendingClosePosition ?? state.sessions.count,
+                    deadline: deadline
+                )
+            )
+        })
         super.init(frame: .zero)
         wantsLayer = true
         layer?.backgroundColor = NSColor(calibratedWhite: 0.055, alpha: 1).cgColor
         layer?.masksToBounds = true
 
         addSubview(sceneView)
-        for tile in allSessionTiles {
+        let persistedTiles = allSessionTiles + recentlyClosedTerminals.values.map(\.tile)
+        for tile in persistedTiles {
             installTile(tile)
             installPersistentTerminal(in: tile)
         }
@@ -117,30 +138,18 @@ final class TerminalDeckView: NSView {
         statusBarView.onMouseDown = { [weak self] in
             self?.restoreInputFocus()
         }
-        statusMetricsMonitor.onChange = { [weak self] in self?.refreshStatusBar() }
-        workspaceProcessMetricsMonitor.onChange = { [weak self] in self?.refreshStatusBar() }
-        terminalProcessMetricsMonitor.onChange = { [weak self] in self?.refreshStatusBar() }
         enterSoleTerminalIfNeeded()
         updateSelection()
+        for terminalID in recentlyClosedTerminals.keys {
+            schedulePendingCloseFinalization(terminalID: terminalID)
+        }
+        refreshUndoCloseView()
         setAccessibilityElement(false)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if window == nil {
-            statusMetricsMonitor.stop()
-            workspaceProcessMetricsMonitor.stop()
-            terminalProcessMetricsMonitor.stop()
-        } else {
-            statusMetricsMonitor.start()
-            workspaceProcessMetricsMonitor.start()
-            terminalProcessMetricsMonitor.start()
-        }
     }
 
     private var activeSessionTiles: [TerminalTileView] {
@@ -308,10 +317,16 @@ final class TerminalDeckView: NSView {
         tile.installTerminalView(terminalView)
     }
 
+    private var persistedSessionTiles: [TerminalTileView] {
+        allSessionTiles + recentlyClosedTerminals.values
+            .sorted { $0.position < $1.position }
+            .map(\.tile)
+    }
+
     private func saveSessions() {
         sessionStore.save(MachinenStoredState(
             workspaces: workspaces,
-            sessions: allSessionTiles.map(\.session)
+            sessions: persistedSessionTiles.map(\.session)
         ))
     }
 
@@ -387,6 +402,15 @@ final class TerminalDeckView: NSView {
             width: bounds.width,
             height: MachinenStatusBarView.preferredHeight
         )
+        if let undoCloseView {
+            let width = min(620, max(420, bounds.width - 32))
+            undoCloseView.frame = NSRect(
+                x: bounds.maxX - width - 16,
+                y: statusBarView.frame.maxY + 12,
+                width: width,
+                height: 62
+            ).integral
+        }
         guard bounds.width > 0, bounds.height > 0 else { return }
         if lastViewportSize != bounds.size {
             lastViewportSize = bounds.size
@@ -2254,6 +2278,120 @@ final class TerminalDeckView: NSView {
         saveSessions()
     }
 
+    private func bufferCloseSession(_ tile: TerminalTileView) {
+        guard let position = allSessionTiles.firstIndex(where: { $0 === tile }) else { return }
+        let workspaceID = tile.session.workspaceID
+        let deadline = Date().addingTimeInterval(closeGracePeriod)
+        tile.session.pendingCloseDeadline = deadline
+        tile.session.pendingClosePosition = position
+        recentlyClosedTerminals[tile.session.id] = RecentlyClosedTerminal(
+            tile: tile,
+            position: position,
+            deadline: deadline
+        )
+
+        tile.removeFromSuperview()
+        allSessionTiles.remove(at: position)
+        rebuildWorkspaceClusters()
+        if currentWorkspace == workspaceID {
+            selectedIndex = min(selectedIndex, max(0, activeSessionTiles.count - 1))
+            focusedIndex = activeSessionTiles.isEmpty ? nil : min(focusedIndex ?? selectedIndex, activeSessionTiles.count - 1)
+        }
+        updateWorldGeometry()
+        updateSelection()
+        setCameraImmediately()
+        saveSessions()
+        schedulePendingCloseFinalization(terminalID: tile.session.id)
+        refreshUndoCloseView()
+        emitAPIEvent("tile.closed", data: tileJSON(tile))
+
+        if recentlyClosedTerminals.count > recentlyClosedLimit,
+           let oldest = recentlyClosedTerminals.values.min(by: { $0.deadline < $1.deadline })
+        {
+            finalizePendingClose(terminalID: oldest.tile.session.id)
+        }
+    }
+
+    var canReopenClosedTerminal: Bool { !recentlyClosedTerminals.isEmpty }
+
+    func reopenLastClosedTerminal() {
+        guard let closed = recentlyClosedTerminals.values.max(by: { $0.deadline < $1.deadline }) else { return }
+        let terminalID = closed.tile.session.id
+        guard workspaces.contains(where: { $0.id == closed.tile.session.workspaceID }) else {
+            finalizePendingClose(terminalID: terminalID)
+            return
+        }
+        recentlyClosedTerminals.removeValue(forKey: terminalID)
+        pendingCloseTasks.removeValue(forKey: terminalID)?.cancel()
+        closed.tile.session.pendingCloseDeadline = nil
+        closed.tile.session.pendingClosePosition = nil
+        let insertion = min(max(0, closed.position), allSessionTiles.count)
+        allSessionTiles.insert(closed.tile, at: insertion)
+        rebuildWorkspaceClusters()
+        currentWorkspace = closed.tile.session.workspaceID
+        let workspaceTiles = activeSessionTiles
+        selectedIndex = workspaceTiles.firstIndex(where: { $0 === closed.tile }) ?? 0
+        focusedIndex = selectedIndex
+        updateWorldGeometry()
+        updateSelection()
+        setCameraImmediately()
+        saveSessions()
+        refreshUndoCloseView()
+        emitAPIEvent("tile.reopened", data: tileJSON(closed.tile))
+    }
+
+    func terminateLastClosedTerminalNow() {
+        guard let closed = recentlyClosedTerminals.values.max(by: { $0.deadline < $1.deadline }) else { return }
+        finalizePendingClose(terminalID: closed.tile.session.id)
+    }
+
+    private func schedulePendingCloseFinalization(terminalID: String) {
+        pendingCloseTasks.removeValue(forKey: terminalID)?.cancel()
+        guard let closed = recentlyClosedTerminals[terminalID] else { return }
+        let task = DispatchWorkItem { [weak self] in
+            self?.finalizePendingClose(terminalID: terminalID)
+        }
+        pendingCloseTasks[terminalID] = task
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + max(0, closed.deadline.timeIntervalSinceNow),
+            execute: task
+        )
+    }
+
+    private func finalizePendingClose(terminalID: String) {
+        guard let closed = recentlyClosedTerminals.removeValue(forKey: terminalID) else { return }
+        pendingCloseTasks.removeValue(forKey: terminalID)?.cancel()
+        refreshUndoCloseView()
+        saveSessions()
+        emitAPIEvent("tile.closeFinalized", data: tileJSON(closed.tile))
+        // The tile is already absent from the scene. Defer renderer teardown so
+        // the visible close commits before Ghostty and worker cleanup begin.
+        DispatchQueue.main.async {
+            closed.tile.removeTerminal()
+        }
+    }
+
+    private func refreshUndoCloseView() {
+        guard let latest = recentlyClosedTerminals.values.max(by: { $0.deadline < $1.deadline }) else {
+            undoCloseView?.removeFromSuperview()
+            undoCloseView = nil
+            return
+        }
+        let view: UndoTerminalCloseView
+        if let current = undoCloseView {
+            view = current
+        } else {
+            view = UndoTerminalCloseView(frame: .zero)
+            view.onUndo = { [weak self] in self?.reopenLastClosedTerminal() }
+            view.onTerminateNow = { [weak self] in self?.terminateLastClosedTerminalNow() }
+            undoCloseView = view
+            addSubview(view, positioned: .above, relativeTo: statusBarView)
+        }
+        view.terminalName = latest.tile.session.name
+        view.deadline = latest.deadline
+        needsLayout = true
+    }
+
     private func closeSession(_ tile: TerminalTileView) {
         let workspaceID = tile.session.workspaceID
         let removalSnapshot = paneRemovalSnapshot(of: tile)
@@ -2279,6 +2417,12 @@ final class TerminalDeckView: NSView {
 
     private func closeWorkspace(_ workspace: String) {
         let workspaceRecord = workspaces.first { $0.name == workspace }
+        let pendingTerminalIDs = recentlyClosedTerminals.values
+            .filter { $0.tile.session.workspace == workspace }
+            .map { $0.tile.session.id }
+        for terminalID in pendingTerminalIDs {
+            finalizePendingClose(terminalID: terminalID)
+        }
         let removedTiles = allSessionTiles.filter { $0.session.workspace == workspace }
         let removalView: NSView? = if currentWorkspace == workspaceRecord?.id {
             selectedSessionTile() ?? workspaceCluster(named: workspaceRecord?.id)
@@ -2374,10 +2518,7 @@ final class TerminalDeckView: NSView {
 
     func prepareForTermination() {
         isShuttingDown = true
-        statusMetricsMonitor.stop()
-        workspaceProcessMetricsMonitor.stop()
-        terminalProcessMetricsMonitor.stop()
-        for tile in allSessionTiles where tile.session.state == .running || tile.session.state == .starting {
+        for tile in persistedSessionTiles where tile.session.state == .running || tile.session.state == .starting {
             tile.detachTerminalForApplicationExit()
             tile.session.state = .running
         }
@@ -2523,8 +2664,8 @@ final class TerminalDeckView: NSView {
         } ?? 0
         if currentWorkspace == nil || workspaceCount <= 1 {
             confirmCloseSelectedWorkspace()
-        } else {
-            confirmCloseSelectedSession()
+        } else if let tile = selectedSessionTile() {
+            bufferCloseSession(tile)
         }
     }
 
@@ -3163,8 +3304,9 @@ final class TerminalDeckView: NSView {
         }
         let samples = try statusSamples(params["samples"], name: "samples")
         let secondarySamples = try statusSamples(params["secondarySamples"], name: "secondarySamples")
+        let links = try statusLinks(params["links"])
         let states = params["states"] as? [String] ?? []
-        let validStates = Set(["working", "waiting", "idle", "unknown", "good", "busy", "attention", "error"])
+        let validStates = Set(["working", "waiting", "idle", "unknown", "neutral", "good", "busy", "attention", "error"])
         guard states.count <= 32, states.allSatisfy(validStates.contains) else {
             throw MachinenAPIError("invalid_params", "status widget states contains an unsupported state")
         }
@@ -3192,7 +3334,8 @@ final class TerminalDeckView: NSView {
             graphStyle: graphStyle,
             samples: samples,
             secondarySamples: secondarySamples,
-            states: states
+            states: states,
+            links: links
         )
         statusWidgets[widget.storageKey] = widget
         refreshStatusBar()
@@ -3216,6 +3359,22 @@ final class TerminalDeckView: NSView {
             throw MachinenAPIError("invalid_params", "status widget \(name) values must be finite")
         }
         return samples
+    }
+
+    private func statusLinks(_ value: Any?) throws -> [MachinenStatusWidget.Link] {
+        guard let values = value as? [JSONObject] else { return [] }
+        guard values.count <= 32 else {
+            throw MachinenAPIError("invalid_params", "status widget links must contain at most 32 values")
+        }
+        return try values.map { link in
+            guard let title = link["title"] as? String, !title.isEmpty, title.count <= 512,
+                  let rawURL = link["url"] as? String, rawURL.count <= 2_048,
+                  let url = URL(string: rawURL), ["http", "https"].contains(url.scheme?.lowercased())
+            else {
+                throw MachinenAPIError("invalid_params", "status widget links require a title and HTTP(S) URL")
+            }
+            return MachinenStatusWidget.Link(title: title, url: url)
+        }
     }
 
     private func expireStatusWidget(_ storageKey: String, expiresAt: TimeInterval) {
@@ -3628,34 +3787,7 @@ final class TerminalDeckView: NSView {
             statusBarView.titleTooltip = nil
         }
 
-        statusMetricsMonitor.setContext(
-            location: selectedWorkspaceRecord()?.location,
-            workspaceID: workspaceID
-        )
-        let workspaceMetricsID = focusedIndex == nil && currentWorkspace != nil ? workspaceID : nil
-        let localWorkspacePIDs = activeSessionTiles.compactMap { tile in
-            tile.session.location.kind == .local ? tile.session.associatedPID : nil
-        }
-        workspaceProcessMetricsMonitor.setWorkspaceContext(
-            pids: workspaceMetricsID == nil ? [] : localWorkspacePIDs,
-            workspaceID: workspaceMetricsID
-        )
-        let selected = selectedSession()
-        let localFocusedPID = selected?.location.kind == .local ? selected?.associatedPID : nil
-        terminalProcessMetricsMonitor.setContext(
-            pid: focusedTerminalID == nil ? nil : localFocusedPID,
-            terminalID: focusedTerminalID
-        )
-        // Host CPU and network are useful in the overview. Inside a workspace,
-        // replace them with summaries of that workspace's tile processes.
-        let hostAndWorkspaceWidgets = statusMetricsMonitor.widgets.filter {
-            currentWorkspace == nil || ($0.id != "machinen.cpu" && $0.id != "machinen.network")
-        }
-        let builtIns = builtInStatusWidgets()
-            + hostAndWorkspaceWidgets
-            + workspaceProcessMetricsMonitor.widgets
-            + terminalProcessMetricsMonitor.widgets
-        var resolved = Dictionary(uniqueKeysWithValues: builtIns.map { ($0.id, $0) })
+        var resolved: [String: MachinenStatusWidget] = [:]
         let orderedScopes: [(MachinenStatusWidget.ScopeKind, String?)] = [
             (.global, nil),
             (.machine, workspace?.location.machineID),
@@ -3671,49 +3803,6 @@ final class TerminalDeckView: NSView {
             }
         }
         statusBarView.widgets = Array(resolved.values)
-    }
-
-    private func builtInStatusWidgets() -> [MachinenStatusWidget] {
-        guard let workspaceID = selectedWorkspaceID() else { return [] }
-        let tiles = activeSessionTiles(for: workspaceID)
-        guard !tiles.isEmpty else { return [] }
-
-        let states = tiles.map { tile in
-            if tile.currentState == .exited || tile.currentState == .disconnected {
-                return "error"
-            }
-            return tile.session.activityState.rawValue
-        }
-        let summaryOrder = ["waiting", "working", "idle", "error", "unknown"]
-        let summary = summaryOrder.compactMap { state -> String? in
-            let count = states.count { $0 == state }
-            let displayState = state == "working" ? "active" : state
-            return count > 0 ? "\(count) \(displayState)" : nil
-        }.joined(separator: " · ")
-        let tone: MachinenStatusWidget.Tone = if states.contains("error") {
-            .error
-        } else if states.contains("waiting") {
-            .attention
-        } else if states.contains("working") {
-            .busy
-        } else {
-            .neutral
-        }
-        return [MachinenStatusWidget(
-            id: "machinen.activity",
-            scopeKind: .workspace,
-            scopeID: workspaceID,
-            placement: .right,
-            kind: .state,
-            label: nil,
-            value: "",
-            progress: nil,
-            tone: tone,
-            tooltip: summary,
-            priority: 100,
-            expiresAt: nil,
-            states: states
-        )]
     }
 
     private func drawKeyHints() {
