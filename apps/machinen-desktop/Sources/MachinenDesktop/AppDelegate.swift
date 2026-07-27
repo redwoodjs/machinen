@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private weak var deck: TerminalDeckView?
     private var controller: MachinenController?
     private var apiServer: MachinenAPIServer?
+    private var desktopServicesSupervisor: DesktopServicesSupervisor?
     private var commandChord: CommandChord?
     private var terminalCycleShortcut: TerminalCycleShortcut?
 
@@ -29,6 +30,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         do {
             try apiServer.start()
+            desktopServicesSupervisor = DesktopServicesSupervisor.bundled(
+                apiSocketPath: apiServer.socketPath
+            )
+            desktopServicesSupervisor?.start()
         } catch {
             NSLog("Machinen API could not start: %@", String(describing: error))
         }
@@ -76,6 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         terminalCycleShortcut?.stop()
         apiServer?.stop()
+        desktopServicesSupervisor?.stop()
         deck?.prepareForTermination()
     }
 

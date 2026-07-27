@@ -119,11 +119,14 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
 
     func attach() {
         guard surface == nil, !destroyingSurface else {
-            if session.state == .starting { scheduleAttachRetry() }
+            if session.state == .starting || session.state == .disconnected {
+                scheduleAttachRetry()
+            }
             return
         }
         guard let app = GhosttyRuntime.shared.app else {
-            setSessionState(.stopped)
+            setSessionState(.disconnected)
+            scheduleAttachRetry(after: 1)
             return
         }
 
@@ -165,7 +168,11 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
             InputRoutingLog.log(
                 "terminal[\(session.tileID)] ghostty viewer failed: \(error.localizedDescription)"
             )
-            setSessionState(.stopped)
+            // The persistent worker may still be alive even when AppKit cannot
+            // create its Ghostty surface. Preserve reconnect intent instead of
+            // recording a stopped process that Machinen never terminated.
+            setSessionState(.disconnected)
+            scheduleAttachRetry(after: 1)
         }
     }
 
@@ -192,13 +199,15 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         }
     }
 
-    private func scheduleAttachRetry() {
+    private func scheduleAttachRetry(after delay: TimeInterval = 0.12) {
         guard !attachRetryScheduled else { return }
         attachRetryScheduled = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self else { return }
             self.attachRetryScheduled = false
-            if self.session.state == .starting { self.attach() }
+            if self.session.state == .starting || self.session.state == .disconnected {
+                self.attach()
+            }
         }
     }
 

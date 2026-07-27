@@ -3,13 +3,15 @@ import AppKit
 struct PaletteCommand {
     enum ID {
         case newWorkspace
-        case openWorkspace
         case newTerminalInWorkspace
+        case back
         case renameWorkspace
         case changeWorkspaceLocation
         case chooseLocalWorkspaceLocation
+        case browseLocalWorkspaceLocation
         case chooseRemoteWorkspaceLocation
         case useWorkspaceLocation
+        case openWorkspaceLocation
         case useSSHHost
         case toggleOverview
         case newTerminal
@@ -33,6 +35,7 @@ struct PaletteCommand {
     let location: WorkspaceLocation?
     let workspaceID: String?
     let sshHost: String?
+    let completion: String?
 
     init(
         id: ID,
@@ -40,7 +43,8 @@ struct PaletteCommand {
         shortcut: String,
         location: WorkspaceLocation? = nil,
         workspaceID: String? = nil,
-        sshHost: String? = nil
+        sshHost: String? = nil,
+        completion: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -48,6 +52,7 @@ struct PaletteCommand {
         self.location = location
         self.workspaceID = workspaceID
         self.sshHost = sshHost
+        self.completion = completion
     }
 }
 
@@ -67,15 +72,19 @@ final class CommandPaletteView: NSView {
     private let placeholder: String
     private let defaultFooter: String
     private let acceptsFreeform: Bool
-    private let commands: [PaletteCommand]
+    private var commands: [PaletteCommand]
     private var query: String
     private var selectedIndex: Int
     private var replaceInitialQueryOnType: Bool
+    private var selectionWasMoved = false
     private var statusMessage: String?
 
     var onDismiss: (() -> Void)?
     var onRun: ((PaletteCommand) -> Void)?
     var onSubmit: ((String) -> Void)?
+    var onQueryChange: ((String) -> Void)?
+
+    var currentQuery: String { query }
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -151,6 +160,8 @@ final class CommandPaletteView: NSView {
             moveSelection(by: -1)
         case 36, 76:
             runSelectedCommand()
+        case 48:
+            completeSelectedCommand()
         case 51:
             if replaceInitialQueryOnType {
                 query = ""
@@ -196,12 +207,29 @@ final class CommandPaletteView: NSView {
         needsDisplay = true
     }
 
+    func replaceCommands(_ commands: [PaletteCommand]) {
+        self.commands = commands
+        selectedIndex = 0
+        selectionWasMoved = false
+        needsDisplay = true
+    }
+
     private var filteredCommands: [PaletteCommand] {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        // A seeded path such as `~/` establishes where browsing starts; it
+        // should not hide recent choices until the user starts typing.
+        let filterQuery = replaceInitialQueryOnType ? "" : query
+        let needle = filterQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !needle.isEmpty else { return commands }
-        return commands.filter {
-            $0.title.lowercased().contains(needle) || $0.shortcut.lowercased().contains(needle)
-        }
+        return commands.enumerated()
+            .compactMap { index, command -> (PaletteCommand, Int, Int)? in
+                let searchable = "\(command.title) \(command.shortcut)".lowercased()
+                guard let score = fuzzyScore(needle: needle, in: searchable) else { return nil }
+                return (command, score, index)
+            }
+            .sorted { left, right in
+                left.1 == right.1 ? left.2 < right.2 : left.1 > right.1
+            }
+            .map(\.0)
     }
 
     private func panelRect() -> NSRect {
@@ -337,18 +365,25 @@ final class CommandPaletteView: NSView {
         let commands = filteredCommands
         guard !commands.isEmpty else { return }
         selectedIndex = min(max(0, selectedIndex + delta), commands.count - 1)
+        selectionWasMoved = true
         statusMessage = nil
         needsDisplay = true
     }
 
     private func runSelectedCommand() {
+        let commands = filteredCommands
         if acceptsFreeform {
+            if (selectionWasMoved || commands.count == 1),
+               commands.indices.contains(selectedIndex)
+            {
+                onRun?(commands[selectedIndex])
+                return
+            }
             let value = query.trimmingCharacters(in: .whitespacesAndNewlines)
             if !value.isEmpty {
                 onSubmit?(value)
                 return
             }
-            let commands = filteredCommands
             if commands.indices.contains(selectedIndex) {
                 onRun?(commands[selectedIndex])
                 return
@@ -357,16 +392,51 @@ final class CommandPaletteView: NSView {
             return
         }
 
-        let commands = filteredCommands
         guard commands.indices.contains(selectedIndex) else { return }
         onRun?(commands[selectedIndex])
     }
 
+    private func completeSelectedCommand() {
+        let commands = filteredCommands
+        guard commands.indices.contains(selectedIndex),
+              let completion = commands[selectedIndex].completion
+        else { return }
+        query = completion
+        queryChanged()
+    }
+
     private func queryChanged() {
         selectedIndex = 0
+        selectionWasMoved = false
         replaceInitialQueryOnType = false
         statusMessage = nil
+        onQueryChange?(query)
         needsDisplay = true
+    }
+
+    private func fuzzyScore(needle: String, in haystack: String) -> Int? {
+        let wanted = Array(needle)
+        let available = Array(haystack)
+        var cursor = 0
+        var previousMatch = -2
+        var firstMatch = -1
+        var score = haystack.contains(needle) ? 1_000 : 0
+        for character in wanted {
+            while cursor < available.count, available[cursor] != character {
+                cursor += 1
+            }
+            guard cursor < available.count else { return nil }
+            if firstMatch < 0 { firstMatch = cursor }
+            score += cursor == previousMatch + 1 ? 12 : 2
+            if cursor == 0 || available[cursor - 1].isWhitespace
+                || "-_/.:".contains(available[cursor - 1])
+            {
+                score += 6
+            }
+            previousMatch = cursor
+            cursor += 1
+        }
+        return score - max(0, firstMatch)
     }
 
     private func drawText(

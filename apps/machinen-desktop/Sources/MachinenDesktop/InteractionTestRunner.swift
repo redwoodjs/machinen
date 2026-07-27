@@ -11,10 +11,12 @@ enum InteractionTestRunner {
             try commandArrowsMoveThroughTheHierarchy()
             try focusedCycleShortcutsSeparateTerminalsAndWorkspaces()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
+            try commandPaletteFuzzySearchesAndCompletes()
             try terminalOutputAndRuntimeLabelsReportActivity()
             try statusWidgetsInheritBySpatialScope()
             try graphicalStatusWidgetsRender()
-            try workspaceLocationsRemainUnambiguous()
+            try desktopServicesRestartUntilTheAppStops()
+            try workspaceNamesRemainUniqueAndLocationsCanBeShared()
             try oldManifestsRequireNativeRestart()
             try terminalViewportRemainsStableAcrossFocus()
             try terminalTileCaptionRendersWithSafeFonts()
@@ -25,7 +27,7 @@ enum InteractionTestRunner {
             try clickedTileFocusesItsOwnTerminal()
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try closingTerminalCanBeUndoneBeforeCleanup()
-            print("Machinen interaction tests passed (18 scenarios)")
+            print("Machinen interaction tests passed (20 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -53,36 +55,26 @@ enum InteractionTestRunner {
 
         _ = try deck.performAPIOperation("ui.overview", params: [:])
         deck.createNewWorkspaceOrTerminal()
-        var newChooser = try harness.commandPalette(in: deck)
+        let newChooser = try harness.commandPalette(in: deck)
         try harness.type("new workspace", into: newChooser)
         try harness.pressReturn(on: newChooser)
-        let knownLocation = try harness.commandPalette(in: deck)
-        try harness.type("alpha", into: knownLocation)
-        try harness.pressReturn(on: knownLocation)
         snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.workspaces.count == 1, "a known location created a duplicate workspace")
-        try expect(snapshot.tiles.count == 2, "opening a known workspace changed its terminals")
+        try expect(snapshot.workspaces.count == 1, "a workspace was created before naming it")
+        try expect(snapshot.tiles.count == 2, "a terminal was created before choosing a workspace location")
 
-        _ = try deck.performAPIOperation("ui.overview", params: [:])
-        deck.createNewWorkspaceOrTerminal()
-        snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.workspaces.count == 1, "⌘N created a workspace before an explicit choice")
-        try expect(snapshot.tiles.count == 2, "⌘N created a terminal before an explicit choice")
-        newChooser = try harness.commandPalette(in: deck)
-        try harness.type("new workspace", into: newChooser)
-        try harness.pressReturn(on: newChooser)
         let locationPalette = try harness.commandPalette(in: deck)
-        try harness.type("home", into: locationPalette)
+        try harness.type("alpha", into: locationPalette)
         try harness.pressReturn(on: locationPalette)
         let namePalette = try harness.commandPalette(in: deck)
-        try harness.type("workspace", into: namePalette)
+        try harness.type("beta", into: namePalette)
         try harness.pressReturn(on: namePalette)
         snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.workspaces.count == 2, "⌘N in the overview did not create a workspace")
+        try expect(snapshot.workspaces.count == 2, "a shared location did not create a distinct workspace")
         try expect(snapshot.tiles.count == 3, "the new workspace did not contain a terminal")
+        try expect(snapshot.workspaces.map(\.name) == ["alpha", "beta"], "the chosen workspace name changed")
         try expect(
-            snapshot.workspaces.map(\.name) == ["alpha", "workspace"],
-            "the automatic workspace name was not stable"
+            Set(snapshot.workspaces.map(\.workingDirectory)).count == 1,
+            "workspaces could not share the same default directory"
         )
     }
 
@@ -435,7 +427,47 @@ enum InteractionTestRunner {
         }
     }
 
-    private static func workspaceLocationsRemainUnambiguous() throws {
+    private static func desktopServicesRestartUntilTheAppStops() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("machinen-services-supervisor-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let marker = directory.appendingPathComponent("launches")
+        var environment = ProcessInfo.processInfo.environment
+        environment["MACHINEN_SUPERVISOR_TEST_MARKER"] = marker.path
+        let supervisor = DesktopServicesSupervisor(
+            executableURL: URL(fileURLWithPath: "/bin/sh"),
+            arguments: [
+                "-c",
+                "printf 'launch\\n' >> \"$MACHINEN_SUPERVISOR_TEST_MARKER\"; exit 9",
+            ],
+            environment: environment,
+            restartBaseDelay: 0.02
+        )
+        defer { supervisor.stop() }
+
+        func launchCount() -> Int {
+            let contents = try? String(contentsOf: marker, encoding: .utf8)
+            return contents?.split(separator: "\n").count ?? 0
+        }
+
+        supervisor.start()
+        let deadline = Date().addingTimeInterval(2)
+        while launchCount() < 2, Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+        }
+        try expect(launchCount() >= 2, "Desktop services were not restarted after an unexpected exit")
+
+        supervisor.stop()
+        let countAfterStop = launchCount()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+        try expect(
+            launchCount() == countAfterStop,
+            "Desktop services restarted after their supervisor stopped"
+        )
+    }
+
+    private static func workspaceNamesRemainUniqueAndLocationsCanBeShared() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
@@ -455,14 +487,22 @@ enum InteractionTestRunner {
             snapshot.workspaces.first?.workingDirectory == harness.temporaryDirectoryPath,
             "a rejected location change modified the workspace"
         )
+        let sharedWorkspace = try deck.performAPIOperation("workspace.create", params: [
+            "name": "beta",
+            "workingDirectory": harness.temporaryDirectoryPath,
+        ]) as? [String: Any]
+        try expect(
+            sharedWorkspace?["workingDirectory"] as? String == harness.temporaryDirectoryPath,
+            "a second workspace could not reuse an existing location"
+        )
         do {
             _ = try deck.performAPIOperation("workspace.create", params: [
-                "name": "duplicate",
-                "workingDirectory": harness.temporaryDirectoryPath,
+                "name": "  ALPHA  ",
+                "workingDirectory": projectDirectory.path,
             ])
-            throw InteractionTestFailure("a duplicate workspace location was created")
+            throw InteractionTestFailure("a case-variant duplicate workspace name was created")
         } catch let error as MachinenAPIError {
-            try expect(error.code == "workspace_location_conflict", "duplicate location returned the wrong error")
+            try expect(error.code == "workspace_name_conflict", "duplicate name returned the wrong error")
         }
 
         let emptyWorkspace = try deck.performAPIOperation("workspace.create", params: [
@@ -480,12 +520,55 @@ enum InteractionTestRunner {
                 "path": "/Users/p4p8/gh/redwoodjs/machinen",
             ],
         ])
+        do {
+            _ = try deck.performAPIOperation("workspace.update", params: [
+                "workspaceId": emptyWorkspaceID,
+                "name": " BETA ",
+            ])
+            throw InteractionTestFailure("a workspace was renamed to a case-variant duplicate")
+        } catch let error as MachinenAPIError {
+            try expect(error.code == "workspace_name_conflict", "duplicate rename returned the wrong error")
+        }
         snapshot = try harness.snapshot(of: deck)
         let relocated = snapshot.workspaces.first(where: { $0.id == emptyWorkspaceID })
         try expect(
             relocated?.location.kind == "ssh" && relocated?.location.host == "mini",
             "an empty workspace did not accept its new location"
         )
+        _ = try deck.performAPIOperation("workspace.delete", params: [
+            "workspaceId": emptyWorkspaceID,
+        ])
+        let savedLocationHistory = harness.loadStoredState().workspaceLocationHistory
+        try expect(
+            savedLocationHistory.contains(.local(projectDirectory.path))
+                && savedLocationHistory.contains(.ssh(
+                    host: "mini",
+                    path: "/Users/p4p8/gh/redwoodjs/machinen"
+                )),
+            "removing a workspace discarded its previously chosen directories"
+        )
+
+        let legacyAlpha = WorkspaceRecord(
+            id: "ws_legacy_alpha",
+            name: "Alpha",
+            workingDirectory: harness.temporaryDirectoryPath
+        )
+        let legacyDuplicate = WorkspaceRecord(
+            id: "ws_legacy_duplicate",
+            name: " alpha ",
+            workingDirectory: harness.temporaryDirectoryPath
+        )
+        try harness.storeManifest(
+            version: 6,
+            workspaces: [legacyAlpha, legacyDuplicate],
+            sessions: []
+        )
+        let migratedNames = harness.loadStoredState().workspaces.map(\.name)
+        try expect(
+            migratedNames == ["Alpha", "alpha 2"],
+            "manifest migration did not repair duplicate workspace names: \(migratedNames)"
+        )
+
         let remoteSession = TerminalSession(
             id: "term_remote_quote",
             tileID: "tile_remote_quote",
@@ -1007,24 +1090,110 @@ enum InteractionTestRunner {
         try expect(try harness.snapshot(of: deck).tiles.count == 1, "terminate now restored a closed tile")
     }
 
+    private static func commandPaletteFuzzySearchesAndCompletes() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let path = "~/gh/redwoodjs/machinen"
+        let palette = CommandPaletteView(
+            frame: NSRect(x: 0, y: 0, width: 900, height: 640),
+            heading: "TEST",
+            context: "fuzzy paths",
+            commands: [
+                PaletteCommand(
+                    id: .useWorkspaceLocation,
+                    title: path,
+                    shortcut: "used by desktop",
+                    completion: path
+                ),
+                PaletteCommand(
+                    id: .back,
+                    title: "Other folder",
+                    shortcut: "unused"
+                ),
+            ],
+            acceptsFreeform: true
+        )
+        try harness.type("rwm", into: palette)
+        try expect(palette.currentQuery == "rwm", "the fuzzy path query was not retained")
+        try harness.pressTab(on: palette)
+        try expect(
+            palette.currentQuery == path,
+            "Tab did not complete the highest-ranked fuzzy path"
+        )
+
+        let project = try harness.makeDirectory(named: "redwood-project")
+        let gh = try harness.makeDirectory(named: "gh")
+        let hidden = try harness.makeDirectory(named: ".hidden-project")
+        let localChildren = WorkspacePathSuggestions.localChildDirectories(
+            at: harness.temporaryDirectoryPath
+        )
+        try expect(
+            localChildren == [gh.path, project.path, hidden.path],
+            "the local browser omitted or reordered visible folders: \(localChildren)"
+        )
+        let localSuggestions = WorkspacePathSuggestions.localDirectories(
+            matching: "\(harness.temporaryDirectoryPath)/rwp"
+        )
+        try expect(
+            localSuggestions == [project.path],
+            "local path completion did not fuzzy-match a filesystem directory"
+        )
+        let remoteRequest = WorkspacePathSuggestions.remoteCompletionRequest("~/gh/red")
+        try expect(
+            remoteRequest?.parent == "~/gh" && remoteRequest?.prefix == "red",
+            "remote path completion split the parent and prefix incorrectly"
+        )
+    }
+
     private static func workspacePaletteCreatesRenamesAndClosesWithKeyboard() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
-        let deck = harness.makeDeck(workspaces: [])
+        let project = try harness.makeDirectory(named: "redwood-project")
+        let deck = harness.makeDeck(state: MachinenStoredState(
+            workspaces: [],
+            sessions: [],
+            workspaceLocationHistory: [.local(project.path)]
+        ))
 
         deck.toggleCommandPalette()
         try harness.pressReturn(on: harness.commandPalette(in: deck))
-        let newWorkspaceLocation = try harness.commandPalette(in: deck)
-        try harness.type("home", into: newWorkspaceLocation)
-        try harness.pressReturn(on: newWorkspaceLocation)
+        let locationChooser = try harness.commandPalette(in: deck)
         try expect(
             try harness.snapshot(of: deck).workspaces.isEmpty,
-            "New workspace was created before asking for its name"
+            "New workspace was created before choosing a location"
         )
-        try harness.type("alpha", into: harness.commandPalette(in: deck))
-        try harness.pressReturn(on: harness.commandPalette(in: deck))
+        try harness.pressEscape(on: locationChooser)
+        let returnedTopLevel = try harness.commandPalette(in: deck)
         try expect(
-            try harness.snapshot(of: deck).workspaces.map(\.name) == ["alpha"],
+            returnedTopLevel !== locationChooser,
+            "Escape closed a nested workspace dialog instead of going back"
+        )
+        try harness.pressEscape(on: returnedTopLevel)
+        try expect(!harness.hasCommandPalette(in: deck), "Escape did not close the top-level dialog")
+
+        deck.toggleCommandPalette()
+        try harness.pressReturn(on: harness.commandPalette(in: deck))
+        let previousLocations = try harness.commandPalette(in: deck)
+        try harness.pressReturn(on: previousLocations)
+        let suggestedName = try harness.commandPalette(in: deck)
+        try expect(
+            suggestedName.currentQuery == "redwood-project",
+            "the selected folder did not suggest its basename as the workspace name"
+        )
+        try harness.pressEscape(on: suggestedName)
+        let locationsAfterEscape = try harness.commandPalette(in: deck)
+        try expect(
+            locationsAfterEscape !== suggestedName,
+            "Escape did not return from the name prompt to locations"
+        )
+        try harness.pressReturn(on: locationsAfterEscape)
+        let returnedName = try harness.commandPalette(in: deck)
+        try harness.type("alpha", into: returnedName)
+        try harness.pressReturn(on: returnedName)
+        let created = try harness.snapshot(of: deck)
+        try expect(
+            created.workspaces.map(\.name) == ["alpha"]
+                && created.workspaces.first?.workingDirectory == project.path,
             "New workspace did not accept its name and selected location"
         )
 
@@ -1108,6 +1277,20 @@ private final class Harness {
         sessionStore().load()
     }
 
+    func storeManifest(
+        version: Int,
+        workspaces: [WorkspaceRecord],
+        sessions: [TerminalSession]
+    ) throws {
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(InteractionManifest(
+            version: version,
+            workspaces: workspaces,
+            sessions: sessions
+        ))
+        try data.write(to: temporaryDirectory.appendingPathComponent("terminals.json"))
+    }
+
     private func sessionStore() -> TerminalSessionStore {
         TerminalSessionStore(
             manifestURL: temporaryDirectory.appendingPathComponent("terminals.json")
@@ -1183,6 +1366,10 @@ private final class Harness {
         return palette
     }
 
+    func hasCommandPalette(in deck: TerminalDeckView) -> Bool {
+        deck.subviews.contains { $0 is CommandPaletteView }
+    }
+
     func confirmation(in deck: TerminalDeckView) throws -> ActionConfirmationView {
         guard let confirmation = deck.subviews.compactMap({ $0 as? ActionConfirmationView }).last else {
             throw InteractionTestFailure("the close confirmation did not open")
@@ -1208,6 +1395,10 @@ private final class Harness {
 
     func pressReturn(on view: NSView) throws {
         view.keyDown(with: try keyEvent(characters: "\r", keyCode: 36))
+    }
+
+    func pressTab(on view: NSView) throws {
+        view.keyDown(with: try keyEvent(characters: "\t", keyCode: 48))
     }
 
     func pressEscape(on view: NSView) throws {
@@ -1244,6 +1435,12 @@ private final class Harness {
         }
         return event
     }
+}
+
+private struct InteractionManifest: Encodable {
+    let version: Int
+    let workspaces: [WorkspaceRecord]
+    let sessions: [TerminalSession]
 }
 
 private struct StatusListSnapshot: Decodable {

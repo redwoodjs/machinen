@@ -2,7 +2,8 @@
 
 Machinen Desktop embeds Ghostty's renderer and terminal core. Ghostty is fetched
 and compiled during development; its generated XCFramework and source tree are
-not committed.
+not committed. A transferable app bundle also includes the active Node.js
+runtime for its trusted TypeScript status services.
 
 ## Ghostty
 
@@ -33,3 +34,12 @@ resource bundle.
 Ghostty 1.3.1 requires Zig 0.15.2. The preparation script uses a matching
 Homebrew installation when available, or downloads the checksum-pinned official
 compiler. Machinen Session continues to use the repository's Zig 0.16 toolchain.
+
+## Node.js
+
+[`../build-app.sh`](../build-app.sh) compiles `@machinen/desktop-services`, copies
+the active architecture's `process.execPath` into `Contents/Helpers`, and places
+the Node.js license in the app's resources. Use the repository's [`.nvmrc`](../../../.nvmrc)
+when producing a release bundle. Node is kept as a separate signed helper so the
+Swift app can supervise it and the service remains replaceable during source
+development.

@@ -173,16 +173,16 @@ Atomically returns `workspaces`, `tiles`, `terminals`, and `ui`.
 - `workspace.restart { workspaceId }`
 - `workspace.delete { workspaceId }`
 
-Every workspace is bound to one location, which defaults to the user's local
-home directory. A local location is `{ "kind": "local", "path": "/project" }`.
-A remote location is `{ "kind": "ssh", "host": "mini", "path": "/project" }`;
-`host` uses the user's OpenSSH configuration and may include a username. The
-legacy `workingDirectory` field remains the location path for compatibility.
-Workspace results also expose `machineId`: `local` for the Mac running Desktop,
-or `ssh:<host>` for an SSH location. A canonical location can belong to only one
-workspace; `workspace.create` and
-`workspace.update` fail with `workspace_location_conflict` rather than creating
-ambiguous ownership.
+Every workspace has a stable ID and a unique, case-insensitive name. Machinen
+trims surrounding whitespace when creating or renaming a workspace. A workspace
+also has one default location, which is not part of its identity and may be
+shared by other workspaces. A local location is
+`{ "kind": "local", "path": "/project" }`. A remote location is
+`{ "kind": "ssh", "host": "mini", "path": "/project" }`; `host` uses the
+user's OpenSSH configuration and may include a username. The legacy
+`workingDirectory` field remains the location path for compatibility. Workspace
+results also expose `machineId`: `local` for the Mac running Desktop, or
+`ssh:<host>` for an SSH location.
 
 New terminals inherit the workspace location unless an API caller explicitly
 supplies a launch subdirectory. Remote terminals install and run the native
@@ -433,7 +433,6 @@ unsupported_protocol
 unknown_operation
 workspace_not_found
 workspace_name_conflict
-workspace_location_conflict
 workspace_not_empty
 workspace_running
 tile_not_found

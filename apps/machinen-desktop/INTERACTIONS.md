@@ -92,29 +92,32 @@ When no workspace exists, only **New workspace…** is available.
 
 ### New workspace flow
 
-Creating a workspace always asks where it lives before creating its first
-terminal:
+Creating a workspace chooses its default location before naming it:
 
-1. **Choose a location.** The user can open a location already known to
-   Machinen, browse for a local folder, or choose **SSH host…**. A known
-   location opens its existing workspace and reattaches its saved terminals;
-   Machinen never creates two workspaces for the same canonical location.
-2. **Name a new workspace.** The folder name is offered as a default for local
-   workspaces; the remote folder name is offered for SSH workspaces. The name
-   remains editable and follows the workspace naming rules below.
+1. **Choose a default location.** Previously selected local and SSH locations
+   appear first and can be reused directly, including locations whose old
+   workspaces were removed. **Browse local…** opens Machinen's directory picker
+   at `$HOME`. **Browse over SSH…** chooses an OpenSSH host and opens the same
+   picker model at that host's `$HOME`; Return opens a child folder, while **Use
+   this folder** selects the current directory.
+2. **Name the workspace.** Machinen suggests the selected directory's basename.
+   Names are trimmed, case-insensitively unique, and remain editable later. The
+   dialog keeps validation errors in place.
 3. Machinen creates the workspace, creates its initial login-shell terminal,
    and enters it.
 
-A local browser can select an existing directory or create a directory. Picking
-a known location opens its workspace; it does not move, copy, or delete files.
+Escape always moves back one dialog or remote parent-directory level; it closes
+the dialog only from the top-level New chooser. Picking a known location creates
+a new named workspace there; it
+does not open, move, copy, or delete another workspace.
 
 **SSH is a workspace location, not a special terminal type.** The SSH flow asks
 for an OpenSSH host or alias (for example `mini` or `peter@server`) and then a
 remote folder (for example `~/gh/project` or `/srv/project`). Machinen stores the
 pair as `host + remote root`, validates it through the user's OpenSSH
-configuration, and every terminal created in that workspace inherits it. A
-first version does not need a remote folder browser: entering the remote path is
-the definition of the location.
+configuration, and every terminal created in that workspace inherits it. The
+remote browser lists one directory level at a time over SSH, starting at the
+remote user's `$HOME`.
 
 `⌘T` remains the terminal launcher for the selected workspace. It can create a
 login shell or run an arbitrary command, but it does not replace `⌘N`'s explicit
@@ -140,9 +143,11 @@ OpenSSH configuration. Machinen checks the connection and resolves the remote
 folder before creating or rebinding the workspace; the folder must already
 exist.
 
-Machinen rejects a location already owned by another workspace and rejects
-location changes while the workspace contains terminals. It never rewrites a
-running terminal's location. For an SSH location, Machinen installs its small native session helper
+Machinen allows several workspaces to share a location, but rejects location
+changes while the workspace contains terminals. It never rewrites a running
+terminal's location. The workspace location is only the default for new work;
+future terminals and services may use other machines while retaining the same
+workspace ID and status scope. For an SSH location, Machinen installs its small native session helper
 on the SSH host and the remote worker owns the PTY in the selected folder. The
 local Ghostty view attaches through SSH, so closing Desktop or losing the SSH
 connection does not stop remote work. Git instruments and local-service
