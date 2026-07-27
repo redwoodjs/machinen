@@ -14,6 +14,7 @@ enum InteractionTestRunner {
             try terminalOutputAndRuntimeLabelsReportActivity()
             try statusWidgetsInheritBySpatialScope()
             try graphicalStatusWidgetsRender()
+            try desktopServicesRestartUntilTheAppStops()
             try workspaceLocationsRemainUnambiguous()
             try oldManifestsRequireNativeRestart()
             try terminalViewportRemainsStableAcrossFocus()
@@ -25,7 +26,7 @@ enum InteractionTestRunner {
             try clickedTileFocusesItsOwnTerminal()
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try closingTerminalCanBeUndoneBeforeCleanup()
-            print("Machinen interaction tests passed (18 scenarios)")
+            print("Machinen interaction tests passed (19 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -433,6 +434,46 @@ enum InteractionTestRunner {
         if let path = ProcessInfo.processInfo.environment["MACHINEN_STATUS_PREVIEW_PATH"], let png {
             try png.write(to: URL(fileURLWithPath: path))
         }
+    }
+
+    private static func desktopServicesRestartUntilTheAppStops() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("machinen-services-supervisor-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let marker = directory.appendingPathComponent("launches")
+        var environment = ProcessInfo.processInfo.environment
+        environment["MACHINEN_SUPERVISOR_TEST_MARKER"] = marker.path
+        let supervisor = DesktopServicesSupervisor(
+            executableURL: URL(fileURLWithPath: "/bin/sh"),
+            arguments: [
+                "-c",
+                "printf 'launch\\n' >> \"$MACHINEN_SUPERVISOR_TEST_MARKER\"; exit 9",
+            ],
+            environment: environment,
+            restartBaseDelay: 0.02
+        )
+        defer { supervisor.stop() }
+
+        func launchCount() -> Int {
+            let contents = try? String(contentsOf: marker, encoding: .utf8)
+            return contents?.split(separator: "\n").count ?? 0
+        }
+
+        supervisor.start()
+        let deadline = Date().addingTimeInterval(2)
+        while launchCount() < 2, Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+        }
+        try expect(launchCount() >= 2, "Desktop services were not restarted after an unexpected exit")
+
+        supervisor.stop()
+        let countAfterStop = launchCount()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+        try expect(
+            launchCount() == countAfterStop,
+            "Desktop services restarted after their supervisor stopped"
+        )
     }
 
     private static func workspaceLocationsRemainUnambiguous() throws {

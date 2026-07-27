@@ -19,6 +19,7 @@ const activityStatus = new ActivityStatusService(desktop, state);
 const gitStatus = new GitStatusService(desktop, state);
 const openPorts = new OpenPortsService(desktop, state);
 const metricsStatus = new MetricsStatusService(desktop, state);
+let isShuttingDown = false;
 
 desktop.onConnect(({ subscription }) => {
   if (subscription?.snapshot) {
@@ -31,7 +32,7 @@ desktop.onConnect(({ subscription }) => {
 });
 desktop.onEvent((event) => {
   if (event.event === "system.shuttingDown") {
-    shutdown();
+    shutdownAndExit();
     return;
   }
   state.handleEvent(event);
@@ -45,6 +46,10 @@ desktop.onDisconnect((error) => {
 });
 
 function shutdown(): void {
+  if (isShuttingDown) {
+    return;
+  }
+  isShuttingDown = true;
   activityStatus.stop();
   gitStatus.stop();
   openPorts.stop();
@@ -52,13 +57,17 @@ function shutdown(): void {
   desktop.close();
 }
 
-process.once("SIGINT", () => {
+function shutdownAndExit(): void {
   shutdown();
   process.exit(0);
-});
-process.once("SIGTERM", () => {
-  shutdown();
-  process.exit(0);
-});
+}
+
+process.once("SIGINT", shutdownAndExit);
+process.once("SIGTERM", shutdownAndExit);
+if (process.env.MACHINEN_DESKTOP_SUPERVISED === "1") {
+  process.stdin.resume();
+  process.stdin.once("end", shutdownAndExit);
+  process.stdin.once("error", shutdownAndExit);
+}
 
 await desktop.connect();

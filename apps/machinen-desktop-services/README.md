@@ -6,12 +6,6 @@ runtime; Eve or Flue can consume the same SDK independently.
 
 ## Status services
 
-Open Machinen Desktop, then run:
-
-```sh
-pnpm -F @machinen/desktop-services dev
-```
-
 The service publishes all of Desktop's live status items through `status.set`:
 
 - workspace terminal activity
@@ -28,15 +22,22 @@ folder or one of its descendants. CPU and network widgets retain the same
 30-sample histories and spatial scopes as their native predecessors.
 
 Every published widget has a short TTL, so stale data disappears if a probe or
-the service stops. `pnpm dev` watches the TypeScript source and restarts after an
-edit, so widget logic reloads without restarting Desktop.
+the service stops. A packaged `Machinen.app` includes a compiled copy of this
+service and a Node.js runtime. Desktop starts that child after its API is ready,
+restarts unexpected exits with bounded backoff, and stops it when Desktop quits.
+The child also exits if its supervision pipe closes, so an app crash does not
+leave an orphan service behind.
+
+For source development, open Machinen Desktop with `swift run` and run:
+
+```sh
+pnpm -F @machinen/desktop-services dev
+```
+
+`pnpm dev` watches the TypeScript source and reloads widget logic without
+restarting Desktop. Set `MACHINEN_API_SOCKET` when the source service should use
+a non-default Desktop socket.
 
 The services use macOS process tools, `/usr/bin/git`, `/usr/bin/ssh`, and the
-user's OpenSSH configuration. Set `MACHINEN_API_SOCKET` to use a non-default
-Desktop socket.
-
-This package is intentionally not embedded in `Machinen.app` yet. Keep
-`pnpm dev` running during development; runtime bundling and supervision follow
-after the services have been proven manually. Changes to the native status-bar
-renderer or declarative widget protocol still require rebuilding Machinen
-Desktop.
+user's OpenSSH configuration. Changes to the native status-bar renderer or
+declarative widget protocol still require rebuilding Machinen Desktop.

@@ -26,8 +26,8 @@ cd apps/machinen-desktop
 swift run MachinenDesktop
 ```
 
-In another terminal, run the TypeScript services that publish Desktop's status
-widgets:
+A source build does not contain Node.js or the compiled TypeScript services. In
+another terminal, run the status services while using `swift run`:
 
 ```sh
 pnpm -F @machinen/desktop-services dev
@@ -39,6 +39,11 @@ To build a transferable application bundle:
 ./build-app.sh release
 open Machinen.app
 ```
+
+`build-app.sh` compiles the status services and includes them with a Node.js
+runtime in `Machinen.app`. The app starts the services after its local API is
+ready, restarts them after unexpected exits with bounded backoff, and stops them
+when the app quits. The bundled app does not need a separate `pnpm dev` process.
 
 Run the automated interaction check with:
 
