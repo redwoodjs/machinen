@@ -97,9 +97,12 @@ Creating a workspace asks for its identity before choosing its default location:
 1. **Name the workspace.** Names are trimmed, case-insensitively unique, and
    remain editable later. The dialog keeps validation errors in place so the
    user can correct the name without restarting the flow.
-2. **Choose a default location.** The user can reuse a location already known to
-   Machinen, browse for a local folder, or choose **SSH host…**. The dialog makes
-   clear that locations may be shared by several workspaces.
+2. **Choose a default location.** First choose **Local** or **SSH**. The next
+   keyboard-first picker lists paths already used by other workspaces. Typing
+   fuzzy-filters that list; arrows and Return choose a result; Tab completes the
+   selected path. Typing a new path offers local or remote filesystem directory
+   completions. A Finder browser remains available as a local fallback. The
+   dialog makes clear that locations may be shared by several workspaces.
 3. Machinen creates the workspace, creates its initial login-shell terminal,
    and enters it.
 

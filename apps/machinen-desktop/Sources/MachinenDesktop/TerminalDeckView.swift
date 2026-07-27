@@ -77,6 +77,7 @@ final class TerminalDeckView: NSView {
     private var commandPalette: CommandPaletteView?
     private var paletteKind: PaletteKind?
     private var locationValidationProcess: Process?
+    private let remotePathCompleter = RemoteWorkspacePathCompleter()
     private var presentedOverlay: NSView?
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
@@ -1521,6 +1522,7 @@ final class TerminalDeckView: NSView {
     private func dismissCommandPalette() {
         locationValidationProcess?.terminate()
         locationValidationProcess = nil
+        remotePathCompleter.cancel()
         commandPalette?.removeFromSuperview()
         commandPalette = nil
         paletteKind = nil
@@ -1646,66 +1648,45 @@ final class TerminalDeckView: NSView {
 
     private func showNewWorkspaceLocationPalette(name: String) {
         dismissCommandPalette()
-        let home = WorkspaceLocation.local(FileManager.default.homeDirectoryForCurrentUser.path)
-        var commands = [
-            PaletteCommand(
-                id: .useWorkspaceLocation,
-                title: "Home folder",
-                shortcut: home.displayName,
-                location: home
-            ),
-            PaletteCommand(
-                id: .chooseLocalWorkspaceLocation,
-                title: "Browse for local folder…",
-                shortcut: "local"
-            ),
-            PaletteCommand(
-                id: .chooseRemoteWorkspaceLocation,
-                title: "SSH host and remote folder…",
-                shortcut: "alias:path"
-            ),
-        ]
-        var seenLocations = Set([canonicalLocationKey(home)])
-        for workspace in workspaces.reversed() {
-            let location = workspace.location
-            guard seenLocations.insert(canonicalLocationKey(location)).inserted else { continue }
-            commands.append(PaletteCommand(
-                id: .useWorkspaceLocation,
-                title: "Same location as \(workspace.name)",
-                shortcut: location.displayName,
-                location: location
-            ))
-        }
-        commands.append(PaletteCommand(
-            id: .back,
-            title: "Back to workspace name…",
-            shortcut: name
-        ))
-
+        let localCount = workspaces.count { $0.location.kind == .local }
+        let remoteCount = workspaces.count { $0.location.kind == .ssh }
         let palette = CommandPaletteView(
             frame: bounds,
             heading: "NEW WORKSPACE · 2 OF 2",
             context: name,
-            placeholder: "Choose its default location…",
-            defaultFooter: "Locations may be shared · return choose · esc cancel",
-            commands: commands
+            placeholder: "Local or SSH?",
+            defaultFooter: "Choose a location type · esc cancel",
+            commands: [
+                PaletteCommand(
+                    id: .chooseLocalWorkspaceLocation,
+                    title: "Local folder…",
+                    shortcut: "\(localCount) used"
+                ),
+                PaletteCommand(
+                    id: .chooseRemoteWorkspaceLocation,
+                    title: "SSH folder…",
+                    shortcut: "\(remoteCount) used"
+                ),
+                PaletteCommand(
+                    id: .back,
+                    title: "Back to workspace name…",
+                    shortcut: name
+                ),
+            ]
         )
         palette.layer?.zPosition = 1_000
         palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
         palette.onRun = { [weak self, weak palette] command in
             guard let self else { return }
             switch command.id {
-            case .useWorkspaceLocation:
-                guard let location = command.location else { return }
-                self.continueNewWorkspaceFlow(name: name, with: location, from: palette)
             case .chooseLocalWorkspaceLocation:
-                self.chooseLocalLocationForNewWorkspace(name: name)
+                self.showNewLocalWorkspacePathPalette(name: name)
             case .chooseRemoteWorkspaceLocation:
                 self.showNewRemoteWorkspaceLocationPalette(name: name)
             case .back:
                 self.showNewWorkspaceNamePalette(initialName: name)
             default:
-                palette?.showStatus("That location is not available")
+                palette?.showStatus("Choose Local or SSH")
             }
         }
         commandPalette = palette
@@ -1714,7 +1695,98 @@ final class TerminalDeckView: NSView {
         window?.makeFirstResponder(palette)
     }
 
-    private func chooseLocalLocationForNewWorkspace(name: String) {
+    private func showNewLocalWorkspacePathPalette(name: String) {
+        dismissCommandPalette()
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "NEW WORKSPACE · LOCAL FOLDER",
+            context: name,
+            placeholder: "Type a path or fuzzy-search used folders…",
+            defaultFooter: "↑↓ choose · tab complete · return use · esc cancel",
+            commands: localWorkspacePathCommands(query: "", name: name),
+            acceptsFreeform: true
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
+        palette.onQueryChange = { [weak self, weak palette] query in
+            guard let self, let palette else { return }
+            palette.replaceCommands(self.localWorkspacePathCommands(query: query, name: name))
+        }
+        palette.onRun = { [weak self, weak palette] command in
+            guard let self else { return }
+            switch command.id {
+            case .useWorkspaceLocation:
+                guard let location = command.location else { return }
+                self.continueNewWorkspaceFlow(name: name, with: location, from: palette)
+            case .browseLocalWorkspaceLocation:
+                self.browseLocalLocationForNewWorkspace(name: name)
+            case .back:
+                self.showNewWorkspaceLocationPalette(name: name)
+            default:
+                palette?.showStatus("Choose or type a local folder")
+            }
+        }
+        palette.onSubmit = { [weak self, weak palette] value in
+            guard let self else { return }
+            let path = WorkspacePathSuggestions.expandedLocalPath(value)
+            self.continueNewWorkspaceFlow(name: name, with: .local(path), from: palette)
+        }
+        commandPalette = palette
+        paletteKind = .newWorkspaceLocation
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
+    private func localWorkspacePathCommands(query: String, name: String) -> [PaletteCommand] {
+        let prefersTilde = query.isEmpty || query.hasPrefix("~") || !query.hasPrefix("/")
+        var result: [PaletteCommand] = []
+        var seen = Set<String>()
+        let home = WorkspaceLocation.local(FileManager.default.homeDirectoryForCurrentUser.path)
+        for location in [home] + workspaces.map(\.location).filter({ $0.kind == .local }) {
+            let key = canonicalLocationKey(location)
+            guard seen.insert(key).inserted else { continue }
+            let users = workspaces.filter { canonicalLocationKey($0.location) == key }.map(\.name)
+            let displayPath = WorkspacePathSuggestions.displayLocalPath(
+                location.path,
+                prefersTilde: prefersTilde
+            )
+            result.append(PaletteCommand(
+                id: .useWorkspaceLocation,
+                title: displayPath,
+                shortcut: users.isEmpty ? "home" : "used by \(users.joined(separator: ", "))",
+                location: location,
+                completion: displayPath
+            ))
+        }
+        for path in WorkspacePathSuggestions.localDirectories(matching: query) {
+            let location = WorkspaceLocation.local(path)
+            guard seen.insert(canonicalLocationKey(location)).inserted else { continue }
+            let displayPath = WorkspacePathSuggestions.displayLocalPath(
+                path,
+                prefersTilde: prefersTilde
+            )
+            result.append(PaletteCommand(
+                id: .useWorkspaceLocation,
+                title: displayPath,
+                shortcut: "folder",
+                location: location,
+                completion: displayPath
+            ))
+        }
+        result.append(PaletteCommand(
+            id: .browseLocalWorkspaceLocation,
+            title: "Browse with Finder…",
+            shortcut: "dialog"
+        ))
+        result.append(PaletteCommand(
+            id: .back,
+            title: "Back to Local or SSH…",
+            shortcut: name
+        ))
+        return result
+    }
+
+    private func browseLocalLocationForNewWorkspace(name: String) {
         dismissCommandPalette()
         guard let window else { return }
         let panel = NSOpenPanel()
@@ -1729,7 +1801,7 @@ final class TerminalDeckView: NSView {
             Task { @MainActor in
                 guard let self else { return }
                 guard response == .OK, let path = panel.url?.path else {
-                    self.showNewWorkspaceLocationPalette(name: name)
+                    self.showNewLocalWorkspacePathPalette(name: name)
                     return
                 }
                 self.continueNewWorkspaceFlow(name: name, with: .local(path))
@@ -1753,7 +1825,13 @@ final class TerminalDeckView: NSView {
                 title: "Back to locations…",
                 shortcut: name
             )] + hosts.map {
-                PaletteCommand(id: .useSSHHost, title: $0, shortcut: "SSH", sshHost: $0)
+                PaletteCommand(
+                    id: .useSSHHost,
+                    title: $0,
+                    shortcut: "SSH",
+                    sshHost: $0,
+                    completion: $0
+                )
             },
             acceptsFreeform: true
         )
@@ -1786,48 +1864,135 @@ final class TerminalDeckView: NSView {
             frame: bounds,
             heading: "NEW WORKSPACE · SSH FOLDER",
             context: "\(name) · \(host)",
-            placeholder: "~/gh/project or /srv/project",
-            defaultFooter: "Enter an existing remote folder; Machinen will verify it over SSH",
-            commands: [PaletteCommand(
-                id: .back,
-                title: "Back to SSH host…",
-                shortcut: host
-            )],
+            placeholder: "Type a path or fuzzy-search used folders…",
+            defaultFooter: "↑↓ choose · tab complete · return verify · esc cancel",
+            commands: remoteWorkspacePathCommands(
+                host: host,
+                suggestions: [],
+                name: name
+            ),
             acceptsFreeform: true
         )
         palette.layer?.zPosition = 1_000
         palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
-        palette.onRun = { [weak self] command in
-            if command.id == .back {
-                self?.showNewRemoteWorkspaceLocationPalette(name: name)
+        palette.onQueryChange = { [weak self, weak palette] query in
+            guard let self, let palette else { return }
+            self.updateRemotePathSuggestions(
+                host: host,
+                query: query,
+                name: name,
+                palette: palette
+            )
+        }
+        palette.onRun = { [weak self, weak palette] command in
+            guard let self else { return }
+            switch command.id {
+            case .useWorkspaceLocation:
+                guard let path = command.location?.path, let palette else { return }
+                self.chooseRemoteWorkspacePath(name: name, host: host, path: path, palette: palette)
+            case .back:
+                self.showNewRemoteWorkspaceLocationPalette(name: name)
+            default:
+                palette?.showStatus("Choose or type a remote folder")
             }
         }
         palette.onSubmit = { [weak self, weak palette] path in
-            guard let self, let palette,
-                  let location = WorkspaceLocation.parseSSHReference("\(host):\(path)")
-            else {
-                palette?.showStatus("Use ~/path or an absolute /path")
-                return
-            }
-            palette.showStatus("Checking \(location.displayName)…")
-            self.validateRemoteWorkspaceLocation(location) { [weak self, weak palette] result in
-                guard let self, let palette, self.commandPalette === palette else { return }
-                switch result {
-                case let .success(canonicalPath):
-                    self.continueNewWorkspaceFlow(
-                        name: name,
-                        with: .ssh(host: host, path: canonicalPath),
-                        from: palette
-                    )
-                case let .failure(error):
-                    palette.showStatus(error.message)
-                }
-            }
+            guard let self, let palette else { return }
+            self.chooseRemoteWorkspacePath(name: name, host: host, path: path, palette: palette)
         }
         commandPalette = palette
         paletteKind = .remoteWorkspaceLocation
         addSubview(palette, positioned: .above, relativeTo: nil)
         window?.makeFirstResponder(palette)
+    }
+
+    private func chooseRemoteWorkspacePath(
+        name: String,
+        host: String,
+        path: String,
+        palette: CommandPaletteView
+    ) {
+        guard let location = WorkspaceLocation.parseSSHReference("\(host):\(path)") else {
+            palette.showStatus("Use ~/path or an absolute /path")
+            return
+        }
+        palette.showStatus("Checking \(location.displayName)…")
+        validateRemoteWorkspaceLocation(location) { [weak self, weak palette] result in
+            guard let self, let palette, self.commandPalette === palette else { return }
+            switch result {
+            case let .success(canonicalPath):
+                self.continueNewWorkspaceFlow(
+                    name: name,
+                    with: .ssh(host: host, path: canonicalPath),
+                    from: palette
+                )
+            case let .failure(error):
+                palette.showStatus(error.message)
+            }
+        }
+    }
+
+    private func remoteWorkspacePathCommands(
+        host: String,
+        suggestions: [String],
+        name: String
+    ) -> [PaletteCommand] {
+        var result: [PaletteCommand] = []
+        var seen = Set<String>()
+        for location in workspaces.map(\.location).filter({
+            $0.kind == .ssh && $0.sshHost?.caseInsensitiveCompare(host) == .orderedSame
+        }) {
+            let key = canonicalLocationKey(location)
+            guard seen.insert(key).inserted else { continue }
+            let users = workspaces.filter { canonicalLocationKey($0.location) == key }.map(\.name)
+            result.append(PaletteCommand(
+                id: .useWorkspaceLocation,
+                title: location.path,
+                shortcut: "used by \(users.joined(separator: ", "))",
+                location: location,
+                completion: location.path
+            ))
+        }
+        for path in suggestions {
+            let location = WorkspaceLocation.ssh(host: host, path: path)
+            guard seen.insert(canonicalLocationKey(location)).inserted else { continue }
+            result.append(PaletteCommand(
+                id: .useWorkspaceLocation,
+                title: path,
+                shortcut: "SSH folder",
+                location: location,
+                completion: path
+            ))
+        }
+        result.append(PaletteCommand(
+            id: .back,
+            title: "Back to SSH host…",
+            shortcut: name
+        ))
+        return result
+    }
+
+    private func updateRemotePathSuggestions(
+        host: String,
+        query: String,
+        name: String,
+        palette: CommandPaletteView
+    ) {
+        palette.replaceCommands(remoteWorkspacePathCommands(
+            host: host,
+            suggestions: [],
+            name: name
+        ))
+        remotePathCompleter.complete(host: host, query: query) { [weak self, weak palette] paths in
+            guard let self, let palette, self.commandPalette === palette,
+                  palette.currentQuery == query
+            else { return }
+            palette.replaceCommands(self.remoteWorkspacePathCommands(
+                host: host,
+                suggestions: paths,
+                name: name
+            ))
+        }
     }
 
     private func validSSHHost(_ value: String) -> String? {

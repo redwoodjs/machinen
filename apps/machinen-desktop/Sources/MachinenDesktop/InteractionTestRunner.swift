@@ -11,6 +11,7 @@ enum InteractionTestRunner {
             try commandArrowsMoveThroughTheHierarchy()
             try focusedCycleShortcutsSeparateTerminalsAndWorkspaces()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
+            try commandPaletteFuzzySearchesAndCompletes()
             try terminalOutputAndRuntimeLabelsReportActivity()
             try statusWidgetsInheritBySpatialScope()
             try graphicalStatusWidgetsRender()
@@ -26,7 +27,7 @@ enum InteractionTestRunner {
             try clickedTileFocusesItsOwnTerminal()
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try closingTerminalCanBeUndoneBeforeCleanup()
-            print("Machinen interaction tests passed (19 scenarios)")
+            print("Machinen interaction tests passed (20 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -64,8 +65,12 @@ enum InteractionTestRunner {
         let namePalette = try harness.commandPalette(in: deck)
         try harness.type("beta", into: namePalette)
         try harness.pressReturn(on: namePalette)
+        let locationTypePalette = try harness.commandPalette(in: deck)
+        try harness.type("local", into: locationTypePalette)
+        try harness.pressReturn(on: locationTypePalette)
         let locationPalette = try harness.commandPalette(in: deck)
         try harness.type("alpha", into: locationPalette)
+        try harness.pressTab(on: locationPalette)
         try harness.pressReturn(on: locationPalette)
         snapshot = try harness.snapshot(of: deck)
         try expect(snapshot.workspaces.count == 2, "a shared location did not create a distinct workspace")
@@ -1077,6 +1082,52 @@ enum InteractionTestRunner {
         try expect(try harness.snapshot(of: deck).tiles.count == 1, "terminate now restored a closed tile")
     }
 
+    private static func commandPaletteFuzzySearchesAndCompletes() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let path = "~/gh/redwoodjs/machinen"
+        let palette = CommandPaletteView(
+            frame: NSRect(x: 0, y: 0, width: 900, height: 640),
+            heading: "TEST",
+            context: "fuzzy paths",
+            commands: [
+                PaletteCommand(
+                    id: .useWorkspaceLocation,
+                    title: path,
+                    shortcut: "used by desktop",
+                    completion: path
+                ),
+                PaletteCommand(
+                    id: .back,
+                    title: "Other folder",
+                    shortcut: "unused"
+                ),
+            ],
+            acceptsFreeform: true
+        )
+        try harness.type("rwm", into: palette)
+        try expect(palette.currentQuery == "rwm", "the fuzzy path query was not retained")
+        try harness.pressTab(on: palette)
+        try expect(
+            palette.currentQuery == path,
+            "Tab did not complete the highest-ranked fuzzy path"
+        )
+
+        let project = try harness.makeDirectory(named: "redwood-project")
+        let localSuggestions = WorkspacePathSuggestions.localDirectories(
+            matching: "\(harness.temporaryDirectoryPath)/rwp"
+        )
+        try expect(
+            localSuggestions == [project.path],
+            "local path completion did not fuzzy-match a filesystem directory"
+        )
+        let remoteRequest = WorkspacePathSuggestions.remoteCompletionRequest("~/gh/red")
+        try expect(
+            remoteRequest?.parent == "~/gh" && remoteRequest?.prefix == "red",
+            "remote path completion split the parent and prefix incorrectly"
+        )
+    }
+
     private static func workspacePaletteCreatesRenamesAndClosesWithKeyboard() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
@@ -1098,8 +1149,11 @@ enum InteractionTestRunner {
         try harness.type("alpha", into: returnedName)
         try harness.pressReturn(on: returnedName)
         newWorkspaceLocation = try harness.commandPalette(in: deck)
-        try harness.type("home", into: newWorkspaceLocation)
+        try harness.type("local", into: newWorkspaceLocation)
         try harness.pressReturn(on: newWorkspaceLocation)
+        let localPathPalette = try harness.commandPalette(in: deck)
+        try harness.type("home", into: localPathPalette)
+        try harness.pressReturn(on: localPathPalette)
         try expect(
             try harness.snapshot(of: deck).workspaces.map(\.name) == ["alpha"],
             "New workspace did not accept its name and selected location"
@@ -1299,6 +1353,10 @@ private final class Harness {
 
     func pressReturn(on view: NSView) throws {
         view.keyDown(with: try keyEvent(characters: "\r", keyCode: 36))
+    }
+
+    func pressTab(on view: NSView) throws {
+        view.keyDown(with: try keyEvent(characters: "\t", keyCode: 48))
     }
 
     func pressEscape(on view: NSView) throws {
