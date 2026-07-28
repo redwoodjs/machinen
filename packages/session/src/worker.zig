@@ -771,10 +771,7 @@ fn collectTelemetry(master_fd: c_int, child_pid: c.pid_t) Telemetry {
             result.shell_name[0..result.shell_name_length],
         );
     }
-    result.activity = if (foreground_pid == child_pid and isShellName(result.shellName()))
-        .idle
-    else
-        .working;
+    result.activity = if (isShellName(result.commandName())) .idle else .working;
     return result;
 }
 
@@ -1477,6 +1474,13 @@ test "worker reports idle shell and foreground command telemetry" {
     try std.testing.expectEqual(Activity.idle, idle.activity);
     try std.testing.expectEqual(idle.shell_pid, idle.process_pid);
     try std.testing.expectEqualStrings("sh", idle.shellName());
+
+    try sendInput(allocator, id, protocol_version, 0, "sh\n");
+    try std.testing.expectEqual(@as(c_int, 0), c.usleep(200_000));
+    const nested_shell = try queryTelemetry(allocator, id, protocol_version, 0);
+    try std.testing.expectEqual(Activity.idle, nested_shell.activity);
+    try std.testing.expect(nested_shell.process_pid != nested_shell.shell_pid);
+    try std.testing.expect(isShellName(nested_shell.commandName()));
 
     try sendInput(allocator, id, protocol_version, 0, "sleep 2\n");
     try std.testing.expectEqual(@as(c_int, 0), c.usleep(200_000));

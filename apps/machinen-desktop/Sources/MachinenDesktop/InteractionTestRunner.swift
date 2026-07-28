@@ -9,6 +9,7 @@ enum InteractionTestRunner {
         do {
             try commandNAlwaysAsksWhatAndWhere()
             try commandArrowsMoveThroughTheHierarchy()
+            try commandPlusAndMinusMagnifyTheCurrentLevel()
             try focusedCycleShortcutsSeparateTerminalsAndWorkspaces()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
             try commandPaletteFuzzySearchesAndCompletes()
@@ -27,7 +28,7 @@ enum InteractionTestRunner {
             try clickedTileFocusesItsOwnTerminal()
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try closingTerminalCanBeUndoneBeforeCleanup()
-            print("Machinen interaction tests passed (20 scenarios)")
+            print("Machinen interaction tests passed (21 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -98,6 +99,64 @@ enum InteractionTestRunner {
         try expect(try harness.uiLevel(of: deck) == "workspace", "⌘↑ did not leave the terminal")
         deck.zoomOutOneLevel()
         try expect(try harness.uiLevel(of: deck) == "overview", "⌘↑ did not leave the workspace")
+    }
+
+    private static func commandPlusAndMinusMagnifyTheCurrentLevel() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 2)])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        deck.layoutSubtreeIfNeeded()
+
+        guard let camera = deck.subviews.first else {
+            throw InteractionTestFailure("the deck did not install its camera scene")
+        }
+        let initialLevel = try harness.uiLevel(of: deck)
+        let initialWidth = camera.bounds.width
+
+        deck.magnifyCamera()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+        try expect(
+            try harness.uiLevel(of: deck) == initialLevel,
+            "⌘+ changed the workspace hierarchy level"
+        )
+        try expect(camera.bounds.width < initialWidth, "⌘+ did not magnify the camera")
+        let zoomInIncrement = initialWidth / camera.bounds.width - 1
+
+        deck.resetCameraMagnification()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+        try expect(
+            abs(camera.bounds.width - initialWidth) < 0.5,
+            "⌘0 did not reset the camera magnification"
+        )
+
+        deck.demagnifyCamera()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+        try expect(
+            try harness.uiLevel(of: deck) == initialLevel,
+            "⌘− changed the workspace hierarchy level"
+        )
+        try expect(camera.bounds.width > initialWidth, "⌘− did not demagnify the camera")
+        let zoomOutIncrement = 1 - initialWidth / camera.bounds.width
+        try expect(
+            abs(zoomInIncrement - zoomOutIncrement) < 0.001,
+            "⌘+ and ⌘− changed magnification by different amounts"
+        )
+
+        deck.resetCameraMagnification()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+        try expect(
+            try harness.uiLevel(of: deck) == initialLevel
+                && abs(camera.bounds.width - initialWidth) < 0.5,
+            "⌘0 changed hierarchy level or did not restore actual size"
+        )
     }
 
     private static func focusedCycleShortcutsSeparateTerminalsAndWorkspaces() throws {
@@ -242,6 +301,46 @@ enum InteractionTestRunner {
         detector.recordOutput()
         try expect(observedActivity == .working, "live viewer output did not mark the terminal as working")
 
+        let nestedShellDetector = TerminalActivityDetector(session: session) { completion in
+            completion(TerminalTelemetry(
+                activity: .working,
+                shellPid: 42,
+                processPid: 84,
+                shellName: "zsh",
+                command: "bash"
+            ))
+        }
+        var nestedShellActivity: TerminalSession.ActivityState?
+        nestedShellDetector.onActivityChange = { nestedShellActivity = $0 }
+        nestedShellDetector.start()
+        defer { nestedShellDetector.stop() }
+        try expect(
+            nestedShellActivity == .idle,
+            "an idle nested shell was incorrectly reported as active"
+        )
+        nestedShellDetector.recordOutput()
+        try expect(
+            nestedShellActivity == .idle,
+            "renderer redraws incorrectly marked an idle nested shell active"
+        )
+
+        let sshDetector = TerminalActivityDetector(session: session) { completion in
+            completion(TerminalTelemetry(
+                activity: .working,
+                shellPid: 42,
+                processPid: 84,
+                shellName: "zsh",
+                command: "ssh"
+            ))
+        }
+        var sshActivity: TerminalSession.ActivityState?
+        sshDetector.onActivityChange = { sshActivity = $0 }
+        sshDetector.start()
+        defer { sshDetector.stop() }
+        try expect(sshActivity == .idle, "an interactive SSH prompt was reported as active")
+        sshDetector.recordOutput()
+        try expect(sshActivity == .working, "SSH output did not report transient activity")
+
         let legacyDetector = TerminalActivityDetector(session: session) { completion in
             completion(TerminalTelemetry(
                 activity: .unknown,
@@ -285,6 +384,25 @@ enum InteractionTestRunner {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        deck.layoutSubtreeIfNeeded()
+        func descendants<T: NSView>(of view: NSView, as type: T.Type) -> [T] {
+            view.subviews.flatMap { subview in
+                (subview as? T).map { [$0] } ?? descendants(of: subview, as: type)
+            }
+        }
+        guard let terminalTile = descendants(of: deck, as: TerminalTileView.self).first else {
+            throw InteractionTestFailure("the status test could not find its terminal")
+        }
+        terminalTile.updateProcessInfo(TerminalProcessInfo(shellPID: 4201, processPID: 4242))
+        terminalTile.updateActivity(to: .working)
         _ = try deck.performAPIOperation("status.set", params: [
             "id": "git.modified",
             "kind": "count",
@@ -303,6 +421,27 @@ enum InteractionTestRunner {
         try expect(
             effective.first(where: { $0.id == "git.modified" })?.value == "3",
             "the workspace widget did not override the global widget"
+        )
+        let activity = effective.first(where: { $0.id == "machinen.activity" })
+        try expect(
+            activity?.scope == .init(kind: "terminal", id: terminalTile.session.id)
+                && activity?.states == ["working"],
+            "Terminal mode did not show the focused terminal's activity"
+        )
+        try expect(
+            activity?.tooltip == "PID 4242 · click to copy",
+            "the activity indicator did not expose its terminal PID"
+        )
+        guard let statusBar = descendants(of: deck, as: MachinenStatusBarView.self).first,
+              let activityWidget = statusBar.widgets.first(where: { $0.id == "machinen.activity" })
+        else {
+            throw InteractionTestFailure("the terminal activity indicator was not rendered")
+        }
+        NSPasteboard.general.clearContents()
+        try expect(
+            deck.copyPIDIfNeeded(from: activityWidget)
+                && NSPasteboard.general.string(forType: .string) == "4242",
+            "clicking the activity indicator did not copy its PID"
         )
         _ = try deck.performAPIOperation("status.set", params: [
             "id": "network.graph",
@@ -473,26 +612,25 @@ enum InteractionTestRunner {
         let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
         let projectDirectory = try harness.makeDirectory(named: "project")
 
-        do {
-            _ = try deck.performAPIOperation("workspace.update", params: [
-                "workspaceId": "ws_alpha",
-                "workingDirectory": projectDirectory.path,
-            ])
-            throw InteractionTestFailure("a workspace location changed while it had terminals")
-        } catch let error as MachinenAPIError {
-            try expect(error.code == "workspace_not_empty", "location change returned the wrong error")
-        }
+        _ = try deck.performAPIOperation("workspace.update", params: [
+            "workspaceId": "ws_alpha",
+            "workingDirectory": projectDirectory.path,
+        ])
         var snapshot = try harness.snapshot(of: deck)
         try expect(
-            snapshot.workspaces.first?.workingDirectory == harness.temporaryDirectoryPath,
-            "a rejected location change modified the workspace"
+            snapshot.workspaces.first?.workingDirectory == projectDirectory.path,
+            "a workspace with terminals did not accept its new location"
+        )
+        try expect(
+            snapshot.terminals.first?.workingDirectory == harness.temporaryDirectoryPath,
+            "changing a workspace location moved an existing terminal"
         )
         let sharedWorkspace = try deck.performAPIOperation("workspace.create", params: [
             "name": "beta",
-            "workingDirectory": harness.temporaryDirectoryPath,
+            "workingDirectory": projectDirectory.path,
         ]) as? [String: Any]
         try expect(
-            sharedWorkspace?["workingDirectory"] as? String == harness.temporaryDirectoryPath,
+            sharedWorkspace?["workingDirectory"] as? String == projectDirectory.path,
             "a second workspace could not reuse an existing location"
         )
         do {
@@ -1044,7 +1182,7 @@ enum InteractionTestRunner {
     private static func closingTerminalCanBeUndoneBeforeCleanup() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
-        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 2)])
+        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 4)])
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
             styleMask: [.borderless],
@@ -1060,12 +1198,31 @@ enum InteractionTestRunner {
         deck.handleCommandW()
 
         var snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.tiles.count == 1, "closing a terminal did not remove its tile immediately")
+        try expect(snapshot.tiles.count == 3, "closing a terminal did not remove its tile immediately")
         try expect(deck.canReopenClosedTerminal, "closing a terminal did not create an undo buffer")
+        try expect(
+            harness.undoToast(in: deck) != nil,
+            "closing a terminal did not show a temporary undo toast"
+        )
+
+        deck.toggleCommandPalette()
+        let commandPalette = try harness.commandPalette(in: deck)
+        try harness.type("closed", into: commandPalette)
+        try harness.pressReturn(on: commandPalette)
+        var undoManager = try harness.undoManager(in: deck)
+        try expect(
+            undoManager.workspaceName == "alpha" && undoManager.items.count == 1,
+            "the ⌘K terminal option did not show the workspace's recently closed terminal"
+        )
+        try harness.pressEscape(on: undoManager)
+        let returnedCommands = try harness.commandPalette(in: deck)
+        try harness.type("closed", into: returnedCommands)
+        try harness.pressReturn(on: returnedCommands)
+        undoManager = try harness.undoManager(in: deck)
 
         let restoredDeck = harness.makeDeck(state: harness.loadStoredState())
         try expect(
-            try harness.snapshot(of: restoredDeck).tiles.count == 1,
+            try harness.snapshot(of: restoredDeck).tiles.count == 3,
             "relaunch restored a pending terminal to the visible deck"
         )
         try expect(
@@ -1078,16 +1235,41 @@ enum InteractionTestRunner {
             "relaunch undo did not restore the same terminal tile"
         )
 
-        deck.reopenLastClosedTerminal()
+        try harness.pressReturn(on: undoManager)
         snapshot = try harness.snapshot(of: deck)
-        try expect(Set(snapshot.tiles.map(\.id)) == originalIDs, "undo did not restore the same terminal tile")
-        try expect(!deck.canReopenClosedTerminal, "undo left the terminal pending deletion")
+        try expect(Set(snapshot.tiles.map(\.id)) == originalIDs, "restore did not return the same terminal tile")
+        try expect(!deck.canReopenClosedTerminal, "restore left the terminal pending deletion")
+        try expect(
+            !harness.undoManagerIsVisible(in: deck),
+            "restore did not dismiss the undo manager"
+        )
 
         deck.handleCommandW()
-        try expect(deck.canReopenClosedTerminal, "a second close did not recreate the undo buffer")
-        deck.terminateLastClosedTerminalNow()
-        try expect(!deck.canReopenClosedTerminal, "terminate now left the terminal undoable")
-        try expect(try harness.snapshot(of: deck).tiles.count == 1, "terminate now restored a closed tile")
+        try expect(deck.canRestoreUndoToast, "the toast did not enable its restore shortcut")
+        deck.restoreUndoToastTerminal()
+        try expect(
+            Set(try harness.snapshot(of: deck).tiles.map(\.id)) == originalIDs,
+            "the toast's ⌘Z shortcut did not restore its terminal"
+        )
+
+        deck.handleCommandW()
+        deck.handleCommandW()
+        try expect(!deck.canReopenClosedTerminal, "the toast's ⌘W shortcut did not kill its terminal")
+        try expect(try harness.snapshot(of: deck).tiles.count == 3, "the kill shortcut restored a tile")
+
+        deck.handleCommandW()
+        deck.toggleUndoManager()
+        deck.toggleUndoManager()
+        deck.handleCommandW()
+        try expect(deck.canReopenClosedTerminal, "later closes did not recreate the undo buffer")
+        deck.toggleUndoManager()
+        undoManager = try harness.undoManager(in: deck)
+        try expect(undoManager.items.count == 2, "the undo manager did not list multiple closed terminals")
+        try harness.pressDelete(on: undoManager)
+        try expect(undoManager.items.count == 1, "kill removed the wrong number of undo entries")
+        try harness.pressReturn(on: undoManager)
+        try expect(!deck.canReopenClosedTerminal, "kill and restore left a terminal undoable")
+        try expect(try harness.snapshot(of: deck).tiles.count == 2, "kill restored a closed tile")
     }
 
     private static func commandPaletteFuzzySearchesAndCompletes() throws {
@@ -1211,16 +1393,21 @@ enum InteractionTestRunner {
         let locationCommandPalette = try harness.commandPalette(in: deck)
         try harness.type("location", into: locationCommandPalette)
         try harness.pressReturn(on: locationCommandPalette)
+        let locationTypePalette = try harness.commandPalette(in: deck)
         try expect(
-            try harness.commandPalette(in: deck) === locationCommandPalette,
-            "a workspace with terminals entered the location-changing flow"
+            locationTypePalette !== locationCommandPalette,
+            "a workspace with terminals did not enter the location-changing flow"
         )
-        try harness.pressEscape(on: locationCommandPalette)
+        try harness.pressEscape(on: locationTypePalette)
 
-        deck.toggleCommandPalette()
-        try harness.pressDown(on: harness.commandPalette(in: deck))
-        try harness.pressDown(on: harness.commandPalette(in: deck))
-        try harness.pressDown(on: harness.commandPalette(in: deck))
+        try harness.type("close workspace", into: harness.commandPalette(in: deck))
+        try harness.pressReturn(on: harness.commandPalette(in: deck))
+        try harness.pressEscape(on: harness.confirmation(in: deck))
+        try expect(
+            harness.hasCommandPalette(in: deck),
+            "Escape from a ⌘K confirmation did not return to workspace commands"
+        )
+        try harness.type("close workspace", into: harness.commandPalette(in: deck))
         try harness.pressReturn(on: harness.commandPalette(in: deck))
         try harness.pressReturn(on: harness.confirmation(in: deck))
         let snapshot = try harness.snapshot(of: deck)
@@ -1370,6 +1557,21 @@ private final class Harness {
         deck.subviews.contains { $0 is CommandPaletteView }
     }
 
+    func undoManager(in deck: TerminalDeckView) throws -> TerminalUndoManagerView {
+        guard let manager = deck.subviews.compactMap({ $0 as? TerminalUndoManagerView }).last else {
+            throw InteractionTestFailure("the undo manager did not open")
+        }
+        return manager
+    }
+
+    func undoToast(in deck: TerminalDeckView) -> UndoTerminalCloseView? {
+        deck.subviews.compactMap { $0 as? UndoTerminalCloseView }.last
+    }
+
+    func undoManagerIsVisible(in deck: TerminalDeckView) -> Bool {
+        deck.subviews.contains { $0 is TerminalUndoManagerView }
+    }
+
     func confirmation(in deck: TerminalDeckView) throws -> ActionConfirmationView {
         guard let confirmation = deck.subviews.compactMap({ $0 as? ActionConfirmationView }).last else {
             throw InteractionTestFailure("the close confirmation did not open")
@@ -1403,6 +1605,10 @@ private final class Harness {
 
     func pressEscape(on view: NSView) throws {
         view.keyDown(with: try keyEvent(characters: "\u{1b}", keyCode: 53))
+    }
+
+    func pressDelete(on view: NSView) throws {
+        view.keyDown(with: try keyEvent(characters: "\u{7f}", keyCode: 51))
     }
 
     func commandArrow(keyCode: UInt16) throws -> NSEvent {
@@ -1461,6 +1667,7 @@ private struct StatusWidgetSnapshot: Decodable {
     let id: String
     let scope: Scope
     let value: String
+    let tooltip: String?
     let graphStyle: String?
     let samples: [Double]?
     let states: [String]?

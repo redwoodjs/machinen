@@ -137,7 +137,7 @@ gif0* 1280 <Link#2> 0 0 50 0 0 60 0
     );
   });
 
-  it("publishes focused PID, CPU, and network widgets", async () => {
+  it("publishes focused CPU and network widgets", async () => {
     const snapshot = workspaceSnapshot();
     const state = new DesktopState();
     state.load(snapshot);
@@ -155,11 +155,9 @@ gif0* 1280 <Link#2> 0 0 50 0 0 60 0
 
     service.start(snapshot);
 
-    await vi.waitFor(() => expect(set.mock.calls.length).toBeGreaterThanOrEqual(4));
+    await vi.waitFor(() => expect(set.mock.calls.length).toBeGreaterThanOrEqual(2));
     service.stop();
-    expect(set.mock.calls.slice(0, 4).map(([widget]) => widget.id)).toEqual([
-      "machinen.pid",
-      "machinen.pid",
+    expect(set.mock.calls.slice(0, 2).map(([widget]) => widget.id)).toEqual([
       "machinen.pid.cpu",
       "machinen.pid.network",
     ]);

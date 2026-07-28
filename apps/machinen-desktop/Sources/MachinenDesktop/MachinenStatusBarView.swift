@@ -287,8 +287,8 @@ final class MachinenStatusBarView: NSView {
         let titleWidth = drawText(
             title,
             at: baseline.origin,
-            color: NSColor(calibratedWhite: 0.72, alpha: 1),
-            weight: .semibold
+            color: NSColor(calibratedWhite: 0.78, alpha: 1),
+            font: .systemFont(ofSize: 11, weight: .semibold)
         )
         titleFrame = NSRect(x: baseline.minX, y: 8, width: titleWidth, height: 24)
         var leftX = baseline.minX + titleWidth + Metrics.sectionGap
@@ -742,7 +742,7 @@ final class MachinenStatusBarView: NSView {
             text,
             at: NSPoint(x: rect.midX - ceil(size.width) / 2, y: rect.midY - 7),
             color: color,
-            weight: weight
+            font: font
         )
     }
 
@@ -751,10 +751,10 @@ final class MachinenStatusBarView: NSView {
         _ text: String,
         at point: NSPoint,
         color: NSColor,
-        weight: NSFont.Weight
+        font: NSFont
     ) -> CGFloat {
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 10, weight: weight),
+            .font: font,
             .foregroundColor: color,
         ]
         let size = (text as NSString).size(withAttributes: attributes)

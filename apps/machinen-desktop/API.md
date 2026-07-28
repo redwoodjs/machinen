@@ -187,10 +187,9 @@ results also expose `machineId`: `local` for the Mac running Desktop, or
 New terminals inherit the workspace location unless an API caller explicitly
 supplies a launch subdirectory. Remote terminals install and run the native
 session worker on the SSH host; Desktop's Ghostty viewer attaches through SSH.
-Git and service probes use that same SSH connection model. A workspace location
-can change only while the workspace has no terminal definitions. Otherwise
-`workspace.update` fails with `workspace_not_empty`; Machinen never silently
-rewrites the location of a running process.
+Git and service probes use that same SSH connection model. `workspace.update`
+can change the default location at any time. Existing terminals retain their
+own execution locations and are neither moved nor restarted.
 
 `workspace.delete` fails with `workspace_running` until all of its terminals are
 stopped or exited. It then removes the workspace and its stopped tiles without
@@ -281,15 +280,15 @@ snapshots during its grace period, `tile.reopened` restores the same ID, and
 - `status.set { ...widget }`
 - `status.remove { id, scope? }`
 
-There is one persistent status bar. Its activity monitor is always scoped to the
-selected workspace and summarizes all of that workspace's tiles, including while
-a terminal is focused. At the workspace level the bar also shows aggregate tile
+There is one persistent status bar. At workspace level its activity monitor
+summarizes all of that workspace's tiles, and the bar also shows aggregate tile
 CPU/network and branch-wide Git changes. The Git item graphs per-file additions
 and deletions with compact line totals at rest; its hover detail contains the
 branch, commits since the default-branch merge base, changed files, and exact
-added/deleted lines. At the focused-tile level it shows the copyable tile PID,
-per-PID CPU/network (including local child processes), workspace branch changes,
-and the same workspace activity monitor. Open ports are workspace-scoped and
+added/deleted lines. At the focused-tile level the activity indicator follows that terminal;
+hovering shows its foreground PID and clicking copies the PID. The bar also
+shows per-PID CPU/network (including local child processes) and workspace branch
+changes. Open ports are workspace-scoped and
 include listeners whose process working directory is the workspace folder or
 one of its descendants. They list each listener on its own hover line and open
 through the default macOS URL handler when selected. Workspace-scoped items belong to
@@ -433,7 +432,6 @@ unsupported_protocol
 unknown_operation
 workspace_not_found
 workspace_name_conflict
-workspace_not_empty
 workspace_running
 tile_not_found
 terminal_not_found

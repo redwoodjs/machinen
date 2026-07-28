@@ -7,8 +7,10 @@ final class UndoTerminalCloseView: NSView {
     var deadline = Date() {
         didSet { needsDisplay = true }
     }
-    var onUndo: (() -> Void)?
-    var onTerminateNow: (() -> Void)?
+    var onRestore: (() -> Void)?
+    var onKill: (() -> Void)?
+
+    private var countdownTimer: Timer?
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { false }
@@ -20,7 +22,32 @@ final class UndoTerminalCloseView: NSView {
         layer?.masksToBounds = true
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
-        setAccessibilityLabel("Terminal closed. Undo or terminate now.")
+        setAccessibilityLabel("Terminal closed. Restore with Command-Z or kill with Command-W.")
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        countdownTimer?.invalidate()
+        countdownTimer = nil
+        guard window != nil else { return }
+        let timer = Timer(
+            timeInterval: 1,
+            target: self,
+            selector: #selector(refreshCountdown(_:)),
+            userInfo: nil,
+            repeats: true
+        )
+        countdownTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    @objc private func refreshCountdown(_ timer: Timer) {
+        guard window != nil else {
+            timer.invalidate()
+            countdownTimer = nil
+            return
+        }
+        needsDisplay = true
     }
 
     @available(*, unavailable)
@@ -38,36 +65,40 @@ final class UndoTerminalCloseView: NSView {
 
         drawText(
             "Closed \(terminalName)",
-            in: NSRect(x: 16, y: 12, width: max(1, bounds.width - 300), height: 18),
+            in: NSRect(x: 14, y: 10, width: max(1, bounds.width - 246), height: 17),
             color: NSColor(calibratedWhite: 0.92, alpha: 1),
             weight: .semibold
         )
-        let minutes = max(1, Int(ceil(deadline.timeIntervalSinceNow / 60)))
         drawText(
-            "The same process remains available for undo for about \(minutes) min.",
-            in: NSRect(x: 16, y: 34, width: max(1, bounds.width - 300), height: 16),
-            color: NSColor(calibratedWhite: 0.58, alpha: 1),
+            "\(countdown()) left to restore",
+            in: NSRect(x: 14, y: 29, width: max(1, bounds.width - 246), height: 15),
+            color: NSColor(calibratedWhite: 0.56, alpha: 1),
             weight: .regular
         )
-        drawButton(terminateRect(), title: "Terminate now", emphasized: false)
-        drawButton(undoRect(), title: "Undo  ⇧⌘T", emphasized: true)
+        drawButton(killRect(), title: "Kill ⌘W", emphasized: false)
+        drawButton(restoreRect(), title: "Restore ⌘Z", emphasized: true)
     }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        if undoRect().contains(point) {
-            onUndo?()
-        } else if terminateRect().contains(point) {
-            onTerminateNow?()
+        if restoreRect().contains(point) {
+            onRestore?()
+        } else if killRect().contains(point) {
+            onKill?()
         }
     }
 
-    private func undoRect() -> NSRect {
-        NSRect(x: bounds.maxX - 140, y: 14, width: 124, height: 34)
+    private func countdown() -> String {
+        let seconds = max(0, Int(ceil(deadline.timeIntervalSinceNow)))
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
-    private func terminateRect() -> NSRect {
-        NSRect(x: bounds.maxX - 274, y: 14, width: 122, height: 34)
+    private func restoreRect() -> NSRect {
+        NSRect(x: bounds.maxX - 122, y: 11, width: 110, height: 32)
+    }
+
+    private func killRect() -> NSRect {
+        NSRect(x: bounds.maxX - 220, y: 11, width: 86, height: 32)
     }
 
     private func drawButton(_ rect: NSRect, title: String, emphasized: Bool) {
@@ -79,7 +110,7 @@ final class UndoTerminalCloseView: NSView {
         path.stroke()
         drawText(
             title,
-            in: NSRect(x: rect.minX + 6, y: rect.minY + 9, width: rect.width - 12, height: 16),
+            in: NSRect(x: rect.minX + 5, y: rect.minY + 9, width: rect.width - 10, height: 15),
             color: emphasized ? NSColor(calibratedWhite: 0.08, alpha: 1) : NSColor(calibratedWhite: 0.82, alpha: 1),
             weight: .medium,
             alignment: .center
@@ -99,10 +130,10 @@ final class UndoTerminalCloseView: NSView {
         NSAttributedString(
             string: text,
             attributes: [
-                .font: NSFont.monospacedSystemFont(ofSize: 11, weight: weight),
+                .font: NSFont.monospacedSystemFont(ofSize: 10, weight: weight),
                 .foregroundColor: color,
                 .paragraphStyle: paragraph,
             ]
-        ).draw(with: rect, options: [.usesLineFragmentOrigin])
+        ).draw(in: rect)
     }
 }

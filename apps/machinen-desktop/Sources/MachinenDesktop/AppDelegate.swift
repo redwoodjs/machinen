@@ -1,7 +1,7 @@
 import AppKit
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var window: NSWindow?
     private weak var deck: TerminalDeckView?
     private var controller: MachinenController?
@@ -49,8 +49,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.backgroundColor = NSColor(calibratedWhite: 0.055, alpha: 1)
         window.minSize = NSSize(width: 620, height: 500)
         window.contentView = deck
+        window.delegate = self
         window.center()
         window.makeKeyAndOrderFront(nil)
+        centerWindowButtons(in: window)
         window.makeFirstResponder(deck)
         deck.focusCurrentContent()
         window.tabbingMode = .disallowed
@@ -83,6 +85,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         apiServer?.stop()
         desktopServicesSupervisor?.stop()
         deck?.prepareForTermination()
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        centerWindowButtons(in: window)
+    }
+
+    func windowDidEnterFullScreen(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        centerWindowButtons(in: window)
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        centerWindowButtons(in: window)
+    }
+
+    private func centerWindowButtons(in window: NSWindow) {
+        guard let contentView = window.contentView else { return }
+        let statusBarCenter = NSPoint(x: 0, y: MachinenStatusBarView.preferredHeight / 2)
+        for type: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
+            guard let button = window.standardWindowButton(type),
+                  let titlebarView = button.superview
+            else { continue }
+            let centerY = titlebarView.convert(statusBarCenter, from: contentView).y
+            var frame = button.frame
+            frame.origin.y = round(centerY - frame.height / 2)
+            button.frame = frame
+        }
     }
 
     private func installMainMenu() {
@@ -125,7 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let zoomInItem = NSMenuItem(
             title: "Zoom In",
             action: #selector(zoomIn),
-            keyEquivalent: String(Character(UnicodeScalar(NSDownArrowFunctionKey)!))
+            keyEquivalent: "+"
         )
         zoomInItem.keyEquivalentModifierMask = [.command]
         zoomInItem.target = self
@@ -134,11 +165,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let zoomOutItem = NSMenuItem(
             title: "Zoom Out",
             action: #selector(zoomOut),
-            keyEquivalent: String(Character(UnicodeScalar(NSUpArrowFunctionKey)!))
+            keyEquivalent: "-"
         )
         zoomOutItem.keyEquivalentModifierMask = [.command]
         zoomOutItem.target = self
         appMenu.addItem(zoomOutItem)
+
+        let actualSizeItem = NSMenuItem(
+            title: "Actual Size",
+            action: #selector(resetZoom),
+            keyEquivalent: "0"
+        )
+        actualSizeItem.keyEquivalentModifierMask = [.command]
+        actualSizeItem.target = self
+        appMenu.addItem(actualSizeItem)
+
+        // Preserve the camera-navigation aliases without crowding the menu.
+        let zoomInArrowItem = NSMenuItem(
+            title: "Zoom In One Level",
+            action: #selector(zoomInWithArrow),
+            keyEquivalent: String(Character(UnicodeScalar(NSDownArrowFunctionKey)!))
+        )
+        zoomInArrowItem.keyEquivalentModifierMask = [.command]
+        zoomInArrowItem.target = self
+        zoomInArrowItem.isHidden = true
+        zoomInArrowItem.allowsKeyEquivalentWhenHidden = true
+        appMenu.addItem(zoomInArrowItem)
+
+        let zoomOutArrowItem = NSMenuItem(
+            title: "Zoom Out One Level",
+            action: #selector(zoomOutWithArrow),
+            keyEquivalent: String(Character(UnicodeScalar(NSUpArrowFunctionKey)!))
+        )
+        zoomOutArrowItem.keyEquivalentModifierMask = [.command]
+        zoomOutArrowItem.target = self
+        zoomOutArrowItem.isHidden = true
+        zoomOutArrowItem.allowsKeyEquivalentWhenHidden = true
+        appMenu.addItem(zoomOutArrowItem)
 
         let closeItem = NSMenuItem(
             title: "Close Terminal or Workspace",
@@ -148,6 +211,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         closeItem.keyEquivalentModifierMask = [.command]
         closeItem.target = self
         appMenu.addItem(closeItem)
+
+        let restoreToastItem = NSMenuItem(
+            title: "Restore Recently Closed Terminal",
+            action: #selector(restoreUndoToastTerminal),
+            keyEquivalent: "z"
+        )
+        restoreToastItem.keyEquivalentModifierMask = [.command]
+        restoreToastItem.target = self
+        appMenu.addItem(restoreToastItem)
 
         let reopenItem = NSMenuItem(
             title: "Reopen Closed Terminal",
@@ -211,6 +283,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(restoreUndoToastTerminal) {
+            return deck?.canRestoreUndoToast == true
+        }
         if menuItem.action == #selector(reopenClosedTerminal)
             || menuItem.action == #selector(terminateRecentlyClosedTerminal)
         {
@@ -223,8 +298,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard window?.firstResponder is MachinenTerminalView else { return true }
         switch menuItem.action {
         case #selector(toggleNewTerminal),
-             #selector(zoomIn),
-             #selector(zoomOut):
+             #selector(zoomInWithArrow),
+             #selector(zoomOutWithArrow):
             return false
         default:
             return true
@@ -244,15 +319,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func zoomIn() {
-        deck?.zoomInOneLevel()
+        deck?.magnifyCamera()
     }
 
     @objc private func zoomOut() {
+        deck?.demagnifyCamera()
+    }
+
+    @objc private func resetZoom() {
+        deck?.resetCameraMagnification()
+    }
+
+    @objc private func zoomInWithArrow() {
+        deck?.zoomInOneLevel()
+    }
+
+    @objc private func zoomOutWithArrow() {
         deck?.zoomOutOneLevel()
     }
 
     @objc private func handleCommandW() {
         deck?.handleCommandW()
+    }
+
+    @objc private func restoreUndoToastTerminal() {
+        deck?.restoreUndoToastTerminal()
     }
 
     @objc private func reopenClosedTerminal() {

@@ -23,6 +23,7 @@ struct PaletteCommand {
         case stopWorkspace
         case closeSession
         case closeWorkspace
+        case manageClosedTerminals
         case showDiagnostics
         case createShell
         case runCommand

@@ -12,6 +12,10 @@ final class TerminalActivityDetector {
     private enum Metrics {
         static let pollInterval: TimeInterval = 1
         static let recentActivityWindow: TimeInterval = 1.5
+        static let shellNames: Set<String> = [
+            "sh", "bash", "zsh", "fish", "dash", "ksh", "tcsh", "csh", "nu",
+        ]
+        static let interactiveTransportNames: Set<String> = ["ssh"]
     }
 
     private let session: TerminalSession
@@ -73,6 +77,17 @@ final class TerminalActivityDetector {
 
     func recordOutput() {
         lastObservedActivityAt = Date().timeIntervalSince1970
+        if let command = lastCommand,
+           Metrics.shellNames.contains(command),
+           let process = lastProcessInfo,
+           process.processPID != process.shellPID
+        {
+            // A nested interactive shell can redraw its prompt or a TUI while
+            // it waits for input. Its authoritative foreground identity is
+            // idle; renderer bytes alone must not leave it permanently active.
+            report(.idle)
+            return
+        }
         report(.working)
     }
 
@@ -104,7 +119,16 @@ final class TerminalActivityDetector {
             updateProcessInfo(nil)
             return
         }
-        report(telemetry.activity)
+        let activity = if telemetry.activity == .working,
+                          let command = telemetry.command,
+                          Metrics.shellNames.contains(command)
+                            || Metrics.interactiveTransportNames.contains(command)
+        {
+            TerminalSession.ActivityState.idle
+        } else {
+            telemetry.activity
+        }
+        report(activity)
         if let command = telemetry.command, !command.isEmpty, command != lastCommand {
             lastCommand = command
             onCommandChange?(command)
