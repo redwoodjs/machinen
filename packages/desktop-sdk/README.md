@@ -23,6 +23,12 @@ desktop.onEvent((event) => {
   console.log(event.event, event.data);
 });
 
+await desktop.selectionOpeners.set({
+  id: "example.open-markdown",
+  title: "Glow",
+  ttlMilliseconds: 30_000,
+});
+
 await desktop.status.set({
   id: "example.ready",
   kind: "state",
@@ -38,6 +44,6 @@ The default socket is `/tmp/machinen-<uid>/api-v1.sock`.
 open Machinen when needed unless `launchApplication` is `false` or
 `MACHINEN_DESKTOP_NO_LAUNCH=1`.
 
-The SDK contains transport, protocol, workspace, terminal, UI, event, and status
-widget types. Agent loops, model providers, workflows, prompts, and memory belong
+The SDK contains transport, protocol, workspace, terminal, UI, event, context
+action, and status widget types. Agent loops, model providers, workflows, prompts, and memory belong
 in higher-level systems such as Eve or Flue.

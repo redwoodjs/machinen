@@ -130,6 +130,27 @@ describe("MachinenDesktopClient", () => {
     client.close();
   });
 
+  it("registers selection openers through the typed helper", async () => {
+    const client = createClient();
+    await client.selectionOpeners.set({
+      id: "example.markdown",
+      title: "Open Markdown",
+      selectionPattern: "\\.md$",
+      locationKinds: ["local"],
+      ttlMilliseconds: 30_000,
+    });
+
+    expect(operations).toEqual(["system.hello", "events.subscribe", "selectionOpener.set"]);
+    expect(lastRequest?.params).toEqual({
+      id: "example.markdown",
+      title: "Open Markdown",
+      selectionPattern: "\\.md$",
+      locationKinds: ["local"],
+      ttlMilliseconds: 30_000,
+    });
+    client.close();
+  });
+
   it("delivers subscribed events and buffers PTY output", async () => {
     const client = createClient();
     const listener = vi.fn();

@@ -15,6 +15,7 @@ enum InteractionTestRunner {
             try commandPaletteFuzzySearchesAndCompletes()
             try terminalOutputAndRuntimeLabelsReportActivity()
             try statusWidgetsInheritBySpatialScope()
+            try selectionOpenersRegisterMatchAndExpire()
             try graphicalStatusWidgetsRender()
             try desktopServicesRestartUntilTheAppStops()
             try workspaceNamesRemainUniqueAndLocationsCanBeShared()
@@ -470,6 +471,91 @@ enum InteractionTestRunner {
             effective.first(where: { $0.id == "git.modified" })?.value == "1",
             "removing the workspace widget did not restore the global widget"
         )
+    }
+
+    private static func selectionOpenersRegisterMatchAndExpire() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        deck.layoutSubtreeIfNeeded()
+        _ = try deck.performAPIOperation("selectionOpener.set", params: [
+            "id": "test.markdown",
+            "title": "Open Markdown",
+            "subtitle": "Glow",
+            "selectionPattern": "\\.(?:md|markdown)$",
+            "locationKinds": ["local"],
+            "priority": 100,
+        ])
+        let result = try deck.performAPIOperation("selectionOpener.list", params: [:])
+        let openers = (result as? JSONObject)?["openers"] as? [JSONObject]
+        try expect(
+            openers?.first?["id"] as? String == "test.markdown",
+            "the selection opener was not listed"
+        )
+        try expect(
+            MachinenSelectionOpener(
+                id: "test.markdown",
+                title: "Open Markdown",
+                subtitle: nil,
+                selectionPattern: "\\.(?:md|markdown)$",
+                locationKinds: [.local],
+                priority: 100,
+                expiresAt: nil
+            ).matches(selection: "docs/guide.md", location: .local("/project")),
+            "the selection opener did not match a Markdown selection"
+        )
+        try expect(
+            !MachinenSelectionOpener(
+                id: "test.local",
+                title: "Local only",
+                subtitle: nil,
+                selectionPattern: nil,
+                locationKinds: [.local],
+                priority: 100,
+                expiresAt: nil
+            ).matches(selection: "docs/guide.md", location: .ssh(host: "mini", path: "/project")),
+            "a local-only selection opener matched an SSH workspace"
+        )
+        do {
+            _ = try deck.performAPIOperation("selectionOpener.set", params: [
+                "id": "test.invalid",
+                "title": "Invalid",
+                "selectionPattern": "[",
+            ])
+            throw InteractionTestFailure("an invalid selection opener pattern was accepted")
+        } catch let error as MachinenAPIError {
+            try expect(error.code == "invalid_params", "an invalid pattern returned the wrong API error")
+        }
+        func terminalTile(in view: NSView) -> TerminalTileView? {
+            if let tile = view as? TerminalTileView { return tile }
+            return view.subviews.lazy.compactMap(terminalTile).first
+        }
+        guard let tile = terminalTile(in: deck), let terminal = tile.terminalResponder else {
+            throw InteractionTestFailure("the selection opener test did not create a terminal")
+        }
+        let menu = deck.terminalContextMenu(
+            for: terminal,
+            tile: tile,
+            selection: "docs/guide.md"
+        )
+        let openItem = menu.items.first { $0.title == "Open Selection With" }
+        try expect(
+            openItem?.submenu?.items.first?.title == "Open Markdown",
+            "the terminal context menu did not include the registered opener"
+        )
+
+        _ = try deck.performAPIOperation("selectionOpener.remove", params: ["id": "test.markdown"])
+        let empty = try deck.performAPIOperation("selectionOpener.list", params: [:])
+        let remaining = (empty as? JSONObject)?["openers"] as? [JSONObject]
+        try expect(remaining?.isEmpty == true, "the removed selection opener remained registered")
     }
 
     private static func graphicalStatusWidgetsRender() throws {
@@ -1094,6 +1180,17 @@ enum InteractionTestRunner {
             try harness.focusedTileID(of: deck) == target.session.tileID,
             "clicking a terminal focused a different terminal"
         )
+        let commandK = try harness.keyEvent(
+            characters: "k",
+            keyCode: 40,
+            modifierFlags: [.command]
+        )
+        try expect(
+            focusedTerminal.performKeyEquivalent(with: commandK),
+            "a focused terminal did not route command-k to the command palette"
+        )
+        _ = try harness.commandPalette(in: deck)
+        deck.toggleCommandPalette()
 
         deck.zoomOutOneLevel()
         try expect(try harness.uiLevel(of: deck) == "workspace", "focus mode did not return to select mode")

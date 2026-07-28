@@ -331,6 +331,53 @@ but graphical widgets do not render them at rest. A TTL removes stale live data
 automatically. `status.list` returns both published widgets and the currently
 effective widgets after spatial-scope inheritance.
 
+## Selection openers
+
+- `selectionOpener.list {}`
+- `selectionOpener.set { id, title, subtitle?, selectionPattern?, locationKinds?, priority?, ttlMilliseconds? }`
+- `selectionOpener.remove { id }`
+
+Selection openers let trusted TypeScript services define destinations in the
+terminal's **Open Selection With** submenu. Right-clicking selected text shows
+that submenu, and `⌘O` opens the same destinations from the keyboard. An optional
+case-insensitive `selectionPattern` filters cheap native-menu matches;
+`locationKinds` can contain `local`, `ssh`, or both. Exact parsing and validation
+remain in TypeScript. Higher priorities appear first.
+`selectionOpener.list` returns `{ openers: [...] }`.
+
+Registrations are declarative metadata, not executable code. A service subscribes
+to `selectionOpener.invoked`, finds its opener by `openerId`, and performs work
+through the rest of the API. `ttlMilliseconds` lets openers disappear if their
+service exits; a long-running service should refresh its registrations before
+they expire.
+
+```ts
+await desktop.selectionOpeners.set({
+  id: "example.open-markdown",
+  title: "Glow",
+  ttlMilliseconds: 30_000,
+});
+```
+
+An invocation contains the exact selected text and enough execution context to
+create work in the same workspace and location:
+
+```json
+{
+  "event": "selectionOpener.invoked",
+  "data": {
+    "invocationId": "inv_123",
+    "openerId": "example.open-markdown",
+    "selection": "docs/guide.md",
+    "workspaceId": "ws_123",
+    "tileId": "tile_123",
+    "terminalId": "term_123",
+    "workingDirectory": "/project",
+    "location": { "kind": "ssh", "host": "mini", "path": "/project" }
+  }
+}
+```
+
 ## UI
 
 - `ui.get {}`
@@ -404,6 +451,8 @@ terminal.commandChanged
 terminal.updated
 terminal.output
 status.changed
+selectionOpener.changed
+selectionOpener.invoked
 ui.changed
 ```
 
@@ -439,6 +488,7 @@ terminal_running
 terminal_detached
 terminal_input_failed
 terminal_relocation_unsupported
+context_action_not_found
 invalid_state
 conflict
 internal_error

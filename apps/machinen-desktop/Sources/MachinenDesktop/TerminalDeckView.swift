@@ -26,6 +26,22 @@ final class TerminalDeckView: NSView {
         let deadline: Date
     }
 
+    private struct TerminalSelectionContext {
+        let text: String
+        let tile: TerminalTileView
+        let anchor: NSPoint
+    }
+
+    private final class SelectionOpenerMenuPayload: NSObject {
+        let openerID: String
+        let selection: TerminalSelectionContext
+
+        init(openerID: String, selection: TerminalSelectionContext) {
+            self.openerID = openerID
+            self.selection = selection
+        }
+    }
+
     private enum PaletteKind {
         case commands
         case newTerminal
@@ -104,6 +120,7 @@ final class TerminalDeckView: NSView {
     private var cameraAnimationTimer: Timer?
     private var cameraMagnification: CGFloat = 1
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
+    private var selectionOpeners: [String: MachinenSelectionOpener] = [:]
     private var spatialDrag: SpatialDrag?
     private var dragGhost: NSImageView?
     private weak var dragTargetTile: TerminalTileView?
@@ -341,6 +358,10 @@ final class TerminalDeckView: NSView {
             guard self.shouldPublishTerminalOutput?(eventData) ?? false else { return }
             eventData["dataBase64"] = data.base64EncodedString()
             self.emitAPIEvent("terminal.output", data: eventData)
+        }
+        terminalView.onContextMenuRequested = { [weak self, weak tile] terminal, selection in
+            guard let self, let tile else { return nil }
+            return self.terminalContextMenu(for: terminal, tile: tile, selection: selection)
         }
         tile.installTerminalView(terminalView)
     }
@@ -1416,12 +1437,13 @@ final class TerminalDeckView: NSView {
     }
 
     func toggleCommandPalette() {
+        InputRoutingLog.log("command palette requested kind=\(String(describing: paletteKind))")
         guard presentedOverlay == nil else { return }
         if undoManagerView != nil { dismissUndoManager() }
         if commandPalette != nil {
-            let wasCommands = paletteKind == .commands
+            let wasTopLevel = paletteKind == .commands
             dismissCommandPalette()
-            if wasCommands { return }
+            if wasTopLevel { return }
         }
         guard !isTransitioning, !isPeeking else { return }
 
@@ -1440,6 +1462,156 @@ final class TerminalDeckView: NSView {
         paletteKind = .commands
         addSubview(palette, positioned: .above, relativeTo: nil)
         window?.makeFirstResponder(palette)
+    }
+
+    private func terminalSelectionContext() -> TerminalSelectionContext? {
+        guard focusedIndex != nil, let tile = selectedSessionTile(),
+              let terminal = tile.terminalResponder
+        else {
+            InputRoutingLog.log("selection openers skipped: no focused terminal")
+            return nil
+        }
+        return terminalSelectionContext(tile: tile, terminal: terminal)
+    }
+
+    private func terminalSelectionContext(
+        tile: TerminalTileView,
+        terminal: MachinenTerminalView,
+        text: String? = nil
+    ) -> TerminalSelectionContext? {
+        guard let text = text ?? terminal.selectedText() else {
+            InputRoutingLog.log("selection openers skipped: terminal has no selection")
+            return nil
+        }
+        InputRoutingLog.log("selection openers selection bytes=\(text.utf8.count)")
+        return TerminalSelectionContext(
+            text: text,
+            tile: tile,
+            anchor: terminal.contextMenuAnchor(in: terminal)
+        )
+    }
+
+    private func activeSelectionOpeners() -> [MachinenSelectionOpener] {
+        let now = Date().timeIntervalSince1970
+        selectionOpeners = selectionOpeners.filter { $0.value.expiresAt.map { $0 > now } ?? true }
+        return selectionOpeners.values.sorted {
+            $0.priority == $1.priority
+                ? $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+                : $0.priority > $1.priority
+        }
+    }
+
+    private func matchingSelectionOpeners(
+        selection: String,
+        location: WorkspaceLocation
+    ) -> [MachinenSelectionOpener] {
+        activeSelectionOpeners().filter { $0.matches(selection: selection, location: location) }
+    }
+
+    func terminalContextMenu(
+        for terminal: MachinenTerminalView,
+        tile: TerminalTileView,
+        selection: String?
+    ) -> NSMenu {
+        let menu = NSMenu(title: "Terminal")
+        let openItem = NSMenuItem(title: "Open Selection With", action: nil, keyEquivalent: "")
+        if let selectionContext = terminalSelectionContext(
+            tile: tile,
+            terminal: terminal,
+            text: selection
+        ) {
+            let submenu = selectionOpenerMenu(for: selectionContext)
+            openItem.submenu = submenu
+            openItem.isEnabled = !submenu.items.isEmpty
+        } else {
+            openItem.isEnabled = false
+        }
+        menu.addItem(openItem)
+        menu.addItem(.separator())
+
+        let copyItem = NSMenuItem(
+            title: "Copy",
+            action: #selector(MachinenTerminalView.copy(_:)),
+            keyEquivalent: ""
+        )
+        copyItem.target = terminal
+        copyItem.isEnabled = selection != nil
+        menu.addItem(copyItem)
+
+        let pasteItem = NSMenuItem(
+            title: "Paste",
+            action: #selector(MachinenTerminalView.paste(_:)),
+            keyEquivalent: ""
+        )
+        pasteItem.target = terminal
+        menu.addItem(pasteItem)
+
+        let selectAllItem = NSMenuItem(
+            title: "Select All",
+            action: #selector(MachinenTerminalView.selectAll(_:)),
+            keyEquivalent: ""
+        )
+        selectAllItem.target = terminal
+        menu.addItem(selectAllItem)
+        return menu
+    }
+
+    func showSelectionOpenersMenu() {
+        guard let selection = terminalSelectionContext(),
+              let terminal = selection.tile.terminalResponder
+        else {
+            NSSound.beep()
+            return
+        }
+        let menu = selectionOpenerMenu(for: selection)
+        guard !menu.items.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        InputRoutingLog.log("selection opener menu requested by shortcut")
+        menu.popUp(positioning: nil, at: selection.anchor, in: terminal)
+    }
+
+    private func selectionOpenerMenu(for selection: TerminalSelectionContext) -> NSMenu {
+        let menu = NSMenu(title: "Open Selection With")
+        for opener in matchingSelectionOpeners(
+            selection: selection.text,
+            location: selection.tile.session.location
+        ) {
+            let item = NSMenuItem(
+                title: opener.title,
+                action: #selector(invokeSelectionOpenerMenuItem(_:)),
+                keyEquivalent: ""
+            )
+            let payload = SelectionOpenerMenuPayload(openerID: opener.id, selection: selection)
+            item.target = self
+            item.representedObject = payload
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    @objc private func invokeSelectionOpenerMenuItem(_ sender: NSMenuItem) {
+        guard let payload = sender.representedObject as? SelectionOpenerMenuPayload else { return }
+        invokeSelectionOpener(payload.openerID, selection: payload.selection)
+    }
+
+    private func invokeSelectionOpener(
+        _ openerID: String,
+        selection: TerminalSelectionContext
+    ) {
+        InputRoutingLog.log("selection opener invoked id=\(openerID)")
+        let session = selection.tile.session
+        emitAPIEvent("selectionOpener.invoked", data: [
+            "invocationId": "inv_" + UUID().uuidString.lowercased(),
+            "openerId": openerID,
+            "selection": selection.text,
+            "workspaceId": session.workspaceID,
+            "tileId": session.tileID,
+            "terminalId": session.id,
+            "workingDirectory": session.workingDirectory,
+            "location": session.location.json,
+        ])
     }
 
     private func showNewItemPalette() {
@@ -3711,6 +3883,12 @@ final class TerminalDeckView: NSView {
             return try apiSetStatusWidget(params)
         case "status.remove":
             return try apiRemoveStatusWidget(params)
+        case "selectionOpener.list":
+            return ["openers": activeSelectionOpeners().map { $0.json() }]
+        case "selectionOpener.set":
+            return try apiSetSelectionOpener(params)
+        case "selectionOpener.remove":
+            return try apiRemoveSelectionOpener(params)
         case "ui.get":
             return uiJSON()
         case "ui.select":
@@ -4329,6 +4507,98 @@ final class TerminalDeckView: NSView {
             throw MachinenAPIError("terminal_not_found", "Terminal \(id) does not exist")
         }
         return (kind, id)
+    }
+
+    private func apiSetSelectionOpener(_ params: JSONObject) throws -> Any {
+        let id = try requiredString("id", in: params)
+        let title = try requiredString("title", in: params)
+        guard id.count <= 128 else {
+            throw MachinenAPIError("invalid_params", "selection opener id must be at most 128 characters")
+        }
+        guard title.count <= 512 else {
+            throw MachinenAPIError("invalid_params", "selection opener title must be at most 512 characters")
+        }
+        let subtitle = params["subtitle"] as? String
+        if let subtitle, subtitle.count > 512 {
+            throw MachinenAPIError("invalid_params", "selection opener subtitle must be at most 512 characters")
+        }
+        let selectionPattern = params["selectionPattern"] as? String
+        if let selectionPattern {
+            guard selectionPattern.count <= 1_024 else {
+                throw MachinenAPIError("invalid_params", "selectionPattern must be at most 1024 characters")
+            }
+            do {
+                _ = try NSRegularExpression(pattern: selectionPattern, options: [.caseInsensitive])
+            } catch {
+                throw MachinenAPIError("invalid_params", "selectionPattern must be a valid regular expression")
+            }
+        }
+        let locationKinds: [WorkspaceLocation.Kind]?
+        if let names = params["locationKinds"] as? [String] {
+            guard !names.isEmpty,
+                  names.count <= 2,
+                  Set(names).count == names.count,
+                  names.allSatisfy({ WorkspaceLocation.Kind(rawValue: $0) != nil })
+            else {
+                throw MachinenAPIError(
+                    "invalid_params",
+                    "locationKinds must contain unique local or ssh values"
+                )
+            }
+            locationKinds = names.compactMap { WorkspaceLocation.Kind(rawValue: $0) }
+        } else {
+            locationKinds = nil
+        }
+        let ttl = (params["ttlMilliseconds"] as? NSNumber)?.doubleValue
+        if let ttl, ttl <= 0 {
+            throw MachinenAPIError("invalid_params", "ttlMilliseconds must be positive")
+        }
+        let opener = MachinenSelectionOpener(
+            id: id,
+            title: title,
+            subtitle: subtitle,
+            selectionPattern: selectionPattern,
+            locationKinds: locationKinds,
+            priority: (params["priority"] as? NSNumber)?.intValue ?? 50,
+            expiresAt: ttl.map { Date().timeIntervalSince1970 + $0 / 1000 }
+        )
+        selectionOpeners[id] = opener
+        if let ttl, let expiresAt = opener.expiresAt {
+            DispatchQueue.main.asyncAfter(deadline: .now() + ttl / 1000) { [weak self] in
+                self?.expireSelectionOpener(id, expiresAt: expiresAt)
+            }
+        }
+        emitAPIEvent("selectionOpener.changed", data: [
+            "action": "set",
+            "selectionOpener": opener.json(),
+        ])
+        return opener.json()
+    }
+
+    private func apiRemoveSelectionOpener(_ params: JSONObject) throws -> Any {
+        let id = try requiredString("id", in: params)
+        guard let removed = selectionOpeners.removeValue(forKey: id) else {
+            throw MachinenAPIError(
+                "selection_opener_not_found",
+                "Selection opener \(id) does not exist"
+            )
+        }
+        emitAPIEvent("selectionOpener.changed", data: [
+            "action": "remove",
+            "selectionOpener": removed.json(),
+        ])
+        return removed.json()
+    }
+
+    private func expireSelectionOpener(_ id: String, expiresAt: TimeInterval) {
+        guard let opener = selectionOpeners[id], opener.expiresAt == expiresAt,
+              expiresAt <= Date().timeIntervalSince1970
+        else { return }
+        selectionOpeners.removeValue(forKey: id)
+        emitAPIEvent("selectionOpener.changed", data: [
+            "action": "expire",
+            "selectionOpener": opener.json(),
+        ])
     }
 
     private func apiSelect(_ params: JSONObject) throws -> Any {

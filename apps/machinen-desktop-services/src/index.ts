@@ -2,6 +2,7 @@ import { MachinenDesktopClient } from "@machinen/desktop-sdk";
 
 import { DesktopState } from "./desktop-state.js";
 import { ActivityStatusService } from "./services/activity-status.js";
+import { SelectionOpenersService } from "./services/selection-openers.js";
 import { GitStatusService } from "./services/git-status.js";
 import { MetricsStatusService } from "./services/metrics-status.js";
 import { OpenPortsService } from "./services/open-ports.js";
@@ -10,12 +11,20 @@ const desktop = new MachinenDesktopClient({
   client: { name: "machinen-desktop-services", version: "0.1.0" },
   launchApplication: false,
   initialSubscription: {
-    events: ["workspace.*", "tile.*", "terminal.*", "ui.changed", "system.shuttingDown"],
+    events: [
+      "workspace.*",
+      "tile.*",
+      "terminal.*",
+      "selectionOpener.*",
+      "ui.changed",
+      "system.shuttingDown",
+    ],
     includeSnapshot: true,
   },
 });
 const state = new DesktopState();
 const activityStatus = new ActivityStatusService(desktop, state);
+const selectionOpenersService = new SelectionOpenersService(desktop);
 const gitStatus = new GitStatusService(desktop, state);
 const openPorts = new OpenPortsService(desktop, state);
 const metricsStatus = new MetricsStatusService(desktop, state);
@@ -25,6 +34,7 @@ desktop.onConnect(({ subscription }) => {
   if (subscription?.snapshot) {
     state.load(subscription.snapshot);
     activityStatus.start(subscription.snapshot);
+    selectionOpenersService.start();
     gitStatus.start(subscription.snapshot);
     openPorts.start(subscription.snapshot);
     metricsStatus.start(subscription.snapshot);
@@ -37,6 +47,7 @@ desktop.onEvent((event) => {
   }
   state.handleEvent(event);
   activityStatus.handleEvent(event);
+  selectionOpenersService.handleEvent(event);
   gitStatus.handleEvent(event);
   openPorts.handleEvent(event);
   metricsStatus.handleEvent(event);
@@ -51,6 +62,7 @@ function shutdown(): void {
   }
   isShuttingDown = true;
   activityStatus.stop();
+  selectionOpenersService.stop();
   gitStatus.stop();
   openPorts.stop();
   metricsStatus.stop();
