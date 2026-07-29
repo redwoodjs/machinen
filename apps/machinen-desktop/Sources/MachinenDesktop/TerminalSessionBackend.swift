@@ -432,7 +432,7 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
                 command: "test -x \"$HOME/.local/bin/machinen-session\" && "
                     + "\"$HOME/.local/bin/machinen-session\" --version"
             )
-            if version.status != 0 || version.output != MachinenNativeSessionBackend.helperVersion {
+            if version.status != 0 || version.output != MachinenBuildVersions.sessionHandler {
                 let helperURL = try MachinenNativeSessionBackend.remoteHelperURL(host: host)
                 guard let data = try? Data(contentsOf: helperURL), !data.isEmpty else {
                     throw TerminalSessionBackendError.helperUnavailable(helperURL.path)
@@ -458,7 +458,6 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
         }
     }
 
-    nonisolated private static let helperVersion = "0.5.4"
     private let viewerPreparer = ViewerPreparer()
 
     func prepareViewer(

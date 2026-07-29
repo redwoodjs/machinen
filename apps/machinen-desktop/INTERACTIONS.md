@@ -244,9 +244,11 @@ works through SSH.
 The macOS **View** menu contains **Show Debug Information**, which presents the
 current workspace or terminal's diagnostics without interrupting its PTY.
 
-The top-right strip is graphical at rest. It occupies its own layout row; the
-scene viewport starts below it, so terminal content never renders underneath
-the status bar. In a **workspace**, its activity
+The top-right strip keeps a built-in `Desktop <version> · Session <version>`
+item at its right edge, using the app bundle version and bundled native session
+handler version. The remaining items are graphical at rest. The strip occupies
+its own layout row; the scene viewport starts below it, so terminal content
+never renders underneath the status bar. In a **workspace**, its activity
 monitor summarizes all terminals with visible active/idle/waiting tile counts,
 and the strip also shows aggregate tile CPU, aggregate tile network transfer,
 and branch-wide Git changes. The Git item shows only the total changed-file count at rest; hovering

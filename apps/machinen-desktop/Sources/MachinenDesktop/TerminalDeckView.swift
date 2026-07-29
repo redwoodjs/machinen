@@ -5719,6 +5719,21 @@ final class TerminalDeckView: NSView {
                 resolved[widget.id] = widget
             }
         }
+        resolved["machinen.versions"] = MachinenStatusWidget(
+            id: "machinen.versions",
+            scopeKind: .global,
+            scopeID: nil,
+            placement: .right,
+            kind: .text,
+            label: nil,
+            value: MachinenBuildVersions.statusText,
+            progress: nil,
+            tone: .neutral,
+            tooltip: "Machinen Desktop \(MachinenBuildVersions.desktop)\n"
+                + "Native session handler \(MachinenBuildVersions.sessionHandler)",
+            priority: 10_000,
+            expiresAt: nil
+        )
         if let workspace {
             let availableCount = availableSessionItems(for: workspace).count { !$0.isAttached }
             if availableCount > 0 {
