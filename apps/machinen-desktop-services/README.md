@@ -20,7 +20,7 @@ The user-editable **Open Selection With** destinations live in
 `SelectionOpener` provides native-menu metadata and a TypeScript `open` function.
 Right-clicking a terminal or pressing `⌘O` opens the full context menu; selecting
 an **Open Selection With** destination invokes the same registry. `⌘K` remains
-the centered workspace command palette.
+the centered, context-aware command palette.
 
 The bundled **Glow** opener extracts Markdown links and bare paths from larger
 selections, validates the file, and creates a Glow terminal. **Yazi** validates a

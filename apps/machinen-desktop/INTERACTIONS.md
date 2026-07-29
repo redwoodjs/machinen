@@ -35,7 +35,7 @@ discovery use the workspace directory as their project boundary.
 | `⌘←` / `⌘→`      | From Terminal mode, focus the previous/next terminal in the current workspace.         |
 | `⌘[` / `⌘]`      | From Terminal mode, focus the first terminal in the previous/next non-empty workspace. |
 | `⌘N`             | Open the New chooser; never create a terminal or workspace immediately.                |
-| `⌘K`             | Open workspace commands, including reconnecting available sessions.                    |
+| `⌘K`             | Open commands for the current space and its containing spaces.                         |
 | `⌘O`             | Show the focused terminal's full context menu.                                         |
 | `⌘W`             | Disconnect a terminal; press again in its toast or panel to kill its session.          |
 | Keyboard input   | In Terminal mode, the terminal receives all other keys and modifier combinations.      |
@@ -61,9 +61,9 @@ discovery use the workspace directory as their project boundary.
   focusing the adjacent terminal. The bracket shortcuts wrap through non-empty
   workspaces: they zoom out to the source workspace, zoom out to the workspace
   overview and select the adjacent workspace, then zoom into its first tile.
-  `⌘K` opens workspace commands without changing camera level. `⌘O` opens the
-  focused terminal's full context menu, including its **Open Selection With**
-  submenu when text is selected.
+  `⌘K` opens context-aware commands without changing camera level. `⌘O` opens
+  the focused terminal's full context menu, including its **Open Selection
+  With** submenu when text is selected.
 
 `⌘+` / `⌘−` changes only camera magnification in equal increments, and `⌘0` resets it to actual size; all preserve the current hierarchy level. `⌘↓` / `⌘↑` moves through the camera hierarchy. Neither changes terminal scrollback.
 The terminal viewport keeps the same intrinsic bounds and Ghostty grid while the
@@ -146,10 +146,19 @@ the latest OSC 7 directory, falling back to the terminal's launch directory. Tru
 `SelectionOpener` implementations perform precise validation and ordinary API
 operations such as creating a terminal or revealing a path in Finder.
 
-`⌘K` and the application menu's **Commands…** contain five built-in workspace
-actions plus matching commands registered by trusted TypeScript services.
-Escape always moves back one level within a command flow; only Escape from this
-top-level menu dismisses it:
+`⌘K` and the application menu's **Commands…** organize commands around the
+three camera spaces: **Workspace Overview**, **Workspace**, and **Terminal**.
+The menu starts with the current space and cascades outward through its
+containing spaces. Workspace Overview therefore shows only overview commands;
+Workspace shows Workspace followed by Workspace Overview; and Terminal shows
+Terminal, Workspace, then Workspace Overview. Section headings keep each
+command's target explicit, and search preserves that section order while
+filtering the commands that are valid in the current context.
+
+The menu contains five built-in actions plus matching commands registered by
+trusted TypeScript services. **New workspace…** belongs to Workspace Overview;
+the remaining built-ins belong to Workspace. Escape always moves back one level
+within a command flow; only Escape from this top-level menu dismisses it:
 
 1. **New workspace…** opens the same location-then-name flow used by `⌘N`,
    creates an initial login-shell terminal, and enters it.

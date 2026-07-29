@@ -650,7 +650,7 @@ enum InteractionTestRunner {
     private static func contextCommandsUseWorkspaceAndOSC7TerminalDirectories() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
-        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
+        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 2)])
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
             styleMask: [.titled],
@@ -699,7 +699,35 @@ enum InteractionTestRunner {
         )
 
         deck.toggleCommandPalette()
+        let overviewPalette = try harness.commandPalette(in: deck)
+        try expect(
+            overviewPalette.displayedContext == "workspace overview"
+                && overviewPalette.displayedSpaces == [.workspaceOverview],
+            "the workspace overview palette exposed commands from a deeper space"
+        )
+        try harness.pressEscape(on: overviewPalette)
+
+        deck.zoomInOneLevel()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        deck.toggleCommandPalette()
+        let workspaceLevelPalette = try harness.commandPalette(in: deck)
+        try expect(
+            workspaceLevelPalette.displayedContext == "workspace · alpha"
+                && workspaceLevelPalette.displayedSpaces == [.workspace, .workspaceOverview],
+            "the workspace palette did not cascade through workspace and overview commands"
+        )
+        try harness.pressEscape(on: workspaceLevelPalette)
+
+        deck.zoomInOneLevel()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        deck.toggleCommandPalette()
         let terminalPalette = try harness.commandPalette(in: deck)
+        try expect(
+            terminalPalette.displayedContext == "terminal · shell 1 · alpha"
+                && terminalPalette.displayedSpaces
+                    == [.terminal, .workspace, .workspaceOverview],
+            "the terminal palette did not cascade through all three command spaces"
+        )
         try harness.type("Run in terminal directory", into: terminalPalette)
         try harness.pressReturn(on: terminalPalette)
         try expect(
@@ -2062,7 +2090,7 @@ enum InteractionTestRunner {
         )
 
         deck.toggleCommandPalette()
-        try harness.pressDown(on: harness.commandPalette(in: deck))
+        try harness.type("Rename workspace", into: harness.commandPalette(in: deck))
         try harness.pressReturn(on: harness.commandPalette(in: deck))
         try harness.type("beta", into: harness.commandPalette(in: deck))
         try harness.pressReturn(on: harness.commandPalette(in: deck))

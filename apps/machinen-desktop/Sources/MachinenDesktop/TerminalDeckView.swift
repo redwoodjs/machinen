@@ -1928,6 +1928,31 @@ final class TerminalDeckView: NSView {
         refreshStatusBar()
     }
 
+    private var currentCommandSpace: PaletteCommand.Space {
+        if focusedIndex != nil { return .terminal }
+        if currentWorkspace != nil { return .workspace }
+        return .workspaceOverview
+    }
+
+    private var activeCommandSpaces: [PaletteCommand.Space] {
+        switch currentCommandSpace {
+        case .workspaceOverview: [.workspaceOverview]
+        case .workspace: [.workspace, .workspaceOverview]
+        case .terminal: [.terminal, .workspace, .workspaceOverview]
+        }
+    }
+
+    private var commandPaletteContext: String {
+        switch currentCommandSpace {
+        case .workspaceOverview:
+            "workspace overview"
+        case .workspace:
+            "workspace · \(selectedWorkspace() ?? "unknown")"
+        case .terminal:
+            "terminal · \(selectedSession()?.name ?? "unknown") · \(selectedWorkspace() ?? "workspace")"
+        }
+    }
+
     func toggleCommandPalette() {
         InputRoutingLog.log("command palette requested kind=\(String(describing: paletteKind))")
         guard presentedOverlay == nil else { return }
@@ -1939,10 +1964,9 @@ final class TerminalDeckView: NSView {
         }
         guard !isTransitioning, !isPeeking else { return }
 
-        let context = selectedWorkspace().map { "workspace: \($0)" } ?? "workspaces"
         let palette = CommandPaletteView(
             frame: bounds,
-            context: context,
+            context: commandPaletteContext,
             commands: workspacePaletteCommands()
         )
         palette.layer?.zPosition = 1_000
@@ -2350,35 +2374,81 @@ final class TerminalDeckView: NSView {
     }
 
     private func workspacePaletteCommands() -> [PaletteCommand] {
-        var commands = [
-            PaletteCommand(id: .newWorkspace, title: "New workspace…", shortcut: ""),
-        ]
-        if let selectedWorkspace = selectedWorkspaceRecord() {
-            let sessionCount = availableSessionItems(for: selectedWorkspace).count
-            commands.append(contentsOf: [
-                PaletteCommand(id: .renameWorkspace, title: "Rename workspace…", shortcut: ""),
-                PaletteCommand(
-                    id: .changeWorkspaceLocation,
-                    title: "Change workspace location…",
-                    shortcut: ""
-                ),
-                PaletteCommand(
-                    id: .reconnectAvailableSession,
-                    title: "Sessions…",
-                    shortcut: "\(sessionCount) \(sessionCount == 1 ? "session" : "sessions")"
-                ),
-                PaletteCommand(id: .closeWorkspace, title: "Close workspace…", shortcut: ""),
-            ])
+        let registeredCommands = activeContextCommands()
+        return activeCommandSpaces.flatMap { space in
+            switch space {
+            case .terminal:
+                registeredCommands.compactMap { command in
+                    registeredPaletteCommand(command, in: .terminal)
+                }
+            case .workspace:
+                workspaceCommands() + registeredCommands.compactMap { command in
+                    registeredPaletteCommand(command, in: .workspace)
+                }
+            case .workspaceOverview:
+                [PaletteCommand(
+                    id: .newWorkspace,
+                    title: "New workspace…",
+                    shortcut: "",
+                    space: .workspaceOverview
+                )]
+            }
         }
-        commands.append(contentsOf: activeContextCommands().compactMap { command in
-            guard contextCommandTarget(for: command) != nil else { return nil }
-            return PaletteCommand(
-                id: .registeredCommand(command.id),
-                title: command.title,
-                shortcut: command.subtitle ?? command.context.rawValue
-            )
-        })
-        return commands
+    }
+
+    private func workspaceCommands() -> [PaletteCommand] {
+        guard let selectedWorkspace = selectedWorkspaceRecord() else { return [] }
+        let sessionCount = availableSessionItems(for: selectedWorkspace).count
+        return [
+            PaletteCommand(
+                id: .renameWorkspace,
+                title: "Rename workspace…",
+                shortcut: "",
+                space: .workspace
+            ),
+            PaletteCommand(
+                id: .changeWorkspaceLocation,
+                title: "Change workspace location…",
+                shortcut: "",
+                space: .workspace
+            ),
+            PaletteCommand(
+                id: .reconnectAvailableSession,
+                title: "Sessions…",
+                shortcut: "\(sessionCount) \(sessionCount == 1 ? "session" : "sessions")",
+                space: .workspace
+            ),
+            PaletteCommand(
+                id: .closeWorkspace,
+                title: "Close workspace…",
+                shortcut: "",
+                space: .workspace
+            ),
+        ]
+    }
+
+    private func registeredPaletteCommand(
+        _ command: MachinenContextCommand,
+        in space: PaletteCommand.Space
+    ) -> PaletteCommand? {
+        let expectedContext: MachinenContextCommand.Context
+        switch space {
+        case .workspace:
+            expectedContext = .workspace
+        case .terminal:
+            expectedContext = .terminal
+        case .workspaceOverview:
+            return nil
+        }
+        guard command.context == expectedContext,
+              contextCommandTarget(for: command) != nil
+        else { return nil }
+        return PaletteCommand(
+            id: .registeredCommand(command.id),
+            title: command.title,
+            shortcut: command.subtitle ?? command.context.rawValue,
+            space: space
+        )
     }
 
     private func runPaletteCommand(_ command: PaletteCommand, from palette: CommandPaletteView?) {

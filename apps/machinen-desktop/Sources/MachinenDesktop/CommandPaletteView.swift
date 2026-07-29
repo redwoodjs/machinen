@@ -1,6 +1,20 @@
 import AppKit
 
 struct PaletteCommand {
+    enum Space: Equatable, Hashable {
+        case workspaceOverview
+        case workspace
+        case terminal
+
+        var title: String {
+            switch self {
+            case .workspaceOverview: "WORKSPACE OVERVIEW"
+            case .workspace: "WORKSPACE"
+            case .terminal: "TERMINAL"
+            }
+        }
+    }
+
     enum ID: Equatable {
         case newWorkspace
         case newTerminalInWorkspace
@@ -34,6 +48,7 @@ struct PaletteCommand {
     let id: ID
     let title: String
     let shortcut: String
+    let space: Space?
     let location: WorkspaceLocation?
     let workspaceID: String?
     let sshHost: String?
@@ -43,6 +58,7 @@ struct PaletteCommand {
         id: ID,
         title: String,
         shortcut: String,
+        space: Space? = nil,
         location: WorkspaceLocation? = nil,
         workspaceID: String? = nil,
         sshHost: String? = nil,
@@ -51,6 +67,7 @@ struct PaletteCommand {
         self.id = id
         self.title = title
         self.shortcut = shortcut
+        self.space = space
         self.location = location
         self.workspaceID = workspaceID
         self.sshHost = sshHost
@@ -64,9 +81,23 @@ final class CommandPaletteView: NSView {
         static let panelHeight: CGFloat = 414
         static let headerHeight: CGFloat = 30
         static let searchHeight: CGFloat = 50
+        static let sectionHeight: CGFloat = 22
         static let rowHeight: CGFloat = 34
         static let footerHeight: CGFloat = 28
         static let panelRadius: CGFloat = 8
+    }
+
+    private enum CommandListRowKind {
+        case section(PaletteCommand.Space)
+        case command(Int)
+    }
+
+    private struct CommandListRow {
+        let kind: CommandListRowKind
+        let minY: CGFloat
+        let height: CGFloat
+
+        var maxY: CGFloat { minY + height }
     }
 
     private let heading: String
@@ -87,6 +118,13 @@ final class CommandPaletteView: NSView {
     var onQueryChange: ((String) -> Void)?
 
     var currentQuery: String { query }
+    var displayedContext: String { context }
+    var displayedSpaces: [PaletteCommand.Space] {
+        filteredCommands.reduce(into: []) { spaces, command in
+            guard let space = command.space, spaces.last != space else { return }
+            spaces.append(space)
+        }
+    }
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -193,15 +231,19 @@ final class CommandPaletteView: NSView {
             return
         }
 
-        let rowsTop = panel.minY + Metrics.headerHeight + Metrics.searchHeight
-        let row = Int(floor((point.y - rowsTop) / Metrics.rowHeight))
-        let filtered = filteredCommands
-        let visible = visibleCommandRange(commandCount: filtered.count, panel: panel)
-        let index = visible.lowerBound + row
-        guard row >= 0, visible.contains(index) else { return }
+        let commands = filteredCommands
+        let list = commandListRect(in: panel)
+        guard list.contains(point) else { return }
+        let rows = commandListRows(for: commands)
+        let offset = commandListOffset(rows: rows, availableHeight: list.height)
+        let listY = point.y - list.minY + offset
+        guard let row = rows.first(where: { listY >= $0.minY && listY < $0.maxY }),
+              case .command(let index) = row.kind,
+              commands.indices.contains(index)
+        else { return }
         selectedIndex = index
         needsDisplay = true
-        onRun?(filtered[index])
+        onRun?(commands[index])
     }
 
     func showStatus(_ message: String) {
@@ -223,13 +265,16 @@ final class CommandPaletteView: NSView {
         let needle = filterQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !needle.isEmpty else { return commands }
         return commands.enumerated()
-            .compactMap { index, command -> (PaletteCommand, Int, Int)? in
-                let searchable = "\(command.title) \(command.shortcut)".lowercased()
+            .compactMap { index, command -> (PaletteCommand, Int, Int, Int)? in
+                let searchable = "\(command.title) \(command.shortcut) \(command.space?.title ?? "")"
+                    .lowercased()
                 guard let score = fuzzyScore(needle: needle, in: searchable) else { return nil }
-                return (command, score, index)
+                let sectionIndex = commands.firstIndex { $0.space == command.space } ?? index
+                return (command, score, index, sectionIndex)
             }
             .sorted { left, right in
-                left.1 == right.1 ? left.2 < right.2 : left.1 > right.1
+                if left.3 != right.3 { return left.3 < right.3 }
+                return left.1 == right.1 ? left.2 < right.2 : left.1 > right.1
             }
             .map(\.0)
     }
@@ -287,58 +332,110 @@ final class CommandPaletteView: NSView {
 
     private func drawCommands(in panel: NSRect) {
         let commands = filteredCommands
-        let rowsTop = panel.minY + Metrics.headerHeight + Metrics.searchHeight
+        let list = commandListRect(in: panel)
         if commands.isEmpty {
             drawText(
                 acceptsFreeform ? "Type a value above, then press Return." : "No matching commands",
-                in: NSRect(x: panel.minX + 14, y: rowsTop + 16, width: panel.width - 28, height: 18),
+                in: NSRect(x: panel.minX + 14, y: list.minY + 16, width: panel.width - 28, height: 18),
                 font: .monospacedSystemFont(ofSize: 12, weight: .regular),
                 color: NSColor(calibratedWhite: 0.48, alpha: 1)
             )
             return
         }
 
-        let visible = visibleCommandRange(commandCount: commands.count, panel: panel)
-        for index in visible {
-            let command = commands[index]
+        let rows = commandListRows(for: commands)
+        let offset = commandListOffset(rows: rows, availableHeight: list.height)
+        for listRow in rows {
             let row = NSRect(
                 x: panel.minX + 7,
-                y: rowsTop + CGFloat(index - visible.lowerBound) * Metrics.rowHeight,
+                y: list.minY + listRow.minY - offset,
                 width: panel.width - 14,
-                height: Metrics.rowHeight
+                height: listRow.height
             )
-            guard row.maxY <= panel.maxY - Metrics.footerHeight else { break }
+            guard row.minY >= list.minY else { continue }
+            guard row.maxY <= list.maxY else { break }
 
-            if index == selectedIndex {
-                NSColor(calibratedWhite: 0.20, alpha: 1).setFill()
-                NSBezierPath(roundedRect: row, xRadius: 4, yRadius: 4).fill()
+            switch listRow.kind {
+            case .section(let space):
+                drawText(
+                    space.title,
+                    in: NSRect(x: row.minX + 9, y: row.minY + 7, width: row.width - 18, height: 12),
+                    font: .monospacedSystemFont(ofSize: 9, weight: .semibold),
+                    color: NSColor(calibratedWhite: 0.48, alpha: 1)
+                )
+            case .command(let index):
+                let command = commands[index]
+                if index == selectedIndex {
+                    NSColor(calibratedWhite: 0.20, alpha: 1).setFill()
+                    NSBezierPath(roundedRect: row, xRadius: 4, yRadius: 4).fill()
+                }
+                drawText(
+                    command.title,
+                    in: NSRect(x: row.minX + 9, y: row.minY + 10, width: row.width - 150, height: 16),
+                    font: .monospacedSystemFont(ofSize: 11, weight: .regular),
+                    color: NSColor(
+                        calibratedWhite: index == selectedIndex ? 0.96 : 0.76,
+                        alpha: 1
+                    )
+                )
+                drawText(
+                    command.shortcut,
+                    in: NSRect(x: row.maxX - 140, y: row.minY + 10, width: 130, height: 16),
+                    font: .monospacedSystemFont(ofSize: 10, weight: .regular),
+                    color: NSColor(calibratedWhite: 0.43, alpha: 1),
+                    alignment: .right
+                )
             }
-            drawText(
-                command.title,
-                in: NSRect(x: row.minX + 9, y: row.minY + 10, width: row.width - 150, height: 16),
-                font: .monospacedSystemFont(ofSize: 11, weight: .regular),
-                color: NSColor(calibratedWhite: index == selectedIndex ? 0.96 : 0.76, alpha: 1)
-            )
-            drawText(
-                command.shortcut,
-                in: NSRect(x: row.maxX - 140, y: row.minY + 10, width: 130, height: 16),
-                font: .monospacedSystemFont(ofSize: 10, weight: .regular),
-                color: NSColor(calibratedWhite: 0.43, alpha: 1),
-                alignment: .right
-            )
         }
     }
 
-    private func visibleCommandRange(commandCount: Int, panel: NSRect) -> Range<Int> {
-        let availableHeight = panel.height
-            - Metrics.headerHeight - Metrics.searchHeight - Metrics.footerHeight
-        let capacity = max(1, Int(floor(availableHeight / Metrics.rowHeight)))
-        let count = min(capacity, commandCount)
-        let start = min(
-            max(0, selectedIndex - capacity + 1),
-            max(0, commandCount - count)
+    private func commandListRect(in panel: NSRect) -> NSRect {
+        NSRect(
+            x: panel.minX,
+            y: panel.minY + Metrics.headerHeight + Metrics.searchHeight,
+            width: panel.width,
+            height: panel.height - Metrics.headerHeight - Metrics.searchHeight - Metrics.footerHeight
         )
-        return start..<(start + count)
+    }
+
+    private func commandListRows(for commands: [PaletteCommand]) -> [CommandListRow] {
+        var result: [CommandListRow] = []
+        var y: CGFloat = 0
+        var previousSpace: PaletteCommand.Space?
+        for (index, command) in commands.enumerated() {
+            if let space = command.space, space != previousSpace {
+                result.append(CommandListRow(
+                    kind: .section(space),
+                    minY: y,
+                    height: Metrics.sectionHeight
+                ))
+                y += Metrics.sectionHeight
+            }
+            result.append(CommandListRow(
+                kind: .command(index),
+                minY: y,
+                height: Metrics.rowHeight
+            ))
+            y += Metrics.rowHeight
+            previousSpace = command.space
+        }
+        return result
+    }
+
+    private func commandListOffset(rows: [CommandListRow], availableHeight: CGFloat) -> CGFloat {
+        guard let selectedRowIndex = rows.firstIndex(where: {
+            if case .command(let index) = $0.kind { return index == selectedIndex }
+            return false
+        }) else { return 0 }
+
+        var startIndex = selectedRowIndex
+        let selectedMaxY = rows[selectedRowIndex].maxY
+        while startIndex > 0,
+              selectedMaxY - rows[startIndex - 1].minY <= availableHeight
+        {
+            startIndex -= 1
+        }
+        return rows[startIndex].minY
     }
 
     private func drawFooter(in panel: NSRect) {
