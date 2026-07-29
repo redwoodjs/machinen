@@ -79,6 +79,29 @@ export interface StatusWidgetLink {
   url: string;
 }
 
+export type CommandContext = "workspace" | "terminal";
+
+export interface ContextCommandDefinition extends JsonObject {
+  id: string;
+  title: string;
+  subtitle?: string;
+  context: CommandContext;
+  locationKinds?: Array<WorkspaceLocation["kind"]>;
+  priority?: number;
+  ttlMilliseconds?: number;
+}
+
+export interface ContextCommandInvocation extends JsonObject {
+  invocationId: string;
+  commandId: string;
+  context: CommandContext;
+  workspaceId: string;
+  tileId?: string;
+  terminalId?: string;
+  workingDirectory: string;
+  location: WorkspaceLocation;
+}
+
 export interface SelectionOpenerDefinition extends JsonObject {
   id: string;
   title: string;
@@ -140,6 +163,8 @@ export type DesktopEventName =
   | "terminal.updated"
   | "terminal.output"
   | "status.changed"
+  | "command.changed"
+  | "command.invoked"
   | "selectionOpener.changed"
   | "selectionOpener.invoked"
   | "ui.changed";

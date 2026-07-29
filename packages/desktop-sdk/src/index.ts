@@ -6,6 +6,9 @@ export {
   type TerminalWaitOptions,
 } from "./client.js";
 export type {
+  CommandContext,
+  ContextCommandDefinition,
+  ContextCommandInvocation,
   SelectionOpenerDefinition,
   SelectionOpenerInvocation,
   DesktopClientIdentity,

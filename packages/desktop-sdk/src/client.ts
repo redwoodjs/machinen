@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { connect as connectSocket, type Socket } from "node:net";
 
 import type {
+  ContextCommandDefinition,
   SelectionOpenerDefinition,
   DesktopClientIdentity,
   DesktopConnection,
@@ -78,6 +79,14 @@ export class MachinenDesktopClient {
       this.request<JsonObject>("status.set", { ...widget } as JsonObject),
     remove: (id: string, scope?: StatusScope) =>
       this.request<JsonObject>("status.remove", { id, ...(scope ? { scope } : {}) }),
+  };
+  // Public SDK surface is consumed outside this repository.
+  // fallow-ignore-next-line unused-class-member
+  readonly commands = {
+    list: () => this.request<JsonObject>("command.list"),
+    set: (command: ContextCommandDefinition) =>
+      this.request<JsonObject>("command.set", { ...command } as JsonObject),
+    remove: (id: string) => this.request<JsonObject>("command.remove", { id }),
   };
   // Public SDK surface is consumed outside this repository.
   // fallow-ignore-next-line unused-class-member

@@ -2,6 +2,7 @@ import { MachinenDesktopClient } from "@machinen/desktop-sdk";
 
 import { DesktopState } from "./desktop-state.js";
 import { ActivityStatusService } from "./services/activity-status.js";
+import { ContextCommandsService } from "./services/context-commands.js";
 import { SelectionOpenersService } from "./services/selection-openers.js";
 import { GitStatusService } from "./services/git-status.js";
 import { MetricsStatusService } from "./services/metrics-status.js";
@@ -15,6 +16,7 @@ const desktop = new MachinenDesktopClient({
       "workspace.*",
       "tile.*",
       "terminal.*",
+      "command.*",
       "selectionOpener.*",
       "ui.changed",
       "system.shuttingDown",
@@ -24,6 +26,7 @@ const desktop = new MachinenDesktopClient({
 });
 const state = new DesktopState();
 const activityStatus = new ActivityStatusService(desktop, state);
+const contextCommandsService = new ContextCommandsService(desktop);
 const selectionOpenersService = new SelectionOpenersService(desktop);
 const gitStatus = new GitStatusService(desktop, state);
 const openPorts = new OpenPortsService(desktop, state);
@@ -34,6 +37,7 @@ desktop.onConnect(({ subscription }) => {
   if (subscription?.snapshot) {
     state.load(subscription.snapshot);
     activityStatus.start(subscription.snapshot);
+    contextCommandsService.start();
     selectionOpenersService.start();
     gitStatus.start(subscription.snapshot);
     openPorts.start(subscription.snapshot);
@@ -47,6 +51,7 @@ desktop.onEvent((event) => {
   }
   state.handleEvent(event);
   activityStatus.handleEvent(event);
+  contextCommandsService.handleEvent(event);
   selectionOpenersService.handleEvent(event);
   gitStatus.handleEvent(event);
   openPorts.handleEvent(event);
@@ -62,6 +67,7 @@ function shutdown(): void {
   }
   isShuttingDown = true;
   activityStatus.stop();
+  contextCommandsService.stop();
   selectionOpenersService.stop();
   gitStatus.stop();
   openPorts.stop();

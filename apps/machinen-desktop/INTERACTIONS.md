@@ -134,7 +134,7 @@ remote user's `$HOME`.
 login shell or run an arbitrary command, but it does not replace `⌘N`'s explicit
 workspace chooser.
 
-## Open Selection With and workspace commands
+## Open Selection With and context commands
 
 Right-clicking a terminal shows its normal editing commands and an **Open
 Selection With** submenu. `⌘O` opens the same full terminal context menu from the
@@ -147,8 +147,9 @@ the latest OSC 7 directory, falling back to the terminal's launch directory. Tru
 operations such as creating a terminal or revealing a path in Finder.
 
 `⌘K` and the application menu's **Commands…** contain five built-in workspace
-actions. Escape always moves back one level within a command flow; only Escape
-from this top-level menu dismisses it:
+actions plus matching commands registered by trusted TypeScript services.
+Escape always moves back one level within a command flow; only Escape from this
+top-level menu dismisses it:
 
 1. **New workspace…** opens the same location-then-name flow used by `⌘N`,
    creates an initial login-shell terminal, and enters it.
@@ -163,6 +164,14 @@ from this top-level menu dismisses it:
    session.
 5. **Close workspace…** asks for confirmation, terminates its PTY processes,
    and removes its saved workspace and terminal definitions.
+
+A registered command declares either a **workspace** or **terminal** context.
+Workspace commands receive the selected workspace's default local or SSH
+location. Terminal commands appear only in Terminal mode and receive the
+focused terminal's current directory. Ghostty updates that directory when a
+shell or application emits OSC 7 after changing directory; before the first
+report, Machinen uses the terminal's launch directory. The invocation contains
+the stable workspace ID and, for terminal commands, the tile and terminal IDs.
 
 An SSH workspace is entered as `alias:~/folder`, `alias:/absolute/folder`, or
 `user@host:/absolute/folder`. The host can be any alias understood by the user's
