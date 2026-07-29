@@ -44,6 +44,7 @@ final class TerminalDeckView: NSView {
 
     private enum PaletteKind {
         case commands
+        case selectionOpeners
         case newTerminal
         case runCommand
         case newItem
@@ -1997,6 +1998,14 @@ final class TerminalDeckView: NSView {
         )
     }
 
+    private func focusedTerminalSelectionContext() -> TerminalSelectionContext? {
+        guard focusedIndex != nil,
+              let tile = selectedSessionTile(),
+              let terminal = tile.terminalResponder
+        else { return nil }
+        return terminalSelectionContext(tile: tile, terminal: terminal)
+    }
+
     private func activeSelectionOpeners() -> [MachinenSelectionOpener] {
         let now = Date().timeIntervalSince1970
         selectionOpeners = selectionOpeners.filter { $0.value.expiresAt.map { $0 > now } ?? true }
@@ -2125,6 +2134,63 @@ final class TerminalDeckView: NSView {
         ])
     }
 
+    private func showSelectionOpenerPalette(_ selection: TerminalSelectionContext) {
+        let openers = matchingSelectionOpeners(
+            selection: selection.text,
+            location: selection.tile.session.location
+        )
+        guard !openers.isEmpty else { return }
+        dismissCommandPalette()
+
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "OPEN SELECTION WITH",
+            context: "terminal · \(selection.tile.session.name) · \(selection.tile.session.workspace)",
+            placeholder: "Choose an app or action…",
+            defaultFooter: "return open    esc back",
+            commands: openers.map { opener in
+                PaletteCommand(
+                    id: .selectionOpener(opener.id),
+                    title: opener.title,
+                    shortcut: opener.subtitle ?? ""
+                )
+            }
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.toggleCommandPalette() }
+        palette.onRun = { [weak self, weak palette] command in
+            guard let self,
+                  case .selectionOpener(let openerID) = command.id,
+                  self.matchingSelectionOpeners(
+                    selection: selection.text,
+                    location: selection.tile.session.location
+                  ).contains(where: { $0.id == openerID })
+            else {
+                palette?.showStatus("That opener is no longer available")
+                return
+            }
+            self.dismissCommandPalette()
+            self.invokeSelectionOpener(openerID, selection: selection)
+        }
+        commandPalette = palette
+        paletteKind = .selectionOpeners
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
+    }
+
+    func showSelectionOpenerPalette(
+        for terminal: MachinenTerminalView,
+        tile: TerminalTileView,
+        selection text: String
+    ) {
+        guard let selection = terminalSelectionContext(
+            tile: tile,
+            terminal: terminal,
+            text: text
+        ) else { return }
+        showSelectionOpenerPalette(selection)
+    }
+
     private func showNewItemPalette() {
         guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
         if availableSessionsView != nil { dismissAvailableSessions() }
@@ -2187,23 +2253,11 @@ final class TerminalDeckView: NSView {
         window?.makeFirstResponder(palette)
     }
 
-    func toggleNewTerminalPalette() {
-        guard presentedOverlay == nil else { return }
-        if availableSessionsView != nil { dismissAvailableSessions() }
-        if commandPalette != nil {
-            let wasNewTerminal = paletteKind == .newTerminal
-            dismissCommandPalette()
-            if wasNewTerminal { return }
-        }
-        guard !isTransitioning, !isPeeking else { return }
-        let workspaceRecord = selectedWorkspaceRecord()
-        let workspace = workspaceRecord?.name ?? "workspace"
-        let workingDirectory = workspaceRecord?.workingDirectory
-            ?? FileManager.default.homeDirectoryForCurrentUser.path
-        showNewTerminalPalette(workspace: workspace, workingDirectory: workingDirectory)
-    }
-
-    private func showNewTerminalPalette(workspace: String, workingDirectory: String) {
+    private func showNewTerminalPalette(
+        workspace: String,
+        workingDirectory: String,
+        returnToCommands: Bool
+    ) {
         let palette = CommandPaletteView(
             frame: bounds,
             heading: "NEW TERMINAL",
@@ -2217,12 +2271,19 @@ final class TerminalDeckView: NSView {
             ]
         )
         palette.layer?.zPosition = 1_000
-        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
+        palette.onDismiss = { [weak self] in
+            if returnToCommands {
+                self?.toggleCommandPalette()
+            } else {
+                self?.dismissCommandPalette()
+            }
+        }
         palette.onRun = { [weak self, weak palette] command in
             self?.runNewTerminalCommand(
                 command,
                 workspace: workspace,
                 workingDirectory: workingDirectory,
+                returnToCommands: returnToCommands,
                 from: palette
             )
         }
@@ -2236,6 +2297,7 @@ final class TerminalDeckView: NSView {
         _ command: PaletteCommand,
         workspace: String,
         workingDirectory: String,
+        returnToCommands: Bool,
         from palette: CommandPaletteView?
     ) {
         switch command.id {
@@ -2248,15 +2310,27 @@ final class TerminalDeckView: NSView {
                 workingDirectory: workingDirectory
             )
         case .runCommand:
-            showRunCommandPalette(workspace: workspace, workingDirectory: workingDirectory)
+            showRunCommandPalette(
+                workspace: workspace,
+                workingDirectory: workingDirectory,
+                returnToCommands: returnToCommands
+            )
         case .chooseProject:
-            chooseAnotherProject()
+            chooseAnotherProject(
+                workspace: workspace,
+                workingDirectory: workingDirectory,
+                returnToCommands: returnToCommands
+            )
         default:
             palette?.showStatus("That command is not available in this palette")
         }
     }
 
-    private func showRunCommandPalette(workspace: String, workingDirectory: String) {
+    private func showRunCommandPalette(
+        workspace: String,
+        workingDirectory: String,
+        returnToCommands: Bool
+    ) {
         dismissCommandPalette()
         let palette = CommandPaletteView(
             frame: bounds,
@@ -2271,7 +2345,8 @@ final class TerminalDeckView: NSView {
         palette.onDismiss = { [weak self] in
             self?.showNewTerminalPalette(
                 workspace: workspace,
-                workingDirectory: workingDirectory
+                workingDirectory: workingDirectory,
+                returnToCommands: returnToCommands
             )
         }
         palette.onSubmit = { [weak self] command in
@@ -2291,7 +2366,11 @@ final class TerminalDeckView: NSView {
         window?.makeFirstResponder(palette)
     }
 
-    private func chooseAnotherProject() {
+    private func chooseAnotherProject(
+        workspace: String,
+        workingDirectory: String,
+        returnToCommands: Bool
+    ) {
         dismissCommandPalette()
         guard let window else { return }
         let panel = NSOpenPanel()
@@ -2303,15 +2382,20 @@ final class TerminalDeckView: NSView {
         panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
         panel.beginSheetModal(for: window) { [weak self] response in
             Task { @MainActor in
-                guard response == .OK, let workspace = panel.url?.lastPathComponent,
-                      !workspace.isEmpty
+                guard response == .OK, let selectedWorkspace = panel.url?.lastPathComponent,
+                      !selectedWorkspace.isEmpty
                 else {
-                    self?.toggleNewTerminalPalette()
+                    self?.showNewTerminalPalette(
+                        workspace: workspace,
+                        workingDirectory: workingDirectory,
+                        returnToCommands: returnToCommands
+                    )
                     return
                 }
                 self?.showNewTerminalPalette(
-                    workspace: workspace,
-                    workingDirectory: panel.url?.path ?? FileManager.default.homeDirectoryForCurrentUser.path
+                    workspace: selectedWorkspace,
+                    workingDirectory: panel.url?.path ?? FileManager.default.homeDirectoryForCurrentUser.path,
+                    returnToCommands: returnToCommands
                 )
             }
         }
@@ -2378,9 +2462,7 @@ final class TerminalDeckView: NSView {
         return activeCommandSpaces.flatMap { space in
             switch space {
             case .terminal:
-                registeredCommands.compactMap { command in
-                    registeredPaletteCommand(command, in: .terminal)
-                }
+                terminalCommands(registeredCommands: registeredCommands)
             case .workspace:
                 workspaceCommands() + registeredCommands.compactMap { command in
                     registeredPaletteCommand(command, in: .workspace)
@@ -2396,10 +2478,40 @@ final class TerminalDeckView: NSView {
         }
     }
 
+    private func terminalCommands(
+        registeredCommands: [MachinenContextCommand]
+    ) -> [PaletteCommand] {
+        var commands: [PaletteCommand] = []
+        if let selection = focusedTerminalSelectionContext() {
+            let openerCount = matchingSelectionOpeners(
+                selection: selection.text,
+                location: selection.tile.session.location
+            ).count
+            if openerCount > 0 {
+                commands.append(PaletteCommand(
+                    id: .openSelectionWith,
+                    title: "Open Selection With…",
+                    shortcut: "\(openerCount) \(openerCount == 1 ? "opener" : "openers")",
+                    space: .terminal
+                ))
+            }
+        }
+        commands.append(contentsOf: registeredCommands.compactMap { command in
+            registeredPaletteCommand(command, in: .terminal)
+        })
+        return commands
+    }
+
     private func workspaceCommands() -> [PaletteCommand] {
         guard let selectedWorkspace = selectedWorkspaceRecord() else { return [] }
         let sessionCount = availableSessionItems(for: selectedWorkspace).count
         return [
+            PaletteCommand(
+                id: .newTerminal,
+                title: "New terminal…",
+                shortcut: "",
+                space: .workspace
+            ),
             PaletteCommand(
                 id: .renameWorkspace,
                 title: "Rename workspace…",
@@ -2463,8 +2575,29 @@ final class TerminalDeckView: NSView {
             dismissCommandPalette()
             toggleOverview()
         case .newTerminal:
+            guard let workspace = selectedWorkspaceRecord() else {
+                palette?.showStatus("Select a workspace first")
+                return
+            }
             dismissCommandPalette()
-            toggleNewTerminalPalette()
+            showNewTerminalPalette(
+                workspace: workspace.name,
+                workingDirectory: workspace.workingDirectory,
+                returnToCommands: true
+            )
+        case .openSelectionWith:
+            guard let selection = focusedTerminalSelectionContext(),
+                  !matchingSelectionOpeners(
+                    selection: selection.text,
+                    location: selection.tile.session.location
+                  ).isEmpty
+            else {
+                palette?.showStatus("Select text with a matching opener first")
+                return
+            }
+            showSelectionOpenerPalette(selection)
+        case .selectionOpener:
+            palette?.showStatus("Choose an opener from Open Selection With…")
         case .attachSession, .reconnectSession:
             dismissCommandPalette()
             reconnectSelectedSession()

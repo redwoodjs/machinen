@@ -560,6 +560,10 @@ enum InteractionTestRunner {
         defer { window.close() }
         window.contentView = deck
         deck.layoutSubtreeIfNeeded()
+        var openerInvocations: [JSONObject] = []
+        deck.onAPIEvent = { event, data in
+            if event == "selectionOpener.invoked" { openerInvocations.append(data) }
+        }
         _ = try deck.performAPIOperation("selectionOpener.set", params: [
             "id": "test.markdown",
             "title": "Open Markdown",
@@ -641,6 +645,38 @@ enum InteractionTestRunner {
             "Open Selection With remained enabled without a selection"
         )
 
+        deck.showSelectionOpenerPalette(
+            for: terminal,
+            tile: tile,
+            selection: "docs/guide.md"
+        )
+        let openerPalette = try harness.commandPalette(in: deck)
+        try expect(
+            openerPalette.displayedContext == "terminal · shell 1 · alpha",
+            "the selection opener palette lost its terminal context"
+        )
+        try harness.pressEscape(on: openerPalette)
+        let returnedCommands = try harness.commandPalette(in: deck)
+        try expect(
+            !returnedCommands.displayedSpaces.isEmpty,
+            "Escape from selection openers did not return to commands"
+        )
+        try harness.pressEscape(on: returnedCommands)
+
+        deck.showSelectionOpenerPalette(
+            for: terminal,
+            tile: tile,
+            selection: "docs/guide.md"
+        )
+        try harness.type("Open Markdown", into: harness.commandPalette(in: deck))
+        try harness.pressReturn(on: harness.commandPalette(in: deck))
+        try expect(
+            openerInvocations.last?["openerId"] as? String == "test.markdown"
+                && openerInvocations.last?["selection"] as? String == "docs/guide.md"
+                && openerInvocations.last?["terminalId"] as? String == tile.session.id,
+            "the command palette did not invoke the selected opener"
+        )
+
         _ = try deck.performAPIOperation("selectionOpener.remove", params: ["id": "test.markdown"])
         let empty = try deck.performAPIOperation("selectionOpener.list", params: [:])
         let remaining = (empty as? JSONObject)?["openers"] as? [JSONObject]
@@ -716,7 +752,20 @@ enum InteractionTestRunner {
                 && workspaceLevelPalette.displayedSpaces == [.workspace, .workspaceOverview],
             "the workspace palette did not cascade through workspace and overview commands"
         )
-        try harness.pressEscape(on: workspaceLevelPalette)
+        try harness.type("New terminal", into: workspaceLevelPalette)
+        try harness.pressReturn(on: workspaceLevelPalette)
+        let newTerminalPalette = try harness.commandPalette(in: deck)
+        try expect(
+            newTerminalPalette.displayedContext == "workspace: alpha",
+            "New terminal did not open as a nested workspace command"
+        )
+        try harness.pressEscape(on: newTerminalPalette)
+        let returnedWorkspacePalette = try harness.commandPalette(in: deck)
+        try expect(
+            returnedWorkspacePalette.displayedContext == "workspace · alpha",
+            "Escape from New terminal did not return to commands"
+        )
+        try harness.pressEscape(on: returnedWorkspacePalette)
 
         deck.zoomInOneLevel()
         RunLoop.main.run(until: Date().addingTimeInterval(0.3))

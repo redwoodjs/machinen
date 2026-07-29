@@ -35,7 +35,7 @@ discovery use the workspace directory as their project boundary.
 | `⌘←` / `⌘→`      | From Terminal mode, focus the previous/next terminal in the current workspace.         |
 | `⌘[` / `⌘]`      | From Terminal mode, focus the first terminal in the previous/next non-empty workspace. |
 | `⌘N`             | Open the New chooser; never create a terminal or workspace immediately.                |
-| `⌘K`             | Open commands for the current space and its containing spaces.                         |
+| `⌘K`             | Open the single nested command menu for the current and containing spaces.             |
 | `⌘O`             | Show the focused terminal's full context menu.                                         |
 | `⌘W`             | Disconnect a terminal; press again in its toast or panel to kill its session.          |
 | Keyboard input   | In Terminal mode, the terminal receives all other keys and modifier combinations.      |
@@ -130,16 +130,18 @@ configuration, and every terminal created in that workspace inherits it. The
 remote browser lists one directory level at a time over SSH, starting at the
 remote user's `$HOME`.
 
-`⌘T` remains the terminal launcher for the selected workspace. It can create a
-login shell or run an arbitrary command, but it does not replace `⌘N`'s explicit
-workspace chooser.
+Creating a terminal in the selected workspace is a nested **New terminal…**
+command under `⌘K`. It can create a login shell or run an arbitrary command.
+Escape returns from those choices to the context-aware command menu. There is no
+separate `⌘T` launcher; `⌘N` remains the explicit what-and-where chooser.
 
 ## Open Selection With and context commands
 
 Right-clicking a terminal shows its normal editing commands and an **Open
-Selection With** submenu. `⌘O` opens the same full terminal context menu from the
-keyboard; when text is selected, its **Open Selection With** submenu contains
-matching registered destinations. Choosing a destination publishes the full
+Selection With** submenu. `⌘O` opens the same selection context menu from the
+keyboard. When text is selected, `⌘K` also adds **Open Selection With…** to its
+Terminal section; choosing it opens a nested palette of matching registered
+destinations. Choosing a destination from either surface publishes the full
 selected text, terminal working directory, execution location, and stable
 workspace/tile/terminal IDs through the local API. Relative paths resolve from
 the latest OSC 7 directory, falling back to the terminal's launch directory. Trusted TypeScript
@@ -155,23 +157,27 @@ Terminal, Workspace, then Workspace Overview. Section headings keep each
 command's target explicit, and search preserves that section order while
 filtering the commands that are valid in the current context.
 
-The menu contains five built-in actions plus matching commands registered by
+The menu contains six built-in actions plus matching commands registered by
 trusted TypeScript services. **New workspace…** belongs to Workspace Overview;
-the remaining built-ins belong to Workspace. Escape always moves back one level
-within a command flow; only Escape from this top-level menu dismisses it:
+**New terminal…** and the remaining workspace actions belong to Workspace.
+**Open Selection With…** appears in Terminal when selected text has a matching
+opener. Escape always moves back one level within a command flow; only Escape
+from this top-level menu dismisses it:
 
 1. **New workspace…** opens the same location-then-name flow used by `⌘N`,
    creates an initial login-shell terminal, and enters it.
-2. **Rename workspace…** changes the visible name while preserving the stable
+2. **New terminal…** opens nested choices for a login shell, an arbitrary
+   command, or a new workspace from a folder.
+3. **Rename workspace…** changes the visible name while preserving the stable
    workspace ID and all terminals.
-3. **Change workspace location…** chooses either a local folder or a remote
+4. **Change workspace location…** chooses either a local folder or a remote
    `alias:path` reachable through the user's SSH configuration. It is available
    at any time, including while terminals are running.
-4. **Sessions…** opens a floating, keyboard-navigable list of every terminal
+5. **Sessions…** opens a floating, keyboard-navigable list of every terminal
    session in the workspace. Each row prominently shows **Attached** or
    **Not attached**. Return toggles that attachment; Delete or `⌘W` kills the
    session.
-5. **Close workspace…** asks for confirmation, terminates its PTY processes,
+6. **Close workspace…** asks for confirmation, terminates its PTY processes,
    and removes its saved workspace and terminal definitions.
 
 A registered command declares either a **workspace** or **terminal** context.

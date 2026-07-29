@@ -29,6 +29,8 @@ struct PaletteCommand {
         case useSSHHost
         case toggleOverview
         case newTerminal
+        case openSelectionWith
+        case selectionOpener(String)
         case attachSession
         case reconnectSession
         case detachSession

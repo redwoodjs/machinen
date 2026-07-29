@@ -18,9 +18,10 @@ Registrations use a short TTL, so the commands disappear if this service stops.
 The user-editable **Open Selection With** destinations live in
 [`src/services/selection-openers.ts`](src/services/selection-openers.ts). Each
 `SelectionOpener` provides native-menu metadata and a TypeScript `open` function.
-Right-clicking a terminal or pressing `⌘O` opens the full context menu; selecting
-an **Open Selection With** destination invokes the same registry. `⌘K` remains
-the centered, context-aware command palette.
+Right-clicking a terminal or pressing `⌘O` opens the selection context menu.
+When terminal text is selected, `⌘K` also exposes the same destinations through
+its nested **Open Selection With…** command. Choosing a destination from either
+surface invokes the same registry.
 
 The bundled **Glow** opener extracts Markdown links and bare paths from larger
 selections, validates the file, and creates a Glow terminal. **Yazi** validates a
