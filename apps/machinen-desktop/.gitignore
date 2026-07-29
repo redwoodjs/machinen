@@ -2,4 +2,5 @@
 Dependencies/GhosttyKit.xcframework
 Sources/MachinenDesktop/GhosttyResources
 Machinen.app/
+Machinen.app.before-*/
 Machinen-Desktop-*.zip

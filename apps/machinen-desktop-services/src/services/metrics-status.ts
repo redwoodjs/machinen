@@ -489,28 +489,9 @@ function processWidgets(
   incoming: number[],
   outgoing: number[],
 ): StatusWidget[] {
-  return [
-    processPIDWidget(context),
-    processCPUWidget(context, cpu),
-    processNetworkWidget(context, incoming, outgoing),
-  ].filter((widget): widget is StatusWidget => widget !== undefined);
-}
-
-function processPIDWidget(context: ProcessContext): StatusWidget | undefined {
-  if (context.displayPID === undefined) {
-    return undefined;
-  }
-  return {
-    id: "machinen.pid",
-    scope: context.scope,
-    placement: "right",
-    kind: "text",
-    value: `PID ${context.displayPID}`,
-    tone: "neutral",
-    tooltip: `Foreground process PID ${context.displayPID} · click to copy`,
-    priority: 110,
-    ttlMilliseconds: processWidgetTTLMilliseconds,
-  };
+  return [processCPUWidget(context, cpu), processNetworkWidget(context, incoming, outgoing)].filter(
+    (widget): widget is StatusWidget => widget !== undefined,
+  );
 }
 
 function processCPUWidget(context: ProcessContext, cpu: number[]): StatusWidget | undefined {

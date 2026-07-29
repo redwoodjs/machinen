@@ -152,7 +152,7 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
         let sessions: [Session]
     }
 
-    private static let helperVersion = "0.5.0"
+    private static let helperVersion = "0.5.1"
     private var installedSSHHosts: Set<String> = []
 
     func prepareViewer(for session: TerminalSession, loginShell: String) throws -> TerminalViewerLaunch {

@@ -52,12 +52,19 @@ final class TerminalDeckView: NSView {
     private enum Motion {
         // Match cmdcmd's quick, symmetric window motion.
         static let cameraDuration: TimeInterval = 0.20
+        static let magnificationDuration: TimeInterval = 0.08
         static let terminalSwitchDuration: TimeInterval = 0.12
         static let peekDuration: TimeInterval = 0.12
         static let paneCloseDuration: TimeInterval = 0.18
         static let paneCloseScale: CGFloat = 0.92
         static let firstControlX: CGFloat = 0.42
         static let secondControlX: CGFloat = 0.58
+    }
+
+    private enum CameraMagnification {
+        static let increment: CGFloat = 0.2
+        static let minimum: CGFloat = 0.4
+        static let maximum: CGFloat = 2
     }
 
     private enum Metrics {
@@ -95,6 +102,7 @@ final class TerminalDeckView: NSView {
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
     private var cameraAnimationTimer: Timer?
+    private var cameraMagnification: CGFloat = 1
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
     private var spatialDrag: SpatialDrag?
     private var dragGhost: NSImageView?
@@ -103,7 +111,13 @@ final class TerminalDeckView: NSView {
     private var recentlyClosedTerminals: [String: RecentlyClosedTerminal]
     private var pendingCloseTasks: [String: DispatchWorkItem] = [:]
     private var undoCloseView: UndoTerminalCloseView?
+    private var undoToastTerminalID: String?
+    private var undoToastDismissTask: DispatchWorkItem?
+    private var undoManagerView: TerminalUndoManagerView?
+    private var undoManagerWorkspaceID: String?
+    private var undoManagerReturnsToCommands = false
     private let closeGracePeriod: TimeInterval = 5 * 60
+    private let undoToastDuration: TimeInterval = 3
     private let recentlyClosedLimit = 5
 
     override var isFlipped: Bool { true }
@@ -158,7 +172,6 @@ final class TerminalDeckView: NSView {
         for terminalID in recentlyClosedTerminals.keys {
             schedulePendingCloseFinalization(terminalID: terminalID)
         }
-        refreshUndoCloseView()
         setAccessibilityElement(false)
     }
 
@@ -412,6 +425,7 @@ final class TerminalDeckView: NSView {
     override func layout() {
         super.layout()
         commandPalette?.frame = bounds
+        undoManagerView?.frame = bounds
         statusBarView.frame = NSRect(
             x: 0,
             y: 0,
@@ -419,12 +433,12 @@ final class TerminalDeckView: NSView {
             height: MachinenStatusBarView.preferredHeight
         )
         if let undoCloseView {
-            let width = min(620, max(420, bounds.width - 32))
+            let width = min(460, max(360, bounds.width - 32))
             undoCloseView.frame = NSRect(
                 x: bounds.maxX - width - 16,
                 y: statusBarView.frame.maxY + 12,
                 width: width,
-                height: 62
+                height: 54
             ).integral
         }
         guard bounds.width > 0, bounds.height > 0 else { return }
@@ -511,15 +525,27 @@ final class TerminalDeckView: NSView {
                let cluster = workspaceCluster(named: currentWorkspace),
                let terminalFrame = cluster.frameForSession(sessions[focusedIndex], in: sceneView)
             {
-                return cameraBounds(for: terminalFrame, viewport: bounds)
+                return applyingCameraMagnification(to: cameraBounds(for: terminalFrame, viewport: bounds))
             }
         }
         if let cluster = workspaceCluster(named: currentWorkspace) {
-            return cameraBounds(for: cluster.frame, viewport: bounds)
+            return applyingCameraMagnification(to: cameraBounds(for: cluster.frame, viewport: bounds))
         }
-        return cameraBounds(
+        return applyingCameraMagnification(to: cameraBounds(
             for: workspaceUnion.insetBy(dx: -Metrics.worldMargin / 2, dy: -Metrics.worldMargin / 2),
             viewport: overviewViewport()
+        ))
+    }
+
+    private func applyingCameraMagnification(to cameraBounds: NSRect) -> NSRect {
+        guard cameraBounds.width > 0, cameraBounds.height > 0 else { return cameraBounds }
+        let width = cameraBounds.width / cameraMagnification
+        let height = cameraBounds.height / cameraMagnification
+        return NSRect(
+            x: cameraBounds.midX - width / 2,
+            y: cameraBounds.midY - height / 2,
+            width: width,
+            height: height
         )
     }
 
@@ -714,9 +740,13 @@ final class TerminalDeckView: NSView {
         super.keyUp(with: event)
     }
 
-    private func copyPIDIfNeeded(from widget: MachinenStatusWidget) -> Bool {
-        guard widget.id == "machinen.pid" else { return false }
-        let pid = widget.value.replacingOccurrences(of: "PID ", with: "")
+    func copyPIDIfNeeded(from widget: MachinenStatusWidget) -> Bool {
+        let pid: String
+        guard widget.id == "machinen.activity",
+              focusedIndex != nil,
+              let associatedPID = selectedSession()?.associatedPID
+        else { return false }
+        pid = String(associatedPID)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(pid, forType: .string)
         InputRoutingLog.log("copied terminal PID \(pid) from status bar")
@@ -1327,8 +1357,67 @@ final class TerminalDeckView: NSView {
         clearLabelBuffer()
     }
 
+    func toggleUndoManager(returnToCommands: Bool = false) {
+        guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
+        if undoManagerView != nil {
+            dismissUndoManager()
+            return
+        }
+        if commandPalette != nil { dismissCommandPalette() }
+        hideUndoToast()
+        guard let workspaceID = selectedWorkspaceID(),
+              let workspace = workspaces.first(where: { $0.id == workspaceID })
+        else { return }
+
+        let view = TerminalUndoManagerView(frame: bounds)
+        view.workspaceName = workspace.name
+        view.onDismiss = { [weak self] in self?.dismissUndoManager(navigateBack: true) }
+        view.onRestore = { [weak self] terminalID in
+            guard let self else { return }
+            self.reopenClosedTerminal(terminalID: terminalID)
+            self.dismissUndoManager()
+        }
+        view.onKill = { [weak self] terminalID in
+            self?.finalizePendingClose(terminalID: terminalID)
+        }
+        undoManagerWorkspaceID = workspaceID
+        undoManagerReturnsToCommands = returnToCommands
+        undoManagerView = view
+        addSubview(view, positioned: .above, relativeTo: statusBarView)
+        refreshUndoManager()
+        window?.makeFirstResponder(view)
+    }
+
+    private func dismissUndoManager(navigateBack: Bool = false) {
+        let shouldReturnToCommands = navigateBack && undoManagerReturnsToCommands
+        undoManagerView?.removeFromSuperview()
+        undoManagerView = nil
+        undoManagerWorkspaceID = nil
+        undoManagerReturnsToCommands = false
+        if shouldReturnToCommands {
+            toggleCommandPalette()
+        } else {
+            restoreInputFocus()
+        }
+    }
+
+    private func refreshUndoManager() {
+        guard let view = undoManagerView, let workspaceID = undoManagerWorkspaceID else { return }
+        view.items = recentlyClosedTerminals.values
+            .filter { $0.tile.session.workspaceID == workspaceID }
+            .sorted { $0.deadline > $1.deadline }
+            .map {
+                TerminalUndoItem(
+                    terminalID: $0.tile.session.id,
+                    name: $0.tile.session.name,
+                    deadline: $0.deadline
+                )
+            }
+    }
+
     func toggleCommandPalette() {
         guard presentedOverlay == nil else { return }
+        if undoManagerView != nil { dismissUndoManager() }
         if commandPalette != nil {
             let wasCommands = paletteKind == .commands
             dismissCommandPalette()
@@ -1355,6 +1444,7 @@ final class TerminalDeckView: NSView {
 
     private func showNewItemPalette() {
         guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
+        if undoManagerView != nil { dismissUndoManager() }
         if commandPalette != nil { dismissCommandPalette() }
 
         let suggestedWorkspaceID = selectedWorkspaceID()
@@ -1416,6 +1506,7 @@ final class TerminalDeckView: NSView {
 
     func toggleNewTerminalPalette() {
         guard presentedOverlay == nil else { return }
+        if undoManagerView != nil { dismissUndoManager() }
         if commandPalette != nil {
             let wasNewTerminal = paletteKind == .newTerminal
             dismissCommandPalette()
@@ -1582,6 +1673,11 @@ final class TerminalDeckView: NSView {
                     title: "Change workspace location…",
                     shortcut: ""
                 ),
+                PaletteCommand(
+                    id: .manageClosedTerminals,
+                    title: "Recently closed terminals…",
+                    shortcut: "restore or kill"
+                ),
                 PaletteCommand(id: .closeWorkspace, title: "Close workspace…", shortcut: ""),
             ])
         }
@@ -1595,13 +1691,7 @@ final class TerminalDeckView: NSView {
         case .renameWorkspace:
             showRenameWorkspacePalette()
         case .changeWorkspaceLocation:
-            if let workspaceID = selectedWorkspaceID(),
-               allSessionTiles.contains(where: { $0.session.workspaceID == workspaceID })
-            {
-                palette?.showStatus("Remove this workspace's terminals before changing its location")
-            } else {
-                chooseWorkspaceLocation()
-            }
+            chooseWorkspaceLocation()
         case .toggleOverview:
             dismissCommandPalette()
             toggleOverview()
@@ -1628,7 +1718,10 @@ final class TerminalDeckView: NSView {
             confirmCloseSelectedSession()
         case .closeWorkspace:
             dismissCommandPalette()
-            confirmCloseSelectedWorkspace()
+            confirmCloseSelectedWorkspace(returnToCommands: true)
+        case .manageClosedTerminals:
+            dismissCommandPalette()
+            toggleUndoManager(returnToCommands: true)
         case .showDiagnostics:
             dismissCommandPalette()
             showDiagnostics()
@@ -2662,7 +2755,7 @@ final class TerminalDeckView: NSView {
         dismissCommandPalette()
         let panel = NSOpenPanel()
         panel.title = "Choose Local Workspace Folder"
-        panel.message = "New and restarted terminals will use this folder. Other workspaces may use it too; running processes are not moved."
+        panel.message = "New terminals will use this folder. Existing terminals stay at their current locations. Other workspaces may use it too."
         panel.prompt = "Use Folder"
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -2878,6 +2971,7 @@ final class TerminalDeckView: NSView {
         message: String,
         consequence: String,
         confirmTitle: String,
+        cancelAction: (@MainActor () -> Void)? = nil,
         action: @escaping @MainActor () -> Void
     ) {
         let confirmation = ActionConfirmationView(
@@ -2890,6 +2984,7 @@ final class TerminalDeckView: NSView {
         confirmation.layer?.zPosition = 2_000
         confirmation.onCancel = { [weak self] in
             self?.dismissPresentedOverlay()
+            cancelAction?()
         }
         confirmation.onConfirm = { [weak self] in
             self?.dismissPresentedOverlay()
@@ -2945,14 +3040,24 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func confirmCloseSelectedWorkspace() {
+    private func confirmCloseSelectedWorkspace(returnToCommands: Bool = false) {
         guard let workspace = selectedWorkspace() else { return }
         let count = allSessionTiles.count { $0.session.workspace == workspace }
+        let cancelAction: (@MainActor () -> Void)?
+        if returnToCommands {
+            cancelAction = { [weak self] in
+                guard let self else { return }
+                self.toggleCommandPalette()
+            }
+        } else {
+            cancelAction = nil
+        }
         presentConfirmation(
             heading: "Close workspace \(workspace)?",
             message: "This terminates \(count) terminal \(count == 1 ? "process" : "processes") and removes the workspace from Machinen.",
             consequence: "Files in the terminals' working directories are not deleted.",
-            confirmTitle: "Close workspace"
+            confirmTitle: "Close workspace",
+            cancelAction: cancelAction
         ) { [weak self] in
             self?.closeWorkspace(workspace)
         }
@@ -3022,7 +3127,8 @@ final class TerminalDeckView: NSView {
         setCameraImmediately()
         saveSessions()
         schedulePendingCloseFinalization(terminalID: tile.session.id)
-        refreshUndoCloseView()
+        showUndoToast(terminalID: tile.session.id)
+        refreshUndoManager()
         emitAPIEvent("tile.closed", data: tileJSON(tile))
 
         if recentlyClosedTerminals.count > recentlyClosedLimit,
@@ -3033,10 +3139,29 @@ final class TerminalDeckView: NSView {
     }
 
     var canReopenClosedTerminal: Bool { !recentlyClosedTerminals.isEmpty }
+    var canRestoreUndoToast: Bool {
+        guard let terminalID = undoToastTerminalID else { return false }
+        return recentlyClosedTerminals[terminalID] != nil
+    }
+
+    func restoreUndoToastTerminal() {
+        guard let terminalID = undoToastTerminalID else { return }
+        reopenClosedTerminal(terminalID: terminalID)
+    }
 
     func reopenLastClosedTerminal() {
-        guard let closed = recentlyClosedTerminals.values.max(by: { $0.deadline < $1.deadline }) else { return }
-        let terminalID = closed.tile.session.id
+        let workspaceID = selectedWorkspaceID()
+        let candidates = recentlyClosedTerminals.values.filter {
+            workspaceID == nil || $0.tile.session.workspaceID == workspaceID
+        }
+        guard let closed = candidates.max(by: { $0.deadline < $1.deadline })
+            ?? recentlyClosedTerminals.values.max(by: { $0.deadline < $1.deadline })
+        else { return }
+        reopenClosedTerminal(terminalID: closed.tile.session.id)
+    }
+
+    private func reopenClosedTerminal(terminalID: String) {
+        guard let closed = recentlyClosedTerminals[terminalID] else { return }
         guard workspaces.contains(where: { $0.id == closed.tile.session.workspaceID }) else {
             finalizePendingClose(terminalID: terminalID)
             return
@@ -3056,12 +3181,19 @@ final class TerminalDeckView: NSView {
         updateSelection()
         setCameraImmediately()
         saveSessions()
-        refreshUndoCloseView()
+        hideUndoToast(ifMatching: terminalID)
+        refreshUndoManager()
         emitAPIEvent("tile.reopened", data: tileJSON(closed.tile))
     }
 
     func terminateLastClosedTerminalNow() {
-        guard let closed = recentlyClosedTerminals.values.max(by: { $0.deadline < $1.deadline }) else { return }
+        let workspaceID = selectedWorkspaceID()
+        let candidates = recentlyClosedTerminals.values.filter {
+            workspaceID == nil || $0.tile.session.workspaceID == workspaceID
+        }
+        guard let closed = candidates.max(by: { $0.deadline < $1.deadline })
+            ?? recentlyClosedTerminals.values.max(by: { $0.deadline < $1.deadline })
+        else { return }
         finalizePendingClose(terminalID: closed.tile.session.id)
     }
 
@@ -3081,7 +3213,8 @@ final class TerminalDeckView: NSView {
     private func finalizePendingClose(terminalID: String) {
         guard let closed = recentlyClosedTerminals.removeValue(forKey: terminalID) else { return }
         pendingCloseTasks.removeValue(forKey: terminalID)?.cancel()
-        refreshUndoCloseView()
+        hideUndoToast(ifMatching: terminalID)
+        refreshUndoManager()
         saveSessions()
         emitAPIEvent("tile.closeFinalized", data: tileJSON(closed.tile))
         // The tile is already absent from the scene. Defer renderer teardown so
@@ -3091,25 +3224,39 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func refreshUndoCloseView() {
-        guard let latest = recentlyClosedTerminals.values.max(by: { $0.deadline < $1.deadline }) else {
-            undoCloseView?.removeFromSuperview()
-            undoCloseView = nil
-            return
+    private func showUndoToast(terminalID: String) {
+        guard let closed = recentlyClosedTerminals[terminalID] else { return }
+        undoToastDismissTask?.cancel()
+        undoCloseView?.removeFromSuperview()
+
+        let view = UndoTerminalCloseView(frame: .zero)
+        view.terminalName = closed.tile.session.name
+        view.deadline = closed.deadline
+        view.onRestore = { [weak self] in
+            self?.reopenClosedTerminal(terminalID: terminalID)
         }
-        let view: UndoTerminalCloseView
-        if let current = undoCloseView {
-            view = current
-        } else {
-            view = UndoTerminalCloseView(frame: .zero)
-            view.onUndo = { [weak self] in self?.reopenLastClosedTerminal() }
-            view.onTerminateNow = { [weak self] in self?.terminateLastClosedTerminalNow() }
-            undoCloseView = view
-            addSubview(view, positioned: .above, relativeTo: statusBarView)
+        view.onKill = { [weak self] in
+            self?.finalizePendingClose(terminalID: terminalID)
         }
-        view.terminalName = latest.tile.session.name
-        view.deadline = latest.deadline
+        undoCloseView = view
+        undoToastTerminalID = terminalID
+        addSubview(view, positioned: .above, relativeTo: statusBarView)
         needsLayout = true
+
+        let task = DispatchWorkItem { [weak self] in
+            self?.hideUndoToast(ifMatching: terminalID)
+        }
+        undoToastDismissTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + undoToastDuration, execute: task)
+    }
+
+    private func hideUndoToast(ifMatching terminalID: String? = nil) {
+        if let terminalID, undoToastTerminalID != terminalID { return }
+        undoToastDismissTask?.cancel()
+        undoToastDismissTask = nil
+        undoCloseView?.removeFromSuperview()
+        undoCloseView = nil
+        undoToastTerminalID = nil
     }
 
     private func closeSession(_ tile: TerminalTileView) {
@@ -3245,6 +3392,32 @@ final class TerminalDeckView: NSView {
         saveSessions()
     }
 
+    func magnifyCamera() {
+        changeCameraMagnification(to: cameraMagnification + CameraMagnification.increment)
+    }
+
+    func demagnifyCamera() {
+        changeCameraMagnification(to: cameraMagnification - CameraMagnification.increment)
+    }
+
+    func resetCameraMagnification() {
+        changeCameraMagnification(to: 1)
+    }
+
+    private func changeCameraMagnification(to requestedMagnification: CGFloat) {
+        guard presentedOverlay == nil, commandPalette == nil,
+              !isTransitioning, !isPeeking
+        else { return }
+        let clampedMagnification = min(
+            CameraMagnification.maximum,
+            max(CameraMagnification.minimum, requestedMagnification)
+        )
+        let magnification = (clampedMagnification * 1_000).rounded() / 1_000
+        guard magnification != cameraMagnification else { return }
+        cameraMagnification = magnification
+        moveCamera(duration: Motion.magnificationDuration)
+    }
+
     func zoomInOneLevel() {
         guard presentedOverlay == nil, commandPalette == nil,
               focusedIndex == nil, !isTransitioning, !isPeeking
@@ -3373,6 +3546,10 @@ final class TerminalDeckView: NSView {
     }
 
     func handleCommandW() {
+        if let terminalID = undoToastTerminalID {
+            finalizePendingClose(terminalID: terminalID)
+            return
+        }
         if presentedOverlay != nil { return }
         if commandPalette != nil {
             dismissCommandPalette()
@@ -3601,17 +3778,8 @@ final class TerminalDeckView: NSView {
             rememberWorkspaceLocation(validated)
             return
         }
-        guard !allSessionTiles.contains(where: { $0.session.workspaceID == workspace.id }) else {
-            throw MachinenAPIError(
-                "workspace_not_empty",
-                "Remove this workspace's terminals before changing its location"
-            )
-        }
         workspace.location = validated
         rememberWorkspaceLocation(validated)
-        for tile in allSessionTiles where tile.session.workspaceID == workspace.id {
-            tile.session.location = validated
-        }
     }
 
     private func apiUpdateWorkspace(_ params: JSONObject) throws -> Any {
@@ -4477,9 +4645,6 @@ final class TerminalDeckView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         NSColor(calibratedWhite: 0.055, alpha: 1).setFill()
         bounds.fill()
-        if focusedIndex == nil, currentWorkspace == nil {
-            drawKeyHints()
-        }
     }
 
     private func refreshStatusBar() {
@@ -4488,8 +4653,11 @@ final class TerminalDeckView: NSView {
 
         let workspaceID = selectedWorkspaceID()
         let focusedTerminalID = focusedIndex == nil ? nil : selectedSession()?.id
+        let focusedTerminal = focusedTerminalID.flatMap { id in
+            allSessionTiles.first { $0.session.id == id }
+        }
         let workspace = selectedWorkspaceRecord()
-        if let terminal = focusedTerminalID.flatMap({ id in allSessionTiles.first { $0.session.id == id } }) {
+        if let terminal = focusedTerminal {
             let workspaceName = workspace?.name ?? terminal.session.workspace
             statusBarView.title = "\(workspaceName) > \(terminal.session.displayName)"
             statusBarView.titleTooltip = workspace.map {
@@ -4518,35 +4686,33 @@ final class TerminalDeckView: NSView {
                 resolved[widget.id] = widget
             }
         }
-        statusBarView.widgets = Array(resolved.values)
-    }
-
-    private func drawKeyHints() {
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .center
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
-            .foregroundColor: NSColor(calibratedWhite: 0.43, alpha: 1),
-            .paragraphStyle: paragraph,
-        ]
-        let text: String
-        if !labelBuffer.isEmpty {
-            text = "TYPE LABEL  \(labelBuffer)_"
-        } else if currentWorkspace == nil {
-            text = "arrows  select     return / ⌘↓  zoom in     hold space  peek"
-        } else if focusedIndex != nil {
-            text = "⌘← / ⌘→  terminal     ⌘[ / ⌘]  workspace     ⌘K  commands     ⌘↑  zoom out"
-        } else {
-            text = "⌘↑  zoom out     arrows  select     return / ⌘↓  zoom in     ⌘T  new terminal"
-        }
-        NSAttributedString(string: text, attributes: attributes).draw(
-            in: NSRect(
-                x: Metrics.sideInset,
-                y: bounds.height - 31,
-                width: bounds.width - Metrics.sideInset * 2,
-                height: 16
+        if let terminal = focusedTerminal {
+            let activity = terminal.session.activityState
+            let tone: MachinenStatusWidget.Tone = switch activity {
+            case .working: .busy
+            case .waiting: .attention
+            case .idle, .unknown: .neutral
+            }
+            let tooltip = terminal.session.associatedPID.map {
+                "PID \($0) · click to copy"
+            } ?? "PID unavailable"
+            resolved["machinen.activity"] = MachinenStatusWidget(
+                id: "machinen.activity",
+                scopeKind: .terminal,
+                scopeID: terminal.session.id,
+                placement: .right,
+                kind: .state,
+                label: "Activity",
+                value: "",
+                progress: nil,
+                tone: tone,
+                tooltip: tooltip,
+                priority: 1_000,
+                expiresAt: nil,
+                states: [activity.rawValue]
             )
-        )
+        }
+        statusBarView.widgets = Array(resolved.values)
     }
 }
 

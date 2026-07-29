@@ -3,7 +3,7 @@ const session = @import("session");
 const worker = @import("worker");
 
 const Exit = enum(u8) { ok = 0, failed = 1, usage = 2 };
-const version = "0.5.0";
+const version = "0.5.1";
 
 pub fn main(init: std.process.Init) !u8 {
     var args = init.minimal.args.iterate();

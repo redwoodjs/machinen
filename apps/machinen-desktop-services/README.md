@@ -13,7 +13,7 @@ The service publishes all of Desktop's live status items through `status.set`:
 - open TCP ports whose listener process is running in the selected workspace folder
 - overview host CPU and network transfer
 - workspace tile CPU and network transfer
-- focused-terminal PID, CPU, and network transfer
+- focused-terminal CPU and network transfer
 
 Local and SSH workspace probes follow the selected workspace and refresh without
 restarting Desktop. Open ports are matched by listener PID and current working
