@@ -153,6 +153,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         commandsItem.target = self
         appMenu.addItem(commandsItem)
 
+        let openSelectionItem = NSMenuItem(
+            title: "Open Selection With…",
+            action: #selector(openSelectionWith),
+            keyEquivalent: "o"
+        )
+        openSelectionItem.keyEquivalentModifierMask = [.command]
+        openSelectionItem.target = self
+        appMenu.addItem(openSelectionItem)
+
         let zoomInItem = NSMenuItem(
             title: "Zoom In",
             action: #selector(zoomIn),
@@ -291,6 +300,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         {
             return deck?.canReopenClosedTerminal == true
         }
+        if menuItem.action == #selector(openSelectionWith) {
+            return window?.firstResponder is MachinenTerminalView
+        }
         // Do not let application menu equivalents steal terminal commands. The
         // Workspace commands and contextual ⌘N remain available so a focused
         // local or SSH terminal can manage its workspace without zooming out.
@@ -316,6 +328,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func toggleNewTerminal() {
         deck?.toggleNewTerminalPalette()
+    }
+
+    @objc private func openSelectionWith() {
+        deck?.showSelectionOpenersMenu()
     }
 
     @objc private func zoomIn() {

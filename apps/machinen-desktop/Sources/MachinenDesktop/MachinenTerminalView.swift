@@ -13,6 +13,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     var onProcessInfoChange: ((TerminalProcessInfo?) -> Void)?
     var onRuntimeLabelChange: ((String?) -> Void)?
     var onOutput: ((Data) -> Void)?
+    var onContextMenuRequested: ((MachinenTerminalView, String?) -> NSMenu?)?
 
     nonisolated var ghosttySurface: ghostty_surface_t? { surface }
 
@@ -26,6 +27,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     private var keyTextAccumulator: [String]?
     private var cellSize = NSSize(width: 10, height: 20)
     private var tracking: NSTrackingArea?
+    private var selectionAnchorInWindow: NSPoint?
     private var outputTap: GhosttyOutputTap?
     private var terminalBackend: any TerminalSessionBackend {
         TerminalSessionBackendFactory.backend
@@ -463,6 +465,26 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
               terminalInputFocused,
               window?.firstResponder === self
         else { return false }
+        let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        if modifiers == [.command],
+           let character = event.charactersIgnoringModifiers?.lowercased(),
+           character == "k" || character == "o"
+        {
+            var ancestor = superview
+            while let view = ancestor {
+                if let deck = view as? TerminalDeckView {
+                    if character == "k" {
+                        InputRoutingLog.log("terminal routes command-k directly to command palette")
+                        deck.toggleCommandPalette()
+                    } else {
+                        InputRoutingLog.log("terminal routes command-o directly to selection openers")
+                        deck.showSelectionOpenersMenu()
+                    }
+                    return true
+                }
+                ancestor = view.superview
+            }
+        }
         if event.modifierFlags.contains(.command) { return false }
         keyDown(with: event)
         return true
@@ -496,6 +518,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
 
     override func mouseUp(with event: NSEvent) {
         InputRoutingLog.log("terminal[\(session.tileID)] mouseUp \(InputRoutingLog.event(event))")
+        selectionAnchorInWindow = event.locationInWindow
         sendMouseButton(event, state: GHOSTTY_MOUSE_RELEASE)
     }
 
@@ -505,15 +528,26 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     }
 
     override func rightMouseDown(with event: NSEvent) {
+        InputRoutingLog.log("terminal[\(session.tileID)] rightMouseDown \(InputRoutingLog.event(event))")
+        window?.makeFirstResponder(self)
+        selectionAnchorInWindow = event.locationInWindow
+        if let menu = onContextMenuRequested?(self, selectedText()) {
+            NSMenu.popUpContextMenu(menu, with: event, for: self)
+            return
+        }
         sendMousePosition(event)
         sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS)
     }
 
     override func rightMouseUp(with event: NSEvent) {
+        guard onContextMenuRequested == nil else { return }
         sendMouseButton(event, state: GHOSTTY_MOUSE_RELEASE)
     }
 
-    override func rightMouseDragged(with event: NSEvent) { sendMousePosition(event) }
+    override func rightMouseDragged(with event: NSEvent) {
+        guard onContextMenuRequested == nil else { return }
+        sendMousePosition(event)
+    }
     override func otherMouseDown(with event: NSEvent) { sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS) }
     override func otherMouseUp(with event: NSEvent) { sendMouseButton(event, state: GHOSTTY_MOUSE_RELEASE) }
     override func otherMouseDragged(with event: NSEvent) { sendMousePosition(event) }
@@ -555,6 +589,22 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
             event.ghosttyMouseButton,
             event.modifierFlags.ghosttyModifiers
         )
+    }
+
+    func selectedText() -> String? {
+        guard let surface else { return nil }
+        var text = ghostty_text_s()
+        guard ghostty_surface_read_selection(surface, &text), let value = text.text else { return nil }
+        defer { ghostty_surface_free_text(surface, &text) }
+        let selection = String(cString: value)
+        return selection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : selection
+    }
+
+    func contextMenuAnchor(in view: NSView) -> NSPoint {
+        if let selectionAnchorInWindow {
+            return view.convert(selectionAnchorInWindow, from: nil)
+        }
+        return view.convert(NSPoint(x: bounds.midX, y: bounds.midY), from: self)
     }
 
     @objc func copy(_ sender: Any?) {

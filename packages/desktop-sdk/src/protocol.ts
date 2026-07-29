@@ -78,6 +78,27 @@ export interface StatusWidgetLink {
   url: string;
 }
 
+export interface SelectionOpenerDefinition extends JsonObject {
+  id: string;
+  title: string;
+  subtitle?: string;
+  selectionPattern?: string;
+  locationKinds?: Array<WorkspaceLocation["kind"]>;
+  priority?: number;
+  ttlMilliseconds?: number;
+}
+
+export interface SelectionOpenerInvocation extends JsonObject {
+  invocationId: string;
+  openerId: string;
+  selection: string;
+  workspaceId: string;
+  tileId: string;
+  terminalId: string;
+  workingDirectory: string;
+  location: WorkspaceLocation;
+}
+
 export interface StatusWidget {
   id: string;
   scope?: StatusScope;
@@ -116,6 +137,8 @@ export type DesktopEventName =
   | "terminal.updated"
   | "terminal.output"
   | "status.changed"
+  | "selectionOpener.changed"
+  | "selectionOpener.invoked"
   | "ui.changed";
 
 export interface DesktopEvent {

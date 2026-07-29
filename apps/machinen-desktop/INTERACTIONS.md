@@ -33,9 +33,11 @@ discovery use the workspace directory as their project boundary.
 | `⌘[` / `⌘]`      | From Terminal mode, focus the first terminal in the previous/next non-empty workspace. |
 | `⌘N`             | Open the New chooser; never create a terminal or workspace immediately.                |
 | `⌘K`             | Open workspace commands, including recently closed terminals.                          |
+| `⌘O`             | Open the registered **Open Selection With** destinations for selected terminal text.   |
 | Keyboard input   | In Terminal mode, the terminal receives all other keys and modifier combinations.      |
 | Arrow keys       | Move the selection only at the current overview level.                                 |
 | Click            | A terminal preview focuses its terminal.                                               |
+| Right-click      | Show Copy, Paste, Select All, and the **Open Selection With** submenu.                 |
 | Drag preview     | Inside a workspace, reorder its terminal tiles. Never change their workspace.          |
 | Drag terminal    | Forward the drag for terminal selection/input.                                         |
 | Hold Space       | Momentarily peek into the selection.                                                   |
@@ -50,12 +52,13 @@ discovery use the workspace directory as their project boundary.
 - **Terminal mode:** one terminal is focused, and its viewport owns every
   pointer and keyboard event. Spatial dragging, overview navigation, and
   application command equivalents do not intercept terminal input, except
-  `⌘+` / `⌘−`, `⌘←` / `⌘→`, `⌘[` / `⌘]`, `⌘N`, and `⌘K`. The arrow shortcuts wrap through the
+  `⌘+` / `⌘−`, `⌘←` / `⌘→`, `⌘[` / `⌘]`, `⌘N`, `⌘K`, and `⌘O`. The arrow shortcuts wrap through the
   terminals in the current workspace, zooming out to the workspace before
   focusing the adjacent terminal. The bracket shortcuts wrap through non-empty
   workspaces: they zoom out to the source workspace, zoom out to the workspace
   overview and select the adjacent workspace, then zoom into its first tile.
-  `⌘K` opens workspace commands without changing camera level.
+  `⌘K` opens workspace commands without changing camera level. `⌘O` opens
+  TypeScript-registered destinations for the current terminal selection.
 
 `⌘+` / `⌘−` changes only camera magnification in equal increments, and `⌘0` resets it to actual size; all preserve the current hierarchy level. `⌘↓` / `⌘↑` moves through the camera hierarchy. Neither changes terminal scrollback.
 The terminal viewport keeps the same intrinsic bounds and Ghostty grid while the
@@ -125,9 +128,19 @@ remote user's `$HOME`.
 login shell or run an arbitrary command, but it does not replace `⌘N`'s explicit
 workspace chooser.
 
-## Workspace commands
+## Open Selection With and workspace commands
 
-`⌘K` and the application menu's **Commands…** contain exactly five workspace actions. Escape always moves back one level within a command flow; only Escape from this top-level menu dismisses it:
+Right-clicking a terminal shows its normal editing commands and an **Open
+Selection With** submenu. `⌘O` opens the same registered destinations for the
+current selection. Choosing a destination publishes the full selected text,
+terminal working directory, execution location, and stable
+workspace/tile/terminal IDs through the local API. Trusted TypeScript
+`SelectionOpener` implementations perform precise validation and ordinary API
+operations such as creating a terminal or revealing a path in Finder.
+
+`⌘K` and the application menu's **Commands…** contain exactly five workspace
+actions. Escape always moves back one level within a command flow; only Escape
+from this top-level menu dismisses it:
 
 1. **New workspace…** opens the same location-then-name flow used by `⌘N`,
    creates an initial login-shell terminal, and enters it.

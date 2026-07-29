@@ -29,7 +29,7 @@ final class GhosttyRuntime: @unchecked Sendable {
 
         var runtime = ghostty_runtime_config_s(
             userdata: Unmanaged.passUnretained(self).toOpaque(),
-            supports_selection_clipboard: false,
+            supports_selection_clipboard: true,
             wakeup_cb: { userdata in GhosttyRuntime.wakeup(userdata) },
             action_cb: { _, target, action in GhosttyRuntime.action(target: target, action: action) },
             read_clipboard_cb: { userdata, location, state in

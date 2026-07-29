@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { connect as connectSocket, type Socket } from "node:net";
 
 import type {
+  SelectionOpenerDefinition,
   DesktopClientIdentity,
   DesktopConnection,
   DesktopEvent,
@@ -77,6 +78,14 @@ export class MachinenDesktopClient {
       this.request<JsonObject>("status.set", { ...widget } as JsonObject),
     remove: (id: string, scope?: StatusScope) =>
       this.request<JsonObject>("status.remove", { id, ...(scope ? { scope } : {}) }),
+  };
+  // Public SDK surface is consumed outside this repository.
+  // fallow-ignore-next-line unused-class-member
+  readonly selectionOpeners = {
+    list: () => this.request<JsonObject>("selectionOpener.list"),
+    set: (opener: SelectionOpenerDefinition) =>
+      this.request<JsonObject>("selectionOpener.set", { ...opener } as JsonObject),
+    remove: (id: string) => this.request<JsonObject>("selectionOpener.remove", { id }),
   };
 
   private readonly identity: DesktopClientIdentity;
