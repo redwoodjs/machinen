@@ -129,6 +129,12 @@ enum InteractionTestRunner {
             throw InteractionTestFailure("the deck did not install its status bar")
         }
         try expect(
+            statusBar.widgets.first(where: { $0.id == "machinen.versions" })?.value
+                == MachinenBuildVersions.statusText,
+            "the status bar did not show the Desktop and session-handler versions"
+        )
+
+        try expect(
             statusBar.workspaceMenu().items.map(\.title) == ["alpha", "beta"],
             "the workspace title did not provide a spatially ordered dropdown"
         )

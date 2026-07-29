@@ -293,8 +293,10 @@ panel's Kill action emits `tile.killed` while removing the native session. API
 - `status.set { ...widget }`
 - `status.remove { id, scope? }`
 
-There is one persistent status bar. At workspace level its activity monitor
-summarizes all of that workspace's tiles, and the bar also shows aggregate tile
+There is one persistent status bar. Its right edge always identifies the
+running app and bundled native helper as `Desktop <version> · Session <version>`.
+At workspace level its activity monitor summarizes all of that workspace's
+tiles, and the bar also shows aggregate tile
 CPU/network and branch-wide Git changes. The Git item graphs per-file additions
 and deletions with compact line totals at rest; its hover detail contains the
 branch, commits since the default-branch merge base, changed files, and exact

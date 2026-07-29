@@ -508,7 +508,7 @@ final class MachinenAPIServer {
     }
 
     private func appVersion() -> String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
+        MachinenBuildVersions.desktop
     }
 
     private func makeAddress(path: String) -> sockaddr_un {
