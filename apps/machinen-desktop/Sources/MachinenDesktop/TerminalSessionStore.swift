@@ -31,7 +31,7 @@ final class TerminalSessionStore {
 
     func load() -> MachinenStoredState {
         guard let data = try? Data(contentsOf: manifestURL) else {
-            let state = TerminalSession.bootstrap()
+            let state = MachinenStoredState(workspaces: [], sessions: [])
             save(state)
             return state
         }
@@ -42,7 +42,7 @@ final class TerminalSessionStore {
                 sessions: manifest.sessions,
                 workspaceLocationHistory: manifest.workspaceLocationHistory
             )
-            if manifest.version < 8 || manifest.workspaces == nil
+            if manifest.version < 10 || manifest.workspaces == nil
                 || manifest.workspaceLocationHistory == nil
             {
                 save(state)
@@ -52,7 +52,7 @@ final class TerminalSessionStore {
             let backup = manifestURL.appendingPathExtension("invalid")
             try? FileManager.default.removeItem(at: backup)
             try? FileManager.default.moveItem(at: manifestURL, to: backup)
-            let state = TerminalSession.bootstrap()
+            let state = MachinenStoredState(workspaces: [], sessions: [])
             save(state)
             return state
         }
@@ -67,7 +67,7 @@ final class TerminalSessionStore {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let manifest = Manifest(
-                version: 8,
+                version: 10,
                 workspaces: state.workspaces,
                 sessions: state.sessions,
                 workspaceLocationHistory: state.workspaceLocationHistory
@@ -119,6 +119,9 @@ final class TerminalSessionStore {
             }
             session.workspaceID = workspace.id
             session.workspace = workspace.name
+            if session.workspaceRoot == session.workingDirectory {
+                session.workspaceRoot = workspace.workingDirectory
+            }
         }
 
         var locationHistory = existingLocationHistory ?? []

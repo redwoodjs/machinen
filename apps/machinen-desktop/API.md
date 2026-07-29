@@ -116,6 +116,7 @@ owns launch information, process state, and PTY input/output.
   "pid": 4242,
   "shellPid": 4201,
   "workingDirectory": "/project",
+  "currentWorkingDirectory": "/project/packages/web",
   "location": { "kind": "ssh", "host": "mini", "path": "/project" },
   "launch": { "kind": "shellCommand", "command": "pnpm dev" },
   "backend": "machinenSession",
@@ -124,6 +125,11 @@ owns launch information, process state, and PTY input/output.
   "viewerState": "attached"
 }
 ```
+
+`workingDirectory` and `location` describe where the terminal was launched.
+`currentWorkingDirectory` is the latest absolute path reported by OSC 7 and is
+`null` until the terminal program emits one. It follows an interactive shell
+after `cd` and is retained across Desktop relaunches as the last known value.
 
 `pid` and `shellPid` are best-effort metadata from the native worker that owns
 the PTY and may be `null` for an older live worker. `backend` is always
@@ -175,8 +181,12 @@ Atomically returns `workspaces`, `tiles`, `terminals`, and `ui`.
 
 Every workspace has a stable ID and a unique, case-insensitive name. Machinen
 trims surrounding whitespace when creating or renaming a workspace. A workspace
-also has one default location, which is not part of its identity and may be
-shared by other workspaces. A local location is
+also has one mutable directory root, which may be shared by other explicitly
+identified workspaces. The native session store on the machine owning that root
+persists the workspace ID, name, root, and explicit session membership. Desktop's
+private manifest is only a presentation cache: a fresh Desktop reconstructs
+local native workspaces automatically, and selecting a registered SSH directory
+restores the corresponding remote workspace. A local location is
 `{ "kind": "local", "path": "/project" }`. A remote location is
 `{ "kind": "ssh", "host": "mini", "path": "/project" }`; `host` uses the
 user's OpenSSH configuration and may include a username. The legacy
@@ -185,8 +195,10 @@ results also expose `machineId`: `local` for the Mac running Desktop, or
 `ssh:<host>` for an SSH location.
 
 New terminals inherit the workspace location unless an API caller explicitly
-supplies a launch subdirectory. Remote terminals install and run the native
-session worker on the SSH host; Desktop's Ghostty viewer attaches through SSH.
+supplies a launch subdirectory. Their native records store `workspace_id`
+separately from that launch directory, so changing directory or reconnecting
+from another Desktop does not lose membership. Remote terminals install and run
+the native session worker on the SSH host; Desktop's Ghostty viewer attaches through SSH.
 Git and service probes use that same SSH connection model. `workspace.update`
 can change the default location at any time. Existing terminals retain their
 own execution locations and are neither moved nor restarted.
@@ -212,7 +224,7 @@ terminal cannot silently change execution locations. Detaching removes only the
 viewer; the PTY process continues. Deleting a tile fails with `terminal_running`
 until its terminal is stopped or exited.
 
-Creating a terminal tile and its PTY is one atomic operation:
+Creating a terminal tile and beginning its PTY launch is one atomic operation. The tile and its terminal viewport appear immediately; local process creation or SSH connection continues while `processState` is `starting`, then publishes `terminal.stateChanged` with `running`. Callers do not need a separate attach operation, but should observe the lifecycle event when they require a ready PTY:
 
 ```json
 {
@@ -269,9 +281,10 @@ persistent PTY even when its tile viewer is detached.
 
 There is intentionally no `terminal.close`. Callers must explicitly choose to
 detach a tile, stop a terminal, or delete a stopped tile. Desktop's `⌘W`
-interaction is a UI-level reversible close: `tile.closed` removes the tile from
-snapshots during its grace period, `tile.reopened` restores the same ID, and
-`tile.closeFinalized` reports that its native session is being removed. API
+interaction disconnects the viewer and removes the tile from snapshots while
+the native session keeps running. It emits `tile.disconnected`; reconnecting
+emits `tile.reconnected` with the same IDs, and a second `⌘W` or the session
+panel's Kill action emits `tile.killed` while removing the native session. API
 `tile.delete` retains its explicit immediate semantics.
 
 ## Status bar
@@ -338,9 +351,10 @@ effective widgets after spatial-scope inheritance.
 - `selectionOpener.remove { id }`
 
 Selection openers let trusted TypeScript services define destinations in the
-terminal's **Open Selection With** submenu. Right-clicking selected text shows
-that submenu, and `⌘O` opens the same destinations from the keyboard. An optional
-case-insensitive `selectionPattern` filters cheap native-menu matches;
+terminal's **Open Selection With** submenu. Right-clicking a terminal shows the
+full context menu, and `⌘O` opens that same menu from the keyboard. When text is
+selected, its **Open Selection With** submenu contains matching destinations. An
+optional case-insensitive `selectionPattern` filters cheap native-menu matches;
 `locationKinds` can contain `local`, `ssh`, or both. Exact parsing and validation
 remain in TypeScript. Higher priorities appear first.
 `selectionOpener.list` returns `{ openers: [...] }`.
@@ -360,7 +374,9 @@ await desktop.selectionOpeners.set({
 ```
 
 An invocation contains the exact selected text and enough execution context to
-create work in the same workspace and location:
+create work in the same workspace and location. Its `workingDirectory` and
+`location.path` use the latest OSC 7 directory, falling back to the terminal's
+launch directory:
 
 ```json
 {
@@ -434,6 +450,7 @@ Events:
 ```text
 system.shuttingDown
 workspace.created
+workspace.restored
 workspace.updated
 workspace.moved
 workspace.deleted
@@ -441,13 +458,14 @@ tile.created
 tile.updated
 tile.moved
 tile.viewerChanged
-tile.closed
-tile.reopened
-tile.closeFinalized
+tile.disconnected
+tile.reconnected
+tile.killed
 tile.deleted
 terminal.stateChanged
 terminal.activityChanged
 terminal.commandChanged
+terminal.workingDirectoryChanged
 terminal.updated
 terminal.output
 status.changed

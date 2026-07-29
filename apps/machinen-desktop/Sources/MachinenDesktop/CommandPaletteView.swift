@@ -1,7 +1,7 @@
 import AppKit
 
 struct PaletteCommand {
-    enum ID {
+    enum ID: Equatable {
         case newWorkspace
         case newTerminalInWorkspace
         case back
@@ -23,7 +23,7 @@ struct PaletteCommand {
         case stopWorkspace
         case closeSession
         case closeWorkspace
-        case manageClosedTerminals
+        case reconnectAvailableSession
         case showDiagnostics
         case createShell
         case runCommand

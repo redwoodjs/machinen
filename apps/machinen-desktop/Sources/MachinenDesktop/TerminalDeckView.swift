@@ -23,7 +23,7 @@ final class TerminalDeckView: NSView {
     private struct RecentlyClosedTerminal {
         let tile: TerminalTileView
         let position: Int
-        let deadline: Date
+        let disconnectedAt: Date
     }
 
     private struct TerminalSelectionContext {
@@ -84,7 +84,7 @@ final class TerminalDeckView: NSView {
     }
 
     private enum Metrics {
-        static let topInset: CGFloat = 58
+        static let topInset: CGFloat = 18
         static let bottomInset: CGFloat = 54
         static let sideInset: CGFloat = 28
         static let windowControlsInset: CGFloat = 92
@@ -96,6 +96,7 @@ final class TerminalDeckView: NSView {
     private let statusBarView = MachinenStatusBarView()
     private let statusPopoverView = MachinenStatusPopoverView()
     private let sessionStore: TerminalSessionStore
+    private let sessionBackend: any TerminalSessionBackend
     private var workspaces: [WorkspaceRecord]
     private var workspaceLocationHistory: [WorkspaceLocation]
     private var allSessionTiles: [TerminalTileView]
@@ -126,16 +127,19 @@ final class TerminalDeckView: NSView {
     private weak var dragTargetTile: TerminalTileView?
     private weak var dragTargetWorkspace: WorkspaceClusterView?
     private var recentlyClosedTerminals: [String: RecentlyClosedTerminal]
-    private var pendingCloseTasks: [String: DispatchWorkItem] = [:]
     private var undoCloseView: UndoTerminalCloseView?
     private var undoToastTerminalID: String?
     private var undoToastDismissTask: DispatchWorkItem?
-    private var undoManagerView: TerminalUndoManagerView?
-    private var undoManagerWorkspaceID: String?
-    private var undoManagerReturnsToCommands = false
-    private let closeGracePeriod: TimeInterval = 5 * 60
+    private var availableSessionsView: AvailableSessionsView?
+    private var availableSessionsWorkspaceID: String?
+    private var availableSessionsReturnsToCommands = false
+    private var availableSessionsByMachine: [String: [AvailableTerminalSession]] = [:]
+    private var availableSessionsErrors: [String: String] = [:]
+    private var availableSessionsLastRefresh: [String: Date] = [:]
+    private var availableSessionsLoading: Set<String> = []
+    private var availableSessionsRefreshTimer: Timer?
     private let undoToastDuration: TimeInterval = 3
-    private let recentlyClosedLimit = 5
+    private let availableSessionsRefreshInterval: TimeInterval = 10
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { true }
@@ -144,20 +148,26 @@ final class TerminalDeckView: NSView {
     var onAPIEvent: ((String, [String: Any]) -> Void)?
     var shouldPublishTerminalOutput: ((JSONObject) -> Bool)?
 
-    init(state: MachinenStoredState, sessionStore: TerminalSessionStore) {
+    init(
+        state: MachinenStoredState,
+        sessionStore: TerminalSessionStore,
+        sessionBackend: (any TerminalSessionBackend)? = nil
+    ) {
         self.sessionStore = sessionStore
+        self.sessionBackend = sessionBackend ?? TerminalSessionBackendFactory.backend
         workspaces = state.workspaces
         workspaceLocationHistory = state.workspaceLocationHistory
         let initialTiles = state.sessions.map { TerminalTileView(session: $0) }
-        allSessionTiles = initialTiles.filter { $0.session.pendingCloseDeadline == nil }
+        allSessionTiles = initialTiles.filter { $0.session.disconnectedAt == nil }
         recentlyClosedTerminals = Dictionary(uniqueKeysWithValues: initialTiles.compactMap { tile in
-            guard let deadline = tile.session.pendingCloseDeadline else { return nil }
+            guard let disconnectedAt = tile.session.disconnectedAt else { return nil }
+            tile.session.state = .detached
             return (
                 tile.session.id,
                 RecentlyClosedTerminal(
                     tile: tile,
-                    position: tile.session.pendingClosePosition ?? state.sessions.count,
-                    deadline: deadline
+                    position: tile.session.disconnectedPosition ?? state.sessions.count,
+                    disconnectedAt: disconnectedAt
                 )
             )
         })
@@ -165,6 +175,8 @@ final class TerminalDeckView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor(calibratedWhite: 0.055, alpha: 1).cgColor
         layer?.masksToBounds = true
+        sceneView.wantsLayer = true
+        sceneView.layer?.masksToBounds = true
 
         addSubview(sceneView)
         let persistedTiles = allSessionTiles + recentlyClosedTerminals.values.map(\.tile)
@@ -179,22 +191,43 @@ final class TerminalDeckView: NSView {
             self?.updateStatusPopover(widget: widget, anchor: anchor, detail: detail)
         }
         statusBarView.onWidgetClick = { [weak self] widget in
-            self?.copyPIDIfNeeded(from: widget) ?? false
+            guard let self else { return false }
+            if widget.id == "machinen.availableSessions" {
+                self.toggleAvailableSessions()
+                return true
+            }
+            return self.copyPIDIfNeeded(from: widget)
+        }
+        statusBarView.onWorkspaceSelect = { [weak self] workspaceID in
+            self?.selectWorkspaceFromStatusBar(workspaceID)
+        }
+        statusBarView.onTerminalSelect = { [weak self] terminalID in
+            self?.selectTerminalFromStatusBar(terminalID)
         }
         statusBarView.onMouseDown = { [weak self] in
             self?.restoreInputFocus()
         }
         enterSoleTerminalIfNeeded()
         updateSelection()
-        for terminalID in recentlyClosedTerminals.keys {
-            schedulePendingCloseFinalization(terminalID: terminalID)
-        }
+        synchronizeNativeWorkspaceRegistry()
+        refreshAvailableSessionsIfNeeded(force: true)
         setAccessibilityElement(false)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil {
+            if availableSessionsRefreshTimer == nil { startAvailableSessionsPolling() }
+            refreshAvailableSessionsIfNeeded(force: true)
+        } else {
+            availableSessionsRefreshTimer?.invalidate()
+            availableSessionsRefreshTimer = nil
+        }
     }
 
     private var activeSessionTiles: [TerminalTileView] {
@@ -308,7 +341,10 @@ final class TerminalDeckView: NSView {
     }
 
     private func installPersistentTerminal(in tile: TerminalTileView) {
-        let terminalView = MachinenTerminalView(session: tile.session)
+        let terminalView = MachinenTerminalView(
+            session: tile.session,
+            terminalBackend: sessionBackend
+        )
         terminalView.onStateChange = { [weak self, weak tile] state in
             guard let self, let tile, !self.isShuttingDown else { return }
             tile.transition(to: state, terminalText: tile.session.terminalText)
@@ -348,6 +384,15 @@ final class TerminalDeckView: NSView {
             self.saveSessions()
             self.emitAPIEvent("terminal.labelChanged", data: self.terminalJSON(tile))
         }
+        terminalView.onWorkingDirectoryChange = { [weak self, weak tile] directory in
+            guard let self, let tile, !self.isShuttingDown,
+                  tile.session.currentWorkingDirectory != directory
+            else { return }
+            tile.session.currentWorkingDirectory = directory
+            self.refreshStatusBar()
+            self.saveSessions()
+            self.emitAPIEvent("terminal.workingDirectoryChanged", data: self.terminalJSON(tile))
+        }
         terminalView.onOutput = { [weak self, weak tile] data in
             guard let self, let tile else { return }
             var eventData: JSONObject = [
@@ -378,6 +423,135 @@ final class TerminalDeckView: NSView {
             sessions: persistedSessionTiles.map(\.session),
             workspaceLocationHistory: workspaceLocationHistory
         ))
+    }
+
+    private func synchronizeNativeWorkspaceRegistry() {
+        var locations = [WorkspaceLocation.local(
+            FileManager.default.homeDirectoryForCurrentUser.path
+        )]
+        for workspace in workspaces where !locations.contains(where: {
+            $0.machineID == workspace.location.machineID
+        }) {
+            locations.append(workspace.location)
+        }
+        for location in locations { restoreNativeWorkspaces(from: location) }
+    }
+
+    private func persistNativeWorkspace(_ workspace: WorkspaceRecord) {
+        var locationsByMachine = [workspace.location.machineID: workspace.location]
+        let sessions = persistedSessionTiles.map(\.session).filter {
+            $0.workspaceID == workspace.id
+        }
+        for session in sessions where locationsByMachine[session.location.machineID] == nil {
+            var anchor = session.location
+            anchor.path = session.workspaceRoot
+            locationsByMachine[anchor.machineID] = anchor
+        }
+        for location in locationsByMachine.values {
+            let sessionIDs = sessions.filter {
+                $0.location.machineID == location.machineID
+            }.map(\.id)
+            sessionBackend.saveWorkspace(
+                id: workspace.id,
+                name: workspace.name,
+                at: location,
+                sessionIDs: sessionIDs
+            ) { result in
+                if case let .failure(error) = result {
+                    NSLog("Machinen could not save native workspace: %@", String(describing: error))
+                }
+            }
+        }
+    }
+
+    private func deleteNativeWorkspace(_ workspace: WorkspaceRecord) {
+        var locationsByMachine = [workspace.location.machineID: workspace.location]
+        for session in persistedSessionTiles.map(\.session) where session.workspaceID == workspace.id {
+            if locationsByMachine[session.location.machineID] == nil {
+                var anchor = session.location
+                anchor.path = session.workspaceRoot
+                locationsByMachine[anchor.machineID] = anchor
+            }
+        }
+        for location in locationsByMachine.values {
+            sessionBackend.deleteWorkspace(id: workspace.id, at: location) { result in
+                if case let .failure(error) = result {
+                    NSLog("Machinen could not delete native workspace: %@", String(describing: error))
+                }
+            }
+        }
+    }
+
+    private func restoreNativeWorkspaces(from location: WorkspaceLocation) {
+        sessionBackend.listWorkspaces(at: location) { [weak self] result in
+            guard let self else { return }
+            guard case let .success(records) = result else {
+                for workspace in self.workspaces where
+                    workspace.location.machineID == location.machineID
+                {
+                    self.persistNativeWorkspace(workspace)
+                }
+                return
+            }
+            var changed = false
+            var restored: [WorkspaceRecord] = []
+            var updated: [WorkspaceRecord] = []
+            var usedNames = Set(self.workspaces.map { WorkspaceName.key($0.name) })
+            for record in records {
+                if let existing = self.workspaces.first(where: { $0.id == record.id }) {
+                    guard existing.location.machineID == location.machineID else { continue }
+                    let previousName = existing.name
+                    let previousRoot = existing.location.path
+                    usedNames.remove(WorkspaceName.key(previousName))
+                    existing.name = WorkspaceName.unique(record.name, reserving: &usedNames)
+                    existing.location.path = record.rootDirectory
+                    for tile in self.persistedSessionTiles where
+                        tile.session.workspaceID == existing.id
+                    {
+                        tile.session.workspace = existing.name
+                    }
+                    if previousName != existing.name || previousRoot != existing.location.path {
+                        self.rememberWorkspaceLocation(existing.location)
+                        updated.append(existing)
+                        changed = true
+                    }
+                    continue
+                }
+                let name = WorkspaceName.unique(record.name, reserving: &usedNames)
+                let workspace = WorkspaceRecord(
+                    id: record.id,
+                    name: name,
+                    workingDirectory: record.rootDirectory,
+                    sshHost: location.sshHost
+                )
+                self.workspaces.append(workspace)
+                self.rememberWorkspaceLocation(workspace.location)
+                restored.append(workspace)
+                changed = true
+            }
+            let nativeIDs = Set(records.map(\.id))
+            for workspace in self.workspaces where
+                workspace.location.machineID == location.machineID
+                    && !nativeIDs.contains(workspace.id)
+            {
+                self.persistNativeWorkspace(workspace)
+            }
+            guard changed else { return }
+            self.rebuildWorkspaceClusters()
+            self.updateWorldGeometry()
+            self.updateSelection()
+            self.setCameraImmediately()
+            self.saveSessions()
+            for workspace in restored {
+                self.emitAPIEvent("workspace.restored", data: self.workspaceJSON(workspace))
+            }
+            for workspace in updated {
+                self.emitAPIEvent("workspace.updated", data: self.workspaceJSON(workspace))
+            }
+            if let workspace = restored.first {
+                self.refreshAvailableSessions(for: workspace, force: true)
+            }
+        }
     }
 
     private func rebuildWorkspaceClusters() {
@@ -443,16 +617,30 @@ final class TerminalDeckView: NSView {
         }
     }
 
+    private var sceneViewportFrame: NSRect {
+        let statusHeight = min(bounds.height, MachinenStatusBarView.preferredHeight)
+        return NSRect(
+            x: 0,
+            y: statusHeight,
+            width: bounds.width,
+            height: max(0, bounds.height - statusHeight)
+        )
+    }
+
+    private var sceneViewportBounds: NSRect {
+        NSRect(origin: .zero, size: sceneViewportFrame.size)
+    }
+
     override func layout() {
         super.layout()
         commandPalette?.frame = bounds
-        undoManagerView?.frame = bounds
         statusBarView.frame = NSRect(
             x: 0,
             y: 0,
             width: bounds.width,
             height: MachinenStatusBarView.preferredHeight
         )
+        sceneView.frame = sceneViewportFrame
         if let undoCloseView {
             let width = min(460, max(360, bounds.width - 32))
             undoCloseView.frame = NSRect(
@@ -462,16 +650,18 @@ final class TerminalDeckView: NSView {
                 height: 54
             ).integral
         }
-        guard bounds.width > 0, bounds.height > 0 else { return }
-        if lastViewportSize != bounds.size {
-            lastViewportSize = bounds.size
+        let viewportSize = sceneViewportFrame.size
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+        if lastViewportSize != viewportSize {
+            lastViewportSize = viewportSize
             updateWorldGeometry()
             setCameraImmediately()
         }
     }
 
     private func updateWorldGeometry() {
-        let terminalSize = NSSize(width: max(1, bounds.width), height: max(1, bounds.height))
+        let viewport = sceneViewportBounds
+        let terminalSize = NSSize(width: max(1, viewport.width), height: max(1, viewport.height))
         let sizes = workspaceClusters.map { cluster in
             cluster.arrange(
                 sessions: allSessionTiles.filter { $0.session.workspaceID == cluster.workspaceID },
@@ -516,26 +706,35 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func cameraBounds(for target: NSRect, viewport: NSRect) -> NSRect {
+    private func cameraBounds(
+        for target: NSRect,
+        viewport: NSRect,
+        alignTargetToTop: Bool = false
+    ) -> NSRect {
+        let fullViewport = sceneViewportBounds
         guard !target.isNull, target.width > 0, target.height > 0,
               viewport.width > 0, viewport.height > 0,
-              bounds.width > 0, bounds.height > 0
-        else { return NSRect(origin: .zero, size: bounds.size) }
+              fullViewport.width > 0, fullViewport.height > 0
+        else { return fullViewport }
         let scale = min(viewport.width / target.width, viewport.height / target.height)
+        let originY = alignTargetToTop
+            ? target.minY - viewport.minY / scale
+            : target.midY - viewport.midY / scale
         return NSRect(
             x: target.midX - viewport.midX / scale,
-            y: target.midY - viewport.midY / scale,
-            width: bounds.width / scale,
-            height: bounds.height / scale
+            y: originY,
+            width: fullViewport.width / scale,
+            height: fullViewport.height / scale
         )
     }
 
     private func overviewViewport() -> NSRect {
-        NSRect(
+        let viewport = sceneViewportBounds
+        return NSRect(
             x: Metrics.sideInset,
             y: Metrics.topInset,
-            width: max(1, bounds.width - Metrics.sideInset * 2),
-            height: max(1, bounds.height - Metrics.topInset - Metrics.bottomInset)
+            width: max(1, viewport.width - Metrics.sideInset * 2),
+            height: max(1, viewport.height - Metrics.topInset - Metrics.bottomInset)
         )
     }
 
@@ -546,15 +745,22 @@ final class TerminalDeckView: NSView {
                let cluster = workspaceCluster(named: currentWorkspace),
                let terminalFrame = cluster.frameForSession(sessions[focusedIndex], in: sceneView)
             {
-                return applyingCameraMagnification(to: cameraBounds(for: terminalFrame, viewport: bounds))
+                return applyingCameraMagnification(to: cameraBounds(
+                    for: terminalFrame,
+                    viewport: sceneViewportBounds
+                ))
             }
         }
         if let cluster = workspaceCluster(named: currentWorkspace) {
-            return applyingCameraMagnification(to: cameraBounds(for: cluster.frame, viewport: bounds))
+            return applyingCameraMagnification(to: cameraBounds(
+                for: cluster.frame,
+                viewport: sceneViewportBounds
+            ))
         }
         return applyingCameraMagnification(to: cameraBounds(
-            for: workspaceUnion.insetBy(dx: -Metrics.worldMargin / 2, dy: -Metrics.worldMargin / 2),
-            viewport: overviewViewport()
+            for: workspaceUnion.insetBy(dx: -Metrics.worldMargin / 2, dy: 0),
+            viewport: overviewViewport(),
+            alignTargetToTop: true
         ))
     }
 
@@ -578,7 +784,7 @@ final class TerminalDeckView: NSView {
 
         // The scene stays viewport-sized. Changing its world-space bounds moves
         // a camera over stable terminal surfaces instead of resizing the scene.
-        sceneView.frame = bounds
+        sceneView.frame = sceneViewportFrame
         sceneView.bounds = currentCameraBounds()
         needsDisplay = true
     }
@@ -604,7 +810,7 @@ final class TerminalDeckView: NSView {
 
         isTransitioning = true
         needsDisplay = true
-        sceneView.frame = bounds
+        sceneView.frame = sceneViewportFrame
         cameraAnimation = CameraAnimation(
             start: start,
             target: target,
@@ -759,6 +965,40 @@ final class TerminalDeckView: NSView {
             return
         }
         super.keyUp(with: event)
+    }
+
+    private func selectWorkspaceFromStatusBar(_ workspaceID: String) {
+        guard presentedOverlay == nil, commandPalette == nil,
+              !isTransitioning, !isPeeking,
+              workspaceClusters.contains(where: { $0.workspaceID == workspaceID })
+        else { return }
+
+        if workspaceID == selectedWorkspaceID() {
+            zoomOutOneLevel()
+            return
+        }
+
+        currentWorkspace = workspaceID
+        let sessions = activeSessionTiles
+        selectedIndex = 0
+        focusedIndex = sessions.count == 1 ? 0 : nil
+        clearLabelBuffer()
+        updateSelection()
+        moveCamera()
+    }
+
+    private func selectTerminalFromStatusBar(_ terminalID: String) {
+        guard presentedOverlay == nil, commandPalette == nil,
+              !isTransitioning, !isPeeking,
+              let tile = allSessionTiles.first(where: { $0.session.id == terminalID })
+        else { return }
+        currentWorkspace = tile.session.workspaceID
+        guard let index = activeSessionTiles.firstIndex(where: { $0 === tile }) else { return }
+        selectedIndex = index
+        focusedIndex = index
+        clearLabelBuffer()
+        updateSelection()
+        moveCamera()
     }
 
     func copyPIDIfNeeded(from widget: MachinenStatusWidget) -> Bool {
@@ -1135,6 +1375,7 @@ final class TerminalDeckView: NSView {
         }
         needsDisplay = true
         refreshStatusBar()
+        if !isShuttingDown { refreshAvailableSessionsIfNeeded() }
         // Camera motion is cosmetic. Keep AppKit's responder chain in lockstep
         // with the logical focused tile before, during, and after a zoom.
         restoreInputFocus()
@@ -1214,7 +1455,10 @@ final class TerminalDeckView: NSView {
         clearLabelBuffer()
         isPeeking = true
         peekCameraBounds = sceneView.bounds
-        moveCamera(to: cameraBounds(for: target, viewport: bounds), duration: Motion.peekDuration)
+        moveCamera(
+            to: cameraBounds(for: target, viewport: sceneViewportBounds),
+            duration: Motion.peekDuration
+        )
     }
 
     private func endPeek() {
@@ -1378,43 +1622,49 @@ final class TerminalDeckView: NSView {
         clearLabelBuffer()
     }
 
-    func toggleUndoManager(returnToCommands: Bool = false) {
+    func toggleAvailableSessions(returnToCommands: Bool = false) {
         guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
-        if undoManagerView != nil {
-            dismissUndoManager()
+        if availableSessionsView != nil {
+            dismissAvailableSessions()
             return
         }
         if commandPalette != nil { dismissCommandPalette() }
         hideUndoToast()
-        guard let workspaceID = selectedWorkspaceID(),
-              let workspace = workspaces.first(where: { $0.id == workspaceID })
-        else { return }
+        guard let workspace = selectedWorkspaceRecord() else { return }
 
-        let view = TerminalUndoManagerView(frame: bounds)
+        let view = AvailableSessionsView(frame: bounds)
         view.workspaceName = workspace.name
-        view.onDismiss = { [weak self] in self?.dismissUndoManager(navigateBack: true) }
-        view.onRestore = { [weak self] terminalID in
-            guard let self else { return }
-            self.reopenClosedTerminal(terminalID: terminalID)
-            self.dismissUndoManager()
+        view.machineName = workspace.location.sshHost ?? "this Mac"
+        view.onDismiss = { [weak self] in
+            self?.dismissAvailableSessions(navigateBack: true)
         }
-        view.onKill = { [weak self] terminalID in
-            self?.finalizePendingClose(terminalID: terminalID)
+        view.onReconnect = { [weak self] sessionID in
+            self?.reconnectAvailableSession(sessionID, to: workspace.id)
         }
-        undoManagerWorkspaceID = workspaceID
-        undoManagerReturnsToCommands = returnToCommands
-        undoManagerView = view
+        view.onDisconnect = { [weak self] sessionID in
+            self?.disconnectAvailableSession(sessionID, in: workspace.id)
+        }
+        view.onKill = { [weak self] sessionID in
+            self?.killAvailableSession(sessionID, in: workspace.id)
+        }
+        view.onRefresh = { [weak self] in
+            self?.refreshAvailableSessions(for: workspace, force: true)
+        }
+        availableSessionsWorkspaceID = workspace.id
+        availableSessionsReturnsToCommands = returnToCommands
+        availableSessionsView = view
         addSubview(view, positioned: .above, relativeTo: statusBarView)
-        refreshUndoManager()
+        refreshAvailableSessionsPanel()
+        refreshAvailableSessions(for: workspace, force: true)
         window?.makeFirstResponder(view)
     }
 
-    private func dismissUndoManager(navigateBack: Bool = false) {
-        let shouldReturnToCommands = navigateBack && undoManagerReturnsToCommands
-        undoManagerView?.removeFromSuperview()
-        undoManagerView = nil
-        undoManagerWorkspaceID = nil
-        undoManagerReturnsToCommands = false
+    private func dismissAvailableSessions(navigateBack: Bool = false) {
+        let shouldReturnToCommands = navigateBack && availableSessionsReturnsToCommands
+        availableSessionsView?.removeFromSuperview()
+        availableSessionsView = nil
+        availableSessionsWorkspaceID = nil
+        availableSessionsReturnsToCommands = false
         if shouldReturnToCommands {
             toggleCommandPalette()
         } else {
@@ -1422,24 +1672,265 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func refreshUndoManager() {
-        guard let view = undoManagerView, let workspaceID = undoManagerWorkspaceID else { return }
-        view.items = recentlyClosedTerminals.values
-            .filter { $0.tile.session.workspaceID == workspaceID }
-            .sorted { $0.deadline > $1.deadline }
-            .map {
-                TerminalUndoItem(
-                    terminalID: $0.tile.session.id,
-                    name: $0.tile.session.name,
-                    deadline: $0.deadline
-                )
+    private func refreshAvailableSessionsPanel() {
+        guard let view = availableSessionsView,
+              let workspaceID = availableSessionsWorkspaceID,
+              let workspace = workspaces.first(where: { $0.id == workspaceID })
+        else { return }
+        let machineID = workspace.location.machineID
+        view.items = availableSessionItems(for: workspace)
+        view.isLoading = availableSessionsLoading.contains(machineID)
+        view.errorMessage = availableSessionsErrors[machineID]
+    }
+
+    private func availableSessionItems(for workspace: WorkspaceRecord) -> [AvailableSessionItem] {
+        let discovered = (availableSessionsByMachine[workspace.location.machineID] ?? [])
+            .filter {
+                ($0.state == "running" || $0.state == "created")
+                    && ($0.workspaceId == workspace.id
+                        || ($0.workspaceId == nil
+                            && sessionDirectory(
+                                $0.workingDirectory,
+                                belongsTo: workspace.workingDirectory
+                            )))
             }
+        var discoveredByID: [String: AvailableTerminalSession] = [:]
+        for session in discovered { discoveredByID[session.id] = session }
+
+        let represented = allSessionTiles.compactMap { tile -> AvailableSessionItem? in
+            guard tile.session.workspaceID == workspace.id else { return nil }
+            let session = discoveredByID[tile.session.id] ?? AvailableTerminalSession(
+                id: tile.session.id,
+                name: tile.session.name,
+                state: processState(tile.session.state),
+                workspaceId: tile.session.workspaceID,
+                workingDirectory: tile.session.workingDirectory,
+                createdAtMs: 0,
+                updatedAtMs: 0
+            )
+            return AvailableSessionItem(
+                session: session,
+                attachmentState: terminalViewerIsAttached(tile.session) ? .attached : .detached
+            )
+        }
+
+        let disconnectedTiles = recentlyClosedTerminals.values.compactMap {
+            disconnected -> AvailableSessionItem? in
+            let session = disconnected.tile.session
+            guard session.workspaceID == workspace.id else { return nil }
+            let timestamp = Int64(disconnected.disconnectedAt.timeIntervalSince1970 * 1_000)
+            return AvailableSessionItem(
+                session: AvailableTerminalSession(
+                    id: session.id,
+                    name: session.name,
+                    state: session.state == .detached ? "running" : processState(session.state),
+                    workspaceId: session.workspaceID,
+                    workingDirectory: session.workingDirectory,
+                    createdAtMs: timestamp,
+                    updatedAtMs: timestamp
+                ),
+                attachmentState: .detached
+            )
+        }
+        let representedIDs = Set(represented.map { $0.session.id })
+            .union(disconnectedTiles.map { $0.session.id })
+        let unrepresented = discovered.compactMap { session -> AvailableSessionItem? in
+            guard !representedIDs.contains(session.id) else { return nil }
+            return AvailableSessionItem(session: session, attachmentState: .detached)
+        }
+        let detached = (disconnectedTiles + unrepresented
+            + represented.filter { !$0.isAttached }).sorted {
+            if $0.session.updatedAtMs == $1.session.updatedAtMs {
+                return ($0.session.name ?? $0.session.id).localizedCaseInsensitiveCompare(
+                    $1.session.name ?? $1.session.id
+                ) == .orderedAscending
+            }
+            return $0.session.updatedAtMs > $1.session.updatedAtMs
+        }
+        return detached + represented.filter(\.isAttached)
+    }
+
+    private func sessionDirectory(_ directory: String, belongsTo root: String) -> Bool {
+        let candidate = normalizedSessionPath(directory)
+        let workspaceRoot = normalizedSessionPath(root)
+        guard !candidate.isEmpty, !workspaceRoot.isEmpty else { return false }
+        if candidate == workspaceRoot { return true }
+        return candidate.hasPrefix(workspaceRoot == "/" ? "/" : workspaceRoot + "/")
+    }
+
+    private func normalizedSessionPath(_ path: String) -> String {
+        var value = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        while value.count > 1, value.hasSuffix("/") { value.removeLast() }
+        guard value.hasPrefix("/") else { return value }
+        return URL(fileURLWithPath: value).standardizedFileURL.path
+    }
+
+    private func startAvailableSessionsPolling() {
+        let timer = Timer(timeInterval: availableSessionsRefreshInterval, repeats: true) {
+            [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let workspace = self.selectedWorkspaceRecord() {
+                    self.restoreNativeWorkspaces(from: workspace.location)
+                }
+                self.refreshAvailableSessionsIfNeeded(force: true)
+            }
+        }
+        availableSessionsRefreshTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func refreshAvailableSessionsIfNeeded(force: Bool = false) {
+        guard let workspace = selectedWorkspaceRecord() else { return }
+        refreshAvailableSessions(for: workspace, force: force)
+    }
+
+    private func refreshAvailableSessions(for workspace: WorkspaceRecord, force: Bool) {
+        let machineID = workspace.location.machineID
+        guard !availableSessionsLoading.contains(machineID) else { return }
+        if !force, let refreshedAt = availableSessionsLastRefresh[machineID],
+           Date().timeIntervalSince(refreshedAt) < availableSessionsRefreshInterval
+        {
+            return
+        }
+
+        availableSessionsLoading.insert(machineID)
+        availableSessionsErrors.removeValue(forKey: machineID)
+        refreshAvailableSessionsPanel()
+        sessionBackend.listSessions(at: workspace.location) { [weak self] result in
+            guard let self else { return }
+            self.availableSessionsLoading.remove(machineID)
+            self.availableSessionsLastRefresh[machineID] = Date()
+            switch result {
+            case let .success(sessions):
+                self.availableSessionsByMachine[machineID] = sessions
+                self.availableSessionsErrors.removeValue(forKey: machineID)
+            case let .failure(error):
+                self.availableSessionsErrors[machineID] = error.localizedDescription
+            }
+            self.refreshAvailableSessionsPanel()
+            self.refreshStatusBar()
+        }
+    }
+
+    private func reconnectAvailableSession(_ sessionID: String, to workspaceID: String) {
+        if let tile = allSessionTiles.first(where: {
+            $0.session.id == sessionID && $0.session.workspaceID == workspaceID
+        }) {
+            dismissAvailableSessions()
+            tile.transition(to: .starting, terminalText: tile.session.terminalText)
+            tile.attachTerminal()
+            currentWorkspace = workspaceID
+            selectedIndex = activeSessionTiles.firstIndex(where: { $0 === tile }) ?? 0
+            focusedIndex = selectedIndex
+            updateSelection()
+            moveCamera()
+            saveSessions()
+            emitAPIEvent("tile.viewerChanged", data: tileJSON(tile))
+            return
+        }
+        if recentlyClosedTerminals[sessionID]?.tile.session.workspaceID == workspaceID {
+            dismissAvailableSessions()
+            reopenClosedTerminal(terminalID: sessionID)
+            return
+        }
+        guard let workspace = workspaces.first(where: { $0.id == workspaceID }),
+              let discovered = availableSessionItems(for: workspace)
+                .first(where: { $0.session.id == sessionID })?.session
+        else {
+            refreshAvailableSessionsPanel()
+            return
+        }
+
+        dismissAvailableSessions()
+        let requestedName = discovered.name.flatMap { $0.isEmpty ? nil : $0 } ?? "session"
+        let name = nextAvailableSessionName(base: requestedName, workspace: workspace.name)
+        let session = TerminalSession(
+            id: discovered.id,
+            label: nextAvailableLabel(workspace: workspace.name, session: name),
+            workspaceID: workspace.id,
+            workspace: workspace.name,
+            name: name,
+            launch: .loginShell,
+            workingDirectory: discovered.workingDirectory,
+            workspaceRoot: workspace.workingDirectory,
+            sshHost: workspace.location.sshHost,
+            startsSessionIfMissing: false,
+            state: .starting
+        )
+        let tile = TerminalTileView(session: session)
+        installTile(tile)
+        installPersistentTerminal(in: tile)
+        allSessionTiles.append(tile)
+        rebuildWorkspaceClusters()
+        currentWorkspace = workspace.id
+        selectedIndex = max(0, activeSessionTiles.count - 1)
+        focusedIndex = selectedIndex
+        updateWorldGeometry()
+        updateSelection()
+        moveCamera()
+        saveSessions()
+        emitAPIEvent("tile.created", data: tileJSON(tile))
+        emitAPIEvent("terminal.stateChanged", data: terminalJSON(tile))
+    }
+
+    private func disconnectAvailableSession(_ sessionID: String, in workspaceID: String) {
+        guard let tile = allSessionTiles.first(where: {
+            $0.session.id == sessionID && $0.session.workspaceID == workspaceID
+        }) else {
+            refreshAvailableSessionsPanel()
+            return
+        }
+        bufferCloseSession(tile)
+        refreshStatusBar()
+    }
+
+    private func killAvailableSession(_ sessionID: String, in workspaceID: String) {
+        guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return }
+        let selectedSession = availableSessionItems(for: workspace)
+            .first(where: { $0.session.id == sessionID })?.session
+        availableSessionsByMachine[workspace.location.machineID]?.removeAll {
+            $0.id == sessionID
+        }
+        if recentlyClosedTerminals[sessionID]?.tile.session.workspaceID == workspaceID {
+            finalizePendingClose(terminalID: sessionID)
+            refreshAvailableSessionsPanel()
+            return
+        }
+        if let tile = allSessionTiles.first(where: {
+            $0.session.id == sessionID && $0.session.workspaceID == workspaceID
+        }) {
+            bufferCloseSession(tile)
+            finalizePendingClose(terminalID: sessionID)
+            refreshAvailableSessionsPanel()
+            return
+        }
+        guard let discovered = selectedSession else {
+            refreshAvailableSessionsPanel()
+            return
+        }
+        let session = TerminalSession(
+            id: discovered.id,
+            label: "session",
+            workspaceID: workspace.id,
+            workspace: workspace.name,
+            name: discovered.name ?? "session",
+            launch: .loginShell,
+            workingDirectory: discovered.workingDirectory,
+            workspaceRoot: workspace.workingDirectory,
+            sshHost: workspace.location.sshHost,
+            startsSessionIfMissing: false,
+            state: .detached
+        )
+        sessionBackend.remove(session)
+        refreshAvailableSessionsPanel()
+        refreshStatusBar()
     }
 
     func toggleCommandPalette() {
         InputRoutingLog.log("command palette requested kind=\(String(describing: paletteKind))")
         guard presentedOverlay == nil else { return }
-        if undoManagerView != nil { dismissUndoManager() }
+        if availableSessionsView != nil { dismissAvailableSessions() }
         if commandPalette != nil {
             let wasTopLevel = paletteKind == .commands
             dismissCommandPalette()
@@ -1462,16 +1953,6 @@ final class TerminalDeckView: NSView {
         paletteKind = .commands
         addSubview(palette, positioned: .above, relativeTo: nil)
         window?.makeFirstResponder(palette)
-    }
-
-    private func terminalSelectionContext() -> TerminalSelectionContext? {
-        guard focusedIndex != nil, let tile = selectedSessionTile(),
-              let terminal = tile.terminalResponder
-        else {
-            InputRoutingLog.log("selection openers skipped: no focused terminal")
-            return nil
-        }
-        return terminalSelectionContext(tile: tile, terminal: terminal)
     }
 
     private func terminalSelectionContext(
@@ -1556,20 +2037,25 @@ final class TerminalDeckView: NSView {
         return menu
     }
 
-    func showSelectionOpenersMenu() {
-        guard let selection = terminalSelectionContext(),
-              let terminal = selection.tile.terminalResponder
+    func showTerminalContextMenu() {
+        guard focusedIndex != nil,
+              let tile = selectedSessionTile(),
+              let terminal = tile.terminalResponder
         else {
             NSSound.beep()
             return
         }
-        let menu = selectionOpenerMenu(for: selection)
-        guard !menu.items.isEmpty else {
-            NSSound.beep()
-            return
-        }
-        InputRoutingLog.log("selection opener menu requested by shortcut")
-        menu.popUp(positioning: nil, at: selection.anchor, in: terminal)
+        let menu = terminalContextMenu(
+            for: terminal,
+            tile: tile,
+            selection: terminal.selectedText()
+        )
+        InputRoutingLog.log("terminal context menu requested by shortcut")
+        menu.popUp(
+            positioning: nil,
+            at: terminal.contextMenuAnchor(in: terminal),
+            in: terminal
+        )
     }
 
     private func selectionOpenerMenu(for selection: TerminalSelectionContext) -> NSMenu {
@@ -1609,14 +2095,14 @@ final class TerminalDeckView: NSView {
             "workspaceId": session.workspaceID,
             "tileId": session.tileID,
             "terminalId": session.id,
-            "workingDirectory": session.workingDirectory,
-            "location": session.location.json,
+            "workingDirectory": session.effectiveWorkingDirectory,
+            "location": session.effectiveLocation.json,
         ])
     }
 
     private func showNewItemPalette() {
         guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
-        if undoManagerView != nil { dismissUndoManager() }
+        if availableSessionsView != nil { dismissAvailableSessions() }
         if commandPalette != nil { dismissCommandPalette() }
 
         let suggestedWorkspaceID = selectedWorkspaceID()
@@ -1678,7 +2164,7 @@ final class TerminalDeckView: NSView {
 
     func toggleNewTerminalPalette() {
         guard presentedOverlay == nil else { return }
-        if undoManagerView != nil { dismissUndoManager() }
+        if availableSessionsView != nil { dismissAvailableSessions() }
         if commandPalette != nil {
             let wasNewTerminal = paletteKind == .newTerminal
             dismissCommandPalette()
@@ -1837,7 +2323,8 @@ final class TerminalDeckView: NSView {
         var commands = [
             PaletteCommand(id: .newWorkspace, title: "New workspace…", shortcut: ""),
         ]
-        if selectedWorkspace() != nil {
+        if let selectedWorkspace = selectedWorkspaceRecord() {
+            let sessionCount = availableSessionItems(for: selectedWorkspace).count
             commands.append(contentsOf: [
                 PaletteCommand(id: .renameWorkspace, title: "Rename workspace…", shortcut: ""),
                 PaletteCommand(
@@ -1846,9 +2333,9 @@ final class TerminalDeckView: NSView {
                     shortcut: ""
                 ),
                 PaletteCommand(
-                    id: .manageClosedTerminals,
-                    title: "Recently closed terminals…",
-                    shortcut: "restore or kill"
+                    id: .reconnectAvailableSession,
+                    title: "Sessions…",
+                    shortcut: "\(sessionCount) \(sessionCount == 1 ? "session" : "sessions")"
                 ),
                 PaletteCommand(id: .closeWorkspace, title: "Close workspace…", shortcut: ""),
             ])
@@ -1891,9 +2378,9 @@ final class TerminalDeckView: NSView {
         case .closeWorkspace:
             dismissCommandPalette()
             confirmCloseSelectedWorkspace(returnToCommands: true)
-        case .manageClosedTerminals:
+        case .reconnectAvailableSession:
             dismissCommandPalette()
-            toggleUndoManager(returnToCommands: true)
+            toggleAvailableSessions(returnToCommands: true)
         case .showDiagnostics:
             dismissCommandPalette()
             showDiagnostics()
@@ -2105,9 +2592,35 @@ final class TerminalDeckView: NSView {
     private func showNewWorkspaceNamePalette(
         location: WorkspaceLocation,
         initialName: String? = nil,
-        returnTo: NewWorkspaceNameReturn = .locations
+        returnTo: NewWorkspaceNameReturn = .locations,
+        checksNativeStore: Bool = true
     ) {
         dismissCommandPalette()
+        if checksNativeStore {
+            sessionBackend.listWorkspaces(at: location) { [weak self] result in
+                guard let self else { return }
+                let matching = (try? result.get().filter { record in
+                    var savedLocation = location
+                    savedLocation.path = record.rootDirectory
+                    return self.canonicalLocationKey(savedLocation)
+                        == self.canonicalLocationKey(location)
+                }) ?? []
+                if let first = matching.first {
+                    for record in matching.dropFirst() {
+                        self.restoreNativeWorkspace(record, at: location, opensSessions: false)
+                    }
+                    self.restoreNativeWorkspace(first, at: location)
+                } else {
+                    self.showNewWorkspaceNamePalette(
+                        location: location,
+                        initialName: initialName,
+                        returnTo: returnTo,
+                        checksNativeStore: false
+                    )
+                }
+            }
+            return
+        }
         let suggestedName = initialName ?? suggestedWorkspaceName(for: location)
         let palette = CommandPaletteView(
             frame: bounds,
@@ -2137,6 +2650,50 @@ final class TerminalDeckView: NSView {
         paletteKind = .newWorkspace
         addSubview(palette, positioned: .above, relativeTo: nil)
         window?.makeFirstResponder(palette)
+    }
+
+    private func restoreNativeWorkspace(
+        _ record: NativeWorkspaceRecord,
+        at requestedLocation: WorkspaceLocation,
+        opensSessions: Bool = true
+    ) {
+        let workspace: WorkspaceRecord
+        if let existing = workspaces.first(where: { $0.id == record.id }) {
+            var usedNames = Set(workspaces.filter { $0.id != existing.id }.map {
+                WorkspaceName.key($0.name)
+            })
+            existing.name = WorkspaceName.unique(record.name, reserving: &usedNames)
+            existing.location.path = record.rootDirectory
+            for tile in persistedSessionTiles where tile.session.workspaceID == existing.id {
+                tile.session.workspace = existing.name
+            }
+            workspace = existing
+            rebuildWorkspaceClusters()
+            saveSessions()
+        } else {
+            var usedNames = Set(workspaces.map { WorkspaceName.key($0.name) })
+            var location = requestedLocation
+            location.path = record.rootDirectory
+            workspace = WorkspaceRecord(
+                id: record.id,
+                name: WorkspaceName.unique(record.name, reserving: &usedNames),
+                workingDirectory: location.path,
+                sshHost: location.sshHost
+            )
+            workspaces.append(workspace)
+            rememberWorkspaceLocation(workspace.location)
+            rebuildWorkspaceClusters()
+            saveSessions()
+            emitAPIEvent("workspace.restored", data: workspaceJSON(workspace))
+        }
+        currentWorkspace = nil
+        focusedIndex = nil
+        selectedIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) ?? 0
+        updateWorldGeometry()
+        updateSelection()
+        moveCamera()
+        refreshAvailableSessions(for: workspace, force: true)
+        if opensSessions { toggleAvailableSessions() }
     }
 
     private func returnFromNewWorkspaceName(to destination: NewWorkspaceNameReturn) {
@@ -2781,6 +3338,7 @@ final class TerminalDeckView: NSView {
             self.rebuildWorkspaceClusters()
             self.updateSelection()
             self.saveSessions()
+            self.persistNativeWorkspace(workspace)
             self.emitAPIEvent("workspace.updated", data: self.workspaceJSON(workspace))
         }
         commandPalette = palette
@@ -3119,6 +3677,7 @@ final class TerminalDeckView: NSView {
         try updateWorkspaceLocation(workspace, to: location)
         updateSelection()
         saveSessions()
+        persistNativeWorkspace(workspace)
         emitAPIEvent("workspace.updated", data: workspaceJSON(workspace))
     }
 
@@ -3188,7 +3747,7 @@ final class TerminalDeckView: NSView {
 
     private func confirmStopSelectedWorkspace() {
         guard let workspace = selectedWorkspace() else { return }
-        let count = allSessionTiles.count { $0.session.workspace == workspace }
+        let count = persistedSessionTiles.count { $0.session.workspace == workspace }
         presentConfirmation(
             heading: "Stop workspace \(workspace)?",
             message: "This stops all \(count) terminal \(count == 1 ? "process" : "processes") grouped in this workspace.",
@@ -3214,7 +3773,7 @@ final class TerminalDeckView: NSView {
 
     private func confirmCloseSelectedWorkspace(returnToCommands: Bool = false) {
         guard let workspace = selectedWorkspace() else { return }
-        let count = allSessionTiles.count { $0.session.workspace == workspace }
+        let count = persistedSessionTiles.count { $0.session.workspace == workspace }
         let cancelAction: (@MainActor () -> Void)?
         if returnToCommands {
             cancelAction = { [weak self] in
@@ -3255,7 +3814,10 @@ final class TerminalDeckView: NSView {
     }
 
     private func restartSelectedSession() {
-        guard let tile = selectedSessionTile() else { return }
+        guard let tile = selectedSessionTile(), tile.session.startsSessionIfMissing else {
+            NSSound.beep()
+            return
+        }
         tile.transition(to: .starting, terminalText: tile.session.terminalText)
         tile.restartTerminal()
         saveSessions()
@@ -3268,7 +3830,7 @@ final class TerminalDeckView: NSView {
     }
 
     private func stopWorkspace(_ workspace: String) {
-        for tile in allSessionTiles where tile.session.workspace == workspace {
+        for tile in persistedSessionTiles where tile.session.workspace == workspace {
             tile.stopTerminal()
             tile.transition(to: .stopped, terminalText: tile.session.terminalText)
         }
@@ -3278,13 +3840,15 @@ final class TerminalDeckView: NSView {
     private func bufferCloseSession(_ tile: TerminalTileView) {
         guard let position = allSessionTiles.firstIndex(where: { $0 === tile }) else { return }
         let workspaceID = tile.session.workspaceID
-        let deadline = Date().addingTimeInterval(closeGracePeriod)
-        tile.session.pendingCloseDeadline = deadline
-        tile.session.pendingClosePosition = position
+        let disconnectedAt = Date()
+        tile.session.disconnectedAt = disconnectedAt
+        tile.session.disconnectedPosition = position
+        tile.transition(to: .detached, terminalText: tile.session.terminalText)
+        tile.detachTerminalViewer()
         recentlyClosedTerminals[tile.session.id] = RecentlyClosedTerminal(
             tile: tile,
             position: position,
-            deadline: deadline
+            disconnectedAt: disconnectedAt
         )
 
         tile.removeFromSuperview()
@@ -3292,22 +3856,17 @@ final class TerminalDeckView: NSView {
         rebuildWorkspaceClusters()
         if currentWorkspace == workspaceID {
             selectedIndex = min(selectedIndex, max(0, activeSessionTiles.count - 1))
-            focusedIndex = activeSessionTiles.isEmpty ? nil : min(focusedIndex ?? selectedIndex, activeSessionTiles.count - 1)
+            focusedIndex = activeSessionTiles.isEmpty
+                ? nil
+                : min(focusedIndex ?? selectedIndex, activeSessionTiles.count - 1)
         }
         updateWorldGeometry()
         updateSelection()
         setCameraImmediately()
         saveSessions()
-        schedulePendingCloseFinalization(terminalID: tile.session.id)
         showUndoToast(terminalID: tile.session.id)
-        refreshUndoManager()
-        emitAPIEvent("tile.closed", data: tileJSON(tile))
-
-        if recentlyClosedTerminals.count > recentlyClosedLimit,
-           let oldest = recentlyClosedTerminals.values.min(by: { $0.deadline < $1.deadline })
-        {
-            finalizePendingClose(terminalID: oldest.tile.session.id)
-        }
+        refreshAvailableSessionsPanel()
+        emitAPIEvent("tile.disconnected", data: tileJSON(tile))
     }
 
     var canReopenClosedTerminal: Bool { !recentlyClosedTerminals.isEmpty }
@@ -3326,8 +3885,10 @@ final class TerminalDeckView: NSView {
         let candidates = recentlyClosedTerminals.values.filter {
             workspaceID == nil || $0.tile.session.workspaceID == workspaceID
         }
-        guard let closed = candidates.max(by: { $0.deadline < $1.deadline })
-            ?? recentlyClosedTerminals.values.max(by: { $0.deadline < $1.deadline })
+        guard let closed = candidates.max(by: { $0.disconnectedAt < $1.disconnectedAt })
+            ?? recentlyClosedTerminals.values.max(by: {
+                $0.disconnectedAt < $1.disconnectedAt
+            })
         else { return }
         reopenClosedTerminal(terminalID: closed.tile.session.id)
     }
@@ -3339,9 +3900,8 @@ final class TerminalDeckView: NSView {
             return
         }
         recentlyClosedTerminals.removeValue(forKey: terminalID)
-        pendingCloseTasks.removeValue(forKey: terminalID)?.cancel()
-        closed.tile.session.pendingCloseDeadline = nil
-        closed.tile.session.pendingClosePosition = nil
+        closed.tile.session.disconnectedAt = nil
+        closed.tile.session.disconnectedPosition = nil
         let insertion = min(max(0, closed.position), allSessionTiles.count)
         allSessionTiles.insert(closed.tile, at: insertion)
         rebuildWorkspaceClusters()
@@ -3349,13 +3909,22 @@ final class TerminalDeckView: NSView {
         let workspaceTiles = activeSessionTiles
         selectedIndex = workspaceTiles.firstIndex(where: { $0 === closed.tile }) ?? 0
         focusedIndex = selectedIndex
+        if terminalIsRunning(closed.tile.session) {
+            closed.tile.transition(to: .starting, terminalText: closed.tile.session.terminalText)
+            closed.tile.attachTerminal()
+        } else {
+            closed.tile.transition(
+                to: closed.tile.session.state,
+                terminalText: closed.tile.session.terminalText
+            )
+        }
         updateWorldGeometry()
         updateSelection()
         setCameraImmediately()
         saveSessions()
         hideUndoToast(ifMatching: terminalID)
-        refreshUndoManager()
-        emitAPIEvent("tile.reopened", data: tileJSON(closed.tile))
+        refreshAvailableSessionsPanel()
+        emitAPIEvent("tile.reconnected", data: tileJSON(closed.tile))
     }
 
     func terminateLastClosedTerminalNow() {
@@ -3363,32 +3932,21 @@ final class TerminalDeckView: NSView {
         let candidates = recentlyClosedTerminals.values.filter {
             workspaceID == nil || $0.tile.session.workspaceID == workspaceID
         }
-        guard let closed = candidates.max(by: { $0.deadline < $1.deadline })
-            ?? recentlyClosedTerminals.values.max(by: { $0.deadline < $1.deadline })
+        guard let closed = candidates.max(by: { $0.disconnectedAt < $1.disconnectedAt })
+            ?? recentlyClosedTerminals.values.max(by: {
+                $0.disconnectedAt < $1.disconnectedAt
+            })
         else { return }
         finalizePendingClose(terminalID: closed.tile.session.id)
     }
 
-    private func schedulePendingCloseFinalization(terminalID: String) {
-        pendingCloseTasks.removeValue(forKey: terminalID)?.cancel()
-        guard let closed = recentlyClosedTerminals[terminalID] else { return }
-        let task = DispatchWorkItem { [weak self] in
-            self?.finalizePendingClose(terminalID: terminalID)
-        }
-        pendingCloseTasks[terminalID] = task
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + max(0, closed.deadline.timeIntervalSinceNow),
-            execute: task
-        )
-    }
-
     private func finalizePendingClose(terminalID: String) {
         guard let closed = recentlyClosedTerminals.removeValue(forKey: terminalID) else { return }
-        pendingCloseTasks.removeValue(forKey: terminalID)?.cancel()
         hideUndoToast(ifMatching: terminalID)
-        refreshUndoManager()
+        refreshAvailableSessionsPanel()
+        refreshStatusBar()
         saveSessions()
-        emitAPIEvent("tile.closeFinalized", data: tileJSON(closed.tile))
+        emitAPIEvent("tile.killed", data: tileJSON(closed.tile))
         // The tile is already absent from the scene. Defer renderer teardown so
         // the visible close commits before Ghostty and worker cleanup begin.
         DispatchQueue.main.async {
@@ -3403,7 +3961,6 @@ final class TerminalDeckView: NSView {
 
         let view = UndoTerminalCloseView(frame: .zero)
         view.terminalName = closed.tile.session.name
-        view.deadline = closed.deadline
         view.onRestore = { [weak self] in
             self?.reopenClosedTerminal(terminalID: terminalID)
         }
@@ -3456,6 +4013,7 @@ final class TerminalDeckView: NSView {
 
     private func closeWorkspace(_ workspace: String) {
         let workspaceRecord = workspaces.first { $0.name == workspace }
+        if let workspaceRecord { deleteNativeWorkspace(workspaceRecord) }
         let pendingTerminalIDs = recentlyClosedTerminals.values
             .filter { $0.tile.session.workspace == workspace }
             .map { $0.tile.session.id }
@@ -3528,14 +4086,14 @@ final class TerminalDeckView: NSView {
             """
         } else if let tile = selectedSessionTile() {
             heading = "SESSION DIAGNOSTICS · \(workspace) / \(tile.session.name)"
-            let backendDetail = "The native worker owns this PTY and journals recovery data on \(tile.session.location.sshHost ?? "this Mac")."
+            let backendDetail = "The native worker owns this PTY and checkpoints recovery data on \(tile.session.location.sshHost ?? "this Mac")."
             text = """
             workspace       \(workspace)
             session         \(tile.session.name)
             session id      \(tile.session.id)
             backend         \(TerminalSession.backendName)
             state            \(tile.currentState.rawValue)
-            viewer           \(tile.currentState == .detached ? "detached" : "attached")
+            viewer           \(terminalViewerIsAttached(tile.session) ? "attached" : "detached")
             command          \(launchDescription(tile.session.launch))
             location         \(tile.session.location.displayName)
             state file       \(sessionStore.manifestURL.path)
@@ -3557,6 +4115,8 @@ final class TerminalDeckView: NSView {
 
     func prepareForTermination() {
         isShuttingDown = true
+        availableSessionsRefreshTimer?.invalidate()
+        availableSessionsRefreshTimer = nil
         for tile in persistedSessionTiles where tile.session.state == .running || tile.session.state == .starting {
             tile.detachTerminalForApplicationExit()
             tile.session.state = .running
@@ -3722,16 +4282,17 @@ final class TerminalDeckView: NSView {
             finalizePendingClose(terminalID: terminalID)
             return
         }
+        if let availableSessionsView {
+            availableSessionsView.killSelected()
+            return
+        }
         if presentedOverlay != nil { return }
         if commandPalette != nil {
             dismissCommandPalette()
             return
         }
         guard !isTransitioning, !isPeeking else { return }
-        let workspaceCount = selectedWorkspace().map { workspace in
-            allSessionTiles.count { $0.session.workspace == workspace }
-        } ?? 0
-        if currentWorkspace == nil || workspaceCount <= 1 {
+        if currentWorkspace == nil {
             confirmCloseSelectedWorkspace()
         } else if let tile = selectedSessionTile() {
             bufferCloseSession(tile)
@@ -3774,6 +4335,7 @@ final class TerminalDeckView: NSView {
             name: name,
             launch: command.map(TerminalLaunch.shellCommand) ?? .loginShell,
             workingDirectory: workspaceRecord.workingDirectory,
+            workspaceRoot: workspaceRecord.workingDirectory,
             sshHost: workspaceRecord.location.sshHost,
             state: .starting
         )
@@ -3785,6 +4347,7 @@ final class TerminalDeckView: NSView {
             rememberWorkspaceLocation(workspaceRecord.location)
         }
         saveSessions()
+        if createdWorkspace { persistNativeWorkspace(workspaceRecord) }
         rebuildWorkspaceClusters()
         currentWorkspace = workspaceRecord.id
         updateWorldGeometry()
@@ -3872,7 +4435,10 @@ final class TerminalDeckView: NSView {
         case "terminal.stop":
             return apiStopTerminal(try requireTerminal(params))
         case "terminal.restart":
-            return apiRestartTerminal(try requireTerminal(params), focus: params["focus"] as? Bool ?? false)
+            return try apiRestartTerminal(
+                try requireTerminal(params),
+                focus: params["focus"] as? Bool ?? false
+            )
         case "status.list":
             refreshStatusBar()
             return [
@@ -3942,6 +4508,7 @@ final class TerminalDeckView: NSView {
         updateSelection()
         setCameraImmediately()
         saveSessions()
+        persistNativeWorkspace(workspace)
         let result = workspaceJSON(workspace)
         emitAPIEvent("workspace.created", data: result)
         return result
@@ -3956,8 +4523,23 @@ final class TerminalDeckView: NSView {
             rememberWorkspaceLocation(validated)
             return
         }
+        let previous = workspace.location
+        let keepsPreviousReplica = persistedSessionTiles.contains {
+            $0.session.workspaceID == workspace.id
+                && $0.session.location.machineID == previous.machineID
+        }
         workspace.location = validated
         rememberWorkspaceLocation(validated)
+        if previous.machineID != validated.machineID, !keepsPreviousReplica {
+            sessionBackend.deleteWorkspace(id: workspace.id, at: previous) { result in
+                if case let .failure(error) = result {
+                    NSLog(
+                        "Machinen could not remove the previous native workspace: %@",
+                        String(describing: error)
+                    )
+                }
+            }
+        }
     }
 
     private func apiUpdateWorkspace(_ params: JSONObject) throws -> Any {
@@ -3987,6 +4569,7 @@ final class TerminalDeckView: NSView {
         updateSelection()
         setCameraImmediately()
         saveSessions()
+        persistNativeWorkspace(workspace)
         let result = workspaceJSON(workspace)
         emitAPIEvent("workspace.updated", data: result)
         return result
@@ -4012,7 +4595,7 @@ final class TerminalDeckView: NSView {
     }
 
     private func apiStopWorkspace(_ workspace: WorkspaceRecord) -> Any {
-        for tile in allSessionTiles where tile.session.workspaceID == workspace.id {
+        for tile in persistedSessionTiles where tile.session.workspaceID == workspace.id {
             tile.stopTerminal()
             tile.transition(to: .stopped, terminalText: tile.session.terminalText)
             emitAPIEvent("terminal.stateChanged", data: terminalJSON(tile))
@@ -4023,7 +4606,9 @@ final class TerminalDeckView: NSView {
 
     private func apiRestartWorkspace(_ workspace: WorkspaceRecord) -> Any {
         for tile in allSessionTiles where tile.session.workspaceID == workspace.id {
-            guard tile.currentState == .stopped || tile.currentState == .exited else { continue }
+            guard tile.session.startsSessionIfMissing,
+                  (tile.currentState == .stopped || tile.currentState == .exited)
+            else { continue }
             tile.transition(to: .starting, terminalText: tile.session.terminalText)
             tile.restartTerminal()
         }
@@ -4032,15 +4617,25 @@ final class TerminalDeckView: NSView {
     }
 
     private func apiDeleteWorkspace(_ workspace: WorkspaceRecord) throws -> Any {
-        let tiles = allSessionTiles.filter { $0.session.workspaceID == workspace.id }
-        guard !tiles.contains(where: { terminalIsRunning($0.session) }) else {
+        let persistedTiles = persistedSessionTiles.filter {
+            $0.session.workspaceID == workspace.id
+        }
+        guard !persistedTiles.contains(where: { terminalIsRunning($0.session) }) else {
             throw MachinenAPIError("workspace_running", "Stop the workspace's terminals before deleting it")
         }
+        let disconnectedIDs = recentlyClosedTerminals.values.compactMap {
+            $0.tile.session.workspaceID == workspace.id ? $0.tile.session.id : nil
+        }
+        for terminalID in disconnectedIDs {
+            finalizePendingClose(terminalID: terminalID)
+        }
+        let tiles = allSessionTiles.filter { $0.session.workspaceID == workspace.id }
         let removalView: NSView? = if currentWorkspace == workspace.id {
             selectedSessionTile() ?? workspaceCluster(named: workspace.id)
         } else {
             workspaceCluster(named: workspace.id)
         }
+        deleteNativeWorkspace(workspace)
         let removalSnapshot = removalView.flatMap(paneRemovalSnapshot)
         for tile in tiles {
             tile.removeTerminal()
@@ -4093,6 +4688,7 @@ final class TerminalDeckView: NSView {
             name: name,
             launch: launch,
             workingDirectory: location.path,
+            workspaceRoot: workspace.workingDirectory,
             sshHost: location.sshHost,
             state: .starting
         )
@@ -4315,7 +4911,13 @@ final class TerminalDeckView: NSView {
         return result
     }
 
-    private func apiRestartTerminal(_ tile: TerminalTileView, focus: Bool) -> Any {
+    private func apiRestartTerminal(_ tile: TerminalTileView, focus: Bool) throws -> Any {
+        guard tile.session.startsSessionIfMissing else {
+            throw MachinenAPIError(
+                "restart_unavailable",
+                "This terminal was imported from an existing session without a restart command"
+            )
+        }
         tile.transition(to: .starting, terminalText: tile.session.terminalText)
         tile.restartTerminal()
         if focus {
@@ -4509,6 +5111,21 @@ final class TerminalDeckView: NSView {
         return (kind, id)
     }
 
+    private func validatedLocationKinds(_ value: Any?) throws -> [WorkspaceLocation.Kind]? {
+        guard let names = value as? [String] else { return nil }
+        guard !names.isEmpty,
+              names.count <= 2,
+              Set(names).count == names.count,
+              names.allSatisfy({ WorkspaceLocation.Kind(rawValue: $0) != nil })
+        else {
+            throw MachinenAPIError(
+                "invalid_params",
+                "locationKinds must contain unique local or ssh values"
+            )
+        }
+        return names.compactMap { WorkspaceLocation.Kind(rawValue: $0) }
+    }
+
     private func apiSetSelectionOpener(_ params: JSONObject) throws -> Any {
         let id = try requiredString("id", in: params)
         let title = try requiredString("title", in: params)
@@ -4533,22 +5150,7 @@ final class TerminalDeckView: NSView {
                 throw MachinenAPIError("invalid_params", "selectionPattern must be a valid regular expression")
             }
         }
-        let locationKinds: [WorkspaceLocation.Kind]?
-        if let names = params["locationKinds"] as? [String] {
-            guard !names.isEmpty,
-                  names.count <= 2,
-                  Set(names).count == names.count,
-                  names.allSatisfy({ WorkspaceLocation.Kind(rawValue: $0) != nil })
-            else {
-                throw MachinenAPIError(
-                    "invalid_params",
-                    "locationKinds must contain unique local or ssh values"
-                )
-            }
-            locationKinds = names.compactMap { WorkspaceLocation.Kind(rawValue: $0) }
-        } else {
-            locationKinds = nil
-        }
+        let locationKinds = try validatedLocationKinds(params["locationKinds"])
         let ttl = (params["ttlMilliseconds"] as? NSNumber)?.doubleValue
         if let ttl, ttl <= 0 {
             throw MachinenAPIError("invalid_params", "ttlMilliseconds must be positive")
@@ -4756,7 +5358,7 @@ final class TerminalDeckView: NSView {
             "shellPid": session.shellPID ?? NSNull(),
             "position": siblings.firstIndex(where: { $0 === tile }) ?? 0,
             "terminalId": session.id,
-            "viewerState": session.state == .detached ? "detached" : "attached",
+            "viewerState": terminalViewerIsAttached(session) ? "attached" : "detached",
         ]
     }
 
@@ -4766,6 +5368,7 @@ final class TerminalDeckView: NSView {
             "id": session.id,
             "tileId": session.tileID,
             "workingDirectory": session.workingDirectory,
+            "currentWorkingDirectory": session.currentWorkingDirectory ?? NSNull(),
             "location": session.location.json,
             "launch": launchJSON(session.launch),
             "backend": TerminalSession.backendName,
@@ -4778,7 +5381,7 @@ final class TerminalDeckView: NSView {
             "observedCommand": session.observedCommand ?? NSNull(),
             "processState": processState(session.state),
             "activityState": session.activityState.rawValue,
-            "viewerState": session.state == .detached ? "detached" : "attached",
+            "viewerState": terminalViewerIsAttached(session) ? "attached" : "detached",
         ]
     }
 
@@ -4848,6 +5451,10 @@ final class TerminalDeckView: NSView {
         case .exited: return "exited"
         case .disconnected: return "disconnected"
         }
+    }
+
+    private func terminalViewerIsAttached(_ session: TerminalSession) -> Bool {
+        session.state == .starting || session.state == .running
     }
 
     private func terminalIsRunning(_ session: TerminalSession) -> Bool {
@@ -4930,9 +5537,7 @@ final class TerminalDeckView: NSView {
         if let terminal = focusedTerminal {
             let workspaceName = workspace?.name ?? terminal.session.workspace
             statusBarView.title = "\(workspaceName) > \(terminal.session.displayName)"
-            statusBarView.titleTooltip = workspace.map {
-                "\($0.location.displayName) · \(terminal.session.commandTitle)"
-            }
+            statusBarView.titleTooltip = "\(terminal.session.effectiveLocation.displayName) · \(terminal.session.commandTitle)"
         } else if let workspace {
             statusBarView.title = workspace.name
             statusBarView.titleTooltip = workspace.location.displayName
@@ -4940,6 +5545,24 @@ final class TerminalDeckView: NSView {
             statusBarView.title = "MACHINEN"
             statusBarView.titleTooltip = nil
         }
+        statusBarView.workspaceChoices = workspaces.map { candidate in
+            MachinenStatusNavigationChoice(
+                id: candidate.id,
+                title: candidate.name,
+                tooltip: candidate.location.displayName
+            )
+        }
+        statusBarView.selectedWorkspaceID = workspaceID
+        statusBarView.terminalChoices = workspaceID.map { id in
+            activeSessionTiles(for: id).map { tile in
+                MachinenStatusNavigationChoice(
+                    id: tile.session.id,
+                    title: tile.session.displayName,
+                    tooltip: "\(tile.session.effectiveLocation.displayName) · \(tile.session.commandTitle)"
+                )
+            }
+        } ?? []
+        statusBarView.selectedTerminalID = focusedTerminalID
 
         var resolved: [String: MachinenStatusWidget] = [:]
         let orderedScopes: [(MachinenStatusWidget.ScopeKind, String?)] = [
@@ -4954,6 +5577,25 @@ final class TerminalDeckView: NSView {
                 where widget.scopeKind == kind && widget.scopeID == scopeID
             {
                 resolved[widget.id] = widget
+            }
+        }
+        if let workspace {
+            let availableCount = availableSessionItems(for: workspace).count { !$0.isAttached }
+            if availableCount > 0 {
+                resolved["machinen.availableSessions"] = MachinenStatusWidget(
+                    id: "machinen.availableSessions",
+                    scopeKind: .workspace,
+                    scopeID: workspace.id,
+                    placement: .right,
+                    kind: .count,
+                    label: "Not attached",
+                    value: String(availableCount),
+                    progress: nil,
+                    tone: .attention,
+                    tooltip: "\(availableCount) \(availableCount == 1 ? "session is" : "sessions are") not attached to Desktop · click to view",
+                    priority: 950,
+                    expiresAt: nil
+                )
             }
         }
         if let terminal = focusedTerminal {

@@ -13,18 +13,23 @@ runtime for its trusted TypeScript status services.
 - Official macOS image SHA-256: `18cff2b0a6cee90eead9c7d3064e808a252a40baf214aa752c1ecb793b8f5f69`
 - Extracted Metal library SHA-256: `6893dea958b8d89b58c0ccefb1bfdb589ba4bb0c6fd1a0d73fe38a1715650918`
 - Extracted `xterm-ghostty` SHA-256: `707349400682f7e3d4e29792035847875fa55879672dfae39247b3d23eb58f91`
-- Build patch SHA-256: `94882c1c0f3786c6d0736dd582a153c536b6ada0a256fe436117f568b9f4a78d`
+- Build patch SHA-256: `3c6dcba0853c7e82dedc9aec784f6aac228a2da1853b5f5d4b1114b3b72250d9`
 - License: MIT; see [`GHOSTTY-LICENSE`](./GHOSTTY-LICENSE)
 
 [`../prepare-ghostty.sh`](../prepare-ghostty.sh) verifies these hashes, applies
-the small build-only patch, and creates `GhosttyKit.xcframework`. The patch:
+the small compatibility and build patch, and creates `GhosttyKit.xcframework`.
+The patch:
 
 1. adds a static-library build step for Machinen;
 2. avoids requiring the iOS SDK for a native macOS-only build;
 3. combines Zig archives with `zig ar` so archive members remain readable on
-   current macOS releases; and
+   current macOS releases;
 4. uses the Metal library from Ghostty's official build when Apple's standalone
-   Command Line Tools do not include the Metal compiler.
+   Command Line Tools do not include the Metal compiler; and
+5. backports Ghostty's `ghostty_surface_free_text` ABI fix so selection queries
+   free the returned text instead of corrupting the terminal surface; and
+6. clears a retained Metal layer's display callback before freeing its renderer,
+   preventing reconnect layout from drawing through a stale renderer pointer.
 
 The official Metal library and macOS terminfo entry are the only generated
 Ghostty artifacts committed here. Together they are under 60 KiB. Shell

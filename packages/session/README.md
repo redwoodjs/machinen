@@ -7,13 +7,20 @@ depend on Node, SwiftTerm, Ghostty, AppKit, or a system SQLite installation. It
 builds as an approximately 1 MB static Linux executable and a similarly sized
 native macOS executable.
 
-## Session identity and ownership
+## Workspace and session identity
 
-The worker and database live on the host that owns the PTY. A session running on
-an SSH host writes recovery information on that host, not on the machine showing
-Machinen Desktop.
+The workers and shared database live on the host that owns the PTYs. A session
+running on an SSH host writes workspace, membership, and recovery information on
+that host, not on the machine showing Machinen Desktop.
 
-Each `new` command creates a stable ID and can optionally assign a unique name.
+The database is also the mutable workspace registry. A workspace record contains
+a stable ID, display name, and directory root; each session optionally carries an
+explicit `workspace_id`. This lets a fresh Desktop reconstruct local workspaces,
+or restore a remote workspace after the user selects its SSH directory, without
+depending on that Desktop's private manifest. The directory remains the tangible
+anchor while SQLite serializes mutable names, roots, and membership.
+
+Each `new` command creates a stable session ID and can optionally assign a unique name.
 Every later operation resolves either value:
 
 ```sh
@@ -22,18 +29,20 @@ machinen-session attach --database "$DB" term_01234567
 machinen-session attach --database "$DB" api       # unique name
 ```
 
-Desktop persists the terminal ID in `terminals.json`; reopening the scene uses
-that ID to attach to the same worker. IDs do not depend on a PID, socket inode,
-window, SSH connection, or Desktop process.
+Desktop may cache the terminal ID and tile arrangement in `terminals.json`, but
+the native workspace and session records are authoritative for discovery.
+Reopening the scene uses the stable ID to attach to the same worker. IDs do not
+depend on a PID, socket inode, window, SSH connection, or Desktop process.
 
-Each detached worker owns one PTY, journals output, and listens on a user-private
-Unix socket. Closing every client does not stop its command. Up to eight clients
-can watch a session concurrently.
+Each detached worker owns one PTY, keeps a bounded output journal in memory, and
+listens on a user-private Unix socket. Closing every client does not stop its
+command. Up to eight clients can watch a session concurrently.
 
 ```text
 command ⇄ PTY ⇄ detached worker ⇄ Unix socket ⇄ attach client
                        │
-                       └── SQLite checkpoint + ordered journal
+                       ├── bounded in-memory ordered journal
+                       └── SQLite visible-screen checkpoint
 ```
 
 ## Main Machinen CLI
@@ -66,10 +75,22 @@ DB="$HOME/Library/Application Support/Machinen/sessions.sqlite3"
 mkdir -p "$(dirname "$DB")"
 
 machinen-session database init "$DB"
+machinen-session database status "$DB"
+# Stop every session before explicitly reclaiming an old database high-water mark:
+machinen-session database compact "$DB"
+machinen-session workspace save \
+  --database "$DB" \
+  --id ws-project \
+  --name project \
+  --root "$HOME/project"
+machinen-session workspace list --database "$DB"
 machinen-session new \
   --database "$DB" \
   --id api-1 \
   --name api \
+  --workspace-id ws-project \
+  --workspace-name project \
+  --workspace-root "$HOME/project" \
   --cwd "$HOME/project" \
   -- pnpm dev
 
@@ -89,20 +110,36 @@ Suggested database locations:
 
 ## Resume and bounded recovery
 
-Protocol-v2 output carries its SQLite sequence. A reconnecting client sends its
-last applied sequence. The worker sends only newer output when retained history
-still covers that point. Otherwise it sends the latest portable VT checkpoint
-before the remaining output.
+Protocol-v2 output carries its worker sequence. A reconnecting client sends its
+last applied sequence. The worker sends only newer output when its bounded
+in-memory history still covers that point. Otherwise it sends a fresh portable
+VT checkpoint from the live screen.
 
 Checkpoint format v1 is an ordinary VT reconstruction stream containing reset,
 visible UTF-8 cells, and cursor position. It is renderer-neutral: Ghostty or
 another terminal can consume it as output. Selection, visual viewport, title,
 and styling remain outside the v1 checkpoint.
 
-A worker checkpoints every 256 KiB of output by default. Use
-`--checkpoint-bytes` to select 32 KiB–16 MiB. Replacing the checkpoint and
-deleting covered events is atomic. Recovery storage is bounded to one visible
-screen checkpoint plus output produced since the latest checkpoint.
+PTY reads are coalesced in memory for at most 16 ms or 256 KiB before receiving
+one sequence and being sent to viewers. This keeps latency below one display
+frame and retains up to 16 MiB of live resume history without writing raw PTY
+output to disk.
+
+A worker persists its current visible-screen checkpoint after 4 MiB of output by
+default or after 60 seconds with unsaved output. Use `--checkpoint-bytes` to
+select 32 KiB–16 MiB. The checkpoint transaction advances the durable sequence,
+replaces the older screen, and drops covered legacy events. A clean worker exit
+also writes its final screen. Raw TUI
+redraw traffic therefore stays in memory instead of being written and deleted
+through SQLite; after an unexpected worker loss, recovery shows the last durable
+visible screen rather than a byte-exact disk transcript.
+
+New databases use incremental auto-vacuum metadata and cap retained WAL files at
+8 MiB. SQLite reuses deleted journal pages instead of repeatedly returning and
+reallocating them, minimizing filesystem and SSD write amplification. The
+explicit `database compact` operation rebuilds an idle database when an older
+version already left a large physical high-water mark; it refuses to vacuum
+while any session is live.
 
 `attach --latest-screen` asks a live worker to generate an ephemeral checkpoint
 from its current in-memory VT state. It skips retained journal output, so a new
@@ -146,17 +183,23 @@ process explicitly.
 
 ## Storage invariants
 
-- SQLite uses WAL mode, foreign keys, and a five-second busy timeout.
+- SQLite uses WAL mode, foreign keys, a five-second busy timeout, and an 8 MiB journal-size limit.
+- New databases use incremental auto-vacuum; physical compaction remains an explicit idle operation.
+- Small PTY reads share one in-memory sequence within a 16 ms / 256 KiB output batch.
+- Raw live output is retained in memory, not SQLite; SQLite receives bounded visible-screen checkpoints.
 - Database and session sockets are forced to mode `0600`; the runtime socket
   directory is forced to `0700`.
-- Output and resize events share an independently increasing session sequence.
-- Resize metadata and its event are committed atomically.
-- Checkpoint replacement and event compaction are committed atomically.
+- Live output batches use an independently increasing worker sequence.
+- A durable checkpoint advances its sequence and terminal dimensions atomically.
+- Checkpoint replacement and legacy event compaction are committed atomically.
 - SQLite records worker protocol versions so upgraded clients can attach to
   still-live v1 workers without replacing them.
 - Schema migrations are tracked with `PRAGMA user_version`; the database carries
   a Machinen-specific `application_id`.
-- PTY output and checkpoint payloads are BLOBs and are never assumed to be UTF-8.
+- Workspace updates and session membership use the same foreign-key-enabled
+  SQLite store as recovery metadata. Deleting a workspace preserves its session
+  records while clearing their membership.
+- Legacy PTY events and checkpoint payloads are BLOBs and are never assumed to be UTF-8.
 
 ## Development
 

@@ -12,6 +12,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     var onShellNameChange: ((String) -> Void)?
     var onProcessInfoChange: ((TerminalProcessInfo?) -> Void)?
     var onRuntimeLabelChange: ((String?) -> Void)?
+    var onWorkingDirectoryChange: ((String?) -> Void)?
     var onOutput: ((Data) -> Void)?
     var onContextMenuRequested: ((MachinenTerminalView, String?) -> NSMenu?)?
 
@@ -20,6 +21,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     nonisolated(unsafe) private var surface: ghostty_surface_t?
     private var activityDetector: TerminalActivityDetector?
     private var requestedStateAfterExit: TerminalSession.State?
+    private var viewerPreparationID: UUID?
     private var attachRetryScheduled = false
     private var destroyingSurface = false
     private var terminalInputFocused = false
@@ -29,19 +31,20 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     private var tracking: NSTrackingArea?
     private var selectionAnchorInWindow: NSPoint?
     private var outputTap: GhosttyOutputTap?
-    private var terminalBackend: any TerminalSessionBackend {
-        TerminalSessionBackendFactory.backend
-    }
+    private let terminalBackend: any TerminalSessionBackend
 
     override var acceptsFirstResponder: Bool { true }
 
     init(
         session: TerminalSession,
+        terminalBackend: (any TerminalSessionBackend)? = nil,
         telemetryProvider: ((
             @escaping @MainActor @Sendable (TerminalTelemetry?) -> Void
         ) -> Void)? = nil
     ) {
         self.session = session
+        let backend = terminalBackend ?? TerminalSessionBackendFactory.backend
+        self.terminalBackend = backend
         super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
         let provider: (
             @escaping @MainActor @Sendable (TerminalTelemetry?) -> Void
@@ -49,7 +52,6 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         if let telemetryProvider {
             provider = telemetryProvider
         } else {
-            let backend = TerminalSessionBackendFactory.backend
             provider = { completion in backend.inspect(session, completion: completion) }
         }
         let detector = TerminalActivityDetector(session: session, telemetryProvider: provider)
@@ -120,13 +122,13 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     }
 
     func attach() {
-        guard surface == nil, !destroyingSurface else {
+        guard surface == nil, viewerPreparationID == nil, !destroyingSurface else {
             if session.state == .starting || session.state == .disconnected {
                 scheduleAttachRetry()
             }
             return
         }
-        guard let app = GhosttyRuntime.shared.app else {
+        guard GhosttyRuntime.shared.app != nil else {
             setSessionState(.disconnected)
             scheduleAttachRetry(after: 1)
             return
@@ -135,47 +137,88 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         requestedStateAfterExit = nil
         outputTap?.close()
         outputTap = nil
+        let preparationID = UUID()
+        viewerPreparationID = preparationID
         setSessionState(.starting)
-        do {
-            let launch = try terminalBackend.prepareViewer(for: session, loginShell: loginShell())
-            let command = commandWithOutputTap(Self.viewerCommand(launch))
-            var config = ghostty_surface_config_new()
-            config.userdata = Unmanaged.passUnretained(self).toOpaque()
-            config.platform_tag = GHOSTTY_PLATFORM_MACOS
-            config.platform = ghostty_platform_u(
-                macos: ghostty_platform_macos_s(
-                    nsview: Unmanaged.passUnretained(self).toOpaque()
-                )
-            )
-            config.scale_factor = Double(
-                window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
-            )
-            config.context = GHOSTTY_SURFACE_CONTEXT_SPLIT
-
-            let created = launch.workingDirectory.withCString { directory in
-                config.working_directory = directory
-                return command.withCString { commandPointer in
-                    config.command = commandPointer
-                    return ghostty_surface_new(app, &config)
-                }
-            }
-            guard let created else { throw GhosttyViewError.surfaceCreationFailed }
-            surface = created
-            updateGhosttyGeometry()
-            ghostty_surface_set_focus(created, terminalInputFocused)
-            setSessionState(.running)
-        } catch {
-            outputTap?.close()
-            outputTap = nil
-            InputRoutingLog.log(
-                "terminal[\(session.tileID)] ghostty viewer failed: \(error.localizedDescription)"
-            )
-            // The persistent worker may still be alive even when AppKit cannot
-            // create its Ghostty surface. Preserve reconnect intent instead of
-            // recording a stopped process that Machinen never terminated.
-            setSessionState(.disconnected)
-            scheduleAttachRetry(after: 1)
+        InputRoutingLog.log("terminal[\(session.tileID)] prepares viewer asynchronously")
+        terminalBackend.prepareViewer(for: session, loginShell: loginShell()) { [weak self] result in
+            self?.completeViewerPreparation(result, id: preparationID)
         }
+    }
+
+    private func completeViewerPreparation(
+        _ result: Result<TerminalViewerLaunch, Error>,
+        id: UUID
+    ) {
+        guard viewerPreparationID == id else {
+            if case .success = result, requestedStateAfterExit == .stopped {
+                // A stop can win while SSH is still creating the worker. Remove
+                // that late worker rather than leaking a session with no tile.
+                terminalBackend.remove(session)
+            }
+            return
+        }
+        viewerPreparationID = nil
+        guard window != nil,
+              session.state == .starting || session.state == .disconnected
+        else { return }
+
+        switch result {
+        case let .success(launch):
+            do {
+                try installGhosttySurface(for: launch)
+                InputRoutingLog.log("terminal[\(session.tileID)] Ghostty surface is ready")
+            } catch {
+                handleViewerPreparationFailure(error)
+            }
+        case let .failure(error):
+            handleViewerPreparationFailure(error)
+        }
+    }
+
+    private func installGhosttySurface(for launch: TerminalViewerLaunch) throws {
+        guard let app = GhosttyRuntime.shared.app else {
+            throw GhosttyViewError.surfaceCreationFailed
+        }
+        let command = commandWithOutputTap(Self.viewerCommand(launch))
+        var config = ghostty_surface_config_new()
+        config.userdata = Unmanaged.passUnretained(self).toOpaque()
+        config.platform_tag = GHOSTTY_PLATFORM_MACOS
+        config.platform = ghostty_platform_u(
+            macos: ghostty_platform_macos_s(
+                nsview: Unmanaged.passUnretained(self).toOpaque()
+            )
+        )
+        config.scale_factor = Double(
+            window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        )
+        config.context = GHOSTTY_SURFACE_CONTEXT_SPLIT
+
+        let created = launch.workingDirectory.withCString { directory in
+            config.working_directory = directory
+            return command.withCString { commandPointer in
+                config.command = commandPointer
+                return ghostty_surface_new(app, &config)
+            }
+        }
+        guard let created else { throw GhosttyViewError.surfaceCreationFailed }
+        surface = created
+        updateGhosttyGeometry()
+        ghostty_surface_set_focus(created, terminalInputFocused)
+        setSessionState(.running)
+    }
+
+    private func handleViewerPreparationFailure(_ error: Error) {
+        outputTap?.close()
+        outputTap = nil
+        InputRoutingLog.log(
+            "terminal[\(session.tileID)] ghostty viewer failed: \(error.localizedDescription)"
+        )
+        // The persistent worker may still be alive even when AppKit cannot
+        // create its Ghostty surface. Preserve reconnect intent instead of
+        // recording a stopped process that Machinen never terminated.
+        setSessionState(.disconnected)
+        scheduleAttachRetry(after: 1)
     }
 
     private static func viewerCommand(_ launch: TerminalViewerLaunch) -> String {
@@ -251,6 +294,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
 
     func restartPersistentSession() {
         requestedStateAfterExit = .stopped
+        onWorkingDirectoryChange?(nil)
         terminalBackend.reset(session)
         destroyViewer()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
@@ -293,8 +337,21 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         ghosttyTitleChanged(title)
     }
 
+    static func normalizedOSC7WorkingDirectory(_ path: String) -> String? {
+        guard path.hasPrefix("/"), path.utf8.count <= 16_384,
+              path.unicodeScalars.allSatisfy({
+                  !CharacterSet.controlCharacters.contains($0)
+              })
+        else { return nil }
+        return path
+    }
+
     func ghosttyWorkingDirectoryChanged(_ path: String) {
-        guard !path.isEmpty else { return }
+        guard let path = Self.normalizedOSC7WorkingDirectory(path),
+              path != session.currentWorkingDirectory
+        else { return }
+        InputRoutingLog.log("terminal[\(session.tileID)] OSC 7 cwd=\(path)")
+        onWorkingDirectoryChange?(path)
     }
 
     func ghosttyCellSizeChanged(width: UInt32, height: UInt32) {
@@ -319,19 +376,57 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     }
 
     private func destroyViewer() {
+        viewerPreparationID = nil
         if let active = surface {
             surface = nil
             destroyingSurface = true
             ghostty_surface_free(active)
             destroyingSurface = false
+            // Ghostty installs a retained layer-hosting IOSurfaceLayer. Remove
+            // that dead layer before a reconnect installs the next renderer.
+            wantsLayer = false
+            layer = nil
         }
         outputTap?.close()
         outputTap = nil
+        needsDisplay = true
     }
 
     private func setSessionState(_ state: TerminalSession.State) {
         session.state = state
+        needsDisplay = true
         onStateChange?(state)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard surface == nil else { return }
+        NSColor(calibratedWhite: 0.065, alpha: 1).setFill()
+        dirtyRect.fill()
+        let message: String
+        switch session.state {
+        case .starting:
+            message = session.location.sshHost.map { "Connecting to \($0)…" }
+                ?? "Starting terminal…"
+        case .disconnected:
+            message = session.location.sshHost.map { "Reconnecting to \($0)…" }
+                ?? "Reconnecting…"
+        case .stopped:
+            message = "Terminal stopped"
+        case .exited:
+            message = "Terminal exited"
+        case .detached:
+            message = "Viewer detached"
+        case .running:
+            message = "Opening terminal…"
+        }
+        NSAttributedString(
+            string: message,
+            attributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular),
+                .foregroundColor: NSColor(calibratedWhite: 0.62, alpha: 1),
+            ]
+        ).draw(at: NSPoint(x: 16, y: max(16, bounds.midY - 8)))
     }
 
     static func intrinsicSurfacePixelSize(
@@ -477,8 +572,8 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
                         InputRoutingLog.log("terminal routes command-k directly to command palette")
                         deck.toggleCommandPalette()
                     } else {
-                        InputRoutingLog.log("terminal routes command-o directly to selection openers")
-                        deck.showSelectionOpenersMenu()
+                        InputRoutingLog.log("terminal routes command-o directly to terminal menu")
+                        deck.showTerminalContextMenu()
                     }
                     return true
                 }

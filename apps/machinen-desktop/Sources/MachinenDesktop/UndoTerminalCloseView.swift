@@ -4,13 +4,8 @@ final class UndoTerminalCloseView: NSView {
     var terminalName = "terminal" {
         didSet { needsDisplay = true }
     }
-    var deadline = Date() {
-        didSet { needsDisplay = true }
-    }
     var onRestore: (() -> Void)?
     var onKill: (() -> Void)?
-
-    private var countdownTimer: Timer?
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { false }
@@ -22,32 +17,9 @@ final class UndoTerminalCloseView: NSView {
         layer?.masksToBounds = true
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
-        setAccessibilityLabel("Terminal closed. Restore with Command-Z or kill with Command-W.")
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        countdownTimer?.invalidate()
-        countdownTimer = nil
-        guard window != nil else { return }
-        let timer = Timer(
-            timeInterval: 1,
-            target: self,
-            selector: #selector(refreshCountdown(_:)),
-            userInfo: nil,
-            repeats: true
+        setAccessibilityLabel(
+            "Terminal disconnected. Reconnect with Command-Z or kill with Command-W."
         )
-        countdownTimer = timer
-        RunLoop.main.add(timer, forMode: .common)
-    }
-
-    @objc private func refreshCountdown(_ timer: Timer) {
-        guard window != nil else {
-            timer.invalidate()
-            countdownTimer = nil
-            return
-        }
-        needsDisplay = true
     }
 
     @available(*, unavailable)
@@ -64,19 +36,19 @@ final class UndoTerminalCloseView: NSView {
         border.stroke()
 
         drawText(
-            "Closed \(terminalName)",
+            "Disconnected \(terminalName)",
             in: NSRect(x: 14, y: 10, width: max(1, bounds.width - 246), height: 17),
             color: NSColor(calibratedWhite: 0.92, alpha: 1),
             weight: .semibold
         )
         drawText(
-            "\(countdown()) left to restore",
+            "Session keeps running · press ⌘W again to kill",
             in: NSRect(x: 14, y: 29, width: max(1, bounds.width - 246), height: 15),
             color: NSColor(calibratedWhite: 0.56, alpha: 1),
             weight: .regular
         )
         drawButton(killRect(), title: "Kill ⌘W", emphasized: false)
-        drawButton(restoreRect(), title: "Restore ⌘Z", emphasized: true)
+        drawButton(restoreRect(), title: "Reconnect ⌘Z", emphasized: true)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -86,11 +58,6 @@ final class UndoTerminalCloseView: NSView {
         } else if killRect().contains(point) {
             onKill?()
         }
-    }
-
-    private func countdown() -> String {
-        let seconds = max(0, Int(ceil(deadline.timeIntervalSinceNow)))
-        return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
     private func restoreRect() -> NSRect {

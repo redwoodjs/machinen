@@ -7,8 +7,14 @@ enum InteractionTestRunner {
     static func run() -> Int32 {
         _ = NSApplication.shared
         do {
+            if ProcessInfo.processInfo.environment["MACHINEN_RENDERER_TESTS"] == "1" {
+                try ghosttyRendererSurvivesViewerReconnects()
+                print("Machinen renderer reconnect test passed")
+                return 0
+            }
             try commandNAlwaysAsksWhatAndWhere()
             try commandArrowsMoveThroughTheHierarchy()
+            try statusNavigationMenusSwitchAndZoomOut()
             try commandPlusAndMinusMagnifyTheCurrentLevel()
             try focusedCycleShortcutsSeparateTerminalsAndWorkspaces()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
@@ -16,20 +22,27 @@ enum InteractionTestRunner {
             try terminalOutputAndRuntimeLabelsReportActivity()
             try statusWidgetsInheritBySpatialScope()
             try selectionOpenersRegisterMatchAndExpire()
+            try availableNativeSessionsReconnectIntoWorkspace()
+            try nativeWorkspaceRegistryRestoresLostDesktopState()
             try graphicalStatusWidgetsRender()
             try desktopServicesRestartUntilTheAppStops()
             try workspaceNamesRemainUniqueAndLocationsCanBeShared()
             try oldManifestsRequireNativeRestart()
+            try sshTerminalViewportAppearsBeforeConnectionCompletes()
             try terminalViewportRemainsStableAcrossFocus()
+            try ghosttyRendererSurvivesViewerReconnects()
             try terminalTileCaptionRendersWithSafeFonts()
             try ghosttyPreservesModifiedEnter()
             try scrollWheelReachesFocusedTerminalThroughPreview()
             try pointerTilesSeparateClickFocusAndDrag()
             try singletonWorkspaceTileFillsSurface()
+            try overviewUsesOnlyItsTopInset()
+            try statusBarIsExcludedFromTerminalViewport()
             try clickedTileFocusesItsOwnTerminal()
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
-            try closingTerminalCanBeUndoneBeforeCleanup()
-            print("Machinen interaction tests passed (21 scenarios)")
+            try commandWDisconnectsSingletonSession()
+            try disconnectedTerminalsCanReconnectOrBeKilled()
+            print("Machinen interaction tests passed (31 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -100,6 +113,60 @@ enum InteractionTestRunner {
         try expect(try harness.uiLevel(of: deck) == "workspace", "⌘↑ did not leave the terminal")
         deck.zoomOutOneLevel()
         try expect(try harness.uiLevel(of: deck) == "overview", "⌘↑ did not leave the workspace")
+    }
+
+    private static func statusNavigationMenusSwitchAndZoomOut() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 2),
+            harness.workspace("beta", terminalCount: 2),
+        ])
+        guard let statusBar = deck.subviews.compactMap({
+            $0 as? MachinenStatusBarView
+        }).first else {
+            throw InteractionTestFailure("the deck did not install its status bar")
+        }
+        try expect(
+            statusBar.workspaceMenu().items.map(\.title) == ["alpha", "beta"],
+            "the workspace title did not provide a spatially ordered dropdown"
+        )
+        try expect(
+            statusBar.workspaceMenu().items.map(\.state) == [.on, .off],
+            "the workspace dropdown did not mark the current workspace"
+        )
+
+        deck.zoomInOneLevel()
+        deck.zoomInOneLevel()
+        try expect(
+            statusBar.terminalMenu().items.map(\.title) == ["shell 1", "shell 2"],
+            "the terminal title did not provide a spatially ordered dropdown"
+        )
+        try expect(
+            statusBar.terminalMenu().items.map(\.state) == [.on, .off],
+            "the terminal dropdown did not mark the focused terminal"
+        )
+        try expect(
+            statusBar.chooseTerminal("term_alpha_1")
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "choosing a terminal from the status bar did not focus it"
+        )
+        try expect(
+            statusBar.chooseWorkspace("ws_alpha")
+                && (try harness.uiLevel(of: deck)) == "workspace",
+            "choosing the current workspace did not zoom out of its terminal"
+        )
+        try expect(
+            statusBar.chooseWorkspace("ws_beta")
+                && statusBar.selectedWorkspaceID == "ws_beta"
+                && (try harness.uiLevel(of: deck)) == "workspace",
+            "choosing another workspace did not enter its terminal deck"
+        )
+        try expect(
+            statusBar.chooseTerminal("term_beta_1")
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_1",
+            "the terminal dropdown did not follow the selected workspace"
+        )
     }
 
     private static func commandPlusAndMinusMagnifyTheCurrentLevel() throws {
@@ -534,11 +601,7 @@ enum InteractionTestRunner {
         } catch let error as MachinenAPIError {
             try expect(error.code == "invalid_params", "an invalid pattern returned the wrong API error")
         }
-        func terminalTile(in view: NSView) -> TerminalTileView? {
-            if let tile = view as? TerminalTileView { return tile }
-            return view.subviews.lazy.compactMap(terminalTile).first
-        }
-        guard let tile = terminalTile(in: deck), let terminal = tile.terminalResponder else {
+        guard let tile = harness.terminalTile(in: deck), let terminal = tile.terminalResponder else {
             throw InteractionTestFailure("the selection opener test did not create a terminal")
         }
         let menu = deck.terminalContextMenu(
@@ -546,10 +609,29 @@ enum InteractionTestRunner {
             tile: tile,
             selection: "docs/guide.md"
         )
+        try expect(
+            menu.items.filter { !$0.isSeparatorItem }.map(\.title)
+                == ["Open Selection With", "Copy", "Paste", "Select All"],
+            "the terminal context menu did not include every terminal action"
+        )
         let openItem = menu.items.first { $0.title == "Open Selection With" }
         try expect(
             openItem?.submenu?.items.first?.title == "Open Markdown",
             "the terminal context menu did not include the registered opener"
+        )
+        let noSelectionMenu = deck.terminalContextMenu(
+            for: terminal,
+            tile: tile,
+            selection: nil
+        )
+        try expect(
+            noSelectionMenu.items.filter { !$0.isSeparatorItem }.map(\.title)
+                == ["Open Selection With", "Copy", "Paste", "Select All"],
+            "the keyboard terminal menu hid actions when no text was selected"
+        )
+        try expect(
+            noSelectionMenu.items.first { $0.title == "Open Selection With" }?.isEnabled == false,
+            "Open Selection With remained enabled without a selection"
         )
 
         _ = try deck.performAPIOperation("selectionOpener.remove", params: ["id": "test.markdown"])
@@ -558,10 +640,201 @@ enum InteractionTestRunner {
         try expect(remaining?.isEmpty == true, "the removed selection opener remained registered")
     }
 
+    private static func availableNativeSessionsReconnectIntoWorkspace() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        harness.setAvailableSessions([
+            AvailableTerminalSession(
+                id: "term_external",
+                name: "agent",
+                state: "running",
+                workspaceId: "ws_alpha",
+                workingDirectory: harness.temporaryDirectoryPath + "/nested",
+                createdAtMs: 1,
+                updatedAtMs: 3
+            ),
+            AvailableTerminalSession(
+                id: "term_elsewhere",
+                name: "elsewhere",
+                state: "running",
+                workspaceId: "ws_elsewhere",
+                workingDirectory: "/var/empty/elsewhere",
+                createdAtMs: 1,
+                updatedAtMs: 2
+            ),
+            AvailableTerminalSession(
+                id: "term_exited",
+                name: "finished",
+                state: "exited",
+                workspaceId: "ws_alpha",
+                workingDirectory: harness.temporaryDirectoryPath,
+                createdAtMs: 1,
+                updatedAtMs: 1
+            ),
+        ])
+        let alpha = harness.workspace("alpha", terminalCount: 1)
+        alpha.1.forEach { $0.state = .running }
+        let deck = harness.makeDeck(workspaces: [alpha])
+
+        let status = try harness.effectiveStatusWidgets(of: deck)
+        try expect(
+            status.first(where: { $0.id == "machinen.availableSessions" })?.value == "1",
+            "the status bar did not show the unrepresented workspace session"
+        )
+
+        deck.toggleCommandPalette()
+        let palette = try harness.commandPalette(in: deck)
+        try harness.type("Sessions", into: palette)
+        try harness.pressReturn(on: palette)
+        let manager = try harness.availableSessions(in: deck)
+        try expect(
+            manager.items.map(\.session.id) == ["term_external", "term_alpha_0"],
+            "the session picker did not include every workspace session"
+        )
+        try expect(
+            manager.items.first?.attachmentState == .detached
+                && manager.items.last?.attachmentState == .attached,
+            "the session picker did not distinguish attached and unattached sessions"
+        )
+        try harness.pressReturn(on: manager)
+
+        var snapshot = try harness.snapshot(of: deck)
+        try expect(
+            snapshot.terminals.map(\.id).contains("term_external"),
+            "reconnecting did not create a tile for the existing native session"
+        )
+        try expect(
+            harness.loadStoredState().sessions.first(where: { $0.id == "term_external" })?
+                .startsSessionIfMissing == false,
+            "the imported session could be replaced with an invented command"
+        )
+        try expect(
+            !(try harness.effectiveStatusWidgets(of: deck)).contains {
+                $0.id == "machinen.availableSessions"
+            },
+            "the represented session remained available in the status bar"
+        )
+
+        deck.toggleCommandPalette()
+        let allSessionsPalette = try harness.commandPalette(in: deck)
+        try harness.type("Sessions", into: allSessionsPalette)
+        try harness.pressReturn(on: allSessionsPalette)
+        let allSessions = try harness.availableSessions(in: deck)
+        try expect(
+            allSessions.items.count == 2 && allSessions.items.allSatisfy { $0.isAttached },
+            "the session picker did not show every attached workspace session"
+        )
+        try harness.pressReturn(on: allSessions)
+        snapshot = try harness.snapshot(of: deck)
+        try expect(
+            snapshot.terminals.count == 1 && deck.canReopenClosedTerminal,
+            "disconnecting from the session picker did not remove the Desktop tile"
+        )
+        try expect(
+            allSessions.items.first?.attachmentState == .detached,
+            "the disconnected session did not remain visible in the session picker"
+        )
+        try harness.pressReturn(on: allSessions)
+        snapshot = try harness.snapshot(of: deck)
+        try expect(
+            snapshot.terminals.count == 2,
+            "the session picker did not reconnect the disconnected session"
+        )
+
+        guard let detachedTileID = snapshot.tiles.first?.id,
+              let detachedTile = try deck.performAPIOperation(
+                  "tile.get",
+                  params: ["tileId": snapshot.tiles.first?.id ?? ""]
+              ) as? JSONObject,
+              let detachedTerminalID = detachedTile["terminalId"] as? String
+        else { throw InteractionTestFailure("the deck had no tile to detach") }
+        _ = try deck.performAPIOperation("tile.detach", params: ["tileId": detachedTileID])
+        deck.toggleCommandPalette()
+        let detachedPalette = try harness.commandPalette(in: deck)
+        try harness.type("Sessions", into: detachedPalette)
+        try harness.pressReturn(on: detachedPalette)
+        let detachedSessions = try harness.availableSessions(in: deck)
+        try expect(
+            detachedSessions.items.first(where: { $0.session.id == detachedTerminalID })?
+                .attachmentState == .detached,
+            "the session picker marked a detached viewer as attached"
+        )
+        try harness.pressReturn(on: detachedSessions)
+        let reattachedTile = try deck.performAPIOperation(
+            "tile.get",
+            params: ["tileId": detachedTileID]
+        ) as? JSONObject
+        try expect(
+            reattachedTile?["viewerState"] as? String == "attached"
+                && (try harness.snapshot(of: deck)).tiles.count == 2,
+            "attaching from the session picker duplicated or failed to attach the tile"
+        )
+    }
+
+    private static func nativeWorkspaceRegistryRestoresLostDesktopState() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        harness.setNativeWorkspaces([
+            NativeWorkspaceRecord(
+                id: "ws_recovered",
+                name: "recovered",
+                rootDirectory: harness.temporaryDirectoryPath,
+                createdAtMs: 1,
+                updatedAtMs: 2
+            ),
+        ])
+        harness.setAvailableSessions([
+            AvailableTerminalSession(
+                id: "term_recovered",
+                name: "agent",
+                state: "running",
+                workspaceId: "ws_recovered",
+                workingDirectory: harness.temporaryDirectoryPath + "/packages/app",
+                createdAtMs: 1,
+                updatedAtMs: 2
+            ),
+        ])
+
+        let emptyDesktopState = harness.loadStoredState()
+        try expect(
+            emptyDesktopState.workspaces.isEmpty && emptyDesktopState.sessions.isEmpty,
+            "a missing Desktop manifest recreated prototype workspaces instead of starting recovery"
+        )
+        let deck = harness.makeDeck(state: emptyDesktopState)
+        let snapshot = try harness.snapshot(of: deck)
+        try expect(
+            snapshot.workspaces.map(\.id) == ["ws_recovered"]
+                && snapshot.workspaces.first?.workingDirectory == harness.temporaryDirectoryPath,
+            "the native registry did not restore a workspace after Desktop state was lost"
+        )
+        let status = try harness.effectiveStatusWidgets(of: deck)
+        try expect(
+            status.first(where: { $0.id == "machinen.availableSessions" })?.value == "1",
+            "the restored workspace did not discover its explicitly associated session"
+        )
+        deck.toggleAvailableSessions()
+        try expect(
+            try harness.availableSessions(in: deck).items.map(\.session.id) == ["term_recovered"],
+            "the restored workspace's session was not available for attachment"
+        )
+    }
+
     private static func graphicalStatusWidgetsRender() throws {
         let view = MachinenStatusBarView(frame: NSRect(x: 0, y: 0, width: 900, height: 40))
-        view.title = "workspace"
+        view.title = "workspace > shell"
         view.titleTooltip = "/projects/workspace"
+        view.workspaceChoices = [MachinenStatusNavigationChoice(
+            id: "ws_workspace",
+            title: "workspace",
+            tooltip: "/projects/workspace"
+        )]
+        view.selectedWorkspaceID = "ws_workspace"
+        view.terminalChoices = [MachinenStatusNavigationChoice(
+            id: "term_shell",
+            title: "shell",
+            tooltip: "/projects/workspace · zsh"
+        )]
+        view.selectedTerminalID = "term_shell"
         func widget(
             _ id: String,
             _ kind: MachinenStatusWidget.Kind,
@@ -807,9 +1080,21 @@ enum InteractionTestRunner {
         )
         let remoteCommand = try MachinenNativeSessionBackend.remoteNewCommand(for: remoteSession)
         try expect(
-            remoteCommand.contains("'--cwd' '/Users/p4p8/project'\\''s files'")
+            remoteCommand.contains("'--workspace-id' 'ws_remote_quote'")
+                && remoteCommand.contains("'--workspace-name' 'remote quote'")
+                && remoteCommand.contains("'--workspace-root' '/Users/p4p8/project'\\''s files'")
+                && remoteCommand.contains("'--cwd' '/Users/p4p8/project'\\''s files'")
                 && remoteCommand.contains("printf") && remoteCommand.contains("ready"),
             "the remote terminal command did not safely quote its path and command: \(remoteCommand)"
+        )
+        let sshArguments = MachinenSSHTransport.arguments(connectTimeout: 8)
+        try expect(
+            sshArguments.contains("BatchMode=yes")
+                && sshArguments.contains("ControlMaster=auto")
+                && sshArguments.contains("ControlPersist=60")
+                && sshArguments.contains(where: { $0.hasPrefix("ControlPath=/tmp/machinen-") })
+                && sshArguments.contains("ConnectTimeout=8"),
+            "remote terminals did not reuse a bounded SSH control connection: \(sshArguments)"
         )
         try expect(
             WorkspaceLocation.parseSSHReference("mini:~/gh/peterp/notes")
@@ -836,6 +1121,47 @@ enum InteractionTestRunner {
         try expect(
             try harness.statusTitle(of: deck) == identityTitle,
             "clearing a terminal title override changed the workspace > terminal identity title"
+        )
+    }
+
+    private static func sshTerminalViewportAppearsBeforeConnectionCompletes() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let session = TerminalSession(
+            id: "term_deferred_ssh",
+            tileID: "tile_deferred_ssh",
+            label: "ds",
+            workspaceID: "ws_deferred_ssh",
+            workspace: "deferred ssh",
+            name: "shell",
+            launch: .loginShell,
+            workingDirectory: "/Users/p4p8/project",
+            sshHost: "mini",
+            state: .starting
+        )
+        let backend = DeferredViewerBackend()
+        let terminal = MachinenTerminalView(
+            session: session,
+            terminalBackend: backend,
+            telemetryProvider: { completion in completion(nil) }
+        )
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+
+        let startedAt = ProcessInfo.processInfo.systemUptime
+        window.contentView = terminal
+        terminal.displayIfNeeded()
+        let elapsed = ProcessInfo.processInfo.systemUptime - startedAt
+        try expect(elapsed < 0.05, "an SSH connection blocked its terminal viewport")
+        try expect(backend.hasPendingViewer, "the terminal did not begin its deferred connection")
+        try expect(
+            session.state == .starting && terminal.ghosttySurface == nil,
+            "the terminal did not remain visibly starting before SSH completed"
         )
     }
 
@@ -915,6 +1241,79 @@ enum InteractionTestRunner {
             unfocused.width == tile.bounds.width && unfocused.maxY == tile.bounds.maxY,
             "the persistent terminal viewport did not retain its full content surface: \(unfocused), \(tile.bounds)"
         )
+    }
+
+    private static func ghosttyRendererSurvivesViewerReconnects() throws {
+        // CoreVideo cannot create a Metal display link on headless builders.
+        guard ProcessInfo.processInfo.environment["MACHINEN_RENDERER_TESTS"] == "1" else {
+            return
+        }
+
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("machinen-renderer-reconnect-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let workspace = WorkspaceRecord(
+            id: "ws_renderer_reconnect",
+            name: "renderer reconnect",
+            workingDirectory: directory.path
+        )
+        let session = TerminalSession(
+            id: "term_renderer_reconnect",
+            tileID: "tile_renderer_reconnect",
+            label: "rr",
+            workspaceID: workspace.id,
+            workspace: workspace.name,
+            name: "cat",
+            launch: .loginShell,
+            workingDirectory: directory.path,
+            state: .running
+        )
+        let deck = TerminalDeckView(
+            state: MachinenStoredState(workspaces: [workspace], sessions: [session]),
+            sessionStore: TerminalSessionStore(
+                manifestURL: directory.appendingPathComponent("terminals.json")
+            ),
+            sessionBackend: ImmediateViewerBackend(workingDirectory: directory.path)
+        )
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = deck
+        window.makeKeyAndOrderFront(nil)
+        deck.focusCurrentContent()
+        defer {
+            deck.prepareForTermination()
+            window.contentView = nil
+            window.close()
+        }
+
+        func waitForRunningViewer() throws {
+            let deadline = Date(timeIntervalSinceNow: 2)
+            while session.state != .running, Date() < deadline {
+                RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.01))
+            }
+            try expect(session.state == .running, "Ghostty did not attach its test viewer")
+        }
+
+        try waitForRunningViewer()
+        for _ in 0..<8 {
+            deck.handleCommandW()
+            try expect(deck.canReopenClosedTerminal, "the renderer test did not disconnect its viewer")
+            window.contentView?.layoutSubtreeIfNeeded()
+            window.displayIfNeeded()
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.02))
+
+            deck.reopenLastClosedTerminal()
+            try waitForRunningViewer()
+            window.contentView?.layoutSubtreeIfNeeded()
+            window.displayIfNeeded()
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.02))
+        }
     }
 
     private static func terminalTileCaptionRendersWithSafeFonts() throws {
@@ -1083,6 +1482,83 @@ enum InteractionTestRunner {
         try expect(
             session.associatedPID == 4242 && session.shellPID == 4201,
             "a tile did not retain its live process metadata"
+        )
+    }
+
+    private static func overviewUsesOnlyItsTopInset() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 1),
+            harness.workspace("beta", terminalCount: 1),
+        ])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        deck.layoutSubtreeIfNeeded()
+
+        guard let statusBar = deck.subviews.compactMap({
+            $0 as? MachinenStatusBarView
+        }).first else {
+            throw InteractionTestFailure("the overview test did not create its status bar")
+        }
+        let clusters = deck.subviews
+            .flatMap(\.subviews)
+            .compactMap { $0 as? WorkspaceClusterView }
+        guard let contentTop = clusters.map({
+            $0.convert($0.bounds, to: deck).minY
+        }).min() else {
+            throw InteractionTestFailure("the overview test did not create workspace surfaces")
+        }
+        let expectedTop = statusBar.frame.maxY + 18
+        try expect(
+            abs(contentTop - expectedTop) < 1,
+            "the overview accumulated a gap below the status bar: \(contentTop - statusBar.frame.maxY)"
+        )
+    }
+
+    private static func statusBarIsExcludedFromTerminalViewport() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        deck.layoutSubtreeIfNeeded()
+
+        guard let statusBar = deck.subviews.compactMap({ $0 as? MachinenStatusBarView }).first,
+              let tile = harness.terminalTile(in: deck)
+        else {
+            throw InteractionTestFailure("the viewport test did not create its status bar and terminal")
+        }
+        let terminalFrame = tile.convert(tile.bounds, to: deck)
+        let expectedViewport = NSRect(
+            x: 0,
+            y: MachinenStatusBarView.preferredHeight,
+            width: deck.bounds.width,
+            height: deck.bounds.height - MachinenStatusBarView.preferredHeight
+        )
+        try expect(
+            terminalFrame == expectedViewport,
+            "the focused terminal did not fill the viewport below the status bar: \(terminalFrame)"
+        )
+        try expect(
+            statusBar.frame.maxY == terminalFrame.minY,
+            "the focused terminal extended underneath the status bar"
+        )
+        try expect(
+            tile.bounds.size == expectedViewport.size,
+            "the terminal renderer included the status bar in its intrinsic viewport"
         )
     }
 
@@ -1276,16 +1752,36 @@ enum InteractionTestRunner {
         }
     }
 
-    private static func closingTerminalCanBeUndoneBeforeCleanup() throws {
+    private static func commandWDisconnectsSingletonSession() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
-        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 4)])
+        let deck = harness.makeDeck(workspaces: [harness.workspace("solo", terminalCount: 1)])
+
+        deck.handleCommandW()
+        var snapshot = try harness.snapshot(of: deck)
+        try expect(snapshot.workspaces.count == 1, "⌘W closed a singleton workspace")
+        try expect(snapshot.tiles.isEmpty, "⌘W did not disconnect the singleton terminal")
+        try expect(deck.canReopenClosedTerminal, "the singleton session was not reconnectable")
+
+        deck.handleCommandW()
+        snapshot = try harness.snapshot(of: deck)
+        try expect(snapshot.workspaces.count == 1, "a second ⌘W closed the workspace")
+        try expect(!deck.canReopenClosedTerminal, "a second ⌘W did not kill the session")
+    }
+
+    private static func disconnectedTerminalsCanReconnectOrBeKilled() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let alpha = harness.workspace("alpha", terminalCount: 4)
+        alpha.1.forEach { $0.state = .running }
+        let deck = harness.makeDeck(workspaces: [alpha])
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
+        defer { window.close() }
         window.contentView = deck
         deck.layoutSubtreeIfNeeded()
 
@@ -1295,78 +1791,77 @@ enum InteractionTestRunner {
         deck.handleCommandW()
 
         var snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.tiles.count == 3, "closing a terminal did not remove its tile immediately")
-        try expect(deck.canReopenClosedTerminal, "closing a terminal did not create an undo buffer")
+        try expect(snapshot.tiles.count == 3, "⌘W did not disconnect the selected terminal tile")
+        try expect(deck.canReopenClosedTerminal, "the disconnected session was not retained")
         try expect(
             harness.undoToast(in: deck) != nil,
-            "closing a terminal did not show a temporary undo toast"
+            "disconnecting did not show the reconnect-or-kill toast"
+        )
+        try expect(
+            try harness.effectiveStatusWidgets(of: deck).contains {
+                $0.id == "machinen.availableSessions" && $0.value == "1"
+            },
+            "the disconnected session did not appear in the status bar"
         )
 
         deck.toggleCommandPalette()
         let commandPalette = try harness.commandPalette(in: deck)
-        try harness.type("closed", into: commandPalette)
+        try harness.type("Sessions", into: commandPalette)
         try harness.pressReturn(on: commandPalette)
-        var undoManager = try harness.undoManager(in: deck)
+        let sessions = try harness.availableSessions(in: deck)
         try expect(
-            undoManager.workspaceName == "alpha" && undoManager.items.count == 1,
-            "the ⌘K terminal option did not show the workspace's recently closed terminal"
+            sessions.items.count == 4
+                && sessions.items.first?.session.state == "running"
+                && sessions.items.first?.attachmentState == .detached
+                && sessions.items.dropFirst().allSatisfy { $0.isAttached },
+            "the session panel did not include attached and unattached terminals"
         )
-        try harness.pressEscape(on: undoManager)
-        let returnedCommands = try harness.commandPalette(in: deck)
-        try harness.type("closed", into: returnedCommands)
-        try harness.pressReturn(on: returnedCommands)
-        undoManager = try harness.undoManager(in: deck)
 
         let restoredDeck = harness.makeDeck(state: harness.loadStoredState())
         try expect(
             try harness.snapshot(of: restoredDeck).tiles.count == 3,
-            "relaunch restored a pending terminal to the visible deck"
+            "relaunch made a disconnected terminal visible without reconnecting"
         )
         try expect(
             restoredDeck.canReopenClosedTerminal,
-            "relaunch discarded the persisted terminal undo buffer"
+            "relaunch discarded the disconnected session"
         )
         restoredDeck.reopenLastClosedTerminal()
         try expect(
             Set(try harness.snapshot(of: restoredDeck).tiles.map(\.id)) == originalIDs,
-            "relaunch undo did not restore the same terminal tile"
+            "relaunch did not reconnect the same terminal tile"
         )
 
-        try harness.pressReturn(on: undoManager)
+        try harness.pressReturn(on: sessions)
         snapshot = try harness.snapshot(of: deck)
-        try expect(Set(snapshot.tiles.map(\.id)) == originalIDs, "restore did not return the same terminal tile")
-        try expect(!deck.canReopenClosedTerminal, "restore left the terminal pending deletion")
         try expect(
-            !harness.undoManagerIsVisible(in: deck),
-            "restore did not dismiss the undo manager"
+            Set(snapshot.tiles.map(\.id)) == originalIDs,
+            "the reconnect panel did not return the same terminal tile"
         )
+        try expect(!deck.canReopenClosedTerminal, "reconnect left the session disconnected")
 
         deck.handleCommandW()
-        try expect(deck.canRestoreUndoToast, "the toast did not enable its restore shortcut")
+        try expect(deck.canRestoreUndoToast, "the toast did not enable its reconnect shortcut")
         deck.restoreUndoToastTerminal()
         try expect(
             Set(try harness.snapshot(of: deck).tiles.map(\.id)) == originalIDs,
-            "the toast's ⌘Z shortcut did not restore its terminal"
+            "the toast's ⌘Z shortcut did not reconnect its session"
         )
 
         deck.handleCommandW()
         deck.handleCommandW()
-        try expect(!deck.canReopenClosedTerminal, "the toast's ⌘W shortcut did not kill its terminal")
-        try expect(try harness.snapshot(of: deck).tiles.count == 3, "the kill shortcut restored a tile")
+        try expect(!deck.canReopenClosedTerminal, "a second ⌘W did not kill the session")
+        try expect(try harness.snapshot(of: deck).tiles.count == 3, "killing restored a tile")
 
         deck.handleCommandW()
-        deck.toggleUndoManager()
-        deck.toggleUndoManager()
+        deck.toggleAvailableSessions()
+        let killPanel = try harness.availableSessions(in: deck)
         deck.handleCommandW()
-        try expect(deck.canReopenClosedTerminal, "later closes did not recreate the undo buffer")
-        deck.toggleUndoManager()
-        undoManager = try harness.undoManager(in: deck)
-        try expect(undoManager.items.count == 2, "the undo manager did not list multiple closed terminals")
-        try harness.pressDelete(on: undoManager)
-        try expect(undoManager.items.count == 1, "kill removed the wrong number of undo entries")
-        try harness.pressReturn(on: undoManager)
-        try expect(!deck.canReopenClosedTerminal, "kill and restore left a terminal undoable")
-        try expect(try harness.snapshot(of: deck).tiles.count == 2, "kill restored a closed tile")
+        try expect(!deck.canReopenClosedTerminal, "the session panel did not kill its selection")
+        try expect(
+            killPanel.items.count == 2 && killPanel.items.allSatisfy { $0.isAttached },
+            "the killed session remained in the session panel"
+        )
     }
 
     private static func commandPaletteFuzzySearchesAndCompletes() throws {
@@ -1521,8 +2016,150 @@ enum InteractionTestRunner {
 }
 
 @MainActor
+private final class ImmediateViewerBackend: TerminalSessionBackend {
+    private let workingDirectory: String
+
+    init(workingDirectory: String) {
+        self.workingDirectory = workingDirectory
+    }
+
+    func prepareViewer(
+        for session: TerminalSession,
+        loginShell: String,
+        completion: @escaping @MainActor @Sendable (Result<TerminalViewerLaunch, Error>) -> Void
+    ) {
+        let workingDirectory = self.workingDirectory
+        DispatchQueue.main.async {
+            completion(.success(TerminalViewerLaunch(
+                executable: "/bin/cat",
+                arguments: [],
+                environment: nil,
+                executableName: "cat",
+                workingDirectory: workingDirectory
+            )))
+        }
+    }
+
+    func send(_ data: Data, to session: TerminalSession) -> Bool { false }
+
+    func inspect(
+        _ session: TerminalSession,
+        completion: @escaping @MainActor @Sendable (TerminalTelemetry?) -> Void
+    ) {
+        completion(nil)
+    }
+
+    func listSessions(
+        at location: WorkspaceLocation,
+        completion: @escaping @MainActor @Sendable (Result<[AvailableTerminalSession], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func listWorkspaces(
+        at location: WorkspaceLocation,
+        completion: @escaping @MainActor @Sendable (Result<[NativeWorkspaceRecord], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func saveWorkspace(
+        id: String,
+        name: String,
+        at location: WorkspaceLocation,
+        sessionIDs: [String],
+        completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
+
+    func deleteWorkspace(
+        id: String,
+        at location: WorkspaceLocation,
+        completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
+
+    func signal(_ signal: String, session: TerminalSession) {}
+    func stop(_ session: TerminalSession) {}
+    func reset(_ session: TerminalSession) {}
+    func remove(_ session: TerminalSession) {}
+}
+
+@MainActor
+private final class DeferredViewerBackend: TerminalSessionBackend {
+    private var viewerCompletion: (
+        @MainActor @Sendable (Result<TerminalViewerLaunch, Error>) -> Void
+    )?
+    var hasPendingViewer: Bool { viewerCompletion != nil }
+
+    func prepareViewer(
+        for session: TerminalSession,
+        loginShell: String,
+        completion: @escaping @MainActor @Sendable (Result<TerminalViewerLaunch, Error>) -> Void
+    ) {
+        viewerCompletion = completion
+    }
+
+    func send(_ data: Data, to session: TerminalSession) -> Bool { false }
+
+    func inspect(
+        _ session: TerminalSession,
+        completion: @escaping @MainActor @Sendable (TerminalTelemetry?) -> Void
+    ) {
+        completion(nil)
+    }
+
+    var availableSessions: [AvailableTerminalSession] = []
+    var nativeWorkspaces: [NativeWorkspaceRecord] = []
+    var savedWorkspaces: [(id: String, name: String, location: WorkspaceLocation, sessions: [String])] = []
+    var deletedWorkspaces: [(id: String, location: WorkspaceLocation)] = []
+
+    func listSessions(
+        at location: WorkspaceLocation,
+        completion: @escaping @MainActor @Sendable (Result<[AvailableTerminalSession], Error>) -> Void
+    ) {
+        completion(.success(availableSessions))
+    }
+
+    func listWorkspaces(
+        at location: WorkspaceLocation,
+        completion: @escaping @MainActor @Sendable (Result<[NativeWorkspaceRecord], Error>) -> Void
+    ) {
+        completion(.success(nativeWorkspaces))
+    }
+
+    func saveWorkspace(
+        id: String,
+        name: String,
+        at location: WorkspaceLocation,
+        sessionIDs: [String],
+        completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
+    ) {
+        savedWorkspaces.append((id, name, location, sessionIDs))
+        completion(.success(()))
+    }
+
+    func deleteWorkspace(
+        id: String,
+        at location: WorkspaceLocation,
+        completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
+    ) {
+        deletedWorkspaces.append((id, location))
+        completion(.success(()))
+    }
+
+    func signal(_ signal: String, session: TerminalSession) {}
+    func stop(_ session: TerminalSession) {}
+    func reset(_ session: TerminalSession) {}
+    func remove(_ session: TerminalSession) {}
+}
+
+@MainActor
 private final class Harness {
     private let temporaryDirectory: URL
+    private let terminalBackend = DeferredViewerBackend()
     var temporaryDirectoryPath: String { temporaryDirectory.path }
 
     init() throws {
@@ -1554,7 +2191,19 @@ private final class Harness {
     }
 
     func makeDeck(state: MachinenStoredState) -> TerminalDeckView {
-        TerminalDeckView(state: state, sessionStore: sessionStore())
+        TerminalDeckView(
+            state: state,
+            sessionStore: sessionStore(),
+            sessionBackend: terminalBackend
+        )
+    }
+
+    func setAvailableSessions(_ sessions: [AvailableTerminalSession]) {
+        terminalBackend.availableSessions = sessions
+    }
+
+    func setNativeWorkspaces(_ workspaces: [NativeWorkspaceRecord]) {
+        terminalBackend.nativeWorkspaces = workspaces
     }
 
     func loadStoredState() -> MachinenStoredState {
@@ -1607,6 +2256,11 @@ private final class Harness {
         return (workspace, terminals)
     }
 
+    func terminalTile(in view: NSView) -> TerminalTileView? {
+        if let tile = view as? TerminalTileView { return tile }
+        return view.subviews.lazy.compactMap(terminalTile).first
+    }
+
     func snapshot(of deck: TerminalDeckView) throws -> InteractionSnapshot {
         let result = try deck.performAPIOperation("system.snapshot", params: [:])
         let data = try JSONSerialization.data(withJSONObject: result)
@@ -1654,19 +2308,15 @@ private final class Harness {
         deck.subviews.contains { $0 is CommandPaletteView }
     }
 
-    func undoManager(in deck: TerminalDeckView) throws -> TerminalUndoManagerView {
-        guard let manager = deck.subviews.compactMap({ $0 as? TerminalUndoManagerView }).last else {
-            throw InteractionTestFailure("the undo manager did not open")
+    func availableSessions(in deck: TerminalDeckView) throws -> AvailableSessionsView {
+        guard let manager = deck.subviews.compactMap({ $0 as? AvailableSessionsView }).last else {
+            throw InteractionTestFailure("the available sessions picker did not open")
         }
         return manager
     }
 
     func undoToast(in deck: TerminalDeckView) -> UndoTerminalCloseView? {
         deck.subviews.compactMap { $0 as? UndoTerminalCloseView }.last
-    }
-
-    func undoManagerIsVisible(in deck: TerminalDeckView) -> Bool {
-        deck.subviews.contains { $0 is TerminalUndoManagerView }
     }
 
     func confirmation(in deck: TerminalDeckView) throws -> ActionConfirmationView {
@@ -1793,6 +2443,7 @@ private struct InteractionSnapshot: Decodable {
     struct Terminal: Decodable {
         let id: String
         let workingDirectory: String
+        let currentWorkingDirectory: String?
         let location: Location
     }
 

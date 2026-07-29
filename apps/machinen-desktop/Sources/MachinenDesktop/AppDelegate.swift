@@ -153,14 +153,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         commandsItem.target = self
         appMenu.addItem(commandsItem)
 
-        let openSelectionItem = NSMenuItem(
-            title: "Open Selection With…",
-            action: #selector(openSelectionWith),
+        let terminalMenuItem = NSMenuItem(
+            title: "Terminal Menu…",
+            action: #selector(showTerminalMenu),
             keyEquivalent: "o"
         )
-        openSelectionItem.keyEquivalentModifierMask = [.command]
-        openSelectionItem.target = self
-        appMenu.addItem(openSelectionItem)
+        terminalMenuItem.keyEquivalentModifierMask = [.command]
+        terminalMenuItem.target = self
+        appMenu.addItem(terminalMenuItem)
 
         let zoomInItem = NSMenuItem(
             title: "Zoom In",
@@ -213,7 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appMenu.addItem(zoomOutArrowItem)
 
         let closeItem = NSMenuItem(
-            title: "Close Terminal or Workspace",
+            title: "Disconnect Terminal or Close Workspace",
             action: #selector(handleCommandW),
             keyEquivalent: "w"
         )
@@ -222,7 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appMenu.addItem(closeItem)
 
         let restoreToastItem = NSMenuItem(
-            title: "Restore Recently Closed Terminal",
+            title: "Reconnect Disconnected Terminal",
             action: #selector(restoreUndoToastTerminal),
             keyEquivalent: "z"
         )
@@ -231,7 +231,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appMenu.addItem(restoreToastItem)
 
         let reopenItem = NSMenuItem(
-            title: "Reopen Closed Terminal",
+            title: "Reconnect Last Disconnected Terminal",
             action: #selector(reopenClosedTerminal),
             keyEquivalent: "t"
         )
@@ -240,7 +240,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appMenu.addItem(reopenItem)
 
         let terminateClosedItem = NSMenuItem(
-            title: "Terminate Recently Closed Terminal Now",
+            title: "Kill Last Disconnected Terminal",
             action: #selector(terminateRecentlyClosedTerminal),
             keyEquivalent: ""
         )
@@ -300,7 +300,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         {
             return deck?.canReopenClosedTerminal == true
         }
-        if menuItem.action == #selector(openSelectionWith) {
+        if menuItem.action == #selector(showTerminalMenu) {
             return window?.firstResponder is MachinenTerminalView
         }
         // Do not let application menu equivalents steal terminal commands. The
@@ -330,8 +330,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         deck?.toggleNewTerminalPalette()
     }
 
-    @objc private func openSelectionWith() {
-        deck?.showSelectionOpenersMenu()
+    @objc private func showTerminalMenu() {
+        deck?.showTerminalContextMenu()
     }
 
     @objc private func zoomIn() {

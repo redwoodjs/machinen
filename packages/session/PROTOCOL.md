@@ -11,6 +11,11 @@ limited to 64 ASCII letters, digits, dots, underscores, and hyphens. The SQLite
 session record stores the worker protocol version, allowing a new client binary
 to keep attaching to a live v1 worker after an upgrade.
 
+Workspace records and `sessions.workspace_id` live in the shared SQLite control
+plane, not in this per-worker socket protocol. `machinen-session workspace` and
+`list` expose that durable registry, so changing workspace metadata never
+restarts or renegotiates a live PTY worker.
+
 ## Framing
 
 Every frame starts with a five-byte header:
@@ -95,13 +100,13 @@ from a Desktop-side process list.
 
 ## Resume and checkpoints
 
-Output and resize events share one monotonically increasing sequence. An attach
+Output batches use one monotonically increasing worker sequence. An attach
 request names the last sequence whose effects the client has already applied.
 
-- If that sequence is still inside retained history, the worker sends only
-  newer `Q` output.
-- If compaction has passed it, the worker first sends the latest `C` checkpoint,
-  then output after the checkpoint.
+- If that sequence is still inside the bounded in-memory history, the worker
+  sends only newer `Q` output.
+- If the in-memory boundary has passed it, the live worker sends a fresh `C`
+  checkpoint at its current sequence.
 - A fresh journal client requests sequence zero.
 - A latest-screen client receives a fresh checkpoint generated from the live
   worker's in-memory VT state at its current sequence. It skips retained journal
@@ -125,11 +130,13 @@ The v1 checkpoint intentionally captures visible text and cursor state, not
 renderer-owned selection, viewport, title, or styling. Those can be added by a
 new checkpoint format without changing session identity or event sequencing.
 
-The worker generates a checkpoint after 256 KiB of PTY output by default
-(configurable with `--checkpoint-bytes`, 32 KiB–16 MiB). Saving the replacement
-checkpoint and deleting covered events is one SQLite transaction. Only the
-latest checkpoint and output after it remain, so recovery storage is bounded by
-the checkpoint screen plus the configured journal window.
+The worker coalesces PTY reads for at most 16 ms or 256 KiB, then retains and
+sends the batch under one output sequence. Raw output remains in memory rather
+than being inserted into SQLite. After 4 MiB of PTY output by default
+(configurable with `--checkpoint-bytes`, 32 KiB–16 MiB), or 60 seconds with
+unsaved output, one SQLite transaction advances the durable sequence, replaces
+the visible-screen checkpoint, and removes covered legacy events. A clean exit
+also saves the final screen.
 
 ## Writer and resize leases
 
@@ -145,11 +152,12 @@ explicit administrative path used by `send`, `signal`, and `stop`.
 
 ## Disconnect and recovery boundary
 
-A disconnect closes only that attachment. The worker continues draining and
-journaling the PTY. Focus, smooth scrolling, selection, and visual viewport are
-client-owned and never appear in this protocol.
+A disconnect closes only that attachment. The worker continues draining the PTY,
+retaining bounded resume output in memory, and periodically replacing its
+durable visible-screen checkpoint. Focus, smooth scrolling, selection, and
+visual viewport are client-owned and never appear in this protocol.
 
 After reboot or worker loss, `reconcile` marks a formerly live record as
-`orphaned` when its private socket is no longer reachable. Checkpoint and output
-history remain attachable, but Machinen does not claim to recreate the lost PTY
-or process. Restart is an explicit new-process action.
+`orphaned` when its private socket is no longer reachable. The last durable
+checkpoint remains attachable, but Machinen does not claim to recreate the lost
+PTY or process. Restart is an explicit new-process action.

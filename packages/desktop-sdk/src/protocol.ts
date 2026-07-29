@@ -33,6 +33,7 @@ export interface Terminal {
   pid: number | null;
   shellPid: number | null;
   workingDirectory: string;
+  currentWorkingDirectory: string | null;
   location: WorkspaceLocation;
   backend: "machinenSession";
   processState: "starting" | "running" | "stopped" | "exited" | "disconnected";
@@ -123,6 +124,7 @@ export interface StatusWidget {
 export type DesktopEventName =
   | "system.shuttingDown"
   | "workspace.created"
+  | "workspace.restored"
   | "workspace.updated"
   | "workspace.moved"
   | "workspace.deleted"
@@ -134,6 +136,7 @@ export type DesktopEventName =
   | "terminal.stateChanged"
   | "terminal.activityChanged"
   | "terminal.commandChanged"
+  | "terminal.workingDirectoryChanged"
   | "terminal.updated"
   | "terminal.output"
   | "status.changed"
