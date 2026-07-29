@@ -22,6 +22,7 @@ enum InteractionTestRunner {
             try terminalOutputAndRuntimeLabelsReportActivity()
             try statusWidgetsInheritBySpatialScope()
             try selectionOpenersRegisterMatchAndExpire()
+            try contextCommandsUseWorkspaceAndOSC7TerminalDirectories()
             try availableNativeSessionsReconnectIntoWorkspace()
             try nativeWorkspaceRegistryRestoresLostDesktopState()
             try graphicalStatusWidgetsRender()
@@ -638,6 +639,89 @@ enum InteractionTestRunner {
         let empty = try deck.performAPIOperation("selectionOpener.list", params: [:])
         let remaining = (empty as? JSONObject)?["openers"] as? [JSONObject]
         try expect(remaining?.isEmpty == true, "the removed selection opener remained registered")
+    }
+
+    private static func contextCommandsUseWorkspaceAndOSC7TerminalDirectories() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        deck.layoutSubtreeIfNeeded()
+        guard let tile = harness.terminalTile(in: deck), let terminal = tile.terminalResponder else {
+            throw InteractionTestFailure("the context command test did not create a terminal")
+        }
+
+        var invocations: [JSONObject] = []
+        deck.onAPIEvent = { event, data in
+            if event == "command.invoked" { invocations.append(data) }
+        }
+        _ = try deck.performAPIOperation("command.set", params: [
+            "id": "test.workspace",
+            "title": "Run in workspace",
+            "context": "workspace",
+            "priority": 100,
+        ])
+        _ = try deck.performAPIOperation("command.set", params: [
+            "id": "test.terminal",
+            "title": "Run in terminal directory",
+            "subtitle": "OSC 7 cwd",
+            "context": "terminal",
+            "priority": 90,
+        ])
+
+        let liveDirectory = harness.temporaryDirectoryPath + "/live cwd"
+        terminal.ghosttyWorkingDirectoryChanged(liveDirectory)
+        let snapshot = try harness.snapshot(of: deck)
+        try expect(
+            snapshot.terminals.first?.currentWorkingDirectory == liveDirectory,
+            "OSC 7 did not update the terminal's current working directory"
+        )
+        try expect(
+            harness.loadStoredState().sessions.first?.currentWorkingDirectory == liveDirectory,
+            "the last OSC 7 directory was not persisted"
+        )
+        try expect(
+            MachinenTerminalView.normalizedOSC7WorkingDirectory("relative/path") == nil,
+            "a relative OSC 7 path was accepted"
+        )
+
+        deck.toggleCommandPalette()
+        let terminalPalette = try harness.commandPalette(in: deck)
+        try harness.type("Run in terminal directory", into: terminalPalette)
+        try harness.pressReturn(on: terminalPalette)
+        try expect(
+            invocations.last?["commandId"] as? String == "test.terminal"
+                && invocations.last?["context"] as? String == "terminal"
+                && invocations.last?["workingDirectory"] as? String == liveDirectory
+                && invocations.last?["terminalId"] as? String == tile.session.id,
+            "the terminal command did not receive the OSC 7 directory context"
+        )
+
+        deck.toggleCommandPalette()
+        let workspacePalette = try harness.commandPalette(in: deck)
+        try harness.type("Run in workspace", into: workspacePalette)
+        try harness.pressReturn(on: workspacePalette)
+        try expect(
+            invocations.last?["commandId"] as? String == "test.workspace"
+                && invocations.last?["context"] as? String == "workspace"
+                && invocations.last?["workingDirectory"] as? String
+                    == harness.temporaryDirectoryPath
+                && invocations.last?["terminalId"] == nil,
+            "the workspace command did not receive the workspace's default location"
+        )
+
+        _ = try deck.performAPIOperation("command.remove", params: ["id": "test.workspace"])
+        _ = try deck.performAPIOperation("command.remove", params: ["id": "test.terminal"])
+        let result = try deck.performAPIOperation("command.list", params: [:])
+        let commands = (result as? JSONObject)?["commands"] as? [JSONObject]
+        try expect(commands?.isEmpty == true, "removed context commands remained registered")
     }
 
     private static func availableNativeSessionsReconnectIntoWorkspace() throws {

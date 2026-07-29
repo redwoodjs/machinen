@@ -130,6 +130,27 @@ describe("MachinenDesktopClient", () => {
     client.close();
   });
 
+  it("registers context commands through the typed helper", async () => {
+    const client = createClient();
+    await client.commands.set({
+      id: "example.yazi-cwd",
+      title: "Open terminal directory in Yazi",
+      context: "terminal",
+      locationKinds: ["local", "ssh"],
+      ttlMilliseconds: 30_000,
+    });
+
+    expect(operations).toEqual(["system.hello", "events.subscribe", "command.set"]);
+    expect(lastRequest?.params).toEqual({
+      id: "example.yazi-cwd",
+      title: "Open terminal directory in Yazi",
+      context: "terminal",
+      locationKinds: ["local", "ssh"],
+      ttlMilliseconds: 30_000,
+    });
+    client.close();
+  });
+
   it("registers selection openers through the typed helper", async () => {
     const client = createClient();
     await client.selectionOpeners.set({

@@ -25,6 +25,7 @@ struct PaletteCommand {
         case closeWorkspace
         case reconnectAvailableSession
         case showDiagnostics
+        case registeredCommand(String)
         case createShell
         case runCommand
         case chooseProject

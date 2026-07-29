@@ -4,6 +4,15 @@ Trusted TypeScript services that use [`@machinen/desktop-sdk`](../../packages/de
 to add behavior to Machinen Desktop. These are desktop services, not an agent
 runtime; Eve or Flue can consume the same SDK independently.
 
+## Context commands
+
+The user-editable `⌘K` commands live in
+[`src/services/context-commands.ts`](src/services/context-commands.ts). The
+bundled commands open either the selected workspace or the focused terminal's
+live OSC 7 directory in Glow or Yazi. Desktop renders their native palette
+metadata; TypeScript creates the requested terminal when a command is invoked.
+Registrations use a short TTL, so the commands disappear if this service stops.
+
 ## Selection openers
 
 The user-editable **Open Selection With** destinations live in

@@ -122,6 +122,7 @@ final class TerminalDeckView: NSView {
     private var cameraMagnification: CGFloat = 1
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
     private var selectionOpeners: [String: MachinenSelectionOpener] = [:]
+    private var contextCommands: [String: MachinenContextCommand] = [:]
     private var spatialDrag: SpatialDrag?
     private var dragGhost: NSImageView?
     private weak var dragTargetTile: TerminalTileView?
@@ -2319,6 +2320,35 @@ final class TerminalDeckView: NSView {
         window?.makeFirstResponder(self)
     }
 
+    private func activeContextCommands() -> [MachinenContextCommand] {
+        let now = Date().timeIntervalSince1970
+        contextCommands = contextCommands.filter { $0.value.expiresAt.map { $0 > now } ?? true }
+        return contextCommands.values.sorted {
+            $0.priority == $1.priority
+                ? $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+                : $0.priority > $1.priority
+        }
+    }
+
+    private func contextCommandTarget(
+        for command: MachinenContextCommand
+    ) -> (workspace: WorkspaceRecord, tile: TerminalTileView?, location: WorkspaceLocation)? {
+        switch command.context {
+        case .workspace:
+            guard let workspace = selectedWorkspaceRecord(),
+                  command.matches(context: .workspace, location: workspace.location)
+            else { return nil }
+            return (workspace, nil, workspace.location)
+        case .terminal:
+            guard focusedIndex != nil,
+                  let tile = selectedSessionTile(),
+                  let workspace = workspaces.first(where: { $0.id == tile.session.workspaceID }),
+                  command.matches(context: .terminal, location: tile.session.effectiveLocation)
+            else { return nil }
+            return (workspace, tile, tile.session.effectiveLocation)
+        }
+    }
+
     private func workspacePaletteCommands() -> [PaletteCommand] {
         var commands = [
             PaletteCommand(id: .newWorkspace, title: "New workspace…", shortcut: ""),
@@ -2340,6 +2370,14 @@ final class TerminalDeckView: NSView {
                 PaletteCommand(id: .closeWorkspace, title: "Close workspace…", shortcut: ""),
             ])
         }
+        commands.append(contentsOf: activeContextCommands().compactMap { command in
+            guard contextCommandTarget(for: command) != nil else { return nil }
+            return PaletteCommand(
+                id: .registeredCommand(command.id),
+                title: command.title,
+                shortcut: command.subtitle ?? command.context.rawValue
+            )
+        })
         return commands
     }
 
@@ -2381,12 +2419,40 @@ final class TerminalDeckView: NSView {
         case .reconnectAvailableSession:
             dismissCommandPalette()
             toggleAvailableSessions(returnToCommands: true)
+        case let .registeredCommand(id):
+            invokeContextCommand(id, from: palette)
         case .showDiagnostics:
             dismissCommandPalette()
             showDiagnostics()
         default:
             palette?.showStatus("Prototype only · \(command.title)")
         }
+    }
+
+    private func invokeContextCommand(_ id: String, from palette: CommandPaletteView?) {
+        guard let command = activeContextCommands().first(where: { $0.id == id }) else {
+            palette?.showStatus("That command is no longer available")
+            return
+        }
+        guard let target = contextCommandTarget(for: command) else {
+            palette?.showStatus("That command is not available in this context")
+            return
+        }
+
+        var data: JSONObject = [
+            "invocationId": "inv_" + UUID().uuidString.lowercased(),
+            "commandId": command.id,
+            "context": command.context.rawValue,
+            "workspaceId": target.workspace.id,
+            "workingDirectory": target.location.path,
+            "location": target.location.json,
+        ]
+        if let tile = target.tile {
+            data["tileId"] = tile.session.tileID
+            data["terminalId"] = tile.session.id
+        }
+        dismissCommandPalette()
+        emitAPIEvent("command.invoked", data: data)
     }
 
     private func beginNewWorkspaceFlow(from entry: NewWorkspaceEntry) {
@@ -4449,6 +4515,12 @@ final class TerminalDeckView: NSView {
             return try apiSetStatusWidget(params)
         case "status.remove":
             return try apiRemoveStatusWidget(params)
+        case "command.list":
+            return ["commands": activeContextCommands().map { $0.json() }]
+        case "command.set":
+            return try apiSetContextCommand(params)
+        case "command.remove":
+            return try apiRemoveContextCommand(params)
         case "selectionOpener.list":
             return ["openers": activeSelectionOpeners().map { $0.json() }]
         case "selectionOpener.set":
@@ -5111,6 +5183,51 @@ final class TerminalDeckView: NSView {
         return (kind, id)
     }
 
+    private func apiSetContextCommand(_ params: JSONObject) throws -> Any {
+        let id = try requiredString("id", in: params)
+        let title = try requiredString("title", in: params)
+        guard id.count <= 128 else {
+            throw MachinenAPIError("invalid_params", "command id must be at most 128 characters")
+        }
+        guard title.count <= 512 else {
+            throw MachinenAPIError("invalid_params", "command title must be at most 512 characters")
+        }
+        let subtitle = params["subtitle"] as? String
+        if let subtitle, subtitle.count > 512 {
+            throw MachinenAPIError("invalid_params", "command subtitle must be at most 512 characters")
+        }
+        guard let contextName = params["context"] as? String,
+              let context = MachinenContextCommand.Context(rawValue: contextName)
+        else {
+            throw MachinenAPIError("invalid_params", "command context must be workspace or terminal")
+        }
+        let locationKinds = try validatedLocationKinds(params["locationKinds"])
+        let ttl = (params["ttlMilliseconds"] as? NSNumber)?.doubleValue
+        if let ttl, ttl <= 0 {
+            throw MachinenAPIError("invalid_params", "ttlMilliseconds must be positive")
+        }
+        let command = MachinenContextCommand(
+            id: id,
+            title: title,
+            subtitle: subtitle,
+            context: context,
+            locationKinds: locationKinds,
+            priority: (params["priority"] as? NSNumber)?.intValue ?? 50,
+            expiresAt: ttl.map { Date().timeIntervalSince1970 + $0 / 1000 }
+        )
+        contextCommands[id] = command
+        if let ttl, let expiresAt = command.expiresAt {
+            DispatchQueue.main.asyncAfter(deadline: .now() + ttl / 1000) { [weak self] in
+                self?.expireContextCommand(id, expiresAt: expiresAt)
+            }
+        }
+        emitAPIEvent("command.changed", data: [
+            "action": "set",
+            "command": command.json(),
+        ])
+        return command.json()
+    }
+
     private func validatedLocationKinds(_ value: Any?) throws -> [WorkspaceLocation.Kind]? {
         guard let names = value as? [String] else { return nil }
         guard !names.isEmpty,
@@ -5124,6 +5241,29 @@ final class TerminalDeckView: NSView {
             )
         }
         return names.compactMap { WorkspaceLocation.Kind(rawValue: $0) }
+    }
+
+    private func apiRemoveContextCommand(_ params: JSONObject) throws -> Any {
+        let id = try requiredString("id", in: params)
+        guard let removed = contextCommands.removeValue(forKey: id) else {
+            throw MachinenAPIError("command_not_found", "Command \(id) does not exist")
+        }
+        emitAPIEvent("command.changed", data: [
+            "action": "remove",
+            "command": removed.json(),
+        ])
+        return removed.json()
+    }
+
+    private func expireContextCommand(_ id: String, expiresAt: TimeInterval) {
+        guard let command = contextCommands[id], command.expiresAt == expiresAt,
+              expiresAt <= Date().timeIntervalSince1970
+        else { return }
+        contextCommands.removeValue(forKey: id)
+        emitAPIEvent("command.changed", data: [
+            "action": "expire",
+            "command": command.json(),
+        ])
     }
 
     private func apiSetSelectionOpener(_ params: JSONObject) throws -> Any {

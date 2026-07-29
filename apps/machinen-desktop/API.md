@@ -344,6 +344,56 @@ but graphical widgets do not render them at rest. A TTL removes stale live data
 automatically. `status.list` returns both published widgets and the currently
 effective widgets after spatial-scope inheritance.
 
+## Context commands
+
+- `command.list {}`
+- `command.set { id, title, context, subtitle?, locationKinds?, priority?, ttlMilliseconds? }`
+- `command.remove { id }`
+
+Trusted TypeScript services can register commands in the native `⌘K` palette.
+`context` is either `workspace` or `terminal`. Workspace commands are available
+whenever a workspace is selected and receive its current default location.
+Terminal commands are available only while a terminal is focused and receive
+the terminal's OSC 7 working directory, falling back to its launch directory
+until OSC 7 has been observed. `locationKinds` can restrict a command to local
+or SSH locations. Higher priorities appear first among registered commands.
+
+As with selection openers, registrations are metadata with optional TTLs. The
+service subscribes to `command.invoked` and performs the implementation through
+ordinary Desktop API operations:
+
+```ts
+await desktop.commands.set({
+  id: "example.yazi-cwd",
+  title: "Open terminal directory in Yazi",
+  context: "terminal",
+  ttlMilliseconds: 30_000,
+});
+```
+
+```json
+{
+  "event": "command.invoked",
+  "data": {
+    "invocationId": "inv_123",
+    "commandId": "example.yazi-cwd",
+    "context": "terminal",
+    "workspaceId": "ws_123",
+    "tileId": "tile_123",
+    "terminalId": "term_123",
+    "workingDirectory": "/project/packages/web",
+    "location": {
+      "kind": "ssh",
+      "host": "mini",
+      "path": "/project/packages/web"
+    }
+  }
+}
+```
+
+A workspace invocation omits `tileId` and `terminalId`. The invocation freezes
+the context that was active when Return was pressed.
+
 ## Selection openers
 
 - `selectionOpener.list {}`
@@ -469,6 +519,8 @@ terminal.workingDirectoryChanged
 terminal.updated
 terminal.output
 status.changed
+command.changed
+command.invoked
 selectionOpener.changed
 selectionOpener.invoked
 ui.changed
