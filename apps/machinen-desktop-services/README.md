@@ -9,8 +9,9 @@ runtime; Eve or Flue can consume the same SDK independently.
 The user-editable **Open Selection With** destinations live in
 [`src/services/selection-openers.ts`](src/services/selection-openers.ts). Each
 `SelectionOpener` provides native-menu metadata and a TypeScript `open` function.
-Right-clicking selected terminal text or pressing `⌘O` invokes the same registry;
-`⌘K` remains the centered workspace command palette.
+Right-clicking a terminal or pressing `⌘O` opens the full context menu; selecting
+an **Open Selection With** destination invokes the same registry. `⌘K` remains
+the centered workspace command palette.
 
 The bundled **Glow** opener extracts Markdown links and bare paths from larger
 selections, validates the file, and creates a Glow terminal. **Yazi** validates a

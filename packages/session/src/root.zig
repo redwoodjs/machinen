@@ -4,7 +4,7 @@ const sqlite = @cImport({
     @cInclude("sys/stat.h");
 });
 
-const schema_version: c_int = 3;
+const schema_version: c_int = 4;
 const application_id: c_int = 1_297_302_867; // "MSES"
 
 pub const SessionState = enum(c_int) {
@@ -21,9 +21,32 @@ pub const EventKind = enum(c_int) {
     marker = 3,
 };
 
+pub const WorkspaceInput = struct {
+    id: []const u8,
+    name: []const u8,
+    root_directory: []const u8,
+};
+
+pub const Workspace = struct {
+    id: []u8,
+    name: []u8,
+    root_directory: []u8,
+    created_at_ms: i64,
+    updated_at_ms: i64,
+
+    pub fn deinit(self: *Workspace, allocator: std.mem.Allocator) void {
+        std.debug.assert(self.id.len > 0 and self.name.len > 0);
+        allocator.free(self.id);
+        allocator.free(self.name);
+        allocator.free(self.root_directory);
+        self.* = undefined;
+    }
+};
+
 pub const CreateSession = struct {
     id: []const u8,
     name: ?[]const u8 = null,
+    workspace_id: ?[]const u8 = null,
     working_directory: []const u8,
     argv_json: []const u8,
     rows: u32,
@@ -34,6 +57,7 @@ pub const CreateSession = struct {
 pub const Session = struct {
     id: []u8,
     name: ?[]u8,
+    workspace_id: ?[]u8,
     working_directory: []u8,
     argv_json: []u8,
     state: SessionState,
@@ -49,6 +73,7 @@ pub const Session = struct {
     pub fn deinit(self: *Session, allocator: std.mem.Allocator) void {
         allocator.free(self.id);
         if (self.name) |name| allocator.free(name);
+        if (self.workspace_id) |workspace_id| allocator.free(workspace_id);
         allocator.free(self.working_directory);
         allocator.free(self.argv_json);
         self.* = undefined;
@@ -87,9 +112,17 @@ pub const Checkpoint = struct {
 
 pub const DatabaseInfo = struct {
     schema_version: u32,
+    workspace_count: u64,
     session_count: u64,
     event_count: u64,
     checkpoint_count: u64,
+};
+
+pub const StorageInfo = struct {
+    page_size: u64,
+    page_count: u64,
+    free_page_count: u64,
+    auto_vacuum: u32,
 };
 
 pub const Store = struct {
@@ -115,8 +148,12 @@ pub const Store = struct {
 
         _ = sqlite.sqlite3_busy_timeout(self.db, 5_000);
         try self.exec("PRAGMA foreign_keys=ON;");
+        if (try self.scalarInt("PRAGMA page_count;") == 0) {
+            try self.exec("PRAGMA auto_vacuum=INCREMENTAL;");
+        }
         try self.exec("PRAGMA journal_mode=WAL;");
         try self.exec("PRAGMA synchronous=NORMAL;");
+        try self.exec("PRAGMA journal_size_limit=8388608;");
         try self.ensureSchema();
         return self;
     }
@@ -129,10 +166,120 @@ pub const Store = struct {
     pub fn info(self: *Store) !DatabaseInfo {
         return .{
             .schema_version = @intCast(try self.pragmaInt("PRAGMA user_version;")),
+            .workspace_count = @intCast(try self.scalarInt("SELECT count(*) FROM workspaces;")),
             .session_count = @intCast(try self.scalarInt("SELECT count(*) FROM sessions;")),
             .event_count = @intCast(try self.scalarInt("SELECT count(*) FROM events;")),
             .checkpoint_count = @intCast(try self.scalarInt("SELECT count(*) FROM checkpoints;")),
         };
+    }
+
+    pub fn storageInfo(self: *Store) !StorageInfo {
+        const result = StorageInfo{
+            .page_size = @intCast(try self.scalarInt("PRAGMA page_size;")),
+            .page_count = @intCast(try self.scalarInt("PRAGMA page_count;")),
+            .free_page_count = @intCast(try self.scalarInt("PRAGMA freelist_count;")),
+            .auto_vacuum = @intCast(try self.pragmaInt("PRAGMA auto_vacuum;")),
+        };
+        std.debug.assert(result.page_size > 0 and result.free_page_count <= result.page_count);
+        return result;
+    }
+
+    /// Rebuilds an idle database so SQLite returns its free-page high-water mark
+    /// to the filesystem. This is deliberately explicit: vacuuming a live output
+    /// journal would add write amplification and block its session workers.
+    pub fn compact(self: *Store) !void {
+        const active_sessions = try self.scalarInt(
+            "SELECT count(*) FROM sessions WHERE state IN (0, 1);",
+        );
+        if (active_sessions != 0) return error.SessionsStillRunning;
+        std.debug.assert(active_sessions == 0);
+        try self.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+        try self.exec("PRAGMA auto_vacuum=INCREMENTAL;");
+        try self.exec("VACUUM;");
+        try self.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+    }
+
+    pub fn upsertWorkspace(self: *Store, input: WorkspaceInput) !void {
+        if (input.id.len == 0) return error.EmptyWorkspaceId;
+        if (input.name.len == 0) return error.EmptyWorkspaceName;
+        if (input.root_directory.len == 0) return error.EmptyWorkspaceRoot;
+        std.debug.assert(input.id.len > 0 and input.name.len > 0);
+        const statement = try self.prepare(
+            \\INSERT INTO workspaces (id, name, root_directory)
+            \\VALUES (?, ?, ?)
+            \\ON CONFLICT(id) DO UPDATE SET
+            \\  name=excluded.name,
+            \\  root_directory=excluded.root_directory,
+            \\  updated_at_ms=unixepoch('subsec')*1000;
+        );
+        defer std.debug.assert(sqlite.sqlite3_finalize(statement) == sqlite.SQLITE_OK);
+        try bindText(statement, 1, input.id);
+        try bindText(statement, 2, input.name);
+        try bindText(statement, 3, input.root_directory);
+        try self.stepDone(statement);
+    }
+
+    pub fn getWorkspace(self: *Store, workspace_id: []const u8) !?Workspace {
+        if (workspace_id.len == 0) return error.EmptyWorkspaceId;
+        std.debug.assert(workspace_id.len > 0);
+        const statement = try self.prepare(
+            \\SELECT id, name, root_directory, created_at_ms, updated_at_ms
+            \\FROM workspaces WHERE id=?;
+        );
+        defer std.debug.assert(sqlite.sqlite3_finalize(statement) == sqlite.SQLITE_OK);
+        try bindText(statement, 1, workspace_id);
+        return switch (try self.step(statement)) {
+            .done => null,
+            .row => try readWorkspace(self.allocator, statement),
+        };
+    }
+
+    pub fn listWorkspaces(self: *Store, allocator: std.mem.Allocator) ![]Workspace {
+        const statement = try self.prepare(
+            \\SELECT id, name, root_directory, created_at_ms, updated_at_ms
+            \\FROM workspaces ORDER BY created_at_ms, id;
+        );
+        defer std.debug.assert(sqlite.sqlite3_finalize(statement) == sqlite.SQLITE_OK);
+        std.debug.assert(sqlite.sqlite3_column_count(statement) == 5);
+        var workspaces: std.ArrayList(Workspace) = .empty;
+        errdefer {
+            for (workspaces.items) |*workspace| workspace.deinit(allocator);
+            workspaces.deinit(allocator);
+        }
+        // EOF-bounded SQLite result stream.
+        while (true) switch (try self.step(statement)) {
+            .done => return workspaces.toOwnedSlice(allocator),
+            .row => try workspaces.append(allocator, try readWorkspace(allocator, statement)),
+        };
+    }
+
+    pub fn deleteWorkspace(self: *Store, workspace_id: []const u8) !void {
+        if (workspace_id.len == 0) return error.EmptyWorkspaceId;
+        std.debug.assert(workspace_id.len > 0);
+        const statement = try self.prepare("DELETE FROM workspaces WHERE id=?;");
+        defer std.debug.assert(sqlite.sqlite3_finalize(statement) == sqlite.SQLITE_OK);
+        try bindText(statement, 1, workspace_id);
+        try self.stepDone(statement);
+        if (sqlite.sqlite3_changes(self.db) == 0) return error.WorkspaceNotFound;
+    }
+
+    pub fn assignSessionWorkspace(
+        self: *Store,
+        session_id: []const u8,
+        workspace_id: []const u8,
+    ) !void {
+        if (session_id.len == 0) return error.EmptySessionId;
+        if (workspace_id.len == 0) return error.EmptyWorkspaceId;
+        std.debug.assert(session_id.len > 0 and workspace_id.len > 0);
+        const statement = try self.prepare(
+            \\UPDATE sessions SET workspace_id=?, updated_at_ms=unixepoch('subsec')*1000
+            \\WHERE id=?;
+        );
+        defer std.debug.assert(sqlite.sqlite3_finalize(statement) == sqlite.SQLITE_OK);
+        try bindText(statement, 1, workspace_id);
+        try bindText(statement, 2, session_id);
+        try self.stepDone(statement);
+        if (sqlite.sqlite3_changes(self.db) == 0) return error.SessionNotFound;
     }
 
     pub fn createSession(self: *Store, input: CreateSession) !void {
@@ -143,8 +290,9 @@ pub const Store = struct {
 
         const statement = try self.prepare(
             \\INSERT INTO sessions (
-            \\  id, name, working_directory, argv_json, state, rows, columns, protocol_version
-            \\) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            \\  id, name, workspace_id, working_directory, argv_json, state, rows, columns,
+            \\  protocol_version
+            \\) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
         );
         defer _ = sqlite.sqlite3_finalize(statement);
         try bindText(statement, 1, input.id);
@@ -152,15 +300,19 @@ pub const Store = struct {
             if (name.len == 0) return error.EmptySessionName;
             try bindText(statement, 2, name);
         } else try bindNull(statement, 2);
-        try bindText(statement, 3, input.working_directory);
-        try bindBlob(statement, 4, input.argv_json);
-        try bindInt(statement, 5, @intFromEnum(SessionState.created));
-        try bindInt64(statement, 6, input.rows);
-        try bindInt64(statement, 7, input.columns);
+        if (input.workspace_id) |workspace_id| {
+            if (workspace_id.len == 0) return error.EmptyWorkspaceId;
+            try bindText(statement, 3, workspace_id);
+        } else try bindNull(statement, 3);
+        try bindText(statement, 4, input.working_directory);
+        try bindBlob(statement, 5, input.argv_json);
+        try bindInt(statement, 6, @intFromEnum(SessionState.created));
+        try bindInt64(statement, 7, input.rows);
+        try bindInt64(statement, 8, input.columns);
         if (input.protocol_version == 0 or input.protocol_version > 2) {
             return error.InvalidProtocolVersion;
         }
-        try bindInt64(statement, 8, input.protocol_version);
+        try bindInt64(statement, 9, input.protocol_version);
         try self.stepDone(statement);
     }
 
@@ -213,7 +365,7 @@ pub const Store = struct {
     pub fn getSession(self: *Store, session_id: []const u8) !?Session {
         const statement = try self.prepare(
             \\SELECT id, name, working_directory, argv_json, state, rows, columns, last_sequence,
-            \\worker_pid, exit_code, protocol_version, created_at_ms, updated_at_ms
+            \\worker_pid, exit_code, protocol_version, created_at_ms, updated_at_ms, workspace_id
             \\FROM sessions WHERE id=?;
         );
         defer _ = sqlite.sqlite3_finalize(statement);
@@ -227,7 +379,7 @@ pub const Store = struct {
     pub fn resolveSession(self: *Store, reference: []const u8) !?Session {
         const statement = try self.prepare(
             \\SELECT id, name, working_directory, argv_json, state, rows, columns, last_sequence,
-            \\worker_pid, exit_code, protocol_version, created_at_ms, updated_at_ms
+            \\worker_pid, exit_code, protocol_version, created_at_ms, updated_at_ms, workspace_id
             \\FROM sessions WHERE id=? OR name=?
             \\ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END LIMIT 1;
         );
@@ -244,7 +396,7 @@ pub const Store = struct {
     pub fn listSessions(self: *Store, allocator: std.mem.Allocator) ![]Session {
         const statement = try self.prepare(
             \\SELECT id, name, working_directory, argv_json, state, rows, columns, last_sequence,
-            \\worker_pid, exit_code, protocol_version, created_at_ms, updated_at_ms
+            \\worker_pid, exit_code, protocol_version, created_at_ms, updated_at_ms, workspace_id
             \\FROM sessions ORDER BY created_at_ms, id;
         );
         defer _ = sqlite.sqlite3_finalize(statement);
@@ -413,6 +565,63 @@ pub const Store = struct {
         return .{ .sequence = sequence, .removed_events = removed_events };
     }
 
+    /// Persists a worker's in-memory screen without first writing its raw PTY
+    /// stream. The sequence may advance past the durable journal because the
+    /// checkpoint itself is the recovery boundary for those in-memory events.
+    pub fn replaceRecoveryCheckpoint(
+        self: *Store,
+        session_id: []const u8,
+        sequence: u64,
+        format_version: u32,
+        payload: []const u8,
+        columns: u32,
+        rows: u32,
+    ) !u64 {
+        if (format_version == 0) return error.InvalidCheckpointVersion;
+        if (payload.len == 0) return error.EmptyCheckpoint;
+        if (columns == 0 or rows == 0) return error.InvalidTerminalSize;
+        std.debug.assert(session_id.len > 0 and sequence > 0);
+        try self.begin();
+        errdefer self.rollback();
+        const current_sequence = try self.currentSequence(session_id);
+        if (sequence < current_sequence) return error.InvalidCheckpointSequence;
+
+        const session_update = try self.prepare(
+            \\UPDATE sessions SET last_sequence=?, columns=?, rows=?,
+            \\updated_at_ms=unixepoch('subsec')*1000 WHERE id=?;
+        );
+        defer std.debug.assert(sqlite.sqlite3_finalize(session_update) == sqlite.SQLITE_OK);
+        try bindInt64(session_update, 1, sequence);
+        try bindInt64(session_update, 2, columns);
+        try bindInt64(session_update, 3, rows);
+        try bindText(session_update, 4, session_id);
+        try self.stepDone(session_update);
+        if (sqlite.sqlite3_changes(self.db) == 0) return error.SessionNotFound;
+
+        const checkpoint = try self.prepare(
+            \\INSERT INTO checkpoints (session_id, sequence, format_version, payload)
+            \\VALUES (?, ?, ?, ?)
+            \\ON CONFLICT(session_id, sequence) DO UPDATE SET
+            \\format_version=excluded.format_version, payload=excluded.payload,
+            \\created_at_ms=unixepoch('subsec')*1000;
+        );
+        defer _ = sqlite.sqlite3_finalize(checkpoint);
+        try bindText(checkpoint, 1, session_id);
+        try bindInt64(checkpoint, 2, sequence);
+        try bindInt64(checkpoint, 3, format_version);
+        try bindBlob(checkpoint, 4, payload);
+        try self.stepDone(checkpoint);
+        try self.deleteOlderCheckpoints(session_id, sequence);
+
+        const events = try self.prepare("DELETE FROM events WHERE session_id=? AND sequence<=?;");
+        defer _ = sqlite.sqlite3_finalize(events);
+        try bindText(events, 1, session_id);
+        try bindInt64(events, 2, sequence);
+        try self.stepDone(events);
+        try self.commit();
+        return sequence;
+    }
+
     pub fn latestCheckpoint(
         self: *Store,
         allocator: std.mem.Allocator,
@@ -533,35 +742,55 @@ pub const Store = struct {
             if (found_application_id == 0) return error.NotMachinenSessionDatabase;
             return;
         }
-        if (found_version == 1) {
-            if (found_application_id != application_id) return error.NotMachinenSessionDatabase;
+        if (found_version != 0 and found_application_id != application_id) {
+            return error.NotMachinenSessionDatabase;
+        }
+        if (found_version != 0) {
             try self.begin();
             errdefer self.rollback();
-            try self.exec("ALTER TABLE sessions ADD COLUMN worker_pid INTEGER;");
-            try self.exec("ALTER TABLE sessions ADD COLUMN exit_code INTEGER;");
-            try self.exec(
-                "ALTER TABLE sessions ADD COLUMN protocol_version INTEGER NOT NULL DEFAULT 1;",
-            );
-            try self.exec("PRAGMA user_version=3;");
+            if (found_version == 1) {
+                try self.exec("ALTER TABLE sessions ADD COLUMN worker_pid INTEGER;");
+                try self.exec("ALTER TABLE sessions ADD COLUMN exit_code INTEGER;");
+            }
+            if (found_version == 1 or found_version == 2) {
+                try self.exec(
+                    "ALTER TABLE sessions ADD COLUMN protocol_version INTEGER NOT NULL DEFAULT 1;",
+                );
+            }
+            if (found_version == 1 or found_version == 2 or found_version == 3) {
+                try self.exec(
+                    \\CREATE TABLE workspaces (
+                    \\  id TEXT PRIMARY KEY NOT NULL,
+                    \\  name TEXT NOT NULL,
+                    \\  root_directory TEXT NOT NULL,
+                    \\  created_at_ms INTEGER NOT NULL DEFAULT (unixepoch('subsec')*1000),
+                    \\  updated_at_ms INTEGER NOT NULL DEFAULT (unixepoch('subsec')*1000)
+                    \\);
+                );
+                try self.exec(
+                    \\ALTER TABLE sessions ADD COLUMN workspace_id TEXT
+                    \\REFERENCES workspaces(id) ON DELETE SET NULL;
+                );
+                try self.exec(
+                    "CREATE INDEX sessions_workspace ON sessions(workspace_id, created_at_ms);",
+                );
+            } else return error.UnsupportedSchemaVersion;
+            try self.exec("PRAGMA user_version=4;");
             try self.commit();
             return;
         }
-        if (found_version == 2) {
-            if (found_application_id != application_id) return error.NotMachinenSessionDatabase;
-            try self.begin();
-            errdefer self.rollback();
-            try self.exec(
-                "ALTER TABLE sessions ADD COLUMN protocol_version INTEGER NOT NULL DEFAULT 1;",
-            );
-            try self.exec("PRAGMA user_version=3;");
-            try self.commit();
-            return;
-        }
-        if (found_version != 0) return error.UnsupportedSchemaVersion;
 
         try self.begin();
         errdefer self.rollback();
         try self.exec(
+            \\CREATE TABLE workspaces (
+            \\  id TEXT PRIMARY KEY NOT NULL,
+            \\  name TEXT NOT NULL,
+            \\  root_directory TEXT NOT NULL,
+            \\  created_at_ms INTEGER NOT NULL DEFAULT (unixepoch('subsec')*1000),
+            \\  updated_at_ms INTEGER NOT NULL DEFAULT (unixepoch('subsec')*1000)
+            \\);
+            \\
             \\CREATE TABLE sessions (
             \\  id TEXT PRIMARY KEY NOT NULL,
             \\  name TEXT UNIQUE,
@@ -576,8 +805,12 @@ pub const Store = struct {
             \\  protocol_version INTEGER NOT NULL DEFAULT 2
             \\    CHECK (protocol_version BETWEEN 1 AND 2),
             \\  created_at_ms INTEGER NOT NULL DEFAULT (unixepoch('subsec')*1000),
-            \\  updated_at_ms INTEGER NOT NULL DEFAULT (unixepoch('subsec')*1000)
+            \\  updated_at_ms INTEGER NOT NULL DEFAULT (unixepoch('subsec')*1000),
+            \\  workspace_id TEXT REFERENCES workspaces(id) ON DELETE SET NULL
             \\);
+            \\
+            \\CREATE INDEX sessions_workspace
+            \\ON sessions(workspace_id, created_at_ms);
             \\
             \\CREATE TABLE events (
             \\  session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -601,7 +834,7 @@ pub const Store = struct {
             \\ON checkpoints(session_id, sequence DESC);
         );
         try self.exec("PRAGMA application_id=1297302867;");
-        try self.exec("PRAGMA user_version=3;");
+        try self.exec("PRAGMA user_version=4;");
         try self.commit();
     }
 
@@ -704,6 +937,18 @@ fn bindInt64(statement: *sqlite.sqlite3_stmt, index: c_int, value: anytype) !voi
     if (rc != sqlite.SQLITE_OK) return sqliteError(rc);
 }
 
+fn readWorkspace(allocator: std.mem.Allocator, statement: *sqlite.sqlite3_stmt) !Workspace {
+    const workspace = Workspace{
+        .id = try columnText(allocator, statement, 0),
+        .name = try columnText(allocator, statement, 1),
+        .root_directory = try columnText(allocator, statement, 2),
+        .created_at_ms = sqlite.sqlite3_column_int64(statement, 3),
+        .updated_at_ms = sqlite.sqlite3_column_int64(statement, 4),
+    };
+    std.debug.assert(workspace.id.len > 0 and workspace.root_directory.len > 0);
+    return workspace;
+}
+
 fn readSession(allocator: std.mem.Allocator, statement: *sqlite.sqlite3_stmt) !Session {
     const raw_state = sqlite.sqlite3_column_int(statement, 4);
     return .{
@@ -712,6 +957,10 @@ fn readSession(allocator: std.mem.Allocator, statement: *sqlite.sqlite3_stmt) !S
             null
         else
             try columnText(allocator, statement, 1),
+        .workspace_id = if (sqlite.sqlite3_column_type(statement, 13) == sqlite.SQLITE_NULL)
+            null
+        else
+            try columnText(allocator, statement, 13),
         .working_directory = try columnText(allocator, statement, 2),
         .argv_json = try columnBlob(allocator, statement, 3),
         .state = std.enums.fromInt(SessionState, raw_state) orelse return error.InvalidSessionState,
@@ -755,6 +1004,12 @@ fn columnBlob(
     const value = sqlite.sqlite3_column_blob(statement, column) orelse return error.UnexpectedNull;
     const bytes: [*]const u8 = @ptrCast(value);
     return allocator.dupe(u8, bytes[0..length]);
+}
+
+fn freeWorkspaces(allocator: std.mem.Allocator, workspaces: []Workspace) void {
+    std.debug.assert(workspaces.len == 0 or workspaces[0].id.len > 0);
+    for (workspaces) |*workspace| workspace.deinit(allocator);
+    allocator.free(workspaces);
 }
 
 fn freeSessions(allocator: std.mem.Allocator, sessions: []Session) void {
@@ -801,8 +1056,13 @@ test "store migrates a new database and persists session metadata" {
         });
         try store.setRunning("term_api", 4_242);
         const info = try store.info();
-        try std.testing.expectEqual(@as(u32, 3), info.schema_version);
+        try std.testing.expectEqual(@as(u32, 4), info.schema_version);
+        try std.testing.expectEqual(@as(u64, 0), info.workspace_count);
         try std.testing.expectEqual(@as(u64, 1), info.session_count);
+        const storage = try store.storageInfo();
+        try std.testing.expectEqual(@as(u32, 2), storage.auto_vacuum);
+        try std.testing.expect(storage.page_size > 0);
+        try std.testing.expect(storage.page_count > 0);
     }
 
     const database_stat = try tmp.dir.statFile(std.testing.io, "sessions.sqlite3", .{});
@@ -827,6 +1087,60 @@ test "store migrates a new database and persists session metadata" {
     var resolved = (try reopened.resolveSession("api")).?;
     defer resolved.deinit(allocator);
     try std.testing.expectEqualStrings("term_api", resolved.id);
+}
+
+test "workspace records own mutable roots and explicit session membership" {
+    const allocator = std.testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const path = try testDatabasePath(allocator, &tmp);
+    defer allocator.free(path);
+    var store = try Store.open(allocator, path);
+    defer store.close();
+
+    try store.upsertWorkspace(.{
+        .id = "ws_api",
+        .name = "api",
+        .root_directory = "/srv/api",
+    });
+    try store.createSession(.{
+        .id = "term_api",
+        .workspace_id = "ws_api",
+        .working_directory = "/srv/api/packages/web",
+        .argv_json = "[\"pnpm\",\"dev\"]",
+        .rows = 24,
+        .columns = 80,
+    });
+    try store.createSession(.{
+        .id = "term_legacy",
+        .working_directory = "/srv/api",
+        .argv_json = "[\"sh\"]",
+        .rows = 24,
+        .columns = 80,
+    });
+    try store.assignSessionWorkspace("term_legacy", "ws_api");
+    try store.upsertWorkspace(.{
+        .id = "ws_api",
+        .name = "api renamed",
+        .root_directory = "/work/api",
+    });
+
+    const workspaces = try store.listWorkspaces(allocator);
+    defer freeWorkspaces(allocator, workspaces);
+    try std.testing.expect(workspaces.len == 1);
+    try std.testing.expectEqualStrings("api renamed", workspaces[0].name);
+    try std.testing.expectEqualStrings("/work/api", workspaces[0].root_directory);
+    var record = (try store.getSession("term_api")).?;
+    defer record.deinit(allocator);
+    try std.testing.expectEqualStrings("ws_api", record.workspace_id.?);
+    var adopted = (try store.getSession("term_legacy")).?;
+    defer adopted.deinit(allocator);
+    try std.testing.expectEqualStrings("ws_api", adopted.workspace_id.?);
+
+    try store.deleteWorkspace("ws_api");
+    var detached = (try store.getSession("term_api")).?;
+    defer detached.deinit(allocator);
+    try std.testing.expectEqual(@as(?[]u8, null), detached.workspace_id);
 }
 
 test "events retain byte-exact output and ordered resize information" {
@@ -958,13 +1272,18 @@ test "version one databases migrate worker recovery fields in place" {
     var store = try Store.open(allocator, path);
     defer store.close();
     const info = try store.info();
-    try std.testing.expectEqual(@as(u32, 3), info.schema_version);
+    try std.testing.expectEqual(@as(u32, 4), info.schema_version);
+    try std.testing.expectEqual(@as(u64, 0), info.workspace_count);
     var legacy = (try store.getSession("legacy")).?;
     defer legacy.deinit(allocator);
     try std.testing.expectEqual(@as(?i64, null), legacy.worker_pid);
     try std.testing.expectEqual(@as(?i32, null), legacy.exit_code);
     try std.testing.expectEqual(@as(u32, 1), legacy.protocol_version);
+    try std.testing.expectEqual(@as(?[]u8, null), legacy.workspace_id);
     try store.setExited("legacy", 9);
+    try std.testing.expectEqual(@as(u32, 0), (try store.storageInfo()).auto_vacuum);
+    try store.compact();
+    try std.testing.expectEqual(@as(u32, 2), (try store.storageInfo()).auto_vacuum);
 }
 
 test "checkpoint replacement atomically bounds retained event history" {
@@ -996,6 +1315,80 @@ test "checkpoint replacement atomically bounds retained event history" {
     defer freeEvents(allocator, retained);
     try std.testing.expectEqual(@as(usize, 1), retained.len);
     try std.testing.expectEqualStrings("third", retained[0].payload);
+}
+
+test "an in-memory recovery checkpoint advances without storing raw output" {
+    const allocator = std.testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const path = try testDatabasePath(allocator, &tmp);
+    defer allocator.free(path);
+    var store = try Store.open(allocator, path);
+    defer store.close();
+    try store.createSession(.{
+        .id = "term_memory",
+        .working_directory = "/tmp",
+        .argv_json = "[\"sh\"]",
+        .rows = 24,
+        .columns = 80,
+    });
+
+    try std.testing.expectEqual(
+        @as(u64, 42),
+        try store.replaceRecoveryCheckpoint(
+            "term_memory",
+            42,
+            1,
+            "\x1bc\x1b[Hlatest",
+            120,
+            40,
+        ),
+    );
+    const info = try store.info();
+    try std.testing.expectEqual(@as(u64, 0), info.event_count);
+    try std.testing.expectEqual(@as(u64, 1), info.checkpoint_count);
+    var record = (try store.getSession("term_memory")).?;
+    defer record.deinit(allocator);
+    try std.testing.expectEqual(@as(u64, 42), record.last_sequence);
+    try std.testing.expectEqual(@as(u32, 120), record.columns);
+    try std.testing.expectEqual(@as(u32, 40), record.rows);
+    try std.testing.expectError(
+        error.InvalidCheckpointSequence,
+        store.replaceRecoveryCheckpoint("term_memory", 41, 1, "older", 120, 40),
+    );
+}
+
+test "explicit compaction reclaims an idle database without vacuuming live sessions" {
+    const allocator = std.testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const path = try testDatabasePath(allocator, &tmp);
+    defer allocator.free(path);
+    var store = try Store.open(allocator, path);
+    defer store.close();
+    try store.createSession(.{
+        .id = "term_compact",
+        .working_directory = "/tmp",
+        .argv_json = "[\"sh\"]",
+        .rows = 24,
+        .columns = 80,
+    });
+    var output: [2 * 1024 * 1024]u8 = undefined;
+    @memset(&output, 'x');
+    const output_sequence = try store.appendOutput("term_compact", &output);
+    try std.testing.expectEqual(@as(u64, 1), output_sequence);
+    const removed_events = try store.checkpointAndCompact("term_compact", 1, "\x1bc\x1b[Hscreen");
+    try std.testing.expectEqual(@as(u64, 1), removed_events.removed_events);
+    try std.testing.expectError(error.SessionsStillRunning, store.compact());
+    try store.setExited("term_compact", 0);
+    const before = try store.storageInfo();
+    try std.testing.expect(before.free_page_count > 0);
+
+    try store.compact();
+    const after = try store.storageInfo();
+    try std.testing.expectEqual(@as(u32, 2), after.auto_vacuum);
+    try std.testing.expectEqual(@as(u64, 0), after.free_page_count);
+    try std.testing.expect(after.page_count < before.page_count);
 }
 
 test "running sessions can be reconciled as orphaned without losing history" {

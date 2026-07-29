@@ -3,7 +3,6 @@ import AppKit
 final class WorkspaceClusterView: NSView {
     private enum Metrics {
         static let padding: CGFloat = 24
-        static let headerHeight: CGFloat = 40
         static let gap: CGFloat = 30
         static let cornerRadius: CGFloat = 18
     }
@@ -78,12 +77,8 @@ final class WorkspaceClusterView: NSView {
             return terminalSize
         }
 
-        let content = NSRect(
-            x: Metrics.padding,
-            y: Metrics.headerHeight,
-            width: max(1, terminalSize.width - Metrics.padding * 2),
-            height: max(1, terminalSize.height - Metrics.headerHeight - Metrics.padding)
-        )
+        let content = NSRect(origin: .zero, size: terminalSize)
+            .insetBy(dx: Metrics.padding, dy: Metrics.padding)
         sessionColumns = bestColumnCount(
             itemCount: sessions.count,
             contentSize: content.size,
@@ -178,37 +173,6 @@ final class WorkspaceClusterView: NSView {
             border.stroke()
         }
 
-        if !isEntered {
-            let titleParagraph = NSMutableParagraphStyle()
-            titleParagraph.lineBreakMode = .byTruncatingTail
-            let titleAttributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 18, weight: .semibold),
-                .foregroundColor: NSColor(calibratedWhite: 0.82, alpha: 1),
-                .paragraphStyle: titleParagraph,
-            ]
-            NSAttributedString(string: workspace, attributes: titleAttributes).draw(
-                in: NSRect(x: Metrics.padding, y: 8, width: bounds.width * 0.58, height: 24)
-            )
-
-            let detailParagraph = NSMutableParagraphStyle()
-            detailParagraph.alignment = .right
-            detailParagraph.lineBreakMode = .byTruncatingTail
-            let count = sessions.count
-            let detail = "\(label) · \(count)"
-            let detailAttributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 13, weight: .regular),
-                .foregroundColor: NSColor(calibratedWhite: 0.48, alpha: 1),
-                .paragraphStyle: detailParagraph,
-            ]
-            NSAttributedString(string: detail, attributes: detailAttributes).draw(
-                in: NSRect(
-                    x: bounds.width * 0.5,
-                    y: 10,
-                    width: bounds.width * 0.5 - Metrics.padding,
-                    height: 20
-                )
-            )
-        }
     }
 
     override func mouseDown(with event: NSEvent) {

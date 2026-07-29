@@ -110,18 +110,39 @@ final class TerminalSession: Codable {
     var workspace: String
     var name: String
     var launch: TerminalLaunch
+    /// Directory root used to recover the workspace from the native session store.
+    /// It is distinct from a terminal's launch directory and live OSC 7 directory.
+    var workspaceRoot: String
+    /// False for a native session discovered outside Desktop. Reconnection may
+    /// attach to it, but Desktop must not invent a replacement command if the
+    /// worker disappears.
+    var startsSessionIfMissing: Bool
     var location: WorkspaceLocation
     var workingDirectory: String {
         get { location.path }
         set { location.path = newValue }
     }
+    /// The most recent directory reported by OSC 7. Unlike `workingDirectory`,
+    /// this follows an interactive shell after `cd`.
+    var currentWorkingDirectory: String?
+
+    var effectiveWorkingDirectory: String {
+        currentWorkingDirectory ?? workingDirectory
+    }
+
+    var effectiveLocation: WorkspaceLocation {
+        var result = location
+        result.path = effectiveWorkingDirectory
+        return result
+    }
+
     var state: State
     var activityState: ActivityState
     var titleOverride: String?
-    /// A close remains reversible until this deadline. The persistent PTY and,
-    /// while Desktop stays open, its Ghostty surface remain alive.
-    var pendingCloseDeadline: Date?
-    var pendingClosePosition: Int?
+    /// Disconnecting removes the tile while leaving its native session alive.
+    /// These fields preserve availability and the former workspace position.
+    var disconnectedAt: Date?
+    var disconnectedPosition: Int?
     var observedCommand: String?
     /// Runtime-only name of the login shell, inferred from live process metadata.
     /// It is deliberately not persisted or allowed to replace a user-given name.
@@ -164,12 +185,14 @@ final class TerminalSession: Codable {
         name: String,
         launch: TerminalLaunch,
         workingDirectory: String,
+        workspaceRoot: String? = nil,
         sshHost: String? = nil,
+        startsSessionIfMissing: Bool = true,
         state: State = .starting,
         activityState: ActivityState = .unknown,
         titleOverride: String? = nil,
-        pendingCloseDeadline: Date? = nil,
-        pendingClosePosition: Int? = nil
+        disconnectedAt: Date? = nil,
+        disconnectedPosition: Int? = nil
     ) {
         self.id = id
         self.tileID = tileID
@@ -178,13 +201,16 @@ final class TerminalSession: Codable {
         self.workspace = workspace
         self.name = name
         self.launch = launch
+        self.workspaceRoot = workspaceRoot ?? workingDirectory
+        self.startsSessionIfMissing = startsSessionIfMissing
         location = sshHost.map { .ssh(host: $0, path: workingDirectory) }
             ?? .local(workingDirectory)
         self.state = state
         self.activityState = activityState
         self.titleOverride = titleOverride
-        self.pendingCloseDeadline = pendingCloseDeadline
-        self.pendingClosePosition = pendingClosePosition
+        currentWorkingDirectory = nil
+        self.disconnectedAt = disconnectedAt
+        self.disconnectedPosition = disconnectedPosition
         observedCommand = nil
         inferredShellName = nil
         runtimeLabel = nil
@@ -200,13 +226,19 @@ final class TerminalSession: Codable {
         case workspace
         case name
         case launch
+        case workspaceRoot
+        case startsSessionIfMissing
         case backend
         case command
         case workingDirectory
+        case currentWorkingDirectory
         case location
         case state
         case activityState
         case titleOverride
+        case disconnectedAt
+        case disconnectedPosition
+        // Migration keys from the former five-minute close buffer.
         case pendingCloseDeadline
         case pendingClosePosition
         case runtimeLabel
@@ -228,12 +260,18 @@ final class TerminalSession: Codable {
         } else {
             launch = .loginShell
         }
+        startsSessionIfMissing = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .startsSessionIfMissing
+        ) ?? true
         let persistedBackend = try container.decodeIfPresent(String.self, forKey: .backend)
         if let decoded = try container.decodeIfPresent(WorkspaceLocation.self, forKey: .location) {
             location = decoded
         } else {
             location = .local(try container.decode(String.self, forKey: .workingDirectory))
         }
+        workspaceRoot = try container.decodeIfPresent(String.self, forKey: .workspaceRoot)
+            ?? location.path
         let persistedState = try container.decode(State.self, forKey: .state)
         // A pre-native prototype manifest cannot identify a Machinen session
         // worker. Keep its launch definition, but require an explicit restart.
@@ -244,8 +282,18 @@ final class TerminalSession: Codable {
         ) ?? .unknown
         activityState = persistedBackend == Self.backendName ? persistedActivity : .unknown
         titleOverride = try container.decodeIfPresent(String.self, forKey: .titleOverride)
-        pendingCloseDeadline = try container.decodeIfPresent(Date.self, forKey: .pendingCloseDeadline)
-        pendingClosePosition = try container.decodeIfPresent(Int.self, forKey: .pendingClosePosition)
+        currentWorkingDirectory = try container.decodeIfPresent(
+            String.self,
+            forKey: .currentWorkingDirectory
+        )
+        let legacyCloseDeadline = try container.decodeIfPresent(
+            Date.self,
+            forKey: .pendingCloseDeadline
+        )
+        disconnectedAt = try container.decodeIfPresent(Date.self, forKey: .disconnectedAt)
+            ?? legacyCloseDeadline.map { min($0, Date()) }
+        disconnectedPosition = try container.decodeIfPresent(Int.self, forKey: .disconnectedPosition)
+            ?? container.decodeIfPresent(Int.self, forKey: .pendingClosePosition)
         observedCommand = nil
         inferredShellName = nil
         runtimeLabel = try container.decodeIfPresent(String.self, forKey: .runtimeLabel)
@@ -262,14 +310,17 @@ final class TerminalSession: Codable {
         try container.encode(workspace, forKey: .workspace)
         try container.encode(name, forKey: .name)
         try container.encode(launch, forKey: .launch)
+        try container.encode(workspaceRoot, forKey: .workspaceRoot)
+        try container.encode(startsSessionIfMissing, forKey: .startsSessionIfMissing)
         try container.encode(Self.backendName, forKey: .backend)
         try container.encode(workingDirectory, forKey: .workingDirectory)
         try container.encode(location, forKey: .location)
+        try container.encodeIfPresent(currentWorkingDirectory, forKey: .currentWorkingDirectory)
         try container.encode(state, forKey: .state)
         try container.encode(activityState, forKey: .activityState)
         try container.encodeIfPresent(titleOverride, forKey: .titleOverride)
-        try container.encodeIfPresent(pendingCloseDeadline, forKey: .pendingCloseDeadline)
-        try container.encodeIfPresent(pendingClosePosition, forKey: .pendingClosePosition)
+        try container.encodeIfPresent(disconnectedAt, forKey: .disconnectedAt)
+        try container.encodeIfPresent(disconnectedPosition, forKey: .disconnectedPosition)
         try container.encodeIfPresent(runtimeLabel, forKey: .runtimeLabel)
     }
 

@@ -75,7 +75,14 @@ function applyUIEvent(state: MutableDesktopState, event: DesktopEvent): void {
 }
 
 function tileWasRemoved(event: string): boolean {
-  return event === "tile.deleted" || event === "tile.closed" || event === "tile.closeFinalized";
+  return (
+    event === "tile.deleted" ||
+    event === "tile.disconnected" ||
+    event === "tile.killed" ||
+    // Compatibility with Desktop builds that used a timed close buffer.
+    event === "tile.closed" ||
+    event === "tile.closeFinalized"
+  );
 }
 
 function isWorkspace(value: Workspace): boolean {

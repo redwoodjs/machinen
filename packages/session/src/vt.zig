@@ -4,15 +4,41 @@ const std = @import("std");
 /// ordinary VT reconstruction streams: reset, paint the visible cells, and
 /// restore the cursor. Any terminal emulator can consume them as output.
 pub const format_version: u32 = 1;
-pub const default_checkpoint_bytes: u32 = 256 * 1024;
+pub const default_checkpoint_bytes: u32 = 4 * 1024 * 1024;
 pub const max_dimension: u16 = 1_000;
+
+const default_color: u32 = 0;
+const rgb_color_tag: u32 = 0x0100_0000;
+
+const attribute_bold: u16 = 1 << 0;
+const attribute_faint: u16 = 1 << 1;
+const attribute_italic: u16 = 1 << 2;
+const attribute_underline: u16 = 1 << 3;
+const attribute_blink: u16 = 1 << 4;
+const attribute_inverse: u16 = 1 << 5;
+const attribute_hidden: u16 = 1 << 6;
+const attribute_strikethrough: u16 = 1 << 7;
+const attribute_overline: u16 = 1 << 8;
+const all_attributes: u16 = attribute_bold | attribute_faint | attribute_italic |
+    attribute_underline | attribute_blink | attribute_inverse | attribute_hidden |
+    attribute_strikethrough | attribute_overline;
+
+const Rendition = struct {
+    attributes: u16 = 0,
+    foreground: u32 = default_color,
+    background: u32 = default_color,
+    underline_color: u32 = default_color,
+};
 
 const Cell = struct {
     bytes: [4]u8 = .{ 0, 0, 0, 0 },
     len: u8 = 0,
+    rendition: Rendition = .{},
 };
 
 const ParseState = enum { ground, escape, csi, osc, osc_escape };
+const ColorTarget = enum { foreground, background, underline };
+const ByteBuffer = std.ArrayList(u8);
 
 pub const Builder = struct {
     allocator: std.mem.Allocator,
@@ -29,9 +55,11 @@ pub const Builder = struct {
     in_alternate_screen: bool = false,
     state: ParseState = .ground,
     params: [16]u16 = [_]u16{0} ** 16,
+    param_separators: [16]u8 = [_]u8{0} ** 16,
     param_count: u8 = 1,
     parameter_started: bool = false,
     csi_private: bool = false,
+    rendition: Rendition = .{},
     utf8_remaining: u3 = 0,
     last_cell: ?usize = null,
     bytes_since_checkpoint: u64 = 0,
@@ -99,20 +127,30 @@ pub const Builder = struct {
     }
 
     pub fn checkpoint(self: *Builder) ![]u8 {
-        var output: std.ArrayList(u8) = .empty;
+        var output: ByteBuffer = .empty;
         errdefer output.deinit(self.allocator);
         try output.appendSlice(self.allocator, "\x1bc");
+        var emitted_rendition: Rendition = .{};
         for (0..self.rows) |row| {
             const end = self.lastOccupiedColumn(row) orelse continue;
             try appendCursor(self.allocator, &output, row + 1, 1);
             for (0..end + 1) |column| {
                 const cell = self.cells[row * self.columns + column];
+                if (!renditionsEqual(emitted_rendition, cell.rendition)) {
+                    try appendRendition(self.allocator, &output, cell.rendition);
+                    emitted_rendition = cell.rendition;
+                }
                 if (cell.len == 0) {
                     try output.append(self.allocator, ' ');
                 } else {
                     try output.appendSlice(self.allocator, cell.bytes[0..cell.len]);
                 }
             }
+        }
+        // The child may rely on the active SGR state for its next output, so a
+        // replay must restore more than the rendition of the final painted cell.
+        if (!renditionsEqual(emitted_rendition, self.rendition)) {
+            try appendRendition(self.allocator, &output, self.rendition);
         }
         try appendCursor(
             self.allocator,
@@ -193,6 +231,7 @@ pub const Builder = struct {
     fn beginCsi(self: *Builder) void {
         self.state = .csi;
         self.params = [_]u16{0} ** self.params.len;
+        self.param_separators = [_]u8{0} ** self.param_separators.len;
         self.param_count = 1;
         self.parameter_started = false;
         self.csi_private = false;
@@ -206,7 +245,10 @@ pub const Builder = struct {
             return;
         }
         if (byte == ';' or byte == ':') {
-            if (self.param_count < self.params.len) self.param_count += 1;
+            if (self.param_count < self.params.len) {
+                self.param_separators[self.param_count] = byte;
+                self.param_count += 1;
+            }
             self.parameter_started = false;
             return;
         }
@@ -254,7 +296,92 @@ pub const Builder = struct {
             'u' => self.restoreCursor(),
             'h' => if (self.csi_private) self.setPrivateMode(true),
             'l' => if (self.csi_private) self.setPrivateMode(false),
+            'm' => self.applySgr(),
             else => {},
+        }
+    }
+
+    fn applySgr(self: *Builder) void {
+        std.debug.assert(self.param_count > 0 and self.param_count <= self.params.len);
+        var index: u8 = 0;
+        while (index < self.param_count) : (index += 1) {
+            const code = self.params[index];
+            switch (code) {
+                0 => self.rendition = .{},
+                1 => self.rendition.attributes |= attribute_bold,
+                2 => self.rendition.attributes |= attribute_faint,
+                3 => self.rendition.attributes |= attribute_italic,
+                4, 21 => {
+                    self.rendition.attributes |= attribute_underline;
+                    if (index + 1 < self.param_count and self.param_separators[index + 1] == ':') {
+                        index += 1;
+                    }
+                },
+                5, 6 => self.rendition.attributes |= attribute_blink,
+                7 => self.rendition.attributes |= attribute_inverse,
+                8 => self.rendition.attributes |= attribute_hidden,
+                9 => self.rendition.attributes |= attribute_strikethrough,
+                22 => self.rendition.attributes &= ~(attribute_bold | attribute_faint),
+                23 => self.rendition.attributes &= ~attribute_italic,
+                24 => self.rendition.attributes &= ~attribute_underline,
+                25 => self.rendition.attributes &= ~attribute_blink,
+                27 => self.rendition.attributes &= ~attribute_inverse,
+                28 => self.rendition.attributes &= ~attribute_hidden,
+                29 => self.rendition.attributes &= ~attribute_strikethrough,
+                30...37 => self.rendition.foreground = indexedColor(code - 30),
+                38 => index = self.applyExtendedColor(index, .foreground),
+                39 => self.rendition.foreground = default_color,
+                40...47 => self.rendition.background = indexedColor(code - 40),
+                48 => index = self.applyExtendedColor(index, .background),
+                49 => self.rendition.background = default_color,
+                53 => self.rendition.attributes |= attribute_overline,
+                55 => self.rendition.attributes &= ~attribute_overline,
+                58 => index = self.applyExtendedColor(index, .underline),
+                59 => self.rendition.underline_color = default_color,
+                90...97 => self.rendition.foreground = indexedColor(8 + code - 90),
+                100...107 => self.rendition.background = indexedColor(8 + code - 100),
+                else => {},
+            }
+        }
+    }
+
+    fn applyExtendedColor(self: *Builder, start: u8, target: ColorTarget) u8 {
+        std.debug.assert(start < self.param_count);
+        const mode_index = start + 1;
+        if (mode_index >= self.param_count) return start;
+        const mode = self.params[mode_index];
+        if (mode == 5) {
+            const color_index = mode_index + 1;
+            if (color_index >= self.param_count) return mode_index;
+            self.setColor(target, indexedColor(self.params[color_index]));
+            return color_index;
+        }
+        if (mode != 2) return mode_index;
+
+        var red_index = mode_index + 1;
+        // ISO colon-form truecolor has an optional color-space slot:
+        // 38:2:<space>:<r>:<g>:<b>. Accept both that and 38:2:r:g:b.
+        if (self.param_separators[mode_index] == ':' and self.param_count - start >= 6) {
+            red_index += 1;
+        }
+        if (red_index + 2 >= self.param_count) return mode_index;
+        self.setColor(
+            target,
+            rgbColor(
+                self.params[red_index],
+                self.params[red_index + 1],
+                self.params[red_index + 2],
+            ),
+        );
+        return red_index + 2;
+    }
+
+    fn setColor(self: *Builder, target: ColorTarget, color: u32) void {
+        std.debug.assert(color <= 256 or color >> 24 == rgb_color_tag >> 24);
+        switch (target) {
+            .foreground => self.rendition.foreground = color,
+            .background => self.rendition.background = color,
+            .underline => self.rendition.underline_color = color,
         }
     }
 
@@ -269,7 +396,11 @@ pub const Builder = struct {
             self.lineFeed();
         }
         const index = @as(usize, self.cursor_row) * self.columns + self.cursor_column;
-        self.cells[index] = .{ .bytes = .{ byte, 0, 0, 0 }, .len = 1 };
+        self.cells[index] = .{
+            .bytes = .{ byte, 0, 0, 0 },
+            .len = 1,
+            .rendition = self.rendition,
+        };
         self.last_cell = index;
         self.utf8_remaining = continuation;
         self.cursor_column += 1;
@@ -300,7 +431,7 @@ pub const Builder = struct {
                 self.cells[columns..],
             );
         }
-        @memset(self.cells[self.cells.len - columns ..], .{});
+        @memset(self.cells[self.cells.len - columns ..], blankCell(self.rendition));
     }
 
     fn scrollDown(self: *Builder) void {
@@ -312,15 +443,16 @@ pub const Builder = struct {
                 self.cells[0 .. self.cells.len - columns],
             );
         }
-        @memset(self.cells[0..columns], .{});
+        @memset(self.cells[0..columns], blankCell(self.rendition));
     }
 
     fn eraseDisplay(self: *Builder, mode: u16) void {
         const index = @as(usize, self.cursor_row) * self.columns + self.cursor_column;
+        const blank = blankCell(self.rendition);
         switch (mode) {
-            0 => @memset(self.cells[index..], .{}),
-            1 => @memset(self.cells[0 .. index + 1], .{}),
-            2, 3 => @memset(self.cells, .{}),
+            0 => @memset(self.cells[index..], blank),
+            1 => @memset(self.cells[0 .. index + 1], blank),
+            2, 3 => @memset(self.cells, blank),
             else => {},
         }
     }
@@ -328,10 +460,11 @@ pub const Builder = struct {
     fn eraseLine(self: *Builder, mode: u16) void {
         const start = @as(usize, self.cursor_row) * self.columns;
         const cursor = start + self.cursor_column;
+        const blank = blankCell(self.rendition);
         switch (mode) {
-            0 => @memset(self.cells[cursor .. start + self.columns], .{}),
-            1 => @memset(self.cells[start .. cursor + 1], .{}),
-            2 => @memset(self.cells[start .. start + self.columns], .{}),
+            0 => @memset(self.cells[cursor .. start + self.columns], blank),
+            1 => @memset(self.cells[start .. cursor + 1], blank),
+            2 => @memset(self.cells[start .. start + self.columns], blank),
             else => {},
         }
     }
@@ -348,7 +481,7 @@ pub const Builder = struct {
                 self.cells[cursor .. end - count],
             );
         }
-        @memset(self.cells[cursor .. cursor + count], .{});
+        @memset(self.cells[cursor .. cursor + count], blankCell(self.rendition));
     }
 
     fn deleteCells(self: *Builder, amount: u16) void {
@@ -363,13 +496,13 @@ pub const Builder = struct {
                 self.cells[cursor + count .. end],
             );
         }
-        @memset(self.cells[end - count .. end], .{});
+        @memset(self.cells[end - count .. end], blankCell(self.rendition));
     }
 
     fn eraseCells(self: *Builder, amount: u16) void {
         const start = @as(usize, self.cursor_row) * self.columns + self.cursor_column;
         const count = @min(amount, self.columns - self.cursor_column);
-        @memset(self.cells[start .. start + count], .{});
+        @memset(self.cells[start .. start + count], blankCell(self.rendition));
     }
 
     fn insertLines(self: *Builder, amount: u16) void {
@@ -385,7 +518,7 @@ pub const Builder = struct {
                 self.cells[start .. self.cells.len - shift],
             );
         }
-        @memset(self.cells[start .. start + shift], .{});
+        @memset(self.cells[start .. start + shift], blankCell(self.rendition));
     }
 
     fn deleteLines(self: *Builder, amount: u16) void {
@@ -401,7 +534,7 @@ pub const Builder = struct {
                 self.cells[start + shift ..],
             );
         }
-        @memset(self.cells[self.cells.len - shift ..], .{});
+        @memset(self.cells[self.cells.len - shift ..], blankCell(self.rendition));
     }
 
     fn setPrivateMode(self: *Builder, enabled: bool) void {
@@ -449,6 +582,7 @@ pub const Builder = struct {
         self.cursor_column = 0;
         self.saved_row = 0;
         self.saved_column = 0;
+        self.rendition = .{};
         self.utf8_remaining = 0;
         self.last_cell = null;
     }
@@ -457,7 +591,8 @@ pub const Builder = struct {
         var column: usize = self.columns;
         while (column > 0) {
             column -= 1;
-            if (self.cells[row * self.columns + column].len > 0) return column;
+            const cell = self.cells[row * self.columns + column];
+            if (cell.len > 0 or blankRenditionIsVisible(cell.rendition)) return column;
         }
         return null;
     }
@@ -486,9 +621,129 @@ fn resizedCells(
     return replacement;
 }
 
+fn indexedColor(index: u16) u32 {
+    const result = @as(u32, @min(index, 255)) + 1;
+    std.debug.assert(result >= 1 and result <= 256);
+    return result;
+}
+
+fn rgbColor(red: u16, green: u16, blue: u16) u32 {
+    const result = rgb_color_tag |
+        (@as(u32, @min(red, 255)) << 16) |
+        (@as(u32, @min(green, 255)) << 8) |
+        @as(u32, @min(blue, 255));
+    std.debug.assert(result >> 24 == rgb_color_tag >> 24);
+    return result;
+}
+
+fn blankCell(rendition: Rendition) Cell {
+    std.debug.assert(rendition.attributes & ~all_attributes == 0);
+    return .{ .rendition = rendition };
+}
+
+fn renditionsEqual(left: Rendition, right: Rendition) bool {
+    std.debug.assert((left.attributes | right.attributes) & ~all_attributes == 0);
+    return left.attributes == right.attributes and
+        left.foreground == right.foreground and
+        left.background == right.background and
+        left.underline_color == right.underline_color;
+}
+
+fn blankRenditionIsVisible(rendition: Rendition) bool {
+    std.debug.assert(rendition.attributes & ~all_attributes == 0);
+    const visible_attributes = attribute_underline |
+        attribute_inverse |
+        attribute_strikethrough |
+        attribute_overline;
+    return rendition.background != default_color or
+        rendition.attributes & visible_attributes != 0;
+}
+
+fn appendRendition(
+    allocator: std.mem.Allocator,
+    output: *ByteBuffer,
+    rendition: Rendition,
+) !void {
+    std.debug.assert(rendition.attributes & ~all_attributes == 0);
+    try output.appendSlice(allocator, "\x1b[0");
+    if (rendition.attributes & attribute_bold != 0) try appendSgrParameter(allocator, output, 1);
+    if (rendition.attributes & attribute_faint != 0) try appendSgrParameter(allocator, output, 2);
+    if (rendition.attributes & attribute_italic != 0) try appendSgrParameter(allocator, output, 3);
+    if (rendition.attributes & attribute_underline != 0) {
+        try appendSgrParameter(allocator, output, 4);
+    }
+    if (rendition.attributes & attribute_blink != 0) try appendSgrParameter(allocator, output, 5);
+    if (rendition.attributes & attribute_inverse != 0) try appendSgrParameter(allocator, output, 7);
+    if (rendition.attributes & attribute_hidden != 0) try appendSgrParameter(allocator, output, 8);
+    if (rendition.attributes & attribute_strikethrough != 0) {
+        try appendSgrParameter(allocator, output, 9);
+    }
+    if (rendition.attributes & attribute_overline != 0) {
+        try appendSgrParameter(allocator, output, 53);
+    }
+    try appendColor(allocator, output, rendition.foreground, .foreground);
+    try appendColor(allocator, output, rendition.background, .background);
+    try appendColor(allocator, output, rendition.underline_color, .underline);
+    try output.append(allocator, 'm');
+}
+
+fn appendColor(
+    allocator: std.mem.Allocator,
+    output: *ByteBuffer,
+    color: u32,
+    target: ColorTarget,
+) !void {
+    std.debug.assert(color <= 256 or color >> 24 == rgb_color_tag >> 24);
+    if (color == default_color) return;
+    if (color & rgb_color_tag != 0) {
+        try appendSgrParameter(allocator, output, switch (target) {
+            .foreground => 38,
+            .background => 48,
+            .underline => 58,
+        });
+        try appendSgrParameter(allocator, output, 2);
+        try appendSgrParameter(allocator, output, (color >> 16) & 0xff);
+        try appendSgrParameter(allocator, output, (color >> 8) & 0xff);
+        try appendSgrParameter(allocator, output, color & 0xff);
+        return;
+    }
+
+    const palette_index = color - 1;
+    if (target == .foreground and palette_index < 8) {
+        return appendSgrParameter(allocator, output, 30 + palette_index);
+    }
+    if (target == .foreground and palette_index < 16) {
+        return appendSgrParameter(allocator, output, 90 + palette_index - 8);
+    }
+    if (target == .background and palette_index < 8) {
+        return appendSgrParameter(allocator, output, 40 + palette_index);
+    }
+    if (target == .background and palette_index < 16) {
+        return appendSgrParameter(allocator, output, 100 + palette_index - 8);
+    }
+    try appendSgrParameter(allocator, output, switch (target) {
+        .foreground => 38,
+        .background => 48,
+        .underline => 58,
+    });
+    try appendSgrParameter(allocator, output, 5);
+    try appendSgrParameter(allocator, output, palette_index);
+}
+
+fn appendSgrParameter(
+    allocator: std.mem.Allocator,
+    output: *ByteBuffer,
+    value: u32,
+) !void {
+    var buffer: [16]u8 = undefined;
+    std.debug.assert(buffer.len >= 11);
+    const text = try std.fmt.bufPrint(&buffer, ";{d}", .{value});
+    try output.appendSlice(allocator, text);
+}
+
 fn appendCursor(
     allocator: std.mem.Allocator,
-    output: *std.ArrayList(u8),
+    output: *ByteBuffer,
     row: usize,
     column: usize,
 ) !void {
@@ -514,6 +769,45 @@ test "checkpoint reconstructs visible cells and cursor as portable VT output" {
     try std.testing.expect(std.mem.indexOf(u8, checkpoint, "hello") != null);
     try std.testing.expect(std.mem.indexOf(u8, checkpoint, "wo!ld") != null);
     try std.testing.expect(std.mem.endsWith(u8, checkpoint, "\x1b[2;4H"));
+}
+
+test "checkpoint preserves ANSI attributes and indexed and RGB colors" {
+    const allocator = std.testing.allocator;
+    var builder = try Builder.init(allocator, 2, 32);
+    defer builder.deinit();
+    builder.feed(
+        "\x1b[1;31mred\x1b[38;5;208morange" ++
+            "\x1b[48;2;1;2;3m rgb\x1b[0m plain",
+    );
+    const checkpoint = try builder.checkpoint();
+    defer allocator.free(checkpoint);
+    try std.testing.expect(std.mem.indexOf(u8, checkpoint, "\x1b[0;1;31mred") != null);
+    try std.testing.expect(std.mem.indexOf(u8, checkpoint, "\x1b[0;1;38;5;208morange") != null);
+    try std.testing.expect(
+        std.mem.indexOf(u8, checkpoint, "\x1b[0;1;38;5;208;48;2;1;2;3m rgb") != null,
+    );
+    try std.testing.expect(std.mem.indexOf(u8, checkpoint, "\x1b[0m plain") != null);
+}
+
+test "checkpoint preserves colored blank cells and the active rendition" {
+    const allocator = std.testing.allocator;
+    var builder = try Builder.init(allocator, 2, 8);
+    defer builder.deinit();
+    builder.feed("\x1b[44m   \x1b[32m");
+    const checkpoint = try builder.checkpoint();
+    defer allocator.free(checkpoint);
+    try std.testing.expect(std.mem.indexOf(u8, checkpoint, "\x1b[0;44m   ") != null);
+    try std.testing.expect(std.mem.endsWith(u8, checkpoint, "\x1b[0;32;44m\x1b[1;4H"));
+}
+
+test "checkpoint accepts colon-form RGB colors" {
+    const allocator = std.testing.allocator;
+    var builder = try Builder.init(allocator, 1, 8);
+    defer builder.deinit();
+    builder.feed("\x1b[38:2::12:34:56mcolor");
+    const checkpoint = try builder.checkpoint();
+    defer allocator.free(checkpoint);
+    try std.testing.expect(std.mem.indexOf(u8, checkpoint, "\x1b[0;38;2;12;34;56mcolor") != null);
 }
 
 test "alternate-screen applications restore the primary screen on exit" {

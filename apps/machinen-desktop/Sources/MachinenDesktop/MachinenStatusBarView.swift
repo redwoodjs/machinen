@@ -133,6 +133,12 @@ struct MachinenStatusWidget {
     }
 }
 
+struct MachinenStatusNavigationChoice {
+    let id: String
+    let title: String
+    let tooltip: String?
+}
+
 final class MachinenStatusBarView: NSView {
     private enum Metrics {
         static let height: CGFloat = 40
@@ -156,6 +162,22 @@ final class MachinenStatusBarView: NSView {
         didSet { needsDisplay = true }
     }
 
+    var workspaceChoices: [MachinenStatusNavigationChoice] = [] {
+        didSet { needsDisplay = true }
+    }
+
+    var selectedWorkspaceID: String? {
+        didSet { needsDisplay = true }
+    }
+
+    var terminalChoices: [MachinenStatusNavigationChoice] = [] {
+        didSet { needsDisplay = true }
+    }
+
+    var selectedTerminalID: String? {
+        didSet { needsDisplay = true }
+    }
+
     var widgets: [MachinenStatusWidget] = [] {
         didSet { needsDisplay = true }
     }
@@ -165,10 +187,14 @@ final class MachinenStatusBarView: NSView {
     var onHoverChange: ((MachinenStatusWidget?, NSRect, String?) -> Void)?
     /// Return true when a widget consumed the click.
     var onWidgetClick: ((MachinenStatusWidget) -> Bool)?
+    var onWorkspaceSelect: ((String) -> Void)?
+    var onTerminalSelect: ((String) -> Void)?
     var onMouseDown: (() -> Void)?
 
     private var widgetFrames: [WidgetFrame] = []
     private var titleFrame = NSRect.zero
+    private var workspaceFrame = NSRect.zero
+    private var terminalFrame = NSRect.zero
     private var hoverTrackingArea: NSTrackingArea?
     private var hoveredItemID: String?
 
@@ -179,6 +205,7 @@ final class MachinenStatusBarView: NSView {
     override var acceptsFirstResponder: Bool { false }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
+        if workspaceFrame.contains(point) || terminalFrame.contains(point) { return self }
         if titleTooltip != nil, titleFrame.contains(point) { return self }
         return widgetFrames.contains(where: { $0.rect.contains(point) }) ? self : nil
     }
@@ -206,9 +233,86 @@ final class MachinenStatusBarView: NSView {
             if onWidgetClick?(widget) == true { return }
             if presentLinks(for: widget, at: point) { return }
         }
+        if workspaceFrame.contains(point), !workspaceChoices.isEmpty {
+            presentNavigationMenu(workspaceMenu(), from: workspaceFrame)
+            return
+        }
+        if terminalFrame.contains(point), !terminalChoices.isEmpty {
+            presentNavigationMenu(terminalMenu(), from: terminalFrame)
+            return
+        }
         // Status instruments are informational only. A click must never pull
         // keyboard focus away from the live terminal underneath the camera.
         onMouseDown?()
+    }
+
+    func workspaceMenu() -> NSMenu {
+        navigationMenu(
+            title: "Workspaces",
+            choices: workspaceChoices,
+            selectedID: selectedWorkspaceID,
+            action: #selector(selectWorkspaceMenuItem(_:))
+        )
+    }
+
+    func terminalMenu() -> NSMenu {
+        navigationMenu(
+            title: "Terminals",
+            choices: terminalChoices,
+            selectedID: selectedTerminalID,
+            action: #selector(selectTerminalMenuItem(_:))
+        )
+    }
+
+    @discardableResult
+    func chooseWorkspace(_ id: String) -> Bool {
+        guard workspaceChoices.contains(where: { $0.id == id }) else { return false }
+        onWorkspaceSelect?(id)
+        return true
+    }
+
+    @discardableResult
+    func chooseTerminal(_ id: String) -> Bool {
+        guard terminalChoices.contains(where: { $0.id == id }) else { return false }
+        onTerminalSelect?(id)
+        return true
+    }
+
+    private func navigationMenu(
+        title: String,
+        choices: [MachinenStatusNavigationChoice],
+        selectedID: String?,
+        action: Selector
+    ) -> NSMenu {
+        let menu = NSMenu(title: title)
+        menu.autoenablesItems = false
+        for choice in choices {
+            let item = NSMenuItem(title: choice.title, action: action, keyEquivalent: "")
+            item.target = self
+            item.representedObject = choice.id
+            item.toolTip = choice.tooltip
+            item.state = choice.id == selectedID ? .on : .off
+            item.isEnabled = true
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    private func presentNavigationMenu(_ menu: NSMenu, from frame: NSRect) {
+        hoveredItemID = nil
+        onHoverChange?(nil, .zero, nil)
+        menu.popUp(positioning: nil, at: NSPoint(x: frame.minX, y: frame.maxY), in: self)
+        onMouseDown?()
+    }
+
+    @objc private func selectWorkspaceMenuItem(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        chooseWorkspace(id)
+    }
+
+    @objc private func selectTerminalMenuItem(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        chooseTerminal(id)
     }
 
     private func presentLinks(for widget: MachinenStatusWidget, at point: NSPoint) -> Bool {
@@ -247,13 +351,26 @@ final class MachinenStatusBarView: NSView {
 
     @discardableResult
     func hoverText(at point: NSPoint) -> String? {
-        let titleID = "machinen.status.title"
         let matchedFrame = widgetFrames.first(where: { $0.rect.contains(point) })
+        let workspaceChoice = selectedWorkspaceID.flatMap { id in
+            workspaceChoices.first { $0.id == id }
+        }
+        let terminalChoice = selectedTerminalID.flatMap { id in
+            terminalChoices.first { $0.id == id }
+        }
         let itemID: String?
         let detail: String?
         let anchor: NSRect
-        if titleTooltip != nil, titleFrame.contains(point) {
-            itemID = titleID
+        if let workspaceChoice, workspaceFrame.contains(point) {
+            itemID = "machinen.status.workspace.\(workspaceChoice.id)"
+            detail = workspaceChoice.tooltip ?? titleTooltip
+            anchor = workspaceFrame
+        } else if let terminalChoice, terminalFrame.contains(point) {
+            itemID = "machinen.status.terminal.\(terminalChoice.id)"
+            detail = terminalChoice.tooltip ?? titleTooltip
+            anchor = terminalFrame
+        } else if titleTooltip != nil, titleFrame.contains(point) {
+            itemID = "machinen.status.title"
             detail = titleTooltip
             anchor = titleFrame
         } else {
@@ -284,13 +401,7 @@ final class MachinenStatusBarView: NSView {
             width: max(0, bounds.width - Metrics.leftInset - Metrics.rightInset),
             height: 16
         )
-        let titleWidth = drawText(
-            title,
-            at: baseline.origin,
-            color: NSColor(calibratedWhite: 0.78, alpha: 1),
-            font: .systemFont(ofSize: 11, weight: .semibold)
-        )
-        titleFrame = NSRect(x: baseline.minX, y: 8, width: titleWidth, height: 24)
+        let titleWidth = drawNavigationTitle(at: baseline.origin)
         var leftX = baseline.minX + titleWidth + Metrics.sectionGap
         var rightX = bounds.width - Metrics.rightInset
         var frames: [WidgetFrame] = []
@@ -321,6 +432,67 @@ final class MachinenStatusBarView: NSView {
         }
 
         widgetFrames = frames
+    }
+
+    private func drawNavigationTitle(at point: NSPoint) -> CGFloat {
+        workspaceFrame = .zero
+        terminalFrame = .zero
+        guard let selectedWorkspaceID,
+              let workspace = workspaceChoices.first(where: { $0.id == selectedWorkspaceID })
+        else {
+            let width = drawText(
+                title,
+                at: point,
+                color: NSColor(calibratedWhite: 0.78, alpha: 1),
+                font: .systemFont(ofSize: 11, weight: .semibold)
+            )
+            titleFrame = NSRect(x: point.x, y: 8, width: width, height: 24)
+            return width
+        }
+
+        var x = point.x
+        let workspaceWidth = drawMenuTitle(workspace.title, at: NSPoint(x: x, y: point.y))
+        workspaceFrame = NSRect(x: x - 4, y: 8, width: workspaceWidth + 8, height: 24)
+        x += workspaceWidth
+
+        if let selectedTerminalID,
+           let terminal = terminalChoices.first(where: { $0.id == selectedTerminalID })
+        {
+            x += 7
+            let separatorWidth = drawText(
+                "›",
+                at: NSPoint(x: x, y: point.y),
+                color: NSColor(calibratedWhite: 0.42, alpha: 1),
+                font: .systemFont(ofSize: 11, weight: .medium)
+            )
+            x += separatorWidth + 7
+            let terminalWidth = drawMenuTitle(terminal.title, at: NSPoint(x: x, y: point.y))
+            terminalFrame = NSRect(x: x - 4, y: 8, width: terminalWidth + 8, height: 24)
+            x += terminalWidth
+            titleFrame = workspaceFrame.union(terminalFrame)
+        } else {
+            titleFrame = workspaceFrame
+        }
+        return x - point.x
+    }
+
+    private func drawMenuTitle(_ text: String, at point: NSPoint) -> CGFloat {
+        let color = NSColor(calibratedWhite: 0.78, alpha: 1)
+        let textWidth = drawText(
+            text,
+            at: point,
+            color: color,
+            font: .systemFont(ofSize: 11, weight: .semibold)
+        )
+        let arrowX = point.x + textWidth + 5
+        let arrow = NSBezierPath()
+        arrow.move(to: NSPoint(x: arrowX, y: point.y + 5))
+        arrow.line(to: NSPoint(x: arrowX + 6, y: point.y + 5))
+        arrow.line(to: NSPoint(x: arrowX + 3, y: point.y + 8))
+        arrow.close()
+        color.withAlphaComponent(0.72).setFill()
+        arrow.fill()
+        return textWidth + 11
     }
 
     private func draw(_ widget: MachinenStatusWidget, in rect: NSRect) {

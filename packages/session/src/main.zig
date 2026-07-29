@@ -3,7 +3,7 @@ const session = @import("session");
 const worker = @import("worker");
 
 const Exit = enum(u8) { ok = 0, failed = 1, usage = 2 };
-const version = "0.5.1";
+const version = "0.5.4";
 
 pub fn main(init: std.process.Init) !u8 {
     var args = init.minimal.args.iterate();
@@ -16,6 +16,7 @@ pub fn main(init: std.process.Init) !u8 {
     }
 
     if (std.mem.eql(u8, command, "database")) return runDatabase(init, &args);
+    if (std.mem.eql(u8, command, "workspace")) return runWorkspace(init, &args);
     if (std.mem.eql(u8, command, "new")) return runNew(init, &args);
     if (std.mem.eql(u8, command, "list")) return runList(init, &args);
     if (std.mem.eql(u8, command, "inspect")) return runInspect(init, &args);
@@ -33,20 +34,120 @@ fn runDatabase(init: std.process.Init, args: anytype) !u8 {
     const operation = args.next() orelse return writeUsage(init.io);
     const path = args.next() orelse return writeUsage(init.io);
     if (args.next() != null) return writeUsage(init.io);
-    if (!std.mem.eql(u8, operation, "init") and !std.mem.eql(u8, operation, "status")) {
+    if (!std.mem.eql(u8, operation, "init") and
+        !std.mem.eql(u8, operation, "status") and
+        !std.mem.eql(u8, operation, "compact"))
+    {
         return writeUsage(init.io);
     }
 
     var store = session.Store.open(init.gpa, path) catch |err| return fail(init, err);
     defer store.close();
+    const compacted = std.mem.eql(u8, operation, "compact");
+    if (compacted) store.compact() catch |err| return fail(init, err);
     const info = store.info() catch |err| return fail(init, err);
+    const storage = store.storageInfo() catch |err| return fail(init, err);
     try writeJson(init.gpa, init.io, .{
         .ok = true,
         .database = path,
+        .compacted = compacted,
         .schemaVersion = info.schema_version,
+        .workspaces = info.workspace_count,
         .sessions = info.session_count,
         .events = info.event_count,
         .checkpoints = info.checkpoint_count,
+        .pageSize = storage.page_size,
+        .pages = storage.page_count,
+        .freePages = storage.free_page_count,
+        .autoVacuum = storage.auto_vacuum,
+        .allocatedBytes = storage.page_size * storage.page_count,
+        .liveBytes = storage.page_size * (storage.page_count - storage.free_page_count),
+    });
+    return @intFromEnum(Exit.ok);
+}
+
+const WorkspaceView = struct {
+    id: []const u8,
+    name: []const u8,
+    rootDirectory: []const u8,
+    createdAtMs: i64,
+    updatedAtMs: i64,
+};
+
+fn runWorkspace(init: std.process.Init, args: anytype) !u8 {
+    const operation = args.next() orelse return writeUsage(init.io);
+    std.debug.assert(operation.len > 0);
+    if (std.mem.eql(u8, operation, "list")) return runWorkspaceList(init, args);
+    if (std.mem.eql(u8, operation, "delete")) return runWorkspaceDelete(init, args);
+    if (std.mem.eql(u8, operation, "save")) return runWorkspaceSave(init, args);
+    return writeUsage(init.io);
+}
+
+fn runWorkspaceList(init: std.process.Init, args: anytype) !u8 {
+    const database = requiredDatabase(args) catch return writeUsage(init.io);
+    std.debug.assert(database.len > 0);
+    var store = session.Store.open(init.gpa, database) catch |err| return fail(init, err);
+    defer store.close();
+    const records = store.listWorkspaces(init.gpa) catch |err| return fail(init, err);
+    defer freeWorkspaces(init.gpa, records);
+    try writeWorkspaceList(init, records);
+    return @intFromEnum(Exit.ok);
+}
+
+fn runWorkspaceDelete(init: std.process.Init, args: anytype) !u8 {
+    const target = parseTarget(args) catch return writeUsage(init.io);
+    std.debug.assert(target.database.len > 0 and target.reference.len > 0);
+    var store = session.Store.open(
+        init.gpa,
+        target.database,
+    ) catch |err| return fail(init, err);
+    defer store.close();
+    store.deleteWorkspace(target.reference) catch |err| return fail(init, err);
+    try writeJson(init.gpa, init.io, .{ .ok = true, .id = target.reference });
+    return @intFromEnum(Exit.ok);
+}
+
+fn runWorkspaceSave(init: std.process.Init, args: anytype) !u8 {
+    const database_flag = args.next() orelse return writeUsage(init.io);
+    const database = args.next() orelse return writeUsage(init.io);
+    const id_flag = args.next() orelse return writeUsage(init.io);
+    const id = args.next() orelse return writeUsage(init.io);
+    const name_flag = args.next() orelse return writeUsage(init.io);
+    const name = args.next() orelse return writeUsage(init.io);
+    const root_flag = args.next() orelse return writeUsage(init.io);
+    const root_directory = args.next() orelse return writeUsage(init.io);
+    if (!std.mem.eql(u8, database_flag, "--database") or
+        !std.mem.eql(u8, id_flag, "--id") or
+        !std.mem.eql(u8, name_flag, "--name") or
+        !std.mem.eql(u8, root_flag, "--root")) return writeUsage(init.io);
+    std.debug.assert(database.len > 0 and id.len > 0 and name.len > 0);
+
+    var store = session.Store.open(init.gpa, database) catch |err| return fail(init, err);
+    defer store.close();
+    store.upsertWorkspace(.{
+        .id = id,
+        .name = name,
+        .root_directory = root_directory,
+    }) catch |err| return fail(init, err);
+    while (args.next()) |session_flag| {
+        if (!std.mem.eql(u8, session_flag, "--session")) return writeUsage(init.io);
+        const session_id = args.next() orelse return writeUsage(init.io);
+        store.assignSessionWorkspace(session_id, id) catch |err| switch (err) {
+            error.SessionNotFound => continue,
+            else => return fail(init, err),
+        };
+    }
+    var workspace = (store.getWorkspace(id) catch |err| return fail(init, err)).?;
+    defer workspace.deinit(init.gpa);
+    try writeJson(init.gpa, init.io, .{
+        .ok = true,
+        .workspace = WorkspaceView{
+            .id = workspace.id,
+            .name = workspace.name,
+            .rootDirectory = workspace.root_directory,
+            .createdAtMs = workspace.created_at_ms,
+            .updatedAtMs = workspace.updated_at_ms,
+        },
     });
     return @intFromEnum(Exit.ok);
 }
@@ -55,17 +156,32 @@ fn runNew(init: std.process.Init, args: anytype) !u8 {
     var database: ?[]const u8 = null;
     var id: ?[]const u8 = null;
     var name: ?[]const u8 = null;
+    var workspace_id: ?[]const u8 = null;
+    var workspace_name: ?[]const u8 = null;
+    var workspace_root: ?[]const u8 = null;
     var working_directory: ?[]const u8 = null;
     var rows: u16 = 24;
     var columns: u16 = 80;
-    var checkpoint_bytes: u32 = 256 * 1024;
-    var command: std.ArrayList([]const u8) = .empty;
+    var checkpoint_bytes: u32 = worker.default_checkpoint_bytes;
+    var command: StringList = .empty;
     defer command.deinit(init.gpa);
 
     while (args.next()) |argument| {
         if (std.mem.eql(u8, argument, "--")) {
             while (args.next()) |item| try command.append(init.gpa, item);
             break;
+        }
+        if (std.mem.eql(u8, argument, "--workspace-id")) {
+            workspace_id = args.next() orelse return writeUsage(init.io);
+            continue;
+        }
+        if (std.mem.eql(u8, argument, "--workspace-name")) {
+            workspace_name = args.next() orelse return writeUsage(init.io);
+            continue;
+        }
+        if (std.mem.eql(u8, argument, "--workspace-root")) {
+            workspace_root = args.next() orelse return writeUsage(init.io);
+            continue;
         }
         if (std.mem.eql(u8, argument, "--database")) {
             database = args.next() orelse return writeUsage(init.io);
@@ -91,28 +207,96 @@ fn runNew(init: std.process.Init, args: anytype) !u8 {
             return writeUsage(init.io);
         }
     }
-    if (database == null or id == null or working_directory == null or command.items.len == 0) {
-        return writeUsage(init.io);
-    }
-
-    const argv_json = try std.json.Stringify.valueAlloc(init.gpa, command.items, .{});
-    defer init.gpa.free(argv_json);
-    const spawned = worker.spawnDetached(.{
-        .database_path = database.?,
-        .id = id.?,
+    return launchNew(init, .{
+        .database = database,
+        .id = id,
         .name = name,
-        .working_directory = working_directory.?,
-        .argv_json = argv_json,
-        .command = command.items,
+        .workspace_id = workspace_id,
+        .workspace_name = workspace_name,
+        .workspace_root = workspace_root,
+        .working_directory = working_directory,
         .rows = rows,
         .columns = columns,
         .checkpoint_bytes = checkpoint_bytes,
+        .command = command.items,
+    });
+}
+
+const StringList = std.ArrayList([]const u8);
+
+const NewRequest = struct {
+    database: ?[]const u8,
+    id: ?[]const u8,
+    name: ?[]const u8,
+    workspace_id: ?[]const u8,
+    workspace_name: ?[]const u8,
+    workspace_root: ?[]const u8,
+    working_directory: ?[]const u8,
+    rows: u16,
+    columns: u16,
+    checkpoint_bytes: u32,
+    command: []const []const u8,
+};
+
+fn launchNew(init: std.process.Init, request: NewRequest) !u8 {
+    if (request.database == null or request.id == null or
+        request.working_directory == null or request.command.len == 0)
+    {
+        return writeUsage(init.io);
+    }
+    std.debug.assert(request.command.len > 0 and request.database.?.len > 0);
+    const workspace_field_count: u8 = @as(u8, @intFromBool(request.workspace_id != null)) +
+        @as(u8, @intFromBool(request.workspace_name != null)) +
+        @as(u8, @intFromBool(request.workspace_root != null));
+    if (workspace_field_count != 0 and workspace_field_count != 3) return writeUsage(init.io);
+    if (try adoptExistingSession(init, request)) |result| return result;
+
+    const argv_json = try std.json.Stringify.valueAlloc(init.gpa, request.command, .{});
+    defer init.gpa.free(argv_json);
+    const spawned = worker.spawnDetached(.{
+        .database_path = request.database.?,
+        .id = request.id.?,
+        .name = request.name,
+        .workspace_id = request.workspace_id,
+        .working_directory = request.working_directory.?,
+        .argv_json = argv_json,
+        .command = request.command,
+        .rows = request.rows,
+        .columns = request.columns,
+        .checkpoint_bytes = request.checkpoint_bytes,
     }) catch |err| return fail(init, err);
     try writeJson(init.gpa, init.io, .{
         .ok = true,
-        .id = id.?,
-        .name = name,
+        .id = request.id.?,
+        .name = request.name,
         .workerPid = spawned.worker_pid,
+    });
+    return @intFromEnum(Exit.ok);
+}
+
+fn adoptExistingSession(init: std.process.Init, request: NewRequest) !?u8 {
+    const workspace_id = request.workspace_id orelse return null;
+    std.debug.assert(workspace_id.len > 0 and request.database != null);
+    var store = session.Store.open(
+        init.gpa,
+        request.database.?,
+    ) catch |err| return try fail(init, err);
+    defer store.close();
+    store.upsertWorkspace(.{
+        .id = workspace_id,
+        .name = request.workspace_name.?,
+        .root_directory = request.workspace_root.?,
+    }) catch |err| return try fail(init, err);
+    const existing_value = store.getSession(request.id.?) catch |err| return try fail(init, err);
+    var existing = existing_value orelse return null;
+    defer existing.deinit(init.gpa);
+    store.assignSessionWorkspace(existing.id, workspace_id) catch |err| return try fail(init, err);
+    try writeJson(init.gpa, init.io, .{
+        .ok = true,
+        .id = existing.id,
+        .name = existing.name,
+        .existing = true,
+        .workerPid = existing.worker_pid,
     });
     return @intFromEnum(Exit.ok);
 }
@@ -121,6 +305,7 @@ const SessionView = struct {
     id: []const u8,
     name: ?[]const u8,
     state: []const u8,
+    workspaceId: ?[]const u8,
     workingDirectory: []const u8,
     rows: u32,
     columns: u32,
@@ -145,6 +330,7 @@ fn runList(init: std.process.Init, args: anytype) !u8 {
         .id = record.id,
         .name = record.name,
         .state = @tagName(record.state),
+        .workspaceId = record.workspace_id,
         .workingDirectory = record.working_directory,
         .rows = record.rows,
         .columns = record.columns,
@@ -418,7 +604,7 @@ fn runGc(init: std.process.Init, args: anytype) !u8 {
         0
     else
         now_ms - @as(i64, @intCast(age_ms));
-    var removed: std.ArrayList([]const u8) = .empty;
+    var removed: StringList = .empty;
     defer removed.deinit(init.gpa);
     for (records) |record| {
         if ((record.state == .exited or record.state == .stopped or record.state == .orphaned) and
@@ -521,11 +707,36 @@ fn writeJson(allocator: std.mem.Allocator, io: std.Io, value: anytype) !void {
     try writeJsonTo(allocator, io, std.Io.File.stdout(), value);
 }
 
+fn writeWorkspaceList(init: std.process.Init, records: []const session.Workspace) !void {
+    std.debug.assert(records.len == 0 or records[0].id.len > 0);
+    const stdout = std.Io.File.stdout();
+    try stdout.writeStreamingAll(init.io, "{\"ok\":true,\"workspaces\":[");
+    for (records, 0..) |record, index| {
+        if (index > 0) try stdout.writeStreamingAll(init.io, ",");
+        const output = try std.json.Stringify.valueAlloc(init.gpa, WorkspaceView{
+            .id = record.id,
+            .name = record.name,
+            .rootDirectory = record.root_directory,
+            .createdAtMs = record.created_at_ms,
+            .updatedAtMs = record.updated_at_ms,
+        }, .{});
+        defer init.gpa.free(output);
+        try stdout.writeStreamingAll(init.io, output);
+    }
+    try stdout.writeStreamingAll(init.io, "]}\n");
+}
+
 fn writeJsonTo(allocator: std.mem.Allocator, io: std.Io, file: std.Io.File, value: anytype) !void {
     const output = try std.json.Stringify.valueAlloc(allocator, value, .{});
     defer allocator.free(output);
     try file.writeStreamingAll(io, output);
     try file.writeStreamingAll(io, "\n");
+}
+
+fn freeWorkspaces(allocator: std.mem.Allocator, records: []session.Workspace) void {
+    std.debug.assert(records.len == 0 or records[0].id.len > 0);
+    for (records) |*record| record.deinit(allocator);
+    allocator.free(records);
 }
 
 fn freeSessions(allocator: std.mem.Allocator, records: []session.Session) void {
@@ -542,7 +753,8 @@ fn writeUsage(io: std.Io) !u8 {
     try std.Io.File.stderr().writeStreamingAll(
         io,
         "usage: machinen-session " ++
-            "<new|list|inspect|attach|send|signal|stop|delete|reconcile|gc|database|help> ...\n",
+            "<workspace|new|list|inspect|attach|send|signal|stop|delete|" ++
+            "reconcile|gc|database|help> ...\n",
     );
     return @intFromEnum(Exit.usage);
 }
@@ -554,7 +766,13 @@ fn writeHelp(io: std.Io) !u8 {
         \\Usage:
         \\  machinen-session database init <path>
         \\  machinen-session database status <path>
+        \\  machinen-session database compact <path>  # requires all sessions to be stopped
+        \\  machinen-session workspace list --database <path>
+        \\  machinen-session workspace save --database <path> --id <id> --name <name>
+        \\      --root <path> [--session <id>]...
+        \\  machinen-session workspace delete --database <path> <id>
         \\  machinen-session new --database <path> --id <id> [--name <name>]
+        \\      [--workspace-id <id> --workspace-name <name> --workspace-root <path>]
         \\      --cwd <path> [--rows <n>] [--columns <n>] [--checkpoint-bytes <n>]
         \\      -- <command> [args...]
         \\  machinen-session list --database <path>
@@ -589,4 +807,5 @@ test "help aliases and dimensions remain stable" {
     try std.testing.expectEqual(@as(u16, 120), try parseDimension("120"));
     try std.testing.expectError(error.InvalidDimension, parseDimension("0"));
     try std.testing.expectEqual(@as(u32, 262_144), try parseCheckpointBytes("262144"));
+    try std.testing.expectEqual(@as(u32, 4 * 1024 * 1024), worker.default_checkpoint_bytes);
 }

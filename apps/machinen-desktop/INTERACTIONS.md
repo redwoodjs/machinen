@@ -12,8 +12,11 @@ workspace
         └── persistent PTY process
 ```
 
-A **workspace** persists a default location—either a local folder or an SSH
-host plus remote folder—and workspace-scoped status items. A **tile** is the
+A **workspace** has a stable ID and a mutable directory root—either a local
+folder or an SSH host plus remote folder—and workspace-scoped status items. The
+native session store on the execution machine persists that workspace record and
+explicit session membership, while each Desktop keeps only its own presentation
+cache. A **tile** is the
 spatial object reordered within that workspace; it links the terminal to its
 current foreground process PID. A **terminal** owns
 the launch configuration, emulator, and persistent PTY. A workspace with one
@@ -32,8 +35,9 @@ discovery use the workspace directory as their project boundary.
 | `⌘←` / `⌘→`      | From Terminal mode, focus the previous/next terminal in the current workspace.         |
 | `⌘[` / `⌘]`      | From Terminal mode, focus the first terminal in the previous/next non-empty workspace. |
 | `⌘N`             | Open the New chooser; never create a terminal or workspace immediately.                |
-| `⌘K`             | Open workspace commands, including recently closed terminals.                          |
-| `⌘O`             | Open the registered **Open Selection With** destinations for selected terminal text.   |
+| `⌘K`             | Open workspace commands, including reconnecting available sessions.                    |
+| `⌘O`             | Show the focused terminal's full context menu.                                         |
+| `⌘W`             | Disconnect a terminal; press again in its toast or panel to kill its session.          |
 | Keyboard input   | In Terminal mode, the terminal receives all other keys and modifier combinations.      |
 | Arrow keys       | Move the selection only at the current overview level.                                 |
 | Click            | A terminal preview focuses its terminal.                                               |
@@ -45,8 +49,8 @@ discovery use the workspace directory as their project boundary.
 ## Input modes
 
 - **Navigate mode:** no terminal is focused. It has two camera levels:
-  - **Workspace overview:** terminal previews identify their workspace but do
-    not move out of it; workspace cards can be dragged to reorder workspaces.
+  - **Workspace overview:** unlabeled workspace cards contain terminal previews
+    that do not move out of them; cards can be dragged to reorder workspaces.
   - **Workspace deck:** terminal previews can be dragged to reorder them inside
     that workspace.
 - **Terminal mode:** one terminal is focused, and its viewport owns every
@@ -57,8 +61,9 @@ discovery use the workspace directory as their project boundary.
   focusing the adjacent terminal. The bracket shortcuts wrap through non-empty
   workspaces: they zoom out to the source workspace, zoom out to the workspace
   overview and select the adjacent workspace, then zoom into its first tile.
-  `⌘K` opens workspace commands without changing camera level. `⌘O` opens
-  TypeScript-registered destinations for the current terminal selection.
+  `⌘K` opens workspace commands without changing camera level. `⌘O` opens the
+  focused terminal's full context menu, including its **Open Selection With**
+  submenu when text is selected.
 
 `⌘+` / `⌘−` changes only camera magnification in equal increments, and `⌘0` resets it to actual size; all preserve the current hierarchy level. `⌘↓` / `⌘↑` moves through the camera hierarchy. Neither changes terminal scrollback.
 The terminal viewport keeps the same intrinsic bounds and Ghostty grid while the
@@ -99,22 +104,23 @@ When no workspace exists, only **New workspace…** is available.
 
 Creating a workspace chooses its default location before naming it:
 
-1. **Choose a default location.** Previously selected local and SSH locations
-   appear first and can be reused directly, including locations whose old
-   workspaces were removed. **Browse local…** opens Machinen's directory picker
-   at `$HOME`. **Browse over SSH…** chooses an OpenSSH host and opens the same
-   picker model at that host's `$HOME`; Return opens a child folder, while **Use
-   this folder** selects the current directory.
-2. **Name the workspace.** Machinen suggests the selected directory's basename.
-   Names are trimmed, case-insensitively unique, and remain editable later. The
-   dialog keeps validation errors in place.
-3. Machinen creates the workspace, creates its initial login-shell terminal,
-   and enters it.
+1. **Choose a location.** Previously selected local and SSH locations appear
+   first and can be reused directly. **Browse local…** opens Machinen's directory
+   picker at `$HOME`. **Browse over SSH…** chooses an OpenSSH host and opens the
+   same picker model at that host's `$HOME`; Return opens a child folder, while
+   **Use this folder** selects the current directory.
+2. Machinen asks the native session store on that machine whether the directory
+   already roots a workspace. If it does, Desktop restores the saved workspace
+   ID and name and opens its Sessions panel; it does not create an empty duplicate.
+3. Otherwise, **name the workspace.** Machinen suggests the selected directory's
+   basename. Names are trimmed, case-insensitively unique, and remain editable
+   later. The dialog keeps validation errors in place.
+4. Machinen saves the workspace in the native store, creates its initial
+   login-shell terminal, and enters it.
 
 Escape always moves back one dialog or remote parent-directory level; it closes
-the dialog only from the top-level New chooser. Picking a known location creates
-a new named workspace there; it
-does not open, move, copy, or delete another workspace.
+the dialog only from the top-level New chooser. Picking a registered location
+restores its workspace; a location without a native record creates a new one.
 
 **SSH is a workspace location, not a special terminal type.** The SSH flow asks
 for an OpenSSH host or alias (for example `mini` or `peter@server`) and then a
@@ -131,14 +137,16 @@ workspace chooser.
 ## Open Selection With and workspace commands
 
 Right-clicking a terminal shows its normal editing commands and an **Open
-Selection With** submenu. `⌘O` opens the same registered destinations for the
-current selection. Choosing a destination publishes the full selected text,
-terminal working directory, execution location, and stable
-workspace/tile/terminal IDs through the local API. Trusted TypeScript
+Selection With** submenu. `⌘O` opens the same full terminal context menu from the
+keyboard; when text is selected, its **Open Selection With** submenu contains
+matching registered destinations. Choosing a destination publishes the full
+selected text, terminal working directory, execution location, and stable
+workspace/tile/terminal IDs through the local API. Relative paths resolve from
+the latest OSC 7 directory, falling back to the terminal's launch directory. Trusted TypeScript
 `SelectionOpener` implementations perform precise validation and ordinary API
 operations such as creating a terminal or revealing a path in Finder.
 
-`⌘K` and the application menu's **Commands…** contain exactly five workspace
+`⌘K` and the application menu's **Commands…** contain five built-in workspace
 actions. Escape always moves back one level within a command flow; only Escape
 from this top-level menu dismisses it:
 
@@ -149,7 +157,10 @@ from this top-level menu dismisses it:
 3. **Change workspace location…** chooses either a local folder or a remote
    `alias:path` reachable through the user's SSH configuration. It is available
    at any time, including while terminals are running.
-4. **Recently closed terminals…** opens the workspace-scoped undo manager.
+4. **Sessions…** opens a floating, keyboard-navigable list of every terminal
+   session in the workspace. Each row prominently shows **Attached** or
+   **Not attached**. Return toggles that attachment; Delete or `⌘W` kills the
+   session.
 5. **Close workspace…** asks for confirmation, terminates its PTY processes,
    and removes its saved workspace and terminal definitions.
 
@@ -159,11 +170,12 @@ OpenSSH configuration. Machinen checks the connection and resolves the remote
 folder before creating or rebinding the workspace; the folder must already
 exist.
 
-Machinen allows several workspaces to share a location and allows the location
-to change at any time. Existing terminals keep their own execution locations;
-they are not moved or restarted. The new workspace location becomes the default
-for new terminals and workspace-scoped services while preserving the same
-workspace ID and status scope. For an SSH location, Machinen installs its small native session helper
+Machinen allows several explicitly identified workspaces to share a location and
+allows a location to change at any time. Existing terminals keep their own
+execution locations; they are not moved or restarted. The native stores retain
+the stable workspace ID and explicit membership on every machine that still owns
+one of its sessions, while the new location becomes the root for new terminals
+and workspace-scoped services. For an SSH location, Machinen installs its small native session helper
 on the SSH host and the remote worker owns the PTY in the selected folder. The
 local Ghostty view attaches through SSH, so closing Desktop or losing the SSH
 connection does not stop remote work. Git instruments and local-service
@@ -207,10 +219,13 @@ clicked.
 
 ## Programmable status bar
 
-Machinen has one persistent status bar. At workspace level its title is the
-workspace name and hovering it reveals the bound path. At terminal level the
-title is `workspace name > terminal name`; its hover detail shows the bound path
-and any observed foreground command. An API client can set a persistent title
+Machinen has one persistent status bar. The workspace title is a dropdown of all
+workspaces in spatial order. Choosing its current workspace moves the camera one
+level out; choosing another workspace enters that workspace. At terminal level,
+the terminal title is a second dropdown of that workspace's terminals in spatial
+order, so choosing one focuses it. Hovering either title reveals its bound path,
+and terminal hover detail also shows any observed foreground command. An API
+client can set a persistent title
 override with `terminal.update`, or clear it to return to the saved terminal
 name. A terminal program can set a temporary
 runtime label with OSC 2 `machinen:<label>` (and clear it with `machinen:`);
@@ -220,14 +235,18 @@ works through SSH.
 The macOS **View** menu contains **Show Debug Information**, which presents the
 current workspace or terminal's diagnostics without interrupting its PTY.
 
-The top-right strip is graphical at rest. In a **workspace**, its activity
+The top-right strip is graphical at rest. It occupies its own layout row; the
+scene viewport starts below it, so terminal content never renders underneath
+the status bar. In a **workspace**, its activity
 monitor summarizes all terminals with visible active/idle/waiting tile counts,
 and the strip also shows aggregate tile CPU, aggregate tile network transfer,
 and branch-wide Git changes. The Git item shows only the total changed-file count at rest; hovering
 reveals the branch, commits since its default-branch merge base, changed files,
 and added and deleted lines. In a **focused tile**, the activity indicator shows that tile's state; hovering
 shows its foreground PID as `PID #### · click to copy`, and clicking copies the
-number. The strip also shows CPU and network transfer for that PID and its local
+number. When a running native session inside the workspace has no Desktop tile,
+a count item appears in the strip; clicking it opens the same panel as
+**Sessions…**. The strip also shows CPU and network transfer for that PID and its local
 child processes, plus workspace branch changes. Git is
 scoped to the selected workspace. Open ports include listeners whose process
 working directory is the selected workspace folder or one of its descendants,
@@ -247,19 +266,16 @@ Machine widgets override global widgets, workspace widgets override machine
 widgets, and terminal widgets override workspace widgets with the same ID. TTLs
 remove stale live data.
 
-## Closing and undo
+## Disconnecting and killing
 
 `⌘W` never closes Machinen's macOS window:
 
-- In a workspace with multiple terminals, it immediately removes the selected terminal from the scene and buffers the close for five minutes.
-- The buffered terminal keeps the same persistent PTY, process tree, Ghostty surface, scrollback, selection, and viewport while Desktop remains open.
-- A three-second toast offers **Restore `⌘Z`** and **Kill `⌘W`** without covering the workspace for the full grace period. While it is visible, those shortcuts apply to the terminal named in the toast.
-- `⌘K` opens the normal workspace command menu; **Recently closed terminals…** opens the selected workspace's undo manager. It lists up to five terminals, shows each live countdown, and can **Restore** or **Kill** a specific terminal. Restoring dismisses the manager and returns focus to the terminal.
-- `⇧⌘T` restores the latest closed terminal in the selected workspace and keeps its former position.
-- **Kill** makes a buffered close irreversible immediately. Otherwise Machinen stops and deletes the native session when the five-minute deadline expires.
-- At most five recently closed terminals retain resources; closing another finalizes the oldest one.
-- In Navigate mode's workspace overview or a singleton workspace, `⌘W` still confirms before closing the workspace and all of its terminals.
-- Pending closes persist across a Desktop restart, although a newly created Ghostty surface can restore only the worker's latest visible screen rather than renderer-owned scrollback or viewport state.
+- Inside a workspace, `⌘W` removes the selected terminal tile and disconnects its viewer. The native session, PTY, and process tree continue running indefinitely, including for a singleton workspace.
+- A three-second toast offers **Reconnect `⌘Z`** and **Kill `⌘W`**. Pressing `⌘W` again while the toast is visible kills the disconnected session.
+- The status bar counts sessions that are not attached to Desktop. Its item and `⌘K` → **Sessions…** open the same workspace-scoped panel, which lists sessions by their durable native `workspace_id` membership with an explicit **Attached** or **Not attached** state. Legacy records without membership temporarily fall back to launch-directory containment. Return toggles attachment; Delete or `⌘W` kills the selection.
+- `⇧⌘T` reconnects the latest disconnected terminal in the selected workspace and restores its former position.
+- Disconnected terminals persist across a Desktop restart. If Desktop's private manifest is lost, it reconstructs local native workspaces automatically; selecting a registered SSH directory does the same remotely. Reconnection creates a fresh Ghostty renderer from the worker's latest visible screen rather than restoring renderer-owned scrollback, selection, or viewport state.
+- In Navigate mode's workspace overview, `⌘W` still confirms before closing the workspace and killing all of its sessions.
 - Files in working directories are never deleted.
 
 ## Automated interaction check

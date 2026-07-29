@@ -65,6 +65,7 @@ function workspaceSnapshot(): DesktopSnapshot {
         pid: 42,
         shellPid: 40,
         workingDirectory: "/tmp/project",
+        currentWorkingDirectory: null,
         location: { kind: "local", path: "/tmp/project" },
         backend: "machinenSession",
         processState: "running",

@@ -23,6 +23,13 @@ desktop.onEvent((event) => {
   console.log(event.event, event.data);
 });
 
+await desktop.commands.set({
+  id: "example.yazi-cwd",
+  title: "Open terminal directory in Yazi",
+  context: "terminal",
+  ttlMilliseconds: 30_000,
+});
+
 await desktop.selectionOpeners.set({
   id: "example.open-markdown",
   title: "Glow",
@@ -45,5 +52,5 @@ open Machinen when needed unless `launchApplication` is `false` or
 `MACHINEN_DESKTOP_NO_LAUNCH=1`.
 
 The SDK contains transport, protocol, workspace, terminal, UI, event, context
-action, and status widget types. Agent loops, model providers, workflows, prompts, and memory belong
+command, selection opener, and status widget types. Agent loops, model providers, workflows, prompts, and memory belong
 in higher-level systems such as Eve or Flue.

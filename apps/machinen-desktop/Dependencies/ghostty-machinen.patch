@@ -221,3 +221,21 @@ index fcf3055..2afe148 100644
 -
      return self;
  }
+diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
+index 0d5a4f8da..519a35f2b 100644
+--- a/src/apprt/embedded.zig
++++ b/src/apprt/embedded.zig
+@@ -1678 +1678 @@ pub const CAPI = struct {
+-    export fn ghostty_surface_free_text(ptr: *Text) void {
++    export fn ghostty_surface_free_text(_: *Surface, ptr: *Text) void {
+diff --git a/src/renderer/Metal.zig b/src/renderer/Metal.zig
+index 6c7432d21..ae7ba5927 100644
+--- a/src/renderer/Metal.zig
++++ b/src/renderer/Metal.zig
+@@ -159,2 +159,6 @@ pub fn init(alloc: Allocator, opts: rendererpkg.Options) !Metal {
+ pub fn deinit(self: *Metal) void {
++    // The host view retains this layer after the renderer releases it. Clear
++    // the callback before freeing Renderer so later layout transactions cannot
++    // call drawFrame with the released renderer as their context.
++    self.layer.setDisplayCallback(null, null);
+     self.queue.release();

@@ -35,6 +35,7 @@ function stateFor(activityStates: Array<"working" | "waiting" | "idle" | "unknow
       pid: index + 10,
       shellPid: index + 10,
       workingDirectory: "/tmp/project",
+      currentWorkingDirectory: null,
       location: { kind: "local", path: "/tmp/project" },
       backend: "machinenSession",
       processState: "running",
