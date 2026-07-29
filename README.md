@@ -6,21 +6,53 @@
 
 **Your computer is already a cloud. Machinen makes it feel like one.**
 
-You already have machines: one on your lap, one on your desk, maybe one
-humming in a closet. Machinen gives you small, named Linux VMs on the
-hardware you control. They run in the background, keep terminal sessions
-alive, and let you reconnect from another shell later.
+Machinen turns the computers you already own into a persistent, spatial,
+programmable environment. It is made of three parts.
+
+## Part 1: Machinen Desktop
+
+Machinen Desktop is a spatial desktop for persistent terminal windows. Arrange
+terminals into workspaces and move through them as a scene instead of a stack of
+tabs.
+
+The entire app is controllable through a TypeScript API. Your agent can create
+and arrange windows, run commands, and manage the workspace while you observe.
+
+It's also fully pluggable through TypeScript. Plugins can add status-bar
+widgets, handle events, define context menus, and more, so each workspace can be
+tailored to its own needs.
+
+Learn more about [Machinen Desktop](./apps/machinen-desktop/README.md) and its
+[TypeScript SDK](./packages/desktop-sdk/README.md).
+
+## Part 2: Machinen Sessions
+
+Every terminal is backed by a multiplexer, so sessions survive closed windows,
+app restarts, and dropped SSH connections—and friends can join those same
+sessions to collaborate and share compute.
+
+Machinen Sessions is the portable native layer that owns each PTY independently
+of Desktop, its windows, and its network connections. You can use it through
+Desktop or directly from the `machinen terminal` CLI.
+
+Learn more about [Machinen Sessions](./packages/session/README.md).
+
+## Part 3: Machinen Runtime
+
+You already have machines: one on your lap, one on your desk, maybe one humming
+in a closet. Machinen Runtime gives you small, named Linux VMs on the hardware
+you control. They run in the background and let you reconnect from another
+shell later.
 
 No tiny rented slice. No hyperscaler-shaped workflow. Just cloud-shaped
 computers that belong to you.
 
-Under the hood, Machinen is a native microVM runtime: arm64 on Apple
-Silicon/Linux and amd64 on Linux/KVM. Node.js is the first-class target;
-Python, bash, and anything else that boots in a Linux VM works too. When
-you need the weird stuff, you can snapshot, fork, and hand off a running
-VM between hosts.
+Under the hood, Machinen Runtime is native: arm64 on Apple Silicon/Linux and
+amd64 on Linux/KVM. Node.js is the first-class target; Python, bash, and anything
+else that boots in a Linux VM works too. When you need the weird stuff, you can
+snapshot, fork, and hand off a running VM between hosts.
 
-## The loop
+### The loop
 
 Start a little Linux machine, detach from it, and come back later:
 
@@ -44,7 +76,7 @@ npx machinen session-kill work editor       # reset one session
 npx machinen stop work                      # shut down the VM
 ```
 
-## Install
+### Install
 
 ```bash
 npm i @machinen/cli @machinen/runtime
@@ -62,12 +94,12 @@ The right native package is pulled automatically via optional dependencies:
 First run fetches the matching kernel + rootfs from a GitHub release on the
 companion repo over plain HTTPS — no auth required.
 
-## Quickstart: a tiny service you own
+### Quickstart: a tiny service you own
 
 Bake an image, boot it as a named VM, and let it accumulate state on your
 machine.
 
-### 1. Bake
+#### 1. Bake
 
 A tiny HTTP server that counts hits in memory:
 
@@ -101,7 +133,7 @@ await provision({
 node bake.ts
 ```
 
-### 2. Boot
+#### 2. Boot
 
 ```bash
 npx machinen boot --name counter -p 3000:3000 --detach ./counter.tar.gz
@@ -120,7 +152,7 @@ npx machinen exec counter -- ps aux         # one-off command
 npx machinen attach counter                 # reconnectable shell/TUI
 ```
 
-### 3. Hand it off when you want
+#### 3. Hand it off when you want
 
 Freeze the VM, copy the bundle to host B, and thaw it there:
 
@@ -136,7 +168,7 @@ restore is not supported. The default vmstate snapshot bundle includes CPU
 state, memory, device state, and the root block image needed to restore the
 VM.
 
-## Fork
+### Fork
 
 `fork` is snapshot + restore without killing the source. The original keeps
 running; you get a sibling VM with the same heap, same open files, and a
@@ -181,7 +213,7 @@ From Node, same shape:
 const fork = await vm.fork({ name: "counter-b" });
 ```
 
-## From Node
+### From Node
 
 Same primitives, driven from TypeScript:
 
@@ -207,6 +239,29 @@ await vm.snapshot({ outDir: "./counter.snap" });
 const restored = await restore({ snapDir: "./counter.snap" });
 ```
 
+### Run a recipe without installing
+
+`npx` can download the CLI package and run a signed recipe directly:
+
+```bash
+npx machinen run machinen.dev/run/claude-code        # run by recipe URL
+npx machinen run machinen.dev/run/codex --session work
+npx machinen run list                                 # list runnable URLs
+```
+
+A recipe state path below guest `/root` automatically uses the corresponding
+host-home path. The first approval shows that state plus any external roots
+needed by its symlinks; the same approved access is automatic on later runs.
+
+### Other ways to boot
+
+```bash
+npx machinen boot -- /bin/sh                    # ad-hoc: boot base + run a cmd
+npx machinen boot ./my-image.tar.gz             # boot a provisioned rootfs tarball
+npx machinen install                            # pre-fetch base assets (CI / airgap)
+npx machinen install --version <tag>            # pin to a specific release tag
+```
+
 ## Documentation
 
 - [Quickstart](./docs/quickstart.md) — a longer bake → boot → handoff
@@ -225,29 +280,6 @@ const restored = await restore({ snapDir: "./counter.snap" });
   TypeScript services for activity, Git, ports, CPU, network, and process status
 - [`@machinen/runtime` reference](./packages/runtime/API.md) — every
   exported function, type, and error class (typedoc-generated)
-
-## Run a recipe without installing
-
-`npx` can download the CLI package and run a signed recipe directly:
-
-```bash
-npx machinen run machinen.dev/run/claude-code        # run by recipe URL
-npx machinen run machinen.dev/run/codex --session work
-npx machinen run list                                 # list runnable URLs
-```
-
-A recipe state path below guest `/root` automatically uses the corresponding
-host-home path. The first approval shows that state plus any external roots
-needed by its symlinks; the same approved access is automatic on later runs.
-
-## Other ways to boot
-
-```bash
-npx machinen boot -- /bin/sh                    # ad-hoc: boot base + run a cmd
-npx machinen boot ./my-image.tar.gz             # boot a provisioned rootfs tarball
-npx machinen install                            # pre-fetch base assets (CI / airgap)
-npx machinen install --version <tag>            # pin to a specific release tag
-```
 
 ## Contributing
 
