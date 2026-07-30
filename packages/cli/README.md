@@ -27,7 +27,9 @@ or a script — without writing any TypeScript.
   detached PTY, `terminal list` prints its stable ID and optional name, and
   `terminal attach <id-or-name>` reconnects with bounded SQLite recovery;
   `--latest-screen` skips journal replay and starts from the live visible screen.
-  Writer/resize leases keep multiple attached clients from fighting.
+  Writer/resize leases keep multiple attached clients from fighting. `terminal
+list` shows every connected client and the current controller; `terminal take`
+  transfers control without disconnecting the previous viewer.
 - **Run signed remote recipes in a VM.** Run
   `mn run machinen.dev/run/claude-code` to verify the recipe's Ed25519
   signature and show its requested capabilities before first use.
@@ -90,7 +92,9 @@ npx machinen stop worker
 npx machinen terminal new --name editor -- vim README.md
 npx machinen terminal list
 npx machinen terminal inspect editor
-npx machinen terminal attach editor
+npx machinen terminal attach --client-name laptop editor
+npx machinen terminal list                   # note the attached client ID
+npx machinen terminal take --client-id 123 editor
 npx machinen run list
 npx machinen run machinen.dev/run/claude-code --inspect
 npx machinen run machinen.dev/run/command-code

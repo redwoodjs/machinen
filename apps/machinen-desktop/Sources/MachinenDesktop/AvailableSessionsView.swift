@@ -8,6 +8,7 @@ struct AvailableSessionItem {
 
     let session: AvailableTerminalSession
     let attachmentState: AttachmentState
+    let localClientID: UInt64?
 
     var displayName: String {
         guard let name = session.name, !name.isEmpty else { return session.id }
@@ -15,16 +16,44 @@ struct AvailableSessionItem {
     }
 
     var isAttached: Bool { attachmentState == .attached }
-    var attachmentDescription: String { isAttached ? "ATTACHED" : "NOT ATTACHED" }
-    var stateDescription: String { session.state }
-    var primaryActionTitle: String { isAttached ? "Detach" : "Attach" }
+    var localClient: AttachedTerminalClient? {
+        guard let localClientID else { return nil }
+        return session.clients.first { $0.id == localClientID }
+    }
+    var hasControl: Bool { localClient?.writer == true && localClient?.resize == true }
+    var canTakeControl: Bool {
+        isAttached && session.clientControlAvailable && localClient != nil && !hasControl
+    }
+    var attachmentDescription: String {
+        if hasControl { return "CONTROL" }
+        if isAttached { return session.clientControlAvailable ? "VIEWING" : "ATTACHED" }
+        return "NOT ATTACHED"
+    }
+    var stateDescription: String {
+        guard session.clientControlAvailable else { return session.state }
+        let count = session.clients.count
+        return "\(session.state) · \(count) \(count == 1 ? "client" : "clients")"
+    }
+    var clientsDescription: String? {
+        guard session.clientControlAvailable else { return nil }
+        if session.clients.isEmpty { return "No clients connected" }
+        return session.clients.map { client in
+            let role = client.writer && client.resize ? "CONTROL" : (client.readOnly ? "READ ONLY" : "VIEWING")
+            let local = client.id == localClientID ? " · THIS DESKTOP" : ""
+            return "\(role): \(client.name)\(local)"
+        }.joined(separator: "    ")
+    }
+    var primaryActionTitle: String {
+        if canTakeControl { return "Take Control" }
+        return isAttached ? "Detach" : "Attach"
+    }
 }
 
 final class AvailableSessionsView: NSView {
     private enum Metrics {
         static let panelWidth: CGFloat = 720
         static let headerHeight: CGFloat = 66
-        static let rowHeight: CGFloat = 62
+        static let rowHeight: CGFloat = 78
         static let footerHeight: CGFloat = 34
         static let maximumVisibleRows = 7
     }
@@ -50,6 +79,7 @@ final class AvailableSessionsView: NSView {
     var onDismiss: (() -> Void)?
     var onReconnect: ((String) -> Void)?
     var onDisconnect: ((String) -> Void)?
+    var onTakeControl: ((String) -> Void)?
     var onKill: ((String) -> Void)?
     var onRefresh: (() -> Void)?
 
@@ -119,7 +149,7 @@ final class AvailableSessionsView: NSView {
         }
 
         drawText(
-            "↑↓ select    return attach/detach    delete/⌘W kill    R refresh    esc close",
+            "↑↓ select    return attach/detach/take control    delete/⌘W kill    R refresh    esc close",
             in: NSRect(
                 x: panel.minX + 18,
                 y: panel.maxY - Metrics.footerHeight + 10,
@@ -181,7 +211,8 @@ final class AvailableSessionsView: NSView {
         if let errorMessage { return errorMessage }
         let count = items.count
         let attachedCount = items.count(where: \.isAttached)
-        return "\(count) \(count == 1 ? "session" : "sessions") on \(machineName) · \(attachedCount) attached."
+        let clientCount = items.reduce(0) { $0 + $1.session.clients.count }
+        return "\(count) \(count == 1 ? "session" : "sessions") on \(machineName) · \(attachedCount) attached · \(clientCount) connected clients."
     }
 
     private var visibleCapacity: Int {
@@ -205,7 +236,9 @@ final class AvailableSessionsView: NSView {
     private func performPrimaryAction() {
         guard items.indices.contains(selectedIndex) else { return }
         let item = items[selectedIndex]
-        if item.isAttached {
+        if item.canTakeControl {
+            onTakeControl?(item.session.id)
+        } else if item.isAttached {
             onDisconnect?(item.session.id)
         } else {
             onReconnect?(item.session.id)
@@ -261,6 +294,14 @@ final class AvailableSessionsView: NSView {
             font: .monospacedSystemFont(ofSize: 10, weight: .regular),
             color: NSColor(calibratedWhite: 0.53, alpha: 1)
         )
+        if let clients = item.clientsDescription {
+            drawText(
+                clients,
+                in: NSRect(x: row.minX + 10, y: row.minY + 58, width: row.width - 20, height: 15),
+                font: .monospacedSystemFont(ofSize: 9, weight: .regular),
+                color: NSColor(calibratedWhite: 0.67, alpha: 1)
+            )
+        }
         drawButton(killRect(in: row), title: "Kill", emphasized: false)
         drawButton(
             primaryActionRect(in: row),
@@ -270,11 +311,11 @@ final class AvailableSessionsView: NSView {
     }
 
     private func primaryActionRect(in row: NSRect) -> NSRect {
-        NSRect(x: row.maxX - 132, y: row.minY + 15, width: 120, height: 32)
+        NSRect(x: row.maxX - 132, y: row.minY + 23, width: 120, height: 32)
     }
 
     private func killRect(in row: NSRect) -> NSRect {
-        NSRect(x: row.maxX - 216, y: row.minY + 15, width: 72, height: 32)
+        NSRect(x: row.maxX - 216, y: row.minY + 23, width: 72, height: 32)
     }
 
     private func drawAttachmentBadge(_ item: AvailableSessionItem, in rect: NSRect) {

@@ -86,6 +86,7 @@ struct TerminalLaunch: Codable {
 
 final class TerminalSession: Codable {
     static let backendName = "machinenSession"
+    static let maximumViewerClientID: UInt64 = 9_007_199_254_740_991
 
     enum State: String, Codable {
         case starting
@@ -154,6 +155,9 @@ final class TerminalSession: Codable {
     /// a restarted process gets new PIDs.
     var shellPID: Int32?
     var processPID: Int32?
+    /// Runtime identity used by the native worker to distinguish this Desktop
+    /// attachment from other local or SSH viewers of the same session.
+    let viewerClientID: UInt64
 
     var associatedPID: Int32? {
         processPID ?? shellPID
@@ -216,6 +220,7 @@ final class TerminalSession: Codable {
         runtimeLabel = nil
         shellPID = nil
         processPID = nil
+        viewerClientID = UInt64.random(in: 1...Self.maximumViewerClientID)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -299,6 +304,7 @@ final class TerminalSession: Codable {
         runtimeLabel = try container.decodeIfPresent(String.self, forKey: .runtimeLabel)
         shellPID = nil
         processPID = nil
+        viewerClientID = UInt64.random(in: 1...Self.maximumViewerClientID)
     }
 
     func encode(to encoder: Encoder) throws {

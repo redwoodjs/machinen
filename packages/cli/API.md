@@ -19,6 +19,7 @@ machinen attach   [<target>] [--shell <c>] [--tail [N]] [--session <s>]
 machinen sessions [<target>]                     List persistent PTY sessions
 machinen session-kill [<target>] [<session>] [--dry-run]
                                                 Kill a persistent PTY session
+machinen terminal <operation> [...]              Manage host terminal sessions
 machinen repl     [<target>]                     Per-line exec REPL (no persistent state)
 machinen stop     [<target>] [--force|-9] [--dry-run]
                                                 Stop a running VM
@@ -221,6 +222,23 @@ Per-line exec REPL: every line is a fresh one-shot `exec`, so `cd`,
 env vars, and shell history do **not** carry over. Useful for piping a
 script of one-liners (`cat cmds.txt | machinen repl foo`). For
 an actual interactive shell, use `machinen attach`.
+
+## `machinen terminal`
+
+Host terminal sessions are detached PTYs managed by the native session worker:
+
+```sh
+machinen terminal new --name editor -- vim README.md
+machinen terminal list
+machinen terminal attach --client-name laptop editor
+machinen terminal take --client-id 123456 editor
+```
+
+`list` returns each session together with its connected clients and writer/resize
+ownership. `take` atomically transfers both leases to the selected attachment;
+the previous controller remains connected as a watcher. Client presence and
+control transfer require a current live worker. Sessions created by an older
+helper continue running but expose these features only after restart.
 
 ## `machinen stop`
 

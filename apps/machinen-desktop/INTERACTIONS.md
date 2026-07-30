@@ -178,9 +178,11 @@ from this top-level menu dismisses it:
    `alias:path` reachable through the user's SSH configuration. It is available
    at any time, including while terminals are running.
 6. **Sessions…** opens a floating, keyboard-navigable list of every terminal
-   session in the workspace. Each row prominently shows **Attached** or
-   **Not attached**. Return toggles that attachment; Delete or `⌘W` kills the
-   session.
+   session in the workspace. Each row shows this Desktop's attachment state,
+   every connected client, and the current controller. Return attaches or
+   detaches normally; when this Desktop is an attached watcher, Return takes
+   writer and resize control while leaving the previous controller connected.
+   Delete or `⌘W` kills the session.
 7. **Close workspace…** asks for confirmation, terminates its PTY processes,
    and removes its saved workspace and terminal definitions.
 
@@ -304,7 +306,7 @@ remove stale live data.
 
 - Inside a workspace, `⌘W` removes the selected terminal tile and disconnects its viewer. The native session, PTY, and process tree continue running indefinitely, including for a singleton workspace.
 - A three-second toast offers **Reconnect `⌘Z`** and **Kill `⌘W`**. Pressing `⌘W` again while the toast is visible kills the disconnected session.
-- The status bar counts sessions that are not attached to Desktop. Its item and `⌘K` → **Sessions…** open the same workspace-scoped panel, which lists sessions by their durable native `workspace_id` membership with an explicit **Attached** or **Not attached** state. Legacy records without membership temporarily fall back to launch-directory containment. Return toggles attachment; Delete or `⌘W` kills the selection.
+- The status bar counts sessions that are not attached to Desktop. Its item and `⌘K` → **Sessions…** open the same workspace-scoped panel, which lists sessions by their durable native `workspace_id` membership, this Desktop's attachment state, connected clients, and control owner. Legacy records without membership temporarily fall back to launch-directory containment. Return attaches, detaches, or takes control as appropriate; Delete or `⌘W` kills the selection.
 - `⇧⌘T` reconnects the latest disconnected terminal in the selected workspace and restores its former position.
 - Disconnected terminals persist across a Desktop restart. If Desktop's private manifest is lost, it reconstructs local native workspaces automatically; selecting a registered SSH directory does the same remotely. Reconnection creates a fresh Ghostty renderer from the worker's latest visible screen rather than restoring renderer-owned scrollback, selection, or viewport state.
 - In Navigate mode's workspace overview, `⌘W` still confirms before closing the workspace and killing all of its sessions.

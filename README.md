@@ -32,8 +32,10 @@ app restarts, and dropped SSH connections—and friends can join those same
 sessions to collaborate and share compute.
 
 Machinen Sessions is the portable native layer that owns each PTY independently
-of Desktop, its windows, and its network connections. You can use it through
-Desktop or directly from the `machinen terminal` CLI.
+of Desktop, its windows, and its network connections. Connected clients and the
+current controller are visible, and a watcher can take control without kicking
+anyone out. You can use it through Desktop or directly from the `machinen
+terminal` CLI.
 
 Learn more about [Machinen Sessions](./packages/session/README.md).
 

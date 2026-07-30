@@ -31,6 +31,12 @@ describe("host terminal command", () => {
     expect(invocation.args).toContain("--");
   });
 
+  it("passes a take-control target and client ID to the native helper", () => {
+    expect(nativeInvocation("take", ["--client-id", "42", "work"])).toEqual({
+      args: ["--client-id", "42", "work"],
+    });
+  });
+
   it("turns terminal send text into stdin and can append a newline", () => {
     expect(nativeInvocation("send", ["work", "--newline", "hello", "there"])).toEqual({
       args: ["work"],

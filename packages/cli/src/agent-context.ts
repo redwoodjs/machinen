@@ -419,12 +419,13 @@ export const COMMANDS: CommandSpec[] = [
   {
     name: "terminal",
     summary:
-      "Create, list, reattach, control, reconcile, and garbage-collect host terminal sessions.",
+      "Create, list, reattach, inspect connected clients, transfer control, reconcile, and garbage-collect host terminal sessions.",
     jsonOutput: false,
     positionals: [
       {
         name: "operation",
-        description: "One of new, list, attach, send, signal, stop, delete, reconcile, or gc.",
+        description:
+          "One of new, list, inspect, attach, take, send, signal, stop, delete, reconcile, or gc.",
       },
       {
         name: "operation-args",
