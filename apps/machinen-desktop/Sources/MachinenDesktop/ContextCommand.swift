@@ -9,6 +9,7 @@ struct MachinenContextCommand {
     let id: String
     let title: String
     let subtitle: String?
+    let group: String?
     let context: Context
     let locationKinds: [WorkspaceLocation.Kind]?
     let priority: Int
@@ -27,6 +28,7 @@ struct MachinenContextCommand {
             "priority": priority,
         ]
         if let subtitle { result["subtitle"] = subtitle }
+        if let group { result["group"] = group }
         if let locationKinds { result["locationKinds"] = locationKinds.map(\.rawValue) }
         if let expiresAt {
             result["expiresAt"] = ISO8601DateFormatter().string(

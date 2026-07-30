@@ -36,7 +36,7 @@ function directoryCommand(
   return {
     id,
     title,
-    subtitle: context === "workspace" ? "workspace" : "terminal · OSC 7 cwd",
+    group: "Open in…",
     context,
     priority: context === "terminal" ? 110 : 100,
     async run(invocation, desktop) {
@@ -65,20 +65,10 @@ function directoryCommand(
 }
 
 export const contextCommands: ContextCommand[] = [
-  directoryCommand(
-    "machinen.glow-terminal-directory",
-    "Open terminal directory in Glow",
-    "terminal",
-    "glow",
-  ),
-  directoryCommand(
-    "machinen.yazi-terminal-directory",
-    "Open terminal directory in Yazi",
-    "terminal",
-    "yazi",
-  ),
-  directoryCommand("machinen.glow-workspace", "Open workspace in Glow", "workspace", "glow"),
-  directoryCommand("machinen.yazi-workspace", "Open workspace in Yazi", "workspace", "yazi"),
+  directoryCommand("machinen.glow-terminal-directory", "Glow", "terminal", "glow"),
+  directoryCommand("machinen.yazi-terminal-directory", "Yazi", "terminal", "yazi"),
+  directoryCommand("machinen.glow-workspace", "Glow", "workspace", "glow"),
+  directoryCommand("machinen.yazi-workspace", "Yazi", "workspace", "yazi"),
 ];
 
 export class ContextCommandsService {

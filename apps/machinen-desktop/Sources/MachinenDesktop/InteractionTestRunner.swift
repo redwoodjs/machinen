@@ -717,6 +717,20 @@ enum InteractionTestRunner {
             "context": "terminal",
             "priority": 90,
         ])
+        _ = try deck.performAPIOperation("command.set", params: [
+            "id": "test.open-in-glow",
+            "title": "Glow",
+            "group": "Open in…",
+            "context": "terminal",
+            "priority": 110,
+        ])
+        _ = try deck.performAPIOperation("command.set", params: [
+            "id": "test.open-in-yazi",
+            "title": "Yazi",
+            "group": "Open in…",
+            "context": "terminal",
+            "priority": 110,
+        ])
 
         let liveDirectory = harness.temporaryDirectoryPath + "/live cwd"
         terminal.ghosttyWorkingDirectoryChanged(liveDirectory)
@@ -777,8 +791,36 @@ enum InteractionTestRunner {
                     == [.terminal, .workspace, .workspaceOverview],
             "the terminal palette did not cascade through all three command spaces"
         )
-        try harness.type("Run in terminal directory", into: terminalPalette)
+        try harness.type("Open in", into: terminalPalette)
         try harness.pressReturn(on: terminalPalette)
+        let openInPalette = try harness.commandPalette(in: deck)
+        try expect(
+            openInPalette.displayedContext == "current directory · shell 1 · alpha",
+            "the grouped command palette did not describe its terminal directory target"
+        )
+        try harness.pressEscape(on: openInPalette)
+        let returnedTerminalPalette = try harness.commandPalette(in: deck)
+        try expect(
+            returnedTerminalPalette.displayedContext == "terminal · shell 1 · alpha",
+            "Escape from a grouped command did not return to commands"
+        )
+        try harness.type("Open in", into: returnedTerminalPalette)
+        try harness.pressReturn(on: returnedTerminalPalette)
+        let reopenedOpenInPalette = try harness.commandPalette(in: deck)
+        try harness.type("Yazi", into: reopenedOpenInPalette)
+        try harness.pressReturn(on: reopenedOpenInPalette)
+        try expect(
+            invocations.last?["commandId"] as? String == "test.open-in-yazi"
+                && invocations.last?["context"] as? String == "terminal"
+                && invocations.last?["workingDirectory"] as? String == liveDirectory
+                && invocations.last?["terminalId"] as? String == tile.session.id,
+            "the grouped terminal command did not receive the OSC 7 directory context"
+        )
+
+        deck.toggleCommandPalette()
+        let terminalCommandPalette = try harness.commandPalette(in: deck)
+        try harness.type("Run in terminal directory", into: terminalCommandPalette)
+        try harness.pressReturn(on: terminalCommandPalette)
         try expect(
             invocations.last?["commandId"] as? String == "test.terminal"
                 && invocations.last?["context"] as? String == "terminal"
@@ -802,9 +844,21 @@ enum InteractionTestRunner {
 
         _ = try deck.performAPIOperation("command.remove", params: ["id": "test.workspace"])
         _ = try deck.performAPIOperation("command.remove", params: ["id": "test.terminal"])
+        _ = try deck.performAPIOperation("command.remove", params: ["id": "test.open-in-glow"])
+        _ = try deck.performAPIOperation("command.remove", params: ["id": "test.open-in-yazi"])
         let result = try deck.performAPIOperation("command.list", params: [:])
         let commands = (result as? JSONObject)?["commands"] as? [JSONObject]
         try expect(commands?.isEmpty == true, "removed context commands remained registered")
+
+        deck.toggleCommandPalette()
+        let disconnectTerminalPalette = try harness.commandPalette(in: deck)
+        try harness.type("Disconnect terminal", into: disconnectTerminalPalette)
+        try harness.pressReturn(on: disconnectTerminalPalette)
+        let closedSnapshot = try harness.snapshot(of: deck)
+        try expect(
+            closedSnapshot.tiles.count == 1 && deck.canReopenClosedTerminal,
+            "Disconnect terminal did not remove the tile while retaining its session"
+        )
     }
 
     private static func availableNativeSessionsReconnectIntoWorkspace() throws {

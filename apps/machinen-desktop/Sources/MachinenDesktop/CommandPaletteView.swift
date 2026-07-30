@@ -34,6 +34,7 @@ struct PaletteCommand {
         case attachSession
         case reconnectSession
         case detachSession
+        case disconnectSession
         case restartSession
         case stopSession
         case stopWorkspace
@@ -41,6 +42,7 @@ struct PaletteCommand {
         case closeWorkspace
         case reconnectAvailableSession
         case showDiagnostics
+        case registeredCommandGroup(String, Space)
         case registeredCommand(String)
         case createShell
         case runCommand

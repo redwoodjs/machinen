@@ -157,32 +157,38 @@ Terminal, Workspace, then Workspace Overview. Section headings keep each
 command's target explicit, and search preserves that section order while
 filtering the commands that are valid in the current context.
 
-The menu contains six built-in actions plus matching commands registered by
+The menu contains seven built-in actions plus matching commands registered by
 trusted TypeScript services. **New workspace…** belongs to Workspace Overview;
 **New terminal…** and the remaining workspace actions belong to Workspace.
+**Disconnect terminal** belongs to Terminal and shows its `⌘W` shortcut.
 **Open Selection With…** appears in Terminal when selected text has a matching
 opener. Escape always moves back one level within a command flow; only Escape
 from this top-level menu dismisses it:
 
-1. **New workspace…** opens the same location-then-name flow used by `⌘N`,
+1. **Disconnect terminal** immediately removes the terminal tile and disconnects
+   its viewer while leaving the native session and process running. The same
+   reconnect-or-kill toast used by `⌘W` appears.
+2. **New workspace…** opens the same location-then-name flow used by `⌘N`,
    creates an initial login-shell terminal, and enters it.
-2. **New terminal…** opens nested choices for a login shell, an arbitrary
+3. **New terminal…** opens nested choices for a login shell, an arbitrary
    command, or a new workspace from a folder.
-3. **Rename workspace…** changes the visible name while preserving the stable
+4. **Rename workspace…** changes the visible name while preserving the stable
    workspace ID and all terminals.
-4. **Change workspace location…** chooses either a local folder or a remote
+5. **Change workspace location…** chooses either a local folder or a remote
    `alias:path` reachable through the user's SSH configuration. It is available
    at any time, including while terminals are running.
-5. **Sessions…** opens a floating, keyboard-navigable list of every terminal
+6. **Sessions…** opens a floating, keyboard-navigable list of every terminal
    session in the workspace. Each row prominently shows **Attached** or
    **Not attached**. Return toggles that attachment; Delete or `⌘W` kills the
    session.
-6. **Close workspace…** asks for confirmation, terminates its PTY processes,
+7. **Close workspace…** asks for confirmation, terminates its PTY processes,
    and removes its saved workspace and terminal definitions.
 
 A registered command declares either a **workspace** or **terminal** context.
-Workspace commands receive the selected workspace's default local or SSH
-location. Terminal commands appear only in Terminal mode and receive the
+Commands that declare the same optional group appear under one nested command;
+the bundled directory actions use **Open in…** with **Glow** and **Yazi** choices
+in both contexts. Workspace commands receive the selected workspace's default
+local or SSH location. Terminal commands appear only in Terminal mode and receive the
 focused terminal's current directory. Ghostty updates that directory when a
 shell or application emits OSC 7 after changing directory; before the first
 report, Machinen uses the terminal's launch directory. The invocation contains

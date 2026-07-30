@@ -349,7 +349,7 @@ effective widgets after spatial-scope inheritance.
 ## Context commands
 
 - `command.list {}`
-- `command.set { id, title, context, subtitle?, locationKinds?, priority?, ttlMilliseconds? }`
+- `command.set { id, title, context, subtitle?, group?, locationKinds?, priority?, ttlMilliseconds? }`
 - `command.remove { id }`
 
 Trusted TypeScript services can register commands in the native `⌘K` palette.
@@ -357,8 +357,10 @@ Trusted TypeScript services can register commands in the native `⌘K` palette.
 whenever a workspace is selected and receive its current default location.
 Terminal commands are available only while a terminal is focused and receive
 the terminal's OSC 7 working directory, falling back to its launch directory
-until OSC 7 has been observed. `locationKinds` can restrict a command to local
-or SSH locations. Higher priorities appear first among registered commands.
+until OSC 7 has been observed. Commands with the same optional `group` and
+context appear under one nested palette command. `locationKinds` can restrict a
+command to local or SSH locations. Higher priorities appear first among
+registered commands.
 
 As with selection openers, registrations are metadata with optional TTLs. The
 service subscribes to `command.invoked` and performs the implementation through
@@ -367,7 +369,8 @@ ordinary Desktop API operations:
 ```ts
 await desktop.commands.set({
   id: "example.yazi-cwd",
-  title: "Open terminal directory in Yazi",
+  title: "Yazi",
+  group: "Open in…",
   context: "terminal",
   ttlMilliseconds: 30_000,
 });

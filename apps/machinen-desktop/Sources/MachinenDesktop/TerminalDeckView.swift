@@ -44,6 +44,7 @@ final class TerminalDeckView: NSView {
 
     private enum PaletteKind {
         case commands
+        case contextCommandGroup
         case selectionOpeners
         case newTerminal
         case runCommand
@@ -2464,9 +2465,8 @@ final class TerminalDeckView: NSView {
             case .terminal:
                 terminalCommands(registeredCommands: registeredCommands)
             case .workspace:
-                workspaceCommands() + registeredCommands.compactMap { command in
-                    registeredPaletteCommand(command, in: .workspace)
-                }
+                workspaceCommands()
+                    + registeredPaletteCommands(registeredCommands, in: .workspace)
             case .workspaceOverview:
                 [PaletteCommand(
                     id: .newWorkspace,
@@ -2496,9 +2496,15 @@ final class TerminalDeckView: NSView {
                 ))
             }
         }
-        commands.append(contentsOf: registeredCommands.compactMap { command in
-            registeredPaletteCommand(command, in: .terminal)
-        })
+        commands.append(
+            contentsOf: registeredPaletteCommands(registeredCommands, in: .terminal)
+        )
+        commands.append(PaletteCommand(
+            id: .disconnectSession,
+            title: "Disconnect terminal",
+            shortcut: "⌘W",
+            space: .terminal
+        ))
         return commands
     }
 
@@ -2539,6 +2545,30 @@ final class TerminalDeckView: NSView {
         ]
     }
 
+    private func registeredPaletteCommands(
+        _ commands: [MachinenContextCommand],
+        in space: PaletteCommand.Space
+    ) -> [PaletteCommand] {
+        let available = commands.compactMap { command -> (MachinenContextCommand, PaletteCommand)? in
+            guard let paletteCommand = registeredPaletteCommand(command, in: space) else {
+                return nil
+            }
+            return (command, paletteCommand)
+        }
+        var emittedGroups = Set<String>()
+        return available.compactMap { command, paletteCommand in
+            guard let group = command.group else { return paletteCommand }
+            guard emittedGroups.insert(group).inserted else { return nil }
+            let count = available.count { candidate, _ in candidate.group == group }
+            return PaletteCommand(
+                id: .registeredCommandGroup(group, space),
+                title: group,
+                shortcut: "\(count) \(count == 1 ? "option" : "options")",
+                space: space
+            )
+        }
+    }
+
     private func registeredPaletteCommand(
         _ command: MachinenContextCommand,
         in space: PaletteCommand.Space
@@ -2561,6 +2591,67 @@ final class TerminalDeckView: NSView {
             shortcut: command.subtitle ?? command.context.rawValue,
             space: space
         )
+    }
+
+    private func showContextCommandGroupPalette(
+        _ group: String,
+        in space: PaletteCommand.Space,
+        from parentPalette: CommandPaletteView?
+    ) {
+        let commands = activeContextCommands().filter { command in
+            command.group == group && registeredPaletteCommand(command, in: space) != nil
+        }
+        guard !commands.isEmpty else {
+            parentPalette?.showStatus("That command group is no longer available")
+            return
+        }
+        let context: String
+        switch space {
+        case .terminal:
+            context = "current directory · \(selectedSession()?.name ?? "terminal")"
+                + " · \(selectedWorkspace() ?? "workspace")"
+        case .workspace:
+            context = "workspace root · \(selectedWorkspace() ?? "workspace")"
+        case .workspaceOverview:
+            parentPalette?.showStatus("That command group is not available here")
+            return
+        }
+        dismissCommandPalette()
+
+        let heading = group.trimmingCharacters(in: CharacterSet(charactersIn: ".… ")).uppercased()
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: heading,
+            context: context,
+            placeholder: "Choose an app or action…",
+            defaultFooter: "return open    esc back",
+            commands: commands.map { command in
+                PaletteCommand(
+                    id: .registeredCommand(command.id),
+                    title: command.title,
+                    shortcut: command.subtitle ?? ""
+                )
+            }
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.toggleCommandPalette() }
+        palette.onRun = { [weak self, weak palette] command in
+            guard let self,
+                  case .registeredCommand(let id) = command.id,
+                  self.activeContextCommands().contains(where: {
+                      $0.id == id && $0.group == group
+                          && self.registeredPaletteCommand($0, in: space) != nil
+                  })
+            else {
+                palette?.showStatus("That command is no longer available")
+                return
+            }
+            self.invokeContextCommand(id, from: palette)
+        }
+        commandPalette = palette
+        paletteKind = .contextCommandGroup
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
     }
 
     private func runPaletteCommand(_ command: PaletteCommand, from palette: CommandPaletteView?) {
@@ -2604,6 +2695,13 @@ final class TerminalDeckView: NSView {
         case .detachSession:
             dismissCommandPalette()
             detachSelectedSession()
+        case .disconnectSession:
+            guard let tile = selectedSessionTile() else {
+                palette?.showStatus("Select a terminal first")
+                return
+            }
+            dismissCommandPalette()
+            bufferCloseSession(tile)
         case .restartSession:
             dismissCommandPalette()
             restartSelectedSession()
@@ -2622,6 +2720,8 @@ final class TerminalDeckView: NSView {
         case .reconnectAvailableSession:
             dismissCommandPalette()
             toggleAvailableSessions(returnToCommands: true)
+        case let .registeredCommandGroup(group, space):
+            showContextCommandGroupPalette(group, in: space, from: palette)
         case let .registeredCommand(id):
             invokeContextCommand(id, from: palette)
         case .showDiagnostics:
@@ -5399,6 +5499,13 @@ final class TerminalDeckView: NSView {
         if let subtitle, subtitle.count > 512 {
             throw MachinenAPIError("invalid_params", "command subtitle must be at most 512 characters")
         }
+        let group = params["group"] as? String
+        if let group, group.isEmpty || group.count > 512 {
+            throw MachinenAPIError(
+                "invalid_params",
+                "command group must contain 1 to 512 characters"
+            )
+        }
         guard let contextName = params["context"] as? String,
               let context = MachinenContextCommand.Context(rawValue: contextName)
         else {
@@ -5413,6 +5520,7 @@ final class TerminalDeckView: NSView {
             id: id,
             title: title,
             subtitle: subtitle,
+            group: group,
             context: context,
             locationKinds: locationKinds,
             priority: (params["priority"] as? NSNumber)?.intValue ?? 50,
