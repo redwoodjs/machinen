@@ -162,16 +162,24 @@ final class WorkspaceClusterView: NSView {
             yRadius: cornerRadius
         ).fill()
 
-        if !isEntered {
-            let border = NSBezierPath(
-                roundedRect: bounds.insetBy(dx: 2, dy: 2),
-                xRadius: Metrics.cornerRadius - 2,
-                yRadius: Metrics.cornerRadius - 2
-            )
-            border.lineWidth = isSelected || isDragTarget ? 6 : 2
-            (isDragTarget ? NSColor.controlAccentColor : NSColor(calibratedWhite: isSelected ? 0.94 : 0.28, alpha: 1)).setStroke()
-            border.stroke()
+        let border = NSBezierPath(
+            roundedRect: bounds.insetBy(dx: 2, dy: 2),
+            xRadius: Metrics.cornerRadius - 2,
+            yRadius: Metrics.cornerRadius - 2
+        )
+        border.lineWidth = isEntered || isSelected || isDragTarget ? 6 : 2
+        let borderColor: NSColor
+        if isDragTarget {
+            borderColor = NSColor.controlAccentColor
+        } else if isEntered {
+            borderColor = .white
+        } else if isSelected {
+            borderColor = NSColor.controlAccentColor
+        } else {
+            borderColor = NSColor(calibratedWhite: 0.28, alpha: 1)
         }
+        borderColor.setStroke()
+        border.stroke()
 
     }
 

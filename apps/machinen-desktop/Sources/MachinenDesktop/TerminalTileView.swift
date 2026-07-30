@@ -448,7 +448,7 @@ final class TerminalTileView: NSView {
             layer?.borderColor = NSColor.white.cgColor
         } else if isSelected {
             layer?.borderWidth = 3
-            layer?.borderColor = NSColor.systemYellow.cgColor
+            layer?.borderColor = NSColor.controlAccentColor.cgColor
         } else {
             layer?.borderWidth = 1
             layer?.borderColor = NSColor(calibratedWhite: 0.31, alpha: 1).cgColor
