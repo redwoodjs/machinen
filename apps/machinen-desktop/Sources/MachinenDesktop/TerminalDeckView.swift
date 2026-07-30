@@ -1382,11 +1382,6 @@ final class TerminalDeckView: NSView {
         }
         if currentWorkspace != nil, sessions.indices.contains(selectedIndex) {
             sessions[selectedIndex].isSelected = true
-        } else if currentWorkspace == nil,
-                  workspaceClusters.indices.contains(selectedIndex),
-                  workspaceClusters[selectedIndex].sessions.count == 1
-        {
-            workspaceClusters[selectedIndex].sessions[0].isSelected = true
         }
         needsDisplay = true
         refreshStatusBar()
