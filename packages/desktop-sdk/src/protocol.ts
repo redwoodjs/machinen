@@ -85,6 +85,7 @@ export interface ContextCommandDefinition extends JsonObject {
   id: string;
   title: string;
   subtitle?: string;
+  group?: string;
   context: CommandContext;
   locationKinds?: Array<WorkspaceLocation["kind"]>;
   priority?: number;

@@ -560,6 +560,10 @@ enum InteractionTestRunner {
         defer { window.close() }
         window.contentView = deck
         deck.layoutSubtreeIfNeeded()
+        var openerInvocations: [JSONObject] = []
+        deck.onAPIEvent = { event, data in
+            if event == "selectionOpener.invoked" { openerInvocations.append(data) }
+        }
         _ = try deck.performAPIOperation("selectionOpener.set", params: [
             "id": "test.markdown",
             "title": "Open Markdown",
@@ -641,6 +645,38 @@ enum InteractionTestRunner {
             "Open Selection With remained enabled without a selection"
         )
 
+        deck.showSelectionOpenerPalette(
+            for: terminal,
+            tile: tile,
+            selection: "docs/guide.md"
+        )
+        let openerPalette = try harness.commandPalette(in: deck)
+        try expect(
+            openerPalette.displayedContext == "terminal · shell 1 · alpha",
+            "the selection opener palette lost its terminal context"
+        )
+        try harness.pressEscape(on: openerPalette)
+        let returnedCommands = try harness.commandPalette(in: deck)
+        try expect(
+            !returnedCommands.displayedSpaces.isEmpty,
+            "Escape from selection openers did not return to commands"
+        )
+        try harness.pressEscape(on: returnedCommands)
+
+        deck.showSelectionOpenerPalette(
+            for: terminal,
+            tile: tile,
+            selection: "docs/guide.md"
+        )
+        try harness.type("Open Markdown", into: harness.commandPalette(in: deck))
+        try harness.pressReturn(on: harness.commandPalette(in: deck))
+        try expect(
+            openerInvocations.last?["openerId"] as? String == "test.markdown"
+                && openerInvocations.last?["selection"] as? String == "docs/guide.md"
+                && openerInvocations.last?["terminalId"] as? String == tile.session.id,
+            "the command palette did not invoke the selected opener"
+        )
+
         _ = try deck.performAPIOperation("selectionOpener.remove", params: ["id": "test.markdown"])
         let empty = try deck.performAPIOperation("selectionOpener.list", params: [:])
         let remaining = (empty as? JSONObject)?["openers"] as? [JSONObject]
@@ -650,7 +686,7 @@ enum InteractionTestRunner {
     private static func contextCommandsUseWorkspaceAndOSC7TerminalDirectories() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
-        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
+        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 2)])
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
             styleMask: [.titled],
@@ -681,6 +717,20 @@ enum InteractionTestRunner {
             "context": "terminal",
             "priority": 90,
         ])
+        _ = try deck.performAPIOperation("command.set", params: [
+            "id": "test.open-in-glow",
+            "title": "Glow",
+            "group": "Open in…",
+            "context": "terminal",
+            "priority": 110,
+        ])
+        _ = try deck.performAPIOperation("command.set", params: [
+            "id": "test.open-in-yazi",
+            "title": "Yazi",
+            "group": "Open in…",
+            "context": "terminal",
+            "priority": 110,
+        ])
 
         let liveDirectory = harness.temporaryDirectoryPath + "/live cwd"
         terminal.ghosttyWorkingDirectoryChanged(liveDirectory)
@@ -699,9 +749,78 @@ enum InteractionTestRunner {
         )
 
         deck.toggleCommandPalette()
+        let overviewPalette = try harness.commandPalette(in: deck)
+        try expect(
+            overviewPalette.displayedContext == "workspace overview"
+                && overviewPalette.displayedSpaces == [.workspaceOverview],
+            "the workspace overview palette exposed commands from a deeper space"
+        )
+        try harness.pressEscape(on: overviewPalette)
+
+        deck.zoomInOneLevel()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        deck.toggleCommandPalette()
+        let workspaceLevelPalette = try harness.commandPalette(in: deck)
+        try expect(
+            workspaceLevelPalette.displayedContext == "workspace · alpha"
+                && workspaceLevelPalette.displayedSpaces == [.workspace, .workspaceOverview],
+            "the workspace palette did not cascade through workspace and overview commands"
+        )
+        try harness.type("New terminal", into: workspaceLevelPalette)
+        try harness.pressReturn(on: workspaceLevelPalette)
+        let newTerminalPalette = try harness.commandPalette(in: deck)
+        try expect(
+            newTerminalPalette.displayedContext == "workspace: alpha",
+            "New terminal did not open as a nested workspace command"
+        )
+        try harness.pressEscape(on: newTerminalPalette)
+        let returnedWorkspacePalette = try harness.commandPalette(in: deck)
+        try expect(
+            returnedWorkspacePalette.displayedContext == "workspace · alpha",
+            "Escape from New terminal did not return to commands"
+        )
+        try harness.pressEscape(on: returnedWorkspacePalette)
+
+        deck.zoomInOneLevel()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        deck.toggleCommandPalette()
         let terminalPalette = try harness.commandPalette(in: deck)
-        try harness.type("Run in terminal directory", into: terminalPalette)
+        try expect(
+            terminalPalette.displayedContext == "terminal · shell 1 · alpha"
+                && terminalPalette.displayedSpaces
+                    == [.terminal, .workspace, .workspaceOverview],
+            "the terminal palette did not cascade through all three command spaces"
+        )
+        try harness.type("Open in", into: terminalPalette)
         try harness.pressReturn(on: terminalPalette)
+        let openInPalette = try harness.commandPalette(in: deck)
+        try expect(
+            openInPalette.displayedContext == "current directory · shell 1 · alpha",
+            "the grouped command palette did not describe its terminal directory target"
+        )
+        try harness.pressEscape(on: openInPalette)
+        let returnedTerminalPalette = try harness.commandPalette(in: deck)
+        try expect(
+            returnedTerminalPalette.displayedContext == "terminal · shell 1 · alpha",
+            "Escape from a grouped command did not return to commands"
+        )
+        try harness.type("Open in", into: returnedTerminalPalette)
+        try harness.pressReturn(on: returnedTerminalPalette)
+        let reopenedOpenInPalette = try harness.commandPalette(in: deck)
+        try harness.type("Yazi", into: reopenedOpenInPalette)
+        try harness.pressReturn(on: reopenedOpenInPalette)
+        try expect(
+            invocations.last?["commandId"] as? String == "test.open-in-yazi"
+                && invocations.last?["context"] as? String == "terminal"
+                && invocations.last?["workingDirectory"] as? String == liveDirectory
+                && invocations.last?["terminalId"] as? String == tile.session.id,
+            "the grouped terminal command did not receive the OSC 7 directory context"
+        )
+
+        deck.toggleCommandPalette()
+        let terminalCommandPalette = try harness.commandPalette(in: deck)
+        try harness.type("Run in terminal directory", into: terminalCommandPalette)
+        try harness.pressReturn(on: terminalCommandPalette)
         try expect(
             invocations.last?["commandId"] as? String == "test.terminal"
                 && invocations.last?["context"] as? String == "terminal"
@@ -725,9 +844,21 @@ enum InteractionTestRunner {
 
         _ = try deck.performAPIOperation("command.remove", params: ["id": "test.workspace"])
         _ = try deck.performAPIOperation("command.remove", params: ["id": "test.terminal"])
+        _ = try deck.performAPIOperation("command.remove", params: ["id": "test.open-in-glow"])
+        _ = try deck.performAPIOperation("command.remove", params: ["id": "test.open-in-yazi"])
         let result = try deck.performAPIOperation("command.list", params: [:])
         let commands = (result as? JSONObject)?["commands"] as? [JSONObject]
         try expect(commands?.isEmpty == true, "removed context commands remained registered")
+
+        deck.toggleCommandPalette()
+        let disconnectTerminalPalette = try harness.commandPalette(in: deck)
+        try harness.type("Disconnect terminal", into: disconnectTerminalPalette)
+        try harness.pressReturn(on: disconnectTerminalPalette)
+        let closedSnapshot = try harness.snapshot(of: deck)
+        try expect(
+            closedSnapshot.tiles.count == 1 && deck.canReopenClosedTerminal,
+            "Disconnect terminal did not remove the tile while retaining its session"
+        )
     }
 
     private static func availableNativeSessionsReconnectIntoWorkspace() throws {
@@ -2062,7 +2193,7 @@ enum InteractionTestRunner {
         )
 
         deck.toggleCommandPalette()
-        try harness.pressDown(on: harness.commandPalette(in: deck))
+        try harness.type("Rename workspace", into: harness.commandPalette(in: deck))
         try harness.pressReturn(on: harness.commandPalette(in: deck))
         try harness.type("beta", into: harness.commandPalette(in: deck))
         try harness.pressReturn(on: harness.commandPalette(in: deck))

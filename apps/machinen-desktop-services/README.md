@@ -8,9 +8,10 @@ runtime; Eve or Flue can consume the same SDK independently.
 
 The user-editable `⌘K` commands live in
 [`src/services/context-commands.ts`](src/services/context-commands.ts). The
-bundled commands open either the selected workspace or the focused terminal's
-live OSC 7 directory in Glow or Yazi. Desktop renders their native palette
-metadata; TypeScript creates the requested terminal when a command is invoked.
+bundled **Open in…** command opens a nested **Glow** or **Yazi** choice for
+either the selected workspace or the focused terminal's live OSC 7 directory.
+Desktop renders their native grouped-palette metadata; TypeScript creates the
+requested terminal when a command is invoked.
 Registrations use a short TTL, so the commands disappear if this service stops.
 
 ## Selection openers
@@ -18,9 +19,10 @@ Registrations use a short TTL, so the commands disappear if this service stops.
 The user-editable **Open Selection With** destinations live in
 [`src/services/selection-openers.ts`](src/services/selection-openers.ts). Each
 `SelectionOpener` provides native-menu metadata and a TypeScript `open` function.
-Right-clicking a terminal or pressing `⌘O` opens the full context menu; selecting
-an **Open Selection With** destination invokes the same registry. `⌘K` remains
-the centered workspace command palette.
+Right-clicking a terminal or pressing `⌘O` opens the selection context menu.
+When terminal text is selected, `⌘K` also exposes the same destinations through
+its nested **Open Selection With…** command. Choosing a destination from either
+surface invokes the same registry.
 
 The bundled **Glow** opener extracts Markdown links and bare paths from larger
 selections, validates the file, and creates a Glow terminal. **Yazi** validates a

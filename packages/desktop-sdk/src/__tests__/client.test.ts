@@ -134,7 +134,8 @@ describe("MachinenDesktopClient", () => {
     const client = createClient();
     await client.commands.set({
       id: "example.yazi-cwd",
-      title: "Open terminal directory in Yazi",
+      title: "Yazi",
+      group: "Open in…",
       context: "terminal",
       locationKinds: ["local", "ssh"],
       ttlMilliseconds: 30_000,
@@ -143,7 +144,8 @@ describe("MachinenDesktopClient", () => {
     expect(operations).toEqual(["system.hello", "events.subscribe", "command.set"]);
     expect(lastRequest?.params).toEqual({
       id: "example.yazi-cwd",
-      title: "Open terminal directory in Yazi",
+      title: "Yazi",
+      group: "Open in…",
       context: "terminal",
       locationKinds: ["local", "ssh"],
       ttlMilliseconds: 30_000,

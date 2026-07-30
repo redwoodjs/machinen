@@ -135,15 +135,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         newWorkspaceItem.target = self
         appMenu.addItem(newWorkspaceItem)
 
-        let newTerminalItem = NSMenuItem(
-            title: "New Terminal…",
-            action: #selector(toggleNewTerminal),
-            keyEquivalent: "t"
-        )
-        newTerminalItem.keyEquivalentModifierMask = [.command]
-        newTerminalItem.target = self
-        appMenu.addItem(newTerminalItem)
-
         let commandsItem = NSMenuItem(
             title: "Commands…",
             action: #selector(toggleCommands),
@@ -303,15 +294,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if menuItem.action == #selector(showTerminalMenu) {
             return window?.firstResponder is MachinenTerminalView
         }
-        // Do not let application menu equivalents steal terminal commands. The
-        // Workspace commands and contextual ⌘N remain available so a focused
-        // local or SSH terminal can manage its workspace without zooming out.
-        // Targetless Edit items still resolve through the terminal responder.
+        // Do not let application menu equivalents steal terminal commands.
+        // Contextual ⌘N and ⌘K remain available so a focused local or SSH
+        // terminal can manage its workspace without zooming out. Targetless
+        // Edit items still resolve through the terminal responder.
         guard window?.firstResponder is MachinenTerminalView else { return true }
         switch menuItem.action {
-        case #selector(toggleNewTerminal),
-             #selector(zoomInWithArrow),
-             #selector(zoomOutWithArrow):
+        case #selector(zoomInWithArrow), #selector(zoomOutWithArrow):
             return false
         default:
             return true
@@ -324,10 +313,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func toggleCommands() {
         deck?.toggleCommandPalette()
-    }
-
-    @objc private func toggleNewTerminal() {
-        deck?.toggleNewTerminalPalette()
     }
 
     @objc private func showTerminalMenu() {

@@ -16,11 +16,13 @@ describe("context commands", () => {
     service.start();
 
     await vi.waitFor(() => expect(set).toHaveBeenCalledTimes(contextCommands.length));
-    expect(contextCommands.map((command) => [command.title, command.context])).toEqual([
-      ["Open terminal directory in Glow", "terminal"],
-      ["Open terminal directory in Yazi", "terminal"],
-      ["Open workspace in Glow", "workspace"],
-      ["Open workspace in Yazi", "workspace"],
+    expect(
+      contextCommands.map((command) => [command.title, command.group, command.context]),
+    ).toEqual([
+      ["Glow", "Open in…", "terminal"],
+      ["Yazi", "Open in…", "terminal"],
+      ["Glow", "Open in…", "workspace"],
+      ["Yazi", "Open in…", "workspace"],
     ]);
 
     const yazi = contextCommands.find(
