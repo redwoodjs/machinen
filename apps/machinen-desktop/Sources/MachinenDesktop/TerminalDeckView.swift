@@ -1521,9 +1521,6 @@ final class TerminalDeckView: NSView {
             let cluster = workspaceClusters[index]
             currentWorkspace = cluster.workspaceID
             selectedIndex = 0
-            if cluster.sessions.count == 1 {
-                focusedIndex = 0
-            }
             updateSelection()
             moveCamera()
         } else {
