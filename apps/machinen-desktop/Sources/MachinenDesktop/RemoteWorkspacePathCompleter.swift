@@ -11,8 +11,12 @@ final class RemoteWorkspacePathCompleter {
         query: String,
         completion: @escaping @MainActor ([String]) -> Void
     ) {
+        InputRoutingLog.log("remote-folder complete host=\(host) query=\(query.debugDescription)")
         cancel()
-        guard let request = WorkspacePathSuggestions.remoteCompletionRequest(query) else { return }
+        guard let request = WorkspacePathSuggestions.remoteCompletionRequest(query) else {
+            InputRoutingLog.log("remote-folder rejected query: no completion request")
+            return
+        }
         let requestGeneration = generation
         let task = DispatchWorkItem { [weak self] in
             Task { @MainActor in
@@ -55,17 +59,26 @@ final class RemoteWorkspacePathCompleter {
             host,
             "cd -- \(parent.remoteShellPath) && /usr/bin/find . -mindepth 1 -maxdepth 1 -type d -print",
         ]
+        InputRoutingLog.log("remote-folder ssh host=\(host) parent=\(request.parent) prefix=\(request.prefix.debugDescription) command=\(child.arguments?.last ?? "")")
         child.standardInput = FileHandle.nullDevice
         child.standardOutput = output
         child.standardError = FileHandle.nullDevice
         child.terminationHandler = { [weak self] child in
             let data = output.fileHandleForReading.readDataToEndOfFile()
-            let names = String(decoding: data, as: UTF8.self)
+            let rawOutput = String(decoding: data, as: UTF8.self)
+            InputRoutingLog.log("remote-folder ssh finished status=\(child.terminationStatus) bytes=\(data.count) output=\(rawOutput.debugDescription)")
+            let names = rawOutput
                 .split(whereSeparator: { $0.isNewline })
                 .map { String($0).replacingOccurrences(of: "./", with: "", options: .anchored) }
                 .filter { WorkspacePathSuggestions.fuzzyComponent(request.prefix, matches: $0) }
-                .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-                .prefix(24)
+                .sorted {
+                    // Keep ordinary folders ahead of dot-directories so the useful
+                    // entries are easy to scan in a home directory full of dot-directories.
+                    let lhsHidden = $0.hasPrefix(".")
+                    let rhsHidden = $1.hasPrefix(".")
+                    if lhsHidden != rhsHidden { return !lhsHidden }
+                    return $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+                }
             let paths = names.map { name in
                 if request.parent == "~" { return "~/\(name)" }
                 if request.parent == "/" { return "/\(name)" }
@@ -74,8 +87,12 @@ final class RemoteWorkspacePathCompleter {
             Task { @MainActor [weak self] in
                 guard let self, self.generation == requestGeneration,
                       child.terminationStatus == 0
-                else { return }
+                else {
+                    InputRoutingLog.log("remote-folder discarded stale/failed result generation=\(requestGeneration)")
+                    return
+                }
                 self.process = nil
+                InputRoutingLog.log("remote-folder completion paths=\(paths)")
                 completion(paths)
             }
         }
