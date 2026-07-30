@@ -1647,6 +1647,9 @@ final class TerminalDeckView: NSView {
         view.onDisconnect = { [weak self] sessionID in
             self?.disconnectAvailableSession(sessionID, in: workspace.id)
         }
+        view.onTakeControl = { [weak self] sessionID in
+            self?.takeControlOfAvailableSession(sessionID, in: workspace.id)
+        }
         view.onKill = { [weak self] sessionID in
             self?.killAvailableSession(sessionID, in: workspace.id)
         }
@@ -1713,7 +1716,8 @@ final class TerminalDeckView: NSView {
             )
             return AvailableSessionItem(
                 session: session,
-                attachmentState: terminalViewerIsAttached(tile.session) ? .attached : .detached
+                attachmentState: terminalViewerIsAttached(tile.session) ? .attached : .detached,
+                localClientID: tile.session.viewerClientID
             )
         }
 
@@ -1732,14 +1736,19 @@ final class TerminalDeckView: NSView {
                     createdAtMs: timestamp,
                     updatedAtMs: timestamp
                 ),
-                attachmentState: .detached
+                attachmentState: .detached,
+                localClientID: nil
             )
         }
         let representedIDs = Set(represented.map { $0.session.id })
             .union(disconnectedTiles.map { $0.session.id })
         let unrepresented = discovered.compactMap { session -> AvailableSessionItem? in
             guard !representedIDs.contains(session.id) else { return nil }
-            return AvailableSessionItem(session: session, attachmentState: .detached)
+            return AvailableSessionItem(
+                session: session,
+                attachmentState: .detached,
+                localClientID: nil
+            )
         }
         let detached = (disconnectedTiles + unrepresented
             + represented.filter { !$0.isAttached }).sorted {
@@ -1875,6 +1884,25 @@ final class TerminalDeckView: NSView {
         saveSessions()
         emitAPIEvent("tile.created", data: tileJSON(tile))
         emitAPIEvent("terminal.stateChanged", data: terminalJSON(tile))
+    }
+
+    private func takeControlOfAvailableSession(_ sessionID: String, in workspaceID: String) {
+        guard let workspace = workspaces.first(where: { $0.id == workspaceID }),
+              let tile = allSessionTiles.first(where: {
+                  $0.session.id == sessionID && $0.session.workspaceID == workspaceID
+                      && terminalViewerIsAttached($0.session)
+              })
+        else {
+            refreshAvailableSessionsPanel()
+            return
+        }
+        sessionBackend.takeControl(of: tile.session) { [weak self] result in
+            guard let self else { return }
+            if case let .failure(error) = result {
+                self.availableSessionsErrors[workspace.location.machineID] = error.localizedDescription
+            }
+            self.refreshAvailableSessions(for: workspace, force: true)
+        }
     }
 
     private func disconnectAvailableSession(_ sessionID: String, in workspaceID: String) {

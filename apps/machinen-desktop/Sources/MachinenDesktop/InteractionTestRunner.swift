@@ -24,6 +24,7 @@ enum InteractionTestRunner {
             try selectionOpenersRegisterMatchAndExpire()
             try contextCommandsUseWorkspaceAndOSC7TerminalDirectories()
             try availableNativeSessionsReconnectIntoWorkspace()
+            try attachedSessionCanTakeControl()
             try nativeWorkspaceRegistryRestoresLostDesktopState()
             try graphicalStatusWidgetsRender()
             try desktopServicesRestartUntilTheAppStops()
@@ -43,7 +44,7 @@ enum InteractionTestRunner {
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (31 scenarios)")
+            print("Machinen interaction tests passed (32 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -989,6 +990,61 @@ enum InteractionTestRunner {
             reattachedTile?["viewerState"] as? String == "attached"
                 && (try harness.snapshot(of: deck)).tiles.count == 2,
             "attaching from the session picker duplicated or failed to attach the tile"
+        )
+    }
+
+    private static func attachedSessionCanTakeControl() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let alpha = harness.workspace("alpha", terminalCount: 1)
+        guard let terminal = alpha.1.first else {
+            throw InteractionTestFailure("the takeover fixture had no terminal")
+        }
+        terminal.state = .running
+        harness.setAvailableSessions([
+            AvailableTerminalSession(
+                id: terminal.id,
+                name: terminal.name,
+                state: "running",
+                workspaceId: terminal.workspaceID,
+                workingDirectory: terminal.workingDirectory,
+                clientControlAvailable: true,
+                clients: [
+                    AttachedTerminalClient(
+                        id: 99,
+                        name: "Machinen Desktop on another Mac",
+                        pid: 10,
+                        connectedAtMs: 1,
+                        writer: true,
+                        resize: true,
+                        readOnly: false
+                    ),
+                    AttachedTerminalClient(
+                        id: terminal.viewerClientID,
+                        name: "Machinen Desktop on this Mac",
+                        pid: 20,
+                        connectedAtMs: 2,
+                        writer: false,
+                        resize: false,
+                        readOnly: false
+                    ),
+                ],
+                createdAtMs: 1,
+                updatedAtMs: 2
+            ),
+        ])
+        let deck = harness.makeDeck(workspaces: [alpha])
+        deck.toggleAvailableSessions()
+        let panel = try harness.availableSessions(in: deck)
+        try expect(
+            panel.items.first?.canTakeControl == true
+                && panel.items.first?.primaryActionTitle == "Take Control",
+            "the attached watcher did not offer to take control"
+        )
+        try harness.pressReturn(on: panel)
+        try expect(
+            harness.takenControlSessionIDs == [terminal.id],
+            "the session panel did not request control for its own attachment"
         )
     }
 
@@ -2302,6 +2358,12 @@ private final class ImmediateViewerBackend: TerminalSessionBackend {
         completion(.success(()))
     }
 
+    func takeControl(
+        of session: TerminalSession,
+        completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
     func signal(_ signal: String, session: TerminalSession) {}
     func stop(_ session: TerminalSession) {}
     func reset(_ session: TerminalSession) {}
@@ -2336,6 +2398,7 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
     var nativeWorkspaces: [NativeWorkspaceRecord] = []
     var savedWorkspaces: [(id: String, name: String, location: WorkspaceLocation, sessions: [String])] = []
     var deletedWorkspaces: [(id: String, location: WorkspaceLocation)] = []
+    var takenControlOf: [String] = []
 
     func listSessions(
         at location: WorkspaceLocation,
@@ -2371,6 +2434,13 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
         completion(.success(()))
     }
 
+    func takeControl(
+        of session: TerminalSession,
+        completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
+    ) {
+        takenControlOf.append(session.id)
+        completion(.success(()))
+    }
     func signal(_ signal: String, session: TerminalSession) {}
     func stop(_ session: TerminalSession) {}
     func reset(_ session: TerminalSession) {}
@@ -2422,6 +2492,8 @@ private final class Harness {
     func setAvailableSessions(_ sessions: [AvailableTerminalSession]) {
         terminalBackend.availableSessions = sessions
     }
+
+    var takenControlSessionIDs: [String] { terminalBackend.takenControlOf }
 
     func setNativeWorkspaces(_ workspaces: [NativeWorkspaceRecord]) {
         terminalBackend.nativeWorkspaces = workspaces

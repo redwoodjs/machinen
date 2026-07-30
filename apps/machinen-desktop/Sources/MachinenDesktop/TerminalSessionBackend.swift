@@ -13,14 +13,72 @@ private struct TerminalTelemetryEnvelope: Decodable, Sendable {
     let telemetry: TerminalTelemetry
 }
 
+struct AttachedTerminalClient: Decodable, Equatable, Sendable {
+    let id: UInt64
+    let name: String
+    let pid: Int32?
+    let connectedAtMs: Int64
+    let writer: Bool
+    let resize: Bool
+    let readOnly: Bool
+}
+
 struct AvailableTerminalSession: Decodable, Equatable, Sendable {
     let id: String
     let name: String?
     let state: String
     let workspaceId: String?
     let workingDirectory: String
+    let clientControlAvailable: Bool
+    let clients: [AttachedTerminalClient]
     let createdAtMs: Int64
     let updatedAtMs: Int64
+
+    init(
+        id: String,
+        name: String?,
+        state: String,
+        workspaceId: String?,
+        workingDirectory: String,
+        clientControlAvailable: Bool = false,
+        clients: [AttachedTerminalClient] = [],
+        createdAtMs: Int64,
+        updatedAtMs: Int64
+    ) {
+        self.id = id
+        self.name = name
+        self.state = state
+        self.workspaceId = workspaceId
+        self.workingDirectory = workingDirectory
+        self.clientControlAvailable = clientControlAvailable
+        self.clients = clients
+        self.createdAtMs = createdAtMs
+        self.updatedAtMs = updatedAtMs
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, state, workspaceId, workingDirectory
+        case clientControlAvailable, clients, createdAtMs, updatedAtMs
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        state = try container.decode(String.self, forKey: .state)
+        workspaceId = try container.decodeIfPresent(String.self, forKey: .workspaceId)
+        workingDirectory = try container.decode(String.self, forKey: .workingDirectory)
+        clientControlAvailable = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .clientControlAvailable
+        ) ?? false
+        clients = try container.decodeIfPresent(
+            [AttachedTerminalClient].self,
+            forKey: .clients
+        ) ?? []
+        createdAtMs = try container.decode(Int64.self, forKey: .createdAtMs)
+        updatedAtMs = try container.decode(Int64.self, forKey: .updatedAtMs)
+    }
 }
 
 struct NativeWorkspaceRecord: Decodable, Equatable, Sendable {
@@ -69,6 +127,10 @@ protocol TerminalSessionBackend: AnyObject {
     func deleteWorkspace(
         id: String,
         at location: WorkspaceLocation,
+        completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
+    )
+    func takeControl(
+        of session: TerminalSession,
         completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
     )
     func signal(_ signal: String, session: TerminalSession)
@@ -492,7 +554,7 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
                 executable: MachinenSSHTransport.executable,
                 arguments: MachinenSSHTransport.arguments() + [
                     "-t", host,
-                    Self.remoteAttachCommand(sessionID: session.id),
+                    Self.remoteAttachCommand(session: session),
                 ],
                 environment: nil,
                 executableName: "ssh",
@@ -516,7 +578,13 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
         let database = try Self.localDatabasePath()
         let launch = TerminalViewerLaunch(
             executable: helper,
-            arguments: ["attach", "--database", database, "--latest-screen", session.id],
+            arguments: [
+                "attach", "--database", database,
+                "--latest-screen",
+                "--client-id", String(session.viewerClientID),
+                "--client-name", Self.desktopClientName(),
+                session.id,
+            ],
             environment: nil,
             executableName: "machinen-session",
             workingDirectory: home
@@ -696,6 +764,37 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
                 completion(.success(()))
             } catch {
                 completion(.failure(error))
+            }
+        }
+    }
+
+    func takeControl(
+        of session: TerminalSession,
+        completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
+    ) {
+        guard let invocation = controlInvocation(
+            "take",
+            session: session,
+            trailingArguments: ["--client-id", String(session.viewerClientID)]
+        ) else {
+            completion(.failure(TerminalSessionBackendError.commandFailed(
+                "Could not prepare the take-control request"
+            )))
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = try? TerminalSessionCommand.run(
+                executable: invocation.executable,
+                arguments: invocation.arguments
+            )
+            DispatchQueue.main.async {
+                guard let result, result.status == 0 else {
+                    let message = result.flatMap { $0.output.isEmpty ? nil : $0.output }
+                        ?? "Could not take control of the terminal session"
+                    completion(.failure(TerminalSessionBackendError.commandFailed(message)))
+                    return
+                }
+                completion(.success(()))
             }
         }
     }
@@ -943,12 +1042,25 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
             + arguments.map(remoteArgument).joined(separator: " ")
     }
 
-    private static func remoteAttachCommand(sessionID: String) -> String {
+    private static func remoteAttachCommand(session: TerminalSession) -> String {
         remoteControlCommand(
             "attach",
-            sessionID: sessionID,
-            trailingArguments: ["--latest-screen"]
+            sessionID: session.id,
+            trailingArguments: [
+                "--latest-screen",
+                "--client-id", String(session.viewerClientID),
+                "--client-name", desktopClientName(),
+            ]
         )
+    }
+
+    nonisolated private static func desktopClientName() -> String {
+        let host = Host.current().localizedName ?? ProcessInfo.processInfo.hostName
+        var name = "Machinen Desktop on \(host)".filter {
+            !$0.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) })
+        }
+        while name.utf8.count > 127 { name.removeLast() }
+        return name
     }
 
     nonisolated private static func remoteListCommand() -> String {

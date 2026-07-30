@@ -54,7 +54,9 @@ and delegates the PTY data plane to the native binary:
 ```sh
 machinen terminal new --name api --cwd "$HOME/project" -- pnpm dev
 machinen terminal list
-machinen terminal attach api
+machinen terminal attach --client-name "laptop" api
+machinen terminal list                 # includes connected clients and controller
+machinen terminal take --client-id 123456 api
 machinen terminal send api --newline r
 machinen terminal signal api interrupt
 machinen terminal stop api
@@ -96,8 +98,9 @@ machinen-session new \
 
 machinen-session list --database "$DB"
 machinen-session inspect --database "$DB" api
-machinen-session attach --database "$DB" api
+machinen-session attach --database "$DB" --client-name laptop api
 machinen-session attach --database "$DB" --latest-screen api
+machinen-session take --database "$DB" --client-id 123456 api
 machinen-session attach --database "$DB" --after 420 api
 printf 'r' | machinen-session send --database "$DB" api
 machinen-session stop --database "$DB" api
@@ -150,13 +153,22 @@ journal-resume behavior.
 ## Multiple clients
 
 Writer and resize leases prevent two interactive clients from fighting over one
-PTY. The first client receives each requested lease, renews it with 10-second
-heartbeats, and releases it on disconnect. Other attachments continue as
-watchers and automatically acquire a released lease. `attach --read-only`
+PTY. The first client receives both leases, renews them with 10-second
+heartbeats, and releases them on disconnect. Other attachments continue as
+watchers and automatically acquire released leases. `attach --read-only`
 requests neither lease.
 
+`list` reports every interactive attachment, its client ID and display name, and
+whether it owns writer and resize control. `attach --client-name <name>` supplies
+a recognizable label; Desktop does this automatically. `take --client-id <id>`
+atomically transfers both leases while leaving the previous controller attached
+as a watcher. Attach clients honor lease updates and discard keyboard input while
+watching.
+
 Same-user `send`, `signal`, and `stop` operations use explicit control
-connections. They do not steal the interactive writer lease.
+connections. They do not steal the interactive writer lease. Presence and take
+control are capability-negotiated protocol-v2 extensions; old live workers keep
+running but do not expose them until that session is restarted with a new helper.
 
 ## Foreground activity
 

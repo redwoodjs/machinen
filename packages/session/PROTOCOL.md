@@ -42,8 +42,17 @@ bytes 16–23  client identifier, big-endian u64
 ```
 
 Interactive clients normally request writer and resize leases. Read-only
-clients request neither. Same-user one-shot commands such as `send` and `signal`
-use the control flag and do not take an interactive lease.
+clients request neither. Same-user one-shot commands such as `send`, `signal`,
+presence queries, and control transfer use the control flag and do not take an
+interactive lease. The client identifier names an attachment for presence and
+explicit control transfer; values are limited to the nonzero JSON-safe integer
+range so list output can round-trip through JavaScript clients. Current attach
+clients follow the handshake with an `N` frame containing their display name
+and PID.
+
+Current workers advertise optional protocol-v2 extensions through a `B` query.
+Older live v2 workers close only that short-lived capability connection, so a
+new helper can continue attaching without replacing their PTY.
 
 The worker protocol version in SQLite is `1` for sessions migrated from the
 original implementation. The current attach client omits the handshake for
@@ -52,14 +61,18 @@ A running PTY is therefore not replaced merely to upgrade its helper binary.
 
 ## Client to worker
 
-| Kind | Name            | Payload                                      |
-| ---- | --------------- | -------------------------------------------- |
-| `A`  | Attach request  | Version, flags, resume sequence, client ID   |
-| `I`  | Input           | Bytes to write to the PTY                    |
-| `R`  | Resize          | Big-endian `u16 columns`, `u16 rows`         |
-| `S`  | Signal          | Big-endian signed 32-bit POSIX signal number |
-| `P`  | Heartbeat       | Empty; renews held leases                    |
-| `T`  | Telemetry query | Empty; requests current foreground metadata  |
+| Kind | Name            | Payload                                                    |
+| ---- | --------------- | ---------------------------------------------------------- |
+| `A`  | Attach request  | Version, flags, resume sequence, client ID                 |
+| `I`  | Input           | Bytes to write to the PTY                                  |
+| `R`  | Resize          | Big-endian `u16 columns`, `u16 rows`                       |
+| `S`  | Signal          | Big-endian signed 32-bit POSIX signal number               |
+| `P`  | Heartbeat       | Empty; renews held leases                                  |
+| `T`  | Telemetry query | Empty; requests current foreground metadata                |
+| `B`  | Capabilities    | Empty; requests supported protocol-v2 extension bits       |
+| `N`  | Client info     | PID, display-name length, and UTF-8 display name           |
+| `V`  | Client list     | Empty; requests the currently attached interactive clients |
+| `K`  | Take control    | Big-endian `u64` identifier of the target attachment       |
 
 ## Worker to client
 
@@ -73,9 +86,45 @@ A running PTY is therefore not replaced merely to upgrade its helper binary.
 | `E`  | Failure          | UTF-8 diagnostic for display                        |
 | `O`  | Legacy output    | Unsequenced bytes from a v1 worker                  |
 | `T`  | Telemetry        | Activity, shell PID, foreground PID, and names      |
+| `B`  | Capabilities     | Big-endian `u32` capability bits                    |
+| `V`  | Client list      | Connected client identities and lease state         |
+| `K`  | Control changed  | Target `u64` after writer and resize transfer       |
 
 A `Q` event can use multiple frames when its original SQLite payload plus the
 sequence header would exceed 32 KiB. Each chunk repeats the event sequence.
+
+## Client presence and control
+
+Capability bit 0 advertises client presence and bit 1 advertises explicit
+control transfer. After its attach request, a capable interactive client sends
+one `N` payload:
+
+```text
+bytes 0–3    client process PID, big-endian signed i32
+byte 4       UTF-8 display-name byte length (0–127)
+bytes 5–7    reserved, zero
+bytes 8…     display name
+```
+
+A control connection sends an empty `V` frame to list interactive attachments.
+The response starts with a one-byte count followed by that many variable-length
+records:
+
+```text
+bytes 0–7    client identifier, big-endian u64
+bytes 8–11   client process PID, big-endian signed i32
+bytes 12–19  connection time, Unix milliseconds, big-endian i64
+byte 20      requested lease flags
+byte 21      granted lease flags
+byte 22      display-name byte length
+bytes 23…    UTF-8 display name
+```
+
+Control connections are excluded from the list. A control client can send `K`
+with an attached client identifier. The worker atomically moves both writer and
+resize leases to that attachment, sends updated `L` status to the old and new
+controllers, and acknowledges with `K`. The former controller remains connected
+as a watcher.
 
 ## Foreground telemetry
 
@@ -146,9 +195,13 @@ clients send a heartbeat every 10 seconds. Input or resize activity also renews
 ownership. Disconnecting releases ownership immediately; an attached waiter is
 then granted the lease.
 
-A client without the relevant lease remains a watcher and receives an `E`
-diagnostic if it attempts the operation. Same-user control connections are an
-explicit administrative path used by `send`, `signal`, and `stop`.
+A client without the relevant lease remains a watcher. Current attach clients
+honor `L` updates locally and discard terminal input while they are watchers,
+so a revoked controller cannot keep writing or pollute its renderer with lease
+diagnostics. `take` transfers both leases together; disconnect and expiry keep
+the existing automatic handoff behavior. Same-user control connections remain
+an explicit administrative path used by `send`, `signal`, `stop`, presence, and
+control transfer.
 
 ## Disconnect and recovery boundary
 

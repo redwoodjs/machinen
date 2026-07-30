@@ -3,7 +3,7 @@ const session = @import("session");
 const worker = @import("worker");
 
 const Exit = enum(u8) { ok = 0, failed = 1, usage = 2 };
-const version = "0.5.4";
+const version = "0.5.5";
 
 pub fn main(init: std.process.Init) !u8 {
     var args = init.minimal.args.iterate();
@@ -21,6 +21,7 @@ pub fn main(init: std.process.Init) !u8 {
     if (std.mem.eql(u8, command, "list")) return runList(init, &args);
     if (std.mem.eql(u8, command, "inspect")) return runInspect(init, &args);
     if (std.mem.eql(u8, command, "attach")) return runAttach(init, &args);
+    if (std.mem.eql(u8, command, "take")) return runTake(init, &args);
     if (std.mem.eql(u8, command, "send")) return runSend(init, &args);
     if (std.mem.eql(u8, command, "signal")) return runSignal(init, &args);
     if (std.mem.eql(u8, command, "stop")) return runStop(init, &args);
@@ -301,6 +302,16 @@ fn adoptExistingSession(init: std.process.Init, request: NewRequest) !?u8 {
     return @intFromEnum(Exit.ok);
 }
 
+const AttachedClientView = struct {
+    id: u64,
+    name: []const u8,
+    pid: ?i32,
+    connectedAtMs: i64,
+    writer: bool,
+    resize: bool,
+    readOnly: bool,
+};
+
 const SessionView = struct {
     id: []const u8,
     name: ?[]const u8,
@@ -313,6 +324,8 @@ const SessionView = struct {
     workerPid: ?i64,
     exitCode: ?i32,
     protocolVersion: u32,
+    clientControlAvailable: bool,
+    clients: []const AttachedClientView,
     createdAtMs: i64,
     updatedAtMs: i64,
 };
@@ -324,25 +337,66 @@ fn runList(init: std.process.Init, args: anytype) !u8 {
     _ = reconcileStore(init.gpa, &store) catch |err| return fail(init, err);
     const records = store.listSessions(init.gpa) catch |err| return fail(init, err);
     defer freeSessions(init.gpa, records);
-    var views: std.ArrayList(SessionView) = .empty;
-    defer views.deinit(init.gpa);
-    for (records) |record| try views.append(init.gpa, .{
-        .id = record.id,
-        .name = record.name,
-        .state = @tagName(record.state),
-        .workspaceId = record.workspace_id,
-        .workingDirectory = record.working_directory,
-        .rows = record.rows,
-        .columns = record.columns,
-        .lastSequence = record.last_sequence,
-        .workerPid = record.worker_pid,
-        .exitCode = record.exit_code,
-        .protocolVersion = record.protocol_version,
-        .createdAtMs = record.created_at_ms,
-        .updatedAtMs = record.updated_at_ms,
-    });
-    try writeJson(init.gpa, init.io, .{ .ok = true, .sessions = views.items });
+    try writeSessionList(init, records);
     return @intFromEnum(Exit.ok);
+}
+
+fn writeSessionList(init: std.process.Init, records: []const session.Session) !void {
+    std.debug.assert(records.len == 0 or records[0].id.len > 0);
+    const stdout = std.Io.File.stdout();
+    try stdout.writeStreamingAll(init.io, "{\"ok\":true,\"sessions\":[");
+    for (records, 0..) |record, index| {
+        if (index > 0) try stdout.writeStreamingAll(init.io, ",");
+        var client_control_available = false;
+        const attached = if (record.state == .running or record.state == .created) attached: {
+            const clients = worker.queryAttachedClients(
+                init.gpa,
+                record.id,
+                record.protocol_version,
+                record.last_sequence,
+            ) catch break :attached worker.AttachedClients{};
+            client_control_available = true;
+            break :attached clients;
+        } else worker.AttachedClients{};
+        var client_buffer: [worker.max_attached_clients]AttachedClientView = undefined;
+        const clients = attachedClientViews(&attached, &client_buffer);
+        try writeJsonValueTo(init.gpa, init.io, stdout, SessionView{
+            .id = record.id,
+            .name = record.name,
+            .state = @tagName(record.state),
+            .workspaceId = record.workspace_id,
+            .workingDirectory = record.working_directory,
+            .rows = record.rows,
+            .columns = record.columns,
+            .lastSequence = record.last_sequence,
+            .workerPid = record.worker_pid,
+            .exitCode = record.exit_code,
+            .protocolVersion = record.protocol_version,
+            .clientControlAvailable = client_control_available,
+            .clients = clients,
+            .createdAtMs = record.created_at_ms,
+            .updatedAtMs = record.updated_at_ms,
+        }, false);
+    }
+    try stdout.writeStreamingAll(init.io, "]}\n");
+}
+
+fn attachedClientViews(
+    attached: *const worker.AttachedClients,
+    buffer: *[worker.max_attached_clients]AttachedClientView,
+) []const AttachedClientView {
+    const clients = attached.slice();
+    std.debug.assert(clients.len <= buffer.len);
+    for (clients, 0..) |*client, index| buffer[index] = .{
+        .id = client.id,
+        .name = client.name(),
+        .pid = client.pid,
+        .connectedAtMs = client.connectedAtMs,
+        .writer = client.writer,
+        .resize = client.resize,
+        .readOnly = client.readOnly,
+    };
+    return buffer[0..clients.len];
 }
 
 const TelemetryView = struct {
@@ -383,40 +437,42 @@ fn runInspect(init: std.process.Init, args: anytype) !u8 {
         .shellName = null,
         .command = null,
     };
-    try writeJson(init.gpa, init.io, .{ .ok = true, .telemetry = view });
+    var client_control_available = false;
+    const attached = attached: {
+        const clients = worker.queryAttachedClients(
+            init.gpa,
+            record.id,
+            record.protocol_version,
+            record.last_sequence,
+        ) catch break :attached worker.AttachedClients{};
+        client_control_available = true;
+        break :attached clients;
+    };
+    var client_buffer: [worker.max_attached_clients]AttachedClientView = undefined;
+    try writeJson(init.gpa, init.io, .{
+        .ok = true,
+        .telemetry = view,
+        .clientControlAvailable = client_control_available,
+        .clients = attachedClientViews(&attached, &client_buffer),
+    });
     return @intFromEnum(Exit.ok);
 }
 
-fn runAttach(init: std.process.Init, args: anytype) !u8 {
-    var database: ?[]const u8 = null;
-    var reference: ?[]const u8 = null;
-    var after_sequence: u64 = 0;
-    var read_only = false;
-    var latest_screen = false;
-    while (args.next()) |argument| {
-        if (std.mem.eql(u8, argument, "--latest-screen")) {
-            latest_screen = true;
-            continue;
-        }
-        if (std.mem.eql(u8, argument, "--database")) {
-            database = args.next() orelse return writeUsage(init.io);
-        } else if (std.mem.eql(u8, argument, "--after")) {
-            after_sequence = std.fmt.parseInt(
-                u64,
-                args.next() orelse return writeUsage(init.io),
-                10,
-            ) catch return writeUsage(init.io);
-        } else if (std.mem.eql(u8, argument, "--read-only")) {
-            read_only = true;
-        } else if (reference == null) {
-            reference = argument;
-        } else return writeUsage(init.io);
-    }
-    if (database == null or reference == null) return writeUsage(init.io);
+const AttachRequest = struct {
+    database: []const u8,
+    reference: []const u8,
+    after_sequence: u64,
+    read_only: bool,
+    latest_screen: bool,
+    client_id: ?u64,
+    client_name: ?[]const u8,
+};
 
-    var store = session.Store.open(init.gpa, database.?) catch |err| return fail(init, err);
+fn runAttach(init: std.process.Init, args: anytype) !u8 {
+    const request = parseAttachRequest(args) catch return writeUsage(init.io);
+    var store = session.Store.open(init.gpa, request.database) catch |err| return fail(init, err);
     defer store.close();
-    var record = (store.resolveSession(reference.?) catch |err| return fail(init, err)) orelse
+    var record = (store.resolveSession(request.reference) catch |err| return fail(init, err)) orelse
         return fail(init, error.SessionNotFound);
     if ((record.state == .running or record.state == .created) and
         !worker.workerReachable(init.gpa, record.id))
@@ -429,7 +485,12 @@ fn runAttach(init: std.process.Init, args: anytype) !u8 {
     }
     defer record.deinit(init.gpa);
     if (record.state != .running and record.state != .created) {
-        replayStored(init, &store, record.id, after_sequence) catch |err| return fail(init, err);
+        replayStored(
+            init,
+            &store,
+            record.id,
+            request.after_sequence,
+        ) catch |err| return fail(init, err);
         if (record.state == .exited) {
             const code = record.exit_code orelse 0;
             if (code < 0) return @intFromEnum(Exit.failed);
@@ -439,10 +500,128 @@ fn runAttach(init: std.process.Init, args: anytype) !u8 {
     }
     return worker.attach(init.gpa, record.id, .{
         .protocol = record.protocol_version,
+        .after_sequence = request.after_sequence,
+        .read_only = request.read_only,
+        .latest_screen = request.latest_screen,
+        .client_id = request.client_id,
+        .client_name = request.client_name,
+    }) catch |err| return fail(init, err);
+}
+
+fn parseAttachRequest(args: anytype) !AttachRequest {
+    var database: ?[]const u8 = null;
+    var reference: ?[]const u8 = null;
+    var after_sequence: u64 = 0;
+    var read_only = false;
+    var latest_screen = false;
+    var client_id: ?u64 = null;
+    var client_name: ?[]const u8 = null;
+    while (args.next()) |argument| {
+        if (std.mem.eql(u8, argument, "--latest-screen")) {
+            latest_screen = true;
+            continue;
+        }
+        if (std.mem.eql(u8, argument, "--read-only")) {
+            read_only = true;
+            continue;
+        }
+        if (std.mem.eql(u8, argument, "--database")) {
+            database = args.next() orelse return error.MissingDatabase;
+            continue;
+        }
+        if (std.mem.eql(u8, argument, "--after")) {
+            after_sequence = try std.fmt.parseInt(
+                u64,
+                args.next() orelse return error.MissingSequence,
+                10,
+            );
+            continue;
+        }
+        if (std.mem.eql(u8, argument, "--client-id")) {
+            client_id = try std.fmt.parseInt(
+                u64,
+                args.next() orelse return error.MissingClientId,
+                10,
+            );
+            if (client_id.? == 0 or client_id.? > worker.max_client_id) {
+                return error.InvalidClientId;
+            }
+            continue;
+        }
+        if (std.mem.eql(u8, argument, "--client-name")) {
+            client_name = args.next() orelse return error.MissingClientName;
+            if (client_name.?.len == 0 or client_name.?.len > 127) return error.InvalidClientName;
+            continue;
+        }
+        if (reference == null) {
+            reference = argument;
+            continue;
+        }
+        return error.UnexpectedArgument;
+    }
+    if (database == null or reference == null) return error.MissingAttachTarget;
+    std.debug.assert(database.?.len > 0 and reference.?.len > 0);
+    return .{
+        .database = database.?,
+        .reference = reference.?,
         .after_sequence = after_sequence,
         .read_only = read_only,
         .latest_screen = latest_screen,
-    }) catch |err| return fail(init, err);
+        .client_id = client_id,
+        .client_name = client_name,
+    };
+}
+
+fn runTake(init: std.process.Init, args: anytype) !u8 {
+    var database: ?[]const u8 = null;
+    var reference: ?[]const u8 = null;
+    var client_id: ?u64 = null;
+    while (args.next()) |argument| {
+        if (std.mem.eql(u8, argument, "--database")) {
+            database = args.next() orelse return writeUsage(init.io);
+            continue;
+        }
+        if (std.mem.eql(u8, argument, "--client-id")) {
+            client_id = std.fmt.parseInt(
+                u64,
+                args.next() orelse return writeUsage(init.io),
+                10,
+            ) catch return writeUsage(init.io);
+            continue;
+        }
+        if (reference == null) {
+            reference = argument;
+            continue;
+        }
+        return writeUsage(init.io);
+    }
+    if (database == null or reference == null or client_id == null or
+        client_id.? == 0 or client_id.? > worker.max_client_id)
+    {
+        return writeUsage(init.io);
+    }
+    std.debug.assert(
+        database.?.len > 0 and reference.?.len > 0 and
+            client_id.? > 0 and client_id.? <= worker.max_client_id,
+    );
+    var store = session.Store.open(init.gpa, database.?) catch |err| return fail(init, err);
+    defer store.close();
+    var record = (store.resolveSession(reference.?) catch |err| return fail(init, err)) orelse
+        return fail(init, error.SessionNotFound);
+    defer record.deinit(init.gpa);
+    worker.takeControl(
+        init.gpa,
+        record.id,
+        record.protocol_version,
+        record.last_sequence,
+        client_id.?,
+    ) catch |err| return fail(init, err);
+    try writeJson(init.gpa, init.io, .{
+        .ok = true,
+        .id = record.id,
+        .clientId = client_id.?,
+    });
+    return @intFromEnum(Exit.ok);
 }
 
 fn replayStored(
@@ -713,24 +892,33 @@ fn writeWorkspaceList(init: std.process.Init, records: []const session.Workspace
     try stdout.writeStreamingAll(init.io, "{\"ok\":true,\"workspaces\":[");
     for (records, 0..) |record, index| {
         if (index > 0) try stdout.writeStreamingAll(init.io, ",");
-        const output = try std.json.Stringify.valueAlloc(init.gpa, WorkspaceView{
+        try writeJsonValueTo(init.gpa, init.io, stdout, WorkspaceView{
             .id = record.id,
             .name = record.name,
             .rootDirectory = record.root_directory,
             .createdAtMs = record.created_at_ms,
             .updatedAtMs = record.updated_at_ms,
-        }, .{});
-        defer init.gpa.free(output);
-        try stdout.writeStreamingAll(init.io, output);
+        }, false);
     }
     try stdout.writeStreamingAll(init.io, "]}\n");
 }
 
 fn writeJsonTo(allocator: std.mem.Allocator, io: std.Io, file: std.Io.File, value: anytype) !void {
+    try writeJsonValueTo(allocator, io, file, value, true);
+}
+
+fn writeJsonValueTo(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    file: std.Io.File,
+    value: anytype,
+    newline: bool,
+) !void {
+    std.debug.assert(@sizeOf(@TypeOf(value)) > 0);
     const output = try std.json.Stringify.valueAlloc(allocator, value, .{});
     defer allocator.free(output);
     try file.writeStreamingAll(io, output);
-    try file.writeStreamingAll(io, "\n");
+    if (newline) try file.writeStreamingAll(io, "\n");
 }
 
 fn freeWorkspaces(allocator: std.mem.Allocator, records: []session.Workspace) void {
@@ -753,7 +941,7 @@ fn writeUsage(io: std.Io) !u8 {
     try std.Io.File.stderr().writeStreamingAll(
         io,
         "usage: machinen-session " ++
-            "<workspace|new|list|inspect|attach|send|signal|stop|delete|" ++
+            "<workspace|new|list|inspect|attach|take|send|signal|stop|delete|" ++
             "reconcile|gc|database|help> ...\n",
     );
     return @intFromEnum(Exit.usage);
@@ -778,7 +966,8 @@ fn writeHelp(io: std.Io) !u8 {
         \\  machinen-session list --database <path>
         \\  machinen-session inspect --database <path> <id-or-name>
         \\  machinen-session attach --database <path> [--after <sequence>] [--read-only]
-        \\      [--latest-screen] <id-or-name>
+        \\      [--latest-screen] [--client-id <number>] [--client-name <name>] <id-or-name>
+        \\  machinen-session take --database <path> --client-id <number> <id-or-name>
         \\  machinen-session send --database <path> <id-or-name> < input
         \\  machinen-session signal --database <path> <id-or-name> <interrupt|hangup|terminate|kill>
         \\  machinen-session stop --database <path> <id-or-name>
@@ -798,6 +987,21 @@ fn isHelp(value: []const u8) bool {
     return std.mem.eql(u8, value, "help") or
         std.mem.eql(u8, value, "--help") or
         std.mem.eql(u8, value, "-h");
+}
+
+test "attached client views preserve each bounded display name" {
+    var attached: worker.AttachedClients = .{ .count = 2 };
+    attached.items[0].id = 1;
+    attached.items[0].name_length = 5;
+    @memcpy(attached.items[0].name_buffer[0..5], "alpha");
+    attached.items[1].id = 2;
+    attached.items[1].name_length = 4;
+    @memcpy(attached.items[1].name_buffer[0..4], "beta");
+    var buffer: [worker.max_attached_clients]AttachedClientView = undefined;
+    const views = attachedClientViews(&attached, &buffer);
+    try std.testing.expect(views.len == 2);
+    try std.testing.expectEqualStrings("alpha", views[0].name);
+    try std.testing.expectEqualStrings("beta", views[1].name);
 }
 
 test "help aliases and dimensions remain stable" {

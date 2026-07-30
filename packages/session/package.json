@@ -1,6 +1,6 @@
 {
   "name": "@machinen/session",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "private": true,
   "description": "Portable SQLite-backed terminal session multiplexer",
   "license": "FSL-1.1-MIT",

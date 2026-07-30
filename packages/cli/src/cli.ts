@@ -12,7 +12,7 @@
 //   machinen attach [--session <session>] [name|pid] # persistent PTY shell
 //   machinen repl   <name|pid>                   # per-line exec
 //   machinen run <target>                        # run a known CLI in a VM
-//   machinen terminal <new|list|inspect|attach|send|signal|stop|delete|reconcile|gc>
+//   machinen terminal <new|list|inspect|attach|take|send|signal|stop|delete|reconcile|gc>
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
 
