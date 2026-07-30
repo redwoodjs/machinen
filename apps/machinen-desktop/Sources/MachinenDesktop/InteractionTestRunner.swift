@@ -460,6 +460,8 @@ enum InteractionTestRunner {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
+        deck.zoomInOneLevel()
+        deck.zoomInOneLevel()
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
             styleMask: [.borderless],
@@ -1854,6 +1856,8 @@ enum InteractionTestRunner {
         window.makeFirstResponder(deck)
         deck.layoutSubtreeIfNeeded()
         try expect(try harness.uiLevel(of: deck) == "overview", "the test did not start in overview")
+        deck.zoomInOneLevel()
+        deck.layoutSubtreeIfNeeded()
 
         func tiles(in view: NSView) -> [TerminalTileView] {
             view.subviews.flatMap { subview in

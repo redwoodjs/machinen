@@ -300,11 +300,23 @@ final class TerminalDeckView: NSView {
         tile.onSelect = { [weak self, weak tile] event in
             guard let self, let tile else { return }
             self.window?.makeFirstResponder(self)
-            self.focusClickedTile(at: event.locationInWindow, fallback: tile)
+            if self.currentWorkspace == nil,
+               let index = self.workspaceClusters.firstIndex(where: { $0.sessions.contains(where: { $0 === tile }) })
+            {
+                self.activate(index)
+            } else {
+                self.focusClickedTile(at: event.locationInWindow, fallback: tile)
+            }
         }
         tile.onActivate = { [weak self, weak tile] event in
             guard let self, let tile else { return }
-            self.focusClickedTile(at: event.locationInWindow, fallback: tile)
+            if self.currentWorkspace == nil,
+               let index = self.workspaceClusters.firstIndex(where: { $0.sessions.contains(where: { $0 === tile }) })
+            {
+                self.activate(index)
+            } else {
+                self.focusClickedTile(at: event.locationInWindow, fallback: tile)
+            }
         }
         tile.terminalInputTarget = { [weak self, weak tile] event in
             // Unfocused previews reorder only inside their workspace. Only
