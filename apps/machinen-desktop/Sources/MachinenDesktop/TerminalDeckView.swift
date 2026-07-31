@@ -901,39 +901,8 @@ final class TerminalDeckView: NSView {
         if focusedIndex != nil { return }
         guard !isTransitioning else { return }
 
-        if modifiers == [.command] {
-            switch event.keyCode {
-            case 123:
-                reorderSelection(horizontal: -1, vertical: 0)
-                return
-            case 124:
-                reorderSelection(horizontal: 1, vertical: 0)
-                return
-            case 125:
-                reorderSelection(horizontal: 0, vertical: 1)
-                return
-            case 126:
-                reorderSelection(horizontal: 0, vertical: -1)
-                return
-            default:
-                break
-            }
-        }
-
         if modifiers.isEmpty {
             switch event.keyCode {
-            case 123:
-                moveSelection(horizontal: -1, vertical: 0)
-                return
-            case 124:
-                moveSelection(horizontal: 1, vertical: 0)
-                return
-            case 125:
-                moveSelection(horizontal: 0, vertical: 1)
-                return
-            case 126:
-                moveSelection(horizontal: 0, vertical: -1)
-                return
             case 36, 76:
                 activate(selectedIndex)
                 return
@@ -1380,26 +1349,34 @@ final class TerminalDeckView: NSView {
         emitAPIEvent("ui.changed", data: uiJSON())
     }
 
-    private func moveSelection(horizontal: Int, vertical: Int) {
-        guard activeCount > 0 else { return }
+    private func moveSelection(horizontal: Int, vertical: Int) -> Bool {
+        guard presentedOverlay == nil, commandPalette == nil,
+              focusedIndex == nil, !isTransitioning, !isPeeking,
+              activeCount > 0
+        else { return false }
         clearLabelBuffer()
         let columns = activeColumns
         let row = selectedIndex / columns + vertical
         let column = selectedIndex % columns + horizontal
-        guard row >= 0, column >= 0, column < columns else { return }
+        guard row >= 0, column >= 0, column < columns else { return true }
         let target = row * columns + column
-        guard target < activeCount else { return }
+        guard target < activeCount else { return true }
         select(target)
+        return true
     }
 
-    private func reorderSelection(horizontal: Int, vertical: Int) {
-        guard focusedIndex == nil, !isTransitioning, !isPeeking, activeCount > 1 else { return }
+    private func reorderSelection(horizontal: Int, vertical: Int) -> Bool {
+        guard presentedOverlay == nil, commandPalette == nil,
+              focusedIndex == nil, !isTransitioning, !isPeeking,
+              activeCount > 0
+        else { return false }
+        guard activeCount > 1 else { return true }
         let columns = activeColumns
         let row = selectedIndex / columns + vertical
         let column = selectedIndex % columns + horizontal
-        guard row >= 0, column >= 0, column < columns else { return }
+        guard row >= 0, column >= 0, column < columns else { return true }
         let target = row * columns + column
-        guard target < activeCount else { return }
+        guard target < activeCount else { return true }
 
         if currentWorkspace == nil {
             workspaceClusters.swapAt(selectedIndex, target)
@@ -1413,7 +1390,7 @@ final class TerminalDeckView: NSView {
                 allSessionTiles[$0].session.workspaceID == currentWorkspace
             }
             guard workspaceIndexes.indices.contains(selectedIndex), workspaceIndexes.indices.contains(target) else {
-                return
+                return true
             }
             allSessionTiles.swapAt(workspaceIndexes[selectedIndex], workspaceIndexes[target])
         }
@@ -1432,6 +1409,7 @@ final class TerminalDeckView: NSView {
         } else if activeSessionTiles.indices.contains(selectedIndex) {
             emitAPIEvent("tile.moved", data: tileJSON(activeSessionTiles[selectedIndex]))
         }
+        return true
     }
 
     private func beginPeek() {
@@ -4574,15 +4552,35 @@ final class TerminalDeckView: NSView {
             return zoomInOneLevel()
         case .leave:
             return zoomOutOneLevel()
+        case .selectLeft:
+            return moveSelection(horizontal: -1, vertical: 0)
+        case .selectRight:
+            return moveSelection(horizontal: 1, vertical: 0)
+        case .selectDown:
+            return moveSelection(horizontal: 0, vertical: 1)
+        case .selectUp:
+            return moveSelection(horizontal: 0, vertical: -1)
+        case .moveLeft:
+            return reorderSelection(horizontal: -1, vertical: 0)
+        case .moveRight:
+            return reorderSelection(horizontal: 1, vertical: 0)
+        case .moveDown:
+            return reorderSelection(horizontal: 0, vertical: 1)
+        case .moveUp:
+            return reorderSelection(horizontal: 0, vertical: -1)
+        case .previousPane:
+            return cycleFocusedTerminal(by: -1)
         case .nextPane:
             return cycleFocusedTerminal(by: 1)
+        case .previousWorkspace:
+            return cycleFocusedWorkspace(by: -1)
         case .nextWorkspace:
             return cycleFocusedWorkspace(by: 1)
         }
     }
 
-    /// `nextPane` moves between terminals in the current workspace while
-    /// preserving the scene hierarchy: terminal → workspace → terminal.
+    /// `previousPane` and `nextPane` move between terminals in the current
+    /// workspace while preserving the scene hierarchy: terminal → workspace → terminal.
     @discardableResult
     func cycleFocusedTerminal(by offset: Int) -> Bool {
         let sessions = activeSessionTiles
@@ -4616,8 +4614,8 @@ final class TerminalDeckView: NSView {
         moveCamera(duration: Motion.terminalSwitchDuration)
     }
 
-    /// `nextWorkspace` travels through the complete scene hierarchy to the
-    /// next workspace's first terminal: terminal → source
+    /// `previousWorkspace` and `nextWorkspace` travel through the complete
+    /// scene hierarchy to an adjacent workspace's first terminal: terminal → source
     /// workspace → workspace overview → destination workspace → terminal.
     @discardableResult
     func cycleFocusedWorkspace(by offset: Int) -> Bool {

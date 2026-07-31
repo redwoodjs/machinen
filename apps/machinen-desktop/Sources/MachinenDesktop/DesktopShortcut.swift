@@ -45,8 +45,23 @@ struct MachinenConfiguration {
 
         do {
             let contents = try JSONDecoder().decode(FileContents.self, from: Data(contentsOf: url))
+            var descriptions = contents.shortcuts
+            var addedDefaults = false
+            for (action, description) in defaultShortcutStrings
+            where descriptions[action.rawValue] == nil {
+                descriptions[action.rawValue] = description
+                addedDefaults = true
+            }
+            if addedDefaults {
+                do {
+                    try write(FileContents(shortcuts: descriptions), to: url)
+                } catch {
+                    NSLog("Machinen could not update config at %@: %@", url.path, String(describing: error))
+                }
+            }
+
             var shortcuts = defaults.shortcuts
-            for (name, description) in contents.shortcuts {
+            for (name, description) in descriptions {
                 guard let action = DesktopShortcutAction(rawValue: name) else {
                     NSLog("Machinen config ignored unknown shortcut action '%@'", name)
                     continue
@@ -67,7 +82,17 @@ struct MachinenConfiguration {
     private static let defaultShortcutStrings: [DesktopShortcutAction: String] = [
         .enter: "cmd+down",
         .leave: "cmd+up",
+        .selectLeft: "left",
+        .selectRight: "right",
+        .selectDown: "down",
+        .selectUp: "up",
+        .moveLeft: "cmd+shift+left",
+        .moveRight: "cmd+shift+right",
+        .moveDown: "cmd+shift+down",
+        .moveUp: "cmd+shift+up",
+        .previousPane: "cmd+left",
         .nextPane: "cmd+right",
+        .previousWorkspace: "cmd+[",
         .nextWorkspace: "cmd+]",
     ]
 
@@ -75,7 +100,10 @@ struct MachinenConfiguration {
         let shortcuts = Dictionary(uniqueKeysWithValues: defaultShortcutStrings.map {
             ($0.key.rawValue, $0.value)
         })
-        let contents = FileContents(shortcuts: shortcuts)
+        try write(FileContents(shortcuts: shortcuts), to: url)
+    }
+
+    private static func write(_ contents: FileContents, to url: URL) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         var data = try encoder.encode(contents)
@@ -91,7 +119,17 @@ struct MachinenConfiguration {
 enum DesktopShortcutAction: String, CaseIterable {
     case enter
     case leave
+    case selectLeft
+    case selectRight
+    case selectDown
+    case selectUp
+    case moveLeft
+    case moveRight
+    case moveDown
+    case moveUp
+    case previousPane
     case nextPane
+    case previousWorkspace
     case nextWorkspace
 }
 
@@ -192,10 +230,11 @@ final class DesktopShortcutMonitor {
     }
 
     func process(_ event: NSEvent) -> NSEvent? {
-        guard let action = DesktopShortcutAction.allCases.first(where: {
-            shortcuts[$0]?.matches(event) == true
-        }) else { return event }
-        return handler(action) ? nil : event
+        for action in DesktopShortcutAction.allCases
+        where shortcuts[action]?.matches(event) == true {
+            if handler(action) { return nil }
+        }
+        return event
     }
 
     func stop() {

@@ -19,6 +19,7 @@ enum InteractionTestRunner {
             try statusNavigationMenusSwitchAndZoomOut()
             try commandPlusAndMinusMagnifyTheCurrentLevel()
             try configuredShortcutsNavigateHierarchy()
+            try configuredShortcutsSelectAndMoveSpatialObjects()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
             try commandPaletteFuzzySearchesAndCompletes()
             try terminalOutputAndRuntimeLabelsReportActivity()
@@ -47,7 +48,7 @@ enum InteractionTestRunner {
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (35 scenarios)")
+            print("Machinen interaction tests passed (36 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -115,7 +116,17 @@ enum InteractionTestRunner {
             defaultShortcuts == [
                 "enter": "cmd+down",
                 "leave": "cmd+up",
+                "selectLeft": "left",
+                "selectRight": "right",
+                "selectDown": "down",
+                "selectUp": "up",
+                "moveLeft": "cmd+shift+left",
+                "moveRight": "cmd+shift+right",
+                "moveDown": "cmd+shift+down",
+                "moveUp": "cmd+shift+up",
+                "previousPane": "cmd+left",
                 "nextPane": "cmd+right",
+                "previousWorkspace": "cmd+[",
                 "nextWorkspace": "cmd+]",
             ],
             "the generated shortcut config did not contain the documented defaults"
@@ -143,6 +154,16 @@ enum InteractionTestRunner {
             ) == true,
             "the config did not replace the next-pane shortcut"
         )
+        let migratedData = try Data(contentsOf: configURL)
+        let migratedObject = try JSONSerialization.jsonObject(with: migratedData) as? [String: Any]
+        let migratedShortcuts = migratedObject?["shortcuts"] as? [String: String]
+        try expect(
+            migratedShortcuts?.count == DesktopShortcutAction.allCases.count
+                && migratedShortcuts?["enter"] == "ctrl+j"
+                && migratedShortcuts?["previousPane"] == "cmd+left"
+                && migratedShortcuts?["moveUp"] == "cmd+shift+up",
+            "loading an older config did not add the missing spatial actions"
+        )
 
         var actions: [DesktopShortcutAction] = []
         let monitor = DesktopShortcutMonitor(
@@ -162,11 +183,18 @@ enum InteractionTestRunner {
                 && actions == [.enter, .nextPane],
             "the default next-pane shortcut was not routed"
         )
-        let unbound = try harness.commandArrow(keyCode: 123)
         try expect(
-            monitor.process(unbound) === unbound,
-            "an unconfigured shortcut was consumed"
+            monitor.process(
+                try harness.keyEvent(characters: "", keyCode: 123, modifierFlags: [.command, .shift])
+            ) == nil && actions.last == .moveLeft,
+            "the default move-left shortcut was not routed"
         )
+        let unbound = try harness.keyEvent(
+            characters: "x",
+            keyCode: 7,
+            modifierFlags: [.control, .option]
+        )
+        try expect(monitor.process(unbound) === unbound, "an unconfigured shortcut was consumed")
     }
 
     private static func settingsFileIsAvailableInApplicationMenu() throws {
@@ -364,12 +392,32 @@ enum InteractionTestRunner {
             "the next-pane shortcut did not focus the next terminal"
         )
         try expect(
+            shortcut.process(harness.commandArrow(keyCode: 123)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
+            "the previous-pane shortcut did not focus the previous terminal"
+        )
+        try expect(
+            shortcut.process(harness.commandArrow(keyCode: 123)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "the previous-pane shortcut did not wrap within the workspace"
+        )
+        try expect(
             shortcut.process(harness.commandArrow(keyCode: 124)) == nil,
             "the wrapping next-pane shortcut was not handled"
         )
         try expect(
             try harness.focusedTileID(of: deck) == "tile_alpha_0",
             "the next-pane shortcut did not wrap within the workspace"
+        )
+        try expect(
+            shortcut.process(harness.commandBracket(keyCode: 33)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_0",
+            "the previous-workspace shortcut did not wrap to the final workspace"
+        )
+        try expect(
+            shortcut.process(harness.commandBracket(keyCode: 30)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
+            "the next-workspace shortcut did not return to the first workspace"
         )
         try expect(
             shortcut.process(harness.commandBracket(keyCode: 30)) == nil,
@@ -391,6 +439,84 @@ enum InteractionTestRunner {
             shortcut.process(harness.commandArrow(keyCode: 126)) == nil
                 && (try harness.uiLevel(of: deck)) == "workspace",
             "the leave shortcut did not leave the focused pane"
+        )
+    }
+
+    private static func configuredShortcutsSelectAndMoveSpatialObjects() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 2),
+            harness.workspace("beta", terminalCount: 1),
+        ])
+        let shortcut = DesktopShortcutMonitor(
+            shortcuts: MachinenConfiguration.defaults.shortcuts,
+            startMonitoring: false
+        ) { [weak deck] action in
+            deck?.performShortcut(action) == true
+        }
+        defer { shortcut.stop() }
+
+        try expect(
+            shortcut.process(
+                try harness.keyEvent(characters: "", keyCode: 124, modifierFlags: [])
+            ) == nil && (try harness.statusTitle(of: deck)) == "beta",
+            "the select-right shortcut did not select the next workspace"
+        )
+        try expect(
+            shortcut.process(
+                try harness.keyEvent(characters: "", keyCode: 123, modifierFlags: [])
+            ) == nil && (try harness.statusTitle(of: deck)) == "alpha",
+            "the select-left shortcut did not restore the first workspace"
+        )
+        try expect(
+            shortcut.process(
+                try harness.keyEvent(
+                    characters: "",
+                    keyCode: 124,
+                    modifierFlags: [.command, .shift]
+                )
+            ) == nil && (try harness.snapshot(of: deck)).workspaces.map(\.name) == ["beta", "alpha"],
+            "the move-right shortcut did not reorder the selected workspace"
+        )
+        try expect(
+            shortcut.process(
+                try harness.keyEvent(
+                    characters: "",
+                    keyCode: 123,
+                    modifierFlags: [.command, .shift]
+                )
+            ) == nil && (try harness.snapshot(of: deck)).workspaces.map(\.name) == ["alpha", "beta"],
+            "the move-left shortcut did not restore the workspace order"
+        )
+
+        try expect(
+            shortcut.process(harness.commandArrow(keyCode: 125)) == nil
+                && (try harness.uiLevel(of: deck)) == "workspace",
+            "the enter shortcut did not enter the reordered workspace"
+        )
+        try expect(
+            shortcut.process(
+                try harness.keyEvent(
+                    characters: "",
+                    keyCode: 125,
+                    modifierFlags: [.command, .shift]
+                )
+            ) == nil
+                && (try harness.snapshot(of: deck)).tiles.prefix(2).map(\.id)
+                    == ["tile_alpha_1", "tile_alpha_0"],
+            "the move-down shortcut did not reorder panes inside the workspace"
+        )
+        try expect(
+            shortcut.process(
+                try harness.keyEvent(characters: "", keyCode: 126, modifierFlags: [])
+            ) == nil,
+            "the select-up shortcut was not handled inside the workspace"
+        )
+        try expect(
+            shortcut.process(harness.commandArrow(keyCode: 125)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "enter did not focus the pane chosen with a selection shortcut"
         )
     }
 

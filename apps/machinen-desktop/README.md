@@ -29,14 +29,27 @@ default file is:
   "shortcuts": {
     "enter": "cmd+down",
     "leave": "cmd+up",
+    "selectLeft": "left",
+    "selectRight": "right",
+    "selectDown": "down",
+    "selectUp": "up",
+    "moveLeft": "cmd+shift+left",
+    "moveRight": "cmd+shift+right",
+    "moveDown": "cmd+shift+down",
+    "moveUp": "cmd+shift+up",
+    "previousPane": "cmd+left",
     "nextPane": "cmd+right",
+    "previousWorkspace": "cmd+[",
     "nextWorkspace": "cmd+]"
   }
 }
 ```
 
-Choose **Machinen → Open Settings File** or press `⌘,` to open the file in the
-user's default editor. Restart Desktop after editing it. A shortcut can combine
+Desktop adds newly introduced actions to existing settings files without
+changing customized values. The `select` actions move the overview selection;
+the `move` actions reorder the selected pane or workspace. Choose **Machinen →
+Open Settings File** or press `⌘,` to open the file in the user's default editor.
+Restart Desktop after editing it. A shortcut can combine
 `cmd`, `ctrl`, `option`, and `shift` with an arrow, single character, Return,
 Tab, Space, Delete, or Escape. An invalid entry keeps that action's default
 shortcut and writes an explanation to the macOS log.

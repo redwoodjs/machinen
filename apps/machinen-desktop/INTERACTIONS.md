@@ -33,23 +33,26 @@ discovery use the workspace directory as their project boundary.
 | `⌘,`             | Open the Desktop settings file in the user's default editor.                       |
 | `⌘↓` or `Return` | Enter the selected workspace or pane.                                              |
 | `⌘↑`             | Leave the current pane or workspace.                                               |
-| `⌘→`             | From Terminal mode, focus the next pane in the current workspace.                  |
-| `⌘]`             | From Terminal mode, focus the first pane in the next non-empty workspace.          |
+| `⌘←` / `⌘→`      | From Terminal mode, focus the previous/next pane in the current workspace.         |
+| `⌘[` / `⌘]`      | From Terminal mode, focus the first pane in the previous/next workspace.           |
 | `⌘N`             | Open the New chooser; never create a terminal or workspace immediately.            |
 | `⌘K`             | Open the single nested command menu for the current and containing spaces.         |
 | `⌘O`             | Show the focused terminal's full context menu.                                     |
 | `⌘W`             | Disconnect a terminal; press again in its toast or panel to kill its session.      |
 | Keyboard input   | In Terminal mode, the terminal receives all other keys and modifier combinations.  |
 | Arrow keys       | Move the selection only at the current overview level.                             |
+| `⌘⇧` + arrows    | Reorder the selected pane or workspace in the chosen direction.                    |
 | Click            | A terminal preview focuses its terminal.                                           |
 | Right-click      | Show Copy, Paste, Select All, and the **Open Selection With** submenu.             |
 | Drag preview     | Inside a workspace, reorder its terminal tiles. Never change their workspace.      |
 | Drag terminal    | Forward the drag for terminal selection/input.                                     |
 | Hold Space       | Momentarily peek into the selection.                                               |
 
-Machinen writes these four shortcuts to `~/.config/machinen/config.json` on
-first launch. Their action names are `enter`, `leave`, `nextPane`, and
-`nextWorkspace`. The file is read when Desktop starts.
+Machinen writes the spatial shortcuts to `~/.config/machinen/config.json` on
+first launch and adds new defaults to older files. The actions are `enter`,
+`leave`, `selectLeft`, `selectRight`, `selectDown`, `selectUp`, `moveLeft`,
+`moveRight`, `moveDown`, `moveUp`, `previousPane`, `nextPane`,
+`previousWorkspace`, and `nextWorkspace`. The file is read when Desktop starts.
 
 ## Input modes
 
@@ -62,11 +65,11 @@ first launch. Their action names are `enter`, `leave`, `nextPane`, and
   pointer and keyboard event. Spatial dragging, overview navigation, and
   application command equivalents do not intercept terminal input, except
   `⌘+` / `⌘−`, the configured Desktop shortcuts, `⌘N`, `⌘K`, and `⌘O`.
-  `nextPane` wraps through the terminals in the current workspace, zooming out
-  to the workspace before focusing the adjacent terminal. `nextWorkspace`
-  wraps through non-empty workspaces: it zooms out to the source workspace,
-  zooms out to the workspace overview, selects the next workspace, and then
-  zooms into its first tile.
+  `previousPane` and `nextPane` wrap through the terminals in the current
+  workspace, zooming out to the workspace before focusing the adjacent
+  terminal. `previousWorkspace` and `nextWorkspace` wrap through non-empty
+  workspaces: they zoom out to the source workspace, zoom out to the workspace
+  overview, select the adjacent workspace, and then zoom into its first tile.
   `⌘K` opens context-aware commands without changing camera level. `⌘O` opens
   the focused terminal's full context menu, including its **Open Selection
   With** submenu when text is selected.
