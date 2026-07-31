@@ -19,6 +19,7 @@ enum InteractionTestRunner {
             try statusNavigationMenusSwitchAndZoomOut()
             try commandPlusAndMinusMagnifyTheCurrentLevel()
             try configuredShortcutsNavigateHierarchy()
+            try paneShortcutMovesDirectlyBetweenFocusedTerminals()
             try configuredShortcutsSelectAndMoveSpatialObjects()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
             try commandPaletteFuzzySearchesAndCompletes()
@@ -48,7 +49,7 @@ enum InteractionTestRunner {
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (36 scenarios)")
+            print("Machinen interaction tests passed (37 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -441,6 +442,53 @@ enum InteractionTestRunner {
             shortcut.process(harness.commandShiftArrow(keyCode: 126)) == nil
                 && (try harness.uiLevel(of: deck)) == "workspace",
             "the leave shortcut did not leave the focused pane"
+        )
+    }
+
+    private static func paneShortcutMovesDirectlyBetweenFocusedTerminals() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 2),
+        ])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        deck.layoutSubtreeIfNeeded()
+
+        deck.zoomInOneLevel()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        deck.zoomInOneLevel()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        try expect(
+            try harness.focusedTileID(of: deck) == "tile_alpha_0",
+            "the first terminal was not focused before direct pane movement"
+        )
+        guard let camera = deck.subviews.first else {
+            throw InteractionTestFailure("the deck did not install its camera scene")
+        }
+        let initialCameraSize = camera.bounds.size
+
+        try expect(deck.cycleFocusedTerminal(by: 1), "the next-pane action was not accepted")
+        try expect(
+            try harness.uiLevel(of: deck) == "terminal"
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "pane movement zoomed out instead of focusing the destination directly"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.06))
+        try expect(
+            try harness.uiLevel(of: deck) == "terminal",
+            "pane movement left Terminal mode during its camera animation"
+        )
+        try expect(
+            abs(camera.bounds.width - initialCameraSize.width) < 0.5
+                && abs(camera.bounds.height - initialCameraSize.height) < 0.5,
+            "pane movement zoomed the camera instead of translating it"
         )
     }
 

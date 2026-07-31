@@ -66,8 +66,8 @@ first launch and adds new defaults to older files. The actions are `enter`,
   application command equivalents do not intercept terminal input, except
   `⌘+` / `⌘−`, the configured Desktop shortcuts, `⌘N`, `⌘K`, and `⌘O`.
   `previousPane` and `nextPane` wrap through the terminals in the current
-  workspace, zooming out to the workspace before focusing the adjacent
-  terminal. `previousWorkspace` and `nextWorkspace` wrap through non-empty
+  workspace by moving the camera directly between them without leaving
+  Terminal mode. `previousWorkspace` and `nextWorkspace` wrap through non-empty
   workspaces: they zoom out to the source workspace, zoom out to the workspace
   overview, select the adjacent workspace, and then zoom into its first tile.
   `⌘K` opens context-aware commands without changing camera level. `⌘O` opens

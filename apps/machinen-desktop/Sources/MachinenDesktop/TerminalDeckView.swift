@@ -4579,8 +4579,8 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    /// `previousPane` and `nextPane` move between terminals in the current
-    /// workspace while preserving the scene hierarchy: terminal → workspace → terminal.
+    /// `previousPane` and `nextPane` move the camera directly between terminals
+    /// in the current workspace without leaving Terminal mode.
     @discardableResult
     func cycleFocusedTerminal(by offset: Int) -> Bool {
         let sessions = activeSessionTiles
@@ -4592,26 +4592,14 @@ final class TerminalDeckView: NSView {
 
         let targetIndex = (focusedIndex + offset % sessions.count + sessions.count)
             % sessions.count
+        let sourceTileID = sessions[focusedIndex].session.tileID
         let targetTileID = sessions[targetIndex].session.tileID
-        InputRoutingLog.log(
-            "cycles focused terminal tile=\(sessions[focusedIndex].session.tileID)→\(targetTileID)"
-        )
-        self.focusedIndex = nil
+        InputRoutingLog.log("cycles focused terminal tile=\(sourceTileID)→\(targetTileID)")
         selectedIndex = targetIndex
-        updateSelection()
-        moveCamera(duration: Motion.terminalSwitchDuration) { [weak self] in
-            self?.focusCycledTerminal(targetTileID)
-        }
-        return true
-    }
-
-    private func focusCycledTerminal(_ tileID: String) {
-        guard let targetIndex = activeSessionTiles.firstIndex(where: { $0.session.tileID == tileID })
-        else { return }
-        selectedIndex = targetIndex
-        focusedIndex = targetIndex
+        self.focusedIndex = targetIndex
         updateSelection()
         moveCamera(duration: Motion.terminalSwitchDuration)
+        return true
     }
 
     /// `previousWorkspace` and `nextWorkspace` travel through the complete
