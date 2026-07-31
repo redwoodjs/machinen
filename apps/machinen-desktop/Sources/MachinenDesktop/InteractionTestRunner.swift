@@ -3034,7 +3034,7 @@ private final class Harness {
     }
 
     func commandShiftBracket(keyCode: UInt16) throws -> NSEvent {
-        let characters = keyCode == 33 ? "[" : "]"
+        let characters = keyCode == 33 ? "{" : "}"
         return try keyEvent(
             characters: characters,
             keyCode: keyCode,

@@ -214,6 +214,8 @@ struct DesktopShortcutBinding: Equatable {
 
     private static func parseKey(_ value: String) -> Key? {
         switch value {
+        case "[", "leftbracket": return .keyCode(33)
+        case "]", "rightbracket": return .keyCode(30)
         case "left": return .keyCode(123)
         case "right": return .keyCode(124)
         case "down": return .keyCode(125)
