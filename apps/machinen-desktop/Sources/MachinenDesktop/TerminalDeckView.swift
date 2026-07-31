@@ -85,6 +85,7 @@ final class TerminalDeckView: NSView {
         static let workspaceSwitchEntryDuration: TimeInterval = 0.11
         static let workspaceSwitchMinimumAlpha: CGFloat = 0.2
         static let workspaceSwitchNudge: CGFloat = 44
+        static let minimapHoldDuration: TimeInterval = 1.25
         static let minimapFadeOutDuration: TimeInterval = 0.34
         static let peekDuration: TimeInterval = 0.12
         static let paneCloseDuration: TimeInterval = 0.18
@@ -958,18 +959,24 @@ final class TerminalDeckView: NSView {
 
     private func finishSpatialMinimapAnimation() {
         spatialMinimapAnimation = nil
+        spatialMinimapView.alphaValue = 1
         spatialMinimapFadeGeneration += 1
         let generation = spatialMinimapFadeGeneration
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = Motion.minimapFadeOutDuration
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            spatialMinimapView.animator().alphaValue = 0
-        } completionHandler: { [weak self] in
-            Task { @MainActor in
-                guard let self, self.spatialMinimapFadeGeneration == generation,
-                      self.spatialMinimapAnimation == nil
-                else { return }
-                self.spatialMinimapView.isHidden = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + Motion.minimapHoldDuration) { [weak self] in
+            guard let self, self.spatialMinimapFadeGeneration == generation,
+                  self.spatialMinimapAnimation == nil
+            else { return }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = Motion.minimapFadeOutDuration
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                self.spatialMinimapView.animator().alphaValue = 0
+            } completionHandler: { [weak self] in
+                Task { @MainActor in
+                    guard let self, self.spatialMinimapFadeGeneration == generation,
+                          self.spatialMinimapAnimation == nil
+                    else { return }
+                    self.spatialMinimapView.isHidden = true
+                }
             }
         }
     }

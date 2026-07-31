@@ -214,6 +214,7 @@ final class MachinenStatusBarView: NSView {
     }
 
     var spatialMinimapForTesting: SpatialMinimapView { spatialMinimapView }
+    var navigationTitleFrameForTesting: NSRect { titleFrame }
 
     func updateSpatialMinimap(
         worldBounds: NSRect,
@@ -435,8 +436,7 @@ final class MachinenStatusBarView: NSView {
             width: max(0, bounds.width - Metrics.leftInset - Metrics.rightInset),
             height: 16
         )
-        let titleWidth = drawNavigationTitle(at: baseline.origin)
-        var leftX = baseline.minX + titleWidth + Metrics.sectionGap
+        var leftX = baseline.minX
         if !spatialMinimapView.isHidden {
             spatialMinimapView.frame = NSRect(
                 x: leftX,
@@ -446,6 +446,8 @@ final class MachinenStatusBarView: NSView {
             ).integral
             leftX = spatialMinimapView.frame.maxX + Metrics.sectionGap
         }
+        let titleWidth = drawNavigationTitle(at: NSPoint(x: leftX, y: baseline.minY))
+        leftX += titleWidth + Metrics.sectionGap
         var rightX = bounds.width - Metrics.rightInset
         var frames: [WidgetFrame] = []
 

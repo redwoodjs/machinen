@@ -499,7 +499,11 @@ enum InteractionTestRunner {
                 && statusMinimap.representedWorkspaceCount == 2
                 && statusMinimap.representedPaneCount == 3
                 && !statusMinimap.rendersPaneDetail
+                && statusMinimap.rendersPaneBlocks
                 && statusMinimap.usesPixelArtPresentation
+                && statusMinimap.pixelArtWorkspaceGap == 1
+                && statusMinimap.pixelArtPaneGap == 1
+                && statusMinimap.frame.maxX < statusBar.navigationTitleFrameForTesting.minX
                 && minimap.rendersPaneDetail
                 && !minimap.usesPixelArtPresentation,
             "the status bar did not keep a simplified item-sized spatial minimap"
@@ -555,13 +559,18 @@ enum InteractionTestRunner {
             "pane switching changed the camera zoom at the destination"
         )
         try expect(
-            !minimap.isHidden && !statusMinimap.isHidden,
-            "the minimap did not begin its slower fade after pane movement"
+            !minimap.isHidden && minimap.alphaValue > 0.99 && !statusMinimap.isHidden,
+            "the minimap did not hold at full opacity after pane movement"
         )
         RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         try expect(
+            !minimap.isHidden && minimap.alphaValue > 0.99 && !statusMinimap.isHidden,
+            "the transient minimap faded before its hold completed"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(1.25))
+        try expect(
             minimap.isHidden && !statusMinimap.isHidden,
-            "the transient minimap did not finish fading independently of the status minimap"
+            "the transient minimap did not fade after its hold"
         )
 
         let workspaceInitialCameraBounds = camera.bounds
@@ -599,10 +608,15 @@ enum InteractionTestRunner {
             "workspace switching changed zoom while revealing the destination"
         )
         try expect(
-            !minimap.isHidden && !statusMinimap.isHidden,
-            "the workspace minimap did not use the slower fade"
+            !minimap.isHidden && minimap.alphaValue > 0.99 && !statusMinimap.isHidden,
+            "the workspace minimap did not hold at full opacity"
         )
         RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        try expect(
+            !minimap.isHidden && minimap.alphaValue > 0.99,
+            "the workspace minimap faded before its hold completed"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(1.25))
         try expect(
             minimap.isHidden && !statusMinimap.isHidden
                 && statusMinimap.representedWorkspaces.contains(where: {

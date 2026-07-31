@@ -36,7 +36,10 @@ final class SpatialMinimapView: NSView {
     var representedWorkspaceCount: Int { representedWorkspaces.count }
     var representedPaneCount: Int { representedWorkspaces.reduce(0) { $0 + $1.panes.count } }
     var rendersPaneDetail: Bool { presentation == .overlay }
+    var rendersPaneBlocks: Bool { true }
     var usesPixelArtPresentation: Bool { presentation == .statusBar }
+    var pixelArtWorkspaceGap: CGFloat { presentation == .statusBar ? 1 : 0 }
+    var pixelArtPaneGap: CGFloat { presentation == .statusBar ? 1 : 0 }
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
@@ -106,7 +109,7 @@ final class SpatialMinimapView: NSView {
         guard let transform = mapTransform() else { return }
 
         for workspace in representedWorkspaces {
-            let frame = transform.map(workspace.frame)
+            let frame = insetForPixelGap(transform.map(workspace.frame))
             let workspacePath = shape(
                 for: frame,
                 radius: presentation == .overlay ? min(4, frame.width / 8) : 0
@@ -123,22 +126,28 @@ final class SpatialMinimapView: NSView {
             workspacePath.lineWidth = 1
             workspacePath.stroke()
 
-            if presentation == .overlay {
-                for pane in workspace.panes {
-                    let paneFrame = transform.map(pane.frame).insetBy(dx: 0.5, dy: 0.5)
-                    guard paneFrame.width > 0, paneFrame.height > 0 else { continue }
-                    let panePath = NSBezierPath(
-                        roundedRect: paneFrame,
-                        xRadius: min(2.5, paneFrame.width / 8),
-                        yRadius: min(2.5, paneFrame.height / 8)
-                    )
+            for pane in workspace.panes {
+                let mappedPaneFrame = transform.map(pane.frame)
+                let paneFrame = presentation == .overlay
+                    ? mappedPaneFrame.insetBy(dx: 0.5, dy: 0.5)
+                    : insetForPixelGap(mappedPaneFrame, gap: pixelArtPaneGap)
+                guard paneFrame.width > 0, paneFrame.height > 0 else { continue }
+                let panePath = shape(
+                    for: paneFrame,
+                    radius: presentation == .overlay ? min(2.5, paneFrame.width / 8) : 0
+                )
+                if presentation == .overlay {
                     if pane.isActive {
                         NSColor(calibratedRed: 0.42, green: 0.72, blue: 1, alpha: 0.72).setFill()
                     } else {
                         NSColor(calibratedWhite: 0.72, alpha: 0.32).setFill()
                     }
-                    panePath.fill()
+                } else if pane.isActive {
+                    NSColor(calibratedRed: 0.7, green: 0.9, blue: 1, alpha: 1).setFill()
+                } else {
+                    NSColor(calibratedRed: 0.58, green: 0.66, blue: 0.72, alpha: 1).setFill()
                 }
+                panePath.fill()
             }
         }
 
@@ -159,6 +168,14 @@ final class SpatialMinimapView: NSView {
         cameraStroke.setStroke()
         cameraPath.lineWidth = presentation == .overlay ? 1.5 : 1
         cameraPath.stroke()
+    }
+
+    private func insetForPixelGap(_ rect: NSRect, gap: CGFloat? = nil) -> NSRect {
+        let gap = gap ?? pixelArtWorkspaceGap
+        guard gap > 0 else { return rect }
+        let horizontalInset = min(gap, max(0, (rect.width - 1) / 2))
+        let verticalInset = min(gap, max(0, (rect.height - 1) / 2))
+        return rect.insetBy(dx: horizontalInset, dy: verticalInset)
     }
 
     private func shape(for rect: NSRect, radius: CGFloat) -> NSBezierPath {
