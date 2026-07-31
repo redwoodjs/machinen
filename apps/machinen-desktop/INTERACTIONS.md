@@ -26,25 +26,29 @@ discovery use the workspace directory as their project boundary.
 
 ## Navigation
 
-| Input            | Behavior                                                                               |
-| ---------------- | -------------------------------------------------------------------------------------- |
-| `⌘+` / `⌘−`      | Magnify/demagnify the camera in equal increments without changing hierarchy level.     |
-| `⌘0`             | Reset camera magnification to actual size without changing hierarchy level.            |
-| `⌘↓` or `Return` | Move one level in.                                                                     |
-| `⌘↑`             | Move one level out.                                                                    |
-| `⌘←` / `⌘→`      | From Terminal mode, focus the previous/next terminal in the current workspace.         |
-| `⌘[` / `⌘]`      | From Terminal mode, focus the first terminal in the previous/next non-empty workspace. |
-| `⌘N`             | Open the New chooser; never create a terminal or workspace immediately.                |
-| `⌘K`             | Open the single nested command menu for the current and containing spaces.             |
-| `⌘O`             | Show the focused terminal's full context menu.                                         |
-| `⌘W`             | Disconnect a terminal; press again in its toast or panel to kill its session.          |
-| Keyboard input   | In Terminal mode, the terminal receives all other keys and modifier combinations.      |
-| Arrow keys       | Move the selection only at the current overview level.                                 |
-| Click            | A terminal preview focuses its terminal.                                               |
-| Right-click      | Show Copy, Paste, Select All, and the **Open Selection With** submenu.                 |
-| Drag preview     | Inside a workspace, reorder its terminal tiles. Never change their workspace.          |
-| Drag terminal    | Forward the drag for terminal selection/input.                                         |
-| Hold Space       | Momentarily peek into the selection.                                                   |
+| Input            | Behavior                                                                           |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| `⌘+` / `⌘−`      | Magnify/demagnify the camera in equal increments without changing hierarchy level. |
+| `⌘0`             | Reset camera magnification to actual size without changing hierarchy level.        |
+| `⌘↓` or `Return` | Enter the selected workspace or pane.                                              |
+| `⌘↑`             | Leave the current pane or workspace.                                               |
+| `⌘→`             | From Terminal mode, focus the next pane in the current workspace.                  |
+| `⌘]`             | From Terminal mode, focus the first pane in the next non-empty workspace.          |
+| `⌘N`             | Open the New chooser; never create a terminal or workspace immediately.            |
+| `⌘K`             | Open the single nested command menu for the current and containing spaces.         |
+| `⌘O`             | Show the focused terminal's full context menu.                                     |
+| `⌘W`             | Disconnect a terminal; press again in its toast or panel to kill its session.      |
+| Keyboard input   | In Terminal mode, the terminal receives all other keys and modifier combinations.  |
+| Arrow keys       | Move the selection only at the current overview level.                             |
+| Click            | A terminal preview focuses its terminal.                                           |
+| Right-click      | Show Copy, Paste, Select All, and the **Open Selection With** submenu.             |
+| Drag preview     | Inside a workspace, reorder its terminal tiles. Never change their workspace.      |
+| Drag terminal    | Forward the drag for terminal selection/input.                                     |
+| Hold Space       | Momentarily peek into the selection.                                               |
+
+Machinen writes these four shortcuts to `~/.config/machinen/config.json` on
+first launch. Their action names are `enter`, `leave`, `nextPane`, and
+`nextWorkspace`. The file is read when Desktop starts.
 
 ## Input modes
 
@@ -56,16 +60,17 @@ discovery use the workspace directory as their project boundary.
 - **Terminal mode:** one terminal is focused, and its viewport owns every
   pointer and keyboard event. Spatial dragging, overview navigation, and
   application command equivalents do not intercept terminal input, except
-  `⌘+` / `⌘−`, `⌘←` / `⌘→`, `⌘[` / `⌘]`, `⌘N`, `⌘K`, and `⌘O`. The arrow shortcuts wrap through the
-  terminals in the current workspace, zooming out to the workspace before
-  focusing the adjacent terminal. The bracket shortcuts wrap through non-empty
-  workspaces: they zoom out to the source workspace, zoom out to the workspace
-  overview and select the adjacent workspace, then zoom into its first tile.
+  `⌘+` / `⌘−`, the configured Desktop shortcuts, `⌘N`, `⌘K`, and `⌘O`.
+  `nextPane` wraps through the terminals in the current workspace, zooming out
+  to the workspace before focusing the adjacent terminal. `nextWorkspace`
+  wraps through non-empty workspaces: it zooms out to the source workspace,
+  zooms out to the workspace overview, selects the next workspace, and then
+  zooms into its first tile.
   `⌘K` opens context-aware commands without changing camera level. `⌘O` opens
   the focused terminal's full context menu, including its **Open Selection
   With** submenu when text is selected.
 
-`⌘+` / `⌘−` changes only camera magnification in equal increments, and `⌘0` resets it to actual size; all preserve the current hierarchy level. `⌘↓` / `⌘↑` moves through the camera hierarchy. Neither changes terminal scrollback.
+`⌘+` / `⌘−` changes only camera magnification in equal increments, and `⌘0` resets it to actual size; all preserve the current hierarchy level. The configured `enter` and `leave` actions move through the camera hierarchy. Neither changes terminal scrollback.
 The terminal viewport keeps the same intrinsic bounds and Ghostty grid while the
 camera moves. Navigate mode shows a scaled version of that unchanged surface;
 it does not resize or reflow the terminal. Leaving Terminal mode therefore

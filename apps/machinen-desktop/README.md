@@ -18,6 +18,27 @@ Machinen's product boundary is terminals plus automation. One persistent status 
 
 Ghostty 1.3.1 is fetched at commit `332b2aefc6e72d363aa93ab6ecfc86eeeeb5ed28`, compiled into a local XCFramework, and statically linked into the app. Its unstable embedding API is isolated behind `GhosttyRuntime` and `MachinenTerminalView`; Ghostty's standard config files control renderer settings such as `scrollback-limit`. The approximately 1 MB `machinen-session` helper separately includes SQLite and builds for macOS and Linux. See [`Dependencies/README.md`](Dependencies/README.md) for dependency hashes and build details.
 
+## Configure shortcuts
+
+Desktop creates `~/.config/machinen/config.json` on first launch and reads it
+again on every launch. `$XDG_CONFIG_HOME` replaces `~/.config` when set. The
+default file is:
+
+```json
+{
+  "shortcuts": {
+    "enter": "cmd+down",
+    "leave": "cmd+up",
+    "nextPane": "cmd+right",
+    "nextWorkspace": "cmd+]"
+  }
+}
+```
+
+A shortcut can combine `cmd`, `ctrl`, `option`, and `shift` with an arrow,
+single character, Return, Tab, Space, Delete, or Escape. An invalid entry keeps
+that action's default shortcut and writes an explanation to the macOS log.
+
 ## Run
 
 ```sh

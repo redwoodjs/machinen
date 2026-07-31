@@ -4542,25 +4542,46 @@ final class TerminalDeckView: NSView {
         moveCamera(duration: Motion.magnificationDuration)
     }
 
-    func zoomInOneLevel() {
+    @discardableResult
+    func zoomInOneLevel() -> Bool {
         guard presentedOverlay == nil, commandPalette == nil,
-              focusedIndex == nil, !isTransitioning, !isPeeking
-        else { return }
+              focusedIndex == nil, !isTransitioning, !isPeeking,
+              activeCount > 0
+        else { return false }
         activate(selectedIndex)
+        return true
     }
 
-    func zoomOutOneLevel() {
+    @discardableResult
+    func zoomOutOneLevel() -> Bool {
         guard presentedOverlay == nil, commandPalette == nil,
               !isTransitioning, !isPeeking
-        else { return }
+        else { return false }
         if focusedIndex != nil {
             leaveFocusedSession()
-        } else if currentWorkspace != nil {
+            return true
+        }
+        if currentWorkspace != nil {
             showWorkspaceDeck()
+            return true
+        }
+        return false
+    }
+
+    func performShortcut(_ action: DesktopShortcutAction) -> Bool {
+        switch action {
+        case .enter:
+            return zoomInOneLevel()
+        case .leave:
+            return zoomOutOneLevel()
+        case .nextPane:
+            return cycleFocusedTerminal(by: 1)
+        case .nextWorkspace:
+            return cycleFocusedWorkspace(by: 1)
         }
     }
 
-    /// `⌘←` and `⌘→` move between terminals in the current workspace while
+    /// `nextPane` moves between terminals in the current workspace while
     /// preserving the scene hierarchy: terminal → workspace → terminal.
     @discardableResult
     func cycleFocusedTerminal(by offset: Int) -> Bool {
@@ -4595,8 +4616,8 @@ final class TerminalDeckView: NSView {
         moveCamera(duration: Motion.terminalSwitchDuration)
     }
 
-    /// `⌘[` and `⌘]` travel through the complete scene hierarchy to the
-    /// previous or next workspace's first terminal: terminal → source
+    /// `nextWorkspace` travels through the complete scene hierarchy to the
+    /// next workspace's first terminal: terminal → source
     /// workspace → workspace overview → destination workspace → terminal.
     @discardableResult
     func cycleFocusedWorkspace(by offset: Int) -> Bool {

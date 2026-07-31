@@ -42,49 +42,6 @@ private struct CommandChordState {
     }
 }
 
-enum FocusedCycleScope {
-    case terminal
-    case workspace
-}
-
-@MainActor
-final class TerminalCycleShortcut {
-    private var monitor: Any?
-    private let handler: (FocusedCycleScope, Int) -> Bool
-
-    init(handler: @escaping (FocusedCycleScope, Int) -> Bool) {
-        self.handler = handler
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.process(event) ?? event
-        }
-    }
-
-    func process(_ event: NSEvent) -> NSEvent? {
-        let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
-        guard modifiers == [.command] else { return event }
-        let target: (scope: FocusedCycleScope, offset: Int)
-        switch event.keyCode {
-        case 123:
-            target = (.terminal, -1)
-        case 124:
-            target = (.terminal, 1)
-        case 33: // [
-            target = (.workspace, -1)
-        case 30: // ]
-            target = (.workspace, 1)
-        default:
-            return event
-        }
-        return handler(target.scope, target.offset) ? nil : event
-    }
-
-    func stop() {
-        guard let monitor else { return }
-        NSEvent.removeMonitor(monitor)
-        self.monitor = nil
-    }
-}
-
 /// Recognises cmdcmd's simultaneous left-and-right Command gesture while the
 /// Machinen application is active. A local monitor is enough for the prototype;
 /// a future global overview would require an explicit accessibility interaction.
