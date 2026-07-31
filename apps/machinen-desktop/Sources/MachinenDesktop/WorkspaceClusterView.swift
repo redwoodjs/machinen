@@ -1,5 +1,13 @@
 import AppKit
 
+private final class WorkspaceBorderView: NSView {
+    override var isOpaque: Bool { false }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+}
+
 final class WorkspaceClusterView: NSView {
     private enum Metrics {
         static let padding: CGFloat = 24
@@ -17,6 +25,8 @@ final class WorkspaceClusterView: NSView {
     let label: String
     private(set) var sessions: [TerminalTileView] = []
     private(set) var sessionColumns = 1
+    // Keep workspace chrome above a singleton terminal that fills the cluster.
+    private let borderView = WorkspaceBorderView()
 
     var onSelect: (() -> Void)?
     var onActivate: (() -> Void)?
@@ -26,15 +36,18 @@ final class WorkspaceClusterView: NSView {
     private var isTrackingPointer = false
 
     var isSelected = false {
-        didSet { needsDisplay = true }
+        didSet { updateBorderAppearance() }
     }
 
     var isEntered = false {
-        didSet { needsDisplay = true }
+        didSet {
+            updateBorderAppearance()
+            needsDisplay = true
+        }
     }
 
     var isDragTarget = false {
-        didSet { needsDisplay = true }
+        didSet { updateBorderAppearance() }
     }
 
     override var isFlipped: Bool { true }
@@ -47,6 +60,17 @@ final class WorkspaceClusterView: NSView {
         self.label = label
         super.init(frame: .zero)
         wantsLayer = true
+        borderView.wantsLayer = true
+        borderView.layer?.backgroundColor = NSColor.clear.cgColor
+        borderView.layer?.cornerRadius = Metrics.cornerRadius
+        borderView.layer?.actions = [
+            "borderColor": NSNull(),
+            "borderWidth": NSNull(),
+            "hidden": NSNull(),
+        ]
+        borderView.setAccessibilityElement(false)
+        addSubview(borderView)
+        updateBorderAppearance()
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
         setAccessibilityLabel("Workspace \(workspace)")
@@ -60,47 +84,50 @@ final class WorkspaceClusterView: NSView {
     @discardableResult
     func arrange(sessions: [TerminalTileView], terminalSize: NSSize) -> NSSize {
         self.sessions = sessions
+        let cardSize = TerminalTileView.cardSize(for: terminalSize)
         if sessions.count == 1, let tile = sessions.first {
             // A singleton is already the workspace's complete live surface.
             // Do not shrink it into a card with decorative workspace padding.
-            for subview in subviews where subview !== tile {
+            for subview in subviews where subview !== tile && subview !== borderView {
                 subview.removeFromSuperview()
             }
             if tile.superview !== self {
-                addSubview(tile)
+                addSubview(tile, positioned: .below, relativeTo: borderView)
             }
             sessionColumns = 1
-            tile.frame = NSRect(origin: .zero, size: terminalSize).integral
-            tile.bounds = NSRect(origin: .zero, size: terminalSize)
+            tile.frame = NSRect(origin: .zero, size: cardSize).integral
+            tile.bounds = NSRect(origin: .zero, size: cardSize)
             tile.isHidden = false
             tile.alphaValue = 1
-            return terminalSize
+            return cardSize
         }
 
-        let content = NSRect(origin: .zero, size: terminalSize)
+        let content = NSRect(origin: .zero, size: cardSize)
             .insetBy(dx: Metrics.padding, dy: Metrics.padding)
         sessionColumns = bestColumnCount(
             itemCount: sessions.count,
             contentSize: content.size,
-            terminalSize: terminalSize
+            cardSize: cardSize
         )
         let rows = max(1, Int(ceil(Double(sessions.count) / Double(sessionColumns))))
         let cellWidth = (content.width - Metrics.gap * CGFloat(max(0, sessionColumns - 1)))
             / CGFloat(sessionColumns)
         let cellHeight = (content.height - Metrics.gap * CGFloat(max(0, rows - 1)))
             / CGFloat(rows)
-        let tileScale = min(cellWidth / terminalSize.width, cellHeight / terminalSize.height)
-        let tileSize = NSSize(
-            width: terminalSize.width * tileScale,
-            height: terminalSize.height * tileScale
+        let tileScale = min(cellWidth / cardSize.width, cellHeight / cardSize.height)
+        let scaledCardSize = NSSize(
+            width: cardSize.width * tileScale,
+            height: cardSize.height * tileScale
         )
 
-        for subview in subviews where !sessions.contains(where: { $0 === subview }) {
+        for subview in subviews where subview !== borderView
+            && !sessions.contains(where: { $0 === subview })
+        {
             subview.removeFromSuperview()
         }
         for (index, tile) in sessions.enumerated() {
             if tile.superview !== self {
-                addSubview(tile)
+                addSubview(tile, positioned: .below, relativeTo: borderView)
             }
             let column = index % sessionColumns
             let row = index / sessionColumns
@@ -111,24 +138,29 @@ final class WorkspaceClusterView: NSView {
                 height: cellHeight
             )
             tile.frame = NSRect(
-                x: cell.midX - tileSize.width / 2,
-                y: cell.midY - tileSize.height / 2,
-                width: tileSize.width,
-                height: tileSize.height
+                x: cell.midX - scaledCardSize.width / 2,
+                y: cell.midY - scaledCardSize.height / 2,
+                width: scaledCardSize.width,
+                height: scaledCardSize.height
             ).integral
-            // Every terminal keeps one full-screen intrinsic surface. Its frame
-            // is merely the scaled slot inside this uniform workspace screen.
-            tile.bounds = NSRect(origin: .zero, size: terminalSize)
+            // Every terminal keeps one full-screen intrinsic surface below its
+            // caption. Its frame is only the scaled workspace-preview slot.
+            tile.bounds = NSRect(origin: .zero, size: cardSize)
             tile.isHidden = false
             tile.alphaValue = 1
         }
-        return terminalSize
+        return cardSize
+    }
+
+    override func layout() {
+        super.layout()
+        borderView.frame = bounds
     }
 
     private func bestColumnCount(
         itemCount: Int,
         contentSize: NSSize,
-        terminalSize: NSSize
+        cardSize: NSSize
     ) -> Int {
         guard itemCount > 1 else { return 1 }
         var bestColumns = 1
@@ -137,7 +169,7 @@ final class WorkspaceClusterView: NSView {
             let rows = Int(ceil(Double(itemCount) / Double(columns)))
             let width = (contentSize.width - Metrics.gap * CGFloat(columns - 1)) / CGFloat(columns)
             let height = (contentSize.height - Metrics.gap * CGFloat(rows - 1)) / CGFloat(rows)
-            let scale = min(width / terminalSize.width, height / terminalSize.height)
+            let scale = min(width / cardSize.width, height / cardSize.height)
             if scale > bestScale {
                 bestScale = scale
                 bestColumns = columns
@@ -151,6 +183,11 @@ final class WorkspaceClusterView: NSView {
         return tile.convert(tile.bounds, to: view)
     }
 
+    func frameForTerminalViewport(_ tile: TerminalTileView, in view: NSView) -> NSRect? {
+        guard tile.superview === self else { return nil }
+        return tile.convert(tile.terminalViewportRect, to: view)
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
@@ -161,18 +198,16 @@ final class WorkspaceClusterView: NSView {
             xRadius: cornerRadius,
             yRadius: cornerRadius
         ).fill()
+    }
 
-        if !isEntered {
-            let border = NSBezierPath(
-                roundedRect: bounds.insetBy(dx: 2, dy: 2),
-                xRadius: Metrics.cornerRadius - 2,
-                yRadius: Metrics.cornerRadius - 2
-            )
-            border.lineWidth = isSelected || isDragTarget ? 6 : 2
-            (isDragTarget ? NSColor.controlAccentColor : NSColor(calibratedWhite: isSelected ? 0.94 : 0.28, alpha: 1)).setStroke()
-            border.stroke()
-        }
-
+    private func updateBorderAppearance() {
+        borderView.isHidden = isEntered
+        borderView.layer?.borderWidth = isSelected || isDragTarget ? 6 : 2
+        borderView.layer?.borderColor = (
+            isDragTarget
+                ? NSColor.controlAccentColor
+                : NSColor(calibratedWhite: isSelected ? 0.94 : 0.28, alpha: 1)
+        ).cgColor
     }
 
     override func mouseDown(with event: NSEvent) {

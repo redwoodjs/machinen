@@ -746,7 +746,7 @@ final class TerminalDeckView: NSView {
             let sessions = activeSessionTiles
             if sessions.indices.contains(focusedIndex),
                let cluster = workspaceCluster(named: currentWorkspace),
-               let terminalFrame = cluster.frameForSession(sessions[focusedIndex], in: sceneView)
+               let terminalFrame = cluster.frameForTerminalViewport(sessions[focusedIndex], in: sceneView)
             {
                 return applyingCameraMagnification(to: cameraBounds(
                     for: terminalFrame,
@@ -1370,11 +1370,6 @@ final class TerminalDeckView: NSView {
         }
         if currentWorkspace != nil, sessions.indices.contains(selectedIndex) {
             sessions[selectedIndex].isSelected = true
-        } else if currentWorkspace == nil,
-                  workspaceClusters.indices.contains(selectedIndex),
-                  workspaceClusters[selectedIndex].sessions.count == 1
-        {
-            workspaceClusters[selectedIndex].sessions[0].isSelected = true
         }
         needsDisplay = true
         refreshStatusBar()
