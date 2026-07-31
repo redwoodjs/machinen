@@ -72,6 +72,10 @@ first launch and adds new defaults to older files. The actions are `enter`,
   pane to the adjacent workspace's last active pane. Each visible slide keeps a
   fixed zoom; at the faded midpoint, the destination adopts its normal fitted
   framing. The camera never visits the workspace overview during the transition.
+  Pane and workspace transitions temporarily show a bottom-right minimap. It
+  preserves the scene's exact workspace and pane geometry under one uniform
+  scale and animates the camera viewport from source to destination; it is hidden
+  whenever the camera is idle.
   `⌘K` opens context-aware commands without changing camera level. `⌘O` opens
   the focused terminal's full context menu, including its **Open Selection
   With** submenu when text is selected.

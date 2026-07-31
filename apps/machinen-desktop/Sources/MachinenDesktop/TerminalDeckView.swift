@@ -11,6 +11,13 @@ final class TerminalDeckView: NSView {
         let completion: (@MainActor () -> Void)?
     }
 
+    private struct SpatialMinimapAnimation {
+        let start: NSRect
+        let target: NSRect
+        let startedAt: TimeInterval
+        let duration: TimeInterval
+    }
+
     private enum SpatialDragItem {
         case workspace(String)
         case terminal(String)
@@ -103,6 +110,7 @@ final class TerminalDeckView: NSView {
     private let sceneView = CameraSceneView()
     private let statusBarView = MachinenStatusBarView()
     private let statusPopoverView = MachinenStatusPopoverView()
+    private let spatialMinimapView = SpatialMinimapView()
     private let sessionStore: TerminalSessionStore
     private let sessionBackend: any TerminalSessionBackend
     private var workspaces: [WorkspaceRecord]
@@ -128,6 +136,7 @@ final class TerminalDeckView: NSView {
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
     private var cameraAnimationTimer: Timer?
+    private var spatialMinimapAnimation: SpatialMinimapAnimation?
     private var cameraMagnification: CGFloat = 1
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
     private var selectionOpeners: [String: MachinenSelectionOpener] = [:]
@@ -197,6 +206,8 @@ final class TerminalDeckView: NSView {
         rebuildWorkspaceClusters()
         addSubview(statusBarView, positioned: .above, relativeTo: sceneView)
         addSubview(statusPopoverView, positioned: .above, relativeTo: statusBarView)
+        spatialMinimapView.isHidden = true
+        addSubview(spatialMinimapView, positioned: .above, relativeTo: statusPopoverView)
         statusBarView.onHoverChange = { [weak self] widget, anchor, detail in
             self?.updateStatusPopover(widget: widget, anchor: anchor, detail: detail)
         }
@@ -651,6 +662,7 @@ final class TerminalDeckView: NSView {
             height: MachinenStatusBarView.preferredHeight
         )
         sceneView.frame = sceneViewportFrame
+        layoutSpatialMinimap()
         if let undoCloseView {
             let width = min(460, max(360, bounds.width - 32))
             undoCloseView.frame = NSRect(
@@ -667,6 +679,47 @@ final class TerminalDeckView: NSView {
             updateWorldGeometry()
             setCameraImmediately()
         }
+    }
+
+    private func layoutSpatialMinimap() {
+        let representedWorld = spatialMinimapView.representedWorldBounds
+        let world = representedWorld.width > 0 && representedWorld.height > 0
+            ? representedWorld
+            : spatialMinimapWorldBounds()
+        let viewport = sceneViewportFrame
+        guard !world.isNull, world.width > 0, world.height > 0,
+              viewport.width > 36, viewport.height > 36
+        else {
+            spatialMinimapView.frame = .zero
+            return
+        }
+
+        let maxWidth = min(260, viewport.width - 36)
+        let maxHeight = min(160, viewport.height - 36)
+        let aspectRatio = world.width / world.height
+        var width = maxWidth
+        var height = width / aspectRatio
+        if height > maxHeight {
+            height = maxHeight
+            width = height * aspectRatio
+        }
+        width = min(maxWidth, max(120, width))
+        height = min(maxHeight, max(68, height))
+        spatialMinimapView.frame = NSRect(
+            x: viewport.maxX - width - 18,
+            y: viewport.maxY - height - 18,
+            width: width,
+            height: height
+        ).integral
+    }
+
+    private func spatialMinimapWorldBounds() -> NSRect {
+        guard !workspaceUnion.isNull, workspaceUnion.width > 0, workspaceUnion.height > 0
+        else { return .zero }
+        return workspaceUnion.insetBy(
+            dx: -Metrics.worldMargin / 2,
+            dy: -Metrics.worldMargin / 2
+        )
     }
 
     private func updateWorldGeometry() {
@@ -786,11 +839,125 @@ final class TerminalDeckView: NSView {
         )
     }
 
+    private func cameraBounds(
+        for workspaceID: String,
+        tileID: String?,
+        focusTerminal: Bool
+    ) -> NSRect? {
+        guard let cluster = workspaceCluster(named: workspaceID) else { return nil }
+        if focusTerminal,
+           let tileID,
+           let tile = activeSessionTiles(for: workspaceID).first(where: {
+               $0.session.tileID == tileID
+           }),
+           let terminalFrame = cluster.frameForTerminalViewport(tile, in: sceneView)
+        {
+            return applyingCameraMagnification(to: cameraBounds(
+                for: terminalFrame,
+                viewport: sceneViewportBounds
+            ))
+        }
+        return applyingCameraMagnification(to: cameraBounds(
+            for: cluster.frame,
+            viewport: sceneViewportBounds
+        ))
+    }
+
+    private func refreshSpatialMinimap(
+        cameraBounds: NSRect,
+        worldBounds: NSRect? = nil
+    ) {
+        let focusedTileID = focusedIndex.flatMap { index in
+            let sessions = activeSessionTiles
+            return sessions.indices.contains(index) ? sessions[index].session.tileID : nil
+        }
+        let models = workspaceClusters.map { cluster in
+            let panes = activeSessionTiles(for: cluster.workspaceID).compactMap { tile in
+                cluster.frameForSession(tile, in: sceneView).map { frame in
+                    SpatialMinimapPane(
+                        id: tile.session.tileID,
+                        frame: frame,
+                        isActive: tile.session.tileID == focusedTileID
+                    )
+                }
+            }
+            return SpatialMinimapWorkspace(
+                id: cluster.workspaceID,
+                frame: cluster.frame,
+                isActive: cluster.workspaceID == currentWorkspace,
+                panes: panes
+            )
+        }
+        spatialMinimapView.updateScene(
+            worldBounds: worldBounds ?? spatialMinimapWorldBounds(),
+            workspaces: models,
+            cameraBounds: cameraBounds
+        )
+        layoutSpatialMinimap()
+    }
+
+    private func beginSpatialMinimapAnimation(to target: NSRect, duration: TimeInterval) {
+        let start = sceneView.bounds
+        let world = spatialMinimapWorldBounds()
+        guard duration > 0, !world.isNull, world.width > 0, world.height > 0,
+              start.width > 0, start.height > 0,
+              target.width > 0, target.height > 0
+        else {
+            endSpatialMinimapAnimation()
+            return
+        }
+
+        spatialMinimapAnimation = SpatialMinimapAnimation(
+            start: start,
+            target: target,
+            startedAt: ProcessInfo.processInfo.systemUptime,
+            duration: duration
+        )
+        refreshSpatialMinimap(
+            cameraBounds: start,
+            worldBounds: world.union(start).union(target)
+        )
+        spatialMinimapView.alphaValue = 0
+        spatialMinimapView.isHidden = false
+    }
+
+    private func updateSpatialMinimapAnimation(at now: TimeInterval) {
+        guard let animation = spatialMinimapAnimation else { return }
+        let linearProgress = min(1, max(0, (now - animation.startedAt) / animation.duration))
+        let progress = cameraAnimationProgress(CGFloat(linearProgress))
+        let width = animation.start.width
+            + (animation.target.width - animation.start.width) * progress
+        let height = animation.start.height
+            + (animation.target.height - animation.start.height) * progress
+        let centerX = animation.start.midX
+            + (animation.target.midX - animation.start.midX) * progress
+        let centerY = animation.start.midY
+            + (animation.target.midY - animation.start.midY) * progress
+        spatialMinimapView.updateCameraBounds(NSRect(
+            x: centerX - width / 2,
+            y: centerY - height / 2,
+            width: width,
+            height: height
+        ))
+
+        let fadeIn = min(1, linearProgress / 0.12)
+        let fadeOut = min(1, (1 - linearProgress) / 0.18)
+        spatialMinimapView.alphaValue = min(fadeIn, fadeOut)
+        if linearProgress >= 1 { endSpatialMinimapAnimation() }
+    }
+
+    private func endSpatialMinimapAnimation() {
+        spatialMinimapAnimation = nil
+        spatialMinimapView.alphaValue = 0
+        spatialMinimapView.isHidden = true
+    }
+
     private func setCameraImmediately() {
         cameraAnimationTimer?.invalidate()
         cameraAnimationTimer = nil
         cameraAnimation = nil
         isTransitioning = false
+        endSpatialMinimapAnimation()
 
         // The scene stays viewport-sized. Changing its world-space bounds moves
         // a camera over stable terminal surfaces instead of resizing the scene.
@@ -850,9 +1017,11 @@ final class TerminalDeckView: NSView {
             timer.invalidate()
             return
         }
-        let elapsed = ProcessInfo.processInfo.systemUptime - animation.startedAt
+        let now = ProcessInfo.processInfo.systemUptime
+        let elapsed = now - animation.startedAt
         let linearProgress = min(1, max(0, elapsed / animation.duration))
         let progress = cameraAnimationProgress(CGFloat(linearProgress))
+        updateSpatialMinimapAnimation(at: now)
 
         let widthRatio = animation.target.width / animation.start.width
         let heightRatio = animation.target.height / animation.start.height
@@ -4640,7 +4809,9 @@ final class TerminalDeckView: NSView {
     }
 
     private func panCameraToCurrentTarget(duration: TimeInterval) {
-        moveCamera(to: fixedScaleCameraTarget(), duration: duration)
+        let target = fixedScaleCameraTarget()
+        beginSpatialMinimapAnimation(to: target, duration: duration)
+        moveCamera(to: target, duration: duration)
     }
 
     private func fixedScaleCameraTarget() -> NSRect {
@@ -4718,6 +4889,18 @@ final class TerminalDeckView: NSView {
         focusTerminal: Bool,
         direction: CGFloat
     ) {
+        if let target = cameraBounds(
+            for: workspaceID,
+            tileID: tileID,
+            focusTerminal: focusTerminal
+        ) {
+            beginSpatialMinimapAnimation(
+                to: target,
+                duration: Motion.workspaceSwitchExitDuration
+                    + Motion.workspaceSwitchEntryDuration
+            )
+        }
+
         if let sourceWorkspaceID = currentWorkspace,
            let focusedIndex,
            activeSessionTiles.indices.contains(focusedIndex)
@@ -4753,6 +4936,7 @@ final class TerminalDeckView: NSView {
         let sessions = activeSessionTiles(for: workspaceID)
         guard !focusTerminal || !sessions.isEmpty else {
             sceneView.alphaValue = 1
+            endSpatialMinimapAnimation()
             return
         }
 
@@ -4766,6 +4950,12 @@ final class TerminalDeckView: NSView {
             ? targetIndex
             : nil
         updateSelection()
+        if spatialMinimapAnimation != nil {
+            refreshSpatialMinimap(
+                cameraBounds: spatialMinimapView.representedCameraBounds,
+                worldBounds: spatialMinimapView.representedWorldBounds
+            )
+        }
 
         // Adopt the destination's normal fitted size while the scene is faded.
         // The visible entry slide then translates without zooming.

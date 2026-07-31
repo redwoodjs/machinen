@@ -485,9 +485,16 @@ enum InteractionTestRunner {
         }).first else {
             throw InteractionTestFailure("the deck did not install its status bar")
         }
+        guard let minimap = deck.subviews.compactMap({
+            $0 as? SpatialMinimapView
+        }).first else {
+            throw InteractionTestFailure("the deck did not install its spatial minimap")
+        }
+        try expect(minimap.isHidden, "the spatial minimap was visible while the camera was idle")
         let initialCameraBounds = camera.bounds
 
         try expect(deck.cycleFocusedTerminal(by: 1), "the next-pane action was not accepted")
+        let initialMinimapCameraBounds = minimap.representedCameraBounds
         try expect(
             try harness.uiLevel(of: deck) == "terminal"
                 && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
@@ -505,6 +512,24 @@ enum InteractionTestRunner {
                 && abs(middleCameraBounds.height - initialCameraBounds.height) < 0.5,
             "pane switching changed the camera zoom during the pan"
         )
+        try expect(
+            !minimap.isHidden && minimap.alphaValue > 0.9
+                && minimap.representedWorkspaceCount == 2
+                && minimap.representedPaneCount == 3
+                && (abs(minimap.representedCameraBounds.minX - initialMinimapCameraBounds.minX) > 0.5
+                    || abs(minimap.representedCameraBounds.minY - initialMinimapCameraBounds.minY) > 0.5),
+            "the spatial minimap did not represent and animate the complete scene"
+        )
+        guard let representedPane = minimap.representedWorkspaces.first?.panes.first,
+              let mappedPane = minimap.mappedRepresentation(of: representedPane.frame)
+        else {
+            throw InteractionTestFailure("the spatial minimap did not map its first pane")
+        }
+        try expect(
+            abs(mappedPane.width / representedPane.frame.width
+                - mappedPane.height / representedPane.frame.height) < 0.001,
+            "the spatial minimap did not preserve a uniform 1:1 scene scale"
+        )
         RunLoop.current.run(until: Date().addingTimeInterval(0.20))
         try expect(
             abs(camera.bounds.minX - middleCameraBounds.minX) > 0.5
@@ -516,6 +541,7 @@ enum InteractionTestRunner {
                 && abs(camera.bounds.height - initialCameraBounds.height) < 0.5,
             "pane switching changed the camera zoom at the destination"
         )
+        try expect(minimap.isHidden, "the spatial minimap remained visible after pane movement")
 
         let workspaceInitialCameraBounds = camera.bounds
         try expect(
@@ -551,6 +577,7 @@ enum InteractionTestRunner {
                 && abs(camera.bounds.height - workspaceEntryCameraBounds.height) < 0.5,
             "workspace switching changed zoom while revealing the destination"
         )
+        try expect(minimap.isHidden, "the spatial minimap remained visible after workspace movement")
 
         let switchedSingletonCameraBounds = camera.bounds
         try expect(deck.zoomOutOneLevel(), "the singleton pane could not be left")
