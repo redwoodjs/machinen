@@ -55,6 +55,13 @@ final class TerminalTileView: NSView {
     var currentTerminalText: String { displayTerminalText }
     var terminalViewportRect: NSRect { terminalContentRect() }
 
+    static func cardSize(for terminalViewportSize: NSSize) -> NSSize {
+        NSSize(
+            width: terminalViewportSize.width,
+            height: terminalViewportSize.height + Metrics.captionHeight
+        )
+    }
+
     var isFocused = false {
         didSet {
             layer?.cornerRadius = isFocused ? 0 : Metrics.cornerRadius
@@ -195,7 +202,9 @@ final class TerminalTileView: NSView {
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         if embeddedTerminalView != nil, !isFocused {
-            return bounds.contains(point) ? self : nil
+            // AppKit supplies hit-test points in the superview's coordinates.
+            let localPoint = convert(point, from: superview)
+            return bounds.contains(localPoint) ? self : nil
         }
         return super.hitTest(point)
     }

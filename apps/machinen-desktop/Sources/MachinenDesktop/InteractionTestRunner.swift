@@ -40,11 +40,12 @@ enum InteractionTestRunner {
             try singletonWorkspaceTileFillsSurface()
             try overviewUsesOnlyItsTopInset()
             try statusBarIsExcludedFromTerminalViewport()
+            try clickingWorkspaceBackgroundDoesNotFocusTerminal()
             try clickedTileFocusesItsOwnTerminal()
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (32 scenarios)")
+            print("Machinen interaction tests passed (33 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -1489,8 +1490,10 @@ enum InteractionTestRunner {
             state: .running
         )
         let tile = TerminalTileView(session: session)
-        tile.frame = NSRect(x: 0, y: 0, width: 1_200, height: 760)
-        tile.bounds = NSRect(x: 0, y: 0, width: 1_200, height: 760)
+        let terminalSize = NSSize(width: 1_200, height: 760)
+        let cardSize = TerminalTileView.cardSize(for: terminalSize)
+        tile.frame = NSRect(origin: .zero, size: cardSize)
+        tile.bounds = NSRect(origin: .zero, size: cardSize)
         let unfocused = tile.terminalViewportRect
         let unfocusedPixels = MachinenTerminalView.intrinsicSurfacePixelSize(
             for: unfocused.size,
@@ -1515,7 +1518,7 @@ enum InteractionTestRunner {
             "camera focus changed the terminal renderer's intrinsic pixel size"
         )
         try expect(
-            unfocused.width == tile.bounds.width && unfocused.maxY == tile.bounds.maxY,
+            unfocused.size == terminalSize && unfocused.maxY == tile.bounds.maxY,
             "the persistent terminal viewport did not retain its full content surface: \(unfocused), \(tile.bounds)"
         )
     }
@@ -1746,19 +1749,60 @@ enum InteractionTestRunner {
             label: "sg"
         )
         let size = NSSize(width: 1_200, height: 760)
+        let cardSize = TerminalTileView.cardSize(for: size)
+        cluster.frame = NSRect(origin: .zero, size: cardSize)
         _ = cluster.arrange(sessions: [tile], terminalSize: size)
+        cluster.isSelected = true
+        cluster.layoutSubtreeIfNeeded()
         try expect(
-            tile.frame == NSRect(origin: .zero, size: size),
+            tile.frame == NSRect(origin: .zero, size: cardSize),
             "a singleton tile did not fill its workspace surface"
         )
         try expect(
-            tile.bounds == NSRect(origin: .zero, size: size),
+            tile.bounds == NSRect(origin: .zero, size: cardSize)
+                && tile.terminalViewportRect.size == size,
             "a singleton tile did not retain its full terminal viewport"
+        )
+        guard let borderView = cluster.subviews.first(where: { $0 !== tile }) else {
+            throw InteractionTestFailure("a singleton workspace did not create an overlay border")
+        }
+        try expect(
+            borderView.layer?.borderWidth == 6,
+            "a singleton workspace did not use the full selection border"
+        )
+        try expect(
+            cluster.subviews.last === borderView,
+            "the singleton selection border was drawn behind its terminal"
         )
         tile.updateProcessInfo(TerminalProcessInfo(shellPID: 4201, processPID: 4242))
         try expect(
             session.associatedPID == 4242 && session.shellPID == 4201,
             "a tile did not retain its live process metadata"
+        )
+
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let singleton = harness.workspace("selected-singleton", terminalCount: 1)
+        let peer = harness.workspace("peer", terminalCount: 2)
+        let deck = harness.makeDeck(workspaces: [singleton, peer])
+        deck.frame = NSRect(origin: .zero, size: size)
+        deck.layoutSubtreeIfNeeded()
+
+        func singletonTile(in view: NSView) -> TerminalTileView? {
+            if let candidate = view as? TerminalTileView,
+               candidate.session.workspaceID == singleton.0.id
+            {
+                return candidate
+            }
+            return view.subviews.lazy.compactMap(singletonTile).first
+        }
+
+        guard let selectedTile = singletonTile(in: deck) else {
+            throw InteractionTestFailure("the singleton overview did not create its terminal")
+        }
+        try expect(
+            selectedTile.layer?.borderWidth == 1,
+            "workspace selection incorrectly used the narrower terminal selection border"
         )
     }
 
@@ -1814,11 +1858,12 @@ enum InteractionTestRunner {
         deck.layoutSubtreeIfNeeded()
 
         guard let statusBar = deck.subviews.compactMap({ $0 as? MachinenStatusBarView }).first,
-              let tile = harness.terminalTile(in: deck)
+              let tile = harness.terminalTile(in: deck),
+              let terminal = tile.terminalResponder
         else {
             throw InteractionTestFailure("the viewport test did not create its status bar and terminal")
         }
-        let terminalFrame = tile.convert(tile.bounds, to: deck)
+        let terminalFrame = terminal.convert(terminal.bounds, to: deck)
         let expectedViewport = NSRect(
             x: 0,
             y: MachinenStatusBarView.preferredHeight,
@@ -1834,8 +1879,77 @@ enum InteractionTestRunner {
             "the focused terminal extended underneath the status bar"
         )
         try expect(
-            tile.bounds.size == expectedViewport.size,
-            "the terminal renderer included the status bar in its intrinsic viewport"
+            tile.terminalViewportRect.size == expectedViewport.size,
+            "the terminal renderer did not retain the full content viewport"
+        )
+        try expect(
+            tile.bounds.size == TerminalTileView.cardSize(for: expectedViewport.size),
+            "the terminal card did not keep its caption outside the content viewport"
+        )
+    }
+
+    private static func clickingWorkspaceBackgroundDoesNotFocusTerminal() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 3),
+            harness.workspace("beta", terminalCount: 2),
+        ])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        window.makeFirstResponder(deck)
+        deck.layoutSubtreeIfNeeded()
+
+        let clusters = deck.subviews
+            .flatMap(\.subviews)
+            .compactMap { $0 as? WorkspaceClusterView }
+        guard let cluster = clusters.first(where: { $0.workspaceID == "ws_alpha" }) else {
+            throw InteractionTestFailure("the overview did not create the alpha workspace")
+        }
+        let workspacePoint = NSPoint(x: cluster.bounds.midX, y: cluster.bounds.midY)
+        try expect(
+            !cluster.sessions.contains(where: { $0.frame.contains(workspacePoint) }),
+            "the workspace click test did not target the gap between terminals"
+        )
+        try expect(
+            cluster.sessions.allSatisfy { $0.hitTest(workspacePoint) == nil },
+            "a terminal accepted a click in the workspace background"
+        )
+        let deckPoint = cluster.convert(workspacePoint, to: deck)
+
+        func event(_ type: NSEvent.EventType) throws -> NSEvent {
+            guard let event = NSEvent.mouseEvent(
+                with: type,
+                location: deckPoint,
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: 1
+            ) else {
+                throw InteractionTestFailure("could not create a workspace click event")
+            }
+            return event
+        }
+
+        cluster.mouseDown(with: try event(.leftMouseDown))
+        cluster.mouseUp(with: try event(.leftMouseUp))
+
+        try expect(
+            try harness.uiLevel(of: deck) == "workspace",
+            "clicking a workspace background focused one of its terminals"
+        )
+        try expect(
+            try harness.focusedTileID(of: deck) == nil,
+            "clicking a workspace background selected a particular terminal"
         )
     }
 
