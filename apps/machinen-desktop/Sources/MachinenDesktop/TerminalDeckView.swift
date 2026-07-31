@@ -72,6 +72,7 @@ final class TerminalDeckView: NSView {
         static let cameraDuration: TimeInterval = 0.20
         static let magnificationDuration: TimeInterval = 0.08
         static let terminalSwitchDuration: TimeInterval = 0.24
+        static let workspaceSwitchDuration: TimeInterval = 0.28
         static let peekDuration: TimeInterval = 0.12
         static let paneCloseDuration: TimeInterval = 0.18
         static let paneCloseScale: CGFloat = 0.92
@@ -4602,7 +4603,11 @@ final class TerminalDeckView: NSView {
         selectedIndex = targetIndex
         self.focusedIndex = targetIndex
         updateSelection()
+        panCameraToCurrentTarget(duration: Motion.terminalSwitchDuration)
+        return true
+    }
 
+    private func panCameraToCurrentTarget(duration: TimeInterval) {
         let destination = currentCameraBounds()
         let cameraSize = sceneView.bounds.size
         let translationTarget = NSRect(
@@ -4611,13 +4616,11 @@ final class TerminalDeckView: NSView {
             width: cameraSize.width,
             height: cameraSize.height
         )
-        moveCamera(to: translationTarget, duration: Motion.terminalSwitchDuration)
-        return true
+        moveCamera(to: translationTarget, duration: duration)
     }
 
-    /// `previousWorkspace` and `nextWorkspace` travel through the complete
-    /// scene hierarchy to an adjacent workspace's active terminal: terminal → source
-    /// workspace → workspace overview → destination workspace → terminal.
+    /// `previousWorkspace` and `nextWorkspace` pan directly to an adjacent
+    /// workspace's active terminal without leaving Terminal mode or changing zoom.
     @discardableResult
     func cycleFocusedWorkspace(by offset: Int) -> Bool {
         let sourceSessions = activeSessionTiles
@@ -4637,52 +4640,28 @@ final class TerminalDeckView: NSView {
               let sourceIndex = destinations.firstIndex(where: { $0.id == sourceWorkspaceID })
         else { return false }
 
-        let targetIndex = (sourceIndex + offset % destinations.count + destinations.count)
-            % destinations.count
-        let targetWorkspace = destinations[targetIndex]
-        guard !activeSessionTiles(for: targetWorkspace.id).isEmpty else { return false }
+        let targetWorkspaceIndex = (
+            sourceIndex + offset % destinations.count + destinations.count
+        ) % destinations.count
+        let targetWorkspace = destinations[targetWorkspaceIndex]
+        let targetSessions = activeSessionTiles(for: targetWorkspace.id)
+        guard !targetSessions.isEmpty else { return false }
 
+        let sourceTileID = sourceSessions[focusedIndex].session.tileID
+        activeTerminalByWorkspace[sourceWorkspaceID] = sourceTileID
+        let targetTerminalIndex = activeTerminalIndex(in: targetWorkspace.id)
+        let targetTileID = targetSessions[targetTerminalIndex].session.tileID
         InputRoutingLog.log(
-            "cycles focused tile workspace=\(sourceWorkspaceID)→\(targetWorkspace.id)"
+            "cycles focused tile workspace=\(sourceWorkspaceID)→\(targetWorkspace.id) "
+                + "tile=\(sourceTileID)→\(targetTileID)"
         )
-        self.focusedIndex = nil
+
+        currentWorkspace = targetWorkspace.id
+        selectedIndex = targetTerminalIndex
+        self.focusedIndex = targetTerminalIndex
         updateSelection()
-        moveCamera { [weak self] in
-            self?.selectCycledWorkspace(targetWorkspace.id)
-        }
+        panCameraToCurrentTarget(duration: Motion.workspaceSwitchDuration)
         return true
-    }
-
-    private func selectCycledWorkspace(_ workspaceID: String) {
-        guard let workspaceIndex = workspaceClusters.firstIndex(where: { $0.workspaceID == workspaceID }) else {
-            return
-        }
-        currentWorkspace = nil
-        selectedIndex = workspaceIndex
-        focusedIndex = nil
-        updateSelection()
-        moveCamera { [weak self] in
-            self?.enterCycledWorkspace(workspaceID)
-        }
-    }
-
-    private func enterCycledWorkspace(_ workspaceID: String) {
-        guard !activeSessionTiles(for: workspaceID).isEmpty else { return }
-        currentWorkspace = workspaceID
-        selectedIndex = activeTerminalIndex(in: workspaceID)
-        focusedIndex = nil
-        updateSelection()
-        moveCamera { [weak self] in
-            self?.focusCycledWorkspaceTile(workspaceID)
-        }
-    }
-
-    private func focusCycledWorkspaceTile(_ workspaceID: String) {
-        guard currentWorkspace == workspaceID, !activeSessionTiles.isEmpty else { return }
-        selectedIndex = activeTerminalIndex(in: workspaceID)
-        focusedIndex = selectedIndex
-        updateSelection()
-        moveCamera()
     }
 
     private func activeTerminalIndex(in workspaceID: String) -> Int {

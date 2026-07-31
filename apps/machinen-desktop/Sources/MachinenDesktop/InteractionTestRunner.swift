@@ -19,7 +19,7 @@ enum InteractionTestRunner {
             try statusNavigationMenusSwitchAndZoomOut()
             try commandPlusAndMinusMagnifyTheCurrentLevel()
             try configuredShortcutsNavigateHierarchy()
-            try paneShortcutPansDirectlyBetweenFocusedTerminals()
+            try paneAndWorkspaceShortcutsPanDirectlyAtFixedZoom()
             try configuredShortcutsSelectAndMoveSpatialObjects()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
             try commandPaletteFuzzySearchesAndCompletes()
@@ -452,11 +452,12 @@ enum InteractionTestRunner {
         )
     }
 
-    private static func paneShortcutPansDirectlyBetweenFocusedTerminals() throws {
+    private static func paneAndWorkspaceShortcutsPanDirectlyAtFixedZoom() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [
             harness.workspace("alpha", terminalCount: 2),
+            harness.workspace("beta", terminalCount: 2),
         ])
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
@@ -510,6 +511,43 @@ enum InteractionTestRunner {
                 && abs(camera.bounds.height - initialCameraBounds.height) < 0.5,
             "pane switching changed the camera zoom at the destination"
         )
+
+        let workspaceInitialCameraBounds = camera.bounds
+        try expect(
+            deck.cycleFocusedWorkspace(by: 1)
+                && (try harness.uiLevel(of: deck)) == "terminal"
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_0",
+            "workspace switching traversed the scene hierarchy instead of focusing directly"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.14))
+        let workspaceMiddleCameraBounds = camera.bounds
+        try expect(
+            abs(workspaceMiddleCameraBounds.minX - workspaceInitialCameraBounds.minX) > 0.5
+                || abs(workspaceMiddleCameraBounds.minY - workspaceInitialCameraBounds.minY) > 0.5,
+            "workspace switching did not begin moving toward the destination"
+        )
+        try expect(
+            abs(workspaceMiddleCameraBounds.width - workspaceInitialCameraBounds.width) < 0.5
+                && abs(workspaceMiddleCameraBounds.height - workspaceInitialCameraBounds.height) < 0.5,
+            "workspace switching changed the camera zoom during the pan"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.22))
+        try expect(
+            abs(camera.bounds.minX - workspaceMiddleCameraBounds.minX) > 0.5
+                || abs(camera.bounds.minY - workspaceMiddleCameraBounds.minY) > 0.5,
+            "workspace switching finished too abruptly instead of continuing its pan"
+        )
+        try expect(
+            abs(camera.bounds.width - workspaceInitialCameraBounds.width) < 0.5
+                && abs(camera.bounds.height - workspaceInitialCameraBounds.height) < 0.5,
+            "workspace switching changed the camera zoom at the destination"
+        )
+        try expect(
+            deck.cycleFocusedWorkspace(by: -1)
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "workspace switching did not restore the prior active terminal"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
     }
 
     private static func configuredShortcutsSelectAndMoveSpatialObjects() throws {
