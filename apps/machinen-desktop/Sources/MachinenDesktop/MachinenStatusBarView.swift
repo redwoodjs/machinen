@@ -438,7 +438,12 @@ final class MachinenStatusBarView: NSView {
         let titleWidth = drawNavigationTitle(at: baseline.origin)
         var leftX = baseline.minX + titleWidth + Metrics.sectionGap
         if !spatialMinimapView.isHidden {
-            spatialMinimapView.frame = NSRect(x: leftX, y: 11, width: 56, height: 18).integral
+            spatialMinimapView.frame = NSRect(
+                x: leftX,
+                y: 7,
+                width: 56,
+                height: Metrics.widgetHeight
+            ).integral
             leftX = spatialMinimapView.frame.maxX + Metrics.sectionGap
         }
         var rightX = bounds.width - Metrics.rightInset

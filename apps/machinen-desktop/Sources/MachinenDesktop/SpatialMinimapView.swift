@@ -35,6 +35,7 @@ final class SpatialMinimapView: NSView {
 
     var representedWorkspaceCount: Int { representedWorkspaces.count }
     var representedPaneCount: Int { representedWorkspaces.reduce(0) { $0 + $1.panes.count } }
+    var rendersPaneDetail: Bool { presentation == .overlay }
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
@@ -81,7 +82,7 @@ final class SpatialMinimapView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        let backgroundAlpha: CGFloat = presentation == .overlay ? 0.9 : 0.34
+        let backgroundAlpha: CGFloat = presentation == .overlay ? 0.9 : 0.72
         NSColor(calibratedWhite: 0.035, alpha: backgroundAlpha).setFill()
         NSBezierPath(roundedRect: bounds, xRadius: cornerRadius, yRadius: cornerRadius).fill()
         NSColor(calibratedWhite: 1, alpha: presentation == .overlay ? 0.14 : 0.1).setStroke()
@@ -102,32 +103,34 @@ final class SpatialMinimapView: NSView {
                 xRadius: min(4, frame.width / 8),
                 yRadius: min(4, frame.height / 8)
             )
-            NSColor(
-                calibratedRed: workspace.isActive ? 0.18 : 0.12,
-                green: workspace.isActive ? 0.22 : 0.13,
-                blue: workspace.isActive ? 0.27 : 0.15,
-                alpha: 0.96
-            ).setFill()
+            let activeWorkspace = presentation == .overlay
+                ? NSColor(calibratedRed: 0.18, green: 0.22, blue: 0.27, alpha: 0.96)
+                : NSColor(calibratedRed: 0.2, green: 0.46, blue: 0.66, alpha: 0.9)
+            let inactiveWorkspace = presentation == .overlay
+                ? NSColor(calibratedRed: 0.12, green: 0.13, blue: 0.15, alpha: 0.96)
+                : NSColor(calibratedWhite: 0.62, alpha: 0.34)
+            (workspace.isActive ? activeWorkspace : inactiveWorkspace).setFill()
             workspacePath.fill()
             NSColor(calibratedWhite: 1, alpha: workspace.isActive ? 0.36 : 0.2).setStroke()
             workspacePath.lineWidth = presentation == .overlay ? 1 : 0.5
             workspacePath.stroke()
 
-            for pane in workspace.panes {
-                let paneInset: CGFloat = presentation == .overlay ? 0.5 : 0.15
-                let paneFrame = transform.map(pane.frame).insetBy(dx: paneInset, dy: paneInset)
-                guard paneFrame.width > 0, paneFrame.height > 0 else { continue }
-                let panePath = NSBezierPath(
-                    roundedRect: paneFrame,
-                    xRadius: min(2.5, paneFrame.width / 8),
-                    yRadius: min(2.5, paneFrame.height / 8)
-                )
-                if pane.isActive {
-                    NSColor(calibratedRed: 0.42, green: 0.72, blue: 1, alpha: 0.72).setFill()
-                } else {
-                    NSColor(calibratedWhite: 0.72, alpha: 0.32).setFill()
+            if presentation == .overlay {
+                for pane in workspace.panes {
+                    let paneFrame = transform.map(pane.frame).insetBy(dx: 0.5, dy: 0.5)
+                    guard paneFrame.width > 0, paneFrame.height > 0 else { continue }
+                    let panePath = NSBezierPath(
+                        roundedRect: paneFrame,
+                        xRadius: min(2.5, paneFrame.width / 8),
+                        yRadius: min(2.5, paneFrame.height / 8)
+                    )
+                    if pane.isActive {
+                        NSColor(calibratedRed: 0.42, green: 0.72, blue: 1, alpha: 0.72).setFill()
+                    } else {
+                        NSColor(calibratedWhite: 0.72, alpha: 0.32).setFill()
+                    }
+                    panePath.fill()
                 }
-                panePath.fill()
             }
         }
 
@@ -138,10 +141,16 @@ final class SpatialMinimapView: NSView {
             xRadius: min(3, cameraFrame.width / 8),
             yRadius: min(3, cameraFrame.height / 8)
         )
-        NSColor(calibratedRed: 0.34, green: 0.78, blue: 1, alpha: 0.12).setFill()
+        let cameraFill = presentation == .overlay
+            ? NSColor(calibratedRed: 0.34, green: 0.78, blue: 1, alpha: 0.12)
+            : NSColor(calibratedWhite: 1, alpha: 0.16)
+        let cameraStroke = presentation == .overlay
+            ? NSColor(calibratedRed: 0.45, green: 0.84, blue: 1, alpha: 0.96)
+            : NSColor(calibratedWhite: 1, alpha: 0.96)
+        cameraFill.setFill()
         cameraPath.fill()
-        NSColor(calibratedRed: 0.45, green: 0.84, blue: 1, alpha: 0.96).setStroke()
-        cameraPath.lineWidth = presentation == .overlay ? 1.5 : 0.8
+        cameraStroke.setStroke()
+        cameraPath.lineWidth = presentation == .overlay ? 1.5 : 1
         cameraPath.stroke()
     }
 

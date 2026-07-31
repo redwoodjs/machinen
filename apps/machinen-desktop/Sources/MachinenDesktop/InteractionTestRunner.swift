@@ -495,10 +495,12 @@ enum InteractionTestRunner {
         try expect(minimap.isHidden, "the spatial minimap was visible while the camera was idle")
         try expect(
             !statusMinimap.isHidden
-                && statusMinimap.frame.size == NSSize(width: 56, height: 18)
+                && statusMinimap.frame.size == NSSize(width: 56, height: 26)
                 && statusMinimap.representedWorkspaceCount == 2
-                && statusMinimap.representedPaneCount == 3,
-            "the status bar did not keep a complete tiny spatial minimap"
+                && statusMinimap.representedPaneCount == 3
+                && !statusMinimap.rendersPaneDetail
+                && minimap.rendersPaneDetail,
+            "the status bar did not keep a simplified item-sized spatial minimap"
         )
         let initialCameraBounds = camera.bounds
 
