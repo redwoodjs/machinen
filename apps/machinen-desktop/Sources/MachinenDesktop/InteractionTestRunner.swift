@@ -19,7 +19,7 @@ enum InteractionTestRunner {
             try statusNavigationMenusSwitchAndZoomOut()
             try commandPlusAndMinusMagnifyTheCurrentLevel()
             try configuredShortcutsNavigateHierarchy()
-            try paneShortcutMovesDirectlyBetweenFocusedTerminals()
+            try paneShortcutSwitchesImmediatelyBetweenFocusedTerminals()
             try configuredShortcutsSelectAndMoveSpatialObjects()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
             try commandPaletteFuzzySearchesAndCompletes()
@@ -452,7 +452,7 @@ enum InteractionTestRunner {
         )
     }
 
-    private static func paneShortcutMovesDirectlyBetweenFocusedTerminals() throws {
+    private static func paneShortcutSwitchesImmediatelyBetweenFocusedTerminals() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [
@@ -479,23 +479,30 @@ enum InteractionTestRunner {
         guard let camera = deck.subviews.first else {
             throw InteractionTestFailure("the deck did not install its camera scene")
         }
-        let initialCameraSize = camera.bounds.size
+        let initialCameraBounds = camera.bounds
 
         try expect(deck.cycleFocusedTerminal(by: 1), "the next-pane action was not accepted")
         try expect(
             try harness.uiLevel(of: deck) == "terminal"
                 && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
-            "pane movement zoomed out instead of focusing the destination directly"
+            "pane switching zoomed out instead of focusing the destination directly"
+        )
+        let switchedCameraBounds = camera.bounds
+        try expect(
+            abs(switchedCameraBounds.minX - initialCameraBounds.minX) > 0.5
+                || abs(switchedCameraBounds.minY - initialCameraBounds.minY) > 0.5,
+            "pane switching did not move the camera to the destination"
+        )
+        try expect(
+            abs(switchedCameraBounds.width - initialCameraBounds.width) < 0.5
+                && abs(switchedCameraBounds.height - initialCameraBounds.height) < 0.5,
+            "pane switching changed the camera zoom"
         )
         RunLoop.current.run(until: Date().addingTimeInterval(0.06))
         try expect(
-            try harness.uiLevel(of: deck) == "terminal",
-            "pane movement left Terminal mode during its camera animation"
-        )
-        try expect(
-            abs(camera.bounds.width - initialCameraSize.width) < 0.5
-                && abs(camera.bounds.height - initialCameraSize.height) < 0.5,
-            "pane movement zoomed the camera instead of translating it"
+            abs(camera.bounds.minX - switchedCameraBounds.minX) < 0.5
+                && abs(camera.bounds.minY - switchedCameraBounds.minY) < 0.5,
+            "pane switching continued with a delayed camera animation"
         )
     }
 

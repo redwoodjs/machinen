@@ -71,7 +71,6 @@ final class TerminalDeckView: NSView {
         // Match cmdcmd's quick, symmetric window motion.
         static let cameraDuration: TimeInterval = 0.20
         static let magnificationDuration: TimeInterval = 0.08
-        static let terminalSwitchDuration: TimeInterval = 0.12
         static let peekDuration: TimeInterval = 0.12
         static let paneCloseDuration: TimeInterval = 0.18
         static let paneCloseScale: CGFloat = 0.92
@@ -4583,8 +4582,8 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    /// `previousPane` and `nextPane` move the camera directly between terminals
-    /// in the current workspace without leaving Terminal mode.
+    /// `previousPane` and `nextPane` switch immediately between terminals in
+    /// the current workspace without leaving Terminal mode or changing zoom.
     @discardableResult
     func cycleFocusedTerminal(by offset: Int) -> Bool {
         let sessions = activeSessionTiles
@@ -4602,7 +4601,7 @@ final class TerminalDeckView: NSView {
         selectedIndex = targetIndex
         self.focusedIndex = targetIndex
         updateSelection()
-        moveCamera(duration: Motion.terminalSwitchDuration)
+        moveCamera(duration: 0)
         return true
     }
 
