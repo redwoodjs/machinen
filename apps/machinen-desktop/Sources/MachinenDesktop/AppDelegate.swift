@@ -114,7 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    private func installMainMenu() {
+    func installMainMenu() {
         let mainMenu = NSMenu()
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
@@ -124,6 +124,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             keyEquivalent: ""
         )
         appMenu.addItem(.separator())
+        let settingsItem = NSMenuItem(
+            title: "Open Settings File",
+            action: #selector(openSettingsFile),
+            keyEquivalent: ","
+        )
+        settingsItem.keyEquivalentModifierMask = [.command]
+        settingsItem.target = self
+        appMenu.addItem(settingsItem)
+        appMenu.addItem(.separator())
+
         let newWorkspaceItem = NSMenuItem(
             title: "New…",
             action: #selector(createNewWorkspaceOrTerminal),
@@ -270,6 +280,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return window?.firstResponder is MachinenTerminalView
         }
         return true
+    }
+
+    @objc private func openSettingsFile() {
+        let url = MachinenConfiguration.defaultURL
+        _ = MachinenConfiguration.load(from: url)
+        guard NSWorkspace.shared.open(url) else {
+            NSLog("Machinen could not open settings file at %@", url.path)
+            return
+        }
     }
 
     @objc private func createNewWorkspaceOrTerminal() {

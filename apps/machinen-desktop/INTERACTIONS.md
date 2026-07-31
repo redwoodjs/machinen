@@ -30,6 +30,7 @@ discovery use the workspace directory as their project boundary.
 | ---------------- | ---------------------------------------------------------------------------------- |
 | `⌘+` / `⌘−`      | Magnify/demagnify the camera in equal increments without changing hierarchy level. |
 | `⌘0`             | Reset camera magnification to actual size without changing hierarchy level.        |
+| `⌘,`             | Open the Desktop settings file in the user's default editor.                       |
 | `⌘↓` or `Return` | Enter the selected workspace or pane.                                              |
 | `⌘↑`             | Leave the current pane or workspace.                                               |
 | `⌘→`             | From Terminal mode, focus the next pane in the current workspace.                  |

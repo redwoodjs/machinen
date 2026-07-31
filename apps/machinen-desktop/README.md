@@ -35,9 +35,11 @@ default file is:
 }
 ```
 
-A shortcut can combine `cmd`, `ctrl`, `option`, and `shift` with an arrow,
-single character, Return, Tab, Space, Delete, or Escape. An invalid entry keeps
-that action's default shortcut and writes an explanation to the macOS log.
+Choose **Machinen → Open Settings File** or press `⌘,` to open the file in the
+user's default editor. Restart Desktop after editing it. A shortcut can combine
+`cmd`, `ctrl`, `option`, and `shift` with an arrow, single character, Return,
+Tab, Space, Delete, or Escape. An invalid entry keeps that action's default
+shortcut and writes an explanation to the macOS log.
 
 ## Run
 

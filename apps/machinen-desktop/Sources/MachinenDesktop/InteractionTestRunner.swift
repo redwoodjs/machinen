@@ -14,6 +14,7 @@ enum InteractionTestRunner {
             }
             try commandNAlwaysAsksWhatAndWhere()
             try shortcutConfigCreatesDefaultsAndLoadsOverrides()
+            try settingsFileIsAvailableInApplicationMenu()
             try commandArrowsMoveThroughTheHierarchy()
             try statusNavigationMenusSwitchAndZoomOut()
             try commandPlusAndMinusMagnifyTheCurrentLevel()
@@ -46,7 +47,7 @@ enum InteractionTestRunner {
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (34 scenarios)")
+            print("Machinen interaction tests passed (35 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -165,6 +166,27 @@ enum InteractionTestRunner {
         try expect(
             monitor.process(unbound) === unbound,
             "an unconfigured shortcut was consumed"
+        )
+    }
+
+    private static func settingsFileIsAvailableInApplicationMenu() throws {
+        let previousMenu = NSApp.mainMenu
+        defer { NSApp.mainMenu = previousMenu }
+        let delegate = AppDelegate()
+        delegate.installMainMenu()
+
+        let appMenu = NSApp.mainMenu?.items.first?.submenu
+        let settingsItem = appMenu?.items.first(where: { $0.title == "Open Settings File" })
+        try expect(settingsItem != nil, "the application menu did not include the settings file")
+        try expect(
+            settingsItem?.action == NSSelectorFromString("openSettingsFile")
+                && settingsItem?.target === delegate,
+            "the settings menu item was not wired to the application delegate"
+        )
+        try expect(
+            settingsItem?.keyEquivalent == ","
+                && settingsItem?.keyEquivalentModifierMask == [.command],
+            "the settings menu item did not use the standard ⌘, shortcut"
         )
     }
 
