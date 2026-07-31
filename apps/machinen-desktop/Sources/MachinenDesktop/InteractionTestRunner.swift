@@ -499,7 +499,9 @@ enum InteractionTestRunner {
                 && statusMinimap.representedWorkspaceCount == 2
                 && statusMinimap.representedPaneCount == 3
                 && !statusMinimap.rendersPaneDetail
-                && minimap.rendersPaneDetail,
+                && statusMinimap.usesPixelArtPresentation
+                && minimap.rendersPaneDetail
+                && !minimap.usesPixelArtPresentation,
             "the status bar did not keep a simplified item-sized spatial minimap"
         )
         let initialCameraBounds = camera.bounds

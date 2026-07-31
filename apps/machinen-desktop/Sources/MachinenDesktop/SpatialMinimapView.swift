@@ -26,7 +26,7 @@ final class SpatialMinimapView: NSView {
     }
 
     private var cornerRadius: CGFloat {
-        presentation == .overlay ? 10 : 3
+        presentation == .overlay ? 10 : 0
     }
 
     private(set) var representedWorldBounds = NSRect.zero
@@ -36,6 +36,7 @@ final class SpatialMinimapView: NSView {
     var representedWorkspaceCount: Int { representedWorkspaces.count }
     var representedPaneCount: Int { representedWorkspaces.reduce(0) { $0 + $1.panes.count } }
     var rendersPaneDetail: Bool { presentation == .overlay }
+    var usesPixelArtPresentation: Bool { presentation == .statusBar }
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
@@ -82,37 +83,44 @@ final class SpatialMinimapView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        let backgroundAlpha: CGFloat = presentation == .overlay ? 0.9 : 0.72
-        NSColor(calibratedWhite: 0.035, alpha: backgroundAlpha).setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: cornerRadius, yRadius: cornerRadius).fill()
-        NSColor(calibratedWhite: 1, alpha: presentation == .overlay ? 0.14 : 0.1).setStroke()
-        let border = NSBezierPath(
-            roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5),
-            xRadius: cornerRadius,
-            yRadius: cornerRadius
+        let context = NSGraphicsContext.current
+        let previousAntialiasing = context?.shouldAntialias
+        if presentation == .statusBar { context?.shouldAntialias = false }
+        defer {
+            if let previousAntialiasing { context?.shouldAntialias = previousAntialiasing }
+        }
+
+        let backgroundColor = presentation == .overlay
+            ? NSColor(calibratedWhite: 0.035, alpha: 0.9)
+            : NSColor(calibratedRed: 0.035, green: 0.055, blue: 0.075, alpha: 0.96)
+        backgroundColor.setFill()
+        shape(for: bounds, radius: cornerRadius).fill()
+        NSColor(calibratedWhite: 1, alpha: presentation == .overlay ? 0.14 : 0.24).setStroke()
+        let border = shape(
+            for: bounds.insetBy(dx: 0.5, dy: 0.5),
+            radius: cornerRadius
         )
-        border.lineWidth = presentation == .overlay ? 1 : 0.5
+        border.lineWidth = 1
         border.stroke()
 
         guard let transform = mapTransform() else { return }
 
         for workspace in representedWorkspaces {
             let frame = transform.map(workspace.frame)
-            let workspacePath = NSBezierPath(
-                roundedRect: frame,
-                xRadius: min(4, frame.width / 8),
-                yRadius: min(4, frame.height / 8)
+            let workspacePath = shape(
+                for: frame,
+                radius: presentation == .overlay ? min(4, frame.width / 8) : 0
             )
             let activeWorkspace = presentation == .overlay
                 ? NSColor(calibratedRed: 0.18, green: 0.22, blue: 0.27, alpha: 0.96)
-                : NSColor(calibratedRed: 0.2, green: 0.46, blue: 0.66, alpha: 0.9)
+                : NSColor(calibratedRed: 0.12, green: 0.52, blue: 0.72, alpha: 1)
             let inactiveWorkspace = presentation == .overlay
                 ? NSColor(calibratedRed: 0.12, green: 0.13, blue: 0.15, alpha: 0.96)
-                : NSColor(calibratedWhite: 0.62, alpha: 0.34)
+                : NSColor(calibratedRed: 0.28, green: 0.34, blue: 0.4, alpha: 1)
             (workspace.isActive ? activeWorkspace : inactiveWorkspace).setFill()
             workspacePath.fill()
             NSColor(calibratedWhite: 1, alpha: workspace.isActive ? 0.36 : 0.2).setStroke()
-            workspacePath.lineWidth = presentation == .overlay ? 1 : 0.5
+            workspacePath.lineWidth = 1
             workspacePath.stroke()
 
             if presentation == .overlay {
@@ -136,10 +144,9 @@ final class SpatialMinimapView: NSView {
 
         let cameraFrame = transform.map(representedCameraBounds)
         guard cameraFrame.width > 0, cameraFrame.height > 0 else { return }
-        let cameraPath = NSBezierPath(
-            roundedRect: cameraFrame,
-            xRadius: min(3, cameraFrame.width / 8),
-            yRadius: min(3, cameraFrame.height / 8)
+        let cameraPath = shape(
+            for: cameraFrame,
+            radius: presentation == .overlay ? min(3, cameraFrame.width / 8) : 0
         )
         let cameraFill = presentation == .overlay
             ? NSColor(calibratedRed: 0.34, green: 0.78, blue: 1, alpha: 0.12)
@@ -152,6 +159,11 @@ final class SpatialMinimapView: NSView {
         cameraStroke.setStroke()
         cameraPath.lineWidth = presentation == .overlay ? 1.5 : 1
         cameraPath.stroke()
+    }
+
+    private func shape(for rect: NSRect, radius: CGFloat) -> NSBezierPath {
+        guard radius > 0 else { return NSBezierPath(rect: rect) }
+        return NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
     }
 
     private func mapTransform() -> MapTransform? {
@@ -169,7 +181,8 @@ final class SpatialMinimapView: NSView {
             targetOrigin: NSPoint(
                 x: target.midX - mappedSize.width / 2,
                 y: target.midY - mappedSize.height / 2
-            )
+            ),
+            snapsToPixels: presentation == .statusBar
         )
     }
 }
@@ -178,13 +191,26 @@ private struct MapTransform {
     let worldOrigin: NSPoint
     let scale: CGFloat
     let targetOrigin: NSPoint
+    let snapsToPixels: Bool
 
     func map(_ rect: NSRect) -> NSRect {
-        NSRect(
+        let mapped = NSRect(
             x: targetOrigin.x + (rect.minX - worldOrigin.x) * scale,
             y: targetOrigin.y + (rect.minY - worldOrigin.y) * scale,
             width: rect.width * scale,
             height: rect.height * scale
+        )
+        guard snapsToPixels else { return mapped }
+
+        let minX = mapped.minX.rounded()
+        let minY = mapped.minY.rounded()
+        let maxX = mapped.maxX.rounded()
+        let maxY = mapped.maxY.rounded()
+        return NSRect(
+            x: minX,
+            y: minY,
+            width: max(1, maxX - minX),
+            height: max(1, maxY - minY)
         )
     }
 }

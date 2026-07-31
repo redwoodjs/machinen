@@ -77,7 +77,9 @@ first launch and adds new defaults to older files. The actions are `enter`,
   scale and animates the camera viewport from source to destination, then fades
   away gently. A persistent 56×26-point status-item version beside the
   breadcrumb keeps only the exact workspace geometry and camera indicator as a
-  clearer continuous orientation cue; pane detail remains in the larger map.
+  clearer continuous orientation cue. It uses square, pixel-snapped shapes, a
+  limited high-contrast palette, and discrete camera steps; pane detail remains
+  in the larger smooth map.
   `⌘K` opens context-aware commands without changing camera level. `⌘O` opens
   the focused terminal's full context menu, including its **Open Selection
   With** submenu when text is selected.
