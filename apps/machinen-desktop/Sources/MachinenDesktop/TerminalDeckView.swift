@@ -6,6 +6,8 @@ final class TerminalDeckView: NSView {
         let target: NSRect
         let startedAt: TimeInterval
         let duration: TimeInterval
+        let startAlpha: CGFloat
+        let targetAlpha: CGFloat
         let completion: (@MainActor () -> Void)?
     }
 
@@ -72,7 +74,10 @@ final class TerminalDeckView: NSView {
         static let cameraDuration: TimeInterval = 0.20
         static let magnificationDuration: TimeInterval = 0.08
         static let terminalSwitchDuration: TimeInterval = 0.24
-        static let workspaceSwitchDuration: TimeInterval = 0.28
+        static let workspaceSwitchExitDuration: TimeInterval = 0.08
+        static let workspaceSwitchEntryDuration: TimeInterval = 0.11
+        static let workspaceSwitchMinimumAlpha: CGFloat = 0.2
+        static let workspaceSwitchNudge: CGFloat = 44
         static let peekDuration: TimeInterval = 0.12
         static let paneCloseDuration: TimeInterval = 0.18
         static let paneCloseScale: CGFloat = 0.92
@@ -791,22 +796,26 @@ final class TerminalDeckView: NSView {
         // a camera over stable terminal surfaces instead of resizing the scene.
         sceneView.frame = sceneViewportFrame
         sceneView.bounds = currentCameraBounds()
+        sceneView.alphaValue = 1
         needsDisplay = true
     }
 
     private func moveCamera(
         to destination: NSRect? = nil,
         duration: TimeInterval = Motion.cameraDuration,
+        targetAlpha requestedTargetAlpha: CGFloat? = nil,
         completion: (@MainActor () -> Void)? = nil
     ) {
         statusPopoverView.dismiss()
         cameraAnimationTimer?.invalidate()
         let target = destination ?? currentCameraBounds()
         let start = sceneView.bounds
+        let targetAlpha = requestedTargetAlpha ?? sceneView.alphaValue
         guard duration > 0, start.width > 0, start.height > 0,
               target.width > 0, target.height > 0
         else {
             sceneView.bounds = target
+            sceneView.alphaValue = targetAlpha
             isTransitioning = false
             restoreInputFocus()
             completion?()
@@ -821,6 +830,8 @@ final class TerminalDeckView: NSView {
             target: target,
             startedAt: ProcessInfo.processInfo.systemUptime,
             duration: duration,
+            startAlpha: sceneView.alphaValue,
+            targetAlpha: targetAlpha,
             completion: completion
         )
         let timer = Timer(
@@ -855,12 +866,15 @@ final class TerminalDeckView: NSView {
             width: width,
             height: height
         )
+        sceneView.alphaValue = animation.startAlpha
+            + (animation.targetAlpha - animation.startAlpha) * progress
 
         guard linearProgress >= 1 else { return }
         timer.invalidate()
         cameraAnimationTimer = nil
         cameraAnimation = nil
         sceneView.bounds = animation.target
+        sceneView.alphaValue = animation.targetAlpha
         isTransitioning = false
         restoreInputFocus()
         needsDisplay = true
@@ -4608,19 +4622,27 @@ final class TerminalDeckView: NSView {
     }
 
     private func panCameraToCurrentTarget(duration: TimeInterval) {
+        moveCamera(to: fixedScaleCameraTarget(), duration: duration)
+    }
+
+    private func fixedScaleCameraTarget() -> NSRect {
         let destination = currentCameraBounds()
         let cameraSize = sceneView.bounds.size
-        let translationTarget = NSRect(
+        return NSRect(
             x: destination.midX - cameraSize.width / 2,
             y: destination.midY - cameraSize.height / 2,
             width: cameraSize.width,
             height: cameraSize.height
         )
-        moveCamera(to: translationTarget, duration: duration)
     }
 
-    /// `previousWorkspace` and `nextWorkspace` pan directly to an adjacent
-    /// workspace's active terminal without leaving Terminal mode or changing zoom.
+    private func workspaceSwitchNudge() -> CGFloat {
+        Motion.workspaceSwitchNudge * sceneView.bounds.width
+            / max(1, sceneViewportBounds.width)
+    }
+
+    /// `previousWorkspace` and `nextWorkspace` use a short directional slide
+    /// and fade to reveal an adjacent workspace's active terminal at the same zoom.
     @discardableResult
     func cycleFocusedWorkspace(by offset: Int) -> Bool {
         let sourceSessions = activeSessionTiles
@@ -4656,12 +4678,54 @@ final class TerminalDeckView: NSView {
                 + "tile=\(sourceTileID)→\(targetTileID)"
         )
 
-        currentWorkspace = targetWorkspace.id
-        selectedIndex = targetTerminalIndex
-        self.focusedIndex = targetTerminalIndex
-        updateSelection()
-        panCameraToCurrentTarget(duration: Motion.workspaceSwitchDuration)
+        let direction: CGFloat = offset > 0 ? 1 : -1
+        let exitTarget = sceneView.bounds.offsetBy(
+            dx: direction * workspaceSwitchNudge(),
+            dy: 0
+        )
+        moveCamera(
+            to: exitTarget,
+            duration: Motion.workspaceSwitchExitDuration,
+            targetAlpha: Motion.workspaceSwitchMinimumAlpha
+        ) { [weak self] in
+            self?.revealCycledWorkspace(
+                targetWorkspace.id,
+                tileID: targetTileID,
+                direction: direction
+            )
+        }
         return true
+    }
+
+    private func revealCycledWorkspace(
+        _ workspaceID: String,
+        tileID: String,
+        direction: CGFloat
+    ) {
+        let sessions = activeSessionTiles(for: workspaceID)
+        guard !sessions.isEmpty else {
+            sceneView.alphaValue = 1
+            return
+        }
+
+        let targetIndex = sessions.firstIndex(where: { $0.session.tileID == tileID })
+            ?? activeTerminalIndex(in: workspaceID)
+        currentWorkspace = workspaceID
+        selectedIndex = targetIndex
+        focusedIndex = targetIndex
+        updateSelection()
+
+        let destination = fixedScaleCameraTarget()
+        sceneView.bounds = destination.offsetBy(
+            dx: -direction * workspaceSwitchNudge(),
+            dy: 0
+        )
+        sceneView.alphaValue = Motion.workspaceSwitchMinimumAlpha
+        moveCamera(
+            to: destination,
+            duration: Motion.workspaceSwitchEntryDuration,
+            targetAlpha: 1
+        )
     }
 
     private func activeTerminalIndex(in workspaceID: String) -> Int {
