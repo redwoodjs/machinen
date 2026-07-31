@@ -457,7 +457,7 @@ enum InteractionTestRunner {
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [
             harness.workspace("alpha", terminalCount: 2),
-            harness.workspace("beta", terminalCount: 2),
+            harness.workspace("beta", terminalCount: 1),
         ])
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
@@ -538,17 +538,24 @@ enum InteractionTestRunner {
                 && camera.alphaValue < 0.95,
             "workspace switching traversed the scene hierarchy instead of revealing directly"
         )
-        try expect(
-            abs(camera.bounds.width - workspaceInitialCameraBounds.width) < 0.5
-                && abs(camera.bounds.height - workspaceInitialCameraBounds.height) < 0.5,
-            "workspace switching changed zoom while revealing the destination"
-        )
+        let workspaceEntryCameraBounds = camera.bounds
         RunLoop.current.run(until: Date().addingTimeInterval(0.15))
         try expect(
             camera.alphaValue > 0.99
-                && abs(camera.bounds.width - workspaceInitialCameraBounds.width) < 0.5
-                && abs(camera.bounds.height - workspaceInitialCameraBounds.height) < 0.5,
-            "workspace switching did not finish the destination fade at the original zoom"
+                && abs(camera.bounds.width - workspaceEntryCameraBounds.width) < 0.5
+                && abs(camera.bounds.height - workspaceEntryCameraBounds.height) < 0.5,
+            "workspace switching changed zoom while revealing the destination"
+        )
+
+        let switchedSingletonCameraBounds = camera.bounds
+        try expect(deck.zoomOutOneLevel(), "the singleton pane could not be left")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        try expect(deck.zoomInOneLevel(), "the singleton pane could not be re-entered")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        try expect(
+            abs(camera.bounds.width - switchedSingletonCameraBounds.width) < 0.5
+                && abs(camera.bounds.height - switchedSingletonCameraBounds.height) < 0.5,
+            "workspace switching did not use the singleton pane's fitted framing"
         )
         try expect(
             deck.cycleFocusedWorkspace(by: -1)
@@ -561,6 +568,11 @@ enum InteractionTestRunner {
             "workspace switching did not restore the prior active terminal"
         )
         RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        try expect(
+            abs(camera.bounds.width - workspaceInitialCameraBounds.width) < 0.5
+                && abs(camera.bounds.height - workspaceInitialCameraBounds.height) < 0.5,
+            "returning to the multi-pane workspace did not restore its fitted framing"
+        )
     }
 
     private static func configuredShortcutsSelectAndMoveSpatialObjects() throws {

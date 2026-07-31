@@ -69,8 +69,9 @@ first launch and adds new defaults to older files. The actions are `enter`,
   workspace by panning the camera directly at a fixed zoom without leaving
   Terminal mode. `previousWorkspace` and `nextWorkspace` wrap through
   non-empty workspaces with a short directional slide and fade from the current
-  pane to the adjacent workspace's last active pane. The camera stays at a fixed
-  zoom and never visits the workspace overview during the transition.
+  pane to the adjacent workspace's last active pane. Each visible slide keeps a
+  fixed zoom; at the faded midpoint, the destination adopts its normal fitted
+  framing. The camera never visits the workspace overview during the transition.
   `⌘K` opens context-aware commands without changing camera level. `⌘O` opens
   the focused terminal's full context menu, including its **Open Selection
   With** submenu when text is selected.

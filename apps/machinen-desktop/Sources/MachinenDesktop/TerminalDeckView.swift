@@ -4636,8 +4636,8 @@ final class TerminalDeckView: NSView {
         )
     }
 
-    private func workspaceSwitchNudge() -> CGFloat {
-        Motion.workspaceSwitchNudge * sceneView.bounds.width
+    private func workspaceSwitchNudge(for cameraBounds: NSRect) -> CGFloat {
+        Motion.workspaceSwitchNudge * cameraBounds.width
             / max(1, sceneViewportBounds.width)
     }
 
@@ -4680,7 +4680,7 @@ final class TerminalDeckView: NSView {
 
         let direction: CGFloat = offset > 0 ? 1 : -1
         let exitTarget = sceneView.bounds.offsetBy(
-            dx: direction * workspaceSwitchNudge(),
+            dx: direction * workspaceSwitchNudge(for: sceneView.bounds),
             dy: 0
         )
         moveCamera(
@@ -4715,9 +4715,11 @@ final class TerminalDeckView: NSView {
         focusedIndex = targetIndex
         updateSelection()
 
-        let destination = fixedScaleCameraTarget()
+        // Adopt the destination pane's normal fitted size while the scene is
+        // faded. The visible entry slide then translates without zooming.
+        let destination = currentCameraBounds()
         sceneView.bounds = destination.offsetBy(
-            dx: -direction * workspaceSwitchNudge(),
+            dx: -direction * workspaceSwitchNudge(for: destination),
             dy: 0
         )
         sceneView.alphaValue = Motion.workspaceSwitchMinimumAlpha
