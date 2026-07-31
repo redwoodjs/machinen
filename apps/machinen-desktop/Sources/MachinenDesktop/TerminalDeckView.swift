@@ -966,13 +966,14 @@ final class TerminalDeckView: NSView {
             return
         }
 
-        currentWorkspace = workspaceID
-        let sessions = activeSessionTiles
-        selectedIndex = 0
-        focusedIndex = sessions.count == 1 ? 0 : nil
+        let sessions = activeSessionTiles(for: workspaceID)
         clearLabelBuffer()
-        updateSelection()
-        moveCamera()
+        beginWorkspaceTransition(
+            to: workspaceID,
+            tileID: sessions.first?.session.tileID,
+            focusTerminal: sessions.count == 1,
+            direction: workspaceTransitionDirection(to: workspaceID)
+        )
     }
 
     private func selectTerminalFromStatusBar(_ terminalID: String) {
@@ -980,13 +981,30 @@ final class TerminalDeckView: NSView {
               !isTransitioning, !isPeeking,
               let tile = allSessionTiles.first(where: { $0.session.id == terminalID })
         else { return }
-        currentWorkspace = tile.session.workspaceID
+
+        let workspaceID = tile.session.workspaceID
+        if workspaceID != currentWorkspace {
+            clearLabelBuffer()
+            beginWorkspaceTransition(
+                to: workspaceID,
+                tileID: tile.session.tileID,
+                focusTerminal: true,
+                direction: workspaceTransitionDirection(to: workspaceID)
+            )
+            return
+        }
+
         guard let index = activeSessionTiles.firstIndex(where: { $0 === tile }) else { return }
+        let wasFocused = focusedIndex != nil
         selectedIndex = index
         focusedIndex = index
         clearLabelBuffer()
         updateSelection()
-        moveCamera()
+        if wasFocused {
+            panCameraToCurrentTarget(duration: Motion.terminalSwitchDuration)
+        } else {
+            moveCamera()
+        }
     }
 
     func copyPIDIfNeeded(from widget: MachinenStatusWidget) -> Bool {
@@ -4670,7 +4688,6 @@ final class TerminalDeckView: NSView {
         guard !targetSessions.isEmpty else { return false }
 
         let sourceTileID = sourceSessions[focusedIndex].session.tileID
-        activeTerminalByWorkspace[sourceWorkspaceID] = sourceTileID
         let targetTerminalIndex = activeTerminalIndex(in: targetWorkspace.id)
         let targetTileID = targetSessions[targetTerminalIndex].session.tileID
         InputRoutingLog.log(
@@ -4678,7 +4695,37 @@ final class TerminalDeckView: NSView {
                 + "tile=\(sourceTileID)→\(targetTileID)"
         )
 
-        let direction: CGFloat = offset > 0 ? 1 : -1
+        beginWorkspaceTransition(
+            to: targetWorkspace.id,
+            tileID: targetTileID,
+            focusTerminal: true,
+            direction: offset > 0 ? 1 : -1
+        )
+        return true
+    }
+
+    private func workspaceTransitionDirection(to workspaceID: String) -> CGFloat {
+        guard let sourceWorkspaceID = selectedWorkspaceID(),
+              let sourceIndex = workspaces.firstIndex(where: { $0.id == sourceWorkspaceID }),
+              let targetIndex = workspaces.firstIndex(where: { $0.id == workspaceID })
+        else { return 1 }
+        return targetIndex >= sourceIndex ? 1 : -1
+    }
+
+    private func beginWorkspaceTransition(
+        to workspaceID: String,
+        tileID: String?,
+        focusTerminal: Bool,
+        direction: CGFloat
+    ) {
+        if let sourceWorkspaceID = currentWorkspace,
+           let focusedIndex,
+           activeSessionTiles.indices.contains(focusedIndex)
+        {
+            activeTerminalByWorkspace[sourceWorkspaceID]
+                = activeSessionTiles[focusedIndex].session.tileID
+        }
+
         let exitTarget = sceneView.bounds.offsetBy(
             dx: direction * workspaceSwitchNudge(for: sceneView.bounds),
             dy: 0
@@ -4688,35 +4735,40 @@ final class TerminalDeckView: NSView {
             duration: Motion.workspaceSwitchExitDuration,
             targetAlpha: Motion.workspaceSwitchMinimumAlpha
         ) { [weak self] in
-            self?.revealCycledWorkspace(
-                targetWorkspace.id,
-                tileID: targetTileID,
+            self?.revealWorkspaceTransition(
+                workspaceID,
+                tileID: tileID,
+                focusTerminal: focusTerminal,
                 direction: direction
             )
         }
-        return true
     }
 
-    private func revealCycledWorkspace(
+    private func revealWorkspaceTransition(
         _ workspaceID: String,
-        tileID: String,
+        tileID: String?,
+        focusTerminal: Bool,
         direction: CGFloat
     ) {
         let sessions = activeSessionTiles(for: workspaceID)
-        guard !sessions.isEmpty else {
+        guard !focusTerminal || !sessions.isEmpty else {
             sceneView.alphaValue = 1
             return
         }
 
-        let targetIndex = sessions.firstIndex(where: { $0.session.tileID == tileID })
-            ?? activeTerminalIndex(in: workspaceID)
+        let fallbackIndex = focusTerminal ? activeTerminalIndex(in: workspaceID) : 0
+        let targetIndex = tileID.flatMap { tileID in
+            sessions.firstIndex(where: { $0.session.tileID == tileID })
+        } ?? fallbackIndex
         currentWorkspace = workspaceID
         selectedIndex = targetIndex
-        focusedIndex = targetIndex
+        focusedIndex = focusTerminal && sessions.indices.contains(targetIndex)
+            ? targetIndex
+            : nil
         updateSelection()
 
-        // Adopt the destination pane's normal fitted size while the scene is
-        // faded. The visible entry slide then translates without zooming.
+        // Adopt the destination's normal fitted size while the scene is faded.
+        // The visible entry slide then translates without zooming.
         let destination = currentCameraBounds()
         sceneView.bounds = destination.offsetBy(
             dx: -direction * workspaceSwitchNudge(for: destination),

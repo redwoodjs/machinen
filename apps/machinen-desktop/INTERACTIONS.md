@@ -264,9 +264,11 @@ clicked.
 
 Machinen has one persistent status bar. The workspace title is a dropdown of all
 workspaces in spatial order. Choosing its current workspace moves the camera one
-level out; choosing another workspace enters that workspace. At terminal level,
-the terminal title is a second dropdown of that workspace's terminals in spatial
-order, so choosing one focuses it. Hovering either title reveals its bound path,
+level out; choosing another workspace enters that workspace with the same slide
+and fade used by workspace shortcuts. At terminal level, the terminal title is a
+second dropdown of that workspace's terminals in spatial order, so choosing one
+focuses it with the same fixed-zoom pan used by pane shortcuts. Hovering either
+title reveals its bound path,
 and terminal hover detail also shows any observed foreground command. An API
 client can set a persistent title
 override with `terminal.update`, or clear it to return to the saved terminal

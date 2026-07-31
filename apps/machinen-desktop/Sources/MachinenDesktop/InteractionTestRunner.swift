@@ -480,6 +480,11 @@ enum InteractionTestRunner {
         guard let camera = deck.subviews.first else {
             throw InteractionTestFailure("the deck did not install its camera scene")
         }
+        guard let statusBar = deck.subviews.compactMap({
+            $0 as? MachinenStatusBarView
+        }).first else {
+            throw InteractionTestFailure("the deck did not install its status bar")
+        }
         let initialCameraBounds = camera.bounds
 
         try expect(deck.cycleFocusedTerminal(by: 1), "the next-pane action was not accepted")
@@ -572,6 +577,47 @@ enum InteractionTestRunner {
             abs(camera.bounds.width - workspaceInitialCameraBounds.width) < 0.5
                 && abs(camera.bounds.height - workspaceInitialCameraBounds.height) < 0.5,
             "returning to the multi-pane workspace did not restore its fitted framing"
+        )
+
+        let statusPaneInitialCameraBounds = camera.bounds
+        try expect(
+            statusBar.chooseTerminal("term_alpha_0")
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
+            "the status bar did not begin a direct pane transition"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+        try expect(
+            (abs(camera.bounds.minX - statusPaneInitialCameraBounds.minX) > 0.5
+                || abs(camera.bounds.minY - statusPaneInitialCameraBounds.minY) > 0.5)
+                && abs(camera.bounds.width - statusPaneInitialCameraBounds.width) < 0.5
+                && abs(camera.bounds.height - statusPaneInitialCameraBounds.height) < 0.5,
+            "the status-bar terminal item did not use the fixed-zoom pane pan"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.20))
+
+        try expect(
+            statusBar.chooseWorkspace("ws_beta")
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
+            "the status bar did not begin from the current terminal"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.04))
+        try expect(
+            camera.alphaValue < 0.95 && (try harness.uiLevel(of: deck)) == "terminal",
+            "the status-bar workspace item did not slide and fade the source pane"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.07))
+        let statusWorkspaceEntryCameraBounds = camera.bounds
+        try expect(
+            camera.alphaValue < 0.95
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_0",
+            "the status-bar workspace item did not reveal the destination directly"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        try expect(
+            camera.alphaValue > 0.99
+                && abs(camera.bounds.width - statusWorkspaceEntryCameraBounds.width) < 0.5
+                && abs(camera.bounds.height - statusWorkspaceEntryCameraBounds.height) < 0.5,
+            "the status-bar workspace transition changed zoom during its entry slide"
         )
     }
 
