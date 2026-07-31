@@ -39,8 +39,8 @@ default file is:
     "moveUp": "shift+up",
     "previousPane": "cmd+shift+left",
     "nextPane": "cmd+shift+right",
-    "previousWorkspace": "cmd+[",
-    "nextWorkspace": "cmd+]"
+    "previousWorkspace": "cmd+shift+[",
+    "nextWorkspace": "cmd+shift+]"
   }
 }
 ```

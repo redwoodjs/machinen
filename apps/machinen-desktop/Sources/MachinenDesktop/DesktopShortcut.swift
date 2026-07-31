@@ -99,8 +99,8 @@ struct MachinenConfiguration {
         .moveUp: "shift+up",
         .previousPane: "cmd+shift+left",
         .nextPane: "cmd+shift+right",
-        .previousWorkspace: "cmd+[",
-        .nextWorkspace: "cmd+]",
+        .previousWorkspace: "cmd+shift+[",
+        .nextWorkspace: "cmd+shift+]",
     ]
 
     private static let legacyShortcutStrings: [DesktopShortcutAction: String] = [
@@ -112,6 +112,8 @@ struct MachinenConfiguration {
         .moveUp: "cmd+shift+up",
         .previousPane: "cmd+left",
         .nextPane: "cmd+right",
+        .previousWorkspace: "cmd+[",
+        .nextWorkspace: "cmd+]",
     ]
 
     private static func writeDefaults(to url: URL) throws {

@@ -34,7 +34,7 @@ discovery use the workspace directory as their project boundary.
 | `⇧⌘↓` or Return | Enter the selected workspace or pane.                                              |
 | `⇧⌘↑`           | Leave the current pane or workspace.                                               |
 | `⇧⌘←` / `⇧⌘→`   | From Terminal mode, focus the previous/next pane in the current workspace.         |
-| `⌘[` / `⌘]`     | From Terminal mode, focus the first pane in the previous/next workspace.           |
+| `⇧⌘[` / `⇧⌘]`   | From Terminal mode, focus the first pane in the previous/next workspace.           |
 | `⌘N`            | Open the New chooser; never create a terminal or workspace immediately.            |
 | `⌘K`            | Open the single nested command menu for the current and containing spaces.         |
 | `⌘O`            | Show the focused terminal's full context menu.                                     |

@@ -127,8 +127,8 @@ enum InteractionTestRunner {
                 "moveUp": "shift+up",
                 "previousPane": "cmd+shift+left",
                 "nextPane": "cmd+shift+right",
-                "previousWorkspace": "cmd+[",
-                "nextWorkspace": "cmd+]",
+                "previousWorkspace": "cmd+shift+[",
+                "nextWorkspace": "cmd+shift+]",
             ],
             "the generated shortcut config did not contain the documented defaults"
         )
@@ -140,7 +140,8 @@ enum InteractionTestRunner {
                 "moveUp": "cmd+shift+up",
                 "previousPane": "cmd+left",
                 "nextPane": "option+tab",
-                "nextWorkspace": "shift+space",
+                "previousWorkspace": "cmd+[",
+                "nextWorkspace": "cmd+]",
             ]
         ])
         try overrideData.write(to: configURL, options: .atomic)
@@ -164,8 +165,10 @@ enum InteractionTestRunner {
             migratedShortcuts?.count == DesktopShortcutAction.allCases.count
                 && migratedShortcuts?["enter"] == "ctrl+j"
                 && migratedShortcuts?["previousPane"] == "cmd+shift+left"
-                && migratedShortcuts?["moveUp"] == "shift+up",
-            "loading an older config did not add the missing spatial actions"
+                && migratedShortcuts?["moveUp"] == "shift+up"
+                && migratedShortcuts?["previousWorkspace"] == "cmd+shift+["
+                && migratedShortcuts?["nextWorkspace"] == "cmd+shift+]",
+            "loading an older config did not migrate the spatial defaults"
         )
 
         var actions: [DesktopShortcutAction] = []
@@ -413,17 +416,17 @@ enum InteractionTestRunner {
             "the next-pane shortcut did not wrap within the workspace"
         )
         try expect(
-            shortcut.process(harness.commandBracket(keyCode: 33)) == nil
+            shortcut.process(harness.commandShiftBracket(keyCode: 33)) == nil
                 && (try harness.focusedTileID(of: deck)) == "tile_beta_0",
             "the previous-workspace shortcut did not wrap to the final workspace"
         )
         try expect(
-            shortcut.process(harness.commandBracket(keyCode: 30)) == nil
+            shortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil
                 && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
             "the next-workspace shortcut did not return to the first workspace"
         )
         try expect(
-            shortcut.process(harness.commandBracket(keyCode: 30)) == nil,
+            shortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil,
             "the next-workspace shortcut was not handled"
         )
         try expect(
@@ -431,7 +434,7 @@ enum InteractionTestRunner {
             "the next-workspace shortcut did not focus the next workspace"
         )
         try expect(
-            shortcut.process(harness.commandBracket(keyCode: 30)) == nil,
+            shortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil,
             "the wrapping next-workspace shortcut was not handled"
         )
         try expect(
@@ -3030,9 +3033,13 @@ private final class Harness {
         try keyEvent(characters: "", keyCode: keyCode, modifierFlags: [.command, .shift])
     }
 
-    func commandBracket(keyCode: UInt16) throws -> NSEvent {
+    func commandShiftBracket(keyCode: UInt16) throws -> NSEvent {
         let characters = keyCode == 33 ? "[" : "]"
-        return try keyEvent(characters: characters, keyCode: keyCode, modifierFlags: [.command])
+        return try keyEvent(
+            characters: characters,
+            keyCode: keyCode,
+            modifierFlags: [.command, .shift]
+        )
     }
 
     func keyEvent(
