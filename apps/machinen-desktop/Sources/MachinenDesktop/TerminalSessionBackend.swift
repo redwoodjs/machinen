@@ -277,8 +277,8 @@ private enum TerminalSessionCommand {
             inputPipe.fileHandleForWriting.write(input)
             try? inputPipe.fileHandleForWriting.close()
         }
-        task.waitUntilExit()
         let data = output.fileHandleForReading.readDataToEndOfFile()
+        task.waitUntilExit()
         return BackendProcessResult(
             status: task.terminationStatus,
             output: String(decoding: data, as: UTF8.self)

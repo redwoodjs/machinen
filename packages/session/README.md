@@ -201,6 +201,9 @@ process explicitly.
 - Raw live output is retained in memory, not SQLite; SQLite receives bounded visible-screen checkpoints.
 - Database and session sockets are forced to mode `0600`; the runtime socket
   directory is forced to `0700`.
+- Short-lived control socket I/O and worker writes to attached clients have
+  one-second deadlines, so a stalled worker or viewer cannot wedge unrelated
+  session discovery and creation.
 - Live output batches use an independently increasing worker sequence.
 - A durable checkpoint advances its sequence and terminal dimensions atomically.
 - Checkpoint replacement and legacy event compaction are committed atomically.
