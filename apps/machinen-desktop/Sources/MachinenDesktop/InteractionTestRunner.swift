@@ -490,7 +490,16 @@ enum InteractionTestRunner {
         }).first else {
             throw InteractionTestFailure("the deck did not install its spatial minimap")
         }
+        let statusMinimap = statusBar.spatialMinimapForTesting
+        statusBar.display()
         try expect(minimap.isHidden, "the spatial minimap was visible while the camera was idle")
+        try expect(
+            !statusMinimap.isHidden
+                && statusMinimap.frame.size == NSSize(width: 56, height: 18)
+                && statusMinimap.representedWorkspaceCount == 2
+                && statusMinimap.representedPaneCount == 3,
+            "the status bar did not keep a complete tiny spatial minimap"
+        )
         let initialCameraBounds = camera.bounds
 
         try expect(deck.cycleFocusedTerminal(by: 1), "the next-pane action was not accepted")
@@ -541,7 +550,15 @@ enum InteractionTestRunner {
                 && abs(camera.bounds.height - initialCameraBounds.height) < 0.5,
             "pane switching changed the camera zoom at the destination"
         )
-        try expect(minimap.isHidden, "the spatial minimap remained visible after pane movement")
+        try expect(
+            !minimap.isHidden && !statusMinimap.isHidden,
+            "the minimap did not begin its slower fade after pane movement"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        try expect(
+            minimap.isHidden && !statusMinimap.isHidden,
+            "the transient minimap did not finish fading independently of the status minimap"
+        )
 
         let workspaceInitialCameraBounds = camera.bounds
         try expect(
@@ -577,7 +594,18 @@ enum InteractionTestRunner {
                 && abs(camera.bounds.height - workspaceEntryCameraBounds.height) < 0.5,
             "workspace switching changed zoom while revealing the destination"
         )
-        try expect(minimap.isHidden, "the spatial minimap remained visible after workspace movement")
+        try expect(
+            !minimap.isHidden && !statusMinimap.isHidden,
+            "the workspace minimap did not use the slower fade"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        try expect(
+            minimap.isHidden && !statusMinimap.isHidden
+                && statusMinimap.representedWorkspaces.contains(where: {
+                    $0.id == "ws_beta" && $0.isActive
+                }),
+            "the tiny status minimap did not persist at the destination workspace"
+        )
 
         let switchedSingletonCameraBounds = camera.bounds
         try expect(deck.zoomOutOneLevel(), "the singleton pane could not be left")

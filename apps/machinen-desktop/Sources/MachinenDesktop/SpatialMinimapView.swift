@@ -14,9 +14,19 @@ struct SpatialMinimapWorkspace {
 }
 
 final class SpatialMinimapView: NSView {
-    private enum Metrics {
-        static let padding: CGFloat = 9
-        static let cornerRadius: CGFloat = 10
+    enum Presentation {
+        case overlay
+        case statusBar
+    }
+
+    private let presentation: Presentation
+
+    private var padding: CGFloat {
+        presentation == .overlay ? 9 : 1.5
+    }
+
+    private var cornerRadius: CGFloat {
+        presentation == .overlay ? 10 : 3
     }
 
     private(set) var representedWorldBounds = NSRect.zero
@@ -29,12 +39,15 @@ final class SpatialMinimapView: NSView {
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
 
-    init() {
+    init(presentation: Presentation = .overlay) {
+        self.presentation = presentation
         super.init(frame: .zero)
-        identifier = NSUserInterfaceItemIdentifier("spatial-minimap")
+        identifier = NSUserInterfaceItemIdentifier(
+            presentation == .overlay ? "spatial-minimap" : "status-spatial-minimap"
+        )
         wantsLayer = true
         layer?.masksToBounds = true
-        layer?.cornerRadius = Metrics.cornerRadius
+        layer?.cornerRadius = cornerRadius
         setAccessibilityElement(false)
     }
 
@@ -68,15 +81,16 @@ final class SpatialMinimapView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        NSColor(calibratedWhite: 0.035, alpha: 0.9).setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: Metrics.cornerRadius, yRadius: Metrics.cornerRadius).fill()
-        NSColor(calibratedWhite: 1, alpha: 0.14).setStroke()
+        let backgroundAlpha: CGFloat = presentation == .overlay ? 0.9 : 0.34
+        NSColor(calibratedWhite: 0.035, alpha: backgroundAlpha).setFill()
+        NSBezierPath(roundedRect: bounds, xRadius: cornerRadius, yRadius: cornerRadius).fill()
+        NSColor(calibratedWhite: 1, alpha: presentation == .overlay ? 0.14 : 0.1).setStroke()
         let border = NSBezierPath(
             roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5),
-            xRadius: Metrics.cornerRadius,
-            yRadius: Metrics.cornerRadius
+            xRadius: cornerRadius,
+            yRadius: cornerRadius
         )
-        border.lineWidth = 1
+        border.lineWidth = presentation == .overlay ? 1 : 0.5
         border.stroke()
 
         guard let transform = mapTransform() else { return }
@@ -96,11 +110,12 @@ final class SpatialMinimapView: NSView {
             ).setFill()
             workspacePath.fill()
             NSColor(calibratedWhite: 1, alpha: workspace.isActive ? 0.36 : 0.2).setStroke()
-            workspacePath.lineWidth = 1
+            workspacePath.lineWidth = presentation == .overlay ? 1 : 0.5
             workspacePath.stroke()
 
             for pane in workspace.panes {
-                let paneFrame = transform.map(pane.frame).insetBy(dx: 0.5, dy: 0.5)
+                let paneInset: CGFloat = presentation == .overlay ? 0.5 : 0.15
+                let paneFrame = transform.map(pane.frame).insetBy(dx: paneInset, dy: paneInset)
                 guard paneFrame.width > 0, paneFrame.height > 0 else { continue }
                 let panePath = NSBezierPath(
                     roundedRect: paneFrame,
@@ -126,13 +141,13 @@ final class SpatialMinimapView: NSView {
         NSColor(calibratedRed: 0.34, green: 0.78, blue: 1, alpha: 0.12).setFill()
         cameraPath.fill()
         NSColor(calibratedRed: 0.45, green: 0.84, blue: 1, alpha: 0.96).setStroke()
-        cameraPath.lineWidth = 1.5
+        cameraPath.lineWidth = presentation == .overlay ? 1.5 : 0.8
         cameraPath.stroke()
     }
 
     private func mapTransform() -> MapTransform? {
         let world = representedWorldBounds
-        let target = bounds.insetBy(dx: Metrics.padding, dy: Metrics.padding)
+        let target = bounds.insetBy(dx: padding, dy: padding)
         guard !world.isNull, world.width > 0, world.height > 0,
               target.width > 0, target.height > 0
         else { return nil }

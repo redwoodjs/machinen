@@ -191,6 +191,7 @@ final class MachinenStatusBarView: NSView {
     var onTerminalSelect: ((String) -> Void)?
     var onMouseDown: (() -> Void)?
 
+    private let spatialMinimapView = SpatialMinimapView(presentation: .statusBar)
     private var widgetFrames: [WidgetFrame] = []
     private var titleFrame = NSRect.zero
     private var workspaceFrame = NSRect.zero
@@ -199,6 +200,39 @@ final class MachinenStatusBarView: NSView {
     private var hoveredItemID: String?
 
     static var preferredHeight: CGFloat { Metrics.height }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        spatialMinimapView.isHidden = true
+        addSubview(spatialMinimapView)
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        spatialMinimapView.isHidden = true
+        addSubview(spatialMinimapView)
+    }
+
+    var spatialMinimapForTesting: SpatialMinimapView { spatialMinimapView }
+
+    func updateSpatialMinimap(
+        worldBounds: NSRect,
+        workspaces: [SpatialMinimapWorkspace],
+        cameraBounds: NSRect
+    ) {
+        spatialMinimapView.updateScene(
+            worldBounds: worldBounds,
+            workspaces: workspaces,
+            cameraBounds: cameraBounds
+        )
+        spatialMinimapView.isHidden = workspaces.isEmpty
+            || worldBounds.width <= 0 || worldBounds.height <= 0
+        needsDisplay = true
+    }
+
+    func updateSpatialMinimapCamera(_ cameraBounds: NSRect) {
+        spatialMinimapView.updateCameraBounds(cameraBounds)
+    }
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
@@ -403,6 +437,10 @@ final class MachinenStatusBarView: NSView {
         )
         let titleWidth = drawNavigationTitle(at: baseline.origin)
         var leftX = baseline.minX + titleWidth + Metrics.sectionGap
+        if !spatialMinimapView.isHidden {
+            spatialMinimapView.frame = NSRect(x: leftX, y: 11, width: 56, height: 18).integral
+            leftX = spatialMinimapView.frame.maxX + Metrics.sectionGap
+        }
         var rightX = bounds.width - Metrics.rightInset
         var frames: [WidgetFrame] = []
 

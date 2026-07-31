@@ -85,6 +85,7 @@ final class TerminalDeckView: NSView {
         static let workspaceSwitchEntryDuration: TimeInterval = 0.11
         static let workspaceSwitchMinimumAlpha: CGFloat = 0.2
         static let workspaceSwitchNudge: CGFloat = 44
+        static let minimapFadeOutDuration: TimeInterval = 0.34
         static let peekDuration: TimeInterval = 0.12
         static let paneCloseDuration: TimeInterval = 0.18
         static let paneCloseScale: CGFloat = 0.92
@@ -108,7 +109,7 @@ final class TerminalDeckView: NSView {
     }
 
     private let sceneView = CameraSceneView()
-    private let statusBarView = MachinenStatusBarView()
+    private let statusBarView = MachinenStatusBarView(frame: .zero)
     private let statusPopoverView = MachinenStatusPopoverView()
     private let spatialMinimapView = SpatialMinimapView()
     private let sessionStore: TerminalSessionStore
@@ -137,6 +138,7 @@ final class TerminalDeckView: NSView {
     private var cameraAnimation: CameraAnimation?
     private var cameraAnimationTimer: Timer?
     private var spatialMinimapAnimation: SpatialMinimapAnimation?
+    private var spatialMinimapFadeGeneration = 0
     private var cameraMagnification: CGFloat = 1
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
     private var selectionOpeners: [String: MachinenSelectionOpener] = [:]
@@ -888,8 +890,14 @@ final class TerminalDeckView: NSView {
                 panes: panes
             )
         }
+        let sceneWorldBounds = spatialMinimapWorldBounds()
         spatialMinimapView.updateScene(
-            worldBounds: worldBounds ?? spatialMinimapWorldBounds(),
+            worldBounds: worldBounds ?? sceneWorldBounds,
+            workspaces: models,
+            cameraBounds: cameraBounds
+        )
+        statusBarView.updateSpatialMinimap(
+            worldBounds: sceneWorldBounds,
             workspaces: models,
             cameraBounds: cameraBounds
         )
@@ -907,6 +915,8 @@ final class TerminalDeckView: NSView {
             return
         }
 
+        spatialMinimapFadeGeneration += 1
+        spatialMinimapView.layer?.removeAllAnimations()
         spatialMinimapAnimation = SpatialMinimapAnimation(
             start: start,
             target: target,
@@ -933,21 +943,41 @@ final class TerminalDeckView: NSView {
             + (animation.target.midX - animation.start.midX) * progress
         let centerY = animation.start.midY
             + (animation.target.midY - animation.start.midY) * progress
-        spatialMinimapView.updateCameraBounds(NSRect(
+        let cameraBounds = NSRect(
             x: centerX - width / 2,
             y: centerY - height / 2,
             width: width,
             height: height
-        ))
+        )
+        spatialMinimapView.updateCameraBounds(cameraBounds)
+        statusBarView.updateSpatialMinimapCamera(cameraBounds)
 
-        let fadeIn = min(1, linearProgress / 0.12)
-        let fadeOut = min(1, (1 - linearProgress) / 0.18)
-        spatialMinimapView.alphaValue = min(fadeIn, fadeOut)
-        if linearProgress >= 1 { endSpatialMinimapAnimation() }
+        spatialMinimapView.alphaValue = min(1, linearProgress / 0.12)
+        if linearProgress >= 1 { finishSpatialMinimapAnimation() }
+    }
+
+    private func finishSpatialMinimapAnimation() {
+        spatialMinimapAnimation = nil
+        spatialMinimapFadeGeneration += 1
+        let generation = spatialMinimapFadeGeneration
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.minimapFadeOutDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            spatialMinimapView.animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            Task { @MainActor in
+                guard let self, self.spatialMinimapFadeGeneration == generation,
+                      self.spatialMinimapAnimation == nil
+                else { return }
+                self.spatialMinimapView.isHidden = true
+            }
+        }
     }
 
     private func endSpatialMinimapAnimation() {
+        spatialMinimapFadeGeneration += 1
         spatialMinimapAnimation = nil
+        spatialMinimapView.layer?.removeAllAnimations()
         spatialMinimapView.alphaValue = 0
         spatialMinimapView.isHidden = true
     }
@@ -964,6 +994,7 @@ final class TerminalDeckView: NSView {
         sceneView.frame = sceneViewportFrame
         sceneView.bounds = currentCameraBounds()
         sceneView.alphaValue = 1
+        refreshSpatialMinimap(cameraBounds: sceneView.bounds)
         needsDisplay = true
     }
 
@@ -984,6 +1015,7 @@ final class TerminalDeckView: NSView {
             sceneView.bounds = target
             sceneView.alphaValue = targetAlpha
             isTransitioning = false
+            refreshSpatialMinimap(cameraBounds: sceneView.bounds)
             restoreInputFocus()
             completion?()
             return
@@ -1021,6 +1053,7 @@ final class TerminalDeckView: NSView {
         let elapsed = now - animation.startedAt
         let linearProgress = min(1, max(0, elapsed / animation.duration))
         let progress = cameraAnimationProgress(CGFloat(linearProgress))
+        let hasSpatialMinimapAnimation = spatialMinimapAnimation != nil
         updateSpatialMinimapAnimation(at: now)
 
         let widthRatio = animation.target.width / animation.start.width
@@ -1037,6 +1070,9 @@ final class TerminalDeckView: NSView {
         )
         sceneView.alphaValue = animation.startAlpha
             + (animation.targetAlpha - animation.startAlpha) * progress
+        if !hasSpatialMinimapAnimation {
+            statusBarView.updateSpatialMinimapCamera(sceneView.bounds)
+        }
 
         guard linearProgress >= 1 else { return }
         timer.invalidate()
@@ -1547,6 +1583,7 @@ final class TerminalDeckView: NSView {
             sessions[selectedIndex].isSelected = true
         }
         needsDisplay = true
+        refreshSpatialMinimap(cameraBounds: sceneView.bounds)
         refreshStatusBar()
         if !isShuttingDown { refreshAvailableSessionsIfNeeded() }
         // Camera motion is cosmetic. Keep AppKit's responder chain in lockstep
