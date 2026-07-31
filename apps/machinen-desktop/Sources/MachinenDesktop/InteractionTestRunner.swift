@@ -19,7 +19,7 @@ enum InteractionTestRunner {
             try statusNavigationMenusSwitchAndZoomOut()
             try commandPlusAndMinusMagnifyTheCurrentLevel()
             try configuredShortcutsNavigateHierarchy()
-            try paneShortcutSwitchesImmediatelyBetweenFocusedTerminals()
+            try paneShortcutPansDirectlyBetweenFocusedTerminals()
             try configuredShortcutsSelectAndMoveSpatialObjects()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
             try commandPaletteFuzzySearchesAndCompletes()
@@ -452,7 +452,7 @@ enum InteractionTestRunner {
         )
     }
 
-    private static func paneShortcutSwitchesImmediatelyBetweenFocusedTerminals() throws {
+    private static func paneShortcutPansDirectlyBetweenFocusedTerminals() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [
@@ -487,22 +487,28 @@ enum InteractionTestRunner {
                 && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
             "pane switching zoomed out instead of focusing the destination directly"
         )
-        let switchedCameraBounds = camera.bounds
+        RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+        let middleCameraBounds = camera.bounds
         try expect(
-            abs(switchedCameraBounds.minX - initialCameraBounds.minX) > 0.5
-                || abs(switchedCameraBounds.minY - initialCameraBounds.minY) > 0.5,
-            "pane switching did not move the camera to the destination"
+            abs(middleCameraBounds.minX - initialCameraBounds.minX) > 0.5
+                || abs(middleCameraBounds.minY - initialCameraBounds.minY) > 0.5,
+            "pane switching did not begin moving toward the destination"
         )
         try expect(
-            abs(switchedCameraBounds.width - initialCameraBounds.width) < 0.5
-                && abs(switchedCameraBounds.height - initialCameraBounds.height) < 0.5,
-            "pane switching changed the camera zoom"
+            abs(middleCameraBounds.width - initialCameraBounds.width) < 0.5
+                && abs(middleCameraBounds.height - initialCameraBounds.height) < 0.5,
+            "pane switching changed the camera zoom during the pan"
         )
-        RunLoop.current.run(until: Date().addingTimeInterval(0.06))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.20))
         try expect(
-            abs(camera.bounds.minX - switchedCameraBounds.minX) < 0.5
-                && abs(camera.bounds.minY - switchedCameraBounds.minY) < 0.5,
-            "pane switching continued with a delayed camera animation"
+            abs(camera.bounds.minX - middleCameraBounds.minX) > 0.5
+                || abs(camera.bounds.minY - middleCameraBounds.minY) > 0.5,
+            "pane switching finished too abruptly instead of continuing its pan"
+        )
+        try expect(
+            abs(camera.bounds.width - initialCameraBounds.width) < 0.5
+                && abs(camera.bounds.height - initialCameraBounds.height) < 0.5,
+            "pane switching changed the camera zoom at the destination"
         )
     }
 
