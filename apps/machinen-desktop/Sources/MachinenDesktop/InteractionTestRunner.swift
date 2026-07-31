@@ -501,6 +501,7 @@ enum InteractionTestRunner {
                 && !statusMinimap.rendersPaneDetail
                 && statusMinimap.rendersPaneBlocks
                 && statusMinimap.usesPixelArtPresentation
+                && statusMinimap.usesMonochromePixelPalette
                 && statusMinimap.pixelArtWorkspaceGap == 1
                 && statusMinimap.pixelArtPaneGap == 1
                 && statusMinimap.frame.maxX < statusBar.navigationTitleFrameForTesting.minX

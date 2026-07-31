@@ -78,9 +78,10 @@ first launch and adds new defaults to older files. The actions are `enter`,
   fully visible for 1.25 seconds at the destination, then fades over 340 ms. A
   persistent 56×26-point status item sits at the far left before the breadcrumb.
   It keeps exact workspace and pane placement but simplifies each pane to a
-  square pixel-snapped block, with one-pixel gutters that make pane and workspace
-  counts legible. A limited high-contrast palette and discrete camera steps
-  complete the pixel-art treatment; the larger map remains smooth and detailed.
+  square pixel-snapped outline, with one-pixel gutters that make pane and
+  workspace counts legible. The monochrome, unfilled shapes and discrete camera
+  steps complete the pixel-art treatment; the larger map remains smooth and
+  detailed.
   `⌘K` opens context-aware commands without changing camera level. `⌘O` opens
   the focused terminal's full context menu, including its **Open Selection
   With** submenu when text is selected.
