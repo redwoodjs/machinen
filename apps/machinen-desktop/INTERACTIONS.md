@@ -26,27 +26,27 @@ discovery use the workspace directory as their project boundary.
 
 ## Navigation
 
-| Input            | Behavior                                                                           |
-| ---------------- | ---------------------------------------------------------------------------------- |
-| `⌘+` / `⌘−`      | Magnify/demagnify the camera in equal increments without changing hierarchy level. |
-| `⌘0`             | Reset camera magnification to actual size without changing hierarchy level.        |
-| `⌘,`             | Open the Desktop settings file in the user's default editor.                       |
-| `⌘↓` or `Return` | Enter the selected workspace or pane.                                              |
-| `⌘↑`             | Leave the current pane or workspace.                                               |
-| `⌘←` / `⌘→`      | From Terminal mode, focus the previous/next pane in the current workspace.         |
-| `⌘[` / `⌘]`      | From Terminal mode, focus the first pane in the previous/next workspace.           |
-| `⌘N`             | Open the New chooser; never create a terminal or workspace immediately.            |
-| `⌘K`             | Open the single nested command menu for the current and containing spaces.         |
-| `⌘O`             | Show the focused terminal's full context menu.                                     |
-| `⌘W`             | Disconnect a terminal; press again in its toast or panel to kill its session.      |
-| Keyboard input   | In Terminal mode, the terminal receives all other keys and modifier combinations.  |
-| Arrow keys       | Move the selection only at the current overview level.                             |
-| `⌘⇧` + arrows    | Reorder the selected pane or workspace in the chosen direction.                    |
-| Click            | A terminal preview focuses its terminal.                                           |
-| Right-click      | Show Copy, Paste, Select All, and the **Open Selection With** submenu.             |
-| Drag preview     | Inside a workspace, reorder its terminal tiles. Never change their workspace.      |
-| Drag terminal    | Forward the drag for terminal selection/input.                                     |
-| Hold Space       | Momentarily peek into the selection.                                               |
+| Input           | Behavior                                                                           |
+| --------------- | ---------------------------------------------------------------------------------- |
+| `⌘+` / `⌘−`     | Magnify/demagnify the camera in equal increments without changing hierarchy level. |
+| `⌘0`            | Reset camera magnification to actual size without changing hierarchy level.        |
+| `⌘,`            | Open the Desktop settings file in the user's default editor.                       |
+| `⇧⌘↓` or Return | Enter the selected workspace or pane.                                              |
+| `⇧⌘↑`           | Leave the current pane or workspace.                                               |
+| `⇧⌘←` / `⇧⌘→`   | From Terminal mode, focus the previous/next pane in the current workspace.         |
+| `⌘[` / `⌘]`     | From Terminal mode, focus the first pane in the previous/next workspace.           |
+| `⌘N`            | Open the New chooser; never create a terminal or workspace immediately.            |
+| `⌘K`            | Open the single nested command menu for the current and containing spaces.         |
+| `⌘O`            | Show the focused terminal's full context menu.                                     |
+| `⌘W`            | Disconnect a terminal; press again in its toast or panel to kill its session.      |
+| Keyboard input  | In Terminal mode, the terminal receives all other keys and modifier combinations.  |
+| Arrow keys      | Move the selection only at the current overview level.                             |
+| `⇧` + arrows    | Reorder the selected pane or workspace in the chosen direction.                    |
+| Click           | A terminal preview focuses its terminal.                                           |
+| Right-click     | Show Copy, Paste, Select All, and the **Open Selection With** submenu.             |
+| Drag preview    | Inside a workspace, reorder its terminal tiles. Never change their workspace.      |
+| Drag terminal   | Forward the drag for terminal selection/input.                                     |
+| Hold Space      | Momentarily peek into the selection.                                               |
 
 Machinen writes the spatial shortcuts to `~/.config/machinen/config.json` on
 first launch and adds new defaults to older files. The actions are `enter`,

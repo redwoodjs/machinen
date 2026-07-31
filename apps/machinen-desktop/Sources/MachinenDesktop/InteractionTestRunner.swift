@@ -114,18 +114,18 @@ enum InteractionTestRunner {
         let defaultShortcuts = defaultObject?["shortcuts"] as? [String: String]
         try expect(
             defaultShortcuts == [
-                "enter": "cmd+down",
-                "leave": "cmd+up",
+                "enter": "cmd+shift+down",
+                "leave": "cmd+shift+up",
                 "selectLeft": "left",
                 "selectRight": "right",
                 "selectDown": "down",
                 "selectUp": "up",
-                "moveLeft": "cmd+shift+left",
-                "moveRight": "cmd+shift+right",
-                "moveDown": "cmd+shift+down",
-                "moveUp": "cmd+shift+up",
-                "previousPane": "cmd+left",
-                "nextPane": "cmd+right",
+                "moveLeft": "shift+left",
+                "moveRight": "shift+right",
+                "moveDown": "shift+down",
+                "moveUp": "shift+up",
+                "previousPane": "cmd+shift+left",
+                "nextPane": "cmd+shift+right",
                 "previousWorkspace": "cmd+[",
                 "nextWorkspace": "cmd+]",
             ],
@@ -136,6 +136,8 @@ enum InteractionTestRunner {
             "shortcuts": [
                 "enter": "ctrl+j",
                 "leave": "ctrl+k",
+                "moveUp": "cmd+shift+up",
+                "previousPane": "cmd+left",
                 "nextPane": "option+tab",
                 "nextWorkspace": "shift+space",
             ]
@@ -160,8 +162,8 @@ enum InteractionTestRunner {
         try expect(
             migratedShortcuts?.count == DesktopShortcutAction.allCases.count
                 && migratedShortcuts?["enter"] == "ctrl+j"
-                && migratedShortcuts?["previousPane"] == "cmd+left"
-                && migratedShortcuts?["moveUp"] == "cmd+shift+up",
+                && migratedShortcuts?["previousPane"] == "cmd+shift+left"
+                && migratedShortcuts?["moveUp"] == "shift+up",
             "loading an older config did not add the missing spatial actions"
         )
 
@@ -175,17 +177,17 @@ enum InteractionTestRunner {
         }
         defer { monitor.stop() }
         try expect(
-            monitor.process(harness.commandArrow(keyCode: 125)) == nil && actions == [.enter],
+            monitor.process(harness.commandShiftArrow(keyCode: 125)) == nil && actions == [.enter],
             "the default enter shortcut was not routed"
         )
         try expect(
-            monitor.process(harness.commandArrow(keyCode: 124)) == nil
+            monitor.process(harness.commandShiftArrow(keyCode: 124)) == nil
                 && actions == [.enter, .nextPane],
             "the default next-pane shortcut was not routed"
         )
         try expect(
             monitor.process(
-                try harness.keyEvent(characters: "", keyCode: 123, modifierFlags: [.command, .shift])
+                try harness.keyEvent(characters: "", keyCode: 123, modifierFlags: [.shift])
             ) == nil && actions.last == .moveLeft,
             "the default move-left shortcut was not routed"
         )
@@ -374,17 +376,17 @@ enum InteractionTestRunner {
         defer { shortcut.stop() }
 
         try expect(
-            shortcut.process(harness.commandArrow(keyCode: 125)) == nil
+            shortcut.process(harness.commandShiftArrow(keyCode: 125)) == nil
                 && (try harness.uiLevel(of: deck)) == "workspace",
             "the enter shortcut did not enter the workspace"
         )
         try expect(
-            shortcut.process(harness.commandArrow(keyCode: 125)) == nil
+            shortcut.process(harness.commandShiftArrow(keyCode: 125)) == nil
                 && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
             "the enter shortcut did not focus the first pane"
         )
         try expect(
-            shortcut.process(harness.commandArrow(keyCode: 124)) == nil,
+            shortcut.process(harness.commandShiftArrow(keyCode: 124)) == nil,
             "the next-pane shortcut was not handled at terminal level"
         )
         try expect(
@@ -392,17 +394,17 @@ enum InteractionTestRunner {
             "the next-pane shortcut did not focus the next terminal"
         )
         try expect(
-            shortcut.process(harness.commandArrow(keyCode: 123)) == nil
+            shortcut.process(harness.commandShiftArrow(keyCode: 123)) == nil
                 && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
             "the previous-pane shortcut did not focus the previous terminal"
         )
         try expect(
-            shortcut.process(harness.commandArrow(keyCode: 123)) == nil
+            shortcut.process(harness.commandShiftArrow(keyCode: 123)) == nil
                 && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
             "the previous-pane shortcut did not wrap within the workspace"
         )
         try expect(
-            shortcut.process(harness.commandArrow(keyCode: 124)) == nil,
+            shortcut.process(harness.commandShiftArrow(keyCode: 124)) == nil,
             "the wrapping next-pane shortcut was not handled"
         )
         try expect(
@@ -436,7 +438,7 @@ enum InteractionTestRunner {
             "the next-workspace shortcut did not wrap"
         )
         try expect(
-            shortcut.process(harness.commandArrow(keyCode: 126)) == nil
+            shortcut.process(harness.commandShiftArrow(keyCode: 126)) == nil
                 && (try harness.uiLevel(of: deck)) == "workspace",
             "the leave shortcut did not leave the focused pane"
         )
@@ -474,7 +476,7 @@ enum InteractionTestRunner {
                 try harness.keyEvent(
                     characters: "",
                     keyCode: 124,
-                    modifierFlags: [.command, .shift]
+                    modifierFlags: [.shift]
                 )
             ) == nil && (try harness.snapshot(of: deck)).workspaces.map(\.name) == ["beta", "alpha"],
             "the move-right shortcut did not reorder the selected workspace"
@@ -484,14 +486,14 @@ enum InteractionTestRunner {
                 try harness.keyEvent(
                     characters: "",
                     keyCode: 123,
-                    modifierFlags: [.command, .shift]
+                    modifierFlags: [.shift]
                 )
             ) == nil && (try harness.snapshot(of: deck)).workspaces.map(\.name) == ["alpha", "beta"],
             "the move-left shortcut did not restore the workspace order"
         )
 
         try expect(
-            shortcut.process(harness.commandArrow(keyCode: 125)) == nil
+            shortcut.process(harness.commandShiftArrow(keyCode: 125)) == nil
                 && (try harness.uiLevel(of: deck)) == "workspace",
             "the enter shortcut did not enter the reordered workspace"
         )
@@ -500,7 +502,7 @@ enum InteractionTestRunner {
                 try harness.keyEvent(
                     characters: "",
                     keyCode: 125,
-                    modifierFlags: [.command, .shift]
+                    modifierFlags: [.shift]
                 )
             ) == nil
                 && (try harness.snapshot(of: deck)).tiles.prefix(2).map(\.id)
@@ -514,7 +516,7 @@ enum InteractionTestRunner {
             "the select-up shortcut was not handled inside the workspace"
         )
         try expect(
-            shortcut.process(harness.commandArrow(keyCode: 125)) == nil
+            shortcut.process(harness.commandShiftArrow(keyCode: 125)) == nil
                 && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
             "enter did not focus the pane chosen with a selection shortcut"
         )
@@ -2976,8 +2978,8 @@ private final class Harness {
         view.keyDown(with: try keyEvent(characters: "\u{7f}", keyCode: 51))
     }
 
-    func commandArrow(keyCode: UInt16) throws -> NSEvent {
-        try keyEvent(characters: "", keyCode: keyCode, modifierFlags: [.command])
+    func commandShiftArrow(keyCode: UInt16) throws -> NSEvent {
+        try keyEvent(characters: "", keyCode: keyCode, modifierFlags: [.command, .shift])
     }
 
     func commandBracket(keyCode: UInt16) throws -> NSEvent {

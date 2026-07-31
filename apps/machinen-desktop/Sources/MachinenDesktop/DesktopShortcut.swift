@@ -46,13 +46,20 @@ struct MachinenConfiguration {
         do {
             let contents = try JSONDecoder().decode(FileContents.self, from: Data(contentsOf: url))
             var descriptions = contents.shortcuts
-            var addedDefaults = false
-            for (action, description) in defaultShortcutStrings
-            where descriptions[action.rawValue] == nil {
-                descriptions[action.rawValue] = description
-                addedDefaults = true
+            var updatedDefaults = false
+            for (action, description) in defaultShortcutStrings {
+                let name = action.rawValue
+                if let legacyDescription = legacyShortcutStrings[action],
+                   descriptions[name] == legacyDescription
+                {
+                    descriptions[name] = description
+                    updatedDefaults = true
+                } else if descriptions[name] == nil {
+                    descriptions[name] = description
+                    updatedDefaults = true
+                }
             }
-            if addedDefaults {
+            if updatedDefaults {
                 do {
                     try write(FileContents(shortcuts: descriptions), to: url)
                 } catch {
@@ -80,20 +87,31 @@ struct MachinenConfiguration {
     }
 
     private static let defaultShortcutStrings: [DesktopShortcutAction: String] = [
-        .enter: "cmd+down",
-        .leave: "cmd+up",
+        .enter: "cmd+shift+down",
+        .leave: "cmd+shift+up",
         .selectLeft: "left",
         .selectRight: "right",
         .selectDown: "down",
         .selectUp: "up",
+        .moveLeft: "shift+left",
+        .moveRight: "shift+right",
+        .moveDown: "shift+down",
+        .moveUp: "shift+up",
+        .previousPane: "cmd+shift+left",
+        .nextPane: "cmd+shift+right",
+        .previousWorkspace: "cmd+[",
+        .nextWorkspace: "cmd+]",
+    ]
+
+    private static let legacyShortcutStrings: [DesktopShortcutAction: String] = [
+        .enter: "cmd+down",
+        .leave: "cmd+up",
         .moveLeft: "cmd+shift+left",
         .moveRight: "cmd+shift+right",
         .moveDown: "cmd+shift+down",
         .moveUp: "cmd+shift+up",
         .previousPane: "cmd+left",
         .nextPane: "cmd+right",
-        .previousWorkspace: "cmd+[",
-        .nextWorkspace: "cmd+]",
     ]
 
     private static func writeDefaults(to url: URL) throws {
