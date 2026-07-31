@@ -107,6 +107,7 @@ final class TerminalDeckView: NSView {
     private var currentWorkspace: String?
     private var selectedIndex = 0
     private var focusedIndex: Int?
+    private var activeTerminalByWorkspace: [String: String] = [:]
     private var isTransitioning = false
     private var isPeeking = false
     private var peekCameraBounds: NSRect?
@@ -1332,6 +1333,9 @@ final class TerminalDeckView: NSView {
         let sessions = activeSessionTiles
         let focusedTile = focusedIndex.flatMap { index in
             sessions.indices.contains(index) ? sessions[index] : nil
+        }
+        if let currentWorkspace, let focusedTile {
+            activeTerminalByWorkspace[currentWorkspace] = focusedTile.session.tileID
         }
         for tile in allSessionTiles {
             tile.isSelected = false
@@ -4603,7 +4607,7 @@ final class TerminalDeckView: NSView {
     }
 
     /// `previousWorkspace` and `nextWorkspace` travel through the complete
-    /// scene hierarchy to an adjacent workspace's first terminal: terminal → source
+    /// scene hierarchy to an adjacent workspace's active terminal: terminal → source
     /// workspace → workspace overview → destination workspace → terminal.
     @discardableResult
     func cycleFocusedWorkspace(by offset: Int) -> Bool {
@@ -4656,7 +4660,7 @@ final class TerminalDeckView: NSView {
     private func enterCycledWorkspace(_ workspaceID: String) {
         guard !activeSessionTiles(for: workspaceID).isEmpty else { return }
         currentWorkspace = workspaceID
-        selectedIndex = 0
+        selectedIndex = activeTerminalIndex(in: workspaceID)
         focusedIndex = nil
         updateSelection()
         moveCamera { [weak self] in
@@ -4666,10 +4670,18 @@ final class TerminalDeckView: NSView {
 
     private func focusCycledWorkspaceTile(_ workspaceID: String) {
         guard currentWorkspace == workspaceID, !activeSessionTiles.isEmpty else { return }
-        selectedIndex = 0
-        focusedIndex = 0
+        selectedIndex = activeTerminalIndex(in: workspaceID)
+        focusedIndex = selectedIndex
         updateSelection()
         moveCamera()
+    }
+
+    private func activeTerminalIndex(in workspaceID: String) -> Int {
+        let sessions = activeSessionTiles(for: workspaceID)
+        guard let tileID = activeTerminalByWorkspace[workspaceID],
+              let index = sessions.firstIndex(where: { $0.session.tileID == tileID })
+        else { return 0 }
+        return index
     }
 
     func createNewWorkspaceOrTerminal() {

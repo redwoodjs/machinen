@@ -416,30 +416,34 @@ enum InteractionTestRunner {
             "the next-pane shortcut did not wrap within the workspace"
         )
         try expect(
+            shortcut.process(harness.commandShiftArrow(keyCode: 124)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "the second terminal was not made active in the first workspace"
+        )
+        try expect(
             shortcut.process(harness.commandShiftBracket(keyCode: 33)) == nil
                 && (try harness.focusedTileID(of: deck)) == "tile_beta_0",
             "the previous-workspace shortcut did not wrap to the final workspace"
         )
         try expect(
+            shortcut.process(harness.commandShiftArrow(keyCode: 124)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_1",
+            "the second terminal was not made active in the final workspace"
+        )
+        try expect(
             shortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil
-                && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
-            "the next-workspace shortcut did not return to the first workspace"
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "workspace cycling did not restore the first workspace's active terminal"
         )
         try expect(
-            shortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil,
-            "the next-workspace shortcut was not handled"
+            shortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_1",
+            "workspace cycling did not restore the final workspace's active terminal"
         )
         try expect(
-            try harness.focusedTileID(of: deck) == "tile_beta_0",
-            "the next-workspace shortcut did not focus the next workspace"
-        )
-        try expect(
-            shortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil,
-            "the wrapping next-workspace shortcut was not handled"
-        )
-        try expect(
-            try harness.focusedTileID(of: deck) == "tile_alpha_0",
-            "the next-workspace shortcut did not wrap"
+            shortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "the wrapping workspace shortcut did not preserve the active terminal"
         )
         try expect(
             shortcut.process(harness.commandShiftArrow(keyCode: 126)) == nil
