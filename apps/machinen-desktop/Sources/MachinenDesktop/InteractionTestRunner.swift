@@ -1767,7 +1767,7 @@ enum InteractionTestRunner {
             throw InteractionTestFailure("a singleton workspace did not create an overlay border")
         }
         try expect(
-            borderView.layer?.borderWidth == 6,
+            borderView.layer?.borderWidth == 4,
             "a singleton workspace did not use the full selection border"
         )
         try expect(

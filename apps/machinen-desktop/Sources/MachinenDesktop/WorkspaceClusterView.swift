@@ -10,9 +10,11 @@ private final class WorkspaceBorderView: NSView {
 
 final class WorkspaceClusterView: NSView {
     private enum Metrics {
-        static let padding: CGFloat = 24
-        static let gap: CGFloat = 30
+        static let padding: CGFloat = 12
+        static let gap: CGFloat = 16
         static let cornerRadius: CGFloat = 18
+        static let borderWidth: CGFloat = 1
+        static let selectedBorderWidth: CGFloat = 4
     }
 
     let workspaceID: String
@@ -202,7 +204,9 @@ final class WorkspaceClusterView: NSView {
 
     private func updateBorderAppearance() {
         borderView.isHidden = isEntered
-        borderView.layer?.borderWidth = isSelected || isDragTarget ? 6 : 2
+        borderView.layer?.borderWidth = isSelected || isDragTarget
+            ? Metrics.selectedBorderWidth
+            : Metrics.borderWidth
         borderView.layer?.borderColor = (
             isDragTarget
                 ? NSColor.controlAccentColor

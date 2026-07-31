@@ -87,11 +87,11 @@ final class TerminalDeckView: NSView {
 
     private enum Metrics {
         static let topInset: CGFloat = 18
-        static let bottomInset: CGFloat = 54
-        static let sideInset: CGFloat = 28
+        static let bottomInset: CGFloat = 18
+        static let sideInset: CGFloat = 18
         static let windowControlsInset: CGFloat = 92
-        static let worldMargin: CGFloat = 90
-        static let workspaceGap: CGFloat = 120
+        static let worldMargin: CGFloat = 48
+        static let workspaceGap: CGFloat = 64
     }
 
     private let sceneView = CameraSceneView()
