@@ -52,7 +52,9 @@ and PID.
 
 Current workers advertise optional protocol-v2 extensions through a `B` query.
 Older live v2 workers close only that short-lived capability connection, so a
-new helper can continue attaching without replacing their PTY.
+new helper can continue attaching without replacing their PTY. Short-lived
+control connections bound socket reads and writes to one second, preventing an
+unresponsive live worker from blocking discovery or creation of other sessions.
 
 The worker protocol version in SQLite is `1` for sessions migrated from the
 original implementation. The current attach client omits the handshake for
@@ -207,8 +209,11 @@ control transfer.
 
 A disconnect closes only that attachment. The worker continues draining the PTY,
 retaining bounded resume output in memory, and periodically replacing its
-durable visible-screen checkpoint. Focus, smooth scrolling, selection, and
-visual viewport are client-owned and never appear in this protocol.
+durable visible-screen checkpoint. Worker writes to an attachment are bounded
+to one second; a viewer that stops draining its socket is disconnected rather
+than blocking PTY output, session control, or other attachments. Focus, smooth
+scrolling, selection, and visual viewport are client-owned and never appear in
+this protocol.
 
 After reboot or worker loss, `reconcile` marks a formerly live record as
 `orphaned` when its private socket is no longer reachable. The last durable

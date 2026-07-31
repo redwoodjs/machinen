@@ -13,6 +13,7 @@ const c = @cImport({
     @cInclude("sys/ioctl.h");
     @cInclude("sys/socket.h");
     @cInclude("sys/stat.h");
+    @cInclude("sys/time.h");
     @cInclude("sys/un.h");
     @cInclude("sys/wait.h");
     @cInclude("termios.h");
@@ -53,6 +54,8 @@ const client_list_header_length = 1;
 const client_list_item_header_length = 23;
 const lease_duration_ms: i64 = 30_000;
 const heartbeat_interval_ms: i64 = 10_000;
+const control_io_timeout_ms: i64 = 1_000;
+const worker_client_write_timeout_ms: i64 = 1_000;
 const LeaseFlag = struct {
     const writer: u8 = 1 << 0;
     const resize: u8 = 1 << 1;
@@ -880,6 +883,10 @@ fn runEventLoop(
 fn acceptClient(listen_fd: c_int, clients: *[max_clients]Client) void {
     const fd = c.accept(listen_fd, null, null);
     if (fd < 0) return;
+    if (!setSocketTimeout(fd, c.SO_SNDTIMEO, worker_client_write_timeout_ms)) {
+        closeDescriptor(fd);
+        return;
+    }
     const slot = for (clients) |*client| {
         if (client.fd < 0) break client;
     } else {
@@ -1624,7 +1631,7 @@ fn connectForControl(
 ) !c_int {
     const path = try socketPath(allocator, id);
     defer allocator.free(path);
-    const fd = try connectSocket(allocator, path);
+    const fd = try connectSocketWithTimeout(allocator, path, control_io_timeout_ms);
     errdefer _ = c.close(fd);
     if (protocol >= protocol_version) try sendAttachRequest(fd, LeaseFlag.control, last_sequence);
     var payload: [max_frame_payload]u8 = undefined;
@@ -1778,7 +1785,7 @@ fn sendAttachRequestWithRecoveryAndId(
 pub fn workerReachable(allocator: std.mem.Allocator, id: []const u8) bool {
     const path = socketPath(allocator, id) catch return false;
     defer allocator.free(path);
-    const fd = connectSocket(allocator, path) catch return false;
+    const fd = connectSocketWithTimeout(allocator, path, control_io_timeout_ms) catch return false;
     _ = c.close(fd);
     return true;
 }
@@ -1792,10 +1799,25 @@ pub fn removeStaleSocket(allocator: std.mem.Allocator, id: []const u8) void {
 }
 
 fn connectSocket(allocator: std.mem.Allocator, path: []const u8) !c_int {
+    return connectSocketWithTimeout(allocator, path, null);
+}
+
+fn connectSocketWithTimeout(
+    allocator: std.mem.Allocator,
+    path: []const u8,
+    timeout_ms: ?i64,
+) !c_int {
     _ = allocator;
     const fd = c.socket(c.AF_UNIX, c.SOCK_STREAM, 0);
     if (fd < 0) return error.SocketFailed;
     errdefer _ = c.close(fd);
+    if (timeout_ms) |value| {
+        if (!setSocketTimeout(fd, c.SO_RCVTIMEO, value) or
+            !setSocketTimeout(fd, c.SO_SNDTIMEO, value))
+        {
+            return error.ConfigureSocketTimeoutFailed;
+        }
+    }
     var address: c.struct_sockaddr_un = std.mem.zeroes(c.struct_sockaddr_un);
     if (path.len >= address.sun_path.len) return error.SocketPathTooLong;
     address.sun_family = c.AF_UNIX;
@@ -1914,6 +1936,21 @@ fn setCloseOnExec(fd: c_int) void {
     if (flags >= 0) _ = c.fcntl(fd, c.F_SETFD, flags | c.FD_CLOEXEC);
 }
 
+fn setSocketTimeout(fd: c_int, option: c_int, timeout_ms: i64) bool {
+    if (fd < 0 or timeout_ms <= 0) return false;
+    var timeout = c.struct_timeval{
+        .tv_sec = @intCast(@divFloor(timeout_ms, 1_000)),
+        .tv_usec = @intCast(@mod(timeout_ms, 1_000) * 1_000),
+    };
+    return c.setsockopt(
+        fd,
+        c.SOL_SOCKET,
+        option,
+        &timeout,
+        @intCast(@sizeOf(c.struct_timeval)),
+    ) == 0;
+}
+
 fn monotonicMilliseconds() i64 {
     var value: std.c.timespec = undefined;
     if (std.c.clock_gettime(.MONOTONIC, &value) != 0) return 0;
@@ -1936,6 +1973,20 @@ fn errnoValue() c_int {
 fn freeEvents(allocator: std.mem.Allocator, events: []session.Event) void {
     for (events) |*event| event.deinit(allocator);
     allocator.free(events);
+}
+
+test "socket receive deadlines bound stalled control peers" {
+    var pair: [2]c_int = undefined;
+    try std.testing.expectEqual(@as(c_int, 0), c.socketpair(c.AF_UNIX, c.SOCK_STREAM, 0, &pair));
+    defer closeDescriptor(pair[0]);
+    defer closeDescriptor(pair[1]);
+    try std.testing.expect(setSocketTimeout(pair[0], c.SO_RCVTIMEO, 20));
+
+    var byte: [1]u8 = undefined;
+    const started = monotonicMilliseconds();
+    try std.testing.expectError(error.EndOfStream, readExact(pair[0], &byte));
+    const elapsed = monotonicMilliseconds() - started;
+    try std.testing.expect(elapsed >= 0 and elapsed < 1_000);
 }
 
 test "session IDs are safe for portable Unix socket paths" {
