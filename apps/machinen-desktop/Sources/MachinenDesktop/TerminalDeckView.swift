@@ -381,6 +381,7 @@ final class TerminalDeckView: NSView {
             tile.updateActivity(to: state)
             self.workspaceCluster(named: tile.session.workspaceID)?.needsDisplay = true
             self.refreshStatusBar()
+            self.refreshSpatialMinimapActivityStates()
             self.emitAPIEvent("terminal.activityChanged", data: self.terminalJSON(tile))
         }
         terminalView.onCommandChange = { [weak self, weak tile] command in
@@ -880,7 +881,8 @@ final class TerminalDeckView: NSView {
                     SpatialMinimapPane(
                         id: tile.session.tileID,
                         frame: frame,
-                        isActive: tile.session.tileID == focusedTileID
+                        isActive: tile.session.tileID == focusedTileID,
+                        activityState: tile.session.activityState
                     )
                 }
             }
@@ -903,6 +905,17 @@ final class TerminalDeckView: NSView {
             cameraBounds: cameraBounds
         )
         layoutSpatialMinimap()
+    }
+
+    private func refreshSpatialMinimapActivityStates() {
+        if spatialMinimapAnimation != nil {
+            refreshSpatialMinimap(
+                cameraBounds: spatialMinimapView.representedCameraBounds,
+                worldBounds: spatialMinimapView.representedWorldBounds
+            )
+        } else {
+            refreshSpatialMinimap(cameraBounds: sceneView.bounds)
+        }
     }
 
     private func beginSpatialMinimapAnimation(to target: NSRect, duration: TimeInterval) {
@@ -5495,6 +5508,8 @@ final class TerminalDeckView: NSView {
             tile.session.activityState = state
         }
         tile.transition(to: tile.session.state, terminalText: tile.session.terminalText)
+        refreshStatusBar()
+        refreshSpatialMinimapActivityStates()
         saveSessions()
         let result = tileJSON(tile)
         emitAPIEvent("tile.updated", data: result)

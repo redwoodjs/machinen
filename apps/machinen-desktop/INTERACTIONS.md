@@ -79,9 +79,11 @@ first launch and adds new defaults to older files. The actions are `enter`,
   persistent 56×26-point status item sits at the far left before the breadcrumb.
   It keeps exact workspace and pane placement but simplifies each pane to a
   square pixel-snapped outline, with one-pixel gutters that make pane and
-  workspace counts legible. The large transient map uses the exact same
-  monochrome, unfilled, square pixel-art treatment and discrete camera steps;
-  only its size and placement differ.
+  workspace counts legible. Pane outline intensity also carries activity:
+  working is bright, idle is muted, waiting is dashed, and unknown is faint.
+  The large transient map uses the exact same monochrome, unfilled pixel-art
+  treatment and discrete camera steps. Both maps keep square internal geometry
+  inside a rounded outer card; only their size and placement differ.
   `⌘K` opens context-aware commands without changing camera level. `⌘O` opens
   the focused terminal's full context menu, including its **Open Selection
   With** submenu when text is selected.
@@ -266,9 +268,11 @@ ordered resize events to SQLite. This works for attached, detached, local, and
 SSH sessions because observation happens beside the PTY rather than through a
 Desktop-side process-list guess. At workspace level the status bar renders
 terminals as spatially ordered activity pips; waiting and failed terminals
-receive attention and error tones. In Terminal mode the indicator follows the
-focused terminal, shows its foreground PID on hover, and copies that PID when
-clicked.
+receive attention and error tones. Both spatial minimaps mirror terminal
+activity directly onto their pane outlines, so they remain useful as idle and
+working indicators without rearranging the scene. In Terminal mode the separate
+compact indicator follows the focused terminal, shows its foreground PID on
+hover, and copies that PID when clicked.
 
 ## Programmable status bar
 

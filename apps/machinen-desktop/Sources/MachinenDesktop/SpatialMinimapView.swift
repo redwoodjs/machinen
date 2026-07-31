@@ -4,6 +4,7 @@ struct SpatialMinimapPane {
     let id: String
     let frame: NSRect
     let isActive: Bool
+    let activityState: TerminalSession.ActivityState
 }
 
 struct SpatialMinimapWorkspace {
@@ -20,7 +21,7 @@ final class SpatialMinimapView: NSView {
     }
 
     private let padding: CGFloat = 1.5
-    private let cornerRadius: CGFloat = 0
+    private let cornerRadius: CGFloat = 6
 
     private(set) var representedWorldBounds = NSRect.zero
     private(set) var representedWorkspaces: [SpatialMinimapWorkspace] = []
@@ -28,6 +29,10 @@ final class SpatialMinimapView: NSView {
 
     var representedWorkspaceCount: Int { representedWorkspaces.count }
     var representedPaneCount: Int { representedWorkspaces.reduce(0) { $0 + $1.panes.count } }
+    var representedActivityStates: [TerminalSession.ActivityState] {
+        representedWorkspaces.flatMap(\.panes).map(\.activityState)
+    }
+    var outerCornerRadius: CGFloat { cornerRadius }
     var rendersPaneDetail: Bool { false }
     var rendersPaneBlocks: Bool { true }
     var usesPixelArtPresentation: Bool { true }
@@ -81,7 +86,7 @@ final class SpatialMinimapView: NSView {
 
         let context = NSGraphicsContext.current
         let previousAntialiasing = context?.shouldAntialias
-        context?.shouldAntialias = false
+        context?.shouldAntialias = true
         defer {
             if let previousAntialiasing { context?.shouldAntialias = previousAntialiasing }
         }
@@ -96,6 +101,7 @@ final class SpatialMinimapView: NSView {
         border.lineWidth = 1
         border.stroke()
 
+        context?.shouldAntialias = false
         guard let transform = mapTransform(snapsToPixels: true) else { return }
 
         for workspace in representedWorkspaces {
@@ -112,8 +118,11 @@ final class SpatialMinimapView: NSView {
                 )
                 guard paneFrame.width > 0, paneFrame.height > 0 else { continue }
                 let panePath = shape(for: paneFrame, radius: 0)
-                NSColor(calibratedWhite: 1, alpha: pane.isActive ? 0.96 : 0.48).setStroke()
+                NSColor(calibratedWhite: 1, alpha: paneStrokeAlpha(for: pane)).setStroke()
                 panePath.lineWidth = 1
+                if pane.activityState == .waiting {
+                    panePath.setLineDash([2, 1], count: 2, phase: 0)
+                }
                 panePath.stroke()
             }
         }
@@ -124,6 +133,15 @@ final class SpatialMinimapView: NSView {
         NSColor(calibratedWhite: 1, alpha: 0.96).setStroke()
         cameraPath.lineWidth = 1
         cameraPath.stroke()
+    }
+
+    private func paneStrokeAlpha(for pane: SpatialMinimapPane) -> CGFloat {
+        switch pane.activityState {
+        case .working: 0.96
+        case .waiting: 0.84
+        case .idle: 0.58
+        case .unknown: pane.isActive ? 0.48 : 0.28
+        }
     }
 
     private func insetForPixelGap(_ rect: NSRect, gap: CGFloat? = nil) -> NSRect {

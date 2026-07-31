@@ -947,7 +947,36 @@ enum InteractionTestRunner {
             throw InteractionTestFailure("the status test could not find its terminal")
         }
         terminalTile.updateProcessInfo(TerminalProcessInfo(shellPID: 4201, processPID: 4242))
-        terminalTile.updateActivity(to: .working)
+        _ = try deck.performAPIOperation("tile.update", params: [
+            "tileId": terminalTile.session.tileID,
+            "activityState": "idle",
+        ])
+        guard let statusBar = descendants(of: deck, as: MachinenStatusBarView.self).first,
+              let largeMinimap = deck.subviews.first(where: {
+                  $0.identifier?.rawValue == "spatial-minimap"
+              }) as? SpatialMinimapView
+        else {
+            throw InteractionTestFailure("the activity test could not find both minimaps")
+        }
+        let miniMinimap = statusBar.spatialMinimapForTesting
+        try expect(
+            largeMinimap.representedActivityStates == [.idle]
+                && miniMinimap.representedActivityStates == [.idle],
+            "idle terminal activity was not represented spatially in both minimaps"
+        )
+        try expect(
+            largeMinimap.outerCornerRadius == 6 && miniMinimap.outerCornerRadius == 6,
+            "the minimap activity indicators did not use rounded outer corners"
+        )
+        _ = try deck.performAPIOperation("tile.update", params: [
+            "tileId": terminalTile.session.tileID,
+            "activityState": "working",
+        ])
+        try expect(
+            largeMinimap.representedActivityStates == [.working]
+                && miniMinimap.representedActivityStates == [.working],
+            "working terminal activity was not represented spatially in both minimaps"
+        )
         _ = try deck.performAPIOperation("status.set", params: [
             "id": "git.modified",
             "kind": "count",
@@ -977,8 +1006,7 @@ enum InteractionTestRunner {
             activity?.tooltip == "PID 4242 · click to copy",
             "the activity indicator did not expose its terminal PID"
         )
-        guard let statusBar = descendants(of: deck, as: MachinenStatusBarView.self).first,
-              let activityWidget = statusBar.widgets.first(where: { $0.id == "machinen.activity" })
+        guard let activityWidget = statusBar.widgets.first(where: { $0.id == "machinen.activity" })
         else {
             throw InteractionTestFailure("the terminal activity indicator was not rendered")
         }
