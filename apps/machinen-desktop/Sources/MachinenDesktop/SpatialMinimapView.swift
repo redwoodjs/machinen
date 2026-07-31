@@ -19,15 +19,8 @@ final class SpatialMinimapView: NSView {
         case statusBar
     }
 
-    private let presentation: Presentation
-
-    private var padding: CGFloat {
-        presentation == .overlay ? 9 : 1.5
-    }
-
-    private var cornerRadius: CGFloat {
-        presentation == .overlay ? 10 : 0
-    }
+    private let padding: CGFloat = 1.5
+    private let cornerRadius: CGFloat = 0
 
     private(set) var representedWorldBounds = NSRect.zero
     private(set) var representedWorkspaces: [SpatialMinimapWorkspace] = []
@@ -35,18 +28,17 @@ final class SpatialMinimapView: NSView {
 
     var representedWorkspaceCount: Int { representedWorkspaces.count }
     var representedPaneCount: Int { representedWorkspaces.reduce(0) { $0 + $1.panes.count } }
-    var rendersPaneDetail: Bool { presentation == .overlay }
+    var rendersPaneDetail: Bool { false }
     var rendersPaneBlocks: Bool { true }
-    var usesPixelArtPresentation: Bool { presentation == .statusBar }
-    var usesMonochromePixelPalette: Bool { presentation == .statusBar }
-    var pixelArtWorkspaceGap: CGFloat { presentation == .statusBar ? 1 : 0 }
-    var pixelArtPaneGap: CGFloat { presentation == .statusBar ? 1 : 0 }
+    var usesPixelArtPresentation: Bool { true }
+    var usesMonochromePixelPalette: Bool { true }
+    var pixelArtWorkspaceGap: CGFloat { 1 }
+    var pixelArtPaneGap: CGFloat { 1 }
 
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
 
     init(presentation: Presentation = .overlay) {
-        self.presentation = presentation
         super.init(frame: .zero)
         identifier = NSUserInterfaceItemIdentifier(
             presentation == .overlay ? "spatial-minimap" : "status-spatial-minimap"
@@ -81,7 +73,7 @@ final class SpatialMinimapView: NSView {
     }
 
     func mappedRepresentation(of worldRect: NSRect) -> NSRect? {
-        mapTransform()?.map(worldRect)
+        mapTransform(snapsToPixels: false)?.map(worldRect)
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -89,17 +81,14 @@ final class SpatialMinimapView: NSView {
 
         let context = NSGraphicsContext.current
         let previousAntialiasing = context?.shouldAntialias
-        if presentation == .statusBar { context?.shouldAntialias = false }
+        context?.shouldAntialias = false
         defer {
             if let previousAntialiasing { context?.shouldAntialias = previousAntialiasing }
         }
 
-        let backgroundColor = presentation == .overlay
-            ? NSColor(calibratedWhite: 0.035, alpha: 0.9)
-            : NSColor(calibratedWhite: 0.035, alpha: 0.96)
-        backgroundColor.setFill()
+        NSColor(calibratedWhite: 0.035, alpha: 0.96).setFill()
         shape(for: bounds, radius: cornerRadius).fill()
-        NSColor(calibratedWhite: 1, alpha: presentation == .overlay ? 0.14 : 0.24).setStroke()
+        NSColor(calibratedWhite: 1, alpha: 0.24).setStroke()
         let border = shape(
             for: bounds.insetBy(dx: 0.5, dy: 0.5),
             radius: cornerRadius
@@ -107,77 +96,33 @@ final class SpatialMinimapView: NSView {
         border.lineWidth = 1
         border.stroke()
 
-        guard let transform = mapTransform() else { return }
+        guard let transform = mapTransform(snapsToPixels: true) else { return }
 
         for workspace in representedWorkspaces {
             let frame = insetForPixelGap(transform.map(workspace.frame))
-            let workspacePath = shape(
-                for: frame,
-                radius: presentation == .overlay ? min(4, frame.width / 8) : 0
-            )
-            if presentation == .overlay {
-                let activeWorkspace = NSColor(
-                    calibratedRed: 0.18,
-                    green: 0.22,
-                    blue: 0.27,
-                    alpha: 0.96
-                )
-                let inactiveWorkspace = NSColor(
-                    calibratedRed: 0.12,
-                    green: 0.13,
-                    blue: 0.15,
-                    alpha: 0.96
-                )
-                (workspace.isActive ? activeWorkspace : inactiveWorkspace).setFill()
-                workspacePath.fill()
-            }
-            let workspaceStrokeAlpha: CGFloat = presentation == .overlay
-                ? (workspace.isActive ? 0.36 : 0.2)
-                : (workspace.isActive ? 0.62 : 0.24)
-            NSColor(calibratedWhite: 1, alpha: workspaceStrokeAlpha).setStroke()
+            let workspacePath = shape(for: frame, radius: 0)
+            NSColor(calibratedWhite: 1, alpha: workspace.isActive ? 0.62 : 0.24).setStroke()
             workspacePath.lineWidth = 1
             workspacePath.stroke()
 
             for pane in workspace.panes {
-                let mappedPaneFrame = transform.map(pane.frame)
-                let paneFrame = presentation == .overlay
-                    ? mappedPaneFrame.insetBy(dx: 0.5, dy: 0.5)
-                    : insetForPixelGap(mappedPaneFrame, gap: pixelArtPaneGap)
-                guard paneFrame.width > 0, paneFrame.height > 0 else { continue }
-                let panePath = shape(
-                    for: paneFrame,
-                    radius: presentation == .overlay ? min(2.5, paneFrame.width / 8) : 0
+                let paneFrame = insetForPixelGap(
+                    transform.map(pane.frame),
+                    gap: pixelArtPaneGap
                 )
-                if presentation == .overlay {
-                    if pane.isActive {
-                        NSColor(calibratedRed: 0.42, green: 0.72, blue: 1, alpha: 0.72).setFill()
-                    } else {
-                        NSColor(calibratedWhite: 0.72, alpha: 0.32).setFill()
-                    }
-                    panePath.fill()
-                } else {
-                    NSColor(calibratedWhite: 1, alpha: pane.isActive ? 0.96 : 0.48).setStroke()
-                    panePath.lineWidth = 1
-                    panePath.stroke()
-                }
+                guard paneFrame.width > 0, paneFrame.height > 0 else { continue }
+                let panePath = shape(for: paneFrame, radius: 0)
+                NSColor(calibratedWhite: 1, alpha: pane.isActive ? 0.96 : 0.48).setStroke()
+                panePath.lineWidth = 1
+                panePath.stroke()
             }
         }
 
         let cameraFrame = transform.map(representedCameraBounds)
         guard cameraFrame.width > 0, cameraFrame.height > 0 else { return }
-        let cameraPath = shape(
-            for: cameraFrame,
-            radius: presentation == .overlay ? min(3, cameraFrame.width / 8) : 0
-        )
-        if presentation == .overlay {
-            NSColor(calibratedRed: 0.34, green: 0.78, blue: 1, alpha: 0.12).setFill()
-            cameraPath.fill()
-        }
-        let cameraStroke = presentation == .overlay
-            ? NSColor(calibratedRed: 0.45, green: 0.84, blue: 1, alpha: 0.96)
-            : NSColor(calibratedWhite: 1, alpha: 0.96)
-        cameraStroke.setStroke()
-        cameraPath.lineWidth = presentation == .overlay ? 1.5 : 1
+        let cameraPath = shape(for: cameraFrame, radius: 0)
+        NSColor(calibratedWhite: 1, alpha: 0.96).setStroke()
+        cameraPath.lineWidth = 1
         cameraPath.stroke()
     }
 
@@ -194,7 +139,7 @@ final class SpatialMinimapView: NSView {
         return NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
     }
 
-    private func mapTransform() -> MapTransform? {
+    private func mapTransform(snapsToPixels: Bool) -> MapTransform? {
         let world = representedWorldBounds
         let target = bounds.insetBy(dx: padding, dy: padding)
         guard !world.isNull, world.width > 0, world.height > 0,
@@ -210,7 +155,7 @@ final class SpatialMinimapView: NSView {
                 x: target.midX - mappedSize.width / 2,
                 y: target.midY - mappedSize.height / 2
             ),
-            snapsToPixels: presentation == .statusBar
+            snapsToPixels: snapsToPixels
         )
     }
 }

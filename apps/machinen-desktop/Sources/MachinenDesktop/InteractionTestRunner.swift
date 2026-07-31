@@ -505,9 +505,13 @@ enum InteractionTestRunner {
                 && statusMinimap.pixelArtWorkspaceGap == 1
                 && statusMinimap.pixelArtPaneGap == 1
                 && statusMinimap.frame.maxX < statusBar.navigationTitleFrameForTesting.minX
-                && minimap.rendersPaneDetail
-                && !minimap.usesPixelArtPresentation,
-            "the status bar did not keep a simplified item-sized spatial minimap"
+                && !minimap.rendersPaneDetail
+                && minimap.rendersPaneBlocks
+                && minimap.usesPixelArtPresentation
+                && minimap.usesMonochromePixelPalette
+                && minimap.pixelArtWorkspaceGap == statusMinimap.pixelArtWorkspaceGap
+                && minimap.pixelArtPaneGap == statusMinimap.pixelArtPaneGap,
+            "the large and status minimaps did not share the pixel-art presentation"
         )
         let initialCameraBounds = camera.bounds
 

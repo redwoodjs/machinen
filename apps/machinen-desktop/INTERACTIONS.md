@@ -79,9 +79,9 @@ first launch and adds new defaults to older files. The actions are `enter`,
   persistent 56×26-point status item sits at the far left before the breadcrumb.
   It keeps exact workspace and pane placement but simplifies each pane to a
   square pixel-snapped outline, with one-pixel gutters that make pane and
-  workspace counts legible. The monochrome, unfilled shapes and discrete camera
-  steps complete the pixel-art treatment; the larger map remains smooth and
-  detailed.
+  workspace counts legible. The large transient map uses the exact same
+  monochrome, unfilled, square pixel-art treatment and discrete camera steps;
+  only its size and placement differ.
   `⌘K` opens context-aware commands without changing camera level. `⌘O` opens
   the focused terminal's full context menu, including its **Open Selection
   With** submenu when text is selected.
