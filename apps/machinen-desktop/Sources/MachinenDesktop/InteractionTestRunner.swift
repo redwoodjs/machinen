@@ -513,6 +513,11 @@ enum InteractionTestRunner {
                 && minimap.pixelArtPaneGap == statusMinimap.pixelArtPaneGap,
             "the large and status minimaps did not share the pixel-art presentation"
         )
+        try expect(
+            abs(minimap.frame.maxX - (deck.bounds.maxX - 18)) < 0.5
+                && abs(minimap.frame.minY - (statusBar.frame.maxY + 12)) < 0.5,
+            "the large minimap was not anchored below the status bar at the right edge"
+        )
         let minimapHoverPoint = NSPoint(x: statusMinimap.frame.midX, y: statusMinimap.frame.midY)
         try expect(
             statusBar.hitTest(minimapHoverPoint) === statusBar,

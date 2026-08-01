@@ -713,7 +713,7 @@ final class TerminalDeckView: NSView {
         height = min(maxHeight, max(68, height))
         spatialMinimapView.frame = NSRect(
             x: viewport.maxX - width - 18,
-            y: viewport.maxY - height - 18,
+            y: viewport.minY + 12,
             width: width,
             height: height
         ).integral
