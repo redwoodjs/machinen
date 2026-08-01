@@ -189,6 +189,7 @@ final class MachinenStatusBarView: NSView {
     var onWidgetClick: ((MachinenStatusWidget) -> Bool)?
     var onWorkspaceSelect: ((String) -> Void)?
     var onTerminalSelect: ((String) -> Void)?
+    var onSpatialMinimapHoverChange: ((Bool) -> Void)?
     var onMouseDown: (() -> Void)?
 
     private let spatialMinimapView = SpatialMinimapView(presentation: .statusBar)
@@ -198,6 +199,7 @@ final class MachinenStatusBarView: NSView {
     private var terminalFrame = NSRect.zero
     private var hoverTrackingArea: NSTrackingArea?
     private var hoveredItemID: String?
+    private var isSpatialMinimapHovered = false
 
     static var preferredHeight: CGFloat { Metrics.height }
 
@@ -228,6 +230,7 @@ final class MachinenStatusBarView: NSView {
         )
         spatialMinimapView.isHidden = workspaces.isEmpty
             || worldBounds.width <= 0 || worldBounds.height <= 0
+        if spatialMinimapView.isHidden { updateSpatialMinimapHover(false) }
         needsDisplay = true
     }
 
@@ -240,6 +243,7 @@ final class MachinenStatusBarView: NSView {
     override var acceptsFirstResponder: Bool { false }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
+        if !spatialMinimapView.isHidden, spatialMinimapView.frame.contains(point) { return self }
         if workspaceFrame.contains(point) || terminalFrame.contains(point) { return self }
         if titleTooltip != nil, titleFrame.contains(point) { return self }
         return widgetFrames.contains(where: { $0.rect.contains(point) }) ? self : nil
@@ -379,6 +383,7 @@ final class MachinenStatusBarView: NSView {
     }
 
     override func mouseExited(with event: NSEvent) {
+        updateSpatialMinimapHover(false)
         guard hoveredItemID != nil else { return }
         hoveredItemID = nil
         onHoverChange?(nil, .zero, nil)
@@ -386,6 +391,9 @@ final class MachinenStatusBarView: NSView {
 
     @discardableResult
     func hoverText(at point: NSPoint) -> String? {
+        let isOverSpatialMinimap = !spatialMinimapView.isHidden
+            && spatialMinimapView.frame.contains(point)
+        updateSpatialMinimapHover(isOverSpatialMinimap)
         let matchedFrame = widgetFrames.first(where: { $0.rect.contains(point) })
         let workspaceChoice = selectedWorkspaceID.flatMap { id in
             workspaceChoices.first { $0.id == id }
@@ -396,7 +404,11 @@ final class MachinenStatusBarView: NSView {
         let itemID: String?
         let detail: String?
         let anchor: NSRect
-        if let workspaceChoice, workspaceFrame.contains(point) {
+        if isOverSpatialMinimap {
+            itemID = "machinen.status.spatialMinimap"
+            detail = nil
+            anchor = spatialMinimapView.frame
+        } else if let workspaceChoice, workspaceFrame.contains(point) {
             itemID = "machinen.status.workspace.\(workspaceChoice.id)"
             detail = workspaceChoice.tooltip ?? titleTooltip
             anchor = workspaceFrame
@@ -418,6 +430,12 @@ final class MachinenStatusBarView: NSView {
             onHoverChange?(matchedFrame?.widget, anchor, detail)
         }
         return detail
+    }
+
+    private func updateSpatialMinimapHover(_ isHovered: Bool) {
+        guard isSpatialMinimapHovered != isHovered else { return }
+        isSpatialMinimapHovered = isHovered
+        onSpatialMinimapHoverChange?(isHovered)
     }
 
     override func draw(_ dirtyRect: NSRect) {

@@ -513,6 +513,22 @@ enum InteractionTestRunner {
                 && minimap.pixelArtPaneGap == statusMinimap.pixelArtPaneGap,
             "the large and status minimaps did not share the pixel-art presentation"
         )
+        let minimapHoverPoint = NSPoint(x: statusMinimap.frame.midX, y: statusMinimap.frame.midY)
+        try expect(
+            statusBar.hitTest(minimapHoverPoint) === statusBar,
+            "the status minimap did not accept read-only hover tracking"
+        )
+        _ = statusBar.hoverText(at: minimapHoverPoint)
+        try expect(
+            !minimap.isHidden && minimap.alphaValue > 0.99,
+            "hovering the status minimap did not reveal the large minimap"
+        )
+        _ = statusBar.hoverText(at: .zero)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.38))
+        try expect(
+            minimap.isHidden,
+            "the hover-previewed large minimap did not fade after the pointer left"
+        )
         let initialCameraBounds = camera.bounds
 
         try expect(deck.cycleFocusedTerminal(by: 1), "the next-pane action was not accepted")
@@ -996,25 +1012,10 @@ enum InteractionTestRunner {
             effective.first(where: { $0.id == "git.modified" })?.value == "3",
             "the workspace widget did not override the global widget"
         )
-        let activity = effective.first(where: { $0.id == "machinen.activity" })
         try expect(
-            activity?.scope == .init(kind: "terminal", id: terminalTile.session.id)
-                && activity?.states == ["working"],
-            "Terminal mode did not show the focused terminal's activity"
-        )
-        try expect(
-            activity?.tooltip == "PID 4242 · click to copy",
-            "the activity indicator did not expose its terminal PID"
-        )
-        guard let activityWidget = statusBar.widgets.first(where: { $0.id == "machinen.activity" })
-        else {
-            throw InteractionTestFailure("the terminal activity indicator was not rendered")
-        }
-        NSPasteboard.general.clearContents()
-        try expect(
-            deck.copyPIDIfNeeded(from: activityWidget)
-                && NSPasteboard.general.string(forType: .string) == "4242",
-            "clicking the activity indicator did not copy its PID"
+            effective.allSatisfy { $0.id != "machinen.activity" }
+                && statusBar.widgets.allSatisfy { $0.id != "machinen.activity" },
+            "the redundant built-in activity widget remained in the status bar"
         )
         _ = try deck.performAPIOperation("status.set", params: [
             "id": "network.graph",

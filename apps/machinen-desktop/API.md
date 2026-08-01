@@ -300,9 +300,10 @@ tiles, and the bar also shows aggregate tile
 CPU/network and branch-wide Git changes. The Git item graphs per-file additions
 and deletions with compact line totals at rest; its hover detail contains the
 branch, commits since the default-branch merge base, changed files, and exact
-added/deleted lines. At the focused-tile level the activity indicator follows that terminal;
-hovering shows its foreground PID and clicking copies the PID. The bar also
-shows per-PID CPU/network (including local child processes) and workspace branch
+added/deleted lines. The spatial minimap encodes each terminal's activity in its
+pane outline instead of publishing a redundant built-in `machinen.activity`
+widget. Hovering the compact minimap reveals its large read-only counterpart.
+The bar also shows per-PID CPU/network (including local child processes) and workspace branch
 changes. Open ports are workspace-scoped and
 include listeners whose process working directory is the workspace folder or
 one of its descendants. They list each listener on its own hover line and open

@@ -140,6 +140,8 @@ final class TerminalDeckView: NSView {
     private var cameraAnimationTimer: Timer?
     private var spatialMinimapAnimation: SpatialMinimapAnimation?
     private var spatialMinimapFadeGeneration = 0
+    private var spatialMinimapHoldUntil: TimeInterval?
+    private var isSpatialMinimapPreviewed = false
     private var cameraMagnification: CGFloat = 1
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
     private var selectionOpeners: [String: MachinenSelectionOpener] = [:]
@@ -215,12 +217,12 @@ final class TerminalDeckView: NSView {
             self?.updateStatusPopover(widget: widget, anchor: anchor, detail: detail)
         }
         statusBarView.onWidgetClick = { [weak self] widget in
-            guard let self else { return false }
-            if widget.id == "machinen.availableSessions" {
-                self.toggleAvailableSessions()
-                return true
-            }
-            return self.copyPIDIfNeeded(from: widget)
+            guard let self, widget.id == "machinen.availableSessions" else { return false }
+            self.toggleAvailableSessions()
+            return true
+        }
+        statusBarView.onSpatialMinimapHoverChange = { [weak self] isHovered in
+            self?.setSpatialMinimapPreviewed(isHovered)
         }
         statusBarView.onWorkspaceSelect = { [weak self] workspaceID in
             self?.selectWorkspaceFromStatusBar(workspaceID)
@@ -930,6 +932,7 @@ final class TerminalDeckView: NSView {
         }
 
         spatialMinimapFadeGeneration += 1
+        spatialMinimapHoldUntil = nil
         spatialMinimapView.layer?.removeAllAnimations()
         spatialMinimapAnimation = SpatialMinimapAnimation(
             start: start,
@@ -941,7 +944,7 @@ final class TerminalDeckView: NSView {
             cameraBounds: start,
             worldBounds: world.union(start).union(target)
         )
-        spatialMinimapView.alphaValue = 0
+        spatialMinimapView.alphaValue = isSpatialMinimapPreviewed ? 1 : 0
         spatialMinimapView.isHidden = false
     }
 
@@ -966,18 +969,48 @@ final class TerminalDeckView: NSView {
         spatialMinimapView.updateCameraBounds(cameraBounds)
         statusBarView.updateSpatialMinimapCamera(cameraBounds)
 
-        spatialMinimapView.alphaValue = min(1, linearProgress / 0.12)
+        if !isSpatialMinimapPreviewed {
+            spatialMinimapView.alphaValue = min(1, linearProgress / 0.12)
+        }
         if linearProgress >= 1 { finishSpatialMinimapAnimation() }
     }
 
     private func finishSpatialMinimapAnimation() {
         spatialMinimapAnimation = nil
         spatialMinimapView.alphaValue = 1
+        let holdUntil = ProcessInfo.processInfo.systemUptime + Motion.minimapHoldDuration
+        spatialMinimapHoldUntil = holdUntil
+        scheduleSpatialMinimapFade(after: Motion.minimapHoldDuration)
+    }
+
+    private func setSpatialMinimapPreviewed(_ isPreviewed: Bool) {
+        guard isSpatialMinimapPreviewed != isPreviewed else { return }
+        isSpatialMinimapPreviewed = isPreviewed
+        if isPreviewed {
+            spatialMinimapFadeGeneration += 1
+            spatialMinimapView.layer?.removeAllAnimations()
+            refreshSpatialMinimapActivityStates()
+            spatialMinimapView.alphaValue = 1
+            spatialMinimapView.isHidden = false
+            return
+        }
+
+        guard spatialMinimapAnimation == nil, !spatialMinimapView.isHidden else { return }
+        let remainingHold = max(
+            0,
+            (spatialMinimapHoldUntil ?? ProcessInfo.processInfo.systemUptime)
+                - ProcessInfo.processInfo.systemUptime
+        )
+        scheduleSpatialMinimapFade(after: remainingHold)
+    }
+
+    private func scheduleSpatialMinimapFade(after delay: TimeInterval) {
         spatialMinimapFadeGeneration += 1
         let generation = spatialMinimapFadeGeneration
-        DispatchQueue.main.asyncAfter(deadline: .now() + Motion.minimapHoldDuration) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self, self.spatialMinimapFadeGeneration == generation,
-                  self.spatialMinimapAnimation == nil
+                  self.spatialMinimapAnimation == nil,
+                  !self.isSpatialMinimapPreviewed
             else { return }
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = Motion.minimapFadeOutDuration
@@ -986,8 +1019,10 @@ final class TerminalDeckView: NSView {
             } completionHandler: { [weak self] in
                 Task { @MainActor in
                     guard let self, self.spatialMinimapFadeGeneration == generation,
-                          self.spatialMinimapAnimation == nil
+                          self.spatialMinimapAnimation == nil,
+                          !self.isSpatialMinimapPreviewed
                     else { return }
+                    self.spatialMinimapHoldUntil = nil
                     self.spatialMinimapView.isHidden = true
                 }
             }
@@ -996,10 +1031,11 @@ final class TerminalDeckView: NSView {
 
     private func endSpatialMinimapAnimation() {
         spatialMinimapFadeGeneration += 1
+        spatialMinimapHoldUntil = nil
         spatialMinimapAnimation = nil
         spatialMinimapView.layer?.removeAllAnimations()
-        spatialMinimapView.alphaValue = 0
-        spatialMinimapView.isHidden = true
+        spatialMinimapView.alphaValue = isSpatialMinimapPreviewed ? 1 : 0
+        spatialMinimapView.isHidden = !isSpatialMinimapPreviewed
     }
 
     private func setCameraImmediately() {
@@ -1230,19 +1266,6 @@ final class TerminalDeckView: NSView {
         } else {
             moveCamera()
         }
-    }
-
-    func copyPIDIfNeeded(from widget: MachinenStatusWidget) -> Bool {
-        let pid: String
-        guard widget.id == "machinen.activity",
-              focusedIndex != nil,
-              let associatedPID = selectedSession()?.associatedPID
-        else { return false }
-        pid = String(associatedPID)
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(pid, forType: .string)
-        InputRoutingLog.log("copied terminal PID \(pid) from status bar")
-        return true
     }
 
     private func updateStatusPopover(
@@ -6460,32 +6483,6 @@ final class TerminalDeckView: NSView {
                     expiresAt: nil
                 )
             }
-        }
-        if let terminal = focusedTerminal {
-            let activity = terminal.session.activityState
-            let tone: MachinenStatusWidget.Tone = switch activity {
-            case .working: .busy
-            case .waiting: .attention
-            case .idle, .unknown: .neutral
-            }
-            let tooltip = terminal.session.associatedPID.map {
-                "PID \($0) · click to copy"
-            } ?? "PID unavailable"
-            resolved["machinen.activity"] = MachinenStatusWidget(
-                id: "machinen.activity",
-                scopeKind: .terminal,
-                scopeID: terminal.session.id,
-                placement: .right,
-                kind: .state,
-                label: "Activity",
-                value: "",
-                progress: nil,
-                tone: tone,
-                tooltip: tooltip,
-                priority: 1_000,
-                expiresAt: nil,
-                states: [activity.rawValue]
-            )
         }
         statusBarView.widgets = Array(resolved.values)
     }

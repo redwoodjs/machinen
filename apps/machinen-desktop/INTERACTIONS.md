@@ -83,7 +83,9 @@ first launch and adds new defaults to older files. The actions are `enter`,
   working is bright, idle is muted, waiting is dashed, and unknown is faint.
   The large transient map uses the exact same monochrome, unfilled pixel-art
   treatment and discrete camera steps. Both maps keep square internal geometry
-  inside a rounded outer card; only their size and placement differ.
+  inside a rounded outer card; only their size and placement differ. Hovering
+  the compact map reveals the large map at full opacity; leaving dismisses that
+  read-only preview with the normal fade.
   `⌘K` opens context-aware commands without changing camera level. `⌘O` opens
   the focused terminal's full context menu, including its **Open Selection
   With** submenu when text is selected.
@@ -270,9 +272,8 @@ Desktop-side process-list guess. At workspace level the status bar renders
 terminals as spatially ordered activity pips; waiting and failed terminals
 receive attention and error tones. Both spatial minimaps mirror terminal
 activity directly onto their pane outlines, so they remain useful as idle and
-working indicators without rearranging the scene. In Terminal mode the separate
-compact indicator follows the focused terminal, shows its foreground PID on
-hover, and copies that PID when clicked.
+working indicators without rearranging the scene. The redundant built-in
+`machinen.activity` status widget is not rendered.
 
 ## Programmable status bar
 
@@ -303,9 +304,8 @@ monitor summarizes all terminals with visible active/idle/waiting tile counts,
 and the strip also shows aggregate tile CPU, aggregate tile network transfer,
 and branch-wide Git changes. The Git item shows only the total changed-file count at rest; hovering
 reveals the branch, commits since its default-branch merge base, changed files,
-and added and deleted lines. In a **focused tile**, the activity indicator shows that tile's state; hovering
-shows its foreground PID as `PID #### · click to copy`, and clicking copies the
-number. When a running native session inside the workspace has no Desktop tile,
+and added and deleted lines. In a **focused tile**, its minimap pane remains the
+activity indicator. When a running native session inside the workspace has no Desktop tile,
 a count item appears in the strip; clicking it opens the same panel as
 **Sessions…**. The strip also shows CPU and network transfer for that PID and its local
 child processes, plus workspace branch changes. Git is
