@@ -44,7 +44,7 @@ struct AvailableSessionItem {
         }.joined(separator: "    ")
     }
     var primaryActionTitle: String {
-        if canTakeControl { return "Take Control" }
+        if canTakeControl { return "Take Control and Resize" }
         return isAttached ? "Detach" : "Attach"
     }
 }
@@ -66,7 +66,16 @@ final class AvailableSessionsView: NSView {
     }
     var items: [AvailableSessionItem] = [] {
         didSet {
-            selectedIndex = min(selectedIndex, max(0, items.count - 1))
+            let selectedSessionID = oldValue.indices.contains(selectedIndex)
+                ? oldValue[selectedIndex].session.id
+                : nil
+            if let selectedSessionID,
+               let nextIndex = items.firstIndex(where: { $0.session.id == selectedSessionID })
+            {
+                selectedIndex = nextIndex
+            } else {
+                selectedIndex = min(selectedIndex, max(0, items.count - 1))
+            }
             needsDisplay = true
         }
     }
@@ -243,6 +252,12 @@ final class AvailableSessionsView: NSView {
         } else {
             onReconnect?(item.session.id)
         }
+    }
+
+    func selectSession(_ sessionID: String) {
+        guard let index = items.firstIndex(where: { $0.session.id == sessionID }) else { return }
+        selectedIndex = index
+        needsDisplay = true
     }
 
     func killSelected() {

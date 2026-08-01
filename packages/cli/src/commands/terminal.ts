@@ -15,6 +15,7 @@ const OPERATIONS = new Set([
   "inspect",
   "attach",
   "take",
+  "resize",
   "send",
   "signal",
   "stop",
@@ -251,6 +252,6 @@ function assertExecutable(path: string): void {
 
 function printTerminalHelp(): void {
   process.stdout.write(
-    `Machinen host terminal sessions\n\nUsage:\n  machinen terminal new [--id <id>] [--name <name>] [--cwd <path>] -- [command...]\n  machinen terminal list\n  machinen terminal inspect <id-or-name>\n  machinen terminal attach [--after <sequence>] [--read-only] [--latest-screen] [--client-id <number>] [--client-name <name>] <id-or-name>\n  machinen terminal take --client-id <number> <id-or-name>\n  machinen terminal send <id-or-name> [--newline] [text]\n  machinen terminal signal <id-or-name> <interrupt|hangup|terminate|kill>\n  machinen terminal stop <id-or-name>\n  machinen terminal delete <id-or-name>\n  machinen terminal reconcile\n  machinen terminal gc [--older-than <seconds>] [--dry-run]\n\nOptions:\n  --database <path>   Override the platform-default session database.\n\nReattach using either the stable ID or unique name printed by 'terminal list'.\n`,
+    `Machinen host terminal sessions\n\nUsage:\n  machinen terminal new [--id <id>] [--name <name>] [--cwd <path>] -- [command...]\n  machinen terminal list\n  machinen terminal inspect <id-or-name>\n  machinen terminal attach [--after <sequence>] [--read-only] [--latest-screen] [--geometry-events] [--client-id <number>] [--client-name <name>] <id-or-name>\n  machinen terminal take --client-id <number> <id-or-name>\n  machinen terminal resize --columns <n> --rows <n> <id-or-name>\n  machinen terminal send <id-or-name> [--newline] [text]\n  machinen terminal signal <id-or-name> <interrupt|hangup|terminate|kill>\n  machinen terminal stop <id-or-name>\n  machinen terminal delete <id-or-name>\n  machinen terminal reconcile\n  machinen terminal gc [--older-than <seconds>] [--dry-run]\n\nOptions:\n  --database <path>   Override the platform-default session database.\n\nReattach using either the stable ID or unique name printed by 'terminal list'.\n`,
   );
 }

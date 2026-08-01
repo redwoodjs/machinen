@@ -29,6 +29,7 @@ enum InteractionTestRunner {
             try contextCommandsUseWorkspaceAndOSC7TerminalDirectories()
             try availableNativeSessionsReconnectIntoWorkspace()
             try attachedSessionCanTakeControl()
+            try sharedSessionGeometryFollowsItsController()
             try nativeWorkspaceRegistryRestoresLostDesktopState()
             try graphicalStatusWidgetsRender()
             try desktopServicesRestartUntilTheAppStops()
@@ -49,7 +50,7 @@ enum InteractionTestRunner {
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (37 scenarios)")
+            print("Machinen interaction tests passed (38 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -1539,15 +1540,137 @@ enum InteractionTestRunner {
         let deck = harness.makeDeck(workspaces: [alpha])
         deck.toggleAvailableSessions()
         let panel = try harness.availableSessions(in: deck)
+        let status = try harness.effectiveStatusWidgets(of: deck)
+        let controlStatus = status.first { $0.id == "machinen.sessionControl" }
+        try expect(
+            controlStatus?.value == "VIEWING +1"
+                && controlStatus?.tooltip?.contains("Machinen Desktop on another Mac") == true,
+            "the status bar did not show control ownership and the other viewer"
+        )
         try expect(
             panel.items.first?.canTakeControl == true
-                && panel.items.first?.primaryActionTitle == "Take Control",
+                && panel.items.first?.primaryActionTitle == "Take Control and Resize",
             "the attached watcher did not offer to take control"
         )
         try harness.pressReturn(on: panel)
         try expect(
             harness.takenControlSessionIDs == [terminal.id],
             "the session panel did not request control for its own attachment"
+        )
+    }
+
+    private static func sharedSessionGeometryFollowsItsController() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let workspace = harness.workspace("geometry", terminalCount: 1)
+        guard let session = workspace.1.first else {
+            throw InteractionTestFailure("the geometry fixture had no terminal")
+        }
+        session.state = .running
+        let terminal = MachinenTerminalView(
+            session: session,
+            terminalBackend: harness.backend,
+            telemetryProvider: { completion in completion(nil) }
+        )
+        terminal.ghosttyTitleChanged(
+            "machinen.geometry:v1:239:59:8:99:\(session.viewerClientID):0:149:42"
+        )
+        try expect(
+            terminal.sessionGeometry == TerminalGeometry(
+                columns: 239,
+                rows: 59,
+                generation: 8,
+                ownerClientId: 99
+            ),
+            "the viewer did not accept the worker's authoritative geometry"
+        )
+        let pixels = MachinenTerminalView.authoritativeSurfacePixelSize(
+            viewportSize: NSSize(width: 1_200, height: 720),
+            backingScale: 2,
+            cellSize: NSSize(width: 16, height: 34),
+            geometry: terminal.sessionGeometry!,
+            localColumns: 149,
+            localRows: 42
+        )
+        try expect(
+            pixels.width == 3_840 && pixels.height == 2_018
+                && terminal.rendersAuthoritativeGrid,
+            "the watcher did not preserve the controller's cell grid"
+        )
+        terminal.ghosttyTitleChanged(
+            "machinen.geometry:v1:149:42:9:\(session.viewerClientID):"
+                + "\(session.viewerClientID):1:149:42"
+        )
+        try expect(
+            !terminal.rendersAuthoritativeGrid,
+            "the new controller did not return to its local viewport"
+        )
+        terminal.ghosttyTitleChanged(
+            "machinen.geometry:v1:100:30:10:\(session.viewerClientID):"
+                + "\(session.viewerClientID):1:149:42"
+        )
+        terminal.ghosttyTitleChanged(
+            "machinen.geometry:v1:100:30:10:\(session.viewerClientID):"
+                + "\(session.viewerClientID):1:100:30"
+        )
+        try expect(
+            terminal.rendersAuthoritativeGrid,
+            "the controller did not preserve an explicit resize request"
+        )
+        terminal.setFrameSize(NSSize(width: 1_200, height: 720))
+        try expect(
+            !terminal.rendersAuthoritativeGrid,
+            "a local viewport change did not resume automatic geometry"
+        )
+        terminal.setTerminalInputFocused(true)
+        try expect(
+            harness.takenControlSessionIDs.isEmpty,
+            "focusing a watcher unexpectedly stole geometry control"
+        )
+
+        harness.setAvailableSessions([
+            AvailableTerminalSession(
+                id: session.id,
+                name: session.name,
+                state: "running",
+                workspaceId: session.workspaceID,
+                workingDirectory: session.workingDirectory,
+                clientControlAvailable: true,
+                clients: [
+                    AttachedTerminalClient(
+                        id: session.viewerClientID,
+                        name: "Machinen Desktop on this Mac",
+                        pid: 20,
+                        connectedAtMs: 1,
+                        writer: true,
+                        resize: true,
+                        readOnly: false
+                    ),
+                ],
+                createdAtMs: 1,
+                updatedAtMs: 2
+            ),
+        ])
+        let deck = harness.makeDeck(workspaces: [workspace])
+        _ = try deck.performAPIOperation(
+            "terminal.resize",
+            params: [
+                "terminalId": session.id,
+                "columns": 100,
+                "rows": 30,
+            ]
+        )
+        try expect(
+            harness.resizedSessionRequests.contains(where: {
+                $0.id == session.id && $0.columns == 100 && $0.rows == 30
+            }),
+            "terminal.resize did not request an explicit PTY geometry"
+        )
+        try expect(
+            (try harness.effectiveStatusWidgets(of: deck)).first {
+                $0.id == "machinen.sessionControl"
+            }?.value == "CONTROL",
+            "the status bar did not identify this Desktop as the controller"
         )
     }
 
@@ -2980,6 +3103,7 @@ private final class ImmediateViewerBackend: TerminalSessionBackend {
     ) {
         completion(.success(()))
     }
+    func resize(_ session: TerminalSession, columns: UInt16, rows: UInt16) -> Bool { true }
     func signal(_ signal: String, session: TerminalSession) {}
     func stop(_ session: TerminalSession) {}
     func reset(_ session: TerminalSession) {}
@@ -3015,6 +3139,7 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
     var savedWorkspaces: [(id: String, name: String, location: WorkspaceLocation, sessions: [String])] = []
     var deletedWorkspaces: [(id: String, location: WorkspaceLocation)] = []
     var takenControlOf: [String] = []
+    var resizedSessions: [(id: String, columns: UInt16, rows: UInt16)] = []
 
     func listSessions(
         at location: WorkspaceLocation,
@@ -3057,6 +3182,10 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
         takenControlOf.append(session.id)
         completion(.success(()))
     }
+    func resize(_ session: TerminalSession, columns: UInt16, rows: UInt16) -> Bool {
+        resizedSessions.append((session.id, columns, rows))
+        return true
+    }
     func signal(_ signal: String, session: TerminalSession) {}
     func stop(_ session: TerminalSession) {}
     func reset(_ session: TerminalSession) {}
@@ -3068,6 +3197,7 @@ private final class Harness {
     private let temporaryDirectory: URL
     private let terminalBackend = DeferredViewerBackend()
     var temporaryDirectoryPath: String { temporaryDirectory.path }
+    var backend: DeferredViewerBackend { terminalBackend }
 
     init() throws {
         temporaryDirectory = FileManager.default.temporaryDirectory
@@ -3110,6 +3240,9 @@ private final class Harness {
     }
 
     var takenControlSessionIDs: [String] { terminalBackend.takenControlOf }
+    var resizedSessionRequests: [(id: String, columns: UInt16, rows: UInt16)] {
+        terminalBackend.resizedSessions
+    }
 
     func setNativeWorkspaces(_ workspaces: [NativeWorkspaceRecord]) {
         terminalBackend.nativeWorkspaces = workspaces

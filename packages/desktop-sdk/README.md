@@ -36,6 +36,8 @@ await desktop.selectionOpeners.set({
   ttlMilliseconds: 30_000,
 });
 
+await desktop.terminals.resize("term_123", 120, 36);
+
 await desktop.status.set({
   id: "example.ready",
   kind: "state",

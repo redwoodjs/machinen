@@ -1,16 +1,59 @@
 import Darwin
 import Foundation
 
+struct TerminalGeometry: Decodable, Equatable, Sendable {
+    let columns: UInt32
+    let rows: UInt32
+    let generation: UInt32
+    let ownerClientId: UInt64?
+}
+
 struct TerminalTelemetry: Decodable, Sendable {
     let activity: TerminalSession.ActivityState
     let shellPid: Int32?
     let processPid: Int32?
     let shellName: String?
     let command: String?
+    let geometry: TerminalGeometry?
+
+    init(
+        activity: TerminalSession.ActivityState,
+        shellPid: Int32?,
+        processPid: Int32?,
+        shellName: String?,
+        command: String?,
+        geometry: TerminalGeometry? = nil
+    ) {
+        self.activity = activity
+        self.shellPid = shellPid
+        self.processPid = processPid
+        self.shellName = shellName
+        self.command = command
+        self.geometry = geometry
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case activity, shellPid, processPid, shellName, command
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            activity: try container.decode(
+                TerminalSession.ActivityState.self,
+                forKey: .activity
+            ),
+            shellPid: try container.decodeIfPresent(Int32.self, forKey: .shellPid),
+            processPid: try container.decodeIfPresent(Int32.self, forKey: .processPid),
+            shellName: try container.decodeIfPresent(String.self, forKey: .shellName),
+            command: try container.decodeIfPresent(String.self, forKey: .command)
+        )
+    }
 }
 
 private struct TerminalTelemetryEnvelope: Decodable, Sendable {
     let telemetry: TerminalTelemetry
+    let geometry: TerminalGeometry?
 }
 
 struct AttachedTerminalClient: Decodable, Equatable, Sendable {
@@ -133,6 +176,7 @@ protocol TerminalSessionBackend: AnyObject {
         of session: TerminalSession,
         completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
     )
+    func resize(_ session: TerminalSession, columns: UInt16, rows: UInt16) -> Bool
     func signal(_ signal: String, session: TerminalSession)
     func stop(_ session: TerminalSession)
     func reset(_ session: TerminalSession)
@@ -580,7 +624,7 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
             executable: helper,
             arguments: [
                 "attach", "--database", database,
-                "--latest-screen",
+                "--latest-screen", "--geometry-events",
                 "--client-id", String(session.viewerClientID),
                 "--client-name", Self.desktopClientName(),
                 session.id,
@@ -655,8 +699,20 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
                 arguments: arguments
             )
             let telemetry = result.flatMap { result -> TerminalTelemetry? in
-                guard result.status == 0, let data = result.output.data(using: .utf8) else { return nil }
-                return try? JSONDecoder().decode(TerminalTelemetryEnvelope.self, from: data).telemetry
+                guard result.status == 0, let data = result.output.data(using: .utf8),
+                      let envelope = try? JSONDecoder().decode(
+                          TerminalTelemetryEnvelope.self,
+                          from: data
+                      )
+                else { return nil }
+                return TerminalTelemetry(
+                    activity: envelope.telemetry.activity,
+                    shellPid: envelope.telemetry.shellPid,
+                    processPid: envelope.telemetry.processPid,
+                    shellName: envelope.telemetry.shellName,
+                    command: envelope.telemetry.command,
+                    geometry: envelope.geometry
+                )
             }
             DispatchQueue.main.async { completion(telemetry) }
         }
@@ -797,6 +853,20 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
                 completion(.success(()))
             }
         }
+    }
+
+    func resize(_ session: TerminalSession, columns: UInt16, rows: UInt16) -> Bool {
+        guard columns > 0, rows > 0,
+              let invocation = controlInvocation(
+                  "resize",
+                  session: session,
+                  trailingArguments: [
+                      "--columns", String(columns),
+                      "--rows", String(rows),
+                  ]
+              )
+        else { return false }
+        return TerminalSessionControl.run(invocation)
     }
 
     func signal(_ signal: String, session: TerminalSession) {
@@ -1047,7 +1117,7 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
             "attach",
             sessionID: session.id,
             trailingArguments: [
-                "--latest-screen",
+                "--latest-screen", "--geometry-events",
                 "--client-id", String(session.viewerClientID),
                 "--client-name", desktopClientName(),
             ]

@@ -52,6 +52,7 @@ const client_info_header_length = 8;
 const client_name_capacity = 127;
 const client_list_header_length = 1;
 const client_list_item_header_length = 23;
+const geometry_payload_length = 16;
 const lease_duration_ms: i64 = 30_000;
 const heartbeat_interval_ms: i64 = 10_000;
 const control_io_timeout_ms: i64 = 1_000;
@@ -65,7 +66,13 @@ const LeaseFlag = struct {
 const Capability = struct {
     const client_presence: u32 = 1 << 0;
     const take_control: u32 = 1 << 1;
-    const all: u32 = client_presence | take_control;
+    const geometry: u32 = 1 << 2;
+    const all: u32 = client_presence | take_control | geometry;
+};
+
+const AttachFeature = struct {
+    const geometry_events: u8 = 1 << 0;
+    const all: u8 = geometry_events;
 };
 
 const RecoveryMode = enum(u8) {
@@ -91,6 +98,7 @@ const FrameType = enum(u8) {
     client_info = 'N',
     clients = 'V',
     take_control = 'K',
+    geometry = 'G',
 };
 
 pub const default_checkpoint_bytes = vt.default_checkpoint_bytes;
@@ -237,6 +245,7 @@ const Client = struct {
     client_name_length: u8 = 0,
     connected_at_ms: i64 = 0,
     last_heartbeat_ms: i64 = 0,
+    geometry_events: bool = false,
 
     fn clientName(self: *const Client) []const u8 {
         std.debug.assert(self.client_name_length <= self.client_name.len);
@@ -256,8 +265,22 @@ pub const AttachOptions = struct {
     after_sequence: u64 = 0,
     read_only: bool = false,
     latest_screen: bool = false,
+    geometry_events: bool = false,
     client_id: ?u64 = null,
     client_name: ?[]const u8 = null,
+};
+
+pub const SessionGeometry = struct {
+    columns: u16,
+    rows: u16,
+    generation: u32,
+    owner_client_id: ?u64,
+};
+
+const GeometryState = struct {
+    columns: u16,
+    rows: u16,
+    generation: u32 = 1,
 };
 
 pub const AttachedClient = struct {
@@ -481,6 +504,75 @@ pub fn takeControl(
     }
 }
 
+pub fn queryGeometry(
+    allocator: std.mem.Allocator,
+    id: []const u8,
+    protocol: u32,
+    last_sequence: u64,
+) !SessionGeometry {
+    if (protocol < protocol_version) return error.GeometryUnsupported;
+    std.debug.assert(id.len > 0 and protocol >= protocol_version);
+    const capabilities = try queryCapabilities(allocator, id, protocol, last_sequence);
+    if (capabilities & Capability.geometry == 0) return error.GeometryUnsupported;
+    const fd = try connectForControl(allocator, id, protocol, last_sequence);
+    defer closeDescriptor(fd);
+    try writeFrame(fd, .geometry, "");
+    var payload: [max_frame_payload]u8 = undefined;
+    // Intentional response loop, bounded by socket closure or a geometry frame.
+    while (true) {
+        const frame = readFrame(fd, &payload) catch return error.GeometryUnavailable;
+        switch (frame.kind) {
+            .geometry => return decodeGeometry(frame.payload),
+            .failure => return error.GeometryUnavailable,
+            .lease, .history_complete => {},
+            else => return error.InvalidServerFrame,
+        }
+    }
+}
+
+pub fn resizeSession(
+    allocator: std.mem.Allocator,
+    id: []const u8,
+    protocol: u32,
+    last_sequence: u64,
+    columns: u16,
+    rows: u16,
+) !SessionGeometry {
+    if (columns == 0 or rows == 0 or
+        columns > vt.max_dimension or rows > vt.max_dimension)
+    {
+        return error.InvalidTerminalSize;
+    }
+    if (protocol < protocol_version) return error.GeometryUnsupported;
+    std.debug.assert(id.len > 0 and columns > 0 and rows > 0);
+    const capabilities = try queryCapabilities(allocator, id, protocol, last_sequence);
+    if (capabilities & Capability.geometry == 0) return error.GeometryUnsupported;
+    const fd = try connectForControl(allocator, id, protocol, last_sequence);
+    defer closeDescriptor(fd);
+    var resize_payload: [4]u8 = undefined;
+    std.mem.writeInt(u16, resize_payload[0..2], columns, .big);
+    std.mem.writeInt(u16, resize_payload[2..4], rows, .big);
+    try writeFrame(fd, .resize, &resize_payload);
+    try writeFrame(fd, .geometry, "");
+    var payload: [max_frame_payload]u8 = undefined;
+    // Intentional response loop, bounded by socket closure or a geometry frame.
+    while (true) {
+        const frame = readFrame(fd, &payload) catch return error.GeometryUnavailable;
+        switch (frame.kind) {
+            .geometry => {
+                const geometry = try decodeGeometry(frame.payload);
+                if (geometry.columns != columns or geometry.rows != rows) {
+                    return error.ResizeRejected;
+                }
+                return geometry;
+            },
+            .failure => return error.GeometryUnavailable,
+            .lease, .history_complete => {},
+            else => return error.InvalidServerFrame,
+        }
+    }
+}
+
 pub fn attach(allocator: std.mem.Allocator, id: []const u8, options: AttachOptions) !u8 {
     const path = try socketPath(allocator, id);
     defer allocator.free(path);
@@ -489,18 +581,23 @@ pub fn attach(allocator: std.mem.Allocator, id: []const u8, options: AttachOptio
     else
         0;
     const supports_presence = capabilities & Capability.client_presence != 0;
+    const supports_geometry = capabilities & Capability.geometry != 0;
+    const reports_geometry = options.geometry_events and supports_geometry;
     const fd = try connectSocket(allocator, path);
     defer _ = c.close(fd);
     const uses_leases = options.protocol >= protocol_version;
+    var viewer_client_id: u64 = 0;
     if (uses_leases) {
         const flags: u8 = if (options.read_only) 0 else LeaseFlag.writer | LeaseFlag.resize;
         const client_id = options.client_id orelse generateClientId();
-        try sendAttachRequestWithRecoveryAndId(
+        viewer_client_id = client_id;
+        try sendAttachRequestWithRecoveryAndIdAndFeatures(
             fd,
             flags,
             options.after_sequence,
             if (options.latest_screen) .latest_screen else .journal,
             client_id,
+            if (reports_geometry) AttachFeature.geometry_events else 0,
         );
         if (supports_presence) {
             var default_name_buffer: [64]u8 = undefined;
@@ -533,12 +630,16 @@ pub fn attach(allocator: std.mem.Allocator, id: []const u8, options: AttachOptio
     var stdin_open = !options.read_only;
     var writer_granted = !uses_leases and !options.read_only;
     var resize_granted = !uses_leases and !options.read_only;
+    var geometry: ?SessionGeometry = null;
     var last_heartbeat = monotonicMilliseconds();
     // Intentional client loop, bounded by socket close or worker exit.
     while (true) {
-        if (resize_pending != 0 and resize_granted) {
+        if (resize_pending != 0) {
             resize_pending = 0;
-            try sendCurrentSize(fd);
+            if (resize_granted) try sendCurrentSize(fd);
+            if (reports_geometry and geometry != null) {
+                try emitGeometryStatus(geometry.?, viewer_client_id, resize_granted);
+            }
         }
         const now = monotonicMilliseconds();
         if (uses_leases and now - last_heartbeat >= heartbeat_interval_ms) {
@@ -573,6 +674,14 @@ pub fn attach(allocator: std.mem.Allocator, id: []const u8, options: AttachOptio
                     writer_granted = frame.payload[0] & LeaseFlag.writer != 0;
                     resize_granted = frame.payload[0] & LeaseFlag.resize != 0;
                     if (resize_granted and !previous_resize) resize_pending = 1;
+                    if (reports_geometry and geometry != null) {
+                        try emitGeometryStatus(geometry.?, viewer_client_id, resize_granted);
+                    }
+                },
+                .geometry => {
+                    if (!reports_geometry) return error.InvalidServerFrame;
+                    geometry = try decodeGeometry(frame.payload);
+                    try emitGeometryStatus(geometry.?, viewer_client_id, resize_granted);
                 },
                 .history_complete, .telemetry => {},
                 .exit => return decodeExit(frame.payload),
@@ -660,14 +769,7 @@ fn runWorker(allocator: std.mem.Allocator, config: Config, ready_fd: c_int) !voi
     const path = try socketPath(allocator, config.id);
     defer allocator.free(path);
     const listen_fd = try openListener(allocator, path);
-    defer {
-        _ = c.close(listen_fd);
-        const path_z = allocator.dupeZ(u8, path) catch null;
-        if (path_z) |value| {
-            _ = c.unlink(value.ptr);
-            allocator.free(value);
-        }
-    }
+    defer closeWorkerSocket(allocator, path, listen_fd);
     var master_fd: c_int = -1;
     const child_pid = try spawnPtyChild(allocator, config, &master_fd);
     defer _ = c.close(master_fd);
@@ -680,6 +782,7 @@ fn runWorker(allocator: std.mem.Allocator, config: Config, ready_fd: c_int) !voi
     defer for (&clients) |*client| closeClient(client, &leases);
     var checkpoint_builder = try vt.Builder.init(allocator, config.rows, config.columns);
     defer checkpoint_builder.deinit();
+    var geometry = GeometryState{ .columns = config.columns, .rows = config.rows };
     var live_history: LiveHistory = .{};
     defer live_history.deinit(allocator);
     var current_sequence: u64 = 0;
@@ -693,6 +796,7 @@ fn runWorker(allocator: std.mem.Allocator, config: Config, ready_fd: c_int) !voi
         &clients,
         &leases,
         &checkpoint_builder,
+        &geometry,
         config.checkpoint_bytes,
         &live_history,
         &current_sequence,
@@ -710,6 +814,14 @@ fn runWorker(allocator: std.mem.Allocator, config: Config, ready_fd: c_int) !voi
     var exit_payload: [4]u8 = undefined;
     std.mem.writeInt(i32, &exit_payload, exit_code, .big);
     broadcast(&clients, &leases, .exit, &exit_payload);
+}
+
+fn closeWorkerSocket(allocator: std.mem.Allocator, path: []const u8, listen_fd: c_int) void {
+    std.debug.assert(path.len > 0 and listen_fd >= 0);
+    closeDescriptor(listen_fd);
+    const path_z = allocator.dupeZ(u8, path) catch return;
+    defer allocator.free(path_z);
+    _ = c.unlink(path_z.ptr);
 }
 
 fn spawnPtyChild(allocator: std.mem.Allocator, config: Config, master_fd: *c_int) !c.pid_t {
@@ -745,12 +857,14 @@ fn runEventLoop(
     clients: *[max_clients]Client,
     leases: *Leases,
     checkpoint_builder: *vt.Builder,
+    geometry: *GeometryState,
     checkpoint_bytes: u32,
     live_history: *LiveHistory,
     current_sequence: *u64,
 ) i32 {
     var pending_output: OutputBatch = .{};
     defer pending_output.deinit(allocator);
+    var broadcast_resize_owner: ?u64 = null;
     defer flushOutput(
         store,
         session_id,
@@ -777,7 +891,7 @@ fn runEventLoop(
         }
         const timeout = pending_output.pollTimeout(monotonicMilliseconds());
         if (c.poll(&poll_fds, poll_fds.len, timeout) < 0) continue;
-        refreshLeases(clients, leases);
+        refreshGeometryOwner(clients, leases, geometry, &broadcast_resize_owner);
 
         if ((poll_fds[1].revents & c.POLLIN) != 0) acceptClient(listen_fd, clients);
         if ((poll_fds[0].revents & c.POLLIN) != 0) {
@@ -839,12 +953,14 @@ fn runEventLoop(
                     clients,
                     leases,
                     checkpoint_builder,
+                    geometry,
                     live_history,
                     current_sequence.*,
                 );
             }
             if ((events & (c.POLLERR | c.POLLHUP | c.POLLNVAL)) != 0) closeClient(client, leases);
         }
+        refreshGeometryOwner(clients, leases, geometry, &broadcast_resize_owner);
         const now_ms = monotonicMilliseconds();
         if (pending_output.shouldFlush(now_ms)) flushOutput(
             store,
@@ -911,6 +1027,7 @@ fn serviceClient(
     clients: *[max_clients]Client,
     leases: *Leases,
     checkpoint_builder: *vt.Builder,
+    geometry: *GeometryState,
     live_history: *const LiveHistory,
     current_sequence: u64,
 ) void {
@@ -928,6 +1045,7 @@ fn serviceClient(
                 clients,
                 leases,
                 checkpoint_builder,
+                geometry,
                 live_history,
                 current_sequence,
                 frame.payload,
@@ -944,6 +1062,7 @@ fn serviceClient(
         clients,
         leases,
         checkpoint_builder,
+        geometry,
         frame,
     );
 }
@@ -955,6 +1074,7 @@ fn serviceReadyClient(
     clients: *[max_clients]Client,
     leases: *Leases,
     checkpoint_builder: *vt.Builder,
+    geometry: *GeometryState,
     frame: Frame,
 ) void {
     std.debug.assert(client.ready and client.fd >= 0);
@@ -975,6 +1095,7 @@ fn serviceReadyClient(
             clients,
             leases,
             checkpoint_builder,
+            geometry,
             frame.payload,
         ),
         .signal => {
@@ -994,8 +1115,10 @@ fn serviceReadyClient(
             client,
             clients,
             leases,
+            geometry,
             frame,
         ),
+        .geometry => serviceSessionControlFrame(client, clients, leases, geometry, frame),
         else => closeClient(client, leases),
     }
 }
@@ -1004,6 +1127,7 @@ fn serviceSessionControlFrame(
     client: *Client,
     clients: *[max_clients]Client,
     leases: *Leases,
+    geometry: *GeometryState,
     frame: Frame,
 ) void {
     std.debug.assert(client.ready and client.fd >= 0);
@@ -1029,6 +1153,11 @@ fn serviceSessionControlFrame(
                 return;
             }
             writeFrame(client.fd, .take_control, frame.payload) catch closeClient(client, leases);
+            broadcastGeometry(clients, leases, geometry);
+        },
+        .geometry => {
+            if (!client.control or frame.payload.len != 0) return closeClient(client, leases);
+            sendGeometry(client.fd, geometry, clients, leases) catch closeClient(client, leases);
         },
         else => unreachable,
     }
@@ -1040,6 +1169,7 @@ fn serviceClientResize(
     clients: *[max_clients]Client,
     leases: *Leases,
     checkpoint_builder: *vt.Builder,
+    geometry: *GeometryState,
     payload: []const u8,
 ) void {
     std.debug.assert(client.ready and client.fd >= 0);
@@ -1062,6 +1192,13 @@ fn serviceClientResize(
     };
     _ = c.ioctl(master_fd, c.TIOCSWINSZ, &window);
     checkpoint_builder.resize(rows, columns) catch return closeClient(client, leases);
+    if (geometry.columns != columns or geometry.rows != rows) {
+        geometry.columns = columns;
+        geometry.rows = rows;
+        geometry.generation +%= 1;
+        if (geometry.generation == 0) geometry.generation = 1;
+    }
+    broadcastGeometry(clients, leases, geometry);
 }
 
 fn beginClient(
@@ -1070,6 +1207,7 @@ fn beginClient(
     clients: *[max_clients]Client,
     leases: *Leases,
     checkpoint_builder: *vt.Builder,
+    geometry: *GeometryState,
     live_history: *const LiveHistory,
     current_sequence: u64,
     payload: []const u8,
@@ -1084,6 +1222,9 @@ fn beginClient(
     if (client.client_id == 0 or client.client_id > max_client_id) return false;
     client.control = flags & LeaseFlag.control != 0;
     client.requested_leases = flags & (LeaseFlag.writer | LeaseFlag.resize);
+    const features = payload[6];
+    if (features & ~AttachFeature.all != 0 or payload[7] != 0) return false;
+    client.geometry_events = features & AttachFeature.geometry_events != 0;
     if (!client.control) {
         var viewer_count: u8 = 0;
         for (clients) |other| {
@@ -1097,6 +1238,7 @@ fn beginClient(
     if (client.control) {
         try sendHistoryComplete(client.fd, current_sequence);
     } else {
+        if (client.geometry_events) try sendGeometry(client.fd, geometry, clients, leases);
         try replayClient(
             allocator,
             client.fd,
@@ -1258,6 +1400,96 @@ fn transferControl(
     refreshLeases(clients, leases);
     return target.granted_leases & (LeaseFlag.writer | LeaseFlag.resize) ==
         LeaseFlag.writer | LeaseFlag.resize;
+}
+
+fn currentGeometry(
+    geometry: *const GeometryState,
+    clients: *const [max_clients]Client,
+    leases: *const Leases,
+) SessionGeometry {
+    std.debug.assert(geometry.columns > 0 and geometry.rows > 0);
+    var owner_client_id: ?u64 = null;
+    if (leases.resize_fd >= 0) {
+        for (clients) |client| {
+            if (client.fd == leases.resize_fd and client.ready and !client.control) {
+                owner_client_id = client.client_id;
+                break;
+            }
+        }
+    }
+    return .{
+        .columns = geometry.columns,
+        .rows = geometry.rows,
+        .generation = geometry.generation,
+        .owner_client_id = owner_client_id,
+    };
+}
+
+fn encodeGeometry(value: SessionGeometry, output: *[geometry_payload_length]u8) void {
+    std.debug.assert(value.columns > 0 and value.rows > 0 and value.generation > 0);
+    std.mem.writeInt(u16, output[0..2], value.columns, .big);
+    std.mem.writeInt(u16, output[2..4], value.rows, .big);
+    std.mem.writeInt(u32, output[4..8], value.generation, .big);
+    std.mem.writeInt(u64, output[8..16], value.owner_client_id orelse 0, .big);
+}
+
+fn decodeGeometry(payload: []const u8) !SessionGeometry {
+    if (payload.len != geometry_payload_length) return error.InvalidGeometry;
+    const columns = std.mem.readInt(u16, payload[0..2], .big);
+    const rows = std.mem.readInt(u16, payload[2..4], .big);
+    const generation = std.mem.readInt(u32, payload[4..8], .big);
+    const owner = std.mem.readInt(u64, payload[8..16], .big);
+    if (columns == 0 or rows == 0 or generation == 0 or
+        columns > vt.max_dimension or rows > vt.max_dimension or owner > max_client_id)
+    {
+        return error.InvalidGeometry;
+    }
+    std.debug.assert(columns <= vt.max_dimension and rows <= vt.max_dimension);
+    return .{
+        .columns = columns,
+        .rows = rows,
+        .generation = generation,
+        .owner_client_id = if (owner == 0) null else owner,
+    };
+}
+
+fn sendGeometry(
+    fd: c_int,
+    geometry: *const GeometryState,
+    clients: *const [max_clients]Client,
+    leases: *const Leases,
+) !void {
+    std.debug.assert(fd >= 0 and geometry.columns > 0 and geometry.rows > 0);
+    var payload: [geometry_payload_length]u8 = undefined;
+    encodeGeometry(currentGeometry(geometry, clients, leases), &payload);
+    try writeFrame(fd, .geometry, &payload);
+}
+
+fn broadcastGeometry(
+    clients: *[max_clients]Client,
+    leases: *Leases,
+    geometry: *const GeometryState,
+) void {
+    std.debug.assert(geometry.columns > 0 and geometry.rows > 0);
+    for (clients) |*client| {
+        if (client.fd >= 0 and client.ready and !client.control and client.geometry_events) {
+            sendGeometry(client.fd, geometry, clients, leases) catch closeClient(client, leases);
+        }
+    }
+}
+
+fn refreshGeometryOwner(
+    clients: *[max_clients]Client,
+    leases: *Leases,
+    geometry: *const GeometryState,
+    broadcast_owner: *?u64,
+) void {
+    std.debug.assert(geometry.columns > 0 and geometry.rows > 0);
+    refreshLeases(clients, leases);
+    const owner = currentGeometry(geometry, clients, leases).owner_client_id;
+    if (owner == broadcast_owner.*) return;
+    broadcast_owner.* = owner;
+    broadcastGeometry(clients, leases, geometry);
 }
 
 fn sendTelemetry(fd: c_int, master_fd: c_int, child_pid: c.pid_t) !void {
@@ -1771,12 +2003,32 @@ fn sendAttachRequestWithRecoveryAndId(
     recovery: RecoveryMode,
     client_id: u64,
 ) !void {
+    try sendAttachRequestWithRecoveryAndIdAndFeatures(
+        fd,
+        flags,
+        after_sequence,
+        recovery,
+        client_id,
+        0,
+    );
+}
+
+fn sendAttachRequestWithRecoveryAndIdAndFeatures(
+    fd: c_int,
+    flags: u8,
+    after_sequence: u64,
+    recovery: RecoveryMode,
+    client_id: u64,
+    features: u8,
+) !void {
     std.debug.assert(fd >= 0);
     std.debug.assert(flags & ~(LeaseFlag.writer | LeaseFlag.resize | LeaseFlag.control) == 0);
+    std.debug.assert(features & ~AttachFeature.all == 0);
     var payload: [attach_payload_length]u8 = @splat(0);
     std.mem.writeInt(u32, payload[0..4], protocol_version, .big);
     payload[4] = flags;
     payload[5] = @intFromEnum(recovery);
+    payload[6] = features;
     std.mem.writeInt(u64, payload[8..16], after_sequence, .big);
     std.mem.writeInt(u64, payload[16..24], client_id, .big);
     try writeFrame(fd, .attach_request, &payload);
@@ -1888,13 +2140,55 @@ fn writeRetry(fd: c_int, input: []const u8) isize {
     }
 }
 
-fn sendCurrentSize(fd: c_int) !void {
+const TerminalSize = struct { columns: u16, rows: u16 };
+
+fn currentTerminalSize() ?TerminalSize {
     var window: c.struct_winsize = std.mem.zeroes(c.struct_winsize);
-    if (c.ioctl(c.STDIN_FILENO, c.TIOCGWINSZ, &window) != 0) return;
-    if (window.ws_col == 0 or window.ws_row == 0) return;
+    if (c.ioctl(c.STDIN_FILENO, c.TIOCGWINSZ, &window) != 0 or
+        window.ws_col == 0 or window.ws_row == 0)
+    {
+        return null;
+    }
+    std.debug.assert(window.ws_col > 0 and window.ws_row > 0);
+    return .{ .columns = window.ws_col, .rows = window.ws_row };
+}
+
+fn emitGeometryStatus(
+    geometry: SessionGeometry,
+    viewer_client_id: u64,
+    resize_granted: bool,
+) !void {
+    std.debug.assert(
+        geometry.columns > 0 and geometry.rows > 0 and viewer_client_id <= max_client_id,
+    );
+    const local = currentTerminalSize() orelse TerminalSize{
+        .columns = geometry.columns,
+        .rows = geometry.rows,
+    };
+    var buffer: [256]u8 = undefined;
+    const message = try std.fmt.bufPrint(
+        &buffer,
+        "\x1b]2;machinen.geometry:v1:{d}:{d}:{d}:{d}:{d}:{d}:{d}:{d}\x07",
+        .{
+            geometry.columns,
+            geometry.rows,
+            geometry.generation,
+            geometry.owner_client_id orelse 0,
+            viewer_client_id,
+            @intFromBool(resize_granted),
+            local.columns,
+            local.rows,
+        },
+    );
+    try writeAll(c.STDERR_FILENO, message);
+}
+
+fn sendCurrentSize(fd: c_int) !void {
+    std.debug.assert(fd >= 0);
+    const window = currentTerminalSize() orelse return;
     var payload: [4]u8 = undefined;
-    std.mem.writeInt(u16, payload[0..2], window.ws_col, .big);
-    std.mem.writeInt(u16, payload[2..4], window.ws_row, .big);
+    std.mem.writeInt(u16, payload[0..2], window.columns, .big);
+    std.mem.writeInt(u16, payload[2..4], window.rows, .big);
     try writeFrame(fd, .resize, &payload);
 }
 
@@ -2051,6 +2345,26 @@ test "attach request encodes latest-screen recovery in the reserved-compatible b
     try std.testing.expectEqual(@intFromEnum(RecoveryMode.latest_screen), frame.payload[5]);
 }
 
+test "attach request advertises geometry events in a reserved-compatible byte" {
+    var sockets: [2]c_int = undefined;
+    try std.testing.expectEqual(@as(c_int, 0), c.socketpair(c.AF_UNIX, c.SOCK_STREAM, 0, &sockets));
+    defer closeDescriptor(sockets[0]);
+    defer closeDescriptor(sockets[1]);
+    try sendAttachRequestWithRecoveryAndIdAndFeatures(
+        sockets[0],
+        LeaseFlag.writer | LeaseFlag.resize,
+        0,
+        .latest_screen,
+        42,
+        AttachFeature.geometry_events,
+    );
+    var payload: [max_frame_payload]u8 = undefined;
+    const frame = try readFrame(sockets[1], &payload);
+    try std.testing.expectEqual(FrameType.attach_request, frame.kind);
+    try std.testing.expectEqual(AttachFeature.geometry_events, frame.payload[6]);
+    try std.testing.expectEqual(@as(u8, 0), frame.payload[7]);
+}
+
 test "telemetry framing preserves activity and process metadata" {
     var telemetry: Telemetry = .{
         .activity = .working,
@@ -2069,6 +2383,72 @@ test "telemetry framing preserves activity and process metadata" {
     try std.testing.expectEqual(@as(i32, 84), decoded.process_pid);
     try std.testing.expectEqualStrings("zsh", decoded.shellName());
     try std.testing.expectEqualStrings("node", decoded.commandName());
+}
+
+test "geometry framing preserves dimensions generation and controller" {
+    const geometry = SessionGeometry{
+        .columns = 149,
+        .rows = 42,
+        .generation = 7,
+        .owner_client_id = 123,
+    };
+    var payload: [geometry_payload_length]u8 = undefined;
+    encodeGeometry(geometry, &payload);
+    const decoded = try decodeGeometry(&payload);
+    try std.testing.expectEqual(geometry.columns, decoded.columns);
+    try std.testing.expectEqual(geometry.rows, decoded.rows);
+    try std.testing.expectEqual(geometry.generation, decoded.generation);
+    try std.testing.expectEqual(geometry.owner_client_id, decoded.owner_client_id);
+    try std.testing.expectError(error.InvalidGeometry, decodeGeometry(payload[0..8]));
+}
+
+test "geometry snapshots name the resize owner and broadcast only to opted-in viewers" {
+    var subscribed_pair: [2]c_int = undefined;
+    var legacy_pair: [2]c_int = undefined;
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        c.socketpair(c.AF_UNIX, c.SOCK_STREAM, 0, &subscribed_pair),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        c.socketpair(c.AF_UNIX, c.SOCK_STREAM, 0, &legacy_pair),
+    );
+    defer closeDescriptor(subscribed_pair[1]);
+    defer closeDescriptor(legacy_pair[1]);
+    var clients = [_]Client{.{}} ** max_clients;
+    clients[0] = .{
+        .fd = subscribed_pair[0],
+        .ready = true,
+        .requested_leases = LeaseFlag.writer | LeaseFlag.resize,
+        .client_id = 77,
+        .geometry_events = true,
+    };
+    clients[1] = .{
+        .fd = legacy_pair[0],
+        .ready = true,
+        .requested_leases = LeaseFlag.writer | LeaseFlag.resize,
+        .client_id = 88,
+    };
+    var leases = Leases{ .resize_fd = subscribed_pair[0] };
+    const state = GeometryState{ .columns = 120, .rows = 36, .generation = 4 };
+    broadcastGeometry(&clients, &leases, &state);
+
+    var payload: [max_frame_payload]u8 = undefined;
+    const frame = try readFrame(subscribed_pair[1], &payload);
+    try std.testing.expectEqual(FrameType.geometry, frame.kind);
+    const geometry = try decodeGeometry(frame.payload);
+    try std.testing.expectEqual(@as(u16, 120), geometry.columns);
+    try std.testing.expectEqual(@as(u16, 36), geometry.rows);
+    try std.testing.expectEqual(@as(?u64, 77), geometry.owner_client_id);
+
+    var poll_fd = c.struct_pollfd{
+        .fd = legacy_pair[1],
+        .events = c.POLLIN,
+        .revents = 0,
+    };
+    try std.testing.expectEqual(@as(c_int, 0), c.poll(&poll_fd, 1, 10));
+    closeClient(&clients[0], &leases);
+    closeClient(&clients[1], &leases);
 }
 
 test "explicit takeover transfers writer and resize while keeping both viewers attached" {
@@ -2600,7 +2980,15 @@ test "takeover changes the active writer while both viewers keep receiving outpu
     std.mem.writeInt(u16, resize_payload[0..2], 101, .big);
     std.mem.writeInt(u16, resize_payload[2..4], 42, .big);
     try writeFrame(first_fd, .resize, &resize_payload);
+    var geometry = try queryGeometry(allocator, id, protocol_version, 0);
+    try std.testing.expectEqual(@as(u16, 101), geometry.columns);
+    try std.testing.expectEqual(@as(u16, 42), geometry.rows);
+    try std.testing.expectEqual(@as(?u64, 101), geometry.owner_client_id);
     try takeControl(allocator, id, protocol_version, 0, 202);
+    geometry = try resizeSession(allocator, id, protocol_version, 0, 77, 33);
+    try std.testing.expectEqual(@as(u16, 77), geometry.columns);
+    try std.testing.expectEqual(@as(u16, 33), geometry.rows);
+    try std.testing.expectEqual(@as(?u64, 202), geometry.owner_client_id);
     try writeFrame(first_fd, .input, "ignored\n");
     try writeFrame(second_fd, .input, "hello\n");
 
@@ -2610,7 +2998,7 @@ test "takeover changes the active writer while both viewers keep receiving outpu
     defer allocator.free(second.bytes);
     try std.testing.expectEqual(@as(u8, 4), first.exit_code);
     try std.testing.expectEqual(@as(u8, 4), second.exit_code);
-    try std.testing.expect(std.mem.indexOf(u8, first.bytes, "42 101") != null);
+    try std.testing.expect(std.mem.indexOf(u8, first.bytes, "33 77") != null);
     try std.testing.expect(std.mem.indexOf(u8, second.bytes, "broadcast:hello") != null);
 
     var worker_status: c_int = 0;
@@ -2622,7 +3010,7 @@ test "takeover changes the active writer while both viewers keep receiving outpu
     defer store.close();
     var record = (try store.getSession(id)).?;
     defer record.deinit(allocator);
-    try std.testing.expectEqual(@as(u32, 101), record.columns);
-    try std.testing.expectEqual(@as(u32, 42), record.rows);
+    try std.testing.expectEqual(@as(u32, 77), record.columns);
+    try std.testing.expectEqual(@as(u32, 33), record.rows);
     try std.testing.expectEqual(@as(i32, 4), record.exit_code.?);
 }

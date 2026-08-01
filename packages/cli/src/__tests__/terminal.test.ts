@@ -37,6 +37,12 @@ describe("host terminal command", () => {
     });
   });
 
+  it("passes explicit terminal geometry to the native helper", () => {
+    expect(nativeInvocation("resize", ["--columns", "120", "--rows", "36", "work"])).toEqual({
+      args: ["--columns", "120", "--rows", "36", "work"],
+    });
+  });
+
   it("turns terminal send text into stdin and can append a newline", () => {
     expect(nativeInvocation("send", ["work", "--newline", "hello", "there"])).toEqual({
       args: ["work"],
