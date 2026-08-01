@@ -36,7 +36,8 @@ A v2 connection starts with an `A` frame from the client:
 bytes 0–3    protocol version (`2`), big-endian u32
 byte 4       requested flags: writer=1, resize=2, control=4
 byte 5       recovery mode: journal=0, latest-screen=1
-bytes 6–7    reserved, zero
+byte 6       client features: geometry events=1
+byte 7       reserved, zero
 bytes 8–15   last sequence already applied by the client, big-endian u64
 bytes 16–23  client identifier, big-endian u64
 ```
@@ -75,6 +76,7 @@ A running PTY is therefore not replaced merely to upgrade its helper binary.
 | `N`  | Client info     | PID, display-name length, and UTF-8 display name           |
 | `V`  | Client list     | Empty; requests the currently attached interactive clients |
 | `K`  | Take control    | Big-endian `u64` identifier of the target attachment       |
+| `G`  | Geometry query  | Empty; requests authoritative rows, columns, and owner     |
 
 ## Worker to client
 
@@ -91,6 +93,7 @@ A running PTY is therefore not replaced merely to upgrade its helper binary.
 | `B`  | Capabilities     | Big-endian `u32` capability bits                    |
 | `V`  | Client list      | Connected client identities and lease state         |
 | `K`  | Control changed  | Target `u64` after writer and resize transfer       |
+| `G`  | Geometry         | Columns, rows, generation, and resize-owner ID      |
 
 A `Q` event can use multiple frames when its original SQLite payload plus the
 sequence header would exceed 32 KiB. Each chunk repeats the event sequence.
@@ -127,6 +130,37 @@ with an attached client identifier. The worker atomically moves both writer and
 resize leases to that attachment, sends updated `L` status to the old and new
 controllers, and acknowledges with `K`. The former controller remains connected
 as a watcher.
+
+## Authoritative geometry
+
+A PTY has one authoritative cell grid even when several differently sized
+viewers are attached. Geometry-capable clients advertise attach feature bit 0.
+The worker sends them a `G` frame before recovery output and after every accepted
+resize or explicit control transfer:
+
+```text
+bytes 0–1    columns, big-endian u16
+bytes 2–3    rows, big-endian u16
+bytes 4–7    geometry generation, big-endian u32
+bytes 8–15   resize-owner client ID, big-endian u64; zero means no owner
+```
+
+The first interactive viewer receives the resize lease and its normal `R` frame
+sets the grid. While it is the only viewer, window changes therefore keep the
+PTY matched to that viewer. Additional viewers receive `G` but their automatic
+`R` frames remain suppressed until they own the resize lease. They must render
+or fit the authoritative grid rather than independently reflowing the terminal.
+
+`take` moves writer and resize ownership to an attached viewer. The newly
+selected viewer immediately reports its current dimensions. A same-user control
+connection may also send `R` explicitly; `machinen-session resize` exposes that
+one-shot operation without pretending the control connection is a persistent
+viewer. Every accepted resize performs `TIOCSWINSZ`, after which the kernel
+notifies the foreground process group with `SIGWINCH`.
+
+Workers advertise geometry support as capability bit 2. New clients request
+geometry events only from supporting workers, so live protocol-v2 workers from
+before this extension remain attachable.
 
 ## Foreground telemetry
 
@@ -192,8 +226,10 @@ also saves the final screen.
 ## Writer and resize leases
 
 Writer and resize ownership are independent. The first eligible interactive
-client receives each requested lease. A lease lasts 30 seconds and attach
-clients send a heartbeat every 10 seconds. Input or resize activity also renews
+client receives each requested lease. A single connected viewer therefore
+always controls PTY geometry; when its local terminal changes size, it sends `R`.
+
+A lease lasts 30 seconds and attach clients send a heartbeat every 10 seconds. Input or resize activity also renews
 ownership. Disconnecting releases ownership immediately; an attached waiter is
 then granted the lease.
 

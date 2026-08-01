@@ -157,6 +157,7 @@ final class TerminalDeckView: NSView {
     private var availableSessionsView: AvailableSessionsView?
     private var availableSessionsWorkspaceID: String?
     private var availableSessionsReturnsToCommands = false
+    private var availableSessionsPendingSelectionID: String?
     private var availableSessionsByMachine: [String: [AvailableTerminalSession]] = [:]
     private var availableSessionsErrors: [String: String] = [:]
     private var availableSessionsLastRefresh: [String: Date] = [:]
@@ -217,9 +218,17 @@ final class TerminalDeckView: NSView {
             self?.updateStatusPopover(widget: widget, anchor: anchor, detail: detail)
         }
         statusBarView.onWidgetClick = { [weak self] widget in
-            guard let self, widget.id == "machinen.availableSessions" else { return false }
-            self.toggleAvailableSessions()
-            return true
+            guard let self else { return false }
+            switch widget.id {
+            case "machinen.availableSessions":
+                self.toggleAvailableSessions()
+                return true
+            case "machinen.sessionControl":
+                self.toggleAvailableSessions(selecting: self.selectedSession()?.id)
+                return true
+            default:
+                return false
+            }
         }
         statusBarView.onSpatialMinimapHoverChange = { [weak self] isHovered in
             self?.setSpatialMinimapPreviewed(isHovered)
@@ -403,6 +412,11 @@ final class TerminalDeckView: NSView {
             tile.updateProcessInfo(info)
             self.refreshStatusBar()
             self.emitAPIEvent("terminal.processChanged", data: self.terminalJSON(tile))
+        }
+        terminalView.onGeometryChange = { [weak self, weak tile] _ in
+            guard let self, let tile, !self.isShuttingDown else { return }
+            self.refreshStatusBar()
+            self.emitAPIEvent("terminal.geometryChanged", data: self.terminalJSON(tile))
         }
         terminalView.onRuntimeLabelChange = { [weak self, weak tile] label in
             guard let self, let tile, !self.isShuttingDown else { return }
@@ -1884,7 +1898,10 @@ final class TerminalDeckView: NSView {
         clearLabelBuffer()
     }
 
-    func toggleAvailableSessions(returnToCommands: Bool = false) {
+    func toggleAvailableSessions(
+        returnToCommands: Bool = false,
+        selecting sessionID: String? = nil
+    ) {
         guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
         if availableSessionsView != nil {
             dismissAvailableSessions()
@@ -1917,6 +1934,7 @@ final class TerminalDeckView: NSView {
         }
         availableSessionsWorkspaceID = workspace.id
         availableSessionsReturnsToCommands = returnToCommands
+        availableSessionsPendingSelectionID = sessionID
         availableSessionsView = view
         addSubview(view, positioned: .above, relativeTo: statusBarView)
         refreshAvailableSessionsPanel()
@@ -1930,6 +1948,7 @@ final class TerminalDeckView: NSView {
         availableSessionsView = nil
         availableSessionsWorkspaceID = nil
         availableSessionsReturnsToCommands = false
+        availableSessionsPendingSelectionID = nil
         if shouldReturnToCommands {
             toggleCommandPalette()
         } else {
@@ -1944,6 +1963,10 @@ final class TerminalDeckView: NSView {
         else { return }
         let machineID = workspace.location.machineID
         view.items = availableSessionItems(for: workspace)
+        if let sessionID = availableSessionsPendingSelectionID {
+            view.selectSession(sessionID)
+            availableSessionsPendingSelectionID = nil
+        }
         view.isLoading = availableSessionsLoading.contains(machineID)
         view.errorMessage = availableSessionsErrors[machineID]
     }
@@ -5219,6 +5242,8 @@ final class TerminalDeckView: NSView {
             return try apiSendTerminal(params)
         case "terminal.signal":
             return try apiSignalTerminal(params)
+        case "terminal.resize":
+            return try apiResizeTerminal(params)
         case "terminal.stop":
             return apiStopTerminal(try requireTerminal(params))
         case "terminal.restart":
@@ -5680,6 +5705,31 @@ final class TerminalDeckView: NSView {
             throw MachinenAPIError("terminal_input_failed", "Could not send input to the persistent PTY")
         }
         return ["terminalId": tile.session.id, "bytesWritten": data.count]
+    }
+
+    private func apiResizeTerminal(_ params: JSONObject) throws -> Any {
+        let tile = try requireTerminal(params)
+        guard let columns = params["columns"] as? Int,
+              let rows = params["rows"] as? Int,
+              (1...1_000).contains(columns),
+              (1...1_000).contains(rows)
+        else {
+            throw MachinenAPIError(
+                "invalid_params",
+                "columns and rows must be integers between 1 and 1000"
+            )
+        }
+        guard sessionBackend.resize(
+            tile.session,
+            columns: UInt16(columns),
+            rows: UInt16(rows)
+        ) else {
+            throw MachinenAPIError(
+                "terminal_resize_failed",
+                "Could not resize the persistent PTY"
+            )
+        }
+        return terminalJSON(tile)
     }
 
     private func apiSignalTerminal(_ params: JSONObject) throws -> Any {
@@ -6235,7 +6285,7 @@ final class TerminalDeckView: NSView {
 
     private func terminalJSON(_ tile: TerminalTileView) -> JSONObject {
         let session = tile.session
-        return [
+        var result: JSONObject = [
             "id": session.id,
             "tileId": session.tileID,
             "workingDirectory": session.workingDirectory,
@@ -6254,6 +6304,18 @@ final class TerminalDeckView: NSView {
             "activityState": session.activityState.rawValue,
             "viewerState": terminalViewerIsAttached(session) ? "attached" : "detached",
         ]
+        if let geometry = tile.terminalResponder?.sessionGeometry {
+            result["geometry"] = [
+                "columns": geometry.columns,
+                "rows": geometry.rows,
+                "generation": geometry.generation,
+                "ownerClientId": geometry.ownerClientId.map { $0 as Any } ?? NSNull(),
+                "controlledByThisViewer": geometry.ownerClientId == session.viewerClientID,
+            ]
+        } else {
+            result["geometry"] = NSNull()
+        }
+        return result
     }
 
     private func uiJSON() -> JSONObject {
@@ -6395,6 +6457,90 @@ final class TerminalDeckView: NSView {
         bounds.fill()
     }
 
+    private func sessionControlStatusWidget(
+        for tile: TerminalTileView,
+        workspace: WorkspaceRecord
+    ) -> MachinenStatusWidget {
+        let item = availableSessionItems(for: workspace).first {
+            $0.session.id == tile.session.id
+        }
+        let clients = item?.session.clients ?? []
+        let localClientID = tile.session.viewerClientID
+        let localClient = clients.first { $0.id == localClientID }
+        let geometry = tile.terminalResponder?.sessionGeometry
+        let hasControl = geometry.map { $0.ownerClientId == localClientID }
+            ?? (localClient?.writer == true && localClient?.resize == true)
+        let hasViewerDetails = item?.session.clientControlAvailable == true
+        let hasRefreshed = availableSessionsLastRefresh[workspace.location.machineID] != nil
+        let role: String
+        let tone: MachinenStatusWidget.Tone
+        if hasControl {
+            role = "CONTROL"
+            tone = .good
+        } else if geometry != nil || localClient != nil {
+            role = "VIEWING"
+            tone = .attention
+        } else if hasRefreshed {
+            role = "ATTACHED"
+            tone = .neutral
+        } else {
+            role = "CHECKING"
+            tone = .neutral
+        }
+
+        let others = clients.filter { $0.id != localClientID }
+        let value = role + (others.isEmpty ? "" : " +\(others.count)")
+        var detail: [String] = []
+        switch role {
+        case "CONTROL":
+            detail.append("You control terminal input and resize.")
+        case "VIEWING":
+            if let controller = clients.first(where: { $0.writer && $0.resize }) {
+                detail.append("You are viewing; \(controller.name) is in control.")
+            } else {
+                detail.append("You are viewing this terminal.")
+            }
+        case "ATTACHED":
+            detail.append("This Desktop is attached; control details are unavailable.")
+        default:
+            detail.append("Checking terminal control and attached viewers…")
+        }
+        if hasViewerDetails {
+            if others.isEmpty {
+                detail.append("No other viewers are attached.")
+            } else {
+                detail.append(
+                    "\(others.count) other \(others.count == 1 ? "viewer is" : "viewers are") attached:"
+                )
+                detail += others.map { client in
+                    let clientRole = client.writer && client.resize
+                        ? "CONTROL"
+                        : (client.readOnly ? "READ ONLY" : "VIEWING")
+                    return "\(clientRole) · \(client.name)"
+                }
+            }
+        }
+        if let error = availableSessionsErrors[workspace.location.machineID] {
+            detail.append("Could not refresh viewers: \(error)")
+        }
+        detail.append("Click to view participants or transfer control.")
+
+        return MachinenStatusWidget(
+            id: "machinen.sessionControl",
+            scopeKind: .terminal,
+            scopeID: tile.session.id,
+            placement: .right,
+            kind: .text,
+            label: nil,
+            value: value,
+            progress: nil,
+            tone: tone,
+            tooltip: detail.joined(separator: "\n"),
+            priority: 975,
+            expiresAt: nil
+        )
+    }
+
     private func refreshStatusBar() {
         let now = Date().timeIntervalSince1970
         statusWidgets = statusWidgets.filter { $0.value.expiresAt.map { $0 > now } ?? true }
@@ -6449,6 +6595,14 @@ final class TerminalDeckView: NSView {
             {
                 resolved[widget.id] = widget
             }
+        }
+        if let focusedTerminal, let workspace,
+           terminalViewerIsAttached(focusedTerminal.session)
+        {
+            resolved["machinen.sessionControl"] = sessionControlStatusWidget(
+                for: focusedTerminal,
+                workspace: workspace
+            )
         }
         resolved["machinen.versions"] = MachinenStatusWidget(
             id: "machinen.versions",

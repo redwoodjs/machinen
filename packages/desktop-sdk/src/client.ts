@@ -73,6 +73,12 @@ export class MachinenDesktopClient {
   readonly socketPath: string;
   // Public SDK surface is consumed outside this repository.
   // fallow-ignore-next-line unused-class-member
+  readonly terminals = {
+    resize: (terminalId: string, columns: number, rows: number) =>
+      this.request<JsonObject>("terminal.resize", { terminalId, columns, rows }),
+  };
+  // Public SDK surface is consumed outside this repository.
+  // fallow-ignore-next-line unused-class-member
   readonly status = {
     list: () => this.request<JsonObject>("status.list"),
     set: (widget: StatusWidget) =>

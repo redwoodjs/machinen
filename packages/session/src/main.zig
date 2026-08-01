@@ -3,7 +3,7 @@ const session = @import("session");
 const worker = @import("worker");
 
 const Exit = enum(u8) { ok = 0, failed = 1, usage = 2 };
-const version = "0.5.6";
+const version = "0.5.7";
 
 pub fn main(init: std.process.Init) !u8 {
     var args = init.minimal.args.iterate();
@@ -22,6 +22,7 @@ pub fn main(init: std.process.Init) !u8 {
     if (std.mem.eql(u8, command, "inspect")) return runInspect(init, &args);
     if (std.mem.eql(u8, command, "attach")) return runAttach(init, &args);
     if (std.mem.eql(u8, command, "take")) return runTake(init, &args);
+    if (std.mem.eql(u8, command, "resize")) return runResize(init, &args);
     if (std.mem.eql(u8, command, "send")) return runSend(init, &args);
     if (std.mem.eql(u8, command, "signal")) return runSignal(init, &args);
     if (std.mem.eql(u8, command, "stop")) return runStop(init, &args);
@@ -399,6 +400,12 @@ fn attachedClientViews(
     return buffer[0..clients.len];
 }
 
+fn geometryOwnerFromClients(clients: []const AttachedClientView) ?u64 {
+    std.debug.assert(clients.len <= worker.max_attached_clients);
+    for (clients) |client| if (client.resize) return client.id;
+    return null;
+}
+
 const TelemetryView = struct {
     activity: []const u8,
     shellPid: ?i32,
@@ -406,6 +413,34 @@ const TelemetryView = struct {
     shellName: ?[]const u8,
     command: ?[]const u8,
 };
+
+const GeometryView = struct {
+    columns: u32,
+    rows: u32,
+    generation: u32,
+    ownerClientId: ?u64,
+};
+
+fn geometryView(
+    live: ?worker.SessionGeometry,
+    columns: u32,
+    rows: u32,
+    clients: []const AttachedClientView,
+) GeometryView {
+    std.debug.assert(columns > 0 and rows > 0);
+    if (live) |value| return .{
+        .columns = value.columns,
+        .rows = value.rows,
+        .generation = value.generation,
+        .ownerClientId = value.owner_client_id,
+    };
+    return .{
+        .columns = columns,
+        .rows = rows,
+        .generation = 0,
+        .ownerClientId = geometryOwnerFromClients(clients),
+    };
+}
 
 fn runInspect(init: std.process.Init, args: anytype) !u8 {
     const target = parseTarget(args) catch return writeUsage(init.io);
@@ -449,11 +484,23 @@ fn runInspect(init: std.process.Init, args: anytype) !u8 {
         break :attached clients;
     };
     var client_buffer: [worker.max_attached_clients]AttachedClientView = undefined;
+    const clients = attachedClientViews(&attached, &client_buffer);
+    const live_geometry = if (record.state == .running or record.state == .created)
+        worker.queryGeometry(
+            init.gpa,
+            record.id,
+            record.protocol_version,
+            record.last_sequence,
+        ) catch null
+    else
+        null;
+    const geometry = geometryView(live_geometry, record.columns, record.rows, clients);
     try writeJson(init.gpa, init.io, .{
         .ok = true,
         .telemetry = view,
+        .geometry = geometry,
         .clientControlAvailable = client_control_available,
-        .clients = attachedClientViews(&attached, &client_buffer),
+        .clients = clients,
     });
     return @intFromEnum(Exit.ok);
 }
@@ -464,6 +511,7 @@ const AttachRequest = struct {
     after_sequence: u64,
     read_only: bool,
     latest_screen: bool,
+    geometry_events: bool,
     client_id: ?u64,
     client_name: ?[]const u8,
 };
@@ -503,6 +551,7 @@ fn runAttach(init: std.process.Init, args: anytype) !u8 {
         .after_sequence = request.after_sequence,
         .read_only = request.read_only,
         .latest_screen = request.latest_screen,
+        .geometry_events = request.geometry_events,
         .client_id = request.client_id,
         .client_name = request.client_name,
     }) catch |err| return fail(init, err);
@@ -514,6 +563,7 @@ fn parseAttachRequest(args: anytype) !AttachRequest {
     var after_sequence: u64 = 0;
     var read_only = false;
     var latest_screen = false;
+    var geometry_events = false;
     var client_id: ?u64 = null;
     var client_name: ?[]const u8 = null;
     while (args.next()) |argument| {
@@ -523,6 +573,10 @@ fn parseAttachRequest(args: anytype) !AttachRequest {
         }
         if (std.mem.eql(u8, argument, "--read-only")) {
             read_only = true;
+            continue;
+        }
+        if (std.mem.eql(u8, argument, "--geometry-events")) {
+            geometry_events = true;
             continue;
         }
         if (std.mem.eql(u8, argument, "--database")) {
@@ -567,6 +621,7 @@ fn parseAttachRequest(args: anytype) !AttachRequest {
         .after_sequence = after_sequence,
         .read_only = read_only,
         .latest_screen = latest_screen,
+        .geometry_events = geometry_events,
         .client_id = client_id,
         .client_name = client_name,
     };
@@ -620,6 +675,56 @@ fn runTake(init: std.process.Init, args: anytype) !u8 {
         .ok = true,
         .id = record.id,
         .clientId = client_id.?,
+    });
+    return @intFromEnum(Exit.ok);
+}
+
+fn runResize(init: std.process.Init, args: anytype) !u8 {
+    var database: ?[]const u8 = null;
+    var reference: ?[]const u8 = null;
+    var columns: ?u16 = null;
+    var rows: ?u16 = null;
+    while (args.next()) |argument| {
+        if (std.mem.eql(u8, argument, "--database")) {
+            database = args.next() orelse return writeUsage(init.io);
+        } else if (std.mem.eql(u8, argument, "--columns")) {
+            columns = parseDimension(args.next() orelse return writeUsage(init.io)) catch
+                return writeUsage(init.io);
+        } else if (std.mem.eql(u8, argument, "--rows")) {
+            rows = parseDimension(args.next() orelse return writeUsage(init.io)) catch
+                return writeUsage(init.io);
+        } else if (reference == null) {
+            reference = argument;
+        } else {
+            return writeUsage(init.io);
+        }
+    }
+    if (database == null or reference == null or columns == null or rows == null) {
+        return writeUsage(init.io);
+    }
+    std.debug.assert(reference.?.len > 0 and columns.? > 0 and rows.? > 0);
+    var store = session.Store.open(init.gpa, database.?) catch |err| return fail(init, err);
+    defer store.close();
+    var record = (store.resolveSession(reference.?) catch |err| return fail(init, err)) orelse
+        return fail(init, error.SessionNotFound);
+    defer record.deinit(init.gpa);
+    const geometry = worker.resizeSession(
+        init.gpa,
+        record.id,
+        record.protocol_version,
+        record.last_sequence,
+        columns.?,
+        rows.?,
+    ) catch |err| return fail(init, err);
+    try writeJson(init.gpa, init.io, .{
+        .ok = true,
+        .id = record.id,
+        .geometry = GeometryView{
+            .columns = geometry.columns,
+            .rows = geometry.rows,
+            .generation = geometry.generation,
+            .ownerClientId = geometry.owner_client_id,
+        },
     });
     return @intFromEnum(Exit.ok);
 }
@@ -941,7 +1046,7 @@ fn writeUsage(io: std.Io) !u8 {
     try std.Io.File.stderr().writeStreamingAll(
         io,
         "usage: machinen-session " ++
-            "<workspace|new|list|inspect|attach|take|send|signal|stop|delete|" ++
+            "<workspace|new|list|inspect|attach|take|resize|send|signal|stop|delete|" ++
             "reconcile|gc|database|help> ...\n",
     );
     return @intFromEnum(Exit.usage);
@@ -966,8 +1071,10 @@ fn writeHelp(io: std.Io) !u8 {
         \\  machinen-session list --database <path>
         \\  machinen-session inspect --database <path> <id-or-name>
         \\  machinen-session attach --database <path> [--after <sequence>] [--read-only]
-        \\      [--latest-screen] [--client-id <number>] [--client-name <name>] <id-or-name>
+        \\      [--latest-screen] [--geometry-events] [--client-id <number>]
+        \\      [--client-name <name>] <id-or-name>
         \\  machinen-session take --database <path> --client-id <number> <id-or-name>
+        \\  machinen-session resize --database <path> --columns <n> --rows <n> <id-or-name>
         \\  machinen-session send --database <path> <id-or-name> < input
         \\  machinen-session signal --database <path> <id-or-name> <interrupt|hangup|terminate|kill>
         \\  machinen-session stop --database <path> <id-or-name>

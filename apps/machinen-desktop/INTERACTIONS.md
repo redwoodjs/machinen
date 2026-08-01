@@ -97,6 +97,12 @@ camera moves. Navigate mode shows a scaled version of that unchanged surface;
 it does not resize or reflow the terminal. Leaving Terminal mode therefore
 cannot shift its content or scroll position.
 
+When several Desktops view the same native session, the PTY keeps one
+controller-owned rows-by-columns grid. Watchers fit and letterbox that grid in
+their own differently sized tiles; they do not resize or reflow it. A lone
+viewer follows its own dimensions automatically. **Sessions…** labels the owner
+as **CONTROL** and offers **Take Control and Resize** to an attached watcher.
+
 Machinen never interprets an unmodified Escape in Terminal mode. The byte goes
 directly to the PTY, so terminal programs retain their normal Escape behavior.
 `⌘C` copies the current terminal selection, `⌘V` pastes plain text into the
@@ -206,8 +212,9 @@ from this top-level menu dismisses it:
 6. **Sessions…** opens a floating, keyboard-navigable list of every terminal
    session in the workspace. Each row shows this Desktop's attachment state,
    every connected client, and the current controller. Return attaches or
-   detaches normally; when this Desktop is an attached watcher, Return takes
-   writer and resize control while leaving the previous controller connected.
+   detaches normally; when this Desktop is an attached watcher, Return performs
+   **Take Control and Resize**, transferring writer and resize control while
+   leaving the previous controller connected.
    Delete or `⌘W` kills the session.
 7. **Close workspace…** asks for confirmation, terminates its PTY processes,
    and removes its saved workspace and terminal definitions.
@@ -298,7 +305,8 @@ current workspace or terminal's diagnostics without interrupting its PTY.
 
 The top-right strip keeps a built-in `Desktop <version> · Session <version>`
 item at its right edge, using the app bundle version and bundled native session
-handler version. The remaining items are graphical at rest. The strip occupies
+handler version. The remaining items
+are graphical at rest. The strip occupies
 its own layout row; the scene viewport starts below it, so terminal content
 never renders underneath the status bar. In a **workspace**, its activity
 monitor summarizes all terminals with visible active/idle/waiting tile counts,
@@ -308,7 +316,10 @@ reveals the branch, commits since its default-branch merge base, changed files,
 and added and deleted lines. In a **focused tile**, its minimap pane remains the
 activity indicator. When a running native session inside the workspace has no Desktop tile,
 a count item appears in the strip; clicking it opens the same panel as
-**Sessions…**. The strip also shows CPU and network transfer for that PID and its local
+**Sessions…**. A focused terminal also shows **CONTROL** when this Desktop owns
+input and resize, or **VIEWING** otherwise. `+N` reports other attached viewers;
+hovering lists their names and roles, and clicking opens **Sessions…** with the
+focused session selected. The strip also shows CPU and network transfer for that PID and its local
 child processes, plus workspace branch changes. Git is
 scoped to the selected workspace. Open ports include listeners whose process
 working directory is the selected workspace folder or one of its descendants,
