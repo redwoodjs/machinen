@@ -45,6 +45,9 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     private var lastSignaledGeometry: TerminalGeometry?
     private var geometryDisplayScale = NSSize(width: 1, height: 1)
     private var geometrySourceSize: NSSize?
+    private var outputByteCount = 0
+    private var renderRequestCount = 0
+    private var lastGeometryDiagnostic: String?
     var rendersAuthoritativeGrid: Bool {
         sessionGeometry != nil && (!ownsResizeControl || pinsAuthoritativeGeometry)
     }
@@ -286,8 +289,16 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         do {
             let tap = try GhosttyOutputTap { [weak self] data in
                 DispatchQueue.main.async { [weak self] in
-                    self?.activityDetector?.recordOutput()
-                    self?.onOutput?(data)
+                    guard let self else { return }
+                    self.outputByteCount += data.count
+                    if self.outputByteCount == data.count {
+                        InputRoutingLog.log(
+                            "terminal[\(self.session.tileID)] first viewer output "
+                                + "bytes=\(data.count)"
+                        )
+                    }
+                    self.activityDetector?.recordOutput()
+                    self.onOutput?(data)
                 }
             }
             outputTap = tap
@@ -475,6 +486,16 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         updateGhosttyGeometry()
     }
 
+    func ghosttyRenderRequested() {
+        renderRequestCount += 1
+        if renderRequestCount == 1 || renderRequestCount.isMultiple(of: 300) {
+            InputRoutingLog.log(
+                "terminal[\(session.tileID)] render requests=\(renderRequestCount) "
+                    + "outputBytes=\(outputByteCount)"
+            )
+        }
+    }
+
     func ghosttyMouseShapeChanged(_ shape: ghostty_action_mouse_shape_e) {
         switch shape {
         case GHOSTTY_MOUSE_SHAPE_POINTER: NSCursor.pointingHand.set()
@@ -619,10 +640,19 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
             viewportPixels
         }
         ghostty_surface_set_size(surface, pixels.width, pixels.height)
+        let diagnostic = "bounds=\(Int(bounds.width))x\(Int(bounds.height)) "
+            + "viewport=\(viewportPixels.width)x\(viewportPixels.height) "
+            + "surface=\(pixels.width)x\(pixels.height) scale=\(scale) "
+            + "authoritative=\(usesAuthoritativeGrid) hidden=\(isHidden) "
+            + "window=\(window != nil)"
+        if diagnostic != lastGeometryDiagnostic {
+            lastGeometryDiagnostic = diagnostic
+            InputRoutingLog.log("terminal[\(session.tileID)] geometry view \(diagnostic)")
+        }
         updateGeometryTransform(
             sourcePixels: pixels,
             viewportPixels: viewportPixels,
-            enabled: usesAuthoritativeGrid
+            enabled: false
         )
         if let screen = window?.screen {
             ghostty_surface_set_display_id(
@@ -637,6 +667,8 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         viewportPixels: (width: UInt32, height: UInt32),
         enabled: Bool
     ) {
+        // Temporarily disabled while diagnosing blank Ghostty surfaces. Keeping
+        // the sizing path active isolates CALayer transforms from PTY geometry.
         guard enabled, sourcePixels.width > 0, sourcePixels.height > 0,
               viewportPixels.width > 0, viewportPixels.height > 0
         else {

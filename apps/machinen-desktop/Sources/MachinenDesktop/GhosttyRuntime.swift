@@ -181,6 +181,7 @@ final class GhosttyRuntime: @unchecked Sendable {
         guard let view = view(from: target) else { return false }
         switch action.tag {
         case GHOSTTY_ACTION_RENDER:
+            DispatchQueue.main.async { view.ghosttyRenderRequested() }
             return true
         case GHOSTTY_ACTION_SET_TITLE:
             guard let title = action.action.set_title.title else { return false }

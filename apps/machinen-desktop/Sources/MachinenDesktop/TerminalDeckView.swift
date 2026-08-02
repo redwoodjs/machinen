@@ -523,6 +523,51 @@ final class TerminalDeckView: NSView {
         }
     }
 
+    private func migrateNativeWorkspace(
+        _ workspace: WorkspaceRecord,
+        replacing previousID: String
+    ) {
+        let sessions = persistedSessionTiles.map(\.session).filter {
+            $0.workspaceID == workspace.id
+        }
+        var locationsByMachine = [workspace.location.machineID: workspace.location]
+        for session in sessions where locationsByMachine[session.location.machineID] == nil {
+            var anchor = session.location
+            anchor.path = session.workspaceRoot
+            locationsByMachine[anchor.machineID] = anchor
+        }
+        for location in locationsByMachine.values {
+            let sessionIDs = sessions.filter {
+                $0.location.machineID == location.machineID
+            }.map(\.id)
+            sessionBackend.saveWorkspace(
+                id: workspace.id,
+                name: workspace.name,
+                at: location,
+                sessionIDs: sessionIDs
+            ) { [weak self] result in
+                guard let self else { return }
+                guard case .success = result else {
+                    if case let .failure(error) = result {
+                        NSLog(
+                            "Machinen could not migrate native workspace: %@",
+                            String(describing: error)
+                        )
+                    }
+                    return
+                }
+                self.sessionBackend.deleteWorkspace(id: previousID, at: location) { result in
+                    if case let .failure(error) = result {
+                        NSLog(
+                            "Machinen could not remove the superseded native workspace: %@",
+                            String(describing: error)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     private func restoreNativeWorkspaces(from location: WorkspaceLocation) {
         sessionBackend.listWorkspaces(at: location) { [weak self] result in
             guard let self else { return }
@@ -534,11 +579,18 @@ final class TerminalDeckView: NSView {
                 }
                 return
             }
+            var nativeWorkspaceKeys = Set<String>()
+            let canonicalRecords = records.filter { record in
+                let root = self.normalizedSessionPath(record.rootDirectory)
+                let key = WorkspaceName.key(record.name) + "\u{0}" + root
+                return nativeWorkspaceKeys.insert(key).inserted
+            }
             var changed = false
             var restored: [WorkspaceRecord] = []
             var updated: [WorkspaceRecord] = []
+            var migrated: [(workspace: WorkspaceRecord, previousID: String)] = []
             var usedNames = Set(self.workspaces.map { WorkspaceName.key($0.name) })
-            for record in records {
+            for record in canonicalRecords {
                 if let existing = self.workspaces.first(where: { $0.id == record.id }) {
                     guard existing.location.machineID == location.machineID else { continue }
                     let previousName = existing.name
@@ -558,6 +610,46 @@ final class TerminalDeckView: NSView {
                     }
                     continue
                 }
+                if let existingIndex = self.workspaces.firstIndex(where: {
+                    $0.location.machineID == location.machineID
+                        && WorkspaceName.key($0.name) == WorkspaceName.key(record.name)
+                        && self.normalizedSessionPath($0.location.path)
+                            == self.normalizedSessionPath(record.rootDirectory)
+                }) {
+                    let previous = self.workspaces[existingIndex]
+                    let previousID = previous.id
+                    usedNames.remove(WorkspaceName.key(previous.name))
+                    let workspace = WorkspaceRecord(
+                        id: record.id,
+                        name: WorkspaceName.unique(record.name, reserving: &usedNames),
+                        workingDirectory: record.rootDirectory,
+                        sshHost: location.sshHost
+                    )
+                    self.workspaces[existingIndex] = workspace
+                    for tile in self.persistedSessionTiles where
+                        tile.session.workspaceID == previousID
+                    {
+                        tile.session.workspaceID = workspace.id
+                        tile.session.workspace = workspace.name
+                        tile.session.workspaceRoot = workspace.workingDirectory
+                    }
+                    if self.currentWorkspace == previousID {
+                        self.currentWorkspace = workspace.id
+                    }
+                    if let terminalID = self.activeTerminalByWorkspace.removeValue(
+                        forKey: previousID
+                    ) {
+                        self.activeTerminalByWorkspace[workspace.id] = terminalID
+                    }
+                    if self.availableSessionsWorkspaceID == previousID {
+                        self.availableSessionsWorkspaceID = workspace.id
+                    }
+                    self.rememberWorkspaceLocation(workspace.location)
+                    migrated.append((workspace, previousID))
+                    updated.append(workspace)
+                    changed = true
+                    continue
+                }
                 let name = WorkspaceName.unique(record.name, reserving: &usedNames)
                 let workspace = WorkspaceRecord(
                     id: record.id,
@@ -570,12 +662,18 @@ final class TerminalDeckView: NSView {
                 restored.append(workspace)
                 changed = true
             }
-            let nativeIDs = Set(records.map(\.id))
+            let nativeIDs = Set(canonicalRecords.map(\.id))
             for workspace in self.workspaces where
                 workspace.location.machineID == location.machineID
                     && !nativeIDs.contains(workspace.id)
             {
                 self.persistNativeWorkspace(workspace)
+            }
+            for migration in migrated {
+                self.migrateNativeWorkspace(
+                    migration.workspace,
+                    replacing: migration.previousID
+                )
             }
             guard changed else { return }
             self.rebuildWorkspaceClusters()

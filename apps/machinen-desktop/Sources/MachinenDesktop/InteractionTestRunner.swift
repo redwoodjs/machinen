@@ -505,7 +505,6 @@ enum InteractionTestRunner {
                 && statusMinimap.usesMonochromePixelPalette
                 && statusMinimap.pixelArtWorkspaceGap == 1
                 && statusMinimap.pixelArtPaneGap == 1
-                && statusMinimap.frame.maxX < statusBar.navigationTitleFrameForTesting.minX
                 && !minimap.rendersPaneDetail
                 && minimap.rendersPaneBlocks
                 && minimap.usesPixelArtPresentation
@@ -518,6 +517,14 @@ enum InteractionTestRunner {
             abs(minimap.frame.maxX - (deck.bounds.maxX - 18)) < 0.5
                 && abs(minimap.frame.minY - (statusBar.frame.maxY + 12)) < 0.5,
             "the large minimap was not anchored below the status bar at the right edge"
+        )
+        let statusWidgetFrames = statusBar.widgetFramesForTesting
+        try expect(
+            abs(statusMinimap.frame.maxX - (statusBar.bounds.maxX - 14)) < 0.5
+                && statusBar.navigationTitleFrameForTesting.maxX < statusMinimap.frame.minX
+                && !statusWidgetFrames.isEmpty
+                && statusWidgetFrames.allSatisfy { $0.maxX < statusMinimap.frame.minX },
+            "the status minimap was not the final item at the right edge"
         )
         let minimapHoverPoint = NSPoint(x: statusMinimap.frame.midX, y: statusMinimap.frame.midY)
         try expect(
@@ -1720,6 +1727,60 @@ enum InteractionTestRunner {
             try harness.availableSessions(in: deck).items.map(\.session.id) == ["term_recovered"],
             "the restored workspace's session was not available for attachment"
         )
+
+        let migrationHarness = try Harness()
+        defer { migrationHarness.cleanUp() }
+        migrationHarness.setNativeWorkspaces([
+            NativeWorkspaceRecord(
+                id: "ws_canonical",
+                name: "project",
+                rootDirectory: migrationHarness.temporaryDirectoryPath,
+                createdAtMs: 1,
+                updatedAtMs: 2
+            ),
+            NativeWorkspaceRecord(
+                id: "ws_duplicate",
+                name: "project",
+                rootDirectory: migrationHarness.temporaryDirectoryPath,
+                createdAtMs: 2,
+                updatedAtMs: 3
+            ),
+        ])
+        let legacyWorkspace = WorkspaceRecord(
+            id: "ws_legacy",
+            name: "project",
+            workingDirectory: migrationHarness.temporaryDirectoryPath
+        )
+        let legacySession = TerminalSession(
+            id: "term_legacy",
+            label: "ls",
+            workspaceID: legacyWorkspace.id,
+            workspace: legacyWorkspace.name,
+            name: "shell",
+            launch: .loginShell,
+            workingDirectory: migrationHarness.temporaryDirectoryPath,
+            state: .running
+        )
+        let migratedDeck = migrationHarness.makeDeck(
+            workspaces: [(legacyWorkspace, [legacySession])]
+        )
+        let migratedSnapshot = try migrationHarness.snapshot(of: migratedDeck)
+        try expect(
+            migratedSnapshot.workspaces.map(\.id) == ["ws_canonical"]
+                && migratedSnapshot.tiles.map(\.workspaceId) == ["ws_canonical"],
+            "a native workspace with the same machine and root created a duplicate workspace"
+        )
+        let migratedState = migrationHarness.loadStoredState()
+        try expect(
+            migratedState.workspaces.map(\.id) == ["ws_canonical"]
+                && migratedState.sessions.map(\.workspaceID) == ["ws_canonical"],
+            "the canonical native workspace ID was not persisted"
+        )
+        try expect(
+            migrationHarness.savedWorkspaceIDs.contains("ws_canonical")
+                && migrationHarness.deletedWorkspaceIDs.contains("ws_legacy"),
+            "the native session store did not replace the superseded workspace ID"
+        )
     }
 
     private static func graphicalStatusWidgetsRender() throws {
@@ -1987,8 +2048,27 @@ enum InteractionTestRunner {
                 && remoteCommand.contains("'--workspace-name' 'remote quote'")
                 && remoteCommand.contains("'--workspace-root' '/Users/p4p8/project'\\''s files'")
                 && remoteCommand.contains("'--cwd' '/Users/p4p8/project'\\''s files'")
+                && remoteCommand.contains(
+                    "MACHINEN_SESSION_DATABASE=\"$HOME/Library/Application Support/Machinen/sessions.sqlite3\""
+                )
+                && remoteCommand.contains(
+                    "MACHINEN_LEGACY_SESSION_DATABASE=\"${XDG_STATE_HOME:-$HOME/.local/state}/machinen/sessions.sqlite3\""
+                )
+                && remoteCommand.contains("'--database' \"$MACHINEN_SESSION_DATABASE\"")
+                && remoteCommand.contains("inspect --database")
                 && remoteCommand.contains("printf") && remoteCommand.contains("ready"),
-            "the remote terminal command did not safely quote its path and command: \(remoteCommand)"
+            "the remote terminal command did not safely select and quote its database, path, and command: \(remoteCommand)"
+        )
+        let mergedSessions = try MachinenNativeSessionBackend.decodeSessionListOutput(
+            """
+            {"sessions":[{"id":"term_shared","name":"canonical","state":"running","workspaceId":"ws_one","workingDirectory":"/one","createdAtMs":1,"updatedAtMs":2}]}
+            {"sessions":[{"id":"term_shared","name":"legacy","state":"running","workspaceId":"ws_old","workingDirectory":"/old","createdAtMs":1,"updatedAtMs":3},{"id":"term_legacy","name":null,"state":"running","workspaceId":"ws_one","workingDirectory":"/one","createdAtMs":1,"updatedAtMs":4}]}
+            """
+        )
+        try expect(
+            mergedSessions.map(\.id) == ["term_shared", "term_legacy"]
+                && mergedSessions.first?.name == "canonical",
+            "remote canonical and legacy session stores were not merged with canonical precedence"
         )
         let sshArguments = MachinenSSHTransport.arguments(connectTimeout: 8)
         try expect(
@@ -3243,6 +3323,8 @@ private final class Harness {
     var resizedSessionRequests: [(id: String, columns: UInt16, rows: UInt16)] {
         terminalBackend.resizedSessions
     }
+    var savedWorkspaceIDs: [String] { terminalBackend.savedWorkspaces.map(\.id) }
+    var deletedWorkspaceIDs: [String] { terminalBackend.deletedWorkspaces.map(\.id) }
 
     func setNativeWorkspaces(_ workspaces: [NativeWorkspaceRecord]) {
         terminalBackend.nativeWorkspaces = workspaces
