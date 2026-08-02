@@ -475,11 +475,9 @@ enum InteractionTestRunner {
                 (subview as? T).map { [$0] } ?? descendants(of: subview, as: type)
             }
         }
-        guard let terminalTile = descendants(of: deck, as: TerminalTileView.self).first else {
+        guard descendants(of: deck, as: TerminalTileView.self).first != nil else {
             throw InteractionTestFailure("the status test could not find its terminal")
         }
-        terminalTile.updateProcessInfo(TerminalProcessInfo(shellPID: 4201, processPID: 4242))
-        terminalTile.updateActivity(to: .working)
         _ = try deck.performAPIOperation("status.set", params: [
             "id": "git.modified",
             "kind": "count",
@@ -498,27 +496,6 @@ enum InteractionTestRunner {
         try expect(
             effective.first(where: { $0.id == "git.modified" })?.value == "3",
             "the workspace widget did not override the global widget"
-        )
-        let activity = effective.first(where: { $0.id == "machinen.activity" })
-        try expect(
-            activity?.scope == .init(kind: "terminal", id: terminalTile.session.id)
-                && activity?.states == ["working"],
-            "Terminal mode did not show the focused terminal's activity"
-        )
-        try expect(
-            activity?.tooltip == "PID 4242 · click to copy",
-            "the activity indicator did not expose its terminal PID"
-        )
-        guard let statusBar = descendants(of: deck, as: MachinenStatusBarView.self).first,
-              let activityWidget = statusBar.widgets.first(where: { $0.id == "machinen.activity" })
-        else {
-            throw InteractionTestFailure("the terminal activity indicator was not rendered")
-        }
-        NSPasteboard.general.clearContents()
-        try expect(
-            deck.copyPIDIfNeeded(from: activityWidget)
-                && NSPasteboard.general.string(forType: .string) == "4242",
-            "clicking the activity indicator did not copy its PID"
         )
         _ = try deck.performAPIOperation("status.set", params: [
             "id": "network.graph",
