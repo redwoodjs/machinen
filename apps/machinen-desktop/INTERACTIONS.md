@@ -77,7 +77,8 @@ first launch and adds new defaults to older files. The actions are `enter`,
   preserves the scene's exact workspace and pane geometry under one uniform
   scale and animates the camera viewport from source to destination. It remains
   fully visible for 1.25 seconds at the destination, then fades over 340 ms. A
-  persistent 56×26-point status item sits at the far left before the breadcrumb.
+  persistent 56×26-point status item sits at the far right after every other
+  status item.
   It keeps exact workspace and pane placement but simplifies each pane to a
   square pixel-snapped outline, with one-pixel gutters that make pane and
   workspace counts legible. Pane outline intensity also carries activity:
@@ -303,9 +304,9 @@ works through SSH.
 The macOS **View** menu contains **Show Debug Information**, which presents the
 current workspace or terminal's diagnostics without interrupting its PTY.
 
-The top-right strip keeps a built-in `Desktop <version> · Session <version>`
-item at its right edge, using the app bundle version and bundled native session
-handler version. The remaining items
+The top-right strip ends with the persistent spatial minimap. Immediately before
+it, a built-in `Desktop <version> · Session <version>` item identifies the app
+bundle version and bundled native session handler version. The remaining items
 are graphical at rest. The strip occupies
 its own layout row; the scene viewport starts below it, so terminal content
 never renders underneath the status bar. In a **workspace**, its activity

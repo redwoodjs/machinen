@@ -1,0 +1,14 @@
+[package]
+name = "gpui-ghostty-spike"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+# `runtime_shaders` keeps the spike runnable with Command Line Tools alone;
+# GPUI otherwise invokes Xcode's offline `metal` compiler during the build.
+gpui = { version = "0.2.2", default-features = false, features = ["font-kit", "runtime_shaders"] }
+raw-window-handle = "0.6"
+
+[build-dependencies]
+cc = "1.2"
