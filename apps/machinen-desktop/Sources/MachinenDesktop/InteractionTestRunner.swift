@@ -26,6 +26,7 @@ enum InteractionTestRunner {
             try availableNativeSessionsReconnectIntoWorkspace()
             try attachedSessionCanTakeControl()
             try nativeWorkspaceRegistryRestoresLostDesktopState()
+            try closingWorkspaceIgnoresStaleNativeRegistryListing()
             try graphicalStatusWidgetsRender()
             try desktopServicesRestartUntilTheAppStops()
             try workspaceNamesRemainUniqueAndLocationsCanBeShared()
@@ -45,7 +46,7 @@ enum InteractionTestRunner {
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (33 scenarios)")
+            print("Machinen interaction tests passed (34 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -1240,6 +1241,33 @@ enum InteractionTestRunner {
         try expect(
             launchCount() == countAfterStop,
             "Desktop services restarted after their supervisor stopped"
+        )
+    }
+
+    private static func closingWorkspaceIgnoresStaleNativeRegistryListing() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let workspace = harness.workspace("closing", terminalCount: 0).0
+        harness.setNativeWorkspaces([
+            NativeWorkspaceRecord(
+                id: workspace.id,
+                name: workspace.name,
+                rootDirectory: workspace.workingDirectory,
+                createdAtMs: 1,
+                updatedAtMs: 2
+            ),
+        ])
+        harness.deferNativeWorkspaceListings()
+        let deck = harness.makeDeck(workspaces: [(workspace, [])])
+
+        _ = try deck.performAPIOperation("workspace.delete", params: [
+            "workspaceId": workspace.id,
+        ])
+        harness.completeNativeWorkspaceListings()
+
+        try expect(
+            try harness.snapshot(of: deck).workspaces.isEmpty,
+            "a stale native registry listing restored a workspace after it was closed"
         )
     }
 
@@ -2510,6 +2538,10 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
 
     var availableSessions: [AvailableTerminalSession] = []
     var nativeWorkspaces: [NativeWorkspaceRecord] = []
+    private var deferredWorkspaceListCompletions: [
+        @MainActor @Sendable (Result<[NativeWorkspaceRecord], Error>) -> Void
+    ] = []
+    var defersWorkspaceListings = false
     var savedWorkspaces: [(id: String, name: String, location: WorkspaceLocation, sessions: [String])] = []
     var deletedWorkspaces: [(id: String, location: WorkspaceLocation)] = []
     var takenControlOf: [String] = []
@@ -2525,7 +2557,17 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
         at location: WorkspaceLocation,
         completion: @escaping @MainActor @Sendable (Result<[NativeWorkspaceRecord], Error>) -> Void
     ) {
-        completion(.success(nativeWorkspaces))
+        if defersWorkspaceListings {
+            deferredWorkspaceListCompletions.append(completion)
+        } else {
+            completion(.success(nativeWorkspaces))
+        }
+    }
+
+    func completeDeferredWorkspaceListings() {
+        let completions = deferredWorkspaceListCompletions
+        deferredWorkspaceListCompletions = []
+        for completion in completions { completion(.success(nativeWorkspaces)) }
     }
 
     func saveWorkspace(
@@ -2611,6 +2653,14 @@ private final class Harness {
 
     func setNativeWorkspaces(_ workspaces: [NativeWorkspaceRecord]) {
         terminalBackend.nativeWorkspaces = workspaces
+    }
+
+    func deferNativeWorkspaceListings() {
+        terminalBackend.defersWorkspaceListings = true
+    }
+
+    func completeNativeWorkspaceListings() {
+        terminalBackend.completeDeferredWorkspaceListings()
     }
 
     func loadStoredState() -> MachinenStoredState {
