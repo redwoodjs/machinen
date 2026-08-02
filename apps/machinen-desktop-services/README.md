@@ -35,7 +35,6 @@ the service is healthy, so stale menu items disappear after a crash.
 
 The service publishes all of Desktop's live status items through `status.set`:
 
-- workspace terminal activity
 - local/SSH Git status
 - open TCP ports whose listener process is running in the selected workspace folder
 - overview host CPU and network transfer
