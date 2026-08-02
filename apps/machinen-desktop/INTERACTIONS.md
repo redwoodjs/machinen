@@ -276,9 +276,7 @@ monitor summarizes all terminals with visible active/idle/waiting tile counts,
 and the strip also shows aggregate tile CPU, aggregate tile network transfer,
 and branch-wide Git changes. The Git item shows only the total changed-file count at rest; hovering
 reveals the branch, commits since its default-branch merge base, changed files,
-and added and deleted lines. In a **focused tile**, the activity indicator shows that tile's state; hovering
-shows its foreground PID as `PID #### · click to copy`, and clicking copies the
-number. When a running native session inside the workspace has no Desktop tile,
+and added and deleted lines. When a running native session inside the workspace has no Desktop tile,
 a count item appears in the strip; clicking it opens the same panel as
 **Sessions…**. The strip also shows CPU and network transfer for that PID and its local
 child processes, plus workspace branch changes. Git is
@@ -289,8 +287,7 @@ listener on its own line with the process and bind address;
 clicking the instrument presents those listeners, and choosing one opens its
 HTTP URL through the default macOS handler. Trusted TypeScript desktop services
 publish activity, Git, ports, CPU, and network widgets through the local API. Process network bytes come from macOS `nettop`. Tile activity is a
-label-free graphical indicator; Desktop supplies its terminal-level state and
-PID interaction directly from native session telemetry.
+label-free graphical indicator; Desktop supplies terminal-level state from native session telemetry.
 
 Programs can publish scoped text, count, state, progress, timer, sparkline, and
 separator widgets through `status.set`, `status.list`, and `status.remove`.

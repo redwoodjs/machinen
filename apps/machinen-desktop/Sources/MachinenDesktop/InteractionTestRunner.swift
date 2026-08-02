@@ -26,7 +26,6 @@ enum InteractionTestRunner {
             try availableNativeSessionsReconnectIntoWorkspace()
             try attachedSessionCanTakeControl()
             try nativeWorkspaceRegistryRestoresLostDesktopState()
-            try closingWorkspaceIgnoresStaleNativeRegistryListing()
             try graphicalStatusWidgetsRender()
             try desktopServicesRestartUntilTheAppStops()
             try workspaceNamesRemainUniqueAndLocationsCanBeShared()
@@ -46,7 +45,7 @@ enum InteractionTestRunner {
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (34 scenarios)")
+            print("Machinen interaction tests passed (33 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -476,11 +475,9 @@ enum InteractionTestRunner {
                 (subview as? T).map { [$0] } ?? descendants(of: subview, as: type)
             }
         }
-        guard let terminalTile = descendants(of: deck, as: TerminalTileView.self).first else {
+        guard descendants(of: deck, as: TerminalTileView.self).first != nil else {
             throw InteractionTestFailure("the status test could not find its terminal")
         }
-        terminalTile.updateProcessInfo(TerminalProcessInfo(shellPID: 4201, processPID: 4242))
-        terminalTile.updateActivity(to: .working)
         _ = try deck.performAPIOperation("status.set", params: [
             "id": "git.modified",
             "kind": "count",
@@ -499,27 +496,6 @@ enum InteractionTestRunner {
         try expect(
             effective.first(where: { $0.id == "git.modified" })?.value == "3",
             "the workspace widget did not override the global widget"
-        )
-        let activity = effective.first(where: { $0.id == "machinen.activity" })
-        try expect(
-            activity?.scope == .init(kind: "terminal", id: terminalTile.session.id)
-                && activity?.states == ["working"],
-            "Terminal mode did not show the focused terminal's activity"
-        )
-        try expect(
-            activity?.tooltip == "PID 4242 · click to copy",
-            "the activity indicator did not expose its terminal PID"
-        )
-        guard let statusBar = descendants(of: deck, as: MachinenStatusBarView.self).first,
-              let activityWidget = statusBar.widgets.first(where: { $0.id == "machinen.activity" })
-        else {
-            throw InteractionTestFailure("the terminal activity indicator was not rendered")
-        }
-        NSPasteboard.general.clearContents()
-        try expect(
-            deck.copyPIDIfNeeded(from: activityWidget)
-                && NSPasteboard.general.string(forType: .string) == "4242",
-            "clicking the activity indicator did not copy its PID"
         )
         _ = try deck.performAPIOperation("status.set", params: [
             "id": "network.graph",
@@ -1241,33 +1217,6 @@ enum InteractionTestRunner {
         try expect(
             launchCount() == countAfterStop,
             "Desktop services restarted after their supervisor stopped"
-        )
-    }
-
-    private static func closingWorkspaceIgnoresStaleNativeRegistryListing() throws {
-        let harness = try Harness()
-        defer { harness.cleanUp() }
-        let workspace = harness.workspace("closing", terminalCount: 0).0
-        harness.setNativeWorkspaces([
-            NativeWorkspaceRecord(
-                id: workspace.id,
-                name: workspace.name,
-                rootDirectory: workspace.workingDirectory,
-                createdAtMs: 1,
-                updatedAtMs: 2
-            ),
-        ])
-        harness.deferNativeWorkspaceListings()
-        let deck = harness.makeDeck(workspaces: [(workspace, [])])
-
-        _ = try deck.performAPIOperation("workspace.delete", params: [
-            "workspaceId": workspace.id,
-        ])
-        harness.completeNativeWorkspaceListings()
-
-        try expect(
-            try harness.snapshot(of: deck).workspaces.isEmpty,
-            "a stale native registry listing restored a workspace after it was closed"
         )
     }
 
@@ -2538,10 +2487,6 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
 
     var availableSessions: [AvailableTerminalSession] = []
     var nativeWorkspaces: [NativeWorkspaceRecord] = []
-    private var deferredWorkspaceListCompletions: [
-        @MainActor @Sendable (Result<[NativeWorkspaceRecord], Error>) -> Void
-    ] = []
-    var defersWorkspaceListings = false
     var savedWorkspaces: [(id: String, name: String, location: WorkspaceLocation, sessions: [String])] = []
     var deletedWorkspaces: [(id: String, location: WorkspaceLocation)] = []
     var takenControlOf: [String] = []
@@ -2557,17 +2502,7 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
         at location: WorkspaceLocation,
         completion: @escaping @MainActor @Sendable (Result<[NativeWorkspaceRecord], Error>) -> Void
     ) {
-        if defersWorkspaceListings {
-            deferredWorkspaceListCompletions.append(completion)
-        } else {
-            completion(.success(nativeWorkspaces))
-        }
-    }
-
-    func completeDeferredWorkspaceListings() {
-        let completions = deferredWorkspaceListCompletions
-        deferredWorkspaceListCompletions = []
-        for completion in completions { completion(.success(nativeWorkspaces)) }
+        completion(.success(nativeWorkspaces))
     }
 
     func saveWorkspace(
@@ -2653,14 +2588,6 @@ private final class Harness {
 
     func setNativeWorkspaces(_ workspaces: [NativeWorkspaceRecord]) {
         terminalBackend.nativeWorkspaces = workspaces
-    }
-
-    func deferNativeWorkspaceListings() {
-        terminalBackend.defersWorkspaceListings = true
-    }
-
-    func completeNativeWorkspaceListings() {
-        terminalBackend.completeDeferredWorkspaceListings()
     }
 
     func loadStoredState() -> MachinenStoredState {

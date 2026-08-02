@@ -101,9 +101,7 @@ final class TerminalDeckView: NSView {
     private let sessionBackend: any TerminalSessionBackend
     private var workspaces: [WorkspaceRecord]
     private var workspaceLocationHistory: [WorkspaceLocation]
-    // A registry listing can arrive after a workspace has been closed. Do not
-    // let that stale response put the deleted workspace back in the scene.
-    private var deletedNativeWorkspaceIDs: Set<String> = []
+
     private var allSessionTiles: [TerminalTileView]
     private var workspaceClusters: [WorkspaceClusterView] = []
     private var workspaceUnion = NSRect.zero
@@ -202,7 +200,7 @@ final class TerminalDeckView: NSView {
                 self.toggleAvailableSessions()
                 return true
             }
-            return self.copyPIDIfNeeded(from: widget)
+            return false
         }
         statusBarView.onWorkspaceSelect = { [weak self] workspaceID in
             self?.selectWorkspaceFromStatusBar(workspaceID)
@@ -471,7 +469,6 @@ final class TerminalDeckView: NSView {
     }
 
     private func deleteNativeWorkspace(_ workspace: WorkspaceRecord) {
-        deletedNativeWorkspaceIDs.insert(workspace.id)
         var locationsByMachine = [workspace.location.machineID: workspace.location]
         for session in persistedSessionTiles.map(\.session) where session.workspaceID == workspace.id {
             if locationsByMachine[session.location.machineID] == nil {
@@ -502,7 +499,6 @@ final class TerminalDeckView: NSView {
             }
             var nativeWorkspaceKeys = Set<String>()
             let canonicalRecords = records.filter { record in
-                guard !self.deletedNativeWorkspaceIDs.contains(record.id) else { return false }
                 let root = self.normalizedSessionPath(record.rootDirectory)
                 let key = WorkspaceName.key(record.name) + "\u{0}" + root
                 return nativeWorkspaceKeys.insert(key).inserted
@@ -1013,19 +1009,6 @@ final class TerminalDeckView: NSView {
         clearLabelBuffer()
         updateSelection()
         moveCamera()
-    }
-
-    func copyPIDIfNeeded(from widget: MachinenStatusWidget) -> Bool {
-        let pid: String
-        guard widget.id == "machinen.activity",
-              focusedIndex != nil,
-              let associatedPID = selectedSession()?.associatedPID
-        else { return false }
-        pid = String(associatedPID)
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(pid, forType: .string)
-        InputRoutingLog.log("copied terminal PID \(pid) from status bar")
-        return true
     }
 
     private func updateStatusPopover(
@@ -6097,32 +6080,6 @@ final class TerminalDeckView: NSView {
                     expiresAt: nil
                 )
             }
-        }
-        if let terminal = focusedTerminal {
-            let activity = terminal.session.activityState
-            let tone: MachinenStatusWidget.Tone = switch activity {
-            case .working: .busy
-            case .waiting: .attention
-            case .idle, .unknown: .neutral
-            }
-            let tooltip = terminal.session.associatedPID.map {
-                "PID \($0) · click to copy"
-            } ?? "PID unavailable"
-            resolved["machinen.activity"] = MachinenStatusWidget(
-                id: "machinen.activity",
-                scopeKind: .terminal,
-                scopeID: terminal.session.id,
-                placement: .right,
-                kind: .state,
-                label: "Activity",
-                value: "",
-                progress: nil,
-                tone: tone,
-                tooltip: tooltip,
-                priority: 1_000,
-                expiresAt: nil,
-                states: [activity.rawValue]
-            )
         }
         statusBarView.widgets = Array(resolved.values)
     }
