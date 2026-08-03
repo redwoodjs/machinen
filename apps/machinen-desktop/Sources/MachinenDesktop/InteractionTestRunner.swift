@@ -223,6 +223,24 @@ enum InteractionTestRunner {
                 && settingsItem?.keyEquivalentModifierMask == [.command],
             "the settings menu item did not use the standard ⌘, shortcut"
         )
+        let newItems = appMenu?.items.filter {
+            $0.action == NSSelectorFromString("createNewWorkspaceOrTerminal")
+        } ?? []
+        try expect(
+            newItems.contains(where: {
+                $0.keyEquivalent == "n" && $0.keyEquivalentModifierMask == [.command]
+            }),
+            "the application menu did not expose ⌘N for the New chooser"
+        )
+        try expect(
+            newItems.contains(where: {
+                $0.keyEquivalent == "n"
+                    && $0.keyEquivalentModifierMask == [.command, .shift]
+                    && $0.isHidden
+                    && $0.allowsKeyEquivalentWhenHidden
+            }),
+            "the application menu did not expose ⇧⌘N for the New chooser"
+        )
         let commandItems = appMenu?.items.filter {
             $0.action == NSSelectorFromString("toggleCommands")
         } ?? []

@@ -35,7 +35,7 @@ discovery use the workspace directory as their project boundary.
 | `⇧⌘↑`           | Leave the current pane or workspace.                                               |
 | `⇧⌘←` / `⇧⌘→`   | From Terminal mode, focus the previous/next pane in the current workspace.         |
 | `⇧⌘[` / `⇧⌘]`   | From Terminal mode, focus the active pane in the previous/next workspace.          |
-| `⌘N`            | Open the New chooser; never create a terminal or workspace immediately.            |
+| `⌘N` / `⇧⌘N`    | Open the New chooser; never create a terminal or workspace immediately.            |
 | `⌘K` / `⇧⌘K`    | Open the single nested command menu for the current and containing spaces.         |
 | `⌘O`            | Show the focused terminal's full context menu.                                     |
 | `⌘W`            | Disconnect a terminal; press again in its toast or panel to kill its session.      |
@@ -64,7 +64,7 @@ first launch and adds new defaults to older files. The actions are `enter`,
 - **Terminal mode:** one terminal is focused, and its viewport owns every
   pointer and keyboard event. Spatial dragging, overview navigation, and
   application command equivalents do not intercept terminal input, except
-  `⌘+` / `⌘−`, the configured Desktop shortcuts, `⌘N`, `⌘K` / `⇧⌘K`, and `⌘O`.
+  `⌘+` / `⌘−`, the configured Desktop shortcuts, `⌘N` / `⇧⌘N`, `⌘K` / `⇧⌘K`, and `⌘O`.
   `previousPane` and `nextPane` wrap through the terminals in the current
   workspace by panning the camera directly at a fixed zoom without leaving
   Terminal mode. `previousWorkspace` and `nextWorkspace` wrap through

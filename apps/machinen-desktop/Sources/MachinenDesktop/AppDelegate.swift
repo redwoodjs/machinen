@@ -143,6 +143,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         newWorkspaceItem.target = self
         appMenu.addItem(newWorkspaceItem)
 
+        let alternateNewWorkspaceItem = NSMenuItem(
+            title: "New…",
+            action: #selector(createNewWorkspaceOrTerminal),
+            keyEquivalent: "n"
+        )
+        alternateNewWorkspaceItem.keyEquivalentModifierMask = [.command, .shift]
+        alternateNewWorkspaceItem.target = self
+        alternateNewWorkspaceItem.isHidden = true
+        alternateNewWorkspaceItem.allowsKeyEquivalentWhenHidden = true
+        appMenu.addItem(alternateNewWorkspaceItem)
+
         let commandsItem = NSMenuItem(
             title: "Commands…",
             action: #selector(toggleCommands),
