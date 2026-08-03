@@ -329,8 +329,7 @@ listener on its own line with the process and bind address;
 clicking the instrument presents those listeners, and choosing one opens its
 HTTP URL through the default macOS handler. Trusted TypeScript desktop services
 publish activity, Git, ports, CPU, and network widgets through the local API. Process network bytes come from macOS `nettop`. Tile activity is a
-label-free graphical indicator; Desktop supplies its terminal-level state and
-PID interaction directly from native session telemetry.
+label-free graphical indicator; Desktop supplies terminal-level state from native session telemetry.
 
 Programs can publish scoped text, count, state, progress, timer, sparkline, and
 separator widgets through `status.set`, `status.list`, and `status.remove`.

@@ -117,6 +117,7 @@ final class TerminalDeckView: NSView {
     private let sessionBackend: any TerminalSessionBackend
     private var workspaces: [WorkspaceRecord]
     private var workspaceLocationHistory: [WorkspaceLocation]
+
     private var allSessionTiles: [TerminalTileView]
     private var workspaceClusters: [WorkspaceClusterView] = []
     private var workspaceUnion = NSRect.zero
