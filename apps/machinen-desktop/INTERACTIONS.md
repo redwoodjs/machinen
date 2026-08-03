@@ -16,7 +16,9 @@ A **workspace** has a stable ID and a mutable directory root—either a local
 folder or an SSH host plus remote folder—and workspace-scoped status items. The
 native session store on the execution machine persists that workspace record and
 explicit session membership, while each Desktop keeps only its own presentation
-cache. A **tile** is the
+cache. Desktop has one implicit local target plus explicit persisted SSH target
+profiles. It polls only those targets; discovery updates the session browser and
+never creates a workspace, tile, viewer, or camera transition. A **tile** is the
 spatial object reordered within that workspace; it links the terminal to its
 current foreground process PID. A **terminal** owns
 the launch configuration, emulator, and persistent PTY. A workspace with one
@@ -339,6 +341,21 @@ Machine widgets override global widgets, workspace widgets override machine
 widgets, and terminal widgets override workspace widgets with the same ID. TTLs
 remove stale live data.
 
+## Registered targets and active sessions
+
+**Commands…** at Workspace Overview offers **Register SSH target…** and
+**Active sessions…**. Registering stores an OpenSSH alias or `user@host` as a
+local connection profile; aliases retain the existing OpenSSH/helper behavior.
+The persistent status bar always exposes the Active sessions count; click it to
+open the browser. The browser groups discovered native workspace records and
+running sessions by target. A target is **online** when polling finds active
+sessions, **inactive** when it responds with none, and **unreachable** when the
+last poll failed; unreachable is retained separately from inactive. Delete
+removes an SSH profile from future polling only. It never deletes or syncs the
+target's `sessions.sqlite3`, PTYs, or output. Enter on a workspace explicitly
+opens it; Enter on a session explicitly attaches it. Matching names or paths
+never merge workspace identities.
+
 ## Disconnecting and killing
 
 `⌘W` never closes Machinen's macOS window:
@@ -347,7 +364,7 @@ remove stale live data.
 - A three-second toast offers **Reconnect `⌘Z`** and **Kill `⌘W`**. Pressing `⌘W` again while the toast is visible kills the disconnected session.
 - The status bar counts sessions that are not attached to Desktop. Its item and `⌘K` → **Sessions…** open the same workspace-scoped panel, which lists sessions by their durable native `workspace_id` membership, this Desktop's attachment state, connected clients, and control owner. Legacy records without membership temporarily fall back to launch-directory containment. Return attaches, detaches, or takes control as appropriate; Delete or `⌘W` kills the selection.
 - `⇧⌘T` reconnects the latest disconnected terminal in the selected workspace and restores its former position.
-- Disconnected terminals persist across a Desktop restart. If Desktop's private manifest is lost, it reconstructs local native workspaces automatically; selecting a registered SSH directory does the same remotely. Reconnection creates a fresh Ghostty renderer from the worker's latest visible screen rather than restoring renderer-owned scrollback, selection, or viewport state.
+- Disconnected terminals persist across a Desktop restart. If Desktop's private manifest is lost, registered-target discovery shows local and SSH native workspaces and sessions but does not reconstruct the spatial scene. The user must explicitly open a workspace and explicitly attach a session. Reconnection creates a fresh Ghostty renderer from the worker's latest visible screen rather than restoring renderer-owned scrollback, selection, or viewport state.
 - In Navigate mode's workspace overview, `⌘W` still confirms before closing the workspace and killing all of its sessions.
 - Files in working directories are never deleted.
 

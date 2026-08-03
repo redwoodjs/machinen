@@ -67,10 +67,11 @@ returns `conflict`.
 ## Object hierarchy
 
 ```text
-Workspace
-└── Tile
-    └── Terminal
-        └── persistent PTY process
+Target machine (local is implicit; SSH is registered)
+└── Workspace
+    └── Tile
+        └── Terminal
+            └── persistent PTY process
 ```
 
 A workspace owns its project directory and workspace-scoped status items. A tile
@@ -176,7 +177,23 @@ Returns `{ "pong": true }`.
 
 ### `system.snapshot`
 
-Atomically returns `workspaces`, `tiles`, `terminals`, and `ui`.
+Atomically returns `targets`, `workspaces`, `tiles`, `terminals`, and `ui`.
+
+## Targets
+
+- `target.list {}`
+- `target.register { host }`
+- `target.remove { targetId }`
+- `target.sessions {}`
+
+Local is the implicit `local` target and cannot be removed. An SSH target has a
+persisted opaque ID and an OpenSSH `host` connection profile (an alias or
+`user@host`). Registering an existing profile is idempotent. `target.list`
+reports `online`, `unreachable`, or `inactive`; unreachable preserves the last
+discovery result and is not inactive. `target.sessions` groups native workspace
+records and running sessions by target. Discovery never changes Desktop's scene
+or attaches a renderer. `target.remove` only stops future polling; it never
+copies SQLite, PTY state, or terminal output.
 
 ## Workspaces
 
@@ -194,9 +211,10 @@ trims surrounding whitespace when creating or renaming a workspace. A workspace
 also has one mutable directory root, which may be shared by other explicitly
 identified workspaces. The native session store on the machine owning that root
 persists the workspace ID, name, root, and explicit session membership. Desktop's
-private manifest is only a presentation cache: a fresh Desktop reconstructs
-local native workspaces automatically, and selecting a registered SSH directory
-restores the corresponding remote workspace. A local location is
+private manifest owns its local spatial scene. Registered targets are polled
+for native workspaces and sessions, but discovery never reconstructs a
+workspace, creates a tile, or attaches a viewer. Opening a discovered workspace
+or attaching a session is always explicit. A local location is
 `{ "kind": "local", "path": "/project" }`. A remote location is
 `{ "kind": "ssh", "host": "mini", "path": "/project" }`; `host` uses the
 user's OpenSSH configuration and may include a username. The legacy
@@ -549,6 +567,8 @@ command.changed
 command.invoked
 selectionOpener.changed
 selectionOpener.invoked
+target.registered
+target.removed
 ui.changed
 ```
 

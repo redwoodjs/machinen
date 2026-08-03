@@ -38,6 +38,9 @@ await desktop.selectionOpeners.set({
 
 await desktop.terminals.resize("term_123", 120, 36);
 
+await desktop.targets.register("mini");
+const discovered = await desktop.targets.sessions(); // discovery only; never opens or attaches
+
 await desktop.status.set({
   id: "example.ready",
   kind: "state",
@@ -53,6 +56,6 @@ The default socket is `/tmp/machinen-<uid>/api-v1.sock`.
 open Machinen when needed unless `launchApplication` is `false` or
 `MACHINEN_DESKTOP_NO_LAUNCH=1`.
 
-The SDK contains transport, protocol, workspace, terminal, UI, event, context
+The SDK contains transport, protocol, target-machine discovery, workspace, terminal, UI, event, context
 command, selection opener, and status widget types. Agent loops, model providers, workflows, prompts, and memory belong
 in higher-level systems such as Eve or Flue.

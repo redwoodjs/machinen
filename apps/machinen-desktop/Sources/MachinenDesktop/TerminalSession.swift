@@ -420,14 +420,18 @@ struct MachinenStoredState {
     var workspaces: [WorkspaceRecord]
     var sessions: [TerminalSession]
     var workspaceLocationHistory: [WorkspaceLocation]
+    /// Local is implicit. These are the only SSH machines Desktop may poll.
+    var targetMachines: [TargetMachine]
 
     init(
         workspaces: [WorkspaceRecord],
         sessions: [TerminalSession],
-        workspaceLocationHistory: [WorkspaceLocation]? = nil
+        workspaceLocationHistory: [WorkspaceLocation]? = nil,
+        targetMachines: [TargetMachine]? = nil
     ) {
         self.workspaces = workspaces
         self.sessions = sessions
         self.workspaceLocationHistory = workspaceLocationHistory ?? workspaces.map(\.location)
+        self.targetMachines = targetMachines ?? []
     }
 }

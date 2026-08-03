@@ -117,6 +117,8 @@ final class TerminalDeckView: NSView {
     private let sessionBackend: any TerminalSessionBackend
     private var workspaces: [WorkspaceRecord]
     private var workspaceLocationHistory: [WorkspaceLocation]
+    private var targetMachines: [TargetMachine]
+    private var targetDiscoveries: [String: TargetDiscovery] = [:]
 
     private var allSessionTiles: [TerminalTileView]
     private var workspaceClusters: [WorkspaceClusterView] = []
@@ -156,6 +158,7 @@ final class TerminalDeckView: NSView {
     private var undoToastTerminalID: String?
     private var undoToastDismissTask: DispatchWorkItem?
     private var availableSessionsView: AvailableSessionsView?
+    private var targetSessionsView: TargetSessionsView?
     private var availableSessionsWorkspaceID: String?
     private var availableSessionsReturnsToCommands = false
     private var availableSessionsPendingSelectionID: String?
@@ -183,6 +186,7 @@ final class TerminalDeckView: NSView {
         self.sessionBackend = sessionBackend ?? TerminalSessionBackendFactory.backend
         workspaces = state.workspaces
         workspaceLocationHistory = state.workspaceLocationHistory
+        targetMachines = state.targetMachines
         let initialTiles = state.sessions.map { TerminalTileView(session: $0) }
         allSessionTiles = initialTiles.filter { $0.session.disconnectedAt == nil }
         recentlyClosedTerminals = Dictionary(uniqueKeysWithValues: initialTiles.compactMap { tile in
@@ -221,6 +225,9 @@ final class TerminalDeckView: NSView {
         statusBarView.onWidgetClick = { [weak self] widget in
             guard let self else { return false }
             switch widget.id {
+            case "machinen.targetSessions":
+                self.toggleTargetSessions()
+                return true
             case "machinen.availableSessions":
                 self.toggleAvailableSessions()
                 return true
@@ -245,8 +252,7 @@ final class TerminalDeckView: NSView {
         }
         enterSoleTerminalIfNeeded()
         updateSelection()
-        synchronizeNativeWorkspaceRegistry()
-        refreshAvailableSessionsIfNeeded(force: true)
+        refreshRegisteredTargets(force: true)
         setAccessibilityElement(false)
     }
 
@@ -259,7 +265,7 @@ final class TerminalDeckView: NSView {
         super.viewDidMoveToWindow()
         if window != nil {
             if availableSessionsRefreshTimer == nil { startAvailableSessionsPolling() }
-            refreshAvailableSessionsIfNeeded(force: true)
+            refreshRegisteredTargets(force: true)
         } else {
             availableSessionsRefreshTimer?.invalidate()
             availableSessionsRefreshTimer = nil
@@ -463,20 +469,75 @@ final class TerminalDeckView: NSView {
         sessionStore.save(MachinenStoredState(
             workspaces: workspaces,
             sessions: persistedSessionTiles.map(\.session),
-            workspaceLocationHistory: workspaceLocationHistory
+            workspaceLocationHistory: workspaceLocationHistory,
+            targetMachines: targetMachines
         ))
     }
 
-    private func synchronizeNativeWorkspaceRegistry() {
-        var locations = [WorkspaceLocation.local(
-            FileManager.default.homeDirectoryForCurrentUser.path
-        )]
-        for workspace in workspaces where !locations.contains(where: {
-            $0.machineID == workspace.location.machineID
-        }) {
-            locations.append(workspace.location)
+    private func registeredTargetLocations() -> [(id: String, location: WorkspaceLocation, name: String)] {
+        [("local", .local(FileManager.default.homeDirectoryForCurrentUser.path), "this Mac")]
+            + targetMachines.map { ($0.id, $0.location, $0.displayName) }
+    }
+
+    private func targetID(for location: WorkspaceLocation) -> String? {
+        guard let host = location.sshHost else { return "local" }
+        return targetMachines.first {
+            TargetMachine.normalizedHost($0.sshHost) == TargetMachine.normalizedHost(host)
+        }?.id
+    }
+
+    private func registerTargetIfNeeded(for location: WorkspaceLocation) {
+        guard let host = location.sshHost, targetID(for: location) == nil else { return }
+        targetMachines.append(TargetMachine(sshHost: host))
+    }
+
+    /// Polling is deliberately discovery-only. It updates this Desktop's
+    /// browser cache and never creates a workspace, tile, or viewer.
+    private func refreshRegisteredTargets(force: Bool = false) {
+        for target in registeredTargetLocations() {
+            refreshRegisteredTarget(target.id, at: target.location, force: force)
         }
-        for location in locations { restoreNativeWorkspaces(from: location) }
+        refreshAvailableSessionsIfNeeded(force: force)
+    }
+
+    private func refreshRegisteredTarget(_ targetID: String, at location: WorkspaceLocation, force: Bool) {
+        if !force, let discovery = targetDiscoveries[targetID],
+           Date().timeIntervalSince(discovery.checkedAt) < availableSessionsRefreshInterval { return }
+        sessionBackend.listSessions(at: location) { [weak self] sessionsResult in
+            guard let self else { return }
+            self.sessionBackend.listWorkspaces(at: location) { [weak self] workspacesResult in
+                guard let self else { return }
+                let now = Date()
+                switch (sessionsResult, workspacesResult) {
+                case let (.success(sessions), .success(nativeWorkspaces)):
+                    self.targetDiscoveries[targetID] = TargetDiscovery(
+                        state: sessions.isEmpty ? .inactive : .online,
+                        sessions: sessions,
+                        workspaces: nativeWorkspaces,
+                        checkedAt: now,
+                        error: nil
+                    )
+                    self.availableSessionsByMachine[location.machineID] = sessions
+                    self.availableSessionsErrors.removeValue(forKey: location.machineID)
+                    self.availableSessionsLastRefresh[location.machineID] = now
+                default:
+                    let description: String
+                    switch sessionsResult { case let .failure(value): description = value.localizedDescription; case .success: switch workspacesResult { case let .failure(value): description = value.localizedDescription; case .success: description = "Target is unreachable" } }
+                    let prior = self.targetDiscoveries[targetID]
+                    self.targetDiscoveries[targetID] = TargetDiscovery(
+                        state: .unreachable,
+                        sessions: prior?.sessions ?? [],
+                        workspaces: prior?.workspaces ?? [],
+                        checkedAt: now,
+                        error: description
+                    )
+                    self.availableSessionsErrors[location.machineID] = description
+                }
+                self.refreshAvailableSessionsPanel()
+                self.refreshTargetSessionsView()
+                self.refreshStatusBar()
+            }
+        }
     }
 
     private func persistNativeWorkspace(_ workspace: WorkspaceRecord) {
@@ -520,176 +581,6 @@ final class TerminalDeckView: NSView {
                 if case let .failure(error) = result {
                     NSLog("Machinen could not delete native workspace: %@", String(describing: error))
                 }
-            }
-        }
-    }
-
-    private func migrateNativeWorkspace(
-        _ workspace: WorkspaceRecord,
-        replacing previousID: String
-    ) {
-        let sessions = persistedSessionTiles.map(\.session).filter {
-            $0.workspaceID == workspace.id
-        }
-        var locationsByMachine = [workspace.location.machineID: workspace.location]
-        for session in sessions where locationsByMachine[session.location.machineID] == nil {
-            var anchor = session.location
-            anchor.path = session.workspaceRoot
-            locationsByMachine[anchor.machineID] = anchor
-        }
-        for location in locationsByMachine.values {
-            let sessionIDs = sessions.filter {
-                $0.location.machineID == location.machineID
-            }.map(\.id)
-            sessionBackend.saveWorkspace(
-                id: workspace.id,
-                name: workspace.name,
-                at: location,
-                sessionIDs: sessionIDs
-            ) { [weak self] result in
-                guard let self else { return }
-                guard case .success = result else {
-                    if case let .failure(error) = result {
-                        NSLog(
-                            "Machinen could not migrate native workspace: %@",
-                            String(describing: error)
-                        )
-                    }
-                    return
-                }
-                self.sessionBackend.deleteWorkspace(id: previousID, at: location) { result in
-                    if case let .failure(error) = result {
-                        NSLog(
-                            "Machinen could not remove the superseded native workspace: %@",
-                            String(describing: error)
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private func restoreNativeWorkspaces(from location: WorkspaceLocation) {
-        sessionBackend.listWorkspaces(at: location) { [weak self] result in
-            guard let self else { return }
-            guard case let .success(records) = result else {
-                for workspace in self.workspaces where
-                    workspace.location.machineID == location.machineID
-                {
-                    self.persistNativeWorkspace(workspace)
-                }
-                return
-            }
-            var nativeWorkspaceKeys = Set<String>()
-            let canonicalRecords = records.filter { record in
-                let root = self.normalizedSessionPath(record.rootDirectory)
-                let key = WorkspaceName.key(record.name) + "\u{0}" + root
-                return nativeWorkspaceKeys.insert(key).inserted
-            }
-            var changed = false
-            var restored: [WorkspaceRecord] = []
-            var updated: [WorkspaceRecord] = []
-            var migrated: [(workspace: WorkspaceRecord, previousID: String)] = []
-            var usedNames = Set(self.workspaces.map { WorkspaceName.key($0.name) })
-            for record in canonicalRecords {
-                if let existing = self.workspaces.first(where: { $0.id == record.id }) {
-                    guard existing.location.machineID == location.machineID else { continue }
-                    let previousName = existing.name
-                    let previousRoot = existing.location.path
-                    usedNames.remove(WorkspaceName.key(previousName))
-                    existing.name = WorkspaceName.unique(record.name, reserving: &usedNames)
-                    existing.location.path = record.rootDirectory
-                    for tile in self.persistedSessionTiles where
-                        tile.session.workspaceID == existing.id
-                    {
-                        tile.session.workspace = existing.name
-                    }
-                    if previousName != existing.name || previousRoot != existing.location.path {
-                        self.rememberWorkspaceLocation(existing.location)
-                        updated.append(existing)
-                        changed = true
-                    }
-                    continue
-                }
-                if let existingIndex = self.workspaces.firstIndex(where: {
-                    $0.location.machineID == location.machineID
-                        && WorkspaceName.key($0.name) == WorkspaceName.key(record.name)
-                        && self.normalizedSessionPath($0.location.path)
-                            == self.normalizedSessionPath(record.rootDirectory)
-                }) {
-                    let previous = self.workspaces[existingIndex]
-                    let previousID = previous.id
-                    usedNames.remove(WorkspaceName.key(previous.name))
-                    let workspace = WorkspaceRecord(
-                        id: record.id,
-                        name: WorkspaceName.unique(record.name, reserving: &usedNames),
-                        workingDirectory: record.rootDirectory,
-                        sshHost: location.sshHost
-                    )
-                    self.workspaces[existingIndex] = workspace
-                    for tile in self.persistedSessionTiles where
-                        tile.session.workspaceID == previousID
-                    {
-                        tile.session.workspaceID = workspace.id
-                        tile.session.workspace = workspace.name
-                        tile.session.workspaceRoot = workspace.workingDirectory
-                    }
-                    if self.currentWorkspace == previousID {
-                        self.currentWorkspace = workspace.id
-                    }
-                    if let terminalID = self.activeTerminalByWorkspace.removeValue(
-                        forKey: previousID
-                    ) {
-                        self.activeTerminalByWorkspace[workspace.id] = terminalID
-                    }
-                    if self.availableSessionsWorkspaceID == previousID {
-                        self.availableSessionsWorkspaceID = workspace.id
-                    }
-                    self.rememberWorkspaceLocation(workspace.location)
-                    migrated.append((workspace, previousID))
-                    updated.append(workspace)
-                    changed = true
-                    continue
-                }
-                let name = WorkspaceName.unique(record.name, reserving: &usedNames)
-                let workspace = WorkspaceRecord(
-                    id: record.id,
-                    name: name,
-                    workingDirectory: record.rootDirectory,
-                    sshHost: location.sshHost
-                )
-                self.workspaces.append(workspace)
-                self.rememberWorkspaceLocation(workspace.location)
-                restored.append(workspace)
-                changed = true
-            }
-            let nativeIDs = Set(canonicalRecords.map(\.id))
-            for workspace in self.workspaces where
-                workspace.location.machineID == location.machineID
-                    && !nativeIDs.contains(workspace.id)
-            {
-                self.persistNativeWorkspace(workspace)
-            }
-            for migration in migrated {
-                self.migrateNativeWorkspace(
-                    migration.workspace,
-                    replacing: migration.previousID
-                )
-            }
-            guard changed else { return }
-            self.rebuildWorkspaceClusters()
-            self.updateWorldGeometry()
-            self.updateSelection()
-            self.setCameraImmediately()
-            self.saveSessions()
-            for workspace in restored {
-                self.emitAPIEvent("workspace.restored", data: self.workspaceJSON(workspace))
-            }
-            for workspace in updated {
-                self.emitAPIEvent("workspace.updated", data: self.workspaceJSON(workspace))
-            }
-            if let workspace = restored.first {
-                self.refreshAvailableSessions(for: workspace, force: true)
             }
         }
     }
@@ -1997,6 +1888,85 @@ final class TerminalDeckView: NSView {
         clearLabelBuffer()
     }
 
+    func toggleTargetSessions() {
+        guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
+        if targetSessionsView != nil {
+            dismissTargetSessions()
+            return
+        }
+        if commandPalette != nil { dismissCommandPalette() }
+        let view = TargetSessionsView(frame: bounds)
+        view.onDismiss = { [weak self] in self?.dismissTargetSessions() }
+        view.onActivate = { [weak self] item in self?.activateTargetSessionBrowserItem(item) }
+        view.onRemoveTarget = { [weak self] id in self?.removeTargetMachine(id) }
+        targetSessionsView = view
+        addSubview(view, positioned: .above, relativeTo: statusBarView)
+        refreshTargetSessionsView()
+        window?.makeFirstResponder(view)
+    }
+
+    private func dismissTargetSessions() {
+        targetSessionsView?.removeFromSuperview()
+        targetSessionsView = nil
+        restoreInputFocus()
+    }
+
+    private func refreshTargetSessionsView() {
+        guard let view = targetSessionsView else { return }
+        var items: [TargetSessionBrowserItem] = []
+        for target in registeredTargetLocations() {
+            let discovery = targetDiscoveries[target.id] ?? TargetDiscovery(
+                state: .inactive, sessions: [], workspaces: [], checkedAt: .distantPast, error: nil
+            )
+            let detail: String
+            if let error = discovery.error {
+                detail = "UNREACHABLE · stale discovery · \(error)"
+            } else {
+                detail = target.name + (discovery.state == .online ? " · online" : " · inactive")
+            }
+            items.append(TargetSessionBrowserItem(kind: .target, targetID: target.id, workspaceID: nil, sessionID: nil, title: target.name, detail: detail, state: discovery.state))
+            let names = Dictionary(uniqueKeysWithValues: discovery.workspaces.map { ($0.id, $0.name) })
+            for workspace in discovery.workspaces.sorted(by: { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) {
+                items.append(TargetSessionBrowserItem(kind: .workspace, targetID: target.id, workspaceID: workspace.id, sessionID: nil, title: "  \(workspace.name)", detail: workspace.rootDirectory + " · open workspace", state: discovery.state))
+            }
+            for session in discovery.sessions.filter({ $0.state == "running" || $0.state == "created" }).sorted(by: { $0.updatedAtMs > $1.updatedAtMs }) {
+                let workspace = session.workspaceId.flatMap { names[$0] } ?? "unassigned"
+                items.append(TargetSessionBrowserItem(kind: .session, targetID: target.id, workspaceID: session.workspaceId, sessionID: session.id, title: "    \(session.name ?? session.id)", detail: "\(workspace) · \(session.workingDirectory) · attach", state: discovery.state))
+            }
+        }
+        view.items = items
+    }
+
+    private func activateTargetSessionBrowserItem(_ item: TargetSessionBrowserItem) {
+        guard let target = registeredTargetLocations().first(where: { $0.id == item.targetID }),
+              let discovery = targetDiscoveries[item.targetID]
+        else { return }
+        switch item.kind {
+        case .target:
+            refreshRegisteredTarget(target.id, at: target.location, force: true)
+        case .workspace:
+            guard let id = item.workspaceID,
+                  let record = discovery.workspaces.first(where: { $0.id == id }) else { return }
+            dismissTargetSessions()
+            restoreNativeWorkspace(record, at: target.location, opensSessions: true)
+        case .session:
+            guard let sessionID = item.sessionID else { return }
+            let workspaceID = item.workspaceID
+            if let workspace = workspaceID.flatMap({ id in workspaces.first(where: { $0.id == id }) }) {
+                dismissTargetSessions()
+                reconnectAvailableSession(sessionID, to: workspace.id)
+            } else if let workspaceID,
+                      let record = discovery.workspaces.first(where: { $0.id == workspaceID })
+            {
+                // Attaching is explicit; opening its native workspace is the
+                // required preceding scene action, never a discovery side effect.
+                dismissTargetSessions()
+                restoreNativeWorkspace(record, at: target.location, opensSessions: false)
+                reconnectAvailableSession(sessionID, to: record.id)
+            }
+        }
+    }
+
     func toggleAvailableSessions(
         returnToCommands: Bool = false,
         selecting sessionID: String? = nil
@@ -2071,8 +2041,15 @@ final class TerminalDeckView: NSView {
     }
 
     private func availableSessionItems(for workspace: WorkspaceRecord) -> [AvailableSessionItem] {
-        let discovered = (availableSessionsByMachine[workspace.location.machineID] ?? [])
-            .filter {
+        let discovered: [AvailableTerminalSession]
+        if let targetID = targetID(for: workspace.location) {
+            discovered = targetDiscoveries[targetID]?.sessions
+                ?? availableSessionsByMachine[workspace.location.machineID]
+                ?? []
+        } else {
+            discovered = []
+        }
+        let matchingDiscovered = discovered.filter {
                 ($0.state == "running" || $0.state == "created")
                     && ($0.workspaceId == workspace.id
                         || ($0.workspaceId == nil
@@ -2082,7 +2059,7 @@ final class TerminalDeckView: NSView {
                             )))
             }
         var discoveredByID: [String: AvailableTerminalSession] = [:]
-        for session in discovered { discoveredByID[session.id] = session }
+        for session in matchingDiscovered { discoveredByID[session.id] = session }
 
         let represented = allSessionTiles.compactMap { tile -> AvailableSessionItem? in
             guard tile.session.workspaceID == workspace.id else { return nil }
@@ -2123,7 +2100,7 @@ final class TerminalDeckView: NSView {
         }
         let representedIDs = Set(represented.map { $0.session.id })
             .union(disconnectedTiles.map { $0.session.id })
-        let unrepresented = discovered.compactMap { session -> AvailableSessionItem? in
+        let unrepresented = matchingDiscovered.compactMap { session -> AvailableSessionItem? in
             guard !representedIDs.contains(session.id) else { return nil }
             return AvailableSessionItem(
                 session: session,
@@ -2163,10 +2140,7 @@ final class TerminalDeckView: NSView {
             [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                if let workspace = self.selectedWorkspaceRecord() {
-                    self.restoreNativeWorkspaces(from: workspace.location)
-                }
-                self.refreshAvailableSessionsIfNeeded(force: true)
+                self.refreshRegisteredTargets(force: true)
             }
         }
         availableSessionsRefreshTimer = timer
@@ -2179,6 +2153,9 @@ final class TerminalDeckView: NSView {
     }
 
     private func refreshAvailableSessions(for workspace: WorkspaceRecord, force: Bool) {
+        // A removed SSH profile may still back a persisted scene workspace, but
+        // it is no longer eligible for automatic polling.
+        guard targetID(for: workspace.location) != nil else { return }
         let machineID = workspace.location.machineID
         guard !availableSessionsLoading.contains(machineID) else { return }
         if !force, let refreshedAt = availableSessionsLastRefresh[machineID],
@@ -2877,12 +2854,26 @@ final class TerminalDeckView: NSView {
                 workspaceCommands()
                     + registeredPaletteCommands(registeredCommands, in: .workspace)
             case .workspaceOverview:
-                [PaletteCommand(
-                    id: .newWorkspace,
-                    title: "New workspace…",
-                    shortcut: "",
-                    space: .workspaceOverview
-                )]
+                [
+                    PaletteCommand(
+                        id: .newWorkspace,
+                        title: "New workspace…",
+                        shortcut: "",
+                        space: .workspaceOverview
+                    ),
+                    PaletteCommand(
+                        id: .registerTarget,
+                        title: "Register SSH target…",
+                        shortcut: "",
+                        space: .workspaceOverview
+                    ),
+                    PaletteCommand(
+                        id: .browseTargetSessions,
+                        title: "Active sessions…",
+                        shortcut: "",
+                        space: .workspaceOverview
+                    ),
+                ]
             }
         }
     }
@@ -3067,6 +3058,11 @@ final class TerminalDeckView: NSView {
         switch command.id {
         case .newWorkspace:
             beginNewWorkspaceFlow(from: .commands)
+        case .registerTarget:
+            showRegisterTargetPalette()
+        case .browseTargetSessions:
+            dismissCommandPalette()
+            toggleTargetSessions()
         case .renameWorkspace:
             showRenameWorkspacePalette()
         case .changeWorkspaceLocation:
@@ -3165,6 +3161,35 @@ final class TerminalDeckView: NSView {
         }
         dismissCommandPalette()
         emitAPIEvent("command.invoked", data: data)
+    }
+
+    private func showRegisterTargetPalette() {
+        dismissCommandPalette()
+        let palette = CommandPaletteView(
+            frame: bounds,
+            heading: "REGISTER SSH TARGET",
+            context: "automatic discovery only; opening stays explicit",
+            placeholder: "OpenSSH alias or user@host…",
+            defaultFooter: "return register · esc back",
+            commands: [],
+            acceptsFreeform: true
+        )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.toggleCommandPalette() }
+        palette.onSubmit = { [weak self, weak palette] host in
+            guard let self else { return }
+            do {
+                _ = try self.apiRegisterTarget(["host": host])
+                self.dismissCommandPalette()
+                self.toggleTargetSessions()
+            } catch {
+                palette?.showStatus((error as? MachinenAPIError)?.message ?? error.localizedDescription)
+            }
+        }
+        commandPalette = palette
+        paletteKind = .newWorkspaceLocation
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
     }
 
     private func beginNewWorkspaceFlow(from entry: NewWorkspaceEntry) {
@@ -3460,6 +3485,7 @@ final class TerminalDeckView: NSView {
             )
             workspaces.append(workspace)
             rememberWorkspaceLocation(workspace.location)
+            registerTargetIfNeeded(for: workspace.location)
             rebuildWorkspaceClusters()
             saveSessions()
             emitAPIEvent("workspace.restored", data: workspaceJSON(workspace))
@@ -5299,6 +5325,14 @@ final class TerminalDeckView: NSView {
         switch operation {
         case "system.snapshot":
             return snapshotJSON()
+        case "target.list":
+            return targetListJSON()
+        case "target.register":
+            return try apiRegisterTarget(params)
+        case "target.remove":
+            return try apiRemoveTarget(params)
+        case "target.sessions":
+            return targetSessionsJSON()
         case "workspace.list":
             return ["workspaces": workspaces.map(workspaceJSON)]
         case "workspace.get":
@@ -5395,6 +5429,85 @@ final class TerminalDeckView: NSView {
         }
     }
 
+    private func targetListJSON() -> JSONObject {
+        ["targets": registeredTargetLocations().map { target in
+            let discovery = targetDiscoveries[target.id]
+            var result: JSONObject = target.id == "local"
+                ? ["id": "local", "kind": "local", "implicit": true]
+                : ["id": target.id, "kind": "ssh", "host": target.location.sshHost ?? ""]
+            result["state"] = discovery?.state.rawValue ?? "inactive"
+            result["lastCheckedAt"] = discovery.map { ISO8601DateFormatter().string(from: $0.checkedAt) } ?? NSNull()
+            result["error"] = discovery?.error ?? NSNull()
+            return result
+        }]
+    }
+
+    private func targetSessionsJSON() -> JSONObject {
+        let targets: [JSONObject] = registeredTargetLocations().map { target in
+            let discovery = targetDiscoveries[target.id]
+            let targetJSON: JSONObject
+            if target.id == "local" {
+                targetJSON = ["id": "local", "kind": "local"]
+            } else {
+                targetJSON = targetMachines.first(where: { $0.id == target.id })?.json ?? [:]
+            }
+            let workspaces: [JSONObject] = discovery?.workspaces.map { record in
+                ["id": record.id, "name": record.name, "rootDirectory": record.rootDirectory]
+            } ?? []
+            let sessions: [JSONObject] = discovery?.sessions.map { session in
+                [
+                    "id": session.id,
+                    "name": session.name ?? NSNull(),
+                    "workspaceId": session.workspaceId ?? NSNull(),
+                    "workingDirectory": session.workingDirectory,
+                    "state": session.state,
+                ]
+            } ?? []
+            return [
+                "target": targetJSON,
+                "state": discovery?.state.rawValue ?? "inactive",
+                "workspaces": workspaces,
+                "sessions": sessions,
+                "error": discovery?.error ?? NSNull(),
+            ]
+        }
+        return ["targets": targets]
+    }
+
+    private func apiRegisterTarget(_ params: JSONObject) throws -> Any {
+        guard let host = validSSHHost(try requiredString("host", in: params)) else {
+            throw MachinenAPIError("invalid_params", "host must be an OpenSSH alias, host, or user@host")
+        }
+        if let existing = targetMachines.first(where: { TargetMachine.normalizedHost($0.sshHost) == TargetMachine.normalizedHost(host) }) {
+            return existing.json
+        }
+        let target = TargetMachine(sshHost: host)
+        targetMachines.append(target)
+        saveSessions()
+        refreshRegisteredTarget(target.id, at: target.location, force: true)
+        emitAPIEvent("target.registered", data: target.json)
+        return target.json
+    }
+
+    private func apiRemoveTarget(_ params: JSONObject) throws -> Any {
+        let id = try requiredString("targetId", in: params)
+        guard id != "local", let index = targetMachines.firstIndex(where: { $0.id == id }) else {
+            throw MachinenAPIError("invalid_params", "Only an explicit SSH target may be removed")
+        }
+        let target = targetMachines.remove(at: index)
+        targetDiscoveries.removeValue(forKey: id)
+        availableSessionsByMachine.removeValue(forKey: target.location.machineID)
+        saveSessions()
+        emitAPIEvent("target.removed", data: target.json)
+        return target.json
+    }
+
+    private func removeTargetMachine(_ id: String) {
+        guard let target = targetMachines.first(where: { $0.id == id }) else { return }
+        _ = try? apiRemoveTarget(["targetId": target.id])
+        refreshTargetSessionsView()
+    }
+
     private func apiCreateWorkspace(_ params: JSONObject) throws -> Any {
         let requestedName = try requiredString("name", in: params)
         guard let name = WorkspaceName.validated(requestedName) else {
@@ -5420,6 +5533,7 @@ final class TerminalDeckView: NSView {
         let position = clampedPosition(params["position"] as? Int, count: workspaces.count)
         workspaces.insert(workspace, at: position)
         rememberWorkspaceLocation(location)
+        registerTargetIfNeeded(for: location)
         rebuildWorkspaceClusters()
         updateWorldGeometry()
         updateSelection()
@@ -5447,6 +5561,7 @@ final class TerminalDeckView: NSView {
         }
         workspace.location = validated
         rememberWorkspaceLocation(validated)
+        registerTargetIfNeeded(for: validated)
         if previous.machineID != validated.machineID, !keepsPreviousReplica {
             sessionBackend.deleteWorkspace(id: workspace.id, at: previous) { result in
                 if case let .failure(error) = result {
@@ -6347,6 +6462,7 @@ final class TerminalDeckView: NSView {
             "workspaces": workspaces.map(workspaceJSON),
             "tiles": allSessionTiles.map(tileJSON),
             "terminals": allSessionTiles.map(terminalJSON),
+            "targets": targetListJSON()["targets"] ?? [],
             "ui": uiJSON(),
         ]
     }
@@ -6716,6 +6832,28 @@ final class TerminalDeckView: NSView {
             tooltip: "Machinen Desktop \(MachinenBuildVersions.desktop)\n"
                 + "Native session handler \(MachinenBuildVersions.sessionHandler)",
             priority: 10_000,
+            expiresAt: nil
+        )
+        let targetSessionCount = targetDiscoveries.values.reduce(0) { count, discovery in
+            count + discovery.sessions.count { $0.state == "running" || $0.state == "created" }
+        }
+        let targetIsUnreachable = targetDiscoveries.values.contains {
+            $0.state == .unreachable
+        }
+        resolved["machinen.targetSessions"] = MachinenStatusWidget(
+            id: "machinen.targetSessions",
+            scopeKind: .global,
+            scopeID: nil,
+            placement: .right,
+            kind: .count,
+            label: "Sessions",
+            value: String(targetSessionCount),
+            progress: nil,
+            tone: targetIsUnreachable ? .attention : (targetSessionCount > 0 ? .good : .neutral),
+            tooltip: targetIsUnreachable
+                ? "Registered target discovery is unreachable/stale · click to browse"
+                : "\(targetSessionCount) active sessions on registered targets · click to browse",
+            priority: 960,
             expiresAt: nil
         )
         if let workspace {

@@ -30,7 +30,7 @@ enum InteractionTestRunner {
             try availableNativeSessionsReconnectIntoWorkspace()
             try attachedSessionCanTakeControl()
             try sharedSessionGeometryFollowsItsController()
-            try nativeWorkspaceRegistryRestoresLostDesktopState()
+            try registeredTargetDiscoveryRequiresExplicitOpenAndAttach()
             try graphicalStatusWidgetsRender()
             try desktopServicesRestartUntilTheAppStops()
             try workspaceNamesRemainUniqueAndLocationsCanBeShared()
@@ -1717,106 +1717,64 @@ enum InteractionTestRunner {
         )
     }
 
-    private static func nativeWorkspaceRegistryRestoresLostDesktopState() throws {
+    private static func registeredTargetDiscoveryRequiresExplicitOpenAndAttach() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         harness.setNativeWorkspaces([
             NativeWorkspaceRecord(
-                id: "ws_recovered",
-                name: "recovered",
-                rootDirectory: harness.temporaryDirectoryPath,
-                createdAtMs: 1,
-                updatedAtMs: 2
+                id: "ws_recovered", name: "recovered",
+                rootDirectory: harness.temporaryDirectoryPath, createdAtMs: 1, updatedAtMs: 2
             ),
         ])
         harness.setAvailableSessions([
             AvailableTerminalSession(
-                id: "term_recovered",
-                name: "agent",
-                state: "running",
-                workspaceId: "ws_recovered",
-                workingDirectory: harness.temporaryDirectoryPath + "/packages/app",
-                createdAtMs: 1,
-                updatedAtMs: 2
+                id: "term_recovered", name: "agent", state: "running",
+                workspaceId: "ws_recovered", workingDirectory: harness.temporaryDirectoryPath + "/packages/app",
+                createdAtMs: 1, updatedAtMs: 2
             ),
         ])
 
-        let emptyDesktopState = harness.loadStoredState()
-        try expect(
-            emptyDesktopState.workspaces.isEmpty && emptyDesktopState.sessions.isEmpty,
-            "a missing Desktop manifest recreated prototype workspaces instead of starting recovery"
-        )
-        let deck = harness.makeDeck(state: emptyDesktopState)
-        let snapshot = try harness.snapshot(of: deck)
-        try expect(
-            snapshot.workspaces.map(\.id) == ["ws_recovered"]
-                && snapshot.workspaces.first?.workingDirectory == harness.temporaryDirectoryPath,
-            "the native registry did not restore a workspace after Desktop state was lost"
-        )
-        let status = try harness.effectiveStatusWidgets(of: deck)
-        try expect(
-            status.first(where: { $0.id == "machinen.availableSessions" })?.value == "1",
-            "the restored workspace did not discover its explicitly associated session"
-        )
-        deck.toggleAvailableSessions()
-        try expect(
-            try harness.availableSessions(in: deck).items.map(\.session.id) == ["term_recovered"],
-            "the restored workspace's session was not available for attachment"
-        )
+        let deck = harness.makeDeck(state: harness.loadStoredState())
+        try expect((try harness.snapshot(of: deck)).workspaces.isEmpty,
+                   "target discovery opened a workspace or attached a session")
+        let discovery = try deck.performAPIOperation("target.sessions", params: [:]) as? JSONObject
+        let local = (discovery?["targets"] as? [JSONObject])?.first
+        try expect((local?["workspaces"] as? [JSONObject])?.map { $0["id"] as? String } == ["ws_recovered"],
+                   "registered local discovery did not report native workspaces")
+        try expect((try harness.effectiveStatusWidgets(of: deck)).contains {
+            $0.id == "machinen.targetSessions" && $0.value == "1"
+        }, "the status bar did not expose the registered target session browser")
+
+        deck.toggleTargetSessions()
+        let browser = try harness.targetSessions(in: deck)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try expect((try harness.snapshot(of: deck)).workspaces.map(\.id) == ["ws_recovered"],
+                   "opening a discovered workspace was not an explicit browser action")
+        let sessions = try harness.availableSessions(in: deck)
+        try harness.pressReturn(on: sessions)
+        try expect((try harness.snapshot(of: deck)).terminals.map(\.id).contains("term_recovered"),
+                   "attaching a discovered session was not an explicit action")
+
+        let target = try deck.performAPIOperation("target.register", params: ["host": "mini"]) as? JSONObject
+        try expect(target?["host"] as? String == "mini", "SSH target registration failed")
+        let persisted = harness.loadStoredState().targetMachines
+        try expect(persisted.count == 1 && persisted[0].sshHost == "mini" && !persisted[0].id.isEmpty,
+                   "registered SSH target was not persisted with a stable identity")
 
         let migrationHarness = try Harness()
         defer { migrationHarness.cleanUp() }
-        migrationHarness.setNativeWorkspaces([
-            NativeWorkspaceRecord(
-                id: "ws_canonical",
-                name: "project",
-                rootDirectory: migrationHarness.temporaryDirectoryPath,
-                createdAtMs: 1,
-                updatedAtMs: 2
-            ),
-            NativeWorkspaceRecord(
-                id: "ws_duplicate",
-                name: "project",
-                rootDirectory: migrationHarness.temporaryDirectoryPath,
-                createdAtMs: 2,
-                updatedAtMs: 3
-            ),
-        ])
-        let legacyWorkspace = WorkspaceRecord(
-            id: "ws_legacy",
-            name: "project",
-            workingDirectory: migrationHarness.temporaryDirectoryPath
+        try migrationHarness.storeManifest(
+            version: 10,
+            workspaces: [WorkspaceRecord(
+                id: "ws_legacy_remote", name: "legacy remote",
+                workingDirectory: "/project", sshHost: "mini"
+            )],
+            sessions: []
         )
-        let legacySession = TerminalSession(
-            id: "term_legacy",
-            label: "ls",
-            workspaceID: legacyWorkspace.id,
-            workspace: legacyWorkspace.name,
-            name: "shell",
-            launch: .loginShell,
-            workingDirectory: migrationHarness.temporaryDirectoryPath,
-            state: .running
-        )
-        let migratedDeck = migrationHarness.makeDeck(
-            workspaces: [(legacyWorkspace, [legacySession])]
-        )
-        let migratedSnapshot = try migrationHarness.snapshot(of: migratedDeck)
-        try expect(
-            migratedSnapshot.workspaces.map(\.id) == ["ws_canonical"]
-                && migratedSnapshot.tiles.map(\.workspaceId) == ["ws_canonical"],
-            "a native workspace with the same machine and root created a duplicate workspace"
-        )
-        let migratedState = migrationHarness.loadStoredState()
-        try expect(
-            migratedState.workspaces.map(\.id) == ["ws_canonical"]
-                && migratedState.sessions.map(\.workspaceID) == ["ws_canonical"],
-            "the canonical native workspace ID was not persisted"
-        )
-        try expect(
-            migrationHarness.savedWorkspaceIDs.contains("ws_canonical")
-                && migrationHarness.deletedWorkspaceIDs.contains("ws_legacy"),
-            "the native session store did not replace the superseded workspace ID"
-        )
+        let migrated = migrationHarness.loadStoredState()
+        try expect(migrated.targetMachines.map(\.sshHost) == ["mini"],
+                   "legacy SSH workspace locations were not seeded as target profiles")
     }
 
     private static func graphicalStatusWidgetsRender() throws {
@@ -3484,6 +3442,13 @@ private final class Harness {
             throw InteractionTestFailure("the available sessions picker did not open")
         }
         return manager
+    }
+
+    func targetSessions(in deck: TerminalDeckView) throws -> TargetSessionsView {
+        guard let browser = deck.subviews.compactMap({ $0 as? TargetSessionsView }).last else {
+            throw InteractionTestFailure("the registered target browser did not open")
+        }
+        return browser
     }
 
     func undoToast(in deck: TerminalDeckView) -> UndoTerminalCloseView? {

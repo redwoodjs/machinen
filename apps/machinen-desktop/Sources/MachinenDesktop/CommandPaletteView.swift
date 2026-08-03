@@ -17,6 +17,8 @@ struct PaletteCommand {
 
     enum ID: Equatable {
         case newWorkspace
+        case registerTarget
+        case browseTargetSessions
         case newTerminalInWorkspace
         case back
         case renameWorkspace
