@@ -27,7 +27,7 @@ export interface Tile {
   viewerState: "attached" | "detached";
 }
 
-export interface TerminalGeometry {
+interface TerminalGeometry {
   columns: number;
   rows: number;
   generation: number;

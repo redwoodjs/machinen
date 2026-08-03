@@ -71,6 +71,7 @@ function workspaceSnapshot(): DesktopSnapshot {
         processState: "running",
         activityState: "idle",
         viewerState: "attached",
+        geometry: null,
       },
     ],
     ui: {
