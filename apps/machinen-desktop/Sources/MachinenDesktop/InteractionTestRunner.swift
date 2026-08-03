@@ -223,6 +223,24 @@ enum InteractionTestRunner {
                 && settingsItem?.keyEquivalentModifierMask == [.command],
             "the settings menu item did not use the standard ⌘, shortcut"
         )
+        let commandItems = appMenu?.items.filter {
+            $0.action == NSSelectorFromString("toggleCommands")
+        } ?? []
+        try expect(
+            commandItems.contains(where: {
+                $0.keyEquivalent == "k" && $0.keyEquivalentModifierMask == [.command]
+            }),
+            "the application menu did not expose ⌘K for commands"
+        )
+        try expect(
+            commandItems.contains(where: {
+                $0.keyEquivalent == "k"
+                    && $0.keyEquivalentModifierMask == [.command, .shift]
+                    && $0.isHidden
+                    && $0.allowsKeyEquivalentWhenHidden
+            }),
+            "the application menu did not expose ⇧⌘K for commands"
+        )
     }
 
     private static func commandArrowsMoveThroughTheHierarchy() throws {
@@ -2760,6 +2778,17 @@ enum InteractionTestRunner {
         try expect(
             focusedTerminal.performKeyEquivalent(with: commandK),
             "a focused terminal did not route command-k to the command palette"
+        )
+        _ = try harness.commandPalette(in: deck)
+        deck.toggleCommandPalette()
+        let commandShiftK = try harness.keyEvent(
+            characters: "k",
+            keyCode: 40,
+            modifierFlags: [.command, .shift]
+        )
+        try expect(
+            focusedTerminal.performKeyEquivalent(with: commandShiftK),
+            "a focused terminal did not route shift-command-k to the command palette"
         )
         _ = try harness.commandPalette(in: deck)
         deck.toggleCommandPalette()

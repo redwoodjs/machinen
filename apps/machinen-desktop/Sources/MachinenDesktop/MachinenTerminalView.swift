@@ -814,9 +814,9 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
               window?.firstResponder === self
         else { return false }
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
-        if modifiers == [.command],
-           let character = event.charactersIgnoringModifiers?.lowercased(),
-           character == "k" || character == "o"
+        if let character = event.charactersIgnoringModifiers?.lowercased(),
+           (character == "k" && (modifiers == [.command] || modifiers == [.command, .shift]))
+               || (character == "o" && modifiers == [.command])
         {
             var ancestor = superview
             while let view = ancestor {

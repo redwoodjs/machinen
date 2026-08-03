@@ -152,6 +152,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         commandsItem.target = self
         appMenu.addItem(commandsItem)
 
+        let alternateCommandsItem = NSMenuItem(
+            title: "Commands…",
+            action: #selector(toggleCommands),
+            keyEquivalent: "k"
+        )
+        alternateCommandsItem.keyEquivalentModifierMask = [.command, .shift]
+        alternateCommandsItem.target = self
+        alternateCommandsItem.isHidden = true
+        alternateCommandsItem.allowsKeyEquivalentWhenHidden = true
+        appMenu.addItem(alternateCommandsItem)
+
         let terminalMenuItem = NSMenuItem(
             title: "Terminal Menu…",
             action: #selector(showTerminalMenu),
