@@ -185,8 +185,8 @@ final class MachinenStatusBarView: NSView {
     /// Called immediately as the pointer enters or leaves a status item. The
     /// deck presents this outside the compact status bar as readable text.
     var onHoverChange: ((MachinenStatusWidget?, NSRect, String?) -> Void)?
-    /// Return true when a widget consumed the click.
-    var onWidgetClick: ((MachinenStatusWidget) -> Bool)?
+    /// Return true when a widget consumed the click. The frame is in status-bar coordinates.
+    var onWidgetClick: ((MachinenStatusWidget, NSRect) -> Bool)?
     var onWorkspaceSelect: ((String) -> Void)?
     var onTerminalSelect: ((String) -> Void)?
     var onSpatialMinimapHoverChange: ((Bool) -> Void)?
@@ -269,9 +269,9 @@ final class MachinenStatusBarView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        if let widget = widgetFrames.first(where: { $0.rect.contains(point) })?.widget {
-            if onWidgetClick?(widget) == true { return }
-            if presentLinks(for: widget, at: point) { return }
+        if let widgetFrame = widgetFrames.first(where: { $0.rect.contains(point) }) {
+            if onWidgetClick?(widgetFrame.widget, widgetFrame.rect) == true { return }
+            if presentLinks(for: widgetFrame.widget, at: point) { return }
         }
         if workspaceFrame.contains(point), !workspaceChoices.isEmpty {
             presentNavigationMenu(workspaceMenu(), from: workspaceFrame)

@@ -16,7 +16,9 @@ A **workspace** has a stable ID and a mutable directory root—either a local
 folder or an SSH host plus remote folder—and workspace-scoped status items. The
 native session store on the execution machine persists that workspace record and
 explicit session membership, while each Desktop keeps only its own presentation
-cache. A **tile** is the
+cache. Desktop has one implicit local target plus explicit persisted SSH target
+profiles. It polls only those targets; discovery updates the session browser and
+never creates a workspace, tile, viewer, or camera transition. A **tile** is the
 spatial object reordered within that workspace; it links the terminal to its
 current foreground process PID. A **terminal** owns
 the launch configuration, emulator, and persistent PTY. A workspace with one
@@ -101,8 +103,8 @@ cannot shift its content or scroll position.
 When several Desktops view the same native session, the PTY keeps one
 controller-owned rows-by-columns grid. Watchers fit and letterbox that grid in
 their own differently sized tiles; they do not resize or reflow it. A lone
-viewer follows its own dimensions automatically. **Sessions…** labels the owner
-as **CONTROL** and offers **Take Control and Resize** to an attached watcher.
+viewer follows its own dimensions automatically. **Sessions…** labels
+the owner and offers **Control** to an attached watcher.
 
 Machinen never interprets an unmodified Escape in Terminal mode. The byte goes
 directly to the PTY, so terminal programs retain their normal Escape behavior.
@@ -210,13 +212,11 @@ from this top-level menu dismisses it:
 5. **Change workspace location…** chooses either a local folder or a remote
    `alias:path` reachable through the user's SSH configuration. It is available
    at any time, including while terminals are running.
-6. **Sessions…** opens a floating, keyboard-navigable list of every terminal
-   session in the workspace. Each row shows this Desktop's attachment state,
-   every connected client, and the current controller. Return attaches or
-   detaches normally; when this Desktop is an attached watcher, Return performs
-   **Take Control and Resize**, transferring writer and resize control while
-   leaving the previous controller connected.
-   Delete or `⌘W` kills the session.
+6. **Sessions…** opens the app-wide computer → workspace → session
+   tree. Session rows show this Desktop's attachment state, connected-client
+   count, and control state. Return attaches or detaches normally; when this
+   Desktop is an attached watcher, Return takes writer and resize control while
+   leaving the previous controller connected. Delete or `⌘W` kills the session.
 7. **Close workspace…** asks for confirmation, terminates its PTY processes,
    and removes its saved workspace and terminal definitions.
 
@@ -316,10 +316,10 @@ and branch-wide Git changes. The Git item shows only the total changed-file coun
 reveals the branch, commits since its default-branch merge base, changed files,
 and added and deleted lines. In a **focused tile**, its minimap pane remains the
 activity indicator. When a running native session inside the workspace has no Desktop tile,
-a count item appears in the strip; clicking it opens the same panel as
-**Sessions…**. A focused terminal also shows **CONTROL** when this Desktop owns
-input and resize, or **VIEWING** otherwise. `+N` reports other attached viewers;
-hovering lists their names and roles, and clicking opens **Sessions…** with the
+a count item appears in the strip; clicking it opens **Sessions…**.
+A focused terminal also shows **CONTROL** when this Desktop owns input and
+resize, or **VIEWING** otherwise. `+N` reports other attached viewers; hovering
+lists their names and roles, and clicking opens the same shared tree with the
 focused session selected. The strip also shows CPU and network transfer for that PID and its local
 child processes, plus workspace branch changes. Git is
 scoped to the selected workspace. Open ports include listeners whose process
@@ -339,15 +339,40 @@ Machine widgets override global widgets, workspace widgets override machine
 widgets, and terminal widgets override workspace widgets with the same ID. TTLs
 remove stale live data.
 
+## Sessions across computers
+
+**Commands…** at Workspace Overview offers **Use another computer…** and
+**Sessions…**. The latter opens a Command-K-style hierarchical browser:
+computer → workspace → session → action. Type to filter each level, use arrows
+and Return to navigate, Escape to move back, or click any row. The same browser
+owns session attachment, detachment, connected-client, and control actions;
+there is no separate user-facing session manager. **Use
+Another Computer…** accepts an OpenSSH alias or `user@host` and retains the
+existing OpenSSH/helper behavior.
+
+**Add Workspace…** chooses a computer, folder, and name, then saves the native
+workspace record without opening it or creating a terminal. Enter on a workspace
+explicitly opens it; Enter on a session explicitly attaches it. Each workspace
+row has its own **Close** action. Closing removes only that native workspace and
+its sessions, with a three-second **Undo** window before the close is committed
+on the owning computer. Stopping use of another computer is a separate confirmed
+action and never deletes or syncs its `sessions.sqlite3`, PTYs, or output.
+
+A computer is **online** when polling finds active sessions, **inactive** when it
+responds with none, and **unreachable** when the last poll failed; unreachable is
+retained separately from inactive. Each computer has at most one poll in flight,
+and repeated failures use bounded backoff. Matching names or paths never merge
+workspace identities.
+
 ## Disconnecting and killing
 
 `⌘W` never closes Machinen's macOS window:
 
 - Inside a workspace, `⌘W` removes the selected terminal tile and disconnects its viewer. The native session, PTY, and process tree continue running indefinitely, including for a singleton workspace.
 - A three-second toast offers **Reconnect `⌘Z`** and **Kill `⌘W`**. Pressing `⌘W` again while the toast is visible kills the disconnected session.
-- The status bar counts sessions that are not attached to Desktop. Its item and `⌘K` → **Sessions…** open the same workspace-scoped panel, which lists sessions by their durable native `workspace_id` membership, this Desktop's attachment state, connected clients, and control owner. Legacy records without membership temporarily fall back to launch-directory containment. Return attaches, detaches, or takes control as appropriate; Delete or `⌘W` kills the selection.
+- The status bar counts sessions that are not attached to Desktop. Its item and `⌘K` → **Sessions…** open the app-wide session browser with attachment, client, and control state. Return attaches, detaches, or takes control as appropriate; Delete or `⌘W` kills a selected session.
 - `⇧⌘T` reconnects the latest disconnected terminal in the selected workspace and restores its former position.
-- Disconnected terminals persist across a Desktop restart. If Desktop's private manifest is lost, it reconstructs local native workspaces automatically; selecting a registered SSH directory does the same remotely. Reconnection creates a fresh Ghostty renderer from the worker's latest visible screen rather than restoring renderer-owned scrollback, selection, or viewport state.
+- Disconnected terminals persist across a Desktop restart. If Desktop's private manifest is lost, discovery shows native workspaces and sessions on This Mac and explicitly used computers but does not reconstruct the spatial scene. The user must explicitly open a workspace and explicitly attach a session. Reconnection creates a fresh Ghostty renderer from the worker's latest visible screen rather than restoring renderer-owned scrollback, selection, or viewport state.
 - In Navigate mode's workspace overview, `⌘W` still confirms before closing the workspace and killing all of its sessions.
 - Files in working directories are never deleted.
 

@@ -79,6 +79,14 @@ export class MachinenDesktopClient {
   };
   // Public SDK surface is consumed outside this repository.
   // fallow-ignore-next-line unused-class-member
+  readonly targets = {
+    list: () => this.request<JsonObject>("target.list"),
+    register: (host: string) => this.request<JsonObject>("target.register", { host }),
+    remove: (targetId: string) => this.request<JsonObject>("target.remove", { targetId }),
+    sessions: () => this.request<JsonObject>("target.sessions"),
+  };
+  // Public SDK surface is consumed outside this repository.
+  // fallow-ignore-next-line unused-class-member
   readonly status = {
     list: () => this.request<JsonObject>("status.list"),
     set: (widget: StatusWidget) =>

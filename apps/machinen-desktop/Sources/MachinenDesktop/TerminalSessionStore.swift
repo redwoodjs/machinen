@@ -7,6 +7,7 @@ final class TerminalSessionStore {
         var workspaces: [WorkspaceRecord]?
         var sessions: [TerminalSession]
         var workspaceLocationHistory: [WorkspaceLocation]?
+        var targetMachines: [TargetMachine]?
     }
 
     let manifestURL: URL
@@ -40,10 +41,11 @@ final class TerminalSessionStore {
             let state = migrate(
                 workspaces: manifest.workspaces,
                 sessions: manifest.sessions,
-                workspaceLocationHistory: manifest.workspaceLocationHistory
+                workspaceLocationHistory: manifest.workspaceLocationHistory,
+                targetMachines: manifest.targetMachines
             )
-            if manifest.version < 10 || manifest.workspaces == nil
-                || manifest.workspaceLocationHistory == nil
+            if manifest.version < 11 || manifest.workspaces == nil
+                || manifest.workspaceLocationHistory == nil || manifest.targetMachines == nil
             {
                 save(state)
             }
@@ -67,10 +69,11 @@ final class TerminalSessionStore {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let manifest = Manifest(
-                version: 10,
+                version: 11,
                 workspaces: state.workspaces,
                 sessions: state.sessions,
-                workspaceLocationHistory: state.workspaceLocationHistory
+                workspaceLocationHistory: state.workspaceLocationHistory,
+                targetMachines: state.targetMachines
             )
             let data = try encoder.encode(manifest)
             try data.write(to: manifestURL, options: .atomic)
@@ -82,7 +85,8 @@ final class TerminalSessionStore {
     private func migrate(
         workspaces existingWorkspaces: [WorkspaceRecord]?,
         sessions: [TerminalSession],
-        workspaceLocationHistory existingLocationHistory: [WorkspaceLocation]?
+        workspaceLocationHistory existingLocationHistory: [WorkspaceLocation]?,
+        targetMachines existingTargets: [TargetMachine]?
     ) -> MachinenStoredState {
         var workspaces = existingWorkspaces ?? []
         var workspaceByLegacyName: [String: WorkspaceRecord] = [:]
@@ -128,10 +132,23 @@ final class TerminalSessionStore {
         for location in workspaces.map(\.location) where !locationHistory.contains(location) {
             locationHistory.append(location)
         }
+        // Seed intentional SSH locations only while upgrading a manifest that
+        // predates targets. An empty v11 list means the user removed them.
+        var targets = existingTargets ?? []
+        if existingTargets == nil {
+            var targetHosts = Set<String>()
+            for location in locationHistory + workspaces.map(\.location) {
+                guard let host = location.sshHost else { continue }
+                let key = TargetMachine.normalizedHost(host)
+                guard targetHosts.insert(key).inserted else { continue }
+                targets.append(TargetMachine(sshHost: host))
+            }
+        }
         return MachinenStoredState(
             workspaces: workspaces,
             sessions: sessions,
-            workspaceLocationHistory: locationHistory
+            workspaceLocationHistory: locationHistory,
+            targetMachines: targets
         )
     }
 }

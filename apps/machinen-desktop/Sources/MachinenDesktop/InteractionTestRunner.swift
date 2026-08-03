@@ -30,7 +30,7 @@ enum InteractionTestRunner {
             try availableNativeSessionsReconnectIntoWorkspace()
             try attachedSessionCanTakeControl()
             try sharedSessionGeometryFollowsItsController()
-            try nativeWorkspaceRegistryRestoresLostDesktopState()
+            try registeredTargetDiscoveryRequiresExplicitOpenAndAttach()
             try graphicalStatusWidgetsRender()
             try desktopServicesRestartUntilTheAppStops()
             try workspaceNamesRemainUniqueAndLocationsCanBeShared()
@@ -1451,10 +1451,7 @@ enum InteractionTestRunner {
             "the status bar did not show the unrepresented workspace session"
         )
 
-        deck.toggleCommandPalette()
-        let palette = try harness.commandPalette(in: deck)
-        try harness.type("Sessions", into: palette)
-        try harness.pressReturn(on: palette)
+        deck.toggleAvailableSessions()
         let manager = try harness.availableSessions(in: deck)
         try expect(
             manager.items.map(\.session.id) == ["term_external", "term_alpha_0"],
@@ -1484,10 +1481,7 @@ enum InteractionTestRunner {
             "the represented session remained available in the status bar"
         )
 
-        deck.toggleCommandPalette()
-        let allSessionsPalette = try harness.commandPalette(in: deck)
-        try harness.type("Sessions", into: allSessionsPalette)
-        try harness.pressReturn(on: allSessionsPalette)
+        deck.toggleAvailableSessions()
         let allSessions = try harness.availableSessions(in: deck)
         try expect(
             allSessions.items.count == 2 && allSessions.items.allSatisfy { $0.isAttached },
@@ -1518,10 +1512,7 @@ enum InteractionTestRunner {
               let detachedTerminalID = detachedTile["terminalId"] as? String
         else { throw InteractionTestFailure("the deck had no tile to detach") }
         _ = try deck.performAPIOperation("tile.detach", params: ["tileId": detachedTileID])
-        deck.toggleCommandPalette()
-        let detachedPalette = try harness.commandPalette(in: deck)
-        try harness.type("Sessions", into: detachedPalette)
-        try harness.pressReturn(on: detachedPalette)
+        deck.toggleAvailableSessions()
         let detachedSessions = try harness.availableSessions(in: deck)
         try expect(
             detachedSessions.items.first(where: { $0.session.id == detachedTerminalID })?
@@ -1581,8 +1572,6 @@ enum InteractionTestRunner {
             ),
         ])
         let deck = harness.makeDeck(workspaces: [alpha])
-        deck.toggleAvailableSessions()
-        let panel = try harness.availableSessions(in: deck)
         let status = try harness.effectiveStatusWidgets(of: deck)
         let controlStatus = status.first { $0.id == "machinen.sessionControl" }
         try expect(
@@ -1590,15 +1579,18 @@ enum InteractionTestRunner {
                 && controlStatus?.tooltip?.contains("Machinen Desktop on another Mac") == true,
             "the status bar did not show control ownership and the other viewer"
         )
+        deck.toggleTargetSessions(selecting: terminal.id)
+        let browser = try harness.targetSessions(in: deck)
         try expect(
-            panel.items.first?.canTakeControl == true
-                && panel.items.first?.primaryActionTitle == "Take Control and Resize",
-            "the attached watcher did not offer to take control"
+            browser.items.first(where: { $0.sessionID == terminal.id })?.sessionAction
+                == .takeControl,
+            "the shared workspace tree did not offer control for the attached watcher"
         )
-        try harness.pressReturn(on: panel)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
         try expect(
             harness.takenControlSessionIDs == [terminal.id],
-            "the session panel did not request control for its own attachment"
+            "the shared workspace tree did not request control for its own attachment"
         )
     }
 
@@ -1717,106 +1709,305 @@ enum InteractionTestRunner {
         )
     }
 
-    private static func nativeWorkspaceRegistryRestoresLostDesktopState() throws {
+    private static func registeredTargetDiscoveryRequiresExplicitOpenAndAttach() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         harness.setNativeWorkspaces([
             NativeWorkspaceRecord(
-                id: "ws_recovered",
-                name: "recovered",
-                rootDirectory: harness.temporaryDirectoryPath,
-                createdAtMs: 1,
-                updatedAtMs: 2
+                id: "ws_recovered", name: "recovered",
+                rootDirectory: harness.temporaryDirectoryPath, createdAtMs: 1, updatedAtMs: 2
             ),
         ])
         harness.setAvailableSessions([
             AvailableTerminalSession(
-                id: "term_recovered",
-                name: "agent",
-                state: "running",
-                workspaceId: "ws_recovered",
-                workingDirectory: harness.temporaryDirectoryPath + "/packages/app",
-                createdAtMs: 1,
-                updatedAtMs: 2
+                id: "term_recovered", name: "agent", state: "running",
+                workspaceId: "ws_recovered", workingDirectory: harness.temporaryDirectoryPath + "/packages/app",
+                createdAtMs: 1, updatedAtMs: 2
             ),
         ])
 
-        let emptyDesktopState = harness.loadStoredState()
-        try expect(
-            emptyDesktopState.workspaces.isEmpty && emptyDesktopState.sessions.isEmpty,
-            "a missing Desktop manifest recreated prototype workspaces instead of starting recovery"
-        )
-        let deck = harness.makeDeck(state: emptyDesktopState)
-        let snapshot = try harness.snapshot(of: deck)
-        try expect(
-            snapshot.workspaces.map(\.id) == ["ws_recovered"]
-                && snapshot.workspaces.first?.workingDirectory == harness.temporaryDirectoryPath,
-            "the native registry did not restore a workspace after Desktop state was lost"
-        )
-        let status = try harness.effectiveStatusWidgets(of: deck)
-        try expect(
-            status.first(where: { $0.id == "machinen.availableSessions" })?.value == "1",
-            "the restored workspace did not discover its explicitly associated session"
-        )
-        deck.toggleAvailableSessions()
-        try expect(
-            try harness.availableSessions(in: deck).items.map(\.session.id) == ["term_recovered"],
-            "the restored workspace's session was not available for attachment"
-        )
+        let deck = harness.makeDeck(state: harness.loadStoredState())
+        try expect((try harness.snapshot(of: deck)).workspaces.isEmpty,
+                   "target discovery opened a workspace or attached a session")
+        let discovery = try deck.performAPIOperation("target.sessions", params: [:]) as? JSONObject
+        let local = (discovery?["targets"] as? [JSONObject])?.first
+        try expect((local?["workspaces"] as? [JSONObject])?.map { $0["id"] as? String } == ["ws_recovered"],
+                   "registered local discovery did not report native workspaces")
+        try expect((try harness.effectiveStatusWidgets(of: deck)).contains {
+            $0.id == "machinen.targetSessions" && $0.value == "1"
+        }, "the status bar did not expose the registered target session browser")
+
+        deck.toggleTargetSessions()
+        let browser = try harness.targetSessions(in: deck)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try expect((try harness.snapshot(of: deck)).workspaces.map(\.id) == ["ws_recovered"],
+                   "opening a discovered workspace was not an explicit browser action")
+        deck.toggleTargetSessions()
+        let sessionsBrowser = try harness.targetSessions(in: deck)
+        try harness.pressReturn(on: sessionsBrowser)
+        try harness.pressReturn(on: sessionsBrowser)
+        try harness.pressDown(on: sessionsBrowser)
+        try harness.pressDown(on: sessionsBrowser)
+        try harness.pressReturn(on: sessionsBrowser)
+        try harness.pressReturn(on: sessionsBrowser)
+        try expect((try harness.snapshot(of: deck)).terminals.map(\.id).contains("term_recovered"),
+                   "attaching a discovered session was not an explicit action")
+        deck.toggleTargetSessions(selecting: "term_recovered")
+        let attachedBrowser = try harness.targetSessions(in: deck)
+        try expect(attachedBrowser.items.first(where: {
+            $0.sessionID == "term_recovered"
+        })?.sessionAction == .detach,
+        "the shared workspace tree did not show the attached session state")
+        try harness.pressReturn(on: attachedBrowser)
+        try harness.pressReturn(on: attachedBrowser)
+        try expect((try harness.snapshot(of: deck)).terminals.isEmpty,
+                   "detaching from the shared workspace tree left the viewer attached")
+        deck.restoreUndoToastTerminal()
+
+        harness.setSessionDiscovery(.success([]), for: "ssh:mini")
+        harness.setWorkspaceDiscovery(.success([]), for: "ssh:mini")
+        let target = try deck.performAPIOperation("target.register", params: ["host": "mini"]) as? JSONObject
+        try expect(target?["host"] as? String == "mini", "SSH target registration failed")
+        let persisted = harness.loadStoredState().targetMachines
+        try expect(persisted.count == 1 && persisted[0].sshHost == "mini" && !persisted[0].id.isEmpty,
+                   "registered SSH target was not persisted with a stable identity")
 
         let migrationHarness = try Harness()
         defer { migrationHarness.cleanUp() }
-        migrationHarness.setNativeWorkspaces([
+        try migrationHarness.storeManifest(
+            version: 10,
+            workspaces: [WorkspaceRecord(
+                id: "ws_legacy_remote", name: "legacy remote",
+                workingDirectory: "/project", sshHost: "mini"
+            )],
+            sessions: []
+        )
+        let migrated = migrationHarness.loadStoredState()
+        try expect(migrated.targetMachines.map(\.sshHost) == ["mini"],
+                   "legacy SSH workspace locations were not seeded as target profiles")
+        let migratedDeck = migrationHarness.makeDeck(state: migrated)
+        _ = try migratedDeck.performAPIOperation(
+            "target.remove",
+            params: ["targetId": migrated.targetMachines[0].id]
+        )
+        try expect(migrationHarness.loadStoredState().targetMachines.isEmpty,
+                   "a removed migrated target returned from SSH location history")
+
+        try registeredTargetStatesAndStaleDiscoveryAreDistinct()
+        try removingTargetInvalidatesPendingDiscovery()
+        try addingSharedWorkspaceDoesNotOpenIt()
+        try closingOneTargetWorkspaceSupportsUndo()
+    }
+
+    private static func addingSharedWorkspaceDoesNotOpenIt() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(state: harness.loadStoredState())
+        deck.toggleTargetSessions()
+        let browser = try harness.targetSessions(in: deck)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+
+        var palette = try harness.commandPalette(in: deck)
+        try harness.pressReturn(on: palette)
+        palette = try harness.commandPalette(in: deck)
+        try harness.pressReturn(on: palette)
+        palette = try harness.commandPalette(in: deck)
+        try harness.type("shared home", into: palette)
+        try harness.pressReturn(on: palette)
+
+        guard let saved = harness.savedWorkspaces.last else {
+            throw InteractionTestFailure("Add Workspace did not save a native workspace")
+        }
+        try expect(saved.name == "shared home" && saved.sessions.isEmpty,
+                   "Add Workspace did not register an empty shared workspace")
+        try expect((try harness.snapshot(of: deck)).workspaces.isEmpty,
+                   "registering a shared workspace opened it in the scene")
+    }
+
+    private static func closingOneTargetWorkspaceSupportsUndo() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let target = TargetMachine(id: "target_close_mini", sshHost: "mini")
+        let machineID = "ssh:mini"
+        harness.setWorkspaceDiscovery(.success([
             NativeWorkspaceRecord(
-                id: "ws_canonical",
-                name: "project",
-                rootDirectory: migrationHarness.temporaryDirectoryPath,
-                createdAtMs: 1,
-                updatedAtMs: 2
+                id: "ws_close_one", name: "one",
+                rootDirectory: harness.temporaryDirectoryPath + "/one",
+                createdAtMs: 1, updatedAtMs: 2
             ),
             NativeWorkspaceRecord(
-                id: "ws_duplicate",
-                name: "project",
-                rootDirectory: migrationHarness.temporaryDirectoryPath,
-                createdAtMs: 2,
-                updatedAtMs: 3
+                id: "ws_keep_two", name: "two",
+                rootDirectory: harness.temporaryDirectoryPath + "/two",
+                createdAtMs: 1, updatedAtMs: 2
             ),
-        ])
-        let legacyWorkspace = WorkspaceRecord(
-            id: "ws_legacy",
-            name: "project",
-            workingDirectory: migrationHarness.temporaryDirectoryPath
+        ]), for: machineID)
+        harness.setSessionDiscovery(.success([
+            AvailableTerminalSession(
+                id: "term_close_one", name: "agent", state: "running",
+                workspaceId: "ws_close_one", workingDirectory: harness.temporaryDirectoryPath,
+                createdAtMs: 1, updatedAtMs: 2
+            ),
+        ]), for: machineID)
+        let deck = harness.makeDeck(state: MachinenStoredState(
+            workspaces: [], sessions: [], targetMachines: [target]
+        ))
+
+        deck.toggleTargetSessions()
+        var browser = try harness.targetSessions(in: deck)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try expect((try harness.snapshot(of: deck)).workspaces.map(\.id) == ["ws_close_one"],
+                   "the workspace needed for the close-undo proof was not opened")
+
+        deck.toggleTargetSessions()
+        browser = try harness.targetSessions(in: deck)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        let closed = try deck.performAPIOperation("target.sessions", params: [:]) as? JSONObject
+        let closedTarget = (closed?["targets"] as? [JSONObject])?.first {
+            ($0["target"] as? JSONObject)?["id"] as? String == target.id
+        }
+        try expect((closedTarget?["workspaces"] as? [JSONObject])?.compactMap {
+            $0["id"] as? String
+        } == ["ws_keep_two"], "closing one workspace removed every target workspace")
+        let listed = try deck.performAPIOperation("target.list", params: [:]) as? JSONObject
+        try expect((listed?["targets"] as? [JSONObject])?.contains {
+            $0["id"] as? String == target.id
+        } == true, "closing one workspace removed its registered target")
+        try expect((try harness.snapshot(of: deck)).workspaces.isEmpty,
+                   "closing a target workspace left its scene workspace open")
+        try expect(deck.canRestoreUndoToast, "closing a workspace did not offer undo")
+
+        deck.restoreUndoToastTerminal()
+        let restored = try deck.performAPIOperation("target.sessions", params: [:]) as? JSONObject
+        let restoredTarget = (restored?["targets"] as? [JSONObject])?.first {
+            ($0["target"] as? JSONObject)?["id"] as? String == target.id
+        }
+        try expect(Set((restoredTarget?["workspaces"] as? [JSONObject])?.compactMap {
+            $0["id"] as? String
+        } ?? []) == Set(["ws_close_one", "ws_keep_two"]),
+        "undo did not restore the individually closed workspace")
+        try expect((try harness.snapshot(of: deck)).workspaces.map(\.id) == ["ws_close_one"],
+                   "undo did not restore the scene workspace")
+        try expect(harness.deletedWorkspaceIDs.isEmpty,
+                   "undo ran after the native workspace had already been deleted")
+
+        deck.toggleTargetSessions()
+        browser = try harness.targetSessions(in: deck)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        deck.terminateLastClosedTerminalNow()
+        try expect(harness.deletedWorkspaceIDs == ["ws_close_one"],
+                   "committing one close deleted the wrong native workspace")
+    }
+
+    private static func registeredTargetStatesAndStaleDiscoveryAreDistinct() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let target = TargetMachine(id: "target_mini", sshHost: "mini")
+        let machineID = "ssh:mini"
+        let finished = AvailableTerminalSession(
+            id: "term_finished", name: "finished", state: "exited",
+            workspaceId: nil, workingDirectory: "/project", createdAtMs: 1, updatedAtMs: 1
         )
-        let legacySession = TerminalSession(
-            id: "term_legacy",
-            label: "ls",
-            workspaceID: legacyWorkspace.id,
-            workspace: legacyWorkspace.name,
-            name: "shell",
-            launch: .loginShell,
-            workingDirectory: migrationHarness.temporaryDirectoryPath,
-            state: .running
+        harness.setSessionDiscovery(.success([finished]), for: machineID)
+        harness.setWorkspaceDiscovery(.success([]), for: machineID)
+        let deck = harness.makeDeck(state: MachinenStoredState(
+            workspaces: [], sessions: [], targetMachines: [target]
+        ))
+
+        func targetResult(_ operation: String) throws -> JSONObject? {
+            let result = try deck.performAPIOperation(operation, params: [:]) as? JSONObject
+            return (result?["targets"] as? [JSONObject])?.first {
+                let candidate = ($0["target"] as? JSONObject) ?? $0
+                return candidate["id"] as? String == target.id
+            }
+        }
+
+        try expect(try targetResult("target.list")?["state"] as? String == "inactive",
+                   "a target with only exited sessions was reported online")
+
+        let active = AvailableTerminalSession(
+            id: "term_active", name: "agent", state: "running",
+            workspaceId: nil, workingDirectory: "/project", createdAtMs: 2, updatedAtMs: 2
         )
-        let migratedDeck = migrationHarness.makeDeck(
-            workspaces: [(legacyWorkspace, [legacySession])]
+        harness.setSessionDiscovery(.success([active]), for: machineID)
+        deck.toggleTargetSessions()
+        let browser = try harness.targetSessions(in: deck)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try expect(try targetResult("target.list")?["state"] as? String == "online",
+                   "an active registered target was not reported online")
+
+        let workspaceCalls = harness.workspaceDiscoveryCallCount(for: machineID)
+        harness.setSessionDiscovery(
+            .failure(InteractionTestFailure("SSH is offline")),
+            for: machineID
         )
-        let migratedSnapshot = try migrationHarness.snapshot(of: migratedDeck)
-        try expect(
-            migratedSnapshot.workspaces.map(\.id) == ["ws_canonical"]
-                && migratedSnapshot.tiles.map(\.workspaceId) == ["ws_canonical"],
-            "a native workspace with the same machine and root created a duplicate workspace"
+        try harness.pressDown(on: browser)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        let stale = try targetResult("target.sessions")
+        try expect(stale?["state"] as? String == "unreachable",
+                   "a failed target poll was reported inactive")
+        try expect((stale?["sessions"] as? [JSONObject])?.map { $0["id"] as? String }
+            == ["term_active"], "unreachable discovery did not retain its stale active sessions")
+        try expect(harness.workspaceDiscoveryCallCount(for: machineID) == workspaceCalls,
+                   "a failed session poll performed a second SSH workspace request")
+    }
+
+    private static func removingTargetInvalidatesPendingDiscovery() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let target = TargetMachine(id: "target_pending", sshHost: "pending")
+        let machineID = "ssh:pending"
+        harness.deferSessionDiscovery(for: machineID)
+        let deck = harness.makeDeck(state: MachinenStoredState(
+            workspaces: [], sessions: [], targetMachines: [target]
+        ))
+
+        deck.toggleTargetSessions()
+        let browser = try harness.targetSessions(in: deck)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressDown(on: browser)
+        try harness.pressReturn(on: browser)
+        try harness.pressReturn(on: browser)
+        try expect(harness.sessionDiscoveryCallCount(for: machineID) == 1,
+                   "an in-flight target poll allowed overlapping SSH requests")
+
+        _ = try deck.performAPIOperation(
+            "target.remove",
+            params: ["targetId": target.id]
         )
-        let migratedState = migrationHarness.loadStoredState()
-        try expect(
-            migratedState.workspaces.map(\.id) == ["ws_canonical"]
-                && migratedState.sessions.map(\.workspaceID) == ["ws_canonical"],
-            "the canonical native workspace ID was not persisted"
+        harness.completeSessionDiscovery(
+            for: machineID,
+            with: .success([AvailableTerminalSession(
+                id: "term_late", name: "late", state: "running",
+                workspaceId: nil, workingDirectory: "/project", createdAtMs: 1, updatedAtMs: 1
+            )])
         )
-        try expect(
-            migrationHarness.savedWorkspaceIDs.contains("ws_canonical")
-                && migrationHarness.deletedWorkspaceIDs.contains("ws_legacy"),
-            "the native session store did not replace the superseded workspace ID"
-        )
+        let listed = try deck.performAPIOperation("target.list", params: [:]) as? JSONObject
+        try expect((listed?["targets"] as? [JSONObject])?.compactMap { $0["id"] as? String }
+            == ["local"], "a late discovery result resurrected a removed target")
+        try expect(harness.workspaceDiscoveryCallCount(for: machineID) == 0,
+                   "a removed target continued into workspace discovery")
+        try expect((try harness.effectiveStatusWidgets(of: deck)).first {
+            $0.id == "machinen.targetSessions"
+        }?.value == "0", "a removed target remained in the status-bar session count")
     }
 
     private static func graphicalStatusWidgetsRender() throws {
@@ -2947,10 +3138,7 @@ enum InteractionTestRunner {
             "the disconnected session did not appear in the status bar"
         )
 
-        deck.toggleCommandPalette()
-        let commandPalette = try harness.commandPalette(in: deck)
-        try harness.type("Sessions", into: commandPalette)
-        try harness.pressReturn(on: commandPalette)
+        deck.toggleAvailableSessions()
         let sessions = try harness.availableSessions(in: deck)
         try expect(
             sessions.items.count == 4
@@ -3239,6 +3427,10 @@ private final class ImmediateViewerBackend: TerminalSessionBackend {
 
 @MainActor
 private final class DeferredViewerBackend: TerminalSessionBackend {
+    typealias SessionListCompletion = @MainActor @Sendable (
+        Result<[AvailableTerminalSession], Error>
+    ) -> Void
+
     private var viewerCompletion: (
         @MainActor @Sendable (Result<TerminalViewerLaunch, Error>) -> Void
     )?
@@ -3263,6 +3455,12 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
 
     var availableSessions: [AvailableTerminalSession] = []
     var nativeWorkspaces: [NativeWorkspaceRecord] = []
+    var sessionResultsByMachine: [String: Result<[AvailableTerminalSession], Error>] = [:]
+    var workspaceResultsByMachine: [String: Result<[NativeWorkspaceRecord], Error>] = [:]
+    var deferredSessionMachines: Set<String> = []
+    var pendingSessionLists: [String: [SessionListCompletion]] = [:]
+    var sessionListCallsByMachine: [String: Int] = [:]
+    var workspaceListCallsByMachine: [String: Int] = [:]
     var savedWorkspaces: [(id: String, name: String, location: WorkspaceLocation, sessions: [String])] = []
     var deletedWorkspaces: [(id: String, location: WorkspaceLocation)] = []
     var takenControlOf: [String] = []
@@ -3270,16 +3468,33 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
 
     func listSessions(
         at location: WorkspaceLocation,
-        completion: @escaping @MainActor @Sendable (Result<[AvailableTerminalSession], Error>) -> Void
+        completion: @escaping SessionListCompletion
     ) {
-        completion(.success(availableSessions))
+        let machineID = location.machineID
+        sessionListCallsByMachine[machineID, default: 0] += 1
+        if deferredSessionMachines.contains(machineID) {
+            pendingSessionLists[machineID, default: []].append(completion)
+            return
+        }
+        completion(sessionResultsByMachine[machineID] ?? .success(availableSessions))
     }
 
     func listWorkspaces(
         at location: WorkspaceLocation,
         completion: @escaping @MainActor @Sendable (Result<[NativeWorkspaceRecord], Error>) -> Void
     ) {
-        completion(.success(nativeWorkspaces))
+        let machineID = location.machineID
+        workspaceListCallsByMachine[machineID, default: 0] += 1
+        completion(workspaceResultsByMachine[machineID] ?? .success(nativeWorkspaces))
+    }
+
+    func completeSessionLists(
+        for machineID: String,
+        with result: Result<[AvailableTerminalSession], Error>
+    ) {
+        deferredSessionMachines.remove(machineID)
+        let completions = pendingSessionLists.removeValue(forKey: machineID) ?? []
+        for completion in completions { completion(result) }
     }
 
     func saveWorkspace(
@@ -3366,11 +3581,47 @@ private final class Harness {
         terminalBackend.availableSessions = sessions
     }
 
+    func setSessionDiscovery(
+        _ result: Result<[AvailableTerminalSession], Error>,
+        for machineID: String
+    ) {
+        terminalBackend.sessionResultsByMachine[machineID] = result
+    }
+
+    func setWorkspaceDiscovery(
+        _ result: Result<[NativeWorkspaceRecord], Error>,
+        for machineID: String
+    ) {
+        terminalBackend.workspaceResultsByMachine[machineID] = result
+    }
+
+    func deferSessionDiscovery(for machineID: String) {
+        terminalBackend.deferredSessionMachines.insert(machineID)
+    }
+
+    func completeSessionDiscovery(
+        for machineID: String,
+        with result: Result<[AvailableTerminalSession], Error>
+    ) {
+        terminalBackend.completeSessionLists(for: machineID, with: result)
+    }
+
+    func sessionDiscoveryCallCount(for machineID: String) -> Int {
+        terminalBackend.sessionListCallsByMachine[machineID] ?? 0
+    }
+
+    func workspaceDiscoveryCallCount(for machineID: String) -> Int {
+        terminalBackend.workspaceListCallsByMachine[machineID] ?? 0
+    }
+
     var takenControlSessionIDs: [String] { terminalBackend.takenControlOf }
     var resizedSessionRequests: [(id: String, columns: UInt16, rows: UInt16)] {
         terminalBackend.resizedSessions
     }
     var savedWorkspaceIDs: [String] { terminalBackend.savedWorkspaces.map(\.id) }
+    var savedWorkspaces: [(id: String, name: String, location: WorkspaceLocation, sessions: [String])] {
+        terminalBackend.savedWorkspaces
+    }
     var deletedWorkspaceIDs: [String] { terminalBackend.deletedWorkspaces.map(\.id) }
 
     func setNativeWorkspaces(_ workspaces: [NativeWorkspaceRecord]) {
@@ -3379,6 +3630,10 @@ private final class Harness {
 
     func loadStoredState() -> MachinenStoredState {
         sessionStore().load()
+    }
+
+    func storeState(_ state: MachinenStoredState) {
+        sessionStore().save(state)
     }
 
     func storeManifest(
@@ -3484,6 +3739,13 @@ private final class Harness {
             throw InteractionTestFailure("the available sessions picker did not open")
         }
         return manager
+    }
+
+    func targetSessions(in deck: TerminalDeckView) throws -> TargetSessionsView {
+        guard let browser = deck.subviews.compactMap({ $0 as? TargetSessionsView }).last else {
+            throw InteractionTestFailure("the registered target browser did not open")
+        }
+        return browser
     }
 
     func undoToast(in deck: TerminalDeckView) -> UndoTerminalCloseView? {

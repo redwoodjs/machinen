@@ -353,7 +353,7 @@ final class MachinenAPIServer {
                 "capabilities": [
                     "workspaces", "tiles", "terminals", "terminalInput",
                     "terminalOutput", "uiControl", "statusWidgets", "commands",
-                    "selectionOpeners", "events",
+                    "selectionOpeners", "targets", "events",
                 ],
             ], id: requestID, to: connection)
             return
