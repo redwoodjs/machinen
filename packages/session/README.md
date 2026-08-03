@@ -57,6 +57,7 @@ machinen terminal list
 machinen terminal attach --client-name "laptop" api
 machinen terminal list                 # includes connected clients and controller
 machinen terminal take --client-id 123456 api
+machinen terminal resize --columns 120 --rows 36 api
 machinen terminal send api --newline r
 machinen terminal signal api interrupt
 machinen terminal stop api
@@ -101,6 +102,7 @@ machinen-session inspect --database "$DB" api
 machinen-session attach --database "$DB" --client-name laptop api
 machinen-session attach --database "$DB" --latest-screen api
 machinen-session take --database "$DB" --client-id 123456 api
+machinen-session resize --database "$DB" --columns 120 --rows 36 api
 machinen-session attach --database "$DB" --after 420 api
 printf 'r' | machinen-session send --database "$DB" api
 machinen-session stop --database "$DB" api
@@ -159,16 +161,27 @@ watchers and automatically acquire released leases. `attach --read-only`
 requests neither lease.
 
 `list` reports every interactive attachment, its client ID and display name, and
-whether it owns writer and resize control. `attach --client-name <name>` supplies
-a recognizable label; Desktop does this automatically. `take --client-id <id>`
+whether it owns writer and resize control. The worker also publishes one
+authoritative rows-by-columns geometry and its resize owner. A lone interactive
+viewer automatically owns that geometry and follows its window dimensions.
+Additional viewers fit the authoritative grid locally until they explicitly
+take control; they never independently reflow the shared PTY. `resize` is the
+same-user one-shot path for an explicit geometry request. Geometry-aware
+renderers use `attach --geometry-events`; the helper translates worker geometry
+frames into `machinen.geometry:v1` OSC title events containing the authoritative
+grid, generation, owner, this viewer's lease state, and its local grid.
+
+`attach --client-name <name>` supplies a recognizable label; Desktop does this
+automatically. `take --client-id <id>`
 atomically transfers both leases while leaving the previous controller attached
 as a watcher. Attach clients honor lease updates and discard keyboard input while
 watching.
 
 Same-user `send`, `signal`, and `stop` operations use explicit control
 connections. They do not steal the interactive writer lease. Presence and take
-control are capability-negotiated protocol-v2 extensions; old live workers keep
-running but do not expose them until that session is restarted with a new helper.
+control and authoritative geometry are capability-negotiated protocol-v2
+extensions; old live workers keep running but do not expose them until that
+session is restarted with a new helper.
 
 ## Foreground activity
 
@@ -206,6 +219,8 @@ process explicitly.
   session discovery and creation.
 - Live output batches use an independently increasing worker sequence.
 - A durable checkpoint advances its sequence and terminal dimensions atomically.
+- One authoritative geometry is broadcast to capable viewers after attach,
+  resize, and control transfer; automatic viewer resize requires the resize lease.
 - Checkpoint replacement and legacy event compaction are committed atomically.
 - SQLite records worker protocol versions so upgraded clients can attach to
   still-live v1 workers without replacing them.

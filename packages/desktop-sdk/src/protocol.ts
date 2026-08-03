@@ -27,6 +27,14 @@ export interface Tile {
   viewerState: "attached" | "detached";
 }
 
+interface TerminalGeometry {
+  columns: number;
+  rows: number;
+  generation: number;
+  ownerClientId: number | null;
+  controlledByThisViewer: boolean;
+}
+
 export interface Terminal {
   id: string;
   tileId: string;
@@ -39,6 +47,7 @@ export interface Terminal {
   processState: "starting" | "running" | "stopped" | "exited" | "disconnected";
   activityState: "working" | "waiting" | "idle" | "unknown";
   viewerState: "attached" | "detached";
+  geometry: TerminalGeometry | null;
   [key: string]: unknown;
 }
 
@@ -161,6 +170,7 @@ export type DesktopEventName =
   | "terminal.activityChanged"
   | "terminal.commandChanged"
   | "terminal.workingDirectoryChanged"
+  | "terminal.geometryChanged"
   | "terminal.updated"
   | "terminal.output"
   | "status.changed"

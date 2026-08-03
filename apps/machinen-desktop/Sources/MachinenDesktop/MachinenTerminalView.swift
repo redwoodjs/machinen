@@ -2,6 +2,14 @@ import AppKit
 import CoreText
 import GhosttyKit
 
+struct TerminalGeometrySignal: Equatable {
+    let geometry: TerminalGeometry
+    let viewerClientID: UInt64
+    let ownsResize: Bool
+    let localColumns: UInt32
+    let localRows: UInt32
+}
+
 /// An embedded Ghostty surface attached to a persistent Machinen session worker.
 final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     let session: TerminalSession
@@ -11,6 +19,7 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     var onCommandChange: ((String) -> Void)?
     var onShellNameChange: ((String) -> Void)?
     var onProcessInfoChange: ((TerminalProcessInfo?) -> Void)?
+    var onGeometryChange: ((TerminalGeometry) -> Void)?
     var onRuntimeLabelChange: ((String?) -> Void)?
     var onWorkingDirectoryChange: ((String?) -> Void)?
     var onOutput: ((Data) -> Void)?
@@ -28,6 +37,20 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     private var markedText = NSMutableAttributedString()
     private var keyTextAccumulator: [String]?
     private var cellSize = NSSize(width: 10, height: 20)
+    private(set) var sessionGeometry: TerminalGeometry?
+    private var geometryLocalColumns: UInt32?
+    private var geometryLocalRows: UInt32?
+    private var ownsResizeControl = true
+    private var pinsAuthoritativeGeometry = false
+    private var lastSignaledGeometry: TerminalGeometry?
+    private var geometryDisplayScale = NSSize(width: 1, height: 1)
+    private var geometrySourceSize: NSSize?
+    private var outputByteCount = 0
+    private var renderRequestCount = 0
+    private var lastGeometryDiagnostic: String?
+    var rendersAuthoritativeGrid: Bool {
+        sessionGeometry != nil && (!ownsResizeControl || pinsAuthoritativeGeometry)
+    }
     private var tracking: NSTrackingArea?
     private var selectionAnchorInWindow: NSPoint?
     private var outputTap: GhosttyOutputTap?
@@ -59,6 +82,9 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         detector.onCommandChange = { [weak self] command in self?.onCommandChange?(command) }
         detector.onShellNameChange = { [weak self] shellName in self?.onShellNameChange?(shellName) }
         detector.onProcessInfoChange = { [weak self] info in self?.onProcessInfoChange?(info) }
+        detector.onGeometryChange = { [weak self] geometry in
+            self?.applySessionGeometry(geometry)
+        }
         activityDetector = detector
     }
 
@@ -82,6 +108,35 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         return label.isEmpty ? .some(nil) : .some(label)
     }
 
+    private static let geometryTitlePrefix = "machinen.geometry:v1:"
+
+    static func geometrySignal(fromTerminalTitle title: String) -> TerminalGeometrySignal? {
+        guard title.hasPrefix(geometryTitlePrefix) else { return nil }
+        let fields = title.dropFirst(geometryTitlePrefix.count).split(separator: ":")
+        guard fields.count == 8,
+              let columns = UInt32(fields[0]), columns > 0,
+              let rows = UInt32(fields[1]), rows > 0,
+              let generation = UInt32(fields[2]), generation > 0,
+              let rawOwner = UInt64(fields[3]),
+              let viewerClientID = UInt64(fields[4]), viewerClientID > 0,
+              let rawOwnsResize = UInt8(fields[5]), rawOwnsResize <= 1,
+              let localColumns = UInt32(fields[6]), localColumns > 0,
+              let localRows = UInt32(fields[7]), localRows > 0
+        else { return nil }
+        return TerminalGeometrySignal(
+            geometry: TerminalGeometry(
+                columns: columns,
+                rows: rows,
+                generation: generation,
+                ownerClientId: rawOwner == 0 ? nil : rawOwner
+            ),
+            viewerClientID: viewerClientID,
+            ownsResize: rawOwnsResize == 1,
+            localColumns: localColumns,
+            localRows: localRows
+        )
+    }
+
     func startActivityDetection() {
         activityDetector?.start()
     }
@@ -100,12 +155,16 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     }
 
     override func setFrameSize(_ newSize: NSSize) {
+        if ownsResizeControl && newSize != frame.size {
+            pinsAuthoritativeGeometry = false
+        }
         super.setFrameSize(newSize)
         updateGhosttyGeometry()
     }
 
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
+        if ownsResizeControl { pinsAuthoritativeGeometry = false }
         updateGhosttyGeometry()
     }
 
@@ -230,8 +289,16 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         do {
             let tap = try GhosttyOutputTap { [weak self] data in
                 DispatchQueue.main.async { [weak self] in
-                    self?.activityDetector?.recordOutput()
-                    self?.onOutput?(data)
+                    guard let self else { return }
+                    self.outputByteCount += data.count
+                    if self.outputByteCount == data.count {
+                        InputRoutingLog.log(
+                            "terminal[\(self.session.tileID)] first viewer output "
+                                + "bytes=\(data.count)"
+                        )
+                    }
+                    self.activityDetector?.recordOutput()
+                    self.onOutput?(data)
                 }
             }
             outputTap = tap
@@ -327,7 +394,63 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         ghosttyViewerClosed(processAlive: false)
     }
 
+    private func applyGeometrySignal(_ signal: TerminalGeometrySignal) {
+        guard signal.viewerClientID == session.viewerClientID else { return }
+        geometryLocalColumns = signal.localColumns
+        geometryLocalRows = signal.localRows
+        let ownsResize = signal.ownsResize
+            || signal.geometry.ownerClientId == session.viewerClientID
+        if ownsResize, let previous = lastSignaledGeometry {
+            let dimensionsChanged = previous.columns != signal.geometry.columns
+                || previous.rows != signal.geometry.rows
+            let localMatchesPrevious = previous.columns == signal.localColumns
+                && previous.rows == signal.localRows
+            let localMatchesAuthoritative = signal.geometry.columns == signal.localColumns
+                && signal.geometry.rows == signal.localRows
+            if dimensionsChanged && localMatchesPrevious && !localMatchesAuthoritative {
+                // A same-user control request changed the PTY independently of
+                // this window. Keep that explicit grid until this viewer itself
+                // reports a different local size.
+                pinsAuthoritativeGeometry = true
+            } else if !dimensionsChanged && !localMatchesAuthoritative {
+                // The local window changed first. Let its resize lease update
+                // the worker instead of mistaking the old broadcast for a pin.
+                pinsAuthoritativeGeometry = false
+            }
+        } else if !ownsResize {
+            pinsAuthoritativeGeometry = false
+        }
+        lastSignaledGeometry = signal.geometry
+        applySessionGeometry(signal.geometry, ownsResize: ownsResize)
+    }
+
+    private func applySessionGeometry(
+        _ geometry: TerminalGeometry,
+        ownsResize: Bool? = nil
+    ) {
+        let changed = geometry != sessionGeometry
+        sessionGeometry = geometry
+        if let ownsResize {
+            ownsResizeControl = ownsResize
+        } else if let ownerClientID = geometry.ownerClientId {
+            ownsResizeControl = ownerClientID == session.viewerClientID
+        }
+        updateGhosttyGeometry()
+        if changed {
+            InputRoutingLog.log(
+                "terminal[\(session.tileID)] geometry=\(geometry.columns)x\(geometry.rows) "
+                    + "generation=\(geometry.generation) owner="
+                    + "\(geometry.ownerClientId.map(String.init) ?? "none")"
+            )
+            onGeometryChange?(geometry)
+        }
+    }
+
     func ghosttyTitleChanged(_ title: String) {
+        if let signal = Self.geometrySignal(fromTerminalTitle: title) {
+            applyGeometrySignal(signal)
+            return
+        }
         guard let label = Self.runtimeLabel(fromTerminalTitle: title) else { return }
         InputRoutingLog.log("terminal[\(session.tileID)] runtime label=\(label ?? "<cleared>")")
         onRuntimeLabelChange?(label)
@@ -355,7 +478,22 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     }
 
     func ghosttyCellSizeChanged(width: UInt32, height: UInt32) {
-        cellSize = NSSize(width: Int(width), height: Int(height))
+        let next = NSSize(width: Int(width), height: Int(height))
+        if ownsResizeControl && next != cellSize {
+            pinsAuthoritativeGeometry = false
+        }
+        cellSize = next
+        updateGhosttyGeometry()
+    }
+
+    func ghosttyRenderRequested() {
+        renderRequestCount += 1
+        if renderRequestCount == 1 || renderRequestCount.isMultiple(of: 300) {
+            InputRoutingLog.log(
+                "terminal[\(session.tileID)] render requests=\(renderRequestCount) "
+                    + "outputBytes=\(outputByteCount)"
+            )
+        }
     }
 
     func ghosttyMouseShapeChanged(_ shape: ghostty_action_mouse_shape_e) {
@@ -439,21 +577,136 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         )
     }
 
+    static func authoritativeSurfacePixelSize(
+        viewportSize: NSSize,
+        backingScale: CGFloat,
+        cellSize: NSSize,
+        geometry: TerminalGeometry,
+        localColumns: UInt32?,
+        localRows: UInt32?
+    ) -> (width: UInt32, height: UInt32) {
+        let viewport = intrinsicSurfacePixelSize(
+            for: viewportSize,
+            backingScale: backingScale
+        )
+        let columns = max(1, localColumns ?? UInt32(max(
+            1,
+            Int(CGFloat(viewport.width) / max(1, cellSize.width))
+        )))
+        let rows = max(1, localRows ?? UInt32(max(
+            1,
+            Int(CGFloat(viewport.height) / max(1, cellSize.height))
+        )))
+        let horizontalRemainder = max(
+            0,
+            CGFloat(viewport.width) - CGFloat(columns) * cellSize.width
+        )
+        let verticalRemainder = max(
+            0,
+            CGFloat(viewport.height) - CGFloat(rows) * cellSize.height
+        )
+        let width = CGFloat(geometry.columns) * max(1, cellSize.width)
+            + horizontalRemainder
+        let height = CGFloat(geometry.rows) * max(1, cellSize.height)
+            + verticalRemainder
+        return (
+            UInt32(max(1, min(width.rounded(), CGFloat(UInt32.max)))),
+            UInt32(max(1, min(height.rounded(), CGFloat(UInt32.max))))
+        )
+    }
+
     private func updateGhosttyGeometry() {
         guard let surface else { return }
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
         ghostty_surface_set_content_scale(surface, scale, scale)
-        // Ancestor frame/bounds transforms are the spatial camera. Ghostty must
-        // keep rendering the tile's intrinsic grid while AppKit scales that
-        // unchanged surface in Navigate mode.
-        let pixels = Self.intrinsicSurfacePixelSize(for: bounds.size, backingScale: scale)
+        // The controller renders at its local viewport size. Watchers render the
+        // worker's authoritative cell grid into a separate drawable and fit that
+        // drawable into their local viewport without asking the PTY to reflow.
+        let viewportPixels = Self.intrinsicSurfacePixelSize(
+            for: bounds.size,
+            backingScale: scale
+        )
+        let usesAuthoritativeGrid = rendersAuthoritativeGrid
+        let pixels = if usesAuthoritativeGrid, let geometry = sessionGeometry {
+            Self.authoritativeSurfacePixelSize(
+                viewportSize: bounds.size,
+                backingScale: scale,
+                cellSize: cellSize,
+                geometry: geometry,
+                localColumns: geometryLocalColumns,
+                localRows: geometryLocalRows
+            )
+        } else {
+            viewportPixels
+        }
         ghostty_surface_set_size(surface, pixels.width, pixels.height)
+        let diagnostic = "bounds=\(Int(bounds.width))x\(Int(bounds.height)) "
+            + "viewport=\(viewportPixels.width)x\(viewportPixels.height) "
+            + "surface=\(pixels.width)x\(pixels.height) scale=\(scale) "
+            + "authoritative=\(usesAuthoritativeGrid) hidden=\(isHidden) "
+            + "window=\(window != nil)"
+        if diagnostic != lastGeometryDiagnostic {
+            lastGeometryDiagnostic = diagnostic
+            InputRoutingLog.log("terminal[\(session.tileID)] geometry view \(diagnostic)")
+        }
+        updateGeometryTransform(
+            sourcePixels: pixels,
+            viewportPixels: viewportPixels,
+            enabled: false
+        )
         if let screen = window?.screen {
             ghostty_surface_set_display_id(
                 surface,
                 screen.deviceDescription[.init("NSScreenNumber")] as? UInt32 ?? 0
             )
         }
+    }
+
+    private func updateGeometryTransform(
+        sourcePixels: (width: UInt32, height: UInt32),
+        viewportPixels: (width: UInt32, height: UInt32),
+        enabled: Bool
+    ) {
+        // Temporarily disabled while diagnosing blank Ghostty surfaces. Keeping
+        // the sizing path active isolates CALayer transforms from PTY geometry.
+        guard enabled, sourcePixels.width > 0, sourcePixels.height > 0,
+              viewportPixels.width > 0, viewportPixels.height > 0
+        else {
+            geometryDisplayScale = NSSize(width: 1, height: 1)
+            geometrySourceSize = nil
+            layer?.setAffineTransform(.identity)
+            return
+        }
+        let sourceAspect = CGFloat(sourcePixels.width) / CGFloat(sourcePixels.height)
+        let viewportAspect = CGFloat(viewportPixels.width) / CGFloat(viewportPixels.height)
+        let scaleX: CGFloat
+        let scaleY: CGFloat
+        if sourceAspect > viewportAspect {
+            scaleX = 1
+            scaleY = viewportAspect / sourceAspect
+        } else {
+            scaleX = sourceAspect / viewportAspect
+            scaleY = 1
+        }
+        geometryDisplayScale = NSSize(width: scaleX, height: scaleY)
+        let backingScale = window?.backingScaleFactor
+            ?? NSScreen.main?.backingScaleFactor
+            ?? 2
+        geometrySourceSize = NSSize(
+            width: CGFloat(sourcePixels.width) / backingScale,
+            height: CGFloat(sourcePixels.height) / backingScale
+        )
+        let anchor = layer?.anchorPoint ?? CGPoint(x: 0.5, y: 0.5)
+        let translationX = (0.5 - anchor.x) * bounds.width * (1 - scaleX)
+        let translationY = (0.5 - anchor.y) * bounds.height * (1 - scaleY)
+        layer?.setAffineTransform(CGAffineTransform(
+            a: scaleX,
+            b: 0,
+            c: 0,
+            d: scaleY,
+            tx: translationX,
+            ty: translationY
+        ))
     }
 
     private func loginShell() -> String {
@@ -561,9 +814,9 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
               window?.firstResponder === self
         else { return false }
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
-        if modifiers == [.command],
-           let character = event.charactersIgnoringModifiers?.lowercased(),
-           character == "k" || character == "o"
+        if let character = event.charactersIgnoringModifiers?.lowercased(),
+           (character == "k" && (modifiers == [.command] || modifiers == [.command, .shift]))
+               || (character == "o" && modifiers == [.command])
         {
             var ancestor = superview
             while let view = ancestor {
@@ -607,8 +860,9 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     override func mouseDown(with event: NSEvent) {
         InputRoutingLog.log("terminal[\(session.tileID)] mouseDown \(InputRoutingLog.event(event))")
         window?.makeFirstResponder(self)
-        sendMousePosition(event)
-        sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS)
+        if sendMousePosition(event) {
+            sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS)
+        }
     }
 
     override func mouseUp(with event: NSEvent) {
@@ -630,8 +884,9 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
             NSMenu.popUpContextMenu(menu, with: event, for: self)
             return
         }
-        sendMousePosition(event)
-        sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS)
+        if sendMousePosition(event) {
+            sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS)
+        }
     }
 
     override func rightMouseUp(with event: NSEvent) {
@@ -643,7 +898,11 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         guard onContextMenuRequested == nil else { return }
         sendMousePosition(event)
     }
-    override func otherMouseDown(with event: NSEvent) { sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS) }
+    override func otherMouseDown(with event: NSEvent) {
+        if sendMousePosition(event) {
+            sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS)
+        }
+    }
     override func otherMouseUp(with event: NSEvent) { sendMouseButton(event, state: GHOSTTY_MOUSE_RELEASE) }
     override func otherMouseDragged(with event: NSEvent) { sendMousePosition(event) }
     override func mouseMoved(with event: NSEvent) { sendMousePosition(event) }
@@ -655,7 +914,9 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
     }
 
     override func scrollWheel(with event: NSEvent) {
-        guard let surface else { return }
+        guard let surface,
+              geometryMousePosition(convert(event.locationInWindow, from: nil)) != nil
+        else { return }
         var x = event.scrollingDeltaX
         var y = event.scrollingDeltaY
         if event.hasPreciseScrollingDeltas {
@@ -665,15 +926,47 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         ghostty_surface_mouse_scroll(surface, x, y, event.ghosttyScrollModifiers)
     }
 
-    private func sendMousePosition(_ event: NSEvent) {
-        guard let surface else { return }
+    @discardableResult
+    private func sendMousePosition(_ event: NSEvent) -> Bool {
+        guard let surface else { return false }
         let position = convert(event.locationInWindow, from: nil)
+        guard let mapped = geometryMousePosition(position) else {
+            ghostty_surface_mouse_pos(
+                surface,
+                -1,
+                -1,
+                event.modifierFlags.ghosttyModifiers
+            )
+            return false
+        }
         ghostty_surface_mouse_pos(
             surface,
-            position.x,
-            bounds.height - position.y,
+            mapped.x,
+            mapped.y,
             event.modifierFlags.ghosttyModifiers
         )
+        return true
+    }
+
+    private func geometryMousePosition(_ position: NSPoint) -> NSPoint? {
+        guard let sourceSize = geometrySourceSize else {
+            return NSPoint(x: position.x, y: bounds.height - position.y)
+        }
+        let displayed = NSSize(
+            width: bounds.width * geometryDisplayScale.width,
+            height: bounds.height * geometryDisplayScale.height
+        )
+        let origin = NSPoint(
+            x: bounds.midX - displayed.width / 2,
+            y: bounds.midY - displayed.height / 2
+        )
+        guard displayed.width > 0, displayed.height > 0,
+              position.x >= origin.x, position.x <= origin.x + displayed.width,
+              position.y >= origin.y, position.y <= origin.y + displayed.height
+        else { return nil }
+        let x = (position.x - origin.x) / displayed.width * sourceSize.width
+        let y = (position.y - origin.y) / displayed.height * sourceSize.height
+        return NSPoint(x: x, y: sourceSize.height - y)
     }
 
     private func sendMouseButton(_ event: NSEvent, state: ghostty_input_mouse_state_e) {

@@ -26,25 +26,33 @@ discovery use the workspace directory as their project boundary.
 
 ## Navigation
 
-| Input            | Behavior                                                                               |
-| ---------------- | -------------------------------------------------------------------------------------- |
-| `⌘+` / `⌘−`      | Magnify/demagnify the camera in equal increments without changing hierarchy level.     |
-| `⌘0`             | Reset camera magnification to actual size without changing hierarchy level.            |
-| `⌘↓` or `Return` | Move one level in.                                                                     |
-| `⌘↑`             | Move one level out.                                                                    |
-| `⌘←` / `⌘→`      | From Terminal mode, focus the previous/next terminal in the current workspace.         |
-| `⌘[` / `⌘]`      | From Terminal mode, focus the first terminal in the previous/next non-empty workspace. |
-| `⌘N`             | Open the New chooser; never create a terminal or workspace immediately.                |
-| `⌘K`             | Open the single nested command menu for the current and containing spaces.             |
-| `⌘O`             | Show the focused terminal's full context menu.                                         |
-| `⌘W`             | Disconnect a terminal; press again in its toast or panel to kill its session.          |
-| Keyboard input   | In Terminal mode, the terminal receives all other keys and modifier combinations.      |
-| Arrow keys       | Move the selection only at the current overview level.                                 |
-| Click            | A terminal preview focuses its terminal.                                               |
-| Right-click      | Show Copy, Paste, Select All, and the **Open Selection With** submenu.                 |
-| Drag preview     | Inside a workspace, reorder its terminal tiles. Never change their workspace.          |
-| Drag terminal    | Forward the drag for terminal selection/input.                                         |
-| Hold Space       | Momentarily peek into the selection.                                                   |
+| Input           | Behavior                                                                           |
+| --------------- | ---------------------------------------------------------------------------------- |
+| `⌘+` / `⌘−`     | Magnify/demagnify the camera in equal increments without changing hierarchy level. |
+| `⌘0`            | Reset camera magnification to actual size without changing hierarchy level.        |
+| `⌘,`            | Open the Desktop settings file in the user's default editor.                       |
+| `⇧⌘↓` or Return | Enter the selected workspace or pane.                                              |
+| `⇧⌘↑`           | Leave the current pane or workspace.                                               |
+| `⇧⌘←` / `⇧⌘→`   | From Terminal mode, focus the previous/next pane in the current workspace.         |
+| `⇧⌘[` / `⇧⌘]`   | From Terminal mode, focus the active pane in the previous/next workspace.          |
+| `⌘N` / `⇧⌘N`    | Open the New chooser; never create a terminal or workspace immediately.            |
+| `⌘K` / `⇧⌘K`    | Open the single nested command menu for the current and containing spaces.         |
+| `⌘O`            | Show the focused terminal's full context menu.                                     |
+| `⌘W`            | Disconnect a terminal; press again in its toast or panel to kill its session.      |
+| Keyboard input  | In Terminal mode, the terminal receives all other keys and modifier combinations.  |
+| Arrow keys      | Move the selection only at the current overview level.                             |
+| `⇧` + arrows    | Reorder the selected pane or workspace in the chosen direction.                    |
+| Click           | A terminal preview focuses its terminal.                                           |
+| Right-click     | Show Copy, Paste, Select All, and the **Open Selection With** submenu.             |
+| Drag preview    | Inside a workspace, reorder its terminal tiles. Never change their workspace.      |
+| Drag terminal   | Forward the drag for terminal selection/input.                                     |
+| Hold Space      | Momentarily peek into the selection.                                               |
+
+Machinen writes the spatial shortcuts to `~/.config/machinen/config.json` on
+first launch and adds new defaults to older files. The actions are `enter`,
+`leave`, `selectLeft`, `selectRight`, `selectDown`, `selectUp`, `moveLeft`,
+`moveRight`, `moveDown`, `moveUp`, `previousPane`, `nextPane`,
+`previousWorkspace`, and `nextWorkspace`. The file is read when Desktop starts.
 
 ## Input modes
 
@@ -56,20 +64,45 @@ discovery use the workspace directory as their project boundary.
 - **Terminal mode:** one terminal is focused, and its viewport owns every
   pointer and keyboard event. Spatial dragging, overview navigation, and
   application command equivalents do not intercept terminal input, except
-  `⌘+` / `⌘−`, `⌘←` / `⌘→`, `⌘[` / `⌘]`, `⌘N`, `⌘K`, and `⌘O`. The arrow shortcuts wrap through the
-  terminals in the current workspace, zooming out to the workspace before
-  focusing the adjacent terminal. The bracket shortcuts wrap through non-empty
-  workspaces: they zoom out to the source workspace, zoom out to the workspace
-  overview and select the adjacent workspace, then zoom into its first tile.
-  `⌘K` opens context-aware commands without changing camera level. `⌘O` opens
+  `⌘+` / `⌘−`, the configured Desktop shortcuts, `⌘N` / `⇧⌘N`, `⌘K` / `⇧⌘K`, and `⌘O`.
+  `previousPane` and `nextPane` wrap through the terminals in the current
+  workspace by panning the camera directly at a fixed zoom without leaving
+  Terminal mode. `previousWorkspace` and `nextWorkspace` wrap through
+  non-empty workspaces with a short directional slide and fade from the current
+  pane to the adjacent workspace's last active pane. Each visible slide keeps a
+  fixed zoom; at the faded midpoint, the destination adopts its normal fitted
+  framing. The camera never visits the workspace overview during the transition.
+  Pane and workspace transitions temporarily show a minimap at the top right,
+  directly below the status bar. It
+  preserves the scene's exact workspace and pane geometry under one uniform
+  scale and animates the camera viewport from source to destination. It remains
+  fully visible for 1.25 seconds at the destination, then fades over 340 ms. A
+  persistent 56×26-point status item sits at the far right after every other
+  status item.
+  It keeps exact workspace and pane placement but simplifies each pane to a
+  square pixel-snapped outline, with one-pixel gutters that make pane and
+  workspace counts legible. Pane outline intensity also carries activity:
+  working is bright, idle is muted, waiting is dashed, and unknown is faint.
+  The large transient map uses the exact same monochrome, unfilled pixel-art
+  treatment and discrete camera steps. Both maps keep square internal geometry
+  inside a rounded outer card; only their size and placement differ. Hovering
+  the compact map reveals the large map at full opacity; leaving dismisses that
+  read-only preview with the normal fade.
+  `⌘K` or `⇧⌘K` opens context-aware commands without changing camera level. `⌘O` opens
   the focused terminal's full context menu, including its **Open Selection
   With** submenu when text is selected.
 
-`⌘+` / `⌘−` changes only camera magnification in equal increments, and `⌘0` resets it to actual size; all preserve the current hierarchy level. `⌘↓` / `⌘↑` moves through the camera hierarchy. Neither changes terminal scrollback.
+`⌘+` / `⌘−` changes only camera magnification in equal increments, and `⌘0` resets it to actual size; all preserve the current hierarchy level. The configured `enter` and `leave` actions move through the camera hierarchy. Neither changes terminal scrollback.
 The terminal viewport keeps the same intrinsic bounds and Ghostty grid while the
 camera moves. Navigate mode shows a scaled version of that unchanged surface;
 it does not resize or reflow the terminal. Leaving Terminal mode therefore
 cannot shift its content or scroll position.
+
+When several Desktops view the same native session, the PTY keeps one
+controller-owned rows-by-columns grid. Watchers fit and letterbox that grid in
+their own differently sized tiles; they do not resize or reflow it. A lone
+viewer follows its own dimensions automatically. **Sessions…** labels the owner
+as **CONTROL** and offers **Take Control and Resize** to an attached watcher.
 
 Machinen never interprets an unmodified Escape in Terminal mode. The byte goes
 directly to the PTY, so terminal programs retain their normal Escape behavior.
@@ -180,8 +213,9 @@ from this top-level menu dismisses it:
 6. **Sessions…** opens a floating, keyboard-navigable list of every terminal
    session in the workspace. Each row shows this Desktop's attachment state,
    every connected client, and the current controller. Return attaches or
-   detaches normally; when this Desktop is an attached watcher, Return takes
-   writer and resize control while leaving the previous controller connected.
+   detaches normally; when this Desktop is an attached watcher, Return performs
+   **Take Control and Resize**, transferring writer and resize control while
+   leaving the previous controller connected.
    Delete or `⌘W` kills the session.
 7. **Close workspace…** asks for confirmation, terminates its PTY processes,
    and removes its saved workspace and terminal definitions.
@@ -245,17 +279,20 @@ ordered resize events to SQLite. This works for attached, detached, local, and
 SSH sessions because observation happens beside the PTY rather than through a
 Desktop-side process-list guess. At workspace level the status bar renders
 terminals as spatially ordered activity pips; waiting and failed terminals
-receive attention and error tones. In Terminal mode the indicator follows the
-focused terminal, shows its foreground PID on hover, and copies that PID when
-clicked.
+receive attention and error tones. Both spatial minimaps mirror terminal
+activity directly onto their pane outlines, so they remain useful as idle and
+working indicators without rearranging the scene. The redundant built-in
+`machinen.activity` status widget is not rendered.
 
 ## Programmable status bar
 
 Machinen has one persistent status bar. The workspace title is a dropdown of all
 workspaces in spatial order. Choosing its current workspace moves the camera one
-level out; choosing another workspace enters that workspace. At terminal level,
-the terminal title is a second dropdown of that workspace's terminals in spatial
-order, so choosing one focuses it. Hovering either title reveals its bound path,
+level out; choosing another workspace enters that workspace with the same slide
+and fade used by workspace shortcuts. At terminal level, the terminal title is a
+second dropdown of that workspace's terminals in spatial order, so choosing one
+focuses it with the same fixed-zoom pan used by pane shortcuts. Hovering either
+title reveals its bound path,
 and terminal hover detail also shows any observed foreground command. An API
 client can set a persistent title
 override with `terminal.update`, or clear it to return to the saved terminal
@@ -267,18 +304,23 @@ works through SSH.
 The macOS **View** menu contains **Show Debug Information**, which presents the
 current workspace or terminal's diagnostics without interrupting its PTY.
 
-The top-right strip keeps a built-in `Desktop <version> · Session <version>`
-item at its right edge, using the app bundle version and bundled native session
-handler version. The remaining items are graphical at rest. The strip occupies
+The top-right strip ends with the persistent spatial minimap. Immediately before
+it, a built-in `Desktop <version> · Session <version>` item identifies the app
+bundle version and bundled native session handler version. The remaining items
+are graphical at rest. The strip occupies
 its own layout row; the scene viewport starts below it, so terminal content
 never renders underneath the status bar. In a **workspace**, its activity
 monitor summarizes all terminals with visible active/idle/waiting tile counts,
 and the strip also shows aggregate tile CPU, aggregate tile network transfer,
 and branch-wide Git changes. The Git item shows only the total changed-file count at rest; hovering
 reveals the branch, commits since its default-branch merge base, changed files,
-and added and deleted lines. When a running native session inside the workspace has no Desktop tile,
+and added and deleted lines. In a **focused tile**, its minimap pane remains the
+activity indicator. When a running native session inside the workspace has no Desktop tile,
 a count item appears in the strip; clicking it opens the same panel as
-**Sessions…**. The strip also shows CPU and network transfer for that PID and its local
+**Sessions…**. A focused terminal also shows **CONTROL** when this Desktop owns
+input and resize, or **VIEWING** otherwise. `+N` reports other attached viewers;
+hovering lists their names and roles, and clicking opens **Sessions…** with the
+focused session selected. The strip also shows CPU and network transfer for that PID and its local
 child processes, plus workspace branch changes. Git is
 scoped to the selected workspace. Open ports include listeners whose process
 working directory is the selected workspace folder or one of its descendants,

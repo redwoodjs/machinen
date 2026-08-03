@@ -6,7 +6,16 @@ final class TerminalDeckView: NSView {
         let target: NSRect
         let startedAt: TimeInterval
         let duration: TimeInterval
+        let startAlpha: CGFloat
+        let targetAlpha: CGFloat
         let completion: (@MainActor () -> Void)?
+    }
+
+    private struct SpatialMinimapAnimation {
+        let start: NSRect
+        let target: NSRect
+        let startedAt: TimeInterval
+        let duration: TimeInterval
     }
 
     private enum SpatialDragItem {
@@ -71,7 +80,13 @@ final class TerminalDeckView: NSView {
         // Match cmdcmd's quick, symmetric window motion.
         static let cameraDuration: TimeInterval = 0.20
         static let magnificationDuration: TimeInterval = 0.08
-        static let terminalSwitchDuration: TimeInterval = 0.12
+        static let terminalSwitchDuration: TimeInterval = 0.24
+        static let workspaceSwitchExitDuration: TimeInterval = 0.08
+        static let workspaceSwitchEntryDuration: TimeInterval = 0.11
+        static let workspaceSwitchMinimumAlpha: CGFloat = 0.2
+        static let workspaceSwitchNudge: CGFloat = 44
+        static let minimapHoldDuration: TimeInterval = 1.25
+        static let minimapFadeOutDuration: TimeInterval = 0.34
         static let peekDuration: TimeInterval = 0.12
         static let paneCloseDuration: TimeInterval = 0.18
         static let paneCloseScale: CGFloat = 0.92
@@ -95,8 +110,9 @@ final class TerminalDeckView: NSView {
     }
 
     private let sceneView = CameraSceneView()
-    private let statusBarView = MachinenStatusBarView()
+    private let statusBarView = MachinenStatusBarView(frame: .zero)
     private let statusPopoverView = MachinenStatusPopoverView()
+    private let spatialMinimapView = SpatialMinimapView()
     private let sessionStore: TerminalSessionStore
     private let sessionBackend: any TerminalSessionBackend
     private var workspaces: [WorkspaceRecord]
@@ -108,6 +124,7 @@ final class TerminalDeckView: NSView {
     private var currentWorkspace: String?
     private var selectedIndex = 0
     private var focusedIndex: Int?
+    private var activeTerminalByWorkspace: [String: String] = [:]
     private var isTransitioning = false
     private var isPeeking = false
     private var peekCameraBounds: NSRect?
@@ -122,6 +139,10 @@ final class TerminalDeckView: NSView {
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
     private var cameraAnimationTimer: Timer?
+    private var spatialMinimapAnimation: SpatialMinimapAnimation?
+    private var spatialMinimapFadeGeneration = 0
+    private var spatialMinimapHoldUntil: TimeInterval?
+    private var isSpatialMinimapPreviewed = false
     private var cameraMagnification: CGFloat = 1
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
     private var selectionOpeners: [String: MachinenSelectionOpener] = [:]
@@ -137,6 +158,7 @@ final class TerminalDeckView: NSView {
     private var availableSessionsView: AvailableSessionsView?
     private var availableSessionsWorkspaceID: String?
     private var availableSessionsReturnsToCommands = false
+    private var availableSessionsPendingSelectionID: String?
     private var availableSessionsByMachine: [String: [AvailableTerminalSession]] = [:]
     private var availableSessionsErrors: [String: String] = [:]
     private var availableSessionsLastRefresh: [String: Date] = [:]
@@ -191,16 +213,26 @@ final class TerminalDeckView: NSView {
         rebuildWorkspaceClusters()
         addSubview(statusBarView, positioned: .above, relativeTo: sceneView)
         addSubview(statusPopoverView, positioned: .above, relativeTo: statusBarView)
+        spatialMinimapView.isHidden = true
+        addSubview(spatialMinimapView, positioned: .above, relativeTo: statusPopoverView)
         statusBarView.onHoverChange = { [weak self] widget, anchor, detail in
             self?.updateStatusPopover(widget: widget, anchor: anchor, detail: detail)
         }
         statusBarView.onWidgetClick = { [weak self] widget in
             guard let self else { return false }
-            if widget.id == "machinen.availableSessions" {
+            switch widget.id {
+            case "machinen.availableSessions":
                 self.toggleAvailableSessions()
                 return true
+            case "machinen.sessionControl":
+                self.toggleAvailableSessions(selecting: self.selectedSession()?.id)
+                return true
+            default:
+                return false
             }
-            return false
+        }
+        statusBarView.onSpatialMinimapHoverChange = { [weak self] isHovered in
+            self?.setSpatialMinimapPreviewed(isHovered)
         }
         statusBarView.onWorkspaceSelect = { [weak self] workspaceID in
             self?.selectWorkspaceFromStatusBar(workspaceID)
@@ -361,6 +393,7 @@ final class TerminalDeckView: NSView {
             tile.updateActivity(to: state)
             self.workspaceCluster(named: tile.session.workspaceID)?.needsDisplay = true
             self.refreshStatusBar()
+            self.refreshSpatialMinimapActivityStates()
             self.emitAPIEvent("terminal.activityChanged", data: self.terminalJSON(tile))
         }
         terminalView.onCommandChange = { [weak self, weak tile] command in
@@ -380,6 +413,11 @@ final class TerminalDeckView: NSView {
             tile.updateProcessInfo(info)
             self.refreshStatusBar()
             self.emitAPIEvent("terminal.processChanged", data: self.terminalJSON(tile))
+        }
+        terminalView.onGeometryChange = { [weak self, weak tile] _ in
+            guard let self, let tile, !self.isShuttingDown else { return }
+            self.refreshStatusBar()
+            self.emitAPIEvent("terminal.geometryChanged", data: self.terminalJSON(tile))
         }
         terminalView.onRuntimeLabelChange = { [weak self, weak tile] label in
             guard let self, let tile, !self.isShuttingDown else { return }
@@ -486,6 +524,51 @@ final class TerminalDeckView: NSView {
         }
     }
 
+    private func migrateNativeWorkspace(
+        _ workspace: WorkspaceRecord,
+        replacing previousID: String
+    ) {
+        let sessions = persistedSessionTiles.map(\.session).filter {
+            $0.workspaceID == workspace.id
+        }
+        var locationsByMachine = [workspace.location.machineID: workspace.location]
+        for session in sessions where locationsByMachine[session.location.machineID] == nil {
+            var anchor = session.location
+            anchor.path = session.workspaceRoot
+            locationsByMachine[anchor.machineID] = anchor
+        }
+        for location in locationsByMachine.values {
+            let sessionIDs = sessions.filter {
+                $0.location.machineID == location.machineID
+            }.map(\.id)
+            sessionBackend.saveWorkspace(
+                id: workspace.id,
+                name: workspace.name,
+                at: location,
+                sessionIDs: sessionIDs
+            ) { [weak self] result in
+                guard let self else { return }
+                guard case .success = result else {
+                    if case let .failure(error) = result {
+                        NSLog(
+                            "Machinen could not migrate native workspace: %@",
+                            String(describing: error)
+                        )
+                    }
+                    return
+                }
+                self.sessionBackend.deleteWorkspace(id: previousID, at: location) { result in
+                    if case let .failure(error) = result {
+                        NSLog(
+                            "Machinen could not remove the superseded native workspace: %@",
+                            String(describing: error)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     private func restoreNativeWorkspaces(from location: WorkspaceLocation) {
         sessionBackend.listWorkspaces(at: location) { [weak self] result in
             guard let self else { return }
@@ -506,6 +589,7 @@ final class TerminalDeckView: NSView {
             var changed = false
             var restored: [WorkspaceRecord] = []
             var updated: [WorkspaceRecord] = []
+            var migrated: [(workspace: WorkspaceRecord, previousID: String)] = []
             var usedNames = Set(self.workspaces.map { WorkspaceName.key($0.name) })
             for record in canonicalRecords {
                 if let existing = self.workspaces.first(where: { $0.id == record.id }) {
@@ -527,6 +611,46 @@ final class TerminalDeckView: NSView {
                     }
                     continue
                 }
+                if let existingIndex = self.workspaces.firstIndex(where: {
+                    $0.location.machineID == location.machineID
+                        && WorkspaceName.key($0.name) == WorkspaceName.key(record.name)
+                        && self.normalizedSessionPath($0.location.path)
+                            == self.normalizedSessionPath(record.rootDirectory)
+                }) {
+                    let previous = self.workspaces[existingIndex]
+                    let previousID = previous.id
+                    usedNames.remove(WorkspaceName.key(previous.name))
+                    let workspace = WorkspaceRecord(
+                        id: record.id,
+                        name: WorkspaceName.unique(record.name, reserving: &usedNames),
+                        workingDirectory: record.rootDirectory,
+                        sshHost: location.sshHost
+                    )
+                    self.workspaces[existingIndex] = workspace
+                    for tile in self.persistedSessionTiles where
+                        tile.session.workspaceID == previousID
+                    {
+                        tile.session.workspaceID = workspace.id
+                        tile.session.workspace = workspace.name
+                        tile.session.workspaceRoot = workspace.workingDirectory
+                    }
+                    if self.currentWorkspace == previousID {
+                        self.currentWorkspace = workspace.id
+                    }
+                    if let terminalID = self.activeTerminalByWorkspace.removeValue(
+                        forKey: previousID
+                    ) {
+                        self.activeTerminalByWorkspace[workspace.id] = terminalID
+                    }
+                    if self.availableSessionsWorkspaceID == previousID {
+                        self.availableSessionsWorkspaceID = workspace.id
+                    }
+                    self.rememberWorkspaceLocation(workspace.location)
+                    migrated.append((workspace, previousID))
+                    updated.append(workspace)
+                    changed = true
+                    continue
+                }
                 let name = WorkspaceName.unique(record.name, reserving: &usedNames)
                 let workspace = WorkspaceRecord(
                     id: record.id,
@@ -539,12 +663,18 @@ final class TerminalDeckView: NSView {
                 restored.append(workspace)
                 changed = true
             }
-            let nativeIDs = Set(records.map(\.id))
+            let nativeIDs = Set(canonicalRecords.map(\.id))
             for workspace in self.workspaces where
                 workspace.location.machineID == location.machineID
                     && !nativeIDs.contains(workspace.id)
             {
                 self.persistNativeWorkspace(workspace)
+            }
+            for migration in migrated {
+                self.migrateNativeWorkspace(
+                    migration.workspace,
+                    replacing: migration.previousID
+                )
             }
             guard changed else { return }
             self.rebuildWorkspaceClusters()
@@ -651,6 +781,7 @@ final class TerminalDeckView: NSView {
             height: MachinenStatusBarView.preferredHeight
         )
         sceneView.frame = sceneViewportFrame
+        layoutSpatialMinimap()
         if let undoCloseView {
             let width = min(460, max(360, bounds.width - 32))
             undoCloseView.frame = NSRect(
@@ -667,6 +798,47 @@ final class TerminalDeckView: NSView {
             updateWorldGeometry()
             setCameraImmediately()
         }
+    }
+
+    private func layoutSpatialMinimap() {
+        let representedWorld = spatialMinimapView.representedWorldBounds
+        let world = representedWorld.width > 0 && representedWorld.height > 0
+            ? representedWorld
+            : spatialMinimapWorldBounds()
+        let viewport = sceneViewportFrame
+        guard !world.isNull, world.width > 0, world.height > 0,
+              viewport.width > 36, viewport.height > 36
+        else {
+            spatialMinimapView.frame = .zero
+            return
+        }
+
+        let maxWidth = min(260, viewport.width - 36)
+        let maxHeight = min(160, viewport.height - 36)
+        let aspectRatio = world.width / world.height
+        var width = maxWidth
+        var height = width / aspectRatio
+        if height > maxHeight {
+            height = maxHeight
+            width = height * aspectRatio
+        }
+        width = min(maxWidth, max(120, width))
+        height = min(maxHeight, max(68, height))
+        spatialMinimapView.frame = NSRect(
+            x: viewport.maxX - width - 18,
+            y: viewport.minY + 12,
+            width: width,
+            height: height
+        ).integral
+    }
+
+    private func spatialMinimapWorldBounds() -> NSRect {
+        guard !workspaceUnion.isNull, workspaceUnion.width > 0, workspaceUnion.height > 0
+        else { return .zero }
+        return workspaceUnion.insetBy(
+            dx: -Metrics.worldMargin / 2,
+            dy: -Metrics.worldMargin / 2
+        )
     }
 
     private func updateWorldGeometry() {
@@ -786,33 +958,233 @@ final class TerminalDeckView: NSView {
         )
     }
 
+    private func cameraBounds(
+        for workspaceID: String,
+        tileID: String?,
+        focusTerminal: Bool
+    ) -> NSRect? {
+        guard let cluster = workspaceCluster(named: workspaceID) else { return nil }
+        if focusTerminal,
+           let tileID,
+           let tile = activeSessionTiles(for: workspaceID).first(where: {
+               $0.session.tileID == tileID
+           }),
+           let terminalFrame = cluster.frameForTerminalViewport(tile, in: sceneView)
+        {
+            return applyingCameraMagnification(to: cameraBounds(
+                for: terminalFrame,
+                viewport: sceneViewportBounds
+            ))
+        }
+        return applyingCameraMagnification(to: cameraBounds(
+            for: cluster.frame,
+            viewport: sceneViewportBounds
+        ))
+    }
+
+    private func refreshSpatialMinimap(
+        cameraBounds: NSRect,
+        worldBounds: NSRect? = nil
+    ) {
+        let focusedTileID = focusedIndex.flatMap { index in
+            let sessions = activeSessionTiles
+            return sessions.indices.contains(index) ? sessions[index].session.tileID : nil
+        }
+        let models = workspaceClusters.map { cluster in
+            let panes = activeSessionTiles(for: cluster.workspaceID).compactMap { tile in
+                cluster.frameForSession(tile, in: sceneView).map { frame in
+                    SpatialMinimapPane(
+                        id: tile.session.tileID,
+                        frame: frame,
+                        isActive: tile.session.tileID == focusedTileID,
+                        activityState: tile.session.activityState
+                    )
+                }
+            }
+            return SpatialMinimapWorkspace(
+                id: cluster.workspaceID,
+                frame: cluster.frame,
+                isActive: cluster.workspaceID == currentWorkspace,
+                panes: panes
+            )
+        }
+        let sceneWorldBounds = spatialMinimapWorldBounds()
+        spatialMinimapView.updateScene(
+            worldBounds: worldBounds ?? sceneWorldBounds,
+            workspaces: models,
+            cameraBounds: cameraBounds
+        )
+        statusBarView.updateSpatialMinimap(
+            worldBounds: sceneWorldBounds,
+            workspaces: models,
+            cameraBounds: cameraBounds
+        )
+        layoutSpatialMinimap()
+    }
+
+    private func refreshSpatialMinimapActivityStates() {
+        if spatialMinimapAnimation != nil {
+            refreshSpatialMinimap(
+                cameraBounds: spatialMinimapView.representedCameraBounds,
+                worldBounds: spatialMinimapView.representedWorldBounds
+            )
+        } else {
+            refreshSpatialMinimap(cameraBounds: sceneView.bounds)
+        }
+    }
+
+    private func beginSpatialMinimapAnimation(to target: NSRect, duration: TimeInterval) {
+        let start = sceneView.bounds
+        let world = spatialMinimapWorldBounds()
+        guard duration > 0, !world.isNull, world.width > 0, world.height > 0,
+              start.width > 0, start.height > 0,
+              target.width > 0, target.height > 0
+        else {
+            endSpatialMinimapAnimation()
+            return
+        }
+
+        spatialMinimapFadeGeneration += 1
+        spatialMinimapHoldUntil = nil
+        spatialMinimapView.layer?.removeAllAnimations()
+        spatialMinimapAnimation = SpatialMinimapAnimation(
+            start: start,
+            target: target,
+            startedAt: ProcessInfo.processInfo.systemUptime,
+            duration: duration
+        )
+        refreshSpatialMinimap(
+            cameraBounds: start,
+            worldBounds: world.union(start).union(target)
+        )
+        spatialMinimapView.alphaValue = isSpatialMinimapPreviewed ? 1 : 0
+        spatialMinimapView.isHidden = false
+    }
+
+    private func updateSpatialMinimapAnimation(at now: TimeInterval) {
+        guard let animation = spatialMinimapAnimation else { return }
+        let linearProgress = min(1, max(0, (now - animation.startedAt) / animation.duration))
+        let progress = cameraAnimationProgress(CGFloat(linearProgress))
+        let width = animation.start.width
+            + (animation.target.width - animation.start.width) * progress
+        let height = animation.start.height
+            + (animation.target.height - animation.start.height) * progress
+        let centerX = animation.start.midX
+            + (animation.target.midX - animation.start.midX) * progress
+        let centerY = animation.start.midY
+            + (animation.target.midY - animation.start.midY) * progress
+        let cameraBounds = NSRect(
+            x: centerX - width / 2,
+            y: centerY - height / 2,
+            width: width,
+            height: height
+        )
+        spatialMinimapView.updateCameraBounds(cameraBounds)
+        statusBarView.updateSpatialMinimapCamera(cameraBounds)
+
+        if !isSpatialMinimapPreviewed {
+            spatialMinimapView.alphaValue = min(1, linearProgress / 0.12)
+        }
+        if linearProgress >= 1 { finishSpatialMinimapAnimation() }
+    }
+
+    private func finishSpatialMinimapAnimation() {
+        spatialMinimapAnimation = nil
+        spatialMinimapView.alphaValue = 1
+        let holdUntil = ProcessInfo.processInfo.systemUptime + Motion.minimapHoldDuration
+        spatialMinimapHoldUntil = holdUntil
+        scheduleSpatialMinimapFade(after: Motion.minimapHoldDuration)
+    }
+
+    private func setSpatialMinimapPreviewed(_ isPreviewed: Bool) {
+        guard isSpatialMinimapPreviewed != isPreviewed else { return }
+        isSpatialMinimapPreviewed = isPreviewed
+        if isPreviewed {
+            spatialMinimapFadeGeneration += 1
+            spatialMinimapView.layer?.removeAllAnimations()
+            refreshSpatialMinimapActivityStates()
+            spatialMinimapView.alphaValue = 1
+            spatialMinimapView.isHidden = false
+            return
+        }
+
+        guard spatialMinimapAnimation == nil, !spatialMinimapView.isHidden else { return }
+        let remainingHold = max(
+            0,
+            (spatialMinimapHoldUntil ?? ProcessInfo.processInfo.systemUptime)
+                - ProcessInfo.processInfo.systemUptime
+        )
+        scheduleSpatialMinimapFade(after: remainingHold)
+    }
+
+    private func scheduleSpatialMinimapFade(after delay: TimeInterval) {
+        spatialMinimapFadeGeneration += 1
+        let generation = spatialMinimapFadeGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.spatialMinimapFadeGeneration == generation,
+                  self.spatialMinimapAnimation == nil,
+                  !self.isSpatialMinimapPreviewed
+            else { return }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = Motion.minimapFadeOutDuration
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                self.spatialMinimapView.animator().alphaValue = 0
+            } completionHandler: { [weak self] in
+                Task { @MainActor in
+                    guard let self, self.spatialMinimapFadeGeneration == generation,
+                          self.spatialMinimapAnimation == nil,
+                          !self.isSpatialMinimapPreviewed
+                    else { return }
+                    self.spatialMinimapHoldUntil = nil
+                    self.spatialMinimapView.isHidden = true
+                }
+            }
+        }
+    }
+
+    private func endSpatialMinimapAnimation() {
+        spatialMinimapFadeGeneration += 1
+        spatialMinimapHoldUntil = nil
+        spatialMinimapAnimation = nil
+        spatialMinimapView.layer?.removeAllAnimations()
+        spatialMinimapView.alphaValue = isSpatialMinimapPreviewed ? 1 : 0
+        spatialMinimapView.isHidden = !isSpatialMinimapPreviewed
+    }
+
     private func setCameraImmediately() {
         cameraAnimationTimer?.invalidate()
         cameraAnimationTimer = nil
         cameraAnimation = nil
         isTransitioning = false
+        endSpatialMinimapAnimation()
 
         // The scene stays viewport-sized. Changing its world-space bounds moves
         // a camera over stable terminal surfaces instead of resizing the scene.
         sceneView.frame = sceneViewportFrame
         sceneView.bounds = currentCameraBounds()
+        sceneView.alphaValue = 1
+        refreshSpatialMinimap(cameraBounds: sceneView.bounds)
         needsDisplay = true
     }
 
     private func moveCamera(
         to destination: NSRect? = nil,
         duration: TimeInterval = Motion.cameraDuration,
+        targetAlpha requestedTargetAlpha: CGFloat? = nil,
         completion: (@MainActor () -> Void)? = nil
     ) {
         statusPopoverView.dismiss()
         cameraAnimationTimer?.invalidate()
         let target = destination ?? currentCameraBounds()
         let start = sceneView.bounds
+        let targetAlpha = requestedTargetAlpha ?? sceneView.alphaValue
         guard duration > 0, start.width > 0, start.height > 0,
               target.width > 0, target.height > 0
         else {
             sceneView.bounds = target
+            sceneView.alphaValue = targetAlpha
             isTransitioning = false
+            refreshSpatialMinimap(cameraBounds: sceneView.bounds)
             restoreInputFocus()
             completion?()
             return
@@ -826,6 +1198,8 @@ final class TerminalDeckView: NSView {
             target: target,
             startedAt: ProcessInfo.processInfo.systemUptime,
             duration: duration,
+            startAlpha: sceneView.alphaValue,
+            targetAlpha: targetAlpha,
             completion: completion
         )
         let timer = Timer(
@@ -844,9 +1218,12 @@ final class TerminalDeckView: NSView {
             timer.invalidate()
             return
         }
-        let elapsed = ProcessInfo.processInfo.systemUptime - animation.startedAt
+        let now = ProcessInfo.processInfo.systemUptime
+        let elapsed = now - animation.startedAt
         let linearProgress = min(1, max(0, elapsed / animation.duration))
         let progress = cameraAnimationProgress(CGFloat(linearProgress))
+        let hasSpatialMinimapAnimation = spatialMinimapAnimation != nil
+        updateSpatialMinimapAnimation(at: now)
 
         let widthRatio = animation.target.width / animation.start.width
         let heightRatio = animation.target.height / animation.start.height
@@ -860,12 +1237,18 @@ final class TerminalDeckView: NSView {
             width: width,
             height: height
         )
+        sceneView.alphaValue = animation.startAlpha
+            + (animation.targetAlpha - animation.startAlpha) * progress
+        if !hasSpatialMinimapAnimation {
+            statusBarView.updateSpatialMinimapCamera(sceneView.bounds)
+        }
 
         guard linearProgress >= 1 else { return }
         timer.invalidate()
         cameraAnimationTimer = nil
         cameraAnimation = nil
         sceneView.bounds = animation.target
+        sceneView.alphaValue = animation.targetAlpha
         isTransitioning = false
         restoreInputFocus()
         needsDisplay = true
@@ -908,39 +1291,8 @@ final class TerminalDeckView: NSView {
         if focusedIndex != nil { return }
         guard !isTransitioning else { return }
 
-        if modifiers == [.command] {
-            switch event.keyCode {
-            case 123:
-                reorderSelection(horizontal: -1, vertical: 0)
-                return
-            case 124:
-                reorderSelection(horizontal: 1, vertical: 0)
-                return
-            case 125:
-                reorderSelection(horizontal: 0, vertical: 1)
-                return
-            case 126:
-                reorderSelection(horizontal: 0, vertical: -1)
-                return
-            default:
-                break
-            }
-        }
-
         if modifiers.isEmpty {
             switch event.keyCode {
-            case 123:
-                moveSelection(horizontal: -1, vertical: 0)
-                return
-            case 124:
-                moveSelection(horizontal: 1, vertical: 0)
-                return
-            case 125:
-                moveSelection(horizontal: 0, vertical: 1)
-                return
-            case 126:
-                moveSelection(horizontal: 0, vertical: -1)
-                return
             case 36, 76:
                 activate(selectedIndex)
                 return
@@ -988,13 +1340,14 @@ final class TerminalDeckView: NSView {
             return
         }
 
-        currentWorkspace = workspaceID
-        let sessions = activeSessionTiles
-        selectedIndex = 0
-        focusedIndex = sessions.count == 1 ? 0 : nil
+        let sessions = activeSessionTiles(for: workspaceID)
         clearLabelBuffer()
-        updateSelection()
-        moveCamera()
+        beginWorkspaceTransition(
+            to: workspaceID,
+            tileID: sessions.first?.session.tileID,
+            focusTerminal: sessions.count == 1,
+            direction: workspaceTransitionDirection(to: workspaceID)
+        )
     }
 
     private func selectTerminalFromStatusBar(_ terminalID: String) {
@@ -1002,13 +1355,30 @@ final class TerminalDeckView: NSView {
               !isTransitioning, !isPeeking,
               let tile = allSessionTiles.first(where: { $0.session.id == terminalID })
         else { return }
-        currentWorkspace = tile.session.workspaceID
+
+        let workspaceID = tile.session.workspaceID
+        if workspaceID != currentWorkspace {
+            clearLabelBuffer()
+            beginWorkspaceTransition(
+                to: workspaceID,
+                tileID: tile.session.tileID,
+                focusTerminal: true,
+                direction: workspaceTransitionDirection(to: workspaceID)
+            )
+            return
+        }
+
         guard let index = activeSessionTiles.firstIndex(where: { $0 === tile }) else { return }
+        let wasFocused = focusedIndex != nil
         selectedIndex = index
         focusedIndex = index
         clearLabelBuffer()
         updateSelection()
-        moveCamera()
+        if wasFocused {
+            panCameraToCurrentTarget(duration: Motion.terminalSwitchDuration)
+        } else {
+            moveCamera()
+        }
     }
 
     private func updateStatusPopover(
@@ -1358,6 +1728,9 @@ final class TerminalDeckView: NSView {
         let focusedTile = focusedIndex.flatMap { index in
             sessions.indices.contains(index) ? sessions[index] : nil
         }
+        if let currentWorkspace, let focusedTile {
+            activeTerminalByWorkspace[currentWorkspace] = focusedTile.session.tileID
+        }
         for tile in allSessionTiles {
             tile.isSelected = false
             tile.isFocused = tile === focusedTile
@@ -1366,6 +1739,7 @@ final class TerminalDeckView: NSView {
             sessions[selectedIndex].isSelected = true
         }
         needsDisplay = true
+        refreshSpatialMinimap(cameraBounds: sceneView.bounds)
         refreshStatusBar()
         if !isShuttingDown { refreshAvailableSessionsIfNeeded() }
         // Camera motion is cosmetic. Keep AppKit's responder chain in lockstep
@@ -1374,26 +1748,34 @@ final class TerminalDeckView: NSView {
         emitAPIEvent("ui.changed", data: uiJSON())
     }
 
-    private func moveSelection(horizontal: Int, vertical: Int) {
-        guard activeCount > 0 else { return }
+    private func moveSelection(horizontal: Int, vertical: Int) -> Bool {
+        guard presentedOverlay == nil, commandPalette == nil,
+              focusedIndex == nil, !isTransitioning, !isPeeking,
+              activeCount > 0
+        else { return false }
         clearLabelBuffer()
         let columns = activeColumns
         let row = selectedIndex / columns + vertical
         let column = selectedIndex % columns + horizontal
-        guard row >= 0, column >= 0, column < columns else { return }
+        guard row >= 0, column >= 0, column < columns else { return true }
         let target = row * columns + column
-        guard target < activeCount else { return }
+        guard target < activeCount else { return true }
         select(target)
+        return true
     }
 
-    private func reorderSelection(horizontal: Int, vertical: Int) {
-        guard focusedIndex == nil, !isTransitioning, !isPeeking, activeCount > 1 else { return }
+    private func reorderSelection(horizontal: Int, vertical: Int) -> Bool {
+        guard presentedOverlay == nil, commandPalette == nil,
+              focusedIndex == nil, !isTransitioning, !isPeeking,
+              activeCount > 0
+        else { return false }
+        guard activeCount > 1 else { return true }
         let columns = activeColumns
         let row = selectedIndex / columns + vertical
         let column = selectedIndex % columns + horizontal
-        guard row >= 0, column >= 0, column < columns else { return }
+        guard row >= 0, column >= 0, column < columns else { return true }
         let target = row * columns + column
-        guard target < activeCount else { return }
+        guard target < activeCount else { return true }
 
         if currentWorkspace == nil {
             workspaceClusters.swapAt(selectedIndex, target)
@@ -1407,7 +1789,7 @@ final class TerminalDeckView: NSView {
                 allSessionTiles[$0].session.workspaceID == currentWorkspace
             }
             guard workspaceIndexes.indices.contains(selectedIndex), workspaceIndexes.indices.contains(target) else {
-                return
+                return true
             }
             allSessionTiles.swapAt(workspaceIndexes[selectedIndex], workspaceIndexes[target])
         }
@@ -1426,6 +1808,7 @@ final class TerminalDeckView: NSView {
         } else if activeSessionTiles.indices.contains(selectedIndex) {
             emitAPIEvent("tile.moved", data: tileJSON(activeSessionTiles[selectedIndex]))
         }
+        return true
     }
 
     private func beginPeek() {
@@ -1614,7 +1997,10 @@ final class TerminalDeckView: NSView {
         clearLabelBuffer()
     }
 
-    func toggleAvailableSessions(returnToCommands: Bool = false) {
+    func toggleAvailableSessions(
+        returnToCommands: Bool = false,
+        selecting sessionID: String? = nil
+    ) {
         guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
         if availableSessionsView != nil {
             dismissAvailableSessions()
@@ -1647,6 +2033,7 @@ final class TerminalDeckView: NSView {
         }
         availableSessionsWorkspaceID = workspace.id
         availableSessionsReturnsToCommands = returnToCommands
+        availableSessionsPendingSelectionID = sessionID
         availableSessionsView = view
         addSubview(view, positioned: .above, relativeTo: statusBarView)
         refreshAvailableSessionsPanel()
@@ -1660,6 +2047,7 @@ final class TerminalDeckView: NSView {
         availableSessionsView = nil
         availableSessionsWorkspaceID = nil
         availableSessionsReturnsToCommands = false
+        availableSessionsPendingSelectionID = nil
         if shouldReturnToCommands {
             toggleCommandPalette()
         } else {
@@ -1674,6 +2062,10 @@ final class TerminalDeckView: NSView {
         else { return }
         let machineID = workspace.location.machineID
         view.items = availableSessionItems(for: workspace)
+        if let sessionID = availableSessionsPendingSelectionID {
+            view.selectSession(sessionID)
+            availableSessionsPendingSelectionID = nil
+        }
         view.isLoading = availableSessionsLoading.contains(machineID)
         view.errorMessage = availableSessionsErrors[machineID]
     }
@@ -4536,26 +4928,67 @@ final class TerminalDeckView: NSView {
         moveCamera(duration: Motion.magnificationDuration)
     }
 
-    func zoomInOneLevel() {
+    @discardableResult
+    func zoomInOneLevel() -> Bool {
         guard presentedOverlay == nil, commandPalette == nil,
-              focusedIndex == nil, !isTransitioning, !isPeeking
-        else { return }
+              focusedIndex == nil, !isTransitioning, !isPeeking,
+              activeCount > 0
+        else { return false }
         activate(selectedIndex)
+        return true
     }
 
-    func zoomOutOneLevel() {
+    @discardableResult
+    func zoomOutOneLevel() -> Bool {
         guard presentedOverlay == nil, commandPalette == nil,
               !isTransitioning, !isPeeking
-        else { return }
+        else { return false }
         if focusedIndex != nil {
             leaveFocusedSession()
-        } else if currentWorkspace != nil {
+            return true
+        }
+        if currentWorkspace != nil {
             showWorkspaceDeck()
+            return true
+        }
+        return false
+    }
+
+    func performShortcut(_ action: DesktopShortcutAction) -> Bool {
+        switch action {
+        case .enter:
+            return zoomInOneLevel()
+        case .leave:
+            return zoomOutOneLevel()
+        case .selectLeft:
+            return moveSelection(horizontal: -1, vertical: 0)
+        case .selectRight:
+            return moveSelection(horizontal: 1, vertical: 0)
+        case .selectDown:
+            return moveSelection(horizontal: 0, vertical: 1)
+        case .selectUp:
+            return moveSelection(horizontal: 0, vertical: -1)
+        case .moveLeft:
+            return reorderSelection(horizontal: -1, vertical: 0)
+        case .moveRight:
+            return reorderSelection(horizontal: 1, vertical: 0)
+        case .moveDown:
+            return reorderSelection(horizontal: 0, vertical: 1)
+        case .moveUp:
+            return reorderSelection(horizontal: 0, vertical: -1)
+        case .previousPane:
+            return cycleFocusedTerminal(by: -1)
+        case .nextPane:
+            return cycleFocusedTerminal(by: 1)
+        case .previousWorkspace:
+            return cycleFocusedWorkspace(by: -1)
+        case .nextWorkspace:
+            return cycleFocusedWorkspace(by: 1)
         }
     }
 
-    /// `⌘←` and `⌘→` move between terminals in the current workspace while
-    /// preserving the scene hierarchy: terminal → workspace → terminal.
+    /// `previousPane` and `nextPane` pan directly between terminals in the
+    /// current workspace without leaving Terminal mode or changing zoom.
     @discardableResult
     func cycleFocusedTerminal(by offset: Int) -> Bool {
         let sessions = activeSessionTiles
@@ -4567,31 +5000,40 @@ final class TerminalDeckView: NSView {
 
         let targetIndex = (focusedIndex + offset % sessions.count + sessions.count)
             % sessions.count
+        let sourceTileID = sessions[focusedIndex].session.tileID
         let targetTileID = sessions[targetIndex].session.tileID
-        InputRoutingLog.log(
-            "cycles focused terminal tile=\(sessions[focusedIndex].session.tileID)→\(targetTileID)"
-        )
-        self.focusedIndex = nil
+        InputRoutingLog.log("cycles focused terminal tile=\(sourceTileID)→\(targetTileID)")
         selectedIndex = targetIndex
+        self.focusedIndex = targetIndex
         updateSelection()
-        moveCamera(duration: Motion.terminalSwitchDuration) { [weak self] in
-            self?.focusCycledTerminal(targetTileID)
-        }
+        panCameraToCurrentTarget(duration: Motion.terminalSwitchDuration)
         return true
     }
 
-    private func focusCycledTerminal(_ tileID: String) {
-        guard let targetIndex = activeSessionTiles.firstIndex(where: { $0.session.tileID == tileID })
-        else { return }
-        selectedIndex = targetIndex
-        focusedIndex = targetIndex
-        updateSelection()
-        moveCamera(duration: Motion.terminalSwitchDuration)
+    private func panCameraToCurrentTarget(duration: TimeInterval) {
+        let target = fixedScaleCameraTarget()
+        beginSpatialMinimapAnimation(to: target, duration: duration)
+        moveCamera(to: target, duration: duration)
     }
 
-    /// `⌘[` and `⌘]` travel through the complete scene hierarchy to the
-    /// previous or next workspace's first terminal: terminal → source
-    /// workspace → workspace overview → destination workspace → terminal.
+    private func fixedScaleCameraTarget() -> NSRect {
+        let destination = currentCameraBounds()
+        let cameraSize = sceneView.bounds.size
+        return NSRect(
+            x: destination.midX - cameraSize.width / 2,
+            y: destination.midY - cameraSize.height / 2,
+            width: cameraSize.width,
+            height: cameraSize.height
+        )
+    }
+
+    private func workspaceSwitchNudge(for cameraBounds: NSRect) -> CGFloat {
+        Motion.workspaceSwitchNudge * cameraBounds.width
+            / max(1, sceneViewportBounds.width)
+    }
+
+    /// `previousWorkspace` and `nextWorkspace` use a short directional slide
+    /// and fade to reveal an adjacent workspace's active terminal at the same zoom.
     @discardableResult
     func cycleFocusedWorkspace(by offset: Int) -> Bool {
         let sourceSessions = activeSessionTiles
@@ -4611,52 +5053,133 @@ final class TerminalDeckView: NSView {
               let sourceIndex = destinations.firstIndex(where: { $0.id == sourceWorkspaceID })
         else { return false }
 
-        let targetIndex = (sourceIndex + offset % destinations.count + destinations.count)
-            % destinations.count
-        let targetWorkspace = destinations[targetIndex]
-        guard !activeSessionTiles(for: targetWorkspace.id).isEmpty else { return false }
+        let targetWorkspaceIndex = (
+            sourceIndex + offset % destinations.count + destinations.count
+        ) % destinations.count
+        let targetWorkspace = destinations[targetWorkspaceIndex]
+        let targetSessions = activeSessionTiles(for: targetWorkspace.id)
+        guard !targetSessions.isEmpty else { return false }
 
+        let sourceTileID = sourceSessions[focusedIndex].session.tileID
+        let targetTerminalIndex = activeTerminalIndex(in: targetWorkspace.id)
+        let targetTileID = targetSessions[targetTerminalIndex].session.tileID
         InputRoutingLog.log(
-            "cycles focused tile workspace=\(sourceWorkspaceID)→\(targetWorkspace.id)"
+            "cycles focused tile workspace=\(sourceWorkspaceID)→\(targetWorkspace.id) "
+                + "tile=\(sourceTileID)→\(targetTileID)"
         )
-        self.focusedIndex = nil
-        updateSelection()
-        moveCamera { [weak self] in
-            self?.selectCycledWorkspace(targetWorkspace.id)
-        }
+
+        beginWorkspaceTransition(
+            to: targetWorkspace.id,
+            tileID: targetTileID,
+            focusTerminal: true,
+            direction: offset > 0 ? 1 : -1
+        )
         return true
     }
 
-    private func selectCycledWorkspace(_ workspaceID: String) {
-        guard let workspaceIndex = workspaceClusters.firstIndex(where: { $0.workspaceID == workspaceID }) else {
+    private func workspaceTransitionDirection(to workspaceID: String) -> CGFloat {
+        guard let sourceWorkspaceID = selectedWorkspaceID(),
+              let sourceIndex = workspaces.firstIndex(where: { $0.id == sourceWorkspaceID }),
+              let targetIndex = workspaces.firstIndex(where: { $0.id == workspaceID })
+        else { return 1 }
+        return targetIndex >= sourceIndex ? 1 : -1
+    }
+
+    private func beginWorkspaceTransition(
+        to workspaceID: String,
+        tileID: String?,
+        focusTerminal: Bool,
+        direction: CGFloat
+    ) {
+        if let target = cameraBounds(
+            for: workspaceID,
+            tileID: tileID,
+            focusTerminal: focusTerminal
+        ) {
+            beginSpatialMinimapAnimation(
+                to: target,
+                duration: Motion.workspaceSwitchExitDuration
+                    + Motion.workspaceSwitchEntryDuration
+            )
+        }
+
+        if let sourceWorkspaceID = currentWorkspace,
+           let focusedIndex,
+           activeSessionTiles.indices.contains(focusedIndex)
+        {
+            activeTerminalByWorkspace[sourceWorkspaceID]
+                = activeSessionTiles[focusedIndex].session.tileID
+        }
+
+        let exitTarget = sceneView.bounds.offsetBy(
+            dx: direction * workspaceSwitchNudge(for: sceneView.bounds),
+            dy: 0
+        )
+        moveCamera(
+            to: exitTarget,
+            duration: Motion.workspaceSwitchExitDuration,
+            targetAlpha: Motion.workspaceSwitchMinimumAlpha
+        ) { [weak self] in
+            self?.revealWorkspaceTransition(
+                workspaceID,
+                tileID: tileID,
+                focusTerminal: focusTerminal,
+                direction: direction
+            )
+        }
+    }
+
+    private func revealWorkspaceTransition(
+        _ workspaceID: String,
+        tileID: String?,
+        focusTerminal: Bool,
+        direction: CGFloat
+    ) {
+        let sessions = activeSessionTiles(for: workspaceID)
+        guard !focusTerminal || !sessions.isEmpty else {
+            sceneView.alphaValue = 1
+            endSpatialMinimapAnimation()
             return
         }
-        currentWorkspace = nil
-        selectedIndex = workspaceIndex
-        focusedIndex = nil
-        updateSelection()
-        moveCamera { [weak self] in
-            self?.enterCycledWorkspace(workspaceID)
-        }
-    }
 
-    private func enterCycledWorkspace(_ workspaceID: String) {
-        guard !activeSessionTiles(for: workspaceID).isEmpty else { return }
+        let fallbackIndex = focusTerminal ? activeTerminalIndex(in: workspaceID) : 0
+        let targetIndex = tileID.flatMap { tileID in
+            sessions.firstIndex(where: { $0.session.tileID == tileID })
+        } ?? fallbackIndex
         currentWorkspace = workspaceID
-        selectedIndex = 0
-        focusedIndex = nil
+        selectedIndex = targetIndex
+        focusedIndex = focusTerminal && sessions.indices.contains(targetIndex)
+            ? targetIndex
+            : nil
         updateSelection()
-        moveCamera { [weak self] in
-            self?.focusCycledWorkspaceTile(workspaceID)
+        if spatialMinimapAnimation != nil {
+            refreshSpatialMinimap(
+                cameraBounds: spatialMinimapView.representedCameraBounds,
+                worldBounds: spatialMinimapView.representedWorldBounds
+            )
         }
+
+        // Adopt the destination's normal fitted size while the scene is faded.
+        // The visible entry slide then translates without zooming.
+        let destination = currentCameraBounds()
+        sceneView.bounds = destination.offsetBy(
+            dx: -direction * workspaceSwitchNudge(for: destination),
+            dy: 0
+        )
+        sceneView.alphaValue = Motion.workspaceSwitchMinimumAlpha
+        moveCamera(
+            to: destination,
+            duration: Motion.workspaceSwitchEntryDuration,
+            targetAlpha: 1
+        )
     }
 
-    private func focusCycledWorkspaceTile(_ workspaceID: String) {
-        guard currentWorkspace == workspaceID, !activeSessionTiles.isEmpty else { return }
-        selectedIndex = 0
-        focusedIndex = 0
-        updateSelection()
-        moveCamera()
+    private func activeTerminalIndex(in workspaceID: String) -> Int {
+        let sessions = activeSessionTiles(for: workspaceID)
+        guard let tileID = activeTerminalByWorkspace[workspaceID],
+              let index = sessions.firstIndex(where: { $0.session.tileID == tileID })
+        else { return 0 }
+        return index
     }
 
     func createNewWorkspaceOrTerminal() {
@@ -4818,6 +5341,8 @@ final class TerminalDeckView: NSView {
             return try apiSendTerminal(params)
         case "terminal.signal":
             return try apiSignalTerminal(params)
+        case "terminal.resize":
+            return try apiResizeTerminal(params)
         case "terminal.stop":
             return apiStopTerminal(try requireTerminal(params))
         case "terminal.restart":
@@ -5130,6 +5655,8 @@ final class TerminalDeckView: NSView {
             tile.session.activityState = state
         }
         tile.transition(to: tile.session.state, terminalText: tile.session.terminalText)
+        refreshStatusBar()
+        refreshSpatialMinimapActivityStates()
         saveSessions()
         let result = tileJSON(tile)
         emitAPIEvent("tile.updated", data: result)
@@ -5277,6 +5804,31 @@ final class TerminalDeckView: NSView {
             throw MachinenAPIError("terminal_input_failed", "Could not send input to the persistent PTY")
         }
         return ["terminalId": tile.session.id, "bytesWritten": data.count]
+    }
+
+    private func apiResizeTerminal(_ params: JSONObject) throws -> Any {
+        let tile = try requireTerminal(params)
+        guard let columns = params["columns"] as? Int,
+              let rows = params["rows"] as? Int,
+              (1...1_000).contains(columns),
+              (1...1_000).contains(rows)
+        else {
+            throw MachinenAPIError(
+                "invalid_params",
+                "columns and rows must be integers between 1 and 1000"
+            )
+        }
+        guard sessionBackend.resize(
+            tile.session,
+            columns: UInt16(columns),
+            rows: UInt16(rows)
+        ) else {
+            throw MachinenAPIError(
+                "terminal_resize_failed",
+                "Could not resize the persistent PTY"
+            )
+        }
+        return terminalJSON(tile)
     }
 
     private func apiSignalTerminal(_ params: JSONObject) throws -> Any {
@@ -5832,7 +6384,7 @@ final class TerminalDeckView: NSView {
 
     private func terminalJSON(_ tile: TerminalTileView) -> JSONObject {
         let session = tile.session
-        return [
+        var result: JSONObject = [
             "id": session.id,
             "tileId": session.tileID,
             "workingDirectory": session.workingDirectory,
@@ -5851,6 +6403,18 @@ final class TerminalDeckView: NSView {
             "activityState": session.activityState.rawValue,
             "viewerState": terminalViewerIsAttached(session) ? "attached" : "detached",
         ]
+        if let geometry = tile.terminalResponder?.sessionGeometry {
+            result["geometry"] = [
+                "columns": geometry.columns,
+                "rows": geometry.rows,
+                "generation": geometry.generation,
+                "ownerClientId": geometry.ownerClientId.map { $0 as Any } ?? NSNull(),
+                "controlledByThisViewer": geometry.ownerClientId == session.viewerClientID,
+            ]
+        } else {
+            result["geometry"] = NSNull()
+        }
+        return result
     }
 
     private func uiJSON() -> JSONObject {
@@ -5992,6 +6556,90 @@ final class TerminalDeckView: NSView {
         bounds.fill()
     }
 
+    private func sessionControlStatusWidget(
+        for tile: TerminalTileView,
+        workspace: WorkspaceRecord
+    ) -> MachinenStatusWidget {
+        let item = availableSessionItems(for: workspace).first {
+            $0.session.id == tile.session.id
+        }
+        let clients = item?.session.clients ?? []
+        let localClientID = tile.session.viewerClientID
+        let localClient = clients.first { $0.id == localClientID }
+        let geometry = tile.terminalResponder?.sessionGeometry
+        let hasControl = geometry.map { $0.ownerClientId == localClientID }
+            ?? (localClient?.writer == true && localClient?.resize == true)
+        let hasViewerDetails = item?.session.clientControlAvailable == true
+        let hasRefreshed = availableSessionsLastRefresh[workspace.location.machineID] != nil
+        let role: String
+        let tone: MachinenStatusWidget.Tone
+        if hasControl {
+            role = "CONTROL"
+            tone = .good
+        } else if geometry != nil || localClient != nil {
+            role = "VIEWING"
+            tone = .attention
+        } else if hasRefreshed {
+            role = "ATTACHED"
+            tone = .neutral
+        } else {
+            role = "CHECKING"
+            tone = .neutral
+        }
+
+        let others = clients.filter { $0.id != localClientID }
+        let value = role + (others.isEmpty ? "" : " +\(others.count)")
+        var detail: [String] = []
+        switch role {
+        case "CONTROL":
+            detail.append("You control terminal input and resize.")
+        case "VIEWING":
+            if let controller = clients.first(where: { $0.writer && $0.resize }) {
+                detail.append("You are viewing; \(controller.name) is in control.")
+            } else {
+                detail.append("You are viewing this terminal.")
+            }
+        case "ATTACHED":
+            detail.append("This Desktop is attached; control details are unavailable.")
+        default:
+            detail.append("Checking terminal control and attached viewers…")
+        }
+        if hasViewerDetails {
+            if others.isEmpty {
+                detail.append("No other viewers are attached.")
+            } else {
+                detail.append(
+                    "\(others.count) other \(others.count == 1 ? "viewer is" : "viewers are") attached:"
+                )
+                detail += others.map { client in
+                    let clientRole = client.writer && client.resize
+                        ? "CONTROL"
+                        : (client.readOnly ? "READ ONLY" : "VIEWING")
+                    return "\(clientRole) · \(client.name)"
+                }
+            }
+        }
+        if let error = availableSessionsErrors[workspace.location.machineID] {
+            detail.append("Could not refresh viewers: \(error)")
+        }
+        detail.append("Click to view participants or transfer control.")
+
+        return MachinenStatusWidget(
+            id: "machinen.sessionControl",
+            scopeKind: .terminal,
+            scopeID: tile.session.id,
+            placement: .right,
+            kind: .text,
+            label: nil,
+            value: value,
+            progress: nil,
+            tone: tone,
+            tooltip: detail.joined(separator: "\n"),
+            priority: 975,
+            expiresAt: nil
+        )
+    }
+
     private func refreshStatusBar() {
         let now = Date().timeIntervalSince1970
         statusWidgets = statusWidgets.filter { $0.value.expiresAt.map { $0 > now } ?? true }
@@ -6046,6 +6694,14 @@ final class TerminalDeckView: NSView {
             {
                 resolved[widget.id] = widget
             }
+        }
+        if let focusedTerminal, let workspace,
+           terminalViewerIsAttached(focusedTerminal.session)
+        {
+            resolved["machinen.sessionControl"] = sessionControlStatusWidget(
+                for: focusedTerminal,
+                workspace: workspace
+            )
         }
         resolved["machinen.versions"] = MachinenStatusWidget(
             id: "machinen.versions",

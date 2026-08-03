@@ -29,11 +29,13 @@ final class TerminalActivityDetector {
     private var lastCommand: String?
     private var lastShellName: String?
     private var lastProcessInfo: TerminalProcessInfo?
+    private var lastGeometry: TerminalGeometry?
 
     var onActivityChange: ((TerminalSession.ActivityState) -> Void)?
     var onCommandChange: ((String) -> Void)?
     var onShellNameChange: ((String) -> Void)?
     var onProcessInfoChange: ((TerminalProcessInfo?) -> Void)?
+    var onGeometryChange: ((TerminalGeometry) -> Void)?
 
     convenience init(session: TerminalSession) {
         let backend = TerminalSessionBackendFactory.backend
@@ -104,6 +106,10 @@ final class TerminalActivityDetector {
     }
 
     private func reportTelemetry(_ telemetry: TerminalTelemetry?) {
+        if let geometry = telemetry?.geometry, geometry != lastGeometry {
+            lastGeometry = geometry
+            onGeometryChange?(geometry)
+        }
         guard let telemetry,
               telemetry.activity != .unknown || telemetry.shellPid != nil
                 || telemetry.processPid != nil || telemetry.shellName != nil

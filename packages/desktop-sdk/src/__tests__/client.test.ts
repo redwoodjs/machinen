@@ -130,6 +130,19 @@ describe("MachinenDesktopClient", () => {
     client.close();
   });
 
+  it("requests an explicit terminal geometry through the typed helper", async () => {
+    const client = createClient();
+    await client.terminals.resize("term_test", 120, 36);
+
+    expect(operations).toEqual(["system.hello", "events.subscribe", "terminal.resize"]);
+    expect(lastRequest?.params).toEqual({
+      terminalId: "term_test",
+      columns: 120,
+      rows: 36,
+    });
+    client.close();
+  });
+
   it("registers context commands through the typed helper", async () => {
     const client = createClient();
     await client.commands.set({

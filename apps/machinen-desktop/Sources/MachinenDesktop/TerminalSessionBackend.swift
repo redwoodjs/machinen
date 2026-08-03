@@ -1,16 +1,59 @@
 import Darwin
 import Foundation
 
+struct TerminalGeometry: Decodable, Equatable, Sendable {
+    let columns: UInt32
+    let rows: UInt32
+    let generation: UInt32
+    let ownerClientId: UInt64?
+}
+
 struct TerminalTelemetry: Decodable, Sendable {
     let activity: TerminalSession.ActivityState
     let shellPid: Int32?
     let processPid: Int32?
     let shellName: String?
     let command: String?
+    let geometry: TerminalGeometry?
+
+    init(
+        activity: TerminalSession.ActivityState,
+        shellPid: Int32?,
+        processPid: Int32?,
+        shellName: String?,
+        command: String?,
+        geometry: TerminalGeometry? = nil
+    ) {
+        self.activity = activity
+        self.shellPid = shellPid
+        self.processPid = processPid
+        self.shellName = shellName
+        self.command = command
+        self.geometry = geometry
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case activity, shellPid, processPid, shellName, command
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            activity: try container.decode(
+                TerminalSession.ActivityState.self,
+                forKey: .activity
+            ),
+            shellPid: try container.decodeIfPresent(Int32.self, forKey: .shellPid),
+            processPid: try container.decodeIfPresent(Int32.self, forKey: .processPid),
+            shellName: try container.decodeIfPresent(String.self, forKey: .shellName),
+            command: try container.decodeIfPresent(String.self, forKey: .command)
+        )
+    }
 }
 
 private struct TerminalTelemetryEnvelope: Decodable, Sendable {
     let telemetry: TerminalTelemetry
+    let geometry: TerminalGeometry?
 }
 
 struct AttachedTerminalClient: Decodable, Equatable, Sendable {
@@ -133,6 +176,7 @@ protocol TerminalSessionBackend: AnyObject {
         of session: TerminalSession,
         completion: @escaping @MainActor @Sendable (Result<Void, Error>) -> Void
     )
+    func resize(_ session: TerminalSession, columns: UInt16, rows: UInt16) -> Bool
     func signal(_ signal: String, session: TerminalSession)
     func stop(_ session: TerminalSession)
     func reset(_ session: TerminalSession)
@@ -302,12 +346,17 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
         case local(helper: String, database: String)
     }
 
+    private struct RemoteViewerLaunches: Sendable {
+        let darwin: TerminalViewerLaunch
+        let xdg: TerminalViewerLaunch
+    }
+
     private enum ViewerPreparation: Sendable {
         case remote(
             host: String,
             sessionID: String,
             newCommand: String,
-            launch: TerminalViewerLaunch
+            launches: RemoteViewerLaunches
         )
         case local(
             helper: String,
@@ -317,7 +366,11 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
             environment: [String: String]?,
             launch: TerminalViewerLaunch
         )
-        case remoteAttach(host: String, launch: TerminalViewerLaunch)
+        case remoteAttach(
+            host: String,
+            sessionID: String,
+            launches: RemoteViewerLaunches
+        )
         case localAttach(launch: TerminalViewerLaunch)
     }
 
@@ -326,7 +379,7 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
 
         func prepare(_ preparation: ViewerPreparation) throws -> TerminalViewerLaunch {
             switch preparation {
-            case let .remote(host, sessionID, newCommand, launch):
+            case let .remote(host, sessionID, newCommand, launches):
                 try ensureRemoteHelper(on: host)
                 let result = try MachinenNativeSessionBackend.runSSH(
                     host: host,
@@ -344,7 +397,11 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
                             : result.output
                     )
                 }
-                return launch
+                return try remoteLaunch(
+                    host: host,
+                    sessionID: sessionID,
+                    launches: launches
+                )
             case let .local(
                 helper,
                 database,
@@ -372,11 +429,43 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
                     )
                 }
                 return launch
-            case let .remoteAttach(host, launch):
+            case let .remoteAttach(host, sessionID, launches):
                 try ensureRemoteHelper(on: host)
-                return launch
+                return try remoteLaunch(
+                    host: host,
+                    sessionID: sessionID,
+                    launches: launches
+                )
             case let .localAttach(launch):
                 return launch
+            }
+        }
+
+        private func remoteLaunch(
+            host: String,
+            sessionID: String,
+            launches: RemoteViewerLaunches
+        ) throws -> TerminalViewerLaunch {
+            let result = try MachinenNativeSessionBackend.runSSH(
+                host: host,
+                command: MachinenNativeSessionBackend.remoteDatabaseKindCommand(
+                    sessionID: sessionID
+                )
+            )
+            guard result.status == 0 else {
+                throw TerminalSessionBackendError.commandFailed(
+                    result.output.isEmpty
+                        ? "Could not locate the remote terminal session"
+                        : result.output
+                )
+            }
+            switch result.output {
+            case "darwin": return launches.darwin
+            case "xdg": return launches.xdg
+            default:
+                throw TerminalSessionBackendError.commandFailed(
+                    "The remote terminal session returned an invalid database location"
+                )
             }
         }
 
@@ -395,12 +484,12 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
                     arguments: ["list", "--database", database]
                 )
             }
-            guard result.status == 0, let data = result.output.data(using: .utf8) else {
+            guard result.status == 0 else {
                 throw TerminalSessionBackendError.commandFailed(
                     result.output.isEmpty ? "Could not list terminal sessions" : result.output
                 )
             }
-            return try JSONDecoder().decode(NativeSessionList.self, from: data).sessions
+            return try MachinenNativeSessionBackend.decodeSessionListOutput(result.output)
         }
 
         func listWorkspaces(_ preparation: StorePreparation) throws -> [NativeWorkspaceRecord] {
@@ -550,24 +639,32 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
     ) throws -> ViewerPreparation {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         if let host = session.location.sshHost {
-            let launch = TerminalViewerLaunch(
-                executable: MachinenSSHTransport.executable,
-                arguments: MachinenSSHTransport.arguments() + [
-                    "-t", host,
-                    Self.remoteAttachCommand(session: session),
-                ],
-                environment: nil,
-                executableName: "ssh",
-                workingDirectory: home
+            let launches = RemoteViewerLaunches(
+                darwin: Self.remoteViewerLaunch(
+                    session: session,
+                    host: host,
+                    home: home,
+                    database: "$HOME/Library/Application Support/Machinen/sessions.sqlite3"
+                ),
+                xdg: Self.remoteViewerLaunch(
+                    session: session,
+                    host: host,
+                    home: home,
+                    database: "$HOME/.local/state/machinen/sessions.sqlite3"
+                )
             )
             guard session.startsSessionIfMissing else {
-                return .remoteAttach(host: host, launch: launch)
+                return .remoteAttach(
+                    host: host,
+                    sessionID: session.id,
+                    launches: launches
+                )
             }
             return .remote(
                 host: host,
                 sessionID: session.id,
                 newCommand: try Self.remoteNewCommand(for: session),
-                launch: launch
+                launches: launches
             )
         }
 
@@ -580,7 +677,7 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
             executable: helper,
             arguments: [
                 "attach", "--database", database,
-                "--latest-screen",
+                "--latest-screen", "--geometry-events",
                 "--client-id", String(session.viewerClientID),
                 "--client-name", Self.desktopClientName(),
                 session.id,
@@ -655,8 +752,20 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
                 arguments: arguments
             )
             let telemetry = result.flatMap { result -> TerminalTelemetry? in
-                guard result.status == 0, let data = result.output.data(using: .utf8) else { return nil }
-                return try? JSONDecoder().decode(TerminalTelemetryEnvelope.self, from: data).telemetry
+                guard result.status == 0, let data = result.output.data(using: .utf8),
+                      let envelope = try? JSONDecoder().decode(
+                          TerminalTelemetryEnvelope.self,
+                          from: data
+                      )
+                else { return nil }
+                return TerminalTelemetry(
+                    activity: envelope.telemetry.activity,
+                    shellPid: envelope.telemetry.shellPid,
+                    processPid: envelope.telemetry.processPid,
+                    shellName: envelope.telemetry.shellName,
+                    command: envelope.telemetry.command,
+                    geometry: envelope.geometry
+                )
             }
             DispatchQueue.main.async { completion(telemetry) }
         }
@@ -799,6 +908,20 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
         }
     }
 
+    func resize(_ session: TerminalSession, columns: UInt16, rows: UInt16) -> Bool {
+        guard columns > 0, rows > 0,
+              let invocation = controlInvocation(
+                  "resize",
+                  session: session,
+                  trailingArguments: [
+                      "--columns", String(columns),
+                      "--rows", String(rows),
+                  ]
+              )
+        else { return false }
+        return TerminalSessionControl.run(invocation)
+    }
+
     func signal(_ signal: String, session: TerminalSession) {
         guard ["interrupt", "hangup", "terminate", "kill"].contains(signal) else { return }
         if let host = session.location.sshHost {
@@ -887,6 +1010,29 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
             executable: Self.sessionExecutablePath(),
             arguments: [operation, "--database", database, session.id] + trailingArguments
         )
+    }
+
+    nonisolated static func decodeSessionListOutput(
+        _ output: String
+    ) throws -> [AvailableTerminalSession] {
+        let lines = output.split(whereSeparator: \.isNewline)
+        guard !lines.isEmpty else {
+            throw TerminalSessionBackendError.commandFailed(
+                "The terminal session list was empty"
+            )
+        }
+        var sessions: [AvailableTerminalSession] = []
+        var seenIDs = Set<String>()
+        for line in lines {
+            let decoded = try JSONDecoder().decode(
+                NativeSessionList.self,
+                from: Data(line.utf8)
+            )
+            for session in decoded.sessions where seenIDs.insert(session.id).inserted {
+                sessions.append(session)
+            }
+        }
+        return sessions
     }
 
     nonisolated private static func localSessionExists(
@@ -1029,7 +1175,7 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
     static func remoteNewCommand(for session: TerminalSession) throws -> String {
         let command = try remoteLaunchCommand(for: session.launch)
         let arguments = [
-            "new", "--database", "$HOME/.local/state/machinen/sessions.sqlite3",
+            "new", "--database", "$MACHINEN_SESSION_DATABASE",
             "--id", session.id,
             "--workspace-id", session.workspaceID,
             "--workspace-name", session.workspace,
@@ -1037,21 +1183,39 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
             "--cwd", session.workingDirectory,
             "--",
         ] + command
-        return "mkdir -p \"$HOME/.local/state/machinen\" && "
-            + "\"$HOME/.local/bin/machinen-session\" "
-            + arguments.map(remoteArgument).joined(separator: " ")
+        return remoteResolvedSessionCommand(arguments, sessionID: session.id)
     }
 
-    private static func remoteAttachCommand(session: TerminalSession) -> String {
-        remoteControlCommand(
-            "attach",
-            sessionID: session.id,
-            trailingArguments: [
-                "--latest-screen",
-                "--client-id", String(session.viewerClientID),
-                "--client-name", desktopClientName(),
-            ]
+    private static func remoteViewerLaunch(
+        session: TerminalSession,
+        host: String,
+        home: String,
+        database: String
+    ) -> TerminalViewerLaunch {
+        TerminalViewerLaunch(
+            executable: MachinenSSHTransport.executable,
+            arguments: MachinenSSHTransport.arguments() + [
+                "-t", host,
+                remoteAttachCommand(session: session, database: database),
+            ],
+            environment: nil,
+            executableName: "ssh",
+            workingDirectory: home
         )
+    }
+
+    private static func remoteAttachCommand(
+        session: TerminalSession,
+        database: String
+    ) -> String {
+        let arguments = [
+            "attach", "--database", database, session.id,
+            "--latest-screen", "--geometry-events",
+            "--client-id", String(session.viewerClientID),
+            "--client-name", desktopClientName(),
+        ]
+        return "\"$HOME/.local/bin/machinen-session\" "
+            + arguments.map(remoteArgument).joined(separator: " ")
     }
 
     nonisolated private static func desktopClientName() -> String {
@@ -1064,8 +1228,9 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
     }
 
     nonisolated private static func remoteListCommand() -> String {
-        "\"$HOME/.local/bin/machinen-session\" list --database "
-            + "\"$HOME/.local/state/machinen/sessions.sqlite3\""
+        remoteAllSessionDatabasesCommand([
+            "list", "--database", "$MACHINEN_SESSION_DATABASE",
+        ])
     }
 
     nonisolated private static func workspaceSaveArguments(
@@ -1086,8 +1251,9 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
     }
 
     nonisolated private static func remoteWorkspaceListCommand() -> String {
-        "\"$HOME/.local/bin/machinen-session\" workspace list --database "
-            + "\"$HOME/.local/state/machinen/sessions.sqlite3\""
+        remoteCanonicalSessionCommand([
+            "workspace", "list", "--database", "$MACHINEN_SESSION_DATABASE",
+        ])
     }
 
     nonisolated private static func remoteWorkspaceSaveCommand(
@@ -1096,24 +1262,19 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
         root: String,
         sessionIDs: [String]
     ) -> String {
-        let arguments = workspaceSaveArguments(
-            database: "$HOME/.local/state/machinen/sessions.sqlite3",
+        remoteAllSessionDatabasesCommand(workspaceSaveArguments(
+            database: "$MACHINEN_SESSION_DATABASE",
             id: id,
             name: name,
             root: root,
             sessionIDs: sessionIDs
-        )
-        return "\"$HOME/.local/bin/machinen-session\" "
-            + arguments.map(remoteArgument).joined(separator: " ")
+        ))
     }
 
     nonisolated private static func remoteWorkspaceDeleteCommand(id: String) -> String {
-        let arguments = [
-            "workspace", "delete", "--database",
-            "$HOME/.local/state/machinen/sessions.sqlite3", id,
-        ]
-        return "\"$HOME/.local/bin/machinen-session\" "
-            + arguments.map(remoteArgument).joined(separator: " ")
+        remoteAllSessionDatabasesCommand([
+            "workspace", "delete", "--database", "$MACHINEN_SESSION_DATABASE", id,
+        ])
     }
 
     private static func remoteControlCommand(
@@ -1121,14 +1282,80 @@ final class MachinenNativeSessionBackend: TerminalSessionBackend {
         sessionID: String,
         trailingArguments: [String] = []
     ) -> String {
-        let arguments = [operation, "--database", "$HOME/.local/state/machinen/sessions.sqlite3", sessionID]
-            + trailingArguments
-        return "\"$HOME/.local/bin/machinen-session\" "
+        remoteResolvedSessionCommand([
+            operation, "--database", "$MACHINEN_SESSION_DATABASE", sessionID,
+        ] + trailingArguments, sessionID: sessionID)
+    }
+
+    nonisolated private static func remoteDatabaseKindCommand(
+        sessionID: String
+    ) -> String {
+        let helper = "\"$HOME/.local/bin/machinen-session\""
+        let sessionID = remoteArgument(sessionID)
+        return "if [ \"$(uname -s)\" = 'Darwin' ]; then "
+            + "d=\"$HOME/Library/Application Support/Machinen/sessions.sqlite3\"; "
+            + "if \(helper) inspect --database \"$d\" \(sessionID) >/dev/null 2>&1; "
+            + "then printf darwin; exit 0; fi; fi; printf xdg"
+    }
+
+    nonisolated private static func remoteResolvedSessionCommand(
+        _ arguments: [String],
+        sessionID: String
+    ) -> String {
+        let helper = "\"$HOME/.local/bin/machinen-session\""
+        let quotedSessionID = remoteArgument(sessionID)
+        let selectExistingDatabase = "if [ -n \"$MACHINEN_LEGACY_SESSION_DATABASE\" ] "
+            + "&& [ -f \"$MACHINEN_LEGACY_SESSION_DATABASE\" ] "
+            + "&& ! \(helper) inspect --database \"$MACHINEN_SESSION_DATABASE\" "
+            + "\(quotedSessionID) >/dev/null 2>&1 "
+            + "&& \(helper) inspect --database \"$MACHINEN_LEGACY_SESSION_DATABASE\" "
+            + "\(quotedSessionID) >/dev/null 2>&1; then "
+            + "MACHINEN_SESSION_DATABASE=\"$MACHINEN_LEGACY_SESSION_DATABASE\"; fi; "
+        return remoteDatabaseSetup() + selectExistingDatabase
+            + helper + " " + arguments.map(remoteArgument).joined(separator: " ")
+    }
+
+    nonisolated private static func remoteCanonicalSessionCommand(
+        _ arguments: [String]
+    ) -> String {
+        remoteDatabaseSetup() + "\"$HOME/.local/bin/machinen-session\" "
             + arguments.map(remoteArgument).joined(separator: " ")
     }
 
+    nonisolated private static func remoteAllSessionDatabasesCommand(
+        _ arguments: [String]
+    ) -> String {
+        let helper = "\"$HOME/.local/bin/machinen-session\""
+        let canonical = helper + " "
+            + arguments.map(remoteArgument).joined(separator: " ")
+        let legacyArguments = arguments.map {
+            $0 == "$MACHINEN_SESSION_DATABASE"
+                ? "$MACHINEN_LEGACY_SESSION_DATABASE"
+                : $0
+        }
+        let legacy = helper + " "
+            + legacyArguments.map(remoteArgument).joined(separator: " ")
+        return remoteDatabaseSetup() + canonical + " || exit $?; "
+            + "if [ -n \"$MACHINEN_LEGACY_SESSION_DATABASE\" ] "
+            + "&& [ -f \"$MACHINEN_LEGACY_SESSION_DATABASE\" ]; then "
+            + legacy + "; fi"
+    }
+
+    nonisolated private static func remoteDatabaseSetup() -> String {
+        "if [ \"$(uname -s)\" = 'Darwin' ]; then "
+            + "MACHINEN_SESSION_DATABASE=\"$HOME/Library/Application Support/Machinen/sessions.sqlite3\"; "
+            + "MACHINEN_LEGACY_SESSION_DATABASE=\"${XDG_STATE_HOME:-$HOME/.local/state}/machinen/sessions.sqlite3\"; "
+            + "else MACHINEN_SESSION_DATABASE=\"${XDG_STATE_HOME:-$HOME/.local/state}/machinen/sessions.sqlite3\"; "
+            + "MACHINEN_LEGACY_SESSION_DATABASE=''; fi; "
+            + "mkdir -p \"${MACHINEN_SESSION_DATABASE%/*}\"; "
+    }
+
     nonisolated private static func remoteArgument(_ value: String) -> String {
-        if value.hasPrefix("$HOME/") {
+        if value.hasPrefix("$HOME/")
+            || value == "$MACHINEN_SESSION_DATABASE"
+            || value == "$MACHINEN_LEGACY_SESSION_DATABASE"
+            || value.hasPrefix("${XDG_STATE_HOME:")
+        {
             return "\"\(value)\""
         }
         return WorkspaceLocation.shellQuote(value)

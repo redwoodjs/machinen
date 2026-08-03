@@ -122,7 +122,14 @@ owns launch information, process state, and PTY input/output.
   "backend": "machinenSession",
   "processState": "running",
   "activityState": "working",
-  "viewerState": "attached"
+  "viewerState": "attached",
+  "geometry": {
+    "columns": 149,
+    "rows": 42,
+    "generation": 7,
+    "ownerClientId": 123456,
+    "controlledByThisViewer": true
+  }
 }
 ```
 
@@ -137,6 +144,9 @@ the PTY and may be `null` for an older live worker. `backend` is always
 
 Process states are `starting`, `running`, `stopped`, `exited`, and
 `disconnected`. Activity states are `working`, `waiting`, `idle`, and `unknown`.
+`geometry` is `null` until Desktop has queried a supporting worker. It describes
+the PTY's one authoritative cell grid, not the local tile's pixels. A watcher
+fits that grid into its own tile without reflowing the terminal.
 The foreground login shell is `idle`; another foreground process is `working`.
 Recent output also reports `working`. Workers created before native telemetry
 remain `unknown` until explicitly restarted. Callers may provide a stronger
@@ -265,6 +275,7 @@ The result contains both `tile` and `terminal`.
 - `terminal.send { terminalId, text, appendNewline? }`
 - `terminal.send { terminalId, dataBase64 }`
 - `terminal.signal { terminalId, signal }`
+- `terminal.resize { terminalId, columns, rows }`
 - `terminal.stop { terminalId }`
 - `terminal.restart { terminalId, focus? }`
 
@@ -277,7 +288,11 @@ saved launch definition.
 
 Supported signals are `interrupt`, `terminate`, `kill`, and `hangup`. Exactly one
 of `text` and `dataBase64` is required by `terminal.send`. Input goes to the
-persistent PTY even when its tile viewer is detached.
+persistent PTY even when its tile viewer is detached. `terminal.resize` accepts
+columns and rows from 1 through 1000, performs `TIOCSWINSZ` in the session
+worker, and causes the kernel to deliver `SIGWINCH`. Attached renderers adopt
+the accepted grid immediately; the controlling viewer's next local viewport
+change may replace it with that viewer's new dimensions.
 
 There is intentionally no `terminal.close`. Callers must explicitly choose to
 detach a tile, stop a terminal, or delete a stopped tile. Desktop's `⌘W`
@@ -293,15 +308,21 @@ panel's Kill action emits `tile.killed` while removing the native session. API
 - `status.set { ...widget }`
 - `status.remove { id, scope? }`
 
-There is one persistent status bar. Its right edge always identifies the
-running app and bundled native helper as `Desktop <version> · Session <version>`.
+There is one persistent status bar. Its right edge holds the spatial minimap,
+preceded by the running app and bundled native helper identified as
+`Desktop <version> · Session <version>`.
 At workspace level its activity monitor summarizes all of that workspace's
 tiles, and the bar also shows aggregate tile
 CPU/network and branch-wide Git changes. The Git item graphs per-file additions
 and deletions with compact line totals at rest; its hover detail contains the
 branch, commits since the default-branch merge base, changed files, and exact
-added/deleted lines. The bar also
-shows per-PID CPU/network (including local child processes) and workspace branch
+added/deleted lines. The spatial minimap encodes each terminal's activity in its
+pane outline instead of publishing a redundant built-in `machinen.activity`
+widget. Hovering the compact minimap reveals its large read-only counterpart.
+A focused terminal has a built-in `machinen.sessionControl` widget: `CONTROL`
+or `VIEWING`, followed by `+N` when other viewers are attached. Its hover detail
+lists viewer names and roles; clicking opens the session panel with that terminal
+selected. The bar also shows per-PID CPU/network (including local child processes) and workspace branch
 changes. Open ports are workspace-scoped and
 include listeners whose process working directory is the workspace folder or
 one of its descendants. They list each listener on its own hover line and open
@@ -520,6 +541,7 @@ terminal.stateChanged
 terminal.activityChanged
 terminal.commandChanged
 terminal.workingDirectoryChanged
+terminal.geometryChanged
 terminal.updated
 terminal.output
 status.changed

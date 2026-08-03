@@ -8,7 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var apiServer: MachinenAPIServer?
     private var desktopServicesSupervisor: DesktopServicesSupervisor?
     private var commandChord: CommandChord?
-    private var terminalCycleShortcut: TerminalCycleShortcut?
+    private var desktopShortcutMonitor: DesktopShortcutMonitor?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         InputRoutingLog.start()
@@ -64,13 +64,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             guard !(self?.window?.firstResponder is MachinenTerminalView) else { return }
             deck?.toggleOverview()
         }
-        terminalCycleShortcut = TerminalCycleShortcut { [weak deck] scope, offset in
-            switch scope {
-            case .terminal:
-                deck?.cycleFocusedTerminal(by: offset) == true
-            case .workspace:
-                deck?.cycleFocusedWorkspace(by: offset) == true
-            }
+        let configuration = MachinenConfiguration.load()
+        desktopShortcutMonitor = DesktopShortcutMonitor(
+            shortcuts: configuration.shortcuts
+        ) { [weak deck] action in
+            deck?.performShortcut(action) == true
         }
 
         NSApp.activate(ignoringOtherApps: true)
@@ -81,7 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        terminalCycleShortcut?.stop()
+        desktopShortcutMonitor?.stop()
         apiServer?.stop()
         desktopServicesSupervisor?.stop()
         deck?.prepareForTermination()
@@ -116,7 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    private func installMainMenu() {
+    func installMainMenu() {
         let mainMenu = NSMenu()
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
@@ -126,6 +124,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             keyEquivalent: ""
         )
         appMenu.addItem(.separator())
+        let settingsItem = NSMenuItem(
+            title: "Open Settings File",
+            action: #selector(openSettingsFile),
+            keyEquivalent: ","
+        )
+        settingsItem.keyEquivalentModifierMask = [.command]
+        settingsItem.target = self
+        appMenu.addItem(settingsItem)
+        appMenu.addItem(.separator())
+
         let newWorkspaceItem = NSMenuItem(
             title: "New…",
             action: #selector(createNewWorkspaceOrTerminal),
@@ -135,6 +143,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         newWorkspaceItem.target = self
         appMenu.addItem(newWorkspaceItem)
 
+        let alternateNewWorkspaceItem = NSMenuItem(
+            title: "New…",
+            action: #selector(createNewWorkspaceOrTerminal),
+            keyEquivalent: "n"
+        )
+        alternateNewWorkspaceItem.keyEquivalentModifierMask = [.command, .shift]
+        alternateNewWorkspaceItem.target = self
+        alternateNewWorkspaceItem.isHidden = true
+        alternateNewWorkspaceItem.allowsKeyEquivalentWhenHidden = true
+        appMenu.addItem(alternateNewWorkspaceItem)
+
         let commandsItem = NSMenuItem(
             title: "Commands…",
             action: #selector(toggleCommands),
@@ -143,6 +162,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         commandsItem.keyEquivalentModifierMask = [.command]
         commandsItem.target = self
         appMenu.addItem(commandsItem)
+
+        let alternateCommandsItem = NSMenuItem(
+            title: "Commands…",
+            action: #selector(toggleCommands),
+            keyEquivalent: "k"
+        )
+        alternateCommandsItem.keyEquivalentModifierMask = [.command, .shift]
+        alternateCommandsItem.target = self
+        alternateCommandsItem.isHidden = true
+        alternateCommandsItem.allowsKeyEquivalentWhenHidden = true
+        appMenu.addItem(alternateCommandsItem)
 
         let terminalMenuItem = NSMenuItem(
             title: "Terminal Menu…",
@@ -179,29 +209,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         actualSizeItem.keyEquivalentModifierMask = [.command]
         actualSizeItem.target = self
         appMenu.addItem(actualSizeItem)
-
-        // Preserve the camera-navigation aliases without crowding the menu.
-        let zoomInArrowItem = NSMenuItem(
-            title: "Zoom In One Level",
-            action: #selector(zoomInWithArrow),
-            keyEquivalent: String(Character(UnicodeScalar(NSDownArrowFunctionKey)!))
-        )
-        zoomInArrowItem.keyEquivalentModifierMask = [.command]
-        zoomInArrowItem.target = self
-        zoomInArrowItem.isHidden = true
-        zoomInArrowItem.allowsKeyEquivalentWhenHidden = true
-        appMenu.addItem(zoomInArrowItem)
-
-        let zoomOutArrowItem = NSMenuItem(
-            title: "Zoom Out One Level",
-            action: #selector(zoomOutWithArrow),
-            keyEquivalent: String(Character(UnicodeScalar(NSUpArrowFunctionKey)!))
-        )
-        zoomOutArrowItem.keyEquivalentModifierMask = [.command]
-        zoomOutArrowItem.target = self
-        zoomOutArrowItem.isHidden = true
-        zoomOutArrowItem.allowsKeyEquivalentWhenHidden = true
-        appMenu.addItem(zoomOutArrowItem)
 
         let closeItem = NSMenuItem(
             title: "Disconnect Terminal or Close Workspace",
@@ -294,16 +301,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if menuItem.action == #selector(showTerminalMenu) {
             return window?.firstResponder is MachinenTerminalView
         }
-        // Do not let application menu equivalents steal terminal commands.
-        // Contextual ⌘N and ⌘K remain available so a focused local or SSH
-        // terminal can manage its workspace without zooming out. Targetless
-        // Edit items still resolve through the terminal responder.
-        guard window?.firstResponder is MachinenTerminalView else { return true }
-        switch menuItem.action {
-        case #selector(zoomInWithArrow), #selector(zoomOutWithArrow):
-            return false
-        default:
-            return true
+        return true
+    }
+
+    @objc private func openSettingsFile() {
+        let url = MachinenConfiguration.defaultURL
+        _ = MachinenConfiguration.load(from: url)
+        guard NSWorkspace.shared.open(url) else {
+            NSLog("Machinen could not open settings file at %@", url.path)
+            return
         }
     }
 
@@ -329,14 +335,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func resetZoom() {
         deck?.resetCameraMagnification()
-    }
-
-    @objc private func zoomInWithArrow() {
-        deck?.zoomInOneLevel()
-    }
-
-    @objc private func zoomOutWithArrow() {
-        deck?.zoomOutOneLevel()
     }
 
     @objc private func handleCommandW() {

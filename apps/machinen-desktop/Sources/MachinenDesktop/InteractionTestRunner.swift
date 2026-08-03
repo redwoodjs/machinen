@@ -13,10 +13,14 @@ enum InteractionTestRunner {
                 return 0
             }
             try commandNAlwaysAsksWhatAndWhere()
+            try shortcutConfigCreatesDefaultsAndLoadsOverrides()
+            try settingsFileIsAvailableInApplicationMenu()
             try commandArrowsMoveThroughTheHierarchy()
             try statusNavigationMenusSwitchAndZoomOut()
             try commandPlusAndMinusMagnifyTheCurrentLevel()
-            try focusedCycleShortcutsSeparateTerminalsAndWorkspaces()
+            try configuredShortcutsNavigateHierarchy()
+            try paneAndWorkspaceShortcutsTransitionAtFixedZoom()
+            try configuredShortcutsSelectAndMoveSpatialObjects()
             try workspacePaletteCreatesRenamesAndClosesWithKeyboard()
             try commandPaletteFuzzySearchesAndCompletes()
             try terminalOutputAndRuntimeLabelsReportActivity()
@@ -25,6 +29,7 @@ enum InteractionTestRunner {
             try contextCommandsUseWorkspaceAndOSC7TerminalDirectories()
             try availableNativeSessionsReconnectIntoWorkspace()
             try attachedSessionCanTakeControl()
+            try sharedSessionGeometryFollowsItsController()
             try nativeWorkspaceRegistryRestoresLostDesktopState()
             try graphicalStatusWidgetsRender()
             try desktopServicesRestartUntilTheAppStops()
@@ -45,7 +50,7 @@ enum InteractionTestRunner {
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (33 scenarios)")
+            print("Machinen interaction tests passed (38 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -93,6 +98,166 @@ enum InteractionTestRunner {
         try expect(
             Set(snapshot.workspaces.map(\.workingDirectory)).count == 1,
             "workspaces could not share the same default directory"
+        )
+    }
+
+    private static func shortcutConfigCreatesDefaultsAndLoadsOverrides() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let configURL = URL(fileURLWithPath: harness.temporaryDirectoryPath)
+            .appendingPathComponent("config.json")
+        let defaults = MachinenConfiguration.load(from: configURL)
+        try expect(
+            FileManager.default.fileExists(atPath: configURL.path),
+            "the default shortcut config was not created"
+        )
+        let defaultData = try Data(contentsOf: configURL)
+        let defaultObject = try JSONSerialization.jsonObject(with: defaultData) as? [String: Any]
+        let defaultShortcuts = defaultObject?["shortcuts"] as? [String: String]
+        try expect(
+            defaultShortcuts == [
+                "enter": "cmd+shift+down",
+                "leave": "cmd+shift+up",
+                "selectLeft": "left",
+                "selectRight": "right",
+                "selectDown": "down",
+                "selectUp": "up",
+                "moveLeft": "shift+left",
+                "moveRight": "shift+right",
+                "moveDown": "shift+down",
+                "moveUp": "shift+up",
+                "previousPane": "cmd+shift+left",
+                "nextPane": "cmd+shift+right",
+                "previousWorkspace": "cmd+shift+[",
+                "nextWorkspace": "cmd+shift+]",
+            ],
+            "the generated shortcut config did not contain the documented defaults"
+        )
+
+        let overrideData = try JSONSerialization.data(withJSONObject: [
+            "shortcuts": [
+                "enter": "ctrl+j",
+                "leave": "ctrl+k",
+                "moveUp": "cmd+shift+up",
+                "previousPane": "cmd+left",
+                "nextPane": "option+tab",
+                "previousWorkspace": "cmd+[",
+                "nextWorkspace": "cmd+]",
+            ]
+        ])
+        try overrideData.write(to: configURL, options: .atomic)
+        let configured = MachinenConfiguration.load(from: configURL)
+        try expect(
+            configured.shortcuts[.enter]?.matches(
+                try harness.keyEvent(characters: "j", keyCode: 38, modifierFlags: [.control])
+            ) == true,
+            "the config did not replace the enter shortcut"
+        )
+        try expect(
+            configured.shortcuts[.nextPane]?.matches(
+                try harness.keyEvent(characters: "\t", keyCode: 48, modifierFlags: [.option])
+            ) == true,
+            "the config did not replace the next-pane shortcut"
+        )
+        let migratedData = try Data(contentsOf: configURL)
+        let migratedObject = try JSONSerialization.jsonObject(with: migratedData) as? [String: Any]
+        let migratedShortcuts = migratedObject?["shortcuts"] as? [String: String]
+        try expect(
+            migratedShortcuts?.count == DesktopShortcutAction.allCases.count
+                && migratedShortcuts?["enter"] == "ctrl+j"
+                && migratedShortcuts?["previousPane"] == "cmd+shift+left"
+                && migratedShortcuts?["moveUp"] == "shift+up"
+                && migratedShortcuts?["previousWorkspace"] == "cmd+shift+["
+                && migratedShortcuts?["nextWorkspace"] == "cmd+shift+]",
+            "loading an older config did not migrate the spatial defaults"
+        )
+
+        var actions: [DesktopShortcutAction] = []
+        let monitor = DesktopShortcutMonitor(
+            shortcuts: defaults.shortcuts,
+            startMonitoring: false
+        ) { action in
+            actions.append(action)
+            return true
+        }
+        defer { monitor.stop() }
+        try expect(
+            monitor.process(harness.commandShiftArrow(keyCode: 125)) == nil && actions == [.enter],
+            "the default enter shortcut was not routed"
+        )
+        try expect(
+            monitor.process(harness.commandShiftArrow(keyCode: 124)) == nil
+                && actions == [.enter, .nextPane],
+            "the default next-pane shortcut was not routed"
+        )
+        try expect(
+            monitor.process(
+                try harness.keyEvent(characters: "", keyCode: 123, modifierFlags: [.shift])
+            ) == nil && actions.last == .moveLeft,
+            "the default move-left shortcut was not routed"
+        )
+        let unbound = try harness.keyEvent(
+            characters: "x",
+            keyCode: 7,
+            modifierFlags: [.control, .option]
+        )
+        try expect(monitor.process(unbound) === unbound, "an unconfigured shortcut was consumed")
+    }
+
+    private static func settingsFileIsAvailableInApplicationMenu() throws {
+        let previousMenu = NSApp.mainMenu
+        defer { NSApp.mainMenu = previousMenu }
+        let delegate = AppDelegate()
+        delegate.installMainMenu()
+
+        let appMenu = NSApp.mainMenu?.items.first?.submenu
+        let settingsItem = appMenu?.items.first(where: { $0.title == "Open Settings File" })
+        try expect(settingsItem != nil, "the application menu did not include the settings file")
+        try expect(
+            settingsItem?.action == NSSelectorFromString("openSettingsFile")
+                && settingsItem?.target === delegate,
+            "the settings menu item was not wired to the application delegate"
+        )
+        try expect(
+            settingsItem?.keyEquivalent == ","
+                && settingsItem?.keyEquivalentModifierMask == [.command],
+            "the settings menu item did not use the standard ⌘, shortcut"
+        )
+        let newItems = appMenu?.items.filter {
+            $0.action == NSSelectorFromString("createNewWorkspaceOrTerminal")
+        } ?? []
+        try expect(
+            newItems.contains(where: {
+                $0.keyEquivalent == "n" && $0.keyEquivalentModifierMask == [.command]
+            }),
+            "the application menu did not expose ⌘N for the New chooser"
+        )
+        try expect(
+            newItems.contains(where: {
+                $0.keyEquivalent == "n"
+                    && $0.keyEquivalentModifierMask == [.command, .shift]
+                    && $0.isHidden
+                    && $0.allowsKeyEquivalentWhenHidden
+            }),
+            "the application menu did not expose ⇧⌘N for the New chooser"
+        )
+        let commandItems = appMenu?.items.filter {
+            $0.action == NSSelectorFromString("toggleCommands")
+        } ?? []
+        try expect(
+            commandItems.contains(where: {
+                $0.keyEquivalent == "k" && $0.keyEquivalentModifierMask == [.command]
+            }),
+            "the application menu did not expose ⌘K for commands"
+        )
+        try expect(
+            commandItems.contains(where: {
+                $0.keyEquivalent == "k"
+                    && $0.keyEquivalentModifierMask == [.command, .shift]
+                    && $0.isHidden
+                    && $0.allowsKeyEquivalentWhenHidden
+            }),
+            "the application menu did not expose ⇧⌘K for commands"
         )
     }
 
@@ -236,76 +401,444 @@ enum InteractionTestRunner {
         )
     }
 
-    private static func focusedCycleShortcutsSeparateTerminalsAndWorkspaces() throws {
+    private static func configuredShortcutsNavigateHierarchy() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [
             harness.workspace("alpha", terminalCount: 2),
             harness.workspace("beta", terminalCount: 2),
         ])
-        let shortcut = TerminalCycleShortcut { [weak deck] scope, offset in
-            switch scope {
-            case .terminal:
-                deck?.cycleFocusedTerminal(by: offset) == true
-            case .workspace:
-                deck?.cycleFocusedWorkspace(by: offset) == true
-            }
+        let shortcut = DesktopShortcutMonitor(
+            shortcuts: MachinenConfiguration.defaults.shortcuts,
+            startMonitoring: false
+        ) { [weak deck] action in
+            deck?.performShortcut(action) == true
         }
         defer { shortcut.stop() }
 
-        deck.zoomInOneLevel()
-        deck.zoomInOneLevel()
         try expect(
-            try harness.focusedTileID(of: deck) == "tile_alpha_0",
-            "the first terminal was not initially focused"
+            shortcut.process(harness.commandShiftArrow(keyCode: 125)) == nil
+                && (try harness.uiLevel(of: deck)) == "workspace",
+            "the enter shortcut did not enter the workspace"
         )
         try expect(
-            try shortcut.process(harness.commandArrow(keyCode: 124)) == nil,
-            "⌘→ was not handled at terminal level"
+            shortcut.process(harness.commandShiftArrow(keyCode: 125)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
+            "the enter shortcut did not focus the first pane"
         )
         try expect(
-            try harness.focusedTileID(of: deck) == "tile_alpha_1",
-            "⌘→ did not focus the next terminal in the current workspace"
-        )
-        try expect(
-            try shortcut.process(harness.commandArrow(keyCode: 124)) == nil,
-            "wrapping ⌘→ was not handled"
-        )
-        try expect(
-            try harness.focusedTileID(of: deck) == "tile_alpha_0",
-            "⌘→ did not wrap within the current workspace"
-        )
-        try expect(
-            try shortcut.process(harness.commandArrow(keyCode: 123)) == nil,
-            "wrapping ⌘← was not handled"
+            shortcut.process(harness.commandShiftArrow(keyCode: 124)) == nil,
+            "the next-pane shortcut was not handled at terminal level"
         )
         try expect(
             try harness.focusedTileID(of: deck) == "tile_alpha_1",
-            "⌘← did not wrap to the current workspace's final terminal"
+            "the next-pane shortcut did not focus the next terminal"
         )
         try expect(
-            try shortcut.process(harness.commandBracket(keyCode: 30)) == nil,
-            "⌘] was not handled at terminal level"
+            shortcut.process(harness.commandShiftArrow(keyCode: 123)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
+            "the previous-pane shortcut did not focus the previous terminal"
         )
         try expect(
-            try harness.focusedTileID(of: deck) == "tile_beta_0",
-            "⌘] did not focus the next workspace's first terminal"
+            shortcut.process(harness.commandShiftArrow(keyCode: 123)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "the previous-pane shortcut did not wrap within the workspace"
         )
         try expect(
-            try shortcut.process(harness.commandBracket(keyCode: 30)) == nil,
-            "wrapping ⌘] was not handled"
+            shortcut.process(harness.commandShiftArrow(keyCode: 124)) == nil,
+            "the wrapping next-pane shortcut was not handled"
         )
         try expect(
             try harness.focusedTileID(of: deck) == "tile_alpha_0",
-            "⌘] did not wrap to the first workspace"
+            "the next-pane shortcut did not wrap within the workspace"
         )
         try expect(
-            try shortcut.process(harness.commandBracket(keyCode: 33)) == nil,
-            "wrapping ⌘[ was not handled"
+            shortcut.process(harness.commandShiftArrow(keyCode: 124)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "the second terminal was not made active in the first workspace"
         )
         try expect(
-            try harness.focusedTileID(of: deck) == "tile_beta_0",
-            "⌘[ did not wrap to the final workspace"
+            shortcut.process(harness.commandShiftBracket(keyCode: 33)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_0",
+            "the previous-workspace shortcut did not wrap to the final workspace"
+        )
+        try expect(
+            shortcut.process(harness.commandShiftArrow(keyCode: 124)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_1",
+            "the second terminal was not made active in the final workspace"
+        )
+        try expect(
+            shortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "workspace cycling did not restore the first workspace's active terminal"
+        )
+        try expect(
+            shortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_1",
+            "workspace cycling did not restore the final workspace's active terminal"
+        )
+        try expect(
+            shortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "the wrapping workspace shortcut did not preserve the active terminal"
+        )
+        try expect(
+            shortcut.process(harness.commandShiftArrow(keyCode: 126)) == nil
+                && (try harness.uiLevel(of: deck)) == "workspace",
+            "the leave shortcut did not leave the focused pane"
+        )
+    }
+
+    private static func paneAndWorkspaceShortcutsTransitionAtFixedZoom() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 2),
+            harness.workspace("beta", terminalCount: 1),
+        ])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        deck.layoutSubtreeIfNeeded()
+
+        deck.zoomInOneLevel()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        deck.zoomInOneLevel()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        try expect(
+            try harness.focusedTileID(of: deck) == "tile_alpha_0",
+            "the first terminal was not focused before direct pane movement"
+        )
+        guard let camera = deck.subviews.first else {
+            throw InteractionTestFailure("the deck did not install its camera scene")
+        }
+        guard let statusBar = deck.subviews.compactMap({
+            $0 as? MachinenStatusBarView
+        }).first else {
+            throw InteractionTestFailure("the deck did not install its status bar")
+        }
+        guard let minimap = deck.subviews.compactMap({
+            $0 as? SpatialMinimapView
+        }).first else {
+            throw InteractionTestFailure("the deck did not install its spatial minimap")
+        }
+        let statusMinimap = statusBar.spatialMinimapForTesting
+        statusBar.display()
+        try expect(minimap.isHidden, "the spatial minimap was visible while the camera was idle")
+        try expect(
+            !statusMinimap.isHidden
+                && statusMinimap.frame.size == NSSize(width: 56, height: 26)
+                && statusMinimap.representedWorkspaceCount == 2
+                && statusMinimap.representedPaneCount == 3
+                && !statusMinimap.rendersPaneDetail
+                && statusMinimap.rendersPaneBlocks
+                && statusMinimap.usesPixelArtPresentation
+                && statusMinimap.usesMonochromePixelPalette
+                && statusMinimap.pixelArtWorkspaceGap == 1
+                && statusMinimap.pixelArtPaneGap == 1
+                && !minimap.rendersPaneDetail
+                && minimap.rendersPaneBlocks
+                && minimap.usesPixelArtPresentation
+                && minimap.usesMonochromePixelPalette
+                && minimap.pixelArtWorkspaceGap == statusMinimap.pixelArtWorkspaceGap
+                && minimap.pixelArtPaneGap == statusMinimap.pixelArtPaneGap,
+            "the large and status minimaps did not share the pixel-art presentation"
+        )
+        try expect(
+            abs(minimap.frame.maxX - (deck.bounds.maxX - 18)) < 0.5
+                && abs(minimap.frame.minY - (statusBar.frame.maxY + 12)) < 0.5,
+            "the large minimap was not anchored below the status bar at the right edge"
+        )
+        let statusWidgetFrames = statusBar.widgetFramesForTesting
+        try expect(
+            abs(statusMinimap.frame.maxX - (statusBar.bounds.maxX - 14)) < 0.5
+                && statusBar.navigationTitleFrameForTesting.maxX < statusMinimap.frame.minX
+                && !statusWidgetFrames.isEmpty
+                && statusWidgetFrames.allSatisfy { $0.maxX < statusMinimap.frame.minX },
+            "the status minimap was not the final item at the right edge"
+        )
+        let minimapHoverPoint = NSPoint(x: statusMinimap.frame.midX, y: statusMinimap.frame.midY)
+        try expect(
+            statusBar.hitTest(minimapHoverPoint) === statusBar,
+            "the status minimap did not accept read-only hover tracking"
+        )
+        _ = statusBar.hoverText(at: minimapHoverPoint)
+        try expect(
+            !minimap.isHidden && minimap.alphaValue > 0.99,
+            "hovering the status minimap did not reveal the large minimap"
+        )
+        _ = statusBar.hoverText(at: .zero)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.38))
+        try expect(
+            minimap.isHidden,
+            "the hover-previewed large minimap did not fade after the pointer left"
+        )
+        let initialCameraBounds = camera.bounds
+
+        try expect(deck.cycleFocusedTerminal(by: 1), "the next-pane action was not accepted")
+        let initialMinimapCameraBounds = minimap.representedCameraBounds
+        try expect(
+            try harness.uiLevel(of: deck) == "terminal"
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "pane switching zoomed out instead of focusing the destination directly"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+        let middleCameraBounds = camera.bounds
+        try expect(
+            abs(middleCameraBounds.minX - initialCameraBounds.minX) > 0.5
+                || abs(middleCameraBounds.minY - initialCameraBounds.minY) > 0.5,
+            "pane switching did not begin moving toward the destination"
+        )
+        try expect(
+            abs(middleCameraBounds.width - initialCameraBounds.width) < 0.5
+                && abs(middleCameraBounds.height - initialCameraBounds.height) < 0.5,
+            "pane switching changed the camera zoom during the pan"
+        )
+        try expect(
+            !minimap.isHidden && minimap.alphaValue > 0.9
+                && minimap.representedWorkspaceCount == 2
+                && minimap.representedPaneCount == 3
+                && (abs(minimap.representedCameraBounds.minX - initialMinimapCameraBounds.minX) > 0.5
+                    || abs(minimap.representedCameraBounds.minY - initialMinimapCameraBounds.minY) > 0.5),
+            "the spatial minimap did not represent and animate the complete scene"
+        )
+        guard let representedPane = minimap.representedWorkspaces.first?.panes.first,
+              let mappedPane = minimap.mappedRepresentation(of: representedPane.frame)
+        else {
+            throw InteractionTestFailure("the spatial minimap did not map its first pane")
+        }
+        try expect(
+            abs(mappedPane.width / representedPane.frame.width
+                - mappedPane.height / representedPane.frame.height) < 0.001,
+            "the spatial minimap did not preserve a uniform 1:1 scene scale"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.20))
+        try expect(
+            abs(camera.bounds.minX - middleCameraBounds.minX) > 0.5
+                || abs(camera.bounds.minY - middleCameraBounds.minY) > 0.5,
+            "pane switching finished too abruptly instead of continuing its pan"
+        )
+        try expect(
+            abs(camera.bounds.width - initialCameraBounds.width) < 0.5
+                && abs(camera.bounds.height - initialCameraBounds.height) < 0.5,
+            "pane switching changed the camera zoom at the destination"
+        )
+        try expect(
+            !minimap.isHidden && minimap.alphaValue > 0.99 && !statusMinimap.isHidden,
+            "the minimap did not hold at full opacity after pane movement"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        try expect(
+            !minimap.isHidden && minimap.alphaValue > 0.99 && !statusMinimap.isHidden,
+            "the transient minimap faded before its hold completed"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(1.25))
+        try expect(
+            minimap.isHidden && !statusMinimap.isHidden,
+            "the transient minimap did not fade after its hold"
+        )
+
+        let workspaceInitialCameraBounds = camera.bounds
+        try expect(
+            deck.cycleFocusedWorkspace(by: 1)
+                && (try harness.uiLevel(of: deck)) == "terminal"
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "workspace switching left Terminal mode during its outgoing slide"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.04))
+        let workspaceExitCameraBounds = camera.bounds
+        try expect(
+            abs(workspaceExitCameraBounds.minX - workspaceInitialCameraBounds.minX) > 0.5
+                && camera.alphaValue < 0.95,
+            "workspace switching did not slide and fade the source pane"
+        )
+        try expect(
+            abs(workspaceExitCameraBounds.width - workspaceInitialCameraBounds.width) < 0.5
+                && abs(workspaceExitCameraBounds.height - workspaceInitialCameraBounds.height) < 0.5,
+            "workspace switching changed zoom during its outgoing slide"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.07))
+        try expect(
+            try harness.uiLevel(of: deck) == "terminal"
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_0"
+                && camera.alphaValue < 0.95,
+            "workspace switching traversed the scene hierarchy instead of revealing directly"
+        )
+        let workspaceEntryCameraBounds = camera.bounds
+        RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        try expect(
+            camera.alphaValue > 0.99
+                && abs(camera.bounds.width - workspaceEntryCameraBounds.width) < 0.5
+                && abs(camera.bounds.height - workspaceEntryCameraBounds.height) < 0.5,
+            "workspace switching changed zoom while revealing the destination"
+        )
+        try expect(
+            !minimap.isHidden && minimap.alphaValue > 0.99 && !statusMinimap.isHidden,
+            "the workspace minimap did not hold at full opacity"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        try expect(
+            !minimap.isHidden && minimap.alphaValue > 0.99,
+            "the workspace minimap faded before its hold completed"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(1.25))
+        try expect(
+            minimap.isHidden && !statusMinimap.isHidden
+                && statusMinimap.representedWorkspaces.contains(where: {
+                    $0.id == "ws_beta" && $0.isActive
+                }),
+            "the tiny status minimap did not persist at the destination workspace"
+        )
+
+        let switchedSingletonCameraBounds = camera.bounds
+        try expect(deck.zoomOutOneLevel(), "the singleton pane could not be left")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        try expect(deck.zoomInOneLevel(), "the singleton pane could not be re-entered")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        try expect(
+            abs(camera.bounds.width - switchedSingletonCameraBounds.width) < 0.5
+                && abs(camera.bounds.height - switchedSingletonCameraBounds.height) < 0.5,
+            "workspace switching did not use the singleton pane's fitted framing"
+        )
+        try expect(
+            deck.cycleFocusedWorkspace(by: -1)
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_0",
+            "the return workspace transition did not begin from the active terminal"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.10))
+        try expect(
+            try harness.focusedTileID(of: deck) == "tile_alpha_1",
+            "workspace switching did not restore the prior active terminal"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        try expect(
+            abs(camera.bounds.width - workspaceInitialCameraBounds.width) < 0.5
+                && abs(camera.bounds.height - workspaceInitialCameraBounds.height) < 0.5,
+            "returning to the multi-pane workspace did not restore its fitted framing"
+        )
+
+        let statusPaneInitialCameraBounds = camera.bounds
+        try expect(
+            statusBar.chooseTerminal("term_alpha_0")
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
+            "the status bar did not begin a direct pane transition"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+        try expect(
+            (abs(camera.bounds.minX - statusPaneInitialCameraBounds.minX) > 0.5
+                || abs(camera.bounds.minY - statusPaneInitialCameraBounds.minY) > 0.5)
+                && abs(camera.bounds.width - statusPaneInitialCameraBounds.width) < 0.5
+                && abs(camera.bounds.height - statusPaneInitialCameraBounds.height) < 0.5,
+            "the status-bar terminal item did not use the fixed-zoom pane pan"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.20))
+
+        try expect(
+            statusBar.chooseWorkspace("ws_beta")
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
+            "the status bar did not begin from the current terminal"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.04))
+        try expect(
+            camera.alphaValue < 0.95 && (try harness.uiLevel(of: deck)) == "terminal",
+            "the status-bar workspace item did not slide and fade the source pane"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.07))
+        let statusWorkspaceEntryCameraBounds = camera.bounds
+        try expect(
+            camera.alphaValue < 0.95
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_0",
+            "the status-bar workspace item did not reveal the destination directly"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        try expect(
+            camera.alphaValue > 0.99
+                && abs(camera.bounds.width - statusWorkspaceEntryCameraBounds.width) < 0.5
+                && abs(camera.bounds.height - statusWorkspaceEntryCameraBounds.height) < 0.5,
+            "the status-bar workspace transition changed zoom during its entry slide"
+        )
+    }
+
+    private static func configuredShortcutsSelectAndMoveSpatialObjects() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 2),
+            harness.workspace("beta", terminalCount: 1),
+        ])
+        let shortcut = DesktopShortcutMonitor(
+            shortcuts: MachinenConfiguration.defaults.shortcuts,
+            startMonitoring: false
+        ) { [weak deck] action in
+            deck?.performShortcut(action) == true
+        }
+        defer { shortcut.stop() }
+
+        try expect(
+            shortcut.process(
+                try harness.keyEvent(characters: "", keyCode: 124, modifierFlags: [])
+            ) == nil && (try harness.statusTitle(of: deck)) == "beta",
+            "the select-right shortcut did not select the next workspace"
+        )
+        try expect(
+            shortcut.process(
+                try harness.keyEvent(characters: "", keyCode: 123, modifierFlags: [])
+            ) == nil && (try harness.statusTitle(of: deck)) == "alpha",
+            "the select-left shortcut did not restore the first workspace"
+        )
+        try expect(
+            shortcut.process(
+                try harness.keyEvent(
+                    characters: "",
+                    keyCode: 124,
+                    modifierFlags: [.shift]
+                )
+            ) == nil && (try harness.snapshot(of: deck)).workspaces.map(\.name) == ["beta", "alpha"],
+            "the move-right shortcut did not reorder the selected workspace"
+        )
+        try expect(
+            shortcut.process(
+                try harness.keyEvent(
+                    characters: "",
+                    keyCode: 123,
+                    modifierFlags: [.shift]
+                )
+            ) == nil && (try harness.snapshot(of: deck)).workspaces.map(\.name) == ["alpha", "beta"],
+            "the move-left shortcut did not restore the workspace order"
+        )
+
+        try expect(
+            shortcut.process(harness.commandShiftArrow(keyCode: 125)) == nil
+                && (try harness.uiLevel(of: deck)) == "workspace",
+            "the enter shortcut did not enter the reordered workspace"
+        )
+        try expect(
+            shortcut.process(
+                try harness.keyEvent(
+                    characters: "",
+                    keyCode: 125,
+                    modifierFlags: [.shift]
+                )
+            ) == nil
+                && (try harness.snapshot(of: deck)).tiles.prefix(2).map(\.id)
+                    == ["tile_alpha_1", "tile_alpha_0"],
+            "the move-down shortcut did not reorder panes inside the workspace"
+        )
+        try expect(
+            shortcut.process(
+                try harness.keyEvent(characters: "", keyCode: 126, modifierFlags: [])
+            ) == nil,
+            "the select-up shortcut was not handled inside the workspace"
+        )
+        try expect(
+            shortcut.process(harness.commandShiftArrow(keyCode: 125)) == nil
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "enter did not focus the pane chosen with a selection shortcut"
         )
     }
 
@@ -475,9 +1008,40 @@ enum InteractionTestRunner {
                 (subview as? T).map { [$0] } ?? descendants(of: subview, as: type)
             }
         }
-        guard descendants(of: deck, as: TerminalTileView.self).first != nil else {
+        guard let terminalTile = descendants(of: deck, as: TerminalTileView.self).first else {
             throw InteractionTestFailure("the status test could not find its terminal")
         }
+        terminalTile.updateProcessInfo(TerminalProcessInfo(shellPID: 4201, processPID: 4242))
+        _ = try deck.performAPIOperation("tile.update", params: [
+            "tileId": terminalTile.session.tileID,
+            "activityState": "idle",
+        ])
+        guard let statusBar = descendants(of: deck, as: MachinenStatusBarView.self).first,
+              let largeMinimap = deck.subviews.first(where: {
+                  $0.identifier?.rawValue == "spatial-minimap"
+              }) as? SpatialMinimapView
+        else {
+            throw InteractionTestFailure("the activity test could not find both minimaps")
+        }
+        let miniMinimap = statusBar.spatialMinimapForTesting
+        try expect(
+            largeMinimap.representedActivityStates == [.idle]
+                && miniMinimap.representedActivityStates == [.idle],
+            "idle terminal activity was not represented spatially in both minimaps"
+        )
+        try expect(
+            largeMinimap.outerCornerRadius == 6 && miniMinimap.outerCornerRadius == 6,
+            "the minimap activity indicators did not use rounded outer corners"
+        )
+        _ = try deck.performAPIOperation("tile.update", params: [
+            "tileId": terminalTile.session.tileID,
+            "activityState": "working",
+        ])
+        try expect(
+            largeMinimap.representedActivityStates == [.working]
+                && miniMinimap.representedActivityStates == [.working],
+            "working terminal activity was not represented spatially in both minimaps"
+        )
         _ = try deck.performAPIOperation("status.set", params: [
             "id": "git.modified",
             "kind": "count",
@@ -496,6 +1060,11 @@ enum InteractionTestRunner {
         try expect(
             effective.first(where: { $0.id == "git.modified" })?.value == "3",
             "the workspace widget did not override the global widget"
+        )
+        try expect(
+            effective.allSatisfy { $0.id != "machinen.activity" }
+                && statusBar.widgets.allSatisfy { $0.id != "machinen.activity" },
+            "the redundant built-in activity widget remained in the status bar"
         )
         _ = try deck.performAPIOperation("status.set", params: [
             "id": "network.graph",
@@ -1014,15 +1583,137 @@ enum InteractionTestRunner {
         let deck = harness.makeDeck(workspaces: [alpha])
         deck.toggleAvailableSessions()
         let panel = try harness.availableSessions(in: deck)
+        let status = try harness.effectiveStatusWidgets(of: deck)
+        let controlStatus = status.first { $0.id == "machinen.sessionControl" }
+        try expect(
+            controlStatus?.value == "VIEWING +1"
+                && controlStatus?.tooltip?.contains("Machinen Desktop on another Mac") == true,
+            "the status bar did not show control ownership and the other viewer"
+        )
         try expect(
             panel.items.first?.canTakeControl == true
-                && panel.items.first?.primaryActionTitle == "Take Control",
+                && panel.items.first?.primaryActionTitle == "Take Control and Resize",
             "the attached watcher did not offer to take control"
         )
         try harness.pressReturn(on: panel)
         try expect(
             harness.takenControlSessionIDs == [terminal.id],
             "the session panel did not request control for its own attachment"
+        )
+    }
+
+    private static func sharedSessionGeometryFollowsItsController() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let workspace = harness.workspace("geometry", terminalCount: 1)
+        guard let session = workspace.1.first else {
+            throw InteractionTestFailure("the geometry fixture had no terminal")
+        }
+        session.state = .running
+        let terminal = MachinenTerminalView(
+            session: session,
+            terminalBackend: harness.backend,
+            telemetryProvider: { completion in completion(nil) }
+        )
+        terminal.ghosttyTitleChanged(
+            "machinen.geometry:v1:239:59:8:99:\(session.viewerClientID):0:149:42"
+        )
+        try expect(
+            terminal.sessionGeometry == TerminalGeometry(
+                columns: 239,
+                rows: 59,
+                generation: 8,
+                ownerClientId: 99
+            ),
+            "the viewer did not accept the worker's authoritative geometry"
+        )
+        let pixels = MachinenTerminalView.authoritativeSurfacePixelSize(
+            viewportSize: NSSize(width: 1_200, height: 720),
+            backingScale: 2,
+            cellSize: NSSize(width: 16, height: 34),
+            geometry: terminal.sessionGeometry!,
+            localColumns: 149,
+            localRows: 42
+        )
+        try expect(
+            pixels.width == 3_840 && pixels.height == 2_018
+                && terminal.rendersAuthoritativeGrid,
+            "the watcher did not preserve the controller's cell grid"
+        )
+        terminal.ghosttyTitleChanged(
+            "machinen.geometry:v1:149:42:9:\(session.viewerClientID):"
+                + "\(session.viewerClientID):1:149:42"
+        )
+        try expect(
+            !terminal.rendersAuthoritativeGrid,
+            "the new controller did not return to its local viewport"
+        )
+        terminal.ghosttyTitleChanged(
+            "machinen.geometry:v1:100:30:10:\(session.viewerClientID):"
+                + "\(session.viewerClientID):1:149:42"
+        )
+        terminal.ghosttyTitleChanged(
+            "machinen.geometry:v1:100:30:10:\(session.viewerClientID):"
+                + "\(session.viewerClientID):1:100:30"
+        )
+        try expect(
+            terminal.rendersAuthoritativeGrid,
+            "the controller did not preserve an explicit resize request"
+        )
+        terminal.setFrameSize(NSSize(width: 1_200, height: 720))
+        try expect(
+            !terminal.rendersAuthoritativeGrid,
+            "a local viewport change did not resume automatic geometry"
+        )
+        terminal.setTerminalInputFocused(true)
+        try expect(
+            harness.takenControlSessionIDs.isEmpty,
+            "focusing a watcher unexpectedly stole geometry control"
+        )
+
+        harness.setAvailableSessions([
+            AvailableTerminalSession(
+                id: session.id,
+                name: session.name,
+                state: "running",
+                workspaceId: session.workspaceID,
+                workingDirectory: session.workingDirectory,
+                clientControlAvailable: true,
+                clients: [
+                    AttachedTerminalClient(
+                        id: session.viewerClientID,
+                        name: "Machinen Desktop on this Mac",
+                        pid: 20,
+                        connectedAtMs: 1,
+                        writer: true,
+                        resize: true,
+                        readOnly: false
+                    ),
+                ],
+                createdAtMs: 1,
+                updatedAtMs: 2
+            ),
+        ])
+        let deck = harness.makeDeck(workspaces: [workspace])
+        _ = try deck.performAPIOperation(
+            "terminal.resize",
+            params: [
+                "terminalId": session.id,
+                "columns": 100,
+                "rows": 30,
+            ]
+        )
+        try expect(
+            harness.resizedSessionRequests.contains(where: {
+                $0.id == session.id && $0.columns == 100 && $0.rows == 30
+            }),
+            "terminal.resize did not request an explicit PTY geometry"
+        )
+        try expect(
+            (try harness.effectiveStatusWidgets(of: deck)).first {
+                $0.id == "machinen.sessionControl"
+            }?.value == "CONTROL",
+            "the status bar did not identify this Desktop as the controller"
         )
     }
 
@@ -1071,6 +1762,60 @@ enum InteractionTestRunner {
         try expect(
             try harness.availableSessions(in: deck).items.map(\.session.id) == ["term_recovered"],
             "the restored workspace's session was not available for attachment"
+        )
+
+        let migrationHarness = try Harness()
+        defer { migrationHarness.cleanUp() }
+        migrationHarness.setNativeWorkspaces([
+            NativeWorkspaceRecord(
+                id: "ws_canonical",
+                name: "project",
+                rootDirectory: migrationHarness.temporaryDirectoryPath,
+                createdAtMs: 1,
+                updatedAtMs: 2
+            ),
+            NativeWorkspaceRecord(
+                id: "ws_duplicate",
+                name: "project",
+                rootDirectory: migrationHarness.temporaryDirectoryPath,
+                createdAtMs: 2,
+                updatedAtMs: 3
+            ),
+        ])
+        let legacyWorkspace = WorkspaceRecord(
+            id: "ws_legacy",
+            name: "project",
+            workingDirectory: migrationHarness.temporaryDirectoryPath
+        )
+        let legacySession = TerminalSession(
+            id: "term_legacy",
+            label: "ls",
+            workspaceID: legacyWorkspace.id,
+            workspace: legacyWorkspace.name,
+            name: "shell",
+            launch: .loginShell,
+            workingDirectory: migrationHarness.temporaryDirectoryPath,
+            state: .running
+        )
+        let migratedDeck = migrationHarness.makeDeck(
+            workspaces: [(legacyWorkspace, [legacySession])]
+        )
+        let migratedSnapshot = try migrationHarness.snapshot(of: migratedDeck)
+        try expect(
+            migratedSnapshot.workspaces.map(\.id) == ["ws_canonical"]
+                && migratedSnapshot.tiles.map(\.workspaceId) == ["ws_canonical"],
+            "a native workspace with the same machine and root created a duplicate workspace"
+        )
+        let migratedState = migrationHarness.loadStoredState()
+        try expect(
+            migratedState.workspaces.map(\.id) == ["ws_canonical"]
+                && migratedState.sessions.map(\.workspaceID) == ["ws_canonical"],
+            "the canonical native workspace ID was not persisted"
+        )
+        try expect(
+            migrationHarness.savedWorkspaceIDs.contains("ws_canonical")
+                && migrationHarness.deletedWorkspaceIDs.contains("ws_legacy"),
+            "the native session store did not replace the superseded workspace ID"
         )
     }
 
@@ -1339,8 +2084,27 @@ enum InteractionTestRunner {
                 && remoteCommand.contains("'--workspace-name' 'remote quote'")
                 && remoteCommand.contains("'--workspace-root' '/Users/p4p8/project'\\''s files'")
                 && remoteCommand.contains("'--cwd' '/Users/p4p8/project'\\''s files'")
+                && remoteCommand.contains(
+                    "MACHINEN_SESSION_DATABASE=\"$HOME/Library/Application Support/Machinen/sessions.sqlite3\""
+                )
+                && remoteCommand.contains(
+                    "MACHINEN_LEGACY_SESSION_DATABASE=\"${XDG_STATE_HOME:-$HOME/.local/state}/machinen/sessions.sqlite3\""
+                )
+                && remoteCommand.contains("'--database' \"$MACHINEN_SESSION_DATABASE\"")
+                && remoteCommand.contains("inspect --database")
                 && remoteCommand.contains("printf") && remoteCommand.contains("ready"),
-            "the remote terminal command did not safely quote its path and command: \(remoteCommand)"
+            "the remote terminal command did not safely select and quote its database, path, and command: \(remoteCommand)"
+        )
+        let mergedSessions = try MachinenNativeSessionBackend.decodeSessionListOutput(
+            """
+            {"sessions":[{"id":"term_shared","name":"canonical","state":"running","workspaceId":"ws_one","workingDirectory":"/one","createdAtMs":1,"updatedAtMs":2}]}
+            {"sessions":[{"id":"term_shared","name":"legacy","state":"running","workspaceId":"ws_old","workingDirectory":"/old","createdAtMs":1,"updatedAtMs":3},{"id":"term_legacy","name":null,"state":"running","workspaceId":"ws_one","workingDirectory":"/one","createdAtMs":1,"updatedAtMs":4}]}
+            """
+        )
+        try expect(
+            mergedSessions.map(\.id) == ["term_shared", "term_legacy"]
+                && mergedSessions.first?.name == "canonical",
+            "remote canonical and legacy session stores were not merged with canonical precedence"
         )
         let sshArguments = MachinenSSHTransport.arguments(connectTimeout: 8)
         try expect(
@@ -2035,6 +2799,17 @@ enum InteractionTestRunner {
         )
         _ = try harness.commandPalette(in: deck)
         deck.toggleCommandPalette()
+        let commandShiftK = try harness.keyEvent(
+            characters: "k",
+            keyCode: 40,
+            modifierFlags: [.command, .shift]
+        )
+        try expect(
+            focusedTerminal.performKeyEquivalent(with: commandShiftK),
+            "a focused terminal did not route shift-command-k to the command palette"
+        )
+        _ = try harness.commandPalette(in: deck)
+        deck.toggleCommandPalette()
 
         deck.zoomOutOneLevel()
         try expect(try harness.uiLevel(of: deck) == "workspace", "focus mode did not return to select mode")
@@ -2455,6 +3230,7 @@ private final class ImmediateViewerBackend: TerminalSessionBackend {
     ) {
         completion(.success(()))
     }
+    func resize(_ session: TerminalSession, columns: UInt16, rows: UInt16) -> Bool { true }
     func signal(_ signal: String, session: TerminalSession) {}
     func stop(_ session: TerminalSession) {}
     func reset(_ session: TerminalSession) {}
@@ -2490,6 +3266,7 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
     var savedWorkspaces: [(id: String, name: String, location: WorkspaceLocation, sessions: [String])] = []
     var deletedWorkspaces: [(id: String, location: WorkspaceLocation)] = []
     var takenControlOf: [String] = []
+    var resizedSessions: [(id: String, columns: UInt16, rows: UInt16)] = []
 
     func listSessions(
         at location: WorkspaceLocation,
@@ -2532,6 +3309,10 @@ private final class DeferredViewerBackend: TerminalSessionBackend {
         takenControlOf.append(session.id)
         completion(.success(()))
     }
+    func resize(_ session: TerminalSession, columns: UInt16, rows: UInt16) -> Bool {
+        resizedSessions.append((session.id, columns, rows))
+        return true
+    }
     func signal(_ signal: String, session: TerminalSession) {}
     func stop(_ session: TerminalSession) {}
     func reset(_ session: TerminalSession) {}
@@ -2543,6 +3324,7 @@ private final class Harness {
     private let temporaryDirectory: URL
     private let terminalBackend = DeferredViewerBackend()
     var temporaryDirectoryPath: String { temporaryDirectory.path }
+    var backend: DeferredViewerBackend { terminalBackend }
 
     init() throws {
         temporaryDirectory = FileManager.default.temporaryDirectory
@@ -2585,6 +3367,11 @@ private final class Harness {
     }
 
     var takenControlSessionIDs: [String] { terminalBackend.takenControlOf }
+    var resizedSessionRequests: [(id: String, columns: UInt16, rows: UInt16)] {
+        terminalBackend.resizedSessions
+    }
+    var savedWorkspaceIDs: [String] { terminalBackend.savedWorkspaces.map(\.id) }
+    var deletedWorkspaceIDs: [String] { terminalBackend.deletedWorkspaces.map(\.id) }
 
     func setNativeWorkspaces(_ workspaces: [NativeWorkspaceRecord]) {
         terminalBackend.nativeWorkspaces = workspaces
@@ -2742,13 +3529,17 @@ private final class Harness {
         view.keyDown(with: try keyEvent(characters: "\u{7f}", keyCode: 51))
     }
 
-    func commandArrow(keyCode: UInt16) throws -> NSEvent {
-        try keyEvent(characters: "", keyCode: keyCode, modifierFlags: [.command])
+    func commandShiftArrow(keyCode: UInt16) throws -> NSEvent {
+        try keyEvent(characters: "", keyCode: keyCode, modifierFlags: [.command, .shift])
     }
 
-    func commandBracket(keyCode: UInt16) throws -> NSEvent {
-        let characters = keyCode == 33 ? "[" : "]"
-        return try keyEvent(characters: characters, keyCode: keyCode, modifierFlags: [.command])
+    func commandShiftBracket(keyCode: UInt16) throws -> NSEvent {
+        let characters = keyCode == 33 ? "{" : "}"
+        return try keyEvent(
+            characters: characters,
+            keyCode: keyCode,
+            modifierFlags: [.command, .shift]
+        )
     }
 
     func keyEvent(

@@ -183,7 +183,7 @@ _machinen_completion() {
       return
       ;;
     terminal)
-      COMPREPLY=( $(compgen -W "new list inspect attach take send signal stop delete reconcile gc --database" -- "\${cur}") )
+      COMPREPLY=( $(compgen -W "new list inspect attach take resize send signal stop delete reconcile gc --database" -- "\${cur}") )
       return
       ;;
     gc)
@@ -222,7 +222,7 @@ _machinen() {
       return
       ;;
     terminal)
-      _describe 'operation' '(new list inspect attach take send signal stop delete reconcile gc --database)'
+      _describe 'operation' '(new list inspect attach take resize send signal stop delete reconcile gc --database)'
       return
       ;;
     gc)
@@ -244,7 +244,7 @@ for bin in machinen mn
     complete -c $bin -f -n "__fish_seen_subcommand_from $sub" \\
       -a '(machinen ls 2>/dev/null | awk 'NR>1{print $1; if ($2!="-") print $2}')'
   end
-  complete -c $bin -f -n "__fish_seen_subcommand_from terminal" -a "new list inspect attach take send signal stop delete reconcile gc --database"
+  complete -c $bin -f -n "__fish_seen_subcommand_from terminal" -a "new list inspect attach take resize send signal stop delete reconcile gc --database"
   complete -c $bin -f -n "__fish_seen_subcommand_from run" -a '(machinen run list 2>/dev/null | cut -f1)'
   complete -c $bin -f -n "__fish_seen_subcommand_from run" -a "list --inspect --trust --digest --rebuild --session --name"
   complete -c $bin -f -n "__fish_seen_subcommand_from gc" -l dry-run
