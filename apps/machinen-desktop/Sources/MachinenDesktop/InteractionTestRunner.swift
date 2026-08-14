@@ -257,6 +257,14 @@ enum InteractionTestRunner {
                 && newTerminalTile.session.workspace == "solo",
             "singleton map editing did not leave the terminal for the workspace tile map"
         )
+        try harness.pressEscape(on: singletonDeck)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(
+            try harness.uiLevel(of: singletonDeck) == "terminal"
+                && (try harness.focusedTileID(of: singletonDeck)) == "tile_solo_0",
+            "Escape did not restore the terminal that opened edit mode"
+        )
+        singletonDeck.toggleMapEditOverlay()
         RunLoop.current.run(until: Date().addingTimeInterval(0.55))
         try expect(
             singletonDeck.performShortcut(.selectRight)
@@ -342,6 +350,12 @@ enum InteractionTestRunner {
             "the New Terminal tile did not follow the workspace switch"
         )
         switchDeck.toggleMapEditOverlay()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(
+            try harness.selectedWorkspaceID(of: switchDeck) == "ws_switch-alpha"
+                && (try harness.uiLevel(of: switchDeck)) == "workspace",
+            "closing edit mode did not restore the workspace that opened it"
+        )
 
         let externalDeck = harness.makeDeck(workspaces: [
             harness.workspace("external", terminalCount: 1),

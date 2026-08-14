@@ -120,6 +120,13 @@ final class TerminalDeckView: NSView {
         static let maximum: CGFloat = 2
     }
 
+    private struct MapEditReturnState {
+        let workspaceID: String?
+        let overviewWorkspaceID: String?
+        let selectedTileID: String?
+        let focusedTileID: String?
+    }
+
     private enum Metrics {
         static let topInset: CGFloat = 18
         static let bottomInset: CGFloat = 18
@@ -164,6 +171,7 @@ final class TerminalDeckView: NSView {
     private let remotePathCompleter = RemoteWorkspacePathCompleter()
     private var presentedOverlay: NSView?
     private var mapEditOverlay: MapEditOverlayView?
+    private var mapEditReturnState: MapEditReturnState?
     private var addWorkspaceClusterView: WorkspaceClusterView?
     private var addWorkspaceCardView: AddWorkspaceCardView?
     private var addTerminalTileView: TerminalTileView?
@@ -384,7 +392,7 @@ final class TerminalDeckView: NSView {
 
     private func installTile(_ tile: TerminalTileView) {
         if mapEditOverlay != nil {
-            dismissMapEditOverlay()
+            dismissMapEditOverlay(restorePreviousView: false)
         }
         tile.onSelect = { [weak self, weak tile] event in
             guard let self, let tile else { return }
@@ -1991,9 +1999,7 @@ final class TerminalDeckView: NSView {
                 guard let (targetID, record) = ghostWorkspaceTargets[cluster.workspaceID],
                       let location = registeredTargetLocation(id: targetID)
                 else { return }
-                mapEditOverlay?.removeFromSuperview()
-                mapEditOverlay = nil
-                removeEditWorkspaceClusters()
+                dismissMapEditOverlay(restorePreviousView: false)
                 restoreNativeWorkspace(record, at: location)
                 return
             case .workspace:
@@ -2010,11 +2016,7 @@ final class TerminalDeckView: NSView {
             let tile = activeSessionTiles[index]
             if tile.renderingMode == .newTerminal {
                 guard let workspace = selectedWorkspaceRecord() else { return }
-                mapEditOverlay?.removeFromSuperview()
-                mapEditOverlay = nil
-                addTerminalTileView?.removeFromSuperview()
-                addTerminalTileView = nil
-                removeEditWorkspaceClusters()
+                dismissMapEditOverlay(restorePreviousView: false)
                 showNewTerminalPalette(
                     workspace: workspace.name,
                     workingDirectory: workspace.workingDirectory,
@@ -2751,6 +2753,7 @@ final class TerminalDeckView: NSView {
               availableSessionsView == nil
         else { return }
 
+        mapEditReturnState = currentMapEditReturnState()
         if focusedIndex != nil {
             focusedIndex = nil
             updateSelection()
@@ -2867,13 +2870,58 @@ final class TerminalDeckView: NSView {
         sceneView.addSubview(cluster)
     }
 
-    private func dismissMapEditOverlay() {
+    private func currentMapEditReturnState() -> MapEditReturnState {
+        let sessions = activeSessionTiles
+        let selectedTileID = sessions.indices.contains(selectedIndex)
+            ? sessions[selectedIndex].session.tileID
+            : nil
+        let focusedTileID = focusedIndex.flatMap { index in
+            sessions.indices.contains(index) ? sessions[index].session.tileID : nil
+        }
+        return MapEditReturnState(
+            workspaceID: currentWorkspace,
+            overviewWorkspaceID: currentWorkspace == nil ? selectedWorkspaceID() : nil,
+            selectedTileID: selectedTileID,
+            focusedTileID: focusedTileID
+        )
+    }
+
+    private func dismissMapEditOverlay(restorePreviousView: Bool = true) {
+        let returnState = mapEditReturnState
+        mapEditReturnState = nil
         mapEditOverlay?.removeFromSuperview()
         mapEditOverlay = nil
         addTerminalTileView?.removeFromSuperview()
         addTerminalTileView = nil
         removeEditWorkspaceClusters()
-        restoreInputFocus()
+        if restorePreviousView, let returnState {
+            restoreMapEditReturnState(returnState)
+        } else {
+            restoreInputFocus()
+        }
+    }
+
+    private func restoreMapEditReturnState(_ state: MapEditReturnState) {
+        if let workspaceID = state.workspaceID,
+           workspaces.contains(where: { $0.id == workspaceID })
+        {
+            currentWorkspace = workspaceID
+            let sessions = activeSessionTiles
+            selectedIndex = state.selectedTileID.flatMap { tileID in
+                sessions.firstIndex(where: { $0.session.tileID == tileID })
+            } ?? 0
+            focusedIndex = state.focusedTileID.flatMap { tileID in
+                sessions.firstIndex(where: { $0.session.tileID == tileID })
+            }
+        } else {
+            currentWorkspace = nil
+            focusedIndex = nil
+            selectedIndex = state.overviewWorkspaceID.flatMap { workspaceID in
+                workspaceClusters.firstIndex(where: { $0.workspaceID == workspaceID })
+            } ?? 0
+        }
+        updateSelection()
+        moveCamera()
     }
 
     private func removeEditWorkspaceClusters() {
@@ -2892,7 +2940,7 @@ final class TerminalDeckView: NSView {
     }
 
     private func runMapEditAction(_ action: MapEditAction) {
-        dismissMapEditOverlay()
+        dismissMapEditOverlay(restorePreviousView: false)
         switch action.id {
         case "rename":
             showRenameWorkspacePalette()
@@ -2966,9 +3014,7 @@ final class TerminalDeckView: NSView {
             guard let self else { return }
             do {
                 try self.createNewWorkspace(name: name, location: location)
-                self.mapEditOverlay?.removeFromSuperview()
-                self.mapEditOverlay = nil
-                self.removeEditWorkspaceClusters()
+                self.dismissMapEditOverlay(restorePreviousView: false)
             } catch {
                 NSSound.beep()
             }

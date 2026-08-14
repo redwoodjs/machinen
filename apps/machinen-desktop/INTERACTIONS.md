@@ -387,7 +387,8 @@ In workspace mode, `⇧⌘[` and `⇧⌘]` move to the previous or next workspac
 camera stays at the workspace level, and the workspace list wraps. Machinen exits
 map edit mode after any new terminal tile enters the workspace. Detach and Kill
 remain available through normal terminal commands. Escape, `⌘E`, and `⇧⌘E` close
-the overlay.
+the overlay. They restore the workspace, tile selection, terminal focus, and map
+level that opened edit mode.
 
 ## Disconnecting and killing
 
