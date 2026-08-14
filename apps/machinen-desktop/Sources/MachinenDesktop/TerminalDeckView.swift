@@ -164,6 +164,7 @@ final class TerminalDeckView: NSView {
     private let remotePathCompleter = RemoteWorkspacePathCompleter()
     private var presentedOverlay: NSView?
     private var mapEditOverlay: MapEditOverlayView?
+    private var addWorkspaceCardView: AddWorkspaceCardView?
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
     private var cameraAnimationTimer: Timer?
@@ -911,19 +912,24 @@ final class TerminalDeckView: NSView {
     private func updateWorldGeometry() {
         let viewport = sceneViewportBounds
         let terminalSize = NSSize(width: max(1, viewport.width), height: max(1, viewport.height))
-        let sizes = workspaceClusters.map { cluster in
+        var layoutViews: [NSView] = workspaceClusters
+        var sizes = workspaceClusters.map { cluster in
             cluster.arrange(
                 sessions: allSessionTiles.filter { $0.session.workspaceID == cluster.workspaceID },
                 terminalSize: terminalSize
             )
         }
-        guard !workspaceClusters.isEmpty else {
+        if let addWorkspaceCardView {
+            layoutViews.append(addWorkspaceCardView)
+            sizes.append(sizes.first ?? terminalSize)
+        }
+        guard !layoutViews.isEmpty else {
             workspaceUnion = .zero
             return
         }
 
-        let columns = min(2, workspaceClusters.count)
-        let rows = Int(ceil(Double(workspaceClusters.count) / Double(columns)))
+        let columns = min(2, layoutViews.count)
+        let rows = Int(ceil(Double(layoutViews.count) / Double(columns)))
         var columnWidths = Array(repeating: CGFloat.zero, count: columns)
         var rowHeights = Array(repeating: CGFloat.zero, count: rows)
         for (index, size) in sizes.enumerated() {
@@ -941,17 +947,17 @@ final class TerminalDeckView: NSView {
         }
 
         workspaceUnion = .null
-        for (index, cluster) in workspaceClusters.enumerated() {
+        for (index, view) in layoutViews.enumerated() {
             let column = index % columns
             let row = index / columns
             let size = sizes[index]
-            cluster.frame = NSRect(
+            view.frame = NSRect(
                 x: xOffsets[column] + (columnWidths[column] - size.width) / 2,
                 y: yOffsets[row] + (rowHeights[row] - size.height) / 2,
                 width: size.width,
                 height: size.height
             ).integral
-            workspaceUnion = workspaceUnion.union(cluster.frame)
+            workspaceUnion = workspaceUnion.union(view.frame)
         }
     }
 
@@ -2716,6 +2722,11 @@ final class TerminalDeckView: NSView {
             ]
         } else {
             actions = [MapEditAction(id: "host", title: "+ Add host", detail: "connect over SSH")]
+            let addCard = AddWorkspaceCardView(frame: .zero)
+            addWorkspaceCardView = addCard
+            sceneView.addSubview(addCard)
+            updateWorldGeometry()
+            setCameraImmediately()
             let frames = workspaceClusters.map { $0.convert($0.bounds, to: self) }
             for (cluster, frame) in zip(workspaceClusters, frames) {
                 cardActions.append(MapEditCardAction(
@@ -2745,14 +2756,8 @@ final class TerminalDeckView: NSView {
                     style: .ghost
                 ))
             }
-            let addFrame = NSRect(
-                x: bounds.midX - 160,
-                y: max(56, bounds.maxY - 250),
-                width: 320,
-                height: 180
-            )
             cardActions.append(MapEditCardAction(
-                frame: addFrame,
+                frame: addCard.convert(addCard.bounds, to: self),
                 action: MapEditAction(id: "workspace", title: "+ Add workspace", detail: "choose a location"),
                 style: .add
             ))
@@ -2770,6 +2775,12 @@ final class TerminalDeckView: NSView {
     private func dismissMapEditOverlay() {
         mapEditOverlay?.removeFromSuperview()
         mapEditOverlay = nil
+        if let addWorkspaceCardView {
+            addWorkspaceCardView.removeFromSuperview()
+            self.addWorkspaceCardView = nil
+            updateWorldGeometry()
+            setCameraImmediately()
+        }
         restoreInputFocus()
     }
 

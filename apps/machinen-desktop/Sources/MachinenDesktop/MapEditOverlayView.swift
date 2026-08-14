@@ -1,5 +1,26 @@
 import AppKit
 
+final class AddWorkspaceCardView: NSView {
+    override var isFlipped: Bool { true }
+    override var isOpaque: Bool { false }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 16, yRadius: 16)
+        path.setLineDash([9, 7], count: 2, phase: 0)
+        NSColor.systemBlue.withAlphaComponent(0.82).setStroke()
+        path.lineWidth = 3
+        path.stroke()
+        let title = "+ Add workspace"
+        title.draw(
+            in: NSRect(x: 24, y: bounds.midY - 9, width: bounds.width - 48, height: 18),
+            withAttributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .medium),
+                .foregroundColor: NSColor.systemBlue,
+            ]
+        )
+    }
+}
+
 struct MapEditAction {
     let id: String
     let title: String
@@ -18,6 +39,7 @@ struct MapEditCardAction {
 final class MapEditOverlayView: NSView {
     private let actions: [MapEditAction]
     private let cardActions: [MapEditCardAction]
+    private var selectedCardIndex: Int?
     var onAction: ((MapEditAction) -> Void)?
     var onDismiss: (() -> Void)?
 
@@ -27,6 +49,8 @@ final class MapEditOverlayView: NSView {
     init(frame: NSRect, actions: [MapEditAction], cardActions: [MapEditCardAction] = []) {
         self.actions = actions
         self.cardActions = cardActions
+        selectedCardIndex = cardActions.firstIndex { $0.style == .add }
+            ?? (cardActions.isEmpty ? nil : 0)
         super.init(frame: frame)
         autoresizingMask = [.width, .height]
         setAccessibilityElement(true)
@@ -52,13 +76,28 @@ final class MapEditOverlayView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 { onDismiss?() } else { super.keyDown(with: event) }
+        switch event.keyCode {
+        case 53:
+            onDismiss?()
+        case 123, 126:
+            moveCardSelection(by: -1)
+        case 124, 125:
+            moveCardSelection(by: 1)
+        case 36, 76:
+            if let selectedCardIndex, cardActions.indices.contains(selectedCardIndex) {
+                onAction?(cardActions[selectedCardIndex].action)
+            }
+        default:
+            super.keyDown(with: event)
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        if let card = cardActions.first(where: { $0.frame.contains(point) }) {
-            onAction?(card.action)
+        if let index = cardActions.firstIndex(where: { $0.frame.contains(point) }) {
+            selectedCardIndex = index
+            needsDisplay = true
+            onAction?(cardActions[index].action)
             return
         }
         let panel = NSRect(x: bounds.maxX - 240, y: 54, width: 224, height: 44 + CGFloat(actions.count) * 42)
@@ -70,13 +109,15 @@ final class MapEditOverlayView: NSView {
     }
 
     private func drawCardAction(_ card: MapEditCardAction) {
+        let selected = selectedCardIndex.flatMap { cardActions.indices.contains($0) ? cardActions[$0].action.id : nil }
+            == card.action.id
         switch card.style {
         case .add, .ghost:
             let path = NSBezierPath(roundedRect: card.frame, xRadius: 12, yRadius: 12)
             path.setLineDash([7, 5], count: 2, phase: 0)
             let color = card.style == .add ? NSColor.systemBlue : NSColor(calibratedWhite: 0.58, alpha: 1)
             color.setStroke()
-            path.lineWidth = 2
+            path.lineWidth = selected ? 4 : 2
             path.stroke()
             drawText(card.action.title, in: card.frame.insetBy(dx: 18, dy: card.frame.height / 2 - 16), color: color, size: 13)
             if card.style == .ghost {
@@ -86,9 +127,17 @@ final class MapEditOverlayView: NSView {
         case .control:
             break
         }
-        NSColor.systemRed.withAlphaComponent(0.94).setFill()
+        (selected ? NSColor.white : NSColor.systemRed).withAlphaComponent(0.94).setFill()
         NSBezierPath(roundedRect: card.frame, xRadius: card.frame.height / 2, yRadius: card.frame.height / 2).fill()
         drawText("×", in: card.frame.insetBy(dx: 7, dy: 4), color: .white, size: 13)
+    }
+
+    private func moveCardSelection(by delta: Int) {
+        guard !cardActions.isEmpty else { return }
+        let current = selectedCardIndex ?? 0
+        selectedCardIndex = (current + delta % cardActions.count + cardActions.count)
+            % cardActions.count
+        needsDisplay = true
     }
 
     private func drawText(_ text: String, in rect: NSRect, color: NSColor, size: CGFloat) {

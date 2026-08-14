@@ -13,6 +13,7 @@ enum InteractionTestRunner {
                 return 0
             }
             try commandNAlwaysAsksWhatAndWhere()
+            try mapEditAddWorkspaceUsesOverviewLayoutAndKeyboard()
             try shortcutConfigCreatesDefaultsAndLoadsOverrides()
             try settingsFileIsAvailableInApplicationMenu()
             try commandArrowsMoveThroughTheHierarchy()
@@ -50,7 +51,7 @@ enum InteractionTestRunner {
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (38 scenarios)")
+            print("Machinen interaction tests passed (39 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -99,6 +100,38 @@ enum InteractionTestRunner {
             Set(snapshot.workspaces.map(\.workingDirectory)).count == 1,
             "workspaces could not share the same default directory"
         )
+    }
+
+    private static func mapEditAddWorkspaceUsesOverviewLayoutAndKeyboard() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
+        _ = try deck.performAPIOperation("ui.overview", params: [:])
+
+        deck.toggleMapEditOverlay()
+        guard let scene = deck.subviews.first(where: { view in
+            view.subviews.contains { $0 is WorkspaceClusterView }
+        }),
+              let workspace = scene.subviews.first(where: { $0 is WorkspaceClusterView }),
+              let addCard = scene.subviews.first(where: { $0 is AddWorkspaceCardView }),
+              let overlay = deck.subviews.first(where: { $0 is MapEditOverlayView })
+        else {
+            throw InteractionTestFailure("the overview edit map did not show its add workspace card")
+        }
+        try expect(addCard.frame.size == workspace.frame.size,
+                   "the add workspace card did not use the overview card size")
+        try harness.pressReturn(on: overlay)
+        _ = try harness.commandPalette(in: deck)
+
+        let escapeDeck = harness.makeDeck(workspaces: [harness.workspace("beta", terminalCount: 1)])
+        _ = try escapeDeck.performAPIOperation("ui.overview", params: [:])
+        escapeDeck.toggleMapEditOverlay()
+        guard let reopened = escapeDeck.subviews.first(where: { $0 is MapEditOverlayView }) else {
+            throw InteractionTestFailure("the overview edit map did not open for Escape")
+        }
+        try harness.pressEscape(on: reopened)
+        try expect(!escapeDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
+                   "Escape did not close the map edit overlay")
     }
 
     private static func shortcutConfigCreatesDefaultsAndLoadsOverrides() throws {
