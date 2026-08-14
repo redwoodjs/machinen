@@ -367,7 +367,8 @@ dashed **Add Workspace** card creates a workspace only after a user selects it.
 The camera enters this card. A centered search panel uses the command palette
 style. Type to filter known workspace locations. Existing workspaces remain
 visible as disabled results. Select an available location, then enter its name.
-This flow never opens the command palette.
+`⌘⇧↑` leaves the active form and returns to the edit overview. The Add Workspace
+tile stays selected. This flow never opens the command palette.
 
 A muted dashed ghost card represents a discovered workspace that is not attached
 to this Desktop. Existing, ghost, and Add Workspace cards are ordinary workspace

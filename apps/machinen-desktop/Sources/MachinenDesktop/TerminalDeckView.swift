@@ -2865,8 +2865,7 @@ final class TerminalDeckView: NSView {
     }
 
     private func beginInlineWorkspaceCreation(in cluster: WorkspaceClusterView) {
-        mapEditOverlay?.removeFromSuperview()
-        mapEditOverlay = nil
+        mapEditOverlay?.isHidden = true
         let addCard = AddWorkspaceCardView(frame: cluster.bounds)
         addCard.autoresizingMask = [.width, .height]
         addWorkspaceCardView = addCard
@@ -2902,10 +2901,13 @@ final class TerminalDeckView: NSView {
         }
 
         addCard.onCancel = { [weak self] in self?.cancelInlineWorkspaceCreation() }
+        addCard.onLeave = { [weak self] in self?.leaveInlineWorkspaceCreation() }
         addCard.onCreate = { [weak self] location, name in
             guard let self else { return }
             do {
                 try self.createNewWorkspace(name: name, location: location)
+                self.mapEditOverlay?.removeFromSuperview()
+                self.mapEditOverlay = nil
                 self.removeEditWorkspaceClusters()
             } catch {
                 NSSound.beep()
@@ -2923,8 +2925,23 @@ final class TerminalDeckView: NSView {
     }
 
     private func cancelInlineWorkspaceCreation() {
-        removeEditWorkspaceClusters()
-        restoreInputFocus()
+        dismissMapEditOverlay()
+    }
+
+    private func leaveInlineWorkspaceCreation() {
+        addWorkspaceCardView?.removeFromSuperview()
+        addWorkspaceCardView = nil
+        mapEditOverlay?.isHidden = false
+        if let addWorkspaceClusterView,
+           let index = workspaceClusters.firstIndex(where: { $0 === addWorkspaceClusterView })
+        {
+            selectedIndex = index
+            updateSelection()
+        }
+        moveCamera { [weak self] in
+            guard let self, let overlay = self.mapEditOverlay else { return }
+            self.window?.makeFirstResponder(overlay)
+        }
     }
 
     func toggleCommandPalette() {

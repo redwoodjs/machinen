@@ -142,18 +142,38 @@ enum InteractionTestRunner {
                    "the overview shortcut did not move from a workspace to the add tile")
         try expect(deck.performShortcut(.enter),
                    "the overview shortcut did not enter the add workspace tile")
-        guard let addCard = addCluster.subviews.first(where: { $0 is AddWorkspaceCardView })
+        guard let firstAddCard = addCluster.subviews.first(where: { $0 is AddWorkspaceCardView })
             as? AddWorkspaceCardView
         else {
             throw InteractionTestFailure("the add workspace tile did not show its form rendering")
         }
-        try expect(deck.window?.firstResponder === addCard,
+        try expect(deck.window?.firstResponder === firstAddCard,
                    "the in-tile workspace form did not capture immediate arrow input")
         try expect(
-            abs(addCard.displayedPanelFrame.midX - addCard.bounds.midX) < 0.1
-                && abs(addCard.displayedPanelFrame.midY - addCard.bounds.midY) < 0.1,
+            abs(firstAddCard.displayedPanelFrame.midX - firstAddCard.bounds.midX) < 0.1
+                && abs(firstAddCard.displayedPanelFrame.midY - firstAddCard.bounds.midY) < 0.1,
             "the new workspace search was not centered in its workspace tile"
         )
+        let shortcutMonitor = DesktopShortcutMonitor(
+            shortcuts: MachinenConfiguration.defaults.shortcuts,
+            startMonitoring: false
+        ) { deck.performShortcut($0) }
+        let leaveEvent = try harness.commandShiftArrow(keyCode: 126)
+        try expect(shortcutMonitor.process(leaveEvent) == nil,
+                   "the leave shortcut did not deselect the active new workspace form")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        try expect(
+            firstAddCard.superview == nil && !overlay.isHidden
+                && deck.window?.firstResponder === overlay,
+            "the leave shortcut did not return to the edit overview"
+        )
+        try expect(deck.performShortcut(.enter),
+                   "the add workspace tile did not reopen after leave")
+        guard let addCard = addCluster.subviews.first(where: { $0 is AddWorkspaceCardView })
+            as? AddWorkspaceCardView
+        else {
+            throw InteractionTestFailure("the add workspace tile did not restore its form")
+        }
         let selectedWorkspace = try harness.selectedWorkspaceID(of: deck)
         try harness.type("alpha", into: addCard)
         try expect(
@@ -165,10 +185,6 @@ enum InteractionTestRunner {
         try expect(addCard.isChoosingLocation,
                    "the new workspace search selected a disabled workspace")
         for _ in "alpha" { try harness.pressDelete(on: addCard) }
-        let shortcutMonitor = DesktopShortcutMonitor(
-            shortcuts: MachinenConfiguration.defaults.shortcuts,
-            startMonitoring: false
-        ) { deck.performShortcut($0) }
         let firstDown = try harness.keyEvent(characters: "", keyCode: 125)
         let secondDown = try harness.keyEvent(characters: "", keyCode: 125)
         try expect(

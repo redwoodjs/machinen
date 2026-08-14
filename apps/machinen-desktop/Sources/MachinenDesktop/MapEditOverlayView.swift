@@ -27,6 +27,7 @@ final class AddWorkspaceCardView: NSView {
     private var locationQuery = ""
     private var workspaceName = ""
     var onCancel: (() -> Void)?
+    var onLeave: (() -> Void)?
     var onCreate: ((WorkspaceLocation, String) -> Void)?
 
     override var isFlipped: Bool { true }
@@ -181,7 +182,7 @@ final class AddWorkspaceCardView: NSView {
             }
             return true
         case .leave:
-            onCancel?()
+            onLeave?()
             return true
         default:
             return false
