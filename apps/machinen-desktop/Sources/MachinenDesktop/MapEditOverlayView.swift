@@ -122,10 +122,9 @@ final class AddWorkspaceCardView: NSView {
             switch event.keyCode {
             case 53:
                 onCancel?()
-            case 125:
-                moveSourceSelection(by: 1)
-            case 126:
-                moveSourceSelection(by: -1)
+            case 125, 126:
+                // The desktop shortcut monitor owns arrow input.
+                return
             case 36, 76:
                 continueToName()
             case 51:

@@ -165,13 +165,19 @@ enum InteractionTestRunner {
         try expect(addCard.isChoosingLocation,
                    "the new workspace search selected a disabled workspace")
         for _ in "alpha" { try harness.pressDelete(on: addCard) }
+        let shortcutMonitor = DesktopShortcutMonitor(
+            shortcuts: MachinenConfiguration.defaults.shortcuts,
+            startMonitoring: false
+        ) { deck.performShortcut($0) }
+        let firstDown = try harness.keyEvent(characters: "", keyCode: 125)
+        let secondDown = try harness.keyEvent(characters: "", keyCode: 125)
         try expect(
             addCard.selectedSourceTitle == "alpha"
-                && deck.performShortcut(.selectDown)
+                && shortcutMonitor.process(firstDown) == nil
                 && addCard.selectedSourceTitle == "beta"
-                && deck.performShortcut(.selectDown)
+                && shortcutMonitor.process(secondDown) == nil
                 && addCard.selectedSourceTitle == "Home",
-            "the configured down shortcut did not move through each source row"
+            "one configured down event did not move exactly one source row"
         )
         try expect(try harness.selectedWorkspaceID(of: deck) == selectedWorkspace,
                    "an in-card source arrow changed the overview workspace")
