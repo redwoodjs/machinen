@@ -1369,6 +1369,10 @@ final class TerminalDeckView: NSView {
 
     override func keyDown(with event: NSEvent) {
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        if event.keyCode == 53, modifiers.isEmpty, mapEditOverlay != nil {
+            dismissMapEditOverlay()
+            return
+        }
         if focusedIndex != nil { return }
         guard !isTransitioning else { return }
 
@@ -5391,9 +5395,7 @@ final class TerminalDeckView: NSView {
         rebuildWorkspaceClusters()
         if currentWorkspace == workspaceID {
             selectedIndex = min(selectedIndex, max(0, activeSessionTiles.count - 1))
-            focusedIndex = activeSessionTiles.isEmpty
-                ? nil
-                : min(focusedIndex ?? selectedIndex, activeSessionTiles.count - 1)
+            focusedIndex = nil
         }
         updateWorldGeometry()
         updateSelection()
@@ -5780,7 +5782,7 @@ final class TerminalDeckView: NSView {
         rebuildWorkspaceClusters()
         if currentWorkspace == workspaceID {
             selectedIndex = min(selectedIndex, max(0, activeSessionTiles.count - 1))
-            focusedIndex = activeSessionTiles.count == 1 ? 0 : nil
+            focusedIndex = nil
         }
         updateWorldGeometry()
         updateSelection()

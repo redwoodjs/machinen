@@ -216,9 +216,12 @@ enum InteractionTestRunner {
         guard let reopened = escapeDeck.subviews.first(where: { $0 is MapEditOverlayView }) else {
             throw InteractionTestFailure("the overview edit map did not open for Escape")
         }
-        try harness.pressEscape(on: reopened)
-        try expect(!escapeDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
-                   "Escape did not close the map edit overlay")
+        try harness.pressEscape(on: escapeDeck)
+        try expect(
+            reopened.superview == nil
+                && !escapeDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "Escape did not close map edit mode after the deck received focus"
+        )
 
         let singletonDeck = harness.makeDeck(workspaces: [
             harness.workspace("solo", terminalCount: 1),
@@ -3395,7 +3398,16 @@ enum InteractionTestRunner {
         let originalIDs = Set(try harness.snapshot(of: deck).tiles.map(\.id))
         deck.zoomInOneLevel()
         RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
+        deck.zoomInOneLevel()
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
+        try expect(try harness.uiLevel(of: deck) == "terminal",
+                   "the close proof did not focus its terminal")
         deck.handleCommandW()
+        try expect(
+            try harness.uiLevel(of: deck) == "workspace"
+                && (try harness.focusedTileID(of: deck)) == nil,
+            "closing a terminal focused the next terminal"
+        )
 
         var snapshot = try harness.snapshot(of: deck)
         try expect(snapshot.tiles.count == 3, "⌘W did not disconnect the selected terminal tile")
