@@ -189,9 +189,9 @@ final class MapEditOverlayView: NSView {
             onDismiss?()
         case 123, 126:
             moveCardSelection(by: -1)
-        case 124, 125:
+        case 48, 124, 125:
             moveCardSelection(by: 1)
-        case 36, 76:
+        case 36, 49, 76:
             if let selectedCardIndex, cardActions.indices.contains(selectedCardIndex) {
                 onAction?(cardActions[selectedCardIndex].action)
             }
@@ -221,13 +221,20 @@ final class MapEditOverlayView: NSView {
             == card.action.id
         switch card.style {
         case .add, .ghost:
+            if selected {
+                let fill = NSBezierPath(roundedRect: card.frame, xRadius: 12, yRadius: 12)
+                (card.style == .add ? NSColor.systemBlue : NSColor.secondaryLabelColor)
+                    .withAlphaComponent(0.16).setFill()
+                fill.fill()
+            }
             let path = NSBezierPath(roundedRect: card.frame, xRadius: 12, yRadius: 12)
             path.setLineDash([7, 5], count: 2, phase: 0)
             let color = card.style == .add ? NSColor.systemBlue : NSColor(calibratedWhite: 0.58, alpha: 1)
             color.setStroke()
             path.lineWidth = selected ? 4 : 2
             path.stroke()
-            drawText(card.action.title, in: card.frame.insetBy(dx: 18, dy: card.frame.height / 2 - 16), color: color, size: 13)
+            let title = selected ? "› \(card.action.title)" : card.action.title
+            drawText(title, in: card.frame.insetBy(dx: 18, dy: card.frame.height / 2 - 16), color: color, size: 13)
             if card.style == .ghost {
                 drawText(card.action.detail, in: card.frame.insetBy(dx: 18, dy: card.frame.height / 2 + 4), color: color, size: 10)
             }

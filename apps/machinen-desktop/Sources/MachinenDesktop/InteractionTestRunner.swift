@@ -132,6 +132,8 @@ enum InteractionTestRunner {
         }
         try expect(addCard.frame.size == workspace.frame.size,
                    "the add workspace card did not use the overview card size")
+        try expect(deck.window?.firstResponder === overlay,
+                   "the overview edit map did not capture selection keys")
         try harness.pressReturn(on: overlay)
         try expect(deck.window?.firstResponder === addCard,
                    "the in-card workspace form did not capture immediate arrow input")
