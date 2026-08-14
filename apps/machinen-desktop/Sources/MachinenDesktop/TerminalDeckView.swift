@@ -2730,6 +2730,15 @@ final class TerminalDeckView: NSView {
             let frames = workspaceClusters.map { $0.convert($0.bounds, to: self) }
             for (cluster, frame) in zip(workspaceClusters, frames) {
                 cardActions.append(MapEditCardAction(
+                    frame: frame,
+                    action: MapEditAction(
+                        id: "openWorkspace:\(cluster.workspaceID)",
+                        title: cluster.workspace,
+                        detail: "Open workspace"
+                    ),
+                    style: .workspace
+                ))
+                cardActions.append(MapEditCardAction(
                     frame: NSRect(x: frame.maxX - 30, y: frame.minY + 10, width: 22, height: 22),
                     action: MapEditAction(
                         id: "closeWorkspace:\(cluster.workspaceID)",
@@ -2801,6 +2810,13 @@ final class TerminalDeckView: NSView {
             showRenameWorkspacePalette()
         case "close":
             confirmCloseSelectedWorkspace()
+        case let id where id.hasPrefix("openWorkspace:"):
+            let workspaceID = String(id.dropFirst("openWorkspace:".count))
+            guard let index = workspaceClusters.firstIndex(where: { $0.workspaceID == workspaceID })
+            else { return }
+            selectedIndex = index
+            updateSelection()
+            activate(index)
         case let id where id.hasPrefix("closeWorkspace:"):
             let workspaceID = String(id.dropFirst("closeWorkspace:".count))
             guard workspaces.contains(where: { $0.id == workspaceID }) else { return }

@@ -134,8 +134,8 @@ enum InteractionTestRunner {
                    "the add workspace card did not use the overview card size")
         try expect(deck.window?.firstResponder === overlay,
                    "the overview edit map did not capture selection keys")
-        try expect(deck.performShortcut(.selectLeft) && deck.performShortcut(.selectRight),
-                   "the overview shortcuts did not move through edit cards")
+        try expect(deck.performShortcut(.selectRight) && deck.performShortcut(.selectRight),
+                   "the overview shortcuts did not move from workspaces to the add card")
         try expect(deck.performShortcut(.enter),
                    "the overview shortcut did not enter the add workspace card")
         try expect(deck.window?.firstResponder === addCard,

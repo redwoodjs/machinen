@@ -367,7 +367,9 @@ dashed **Add Workspace** card creates a workspace only after a user selects it.
 The camera enters this card. The card then shows previous workspace locations
 and a name input. This flow never opens the command palette.
 A muted dashed ghost card represents a discovered workspace that is not attached
-to this Desktop. Select it to attach the workspace. At the workspace level, the
+to this Desktop. Existing, ghost, and Add Workspace cards use the same tile
+selection order and configured spatial shortcuts. Return opens the selected
+card. A double-click does the same. Select a ghost card to attach its workspace. At the workspace level, the
 overlay offers **New Terminal**, **Rename Workspace**, and **Close Workspace**.
 At the terminal level, it offers **New Terminal**, **Detach**, and **Kill
 Terminal**. Detach removes this Desktop viewer and keeps the terminal process

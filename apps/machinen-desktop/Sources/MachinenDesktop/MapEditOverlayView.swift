@@ -168,7 +168,7 @@ struct MapEditAction {
     let detail: String
 }
 
-enum MapEditCardStyle: Equatable { case control, add, ghost }
+enum MapEditCardStyle: Equatable { case workspace, control, add, ghost }
 
 struct MapEditCardAction {
     let frame: NSRect
@@ -190,8 +190,8 @@ final class MapEditOverlayView: NSView {
     init(frame: NSRect, actions: [MapEditAction], cardActions: [MapEditCardAction] = []) {
         self.actions = actions
         self.cardActions = cardActions
-        selectedCardIndex = cardActions.firstIndex { $0.style == .add }
-            ?? (cardActions.isEmpty ? nil : 0)
+        selectedCardIndex = cardActions.firstIndex { $0.style == .workspace }
+            ?? cardActions.firstIndex { $0.style != .control }
         super.init(frame: frame)
         autoresizingMask = [.width, .height]
         setAccessibilityElement(true)
@@ -235,10 +235,17 @@ final class MapEditOverlayView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        if let index = cardActions.firstIndex(where: { $0.frame.contains(point) }) {
-            selectedCardIndex = index
-            needsDisplay = true
-            onAction?(cardActions[index].action)
+        if let index = cardActions.indices.reversed().first(where: {
+            cardActions[$0].frame.contains(point)
+        }) {
+            let card = cardActions[index]
+            if card.style == .control {
+                onAction?(card.action)
+            } else {
+                selectedCardIndex = index
+                needsDisplay = true
+                if event.clickCount > 1 { onAction?(card.action) }
+            }
             return
         }
         let panel = NSRect(x: bounds.maxX - 240, y: 54, width: 224, height: 44 + CGFloat(actions.count) * 42)
@@ -253,6 +260,13 @@ final class MapEditOverlayView: NSView {
         let selected = selectedCardIndex.flatMap { cardActions.indices.contains($0) ? cardActions[$0].action.id : nil }
             == card.action.id
         switch card.style {
+        case .workspace:
+            guard selected else { return }
+            let path = NSBezierPath(roundedRect: card.frame.insetBy(dx: 2, dy: 2), xRadius: 16, yRadius: 16)
+            NSColor.systemBlue.setStroke()
+            path.lineWidth = 4
+            path.stroke()
+            return
         case .add, .ghost:
             if selected {
                 let fill = NSBezierPath(roundedRect: card.frame, xRadius: 12, yRadius: 12)
@@ -302,10 +316,11 @@ final class MapEditOverlayView: NSView {
     }
 
     private func moveCardSelection(by delta: Int) {
-        guard !cardActions.isEmpty else { return }
-        let current = selectedCardIndex ?? 0
-        selectedCardIndex = (current + delta % cardActions.count + cardActions.count)
-            % cardActions.count
+        let selectable = cardActions.indices.filter { cardActions[$0].style != .control }
+        guard !selectable.isEmpty else { return }
+        let current = selectedCardIndex.flatMap { selectable.firstIndex(of: $0) } ?? 0
+        let target = (current + delta % selectable.count + selectable.count) % selectable.count
+        selectedCardIndex = selectable[target]
         needsDisplay = true
     }
 
