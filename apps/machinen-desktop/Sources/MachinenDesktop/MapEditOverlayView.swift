@@ -1,9 +1,15 @@
 import AppKit
 
+struct WorkspaceCreationSource {
+    let title: String
+    let detail: String
+    let location: WorkspaceLocation
+}
+
 final class AddWorkspaceCardView: NSView {
-    private enum Phase { case ready, location, name }
+    private enum Phase: Equatable { case ready, location, name }
     private var phase: Phase = .ready
-    private var locations: [WorkspaceLocation] = []
+    private var sources: [WorkspaceCreationSource] = []
     private var selectedLocationIndex = 0
     private var workspaceName = ""
     var onCancel: (() -> Void)?
@@ -13,8 +19,8 @@ final class AddWorkspaceCardView: NSView {
     override var isOpaque: Bool { false }
     override var acceptsFirstResponder: Bool { true }
 
-    func beginCreation(locations: [WorkspaceLocation]) {
-        self.locations = locations
+    func beginCreation(sources: [WorkspaceCreationSource]) {
+        self.sources = sources
         selectedLocationIndex = 0
         phase = .location
         needsDisplay = true
@@ -32,14 +38,17 @@ final class AddWorkspaceCardView: NSView {
             drawText("+ Add workspace", y: bounds.midY - 9, size: 13, color: .systemBlue)
         case .location:
             drawText("SELECT A LOCATION", y: 28, size: 11, color: .systemBlue)
-            for (index, location) in locations.prefix(7).enumerated() {
-                let selected = index == selectedLocationIndex
-                let row = NSRect(x: 22, y: 58 + CGFloat(index) * 30, width: bounds.width - 44, height: 25)
+            let visibleRange = sourceVisibleRange()
+            for (rowIndex, sourceIndex) in visibleRange.enumerated() {
+                let source = sources[sourceIndex]
+                let selected = sourceIndex == selectedLocationIndex
+                let row = sourceRow(rowIndex)
                 if selected {
                     NSColor.systemBlue.withAlphaComponent(0.18).setFill()
                     NSBezierPath(roundedRect: row, xRadius: 4, yRadius: 4).fill()
                 }
-                drawText("\(selected ? "›" : " ") \(location.displayName)", y: row.minY + 6, size: 11, color: selected ? .systemBlue : .secondaryLabelColor)
+                drawText("\(selected ? "›" : " ") \(source.title)", y: row.minY + 4, size: 11, color: selected ? .systemBlue : .labelColor)
+                drawText(source.detail, y: row.minY + 18, size: 9, color: .secondaryLabelColor)
             }
             drawText("↑↓ select   return continue   esc cancel", y: bounds.maxY - 34, size: 9, color: .secondaryLabelColor)
         case .name:
@@ -48,8 +57,8 @@ final class AddWorkspaceCardView: NSView {
             NSColor.systemBlue.withAlphaComponent(0.12).setFill()
             NSBezierPath(roundedRect: field, xRadius: 5, yRadius: 5).fill()
             drawText(workspaceName.isEmpty ? "Type a name…" : workspaceName + "_", y: 80, size: 14, color: workspaceName.isEmpty ? .tertiaryLabelColor : .labelColor)
-            if locations.indices.contains(selectedLocationIndex) {
-                drawText(locations[selectedLocationIndex].displayName, y: 126, size: 10, color: .secondaryLabelColor)
+            if sources.indices.contains(selectedLocationIndex) {
+                drawText(sources[selectedLocationIndex].detail, y: 126, size: 10, color: .secondaryLabelColor)
             }
             drawText("return create   esc cancel", y: bounds.maxY - 34, size: 9, color: .secondaryLabelColor)
         }
@@ -62,9 +71,9 @@ final class AddWorkspaceCardView: NSView {
         case .location:
             switch event.keyCode {
             case 53: onCancel?()
-            case 125: selectedLocationIndex = min(locations.count - 1, selectedLocationIndex + 1); needsDisplay = true
+            case 125: selectedLocationIndex = min(sources.count - 1, selectedLocationIndex + 1); needsDisplay = true
             case 126: selectedLocationIndex = max(0, selectedLocationIndex - 1); needsDisplay = true
-            case 36, 76: if !locations.isEmpty { phase = .name; needsDisplay = true }
+            case 36, 76: if !sources.isEmpty { phase = .name; needsDisplay = true }
             default: super.keyDown(with: event)
             }
         case .name:
@@ -73,8 +82,8 @@ final class AddWorkspaceCardView: NSView {
             case 51: if !workspaceName.isEmpty { workspaceName.removeLast(); needsDisplay = true }
             case 36, 76:
                 let name = workspaceName.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !name.isEmpty, locations.indices.contains(selectedLocationIndex) {
-                    onCreate?(locations[selectedLocationIndex], name)
+                if !name.isEmpty, sources.indices.contains(selectedLocationIndex) {
+                    onCreate?(sources[selectedLocationIndex].location, name)
                 }
             default:
                 if let text = event.characters,
@@ -85,6 +94,31 @@ final class AddWorkspaceCardView: NSView {
                 }
             }
         }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
+        guard phase == .location else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        let visibleRange = sourceVisibleRange()
+        for (rowIndex, sourceIndex) in visibleRange.enumerated()
+            where sourceRow(rowIndex).contains(point)
+        {
+            selectedLocationIndex = sourceIndex
+            needsDisplay = true
+            if event.clickCount > 1 { phase = .name }
+            return
+        }
+    }
+
+    private func sourceVisibleRange() -> [Int] {
+        guard !sources.isEmpty else { return [] }
+        let start = min(max(0, selectedLocationIndex - 3), max(0, sources.count - 7))
+        return Array(start..<min(sources.count, start + 7))
+    }
+
+    private func sourceRow(_ index: Int) -> NSRect {
+        NSRect(x: 22, y: 58 + CGFloat(index) * 38, width: bounds.width - 44, height: 34)
     }
 
     private func drawText(_ text: String, y: CGFloat, size: CGFloat, color: NSColor) {

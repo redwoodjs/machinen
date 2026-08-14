@@ -2827,13 +2827,33 @@ final class TerminalDeckView: NSView {
         mapEditOverlay?.removeFromSuperview()
         mapEditOverlay = nil
 
-        var locations: [WorkspaceLocation] = []
+        var sources: [WorkspaceCreationSource] = []
         var seen = Set<String>()
-        for location in workspaces.map(\.location) + workspaceLocationHistory {
-            if seen.insert(canonicalLocationKey(location)).inserted { locations.append(location) }
+        for workspace in workspaces {
+            if seen.insert(canonicalLocationKey(workspace.location)).inserted {
+                sources.append(WorkspaceCreationSource(
+                    title: workspace.name,
+                    detail: workspace.location.displayName,
+                    location: workspace.location
+                ))
+            }
         }
-        if locations.isEmpty {
-            locations.append(.local(FileManager.default.homeDirectoryForCurrentUser.path))
+        for location in workspaceLocationHistory {
+            if seen.insert(canonicalLocationKey(location)).inserted {
+                sources.append(WorkspaceCreationSource(
+                    title: "Recent location",
+                    detail: location.displayName,
+                    location: location
+                ))
+            }
+        }
+        if sources.isEmpty {
+            let home = WorkspaceLocation.local(FileManager.default.homeDirectoryForCurrentUser.path)
+            sources.append(WorkspaceCreationSource(
+                title: "Home",
+                detail: home.displayName,
+                location: home
+            ))
         }
 
         addCard.onCancel = { [weak self] in self?.cancelInlineWorkspaceCreation() }
@@ -2846,7 +2866,7 @@ final class TerminalDeckView: NSView {
                 NSSound.beep()
             }
         }
-        addCard.beginCreation(locations: locations)
+        addCard.beginCreation(sources: sources)
         let destination = cameraBounds(for: addCard.frame, viewport: sceneViewportBounds)
         moveCamera(to: destination) { [weak self, weak addCard] in
             guard let self, let addCard else { return }
