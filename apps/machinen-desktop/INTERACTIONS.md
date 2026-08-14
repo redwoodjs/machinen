@@ -379,8 +379,10 @@ action. A double-click does the same. Select a ghost card to attach its workspac
 At the workspace level, a blue dashed **New Terminal** tile uses the ordinary
 tile layout and input. Return opens terminal creation. The overlay offers
 **Rename Workspace** and **Close Workspace**. When a workspace has one terminal,
-`⌘E` or `⇧⌘E` leaves that terminal and shows this workspace map. At the terminal
-level, the overlay offers **New Terminal**, **Detach**, and **Kill Terminal**.
+`⌘E` or `⇧⌘E` leaves that terminal and shows this workspace map. If the workspace
+map is already visible, the same shortcut uses the standard one-level zoom-out
+action. It then opens overview edit mode. At the terminal level, the overlay
+offers **New Terminal**, **Detach**, and **Kill Terminal**.
 Machinen exits map edit mode after any new terminal tile enters the workspace.
 Detach removes this Desktop viewer and keeps the terminal process
 running. Kill needs confirmation. Escape, `⌘E`, and `⇧⌘E` close the overlay.

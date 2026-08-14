@@ -271,6 +271,19 @@ enum InteractionTestRunner {
                 && !singletonDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
             "the added terminal tile did not exit map edit mode"
         )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        try expect(singletonDeck.zoomOutOneLevel(),
+                   "the new terminal did not leave its focused view")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        try expect(try harness.uiLevel(of: singletonDeck) == "workspace",
+                   "the terminal did not return to its workspace view")
+        singletonDeck.toggleMapEditOverlay()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        try expect(
+            try harness.uiLevel(of: singletonDeck) == "overview"
+                && singletonDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "workspace edit did not use the standard zoom-out path"
+        )
 
         let externalDeck = harness.makeDeck(workspaces: [
             harness.workspace("external", terminalCount: 1),

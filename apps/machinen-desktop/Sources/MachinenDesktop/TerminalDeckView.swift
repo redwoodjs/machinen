@@ -2747,6 +2747,13 @@ final class TerminalDeckView: NSView {
               availableSessionsView == nil
         else { return }
 
+        if focusedIndex == nil, currentWorkspace != nil {
+            showWorkspaceDeck { [weak self] in
+                self?.toggleMapEditOverlay()
+            }
+            return
+        }
+
         let leavesSingletonTerminal = focusedIndex != nil && activeSessionTiles.count == 1
         if leavesSingletonTerminal {
             focusedIndex = nil
