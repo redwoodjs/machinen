@@ -2747,29 +2747,14 @@ final class TerminalDeckView: NSView {
               availableSessionsView == nil
         else { return }
 
-        if focusedIndex == nil, currentWorkspace != nil {
-            showWorkspaceDeck { [weak self] in
-                self?.toggleMapEditOverlay()
-            }
-            return
-        }
-
-        let leavesSingletonTerminal = focusedIndex != nil && activeSessionTiles.count == 1
-        if leavesSingletonTerminal {
+        if focusedIndex != nil {
             focusedIndex = nil
-            selectedIndex = 0
             updateSelection()
         }
 
         let actions: [MapEditAction]
         var cardActions: [MapEditCardAction] = []
-        if focusedIndex != nil, selectedSessionTile() != nil {
-            actions = [
-                MapEditAction(id: "new", title: "+ New terminal", detail: "choose a workspace"),
-                MapEditAction(id: "detach", title: "⊘ Detach", detail: "terminal keeps running"),
-                MapEditAction(id: "kill", title: "× Kill terminal", detail: "stop and remove"),
-            ]
-        } else if currentWorkspace != nil, selectedWorkspaceID() != nil {
+        if currentWorkspace != nil, selectedWorkspaceID() != nil {
             actions = [
                 MapEditAction(id: "rename", title: "✎ Rename workspace", detail: "change its label"),
                 MapEditAction(id: "close", title: "× Close workspace", detail: "confirm before stop"),
@@ -2905,12 +2890,6 @@ final class TerminalDeckView: NSView {
     private func runMapEditAction(_ action: MapEditAction) {
         dismissMapEditOverlay()
         switch action.id {
-        case "new":
-            showNewItemPalette()
-        case "detach":
-            if let tile = selectedSessionTile() { bufferCloseSession(tile) }
-        case "kill":
-            confirmCloseSelectedSession()
         case "rename":
             showRenameWorkspacePalette()
         case "close":
@@ -6056,22 +6035,27 @@ final class TerminalDeckView: NSView {
     }
 
     /// `previousWorkspace` and `nextWorkspace` use a short directional slide
-    /// and fade to reveal an adjacent workspace's active terminal at the same zoom.
+    /// and fade to reveal an adjacent workspace at the same hierarchy level.
     @discardableResult
     func cycleFocusedWorkspace(by offset: Int) -> Bool {
         let sourceSessions = activeSessionTiles
         guard presentedOverlay == nil, commandPalette == nil,
               !isTransitioning, !isPeeking,
-              let focusedIndex, sourceSessions.indices.contains(focusedIndex),
               offset != 0,
               let sourceWorkspaceID = currentWorkspace
         else { return false }
 
-        // Workspaces without tiles remain visible in the overview but cannot
-        // be a destination for a shortcut that promises to end in a terminal.
-        let destinations = workspaces.filter { workspace in
-            allSessionTiles.contains { $0.session.workspaceID == workspace.id }
+        let keepsTerminalFocus = focusedIndex != nil
+        if keepsTerminalFocus {
+            guard let focusedIndex, sourceSessions.indices.contains(focusedIndex) else {
+                return false
+            }
         }
+        let destinations = keepsTerminalFocus
+            ? workspaces.filter { workspace in
+                allSessionTiles.contains { $0.session.workspaceID == workspace.id }
+            }
+            : workspaces
         guard destinations.count > 1,
               let sourceIndex = destinations.firstIndex(where: { $0.id == sourceWorkspaceID })
         else { return false }
@@ -6080,24 +6064,41 @@ final class TerminalDeckView: NSView {
             sourceIndex + offset % destinations.count + destinations.count
         ) % destinations.count
         let targetWorkspace = destinations[targetWorkspaceIndex]
+        if !keepsTerminalFocus, mapEditOverlay != nil {
+            moveEditTerminalTile(to: targetWorkspace)
+        }
         let targetSessions = activeSessionTiles(for: targetWorkspace.id)
-        guard !targetSessions.isEmpty else { return false }
+        guard !keepsTerminalFocus || !targetSessions.isEmpty else { return false }
 
-        let sourceTileID = sourceSessions[focusedIndex].session.tileID
-        let targetTerminalIndex = activeTerminalIndex(in: targetWorkspace.id)
-        let targetTileID = targetSessions[targetTerminalIndex].session.tileID
+        let targetTerminalIndex = targetSessions.isEmpty
+            ? nil
+            : activeTerminalIndex(in: targetWorkspace.id)
+        let targetTileID = targetTerminalIndex.map {
+            targetSessions[$0].session.tileID
+        }
         InputRoutingLog.log(
-            "cycles focused tile workspace=\(sourceWorkspaceID)→\(targetWorkspace.id) "
-                + "tile=\(sourceTileID)→\(targetTileID)"
+            "cycles workspace level=\(keepsTerminalFocus ? "terminal" : "workspace") "
+                + "workspace=\(sourceWorkspaceID)→\(targetWorkspace.id)"
         )
 
         beginWorkspaceTransition(
             to: targetWorkspace.id,
             tileID: targetTileID,
-            focusTerminal: true,
+            focusTerminal: keepsTerminalFocus,
             direction: offset > 0 ? 1 : -1
         )
         return true
+    }
+
+    private func moveEditTerminalTile(to workspace: WorkspaceRecord) {
+        guard let addTerminalTileView else { return }
+        addTerminalTileView.removeFromSuperview()
+        addTerminalTileView.session.workspaceID = workspace.id
+        addTerminalTileView.session.workspace = workspace.name
+        addTerminalTileView.session.workspaceRoot = workspace.workingDirectory
+        addTerminalTileView.session.location = workspace.location
+        addTerminalTileView.transition(to: .stopped, terminalText: "")
+        updateWorldGeometry()
     }
 
     private func workspaceTransitionDirection(to workspaceID: String) -> CGFloat {

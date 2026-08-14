@@ -272,18 +272,73 @@ enum InteractionTestRunner {
             "the added terminal tile did not exit map edit mode"
         )
         RunLoop.current.run(until: Date().addingTimeInterval(0.55))
-        try expect(singletonDeck.zoomOutOneLevel(),
-                   "the new terminal did not leave its focused view")
-        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
-        try expect(try harness.uiLevel(of: singletonDeck) == "workspace",
-                   "the terminal did not return to its workspace view")
         singletonDeck.toggleMapEditOverlay()
         RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        let multiTerminalEditTile = singletonDeck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? TerminalTileView })
+            .first(where: { $0.renderingMode == .newTerminal })
         try expect(
-            try harness.uiLevel(of: singletonDeck) == "overview"
-                && singletonDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
-            "workspace edit did not use the standard zoom-out path"
+            try harness.uiLevel(of: singletonDeck) == "workspace"
+                && singletonDeck.subviews.contains(where: { $0 is MapEditOverlayView })
+                && multiTerminalEditTile != nil,
+            "terminal edit did not return to workspace mode after a second terminal existed"
         )
+        singletonDeck.toggleMapEditOverlay()
+
+        let switchDeck = harness.makeDeck(workspaces: [
+            harness.workspace("switch-alpha", terminalCount: 2),
+            harness.workspace("switch-beta", terminalCount: 2),
+        ])
+        try expect(switchDeck.zoomInOneLevel()
+                   && (try harness.uiLevel(of: switchDeck)) == "workspace",
+                   "the workspace switch proof did not enter workspace mode")
+        let workspaceShortcut = DesktopShortcutMonitor(
+            shortcuts: MachinenConfiguration.defaults.shortcuts,
+            startMonitoring: false
+        ) { switchDeck.performShortcut($0) }
+        try expect(
+            workspaceShortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil,
+            "the next-workspace shortcut was rejected in workspace mode"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(
+            try harness.selectedWorkspaceID(of: switchDeck) == "ws_switch-beta"
+                && (try harness.uiLevel(of: switchDeck)) == "workspace",
+            "the next-workspace shortcut left workspace mode"
+        )
+        try expect(
+            workspaceShortcut.process(harness.commandShiftBracket(keyCode: 33)) == nil,
+            "the previous-workspace shortcut was rejected in workspace mode"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(try harness.selectedWorkspaceID(of: switchDeck) == "ws_switch-alpha",
+                   "the previous-workspace shortcut did not return to the prior workspace")
+        switchDeck.toggleMapEditOverlay()
+        let workspaceEditTile = switchDeck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? TerminalTileView })
+            .first(where: { $0.renderingMode == .newTerminal })
+        try expect(
+            try harness.uiLevel(of: switchDeck) == "workspace"
+                && workspaceEditTile?.session.workspaceID == "ws_switch-alpha",
+            "workspace edit did not stay in workspace mode"
+        )
+        try expect(
+            workspaceShortcut.process(harness.commandShiftBracket(keyCode: 30)) == nil,
+            "workspace edit rejected the next-workspace shortcut"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(
+            try harness.selectedWorkspaceID(of: switchDeck) == "ws_switch-beta"
+                && workspaceEditTile?.session.workspaceID == "ws_switch-beta",
+            "the New Terminal tile did not follow the workspace switch"
+        )
+        switchDeck.toggleMapEditOverlay()
 
         let externalDeck = harness.makeDeck(workspaces: [
             harness.workspace("external", terminalCount: 1),
