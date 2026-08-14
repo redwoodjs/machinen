@@ -36,33 +36,45 @@ final class AddWorkspaceCardView: NSView {
     var displayedSearchQuery: String { locationQuery }
     var displayedPanelFrame: NSRect { panelRect() }
     var isChoosingLocation: Bool { phase == .location }
+    var selectedSourceTitle: String? {
+        sources.indices.contains(selectedLocationIndex) ? sources[selectedLocationIndex].title : nil
+    }
     var disabledSourceTitles: [String] { sources.filter(\.isDisabled).map(\.title) }
 
     func beginCreation(sources: [WorkspaceCreationSource]) {
         self.sources = sources
         locationQuery = ""
-        selectedLocationIndex = filteredSourceIndexes.first(where: { !sources[$0].isDisabled }) ?? -1
+        selectedLocationIndex = filteredSourceIndexes.first ?? -1
         phase = .location
         needsDisplay = true
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.black.withAlphaComponent(0.68).setFill()
+        NSColor.systemBlue.withAlphaComponent(0.10).setFill()
         bounds.fill()
+        let tilePath = NSBezierPath(
+            roundedRect: bounds.insetBy(dx: 2, dy: 2),
+            xRadius: 16,
+            yRadius: 16
+        )
+        tilePath.setLineDash([9, 7], count: 2, phase: 0)
+        NSColor.systemBlue.withAlphaComponent(0.90).setStroke()
+        tilePath.lineWidth = 3
+        tilePath.stroke()
 
         let panel = panelRect()
-        NSColor(calibratedWhite: 0.09, alpha: 1).setFill()
-        NSColor(calibratedWhite: 0.63, alpha: 1).setStroke()
+        NSColor(calibratedWhite: 0.09, alpha: 0.96).setFill()
+        NSColor.systemBlue.withAlphaComponent(0.86).setStroke()
         let panelPath = NSBezierPath(roundedRect: panel, xRadius: 8, yRadius: 8)
         panelPath.fill()
-        panelPath.lineWidth = 1
+        panelPath.lineWidth = 2
         panelPath.stroke()
 
         drawText(
             phase == .name ? "NEW WORKSPACE  ·  NAME" : "NEW WORKSPACE  ·  LOCATION",
             in: NSRect(x: panel.minX + 13, y: panel.minY + 9, width: panel.width - 26, height: 14),
             size: 9,
-            color: NSColor(calibratedWhite: 0.53, alpha: 1)
+            color: NSColor.systemBlue
         )
 
         let search = searchRect(in: panel)
@@ -205,15 +217,15 @@ final class AddWorkspaceCardView: NSView {
     }
 
     private func sourceQueryChanged() {
-        selectedLocationIndex = filteredSourceIndexes.first(where: { !sources[$0].isDisabled }) ?? -1
+        selectedLocationIndex = filteredSourceIndexes.first ?? -1
         needsDisplay = true
     }
 
     private func moveSourceSelection(by delta: Int) {
-        let enabled = filteredSourceIndexes.filter { !sources[$0].isDisabled }
-        guard !enabled.isEmpty else { return }
-        let current = enabled.firstIndex(of: selectedLocationIndex) ?? 0
-        selectedLocationIndex = enabled[min(max(0, current + delta), enabled.count - 1)]
+        let filtered = filteredSourceIndexes
+        guard !filtered.isEmpty else { return }
+        let current = filtered.firstIndex(of: selectedLocationIndex) ?? 0
+        selectedLocationIndex = filtered[min(max(0, current + delta), filtered.count - 1)]
         needsDisplay = true
     }
 
@@ -275,12 +287,12 @@ final class AddWorkspaceCardView: NSView {
             let selected = sourceIndex == selectedLocationIndex
             let row = sourceRow(rowIndex, panel: panel)
             if selected {
-                NSColor(calibratedWhite: 0.20, alpha: 1).setFill()
+                NSColor.systemBlue.withAlphaComponent(0.18).setFill()
                 NSBezierPath(roundedRect: row, xRadius: 4, yRadius: 4).fill()
             }
             let titleColor = source.isDisabled
                 ? NSColor(calibratedWhite: 0.35, alpha: 1)
-                : NSColor(calibratedWhite: selected ? 0.96 : 0.76, alpha: 1)
+                : selected ? NSColor.systemBlue : NSColor(calibratedWhite: 0.76, alpha: 1)
             drawText(
                 source.title,
                 in: NSRect(x: row.minX + 9, y: row.minY + 5, width: row.width - 180, height: 16),
@@ -308,7 +320,7 @@ final class AddWorkspaceCardView: NSView {
     }
 
     private func drawDivider(y: CGFloat, panel: NSRect) {
-        NSColor(calibratedWhite: 0.25, alpha: 1).setStroke()
+        NSColor.systemBlue.withAlphaComponent(0.32).setStroke()
         let divider = NSBezierPath()
         divider.move(to: NSPoint(x: panel.minX, y: y))
         divider.line(to: NSPoint(x: panel.maxX, y: y))

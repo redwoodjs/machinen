@@ -165,8 +165,14 @@ enum InteractionTestRunner {
         try expect(addCard.isChoosingLocation,
                    "the new workspace search selected a disabled workspace")
         for _ in "alpha" { try harness.pressDelete(on: addCard) }
-        try expect(deck.performShortcut(.selectDown),
-                   "the configured down shortcut did not select a workspace source")
+        try expect(
+            addCard.selectedSourceTitle == "alpha"
+                && deck.performShortcut(.selectDown)
+                && addCard.selectedSourceTitle == "beta"
+                && deck.performShortcut(.selectDown)
+                && addCard.selectedSourceTitle == "Home",
+            "the configured down shortcut did not move through each source row"
+        )
         try expect(try harness.selectedWorkspaceID(of: deck) == selectedWorkspace,
                    "an in-card source arrow changed the overview workspace")
         try expect(deck.performShortcut(.enter),
