@@ -364,6 +364,8 @@ workspace identities.
 `⌘E` opens an action overlay above the current map. The map stays visible. At
 the overview level, each workspace card shows its own **Close** control. A blue
 dashed **Add Workspace** card creates a workspace only after a user selects it.
+The camera enters this card. The card then shows previous workspace locations
+and a name input. This flow never opens the command palette.
 A muted dashed ghost card represents a discovered workspace that is not attached
 to this Desktop. Select it to attach the workspace. At the workspace level, the
 overlay offers **New Terminal**, **Rename Workspace**, and **Close Workspace**.

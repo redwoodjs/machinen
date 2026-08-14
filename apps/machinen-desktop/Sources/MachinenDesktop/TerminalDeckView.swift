@@ -2785,6 +2785,10 @@ final class TerminalDeckView: NSView {
     }
 
     private func runMapEditAction(_ action: MapEditAction) {
+        if action.id == "workspace" {
+            beginInlineWorkspaceCreation()
+            return
+        }
         dismissMapEditOverlay()
         switch action.id {
         case "new":
@@ -2811,13 +2815,55 @@ final class TerminalDeckView: NSView {
                   let location = registeredTargetLocation(id: parts[1])
             else { return }
             restoreNativeWorkspace(record, at: location)
-        case "workspace":
-            beginNewWorkspaceFlow(from: .newItem)
         case "host":
             beginUseAnotherComputer()
         default:
             break
         }
+    }
+
+    private func beginInlineWorkspaceCreation() {
+        guard let addCard = addWorkspaceCardView else { return }
+        mapEditOverlay?.removeFromSuperview()
+        mapEditOverlay = nil
+
+        var locations: [WorkspaceLocation] = []
+        var seen = Set<String>()
+        for location in workspaces.map(\.location) + workspaceLocationHistory {
+            if seen.insert(canonicalLocationKey(location)).inserted { locations.append(location) }
+        }
+        if locations.isEmpty {
+            locations.append(.local(FileManager.default.homeDirectoryForCurrentUser.path))
+        }
+
+        addCard.onCancel = { [weak self] in self?.cancelInlineWorkspaceCreation() }
+        addCard.onCreate = { [weak self] location, name in
+            guard let self else { return }
+            do {
+                try self.createNewWorkspace(name: name, location: location)
+                self.removeInlineWorkspaceCard()
+            } catch {
+                NSSound.beep()
+            }
+        }
+        addCard.beginCreation(locations: locations)
+        let destination = cameraBounds(for: addCard.frame, viewport: sceneViewportBounds)
+        moveCamera(to: destination) { [weak self, weak addCard] in
+            guard let self, let addCard else { return }
+            self.window?.makeFirstResponder(addCard)
+        }
+    }
+
+    private func cancelInlineWorkspaceCreation() {
+        removeInlineWorkspaceCard()
+        moveCamera()
+        restoreInputFocus()
+    }
+
+    private func removeInlineWorkspaceCard() {
+        addWorkspaceCardView?.removeFromSuperview()
+        addWorkspaceCardView = nil
+        updateWorldGeometry()
     }
 
     func toggleCommandPalette() {

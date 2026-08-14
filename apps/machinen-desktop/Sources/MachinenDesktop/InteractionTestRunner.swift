@@ -121,7 +121,14 @@ enum InteractionTestRunner {
         try expect(addCard.frame.size == workspace.frame.size,
                    "the add workspace card did not use the overview card size")
         try harness.pressReturn(on: overlay)
-        _ = try harness.commandPalette(in: deck)
+        try harness.pressReturn(on: addCard)
+        try harness.type("gamma", into: addCard)
+        try harness.pressReturn(on: addCard)
+        let created = try harness.snapshot(of: deck)
+        try expect(created.workspaces.map(\.name).contains("gamma"),
+                   "the in-card workspace form did not create its named workspace")
+        try expect(!deck.subviews.contains(where: { $0 is CommandPaletteView }),
+                   "the in-card workspace form opened the command palette")
 
         let escapeDeck = harness.makeDeck(workspaces: [harness.workspace("beta", terminalCount: 1)])
         _ = try escapeDeck.performAPIOperation("ui.overview", params: [:])

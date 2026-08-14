@@ -1,8 +1,24 @@
 import AppKit
 
 final class AddWorkspaceCardView: NSView {
+    private enum Phase { case ready, location, name }
+    private var phase: Phase = .ready
+    private var locations: [WorkspaceLocation] = []
+    private var selectedLocationIndex = 0
+    private var workspaceName = ""
+    var onCancel: (() -> Void)?
+    var onCreate: ((WorkspaceLocation, String) -> Void)?
+
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
+    override var acceptsFirstResponder: Bool { true }
+
+    func beginCreation(locations: [WorkspaceLocation]) {
+        self.locations = locations
+        selectedLocationIndex = 0
+        phase = .location
+        needsDisplay = true
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 16, yRadius: 16)
@@ -10,14 +26,72 @@ final class AddWorkspaceCardView: NSView {
         NSColor.systemBlue.withAlphaComponent(0.82).setStroke()
         path.lineWidth = 3
         path.stroke()
-        let title = "+ Add workspace"
-        title.draw(
-            in: NSRect(x: 24, y: bounds.midY - 9, width: bounds.width - 48, height: 18),
-            withAttributes: [
-                .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .medium),
-                .foregroundColor: NSColor.systemBlue,
-            ]
-        )
+
+        switch phase {
+        case .ready:
+            drawText("+ Add workspace", y: bounds.midY - 9, size: 13, color: .systemBlue)
+        case .location:
+            drawText("SELECT A LOCATION", y: 28, size: 11, color: .systemBlue)
+            for (index, location) in locations.prefix(7).enumerated() {
+                let selected = index == selectedLocationIndex
+                let row = NSRect(x: 22, y: 58 + CGFloat(index) * 30, width: bounds.width - 44, height: 25)
+                if selected {
+                    NSColor.systemBlue.withAlphaComponent(0.18).setFill()
+                    NSBezierPath(roundedRect: row, xRadius: 4, yRadius: 4).fill()
+                }
+                drawText("\(selected ? "›" : " ") \(location.displayName)", y: row.minY + 6, size: 11, color: selected ? .systemBlue : .secondaryLabelColor)
+            }
+            drawText("↑↓ select   return continue   esc cancel", y: bounds.maxY - 34, size: 9, color: .secondaryLabelColor)
+        case .name:
+            drawText("NAME THIS WORKSPACE", y: 32, size: 11, color: .systemBlue)
+            let field = NSRect(x: 22, y: 68, width: bounds.width - 44, height: 38)
+            NSColor.systemBlue.withAlphaComponent(0.12).setFill()
+            NSBezierPath(roundedRect: field, xRadius: 5, yRadius: 5).fill()
+            drawText(workspaceName.isEmpty ? "Type a name…" : workspaceName + "_", y: 80, size: 14, color: workspaceName.isEmpty ? .tertiaryLabelColor : .labelColor)
+            if locations.indices.contains(selectedLocationIndex) {
+                drawText(locations[selectedLocationIndex].displayName, y: 126, size: 10, color: .secondaryLabelColor)
+            }
+            drawText("return create   esc cancel", y: bounds.maxY - 34, size: 9, color: .secondaryLabelColor)
+        }
+    }
+
+    override func keyDown(with event: NSEvent) {
+        switch phase {
+        case .ready:
+            if event.keyCode == 53 { onCancel?() }
+        case .location:
+            switch event.keyCode {
+            case 53: onCancel?()
+            case 125: selectedLocationIndex = min(locations.count - 1, selectedLocationIndex + 1); needsDisplay = true
+            case 126: selectedLocationIndex = max(0, selectedLocationIndex - 1); needsDisplay = true
+            case 36, 76: if !locations.isEmpty { phase = .name; needsDisplay = true }
+            default: super.keyDown(with: event)
+            }
+        case .name:
+            switch event.keyCode {
+            case 53: onCancel?()
+            case 51: if !workspaceName.isEmpty { workspaceName.removeLast(); needsDisplay = true }
+            case 36, 76:
+                let name = workspaceName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty, locations.indices.contains(selectedLocationIndex) {
+                    onCreate?(locations[selectedLocationIndex], name)
+                }
+            default:
+                if let text = event.characters,
+                   text.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
+                {
+                    workspaceName += text
+                    needsDisplay = true
+                }
+            }
+        }
+    }
+
+    private func drawText(_ text: String, y: CGFloat, size: CGFloat, color: NSColor) {
+        text.draw(in: NSRect(x: 24, y: y, width: bounds.width - 48, height: 20), withAttributes: [
+            .font: NSFont.monospacedSystemFont(ofSize: size, weight: .medium),
+            .foregroundColor: color,
+        ])
     }
 }
 
