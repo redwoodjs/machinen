@@ -376,6 +376,24 @@ enum InteractionTestRunner {
             }),
             "the application menu did not expose ⇧⌘K for commands"
         )
+        let editMapItems = appMenu?.items.filter {
+            $0.action == NSSelectorFromString("toggleMapEdit")
+        } ?? []
+        try expect(
+            editMapItems.contains(where: {
+                $0.keyEquivalent == "e" && $0.keyEquivalentModifierMask == [.command]
+            }),
+            "the application menu did not expose ⌘E for map editing"
+        )
+        try expect(
+            editMapItems.contains(where: {
+                $0.keyEquivalent == "e"
+                    && $0.keyEquivalentModifierMask == [.command, .shift]
+                    && $0.isHidden
+                    && $0.allowsKeyEquivalentWhenHidden
+            }),
+            "the application menu did not expose ⇧⌘E for map editing"
+        )
     }
 
     private static func commandArrowsMoveThroughTheHierarchy() throws {

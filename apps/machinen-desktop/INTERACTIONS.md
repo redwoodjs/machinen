@@ -39,7 +39,7 @@ discovery use the workspace directory as their project boundary.
 | `⇧⌘[` / `⇧⌘]`   | From Terminal mode, focus the active pane in the previous/next workspace.          |
 | `⌘N` / `⇧⌘N`    | Open the New chooser; never create a terminal or workspace immediately.            |
 | `⌘K` / `⇧⌘K`    | Open commands for the current and containing spaces.                               |
-| `⌘E`            | Open or close the action overlay for the visible map level.                        |
+| `⌘E` or `⇧⌘E`   | Open or close the action overlay for the visible map level.                        |
 | `⌘O`            | Show the focused terminal's full context menu.                                     |
 | `⌘W`            | Disconnect a terminal; press again in its toast or panel to kill its session.      |
 | Keyboard input  | In Terminal mode, the terminal receives all other keys and modifier combinations.  |
@@ -185,9 +185,9 @@ the latest OSC 7 directory, falling back to the terminal's launch directory. Tru
 operations such as creating a terminal or revealing a path in Finder.
 
 `⌘K` and the application menu's **Commands…** open commands for the current
-camera space and its containing spaces. `⌘E` opens an action overlay above the
-visible map. The overlay keeps cards visible and shows only actions for the
-current level. Escape and `⌘E` close the overlay.
+camera space and its containing spaces. `⌘E` or `⇧⌘E` opens an action overlay
+above the visible map. The overlay keeps cards visible and shows only actions for
+the current level. Escape, `⌘E`, and `⇧⌘E` close the overlay.
 
 The menu contains seven built-in actions plus matching commands registered by
 trusted TypeScript services. **New workspace…** belongs to Workspace Overview;
@@ -361,7 +361,7 @@ workspace identities.
 
 ## Map edit overlay
 
-`⌘E` opens an action overlay above the current map. The map stays visible. At
+`⌘E` or `⇧⌘E` opens an action overlay above the current map. The map stays visible. At
 the overview level, each workspace card shows its own **Close** control. A blue
 dashed **Add Workspace** card creates a workspace only after a user selects it.
 The camera enters this card. A centered search panel uses the command palette
@@ -379,7 +379,7 @@ At the workspace level, the
 overlay offers **New Terminal**, **Rename Workspace**, and **Close Workspace**.
 At the terminal level, it offers **New Terminal**, **Detach**, and **Kill
 Terminal**. Detach removes this Desktop viewer and keeps the terminal process
-running. Kill needs confirmation. Escape and `⌘E` close the overlay.
+running. Kill needs confirmation. Escape, `⌘E`, and `⇧⌘E` close the overlay.
 
 ## Disconnecting and killing
 

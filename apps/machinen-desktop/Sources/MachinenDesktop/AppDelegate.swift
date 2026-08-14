@@ -183,6 +183,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         editMapItem.target = self
         appMenu.addItem(editMapItem)
 
+        let alternateEditMapItem = NSMenuItem(
+            title: "Edit Map",
+            action: #selector(toggleMapEdit),
+            keyEquivalent: "e"
+        )
+        alternateEditMapItem.keyEquivalentModifierMask = [.command, .shift]
+        alternateEditMapItem.target = self
+        alternateEditMapItem.isHidden = true
+        alternateEditMapItem.allowsKeyEquivalentWhenHidden = true
+        appMenu.addItem(alternateEditMapItem)
+
         let terminalMenuItem = NSMenuItem(
             title: "Terminal Menu…",
             action: #selector(showTerminalMenu),
