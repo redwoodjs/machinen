@@ -105,8 +105,20 @@ enum InteractionTestRunner {
     private static func mapEditAddWorkspaceUsesOverviewLayoutAndKeyboard() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
-        let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
-        _ = try deck.performAPIOperation("ui.overview", params: [:])
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 1),
+            harness.workspace("beta", terminalCount: 1),
+        ])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        window.makeFirstResponder(deck)
+        deck.layoutSubtreeIfNeeded()
 
         deck.toggleMapEditOverlay()
         guard let scene = deck.subviews.first(where: { view in
@@ -121,6 +133,12 @@ enum InteractionTestRunner {
         try expect(addCard.frame.size == workspace.frame.size,
                    "the add workspace card did not use the overview card size")
         try harness.pressReturn(on: overlay)
+        try expect(deck.window?.firstResponder === addCard,
+                   "the in-card workspace form did not capture immediate arrow input")
+        let selectedWorkspace = try harness.selectedWorkspaceID(of: deck)
+        try harness.pressDown(on: addCard)
+        try expect(try harness.selectedWorkspaceID(of: deck) == selectedWorkspace,
+                   "an in-card source arrow changed the overview workspace")
         try harness.pressReturn(on: addCard)
         try harness.type("gamma", into: addCard)
         try harness.pressReturn(on: addCard)
@@ -3745,6 +3763,14 @@ private final class Harness {
             throw InteractionTestFailure("ui.get returned an invalid response")
         }
         return level
+    }
+
+    func selectedWorkspaceID(of deck: TerminalDeckView) throws -> String? {
+        let result = try deck.performAPIOperation("ui.get", params: [:])
+        guard let object = result as? [String: Any] else {
+            throw InteractionTestFailure("ui.get returned an invalid response")
+        }
+        return object["selectedWorkspaceId"] as? String
     }
 
     func focusedTileID(of deck: TerminalDeckView) throws -> String? {

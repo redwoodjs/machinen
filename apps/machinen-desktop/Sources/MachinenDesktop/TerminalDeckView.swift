@@ -2867,6 +2867,9 @@ final class TerminalDeckView: NSView {
             }
         }
         addCard.beginCreation(sources: sources)
+        // Route immediate arrow input to the in-card form before camera motion.
+        // Without this, fast input changes the selected overview workspace.
+        window?.makeFirstResponder(addCard)
         let destination = cameraBounds(for: addCard.frame, viewport: sceneViewportBounds)
         moveCamera(to: destination) { [weak self, weak addCard] in
             guard let self, let addCard else { return }
