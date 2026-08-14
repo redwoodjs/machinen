@@ -37,12 +37,21 @@ final class ActionConfirmationView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.black.withAlphaComponent(0.72).setFill()
+        NSColor.systemRed.withAlphaComponent(0.10).setFill()
         bounds.fill()
+        let tilePath = NSBezierPath(
+            roundedRect: bounds.insetBy(dx: 2, dy: 2),
+            xRadius: 16,
+            yRadius: 16
+        )
+        tilePath.setLineDash([9, 7], count: 2, phase: 0)
+        NSColor.systemRed.withAlphaComponent(0.90).setStroke()
+        tilePath.lineWidth = 3
+        tilePath.stroke()
 
         let panel = panelRect()
-        NSColor(calibratedWhite: 0.09, alpha: 1).setFill()
-        NSColor(calibratedWhite: 0.55, alpha: 1).setStroke()
+        NSColor(calibratedWhite: 0.09, alpha: 0.96).setFill()
+        NSColor.systemRed.withAlphaComponent(0.86).setStroke()
         let path = NSBezierPath(roundedRect: panel, xRadius: 9, yRadius: 9)
         path.fill()
         path.lineWidth = 1
@@ -89,6 +98,19 @@ final class ActionConfirmationView: NSView {
         }
     }
 
+    func performShortcut(_ action: DesktopShortcutAction) -> Bool {
+        switch action {
+        case .enter:
+            onConfirm?()
+            return true
+        case .leave:
+            onCancel?()
+            return true
+        default:
+            return false
+        }
+    }
+
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         if confirmButtonRect().contains(point) {
@@ -99,7 +121,7 @@ final class ActionConfirmationView: NSView {
     }
 
     private func panelRect() -> NSRect {
-        let width = min(620, max(420, bounds.width - 48))
+        let width = min(620, max(280, bounds.width - 48))
         return NSRect(x: bounds.midX - width / 2, y: max(28, bounds.midY - 115), width: width, height: 230)
     }
 
@@ -114,8 +136,10 @@ final class ActionConfirmationView: NSView {
     }
 
     private func drawButton(_ rect: NSRect, title: String, emphasized: Bool) {
-        NSColor(calibratedWhite: emphasized ? 0.82 : 0.17, alpha: 1).setFill()
-        NSColor(calibratedWhite: emphasized ? 0.92 : 0.42, alpha: 1).setStroke()
+        (emphasized ? NSColor.systemRed : NSColor(calibratedWhite: 0.17, alpha: 1)).setFill()
+        (emphasized
+            ? NSColor.systemRed.withAlphaComponent(0.95)
+            : NSColor(calibratedWhite: 0.42, alpha: 1)).setStroke()
         let path = NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5)
         path.fill()
         path.lineWidth = 1

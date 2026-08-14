@@ -175,6 +175,8 @@ final class TerminalDeckView: NSView {
     private var addWorkspaceClusterView: WorkspaceClusterView?
     private var addWorkspaceCardView: AddWorkspaceCardView?
     private var addTerminalTileView: TerminalTileView?
+    private var addTerminalCardView: AddTerminalCardView?
+    private var inlineConfirmationView: ActionConfirmationView?
     private var ghostWorkspaceTargets: [String: (String, NativeWorkspaceRecord)] = [:]
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
@@ -2015,16 +2017,7 @@ final class TerminalDeckView: NSView {
         } else {
             let tile = activeSessionTiles[index]
             if tile.renderingMode == .newTerminal {
-                guard let workspace = selectedWorkspaceRecord() else { return }
-                dismissMapEditOverlay(
-                    restorePreviousView: false,
-                    preserveReturnState: true
-                )
-                showNewTerminalPalette(
-                    workspace: workspace.name,
-                    workingDirectory: workspace.workingDirectory,
-                    returnToCommands: false
-                )
+                beginInlineTerminalCreation(in: tile)
                 return
             }
             focusedIndex = index
@@ -2932,16 +2925,16 @@ final class TerminalDeckView: NSView {
         )
     }
 
-    private func dismissMapEditOverlay(
-        restorePreviousView: Bool = true,
-        preserveReturnState: Bool = false
-    ) {
+    private func dismissMapEditOverlay(restorePreviousView: Bool = true) {
         let returnState = mapEditReturnState
-        if !preserveReturnState {
-            mapEditReturnState = nil
-        }
+        mapEditReturnState = nil
         mapEditOverlay?.removeFromSuperview()
         mapEditOverlay = nil
+        addTerminalCardView?.removeFromSuperview()
+        addTerminalCardView = nil
+        if presentedOverlay === inlineConfirmationView { presentedOverlay = nil }
+        inlineConfirmationView?.removeFromSuperview()
+        inlineConfirmationView = nil
         addTerminalTileView?.removeFromSuperview()
         addTerminalTileView = nil
         removeEditWorkspaceClusters()
@@ -3095,6 +3088,169 @@ final class TerminalDeckView: NSView {
             selectedIndex = index
             updateSelection()
         }
+        moveCamera { [weak self] in
+            guard let self, let overlay = self.mapEditOverlay else { return }
+            self.window?.makeFirstResponder(overlay)
+        }
+    }
+
+    private func beginInlineTerminalCreation(in tile: TerminalTileView) {
+        guard addTerminalCardView == nil,
+              let workspace = selectedWorkspaceRecord()
+        else { return }
+        mapEditOverlay?.isHidden = true
+        let addCard = AddTerminalCardView(frame: tile.bounds)
+        addCard.autoresizingMask = [.width, .height]
+        addTerminalCardView = addCard
+        tile.addSubview(addCard)
+
+        addCard.onCancel = { [weak self] in self?.dismissMapEditOverlay() }
+        addCard.onLeave = { [weak self] in self?.leaveInlineTerminalCreation() }
+        addCard.onCreateShell = { [weak self] in
+            guard let self else { return }
+            self.dismissMapEditOverlay(restorePreviousView: false)
+            self.createPersistentSession(
+                workspace: workspace.name,
+                name: self.nextAvailableSessionName(base: "shell", workspace: workspace.name),
+                command: nil,
+                workingDirectory: workspace.workingDirectory
+            )
+        }
+        addCard.onRunCommand = { [weak self] command in
+            guard let self else { return }
+            self.dismissMapEditOverlay(restorePreviousView: false)
+            let executable = command.split(separator: " ").first.map(String.init) ?? "command"
+            self.createPersistentSession(
+                workspace: workspace.name,
+                name: self.nextAvailableSessionName(base: executable, workspace: workspace.name),
+                command: command,
+                workingDirectory: workspace.workingDirectory
+            )
+        }
+
+        window?.makeFirstResponder(addCard)
+        let tileFrame = tile.convert(tile.bounds, to: sceneView)
+        let destination = cameraBounds(for: tileFrame, viewport: sceneViewportBounds)
+        moveCamera(to: destination) { [weak self, weak addCard] in
+            guard let self, let addCard else { return }
+            self.window?.makeFirstResponder(addCard)
+        }
+    }
+
+    private func leaveInlineTerminalCreation() {
+        addTerminalCardView?.removeFromSuperview()
+        addTerminalCardView = nil
+        mapEditOverlay?.isHidden = false
+        if let addTerminalTileView,
+           let index = activeSessionTiles.firstIndex(where: { $0 === addTerminalTileView })
+        {
+            selectedIndex = index
+            updateSelection()
+        }
+        moveCamera { [weak self] in
+            guard let self, let overlay = self.mapEditOverlay else { return }
+            self.window?.makeFirstResponder(overlay)
+        }
+    }
+
+    private func selectInlineRemovalTarget(workspaceID: String?, tileID: String?) {
+        if currentWorkspace == nil, let workspaceID,
+           let index = workspaceClusters.firstIndex(where: {
+               $0.workspaceID == workspaceID && $0.renderingMode == .workspace
+           })
+        {
+            select(index)
+        } else if currentWorkspace != nil {
+            let index = tileID.flatMap { tileID in
+                activeSessionTiles.firstIndex(where: {
+                    $0.session.tileID == tileID && $0.renderingMode == .terminal
+                })
+            } ?? activeSessionTiles.firstIndex(where: { $0.renderingMode == .terminal })
+            if let index { select(index) }
+        }
+    }
+
+    private func beginInlineRemoval() {
+        if currentWorkspace == nil {
+            guard workspaceClusters.indices.contains(selectedIndex) else { return }
+            let cluster = workspaceClusters[selectedIndex]
+            guard cluster.renderingMode == .workspace,
+                  let workspace = workspaces.first(where: { $0.id == cluster.workspaceID })
+            else { return }
+            let count = persistedSessionTiles.count { $0.session.workspaceID == workspace.id }
+            presentInlineConfirmation(
+                in: cluster,
+                heading: "Close workspace \(workspace.name)?",
+                message: "This terminates \(count) terminal \(count == 1 ? "process" : "processes") and removes the workspace from Machinen.",
+                consequence: "Files in the terminals' working directories are not deleted.",
+                confirmTitle: "Close workspace"
+            ) { [weak self] in
+                self?.closeWorkspace(workspace.name)
+            }
+            return
+        }
+
+        let sessions = activeSessionTiles
+        guard sessions.indices.contains(selectedIndex) else { return }
+        let tile = sessions[selectedIndex]
+        guard tile.renderingMode == .terminal else { return }
+        presentInlineConfirmation(
+            in: tile,
+            heading: "Disconnect terminal \(tile.session.name)?",
+            message: "This removes the terminal tile and disconnects its viewer.",
+            consequence: "The native session, PTY, and process continue running and remain available for reconnection.",
+            confirmTitle: "Disconnect terminal"
+        ) { [weak self, weak tile] in
+            guard let self, let tile else { return }
+            self.bufferCloseSession(tile)
+        }
+    }
+
+    private func presentInlineConfirmation(
+        in host: NSView,
+        heading: String,
+        message: String,
+        consequence: String,
+        confirmTitle: String,
+        action: @escaping @MainActor () -> Void
+    ) {
+        guard inlineConfirmationView == nil else { return }
+        mapEditOverlay?.isHidden = true
+        let confirmation = ActionConfirmationView(
+            frame: host.bounds,
+            heading: heading,
+            message: message,
+            consequence: consequence,
+            confirmTitle: confirmTitle
+        )
+        confirmation.autoresizingMask = [.width, .height]
+        confirmation.layer?.zPosition = 2_000
+        confirmation.onCancel = { [weak self] in
+            self?.dismissMapEditOverlay()
+        }
+        confirmation.onConfirm = { [weak self] in
+            guard let self else { return }
+            self.dismissMapEditOverlay(restorePreviousView: false)
+            action()
+        }
+        inlineConfirmationView = confirmation
+        presentedOverlay = confirmation
+        host.addSubview(confirmation)
+        window?.makeFirstResponder(confirmation)
+        let hostFrame = host.convert(host.bounds, to: sceneView)
+        let destination = cameraBounds(for: hostFrame, viewport: sceneViewportBounds)
+        moveCamera(to: destination) { [weak self, weak confirmation] in
+            guard let self, let confirmation else { return }
+            self.window?.makeFirstResponder(confirmation)
+        }
+    }
+
+    private func leaveInlineRemoval() {
+        guard let confirmation = inlineConfirmationView else { return }
+        confirmation.removeFromSuperview()
+        if presentedOverlay === confirmation { presentedOverlay = nil }
+        inlineConfirmationView = nil
+        mapEditOverlay?.isHidden = false
         moveCamera { [weak self] in
             guard let self, let overlay = self.mapEditOverlay else { return }
             self.window?.makeFirstResponder(overlay)
@@ -3421,8 +3577,6 @@ final class TerminalDeckView: NSView {
         palette.onDismiss = { [weak self] in
             if returnToCommands {
                 self?.toggleCommandPalette()
-            } else if self?.mapEditReturnState != nil {
-                self?.cancelMapEditCreation()
             } else {
                 self?.dismissCommandPalette()
             }
@@ -3452,7 +3606,6 @@ final class TerminalDeckView: NSView {
         switch command.id {
         case .createShell:
             dismissCommandPalette()
-            mapEditReturnState = nil
             createPersistentSession(
                 workspace: workspace,
                 name: nextAvailableSessionName(base: "shell", workspace: workspace),
@@ -3502,7 +3655,6 @@ final class TerminalDeckView: NSView {
         palette.onSubmit = { [weak self] command in
             guard let self else { return }
             self.dismissCommandPalette()
-            self.mapEditReturnState = nil
             let executable = command.split(separator: " ").first.map(String.init) ?? "command"
             self.createPersistentSession(
                 workspace: workspace,
@@ -3550,13 +3702,6 @@ final class TerminalDeckView: NSView {
                 )
             }
         }
-    }
-
-    private func cancelMapEditCreation() {
-        dismissCommandPalette()
-        guard let returnState = mapEditReturnState else { return }
-        mapEditReturnState = nil
-        restoreMapEditReturnState(returnState)
     }
 
     private func dismissCommandPalette() {
@@ -6064,8 +6209,24 @@ final class TerminalDeckView: NSView {
     }
 
     func performShortcut(_ action: DesktopShortcutAction) -> Bool {
-        if let addWorkspaceCardView, addWorkspaceCardView.window?.firstResponder === addWorkspaceCardView {
+        if let addWorkspaceCardView,
+           addWorkspaceCardView.window?.firstResponder === addWorkspaceCardView
+        {
             return addWorkspaceCardView.performShortcut(action)
+        }
+        if let addTerminalCardView,
+           addTerminalCardView.window?.firstResponder === addTerminalCardView
+        {
+            return addTerminalCardView.performShortcut(action)
+        }
+        if let inlineConfirmationView,
+           inlineConfirmationView.window?.firstResponder === inlineConfirmationView
+        {
+            if action == .leave {
+                leaveInlineRemoval()
+                return true
+            }
+            return inlineConfirmationView.performShortcut(action)
         }
         switch action {
         case .enter:
@@ -6347,11 +6508,23 @@ final class TerminalDeckView: NSView {
             return
         }
         guard !isTransitioning, !isPeeking else { return }
-        if currentWorkspace == nil {
-            confirmCloseSelectedWorkspace()
-        } else if let tile = selectedSessionTile() {
-            bufferCloseSession(tile)
+        let workspaceID = currentWorkspace == nil ? selectedWorkspaceID() : currentWorkspace
+        let tileID = currentWorkspace == nil
+            ? nil
+            : selectedSessionTile().flatMap { tile in
+                tile.renderingMode == .terminal ? tile.session.tileID : nil
+            }
+        if mapEditOverlay != nil {
+            selectInlineRemovalTarget(workspaceID: workspaceID, tileID: tileID)
+            beginInlineRemoval()
+            return
         }
+        presentMapEditOverlay(
+            onPresented: { [weak self] in
+                self?.selectInlineRemovalTarget(workspaceID: workspaceID, tileID: tileID)
+            },
+            onReady: { [weak self] in self?.beginInlineRemoval() }
+        )
     }
 
     private func nextAvailableWorkspaceName(base requestedBase: String = "workspace") -> String {

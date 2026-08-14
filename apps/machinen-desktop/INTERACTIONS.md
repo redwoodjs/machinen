@@ -41,7 +41,7 @@ discovery use the workspace directory as their project boundary.
 | `⌘K` / `⇧⌘K`    | Open commands for the current and containing spaces.                               |
 | `⌘E` or `⇧⌘E`   | Open or close the action overlay for the visible map level.                        |
 | `⌘O`            | Show the focused terminal's full context menu.                                     |
-| `⌘W`            | Disconnect a terminal; press again in its toast or panel to kill its session.      |
+| `⌘W`            | Enter the selected tile and verify its removal before any state changes.           |
 | Keyboard input  | In Terminal mode, the terminal receives all other keys and modifier combinations.  |
 | Arrow keys      | Move the selection only at the current overview level.                             |
 | `⇧` + arrows    | Reorder the selected pane or workspace in the chosen direction.                    |
@@ -157,9 +157,10 @@ configuration, and every terminal created in that workspace inherits it. The
 remote browser lists one directory level at a time over SSH, starting at the
 remote user's `$HOME`.
 
-The **New Terminal** tile can create a login shell or run an arbitrary command.
-The same choices remain available as a nested **New terminal…** command under
-`⌘K`. There is no separate `⌘T` launcher.
+The **New Terminal** tile contains its blue creation panel. It can create a login
+shell or run an arbitrary command without a detached palette. The same choices
+remain available as a nested **New terminal…** command under `⌘K`. There is no
+separate `⌘T` launcher.
 
 ## Open Selection With and context commands
 
@@ -367,8 +368,8 @@ layout, selection state, configured spatial shortcuts, mouse input, and Return
 action. A double-click does the same. Select a ghost card to attach its workspace.
 
 At the workspace level, `⌘E` or `⇧⌘E` keeps the workspace visible. A blue dashed
-**New Terminal** tile uses the ordinary tile layout and input. Return opens
-terminal creation. The overlay offers **Rename Workspace** and **Close
+**New Terminal** tile uses the ordinary tile layout and input. Return enters a
+centered blue creation panel inside that tile. The overlay offers **Rename Workspace** and **Close
 Workspace**. In terminal mode, the same shortcut always moves one level to the
 containing workspace. It then adds the New Terminal tile. The terminal count does
 not change this rule.
@@ -384,7 +385,8 @@ level that opened edit mode.
 
 `⌘W` never closes Machinen's macOS window:
 
-- Inside a workspace, `⌘W` removes the selected terminal tile and disconnects its viewer. The native session, PTY, and process tree continue running indefinitely, including for a singleton workspace. If a terminal has focus, the camera returns to the workspace map. Machinen never focuses the next terminal automatically.
+- Inside a workspace, `⌘W` opens edit mode, selects the current terminal tile, and enters a red verification panel inside that tile. No state changes before Return confirms the action. Confirmation removes the tile and disconnects its viewer. The native session, PTY, and process tree continue running indefinitely, including for a singleton workspace. If a terminal has focus, the camera returns to the workspace map. Machinen never focuses the next terminal automatically.
+- In the workspace overview, `⌘W` enters the selected workspace tile and shows the same in-tile verification model before workspace removal.
 - A three-second toast offers **Reconnect `⌘Z`** and **Kill `⌘W`**. Pressing `⌘W` again while the toast is visible kills the disconnected session.
 - The status bar counts sessions that are not attached to Desktop. Its item and `⌘K` → **Sessions…** open the app-wide session browser with attachment, client, and control state. Return attaches, detaches, or takes control as appropriate; Delete or `⌘W` kills a selected session.
 - `⇧⌘T` reconnects the latest disconnected terminal in the selected workspace and restores its former position.

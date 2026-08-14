@@ -346,6 +346,272 @@ final class AddWorkspaceCardView: NSView {
     }
 }
 
+final class AddTerminalCardView: NSView {
+    private enum Phase { case choice, command }
+    private var phase: Phase = .choice
+    private var selectedIndex = 0
+    private var command = ""
+    var onCancel: (() -> Void)?
+    var onLeave: (() -> Void)?
+    var onCreateShell: (() -> Void)?
+    var onRunCommand: ((String) -> Void)?
+
+    override var isFlipped: Bool { true }
+    override var isOpaque: Bool { false }
+    override var acceptsFirstResponder: Bool { true }
+
+    var displayedPanelFrame: NSRect { panelRect() }
+    var selectedActionTitle: String { selectedIndex == 0 ? "New login shell" : "Run command…" }
+    var isEnteringCommand: Bool { phase == .command }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.systemBlue.withAlphaComponent(0.10).setFill()
+        bounds.fill()
+        let tilePath = NSBezierPath(
+            roundedRect: bounds.insetBy(dx: 2, dy: 2),
+            xRadius: 16,
+            yRadius: 16
+        )
+        tilePath.setLineDash([9, 7], count: 2, phase: 0)
+        NSColor.systemBlue.withAlphaComponent(0.90).setStroke()
+        tilePath.lineWidth = 3
+        tilePath.stroke()
+
+        let panel = panelRect()
+        NSColor(calibratedWhite: 0.09, alpha: 0.96).setFill()
+        NSColor.systemBlue.withAlphaComponent(0.86).setStroke()
+        let panelPath = NSBezierPath(roundedRect: panel, xRadius: 8, yRadius: 8)
+        panelPath.fill()
+        panelPath.lineWidth = 2
+        panelPath.stroke()
+
+        drawText(
+            phase == .choice ? "NEW TERMINAL  ·  TYPE" : "NEW TERMINAL  ·  COMMAND",
+            in: NSRect(x: panel.minX + 13, y: panel.minY + 9, width: panel.width - 26, height: 14),
+            size: 9,
+            color: NSColor.systemBlue
+        )
+
+        let search = searchRect(in: panel)
+        drawDivider(y: search.maxY - 0.5, panel: panel)
+        let value = phase == .command ? command : ""
+        let placeholder = phase == .choice ? "Choose what this terminal runs…" : "Enter a command…"
+        drawText(
+            ">  \(value.isEmpty ? placeholder : value)\(value.isEmpty ? "" : "_")",
+            in: NSRect(x: search.minX + 14, y: search.minY + 14, width: search.width - 28, height: 22),
+            size: 15,
+            color: value.isEmpty
+                ? NSColor(calibratedWhite: 0.42, alpha: 1)
+                : NSColor(calibratedWhite: 0.93, alpha: 1)
+        )
+
+        if phase == .choice {
+            drawChoice(
+                index: 0,
+                title: "New login shell",
+                detail: "$SHELL -l",
+                panel: panel
+            )
+            drawChoice(
+                index: 1,
+                title: "Run command…",
+                detail: ">",
+                panel: panel
+            )
+        }
+
+        let footer = footerRect(in: panel)
+        drawDivider(y: footer.minY + 0.5, panel: panel)
+        let help = phase == .choice
+            ? "↑↓ select    return continue    esc cancel"
+            : "return create    esc cancel"
+        drawText(
+            help,
+            in: NSRect(x: footer.minX + 13, y: footer.minY + 8, width: footer.width - 26, height: 14),
+            size: 9,
+            color: NSColor(calibratedWhite: 0.43, alpha: 1)
+        )
+    }
+
+    override func keyDown(with event: NSEvent) {
+        switch phase {
+        case .choice:
+            switch event.keyCode {
+            case 53: onCancel?()
+            case 125, 126: return
+            case 36, 76: activateChoice()
+            default:
+                if let text = printableText(from: event) {
+                    selectedIndex = 1
+                    phase = .command
+                    command = text
+                    needsDisplay = true
+                } else {
+                    super.keyDown(with: event)
+                }
+            }
+        case .command:
+            switch event.keyCode {
+            case 53:
+                onCancel?()
+            case 36, 76:
+                submitCommand()
+            case 51:
+                if !command.isEmpty {
+                    command.removeLast()
+                    needsDisplay = true
+                }
+            default:
+                if let text = printableText(from: event) {
+                    command += text
+                    needsDisplay = true
+                } else {
+                    super.keyDown(with: event)
+                }
+            }
+        }
+    }
+
+    func performShortcut(_ action: DesktopShortcutAction) -> Bool {
+        switch action {
+        case .selectDown, .selectRight:
+            if phase == .choice {
+                selectedIndex = min(1, selectedIndex + 1)
+                needsDisplay = true
+            }
+            return true
+        case .selectUp, .selectLeft:
+            if phase == .choice {
+                selectedIndex = max(0, selectedIndex - 1)
+                needsDisplay = true
+            }
+            return true
+        case .enter:
+            if phase == .choice { activateChoice() } else { submitCommand() }
+            return true
+        case .leave:
+            onLeave?()
+            return true
+        default:
+            return false
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
+        guard phase == .choice else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        for index in 0...1 where choiceRect(index, panel: panelRect()).contains(point) {
+            selectedIndex = index
+            needsDisplay = true
+            if event.clickCount > 1 { activateChoice() }
+            return
+        }
+    }
+
+    private func printableText(from event: NSEvent) -> String? {
+        guard let text = event.characters, !text.isEmpty,
+              text.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
+        else { return nil }
+        return text
+    }
+
+    private func activateChoice() {
+        if selectedIndex == 0 {
+            onCreateShell?()
+        } else {
+            phase = .command
+            needsDisplay = true
+        }
+    }
+
+    private func submitCommand() {
+        let value = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        onRunCommand?(value)
+    }
+
+    private func panelRect() -> NSRect {
+        let width = min(650, max(320, bounds.width - 48))
+        let height = min(330, max(260, bounds.height - 48))
+        return NSRect(
+            x: bounds.midX - width / 2,
+            y: bounds.midY - height / 2,
+            width: width,
+            height: height
+        )
+    }
+
+    private func searchRect(in panel: NSRect) -> NSRect {
+        NSRect(x: panel.minX, y: panel.minY + 30, width: panel.width, height: 50)
+    }
+
+    private func footerRect(in panel: NSRect) -> NSRect {
+        NSRect(x: panel.minX, y: panel.maxY - 28, width: panel.width, height: 28)
+    }
+
+    private func choiceRect(_ index: Int, panel: NSRect) -> NSRect {
+        NSRect(
+            x: panel.minX + 7,
+            y: panel.minY + 90 + CGFloat(index) * 46,
+            width: panel.width - 14,
+            height: 42
+        )
+    }
+
+    private func drawChoice(index: Int, title: String, detail: String, panel: NSRect) {
+        let row = choiceRect(index, panel: panel)
+        if index == selectedIndex {
+            NSColor.systemBlue.withAlphaComponent(0.18).setFill()
+            NSBezierPath(roundedRect: row, xRadius: 4, yRadius: 4).fill()
+        }
+        drawText(
+            title,
+            in: NSRect(x: row.minX + 9, y: row.minY + 7, width: row.width - 130, height: 16),
+            size: 11,
+            color: index == selectedIndex
+                ? NSColor.systemBlue
+                : NSColor(calibratedWhite: 0.76, alpha: 1)
+        )
+        drawText(
+            detail,
+            in: NSRect(x: row.maxX - 120, y: row.minY + 7, width: 105, height: 16),
+            size: 10,
+            color: NSColor(calibratedWhite: 0.43, alpha: 1),
+            alignment: .right
+        )
+    }
+
+    private func drawDivider(y: CGFloat, panel: NSRect) {
+        NSColor.systemBlue.withAlphaComponent(0.32).setStroke()
+        let divider = NSBezierPath()
+        divider.move(to: NSPoint(x: panel.minX, y: y))
+        divider.line(to: NSPoint(x: panel.maxX, y: y))
+        divider.lineWidth = 1
+        divider.stroke()
+    }
+
+    private func drawText(
+        _ text: String,
+        in rect: NSRect,
+        size: CGFloat,
+        color: NSColor,
+        alignment: NSTextAlignment = .left
+    ) {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = alignment
+        paragraph.lineBreakMode = .byTruncatingTail
+        NSAttributedString(string: text, attributes: [
+            .font: NSFont.monospacedSystemFont(ofSize: size, weight: .medium),
+            .foregroundColor: color,
+            .paragraphStyle: paragraph,
+        ]).draw(in: rect)
+    }
+}
+
 struct MapEditAction {
     let id: String
     let title: String

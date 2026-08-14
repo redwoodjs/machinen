@@ -94,13 +94,17 @@ enum InteractionTestRunner {
         try expect(snapshot.tiles.count == 1, "⌘N immediately created a terminal")
 
         RunLoop.current.run(until: Date().addingTimeInterval(0.55))
-        let terminalPalette = try harness.commandPalette(in: deck)
+        guard let terminalCard = newTerminal.subviews.first(where: {
+            $0 is AddTerminalCardView
+        }) as? AddTerminalCardView else {
+            throw InteractionTestFailure("⌘N did not open creation inside the New Terminal tile")
+        }
         try expect(
-            terminalPalette.displayedContext == "workspace: alpha"
-                && !deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            window.firstResponder === terminalCard
+                && terminalCard.selectedActionTitle == "New login shell",
             "⌘N did not enter the selected New Terminal tile"
         )
-        try harness.pressReturn(on: terminalPalette)
+        try harness.pressReturn(on: terminalCard)
         snapshot = try harness.snapshot(of: deck)
         try expect(
             snapshot.tiles.count == 2 && Set(snapshot.tiles.map(\.workspaceId)) == ["ws_alpha"],
@@ -111,7 +115,25 @@ enum InteractionTestRunner {
         let focusedBeforeCancel = try harness.focusedTileID(of: deck)
         deck.createNewWorkspaceOrTerminal()
         RunLoop.current.run(until: Date().addingTimeInterval(0.55))
-        try harness.pressEscape(on: harness.commandPalette(in: deck))
+        guard let cancelCard = deck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? TerminalTileView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? AddTerminalCardView })
+            .first
+        else {
+            throw InteractionTestFailure("⌘N did not reopen inline terminal creation")
+        }
+        try expect(
+            cancelCard.performShortcut(.selectDown)
+                && cancelCard.performShortcut(.enter)
+                && cancelCard.isEnteringCommand,
+            "the inline terminal panel did not enter its command form"
+        )
+        try harness.type("echo ready", into: cancelCard)
+        try harness.pressEscape(on: cancelCard)
         RunLoop.current.run(until: Date().addingTimeInterval(0.30))
         try expect(
             try harness.uiLevel(of: deck) == "terminal"
@@ -308,12 +330,19 @@ enum InteractionTestRunner {
                 && singletonDeck.performShortcut(.enter),
             "the New Terminal tile did not use ordinary tile activation"
         )
-        guard let terminalPalette = singletonDeck.subviews.first(where: {
-            $0 is CommandPaletteView
-        }) else {
-            throw InteractionTestFailure("the New Terminal tile did not open terminal creation")
+        guard let activeNewTerminalTile = singletonDeck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? TerminalTileView })
+            .first(where: { $0.renderingMode == .newTerminal }),
+              let terminalCard = activeNewTerminalTile.subviews.first(where: {
+                  $0 is AddTerminalCardView
+              })
+        else {
+            throw InteractionTestFailure("the New Terminal tile did not open inline terminal creation")
         }
-        try harness.pressReturn(on: terminalPalette)
+        try harness.pressReturn(on: terminalCard)
         try expect(
             try harness.snapshot(of: singletonDeck).tiles.count == 2
                 && !singletonDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
@@ -2839,9 +2868,20 @@ enum InteractionTestRunner {
             try expect(session.state == .running, "Ghostty did not attach its test viewer")
         }
 
+        func inlineConfirmation(in view: NSView) -> ActionConfirmationView? {
+            if let confirmation = view as? ActionConfirmationView { return confirmation }
+            return view.subviews.lazy.compactMap(inlineConfirmation).first
+        }
+
         try waitForRunningViewer()
         for _ in 0..<8 {
             deck.handleCommandW()
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.55))
+            guard let confirmation = inlineConfirmation(in: deck) else {
+                throw InteractionTestFailure("the renderer test did not show its in-tile confirmation")
+            }
+            _ = confirmation.performShortcut(.enter)
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.25))
             try expect(deck.canReopenClosedTerminal, "the renderer test did not disconnect its viewer")
             window.contentView?.layoutSubtreeIfNeeded()
             window.displayIfNeeded()
@@ -3417,17 +3457,60 @@ enum InteractionTestRunner {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [harness.workspace("solo", terminalCount: 1)])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 960, height: 640),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        window.makeFirstResponder(deck)
+        deck.layoutSubtreeIfNeeded()
 
         deck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        let confirmation = try harness.inlineConfirmation(in: deck)
         var snapshot = try harness.snapshot(of: deck)
+        try expect(
+            snapshot.tiles.count == 1 && confirmation.superview is TerminalTileView,
+            "⌘W changed the terminal before its in-tile confirmation"
+        )
+        try harness.pressEscape(on: confirmation)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(
+            try harness.uiLevel(of: deck) == "terminal"
+                && (try harness.focusedTileID(of: deck)) == "tile_solo_0",
+            "cancelling the in-tile confirmation did not restore the terminal"
+        )
+
+        try harness.confirmCommandW(in: deck)
+        snapshot = try harness.snapshot(of: deck)
         try expect(snapshot.workspaces.count == 1, "⌘W closed a singleton workspace")
-        try expect(snapshot.tiles.isEmpty, "⌘W did not disconnect the singleton terminal")
+        try expect(snapshot.tiles.isEmpty, "confirmed ⌘W did not disconnect the singleton terminal")
         try expect(deck.canReopenClosedTerminal, "the singleton session was not reconnectable")
 
         deck.handleCommandW()
         snapshot = try harness.snapshot(of: deck)
         try expect(snapshot.workspaces.count == 1, "a second ⌘W closed the workspace")
         try expect(!deck.canReopenClosedTerminal, "a second ⌘W did not kill the session")
+
+        let overviewDeck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 1),
+            harness.workspace("beta", terminalCount: 1),
+        ])
+        window.contentView = overviewDeck
+        window.makeFirstResponder(overviewDeck)
+        overviewDeck.layoutSubtreeIfNeeded()
+        overviewDeck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        let workspaceConfirmation = try harness.inlineConfirmation(in: overviewDeck)
+        try expect(
+            workspaceConfirmation.superview is WorkspaceClusterView
+                && (try harness.snapshot(of: overviewDeck)).workspaces.count == 2,
+            "⌘W changed the workspace before its in-tile confirmation"
+        )
+        try harness.pressEscape(on: workspaceConfirmation)
     }
 
     private static func disconnectedTerminalsCanReconnectOrBeKilled() throws {
@@ -3454,6 +3537,15 @@ enum InteractionTestRunner {
         try expect(try harness.uiLevel(of: deck) == "terminal",
                    "the close proof did not focus its terminal")
         deck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        let confirmation = try harness.inlineConfirmation(in: deck)
+        try expect(
+            try harness.snapshot(of: deck).tiles.count == 4
+                && confirmation.superview is TerminalTileView,
+            "⌘W changed the terminal before its in-tile confirmation"
+        )
+        try harness.pressReturn(on: confirmation)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         try expect(
             try harness.uiLevel(of: deck) == "workspace"
                 && (try harness.focusedTileID(of: deck)) == nil,
@@ -3507,7 +3599,8 @@ enum InteractionTestRunner {
         )
         try expect(!deck.canReopenClosedTerminal, "reconnect left the session disconnected")
 
-        deck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try harness.confirmCommandW(in: deck)
         try expect(deck.canRestoreUndoToast, "the toast did not enable its reconnect shortcut")
         deck.restoreUndoToastTerminal()
         try expect(
@@ -3515,12 +3608,14 @@ enum InteractionTestRunner {
             "the toast's ⌘Z shortcut did not reconnect its session"
         )
 
-        deck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try harness.confirmCommandW(in: deck)
         deck.handleCommandW()
         try expect(!deck.canReopenClosedTerminal, "a second ⌘W did not kill the session")
         try expect(try harness.snapshot(of: deck).tiles.count == 3, "killing restored a tile")
 
-        deck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try harness.confirmCommandW(in: deck)
         deck.toggleAvailableSessions()
         let killPanel = try harness.availableSessions(in: deck)
         deck.handleCommandW()
@@ -4072,6 +4167,24 @@ private final class Harness {
             throw InteractionTestFailure("the command palette did not open")
         }
         return palette
+    }
+
+    func inlineConfirmation(in deck: TerminalDeckView) throws -> ActionConfirmationView {
+        func find(in view: NSView) -> ActionConfirmationView? {
+            if let confirmation = view as? ActionConfirmationView { return confirmation }
+            return view.subviews.lazy.compactMap(find).first
+        }
+        guard let confirmation = find(in: deck) else {
+            throw InteractionTestFailure("the selected tile did not show its confirmation")
+        }
+        return confirmation
+    }
+
+    func confirmCommandW(in deck: TerminalDeckView) throws {
+        deck.handleCommandW()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        try pressReturn(on: inlineConfirmation(in: deck))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.25))
     }
 
     func hasCommandPalette(in deck: TerminalDeckView) -> Bool {
