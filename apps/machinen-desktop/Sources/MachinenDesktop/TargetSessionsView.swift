@@ -108,35 +108,14 @@ final class TargetSessionsView: NSView {
         palette?.keyDown(with: event)
     }
 
-    /// Open at the requested hierarchy level. The caller can pass a terminal,
-    /// workspace, or host. A terminal opens at its action level.
-    func select(
-        targetID: String,
-        workspaceID: String? = nil,
-        terminalID: String? = nil
-    ) {
-        if let terminalID {
-            requestedSessionID = terminalID
-            level = .session(targetID: targetID, sessionID: terminalID)
-        } else if let workspaceID {
-            level = .workspace(targetID: targetID, workspaceID: workspaceID)
-        } else {
-            level = .computer(targetID)
-        }
-        validateLevel()
-        rebuildPalette()
-    }
-
     func selectSession(_ sessionID: String) {
         guard let item = items.first(where: { $0.sessionID == sessionID }) else {
             requestedSessionID = sessionID
             return
         }
-        select(
-            targetID: item.targetID,
-            workspaceID: item.parentWorkspaceID,
-            terminalID: sessionID
-        )
+        requestedSessionID = sessionID
+        level = .workspace(targetID: item.targetID, workspaceID: item.parentWorkspaceID)
+        rebuildPalette()
     }
 
     private func rebuildPalette() {
