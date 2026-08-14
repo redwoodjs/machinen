@@ -817,16 +817,23 @@ final class MachinenTerminalView: NSView, @preconcurrency NSTextInputClient {
         if let character = event.charactersIgnoringModifiers?.lowercased(),
            (character == "k" && (modifiers == [.command] || modifiers == [.command, .shift]))
                || (character == "o" && modifiers == [.command])
+               || (character == "e" && modifiers == [.command])
         {
             var ancestor = superview
             while let view = ancestor {
                 if let deck = view as? TerminalDeckView {
-                    if character == "k" {
-                        InputRoutingLog.log("terminal routes command-k directly to command palette")
+                    switch character {
+                    case "k":
+                        InputRoutingLog.log("terminal routes command-k to host browser")
                         deck.toggleCommandPalette()
-                    } else {
+                    case "o":
                         InputRoutingLog.log("terminal routes command-o directly to terminal menu")
                         deck.showTerminalContextMenu()
+                    case "e":
+                        InputRoutingLog.log("terminal routes command-e to map edit overlay")
+                        deck.toggleMapEditOverlay()
+                    default:
+                        break
                     }
                     return true
                 }

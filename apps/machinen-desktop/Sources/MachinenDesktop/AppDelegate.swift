@@ -174,6 +174,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         alternateCommandsItem.allowsKeyEquivalentWhenHidden = true
         appMenu.addItem(alternateCommandsItem)
 
+        let editMapItem = NSMenuItem(
+            title: "Edit Map",
+            action: #selector(toggleMapEdit),
+            keyEquivalent: "e"
+        )
+        editMapItem.keyEquivalentModifierMask = [.command]
+        editMapItem.target = self
+        appMenu.addItem(editMapItem)
+
         let terminalMenuItem = NSMenuItem(
             title: "Terminal Menu…",
             action: #selector(showTerminalMenu),
@@ -319,6 +328,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func toggleCommands() {
         deck?.toggleCommandPalette()
+    }
+
+    @objc private func toggleMapEdit() {
+        deck?.toggleMapEditOverlay()
     }
 
     @objc private func showTerminalMenu() {

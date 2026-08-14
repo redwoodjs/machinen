@@ -163,6 +163,7 @@ final class TerminalDeckView: NSView {
     private var locationValidationProcess: Process?
     private let remotePathCompleter = RemoteWorkspacePathCompleter()
     private var presentedOverlay: NSView?
+    private var mapEditOverlay: MapEditOverlayView?
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
     private var cameraAnimationTimer: Timer?
@@ -2068,12 +2069,7 @@ final class TerminalDeckView: NSView {
         clearLabelBuffer()
     }
 
-    func toggleTargetSessions(
-        anchor: NSRect? = nil,
-        selecting sessionID: String? = nil,
-        selectingWorkspaceID: String? = nil,
-        targetID: String? = nil
-    ) {
+    func toggleTargetSessions(anchor: NSRect? = nil, selecting sessionID: String? = nil) {
         guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
         if targetSessionsView != nil {
             dismissTargetSessions()
@@ -2092,15 +2088,7 @@ final class TerminalDeckView: NSView {
         targetSessionsView = view
         addSubview(view, positioned: .above, relativeTo: statusBarView)
         refreshTargetSessionsView()
-        if let targetID {
-            view.select(
-                targetID: targetID,
-                workspaceID: selectingWorkspaceID,
-                terminalID: sessionID
-            )
-        } else if let sessionID {
-            view.selectSession(sessionID)
-        }
+        if let sessionID { view.selectSession(sessionID) }
         window?.makeFirstResponder(view)
     }
 
@@ -2702,26 +2690,98 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    func toggleCommandPalette() {
-        InputRoutingLog.log("host browser requested")
-        guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
-        if targetSessionsView != nil {
-            dismissTargetSessions()
+    func toggleMapEditOverlay() {
+        guard !isTransitioning, !isPeeking else { return }
+        if mapEditOverlay != nil {
+            dismissMapEditOverlay()
             return
         }
-        if availableSessionsView != nil { dismissAvailableSessions() }
-        if commandPalette != nil { dismissCommandPalette() }
+        guard presentedOverlay == nil, commandPalette == nil, targetSessionsView == nil,
+              availableSessionsView == nil
+        else { return }
 
-        let workspaceID = selectedWorkspaceID()
-        let terminalID = selectedSession()?.id
-        let location = workspaceID.flatMap { id in
-            workspaces.first(where: { $0.id == id })?.location
-        } ?? selectedSession()?.location
-        toggleTargetSessions(
-            selecting: terminalID,
-            selectingWorkspaceID: workspaceID,
-            targetID: location.flatMap(targetID(for:)) ?? "local"
+        let actions: [MapEditAction]
+        if focusedIndex != nil, selectedSessionTile() != nil {
+            actions = [
+                MapEditAction(id: "new", title: "+ New terminal", detail: "choose a workspace"),
+                MapEditAction(id: "detach", title: "⊘ Detach", detail: "terminal keeps running"),
+                MapEditAction(id: "kill", title: "× Kill terminal", detail: "stop and remove"),
+            ]
+        } else if currentWorkspace != nil, selectedWorkspaceID() != nil {
+            actions = [
+                MapEditAction(id: "new", title: "+ New terminal", detail: "choose what it runs"),
+                MapEditAction(id: "rename", title: "✎ Rename workspace", detail: "change its label"),
+                MapEditAction(id: "close", title: "× Close workspace", detail: "confirm before stop"),
+            ]
+        } else {
+            actions = [
+                MapEditAction(id: "workspace", title: "+ New workspace", detail: "choose a location"),
+                MapEditAction(id: "host", title: "+ Add host", detail: "connect over SSH"),
+            ]
+        }
+
+        let overlay = MapEditOverlayView(frame: bounds, actions: actions)
+        overlay.layer?.zPosition = 1_500
+        overlay.onDismiss = { [weak self] in self?.dismissMapEditOverlay() }
+        overlay.onAction = { [weak self] action in self?.runMapEditAction(action) }
+        mapEditOverlay = overlay
+        addSubview(overlay, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(overlay)
+    }
+
+    private func dismissMapEditOverlay() {
+        mapEditOverlay?.removeFromSuperview()
+        mapEditOverlay = nil
+        restoreInputFocus()
+    }
+
+    private func runMapEditAction(_ action: MapEditAction) {
+        dismissMapEditOverlay()
+        switch action.id {
+        case "new":
+            showNewItemPalette()
+        case "detach":
+            if let tile = selectedSessionTile() { bufferCloseSession(tile) }
+        case "kill":
+            confirmCloseSelectedSession()
+        case "rename":
+            showRenameWorkspacePalette()
+        case "close":
+            confirmCloseSelectedWorkspace()
+        case "workspace":
+            beginNewWorkspaceFlow(from: .newItem)
+        case "host":
+            beginUseAnotherComputer()
+        default:
+            break
+        }
+    }
+
+    func toggleCommandPalette() {
+        InputRoutingLog.log("command palette requested kind=\(String(describing: paletteKind))")
+        guard presentedOverlay == nil else { return }
+        if availableSessionsView != nil { dismissAvailableSessions() }
+        if commandPalette != nil {
+            let wasTopLevel = paletteKind == .commands
+            dismissCommandPalette()
+            if wasTopLevel { return }
+        }
+        guard !isTransitioning, !isPeeking else { return }
+
+        let palette = CommandPaletteView(
+            frame: bounds,
+            context: commandPaletteContext,
+            commands: workspacePaletteCommands()
         )
+        palette.layer?.zPosition = 1_000
+        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
+        palette.onRun = { [weak self, weak palette] command in
+            self?.runPaletteCommand(command, from: palette)
+        }
+        commandPalette = palette
+        paletteKind = .commands
+        addSubview(palette, positioned: .above, relativeTo: nil)
+        window?.makeFirstResponder(palette)
     }
 
     private func terminalSelectionContext(

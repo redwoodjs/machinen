@@ -38,7 +38,8 @@ discovery use the workspace directory as their project boundary.
 | `⇧⌘←` / `⇧⌘→`   | From Terminal mode, focus the previous/next pane in the current workspace.         |
 | `⇧⌘[` / `⇧⌘]`   | From Terminal mode, focus the active pane in the previous/next workspace.          |
 | `⌘N` / `⇧⌘N`    | Open the New chooser; never create a terminal or workspace immediately.            |
-| `⌘K` / `⇧⌘K`    | Open the single nested command menu for the current and containing spaces.         |
+| `⌘K` / `⇧⌘K`    | Open commands for the current and containing spaces.                               |
+| `⌘E`             | Open or close the action overlay for the visible map level.                         |
 | `⌘O`            | Show the focused terminal's full context menu.                                     |
 | `⌘W`            | Disconnect a terminal; press again in its toast or panel to kill its session.      |
 | Keyboard input  | In Terminal mode, the terminal receives all other keys and modifier combinations.  |
@@ -183,11 +184,10 @@ the latest OSC 7 directory, falling back to the terminal's launch directory. Tru
 `SelectionOpener` implementations perform precise validation and ordinary API
 operations such as creating a terminal or revealing a path in Finder.
 
-`⌘K` and the application menu's **Commands…** open one scoped discovery palette.
-The palette uses this hierarchy: **Host → Workspace → Terminal**. It opens at
-the selected terminal, workspace, or host. The header shows the current path.
-Escape and Backspace move one level out. Escape at the host level closes the
-palette. Search filters the current level. Search results show the full path.
+`⌘K` and the application menu's **Commands…** open commands for the current
+camera space and its containing spaces. `⌘E` opens an action overlay above the
+visible map. The overlay keeps cards visible and shows only actions for the
+current level. Escape and `⌘E` close the overlay.
 
 The menu contains seven built-in actions plus matching commands registered by
 trusted TypeScript services. **New workspace…** belongs to Workspace Overview;
@@ -338,12 +338,12 @@ remove stale live data.
 
 ## Hosts across computers
 
-`⌘K` opens the host browser. It starts at the current terminal, workspace, or
-host. The browser uses host → workspace → terminal → action. Type to filter the
-visible level. Use arrows and Return to move in. Use Escape to move out. Click
-a row to select it. The browser owns View, Take Control, and Detach. Machinen
-has no separate user-facing session manager. **Add Host…** accepts an OpenSSH
-alias or `user@host` and retains the existing OpenSSH/helper behavior.
+Status items open the host browser. The browser uses host → workspace → terminal
+→ action. Type to filter the visible level. Use arrows and Return to move in.
+Use Escape to move out. Click a row to select it. The browser owns View, Take
+Control, and Detach. Machinen has no separate user-facing session manager.
+**Add Host…** accepts an OpenSSH alias or `user@host` and retains the existing
+OpenSSH/helper behavior.
 
 **Add Workspace…** chooses a computer, folder, and name, then saves the native
 workspace record without opening it or creating a terminal. Enter on a workspace
@@ -358,6 +358,15 @@ responds with none, and **unreachable** when the last poll failed; unreachable i
 retained separately from inactive. Each computer has at most one poll in flight,
 and repeated failures use bounded backoff. Matching names or paths never merge
 workspace identities.
+
+## Map edit overlay
+
+`⌘E` opens an action overlay above the current map. The map stays visible. At
+the overview level, the overlay offers **New Workspace** and **Add Host**. At
+the workspace level, it offers **New Terminal**, **Rename Workspace**, and
+**Close Workspace**. At the terminal level, it offers **New Terminal**,
+**Detach**, and **Kill Terminal**. Detach removes this Desktop viewer and keeps
+the terminal process running. Kill needs confirmation.
 
 ## Disconnecting and killing
 
