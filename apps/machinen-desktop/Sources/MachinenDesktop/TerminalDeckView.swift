@@ -383,6 +383,9 @@ final class TerminalDeckView: NSView {
     }
 
     private func installTile(_ tile: TerminalTileView) {
+        if mapEditOverlay != nil {
+            dismissMapEditOverlay()
+        }
         tile.onSelect = { [weak self, weak tile] event in
             guard let self, let tile else { return }
             self.window?.makeFirstResponder(self)

@@ -260,9 +260,31 @@ enum InteractionTestRunner {
                 && singletonDeck.performShortcut(.enter),
             "the New Terminal tile did not use ordinary tile activation"
         )
+        guard let terminalPalette = singletonDeck.subviews.first(where: {
+            $0 is CommandPaletteView
+        }) else {
+            throw InteractionTestFailure("the New Terminal tile did not open terminal creation")
+        }
+        try harness.pressReturn(on: terminalPalette)
         try expect(
-            singletonDeck.subviews.contains(where: { $0 is CommandPaletteView }),
-            "the New Terminal tile did not open terminal creation"
+            try harness.snapshot(of: singletonDeck).tiles.count == 2
+                && !singletonDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "the added terminal tile did not exit map edit mode"
+        )
+
+        let externalDeck = harness.makeDeck(workspaces: [
+            harness.workspace("external", terminalCount: 1),
+        ])
+        externalDeck.toggleMapEditOverlay()
+        try expect(externalDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
+                   "the external tile proof did not enter map edit mode")
+        _ = try externalDeck.performAPIOperation("tile.create", params: [
+            "workspaceId": "ws_external",
+        ])
+        try expect(
+            !externalDeck.subviews.contains(where: { $0 is MapEditOverlayView })
+                && (try harness.snapshot(of: externalDeck).tiles.count) == 2,
+            "an externally added tile did not exit map edit mode"
         )
     }
 

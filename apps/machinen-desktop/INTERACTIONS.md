@@ -381,6 +381,7 @@ tile layout and input. Return opens terminal creation. The overlay offers
 **Rename Workspace** and **Close Workspace**. When a workspace has one terminal,
 `⌘E` or `⇧⌘E` leaves that terminal and shows this workspace map. At the terminal
 level, the overlay offers **New Terminal**, **Detach**, and **Kill Terminal**.
+Machinen exits map edit mode after any new terminal tile enters the workspace.
 Detach removes this Desktop viewer and keeps the terminal process
 running. Kill needs confirmation. Escape, `⌘E`, and `⇧⌘E` close the overlay.
 
