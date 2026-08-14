@@ -90,7 +90,7 @@ final class TargetSessionsView: NSView {
         autoresizingMask = [.width, .height]
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
-        setAccessibilityLabel("Sessions")
+        setAccessibilityLabel("Hosts")
         rebuildPalette()
     }
 
@@ -108,14 +108,35 @@ final class TargetSessionsView: NSView {
         palette?.keyDown(with: event)
     }
 
+    /// Open at the requested hierarchy level. The caller can pass a terminal,
+    /// workspace, or host. A terminal opens at its action level.
+    func select(
+        targetID: String,
+        workspaceID: String? = nil,
+        terminalID: String? = nil
+    ) {
+        if let terminalID {
+            requestedSessionID = terminalID
+            level = .session(targetID: targetID, sessionID: terminalID)
+        } else if let workspaceID {
+            level = .workspace(targetID: targetID, workspaceID: workspaceID)
+        } else {
+            level = .computer(targetID)
+        }
+        validateLevel()
+        rebuildPalette()
+    }
+
     func selectSession(_ sessionID: String) {
         guard let item = items.first(where: { $0.sessionID == sessionID }) else {
             requestedSessionID = sessionID
             return
         }
-        requestedSessionID = sessionID
-        level = .workspace(targetID: item.targetID, workspaceID: item.parentWorkspaceID)
-        rebuildPalette()
+        select(
+            targetID: item.targetID,
+            workspaceID: item.parentWorkspaceID,
+            terminalID: sessionID
+        )
     }
 
     private func rebuildPalette() {
@@ -124,7 +145,7 @@ final class TargetSessionsView: NSView {
         actions = configuration.actions
         let palette = CommandPaletteView(
             frame: bounds,
-            heading: "SESSIONS",
+            heading: "MACHINEN",
             context: configuration.context,
             placeholder: configuration.placeholder,
             defaultFooter: configuration.footer,
@@ -133,6 +154,7 @@ final class TargetSessionsView: NSView {
         )
         palette.autoresizingMask = [.width, .height]
         palette.onDismiss = { [weak self] in self?.navigateBack() }
+        palette.onBack = { [weak self] in self?.navigateBack() }
         palette.onRun = { [weak self] command in self?.run(command) }
         self.palette = palette
         addSubview(palette)
@@ -153,32 +175,32 @@ final class TargetSessionsView: NSView {
         let placeholder: String
         switch level {
         case .computers:
-            context = "computers"
-            placeholder = "Find a computer…"
+            context = "hosts"
+            placeholder = "Find a host…"
             for computer in targetItems {
                 let workspaces = workspaceItems(targetID: computer.targetID)
                 let sessions = sessionItems(targetID: computer.targetID)
                 let status = computer.state.displayTitle.lowercased()
                 entries.append((
                     computer.title,
-                    "\(status) · \(workspaces.count) \(workspaces.count == 1 ? "workspace" : "workspaces") · \(sessions.count) \(sessions.count == 1 ? "session" : "sessions")",
+                    "\(status) · \(workspaces.count) \(workspaces.count == 1 ? "workspace" : "workspaces") · \(sessions.count) \(sessions.count == 1 ? "terminal" : "terminals")",
                     .enterComputer(computer.targetID)
                 ))
             }
             entries.append(("Add Workspace…", "choose a computer and folder", .addWorkspace))
-            entries.append(("Use Another Computer…", "connect with SSH", .useComputer))
+            entries.append(("Add Host…", "connect with SSH", .useComputer))
 
         case let .computer(targetID):
             guard let computer = targetItem(targetID: targetID) else {
                 return rootConfiguration()
             }
-            context = "computers  ›  \(computer.title)"
+            context = "hosts  ›  \(computer.title)"
             placeholder = "Find a workspace…"
             for workspace in workspaceItems(targetID: targetID) {
                 let count = sessionItems(targetID: targetID, workspaceID: workspace.workspaceID).count
                 entries.append((
                     workspace.title,
-                    "\(count) \(count == 1 ? "session" : "sessions") · \(workspace.detail)",
+                    "\(count) \(count == 1 ? "terminal" : "terminals") · \(workspace.detail)",
                     .enterWorkspace(targetID: targetID, workspaceID: workspace.workspaceID)
                 ))
             }
@@ -187,11 +209,11 @@ final class TargetSessionsView: NSView {
             if targetID != "local" {
                 entries.append((
                     "Stop Using \(computer.title)…",
-                    "sessions keep running",
+                    "terminals keep running",
                     .removeComputer(targetID)
                 ))
             }
-            entries.append(("Back to Computers…", "←", .back))
+            entries.append(("Back to Hosts…", "←", .back))
 
         case let .workspace(targetID, workspaceID):
             guard let computer = targetItem(targetID: targetID),
@@ -200,7 +222,7 @@ final class TargetSessionsView: NSView {
                 return computerConfiguration(targetID: targetID)
             }
             context = "\(computer.title)  ›  \(workspace.title)"
-            placeholder = "Find a session or action…"
+            placeholder = "Find a terminal or action…"
             entries.append(("Open Workspace", workspace.detail, .activate(workspace)))
             entries.append(("Close Workspace…", "undo available", .closeWorkspace(workspace)))
             for session in sessionItems(targetID: targetID, workspaceID: workspaceID) {
@@ -225,9 +247,9 @@ final class TargetSessionsView: NSView {
                 workspaceID: session.parentWorkspaceID
             )
             context = "\(computer.title)  ›  \(workspace?.title ?? "Unassigned")  ›  \(session.title)"
-            placeholder = "Choose a session action…"
+            placeholder = "Choose a terminal action…"
             entries.append((session.primaryActionTitle, session.detail, .activate(session)))
-            entries.append(("Kill Session…", "terminate the process", .killSession(session)))
+            entries.append(("Kill Terminal…", "terminate the process", .killSession(session)))
             entries.append(("Back to \(workspace?.title ?? "Workspace")…", "←", .back))
         }
 
@@ -389,8 +411,8 @@ final class TargetSessionsView: NSView {
 private extension TargetSessionBrowserItem {
     var primaryActionTitle: String {
         switch sessionAction {
-        case .attach, nil: "Attach Session"
-        case .detach: "Detach Session"
+        case .attach, nil: "View"
+        case .detach: "Detach"
         case .takeControl: "Take Control"
         }
     }

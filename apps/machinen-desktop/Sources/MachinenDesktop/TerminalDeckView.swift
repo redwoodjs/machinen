@@ -2068,7 +2068,12 @@ final class TerminalDeckView: NSView {
         clearLabelBuffer()
     }
 
-    func toggleTargetSessions(anchor: NSRect? = nil, selecting sessionID: String? = nil) {
+    func toggleTargetSessions(
+        anchor: NSRect? = nil,
+        selecting sessionID: String? = nil,
+        selectingWorkspaceID: String? = nil,
+        targetID: String? = nil
+    ) {
         guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
         if targetSessionsView != nil {
             dismissTargetSessions()
@@ -2087,7 +2092,15 @@ final class TerminalDeckView: NSView {
         targetSessionsView = view
         addSubview(view, positioned: .above, relativeTo: statusBarView)
         refreshTargetSessionsView()
-        if let sessionID { view.selectSession(sessionID) }
+        if let targetID {
+            view.select(
+                targetID: targetID,
+                workspaceID: selectingWorkspaceID,
+                terminalID: sessionID
+            )
+        } else if let sessionID {
+            view.selectSession(sessionID)
+        }
         window?.makeFirstResponder(view)
     }
 
@@ -2690,30 +2703,25 @@ final class TerminalDeckView: NSView {
     }
 
     func toggleCommandPalette() {
-        InputRoutingLog.log("command palette requested kind=\(String(describing: paletteKind))")
-        guard presentedOverlay == nil else { return }
+        InputRoutingLog.log("host browser requested")
+        guard presentedOverlay == nil, !isTransitioning, !isPeeking else { return }
+        if targetSessionsView != nil {
+            dismissTargetSessions()
+            return
+        }
         if availableSessionsView != nil { dismissAvailableSessions() }
-        if commandPalette != nil {
-            let wasTopLevel = paletteKind == .commands
-            dismissCommandPalette()
-            if wasTopLevel { return }
-        }
-        guard !isTransitioning, !isPeeking else { return }
+        if commandPalette != nil { dismissCommandPalette() }
 
-        let palette = CommandPaletteView(
-            frame: bounds,
-            context: commandPaletteContext,
-            commands: workspacePaletteCommands()
+        let workspaceID = selectedWorkspaceID()
+        let terminalID = selectedSession()?.id
+        let location = workspaceID.flatMap { id in
+            workspaces.first(where: { $0.id == id })?.location
+        } ?? selectedSession()?.location
+        toggleTargetSessions(
+            selecting: terminalID,
+            selectingWorkspaceID: workspaceID,
+            targetID: location.flatMap(targetID(for:)) ?? "local"
         )
-        palette.layer?.zPosition = 1_000
-        palette.onDismiss = { [weak self] in self?.dismissCommandPalette() }
-        palette.onRun = { [weak self, weak palette] command in
-            self?.runPaletteCommand(command, from: palette)
-        }
-        commandPalette = palette
-        paletteKind = .commands
-        addSubview(palette, positioned: .above, relativeTo: nil)
-        window?.makeFirstResponder(palette)
     }
 
     private func terminalSelectionContext(

@@ -183,14 +183,11 @@ the latest OSC 7 directory, falling back to the terminal's launch directory. Tru
 `SelectionOpener` implementations perform precise validation and ordinary API
 operations such as creating a terminal or revealing a path in Finder.
 
-`⌘K` and the application menu's **Commands…** organize commands around the
-three camera spaces: **Workspace Overview**, **Workspace**, and **Terminal**.
-The menu starts with the current space and cascades outward through its
-containing spaces. Workspace Overview therefore shows only overview commands;
-Workspace shows Workspace followed by Workspace Overview; and Terminal shows
-Terminal, Workspace, then Workspace Overview. Section headings keep each
-command's target explicit, and search preserves that section order while
-filtering the commands that are valid in the current context.
+`⌘K` and the application menu's **Commands…** open one scoped discovery palette.
+The palette uses this hierarchy: **Host → Workspace → Terminal**. It opens at
+the selected terminal, workspace, or host. The header shows the current path.
+Escape and Backspace move one level out. Escape at the host level closes the
+palette. Search filters the current level. Search results show the full path.
 
 The menu contains seven built-in actions plus matching commands registered by
 trusted TypeScript services. **New workspace…** belongs to Workspace Overview;
@@ -339,16 +336,14 @@ Machine widgets override global widgets, workspace widgets override machine
 widgets, and terminal widgets override workspace widgets with the same ID. TTLs
 remove stale live data.
 
-## Sessions across computers
+## Hosts across computers
 
-**Commands…** at Workspace Overview offers **Use another computer…** and
-**Sessions…**. The latter opens a Command-K-style hierarchical browser:
-computer → workspace → session → action. Type to filter each level, use arrows
-and Return to navigate, Escape to move back, or click any row. The same browser
-owns session attachment, detachment, connected-client, and control actions;
-there is no separate user-facing session manager. **Use
-Another Computer…** accepts an OpenSSH alias or `user@host` and retains the
-existing OpenSSH/helper behavior.
+`⌘K` opens the host browser. It starts at the current terminal, workspace, or
+host. The browser uses host → workspace → terminal → action. Type to filter the
+visible level. Use arrows and Return to move in. Use Escape to move out. Click
+a row to select it. The browser owns View, Take Control, and Detach. Machinen
+has no separate user-facing session manager. **Add Host…** accepts an OpenSSH
+alias or `user@host` and retains the existing OpenSSH/helper behavior.
 
 **Add Workspace…** chooses a computer, folder, and name, then saves the native
 workspace record without opening it or creating a terminal. Enter on a workspace
