@@ -2016,7 +2016,10 @@ final class TerminalDeckView: NSView {
             let tile = activeSessionTiles[index]
             if tile.renderingMode == .newTerminal {
                 guard let workspace = selectedWorkspaceRecord() else { return }
-                dismissMapEditOverlay(restorePreviousView: false)
+                dismissMapEditOverlay(
+                    restorePreviousView: false,
+                    preserveReturnState: true
+                )
                 showNewTerminalPalette(
                     workspace: workspace.name,
                     workingDirectory: workspace.workingDirectory,
@@ -2749,9 +2752,18 @@ final class TerminalDeckView: NSView {
             dismissMapEditOverlay()
             return
         }
-        guard presentedOverlay == nil, commandPalette == nil, targetSessionsView == nil,
+        presentMapEditOverlay()
+    }
+
+    @discardableResult
+    private func presentMapEditOverlay(
+        onPresented: (@MainActor () -> Void)? = nil,
+        onReady: (@MainActor () -> Void)? = nil
+    ) -> Bool {
+        guard !isTransitioning, !isPeeking,
+              presentedOverlay == nil, commandPalette == nil, targetSessionsView == nil,
               availableSessionsView == nil
-        else { return }
+        else { return false }
 
         mapEditReturnState = currentMapEditReturnState()
         if focusedIndex != nil {
@@ -2761,14 +2773,14 @@ final class TerminalDeckView: NSView {
 
         let actions: [MapEditAction]
         var cardActions: [MapEditCardAction] = []
-        if currentWorkspace != nil, selectedWorkspaceID() != nil {
+        let movesToWorkspaceMap = currentWorkspace != nil && selectedWorkspaceID() != nil
+        if movesToWorkspaceMap {
             actions = [
                 MapEditAction(id: "rename", title: "✎ Rename workspace", detail: "change its label"),
                 MapEditAction(id: "close", title: "× Close workspace", detail: "confirm before stop"),
             ]
             installEditTerminalTile()
             updateWorldGeometry()
-            moveCamera()
         } else {
             actions = []
             let attachedWorkspaceIDs = Set(workspaces.map(\.id))
@@ -2820,6 +2832,40 @@ final class TerminalDeckView: NSView {
         mapEditOverlay = overlay
         addSubview(overlay, positioned: .above, relativeTo: nil)
         window?.makeFirstResponder(overlay)
+        onPresented?()
+        if movesToWorkspaceMap {
+            moveCamera { [weak self, weak overlay] in
+                guard let self, let overlay, self.mapEditOverlay === overlay else { return }
+                onReady?()
+            }
+        } else {
+            onReady?()
+        }
+        return true
+    }
+
+    private func selectMapEditCreationTile() {
+        let index: Int?
+        if currentWorkspace == nil {
+            index = workspaceClusters.firstIndex { $0.renderingMode == .newWorkspace }
+        } else {
+            index = activeSessionTiles.firstIndex { $0.renderingMode == .newTerminal }
+        }
+        guard let index else { return }
+        select(index)
+    }
+
+    private func activateMapEditCreationTile() {
+        guard mapEditOverlay != nil, addWorkspaceCardView == nil else { return }
+        let index: Int?
+        if currentWorkspace == nil {
+            index = workspaceClusters.firstIndex { $0.renderingMode == .newWorkspace }
+        } else {
+            index = activeSessionTiles.firstIndex { $0.renderingMode == .newTerminal }
+        }
+        guard let index else { return }
+        select(index)
+        activate(index)
     }
 
     private func installEditTerminalTile() {
@@ -2886,9 +2932,14 @@ final class TerminalDeckView: NSView {
         )
     }
 
-    private func dismissMapEditOverlay(restorePreviousView: Bool = true) {
+    private func dismissMapEditOverlay(
+        restorePreviousView: Bool = true,
+        preserveReturnState: Bool = false
+    ) {
         let returnState = mapEditReturnState
-        mapEditReturnState = nil
+        if !preserveReturnState {
+            mapEditReturnState = nil
+        }
         mapEditOverlay?.removeFromSuperview()
         mapEditOverlay = nil
         addTerminalTileView?.removeFromSuperview()
@@ -3370,6 +3421,8 @@ final class TerminalDeckView: NSView {
         palette.onDismiss = { [weak self] in
             if returnToCommands {
                 self?.toggleCommandPalette()
+            } else if self?.mapEditReturnState != nil {
+                self?.cancelMapEditCreation()
             } else {
                 self?.dismissCommandPalette()
             }
@@ -3399,6 +3452,7 @@ final class TerminalDeckView: NSView {
         switch command.id {
         case .createShell:
             dismissCommandPalette()
+            mapEditReturnState = nil
             createPersistentSession(
                 workspace: workspace,
                 name: nextAvailableSessionName(base: "shell", workspace: workspace),
@@ -3448,6 +3502,7 @@ final class TerminalDeckView: NSView {
         palette.onSubmit = { [weak self] command in
             guard let self else { return }
             self.dismissCommandPalette()
+            self.mapEditReturnState = nil
             let executable = command.split(separator: " ").first.map(String.init) ?? "command"
             self.createPersistentSession(
                 workspace: workspace,
@@ -3495,6 +3550,13 @@ final class TerminalDeckView: NSView {
                 )
             }
         }
+    }
+
+    private func cancelMapEditCreation() {
+        dismissCommandPalette()
+        guard let returnState = mapEditReturnState else { return }
+        mapEditReturnState = nil
+        restoreMapEditReturnState(returnState)
     }
 
     private func dismissCommandPalette() {
@@ -6255,7 +6317,15 @@ final class TerminalDeckView: NSView {
     }
 
     func createNewWorkspaceOrTerminal() {
-        showNewItemPalette()
+        if mapEditOverlay != nil {
+            selectMapEditCreationTile()
+            activateMapEditCreationTile()
+            return
+        }
+        presentMapEditOverlay(
+            onPresented: { [weak self] in self?.selectMapEditCreationTile() },
+            onReady: { [weak self] in self?.activateMapEditCreationTile() }
+        )
     }
 
     func handleCommandW() {

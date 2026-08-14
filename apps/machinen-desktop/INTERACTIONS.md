@@ -37,7 +37,7 @@ discovery use the workspace directory as their project boundary.
 | `⇧⌘↑`           | Leave the current pane or workspace.                                               |
 | `⇧⌘←` / `⇧⌘→`   | From Terminal mode, focus the previous/next pane in the current workspace.         |
 | `⇧⌘[` / `⇧⌘]`   | From Terminal mode, focus the active pane in the previous/next workspace.          |
-| `⌘N` / `⇧⌘N`    | Open the New chooser; never create a terminal or workspace immediately.            |
+| `⌘N` / `⇧⌘N`    | Enter map edit mode, select the current creation tile, and enter that tile.        |
 | `⌘K` / `⇧⌘K`    | Open commands for the current and containing spaces.                               |
 | `⌘E` or `⇧⌘E`   | Open or close the action overlay for the visible map level.                        |
 | `⌘O`            | Show the focused terminal's full context menu.                                     |
@@ -121,20 +121,11 @@ source fades only after a five-point movement threshold.
 
 ## Creating terminals and workspaces
 
-`⌘N` always opens the same **New** chooser, regardless of the current camera
-level or whether a terminal is focused. It never silently assumes that the user
-wants another terminal in the current workspace, and opening or cancelling the
-chooser does not change persisted state.
-
-The chooser contains:
-
-1. **New workspace…**
-2. **New terminal in…**, followed by every existing workspace. The current
-   workspace may be highlighted as the suggested destination, but it is not
-   selected implicitly. Choosing a workspace creates a login-shell terminal
-   there and enters it.
-
-When no workspace exists, only **New workspace…** is available.
+`⌘N` enters the visual creation path for the current map level. In the workspace
+overview, it opens edit mode, selects the **Add Workspace** tile, and enters its
+form. At workspace or terminal level, it opens workspace edit mode, selects the
+**New Terminal** tile, and enters terminal creation. Opening or cancelling the
+flow does not change persisted state.
 
 ### New workspace flow
 
@@ -154,9 +145,9 @@ Creating a workspace chooses its default location before naming it:
 4. Machinen saves the workspace in the native store, creates its initial
    login-shell terminal, and enters it.
 
-Escape always moves back one dialog or remote parent-directory level; it closes
-the dialog only from the top-level New chooser. Picking a registered location
-restores its workspace; a location without a native record creates a new one.
+Escape leaves the active creation view without a persisted change. Picking a
+registered location restores its workspace; a location without a native record
+creates a new one.
 
 **SSH is a workspace location, not a special terminal type.** The SSH flow asks
 for an OpenSSH host or alias (for example `mini` or `peter@server`) and then a
@@ -166,10 +157,9 @@ configuration, and every terminal created in that workspace inherits it. The
 remote browser lists one directory level at a time over SSH, starting at the
 remote user's `$HOME`.
 
-Creating a terminal in the selected workspace is a nested **New terminal…**
-command under `⌘K`. It can create a login shell or run an arbitrary command.
-Escape returns from those choices to the context-aware command menu. There is no
-separate `⌘T` launcher; `⌘N` remains the explicit what-and-where chooser.
+The **New Terminal** tile can create a login shell or run an arbitrary command.
+The same choices remain available as a nested **New terminal…** command under
+`⌘K`. There is no separate `⌘T` launcher.
 
 ## Open Selection With and context commands
 
@@ -200,8 +190,8 @@ from this top-level menu dismisses it:
 1. **Disconnect terminal** immediately removes the terminal tile and disconnects
    its viewer while leaving the native session and process running. The same
    reconnect-or-kill toast used by `⌘W` appears.
-2. **New workspace…** opens the same location-then-name flow used by `⌘N`,
-   creates an initial login-shell terminal, and enters it.
+2. **New workspace…** opens its location-then-name command flow, creates an
+   initial login-shell terminal, and enters it.
 3. **New terminal…** opens nested choices for a login shell, an arbitrary
    command, or a new workspace from a folder.
 4. **Rename workspace…** changes the visible name while preserving the stable
@@ -416,5 +406,5 @@ swift run MachinenDesktop --interaction-tests
 Set `MACHINEN_STATUS_PREVIEW_PATH=/tmp/machinen-status.png` to also save the
 offscreen graphical status-bar fixture for visual review.
 
-It covers the explicit `⌘N` chooser, `⌘↓`/`⌘↑` hierarchy navigation, and
+It covers the spatial `⌘N` creation path, `⌘↓`/`⌘↑` hierarchy navigation, and
 keyboard-driven workspace creation, rename, and close.

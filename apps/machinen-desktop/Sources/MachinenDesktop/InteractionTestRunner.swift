@@ -12,7 +12,7 @@ enum InteractionTestRunner {
                 print("Machinen renderer reconnect test passed")
                 return 0
             }
-            try commandNAlwaysAsksWhatAndWhere()
+            try commandNEntersCreationTile()
             try mapEditAddWorkspaceUsesOverviewLayoutAndKeyboard()
             try shortcutConfigCreatesDefaultsAndLoadsOverrides()
             try settingsFileIsAvailableInApplicationMenu()
@@ -59,47 +59,84 @@ enum InteractionTestRunner {
         }
     }
 
-    private static func commandNAlwaysAsksWhatAndWhere() throws {
+    private static func commandNEntersCreationTile() throws {
         let harness = try Harness()
         defer { harness.cleanUp() }
         let deck = harness.makeDeck(workspaces: [harness.workspace("alpha", terminalCount: 1)])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        window.makeFirstResponder(deck)
+        deck.layoutSubtreeIfNeeded()
 
         deck.createNewWorkspaceOrTerminal()
+        guard let newTerminal = deck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? TerminalTileView })
+            .first(where: { $0.renderingMode == .newTerminal })
+        else {
+            throw InteractionTestFailure("⌘N did not add the New Terminal edit tile")
+        }
         var snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.workspaces.count == 1, "⌘N immediately created a workspace")
-        try expect(snapshot.tiles.count == 1, "⌘N immediately created a terminal")
-        try harness.pressReturn(on: harness.commandPalette(in: deck))
-        snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.workspaces.count == 1, "choosing an existing workspace created a workspace")
-        try expect(snapshot.tiles.count == 2, "choosing an existing workspace did not add a terminal")
         try expect(
-            Set(snapshot.tiles.map(\.workspaceId)) == ["ws_alpha"],
-            "the new terminal was added to the wrong workspace"
+            try harness.uiLevel(of: deck) == "workspace"
+                && newTerminal.isSelected
+                && deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "⌘N did not enter edit mode and select the New Terminal tile"
+        )
+        try expect(snapshot.tiles.count == 1, "⌘N immediately created a terminal")
+
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        let terminalPalette = try harness.commandPalette(in: deck)
+        try expect(
+            terminalPalette.displayedContext == "workspace: alpha"
+                && !deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "⌘N did not enter the selected New Terminal tile"
+        )
+        try harness.pressReturn(on: terminalPalette)
+        snapshot = try harness.snapshot(of: deck)
+        try expect(
+            snapshot.tiles.count == 2 && Set(snapshot.tiles.map(\.workspaceId)) == ["ws_alpha"],
+            "the New Terminal tile created its terminal in the wrong workspace"
+        )
+
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        let focusedBeforeCancel = try harness.focusedTileID(of: deck)
+        deck.createNewWorkspaceOrTerminal()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        try harness.pressEscape(on: harness.commandPalette(in: deck))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        try expect(
+            try harness.uiLevel(of: deck) == "terminal"
+                && (try harness.focusedTileID(of: deck)) == focusedBeforeCancel,
+            "cancelling the ⌘N flow did not restore its focused terminal"
         )
 
         _ = try deck.performAPIOperation("ui.overview", params: [:])
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
         deck.createNewWorkspaceOrTerminal()
-        let newChooser = try harness.commandPalette(in: deck)
-        try harness.type("new workspace", into: newChooser)
-        try harness.pressReturn(on: newChooser)
+        guard let addWorkspace = deck.subviews.lazy
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .first(where: { $0.renderingMode == .newWorkspace }),
+              let addCard = addWorkspace.subviews.first(where: { $0 is AddWorkspaceCardView })
+                as? AddWorkspaceCardView
+        else {
+            throw InteractionTestFailure("⌘N did not enter the New Workspace edit tile")
+        }
         snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.workspaces.count == 1, "a workspace was created before naming it")
-        try expect(snapshot.tiles.count == 2, "a terminal was created before choosing a workspace location")
-
-        let locationPalette = try harness.commandPalette(in: deck)
-        try harness.type("alpha", into: locationPalette)
-        try harness.pressReturn(on: locationPalette)
-        let namePalette = try harness.commandPalette(in: deck)
-        try harness.type("beta", into: namePalette)
-        try harness.pressReturn(on: namePalette)
-        snapshot = try harness.snapshot(of: deck)
-        try expect(snapshot.workspaces.count == 2, "a shared location did not create a distinct workspace")
-        try expect(snapshot.tiles.count == 3, "the new workspace did not contain a terminal")
-        try expect(snapshot.workspaces.map(\.name) == ["alpha", "beta"], "the chosen workspace name changed")
         try expect(
-            Set(snapshot.workspaces.map(\.workingDirectory)).count == 1,
-            "workspaces could not share the same default directory"
+            addWorkspace.isSelected && window.firstResponder === addCard,
+            "⌘N did not select and enter the New Workspace tile"
         )
+        try expect(snapshot.workspaces.count == 1, "⌘N immediately created a workspace")
     }
 
     private static func mapEditAddWorkspaceUsesOverviewLayoutAndKeyboard() throws {
