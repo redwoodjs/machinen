@@ -142,12 +142,29 @@ enum InteractionTestRunner {
                    "the overview shortcut did not move from a workspace to the add tile")
         try expect(deck.performShortcut(.enter),
                    "the overview shortcut did not enter the add workspace tile")
-        guard let addCard = addCluster.subviews.first(where: { $0 is AddWorkspaceCardView }) else {
+        guard let addCard = addCluster.subviews.first(where: { $0 is AddWorkspaceCardView })
+            as? AddWorkspaceCardView
+        else {
             throw InteractionTestFailure("the add workspace tile did not show its form rendering")
         }
         try expect(deck.window?.firstResponder === addCard,
                    "the in-tile workspace form did not capture immediate arrow input")
+        try expect(
+            abs(addCard.displayedPanelFrame.midX - addCard.bounds.midX) < 0.1
+                && abs(addCard.displayedPanelFrame.midY - addCard.bounds.midY) < 0.1,
+            "the new workspace search was not centered in its workspace tile"
+        )
         let selectedWorkspace = try harness.selectedWorkspaceID(of: deck)
+        try harness.type("alpha", into: addCard)
+        try expect(
+            addCard.displayedSearchQuery == "alpha"
+                && addCard.disabledSourceTitles == ["alpha", "beta"],
+            "the new workspace search did not show created workspaces as disabled"
+        )
+        try harness.pressReturn(on: addCard)
+        try expect(addCard.isChoosingLocation,
+                   "the new workspace search selected a disabled workspace")
+        for _ in "alpha" { try harness.pressDelete(on: addCard) }
         try expect(deck.performShortcut(.selectDown),
                    "the configured down shortcut did not select a workspace source")
         try expect(try harness.selectedWorkspaceID(of: deck) == selectedWorkspace,

@@ -2875,13 +2875,13 @@ final class TerminalDeckView: NSView {
         var sources: [WorkspaceCreationSource] = []
         var seen = Set<String>()
         for workspace in workspaces {
-            if seen.insert(canonicalLocationKey(workspace.location)).inserted {
-                sources.append(WorkspaceCreationSource(
-                    title: workspace.name,
-                    detail: workspace.location.displayName,
-                    location: workspace.location
-                ))
-            }
+            seen.insert(canonicalLocationKey(workspace.location))
+            sources.append(WorkspaceCreationSource(
+                title: workspace.name,
+                detail: workspace.location.displayName,
+                location: workspace.location,
+                isDisabled: true
+            ))
         }
         for location in workspaceLocationHistory {
             if seen.insert(canonicalLocationKey(location)).inserted {
@@ -2892,8 +2892,8 @@ final class TerminalDeckView: NSView {
                 ))
             }
         }
-        if sources.isEmpty {
-            let home = WorkspaceLocation.local(FileManager.default.homeDirectoryForCurrentUser.path)
+        let home = WorkspaceLocation.local(FileManager.default.homeDirectoryForCurrentUser.path)
+        if seen.insert(canonicalLocationKey(home)).inserted {
             sources.append(WorkspaceCreationSource(
                 title: "Home",
                 detail: home.displayName,
