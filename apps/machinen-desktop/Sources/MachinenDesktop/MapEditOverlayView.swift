@@ -96,6 +96,39 @@ final class AddWorkspaceCardView: NSView {
         }
     }
 
+    func performShortcut(_ action: DesktopShortcutAction) -> Bool {
+        switch action {
+        case .selectDown, .selectRight:
+            if phase == .location, !sources.isEmpty {
+                selectedLocationIndex = min(sources.count - 1, selectedLocationIndex + 1)
+                needsDisplay = true
+            }
+            return true
+        case .selectUp, .selectLeft:
+            if phase == .location {
+                selectedLocationIndex = max(0, selectedLocationIndex - 1)
+                needsDisplay = true
+            }
+            return true
+        case .enter:
+            if phase == .location, !sources.isEmpty {
+                phase = .name
+                needsDisplay = true
+            } else if phase == .name {
+                let name = workspaceName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty, sources.indices.contains(selectedLocationIndex) {
+                    onCreate?(sources[selectedLocationIndex].location, name)
+                }
+            }
+            return true
+        case .leave:
+            onCancel?()
+            return true
+        default:
+            return false
+        }
+    }
+
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
         guard phase == .location else { return }
@@ -245,6 +278,27 @@ final class MapEditOverlayView: NSView {
         (selected ? NSColor.white : NSColor.systemRed).withAlphaComponent(0.94).setFill()
         NSBezierPath(roundedRect: card.frame, xRadius: card.frame.height / 2, yRadius: card.frame.height / 2).fill()
         drawText("×", in: card.frame.insetBy(dx: 7, dy: 4), color: .white, size: 13)
+    }
+
+    func performShortcut(_ action: DesktopShortcutAction) -> Bool {
+        switch action {
+        case .selectLeft, .selectUp:
+            moveCardSelection(by: -1)
+            return true
+        case .selectRight, .selectDown:
+            moveCardSelection(by: 1)
+            return true
+        case .enter:
+            if let selectedCardIndex, cardActions.indices.contains(selectedCardIndex) {
+                onAction?(cardActions[selectedCardIndex].action)
+            }
+            return true
+        case .leave:
+            onDismiss?()
+            return true
+        default:
+            return false
+        }
     }
 
     private func moveCardSelection(by delta: Int) {

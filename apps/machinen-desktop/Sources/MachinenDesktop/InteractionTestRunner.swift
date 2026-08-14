@@ -134,14 +134,19 @@ enum InteractionTestRunner {
                    "the add workspace card did not use the overview card size")
         try expect(deck.window?.firstResponder === overlay,
                    "the overview edit map did not capture selection keys")
-        try harness.pressReturn(on: overlay)
+        try expect(deck.performShortcut(.selectLeft) && deck.performShortcut(.selectRight),
+                   "the overview shortcuts did not move through edit cards")
+        try expect(deck.performShortcut(.enter),
+                   "the overview shortcut did not enter the add workspace card")
         try expect(deck.window?.firstResponder === addCard,
                    "the in-card workspace form did not capture immediate arrow input")
         let selectedWorkspace = try harness.selectedWorkspaceID(of: deck)
-        try harness.pressDown(on: addCard)
+        try expect(deck.performShortcut(.selectDown),
+                   "the configured down shortcut did not select a workspace source")
         try expect(try harness.selectedWorkspaceID(of: deck) == selectedWorkspace,
                    "an in-card source arrow changed the overview workspace")
-        try harness.pressReturn(on: addCard)
+        try expect(deck.performShortcut(.enter),
+                   "the configured enter shortcut did not continue the workspace form")
         try harness.type("gamma", into: addCard)
         try harness.pressReturn(on: addCard)
         let created = try harness.snapshot(of: deck)

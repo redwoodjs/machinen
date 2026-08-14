@@ -5843,6 +5843,10 @@ final class TerminalDeckView: NSView {
     }
 
     func performShortcut(_ action: DesktopShortcutAction) -> Bool {
+        if let mapEditOverlay { return mapEditOverlay.performShortcut(action) }
+        if let addWorkspaceCardView, addWorkspaceCardView.window?.firstResponder === addWorkspaceCardView {
+            return addWorkspaceCardView.performShortcut(action)
+        }
         switch action {
         case .enter:
             return zoomInOneLevel()
