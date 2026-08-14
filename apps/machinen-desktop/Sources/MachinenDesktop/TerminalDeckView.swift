@@ -166,6 +166,7 @@ final class TerminalDeckView: NSView {
     private var mapEditOverlay: MapEditOverlayView?
     private var addWorkspaceClusterView: WorkspaceClusterView?
     private var addWorkspaceCardView: AddWorkspaceCardView?
+    private var addTerminalTileView: TerminalTileView?
     private var ghostWorkspaceTargets: [String: (String, NativeWorkspaceRecord)] = [:]
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
@@ -318,7 +319,13 @@ final class TerminalDeckView: NSView {
     }
 
     private func activeSessionTiles(for workspaceID: String) -> [TerminalTileView] {
-        allSessionTiles.filter { $0.session.workspaceID == workspaceID }
+        var result = allSessionTiles.filter { $0.session.workspaceID == workspaceID }
+        if let addTerminalTileView,
+           addTerminalTileView.session.workspaceID == workspaceID
+        {
+            result.append(addTerminalTileView)
+        }
+        return result
     }
 
     private var activeCount: Int {
@@ -917,7 +924,7 @@ final class TerminalDeckView: NSView {
         let layoutViews: [NSView] = workspaceClusters
         let sizes = workspaceClusters.map { cluster in
             cluster.arrange(
-                sessions: allSessionTiles.filter { $0.session.workspaceID == cluster.workspaceID },
+                sessions: activeSessionTiles(for: cluster.workspaceID),
                 terminalSize: terminalSize
             )
         }
@@ -1806,6 +1813,8 @@ final class TerminalDeckView: NSView {
             tile.isSelected = false
             tile.isFocused = tile === focusedTile
         }
+        addTerminalTileView?.isSelected = false
+        addTerminalTileView?.isFocused = false
         if currentWorkspace != nil, sessions.indices.contains(selectedIndex) {
             sessions[selectedIndex].isSelected = true
         }
@@ -1991,6 +2000,21 @@ final class TerminalDeckView: NSView {
             updateSelection()
             moveCamera()
         } else {
+            let tile = activeSessionTiles[index]
+            if tile.renderingMode == .newTerminal {
+                guard let workspace = selectedWorkspaceRecord() else { return }
+                mapEditOverlay?.removeFromSuperview()
+                mapEditOverlay = nil
+                addTerminalTileView?.removeFromSuperview()
+                addTerminalTileView = nil
+                removeEditWorkspaceClusters()
+                showNewTerminalPalette(
+                    workspace: workspace.name,
+                    workingDirectory: workspace.workingDirectory,
+                    returnToCommands: false
+                )
+                return
+            }
             focusedIndex = index
             updateSelection()
             moveCamera()
@@ -2720,6 +2744,13 @@ final class TerminalDeckView: NSView {
               availableSessionsView == nil
         else { return }
 
+        let leavesSingletonTerminal = focusedIndex != nil && activeSessionTiles.count == 1
+        if leavesSingletonTerminal {
+            focusedIndex = nil
+            selectedIndex = 0
+            updateSelection()
+        }
+
         let actions: [MapEditAction]
         var cardActions: [MapEditCardAction] = []
         if focusedIndex != nil, selectedSessionTile() != nil {
@@ -2730,10 +2761,12 @@ final class TerminalDeckView: NSView {
             ]
         } else if currentWorkspace != nil, selectedWorkspaceID() != nil {
             actions = [
-                MapEditAction(id: "new", title: "+ New terminal", detail: "choose what it runs"),
                 MapEditAction(id: "rename", title: "✎ Rename workspace", detail: "change its label"),
                 MapEditAction(id: "close", title: "× Close workspace", detail: "confirm before stop"),
             ]
+            installEditTerminalTile()
+            updateWorldGeometry()
+            moveCamera()
         } else {
             actions = []
             let attachedWorkspaceIDs = Set(workspaces.map(\.id))
@@ -2787,6 +2820,37 @@ final class TerminalDeckView: NSView {
         window?.makeFirstResponder(overlay)
     }
 
+    private func installEditTerminalTile() {
+        guard addTerminalTileView == nil,
+              let workspace = selectedWorkspaceRecord()
+        else { return }
+        let session = TerminalSession(
+            id: "__new_terminal__",
+            tileID: "__new_terminal_tile__",
+            label: "+",
+            workspaceID: workspace.id,
+            workspace: workspace.name,
+            name: "New terminal",
+            launch: .loginShell,
+            workingDirectory: workspace.workingDirectory,
+            state: .stopped
+        )
+        let tile = TerminalTileView(session: session, renderingMode: .newTerminal)
+        tile.onSelect = { [weak self, weak tile] _ in
+            guard let self, let tile,
+                  let index = self.activeSessionTiles.firstIndex(where: { $0 === tile })
+            else { return }
+            self.select(index)
+        }
+        tile.onActivate = { [weak self, weak tile] _ in
+            guard let self, let tile,
+                  let index = self.activeSessionTiles.firstIndex(where: { $0 === tile })
+            else { return }
+            self.activate(index)
+        }
+        addTerminalTileView = tile
+    }
+
     private func installEditWorkspaceCluster(_ cluster: WorkspaceClusterView) {
         cluster.onSelect = { [weak self, weak cluster] in
             guard let self, let cluster,
@@ -2807,6 +2871,8 @@ final class TerminalDeckView: NSView {
     private func dismissMapEditOverlay() {
         mapEditOverlay?.removeFromSuperview()
         mapEditOverlay = nil
+        addTerminalTileView?.removeFromSuperview()
+        addTerminalTileView = nil
         removeEditWorkspaceClusters()
         restoreInputFocus()
     }
@@ -2818,7 +2884,10 @@ final class TerminalDeckView: NSView {
         addWorkspaceClusterView = nil
         addWorkspaceCardView = nil
         ghostWorkspaceTargets.removeAll()
-        selectedIndex = min(selectedIndex, max(0, workspaceClusters.count - 1))
+        let remainingCount = currentWorkspace == nil
+            ? workspaceClusters.count
+            : activeSessionTiles.count
+        selectedIndex = min(selectedIndex, max(0, remainingCount - 1))
         updateWorldGeometry()
         setCameraImmediately()
     }

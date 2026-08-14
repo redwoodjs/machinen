@@ -375,10 +375,13 @@ to this Desktop. Existing, ghost, and Add Workspace cards are ordinary workspace
 tiles. The latter two use alternate tile rendering modes. All tiles use the same
 layout, selection state, configured spatial shortcuts, mouse input, and Return
 action. A double-click does the same. Select a ghost card to attach its workspace.
-At the workspace level, the
-overlay offers **New Terminal**, **Rename Workspace**, and **Close Workspace**.
-At the terminal level, it offers **New Terminal**, **Detach**, and **Kill
-Terminal**. Detach removes this Desktop viewer and keeps the terminal process
+
+At the workspace level, a blue dashed **New Terminal** tile uses the ordinary
+tile layout and input. Return opens terminal creation. The overlay offers
+**Rename Workspace** and **Close Workspace**. When a workspace has one terminal,
+`⌘E` or `⇧⌘E` leaves that terminal and shows this workspace map. At the terminal
+level, the overlay offers **New Terminal**, **Detach**, and **Kill Terminal**.
+Detach removes this Desktop viewer and keeps the terminal process
 running. Kill needs confirmation. Escape, `⌘E`, and `⇧⌘E` close the overlay.
 
 ## Disconnecting and killing

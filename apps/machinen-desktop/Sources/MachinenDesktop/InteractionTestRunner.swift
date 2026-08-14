@@ -219,6 +219,51 @@ enum InteractionTestRunner {
         try harness.pressEscape(on: reopened)
         try expect(!escapeDeck.subviews.contains(where: { $0 is MapEditOverlayView }),
                    "Escape did not close the map edit overlay")
+
+        let singletonDeck = harness.makeDeck(workspaces: [
+            harness.workspace("solo", terminalCount: 1),
+        ])
+        let singletonWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { singletonWindow.close() }
+        singletonWindow.contentView = singletonDeck
+        singletonWindow.makeFirstResponder(singletonDeck)
+        singletonDeck.layoutSubtreeIfNeeded()
+        try expect(try harness.uiLevel(of: singletonDeck) == "terminal",
+                   "the singleton workspace did not start at its terminal")
+        singletonDeck.toggleMapEditOverlay()
+        guard let singletonOverlay = singletonDeck.subviews.first(where: {
+            $0 is MapEditOverlayView
+        }) as? MapEditOverlayView,
+              let newTerminalTile = singletonDeck.subviews.lazy
+                .flatMap(\.subviews)
+                .compactMap({ $0 as? WorkspaceClusterView })
+                .flatMap(\.subviews)
+                .compactMap({ $0 as? TerminalTileView })
+                .first(where: { $0.renderingMode == .newTerminal })
+        else {
+            throw InteractionTestFailure("singleton map editing did not add a New Terminal tile")
+        }
+        try expect(
+            try harness.uiLevel(of: singletonDeck) == "workspace"
+                && singletonOverlay.displayedActionTitles.allSatisfy({ !$0.contains("New terminal") })
+                && newTerminalTile.session.workspace == "solo",
+            "singleton map editing did not leave the terminal for the workspace tile map"
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.55))
+        try expect(
+            singletonDeck.performShortcut(.selectRight)
+                && singletonDeck.performShortcut(.enter),
+            "the New Terminal tile did not use ordinary tile activation"
+        )
+        try expect(
+            singletonDeck.subviews.contains(where: { $0 is CommandPaletteView }),
+            "the New Terminal tile did not open terminal creation"
+        )
     }
 
     private static func shortcutConfigCreatesDefaultsAndLoadsOverrides() throws {
