@@ -168,21 +168,18 @@ struct MapEditAction {
     let detail: String
 }
 
-enum MapEditCardStyle: Equatable { case workspace, control, add, ghost }
-
 struct MapEditCardAction {
     let frame: NSRect
     let action: MapEditAction
-    let style: MapEditCardStyle
 }
 
 /// An action layer above the spatial map. It keeps every card visible.
 final class MapEditOverlayView: NSView {
     private let actions: [MapEditAction]
     private let cardActions: [MapEditCardAction]
-    private var selectedCardIndex: Int?
     var onAction: ((MapEditAction) -> Void)?
     var onDismiss: (() -> Void)?
+    var onShortcut: ((DesktopShortcutAction) -> Bool)?
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -190,8 +187,6 @@ final class MapEditOverlayView: NSView {
     init(frame: NSRect, actions: [MapEditAction], cardActions: [MapEditCardAction] = []) {
         self.actions = actions
         self.cardActions = cardActions
-        selectedCardIndex = cardActions.firstIndex { $0.style == .workspace }
-            ?? cardActions.firstIndex { $0.style != .control }
         super.init(frame: frame)
         autoresizingMask = [.width, .height]
         setAccessibilityElement(true)
@@ -220,17 +215,26 @@ final class MapEditOverlayView: NSView {
         switch event.keyCode {
         case 53:
             onDismiss?()
-        case 123, 126:
-            moveCardSelection(by: -1)
-        case 48, 124, 125:
-            moveCardSelection(by: 1)
-        case 36, 49, 76:
-            if let selectedCardIndex, cardActions.indices.contains(selectedCardIndex) {
-                onAction?(cardActions[selectedCardIndex].action)
-            }
+        case 123:
+            _ = onShortcut?(.selectLeft)
+        case 124:
+            _ = onShortcut?(.selectRight)
+        case 125:
+            _ = onShortcut?(.selectDown)
+        case 126:
+            _ = onShortcut?(.selectUp)
+        case 36, 76:
+            _ = onShortcut?(.enter)
         default:
             super.keyDown(with: event)
         }
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        if cardActions.contains(where: { $0.frame.contains(point) }) {
+            return self
+        }
+        return panelRect().contains(point) ? self : nil
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -238,17 +242,10 @@ final class MapEditOverlayView: NSView {
         if let index = cardActions.indices.reversed().first(where: {
             cardActions[$0].frame.contains(point)
         }) {
-            let card = cardActions[index]
-            if card.style == .control {
-                onAction?(card.action)
-            } else {
-                selectedCardIndex = index
-                needsDisplay = true
-                if event.clickCount > 1 { onAction?(card.action) }
-            }
+            onAction?(cardActions[index].action)
             return
         }
-        let panel = NSRect(x: bounds.maxX - 240, y: 54, width: 224, height: 44 + CGFloat(actions.count) * 42)
+        let panel = panelRect()
         for (index, action) in actions.enumerated() {
             let row = NSRect(x: panel.minX + 7, y: panel.minY + 7 + CGFloat(index) * 42, width: panel.width - 14, height: 36)
             if row.contains(point) { onAction?(action); return }
@@ -257,71 +254,18 @@ final class MapEditOverlayView: NSView {
     }
 
     private func drawCardAction(_ card: MapEditCardAction) {
-        let selected = selectedCardIndex.flatMap { cardActions.indices.contains($0) ? cardActions[$0].action.id : nil }
-            == card.action.id
-        switch card.style {
-        case .workspace:
-            guard selected else { return }
-            let path = NSBezierPath(roundedRect: card.frame.insetBy(dx: 2, dy: 2), xRadius: 16, yRadius: 16)
-            NSColor.systemBlue.setStroke()
-            path.lineWidth = 4
-            path.stroke()
-            return
-        case .add, .ghost:
-            if selected {
-                let fill = NSBezierPath(roundedRect: card.frame, xRadius: 12, yRadius: 12)
-                (card.style == .add ? NSColor.systemBlue : NSColor.secondaryLabelColor)
-                    .withAlphaComponent(0.16).setFill()
-                fill.fill()
-            }
-            let path = NSBezierPath(roundedRect: card.frame, xRadius: 12, yRadius: 12)
-            path.setLineDash([7, 5], count: 2, phase: 0)
-            let color = card.style == .add ? NSColor.systemBlue : NSColor(calibratedWhite: 0.58, alpha: 1)
-            color.setStroke()
-            path.lineWidth = selected ? 4 : 2
-            path.stroke()
-            let title = selected ? "› \(card.action.title)" : card.action.title
-            drawText(title, in: card.frame.insetBy(dx: 18, dy: card.frame.height / 2 - 16), color: color, size: 13)
-            if card.style == .ghost {
-                drawText(card.action.detail, in: card.frame.insetBy(dx: 18, dy: card.frame.height / 2 + 4), color: color, size: 10)
-            }
-            return
-        case .control:
-            break
-        }
-        (selected ? NSColor.white : NSColor.systemRed).withAlphaComponent(0.94).setFill()
+        NSColor.systemRed.withAlphaComponent(0.94).setFill()
         NSBezierPath(roundedRect: card.frame, xRadius: card.frame.height / 2, yRadius: card.frame.height / 2).fill()
         drawText("×", in: card.frame.insetBy(dx: 7, dy: 4), color: .white, size: 13)
     }
 
-    func performShortcut(_ action: DesktopShortcutAction) -> Bool {
-        switch action {
-        case .selectLeft, .selectUp:
-            moveCardSelection(by: -1)
-            return true
-        case .selectRight, .selectDown:
-            moveCardSelection(by: 1)
-            return true
-        case .enter:
-            if let selectedCardIndex, cardActions.indices.contains(selectedCardIndex) {
-                onAction?(cardActions[selectedCardIndex].action)
-            }
-            return true
-        case .leave:
-            onDismiss?()
-            return true
-        default:
-            return false
-        }
-    }
-
-    private func moveCardSelection(by delta: Int) {
-        let selectable = cardActions.indices.filter { cardActions[$0].style != .control }
-        guard !selectable.isEmpty else { return }
-        let current = selectedCardIndex.flatMap { selectable.firstIndex(of: $0) } ?? 0
-        let target = (current + delta % selectable.count + selectable.count) % selectable.count
-        selectedCardIndex = selectable[target]
-        needsDisplay = true
+    private func panelRect() -> NSRect {
+        NSRect(
+            x: bounds.maxX - 240,
+            y: 54,
+            width: 224,
+            height: 44 + CGFloat(actions.count) * 42
+        )
     }
 
     private func drawText(_ text: String, in rect: NSRect, color: NSColor, size: CGFloat) {

@@ -124,22 +124,29 @@ enum InteractionTestRunner {
         guard let scene = deck.subviews.first(where: { view in
             view.subviews.contains { $0 is WorkspaceClusterView }
         }),
-              let workspace = scene.subviews.first(where: { $0 is WorkspaceClusterView }),
-              let addCard = scene.subviews.first(where: { $0 is AddWorkspaceCardView }),
+              let workspace = scene.subviews.compactMap({ $0 as? WorkspaceClusterView }).first(where: {
+                  $0.renderingMode == .workspace
+              }),
+              let addCluster = scene.subviews.compactMap({ $0 as? WorkspaceClusterView }).first(where: {
+                  $0.renderingMode == .newWorkspace
+              }),
               let overlay = deck.subviews.first(where: { $0 is MapEditOverlayView })
         else {
             throw InteractionTestFailure("the overview edit map did not show its add workspace card")
         }
-        try expect(addCard.frame.size == workspace.frame.size,
-                   "the add workspace card did not use the overview card size")
+        try expect(addCluster.frame.size == workspace.frame.size,
+                   "the add workspace tile did not use the overview tile size")
         try expect(deck.window?.firstResponder === overlay,
                    "the overview edit map did not capture selection keys")
-        try expect(deck.performShortcut(.selectRight) && deck.performShortcut(.selectRight),
-                   "the overview shortcuts did not move from workspaces to the add card")
+        try expect(deck.performShortcut(.selectDown),
+                   "the overview shortcut did not move from a workspace to the add tile")
         try expect(deck.performShortcut(.enter),
-                   "the overview shortcut did not enter the add workspace card")
+                   "the overview shortcut did not enter the add workspace tile")
+        guard let addCard = addCluster.subviews.first(where: { $0 is AddWorkspaceCardView }) else {
+            throw InteractionTestFailure("the add workspace tile did not show its form rendering")
+        }
         try expect(deck.window?.firstResponder === addCard,
-                   "the in-card workspace form did not capture immediate arrow input")
+                   "the in-tile workspace form did not capture immediate arrow input")
         let selectedWorkspace = try harness.selectedWorkspaceID(of: deck)
         try expect(deck.performShortcut(.selectDown),
                    "the configured down shortcut did not select a workspace source")

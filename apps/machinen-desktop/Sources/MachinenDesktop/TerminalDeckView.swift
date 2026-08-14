@@ -164,7 +164,9 @@ final class TerminalDeckView: NSView {
     private let remotePathCompleter = RemoteWorkspacePathCompleter()
     private var presentedOverlay: NSView?
     private var mapEditOverlay: MapEditOverlayView?
+    private var addWorkspaceClusterView: WorkspaceClusterView?
     private var addWorkspaceCardView: AddWorkspaceCardView?
+    private var ghostWorkspaceTargets: [String: (String, NativeWorkspaceRecord)] = [:]
     private var lastViewportSize = NSSize.zero
     private var cameraAnimation: CameraAnimation?
     private var cameraAnimationTimer: Timer?
@@ -912,16 +914,12 @@ final class TerminalDeckView: NSView {
     private func updateWorldGeometry() {
         let viewport = sceneViewportBounds
         let terminalSize = NSSize(width: max(1, viewport.width), height: max(1, viewport.height))
-        var layoutViews: [NSView] = workspaceClusters
-        var sizes = workspaceClusters.map { cluster in
+        let layoutViews: [NSView] = workspaceClusters
+        let sizes = workspaceClusters.map { cluster in
             cluster.arrange(
                 sessions: allSessionTiles.filter { $0.session.workspaceID == cluster.workspaceID },
                 terminalSize: terminalSize
             )
-        }
-        if let addWorkspaceCardView {
-            layoutViews.append(addWorkspaceCardView)
-            sizes.append(sizes.first ?? terminalSize)
         }
         guard !layoutViews.isEmpty else {
             workspaceUnion = .zero
@@ -1969,6 +1967,22 @@ final class TerminalDeckView: NSView {
 
         if currentWorkspace == nil {
             let cluster = workspaceClusters[index]
+            switch cluster.renderingMode {
+            case .newWorkspace:
+                beginInlineWorkspaceCreation(in: cluster)
+                return
+            case .ghost:
+                guard let (targetID, record) = ghostWorkspaceTargets[cluster.workspaceID],
+                      let location = registeredTargetLocation(id: targetID)
+                else { return }
+                mapEditOverlay?.removeFromSuperview()
+                mapEditOverlay = nil
+                removeEditWorkspaceClusters()
+                restoreNativeWorkspace(record, at: location)
+                return
+            case .workspace:
+                break
+            }
             currentWorkspace = cluster.workspaceID
             selectedIndex = 0
             if cluster.sessions.count == 1 {
@@ -2722,82 +2736,94 @@ final class TerminalDeckView: NSView {
             ]
         } else {
             actions = [MapEditAction(id: "host", title: "+ Add host", detail: "connect over SSH")]
-            let addCard = AddWorkspaceCardView(frame: .zero)
-            addWorkspaceCardView = addCard
-            sceneView.addSubview(addCard)
-            updateWorldGeometry()
-            setCameraImmediately()
-            let frames = workspaceClusters.map { $0.convert($0.bounds, to: self) }
-            for (cluster, frame) in zip(workspaceClusters, frames) {
-                cardActions.append(MapEditCardAction(
-                    frame: frame,
-                    action: MapEditAction(
-                        id: "openWorkspace:\(cluster.workspaceID)",
-                        title: cluster.workspace,
-                        detail: "Open workspace"
-                    ),
-                    style: .workspace
-                ))
-                cardActions.append(MapEditCardAction(
-                    frame: NSRect(x: frame.maxX - 30, y: frame.minY + 10, width: 22, height: 22),
-                    action: MapEditAction(
-                        id: "closeWorkspace:\(cluster.workspaceID)",
-                        title: "Close workspace",
-                        detail: "confirm before stop"
-                    ),
-                    style: .control
-                ))
-            }
             let attachedWorkspaceIDs = Set(workspaces.map(\.id))
             let ghosts = targetDiscoveries.flatMap { targetID, discovery in
                 discovery.workspaces.filter { !attachedWorkspaceIDs.contains($0.id) }.map {
                     (targetID, $0)
                 }
             }
-            for (index, ghost) in ghosts.enumerated() {
+            for ghost in ghosts {
+                let id = "__ghost__\(ghost.0)__\(ghost.1.id)"
+                let cluster = WorkspaceClusterView(
+                    workspaceID: id,
+                    workspace: ghost.1.name,
+                    label: "gh",
+                    renderingMode: .ghost
+                )
+                ghostWorkspaceTargets[id] = ghost
+                installEditWorkspaceCluster(cluster)
+            }
+            let addCluster = WorkspaceClusterView(
+                workspaceID: "__new_workspace__",
+                workspace: "New workspace",
+                label: "+",
+                renderingMode: .newWorkspace
+            )
+            addWorkspaceClusterView = addCluster
+            installEditWorkspaceCluster(addCluster)
+            updateWorldGeometry()
+            setCameraImmediately()
+
+            for cluster in workspaceClusters where cluster.renderingMode == .workspace {
+                let frame = cluster.convert(cluster.bounds, to: self)
                 cardActions.append(MapEditCardAction(
-                    frame: NSRect(x: 18, y: 70 + CGFloat(index) * 132, width: 240, height: 112),
+                    frame: NSRect(x: frame.maxX - 30, y: frame.minY + 10, width: 22, height: 22),
                     action: MapEditAction(
-                        id: "attachWorkspace:\(ghost.0):\(ghost.1.id)",
-                        title: "ghost: \(ghost.1.name)",
-                        detail: "Attach to this Desktop"
-                    ),
-                    style: .ghost
+                        id: "closeWorkspace:\(cluster.workspaceID)",
+                        title: "Close workspace",
+                        detail: "confirm before stop"
+                    )
                 ))
             }
-            cardActions.append(MapEditCardAction(
-                frame: addCard.convert(addCard.bounds, to: self),
-                action: MapEditAction(id: "workspace", title: "+ Add workspace", detail: "choose a location"),
-                style: .add
-            ))
         }
 
         let overlay = MapEditOverlayView(frame: bounds, actions: actions, cardActions: cardActions)
         overlay.layer?.zPosition = 1_500
         overlay.onDismiss = { [weak self] in self?.dismissMapEditOverlay() }
         overlay.onAction = { [weak self] action in self?.runMapEditAction(action) }
+        overlay.onShortcut = { [weak self] action in self?.performShortcut(action) ?? false }
         mapEditOverlay = overlay
         addSubview(overlay, positioned: .above, relativeTo: nil)
         window?.makeFirstResponder(overlay)
     }
 
+    private func installEditWorkspaceCluster(_ cluster: WorkspaceClusterView) {
+        cluster.onSelect = { [weak self, weak cluster] in
+            guard let self, let cluster,
+                  let index = self.workspaceClusters.firstIndex(where: { $0 === cluster })
+            else { return }
+            self.select(index)
+        }
+        cluster.onActivate = { [weak self, weak cluster] in
+            guard let self, let cluster,
+                  let index = self.workspaceClusters.firstIndex(where: { $0 === cluster })
+            else { return }
+            self.activate(index)
+        }
+        workspaceClusters.append(cluster)
+        sceneView.addSubview(cluster)
+    }
+
     private func dismissMapEditOverlay() {
         mapEditOverlay?.removeFromSuperview()
         mapEditOverlay = nil
-        if let addWorkspaceCardView {
-            addWorkspaceCardView.removeFromSuperview()
-            self.addWorkspaceCardView = nil
-            updateWorldGeometry()
-            setCameraImmediately()
-        }
+        removeEditWorkspaceClusters()
         restoreInputFocus()
     }
 
+    private func removeEditWorkspaceClusters() {
+        let temporary = workspaceClusters.filter { $0.renderingMode != .workspace }
+        for cluster in temporary { cluster.removeFromSuperview() }
+        workspaceClusters.removeAll { $0.renderingMode != .workspace }
+        addWorkspaceClusterView = nil
+        addWorkspaceCardView = nil
+        ghostWorkspaceTargets.removeAll()
+        selectedIndex = min(selectedIndex, max(0, workspaceClusters.count - 1))
+        updateWorldGeometry()
+        setCameraImmediately()
+    }
+
     private func runMapEditAction(_ action: MapEditAction) {
-        if action.id == "workspace" {
-            beginInlineWorkspaceCreation()
-            return
-        }
         dismissMapEditOverlay()
         switch action.id {
         case "new":
@@ -2838,10 +2864,13 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func beginInlineWorkspaceCreation() {
-        guard let addCard = addWorkspaceCardView else { return }
+    private func beginInlineWorkspaceCreation(in cluster: WorkspaceClusterView) {
         mapEditOverlay?.removeFromSuperview()
         mapEditOverlay = nil
+        let addCard = AddWorkspaceCardView(frame: cluster.bounds)
+        addCard.autoresizingMask = [.width, .height]
+        addWorkspaceCardView = addCard
+        cluster.addSubview(addCard)
 
         var sources: [WorkspaceCreationSource] = []
         var seen = Set<String>()
@@ -2877,7 +2906,7 @@ final class TerminalDeckView: NSView {
             guard let self else { return }
             do {
                 try self.createNewWorkspace(name: name, location: location)
-                self.removeInlineWorkspaceCard()
+                self.removeEditWorkspaceClusters()
             } catch {
                 NSSound.beep()
             }
@@ -2886,7 +2915,7 @@ final class TerminalDeckView: NSView {
         // Route immediate arrow input to the in-card form before camera motion.
         // Without this, fast input changes the selected overview workspace.
         window?.makeFirstResponder(addCard)
-        let destination = cameraBounds(for: addCard.frame, viewport: sceneViewportBounds)
+        let destination = cameraBounds(for: cluster.frame, viewport: sceneViewportBounds)
         moveCamera(to: destination) { [weak self, weak addCard] in
             guard let self, let addCard else { return }
             self.window?.makeFirstResponder(addCard)
@@ -2894,15 +2923,8 @@ final class TerminalDeckView: NSView {
     }
 
     private func cancelInlineWorkspaceCreation() {
-        removeInlineWorkspaceCard()
-        moveCamera()
+        removeEditWorkspaceClusters()
         restoreInputFocus()
-    }
-
-    private func removeInlineWorkspaceCard() {
-        addWorkspaceCardView?.removeFromSuperview()
-        addWorkspaceCardView = nil
-        updateWorldGeometry()
     }
 
     func toggleCommandPalette() {
@@ -5859,7 +5881,6 @@ final class TerminalDeckView: NSView {
     }
 
     func performShortcut(_ action: DesktopShortcutAction) -> Bool {
-        if let mapEditOverlay { return mapEditOverlay.performShortcut(action) }
         if let addWorkspaceCardView, addWorkspaceCardView.window?.firstResponder === addWorkspaceCardView {
             return addWorkspaceCardView.performShortcut(action)
         }
