@@ -2701,6 +2701,7 @@ final class TerminalDeckView: NSView {
         else { return }
 
         let actions: [MapEditAction]
+        var cardActions: [MapEditCardAction] = []
         if focusedIndex != nil, selectedSessionTile() != nil {
             actions = [
                 MapEditAction(id: "new", title: "+ New terminal", detail: "choose a workspace"),
@@ -2714,13 +2715,50 @@ final class TerminalDeckView: NSView {
                 MapEditAction(id: "close", title: "× Close workspace", detail: "confirm before stop"),
             ]
         } else {
-            actions = [
-                MapEditAction(id: "workspace", title: "+ New workspace", detail: "choose a location"),
-                MapEditAction(id: "host", title: "+ Add host", detail: "connect over SSH"),
-            ]
+            actions = [MapEditAction(id: "host", title: "+ Add host", detail: "connect over SSH")]
+            let frames = workspaceClusters.map { $0.convert($0.bounds, to: self) }
+            for (cluster, frame) in zip(workspaceClusters, frames) {
+                cardActions.append(MapEditCardAction(
+                    frame: NSRect(x: frame.maxX - 30, y: frame.minY + 10, width: 22, height: 22),
+                    action: MapEditAction(
+                        id: "closeWorkspace:\(cluster.workspaceID)",
+                        title: "Close workspace",
+                        detail: "confirm before stop"
+                    ),
+                    style: .control
+                ))
+            }
+            let attachedWorkspaceIDs = Set(workspaces.map(\.id))
+            let ghosts = targetDiscoveries.flatMap { targetID, discovery in
+                discovery.workspaces.filter { !attachedWorkspaceIDs.contains($0.id) }.map {
+                    (targetID, $0)
+                }
+            }
+            for (index, ghost) in ghosts.enumerated() {
+                cardActions.append(MapEditCardAction(
+                    frame: NSRect(x: 18, y: 70 + CGFloat(index) * 132, width: 240, height: 112),
+                    action: MapEditAction(
+                        id: "attachWorkspace:\(ghost.0):\(ghost.1.id)",
+                        title: "ghost: \(ghost.1.name)",
+                        detail: "Attach to this Desktop"
+                    ),
+                    style: .ghost
+                ))
+            }
+            let addFrame = NSRect(
+                x: bounds.midX - 160,
+                y: max(56, bounds.maxY - 250),
+                width: 320,
+                height: 180
+            )
+            cardActions.append(MapEditCardAction(
+                frame: addFrame,
+                action: MapEditAction(id: "workspace", title: "+ Add workspace", detail: "choose a location"),
+                style: .add
+            ))
         }
 
-        let overlay = MapEditOverlayView(frame: bounds, actions: actions)
+        let overlay = MapEditOverlayView(frame: bounds, actions: actions, cardActions: cardActions)
         overlay.layer?.zPosition = 1_500
         overlay.onDismiss = { [weak self] in self?.dismissMapEditOverlay() }
         overlay.onAction = { [weak self] action in self?.runMapEditAction(action) }
@@ -2748,6 +2786,20 @@ final class TerminalDeckView: NSView {
             showRenameWorkspacePalette()
         case "close":
             confirmCloseSelectedWorkspace()
+        case let id where id.hasPrefix("closeWorkspace:"):
+            let workspaceID = String(id.dropFirst("closeWorkspace:".count))
+            guard workspaces.contains(where: { $0.id == workspaceID }) else { return }
+            currentWorkspace = workspaceID
+            selectedIndex = workspaceClusters.firstIndex { $0.workspaceID == workspaceID } ?? 0
+            updateSelection()
+            confirmCloseSelectedWorkspace()
+        case let id where id.hasPrefix("attachWorkspace:"):
+            let parts = id.split(separator: ":", maxSplits: 2).map(String.init)
+            guard parts.count == 3,
+                  let record = targetDiscoveries[parts[1]]?.workspaces.first(where: { $0.id == parts[2] }),
+                  let location = registeredTargetLocation(id: parts[1])
+            else { return }
+            restoreNativeWorkspace(record, at: location)
         case "workspace":
             beginNewWorkspaceFlow(from: .newItem)
         case "host":

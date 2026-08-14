@@ -6,25 +6,27 @@ struct MapEditAction {
     let detail: String
 }
 
-/// A lightweight action layer above the current spatial map.
-final class MapEditOverlayView: NSView {
-    private enum Metrics {
-        static let panelWidth: CGFloat = 224
-        static let panelInset: CGFloat = 16
-        static let headerHeight: CGFloat = 40
-        static let rowHeight: CGFloat = 42
-        static let footerHeight: CGFloat = 28
-    }
+enum MapEditCardStyle: Equatable { case control, add, ghost }
 
+struct MapEditCardAction {
+    let frame: NSRect
+    let action: MapEditAction
+    let style: MapEditCardStyle
+}
+
+/// An action layer above the spatial map. It keeps every card visible.
+final class MapEditOverlayView: NSView {
     private let actions: [MapEditAction]
+    private let cardActions: [MapEditCardAction]
     var onAction: ((MapEditAction) -> Void)?
     var onDismiss: (() -> Void)?
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
-    init(frame: NSRect, actions: [MapEditAction]) {
+    init(frame: NSRect, actions: [MapEditAction], cardActions: [MapEditCardAction] = []) {
         self.actions = actions
+        self.cardActions = cardActions
         super.init(frame: frame)
         autoresizingMask = [.width, .height]
         setAccessibilityElement(true)
@@ -33,98 +35,66 @@ final class MapEditOverlayView: NSView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     override func draw(_ dirtyRect: NSRect) {
-        let panel = panelRect()
-        NSColor.black.withAlphaComponent(0.12).setFill()
-        bounds.fill()
+        for card in cardActions { drawCardAction(card) }
+        guard !actions.isEmpty else { return }
+        let panel = NSRect(x: bounds.maxX - 240, y: 54, width: 224, height: 44 + CGFloat(actions.count) * 42)
         NSColor(calibratedWhite: 0.10, alpha: 0.96).setFill()
-        NSColor(calibratedWhite: 0.42, alpha: 1).setStroke()
-        let path = NSBezierPath(roundedRect: panel, xRadius: 7, yRadius: 7)
-        path.fill()
-        path.lineWidth = 1
-        path.stroke()
-
-        drawText(
-            "EDIT MAP",
-            in: NSRect(x: panel.minX + 12, y: panel.minY + 13, width: panel.width - 24, height: 16),
-            font: .monospacedSystemFont(ofSize: 10, weight: .semibold),
-            color: NSColor(calibratedWhite: 0.74, alpha: 1)
-        )
+        NSBezierPath(roundedRect: panel, xRadius: 7, yRadius: 7).fill()
         for (index, action) in actions.enumerated() {
-            let row = rowRect(index: index, panel: panel)
+            let row = NSRect(x: panel.minX + 7, y: panel.minY + 7 + CGFloat(index) * 42, width: panel.width - 14, height: 36)
             NSColor(calibratedWhite: 0.16, alpha: 1).setFill()
             NSBezierPath(roundedRect: row, xRadius: 4, yRadius: 4).fill()
-            drawText(
-                action.title,
-                in: NSRect(x: row.minX + 9, y: row.minY + 7, width: row.width - 18, height: 14),
-                font: .monospacedSystemFont(ofSize: 11, weight: .medium),
-                color: NSColor(calibratedWhite: 0.92, alpha: 1)
-            )
-            drawText(
-                action.detail,
-                in: NSRect(x: row.minX + 9, y: row.minY + 22, width: row.width - 18, height: 12),
-                font: .monospacedSystemFont(ofSize: 9, weight: .regular),
-                color: NSColor(calibratedWhite: 0.54, alpha: 1)
-            )
+            drawText(action.title, in: row.insetBy(dx: 9, dy: 7), color: .white, size: 11)
         }
-        drawText(
-            "⌘E or esc close",
-            in: NSRect(x: panel.minX + 12, y: panel.maxY - 20, width: panel.width - 24, height: 12),
-            font: .monospacedSystemFont(ofSize: 9, weight: .regular),
-            color: NSColor(calibratedWhite: 0.48, alpha: 1)
-        )
     }
 
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 {
-            onDismiss?()
-        } else {
-            super.keyDown(with: event)
-        }
+        if event.keyCode == 53 { onDismiss?() } else { super.keyDown(with: event) }
     }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        let panel = panelRect()
-        guard panel.contains(point) else {
-            onDismiss?()
+        if let card = cardActions.first(where: { $0.frame.contains(point) }) {
+            onAction?(card.action)
             return
         }
-        for (index, action) in actions.enumerated() where rowRect(index: index, panel: panel).contains(point) {
-            onAction?(action)
-            return
+        let panel = NSRect(x: bounds.maxX - 240, y: 54, width: 224, height: 44 + CGFloat(actions.count) * 42)
+        for (index, action) in actions.enumerated() {
+            let row = NSRect(x: panel.minX + 7, y: panel.minY + 7 + CGFloat(index) * 42, width: panel.width - 14, height: 36)
+            if row.contains(point) { onAction?(action); return }
         }
+        if !panel.contains(point) { onDismiss?() }
     }
 
-    private func panelRect() -> NSRect {
-        let height = Metrics.headerHeight + Metrics.footerHeight + CGFloat(actions.count) * Metrics.rowHeight + 10
-        return NSRect(
-            x: max(Metrics.panelInset, bounds.maxX - Metrics.panelWidth - Metrics.panelInset),
-            y: Metrics.panelInset + 38,
-            width: Metrics.panelWidth,
-            height: height
-        )
+    private func drawCardAction(_ card: MapEditCardAction) {
+        switch card.style {
+        case .add, .ghost:
+            let path = NSBezierPath(roundedRect: card.frame, xRadius: 12, yRadius: 12)
+            path.setLineDash([7, 5], count: 2, phase: 0)
+            let color = card.style == .add ? NSColor.systemBlue : NSColor(calibratedWhite: 0.58, alpha: 1)
+            color.setStroke()
+            path.lineWidth = 2
+            path.stroke()
+            drawText(card.action.title, in: card.frame.insetBy(dx: 18, dy: card.frame.height / 2 - 16), color: color, size: 13)
+            if card.style == .ghost {
+                drawText(card.action.detail, in: card.frame.insetBy(dx: 18, dy: card.frame.height / 2 + 4), color: color, size: 10)
+            }
+            return
+        case .control:
+            break
+        }
+        NSColor.systemRed.withAlphaComponent(0.94).setFill()
+        NSBezierPath(roundedRect: card.frame, xRadius: card.frame.height / 2, yRadius: card.frame.height / 2).fill()
+        drawText("×", in: card.frame.insetBy(dx: 7, dy: 4), color: .white, size: 13)
     }
 
-    private func rowRect(index: Int, panel: NSRect) -> NSRect {
-        NSRect(
-            x: panel.minX + 7,
-            y: panel.minY + Metrics.headerHeight + 5 + CGFloat(index) * Metrics.rowHeight,
-            width: panel.width - 14,
-            height: Metrics.rowHeight - 4
-        )
-    }
-
-    private func drawText(_ text: String, in rect: NSRect, font: NSFont, color: NSColor) {
-        let style = NSMutableParagraphStyle()
-        style.lineBreakMode = .byTruncatingTail
-        text.draw(
-            in: rect,
-            withAttributes: [.font: font, .foregroundColor: color, .paragraphStyle: style]
-        )
+    private func drawText(_ text: String, in rect: NSRect, color: NSColor, size: CGFloat) {
+        text.draw(in: rect, withAttributes: [
+            .font: NSFont.monospacedSystemFont(ofSize: size, weight: .medium),
+            .foregroundColor: color,
+        ])
     }
 }

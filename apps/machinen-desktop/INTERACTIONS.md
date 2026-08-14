@@ -362,11 +362,14 @@ workspace identities.
 ## Map edit overlay
 
 `⌘E` opens an action overlay above the current map. The map stays visible. At
-the overview level, the overlay offers **New Workspace** and **Add Host**. At
-the workspace level, it offers **New Terminal**, **Rename Workspace**, and
-**Close Workspace**. At the terminal level, it offers **New Terminal**,
-**Detach**, and **Kill Terminal**. Detach removes this Desktop viewer and keeps
-the terminal process running. Kill needs confirmation.
+the overview level, each workspace card shows its own **Close** control. A blue
+dashed **Add Workspace** card creates a workspace only after a user selects it.
+A muted dashed ghost card represents a discovered workspace that is not attached
+to this Desktop. Select it to attach the workspace. At the workspace level, the
+overlay offers **New Terminal**, **Rename Workspace**, and **Close Workspace**.
+At the terminal level, it offers **New Terminal**, **Detach**, and **Kill
+Terminal**. Detach removes this Desktop viewer and keeps the terminal process
+running. Kill needs confirmation. Escape and `⌘E` close the overlay.
 
 ## Disconnecting and killing
 
