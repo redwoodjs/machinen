@@ -131,11 +131,14 @@ enum InteractionTestRunner {
                   $0.renderingMode == .newWorkspace
               }),
               let overlay = deck.subviews.first(where: { $0 is MapEditOverlayView })
+                as? MapEditOverlayView
         else {
             throw InteractionTestFailure("the overview edit map did not show its add workspace card")
         }
         try expect(addCluster.frame.size == workspace.frame.size,
                    "the add workspace tile did not use the overview tile size")
+        try expect(overlay.displayedActionTitles.isEmpty,
+                   "the overview edit map still showed the Add Host action")
         try expect(deck.window?.firstResponder === overlay,
                    "the overview edit map did not capture selection keys")
         try expect(deck.performShortcut(.selectDown),

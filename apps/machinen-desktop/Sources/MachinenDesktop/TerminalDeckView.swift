@@ -2735,7 +2735,7 @@ final class TerminalDeckView: NSView {
                 MapEditAction(id: "close", title: "× Close workspace", detail: "confirm before stop"),
             ]
         } else {
-            actions = [MapEditAction(id: "host", title: "+ Add host", detail: "connect over SSH")]
+            actions = []
             let attachedWorkspaceIDs = Set(workspaces.map(\.id))
             let ghosts = targetDiscoveries.flatMap { targetID, discovery in
                 discovery.workspaces.filter { !attachedWorkspaceIDs.contains($0.id) }.map {
@@ -2857,8 +2857,6 @@ final class TerminalDeckView: NSView {
                   let location = registeredTargetLocation(id: parts[1])
             else { return }
             restoreNativeWorkspace(record, at: location)
-        case "host":
-            beginUseAnotherComputer()
         default:
             break
         }

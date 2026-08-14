@@ -367,6 +367,7 @@ final class MapEditOverlayView: NSView {
 
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
+    var displayedActionTitles: [String] { actions.map(\.title) }
 
     init(frame: NSRect, actions: [MapEditAction], cardActions: [MapEditCardAction] = []) {
         self.actions = actions
@@ -418,7 +419,7 @@ final class MapEditOverlayView: NSView {
         if cardActions.contains(where: { $0.frame.contains(point) }) {
             return self
         }
-        return panelRect().contains(point) ? self : nil
+        return !actions.isEmpty && panelRect().contains(point) ? self : nil
     }
 
     override func mouseDown(with event: NSEvent) {
