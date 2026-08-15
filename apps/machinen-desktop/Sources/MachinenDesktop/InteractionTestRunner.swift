@@ -3352,6 +3352,12 @@ enum InteractionTestRunner {
         guard let cluster = clusters.first(where: { $0.workspaceID == "ws_alpha" }) else {
             throw InteractionTestFailure("the overview did not create the alpha workspace")
         }
+        deck.toggleMapEditOverlay()
+        deck.layoutSubtreeIfNeeded()
+        try expect(
+            deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "⌘E did not enter edit mode before the workspace click"
+        )
         let workspacePoint = NSPoint(x: cluster.bounds.midX, y: cluster.bounds.midY)
         try expect(
             !cluster.sessions.contains(where: { $0.frame.contains(workspacePoint) }),
@@ -3388,6 +3394,10 @@ enum InteractionTestRunner {
             "clicking a workspace background focused one of its terminals"
         )
         try expect(
+            !deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "clicking a workspace tile did not leave edit mode"
+        )
+        try expect(
             try harness.focusedTileID(of: deck) == nil,
             "clicking a workspace background selected a particular terminal"
         )
@@ -3408,6 +3418,12 @@ enum InteractionTestRunner {
         window.makeFirstResponder(deck)
         deck.layoutSubtreeIfNeeded()
         try expect(try harness.uiLevel(of: deck) == "overview", "the test did not start in overview")
+        deck.toggleMapEditOverlay()
+        deck.layoutSubtreeIfNeeded()
+        try expect(
+            deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "⌘E did not enter edit mode before the terminal click"
+        )
 
         func tiles(in view: NSView) -> [TerminalTileView] {
             view.subviews.flatMap { subview in
@@ -3421,7 +3437,10 @@ enum InteractionTestRunner {
             throw InteractionTestFailure("the overview did not render both terminal previews")
         }
         let typingEvent = try harness.keyEvent(characters: "a", keyCode: 0)
-        try expect(window.firstResponder === deck, "select mode did not keep the deck as first responder")
+        try expect(
+            window.firstResponder is MapEditOverlayView,
+            "edit mode did not keep its overlay as first responder"
+        )
         try expect(
             !previewTerminal.performKeyEquivalent(with: typingEvent),
             "select mode routed typing into a terminal preview"
@@ -3462,6 +3481,10 @@ enum InteractionTestRunner {
         try expect(
             try harness.focusedTileID(of: deck) == target.session.tileID,
             "clicking a terminal did not focus its PTY before camera motion"
+        )
+        try expect(
+            !deck.subviews.contains(where: { $0 is MapEditOverlayView }),
+            "clicking a terminal tile did not leave edit mode"
         )
         try expect(
             (window.firstResponder as? MachinenTerminalView)?.session.id == target.session.id,

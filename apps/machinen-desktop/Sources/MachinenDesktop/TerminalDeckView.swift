@@ -403,11 +403,17 @@ final class TerminalDeckView: NSView {
         }
         tile.onSelect = { [weak self, weak tile] event in
             guard let self, let tile else { return }
+            if self.mapEditOverlay != nil {
+                self.dismissMapEditOverlay(restorePreviousView: false)
+            }
             self.window?.makeFirstResponder(self)
             self.focusClickedTile(at: event.locationInWindow, fallback: tile)
         }
         tile.onActivate = { [weak self, weak tile] event in
             guard let self, let tile else { return }
+            if self.mapEditOverlay != nil {
+                self.dismissMapEditOverlay(restorePreviousView: false)
+            }
             self.focusClickedTile(at: event.locationInWindow, fallback: tile)
         }
         tile.terminalInputTarget = { [weak self, weak tile] event in
@@ -819,6 +825,9 @@ final class TerminalDeckView: NSView {
                     guard let self, let cluster,
                           let index = self.workspaceClusters.firstIndex(where: { $0 === cluster })
                     else { return }
+                    if self.mapEditOverlay != nil {
+                        self.dismissMapEditOverlay(restorePreviousView: false)
+                    }
                     self.window?.makeFirstResponder(self)
                     if self.currentWorkspace == nil {
                         self.activate(index)
@@ -826,9 +835,12 @@ final class TerminalDeckView: NSView {
                 }
                 cluster.onActivate = { [weak self, weak cluster] in
                     guard let self, let cluster,
-                          let index = self.workspaceClusters.firstIndex(where: { $0 === cluster }),
-                          self.currentWorkspace == nil
+                          let index = self.workspaceClusters.firstIndex(where: { $0 === cluster })
                     else { return }
+                    if self.mapEditOverlay != nil {
+                        self.dismissMapEditOverlay(restorePreviousView: false)
+                    }
+                    guard self.currentWorkspace == nil else { return }
                     self.activate(index)
                 }
                 cluster.onDragBegan = { [weak self, weak cluster] event in

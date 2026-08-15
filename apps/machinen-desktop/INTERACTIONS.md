@@ -392,8 +392,9 @@ not change this rule.
 
 In workspace mode, `⇧⌘[` and `⇧⌘]` move to the previous or next workspace. The
 camera stays at the workspace level, and the workspace list wraps. A hierarchy
-change keeps edit mode active. The overview replaces terminal actions with Add
-Workspace and workspace removal actions. Entry into a workspace restores New
+change from a keyboard shortcut keeps edit mode active. A click on a real tile
+exits edit mode before normal tile navigation. The overview replaces terminal
+actions with Add Workspace and workspace removal actions. Entry into a workspace restores New
 Terminal and terminal actions without terminal focus. Machinen exits map edit
 mode after any new terminal tile enters the workspace. Detach and Kill
 remain available through normal terminal commands. Escape, `⌘E`, and `⇧⌘E` close
