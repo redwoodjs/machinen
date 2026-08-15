@@ -873,11 +873,44 @@ enum InteractionTestRunner {
             to: nil
         )
 
+        guard let camera = deck.subviews.first else {
+            throw InteractionTestFailure("the swipe test did not find its camera")
+        }
         try expect(
-            deck.performCameraSwipe(.down, fingerCount: 3, pointerLocation: betaPoint)
-                && (try harness.uiLevel(of: deck)) == "workspace"
+            deck.previewCameraSwipeForTesting(
+                .down,
+                progress: 0.20,
+                pointerLocation: betaPoint
+            )
+                && (try harness.uiLevel(of: deck)) == "overview"
+                && (try harness.selectedWorkspaceID(of: deck)) == "ws_alpha"
+                && camera.alphaValue < 1,
+            "an early camera swipe changed selection or did not fade"
+        )
+        deck.finishCameraSwipeForTesting()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        try expect(
+            (try harness.uiLevel(of: deck)) == "overview"
+                && (try harness.selectedWorkspaceID(of: deck)) == "ws_alpha"
+                && abs(camera.alphaValue - 1) < 0.01,
+            "an early camera release did not restore its source"
+        )
+        try expect(
+            deck.previewCameraSwipeForTesting(
+                .down,
+                progress: 0.40,
+                pointerLocation: betaPoint
+            )
+                && (try harness.uiLevel(of: deck)) == "overview"
+                && (try harness.selectedWorkspaceID(of: deck)) == "ws_beta"
+                && camera.alphaValue < 1,
+            "a releasable camera swipe did not activate its target selection"
+        )
+        deck.finishCameraSwipeForTesting()
+        try expect(
+            (try harness.uiLevel(of: deck)) == "workspace"
                 && (try harness.statusTitle(of: deck)) == "Workspaces > beta",
-            "a three-finger down swipe did not enter the workspace under the pointer"
+            "a releasable camera swipe did not enter the workspace under the pointer"
         )
         try expect(
             deck.performCameraSwipe(.left, fingerCount: 2)

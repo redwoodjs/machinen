@@ -140,6 +140,7 @@ final class TerminalDeckView: NSView {
         var targetCameraBounds: NSRect? = nil
         var pointerLocation: NSPoint? = nil
         var sourceSelectedIndex = 0
+        var targetSelectedIndex: Int? = nil
         var progress: CGFloat = 0
         var didTrigger = false
     }
@@ -226,6 +227,7 @@ final class TerminalDeckView: NSView {
     private var directTrackpadSwipe: DirectTrackpadSwipe?
     private var gestureEventMonitor: Any?
     private var suppressGestureEventsUntil: TimeInterval = 0
+    private var restoresCameraAlphaOnNextMove = false
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
     private var effectiveStatusWidgets: [MachinenStatusWidget] = []
     private var selectionOpeners: [String: MachinenSelectionOpener] = [:]
@@ -1348,7 +1350,9 @@ final class TerminalDeckView: NSView {
         cameraAnimationTimer?.invalidate()
         let target = destination ?? currentCameraBounds()
         let start = sceneView.bounds
-        let targetAlpha = requestedTargetAlpha ?? sceneView.alphaValue
+        let restoresCameraAlpha = restoresCameraAlphaOnNextMove
+        restoresCameraAlphaOnNextMove = false
+        let targetAlpha = requestedTargetAlpha ?? (restoresCameraAlpha ? 1 : sceneView.alphaValue)
         guard duration > 0, start.width > 0, start.height > 0,
               target.width > 0, target.height > 0
         else {
@@ -1544,12 +1548,17 @@ final class TerminalDeckView: NSView {
 
     private func processTwoFingerScroll(_ event: NSEvent) -> Bool {
         let activeTouchCount = indirectTouches(in: event).count
-        if activeTouchCount >= 3
-            || directTrackpadSwipe?.fingerCount == 3
-            || ProcessInfo.processInfo.systemUptime < suppressGestureEventsUntil
-        {
+        if activeTouchCount >= 3 || directTrackpadSwipe?.fingerCount == 3 {
             twoFingerCameraSwipe = nil
             return true
+        }
+        if ProcessInfo.processInfo.systemUptime < suppressGestureEventsUntil {
+            if event.phase.contains(.began) {
+                suppressGestureEventsUntil = 0
+            } else {
+                twoFingerCameraSwipe = nil
+                return true
+            }
         }
         guard focusedIndex == nil,
               event.hasPreciseScrollingDeltas,
@@ -1644,7 +1653,8 @@ final class TerminalDeckView: NSView {
                 swipe.pointerLocation = window?.mouseLocationOutsideOfEventStream
                 swipe.targetCameraBounds = interactiveCameraTarget(
                     for: direction,
-                    pointerLocation: swipe.pointerLocation
+                    pointerLocation: swipe.pointerLocation,
+                    targetSelectedIndex: &swipe.targetSelectedIndex
                 )
             }
             guard let source = swipe.sourceCameraBounds,
@@ -1652,13 +1662,11 @@ final class TerminalDeckView: NSView {
             else { return }
             let travel = abs(horizontal) > abs(vertical) ? abs(horizontal) : abs(vertical)
             swipe.progress = min(1, max(0, travel / CameraSwipe.directTouchTravel))
-            sceneView.bounds = interpolatedCameraBounds(
-                from: source,
-                to: target,
-                progress: swipe.progress
+            applyInteractiveCameraPreview(
+                swipe: swipe,
+                source: source,
+                target: target
             )
-            statusBarView.updateSpatialMinimapCamera(sceneView.bounds)
-            spatialMinimapView.updateCameraBounds(sceneView.bounds)
             directTrackpadSwipe = swipe
             return
         }
@@ -1668,6 +1676,63 @@ final class TerminalDeckView: NSView {
         directTrackpadSwipe = swipe
         suppressGestureEventsUntil = ProcessInfo.processInfo.systemUptime
             + CameraSwipe.duplicateSuppressionDuration
+    }
+
+    private func applyInteractiveCameraPreview(
+        swipe: DirectTrackpadSwipe,
+        source: NSRect,
+        target: NSRect
+    ) {
+        let selection = swipe.progress >= CameraSwipe.releaseThreshold
+            ? (swipe.targetSelectedIndex ?? swipe.sourceSelectedIndex)
+            : swipe.sourceSelectedIndex
+        if selectedIndex != selection {
+            selectedIndex = selection
+            updateSelection()
+        }
+        sceneView.bounds = interpolatedCameraBounds(
+            from: source,
+            to: target,
+            progress: swipe.progress
+        )
+        let fade = sin(.pi * swipe.progress)
+        sceneView.alphaValue = 1
+            - (1 - Motion.workspaceSwitchMinimumAlpha) * fade
+        statusBarView.updateSpatialMinimapCamera(sceneView.bounds)
+        spatialMinimapView.updateCameraBounds(sceneView.bounds)
+    }
+
+    @discardableResult
+    func previewCameraSwipeForTesting(
+        _ direction: CameraSwipeDirection,
+        progress: CGFloat,
+        pointerLocation: NSPoint? = nil
+    ) -> Bool {
+        guard prepareForCameraSwipePreview() else { return false }
+        var swipe = DirectTrackpadSwipe(
+            fingerCount: 3,
+            start: .zero,
+            direction: direction,
+            sourceCameraBounds: sceneView.bounds,
+            pointerLocation: pointerLocation,
+            sourceSelectedIndex: selectedIndex,
+            progress: min(1, max(0, progress))
+        )
+        swipe.targetCameraBounds = interactiveCameraTarget(
+            for: direction,
+            pointerLocation: pointerLocation,
+            targetSelectedIndex: &swipe.targetSelectedIndex
+        )
+        guard let source = swipe.sourceCameraBounds,
+              let target = swipe.targetCameraBounds
+        else { return false }
+        applyInteractiveCameraPreview(swipe: swipe, source: source, target: target)
+        directTrackpadSwipe = swipe
+        return true
+    }
+
+    func finishCameraSwipeForTesting() {
+        finishInteractiveTrackpadSwipe()
     }
 
     private func prepareForCameraSwipePreview() -> Bool {
@@ -1685,20 +1750,41 @@ final class TerminalDeckView: NSView {
         suppressGestureEventsUntil = ProcessInfo.processInfo.systemUptime
             + CameraSwipe.duplicateSuppressionDuration
         guard swipe.progress >= CameraSwipe.releaseThreshold,
-              let direction = swipe.direction,
-              commitInteractiveTrackpadSwipe(direction)
+              swipe.direction != nil
         else {
+            restoreInteractiveTrackpadSwipe(swipe)
+            return
+        }
+        restoresCameraAlphaOnNextMove = true
+        guard commitInteractiveTrackpadSwipe(swipe) else {
+            restoresCameraAlphaOnNextMove = false
             restoreInteractiveTrackpadSwipe(swipe)
             return
         }
     }
 
     private func commitInteractiveTrackpadSwipe(
-        _ direction: CameraSwipeDirection
+        _ swipe: DirectTrackpadSwipe
     ) -> Bool {
+        guard let direction = swipe.direction else { return false }
         if direction == .down {
             guard prepareForCameraSwipePreview() else { return false }
             return zoomInOneLevel()
+        }
+        if currentWorkspace == nil,
+           (direction == .left || direction == .right),
+           let targetSelectedIndex = swipe.targetSelectedIndex,
+           let target = swipe.targetCameraBounds
+        {
+            selectedIndex = targetSelectedIndex
+            updateSelection()
+            moveCamera(
+                to: target,
+                duration: Motion.terminalSwitchDuration,
+                targetAlpha: 1
+            )
+            restoresCameraAlphaOnNextMove = false
+            return true
         }
         return performCameraSwipe(direction, fingerCount: 3)
     }
@@ -1710,17 +1796,26 @@ final class TerminalDeckView: NSView {
     }
 
     private func restoreInteractiveTrackpadSwipe(_ swipe: DirectTrackpadSwipe) {
+        restoresCameraAlphaOnNextMove = false
         if selectedIndex != swipe.sourceSelectedIndex {
             selectedIndex = swipe.sourceSelectedIndex
             updateSelection()
         }
-        guard let source = swipe.sourceCameraBounds else { return }
-        moveCamera(to: source, duration: CameraSwipe.cancelDuration)
+        guard let source = swipe.sourceCameraBounds else {
+            sceneView.alphaValue = 1
+            return
+        }
+        moveCamera(
+            to: source,
+            duration: CameraSwipe.cancelDuration,
+            targetAlpha: 1
+        )
     }
 
     private func interactiveCameraTarget(
         for direction: CameraSwipeDirection,
-        pointerLocation: NSPoint?
+        pointerLocation: NSPoint?,
+        targetSelectedIndex: inout Int?
     ) -> NSRect? {
         switch direction {
         case .up:
@@ -1734,23 +1829,24 @@ final class TerminalDeckView: NSView {
             if currentWorkspace != nil { return overviewCameraBounds() }
             return nil
         case .down:
-            selectMapTileUnderPointer(at: pointerLocation)
+            let targetIndex = mapTileIndexUnderPointer(at: pointerLocation) ?? selectedIndex
+            targetSelectedIndex = targetIndex
             if currentWorkspace == nil,
-               workspaceClusters.indices.contains(selectedIndex)
+               workspaceClusters.indices.contains(targetIndex)
             {
                 return cameraBounds(
-                    for: workspaceClusters[selectedIndex].workspaceID,
+                    for: workspaceClusters[targetIndex].workspaceID,
                     tileID: nil,
                     focusTerminal: false
                 )
             }
             let sessions = activeSessionTiles
-            guard let currentWorkspace, sessions.indices.contains(selectedIndex) else {
+            guard let currentWorkspace, sessions.indices.contains(targetIndex) else {
                 return nil
             }
             return cameraBounds(
                 for: currentWorkspace,
-                tileID: sessions[selectedIndex].session.tileID,
+                tileID: sessions[targetIndex].session.tileID,
                 focusTerminal: true
             )
         case .left, .right:
@@ -1759,6 +1855,7 @@ final class TerminalDeckView: NSView {
                 let sessions = activeSessionTiles
                 guard sessions.count > 1 else { return nil }
                 let targetIndex = (focusedIndex + offset + sessions.count) % sessions.count
+                targetSelectedIndex = targetIndex
                 return currentWorkspace.flatMap { workspaceID in
                     cameraBounds(
                         for: workspaceID,
@@ -1781,6 +1878,7 @@ final class TerminalDeckView: NSView {
             guard let targetIndex = mapSelectionTargetIndex(for: direction),
                   let targetFrame = mapTileFrame(at: targetIndex)
             else { return nil }
+            targetSelectedIndex = targetIndex
             let size = sceneView.bounds.size
             return NSRect(
                 x: targetFrame.midX - size.width / 2,
@@ -1910,23 +2008,23 @@ final class TerminalDeckView: NSView {
         }
     }
 
-    private func selectMapTileUnderPointer(at suppliedLocation: NSPoint?) {
+    private func mapTileIndexUnderPointer(at suppliedLocation: NSPoint?) -> Int? {
         guard focusedIndex == nil,
               let point = suppliedLocation ?? window?.mouseLocationOutsideOfEventStream
-        else { return }
+        else { return nil }
         if currentWorkspace == nil {
-            guard let index = workspaceClusters.firstIndex(where: { cluster in
+            return workspaceClusters.firstIndex(where: { cluster in
                 cluster.convert(cluster.bounds, to: nil).contains(point)
-            }), index != selectedIndex
-            else { return }
-            selectedIndex = index
-            updateSelection()
-            return
+            })
         }
-        let sessions = activeSessionTiles
-        guard let index = sessions.firstIndex(where: { tile in
+        return activeSessionTiles.firstIndex(where: { tile in
             tile.convert(tile.bounds, to: nil).contains(point)
-        }), index != selectedIndex
+        })
+    }
+
+    private func selectMapTileUnderPointer(at suppliedLocation: NSPoint?) {
+        guard let index = mapTileIndexUnderPointer(at: suppliedLocation),
+              index != selectedIndex
         else { return }
         selectedIndex = index
         updateSelection()
