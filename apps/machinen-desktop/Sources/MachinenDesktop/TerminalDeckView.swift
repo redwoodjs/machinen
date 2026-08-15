@@ -135,12 +135,21 @@ final class TerminalDeckView: NSView {
     private struct DirectTrackpadSwipe {
         let fingerCount: Int
         let start: NSPoint
+        var direction: CameraSwipeDirection? = nil
+        var sourceCameraBounds: NSRect? = nil
+        var targetCameraBounds: NSRect? = nil
+        var pointerLocation: NSPoint? = nil
+        var sourceSelectedIndex = 0
+        var progress: CGFloat = 0
         var didTrigger = false
     }
 
     private enum CameraSwipe {
         static let twoFingerThreshold: CGFloat = 42
         static let directTouchThreshold: CGFloat = 0.045
+        static let directTouchTravel: CGFloat = 0.22
+        static let releaseThreshold: CGFloat = 0.35
+        static let cancelDuration: TimeInterval = 0.12
         static let duplicateSuppressionDuration: TimeInterval = 0.30
     }
 
@@ -1105,11 +1114,7 @@ final class TerminalDeckView: NSView {
                 viewport: sceneViewportBounds
             ))
         }
-        return applyingCameraMagnification(to: cameraBounds(
-            for: workspaceUnion.insetBy(dx: -Metrics.worldMargin / 2, dy: 0),
-            viewport: overviewViewport(),
-            alignTargetToTop: true
-        ))
+        return overviewCameraBounds()
     }
 
     private func applyingCameraMagnification(to cameraBounds: NSRect) -> NSRect {
@@ -1523,14 +1528,17 @@ final class TerminalDeckView: NSView {
     }
 
     override func touchesEnded(with event: NSEvent) {
-        if indirectTouches(in: event).count < 2 {
+        let remainingTouchCount = indirectTouches(in: event).count
+        if directTrackpadSwipe?.fingerCount == 3, remainingTouchCount < 3 {
+            finishInteractiveTrackpadSwipe()
+        } else if remainingTouchCount < 2 {
             directTrackpadSwipe = nil
         }
         super.touchesEnded(with: event)
     }
 
     override func touchesCancelled(with event: NSEvent) {
-        directTrackpadSwipe = nil
+        cancelInteractiveTrackpadSwipe()
         super.touchesCancelled(with: event)
     }
 
@@ -1596,30 +1604,245 @@ final class TerminalDeckView: NSView {
     private func updateDirectTrackpadSwipe(with event: NSEvent) {
         let touches = indirectTouches(in: event)
         guard touches.count == 2 || touches.count == 3 else {
-            if touches.count < 2 { directTrackpadSwipe = nil }
+            if touches.count < 2 {
+                if directTrackpadSwipe?.fingerCount == 3 {
+                    finishInteractiveTrackpadSwipe()
+                } else {
+                    directTrackpadSwipe = nil
+                }
+            }
+            return
+        }
+        if directTrackpadSwipe?.fingerCount == 3, touches.count < 3 {
+            finishInteractiveTrackpadSwipe()
             return
         }
         let center = touchCenter(touches)
         if directTrackpadSwipe?.fingerCount != touches.count {
             directTrackpadSwipe = DirectTrackpadSwipe(
                 fingerCount: touches.count,
-                start: center
+                start: center,
+                sourceSelectedIndex: selectedIndex
             )
             return
         }
         guard var swipe = directTrackpadSwipe, !swipe.didTrigger else { return }
         let horizontal = center.x - swipe.start.x
         let vertical = -(center.y - swipe.start.y)
-        guard let direction = cameraSwipeDirection(
+        guard let direction = swipe.direction ?? cameraSwipeDirection(
             horizontal: horizontal,
             vertical: vertical,
             threshold: CameraSwipe.directTouchThreshold
-        ), performCameraSwipe(direction, fingerCount: swipe.fingerCount)
-        else { return }
+        ) else { return }
+
+        if swipe.fingerCount == 3 {
+            if swipe.direction == nil {
+                guard prepareForCameraSwipePreview() else { return }
+                swipe.direction = direction
+                swipe.sourceCameraBounds = sceneView.bounds
+                swipe.sourceSelectedIndex = selectedIndex
+                swipe.pointerLocation = window?.mouseLocationOutsideOfEventStream
+                swipe.targetCameraBounds = interactiveCameraTarget(
+                    for: direction,
+                    pointerLocation: swipe.pointerLocation
+                )
+            }
+            guard let source = swipe.sourceCameraBounds,
+                  let target = swipe.targetCameraBounds
+            else { return }
+            let travel = abs(horizontal) > abs(vertical) ? abs(horizontal) : abs(vertical)
+            swipe.progress = min(1, max(0, travel / CameraSwipe.directTouchTravel))
+            sceneView.bounds = interpolatedCameraBounds(
+                from: source,
+                to: target,
+                progress: swipe.progress
+            )
+            statusBarView.updateSpatialMinimapCamera(sceneView.bounds)
+            spatialMinimapView.updateCameraBounds(sceneView.bounds)
+            directTrackpadSwipe = swipe
+            return
+        }
+
+        guard performCameraSwipe(direction, fingerCount: 2) else { return }
         swipe.didTrigger = true
         directTrackpadSwipe = swipe
         suppressGestureEventsUntil = ProcessInfo.processInfo.systemUptime
             + CameraSwipe.duplicateSuppressionDuration
+    }
+
+    private func prepareForCameraSwipePreview() -> Bool {
+        guard presentedOverlay == nil,
+              commandPalette == nil,
+              mapEditOverlay == nil,
+              spatialDrag == nil
+        else { return false }
+        return prepareForInteractionIntent()
+    }
+
+    private func finishInteractiveTrackpadSwipe() {
+        guard let swipe = directTrackpadSwipe else { return }
+        directTrackpadSwipe = nil
+        suppressGestureEventsUntil = ProcessInfo.processInfo.systemUptime
+            + CameraSwipe.duplicateSuppressionDuration
+        guard swipe.progress >= CameraSwipe.releaseThreshold,
+              let direction = swipe.direction,
+              commitInteractiveTrackpadSwipe(direction)
+        else {
+            restoreInteractiveTrackpadSwipe(swipe)
+            return
+        }
+    }
+
+    private func commitInteractiveTrackpadSwipe(
+        _ direction: CameraSwipeDirection
+    ) -> Bool {
+        if direction == .down {
+            guard prepareForCameraSwipePreview() else { return false }
+            return zoomInOneLevel()
+        }
+        return performCameraSwipe(direction, fingerCount: 3)
+    }
+
+    private func cancelInteractiveTrackpadSwipe() {
+        guard let swipe = directTrackpadSwipe else { return }
+        directTrackpadSwipe = nil
+        restoreInteractiveTrackpadSwipe(swipe)
+    }
+
+    private func restoreInteractiveTrackpadSwipe(_ swipe: DirectTrackpadSwipe) {
+        if selectedIndex != swipe.sourceSelectedIndex {
+            selectedIndex = swipe.sourceSelectedIndex
+            updateSelection()
+        }
+        guard let source = swipe.sourceCameraBounds else { return }
+        moveCamera(to: source, duration: CameraSwipe.cancelDuration)
+    }
+
+    private func interactiveCameraTarget(
+        for direction: CameraSwipeDirection,
+        pointerLocation: NSPoint?
+    ) -> NSRect? {
+        switch direction {
+        case .up:
+            if focusedIndex != nil, let currentWorkspace {
+                return cameraBounds(
+                    for: currentWorkspace,
+                    tileID: nil,
+                    focusTerminal: false
+                )
+            }
+            if currentWorkspace != nil { return overviewCameraBounds() }
+            return nil
+        case .down:
+            selectMapTileUnderPointer(at: pointerLocation)
+            if currentWorkspace == nil,
+               workspaceClusters.indices.contains(selectedIndex)
+            {
+                return cameraBounds(
+                    for: workspaceClusters[selectedIndex].workspaceID,
+                    tileID: nil,
+                    focusTerminal: false
+                )
+            }
+            let sessions = activeSessionTiles
+            guard let currentWorkspace, sessions.indices.contains(selectedIndex) else {
+                return nil
+            }
+            return cameraBounds(
+                for: currentWorkspace,
+                tileID: sessions[selectedIndex].session.tileID,
+                focusTerminal: true
+            )
+        case .left, .right:
+            let offset = direction == .left ? 1 : -1
+            if let focusedIndex {
+                let sessions = activeSessionTiles
+                guard sessions.count > 1 else { return nil }
+                let targetIndex = (focusedIndex + offset + sessions.count) % sessions.count
+                return currentWorkspace.flatMap { workspaceID in
+                    cameraBounds(
+                        for: workspaceID,
+                        tileID: sessions[targetIndex].session.tileID,
+                        focusTerminal: true
+                    )
+                }
+            }
+            if let currentWorkspace,
+               workspaces.count > 1,
+               let workspaceIndex = workspaces.firstIndex(where: { $0.id == currentWorkspace })
+            {
+                let targetIndex = (workspaceIndex + offset + workspaces.count) % workspaces.count
+                return cameraBounds(
+                    for: workspaces[targetIndex].id,
+                    tileID: nil,
+                    focusTerminal: false
+                )
+            }
+            guard let targetIndex = mapSelectionTargetIndex(for: direction),
+                  let targetFrame = mapTileFrame(at: targetIndex)
+            else { return nil }
+            let size = sceneView.bounds.size
+            return NSRect(
+                x: targetFrame.midX - size.width / 2,
+                y: targetFrame.midY - size.height / 2,
+                width: size.width,
+                height: size.height
+            )
+        }
+    }
+
+    private func mapSelectionTargetIndex(
+        for direction: CameraSwipeDirection
+    ) -> Int? {
+        let horizontal: Int
+        let vertical: Int
+        switch direction {
+        case .left: (horizontal, vertical) = (1, 0)
+        case .right: (horizontal, vertical) = (-1, 0)
+        case .up: (horizontal, vertical) = (0, -1)
+        case .down: (horizontal, vertical) = (0, 1)
+        }
+        let columns = activeColumns
+        let row = selectedIndex / columns + vertical
+        let column = selectedIndex % columns + horizontal
+        guard row >= 0, column >= 0, column < columns else { return nil }
+        let target = row * columns + column
+        return target < activeCount ? target : nil
+    }
+
+    private func mapTileFrame(at index: Int) -> NSRect? {
+        if currentWorkspace == nil {
+            guard workspaceClusters.indices.contains(index) else { return nil }
+            return workspaceClusters[index].frame
+        }
+        let sessions = activeSessionTiles
+        guard sessions.indices.contains(index) else { return nil }
+        return sessions[index].convert(sessions[index].bounds, to: sceneView)
+    }
+
+    private func overviewCameraBounds() -> NSRect {
+        applyingCameraMagnification(to: cameraBounds(
+            for: workspaceUnion.insetBy(dx: -Metrics.worldMargin / 2, dy: 0),
+            viewport: overviewViewport(),
+            alignTargetToTop: true
+        ))
+    }
+
+    private func interpolatedCameraBounds(
+        from source: NSRect,
+        to target: NSRect,
+        progress: CGFloat
+    ) -> NSRect {
+        let width = source.width * pow(target.width / source.width, progress)
+        let height = source.height * pow(target.height / source.height, progress)
+        let centerX = source.midX + (target.midX - source.midX) * progress
+        let centerY = source.midY + (target.midY - source.midY) * progress
+        return NSRect(
+            x: centerX - width / 2,
+            y: centerY - height / 2,
+            width: width,
+            height: height
+        )
     }
 
     private func indirectTouches(in event: NSEvent) -> [NSTouch] {
