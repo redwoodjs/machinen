@@ -120,6 +120,22 @@ final class TerminalDeckView: NSView {
         static let maximum: CGFloat = 2
     }
 
+    enum CameraSwipeDirection {
+        case left
+        case right
+        case up
+        case down
+    }
+
+    private struct TwoFingerCameraSwipe {
+        var horizontal: CGFloat = 0
+        var vertical: CGFloat = 0
+    }
+
+    private enum CameraSwipe {
+        static let twoFingerThreshold: CGFloat = 42
+    }
+
     private struct MapEditReturnState {
         let workspaceID: String?
         let overviewWorkspaceID: String?
@@ -189,6 +205,7 @@ final class TerminalDeckView: NSView {
     private var spatialMinimapHoldUntil: TimeInterval?
     private var isSpatialMinimapPreviewed = false
     private var cameraMagnification: CGFloat = 1
+    private var twoFingerCameraSwipe: TwoFingerCameraSwipe?
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
     private var effectiveStatusWidgets: [MachinenStatusWidget] = []
     private var selectionOpeners: [String: MachinenSelectionOpener] = [:]
@@ -297,6 +314,9 @@ final class TerminalDeckView: NSView {
         }
         statusBarView.onSpatialMinimapHoverChange = { [weak self] isHovered in
             self?.setSpatialMinimapPreviewed(isHovered)
+        }
+        statusBarView.onOverviewSelect = { [weak self] in
+            self?.showOverviewFromStatusBar()
         }
         statusBarView.onWorkspaceSelect = { [weak self] workspaceID in
             self?.selectWorkspaceFromStatusBar(workspaceID)
@@ -1443,6 +1463,142 @@ final class TerminalDeckView: NSView {
             + parameter * parameter * parameter
     }
 
+    override func scrollWheel(with event: NSEvent) {
+        guard focusedIndex == nil,
+              event.hasPreciseScrollingDeltas,
+              event.phase != [],
+              presentedOverlay == nil,
+              commandPalette == nil,
+              mapEditOverlay == nil,
+              !isPeeking
+        else {
+            super.scrollWheel(with: event)
+            return
+        }
+        if event.momentumPhase != [] { return }
+
+        if event.phase.contains(.mayBegin) || event.phase.contains(.began) {
+            twoFingerCameraSwipe = TwoFingerCameraSwipe()
+        }
+        if event.phase.contains(.changed) || event.phase.contains(.ended) {
+            if twoFingerCameraSwipe == nil {
+                twoFingerCameraSwipe = TwoFingerCameraSwipe()
+            }
+            let deviceDirection: CGFloat = event.isDirectionInvertedFromDevice ? -1 : 1
+            twoFingerCameraSwipe?.horizontal += event.scrollingDeltaX * deviceDirection
+            twoFingerCameraSwipe?.vertical += event.scrollingDeltaY * deviceDirection
+        }
+        if event.phase.contains(.cancelled) {
+            twoFingerCameraSwipe = nil
+            return
+        }
+        guard event.phase.contains(.ended), let swipe = twoFingerCameraSwipe else { return }
+        twoFingerCameraSwipe = nil
+        guard let direction = cameraSwipeDirection(
+            horizontal: swipe.horizontal,
+            vertical: swipe.vertical,
+            threshold: CameraSwipe.twoFingerThreshold
+        ) else { return }
+        _ = performCameraSwipe(direction, fingerCount: 2)
+    }
+
+    override func swipe(with event: NSEvent) {
+        guard let direction = cameraSwipeDirection(
+            horizontal: event.deltaX,
+            vertical: event.deltaY,
+            threshold: 0.1
+        ), performCameraSwipe(direction, fingerCount: 3)
+        else {
+            super.swipe(with: event)
+            return
+        }
+    }
+
+    private func cameraSwipeDirection(
+        horizontal: CGFloat,
+        vertical: CGFloat,
+        threshold: CGFloat
+    ) -> CameraSwipeDirection? {
+        guard max(abs(horizontal), abs(vertical)) >= threshold else { return nil }
+        if abs(horizontal) > abs(vertical) {
+            return horizontal > 0 ? .right : .left
+        }
+        return vertical > 0 ? .down : .up
+    }
+
+    @discardableResult
+    func performCameraSwipe(
+        _ direction: CameraSwipeDirection,
+        fingerCount: Int
+    ) -> Bool {
+        guard fingerCount == 2 || fingerCount == 3,
+              presentedOverlay == nil,
+              commandPalette == nil,
+              mapEditOverlay == nil,
+              spatialDrag == nil,
+              prepareForInteractionIntent()
+        else { return false }
+
+        if fingerCount == 2 {
+            guard focusedIndex == nil else { return false }
+            return moveMapSelectionForSwipe(direction)
+        }
+
+        switch direction {
+        case .up:
+            return zoomOutOneLevel()
+        case .down:
+            return zoomInOneLevel()
+        case .left:
+            if focusedIndex != nil { return cycleFocusedTerminal(by: 1) }
+            if currentWorkspace != nil { return cycleFocusedWorkspace(by: 1) }
+            return moveMapSelectionForSwipe(.left)
+        case .right:
+            if focusedIndex != nil { return cycleFocusedTerminal(by: -1) }
+            if currentWorkspace != nil { return cycleFocusedWorkspace(by: -1) }
+            return moveMapSelectionForSwipe(.right)
+        }
+    }
+
+    private func moveMapSelectionForSwipe(_ direction: CameraSwipeDirection) -> Bool {
+        let priorIndex = selectedIndex
+        let moved: Bool
+        switch direction {
+        case .left:
+            moved = moveSelection(horizontal: 1, vertical: 0)
+        case .right:
+            moved = moveSelection(horizontal: -1, vertical: 0)
+        case .up:
+            moved = moveSelection(horizontal: 0, vertical: -1)
+        case .down:
+            moved = moveSelection(horizontal: 0, vertical: 1)
+        }
+        guard moved else { return false }
+        guard selectedIndex != priorIndex,
+              let targetFrame = selectedMapTileFrame()
+        else { return true }
+        let cameraSize = sceneView.bounds.size
+        let target = NSRect(
+            x: targetFrame.midX - cameraSize.width / 2,
+            y: targetFrame.midY - cameraSize.height / 2,
+            width: cameraSize.width,
+            height: cameraSize.height
+        )
+        beginSpatialMinimapAnimation(to: target, duration: Motion.terminalSwitchDuration)
+        moveCamera(to: target, duration: Motion.terminalSwitchDuration)
+        return true
+    }
+
+    private func selectedMapTileFrame() -> NSRect? {
+        if currentWorkspace == nil {
+            guard workspaceClusters.indices.contains(selectedIndex) else { return nil }
+            return workspaceClusters[selectedIndex].frame
+        }
+        let sessions = activeSessionTiles
+        guard sessions.indices.contains(selectedIndex) else { return nil }
+        return sessions[selectedIndex].convert(sessions[selectedIndex].bounds, to: sceneView)
+    }
+
     override func keyDown(with event: NSEvent) {
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
         if event.keyCode == 53, modifiers.isEmpty, mapEditOverlay != nil {
@@ -1488,6 +1644,20 @@ final class TerminalDeckView: NSView {
             return
         }
         super.keyUp(with: event)
+    }
+
+    private func showOverviewFromStatusBar() {
+        guard presentedOverlay == nil, commandPalette == nil,
+              !isPeeking, prepareForInteractionIntent()
+        else { return }
+        let workspaceID = currentWorkspace
+        currentWorkspace = nil
+        focusedIndex = nil
+        selectedIndex = workspaceID.flatMap { id in
+            workspaceClusters.firstIndex(where: { $0.workspaceID == id })
+        } ?? min(selectedIndex, max(0, workspaceClusters.count - 1))
+        updateSelection()
+        moveCamera()
     }
 
     private func selectWorkspaceFromStatusBar(_ workspaceID: String) {
@@ -8288,13 +8458,13 @@ final class TerminalDeckView: NSView {
         let workspace = selectedWorkspaceRecord()
         if let terminal = focusedTerminal {
             let workspaceName = workspace?.name ?? terminal.session.workspace
-            statusBarView.title = "\(workspaceName) > \(terminal.session.displayName)"
+            statusBarView.title = "Workspaces > \(workspaceName) > \(terminal.session.displayName)"
             statusBarView.titleTooltip = "\(terminal.session.effectiveLocation.displayName) · \(terminal.session.commandTitle)"
-        } else if let workspace {
-            statusBarView.title = workspace.name
+        } else if currentWorkspace != nil, let workspace {
+            statusBarView.title = "Workspaces > \(workspace.name)"
             statusBarView.titleTooltip = workspace.location.displayName
         } else {
-            statusBarView.title = "MACHINEN"
+            statusBarView.title = "Workspaces"
             statusBarView.titleTooltip = nil
         }
         statusBarView.workspaceChoices = workspaces.map { candidate in
@@ -8304,8 +8474,8 @@ final class TerminalDeckView: NSView {
                 tooltip: candidate.location.displayName
             )
         }
-        statusBarView.selectedWorkspaceID = workspaceID
-        statusBarView.terminalChoices = workspaceID.map { id in
+        statusBarView.selectedWorkspaceID = currentWorkspace
+        statusBarView.terminalChoices = currentWorkspace.map { id in
             activeSessionTiles(for: id).map { tile in
                 MachinenStatusNavigationChoice(
                     id: tile.session.id,

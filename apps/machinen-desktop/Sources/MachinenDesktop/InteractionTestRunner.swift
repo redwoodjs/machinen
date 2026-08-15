@@ -19,6 +19,7 @@ enum InteractionTestRunner {
             try settingsFileIsAvailableInApplicationMenu()
             try commandArrowsMoveThroughTheHierarchy()
             try statusNavigationMenusSwitchAndZoomOut()
+            try cameraSwipesNavigateSpatialHierarchy()
             try commandPlusAndMinusMagnifyTheCurrentLevel()
             try configuredShortcutsNavigateHierarchy()
             try paneAndWorkspaceShortcutsTransitionAtFixedZoom()
@@ -52,7 +53,7 @@ enum InteractionTestRunner {
             try draggingPreviewCannotMoveTileToAnotherWorkspace()
             try commandWDisconnectsSingletonSession()
             try disconnectedTerminalsCanReconnectOrBeKilled()
-            print("Machinen interaction tests passed (40 scenarios)")
+            print("Machinen interaction tests passed (41 scenarios)")
             return 0
         } catch {
             fputs("Machinen interaction tests failed: \(error)\n", stderr)
@@ -753,13 +754,19 @@ enum InteractionTestRunner {
         ])
 
         try expect(try harness.uiLevel(of: deck) == "overview", "the deck did not start in overview")
-        try expect(try harness.statusTitle(of: deck) == "alpha", "the overview did not title the selected workspace")
+        try expect(try harness.statusTitle(of: deck) == "Workspaces", "the overview breadcrumb was incorrect")
         deck.zoomInOneLevel()
         try expect(try harness.uiLevel(of: deck) == "workspace", "⌘↓ did not enter the workspace")
-        try expect(try harness.statusTitle(of: deck) == "alpha", "the workspace did not retain the single bar title")
+        try expect(
+            try harness.statusTitle(of: deck) == "Workspaces > alpha",
+            "the workspace breadcrumb was incorrect"
+        )
         deck.zoomInOneLevel()
         try expect(try harness.uiLevel(of: deck) == "terminal", "⌘↓ did not focus the terminal")
-        try expect(try harness.statusTitle(of: deck) == "alpha > shell 1", "the terminal status title did not include workspace and terminal names")
+        try expect(
+            try harness.statusTitle(of: deck) == "Workspaces > alpha > shell 1",
+            "the terminal breadcrumb was incorrect"
+        )
         deck.zoomOutOneLevel()
         try expect(try harness.uiLevel(of: deck) == "workspace", "⌘↑ did not leave the terminal")
         deck.zoomOutOneLevel()
@@ -789,11 +796,15 @@ enum InteractionTestRunner {
             "the workspace title did not provide a spatially ordered dropdown"
         )
         try expect(
-            statusBar.workspaceMenu().items.map(\.state) == [.on, .off],
-            "the workspace dropdown did not mark the current workspace"
+            statusBar.workspaceMenu().items.map(\.state) == [.off, .off],
+            "the overview breadcrumb marked an entered workspace"
         )
 
         deck.zoomInOneLevel()
+        try expect(
+            statusBar.workspaceMenu().items.map(\.state) == [.on, .off],
+            "the workspace dropdown did not mark the current workspace"
+        )
         deck.zoomInOneLevel()
         try expect(
             statusBar.terminalMenu().items.map(\.title) == ["shell 1", "shell 2"],
@@ -823,6 +834,68 @@ enum InteractionTestRunner {
             statusBar.chooseTerminal("term_beta_1")
                 && (try harness.focusedTileID(of: deck)) == "tile_beta_1",
             "the terminal dropdown did not follow the selected workspace"
+        )
+        statusBar.onOverviewSelect?()
+        try expect(
+            (try harness.uiLevel(of: deck)) == "overview"
+                && (try harness.statusTitle(of: deck)) == "Workspaces"
+                && statusBar.selectedWorkspaceID == nil,
+            "the Workspaces breadcrumb did not return to the overview"
+        )
+    }
+
+    private static func cameraSwipesNavigateSpatialHierarchy() throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+        let deck = harness.makeDeck(workspaces: [
+            harness.workspace("alpha", terminalCount: 2),
+            harness.workspace("beta", terminalCount: 2),
+        ])
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 760),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        defer { window.close() }
+        window.contentView = deck
+        window.makeFirstResponder(deck)
+        deck.layoutSubtreeIfNeeded()
+
+        try expect(
+            deck.performCameraSwipe(.down, fingerCount: 3)
+                && (try harness.uiLevel(of: deck)) == "workspace"
+                && (try harness.statusTitle(of: deck)) == "Workspaces > alpha",
+            "a three-finger down swipe did not enter the selected workspace"
+        )
+        try expect(
+            deck.performCameraSwipe(.left, fingerCount: 2)
+                && (try harness.selectedTileID(of: deck)) == "tile_alpha_1",
+            "a two-finger map swipe did not select and pan to the next terminal"
+        )
+        try expect(
+            deck.performCameraSwipe(.down, fingerCount: 3)
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1"
+                && (try harness.statusTitle(of: deck))
+                    == "Workspaces > alpha > shell 2",
+            "a replacement three-finger swipe did not enter the selected terminal"
+        )
+        try expect(
+            !deck.performCameraSwipe(.left, fingerCount: 2)
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+            "a two-finger camera swipe stole focused terminal scrolling"
+        )
+        try expect(
+            deck.performCameraSwipe(.left, fingerCount: 3)
+                && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
+            "a three-finger horizontal swipe did not pan to the next terminal"
+        )
+        try expect(
+            deck.performCameraSwipe(.up, fingerCount: 3)
+                && deck.performCameraSwipe(.up, fingerCount: 3)
+                && (try harness.uiLevel(of: deck)) == "overview"
+                && (try harness.statusTitle(of: deck)) == "Workspaces",
+            "three-finger up swipes did not return through the hierarchy"
         )
     }
 
@@ -1273,13 +1346,13 @@ enum InteractionTestRunner {
         try expect(
             shortcut.process(
                 try harness.keyEvent(characters: "", keyCode: 124, modifierFlags: [])
-            ) == nil && (try harness.statusTitle(of: deck)) == "beta",
+            ) == nil && (try harness.selectedWorkspaceID(of: deck)) == "ws_beta",
             "the select-right shortcut did not select the next workspace"
         )
         try expect(
             shortcut.process(
                 try harness.keyEvent(characters: "", keyCode: 123, modifierFlags: [])
-            ) == nil && (try harness.statusTitle(of: deck)) == "alpha",
+            ) == nil && (try harness.selectedWorkspaceID(of: deck)) == "ws_alpha",
             "the select-left shortcut did not restore the first workspace"
         )
         try expect(
@@ -2587,7 +2660,10 @@ enum InteractionTestRunner {
             "hovering a graphical instrument did not provide popover text"
         )
         try expect(
-            view.hoverText(at: NSPoint(x: 100, y: 20)) == "/projects/workspace",
+            view.hoverText(at: NSPoint(
+                x: view.workspaceFrameForTesting.midX,
+                y: view.workspaceFrameForTesting.midY
+            )) == "/projects/workspace",
             "hovering the workspace title did not reveal its path"
         )
         let popover = MachinenStatusPopoverView()
@@ -4361,6 +4437,14 @@ private final class Harness {
             throw InteractionTestFailure("ui.get returned an invalid response")
         }
         return object["selectedWorkspaceId"] as? String
+    }
+
+    func selectedTileID(of deck: TerminalDeckView) throws -> String? {
+        let result = try deck.performAPIOperation("ui.get", params: [:])
+        guard let object = result as? [String: Any] else {
+            throw InteractionTestFailure("ui.get returned an invalid response")
+        }
+        return object["selectedTileId"] as? String
     }
 
     func focusedTileID(of deck: TerminalDeckView) throws -> String? {

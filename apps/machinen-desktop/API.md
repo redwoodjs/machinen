@@ -327,7 +327,8 @@ panel's Kill action emits `tile.killed` while removing the native session. API
 - `status.set { ...widget }`
 - `status.remove { id, scope? }`
 
-The persistent top bar shows the workspace and terminal titles. Its right edge
+The persistent top bar shows `Workspaces`, `Workspaces > workspace`, or
+`Workspaces > workspace > terminal` for its current camera level. Its right edge
 contains only the build version and the spatial minimap. The minimap encodes each
 terminal's activity in its pane outline. Hovering it reveals its large read-only
 counterpart.
