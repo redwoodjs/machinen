@@ -949,6 +949,22 @@ enum InteractionTestRunner {
                 && (try harness.statusTitle(of: deck)) == "Workspaces",
             "three-finger up swipes did not return through the hierarchy"
         )
+        try expect(
+            deck.previewCameraSwipeForTesting(
+                .down,
+                progress: 1.40,
+                pointerLocation: betaPoint
+            )
+                && (try harness.uiLevel(of: deck)) == "overview",
+            "a continuous camera swipe did not preview through the workspace"
+        )
+        deck.finishCameraSwipeForTesting()
+        try expect(
+            (try harness.focusedTileID(of: deck)) == "tile_beta_0"
+                && (try harness.statusTitle(of: deck))
+                    == "Workspaces > beta > shell 1",
+            "a continuous camera swipe did not enter the terminal tile"
+        )
     }
 
     private static func commandPlusAndMinusMagnifyTheCurrentLevel() throws {

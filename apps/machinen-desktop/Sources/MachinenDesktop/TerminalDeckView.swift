@@ -138,6 +138,9 @@ final class TerminalDeckView: NSView {
         var direction: CameraSwipeDirection? = nil
         var sourceCameraBounds: NSRect? = nil
         var targetCameraBounds: NSRect? = nil
+        var deepTargetCameraBounds: NSRect? = nil
+        var deepTargetWorkspaceID: String? = nil
+        var deepTargetTileID: String? = nil
         var pointerLocation: NSPoint? = nil
         var sourceSelectedIndex = 0
         var targetSelectedIndex: Int? = nil
@@ -1653,12 +1656,17 @@ final class TerminalDeckView: NSView {
                     pointerLocation: swipe.pointerLocation,
                     targetSelectedIndex: &swipe.targetSelectedIndex
                 )
+                prepareDeepCameraTarget(for: &swipe)
             }
             guard let source = swipe.sourceCameraBounds,
                   let target = swipe.targetCameraBounds
             else { return }
             let travel = abs(horizontal) > abs(vertical) ? abs(horizontal) : abs(vertical)
-            swipe.progress = min(1, max(0, travel / CameraSwipe.directTouchTravel))
+            let maximumProgress: CGFloat = swipe.deepTargetCameraBounds == nil ? 1 : 2
+            swipe.progress = min(
+                maximumProgress,
+                max(0, travel / CameraSwipe.directTouchTravel)
+            )
             applyInteractiveCameraPreview(
                 swipe: swipe,
                 source: source,
@@ -1687,23 +1695,45 @@ final class TerminalDeckView: NSView {
             selectedIndex = selection
             updateSelection()
         }
-        sceneView.bounds = interpolatedCameraBounds(
-            from: source,
-            to: target,
-            progress: swipe.progress
-        )
-        let borderAlpha = swipe.progress < CameraSwipe.releaseThreshold
-            ? 1 - swipe.progress / CameraSwipe.releaseThreshold
-            : (swipe.progress - CameraSwipe.releaseThreshold)
+        if swipe.progress > 1, let deepTarget = swipe.deepTargetCameraBounds {
+            sceneView.bounds = interpolatedCameraBounds(
+                from: target,
+                to: deepTarget,
+                progress: swipe.progress - 1
+            )
+        } else {
+            sceneView.bounds = interpolatedCameraBounds(
+                from: source,
+                to: target,
+                progress: swipe.progress
+            )
+        }
+        let segmentProgress = swipe.progress > 1 ? swipe.progress - 1 : swipe.progress
+        let borderAlpha = segmentProgress < CameraSwipe.releaseThreshold
+            ? 1 - segmentProgress / CameraSwipe.releaseThreshold
+            : (segmentProgress - CameraSwipe.releaseThreshold)
                 / (1 - CameraSwipe.releaseThreshold)
         updateSelectedBorderAlpha(borderAlpha)
+        if swipe.progress >= 1 + CameraSwipe.releaseThreshold,
+           let deepTargetTileID = swipe.deepTargetTileID,
+           let tile = allSessionTiles.first(where: {
+               $0.session.tileID == deepTargetTileID
+           })
+        {
+            workspaceClusters.forEach { $0.selectionBorderAlpha = 1 }
+            tile.isSelected = true
+            tile.selectionBorderAlpha = borderAlpha
+        }
         statusBarView.updateSpatialMinimapCamera(sceneView.bounds)
         spatialMinimapView.updateCameraBounds(sceneView.bounds)
     }
 
     private func updateSelectedBorderAlpha(_ alpha: CGFloat) {
         workspaceClusters.forEach { $0.selectionBorderAlpha = 1 }
-        activeSessionTiles.forEach { $0.selectionBorderAlpha = 1 }
+        allSessionTiles.forEach {
+            $0.selectionBorderAlpha = 1
+            if currentWorkspace == nil { $0.isSelected = false }
+        }
         if currentWorkspace == nil, workspaceClusters.indices.contains(selectedIndex) {
             workspaceClusters[selectedIndex].selectionBorderAlpha = alpha
         } else if activeSessionTiles.indices.contains(selectedIndex) {
@@ -1733,13 +1763,15 @@ final class TerminalDeckView: NSView {
             sourceCameraBounds: sceneView.bounds,
             pointerLocation: pointerLocation,
             sourceSelectedIndex: selectedIndex,
-            progress: min(1, max(0, progress))
+            progress: max(0, progress)
         )
         swipe.targetCameraBounds = interactiveCameraTarget(
             for: direction,
             pointerLocation: pointerLocation,
             targetSelectedIndex: &swipe.targetSelectedIndex
         )
+        prepareDeepCameraTarget(for: &swipe)
+        swipe.progress = min(swipe.deepTargetCameraBounds == nil ? 1 : 2, swipe.progress)
         guard let source = swipe.sourceCameraBounds,
               let target = swipe.targetCameraBounds
         else { return false }
@@ -1783,6 +1815,28 @@ final class TerminalDeckView: NSView {
         _ swipe: DirectTrackpadSwipe
     ) -> Bool {
         guard let direction = swipe.direction else { return false }
+        if direction == .down,
+           swipe.progress >= 1 + CameraSwipe.releaseThreshold,
+           let workspaceID = swipe.deepTargetWorkspaceID,
+           let tileID = swipe.deepTargetTileID,
+           let target = swipe.deepTargetCameraBounds
+        {
+            guard prepareForCameraSwipePreview() else { return false }
+            currentWorkspace = workspaceID
+            let sessions = activeSessionTiles
+            guard let index = sessions.firstIndex(where: {
+                $0.session.tileID == tileID
+            }) else { return false }
+            selectedIndex = index
+            focusedIndex = index
+            clearLabelBuffer()
+            updateSelection()
+            moveCamera(
+                to: target,
+                duration: Motion.terminalSwitchDuration
+            )
+            return true
+        }
         if direction == .down {
             guard prepareForCameraSwipePreview() else { return false }
             return zoomInOneLevel()
@@ -1818,6 +1872,25 @@ final class TerminalDeckView: NSView {
         updateSelectedBorderAlpha(1)
         guard let source = swipe.sourceCameraBounds else { return }
         moveCamera(to: source, duration: CameraSwipe.cancelDuration)
+    }
+
+    private func prepareDeepCameraTarget(for swipe: inout DirectTrackpadSwipe) {
+        guard swipe.direction == .down,
+              currentWorkspace == nil,
+              let workspaceIndex = swipe.targetSelectedIndex,
+              workspaceClusters.indices.contains(workspaceIndex)
+        else { return }
+        let workspaceID = workspaceClusters[workspaceIndex].workspaceID
+        guard let tile = activeSessionTiles(for: workspaceID).first(where: {
+            $0.renderingMode != .newTerminal
+        }) else { return }
+        swipe.deepTargetWorkspaceID = workspaceID
+        swipe.deepTargetTileID = tile.session.tileID
+        swipe.deepTargetCameraBounds = cameraBounds(
+            for: workspaceID,
+            tileID: tile.session.tileID,
+            focusTerminal: true
+        )
     }
 
     private func interactiveCameraTarget(
