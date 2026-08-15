@@ -227,7 +227,6 @@ final class TerminalDeckView: NSView {
     private var directTrackpadSwipe: DirectTrackpadSwipe?
     private var gestureEventMonitor: Any?
     private var suppressGestureEventsUntil: TimeInterval = 0
-    private var restoresCameraAlphaOnNextMove = false
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
     private var effectiveStatusWidgets: [MachinenStatusWidget] = []
     private var selectionOpeners: [String: MachinenSelectionOpener] = [:]
@@ -1350,9 +1349,7 @@ final class TerminalDeckView: NSView {
         cameraAnimationTimer?.invalidate()
         let target = destination ?? currentCameraBounds()
         let start = sceneView.bounds
-        let restoresCameraAlpha = restoresCameraAlphaOnNextMove
-        restoresCameraAlphaOnNextMove = false
-        let targetAlpha = requestedTargetAlpha ?? (restoresCameraAlpha ? 1 : sceneView.alphaValue)
+        let targetAlpha = requestedTargetAlpha ?? sceneView.alphaValue
         guard duration > 0, start.width > 0, start.height > 0,
               target.width > 0, target.height > 0
         else {
@@ -1695,11 +1692,31 @@ final class TerminalDeckView: NSView {
             to: target,
             progress: swipe.progress
         )
-        let fade = sin(.pi * swipe.progress)
-        sceneView.alphaValue = 1
-            - (1 - Motion.workspaceSwitchMinimumAlpha) * fade
+        let borderAlpha = swipe.progress < CameraSwipe.releaseThreshold
+            ? 1 - swipe.progress / CameraSwipe.releaseThreshold
+            : (swipe.progress - CameraSwipe.releaseThreshold)
+                / (1 - CameraSwipe.releaseThreshold)
+        updateSelectedBorderAlpha(borderAlpha)
         statusBarView.updateSpatialMinimapCamera(sceneView.bounds)
         spatialMinimapView.updateCameraBounds(sceneView.bounds)
+    }
+
+    private func updateSelectedBorderAlpha(_ alpha: CGFloat) {
+        workspaceClusters.forEach { $0.selectionBorderAlpha = 1 }
+        activeSessionTiles.forEach { $0.selectionBorderAlpha = 1 }
+        if currentWorkspace == nil, workspaceClusters.indices.contains(selectedIndex) {
+            workspaceClusters[selectedIndex].selectionBorderAlpha = alpha
+        } else if activeSessionTiles.indices.contains(selectedIndex) {
+            activeSessionTiles[selectedIndex].selectionBorderAlpha = alpha
+        }
+    }
+
+    func selectedBorderAlphaForTesting() -> CGFloat? {
+        if currentWorkspace == nil, workspaceClusters.indices.contains(selectedIndex) {
+            return workspaceClusters[selectedIndex].selectionBorderAlpha
+        }
+        guard activeSessionTiles.indices.contains(selectedIndex) else { return nil }
+        return activeSessionTiles[selectedIndex].selectionBorderAlpha
     }
 
     @discardableResult
@@ -1755,9 +1772,8 @@ final class TerminalDeckView: NSView {
             restoreInteractiveTrackpadSwipe(swipe)
             return
         }
-        restoresCameraAlphaOnNextMove = true
+        updateSelectedBorderAlpha(1)
         guard commitInteractiveTrackpadSwipe(swipe) else {
-            restoresCameraAlphaOnNextMove = false
             restoreInteractiveTrackpadSwipe(swipe)
             return
         }
@@ -1783,7 +1799,6 @@ final class TerminalDeckView: NSView {
                 duration: Motion.terminalSwitchDuration,
                 targetAlpha: 1
             )
-            restoresCameraAlphaOnNextMove = false
             return true
         }
         return performCameraSwipe(direction, fingerCount: 3)
@@ -1796,20 +1811,13 @@ final class TerminalDeckView: NSView {
     }
 
     private func restoreInteractiveTrackpadSwipe(_ swipe: DirectTrackpadSwipe) {
-        restoresCameraAlphaOnNextMove = false
         if selectedIndex != swipe.sourceSelectedIndex {
             selectedIndex = swipe.sourceSelectedIndex
             updateSelection()
         }
-        guard let source = swipe.sourceCameraBounds else {
-            sceneView.alphaValue = 1
-            return
-        }
-        moveCamera(
-            to: source,
-            duration: CameraSwipe.cancelDuration,
-            targetAlpha: 1
-        )
+        updateSelectedBorderAlpha(1)
+        guard let source = swipe.sourceCameraBounds else { return }
+        moveCamera(to: source, duration: CameraSwipe.cancelDuration)
     }
 
     private func interactiveCameraTarget(

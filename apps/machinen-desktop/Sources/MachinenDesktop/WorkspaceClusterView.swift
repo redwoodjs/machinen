@@ -56,6 +56,10 @@ final class WorkspaceClusterView: NSView {
         }
     }
 
+    var selectionBorderAlpha: CGFloat = 1 {
+        didSet { updateBorderAppearance() }
+    }
+
     var isEntered = false {
         didSet {
             updateBorderAppearance()
@@ -255,7 +259,9 @@ final class WorkspaceClusterView: NSView {
         borderView.layer?.borderColor = (
             isDragTarget
                 ? NSColor.controlAccentColor
-                : NSColor(calibratedWhite: isSelected ? 0.94 : 0.28, alpha: 1)
+                : isSelected
+                    ? NSColor.controlAccentColor.withAlphaComponent(selectionBorderAlpha)
+                    : NSColor(calibratedWhite: 0.28, alpha: 1)
         ).cgColor
     }
 

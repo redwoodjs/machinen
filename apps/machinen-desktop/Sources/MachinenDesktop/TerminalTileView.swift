@@ -46,6 +46,10 @@ final class TerminalTileView: NSView {
         }
     }
 
+    var selectionBorderAlpha: CGFloat = 1 {
+        didSet { updateBorderAppearance() }
+    }
+
     var isActivated: Bool = false {
         didSet {
             updateBorderAppearance()
@@ -495,7 +499,8 @@ final class TerminalTileView: NSView {
             layer?.borderColor = NSColor.white.cgColor
         } else if isSelected {
             layer?.borderWidth = 3
-            layer?.borderColor = NSColor.controlAccentColor.cgColor
+            layer?.borderColor = NSColor.controlAccentColor
+                .withAlphaComponent(selectionBorderAlpha).cgColor
         } else {
             layer?.borderWidth = 1
             layer?.borderColor = NSColor(calibratedWhite: 0.31, alpha: 1).cgColor

@@ -873,9 +873,6 @@ enum InteractionTestRunner {
             to: nil
         )
 
-        guard let camera = deck.subviews.first else {
-            throw InteractionTestFailure("the swipe test did not find its camera")
-        }
         try expect(
             deck.previewCameraSwipeForTesting(
                 .down,
@@ -884,15 +881,15 @@ enum InteractionTestRunner {
             )
                 && (try harness.uiLevel(of: deck)) == "overview"
                 && (try harness.selectedWorkspaceID(of: deck)) == "ws_alpha"
-                && camera.alphaValue < 1,
-            "an early camera swipe changed selection or did not fade"
+                && (deck.selectedBorderAlphaForTesting() ?? 1) < 1,
+            "an early camera swipe changed selection or did not fade its border"
         )
         deck.finishCameraSwipeForTesting()
         RunLoop.current.run(until: Date().addingTimeInterval(0.15))
         try expect(
             (try harness.uiLevel(of: deck)) == "overview"
                 && (try harness.selectedWorkspaceID(of: deck)) == "ws_alpha"
-                && abs(camera.alphaValue - 1) < 0.01,
+                && abs((deck.selectedBorderAlphaForTesting() ?? 0) - 1) < 0.01,
             "an early camera release did not restore its source"
         )
         try expect(
@@ -903,8 +900,8 @@ enum InteractionTestRunner {
             )
                 && (try harness.uiLevel(of: deck)) == "overview"
                 && (try harness.selectedWorkspaceID(of: deck)) == "ws_beta"
-                && camera.alphaValue < 1,
-            "a releasable camera swipe did not activate its target selection"
+                && (deck.selectedBorderAlphaForTesting() ?? 1) < 1,
+            "a releasable camera swipe did not activate its target border"
         )
         deck.finishCameraSwipeForTesting()
         try expect(
