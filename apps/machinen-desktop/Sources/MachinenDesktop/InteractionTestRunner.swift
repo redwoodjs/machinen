@@ -861,33 +861,55 @@ enum InteractionTestRunner {
         window.contentView = deck
         window.makeFirstResponder(deck)
         deck.layoutSubtreeIfNeeded()
+        guard let betaCluster = deck.subviews
+            .flatMap(\.subviews)
+            .compactMap({ $0 as? WorkspaceClusterView })
+            .first(where: { $0.workspaceID == "ws_beta" })
+        else {
+            throw InteractionTestFailure("the swipe test did not find the beta workspace")
+        }
+        let betaPoint = betaCluster.convert(
+            NSPoint(x: betaCluster.bounds.midX, y: betaCluster.bounds.midY),
+            to: nil
+        )
 
         try expect(
-            deck.performCameraSwipe(.down, fingerCount: 3)
+            deck.performCameraSwipe(.down, fingerCount: 3, pointerLocation: betaPoint)
                 && (try harness.uiLevel(of: deck)) == "workspace"
-                && (try harness.statusTitle(of: deck)) == "Workspaces > alpha",
-            "a three-finger down swipe did not enter the selected workspace"
+                && (try harness.statusTitle(of: deck)) == "Workspaces > beta",
+            "a three-finger down swipe did not enter the workspace under the pointer"
         )
         try expect(
             deck.performCameraSwipe(.left, fingerCount: 2)
-                && (try harness.selectedTileID(of: deck)) == "tile_alpha_1",
+                && (try harness.selectedTileID(of: deck)) == "tile_beta_1",
             "a two-finger map swipe did not select and pan to the next terminal"
         )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.30))
+        guard let firstTerminal = betaCluster.subviews
+            .compactMap({ $0 as? TerminalTileView })
+            .first(where: { $0.session.tileID == "tile_beta_0" })
+        else {
+            throw InteractionTestFailure("the swipe test did not find its pointer terminal")
+        }
+        let terminalPoint = firstTerminal.convert(
+            NSPoint(x: firstTerminal.bounds.midX, y: firstTerminal.bounds.midY),
+            to: nil
+        )
         try expect(
-            deck.performCameraSwipe(.down, fingerCount: 3)
-                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1"
+            deck.performCameraSwipe(.down, fingerCount: 3, pointerLocation: terminalPoint)
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_0"
                 && (try harness.statusTitle(of: deck))
-                    == "Workspaces > alpha > shell 2",
-            "a replacement three-finger swipe did not enter the selected terminal"
+                    == "Workspaces > beta > shell 1",
+            "a replacement three-finger swipe did not enter the terminal under the pointer"
         )
         try expect(
             !deck.performCameraSwipe(.left, fingerCount: 2)
-                && (try harness.focusedTileID(of: deck)) == "tile_alpha_1",
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_0",
             "a two-finger camera swipe stole focused terminal scrolling"
         )
         try expect(
             deck.performCameraSwipe(.left, fingerCount: 3)
-                && (try harness.focusedTileID(of: deck)) == "tile_alpha_0",
+                && (try harness.focusedTileID(of: deck)) == "tile_beta_1",
             "a three-finger horizontal swipe did not pan to the next terminal"
         )
         try expect(

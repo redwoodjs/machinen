@@ -113,7 +113,7 @@ destructive verification, effect approval, and workspace ownership checks.
   the focused terminal's full context menu, including its **Open Selection
   With** submenu when text is selected.
 
-`⌘+` / `⌘−` changes only camera magnification in equal increments, and `⌘0` resets it to actual size; all preserve the current hierarchy level. The configured `enter` and `leave` actions move through the camera hierarchy. A two-finger swipe selects and pans between spatial tiles only in Navigate mode. Terminal mode keeps two-finger scroll for terminal history. Three-finger up and down swipes leave and enter camera levels. Three-finger horizontal swipes pan between sibling objects. A new swipe replaces active camera motion. No swipe changes terminal scrollback.
+`⌘+` / `⌘−` changes only camera magnification in equal increments, and `⌘0` resets it to actual size; all preserve the current hierarchy level. The configured `enter` and `leave` actions move through the camera hierarchy. A two-finger swipe selects and pans between spatial tiles only in Navigate mode. Terminal mode keeps two-finger scroll for terminal history. Three-finger up and down swipes leave and enter camera levels. A down swipe enters the tile below the mouse pointer, or the highlighted tile when no tile is below it. Three-finger horizontal swipes pan between sibling objects. Desktop consumes all three-finger scroll events before a terminal receives them. A new swipe replaces active camera motion. No swipe changes terminal scrollback.
 The terminal viewport keeps the same intrinsic bounds and Ghostty grid while the
 camera moves. Navigate mode shows a scaled version of that unchanged surface;
 it does not resize or reflow the terminal. Leaving Terminal mode therefore

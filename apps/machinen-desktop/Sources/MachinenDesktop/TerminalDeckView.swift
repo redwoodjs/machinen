@@ -1535,6 +1535,14 @@ final class TerminalDeckView: NSView {
     }
 
     private func processTwoFingerScroll(_ event: NSEvent) -> Bool {
+        let activeTouchCount = indirectTouches(in: event).count
+        if activeTouchCount >= 3
+            || directTrackpadSwipe?.fingerCount == 3
+            || ProcessInfo.processInfo.systemUptime < suppressGestureEventsUntil
+        {
+            twoFingerCameraSwipe = nil
+            return true
+        }
         guard focusedIndex == nil,
               event.hasPreciseScrollingDeltas,
               event.phase != [],
@@ -1543,10 +1551,6 @@ final class TerminalDeckView: NSView {
               mapEditOverlay == nil,
               !isPeeking
         else { return false }
-        if ProcessInfo.processInfo.systemUptime < suppressGestureEventsUntil {
-            twoFingerCameraSwipe = nil
-            return true
-        }
         if event.momentumPhase != [] { return true }
 
         if event.phase.contains(.mayBegin) || event.phase.contains(.began) {
@@ -1650,7 +1654,8 @@ final class TerminalDeckView: NSView {
     @discardableResult
     func performCameraSwipe(
         _ direction: CameraSwipeDirection,
-        fingerCount: Int
+        fingerCount: Int,
+        pointerLocation: NSPoint? = nil
     ) -> Bool {
         guard fingerCount == 2 || fingerCount == 3,
               presentedOverlay == nil,
@@ -1669,6 +1674,7 @@ final class TerminalDeckView: NSView {
         case .up:
             return zoomOutOneLevel()
         case .down:
+            selectMapTileUnderPointer(at: pointerLocation)
             return zoomInOneLevel()
         case .left:
             if focusedIndex != nil { return cycleFocusedTerminal(by: 1) }
@@ -1679,6 +1685,28 @@ final class TerminalDeckView: NSView {
             if currentWorkspace != nil { return cycleFocusedWorkspace(by: -1) }
             return moveMapSelectionForSwipe(.right)
         }
+    }
+
+    private func selectMapTileUnderPointer(at suppliedLocation: NSPoint?) {
+        guard focusedIndex == nil,
+              let point = suppliedLocation ?? window?.mouseLocationOutsideOfEventStream
+        else { return }
+        if currentWorkspace == nil {
+            guard let index = workspaceClusters.firstIndex(where: { cluster in
+                cluster.convert(cluster.bounds, to: nil).contains(point)
+            }), index != selectedIndex
+            else { return }
+            selectedIndex = index
+            updateSelection()
+            return
+        }
+        let sessions = activeSessionTiles
+        guard let index = sessions.firstIndex(where: { tile in
+            tile.convert(tile.bounds, to: nil).contains(point)
+        }), index != selectedIndex
+        else { return }
+        selectedIndex = index
+        updateSelection()
     }
 
     private func moveMapSelectionForSwipe(_ direction: CameraSwipeDirection) -> Bool {
