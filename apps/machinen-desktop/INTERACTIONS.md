@@ -281,14 +281,11 @@ The worker publishes shell and foreground PIDs, process names, and activity over
 its private native protocol while continuing to journal byte-exact output and
 ordered resize events to SQLite. This works for attached, detached, local, and
 SSH sessions because observation happens beside the PTY rather than through a
-Desktop-side process-list guess. At workspace level the status bar renders
-terminals as spatially ordered activity pips; waiting and failed terminals
-receive attention and error tones. Both spatial minimaps mirror terminal
-activity directly onto their pane outlines, so they remain useful as idle and
-working indicators without rearranging the scene. The redundant built-in
-`machinen.activity` status widget is not rendered.
+Desktop-side process-list guess. Both spatial minimaps mirror terminal activity
+directly onto their pane outlines. They remain useful as idle and working
+indicators without rearranging the scene.
 
-## Programmable status bar
+## Top bar
 
 Machinen has one persistent status bar. The workspace title is a dropdown of all
 workspaces in spatial order. Choosing its current workspace moves the camera one
@@ -308,40 +305,15 @@ works through SSH.
 The macOS **View** menu contains **Show Debug Information**, which presents the
 current workspace or terminal's diagnostics without interrupting its PTY.
 
-The top-right strip ends with the persistent spatial minimap. Immediately before
-it, a built-in `Desktop <version> · Session <version>` item identifies the app
-bundle version and bundled native session handler version. The remaining items
-are graphical at rest. The strip occupies
-its own layout row; the scene viewport starts below it, so terminal content
-never renders underneath the status bar. In a **workspace**, its activity
-monitor summarizes all terminals with visible active/idle/waiting tile counts,
-and the strip also shows aggregate tile CPU, aggregate tile network transfer,
-and branch-wide Git changes. The Git item shows only the total changed-file count at rest; hovering
-reveals the branch, commits since its default-branch merge base, changed files,
-and added and deleted lines. In a **focused tile**, its minimap pane remains the
-activity indicator. When a running native session inside the workspace has no Desktop tile,
-a count item appears in the strip; clicking it opens **Sessions…**.
-A focused terminal also shows **CONTROL** when this Desktop owns input and
-resize, or **VIEWING** otherwise. `+N` reports other attached viewers; hovering
-lists their names and roles, and clicking opens the same shared tree with the
-focused session selected. The strip also shows CPU and network transfer for that PID and its local
-child processes, plus workspace branch changes. Git is
-scoped to the selected workspace. Open ports include listeners whose process
-working directory is the selected workspace folder or one of its descendants,
-on either the local Mac or the workspace's SSH host. Hover lists each TCP
-listener on its own line with the process and bind address;
-clicking the instrument presents those listeners, and choosing one opens its
-HTTP URL through the default macOS handler. Trusted TypeScript desktop services
-publish activity, Git, ports, CPU, and network widgets through the local API. Process network bytes come from macOS `nettop`. Tile activity is a
-label-free graphical indicator; Desktop supplies terminal-level state from native session telemetry.
+The top-right strip contains only the build version and the persistent spatial
+minimap. The version identifies the app bundle and the bundled session handler.
+No published status widget appears in the top bar. The strip occupies its own
+layout row, so terminal content never renders underneath it.
 
-Programs can publish scoped text, count, state, progress, timer, sparkline, and
-separator widgets through `status.set`, `status.list`, and `status.remove`.
-Sparklines accept line, area, bars, and mirrored styles with primary and
-secondary sample arrays. State widgets accept arrays of semantic pip states.
-Machine widgets override global widgets, workspace widgets override machine
-widgets, and terminal widgets override workspace widgets with the same ID. TTLs
-remove stale live data.
+Programs can publish scoped status data through `status.set`, `status.list`, and
+`status.remove`. Machine data overrides global data. Workspace data overrides
+machine data. Terminal data overrides workspace data with the same identifier.
+A TTL removes stale data. This data remains available through the API.
 
 ## Hosts across computers
 

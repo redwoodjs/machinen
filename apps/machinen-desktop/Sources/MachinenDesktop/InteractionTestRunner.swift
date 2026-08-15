@@ -779,9 +779,9 @@ enum InteractionTestRunner {
             throw InteractionTestFailure("the deck did not install its status bar")
         }
         try expect(
-            statusBar.widgets.first(where: { $0.id == "machinen.versions" })?.value
-                == MachinenBuildVersions.statusText,
-            "the status bar did not show the Desktop and session-handler versions"
+            statusBar.widgets.map(\.id) == ["machinen.versions"]
+                && statusBar.widgets.first?.value == MachinenBuildVersions.statusText,
+            "the top bar did not limit its mini items to the version"
         )
 
         try expect(
@@ -1551,6 +1551,10 @@ enum InteractionTestRunner {
         try expect(
             effective.first(where: { $0.id == "git.modified" })?.value == "3",
             "the workspace widget did not override the global widget"
+        )
+        try expect(
+            statusBar.widgets.map(\.id) == ["machinen.versions"],
+            "published status data added a top-bar mini item"
         )
         try expect(
             effective.allSatisfy { $0.id != "machinen.activity" }

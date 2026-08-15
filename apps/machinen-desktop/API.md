@@ -321,35 +321,18 @@ emits `tile.reconnected` with the same IDs, and a second `⌘W` or the session
 panel's Kill action emits `tile.killed` while removing the native session. API
 `tile.delete` retains its explicit immediate semantics.
 
-## Status bar
+## Status data
 
 - `status.list {}`
 - `status.set { ...widget }`
 - `status.remove { id, scope? }`
 
-There is one persistent status bar. Its right edge holds the spatial minimap,
-preceded by the running app and bundled native helper identified as
-`Desktop <version> · Session <version>`.
-At workspace level its activity monitor summarizes all of that workspace's
-tiles, and the bar also shows aggregate tile
-CPU/network and branch-wide Git changes. The Git item graphs per-file additions
-and deletions with compact line totals at rest; its hover detail contains the
-branch, commits since the default-branch merge base, changed files, and exact
-added/deleted lines. The spatial minimap encodes each terminal's activity in its
-pane outline instead of publishing a redundant built-in `machinen.activity`
-widget. Hovering the compact minimap reveals its large read-only counterpart.
-A focused terminal has a built-in `machinen.sessionControl` widget: `CONTROL`
-or `VIEWING`, followed by `+N` when other viewers are attached. Its hover detail
-lists viewer names and roles; clicking opens the session panel with that terminal
-selected. The bar also shows per-PID CPU/network (including local child processes) and workspace branch
-changes. Open ports are workspace-scoped and
-include listeners whose process working directory is the workspace folder or
-one of its descendants. They list each listener on its own hover line and open
-through the default macOS URL handler when selected. Workspace-scoped items belong to
-the selected workspace. Its title is the selected workspace at the workspace level
-and `workspace > terminal name` at the terminal level; hovering
-a workspace title reveals its bound path. Programs can publish declarative widgets
-beside the title without injecting arbitrary AppKit views:
+The persistent top bar shows the workspace and terminal titles. Its right edge
+contains only the build version and the spatial minimap. The minimap encodes each
+terminal's activity in its pane outline. Hovering it reveals its large read-only
+counterpart.
+
+Programs can publish declarative status records for API clients:
 
 ```json
 {
@@ -379,9 +362,8 @@ replace less specific widgets with the same `id` in global → machine → works
 up to 60 finite numbers. A state widget can render up to 32 graphical pips from
 `working`, `waiting`, `idle`, `unknown`, `neutral`, `good`, `busy`, `attention`,
 and `error`. A widget can include up to 32 `links`, each with a title and HTTP(S)
-URL; clicking it presents those links through the default macOS handler. Labels
-and values remain available to API clients and hover tooltips,
-but graphical widgets do not render them at rest. A TTL removes stale live data
+URL. Labels, values, samples, and links remain available to API clients. The top
+bar does not render published status records. A TTL removes stale live data
 automatically. `status.list` returns both published widgets and the currently
 effective widgets after spatial-scope inheritance.
 

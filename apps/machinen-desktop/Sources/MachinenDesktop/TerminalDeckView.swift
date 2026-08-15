@@ -190,6 +190,7 @@ final class TerminalDeckView: NSView {
     private var isSpatialMinimapPreviewed = false
     private var cameraMagnification: CGFloat = 1
     private var statusWidgets: [String: MachinenStatusWidget] = [:]
+    private var effectiveStatusWidgets: [MachinenStatusWidget] = []
     private var selectionOpeners: [String: MachinenSelectionOpener] = [:]
     private var contextCommands: [String: MachinenContextCommand] = [:]
     private var spatialDrag: SpatialDrag?
@@ -6898,7 +6899,7 @@ final class TerminalDeckView: NSView {
             refreshStatusBar()
             return [
                 "widgets": statusWidgets.values.map { $0.json() },
-                "effectiveWidgets": statusBarView.widgets.map { $0.json() },
+                "effectiveWidgets": effectiveStatusWidgets.map { $0.json() },
             ]
         case "status.set":
             return try apiSetStatusWidget(params)
@@ -8397,7 +8398,10 @@ final class TerminalDeckView: NSView {
                 )
             }
         }
-        statusBarView.widgets = Array(resolved.values)
+        effectiveStatusWidgets = Array(resolved.values)
+        statusBarView.widgets = effectiveStatusWidgets.filter {
+            $0.id == "machinen.versions"
+        }
     }
 }
 

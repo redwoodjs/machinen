@@ -51,6 +51,8 @@ await desktop.status.set({
 });
 ```
 
+Status records remain available through the API. The Desktop top bar does not render them.
+
 The default socket is `/tmp/machinen-<uid>/api-v1.sock`.
 `MACHINEN_API_SOCKET` overrides it. On macOS the client asks Launch Services to
 open Machinen when needed unless `launchApplication` is `false` or
